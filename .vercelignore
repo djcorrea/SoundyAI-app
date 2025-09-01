@@ -7,3 +7,9 @@ node_modules/
 *.7z
 *.rar
 *.iso
+
+# --- PERMITIR libs que precisam ser servidas por URL a partir de /public
+!public/lib/**
+!public/lib/audio/**
+!public/lib/audio/**/*.js
+!public/refs/**

@@ -138,13 +138,6 @@ function _computeEqualWeightV3(analysisData) {
     clippingPct: metrics.clippingPct || metrics.clipping_pct || 0
   };
   
-  // 🎯 DEBUGGING CRÍTICO: Verificar valores das referências
-  console.log('[EQUAL_WEIGHT_V3] 🔍 REFERENCE VALIDATION:');
-  console.log('[EQUAL_WEIGHT_V3] reference.lufs_target:', reference.lufs_target);
-  console.log('[EQUAL_WEIGHT_V3] reference.dr_target:', reference.dr_target);
-  console.log('[EQUAL_WEIGHT_V3] reference.stereo_target:', reference.stereo_target);
-  console.log('[EQUAL_WEIGHT_V3] reference (full object):', JSON.stringify(reference, null, 2));
-  
   // Targets e tolerâncias otimizadas
   const targets = {
     lufsIntegrated: reference.lufs_target || -14,
@@ -161,11 +154,6 @@ function _computeEqualWeightV3(analysisData) {
     dcOffset: 0,
     clippingPct: 0
   };
-  
-  console.log('[EQUAL_WEIGHT_V3] 🎯 TARGETS DEFINIDOS:');
-  console.log('[EQUAL_WEIGHT_V3] targets.lufsIntegrated:', targets.lufsIntegrated);
-  console.log('[EQUAL_WEIGHT_V3] targets.dr:', targets.dr);
-  console.log('[EQUAL_WEIGHT_V3] targets.stereoCorrelation:', targets.stereoCorrelation);
   
   const tolerances = {
     lufsIntegrated: reference.tol_lufs || 3.0,
@@ -197,11 +185,6 @@ function _computeEqualWeightV3(analysisData) {
       const deviation = Math.abs(value - target);
       const deviationRatio = tolerance > 0 ? deviation / tolerance : 0;
       
-      // 🔍 LOG CRÍTICO: Cada cálculo de métrica
-      console.log(`[EQUAL_WEIGHT_V3] 📊 MÉTRICA ${key}:`);
-      console.log(`  valor: ${value}, target: ${target}, tolerance: ${tolerance}`);
-      console.log(`  deviation: ${deviation.toFixed(3)}, ratio: ${deviationRatio.toFixed(3)}`);
-      
       let metricScore = 100;
       
       // Curva de penalização suave
@@ -216,9 +199,6 @@ function _computeEqualWeightV3(analysisData) {
           metricScore = Math.max(30, 55 - (deviationRatio - 3) * 15); // 30-55%
         }
       }
-      
-      // 🎯 LOG DO SCORE CALCULADO
-      console.log(`  score calculado: ${metricScore.toFixed(1)}%`);
       
       totalScore += metricScore;
       metricCount++;
@@ -257,13 +237,6 @@ function _computeEqualWeightV3(analysisData) {
   
   console.log('[EQUAL_WEIGHT_V3] 📊 Score validado:', validScore);
   
-  // 🎯 LOG DETALHADO DO SCORE FINAL
-  console.log('[EQUAL_WEIGHT_V3] 🏁 SCORE FINAL DETALHADO:');
-  console.log(`[EQUAL_WEIGHT_V3]   Score bruto: ${finalScore}`);
-  console.log(`[EQUAL_WEIGHT_V3]   Score decimal: ${scoreDecimal}`);
-  console.log(`[EQUAL_WEIGHT_V3]   Score validado: ${validScore}`);
-  console.log(`[EQUAL_WEIGHT_V3]   Métricas usadas: ${metricCount}`);
-  
   // Classificação otimizada
   let classification = 'Básico';
   if (validScore >= 85) classification = 'Referência Mundial';
@@ -276,8 +249,6 @@ function _computeEqualWeightV3(analysisData) {
     score: validScore,
     classification,
     method: 'equal_weight_v3',
-    engineVersion: analysisData.engineVersion || "3.0.0",
-    unifiedScoring: true,
     details: {
       totalMetrics: metricCount,
       equalWeight: metricCount > 0 ? parseFloat((100 / metricCount).toFixed(2)) : 100,
@@ -310,20 +281,29 @@ function _computeEqualWeightV3(analysisData) {
   return result;
 }
 
-function _computeMixScoreInternal(technicalData = {}, reference = null, force = { AUDIT_MODE:true, SCORING_V2:true, AUTO_V2:true, USE_EQUAL_WEIGHT_V3:true, engineVersion:"3.0.0" }) {
-  console.log('[SCORING_INTERNAL] 🚀 _computeMixScoreInternal iniciado - SISTEMA UNIFICADO');
-  console.log('[SCORING_INTERNAL] 📊 Engine Version:', force.engineVersion || "3.0.0");
+function _computeMixScoreInternal(technicalData = {}, reference = null, force = { AUDIT_MODE:false, SCORING_V2:false, AUTO_V2:true }) {
+  console.log('[SCORING_INTERNAL] 🚀 _computeMixScoreInternal iniciado');
+  console.log('[SCORING_INTERNAL] 📊 Flags recebidas:', force);
   
   const __caiarLog = (typeof window !== 'undefined' && window.__caiarLog) ? window.__caiarLog : function(){};
-  __caiarLog('SCORING_START','Iniciando cálculo UNIFICADO Equal Weight V3', { 
-    metrics: Object.keys(technicalData||{}).length, 
-    ref: !!reference, 
-    engineVersion: force.engineVersion || "3.0.0"
-  });
-  
-  // � UNIFICAÇÃO: Sempre usar Equal Weight V3 - remover lógica de promoção
-  const AUDIT_MODE = true; // Sempre ativo para Equal Weight V3
-  let SCORING_V2 = true;   // Sempre ativo para Equal Weight V3
+  __caiarLog('SCORING_START','Iniciando cálculo de mix score', { metrics: Object.keys(technicalData||{}).length, ref: !!reference, modeFlags: force });
+  const AUDIT_MODE = !!force.AUDIT_MODE;
+  let SCORING_V2 = !!force.SCORING_V2 && (AUDIT_MODE || force.overrideAuditBypass);
+  // Auto-upgrade: se não está em V2 mas métricas avançadas existem e auto habilitado
+  if (!SCORING_V2 && force.AUTO_V2 !== false) {
+    if (technicalData && (
+      Number.isFinite(technicalData.tt_dr) ||        // 🏆 TT-DR AUTO-ATIVA SCORING_V2
+      Number.isFinite(technicalData.dr_stat) ||
+      Number.isFinite(technicalData.thdPercent) ||
+      Number.isFinite(technicalData.spectralRolloff50) ||
+      Number.isFinite(technicalData.dcOffsetLeft) ||
+      Number.isFinite(technicalData.dcOffsetRight)
+    )) {
+      SCORING_V2 = true;
+      force._autoPromoted = true;
+      console.log('🏆 AUTO-PROMOÇÃO SCORING_V2: TT-DR detectado!');
+    }
+  }
   const ref = reference;
   const metrics = technicalData || {};
   const perMetric = [];
@@ -661,19 +641,13 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
   }); } catch {}
   
   } catch (eColor) {
-    console.error('[EQUAL_WEIGHT_V3] ❌ Erro no sistema unificado:', eColor);
-    console.error('[EQUAL_WEIGHT_V3] ❌ Stack trace:', eColor.stack);
-    
-    // 🚨 FALLBACK DE EMERGÊNCIA: Score mínimo funcional (50%)
-    result.scorePct = 50;
-    result.method = 'emergency_equal_weight_v3';
-    result.scoringMethod = 'emergency_equal_weight_v3';
-    result.classification = 'Básico';
-    result._equalWeightError = eColor.message;
-    result.engineVersion = force.engineVersion || "3.0.0";
-    result.unifiedScoring = true;
-    
-    console.log('[EQUAL_WEIGHT_V3] 🚨 Usando fallback de emergência: 50%');
+    result._colorRatioError = eColor?.message || String(eColor);
+    result.scorePct = result.advancedScorePct;
+    result.method = 'advanced_fallback';
+    result.scoringMethod = 'advanced_fallback';
+    result.fallback_used = 'advanced';
+    result.classification = classify(result.scorePct);
+    try { __caiarLog('SCORING_COLOR_ERROR','Falha new equal weight -> fallback advanced', { error: eColor?.message, fallback_used: 'advanced' }); } catch {}
   }
   } else {
     // 🎯 NOVO SISTEMA EQUAL_WEIGHT_V3 ATIVADO!
@@ -724,19 +698,13 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
       }
       
     } catch (error) {
-      console.error('[EQUAL_WEIGHT_V3] ❌ Erro no sistema unificado:', error);
+      console.error('[EQUAL_WEIGHT_V3] ❌ Erro no novo sistema, fallback para advanced:', error);
       console.error('[EQUAL_WEIGHT_V3] ❌ Stack trace:', error.stack);
-      
-      // 🚨 FALLBACK DE EMERGÊNCIA: Score mínimo funcional (50%)
-      result.scorePct = 50;
-      result.method = 'emergency_equal_weight_v3';
-      result.scoringMethod = 'emergency_equal_weight_v3';
-      result.classification = 'Básico';
+      result.scorePct = result.advancedScorePct;
+      result.method = 'advanced_fallback';
+      result.scoringMethod = 'advanced_fallback';
+      result.classification = classify(result.scorePct);
       result._equalWeightError = error.message;
-      result.engineVersion = force.engineVersion || "3.0.0";
-      result.unifiedScoring = true;
-      
-      console.log('[EQUAL_WEIGHT_V3] 🚨 Usando fallback de emergência: 50%');
     }
   }
   try { __caiarLog('SCORING_PENALTY_AGG','Aggregated penalties', { P_sum: result.penaltiesSummary.P_sum, P_crit: result.penaltiesSummary.P_crit, P_final: result.penaltiesSummary.P_final, advancedScore: result.advancedScorePct }); } catch {}
@@ -766,24 +734,9 @@ function computeMixScore(technicalData = {}, reference = null) {
   console.log('[SCORING_ENTRY] 🎯 computeMixScore chamado com:', {
     metricas: Object.keys(technicalData || {}),
     hasReference: !!reference,
-    referenceKeys: reference ? Object.keys(reference) : null,
-    referenceSample: reference,
     timestamp: Date.now(),
-    technicalDataSample: technicalData,
-    engineVersion: "3.0.0"
+    technicalDataSample: technicalData
   });
-  
-  // 🎯 VERIFICAÇÃO CRÍTICA DA REFERÊNCIA
-  if (reference) {
-    console.log('[SCORING_ENTRY] 📋 Referência recebida:', {
-      lufs_target: reference.lufs_target,
-      dr_target: reference.dr_target,
-      stereo_target: reference.stereo_target,
-      tol_lufs: reference.tol_lufs
-    });
-  } else {
-    console.log('[SCORING_ENTRY] ⚠️ ATENÇÃO: Nenhuma referência fornecida!');
-  }
   
   // 🚨 DIAGNÓSTICO CRÍTICO - Verificar se dados são válidos
   if (!technicalData || typeof technicalData !== 'object') {
@@ -792,38 +745,38 @@ function computeMixScore(technicalData = {}, reference = null) {
       scorePct: 50,
       classification: 'Básico',
       method: 'emergency_fallback',
-      engineVersion: "3.0.0",
       error: 'invalid_technical_data'
     };
   }
   
-  // 🎯 UNIFICAÇÃO: FORÇAR SEMPRE EQUAL WEIGHT V3
-  // Remover toda a lógica de flags - sempre usar o novo sistema
-  console.log('[SCORING_ENTRY] 🔧 Engine Unificado - Sempre Equal Weight V3:', {
-    engineVersion: "3.0.0",
-    method: "equal_weight_v3_only",
-    timestamp: Date.now()
+  const AUDIT_MODE = (typeof process !== 'undefined' && process.env.AUDIT_MODE === '1') || (typeof window !== 'undefined' && window.AUDIT_MODE === true);
+  const win = (typeof window !== 'undefined') ? window : {};
+  const explicitV2 = ((typeof process !== 'undefined' && process.env.SCORING_V2 === '1') || win.SCORING_V2 === true);
+  const explicitLegacy = ((typeof process !== 'undefined' && process.env.SCORING_V2 === '0') || win.SCORING_V2 === false);
+  const AUTO_V2 = win.AUTO_SCORING_V2 !== false; // default true
+  const overrideAuditBypass = win.FORCE_SCORING_V2 === true; // permite V2 mesmo sem AUDIT_MODE
+  const SCORING_V2 = (!explicitLegacy) && (explicitV2 || (AUDIT_MODE && win.SCORING_V2 !== false) || overrideAuditBypass);
+  
+  console.log('[SCORING_ENTRY] 🔧 Flags calculadas:', {
+    AUDIT_MODE,
+    SCORING_V2,
+    AUTO_V2,
+    overrideAuditBypass,
+    explicitV2,
+    explicitLegacy
   });
   
-  // 🚨 GARANTIA: Sempre usar Equal Weight V3 - Sistema Unificado
+  // 🚨 GARANTIA: Sempre tenta _computeMixScoreInternal
   let result;
   try {
-    // UNIFICADO: Sempre chamar internal com Equal Weight V3 forçado
-    result = _computeMixScoreInternal(technicalData, reference, { 
-      AUDIT_MODE: true, 
-      SCORING_V2: true, 
-      AUTO_V2: true, 
-      USE_EQUAL_WEIGHT_V3: true,
-      engineVersion: "3.0.0"
-    });
-    console.log('[SCORING_ENTRY] ✅ Equal Weight V3 executado:', result);
+    result = _computeMixScoreInternal(technicalData, reference, { AUDIT_MODE, SCORING_V2, AUTO_V2, overrideAuditBypass });
+    console.log('[SCORING_ENTRY] ✅ _computeMixScoreInternal sucesso:', result);
   } catch (error) {
-    console.error('[SCORING_ENTRY] ❌ Erro em Equal Weight V3:', error);
+    console.error('[SCORING_ENTRY] ❌ Erro em _computeMixScoreInternal:', error);
     result = {
       scorePct: 50,
       classification: 'Básico',
       method: 'emergency_fallback',
-      engineVersion: "3.0.0",
       error: error.message
     };
   }
@@ -843,19 +796,12 @@ function computeMixScore(technicalData = {}, reference = null) {
     result.scorePct = 50;
     result.classification = 'Básico';
     result.method = 'invalid_score_fallback';
-    result.engineVersion = "3.0.0";
   }
   
-  // 🎯 UNIFICAÇÃO: Garantir engineVersion em todos os resultados
-  result.engineVersion = "3.0.0";
-  result.unifiedScoring = true;
-  
-  console.log('[SCORING_ENTRY] 📊 Resultado final UNIFICADO:', {
+  console.log('[SCORING_ENTRY] 📊 Resultado final garantido:', {
     score: result.scorePct,
     method: result.method,
-    classification: result.classification,
-    engineVersion: result.engineVersion,
-    unifiedScoring: result.unifiedScoring
+    classification: result.classification
   });
   
   return result;
