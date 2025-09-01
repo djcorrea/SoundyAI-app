@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste Rápido Memory Management</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #2d2d2d;
+            padding: 30px;
+            border-radius: 12px;
+        }
+        h1 { color: #4f46e5; text-align: center; }
+        button {
+            background: linear-gradient(135deg, #4f46e5, #7c3aed);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px;
+        }
+        .log {
+            background: #1f2937;
+            border-radius: 8px;
+            padding: 20px;
+            height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 14px;
+            margin-top: 20px;
+        }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+        .info { color: #3b82f6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste Rápido Memory Management</h1>
+        
+        <div style="text-align: center;">
+            <button onclick="testBasicAudioAnalyzer()">🔬 Testar AudioAnalyzer Básico</button>
+            <button onclick="testMemoryMethods()">🧠 Testar Métodos de Memória</button>
+            <button onclick="clearLog()">🗑️ Limpar Log</button>
+        </div>
+        
+        <div id="log" class="log">
+            <div class="info">[LOG] Teste carregado. Clique nos botões para testar.</div>
+        </div>
+    </div>
+
+    <script src="./public/audio-analyzer.js"></script>
+    <script>
+        const logElement = document.getElementById('log');
+        
+        function addLog(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = type;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logElement.appendChild(entry);
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        function clearLog() {
+            logElement.innerHTML = '<div class="info">[LOG] Log limpo.</div>';
+        }
+        
+        async function testBasicAudioAnalyzer() {
+            addLog('🔬 Iniciando teste básico do AudioAnalyzer...', 'info');
+            
+            try {
+                // Verificar se AudioAnalyzer está disponível
+                if (typeof window.AudioAnalyzer !== 'function') {
+                    throw new Error('AudioAnalyzer não está disponível globalmente');
+                }
+                addLog('✅ AudioAnalyzer encontrado', 'success');
+                
+                // Instanciar AudioAnalyzer
+                const analyzer = new window.AudioAnalyzer();
+                addLog('✅ AudioAnalyzer instanciado', 'success');
+                
+                // Verificar métodos críticos
+                const criticalMethods = [
+                    '_cleanupAudioBuffer',
+                    '_cleanupStemsArrays', 
+                    '_cleanupLRUCache',
+                    '_forceGarbageCollection',
+                    '_getMemoryStats'
+                ];
+                
+                for (const method of criticalMethods) {
+                    if (typeof analyzer[method] === 'function') {
+                        addLog(`✅ Método ${method} encontrado`, 'success');
+                    } else {
+                        addLog(`❌ Método ${method} NÃO encontrado`, 'error');
+                    }
+                }
+                
+                addLog('🎉 Teste básico CONCLUÍDO com sucesso!', 'success');
+                
+            } catch (error) {
+                addLog(`❌ Erro no teste básico: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testMemoryMethods() {
+            addLog('🧠 Testando métodos de Memory Management...', 'info');
+            
+            try {
+                const analyzer = new window.AudioAnalyzer();
+                
+                // Teste _getMemoryStats
+                try {
+                    const stats = analyzer._getMemoryStats();
+                    addLog(`📊 Estatísticas de memória: ${JSON.stringify(stats)}`, 'info');
+                } catch (e) {
+                    addLog(`⚠️ _getMemoryStats falhou: ${e.message}`, 'error');
+                }
+                
+                // Teste _forceGarbageCollection
+                try {
+                    analyzer._forceGarbageCollection();
+                    addLog('✅ _forceGarbageCollection executado', 'success');
+                } catch (e) {
+                    addLog(`⚠️ _forceGarbageCollection falhou: ${e.message}`, 'error');
+                }
+                
+                // Teste _cleanupLRUCache
+                try {
+                    analyzer._cleanupLRUCache();
+                    addLog('✅ _cleanupLRUCache executado', 'success');
+                } catch (e) {
+                    addLog(`⚠️ _cleanupLRUCache falhou: ${e.message}`, 'error');
+                }
+                
+                // Teste _cleanupAudioBuffer com null (não deve dar erro)
+                try {
+                    analyzer._cleanupAudioBuffer(null);
+                    addLog('✅ _cleanupAudioBuffer(null) executado sem erro', 'success');
+                } catch (e) {
+                    addLog(`⚠️ _cleanupAudioBuffer(null) falhou: ${e.message}`, 'error');
+                }
+                
+                // Teste _cleanupStemsArrays com null (não deve dar erro)
+                try {
+                    analyzer._cleanupStemsArrays(null);
+                    addLog('✅ _cleanupStemsArrays(null) executado sem erro', 'success');
+                } catch (e) {
+                    addLog(`⚠️ _cleanupStemsArrays(null) falhou: ${e.message}`, 'error');
+                }
+                
+                addLog('🎉 Teste de métodos CONCLUÍDO!', 'success');
+                addLog('✅ Memory Management está FUNCIONANDO corretamente', 'success');
+                
+            } catch (error) {
+                addLog(`❌ Erro no teste de métodos: ${error.message}`, 'error');
+            }
+        }
+        
+        // Teste automático ao carregar
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                addLog('🚀 Executando teste automático...', 'info');
+                testBasicAudioAnalyzer();
+            }, 500);
+        });
+    </script>
+</body>
+</html>

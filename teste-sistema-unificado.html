@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Teste Sistema Unificado Status/Sugestão V1</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segura UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e293b);
+            color: #f1f5f9;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #60a5fa;
+            text-shadow: 0 0 20px rgba(96, 165, 250, 0.3);
+        }
+        
+        .control-panel {
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 30px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .feature-flag {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .toggle {
+            position: relative;
+            width: 60px;
+            height: 30px;
+            background: #64748b;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .toggle.active {
+            background: #10b981;
+        }
+        
+        .toggle::before {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+        }
+        
+        .toggle.active::before {
+            transform: translateX(30px);
+        }
+        
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+        
+        .test-card {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(148, 163, 184, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .test-input {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        label {
+            font-size: 12px;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+        
+        input {
+            padding: 8px 12px;
+            background: rgba(51, 65, 85, 0.6);
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: 6px;
+            color: #f1f5f9;
+            font-size: 14px;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 2px rgba(96, 165, 250, 0.2);
+        }
+        
+        .result {
+            background: rgba(30, 41, 59, 0.5);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+        
+        .status-display {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .status-badge {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .status-ideal { background: #10b981; color: white; }
+        .status-ajustar { background: #f59e0b; color: white; }
+        .status-corrigir { background: #ef4444; color: white; }
+        .status-indefinido { background: #6b7280; color: white; }
+        
+        .suggestion {
+            background: rgba(59, 130, 246, 0.1);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            border-radius: 6px;
+            padding: 10px;
+            font-size: 13px;
+            margin-top: 10px;
+        }
+        
+        .no-suggestion {
+            color: #6b7280;
+            font-style: italic;
+        }
+        
+        .btn {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+        
+        .btn:hover {
+            background: #2563eb;
+        }
+        
+        .btn-success { background: #10b981; }
+        .btn-success:hover { background: #059669; }
+        
+        .btn-danger { background: #ef4444; }
+        .btn-danger:hover { background: #dc2626; }
+        
+        .metrics-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .metrics-table th,
+        .metrics-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+        }
+        
+        .metrics-table th {
+            background: rgba(30, 41, 59, 0.8);
+            font-weight: 600;
+            color: #94a3b8;
+        }
+        
+        .cell-ok { background: rgba(16, 185, 129, 0.2); color: #10b981; }
+        .cell-yellow { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+        .cell-warn { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        .cell-na { background: rgba(107, 114, 128, 0.2); color: #6b7280; }
+        
+        .test-log {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        
+        .log-success { color: #10b981; }
+        .log-error { color: #ef4444; }
+        .log-warning { color: #f59e0b; }
+        .log-info { color: #60a5fa; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Sistema Unificado Status/Sugestão V1</h1>
+        
+        <div class="control-panel">
+            <div class="feature-flag">
+                <label>Feature Flag STATUS_SUGGESTION_UNIFIED_V1:</label>
+                <div class="toggle" id="featureToggle"></div>
+                <span id="flagStatus">DESABILITADO</span>
+                <button class="btn btn-success" onclick="runAllTests()">🧪 Executar Testes</button>
+                <button class="btn" onclick="clearLog()">🗑️ Limpar Log</button>
+            </div>
+            
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button class="btn" onclick="loadPresetFunk()">🎵 Preset Funk</button>
+                <button class="btn" onclick="loadPresetTrap()">🔊 Preset Trap</button>
+                <button class="btn" onclick="loadPresetIdeal()">✅ Preset Ideal</button>
+                <button class="btn" onclick="loadPresetProblems()">⚠️ Preset Problemas</button>
+                <button class="btn btn-danger" onclick="testMigration()">🔄 Teste Migração</button>
+            </div>
+        </div>
+        
+        <div class="test-grid">
+            <!-- Teste Individual -->
+            <div class="test-card">
+                <h3>🎯 Teste Individual</h3>
+                <div class="test-input">
+                    <div class="input-group">
+                        <label>Valor</label>
+                        <input type="number" id="testValue" value="-15.5" step="0.1">
+                    </div>
+                    <div class="input-group">
+                        <label>Alvo</label>
+                        <input type="number" id="testTarget" value="-14" step="0.1">
+                    </div>
+                    <div class="input-group">
+                        <label>Tolerância</label>
+                        <input type="number" id="testTolerance" value="1" step="0.1">
+                    </div>
+                    <div class="input-group">
+                        <label>Unidade</label>
+                        <input type="text" id="testUnit" value="LUFS">
+                    </div>
+                </div>
+                <button class="btn" onclick="runSingleTest()">🔍 Testar</button>
+                
+                <div class="result" id="singleResult" style="display: none;">
+                    <div class="status-display">
+                        <span id="statusBadge" class="status-badge"></span>
+                        <span id="statusIcon"></span>
+                        <span id="statusText"></span>
+                    </div>
+                    <div>
+                        <strong>Diferença:</strong> <span id="diffValue"></span>
+                    </div>
+                    <div class="suggestion" id="suggestionBox"></div>
+                </div>
+            </div>
+            
+            <!-- Contador de Problemas -->
+            <div class="test-card">
+                <h3>📊 Contador de Problemas</h3>
+                <div id="problemCount">
+                    <div style="font-size: 24px; text-align: center; margin: 20px 0;">
+                        <span id="problemNumber">0</span> problemas detectados
+                    </div>
+                    <div id="problemDetails"></div>
+                </div>
+                <button class="btn" onclick="updateProblemCount()">🔄 Atualizar</button>
+            </div>
+        </div>
+        
+        <!-- Tabela de Métricas -->
+        <div class="test-card" style="margin-top: 20px;">
+            <h3>📋 Tabela de Métricas (Exemplo)</h3>
+            <table class="metrics-table" id="metricsTable">
+                <thead>
+                    <tr>
+                        <th>Métrica</th>
+                        <th>Valor</th>
+                        <th>Alvo ± Tolerância</th>
+                        <th>Diferença/Status</th>
+                    </tr>
+                </thead>
+                <tbody id="metricsBody">
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Log de Testes -->
+        <div class="test-log" id="testLog"></div>
+    </div>
+
+    <!-- Carregar Sistema Unificado -->
+    <script src="status-suggestion-unified-v1.js"></script>
+    <script src="status-migration-v1.js"></script>
+    
+    <script>
+        // Estado inicial
+        let currentMetrics = [
+            { nome: 'LUFS Integrado', valor: -15.5, alvo: -14, tolerancia: 1, unidade: 'LUFS' },
+            { nome: 'True Peak', valor: -0.8, alvo: -1, tolerancia: 0.5, unidade: 'dBTP' },
+            { nome: 'Dynamic Range', valor: 8.2, alvo: 10, tolerancia: 2, unidade: 'dB' },
+            { nome: 'LRA', valor: 4.8, alvo: 6, tolerancia: 1.5, unidade: 'LU' },
+            { nome: 'Stereo Correlation', valor: 0.85, alvo: 0.9, tolerancia: 0.1, unidade: '' }
+        ];
+        
+        // Controle da feature flag
+        const featureToggle = document.getElementById('featureToggle');
+        const flagStatus = document.getElementById('flagStatus');
+        
+        function updateFeatureFlagUI() {
+            const isActive = window.STATUS_SUGGESTION_UNIFIED_V1;
+            featureToggle.classList.toggle('active', isActive);
+            flagStatus.textContent = isActive ? 'HABILITADO' : 'DESABILITADO';
+            flagStatus.style.color = isActive ? '#10b981' : '#6b7280';
+        }
+        
+        featureToggle.addEventListener('click', () => {
+            const newState = !window.STATUS_SUGGESTION_UNIFIED_V1;
+            window.toggleUnifiedSystem(newState);
+            updateFeatureFlagUI();
+            log(`Feature flag ${newState ? 'ATIVADA' : 'DESATIVADA'}`, 'info');
+        });
+        
+        // Logging
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('testLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = `log-${type}`;
+            logEl.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('testLog').innerHTML = '';
+        }
+        
+        // Teste individual
+        function runSingleTest() {
+            const valor = parseFloat(document.getElementById('testValue').value);
+            const alvo = parseFloat(document.getElementById('testTarget').value);
+            const tolerancia = parseFloat(document.getElementById('testTolerance').value);
+            const unidade = document.getElementById('testUnit').value;
+            
+            if (!window.calcularStatusSugestaoUnificado) {
+                log('Sistema unificado não carregado', 'error');
+                return;
+            }
+            
+            const resultado = window.calcularStatusSugestaoUnificado(valor, alvo, tolerancia, unidade, 'Teste');
+            const visual = window.obterVisualizacaoStatus(resultado.status);
+            
+            // Atualizar UI
+            const resultEl = document.getElementById('singleResult');
+            const statusBadge = document.getElementById('statusBadge');
+            const statusIcon = document.getElementById('statusIcon');
+            const statusText = document.getElementById('statusText');
+            const diffValue = document.getElementById('diffValue');
+            const suggestionBox = document.getElementById('suggestionBox');
+            
+            resultEl.style.display = 'block';
+            
+            statusBadge.textContent = resultado.status;
+            statusBadge.className = `status-badge status-${resultado.status}`;
+            
+            statusIcon.textContent = visual.icone;
+            statusText.textContent = visual.descricao;
+            
+            diffValue.textContent = `${resultado.dif > 0 ? '+' : ''}${resultado.dif.toFixed(2)}${unidade}`;
+            
+            if (resultado.sugestao) {
+                suggestionBox.innerHTML = `
+                    <strong>Sugestão:</strong> ${resultado.sugestao.texto}<br>
+                    <small>Para atingir: ${resultado.sugestao.alvo}</small>
+                `;
+                suggestionBox.className = 'suggestion';
+            } else {
+                suggestionBox.innerHTML = '<span class="no-suggestion">Nenhuma sugestão necessária - valor ideal</span>';
+                suggestionBox.className = 'suggestion no-suggestion';
+            }
+            
+            log(`Teste: ${valor}${unidade} → ${resultado.status} (diff: ${resultado.dif.toFixed(2)}${unidade})`, 'info');
+        }
+        
+        // Contador de problemas
+        function updateProblemCount() {
+            if (!window.contarProblemasUnificado) {
+                log('Contador unificado não disponível', 'error');
+                return;
+            }
+            
+            const resultado = window.contarProblemasUnificado(currentMetrics);
+            
+            document.getElementById('problemNumber').textContent = resultado.total;
+            
+            const detailsEl = document.getElementById('problemDetails');
+            if (resultado.detalhes.length > 0) {
+                detailsEl.innerHTML = resultado.detalhes.map(p => 
+                    `<div style="font-size: 12px; margin: 5px 0; padding: 5px; background: rgba(239, 68, 68, 0.1); border-radius: 4px;">
+                        ${p.nome}: ${p.status} (diff: ${p.diferenca.toFixed(2)})
+                    </div>`
+                ).join('');
+            } else {
+                detailsEl.innerHTML = '<div style="color: #10b981; text-align: center;">✅ Todas as métricas estão ideais</div>';
+            }
+            
+            log(`Problemas contados: ${resultado.total}`, resultado.total > 0 ? 'warning' : 'success');
+        }
+        
+        // Atualizar tabela de métricas
+        function updateMetricsTable() {
+            const tbody = document.getElementById('metricsBody');
+            tbody.innerHTML = '';
+            
+            currentMetrics.forEach(metrica => {
+                const resultado = window.calcularStatusSugestaoUnificado(
+                    metrica.valor, metrica.alvo, metrica.tolerancia, metrica.unidade, metrica.nome
+                );
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${metrica.nome}</td>
+                    <td>${metrica.valor}${metrica.unidade}</td>
+                    <td>${metrica.alvo}${metrica.unidade} ±${metrica.tolerancia}${metrica.unidade}</td>
+                    <td class="cell-${resultado.cor}">
+                        ${resultado.dif > 0 ? '+' : ''}${resultado.dif.toFixed(2)}${metrica.unidade}
+                        <br><small>${resultado.status.toUpperCase()}</small>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+        
+        // Presets
+        function loadPresetFunk() {
+            currentMetrics = [
+                { nome: 'LUFS Integrado', valor: -8.2, alvo: -14, tolerancia: 1, unidade: 'LUFS' },
+                { nome: 'True Peak', valor: -0.8, alvo: -0.8, tolerancia: 0.2, unidade: 'dBTP' },
+                { nome: 'Dynamic Range', valor: 5.1, alvo: 8, tolerancia: 2, unidade: 'dB' }
+            ];
+            updateMetricsTable();
+            updateProblemCount();
+            log('Preset Funk carregado', 'info');
+        }
+        
+        function loadPresetTrap() {
+            currentMetrics = [
+                { nome: 'LUFS Integrado', valor: -11.5, alvo: -14, tolerancia: 1, unidade: 'LUFS' },
+                { nome: 'True Peak', valor: -1.2, alvo: -1, tolerancia: 0.5, unidade: 'dBTP' },
+                { nome: 'Dynamic Range', valor: 4.8, alvo: 6, tolerancia: 1.5, unidade: 'dB' }
+            ];
+            updateMetricsTable();
+            updateProblemCount();
+            log('Preset Trap carregado', 'info');
+        }
+        
+        function loadPresetIdeal() {
+            currentMetrics = [
+                { nome: 'LUFS Integrado', valor: -14.0, alvo: -14, tolerancia: 1, unidade: 'LUFS' },
+                { nome: 'True Peak', valor: -1.0, alvo: -1, tolerancia: 0.5, unidade: 'dBTP' },
+                { nome: 'Dynamic Range', valor: 10.0, alvo: 10, tolerancia: 2, unidade: 'dB' }
+            ];
+            updateMetricsTable();
+            updateProblemCount();
+            log('Preset Ideal carregado', 'success');
+        }
+        
+        function loadPresetProblems() {
+            currentMetrics = [
+                { nome: 'LUFS Integrado', valor: -8.0, alvo: -14, tolerancia: 1, unidade: 'LUFS' },
+                { nome: 'True Peak', valor: 0.5, alvo: -1, tolerancia: 0.5, unidade: 'dBTP' },
+                { nome: 'Dynamic Range', valor: 2.1, alvo: 10, tolerancia: 2, unidade: 'dB' }
+            ];
+            updateMetricsTable();
+            updateProblemCount();
+            log('Preset Problemas carregado', 'warning');
+        }
+        
+        // Testes automáticos
+        function runAllTests() {
+            if (!window.executarTestesUnificados) {
+                log('Testes unitários não disponíveis', 'error');
+                return;
+            }
+            
+            log('Executando testes unitários...', 'info');
+            const resultado = window.executarTestesUnificados();
+            
+            if (resultado.falhou === 0) {
+                log(`✅ Todos os ${resultado.passou} testes passaram!`, 'success');
+            } else {
+                log(`⚠️ ${resultado.falhou} de ${resultado.total} testes falharam`, 'error');
+            }
+        }
+        
+        function testMigration() {
+            if (!window.testMigrationCompatibility) {
+                log('Testes de migração não disponíveis', 'error');
+                return;
+            }
+            
+            log('Testando compatibilidade de migração...', 'info');
+            const resultado = window.testMigrationCompatibility();
+            
+            if (resultado.failed === 0) {
+                log(`✅ Migração compatível: ${resultado.passed} testes passaram`, 'success');
+            } else {
+                log(`❌ Problemas na migração: ${resultado.failed} testes falharam`, 'error');
+            }
+        }
+        
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', () => {
+            updateFeatureFlagUI();
+            updateMetricsTable();
+            updateProblemCount();
+            log('Sistema de testes inicializado', 'info');
+        });
+    </script>
+</body>
+</html>

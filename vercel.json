@@ -1,0 +1,42 @@
+{
+  "version": 2,
+  "env": {
+    "FORCE_REBUILD": "1756593851165",
+    "NODE_ENV": "production"
+  },
+  "builds": [
+    { "src": "api/**/*.js", "use": "@vercel/node" },
+    { "src": "public/**", "use": "@vercel/static" },
+    { "src": "refs/out/**", "use": "@vercel/static" },
+    { "src": "lib/**", "use": "@vercel/static" }
+  ],
+  "routes": [
+    { 
+      "src": "/debug-fase1.js", 
+      "dest": "/debug-fase1.js",
+      "headers": {
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
+    },
+    { 
+      "src": "/refs/embedded-refs.js", 
+      "dest": "/public/refs/embedded-refs.js",
+      "headers": {
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
+    },
+    { 
+      "src": "/refs/embedded-refs-new.js", 
+      "dest": "/public/refs/embedded-refs-new.js",
+      "headers": {
+        "Cache-Control": "no-cache, no-store, must-revalidate"
+      }
+    },
+    { "src": "/refs/out/(.*)", "dest": "/public/refs/out/$1" },
+    { "src": "/refs/(.*)", "dest": "/public/refs/$1" },
+    { "src": "/lib/(.*)", "dest": "/lib/$1" },
+    { "src": "/api/(.*)", "dest": "api/$1.js" },
+    { "src": "/", "dest": "/public/landing.html" },
+    { "src": "/(.*)", "dest": "/public/$1" }
+  ]
+}

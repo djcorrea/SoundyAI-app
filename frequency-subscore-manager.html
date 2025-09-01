@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎵 Frequency Subscore Corrector V1 - Gestão & Testes</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            color: #333;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .status-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            border-left: 5px solid #667eea;
+        }
+
+        .status-card h3 {
+            color: #333;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .status-enabled {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status-disabled {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .status-neutral {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .btn {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 10px;
+            font-size: 1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+        }
+
+        .btn-success {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+        }
+
+        .btn-warning {
+            background: linear-gradient(45deg, #fd7e14, #ffc107);
+            color: white;
+        }
+
+        .btn-danger {
+            background: linear-gradient(45deg, #dc3545, #e83e8c);
+            color: white;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .tests-section {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .test-result {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 8px;
+            border-left: 4px solid;
+        }
+
+        .test-passed {
+            background: #d4edda;
+            border-left-color: #28a745;
+            color: #155724;
+        }
+
+        .test-failed {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+            color: #721c24;
+        }
+
+        .console-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            border-radius: 10px;
+            padding: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            margin-top: 20px;
+        }
+
+        .feature-flag-controls {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .feature-flag-controls h4 {
+            color: #495057;
+            margin-bottom: 15px;
+        }
+
+        .flag-option {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        .flag-option input[type="checkbox"] {
+            transform: scale(1.2);
+        }
+
+        .alert {
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border-left: 4px solid;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            border-left-color: #17a2b8;
+            color: #0c5460;
+        }
+
+        .alert-warning {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+            color: #856404;
+        }
+
+        .scenario-buttons {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .btn-scenario {
+            padding: 8px 12px;
+            font-size: 0.9em;
+            background: linear-gradient(45deg, #6c757d, #495057);
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .controls {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎵 Frequency Subscore Corrector V1</h1>
+            <p>Sistema Seguro de Correção do Subscore de Frequência Baseado em Bandas Espectrais</p>
+        </div>
+
+        <!-- Status do Sistema -->
+        <div class="status-grid">
+            <div class="status-card">
+                <h3>🚩 Feature Flag</h3>
+                <div id="flagStatus" class="status-value status-disabled">Desabilitada</div>
+            </div>
+            <div class="status-card">
+                <h3>🔧 Patch Status</h3>
+                <div id="patchStatus" class="status-value status-disabled">Não Aplicado</div>
+            </div>
+            <div class="status-card">
+                <h3>🎯 Sistema</h3>
+                <div id="systemStatus" class="status-value status-disabled">Offline</div>
+            </div>
+            <div class="status-card">
+                <h3>📊 Última Verificação</h3>
+                <div id="lastCheck" class="status-value status-neutral">--</div>
+            </div>
+        </div>
+
+        <!-- Controles de Feature Flag -->
+        <div class="feature-flag-controls">
+            <h4>🚩 Controles de Feature Flag</h4>
+            <div class="flag-option">
+                <input type="checkbox" id="flagWindow" onchange="updateFeatureFlag('window')">
+                <label for="flagWindow">window.FREQ_SUBSCORE_RULER_V1</label>
+            </div>
+            <div class="flag-option">
+                <input type="checkbox" id="flagGlobal" onchange="updateFeatureFlag('global')">
+                <label for="flagGlobal">window.FEATURE_FLAGS.FREQ_SUBSCORE_RULER_V1</label>
+            </div>
+            <div class="flag-option">
+                <input type="checkbox" id="flagLocal" onchange="updateFeatureFlag('local')">
+                <label for="flagLocal">localStorage.FREQ_SUBSCORE_RULER_V1</label>
+            </div>
+        </div>
+
+        <!-- Controles Principais -->
+        <div class="controls">
+            <button class="btn btn-primary" onclick="loadSystem()">🔄 Carregar Sistema</button>
+            <button class="btn btn-success" onclick="applyPatch()" id="applyBtn">🔧 Aplicar Patch</button>
+            <button class="btn btn-warning" onclick="removePatch()" id="removeBtn">🔄 Remover Patch</button>
+            <button class="btn btn-primary" onclick="updateStatus()">📊 Atualizar Status</button>
+        </div>
+
+        <!-- Seção de Testes -->
+        <div class="tests-section">
+            <h3>🧪 Bateria de Testes de Validação</h3>
+            <p>Execute os testes para validar o funcionamento do sistema:</p>
+            
+            <div class="controls">
+                <button class="btn btn-primary" onclick="runAllTests()">🧪 Executar Todos os Testes</button>
+                <button class="btn btn-success" onclick="runSingleTest('testPinkNoise')">🎵 Pink Noise</button>
+                <button class="btn btn-warning" onclick="runSingleTest('testLowShelfFilter')">🔊 Low-Shelf Filter</button>
+                <button class="btn btn-danger" onclick="runSingleTest('testFewGreenBands')">🚨 Poucas Bandas Verdes</button>
+            </div>
+
+            <div class="scenario-buttons">
+                <button class="btn btn-scenario" onclick="runSingleTest('testNAHandling')">🚫 Tratamento N/A</button>
+                <button class="btn btn-scenario" onclick="runSingleTest('testGenreSwitching')">🎼 Mudança de Gênero</button>
+                <button class="btn btn-scenario" onclick="testBandCalculation()">📏 Cálculo de Banda</button>
+                <button class="btn btn-scenario" onclick="testReferenceAccess()">📚 Acesso a Referências</button>
+            </div>
+
+            <div id="testResults"></div>
+        </div>
+
+        <!-- Alertas -->
+        <div class="alert alert-info">
+            <strong>💡 Informação:</strong> Este sistema implementa uma régua linear para scoring de frequência:
+            <br>• dif = 0 → 100% (perfeito)
+            <br>• dif = tolerância → ~50% (aceitável)  
+            <br>• dif ≥ 2×tolerância → 0% (inadequado)
+        </div>
+
+        <div class="alert alert-warning">
+            <strong>⚠️ Atenção:</strong> O sistema inclui guard-rails e rollback automático. 
+            Sempre teste em ambiente controlado antes de usar em produção.
+        </div>
+
+        <!-- Console de Output -->
+        <div id="consoleOutput" class="console-output">
+            [FREQ_SUBSCORE_V1] Sistema inicializando...
+        </div>
+    </div>
+
+    <!-- Carregar sistema -->
+    <script src="frequency-subscore-corrector.js"></script>
+    
+    <script>
+        let consoleElement = document.getElementById('consoleOutput');
+        
+        // Override console.log para capturar output
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            
+            const message = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            
+            consoleElement.textContent += message + '\n';
+            consoleElement.scrollTop = consoleElement.scrollHeight;
+        };
+
+        // Funções de controle da interface
+        function loadSystem() {
+            addToConsole('[UI] 🔄 Carregando sistema...');
+            
+            if (typeof window.FrequencySubScoreCorrector !== 'undefined') {
+                if (!window.frequencySubScoreCorrector) {
+                    window.frequencySubScoreCorrector = new window.FrequencySubScoreCorrector();
+                }
+                addToConsole('[UI] ✅ Sistema carregado com sucesso');
+                updateStatus();
+            } else {
+                addToConsole('[UI] ❌ Erro: FrequencySubScoreCorrector não encontrado');
+            }
+        }
+
+        function updateFeatureFlag(source) {
+            const flagWindow = document.getElementById('flagWindow').checked;
+            const flagGlobal = document.getElementById('flagGlobal').checked;
+            const flagLocal = document.getElementById('flagLocal').checked;
+
+            // Atualizar flags
+            if (flagWindow) {
+                window.FREQ_SUBSCORE_RULER_V1 = true;
+            } else {
+                delete window.FREQ_SUBSCORE_RULER_V1;
+            }
+
+            if (flagGlobal) {
+                if (!window.FEATURE_FLAGS) window.FEATURE_FLAGS = {};
+                window.FEATURE_FLAGS.FREQ_SUBSCORE_RULER_V1 = true;
+            } else if (window.FEATURE_FLAGS) {
+                delete window.FEATURE_FLAGS.FREQ_SUBSCORE_RULER_V1;
+            }
+
+            if (flagLocal) {
+                localStorage.setItem('FREQ_SUBSCORE_RULER_V1', 'true');
+            } else {
+                localStorage.removeItem('FREQ_SUBSCORE_RULER_V1');
+            }
+
+            addToConsole(`[UI] 🚩 Feature flag atualizada via ${source}`);
+            updateStatus();
+        }
+
+        function applyPatch() {
+            if (!window.frequencySubScoreCorrector) {
+                addToConsole('[UI] ❌ Sistema não carregado');
+                return;
+            }
+
+            const success = window.frequencySubScoreCorrector.apply();
+            if (success) {
+                addToConsole('[UI] ✅ Patch aplicado com sucesso');
+            } else {
+                addToConsole('[UI] ❌ Falha ao aplicar patch');
+            }
+            updateStatus();
+        }
+
+        function removePatch() {
+            if (!window.frequencySubScoreCorrector) {
+                addToConsole('[UI] ❌ Sistema não carregado');
+                return;
+            }
+
+            const success = window.frequencySubScoreCorrector.remove();
+            if (success) {
+                addToConsole('[UI] ✅ Patch removido com sucesso');
+            } else {
+                addToConsole('[UI] ❌ Falha ao remover patch');
+            }
+            updateStatus();
+        }
+
+        function updateStatus() {
+            if (!window.frequencySubScoreCorrector) {
+                addToConsole('[UI] ⚠️ Sistema não carregado para verificar status');
+                return;
+            }
+
+            const status = window.frequencySubScoreCorrector.getStatus();
+            
+            // Atualizar elementos do DOM
+            updateStatusElement('flagStatus', status.featureFlag, 'Habilitada', 'Desabilitada');
+            updateStatusElement('patchStatus', status.patchApplied, 'Aplicado', 'Não Aplicado');
+            updateStatusElement('systemStatus', status.systemReady, 'Online', 'Offline');
+            
+            document.getElementById('lastCheck').textContent = new Date().toLocaleTimeString();
+            document.getElementById('lastCheck').className = 'status-value status-neutral';
+
+            // Atualizar checkboxes
+            document.getElementById('flagWindow').checked = !!window.FREQ_SUBSCORE_RULER_V1;
+            document.getElementById('flagGlobal').checked = !!(window.FEATURE_FLAGS?.FREQ_SUBSCORE_RULER_V1);
+            document.getElementById('flagLocal').checked = localStorage.getItem('FREQ_SUBSCORE_RULER_V1') === 'true';
+
+            // Atualizar botões
+            document.getElementById('applyBtn').disabled = status.patchApplied;
+            document.getElementById('removeBtn').disabled = !status.patchApplied;
+
+            addToConsole(`[UI] 📊 Status atualizado: ${JSON.stringify(status, null, 2)}`);
+        }
+
+        function updateStatusElement(elementId, condition, trueText, falseText) {
+            const element = document.getElementById(elementId);
+            element.textContent = condition ? trueText : falseText;
+            element.className = `status-value ${condition ? 'status-enabled' : 'status-disabled'}`;
+        }
+
+        function runAllTests() {
+            if (!window.frequencySubScoreCorrector) {
+                addToConsole('[UI] ❌ Sistema não carregado para executar testes');
+                return;
+            }
+
+            addToConsole('[UI] 🧪 Executando bateria completa de testes...');
+            
+            const results = window.frequencySubScoreCorrector.runTests();
+            displayTestResults(results);
+        }
+
+        function runSingleTest(testName) {
+            if (!window.frequencySubScoreCorrector) {
+                addToConsole('[UI] ❌ Sistema não carregado para executar teste');
+                return;
+            }
+
+            addToConsole(`[UI] 🧪 Executando teste individual: ${testName}`);
+            
+            try {
+                const result = window.frequencySubScoreCorrector[testName]();
+                displayTestResults({
+                    passed: result.passed ? 1 : 0,
+                    total: 1,
+                    success: result.passed,
+                    tests: [result]
+                });
+            } catch (error) {
+                addToConsole(`[UI] ❌ Erro ao executar teste ${testName}: ${error.message}`);
+            }
+        }
+
+        function testBandCalculation() {
+            if (!window.frequencySubScoreCorrector) {
+                addToConsole('[UI] ❌ Sistema não carregado');
+                return;
+            }
+
+            addToConsole('[UI] 🧪 Testando cálculo individual de banda...');
+            
+            const testCases = [
+                { value: -15, target: -15, tolerance: 3, expected: 100 },
+                { value: -12, target: -15, tolerance: 3, expected: 50 },
+                { value: -9, target: -15, tolerance: 3, expected: 0 },
+                { value: -18, target: -15, tolerance: 3, expected: 50 }
+            ];
+
+            testCases.forEach((testCase, index) => {
+                const score = window.frequencySubScoreCorrector.calculateBandScore(
+                    testCase.value, 
+                    { target_db: testCase.target, tol_db: testCase.tolerance }
+                );
+                
+                const passed = Math.abs(score - testCase.expected) < 5;
+                addToConsole(`[UI] Teste ${index + 1}: ${testCase.value}dB → ${score.toFixed(1)}% (esperado: ${testCase.expected}%) ${passed ? '✅' : '❌'}`);
+            });
+        }
+
+        function testReferenceAccess() {
+            if (!window.frequencySubScoreCorrector) {
+                addToConsole('[UI] ❌ Sistema não carregado');
+                return;
+            }
+
+            addToConsole('[UI] 🧪 Testando acesso a referências...');
+            
+            const refs = window.frequencySubScoreCorrector.getCurrentGenreReferences();
+            if (refs) {
+                addToConsole(`[UI] ✅ Referências encontradas: ${Object.keys(refs.bands || {}).join(', ')}`);
+            } else {
+                addToConsole('[UI] ⚠️ Nenhuma referência encontrada');
+            }
+        }
+
+        function displayTestResults(results) {
+            const container = document.getElementById('testResults');
+            
+            let html = `
+                <h4>📊 Resultados dos Testes</h4>
+                <div class="test-result ${results.success ? 'test-passed' : 'test-failed'}">
+                    <span><strong>Resumo Geral</strong></span>
+                    <span><strong>${results.passed}/${results.total} testes passaram</strong></span>
+                </div>
+            `;
+
+            results.tests.forEach(test => {
+                html += `
+                    <div class="test-result ${test.passed ? 'test-passed' : 'test-failed'}">
+                        <div>
+                            <strong>${test.name}</strong>
+                            <br><small>${test.description || 'Sem descrição'}</small>
+                            ${test.error ? `<br><small style="color: #dc3545;">Erro: ${test.error}</small>` : ''}
+                        </div>
+                        <div>
+                            <strong>${test.passed ? '✅ PASSOU' : '❌ FALHOU'}</strong>
+                            <br><small>Esperado: ${test.expected}</small>
+                            <br><small>Atual: ${test.actual}</small>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            addToConsole(`[UI] 📊 Testes concluídos: ${results.passed}/${results.total} passaram`);
+        }
+
+        function addToConsole(message) {
+            consoleElement.textContent += `[${new Date().toLocaleTimeString()}] ${message}\n`;
+            consoleElement.scrollTop = consoleElement.scrollHeight;
+        }
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', function() {
+            addToConsole('[UI] 🎵 Interface carregada');
+            loadSystem();
+            updateStatus();
+        });
+    </script>
+</body>
+</html>

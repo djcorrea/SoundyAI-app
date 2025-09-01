@@ -1,0 +1,5 @@
+{
+  "status": "ok",
+  "path": "/refs/out",
+  "note": "Se você consegue ver isso em produção, os rewrites para /public/refs/out estão funcionando."
+}

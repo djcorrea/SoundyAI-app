@@ -1,0 +1,759 @@
+{
+  "version": "2.0.0",
+  "generated_at": "2025-08-23T22:26:22.193Z",
+  "flags": {
+    "SCORING_V2": true,
+    "SMOOTH_SCORING": true,
+    "QUALITY_GATES": true,
+    "GENRE_WEIGHTS": true
+  },
+  "metrics_inventory": {
+    "loudness": [
+      {
+        "name": "lufsIntegrated",
+        "unit": "LUFS",
+        "source": "technicalData.lufsIntegrated",
+        "category": "loudness",
+        "weight": 20
+      },
+      {
+        "name": "lufsShortTerm",
+        "unit": "LUFS",
+        "source": "technicalData.lufsShortTerm",
+        "category": "loudness",
+        "weight": 0,
+        "status": "optional"
+      },
+      {
+        "name": "lufsMomentary",
+        "unit": "LUFS",
+        "source": "technicalData.lufsMomentary",
+        "category": "loudness",
+        "weight": 0,
+        "status": "optional"
+      }
+    ],
+    "dynamics": [
+      {
+        "name": "dr",
+        "unit": "dB",
+        "source": "technicalData.dynamicRange",
+        "category": "dynamics",
+        "weight": 20,
+        "alias": "dynamicRange"
+      },
+      {
+        "name": "dr_stat",
+        "unit": "dB",
+        "source": "technicalData.dr_stat",
+        "category": "dynamics",
+        "weight": 20,
+        "status": "v2_preferred"
+      },
+      {
+        "name": "lra",
+        "unit": "LU",
+        "source": "technicalData.lra",
+        "category": "dynamics",
+        "weight": 15
+      },
+      {
+        "name": "crestFactor",
+        "unit": "dB",
+        "source": "technicalData.crestFactor",
+        "category": "dynamics",
+        "weight": 10,
+        "correlation": "high_with_dr"
+      }
+    ],
+    "peak": [
+      {
+        "name": "truePeakDbtp",
+        "unit": "dBTP",
+        "source": "technicalData.truePeakDbtp",
+        "category": "peak",
+        "weight": 15
+      },
+      {
+        "name": "samplePeak",
+        "unit": "dBFS",
+        "source": "technicalData.samplePeak",
+        "category": "peak",
+        "weight": 5,
+        "correlation": "high_with_truePeak"
+      }
+    ],
+    "stereo": [
+      {
+        "name": "stereoCorrelation",
+        "unit": "ratio",
+        "source": "technicalData.stereoCorrelation",
+        "category": "stereo",
+        "weight": 8
+      },
+      {
+        "name": "stereoWidth",
+        "unit": "ratio",
+        "source": "technicalData.stereoWidth",
+        "category": "stereo",
+        "weight": 7,
+        "correlation": "inverse_with_correlation"
+      },
+      {
+        "name": "balanceLR",
+        "unit": "ratio",
+        "source": "technicalData.balanceLR",
+        "category": "stereo",
+        "weight": 5
+      },
+      {
+        "name": "phaseMeter",
+        "unit": "degree",
+        "source": "technicalData.phaseMeter",
+        "category": "stereo",
+        "weight": 0,
+        "status": "optional"
+      }
+    ],
+    "tonal": [
+      {
+        "name": "bandEnergies_sub",
+        "unit": "dB",
+        "source": "technicalData.bandEnergies.sub.rms_db",
+        "category": "tonal",
+        "weight": 4
+      },
+      {
+        "name": "bandEnergies_low_bass",
+        "unit": "dB",
+        "source": "technicalData.bandEnergies.low_bass.rms_db",
+        "category": "tonal",
+        "weight": 4
+      },
+      {
+        "name": "bandEnergies_upper_bass",
+        "unit": "dB",
+        "source": "technicalData.bandEnergies.upper_bass.rms_db",
+        "category": "tonal",
+        "weight": 4
+      },
+      {
+        "name": "bandEnergies_low_mid",
+        "unit": "dB",
+        "source": "technicalData.bandEnergies.low_mid.rms_db",
+        "category": "tonal",
+        "weight": 3
+      },
+      {
+        "name": "bandEnergies_mid",
+        "unit": "dB",
+        "source": "technicalData.bandEnergies.mid.rms_db",
+        "category": "tonal",
+        "weight": 3
+      },
+      {
+        "name": "bandEnergies_high_mid",
+        "unit": "dB",
+        "source": "technicalData.bandEnergies.high_mid.rms_db",
+        "category": "tonal",
+        "weight": 3
+      },
+      {
+        "name": "bandEnergies_brilho",
+        "unit": "dB",
+        "source": "technicalData.bandEnergies.brilho.rms_db",
+        "category": "tonal",
+        "weight": 2
+      },
+      {
+        "name": "bandEnergies_presenca",
+        "unit": "dB",
+        "source": "technicalData.bandEnergies.presenca.rms_db",
+        "category": "tonal",
+        "weight": 2
+      }
+    ],
+    "spectral": [
+      {
+        "name": "spectralCentroid",
+        "unit": "Hz",
+        "source": "technicalData.spectralCentroid",
+        "category": "spectral",
+        "weight": 5
+      },
+      {
+        "name": "spectralFlatness",
+        "unit": "ratio",
+        "source": "technicalData.spectralFlatness",
+        "category": "spectral",
+        "weight": 3
+      },
+      {
+        "name": "spectralRolloff50",
+        "unit": "Hz",
+        "source": "technicalData.spectralRolloff50",
+        "category": "spectral",
+        "weight": 2,
+        "status": "v2_only"
+      },
+      {
+        "name": "spectralRolloff85",
+        "unit": "Hz",
+        "source": "technicalData.spectralRolloff85",
+        "category": "spectral",
+        "weight": 3
+      }
+    ],
+    "technical": [
+      {
+        "name": "dcOffset",
+        "unit": "ratio",
+        "source": "technicalData.dcOffset",
+        "category": "technical",
+        "weight": 2
+      },
+      {
+        "name": "dcOffsetLeft",
+        "unit": "ratio",
+        "source": "technicalData.dcOffsetLeft",
+        "category": "technical",
+        "weight": 1,
+        "status": "v2_only"
+      },
+      {
+        "name": "dcOffsetRight",
+        "unit": "ratio",
+        "source": "technicalData.dcOffsetRight",
+        "category": "technical",
+        "weight": 1,
+        "status": "v2_only"
+      },
+      {
+        "name": "thdPercent",
+        "unit": "%",
+        "source": "technicalData.thdPercent",
+        "category": "technical",
+        "weight": 2,
+        "status": "v2_only"
+      },
+      {
+        "name": "clippingPct",
+        "unit": "%",
+        "source": "technicalData.clippingPct",
+        "category": "technical",
+        "weight": 3
+      },
+      {
+        "name": "clippingSamples",
+        "unit": "count",
+        "source": "technicalData.clippingSamples",
+        "category": "technical",
+        "weight": 3,
+        "correlation": "high_with_clippingPct"
+      }
+    ]
+  },
+  "duplicates_identified": [
+    {
+      "primary": "lufsIntegrated",
+      "secondary": "rms (derived)",
+      "correlation": "Direct derivation",
+      "recommendation": "Manter apenas LUFS, remover RMS derivado"
+    },
+    {
+      "primary": "dr_stat",
+      "secondary": "dynamicRange (crest)",
+      "correlation": "~0.85",
+      "recommendation": "Preferir dr_stat em V2, manter DR legacy como fallback"
+    },
+    {
+      "primary": "crestFactor",
+      "secondary": "dynamicRange",
+      "correlation": "~0.90",
+      "recommendation": "Reduzir peso do crestFactor para 5%"
+    },
+    {
+      "primary": "truePeakDbtp",
+      "secondary": "samplePeak",
+      "correlation": "~0.95",
+      "recommendation": "Manter apenas truePeak, remover samplePeak"
+    },
+    {
+      "primary": "stereoCorrelation",
+      "secondary": "stereoWidth",
+      "correlation": "-0.88 (inverse)",
+      "recommendation": "Reduzir peso combinado para 10% total"
+    },
+    {
+      "primary": "clippingPct",
+      "secondary": "clippingSamples",
+      "correlation": "~0.98",
+      "recommendation": "Manter apenas clippingPct"
+    },
+    {
+      "primary": "dcOffset",
+      "secondary": "dcOffsetLeft/Right",
+      "correlation": "~0.80",
+      "recommendation": "Em V2, usar Left/Right separadamente, remover dcOffset global"
+    }
+  ],
+  "correlations": {},
+  "targets_by_genre": {
+    "funk_mandela": {
+      "lufs": {
+        "target": -8,
+        "unit": "LUFS",
+        "tol_inner": 1,
+        "tol_outer": 2.5,
+        "method": "fixed_value",
+        "quality_gate": "hard"
+      },
+      "truePeak": {
+        "target": -10.9,
+        "unit": "dBTP",
+        "tol_inner": 1,
+        "tol_outer": 2.5,
+        "method": "streaming_standard",
+        "quality_gate": "critical"
+      },
+      "dr": {
+        "target": 8,
+        "unit": "dB",
+        "tol_inner": 1,
+        "tol_outer": 3,
+        "method": "fixed_value",
+        "quality_gate": "soft"
+      },
+      "lra": {
+        "target": 9.9,
+        "unit": "LU",
+        "tol_inner": 1.1499999999999997,
+        "tol_outer": 2.2999999999999994,
+        "range_min": 7.6000000000000005,
+        "range_max": 12.2,
+        "method": "flex_range",
+        "quality_gate": "soft"
+      },
+      "band_sub": {
+        "target": -6.7,
+        "unit": "dB",
+        "tol_inner": 3,
+        "tol_outer": 7.5,
+        "frequency_range": [
+          20,
+          60
+        ],
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_low_bass": {
+        "target": -8,
+        "unit": "dB",
+        "tol_inner": 2.5,
+        "tol_outer": 6.25,
+        "frequency_range": [
+          60,
+          100
+        ],
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_upper_bass": {
+        "target": -12,
+        "unit": "dB",
+        "tol_inner": 2.5,
+        "tol_outer": 6.25,
+        "frequency_range": [
+          100,
+          200
+        ],
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_low_mid": {
+        "target": -8.4,
+        "unit": "dB",
+        "tol_inner": 2,
+        "tol_outer": 5,
+        "frequency_range": [
+          200,
+          500
+        ],
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_mid": {
+        "target": -6.3,
+        "unit": "dB",
+        "tol_inner": 2,
+        "tol_outer": 5,
+        "frequency_range": [
+          500,
+          2000
+        ],
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_high_mid": {
+        "target": -11.2,
+        "unit": "dB",
+        "tol_inner": 2.5,
+        "tol_outer": 6.25,
+        "frequency_range": [
+          2000,
+          6000
+        ],
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_brilho": {
+        "target": -14.8,
+        "unit": "dB",
+        "tol_inner": 3,
+        "tol_outer": 7.5,
+        "frequency_range": [
+          6000,
+          12000
+        ],
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_presenca": {
+        "target": -19.2,
+        "unit": "dB",
+        "tol_inner": 3.5,
+        "tol_outer": 8.75,
+        "frequency_range": [
+          12000,
+          20000
+        ],
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      }
+    },
+    "eletronico": {
+      "lufs": {
+        "target": -14,
+        "unit": "LUFS",
+        "tol_inner": 0.5,
+        "tol_outer": 1.25,
+        "method": "legacy_value",
+        "quality_gate": "hard"
+      },
+      "truePeak": {
+        "target": -7.79,
+        "unit": "dBTP",
+        "tol_inner": 1.57,
+        "tol_outer": 3.14,
+        "method": "legacy_value",
+        "quality_gate": "critical"
+      },
+      "dr": {
+        "target": 10.1,
+        "unit": "dB",
+        "tol_inner": 1.4,
+        "tol_outer": 3.5,
+        "method": "legacy_value",
+        "quality_gate": "soft"
+      },
+      "lra": {
+        "target": 5.2,
+        "unit": "LU",
+        "tol_inner": 4,
+        "tol_outer": 8,
+        "method": "legacy_value",
+        "quality_gate": "soft"
+      },
+      "band_sub": {
+        "target": -12.5,
+        "unit": "dB",
+        "tol_inner": 3,
+        "tol_outer": 7.5,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_low_bass": {
+        "target": -10.6,
+        "unit": "dB",
+        "tol_inner": 3,
+        "tol_outer": 7.5,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_upper_bass": {
+        "target": -13.7,
+        "unit": "dB",
+        "tol_inner": 3,
+        "tol_outer": 7.5,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_low_mid": {
+        "target": -12.1,
+        "unit": "dB",
+        "tol_inner": 2.7,
+        "tol_outer": 6.75,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_mid": {
+        "target": -11.8,
+        "unit": "dB",
+        "tol_inner": 2.4,
+        "tol_outer": 6,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_high_mid": {
+        "target": -19.1,
+        "unit": "dB",
+        "tol_inner": 2.3,
+        "tol_outer": 5.75,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_brilho": {
+        "target": -19.1,
+        "unit": "dB",
+        "tol_inner": 2,
+        "tol_outer": 5,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_presenca": {
+        "target": -24,
+        "unit": "dB",
+        "tol_inner": 3,
+        "tol_outer": 7.5,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      }
+    },
+    "funk_automotivo": {
+      "lufs": {
+        "target": -8,
+        "unit": "LUFS",
+        "tol_inner": 1.2,
+        "tol_outer": 3,
+        "method": "legacy_value",
+        "quality_gate": "hard"
+      },
+      "truePeak": {
+        "target": -9.58,
+        "unit": "dBTP",
+        "tol_inner": 2.5,
+        "tol_outer": 5,
+        "method": "legacy_value",
+        "quality_gate": "critical"
+      },
+      "dr": {
+        "target": 8.1,
+        "unit": "dB",
+        "tol_inner": 2,
+        "tol_outer": 5,
+        "method": "legacy_value",
+        "quality_gate": "soft"
+      },
+      "lra": {
+        "target": 6.6,
+        "unit": "LU",
+        "tol_inner": 4,
+        "tol_outer": 8,
+        "method": "legacy_value",
+        "quality_gate": "soft"
+      },
+      "band_sub": {
+        "target": -7.6,
+        "unit": "dB",
+        "tol_inner": 6,
+        "tol_outer": 15,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_low_bass": {
+        "target": -6.6,
+        "unit": "dB",
+        "tol_inner": 4.5,
+        "tol_outer": 11.25,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_upper_bass": {
+        "target": -11.4,
+        "unit": "dB",
+        "tol_inner": 3.5,
+        "tol_outer": 8.75,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_low_mid": {
+        "target": -8.2,
+        "unit": "dB",
+        "tol_inner": 3.5,
+        "tol_outer": 8.75,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_mid": {
+        "target": -6.7,
+        "unit": "dB",
+        "tol_inner": 3,
+        "tol_outer": 7.5,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_high_mid": {
+        "target": -12.8,
+        "unit": "dB",
+        "tol_inner": 4.5,
+        "tol_outer": 11.25,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_brilho": {
+        "target": -16.6,
+        "unit": "dB",
+        "tol_inner": 4.5,
+        "tol_outer": 11.25,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_presenca": {
+        "target": -22.7,
+        "unit": "dB",
+        "tol_inner": 5,
+        "tol_outer": 12.5,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      }
+    },
+    "funk_bruxaria": {
+      "lufs": {
+        "target": -14,
+        "unit": "LUFS",
+        "tol_inner": 0.5,
+        "tol_outer": 1.25,
+        "method": "legacy_value",
+        "quality_gate": "hard"
+      },
+      "truePeak": {
+        "target": -10.6,
+        "unit": "dBTP",
+        "tol_inner": 1.27,
+        "tol_outer": 2.54,
+        "method": "legacy_value",
+        "quality_gate": "critical"
+      },
+      "dr": {
+        "target": 7.4,
+        "unit": "dB",
+        "tol_inner": 1.3,
+        "tol_outer": 3.25,
+        "method": "legacy_value",
+        "quality_gate": "soft"
+      },
+      "lra": {
+        "target": 8.4,
+        "unit": "LU",
+        "tol_inner": 2.8,
+        "tol_outer": 5.6,
+        "method": "legacy_value",
+        "quality_gate": "soft"
+      },
+      "band_sub": {
+        "target": -12.5,
+        "unit": "dB",
+        "tol_inner": 3,
+        "tol_outer": 7.5,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_low_bass": {
+        "target": -15.2,
+        "unit": "dB",
+        "tol_inner": 3,
+        "tol_outer": 7.5,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_upper_bass": {
+        "target": -15.2,
+        "unit": "dB",
+        "tol_inner": 2.3,
+        "tol_outer": 5.75,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_low_mid": {
+        "target": -12,
+        "unit": "dB",
+        "tol_inner": 1.7,
+        "tol_outer": 4.25,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_mid": {
+        "target": -8.7,
+        "unit": "dB",
+        "tol_inner": 1.7,
+        "tol_outer": 4.25,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_high_mid": {
+        "target": -14.5,
+        "unit": "dB",
+        "tol_inner": 2.8,
+        "tol_outer": 7,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_brilho": {
+        "target": -17.7,
+        "unit": "dB",
+        "tol_inner": 2.2,
+        "tol_outer": 5.5,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_presenca": {
+        "target": -26.7,
+        "unit": "dB",
+        "tol_inner": 2.8,
+        "tol_outer": 7,
+        "frequency_range": "unknown",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      }
+    }
+  },
+  "scoring_function": "smooth_gaussian_with_huber_fallback",
+  "quality_gates": {
+    "true_peak_critical": -0.1,
+    "dc_offset_high": 0.05,
+    "clipping_excessive": 5
+  }
+}

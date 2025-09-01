@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 TESTE DIRETO: Script Loading</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #00ff00; }
+        .log { background: #000; padding: 10px; margin: 10px 0; border-left: 3px solid #00ff00; }
+        .error { border-color: #ff0000; color: #ff0000; }
+        .success { border-color: #00ff00; color: #00ff00; }
+        .warning { border-color: #ffaa00; color: #ffaa00; }
+        .info { border-color: #0088ff; color: #0088ff; }
+    </style>
+</head>
+<body>
+    <h1>🔧 TESTE DIRETO: Script Loading</h1>
+    <p>Testando carregamento dos scripts passo a passo...</p>
+    
+    <div id="results"></div>
+
+    <script>
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const logDiv = document.createElement('div');
+            logDiv.className = `log ${type}`;
+            logDiv.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+            results.appendChild(logDiv);
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        // Capturar erros JavaScript
+        window.addEventListener('error', function(e) {
+            log(`❌ ERRO JS: ${e.message} (${e.filename}:${e.lineno})`, 'error');
+        });
+
+        log('🚀 Página iniciada, carregando refs...', 'info');
+    </script>
+
+    <!-- Carregar refs primeiro -->
+    <script src="refs/embedded-refs.js" onload="log('✅ embedded-refs.js carregado', 'success')" onerror="log('❌ ERRO ao carregar embedded-refs.js', 'error')"></script>
+    
+    <script>
+        log('📚 Verificando refs carregadas...', 'info');
+        
+        setTimeout(() => {
+            if (window.EMBEDDED_REFS_VERSION) {
+                log(`✅ EMBEDDED_REFS_VERSION: ${window.EMBEDDED_REFS_VERSION}`, 'success');
+            } else {
+                log('❌ EMBEDDED_REFS_VERSION não encontrado', 'error');
+            }
+            
+            if (window.PROD_AI_REF_DATA) {
+                log(`✅ PROD_AI_REF_DATA: ${Object.keys(window.PROD_AI_REF_DATA).length} gêneros`, 'success');
+            } else {
+                log('❌ PROD_AI_REF_DATA não encontrado', 'error');
+            }
+        }, 100);
+    </script>
+
+    <!-- Carregar audio-analyzer depois -->
+    <script src="audio-analyzer.js" onload="log('✅ audio-analyzer.js carregado', 'success')" onerror="log('❌ ERRO ao carregar audio-analyzer.js', 'error')"></script>
+    
+    <script>
+        log('🎵 Verificando audio-analyzer carregado...', 'info');
+        
+        setTimeout(() => {
+            // Verificar variáveis básicas
+            if (typeof AudioAnalyzer !== 'undefined') {
+                log('✅ AudioAnalyzer disponível', 'success');
+            } else {
+                log('❌ AudioAnalyzer não encontrado', 'error');
+            }
+            
+            if (window.NEW_CACHE_KEY !== undefined) {
+                log(`✅ NEW_CACHE_KEY: ${window.NEW_CACHE_KEY}`, 'success');
+            } else {
+                log('❌ NEW_CACHE_KEY não encontrado', 'error');
+            }
+            
+            // Verificar se console.log do script foi executado
+            log('🔍 Verificando se scripts foram executados completamente...', 'info');
+            
+            // Tentar executar uma função simples do AudioAnalyzer
+            try {
+                const analyzer = new AudioAnalyzer();
+                log('✅ AudioAnalyzer pode ser instanciado', 'success');
+            } catch (e) {
+                log(`❌ Erro ao instanciar AudioAnalyzer: ${e.message}`, 'error');
+            }
+            
+        }, 500);
+    </script>
+
+    <script>
+        // Verificação final das funções
+        setTimeout(() => {
+            log('🔍 VERIFICAÇÃO FINAL DAS FUNÇÕES...', 'info');
+            
+            const functions = [
+                'invalidateAudioAnalysisCache',
+                'invalidateCacheByChange', 
+                '_cacheChangeMonitor'
+            ];
+            
+            functions.forEach(fn => {
+                const exists = window[fn] !== undefined;
+                const type = typeof window[fn];
+                log(`${exists ? '✅' : '❌'} ${fn}: ${type}`, exists ? 'success' : 'error');
+                
+                if (exists && typeof window[fn] === 'function') {
+                    try {
+                        // Tentar executar função básica
+                        if (fn === 'invalidateAudioAnalysisCache') {
+                            const result = window[fn]();
+                            log(`✅ ${fn} executada: ${JSON.stringify(result)}`, 'success');
+                        }
+                    } catch (e) {
+                        log(`❌ Erro ao executar ${fn}: ${e.message}`, 'error');
+                    }
+                }
+            });
+            
+            // Verificar se há cache map
+            if (window.__AUDIO_ANALYSIS_CACHE__) {
+                log(`✅ __AUDIO_ANALYSIS_CACHE__ existe: ${window.__AUDIO_ANALYSIS_CACHE__.constructor.name}`, 'success');
+            } else {
+                log('ℹ️ __AUDIO_ANALYSIS_CACHE__ não existe (normal se nunca houve análise)', 'info');
+            }
+            
+        }, 1000);
+    </script>
+</body>
+</html>

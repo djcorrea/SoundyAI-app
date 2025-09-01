@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 TESTE SIMPLES: Cache Debug</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #00ff00; }
+        .log { background: #000; padding: 10px; margin: 10px 0; border-left: 3px solid #00ff00; }
+        .error { border-color: #ff0000; color: #ff0000; }
+        .success { border-color: #00ff00; color: #00ff00; }
+        .warning { border-color: #ffaa00; color: #ffaa00; }
+        .info { border-color: #0088ff; color: #0088ff; }
+        button { background: #333; color: #00ff00; border: 1px solid #555; padding: 10px; margin: 5px; cursor: pointer; }
+        button:hover { background: #555; }
+    </style>
+</head>
+<body>
+    <h1>🔧 TESTE SIMPLES: Cache Debug</h1>
+    <p>Verificando se as funções de cache estão sendo carregadas corretamente...</p>
+    
+    <button onclick="checkFunctions()">🔍 Verificar Funções</button>
+    <button onclick="checkAudioAnalyzer()">🎵 Verificar AudioAnalyzer</button>
+    <button onclick="forceDefine()">🔧 Forçar Definição</button>
+    
+    <div id="results"></div>
+
+    <script>
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const logDiv = document.createElement('div');
+            logDiv.className = `log ${type}`;
+            logDiv.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+            results.appendChild(logDiv);
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function checkFunctions() {
+            log('🔍 Verificando funções de cache...', 'info');
+            
+            const functions = [
+                'invalidateAudioAnalysisCache',
+                'invalidateCacheByChange',
+                '_cacheChangeMonitor',
+                'NEW_CACHE_KEY'
+            ];
+            
+            functions.forEach(fn => {
+                const exists = window[fn] !== undefined;
+                const type = typeof window[fn];
+                log(`${exists ? '✅' : '❌'} ${fn}: ${type}`, exists ? 'success' : 'error');
+            });
+        }
+
+        function checkAudioAnalyzer() {
+            log('🎵 Verificando AudioAnalyzer...', 'info');
+            
+            if (typeof AudioAnalyzer !== 'undefined') {
+                log('✅ AudioAnalyzer disponível', 'success');
+                log(`AudioAnalyzer type: ${typeof AudioAnalyzer}`, 'info');
+            } else {
+                log('❌ AudioAnalyzer não encontrado', 'error');
+            }
+        }
+
+        function forceDefine() {
+            log('🔧 Forçando definição das funções...', 'warning');
+            
+            // Definir manualmente para teste
+            if (!window.invalidateAudioAnalysisCache) {
+                window.invalidateAudioAnalysisCache = function() {
+                    log('🧪 Função invalidateAudioAnalysisCache executada (teste)', 'info');
+                    return { cleared: 0 };
+                };
+            }
+            
+            if (!window.invalidateCacheByChange) {
+                window.invalidateCacheByChange = function(type, old, new_) {
+                    log(`🧪 invalidateCacheByChange executada: ${type} ${old} -> ${new_}`, 'info');
+                    return { cleared: 0 };
+                };
+            }
+            
+            if (!window._cacheChangeMonitor) {
+                window._cacheChangeMonitor = {
+                    checkAndInvalidate() {
+                        log('🧪 _cacheChangeMonitor.checkAndInvalidate executado', 'info');
+                    }
+                };
+            }
+            
+            log('✅ Funções definidas manualmente', 'success');
+            checkFunctions();
+        }
+
+        // Verificação inicial
+        log('🚀 Página carregada', 'info');
+        
+        // Aguardar scripts carregarem
+        setTimeout(() => {
+            log('⏰ Verificando após 2 segundos...', 'info');
+            checkFunctions();
+            checkAudioAnalyzer();
+        }, 2000);
+    </script>
+
+    <!-- Carregar scripts após a página -->
+    <script src="refs/embedded-refs.js"></script>
+    <script src="audio-analyzer.js"></script>
+    
+    <script>
+        // Log quando scripts terminarem de carregar
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                log('📄 Scripts carregados, verificando novamente...', 'info');
+                checkFunctions();
+                checkAudioAnalyzer();
+            }, 500);
+        });
+    </script>
+</body>
+</html>

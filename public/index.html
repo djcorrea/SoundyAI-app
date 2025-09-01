@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SoundyAI - Mentor Virtual</title>
+    <link rel="stylesheet" href="style.css?v=20250810">
+    <link rel="stylesheet" href="audio-analyzer.css?v=20250810">
+    <link rel="stylesheet" href="music-button-below-chat.css?v=20250810">
+    <link rel="stylesheet" href="friendly-labels.css?v=20250817">
+    <link rel="stylesheet" href="image-upload-styles.css?v=20241219">
+    
+    <!-- Fontes otimizadas -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Bibliotecas para efeitos visuais -->
+    <!-- Otimizado: Adicionado defer para não bloquear parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.24/vanta.net.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" defer></script>
+
+    <!-- Firebase e Scripts funcionais -->
+    <script type="module" src="firebase.js?v=20250810"></script>
+    <script src="auth.js?v=20250810" defer></script>
+    <script src="friendly-labels.js?v=20250817" defer></script>
+    
+    <!-- 🎯 Correção da Ordem do Pipeline -->
+    <script src="/pipeline-order-correction.js?v=20250828" defer></script>
+    
+    <!-- Feature Flags para Análise por Referência -->
+    <script>
+        // 🎯 Feature Flags: Análise por Música de Referência
+        window.FEATURE_FLAGS = {
+            REFERENCE_MODE_ENABLED: true,      // Liga/desliga modo referência
+            FALLBACK_TO_GENRE: true,          // Fallback automático em caso de erro
+            DEBUG_REFERENCE_MODE: false       // Debug logs para desenvolvimento
+        };
+        
+        // Logs mínimos para monitoramento
+        window.logReferenceEvent = function(event, data = {}) {
+            if (window.FEATURE_FLAGS.DEBUG_REFERENCE_MODE) {
+                console.log(`[REFERENCE-MODE] ${event}`, data);
+            }
+        };
+    </script>
+    
+    <!-- 🎯 TT-DR OFICIAL - ATIVAÇÃO AUTOMÁTICA -->
+    <script>
+        // ✅ ATIVAÇÃO AUTOMÁTICA TT-DR OFICIAL
+        console.log('🎯 Iniciando TT-DR Oficial - Ativação Automática...');
+        
+        // 🎯 SISTEMA UNIFICADO STATUS/SUGESTÃO V1 - ATIVAÇÃO AUTOMÁTICA
+        window.STATUS_SUGGESTION_UNIFIED_V1 = true;
+        console.log('🎯 Sistema Unificado Status/Sugestão V1 - ATIVADO');
+        
+        // 🔧 FUNÇÃO DE TESTE INLINE (sempre disponível)
+        window.testarSistemaUnificado = function() {
+            console.group('🧪 TESTE SISTEMA UNIFICADO');
+            
+            console.log('1️⃣ Feature Flag:', window.STATUS_SUGGESTION_UNIFIED_V1 ? '✅ ATIVA' : '❌ INATIVA');
+            console.log('2️⃣ Função Principal:', typeof window.calcularStatusSugestaoUnificado === 'function' ? '✅ DISPONÍVEL' : '❌ INDISPONÍVEL');
+            
+            if (window.calcularStatusSugestaoUnificado) {
+                // Testes funcionais
+                const casos = [
+                    { valor: -14.0, alvo: -14, tolerancia: 1, esperado: 'ideal' },
+                    { valor: -15.5, alvo: -14, tolerancia: 1, esperado: 'ajustar' },
+                    { valor: -17.0, alvo: -14, tolerancia: 1, esperado: 'corrigir' }
+                ];
+                
+                let todosPassaram = true;
+                casos.forEach((caso, i) => {
+                    const resultado = window.calcularStatusSugestaoUnificado(caso.valor, caso.alvo, caso.tolerancia, 'LUFS', 'Teste');
+                    const passou = resultado.status === caso.esperado;
+                    todosPassaram = todosPassaram && passou;
+                    console.log(`${passou ? '✅' : '❌'} Caso ${i+1}: ${caso.valor} → ${resultado.status}`);
+                });
+                
+                console.log(`🎯 RESULTADO: ${todosPassaram ? '✅ FUNCIONANDO PERFEITAMENTE!' : '❌ COM PROBLEMAS'}`);
+            } else {
+                console.log('⏳ Sistema ainda não carregou. Aguarde ou recarregue a página.');
+            }
+            
+            console.groupEnd();
+        };
+        
+        console.log('💡 Execute no console: testarSistemaUnificado()');
+    </script>
+    
+    <!-- 🎯 Sistema Unificado Status/Sugestão V1 (SEM DEFER para carregamento imediato) -->
+    <script src="/status-suggestion-unified-v1.js?v=20250829"></script>
+    <script src="/status-migration-v1.js?v=20250829"></script>
+    <script src="/force-unified-activation.js?v=20250829"></script>
+    <script src="/auto-validator-unified.js?v=20250829" defer></script>
+    
+    <!-- 🛡️ TONAL BALANCE SAFE V1 - Sistema seguro para bandas espectrais -->
+    <script src="/tonal-balance-safe-v1.js?v=20250829"></script>
+    <script src="/auto-validator-tonal-safe.js?v=20250829" defer></script>
+        
+        // Definir flags principais AUTOMATICAMENTE
+        window.USE_TT_DR = true;
+        window.SCORING_V2 = true;
+        window.AUDIT_MODE = true;
+        
+        // Log de confirmação
+        console.log('✅ TT-DR OFICIAL ATIVADO AUTOMATICAMENTE!');
+        console.log('📊 Flags ativas:', {
+            USE_TT_DR: window.USE_TT_DR,
+            SCORING_V2: window.SCORING_V2,
+            AUDIT_MODE: window.AUDIT_MODE
+        });
+        console.log('🎵 TT-DR agora substitui Crest Factor automaticamente em todas as análises!');
+    </script>
+</head>
+<body>
+    <!-- Fundo animado 3D -->
+    <div class="cenario">
+        <!-- Container para o fundo animado Vanta.js -->
+        <div class="vanta-background" id="vanta-bg"></div>
+        
+        <!-- Plano de fundo com rede neural (mantido como fallback) -->
+        <img src="fundo.webp?v=20250810" alt="Fundo futurista" class="fundo" />
+
+        <!-- Elementos do cenário -->
+        <!-- 🚨 POSSÍVEL OTIMIZAÇÃO: 
+             Verificar se todas essas imagens são realmente necessárias
+             Múltiplas imagens grandes podem causar overhead de memória -->
+    <img src="robo.webp?v=20250810" alt="Robô futurista" class="robo fade-in-start" />
+    <img src="mesa.webp?v=20250810" alt="Mesa" class="mesa fade-in-start" />
+    <img src="caixas.webp?v=20250810" alt="Caixas de som principais" class="caixas fade-in-start" />
+    <img src="notebook.webp?v=20250810" alt="Notebook" class="notebook fade-in-start" />
+    <img src="teclado.webp?v=20250810" alt="teclado" class="teclado fade-in-start" />
+        
+        <!-- Overlay de partículas extras -->
+        <!-- 🚨 GARGALO: Div vazia que pode estar sendo usada para gerar partículas CSS
+             Pode estar causando renderizações extras -->
+        <div class="particles-overlay fade-in-start"></div>
+    </div>
+
+    <!-- Chatbot posicionado no monitor -->
+    <div class="chatbot-container" id="chatbotContainer">
+        <!-- Estado Inicial (Welcome) -->
+        <div class="chatbot-welcome-state" id="chatbotWelcomeState">
+            <div class="chatbot-robot-wrapper">
+                <img src="robo 2.webp?v=20250810" alt="SoundyAI Robot" class="chatbot-main-robot" id="chatbotMainRobot">
+            </div>
+            
+            <div class="chatbot-branding" id="chatbotBranding">
+                <h1 class="chatbot-main-title" id="chatbotMainTitle">SoundyAI</h1>
+                <p class="chatbot-main-subtitle" id="chatbotMainSubtitle">Seu mentor virtual</p>
+            </div>
+            
+            <div class="chatbot-input-section" id="chatbotInputSection">
+                <div class="chatbot-input-field chat-input-container">
+                    <button
+                      class="chatbot-add-btn chat-plus-btn"
+                      aria-label="Adicionar"
+                      type="button"
+                      style="all:unset;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;margin:0 8px 0 10px;cursor:pointer;border-radius:6px;background:transparent;"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                           xmlns="http://www.w3.org/2000/svg"
+                           style="display:block;stroke:#fff;stroke-width:2">
+                        <path d="M12 5v14M5 12h14" />
+                      </svg>
+                    </button>
+                    <input type="text" 
+                           class="chatbot-main-input chat-text-input" 
+                           id="chatbotMainInput" 
+                           placeholder="Digite aqui..."
+                           maxlength="500">
+                    <svg class="chatbot-mic-icon chat-mic-btn" width="20" height="20" viewBox="0 0 384 512" fill="currentColor">
+                        <path d="M192 0C139 0 96 43 96 96v160c0 53 43 96 96 96s96-43 96-96V96c0-53-43-96-96-96zM64 216c0-13.3-10.7-24-24-24s-24 10.7-24 24v40c0 89.1 66.2 162.7 152 174.4V464h-48c-13.3 0-24 10.7-24 24s10.7 24 24 24h144c13.3 0 24-10.7 24-24s-10.7-24-24-24h-48v-33.6c85.8-11.7 152-85.3 152-174.4v-40c0-13.3-10.7-24-24-24s-24 10.7-24 24v40c0 70.7-57.3 128-128 128s-128-57.3-128-128V216z"/>
+                    </svg>
+                    <button class="chatbot-send-button chat-send-btn" id="chatbotSendButton">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                            <path d="M2 21L23 12L2 3V10L17 12L2 14V21Z" fill="white" stroke="none"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Estado Ativo (Chat) -->
+        <div class="chatbot-active-state" id="chatbotActiveState">
+            <div class="chatbot-header-bar" id="chatbotHeaderBar">
+                <div class="chatbot-header-centered">
+                    <div class="chatbot-header-text">
+                        <span class="chatbot-header-name">SoundyAI</span>
+                        <span class="chatbot-header-desc">Seu mentor virtual</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="chatbot-conversation-area" id="chatbotConversationArea">
+                <!-- As mensagens serão inseridas aqui dinamicamente -->
+            </div>
+            
+            <div class="chatbot-input-area">
+                <div class="chatbot-typing-indicator" id="chatbotTypingIndicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+          <div class="chatbot-active-input-field chat-input-container">
+              <button
+                class="chatbot-add-btn chat-plus-btn"
+                aria-label="Adicionar"
+                type="button"
+                style="all:unset;display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;margin:0 8px 0 10px;cursor:pointer;border-radius:6px;background:transparent;"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                     xmlns="http://www.w3.org/2000/svg"
+                     style="display:block;stroke:#fff;stroke-width:2">
+                  <path d="M12 5v14M5 12h14" />
+                </svg>
+              </button>
+                    <input type="text" 
+                  class="chatbot-active-input chat-text-input" 
+                           id="chatbotActiveInput" 
+                           placeholder="Digite sua mensagem..."
+                           maxlength="500">
+              <svg class="chatbot-mic-icon chat-mic-btn" width="20" height="20" viewBox="0 0 384 512" fill="currentColor">
+                        <path d="M192 0C139 0 96 43 96 96v160c0 53 43 96 96 96s96-43 96-96V96c0-53-43-96-96-96zM64 216c0-13.3-10.7-24-24-24s-24 10.7-24 24v40c0 89.1 66.2 162.7 152 174.4V464h-48c-13.3 0-24 10.7-24 24s10.7 24 24 24h144c13.3 0 24-10.7 24-24s-10.7-24-24-24h-48v-33.6c85.8-11.7 152-85.3 152-174.4v-40c0-13.3-10.7-24-24-24s-24 10.7-24 24v40c0 70.7-57.3 128-128 128s-128-57.3-128-128V216z"/>
+                    </svg>
+              <button class="chatbot-active-send-btn chat-send-btn" id="chatbotActiveSendBtn">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                            <path d="M2 21L23 12L2 3V10L17 12L2 14V21Z" fill="white" stroke="none"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botões de ação do chatbot -->
+    <div class="chatbot-action-buttons">
+        <button class="chatbot-action-btn" data-action="upgrade">
+            <span>Assinar versão Plus</span>
+        </button>
+        <button class="chatbot-action-btn" data-action="manage">
+            <span>Gerenciar conta</span>
+        </button>
+        <button class="chatbot-action-btn" data-action="logout">
+            <span>Sair</span>
+        </button>
+    </div>
+
+    <!-- � MODAL DE SELEÇÃO DE MODO (NOVO) -->
+    <div id="analysisModeModal" class="audio-modal" style="display: none;">
+        <div class="audio-modal-content mode-selection-modal">
+            <div class="audio-modal-header">
+                <h3>🎵 Como deseja analisar sua música?</h3>
+                <button class="audio-modal-close" onclick="closeModeSelectionModal()">&times;</button>
+            </div>
+            
+            <div class="mode-selection-container">
+                <div class="mode-selection-description">
+                    <p>Escolha o tipo de análise que melhor se adequa às suas necessidades:</p>
+                </div>
+                
+                <div class="mode-selection-options">
+                    <!-- Opção: Análise por Gênero (atual) -->
+                    <button class="mode-option-btn" id="genreModeBtn" onclick="selectAnalysisMode('genre')">
+                        <div class="mode-option-icon">🎼</div>
+                        <div class="mode-option-content">
+                            <h4>Por Gênero Musical</h4>
+                            <p>Compare sua música com padrões profissionais do gênero selecionado</p>
+                            <span class="mode-option-badge">Recomendado</span>
+                        </div>
+                        <div class="mode-option-arrow">→</div>
+                    </button>
+                    
+                    <!-- Opção: Análise por Referência (novo) -->
+                    <button class="mode-option-btn" id="referenceModeBtn" onclick="selectAnalysisMode('reference')" 
+                            style="display: none;">
+                        <div class="mode-option-icon">🎯</div>
+                        <div class="mode-option-content">
+                            <h4>Por Música de Referência</h4>
+                            <p>Compare sua música diretamente com uma faixa de referência específica</p>
+                            <span class="mode-option-badge new">Novo</span>
+                        </div>
+                        <div class="mode-option-arrow">→</div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- �🎵 MODAL DE ANÁLISE DE ÁUDIO -->
+    <div id="audioAnalysisModal" class="audio-modal" style="display: none;">
+        <div class="audio-modal-content">
+            <div class="audio-modal-header">
+                <h3 id="audioModalTitle">🎵 Análise de Áudio</h3>
+                <div id="audioModalSubtitle" class="audio-modal-subtitle" style="display: none;">
+                    <span id="audioModeIndicator"></span>
+                </div>
+                <button class="audio-modal-close" onclick="closeAudioModal()">&times;</button>
+            </div>
+            
+            <!-- Seleção de Gênero de Referência (apenas para modo gênero) -->
+            <div id="audioRefGenreContainer" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:4px 4px 10px 4px;">
+                <label for="audioRefGenreSelect" style="font-size:12px;opacity:.8;">Gênero de Referência:</label>
+                <select id="audioRefGenreSelect" style="background:#0e1422;color:#fff;border:1px solid #1f2b40;padding:4px 8px;border-radius:6px;font-size:12px;outline:none;">
+                    <option value="trance">Trance</option>
+                    <option value="funk_mandela">Funk Mandela</option>
+                    <option value="funk_bruxaria">Funk Bruxaria</option>
+                    <option value="funk_automotivo">Funk Automotivo</option>
+                    <option value="eletronico">Eletrônico</option>
+                </select>
+                <span id="audioRefStatus" style="font-size:11px;padding:2px 6px;border-radius:4px;background:#1f2b40;opacity:.9;">Carregando referências...</span>
+            </div>
+            
+            <!-- Progress Steps para Modo Referência -->
+            <div id="referenceProgressSteps" class="reference-progress-steps" style="display: none;">
+                <div class="progress-step" id="stepUserAudio">
+                    <div class="step-number">1</div>
+                    <div class="step-label">Sua Música</div>
+                </div>
+                <div class="progress-step" id="stepReferenceAudio">
+                    <div class="step-number">2</div>
+                    <div class="step-label">Música de Referência</div>
+                </div>
+                <div class="progress-step" id="stepAnalysis">
+                    <div class="step-number">3</div>
+                    <div class="step-label">Análise Comparativa</div>
+                </div>
+            </div>
+            
+            <!-- Upload Area -->
+            <div class="audio-upload-area" id="audioUploadArea">
+                <div class="upload-content">
+                    <div class="upload-icon">🎵</div>
+                    <h4>Analisar seu áudio</h4>
+                    <p>Arraste seu arquivo aqui ou clique para selecionar</p>
+                    <p class="supported-formats">Suporta: WAV, FLAC, MP3 (máx. 60MB)</p>
+                    <p class="format-recommendation">💡 Prefira WAV ou FLAC para maior precisão na análise</p>
+                    <input type="file" id="modalAudioFileInput" 
+                           accept="audio/wav,audio/flac,audio/mp3,audio/mpeg,.wav,.flac,.mp3" 
+                           style="position:absolute;left:-9999px;opacity:0;width:1px;height:1px;" tabindex="-1">
+                    <label for="modalAudioFileInput"
+                        class="upload-btn"
+                        style="touch-action: manipulation; -webkit-tap-highlight-color: rgba(0, 150, 255, 0.3); width:100%; pointer-events:auto; display:inline-block; text-align:center; cursor:pointer;">
+                        Escolher Arquivo
+                    </label>
+                </div>
+            </div>
+
+            <!-- Loading -->
+            <div id="audioAnalysisLoading" class="audio-loading" style="display: none;">
+                <div class="loading-spinner"></div>
+                <p id="audioProgressText">🚀 Inicializando Sistema de Análise...</p>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="audioProgressFill"></div>
+                </div>
+            </div>
+
+            <!-- Results -->
+            <div id="audioAnalysisResults" class="audio-results" style="display: none;">
+                <div class="results-header">
+                    <h4>🔬 Análise Completa</h4>
+                </div>
+                
+                <div class="technical-data" id="modalTechnicalData">
+                    <!-- Dados técnicos serão inseridos aqui -->
+                </div>
+                <div id="referenceComparisons" style="margin-top:16px;"></div>
+
+                <div class="analysis-actions">
+                    <button class="action-btn primary" onclick="sendModalAnalysisToChat()">
+                        🤖 Pedir Ajuda à IA
+                    </button>
+                    <button class="action-btn secondary" onclick="downloadModalAnalysis()">
+                        📄 Baixar Relatório
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script integrado com as funcionalidades existentes -->
+    <!-- Otimizado: Removido cache busting desnecessário para melhor cache -->
+    <script src="script.js?v=20250813-1" defer></script>
+    
+    <!-- 🎤 VOICE MESSAGE SIMPLE - PROD.AI -->
+    <script src="voice-clean.js?v=20250810" defer></script>
+    
+    <!-- 🧪 DEBUG FASE 1 - Sistema runId Global -->
+    <script src="../debug-fase1.js?v=20250828" defer></script>
+    
+    <!-- 🎵 AUDIO ANALYZER - Carregar os scripts -->
+    <script src="audio-analyzer.js?v=20250825-memory-fix" defer></script>
+    <!-- 🎯 CACHE CONTEXT-AWARE V1 - Sistema inteligente de cache -->
+    <script src="cache-context-aware-v1.js?v=20250829-ctx-aware" defer></script>
+    <!-- Opcional: o integrador possui fallback inline; permita rede setando window.REFS_ALLOW_NETWORK=true antes do load -->
+    <script src="refs/embedded-refs-new.js?v=20250829-true-peak-fix&timestamp=1756500921" defer></script>
+    <script src="suggestion-text-generator.js?v=20250815" defer></script>
+    <script src="audio-analyzer-integration.js?v=20250823k&final_fix=1724440500" defer></script>
+    
+    <!-- Inicializar Audio Analyzer -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Force external refs loading (bypass embedded)
+            window.REFS_ALLOW_NETWORK = true;
+            window.DEBUG_ANALYZER = true;
+            window.REFS_BYPASS_CACHE = true;
+            
+            console.log('🔧 INIT: Forçando carregamento de refs externas');
+            
+            // Aguardar um pouco para garantir que todos os scripts carregaram
+            setTimeout(() => {
+                if (typeof initializeAudioAnalyzerIntegration === 'function') {
+                    initializeAudioAnalyzerIntegration();
+                    console.log('🎵 Audio Analyzer Integration inicializado');
+                } else {
+                    console.warn('⚠️ initializeAudioAnalyzerIntegration não encontrada');
+                }
+            }, 1000);
+
+            // Patch para botões "+" - setup do menu popover CORRIGIDO E OTIMIZADO
+            (function setupPlusPopovers() {
+              let isInitialized = false; // Flag para evitar múltiplas inicializações
+              let initializationTimeout = null;
+              
+              // Helper para criar popover para um container específico
+              function setupPopoverForContainer(container, plusBtn) {
+                if (!container || !plusBtn) return false;
+
+                // Verificar se já foi configurado
+                if (plusBtn.hasAttribute('data-popover-configured')) return true;
+
+                // Garante que o popover não afete o layout
+                container.style.position = (getComputedStyle(container).position === 'static') ? 'relative' : getComputedStyle(container).position;
+
+                // Remove versões antigas
+                container.querySelector('.chatplus-popover')?.remove();
+
+                // Cria popover
+                const pop = document.createElement('div');
+                pop.className = 'chatplus-popover';
+                pop.setAttribute('role', 'menu');
+                pop.setAttribute('aria-hidden', 'true');
+                Object.assign(pop.style, {
+                  position: 'absolute',
+                  left: '8px',
+                  bottom: 'calc(100% + 10px)',   // fica acima do input
+                  minWidth: '220px',
+                  background: '#0e0f1a',
+                  color: '#e9e9f1',
+                  border: '1px solid rgba(255,255,255,.08)',
+                  borderRadius: '12px',
+                  boxShadow: '0 10px 30px rgba(0,0,0,.35)',
+                  padding: '6px',
+                  opacity: '0',
+                  transform: 'scale(.98) translateY(4px)',
+                  pointerEvents: 'none',
+                  transition: 'opacity .15s ease, transform .15s ease',
+                  zIndex: '9999'
+                });
+
+                // Helper p/ criar item
+                const mkItem = (label, action, svg) => {
+                  const b = document.createElement('button');
+                  b.className = 'chatplus-item';
+                  b.setAttribute('role', 'menuitem');
+                  b.dataset.action = action;
+                  Object.assign(b.style, {
+                    width: '100%',
+                    textAlign: 'left',
+                    padding: '10px 12px',
+                    border: '0',
+                    background: 'transparent',
+                    color: 'inherit',
+                    borderRadius: '8px',
+                    fontSize: '14px',
+                    display: 'flex',
+                    gap: '10px',
+                    alignItems: 'center',
+                    cursor: 'pointer'
+                  });
+                  b.onpointerenter = () => (b.style.background = 'rgba(255,255,255,.06)');
+                  b.onpointerleave = () => (b.style.background = 'transparent');
+                  b.innerHTML = `${svg}<span>${label}</span>`;
+                  return b;
+                };
+
+                const clipSVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="display:block;stroke:#cfcff9;stroke-width:1.8"><path d="M8 12l6-6a4 4 0 1 1 6 6l-8 8a5 5 0 1 1-7-7l8-8"/></svg>`;
+                const audioSVG = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="display:block;stroke:#cfcff9;stroke-width:1.8"><path d="M3 12h2m2 0h2m2-6v12m4-9v6m4-3h2"/></svg>`;
+
+                const addPhotos   = mkItem('Adicionar fotos', 'upload',  clipSVG);
+                const analyzeSong = mkItem('Analisar música', 'analyze', audioSVG);
+                pop.append(addPhotos, analyzeSong);
+                container.appendChild(pop);
+
+                // Abrir/fechar
+                function open() {
+                  // Fechar outros popovers abertos
+                  document.querySelectorAll('.chatplus-popover').forEach(otherPop => {
+                    if (otherPop !== pop && otherPop.getAttribute('aria-hidden') === 'false') {
+                      otherPop.setAttribute('aria-hidden', 'true');
+                      otherPop.style.opacity = '0';
+                      otherPop.style.transform = 'scale(.98) translateY(4px)';
+                      otherPop.style.pointerEvents = 'none';
+                    }
+                  });
+
+                  pop.setAttribute('aria-hidden', 'false');
+                  pop.style.opacity = '1';
+                  pop.style.transform = 'scale(1) translateY(0)';
+                  pop.style.pointerEvents = 'auto';
+                  plusBtn.setAttribute('aria-expanded', 'true');
+                  addPhotos.focus();
+                  document.addEventListener('pointerdown', onOutside, { capture: true });
+                  document.addEventListener('keydown', onKey);
+                }
+                function close() {
+                  pop.setAttribute('aria-hidden', 'true');
+                  pop.style.opacity = '0';
+                  pop.style.transform = 'scale(.98) translateY(4px)';
+                  pop.style.pointerEvents = 'none';
+                  plusBtn.setAttribute('aria-expanded', 'false');
+                  document.removeEventListener('pointerdown', onOutside, { capture: true });
+                  document.removeEventListener('keydown', onKey);
+                }
+                function toggle() {
+                  (pop.getAttribute('aria-hidden') === 'true') ? open() : close();
+                }
+                function onOutside(e) {
+                  if (!pop.contains(e.target) && e.target !== plusBtn) close();
+                }
+                function onKey(e) {
+                  if (e.key === 'Escape') return close();
+                  const items = [addPhotos, analyzeSong];
+                  const i = items.indexOf(document.activeElement);
+                  if (e.key === 'ArrowDown') { (items[i+1] || items[0]).focus(); e.preventDefault(); }
+                  if (e.key === 'ArrowUp')   { (items[i-1] || items.at(-1)).focus(); e.preventDefault(); }
+                }
+
+                plusBtn.setAttribute('aria-haspopup', 'menu');
+                plusBtn.setAttribute('aria-expanded', 'false');
+                
+                // Remove listener anterior se existir
+                if (plusBtn._clickHandler) {
+                  plusBtn.removeEventListener('click', plusBtn._clickHandler);
+                }
+                plusBtn._clickHandler = toggle;
+                plusBtn.addEventListener('click', toggle);
+
+                // Ações
+                pop.addEventListener('click', (e) => {
+                  const btn = e.target.closest('.chatplus-item');
+                  if (!btn) return;
+                  if (btn.dataset.action === 'upload') {
+                    let fileInput = container.querySelector('input[type="file"].chatplus-file');
+                    if (!fileInput) {
+                      fileInput = document.createElement('input');
+                      fileInput.type = 'file';
+                      fileInput.accept = 'image/*';
+                      fileInput.multiple = true;
+                      fileInput.hidden = true;
+                      fileInput.className = 'chatplus-file';
+                      container.appendChild(fileInput);
+                    }
+                    fileInput.onchange = () => {
+                      window.dispatchEvent(new CustomEvent('chat:add-photos', { detail: fileInput.files }));
+                      fileInput.value = '';
+                    };
+                    fileInput.click();
+                    close();
+                  }
+                  if (btn.dataset.action === 'analyze') {
+                    if (typeof window.openAudioModal === 'function') window.openAudioModal();
+                    else window.dispatchEvent(new CustomEvent('chat:analyze-audio-request'));
+                    close();
+                  }
+                });
+
+                // Marcar como configurado
+                plusBtn.setAttribute('data-popover-configured', 'true');
+                return true;
+              }
+
+              // Configurar popovers para ambos os estados do chat
+              function initializeAllPopovers() {
+                if (isInitialized) return; // Evitar múltiplas execuções
+
+                // Limpar timeout anterior
+                if (initializationTimeout) {
+                  clearTimeout(initializationTimeout);
+                  initializationTimeout = null;
+                }
+
+                // Estado de boas-vindas
+                const welcomeContainer = document.querySelector('.chatbot-input-field.chat-input-container');
+                const welcomePlusBtn = welcomeContainer?.querySelector('.chatbot-add-btn.chat-plus-btn');
+                
+                // Estado ativo
+                const activeContainer = document.querySelector('.chatbot-active-input-field.chat-input-container');
+                const activePlusBtn = activeContainer?.querySelector('.chatbot-add-btn.chat-plus-btn');
+
+                let setupCount = 0;
+                
+                if (welcomeContainer && welcomePlusBtn && !welcomePlusBtn.hasAttribute('data-popover-configured')) {
+                  if (setupPopoverForContainer(welcomeContainer, welcomePlusBtn)) {
+                    setupCount++;
+                    console.log('✅ Popover configurado para estado de boas-vindas');
+                  }
+                }
+
+                if (activeContainer && activePlusBtn && !activePlusBtn.hasAttribute('data-popover-configured')) {
+                  if (setupPopoverForContainer(activeContainer, activePlusBtn)) {
+                    setupCount++;
+                    console.log('✅ Popover configurado para estado ativo');
+                  }
+                }
+
+                // Se configurou pelo menos um, considerar inicializado
+                if (setupCount > 0 || (welcomePlusBtn?.hasAttribute('data-popover-configured') && activePlusBtn?.hasAttribute('data-popover-configured'))) {
+                  isInitialized = true;
+                  console.log('✅ Sistema de popovers inicializado completamente');
+                }
+
+                // Se não conseguiu configurar todos, tentar novamente COM LIMITE
+                if (!isInitialized && setupCount === 0) {
+                  initializationTimeout = setTimeout(() => {
+                    isInitialized = false; // Reset para nova tentativa
+                    initializeAllPopovers();
+                  }, 500); // Intervalo maior para evitar loop
+                }
+              }
+
+              // Configurar observador para mudanças no chat (COM THROTTLING)
+              let observerTimeout = null;
+              function setupChatObserver() {
+                const chatContainer = document.getElementById('chatbotContainer');
+                if (chatContainer && !chatContainer.hasAttribute('data-observer-setup')) {
+                  const observer = new MutationObserver((mutations) => {
+                    // Throttling - evitar execuções excessivas
+                    if (observerTimeout) return;
+                    
+                    observerTimeout = setTimeout(() => {
+                      // Verificar se realmente precisa re-configurar
+                      const activeContainer = document.querySelector('.chatbot-active-input-field.chat-input-container');
+                      const activePlusBtn = activeContainer?.querySelector('.chatbot-add-btn.chat-plus-btn');
+                      
+                      if (activePlusBtn && !activePlusBtn.hasAttribute('data-popover-configured')) {
+                        isInitialized = false; // Reset apenas se necessário
+                        initializeAllPopovers();
+                      }
+                      
+                      observerTimeout = null;
+                    }, 200); // Throttling de 200ms
+                  });
+                  
+                  observer.observe(chatContainer, { 
+                    attributes: true, 
+                    childList: true, 
+                    subtree: true 
+                  });
+                  
+                  chatContainer.setAttribute('data-observer-setup', 'true');
+                }
+              }
+
+              // Inicializar quando a página estiver pronta
+              if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', () => {
+                  initializeAllPopovers();
+                  setupChatObserver();
+                });
+              } else {
+                initializeAllPopovers();
+                setupChatObserver();
+              }
+            })();
+        });
+    </script>
+    
+    <!-- Scripts de monitoramento desabilitados para performance -->
+    <!-- <script src="plan-monitor.js"></script> -->
+    <!-- <script src="force-visibility.js"></script> -->
+    <script src="plan-monitor.js?v=20250810"></script>
+    <script src="force-visibility.js?v=20250810"></script>
+    
+    <!-- Sistema de Upload de Imagens -->
+    <script src="image-upload-system.js?v=20241219-final"></script>
+    
+    <!-- 🎯 Funções Globais para Modo Referência -->
+    <script>
+        // Tornar funções disponíveis globalmente para onclick handlers
+        window.selectAnalysisMode = function(mode) {
+            if (typeof selectAnalysisMode === 'function') {
+                selectAnalysisMode(mode);
+            } else {
+                console.error('selectAnalysisMode não está disponível');
+            }
+        };
+        
+        window.closeModeSelectionModal = function() {
+            if (typeof closeModeSelectionModal === 'function') {
+                closeModeSelectionModal();
+            } else {
+                console.error('closeModeSelectionModal não está disponível');
+            }
+        };
+        
+        window.closeAudioModal = function() {
+            if (typeof closeAudioModal === 'function') {
+                closeAudioModal();
+            } else {
+                console.error('closeAudioModal não está disponível');
+            }
+        };
+        
+        // Acessibilidade: escape key para fechar modais
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const modeModal = document.getElementById('analysisModeModal');
+                const audioModal = document.getElementById('audioAnalysisModal');
+                
+                if (modeModal && modeModal.style.display === 'flex') {
+                    window.closeModeSelectionModal();
+                } else if (audioModal && audioModal.style.display === 'flex') {
+                    window.closeAudioModal();
+                }
+            }
+        });
+        
+        // Acessibilidade: tab navigation
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Tab') {
+                const modeModal = document.getElementById('analysisModeModal');
+                if (modeModal && modeModal.style.display === 'flex') {
+                    const focusableElements = modeModal.querySelectorAll(
+                        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+                    );
+                    
+                    if (focusableElements.length > 0) {
+                        const firstElement = focusableElements[0];
+                        const lastElement = focusableElements[focusableElements.length - 1];
+                        
+                        if (e.shiftKey && document.activeElement === firstElement) {
+                            e.preventDefault();
+                            lastElement.focus();
+                        } else if (!e.shiftKey && document.activeElement === lastElement) {
+                            e.preventDefault();
+                            firstElement.focus();
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+    
+    <!-- Debug do analyzer - caminho corrigido -->
+    <script src="../debug-analyzer.js"></script>
+    
+    <!-- Debug WAV Support - investigar problemas de formato -->
+    <script src="../debug-wav-support.js"></script>
+    
+    <!-- Debug Upload Diagnostic - investigar uploads parciais -->
+    <script src="../debug-upload-diagnostic.js"></script>
+    
+    <!-- Debug Upload Test - teste específico 32MB → 15 bytes -->
+    <script src="../debug-upload-test.js"></script>
+    
+    <!-- Debug Audio Analyzer Deep - interceptar pipeline completo -->
+    <script src="../debug-audio-analyzer-deep.js"></script>
+    
+    <!-- 🎯 BAND WEIGHTED SCORE V2 - Correção Inteligente de Score -->
+    <script src="band-weighted-score-v2.js?v=20250131" defer></script>
+</body>
+</html>

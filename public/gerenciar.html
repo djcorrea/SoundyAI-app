@@ -1,0 +1,1599 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciar Conta - PROD.AI</title>
+    
+    <!-- Bibliotecas para efeitos visuais -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.24/vanta.net.min.js" defer></script>
+    
+    <link rel="stylesheet" href="gerenciar.css">
+</head>
+<body>
+    <!-- Background Elements -->
+    <div class="background-container">
+        <!-- Container para o fundo animado Vanta.js -->
+        <div class="vanta-background" id="vanta-bg"></div>
+        
+        <!-- Plano de fundo neural (fallback) -->
+        <div class="fundo-neural"></div>
+        
+        <div class="particles" id="particles"></div>
+    </div>
+
+    <div class="container">
+        <div class="header">
+            <h1 class="page-title">Gerenciar conta</h1>
+            
+            <div class="plan-status" id="plan-status">
+                <div class="plan-info">
+                    <span class="plan-label">Plano atual:</span>
+                    <span class="plan-type plus" id="plan-type">
+                        <span class="plan-name">PLUS</span>
+                        <span class="plan-icon">✅</span>
+                    </span>
+                </div>
+            </div>
+            
+            <button class="btn-back-simple" id="back-to-chat-simple">
+                <span class="back-icon">🔙</span>
+                Voltar ao chat
+            </button>
+        </div>
+
+        <div class="form-container">
+            <!-- Grid de Cards Principais -->
+            <div class="cards-grid">
+                <!-- Card: Alterar Senha -->
+                <section class="function-card">
+                    <div class="card-header">
+                        <span class="card-icon">🔒</span>
+                        <h3 class="card-title">Alterar Senha</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-content-section">
+                            <div class="input-group">
+                                <label for="new-password">Nova senha</label>
+                                <div class="input-wrapper">
+                                    <span class="input-icon">🔒</span>
+                                    <input type="password" id="new-password" placeholder="Digite sua nova senha">
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label for="confirm-password">Confirmar senha</label>
+                                <div class="input-wrapper">
+                                    <span class="input-icon">🔒</span>
+                                    <input type="password" id="confirm-password" placeholder="Confirme sua nova senha">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-button-section">
+                            <button class="btn btn-primary" id="update-password-btn">Atualizar senha</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Card: Alterar E-mail -->
+                <section class="function-card">
+                    <div class="card-header">
+                        <span class="card-icon">✉️</span>
+                        <h3 class="card-title">Alterar E-mail</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-content-section">
+                            <div class="input-group">
+                                <label for="new-email">Novo e-mail</label>
+                                <div class="input-wrapper">
+                                    <span class="input-icon">✉️</span>
+                                    <input type="email" id="new-email" placeholder="Digite seu novo e-mail">
+                                </div>
+                            </div>
+                            <div class="input-group">
+                                <label for="confirm-email">Confirmar e-mail</label>
+                                <div class="input-wrapper">
+                                    <span class="input-icon">✉️</span>
+                                    <input type="email" id="confirm-email" placeholder="Confirme seu novo e-mail">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-button-section">
+                            <button class="btn btn-primary" id="update-email-btn">Atualizar e-mail</button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Card: Refazer Entrevista -->
+                <section class="function-card">
+                    <div class="card-header">
+                        <span class="card-icon">♻️</span>
+                        <h3 class="card-title">Personalizar Novamente</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-content-section">
+                            <p class="card-description">Quer mudar suas respostas personalizadas?</p>
+                            <p class="card-description">Refaça o processo de configuração inicial.</p>
+                        </div>
+                        <div class="card-button-section">
+                            <button class="btn btn-special" id="redo-interview-btn">
+                                <span class="btn-icon">♻️</span>
+                                Personalizar novamente
+                            </button>
+                            <p class="info-text">Essa funcionalidade é exclusiva para usuários Plus.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Card: Fazer Upgrade -->
+                <section class="function-card upgrade-card" id="upgrade-card">
+                    <div class="card-header">
+                        <span class="card-icon">🔓</span>
+                        <h3 class="card-title">Upgrade de Plano</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-content-section">
+                            <p class="card-description">Você está no plano gratuito. Desbloqueie todo o potencial do PROD.AI</p>
+                        </div>
+                        <div class="card-button-section">
+                            <button class="btn btn-upgrade-premium" id="upgrade-plan-btn">
+                                <span class="btn-icon">⭐</span>
+                                Fazer Upgrade para Plus
+                            </button>
+                            <p class="upgrade-benefits">Desbloqueie mensagens ilimitadas e respostas avançadas</p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Card: Cancelar Assinatura -->
+                <section class="function-card card-perigo">
+                    <div class="card-header">
+                        <span class="card-icon">❌</span>
+                        <h3 class="card-title">Cancelar Assinatura</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-content-section">
+                            <p class="card-description">Cancelar sua assinatura atual do plano Plus.</p>
+                            <p class="card-description">Você manterá acesso até o fim do período atual.</p>
+                        </div>
+                        <div class="card-button-section">
+                            <button class="btn btn-danger" id="cancel-subscription-btn">
+                                <span class="btn-icon">❌</span>
+                                Cancelar assinatura
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Card: Excluir Conta -->
+                <section class="function-card card-perigo">
+                    <div class="card-header">
+                        <span class="card-icon">⚠️</span>
+                        <h3 class="card-title">Zona de Perigo</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-content-section">
+                            <p class="card-description">
+                                <strong>⚠️ Esta ação é irreversível!</strong>
+                            </p>
+                            <p class="card-description">
+                                Ao excluir sua conta, todos os dados serão perdidos permanentemente.
+                            </p>
+                        </div>
+                        <div class="card-button-section">
+                            <button class="btn btn-delete-account" id="delete-account-btn">
+                                <span class="btn-icon">🗑️</span>
+                                Excluir Conta Permanentemente
+                            </button>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <!-- Seção de Suporte - Rodapé -->
+        <div class="support-footer-card">
+            <h3 class="support-footer-title">
+                <span class="support-icon">💬</span>
+                Suporte
+            </h3>
+            <p class="support-footer-text">Precisa de ajuda? Entre em contato conosco:</p>
+            <div class="support-footer-contact">
+                <span class="support-email">prod.ai@gmail.com</span>
+            </div>
+            <div class="support-footer-info">
+                <div class="support-footer-item">
+                    <span class="support-item-icon">📞</span>
+                    <span>Suporte telefônico: Seg-Sex, 9h-18h</span>
+                </div>
+                <div class="support-footer-item">
+                    <span class="support-item-icon">💬</span>
+                    <span>Chat online: 24/7</span>
+                </div>
+                <div class="support-footer-item">
+                    <span class="support-item-icon">⚡</span>
+                    <span>Resposta em até 2 horas</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação de Cancelamento -->
+    <div class="cancel-confirmation-overlay" id="cancel-confirmation-overlay">
+        <div class="cancel-confirmation-modal">
+            <div class="cancel-modal-content">
+                <div class="cancel-modal-icon">⚠️</div>
+                <h3 class="cancel-modal-title">Cancelar Assinatura</h3>
+                <p class="cancel-modal-description">
+                    Tem certeza que deseja cancelar sua assinatura? Você continuará com acesso ao Plus até o fim do período atual.
+                </p>
+                <div class="cancel-modal-buttons">
+                    <button class="cancel-modal-btn cancel-modal-btn-cancel" id="cancel-modal-btn-cancel">
+                        <span class="btn-icon">❌</span>
+                        Cancelar
+                    </button>
+                    <button class="cancel-modal-btn cancel-modal-btn-confirm" id="cancel-modal-btn-confirm">
+                        <span class="btn-icon">✅</span>
+                        Confirmar Cancelamento
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação de Exclusão de Conta -->
+    <div class="delete-account-confirmation-overlay" id="delete-account-confirmation-overlay">
+        <div class="delete-account-confirmation-modal">
+            <div class="delete-account-modal-content">
+                <div class="delete-account-modal-icon">⚠️</div>
+                <h3 class="delete-account-modal-title">⚠️ Tem certeza que deseja excluir sua conta?</h3>
+                <p class="delete-account-modal-description">
+                    Essa ação é irreversível e todos os seus dados, incluindo e-mail e senha, serão permanentemente apagados.
+                </p>
+                <div class="delete-account-modal-buttons">
+                    <button class="delete-account-modal-btn delete-account-modal-btn-cancel" id="delete-account-modal-btn-cancel">
+                        <span class="btn-icon">❌</span>
+                        Cancelar
+                    </button>
+                    <button class="delete-account-modal-btn delete-account-modal-btn-confirm" id="delete-account-modal-btn-confirm">
+                        <span class="btn-icon">🗑️</span>
+                        Sim, excluir minha conta
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação Após Cancelamento -->
+    <div class="success-confirmation-overlay" id="success-confirmation-overlay">
+        <div class="success-confirmation-modal">
+            <div class="success-modal-content">
+                <div class="success-modal-icon">✅</div>
+                <h3 class="success-modal-title">Assinatura Cancelada com Sucesso!</h3>
+                <p class="success-modal-description" id="success-modal-description">
+                    Sua assinatura foi cancelada. Você continuará com acesso ao Plus até o fim do período atual.
+                </p>
+                <div class="success-modal-buttons">
+                    <button class="success-modal-btn" id="success-modal-btn-ok">
+                        <span class="btn-icon">👍</span>
+                        Entendi
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="background-effects">
+        <div class="glow-effect glow-1"></div>
+        <div class="glow-effect glow-2"></div>
+        <div class="neural-network">
+            <div class="neural-node node-1"></div>
+            <div class="neural-node node-2"></div>
+            <div class="neural-node node-3"></div>
+        </div>
+    </div>
+
+    <!-- Firebase e Script de Gerenciamento -->
+    <script type="module">
+        // Aguardar um pouco para garantir que o Firebase carregue
+        setTimeout(async () => {
+            const { auth } = await import('./firebase.js');
+            const { onAuthStateChanged, updatePassword, updateEmail, verifyBeforeUpdateEmail, applyActionCode, signOut } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js');
+            
+            console.log('🔧 Gerenciar.js carregado');
+            
+            // Elementos do DOM
+            const newPasswordInput = document.getElementById('new-password');
+            const confirmPasswordInput = document.getElementById('confirm-password');
+            const updatePasswordBtn = document.getElementById('update-password-btn');
+            const newEmailInput = document.getElementById('new-email');
+            const confirmEmailInput = document.getElementById('confirm-email');
+            const updateEmailBtn = document.getElementById('update-email-btn');
+            const redoInterviewBtn = document.getElementById('redo-interview-btn');
+            const backToChatBtn = document.getElementById('back-to-chat-simple');
+            const upgradeBtn = document.getElementById('upgrade-plan-btn');
+            const cancelSubscriptionBtn = document.getElementById('cancel-subscription-btn');
+            const deleteAccountBtn = document.getElementById('delete-account-btn');
+            
+            // Verificar se o usuário está autenticado
+            let currentUser = null;
+            
+            onAuthStateChanged(auth, (user) => {
+                if (user) {
+                    currentUser = user;
+                    console.log('✅ Usuário autenticado:', user.email);
+                    
+                    // Atualizar informações do usuário na página
+                    updateUserInfo(user);
+                    
+                    // Verificar se há código de verificação na URL
+                    checkEmailVerificationCode();
+                } else {
+                    console.log('❌ Usuário não autenticado - redirecionando...');
+                    // Redirecionar usuários não autenticados
+                    window.location.href = 'login.html';
+                }
+            });
+            
+            // Função para atualizar informações do usuário
+            async function updateUserInfo(user) {
+                console.log('📧 Email do usuário:', user.email);
+                console.log('🆔 UID do usuário:', user.uid);
+                
+                // Buscar dados do usuário no Firestore para determinar o plano
+                await updateUserPlanDisplay(user.uid);
+            }
+            
+            // Função para buscar e atualizar a exibição do plano do usuário
+            async function updateUserPlanDisplay(userId) {
+                try {
+                    console.log('🔍 Buscando dados do plano do usuário...');
+                    
+                    // Importar Firestore necessário
+                    const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+                    const { db } = await import('./firebase.js');
+                    
+                    // Buscar documento do usuário
+                    const userDocRef = doc(db, 'usuarios', userId);
+                    const userDoc = await getDoc(userDocRef);
+                    
+                    // Elementos do DOM para atualizar
+                    const planTypeElement = document.getElementById('plan-type');
+                    const planNameElement = planTypeElement?.querySelector('.plan-name');
+                    const planIconElement = planTypeElement?.querySelector('.plan-icon');
+                    
+                    if (!planTypeElement || !planNameElement || !planIconElement) {
+                        console.error('❌ Elementos do plano não encontrados no DOM');
+                        return;
+                    }
+                    
+                    let isPlus = false;
+                    let planStatus = 'free'; // Default para gratuito
+                    
+                    if (userDoc.exists()) {
+                        const userData = userDoc.data();
+                        
+                        // Verificar se é usuário Plus
+                        // Considera tanto 'plano' quanto 'isPlus' para compatibilidade
+                        isPlus = userData.plano === 'plus' || userData.isPlus === true;
+                        
+                        console.log('� Dados do usuário:', {
+                            plano: userData.plano,
+                            isPlus: userData.isPlus,
+                            planExpiresAt: userData.planExpiresAt,
+                            subscriptionStatus: userData.subscriptionStatus
+                        });
+                        
+                        // Verificar se o plano Plus ainda está ativo (não expirou)
+                        if (isPlus && userData.planExpiresAt) {
+                            const now = new Date();
+                            const expirationDate = userData.planExpiresAt instanceof Date ? 
+                                userData.planExpiresAt : 
+                                userData.planExpiresAt.toDate ? userData.planExpiresAt.toDate() : new Date(userData.planExpiresAt);
+                            
+                            if (expirationDate <= now) {
+                                console.log('⏰ Plano Plus expirou em:', expirationDate);
+                                isPlus = false; // Plano expirado, considerar como gratuito
+                            } else {
+                                console.log('✅ Plano Plus ativo até:', expirationDate);
+                            }
+                        }
+                        
+                        planStatus = isPlus ? 'plus' : 'free';
+                    } else {
+                        console.log('⚠️ Documento do usuário não encontrado, usando plano gratuito como padrão');
+                    }
+                    
+                    // Atualizar a exibição do plano
+                    if (isPlus) {
+                        // Usuário Plus
+                        planTypeElement.className = 'plan-type plus';
+                        planNameElement.textContent = 'PLUS';
+                        planIconElement.textContent = '✅';
+                        console.log('✅ Exibindo plano PLUS');
+                        
+                        // Esconder card de upgrade e mostrar card de cancelamento
+                        const upgradeCard = document.getElementById('upgrade-card');
+                        const cancelCard = document.querySelector('.card-perigo'); // Card de cancelar assinatura
+                        
+                        if (upgradeCard) {
+                            upgradeCard.style.display = 'none';
+                        }
+                        if (cancelCard) {
+                            cancelCard.style.display = 'block';
+                        }
+                    } else {
+                        // Usuário Gratuito
+                        planTypeElement.className = 'plan-type free';
+                        planNameElement.textContent = 'GRÁTIS';
+                        planIconElement.textContent = '❌';
+                        console.log('📱 Exibindo plano GRATUITO');
+                        
+                        // Mostrar card de upgrade e esconder card de cancelamento
+                        const upgradeCard = document.getElementById('upgrade-card');
+                        const cancelCard = document.querySelector('.card-perigo'); // Card de cancelar assinatura
+                        
+                        if (upgradeCard) {
+                            upgradeCard.style.display = 'block';
+                        }
+                        if (cancelCard) {
+                            cancelCard.style.display = 'none';
+                        }
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Erro ao buscar dados do plano:', error);
+                    
+                    // Em caso de erro, mostrar como gratuito por segurança
+                    const planTypeElement = document.getElementById('plan-type');
+                    const planNameElement = planTypeElement?.querySelector('.plan-name');
+                    const planIconElement = planTypeElement?.querySelector('.plan-icon');
+                    
+                    if (planTypeElement && planNameElement && planIconElement) {
+                        planTypeElement.className = 'plan-type free';
+                        planNameElement.textContent = 'GRÁTIS';
+                        planIconElement.textContent = '❌';
+                        console.log('⚠️ Erro ao carregar plano, exibindo GRATUITO como padrão');
+                    }
+                }
+            }
+            
+            // Função para forçar atualização do plano (útil após upgrade)
+            async function refreshUserPlan() {
+                if (currentUser) {
+                    console.log('🔄 Atualizando exibição do plano...');
+                    await updateUserPlanDisplay(currentUser.uid);
+                }
+            }
+            
+            // Função para mostrar mensagens de feedback
+            function showMessage(message, type = 'success', cardSelector = '.function-card') {
+                // Remove mensagem anterior se existir
+                const existingMessage = document.querySelector('.feedback-message');
+                if (existingMessage) {
+                    existingMessage.remove();
+                }
+                
+                // Criar elemento de mensagem
+                const messageDiv = document.createElement('div');
+                messageDiv.className = `feedback-message ${type}`;
+                messageDiv.textContent = message;
+                
+                // Determinar qual card adicionar a mensagem
+                let targetCard;
+                if (cardSelector === 'password') {
+                    targetCard = updatePasswordBtn.closest('.function-card');
+                } else if (cardSelector === 'email') {
+                    targetCard = updateEmailBtn.closest('.function-card');
+                } else if (cardSelector === 'personalizar') {
+                    targetCard = redoInterviewBtn.closest('.function-card');
+                } else {
+                    targetCard = document.querySelector(cardSelector);
+                }
+                
+                if (targetCard) {
+                    targetCard.insertBefore(messageDiv, targetCard.querySelector('.card-body'));
+                }
+                
+                // Auto-remover após 5 segundos
+                setTimeout(() => {
+                    if (messageDiv.parentNode) {
+                        messageDiv.remove();
+                    }
+                }, 5000);
+            }
+            
+            // Função para validar senha
+            function validatePassword(password) {
+                if (password.length < 6) {
+                    return 'A senha deve ter pelo menos 6 caracteres';
+                }
+                return null;
+            }
+            
+            // Função para validar e-mail
+            function validateEmail(email) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    return 'Por favor, insira um e-mail válido';
+                }
+                return null;
+            }
+            
+            // Função para verificar código de verificação de e-mail na URL
+            async function checkEmailVerificationCode() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const oobCode = urlParams.get('oobCode');
+                
+                if (oobCode) {
+                    console.log('🔍 Código de verificação encontrado na URL');
+                    
+                    // Recuperar o novo e-mail salvo temporariamente
+                    const novoEmailTemp = localStorage.getItem('novoEmailTemp');
+                    
+                    if (!novoEmailTemp) {
+                        console.error('❌ Novo e-mail não encontrado no localStorage');
+                        showMessage('❌ Erro: novo e-mail não encontrado. Tente o processo novamente.', 'error', 'email');
+                        
+                        // Limpar a URL
+                        const newUrl = window.location.origin + window.location.pathname;
+                        window.history.replaceState({}, document.title, newUrl);
+                        return;
+                    }
+                    
+                    try {
+                        // Primeiro aplicar o código de verificação
+                        await applyActionCode(auth, oobCode);
+                        console.log('✅ Código de verificação aplicado com sucesso');
+                        
+                        // Aguardar um momento para garantir que o usuário está atualizado
+                        if (currentUser) {
+                            await currentUser.reload();
+                        }
+                        
+                        // Agora sim atualizar o e-mail no Firebase
+                        await updateEmail(currentUser, novoEmailTemp);
+                        console.log('✅ E-mail atualizado no Firebase');
+                        
+                        showMessage('✅ E-mail verificado e alterado com sucesso!', 'success', 'email');
+                        
+                        // Limpar o localStorage
+                        localStorage.removeItem('novoEmailTemp');
+                        
+                        // Limpar a URL removendo os parâmetros
+                        const newUrl = window.location.origin + window.location.pathname;
+                        window.history.replaceState({}, document.title, newUrl);
+                        
+                        // Recarregar o usuário para obter as informações atualizadas
+                        if (currentUser) {
+                            await currentUser.reload();
+                            updateUserInfo(currentUser);
+                        }
+                        
+                    } catch (error) {
+                        console.error('❌ Erro ao confirmar o novo e-mail:', error);
+                        
+                        let errorMessage = 'Erro ao confirmar o novo e-mail. Tente novamente.';
+                        
+                        switch (error.code) {
+                            case 'auth/expired-action-code':
+                                errorMessage = '⏰ Link de verificação expirado. Solicite um novo.';
+                                break;
+                            case 'auth/invalid-action-code':
+                                errorMessage = '❌ Link de verificação inválido.';
+                                break;
+                            case 'auth/user-disabled':
+                                errorMessage = '🚫 Conta desabilitada. Entre em contato com o suporte.';
+                                break;
+                            case 'auth/email-already-in-use':
+                                errorMessage = '📧 Este e-mail já está sendo usado por outra conta.';
+                                break;
+                            case 'auth/invalid-email':
+                                errorMessage = '📧 E-mail inválido.';
+                                break;
+                            default:
+                                errorMessage = `❌ Erro: ${error.message}`;
+                        }
+                        
+                        showMessage(errorMessage, 'error', 'email');
+                        
+                        // Limpar o localStorage em caso de erro
+                        localStorage.removeItem('novoEmailTemp');
+                        
+                        // Limpar a URL mesmo em caso de erro
+                        const newUrl = window.location.origin + window.location.pathname;
+                        window.history.replaceState({}, document.title, newUrl);
+                    }
+                }
+            }
+            
+            // Função principal para alterar senha
+            async function changePassword() {
+                if (!currentUser) {
+                    showMessage('Usuário não autenticado. Redirecionando para login...', 'error', 'password');
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 2000);
+                    return;
+                }
+                
+                const newPassword = newPasswordInput.value.trim();
+                const confirmPassword = confirmPasswordInput.value.trim();
+                
+                // Validações
+                if (!newPassword || !confirmPassword) {
+                    showMessage('Por favor, preencha todos os campos', 'error', 'password');
+                    return;
+                }
+                
+                if (newPassword !== confirmPassword) {
+                    showMessage('As senhas não coincidem', 'error', 'password');
+                    return;
+                }
+                
+                const passwordError = validatePassword(newPassword);
+                if (passwordError) {
+                    showMessage(passwordError, 'error', 'password');
+                    return;
+                }
+                
+                // Desabilitar botão durante o processo
+                updatePasswordBtn.disabled = true;
+                updatePasswordBtn.textContent = 'Atualizando...';
+                
+                try {
+                    // Atualizar senha no Firebase
+                    await updatePassword(currentUser, newPassword);
+                    
+                    console.log('✅ Senha atualizada com sucesso');
+                    
+                    // Mostrar mensagem de sucesso
+                    showMessage('✅ Senha atualizada com sucesso! Você será redirecionado para o login.', 'success', 'password');
+                    
+                    // Limpar campos
+                    newPasswordInput.value = '';
+                    confirmPasswordInput.value = '';
+                    
+                    // Aguardar um momento para que o usuário veja a mensagem
+                    setTimeout(async () => {
+                        try {
+                            // Fazer logout automático
+                            console.log('🔐 Fazendo logout automático após alteração de senha...');
+                            await signOut(auth);
+                            console.log('✅ Logout realizado com sucesso');
+                            
+                            // Redirecionar para login
+                            window.location.href = 'login.html';
+                        } catch (logoutError) {
+                            console.error('❌ Erro ao fazer logout:', logoutError);
+                            // Mesmo com erro no logout, redirecionar para login
+                            window.location.href = 'login.html';
+                        }
+                    }, 2000); // 2 segundos para o usuário ler a mensagem
+                    
+                } catch (error) {
+                    console.error('❌ Erro ao atualizar senha:', error);
+                    
+                    // Tratamento de erros específicos
+                    let errorMessage = 'Erro ao atualizar senha. Tente novamente.';
+                    
+                    switch (error.code) {
+                        case 'auth/requires-recent-login':
+                            errorMessage = '🔒 Para alterar a senha, você precisa fazer login novamente. Redirecionando...';
+                            setTimeout(() => {
+                                window.location.href = 'login.html';
+                            }, 3000);
+                            break;
+                        case 'auth/weak-password':
+                            errorMessage = '🔐 A senha é muito fraca. Use pelo menos 6 caracteres.';
+                            break;
+                        case 'auth/network-request-failed':
+                            errorMessage = '🌐 Erro de conexão. Verifique sua internet e tente novamente.';
+                            break;
+                        case 'auth/too-many-requests':
+                            errorMessage = '⏰ Muitas tentativas. Tente novamente em alguns minutos.';
+                            break;
+                        default:
+                            errorMessage = `❌ Erro: ${error.message}`;
+                    }
+                    
+                    showMessage(errorMessage, 'error', 'password');
+                } finally {
+                    // Reabilitar botão
+                    updatePasswordBtn.disabled = false;
+                    updatePasswordBtn.textContent = 'Atualizar senha';
+                }
+            }
+            
+            // Função principal para alterar e-mail
+            async function changeEmail() {
+                if (!currentUser) {
+                    showMessage('Usuário não autenticado. Redirecionando para login...', 'error', 'email');
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 2000);
+                    return;
+                }
+                
+                const newEmail = newEmailInput.value.trim();
+                const confirmEmail = confirmEmailInput.value.trim();
+                
+                // Validações
+                if (!newEmail || !confirmEmail) {
+                    showMessage('Por favor, preencha todos os campos', 'error', 'email');
+                    return;
+                }
+                
+                if (newEmail !== confirmEmail) {
+                    showMessage('Os e-mails não coincidem', 'error', 'email');
+                    return;
+                }
+                
+                const emailError = validateEmail(newEmail);
+                if (emailError) {
+                    showMessage(emailError, 'error', 'email');
+                    return;
+                }
+                
+                // Verificar se o e-mail é diferente do atual
+                if (newEmail === currentUser.email) {
+                    showMessage('O novo e-mail deve ser diferente do atual', 'error', 'email');
+                    return;
+                }
+                
+                // Desabilitar botão durante o processo
+                updateEmailBtn.disabled = true;
+                updateEmailBtn.textContent = 'Enviando verificação...';
+                
+                try {
+                    // PRIMEIRO: Salvar o novo e-mail no localStorage
+                    localStorage.setItem('novoEmailTemp', newEmail);
+                    console.log('✅ E-mail salvo no localStorage:', newEmail);
+                    
+                    // SEGUNDO: Usar verifyBeforeUpdateEmail (método recomendado pelo Firebase)
+                    const actionCodeSettings = {
+                        url: 'https://prod-ai-teste.vercel.app/gerenciar.html',
+                        handleCodeInApp: true
+                    };
+                    
+                    await verifyBeforeUpdateEmail(currentUser, newEmail, actionCodeSettings);
+                    
+                    console.log('✅ E-mail de verificação enviado');
+                    showMessage('📧 E-mail de verificação enviado! Verifique sua caixa de entrada e clique no link para confirmar a alteração.', 'success', 'email');
+                    
+                    // Limpar campos
+                    newEmailInput.value = '';
+                    confirmEmailInput.value = '';
+                    
+                } catch (error) {
+                    console.error('❌ Erro ao enviar verificação de e-mail:', error);
+                    
+                    // Limpar localStorage em caso de erro
+                    localStorage.removeItem('novoEmailTemp');
+                    
+                    // Tratamento de erros específicos
+                    let errorMessage = 'Erro ao enviar verificação de e-mail. Tente novamente.';
+                    
+                    switch (error.code) {
+                        case 'auth/requires-recent-login':
+                            errorMessage = '🔒 Para alterar o e-mail, você precisa fazer login novamente. Redirecionando...';
+                            setTimeout(() => {
+                                window.location.href = 'login.html';
+                            }, 3000);
+                            break;
+                        case 'auth/invalid-email':
+                            errorMessage = '📧 E-mail inválido. Verifique o formato.';
+                            break;
+                        case 'auth/network-request-failed':
+                            errorMessage = '🌐 Erro de conexão. Verifique sua internet e tente novamente.';
+                            break;
+                        case 'auth/too-many-requests':
+                            errorMessage = '⏰ Muitas tentativas. Tente novamente em alguns minutos.';
+                            break;
+                        default:
+                            errorMessage = `❌ Erro: ${error.message}`;
+                    }
+                    
+                    showMessage(errorMessage, 'error', 'email');
+                } finally {
+                    // Reabilitar botão
+                    updateEmailBtn.disabled = false;
+                    updateEmailBtn.textContent = 'Atualizar e-mail';
+                }
+            }
+            
+            // ═══════════════════════════════════════════════════════
+            // 🗑️ FUNÇÕES DO MODAL DE EXCLUSÃO DE CONTA
+            // ═══════════════════════════════════════════════════════
+            
+            // Função para mostrar o modal de confirmação de exclusão de conta
+            function showDeleteAccountConfirmationModal() {
+                const overlay = document.getElementById('delete-account-confirmation-overlay');
+                if (overlay) {
+                    overlay.classList.add('show');
+                    
+                    // Prevenir scroll do body
+                    document.body.style.overflow = 'hidden';
+                }
+            }
+            
+            // Função para esconder o modal de confirmação de exclusão de conta
+            function hideDeleteAccountConfirmationModal() {
+                const overlay = document.getElementById('delete-account-confirmation-overlay');
+                if (overlay) {
+                    overlay.classList.remove('show');
+                    
+                    // Restaurar scroll do body
+                    document.body.style.overflow = '';
+                }
+            }
+            
+            // Função principal para excluir conta permanentemente
+            async function deleteAccountPermanently() {
+                if (!currentUser) {
+                    showMessage('Usuário não autenticado. Redirecionando para login...', 'error');
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 2000);
+                    return;
+                }
+                
+                const confirmBtn = document.getElementById('delete-account-modal-btn-confirm');
+                const cancelBtn = document.getElementById('delete-account-modal-btn-cancel');
+                
+                // Desabilitar botões durante o processo
+                if (confirmBtn) {
+                    confirmBtn.disabled = true;
+                    confirmBtn.innerHTML = '<span class="btn-icon">⏳</span>Excluindo...';
+                }
+                if (cancelBtn) {
+                    cancelBtn.disabled = true;
+                }
+                
+                try {
+                    console.log('🗑️ Iniciando exclusão permanente da conta...');
+                    
+                    // Obter token do usuário
+                    const idToken = await currentUser.getIdToken();
+                    
+                    // Fazer requisição para excluir conta
+                    const response = await fetch('/api/delete-account', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${idToken}`
+                        }
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok && result.success) {
+                        console.log('✅ Conta excluída com sucesso:', result.message);
+                        
+                        // Esconder modal
+                        hideDeleteAccountConfirmationModal();
+                        
+                        // Mostrar mensagem de sucesso
+                        showMessage('✅ ' + result.message, 'success');
+                        
+                        // Aguardar um momento para mostrar a mensagem
+                        setTimeout(async () => {
+                            try {
+                                // Fazer logout do Firebase
+                                const { signOut } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-auth.js');
+                                await signOut(auth);
+                                console.log('✅ Logout realizado com sucesso');
+                            } catch (logoutError) {
+                                console.log('⚠️ Erro no logout (normal após exclusão):', logoutError);
+                            }
+                            
+                            // Redirecionar para a página inicial
+                            window.location.href = 'landing.html';
+                        }, 2000);
+                        
+                    } else {
+                        console.error('❌ Erro do servidor ao excluir conta:', result);
+                        
+                        // Esconder modal
+                        hideDeleteAccountConfirmationModal();
+                        
+                        // Determinar tipo de mensagem e texto
+                        let messageType = 'error';
+                        let errorMessage = 'Erro ao excluir conta. Tente novamente.';
+                        
+                        if (response.status === 401) {
+                            messageType = 'error';
+                            errorMessage = 'Sessão expirada. Faça login novamente.';
+                            setTimeout(() => {
+                                window.location.href = 'login.html';
+                            }, 3000);
+                        } else if (response.status === 400) {
+                            messageType = 'error';
+                            errorMessage = result.error || 'Dados inválidos para exclusão.';
+                        } else if (response.status >= 500) {
+                            messageType = 'error';
+                            errorMessage = 'Erro interno do servidor. Tente novamente mais tarde.';
+                        }
+                        
+                        if (result.error || result.message) {
+                            errorMessage = result.error || result.message || errorMessage;
+                        }
+                        
+                        showMessage('❌ ' + errorMessage, messageType);
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Erro completo ao excluir conta:', error);
+                    console.error('❌ Stack trace:', error.stack);
+                    
+                    // Esconder modal
+                    hideDeleteAccountConfirmationModal();
+                    
+                    // Mostrar mensagem de erro de rede
+                    let errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
+                    if (error.message && error.message.includes('Failed to fetch')) {
+                        errorMessage = 'Erro de conexão com o servidor. Tente novamente.';
+                    } else if (error.message) {
+                        errorMessage = error.message;
+                    }
+                    
+                    showMessage('❌ ' + errorMessage, 'error');
+                    
+                } finally {
+                    // Reabilitar botões (se ainda existirem)
+                    if (confirmBtn && !confirmBtn.disabled) {
+                        confirmBtn.disabled = false;
+                        confirmBtn.innerHTML = '<span class="btn-icon">🗑️</span>Sim, excluir minha conta';
+                    }
+                    if (cancelBtn && !cancelBtn.disabled) {
+                        cancelBtn.disabled = false;
+                    }
+                }
+            }
+            
+            // ═══════════════════════════════════════════════════════
+            // ✅ FUNÇÕES DO MODAL DE CONFIRMAÇÃO APÓS CANCELAMENTO
+            // ═══════════════════════════════════════════════════════
+            
+            // Função para mostrar o modal de confirmação após cancelamento
+            async function showSuccessModal(planExpiresAt) {
+                const overlay = document.getElementById('success-confirmation-overlay');
+                const description = document.getElementById('success-modal-description');
+                
+                if (!overlay || !description) {
+                    console.error('❌ Elementos do modal de sucesso não encontrados');
+                    return;
+                }
+                
+                // Determinar a mensagem baseada na data de expiração
+                let message = 'Sua assinatura foi cancelada com sucesso.';
+                
+                if (planExpiresAt) {
+                    try {
+                        // Converter a data de expiração
+                        const expirationDate = planExpiresAt instanceof Date ? 
+                            planExpiresAt : 
+                            planExpiresAt.toDate ? planExpiresAt.toDate() : new Date(planExpiresAt);
+                        
+                        // Formatear a data em português
+                        const options = { 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric',
+                            timeZone: 'America/Sao_Paulo'
+                        };
+                        const formattedDate = expirationDate.toLocaleDateString('pt-BR', options);
+                        
+                        message = `Sua assinatura foi cancelada com sucesso. Você continuará com acesso ao Plus até ${formattedDate}.`;
+                        
+                        console.log('📅 Data de expiração formatada:', formattedDate);
+                    } catch (error) {
+                        console.error('❌ Erro ao formatar data de expiração:', error);
+                        message = 'Sua assinatura foi cancelada com sucesso. Você continuará com acesso ao Plus até o fim do período atual.';
+                    }
+                } else {
+                    message = 'Sua assinatura foi cancelada com sucesso. O acesso será mantido até o fim do período atual.';
+                }
+                
+                // Atualizar a descrição do modal
+                description.textContent = message;
+                
+                // Mostrar o modal com animação
+                overlay.classList.add('show');
+                
+                // Prevenir scroll do body
+                document.body.style.overflow = 'hidden';
+                
+                console.log('✅ Modal de sucesso exibido com a mensagem:', message);
+            }
+            
+            // Função para esconder o modal de confirmação após cancelamento
+            function hideSuccessModal() {
+                const overlay = document.getElementById('success-confirmation-overlay');
+                if (overlay) {
+                    overlay.classList.remove('show');
+                    
+                    // Restaurar scroll do body
+                    document.body.style.overflow = '';
+                    
+                    console.log('✅ Modal de sucesso fechado');
+                }
+            }
+            
+            // Função para personalizar novamente (exclusiva para usuários Plus)
+            async function redoInterview() {
+                if (!currentUser) {
+                    showMessage('Usuário não autenticado. Redirecionando para login...', 'error', 'personalizar');
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 2000);
+                    return;
+                }
+                
+                try {
+                    console.log('🔄 Verificando plano do usuário...');
+                    
+                    // Importar Firestore necessário
+                    const { doc, getDoc, deleteField, updateDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+                    const { db } = await import('./firebase.js');
+                    
+                    // Verificar plano do usuário no Firestore
+                    const userDocRef = doc(db, 'usuarios', currentUser.uid);
+                    const userDoc = await getDoc(userDocRef);
+                    
+                    if (!userDoc.exists()) {
+                        showMessage('❌ Dados do usuário não encontrados.', 'error', 'personalizar');
+                        return;
+                    }
+                    
+                    const userData = userDoc.data();
+                    const isPlus = userData.plano === 'plus' || userData.isPlus === true;
+                    
+                    console.log('📊 Plano do usuário:', userData.plano, 'isPlus:', userData.isPlus);
+                    
+                    if (!isPlus) {
+                        // Usuário não é Plus - mostrar card de bloqueio
+                        showPlusOnlyMessage();
+                        return;
+                    }
+                    
+                    // Usuário é Plus - prosseguir com redirecionamento e limpeza
+                    console.log('✅ Usuário Plus confirmado - prosseguindo...');
+                    
+                    // Desabilitar botão durante o processo
+                    redoInterviewBtn.disabled = true;
+                    redoInterviewBtn.innerHTML = '<span class="btn-icon">⏳</span>Apagando dados...';
+                    
+                    // Apagar dados antigos da entrevista
+                    await updateDoc(userDocRef, {
+                        perfil: deleteField(),
+                        entrevistaConcluida: false,
+                        dataUltimaEntrevista: deleteField()
+                    });
+                    
+                    console.log('✅ Dados da entrevista apagados com sucesso');
+                    
+                    // Mostrar mensagem de sucesso
+                    showMessage('✅ Dados apagados! Redirecionando para nova entrevista...', 'success', 'personalizar');
+                    
+                    // Redirecionar após breve pausa com parâmetro de repersonalização
+                    setTimeout(() => {
+                        window.location.href = 'entrevista.html?repersonalizando=true';
+                    }, 1500);
+                    
+                } catch (error) {
+                    console.error('❌ Erro ao processar personalização:', error);
+                    
+                    let errorMessage = 'Erro ao processar solicitação. Tente novamente.';
+                    
+                    switch (error.code) {
+                        case 'auth/requires-recent-login':
+                            errorMessage = '🔒 Para esta ação, você precisa fazer login novamente. Redirecionando...';
+                            setTimeout(() => {
+                                window.location.href = 'login.html';
+                            }, 3000);
+                            break;
+                        case 'auth/network-request-failed':
+                            errorMessage = '🌐 Erro de conexão. Verifique sua internet e tente novamente.';
+                            break;
+                        default:
+                            errorMessage = `❌ Erro: ${error.message}`;
+                    }
+                    
+                    showMessage(errorMessage, 'error', 'personalizar');
+                } finally {
+                    // Reabilitar botão
+                    redoInterviewBtn.disabled = false;
+                    redoInterviewBtn.innerHTML = '<span class="btn-icon">♻️</span>Personalizar novamente';
+                }
+            }
+            
+            // Função para mostrar mensagem exclusiva para Plus
+            function showPlusOnlyMessage() {
+                // Remover mensagem anterior se existir
+                const existingCard = document.querySelector('.plus-only-card');
+                if (existingCard) {
+                    existingCard.remove();
+                }
+                
+                // Criar card de bloqueio
+                const plusCard = document.createElement('div');
+                plusCard.className = 'plus-only-card';
+                plusCard.innerHTML = `
+                    <div class="plus-card-content">
+                        <div class="plus-card-icon">🔒</div>
+                        <h3 class="plus-card-title">Personalização disponível somente para usuários Plus</h3>
+                        <p class="plus-card-description">
+                            Assine a versão Plus para refazer sua entrevista e receber respostas 100% personalizadas com base no seu perfil.
+                        </p>
+                        <div class="plus-card-buttons">
+                            <a href="planos.html" class="btn-plus-upgrade">
+                                <span class="btn-icon">⭐</span>
+                                Assinar Plus
+                            </a>
+                            <button class="btn-plus-close" onclick="this.closest('.plus-only-card').remove()">
+                                Fechar
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                // Adicionar após o card de personalizar
+                const personalizeCard = redoInterviewBtn.closest('.function-card');
+                personalizeCard.insertAdjacentElement('afterend', plusCard);
+                
+                // Animar entrada
+                setTimeout(() => {
+                    plusCard.classList.add('show');
+                }, 10);
+                
+                // Auto-remover após 15 segundos
+                setTimeout(() => {
+                    if (plusCard.parentNode) {
+                        plusCard.classList.remove('show');
+                        setTimeout(() => {
+                            if (plusCard.parentNode) {
+                                plusCard.remove();
+                            }
+                        }, 300);
+                    }
+                }, 15000);
+            }
+            
+            // Função para mostrar o modal de confirmação de cancelamento
+            function showCancelConfirmationModal() {
+                const overlay = document.getElementById('cancel-confirmation-overlay');
+                if (overlay) {
+                    overlay.classList.add('show');
+                    
+                    // Prevenir scroll do body
+                    document.body.style.overflow = 'hidden';
+                }
+            }
+            
+            // Função para esconder o modal de confirmação de cancelamento
+            function hideCancelConfirmationModal() {
+                const overlay = document.getElementById('cancel-confirmation-overlay');
+                if (overlay) {
+                    overlay.classList.remove('show');
+                    
+                    // Restaurar scroll do body
+                    document.body.style.overflow = '';
+                }
+            }
+            
+            // Função principal para cancelar assinatura
+            async function cancelSubscription() {
+                if (!currentUser) {
+                    showMessage('Usuário não autenticado. Redirecionando para login...', 'error');
+                    setTimeout(() => {
+                        window.location.href = 'login.html';
+                    }, 2000);
+                    return;
+                }
+                
+                const confirmBtn = document.getElementById('cancel-modal-btn-confirm');
+                const cancelBtn = document.getElementById('cancel-modal-btn-cancel');
+                
+                // Desabilitar botões durante o processo
+                if (confirmBtn) {
+                    confirmBtn.disabled = true;
+                    confirmBtn.innerHTML = '<span class="btn-icon">⏳</span>Cancelando...';
+                }
+                if (cancelBtn) {
+                    cancelBtn.disabled = true;
+                }
+                
+                try {
+                    console.log('🔄 Iniciando cancelamento de assinatura...');
+                    
+                    // Obter token do usuário
+                    const idToken = await currentUser.getIdToken();
+                    
+                    // Fazer requisição para cancelar assinatura
+                    const response = await fetch('/api/cancel-subscription', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${idToken}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    
+                    console.log('📊 Response status:', response.status);
+                    console.log('📊 Response ok:', response.ok);
+                    
+                    let result;
+                    try {
+                        result = await response.json();
+                        console.log('📊 Response JSON:', result);
+                    } catch (jsonError) {
+                        console.error('❌ Erro ao fazer parse do JSON:', jsonError);
+                        const responseText = await response.text();
+                        console.error('📄 Response text:', responseText);
+                        throw new Error(`Resposta inválida do servidor: ${responseText.substring(0, 100)}...`);
+                    }
+                    
+                    if (response.ok && result.success) {
+                        console.log('✅ Assinatura cancelada com sucesso');
+                        
+                        // Esconder modal de confirmação
+                        hideCancelConfirmationModal();
+                        
+                        // Buscar dados do usuário para obter planExpiresAt
+                        try {
+                            // Importar Firestore necessário
+                            const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/11.1.0/firebase-firestore.js');
+                            const { db } = await import('./firebase.js');
+                            
+                            // Buscar documento do usuário
+                            const userDocRef = doc(db, 'usuarios', currentUser.uid);
+                            const userDoc = await getDoc(userDocRef);
+                            
+                            let planExpiresAt = null;
+                            
+                            if (userDoc.exists()) {
+                                const userData = userDoc.data();
+                                planExpiresAt = userData.planExpiresAt;
+                                console.log('📅 Data de expiração do plano:', planExpiresAt);
+                            }
+                            
+                            // Mostrar modal de confirmação após cancelamento
+                            await showSuccessModal(planExpiresAt);
+                            
+                        } catch (firestoreError) {
+                            console.error('❌ Erro ao buscar dados do usuário:', firestoreError);
+                            // Se não conseguir buscar dados, mostrar modal sem data específica
+                            await showSuccessModal(null);
+                        }
+                        
+                        // Atualizar exibição do plano para refletir cancelamento
+                        await refreshUserPlan();
+                        
+                    } else {
+                        console.error('❌ Erro ao cancelar assinatura:', result);
+                        
+                        // Esconder modal
+                        hideCancelConfirmationModal();
+                        
+                        // Tratamento específico para diferentes tipos de erro
+                        let errorMessage = 'Erro ao cancelar assinatura. Tente novamente.';
+                        let messageType = 'error';
+                        
+                        if (response.status === 400) {
+                            // Erro de validação (ex: assinatura já cancelada)
+                            errorMessage = result.error || result.message || 'Assinatura já foi cancelada ou não é válida.';
+                            messageType = 'warning'; // Usar warning em vez de error para casos menos críticos
+                        } else if (response.status === 401) {
+                            // Erro de autenticação
+                            errorMessage = 'Sessão expirada. Faça login novamente.';
+                            setTimeout(() => {
+                                window.location.href = 'login.html';
+                            }, 2000);
+                        } else if (response.status === 404) {
+                            // Usuário não encontrado
+                            errorMessage = 'Usuário não encontrado. Tente fazer login novamente.';
+                        } else if (response.status >= 500) {
+                            // Erro do servidor
+                            errorMessage = 'Erro interno do servidor. Tente novamente em alguns minutos.';
+                        } else {
+                            // Outros erros
+                            errorMessage = result.error || result.message || errorMessage;
+                        }
+                        
+                        showMessage('❌ ' + errorMessage, messageType);
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ Erro completo ao cancelar assinatura:', error);
+                    console.error('❌ Stack trace:', error.stack);
+                    
+                    // Esconder modal
+                    hideCancelConfirmationModal();
+                    
+                    // Mostrar mensagem de erro de rede
+                    let errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
+                    if (error.message && error.message.includes('Failed to fetch')) {
+                        errorMessage = 'Erro de conexão com o servidor. Tente novamente.';
+                    } else if (error.message) {
+                        errorMessage = error.message;
+                    }
+                    
+                    showMessage('❌ ' + errorMessage, 'error');
+                } finally {
+                    // Reabilitar botões
+                    if (confirmBtn) {
+                        confirmBtn.disabled = false;
+                        confirmBtn.innerHTML = '<span class="btn-icon">✅</span>Confirmar Cancelamento';
+                    }
+                    if (cancelBtn) {
+                        cancelBtn.disabled = false;
+                    }
+                }
+            }
+            
+            // Event Listeners
+            if (updatePasswordBtn) {
+                updatePasswordBtn.addEventListener('click', changePassword);
+            }
+            
+            if (updateEmailBtn) {
+                updateEmailBtn.addEventListener('click', changeEmail);
+            }
+            
+            if (redoInterviewBtn) {
+                redoInterviewBtn.addEventListener('click', redoInterview);
+            }
+            
+            // Permitir Enter nos campos de senha
+            if (newPasswordInput) {
+                newPasswordInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        changePassword();
+                    }
+                });
+            }
+            
+            if (confirmPasswordInput) {
+                confirmPasswordInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        changePassword();
+                    }
+                });
+            }
+            
+            // Permitir Enter nos campos de e-mail
+            if (newEmailInput) {
+                newEmailInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        changeEmail();
+                    }
+                });
+            }
+            
+            if (confirmEmailInput) {
+                confirmEmailInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        changeEmail();
+                    }
+                });
+            }
+            
+            // Botão voltar ao chat
+            if (backToChatBtn) {
+                backToChatBtn.addEventListener('click', function() {
+                    window.location.href = 'index.html';
+                });
+            }
+
+            // Botão upgrade para planos
+            if (upgradeBtn) {
+                upgradeBtn.addEventListener('click', function() {
+                    window.location.href = 'planos.html';
+                });
+            }
+            
+            // Botão cancelar assinatura - mostrar modal de confirmação
+            if (cancelSubscriptionBtn) {
+                cancelSubscriptionBtn.addEventListener('click', function() {
+                    showCancelConfirmationModal();
+                });
+            }
+            
+            // Botão excluir conta - mostrar modal de confirmação
+            if (deleteAccountBtn) {
+                deleteAccountBtn.addEventListener('click', function() {
+                    showDeleteAccountConfirmationModal();
+                });
+            }
+            
+            // Event listeners para o modal de cancelamento
+            const cancelModalBtnCancel = document.getElementById('cancel-modal-btn-cancel');
+            const cancelModalBtnConfirm = document.getElementById('cancel-modal-btn-confirm');
+            const cancelConfirmationOverlay = document.getElementById('cancel-confirmation-overlay');
+            
+            // Botão "Cancelar" no modal (fechar modal)
+            if (cancelModalBtnCancel) {
+                cancelModalBtnCancel.addEventListener('click', function() {
+                    hideCancelConfirmationModal();
+                });
+            }
+            
+            // Botão "Confirmar Cancelamento" no modal
+            if (cancelModalBtnConfirm) {
+                cancelModalBtnConfirm.addEventListener('click', function() {
+                    cancelSubscription();
+                });
+            }
+            
+            // Fechar modal clicando no overlay (fundo)
+            if (cancelConfirmationOverlay) {
+                cancelConfirmationOverlay.addEventListener('click', function(e) {
+                    // Só fechar se clicou no overlay (não no modal)
+                    if (e.target === cancelConfirmationOverlay) {
+                        hideCancelConfirmationModal();
+                    }
+                });
+            }
+            
+            // Event listeners para o modal de confirmação de exclusão de conta
+            const deleteAccountModalBtnCancel = document.getElementById('delete-account-modal-btn-cancel');
+            const deleteAccountModalBtnConfirm = document.getElementById('delete-account-modal-btn-confirm');
+            const deleteAccountConfirmationOverlay = document.getElementById('delete-account-confirmation-overlay');
+            
+            // Botão "Cancelar" no modal de exclusão (fechar modal)
+            if (deleteAccountModalBtnCancel) {
+                deleteAccountModalBtnCancel.addEventListener('click', function() {
+                    hideDeleteAccountConfirmationModal();
+                });
+            }
+            
+            // Botão "Sim, excluir minha conta" no modal de exclusão
+            if (deleteAccountModalBtnConfirm) {
+                deleteAccountModalBtnConfirm.addEventListener('click', function() {
+                    deleteAccountPermanently();
+                });
+            }
+            
+            // Fechar modal de exclusão clicando no overlay (fundo)
+            if (deleteAccountConfirmationOverlay) {
+                deleteAccountConfirmationOverlay.addEventListener('click', function(e) {
+                    // Só fechar se clicou no overlay (não no modal)
+                    if (e.target === deleteAccountConfirmationOverlay) {
+                        hideDeleteAccountConfirmationModal();
+                    }
+                });
+            }
+            
+            // Event listeners para o modal de confirmação após cancelamento
+            const successModalBtnOk = document.getElementById('success-modal-btn-ok');
+            const successConfirmationOverlay = document.getElementById('success-confirmation-overlay');
+            
+            // Botão "Entendi" no modal de sucesso
+            if (successModalBtnOk) {
+                successModalBtnOk.addEventListener('click', function() {
+                    hideSuccessModal();
+                });
+            }
+            
+            // Fechar modal de sucesso clicando no overlay (fundo)
+            if (successConfirmationOverlay) {
+                successConfirmationOverlay.addEventListener('click', function(e) {
+                    // Só fechar se clicou no overlay (não no modal)
+                    if (e.target === successConfirmationOverlay) {
+                        hideSuccessModal();
+                    }
+                });
+            }
+            
+            // Fechar modal com tecla ESC
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    const cancelOverlay = document.getElementById('cancel-confirmation-overlay');
+                    const deleteOverlay = document.getElementById('delete-account-confirmation-overlay');
+                    const successOverlay = document.getElementById('success-confirmation-overlay');
+                    
+                    if (cancelOverlay && cancelOverlay.classList.contains('show')) {
+                        hideCancelConfirmationModal();
+                    }
+                    
+                    if (deleteOverlay && deleteOverlay.classList.contains('show')) {
+                        hideDeleteAccountConfirmationModal();
+                    }
+                    
+                    if (successOverlay && successOverlay.classList.contains('show')) {
+                        hideSuccessModal();
+                    }
+                }
+            });
+            
+            // Configurar verificação periódica do plano (a cada 30 segundos)
+            // Isso permite detectar mudanças caso o usuário faça upgrade em outra aba
+            setInterval(async () => {
+                if (currentUser) {
+                    await updateUserPlanDisplay(currentUser.uid);
+                }
+            }, 30000); // 30 segundos
+            
+            // Configurar listener para mudanças de visibilidade da página
+            // Atualiza o plano quando o usuário volta para a aba
+            document.addEventListener('visibilitychange', async () => {
+                if (!document.hidden && currentUser) {
+                    console.log('👁️ Página voltou ao foco, atualizando plano...');
+                    await updateUserPlanDisplay(currentUser.uid);
+                }
+            });
+            
+            console.log('🔧 Event listeners configurados');
+        }, 100);
+    </script>
+
+    <script>
+        // Particle Generation - Mesmo da landing.html
+        const particlesContainer = document.getElementById('particles');
+        const particleCount = 50;
+        
+        for (let i = 0; i < particleCount; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.animationDelay = Math.random() * 10 + 's';
+            particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
+            particlesContainer.appendChild(particle);
+        }
+
+        // Initialize Vanta.js Background
+        function initVantaBackground() {
+            try {
+                const vantaElement = document.getElementById("vanta-bg");
+                if (!vantaElement) {
+                    return;
+                }
+                
+                if (typeof VANTA !== 'undefined' && typeof THREE !== 'undefined') {
+                    const isLowPerformance = navigator.hardwareConcurrency <= 4;
+                    const isDesktop = window.innerWidth > 768;
+                    
+                    VANTA.NET({
+                        el: "#vanta-bg",
+                        mouseControls: true,
+                        touchControls: true,
+                        gyroControls: false,
+                        minHeight: 200.00,
+                        minWidth: 200.00,
+                        scale: 1.00,
+                        scaleMobile: 1.00,
+                        color: 0x8a2be2,
+                        backgroundColor: 0x0a0a1a,
+                        points: isLowPerformance ? 3.50 : (isDesktop ? 6.00 : 3.50),
+                        maxDistance: isLowPerformance ? 13.00 : (isDesktop ? 20.00 : 13.00),
+                        spacing: isLowPerformance ? 30.00 : (isDesktop ? 20.00 : 28.00),
+                        showDots: true
+                    });
+                    console.log('Vanta.js Network background initialized');
+                } else {
+                    console.log('Vanta.js libraries not available');
+                }
+            } catch (error) {
+                console.log('Vanta.js initialization error:', error);
+            }
+        }
+        
+        // Initialize Vanta.js when libraries are loaded
+        function checkLibrariesAndInit() {
+            if (typeof VANTA !== 'undefined' && typeof THREE !== 'undefined') {
+                initVantaBackground();
+            } else {
+                setTimeout(checkLibrariesAndInit, 100);
+            }
+        }
+        
+        // Start initialization
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', checkLibrariesAndInit);
+        } else {
+            checkLibrariesAndInit();
+        }
+        
+        console.log('Background gerenciar.html carregado com sucesso!');
+    </script>
+</body>
+</html>

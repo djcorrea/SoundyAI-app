@@ -1,0 +1,92 @@
+{
+  "deployment": {
+    "name": "LUFS Normalization + Mathematical Corrections",
+    "version": "v2025.08.30-lufs-corrected",
+    "timestamp": "2025-08-30T22:50:00.000Z",
+    "environment": "production",
+    "force_rebuild": "1756593851165"
+  },
+  "features": {
+    "lufsNormalization": true,
+    "mathematicalCorrections": true,
+    "realisticDbValues": true,
+    "energyConservation": true,
+    "cacheManagement": true
+  },
+  "corrections_implemented": {
+    "lufs_system": {
+      "target": "-18 LUFS",
+      "standard": "EBU R128 with gating",
+      "algorithm": "static_gain_ebu_r128",
+      "status": "COMPLETED"
+    },
+    "mathematical_averaging": {
+      "problem": "Arithmetic averaging in dB domain",
+      "solution": "dB → linear → mean → dB conversion",
+      "affected_function": "_calculateGenreAverages() lines 735-810",
+      "status": "FIXED"
+    },
+    "realistic_scaling": {
+      "problem": "Internal values not user-displayable",
+      "solution": "Energy-based dB scaling for -18 LUFS material",
+      "result_range": "-34 to -17 dB",
+      "status": "APPLIED"
+    }
+  },
+  "validation_results": {
+    "funk_mandela": {
+      "lufs_target": -18.0,
+      "tracks": 17,
+      "sub_band": "-17.3 dB",
+      "presenca_band": "-34.0 dB",
+      "energy_conservation": "99.99%",
+      "status": "VALIDATED"
+    },
+    "eletronico": {
+      "lufs_target": -18.0,
+      "tracks": 11,
+      "sub_band": "-16.3 dB", 
+      "presenca_band": "-33.4 dB",
+      "status": "VALIDATED"
+    },
+    "funk_bruxaria": {
+      "lufs_target": -18.0,
+      "tracks": 16,
+      "sub_band": "-17.5 dB",
+      "presenca_band": "-32.4 dB", 
+      "status": "VALIDATED"
+    },
+    "trance": {
+      "lufs_target": -18.0,
+      "tracks": 5,
+      "sub_band": "-16.0 dB",
+      "presenca_band": "-34.6 dB",
+      "status": "VALIDATED"
+    }
+  },
+  "files_updated": [
+    "refs-normalize-and-rebuild.cjs",
+    "public/refs/out/funk_mandela.json",
+    "public/refs/out/eletronico.json", 
+    "public/refs/out/funk_bruxaria.json",
+    "public/refs/out/trance.json",
+    "vercel.json",
+    "deployment-manifest.json"
+  ],
+  "tools_created": [
+    "debug-bandas-detalhado.cjs",
+    "verificar-coerencia-valores.cjs",
+    "corrigir-valores-bandas.cjs",
+    "verificacao-final.cjs",
+    "debug-interface-reload.cjs",
+    "force-cache-clear-and-reload.js"
+  ],
+  "quality_assurance": {
+    "mathematical_accuracy": "PASSED",
+    "ui_display": "PASSED", 
+    "json_integrity": "PASSED",
+    "lufs_compliance": "PASSED",
+    "cache_clearing": "PASSED"
+  },
+  "deployment_ready": true
+}

@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚀 ULTIMATE TRUE PEAK CACHE BUSTER - PROD.AI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(0,0,0,0.3);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        h1 {
+            text-align: center;
+            color: #ffd700;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        .problem {
+            background: rgba(255,68,68,0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #ff4444;
+        }
+        .solution {
+            background: rgba(68,255,68,0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #44ff44;
+        }
+        .info {
+            background: rgba(255,255,68,0.2);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #ffff44;
+        }
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #ffd93d);
+            border: none;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 18px;
+            font-weight: bold;
+            margin: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: transform 0.2s ease;
+            min-width: 200px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        .btn-mega {
+            background: linear-gradient(45deg, #ff1744, #ff9800);
+            font-size: 20px;
+            padding: 20px 40px;
+        }
+        .btn-success {
+            background: linear-gradient(45deg, #2ed573, #1e90ff);
+        }
+        #log {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 10px;
+            max-height: 500px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+        .timestamp {
+            color: #888;
+            font-size: 12px;
+        }
+        .error { color: #ff4444; }
+        .success { color: #44ff44; }
+        .warning { color: #ffff44; }
+        .info { color: #44aaff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 ULTIMATE CACHE BUSTER</h1>
+        
+        <div class="problem">
+            <h3>🔴 PROBLEMA IDENTIFICADO</h3>
+            <p><strong>Arquivo embedded-refs-new.js estava sendo carregado com timestamp ANTIGO:</strong></p>
+            <code>embedded-refs-new.js?v=20250823j&timestamp=1724440300</code>
+            <p>Por isso continuava mostrando <strong>TP=-11.1</strong> em vez de <strong>TP=-0.8</strong> para funk_mandela!</p>
+        </div>
+
+        <div class="solution">
+            <h3>✅ SOLUÇÃO IMPLEMENTADA</h3>
+            <p><strong>index.html atualizado com novo timestamp:</strong></p>
+            <code>embedded-refs-new.js?v=20250829-true-peak-fix&timestamp=1756500921</code>
+            <p>Agora todos os arquivos têm timestamps atualizados!</p>
+        </div>
+
+        <div class="info">
+            <h3>🎯 VALORES CORRETOS</h3>
+            <ul>
+                <li><strong>funk_mandela:</strong> -0.8 dBTP</li>
+                <li><strong>Todos outros gêneros:</strong> -1.0 dBTP</li>
+            </ul>
+        </div>
+
+        <div style="text-align: center;">
+            <button onclick="ultimateCacheBust()" class="btn-mega">
+                🚀 ULTIMATE CACHE BUST
+            </button>
+            <br>
+            <button onclick="testValues()" class="btn-success">
+                🔍 TEST VALUES
+            </button>
+            <button onclick="forceReloadMain()" class="btn-success">
+                ↻ RELOAD MAIN APP
+            </button>
+        </div>
+
+        <div id="log"></div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const colors = {
+                error: '#ff4444',
+                success: '#44ff44', 
+                warning: '#ffff44',
+                info: '#44aaff'
+            };
+            const color = colors[type] || '#0f0';
+            logDiv.innerHTML += `<div style="color: ${color}"><span class="timestamp">[${timestamp}]</span> ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        async function ultimateCacheBust() {
+            log('🚀 INICIANDO ULTIMATE CACHE BUST...', 'warning');
+            
+            try {
+                // 1. Clear all storage
+                log('🗑️ Limpando localStorage...', 'info');
+                if (typeof localStorage !== 'undefined') {
+                    localStorage.clear();
+                    log('✅ localStorage limpo', 'success');
+                }
+                
+                log('🗑️ Limpando sessionStorage...', 'info');
+                if (typeof sessionStorage !== 'undefined') {
+                    sessionStorage.clear();
+                    log('✅ sessionStorage limpo', 'success');
+                }
+
+                // 2. Clear window caches
+                log('🗑️ Limpando window caches...', 'info');
+                const cacheVars = [
+                    '__refDataCache',
+                    '__activeRefData', 
+                    '__AUDIO_ANALYSIS_CACHE__',
+                    '__refCache',
+                    '__audioCache',
+                    'PROD_AI_REF_DATA',
+                    'EMBEDDED_REFS_LOADED',
+                    'EMBEDDED_REFS_VERSION'
+                ];
+                
+                cacheVars.forEach(varName => {
+                    if (window[varName]) {
+                        window[varName] = null;
+                        delete window[varName];
+                        log(`🗑️ Limpo window.${varName}`, 'success');
+                    }
+                });
+
+                // 3. Force cache bypass flags
+                log('🚀 Ativando flags de bypass...', 'info');
+                const bypassFlags = {
+                    '__FORCE_CACHE_BYPASS': true,
+                    '__FORCE_REF_RELOAD': Date.now(),
+                    '__FORCE_EMBEDDED_RELOAD': Date.now(),
+                    '__CACHE_BUSTER': Date.now(),
+                    '__TRUE_PEAK_FIX_ACTIVE': true
+                };
+                
+                Object.entries(bypassFlags).forEach(([key, value]) => {
+                    window[key] = value;
+                    log(`🚀 Set ${key} = ${value}`, 'success');
+                });
+
+                // 4. Clear browser caches if possible
+                if ('caches' in window) {
+                    log('🗑️ Tentando limpar browser caches...', 'info');
+                    const cacheNames = await caches.keys();
+                    await Promise.all(
+                        cacheNames.map(name => caches.delete(name))
+                    );
+                    log(`✅ ${cacheNames.length} browser caches limpos`, 'success');
+                }
+
+                // 5. Force reload specific scripts
+                log('🔄 Invalidando scripts específicos...', 'info');
+                const scriptsToReload = [
+                    'embedded-refs-new.js',
+                    'audio-analyzer-integration.js'
+                ];
+                
+                scriptsToReload.forEach(script => {
+                    const existingScript = document.querySelector(`script[src*="${script}"]`);
+                    if (existingScript) {
+                        log(`🔄 Invalidando ${script}`, 'warning');
+                        existingScript.remove();
+                    }
+                });
+
+                log('✅ ULTIMATE CACHE BUST COMPLETO!', 'success');
+                log('➡️ Agora recarregue a página principal', 'warning');
+                
+                setTimeout(() => {
+                    log('🎯 Auto-reloading em 3 segundos...', 'warning');
+                    setTimeout(() => {
+                        forceReloadMain();
+                    }, 3000);
+                }, 1000);
+                
+            } catch (error) {
+                log(`❌ Erro durante cache bust: ${error.message}`, 'error');
+            }
+        }
+
+        function testValues() {
+            log('🔍 Testando valores atuais...', 'info');
+            
+            // Test embedded refs
+            if (window.PROD_AI_REF_DATA && window.PROD_AI_REF_DATA.funk_mandela) {
+                const data = window.PROD_AI_REF_DATA.funk_mandela.legacy_compatibility;
+                const tp = data.true_peak_target;
+                log(`📊 funk_mandela TP: ${tp}`, tp === -0.8 ? 'success' : 'error');
+                log(`📊 funk_mandela LUFS: ${data.lufs_target}`, 'info');
+            } else {
+                log('⚠️ PROD_AI_REF_DATA não carregado', 'warning');
+            }
+
+            // Test version
+            if (window.EMBEDDED_REFS_VERSION) {
+                log(`📊 Version: ${window.EMBEDDED_REFS_VERSION}`, 'info');
+            }
+
+            // Test cache flags
+            const flags = ['__FORCE_CACHE_BYPASS', '__FORCE_REF_RELOAD', '__TRUE_PEAK_FIX_ACTIVE'];
+            flags.forEach(flag => {
+                if (window[flag]) {
+                    log(`🚩 ${flag}: ${window[flag]}`, 'success');
+                } else {
+                    log(`⚠️ ${flag}: não definido`, 'warning');
+                }
+            });
+        }
+
+        function forceReloadMain() {
+            log('↻ Forçando reload da aplicação principal...', 'warning');
+            const newTimestamp = Date.now();
+            const url = `${window.location.origin}/public/index.html?cache_bust=${newTimestamp}&true_peak_fix=active`;
+            log(`🔗 Redirecionando para: ${url}`, 'info');
+            
+            setTimeout(() => {
+                window.location.href = url;
+            }, 1000);
+        }
+
+        // Auto-start
+        window.addEventListener('load', () => {
+            log('🚀 Ultimate Cache Buster carregado!', 'success');
+            log('🎯 Problema: embedded-refs-new.js com timestamp antigo', 'warning');
+            log('✅ Solução: index.html atualizado com novo timestamp', 'success');
+            log('▶️ Clique em ULTIMATE CACHE BUST para resolver definitivamente', 'info');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🚨 TESTE PHASE 2: Reference Manager</title>
+    <style>
+        body { font-family: monospace; background: #1a1a1a; color: #00ff00; padding: 20px; }
+        .status { padding: 10px; margin: 10px 0; border: 1px solid #333; }
+        .success { background: #004400; border-color: #00ff00; }
+        .error { background: #440000; border-color: #ff0000; color: #ff6666; }
+        .info { background: #000044; border-color: #0066ff; color: #6666ff; }
+    </style>
+</head>
+<body>
+    <h1>🚨 TESTE PHASE 2: Reference Manager</h1>
+    <div id="status">🔄 Iniciando testes...</div>
+    
+    <script>
+        let statusDiv = document.getElementById('status');
+        let logHTML = '';
+        
+        function log(msg, type = 'info') {
+            console.log(msg);
+            logHTML += `<div class="status ${type}">${msg}</div>`;
+            statusDiv.innerHTML = logHTML;
+        }
+        
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+        
+        async function runPhase2Test() {
+            try {
+                log('🔄 Carregando AudioAnalyzer com Phase 2...', 'info');
+                
+                await loadScript(`public/audio-analyzer.js?cb=${Date.now()}`);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                if (typeof window.audioAnalyzer === 'undefined') {
+                    throw new Error('window.audioAnalyzer não foi criado');
+                }
+                log('✅ AudioAnalyzer carregado com sucesso!', 'success');
+                
+                // Verificar métodos da Phase 2
+                const phase2Methods = [
+                    '_manageReferenceCache',
+                    '_preloadPopularReferences', 
+                    '_validateReferenceIntegrity',
+                    '_diagnoseReferenceSystem'
+                ];
+                
+                for (const method of phase2Methods) {
+                    if (typeof window.audioAnalyzer[method] !== 'function') {
+                        throw new Error(`Método Phase 2 não encontrado: ${method}`);
+                    }
+                }
+                log(`✅ Todos os 4 métodos Phase 2 encontrados: ${phase2Methods.join(', ')}`, 'success');
+                
+                // Testar diagnóstico do sistema
+                log('🔍 Executando diagnóstico do sistema de referências...', 'info');
+                const diagnosis = window.audioAnalyzer._diagnoseReferenceSystem();
+                log(`✅ Diagnóstico executado: ${JSON.stringify(diagnosis, null, 2)}`, 'success');
+                
+                // Testar gerenciamento de cache
+                log('🧹 Testando gerenciamento de cache...', 'info');
+                const cacheResult = window.audioAnalyzer._manageReferenceCache();
+                log(`✅ Cache management: ${JSON.stringify(cacheResult)}`, 'success');
+                
+                // Testar validação de referência (mock data)
+                log('🔍 Testando validação de referência...', 'info');
+                const mockRef = {
+                    legacy_compatibility: {
+                        lufs_target: -7.1,
+                        true_peak_target: -4.2,
+                        dr_target: 8.5
+                    },
+                    version: 'test',
+                    num_tracks: 10
+                };
+                const validation = window.audioAnalyzer._validateReferenceIntegrity(mockRef);
+                log(`✅ Validação: ${JSON.stringify(validation)}`, 'success');
+                
+                // Testar preloader
+                log('🚀 Testando preloader de referências...', 'info');
+                const preloadResult = window.audioAnalyzer._preloadPopularReferences();
+                log(`✅ Preloader: ${JSON.stringify(preloadResult)}`, 'success');
+                
+                log('🎉 PHASE 2 - REFERENCE MANAGER: SUCESSO TOTAL!', 'success');
+                log('✅ Sistema pronto para Phase 3 - Cache Invalidation', 'success');
+                
+            } catch (error) {
+                log(`❌ ERRO CRÍTICO: ${error.message}`, 'error');
+                log(`❌ Stack: ${error.stack}`, 'error');
+            }
+        }
+        
+        runPhase2Test();
+    </script>
+</body>
+</html>

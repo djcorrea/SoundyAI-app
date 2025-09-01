@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>DIAGNÓSTICO CACHE - PROD.AI</title>
+    <style>
+        body { 
+            font-family: monospace; 
+            background: #0b0f14; 
+            color: #00d4ff; 
+            padding: 20px; 
+            line-height: 1.6;
+        }
+        .success { color: #00ff92; font-weight: bold; }
+        .error { color: #ff4444; font-weight: bold; }
+        .warning { color: #ffa500; font-weight: bold; }
+        .info { color: #00d4ff; }
+        .section { 
+            margin: 20px 0; 
+            padding: 15px; 
+            border: 1px solid #333; 
+            background: #1a1a1a; 
+        }
+        button { 
+            padding: 12px 20px; 
+            margin: 5px; 
+            background: linear-gradient(135deg, #00d4ff, #0096cc); 
+            color: #000; 
+            border: none; 
+            cursor: pointer; 
+            font-weight: bold;
+            border-radius: 8px;
+        }
+        pre { 
+            background: #0a0a0a; 
+            padding: 15px; 
+            border-left: 4px solid #00d4ff; 
+            white-space: pre-wrap; 
+            font-size: 12px;
+        }
+        .timestamp { 
+            font-size: 10px; 
+            color: #666; 
+            float: right; 
+        }
+        .diagnostic-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔥 DIAGNÓSTICO DE CACHE - PROD.AI ANALYZER</h1>
+    <div class="timestamp">Carregado em: <span id="loadTime"></span></div>
+    
+    <div class="section">
+        <h3>🚨 INSTRUÇÕES CRÍTICAS PARA CACHE</h3>
+        <ol>
+            <li><strong>Feche COMPLETAMENTE o browser</strong> (todas as abas e janelas)</li>
+            <li><strong>Limpe o cache:</strong> Ctrl+Shift+Delete → Marcar "Cached images and files" → Delete</li>
+            <li><strong>Reabra o browser</strong> e navegue para esta página novamente</li>
+            <li>Ou use <strong>modo incognito/privado</strong> para testar sem cache</li>
+        </ol>
+    </div>
+
+    <div class="diagnostic-grid">
+        <div class="section">
+            <h3>📊 Status dos Scripts</h3>
+            <div id="scriptStatus">Verificando...</div>
+            <button onclick="checkScripts()">🔄 Recheck Scripts</button>
+        </div>
+
+        <div class="section">
+            <h3>🧪 Status do Sistema de Gênero</h3>
+            <div id="genreStatus">Verificando...</div>
+            <button onclick="testGenreSystem()">🧪 Testar Sistema</button>
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>📝 Log de Diagnóstico</h3>
+        <pre id="diagnosticLog">Iniciando diagnóstico...</pre>
+        <button onclick="clearLog()">🗑️ Limpar Log</button>
+        <button onclick="downloadLog()">💾 Baixar Log</button>
+    </div>
+
+    <div class="section">
+        <h3>⚡ Ações de Emergência</h3>
+        <button onclick="forceClearEverything()">💥 LIMPEZA TOTAL</button>
+        <button onclick="reloadWithoutCache()">🔄 Reload Força Bruta</button>
+    </div>
+
+    <!-- CARREGAMENTO DOS SCRIPTS REAIS NA ORDEM CORRETA -->
+    <script src="audio-analyzer.js?v=20250812" defer></script>
+    <!-- Opcional: carregar embutido; o integrador já tem fallback inline -->
+    <!-- <script src="refs/embedded-refs.js?v=20250812" defer></script> -->
+    <script src="audio-analyzer-integration.js?v=20250812" defer></script>
+
+    <script>
+    // Forçar modo offline (sem rede) para evitar 404 de refs em produção
+    window.REFS_ALLOW_NETWORK = false;
+    // Timestamp de carregamento
+        document.getElementById('loadTime').textContent = new Date().toLocaleString();
+        
+        let logContent = '';
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️';
+            const line = `[${timestamp}] ${icon} ${message}\n`;
+            logContent += line;
+            document.getElementById('diagnosticLog').textContent = logContent;
+            console.log(`[DIAGNOSTIC] ${message}`);
+        }
+
+        function checkScripts() {
+            log('Verificando carregamento dos scripts...');
+            
+            const scriptElements = [
+                { name: 'audio-analyzer-integration.js', selector: 'script[src*="audio-analyzer-integration.js"]' },
+                { name: 'audio-analyzer.js', selector: 'script[src*="audio-analyzer.js"]' },
+                { name: 'audio-analyzer-v2.js', selector: 'script[src*="audio-analyzer-v2.js"]' }
+            ];
+            
+            let allGood = true;
+            
+            scriptElements.forEach(({name, selector}) => {
+                const elements = document.querySelectorAll(selector);
+                if (elements.length > 0) {
+                    log(`${name}: ENCONTRADO (${elements.length} elementos)`, 'success');
+                } else {
+                    log(`${name}: NÃO ENCONTRADO`, 'error');
+                    allGood = false;
+                }
+            });
+            
+            // Check window objects
+            setTimeout(() => {
+                const checks = {
+                    'window.audioAnalyzer': !!window.audioAnalyzer,
+                    'window.AudioAnalyzerV2': !!window.AudioAnalyzerV2,
+                    'applyGenreSelection': typeof applyGenreSelection === 'function',
+                    'openGenreSelectionModal': typeof openGenreSelectionModal === 'function'
+                };
+                
+                Object.entries(checks).forEach(([name, exists]) => {
+                    if (exists) {
+                        log(`${name}: DISPONÍVEL`, 'success');
+                    } else {
+                        log(`${name}: INDISPONÍVEL`, 'error');
+                        allGood = false;
+                    }
+                });
+                
+                // Check version
+                if (window.audioAnalyzer && window.audioAnalyzer.__buildVersion) {
+                    const version = window.audioAnalyzer.__buildVersion;
+                    log(`Versão V2: ${version}`, version.includes('NOCACHE') ? 'success' : 'warning');
+                    
+                    if (!version.includes('NOCACHE') || !version.includes('v3.0')) {
+                        log('⚠️ VERSÃO ANTIGA DETECTADA! Cache não foi limpo', 'error');
+                        document.getElementById('scriptStatus').innerHTML = '<span class="error">❌ CACHE PROBLEMÁTICO - SIGA INSTRUÇÕES ACIMA</span>';
+                        return;
+                    }
+                }
+                
+                document.getElementById('scriptStatus').innerHTML = allGood ? 
+                    '<span class="success">✅ Todos os scripts OK</span>' : 
+                    '<span class="error">❌ Problemas detectados</span>';
+                
+            }, 5000); // Aguardar mais tempo para V2 carregar
+        }
+
+        async function testGenreSystem() {
+            log('Testando sistema de gênero...');
+            
+            try {
+                // Pular teste de rede para refs quando offline
+                log('Modo REFS_ALLOW_NETWORK=false: pulando fetch de refs.', 'warning');
+                
+                // Test applyGenreSelection if available
+                if (typeof applyGenreSelection === 'function') {
+                    log('Testando aplicação de gênero...', 'info');
+                    await applyGenreSelection('funk_mandela');
+                    
+                    if (window.PROD_AI_REF_GENRE) {
+                        log(`Gênero aplicado: ${window.PROD_AI_REF_GENRE}`, 'success');
+                        log(`Dados preloaded: ${!!window.PROD_AI_REF_DATA}`, window.PROD_AI_REF_DATA ? 'success' : 'error');
+                        
+                        document.getElementById('genreStatus').innerHTML = '<span class="success">✅ Sistema funcionando</span>';
+                    } else {
+                        log('Falha ao aplicar gênero', 'error');
+                        document.getElementById('genreStatus').innerHTML = '<span class="error">❌ Sistema com problema</span>';
+                    }
+                } else {
+                    log('Função applyGenreSelection não disponível', 'error');
+                    document.getElementById('genreStatus').innerHTML = '<span class="error">❌ Scripts não carregaram</span>';
+                }
+                
+            } catch (error) {
+                log(`Erro no teste: ${error.message}`, 'error');
+                document.getElementById('genreStatus').innerHTML = '<span class="error">❌ Erro no teste</span>';
+            }
+        }
+
+        function forceClearEverything() {
+            log('Executando limpeza total...', 'warning');
+            
+            try {
+                // Clear all storage
+                localStorage.clear();
+                sessionStorage.clear();
+                
+                // Clear cache if supported
+                if ('caches' in window) {
+                    caches.keys().then(names => {
+                        names.forEach(name => {
+                            caches.delete(name);
+                            log(`Cache deletado: ${name}`, 'success');
+                        });
+                    });
+                }
+                
+                // Clear service workers
+                if ('serviceWorker' in navigator) {
+                    navigator.serviceWorker.getRegistrations().then(registrations => {
+                        registrations.forEach(registration => {
+                            registration.unregister();
+                            log('Service worker removido', 'success');
+                        });
+                    });
+                }
+                
+                log('Limpeza concluída! Recarregue a página.', 'success');
+                
+            } catch (error) {
+                log(`Erro na limpeza: ${error.message}`, 'error');
+            }
+        }
+
+        function reloadWithoutCache() {
+            log('Forçando reload sem cache...', 'warning');
+            window.location.reload(true);
+        }
+
+        function clearLog() {
+            logContent = '';
+            document.getElementById('diagnosticLog').textContent = 'Log limpo.';
+        }
+
+        function downloadLog() {
+            const blob = new Blob([logContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `prodai-diagnostic-${Date.now()}.txt`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Auto-start diagnostics
+        document.addEventListener('DOMContentLoaded', () => {
+            log('Diagnóstico iniciado', 'info');
+            
+            // Aguardar tempo suficiente para scripts carregarem (defer)
+            setTimeout(() => {
+                checkScripts();
+            }, 2000);
+            
+            setTimeout(() => {
+                testGenreSystem();
+            }, 4000); // Aguardar mais tempo
+        });
+    </script>
+</body>
+</html>

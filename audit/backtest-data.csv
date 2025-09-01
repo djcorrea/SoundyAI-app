@@ -1,0 +1,121 @@
+genre,quality,sample_id,v1_score,v2_score,improvement,v1_class,v2_class
+funk_mandela,good,funk_mandela_good_1,33,100,67,Problemático,Referência Mundial
+funk_mandela,good,funk_mandela_good_2,33,100,67,Problemático,Referência Mundial
+funk_mandela,good,funk_mandela_good_3,35,100,65,Problemático,Referência Mundial
+funk_mandela,good,funk_mandela_good_4,33,100,67,Problemático,Referência Mundial
+funk_mandela,good,funk_mandela_good_5,33,100,67,Problemático,Referência Mundial
+funk_mandela,good,funk_mandela_good_6,38,100,62,Problemático,Referência Mundial
+funk_mandela,good,funk_mandela_good_7,33,100,67,Problemático,Referência Mundial
+funk_mandela,good,funk_mandela_good_8,30,100,70,Problemático,Referência Mundial
+funk_mandela,good,funk_mandela_good_9,35,100,65,Problemático,Referência Mundial
+funk_mandela,good,funk_mandela_good_10,30,100,70,Problemático,Referência Mundial
+funk_mandela,good,funk_mandela_good_11,30,100,70,Problemático,Referência Mundial
+funk_mandela,good,funk_mandela_good_12,38,100,62,Problemático,Referência Mundial
+funk_mandela,good,funk_mandela_good_13,33,100,67,Problemático,Referência Mundial
+funk_mandela,good,funk_mandela_good_14,35,100,65,Problemático,Referência Mundial
+funk_mandela,good,funk_mandela_good_15,33,100,67,Problemático,Referência Mundial
+funk_mandela,good,funk_mandela_good_16,33,100,67,Problemático,Referência Mundial
+funk_mandela,good,funk_mandela_good_17,38,100,62,Problemático,Referência Mundial
+funk_mandela,good,funk_mandela_good_18,38,100,62,Problemático,Referência Mundial
+funk_mandela,good,funk_mandela_good_19,30,100,70,Problemático,Referência Mundial
+funk_mandela,good,funk_mandela_good_20,33,100,67,Problemático,Referência Mundial
+funk_mandela,average,funk_mandela_average_1,17,87,70,Problemático,Referência Mundial
+funk_mandela,average,funk_mandela_average_2,30,98,68,Problemático,Referência Mundial
+funk_mandela,average,funk_mandela_average_3,30,98,68,Problemático,Referência Mundial
+funk_mandela,average,funk_mandela_average_4,19,92,73,Problemático,Referência Mundial
+funk_mandela,average,funk_mandela_average_5,19,92,73,Problemático,Referência Mundial
+funk_mandela,average,funk_mandela_average_6,7,87,80,Problemático,Referência Mundial
+funk_mandela,average,funk_mandela_average_7,18,90,72,Problemático,Referência Mundial
+funk_mandela,average,funk_mandela_average_8,18,88,70,Problemático,Referência Mundial
+funk_mandela,average,funk_mandela_average_9,20,100,80,Problemático,Referência Mundial
+funk_mandela,average,funk_mandela_average_10,20,98,78,Problemático,Referência Mundial
+funk_mandela,average,funk_mandela_average_11,10,87,77,Problemático,Referência Mundial
+funk_mandela,average,funk_mandela_average_12,9,93,84,Problemático,Referência Mundial
+funk_mandela,average,funk_mandela_average_13,18,89,71,Problemático,Referência Mundial
+funk_mandela,average,funk_mandela_average_14,18,90,72,Problemático,Referência Mundial
+funk_mandela,average,funk_mandela_average_15,7,86,79,Problemático,Referência Mundial
+funk_mandela,average,funk_mandela_average_16,18,90,72,Problemático,Referência Mundial
+funk_mandela,average,funk_mandela_average_17,30,99,69,Problemático,Referência Mundial
+funk_mandela,average,funk_mandela_average_18,8,89,81,Problemático,Referência Mundial
+funk_mandela,average,funk_mandela_average_19,30,98,68,Problemático,Referência Mundial
+funk_mandela,average,funk_mandela_average_20,30,99,69,Problemático,Referência Mundial
+funk_mandela,poor,funk_mandela_poor_1,0,48,48,Problemático,Básico
+funk_mandela,poor,funk_mandela_poor_2,0,46,46,Problemático,Básico
+funk_mandela,poor,funk_mandela_poor_3,0,38,38,Problemático,Problemático
+funk_mandela,poor,funk_mandela_poor_4,0,46,46,Problemático,Básico
+funk_mandela,poor,funk_mandela_poor_5,0,28,28,Problemático,Problemático
+funk_mandela,poor,funk_mandela_poor_6,0,37,37,Problemático,Problemático
+funk_mandela,poor,funk_mandela_poor_7,0,36,36,Problemático,Problemático
+funk_mandela,poor,funk_mandela_poor_8,0,48,48,Problemático,Básico
+funk_mandela,poor,funk_mandela_poor_9,0,47,47,Problemático,Básico
+funk_mandela,poor,funk_mandela_poor_10,0,41,41,Problemático,Básico
+funk_mandela,poor,funk_mandela_poor_11,0,31,31,Problemático,Problemático
+funk_mandela,poor,funk_mandela_poor_12,0,28,28,Problemático,Problemático
+funk_mandela,poor,funk_mandela_poor_13,0,43,43,Problemático,Básico
+funk_mandela,poor,funk_mandela_poor_14,0,28,28,Problemático,Problemático
+funk_mandela,poor,funk_mandela_poor_15,0,48,48,Problemático,Básico
+funk_mandela,poor,funk_mandela_poor_16,0,31,31,Problemático,Problemático
+funk_mandela,poor,funk_mandela_poor_17,0,28,28,Problemático,Problemático
+funk_mandela,poor,funk_mandela_poor_18,0,48,48,Problemático,Básico
+funk_mandela,poor,funk_mandela_poor_19,0,42,42,Problemático,Básico
+funk_mandela,poor,funk_mandela_poor_20,0,36,36,Problemático,Problemático
+eletronico,good,eletronico_good_1,39,71,32,Problemático,Intermediário
+eletronico,good,eletronico_good_2,45,67,22,Básico,Intermediário
+eletronico,good,eletronico_good_3,45,73,28,Básico,Intermediário
+eletronico,good,eletronico_good_4,45,71,26,Básico,Intermediário
+eletronico,good,eletronico_good_5,40,83,43,Básico,Avançado
+eletronico,good,eletronico_good_6,45,84,39,Básico,Avançado
+eletronico,good,eletronico_good_7,45,80,35,Básico,Avançado
+eletronico,good,eletronico_good_8,38,73,35,Problemático,Intermediário
+eletronico,good,eletronico_good_9,40,78,38,Básico,Avançado
+eletronico,good,eletronico_good_10,40,84,44,Básico,Avançado
+eletronico,good,eletronico_good_11,45,57,12,Básico,Básico
+eletronico,good,eletronico_good_12,45,64,19,Básico,Intermediário
+eletronico,good,eletronico_good_13,38,71,33,Problemático,Intermediário
+eletronico,good,eletronico_good_14,45,71,26,Básico,Intermediário
+eletronico,good,eletronico_good_15,38,71,33,Problemático,Intermediário
+eletronico,good,eletronico_good_16,45,71,26,Básico,Intermediário
+eletronico,good,eletronico_good_17,45,56,11,Básico,Básico
+eletronico,good,eletronico_good_18,45,71,26,Básico,Intermediário
+eletronico,good,eletronico_good_19,45,74,29,Básico,Intermediário
+eletronico,good,eletronico_good_20,38,70,32,Problemático,Intermediário
+eletronico,average,eletronico_average_1,40,81,41,Básico,Avançado
+eletronico,average,eletronico_average_2,34,78,44,Problemático,Avançado
+eletronico,average,eletronico_average_3,40,77,37,Básico,Avançado
+eletronico,average,eletronico_average_4,40,84,44,Básico,Avançado
+eletronico,average,eletronico_average_5,40,73,33,Básico,Intermediário
+eletronico,average,eletronico_average_6,33,70,37,Problemático,Intermediário
+eletronico,average,eletronico_average_7,40,84,44,Básico,Avançado
+eletronico,average,eletronico_average_8,40,85,45,Básico,Referência Mundial
+eletronico,average,eletronico_average_9,40,71,31,Básico,Intermediário
+eletronico,average,eletronico_average_10,40,75,35,Básico,Intermediário
+eletronico,average,eletronico_average_11,40,82,42,Básico,Avançado
+eletronico,average,eletronico_average_12,40,82,42,Básico,Avançado
+eletronico,average,eletronico_average_13,40,86,46,Básico,Referência Mundial
+eletronico,average,eletronico_average_14,40,79,39,Básico,Avançado
+eletronico,average,eletronico_average_15,40,75,35,Básico,Intermediário
+eletronico,average,eletronico_average_16,40,70,30,Básico,Intermediário
+eletronico,average,eletronico_average_17,40,69,29,Básico,Intermediário
+eletronico,average,eletronico_average_18,40,86,46,Básico,Referência Mundial
+eletronico,average,eletronico_average_19,40,85,45,Básico,Referência Mundial
+eletronico,average,eletronico_average_20,40,75,35,Básico,Avançado
+eletronico,poor,eletronico_poor_1,0,51,51,Problemático,Básico
+eletronico,poor,eletronico_poor_2,0,53,53,Problemático,Básico
+eletronico,poor,eletronico_poor_3,0,54,54,Problemático,Básico
+eletronico,poor,eletronico_poor_4,0,53,53,Problemático,Básico
+eletronico,poor,eletronico_poor_5,0,50,50,Problemático,Básico
+eletronico,poor,eletronico_poor_6,0,51,51,Problemático,Básico
+eletronico,poor,eletronico_poor_7,0,51,51,Problemático,Básico
+eletronico,poor,eletronico_poor_8,0,51,51,Problemático,Básico
+eletronico,poor,eletronico_poor_9,0,50,50,Problemático,Básico
+eletronico,poor,eletronico_poor_10,0,52,52,Problemático,Básico
+eletronico,poor,eletronico_poor_11,0,52,52,Problemático,Básico
+eletronico,poor,eletronico_poor_12,0,54,54,Problemático,Básico
+eletronico,poor,eletronico_poor_13,0,52,52,Problemático,Básico
+eletronico,poor,eletronico_poor_14,0,50,50,Problemático,Básico
+eletronico,poor,eletronico_poor_15,0,51,51,Problemático,Básico
+eletronico,poor,eletronico_poor_16,0,52,52,Problemático,Básico
+eletronico,poor,eletronico_poor_17,0,50,50,Problemático,Básico
+eletronico,poor,eletronico_poor_18,0,51,51,Problemático,Básico
+eletronico,poor,eletronico_poor_19,0,49,49,Problemático,Básico
+eletronico,poor,eletronico_poor_20,0,52,52,Problemático,Básico

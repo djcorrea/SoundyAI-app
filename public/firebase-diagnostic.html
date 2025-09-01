@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnóstico Firebase - Teste de Configuração</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #fff;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background: #16213e;
+        }
+        .success { color: #4caf50; }
+        .error { color: #f44336; }
+        .warning { color: #ff9800; }
+        .info { color: #2196f3; }
+        pre {
+            background: #000;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        button {
+            background: #7b2cbf;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #6a1b9a;
+        }
+        #recaptcha-test {
+            border: 2px dashed #333;
+            padding: 20px;
+            margin: 10px 0;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Diagnóstico Firebase - Sistema de Autenticação</h1>
+    
+    <div class="test-section">
+        <h2>📋 Informações do Sistema</h2>
+        <div id="system-info"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>🔗 Status de Carregamento</h2>
+        <div id="loading-status"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>🔑 Configuração Firebase</h2>
+        <div id="firebase-config"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>🛡️ Teste reCAPTCHA</h2>
+        <button onclick="testRecaptcha()">Testar reCAPTCHA</button>
+        <div id="recaptcha-test"></div>
+        <div id="recaptcha-status"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>📱 Teste SMS (Simulação)</h2>
+        <input type="tel" id="test-phone" placeholder="+5511987654321" value="+5511987654321">
+        <button onclick="testSMS()">Testar Envio SMS</button>
+        <div id="sms-status"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>🔍 Console de Debug</h2>
+        <div id="debug-console"></div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js';
+        import { 
+            getAuth, 
+            RecaptchaVerifier, 
+            signInWithPhoneNumber 
+        } from 'https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js';
+
+        // Configuração Firebase (atualizada para consistência)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBKby0RdIOGorhrfBRMCWnL25peU3epGTw",
+            authDomain: "prodai-58436.firebaseapp.com",
+            projectId: "prodai-58436",
+            storageBucket: "prodai-58436.appspot.com",
+            messagingSenderId: "801631191322",
+            appId: "1:801631322:web:80e3d29cf7468331652ca3",
+            measurementId: "G-MBDHDYN6Z0"
+        };
+
+        // Variáveis globais
+        let app, auth, recaptchaVerifier;
+        let debugLog = [];
+
+        function addToDebug(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            debugLog.push(`[${timestamp}] ${type.toUpperCase()}: ${message}`);
+            updateDebugConsole();
+            
+            // Também mostrar no console do navegador
+            console.log(`[DIAGNOSTIC] ${message}`);
+        }
+
+        function updateDebugConsole() {
+            const console = document.getElementById('debug-console');
+            console.innerHTML = `<pre>${debugLog.slice(-20).join('\n')}</pre>`;
+        }
+
+        function updateSection(sectionId, content, className = '') {
+            const element = document.getElementById(sectionId);
+            element.innerHTML = content;
+            if (className) element.className = className;
+        }
+
+        // Inicialização
+        try {
+            addToDebug('Inicializando Firebase...');
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            addToDebug('✅ Firebase inicializado com sucesso', 'success');
+        } catch (error) {
+            addToDebug(`❌ Erro ao inicializar Firebase: ${error.message}`, 'error');
+        }
+
+        // Informações do sistema
+        const systemInfo = `
+            <div class="info">
+                <strong>Navegador:</strong> ${navigator.userAgent}<br>
+                <strong>Domínio:</strong> ${window.location.hostname}<br>
+                <strong>Protocolo:</strong> ${window.location.protocol}<br>
+                <strong>URL Completa:</strong> ${window.location.href}<br>
+                <strong>Timestamp:</strong> ${new Date().toLocaleString()}
+            </div>
+        `;
+        updateSection('system-info', systemInfo);
+
+        // Status de carregamento
+        function checkLoadingStatus() {
+            const status = [];
+            
+            if (typeof window.firebase !== 'undefined') {
+                status.push('<span class="success">✅ Firebase Global Carregado</span>');
+            } else {
+                status.push('<span class="warning">⚠️ Firebase Global Não Encontrado</span>');
+            }
+            
+            if (typeof RecaptchaVerifier !== 'undefined') {
+                status.push('<span class="success">✅ RecaptchaVerifier Disponível</span>');
+            } else {
+                status.push('<span class="error">❌ RecaptchaVerifier Não Encontrado</span>');
+            }
+            
+            if (typeof window.grecaptcha !== 'undefined') {
+                status.push('<span class="success">✅ Google reCAPTCHA Carregado</span>');
+            } else {
+                status.push('<span class="warning">⚠️ Google reCAPTCHA Não Carregado</span>');
+            }
+            
+            updateSection('loading-status', status.join('<br>'));
+        }
+        
+        // Configuração Firebase
+        function showFirebaseConfig() {
+            const configDisplay = `
+                <div class="info">
+                    <strong>Project ID:</strong> ${firebaseConfig.projectId}<br>
+                    <strong>Auth Domain:</strong> ${firebaseConfig.authDomain}<br>
+                    <strong>API Key:</strong> ${firebaseConfig.apiKey.substring(0, 10)}...<br>
+                    <strong>App ID:</strong> ${firebaseConfig.appId}
+                </div>
+            `;
+            updateSection('firebase-config', configDisplay);
+        }
+
+        // Teste reCAPTCHA
+        window.testRecaptcha = async function() {
+            try {
+                addToDebug('Iniciando teste do reCAPTCHA...');
+                updateSection('recaptcha-status', '<span class="info">🔄 Testando reCAPTCHA...</span>');
+                
+                // Limpar container
+                const container = document.getElementById('recaptcha-test');
+                container.innerHTML = '<div id="recaptcha-container"></div>';
+                
+                // Criar RecaptchaVerifier
+                recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+                    size: 'normal',
+                    callback: (response) => {
+                        addToDebug('✅ reCAPTCHA resolvido com sucesso', 'success');
+                        updateSection('recaptcha-status', '<span class="success">✅ reCAPTCHA funcionando!</span>');
+                    },
+                    'expired-callback': () => {
+                        addToDebug('⏰ reCAPTCHA expirou', 'warning');
+                        updateSection('recaptcha-status', '<span class="warning">⏰ reCAPTCHA expirou</span>');
+                    },
+                    'error-callback': (error) => {
+                        addToDebug(`❌ Erro no callback do reCAPTCHA: ${error}`, 'error');
+                        updateSection('recaptcha-status', '<span class="error">❌ Erro no reCAPTCHA</span>');
+                    }
+                });
+                
+                // Renderizar
+                await recaptchaVerifier.render();
+                addToDebug('✅ reCAPTCHA renderizado com sucesso', 'success');
+                updateSection('recaptcha-status', '<span class="success">✅ reCAPTCHA renderizado! Complete o desafio acima.</span>');
+                
+            } catch (error) {
+                addToDebug(`❌ Erro ao testar reCAPTCHA: ${error.message}`, 'error');
+                updateSection('recaptcha-status', `<span class="error">❌ Erro: ${error.message}</span>`);
+            }
+        };
+
+        // Teste SMS
+        window.testSMS = async function() {
+            const phone = document.getElementById('test-phone').value;
+            
+            if (!recaptchaVerifier) {
+                updateSection('sms-status', '<span class="error">❌ Execute primeiro o teste do reCAPTCHA</span>');
+                return;
+            }
+            
+            try {
+                addToDebug(`Testando envio SMS para: ${phone}`);
+                updateSection('sms-status', '<span class="info">🔄 Tentando enviar SMS...</span>');
+                
+                const confirmationResult = await signInWithPhoneNumber(auth, phone, recaptchaVerifier);
+                addToDebug('✅ SMS enviado com sucesso!', 'success');
+                updateSection('sms-status', '<span class="success">✅ SMS enviado! (Este é apenas um teste)</span>');
+                
+            } catch (error) {
+                addToDebug(`❌ Erro ao enviar SMS: ${error.message}`, 'error');
+                updateSection('sms-status', `<span class="error">❌ Erro: ${error.message}</span>`);
+            }
+        };
+
+        // Executar verificações iniciais
+        setTimeout(() => {
+            checkLoadingStatus();
+            showFirebaseConfig();
+        }, 1000);
+
+    </script>
+</body>
+</html>

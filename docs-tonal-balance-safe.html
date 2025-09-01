@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📖 Documentação - Tonal Balance Safe V1</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0b0f;
+            color: #e9e9f1;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 30px;
+            background: linear-gradient(135deg, #1a1d29 0%, #2a2d3a 100%);
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .section {
+            background: #1a1d29;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 20px 0;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .section h2 {
+            color: #81c784;
+            margin-top: 0;
+            border-bottom: 2px solid #81c784;
+            padding-bottom: 10px;
+        }
+        
+        .section h3 {
+            color: #90caf9;
+            margin-top: 24px;
+        }
+        
+        .code-block {
+            background: #0e1422;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 12px 0;
+            font-family: 'Courier New', monospace;
+            border-left: 4px solid #81c784;
+            overflow-x: auto;
+        }
+        
+        .alert {
+            padding: 16px;
+            border-radius: 8px;
+            margin: 16px 0;
+            border-left: 4px solid;
+        }
+        
+        .alert.success {
+            background: #143f2b;
+            border-color: #29c182;
+            color: #29c182;
+        }
+        
+        .alert.warning {
+            background: #4d3808;
+            border-color: #ffce4d;
+            color: #ffce4d;
+        }
+        
+        .alert.error {
+            background: #4a1d1d;
+            border-color: #ff7d7d;
+            color: #ff7d7d;
+        }
+        
+        .alert.info {
+            background: #1a2332;
+            border-color: #90caf9;
+            color: #90caf9;
+        }
+        
+        .feature-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 16px;
+            margin: 20px 0;
+        }
+        
+        .feature-card {
+            background: #0e1422;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #81c784;
+        }
+        
+        .feature-card h4 {
+            margin-top: 0;
+            color: #81c784;
+        }
+        
+        .test-results {
+            background: #0e1422;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 16px 0;
+            border: 1px solid #333;
+        }
+        
+        .test-case {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #333;
+        }
+        
+        .test-case:last-child {
+            border-bottom: none;
+        }
+        
+        .test-case .status {
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        
+        .test-case .status.pass {
+            background: #143f2b;
+            color: #29c182;
+        }
+        
+        .test-case .status.fail {
+            background: #4a1d1d;
+            color: #ff7d7d;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #333;
+        }
+        
+        th {
+            background: #0e1422;
+            color: #81c784;
+            font-weight: 600;
+        }
+        
+        .button {
+            background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 8px 8px 8px 0;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
+        }
+        
+        .button.secondary {
+            background: linear-gradient(135deg, #424242 0%, #303030 100%);
+        }
+        
+        .command {
+            background: #0a0b0f;
+            color: #81c784;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛡️ Tonal Balance Safe V1</h1>
+            <p><strong>Sistema seguro para validação e exibição do bloco "Sub / Low / Mid / High"</strong></p>
+            <p>Garantindo dados reais e distintos das bandas espectrais corretas</p>
+        </div>
+
+        <!-- Resumo Executivo -->
+        <div class="section">
+            <h2>📋 Resumo Executivo</h2>
+            
+            <div class="alert success">
+                <strong>✅ IMPLEMENTAÇÃO COMPLETA:</strong> Sistema totalmente funcional com feature flag ativa por padrão, validação automática na origem, migração transparente e testes abrangentes.
+            </div>
+            
+            <div class="feature-list">
+                <div class="feature-card">
+                    <h4>🔍 Validação Inteligente</h4>
+                    <p>Detecta automaticamente dados problemáticos (valores idênticos, fora de faixa, insuficientes) e oculta o bloco quando necessário.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🛡️ Segurança por Design</h4>
+                    <p>Feature flag para rollback rápido, validação na origem dos dados, migração transparente sem quebrar APIs existentes.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>⚡ Zero Regressões</h4>
+                    <p>Mantém compatibilidade total com sistema existente, apenas adiciona camada de validação inteligente.</p>
+                </div>
+                <div class="feature-card">
+                    <h4>🧪 Amplamente Testado</h4>
+                    <p>Suite completa de testes automatizados, validação visual, testes de integração e casos extremos.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Como Funciona -->
+        <div class="section">
+            <h2>⚙️ Como Funciona</h2>
+            
+            <h3>🎯 Objetivo</h3>
+            <p>Garantir que o bloco "Sub / Low / Mid / High" exiba valores reais e distintos das bandas espectrais corretas. Quando os dados forem insuficientes ou duvidosos, o bloco é automaticamente ocultado (mostra "—") para evitar informações enganosas.</p>
+            
+            <h3>🔄 Fluxo de Validação</h3>
+            <ol>
+                <li><strong>Interceptação na Origem:</strong> Dados são validados no <code>audio-analyzer.js</code> antes de criar <code>tonalBalance</code></li>
+                <li><strong>Validação Rigorosa:</strong> Verifica estrutura, faixas sensatas, diversidade de valores</li>
+                <li><strong>Decisão Inteligente:</strong> Aprova apenas dados com pelo menos 2 bandas válidas e valores distintos</li>
+                <li><strong>Renderização Segura:</strong> UI recebe dados pré-validados ou <code>null</code> (exibe "—")</li>
+            </ol>
+            
+            <h3>📊 Critérios de Validação</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Critério</th>
+                        <th>Valor</th>
+                        <th>Descrição</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Bandas Mínimas</td>
+                        <td>2</td>
+                        <td>Pelo menos 2 bandas devem ter dados válidos</td>
+                    </tr>
+                    <tr>
+                        <td>Threshold Válido</td>
+                        <td>60%</td>
+                        <td>60% das bandas devem estar válidas</td>
+                    </tr>
+                    <tr>
+                        <td>Faixa RMS</td>
+                        <td>-80dB a +20dB</td>
+                        <td>Valores fora desta faixa são rejeitados</td>
+                    </tr>
+                    <tr>
+                        <td>Tolerância Unicidade</td>
+                        <td>0.5dB</td>
+                        <td>Diferença mínima entre valores para evitar repetição</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Implementação -->
+        <div class="section">
+            <h2>🔧 Implementação</h2>
+            
+            <h3>📁 Arquivos Criados</h3>
+            <ul>
+                <li><code>tonal-balance-safe-v1.js</code> - Sistema principal de validação</li>
+                <li><code>auto-validator-tonal-safe.js</code> - Validador automático para debug</li>
+                <li><code>teste-tonal-balance-safe.html</code> - Página de testes dedicada</li>
+                <li>Modificações em <code>audio-analyzer.js</code> e <code>index.html</code></li>
+            </ul>
+            
+            <h3>🚦 Feature Flag</h3>
+            <div class="code-block">
+window.TONAL_BALANCE_SAFE_V1 = true; // Ativa por padrão
+            </div>
+            
+            <div class="alert info">
+                <strong>💡 ROLLBACK RÁPIDO:</strong> Para desativar instantaneamente, execute <code>window.TONAL_BALANCE_SAFE_V1 = false</code> no console.
+            </div>
+            
+            <h3>🔄 Migração Automática</h3>
+            <p>O sistema substitui automaticamente a função <code>tonalSummary</code> existente por uma versão segura que:</p>
+            <ul>
+                <li>Mantém comportamento original quando feature flag está desativa</li>
+                <li>Aplica validação rigorosa quando ativa</li>
+                <li>Preserva compatibilidade total com código existente</li>
+            </ul>
+        </div>
+
+        <!-- Testes -->
+        <div class="section">
+            <h2>🧪 Testes e Validação</h2>
+            
+            <h3>🎮 Comandos de Teste</h3>
+            <div class="code-block">
+// No console da aplicação principal:
+validarTonalBalanceSafe()     // Status geral do sistema
+testarComAnaliseReal()        // Teste com dados simulados
+testTonalBalanceSafe()        // Suite completa de testes
+forcarAtivacaoTonalSafe()     // Forçar ativação se problemas
+            </div>
+            
+            <h3>📊 Casos de Teste Implementados</h3>
+            <div class="test-results">
+                <div class="test-case">
+                    <span>Dados válidos e distintos</span>
+                    <span class="status pass">DEVE EXIBIR</span>
+                </div>
+                <div class="test-case">
+                    <span>Todos valores idênticos (suspeito)</span>
+                    <span class="status fail">DEVE OCULTAR</span>
+                </div>
+                <div class="test-case">
+                    <span>Dados parciais válidos (2-3 bandas)</span>
+                    <span class="status pass">DEVE EXIBIR</span>
+                </div>
+                <div class="test-case">
+                    <span>Dados insuficientes (&lt;2 bandas)</span>
+                    <span class="status fail">DEVE OCULTAR</span>
+                </div>
+                <div class="test-case">
+                    <span>Dados completamente ausentes</span>
+                    <span class="status fail">DEVE OCULTAR</span>
+                </div>
+                <div class="test-case">
+                    <span>Valores fora de faixa (&lt;-80dB ou &gt;+20dB)</span>
+                    <span class="status fail">DEVE OCULTAR</span>
+                </div>
+            </div>
+            
+            <h3>🔗 Links de Teste</h3>
+            <a href="/teste-tonal-balance-safe.html" class="button">🧪 Página de Testes Dedicada</a>
+            <a href="/" class="button secondary">🎵 Aplicação Principal</a>
+        </div>
+
+        <!-- Monitoramento -->
+        <div class="section">
+            <h2>📊 Monitoramento</h2>
+            
+            <h3>🔍 Logs de Debug</h3>
+            <p>Para ativar logs detalhados:</p>
+            <div class="code-block">
+window.TONAL_BALANCE_CONFIG.DEBUG = true;
+            </div>
+            
+            <h3>📈 Métricas Coletadas</h3>
+            <ul>
+                <li><strong>Tempo de Validação:</strong> Performance do sistema de validação</li>
+                <li><strong>Taxa de Rejeição:</strong> % de dados rejeitados vs aceitos</li>
+                <li><strong>Tipos de Problemas:</strong> Categorização dos problemas encontrados</li>
+                <li><strong>Status da Migração:</strong> Confirmação de que sistema está ativo</li>
+            </ul>
+            
+            <h3>🚨 Indicadores de Problemas</h3>
+            <div class="alert warning">
+                <strong>⚠️ SINAIS DE ALERTA:</strong>
+                <ul>
+                    <li>Todas as análises mostram "—" no bloco (validação muito restritiva)</li>
+                    <li>Nenhuma análise mostra "—" mesmo com dados ruins (validação inativa)</li>
+                    <li>Erro "tonalSummary is not a function" (migração falhou)</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Configuração -->
+        <div class="section">
+            <h2>⚙️ Configuração Avançada</h2>
+            
+            <h3>🎛️ Parâmetros Ajustáveis</h3>
+            <div class="code-block">
+// Modificar configuração em runtime:
+window.TONAL_BALANCE_CONFIG.UNIQUENESS_TOLERANCE = 0.3;  // Tolerância para valores "iguais"
+window.TONAL_BALANCE_CONFIG.MINIMUM_VALID_BANDS = 3;      // Mínimo de bandas válidas
+window.TONAL_BALANCE_CONFIG.VALID_BANDS_THRESHOLD = 0.8;  // 80% de bandas válidas
+window.TONAL_BALANCE_CONFIG.DEBUG = true;                 // Ativar logs detalhados
+            </div>
+            
+            <h3>🔧 Cenários de Ajuste</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Cenário</th>
+                        <th>Parâmetro</th>
+                        <th>Valor Sugerido</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Muito restritivo</td>
+                        <td>MINIMUM_VALID_BANDS</td>
+                        <td>1 (menos restritivo)</td>
+                    </tr>
+                    <tr>
+                        <td>Aceita valores similares</td>
+                        <td>UNIQUENESS_TOLERANCE</td>
+                        <td>1.0 (mais tolerante)</td>
+                    </tr>
+                    <tr>
+                        <td>Dados parciais OK</td>
+                        <td>VALID_BANDS_THRESHOLD</td>
+                        <td>0.4 (40% válidas)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Rollback -->
+        <div class="section">
+            <h2>🚨 Plano de Rollback</h2>
+            
+            <div class="alert error">
+                <strong>🚨 SE ALGO DER ERRADO:</strong>
+            </div>
+            
+            <h3>⚡ Rollback Imediato (Console)</h3>
+            <div class="code-block">
+// Desativar feature flag instantaneamente:
+window.TONAL_BALANCE_SAFE_V1 = false;
+
+// Restaurar função original se disponível:
+if (window.tonalSummaryOriginal) {
+    window.tonalSummary = window.tonalSummaryOriginal;
+}
+            </div>
+            
+            <h3>🔄 Rollback Permanente (Código)</h3>
+            <ol>
+                <li>Remover <code>&lt;script src="/tonal-balance-safe-v1.js"&gt;</code> do <code>index.html</code></li>
+                <li>Reverter modificações no <code>audio-analyzer.js</code> (seção TONAL BALANCE SAFE V1)</li>
+                <li>Recarregar aplicação</li>
+            </ol>
+            
+            <div class="alert info">
+                <strong>✅ ZERO DOWNTIME:</strong> O rollback pode ser feito sem afetar outras funcionalidades da aplicação.
+            </div>
+        </div>
+
+        <!-- Status Atual -->
+        <div class="section">
+            <h2>📊 Status Atual da Implementação</h2>
+            
+            <div class="alert success">
+                <strong>✅ IMPLEMENTAÇÃO COMPLETA - PRONTA PARA PRODUÇÃO</strong>
+            </div>
+            
+            <h3>✅ Entregáveis Completos</h3>
+            <ul>
+                <li>✅ Sistema de validação inteligente implementado</li>
+                <li>✅ Feature flag ativa por padrão com rollback rápido</li>
+                <li>✅ Validação na origem dos dados (audio-analyzer.js)</li>
+                <li>✅ Migração automática e transparente</li>
+                <li>✅ Suite completa de testes automatizados</li>
+                <li>✅ Zero regressões - compatibilidade total</li>
+                <li>✅ Documentação abrangente e comandos de debug</li>
+                <li>✅ Sistema de monitoramento e logs</li>
+                <li>✅ Configuração flexível para ajustes</li>
+                <li>✅ Plano de rollback testado</li>
+            </ul>
+            
+            <h3>🎯 Critérios de Sucesso Atendidos</h3>
+            <div class="test-results">
+                <div class="test-case">
+                    <span>Execuções normais mostram 4 valores distintos</span>
+                    <span class="status pass">✅ ATENDIDO</span>
+                </div>
+                <div class="test-case">
+                    <span>Dados problemáticos ocultam bloco (mostra "—")</span>
+                    <span class="status pass">✅ ATENDIDO</span>
+                </div>
+                <div class="test-case">
+                    <span>Mudança de gênero atualiza bloco imediatamente</span>
+                    <span class="status pass">✅ ATENDIDO</span>
+                </div>
+                <div class="test-case">
+                    <span>Zero regressões no restante da análise</span>
+                    <span class="status pass">✅ ATENDIDO</span>
+                </div>
+                <div class="test-case">
+                    <span>Tratamento seguro de NaN/undefined/null</span>
+                    <span class="status pass">✅ ATENDIDO</span>
+                </div>
+            </div>
+            
+            <div class="alert success">
+                <strong>🚀 SISTEMA PRONTO:</strong> Pode ser usado em produção com confiança. Todos os guard-rails foram implementados e testados.
+            </div>
+        </div>
+    </div>
+</body>
+</html>

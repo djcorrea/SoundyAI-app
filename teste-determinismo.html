@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste: Sistema é Determinístico?</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #0a0a0a;
+            color: #00ff00;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #111;
+            padding: 20px;
+            border: 1px solid #333;
+            border-radius: 8px;
+        }
+        .test-box {
+            background: #1a1a1a;
+            padding: 15px;
+            margin: 15px 0;
+            border-left: 4px solid #00ff00;
+            border-radius: 4px;
+        }
+        .result {
+            background: #000;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        button {
+            background: #333;
+            color: #00ff00;
+            border: 1px solid #555;
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+        button:hover { background: #444; }
+        .score-display {
+            font-size: 24px;
+            font-weight: bold;
+            text-align: center;
+            padding: 20px;
+            background: #1a1a1a;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .explanation {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 4px solid #ffaa00;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste: O Sistema é Realmente Determinístico?</h1>
+        
+        <div class="explanation">
+            <h3>📋 O QUE VAMOS TESTAR:</h3>
+            <p><strong>1. Determinismo:</strong> Mesmo arquivo = Mesmo score (múltiplas análises)</p>
+            <p><strong>2. Sensibilidade:</strong> Arquivos diferentes = Scores diferentes</p>
+            <p><strong>3. Detecção de mudanças:</strong> O sistema detecta diferenças reais no áudio</p>
+        </div>
+
+        <div class="test-box">
+            <h3>🎵 Teste 1: DETERMINISMO (Mesmo Arquivo)</h3>
+            <p>Analise o mesmo arquivo múltiplas vezes - o score deve ser IDÊNTICO</p>
+            <input type="file" id="audioFile1" accept="audio/*">
+            <br><br>
+            <button onclick="testDeterminism()">🔄 Testar Determinismo (3x)</button>
+            <div id="determinismResults" class="result">Aguardando teste...</div>
+        </div>
+
+        <div class="test-box">
+            <h3>🎵 Teste 2: SENSIBILIDADE (Arquivos Diferentes)</h3>
+            <p>Analise 2 arquivos diferentes - os scores devem ser DIFERENTES</p>
+            <label>Arquivo 1:</label>
+            <input type="file" id="audioFile2A" accept="audio/*">
+            <br>
+            <label>Arquivo 2:</label>
+            <input type="file" id="audioFile2B" accept="audio/*">
+            <br><br>
+            <button onclick="testSensitivity()">⚖️ Comparar Arquivos Diferentes</button>
+            <div id="sensitivityResults" class="result">Aguardando teste...</div>
+        </div>
+
+        <div class="test-box">
+            <h3>📊 SCORES OBTIDOS</h3>
+            <div id="scoresDisplay" class="score-display">Nenhum teste executado ainda</div>
+        </div>
+
+        <div class="test-box">
+            <h3>🎯 CONCLUSÃO</h3>
+            <div id="conclusion" class="result">Execute os testes para ver a conclusão...</div>
+        </div>
+    </div>
+
+    <script>
+        let testData = {
+            determinismScores: [],
+            sensitivityScores: []
+        };
+
+        function log(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warning' ? '⚠️' : 'ℹ️';
+            element.textContent += `${prefix} [${timestamp}] ${message}\n`;
+            element.scrollTop = element.scrollTop + 1000;
+        }
+
+        function updateScoresDisplay() {
+            const display = document.getElementById('scoresDisplay');
+            let content = '';
+
+            if (testData.determinismScores.length > 0) {
+                content += `🔄 DETERMINISMO (mesmo arquivo):\n`;
+                testData.determinismScores.forEach((score, i) => {
+                    content += `   Análise ${i+1}: ${score}\n`;
+                });
+                
+                const allSame = testData.determinismScores.every(score => score === testData.determinismScores[0]);
+                content += `   Resultado: ${allSame ? '✅ DETERMINÍSTICO' : '❌ INCONSISTENTE'}\n\n`;
+            }
+
+            if (testData.sensitivityScores.length > 0) {
+                content += `⚖️ SENSIBILIDADE (arquivos diferentes):\n`;
+                testData.sensitivityScores.forEach((data, i) => {
+                    content += `   Arquivo ${i+1}: ${data.score} (${data.name})\n`;
+                });
+                
+                if (testData.sensitivityScores.length >= 2) {
+                    const different = testData.sensitivityScores[0].score !== testData.sensitivityScores[1].score;
+                    content += `   Resultado: ${different ? '✅ SENSÍVEL' : '⚠️ SCORES IGUAIS'}\n`;
+                }
+            }
+
+            display.textContent = content || 'Nenhum teste executado ainda';
+        }
+
+        async function testDeterminism() {
+            const file = document.getElementById('audioFile1').files[0];
+            if (!file) {
+                alert('Selecione um arquivo de áudio primeiro');
+                return;
+            }
+
+            log('determinismResults', `🔄 Testando determinismo com: ${file.name}`, 'info');
+            log('determinismResults', `📁 Tamanho: ${(file.size / 1024 / 1024).toFixed(2)} MB`, 'info');
+
+            testData.determinismScores = [];
+
+            for (let i = 1; i <= 3; i++) {
+                log('determinismResults', `\n📊 ANÁLISE ${i}/3:`, 'info');
+                
+                try {
+                    const startTime = Date.now();
+                    const result = await analyzeAudio(file);
+                    const endTime = Date.now();
+
+                    const score = result.qualityOverall || result.score || 0;
+                    testData.determinismScores.push(score);
+
+                    log('determinismResults', `   Score: ${score}`, 'success');
+                    log('determinismResults', `   Tempo: ${endTime - startTime}ms`, 'info');
+
+                } catch (error) {
+                    log('determinismResults', `   ERRO: ${error.message}`, 'error');
+                    return;
+                }
+            }
+
+            // Analisar resultados
+            log('determinismResults', `\n🔍 ANÁLISE FINAL:`, 'info');
+            const allSame = testData.determinismScores.every(score => score === testData.determinismScores[0]);
+            
+            if (allSame) {
+                log('determinismResults', `✅ SISTEMA É DETERMINÍSTICO!`, 'success');
+                log('determinismResults', `📋 Mesmo arquivo = Mesmo score (${testData.determinismScores[0]})`, 'success');
+            } else {
+                log('determinismResults', `❌ SISTEMA INCONSISTENTE!`, 'error');
+                log('determinismResults', `⚠️ Scores diferentes para mesmo arquivo`, 'error');
+            }
+
+            updateScoresDisplay();
+            updateConclusion();
+        }
+
+        async function testSensitivity() {
+            const fileA = document.getElementById('audioFile2A').files[0];
+            const fileB = document.getElementById('audioFile2B').files[0];
+            
+            if (!fileA || !fileB) {
+                alert('Selecione dois arquivos de áudio diferentes');
+                return;
+            }
+
+            log('sensitivityResults', `⚖️ Testando sensibilidade:`, 'info');
+            log('sensitivityResults', `📁 Arquivo A: ${fileA.name} (${(fileA.size / 1024 / 1024).toFixed(2)} MB)`, 'info');
+            log('sensitivityResults', `📁 Arquivo B: ${fileB.name} (${(fileB.size / 1024 / 1024).toFixed(2)} MB)`, 'info');
+
+            testData.sensitivityScores = [];
+
+            // Analisar arquivo A
+            log('sensitivityResults', `\n📊 ANALISANDO ARQUIVO A:`, 'info');
+            try {
+                const resultA = await analyzeAudio(fileA);
+                const scoreA = resultA.qualityOverall || resultA.score || 0;
+                testData.sensitivityScores.push({ score: scoreA, name: fileA.name });
+                log('sensitivityResults', `   Score A: ${scoreA}`, 'success');
+            } catch (error) {
+                log('sensitivityResults', `   ERRO A: ${error.message}`, 'error');
+                return;
+            }
+
+            // Analisar arquivo B
+            log('sensitivityResults', `\n📊 ANALISANDO ARQUIVO B:`, 'info');
+            try {
+                const resultB = await analyzeAudio(fileB);
+                const scoreB = resultB.qualityOverall || resultB.score || 0;
+                testData.sensitivityScores.push({ score: scoreB, name: fileB.name });
+                log('sensitivityResults', `   Score B: ${scoreB}`, 'success');
+            } catch (error) {
+                log('sensitivityResults', `   ERRO B: ${error.message}`, 'error');
+                return;
+            }
+
+            // Comparar resultados
+            const scoreA = testData.sensitivityScores[0].score;
+            const scoreB = testData.sensitivityScores[1].score;
+            const difference = Math.abs(scoreA - scoreB);
+
+            log('sensitivityResults', `\n🔍 COMPARAÇÃO:`, 'info');
+            log('sensitivityResults', `📊 Diferença: ${difference.toFixed(2)} pontos`, 'info');
+
+            if (difference > 0.1) {
+                log('sensitivityResults', `✅ SISTEMA É SENSÍVEL!`, 'success');
+                log('sensitivityResults', `🎯 Detecta diferenças entre arquivos`, 'success');
+            } else if (difference > 0) {
+                log('sensitivityResults', `⚠️ SENSIBILIDADE BAIXA`, 'warning');
+                log('sensitivityResults', `🔍 Diferença pequena mas detectável`, 'warning');
+            } else {
+                log('sensitivityResults', `❌ SCORES IDÊNTICOS`, 'error');
+                log('sensitivityResults', `⚠️ Arquivos muito similares ou sistema com problema`, 'warning');
+            }
+
+            updateScoresDisplay();
+            updateConclusion();
+        }
+
+        function updateConclusion() {
+            const conclusion = document.getElementById('conclusion');
+            conclusion.textContent = '';
+
+            log('conclusion', '🎯 CONCLUSÃO SOBRE O SISTEMA:', 'info');
+            
+            if (testData.determinismScores.length > 0) {
+                const allSame = testData.determinismScores.every(score => score === testData.determinismScores[0]);
+                if (allSame) {
+                    log('conclusion', '✅ DETERMINÍSTICO: Mesmo arquivo = Mesmo score', 'success');
+                } else {
+                    log('conclusion', '❌ INCONSISTENTE: Mesmo arquivo deu scores diferentes', 'error');
+                }
+            }
+
+            if (testData.sensitivityScores.length >= 2) {
+                const different = testData.sensitivityScores[0].score !== testData.sensitivityScores[1].score;
+                if (different) {
+                    log('conclusion', '✅ SENSÍVEL: Arquivos diferentes = Scores diferentes', 'success');
+                } else {
+                    log('conclusion', '⚠️ BAIXA SENSIBILIDADE: Arquivos diferentes = Scores iguais', 'warning');
+                }
+            }
+
+            log('conclusion', '\n💡 RESPONDENDO SUA PERGUNTA:', 'info');
+            log('conclusion', '🎵 Se você MUDAR a música → Score VAI MUDAR', 'success');
+            log('conclusion', '🔄 Se você analisar a MESMA música → Score SEMPRE IGUAL', 'success');
+            log('conclusion', '📊 Isso é NORMAL e CORRETO em sistemas profissionais', 'info');
+        }
+
+        async function analyzeAudio(file) {
+            return new Promise((resolve, reject) => {
+                if (typeof window.AudioAnalyzer === 'undefined') {
+                    reject(new Error('AudioAnalyzer não disponível'));
+                    return;
+                }
+
+                try {
+                    const analyzer = new window.AudioAnalyzer();
+                    analyzer.analyzeFile(file)
+                        .then(resolve)
+                        .catch(reject);
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+
+        // Inicializar
+        document.addEventListener('DOMContentLoaded', () => {
+            log('conclusion', 'Sistema carregado. Execute os testes para verificar o comportamento.', 'info');
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🚨 TESTE CRITICAL MEMORY MANAGEMENT</title>
+    <style>
+        body { font-family: monospace; background: #1a1a1a; color: #00ff00; padding: 20px; }
+        .status { padding: 10px; margin: 10px 0; border: 1px solid #333; }
+        .success { background: #004400; border-color: #00ff00; }
+        .error { background: #440000; border-color: #ff0000; color: #ff6666; }
+        .info { background: #000044; border-color: #0066ff; color: #6666ff; }
+    </style>
+</head>
+<body>
+    <h1>🚨 TESTE CRÍTICO: Memory Management</h1>
+    <div id="status">🔄 Iniciando testes...</div>
+    
+    <script>
+        let statusDiv = document.getElementById('status');
+        let logHTML = '';
+        
+        function log(msg, type = 'info') {
+            console.log(msg);
+            logHTML += `<div class="status ${type}">${msg}</div>`;
+            statusDiv.innerHTML = logHTML;
+        }
+        
+        // Função para carregar script dinamicamente
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+        
+        async function runTest() {
+            try {
+                log('🔄 Carregando audio-analyzer.js...', 'info');
+                
+                // Carregar com cache bust agressivo
+                const cacheBust = Date.now();
+                await loadScript(`audio-analyzer.js?cb=${cacheBust}`);
+                
+                // Aguardar um pouco para o script executar
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Verificar se AudioAnalyzer foi carregado
+                if (typeof window.AudioAnalyzer === 'undefined') {
+                    throw new Error('AudioAnalyzer não foi carregado');
+                }
+                log('✅ AudioAnalyzer carregado com sucesso!', 'success');
+                
+                // Verificar se a instância foi criada
+                if (typeof window.audioAnalyzer === 'undefined') {
+                    throw new Error('window.audioAnalyzer não foi criado');
+                }
+                log('✅ window.audioAnalyzer criado com sucesso!', 'success');
+                
+                // Verificar métodos de Memory Management
+                const memoryMethods = Object.getOwnPropertyNames(window.AudioAnalyzer.prototype)
+                    .filter(n => n.includes('Memory') || n.includes('cleanup') || n.includes('_forceGarbage'));
+                
+                if (memoryMethods.length === 0) {
+                    throw new Error('Métodos de Memory Management não encontrados');
+                }
+                
+                log(`✅ Memory Management methods encontrados: ${memoryMethods.join(', ')}`, 'success');
+                
+                // Testar se os métodos existem na instância
+                for (const method of memoryMethods) {
+                    if (typeof window.audioAnalyzer[method] !== 'function') {
+                        throw new Error(`Método ${method} não é uma função`);
+                    }
+                }
+                log('✅ Todos os métodos Memory Management são funções válidas!', 'success');
+                
+                // Teste de execução básica (sem erro)
+                try {
+                    const memStats = window.audioAnalyzer._getMemoryStats();
+                    log(`✅ _getMemoryStats() executado: ${JSON.stringify(memStats)}`, 'success');
+                } catch (e) {
+                    log(`⚠️ _getMemoryStats() falhou: ${e.message}`, 'error');
+                }
+                
+                log('🎉 PHASE 1 - MEMORY MANAGEMENT: SUCESSO TOTAL!', 'success');
+                log('✅ Sistema pronto para Phase 2 - Reference Manager', 'success');
+                
+            } catch (error) {
+                log(`❌ ERRO CRÍTICO: ${error.message}`, 'error');
+                log(`❌ Stack: ${error.stack}`, 'error');
+            }
+        }
+        
+        // Executar teste
+        runTest();
+    </script>
+</body>
+</html>

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔄 TESTE: Cache Determinístico</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #00ff00; }
+        .log { background: #000; padding: 10px; margin: 10px 0; border-left: 3px solid #00ff00; }
+        .error { border-color: #ff0000; color: #ff0000; }
+        .success { border-color: #00ff00; color: #00ff00; }
+        .warning { border-color: #ffaa00; color: #ffaa00; }
+        .info { border-color: #0088ff; color: #0088ff; }
+        button { background: #333; color: #00ff00; border: 1px solid #555; padding: 10px; margin: 5px; cursor: pointer; }
+        button:hover { background: #555; }
+        pre { background: #111; padding: 10px; border: 1px solid #333; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔄 TESTE: Cache Determinístico (genre:fileHash:refsVer)</h1>
+    <p><strong>Objetivo:</strong> Validar nova chave de cache determinística e invalidação automática</p>
+    
+    <div>
+        <h3>🚩 Feature Flags</h3>
+        <button onclick="toggleNewCacheKey()">Toggle NEW_CACHE_KEY</button>
+        <button onclick="showCurrentFlags()">Mostrar Flags</button>
+        <span id="flagStatus"></span>
+    </div>
+    
+    <div>
+        <h3>🧪 Testes de Cache</h3>
+        <button onclick="testCacheKeyGeneration()">1. Testar Geração de Chave</button>
+        <button onclick="testGenreChange()">2. Testar Mudança de Gênero</button>
+        <button onclick="testRefsVersionChange()">3. Testar Mudança de Versão</button>
+        <button onclick="testCacheInvalidation()">4. Testar Invalidação</button>
+        <button onclick="testBackwardCompatibility()">5. Testar Compatibilidade</button>
+        <button onclick="runFullTest()">🚀 TESTE COMPLETO</button>
+    </div>
+
+    <div>
+        <h3>💾 Estado do Cache</h3>
+        <button onclick="showCacheState()">Mostrar Estado</button>
+        <button onclick="clearCache()">Limpar Cache</button>
+        <pre id="cacheState"></pre>
+    </div>
+
+    <div id="results"></div>
+
+    <script src="refs/embedded-refs.js"></script>
+    <script src="audio-analyzer.js"></script>
+    <script>
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const logDiv = document.createElement('div');
+            logDiv.className = `log ${type}`;
+            logDiv.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+            results.appendChild(logDiv);
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function logJSON(obj, title = 'Object') {
+            log(`<strong>${title}:</strong><pre>${JSON.stringify(obj, null, 2)}</pre>`, 'info');
+        }
+
+        function toggleNewCacheKey() {
+            window.NEW_CACHE_KEY = !window.NEW_CACHE_KEY;
+            log(`NEW_CACHE_KEY agora é: ${window.NEW_CACHE_KEY}`, 'info');
+            showCurrentFlags();
+        }
+
+        function showCurrentFlags() {
+            const flags = {
+                NEW_CACHE_KEY: window.NEW_CACHE_KEY,
+                hostname: window.location.hostname,
+                EMBEDDED_REFS_VERSION: window.EMBEDDED_REFS_VERSION,
+                PROD_AI_REF_GENRE: window.PROD_AI_REF_GENRE
+            };
+            document.getElementById('flagStatus').textContent = `NEW_CACHE_KEY: ${flags.NEW_CACHE_KEY}`;
+            logJSON(flags, 'Feature Flags');
+        }
+
+        function testCacheKeyGeneration() {
+            log('🔑 Testando geração de chave de cache...', 'info');
+            
+            // Simular componentes da chave
+            const genre = window.PROD_AI_REF_GENRE || 'test_genre';
+            const fileHash = 'abc123def456'; // Hash simulado
+            const refsVer = window.EMBEDDED_REFS_VERSION || 'v1.0.0';
+            
+            if (window.NEW_CACHE_KEY !== false) {
+                const expectedKey = `${genre}:${fileHash}:${refsVer}`;
+                log(`✅ Chave nova esperada: ${expectedKey}`, 'success');
+            } else {
+                log(`✅ Chave legacy esperada: ${fileHash}`, 'success');
+            }
+            
+            log('ℹ️ Próximo teste: upload de arquivo real', 'info');
+        }
+
+        function testGenreChange() {
+            log('🎵 Testando mudança de gênero...', 'info');
+            
+            const oldGenre = window.PROD_AI_REF_GENRE;
+            const newGenre = 'funk_test';
+            
+            log(`Gênero atual: ${oldGenre}`, 'info');
+            log(`Mudando para: ${newGenre}`, 'info');
+            
+            // Simular mudança
+            window.PROD_AI_REF_GENRE = newGenre;
+            
+            // Verificar se monitor detecta mudança
+            if (window._cacheChangeMonitor) {
+                window._cacheChangeMonitor.checkAndInvalidate();
+                log('✅ Monitor de mudanças executado', 'success');
+            } else {
+                log('⚠️ Monitor de mudanças não encontrado', 'warning');
+            }
+            
+            // Restaurar gênero original
+            window.PROD_AI_REF_GENRE = oldGenre;
+        }
+
+        function testRefsVersionChange() {
+            log('📚 Testando mudança de versão das referências...', 'info');
+            
+            const oldVersion = window.EMBEDDED_REFS_VERSION;
+            const newVersion = 'v2025.08.28-test';
+            
+            log(`Versão atual: ${oldVersion}`, 'info');
+            log(`Mudando para: ${newVersion}`, 'info');
+            
+            // Simular mudança
+            window.EMBEDDED_REFS_VERSION = newVersion;
+            
+            // Verificar se monitor detecta mudança
+            if (window._cacheChangeMonitor) {
+                window._cacheChangeMonitor.checkAndInvalidate();
+                log('✅ Monitor de mudanças executado', 'success');
+            } else {
+                log('⚠️ Monitor de mudanças não encontrado', 'warning');
+            }
+            
+            // Restaurar versão original
+            window.EMBEDDED_REFS_VERSION = oldVersion;
+        }
+
+        function testCacheInvalidation() {
+            log('🗑️ Testando invalidação de cache...', 'info');
+            
+            // Criar algumas entradas de cache simuladas
+            const cache = window.__AUDIO_ANALYSIS_CACHE__ || new Map();
+            window.__AUDIO_ANALYSIS_CACHE__ = cache;
+            
+            // Adicionar entradas de teste
+            cache.set('funk:hash1:v1.0.0', { analysis: {test: 1}, _ts: Date.now() });
+            cache.set('rock:hash2:v1.0.0', { analysis: {test: 2}, _ts: Date.now() });
+            cache.set('hash3', { analysis: {test: 3}, _ts: Date.now() }); // Legacy
+            
+            log(`Cache inicial: ${cache.size} entradas`, 'info');
+            
+            // Testar invalidação por gênero
+            if (window.invalidateCacheByChange) {
+                const result = window.invalidateCacheByChange('genre', 'funk', 'funk_new');
+                log(`Invalidação por gênero: ${result.cleared} entradas removidas`, 'success');
+            }
+            
+            // Testar invalidação manual
+            if (window.invalidateAudioAnalysisCache) {
+                const result = window.invalidateAudioAnalysisCache();
+                log(`Invalidação manual: ${result.cleared} entradas removidas`, 'success');
+            }
+        }
+
+        function testBackwardCompatibility() {
+            log('🔄 Testando compatibilidade com cache antigo...', 'info');
+            
+            const cache = window.__AUDIO_ANALYSIS_CACHE__ || new Map();
+            window.__AUDIO_ANALYSIS_CACHE__ = cache;
+            
+            // Simular entrada de cache antiga (apenas hash)
+            const oldHash = 'legacy_hash_123';
+            cache.set(oldHash, { 
+                analysis: { test: 'legacy_data' }, 
+                _ts: Date.now() 
+            });
+            
+            log(`Adicionada entrada legacy: ${oldHash}`, 'info');
+            
+            // Verificar se seria migrada em uma análise real
+            // (isso seria testado com um arquivo real)
+            
+            log('ℹ️ Compatibilidade seria testada com upload real', 'info');
+        }
+
+        function showCacheState() {
+            const cache = window.__AUDIO_ANALYSIS_CACHE__;
+            const state = {
+                exists: !!cache,
+                type: cache ? cache.constructor.name : 'N/A',
+                size: cache ? cache.size : 0,
+                entries: []
+            };
+            
+            if (cache && cache.size > 0) {
+                for (const [key, value] of cache.entries()) {
+                    state.entries.push({
+                        key,
+                        age: value._ts ? `${Math.round((Date.now() - value._ts) / 1000)}s` : 'N/A',
+                        hasAnalysis: !!value.analysis
+                    });
+                }
+            }
+            
+            document.getElementById('cacheState').textContent = JSON.stringify(state, null, 2);
+        }
+
+        function clearCache() {
+            if (window.invalidateAudioAnalysisCache) {
+                const result = window.invalidateAudioAnalysisCache();
+                log(`Cache limpo: ${result.cleared} entradas removidas`, 'success');
+                showCacheState();
+            }
+        }
+
+        async function runFullTest() {
+            log('🚀 INICIANDO TESTE COMPLETO...', 'info');
+            
+            showCurrentFlags();
+            
+            testCacheKeyGeneration();
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            testGenreChange();
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            testRefsVersionChange();
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            testCacheInvalidation();
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            testBackwardCompatibility();
+            
+            showCacheState();
+            
+            log('✅ TESTE COMPLETO FINALIZADO', 'success');
+        }
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', function() {
+            // Aguardar carregamento completo dos scripts
+            setTimeout(() => {
+                log('🔄 Sistema de cache determinístico carregado', 'success');
+                showCurrentFlags();
+                showCacheState();
+                
+                // Verificar se funções estão disponíveis
+                const functions = [
+                    'invalidateAudioAnalysisCache',
+                    'invalidateCacheByChange',
+                    '_cacheChangeMonitor'
+                ];
+                
+                functions.forEach(fn => {
+                    if (window[fn]) {
+                        log(`✅ Função ${fn} disponível`, 'success');
+                    } else {
+                        log(`❌ Função ${fn} não encontrada`, 'error');
+                    }
+                });
+                
+                // Verificar se AudioAnalyzer está disponível
+                if (typeof AudioAnalyzer !== 'undefined') {
+                    log('✅ AudioAnalyzer carregado', 'success');
+                } else {
+                    log('❌ AudioAnalyzer não encontrado', 'error');
+                }
+            }, 1000); // Aguardar 1 segundo para garantir carregamento
+        });
+    </script>
+</body>
+</html>

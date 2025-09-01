@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Cache Context-Aware V1 - Teste</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0e1a;
+            color: #e0e6ed;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #1e3a8a, #3b82f6);
+            border-radius: 12px;
+        }
+        .test-section {
+            background: #1a1f2e;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+        }
+        .test-section h3 {
+            margin-top: 0;
+            color: #60a5fa;
+        }
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .status-card {
+            background: #252a3a;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #374151;
+        }
+        .status-card h4 {
+            margin: 0 0 10px 0;
+            color: #a5b4fc;
+        }
+        .status-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #34d399;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 15px 0;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #3b82f6;
+            color: white;
+        }
+        .btn-secondary {
+            background: #6b7280;
+            color: white;
+        }
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+        .btn-warning {
+            background: #f59e0b;
+            color: white;
+        }
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+        .btn:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.1);
+        }
+        .log-container {
+            background: #0f1419;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 15px;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 4px;
+        }
+        .log-info { background: rgba(59, 130, 246, 0.1); color: #60a5fa; }
+        .log-success { background: rgba(16, 185, 129, 0.1); color: #34d399; }
+        .log-warning { background: rgba(245, 158, 11, 0.1); color: #fbbf24; }
+        .log-error { background: rgba(239, 68, 68, 0.1); color: #f87171; }
+        .genre-selector {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin: 15px 0;
+        }
+        .genre-selector select {
+            background: #1f2937;
+            color: #e5e7eb;
+            border: 1px solid #374151;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .stats-table {
+            background: #1f2937;
+            border-collapse: collapse;
+            width: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .stats-table th,
+        .stats-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #374151;
+        }
+        .stats-table th {
+            background: #374151;
+            color: #a5b4fc;
+            font-weight: 600;
+        }
+        .feature-flag {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .toggle {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        .toggle input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #6b7280;
+            transition: .4s;
+            border-radius: 24px;
+        }
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        input:checked + .slider {
+            background-color: #10b981;
+        }
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Cache Context-Aware V1</h1>
+            <p>Sistema inteligente de cache que invalida automaticamente entradas obsoletas quando contexto muda</p>
+        </div>
+
+        <!-- Feature Flag -->
+        <div class="test-section">
+            <h3>🏳️ Feature Flag Control</h3>
+            <div class="feature-flag">
+                <label class="toggle">
+                    <input type="checkbox" id="featureFlagToggle" checked>
+                    <span class="slider"></span>
+                </label>
+                <span>CACHE_CTX_AWARE_V1 <span id="flagStatus">ATIVO</span></span>
+            </div>
+        </div>
+
+        <!-- Status Overview -->
+        <div class="test-section">
+            <h3>📊 Status do Sistema</h3>
+            <div class="status-grid">
+                <div class="status-card">
+                    <h4>🎵 Gênero Atual</h4>
+                    <div class="status-value" id="currentGenre">-</div>
+                </div>
+                <div class="status-card">
+                    <h4>📦 Versão das Referências</h4>
+                    <div class="status-value" id="currentVersion">-</div>
+                </div>
+                <div class="status-card">
+                    <h4>💾 Entradas no Cache</h4>
+                    <div class="status-value" id="cacheSize">-</div>
+                </div>
+                <div class="status-card">
+                    <h4>🔄 Total de Invalidações</h4>
+                    <div class="status-value" id="totalInvalidations">-</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="test-section">
+            <h3>🎛️ Controles de Teste</h3>
+            
+            <div class="genre-selector">
+                <label>Mudar Gênero:</label>
+                <select id="genreSelect">
+                    <option value="rock">Rock</option>
+                    <option value="pop">Pop</option>
+                    <option value="funk_mandela">Funk</option>
+                    <option value="jazz">Jazz</option>
+                    <option value="electronic">Electronic</option>
+                    <option value="hip_hop">Hip Hop</option>
+                </select>
+                <button class="btn btn-primary" onclick="applyGenreChange()">Aplicar</button>
+            </div>
+
+            <div class="button-group">
+                <button class="btn btn-success" onclick="runBasicTest()">🧪 Teste Básico</button>
+                <button class="btn btn-warning" onclick="simulateVersionChange()">📦 Simular Mudança de Versão</button>
+                <button class="btn btn-secondary" onclick="populateCache()">💾 Popular Cache</button>
+                <button class="btn btn-danger" onclick="clearAllCache()">🗑️ Limpar Todo Cache</button>
+                <button class="btn btn-primary" onclick="refreshStatus()">🔄 Atualizar Status</button>
+            </div>
+        </div>
+
+        <!-- Statistics -->
+        <div class="test-section">
+            <h3>📈 Estatísticas Detalhadas</h3>
+            <table class="stats-table">
+                <thead>
+                    <tr>
+                        <th>Métrica</th>
+                        <th>Valor</th>
+                        <th>Descrição</th>
+                    </tr>
+                </thead>
+                <tbody id="statsTableBody">
+                    <!-- Preenchido por JavaScript -->
+                </tbody>
+            </table>
+            <div class="button-group" style="margin-top: 15px;">
+                <button class="btn btn-secondary" onclick="refreshStats()">📊 Atualizar Estatísticas</button>
+                <button class="btn btn-warning" onclick="clearStats()">🧹 Limpar Estatísticas</button>
+            </div>
+        </div>
+
+        <!-- Live Log -->
+        <div class="test-section">
+            <h3>📝 Log em Tempo Real</h3>
+            <div class="log-container" id="logContainer">
+                <div class="log-entry log-info">Sistema inicializado. Aguardando eventos...</div>
+            </div>
+            <div class="button-group">
+                <button class="btn btn-secondary" onclick="clearLog()">🧹 Limpar Log</button>
+                <button class="btn btn-primary" onclick="downloadLog()">💾 Download Log</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dependencies -->
+    <script src="public/refs/embedded-refs-new.js"></script>
+    <script src="public/audio-analyzer.js"></script>
+    <script src="public/audio-analyzer-integration.js"></script>
+    <script src="cache-context-aware-v1.js"></script>
+
+    <script>
+        // 🎯 SISTEMA DE LOG
+        const logContainer = document.getElementById('logContainer');
+        const originalConsoleLog = console.log;
+        const originalConsoleWarn = console.warn;
+        const originalConsoleError = console.error;
+
+        function addLogEntry(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // Interceptar console logs
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            if (args[0] && args[0].includes('CACHE_CTX_AWARE_V1')) {
+                addLogEntry(args.join(' '), 'info');
+            }
+        };
+
+        console.warn = function(...args) {
+            originalConsoleWarn.apply(console, args);
+            addLogEntry(args.join(' '), 'warning');
+        };
+
+        console.error = function(...args) {
+            originalConsoleError.apply(console, args);
+            addLogEntry(args.join(' '), 'error');
+        };
+
+        // 🎯 CONTROLE DO FEATURE FLAG
+        document.getElementById('featureFlagToggle').addEventListener('change', function() {
+            const isEnabled = this.checked;
+            window.CACHE_CTX_AWARE_V1 = isEnabled;
+            document.getElementById('flagStatus').textContent = isEnabled ? 'ATIVO' : 'DESABILITADO';
+            document.getElementById('flagStatus').style.color = isEnabled ? '#34d399' : '#f87171';
+            addLogEntry(`Feature flag ${isEnabled ? 'HABILITADO' : 'DESABILITADO'}`, isEnabled ? 'success' : 'warning');
+        });
+
+        // 🎯 FUNÇÕES DE CONTROLE
+        function refreshStatus() {
+            const api = window.CACHE_CTX_AWARE_V1_API;
+            if (!api) {
+                addLogEntry('API não disponível', 'error');
+                return;
+            }
+
+            const context = api.getCurrentContext();
+            document.getElementById('currentGenre').textContent = context.genre || 'N/A';
+            document.getElementById('currentVersion').textContent = context.refsVersion || 'N/A';
+            document.getElementById('cacheSize').textContent = context.cacheSize;
+            
+            const stats = api.getStats();
+            document.getElementById('totalInvalidations').textContent = stats.totalInvalidations;
+            
+            addLogEntry('Status atualizado', 'success');
+        }
+
+        function applyGenreChange() {
+            const newGenre = document.getElementById('genreSelect').value;
+            const currentGenre = window.PROD_AI_REF_GENRE;
+            
+            addLogEntry(`Mudando gênero: ${currentGenre} → ${newGenre}`, 'info');
+            
+            if (window.applyGenreSelection) {
+                window.applyGenreSelection(newGenre).then(() => {
+                    addLogEntry(`Gênero alterado com sucesso: ${newGenre}`, 'success');
+                    setTimeout(refreshStatus, 100);
+                }).catch(err => {
+                    addLogEntry(`Erro ao alterar gênero: ${err.message}`, 'error');
+                });
+            } else {
+                addLogEntry('Função applyGenreSelection não disponível', 'error');
+            }
+        }
+
+        function runBasicTest() {
+            addLogEntry('Iniciando teste básico...', 'info');
+            
+            if (typeof testCacheContextAware === 'function') {
+                testCacheContextAware();
+                addLogEntry('Teste básico concluído - verifique console', 'success');
+            } else {
+                addLogEntry('Função de teste não disponível', 'error');
+            }
+        }
+
+        function simulateVersionChange() {
+            const currentVersion = window.EMBEDDED_REFS_VERSION;
+            const newVersion = `${currentVersion}-test-${Date.now()}`;
+            
+            addLogEntry(`Simulando mudança de versão: ${currentVersion} → ${newVersion}`, 'info');
+            
+            const oldVersion = window.EMBEDDED_REFS_VERSION;
+            window.EMBEDDED_REFS_VERSION = newVersion;
+            
+            // Trigger manual do sistema de detecção
+            if (window._cacheChangeMonitor) {
+                window._cacheChangeMonitor.checkAndInvalidate();
+            }
+            
+            setTimeout(() => {
+                window.EMBEDDED_REFS_VERSION = oldVersion;
+                addLogEntry('Versão restaurada para original', 'info');
+                refreshStatus();
+            }, 2000);
+        }
+
+        function populateCache() {
+            addLogEntry('Populando cache com dados fictícios...', 'info');
+            
+            if (window.__AUDIO_ANALYSIS_CACHE__) {
+                const genres = ['rock', 'pop', 'jazz', 'electronic'];
+                const version = window.EMBEDDED_REFS_VERSION || 'v1.0';
+                
+                let added = 0;
+                genres.forEach(genre => {
+                    for (let i = 0; i < 3; i++) {
+                        const key = `${genre}:hash${i}:${version}`;
+                        const data = {
+                            genre,
+                            timestamp: Date.now(),
+                            mockData: true,
+                            analysisId: `test_${i}`
+                        };
+                        window.__AUDIO_ANALYSIS_CACHE__.set(key, data);
+                        added++;
+                    }
+                });
+                
+                addLogEntry(`${added} entradas adicionadas ao cache`, 'success');
+                refreshStatus();
+            } else {
+                addLogEntry('Cache MAP não disponível', 'error');
+            }
+        }
+
+        function clearAllCache() {
+            addLogEntry('Limpando todo o cache...', 'warning');
+            
+            let cleared = 0;
+            
+            // Cache MAP
+            if (window.__AUDIO_ANALYSIS_CACHE__) {
+                cleared += window.__AUDIO_ANALYSIS_CACHE__.size;
+                window.__AUDIO_ANALYSIS_CACHE__.clear();
+            }
+            
+            // Cache de referências
+            if (window.__refDataCache) {
+                Object.keys(window.__refDataCache).forEach(key => {
+                    delete window.__refDataCache[key];
+                });
+            }
+            
+            // LocalStorage (apenas entradas de análise)
+            const toRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && key.startsWith('audio_analysis_')) {
+                    toRemove.push(key);
+                }
+            }
+            toRemove.forEach(key => localStorage.removeItem(key));
+            
+            addLogEntry(`Cache limpo: ${cleared + toRemove.length} entradas removidas`, 'success');
+            refreshStatus();
+        }
+
+        function refreshStats() {
+            const api = window.CACHE_CTX_AWARE_V1_API;
+            if (!api) return;
+            
+            const stats = api.getStats();
+            const tableBody = document.getElementById('statsTableBody');
+            
+            const rows = [
+                ['Total de Invalidações', stats.totalInvalidations, 'Número total de invalidações executadas'],
+                ['Mudanças de Gênero', stats.genreChanges, 'Invalidações causadas por mudança de gênero'],
+                ['Mudanças de Versão', stats.versionChanges, 'Invalidações causadas por mudança de versão das referências'],
+                ['Entradas Removidas', stats.entriesCleared, 'Total de entradas de cache removidas'],
+                ['Última Invalidação', stats.lastInvalidation || 'Nunca', 'Timestamp da última invalidação'],
+                ['Tempo Médio (ms)', stats.performance.avgInvalidationTime.toFixed(2), 'Tempo médio de execução das invalidações'],
+                ['Medições de Performance', stats.performance.invalidationTimes.length, 'Número de medições de performance coletadas']
+            ];
+            
+            tableBody.innerHTML = rows.map(([metric, value, desc]) => 
+                `<tr><td>${metric}</td><td><strong>${value}</strong></td><td>${desc}</td></tr>`
+            ).join('');
+            
+            addLogEntry('Estatísticas atualizadas', 'info');
+        }
+
+        function clearStats() {
+            const api = window.CACHE_CTX_AWARE_V1_API;
+            if (api) {
+                api.clearStats();
+                refreshStats();
+                addLogEntry('Estatísticas resetadas', 'warning');
+            }
+        }
+
+        function clearLog() {
+            logContainer.innerHTML = '<div class="log-entry log-info">Log limpo. Sistema ativo.</div>';
+        }
+
+        function downloadLog() {
+            const logText = Array.from(logContainer.children)
+                .map(entry => entry.textContent)
+                .join('\n');
+            
+            const blob = new Blob([logText], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `cache-context-aware-log-${new Date().toISOString().slice(0, 10)}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            addLogEntry('Log baixado', 'success');
+        }
+
+        // 🚀 INICIALIZAÇÃO
+        setTimeout(() => {
+            refreshStatus();
+            refreshStats();
+            addLogEntry('Interface de teste inicializada', 'success');
+        }, 1000);
+
+        // Auto-refresh status a cada 5 segundos
+        setInterval(refreshStatus, 5000);
+    </script>
+</body>
+</html>

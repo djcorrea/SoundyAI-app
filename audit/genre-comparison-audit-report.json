@@ -1,0 +1,1022 @@
+{
+  "timestamp": "2025-08-23T22:06:08.398Z",
+  "genresAnalyzed": 8,
+  "genresData": {
+    "eletrofunk": {
+      "originalFile": "eletrofunk.json",
+      "data": {
+        "version": "1.0",
+        "generated_at": "2025-08-13T01:41:13.969Z",
+        "num_tracks": 148,
+        "lufs_target": -8.3,
+        "tol_lufs": 1.22,
+        "true_peak_target": -1.9,
+        "tol_true_peak": 0.5,
+        "dr_target": 10.1,
+        "tol_dr": 1.35,
+        "lra_target": 8.4,
+        "tol_lra": 2.54,
+        "stereo_target": null,
+        "tol_stereo": 0.07,
+        "bands": {
+          "sub": {
+            "target_db": null,
+            "tol_db": 1.78
+          },
+          "low_bass": {
+            "target_db": 13.3,
+            "tol_db": 2.36
+          },
+          "upper_bass": {
+            "target_db": 11.5,
+            "tol_db": 2.02
+          },
+          "low_mid": {
+            "target_db": 8.8,
+            "tol_db": 2.07
+          },
+          "mid": {
+            "target_db": 2.5,
+            "tol_db": 1.81
+          },
+          "high_mid": {
+            "target_db": -6.7,
+            "tol_db": 1.52
+          },
+          "brilho": {
+            "target_db": -13.1,
+            "tol_db": 2.38
+          },
+          "presenca": {
+            "target_db": -22.7,
+            "tol_db": 3.47
+          }
+        }
+      },
+      "metrics": {
+        "lufs_target": -8.3,
+        "true_peak_target": -1.9,
+        "dr_target": 10.1,
+        "lra_target": 8.4,
+        "stereo_target": null,
+        "num_tracks": 148,
+        "version": "1.0",
+        "generated_at": "2025-08-13T01:41:13.969Z"
+      },
+      "bands": {
+        "sub": {
+          "target_db": null,
+          "tol_db": 1.78
+        },
+        "low_bass": {
+          "target_db": 13.3,
+          "tol_db": 2.36
+        },
+        "upper_bass": {
+          "target_db": 11.5,
+          "tol_db": 2.02
+        },
+        "low_mid": {
+          "target_db": 8.8,
+          "tol_db": 2.07
+        },
+        "mid": {
+          "target_db": 2.5,
+          "tol_db": 1.81
+        },
+        "high_mid": {
+          "target_db": -6.7,
+          "tol_db": 1.52
+        },
+        "brilho": {
+          "target_db": -13.1,
+          "tol_db": 2.38
+        },
+        "presenca": {
+          "target_db": -22.7,
+          "tol_db": 3.47
+        }
+      },
+      "tolerances": {
+        "tol_lufs": 1.22,
+        "tol_true_peak": 0.5,
+        "tol_dr": 1.35,
+        "tol_lra": 2.54,
+        "tol_stereo": 0.07
+      }
+    },
+    "eletronico": {
+      "originalFile": "eletronico.json",
+      "data": {
+        "version": "1.0.1",
+        "generated_at": "2025-08-23T17:46:19.859Z",
+        "num_tracks": 13,
+        "lufs_target": -14,
+        "tol_lufs": 0.5,
+        "true_peak_target": -7.79,
+        "tol_true_peak": 1.57,
+        "dr_target": 10.1,
+        "tol_dr": 1.4,
+        "lra_target": 5.2,
+        "tol_lra": 4,
+        "stereo_target": 0.19,
+        "tol_stereo": 0.07,
+        "calor_target": -12.08,
+        "brilho_target": -19.11,
+        "clareza_target": -5.34,
+        "bands": {
+          "sub": {
+            "target_db": -12.5,
+            "tol_db": 3
+          },
+          "low_bass": {
+            "target_db": -10.6,
+            "tol_db": 3
+          },
+          "upper_bass": {
+            "target_db": -13.7,
+            "tol_db": 3
+          },
+          "low_mid": {
+            "target_db": -12.1,
+            "tol_db": 2.7
+          },
+          "mid": {
+            "target_db": -11.8,
+            "tol_db": 2.4
+          },
+          "high_mid": {
+            "target_db": -19.1,
+            "tol_db": 2.3
+          },
+          "brilho": {
+            "target_db": -19.1,
+            "tol_db": 2
+          },
+          "presenca": {
+            "target_db": -24,
+            "tol_db": 3
+          }
+        }
+      },
+      "metrics": {
+        "lufs_target": -14,
+        "true_peak_target": -7.79,
+        "dr_target": 10.1,
+        "lra_target": 5.2,
+        "stereo_target": 0.19,
+        "num_tracks": 13,
+        "version": "1.0.1",
+        "generated_at": "2025-08-23T17:46:19.859Z"
+      },
+      "bands": {
+        "sub": {
+          "target_db": -12.5,
+          "tol_db": 3
+        },
+        "low_bass": {
+          "target_db": -10.6,
+          "tol_db": 3
+        },
+        "upper_bass": {
+          "target_db": -13.7,
+          "tol_db": 3
+        },
+        "low_mid": {
+          "target_db": -12.1,
+          "tol_db": 2.7
+        },
+        "mid": {
+          "target_db": -11.8,
+          "tol_db": 2.4
+        },
+        "high_mid": {
+          "target_db": -19.1,
+          "tol_db": 2.3
+        },
+        "brilho": {
+          "target_db": -19.1,
+          "tol_db": 2
+        },
+        "presenca": {
+          "target_db": -24,
+          "tol_db": 3
+        }
+      },
+      "tolerances": {
+        "tol_lufs": 0.5,
+        "tol_true_peak": 1.57,
+        "tol_dr": 1.4,
+        "tol_lra": 4,
+        "tol_stereo": 0.07
+      }
+    },
+    "funk_automotivo": {
+      "originalFile": "funk_automotivo.json",
+      "data": {
+        "version": "v2.0",
+        "generated_at": "2025-08-23T16:41:07.468Z",
+        "num_tracks": 9,
+        "aggregation_method": "linear_domain",
+        "lufs_target": -8,
+        "tol_lufs": 1.2,
+        "true_peak_target": -9.58,
+        "tol_true_peak": 2.5,
+        "dr_target": 8.1,
+        "tol_dr": 2,
+        "lra_target": 6.6,
+        "tol_lra": 4,
+        "stereo_target": 0.3,
+        "tol_stereo": 0.15,
+        "calor_target": -8.23,
+        "brilho_target": -16.56,
+        "clareza_target": -2.63,
+        "bands": {
+          "sub": {
+            "target_db": -7.6,
+            "tol_db": 6
+          },
+          "low_bass": {
+            "target_db": -6.6,
+            "tol_db": 4.5
+          },
+          "upper_bass": {
+            "target_db": -11.4,
+            "tol_db": 3.5
+          },
+          "low_mid": {
+            "target_db": -8.2,
+            "tol_db": 3.5
+          },
+          "mid": {
+            "target_db": -6.7,
+            "tol_db": 3
+          },
+          "high_mid": {
+            "target_db": -12.8,
+            "tol_db": 4.5
+          },
+          "brilho": {
+            "target_db": -16.6,
+            "tol_db": 4.5
+          },
+          "presenca": {
+            "target_db": -22.7,
+            "tol_db": 5
+          }
+        }
+      },
+      "metrics": {
+        "lufs_target": -8,
+        "true_peak_target": -9.58,
+        "dr_target": 8.1,
+        "lra_target": 6.6,
+        "stereo_target": 0.3,
+        "num_tracks": 9,
+        "version": "v2.0",
+        "generated_at": "2025-08-23T16:41:07.468Z"
+      },
+      "bands": {
+        "sub": {
+          "target_db": -7.6,
+          "tol_db": 6
+        },
+        "low_bass": {
+          "target_db": -6.6,
+          "tol_db": 4.5
+        },
+        "upper_bass": {
+          "target_db": -11.4,
+          "tol_db": 3.5
+        },
+        "low_mid": {
+          "target_db": -8.2,
+          "tol_db": 3.5
+        },
+        "mid": {
+          "target_db": -6.7,
+          "tol_db": 3
+        },
+        "high_mid": {
+          "target_db": -12.8,
+          "tol_db": 4.5
+        },
+        "brilho": {
+          "target_db": -16.6,
+          "tol_db": 4.5
+        },
+        "presenca": {
+          "target_db": -22.7,
+          "tol_db": 5
+        }
+      },
+      "tolerances": {
+        "tol_lufs": 1.2,
+        "tol_true_peak": 2.5,
+        "tol_dr": 2,
+        "tol_lra": 4,
+        "tol_stereo": 0.15
+      }
+    },
+    "funk_bruxaria": {
+      "originalFile": "funk_bruxaria.json",
+      "data": {
+        "version": "1.0.1",
+        "generated_at": "2025-08-23T18:03:37.143Z",
+        "num_tracks": 29,
+        "lufs_target": -14,
+        "tol_lufs": 0.5,
+        "true_peak_target": -10.6,
+        "tol_true_peak": 1.27,
+        "dr_target": 7.4,
+        "tol_dr": 1.3,
+        "lra_target": 8.4,
+        "tol_lra": 2.8,
+        "stereo_target": 0.3,
+        "tol_stereo": 0.1,
+        "calor_target": -11.95,
+        "brilho_target": -17.69,
+        "clareza_target": -1.21,
+        "bands": {
+          "sub": {
+            "target_db": -12.5,
+            "tol_db": 3
+          },
+          "low_bass": {
+            "target_db": -15.2,
+            "tol_db": 3
+          },
+          "upper_bass": {
+            "target_db": -15.2,
+            "tol_db": 2.3
+          },
+          "low_mid": {
+            "target_db": -12,
+            "tol_db": 1.7
+          },
+          "mid": {
+            "target_db": -8.7,
+            "tol_db": 1.7
+          },
+          "high_mid": {
+            "target_db": -14.5,
+            "tol_db": 2.8
+          },
+          "brilho": {
+            "target_db": -17.7,
+            "tol_db": 2.2
+          },
+          "presenca": {
+            "target_db": -26.7,
+            "tol_db": 2.8
+          }
+        }
+      },
+      "metrics": {
+        "lufs_target": -14,
+        "true_peak_target": -10.6,
+        "dr_target": 7.4,
+        "lra_target": 8.4,
+        "stereo_target": 0.3,
+        "num_tracks": 29,
+        "version": "1.0.1",
+        "generated_at": "2025-08-23T18:03:37.143Z"
+      },
+      "bands": {
+        "sub": {
+          "target_db": -12.5,
+          "tol_db": 3
+        },
+        "low_bass": {
+          "target_db": -15.2,
+          "tol_db": 3
+        },
+        "upper_bass": {
+          "target_db": -15.2,
+          "tol_db": 2.3
+        },
+        "low_mid": {
+          "target_db": -12,
+          "tol_db": 1.7
+        },
+        "mid": {
+          "target_db": -8.7,
+          "tol_db": 1.7
+        },
+        "high_mid": {
+          "target_db": -14.5,
+          "tol_db": 2.8
+        },
+        "brilho": {
+          "target_db": -17.7,
+          "tol_db": 2.2
+        },
+        "presenca": {
+          "target_db": -26.7,
+          "tol_db": 2.8
+        }
+      },
+      "tolerances": {
+        "tol_lufs": 0.5,
+        "tol_true_peak": 1.27,
+        "tol_dr": 1.3,
+        "tol_lra": 2.8,
+        "tol_stereo": 0.1
+      }
+    },
+    "funk_consciente": {
+      "originalFile": "funk_consciente.json",
+      "data": {
+        "version": "1.0",
+        "generated_at": "2025-08-11T00:00:00.000Z",
+        "num_tracks": 10,
+        "lufs_target": -14,
+        "tol_lufs": 0.5,
+        "true_peak_target": -8.2,
+        "tol_true_peak": 1.5,
+        "dr_target": 11,
+        "tol_dr": 1.8,
+        "lra_target": 7,
+        "tol_lra": 4,
+        "stereo_target": 0.18,
+        "tol_stereo": 0.08,
+        "calor_target": -11.5,
+        "brilho_target": -20.5,
+        "clareza_target": -4.8,
+        "bands": {
+          "sub": {
+            "target_db": -13.5,
+            "tol_db": 2.5
+          },
+          "low_bass": {
+            "target_db": -11.5,
+            "tol_db": 2.6
+          },
+          "upper_bass": {
+            "target_db": -14.2,
+            "tol_db": 1.5
+          },
+          "low_mid": {
+            "target_db": -11.8,
+            "tol_db": 2
+          },
+          "mid": {
+            "target_db": -11.4,
+            "tol_db": 2.2
+          },
+          "high_mid": {
+            "target_db": -18.8,
+            "tol_db": 1.2
+          },
+          "brilho": {
+            "target_db": -20.8,
+            "tol_db": 1.8
+          },
+          "presenca": {
+            "target_db": -25,
+            "tol_db": 1.6
+          }
+        }
+      },
+      "metrics": {
+        "lufs_target": -14,
+        "true_peak_target": -8.2,
+        "dr_target": 11,
+        "lra_target": 7,
+        "stereo_target": 0.18,
+        "num_tracks": 10,
+        "version": "1.0",
+        "generated_at": "2025-08-11T00:00:00.000Z"
+      },
+      "bands": {
+        "sub": {
+          "target_db": -13.5,
+          "tol_db": 2.5
+        },
+        "low_bass": {
+          "target_db": -11.5,
+          "tol_db": 2.6
+        },
+        "upper_bass": {
+          "target_db": -14.2,
+          "tol_db": 1.5
+        },
+        "low_mid": {
+          "target_db": -11.8,
+          "tol_db": 2
+        },
+        "mid": {
+          "target_db": -11.4,
+          "tol_db": 2.2
+        },
+        "high_mid": {
+          "target_db": -18.8,
+          "tol_db": 1.2
+        },
+        "brilho": {
+          "target_db": -20.8,
+          "tol_db": 1.8
+        },
+        "presenca": {
+          "target_db": -25,
+          "tol_db": 1.6
+        }
+      },
+      "tolerances": {
+        "tol_lufs": 0.5,
+        "tol_true_peak": 1.5,
+        "tol_dr": 1.8,
+        "tol_lra": 4,
+        "tol_stereo": 0.08
+      }
+    },
+    "funk_mandela": {
+      "originalFile": "funk_mandela.json",
+      "data": {
+        "version": "2025-08-fixed-flex.2.1.1",
+        "generated_at": "2025-08-23T17:33:17.297Z",
+        "num_tracks": 17,
+        "aggregation_method": "hybrid_fixed_flexible",
+        "fixed": {
+          "lufs": {
+            "integrated": {
+              "target": -8,
+              "tolerance": 1
+            }
+          },
+          "rms": {
+            "policy": "deriveFromLUFS"
+          },
+          "truePeak": {
+            "streamingMax": -10.9,
+            "baileMax": 0
+          },
+          "dynamicRange": {
+            "dr": {
+              "target": 8,
+              "tolerance": 1
+            }
+          },
+          "lowEnd": {
+            "mono": {
+              "cutoffHz": 100
+            }
+          },
+          "vocalPresence": {
+            "bandHz": [
+              1000,
+              4000
+            ],
+            "vocalBandMinDeltaDb": -1.5,
+            "note": "garantir audibilidade; não deixar a banda vocal >3 dB abaixo do alvo"
+          }
+        },
+        "flex": {
+          "clipping": {
+            "samplePctMax": 0.02
+          },
+          "lra": {
+            "min": 7.6000000000000005,
+            "max": 12.2
+          },
+          "stereo": {
+            "width": {
+              "midsHighsTolerance": "wide"
+            }
+          },
+          "tonalCurve": {
+            "bands": [
+              {
+                "name": "sub",
+                "rangeHz": [
+                  20,
+                  60
+                ],
+                "target_db": -6.7,
+                "toleranceDb": 3
+              },
+              {
+                "name": "low_bass",
+                "rangeHz": [
+                  60,
+                  100
+                ],
+                "target_db": -8,
+                "toleranceDb": 2.5
+              },
+              {
+                "name": "upper_bass",
+                "rangeHz": [
+                  100,
+                  200
+                ],
+                "target_db": -12,
+                "toleranceDb": 2.5
+              },
+              {
+                "name": "low_mid",
+                "rangeHz": [
+                  200,
+                  500
+                ],
+                "target_db": -8.4,
+                "toleranceDb": 2
+              },
+              {
+                "name": "mid",
+                "rangeHz": [
+                  500,
+                  2000
+                ],
+                "target_db": -6.3,
+                "toleranceDb": 2
+              },
+              {
+                "name": "high_mid",
+                "rangeHz": [
+                  2000,
+                  6000
+                ],
+                "target_db": -11.2,
+                "toleranceDb": 2.5
+              },
+              {
+                "name": "brilho",
+                "rangeHz": [
+                  6000,
+                  12000
+                ],
+                "target_db": -14.8,
+                "toleranceDb": 3
+              },
+              {
+                "name": "presenca",
+                "rangeHz": [
+                  12000,
+                  20000
+                ],
+                "target_db": -19.2,
+                "toleranceDb": 3.5
+              }
+            ]
+          }
+        },
+        "notes": "Manter demais métricas como estão; este gênero aceita clipping controlado e abertura estéreo mais agressiva em médios/agudos. Estéreo: correlação (-1..+1) calculada como 1-2*largura; largura exibível = (1-correlação)/2.",
+        "legacy_compatibility": {
+          "lufs_target": -8,
+          "tol_lufs": 1,
+          "tol_lufs_min": 1,
+          "tol_lufs_max": 1,
+          "true_peak_target": -10.9,
+          "tol_true_peak": 2,
+          "true_peak_streaming_max": -0.3,
+          "true_peak_baile_max": 0,
+          "dr_target": 8,
+          "tol_dr": 1,
+          "lra_target": 9.9,
+          "lra_min": 1,
+          "lra_max": 4,
+          "tol_lra": 2.3,
+          "stereo_target": 0.6,
+          "tol_stereo": 0.19,
+          "stereo_width_mids_highs_tolerance": "wide",
+          "low_end_mono_cutoff": 100,
+          "clipping_sample_pct_max": 0.02,
+          "vocal_band_min_delta": -1.5,
+          "calor_target": -8.42,
+          "brilho_target": -14.83,
+          "clareza_target": -0.35,
+          "pattern_rules": {
+            "hard_constraints": [
+              "lufs",
+              "truePeak",
+              "dynamicRange",
+              "lowEnd",
+              "vocalPresence"
+            ],
+            "soft_constraints": [
+              "clipping",
+              "lra",
+              "stereo",
+              "tonalCurve"
+            ]
+          },
+          "bands": {
+            "sub": {
+              "target_db": -6.7,
+              "tol_db": 3,
+              "severity": "soft"
+            },
+            "low_bass": {
+              "target_db": -8,
+              "tol_db": 2.5,
+              "severity": "soft"
+            },
+            "upper_bass": {
+              "target_db": -12,
+              "tol_db": 2.5,
+              "severity": "soft"
+            },
+            "low_mid": {
+              "target_db": -8.4,
+              "tol_db": 2,
+              "severity": "soft"
+            },
+            "mid": {
+              "target_db": -6.3,
+              "tol_db": 2,
+              "severity": "hard",
+              "vocal_presence_range": true
+            },
+            "high_mid": {
+              "target_db": -11.2,
+              "tol_db": 2.5,
+              "severity": "soft"
+            },
+            "brilho": {
+              "target_db": -14.8,
+              "tol_db": 3,
+              "severity": "soft"
+            },
+            "presenca": {
+              "target_db": -19.2,
+              "tol_db": 3.5,
+              "severity": "hard",
+              "vocal_presence_range": true
+            }
+          }
+        }
+      },
+      "metrics": {
+        "num_tracks": 17,
+        "version": "2025-08-fixed-flex.2.1.1",
+        "generated_at": "2025-08-23T17:33:17.297Z"
+      },
+      "bands": {},
+      "tolerances": {}
+    },
+    "trance": {
+      "originalFile": "trance.json",
+      "data": {
+        "version": "1.0",
+        "generated_at": "2025-08-11T01:24:45.744Z",
+        "num_tracks": 5,
+        "lufs_target": -14,
+        "tol_lufs": 0.5,
+        "true_peak_target": -7.26,
+        "tol_true_peak": 1.14,
+        "dr_target": 9.4,
+        "tol_dr": 0.8,
+        "lra_target": 10.7,
+        "tol_lra": 2.7,
+        "stereo_target": 0.17,
+        "tol_stereo": 0.03,
+        "calor_target": -12.64,
+        "brilho_target": -24.71,
+        "clareza_target": -6.46,
+        "bands": {
+          "sub": {
+            "target_db": -17.3,
+            "tol_db": 1
+          },
+          "low_bass": {
+            "target_db": -14.6,
+            "tol_db": 2.8
+          },
+          "upper_bass": {
+            "target_db": -14.8,
+            "tol_db": 1
+          },
+          "low_mid": {
+            "target_db": -12.6,
+            "tol_db": 2.2
+          },
+          "mid": {
+            "target_db": -12,
+            "tol_db": 2.5
+          },
+          "high_mid": {
+            "target_db": -20.2,
+            "tol_db": 2.1
+          },
+          "brilho": {
+            "target_db": -24.7,
+            "tol_db": 1
+          },
+          "presenca": {
+            "target_db": -32.1,
+            "tol_db": 2.1
+          }
+        }
+      },
+      "metrics": {
+        "lufs_target": -14,
+        "true_peak_target": -7.26,
+        "dr_target": 9.4,
+        "lra_target": 10.7,
+        "stereo_target": 0.17,
+        "num_tracks": 5,
+        "version": "1.0",
+        "generated_at": "2025-08-11T01:24:45.744Z"
+      },
+      "bands": {
+        "sub": {
+          "target_db": -17.3,
+          "tol_db": 1
+        },
+        "low_bass": {
+          "target_db": -14.6,
+          "tol_db": 2.8
+        },
+        "upper_bass": {
+          "target_db": -14.8,
+          "tol_db": 1
+        },
+        "low_mid": {
+          "target_db": -12.6,
+          "tol_db": 2.2
+        },
+        "mid": {
+          "target_db": -12,
+          "tol_db": 2.5
+        },
+        "high_mid": {
+          "target_db": -20.2,
+          "tol_db": 2.1
+        },
+        "brilho": {
+          "target_db": -24.7,
+          "tol_db": 1
+        },
+        "presenca": {
+          "target_db": -32.1,
+          "tol_db": 2.1
+        }
+      },
+      "tolerances": {
+        "tol_lufs": 0.5,
+        "tol_true_peak": 1.14,
+        "tol_dr": 0.8,
+        "tol_lra": 2.7,
+        "tol_stereo": 0.03
+      }
+    },
+    "trap": {
+      "originalFile": "trap.json",
+      "data": {
+        "version": "1.0",
+        "generated_at": "2025-08-11T00:00:00.000Z",
+        "num_tracks": 10,
+        "lufs_target": -14,
+        "tol_lufs": 0.5,
+        "true_peak_target": -7.5,
+        "tol_true_peak": 1.6,
+        "dr_target": 9,
+        "tol_dr": 1.5,
+        "lra_target": 6,
+        "tol_lra": 3.5,
+        "stereo_target": 0.17,
+        "tol_stereo": 0.08,
+        "calor_target": -12.8,
+        "brilho_target": -21.5,
+        "clareza_target": -6.2,
+        "bands": {
+          "sub": {
+            "target_db": -13,
+            "tol_db": 3
+          },
+          "low_bass": {
+            "target_db": -11,
+            "tol_db": 3
+          },
+          "upper_bass": {
+            "target_db": -14,
+            "tol_db": 1.6
+          },
+          "low_mid": {
+            "target_db": -12.8,
+            "tol_db": 2.2
+          },
+          "mid": {
+            "target_db": -12.4,
+            "tol_db": 2.4
+          },
+          "high_mid": {
+            "target_db": -20,
+            "tol_db": 1.2
+          },
+          "brilho": {
+            "target_db": -22,
+            "tol_db": 1.8
+          },
+          "presenca": {
+            "target_db": -27,
+            "tol_db": 1.6
+          }
+        }
+      },
+      "metrics": {
+        "lufs_target": -14,
+        "true_peak_target": -7.5,
+        "dr_target": 9,
+        "lra_target": 6,
+        "stereo_target": 0.17,
+        "num_tracks": 10,
+        "version": "1.0",
+        "generated_at": "2025-08-11T00:00:00.000Z"
+      },
+      "bands": {
+        "sub": {
+          "target_db": -13,
+          "tol_db": 3
+        },
+        "low_bass": {
+          "target_db": -11,
+          "tol_db": 3
+        },
+        "upper_bass": {
+          "target_db": -14,
+          "tol_db": 1.6
+        },
+        "low_mid": {
+          "target_db": -12.8,
+          "tol_db": 2.2
+        },
+        "mid": {
+          "target_db": -12.4,
+          "tol_db": 2.4
+        },
+        "high_mid": {
+          "target_db": -20,
+          "tol_db": 1.2
+        },
+        "brilho": {
+          "target_db": -22,
+          "tol_db": 1.8
+        },
+        "presenca": {
+          "target_db": -27,
+          "tol_db": 1.6
+        }
+      },
+      "tolerances": {
+        "tol_lufs": 0.5,
+        "tol_true_peak": 1.6,
+        "tol_dr": 1.5,
+        "tol_lra": 3.5,
+        "tol_stereo": 0.08
+      }
+    }
+  },
+  "frontendTargets": {
+    "trance": {
+      "lufs_target": -14,
+      "true_peak_target": -7.26,
+      "dr_target": 9.4,
+      "lra_target": 10.7,
+      "stereo_target": 0.17
+    }
+  },
+  "inconsistencies": [
+    {
+      "genre": "eletrofunk",
+      "type": "MISSING_FRONTEND",
+      "message": "Gênero eletrofunk existe no JSON mas não no frontend inline"
+    },
+    {
+      "genre": "eletronico",
+      "type": "MISSING_FRONTEND",
+      "message": "Gênero eletronico existe no JSON mas não no frontend inline"
+    },
+    {
+      "genre": "funk_automotivo",
+      "type": "MISSING_FRONTEND",
+      "message": "Gênero funk_automotivo existe no JSON mas não no frontend inline"
+    },
+    {
+      "genre": "funk_bruxaria",
+      "type": "MISSING_FRONTEND",
+      "message": "Gênero funk_bruxaria existe no JSON mas não no frontend inline"
+    },
+    {
+      "genre": "funk_consciente",
+      "type": "MISSING_FRONTEND",
+      "message": "Gênero funk_consciente existe no JSON mas não no frontend inline"
+    },
+    {
+      "genre": "funk_mandela",
+      "type": "MISSING_FRONTEND",
+      "message": "Gênero funk_mandela existe no JSON mas não no frontend inline"
+    },
+    {
+      "genre": "trap",
+      "type": "MISSING_FRONTEND",
+      "message": "Gênero trap existe no JSON mas não no frontend inline"
+    }
+  ],
+  "summary": {
+    "totalGenres": 8,
+    "totalInconsistencies": 7,
+    "status": "FAIL"
+  }
+}

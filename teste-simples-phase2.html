@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🔬 TESTE SIMPLES PHASE 2</title>
+</head>
+<body>
+    <h1>🔬 Teste Simples Phase 2</h1>
+    <div id="output"></div>
+    
+    <script src="public/audio-analyzer.js"></script>
+    <script>
+        const output = document.getElementById('output');
+        
+        setTimeout(() => {
+            try {
+                output.innerHTML += '<p>window.audioAnalyzer existe: ' + (typeof window.audioAnalyzer) + '</p>';
+                
+                if (window.audioAnalyzer) {
+                    output.innerHTML += '<p>_manageReferenceCache existe: ' + (typeof window.audioAnalyzer._manageReferenceCache) + '</p>';
+                    
+                    if (typeof window.audioAnalyzer._manageReferenceCache === 'function') {
+                        output.innerHTML += '<p>Executando _manageReferenceCache...</p>';
+                        const result = window.audioAnalyzer._manageReferenceCache();
+                        output.innerHTML += '<p>Resultado: ' + JSON.stringify(result) + '</p>';
+                        output.innerHTML += '<p style="color: green;">✅ SUCESSO!</p>';
+                    } else {
+                        output.innerHTML += '<p style="color: red;">❌ Método não é função</p>';
+                    }
+                } else {
+                    output.innerHTML += '<p style="color: red;">❌ audioAnalyzer não existe</p>';
+                }
+            } catch (error) {
+                output.innerHTML += '<p style="color: red;">❌ ERRO: ' + error.message + '</p>';
+                output.innerHTML += '<p style="color: red;">Stack: ' + error.stack + '</p>';
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🗑️ Clear True Peak Cache - PROD.AI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: rgba(0,0,0,0.3);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+        h1 {
+            text-align: center;
+            color: #ffd700;
+            margin-bottom: 30px;
+        }
+        .status {
+            background: rgba(255,255,255,0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+            border-left: 4px solid #ffd700;
+        }
+        .error {
+            border-left-color: #ff4444;
+            background: rgba(255,68,68,0.1);
+        }
+        .success {
+            border-left-color: #44ff44;
+            background: rgba(68,255,68,0.1);
+        }
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #ffd93d);
+            border: none;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            margin: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            transition: transform 0.2s ease;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        .btn-danger {
+            background: linear-gradient(45deg, #ff4757, #ff3838);
+        }
+        .btn-success {
+            background: linear-gradient(45deg, #2ed573, #1e90ff);
+        }
+        #log {
+            background: #000;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗑️ Clear True Peak Cache</h1>
+        
+        <div class="status">
+            <h3>🎯 Problema Identificado</h3>
+            <p>O sistema estava mostrando <strong>-8.00 dBTP</strong> para funk_mandela, mas o valor correto é <strong>-0.8 dBTP</strong></p>
+            <p>Arquivos corrigidos:</p>
+            <ul>
+                <li>✅ audio-analyzer-integration.js</li>
+                <li>✅ embedded-refs-new.js</li>
+                <li>✅ Cache layers identificados</li>
+            </ul>
+        </div>
+
+        <div class="status">
+            <h3>🔧 Ação Necessária</h3>
+            <p>Limpar <strong>TODOS</strong> os caches para que os valores corretos apareçam na UI</p>
+        </div>
+
+        <div style="text-align: center;">
+            <button onclick="clearAllCaches()" class="btn-danger">
+                🗑️ CLEAR ALL CACHES
+            </button>
+            <button onclick="testCurrentValues()" class="btn-success">
+                🔍 TEST CURRENT VALUES
+            </button>
+            <button onclick="forceReload()" class="btn-success">
+                ↻ FORCE RELOAD
+            </button>
+        </div>
+
+        <div id="log"></div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ff4444' : type === 'success' ? '#44ff44' : '#0f0';
+            logDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearAllCaches() {
+            log('🚀 Iniciando limpeza completa de cache...', 'info');
+            
+            try {
+                // 1. Local Storage
+                if (typeof localStorage !== 'undefined') {
+                    const keys = Object.keys(localStorage);
+                    keys.forEach(key => {
+                        if (key.includes('ref') || key.includes('audio') || key.includes('cache')) {
+                            localStorage.removeItem(key);
+                            log(`🗑️ Removido localStorage: ${key}`, 'success');
+                        }
+                    });
+                    log('✅ localStorage limpo', 'success');
+                }
+
+                // 2. Session Storage
+                if (typeof sessionStorage !== 'undefined') {
+                    const sKeys = Object.keys(sessionStorage);
+                    sKeys.forEach(key => {
+                        if (key.includes('ref') || key.includes('audio') || key.includes('cache')) {
+                            sessionStorage.removeItem(key);
+                            log(`🗑️ Removido sessionStorage: ${key}`, 'success');
+                        }
+                    });
+                    log('✅ sessionStorage limpo', 'success');
+                }
+
+                // 3. Window-level caches
+                if (typeof window !== 'undefined') {
+                    const cacheVars = [
+                        '__refDataCache',
+                        '__activeRefData', 
+                        '__AUDIO_ANALYSIS_CACHE__',
+                        '__refCache',
+                        '__audioCache',
+                        'PROD_AI_REF_DATA'
+                    ];
+                    
+                    cacheVars.forEach(varName => {
+                        if (window[varName]) {
+                            window[varName] = null;
+                            delete window[varName];
+                            log(`🗑️ Limpo window.${varName}`, 'success');
+                        }
+                    });
+                }
+
+                // 4. Force bypass flags
+                window.__FORCE_CACHE_BYPASS = true;
+                window.__FORCE_REF_RELOAD = Date.now();
+                log('🚀 Flags de bypass ativadas', 'success');
+
+                log('✅ CACHE CLEARING COMPLETO!', 'success');
+                log('➡️ Agora recarregue a página principal', 'info');
+                
+            } catch (error) {
+                log(`❌ Erro durante limpeza: ${error.message}`, 'error');
+            }
+        }
+
+        function testCurrentValues() {
+            log('🔍 Testando valores atuais...', 'info');
+            
+            // Test embedded refs
+            if (window.PROD_AI_REF_DATA && window.PROD_AI_REF_DATA.funk_mandela) {
+                const tp = window.PROD_AI_REF_DATA.funk_mandela.legacy_compatibility.true_peak_target;
+                log(`📊 embedded-refs funk_mandela TP: ${tp}`, tp === -0.8 ? 'success' : 'error');
+            } else {
+                log('⚠️ embedded-refs não carregados ainda', 'info');
+            }
+
+            // Test cache status
+            const cacheStatus = {
+                localStorage: typeof localStorage !== 'undefined' ? Object.keys(localStorage).length : 0,
+                sessionStorage: typeof sessionStorage !== 'undefined' ? Object.keys(sessionStorage).length : 0,
+                refDataCache: !!window.__refDataCache,
+                activeRefData: !!window.__activeRefData,
+                audioCache: !!window.__AUDIO_ANALYSIS_CACHE__
+            };
+            
+            log(`📊 Cache Status: ${JSON.stringify(cacheStatus)}`, 'info');
+        }
+
+        function forceReload() {
+            log('↻ Forçando reload completo...', 'info');
+            setTimeout(() => {
+                window.location.href = window.location.origin + '/public/index.html?v=' + Date.now();
+            }, 1000);
+        }
+
+        // Auto-test on load
+        window.addEventListener('load', () => {
+            log('🚀 Sistema carregado, testando valores atuais...', 'info');
+            setTimeout(testCurrentValues, 500);
+        });
+    </script>
+</body>
+</html>

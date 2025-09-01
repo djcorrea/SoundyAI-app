@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>🔧 Diagnóstico AudioAnalyzer</title>
+    <style>
+        body { 
+            font-family: monospace; 
+            background: #1a1a1a; 
+            color: #e0e0e0; 
+            padding: 20px; 
+        }
+        .log { 
+            background: #2d2d2d; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin: 10px 0; 
+        }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+        .info { color: #3b82f6; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Diagnóstico AudioAnalyzer</h1>
+    <div id="output"></div>
+
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `log ${type}`;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            output.appendChild(div);
+        }
+        
+        async function diagnosticar() {
+            log('🔍 Iniciando diagnóstico...', 'info');
+            
+            // 1. Verificar se conseguimos fazer fetch do arquivo
+            try {
+                const response = await fetch('./public/audio-analyzer.js');
+                if (response.ok) {
+                    log('✅ Fetch do arquivo OK', 'success');
+                    const content = await response.text();
+                    log(`📄 Tamanho do arquivo: ${content.length} caracteres`, 'info');
+                    
+                    // Verificar se contém a classe
+                    if (content.includes('class AudioAnalyzer')) {
+                        log('✅ Classe AudioAnalyzer encontrada no arquivo', 'success');
+                    } else {
+                        log('❌ Classe AudioAnalyzer NÃO encontrada', 'error');
+                    }
+                    
+                    // Verificar se contém window.AudioAnalyzer
+                    if (content.includes('window.AudioAnalyzer')) {
+                        log('✅ window.AudioAnalyzer encontrado no arquivo', 'success');
+                    } else {
+                        log('❌ window.AudioAnalyzer NÃO encontrado', 'error');
+                    }
+                    
+                } else {
+                    log(`❌ Fetch falhou: ${response.status}`, 'error');
+                }
+            } catch (e) {
+                log(`❌ Erro no fetch: ${e.message}`, 'error');
+            }
+            
+            // 2. Tentar carregar via script tag
+            log('🔄 Tentando carregar via script tag...', 'info');
+            
+            const script = document.createElement('script');
+            script.src = './public/audio-analyzer.js';
+            
+            script.onload = () => {
+                log('✅ Script carregado com sucesso', 'success');
+                
+                // Verificar se AudioAnalyzer está disponível
+                if (typeof window.AudioAnalyzer === 'function') {
+                    log('✅ window.AudioAnalyzer é uma função', 'success');
+                    
+                    try {
+                        const analyzer = new window.AudioAnalyzer();
+                        log('✅ AudioAnalyzer instanciado com sucesso', 'success');
+                        
+                        // Verificar métodos
+                        const methods = ['_cleanupAudioBuffer', '_cleanupStemsArrays', '_cleanupLRUCache'];
+                        methods.forEach(method => {
+                            if (typeof analyzer[method] === 'function') {
+                                log(`✅ ${method} disponível`, 'success');
+                            } else {
+                                log(`❌ ${method} NÃO disponível`, 'error');
+                            }
+                        });
+                        
+                        log('🎉 DIAGNÓSTICO CONCLUÍDO: AudioAnalyzer funcionando!', 'success');
+                        
+                    } catch (e) {
+                        log(`❌ Erro ao instanciar: ${e.message}`, 'error');
+                    }
+                } else {
+                    log(`❌ window.AudioAnalyzer não é função: ${typeof window.AudioAnalyzer}`, 'error');
+                }
+            };
+            
+            script.onerror = () => {
+                log('❌ Erro ao carregar script', 'error');
+            };
+            
+            document.head.appendChild(script);
+        }
+        
+        // Executar diagnóstico automaticamente
+        diagnosticar();
+    </script>
+</body>
+</html>

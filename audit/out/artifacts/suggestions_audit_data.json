@@ -1,0 +1,1128 @@
+{
+  "runId": "suggestions_audit_1756091512632_462",
+  "timestamp": "2025-08-25T03:11:52.660Z",
+  "suggestionRules": [
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "suggestion-text-generator.js';\r\n    script.async = true;\r\n    script.onload = () => {\r\n        console.log('",
+      "suggestion": ";\r\n    script.async = true;\r\n    script.onload = () => {\r\n        console.log(",
+      "lineEstimate": 7
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "suggestions-section\">\r\n            <h4>💡 Sugestões de Melhoria</h4>\r\n            <div class=\"",
+      "suggestion": ">\r\n            <h4>💡 Sugestões de Melhoria</h4>\r\n            <div class=",
+      "lineEstimate": 399
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "suggestions-list\">\r\n                ${generateSuggestionsList(comparison.suggestions)}\r\n            </div>\r\n        </div>\r\n    `;\r\n}\r\n\r\nfunction generateAudioAnalysisCard(analysis) {\r\n    return `\r\n ",
+      "suggestion": ">\r\n                ${generateSuggestionsList(comparison.suggestions)}\r\n            </div>\r\n        </div>\r\n    `;\r\n}\r\n\r\nfunction generateAudioAnalysisCard(analysis) {\r\n    return `\r\n        <div class=",
+      "lineEstimate": 401
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "suggestion-item\">\r\n            <div class=\"",
+      "suggestion": ">\r\n            <div class=",
+      "lineEstimate": 451
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "suggestion-title\">${suggestion.title}</div>\r\n            <div class=\"",
+      "suggestion": ">${suggestion.title}</div>\r\n            <div class=",
+      "lineEstimate": 452
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "suggestion-description\">${suggestion.description}</div>\r\n            <div class=\"",
+      "suggestion": ">${suggestion.description}</div>\r\n            <div class=",
+      "lineEstimate": 453
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "suggestion-priority priority-${suggestion.priority}\">\r\n                Prioridade: ${suggestion.priority.toUpperCase()}\r\n            </div>\r\n        </div>\r\n    `).join('",
+      "suggestion": ">\r\n                Prioridade: ${suggestion.priority.toUpperCase()}\r\n            </div>\r\n        </div>\r\n    `).join(",
+      "lineEstimate": 454
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "ajuste de metadado; cálculo real feito no analyzer)\r\n        if (window && window.PRE_NORMALIZE_REF_BANDS === true && refObj.bands) {\r\n            const vals = Object.values(refObj.bands).map(b=>b&&Nu",
+      "suggestion": "positive_targets_vs_negative_measurements",
+      "lineEstimate": 610
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "sugestões reference_* com as novas tolerâncias\r\n                try { updateReferenceSuggestions(currentModalAnalysis); } catch(e) { console.warn('updateReferenceSuggestions falhou'",
+      "suggestion": "updateReferenceSuggestions falhou",
+      "lineEstimate": 1057
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "sugestões e comparações\r\n                try { displayModalResults(currentModalAnalysis); } catch(e) { console.warn('re-render modal falhou'",
+      "suggestion": "re-render modal falhou",
+      "lineEstimate": 1059
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "dicator');\r\n    const genreContainer = document.getElementById('",
+      "suggestion": ");\r\n    const genreContainer = document.getElementById(",
+      "lineEstimate": 1368
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "dicator) {\r\n                modeIndicator.textContent = 'Comparação direta entre suas músicas'",
+      "suggestion": "Comparação direta entre suas músicas",
+      "lineEstimate": 1384
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "Recomendação: Use WAV ou FLAC para maior precisão');\r\n    }\r\n    \r\n    return true;\r\n}\r\n\r\n// 🎯 NOVO: Processar arquivo no modo referência\r\nasync function handleReferenceFileSelection(file) {\r\n    win",
+      "suggestion": ");\r\n    }\r\n    \r\n    return true;\r\n}\r\n\r\n// 🎯 NOVO: Processar arquivo no modo referência\r\nasync function handleReferenceFileSelection(file) {\r\n    window.logReferenceEvent(",
+      "lineEstimate": 1661
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "Sugestões:', finalAnalysis.suggestions?.length || 0);\r\n        console.log('",
+      "suggestion": ", finalAnalysis.suggestions?.length || 0);\r\n        console.log(",
+      "lineEstimate": 1798
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "Suggestions.push({\r\n                        type: 'reference_loudness_blocked_clipping'",
+      "suggestion": "reference_loudness_blocked_clipping",
+      "lineEstimate": 1986
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "Suggestions.push({\r\n                            type: 'reference_loudness_blocked_headroom'",
+      "suggestion": "reference_loudness_blocked_headroom",
+      "lineEstimate": 2014
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "Suggestions.push({\r\n                        type: 'reference_loudness_conservative'",
+      "suggestion": "reference_loudness_conservative",
+      "lineEstimate": 2027
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "ajuste'\r\n                    });\r\n                }\r\n            } else {\r\n                // Diminuir é sempre seguro\r\n                referenceSuggestions.push({\r\n                    type: '",
+      "suggestion": "\r\n                    });\r\n                }\r\n            } else {\r\n                // Diminuir é sempre seguro\r\n                referenceSuggestions.push({\r\n                    type: ",
+      "lineEstimate": 2035
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "suggestions: referenceSuggestions,\r\n            // 🚫 NUNCA usar gênero em modo referência\r\n            genre: null,\r\n            mixScore: null, // Não gerar score baseado em gênero\r\n            mixC",
+      "suggestion": "🎉 [SUCESSO] Comparação por referência concluída:",
+      "lineEstimate": 2123
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "Sugestões:', referenceSuggestions.length);\r\n        console.log('",
+      "suggestion": ", referenceSuggestions.length);\r\n        console.log(",
+      "lineEstimate": 2134
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "sugestões baseadas na comparação\r\n        const suggestions = generateReferenceSuggestions(comparison);\r\n        \r\n        // 🐛 DIAGNÓSTICO: Verificar se sugestões são baseadas apenas na comparison\r\n",
+      "suggestion": "🔍 [DIAGNÓSTICO] Sugestões geradas (count):",
+      "lineEstimate": 2153
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "suggestions.length);\r\n        console.log('🔍 [DIAGNÓSTICO] Primeiro tipo de sugestão:'",
+      "suggestion": "🔍 [DIAGNÓSTICO] Primeiro tipo de sugestão:",
+      "lineEstimate": 2157
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "sugestões baseadas na comparação\r\nfunction generateReferenceSuggestions(comparison) {\r\n    // 🐛 DIAGNÓSTICO: Logs para verificar fonte dos dados\r\n    console.log('🔍 [DIAGNÓSTICO] generateReferenceSu",
+      "suggestion": "🔍 [DIAGNÓSTICO] generateReferenceSuggestions called with:",
+      "lineEstimate": 2284
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "suggestions = [];\r\n    \r\n    // Sugestões de loudness - 🚨 COM VERIFICAÇÃO DE HEADROOM SEGURO\r\n    if (comparison.loudness.difference !== null) {\r\n        const diff = comparison.loudness.difference;\r",
+      "suggestion": "🔍 [DIAGNÓSTICO] Loudness difference:",
+      "lineEstimate": 2291
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "suggestions.push({\r\n                        type: 'reference_loudness_blocked_clipping'",
+      "suggestion": "reference_loudness_blocked_clipping",
+      "lineEstimate": 2312
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "ajustar para referência',\r\n                        explanation: '",
+      "suggestion": ",\r\n                        explanation: ",
+      "lineEstimate": 2315
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "suggestions.push(suggestion);\r\n                    } else {\r\n                        console.log(`[REF-HEADROOM] ⚠️ Ganho ${adjustmentDb.toFixed(1)}dB > headroom ${availableHeadroom.toFixed(1)}dB`);\r\n",
+      "suggestion": "reference_loudness_blocked_headroom",
+      "lineEstimate": 2336
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "suggestions.push({\r\n                        type: 'reference_loudness_conservative'",
+      "suggestion": "reference_loudness_conservative",
+      "lineEstimate": 2352
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "ajuste'\r\n                    });\r\n                }\r\n            } else {\r\n                // Diminuir é sempre seguro\r\n                const suggestion = {\r\n                    type: '",
+      "suggestion": "\r\n                    });\r\n                }\r\n            } else {\r\n                // Diminuir é sempre seguro\r\n                const suggestion = {\r\n                    type: ",
+      "lineEstimate": 2360
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "suggestions.push(suggestion);\r\n            }\r\n            \r\n            console.log('🔍 [DIAGNÓSTICO] Sugestão de loudness processada com headroom check'",
+      "suggestion": "🔍 [DIAGNÓSTICO] Sugestão de loudness processada com headroom check",
+      "lineEstimate": 2374
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "sugestão espectral para ${band}:`, suggestion);\r\n            suggestions.push(suggestion);\r\n        }\r\n    });\r\n    \r\n    console.log('🔍 [DIAGNÓSTICO] Total sugestões geradas:'",
+      "suggestion": "🔍 [DIAGNÓSTICO] Total sugestões geradas:",
+      "lineEstimate": 2408
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "suggestions.length);\r\n    console.log('🔍 [DIAGNÓSTICO] baseline_source: reference_audio (confirmed)'",
+      "suggestion": "🔍 [DIAGNÓSTICO] baseline_source: reference_audio (confirmed)",
+      "lineEstimate": 2413
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "suggestions;\r\n}\r\n\r\n// 🎯 NOVO: Adicionar seção de comparação com referência\r\nfunction addReferenceComparisonSection(analysis) {\r\n    const results = document.getElementById('audioAnalysisResults'",
+      "suggestion": "audioAnalysisResults",
+      "lineEstimate": 2416
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "dicator user\">📄 ${userFile}</span>\r\n                <span class=\"",
+      "suggestion": ">📄 ${userFile}</span>\r\n                <span class=",
+      "lineEstimate": 2435
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "dicator\">vs</span>\r\n                <span class=\"",
+      "suggestion": ">vs</span>\r\n                <span class=",
+      "lineEstimate": 2436
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "dicator reference\">🎯 ${referenceFile}</span>\r\n            </div>\r\n        </div>\r\n        \r\n        <div class=\"",
+      "suggestion": ">🎯 ${referenceFile}</span>\r\n            </div>\r\n        </div>\r\n        \r\n        <div class=",
+      "lineEstimate": 2437
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "dicator ${diffClass}\">\r\n                    ${diff > 0 ? '",
+      "suggestion": ">\r\n                    ${diff > 0 ? ",
+      "lineEstimate": 2498
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "Sugestões', analysis.suggestions.length > 0 ? `<span class=\"",
+      "suggestion": ", analysis.suggestions.length > 0 ? `<span class=",
+      "lineEstimate": 2783
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "SuggestionTextGenerator();\r\n                            didacticText = generator.generateDidacticText(sug);\r\n                        } catch (error) {\r\n                            console.warn('[Rende",
+      "suggestion": "[RenderSuggestion] Erro no gerador de texto:",
+      "lineEstimate": 2995
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "dicator}:</span>\r\n                <div class=\"metric-value-progress\"",
+      "suggestion": "metric-value-progress",
+      "lineEstimate": 3545
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "recomendada',\r\n                condicao:s.condition||s.condicao||'",
+      "suggestion": ",\r\n                condicao:s.condition||s.condicao||",
+      "lineEstimate": 3690
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "SuggestionEngine && window.USE_ENHANCED_SUGGESTIONS !== false) {\r\n        try {\r\n            console.log('🎯 Usando Enhanced Suggestion Engine...'",
+      "suggestion": "🎯 Usando Enhanced Suggestion Engine...",
+      "lineEstimate": 3998
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "sugestões melhoradas com existentes preservadas\r\n            analysis.suggestions = [...enhancedAnalysis.suggestions, ...nonRefSuggestions];\r\n            \r\n            // Adicionar métricas melhoradas",
+      "suggestion": "🚨 Erro no Enhanced Suggestion Engine, usando fallback:",
+      "lineEstimate": 4010
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "suggestions-list');\r\n            if (suggestionsList) {\r\n                suggestionsList.innerHTML = referenceSuggestions.map(suggestion => \r\n                    `<div class=\"",
+      "suggestion": ");\r\n            if (suggestionsList) {\r\n                suggestionsList.innerHTML = referenceSuggestions.map(suggestion => \r\n                    `<div class=",
+      "lineEstimate": 4408
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "suggestion-item\">\r\n                        <h4>${suggestion.category}</h4>\r\n                        <p>${suggestion.text}</p>\r\n                        <div class=\"",
+      "suggestion": ">\r\n                        <h4>${suggestion.category}</h4>\r\n                        <p>${suggestion.text}</p>\r\n                        <div class=",
+      "lineEstimate": 4411
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "suggestion-details\">\r\n                            <small>Diferença: ${suggestion.difference} | Threshold: ${suggestion.threshold}</small>\r\n                        </div>\r\n                    </div>`\r\n",
+      "suggestion": ">\r\n                            <small>Diferença: ${suggestion.difference} | Threshold: ${suggestion.threshold}</small>\r\n                        </div>\r\n                    </div>`\r\n                ).join(",
+      "lineEstimate": 4414
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "suggestions-list');\r\n            if (suggestionsList) {\r\n                suggestionsList.innerHTML = `\r\n                    <div class=\"",
+      "suggestion": ");\r\n            if (suggestionsList) {\r\n                suggestionsList.innerHTML = `\r\n                    <div class=",
+      "lineEstimate": 4422
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "suggestions\">\r\n                        <h3>✅ Análise de Referência Concluída</h3>\r\n                        <p>Os áudios são altamente similares. Diferenças dentro da tolerância aceitável.</p>\r\n       ",
+      "suggestion": ">\r\n                        <h3>✅ Análise de Referência Concluída</h3>\r\n                        <p>Os áudios são altamente similares. Diferenças dentro da tolerância aceitável.</p>\r\n                    </div>\r\n                `;\r\n            }\r\n        }\r\n        \r\n        window.logReferenceEvent(",
+      "lineEstimate": 4425
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "conditional",
+      "pattern": "conditional_feedback",
+      "context": "if (adjustmentDb <= availableHeadroom) {\r\n                        referenceSuggestions.push({\r\n                            type: 'reference_loudness',\r\n                            message: `${action}",
+      "suggestion": "Sugestão condicional",
+      "lineEstimate": 2001
+    },
+    {
+      "file": "public/audio-analyzer-integration.js",
+      "type": "conditional",
+      "pattern": "conditional_feedback",
+      "context": "if (adjustmentDb <= availableHeadroom) {\r\n                        const suggestion = {\r\n                            type: 'reference_loudness',\r\n                            message: 'Sua música está m",
+      "suggestion": "Sugestão condicional",
+      "lineEstimate": 2325
+    },
+    {
+      "file": "lib/audio/features/scoring.js",
+      "type": "direct",
+      "pattern": "suggestion_strings",
+      "context": "ajusta pesos dinamicamente\r\n// - Usa tolerâncias da referência sempre que disponível; senão aplica fallbacks seguros\r\n\r\nconsole.log('[SCORING_V4] 🔥 NOVO SISTEMA DE PENALIDADES BALANCEADAS ATIVO!'",
+      "suggestion": "[SCORING_V4] 🔥 NOVO SISTEMA DE PENALIDADES BALANCEADAS ATIVO!",
+      "lineEstimate": 5
+    }
+  ],
+  "coverageAnalysis": {
+    "LUFS Alto": {
+      "category": "loudness",
+      "severity": "alta",
+      "suggestionsFound": 10,
+      "suggestions": [
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "reference_loudness_blocked_clipping",
+          "context": "Suggestions.push({\r\n                        type: 'reference_loudness_blocked_clipping'"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "reference_loudness_blocked_headroom",
+          "context": "Suggestions.push({\r\n                            type: 'reference_loudness_blocked_headroom'"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "reference_loudness_conservative",
+          "context": "Suggestions.push({\r\n                        type: 'reference_loudness_conservative'"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "🔍 [DIAGNÓSTICO] Loudness difference:",
+          "context": "suggestions = [];\r\n    \r\n    // Sugestões de loudness - 🚨 COM VERIFICAÇÃO DE HEADROOM SEGURO\r\n    i"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "reference_loudness_blocked_clipping",
+          "context": "suggestions.push({\r\n                        type: 'reference_loudness_blocked_clipping'"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "reference_loudness_blocked_headroom",
+          "context": "suggestions.push(suggestion);\r\n                    } else {\r\n                        console.log(`[R"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "reference_loudness_conservative",
+          "context": "suggestions.push({\r\n                        type: 'reference_loudness_conservative'"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "🔍 [DIAGNÓSTICO] Sugestão de loudness processada com headroom check",
+          "context": "suggestions.push(suggestion);\r\n            }\r\n            \r\n            console.log('🔍 [DIAGNÓSTICO"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "conditional",
+          "suggestion": "Sugestão condicional",
+          "context": "if (adjustmentDb <= availableHeadroom) {\r\n                        referenceSuggestions.push({\r\n     "
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "conditional",
+          "suggestion": "Sugestão condicional",
+          "context": "if (adjustmentDb <= availableHeadroom) {\r\n                        const suggestion = {\r\n            "
+        }
+      ],
+      "hasCoverage": true,
+      "expectedType": "Reduzir volume geral ou usar compressor"
+    },
+    "LUFS Baixo": {
+      "category": "loudness",
+      "severity": "alta",
+      "suggestionsFound": 10,
+      "suggestions": [
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "reference_loudness_blocked_clipping",
+          "context": "Suggestions.push({\r\n                        type: 'reference_loudness_blocked_clipping'"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "reference_loudness_blocked_headroom",
+          "context": "Suggestions.push({\r\n                            type: 'reference_loudness_blocked_headroom'"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "reference_loudness_conservative",
+          "context": "Suggestions.push({\r\n                        type: 'reference_loudness_conservative'"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "🔍 [DIAGNÓSTICO] Loudness difference:",
+          "context": "suggestions = [];\r\n    \r\n    // Sugestões de loudness - 🚨 COM VERIFICAÇÃO DE HEADROOM SEGURO\r\n    i"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "reference_loudness_blocked_clipping",
+          "context": "suggestions.push({\r\n                        type: 'reference_loudness_blocked_clipping'"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "reference_loudness_blocked_headroom",
+          "context": "suggestions.push(suggestion);\r\n                    } else {\r\n                        console.log(`[R"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "reference_loudness_conservative",
+          "context": "suggestions.push({\r\n                        type: 'reference_loudness_conservative'"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "🔍 [DIAGNÓSTICO] Sugestão de loudness processada com headroom check",
+          "context": "suggestions.push(suggestion);\r\n            }\r\n            \r\n            console.log('🔍 [DIAGNÓSTICO"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "conditional",
+          "suggestion": "Sugestão condicional",
+          "context": "if (adjustmentDb <= availableHeadroom) {\r\n                        referenceSuggestions.push({\r\n     "
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "conditional",
+          "suggestion": "Sugestão condicional",
+          "context": "if (adjustmentDb <= availableHeadroom) {\r\n                        const suggestion = {\r\n            "
+        }
+      ],
+      "hasCoverage": true,
+      "expectedType": "Aumentar volume geral ou usar limiter"
+    },
+    "True Peak Alto": {
+      "category": "peak",
+      "severity": "critica",
+      "suggestionsFound": 2,
+      "suggestions": [
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "reference_loudness_blocked_clipping",
+          "context": "Suggestions.push({\r\n                        type: 'reference_loudness_blocked_clipping'"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "reference_loudness_blocked_clipping",
+          "context": "suggestions.push({\r\n                        type: 'reference_loudness_blocked_clipping'"
+        }
+      ],
+      "hasCoverage": true,
+      "expectedType": "Reduzir picos para evitar clipping"
+    },
+    "DR Baixo": {
+      "category": "dynamics",
+      "severity": "media",
+      "suggestionsFound": 7,
+      "suggestions": [
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "reference_loudness_blocked_headroom",
+          "context": "Suggestions.push({\r\n                            type: 'reference_loudness_blocked_headroom'"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "🔍 [DIAGNÓSTICO] Loudness difference:",
+          "context": "suggestions = [];\r\n    \r\n    // Sugestões de loudness - 🚨 COM VERIFICAÇÃO DE HEADROOM SEGURO\r\n    i"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "reference_loudness_blocked_headroom",
+          "context": "suggestions.push(suggestion);\r\n                    } else {\r\n                        console.log(`[R"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "🔍 [DIAGNÓSTICO] Sugestão de loudness processada com headroom check",
+          "context": "suggestions.push(suggestion);\r\n            }\r\n            \r\n            console.log('🔍 [DIAGNÓSTICO"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "audioAnalysisResults",
+          "context": "suggestions;\r\n}\r\n\r\n// 🎯 NOVO: Adicionar seção de comparação com referência\r\nfunction addReferenceCo"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "conditional",
+          "suggestion": "Sugestão condicional",
+          "context": "if (adjustmentDb <= availableHeadroom) {\r\n                        referenceSuggestions.push({\r\n     "
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "conditional",
+          "suggestion": "Sugestão condicional",
+          "context": "if (adjustmentDb <= availableHeadroom) {\r\n                        const suggestion = {\r\n            "
+        }
+      ],
+      "hasCoverage": true,
+      "expectedType": "Reduzir compressão para aumentar dinâmica"
+    },
+    "DR Alto": {
+      "category": "dynamics",
+      "severity": "media",
+      "suggestionsFound": 7,
+      "suggestions": [
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "reference_loudness_blocked_headroom",
+          "context": "Suggestions.push({\r\n                            type: 'reference_loudness_blocked_headroom'"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "🔍 [DIAGNÓSTICO] Loudness difference:",
+          "context": "suggestions = [];\r\n    \r\n    // Sugestões de loudness - 🚨 COM VERIFICAÇÃO DE HEADROOM SEGURO\r\n    i"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "reference_loudness_blocked_headroom",
+          "context": "suggestions.push(suggestion);\r\n                    } else {\r\n                        console.log(`[R"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "🔍 [DIAGNÓSTICO] Sugestão de loudness processada com headroom check",
+          "context": "suggestions.push(suggestion);\r\n            }\r\n            \r\n            console.log('🔍 [DIAGNÓSTICO"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "audioAnalysisResults",
+          "context": "suggestions;\r\n}\r\n\r\n// 🎯 NOVO: Adicionar seção de comparação com referência\r\nfunction addReferenceCo"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "conditional",
+          "suggestion": "Sugestão condicional",
+          "context": "if (adjustmentDb <= availableHeadroom) {\r\n                        referenceSuggestions.push({\r\n     "
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "conditional",
+          "suggestion": "Sugestão condicional",
+          "context": "if (adjustmentDb <= availableHeadroom) {\r\n                        const suggestion = {\r\n            "
+        }
+      ],
+      "hasCoverage": true,
+      "expectedType": "Aplicar compressão suave para controlar dinâmica"
+    },
+    "Estéreo Muito Largo": {
+      "category": "stereo",
+      "severity": "media",
+      "suggestionsFound": 1,
+      "suggestions": [
+        {
+          "source": "system_default",
+          "type": "simulated",
+          "suggestion": "Imagem estéreo fora do padrão. Ajuste o posicionamento dos elementos ou use ferramentas de widening.",
+          "context": "Sugestão padrão simulada"
+        }
+      ],
+      "hasCoverage": true,
+      "expectedType": "Reduzir abertura estéreo para melhor compatibilidade"
+    },
+    "Estéreo Muito Estreito": {
+      "category": "stereo",
+      "severity": "baixa",
+      "suggestionsFound": 1,
+      "suggestions": [
+        {
+          "source": "system_default",
+          "type": "simulated",
+          "suggestion": "Pequeno desvio na imagem estéreo. Monitore em diferentes sistemas de reprodução.",
+          "context": "Sugestão padrão simulada"
+        }
+      ],
+      "hasCoverage": true,
+      "expectedType": "Aumentar abertura estéreo para maior espacialidade"
+    },
+    "Graves Excessivos": {
+      "category": "spectral",
+      "severity": "media",
+      "suggestionsFound": 2,
+      "suggestions": [
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "positive_targets_vs_negative_measurements",
+          "context": "ajuste de metadado; cálculo real feito no analyzer)\r\n        if (window && window.PRE_NORMALIZE_REF_"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "🔍 [DIAGNÓSTICO] Total sugestões geradas:",
+          "context": "sugestão espectral para ${band}:`, suggestion);\r\n            suggestions.push(suggestion);\r\n        "
+        }
+      ],
+      "hasCoverage": true,
+      "expectedType": "Reduzir graves ou aplicar high-pass filter"
+    },
+    "Agudos Fracos": {
+      "category": "spectral",
+      "severity": "media",
+      "suggestionsFound": 2,
+      "suggestions": [
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "positive_targets_vs_negative_measurements",
+          "context": "ajuste de metadado; cálculo real feito no analyzer)\r\n        if (window && window.PRE_NORMALIZE_REF_"
+        },
+        {
+          "source": "public/audio-analyzer-integration.js",
+          "type": "direct",
+          "suggestion": "🔍 [DIAGNÓSTICO] Total sugestões geradas:",
+          "context": "sugestão espectral para ${band}:`, suggestion);\r\n            suggestions.push(suggestion);\r\n        "
+        }
+      ],
+      "hasCoverage": true,
+      "expectedType": "Aumentar agudos ou adicionar harmônicos"
+    }
+  },
+  "utilityScores": {
+    "LUFS Alto": {
+      "overall": 49,
+      "breakdown": [
+        {
+          "name": "Cobertura",
+          "weight": 30,
+          "score": 100
+        },
+        {
+          "name": "Especificidade",
+          "weight": 25,
+          "score": 0
+        },
+        {
+          "name": "Acionabilidade",
+          "weight": 25,
+          "score": 20
+        },
+        {
+          "name": "Clareza",
+          "weight": 20,
+          "score": 70
+        }
+      ],
+      "classification": "Regular"
+    },
+    "LUFS Baixo": {
+      "overall": 49,
+      "breakdown": [
+        {
+          "name": "Cobertura",
+          "weight": 30,
+          "score": 100
+        },
+        {
+          "name": "Especificidade",
+          "weight": 25,
+          "score": 0
+        },
+        {
+          "name": "Acionabilidade",
+          "weight": 25,
+          "score": 20
+        },
+        {
+          "name": "Clareza",
+          "weight": 20,
+          "score": 70
+        }
+      ],
+      "classification": "Regular"
+    },
+    "True Peak Alto": {
+      "overall": 49,
+      "breakdown": [
+        {
+          "name": "Cobertura",
+          "weight": 30,
+          "score": 100
+        },
+        {
+          "name": "Especificidade",
+          "weight": 25,
+          "score": 0
+        },
+        {
+          "name": "Acionabilidade",
+          "weight": 25,
+          "score": 20
+        },
+        {
+          "name": "Clareza",
+          "weight": 20,
+          "score": 70
+        }
+      ],
+      "classification": "Regular"
+    },
+    "DR Baixo": {
+      "overall": 49,
+      "breakdown": [
+        {
+          "name": "Cobertura",
+          "weight": 30,
+          "score": 100
+        },
+        {
+          "name": "Especificidade",
+          "weight": 25,
+          "score": 0
+        },
+        {
+          "name": "Acionabilidade",
+          "weight": 25,
+          "score": 20
+        },
+        {
+          "name": "Clareza",
+          "weight": 20,
+          "score": 70
+        }
+      ],
+      "classification": "Regular"
+    },
+    "DR Alto": {
+      "overall": 49,
+      "breakdown": [
+        {
+          "name": "Cobertura",
+          "weight": 30,
+          "score": 100
+        },
+        {
+          "name": "Especificidade",
+          "weight": 25,
+          "score": 0
+        },
+        {
+          "name": "Acionabilidade",
+          "weight": 25,
+          "score": 20
+        },
+        {
+          "name": "Clareza",
+          "weight": 20,
+          "score": 70
+        }
+      ],
+      "classification": "Regular"
+    },
+    "Estéreo Muito Largo": {
+      "overall": 51,
+      "breakdown": [
+        {
+          "name": "Cobertura",
+          "weight": 30,
+          "score": 100
+        },
+        {
+          "name": "Especificidade",
+          "weight": 25,
+          "score": 0
+        },
+        {
+          "name": "Acionabilidade",
+          "weight": 25,
+          "score": 20
+        },
+        {
+          "name": "Clareza",
+          "weight": 20,
+          "score": 80
+        }
+      ],
+      "classification": "Regular"
+    },
+    "Estéreo Muito Estreito": {
+      "overall": 56,
+      "breakdown": [
+        {
+          "name": "Cobertura",
+          "weight": 30,
+          "score": 100
+        },
+        {
+          "name": "Especificidade",
+          "weight": 25,
+          "score": 20
+        },
+        {
+          "name": "Acionabilidade",
+          "weight": 25,
+          "score": 20
+        },
+        {
+          "name": "Clareza",
+          "weight": 20,
+          "score": 80
+        }
+      ],
+      "classification": "Regular"
+    },
+    "Graves Excessivos": {
+      "overall": 49,
+      "breakdown": [
+        {
+          "name": "Cobertura",
+          "weight": 30,
+          "score": 100
+        },
+        {
+          "name": "Especificidade",
+          "weight": 25,
+          "score": 0
+        },
+        {
+          "name": "Acionabilidade",
+          "weight": 25,
+          "score": 20
+        },
+        {
+          "name": "Clareza",
+          "weight": 20,
+          "score": 70
+        }
+      ],
+      "classification": "Regular"
+    },
+    "Agudos Fracos": {
+      "overall": 49,
+      "breakdown": [
+        {
+          "name": "Cobertura",
+          "weight": 30,
+          "score": 100
+        },
+        {
+          "name": "Especificidade",
+          "weight": 25,
+          "score": 0
+        },
+        {
+          "name": "Acionabilidade",
+          "weight": 25,
+          "score": 20
+        },
+        {
+          "name": "Clareza",
+          "weight": 20,
+          "score": 70
+        }
+      ],
+      "classification": "Regular"
+    }
+  },
+  "testCases": [
+    {
+      "name": "LUFS Alto",
+      "metrics": {
+        "lufsIntegrated": -6
+      },
+      "targets": {
+        "lufs_target": -14,
+        "tol_lufs": 2
+      },
+      "expectedSuggestion": "Reduzir volume geral ou usar compressor",
+      "severity": "alta",
+      "category": "loudness"
+    },
+    {
+      "name": "LUFS Baixo",
+      "metrics": {
+        "lufsIntegrated": -25
+      },
+      "targets": {
+        "lufs_target": -14,
+        "tol_lufs": 2
+      },
+      "expectedSuggestion": "Aumentar volume geral ou usar limiter",
+      "severity": "alta",
+      "category": "loudness"
+    },
+    {
+      "name": "True Peak Alto",
+      "metrics": {
+        "truePeakDbtp": 0.5
+      },
+      "targets": {
+        "true_peak_target": -1,
+        "tol_true_peak": 1
+      },
+      "expectedSuggestion": "Reduzir picos para evitar clipping",
+      "severity": "critica",
+      "category": "peak"
+    },
+    {
+      "name": "DR Baixo",
+      "metrics": {
+        "dynamicRange": 3
+      },
+      "targets": {
+        "dr_target": 10,
+        "tol_dr": 3
+      },
+      "expectedSuggestion": "Reduzir compressão para aumentar dinâmica",
+      "severity": "media",
+      "category": "dynamics"
+    },
+    {
+      "name": "DR Alto",
+      "metrics": {
+        "dynamicRange": 25
+      },
+      "targets": {
+        "dr_target": 10,
+        "tol_dr": 3
+      },
+      "expectedSuggestion": "Aplicar compressão suave para controlar dinâmica",
+      "severity": "media",
+      "category": "dynamics"
+    },
+    {
+      "name": "Estéreo Muito Largo",
+      "metrics": {
+        "stereoCorrelation": -0.2
+      },
+      "targets": {
+        "stereo_target": 0.3,
+        "tol_stereo": 0.3
+      },
+      "expectedSuggestion": "Reduzir abertura estéreo para melhor compatibilidade",
+      "severity": "media",
+      "category": "stereo"
+    },
+    {
+      "name": "Estéreo Muito Estreito",
+      "metrics": {
+        "stereoCorrelation": 0.95
+      },
+      "targets": {
+        "stereo_target": 0.3,
+        "tol_stereo": 0.3
+      },
+      "expectedSuggestion": "Aumentar abertura estéreo para maior espacialidade",
+      "severity": "baixa",
+      "category": "stereo"
+    },
+    {
+      "name": "Graves Excessivos",
+      "metrics": {
+        "bandEnergies": {
+          "sub": {
+            "energyPct": 40,
+            "rms_db": -2
+          }
+        }
+      },
+      "targets": {
+        "bands": {
+          "sub": {
+            "target_db": -7,
+            "tol_db": 2
+          }
+        }
+      },
+      "expectedSuggestion": "Reduzir graves ou aplicar high-pass filter",
+      "severity": "media",
+      "category": "spectral"
+    },
+    {
+      "name": "Agudos Fracos",
+      "metrics": {
+        "bandEnergies": {
+          "brilho": {
+            "energyPct": 2,
+            "rms_db": -15
+          }
+        }
+      },
+      "targets": {
+        "bands": {
+          "brilho": {
+            "target_db": -8,
+            "tol_db": 2
+          }
+        }
+      },
+      "expectedSuggestion": "Aumentar agudos ou adicionar harmônicos",
+      "severity": "media",
+      "category": "spectral"
+    }
+  ],
+  "summary": {
+    "totalRules": 51,
+    "totalTestCases": 9,
+    "coverageRate": 1,
+    "averageUtility": 50
+  }
+}

@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Auditoria Completa - Sistema N/A</title>
+    <style>
+        body {
+            font-family: 'Consolas', monospace;
+            margin: 20px;
+            background: linear-gradient(135deg, #0a0a0a, #1a1a2e);
+            color: #00ff00;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            border: 3px solid #00ff00;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
+        }
+
+        .audit-controls {
+            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+            padding: 25px;
+            border-radius: 12px;
+            margin: 25px 0;
+            border: 2px solid #ffaa00;
+            text-align: center;
+        }
+
+        .button {
+            background: linear-gradient(135deg, #00ff00, #00cc00);
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 255, 0, 0.4);
+        }
+
+        .button.audit-specific {
+            background: linear-gradient(135deg, #0088ff, #0066cc);
+            color: white;
+        }
+
+        .button.danger {
+            background: linear-gradient(135deg, #ff4444, #cc0000);
+            color: white;
+        }
+
+        .score-display {
+            background: #000;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 2px solid #ffaa00;
+            text-align: center;
+        }
+
+        .score-main {
+            font-size: 48px;
+            font-weight: bold;
+            margin: 15px 0;
+        }
+
+        .score-excellent { color: #00ff00; }
+        .score-good { color: #88ff00; }
+        .score-acceptable { color: #ffaa00; }
+        .score-needs-improvement { color: #ff8800; }
+        .score-critical { color: #ff4444; }
+
+        .audit-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin: 25px 0;
+        }
+
+        .audit-card {
+            background: linear-gradient(135deg, #2a2a2a, #1a1a1a);
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 5px solid #666;
+            transition: all 0.3s ease;
+        }
+
+        .audit-card.approved {
+            border-left-color: #00ff00;
+            box-shadow: 0 4px 15px rgba(0, 255, 0, 0.2);
+        }
+
+        .audit-card.warning {
+            border-left-color: #ffaa00;
+            box-shadow: 0 4px 15px rgba(255, 170, 0, 0.2);
+        }
+
+        .audit-card.failed {
+            border-left-color: #ff4444;
+            box-shadow: 0 4px 15px rgba(255, 68, 68, 0.2);
+        }
+
+        .audit-card.running {
+            border-left-color: #0088ff;
+            box-shadow: 0 4px 15px rgba(0, 136, 255, 0.2);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+        }
+
+        .checks-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin: 15px 0;
+        }
+
+        .check-item {
+            background: #333;
+            padding: 8px;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 12px;
+        }
+
+        .check-passed {
+            background: linear-gradient(135deg, #004400, #002200);
+            color: #00ff00;
+        }
+
+        .check-failed {
+            background: linear-gradient(135deg, #440000, #220000);
+            color: #ff4444;
+        }
+
+        .issues-section {
+            background: #2a0a0a;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #ff4444;
+        }
+
+        .recommendations-section {
+            background: #2a2a0a;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #ffaa00;
+        }
+
+        .console-output {
+            background: #000;
+            color: #00ff00;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 500px;
+            overflow-y: auto;
+            border: 2px solid #333;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+            margin: 20px 0;
+        }
+
+        .certification-badge {
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            padding: 25px;
+            border-radius: 15px;
+            margin: 25px 0;
+            text-align: center;
+            border: 3px solid #666;
+        }
+
+        .certification-badge.certified {
+            border-color: #00ff00;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.3);
+        }
+
+        .certification-badge.not-certified {
+            border-color: #ff4444;
+            box-shadow: 0 0 30px rgba(255, 68, 68, 0.3);
+        }
+
+        .progress-ring {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 20px;
+        }
+
+        .progress-ring-circle {
+            fill: none;
+            stroke: #333;
+            stroke-width: 8;
+        }
+
+        .progress-ring-progress {
+            fill: none;
+            stroke: #00ff00;
+            stroke-width: 8;
+            stroke-linecap: round;
+            transition: stroke-dasharray 0.5s ease;
+        }
+
+        .detailed-results {
+            background: #1a1a1a;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 1px solid #333;
+        }
+
+        .expandable-section {
+            background: #2a2a2a;
+            border-radius: 8px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+
+        .expandable-header {
+            background: #333;
+            padding: 15px;
+            cursor: pointer;
+            border-bottom: 1px solid #444;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .expandable-content {
+            padding: 15px;
+            display: none;
+        }
+
+        .expandable-content.expanded {
+            display: block;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .status-approved {
+            background: #00ff00;
+            color: #000;
+        }
+
+        .status-warning {
+            background: #ffaa00;
+            color: #000;
+        }
+
+        .status-failed {
+            background: #ff4444;
+            color: #fff;
+        }
+
+        .status-running {
+            background: #0088ff;
+            color: #fff;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.6; }
+        }
+
+        .benchmark-info {
+            background: #0a2a0a;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            border-left: 3px solid #00ff00;
+        }
+
+        .benchmark-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .benchmark-item {
+            background: #333;
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .highlight {
+            background: #ffff00;
+            color: #000;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 AUDITORIA COMPLETA</h1>
+            <h2>Sistema de Tratamento N/A - Verificação de Implementação</h2>
+            <p>Análise detalhada da conformidade e integridade do sistema</p>
+        </div>
+
+        <div class="audit-controls">
+            <h3>🎛️ Controles de Auditoria</h3>
+            <div>
+                <button class="button" onclick="runCompleteAudit()">🔍 Auditoria Completa</button>
+                <button class="button" onclick="runIntegrationVerification()">🎯 Verificação Integração</button>
+                <button class="button audit-specific" onclick="runSpecificAudit('foundation')">🏗️ Foundation</button>
+                <button class="button audit-specific" onclick="runSpecificAudit('integration')">🔧 Integration</button>
+                <button class="button audit-specific" onclick="runSpecificAudit('functionality')">⚙️ Functionality</button>
+                <button class="button audit-specific" onclick="runSpecificAudit('safety')">🛡️ Safety</button>
+                <button class="button audit-specific" onclick="runSpecificAudit('performance')">⚡ Performance</button>
+                <button class="button audit-specific" onclick="runSpecificAudit('compliance')">📋 Compliance</button>
+            </div>
+            <div style="margin-top: 15px;">
+                <button class="button danger" onclick="clearAuditResults()">🧹 Limpar Resultados</button>
+                <button class="button" onclick="exportAuditReport()">📋 Exportar Relatório</button>
+            </div>
+        </div>
+
+        <div id="scoreDisplay" class="score-display" style="display: none;">
+            <h3>📊 SCORE GERAL</h3>
+            <div class="progress-ring">
+                <svg width="120" height="120">
+                    <circle cx="60" cy="60" r="52" class="progress-ring-circle"></circle>
+                    <circle cx="60" cy="60" r="52" class="progress-ring-progress" id="progressCircle"
+                            stroke-dasharray="0 327" stroke-dashoffset="0"></circle>
+                </svg>
+            </div>
+            <div id="scoreValue" class="score-main">--</div>
+            <div id="scoreStatus">Aguardando auditoria...</div>
+            <div id="auditTime" style="font-size: 14px; color: #888; margin-top: 10px;"></div>
+        </div>
+
+        <div id="auditResults" class="audit-grid">
+            <!-- Resultados serão carregados aqui -->
+        </div>
+
+        <div id="issuesSection" class="issues-section" style="display: none;">
+            <h3>🚨 PROBLEMAS ENCONTRADOS</h3>
+            <div id="issuesList"></div>
+        </div>
+
+        <div id="recommendationsSection" class="recommendations-section" style="display: none;">
+            <h3>💡 RECOMENDAÇÕES</h3>
+            <div id="recommendationsList"></div>
+        </div>
+
+        <div id="certificationBadge" class="certification-badge" style="display: none;">
+            <h2 id="certificationTitle">🏆 CERTIFICAÇÃO</h2>
+            <div id="certificationStatus" style="font-size: 24px; margin: 15px 0;"></div>
+            <div id="certificationMessage"></div>
+        </div>
+
+        <div class="detailed-results">
+            <h3>📋 Resultados Detalhados</h3>
+            
+            <div class="expandable-section">
+                <div class="expandable-header" onclick="toggleSection('benchmarkDetails')">
+                    <span>📊 Benchmarks e Métricas</span>
+                    <span id="benchmarkToggle">▼</span>
+                </div>
+                <div id="benchmarkDetails" class="expandable-content">
+                    <div class="benchmark-info">
+                        <h4>🎯 Critérios de Avaliação</h4>
+                        <div class="benchmark-grid">
+                            <div class="benchmark-item">
+                                <strong>Foundation</strong><br>
+                                20/20 pontos<br>
+                                <small>Estrutura base</small>
+                            </div>
+                            <div class="benchmark-item">
+                                <strong>Integration</strong><br>
+                                20/20 pontos<br>
+                                <small>Patches aplicados</small>
+                            </div>
+                            <div class="benchmark-item">
+                                <strong>Functionality</strong><br>
+                                25/25 pontos<br>
+                                <small>Funcionalidade core</small>
+                            </div>
+                            <div class="benchmark-item">
+                                <strong>Safety</strong><br>
+                                20/20 pontos<br>
+                                <small>Guard-rails</small>
+                            </div>
+                            <div class="benchmark-item">
+                                <strong>Performance</strong><br>
+                                10/10 pontos<br>
+                                <small>Velocidade/Memória</small>
+                            </div>
+                            <div class="benchmark-item">
+                                <strong>Compliance</strong><br>
+                                5/5 pontos<br>
+                                <small>Requisitos</small>
+                            </div>
+                        </div>
+                        <div style="text-align: center; margin-top: 15px;">
+                            <strong>Total Máximo: 100 pontos</strong><br>
+                            <span class="highlight">≥90 = Excelente | ≥80 = Bom | ≥70 = Aceitável | ≥60 = Melhorias | <60 = Crítico</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="expandable-section">
+                <div class="expandable-header" onclick="toggleSection('checkDetails')">
+                    <span>✅ Verificações por Categoria</span>
+                    <span id="checkToggle">▼</span>
+                </div>
+                <div id="checkDetails" class="expandable-content">
+                    <div id="detailedChecks">
+                        <!-- Verificações detalhadas serão carregadas aqui -->
+                    </div>
+                </div>
+            </div>
+
+            <div class="expandable-section">
+                <div class="expandable-header" onclick="toggleSection('requirementDetails')">
+                    <span>📝 Conformidade com Requisitos Originais</span>
+                    <span id="requirementToggle">▼</span>
+                </div>
+                <div id="requirementDetails" class="expandable-content">
+                    <div style="background: #1a2a1a; padding: 15px; border-radius: 8px;">
+                        <h4>🎯 Requisitos Verificados:</h4>
+                        <ul style="margin: 10px 0;">
+                            <li><strong>"N/A nunca aumente nota nem distorça médias"</strong> → Exclusão de numerador/denominador</li>
+                            <li><strong>"Quando tudo numa categoria estiver N/A, resultado N/A"</strong> → Retorna null → UI "—"</li>
+                            <li><strong>"Score final: média somente dos subscores válidos"</strong> → Cálculo correto</li>
+                            <li><strong>"Feature flag NA_EXCLUDE_ENABLED"</strong> → Controle de ativação</li>
+                            <li><strong>"Guard-rails rigorosos"</strong> → Validação + rollback</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div style="background: #2a2a2a; padding: 20px; border-radius: 10px; margin: 20px 0;">
+            <h3>📊 Console de Auditoria</h3>
+            <div id="auditConsole" class="console-output">
+                🔍 Sistema de auditoria inicializado
+                📋 Pronto para executar verificações completas
+                🎯 Use os botões acima para iniciar a auditoria
+            </div>
+            <button class="button" onclick="clearConsole()">🧹 Limpar Console</button>
+        </div>
+    </div>
+
+    <!-- Scripts necessários -->
+    <script src="na-handler-safe.js"></script>
+    <script src="subscore-corrector-patch.js"></script>
+    <script src="scoring-safe-patch.js"></script>
+    <script src="na-system-audit.js"></script>
+    <script src="integration-verification.js"></script>
+
+    <script>
+        let auditLog = [];
+        let currentAuditResults = null;
+
+        // Interceptar console para mostrar na página
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+            const message = args.join(' ');
+            auditLog.push(`[${new Date().toLocaleTimeString()}] ${message}`);
+            updateAuditConsole();
+            originalConsoleLog.apply(console, args);
+        };
+
+        function updateAuditConsole() {
+            const console = document.getElementById('auditConsole');
+            console.textContent = auditLog.slice(-30).join('\n'); // Últimas 30 linhas
+            console.scrollTop = console.scrollHeight;
+        }
+
+        function clearConsole() {
+            auditLog = [];
+            updateAuditConsole();
+        }
+
+        function runCompleteAudit() {
+            if (!window.runCompleteAudit) {
+                console.log('❌ Sistema de auditoria não carregado');
+                return;
+            }
+
+            console.log('🔍 INICIANDO AUDITORIA COMPLETA...');
+            showLoadingState();
+
+            try {
+                currentAuditResults = window.runCompleteAudit();
+                displayAuditResults(currentAuditResults);
+                console.log('✅ Auditoria completa finalizada');
+            } catch (error) {
+                console.log(`❌ Erro na auditoria: ${error.message}`);
+                hideLoadingState();
+            }
+        }
+
+        function runIntegrationVerification() {
+            if (!window.runIntegrationCheck) {
+                console.log('❌ Sistema de verificação de integração não carregado');
+                return;
+            }
+
+            console.log('🎯 INICIANDO VERIFICAÇÃO DE INTEGRAÇÃO...');
+            
+            window.runIntegrationCheck().then(results => {
+                console.log('✅ Verificação de integração finalizada');
+                console.log(`📊 Resultado: ${results.percentage.toFixed(1)}% - ${results.overallStatus}`);
+                
+                if (results.readyForProduction) {
+                    console.log('🚀 Sistema pronto para produção!');
+                } else {
+                    console.log('⚠️ Correções necessárias antes da produção');
+                }
+            }).catch(error => {
+                console.log(`❌ Erro na verificação: ${error.message}`);
+            });
+        }
+
+        function runSpecificAudit(category) {
+            if (!window.naAudit) {
+                console.log('❌ Sistema de auditoria não carregado');
+                return;
+            }
+
+            console.log(`🔍 Executando auditoria específica: ${category.toUpperCase()}`);
+
+            try {
+                let result;
+                switch (category) {
+                    case 'foundation':
+                        result = window.naAudit.auditFoundation();
+                        break;
+                    case 'integration':
+                        result = window.naAudit.auditIntegration();
+                        break;
+                    case 'functionality':
+                        result = window.naAudit.auditFunctionality();
+                        break;
+                    case 'safety':
+                        result = window.naAudit.auditSafety();
+                        break;
+                    case 'performance':
+                        result = window.naAudit.auditPerformance();
+                        break;
+                    case 'compliance':
+                        result = window.naAudit.auditCompliance();
+                        break;
+                }
+
+                updateSpecificAuditResult(category, result);
+                console.log(`✅ Auditoria ${category} finalizada`);
+            } catch (error) {
+                console.log(`❌ Erro na auditoria ${category}: ${error.message}`);
+            }
+        }
+
+        function showLoadingState() {
+            document.getElementById('scoreDisplay').style.display = 'block';
+            document.getElementById('scoreValue').textContent = '...';
+            document.getElementById('scoreStatus').textContent = 'Executando auditoria...';
+            
+            // Mostrar cards em loading
+            const auditResults = document.getElementById('auditResults');
+            auditResults.innerHTML = `
+                <div class="audit-card running">
+                    <h3>🏗️ Foundation</h3>
+                    <div class="status-indicator status-running">Verificando...</div>
+                </div>
+                <div class="audit-card running">
+                    <h3>🔧 Integration</h3>
+                    <div class="status-indicator status-running">Verificando...</div>
+                </div>
+                <div class="audit-card running">
+                    <h3>⚙️ Functionality</h3>
+                    <div class="status-indicator status-running">Verificando...</div>
+                </div>
+                <div class="audit-card running">
+                    <h3>🛡️ Safety</h3>
+                    <div class="status-indicator status-running">Verificando...</div>
+                </div>
+                <div class="audit-card running">
+                    <h3>⚡ Performance</h3>
+                    <div class="status-indicator status-running">Verificando...</div>
+                </div>
+                <div class="audit-card running">
+                    <h3>📋 Compliance</h3>
+                    <div class="status-indicator status-running">Verificando...</div>
+                </div>
+            `;
+        }
+
+        function hideLoadingState() {
+            document.getElementById('auditResults').innerHTML = '';
+        }
+
+        function displayAuditResults(results) {
+            // Atualizar score principal
+            updateScoreDisplay(results);
+            
+            // Atualizar cards de auditoria
+            updateAuditCards(results);
+            
+            // Mostrar issues e recomendações
+            updateIssuesAndRecommendations(results);
+            
+            // Mostrar certificação
+            updateCertificationBadge(results);
+            
+            // Atualizar verificações detalhadas
+            updateDetailedChecks(results);
+        }
+
+        function updateScoreDisplay(results) {
+            const scoreValue = document.getElementById('scoreValue');
+            const scoreStatus = document.getElementById('scoreStatus');
+            const auditTime = document.getElementById('auditTime');
+            const progressCircle = document.getElementById('progressCircle');
+            
+            scoreValue.textContent = `${results.score.toFixed(1)}/${results.maxScore}`;
+            scoreStatus.textContent = results.overallStatus;
+            auditTime.textContent = `Tempo: ${results.auditTime.toFixed(2)}ms`;
+            
+            // Atualizar cor do score
+            scoreValue.className = 'score-main ' + getScoreClass(results.percentage);
+            
+            // Atualizar anel de progresso
+            const circumference = 2 * Math.PI * 52;
+            const dashArray = (results.percentage / 100) * circumference;
+            progressCircle.style.strokeDasharray = `${dashArray} ${circumference}`;
+            
+            // Cor do progresso baseada no score
+            if (results.percentage >= 90) progressCircle.style.stroke = '#00ff00';
+            else if (results.percentage >= 80) progressCircle.style.stroke = '#88ff00';
+            else if (results.percentage >= 70) progressCircle.style.stroke = '#ffaa00';
+            else if (results.percentage >= 60) progressCircle.style.stroke = '#ff8800';
+            else progressCircle.style.stroke = '#ff4444';
+        }
+
+        function getScoreClass(percentage) {
+            if (percentage >= 90) return 'score-excellent';
+            if (percentage >= 80) return 'score-good';
+            if (percentage >= 70) return 'score-acceptable';
+            if (percentage >= 60) return 'score-needs-improvement';
+            return 'score-critical';
+        }
+
+        function updateAuditCards(results) {
+            const auditResults = document.getElementById('auditResults');
+            auditResults.innerHTML = '';
+            
+            Object.entries(results.results).forEach(([category, result]) => {
+                if (!result) return;
+                
+                const card = document.createElement('div');
+                card.className = `audit-card ${result.status.toLowerCase()}`;
+                
+                card.innerHTML = `
+                    <h3>${getCategoryIcon(category)} ${category.charAt(0).toUpperCase() + category.slice(1)}</h3>
+                    <div class="status-indicator status-${result.status.toLowerCase()}">${result.status}</div>
+                    <div style="margin: 15px 0;">
+                        <strong>Score:</strong> ${result.score.toFixed(1)}/${result.maxScore}<br>
+                        <strong>Checks:</strong> ${result.passed}/${result.total} passaram
+                    </div>
+                    <div class="checks-grid">
+                        ${Object.entries(result.checks).map(([check, passed]) => 
+                            `<div class="check-item ${passed ? 'check-passed' : 'check-failed'}">
+                                ${check}<br>${passed ? '✅' : '❌'}
+                            </div>`
+                        ).join('')}
+                    </div>
+                `;
+                
+                auditResults.appendChild(card);
+            });
+        }
+
+        function getCategoryIcon(category) {
+            const icons = {
+                foundation: '🏗️',
+                integration: '🔧',
+                functionality: '⚙️',
+                safety: '🛡️',
+                performance: '⚡',
+                compliance: '📋'
+            };
+            return icons[category] || '📊';
+        }
+
+        function updateSpecificAuditResult(category, result) {
+            // Encontrar e atualizar o card específico
+            const cards = document.querySelectorAll('.audit-card');
+            cards.forEach(card => {
+                const title = card.querySelector('h3').textContent.toLowerCase();
+                if (title.includes(category)) {
+                    card.className = `audit-card ${result.status.toLowerCase()}`;
+                    card.innerHTML = `
+                        <h3>${getCategoryIcon(category)} ${category.charAt(0).toUpperCase() + category.slice(1)}</h3>
+                        <div class="status-indicator status-${result.status.toLowerCase()}">${result.status}</div>
+                        <div style="margin: 15px 0;">
+                            <strong>Score:</strong> ${result.score.toFixed(1)}/${result.maxScore}<br>
+                            <strong>Checks:</strong> ${result.passed}/${result.total} passaram
+                        </div>
+                        <div class="checks-grid">
+                            ${Object.entries(result.checks).map(([check, passed]) => 
+                                `<div class="check-item ${passed ? 'check-passed' : 'check-failed'}">
+                                    ${check}<br>${passed ? '✅' : '❌'}
+                                </div>`
+                            ).join('')}
+                        </div>
+                    `;
+                }
+            });
+        }
+
+        function updateIssuesAndRecommendations(results) {
+            // Issues
+            const issuesSection = document.getElementById('issuesSection');
+            const issuesList = document.getElementById('issuesList');
+            
+            if (results.issues.length > 0) {
+                issuesSection.style.display = 'block';
+                issuesList.innerHTML = results.issues.map((issue, i) => 
+                    `<div style="margin: 10px 0; padding: 10px; background: #333; border-radius: 6px;">
+                        <strong>${i + 1}.</strong> ${issue}
+                    </div>`
+                ).join('');
+            } else {
+                issuesSection.style.display = 'none';
+            }
+            
+            // Recommendations
+            const recommendationsSection = document.getElementById('recommendationsSection');
+            const recommendationsList = document.getElementById('recommendationsList');
+            
+            if (results.recommendations.length > 0) {
+                recommendationsSection.style.display = 'block';
+                recommendationsList.innerHTML = results.recommendations.map((rec, i) => 
+                    `<div style="margin: 10px 0; padding: 10px; background: #333; border-radius: 6px;">
+                        <strong>${i + 1}.</strong> ${rec}
+                    </div>`
+                ).join('');
+            } else {
+                recommendationsSection.style.display = 'none';
+            }
+        }
+
+        function updateCertificationBadge(results) {
+            const badge = document.getElementById('certificationBadge');
+            const title = document.getElementById('certificationTitle');
+            const status = document.getElementById('certificationStatus');
+            const message = document.getElementById('certificationMessage');
+            
+            badge.style.display = 'block';
+            
+            if (results.certified) {
+                badge.className = 'certification-badge certified';
+                title.textContent = '🏆 SISTEMA CERTIFICADO';
+                status.textContent = '✅ APROVADO PARA PRODUÇÃO';
+                message.textContent = 'A implementação do sistema N/A foi verificada e aprovada. Todos os requisitos foram atendidos e o sistema está pronto para ativação em produção.';
+            } else {
+                badge.className = 'certification-badge not-certified';
+                title.textContent = '⚠️ SISTEMA NÃO CERTIFICADO';
+                status.textContent = '❌ REQUER CORREÇÕES';
+                message.textContent = 'A implementação possui problemas que devem ser corrigidos antes da ativação em produção. Verifique as issues listadas acima.';
+            }
+        }
+
+        function updateDetailedChecks(results) {
+            const detailedChecks = document.getElementById('detailedChecks');
+            
+            let html = '';
+            Object.entries(results.results).forEach(([category, result]) => {
+                if (!result) return;
+                
+                html += `
+                    <div style="margin: 15px 0; padding: 15px; background: #333; border-radius: 8px;">
+                        <h4>${getCategoryIcon(category)} ${category.toUpperCase()}</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 10px;">
+                            ${Object.entries(result.checks).map(([check, passed]) => 
+                                `<div style="background: ${passed ? '#004400' : '#440000'}; padding: 8px; border-radius: 4px;">
+                                    <strong>${check}</strong><br>
+                                    <span style="color: ${passed ? '#00ff00' : '#ff4444'};">
+                                        ${passed ? '✅ PASSOU' : '❌ FALHOU'}
+                                    </span>
+                                </div>`
+                            ).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            detailedChecks.innerHTML = html;
+        }
+
+        function toggleSection(sectionId) {
+            const content = document.getElementById(sectionId);
+            const toggle = document.getElementById(sectionId.replace('Details', 'Toggle'));
+            
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                toggle.textContent = '▼';
+            } else {
+                content.classList.add('expanded');
+                toggle.textContent = '▲';
+            }
+        }
+
+        function clearAuditResults() {
+            document.getElementById('scoreDisplay').style.display = 'none';
+            document.getElementById('auditResults').innerHTML = '';
+            document.getElementById('issuesSection').style.display = 'none';
+            document.getElementById('recommendationsSection').style.display = 'none';
+            document.getElementById('certificationBadge').style.display = 'none';
+            document.getElementById('detailedChecks').innerHTML = '';
+            
+            currentAuditResults = null;
+            console.log('🧹 Resultados da auditoria limpos');
+        }
+
+        function exportAuditReport() {
+            if (!currentAuditResults) {
+                console.log('❌ Nenhum resultado de auditoria para exportar');
+                return;
+            }
+
+            const report = {
+                timestamp: new Date().toISOString(),
+                score: currentAuditResults.score,
+                maxScore: currentAuditResults.maxScore,
+                percentage: currentAuditResults.percentage,
+                status: currentAuditResults.overallStatus,
+                certified: currentAuditResults.certified,
+                auditTime: currentAuditResults.auditTime,
+                results: currentAuditResults.results,
+                issues: currentAuditResults.issues,
+                recommendations: currentAuditResults.recommendations
+            };
+
+            const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `na-system-audit-${new Date().toISOString().split('T')[0]}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            console.log('📋 Relatório de auditoria exportado');
+        }
+
+        // Inicialização
+        window.addEventListener('load', function() {
+            console.log('🔍 Sistema de auditoria inicializado');
+            console.log('📋 Use os controles acima para executar verificações');
+            
+            // Verificar se componentes estão carregados
+            setTimeout(() => {
+                const componentsLoaded = {
+                    naHandler: !!window.NAHandlerSafe,
+                    subScorePatch: !!window.SubScoreCorrectorPatch,
+                    scoringPatch: !!window.ScoringSafePatch,
+                    audit: !!window.NASystemAudit,
+                    integration: !!window.IntegrationVerification
+                };
+
+                console.log('📦 Componentes carregados:');
+                Object.entries(componentsLoaded).forEach(([component, loaded]) => {
+                    console.log(`  ${component}: ${loaded ? '✅' : '❌'}`);
+                });
+
+                if (Object.values(componentsLoaded).every(Boolean)) {
+                    console.log('🎉 Todos os componentes carregados - pronto para auditoria');
+                } else {
+                    console.log('⚠️ Alguns componentes não carregaram - verifique implementação');
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

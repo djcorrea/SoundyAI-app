@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Imediato do Novo Sistema</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #111;
+            color: #fff;
+            padding: 20px;
+        }
+        .log {
+            margin: 5px 0;
+            padding: 5px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+        }
+        .success { background: rgba(0,255,0,0.2); }
+        .error { background: rgba(255,0,0,0.2); }
+        .info { background: rgba(0,100,255,0.2); }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste Imediato do Novo Sistema de Scoring</h1>
+    <button onclick="testarSistema()">TESTAR AGORA</button>
+    <div id="logs"></div>
+
+    <script type="module">
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `log ${type}`;
+            div.textContent = new Date().toLocaleTimeString() + ': ' + message;
+            document.getElementById('logs').appendChild(div);
+            console.log(message);
+        }
+
+        window.testarSistema = async function() {
+            document.getElementById('logs').innerHTML = '';
+            log('🔄 Iniciando teste...', 'info');
+            
+            try {
+                // Importar o módulo com timestamp para evitar cache
+                const scoringModule = await import(`./lib/audio/features/scoring.js?v=${Date.now()}`);
+                log('✅ Módulo scoring.js carregado', 'success');
+                
+                if (typeof scoringModule.computeMixScore === 'function') {
+                    log('✅ Função computeMixScore encontrada', 'success');
+                    
+                    // Dados de teste
+                    const testData = {
+                        lufs_integrated: -12.5,
+                        true_peak_dbtp: -0.5,
+                        dr_stat: 8.0,
+                        lra: 5.0,
+                        crest_factor: 8.0,
+                        stereo_correlation: 0.1,
+                        stereo_width: 0.4,
+                        balance_lr: 0.05
+                    };
+                    
+                    const testRef = {
+                        lufs_target: -14,
+                        tol_lufs: 3.0,
+                        dr_target: 10,
+                        tol_dr: 5.0
+                    };
+                    
+                    log('🔄 Executando computeMixScore...', 'info');
+                    const result = scoringModule.computeMixScore(testData, testRef);
+                    
+                    log(`📊 Score: ${result.scorePct}%`, result.method === 'equal_weight_v3' ? 'success' : 'error');
+                    log(`🎯 Método: ${result.method}`, result.method === 'equal_weight_v3' ? 'success' : 'error');
+                    log(`🏆 Classificação: ${result.classification}`, 'info');
+                    
+                    if (result.method === 'equal_weight_v3') {
+                        log('🎉 SUCESSO! Novo sistema ativo!', 'success');
+                    } else {
+                        log('❌ PROBLEMA! Sistema antigo ainda ativo', 'error');
+                    }
+                    
+                } else {
+                    log('❌ Função computeMixScore não encontrada', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro: ${error.message}`, 'error');
+                console.error('Erro completo:', error);
+            }
+        };
+        
+        // Testar automaticamente ao carregar
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                log('🚀 Página carregada, testando automaticamente...', 'info');
+                testarSistema();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

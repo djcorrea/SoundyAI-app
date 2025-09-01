@@ -1,0 +1,57 @@
+{
+  "funk_automotivo": {
+    "version": "v2.0",
+    "generated_at": "2025-08-23T16:41:07.468Z",
+    "num_tracks": 9,
+    "aggregation_method": "linear_domain",
+    "lufs_target": -8,
+    "tol_lufs": 1.2,
+    "true_peak_target": -0.8,
+    "tol_true_peak": 2.5,
+    "dr_target": 8.1,
+    "tol_dr": 2,
+    "lra_target": 6.6,
+    "tol_lra": 4,
+    "stereo_target": 0.3,
+    "tol_stereo": 0.15,
+    "calor_target": -8.23,
+    "brilho_target": -16.56,
+    "clareza_target": -2.63,
+    "bands": {
+      "sub": {
+        "target_db": -7.6,
+        "tol_db": 6
+      },
+      "low_bass": {
+        "target_db": -6.6,
+        "tol_db": 4.5
+      },
+      "upper_bass": {
+        "target_db": -11.4,
+        "tol_db": 3.5
+      },
+      "low_mid": {
+        "target_db": -8.2,
+        "tol_db": 3.5
+      },
+      "mid": {
+        "target_db": -6.7,
+        "tol_db": 3
+      },
+      "high_mid": {
+        "target_db": -12.8,
+        "tol_db": 4.5
+      },
+      "brilho": {
+        "target_db": -16.6,
+        "tol_db": 4.5
+      },
+      "presenca": {
+        "target_db": -22.7,
+        "tol_db": 5
+      }
+    },
+    "last_updated": "2025-08-30T22:40:34.476Z",
+    "cache_bust": 1756593634476
+  }
+}

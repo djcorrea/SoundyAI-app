@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🔍 DEBUG PHASE 2</title>
+    <style>
+        body { font-family: monospace; background: #1a1a1a; color: #00ff00; padding: 20px; }
+        .log { padding: 5px; margin: 2px 0; border-left: 3px solid #333; }
+        .error { border-color: #ff0000; color: #ff6666; }
+        .success { border-color: #00ff00; }
+        .info { border-color: #0066ff; color: #6666ff; }
+    </style>
+</head>
+<body>
+    <h1>🔍 DEBUG PHASE 2 - Identificar Erro</h1>
+    <div id="logs"></div>
+    
+    <script>
+        const logsDiv = document.getElementById('logs');
+        
+        function log(msg, type = 'info') {
+            console.log(msg);
+            const div = document.createElement('div');
+            div.className = `log ${type}`;
+            div.textContent = msg;
+            logsDiv.appendChild(div);
+        }
+        
+        async function debugPhase2() {
+            try {
+                log('🔄 Iniciando debug...', 'info');
+                
+                // Carregar script
+                log('📦 Carregando audio-analyzer.js...', 'info');
+                const script = document.createElement('script');
+                script.src = `public/audio-analyzer.js?cb=${Date.now()}`;
+                
+                script.onload = () => {
+                    log('✅ Script carregado', 'success');
+                    debugAfterLoad();
+                };
+                
+                script.onerror = (e) => {
+                    log(`❌ Erro ao carregar script: ${e}`, 'error');
+                };
+                
+                document.head.appendChild(script);
+                
+            } catch (error) {
+                log(`❌ Erro inicial: ${error.message}`, 'error');
+                log(`❌ Stack: ${error.stack}`, 'error');
+            }
+        }
+        
+        function debugAfterLoad() {
+            try {
+                log('🔍 Verificando window.audioAnalyzer...', 'info');
+                
+                if (typeof window.audioAnalyzer === 'undefined') {
+                    log('❌ window.audioAnalyzer é undefined', 'error');
+                    return;
+                }
+                
+                log(`✅ window.audioAnalyzer existe: ${typeof window.audioAnalyzer}`, 'success');
+                
+                // Verificar métodos phase 2 um por um
+                const methods = ['_manageReferenceCache', '_preloadPopularReferences', '_validateReferenceIntegrity', '_diagnoseReferenceSystem'];
+                
+                for (const method of methods) {
+                    const exists = typeof window.audioAnalyzer[method] === 'function';
+                    log(`${exists ? '✅' : '❌'} ${method}: ${typeof window.audioAnalyzer[method]}`, exists ? 'success' : 'error');
+                }
+                
+                // Tentar executar um método simples
+                log('🧪 Testando _manageReferenceCache...', 'info');
+                try {
+                    const result = window.audioAnalyzer._manageReferenceCache();
+                    log(`✅ Cache result: ${JSON.stringify(result)}`, 'success');
+                } catch (methodError) {
+                    log(`❌ Erro no método: ${methodError.message}`, 'error');
+                    log(`❌ Method stack: ${methodError.stack}`, 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro after load: ${error.message}`, 'error');
+                log(`❌ Stack: ${error.stack}`, 'error');
+            }
+        }
+        
+        debugPhase2();
+    </script>
+</body>
+</html>

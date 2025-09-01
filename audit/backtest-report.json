@@ -1,0 +1,307 @@
+{
+  "timestamp": "2025-08-23T22:33:58.091Z",
+  "summary": {
+    "total_samples": 120,
+    "genres_tested": [
+      "funk_mandela",
+      "eletronico"
+    ],
+    "qualities_tested": [
+      "good",
+      "average",
+      "poor"
+    ]
+  },
+  "results_by_group": {
+    "funk_mandela_good": {
+      "genre": "funk_mandela",
+      "quality": "good",
+      "sample_count": 20,
+      "v1_stats": {
+        "mean": 33.7,
+        "median": 33,
+        "std": 2.6286878856189833,
+        "min": 30,
+        "max": 38,
+        "q25": 33,
+        "q75": 35,
+        "above_70": 0,
+        "above_80": 0,
+        "count": 20
+      },
+      "v2_stats": {
+        "mean": 100,
+        "median": 100,
+        "std": 0,
+        "min": 100,
+        "max": 100,
+        "q25": 100,
+        "q75": 100,
+        "above_70": 20,
+        "above_80": 20,
+        "count": 20
+      },
+      "improvement_stats": {
+        "mean": 66.3,
+        "median": 67,
+        "std": 2.6286878856189833,
+        "min": 62,
+        "max": 70,
+        "q25": 65,
+        "q75": 67,
+        "above_70": 4,
+        "above_80": 0,
+        "count": 20
+      }
+    },
+    "funk_mandela_average": {
+      "genre": "funk_mandela",
+      "quality": "average",
+      "sample_count": 20,
+      "v1_stats": {
+        "mean": 18.8,
+        "median": 18,
+        "std": 7.7627314780301395,
+        "min": 7,
+        "max": 30,
+        "q25": 17,
+        "q75": 30,
+        "above_70": 0,
+        "above_80": 0,
+        "count": 20
+      },
+      "v2_stats": {
+        "mean": 92.5,
+        "median": 91,
+        "std": 4.790615826801393,
+        "min": 86,
+        "max": 100,
+        "q25": 89,
+        "q75": 98,
+        "above_70": 20,
+        "above_80": 20,
+        "count": 20
+      },
+      "improvement_stats": {
+        "mean": 73.7,
+        "median": 72,
+        "std": 4.910193478876367,
+        "min": 68,
+        "max": 84,
+        "q25": 70,
+        "q75": 79,
+        "above_70": 15,
+        "above_80": 4,
+        "count": 20
+      }
+    },
+    "funk_mandela_poor": {
+      "genre": "funk_mandela",
+      "quality": "poor",
+      "sample_count": 20,
+      "v1_stats": {
+        "mean": 0,
+        "median": 0,
+        "std": 0,
+        "min": 0,
+        "max": 0,
+        "q25": 0,
+        "q75": 0,
+        "above_70": 0,
+        "above_80": 0,
+        "count": 20
+      },
+      "v2_stats": {
+        "mean": 38.9,
+        "median": 39.5,
+        "std": 7.582216034906945,
+        "min": 28,
+        "max": 48,
+        "q25": 31,
+        "q75": 47,
+        "above_70": 0,
+        "above_80": 0,
+        "count": 20
+      },
+      "improvement_stats": {
+        "mean": 38.9,
+        "median": 39.5,
+        "std": 7.582216034906945,
+        "min": 28,
+        "max": 48,
+        "q25": 31,
+        "q75": 47,
+        "above_70": 0,
+        "above_80": 0,
+        "count": 20
+      }
+    },
+    "eletronico_good": {
+      "genre": "eletronico",
+      "quality": "good",
+      "sample_count": 20,
+      "v1_stats": {
+        "mean": 42.55,
+        "median": 45,
+        "std": 3.0573681492420897,
+        "min": 38,
+        "max": 45,
+        "q25": 40,
+        "q75": 45,
+        "above_70": 0,
+        "above_80": 0,
+        "count": 20
+      },
+      "v2_stats": {
+        "mean": 72,
+        "median": 71,
+        "std": 7.402702209328699,
+        "min": 56,
+        "max": 84,
+        "q25": 71,
+        "q75": 78,
+        "above_70": 16,
+        "above_80": 4,
+        "count": 20
+      },
+      "improvement_stats": {
+        "mean": 29.45,
+        "median": 30.5,
+        "std": 8.71478628538876,
+        "min": 11,
+        "max": 44,
+        "q25": 26,
+        "q75": 35,
+        "above_70": 0,
+        "above_80": 0,
+        "count": 20
+      }
+    },
+    "eletronico_average": {
+      "genre": "eletronico",
+      "quality": "average",
+      "sample_count": 20,
+      "v1_stats": {
+        "mean": 39.35,
+        "median": 40,
+        "std": 1.9563997546513856,
+        "min": 33,
+        "max": 40,
+        "q25": 40,
+        "q75": 40,
+        "above_70": 0,
+        "above_80": 0,
+        "count": 20
+      },
+      "v2_stats": {
+        "mean": 78.35,
+        "median": 78.5,
+        "std": 5.694514904713131,
+        "min": 69,
+        "max": 86,
+        "q25": 75,
+        "q75": 84,
+        "above_70": 19,
+        "above_80": 9,
+        "count": 20
+      },
+      "improvement_stats": {
+        "mean": 39,
+        "median": 40,
+        "std": 5.495452665613635,
+        "min": 29,
+        "max": 46,
+        "q25": 35,
+        "q75": 44,
+        "above_70": 0,
+        "above_80": 0,
+        "count": 20
+      }
+    },
+    "eletronico_poor": {
+      "genre": "eletronico",
+      "quality": "poor",
+      "sample_count": 20,
+      "v1_stats": {
+        "mean": 0,
+        "median": 0,
+        "std": 0,
+        "min": 0,
+        "max": 0,
+        "q25": 0,
+        "q75": 0,
+        "above_70": 0,
+        "above_80": 0,
+        "count": 20
+      },
+      "v2_stats": {
+        "mean": 51.45,
+        "median": 51,
+        "std": 1.3219304066402287,
+        "min": 49,
+        "max": 54,
+        "q25": 51,
+        "q75": 52,
+        "above_70": 0,
+        "above_80": 0,
+        "count": 20
+      },
+      "improvement_stats": {
+        "mean": 51.45,
+        "median": 51,
+        "std": 1.3219304066402287,
+        "min": 49,
+        "max": 54,
+        "q25": 51,
+        "q75": 52,
+        "above_70": 0,
+        "above_80": 0,
+        "count": 20
+      }
+    }
+  },
+  "overall_comparison": {
+    "v1_overall": {
+      "mean": 22.4,
+      "median": 30,
+      "std": 17.87847868248302,
+      "min": 0,
+      "max": 45,
+      "q25": 0,
+      "q75": 40,
+      "above_70": 0,
+      "above_80": 0,
+      "count": 120
+    },
+    "v2_overall": {
+      "mean": 72.2,
+      "median": 74.5,
+      "std": 22.104524423746373,
+      "min": 28,
+      "max": 100,
+      "q25": 51,
+      "q75": 92,
+      "above_70": 75,
+      "above_80": 53,
+      "count": 120
+    },
+    "improvement_overall": {
+      "mean": 49.8,
+      "median": 48.5,
+      "std": 16.793649593422707,
+      "min": 11,
+      "max": 84,
+      "q25": 36,
+      "q75": 67,
+      "above_70": 19,
+      "above_80": 4,
+      "count": 120
+    }
+  },
+  "recommendations": [
+    "✅ V2 mostra melhoria significativa (+49.8% média)",
+    "✅ V2 classifica 62.5% mais amostras como ≥70%",
+    "✅ V2 nunca penaliza (score sempre ≥ V1)",
+    "🎯 Recomendação: Implementar V2 com flag de rollback"
+  ]
+}

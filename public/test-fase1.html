@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste Fase 1 - Sistema runId Global | PROD.AI</title>
+    
+    <!-- Estilos básicos -->
+    <link rel="stylesheet" href="style.css?v=20250810">
+    <link rel="stylesheet" href="audio-analyzer.css?v=20250810">
+    
+    <style>
+        .test-container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: rgba(26, 32, 44, 0.95);
+            border-radius: 15px;
+            border: 1px solid #4A5568;
+        }
+        
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: rgba(45, 55, 72, 0.7);
+            border-radius: 10px;
+            border-left: 4px solid #00d4ff;
+        }
+        
+        .test-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 5px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .test-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .console-output {
+            background: #1a1a1a;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            padding: 15px;
+            border-radius: 8px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 10px 0;
+            border: 1px solid #333;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-success { background: #48bb78; }
+        .status-warning { background: #ed8936; }
+        .status-error { background: #f56565; }
+        
+        .upload-area {
+            border: 2px dashed #4A5568;
+            border-radius: 10px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+        }
+        
+        .upload-area:hover {
+            border-color: #00d4ff;
+            background: rgba(0, 212, 255, 0.1);
+        }
+        
+        .environment-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .info-card {
+            background: rgba(26, 32, 44, 0.8);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #4A5568;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧪 Teste Fase 1 - Sistema runId Global</h1>
+        <p>Teste completo das implementações da Fase 1 do sistema runId global para prevenir race conditions.</p>
+        
+        <!-- Informações do Ambiente -->
+        <div class="test-section">
+            <h3>🌍 Informações do Ambiente</h3>
+            <div class="environment-info">
+                <div class="info-card">
+                    <h4>Ambiente Detectado</h4>
+                    <p id="environment-type">Detectando...</p>
+                </div>
+                <div class="info-card">
+                    <h4>URL Atual</h4>
+                    <p id="current-url">Carregando...</p>
+                </div>
+                <div class="info-card">
+                    <h4>Feature Flag Status</h4>
+                    <p id="feature-flag-status">Verificando...</p>
+                </div>
+                <div class="info-card">
+                    <h4>AudioAnalyzer Status</h4>
+                    <p id="analyzer-status">Inicializando...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Testes Automatizados -->
+        <div class="test-section">
+            <h3>🔬 Testes Automatizados</h3>
+            <button class="test-button" onclick="executarTestesAutomatizados()">▶️ Executar Todos os Testes</button>
+            <button class="test-button" onclick="verificarCompatibilidadeVercel()">🔧 Verificar Compatibilidade Vercel</button>
+            <button class="test-button" onclick="limparConsole()">🧹 Limpar Console</button>
+            
+            <div id="test-results" class="console-output" style="display: none;">
+                <!-- Resultados aparecerão aqui -->
+            </div>
+        </div>
+        
+        <!-- Teste Manual com Arquivo -->
+        <div class="test-section">
+            <h3>🎵 Teste Manual com Arquivo de Áudio</h3>
+            <p>Upload de arquivo para testar o sistema runId em ação real:</p>
+            
+            <div class="upload-area" onclick="document.getElementById('audio-upload').click()">
+                <p>📁 Clique aqui ou arraste um arquivo de áudio</p>
+                <small>Formatos suportados: MP3, WAV, M4A, FLAC</small>
+            </div>
+            
+            <input type="file" id="audio-upload" accept="audio/*" style="display: none;">
+            
+            <div id="upload-status" style="margin-top: 10px;"></div>
+        </div>
+        
+        <!-- Console de Debug -->
+        <div class="test-section">
+            <h3>💻 Console de Debug</h3>
+            <p>Observe os logs em tempo real durante os testes:</p>
+            <div id="debug-console" class="console-output">
+                <div class="console-line">🚀 Console de debug inicializado...</div>
+                <div class="console-line">📡 Aguardando testes...</div>
+            </div>
+        </div>
+        
+        <!-- Status dos Testes -->
+        <div class="test-section">
+            <h3>📊 Status dos Testes</h3>
+            <div id="test-status-grid" class="environment-info">
+                <div class="info-card">
+                    <span class="status-indicator status-warning"></span>
+                    <strong>Feature Flag:</strong> <span id="status-feature-flag">Aguardando</span>
+                </div>
+                <div class="info-card">
+                    <span class="status-indicator status-warning"></span>
+                    <strong>runId Customizado:</strong> <span id="status-runid-custom">Aguardando</span>
+                </div>
+                <div class="info-card">
+                    <span class="status-indicator status-warning"></span>
+                    <strong>Duration em Logs:</strong> <span id="status-duration">Aguardando</span>
+                </div>
+                <div class="info-card">
+                    <span class="status-indicator status-warning"></span>
+                    <strong>Propagação Interna:</strong> <span id="status-propagation">Aguardando</span>
+                </div>
+                <div class="info-card">
+                    <span class="status-indicator status-warning"></span>
+                    <strong>Backward Compatibility:</strong> <span id="status-compatibility">Aguardando</span>
+                </div>
+                <div class="info-card">
+                    <span class="status-indicator status-warning"></span>
+                    <strong>AbortController:</strong> <span id="status-abort">Aguardando</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Scripts necessários -->
+    <script src="audio-analyzer.js?v=20250825-memory-fix" defer></script>
+    <script src="refs/embedded-refs-new.js?v=20250829-true-peak-fix&timestamp=1756500921" defer></script>
+    
+    <script>
+        // Configurações globais
+        window.DEBUG_RUNID = true;
+        window.DEBUG_ANALYZER = true;
+        
+        let debugConsole;
+        
+        // Interceptar console.log para mostrar no debug console
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            
+            if (debugConsole) {
+                const message = args.join(' ');
+                const timestamp = new Date().toLocaleTimeString();
+                const line = document.createElement('div');
+                line.className = 'console-line';
+                line.innerHTML = `<span style="color: #666;">[${timestamp}]</span> ${escapeHtml(message)}`;
+                debugConsole.appendChild(line);
+                debugConsole.scrollTop = debugConsole.scrollHeight;
+            }
+        };
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Inicialização quando a página carrega
+        document.addEventListener('DOMContentLoaded', function() {
+            debugConsole = document.getElementById('debug-console');
+            
+            // Detectar ambiente
+            const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+            const isVercel = window.location.hostname.includes('vercel.app');
+            
+            document.getElementById('environment-type').textContent = 
+                isLocalhost ? '🏠 Localhost' : isVercel ? '☁️ Vercel' : '🌐 Outro';
+            document.getElementById('current-url').textContent = window.location.href;
+            
+            // Verificar status inicial
+            setTimeout(verificarStatusInicial, 1000);
+            
+            // Setup do upload
+            setupAudioUpload();
+        });
+        
+        function verificarStatusInicial() {
+            // Feature Flag
+            try {
+                const hasFlag = typeof RUNID_ENFORCED !== 'undefined';
+                updateStatus('feature-flag', hasFlag, hasFlag ? `Ativo: ${RUNID_ENFORCED}` : 'Não encontrado');
+                document.getElementById('feature-flag-status').textContent = hasFlag ? 'Ativo' : 'Não detectado';
+            } catch (e) {
+                updateStatus('feature-flag', false, 'Erro ao verificar');
+                document.getElementById('feature-flag-status').textContent = 'Erro';
+            }
+            
+            // AudioAnalyzer
+            const hasAnalyzer = typeof window.audioAnalyzer !== 'undefined';
+            updateStatus('compatibility', hasAnalyzer, hasAnalyzer ? 'Disponível' : 'Não inicializado');
+            document.getElementById('analyzer-status').textContent = hasAnalyzer ? 'Inicializado' : 'Carregando...';
+        }
+        
+        function updateStatus(test, success, message) {
+            const statusElement = document.getElementById(`status-${test}`);
+            const indicatorElement = statusElement.parentElement.querySelector('.status-indicator');
+            
+            if (statusElement) {
+                statusElement.textContent = message;
+            }
+            
+            if (indicatorElement) {
+                indicatorElement.className = `status-indicator ${success ? 'status-success' : 'status-error'}`;
+            }
+        }
+        
+        function executarTestesAutomatizados() {
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = '<div class="console-line">🧪 Iniciando testes automatizados...</div>';
+            
+            console.log('🧪 EXECUTANDO TESTES AUTOMATIZADOS DA FASE 1');
+            console.log('═══════════════════════════════════════════════════════');
+            
+            // Executar testes se o debug script estiver disponível
+            if (typeof window.debugFase1 !== 'undefined') {
+                const resultados = window.debugFase1.testar();
+                
+                setTimeout(() => {
+                    // Atualizar status na interface
+                    if (window.DEBUG_FASE1_RESULTADOS) {
+                        const res = window.DEBUG_FASE1_RESULTADOS;
+                        updateStatus('feature-flag', res.featureFlag, res.featureFlag ? 'PASS' : 'FAIL');
+                        updateStatus('runid-custom', res.runIdCustomizado, res.runIdCustomizado ? 'PASS' : 'FAIL');
+                        updateStatus('duration', res.durationLogs, res.durationLogs ? 'PASS' : 'FAIL');
+                        updateStatus('propagation', res.propagacaoInterna, res.propagacaoInterna ? 'PASS' : 'FAIL');
+                        updateStatus('compatibility', res.backwardCompatibility, res.backwardCompatibility ? 'PASS' : 'FAIL');
+                        updateStatus('abort', res.abortControllerVinculado, res.abortControllerVinculado ? 'PASS' : 'FAIL');
+                    }
+                }, 1500);
+            } else {
+                console.log('❌ Script debugFase1 não carregado');
+                resultsDiv.innerHTML += '<div class="console-line">❌ Script de debug não encontrado</div>';
+            }
+        }
+        
+        function verificarCompatibilidadeVercel() {
+            console.log('🔧 Verificando compatibilidade com Vercel...');
+            
+            if (typeof window.VercelCompatibilityChecker !== 'undefined') {
+                window.VercelCompatibilityChecker.checkAll();
+            } else if (typeof window.debugFase1 !== 'undefined') {
+                window.debugFase1.verificarVercel();
+            } else {
+                // Verificação básica inline
+                const features = {
+                    'AudioContext': 'AudioContext' in window,
+                    'FileReader': 'FileReader' in window,
+                    'fetch': 'fetch' in window,
+                    'Promise': 'Promise' in window,
+                    'Map': 'Map' in window
+                };
+                
+                console.log('🔧 Recursos do navegador:');
+                Object.entries(features).forEach(([feature, available]) => {
+                    console.log(`${available ? '✅' : '❌'} ${feature}: ${available}`);
+                });
+            }
+        }
+        
+        function setupAudioUpload() {
+            const uploadInput = document.getElementById('audio-upload');
+            const statusDiv = document.getElementById('upload-status');
+            
+            uploadInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                statusDiv.innerHTML = `<p>📁 Arquivo selecionado: ${file.name}</p>`;
+                console.log(`🎵 Testando com arquivo real: ${file.name}`);
+                
+                // Ativar debug para ver runId em ação
+                window.DEBUG_RUNID = true;
+                
+                if (window.audioAnalyzer) {
+                    const customRunId = `manual_test_${Date.now()}`;
+                    console.log(`🆔 Usando runId customizado: ${customRunId}`);
+                    
+                    // Analisar arquivo com runId customizado
+                    window.audioAnalyzer.analyzeAudioFile(file, { runId: customRunId })
+                        .then(result => {
+                            console.log('✅ Análise concluída com sucesso');
+                            statusDiv.innerHTML += '<p style="color: #48bb78;">✅ Análise concluída! Verifique o console para logs de runId.</p>';
+                        })
+                        .catch(error => {
+                            console.log('❌ Erro na análise:', error.message);
+                            statusDiv.innerHTML += `<p style="color: #f56565;">❌ Erro: ${error.message}</p>`;
+                        });
+                } else {
+                    statusDiv.innerHTML += '<p style="color: #ed8936;">⚠️ AudioAnalyzer não disponível</p>';
+                }
+            });
+        }
+        
+        function limparConsole() {
+            const debugConsole = document.getElementById('debug-console');
+            debugConsole.innerHTML = '<div class="console-line">🧹 Console limpo</div>';
+        }
+    </script>
+    
+    <!-- Carregar debug script -->
+    <script src="../debug-fase1.js?v=20250828" defer></script>
+    
+    <!-- Carregar verificador de compatibilidade Vercel -->
+    <script src="../vercel-compatibility-checker.js?v=20250828" defer></script>
+</body>
+</html>

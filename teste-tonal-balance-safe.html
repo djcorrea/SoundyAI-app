@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛡️ Teste Tonal Balance Safe V1</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #0a0b0f;
+            color: #e9e9f1;
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #1a1d29 0%, #2a2d3a 100%);
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .status {
+            padding: 12px 24px;
+            border-radius: 8px;
+            margin: 20px 0;
+            text-align: center;
+            font-weight: 600;
+        }
+        
+        .status.active {
+            background: #143f2b;
+            color: #29c182;
+            border: 1px solid #29c182;
+        }
+        
+        .status.inactive {
+            background: #4a1d1d;
+            color: #ff7d7d;
+            border: 1px solid #ff7d7d;
+        }
+        
+        .test-section {
+            background: #1a1d29;
+            border-radius: 12px;
+            padding: 24px;
+            margin: 20px 0;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .test-section h3 {
+            margin-top: 0;
+            color: #81c784;
+        }
+        
+        .test-case {
+            background: #0e1422;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 12px 0;
+            border-left: 4px solid #81c784;
+        }
+        
+        .test-case.failed {
+            border-left-color: #ff7d7d;
+        }
+        
+        .test-case.passed {
+            border-left-color: #29c182;
+        }
+        
+        .button {
+            background: linear-gradient(135deg, #1976d2 0%, #1565c0 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            margin: 8px;
+            transition: all 0.2s ease;
+        }
+        
+        .button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
+        }
+        
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .result-display {
+            background: #0a0b0f;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 12px 0;
+            font-family: 'Courier New', monospace;
+            border: 1px solid #333;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background: #0e1422;
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #81c784;
+            margin-bottom: 4px;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            opacity: 0.8;
+            text-transform: uppercase;
+        }
+        
+        .visual-test {
+            background: #1a1d29;
+            border-radius: 8px;
+            padding: 16px;
+            margin: 12px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .visual-test .label {
+            font-weight: 600;
+        }
+        
+        .visual-test .result {
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        
+        .visual-test .result.valid {
+            background: #143f2b;
+            color: #29c182;
+        }
+        
+        .visual-test .result.invalid {
+            background: #4a1d1d;
+            color: #ff7d7d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛡️ Teste Tonal Balance Safe V1</h1>
+            <p>Sistema seguro para validação do bloco "Sub / Low / Mid / High"</p>
+        </div>
+        
+        <div id="systemStatus" class="status inactive">
+            ❌ Sistema: CARREGANDO...
+        </div>
+        
+        <!-- Controles -->
+        <div class="test-section">
+            <h3>🎛️ Controles</h3>
+            <button id="runBasicTests" class="button">🧪 Executar Testes Básicos</button>
+            <button id="runVisualTests" class="button">👁️ Testes Visuais</button>
+            <button id="toggleFeatureFlag" class="button">🚦 Toggle Feature Flag</button>
+            <button id="clearResults" class="button">🗑️ Limpar Resultados</button>
+        </div>
+        
+        <!-- Estatísticas -->
+        <div class="test-section">
+            <h3>📊 Estatísticas do Sistema</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="testsPassed">0</div>
+                    <div class="stat-label">Testes Passaram</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="testsFailed">0</div>
+                    <div class="stat-label">Testes Falharam</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="validationTime">0ms</div>
+                    <div class="stat-label">Tempo Validação</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="featureFlagStatus">OFF</div>
+                    <div class="stat-label">Feature Flag</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Testes Visuais -->
+        <div class="test-section">
+            <h3>👁️ Testes Visuais (Renderização)</h3>
+            <div id="visualTests">
+                <!-- Preenchido dinamicamente -->
+            </div>
+        </div>
+        
+        <!-- Resultados Detalhados -->
+        <div class="test-section">
+            <h3>📋 Log de Resultados</h3>
+            <div id="testResults" class="result-display">
+Aguardando execução de testes...
+            </div>
+        </div>
+        
+        <!-- Manual de Uso -->
+        <div class="test-section">
+            <h3>📖 Manual de Uso</h3>
+            <div class="test-case">
+                <strong>🎯 Objetivo:</strong> Garantir que o bloco "Sub / Low / Mid / High" exiba valores reais e distintos das bandas corretas, ocultando automaticamente quando dados forem insuficientes/duvidosos.
+            </div>
+            <div class="test-case">
+                <strong>✅ Cenários Válidos:</strong>
+                <ul>
+                    <li>Dados com valores distintos e plausíveis (-80dB a +20dB)</li>
+                    <li>Pelo menos 2 bandas válidas</li>
+                    <li>Valores únicos (não repetidos)</li>
+                </ul>
+            </div>
+            <div class="test-case">
+                <strong>❌ Cenários Inválidos (ocultados):</strong>
+                <ul>
+                    <li>Todos os valores idênticos (suspeito)</li>
+                    <li>Menos de 2 bandas válidas</li>
+                    <li>Valores fora da faixa sensata</li>
+                    <li>Dados ausentes ou corrompidos</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="tonal-balance-safe-v1.js"></script>
+    
+    <script>
+        // Estado da interface
+        let testStats = {
+            passed: 0,
+            failed: 0,
+            totalTime: 0
+        };
+        
+        // Elementos DOM
+        const systemStatus = document.getElementById('systemStatus');
+        const runBasicTests = document.getElementById('runBasicTests');
+        const runVisualTests = document.getElementById('runVisualTests');
+        const toggleFeatureFlag = document.getElementById('toggleFeatureFlag');
+        const clearResults = document.getElementById('clearResults');
+        const testResults = document.getElementById('testResults');
+        const visualTests = document.getElementById('visualTests');
+        
+        // Atualizar status do sistema
+        function updateSystemStatus() {
+            const isActive = window.TONAL_BALANCE_SAFE_V1 && typeof window.validateSpectralBandsData === 'function';
+            
+            if (isActive) {
+                systemStatus.className = 'status active';
+                systemStatus.textContent = '✅ Sistema: ATIVO E FUNCIONAL';
+                runBasicTests.disabled = false;
+                runVisualTests.disabled = false;
+            } else {
+                systemStatus.className = 'status inactive';
+                systemStatus.textContent = '❌ Sistema: INATIVO OU COM PROBLEMAS';
+                runBasicTests.disabled = true;
+                runVisualTests.disabled = true;
+            }
+            
+            // Atualizar stats
+            document.getElementById('featureFlagStatus').textContent = window.TONAL_BALANCE_SAFE_V1 ? 'ON' : 'OFF';
+        }
+        
+        // Atualizar estatísticas
+        function updateStats() {
+            document.getElementById('testsPassed').textContent = testStats.passed;
+            document.getElementById('testsFailed').textContent = testStats.failed;
+            document.getElementById('validationTime').textContent = `${testStats.totalTime.toFixed(2)}ms`;
+        }
+        
+        // Log de resultados
+        function logResult(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const icon = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+            testResults.textContent += `\n[${timestamp}] ${icon} ${message}`;
+            testResults.scrollTop = testResults.scrollHeight;
+        }
+        
+        // Executar testes básicos
+        function runBasicTestSuite() {
+            logResult('=== INICIANDO TESTES BÁSICOS ===');
+            
+            if (!window.testTonalBalanceSafe) {
+                logResult('Função testTonalBalanceSafe não encontrada', 'error');
+                testStats.failed++;
+                updateStats();
+                return;
+            }
+            
+            const start = performance.now();
+            const success = window.testTonalBalanceSafe();
+            const time = performance.now() - start;
+            
+            testStats.totalTime += time;
+            
+            if (success) {
+                logResult(`Todos os testes básicos passaram! (${time.toFixed(2)}ms)`, 'success');
+                testStats.passed += 5; // 5 casos de teste
+            } else {
+                logResult(`Alguns testes básicos falharam! (${time.toFixed(2)}ms)`, 'error');
+                testStats.failed += 1;
+            }
+            
+            updateStats();
+        }
+        
+        // Testes visuais
+        function runVisualTestSuite() {
+            logResult('=== EXECUTANDO TESTES VISUAIS ===');
+            
+            const testCases = [
+                {
+                    name: 'Dados Ideais',
+                    data: {
+                        sub: { rms_db: -15.2 },
+                        low: { rms_db: -8.7 },
+                        mid: { rms_db: -6.8 },
+                        high: { rms_db: -11.2 }
+                    }
+                },
+                {
+                    name: 'Valores Repetidos',
+                    data: {
+                        sub: { rms_db: -14.0 },
+                        low: { rms_db: -14.0 },
+                        mid: { rms_db: -14.0 },
+                        high: { rms_db: -14.0 }
+                    }
+                },
+                {
+                    name: 'Dados Parciais',
+                    data: {
+                        sub: { rms_db: -15.2 },
+                        low: { rms_db: -8.7 },
+                        mid: null,
+                        high: { rms_db: -11.2 }
+                    }
+                },
+                {
+                    name: 'Dados Insuficientes',
+                    data: {
+                        sub: { rms_db: -15.2 },
+                        low: null,
+                        mid: null,
+                        high: null
+                    }
+                },
+                {
+                    name: 'Dados Ausentes',
+                    data: null
+                }
+            ];
+            
+            visualTests.innerHTML = '';
+            
+            testCases.forEach(testCase => {
+                const result = window.tonalSummarySafe ? window.tonalSummarySafe(testCase.data) : '⚠️ Função não disponível';
+                const isValid = result !== '—';
+                
+                const div = document.createElement('div');
+                div.className = 'visual-test';
+                div.innerHTML = `
+                    <div class="label">${testCase.name}:</div>
+                    <div class="result ${isValid ? 'valid' : 'invalid'}">${result}</div>
+                `;
+                
+                visualTests.appendChild(div);
+                
+                logResult(`Visual: ${testCase.name} → ${result}`);
+                
+                // Contar estatísticas básicas (casos que devem falhar)
+                const shouldFail = ['Valores Repetidos', 'Dados Insuficientes', 'Dados Ausentes'].includes(testCase.name);
+                if (shouldFail && !isValid) {
+                    testStats.passed++;
+                } else if (!shouldFail && isValid) {
+                    testStats.passed++;
+                } else {
+                    testStats.failed++;
+                }
+            });
+            
+            updateStats();
+        }
+        
+        // Toggle feature flag
+        function toggleFlag() {
+            window.TONAL_BALANCE_SAFE_V1 = !window.TONAL_BALANCE_SAFE_V1;
+            updateSystemStatus();
+            logResult(`Feature flag alterada para: ${window.TONAL_BALANCE_SAFE_V1 ? 'ON' : 'OFF'}`);
+        }
+        
+        // Limpar resultados
+        function clearTestResults() {
+            testResults.textContent = 'Resultados limpos...';
+            testStats = { passed: 0, failed: 0, totalTime: 0 };
+            updateStats();
+            visualTests.innerHTML = '';
+        }
+        
+        // Event listeners
+        runBasicTests.addEventListener('click', runBasicTestSuite);
+        runVisualTests.addEventListener('click', runVisualTestSuite);
+        toggleFeatureFlag.addEventListener('click', toggleFlag);
+        clearResults.addEventListener('click', clearTestResults);
+        
+        // Inicialização
+        function initialize() {
+            updateSystemStatus();
+            updateStats();
+            logResult('Interface de teste carregada');
+            
+            // Auto-executar testes básicos se sistema estiver ativo
+            if (window.TONAL_BALANCE_SAFE_V1) {
+                setTimeout(() => {
+                    logResult('Executando auto-teste inicial...');
+                    runBasicTestSuite();
+                }, 1000);
+            }
+        }
+        
+        // Aguardar carregamento completo
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initialize);
+        } else {
+            initialize();
+        }
+        
+        // Verificar periodicamente se o sistema carregou
+        const statusChecker = setInterval(() => {
+            updateSystemStatus();
+            if (window.TONAL_BALANCE_SAFE_V1 && typeof window.validateSpectralBandsData === 'function') {
+                clearInterval(statusChecker);
+                logResult('Sistema detectado e ativo!');
+            }
+        }, 500);
+        
+        // Parar checker após 10 segundos
+        setTimeout(() => {
+            clearInterval(statusChecker);
+        }, 10000);
+    </script>
+</body>
+</html>

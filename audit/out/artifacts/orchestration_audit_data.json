@@ -1,0 +1,445 @@
+{
+  "runId": "orchestration_audit_1756091674026_644",
+  "timestamp": "2025-08-25T03:14:34.043Z",
+  "components": [
+    {
+      "name": "Audio Input Handler",
+      "files": [
+        "public/audio-analyzer-integration.js",
+        "public/audio-analyzer-v2.js"
+      ],
+      "responsibility": "Processamento de entrada de áudio",
+      "interfaces": [
+        "FileReader API",
+        "Web Audio API"
+      ],
+      "type": "input",
+      "exists": true,
+      "status": "active",
+      "lastModified": "2025-08-25T02:51:46.383Z"
+    },
+    {
+      "name": "Audio Feature Extractor",
+      "files": [
+        "lib/audio/features/",
+        "analyzer/"
+      ],
+      "responsibility": "Extração de características do áudio",
+      "interfaces": [
+        "LUFS, True Peak, DR, Spectral Analysis"
+      ],
+      "type": "processing",
+      "exists": true,
+      "status": "active",
+      "lastModified": "2025-08-25T00:22:30.059Z"
+    },
+    {
+      "name": "Reference Manager",
+      "files": [
+        "refs/out/*.json",
+        "lib/refs/"
+      ],
+      "responsibility": "Gestão de referências por gênero",
+      "interfaces": [
+        "JSON configs",
+        "Target/tolerance data"
+      ],
+      "type": "configuration",
+      "exists": false,
+      "status": "missing",
+      "lastModified": null
+    },
+    {
+      "name": "Scoring Engine",
+      "files": [
+        "lib/audio/features/scoring.js"
+      ],
+      "responsibility": "Cálculo de scores de qualidade",
+      "interfaces": [
+        "Metric comparison",
+        "Weight calculation"
+      ],
+      "type": "computation",
+      "exists": true,
+      "status": "active",
+      "lastModified": "2025-08-25T00:58:48.628Z"
+    },
+    {
+      "name": "Suggestion Generator",
+      "files": [
+        "public/audio-analyzer-integration.js"
+      ],
+      "responsibility": "Geração de sugestões de melhoria",
+      "interfaces": [
+        "Rule engine",
+        "Feedback system"
+      ],
+      "type": "advisory",
+      "exists": true,
+      "status": "active",
+      "lastModified": "2025-08-25T02:51:46.383Z"
+    },
+    {
+      "name": "UI Renderer",
+      "files": [
+        "public/*.html",
+        "public/*.js"
+      ],
+      "responsibility": "Interface do usuário e visualização",
+      "interfaces": [
+        "DOM manipulation",
+        "Charts/meters"
+      ],
+      "type": "presentation",
+      "exists": false,
+      "status": "missing",
+      "lastModified": null
+    },
+    {
+      "name": "Cache System",
+      "files": [
+        "cache-*"
+      ],
+      "responsibility": "Otimização de performance",
+      "interfaces": [
+        "Local storage",
+        "File caching"
+      ],
+      "type": "optimization",
+      "exists": false,
+      "status": "missing",
+      "lastModified": null
+    }
+  ],
+  "dataFlow": [
+    {
+      "stage": 1,
+      "from": "User Interface",
+      "to": "Audio Input Handler",
+      "data": "Audio file (MP3, WAV, etc.)",
+      "method": "File upload/drag&drop",
+      "validation": "File format, size checks"
+    },
+    {
+      "stage": 2,
+      "from": "Audio Input Handler",
+      "to": "Audio Feature Extractor",
+      "data": "Audio buffer, sample rate, channels",
+      "method": "Web Audio API processing",
+      "validation": "Buffer integrity, format conversion"
+    },
+    {
+      "stage": 3,
+      "from": "Audio Feature Extractor",
+      "to": "Reference Manager",
+      "data": "Raw metrics (LUFS, Peak, DR, bands)",
+      "method": "Function calls",
+      "validation": "Metric range validation"
+    },
+    {
+      "stage": 4,
+      "from": "Reference Manager",
+      "to": "Scoring Engine",
+      "data": "Metrics + Genre references",
+      "method": "JSON config loading",
+      "validation": "Reference file integrity"
+    },
+    {
+      "stage": 5,
+      "from": "Scoring Engine",
+      "to": "Suggestion Generator",
+      "data": "Scores, deviations, tolerances",
+      "method": "Calculation results",
+      "validation": "Score range (0-100)"
+    },
+    {
+      "stage": 6,
+      "from": "Suggestion Generator",
+      "to": "UI Renderer",
+      "data": "Scores + Suggestions + Visualizations",
+      "method": "DOM updates",
+      "validation": "Data sanitization"
+    },
+    {
+      "stage": 7,
+      "from": "Cache System",
+      "to": "All Components",
+      "data": "Cached results, configurations",
+      "method": "Local storage/file cache",
+      "validation": "Cache validity checks"
+    }
+  ],
+  "dependencies": {
+    "Audio Input Handler": {
+      "depends_on": [
+        "Web Audio API",
+        "FileReader API"
+      ],
+      "depended_by": [
+        "Audio Feature Extractor"
+      ],
+      "coupling": "loose",
+      "critical": true
+    },
+    "Audio Feature Extractor": {
+      "depends_on": [
+        "Audio Input Handler",
+        "Audio processing libraries"
+      ],
+      "depended_by": [
+        "Reference Manager",
+        "Scoring Engine"
+      ],
+      "coupling": "medium",
+      "critical": true
+    },
+    "Reference Manager": {
+      "depends_on": [
+        "JSON files",
+        "File system"
+      ],
+      "depended_by": [
+        "Scoring Engine"
+      ],
+      "coupling": "loose",
+      "critical": true
+    },
+    "Scoring Engine": {
+      "depends_on": [
+        "Audio Feature Extractor",
+        "Reference Manager"
+      ],
+      "depended_by": [
+        "Suggestion Generator",
+        "UI Renderer"
+      ],
+      "coupling": "tight",
+      "critical": true
+    },
+    "Suggestion Generator": {
+      "depends_on": [
+        "Scoring Engine"
+      ],
+      "depended_by": [
+        "UI Renderer"
+      ],
+      "coupling": "medium",
+      "critical": false
+    },
+    "UI Renderer": {
+      "depends_on": [
+        "Scoring Engine",
+        "Suggestion Generator"
+      ],
+      "depended_by": [],
+      "coupling": "loose",
+      "critical": false
+    },
+    "Cache System": {
+      "depends_on": [
+        "Local storage",
+        "File system"
+      ],
+      "depended_by": [
+        "All components"
+      ],
+      "coupling": "loose",
+      "critical": false
+    }
+  },
+  "coordinationIssues": [
+    {
+      "type": "Race Condition",
+      "location": "Audio processing vs UI updates",
+      "description": "UI pode mostrar dados antigos durante processamento",
+      "severity": "medium",
+      "likelihood": "high",
+      "impact": "User confusion, inconsistent state"
+    },
+    {
+      "type": "Callback Hell",
+      "location": "Pipeline de processamento",
+      "description": "Múltiplos callbacks aninhados podem causar problemas de timing",
+      "severity": "low",
+      "likelihood": "medium",
+      "impact": "Code maintainability, debugging difficulty"
+    },
+    {
+      "type": "Cache Invalidation",
+      "location": "Genre switching",
+      "description": "Cache pode não ser invalidado corretamente ao trocar gênero",
+      "severity": "high",
+      "likelihood": "medium",
+      "impact": "Incorrect results, user confusion"
+    },
+    {
+      "type": "Event Order Dependency",
+      "location": "Component initialization",
+      "description": "Componentes podem depender de ordem específica de inicialização",
+      "severity": "medium",
+      "likelihood": "low",
+      "impact": "Initialization failures"
+    },
+    {
+      "type": "Memory Leaks",
+      "location": "Audio buffer handling",
+      "description": "Buffers de áudio podem não ser liberados adequadamente",
+      "severity": "high",
+      "likelihood": "medium",
+      "impact": "Performance degradation, crashes"
+    }
+  ],
+  "pipelineStages": [
+    {
+      "stage": "Input",
+      "order": 1,
+      "components": [
+        "Audio Input Handler"
+      ],
+      "duration_estimate": "100-500ms",
+      "failure_rate": "low",
+      "bottleneck_risk": "low",
+      "error_handling": "basic"
+    },
+    {
+      "stage": "Processing",
+      "order": 2,
+      "components": [
+        "Audio Feature Extractor"
+      ],
+      "duration_estimate": "1-5s",
+      "failure_rate": "medium",
+      "bottleneck_risk": "high",
+      "error_handling": "partial"
+    },
+    {
+      "stage": "Reference Loading",
+      "order": 3,
+      "components": [
+        "Reference Manager"
+      ],
+      "duration_estimate": "10-100ms",
+      "failure_rate": "low",
+      "bottleneck_risk": "low",
+      "error_handling": "basic"
+    },
+    {
+      "stage": "Scoring",
+      "order": 4,
+      "components": [
+        "Scoring Engine"
+      ],
+      "duration_estimate": "50-200ms",
+      "failure_rate": "low",
+      "bottleneck_risk": "medium",
+      "error_handling": "good"
+    },
+    {
+      "stage": "Suggestion Generation",
+      "order": 5,
+      "components": [
+        "Suggestion Generator"
+      ],
+      "duration_estimate": "100-300ms",
+      "failure_rate": "medium",
+      "bottleneck_risk": "low",
+      "error_handling": "basic"
+    },
+    {
+      "stage": "Rendering",
+      "order": 6,
+      "components": [
+        "UI Renderer"
+      ],
+      "duration_estimate": "200-1000ms",
+      "failure_rate": "low",
+      "bottleneck_risk": "medium",
+      "error_handling": "good"
+    }
+  ],
+  "coordinationAnalysis": {
+    "Cold Start": {
+      "name": "Cold Start",
+      "description": "Primeira execução sem cache",
+      "coordination_complexity": "high",
+      "expected_duration": "5-10s",
+      "failure_points": [
+        "Reference loading",
+        "Audio processing"
+      ],
+      "risk_level": "high",
+      "mitigation_strategies": [
+        "Implementar timeout e retry logic",
+        "Adicionar progress indicators detalhados",
+        "Implementar processamento em chunks menores",
+        "Adicionar fallback para formatos de áudio",
+        "Implementar cache persistente para referências",
+        "Adicionar validação de integridade dos arquivos"
+      ]
+    },
+    "Warm Start": {
+      "name": "Warm Start",
+      "description": "Execução com cache parcial",
+      "coordination_complexity": "medium",
+      "expected_duration": "2-5s",
+      "failure_points": [
+        "Audio processing"
+      ],
+      "risk_level": "medium",
+      "mitigation_strategies": [
+        "Implementar processamento em chunks menores",
+        "Adicionar fallback para formatos de áudio"
+      ]
+    },
+    "Hot Start": {
+      "name": "Hot Start",
+      "description": "Execução com cache completo",
+      "coordination_complexity": "low",
+      "expected_duration": "0.5-2s",
+      "failure_points": [
+        "UI rendering"
+      ],
+      "risk_level": "low",
+      "mitigation_strategies": [
+        "Implementar rendering progressivo",
+        "Adicionar skeleton loading states"
+      ]
+    },
+    "Genre Switch": {
+      "name": "Genre Switch",
+      "description": "Mudança de gênero musical",
+      "coordination_complexity": "medium",
+      "expected_duration": "1-3s",
+      "failure_points": [
+        "Reference loading",
+        "Score recalculation"
+      ],
+      "risk_level": "medium",
+      "mitigation_strategies": [
+        "Implementar cache persistente para referências",
+        "Adicionar validação de integridade dos arquivos"
+      ]
+    },
+    "Error Recovery": {
+      "name": "Error Recovery",
+      "description": "Recuperação de erro de processamento",
+      "coordination_complexity": "high",
+      "expected_duration": "variable",
+      "failure_points": [
+        "Error propagation",
+        "State cleanup"
+      ],
+      "risk_level": "high",
+      "mitigation_strategies": [
+        "Implementar timeout e retry logic",
+        "Adicionar progress indicators detalhados"
+      ]
+    }
+  },
+  "scores": {
+    "modularityScore": 57,
+    "robustnessScore": 35,
+    "maintainabilityScore": 89,
+    "performanceScore": 40
+  }
+}

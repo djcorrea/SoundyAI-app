@@ -1,0 +1,217 @@
+{
+  "runId": "scoring_audit_1756091300619_736",
+  "timestamp": "2025-08-25T03:08:20.641Z",
+  "scoringMethods": [
+    {
+      "name": "computeMixScore",
+      "type": "function",
+      "description": "🎯 V4 SISTEMA DE PENALIDADES BALANCEADAS\r\n Calcula penalidade específica por categoria com limites máximos\r\n \r\n\r\n    if (severity === 'green' || sever"
+    },
+    {
+      "name": "- Sistema",
+      "type": "system",
+      "description": "Sistema identificado em comentário"
+    },
+    {
+      "name": "🎯 PONTUAÇÃO BASE DO SISTEMA",
+      "type": "system",
+      "description": "Sistema identificado em comentário"
+    },
+    {
+      "name": "🎯 CLASSIFICAÇÃO REBALANCEADA PARA NOVO SISTEMA",
+      "type": "system",
+      "description": "Sistema identificado em comentário"
+    }
+  ],
+  "weightAnalysis": {
+    "spectralWeights": {},
+    "colorWeights": {},
+    "tolerancesByGenre": {
+      "eletrofunk": {
+        "lufs": "N/A",
+        "truePeak": "N/A",
+        "dr": "N/A",
+        "lra": "N/A",
+        "stereo": "N/A",
+        "bandCount": 0
+      },
+      "eletronico": {
+        "lufs": "N/A",
+        "truePeak": "N/A",
+        "dr": "N/A",
+        "lra": "N/A",
+        "stereo": "N/A",
+        "bandCount": 0
+      },
+      "funk_automotivo": {
+        "lufs": "N/A",
+        "truePeak": "N/A",
+        "dr": "N/A",
+        "lra": "N/A",
+        "stereo": "N/A",
+        "bandCount": 0
+      },
+      "funk_bruxaria": {
+        "lufs": "N/A",
+        "truePeak": "N/A",
+        "dr": "N/A",
+        "lra": "N/A",
+        "stereo": "N/A",
+        "bandCount": 0
+      },
+      "funk_consciente": {
+        "lufs": "N/A",
+        "truePeak": "N/A",
+        "dr": "N/A",
+        "lra": "N/A",
+        "stereo": "N/A",
+        "bandCount": 0
+      },
+      "funk_mandela.backup-2025-08-24T13-39-47-644Z": {
+        "lufs": "N/A",
+        "truePeak": "N/A",
+        "dr": "N/A",
+        "lra": "N/A",
+        "stereo": "N/A",
+        "bandCount": 0
+      },
+      "funk_mandela.backup-before-arithmetic-means": {
+        "lufs": "N/A",
+        "truePeak": "N/A",
+        "dr": "N/A",
+        "lra": "N/A",
+        "stereo": "N/A",
+        "bandCount": 0
+      },
+      "funk_mandela": {
+        "lufs": "N/A",
+        "truePeak": "N/A",
+        "dr": "N/A",
+        "lra": "N/A",
+        "stereo": "N/A",
+        "bandCount": 0
+      },
+      "funk_mandela_backup_pre_spectral": {
+        "lufs": "N/A",
+        "truePeak": "N/A",
+        "dr": "N/A",
+        "lra": "N/A",
+        "stereo": "N/A",
+        "bandCount": 0
+      },
+      "funk_mandela_backup_spectral": {
+        "lufs": "N/A",
+        "truePeak": "N/A",
+        "dr": "N/A",
+        "lra": "N/A",
+        "stereo": "N/A",
+        "bandCount": 0
+      },
+      "funk_mandela_legacy": {
+        "lufs": "N/A",
+        "truePeak": "N/A",
+        "dr": "N/A",
+        "lra": "N/A",
+        "stereo": "N/A",
+        "bandCount": 0
+      },
+      "funk_mandela_spectral_v2": {
+        "lufs": "N/A",
+        "truePeak": "N/A",
+        "dr": "N/A",
+        "lra": "N/A",
+        "stereo": "N/A",
+        "bandCount": 0
+      },
+      "ROLLBACK_FUNK_MANDELA_PREV": {
+        "lufs": "N/A",
+        "truePeak": "N/A",
+        "dr": "N/A",
+        "lra": "N/A",
+        "stereo": "N/A",
+        "bandCount": 0
+      },
+      "trance": {
+        "lufs": "N/A",
+        "truePeak": "N/A",
+        "dr": "N/A",
+        "lra": "N/A",
+        "stereo": "N/A",
+        "bandCount": 0
+      },
+      "trap": {
+        "lufs": "N/A",
+        "truePeak": "N/A",
+        "dr": "N/A",
+        "lra": "N/A",
+        "stereo": "N/A",
+        "bandCount": 0
+      }
+    }
+  },
+  "ablationResults": [
+    {
+      "name": "Sem LUFS",
+      "description": "Remove LUFS integrado",
+      "removedMetric": "lufsIntegrated",
+      "baselineScore": 100,
+      "modifiedScore": 100,
+      "impact": 0,
+      "relativeImpact": 0
+    },
+    {
+      "name": "Sem True Peak",
+      "description": "Remove True Peak",
+      "removedMetric": "truePeakDbtp",
+      "baselineScore": 100,
+      "modifiedScore": 100,
+      "impact": 0,
+      "relativeImpact": 0
+    },
+    {
+      "name": "Sem Dynamic Range",
+      "description": "Remove Dynamic Range",
+      "removedMetric": "dynamicRange",
+      "baselineScore": 100,
+      "modifiedScore": 100,
+      "impact": 0,
+      "relativeImpact": 0
+    },
+    {
+      "name": "Sem bandas espectrais",
+      "description": "Remove todas as bandas de frequência",
+      "removedMetric": "bandEnergies",
+      "baselineScore": 100,
+      "modifiedScore": 100,
+      "impact": 0,
+      "relativeImpact": 0
+    },
+    {
+      "name": "Sem correlação estéreo",
+      "description": "Remove correlação estéreo",
+      "removedMetric": "stereoCorrelation",
+      "baselineScore": 100,
+      "modifiedScore": 100,
+      "impact": 0,
+      "relativeImpact": 0
+    }
+  ],
+  "formulaAnalysis": {
+    "Score Tolerance": {
+      "description": "Fórmula para calcular score baseado em tolerância",
+      "found": false
+    },
+    "Color Ratio": {
+      "description": "Sistema de cores (verde/amarelo/vermelho)",
+      "found": false
+    },
+    "Equal Weight": {
+      "description": "Sistema de pesos iguais V3",
+      "found": false
+    },
+    "Penalty Calculation": {
+      "description": "Cálculo de penalidades",
+      "found": false
+    }
+  }
+}

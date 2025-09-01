@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛡️ Validação do Contador de Problemas</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .test-section {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        
+        .controls {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 16px;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn.secondary {
+            background: linear-gradient(45deg, #52f7ad, #4caf50);
+        }
+        
+        .btn.danger {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+        }
+        
+        .status-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 5px solid #667eea;
+        }
+        
+        .status-card.success {
+            border-left-color: #27ae60;
+            background: #f0f9f0;
+        }
+        
+        .status-card.error {
+            border-left-color: #e74c3c;
+            background: #fdf2f2;
+        }
+        
+        .status-card.warning {
+            border-left-color: #f39c12;
+            background: #fffcf0;
+        }
+        
+        .test-results {
+            margin-top: 20px;
+        }
+        
+        .test-item {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            border: 1px solid #e9ecef;
+            transition: all 0.3s ease;
+        }
+        
+        .test-item:hover {
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transform: translateY(-2px);
+        }
+        
+        .test-item.passed {
+            border-left: 4px solid #27ae60;
+        }
+        
+        .test-item.failed {
+            border-left: 4px solid #e74c3c;
+        }
+        
+        .test-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        
+        .test-title {
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+        
+        .test-status {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .test-status.passed {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .test-status.failed {
+            background: #e74c3c;
+            color: white;
+        }
+        
+        .test-details {
+            color: #6c757d;
+            font-size: 0.95em;
+            margin-top: 10px;
+        }
+        
+        .evidence {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            font-family: monospace;
+            font-size: 0.9em;
+            overflow-x: auto;
+        }
+        
+        .summary {
+            background: linear-gradient(135deg, #667eea20, #764ba220);
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .summary-item {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .summary-number {
+            font-size: 2.5em;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+        
+        .summary-label {
+            color: #7f8c8d;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.9em;
+        }
+        
+        .live-demo {
+            background: #2c3e50;
+            color: #ecf0f1;
+            border-radius: 15px;
+            padding: 25px;
+            margin-top: 20px;
+        }
+        
+        .demo-input {
+            background: #34495e;
+            border: none;
+            color: #ecf0f1;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin: 5px;
+            width: 120px;
+            font-family: monospace;
+        }
+        
+        .demo-output {
+            background: #34495e;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #7f8c8d;
+        }
+        
+        .loading::after {
+            content: '';
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border: 3px solid #ecf0f1;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-left: 10px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .log-output {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 12px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+            border: 2px solid #34495e;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🛡️ Validação do Contador de Problemas</h1>
+            <p>Sistema de testes para garantir que o contador de problemas funciona corretamente</p>
+        </div>
+
+        <div class="test-section">
+            <h2>🎯 Controles de Teste</h2>
+            <div class="controls">
+                <button class="btn" onclick="runQuickTest()">
+                    ⚡ Teste Rápido
+                </button>
+                <button class="btn secondary" onclick="runFullValidation()">
+                    🔍 Validação Completa
+                </button>
+                <button class="btn" onclick="testLiveDemo()">
+                    🎮 Demo Interativo
+                </button>
+                <button class="btn danger" onclick="clearResults()">
+                    🧹 Limpar
+                </button>
+            </div>
+
+            <div id="statusDisplay"></div>
+            
+            <div id="summaryDisplay" style="display: none;"></div>
+            
+            <div class="test-results" id="testResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🎮 Demo Interativo</h2>
+            <p>Teste o contador com valores personalizados:</p>
+            
+            <div class="live-demo">
+                <div>
+                    <label>LUFS Integrated:</label>
+                    <input type="number" class="demo-input" id="lufsInput" value="-14" step="0.1">
+                    <label>True Peak (dBTP):</label>
+                    <input type="number" class="demo-input" id="truePeakInput" value="-1" step="0.1">
+                </div>
+                <div>
+                    <label>Dynamic Range:</label>
+                    <input type="number" class="demo-input" id="drInput" value="10" step="0.1">
+                    <label>Stereo Correlation:</label>
+                    <input type="number" class="demo-input" id="stereoInput" value="0.5" step="0.01">
+                </div>
+                <button class="btn secondary" onclick="testCustomValues()" style="margin-top: 15px;">
+                    🧮 Calcular Problemas
+                </button>
+                
+                <div class="demo-output" id="demoOutput">
+                    Insira valores e clique em "Calcular Problemas" para ver o resultado
+                </div>
+            </div>
+        </div>
+
+        <div class="log-output" id="logOutput" style="display: none;">
+            <div id="logContent"></div>
+        </div>
+    </div>
+
+        <!-- 📦 Carregar Scripts Necessários -->
+    <script src="public/audio-analyzer-integration-clean2.js"></script>
+    <script src="validacao-contador-problemas.js"></script>
+    
+    <!-- 🔧 Script de Diagnóstico -->
+    <script>
+        // Verificar se scripts carregaram corretamente
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🔍 DIAGNÓSTICO DE CARREGAMENTO:');
+            console.log('countVisualProblems global:', typeof window.countVisualProblems);
+            console.log('countVisualProblems local:', typeof countVisualProblems);
+            console.log('ProblemCountValidator:', typeof window.ProblemCountValidator);
+            
+            if (typeof window.countVisualProblems === 'function') {
+                console.log('✅ Função countVisualProblems disponível globalmente');
+            } else if (typeof countVisualProblems !== 'undefined') {
+                console.log('⚠️ Função countVisualProblems disponível apenas localmente');
+            } else {
+                console.error('❌ Função countVisualProblems não encontrada');
+            }
+        });
+    </script>
+    <script>
+        let currentValidator = null;
+        let logLines = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logLine = `[${timestamp}] ${message}`;
+            logLines.push(logLine);
+            
+            const logOutput = document.getElementById('logOutput');
+            const logContent = document.getElementById('logContent');
+            
+            if (logContent) {
+                logContent.innerHTML = logLines.join('\\n');
+                logOutput.style.display = 'block';
+                logOutput.scrollTop = logOutput.scrollHeight;
+            }
+            
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        async function runQuickTest() {
+            const statusDiv = document.getElementById('statusDisplay');
+            statusDiv.innerHTML = '<div class="status-card"><div class="loading">Executando teste rápido...</div></div>';
+            
+            try {
+                log('⚡ Iniciando teste rápido', 'info');
+                
+                if (!window.quickTestProblemCounter) {
+                    throw new Error('Sistema de validação não carregado');
+                }
+                
+                const result = window.quickTestProblemCounter();
+                
+                if (result) {
+                    statusDiv.innerHTML = `
+                        <div class="status-card success">
+                            <h3>✅ Teste Rápido Passou!</h3>
+                            <p>O contador de problemas está funcionando corretamente.</p>
+                        </div>
+                    `;
+                    log('✅ Teste rápido passou', 'success');
+                } else {
+                    statusDiv.innerHTML = `
+                        <div class="status-card error">
+                            <h3>❌ Teste Rápido Falhou</h3>
+                            <p>Há problemas na implementação do contador.</p>
+                        </div>
+                    `;
+                    log('❌ Teste rápido falhou', 'error');
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div class="status-card error">
+                        <h3>❌ Erro no Teste</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+                log(`❌ Erro no teste rápido: ${error.message}`, 'error');
+            }
+        }
+
+        async function runFullValidation() {
+            const statusDiv = document.getElementById('statusDisplay');
+            const resultsDiv = document.getElementById('testResults');
+            const summaryDiv = document.getElementById('summaryDisplay');
+            
+            statusDiv.innerHTML = '<div class="status-card"><div class="loading">Executando validação completa...</div></div>';
+            resultsDiv.innerHTML = '';
+            summaryDiv.style.display = 'none';
+            
+            try {
+                log('🔍 Iniciando validação completa', 'info');
+                
+                if (!window.validateProblemCounter) {
+                    throw new Error('Sistema de validação não carregado');
+                }
+                
+                const results = await window.validateProblemCounter();
+                
+                // Exibir resumo
+                displaySummary(results);
+                
+                // Exibir resultados detalhados
+                displayDetailedResults(currentValidator.validationResults);
+                
+                statusDiv.innerHTML = `
+                    <div class="status-card success">
+                        <h3>🎉 Validação Completa Finalizada</h3>
+                        <p>Verifique os resultados detalhados abaixo.</p>
+                    </div>
+                `;
+                
+                log('🎉 Validação completa finalizada', 'success');
+                
+            } catch (error) {
+                statusDiv.innerHTML = `
+                    <div class="status-card error">
+                        <h3>❌ Erro na Validação</h3>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+                log(`❌ Erro na validação: ${error.message}`, 'error');
+            }
+        }
+
+        function displaySummary(summary) {
+            const summaryDiv = document.getElementById('summaryDisplay');
+            
+            const successRate = Math.round((summary.passed / summary.total) * 100);
+            
+            summaryDiv.innerHTML = `
+                <div class="summary">
+                    <h3>📊 Resumo da Validação</h3>
+                    <div class="summary-grid">
+                        <div class="summary-item">
+                            <div class="summary-number" style="color: #667eea;">${summary.total}</div>
+                            <div class="summary-label">Total de Testes</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="summary-number" style="color: #27ae60;">${summary.passed}</div>
+                            <div class="summary-label">Passou</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="summary-number" style="color: #e74c3c;">${summary.failed}</div>
+                            <div class="summary-label">Falhou</div>
+                        </div>
+                        <div class="summary-item">
+                            <div class="summary-number" style="color: ${successRate >= 80 ? '#27ae60' : '#f39c12'};">${successRate}%</div>
+                            <div class="summary-label">Taxa de Sucesso</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            summaryDiv.style.display = 'block';
+        }
+
+        function displayDetailedResults(results) {
+            const resultsDiv = document.getElementById('testResults');
+            
+            resultsDiv.innerHTML = results.map(result => {
+                const statusClass = result.passed ? 'passed' : 'failed';
+                const statusText = result.passed ? 'PASSOU' : 'FALHOU';
+                
+                let evidenceHtml = '';
+                if (result.evidence && Object.keys(result.evidence).length > 0) {
+                    evidenceHtml = `
+                        <div class="evidence">
+                            ${JSON.stringify(result.evidence, null, 2)}
+                        </div>
+                    `;
+                }
+                
+                let issuesHtml = '';
+                if (result.issues && result.issues.length > 0) {
+                    issuesHtml = `
+                        <div class="test-details">
+                            <strong>Problemas encontrados:</strong>
+                            <ul>
+                                ${result.issues.map(issue => `<li>${issue}</li>`).join('')}
+                            </ul>
+                        </div>
+                    `;
+                }
+                
+                return `
+                    <div class="test-item ${statusClass}">
+                        <div class="test-header">
+                            <div class="test-title">${result.test}</div>
+                            <div class="test-status ${statusClass}">${statusText}</div>
+                        </div>
+                        ${issuesHtml}
+                        ${evidenceHtml}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function testLiveDemo() {
+            log('🎮 Abrindo demo interativo', 'info');
+            document.querySelector('.live-demo').scrollIntoView({ 
+                behavior: 'smooth' 
+            });
+        }
+
+        function testCustomValues() {
+            const lufs = parseFloat(document.getElementById('lufsInput').value);
+            const truePeak = parseFloat(document.getElementById('truePeakInput').value);
+            const dr = parseFloat(document.getElementById('drInput').value);
+            const stereo = parseFloat(document.getElementById('stereoInput').value);
+            
+            const outputDiv = document.getElementById('demoOutput');
+            
+            try {
+                const mockAnalysis = {
+                    technicalData: {
+                        lufsIntegrated: lufs,
+                        truePeakDbtp: truePeak,
+                        dynamicRange: dr,
+                        stereoCorrelation: stereo
+                    },
+                    problems: []
+                };
+                
+                const countFunction = window.countVisualProblems || countVisualProblems;
+                const result = countFunction(mockAnalysis);
+                
+                outputDiv.innerHTML = `
+                    <strong>📊 Resultado da Análise:</strong><br>
+                    <strong>Problemas detectados:</strong> ${result.count}<br>
+                    <strong>Breakdown:</strong> ${result.breakdown.critical} críticos, ${result.breakdown.warning} avisos<br><br>
+                    <strong>🔍 Detalhes:</strong><br>
+                    ${result.problems.map(p => 
+                        `• ${p.metric}: ${p.value} (target: ${p.target}) - ${p.issue}`
+                    ).join('<br>')}
+                    ${result.problems.length === 0 ? '✅ Nenhum problema detectado - áudio perfeito!' : ''}
+                `;
+                
+                log(`🧮 Teste customizado: ${result.count} problemas detectados`, 'info');
+                
+            } catch (error) {
+                outputDiv.innerHTML = `❌ Erro: ${error.message}`;
+                log(`❌ Erro no teste customizado: ${error.message}`, 'error');
+            }
+        }
+
+        function clearResults() {
+            document.getElementById('statusDisplay').innerHTML = '';
+            document.getElementById('testResults').innerHTML = '';
+            document.getElementById('summaryDisplay').style.display = 'none';
+            document.getElementById('logOutput').style.display = 'none';
+            document.getElementById('demoOutput').innerHTML = 'Insira valores e clique em "Calcular Problemas" para ver o resultado';
+            logLines = [];
+            log('🧹 Resultados limpos', 'info');
+        }
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🛡️ Sistema de validação carregado', 'success');
+            
+            // Verificar se as dependências estão disponíveis
+            if (typeof window.ProblemCountValidator !== 'undefined') {
+                currentValidator = new window.ProblemCountValidator();
+                log('✅ Validator instanciado com sucesso', 'success');
+            } else {
+                log('⚠️ Aguardando carregamento do sistema de validação...', 'warning');
+            }
+        });
+    </script>
+</body>
+</html>

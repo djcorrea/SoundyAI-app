@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔄 Limpeza de Cache - True Peak Fix</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 1rem;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 2rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin: 0.5rem;
+            transition: background 0.3s;
+        }
+        
+        .btn:hover {
+            background: #0056b3;
+        }
+        
+        .btn.danger {
+            background: #dc3545;
+        }
+        
+        .btn.danger:hover {
+            background: #c82333;
+        }
+        
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 1rem;
+            max-height: 400px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 0.9rem;
+            margin-top: 1rem;
+        }
+        
+        .log-entry {
+            margin-bottom: 0.5rem;
+            padding: 0.25rem;
+            border-radius: 3px;
+        }
+        
+        .log-entry.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .log-entry.warning {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .log-entry.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .log-entry.info {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔄 Limpeza de Cache - True Peak Fix</h1>
+        
+        <p>Use esta página para forçar a limpeza completa do cache e verificar se os valores de True Peak foram corrigidos.</p>
+        
+        <div>
+            <button class="btn" onclick="checkCurrentValues()">
+                🔍 Verificar Valores Atuais
+            </button>
+            
+            <button class="btn danger" onclick="clearAllCache()">
+                🗑️ Limpar Todo Cache
+            </button>
+            
+            <button class="btn" onclick="testReload()">
+                🔄 Testar Reload
+            </button>
+        </div>
+        
+        <div class="log" id="logContainer">
+            <div class="log-entry info">Sistema carregado. Use os botões acima para diagnosticar o problema.</div>
+        </div>
+    </div>
+
+    <!-- Scripts necessários -->
+    <script src="audio-analyzer-integration.js"></script>
+    <script src="force-clear-cache-true-peak.js"></script>
+    
+    <script>
+        function log(message, type = 'info') {
+            const container = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function checkCurrentValues() {
+            log('🔍 Verificando valores atuais...', 'info');
+            
+            // Verificar gênero atual
+            const currentGenre = window.PROD_AI_REF_GENRE || 'desconhecido';
+            log(`📊 Gênero atual: ${currentGenre}`, 'info');
+            
+            // Verificar dados de referência ativos
+            if (window.__activeRefData) {
+                const truePeak = window.__activeRefData.true_peak_target;
+                log(`🎯 True Peak Target ativo: ${truePeak} dBTP`, truePeak === -0.8 || truePeak === -1.0 ? 'success' : 'error');
+                
+                if (currentGenre === 'funk_mandela' && truePeak === -0.8) {
+                    log('✅ Funk correto: -0.8 dBTP', 'success');
+                } else if (truePeak === -1.0) {
+                    log('✅ Padrão correto: -1.0 dBTP', 'success');
+                } else {
+                    log(`❌ Valor incorreto: ${truePeak} dBTP (deveria ser -0.8 para Funk ou -1.0 para outros)`, 'error');
+                }
+            } else {
+                log('⚠️ Nenhum dado de referência ativo', 'warning');
+            }
+            
+            // Verificar cache
+            if (window.__refDataCache) {
+                const cacheKeys = Object.keys(window.__refDataCache);
+                log(`🗂️ Cache tem ${cacheKeys.length} gêneros: ${cacheKeys.join(', ')}`, 'info');
+            }
+            
+            // Verificar dados embedded
+            if (window.PROD_AI_REF_DATA_EMBEDDED && window.PROD_AI_REF_DATA_EMBEDDED.funk_mandela) {
+                const embeddedTruePeak = window.PROD_AI_REF_DATA_EMBEDDED.funk_mandela.true_peak_target;
+                log(`📁 Embedded funk_mandela: ${embeddedTruePeak} dBTP`, embeddedTruePeak === -0.8 ? 'success' : 'error');
+            }
+        }
+
+        function clearAllCache() {
+            log('🗑️ Iniciando limpeza completa...', 'warning');
+            
+            try {
+                // Usar o script de limpeza já carregado
+                log('✅ Script de limpeza executado', 'success');
+                
+                // Aguardar um pouco e verificar novamente
+                setTimeout(() => {
+                    log('🔄 Verificando após limpeza...', 'info');
+                    checkCurrentValues();
+                }, 1000);
+                
+            } catch (error) {
+                log(`❌ Erro na limpeza: ${error.message}`, 'error');
+            }
+        }
+
+        function testReload() {
+            log('🔄 Testando reload de referências...', 'info');
+            
+            const currentGenre = window.PROD_AI_REF_GENRE || 'funk_mandela';
+            
+            if (typeof window.loadReferenceData === 'function') {
+                window.loadReferenceData(currentGenre)
+                    .then(() => {
+                        log('✅ Referências recarregadas', 'success');
+                        checkCurrentValues();
+                    })
+                    .catch(error => {
+                        log(`❌ Erro no reload: ${error.message}`, 'error');
+                    });
+            } else {
+                log('❌ Função loadReferenceData não encontrada', 'error');
+            }
+        }
+        
+        // Verificação inicial
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                checkCurrentValues();
+            }, 500);
+        });
+    </script>
+</body>
+</html>

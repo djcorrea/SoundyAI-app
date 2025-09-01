@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>🔧 DEBUG AudioAnalyzer</title>
+    <style>
+        body { 
+            font-family: monospace; 
+            background: #000; 
+            color: #0f0; 
+            padding: 20px; 
+        }
+        .log { margin: 5px 0; }
+        .error { color: #f00; }
+        .success { color: #0f0; }
+        .info { color: #ff0; }
+    </style>
+</head>
+<body>
+    <h1>🔧 DEBUG AudioAnalyzer</h1>
+    <div id="log"></div>
+
+    <script>
+        function log(msg, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `log ${type}`;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            document.getElementById('log').appendChild(div);
+            console.log(msg);
+        }
+        
+        log('1. Iniciando debug...', 'info');
+        
+        // Verificar se existe window antes de carregar
+        log(`2. typeof window: ${typeof window}`, 'info');
+        
+        // Criar script tag para carregar
+        const script = document.createElement('script');
+        script.src = './public/audio-analyzer.js';
+        
+        // Log antes de adicionar
+        log('3. Criando script tag...', 'info');
+        
+        script.onload = function() {
+            log('4. Script carregado com sucesso!', 'success');
+            
+            // Verificar window após carregamento
+            log(`5. typeof window.AudioAnalyzer: ${typeof window.AudioAnalyzer}`, 'info');
+            log(`6. typeof window.audioAnalyzer: ${typeof window.audioAnalyzer}`, 'info');
+            
+            // Verificar se é constructor
+            if (typeof window.AudioAnalyzer === 'function') {
+                log('7. AudioAnalyzer é função - tentando instanciar...', 'success');
+                try {
+                    const analyzer = new window.AudioAnalyzer();
+                    log('8. ✅ SUCESSO: AudioAnalyzer instanciado!', 'success');
+                    
+                    // Verificar métodos
+                    const metodos = ['_cleanupAudioBuffer', '_cleanupStemsArrays', '_cleanupLRUCache'];
+                    metodos.forEach((metodo, i) => {
+                        log(`9.${i+1}. ${metodo}: ${typeof analyzer[metodo]}`, analyzer[metodo] ? 'success' : 'error');
+                    });
+                    
+                } catch (e) {
+                    log(`8. ❌ ERRO ao instanciar: ${e.message}`, 'error');
+                }
+            } else {
+                log('7. ❌ AudioAnalyzer NÃO é função', 'error');
+            }
+        };
+        
+        script.onerror = function() {
+            log('4. ❌ ERRO ao carregar script', 'error');
+        };
+        
+        // Adicionar ao DOM
+        document.head.appendChild(script);
+        log('3.1. Script adicionado ao DOM', 'info');
+        
+        // Aguardar um pouco e verificar novamente
+        setTimeout(() => {
+            log('--- VERIFICAÇÃO APÓS 2 SEGUNDOS ---', 'info');
+            log(`window.AudioAnalyzer: ${typeof window.AudioAnalyzer}`, 'info');
+            log(`window.audioAnalyzer: ${typeof window.audioAnalyzer}`, 'info');
+            
+            // Listar todas as propriedades do window que contêm "Audio"
+            const audioProps = Object.getOwnPropertyNames(window).filter(prop => 
+                prop.toLowerCase().includes('audio'));
+            log(`Propriedades do window com 'audio': ${audioProps.join(', ')}`, 'info');
+        }, 2000);
+    </script>
+</body>
+</html>

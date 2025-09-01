@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PROD.AI - Perfil Criado com Sucesso</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Space+Grotesk:wght@300;400;700&family=Poppins:wght@300;400;600&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        :root {
+            --neon-cyan: #00ffff;
+            --neon-purple: #ff00ff;
+            --electric-blue: #0080ff;
+            --plasma-pink: #9d00ff;
+            --dark-bg: #0a0a0f;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --text-primary: #ffffff;
+            --text-secondary: #a0a0ff;
+            --success-green: #00ff88;
+        }
+        
+        body {
+            font-family: 'Space Grotesk', sans-serif;
+            background: var(--dark-bg);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+        
+        /* Animated Background */
+        .background-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: linear-gradient(135deg, #0a0a0f 0%, #120a1a 20%, #0f0f18 40%, #110a15 60%, #0a0a0f 80%, #080810 100%);
+        }
+        
+        .grid-3d {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            animation: grid-slide 20s linear infinite;
+            transform: perspective(1200px) rotateX(45deg) translateZ(-100px);
+        }
+        
+        @keyframes grid-slide {
+            0% { transform: perspective(1200px) rotateX(45deg) translateZ(-100px) translateY(0); }
+            100% { transform: perspective(1200px) rotateX(45deg) translateZ(-100px) translateY(60px); }
+        }
+        
+        .particles {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .particle {
+            position: absolute;
+            width: 3px;
+            height: 3px;
+            background: #8b5cf6;
+            border-radius: 50%;
+            opacity: 0.7;
+            box-shadow: 0 0 15px #8b5cf6;
+            animation: particle-float 15s linear infinite;
+        }
+        
+        @keyframes particle-float {
+            0% {
+                transform: translateY(100vh) translateX(0) scale(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 0.7;
+                transform: translateY(90vh) translateX(10px) scale(1);
+            }
+            90% {
+                opacity: 0.7;
+                transform: translateY(10vh) translateX(-10px) scale(1);
+            }
+            100% {
+                transform: translateY(-10vh) translateX(0) scale(0);
+                opacity: 0;
+            }
+        }
+        
+        /* Main Container */
+        .main-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 80px 20px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Success Message */
+        .success-section {
+            text-align: center;
+            margin-bottom: 80px;
+            animation: fade-in-up 0.8s ease-out;
+        }
+        
+        @keyframes fade-in-up {
+            0% {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .success-icon {
+            font-size: 5rem;
+            margin-bottom: 30px;
+            display: inline-block;
+            animation: success-pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes success-pulse {
+            0%, 100% {
+                transform: scale(1);
+                filter: drop-shadow(0 0 30px var(--success-green));
+            }
+            50% {
+                transform: scale(1.1);
+                filter: drop-shadow(0 0 50px var(--success-green));
+            }
+        }
+        
+        .success-title {
+            font-family: 'Orbitron', monospace;
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 900;
+            margin-bottom: 20px;
+            background: linear-gradient(45deg, var(--success-green), var(--neon-cyan));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 30px rgba(0, 255, 136, 0.5));
+        }
+        
+        .success-subtitle {
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+            margin-bottom: 60px;
+            letter-spacing: 1px;
+        }
+        
+        /* Benefits Grid */
+        .benefits-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 80px;
+        }
+        
+        .benefit-card {
+            background: linear-gradient(135deg, rgba(18, 10, 26, 0.85), rgba(15, 15, 24, 0.8));
+            backdrop-filter: blur(20px);
+            border: 2px solid #1e3a8a;
+            border-radius: 25px;
+            padding: 40px 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            animation: card-entrance 0.8s ease-out;
+            animation-fill-mode: both;
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.6),
+                0 0 0 1px #00f0ff,
+                0 0 20px rgba(0, 240, 255, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        
+        .benefit-card:nth-child(1) { animation-delay: 0.1s; }
+        .benefit-card:nth-child(2) { animation-delay: 0.2s; }
+        .benefit-card:nth-child(3) { animation-delay: 0.3s; }
+        
+        @keyframes card-entrance {
+            0% {
+                opacity: 0;
+                transform: translateY(50px) scale(0.9);
+            }
+            100% {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        .benefit-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(
+                45deg,
+                transparent,
+                rgba(59, 130, 246, 0.04),
+                transparent,
+                rgba(0, 240, 255, 0.03),
+                transparent
+            );
+            transform: rotate(45deg);
+            transition: all 0.6s ease;
+            opacity: 0;
+            animation: shimmer 3s ease-in-out infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        }
+        
+        .benefit-card:hover {
+            transform: translateY(-10px) scale(1.05);
+            border-color: #00f0ff;
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.6),
+                0 0 0 2px #00f0ff,
+                0 0 25px rgba(0, 240, 255, 0.4),
+                0 0 40px rgba(59, 130, 246, 0.3);
+        }
+        
+        .benefit-card:hover::before {
+            opacity: 1;
+        }
+        
+        .benefit-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            display: inline-block;
+            animation: icon-float 3s ease-in-out infinite;
+        }
+        
+        .benefit-card:nth-child(odd) .benefit-icon { animation-delay: 0.5s; }
+        
+        @keyframes icon-float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        .benefit-title {
+            font-family: 'Poppins', sans-serif;
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: var(--neon-cyan);
+            margin-bottom: 10px;
+            text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+        
+        .benefit-description {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+        
+        /* CTA Section */
+        .cta-section {
+            text-align: center;
+            padding: 60px 20px;
+            background: linear-gradient(135deg, rgba(18, 10, 26, 0.9), rgba(15, 15, 24, 0.85));
+            border-radius: 30px;
+            backdrop-filter: blur(20px);
+            border: 2px solid #1e3a8a;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.6),
+                0 0 0 1px #00f0ff,
+                0 0 20px rgba(0, 240, 255, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        
+        .cta-title {
+            font-family: 'Orbitron', monospace;
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 40px;
+            color: var(--text-secondary);
+            letter-spacing: 1px;
+        }
+        
+        .button-container {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            padding: 16px 40px;
+            font-family: 'Orbitron', monospace;
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-decoration: none;
+            text-transform: uppercase;
+            border-radius: 50px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        .cta-button-primary {
+            color: #ffffff;
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #8b5cf6 100%);
+            box-shadow: 
+                0 4px 14px rgba(59, 130, 246, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            animation: primary-pulse 2s ease-in-out infinite;
+        }
+        
+        @keyframes primary-pulse {
+            0%, 100% {
+                box-shadow: 
+                    0 4px 14px rgba(59, 130, 246, 0.4),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            }
+            50% {
+                box-shadow: 
+                    0 6px 20px rgba(0, 240, 255, 0.5),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.3);
+            }
+        }
+        
+        .cta-button-secondary {
+            color: var(--text-primary);
+            background: transparent;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.1);
+        }
+        
+        .cta-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .cta-button:hover {
+            transform: translateY(-3px) scale(1.05);
+        }
+        
+        .cta-button:hover::before {
+            left: 100%;
+        }
+        
+        .cta-button-primary:hover {
+            background: linear-gradient(135deg, #3b82f6 0%, #00f0ff 50%, #8b5cf6 100%);
+            box-shadow: 
+                0 8px 25px rgba(0, 240, 255, 0.6),
+                inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+        
+        .cta-button-secondary:hover {
+            border-color: var(--neon-cyan);
+            color: var(--neon-cyan);
+            box-shadow: 
+                0 0 30px rgba(0, 255, 255, 0.3),
+                inset 0 0 30px rgba(0, 255, 255, 0.1);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .main-container {
+                padding: 50px 20px;
+            }
+            
+            .success-title {
+                font-size: 2rem;
+            }
+            
+            .success-subtitle {
+                font-size: 1.2rem;
+            }
+            
+            .benefits-grid {
+                gap: 20px;
+            }
+            
+            .benefit-card {
+                padding: 30px 20px;
+            }
+            
+            .cta-section {
+                padding: 40px 20px;
+            }
+            
+            .cta-title {
+                font-size: 1.8rem;
+            }
+            
+            .button-container {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .cta-button {
+                width: 100%;
+                max-width: 300px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .main-container {
+                padding: 30px 15px;
+            }
+            
+            .success-title {
+                font-size: 1.6rem;
+                line-height: 1.3;
+            }
+            
+            .success-subtitle {
+                font-size: 1rem;
+                margin: 1rem 0 2rem;
+            }
+            
+            .success-icon {
+                font-size: 3rem;
+                margin-bottom: 1rem;
+            }
+            
+            .benefits-grid {
+                gap: 15px;
+            }
+            
+            .benefit-card {
+                padding: 20px 15px;
+                border-radius: 16px;
+            }
+            
+            .benefit-icon {
+                font-size: 2rem;
+                margin-bottom: 0.8rem;
+            }
+            
+            .benefit-title {
+                font-size: 1rem;
+                margin-bottom: 0.5rem;
+            }
+            
+            .benefit-description {
+                font-size: 0.85rem;
+                line-height: 1.5;
+            }
+            
+            .cta-section {
+                padding: 30px 15px;
+            }
+            
+            .cta-title {
+                font-size: 1.4rem;
+                line-height: 1.3;
+                margin-bottom: 1rem;
+            }
+            
+            .cta-subtitle {
+                font-size: 0.9rem;
+                margin-bottom: 2rem;
+            }
+            
+            .cta-button {
+                padding: 0.8rem 1.5rem;
+                font-size: 0.9rem;
+                max-width: 100%;
+                margin-bottom: 1rem;
+            }
+            
+            .highlight-text {
+                font-size: 0.85rem;
+                margin-top: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Background -->
+    <div class="background-container">
+        <div class="grid-3d"></div>
+        <div class="particles" id="particles"></div>
+    </div>
+    
+    <!-- Main Content -->
+    <div class="main-container">
+        <!-- Success Section -->
+        <div class="success-section">
+            <div class="success-icon">✅</div>
+            <h1 class="success-title">Perfil técnico criado com sucesso!</h1>
+            <p class="success-subtitle">Quer respostas personalizadas com base no seu perfil?</p>
+        </div>
+        
+        <!-- Benefits Grid -->
+        <div class="benefits-grid">
+            <div class="benefit-card">
+                <div class="benefit-icon">💬</div>
+                <h3 class="benefit-title">Mensagens ilimitadas</h3>
+                <p class="benefit-description">Converse sem limites e tire todas as suas dúvidas sobre produção musical</p>
+            </div>
+            
+            <div class="benefit-card">
+                <div class="benefit-icon">🧠</div>
+                <h3 class="benefit-title">Respostas personalizadas</h3>
+                <p class="benefit-description">IA adaptada ao seu nível técnico e estilo musical específico</p>
+            </div>
+            
+            <div class="benefit-card">
+                <div class="benefit-icon">🚀</div>
+                <h3 class="benefit-title">Prioridade no servidor</h3>
+                <p class="benefit-description">Respostas instantâneas mesmo em horários de pico</p>
+            </div>
+        </div>
+        
+        <!-- CTA Section -->
+        <div class="cta-section">
+            <h2 class="cta-title">Assine a versão Plus</h2>
+            <div class="button-container">
+                <a href="planos.html" class="cta-button cta-button-primary">Assinar versão Plus</a>
+                <a href="index.html" class="cta-button cta-button-secondary">Continuar sem assinar</a>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Generate particles with mixed colors - cyan and blue focus
+        const particlesContainer = document.getElementById('particles');
+        const particleCount = 25;
+        const colors = ['#00f0ff', '#3b82f6', '#1e3a8a', '#8b5cf6', '#60a5fa', '#0ea5e9'];
+        
+        for (let i = 0; i < particleCount; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            particle.style.background = randomColor;
+            particle.style.boxShadow = `0 0 15px ${randomColor}`;
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.animationDelay = Math.random() * 15 + 's';
+            particle.style.animationDuration = (Math.random() * 10 + 15) + 's';
+            particlesContainer.appendChild(particle);
+        }
+
+        // Add parallax effect to floating elements
+        document.addEventListener('mousemove', (e) => {
+            const mouseX = e.clientX / window.innerWidth;
+            const mouseY = e.clientY / window.innerHeight;
+            
+            document.querySelectorAll('.particle').forEach((element, index) => {
+                const speed = (index + 1) * 5;
+                const x = (mouseX - 0.5) * speed;
+                const y = (mouseY - 0.5) * speed;
+                
+                element.style.transform += ` translate(${x}px, ${y}px)`;
+            });
+        });
+        
+        // Add entrance animation to elements
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+        
+        // Animate cards on hover with 3D effect
+        document.querySelectorAll('.benefit-card').forEach(card => {
+            card.addEventListener('mousemove', (e) => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left;
+                const y = e.clientY - rect.top;
+                
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                
+                const rotateX = (y - centerY) / centerY * -10;
+                const rotateY = (x - centerX) / centerX * 10;
+                
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(20px)`;
+            });
+            
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) translateZ(0)';
+            });
+        });
+        
+        // Success icon animation
+        const successIcon = document.querySelector('.success-icon');
+        successIcon.addEventListener('animationiteration', () => {
+            // Create sparkle effect
+            const sparkle = document.createElement('div');
+            sparkle.style.position = 'absolute';
+            sparkle.style.width = '4px';
+            sparkle.style.height = '4px';
+            sparkle.style.background = '#00ff88';
+            sparkle.style.borderRadius = '50%';
+            sparkle.style.pointerEvents = 'none';
+            sparkle.style.left = '50%';
+            sparkle.style.top = '50%';
+            sparkle.style.transform = 'translate(-50%, -50%)';
+            sparkle.style.boxShadow = '0 0 10px #00ff88';
+            successIcon.appendChild(sparkle);
+            
+            const angle = Math.random() * Math.PI * 2;
+            const distance = 50 + Math.random() * 50;
+            
+            sparkle.animate([
+                { 
+                    transform: 'translate(-50%, -50%) scale(1)',
+                    opacity: 1 
+                },
+                { 
+                    transform: `translate(calc(-50% + ${Math.cos(angle) * distance}px), calc(-50% + ${Math.sin(angle) * distance}px)) scale(0)`,
+                    opacity: 0 
+                }
+            ], {
+                duration: 1000,
+                easing: 'ease-out'
+            }).onfinish = () => sparkle.remove();
+        });
+    </script>
+</body>
+</html>

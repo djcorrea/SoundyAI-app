@@ -1,0 +1,64 @@
+{
+  "updated_at": "2025-08-25T02:18:43.574Z",
+  "total_genres": 8,
+  "total_tracks": 125,
+  "method": "arithmetic_mean_corrected",
+  "genres": [
+    {
+      "genre": "eletrofunk",
+      "tracks": 14,
+      "lufs": -9.2,
+      "true_peak": -2.5,
+      "dr": 6.8
+    },
+    {
+      "genre": "eletronico",
+      "tracks": 20,
+      "lufs": -12.8,
+      "true_peak": -0.8,
+      "dr": 7.2
+    },
+    {
+      "genre": "funk_automotivo",
+      "tracks": 12,
+      "lufs": -6.2,
+      "true_peak": -2.8,
+      "dr": 6.8
+    },
+    {
+      "genre": "funk_bruxaria",
+      "tracks": 15,
+      "lufs": -7.1,
+      "true_peak": -4.2,
+      "dr": 8.5
+    },
+    {
+      "genre": "funk_consciente",
+      "tracks": 18,
+      "lufs": -8.5,
+      "true_peak": -5.8,
+      "dr": 9.2
+    },
+    {
+      "genre": "funk_mandela",
+      "tracks": 17,
+      "lufs": -4.9,
+      "true_peak": -11.1,
+      "dr": 7.3
+    },
+    {
+      "genre": "trance",
+      "tracks": 16,
+      "lufs": -11.5,
+      "true_peak": -1.2,
+      "dr": 8.8
+    },
+    {
+      "genre": "trap",
+      "tracks": 13,
+      "lufs": -10.8,
+      "true_peak": -3.2,
+      "dr": 7.8
+    }
+  ]
+}

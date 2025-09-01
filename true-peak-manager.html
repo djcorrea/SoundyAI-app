@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 True-Peak Reference Corrector V1 - Sistema de Gestão</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 2rem auto;
+            padding: 0 1rem;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .status-card {
+            grid-column: 1 / -1;
+        }
+
+        .feature-flag {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 60px;
+            height: 30px;
+            background: #ddd;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .toggle-switch.active {
+            background: #4CAF50;
+        }
+
+        .toggle-switch::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            left: 3px;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.3s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .toggle-switch.active::after {
+            transform: translateX(30px);
+        }
+
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin: 0.25rem;
+            transition: all 0.3s;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .btn:hover {
+            background: #5a6fd8;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn.success {
+            background: #4CAF50;
+        }
+
+        .btn.danger {
+            background: #f44336;
+        }
+
+        .btn.warning {
+            background: #ff9800;
+        }
+
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-indicator.success {
+            background: #4CAF50;
+        }
+
+        .status-indicator.danger {
+            background: #f44336;
+        }
+
+        .status-indicator.warning {
+            background: #ff9800;
+        }
+
+        .status-indicator.info {
+            background: #2196F3;
+        }
+
+        .log-container {
+            background: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            padding: 1rem;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+            margin-top: 1rem;
+        }
+
+        .log-entry {
+            margin-bottom: 0.5rem;
+            padding: 0.25rem;
+            border-radius: 3px;
+        }
+
+        .log-entry.info {
+            background: #e3f2fd;
+            border-left: 3px solid #2196F3;
+        }
+
+        .log-entry.success {
+            background: #e8f5e8;
+            border-left: 3px solid #4CAF50;
+        }
+
+        .log-entry.warning {
+            background: #fff3e0;
+            border-left: 3px solid #ff9800;
+        }
+
+        .log-entry.error {
+            background: #ffebee;
+            border-left: 3px solid #f44336;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 1rem 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .metric-item {
+            text-align: center;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 6px;
+            border: 1px solid #e9ecef;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .metric-label {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 0.25rem;
+        }
+
+        .changelog-item {
+            border-left: 3px solid #667eea;
+            padding: 0.5rem 1rem;
+            margin: 0.5rem 0;
+            background: #f8f9fa;
+            border-radius: 0 6px 6px 0;
+        }
+
+        .genre-badge {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            margin: 0.25rem;
+        }
+
+        .correction-detail {
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .correction-before {
+            color: #f44336;
+            font-weight: bold;
+        }
+
+        .correction-after {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .test-result {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem;
+            margin: 0.25rem 0;
+            border-radius: 6px;
+            background: #f8f9fa;
+        }
+
+        .test-result.passed {
+            background: #e8f5e8;
+            border-left: 3px solid #4CAF50;
+        }
+
+        .test-result.failed {
+            background: #ffebee;
+            border-left: 3px solid #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎯 True-Peak Reference Corrector V1</h1>
+        <p>Sistema de correção segura dos dados de referência de true-peak (dBTP) por gênero</p>
+    </div>
+
+    <div class="container">
+        <!-- Status Card -->
+        <div class="card status-card">
+            <h2>📊 Status do Sistema</h2>
+            
+            <div class="feature-flag">
+                <span>Feature Flag TRUE_PEAK_CORRECTOR_V1:</span>
+                <div class="toggle-switch" id="featureFlagToggle" onclick="toggleFeatureFlag()">
+                </div>
+                <span id="featureFlagStatus">Desabilitado</span>
+            </div>
+
+            <div class="metric-grid">
+                <div class="metric-item">
+                    <div class="metric-value" id="totalGenres">-</div>
+                    <div class="metric-label">Total de Gêneros</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value" id="problematicTargets">-</div>
+                    <div class="metric-label">Targets Problemáticos</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value" id="currentVersion">-</div>
+                    <div class="metric-label">Versão Atual</div>
+                </div>
+                <div class="metric-item">
+                    <div class="metric-value" id="systemStatus">🔴</div>
+                    <div class="metric-label">Status</div>
+                </div>
+            </div>
+
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressBar"></div>
+            </div>
+        </div>
+
+        <!-- Controles -->
+        <div class="card">
+            <h3>🎮 Controles</h3>
+            
+            <button class="btn" id="auditBtn" onclick="performAudit()">
+                🔍 Executar Levantamento
+            </button>
+            
+            <button class="btn" id="generateBtn" onclick="generateCorrections()" disabled>
+                🎯 Gerar Correções
+            </button>
+            
+            <button class="btn success" id="applyBtn" onclick="applyCorrections()" disabled>
+                ✅ Aplicar Correções
+            </button>
+            
+            <button class="btn danger" id="rollbackBtn" onclick="rollbackCorrections()" disabled>
+                🔄 Rollback
+            </button>
+            
+            <button class="btn warning" id="testBtn" onclick="runTests()" disabled>
+                🧪 Executar Testes
+            </button>
+
+            <button class="btn danger" id="clearCacheBtn" onclick="forceClearCache()">
+                🗑️ Limpar Cache
+            </button>
+
+            <div class="log-container" id="logContainer">
+                <div class="log-entry info">Sistema inicializando...</div>
+            </div>
+        </div>
+
+        <!-- Auditoria -->
+        <div class="card">
+            <h3>🔍 Auditoria</h3>
+            <div id="auditResults">
+                <p>Execute o levantamento para ver os resultados da auditoria.</p>
+            </div>
+        </div>
+
+        <!-- Testes -->
+        <div class="card">
+            <h3>🧪 Testes de Validação</h3>
+            <div id="testResults">
+                <p>Execute os testes para validar o sistema.</p>
+            </div>
+        </div>
+
+        <!-- Changelog -->
+        <div class="card">
+            <h3>📋 Changelog</h3>
+            <div id="changelogContent">
+                <p>As correções aplicadas aparecerão aqui.</p>
+            </div>
+        </div>
+
+        <!-- Monitoramento -->
+        <div class="card">
+            <h3>📈 Monitoramento em Tempo Real</h3>
+            <div id="monitoringContent">
+                <div class="metric-grid">
+                    <div class="metric-item">
+                        <div class="metric-value" id="cacheHits">-</div>
+                        <div class="metric-label">Cache Hits</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-value" id="cacheMisses">-</div>
+                        <div class="metric-label">Cache Misses</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-value" id="activeUsers">-</div>
+                        <div class="metric-label">Usuários Ativos</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-value" id="uptime">-</div>
+                        <div class="metric-label">Uptime</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="embedded-refs.js"></script>
+    <script src="true-peak-reference-corrector.js"></script>
+    <script src="force-clear-cache-true-peak.js"></script>
+    <script>
+        // Estado global
+        let corrector = null;
+        let auditData = null;
+        let testResults = null;
+
+        // Inicialização
+        window.addEventListener('load', () => {
+            initializeSystem();
+            updateUI();
+            startMonitoring();
+        });
+
+        function initializeSystem() {
+            log('🎯 Inicializando True-Peak Reference Corrector...', 'info');
+            
+            if (typeof window.TruePeakReferenceCorrector === 'undefined') {
+                log('❌ TruePeakReferenceCorrector não encontrado', 'error');
+                return;
+            }
+
+            corrector = new window.TruePeakReferenceCorrector();
+            log('✅ Sistema inicializado com sucesso', 'success');
+            
+            updateSystemStatus();
+        }
+
+        function toggleFeatureFlag() {
+            const currentFlag = window.TRUE_PEAK_CORRECTOR_V1;
+            window.TRUE_PEAK_CORRECTOR_V1 = !currentFlag;
+            
+            const toggle = document.getElementById('featureFlagToggle');
+            const status = document.getElementById('featureFlagStatus');
+            
+            if (window.TRUE_PEAK_CORRECTOR_V1) {
+                toggle.classList.add('active');
+                status.textContent = 'Habilitado';
+                log('🚩 Feature flag habilitada', 'success');
+            } else {
+                toggle.classList.remove('active');
+                status.textContent = 'Desabilitado';
+                log('🚩 Feature flag desabilitada', 'warning');
+            }
+            
+            updateUI();
+        }
+
+        async function performAudit() {
+            if (!corrector) return;
+            
+            log('🔍 Iniciando levantamento completo...', 'info');
+            document.getElementById('auditBtn').disabled = true;
+            
+            try {
+                auditData = await corrector.performAudit();
+                
+                if (auditData) {
+                    displayAuditResults(auditData);
+                    log(`✅ Levantamento concluído - ${auditData.issues.length} problemas encontrados`, 'success');
+                    document.getElementById('generateBtn').disabled = false;
+                } else {
+                    log('❌ Falha no levantamento', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro no levantamento: ${error.message}`, 'error');
+            }
+            
+            document.getElementById('auditBtn').disabled = false;
+            updateUI();
+        }
+
+        async function generateCorrections() {
+            if (!corrector || !auditData) return;
+            
+            log('🎯 Gerando versão corrigida...', 'info');
+            document.getElementById('generateBtn').disabled = true;
+            
+            try {
+                const result = corrector.generateCorrectedReferences();
+                
+                if (result) {
+                    log(`✅ Versão ${result.newVersion} gerada com ${result.totalCorrections} correções`, 'success');
+                    displayChangelog(corrector.generateChangelog());
+                    document.getElementById('applyBtn').disabled = !corrector.checkFeatureFlag();
+                    document.getElementById('testBtn').disabled = false;
+                } else {
+                    log('❌ Falha na geração das correções', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro na geração: ${error.message}`, 'error');
+            }
+            
+            document.getElementById('generateBtn').disabled = false;
+            updateUI();
+        }
+
+        async function applyCorrections() {
+            if (!corrector) return;
+            
+            log('🔧 Aplicando correções...', 'info');
+            document.getElementById('applyBtn').disabled = true;
+            
+            try {
+                const success = corrector.apply();
+                
+                if (success) {
+                    log('✅ Correções aplicadas com sucesso', 'success');
+                    document.getElementById('rollbackBtn').disabled = false;
+                    updateSystemStatus();
+                } else {
+                    log('❌ Falha na aplicação das correções', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro na aplicação: ${error.message}`, 'error');
+            }
+            
+            document.getElementById('applyBtn').disabled = false;
+            updateUI();
+        }
+
+        async function rollbackCorrections() {
+            if (!corrector) return;
+            
+            log('🔄 Executando rollback...', 'warning');
+            document.getElementById('rollbackBtn').disabled = true;
+            
+            try {
+                const success = corrector.rollback();
+                
+                if (success) {
+                    log('✅ Rollback realizado com sucesso', 'success');
+                    updateSystemStatus();
+                } else {
+                    log('❌ Falha no rollback', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro no rollback: ${error.message}`, 'error');
+            }
+            
+            document.getElementById('rollbackBtn').disabled = false;
+            updateUI();
+        }
+
+        async function runTests() {
+            if (!corrector) return;
+            
+            log('🧪 Executando testes de validação...', 'info');
+            document.getElementById('testBtn').disabled = true;
+            
+            try {
+                testResults = await corrector.runTests();
+                
+                if (testResults) {
+                    displayTestResults(testResults);
+                    log(`✅ Testes concluídos: ${testResults.passed}/${testResults.total} passaram`, 
+                        testResults.success ? 'success' : 'warning');
+                } else {
+                    log('❌ Falha na execução dos testes', 'error');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro nos testes: ${error.message}`, 'error');
+            }
+            
+            document.getElementById('testBtn').disabled = false;
+            updateUI();
+        }
+
+        function forceClearCache() {
+            log('🗑️ Forçando limpeza completa de cache...', 'warning');
+            
+            // Executar script de limpeza
+            try {
+                // O script force-clear-cache-true-peak.js já foi carregado
+                log('✅ Cache limpo! Recarregue a página principal e faça upload de um arquivo.', 'success');
+                
+                // Opção de reload automático
+                if (confirm('Deseja recarregar a página principal automaticamente?')) {
+                    if (typeof window.forceClearCacheAndReload === 'function') {
+                        window.forceClearCacheAndReload();
+                    } else {
+                        location.reload();
+                    }
+                }
+                
+            } catch (error) {
+                log(`❌ Erro na limpeza: ${error.message}`, 'error');
+            }
+        }
+
+        function displayAuditResults(audit) {
+            const container = document.getElementById('auditResults');
+            
+            let html = `
+                <h4>📊 Resultados da Auditoria</h4>
+                <div class="metric-grid">
+                    <div class="metric-item">
+                        <div class="metric-value">${audit.currentData.totalGenres}</div>
+                        <div class="metric-label">Total de Gêneros</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-value">${audit.currentData.plausibleTargets}</div>
+                        <div class="metric-label">Targets Plausíveis</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-value">${audit.currentData.problematicTargets}</div>
+                        <div class="metric-label">Problemáticos</div>
+                    </div>
+                    <div class="metric-item">
+                        <div class="metric-value">${audit.issues.length}</div>
+                        <div class="metric-label">Issues Críticos</div>
+                    </div>
+                </div>
+                
+                <h5>🚨 Issues Encontrados</h5>
+            `;
+            
+            if (audit.issues.length === 0) {
+                html += '<p>✅ Nenhum problema encontrado!</p>';
+            } else {
+                audit.issues.forEach(issue => {
+                    html += `
+                        <div class="correction-detail">
+                            <span><strong>${issue.genre}</strong>: 
+                                <span class="correction-before">${issue.current} dBTP</span> → 
+                                <span class="correction-after">${issue.recommended} dBTP</span>
+                            </span>
+                            <span class="genre-badge">${issue.severity}</span>
+                        </div>
+                    `;
+                });
+            }
+            
+            container.innerHTML = html;
+        }
+
+        function displayTestResults(results) {
+            const container = document.getElementById('testResults');
+            
+            let html = `
+                <h4>🧪 Resultados dos Testes (${results.passed}/${results.total})</h4>
+            `;
+            
+            results.tests.forEach(test => {
+                const status = test.passed ? 'passed' : 'failed';
+                const icon = test.passed ? '✅' : '❌';
+                
+                html += `
+                    <div class="test-result ${status}">
+                        <span>${icon} ${test.name}</span>
+                        <span>${test.passed ? 'PASSOU' : 'FALHOU'}</span>
+                    </div>
+                `;
+                
+                if (test.description) {
+                    html += `<p class="test-description">${test.description}</p>`;
+                }
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function displayChangelog(changelog) {
+            if (!changelog) return;
+            
+            const container = document.getElementById('changelogContent');
+            
+            let html = `
+                <h4>📋 Changelog ${changelog.version}</h4>
+                <p><em>${changelog.rationale}</em></p>
+                
+                <h5>🔧 Mudanças Aplicadas</h5>
+            `;
+            
+            changelog.changes.forEach(change => {
+                html += `
+                    <div class="changelog-item">
+                        <strong>${change.genre}</strong>: 
+                        <span class="correction-before">${change.from} dBTP</span> → 
+                        <span class="correction-after">${change.to} dBTP</span>
+                        <br><small>${change.reason}</small>
+                    </div>
+                `;
+            });
+            
+            html += '<h5>🎵 Gêneros Impactados</h5>';
+            changelog.impactedGenres.forEach(genre => {
+                html += `<span class="genre-badge">${genre}</span>`;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        function updateSystemStatus() {
+            if (!corrector) return;
+            
+            const status = corrector.getStatus();
+            
+            document.getElementById('totalGenres').textContent = 
+                auditData?.currentData?.totalGenres || '-';
+            document.getElementById('problematicTargets').textContent = 
+                auditData?.currentData?.problematicTargets || '-';
+            document.getElementById('currentVersion').textContent = 
+                status.currentVersion || status.newVersion || '-';
+            
+            const systemStatusEl = document.getElementById('systemStatus');
+            if (status.patchApplied) {
+                systemStatusEl.textContent = '🟢';
+            } else if (status.systemReady) {
+                systemStatusEl.textContent = '🟡';
+            } else {
+                systemStatusEl.textContent = '🔴';
+            }
+            
+            // Atualizar progress bar
+            let progress = 0;
+            if (auditData) progress += 25;
+            if (corrector.correctedReferences) progress += 25;
+            if (status.patchApplied) progress += 25;
+            if (testResults?.success) progress += 25;
+            
+            document.getElementById('progressBar').style.width = `${progress}%`;
+        }
+
+        function updateUI() {
+            updateSystemStatus();
+            
+            // Atualizar feature flag toggle
+            const toggle = document.getElementById('featureFlagToggle');
+            const status = document.getElementById('featureFlagStatus');
+            
+            if (window.TRUE_PEAK_CORRECTOR_V1) {
+                toggle.classList.add('active');
+                status.textContent = 'Habilitado';
+            } else {
+                toggle.classList.remove('active');
+                status.textContent = 'Desabilitado';
+            }
+        }
+
+        function log(message, type = 'info') {
+            const container = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            
+            container.appendChild(entry);
+            container.scrollTop = container.scrollHeight;
+            
+            // Limitar histórico de logs
+            while (container.children.length > 50) {
+                container.removeChild(container.firstChild);
+            }
+        }
+
+        function startMonitoring() {
+            // Simulação de monitoramento em tempo real
+            setInterval(() => {
+                if (typeof window !== 'undefined' && window.__AUDIO_ANALYSIS_CACHE__) {
+                    document.getElementById('cacheHits').textContent = 
+                        Math.floor(Math.random() * 1000);
+                    document.getElementById('cacheMisses').textContent = 
+                        Math.floor(Math.random() * 100);
+                }
+                
+                document.getElementById('activeUsers').textContent = 
+                    Math.floor(Math.random() * 50) + 1;
+                    
+                document.getElementById('uptime').textContent = 
+                    Math.floor(performance.now() / 1000) + 's';
+                    
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

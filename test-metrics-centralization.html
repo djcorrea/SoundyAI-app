@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Teste - Centralização de Métricas</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            margin: 0;
+            padding: 20px;
+        }
+        .test-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #16213e;
+            border-radius: 12px;
+            padding: 30px;
+        }
+        .test-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            background: #0f1419;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #00d4aa;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .metric-card {
+            background: #1e2a3a;
+            border-radius: 6px;
+            padding: 15px;
+        }
+        .metric-name {
+            font-weight: bold;
+            color: #00d4aa;
+            margin-bottom: 8px;
+        }
+        .metric-values {
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        .value-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+        }
+        .match { color: #4ade80; }
+        .mismatch { color: #f87171; }
+        .missing { color: #fbbf24; opacity: 0.7; }
+        
+        .upload-area {
+            border: 2px dashed #00d4aa;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover {
+            background: rgba(0, 212, 170, 0.1);
+        }
+        .upload-area.dragover {
+            background: rgba(0, 212, 170, 0.2);
+            border-color: #4ade80;
+        }
+        
+        .analysis-results {
+            display: none;
+        }
+        
+        .log-output {
+            background: #000;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            padding: 15px;
+            border-radius: 6px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+            font-size: 12px;
+        }
+        
+        .validation-summary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-success { background: #4ade80; }
+        .status-warning { background: #fbbf24; }
+        .status-error { background: #f87171; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <div class="test-header">
+            <h1>🎯 Teste de Centralização das Métricas</h1>
+            <p>Validação: UI renderiza com mesmos valores, mas 100% vindos de <code>metrics</code></p>
+        </div>
+        
+        <div class="test-section">
+            <h2>📤 Upload de Arquivo de Áudio</h2>
+            <div class="upload-area" id="uploadArea">
+                <div>
+                    <strong>📁 Clique aqui ou arraste um arquivo de áudio</strong><br>
+                    <small>Formatos suportados: MP3, WAV, FLAC, M4A</small>
+                </div>
+                <input type="file" id="audioFile" accept="audio/*" style="display: none;">
+            </div>
+        </div>
+        
+        <div class="test-section analysis-results" id="analysisResults">
+            <h2>🔍 Resultados da Análise</h2>
+            
+            <div class="validation-summary" id="validationSummary">
+                <h3>📊 Resumo da Validação</h3>
+                <div id="summaryContent">Aguardando análise...</div>
+            </div>
+            
+            <div class="metrics-grid" id="metricsGrid">
+                <!-- Métricas serão inseridas aqui -->
+            </div>
+            
+            <div class="log-output" id="logOutput">
+                <strong>🔍 Logs de Validação:</strong><br>
+                Aguardando análise para capturar logs...
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts necessários -->
+    <script src="audio-analyzer.js?v=METRICS_TEST"></script>
+    <script src="audio-analyzer-v2.js?v=METRICS_TEST"></script>
+    <script src="audio-analyzer-integration.js?v=METRICS_TEST"></script>
+    
+    <script>
+        // Ativar todos os logs de validação
+        window.METRICS_VALIDATION_LOGS = true;
+        window.METRICS_UI_VALIDATION = true;
+        window.METRICS_REF_VALIDATION = true;
+        window.METRICS_BANDS_VALIDATION = true;
+        
+        // Capturar logs de console
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const logOutput = document.getElementById('logOutput');
+        const logs = [];
+        
+        function addLog(type, message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${type}: ${message}`;
+            logs.push(logEntry);
+            logOutput.innerHTML = '<strong>🔍 Logs de Validação:</strong><br>' + logs.slice(-20).join('<br>');
+            logOutput.scrollTop = logOutput.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            const message = args.join(' ');
+            if (message.includes('METRICS_') || message.includes('🎯')) {
+                addLog('LOG', message);
+            }
+            return originalLog.apply(console, args);
+        };
+        
+        console.warn = function(...args) {
+            const message = args.join(' ');
+            if (message.includes('METRICS_') || message.includes('🎯')) {
+                addLog('WARN', message);
+            }
+            return originalWarn.apply(console, args);
+        };
+        
+        // Configuração do upload
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('audioFile');
+        const analysisResults = document.getElementById('analysisResults');
+        
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                analyzeAudio(files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                analyzeAudio(e.target.files[0]);
+            }
+        });
+        
+        // Função principal de análise
+        async function analyzeAudio(file) {
+            addLog('INFO', `🎵 Iniciando análise: ${file.name} (${(file.size/1024/1024).toFixed(1)}MB)`);
+            
+            try {
+                // Criar instância do analisador
+                const analyzer = new AudioAnalyzer();
+                
+                // Executar análise
+                const analysis = await analyzer.analyzeAudioFile(file, { 
+                    mode: 'genre',
+                    debugModeReference: true 
+                });
+                
+                addLog('SUCCESS', '✅ Análise concluída - processando resultados...');
+                
+                // Exibir resultados
+                displayAnalysisResults(analysis);
+                analysisResults.style.display = 'block';
+                
+            } catch (error) {
+                addLog('ERROR', `❌ Erro na análise: ${error.message}`);
+                console.error('Erro na análise:', error);
+            }
+        }
+        
+        // Exibir resultados da análise
+        function displayAnalysisResults(analysis) {
+            const metricsGrid = document.getElementById('metricsGrid');
+            const validationSummary = document.getElementById('validationSummary');
+            
+            // Verificar se temos métricas centralizadas
+            const hasMetrics = analysis.metrics && typeof analysis.metrics === 'object';
+            const hasTechnicalData = analysis.technicalData && typeof analysis.technicalData === 'object';
+            
+            addLog('INFO', `📊 Métricas centralizadas: ${hasMetrics ? 'Sim' : 'Não'}`);
+            addLog('INFO', `📊 TechnicalData legado: ${hasTechnicalData ? 'Sim' : 'Não'}`);
+            
+            if (!hasMetrics) {
+                validationSummary.innerHTML = `
+                    <h3>❌ Falha na Centralização</h3>
+                    <p><span class="status-indicator status-error"></span>Objeto 'metrics' não foi criado</p>
+                `;
+                return;
+            }
+            
+            // Métricas para comparação
+            const metricsToCompare = [
+                { name: 'LUFS Integrado', centralized: 'lufs_integrated', legacy: 'lufsIntegrated', unit: ' LUFS' },
+                { name: 'True Peak', centralized: 'true_peak_dbtp', legacy: 'truePeakDbtp', unit: ' dBTP' },
+                { name: 'LRA', centralized: 'lra', legacy: 'lra', unit: ' dB' },
+                { name: 'Crest Factor', centralized: 'crest_factor', legacy: 'crestFactor', unit: '' },
+                { name: 'Stereo Width', centralized: 'stereo_width', legacy: 'stereoWidth', unit: '' },
+                { name: 'Stereo Correlation', centralized: 'stereo_correlation', legacy: 'stereoCorrelation', unit: '' },
+                { name: 'DC Offset', centralized: 'dc_offset', legacy: 'dcOffset', unit: '' },
+                { name: 'Dynamic Range', centralized: 'dynamic_range', legacy: 'dynamicRange', unit: ' dB' }
+            ];
+            
+            let matches = 0;
+            let mismatches = 0;
+            let missing = 0;
+            
+            // Gerar cards de métricas
+            metricsGrid.innerHTML = '';
+            
+            metricsToCompare.forEach(metric => {
+                const centralizedValue = analysis.metrics[metric.centralized];
+                const legacyValue = analysis.technicalData[metric.legacy];
+                
+                let status = 'missing';
+                let statusClass = 'missing';
+                
+                if (Number.isFinite(centralizedValue) && Number.isFinite(legacyValue)) {
+                    const diff = Math.abs(centralizedValue - legacyValue);
+                    if (diff < 0.01) {
+                        status = 'match';
+                        statusClass = 'match';
+                        matches++;
+                    } else {
+                        status = 'mismatch';
+                        statusClass = 'mismatch';
+                        mismatches++;
+                    }
+                } else {
+                    missing++;
+                }
+                
+                const card = document.createElement('div');
+                card.className = 'metric-card';
+                card.innerHTML = `
+                    <div class="metric-name">${metric.name}</div>
+                    <div class="metric-values">
+                        <div class="value-row">
+                            <span>Centralizada:</span>
+                            <span class="${statusClass}">
+                                ${Number.isFinite(centralizedValue) ? centralizedValue.toFixed(2) + metric.unit : 'N/A'}
+                            </span>
+                        </div>
+                        <div class="value-row">
+                            <span>Legado:</span>
+                            <span class="${statusClass}">
+                                ${Number.isFinite(legacyValue) ? legacyValue.toFixed(2) + metric.unit : 'N/A'}
+                            </span>
+                        </div>
+                        <div class="value-row">
+                            <span>Status:</span>
+                            <span class="${statusClass}">${status.toUpperCase()}</span>
+                        </div>
+                    </div>
+                `;
+                metricsGrid.appendChild(card);
+            });
+            
+            // Validar bandas de frequência
+            const centralizedBands = analysis.metrics.bands || {};
+            const legacyBands = analysis.technicalData.bandEnergies || {};
+            const bandsMatches = Object.keys(centralizedBands).length;
+            const bandsLegacy = Object.keys(legacyBands).length;
+            
+            addLog('INFO', `🎵 Bandas centralizadas: ${bandsMatches}, legado: ${bandsLegacy}`);
+            
+            // Resumo da validação
+            const total = metricsToCompare.length;
+            const successRate = ((matches / total) * 100).toFixed(1);
+            
+            let summaryStatus = 'success';
+            let summaryMessage = `✅ Centralização bem-sucedida: ${matches}/${total} métricas coincidentes (${successRate}%)`;
+            
+            if (mismatches > 0) {
+                summaryStatus = 'warning';
+                summaryMessage = `⚠️ Divergências encontradas: ${mismatches} métricas diferentes`;
+            }
+            
+            if (missing > total / 2) {
+                summaryStatus = 'error';
+                summaryMessage = `❌ Muitas métricas faltando: ${missing}/${total} não disponíveis`;
+            }
+            
+            validationSummary.innerHTML = `
+                <h3>📊 Resumo da Validação</h3>
+                <p><span class="status-indicator status-${summaryStatus}"></span>${summaryMessage}</p>
+                <div style="margin-top: 15px;">
+                    <strong>Detalhes:</strong><br>
+                    ✅ Coincidentes: ${matches}<br>
+                    ⚠️ Divergentes: ${mismatches}<br>
+                    ❓ Faltando: ${missing}<br>
+                    🎵 Bandas: ${bandsMatches} centralizadas vs ${bandsLegacy} legado
+                </div>
+            `;
+            
+            addLog('SUCCESS', `📊 Validação concluída: ${summaryMessage}`);
+        }
+        
+        // Log inicial
+        addLog('INFO', '🎯 Sistema de teste carregado - faça upload de um arquivo de áudio');
+    </script>
+</body>
+</html>

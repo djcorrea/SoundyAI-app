@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escolha seu Plano</title>
+    
+    <!-- Bibliotecas para efeitos visuais -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.24/vanta.net.min.js" defer></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        /* Background Elements - Mesmo da landing.html */
+        .background-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 50%, #16213e 100%);
+            overflow: hidden;
+        }
+
+        .vanta-background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.9;
+        }
+
+        .fundo-neural {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+            opacity: 0.3;
+            background: radial-gradient(ellipse at center, #0a0a1f 0%, #000000 100%);
+        }
+
+        .particles {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: #8a2be2;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #8a2be2;
+            animation: float-up 10s linear infinite;
+        }
+
+        @keyframes float-up {
+            0% {
+                transform: translateY(100vh) translateX(0);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(-100vh) translateX(100px);
+                opacity: 0;
+            }
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            min-height: 100vh;
+            color: #E1E1FF;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 60px 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 60px;
+        }
+
+        .title {
+            font-family: 'Orbitron', monospace;
+            font-size: 3.5rem;
+            font-weight: 900;
+            text-align: center;
+            background: linear-gradient(135deg, #00d4ff, #8b5cf6, #3b82f6);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+            position: relative;
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from {
+                filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.5));
+            }
+            to {
+                filter: drop-shadow(0 0 40px rgba(139, 92, 246, 0.7));
+            }
+        }
+
+        .plans-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 40px;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        .plan-card {
+            background: rgba(26, 26, 46, 0.7);
+            border: 1px solid rgba(124, 119, 198, 0.3);
+            border-radius: 25px;
+            padding: 40px 30px;
+            position: relative;
+            backdrop-filter: blur(10px);
+            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 600px;
+        }
+
+        .plan-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            border-radius: 25px;
+            padding: 2px;
+            background: linear-gradient(135deg, #00d4ff, #8b5cf6, #3b82f6);
+            mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            mask-composite: xor;
+            -webkit-mask-composite: xor;
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        .plan-card:hover {
+            transform: translateY(-10px) scale(1.02);
+            box-shadow: 0 25px 50px rgba(0, 212, 255, 0.3),
+                        0 0 0 1px rgba(124, 119, 198, 0.5),
+                        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+
+        .plan-card:hover::before {
+            opacity: 1;
+        }
+
+        .plan-card.premium {
+            background: rgba(31, 21, 53, 0.8);
+            border-color: rgba(139, 92, 246, 0.4);
+            position: relative;
+        }
+
+        .plan-card.premium::after {
+            content: 'POPULAR';
+            position: absolute;
+            top: -10px;
+            right: 20px;
+            background: linear-gradient(135deg, #8b5cf6, #00d4ff);
+            color: #fff;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            box-shadow: 0 5px 15px rgba(139, 92, 246, 0.4);
+        }
+
+        .plan-name {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: #60a5fa;
+            text-align: center;
+        }
+
+        .plan-price {
+            font-family: 'Orbitron', monospace;
+            font-size: 3rem;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 30px;
+            background: linear-gradient(135deg, #60a5fa, #8b5cf6);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .plan-price .currency {
+            font-size: 1.5rem;
+            vertical-align: super;
+        }
+
+        .benefits-list {
+            list-style: none;
+            margin-bottom: 40px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+
+        .benefit-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        .benefit-icon {
+            font-size: 1.2rem;
+            margin-right: 15px;
+            width: 20px;
+            text-align: center;
+        }
+
+        .benefit-icon.check {
+            color: #34d399;
+            text-shadow: 0 0 10px rgba(52, 211, 153, 0.5);
+        }
+
+        .benefit-icon.cross {
+            color: #f87171;
+            text-shadow: 0 0 10px rgba(248, 113, 113, 0.5);
+        }
+
+        .plan-button {
+            width: 100%;
+            padding: 18px;
+            border: none;
+            border-radius: 15px;
+            font-family: 'Orbitron', monospace;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+            text-decoration: none;
+            display: block;
+            text-align: center;
+            margin-top: auto;
+        }
+
+        .btn-free {
+            background: linear-gradient(135deg, #2c5282, #4a5568);
+            color: #E1E1FF;
+            box-shadow: 0 8px 20px rgba(44, 82, 130, 0.3);
+        }
+
+        .btn-free:hover {
+            background: linear-gradient(135deg, #3182ce, #5a6578);
+            box-shadow: 0 12px 30px rgba(44, 82, 130, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .btn-premium {
+            background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+            color: #fff;
+            box-shadow: 0 8px 20px rgba(139, 92, 246, 0.4);
+            position: relative;
+        }
+
+        .btn-premium::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn-premium:hover::before {
+            left: 100%;
+        }
+
+        .btn-premium:hover {
+            background: linear-gradient(135deg, #7c3aed, #2563eb);
+            box-shadow: 0 15px 35px rgba(139, 92, 246, 0.6);
+            transform: translateY(-3px);
+        }
+
+        /* Responsividade */
+        @media (max-width: 768px) {
+            /* Garantir que o fundo seja mantido em mobile */
+            body {
+                background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 25%, #16213e 50%, #2a1845 75%, #1f1535 100%) !important;
+                background-attachment: fixed;
+                min-height: 100vh;
+            }
+            
+            /* Garantir que o efeito de partículas funcione em mobile */
+            body::before {
+                background: radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.1) 0%, transparent 50%),
+                            radial-gradient(circle at 80% 20%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+                            radial-gradient(circle at 40% 80%, rgba(119, 198, 255, 0.1) 0%, transparent 50%) !important;
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100% !important;
+                height: 100% !important;
+                z-index: -1 !important;
+                pointer-events: none !important;
+            }
+            
+            .container {
+                padding: 30px 15px;
+                gap: 35px;
+            }
+
+            .title {
+                font-size: 2.8rem;
+                line-height: 1.2;
+                margin-bottom: 10px;
+            }
+
+            .plans-container {
+                grid-template-columns: 1fr;
+                gap: 25px;
+                padding: 0 5px;
+            }
+
+            .plan-card {
+                padding: 35px 25px;
+                margin: 0 auto;
+                max-width: 400px;
+                width: 100%;
+                min-height: 550px;
+            }
+
+            .plan-price {
+                font-size: 2.8rem;
+                margin-bottom: 25px;
+            }
+
+            .benefits-list {
+                margin-bottom: 35px;
+            }
+
+            .benefit-item {
+                font-size: 0.95rem;
+                margin-bottom: 12px;
+            }
+
+            .plan-button {
+                padding: 16px;
+                font-size: 1.05rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            /* Manter fundo consistente em telas pequenas */
+            body {
+                background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 25%, #16213e 50%, #2a1845 75%, #1f1535 100%) !important;
+                background-attachment: fixed;
+            }
+            
+            html {
+                background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 25%, #16213e 50%, #2a1845 75%, #1f1535 100%) !important;
+            }
+            
+            .container {
+                padding: 20px 10px;
+                gap: 30px;
+            }
+
+            .title {
+                font-size: 2.2rem;
+                padding: 0 10px;
+            }
+
+            .plans-container {
+                gap: 20px;
+                padding: 0;
+            }
+
+            .plan-card {
+                padding: 25px 20px;
+                border-radius: 20px;
+                max-width: 100%;
+                min-height: 500px;
+            }
+
+            .plan-name {
+                font-size: 1.4rem;
+                margin-bottom: 10px;
+            }
+
+            .plan-price {
+                font-size: 2.3rem;
+                margin-bottom: 20px;
+            }
+
+            .plan-price .currency {
+                font-size: 1.2rem;
+            }
+
+            .benefits-list {
+                margin-bottom: 30px;
+            }
+
+            .benefit-item {
+                font-size: 0.85rem;
+                margin-bottom: 10px;
+                line-height: 1.4;
+            }
+
+            .benefit-icon {
+                font-size: 1rem;
+                margin-right: 12px;
+                width: 18px;
+            }
+
+            .plan-button {
+                padding: 14px;
+                font-size: 0.95rem;
+                border-radius: 12px;
+            }
+
+            .plan-card.premium::after {
+                top: -8px;
+                right: 15px;
+                padding: 6px 15px;
+                font-size: 0.7rem;
+            }
+        }
+
+        @media (max-width: 375px) {
+            /* Força fundo em telas muito pequenas */
+            body, html {
+                background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 25%, #16213e 50%, #2a1845 75%, #1f1535 100%) !important;
+                background-attachment: fixed !important;
+            }
+            
+            .container {
+                padding: 15px 8px;
+            }
+
+            .title {
+                font-size: 1.9rem;
+            }
+
+            .plan-card {
+                padding: 20px 15px;
+            }
+
+            .plan-name {
+                font-size: 1.3rem;
+            }
+
+            .plan-price {
+                font-size: 2rem;
+            }
+
+            .benefit-item {
+                font-size: 0.8rem;
+            }
+
+            .plan-button {
+                padding: 12px;
+                font-size: 0.9rem;
+            }
+        }
+
+        /* Ajustes específicos para landscape em celulares */
+        @media (max-width: 768px) and (orientation: landscape) {
+            .container {
+                padding: 20px 15px;
+            }
+
+            .title {
+                font-size: 2.5rem;
+                margin-bottom: 20px;
+            }
+
+            .plans-container {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 20px;
+                max-width: 100%;
+            }
+
+            .plan-card {
+                padding: 25px 20px;
+            }
+
+            .plan-price {
+                font-size: 2.2rem;
+            }
+        }
+
+        /* Ajustes para telas muito pequenas */
+        @media (max-width: 320px) {
+            .title {
+                font-size: 1.7rem;
+            }
+
+            .plan-card {
+                padding: 18px 12px;
+            }
+
+            .plan-name {
+                font-size: 1.2rem;
+            }
+
+            .plan-price {
+                font-size: 1.8rem;
+            }
+
+            .benefit-item {
+                font-size: 0.75rem;
+            }
+
+            .plan-button {
+                font-size: 0.85rem;
+                padding: 10px;
+            }
+        }
+
+        /* Melhorias de toque para mobile */
+        @media (hover: none) and (pointer: coarse) {
+            .plan-card:hover {
+                transform: none;
+            }
+
+            .plan-card:active {
+                transform: translateY(-5px) scale(1.01);
+                transition: transform 0.1s ease;
+            }
+
+            .plan-button:hover {
+                transform: none;
+            }
+
+            .plan-button:active {
+                transform: translateY(-1px);
+                transition: transform 0.1s ease;
+            }
+        }
+
+        /* Garantir que o conteúdo não seja cortado */
+        .plan-card {
+            min-height: fit-content;
+            height: auto;
+        }
+
+        /* Ajustar espaçamento do texto para melhor legibilidade */
+        .benefit-item {
+            word-wrap: break-word;
+            hyphens: auto;
+        }
+
+        /* Animação de entrada */
+        .plan-card {
+            opacity: 0;
+            transform: translateY(50px);
+            animation: slideUp 0.8s ease forwards;
+        }
+
+        .plan-card:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        @keyframes slideUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Background Elements -->
+    <div class="background-container">
+        <!-- Container para o fundo animado Vanta.js -->
+        <div class="vanta-background" id="vanta-bg"></div>
+        
+        <!-- Plano de fundo neural (fallback) -->
+        <div class="fundo-neural"></div>
+        
+        <div class="particles" id="particles"></div>
+    </div>
+
+    <div class="container">
+        <h1 class="title">Escolha seu plano</h1>
+        
+        <div class="plans-container">
+            <!-- Plano Gratuito -->
+            <div class="plan-card">
+                <h2 class="plan-name">Plano Gratuito</h2>
+                <div class="plan-price">
+                    <span class="currency">R$</span>0<span style="font-size: 1.5rem;">,00</span>
+                </div>
+                <ul class="benefits-list">
+                    <li class="benefit-item">
+                        <span class="benefit-icon check">✅</span>
+                        Acesso ao chatbot
+                    </li>
+                    <li class="benefit-item">
+                        <span class="benefit-icon check">✅</span>
+                        15 mensagens diárias
+                    </li>
+                    <li class="benefit-item">
+                        <span class="benefit-icon check">✅</span>
+                        Respostas básicas
+                    </li>
+                    <li class="benefit-item">
+                        <span class="benefit-icon cross">❌</span>
+                        Sem personalização
+                    </li>
+                    <li class="benefit-item" style="opacity: 0; pointer-events: none;">
+                        <span class="benefit-icon">⠀</span>
+                        ⠀
+                    </li>
+                    <li class="benefit-item" style="opacity: 0; pointer-events: none;">
+                        <span class="benefit-icon">⠀</span>
+                        ⠀
+                    </li>
+                </ul>
+                <a href="index.html" class="plan-button btn-free">Usar grátis</a>
+            </div>
+
+            <!-- Plano Plus -->
+            <div class="plan-card premium">
+                <h2 class="plan-name">Plano Plus</h2>
+                <div class="plan-price">
+                    <span class="currency">R$</span>29<span style="font-size: 1.5rem;">,00</span>
+                </div>
+                <ul class="benefits-list">
+                    <li class="benefit-item">
+                        <span class="benefit-icon check">✅</span>
+                        Mensagens ilimitadas
+                    </li>
+                    <li class="benefit-item">
+                        <span class="benefit-icon check">✅</span>
+                        Melhores respostas com modelo de IA mais avançado
+                    </li>
+                    <li class="benefit-item">
+                        <span class="benefit-icon check">✅</span>
+                        Personalização de respostas
+                    </li>
+                    <li class="benefit-item">
+                        <span class="benefit-icon check">✅</span>
+                        Prioridade no servidor
+                    </li>
+                    <li class="benefit-item">
+                        <span class="benefit-icon check">✅</span>
+                        Acesso a análise de problema por imagem
+                    </li>
+                    <li class="benefit-item">
+                        <span class="benefit-icon check">✅</span>
+                        Acesso prioritário a novos lançamentos
+                    </li>
+                </ul>
+                <a href="https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=2c93808497eec1c00197f19da3d600f6" class="plan-button btn-premium">Quero ser Plus</a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Particle Generation - Mesmo da landing.html
+        const particlesContainer = document.getElementById('particles');
+        const particleCount = 50;
+        
+        for (let i = 0; i < particleCount; i++) {
+            const particle = document.createElement('div');
+            particle.className = 'particle';
+            particle.style.left = Math.random() * 100 + '%';
+            particle.style.animationDelay = Math.random() * 10 + 's';
+            particle.style.animationDuration = (Math.random() * 10 + 10) + 's';
+            particlesContainer.appendChild(particle);
+        }
+
+        // Initialize Vanta.js Background
+        function initVantaBackground() {
+            try {
+                const vantaElement = document.getElementById("vanta-bg");
+                if (!vantaElement) {
+                    return;
+                }
+                
+                if (typeof VANTA !== 'undefined' && typeof THREE !== 'undefined') {
+                    const isLowPerformance = navigator.hardwareConcurrency <= 4;
+                    const isDesktop = window.innerWidth > 768;
+                    
+                    VANTA.NET({
+                        el: "#vanta-bg",
+                        mouseControls: true,
+                        touchControls: true,
+                        gyroControls: false,
+                        minHeight: 200.00,
+                        minWidth: 200.00,
+                        scale: 1.00,
+                        scaleMobile: 1.00,
+                        color: 0x8a2be2,
+                        backgroundColor: 0x0a0a1a,
+                        points: isLowPerformance ? 3.50 : (isDesktop ? 6.00 : 3.50),
+                        maxDistance: isLowPerformance ? 13.00 : (isDesktop ? 20.00 : 13.00),
+                        spacing: isLowPerformance ? 30.00 : (isDesktop ? 20.00 : 28.00),
+                        showDots: true
+                    });
+                    console.log('Vanta.js Network background initialized');
+                } else {
+                    console.log('Vanta.js libraries not available');
+                }
+            } catch (error) {
+                console.log('Vanta.js initialization error:', error);
+            }
+        }
+        
+        // Initialize Vanta.js when libraries are loaded
+        function checkLibrariesAndInit() {
+            if (typeof VANTA !== 'undefined' && typeof THREE !== 'undefined') {
+                initVantaBackground();
+            } else {
+                setTimeout(checkLibrariesAndInit, 100);
+            }
+        }
+        
+        // Start initialization
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', checkLibrariesAndInit);
+        } else {
+            checkLibrariesAndInit();
+        }
+        
+        console.log('Background planos.html carregado com sucesso!');
+    </script>
+</body>
+</html>

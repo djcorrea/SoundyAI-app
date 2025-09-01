@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste AudioAnalyzer Local</title>
+</head>
+<body>
+    <h1>Teste AudioAnalyzer</h1>
+    <div id="status">Carregando...</div>
+    
+    <script src="public/audio-analyzer.js"></script>
+    <script>
+        setTimeout(() => {
+            const status = document.getElementById('status');
+            
+            try {
+                if (typeof window.AudioAnalyzer === 'function') {
+                    status.innerHTML = '✅ AudioAnalyzer carregado com sucesso!<br>';
+                    status.innerHTML += `Tipo: ${typeof window.AudioAnalyzer}<br>`;
+                    status.innerHTML += `Instância: ${typeof window.audioAnalyzer}<br>`;
+                    
+                    // Testar métodos de Memory Management
+                    const methods = Object.getOwnPropertyNames(window.AudioAnalyzer.prototype)
+                        .filter(n => n.includes('Memory') || n.includes('cleanup') || n.includes('_forceGarbage'));
+                    
+                    status.innerHTML += `Memory Management methods: ${methods.join(', ')}`;
+                } else {
+                    status.innerHTML = '❌ AudioAnalyzer não carregado';
+                }
+            } catch (error) {
+                status.innerHTML = `❌ Erro: ${error.message}`;
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

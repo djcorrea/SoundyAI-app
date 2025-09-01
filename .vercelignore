@@ -1,0 +1,9 @@
+﻿.git/
+node_modules/
+*.wav
+*.mp3
+*.flac
+*.zip
+*.7z
+*.rar
+*.iso

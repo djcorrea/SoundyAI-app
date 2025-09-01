@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste das Novas Referências</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #1a1a1a; color: #fff; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .genre { background: #2a2a2a; margin: 10px 0; padding: 15px; border-radius: 8px; }
+        .metric { display: inline-block; margin: 5px 15px 5px 0; padding: 5px 10px; background: #333; border-radius: 4px; }
+        .lufs { background: #2d5a2d; }
+        .peak { background: #5a2d2d; }
+        .dr { background: #2d2d5a; }
+        .tracks { color: #888; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Teste das Novas Referências Musicais</h1>
+        <p><strong>Atualizado:</strong> 24/08/2025, 23:18:43</p>
+        
+        <div id="referencias"></div>
+        
+        <script src="refs/embedded-refs.js?v=1756088323635"></script>
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                if (typeof window.PROD_AI_REF_DATA === 'undefined') {
+                    document.getElementById('referencias').innerHTML = '❌ Erro: Referências não carregadas!';
+                    return;
+                }
+                
+                const container = document.getElementById('referencias');
+                const refs = window.PROD_AI_REF_DATA;
+                
+                container.innerHTML = '<h2>📊 Total de gêneros: ' + Object.keys(refs).length + '</h2>';
+                
+                Object.entries(refs).forEach(([genero, dados]) => {
+                    const compat = dados.legacy_compatibility || {};
+                    const div = document.createElement('div');
+                    div.className = 'genre';
+                    div.innerHTML = [
+                        '<h3>' + genero.toUpperCase() + '</h3>',
+                        '<div class="tracks">📀 ' + (dados.num_tracks || 0) + ' faixas</div>',
+                        '<div class="metric lufs">LUFS: ' + (compat.lufs_target || 'N/A') + '</div>',
+                        '<div class="metric peak">True Peak: ' + (compat.true_peak_target || 'N/A') + ' dBTP</div>',
+                        '<div class="metric dr">DR: ' + (compat.dr_target || 'N/A') + '</div>',
+                        '<div class="tracks">🎛️ ' + Object.keys(compat.bands || {}).length + ' bandas espectrais</div>'
+                    ].join('');
+                    container.appendChild(div);
+                });
+            });
+        </script>
+    </div>
+</body>
+</html>

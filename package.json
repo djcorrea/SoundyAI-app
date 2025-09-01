@@ -1,0 +1,47 @@
+{
+  "name": "chatbot-correa",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "dev:upload": "node dev-server.js",
+    "start": "node api/chat.js",
+    "build:refs": "node tools/reference-builder.js",
+    "validate:refs": "node tools/reference-validator.js",
+    "calibrate:refs": "node tools/ref-calibrator.js",
+    "refs:pipeline": "node tools/refs-pipeline.js",
+    "copy:refs": "node tools/copy-refs-to-public.js",
+    "metrics:recalc": "node tools/metrics-recalc.js",
+    "audit:one": "AUDIT_MODE=1 node tools/audit-one.js",
+    "audit:batch": "AUDIT_MODE=1 node tools/audit-batch.js",
+    "audit:report": "AUDIT_MODE=1 node tools/audit-report.js",
+    "postinstall": "npm run copy:refs"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^5.1.0",
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^4.4.1",
+    "formidable": "^3.5.4",
+    "mercadopago": "^2.8.0",
+    "node-fetch": "^2.6.7"
+  },
+  "main": "index.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "madge": "^8.0.0",
+    "serve": "^14.2.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/djcorrea/prod.ai-novo.git"
+  },
+  "bugs": {
+    "url": "https://github.com/djcorrea/prod.ai-novo/issues"
+  },
+  "homepage": "https://github.com/djcorrea/prod.ai-novo#readme",
+  "description": ""
+}

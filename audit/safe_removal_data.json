@@ -1,0 +1,476 @@
+{
+  "safeForRemoval": [],
+  "suspicious": [
+    {
+      "path": "ANALISE_FEEDBACK_DJ_SISTEMA_COMPLETO.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "ANALISE_IMAGENS_100_FUNCIONANDO.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "ANALISE_IMAGENS_FUNCIONANDO.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "ATUALIZACAO_PROBLEMAS_MIX.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "AUDITORIA_ANALYZER_COMPLETA.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "AUDITORIA_COMPLETA_SISTEMA_AUDIO.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "AUDITORIA_ESCALABILIDADE_COMPLETA.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "AUDITORIA_MODO_REFERENCIA_FREQUENCIAS.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "AUDITORIA_TECNICA_IMAGENS.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "builder-trance.txt",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "cache-bust.txt",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "cache-diagnostic.html",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "calibration-report-trance.txt",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "CHECKLIST_ANALISE_IMAGENS.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "CHECKLIST_COMPLETO_SISTEMA_IMAGENS.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "CONFIGURACAO_CHAVES_COMPLETA.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "CONFIGURACAO_SISTEMA_IMAGENS.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "CONFIGURACAO_VERCEL_FIREBASE.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "configurar-vercel-emergencia.ps1",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "configurar-vercel-emergencia.sh",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "correcao-analise-espectral.html",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "correcao-aplicada.html",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "correcao-definitiva.html",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "correcao-emergencia.js",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "CORRECAO_ANALISE_AUDIO_MODAL.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "CORRECAO_BUG_MODO_REFERENCIA_FINAL.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "CORRECAO_CHAT_BOTAO_PLUS_FINALIZADA.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "CORRECAO_ERROS_FIREBASE_FINALIZADA.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "CORRECAO_FINAL_BANDAS_ESPECTRAIS.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "CORRECAO_FINAL_INTERFACE_PRESERVADA.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "CORRECAO_FINAL_MODO_REFERENCIA.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "CORRECAO_FINAL_MODO_REFERENCIA_COMPLETA.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "CORRECAO_FREQUENCIAS_APLICADA.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "CORRECAO_FREQUENCIAS_BANDS.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "CORRECAO_INCONSISTENCIA_CLIPPING.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "CORRECAO_JSON_INPUT_ERROR.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "CORRECAO_LAYOUT_IMPLEMENTACAO_IMAGENS.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "CORRECAO_MODO_REFERENCIA_FINALIZADA.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "CORRECAO_SISTEMA_IMAGENS_FINALIZADA.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "critical-error-report.html",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "debug-interpretation.html",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "debug-score-breakdown.html",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "debug-score-calculation.html",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "debug-score-real-40.html",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "debug-score-vs-interface.html",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "debug-server.js",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "debug-subscore-precision.html",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "debug-suggestion-logic.html",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "debug-technical-problems.html",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "debug-valores-problema.html",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "deploy-trigger.js",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "diagnostic-chat.html",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "diagnostic-sequencial.html",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "DIAGNOSTICO_MODO_REFERENCIA.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "ETAPA_1_CRITICAS_CONCLUIDA.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "FINAL_DIAGNOSTIC_REPORT.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "fix-bandas-direto.js",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "GUIA_CONFIGURACAO_FINAL.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "GUIA_DEBUG_SISTEMA_COMPLETO.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "HOTFIX_SITE_RESTAURADO.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "IMPLEMENTACAO_ESCALABILIDADE_COMPLETA.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "IMPLEMENTACAO_SISTEMA_IMAGENS.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "INVESTIGACAO_PROBLEMAS_TECNICOS.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "LIMITE_60MB_SIMPLES.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "limpar-deployments.ps1",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "limpar-simples.ps1",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "LOG_FIXED_FLEX_IMPLEMENTATION.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "PATCH_A_INFRAESTRUTURA.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "PATCH_B_NORMALIZACAO.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "PATCH_C_OBSERVABILIDADE.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "PLANO_AUDITORIA_COMPLETA.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "PLANO_ESCALABILIDADE_IMPLEMENTACAO.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "POST_DEPLOY_CHECKLIST.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "PROBLEMA_CRITICO_IDENTIFICADO.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_AUDITORIA_SCORE_FINAL.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_AUDITORIA_SUGESTOES_CARD.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_CORRECAO_BANDAS_ESPECTAIS_FINAL.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_CORRECAO_BANDAS_ESPECTRAIS.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_CORRECAO_BUG_TOLERANCIA.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_CORRECAO_CLIPPING.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_CORRECAO_FINAL.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_CORRECAO_FINALIZADA.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_CORRECAO_FINAL_BANDAS.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_CORRECAO_LOGICA_FUNDAMENTAL.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_CORRECAO_SUGESTOES_IA.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_CORRECAO_TOTAL_FINALIZADA.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_CORRECOES_CRITICAS.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_FINAL_CORRECAO_BANDAS.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_FINAL_CORRECAO_BUG.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_FINAL_CORRECAO_SUBSCORES.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_FINAL_LABELS_V2.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_FUNK_MANDELA_V3.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_IMPLEMENTACAO_IMAGENS_CHAT.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_LABELS_AMIGAVEIS.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_PADRONIZACAO_BANDAS_EQ.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_SISTEMA_EDUCATIVO_RESTAURADO.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RELATORIO_TESTES_FASE4.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "RESUMO_DIAGNOSTICO.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "SISTEMA_FUNCIONANDO_COMPLETO.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "SISTEMA_IMAGENS_FUNCIONANDO.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "STATUS_LANCAMENTO_PRONTO.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "TESTE_CORRECOES_IMPLEMENTADAS.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "UPLOAD_60MB_IMPLEMENTATION.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "validation-test.html",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    },
+    {
+      "path": "VERIFICACAO_ESCALABILIDADE_COMPLETA.md",
+      "reason": "Arquivo de debug mas com referências encontradas"
+    }
+  ],
+  "critical": [
+    {
+      "path": ".env",
+      "reason": "Arquivo crítico do sistema"
+    },
+    {
+      "path": ".env.example",
+      "reason": "Arquivo crítico do sistema"
+    },
+    {
+      "path": ".gitignore",
+      "reason": "Arquivo crítico do sistema"
+    },
+    {
+      "path": "analyzer/README.md",
+      "reason": "Arquivo crítico do sistema"
+    },
+    {
+      "path": "debug-analyzer.js",
+      "reason": "Arquivo crítico do sistema"
+    },
+    {
+      "path": "dev-server-fixed.js",
+      "reason": "Arquivo crítico do sistema"
+    },
+    {
+      "path": "dev-server.js",
+      "reason": "Arquivo crítico do sistema"
+    },
+    {
+      "path": "firestore.rules",
+      "reason": "Arquivo crítico do sistema"
+    },
+    {
+      "path": "package-lock.json",
+      "reason": "Arquivo crítico do sistema"
+    },
+    {
+      "path": "package.json",
+      "reason": "Arquivo crítico do sistema"
+    },
+    {
+      "path": "README.md",
+      "reason": "Arquivo crítico do sistema"
+    },
+    {
+      "path": "vercel.json",
+      "reason": "Arquivo crítico do sistema"
+    }
+  ],
+  "total": 301
+}

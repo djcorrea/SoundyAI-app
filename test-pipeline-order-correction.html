@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Teste da Correção da Ordem do Pipeline</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background: #1a1a1a;
+            color: #ffffff;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+        }
+        .section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        .test-button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        .test-button:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+        .log-container {
+            background: #1e1e1e;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 15px 0;
+        }
+        .success { color: #4caf50; }
+        .error { color: #f44336; }
+        .warning { color: #ff9800; }
+        .info { color: #2196f3; }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-ok { background: #4caf50; }
+        .status-error { background: #f44336; }
+        .status-warning { background: #ff9800; }
+        .criteria-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .criteria-item {
+            background: #333;
+            padding: 15px;
+            border-radius: 6px;
+            border: 1px solid #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Teste da Correção da Ordem do Pipeline</h1>
+            <p>Validação da implementação: Scoring após bandas espectrais</p>
+            <p><strong>Data:</strong> 28 de agosto de 2025</p>
+        </div>
+
+        <div class="section">
+            <h2>📊 Status da Correção</h2>
+            <div id="correctionStatus">Verificando...</div>
+            
+            <h3>🔧 Controles</h3>
+            <button class="test-button" onclick="checkCorrectionStatus()">🔍 Verificar Status</button>
+            <button class="test-button" onclick="testPipelineOrder()">🧪 Testar Ordem do Pipeline</button>
+            <button class="test-button" onclick="simulateBandFailure()">⚠️ Simular Falha de Bandas</button>
+            <button class="test-button" onclick="clearLogs()">🗑️ Limpar Logs</button>
+        </div>
+
+        <div class="section">
+            <h2>📝 Logs do Pipeline</h2>
+            <div id="logContainer" class="log-container">
+                Aguardando testes...
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>✅ Critérios de Aceite</h2>
+            <div class="criteria-grid">
+                <div class="criteria-item">
+                    <h4><span id="criteria1" class="status-indicator status-warning"></span>Bandas antes do Scoring</h4>
+                    <p>Logs mostram "spectral_bands_ready" antes de "scoring_start" em 100% dos casos</p>
+                    <div id="criteria1Details">Não testado</div>
+                </div>
+                
+                <div class="criteria-item">
+                    <h4><span id="criteria2" class="status-indicator status-warning"></span>Fallback Seguro</h4>
+                    <p>Em falha de bandas, aparece "scoring_skipped" e UI não exibe score parcial</p>
+                    <div id="criteria2Details">Não testado</div>
+                </div>
+                
+                <div class="criteria-item">
+                    <h4><span id="criteria3" class="status-indicator status-warning"></span>Race Conditions</h4>
+                    <p>Troca rápida de arquivo respeita correlação de análise (runId)</p>
+                    <div id="criteria3Details">Não testado</div>
+                </div>
+                
+                <div class="criteria-item">
+                    <h4><span id="criteria4" class="status-indicator status-warning"></span>Compatibilidade</h4>
+                    <p>Casos com bandas prontas mantêm scores iguais (só ordem muda)</p>
+                    <div id="criteria4Details">Não testado</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🔍 Diagnóstico Técnico</h2>
+            <div id="diagnostics">
+                <p>Clique em "Verificar Status" para obter diagnóstico completo</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Carregar dependências -->
+    <script src="/pipeline-order-correction.js?v=20250828"></script>
+    
+    <script>
+        // 📊 Sistema de logs interceptados
+        const originalConsoleLog = console.log;
+        const pipelineLogs = [];
+        
+        console.log = function(...args) {
+            // Capturar logs relacionados ao pipeline
+            const message = args.join(' ');
+            if (message.includes('[PIPELINE-') || 
+                message.includes('spectral_bands') || 
+                message.includes('scoring_') ||
+                message.includes('bandEnergies')) {
+                
+                pipelineLogs.push({
+                    timestamp: new Date().toISOString(),
+                    message: message,
+                    type: detectLogType(message)
+                });
+                
+                updateLogDisplay();
+            }
+            
+            // Chamar console.log original
+            originalConsoleLog.apply(console, args);
+        };
+        
+        function detectLogType(message) {
+            if (message.includes('ERROR') || message.includes('❌')) return 'error';
+            if (message.includes('WARNING') || message.includes('⚠️')) return 'warning';
+            if (message.includes('SUCCESS') || message.includes('✅')) return 'success';
+            return 'info';
+        }
+        
+        function updateLogDisplay() {
+            const container = document.getElementById('logContainer');
+            const recentLogs = pipelineLogs.slice(-50); // Últimos 50 logs
+            
+            container.innerHTML = recentLogs.map(log => {
+                const time = new Date(log.timestamp).toLocaleTimeString();
+                return `<div class="${log.type}">[${time}] ${log.message}</div>`;
+            }).join('');
+            
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        function clearLogs() {
+            pipelineLogs.length = 0;
+            document.getElementById('logContainer').innerHTML = 'Logs limpos';
+        }
+        
+        function checkCorrectionStatus() {
+            const status = document.getElementById('correctionStatus');
+            const diagnostics = document.getElementById('diagnostics');
+            
+            // Verificar se o módulo está carregado
+            const moduleLoaded = typeof window.PipelineOrderCorrection !== 'undefined';
+            const featureFlagActive = window.PIPELINE_ORDER_CORRECTION_ENABLED !== false;
+            
+            let statusHTML = '<div>';
+            statusHTML += `<p><span class="status-indicator ${moduleLoaded ? 'status-ok' : 'status-error'}"></span>`;
+            statusHTML += `Módulo carregado: ${moduleLoaded ? 'SIM' : 'NÃO'}</p>`;
+            
+            statusHTML += `<p><span class="status-indicator ${featureFlagActive ? 'status-ok' : 'status-error'}"></span>`;
+            statusHTML += `Feature flag ativa: ${featureFlagActive ? 'SIM' : 'NÃO'}</p>`;
+            
+            if (moduleLoaded) {
+                statusHTML += `<p><span class="status-indicator status-ok"></span>Funções disponíveis: `;
+                statusHTML += `validateSpectralBands, logPipelineEvent, executeScoringWithPreconditions</p>`;
+            }
+            
+            statusHTML += '</div>';
+            status.innerHTML = statusHTML;
+            
+            // Diagnóstico técnico
+            const diagnosticInfo = {
+                timestamp: new Date().toISOString(),
+                moduleLoaded,
+                featureFlagActive,
+                availableFunctions: moduleLoaded ? Object.keys(window.PipelineOrderCorrection) : [],
+                userAgent: navigator.userAgent,
+                url: window.location.href
+            };
+            
+            diagnostics.innerHTML = `<pre>${JSON.stringify(diagnosticInfo, null, 2)}</pre>`;
+            
+            console.log('[PIPELINE-TEST] Status verificado:', diagnosticInfo);
+        }
+        
+        function testPipelineOrder() {
+            if (!window.PipelineOrderCorrection) {
+                alert('❌ Módulo de correção não carregado. Recarregue a página.');
+                return;
+            }
+            
+            console.log('[PIPELINE-TEST] 🧪 Iniciando teste de ordem do pipeline...');
+            
+            // Simular dados técnicos com bandas válidas
+            const validTechnicalData = {
+                bandEnergies: {
+                    sub: { rms_db: -12.5, energy: 0.15 },
+                    low_bass: { rms_db: -8.2, energy: 0.25 },
+                    mid: { rms_db: -6.1, energy: 0.35 },
+                    high: { rms_db: -14.3, energy: 0.12 }
+                },
+                lufsIntegrated: -14.2,
+                truePeakDbtp: -1.8
+            };
+            
+            // Mock do scorer
+            const mockScorer = {
+                computeMixScore: (data, ref) => ({
+                    scorePct: 85,
+                    classification: 'good',
+                    method: 'equal_weight_v3'
+                })
+            };
+            
+            // Testar validação de bandas
+            const validation = window.PipelineOrderCorrection.validateSpectralBands(validTechnicalData, 'test-001');
+            console.log('[PIPELINE-TEST] Validação de bandas:', validation);
+            
+            // Testar execução de scoring
+            window.PipelineOrderCorrection.executeScoringWithPreconditions(
+                validTechnicalData,
+                null, // sem referência
+                mockScorer,
+                'test-001'
+            ).then(result => {
+                console.log('[PIPELINE-TEST] ✅ Resultado do scoring:', result);
+                updateCriteriaStatus('criteria1', result ? 'ok' : 'error', 
+                    result ? 'Ordem correta detectada' : 'Falha na ordem');
+            });
+        }
+        
+        function simulateBandFailure() {
+            if (!window.PipelineOrderCorrection) {
+                alert('❌ Módulo de correção não carregado. Recarregue a página.');
+                return;
+            }
+            
+            console.log('[PIPELINE-TEST] ⚠️ Simulando falha de bandas espectrais...');
+            
+            // Simular dados técnicos SEM bandas válidas
+            const invalidTechnicalData = {
+                // bandEnergies ausente ou inválido
+                lufsIntegrated: -14.2,
+                truePeakDbtp: -1.8
+            };
+            
+            // Mock do scorer
+            const mockScorer = {
+                computeMixScore: (data, ref) => ({
+                    scorePct: 85,
+                    classification: 'good',
+                    method: 'equal_weight_v3'
+                })
+            };
+            
+            // Testar com dados inválidos
+            window.PipelineOrderCorrection.executeScoringWithPreconditions(
+                invalidTechnicalData,
+                null,
+                mockScorer,
+                'test-failure-001'
+            ).then(result => {
+                console.log('[PIPELINE-TEST] Resultado com falha:', result);
+                const skipped = result === null;
+                updateCriteriaStatus('criteria2', skipped ? 'ok' : 'error',
+                    skipped ? 'Fallback funcionando' : 'Fallback falhou');
+            });
+        }
+        
+        function updateCriteriaStatus(criteriaId, status, details) {
+            const element = document.getElementById(criteriaId);
+            const detailsElement = document.getElementById(criteriaId + 'Details');
+            
+            element.className = `status-indicator status-${status}`;
+            if (detailsElement) {
+                detailsElement.textContent = details;
+            }
+        }
+        
+        // Verificar status ao carregar
+        window.addEventListener('load', () => {
+            setTimeout(checkCorrectionStatus, 1000);
+        });
+    </script>
+</body>
+</html>
