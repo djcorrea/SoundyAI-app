@@ -995,7 +995,7 @@ class AudioAnalyzer {
           try { (window.__caiarLog||function(){})('DECODE_OK','Buffer decodificado', { duration: audioBuffer.duration, sr: audioBuffer.sampleRate, channels: audioBuffer.numberOfChannels }); } catch {}
           // ===== Context Detector (BPM / Key / Densidade) =====
           try {
-            const ctxMod = await import('/lib/audio/features/context-detector.js?v=' + Date.now()).catch(()=>null);
+            const ctxMod = await import('/lib/audio/features/context-detector.js').catch(()=>null);
             if (ctxMod && typeof ctxMod.detectAudioContext === 'function') {
               const ctxRes = await ctxMod.detectAudioContext(audioBuffer, {});
               if (ctxRes) {
@@ -1033,9 +1033,9 @@ class AudioAnalyzer {
             if (typeof window !== 'undefined' && window.CAIAR_ENABLED) {
               // Ajustar concorrência dinâmica se modo rápido
               if (qualityMode === 'fast') { try { window.STEMS_MAX_CONCURRENCY = 1; } catch{} }
-              const { enqueueJob } = await import('/lib/audio/features/job-queue.js?v=' + Date.now()).catch(()=>({enqueueJob: null}));
+              const { enqueueJob } = await import('/lib/audio/features/job-queue.js').catch(()=>({enqueueJob: null}));
               (window.__caiarLog||function(){})('STEMS_CHAIN_START','Iniciando cadeia de stems');
-              const stemsMod = await import('/lib/audio/features/stems.js?v=' + Date.now()).catch(()=>null);
+              const stemsMod = await import('/lib/audio/features/stems.js').catch(()=>null);
               if (stemsMod && typeof stemsMod.separateStems === 'function') {
                 const jobFn = ()=> Promise.race([
                   stemsMod.separateStems(audioBuffer, { quality: qualityMode }),
@@ -1341,8 +1341,8 @@ class AudioAnalyzer {
           
           try { this._computeAnalysisMatrix(audioBuffer, analysis, null); } catch{}
         } else {
-          const { enqueueJob } = await import('/lib/audio/features/job-queue.js?v=' + Date.now()).catch(()=>({enqueueJob:null}));
-          const stemsMod = await import('/lib/audio/features/stems.js?v=' + Date.now()).catch(()=>null);
+          const { enqueueJob } = await import('/lib/audio/features/job-queue.js').catch(()=>({enqueueJob:null}));
+          const stemsMod = await import('/lib/audio/features/stems.js').catch(()=>null);
           if (stemsMod && stemsMod.separateStems) {
             const qualityMode = analysis.qualityMode;
             const jobFn = ()=> Promise.race([
@@ -1699,7 +1699,7 @@ class AudioAnalyzer {
             // Reference Matcher (antes do score) – gera adaptiveReference sem quebrar a referência atual
             try {
               if (typeof window !== 'undefined' && window.CAIAR_ENABLED) {
-                const refMatchMod = await import('/lib/audio/features/reference-matcher.js?v=' + Date.now()).catch(()=>null);
+                const refMatchMod = await import('/lib/audio/features/reference-matcher.js').catch(()=>null);
                 if (refMatchMod && typeof refMatchMod.applyAdaptiveReference === 'function') {
                   refMatchMod.applyAdaptiveReference(baseAnalysis);
                 }
@@ -1727,7 +1727,7 @@ class AudioAnalyzer {
                 }
               } catch {}
               let scorerMod = null;
-              try { scorerMod = await import('/lib/audio/features/scoring.js?v=' + Date.now()).catch(()=>null); } catch {}
+              try { scorerMod = await import('/lib/audio/features/scoring.js').catch(()=>null); } catch {}
               if (scorerMod && typeof scorerMod.computeMixScore === 'function') {
                 // 🎯 CORREÇÃO: Buscar targets específicos do gênero ativo
                 let genreSpecificRef = null;
@@ -1799,7 +1799,7 @@ class AudioAnalyzer {
                 try {
                   if (typeof window !== 'undefined' && window.CAIAR_ENABLED) {
                     (window.__caiarLog||function(){})('RULES_START','Invocando rules-engine contextual');
-                    const rulesMod = await import('/lib/audio/features/rules-engine.js?v=' + Date.now()).catch(()=>null);
+                    const rulesMod = await import('/lib/audio/features/rules-engine.js').catch(()=>null);
                     if (rulesMod && typeof rulesMod.generateContextualCorrections === 'function') {
                       const before = (baseAnalysis.suggestions||[]).length;
                       rulesMod.generateContextualCorrections(baseAnalysis);
@@ -1810,7 +1810,7 @@ class AudioAnalyzer {
                       // ===== CAIAR Explain (plano de ação auditivo) =====
                       try {
                         (window.__caiarLog||function(){})('EXPLAIN_INVOKE','Gerando plano de ação');
-                        const explainMod = await import('/lib/audio/features/caiar-explain.js?v=' + Date.now()).catch(()=>null);
+                        const explainMod = await import('/lib/audio/features/caiar-explain.js').catch(()=>null);
                         if (explainMod && typeof explainMod.generateExplainPlan === 'function') {
                           explainMod.generateExplainPlan(baseAnalysis);
                           (window.__caiarLog||function(){})('EXPLAIN_ATTACHED','Plano anexado', { passos: baseAnalysis.caiarExplainPlan?.totalPassos });
@@ -2241,7 +2241,7 @@ class AudioAnalyzer {
         } catch {}
         try {
           console.log('[PIPELINE-CORRECTION] 🔍 Carregando módulo de scoring...');
-          const scorerMod = await import('/lib/audio/features/scoring.js?v=' + Date.now()).catch((err)=>{
+          const scorerMod = await import('/lib/audio/features/scoring.js').catch((err)=>{
             console.error('[PIPELINE-CORRECTION] ❌ Erro no import scoring.js:', err);
             return null;
           });

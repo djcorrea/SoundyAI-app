@@ -3386,7 +3386,7 @@ function renderSmartSummary(analysis){
             try {
                 // se módulo ainda não carregado, importar dinamicamente
                 if (!window.__CAIAR_EXPLAIN_LOADING__) {
-                    window.__CAIAR_EXPLAIN_LOADING__ = import('/lib/audio/features/caiar-explain.js?v=' + Date.now()).then(mod=>{
+                    window.__CAIAR_EXPLAIN_LOADING__ = import('/lib/audio/features/caiar-explain.js').then(mod=>{
                         if (mod && typeof mod.generateExplainPlan === 'function') mod.generateExplainPlan(analysis);
                     }).catch(()=>null);
                 }
