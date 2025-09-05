@@ -1,5 +1,7 @@
 import * as mercadopago from 'mercadopago';
-import { auth, db } from './firebaseAdmin';
+import { auth, db } from './firebaseAdmin.js';
+
+
 
 // configura Mercado Pago
 mercadopago.configurations.setAccessToken(process.env.MP_ACCESS_TOKEN);
