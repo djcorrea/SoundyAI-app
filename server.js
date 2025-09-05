@@ -49,11 +49,12 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "landing.html"));
 });
 
-// 👉 Fallback: se não encontrar rota de API ou arquivo, devolve index.html
-app.get("*", (req, res, next) => {
+// 👉 Fallback: só dispara se não achar nenhum arquivo existente
+app.use((req, res, next) => {
   if (req.path.startsWith("/api/")) return next(); // não intercepta API
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+  res.status(404).sendFile(path.join(__dirname, "public", "landing.html"));
 });
+
 
 // Iniciar servidor
 const PORT = process.env.PORT || 8080; // Railway geralmente força 8080
