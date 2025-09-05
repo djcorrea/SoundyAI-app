@@ -9,18 +9,11 @@ import fs from 'fs';
 
 const router = express.Router();
 
-// ✅ CORREÇÃO: Configuração para suporte a multipart
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
-
-// ✅ Função para processar multipart/form-data (versão Vercel-friendly)
+// ✅ Função para processar multipart/form-data (versão Railway-friendly)
 async function parseMultipart(req) {
   return new Promise((resolve, reject) => {
     const form = formidable({
-      maxFileSize: 10 * 1024 * 1024, // 10MB (Vercel limit friendly)
+      maxFileSize: 10 * 1024 * 1024, // 10MB (Railway limit friendly)
       maxFiles: 3,
       multiples: true,
       allowEmptyFiles: false,
@@ -185,7 +178,7 @@ async function parseRequestBody(req) {
       return result;
     } else {
       console.log('📝 Processando application/json...');
-      // Vercel já faz parse do JSON por padrão se bodyParser não for false
+      // Express já faz parse do JSON por padrão se express.json() middleware estiver configurado
       const body = req.body || {};
       console.log('✅ JSON processado:', { hasMessage: !!body.message, hasImages: !!(body.images && body.images.length) });
       return body;
@@ -670,6 +663,9 @@ async function consumeImageAnalysisQuota(db, uid, email, userData) {
 }
 
 // ✅ OTIMIZAÇÃO: Seleção inteligente de modelo para economizar tokens
+const GPT4_COMPLEXITY_THRESHOLD = 5;
+const MAX_TEXT_RESPONSE_TOKENS = 2000;
+
 function selectOptimalModel(hasImages, conversationHistory, currentMessage) {
   try {
     // ✅ DEBUG: Log entrada da função
@@ -1233,7 +1229,10 @@ async function handler(req, res) {
   }
 }
 
-// Configuração do Express Router
+// Configure CORS middleware on the router
+router.use(corsMiddleware);
+
+// Define the POST route
 router.post("/", async (req, res) => {
   return handler(req, res);
 });
