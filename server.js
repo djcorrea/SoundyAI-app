@@ -44,23 +44,8 @@ app.use("/api/upload", uploadImageRoute);
 app.use("/api/voice", voiceMessageRoute);
 app.use("/api/webhook", webhookRoute);
 
-// 👉 Rota inicial: abre sempre o landing.html
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "landing.html"));
-});
-
-// 👉 Fallback: se não for API e não tiver extensão, abre o index.html
-app.get("*", (req, res, next) => {
-  if (req.path.startsWith("/api")) {
-    return next(); // deixa seguir para as rotas da API
-  }
-
-  // Se tiver extensão (ex: .js, .css, .png), deixa o express.static cuidar
-  if (path.extname(req.path)) {
-    return next();
-  }
-
-  // Caso contrário, devolve o index.html (SPA)
+// 👉 Fallback: qualquer rota que não seja da API cai no index.html do frontend
+app.get(/^(?!\/api).*/, (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
