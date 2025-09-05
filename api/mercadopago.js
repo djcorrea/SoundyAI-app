@@ -6,7 +6,22 @@ import { auth, db } from "./firebaseAdmin.js";
 const router = express.Router();
 
 // ─── 1) CONFIGURAÇÃO DO MERCADO PAGO ──────────────────────
-mercadopago.configurations.setAccessToken(process.env.MP_ACCESS_TOKEN);
+// api/mercadopago.js
+import express from "express";
+import mercadopago from "mercadopago"; // <- IMPORT DEFAULT
+import { auth, db } from "./firebaseAdmin.js";
+
+const router = express.Router();
+
+// ─── 1) CONFIGURAÇÃO DO MERCADO PAGO ──────────────────────
+if (!process.env.MP_ACCESS_TOKEN) {
+  console.warn("⚠️ MP_ACCESS_TOKEN não está definido!");
+} else {
+  mercadopago.configure({
+    access_token: process.env.MP_ACCESS_TOKEN,
+  });
+}
+
 
 // ─── 2) MIDDLEWARE: VALIDAÇÃO DO ID TOKEN FIREBASE ────────
 async function validateFirebaseIdToken(req, res, next) {
