@@ -60,5 +60,6 @@ const PORT = process.env.PORT || 8080; // Railway geralmente força 8080
 app.listen(PORT, () => {
   console.log(`🚀 Servidor SoundyAI rodando na porta ${PORT}`);
 });
+ 
 
 export default app;
