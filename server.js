@@ -38,8 +38,6 @@ import webhookRoute from "./api/webhook.js";
 
 // Registrar rotas com prefixos
 app.use("/api/cancel-subscription", cancelSubscriptionRoute);
-app.use("/api/chat-backup", chatBackupRoute);
-app.use("/api/chat-broken", chatBrokenRoute);
 app.use("/api/chat-with-images", chatWithImagesRoute);
 app.use("/api/chat", chatRoute);
 app.use("/api/create-preference", createPreferenceRoute);
