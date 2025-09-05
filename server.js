@@ -2,21 +2,23 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import path from "path";
+import { fileURLToPath } from "url";
 
 // Carregar variáveis de ambiente
 dotenv.config();
 
 const app = express();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Middlewares
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// Rota raiz
-app.get("/", (req, res) => {
-  res.send("🚀 Servidor SoundyAI rodando no Railway!");
-});
+// 👉 Servir frontend da pasta public
+app.use(express.static(path.join(__dirname, "public")));
 
 // Importar e registrar todas as rotas da pasta api/
 import cancelSubscriptionRoute from "./api/cancel-subscription.js";
@@ -42,8 +44,13 @@ app.use("/api/upload", uploadImageRoute);
 app.use("/api/voice", voiceMessageRoute);
 app.use("/api/webhook", webhookRoute);
 
+// 👉 Fallback: se não encontrar rota da API, devolve o index.html do frontend
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
 // Iniciar servidor
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080; // Railway geralmente força 8080
 app.listen(PORT, () => {
   console.log(`🚀 Servidor SoundyAI rodando na porta ${PORT}`);
 });
