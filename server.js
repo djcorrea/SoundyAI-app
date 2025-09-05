@@ -44,16 +44,23 @@ app.use("/api/upload", uploadImageRoute);
 app.use("/api/voice", voiceMessageRoute);
 app.use("/api/webhook", webhookRoute);
 
-// 👉 Rota inicial: abre landing.html
+// 👉 Rota inicial: abre sempre o landing.html
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "landing.html"));
 });
 
-// 👉 Fallback: qualquer rota não-API cai no index.html
-app.get("/*", (req, res) => {
+// 👉 Fallback: se não for API e não tiver extensão, abre o index.html
+app.get("*", (req, res, next) => {
   if (req.path.startsWith("/api")) {
-    return res.status(404).json({ error: "API route not found" });
+    return next(); // deixa seguir para as rotas da API
   }
+
+  // Se tiver extensão (ex: .js, .css, .png), deixa o express.static cuidar
+  if (path.extname(req.path)) {
+    return next();
+  }
+
+  // Caso contrário, devolve o index.html (SPA)
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
