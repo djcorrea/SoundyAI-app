@@ -1,6 +1,6 @@
 import express from 'express';
 import * as mercadopago from 'mercadopago';
-import { auth, db } from './firebaseAdmin';
+import { auth, db } from "./firebaseAdmin.js";
 import cors from 'cors';
 
 // ─── 1) CONFIGURAÇÃO DO EXPRESS ────────────────────────────
