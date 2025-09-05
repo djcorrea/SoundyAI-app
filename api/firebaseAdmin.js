@@ -1,76 +1,48 @@
-
-import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { getFirestore } from 'firebase-admin/firestore';
+// firebaseAdmin.js
 
 let auth, db;
 
-// ✅ FORÇAR MODO MOCK EM PRODUÇÃO - Firebase real desabilitado temporariamente
-console.warn('🔧 Firebase Admin FORÇADO em modo mock (produção)');
+// 🚨 Se quiser ativar o Firebase de verdade depois, só trocar esse bloco
+if (process.env.USE_FIREBASE === "true") {
+  import { initializeApp, cert, getApps } from "firebase-admin/app";
+  import { getAuth } from "firebase-admin/auth";
+  import { getFirestore } from "firebase-admin/firestore";
 
-// Mock para desenvolvimento e produção temporária
-auth = {
-  verifyIdToken: async (token) => {
-    // ✅ ACEITAR QUALQUER TOKEN para teste temporário
-    console.log(`🔑 Mock: Validando token: ${token?.substring(0, 20)}...`);
-    return { 
-      uid: 'mock-user-123', 
-      email: 'mock@test.com',
-      name: 'Usuário Mock' 
-    };
+  if (!getApps().length) {
+    initializeApp({
+      // Aqui só vai funcionar se você configurar as variáveis no Railway
+      credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)),
+    });
   }
-};
 
-db = {
-  collection: (name) => ({ 
-    doc: (id) => ({ 
-      get: async () => ({ 
-        exists: true,
-        data: () => ({
-          plano: 'gratuito',
-          mensagensEnviadas: 5,
-          mesAtual: new Date().getMonth(),
-          anoAtual: new Date().getFullYear(),
-          imagemAnalises: {
-            quantidade: 2,
-            mesAtual: new Date().getMonth(),
-            anoAtual: new Date().getFullYear()
-          }
-        }) 
+  auth = getAuth();
+  db = getFirestore();
+} else {
+  console.warn("⚠️ Firebase DESATIVADO — usando MOCK no Railway");
+
+  // 🔹 Mock simples para não quebrar
+  auth = {
+    verifyIdToken: async (token) => {
+      console.log(`Mock Firebase: validando token ${token?.substring(0, 10)}...`);
+      return { uid: "mock-user", email: "mock@test.com" };
+    },
+  };
+
+  db = {
+    collection: () => ({
+      doc: () => ({
+        get: async () => ({ exists: true, data: () => ({ plano: "free" }) }),
+        set: async (data) => {
+          console.log("Mock Firebase: salvando", data);
+          return true;
+        },
+        update: async (data) => {
+          console.log("Mock Firebase: atualizando", data);
+          return true;
+        },
       }),
-      set: async (data) => {
-        console.log('📝 Mock: Salvando dados:', data);
-        return data;
-      },
-      update: async (data) => {
-        console.log('📝 Mock: Atualizando dados:', data);
-        return data;
-      }
-    }) 
-  }),
-  runTransaction: async (fn) => {
-    console.log('🔄 Mock: Executando transação');
-    const mockTx = {
-      get: async () => ({ 
-        exists: true,
-        data: () => ({
-          plano: 'gratuito',
-          mensagensEnviadas: 5,
-          mesAtual: new Date().getMonth(),
-          anoAtual: new Date().getFullYear()
-        })
-      }),
-      set: async (ref, data) => {
-        console.log('📝 Mock TX: Salvando:', data);
-        return data;
-      },
-      update: async (ref, data) => {
-        console.log('📝 Mock TX: Atualizando:', data);
-        return data;
-      }
-    };
-    return await fn(mockTx);
-  }
-};
+    }),
+  };
+}
 
 export { auth, db };
