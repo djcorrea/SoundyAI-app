@@ -1,10 +1,13 @@
 // 🚨 FORCE CACHE BUST - 1692582547
 // ✅ CORREÇÃO CRÍTICA: decoded is not defined fixed!
+import express from 'express';
 import { auth, db } from './firebaseAdmin.js';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import cors from 'cors';
 import formidable from 'formidable';
 import fs from 'fs';
+
+const router = express.Router();
 
 // ✅ CORREÇÃO: Configuração para suporte a multipart
 export const config = {
@@ -835,7 +838,7 @@ Seja um especialista musical absoluto e exclusivo.`
 };
 
 // Função principal do handler
-export default async function handler(req, res) {
+async function handler(req, res) {
   // ✅ CRÍTICO: Declarar todas as variáveis no início do escopo para evitar ReferenceError
   let hasImages = false;
   let modelSelection = null;
@@ -1229,3 +1232,10 @@ export default async function handler(req, res) {
     });
   }
 }
+
+// Configuração do Express Router
+router.post("/", async (req, res) => {
+  return handler(req, res);
+});
+
+export default router;
