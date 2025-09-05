@@ -1,19 +1,15 @@
 import express from "express";
 import pkg from "pg";
 
-const { Client } = pkg;
+const { Pool } = pkg;
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Conexão com o banco
-const client = new Client({
+// Conexão com o banco usando Pool
+const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }, // Railway/Postgres precisa disso
+  ssl: { rejectUnauthorized: false }, // Railway/Postgres
 });
-
-client.connect()
-  .then(() => console.log("✅ Conectado ao Postgres"))
-  .catch(err => console.error("❌ Erro ao conectar no Postgres:", err));
 
 // Endpoint de healthcheck
 app.get("/health", (req, res) => {
@@ -23,7 +19,7 @@ app.get("/health", (req, res) => {
 // Endpoint de teste -> cria um job fake
 app.get("/test", async (req, res) => {
   try {
-    const result = await client.query(
+    const result = await pool.query(
       "INSERT INTO jobs (file_key, status) VALUES ($1, $2) RETURNING *",
       ["uploads/teste.mp3", "queued"]
     );
@@ -35,3 +31,6 @@ app.get("/test", async (req, res) => {
   }
 });
 
+app.listen(PORT, () => {
+  console.log(`API rodando na porta ${PORT}`);
+});
