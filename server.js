@@ -20,8 +20,6 @@ app.get("/", (req, res) => {
 
 // Importar e registrar todas as rotas da pasta api/
 import cancelSubscriptionRoute from "./api/cancel-subscription.js";
-import chatBackupRoute from "./api/chat-backup.js";
-import chatBrokenRoute from "./api/chat-broken.js";
 import chatWithImagesRoute from "./api/chat-with-images.js";
 import chatRoute from "./api/chat.js";
 import createPreferenceRoute from "./api/create-preference.js";
