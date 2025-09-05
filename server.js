@@ -27,7 +27,6 @@ import deleteAccountRoute from "./api/delete-account.js";
 import mercadopagoRoute from "./api/mercadopago.js";
 import uploadAudioRoute from "./api/upload-audio.js";
 import uploadImageRoute from "./api/upload-image.js";
-import visionExtractRoute from "./api/vision-extract.js";
 import voiceMessageRoute from "./api/voice-message.js";
 import webhookRoute from "./api/webhook.js";
 
@@ -40,7 +39,6 @@ app.use("/api/delete-account", deleteAccountRoute);
 app.use("/api/mercadopago", mercadopagoRoute);
 app.use("/api/upload-audio", uploadAudioRoute);
 app.use("/api/upload", uploadImageRoute);
-app.use("/api/vision-extract", visionExtractRoute);
 app.use("/api/voice", voiceMessageRoute);
 app.use("/api/webhook", webhookRoute);
 
