@@ -3,14 +3,15 @@ import express from "express";
 import * as mercadopago from "mercadopago";
 import { auth, db } from "./firebaseAdmin.js";
 
+const router = express.Router();
+
+
 // ─── 1) CONFIGURAÇÃO DO MERCADO PAGO ──────────────────────
 
 // api/mercadopago.js
 import express from "express";
 import mercadopago from "mercadopago"; // <- IMPORT DEFAULT
 import { auth, db } from "./firebaseAdmin.js";
-
-const router = express.Router();
 
 // ─── 1) CONFIGURAÇÃO DO MERCADO PAGO ──────────────────────
 if (!process.env.MP_ACCESS_TOKEN) {
