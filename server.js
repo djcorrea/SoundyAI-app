@@ -45,9 +45,11 @@ app.use("/api/voice", voiceMessageRoute);
 app.use("/api/webhook", webhookRoute);
 
 // 👉 Fallback: se não encontrar rota da API, devolve o index.html do frontend
-app.get("*", (req, res) => {
+// Fallback para qualquer rota que não seja de API
+app.get("/*", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
+
 
 // Iniciar servidor
 const PORT = process.env.PORT || 8080; // Railway geralmente força 8080
