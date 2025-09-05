@@ -44,12 +44,16 @@ app.use("/api/upload", uploadImageRoute);
 app.use("/api/voice", voiceMessageRoute);
 app.use("/api/webhook", webhookRoute);
 
-// 👉 Fallback: se não encontrar rota da API, devolve o index.html do frontend
-// Fallback para qualquer rota que não seja de API
-app.get("/*", (req, res) => {
-  res.sendFile(path.join(__dirname, "public", "index.html"));
+// 👉 Rota raiz: redirecionar para landing.html
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "public", "landing.html"));
 });
 
+// 👉 Fallback: só devolve index.html se nada for encontrado (SPA behavior)
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api/")) return next(); // não intercepta API
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
 
 // Iniciar servidor
 const PORT = process.env.PORT || 8080; // Railway geralmente força 8080
@@ -58,4 +62,3 @@ app.listen(PORT, () => {
 });
 
 export default app;
-
