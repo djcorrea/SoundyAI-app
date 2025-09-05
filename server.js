@@ -44,12 +44,12 @@ app.use("/api/upload", uploadImageRoute);
 app.use("/api/voice", voiceMessageRoute);
 app.use("/api/webhook", webhookRoute);
 
-// 👉 Rota raiz: abre landing.html
+// 👉 Rota raiz: redirecionar para landing.html
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "landing.html"));
 });
 
-// 👉 Fallback: se não encontrar rota de API ou arquivo, devolve index.html
+// 👉 Fallback: só devolve index.html se nada for encontrado (SPA behavior)
 app.get("*", (req, res, next) => {
   if (req.path.startsWith("/api/")) return next(); // não intercepta API
   res.sendFile(path.join(__dirname, "public", "index.html"));
@@ -60,6 +60,5 @@ const PORT = process.env.PORT || 8080; // Railway geralmente força 8080
 app.listen(PORT, () => {
   console.log(`🚀 Servidor SoundyAI rodando na porta ${PORT}`);
 });
- 
 
 export default app;
