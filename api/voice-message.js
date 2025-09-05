@@ -4,8 +4,8 @@ import cors from 'cors';
 // Middleware CORS
 const corsMiddleware = cors({
   origin: (origin, callback) => {
-    const apiProd = 'https://soundyai-app-production.up.railway.app/';
-    const frontendProd = 'https://ai-synth.vercel.app';
+    const apiProd = 'https://soundyai-app-production.up.railway.app';
+    const frontendProd = 'https://https://soundyai-app-production.up.railway.app';
     const apiPreviewRegex = /^https:\/\/prod-ai-teste-[a-z0-9\-]+\.vercel\.app$/;
     const frontendPreviewRegex = /^https:\/\/ai-synth(?:-[a-z0-9\-]+)?\.vercel\.app$/;
     const localOrigins = [

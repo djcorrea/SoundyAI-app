@@ -8,8 +8,8 @@ async function verificarTargetsProducao() {
     
     // URLs para testar
     const urls = [
-        `https://ai-synth.vercel.app/public/refs/out/funk_mandela.json?v=${timestamp}`,
-        `https://ai-synth.vercel.app/refs/out/funk_mandela.json?v=${timestamp}`
+        `https://https://soundyai-app-production.up.railway.app/public/refs/out/funk_mandela.json?v=${timestamp}`,
+        `https://https://soundyai-app-production.up.railway.app/refs/out/funk_mandela.json?v=${timestamp}`
     ];
     
     console.log('🌐 Testando URLs em produção...');

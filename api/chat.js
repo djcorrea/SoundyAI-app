@@ -346,9 +346,9 @@ function hashMessage(message) {
 // Middleware CORS dinâmico
 const corsMiddleware = cors({
   origin: (origin, callback) => {
-    const fixedOrigin = 'https://soundyai-app-production.up.railway.app/';
-    const prodFrontend = 'https://ai-synth.vercel.app';
-    const newDeployment = 'https://ai-synth-dj-correas-projects.vercel.app';
+    const fixedOrigin = 'https://soundyai-app-production.up.railway.app';
+    const prodFrontend = 'https://https://soundyai-app-production.up.railway.app';
+    const newDeployment = 'https://https://soundyai-app-production.up.railway.app';
     const directUrl = 'https://ai-synth-czzxlraox-dj-correas-projects.vercel.app';
     const apiPreviewRegex = /^https:\/\/prod-ai-teste-[a-z0-9\-]+\.vercel\.app$/;
     const frontendPreviewRegex = /^https:\/\/ai-synth(?:-[a-z0-9\-]+)?\.vercel\.app$/;

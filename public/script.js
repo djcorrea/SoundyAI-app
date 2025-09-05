@@ -28,17 +28,17 @@ const API_CONFIG = {
       host.includes('ai-synth-dj-correas-projects') ||
       host.includes('ai-synth-czzxlraox-dj-correas-projects')
     );
-    if (isAiSynthProject || host === 'ai-synth.vercel.app' || 
-        host === 'ai-synth-dj-correas-projects.vercel.app' ||
+    if (isAiSynthProject || host === 'https://soundyai-app-production.up.railway.app' || 
+        host === 'https://soundyai-app-production.up.railway.app' ||
         host === 'ai-synth-czzxlraox-dj-correas-projects.vercel.app') {
       return '/api';
     }
     // Ambiente local mantém uso do backend dedicado atual
     if (host === 'localhost' || host.startsWith('127.0.0.1')) {
-      return 'https://soundyai-app-production.up.railway.app//api';
+      return 'https://soundyai-app-production.up.railway.app/api';
     }
     // Demais casos: manter backend dedicado atual
-    return 'https://soundyai-app-production.up.railway.app//api';
+    return 'https://soundyai-app-production.up.railway.app/api';
   })(),
 
   get chatEndpoint() {
