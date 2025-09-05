@@ -5,7 +5,7 @@ import cors from 'cors';
 // Middleware CORS dinâmico
 const corsMiddleware = cors({
   origin: (origin, callback) => {
-    const fixedOrigin = 'https://prod-ai-teste.vercel.app';
+    const fixedOrigin = 'https://soundyai-app-production.up.railway.app/';
     const prodFrontend = 'https://ai-synth.vercel.app';
     const apiPreviewRegex = /^https:\/\/prod-ai-teste-[a-z0-9\-]+\.vercel\.app$/;
     const frontendPreviewRegex = /^https:\/\/ai-synth(?:-[a-z0-9\-]+)?\.vercel\.app$/;

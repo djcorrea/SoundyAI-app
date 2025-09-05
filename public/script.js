@@ -35,10 +35,10 @@ const API_CONFIG = {
     }
     // Ambiente local mantém uso do backend dedicado atual
     if (host === 'localhost' || host.startsWith('127.0.0.1')) {
-      return 'https://prod-ai-teste.vercel.app/api';
+      return 'https://soundyai-app-production.up.railway.app//api';
     }
     // Demais casos: manter backend dedicado atual
-    return 'https://prod-ai-teste.vercel.app/api';
+    return 'https://soundyai-app-production.up.railway.app//api';
   })(),
 
   get chatEndpoint() {

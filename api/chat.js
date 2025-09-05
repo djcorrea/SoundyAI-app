@@ -350,7 +350,7 @@ function hashMessage(message) {
 // Middleware CORS dinâmico
 const corsMiddleware = cors({
   origin: (origin, callback) => {
-    const fixedOrigin = 'https://prod-ai-teste.vercel.app';
+    const fixedOrigin = 'https://soundyai-app-production.up.railway.app/';
     const prodFrontend = 'https://ai-synth.vercel.app';
     const newDeployment = 'https://ai-synth-dj-correas-projects.vercel.app';
     const directUrl = 'https://ai-synth-czzxlraox-dj-correas-projects.vercel.app';
