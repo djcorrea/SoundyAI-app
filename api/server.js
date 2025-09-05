@@ -27,13 +27,11 @@ app.get("/test", async (req, res) => {
       "INSERT INTO jobs (file_key, status) VALUES ($1, $2) RETURNING *",
       ["uploads/teste.mp3", "queued"]
     );
+    console.log("✅ Job inserido:", result.rows[0]);
     res.json(result.rows[0]);
   } catch (err) {
-    console.error("Erro ao inserir job:", err);
-    res.status(500).json({ error: "Erro ao inserir job" });
+    console.error("❌ Erro ao inserir job:", err);
+    res.status(500).json({ error: err.message });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`API rodando na porta ${PORT}`);
-});
