@@ -5,6 +5,7 @@
     "start": "node index.js"
   },
   "dependencies": {
+    "aws-sdk": "^2.1692.0",
     "pg": "^8.11.0"
   },
   "type": "module"
