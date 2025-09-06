@@ -1,12 +1,14 @@
 // 🎯 PIPELINE COMPLETO FASES 5.1 - 5.4
 // Integração completa: Decodificação → Segmentação → Core Metrics → JSON Output + Scoring
+// 🚀 FASE 5.5: Controle de Performance e Concorrência
 
 import decodeAudioFile from "./audio-decoder.js";              // Fase 5.1
 import { segmentAudioTemporal } from "./temporal-segmentation.js"; // Fase 5.2  
 import { calculateCoreMetrics } from "./core-metrics.js";      // Fase 5.3
 import { generateJSONOutput } from "./json-output.js";         // Fase 5.4
+import { getConcurrencyManager } from "./concurrency-manager.js"; // Fase 5.5
 
-console.log('🎵 Pipeline Completo (Fases 5.1-5.4) carregado - Node.js Backend');
+console.log('🎵 Pipeline Completo (Fases 5.1-5.5) carregado - Node.js Backend');
 
 /**
  * Executa pipeline completo de análise de áudio
@@ -21,6 +23,10 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
   console.log(`🚀 Iniciando pipeline completo para: ${fileName}`);
   console.log(`📊 Buffer size: ${audioBuffer.length} bytes`);
   console.log(`🔧 Opções:`, options);
+
+  // 🚀 FASE 5.5: Obter gerenciador de concorrência
+  const concurrencyManager = getConcurrencyManager();
+  const jobStartTime = Date.now();
 
   try {
     // ✅ FASE 5.1: Decodificação de Áudio
@@ -77,8 +83,11 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
 
     // ✅ Estatísticas finais
     const totalTime = Date.now() - startTime;
+    const concurrencyStats = concurrencyManager.getStats();
+    
     console.log(`🏁 Pipeline completo finalizado em ${totalTime}ms`);
     console.log(`⚡ Breakdown: Decodificação=${phase1Time}ms, Segmentação=${phase2Time}ms, Core=${phase3Time}ms, JSON=${phase4Time}ms`);
+    console.log(`🔄 Concorrência: ${concurrencyStats.totalActiveJobs} jobs ativos, ${concurrencyStats.totalQueuedJobs} na fila`);
 
     // Atualizar tempo no resultado final
     finalJSON.metadata.processingTime = totalTime;
@@ -87,7 +96,15 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       phase2_segmentation: phase2Time, 
       phase3_core_metrics: phase3Time,
       phase4_json_output: phase4Time,
-      total: totalTime
+      total: totalTime,
+      
+      // 🚀 FASE 5.5: Estatísticas de concorrência
+      concurrency: {
+        totalActiveJobs: concurrencyStats.totalActiveJobs,
+        totalQueuedJobs: concurrencyStats.totalQueuedJobs,
+        poolStats: concurrencyStats.pools,
+        jobProcessingTime: Date.now() - jobStartTime
+      }
     };
 
     return finalJSON;

@@ -1,10 +1,12 @@
 // 🎵 CORE METRICS - Fase 5.3 Pipeline Migration
 // FFT, LUFS ITU-R BS.1770-4, True Peak 4x Oversampling, Stereo Analysis
 // Migração equivalente das métricas do Web Audio API para Node.js
+// 🚀 FASE 5.5: Controle de concorrência para FFT processing
 
 import { FastFFT } from '../../lib/audio/fft.js';
 import { calculateLoudnessMetrics } from '../../lib/audio/features/loudness.js';
 import { TruePeakDetector } from '../../lib/audio/features/truepeak.js';
+import { executeFFTWithConcurrency } from './concurrency-manager.js';
 
 /**
  * 🎯 CONFIGURAÇÕES DA FASE 5.3 (AUDITORIA)
@@ -215,11 +217,12 @@ class CoreMetricsProcessor {
 
   /**
    * 🎯 CALCULAR FFT de todos os frames windowed
+   * 🚀 FASE 5.5: Com controle de concorrência
    * @param {Object} framesFFT - Frames FFT da Fase 5.2
    * @returns {Object} - Resultados FFT processados
    */
   async calculateFFTMetrics(framesFFT) {
-    console.log(`📊 Processando ${framesFFT.count} frames FFT...`);
+    console.log(`📊 Processando ${framesFFT.count} frames FFT com controle de concorrência...`);
     
     const results = {
       frameCount: framesFFT.count,
@@ -246,28 +249,58 @@ class CoreMetricsProcessor {
       }
     };
 
-    // Processar cada frame FFT
-    for (let i = 0; i < framesFFT.count; i++) {
-      // Canal esquerdo
-      const leftFFT = this.fftEngine.fft(framesFFT.left[i]);
-      results.spectrograms.left.push({
-        magnitude: Array.from(leftFFT.magnitude.slice(0, CORE_METRICS_CONFIG.FFT_SIZE / 2)),
-        phase: Array.from(leftFFT.phase.slice(0, CORE_METRICS_CONFIG.FFT_SIZE / 2)),
-        frameIndex: i,
-        timestamp: (i * framesFFT.hopSize) / CORE_METRICS_CONFIG.SAMPLE_RATE
-      });
-      
-      // Canal direito
-      const rightFFT = this.fftEngine.fft(framesFFT.right[i]);
-      results.spectrograms.right.push({
-        magnitude: Array.from(rightFFT.magnitude.slice(0, CORE_METRICS_CONFIG.FFT_SIZE / 2)),
-        phase: Array.from(rightFFT.phase.slice(0, CORE_METRICS_CONFIG.FFT_SIZE / 2)),
-        frameIndex: i,
-        timestamp: (i * framesFFT.hopSize) / CORE_METRICS_CONFIG.SAMPLE_RATE
-      });
+    // 🚀 CONTROLE DE CONCORRÊNCIA: Processar FFTs em batches controlados
+    const batchSize = 10; // Processar em lotes de 10 frames por vez
+    const batches = [];
+    
+    // Dividir frames em batches
+    for (let i = 0; i < framesFFT.count; i += batchSize) {
+      const endIndex = Math.min(i + batchSize, framesFFT.count);
+      batches.push({ startIndex: i, endIndex, batchId: Math.floor(i / batchSize) });
     }
 
-    // Calcular espectro médio
+    console.log(`🔄 FFT dividido em ${batches.length} batches de até ${batchSize} frames`);
+
+    // Processar cada batch com controle de concorrência
+    for (const batch of batches) {
+      await executeFFTWithConcurrency(
+        async (batchData) => {
+          const { startIndex, endIndex, batchId } = batchData;
+          console.log(`⚡ Processando batch ${batchId}: frames ${startIndex}-${endIndex-1}`);
+          
+          // Processar frames do batch
+          for (let i = startIndex; i < endIndex; i++) {
+            // Canal esquerdo
+            const leftFFT = this.fftEngine.fft(framesFFT.left[i]);
+            results.spectrograms.left.push({
+              magnitude: Array.from(leftFFT.magnitude.slice(0, CORE_METRICS_CONFIG.FFT_SIZE / 2)),
+              phase: Array.from(leftFFT.phase.slice(0, CORE_METRICS_CONFIG.FFT_SIZE / 2)),
+              frameIndex: i,
+              timestamp: (i * framesFFT.hopSize) / CORE_METRICS_CONFIG.SAMPLE_RATE
+            });
+            
+            // Canal direito
+            const rightFFT = this.fftEngine.fft(framesFFT.right[i]);
+            results.spectrograms.right.push({
+              magnitude: Array.from(rightFFT.magnitude.slice(0, CORE_METRICS_CONFIG.FFT_SIZE / 2)),
+              phase: Array.from(rightFFT.phase.slice(0, CORE_METRICS_CONFIG.FFT_SIZE / 2)),
+              frameIndex: i,
+              timestamp: (i * framesFFT.hopSize) / CORE_METRICS_CONFIG.SAMPLE_RATE
+            });
+          }
+          
+          console.log(`✅ Batch ${batchId} processado: ${endIndex - startIndex} frames FFT`);
+          return { batchId, framesProcessed: endIndex - startIndex };
+        },
+        batch,
+        { 
+          timeout: 30000, // 30s timeout por batch
+          priority: 'normal' 
+        }
+      );
+    }
+
+    // Calcular espectro médio após todo processamento FFT
     results.averageSpectrum.left = this.calculateAverageSpectrum(results.spectrograms.left);
     results.averageSpectrum.right = this.calculateAverageSpectrum(results.spectrograms.right);
     
@@ -275,7 +308,7 @@ class CoreMetricsProcessor {
     results.frequencyBands.left = this.calculateFrequencyBands(results.averageSpectrum.left);
     results.frequencyBands.right = this.calculateFrequencyBands(results.averageSpectrum.right);
 
-    console.log(`✅ FFT processado: ${results.frameCount} frames, ${results.spectrograms.left.length} espectrogramas`);
+    console.log(`✅ FFT processado com concorrência: ${results.frameCount} frames, ${results.spectrograms.left.length} espectrogramas`);
     
     return results;
   }

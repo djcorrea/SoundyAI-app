@@ -387,14 +387,13 @@
     
     <!-- 🧪 DEBUG FASE 1 - Sistema runId Global -->
     
-    <!-- 🎵 AUDIO ANALYZER - Carregar os scripts -->
-    <script src="audio-analyzer.js?v=20250825-memory-fix" defer></script>
+
     <!-- 🎯 CACHE CONTEXT-AWARE V1 - Sistema inteligente de cache -->
     <script src="cache-context-aware-v1.js?v=20250829-ctx-aware" defer></script>
     <!-- Opcional: o integrador possui fallback inline; permita rede setando window.REFS_ALLOW_NETWORK=true antes do load -->
     <script src="refs/embedded-refs-new.js?v=20250829-true-peak-fix&timestamp=1756500921" defer></script>
     <script src="suggestion-text-generator.js?v=20250815" defer></script>
-    <script src="audio-analyzer-integration.js?v=20250823k&final_fix=1724440500" defer></script>
+
     
     <!-- Inicializar Audio Analyzer -->
     <script>
@@ -768,5 +767,60 @@
     
     <!-- 🎯 BAND WEIGHTED SCORE V2 - Correção Inteligente de Score -->
     <script src="band-weighted-score-v2.js?v=20250131" defer></script>
+    <script>
+  async function analyzeWithBackend(file) {
+    document.getElementById("audioAnalysisLoading").style.display = "block";
+    document.getElementById("audioAnalysisResults").style.display = "none";
+
+    try {
+      // 1. Pede URL pré-assinada
+      const presignRes = await fetch("/presign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filename: file.name })
+      });
+      const { uploadUrl, fileKey } = await presignRes.json();
+
+      // 2. Faz upload pro bucket
+      await fetch(uploadUrl, { method: "PUT", body: file });
+
+      // 3. Cria job de processamento
+      const processRes = await fetch("/process", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fileKey })
+      });
+      const { jobId } = await processRes.json();
+
+      // 4. Polling até terminar
+      let result = null;
+      while (!result) {
+        const statusRes = await fetch(`/jobs/${jobId}`);
+        const status = await statusRes.json();
+        if (status.status === "done") {
+          result = status;
+          break;
+        }
+        if (status.status === "error") throw new Error("Erro na análise");
+        await new Promise(r => setTimeout(r, 2000));
+      }
+
+      // 5. Mostra resultado
+      document.getElementById("audioAnalysisLoading").style.display = "none";
+      document.getElementById("audioAnalysisResults").style.display = "block";
+      document.getElementById("modalTechnicalData").innerText = JSON.stringify(result, null, 2);
+    } catch (err) {
+      console.error("Erro no processamento:", err);
+      document.getElementById("audioProgressText").innerText = "❌ Falha na análise.";
+    }
+  }
+
+  document.getElementById("modalAudioFileInput").addEventListener("change", (e) => {
+    if (e.target.files.length > 0) {
+      analyzeWithBackend(e.target.files[0]);
+    }
+  });
+</script>
+
 </body>
 </html>

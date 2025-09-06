@@ -8,16 +8,134 @@
     "sampleRate": 48000,
     "channels": 2,
     "duration": 0,
-    "processedAt": "2025-09-06T18:51:59.279Z",
+    "processedAt": "2025-09-06T19:07:28.418Z",
     "engineVersion": "5.4.0",
     "pipelinePhase": "complete",
-    "processingTime": 3762,
+    "processingTime": 7798,
     "phaseBreakdown": {
-      "phase1_decoding": 532,
-      "phase2_segmentation": 149,
-      "phase3_core_metrics": 3060,
+      "phase1_decoding": 579,
+      "phase2_segmentation": 203,
+      "phase3_core_metrics": 6993,
       "phase4_json_output": 20,
-      "total": 3762
+      "total": 7798,
+      "concurrency": {
+        "totalActiveJobs": 0,
+        "totalQueuedJobs": 0,
+        "poolStats": {
+          "fft_processing": {
+            "name": "FFT",
+            "maxWorkers": 4,
+            "queueSize": 0,
+            "activeJobs": 0,
+            "completedJobs": 100,
+            "isProcessing": true,
+            "activeJobStats": [],
+            "recentCompletedStats": [
+              {
+                "id": "fft_processing_146_1757185646157",
+                "type": "fft_processing",
+                "status": "completed",
+                "queueTime": 23,
+                "runTime": 145,
+                "totalTime": 168
+              },
+              {
+                "id": "fft_processing_147_1757185646326",
+                "type": "fft_processing",
+                "status": "completed",
+                "queueTime": 27,
+                "runTime": 57,
+                "totalTime": 84
+              },
+              {
+                "id": "fft_processing_148_1757185646412",
+                "type": "fft_processing",
+                "status": "completed",
+                "queueTime": 22,
+                "runTime": 21,
+                "totalTime": 43
+              },
+              {
+                "id": "fft_processing_149_1757185646456",
+                "type": "fft_processing",
+                "status": "completed",
+                "queueTime": 22,
+                "runTime": 27,
+                "totalTime": 49
+              },
+              {
+                "id": "fft_processing_150_1757185646508",
+                "type": "fft_processing",
+                "status": "completed",
+                "queueTime": 16,
+                "runTime": 24,
+                "totalTime": 40
+              },
+              {
+                "id": "fft_processing_151_1757185646548",
+                "type": "fft_processing",
+                "status": "completed",
+                "queueTime": 24,
+                "runTime": 18,
+                "totalTime": 42
+              },
+              {
+                "id": "fft_processing_152_1757185646591",
+                "type": "fft_processing",
+                "status": "completed",
+                "queueTime": 11,
+                "runTime": 33,
+                "totalTime": 44
+              },
+              {
+                "id": "fft_processing_153_1757185646636",
+                "type": "fft_processing",
+                "status": "completed",
+                "queueTime": 14,
+                "runTime": 20,
+                "totalTime": 34
+              },
+              {
+                "id": "fft_processing_154_1757185646671",
+                "type": "fft_processing",
+                "status": "completed",
+                "queueTime": 27,
+                "runTime": 17,
+                "totalTime": 44
+              },
+              {
+                "id": "fft_processing_155_1757185646716",
+                "type": "fft_processing",
+                "status": "completed",
+                "queueTime": 12,
+                "runTime": 5,
+                "totalTime": 17
+              }
+            ]
+          },
+          "stems_separation": {
+            "name": "STEMS",
+            "maxWorkers": 2,
+            "queueSize": 0,
+            "activeJobs": 0,
+            "completedJobs": 0,
+            "isProcessing": false,
+            "activeJobStats": [],
+            "recentCompletedStats": []
+          },
+          "general": {
+            "name": "GENERAL",
+            "maxWorkers": 8,
+            "queueSize": 0,
+            "activeJobs": 0,
+            "completedJobs": 0,
+            "isProcessing": false,
+            "activeJobStats": [],
+            "recentCompletedStats": []
+          }
+        },
+        "jobProcessingTime": 7797
+      }
     }
   },
   "technicalData": {
@@ -269,7 +387,7 @@
     }
   },
   "status": "success",
-  "processingTime": 3742,
+  "processingTime": 7777,
   "warnings": [],
   "buildVersion": "5.4.0-equal-weight-v3",
   "pipelineVersion": "node-js-backend",

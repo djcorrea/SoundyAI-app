@@ -8,16 +8,134 @@
     "sampleRate": 48000,
     "channels": 2,
     "duration": 0,
-    "processedAt": "2025-09-06T18:52:14.925Z",
+    "processedAt": "2025-09-06T19:07:59.375Z",
     "engineVersion": "5.4.0",
     "pipelinePhase": "complete",
-    "processingTime": 1703,
+    "processingTime": 4416,
     "phaseBreakdown": {
-      "phase1_decoding": 401,
-      "phase2_segmentation": 115,
-      "phase3_core_metrics": 1172,
-      "phase4_json_output": 14,
-      "total": 1703
+      "phase1_decoding": 601,
+      "phase2_segmentation": 120,
+      "phase3_core_metrics": 3681,
+      "phase4_json_output": 12,
+      "total": 4416,
+      "concurrency": {
+        "totalActiveJobs": 0,
+        "totalQueuedJobs": 0,
+        "poolStats": {
+          "fft_processing": {
+            "name": "FFT",
+            "maxWorkers": 4,
+            "queueSize": 0,
+            "activeJobs": 0,
+            "completedJobs": 100,
+            "isProcessing": true,
+            "activeJobStats": [],
+            "recentCompletedStats": [
+              {
+                "id": "fft_processing_818_1757185679007",
+                "type": "fft_processing",
+                "status": "completed",
+                "queueTime": 18,
+                "runTime": 10,
+                "totalTime": 28
+              },
+              {
+                "id": "fft_processing_819_1757185679035",
+                "type": "fft_processing",
+                "status": "completed",
+                "queueTime": 21,
+                "runTime": 10,
+                "totalTime": 31
+              },
+              {
+                "id": "fft_processing_820_1757185679066",
+                "type": "fft_processing",
+                "status": "completed",
+                "queueTime": 22,
+                "runTime": 13,
+                "totalTime": 35
+              },
+              {
+                "id": "fft_processing_821_1757185679101",
+                "type": "fft_processing",
+                "status": "completed",
+                "queueTime": 19,
+                "runTime": 12,
+                "totalTime": 31
+              },
+              {
+                "id": "fft_processing_822_1757185679132",
+                "type": "fft_processing",
+                "status": "completed",
+                "queueTime": 19,
+                "runTime": 10,
+                "totalTime": 29
+              },
+              {
+                "id": "fft_processing_823_1757185679161",
+                "type": "fft_processing",
+                "status": "completed",
+                "queueTime": 21,
+                "runTime": 11,
+                "totalTime": 32
+              },
+              {
+                "id": "fft_processing_824_1757185679193",
+                "type": "fft_processing",
+                "status": "completed",
+                "queueTime": 20,
+                "runTime": 12,
+                "totalTime": 32
+              },
+              {
+                "id": "fft_processing_825_1757185679226",
+                "type": "fft_processing",
+                "status": "completed",
+                "queueTime": 18,
+                "runTime": 9,
+                "totalTime": 27
+              },
+              {
+                "id": "fft_processing_826_1757185679254",
+                "type": "fft_processing",
+                "status": "completed",
+                "queueTime": 22,
+                "runTime": 10,
+                "totalTime": 32
+              },
+              {
+                "id": "fft_processing_827_1757185679286",
+                "type": "fft_processing",
+                "status": "completed",
+                "queueTime": 22,
+                "runTime": 5,
+                "totalTime": 27
+              }
+            ]
+          },
+          "stems_separation": {
+            "name": "STEMS",
+            "maxWorkers": 2,
+            "queueSize": 0,
+            "activeJobs": 0,
+            "completedJobs": 0,
+            "isProcessing": false,
+            "activeJobStats": [],
+            "recentCompletedStats": []
+          },
+          "general": {
+            "name": "GENERAL",
+            "maxWorkers": 8,
+            "queueSize": 0,
+            "activeJobs": 0,
+            "completedJobs": 0,
+            "isProcessing": false,
+            "activeJobStats": [],
+            "recentCompletedStats": []
+          }
+        },
+        "jobProcessingTime": 4415
+      }
     }
   },
   "technicalData": {
@@ -269,7 +387,7 @@
     }
   },
   "status": "success",
-  "processingTime": 1689,
+  "processingTime": 4404,
   "warnings": [
     "LUFS muito baixo - possível sinal de baixo volume",
     "Correlação estéreo muito baixa - possível problema de fase"
