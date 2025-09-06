@@ -2,7 +2,11 @@
   "name": "api",
   "version": "1.0.0",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test:audio-decoder": "node audio/test-audio-decoder.js",
+    "test:decoder": "npm run test:audio-decoder",
+    "check:phase5.1": "node audio/quick-check.js",
+    "quick-check": "npm run check:phase5.1"
   },
   "dependencies": {
     "aws-sdk": "^2.1692.0",
@@ -11,5 +15,11 @@
     "multer": "^2.0.2",
     "pg": "^8.11.0"
   },
-  "type": "module"
+  "devDependencies": {
+    "ffmpeg-static": "^5.2.0"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  }
 }
