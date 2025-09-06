@@ -821,6 +821,25 @@
     }
   });
 </script>
+<script>
+  // Abre o modal de análise
+  window.openAudioModal = function() {
+    const modal = document.getElementById("audioAnalysisModal");
+    if (modal) {
+      modal.style.display = "flex";
+      document.getElementById("audioAnalysisLoading").style.display = "none";
+      document.getElementById("audioAnalysisResults").style.display = "none";
+    }
+  };
+
+  // Fecha o modal de análise
+  window.closeAudioModal = function() {
+    const modal = document.getElementById("audioAnalysisModal");
+    if (modal) {
+      modal.style.display = "none";
+    }
+  };
+</script>
 
 </body>
 </html>
