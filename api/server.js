@@ -12,7 +12,8 @@ const PORT = process.env.PORT || 3000;
 app.use(
   cors({
     origin: [
-      "https://soundyai-app-production.up.railway.app/", // 🚨 troque para seu domínio real
+      "https://soundyai-app-production.up.railway.app", // domínio principal (sem barra no final)
+      "http://localhost:3000", // útil para testes locais
     ],
   })
 );
@@ -25,24 +26,32 @@ const pool = new Pool({
 
 // ---------- Configuração Backblaze ----------
 const s3 = new AWS.S3({
-  endpoint: "https://s3.us-east-005.backblazeb2.com", // endpoint do Backblaze (ajuste se sua região for diferente)
-  region: "us-east-005", // mesma região usada no bucket
+  endpoint: "https://s3.us-east-005.backblazeb2.com",
+  region: "us-east-005",
   accessKeyId: process.env.B2_KEY_ID,
   secretAccessKey: process.env.B2_APP_KEY,
   signatureVersion: "v4",
 });
 
-// Nome do bucket
 const BUCKET_NAME = process.env.B2_BUCKET_NAME;
 
 // ---------- Middleware para upload ----------
 const storage = multer.memoryStorage();
 
-// Função para validar tipo e tamanho
 const fileFilter = (req, file, cb) => {
-  const allowedTypes = ["audio/mpeg", "audio/wav", "audio/x-m4a"];
+  const allowedTypes = [
+    "audio/mpeg",   // mp3
+    "audio/wav",    // wav
+    "audio/x-wav",  // outra variação wav
+    "audio/wave",   // outra variação wav
+    "audio/x-m4a",  // m4a
+    "audio/mp4",    // m4a/mp4
+  ];
   if (!allowedTypes.includes(file.mimetype)) {
-    return cb(new Error("Tipo de arquivo não permitido. Envie apenas mp3, wav ou m4a."));
+    return cb(
+      new Error("Tipo de arquivo não permitido. Envie apenas mp3, wav ou m4a."),
+      false
+    );
   }
   cb(null, true);
 };
@@ -58,7 +67,6 @@ app.get("/health", (req, res) => {
   res.send("API está rodando 🚀");
 });
 
-// Criar job fake no banco
 app.get("/test", async (req, res) => {
   try {
     const result = await pool.query(
@@ -73,32 +81,34 @@ app.get("/test", async (req, res) => {
   }
 });
 
-// Upload de arquivo para Backblaze
 app.post("/upload", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ error: "Nenhum arquivo enviado ou tipo inválido." });
+      return res
+        .status(400)
+        .json({ error: "Nenhum arquivo enviado ou tipo inválido." });
     }
+
+    const key = `uploads/${Date.now()}-${req.file.originalname}`;
 
     const params = {
       Bucket: BUCKET_NAME,
-      Key: `uploads/${Date.now()}-${req.file.originalname}`,
+      Key: key,
       Body: req.file.buffer,
       ContentType: req.file.mimetype,
     };
 
     const data = await s3.upload(params).promise();
-    console.log("✅ Upload concluído:", params.Key);
+    console.log("✅ Upload concluído:", key);
 
-    // Criar job no banco referenciando o arquivo no bucket
     const result = await pool.query(
       "INSERT INTO jobs (file_key, status) VALUES ($1, $2) RETURNING *",
-      [params.Key, "queued"]
+      [key, "queued"]
     );
 
     res.json({
       message: "Arquivo enviado e job criado!",
-      fileUrl: `${s3.endpoint.href}${BUCKET_NAME}/${params.Key}`, // URL completa do arquivo
+      fileUrl: `https://s3.us-east-005.backblazeb2.com/${BUCKET_NAME}/${key}`,
       job: result.rows[0],
     });
   } catch (err) {
