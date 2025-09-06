@@ -4,9 +4,13 @@
   "scripts": {
     "start": "node server.js",
     "test:audio-decoder": "node audio/test-audio-decoder.js",
+    "test:temporal-seg": "node audio/test-temporal-segmentation.js",
+    "test:integration": "node audio/integration-5.1-5.2.js",
     "test:decoder": "npm run test:audio-decoder",
+    "test:phase5.2": "npm run test:temporal-seg",
     "check:phase5.1": "node audio/quick-check.js",
-    "quick-check": "npm run check:phase5.1"
+    "quick-check": "npm run check:phase5.1",
+    "demo:pipeline": "npm run test:integration"
   },
   "dependencies": {
     "aws-sdk": "^2.1692.0",

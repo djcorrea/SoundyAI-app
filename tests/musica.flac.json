@@ -1,0 +1,201 @@
+{
+  "lufs": {
+    "integrated": -8.489730252538536,
+    "shortTerm": -7.490721791688672,
+    "momentary": -5.395878424434894,
+    "lra": 10.356954718188797,
+    "gatingInfo": {
+      "absoluteThreshold": -70,
+      "relativeThreshold": -10,
+      "gatedLoudness": -8.489730252538536,
+      "ungatedLoudness": -8.489730252538536,
+      "gatedBlocks": 0,
+      "totalBlocks": 0
+    },
+    "r128Compliance": {
+      "integratedWithinRange": false,
+      "truePeakBelowCeiling": true,
+      "lraWithinRange": true
+    },
+    "blockDurationMs": 400,
+    "shortTermDurationMs": 3000,
+    "standard": "ITU-R BS.1770-4",
+    "diagnostics": {
+      "avgRMS": 0.39027869276171345,
+      "leftRMS": 0.36093343605639944,
+      "rightRMS": 0.41962394946702747,
+      "isSilent": false,
+      "isLowLevel": false
+    }
+  },
+  "truePeak": {
+    "maxDbtp": -2.087370637406371,
+    "maxLinear": 0.7863782048225403,
+    "channels": {
+      "left": {
+        "peakDbtp": -2.087382487880985,
+        "peakLinear": 0.7863771319389343,
+        "peakPosition": 1554930.75,
+        "peakTime": 32.394390625
+      },
+      "right": {
+        "peakDbtp": -2.087370637406371,
+        "peakLinear": 0.7863782048225403,
+        "peakPosition": 1554930.75,
+        "peakTime": 32.394390625
+      }
+    },
+    "clippingAnalysis": {
+      "isClipping": false,
+      "clippingMargin": 1.987370637406371,
+      "clippingRisk": "MEDIUM"
+    },
+    "compliance": {
+      "ebuR128": true,
+      "streaming": true,
+      "broadcast": true
+    },
+    "oversampling": 4,
+    "standard": "ITU-R BS.1770-4",
+    "diagnostics": {
+      "leftMax": 0.9959501028060913,
+      "rightMax": 1,
+      "isSilent": false,
+      "samplePeakLeft": 0.9959501028060913,
+      "samplePeakRight": 1,
+      "clippingCount": 0
+    }
+  },
+  "stereo": {
+    "correlation": 0.6701616296314532,
+    "width": 0.45073074832279036,
+    "balance": 0.07519051705759121,
+    "midSide": {
+      "midRMS": 0.35681054593641365,
+      "sideRMS": 0.1608254843812134,
+      "ratio": 2.2186194390103386,
+      "widthFromMS": 1
+    },
+    "classification": "STEREO",
+    "diagnostics": {
+      "leftRMS": 0.36093343605639944,
+      "rightRMS": 0.41962394946702747,
+      "correlationValid": true,
+      "widthValid": true
+    }
+  },
+  "fftSummary": {
+    "frames": 1542,
+    "bands": {
+      "left": {
+        "subBass": {
+          "min": 20,
+          "max": 60,
+          "energy": 75129.31378570569,
+          "energyDb": 48.75809422109525
+        },
+        "bass": {
+          "min": 60,
+          "max": 250,
+          "energy": 52950.96239806081,
+          "energyDb": 47.2387385793489
+        },
+        "lowMid": {
+          "min": 250,
+          "max": 500,
+          "energy": 7520.920873805472,
+          "energyDb": 38.762710195713204
+        },
+        "mid": {
+          "min": 500,
+          "max": 2000,
+          "energy": 11936.902656220496,
+          "energyDb": 40.76891652269446
+        },
+        "highMid": {
+          "min": 2000,
+          "max": 4000,
+          "energy": 597.8744731129428,
+          "energyDb": 27.76610011150784
+        },
+        "presence": {
+          "min": 4000,
+          "max": 8000,
+          "energy": 86.35755585087772,
+          "energyDb": 19.363003421441526
+        },
+        "brilliance": {
+          "min": 8000,
+          "max": 20000,
+          "energy": 15.325255451881302,
+          "energyDb": 11.85407722369429
+        }
+      },
+      "right": {
+        "subBass": {
+          "min": 20,
+          "max": 60,
+          "energy": 124713.23395990215,
+          "energyDb": 50.959125411353476
+        },
+        "bass": {
+          "min": 60,
+          "max": 250,
+          "energy": 58150.460588090995,
+          "energyDb": 47.645531589625605
+        },
+        "lowMid": {
+          "min": 250,
+          "max": 500,
+          "energy": 8214.456632687423,
+          "energyDb": 39.145788411453786
+        },
+        "mid": {
+          "min": 500,
+          "max": 2000,
+          "energy": 15378.17209618162,
+          "energyDb": 41.869047167580185
+        },
+        "highMid": {
+          "min": 2000,
+          "max": 4000,
+          "energy": 721.0113577520699,
+          "energyDb": 28.579421060095815
+        },
+        "presence": {
+          "min": 4000,
+          "max": 8000,
+          "energy": 119.63306013059767,
+          "energyDb": 20.778512118283224
+        },
+        "brilliance": {
+          "min": 8000,
+          "max": 20000,
+          "energy": 19.839987719429207,
+          "energyDb": 12.975413989983121
+        }
+      }
+    }
+  },
+  "_metadata": {
+    "phase": "5.3-core-metrics",
+    "processingTime": 3378,
+    "calculatedAt": "2025-09-06T18:40:22.481Z",
+    "config": {
+      "fft": {
+        "size": 4096,
+        "hop": 1024,
+        "window": "hann"
+      },
+      "lufs": {
+        "blockMs": 400,
+        "shortTermMs": 3000,
+        "absoluteThreshold": -70,
+        "relativeThreshold": -10
+      },
+      "truePeak": {
+        "oversampling": 4
+      }
+    }
+  }
+}

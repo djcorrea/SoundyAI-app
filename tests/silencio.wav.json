@@ -1,0 +1,201 @@
+{
+  "lufs": {
+    "integrated": -70,
+    "shortTerm": -70,
+    "momentary": -70,
+    "lra": 0,
+    "gatingInfo": {
+      "absoluteThreshold": -70,
+      "relativeThreshold": -10,
+      "gatedLoudness": -70,
+      "ungatedLoudness": -70,
+      "gatedBlocks": 0,
+      "totalBlocks": 0
+    },
+    "r128Compliance": {
+      "integratedWithinRange": false,
+      "truePeakBelowCeiling": true,
+      "lraWithinRange": true
+    },
+    "blockDurationMs": 400,
+    "shortTermDurationMs": 3000,
+    "standard": "ITU-R BS.1770-4",
+    "diagnostics": {
+      "avgRMS": 0,
+      "leftRMS": 0,
+      "rightRMS": 0,
+      "isSilent": true,
+      "isLowLevel": true
+    }
+  },
+  "truePeak": {
+    "maxDbtp": -60,
+    "maxLinear": 0,
+    "channels": {
+      "left": {
+        "peakDbtp": -60,
+        "peakLinear": 0,
+        "peakPosition": 0,
+        "peakTime": 0
+      },
+      "right": {
+        "peakDbtp": -60,
+        "peakLinear": 0,
+        "peakPosition": 0,
+        "peakTime": 0
+      }
+    },
+    "clippingAnalysis": {
+      "isClipping": false,
+      "clippingMargin": 59.9,
+      "clippingRisk": "LOW"
+    },
+    "compliance": {
+      "ebuR128": true,
+      "streaming": true,
+      "broadcast": true
+    },
+    "oversampling": 4,
+    "standard": "ITU-R BS.1770-4",
+    "diagnostics": {
+      "leftMax": 0,
+      "rightMax": 0,
+      "isSilent": true,
+      "samplePeakLeft": 0,
+      "samplePeakRight": 0,
+      "clippingCount": 0
+    }
+  },
+  "stereo": {
+    "correlation": 0,
+    "width": 0,
+    "balance": 0,
+    "midSide": {
+      "midRMS": 0,
+      "sideRMS": 0,
+      "ratio": 1,
+      "widthFromMS": 0
+    },
+    "classification": "NARROW_STEREO",
+    "diagnostics": {
+      "leftRMS": 0,
+      "rightRMS": 0,
+      "correlationValid": true,
+      "widthValid": true
+    }
+  },
+  "fftSummary": {
+    "frames": 1125,
+    "bands": {
+      "left": {
+        "subBass": {
+          "min": 20,
+          "max": 60,
+          "energy": 0,
+          "energyDb": -100
+        },
+        "bass": {
+          "min": 60,
+          "max": 250,
+          "energy": 0,
+          "energyDb": -100
+        },
+        "lowMid": {
+          "min": 250,
+          "max": 500,
+          "energy": 0,
+          "energyDb": -100
+        },
+        "mid": {
+          "min": 500,
+          "max": 2000,
+          "energy": 0,
+          "energyDb": -100
+        },
+        "highMid": {
+          "min": 2000,
+          "max": 4000,
+          "energy": 0,
+          "energyDb": -100
+        },
+        "presence": {
+          "min": 4000,
+          "max": 8000,
+          "energy": 0,
+          "energyDb": -100
+        },
+        "brilliance": {
+          "min": 8000,
+          "max": 20000,
+          "energy": 0,
+          "energyDb": -100
+        }
+      },
+      "right": {
+        "subBass": {
+          "min": 20,
+          "max": 60,
+          "energy": 0,
+          "energyDb": -100
+        },
+        "bass": {
+          "min": 60,
+          "max": 250,
+          "energy": 0,
+          "energyDb": -100
+        },
+        "lowMid": {
+          "min": 250,
+          "max": 500,
+          "energy": 0,
+          "energyDb": -100
+        },
+        "mid": {
+          "min": 500,
+          "max": 2000,
+          "energy": 0,
+          "energyDb": -100
+        },
+        "highMid": {
+          "min": 2000,
+          "max": 4000,
+          "energy": 0,
+          "energyDb": -100
+        },
+        "presence": {
+          "min": 4000,
+          "max": 8000,
+          "energy": 0,
+          "energyDb": -100
+        },
+        "brilliance": {
+          "min": 8000,
+          "max": 20000,
+          "energy": 0,
+          "energyDb": -100
+        }
+      }
+    }
+  },
+  "_metadata": {
+    "phase": "5.3-core-metrics",
+    "processingTime": 1004,
+    "calculatedAt": "2025-09-06T18:40:37.500Z",
+    "config": {
+      "fft": {
+        "size": 4096,
+        "hop": 1024,
+        "window": "hann"
+      },
+      "lufs": {
+        "blockMs": 400,
+        "shortTermMs": 3000,
+        "absoluteThreshold": -70,
+        "relativeThreshold": -10
+      },
+      "truePeak": {
+        "oversampling": 4
+      }
+    }
+  }
+}
