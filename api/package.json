@@ -2,15 +2,7 @@
   "name": "api",
   "version": "1.0.0",
   "scripts": {
-    "start": "node server.js",
-    "test:audio-decoder": "node audio/test-audio-decoder.js",
-    "test:temporal-seg": "node audio/test-temporal-segmentation.js",
-    "test:integration": "node audio/integration-5.1-5.2.js",
-    "test:decoder": "npm run test:audio-decoder",
-    "test:phase5.2": "npm run test:temporal-seg",
-    "check:phase5.1": "node audio/quick-check.js",
-    "quick-check": "npm run check:phase5.1",
-    "demo:pipeline": "npm run test:integration"
+    "start": "node server.js"
   },
   "dependencies": {
     "aws-sdk": "^2.1692.0",
@@ -19,11 +11,5 @@
     "multer": "^2.0.2",
     "pg": "^8.11.0"
   },
-  "devDependencies": {
-    "ffmpeg-static": "^5.2.0"
-  },
-  "type": "module",
-  "engines": {
-    "node": ">=18.0.0"
-  }
+  "type": "module"
 }

@@ -8,10 +8,13 @@ console.log('🚀 Sistema de Análise Backend carregado - Zero dependências Web
  * 🎯 CONFIGURAÇÕES DO SISTEMA BACKEND
  */
 const BACKEND_CONFIG = {
+  // Base URL do servidor (ajustar para produção)
+  BASE_URL: window.location.origin,
+  
   // Endpoints da API
-  PRESIGN_ENDPOINT: '/presign',
-  PROCESS_ENDPOINT: '/process', 
-  JOBS_ENDPOINT: '/jobs',
+  PRESIGN_ENDPOINT: '/api/audio/presign',
+  PROCESS_ENDPOINT: '/api/audio/process', 
+  JOBS_ENDPOINT: '/api/audio/jobs',
   
   // Configurações de upload
   MAX_FILE_SIZE: 60 * 1024 * 1024, // 60MB
@@ -69,22 +72,22 @@ async function analyzeWithBackend(file) {
     // 1. Obter URL de presign
     updateProgress('🔗 Obtendo URL de upload...', 10);
     const presignData = await getPresignedUrl(file);
-    log('✅ URL de presign obtida:', presignData.key);
+    log('✅ URL de presign obtida:', presignData.fileKey);
     
     // 2. Upload do arquivo
     updateProgress('📤 Enviando arquivo para análise...', 15);
-    await uploadFileToS3(file, presignData);
+    await uploadFileToBackend(file, presignData);
     log('✅ Upload concluído');
     
     // 3. Iniciar processamento
     updateProgress('⚡ Iniciando processamento no servidor...', 30);
-    const job = await startProcessing(presignData.key, file.name);
+    const job = await startProcessing(presignData.fileKey, file.name);
     AudioAnalysisState.currentJob = job;
-    log('✅ Job iniciado:', job.id);
+    log('✅ Job iniciado:', job.jobId);
     
     // 4. Polling até completar
     updateProgress('🔄 Processando áudio (isso pode levar alguns segundos)...', 35);
-    const result = await pollJobCompletion(job.id);
+    const result = await pollJobCompletion(job.jobId);
     log('✅ Análise concluída');
     
     // 5. Processar e exibir resultados
@@ -136,7 +139,7 @@ function validateAudioFile(file) {
  * @returns {Promise<Object>} - Dados do presign
  */
 async function getPresignedUrl(file) {
-  const response = await fetch(BACKEND_CONFIG.PRESIGN_ENDPOINT, {
+  const response = await fetch(`${BACKEND_CONFIG.BASE_URL}${BACKEND_CONFIG.PRESIGN_ENDPOINT}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
@@ -157,11 +160,11 @@ async function getPresignedUrl(file) {
 }
 
 /**
- * 📤 UPLOAD DO ARQUIVO PARA S3
+ * 📤 UPLOAD DO ARQUIVO PARA O BACKEND
  * @param {File} file - Arquivo a enviar
  * @param {Object} presignData - Dados do presign
  */
-async function uploadFileToS3(file, presignData) {
+async function uploadFileToBackend(file, presignData) {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     
@@ -179,7 +182,7 @@ async function uploadFileToS3(file, presignData) {
     
     xhr.addEventListener('load', () => {
       if (xhr.status === 200) {
-        log('✅ Upload S3 concluído');
+        log('✅ Upload concluído');
         resolve();
       } else {
         reject(new Error(`Erro no upload: ${xhr.status} ${xhr.statusText}`));
@@ -198,18 +201,18 @@ async function uploadFileToS3(file, presignData) {
 
 /**
  * ⚡ INICIAR PROCESSAMENTO NO BACKEND
- * @param {string} s3Key - Chave do arquivo no S3
+ * @param {string} fileKey - Chave do arquivo
  * @param {string} fileName - Nome original do arquivo
  * @returns {Promise<Object>} - Dados do job
  */
-async function startProcessing(s3Key, fileName) {
-  const response = await fetch(BACKEND_CONFIG.PROCESS_ENDPOINT, {
+async function startProcessing(fileKey, fileName) {
+  const response = await fetch(`${BACKEND_CONFIG.BASE_URL}${BACKEND_CONFIG.PROCESS_ENDPOINT}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({
-      s3Key: s3Key,
+      fileKey: fileKey,
       fileName: fileName,
       options: {
         // Opções do pipeline Node.js
@@ -248,7 +251,7 @@ async function pollJobCompletion(jobId) {
         }
         
         // Consultar status
-        const response = await fetch(`${BACKEND_CONFIG.JOBS_ENDPOINT}/${jobId}`);
+        const response = await fetch(`${BACKEND_CONFIG.BASE_URL}${BACKEND_CONFIG.JOBS_ENDPOINT}/${jobId}`);
         
         if (!response.ok) {
           throw new Error(`Erro ao consultar job: ${response.status}`);
@@ -257,9 +260,10 @@ async function pollJobCompletion(jobId) {
         const jobData = await response.json();
         log('📊 Status do job:', jobData.status);
         
-        // Atualizar progress baseado no status
+        // Atualizar progress baseado no status e progress do backend
         if (jobData.status === 'processing') {
-          lastProgress = Math.min(lastProgress + 2, 90);
+          const backendProgress = jobData.progress || lastProgress;
+          lastProgress = Math.min(35 + (backendProgress * 0.6), 90); // 35% - 90%
           updateProgress('🔄 Analisando áudio...', lastProgress);
         }
         
@@ -342,11 +346,11 @@ function extractTechnicalData(result) {
   const data = {
     score: result.score || 0,
     classification: result.classification || 'Desconhecido',
-    scoringMethod: result.scoringMethod || 'backend',
+    scoringMethod: result.scoringMethod || 'Equal Weight V3',
     
     // Métricas LUFS
     lufs: {
-      integrated: result.technicalData?.lufsIntegrated || result.technicalData?.lufs_integrated || 0,
+      integrated: result.technicalData?.lufsIntegrated || 0,
       shortTerm: result.technicalData?.lufsShortTerm || 0,
       momentary: result.technicalData?.lufsMomentary || 0,
       lra: result.technicalData?.lra || 0
@@ -354,15 +358,15 @@ function extractTechnicalData(result) {
     
     // True Peak
     truePeak: {
-      dbtp: result.technicalData?.truePeakDbtp || result.technicalData?.true_peak_dbtp || 0,
+      dbtp: result.technicalData?.truePeakDbtp || 0,
       linear: result.technicalData?.truePeakLinear || 0
     },
     
     // Análise estéreo
     stereo: {
-      correlation: result.technicalData?.stereoCorrelation || result.technicalData?.stereo_correlation || 0,
-      width: result.technicalData?.stereoWidth || result.technicalData?.stereo_width || 0,
-      balance: result.technicalData?.balanceLR || result.technicalData?.balance_lr || 0
+      correlation: result.technicalData?.stereoCorrelation || 0,
+      width: result.technicalData?.stereoWidth || 0,
+      balance: result.technicalData?.balanceLR || 0
     },
     
     // Bandas espectrais
@@ -375,8 +379,8 @@ function extractTechnicalData(result) {
       processingTime: result.metadata?.processingTime || 0,
       sampleRate: result.technicalData?.sampleRate || 48000,
       duration: result.metadata?.duration || 0,
-      buildVersion: result.buildVersion || 'backend-v5.4',
-      pipelineVersion: result.pipelineVersion || 'Node.js 5.1-5.4'
+      buildVersion: result.buildVersion || 'backend-v5.5',
+      pipelineVersion: result.pipelineVersion || 'Node.js 5.1-5.5'
     }
   };
   
@@ -645,78 +649,6 @@ document.addEventListener('DOMContentLoaded', function() {
 // Função global para ser chamada por outros scripts
 window.analyzeWithBackend = analyzeWithBackend;
 window.resetAudioModal = resetAudioModal;
-
-/**
- * 🎯 FUNÇÕES DE MODAL (COMPATIBILIDADE COM SISTEMA ANTIGO)
- */
-
-// Abrir modal de seleção de modo
-window.openModeSelectionModal = function() {
-  log('🔧 Abrindo modal de seleção de modo');
-  const modal = document.getElementById('analysisModeModal');
-  if (modal) {
-    modal.style.display = 'flex';
-  } else {
-    console.warn('⚠️ Modal de seleção não encontrado, abrindo análise direta');
-    openAudioModal();
-  }
-};
-
-// Fechar modal de seleção de modo
-window.closeModeSelectionModal = function() {
-  log('🔧 Fechando modal de seleção de modo');
-  const modal = document.getElementById('analysisModeModal');
-  if (modal) {
-    modal.style.display = 'none';
-  }
-};
-
-// Abrir modal de análise de áudio
-window.openAudioModal = function() {
-  log('🎵 Abrindo modal de análise de áudio');
-  
-  // Fechar modal de seleção se aberto
-  closeModeSelectionModal();
-  
-  // Abrir modal de análise
-  const modal = document.getElementById('audioAnalysisModal');
-  if (modal) {
-    modal.style.display = 'flex';
-    
-    // Reset do modal para estado inicial
-    resetAudioModal();
-    
-    // Configurar input de arquivo se não estiver configurado
-    setTimeout(() => {
-      setupFileInput();
-    }, 100);
-  } else {
-    console.error('❌ Modal de análise não encontrado');
-  }
-};
-
-// Fechar modal de análise de áudio
-window.closeAudioModal = function() {
-  log('🔧 Fechando modal de análise de áudio');
-  
-  // Cancelar processing se ativo
-  if (AudioAnalysisState.isProcessing) {
-    if (AudioAnalysisState.pollingInterval) {
-      clearInterval(AudioAnalysisState.pollingInterval);
-      AudioAnalysisState.pollingInterval = null;
-    }
-    AudioAnalysisState.isProcessing = false;
-  }
-  
-  // Reset do estado
-  resetAudioModal();
-  
-  // Fechar modal
-  const modal = document.getElementById('audioAnalysisModal');
-  if (modal) {
-    modal.style.display = 'none';
-  }
-};
 
 // Função para enviar resultados para o chat (integração existente)
 window.sendModalAnalysisToChat = function() {

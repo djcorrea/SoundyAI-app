@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste API de Áudio - Backend</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        .success { border-color: #28a745; background: #d4edda; }
+        .error { border-color: #dc3545; background: #f8d7da; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover { background: #0056b3; }
+        .status { font-weight: bold; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🎵 Teste da API de Processamento de Áudio</h1>
+    <p>Testando os endpoints do backend Node.js para substituir Web Audio API</p>
+
+    <div class="test-container">
+        <h3>1. Teste de Status do Sistema</h3>
+        <button onclick="testStatus()">Testar GET /api/audio/status</button>
+        <div id="statusResult" class="test-result" style="display: none;"></div>
+    </div>
+
+    <div class="test-container">
+        <h3>2. Teste de Presign URL</h3>
+        <button onclick="testPresign()">Testar POST /api/audio/presign</button>
+        <div id="presignResult" class="test-result" style="display: none;"></div>
+    </div>
+
+    <div class="test-container">
+        <h3>3. Teste de Processamento</h3>
+        <button onclick="testProcess()">Testar POST /api/audio/process</button>
+        <div id="processResult" class="test-result" style="display: none;"></div>
+    </div>
+
+    <div class="test-container">
+        <h3>4. Teste de Job Status</h3>
+        <button onclick="testJobStatus()">Testar GET /api/audio/jobs/:id</button>
+        <div id="jobResult" class="test-result" style="display: none;"></div>
+    </div>
+
+    <div class="test-container">
+        <h3>5. Teste Completo com Arquivo Mock</h3>
+        <button onclick="testFullPipeline()">Teste Completo do Pipeline</button>
+        <div id="fullResult" class="test-result" style="display: none;"></div>
+    </div>
+
+    <script>
+        const BASE_URL = window.location.origin;
+        let currentJobId = null;
+
+        async function testStatus() {
+            const resultDiv = document.getElementById('statusResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'test-result';
+            resultDiv.textContent = '🔄 Testando...';
+
+            try {
+                const response = await fetch(`${BASE_URL}/api/audio/status`);
+                const data = await response.json();
+                
+                resultDiv.className = 'test-result success';
+                resultDiv.textContent = `✅ Status: ${response.status}\n\nResposta:\n${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                resultDiv.className = 'test-result error';
+                resultDiv.textContent = `❌ Erro: ${error.message}`;
+            }
+        }
+
+        async function testPresign() {
+            const resultDiv = document.getElementById('presignResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'test-result';
+            resultDiv.textContent = '🔄 Testando...';
+
+            try {
+                const response = await fetch(`${BASE_URL}/api/audio/presign`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fileName: 'test-audio.wav',
+                        fileSize: 1024000,
+                        contentType: 'audio/wav'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                resultDiv.className = 'test-result success';
+                resultDiv.textContent = `✅ Status: ${response.status}\n\nResposta:\n${JSON.stringify(data, null, 2)}`;
+                
+                // Salvar fileKey para outros testes
+                window.testFileKey = data.fileKey;
+            } catch (error) {
+                resultDiv.className = 'test-result error';
+                resultDiv.textContent = `❌ Erro: ${error.message}`;
+            }
+        }
+
+        async function testProcess() {
+            const resultDiv = document.getElementById('processResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'test-result';
+            resultDiv.textContent = '🔄 Testando...';
+
+            // Precisamos de um fileKey primeiro
+            if (!window.testFileKey) {
+                resultDiv.textContent = '⚠️ Execute o teste de Presign primeiro para obter um fileKey';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${BASE_URL}/api/audio/process`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fileKey: window.testFileKey,
+                        fileName: 'test-audio.wav',
+                        options: {
+                            enableConcurrency: true,
+                            timeout: 300000,
+                            outputFormat: 'json'
+                        }
+                    })
+                });
+                
+                const data = await response.json();
+                currentJobId = data.jobId;
+                
+                resultDiv.className = 'test-result success';
+                resultDiv.textContent = `✅ Status: ${response.status}\n\nResposta:\n${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                resultDiv.className = 'test-result error';
+                resultDiv.textContent = `❌ Erro: ${error.message}`;
+            }
+        }
+
+        async function testJobStatus() {
+            const resultDiv = document.getElementById('jobResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'test-result';
+            resultDiv.textContent = '🔄 Testando...';
+
+            if (!currentJobId) {
+                resultDiv.textContent = '⚠️ Execute o teste de Processamento primeiro para obter um jobId';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${BASE_URL}/api/audio/jobs/${currentJobId}`);
+                const data = await response.json();
+                
+                resultDiv.className = 'test-result success';
+                resultDiv.textContent = `✅ Status: ${response.status}\n\nResposta:\n${JSON.stringify(data, null, 2)}`;
+            } catch (error) {
+                resultDiv.className = 'test-result error';
+                resultDiv.textContent = `❌ Erro: ${error.message}`;
+            }
+        }
+
+        async function testFullPipeline() {
+            const resultDiv = document.getElementById('fullResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'test-result';
+            resultDiv.textContent = '🔄 Iniciando teste completo...\n\n';
+
+            try {
+                // 1. Presign
+                resultDiv.textContent += '1️⃣ Obtendo URL presignada...\n';
+                const presignResponse = await fetch(`${BASE_URL}/api/audio/presign`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fileName: 'full-test.wav',
+                        fileSize: 2048000,
+                        contentType: 'audio/wav'
+                    })
+                });
+                const presignData = await presignResponse.json();
+                resultDiv.textContent += `✅ FileKey: ${presignData.fileKey}\n\n`;
+
+                // 2. Mock upload (simular)
+                resultDiv.textContent += '2️⃣ Upload simulado...\n';
+                await new Promise(resolve => setTimeout(resolve, 500)); // Simular delay
+                resultDiv.textContent += '✅ Upload concluído\n\n';
+
+                // 3. Iniciar processamento
+                resultDiv.textContent += '3️⃣ Iniciando processamento...\n';
+                const processResponse = await fetch(`${BASE_URL}/api/audio/process`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        fileKey: presignData.fileKey,
+                        fileName: 'full-test.wav',
+                        options: { enableConcurrency: true }
+                    })
+                });
+                const processData = await processResponse.json();
+                resultDiv.textContent += `✅ Job criado: ${processData.jobId}\n\n`;
+
+                // 4. Polling
+                resultDiv.textContent += '4️⃣ Acompanhando processamento...\n';
+                let attempts = 0;
+                const maxAttempts = 10;
+                
+                while (attempts < maxAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    
+                    const jobResponse = await fetch(`${BASE_URL}/api/audio/jobs/${processData.jobId}`);
+                    const jobData = await jobResponse.json();
+                    
+                    resultDiv.textContent += `📊 Tentativa ${attempts + 1}: ${jobData.status}`;
+                    if (jobData.progress) resultDiv.textContent += ` (${jobData.progress}%)`;
+                    resultDiv.textContent += '\n';
+                    
+                    if (jobData.status === 'completed') {
+                        resultDiv.textContent += '\n🎉 PROCESSAMENTO CONCLUÍDO!\n\n';
+                        resultDiv.textContent += '📊 Resultado Final:\n';
+                        resultDiv.textContent += JSON.stringify(jobData.result, null, 2);
+                        resultDiv.className = 'test-result success';
+                        return;
+                    }
+                    
+                    if (jobData.status === 'failed') {
+                        resultDiv.textContent += `\n❌ FALHOU: ${jobData.error}\n`;
+                        resultDiv.className = 'test-result error';
+                        return;
+                    }
+                    
+                    attempts++;
+                }
+                
+                resultDiv.textContent += '\n⏰ Timeout: processamento não concluído em 10 tentativas';
+                
+            } catch (error) {
+                resultDiv.className = 'test-result error';
+                resultDiv.textContent += `\n❌ ERRO: ${error.message}`;
+            }
+        }
+
+        // Auto-executar teste de status ao carregar
+        window.addEventListener('load', () => {
+            setTimeout(testStatus, 500);
+        });
+    </script>
+</body>
+</html>

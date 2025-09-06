@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste Direto do Botão +</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #0a0a0a; color: white; }
+        button { padding: 15px 30px; margin: 10px; background: #0096ff; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        button:hover { background: #0077cc; }
+        .result { background: #1a1a1a; padding: 10px; margin: 10px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste Direto do Botão "+"</h1>
+    
+    <button onclick="testDirectClick()">Simular Click no Botão +</button>
+    <button onclick="testOpenModal()">Chamar openAudioModal() Direto</button>
+    <button onclick="checkFunctions()">Verificar Funções</button>
+    
+    <iframe src="/" width="100%" height="600" style="margin-top: 20px; border: 1px solid #333;"></iframe>
+    
+    <div id="results"></div>
+    
+    <script>
+        function log(message) {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = 'result';
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            results.appendChild(div);
+            console.log(message);
+        }
+        
+        function testDirectClick() {
+            log('🧪 Tentando simular click no botão +...');
+            
+            const iframe = document.querySelector('iframe');
+            if (iframe && iframe.contentWindow) {
+                try {
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    const plusBtn = iframeDoc.querySelector('.chat-plus-btn');
+                    
+                    if (plusBtn) {
+                        log('✅ Botão + encontrado no iframe');
+                        plusBtn.click();
+                        log('🔄 Click simulado');
+                    } else {
+                        log('❌ Botão + não encontrado no iframe');
+                    }
+                } catch (error) {
+                    log(`❌ Erro ao acessar iframe: ${error.message}`);
+                }
+            } else {
+                log('❌ Iframe não carregado');
+            }
+        }
+        
+        function testOpenModal() {
+            log('🧪 Tentando chamar openAudioModal direto...');
+            
+            const iframe = document.querySelector('iframe');
+            if (iframe && iframe.contentWindow) {
+                try {
+                    const win = iframe.contentWindow;
+                    if (typeof win.openAudioModal === 'function') {
+                        log('✅ openAudioModal encontrada no iframe');
+                        win.openAudioModal();
+                        log('🔄 openAudioModal() executada');
+                    } else {
+                        log('❌ openAudioModal não existe no iframe');
+                    }
+                } catch (error) {
+                    log(`❌ Erro: ${error.message}`);
+                }
+            }
+        }
+        
+        function checkFunctions() {
+            log('🔍 Verificando funções disponíveis...');
+            
+            const iframe = document.querySelector('iframe');
+            if (iframe && iframe.contentWindow) {
+                try {
+                    const win = iframe.contentWindow;
+                    const audioFunctions = Object.keys(win).filter(key => 
+                        key.toLowerCase().includes('audio') || 
+                        key.toLowerCase().includes('modal')
+                    );
+                    
+                    log(`Funções encontradas: ${audioFunctions.join(', ')}`);
+                    
+                    // Verificar se modal existe no DOM
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    const modal = iframeDoc.getElementById('audioAnalysisModal');
+                    log(`Modal DOM existe: ${!!modal}`);
+                    
+                } catch (error) {
+                    log(`❌ Erro: ${error.message}`);
+                }
+            }
+        }
+        
+        // Auto verificar quando iframe carregar
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                log('🚀 Página carregada, verificando...');
+                checkFunctions();
+            }, 2000);
+        });
+    </script>
+</body>
+</html>

@@ -3,31 +3,44 @@
 
 console.log('🚀 Carregando funções de modal (hotfix)...');
 
-// ⚡ DEFINIR FUNÇÕES ESSENCIAIS IMEDIATAMENTE (IIFE para execução imediata)
+// Listener para evento customizado como fallback
+window.addEventListener('chat:analyze-audio-request', function() {
+  console.log('📡 Evento chat:analyze-audio-request recebido');
+  setTimeout(() => {
+    if (typeof window.openAudioModal === 'function') {
+      console.log('🔄 Executando openAudioModal via evento customizado');
+      window.openAudioModal();
+    }
+  }, 50);
+});
+
+// ⚡ DEFINIR FUNÇÕES ESSENCIAIS IMEDIATAMENTE
 (function() {
   'use strict';
   
   // Estado global básico
-  if (!window.AudioModalState) {
-    window.AudioModalState = {
-      isOpen: false,
-      currentModal: null
-    };
-  }
+  window.AudioModalState = {
+    isOpen: false,
+    currentModal: null
+  };
   
   // 🎯 ABRIR MODAL DE ANÁLISE DE ÁUDIO
   window.openAudioModal = function() {
     console.log('🎵 [HOTFIX] Abrindo modal de análise de áudio');
+    console.log('🔍 [HOTFIX] Estado atual do DOM:', document.readyState);
     
     try {
       // Fechar modal de seleção se aberto
       const modeModal = document.getElementById('analysisModeModal');
       if (modeModal) {
         modeModal.style.display = 'none';
+        console.log('🔧 [HOTFIX] Modal de modo fechado');
       }
       
       // Abrir modal de análise
       const modal = document.getElementById('audioAnalysisModal');
+      console.log('🔍 [HOTFIX] Modal encontrado:', !!modal);
+      
       if (modal) {
         modal.style.display = 'flex';
         window.AudioModalState.isOpen = true;
@@ -36,28 +49,20 @@ console.log('🚀 Carregando funções de modal (hotfix)...');
         // Reset básico do modal
         resetAudioModalBasic();
         
-        // Configurar input de arquivo (se não estiver configurado)
-        setTimeout(() => {
-          if (typeof window.setupFileInput === 'function') {
+        console.log('✅ [HOTFIX] Modal de análise aberto com sucesso');
+        
+        // Configurar input de arquivo se não foi configurado
+        if (typeof window.setupFileInput === 'function') {
+          setTimeout(() => {
             window.setupFileInput();
-          }
-        }, 100);
+            console.log('🔧 [HOTFIX] Input de arquivo configurado');
+          }, 100);
+        }
         
-        console.log('✅ [HOTFIX] Modal de análise aberto');
       } else {
-        console.error('❌ [HOTFIX] Modal audioAnalysisModal não encontrado');
-        
-        // Fallback: tentar criar modal dinamicamente se não existir
-        console.log('💡 [HOTFIX] Tentando aguardar carregamento do DOM...');
-        setTimeout(() => {
-          const retryModal = document.getElementById('audioAnalysisModal');
-          if (retryModal) {
-            retryModal.style.display = 'flex';
-            console.log('✅ [HOTFIX] Modal encontrado na segunda tentativa');
-          } else {
-            console.error('❌ [HOTFIX] Modal ainda não encontrado - DOM pode não estar carregado');
-          }
-        }, 500);
+        console.error('❌ [HOTFIX] Modal audioAnalysisModal não encontrado no DOM');
+        console.log('🔍 [HOTFIX] Modais disponíveis:', 
+          Array.from(document.querySelectorAll('[id*="modal"], [id*="Modal"]')).map(m => m.id));
       }
       
     } catch (error) {
@@ -186,28 +191,7 @@ console.log('🚀 Carregando funções de modal (hotfix)...');
     }
   };
   
-  // 🚀 FUNÇÃO DE EMERGÊNCIA PARA TENTAR ABRIR MODAL
-  window.emergencyOpenModal = function() {
-    console.log('🚨 [EMERGENCY] Tentativa de emergência para abrir modal');
-    
-    // Aguardar DOM estar pronto
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(() => window.openAudioModal(), 100);
-      });
-    } else {
-      setTimeout(() => window.openAudioModal(), 100);
-    }
-  };
-  
-  console.log('✅ [HOTFIX] Funções de modal definidas imediatamente');
-  
-  // Log para verificar que as funções foram mesmo definidas
-  console.log('🔍 [HOTFIX] Verificação imediata:');
-  console.log('   openAudioModal:', typeof window.openAudioModal);
-  console.log('   closeAudioModal:', typeof window.closeAudioModal);
-  console.log('   openModeSelectionModal:', typeof window.openModeSelectionModal);
-  console.log('   closeModeSelectionModal:', typeof window.closeModeSelectionModal);
+  console.log('✅ [HOTFIX] Funções de modal definidas');
   
 })();
 

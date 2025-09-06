@@ -26,7 +26,7 @@
     <script src="friendly-labels.js?v=20250817" defer></script>
     
     <!-- 🚀 HOTFIX: MODAL FUNCTIONS (CARREGAMENTO IMEDIATO) -->
-    <script src="modal-functions-hotfix.js?v=20250131"></script>
+    <script src="modal-functions-hotfix.js?v=20250131-debug"></script>
     
     <!-- 🎯 Correção da Ordem do Pipeline -->
     <script src="/pipeline-order-correction.js?v=20250828" defer></script>
@@ -393,7 +393,78 @@
     
     <!-- 🎵 SISTEMA DE ANÁLISE BACKEND - 100% Node.js (Fases 5.1-5.5) -->
     <!-- Remové completamente: Web Audio API, audio-analyzer.js, audio-analyzer-integration.js -->
-    <script src="audio-backend-system.js?v=20250131-backend-only" defer></script>
+    <script src="audio-backend-system.js?v=20250131-backend-only-debug" defer></script>
+    
+    <!-- 🧪 DEBUG SCRIPT PARA TESTAR MODAL -->
+    <script>
+        // Debug quando página carregar
+        window.addEventListener('load', function() {
+            console.log('🧪 [DEBUG] Página carregada, iniciando testes...');
+            
+            setTimeout(() => {
+                // Verificar modal
+                const modal = document.getElementById('audioAnalysisModal');
+                console.log('🔍 [DEBUG] Modal existe?', !!modal);
+                
+                // Verificar botões +
+                const plusBtns = document.querySelectorAll('.chat-plus-btn, .chatbot-add-btn');
+                console.log('🔍 [DEBUG] Botões + encontrados:', plusBtns.length);
+                
+                // Verificar funções
+                console.log('🔍 [DEBUG] openAudioModal existe?', typeof window.openAudioModal);
+                
+                // Verificar se há hash de teste
+                if (window.location.hash === '#test-modal') {
+                    console.log('🧪 [DEBUG] Hash de teste detectado, forçando abertura...');
+                    if (modal) {
+                        modal.style.display = 'flex';
+                        console.log('✅ [DEBUG] Modal aberto via hash');
+                    }
+                }
+                
+                // Adicionar listener global para teste
+                window.testOpenModal = function() {
+                    console.log('🧪 [DEBUG] Função de teste chamada');
+                    if (typeof window.openAudioModal === 'function') {
+                        window.openAudioModal();
+                    } else if (modal) {
+                        modal.style.display = 'flex';
+                        console.log('✅ [DEBUG] Modal aberto via fallback');
+                    }
+                };
+                
+                console.log('✅ [DEBUG] Função window.testOpenModal() criada');
+                
+            }, 2000);
+        });
+        
+        // Listener para parâmetros de URL
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('debug') === 'true') {
+            console.log('🧪 [DEBUG] Modo debug ativado via URL');
+            
+            // Adicionar botão de teste visível
+            setTimeout(() => {
+                const debugBtn = document.createElement('button');
+                debugBtn.textContent = '🧪 TESTE MODAL';
+                debugBtn.style.cssText = `
+                    position: fixed;
+                    top: 10px;
+                    left: 10px;
+                    z-index: 10000;
+                    background: #ff4444;
+                    color: white;
+                    border: none;
+                    padding: 10px;
+                    border-radius: 5px;
+                    cursor: pointer;
+                `;
+                debugBtn.onclick = () => window.testOpenModal();
+                document.body.appendChild(debugBtn);
+                console.log('🧪 [DEBUG] Botão de teste adicionado');
+            }, 1000);
+        }
+    </script>
     
     <!-- 🔍 VERIFICAÇÃO DE ENDPOINTS DO BACKEND -->
     <script src="backend-endpoints-verification.js?v=20250131" defer></script>
@@ -579,8 +650,51 @@
                     close();
                   }
                   if (btn.dataset.action === 'analyze') {
-                    if (typeof window.openAudioModal === 'function') window.openAudioModal();
-                    else window.dispatchEvent(new CustomEvent('chat:analyze-audio-request'));
+                    console.log('🎵 Clique em analisar áudio detectado');
+                    console.log('🔍 window.openAudioModal existe?', typeof window.openAudioModal);
+                    
+                    // Fallback direto mais robusto
+                    const forceOpenModal = () => {
+                      const modal = document.getElementById('audioAnalysisModal');
+                      if (modal) {
+                        console.log('🔧 FALLBACK: Abrindo modal diretamente via DOM');
+                        modal.style.display = 'flex';
+                        
+                        // Reset básico do modal
+                        const uploadArea = document.getElementById('audioUploadArea');
+                        const loadingArea = document.getElementById('audioAnalysisLoading');
+                        const resultsArea = document.getElementById('audioAnalysisResults');
+                        
+                        if (uploadArea) uploadArea.style.display = 'block';
+                        if (loadingArea) loadingArea.style.display = 'none';
+                        if (resultsArea) resultsArea.style.display = 'none';
+                        
+                        console.log('✅ FALLBACK: Modal aberto com sucesso');
+                        return true;
+                      }
+                      return false;
+                    };
+                    
+                    // Tentar múltiplas abordagens
+                    if (typeof window.openAudioModal === 'function') {
+                      console.log('✅ Chamando window.openAudioModal()');
+                      window.openAudioModal();
+                    } else if (forceOpenModal()) {
+                      // Modal aberto pelo fallback
+                    } else {
+                      console.log('⚠️ Usando evento customizado como último recurso');
+                      window.dispatchEvent(new CustomEvent('chat:analyze-audio-request'));
+                      
+                      // Retry com delay
+                      setTimeout(() => {
+                        if (typeof window.openAudioModal === 'function') {
+                          console.log('🔄 Retry: Chamando window.openAudioModal()');
+                          window.openAudioModal();
+                        } else {
+                          forceOpenModal();
+                        }
+                      }, 100);
+                    }
                     close();
                   }
                 });
