@@ -1,52 +1,53 @@
 import fs from "fs";
 import path from "path";
 
-// Imports das fases
-import decodeAudioFile from "./api/audio/audio-decoder.js";              // Fase 5.1 (default export)
-import { segmentAudioTemporal } from "./api/audio/temporal-segmentation.js"; // Fase 5.2
-import { calculateCoreMetrics } from "./api/audio/core-metrics.js";     // Fase 5.3
+// Imports das fases (agora incluindo pipeline completo)
+import { processAudioComplete } from "./api/audio/pipeline-complete.js";  // Pipeline Completo 5.1-5.4
 
 const TEST_DIR = path.join(process.cwd(), "tests");
 
 async function validateFile(filePath) {
   console.log(`\n🎵 Testando arquivo: ${path.basename(filePath)}`);
 
-  // 1) Decodificação (Fase 5.1)
-  const fileBuffer = fs.readFileSync(filePath);
-  const audioData = await decodeAudioFile(fileBuffer, path.basename(filePath));
+  try {
+    // Pipeline completo (Fases 5.1 → 5.2 → 5.3 → 5.4)
+    const fileBuffer = fs.readFileSync(filePath);
+    const fileName = path.basename(filePath);
+    
+    const result = await processAudioComplete(fileBuffer, fileName);
 
-  // 2) Segmentação temporal (Fase 5.2)
-  const segmentedData = segmentAudioTemporal(audioData);
+    // Exibir resultados principais
+    console.log("Score Final:", result.score?.toFixed(1) + "%", `(${result.classification})`);
+    console.log("Método Scoring:", result.scoringMethod);
+    console.log("LUFS:", result.technicalData.lufsIntegrated?.toFixed(2), "LUFS");
+    console.log("True Peak:", result.technicalData.truePeakDbtp?.toFixed(2), "dBTP");
+    console.log("Correlação Estéreo:", result.technicalData.stereoCorrelation?.toFixed(3));
+    console.log("Bandas FFT:", Object.keys(result.technicalData.frequencyBands || {}).length);
+    console.log("Tempo Total:", result.metadata.processingTime + "ms");
 
-  console.log(`FFT Frames: ${segmentedData.framesFFT.left.length}`);
-  console.log(`FFT Frame size: ${segmentedData.framesFFT.frameSize}`);
-  console.log(`RMS Frames: ${segmentedData.framesRMS.left.length}`);
-  console.log(`RMS Frame size: ${segmentedData.framesRMS.frameSize}`);
+    // Mostrar breakdown de tempo por fase
+    if (result.metadata.phaseBreakdown) {
+      const breakdown = result.metadata.phaseBreakdown;
+      console.log(`⚡ Breakdown: Dec=${breakdown.phase1_decoding}ms, Seg=${breakdown.phase2_segmentation}ms, Core=${breakdown.phase3_core_metrics}ms, JSON=${breakdown.phase4_json_output}ms`);
+    }
 
-  // 3) Métricas core (Fase 5.3)
-  const metrics = await calculateCoreMetrics(segmentedData);
+    // Mostrar warnings se houver
+    if (result.warnings && result.warnings.length > 0) {
+      console.log("⚠️ Warnings:", result.warnings.join(', '));
+    }
 
-  console.log("LUFS:", metrics.lufs.integrated?.toFixed(2), "LUFS");
-  console.log("True Peak:", metrics.truePeak.maxDbtp?.toFixed(2), "dBTP");
-  console.log("Spectral Bands:", metrics.fft.frequencyBands.left);
-  console.log("Stereo Width:", metrics.stereo?.correlation ?? "N/A");
+    // Salvar resultado completo
+    fs.writeFileSync(
+      path.join(TEST_DIR, `${fileName}.complete.json`),
+      JSON.stringify(result, null, 2)
+    );
 
-  // 4) Criar versão reduzida para salvar no JSON
-  const slim = {
-    lufs: metrics.lufs,
-    truePeak: metrics.truePeak,
-    stereo: metrics.stereo || metrics.stereoWidth,
-    fftSummary: {
-      frames: metrics.fft.frameCount,
-      bands: metrics.fft.frequencyBands
-    },
-    _metadata: metrics._metadata
-  };
+    return result;
 
-  fs.writeFileSync(
-    path.join(TEST_DIR, `${path.basename(filePath)}.json`),
-    JSON.stringify(slim, null, 2)
-  );
+  } catch (error) {
+    console.error(`❌ Erro ao processar ${path.basename(filePath)}:`, error.message);
+    return null;
+  }
 }
 
 async function main() {

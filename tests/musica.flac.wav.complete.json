@@ -1,0 +1,277 @@
+{
+  "score": 96.9,
+  "classification": "Referência Mundial",
+  "scoringMethod": "equal_weight_v3",
+  "metadata": {
+    "fileName": "musica.flac.wav",
+    "fileSize": 33629622,
+    "sampleRate": 48000,
+    "channels": 2,
+    "duration": 0,
+    "processedAt": "2025-09-06T18:52:10.332Z",
+    "engineVersion": "5.4.0",
+    "pipelinePhase": "complete",
+    "processingTime": 11027,
+    "phaseBreakdown": {
+      "phase1_decoding": 1840,
+      "phase2_segmentation": 398,
+      "phase3_core_metrics": 8770,
+      "phase4_json_output": 17,
+      "total": 11027
+    }
+  },
+  "technicalData": {
+    "lufsIntegrated": -6.862,
+    "lufsShortTerm": -6.593,
+    "lufsMomentary": -4.972,
+    "lra": 2.387,
+    "truePeakDbtp": -1.863,
+    "truePeakLinear": 0.807,
+    "dynamicRange": null,
+    "dr": null,
+    "stereoCorrelation": 0.917,
+    "stereoWidth": 0.208,
+    "balanceLR": 0.001,
+    "spectralCentroid": null,
+    "frequencyBands": {
+      "subBass": {
+        "min": 20,
+        "max": 60,
+        "energyDb": 49.939,
+        "energy": 98611.972
+      },
+      "bass": {
+        "min": 60,
+        "max": 250,
+        "energyDb": 49.054,
+        "energy": 80431.15
+      },
+      "lowMid": {
+        "min": 250,
+        "max": 500,
+        "energyDb": 44.734,
+        "energy": 29745.621
+      },
+      "mid": {
+        "min": 500,
+        "max": 2000,
+        "energyDb": 42.442,
+        "energy": 17546.472
+      },
+      "highMid": {
+        "min": 2000,
+        "max": 4000,
+        "energyDb": 33.7,
+        "energy": 2344.251
+      },
+      "presence": {
+        "min": 4000,
+        "max": 8000,
+        "energyDb": 27.612,
+        "energy": 577.001
+      },
+      "brilliance": {
+        "min": 8000,
+        "max": 20000,
+        "energyDb": 22.625,
+        "energy": 183.004
+      }
+    },
+    "dcOffset": 0,
+    "clippingPct": 0
+  },
+  "scoringDetails": {
+    "method": "equal_weight_v3",
+    "totalMetrics": 13,
+    "equalWeight": 7.69,
+    "metricBreakdown": [],
+    "classification": "Referência Mundial"
+  },
+  "rawMetrics": {
+    "lufs": {
+      "integrated": -6.861681832917202,
+      "shortTerm": -6.592500445362973,
+      "momentary": -4.9717017450678105,
+      "lra": 2.387044389809697,
+      "gatingInfo": {
+        "absoluteThreshold": -70,
+        "relativeThreshold": -10,
+        "gatedLoudness": -6.861681832917202,
+        "ungatedLoudness": -6.861681832917202,
+        "gatedBlocks": 0,
+        "totalBlocks": 0
+      },
+      "r128Compliance": {
+        "integratedWithinRange": false,
+        "truePeakBelowCeiling": true,
+        "lraWithinRange": true
+      },
+      "blockDurationMs": 400,
+      "shortTermDurationMs": 3000,
+      "standard": "ITU-R BS.1770-4",
+      "diagnostics": {
+        "avgRMS": 0.4067442237513234,
+        "leftRMS": 0.4065157149204989,
+        "rightRMS": 0.4069727325821479,
+        "isSilent": false,
+        "isLowLevel": false
+      }
+    },
+    "truePeak": {
+      "maxDbtp": -1.8631126813231071,
+      "maxLinear": 0.80694580078125,
+      "channels": {
+        "left": {
+          "peakDbtp": -1.8631126813231071,
+          "peakLinear": 0.80694580078125,
+          "peakPosition": 735085.75,
+          "peakTime": 15.314286458333333
+        },
+        "right": {
+          "peakDbtp": -1.8631126813231071,
+          "peakLinear": 0.80694580078125,
+          "peakPosition": 736461.75,
+          "peakTime": 15.342953125
+        }
+      },
+      "clippingAnalysis": {
+        "isClipping": false,
+        "clippingMargin": 1.763112681323107,
+        "clippingRisk": "MEDIUM"
+      },
+      "compliance": {
+        "ebuR128": true,
+        "streaming": true,
+        "broadcast": true
+      },
+      "oversampling": 4,
+      "standard": "ITU-R BS.1770-4",
+      "diagnostics": {
+        "leftMax": 1,
+        "rightMax": 1,
+        "isSilent": false,
+        "samplePeakLeft": 1,
+        "samplePeakRight": 1,
+        "clippingCount": 0
+      }
+    },
+    "fft": {
+      "frameCount": 4458,
+      "spectrogramCount": 0,
+      "frequencyBands": {
+        "left": {
+          "subBass": {
+            "min": 20,
+            "max": 60,
+            "energy": 98611.97226812968,
+            "energyDb": 49.93929644904115
+          },
+          "bass": {
+            "min": 60,
+            "max": 250,
+            "energy": 80431.14965554862,
+            "energyDb": 49.054242764047984
+          },
+          "lowMid": {
+            "min": 250,
+            "max": 500,
+            "energy": 29745.621418351217,
+            "energyDb": 44.73423046239361
+          },
+          "mid": {
+            "min": 500,
+            "max": 2000,
+            "energy": 17546.47183761426,
+            "energyDb": 42.44189803679618
+          },
+          "highMid": {
+            "min": 2000,
+            "max": 4000,
+            "energy": 2344.2507234481604,
+            "energyDb": 33.70004058705653
+          },
+          "presence": {
+            "min": 4000,
+            "max": 8000,
+            "energy": 577.0006488063464,
+            "energyDb": 27.61176301496906
+          },
+          "brilliance": {
+            "min": 8000,
+            "max": 20000,
+            "energy": 183.0039508129714,
+            "energyDb": 22.624604656744257
+          }
+        },
+        "right": {
+          "subBass": {
+            "min": 20,
+            "max": 60,
+            "energy": 99190.7796879364,
+            "energyDb": 49.96471304041711
+          },
+          "bass": {
+            "min": 60,
+            "max": 250,
+            "energy": 82055.34660632574,
+            "energyDb": 49.141068843040834
+          },
+          "lowMid": {
+            "min": 250,
+            "max": 500,
+            "energy": 28488.022057801518,
+            "energyDb": 44.5466229693332
+          },
+          "mid": {
+            "min": 500,
+            "max": 2000,
+            "energy": 20294.92993520748,
+            "energyDb": 43.07387556328087
+          },
+          "highMid": {
+            "min": 2000,
+            "max": 4000,
+            "energy": 2368.4247108424697,
+            "energyDb": 33.74459583623669
+          },
+          "presence": {
+            "min": 4000,
+            "max": 8000,
+            "energy": 561.6928029829883,
+            "energyDb": 27.494988592601572
+          },
+          "brilliance": {
+            "min": 8000,
+            "max": 20000,
+            "energy": 178.1576190303052,
+            "energyDb": 22.508043999795646
+          }
+        }
+      }
+    },
+    "stereo": {
+      "correlation": 0.9171848911938466,
+      "width": 0.2078372891698365,
+      "balance": 0.0005617998178732279,
+      "midSide": {
+        "midRMS": 0.39823409132733817,
+        "sideRMS": 0.08276789399551687,
+        "ratio": 4.811456134777436,
+        "widthFromMS": 1
+      },
+      "classification": "NARROW_STEREO",
+      "diagnostics": {
+        "leftRMS": 0.4065157149204989,
+        "rightRMS": 0.4069727325821479,
+        "correlationValid": true,
+        "widthValid": true
+      }
+    }
+  },
+  "status": "success",
+  "processingTime": 11010,
+  "warnings": [],
+  "buildVersion": "5.4.0-equal-weight-v3",
+  "pipelineVersion": "node-js-backend",
+  "frontendCompatible": true
+}
