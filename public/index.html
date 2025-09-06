@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SoundyAI - Mentor Virtual</title>
     <link rel="stylesheet" href="style.css?v=20250810">
+    <!-- CSS do sistema de análise backend -->
     <link rel="stylesheet" href="audio-analyzer.css?v=20250810">
     <link rel="stylesheet" href="music-button-below-chat.css?v=20250810">
     <link rel="stylesheet" href="friendly-labels.css?v=20250817">
@@ -23,6 +24,9 @@
     <script type="module" src="firebase.js?v=20250810"></script>
     <script src="auth.js?v=20250810" defer></script>
     <script src="friendly-labels.js?v=20250817" defer></script>
+    
+    <!-- 🚀 HOTFIX: MODAL FUNCTIONS (CARREGAMENTO IMEDIATO) -->
+    <script src="modal-functions-hotfix.js?v=20250131"></script>
     
     <!-- 🎯 Correção da Ordem do Pipeline -->
     <script src="/pipeline-order-correction.js?v=20250828" defer></script>
@@ -387,33 +391,41 @@
     
     <!-- 🧪 DEBUG FASE 1 - Sistema runId Global -->
     
-
-    <!-- 🎯 CACHE CONTEXT-AWARE V1 - Sistema inteligente de cache -->
-    <script src="cache-context-aware-v1.js?v=20250829-ctx-aware" defer></script>
-    <!-- Opcional: o integrador possui fallback inline; permita rede setando window.REFS_ALLOW_NETWORK=true antes do load -->
-    <script src="refs/embedded-refs-new.js?v=20250829-true-peak-fix&timestamp=1756500921" defer></script>
-    <script src="suggestion-text-generator.js?v=20250815" defer></script>
-    <script src="audio-analyzer-integration.js?v=20250823k&final_fix=1724440500" defer></script>
+    <!-- 🎵 SISTEMA DE ANÁLISE BACKEND - 100% Node.js (Fases 5.1-5.5) -->
+    <!-- Remové completamente: Web Audio API, audio-analyzer.js, audio-analyzer-integration.js -->
+    <script src="audio-backend-system.js?v=20250131-backend-only" defer></script>
     
-    <!-- Inicializar Audio Analyzer -->
+    <!-- 🔍 VERIFICAÇÃO DE ENDPOINTS DO BACKEND -->
+    <script src="backend-endpoints-verification.js?v=20250131" defer></script>
+    
+    <!-- 🧪 TESTE FINAL DA MIGRAÇÃO -->
+    <script src="migration-final-test.js?v=20250131" defer></script>
+    
+    <!-- 🔧 DEBUG MODAL FUNCTIONS -->
+    <script src="debug-modal-functions.js?v=20250131" defer></script>
+    
+    <!-- Inicializar Sistema Backend -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // Force external refs loading (bypass embedded)
-            window.REFS_ALLOW_NETWORK = true;
-            window.DEBUG_ANALYZER = true;
-            window.REFS_BYPASS_CACHE = true;
+            console.log('🚀 SoundyAI Backend System - 100% Node.js Pipeline (Fases 5.1-5.5)');
+            console.log('✅ Web Audio API completamente removido');
+            console.log('🎯 Usando endpoints: /presign, /process, /jobs/:id');
             
-            console.log('🔧 INIT: Forçando carregamento de refs externas');
+            // Configurações do sistema backend
+            window.BACKEND_AUDIO_CONFIG = {
+                endpoints: {
+                    presign: '/presign',
+                    process: '/process', 
+                    jobs: '/jobs'
+                },
+                debug: true,
+                timeout: 300000, // 5 minutos
+                maxFileSize: 60 * 1024 * 1024 // 60MB
+            };
             
-            // Aguardar um pouco para garantir que todos os scripts carregaram
-            setTimeout(() => {
-                if (typeof initializeAudioAnalyzerIntegration === 'function') {
-                    initializeAudioAnalyzerIntegration();
-                    console.log('🎵 Audio Analyzer Integration inicializado');
-                } else {
-                    console.warn('⚠️ initializeAudioAnalyzerIntegration não encontrada');
-                }
-            }, 1000);
+            console.log('🎵 Sistema Backend de Análise pronto para uso!');
+        });
+    </script>
 
             // Patch para botões "+" - setup do menu popover CORRIGIDO E OTIMIZADO
             (function setupPlusPopovers() {
@@ -749,21 +761,6 @@
             }
         });
     </script>
-    
-    <!-- Debug do analyzer - caminho corrigido -->
-    <script src="../debug-analyzer.js"></script>
-    
-    <!-- Debug WAV Support - investigar problemas de formato -->
-    <script src="../debug-wav-support.js"></script>
-    
-    <!-- Debug Upload Diagnostic - investigar uploads parciais -->
-    <script src="../debug-upload-diagnostic.js"></script>
-    
-    <!-- Debug Upload Test - teste específico 32MB → 15 bytes -->
-    <script src="../debug-upload-test.js"></script>
-    
-    <!-- Debug Audio Analyzer Deep - interceptar pipeline completo -->
-    <script src="../debug-audio-analyzer-deep.js"></script>
     
     <!-- 🎯 BAND WEIGHTED SCORE V2 - Correção Inteligente de Score -->
     <script src="band-weighted-score-v2.js?v=20250131" defer></script>
