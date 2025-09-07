@@ -331,8 +331,28 @@ function handleReferenceFileSelection(type) {
                 __dbg(`🎯 Processando arquivo ${type}:`, file.name);
                 
                 // Obter URL pré-assinada e fazer upload
-                const { uploadUrl, fileKey } = await getPresignedUrl(file);
-                await uploadToBucket(uploadUrl, file);
+                // Obter URL pré-assinada e fazer upload
+let uploadUrl, fileKey;
+
+try {
+  ({ uploadUrl, fileKey } = await getPresignedUrl(file));
+  await uploadToBucket(uploadUrl, file);
+
+  // Se chegou aqui, deu certo → salva o fileKey
+  uploadedFiles[type] = fileKey;
+  console.log(`✅ Arquivo ${type} enviado para bucket:`, file.name, 'fileKey:', fileKey);
+
+  // Atualiza interface
+  updateFileStatus(type, file.name);
+
+} catch (err) {
+  console.error("❌ Erro ao obter presign/upload:", err);
+
+  // 👉 Força abrir o modal mesmo em caso de erro
+  abrirModalDeAnalise("Erro ao gerar URL de upload ou enviar arquivo.");
+  return; // não continua o fluxo
+}
+
                 
                 // Armazenar fileKey em vez do objeto File
                 uploadedFiles[type] = fileKey;
