@@ -28,7 +28,8 @@
     "formidable": "^3.5.4",
     "mercadopago": "^2.8.0",
     "multer": "^2.0.2",
-    "node-fetch": "^2.7.0"
+    "node-fetch": "^2.7.0",
+    "pg": "^8.16.3"
   },
   "main": "server.js",
   "keywords": [],
