@@ -337,7 +337,7 @@ function handleReferenceFileSelection(type) {
 
                 const idToken = await firebase.auth().currentUser.getIdToken(true);
 
-const response = await fetch("/api/upload", {
+const response = await fetch("/api/upload-audio", {
   method: "POST",
   headers: {
     Authorization: `Bearer ${idToken}`
@@ -1824,7 +1824,7 @@ formData.append("file", file);
         // 2. Upload direto para bucket
         const idToken = await firebase.auth().currentUser.getIdToken(true);
 
-const response = await fetch("/api/upload", {
+const response = await fetch("/api/upload-audio", {
   method: "POST",
   headers: {
     Authorization: `Bearer ${idToken}`
