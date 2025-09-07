@@ -217,15 +217,16 @@ async function getPresignedUrl(file) {
     try {
         // Extrair extensão do arquivo
         const ext = file.name.split('.').pop().toLowerCase();
-        const contentType = file.type || `audio/${ext}`;
-        
+        const contentType = file.type || 'application/octet-stream';
+
         __dbg('🌐 Solicitando URL pré-assinada...', { 
             filename: file.name, 
             ext, 
             contentType,
             size: `${(file.size / 1024 / 1024).toFixed(2)}MB`
         });
-        
+
+        // 🔑 Aqui você chama seu backend (que tem o s3 configurado)
         const response = await fetch(`/api/presign?ext=${encodeURIComponent(ext)}&contentType=${encodeURIComponent(contentType)}`, {
             method: 'GET',
             headers: {
@@ -233,33 +234,34 @@ async function getPresignedUrl(file) {
                 'X-Requested-With': 'XMLHttpRequest'
             }
         });
-        
+
         if (!response.ok) {
             const errorText = await response.text();
             throw new Error(`Erro ao obter URL de upload: ${response.status} - ${errorText}`);
         }
-        
+
         const data = await response.json();
-        
+
         if (!data.uploadUrl || !data.fileKey) {
             throw new Error('Resposta inválida do servidor: uploadUrl ou fileKey ausente');
         }
-        
+
         __dbg('✅ URL pré-assinada obtida:', { 
             fileKey: data.fileKey,
-            uploadUrl: data.uploadUrl.substring(0, 50) + '...' // Log parcial por segurança
+            uploadUrl: data.uploadUrl.substring(0, 50) + '...' // log parcial só por segurança
         });
-        
+
         return {
             uploadUrl: data.uploadUrl,
             fileKey: data.fileKey
         };
-        
+
     } catch (error) {
         console.error('❌ Erro ao obter URL pré-assinada:', error);
         throw new Error(`Falha ao gerar URL de upload: ${error.message}`);
     }
 }
+
 
 /**
  * Fazer upload do arquivo diretamente para o bucket via URL pré-assinada
@@ -274,29 +276,33 @@ async function uploadToBucket(uploadUrl, file) {
             size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
             url: uploadUrl.substring(0, 50) + '...'
         });
-        
+
         // Mostrar progresso na UI
         showUploadProgress(`Enviando ${file.name} para análise...`);
-        
+
         const response = await fetch(uploadUrl, {
-  method: 'PUT',
-  body: file
-  // 🚫 não colocar headers!
-});
-        
+            method: 'PUT',
+            body: file,
+            headers: {
+                "Content-Type": file.type || "application/octet-stream"
+                // 🚫 não adicione Content-Length aqui
+            }
+        });
+
         if (!response.ok) {
             const errorText = await response.text();
             throw new Error(`Erro no upload: ${response.status} - ${errorText}`);
         }
-        
+
         __dbg('✅ Upload para bucket concluído com sucesso');
         showUploadProgress(`Upload concluído! Processando ${file.name}...`);
-        
+
     } catch (error) {
         console.error('❌ Erro no upload para bucket:', error);
         throw new Error(`Falha ao enviar arquivo para análise: ${error.message}`);
     }
 }
+
 
 /**
  * Mostrar progresso de upload na UI

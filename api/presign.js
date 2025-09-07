@@ -19,12 +19,10 @@ router.get("/presign", async (req, res) => {
       Bucket: BUCKET_NAME,
       Key: fileKey,
       Expires: 600, // URL válida por 10min
+      ContentType: contentType, // 👈 garante match com o frontend
     };
 
-    const uploadUrl = await s3.getSignedUrlPromise("putObject", {
-  ...params,
-  Bucket: BUCKET_NAME,
-});
+    const uploadUrl = await s3.getSignedUrlPromise("putObject", params);
 
     // 🔑 força o header correto e responde o JSON
     res.setHeader("Content-Type", "application/json");
