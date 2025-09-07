@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>SoundyAI - Mentor Virtual</title>
     <link rel="stylesheet" href="style.css?v=20250810">
-    <!-- CSS do sistema de análise backend -->
     <link rel="stylesheet" href="audio-analyzer.css?v=20250810">
     <link rel="stylesheet" href="music-button-below-chat.css?v=20250810">
     <link rel="stylesheet" href="friendly-labels.css?v=20250817">
@@ -24,9 +23,6 @@
     <script type="module" src="firebase.js?v=20250810"></script>
     <script src="auth.js?v=20250810" defer></script>
     <script src="friendly-labels.js?v=20250817" defer></script>
-    
-    <!-- 🚀 HOTFIX: MODAL FUNCTIONS (CARREGAMENTO IMEDIATO) -->
-    <script src="modal-functions-hotfix.js?v=20250131-debug"></script>
     
     <!-- 🎯 Correção da Ordem do Pipeline -->
     <script src="/pipeline-order-correction.js?v=20250828" defer></script>
@@ -391,112 +387,34 @@
     
     <!-- 🧪 DEBUG FASE 1 - Sistema runId Global -->
     
-    <!-- 🎵 SISTEMA DE ANÁLISE BACKEND - 100% Node.js (Fases 5.1-5.5) -->
-    <!-- Remové completamente: Web Audio API, audio-analyzer.js, audio-analyzer-integration.js -->
-    <script src="audio-backend-system.js?v=20250131-backend-only-debug" defer></script>
+    <!-- 🎵 AUDIO ANALYZER - Carregar os scripts -->
+    <script src="audio-analyzer.js?v=20250825-memory-fix" defer></script>
+    <!-- 🎯 CACHE CONTEXT-AWARE V1 - Sistema inteligente de cache -->
+    <script src="cache-context-aware-v1.js?v=20250829-ctx-aware" defer></script>
+    <!-- Opcional: o integrador possui fallback inline; permita rede setando window.REFS_ALLOW_NETWORK=true antes do load -->
+    <script src="refs/embedded-refs-new.js?v=20250829-true-peak-fix&timestamp=1756500921" defer></script>
+    <script src="suggestion-text-generator.js?v=20250815" defer></script>
+    <script src="audio-analyzer-integration.js?v=20250823k&final_fix=1724440500" defer></script>
     
-    <!-- 🧪 DEBUG SCRIPT PARA TESTAR MODAL -->
-    <script>
-        // Debug quando página carregar
-        window.addEventListener('load', function() {
-            console.log('🧪 [DEBUG] Página carregada, iniciando testes...');
-            
-            setTimeout(() => {
-                // Verificar modal
-                const modal = document.getElementById('audioAnalysisModal');
-                console.log('🔍 [DEBUG] Modal existe?', !!modal);
-                
-                // Verificar botões +
-                const plusBtns = document.querySelectorAll('.chat-plus-btn, .chatbot-add-btn');
-                console.log('🔍 [DEBUG] Botões + encontrados:', plusBtns.length);
-                
-                // Verificar funções
-                console.log('🔍 [DEBUG] openAudioModal existe?', typeof window.openAudioModal);
-                
-                // Verificar se há hash de teste
-                if (window.location.hash === '#test-modal') {
-                    console.log('🧪 [DEBUG] Hash de teste detectado, forçando abertura...');
-                    if (modal) {
-                        modal.style.display = 'flex';
-                        console.log('✅ [DEBUG] Modal aberto via hash');
-                    }
-                }
-                
-                // Adicionar listener global para teste
-                window.testOpenModal = function() {
-                    console.log('🧪 [DEBUG] Função de teste chamada');
-                    if (typeof window.openAudioModal === 'function') {
-                        window.openAudioModal();
-                    } else if (modal) {
-                        modal.style.display = 'flex';
-                        console.log('✅ [DEBUG] Modal aberto via fallback');
-                    }
-                };
-                
-                console.log('✅ [DEBUG] Função window.testOpenModal() criada');
-                
-            }, 2000);
-        });
-        
-        // Listener para parâmetros de URL
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('debug') === 'true') {
-            console.log('🧪 [DEBUG] Modo debug ativado via URL');
-            
-            // Adicionar botão de teste visível
-            setTimeout(() => {
-                const debugBtn = document.createElement('button');
-                debugBtn.textContent = '🧪 TESTE MODAL';
-                debugBtn.style.cssText = `
-                    position: fixed;
-                    top: 10px;
-                    left: 10px;
-                    z-index: 10000;
-                    background: #ff4444;
-                    color: white;
-                    border: none;
-                    padding: 10px;
-                    border-radius: 5px;
-                    cursor: pointer;
-                `;
-                debugBtn.onclick = () => window.testOpenModal();
-                document.body.appendChild(debugBtn);
-                console.log('🧪 [DEBUG] Botão de teste adicionado');
-            }, 1000);
-        }
-    </script>
-    
-    <!-- 🔍 VERIFICAÇÃO DE ENDPOINTS DO BACKEND -->
-    <script src="backend-endpoints-verification.js?v=20250131" defer></script>
-    
-    <!-- 🧪 TESTE FINAL DA MIGRAÇÃO -->
-    <script src="migration-final-test.js?v=20250131" defer></script>
-    
-    <!-- 🔧 DEBUG MODAL FUNCTIONS -->
-    <script src="debug-modal-functions.js?v=20250131" defer></script>
-    
-    <!-- Inicializar Sistema Backend -->
+    <!-- Inicializar Audio Analyzer -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('🚀 SoundyAI Backend System - 100% Node.js Pipeline (Fases 5.1-5.5)');
-            console.log('✅ Web Audio API completamente removido');
-            console.log('🎯 Usando endpoints: /presign, /process, /jobs/:id');
+            // Force external refs loading (bypass embedded)
+            window.REFS_ALLOW_NETWORK = true;
+            window.DEBUG_ANALYZER = true;
+            window.REFS_BYPASS_CACHE = true;
             
-            // Configurações do sistema backend
-            window.BACKEND_AUDIO_CONFIG = {
-                endpoints: {
-                    presign: '/presign',
-                    process: '/process', 
-                    jobs: '/jobs'
-                },
-                debug: true,
-                timeout: 300000, // 5 minutos
-                maxFileSize: 60 * 1024 * 1024 // 60MB
-            };
+            console.log('🔧 INIT: Forçando carregamento de refs externas');
             
-            console.log('🎵 Sistema Backend de Análise pronto para uso!');
-        });
-    </script>
+            // Aguardar um pouco para garantir que todos os scripts carregaram
+            setTimeout(() => {
+                if (typeof initializeAudioAnalyzerIntegration === 'function') {
+                    initializeAudioAnalyzerIntegration();
+                    console.log('🎵 Audio Analyzer Integration inicializado');
+                } else {
+                    console.warn('⚠️ initializeAudioAnalyzerIntegration não encontrada');
+                }
+            }, 1000);
 
             // Patch para botões "+" - setup do menu popover CORRIGIDO E OTIMIZADO
             (function setupPlusPopovers() {
@@ -650,51 +568,8 @@
                     close();
                   }
                   if (btn.dataset.action === 'analyze') {
-                    console.log('🎵 Clique em analisar áudio detectado');
-                    console.log('🔍 window.openAudioModal existe?', typeof window.openAudioModal);
-                    
-                    // Fallback direto mais robusto
-                    const forceOpenModal = () => {
-                      const modal = document.getElementById('audioAnalysisModal');
-                      if (modal) {
-                        console.log('🔧 FALLBACK: Abrindo modal diretamente via DOM');
-                        modal.style.display = 'flex';
-                        
-                        // Reset básico do modal
-                        const uploadArea = document.getElementById('audioUploadArea');
-                        const loadingArea = document.getElementById('audioAnalysisLoading');
-                        const resultsArea = document.getElementById('audioAnalysisResults');
-                        
-                        if (uploadArea) uploadArea.style.display = 'block';
-                        if (loadingArea) loadingArea.style.display = 'none';
-                        if (resultsArea) resultsArea.style.display = 'none';
-                        
-                        console.log('✅ FALLBACK: Modal aberto com sucesso');
-                        return true;
-                      }
-                      return false;
-                    };
-                    
-                    // Tentar múltiplas abordagens
-                    if (typeof window.openAudioModal === 'function') {
-                      console.log('✅ Chamando window.openAudioModal()');
-                      window.openAudioModal();
-                    } else if (forceOpenModal()) {
-                      // Modal aberto pelo fallback
-                    } else {
-                      console.log('⚠️ Usando evento customizado como último recurso');
-                      window.dispatchEvent(new CustomEvent('chat:analyze-audio-request'));
-                      
-                      // Retry com delay
-                      setTimeout(() => {
-                        if (typeof window.openAudioModal === 'function') {
-                          console.log('🔄 Retry: Chamando window.openAudioModal()');
-                          window.openAudioModal();
-                        } else {
-                          forceOpenModal();
-                        }
-                      }, 100);
-                    }
+                    if (typeof window.openAudioModal === 'function') window.openAudioModal();
+                    else window.dispatchEvent(new CustomEvent('chat:analyze-audio-request'));
                     close();
                   }
                 });
@@ -875,6 +750,21 @@
             }
         });
     </script>
+    
+    <!-- Debug do analyzer - caminho corrigido -->
+    <script src="../debug-analyzer.js"></script>
+    
+    <!-- Debug WAV Support - investigar problemas de formato -->
+    <script src="../debug-wav-support.js"></script>
+    
+    <!-- Debug Upload Diagnostic - investigar uploads parciais -->
+    <script src="../debug-upload-diagnostic.js"></script>
+    
+    <!-- Debug Upload Test - teste específico 32MB → 15 bytes -->
+    <script src="../debug-upload-test.js"></script>
+    
+    <!-- Debug Audio Analyzer Deep - interceptar pipeline completo -->
+    <script src="../debug-audio-analyzer-deep.js"></script>
     
     <!-- 🎯 BAND WEIGHTED SCORE V2 - Correção Inteligente de Score -->
     <script src="band-weighted-score-v2.js?v=20250131" defer></script>

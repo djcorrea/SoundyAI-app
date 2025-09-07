@@ -47,7 +47,6 @@ import uploadAudioRoute from "./api/upload-audio.js";
 import uploadImageRoute from "./api/upload-image.js";
 import voiceMessageRoute from "./api/voice-message.js";
 import webhookRoute from "./api/webhook.js";
-import audioProcessingRoute from "./api/audio-processing.js";
 
 app.use("/api/cancel-subscription", cancelSubscriptionRoute);
 app.use("/api/chat-with-images", chatWithImagesRoute);
@@ -59,7 +58,6 @@ app.use("/api/upload-audio", uploadAudioRoute);
 app.use("/api/upload", uploadImageRoute);
 app.use("/api/voice", voiceMessageRoute);
 app.use("/api/webhook", webhookRoute);
-app.use("/api/audio", audioProcessingRoute);
 
 // 👉 Fallback SPA: qualquer rota não-API cai no app (index.html)
 app.get("*", (req, res, next) => {
