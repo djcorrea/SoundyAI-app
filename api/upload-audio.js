@@ -10,7 +10,7 @@ import fs from "fs";
 import formidable from "formidable";
 import s3 from "./b2.js"; // 👉 usa configuração do Backblaze S3
 
-// 🚫 importante: desabilita bodyParser do Next/Express
+// 🚫 Importante: desabilita bodyParser do Next/Express
 export const config = {
   api: {
     bodyParser: false,
@@ -26,14 +26,21 @@ const ALLOWED_FORMATS = ["audio/wav", "audio/flac", "audio/mpeg", "audio/mp3"];
 const ALLOWED_EXTENSIONS = [".wav", ".flac", ".mp3"];
 
 /**
- * Valida o tipo de arquivo
+ * Valida o tipo de arquivo (normaliza mimetype e extensão)
  */
 function validateFileType(mimetype, filename) {
-  if (ALLOWED_FORMATS.includes(mimetype)) return true;
+  if (!mimetype && !filename) return false;
+
+  // Normaliza (ex.: audio/x-wav → audio/wav)
+  const normalizedMime = mimetype?.replace("x-", "") || "";
+
+  if (ALLOWED_FORMATS.includes(normalizedMime)) return true;
+
   if (filename) {
     const ext = filename.toLowerCase().substring(filename.lastIndexOf("."));
     return ALLOWED_EXTENSIONS.includes(ext);
   }
+
   return false;
 }
 
@@ -90,7 +97,7 @@ export default async function handler(req, res) {
           Bucket: process.env.B2_BUCKET_NAME,
           Key: fileKey,
           Body: fs.createReadStream(file.filepath), // 👈 stream do arquivo
-          ContentType: file.mimetype,
+          ContentType: file.mimetype?.replace("x-", "") || "application/octet-stream",
         })
         .promise();
 
