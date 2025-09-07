@@ -316,43 +316,55 @@ function showUploadProgress(message) {
 function handleReferenceFileSelection(type) {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.wav,.flac,.mp3';
+    input.accept = '.wav,.flac,.mp3,.m4a';
     input.style.display = 'none';
-    
-    input.onchange = async function(e) {
+
+    input.onchange = async function (e) {
         const file = e.target.files[0];
         if (file) {
             try {
-                // Validar arquivo
-                if (file.size > 60 * 1024 * 1024) { // 60MB
-                    alert('❌ Arquivo muito grande. Limite: 60MB');
+                // Validar arquivo (backend aceita até 120MB, mas pode manter menor se quiser)
+                if (file.size > 120 * 1024 * 1024) {
+                    alert('❌ Arquivo muito grande. Limite: 120MB');
                     return;
                 }
-                
+
                 __dbg(`🎯 Processando arquivo ${type}:`, file.name);
                 
                 // Obter URL pré-assinada e fazer upload
                 // Obter URL pré-assinada e fazer upload
-let uploadUrl, fileKey;
+const formData = new FormData();
+formData.append("file", file);
 
-try {
-  ({ uploadUrl, fileKey } = await getPresignedUrl(file));
-  await uploadToBucket(uploadUrl, file);
+const response = await fetch("/upload", {
+    method: "POST",
+    body: formData
+});
 
-  // Se chegou aqui, deu certo → salva o fileKey
-  uploadedFiles[type] = fileKey;
-  console.log(`✅ Arquivo ${type} enviado para bucket:`, file.name, 'fileKey:', fileKey);
-
-  // Atualiza interface
-  updateFileStatus(type, file.name);
-
-} catch (err) {
-  console.error("❌ Erro ao obter presign/upload:", err);
-
-  // 👉 Força abrir o modal mesmo em caso de erro
-  abrirModalDeAnalise("Erro ao gerar URL de upload ou enviar arquivo.");
-  return; // não continua o fluxo
+if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Erro no upload via servidor: ${response.status} - ${errText}`);
 }
+
+const data = await response.json();
+
+// Salvar o fileKey (vem do job salvo no banco pelo backend)
+uploadedFiles[type] = data.job.file_key;
+
+console.log(`✅ Arquivo ${type} enviado para bucket:`, file.name, "fileKey:", data.job.file_key);
+
+// Atualizar interface
+updateFileStatus(type, file.name);
+
+// Avançar fluxo
+if (type === "original") {
+    updateProgressStep(2);
+    promptReferenceFile();
+} else if (type === "reference") {
+    updateProgressStep(3);
+    enableAnalysisButton();
+}
+
 
                 
                 // Armazenar fileKey em vez do objeto File
