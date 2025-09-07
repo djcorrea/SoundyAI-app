@@ -15,7 +15,7 @@ router.get("/presign", async (req, res) => {
     const fileKey = `uploads/${Date.now()}.${ext}`;
 
     const params = {
-      Bucket: "SoundyAI-Bucket",
+      Bucket: SoundyAI-Bucket,
       Key: fileKey,
       ContentType: contentType,
       Expires: 600, // expira em 10 minutos
