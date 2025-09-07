@@ -6,7 +6,7 @@
  * Implementação: Setembro 2025
  */
 
-import s3 from "../b2.js"; // 🔑 Importa cliente configurado do Backblaze
+import s3 from "./b2.js"; // 🔑 Importa cliente configurado do Backblaze
 const BUCKET_NAME = process.env.B2_BUCKET_NAME;
 
 // Configuração via variável de ambiente (padrão: 60MB)
