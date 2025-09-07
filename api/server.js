@@ -67,6 +67,55 @@ app.get("/health", (req, res) => {
   res.send("API está rodando 🚀");
 });
 
+// ---------- Rota para gerar URL pré-assinada ----------
+app.get("/presign", async (req, res) => {
+  try {
+    const { ext, contentType } = req.query;
+
+    // Validação dos parâmetros obrigatórios
+    if (!ext || !contentType) {
+      return res.status(400).json({ 
+        error: "Parâmetros 'ext' e 'contentType' são obrigatórios" 
+      });
+    }
+
+    // Validação da extensão
+    const allowedExtensions = ['mp3', 'wav', 'flac', 'm4a'];
+    if (!allowedExtensions.includes(ext.toLowerCase())) {
+      return res.status(400).json({ 
+        error: `Extensão '${ext}' não permitida. Use: ${allowedExtensions.join(', ')}` 
+      });
+    }
+
+    // Gerar fileKey único
+    const timestamp = Date.now();
+    const randomId = Math.random().toString(36).substring(2, 8);
+    const fileKey = `uploads/audio_${timestamp}_${randomId}.${ext}`;
+
+    // Parâmetros para URL pré-assinada
+    const params = {
+      Bucket: BUCKET_NAME,
+      Key: fileKey,
+      ContentType: contentType,
+      Expires: 600, // 10 minutos
+    };
+
+    // Gerar URL pré-assinada
+    const uploadUrl = await s3.getSignedUrlPromise('putObject', params);
+
+    console.log(`✅ URL pré-assinada gerada: ${fileKey}`);
+
+    res.json({
+      uploadUrl,
+      fileKey
+    });
+
+  } catch (err) {
+    console.error("❌ Erro ao gerar URL pré-assinada:", err.message);
+    res.status(500).json({ error: "Erro interno do servidor" });
+  }
+});
+
 app.get("/test", async (req, res) => {
   try {
     const result = await pool.query(

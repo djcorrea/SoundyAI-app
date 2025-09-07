@@ -48,6 +48,9 @@ import uploadImageRoute from "./api/upload-image.js";
 import voiceMessageRoute from "./api/voice-message.js";
 import webhookRoute from "./api/webhook.js";
 
+// 🔑 NOVO: rota presign
+import presignRoute from "./api/presign.js";
+
 app.use("/api/cancel-subscription", cancelSubscriptionRoute);
 app.use("/api/chat-with-images", chatWithImagesRoute);
 app.use("/api/chat", chatRoute);
@@ -58,6 +61,7 @@ app.use("/api/upload-audio", uploadAudioRoute);
 app.use("/api/upload", uploadImageRoute);
 app.use("/api/voice", voiceMessageRoute);
 app.use("/api/webhook", webhookRoute);
+app.use("/api", presignRoute); // ✅ agora a rota está registrada
 
 // 👉 Fallback SPA: qualquer rota não-API cai no app (index.html)
 app.get("*", (req, res, next) => {

@@ -200,11 +200,117 @@ function updateProgressStep(step) {
     });
 }
 
-// 🎯 Seleção de Arquivos para Modo Referência
+// 🎯 Seleção de Arquivos para Modo Referência (agora armazena fileKey em vez de File object)
 let uploadedFiles = {
     original: null,
     reference: null
 };
+
+// 🌐 NOVA IMPLEMENTAÇÃO: Funções para URL pré-assinada e upload remoto
+
+/**
+ * Obter URL pré-assinada do backend para upload direto ao bucket
+ * @param {File} file - Arquivo para upload
+ * @returns {Promise<{uploadUrl: string, fileKey: string}>}
+ */
+async function getPresignedUrl(file) {
+    try {
+        // Extrair extensão do arquivo
+        const ext = file.name.split('.').pop().toLowerCase();
+        const contentType = file.type || `audio/${ext}`;
+        
+        __dbg('🌐 Solicitando URL pré-assinada...', { 
+            filename: file.name, 
+            ext, 
+            contentType,
+            size: `${(file.size / 1024 / 1024).toFixed(2)}MB`
+        });
+        
+        const response = await fetch(`/presign?ext=${encodeURIComponent(ext)}&contentType=${encodeURIComponent(contentType)}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Erro ao obter URL de upload: ${response.status} - ${errorText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (!data.uploadUrl || !data.fileKey) {
+            throw new Error('Resposta inválida do servidor: uploadUrl ou fileKey ausente');
+        }
+        
+        __dbg('✅ URL pré-assinada obtida:', { 
+            fileKey: data.fileKey,
+            uploadUrl: data.uploadUrl.substring(0, 50) + '...' // Log parcial por segurança
+        });
+        
+        return {
+            uploadUrl: data.uploadUrl,
+            fileKey: data.fileKey
+        };
+        
+    } catch (error) {
+        console.error('❌ Erro ao obter URL pré-assinada:', error);
+        throw new Error(`Falha ao gerar URL de upload: ${error.message}`);
+    }
+}
+
+/**
+ * Fazer upload do arquivo diretamente para o bucket via URL pré-assinada
+ * @param {string} uploadUrl - URL pré-assinada para upload
+ * @param {File} file - Arquivo para upload
+ * @returns {Promise<void>}
+ */
+async function uploadToBucket(uploadUrl, file) {
+    try {
+        __dbg('📤 Iniciando upload para bucket...', { 
+            filename: file.name,
+            size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+            url: uploadUrl.substring(0, 50) + '...'
+        });
+        
+        // Mostrar progresso na UI
+        showUploadProgress(`Enviando ${file.name} para análise...`);
+        
+        const response = await fetch(uploadUrl, {
+            method: 'PUT',
+            body: file,
+            headers: {
+                'Content-Type': file.type || 'application/octet-stream',
+                'Content-Length': file.size.toString()
+            }
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Erro no upload: ${response.status} - ${errorText}`);
+        }
+        
+        __dbg('✅ Upload para bucket concluído com sucesso');
+        showUploadProgress(`Upload concluído! Processando ${file.name}...`);
+        
+    } catch (error) {
+        console.error('❌ Erro no upload para bucket:', error);
+        throw new Error(`Falha ao enviar arquivo para análise: ${error.message}`);
+    }
+}
+
+/**
+ * Mostrar progresso de upload na UI
+ * @param {string} message - Mensagem de progresso
+ */
+function showUploadProgress(message) {
+    const progressText = document.getElementById('audioProgressText');
+    if (progressText) {
+        progressText.innerHTML = `🌐 ${message}`;
+    }
+}
 
 function handleReferenceFileSelection(type) {
     const input = document.createElement('input');
@@ -212,28 +318,41 @@ function handleReferenceFileSelection(type) {
     input.accept = '.wav,.flac,.mp3';
     input.style.display = 'none';
     
-    input.onchange = function(e) {
+    input.onchange = async function(e) {
         const file = e.target.files[0];
         if (file) {
-            // Validar arquivo
-            if (file.size > 60 * 1024 * 1024) { // 60MB
-                alert('❌ Arquivo muito grande. Limite: 60MB');
-                return;
-            }
-            
-            uploadedFiles[type] = file;
-            console.log(`✅ Arquivo ${type} selecionado:`, file.name);
-            
-            // Atualizar interface
-            updateFileStatus(type, file.name);
-            
-            // Avançar para próximo passo
-            if (type === 'original') {
-                updateProgressStep(2);
-                promptReferenceFile();
-            } else if (type === 'reference') {
-                updateProgressStep(3);
-                enableAnalysisButton();
+            try {
+                // Validar arquivo
+                if (file.size > 60 * 1024 * 1024) { // 60MB
+                    alert('❌ Arquivo muito grande. Limite: 60MB');
+                    return;
+                }
+                
+                __dbg(`🎯 Processando arquivo ${type}:`, file.name);
+                
+                // Obter URL pré-assinada e fazer upload
+                const { uploadUrl, fileKey } = await getPresignedUrl(file);
+                await uploadToBucket(uploadUrl, file);
+                
+                // Armazenar fileKey em vez do objeto File
+                uploadedFiles[type] = fileKey;
+                console.log(`✅ Arquivo ${type} enviado para bucket:`, file.name, 'fileKey:', fileKey);
+                
+                // Atualizar interface
+                updateFileStatus(type, file.name);
+                
+                // Avançar para próximo passo
+                if (type === 'original') {
+                    updateProgressStep(2);
+                    promptReferenceFile();
+                } else if (type === 'reference') {
+                    updateProgressStep(3);
+                    enableAnalysisButton();
+                }
+                
+            } catch (error) {
+                console.error(`❌ Erro no upload do arquivo ${type}:`, error);
+                alert(`❌ Erro ao processar arquivo: ${error.message}`);
             }
         }
     };
@@ -1664,16 +1783,30 @@ async function handleModalFileSelection(file) {
             window.__MODAL_ANALYSIS_IN_PROGRESS__ = true;
         }
         
-        // Validação comum de arquivo
+        // Validação comum de arquivo (não modificada)
         if (!validateAudioFile(file)) {
             return; // validateAudioFile já mostra erro
         }
         
-        // Processar baseado no modo de análise
+        // 🌐 NOVA IMPLEMENTAÇÃO: Upload via URL pré-assinada
+        __dbg('🌐 Iniciando fluxo de upload remoto...');
+        
+        // Mostrar loading
+        hideUploadArea();
+        showAnalysisLoading();
+        showUploadProgress(`Preparando upload de ${file.name}...`);
+        
+        // 1. Obter URL pré-assinada
+        const { uploadUrl, fileKey } = await getPresignedUrl(file);
+        
+        // 2. Upload direto para bucket
+        await uploadToBucket(uploadUrl, file);
+        
+        // 3. Processar baseado no modo de análise com fileKey
         if (currentAnalysisMode === 'reference') {
-            await handleReferenceFileSelection(file);
+            await handleReferenceAnalysisWithKey(fileKey, file.name);
         } else {
-            await handleGenreFileSelection(file);
+            await handleGenreAnalysisWithKey(fileKey, file.name);
         }
         
     } catch (error) {
@@ -1691,10 +1824,23 @@ async function handleModalFileSelection(file) {
             setTimeout(() => {
                 currentAnalysisMode = 'genre';
                 configureModalForMode('genre');
-                handleGenreFileSelection(file);
+                // Tentar novamente em modo gênero se já temos fileKey
+                if (error.fileKey) {
+                    handleGenreAnalysisWithKey(error.fileKey, file?.name || 'arquivo');
+                } else {
+                    handleModalFileSelection(file);
+                }
             }, 2000);
         } else {
-            showModalError(`Erro ao analisar arquivo: ${error.message}`);
+            // Determinar tipo de erro para mensagem mais específica
+            let errorMessage = error.message;
+            if (error.message.includes('Falha ao gerar URL de upload')) {
+                errorMessage = 'Falha ao gerar URL de upload. Verifique sua conexão e tente novamente.';
+            } else if (error.message.includes('Falha ao enviar arquivo para análise')) {
+                errorMessage = 'Falha ao enviar arquivo para análise. Verifique sua conexão e tente novamente.';
+            }
+            
+            showModalError(`Erro ao processar arquivo: ${errorMessage}`);
         }
     } finally {
         // 🎵 WAV CLEANUP: Limpar otimizações WAV em caso de erro
@@ -1714,7 +1860,170 @@ async function handleModalFileSelection(file) {
     }
 }
 
-// 🎯 NOVO: Validação comum de arquivo
+// � NOVAS FUNÇÕES: Análise baseada em fileKey (pós-upload remoto)
+
+/**
+ * Processar análise por referência usando fileKey
+ * @param {string} fileKey - Chave do arquivo no bucket
+ * @param {string} fileName - Nome original do arquivo
+ */
+async function handleReferenceAnalysisWithKey(fileKey, fileName) {
+    __dbg('🎯 Iniciando análise por referência com fileKey:', fileKey);
+    
+    window.logReferenceEvent('reference_analysis_with_key_started', { 
+        fileKey,
+        fileName 
+    });
+    
+    try {
+        // Mostrar progresso específico para análise remota
+        updateModalProgress(60, '🔗 Processando arquivo no servidor...');
+        
+        // Preparar dados para análise comparativa remota
+        const analysisData = {
+            mode: 'reference',
+            fileKey: fileKey,
+            fileName: fileName,
+            debugModeReference: true
+        };
+        
+        updateModalProgress(70, '🎯 Realizando análise comparativa...');
+        
+        // Chamar endpoint de análise remota
+        const response = await fetch('/api/audio/analyze', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(analysisData)
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Erro na análise remota: ${response.status} - ${errorText}`);
+        }
+        
+        const analysisResult = await response.json();
+        
+        updateModalProgress(90, '✨ Finalizando análise...');
+        
+        // Processar resultado da análise
+        await displayAnalysisResults(analysisResult, 'reference');
+        
+        window.logReferenceEvent('reference_analysis_completed', { 
+            fileKey,
+            fileName,
+            hasResults: !!analysisResult 
+        });
+        
+    } catch (error) {
+        console.error('❌ Erro na análise por referência:', error);
+        window.logReferenceEvent('reference_analysis_error', { 
+            fileKey,
+            fileName,
+            error: error.message 
+        });
+        throw error;
+    }
+}
+
+/**
+ * Processar análise por gênero usando fileKey
+ * @param {string} fileKey - Chave do arquivo no bucket
+ * @param {string} fileName - Nome original do arquivo
+ */
+async function handleGenreAnalysisWithKey(fileKey, fileName) {
+    __dbg('🎵 Iniciando análise por gênero com fileKey:', fileKey);
+    
+    try {
+        // Mostrar progresso específico para análise remota
+        updateModalProgress(60, '🔗 Processando arquivo no servidor...');
+        
+        // Obter gênero selecionado
+        const genre = (typeof window !== 'undefined') ? window.PROD_AI_REF_GENRE : null;
+        
+        // Preparar dados para análise por gênero remota
+        const analysisData = {
+            mode: 'genre',
+            fileKey: fileKey,
+            fileName: fileName,
+            genre: genre,
+            debugModeReference: true
+        };
+        
+        updateModalProgress(70, `🎵 Analisando com referências de ${genre || 'gênero selecionado'}...`);
+        
+        // Chamar endpoint de análise remota
+        const response = await fetch('/api/audio/analyze', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify(analysisData)
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Erro na análise remota: ${response.status} - ${errorText}`);
+        }
+        
+        const analysisResult = await response.json();
+        
+        updateModalProgress(90, '✨ Finalizando análise...');
+        
+        // Processar resultado da análise
+        await displayAnalysisResults(analysisResult, 'genre');
+        
+        __dbg('✅ Análise por gênero concluída:', analysisResult);
+        
+    } catch (error) {
+        console.error('❌ Erro na análise por gênero:', error);
+        throw error;
+    }
+}
+
+/**
+ * Exibir resultados da análise na UI
+ * @param {Object} analysisResult - Resultado da análise do backend
+ * @param {string} mode - Modo de análise ('reference' ou 'genre')
+ */
+async function displayAnalysisResults(analysisResult, mode) {
+    try {
+        // Garantir que temos os dados necessários
+        if (!analysisResult || !analysisResult.technicalData) {
+            throw new Error('Resultado de análise inválido');
+        }
+        
+        updateModalProgress(95, '🎨 Preparando resultados...');
+        
+        // Ocultar loading e mostrar resultados
+        hideAnalysisLoading();
+        showAnalysisResults();
+        
+        // Usar a função de renderização existente do modal
+        displayModalResults(analysisResult);
+        
+        // Armazenar resultado globalmente para uso posterior (chat, etc.)
+        if (typeof window !== 'undefined') {
+            window.__LAST_ANALYSIS_RESULT__ = analysisResult;
+        }
+        
+        // Atualizar análise atual do modal para integração com chat
+        currentModalAnalysis = analysisResult;
+        
+        updateModalProgress(100, '✅ Análise concluída!');
+        
+        __dbg('✅ Resultados exibidos na UI');
+        
+    } catch (error) {
+        console.error('❌ Erro ao exibir resultados:', error);
+        throw error;
+    }
+}
+
+// �🎯 NOVO: Validação comum de arquivo
 function validateAudioFile(file) {
     const MAX_UPLOAD_MB = 60;
     const MAX_UPLOAD_SIZE = MAX_UPLOAD_MB * 1024 * 1024;
@@ -4643,3 +4952,73 @@ window.displayReferenceResults = function(referenceResults) {
         }
     }
 };
+
+// =============== FUNÇÕES UTILITÁRIAS DO MODAL ===============
+
+// 📁 Ocultar área de upload do modal
+function hideUploadArea() {
+    __dbg('📁 Ocultando área de upload...');
+    const uploadArea = document.getElementById('audioUploadArea');
+    if (uploadArea) {
+        uploadArea.style.display = 'none';
+        __dbg('✅ Upload area ocultada');
+    } else {
+        __dbg('❌ Elemento audioUploadArea não encontrado!');
+    }
+}
+
+// 🔄 Mostrar loading de análise
+function showAnalysisLoading() {
+    __dbg('🔄 Exibindo loading de análise...');
+    const loading = document.getElementById('audioAnalysisLoading');
+    const results = document.getElementById('audioAnalysisResults');
+    
+    if (results) {
+        results.style.display = 'none';
+        __dbg('✅ Results area ocultada');
+    }
+    
+    if (loading) {
+        loading.style.display = 'block';
+        __dbg('✅ Loading area exibida');
+    } else {
+        __dbg('❌ Elemento audioAnalysisLoading não encontrado!');
+    }
+}
+
+// ⏹️ Ocultar loading de análise
+function hideAnalysisLoading() {
+    __dbg('⏹️ Ocultando loading de análise...');
+    const loading = document.getElementById('audioAnalysisLoading');
+    if (loading) {
+        loading.style.display = 'none';
+        __dbg('✅ Loading area ocultada');
+    } else {
+        __dbg('❌ Elemento audioAnalysisLoading não encontrado!');
+    }
+}
+
+// 📊 Mostrar resultados da análise
+function showAnalysisResults() {
+    __dbg('📊 Exibindo resultados da análise...');
+    const uploadArea = document.getElementById('audioUploadArea');
+    const loading = document.getElementById('audioAnalysisLoading');
+    const results = document.getElementById('audioAnalysisResults');
+    
+    if (uploadArea) {
+        uploadArea.style.display = 'none';
+        __dbg('✅ Upload area ocultada');
+    }
+    
+    if (loading) {
+        loading.style.display = 'none';
+        __dbg('✅ Loading area ocultada');
+    }
+    
+    if (results) {
+        results.style.display = 'block';
+        __dbg('✅ Results area exibida');
+    } else {
+        __dbg('❌ Elemento audioAnalysisResults não encontrado!');
+    }
+}

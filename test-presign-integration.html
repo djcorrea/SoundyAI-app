@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Integração Presign - SoundyAI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .test-section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #00ff92;
+        }
+        .upload-area {
+            border: 2px dashed #00ff92;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover {
+            background: rgba(0, 255, 146, 0.1);
+        }
+        .progress {
+            background: #333;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-fill {
+            height: 20px;
+            background: linear-gradient(90deg, #00ff92, #00ccff);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        .log {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+        .btn {
+            background: #00ff92;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #00ccff;
+        }
+        .status-box {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status-success { background: rgba(0, 255, 146, 0.2); }
+        .status-error { background: rgba(255, 0, 0, 0.2); }
+        .status-info { background: rgba(0, 204, 255, 0.2); }
+    </style>
+</head>
+<body>
+    <h1>🌐 Teste de Integração: URL Pré-assinada</h1>
+    <p>Teste do novo fluxo de upload com presigned URL do SoundyAI.</p>
+
+    <div class="test-section">
+        <h3>📁 Upload de Arquivo</h3>
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <p>📁 Clique aqui ou arraste um arquivo de áudio</p>
+            <small>Formatos: WAV, FLAC, MP3 (máx. 60MB)</small>
+        </div>
+        <input type="file" id="fileInput" accept="audio/*" style="display: none;">
+        
+        <div class="progress">
+            <div class="progress-fill" id="progressFill"></div>
+        </div>
+        <div id="progressText">Aguardando arquivo...</div>
+    </div>
+
+    <div class="test-section">
+        <h3>🔧 Teste das Funções</h3>
+        <button class="btn" onclick="testPresignFunction()">🌐 Testar getPresignedUrl()</button>
+        <button class="btn" onclick="testUploadFunction()">📤 Testar uploadToBucket()</button>
+        <button class="btn" onclick="testFullFlow()">🚀 Testar Fluxo Completo</button>
+        <button class="btn" onclick="clearLog()">🧹 Limpar Log</button>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 Log de Teste</h3>
+        <div class="log" id="testLog">Aguardando testes...</div>
+    </div>
+
+    <div class="test-section">
+        <h3>📋 Status do Sistema</h3>
+        <div id="systemStatus">
+            <div class="status-box status-info" id="endpointStatus">
+                🔗 Endpoint /presign: Não testado
+            </div>
+            <div class="status-box status-info" id="uploadStatus">
+                📤 Upload para bucket: Não testado
+            </div>
+            <div class="status-box status-info" id="integrationStatus">
+                🔗 Integração completa: Não testada
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+        
+        // Mock das funções utilitárias implementadas no sistema principal
+        function log(message, type = 'info') {
+            const logElement = document.getElementById('testLog');
+            const timestamp = new Date().toLocaleTimeString();
+            const icon = type === 'error' ? '❌' : type === 'success' ? '✅' : '📝';
+            logElement.innerHTML += `<div>[${timestamp}] ${icon} ${message}</div>`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+        
+        function updateProgress(percent, message) {
+            const fill = document.getElementById('progressFill');
+            const text = document.getElementById('progressText');
+            fill.style.width = percent + '%';
+            text.textContent = message;
+        }
+        
+        function updateStatus(element, message, type) {
+            const statusElement = document.getElementById(element);
+            statusElement.className = `status-box status-${type}`;
+            statusElement.textContent = message;
+        }
+        
+        // Implementação das funções principais (copiadas do sistema)
+        async function getPresignedUrl(file) {
+            try {
+                const ext = file.name.split('.').pop().toLowerCase();
+                const contentType = file.type || `audio/${ext}`;
+                
+                log(`🌐 Solicitando URL pré-assinada para ${file.name}...`);
+                updateProgress(25, 'Solicitando URL pré-assinada...');
+                
+                const response = await fetch(`/presign?ext=${encodeURIComponent(ext)}&contentType=${encodeURIComponent(contentType)}`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Erro ao obter URL de upload: ${response.status} - ${errorText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data.uploadUrl || !data.fileKey) {
+                    throw new Error('Resposta inválida do servidor: uploadUrl ou fileKey ausente');
+                }
+                
+                log(`✅ URL pré-assinada obtida: fileKey=${data.fileKey}`, 'success');
+                updateStatus('endpointStatus', '🔗 Endpoint /presign: ✅ Funcionando', 'success');
+                
+                return {
+                    uploadUrl: data.uploadUrl,
+                    fileKey: data.fileKey
+                };
+                
+            } catch (error) {
+                log(`❌ Erro ao obter URL pré-assinada: ${error.message}`, 'error');
+                updateStatus('endpointStatus', '🔗 Endpoint /presign: ❌ Erro', 'error');
+                throw new Error(`Falha ao gerar URL de upload: ${error.message}`);
+            }
+        }
+        
+        async function uploadToBucket(uploadUrl, file) {
+            try {
+                log(`📤 Iniciando upload para bucket: ${file.name} (${(file.size/1024/1024).toFixed(2)}MB)`);
+                updateProgress(50, 'Enviando arquivo para bucket...');
+                
+                const response = await fetch(uploadUrl, {
+                    method: 'PUT',
+                    body: file,
+                    headers: {
+                        'Content-Type': file.type || 'application/octet-stream',
+                        'Content-Length': file.size.toString()
+                    }
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Erro no upload: ${response.status} - ${errorText}`);
+                }
+                
+                log(`✅ Upload para bucket concluído com sucesso`, 'success');
+                updateStatus('uploadStatus', '📤 Upload para bucket: ✅ Funcionando', 'success');
+                updateProgress(100, 'Upload concluído!');
+                
+            } catch (error) {
+                log(`❌ Erro no upload para bucket: ${error.message}`, 'error');
+                updateStatus('uploadStatus', '📤 Upload para bucket: ❌ Erro', 'error');
+                throw new Error(`Falha ao enviar arquivo para análise: ${error.message}`);
+            }
+        }
+        
+        // Eventos
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                selectedFile = file;
+                log(`📁 Arquivo selecionado: ${file.name} (${(file.size/1024/1024).toFixed(2)}MB)`);
+                updateProgress(0, `Arquivo selecionado: ${file.name}`);
+            }
+        });
+        
+        // Drag & Drop
+        const uploadArea = document.querySelector('.upload-area');
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.background = 'rgba(0, 255, 146, 0.2)';
+        });
+        
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadArea.style.background = '';
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.background = '';
+            const file = e.dataTransfer.files[0];
+            if (file) {
+                selectedFile = file;
+                log(`📁 Arquivo arrastado: ${file.name} (${(file.size/1024/1024).toFixed(2)}MB)`);
+                updateProgress(0, `Arquivo selecionado: ${file.name}`);
+            }
+        });
+        
+        // Funções de teste
+        async function testPresignFunction() {
+            if (!selectedFile) {
+                alert('Selecione um arquivo primeiro!');
+                return;
+            }
+            
+            try {
+                const result = await getPresignedUrl(selectedFile);
+                log(`🎯 Teste getPresignedUrl() concluído: ${JSON.stringify(result, null, 2)}`, 'success');
+            } catch (error) {
+                log(`❌ Teste getPresignedUrl() falhou: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testUploadFunction() {
+            if (!selectedFile) {
+                alert('Selecione um arquivo primeiro!');
+                return;
+            }
+            
+            try {
+                // Primeiro obter URL
+                const { uploadUrl } = await getPresignedUrl(selectedFile);
+                // Depois fazer upload
+                await uploadToBucket(uploadUrl, selectedFile);
+                log(`🎯 Teste uploadToBucket() concluído com sucesso`, 'success');
+            } catch (error) {
+                log(`❌ Teste uploadToBucket() falhou: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testFullFlow() {
+            if (!selectedFile) {
+                alert('Selecione um arquivo primeiro!');
+                return;
+            }
+            
+            try {
+                log(`🚀 Iniciando teste do fluxo completo...`);
+                
+                // Passo 1: Obter URL pré-assinada
+                const { uploadUrl, fileKey } = await getPresignedUrl(selectedFile);
+                
+                // Passo 2: Upload para bucket
+                await uploadToBucket(uploadUrl, selectedFile);
+                
+                // Passo 3: Simular chamada de análise
+                updateProgress(75, 'Simulando análise...');
+                const analysisData = {
+                    mode: 'genre',
+                    fileKey: fileKey,
+                    fileName: selectedFile.name,
+                    debugModeReference: true
+                };
+                
+                log(`📊 Dados de análise preparados: ${JSON.stringify(analysisData, null, 2)}`);
+                
+                updateProgress(100, 'Fluxo completo testado!');
+                updateStatus('integrationStatus', '🔗 Integração completa: ✅ Funcionando', 'success');
+                log(`✅ Fluxo completo testado com sucesso!`, 'success');
+                
+            } catch (error) {
+                log(`❌ Teste do fluxo completo falhou: ${error.message}`, 'error');
+                updateStatus('integrationStatus', '🔗 Integração completa: ❌ Erro', 'error');
+            }
+        }
+        
+        function clearLog() {
+            document.getElementById('testLog').innerHTML = 'Log limpo...';
+            updateProgress(0, 'Aguardando arquivo...');
+        }
+        
+        // Inicialização
+        log('🔧 Sistema de teste carregado e pronto');
+        log('📝 Selecione um arquivo de áudio para começar os testes');
+    </script>
+</body>
+</html>
