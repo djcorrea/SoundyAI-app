@@ -279,12 +279,10 @@ async function uploadToBucket(uploadUrl, file) {
         showUploadProgress(`Enviando ${file.name} para análise...`);
         
         const response = await fetch(uploadUrl, {
-            method: 'PUT',
-            body: file,
-            headers: {
-                'Content-Type': file.type || 'application/octet-stream',
-            }
-        });
+  method: 'PUT',
+  body: file
+  // 🚫 não colocar headers!
+});
         
         if (!response.ok) {
             const errorText = await response.text();
