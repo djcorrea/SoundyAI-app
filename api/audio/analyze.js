@@ -90,9 +90,10 @@ async function createJobInDatabase(fileKey, mode, fileName) {
     }
     
     const result = await dbPool.query(
-      "INSERT INTO jobs (id, file_key, mode, status, file_name, created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
-      [jobId, fileKey, mode, 'queued', fileName, now]
-    );
+  `INSERT INTO jobs (id, file_key, mode, status, created_at, updated_at)
+   VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *`,
+  [jobId, fileKey, mode, 'queued']
+);
     
     console.log(`[ANALYZE] Job criado com sucesso no PostgreSQL:`, result.rows[0]);
     
