@@ -335,7 +335,7 @@ function handleReferenceFileSelection(type) {
                 const formData = new FormData();
                 formData.append("file", file);
 
-                const response = await fetch("/upload", {
+                const response = await fetch("/api/upload", {
                     method: "POST",
                     body: formData
                 });
@@ -1817,7 +1817,7 @@ async function handleModalFileSelection(file) {
 formData.append("file", file);
         
         // 2. Upload direto para bucket
-        const response = await fetch("/upload", {
+        const response = await fetch("/api/upload", {
   method: "POST",
   body: formData
 });
