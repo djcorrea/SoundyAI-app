@@ -156,7 +156,7 @@
                 log(`🌐 Solicitando URL pré-assinada para ${file.name}...`);
                 updateProgress(25, 'Solicitando URL pré-assinada...');
                 
-                const response = await fetch(`/presign?ext=${encodeURIComponent(ext)}&contentType=${encodeURIComponent(contentType)}`, {
+                fetch(`/api/presign?ext=${ext}&contentType=${contentType}`)
                     method: 'GET',
                     headers: {
                         'Accept': 'application/json',
