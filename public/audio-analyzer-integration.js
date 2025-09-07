@@ -335,10 +335,15 @@ function handleReferenceFileSelection(type) {
                 const formData = new FormData();
                 formData.append("file", file);
 
-                const response = await fetch("/api/upload", {
-                    method: "POST",
-                    body: formData
-                });
+                const idToken = await firebase.auth().currentUser.getIdToken(true);
+
+const response = await fetch("/api/upload", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${idToken}`
+  },
+  body: formData
+});
 
                 if (!response.ok) {
                     const errText = await response.text();
@@ -1817,8 +1822,13 @@ async function handleModalFileSelection(file) {
 formData.append("file", file);
         
         // 2. Upload direto para bucket
-        const response = await fetch("/api/upload", {
+        const idToken = await firebase.auth().currentUser.getIdToken(true);
+
+const response = await fetch("/api/upload", {
   method: "POST",
+  headers: {
+    Authorization: `Bearer ${idToken}`
+  },
   body: formData
 });
 
