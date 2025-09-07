@@ -6,7 +6,7 @@
  * Implementação corrigida: setembro 2025
  */
 
-import s3 from "../b2.js"; // 👉 importa o S3 já configurado no b2.js
+import s3 from "./b2.js"; // 👉 importa o S3 já configurado no b2.js
 
 // Configuração via variável de ambiente (padrão: 60MB)
 const MAX_UPLOAD_MB = parseInt(process.env.MAX_UPLOAD_MB || "60");
