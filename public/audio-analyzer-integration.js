@@ -323,77 +323,62 @@ function handleReferenceFileSelection(type) {
         const file = e.target.files[0];
         if (file) {
             try {
-                // Validar arquivo (backend aceita até 120MB, mas pode manter menor se quiser)
+                // Validar arquivo (backend aceita até 120MB)
                 if (file.size > 120 * 1024 * 1024) {
                     alert('❌ Arquivo muito grande. Limite: 120MB');
                     return;
                 }
 
                 __dbg(`🎯 Processando arquivo ${type}:`, file.name);
-                
-                // Obter URL pré-assinada e fazer upload
-                // Obter URL pré-assinada e fazer upload
-const formData = new FormData();
-formData.append("file", file);
 
-const response = await fetch("/upload", {
-    method: "POST",
-    body: formData
-});
+                // 👉 Envia o arquivo direto para a rota /upload
+                const formData = new FormData();
+                formData.append("file", file);
 
-if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Erro no upload via servidor: ${response.status} - ${errText}`);
-}
+                const response = await fetch("/upload", {
+                    method: "POST",
+                    body: formData
+                });
 
-const data = await response.json();
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(`Erro no upload via servidor: ${response.status} - ${errText}`);
+                }
 
-// Salvar o fileKey (vem do job salvo no banco pelo backend)
-uploadedFiles[type] = data.job.file_key;
+                const data = await response.json();
 
-console.log(`✅ Arquivo ${type} enviado para bucket:`, file.name, "fileKey:", data.job.file_key);
+                // Salvar o fileKey (vem do job salvo no banco pelo backend)
+                uploadedFiles[type] = data.job.file_key;
 
-// Atualizar interface
-updateFileStatus(type, file.name);
+                console.log(`✅ Arquivo ${type} enviado para bucket:`, file.name, "fileKey:", data.job.file_key);
 
-// Avançar fluxo
-if (type === "original") {
-    updateProgressStep(2);
-    promptReferenceFile();
-} else if (type === "reference") {
-    updateProgressStep(3);
-    enableAnalysisButton();
-}
-
-
-                
-                // Armazenar fileKey em vez do objeto File
-                uploadedFiles[type] = fileKey;
-                console.log(`✅ Arquivo ${type} enviado para bucket:`, file.name, 'fileKey:', fileKey);
-                
                 // Atualizar interface
                 updateFileStatus(type, file.name);
-                
-                // Avançar para próximo passo
-                if (type === 'original') {
+
+                // Avançar fluxo
+                if (type === "original") {
                     updateProgressStep(2);
                     promptReferenceFile();
-                } else if (type === 'reference') {
+                } else if (type === "reference") {
                     updateProgressStep(3);
                     enableAnalysisButton();
                 }
-                
+
             } catch (error) {
                 console.error(`❌ Erro no upload do arquivo ${type}:`, error);
                 alert(`❌ Erro ao processar arquivo: ${error.message}`);
+
+                // 👉 Garante que abre o modal mesmo em erro
+                abrirModalDeAnalise("Erro ao enviar arquivo para análise.");
             }
         }
     };
-    
+
     document.body.appendChild(input);
     input.click();
     document.body.removeChild(input);
 }
+
 
 function updateFileStatus(type, filename) {
     const statusContainer = document.getElementById('fileUploadStatus');
