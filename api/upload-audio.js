@@ -1,113 +1,60 @@
 /**
- * Upload API para arquivos de áudio
- * Suporta WAV, FLAC, MP3 até 60MB
- * Configurado para runtime Node.js
- *
- * Implementação final: setembro 2025
+ * Upload API para arquivos de áudio → Backblaze S3
  */
-
-import fs from "fs";
 import formidable from "formidable";
-import s3 from "./b2.js"; // 👉 cliente S3 configurado no b2.js
+import fs from "fs";
+import s3 from "./b2.js";
 
-// Configuração via variável de ambiente (padrão: 60MB)
-const MAX_UPLOAD_MB = parseInt(process.env.MAX_UPLOAD_MB || "60");
-
-// Formatos aceitos
-const ALLOWED_FORMATS = ["audio/wav", "audio/flac", "audio/mpeg", "audio/mp3"];
-const ALLOWED_EXTENSIONS = [".wav", ".flac", ".mp3"];
-
-// Desabilitar bodyParser padrão (obrigatório p/ formidable)
 export const config = {
   api: {
-    bodyParser: false,
+    bodyParser: false, // Desliga bodyParser para permitir o formidable
   },
 };
 
-/**
- * Valida o tipo de arquivo
- */
-function validateFileType(mimetype, filename) {
-  if (ALLOWED_FORMATS.includes(mimetype)) return true;
-  if (filename) {
-    const ext = filename.toLowerCase().substring(filename.lastIndexOf("."));
-    return ALLOWED_EXTENSIONS.includes(ext);
-  }
-  return false;
-}
-
-/**
- * Handler principal
- */
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({
-      error: "METODO_NAO_PERMITIDO",
-      message: "Apenas POST é aceito",
-    });
+    return res.status(405).json({ error: "Método não permitido" });
   }
 
-  try {
-    // 📂 Usando formidable para parsear o multipart
-    const form = formidable({ multiples: false, maxFileSize: MAX_UPLOAD_MB * 1024 * 1024 });
+  const form = formidable({ multiples: false, maxFileSize: 60 * 1024 * 1024 });
 
-    form.parse(req, async (err, fields, files) => {
+  form.parse(req, async (err, fields, files) => {
+    try {
       if (err) {
-        console.error("[UPLOAD] Erro no parse:", err);
-        return res.status(400).json({ error: "ERRO_PARSE", message: err.message });
+        console.error("[UPLOAD] Erro no formidable:", err);
+        return res.status(400).json({ error: "Erro ao processar upload" });
       }
 
       const file = files.file;
       if (!file) {
-        return res.status(400).json({
-          error: "NENHUM_ARQUIVO",
-          message: "Nenhum arquivo foi enviado",
-        });
+        return res.status(400).json({ error: "NENHUM_ARQUIVO", message: "Nenhum arquivo foi enviado" });
       }
 
-      // Nome seguro
-      const safeName = file.originalFilename.replace(/\s+/g, "_");
-      const mimetype = file.mimetype;
+      console.log("[UPLOAD] Arquivo recebido:", file.originalFilename, file.mimetype, file.size);
 
-      if (!validateFileType(mimetype, safeName)) {
-        return res.status(400).json({
-          error: "FORMATO_NAO_SUPORTADO",
-          message: "Formato de arquivo não suportado",
-          supportedFormats: ["WAV", "FLAC", "MP3"],
-        });
-      }
+      // Chave única no bucket
+      const fileKey = `uploads/${Date.now()}-${file.originalFilename}`;
 
-      // 🔑 Gera chave única
-      const fileKey = `uploads/${Date.now()}-${safeName}`;
-      const fileStream = fs.createReadStream(file.filepath);
+      // 🚀 Faz upload via stream
+      const uploadStream = fs.createReadStream(file.filepath);
 
-      // 🚀 Upload para Backblaze
-      await s3
-        .upload({
-          Bucket: process.env.B2_BUCKET_NAME,
-          Key: fileKey,
-          Body: fileStream,
-          ContentType: mimetype,
-        })
-        .promise();
+      await s3.upload({
+        Bucket: process.env.B2_BUCKET_NAME,
+        Key: fileKey,
+        Body: uploadStream,
+        ContentType: file.mimetype,
+      }).promise();
 
-      console.log(`[UPLOAD] Arquivo salvo no bucket: ${fileKey}`);
+      console.log(`[UPLOAD] Salvo no bucket: ${fileKey}`);
 
-      // ✅ Resposta no formato esperado pelo front
       res.status(200).json({
         success: true,
         message: "Upload realizado com sucesso",
-        job: {
-          file_key: fileKey,
-          status: "queued",
-        },
+        job: { file_key: fileKey, status: "queued" },
       });
-    });
-  } catch (error) {
-    console.error("[UPLOAD] Erro no upload:", error);
-    res.status(500).json({
-      error: "ERRO_UPLOAD",
-      message: error.message,
-    });
-  }
+    } catch (error) {
+      console.error("[UPLOAD] Erro:", error);
+      res.status(500).json({ error: "ERRO_UPLOAD", message: error.message });
+    }
+  });
 }
