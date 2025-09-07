@@ -18,7 +18,6 @@ router.get("/presign", async (req, res) => {
     const params = {
       Bucket: BUCKET_NAME,
       Key: fileKey,
-      ContentType: contentType,
       Expires: 600, // URL válida por 10min
     };
 
