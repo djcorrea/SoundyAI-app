@@ -1,15 +1,20 @@
 import AWS from "aws-sdk";
+import dotenv from "dotenv";
+
+// garante que o .env seja carregado antes de usar
+dotenv.config();
 
 const s3 = new AWS.S3({
-  endpoint: process.env.B2_ENDPOINT, // https://s3.us-east-005.backblazeb2.com
-  region: "us-east-005",             // Região do Backblaze
+  endpoint: process.env.B2_ENDPOINT,
+  region: "us-east-005",
   credentials: {
-    accessKeyId: process.env.B2_KEY_ID, // KeyID
-    secretAccessKey:
-      process.env.B2_APPLICATION_KEY || process.env.B2_APP_KEY, 
-    // aceita tanto B2_APPLICATION_KEY quanto B2_APP_KEY
+    accessKeyId: process.env.B2_KEY_ID,
+    secretAccessKey: process.env.B2_APP_KEY,
   },
-  signatureVersion: "v4", // garante compatibilidade com presigned URL
+  signatureVersion: "v4",
 });
+
+// Debug
+console.log("🔑 [b2.js] B2_BUCKET_NAME:", process.env.B2_BUCKET_NAME);
 
 export default s3;

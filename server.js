@@ -1,11 +1,17 @@
 // server.js
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import dotenv from "dotenv";
 
 dotenv.config();
+
+console.log("📂 Arquivo .env carregado");
+console.log("B2_KEY_ID:", process.env.B2_KEY_ID);
+console.log("B2_APP_KEY:", process.env.B2_APP_KEY);
+console.log("B2_BUCKET_NAME:", process.env.B2_BUCKET_NAME);
+console.log("B2_ENDPOINT:", process.env.B2_ENDPOINT);
 
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
