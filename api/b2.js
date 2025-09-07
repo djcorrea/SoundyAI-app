@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const s3 = new AWS.S3({
-  endpoint: process.env.B2_ENDPOINT, // precisa estar com https:// no .env
+  endpoint: new AWS.Endpoint(process.env.B2_ENDPOINT), // 👈 CORRETO: converte em Endpoint
   region: "us-east-005",
   credentials: {
     accessKeyId: process.env.B2_KEY_ID,
