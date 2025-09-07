@@ -1,49 +1,105 @@
+/**
+ * Upload API para arquivos de áudio
+ * Suporta WAV, FLAC, MP3 até 60MB
+ * Configurado para runtime Node.js + Backblaze S3
+ *
+ * Implementação final: setembro 2025
+ */
+
 import fs from "fs";
 import formidable from "formidable";
-import s3 from "./b2.js";
+import s3 from "./b2.js"; // 👉 usa configuração do Backblaze S3
 
+// 🚫 importante: desabilita bodyParser do Next/Express
 export const config = {
   api: {
-    bodyParser: false, // 🚫 importante, deixa o formidable cuidar do upload
+    bodyParser: false,
   },
 };
 
+// Limite padrão 60MB (ajustável via env)
+const MAX_UPLOAD_MB = parseInt(process.env.MAX_UPLOAD_MB || "60");
+const MAX_UPLOAD_SIZE = MAX_UPLOAD_MB * 1024 * 1024;
+
+// Formatos aceitos
+const ALLOWED_FORMATS = ["audio/wav", "audio/flac", "audio/mpeg", "audio/mp3"];
+const ALLOWED_EXTENSIONS = [".wav", ".flac", ".mp3"];
+
+/**
+ * Valida o tipo de arquivo
+ */
+function validateFileType(mimetype, filename) {
+  if (ALLOWED_FORMATS.includes(mimetype)) return true;
+  if (filename) {
+    const ext = filename.toLowerCase().substring(filename.lastIndexOf("."));
+    return ALLOWED_EXTENSIONS.includes(ext);
+  }
+  return false;
+}
+
+/**
+ * Handler principal
+ */
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Método não permitido" });
+    return res.status(405).json({
+      error: "METODO_NAO_PERMITIDO",
+      message: "Apenas POST é aceito",
+      allowedMethods: ["POST"],
+    });
   }
 
-  const form = formidable({ multiples: false });
+  const form = formidable({
+    multiples: false,
+    maxFileSize: MAX_UPLOAD_SIZE,
+  });
 
   form.parse(req, async (err, fields, files) => {
     try {
       if (err) {
-        console.error("[UPLOAD] Erro parse:", err);
-        return res.status(500).json({ error: "Erro ao processar upload" });
+        console.error("[UPLOAD] Erro no parse:", err);
+        return res.status(400).json({
+          error: "ERRO_PARSE",
+          message: err.message,
+        });
       }
 
-      const file = files.file; // 👈 o campo "file" do frontend
+      const file = files.file; // 👈 nome do campo no frontend
       if (!file) {
-        return res.status(400).json({ error: "Nenhum arquivo enviado" });
+        return res.status(400).json({
+          error: "NENHUM_ARQUIVO",
+          message: "Nenhum arquivo foi enviado",
+        });
       }
 
-      // 🔑 Gera chave única
+      // Validação
+      if (!validateFileType(file.mimetype, file.originalFilename)) {
+        return res.status(400).json({
+          error: "FORMATO_NAO_SUPORTADO",
+          message: "Formato de arquivo não suportado",
+          supportedFormats: ["WAV", "FLAC", "MP3"],
+        });
+      }
+
+      // 🔑 Gera chave única no bucket
       const fileKey = `uploads/${Date.now()}-${file.originalFilename}`;
 
-      // 🚀 Upload para Backblaze com stream
+      // 🚀 Upload para Backblaze
       await s3
         .upload({
           Bucket: process.env.B2_BUCKET_NAME,
           Key: fileKey,
-          Body: fs.createReadStream(file.filepath), // 👈 usa o stream do arquivo temporário
+          Body: fs.createReadStream(file.filepath), // 👈 stream do arquivo
           ContentType: file.mimetype,
         })
         .promise();
 
       console.log(`[UPLOAD] Arquivo salvo no bucket: ${fileKey}`);
 
+      // ✅ Resposta no formato esperado
       return res.status(200).json({
         success: true,
+        message: "Upload realizado com sucesso",
         job: {
           file_key: fileKey,
           status: "queued",
