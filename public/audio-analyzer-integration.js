@@ -335,13 +335,8 @@ function handleReferenceFileSelection(type) {
                 const formData = new FormData();
                 formData.append("file", file);
 
-                const idToken = await firebase.auth().currentUser.getIdToken(true);
-
-const response = await fetch("/api/upload-audio", {
+                const response = await fetch("/api/upload-audio", {
   method: "POST",
-  headers: {
-    Authorization: `Bearer ${idToken}`
-  },
   body: formData
 });
 
