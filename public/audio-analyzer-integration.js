@@ -283,7 +283,6 @@ async function uploadToBucket(uploadUrl, file) {
             body: file,
             headers: {
                 'Content-Type': file.type || 'application/octet-stream',
-                'Content-Length': file.size.toString()
             }
         });
         
