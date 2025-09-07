@@ -439,39 +439,37 @@ async function startReferenceAnalysis() {
         alert('❌ Por favor, faça upload de ambos os arquivos');
         return;
     }
-    
+
     updateProgressStep(4);
-    
+
     try {
-        // Preparar FormData
-        const formData = new FormData();
-        formData.append('originalFile', uploadedFiles.original);
-        formData.append('referenceFile', uploadedFiles.reference);
-        formData.append('mode', 'reference');
-        
-        // Mostrar loading
         showAnalysisProgress();
-        
-        // Enviar para API
+
         const response = await fetch('/api/audio/analyze', {
             method: 'POST',
-            body: formData
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                originalKey: uploadedFiles.original,
+                referenceKey: uploadedFiles.reference,
+                mode: 'reference'
+            })
         });
-        
+
         if (!response.ok) {
             throw new Error(`Erro na análise: ${response.status}`);
         }
-        
+
         const result = await response.json();
-        
-        // Exibir resultados
         displayReferenceComparison(result);
-        
+
     } catch (error) {
         console.error('❌ Erro na análise:', error);
         alert('❌ Erro durante a análise. Tente novamente.');
     }
 }
+
 
 function showAnalysisProgress() {
     const modal = document.getElementById('audioAnalysisModal');
