@@ -226,8 +226,7 @@ async function getPresignedUrl(file) {
             size: `${(file.size / 1024 / 1024).toFixed(2)}MB`
         });
         
-       fetch(`/api/presign?ext=${ext}&contentType=${contentType}`)
-
+        const response = await fetch(`/presign?ext=${encodeURIComponent(ext)}&contentType=${encodeURIComponent(contentType)}`, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
