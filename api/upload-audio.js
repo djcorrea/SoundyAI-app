@@ -22,7 +22,7 @@ const MAX_UPLOAD_MB = parseInt(process.env.MAX_UPLOAD_MB || "60");
 const MAX_UPLOAD_SIZE = MAX_UPLOAD_MB * 1024 * 1024;
 
 // Formatos aceitos
-const ALLOWED_FORMATS = ["audio/wav", "audio/flac", "audio/mpeg", "audio/mp3"];
+const ALLOWED_FORMATS = ["audio/wav", "audio/flac", "audio/mpeg", "audio/mp3", "audio/x-wav", "audio/vnd.wave"];
 const ALLOWED_EXTENSIONS = [".wav", ".flac", ".mp3"];
 
 /**
