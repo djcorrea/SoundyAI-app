@@ -1813,17 +1813,29 @@ async function handleModalFileSelection(file) {
         showUploadProgress(`Preparando upload de ${file.name}...`);
         
         // 1. Obter URL pré-assinada
-        const { uploadUrl, fileKey } = await getPresignedUrl(file);
+        const formData = new FormData();
+formData.append("file", file);
         
         // 2. Upload direto para bucket
-        await uploadToBucket(uploadUrl, file);
+        const response = await fetch("/upload", {
+  method: "POST",
+  body: formData
+});
+
+if (!response.ok) {
+  const errText = await response.text();
+  throw new Error(`Erro no upload via servidor: ${response.status} - ${errText}`);
+}
+
+const data = await response.json();
+const fileKey = data.job.file_key;
         
         // 3. Processar baseado no modo de análise com fileKey
-        if (currentAnalysisMode === 'reference') {
-            await handleReferenceAnalysisWithKey(fileKey, file.name);
-        } else {
-            await handleGenreAnalysisWithKey(fileKey, file.name);
-        }
+        if (currentAnalysisMode === "reference") {
+  await handleReferenceAnalysisWithKey(fileKey, file.name);
+} else {
+  await handleGenreAnalysisWithKey(fileKey, file.name);
+}
         
     } catch (error) {
         console.error('❌ Erro na análise do modal:', error);
