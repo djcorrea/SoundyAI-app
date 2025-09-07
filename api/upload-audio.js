@@ -31,11 +31,18 @@ const ALLOWED_EXTENSIONS = [".wav", ".flac", ".mp3"];
 function validateFileType(mimetype, filename) {
   if (!mimetype && !filename) return false;
 
-  // Normaliza (ex.: audio/x-wav → audio/wav)
-  const normalizedMime = mimetype?.replace("x-", "") || "";
+  const type = (mimetype || "").toLowerCase();
 
-  if (ALLOWED_FORMATS.includes(normalizedMime)) return true;
+  // aceita MP3 (variações)
+  if (type === "audio/mpeg" || type === "audio/mp3") return true;
 
+  // aceita WAV (variações)
+  if (type === "audio/wav" || type === "audio/x-wav" || type === "audio/vnd.wave") return true;
+
+  // aceita FLAC
+  if (type === "audio/flac") return true;
+
+  // fallback: checa extensão
   if (filename) {
     const ext = filename.toLowerCase().substring(filename.lastIndexOf("."));
     return ALLOWED_EXTENSIONS.includes(ext);
