@@ -226,7 +226,7 @@ async function getPresignedUrl(file) {
             size: `${(file.size / 1024 / 1024).toFixed(2)}MB`
         });
         
-        const res = await fetch(`/api/presign?ext=${ext}&contentType=${contentType}`);
+        const response = await fetch(`/presign?ext=${encodeURIComponent(ext)}&contentType=${encodeURIComponent(contentType)}`, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
@@ -1817,39 +1817,17 @@ async function handleModalFileSelection(file) {
         showUploadProgress(`Preparando upload de ${file.name}...`);
         
         // 1. Obter URL pré-assinada
+        const { uploadUrl, fileKey } = await getPresignedUrl(file);
         
-        // 👉 Abre o modal logo no início (antes do presign)
-abrirModalDeAnalise("Preparando análise...");
-
-let uploadUrl, fileKey;
-
-try {
-  // Pede a URL pré-assinada ao backend
-  ({ uploadUrl, fileKey } = await getPresignedUrl(file));
-
-  if (!uploadUrl || !fileKey) {
-    atualizarModal("Erro: não foi possível gerar URL de upload.");
-    return;
-  }
-
-  // Faz o upload pro bucket
-  atualizarModal("Enviando arquivo...");
-  await uploadToBucket(uploadUrl, file);
-
-  // Salva o fileKey
-  uploadedFiles[type] = fileKey;
-  console.log(`✅ Arquivo ${type} enviado para bucket:`, file.name, 'fileKey:', fileKey);
-
-  // Atualiza interface
-  updateFileStatus(type, file.name);
-  atualizarModal("Arquivo enviado, iniciando análise...");
-
-} catch (err) {
-  console.error("❌ Erro ao obter presign/upload:", err);
-  atualizarModal("Erro ao gerar URL de upload ou enviar arquivo.");
-  return; // interrompe fluxo
-}
-
+        // 2. Upload direto para bucket
+        await uploadToBucket(uploadUrl, file);
+        
+        // 3. Processar baseado no modo de análise com fileKey
+        if (currentAnalysisMode === 'reference') {
+            await handleReferenceAnalysisWithKey(fileKey, file.name);
+        } else {
+            await handleGenreAnalysisWithKey(fileKey, file.name);
+        }
         
     } catch (error) {
         console.error('❌ Erro na análise do modal:', error);

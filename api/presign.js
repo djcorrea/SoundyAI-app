@@ -24,7 +24,7 @@ router.get("/presign", async (req, res) => {
 
     const uploadUrl = await s3.getSignedUrlPromise("putObject", params);
 
-    res.json({ uploadUrl, fileKey });
+    res.setHeader("Content-Type", "application/json");
   } catch (err) {
     console.error("❌ Erro ao gerar presign:", err);
     res.status(500).json({
