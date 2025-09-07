@@ -1,13 +1,10 @@
-/**
- * Upload API para arquivos de áudio → Backblaze S3
- */
-import formidable from "formidable";
 import fs from "fs";
+import formidable from "formidable";
 import s3 from "./b2.js";
 
 export const config = {
   api: {
-    bodyParser: false, // Desliga bodyParser para permitir o formidable
+    bodyParser: false, // 🚫 importante, deixa o formidable cuidar do upload
   },
 };
 
@@ -16,45 +13,48 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Método não permitido" });
   }
 
-  const form = formidable({ multiples: false, maxFileSize: 60 * 1024 * 1024 });
+  const form = formidable({ multiples: false });
 
   form.parse(req, async (err, fields, files) => {
     try {
       if (err) {
-        console.error("[UPLOAD] Erro no formidable:", err);
-        return res.status(400).json({ error: "Erro ao processar upload" });
+        console.error("[UPLOAD] Erro parse:", err);
+        return res.status(500).json({ error: "Erro ao processar upload" });
       }
 
-      const file = files.file;
+      const file = files.file; // 👈 o campo "file" do frontend
       if (!file) {
-        return res.status(400).json({ error: "NENHUM_ARQUIVO", message: "Nenhum arquivo foi enviado" });
+        return res.status(400).json({ error: "Nenhum arquivo enviado" });
       }
 
-      console.log("[UPLOAD] Arquivo recebido:", file.originalFilename, file.mimetype, file.size);
-
-      // Chave única no bucket
+      // 🔑 Gera chave única
       const fileKey = `uploads/${Date.now()}-${file.originalFilename}`;
 
-      // 🚀 Faz upload via stream
-      const uploadStream = fs.createReadStream(file.filepath);
+      // 🚀 Upload para Backblaze com stream
+      await s3
+        .upload({
+          Bucket: process.env.B2_BUCKET_NAME,
+          Key: fileKey,
+          Body: fs.createReadStream(file.filepath), // 👈 usa o stream do arquivo temporário
+          ContentType: file.mimetype,
+        })
+        .promise();
 
-      await s3.upload({
-        Bucket: process.env.B2_BUCKET_NAME,
-        Key: fileKey,
-        Body: uploadStream,
-        ContentType: file.mimetype,
-      }).promise();
+      console.log(`[UPLOAD] Arquivo salvo no bucket: ${fileKey}`);
 
-      console.log(`[UPLOAD] Salvo no bucket: ${fileKey}`);
-
-      res.status(200).json({
+      return res.status(200).json({
         success: true,
-        message: "Upload realizado com sucesso",
-        job: { file_key: fileKey, status: "queued" },
+        job: {
+          file_key: fileKey,
+          status: "queued",
+        },
       });
     } catch (error) {
-      console.error("[UPLOAD] Erro:", error);
-      res.status(500).json({ error: "ERRO_UPLOAD", message: error.message });
+      console.error("[UPLOAD] Erro no upload:", error);
+      return res.status(500).json({
+        error: "ERRO_UPLOAD",
+        message: error.message,
+      });
     }
   });
 }
