@@ -68,7 +68,7 @@ app.get("/health", (req, res) => {
 });
 
 // ---------- Rota para gerar URL pré-assinada ----------
-app.get("/presign", async (req, res) => {
+app.get("/api/presign", async (req, res) => {
   try {
     const { ext, contentType } = req.query;
 
