@@ -8,7 +8,7 @@
 
 import fs from "fs";
 import formidable from "formidable";
-import s3 from "../b2.js"; // 👉 cliente S3 configurado no b2.js
+import s3 from "./b2.js"; // 👉 cliente S3 configurado no b2.js
 
 // Configuração via variável de ambiente (padrão: 60MB)
 const MAX_UPLOAD_MB = parseInt(process.env.MAX_UPLOAD_MB || "60");
