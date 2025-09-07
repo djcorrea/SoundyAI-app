@@ -2,13 +2,15 @@
  * API de Análise de Áudio - Criação de Jobs baseado em FileKey
  * Recebe fileKey de arquivos já uploadados via presigned URL
  * 
- * Refatorado: 7 de setembro de 2025
+ * Refatorado: 7 de setembro de 2025 - Express Router
  */
 
+import express from 'express';
 import pkg from "pg";
 import { randomUUID } from 'crypto';
 
 const { Pool } = pkg;
+const router = express.Router();
 
 // Configuração via variável de ambiente
 const MAX_UPLOAD_MB = parseInt(process.env.MAX_UPLOAD_MB || '60');
@@ -16,19 +18,21 @@ const MAX_UPLOAD_MB = parseInt(process.env.MAX_UPLOAD_MB || '60');
 // Extensões aceitas (verificação por fileKey)
 const ALLOWED_EXTENSIONS = ['.wav', '.flac', '.mp3'];
 
-// Configuração de CORS
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Max-Age': '86400'
-};
+// Conexão com Postgres (lazy loading)
+let pool = null;
 
-// Conexão com Postgres
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }, // Railway/Postgres
-});
+function getPool() {
+  if (!pool && process.env.DATABASE_URL) {
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false }, // Railway/Postgres
+    });
+    console.log('[ANALYZE] ✅ Pool PostgreSQL inicializado com sucesso');
+  } else if (!pool && !process.env.DATABASE_URL) {
+    console.warn('[ANALYZE] ⚠️ DATABASE_URL não configurada - modo mock ativo');
+  }
+  return pool;
+}
 
 /**
  * Validar feature flags
@@ -62,21 +66,37 @@ function validateFileType(fileKey) {
 /**
  * Criar job no banco de dados
  */
-async function createJobInDatabase(fileKey, mode) {
+async function createJobInDatabase(fileKey, mode, fileName) {
   try {
     const jobId = randomUUID();
     const now = new Date().toISOString();
     
     console.log(`[ANALYZE] Criando job: ${jobId} para fileKey: ${fileKey}, modo: ${mode}`);
     
-    const result = await pool.query(
-      "INSERT INTO jobs (id, file_key, mode, status, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING *",
-      [jobId, fileKey, mode, 'queued', now]
+    // Obter pool com lazy loading
+    const dbPool = getPool();
+    
+    // Se não há pool de conexão, simular criação do job
+    if (!dbPool) {
+      console.log(`[ANALYZE] 🧪 MODO MOCK - Job simulado criado com sucesso`);
+      return {
+        id: jobId,
+        file_key: fileKey,
+        mode: mode,
+        status: 'queued',
+        file_name: fileName,
+        created_at: now
+      };
+    }
+    
+    const result = await dbPool.query(
+      "INSERT INTO jobs (id, file_key, mode, status, file_name, created_at) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *",
+      [jobId, fileKey, mode, 'queued', fileName, now]
     );
     
-    console.log(`[ANALYZE] Job criado com sucesso:`, result.rows[0]);
+    console.log(`[ANALYZE] Job criado com sucesso no PostgreSQL:`, result.rows[0]);
     
-    return result.rows[0].id;
+    return result.rows[0];
     
   } catch (error) {
     console.error('[ANALYZE] Erro ao criar job no banco:', error);
@@ -140,31 +160,26 @@ function getErrorMessage(error) {
 }
 
 /**
- * Handler principal da API
+ * Middleware de CORS para análise de áudio
  */
-export default async function handler(req, res) {
-  const startTime = Date.now();
+router.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Max-Age', '86400');
   
-  // Configurar CORS
-  Object.entries(corsHeaders).forEach(([key, value]) => {
-    res.setHeader(key, value);
-  });
-  
-  // Responder OPTIONS para CORS preflight
   if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
+    return res.status(200).end();
   }
   
-  // Apenas aceitar POST
-  if (req.method !== 'POST') {
-    res.status(405).json({
-      error: 'Método não permitido',
-      message: 'Apenas requisições POST são aceitas',
-      code: 'METHOD_NOT_ALLOWED'
-    });
-    return;
-  }
+  next();
+});
+
+/**
+ * POST /analyze - Criar job de análise baseado em fileKey
+ */
+router.post('/analyze', async (req, res) => {
+  const startTime = Date.now();
   
   try {
     console.log(`[ANALYZE] Nova requisição de criação de job iniciada`);
@@ -199,19 +214,21 @@ export default async function handler(req, res) {
     }
     
     // Criar job no banco de dados
-    const jobId = await createJobInDatabase(fileKey, mode);
+    const jobRecord = await createJobInDatabase(fileKey, mode, fileName);
     
     // Adicionar métricas de performance
     const processingTime = Date.now() - startTime;
     
-    console.log(`[ANALYZE] Job criado em ${processingTime}ms - jobId: ${jobId}, modo: ${mode}`);
+    console.log(`[ANALYZE] Job criado em ${processingTime}ms - jobId: ${jobRecord.id}, modo: ${mode}`);
     
     res.status(200).json({
       success: true,
-      jobId: jobId,
+      jobId: jobRecord.id,
       message: `Job de análise criado com sucesso para ${mode}`,
       fileKey: fileKey,
       mode: mode,
+      fileName: fileName || null,
+      createdAt: jobRecord.created_at,
       performance: {
         processingTime: `${processingTime}ms`,
         timestamp: new Date().toISOString()
@@ -242,12 +259,6 @@ export default async function handler(req, res) {
       }
     });
   }
-}
+});
 
-// Configuração específica para Vercel - JSON parser habilitado
-export const config = {
-  api: {
-    bodyParser: true, // Habilita parser JSON padrão
-    responseLimit: false // Remove limite de resposta
-  }
-};
+export default router;

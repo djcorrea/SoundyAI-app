@@ -5,13 +5,17 @@ import path from "path";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 
+// 🔑 IMPORTANTE: Carregar .env ANTES de importar outros módulos
 dotenv.config();
+
+import analyzeRoute from "./api/audio/analyze.js";
 
 console.log("📂 Arquivo .env carregado");
 console.log("B2_KEY_ID:", process.env.B2_KEY_ID);
 console.log("B2_APP_KEY:", process.env.B2_APP_KEY);
 console.log("B2_BUCKET_NAME:", process.env.B2_BUCKET_NAME);
 console.log("B2_ENDPOINT:", process.env.B2_ENDPOINT);
+console.log("🗄️ DATABASE_URL:", process.env.DATABASE_URL ? "✅ Configurada" : "❌ Não configurada");
 
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
@@ -68,6 +72,7 @@ app.use("/api/upload", uploadImageRoute);
 app.use("/api/voice", voiceMessageRoute);
 app.use("/api/webhook", webhookRoute);
 app.use("/api", presignRoute); // ✅ agora a rota está registrada
+app.use("/api/audio", analyzeRoute); // ✅ rota de análise de áudio
 
 // 👉 Fallback SPA: qualquer rota não-API cai no app (index.html)
 app.get("*", (req, res, next) => {
