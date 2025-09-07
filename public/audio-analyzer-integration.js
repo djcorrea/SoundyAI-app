@@ -347,10 +347,11 @@ function handleReferenceFileSelection(type) {
 
                 const data = await response.json();
 
-                // Salvar o fileKey (vem do job salvo no banco pelo backend)
-                uploadedFiles[type] = data.job.file_key;
+// ✅ Gera uma chave fake baseada no nome + timestamp
+const fileKey = `uploads/${Date.now()}-${data.file.name}`;
+uploadedFiles[type] = fileKey;
 
-                console.log(`✅ Arquivo ${type} enviado para bucket:`, file.name, "fileKey:", data.job.file_key);
+console.log(`✅ Arquivo ${type} enviado com sucesso:`, data.file.name, "fileKey:", fileKey);
 
                 // Atualizar interface
                 updateFileStatus(type, file.name);
