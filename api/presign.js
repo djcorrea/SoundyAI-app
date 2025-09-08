@@ -6,12 +6,11 @@ const BUCKET_NAME = process.env.B2_BUCKET_NAME;
 
 router.get("/presign", async (req, res) => {
   try {
-    const { ext } = req.query;
+    const { ext, contentType } = req.query;
 
-    // ✅ agora só exige ext
-    if (!ext) {
+    if (!ext || !contentType) {
       return res.status(400).json({
-        error: "Parâmetro 'ext' é obrigatório (ex: wav, mp3, flac)"
+        error: "Parâmetros 'ext' e 'contentType' são obrigatórios"
       });
     }
 
@@ -20,12 +19,12 @@ router.get("/presign", async (req, res) => {
     const params = {
       Bucket: BUCKET_NAME,
       Key: fileKey,
-      Expires: 600, // URL válida por 10 min
+      Expires: 600, // 10 minutos
+      ContentType: contentType // 🔑 agora assina com o tipo certo
     };
 
     const uploadUrl = await s3.getSignedUrlPromise("putObject", params);
 
-    // ✅ resposta padronizada
     res.status(200).json({ uploadUrl, fileKey });
   } catch (err) {
     console.error("❌ Erro ao gerar presign:", err);
