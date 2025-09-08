@@ -292,7 +292,7 @@ async function uploadToBucket(uploadUrl, file) {
     const response = await fetch(uploadUrl, {
   method: "PUT",
   headers: {
-    "Content-Type": "application/octet-stream"
+    "Content-Type": file.type || "application/octet-stream"
   },
   body: file
 });
