@@ -5,13 +5,14 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const s3 = new AWS.S3({
-  endpoint: new AWS.Endpoint(process.env.B2_ENDPOINT), // 👈 CORRETO: converte em Endpoint
+  endpoint: new AWS.Endpoint(process.env.B2_ENDPOINT), // precisa estar com https:// no .env
   region: "us-east-005",
   credentials: {
     accessKeyId: process.env.B2_KEY_ID,
     secretAccessKey: process.env.B2_APP_KEY,
   },
   signatureVersion: "v4",
+  s3ForcePathStyle: false // 👈 força usar virtual-host style (bucket.s3.us-east-005.backblazeb2.com)
 });
 
 // Debug
