@@ -17,12 +17,20 @@ router.get("/presign", async (req, res) => {
     const fileKey = `uploads/${Date.now()}.${ext}`;
 
     const params = {
-  Bucket: BUCKET_NAME,
-  Key: fileKey,
-  Expires: 600,
-};
+      Bucket: BUCKET_NAME,
+      Key: fileKey,
+      Expires: 600, // 10 minutos
+    };
+
+    console.log("📡 [PRESIGN] Gerando URL pré-assinada...");
+    console.log("➡️ Bucket:", BUCKET_NAME);
+    console.log("➡️ Key:", fileKey);
+    console.log("➡️ Endpoint:", process.env.B2_ENDPOINT);
+    console.log("➡️ KeyID:", process.env.B2_KEY_ID);
 
     const uploadUrl = await s3.getSignedUrlPromise("putObject", params);
+
+    console.log("✅ [PRESIGN] URL gerada com sucesso:", uploadUrl.substring(0, 120) + "...");
 
     res.status(200).json({ uploadUrl, fileKey });
   } catch (err) {
