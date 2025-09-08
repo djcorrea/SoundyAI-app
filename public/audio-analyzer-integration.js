@@ -228,13 +228,11 @@ async function getPresignedUrl(file) {
   try {
     // Extrair extensão do arquivo
     const ext = file.name.split('.').pop().toLowerCase();
-    const contentType = file.type || 'application/octet-stream';
 
     __dbg('🌐 Solicitando URL pré-assinada...', {
       filename: file.name,
       ext,
-      contentType,
-      size: `${(file.size / 1024 / 1024).toFixed(2)}MB`
+           size: `${(file.size / 1024 / 1024).toFixed(2)}MB`
     });
 
     // ✅ Agora manda "ext" + "contentType"
