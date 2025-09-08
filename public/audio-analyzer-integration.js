@@ -238,16 +238,13 @@ async function getPresignedUrl(file) {
     });
 
     // ✅ Agora manda "ext" + "contentType"
-    const response = await fetch(
-      `/api/presign?ext=${encodeURIComponent(ext)}&contentType=${encodeURIComponent(contentType)}`,
-      {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest'
-        }
-      }
-    );
+    const response = await fetch(`/api/presign?ext=${encodeURIComponent(ext)}`, {
+  method: "GET",
+  headers: {
+    "Accept": "application/json",
+    "X-Requested-With": "XMLHttpRequest"
+  }
+});
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -291,7 +288,6 @@ async function uploadToBucket(uploadUrl, file) {
     // 👇 sem headers, só body = file
    const response = await fetch(uploadUrl, {
   method: "PUT",
-  headers: { "Content-Type": file.type || "application/octet-stream" },
   body: file
 });
 
