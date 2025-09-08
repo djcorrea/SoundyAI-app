@@ -8,6 +8,7 @@
 import express from 'express';
 import pkg from "pg";
 import { randomUUID } from 'crypto';
+import { createJob as createJobInMemory } from "../jobs/[id].js"; // 👈 importa função do jobs
 
 const { Pool } = pkg;
 const router = express.Router();
@@ -39,7 +40,7 @@ function getPool() {
  */
 function validateFeatureFlags() {
   return {
-    REFERENCE_MODE_ENABLED: process.env.REFERENCE_MODE_ENABLED === 'true' || true, // Default true para desenvolvimento
+    REFERENCE_MODE_ENABLED: process.env.REFERENCE_MODE_ENABLED === 'true' || true, // Default true
     FALLBACK_TO_GENRE: process.env.FALLBACK_TO_GENRE === 'true' || true,
     DEBUG_REFERENCE_MODE: process.env.DEBUG_REFERENCE_MODE === 'true' || false
   };
@@ -53,11 +54,8 @@ function validateFileType(fileKey) {
     return false;
   }
   
-  // Extrair extensão do fileKey
   const lastDotIndex = fileKey.lastIndexOf('.');
-  if (lastDotIndex === -1) {
-    return false;
-  }
+  if (lastDotIndex === -1) return false;
   
   const ext = fileKey.substring(lastDotIndex).toLowerCase();
   return ALLOWED_EXTENSIONS.includes(ext);
@@ -73,10 +71,8 @@ async function createJobInDatabase(fileKey, mode, fileName) {
     
     console.log(`[ANALYZE] Criando job: ${jobId} para fileKey: ${fileKey}, modo: ${mode}`);
     
-    // Obter pool com lazy loading
     const dbPool = getPool();
     
-    // Se não há pool de conexão, simular criação do job
     if (!dbPool) {
       console.log(`[ANALYZE] 🧪 MODO MOCK - Job simulado criado com sucesso`);
       return {
@@ -90,13 +86,12 @@ async function createJobInDatabase(fileKey, mode, fileName) {
     }
     
     const result = await dbPool.query(
-  `INSERT INTO jobs (id, file_key, mode, status, created_at, updated_at)
-   VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *`,
-  [jobId, fileKey, mode, 'queued']
-);
+      `INSERT INTO jobs (id, file_key, mode, status, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *`,
+      [jobId, fileKey, mode, 'queued']
+    );
     
     console.log(`[ANALYZE] Job criado com sucesso no PostgreSQL:`, result.rows[0]);
-    
     return result.rows[0];
     
   } catch (error) {
@@ -161,7 +156,7 @@ function getErrorMessage(error) {
 }
 
 /**
- * Middleware de CORS para análise de áudio
+ * Middleware de CORS
  */
 router.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
@@ -172,62 +167,45 @@ router.use((req, res, next) => {
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-  
   next();
 });
 
 /**
- * POST /analyze - Criar job de análise baseado em fileKey
+ * POST /analyze - Criar job
  */
 router.post('/analyze', async (req, res) => {
   const startTime = Date.now();
   
   try {
-    console.log(`[ANALYZE] Nova requisição de criação de job iniciada`);
+    console.log(`[ANALYZE] Nova requisição recebida`);
     
-    // Verificar feature flags
     const flags = validateFeatureFlags();
-    console.log(`[ANALYZE] Feature flags:`, flags);
-    
-    // Obter dados do body JSON
     const { fileKey, mode = 'genre', fileName } = req.body;
     
     console.log(`[ANALYZE] Dados recebidos:`, { fileKey, mode, fileName });
     
-    // Validar fileKey obrigatório
-    if (!fileKey) {
-      throw new Error('fileKey é obrigatório');
-    }
-    
-    // Validar tipo de arquivo pela extensão
-    if (!validateFileType(fileKey)) {
-      throw new Error('Extensão não suportada. Apenas WAV, FLAC e MP3 são aceitos.');
-    }
-    
-    // Validar modo
-    if (!['genre', 'reference'].includes(mode)) {
-      throw new Error('Modo de análise inválido. Use "genre" ou "reference".');
-    }
-    
-    // Verificar se modo referência está habilitado
+    if (!fileKey) throw new Error('fileKey é obrigatório');
+    if (!validateFileType(fileKey)) throw new Error('Extensão não suportada. Apenas WAV, FLAC e MP3 são aceitos.');
+    if (!['genre', 'reference'].includes(mode)) throw new Error('Modo de análise inválido. Use "genre" ou "reference".');
     if (mode === 'reference' && !flags.REFERENCE_MODE_ENABLED) {
       throw new Error('Modo de análise por referência não está disponível no momento');
     }
     
-    // Criar job no banco de dados
+    // Criar no banco
     const jobRecord = await createJobInDatabase(fileKey, mode, fileName);
-    
-    // Adicionar métricas de performance
+
+    // Criar também em memória (para polling do frontend)
+    createJobInMemory(jobRecord.id, fileKey, mode, fileName);
+
     const processingTime = Date.now() - startTime;
-    
-    console.log(`[ANALYZE] Job criado em ${processingTime}ms - jobId: ${jobRecord.id}, modo: ${mode}`);
+    console.log(`[ANALYZE] Job criado em ${processingTime}ms - jobId: ${jobRecord.id}`);
     
     res.status(200).json({
       success: true,
       jobId: jobRecord.id,
       message: `Job de análise criado com sucesso para ${mode}`,
-      fileKey: fileKey,
-      mode: mode,
+      fileKey,
+      mode,
       fileName: fileName || null,
       createdAt: jobRecord.created_at,
       performance: {
@@ -239,17 +217,9 @@ router.post('/analyze', async (req, res) => {
   } catch (error) {
     const processingTime = Date.now() - startTime;
     console.error('[ANALYZE] Erro na criação do job:', error);
-    console.error('[ANALYZE] Stack:', error.stack);
     
     const errorResponse = getErrorMessage(error);
     const statusCode = error.message.includes('obrigatório') || error.message.includes('inválido') ? 400 : 500;
-    
-    // Log mínimo para monitoramento
-    console.log(`[ANALYZE] Erro processado em ${processingTime}ms:`, {
-      code: errorResponse.code,
-      mode: req.body?.mode || 'unknown',
-      error: errorResponse.error
-    });
     
     res.status(statusCode).json({
       success: false,
