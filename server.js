@@ -9,7 +9,6 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import analyzeRoute from "./api/audio/analyze.js";
-import jobsRoute from "./api/jobs/[id].js"; // 👈 nova rota de jobs
 
 console.log("📂 Arquivo .env carregado");
 console.log("B2_KEY_ID:", process.env.B2_KEY_ID);
@@ -38,9 +37,12 @@ app.get(["/index", "/index.html", "/app", "/home"], (req, res) => {
 });
 
 // 👉 Servir arquivos estáticos SEM index automático
+// (assim o "/" NÃO entrega index.html por conta do static)
 app.use(
   express.static(path.join(__dirname, "public"), {
     index: false,
+    // opcional: set headers de cache se quiser
+    // setHeaders: (res) => res.setHeader("Cache-Control", "public, max-age=600")
   })
 );
 
@@ -55,6 +57,8 @@ import uploadAudioRoute from "./api/upload-audio.js";
 import uploadImageRoute from "./api/upload-image.js";
 import voiceMessageRoute from "./api/voice-message.js";
 import webhookRoute from "./api/webhook.js";
+
+// 🔑 NOVO: rota presign
 import presignRoute from "./api/presign.js";
 
 app.use("/api/cancel-subscription", cancelSubscriptionRoute);
@@ -67,9 +71,8 @@ app.use("/api/upload-audio", uploadAudioRoute);
 app.use("/api/upload", uploadImageRoute);
 app.use("/api/voice", voiceMessageRoute);
 app.use("/api/webhook", webhookRoute);
-app.use("/api", presignRoute);
-app.use("/api/audio", analyzeRoute);
-app.use("/api/jobs", jobsRoute); // ✅ nova rota registrada
+app.use("/api", presignRoute); // ✅ agora a rota está registrada
+app.use("/api/audio", analyzeRoute); // ✅ rota de análise de áudio
 
 // 👉 Fallback SPA: qualquer rota não-API cai no app (index.html)
 app.get("*", (req, res, next) => {
