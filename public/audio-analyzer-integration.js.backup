@@ -1471,6 +1471,70 @@ if (typeof window !== 'undefined' && !window.__runAcceptanceAudioTests) {
         };
     };
 }
+        const sr = ctx.sampleRate;
+        const makeBuffer = (seconds, channels=2) => ctx.createBuffer(channels, Math.max(1, Math.floor(sr*seconds)), sr);
+        const toDb = v => v>0?20*Math.log10(v):-Infinity;
+        const results = [];
+        // 1. Silêncio 5s
+        const bufSilence = makeBuffer(5,2); // já zero
+        results.push({ name:'silence', analysis: await window.audioAnalyzer.analyzeAudioBufferDirect(bufSilence,'silence') });
+        // 2. Seno 1kHz -12dBFS 10s
+        const bufSine = makeBuffer(10,2); (['L','R']).forEach((_,ch)=>{ const chData = bufSine.getChannelData(ch); for(let i=0;i<chData.length;i++){ chData[i] = Math.sin(2*Math.PI*1000*i/sr)*Math.pow(10,-12/20); } });
+        results.push({ name:'sine_1k_-12dBFS', analysis: await window.audioAnalyzer.analyzeAudioBufferDirect(bufSine,'sine') });
+        // 3. Ruído rosa approx -14 LUFS (gerar ruído branco filtrado + normalizar)
+        const bufPink = makeBuffer(10,2); for (let ch=0; ch<2; ch++){ const d=bufPink.getChannelData(ch); let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0; for(let i=0;i<d.length;i++){ const white=Math.random()*2-1; b0=0.99886*b0+white*0.0555179; b1=0.99332*b1+white*0.0750759; b2=0.96900*b2+white*0.1538520; b3=0.86650*b3+white*0.3104856; b4=0.55000*b4+white*0.5329522; b5=-0.7616*b5-white*0.0168980; const pink = b0+b1+b2+b3+b4+b5+b6+white*0.5362; b6=white*0.115926; d[i]=pink*0.11; } }
+        // leve normalização amplitude
+        results.push({ name:'pink_noise_target', analysis: await window.audioAnalyzer.analyzeAudioBufferDirect(bufPink,'pink') });
+        // 4. Quase clipado (TP ≈ -0.1dB) -> seno 60Hz amplo -0.1
+        const bufAlmost = makeBuffer(5,2); const ampAlmost = Math.pow(10, -0.1/20); for (let ch=0; ch<2; ch++){ const d=bufAlmost.getChannelData(ch); for(let i=0;i<d.length;i++){ d[i]= Math.sin(2*Math.PI*60*i/sr)*ampAlmost; } }
+        results.push({ name:'almost_clipped', analysis: await window.audioAnalyzer.analyzeAudioBufferDirect(bufAlmost,'almostClip') });
+        // 5. Clipado (samples >= 1.0)
+        const bufClipped = makeBuffer(2,2); for (let ch=0; ch<2; ch++){ const d=bufClipped.getChannelData(ch); for(let i=0;i<d.length;i++){ const v=Math.sin(2*Math.PI*80*i/sr)*1.2; d[i]= Math.max(-1, Math.min(1, v)); } }
+        results.push({ name:'clipped', analysis: await window.audioAnalyzer.analyzeAudioBufferDirect(bufClipped,'clipped') });
+        // 6. Estéreo desequilibrado (L -3 dB, R 0 dB)
+        const bufImbalance = makeBuffer(5,2); const gainL = Math.pow(10,-3/20), gainR = 1; for(let i=0;i<bufImbalance.length;i++){ const t=i/sr; const s=Math.sin(2*Math.PI*440*t); bufImbalance.getChannelData(0)[i]=s*gainL; bufImbalance.getChannelData(1)[i]=s*gainR; }
+        results.push({ name:'stereo_imbalance', analysis: await window.audioAnalyzer.analyzeAudioBufferDirect(bufImbalance,'stereoImbalance') });
+        // === Avaliação de critérios ===
+        const evals = [];
+        const approx = (val, target, tol) => Number.isFinite(val) && Math.abs(val - target) <= tol;
+        for (const r of results) {
+            const td = r.analysis?.technicalData || {};
+            if (r.name==='silence') {
+                evals.push({ case:'silence_lufs', pass: !Number.isFinite(td.lufsIntegrated) || td.lufsIntegrated < -100, observed: td.lufsIntegrated });
+                evals.push({ case:'silence_tp', pass: !Number.isFinite(td.truePeakDbtp) || td.truePeakDbtp <= -90, observed: td.truePeakDbtp });
+                evals.push({ case:'silence_lra', pass: !Number.isFinite(td.lra) || td.lra <= 0.1, observed: td.lra });
+            }
+            if (r.name==='sine_1k_-12dBFS') {
+                evals.push({ case:'sine_peak', pass: approx(td.truePeakDbtp ?? td.peak, -12, 0.6), observed: td.truePeakDbtp ?? td.peak });
+                if (Number.isFinite(td.truePeakDbtp) && Number.isFinite(td.headroomTruePeakDb)) {
+                    evals.push({ case:'sine_headroom_match', pass: approx(td.headroomTruePeakDb, -td.truePeakDbtp, 0.11), observed: td.headroomTruePeakDb });
+                }
+                if (Number.isFinite(td.lufsIntegrated)) evals.push({ case:'sine_lufs', pass: approx(td.lufsIntegrated, -12, 0.7), observed: td.lufsIntegrated });
+                evals.push({ case:'sine_lra', pass: (td.lra??0) <= 0.6, observed: td.lra });
+            }
+            if (r.name==='pink_noise_target') {
+                if (Number.isFinite(td.lufsIntegrated)) evals.push({ case:'pink_lufs', pass: Math.abs(td.lufsIntegrated + 14) <= 1.0, observed: td.lufsIntegrated });
+                if (Number.isFinite(td.lufsShortTerm) && Number.isFinite(td.lufsIntegrated)) evals.push({ case:'pink_st_integrated_gap', pass: Math.abs(td.lufsShortTerm - td.lufsIntegrated) <= 0.5, observed: td.lufsShortTerm - td.lufsIntegrated });
+            }
+            if (r.name==='almost_clipped') {
+                if (Number.isFinite(td.truePeakDbtp)) evals.push({ case:'almost_headroom', pass: approx(td.headroomTruePeakDb, -td.truePeakDbtp, 0.11), observed: td.headroomTruePeakDb });
+                const hasClipProb = (r.analysis.problems||[]).some(p=>p.type==='clipping');
+                evals.push({ case:'almost_no_clip_problem', pass: !hasClipProb, observed: hasClipProb });
+            }
+            if (r.name==='clipped') {
+                const hasClipProb = (r.analysis.problems||[]).some(p=>p.type==='clipping');
+                evals.push({ case:'clipped_problem_present', pass: hasClipProb, observed: hasClipProb });
+                if (Number.isFinite(td.truePeakDbtp)) evals.push({ case:'clipped_tp_non_negative', pass: td.truePeakDbtp >= -0.05, observed: td.truePeakDbtp });
+            }
+            if (r.name==='stereo_imbalance') {
+                if (Number.isFinite(td.balanceLR)) evals.push({ case:'stereo_balance_sign', pass: td.balanceLR < 0, observed: td.balanceLR });
+            }
+        }
+        const summary = { results: results.map(r=>({ name:r.name, tp:r.analysis?.technicalData?.truePeakDbtp, lufs:r.analysis?.technicalData?.lufsIntegrated, headroom:r.analysis?.technicalData?.headroomTruePeakDb, lra:r.analysis?.technicalData?.lra, balance:r.analysis?.technicalData?.balanceLR })), evals, pass: evals.every(e=>e.pass) };
+        if (window.DEBUG_ANALYZER) console.log('ACCEPTANCE TEST SUMMARY', summary);
+        return summary;
+    };
+}
 
 // Inicializar quando DOM carregar
 document.addEventListener('DOMContentLoaded', function() {
