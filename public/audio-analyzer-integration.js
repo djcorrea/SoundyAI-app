@@ -276,35 +276,35 @@ async function getPresignedUrl(file) {
  * @returns {Promise<void>}
  */
 async function uploadToBucket(uploadUrl, file) {
-    try {
-        __dbg('📤 Iniciando upload para bucket...', { 
-            filename: file.name,
-            size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
-            url: uploadUrl.substring(0, 50) + '...'
-        });
+  try {
+    __dbg('📤 Iniciando upload para bucket...', { 
+      filename: file.name,
+      size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+      url: uploadUrl.substring(0, 50) + '...'
+    });
 
-        // Mostrar progresso na UI
-        showUploadProgress(`Enviando ${file.name} para análise...`);
+    showUploadProgress(`Enviando ${file.name} para análise...`);
 
-        const response = await fetch(uploadUrl, {
-            method: "PUT",
-            body: file
-            // Headers são gerenciados automaticamente pela URL pré-assinada
-        });
+    // 👇 sem headers, só body = file
+    const response = await fetch(uploadUrl, {
+      method: "PUT",
+      body: file
+    });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Erro no upload: ${response.status} - ${errorText}`);
-        }
-
-        __dbg('✅ Upload para bucket concluído com sucesso');
-        showUploadProgress(`Upload concluído! Processando ${file.name}...`);
-
-    } catch (error) {
-        console.error('❌ Erro no upload para bucket:', error);
-        throw new Error(`Falha ao enviar arquivo para análise: ${error.message}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Erro no upload: ${response.status} - ${errorText}`);
     }
+
+    __dbg('✅ Upload para bucket concluído com sucesso');
+    showUploadProgress(`Upload concluído! Processando ${file.name}...`);
+
+  } catch (error) {
+    console.error('❌ Erro no upload para bucket:', error);
+    throw new Error(`Falha ao enviar arquivo para análise: ${error.message}`);
+  }
 }
+
 
 /**
  * ✅ CRIAR JOB DE ANÁLISE NO BACKEND
