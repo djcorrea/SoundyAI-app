@@ -235,7 +235,7 @@ async function getPresignedUrl(file) {
            size: `${(file.size / 1024 / 1024).toFixed(2)}MB`
     });
 
-    // ✅ Agora manda "ext" + "contentType"
+    // ✅ Agora manda "ext" 
     const response = await fetch(`/api/presign?ext=${encodeURIComponent(ext)}`, {
   method: "GET",
   headers: {
@@ -286,9 +286,6 @@ async function uploadToBucket(uploadUrl, file) {
     // 👇 sem headers, só body = file
    const response = await fetch(uploadUrl, {
   method: "PUT",
-  headers: {
-    "Content-Type": file.type || "application/octet-stream"
-  },
   body: file
 });
 
