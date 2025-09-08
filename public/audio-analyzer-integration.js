@@ -288,9 +288,12 @@ async function uploadToBucket(uploadUrl, file) {
 
     // 👇 sem headers, só body = file
     const response = await fetch(uploadUrl, {
-      method: "PUT",
-      body: file
-    });
+  method: "PUT",
+  headers: {
+    "Content-Type": "application/octet-stream"
+  },
+  body: file
+});
 
     if (!response.ok) {
       const errorText = await response.text();
