@@ -87,13 +87,17 @@ export default async function handler(req, res) {
       }
 
       // Validação
-      if (!validateFileType(file.mimetype, file.originalFilename)) {
-        return res.status(400).json({
-          error: "FORMATO_NAO_SUPORTADO",
-          message: "Formato de arquivo não suportado",
-          supportedFormats: ["WAV", "FLAC", "MP3"],
-        });
-      }
+      const mimetype = file.mimetype || file.type || "";
+const filename = file.originalFilename || file.newFilename || file.name || "";
+
+if (!validateFileType(mimetype, filename)) {
+  return res.status(400).json({
+    error: "FORMATO_NAO_SUPORTADO",
+    message: "Formato de arquivo não suportado",
+    received: { mimetype, filename }, // 👈 debug extra
+    supportedFormats: ["WAV", "FLAC", "MP3"],
+  });
+}
 
       // 🔑 Gera chave única no bucket
       const fileKey = `uploads/${Date.now()}-${file.originalFilename}`;

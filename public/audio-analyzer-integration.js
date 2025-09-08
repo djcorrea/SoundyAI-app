@@ -333,7 +333,7 @@ function handleReferenceFileSelection(type) {
 
                 // 👉 Envia o arquivo direto para a rota /upload
                 const formData = new FormData();
-                formData.append("file", file);
+                formData.append("file", audioFile);
 
                 const response = await fetch("/api/upload-audio", {
   method: "POST",
