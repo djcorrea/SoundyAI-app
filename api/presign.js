@@ -17,10 +17,11 @@ router.get("/presign", async (req, res) => {
     const fileKey = `uploads/${Date.now()}.${ext}`;
 
     const params = {
-      Bucket: BUCKET_NAME,
-      Key: fileKey,
-      Expires: 600 // 10 minutos
-    };
+  Bucket: BUCKET_NAME,
+  Key: fileKey,
+  Expires: 600,
+  ContentType: "application/octet-stream" // 👈 fixo
+};
 
     const uploadUrl = await s3.getSignedUrlPromise("putObject", params);
 
