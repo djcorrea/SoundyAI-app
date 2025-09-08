@@ -289,8 +289,9 @@ async function uploadToBucket(uploadUrl, file) {
     showUploadProgress(`Enviando ${file.name} para análise...`);
 
     // 👇 sem headers, só body = file
-    const response = await fetch(uploadUrl, {
+   const response = await fetch(uploadUrl, {
   method: "PUT",
+  headers: { "Content-Type": file.type || "application/octet-stream" },
   body: file
 });
 
