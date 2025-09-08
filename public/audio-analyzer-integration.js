@@ -217,57 +217,58 @@ let uploadedFiles = {
 
 /**
  * ✅ OBTER URL PRÉ-ASSINADA DO BACKEND
+/**
+ * Obter URL pré-assinada do backend
  * @param {File} file - Arquivo para upload
  * @returns {Promise<{uploadUrl: string, fileKey: string}>}
  */
 async function getPresignedUrl(file) {
-    try {
-        // Extrair extensão do arquivo
-        const ext = file.name.split('.').pop().toLowerCase();
-        const contentType = file.type || 'application/octet-stream';
+  try {
+    // Extrair extensão do arquivo
+    const ext = file.name.split('.').pop().toLowerCase();
 
-        __dbg('🌐 Solicitando URL pré-assinada...', { 
-            filename: file.name, 
-            ext, 
-            contentType,
-            size: `${(file.size / 1024 / 1024).toFixed(2)}MB`
-        });
+    __dbg('🌐 Solicitando URL pré-assinada...', { 
+      filename: file.name, 
+      ext,
+      size: `${(file.size / 1024 / 1024).toFixed(2)}MB`
+    });
 
-        // Chamar backend para obter URL pré-assinada
-        const response = await fetch(`/api/presign?ext=${encodeURIComponent(ext)}`, {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        });
+    // 👉 Agora só manda "ext", sem contentType
+    const response = await fetch(`/api/presign?ext=${encodeURIComponent(ext)}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Erro ao obter URL de upload: ${response.status} - ${errorText}`);
-        }
-
-        const data = await response.json();
-
-        if (!data.uploadUrl || !data.fileKey) {
-            throw new Error('Resposta inválida do servidor: uploadUrl ou fileKey ausente');
-        }
-
-        __dbg('✅ URL pré-assinada obtida:', { 
-            fileKey: data.fileKey,
-            uploadUrl: data.uploadUrl.substring(0, 50) + '...'
-        });
-
-        return {
-            uploadUrl: data.uploadUrl,
-            fileKey: data.fileKey
-        };
-
-    } catch (error) {
-        console.error('❌ Erro ao obter URL pré-assinada:', error);
-        throw new Error(`Falha ao gerar URL de upload: ${error.message}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Erro ao obter URL de upload: ${response.status} - ${errorText}`);
     }
+
+    const data = await response.json();
+
+    if (!data.uploadUrl || !data.fileKey) {
+      throw new Error('Resposta inválida do servidor: uploadUrl ou fileKey ausente');
+    }
+
+    __dbg('✅ URL pré-assinada obtida:', { 
+      fileKey: data.fileKey,
+      uploadUrl: data.uploadUrl.substring(0, 50) + '...'
+    });
+
+    return {
+      uploadUrl: data.uploadUrl,
+      fileKey: data.fileKey
+    };
+
+  } catch (error) {
+    console.error('❌ Erro ao obter URL pré-assinada:', error);
+    throw new Error(`Falha ao gerar URL de upload: ${error.message}`);
+  }
 }
+
 
 /**
  * ✅ UPLOAD DIRETO PARA BUCKET VIA URL PRÉ-ASSINADA
