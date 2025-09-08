@@ -85,6 +85,13 @@ export default async function handler(req, res) {
           message: "Nenhum arquivo foi enviado",
         });
       }
+console.log("[UPLOAD] File recebido:", {
+  mimetype: file.mimetype,
+  type: file.type,
+  originalFilename: file.originalFilename,
+  newFilename: file.newFilename,
+  name: file.name,
+});
 
       // Validação
       const mimetype = file.mimetype || file.type || "";
