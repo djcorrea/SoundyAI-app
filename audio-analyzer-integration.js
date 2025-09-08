@@ -325,7 +325,7 @@ async function startReferenceAnalysis() {
             throw new Error(`Erro na análise: ${response.status}`);
         }
         
-        const result = await response.json();
+        displayReferenceComparison(result.result);
         
         // Exibir resultados
         displayReferenceComparison(result);
