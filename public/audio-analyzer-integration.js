@@ -234,7 +234,7 @@ async function getPresignedUrl(file) {
         });
 
         // Chamar backend para obter URL pré-assinada
-        const response = await fetch(`/api/presign?ext=${encodeURIComponent(ext)}&contentType=${encodeURIComponent(contentType)}`, {
+        const response = await fetch(`/api/presign?ext=${encodeURIComponent(ext)}`, {
             method: 'GET',
             headers: {
                 'Accept': 'application/json',
