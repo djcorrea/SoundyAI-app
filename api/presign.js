@@ -20,7 +20,6 @@ router.get("/presign", async (req, res) => {
   Bucket: BUCKET_NAME,
   Key: fileKey,
   Expires: 600,
-  ContentType: "application/octet-stream" // 👈 fixo
 };
 
     const uploadUrl = await s3.getSignedUrlPromise("putObject", params);
