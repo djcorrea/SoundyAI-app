@@ -49,11 +49,10 @@ async function downloadFileFromBucket(key) {
 
 // ---------- Função para analisar áudio ----------
 async function analyzeAudio(filePath) {
-  // Metadados básicos
   const metadata = await mm.parseFile(filePath);
   const format = metadata.format;
 
-  // ffprobe para dados extras
+  // ffprobe
   const probeData = await new Promise((resolve, reject) => {
     ffmpeg.ffprobe(filePath, (err, data) => {
       if (err) reject(err);
@@ -61,26 +60,33 @@ async function analyzeAudio(filePath) {
     });
   });
 
-  // Resultado padronizado
+  // 🔹 Adicionar placeholders dos campos que o frontend espera
   return {
-    metadata: {
-      duration: format.duration,
-      sampleRate: format.sampleRate,
-      bitRate: format.bitrate,
-      channels: format.numberOfChannels,
-      codec: format.codec,
-    },
-    metrics: {
-      // placeholders — aqui você pode implementar RMS/LUFS reais depois
-      rms: -14.0,
-      peak: -1.2,
+    technicalData: {
+      duration: format.duration || 0,
+      sampleRate: format.sampleRate || 44100,
+      bitRate: format.bitrate || null,
+      channels: format.numberOfChannels || 2,
+      codec: format.codec || "unknown",
       lufsIntegrated: -13.5,
+      truePeakDbtp: -1.2,
+    },
+    tonalBalance: {
+      sub: { rms_db: -12.5 },
+      low: { rms_db: -10.2 },
+      mid: { rms_db: -8.1 },
+      high: { rms_db: -6.4 },
+    },
+    spectralData: {
+      dominantFrequencies: [55, 110, 440, 880], // simulação
+      spectralCentroid: 3500,
+      spectralSpread: 1200,
     },
     diagnostics: {
       clipped: false,
       warnings: [],
     },
-    probe: probeData, // informações brutas do ffprobe (opcional)
+    probe: probeData,
   };
 }
 
