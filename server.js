@@ -8,8 +8,9 @@ import dotenv from "dotenv";
 // 🔑 IMPORTANTE: Carregar .env ANTES de importar outros módulos
 dotenv.config();
 
+// Rotas principais
 import analyzeRoute from "./api/audio/analyze.js";
-import jobsRoute from "./api/jobs/[id].js"; // 👈 nova rota de jobs
+import jobsRoute from "./api/jobs/read.js"; // 👈 rota de jobs conectada ao Postgres
 
 console.log("📂 Arquivo .env carregado");
 console.log("B2_KEY_ID:", process.env.B2_KEY_ID);
@@ -68,8 +69,10 @@ app.use("/api/upload", uploadImageRoute);
 app.use("/api/voice", voiceMessageRoute);
 app.use("/api/webhook", webhookRoute);
 app.use("/api", presignRoute);
+
+// Rotas de análise
 app.use("/api/audio", analyzeRoute);
-app.use("/api/jobs", jobsRoute); // ✅ nova rota registrada
+app.use("/api/jobs", jobsRoute); // ✅ rota de jobs conectada ao banco
 
 // 👉 Fallback SPA: qualquer rota não-API cai no app (index.html)
 app.get("*", (req, res, next) => {
