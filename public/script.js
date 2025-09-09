@@ -1687,13 +1687,14 @@ function showJobResult(result) {
     return;
   }
 
-  const html = `
-    <div class="analysis-result">
-      <h4>🎵 Resultado da Análise</h4>
-      <p>${result.message || "Análise concluída!"}</p>
-    </div>
+  // 👉 Passar texto puro, formatado em Markdown/estiloso
+  const msg = `
+[ANÁLISE DE ÁUDIO]  
+🎵 Resultado da análise:  
+${result.message || "Análise concluída!"}
   `;
-  appendMessage(`<strong>Assistente:</strong> ${html}`, "bot");
+
+  appendMessage(`<strong>Assistente:</strong> ${msg}`, "bot");
 }
 // Patch: impedir erro de NodeAnalysisUI
 window.NodeAnalysisUI = {
