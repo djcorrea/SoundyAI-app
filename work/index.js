@@ -1,4 +1,3 @@
-// worker/index.js
 import "dotenv/config.js";
 import pkg from "pg";
 import AWS from "aws-sdk";
