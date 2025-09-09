@@ -1924,6 +1924,8 @@ async function handleModalFileSelection(file) {
             await handleGenreAnalysisWithResult(analysisResult, file.name);
         }
         
+        displayModalResults(analysisResult);
+
     } catch (error) {
         console.error('❌ Erro na análise do modal:', error);
         
