@@ -1695,6 +1695,14 @@ function showJobResult(result) {
   `;
   appendMessage(`<strong>Assistente:</strong> ${html}`, "bot");
 }
+// Patch: impedir erro de NodeAnalysisUI
+window.NodeAnalysisUI = {
+  render: function(result) {
+    console.log("🎨 NodeAnalysisUI render chamado com:", result);
+    showJobResult(result); // usa tua função que já mostra no chat
+  }
+};
+
 
 /* ============ INICIALIZAÇÃO DO VISUAL NOVO ============ */
 function initVisualEffects() {
