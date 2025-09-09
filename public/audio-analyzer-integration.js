@@ -492,14 +492,15 @@ function handleReferenceFileSelection(type) {
                 // 4. Aguardar resultado da análise
                 const analysisResult = await pollJobStatus(jobId);
                 
+                // Mostrar resultados no modal
+displayModalResults(analysisResult);
+
                 // 5. Armazenar resultado
                 uploadedFiles[type] = {
                     fileKey: fileKey,
                     fileName: file.name,
                     analysisResult: analysisResult
                 };
-
-                displayModalResults(analysisResult);
 
                 console.log(`✅ Arquivo ${type} processado com sucesso:`, file.name, "fileKey:", fileKey);
 
@@ -1917,6 +1918,9 @@ async function handleModalFileSelection(file) {
         showUploadProgress(`Analisando ${file.name}... Aguarde.`);
         const analysisResult = await pollJobStatus(jobId);
         
+        // Mostrar resultados no modal
+displayModalResults(analysisResult);
+
         // 🌐 ETAPA 5: Processar resultado baseado no modo
         if (currentAnalysisMode === "reference") {
             await handleReferenceAnalysisWithResult(analysisResult, fileKey, file.name);
