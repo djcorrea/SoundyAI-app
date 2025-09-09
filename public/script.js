@@ -1635,6 +1635,66 @@ function debugVercel() {
   console.log('📺 Chatbox:', !!document.getElementById('chatbox'));
   console.log('=================');
 }
+async function startAudioAnalysis(file, mode = 'genre') {
+  try {
+    // Subir arquivo via /api/analyze (já integrado ao backend)
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("mode", mode);
+
+    const response = await fetch(`${API_CONFIG.baseURL}/audio/analyze`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error("Falha ao iniciar análise");
+
+    const { jobId } = await response.json();
+    console.log("🚀 Job criado:", jobId);
+
+    // Começar a acompanhar
+    pollJobStatus(jobId);
+  } catch (err) {
+    console.error("❌ Erro ao iniciar análise:", err);
+    appendMessage(`<strong>Assistente:</strong> ❌ Erro ao iniciar análise: ${err.message}`, "bot");
+  }
+}
+
+async function pollJobStatus(jobId) {
+  const interval = setInterval(async () => {
+    try {
+      const res = await fetch(`${API_CONFIG.baseURL}/jobs/${jobId}`);
+      if (!res.ok) throw new Error("Job não encontrado");
+
+      const job = await res.json();
+      console.log("📊 Status job:", job);
+
+      if (job.status === "completed") {
+        clearInterval(interval);
+        showJobResult(job.result);
+      }
+    } catch (err) {
+      clearInterval(interval);
+      console.error("❌ Erro no polling:", err);
+      appendMessage(`<strong>Assistente:</strong> ❌ Erro ao buscar resultado da análise.`, "bot");
+    }
+  }, 2000); // checar a cada 2s
+}
+
+function showJobResult(result) {
+  if (!result) {
+    appendMessage(`<strong>Assistente:</strong> ❌ Nenhum resultado retornado.`, "bot");
+    return;
+  }
+
+  const html = `
+    <div class="analysis-result">
+      <h4>🎵 Resultado da Análise</h4>
+      <p>${result.message || "Análise concluída!"}</p>
+    </div>
+  `;
+  appendMessage(`<strong>Assistente:</strong> ${html}`, "bot");
+}
 
 /* ============ INICIALIZAÇÃO DO VISUAL NOVO ============ */
 function initVisualEffects() {
