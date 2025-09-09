@@ -499,6 +499,8 @@ function handleReferenceFileSelection(type) {
                     analysisResult: analysisResult
                 };
 
+                displayModalResults(analysisResult);
+
                 console.log(`✅ Arquivo ${type} processado com sucesso:`, file.name, "fileKey:", fileKey);
 
                 // Atualizar interface
