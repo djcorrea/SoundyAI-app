@@ -10,7 +10,7 @@ dotenv.config();
 
 // Rotas principais
 import analyzeRoute from "./api/audio/analyze.js";
-import jobsRoute from "./api/jobs/read.js"; // 👈 rota de jobs conectada ao Postgres
+import jobsRoute from "./api/jobs/[id].js"; // 👈 rota de jobs conectada ao Postgres
 
 console.log("📂 Arquivo .env carregado");
 console.log("B2_KEY_ID:", process.env.B2_KEY_ID);
