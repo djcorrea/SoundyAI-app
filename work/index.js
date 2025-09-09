@@ -2,6 +2,8 @@ import pkg from "pg";
 import AWS from "aws-sdk";
 import fs from "fs";
 import path from "path";
+import mm from "music-metadata";
+import ffmpeg from "fluent-ffmpeg";
 
 const { Client } = pkg;
 
@@ -45,6 +47,43 @@ async function downloadFileFromBucket(key) {
   });
 }
 
+// ---------- Função para analisar áudio ----------
+async function analyzeAudio(filePath) {
+  // Metadados básicos
+  const metadata = await mm.parseFile(filePath);
+  const format = metadata.format;
+
+  // ffprobe para dados extras
+  const probeData = await new Promise((resolve, reject) => {
+    ffmpeg.ffprobe(filePath, (err, data) => {
+      if (err) reject(err);
+      else resolve(data);
+    });
+  });
+
+  // Resultado padronizado
+  return {
+    metadata: {
+      duration: format.duration,
+      sampleRate: format.sampleRate,
+      bitRate: format.bitrate,
+      channels: format.numberOfChannels,
+      codec: format.codec,
+    },
+    metrics: {
+      // placeholders — aqui você pode implementar RMS/LUFS reais depois
+      rms: -14.0,
+      peak: -1.2,
+      lufsIntegrated: -13.5,
+    },
+    diagnostics: {
+      clipped: false,
+      warnings: [],
+    },
+    probe: probeData, // informações brutas do ffprobe (opcional)
+  };
+}
+
 // ---------- Loop para processar jobs ----------
 async function processJobs() {
   console.log("🔄 Worker verificando jobs...");
@@ -67,27 +106,18 @@ async function processJobs() {
       // Baixar arquivo do bucket
       const localFilePath = await downloadFileFromBucket(job.file_key);
 
-      // 👉 Aqui depois entra o processamento de áudio real
       console.log(`🎵 Arquivo pronto para processamento: ${localFilePath}`);
 
-      // (Por enquanto só cria um JSON fake como placeholder do resultado)
-      const resultKey = `results/${Date.now()}-result.json`;
-      await s3
-        .putObject({
-          Bucket: BUCKET_NAME,
-          Key: resultKey,
-          Body: JSON.stringify({ ok: true, file: job.file_key }),
-          ContentType: "application/json",
-        })
-        .promise();
+      // Analisar áudio
+      const result = await analyzeAudio(localFilePath);
 
-      // Atualiza job como finalizado
+      // Atualiza job como finalizado no Postgres
       await client.query(
-        "UPDATE jobs SET status = $1, result_key = $2, updated_at = NOW() WHERE id = $3",
-        ["done", resultKey, job.id]
+        "UPDATE jobs SET status = $1, result = $2, updated_at = NOW() WHERE id = $3",
+        ["done", result, job.id]
       );
 
-      console.log(`✅ Job ${job.id} concluído, resultado em: ${resultKey}`);
+      console.log(`✅ Job ${job.id} concluído, resultado salvo no Postgres`);
     } catch (err) {
       console.error("❌ Erro ao processar job:", err);
 
