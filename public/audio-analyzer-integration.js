@@ -2142,7 +2142,8 @@ function enableReferenceComparison() {
  */
 function hideModalAfterSuccess() {
     try {
-        hideAnalysisModal();
+        const modal = document.getElementById('audioAnalysisModal');
+if (modal) modal.style.display = 'none';
         showUploadArea();
         
         // Limpar progresso
