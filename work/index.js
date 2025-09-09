@@ -1,10 +1,11 @@
-import "dotenv/config.js";
+// work/index.js
+import "dotenv/config";                    // ✅ sem .js
 import pkg from "pg";
 import AWS from "aws-sdk";
 import fs from "fs";
 import path from "path";
-import mm from "music-metadata";
-import ffmpeg from "fluent-ffmpeg";
+import * as mm from "music-metadata";      // ✅ import correto (se usar depois)
+import ffmpeg from "fluent-ffmpeg";        // ok se for usar depois
 
 const { Client } = pkg;
 
@@ -31,22 +32,32 @@ const BUCKET_NAME = process.env.B2_BUCKET_NAME;
 // ---------- Função para baixar arquivo ----------
 async function downloadFileFromBucket(key) {
   const localPath = path.join("/tmp", path.basename(key)); // Railway usa /tmp
-  const file = fs.createWriteStream(localPath);
+  await fs.promises.mkdir(path.dirname(localPath), { recursive: true });
 
   return new Promise((resolve, reject) => {
-    s3.getObject({ Bucket: BUCKET_NAME, Key: key })
-      .createReadStream()
-      .on("end", () => {
-        console.log(`📥 Arquivo baixado: ${localPath}`);
-        resolve(localPath);
-      })
-      .on("error", (err) => {
-        console.error("❌ Erro ao baixar arquivo:", err);
-        reject(err);
-      })
-      .pipe(file);
+    const write = fs.createWriteStream(localPath);
+    const read = s3.getObject({ Bucket: BUCKET_NAME, Key: key }).createReadStream();
+
+    read.on("error", (err) => {
+      console.error("❌ Erro no stream de leitura S3:", err);
+      reject(err);
+    });
+
+    write.on("error", (err) => {
+      console.error("❌ Erro no stream de escrita local:", err);
+      reject(err);
+    });
+
+    // ✅ só resolve quando o arquivo foi gravado
+    write.on("finish", () => {
+      console.log(`📥 Arquivo baixado: ${localPath}`);
+      resolve(localPath);
+    });
+
+    read.pipe(write);
   });
 }
+
 // ---------- Processar 1 job ----------
 async function processJob(job) {
   console.log("📥 Processando job:", job.id);
@@ -60,16 +71,18 @@ async function processJob(job) {
 
     // Baixar arquivo do bucket
     const localFilePath = await downloadFileFromBucket(job.file_key);
-
-    // 👉 Aqui depois entra seu pipeline real de análise de áudio
     console.log(`🎵 Arquivo pronto para análise: ${localFilePath}`);
 
-    // (Por enquanto: resultado fake em JSON)
+    // (Placeholder) — aqui entra sua análise real com mm/ffmpeg
+    // const meta = await mm.parseFile(localFilePath);
+    // console.log("🎶 Metadata:", meta.format);
+
     const result = {
       ok: true,
       file: job.file_key,
       mode: job.mode,
       analyzedAt: new Date().toISOString(),
+      // example: format: meta?.format ?? null,
     };
 
     // Salva resultado no banco
@@ -81,29 +94,39 @@ async function processJob(job) {
     console.log(`✅ Job ${job.id} concluído`);
   } catch (err) {
     console.error("❌ Erro no job:", err);
-
     await client.query(
       "UPDATE jobs SET status = $1, error = $2, updated_at = NOW() WHERE id = $3",
-      ["failed", err.message, job.id]
+      ["failed", err?.message ?? String(err), job.id]
     );
   }
 }
 
-// ---------- Loop para buscar jobs ----------
+// ---------- Loop para buscar jobs (com lock) ----------
+let isRunning = false;
+
 async function processJobs() {
-  console.log("🔄 Worker verificando jobs...");
+  if (isRunning) return;
+  isRunning = true;
 
-  const res = await client.query(
-    "SELECT * FROM jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1"
-  );
+  try {
+    console.log("🔄 Worker verificando jobs...");
+    const res = await client.query(
+      "SELECT * FROM jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1"
+    );
 
-  if (res.rows.length > 0) {
-
-    await processJob(res.rows[0]);
-  } else {
-    console.log("📭 Nenhum job novo.");
+    if (res.rows.length > 0) {
+      await processJob(res.rows[0]);
+    } else {
+      console.log("📭 Nenhum job novo.");
+    }
+  } catch (e) {
+    console.error("❌ Erro no loop de jobs:", e);
+  } finally {
+    isRunning = false;
   }
 }
 
 // ---------- Executa a cada 5s ----------
 setInterval(processJobs, 5000);
+// dispara uma vez logo no start
+processJobs();
