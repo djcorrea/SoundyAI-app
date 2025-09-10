@@ -1,329 +1,306 @@
-// 🎯 FASE 5.4: JSON OUTPUT + SCORING
-// Constrói saída JSON estruturada e calcula score compatível com front-end
+// 🎯 PIPELINE COMPLETO FASES 5.1 - 5.4
+// Integração completa: Decodificação → Segmentação → Core Metrics → JSON Output + Scoring
 
-import { computeMixScore } from "../../lib/audio/features/scoring.js";
+import decodeAudioFile from "./audio-decoder.js";              // Fase 5.1
+import { segmentAudioTemporal } from "./temporal-segmentation.js"; // Fase 5.2  
+import { calculateCoreMetrics } from "./core-metrics.js";      // Fase 5.3
+import { generateJSONOutput } from "./json-output.js";         // Fase 5.4
 
-console.log("📦 JSON Output & Scoring (Fase 5.4) carregado - Equal Weight V3");
+console.log('🎵 Pipeline Completo (Fases 5.1-5.4) carregado - Node.js Backend');
 
 /**
- * Gera JSON final estruturado com métricas e score
- * @param {Object} coreMetrics - Resultado da Fase 5.3
- * @param {Object} reference - Referência de gênero (opcional)
- * @param {Object} metadata - Metadados do arquivo (opcional)
- * @returns {Object} JSON estruturado compatível com front-end
+ * Executa pipeline completo de análise de áudio
+ * @param {Buffer|Uint8Array} audioBuffer - Buffer do arquivo de áudio
+ * @param {string} fileName - Nome do arquivo
+ * @param {Object} options - Opções de processamento
+ * @returns {Object} JSON final com métricas e score
  */
-export function generateJSONOutput(coreMetrics, reference = null, metadata = {}) {
-  console.log("🚀 Iniciando geração de JSON final (Fase 5.4)...");
-  console.log("📊 Métricas recebidas:", Object.keys(coreMetrics || {}));
+export async function processAudioComplete(audioBuffer, fileName, options = {}) {
+  const startTime = Date.now();
+  
+  console.log(`🚀 Iniciando pipeline completo para: ${fileName}`);
+  console.log(`📊 Buffer size: ${audioBuffer.length} bytes`);
+  console.log(`🔧 Opções:`, options);
 
   try {
-    if (!coreMetrics || typeof coreMetrics !== "object") {
-      throw new Error("Core metrics inválidas");
-    }
+    // ✅ FASE 5.1: Decodificação de Áudio
+    console.log('🎵 Fase 5.1: Decodificação...');
+    const phaseStartTime = Date.now();
+    
+    const audioData = await decodeAudioFile(audioBuffer, fileName);
+    const phase1Time = Date.now() - phaseStartTime;
+    
+    console.log(`✅ Fase 5.1 concluída em ${phase1Time}ms`);
+    console.log(`📊 Audio decodificado: ${audioData.sampleRate}Hz, ${audioData.channels}ch, ${audioData.duration.toFixed(2)}s`);
 
-    // ✅ Extrair dados essenciais
-    const technicalData = extractTechnicalData(coreMetrics);
-    const scoringResult = computeMixScore(technicalData, reference);
+    // ✅ FASE 5.2: Segmentação Temporal
+    console.log('⏱️ Fase 5.2: Segmentação Temporal...');
+    const phase2StartTime = Date.now();
+    
+    const segmentedData = segmentAudioTemporal(audioData);
+    const phase2Time = Date.now() - phase2StartTime;
+    
+    console.log(`✅ Fase 5.2 concluída em ${phase2Time}ms`);
+    console.log(`📊 FFT frames: ${segmentedData.framesFFT.left.length}, RMS frames: ${segmentedData.framesRMS.left.length}`);
 
-    // ✅ Construir JSON final
-    const finalJSON = buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata);
+    // ✅ FASE 5.3: Core Metrics
+    console.log('📊 Fase 5.3: Core Metrics...');
+    const phase3StartTime = Date.now();
+    
+    const coreMetrics = await calculateCoreMetrics(segmentedData);
+    const phase3Time = Date.now() - phase3StartTime;
+    
+    console.log(`✅ Fase 5.3 concluída em ${phase3Time}ms`);
+    console.log(`📊 LUFS: ${coreMetrics.lufs.integrated.toFixed(1)}`, 
+                `True Peak: ${coreMetrics.truePeak.maxDbtp.toFixed(1)}dBTP`,
+                `Correlação: ${coreMetrics.stereo.correlation.toFixed(3)}`);
 
-    validateFinalJSON(finalJSON);
+    // ✅ FASE 5.4: JSON Output + Scoring
+    console.log('🎯 Fase 5.4: JSON Output + Scoring...');
+    const phase4StartTime = Date.now();
+    
+    // Preparar metadados
+    const metadata = {
+      fileName,
+      fileSize: audioBuffer.length,
+      processingTime: Date.now() - startTime
+    };
 
-    console.log("✅ JSON Output gerado com sucesso (Fase 5.4)");
+    // Referência de gênero (se fornecida)
+    const reference = options.reference || options.genre || null;
+    
+    const finalJSON = generateJSONOutput(coreMetrics, reference, metadata);
+    const phase4Time = Date.now() - phase4StartTime;
+    
+    console.log(`✅ Fase 5.4 concluída em ${phase4Time}ms`);
+    console.log(`🎯 Score final: ${finalJSON.score}% (${finalJSON.classification})`);
+
+    // ✅ Estatísticas finais
+    const totalTime = Date.now() - startTime;
+    console.log(`🏁 Pipeline completo finalizado em ${totalTime}ms`);
+    console.log(`⚡ Breakdown: Decodificação=${phase1Time}ms, Segmentação=${phase2Time}ms, Core=${phase3Time}ms, JSON=${phase4Time}ms`);
+
+    // Atualizar tempo no resultado final
+    finalJSON.metadata.processingTime = totalTime;
+    finalJSON.metadata.phaseBreakdown = {
+      phase1_decoding: phase1Time,
+      phase2_segmentation: phase2Time, 
+      phase3_core_metrics: phase3Time,
+      phase4_json_output: phase4Time,
+      total: totalTime
+    };
+
     return finalJSON;
+
   } catch (error) {
-    console.error("❌ Erro na Fase 5.4:", error);
-    return createErrorJSON(error, coreMetrics, metadata);
-  }
-}
+    const totalTime = Date.now() - startTime;
+    console.error(`❌ Pipeline falhou após ${totalTime}ms:`, error);
 
-/**
- * Extrai dados técnicos das métricas core para o scoring
- */
-function extractTechnicalData(coreMetrics) {
-  const technicalData = {};
-
-  try {
-    // 🎵 LUFS
-    if (coreMetrics.lufs) {
-      technicalData.lufsIntegrated = coreMetrics.lufs.integrated;
-      technicalData.lra = coreMetrics.lufs.lra;
-      technicalData.lufsShortTerm = coreMetrics.lufs.shortTerm;
-      technicalData.lufsMomentary = coreMetrics.lufs.momentary;
-    }
-
-    // 🏔️ True Peak
-    if (coreMetrics.truePeak) {
-      technicalData.truePeakDbtp = coreMetrics.truePeak.maxDbtp;
-      technicalData.truePeakLinear = coreMetrics.truePeak.maxLinear;
-    }
-
-    // 📊 FFT Bands
-    if (coreMetrics.fft?.frequencyBands) {
-      technicalData.bandEnergies = {};
-
-      const bandsLeft = coreMetrics.fft.frequencyBands.left || {};
-      const bandsRight = coreMetrics.fft.frequencyBands.right || {};
-
-      const bandMapping = {
-        subBass: "sub",
-        bass: "low_bass",
-        lowMid: "low_mid",
-        mid: "mid",
-        highMid: "high_mid",
-        presence: "presence",
-        brilliance: "brilliance",
-      };
-
-      for (const [coreKey, scoringKey] of Object.entries(bandMapping)) {
-        if (bandsLeft[coreKey] || bandsRight[coreKey]) {
-          const avgEnergyDb =
-            ((bandsLeft[coreKey]?.energyDb || 0) +
-              (bandsRight[coreKey]?.energyDb || 0)) / 2;
-          const avgEnergy =
-            ((bandsLeft[coreKey]?.energy || 0) +
-              (bandsRight[coreKey]?.energy || 0)) / 2;
-
-          technicalData.bandEnergies[scoringKey] = {
-            rms_db: avgEnergyDb,
-            energy: avgEnergy,
-          };
-        }
-      }
-
-      if (coreMetrics.fft.spectralCentroid) {
-        technicalData.spectralCentroid = coreMetrics.fft.spectralCentroid;
-      }
-    }
-
-    // 🎧 Stereo
-    if (coreMetrics.stereo) {
-      technicalData.stereoCorrelation = coreMetrics.stereo.correlation;
-      technicalData.stereoWidth = coreMetrics.stereo.width;
-      technicalData.balanceLR = coreMetrics.stereo.balance;
-    }
-
-    // 🔧 Technical (fallback para _metadata)
-    const meta = coreMetrics.metadata || coreMetrics._metadata || {};
-    technicalData.sampleRate = meta.sampleRate || 48000;
-    technicalData.channels = meta.channels || 2;
-    technicalData.duration = meta.duration || 0;
-
-    // 📈 Dynamic Range fallback
-    if (coreMetrics.dr !== undefined) {
-      technicalData.dynamicRange = coreMetrics.dr;
-    } else if (coreMetrics.lufs && coreMetrics.truePeak) {
-      technicalData.dynamicRange =
-        coreMetrics.truePeak.maxDbtp - coreMetrics.lufs.integrated;
-    }
-
-    technicalData.runId = `phase-5-4-${Date.now()}`;
-    return technicalData;
-  } catch (error) {
-    console.error("❌ Erro ao extrair technical data:", error);
+    // Retornar JSON de erro estruturado
     return {
-      runId: `phase-5-4-error-${Date.now()}`,
-      lufsIntegrated: -14,
-      truePeakDbtp: -1,
-      stereoCorrelation: 0.5,
+      status: 'error',
+      error: {
+        message: error.message,
+        type: 'pipeline_error',
+        phase: identifyFailedPhase(error.message),
+        timestamp: new Date().toISOString(),
+        processingTime: totalTime
+      },
+      score: 50,
+      classification: 'Erro',
+      scoringMethod: 'error_fallback',
+      metadata: {
+        fileName,
+        fileSize: audioBuffer.length,
+        sampleRate: 48000,
+        channels: 2,
+        duration: 0,
+        processedAt: new Date().toISOString(),
+        engineVersion: '5.1-5.4-error',
+        pipelinePhase: 'error'
+      },
+      technicalData: {},
+      warnings: [`Pipeline error: ${error.message}`],
+      buildVersion: '5.4.0-pipeline-error',
+      frontendCompatible: false
     };
   }
 }
 
 /**
- * Constrói o JSON final estruturado
+ * Identifica em qual fase o pipeline falhou
  */
-function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata) {
-  const finalJSON = {
-    score: sanitizeValue(scoringResult.scorePct),
-    classification: scoringResult.classification || "Básico",
-    scoringMethod: scoringResult.method || "equal_weight_v3",
-
-    metadata: {
-      fileName: metadata.fileName || "unknown",
-      fileSize: metadata.fileSize || 0,
-      sampleRate:
-        coreMetrics.metadata?.sampleRate ||
-        coreMetrics._metadata?.sampleRate ||
-        48000,
-      channels:
-        coreMetrics.metadata?.channels ||
-        coreMetrics._metadata?.channels ||
-        2,
-      duration:
-        coreMetrics.metadata?.duration ||
-        coreMetrics._metadata?.duration ||
-        0,
-      processedAt: new Date().toISOString(),
-      engineVersion: "5.4.0",
-      pipelinePhase: "complete",
-    },
-
-    technicalData: {
-      lufsIntegrated: sanitizeValue(technicalData.lufsIntegrated),
-      lufsShortTerm: sanitizeValue(technicalData.lufsShortTerm),
-      lufsMomentary: sanitizeValue(technicalData.lufsMomentary),
-      lra: sanitizeValue(technicalData.lra),
-
-      truePeakDbtp: sanitizeValue(technicalData.truePeakDbtp),
-      truePeakLinear: sanitizeValue(technicalData.truePeakLinear),
-
-      dynamicRange: sanitizeValue(technicalData.dynamicRange),
-
-      stereoCorrelation: sanitizeValue(technicalData.stereoCorrelation),
-      stereoWidth: sanitizeValue(technicalData.stereoWidth),
-      balanceLR: sanitizeValue(technicalData.balanceLR),
-
-      spectralCentroid: sanitizeValue(technicalData.spectralCentroid),
-      frequencyBands: extractFrequencyBands(coreMetrics.fft?.frequencyBands),
-
-      dcOffset: sanitizeValue(technicalData.dcOffset || 0),
-      clippingPct: sanitizeValue(technicalData.clippingPct || 0),
-    },
-
-    scoringDetails: {
-      method: scoringResult.method,
-      totalMetrics: scoringResult.equalWeightDetails?.totalMetrics || 0,
-      equalWeight: scoringResult.equalWeightDetails?.equalWeight || 0,
-      metricBreakdown: scoringResult.equalWeightDetails?.metricScores || [],
-      classification: scoringResult.classification,
-    },
-
-    rawMetrics: {
-      lufs: coreMetrics.lufs,
-      truePeak: coreMetrics.truePeak,
-      fft: coreMetrics.fft,
-      stereo: coreMetrics.stereo,
-    },
-
-    status: "success",
-    processingTime: metadata.processingTime || 0,
-    warnings: [],
-
-    buildVersion: "5.4.0-equal-weight-v3",
-    pipelineVersion: "node-js-backend",
-    frontendCompatible: true,
-  };
-
-  addWarningsIfNeeded(finalJSON, coreMetrics, scoringResult);
-  return finalJSON;
-}
-
-/**
- * Extrai bandas simplificadas
- */
-function extractFrequencyBands(frequencyBands) {
-  if (!frequencyBands?.left) return {};
-  const simplified = {};
-  const bands = ["subBass", "bass", "lowMid", "mid", "highMid", "presence", "brilliance"];
-
-  for (const bandName of bands) {
-    if (frequencyBands.left[bandName]) {
-      const avgEnergyDb =
-        ((frequencyBands.left[bandName].energyDb || 0) +
-          (frequencyBands.right?.[bandName]?.energyDb || 0)) / 2;
-      const avgEnergy =
-        ((frequencyBands.left[bandName].energy || 0) +
-          (frequencyBands.right?.[bandName]?.energy || 0)) / 2;
-
-      simplified[bandName] = {
-        min: frequencyBands.left[bandName].min,
-        max: frequencyBands.left[bandName].max,
-        energyDb: sanitizeValue(avgEnergyDb),
-        energy: sanitizeValue(avgEnergy),
-      };
-    }
+function identifyFailedPhase(errorMessage) {
+  const message = errorMessage.toLowerCase();
+  
+  if (message.includes('ffmpeg') || message.includes('decode') || message.includes('audio format')) {
+    return 'phase_5_1_decoding';
   }
-  return simplified;
-}
-
-/**
- * Adiciona warnings
- */
-function addWarningsIfNeeded(finalJSON, coreMetrics, scoringResult) {
-  const warnings = [];
-
-  if (coreMetrics.lufs?.diagnostics?.isSilent) {
-    warnings.push("Áudio silencioso detectado");
-  } else {
-    if (finalJSON.technicalData.lufsIntegrated < -30) {
-      warnings.push("LUFS muito baixo - possível sinal de baixo volume");
-    }
-    if (finalJSON.technicalData.truePeakDbtp > -0.1) {
-      warnings.push("True Peak próximo de 0dB - risco de clipping");
-    }
-    if (finalJSON.technicalData.stereoCorrelation < 0.1) {
-      warnings.push("Correlação estéreo muito baixa - possível problema de fase");
-    }
-    if (finalJSON.score < 30) {
-      warnings.push("Score baixo - múltiplas métricas fora dos targets");
-    }
-    if (scoringResult.method !== "equal_weight_v3") {
-      warnings.push(`Fallback para método: ${scoringResult.method}`);
-    }
+  
+  if (message.includes('fft') || message.includes('segment') || message.includes('temporal')) {
+    return 'phase_5_2_segmentation';
   }
-
-  finalJSON.warnings = warnings;
+  
+  if (message.includes('lufs') || message.includes('true peak') || message.includes('core metric')) {
+    return 'phase_5_3_core_metrics';
+  }
+  
+  if (message.includes('json') || message.includes('scoring') || message.includes('score')) {
+    return 'phase_5_4_json_output';
+  }
+  
+  return 'unknown_phase';
 }
 
 /**
- * Sanitiza valores
+ * Versão simplificada que apenas calcula o score
+ * @param {Buffer|Uint8Array} audioBuffer - Buffer do arquivo
+ * @param {string} fileName - Nome do arquivo
+ * @param {Object} reference - Referência de gênero
+ * @returns {Object} Apenas score e classificação
  */
-function sanitizeValue(value) {
-  if (!Number.isFinite(value)) return null;
-  return parseFloat(Number(value).toFixed(3));
+export async function calculateAudioScore(audioBuffer, fileName, reference = null) {
+  console.log(`🎯 Calculando score para: ${fileName}`);
+  
+  try {
+    const fullResult = await processAudioComplete(audioBuffer, fileName, { reference });
+    
+    return {
+      score: fullResult.score,
+      classification: fullResult.classification,
+      method: fullResult.scoringMethod,
+      processingTime: fullResult.metadata.processingTime,
+      fileName: fileName,
+      status: 'success'
+    };
+    
+  } catch (error) {
+    console.error('❌ Erro ao calcular score:', error);
+    
+    return {
+      score: 50,
+      classification: 'Erro',
+      method: 'error_fallback',
+      processingTime: 0,
+      fileName: fileName,
+      status: 'error',
+      error: error.message
+    };
+  }
 }
 
 /**
- * Valida JSON final
+ * Valida se o pipeline está funcionando corretamente
+ * @returns {Promise<boolean>} True se pipeline OK
  */
-function validateFinalJSON(finalJSON) {
-  const required = ["score", "classification", "technicalData", "metadata"];
-  for (const field of required) {
-    if (!(field in finalJSON)) {
-      throw new Error(`Campo obrigatório ausente: ${field}`);
+export async function validatePipeline() {
+  console.log('🧪 Validando pipeline completo...');
+  
+  try {
+    // Gerar sinal de teste (1kHz, 1 segundo, 48kHz)
+    const testAudio = generateTestAudio();
+    console.log('🎵 Sinal de teste gerado');
+    
+    // Processar com pipeline completo
+    const result = await processAudioComplete(testAudio, 'test-signal.wav');
+    
+    // Verificações básicas
+    const checks = [
+      { name: 'Status success', pass: result.status === 'success' },
+      { name: 'Score válido', pass: Number.isFinite(result.score) && result.score >= 0 && result.score <= 100 },
+      { name: 'Classificação presente', pass: !!result.classification },
+      { name: 'LUFS válido', pass: Number.isFinite(result.technicalData.lufsIntegrated) },
+      { name: 'True Peak válido', pass: Number.isFinite(result.technicalData.truePeakDbtp) },
+      { name: 'Correlação válida', pass: Number.isFinite(result.technicalData.stereoCorrelation) },
+      { name: 'JSON serializável', pass: !!JSON.stringify(result) }
+    ];
+    
+    const failedChecks = checks.filter(check => !check.pass);
+    
+    if (failedChecks.length === 0) {
+      console.log('✅ Pipeline validado com sucesso!');
+      console.log(`🎯 Score teste: ${result.score}% (${result.classification})`);
+      return true;
+    } else {
+      console.error('❌ Validação falhou:');
+      failedChecks.forEach(check => console.error(`  - ${check.name}`));
+      return false;
     }
+    
+  } catch (error) {
+    console.error('❌ Erro na validação:', error);
+    return false;
   }
-  if (!Number.isFinite(finalJSON.score) || finalJSON.score < 0 || finalJSON.score > 100) {
-    throw new Error(`Score inválido: ${finalJSON.score}`);
-  }
-  JSON.stringify(finalJSON);
-  console.log("✅ JSON final validado com sucesso");
 }
 
 /**
- * Cria JSON de erro
+ * Gera áudio de teste para validação
  */
-function createErrorJSON(error, coreMetrics = null, metadata = {}) {
-  return {
-    status: "error",
-    error: {
-      message: error.message,
-      type: "phase_5_4_error",
-      timestamp: new Date().toISOString(),
-    },
-    score: 50,
-    classification: "Básico",
-    scoringMethod: "error_fallback",
-    metadata: {
-      fileName: metadata.fileName || "unknown",
-      sampleRate: 48000,
-      channels: 2,
-      duration: 0,
-      processedAt: new Date().toISOString(),
-      engineVersion: "5.4.0-error",
-      pipelinePhase: "error",
-    },
-    technicalData: {
-      lufsIntegrated: null,
-      truePeakDbtp: null,
-      stereoCorrelation: null,
-      frequencyBands: {},
-    },
-    rawMetrics: coreMetrics || {},
-    warnings: [`Erro na Fase 5.4: ${error.message}`],
-    buildVersion: "5.4.0-error-fallback",
-    frontendCompatible: false,
-  };
+function generateTestAudio() {
+  // Simular WAV de 1 segundo, 48kHz, estéreo, 1kHz sine wave
+  const sampleRate = 48000;
+  const duration = 1.0;
+  const frequency = 1000;
+  const samples = Math.floor(sampleRate * duration);
+  
+  // Header WAV simplificado (44 bytes)
+  const headerSize = 44;
+  const dataSize = samples * 4; // 2 channels * 2 bytes per sample
+  const fileSize = headerSize + dataSize;
+  
+  const buffer = new ArrayBuffer(fileSize);
+  const view = new DataView(buffer);
+  
+  // WAV Header
+  let offset = 0;
+  
+  // "RIFF"
+  view.setUint32(offset, 0x52494646, false); offset += 4;
+  // File size - 8
+  view.setUint32(offset, fileSize - 8, true); offset += 4;
+  // "WAVE"
+  view.setUint32(offset, 0x57415645, false); offset += 4;
+  // "fmt "
+  view.setUint32(offset, 0x666d7420, false); offset += 4;
+  // fmt chunk size
+  view.setUint32(offset, 16, true); offset += 4;
+  // Audio format (1 = PCM)
+  view.setUint16(offset, 1, true); offset += 2;
+  // Channels
+  view.setUint16(offset, 2, true); offset += 2;
+  // Sample rate
+  view.setUint32(offset, sampleRate, true); offset += 4;
+  // Byte rate
+  view.setUint32(offset, sampleRate * 4, true); offset += 4;
+  // Block align
+  view.setUint16(offset, 4, true); offset += 2;
+  // Bits per sample
+  view.setUint16(offset, 16, true); offset += 2;
+  // "data"
+  view.setUint32(offset, 0x64617461, false); offset += 4;
+  // Data chunk size
+  view.setUint32(offset, dataSize, true); offset += 4;
+  
+  // Audio data (1kHz sine wave)
+  for (let i = 0; i < samples; i++) {
+    const t = i / sampleRate;
+    const sample = Math.sin(2 * Math.PI * frequency * t) * 0.5; // -6dB
+    const intSample = Math.round(sample * 32767);
+    
+    // Left channel
+    view.setInt16(offset, intSample, true); offset += 2;
+    // Right channel  
+    view.setInt16(offset, intSample, true); offset += 2;
+  }
+  
+  return new Uint8Array(buffer);
 }
+
+/**
+ * Pipeline completo para uso em API/servidor
+ */
+export default {
+  processAudioComplete,
+  calculateAudioScore,
+  validatePipeline
+};
