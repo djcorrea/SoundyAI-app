@@ -1,3 +1,4 @@
+// work/index.js
 import "dotenv/config";
 import pkg from "pg";
 import AWS from "aws-sdk";
@@ -8,13 +9,45 @@ import * as mm from "music-metadata"; // fallback de metadata
 
 const { Client } = pkg;
 
-// ---------- Caminho seguro para importar pipeline ----------
+// ---------- util de caminho ----------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// 🚀 Import dinâmico com caminho absoluto (garante achar no Railway)
-const pipelinePath = path.join(__dirname, "../api/audio/pipeline-complete.js");
-const { processAudioComplete } = await import(`file://${pipelinePath}`);
+// Tenta localizar o pipeline em vários caminhos possíveis
+async function loadPipeline() {
+  const candidates = [
+    // 1) pipeline copiado para dentro do service do worker (recomendado)
+    path.join(__dirname, "pipeline/pipeline-complete.js"),
+    // 2) monorepo: worker em work/ e pipeline fora
+    path.join(__dirname, "../api/audio/pipeline-complete.js"),
+    // 3) cwd do serviço
+    path.join(process.cwd(), "api/audio/pipeline-complete.js"),
+    // 4) outro relativo comum (caso seu build mova um nível)
+    path.resolve(__dirname, "../../api/audio/pipeline-complete.js"),
+  ];
+
+  console.log("🔎 Procurando pipeline em:");
+  candidates.forEach((p) => console.log("  -", p));
+
+  for (const p of candidates) {
+    try {
+      if (fs.existsSync(p)) {
+        const mod = await import(`file://${p}`);
+        if (mod?.processAudioComplete) {
+          console.log("✅ Pipeline carregado de:", p);
+          return mod.processAudioComplete;
+        } else {
+          console.warn("⚠️ Módulo encontrado mas sem export processAudioComplete:", p);
+        }
+      }
+    } catch (e) {
+      console.warn("⚠️ Falha ao importar pipeline de", p, "->", e?.message);
+    }
+  }
+
+  console.warn("⚠️ Pipeline completo NÃO encontrado neste serviço. Usarei fallback (metadata).");
+  return null;
+}
 
 // ---------- Conectar ao Postgres ----------
 const client = new Client({
@@ -45,9 +78,8 @@ async function downloadFileFromBucket(key) {
     const write = fs.createWriteStream(localPath);
     const read = s3.getObject({ Bucket: BUCKET_NAME, Key: key }).createReadStream();
 
-    read.on("error", (err) => reject(err));
-    write.on("error", (err) => reject(err));
-
+    read.on("error", reject);
+    write.on("error", reject);
     write.on("finish", () => {
       console.log(`📥 Arquivo baixado: ${localPath}`);
       resolve(localPath);
@@ -73,7 +105,7 @@ async function analyzeFallbackMetadata(localFilePath) {
         bitrate: meta.format.bitrate || null,
         channels: meta.format.numberOfChannels || 2,
       },
-      warnings: ["Pipeline completo indisponível. Resultado mínimo via metadata."],
+      warnings: ["Pipeline completo indisponível neste serviço. Resultado mínimo via metadata."],
       frontendCompatible: true,
       metadata: { processedAt: new Date().toISOString() },
     };
@@ -94,13 +126,13 @@ async function analyzeFallbackMetadata(localFilePath) {
   }
 }
 
-// ---------- Análise REAL via pipeline ----------
-async function analyzeAudioWithPipeline(localFilePath, job) {
+// ---------- Análise via pipeline (se disponível) ----------
+async function analyzeAudioWithPipeline(localFilePath, job, processAudioCompleteFn) {
   const filename = path.basename(localFilePath);
   const fileBuffer = await fs.promises.readFile(localFilePath);
 
   const t0 = Date.now();
-  const finalJSON = await processAudioComplete(fileBuffer, filename, {});
+  const finalJSON = await processAudioCompleteFn(fileBuffer, filename, {});
   const totalMs = Date.now() - t0;
 
   finalJSON.performance = {
@@ -128,17 +160,21 @@ async function processJob(job) {
     localFilePath = await downloadFileFromBucket(job.file_key);
     console.log(`🎵 Arquivo pronto para análise: ${localFilePath}`);
 
+    // Carrega pipeline de forma segura (sem quebrar o processo)
+    const processAudioCompleteFn = await loadPipeline();
+
     let analysisResult;
     let usedFallback = false;
 
     try {
+      if (!processAudioCompleteFn) throw new Error("PIPELINE_NOT_FOUND_IN_WORKER");
       console.log("🚀 Rodando pipeline completo...");
-      analysisResult = await analyzeAudioWithPipeline(localFilePath, job);
+      analysisResult = await analyzeAudioWithPipeline(localFilePath, job, processAudioCompleteFn);
       console.log(
         `✅ Pipeline OK | score=${analysisResult?.score}, class=${analysisResult?.classification}`
       );
     } catch (pipelineErr) {
-      console.error("⚠️ Falha no pipeline completo. Fallback ativado:", pipelineErr?.message);
+      console.error("⚠️ Pipeline indisponível/erro. Fallback ativado:", pipelineErr?.message);
       usedFallback = true;
       analysisResult = await analyzeFallbackMetadata(localFilePath);
     }
@@ -200,3 +236,11 @@ async function processJobs() {
 
 setInterval(processJobs, 5000);
 processJobs();
+
+// Evita crash por rejeições não tratadas (para não reiniciar container)
+process.on("unhandledRejection", (reason) => {
+  console.error("⚠️ UnhandledRejection:", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("⚠️ UncaughtException:", err);
+});
