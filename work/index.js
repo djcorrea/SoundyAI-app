@@ -1,21 +1,22 @@
+// work/index.js
 import "dotenv/config";
 import pkg from "pg";
 import AWS from "aws-sdk";
 import fs from "fs";
 import path, { dirname } from "path";
-import * as mm from "music-metadata"; // fallback de metadata
 import { fileURLToPath, pathToFileURL } from "url";
+import * as mm from "music-metadata"; // fallback de metadata
 
+const { Client } = pkg;
+
+// 🛠️ Corrigir caminhos ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// ✅ Importa o pipeline completo de forma segura (Fases 5.1–5.4)
-const pipelineURL = pathToFileURL(
-  path.join(__dirname, "../api/audio/pipeline-complete.js")
-).href;
-const { processAudioComplete } = await import(pipelineURL);
-
-const { Client } = pkg;
+// ✅ Importa dinamicamente o pipeline completo (Fases 5.1–5.4)
+const { processAudioComplete } = await import(
+  pathToFileURL(path.join(__dirname, "../api/audio/pipeline-complete.js")).href
+);
 
 // ---------- Conectar ao Postgres ----------
 const client = new Client({
@@ -126,11 +127,13 @@ async function analyzeAudioWithPipeline(localFilePath, job) {
   const filename = path.basename(localFilePath);
   const fileBuffer = await fs.promises.readFile(localFilePath);
 
-  const options = {}; // pode passar referência/genre se precisar
+  const options = {}; // Placeholder para referência, configs, etc.
+
   const t0 = Date.now();
   const finalJSON = await processAudioComplete(fileBuffer, filename, options);
   const totalMs = Date.now() - t0;
 
+  // Garantir compatibilidade visual + log de performance
   finalJSON.performance = {
     ...(finalJSON.performance || {}),
     workerTotalTimeMs: totalMs,
@@ -138,6 +141,7 @@ async function analyzeAudioWithPipeline(localFilePath, job) {
     backendPhase: "5.1-5.4",
   };
 
+  // Tag opcional para UI saber que veio do pipeline
   finalJSON._worker = {
     source: "pipeline_complete",
   };
@@ -164,6 +168,7 @@ async function processJob(job) {
     let usedFallback = false;
 
     try {
+      // ✅ Tenta pipeline completo
       console.log("🚀 Rodando pipeline completo (Fases 5.1–5.4)...");
       analysisResult = await analyzeAudioWithPipeline(localFilePath, job);
       console.log(
@@ -181,7 +186,7 @@ async function processJob(job) {
       mode: job.mode,
       analyzedAt: new Date().toISOString(),
       usedFallback,
-      ...analysisResult,
+      ...analysisResult, // <- UI recebe tudo pronto
     };
 
     await client.query(
@@ -197,6 +202,7 @@ async function processJob(job) {
       ["failed", err?.message ?? String(err), job.id]
     );
   } finally {
+    // Limpeza do arquivo local
     if (localFilePath) {
       try {
         await fs.promises.unlink(localFilePath);
@@ -208,7 +214,7 @@ async function processJob(job) {
   }
 }
 
-// ---------- Loop para buscar jobs ----------
+// ---------- Loop para buscar jobs (com lock simples) ----------
 let isRunning = false;
 
 async function processJobs() {
