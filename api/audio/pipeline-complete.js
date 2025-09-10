@@ -95,6 +95,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
   } catch (error) {
     const totalTime = Date.now() - startTime;
     console.error(`❌ Pipeline falhou após ${totalTime}ms:`, error);
+    // Log detalhado para debug
+const finalJSON = generateJSONOutput(coreMetrics, reference, metadata);
+console.log("🔎 FINAL JSON PIPELINE:", JSON.stringify(finalJSON, null, 2));
 
     // Retornar JSON de erro estruturado
     return {
