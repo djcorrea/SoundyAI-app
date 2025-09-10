@@ -1,22 +1,20 @@
-// work/index.js
 import "dotenv/config";
 import pkg from "pg";
 import AWS from "aws-sdk";
 import fs from "fs";
 import path, { dirname } from "path";
-import { fileURLToPath, pathToFileURL } from "url";
+import { fileURLToPath } from "url";
 import * as mm from "music-metadata"; // fallback de metadata
 
 const { Client } = pkg;
 
-// 🛠️ Corrigir caminhos ESM
+// ---------- Caminho seguro para importar pipeline ----------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// ✅ Importa dinamicamente o pipeline completo (Fases 5.1–5.4)
-const { processAudioComplete } = await import(
-  pathToFileURL(path.join(__dirname, "../api/audio/pipeline-complete.js")).href
-);
+// 🚀 Import dinâmico com caminho absoluto (garante achar no Railway)
+const pipelinePath = path.join(__dirname, "../api/audio/pipeline-complete.js");
+const { processAudioComplete } = await import(`file://${pipelinePath}`);
 
 // ---------- Conectar ao Postgres ----------
 const client = new Client({
@@ -38,7 +36,7 @@ const s3 = new AWS.S3({
 
 const BUCKET_NAME = process.env.B2_BUCKET_NAME;
 
-// ---------- Util: baixar arquivo do bucket ----------
+// ---------- Util: baixar arquivo ----------
 async function downloadFileFromBucket(key) {
   const localPath = path.join("/tmp", path.basename(key)); // Railway usa /tmp
   await fs.promises.mkdir(path.dirname(localPath), { recursive: true });
@@ -47,15 +45,8 @@ async function downloadFileFromBucket(key) {
     const write = fs.createWriteStream(localPath);
     const read = s3.getObject({ Bucket: BUCKET_NAME, Key: key }).createReadStream();
 
-    read.on("error", (err) => {
-      console.error("❌ Erro no stream de leitura S3:", err);
-      reject(err);
-    });
-
-    write.on("error", (err) => {
-      console.error("❌ Erro no stream de escrita local:", err);
-      reject(err);
-    });
+    read.on("error", (err) => reject(err));
+    write.on("error", (err) => reject(err));
 
     write.on("finish", () => {
       console.log(`📥 Arquivo baixado: ${localPath}`);
@@ -66,15 +57,10 @@ async function downloadFileFromBucket(key) {
   });
 }
 
-// ---------- Fallback: análise mínima via music-metadata ----------
+// ---------- Fallback: metadata mínima ----------
 async function analyzeFallbackMetadata(localFilePath) {
   try {
     const meta = await mm.parseFile(localFilePath);
-    const duration = meta.format.duration || 0;
-    const sampleRate = meta.format.sampleRate || 44100;
-    const bitrate = meta.format.bitrate || null;
-    const numberOfChannels = meta.format.numberOfChannels || 2;
-
     return {
       status: "success",
       mode: "fallback_metadata",
@@ -82,30 +68,16 @@ async function analyzeFallbackMetadata(localFilePath) {
       classification: "Básico",
       scoringMethod: "error_fallback",
       technicalData: {
-        durationSec: duration,
-        sampleRate,
-        bitrate,
-        channels: numberOfChannels,
-        dominantFrequencies: [],
-        spectralCentroid: null,
-        spectralRolloff85: null,
-        spectralRolloff50: null,
-        spectralFlatness: null,
-        headroomDb: null,
-        headroomTruePeakDb: null,
-        samplePeakLeftDb: null,
-        samplePeakRightDb: null,
-        tonalBalance: {},
-        bandEnergies: {},
+        durationSec: meta.format.duration || 0,
+        sampleRate: meta.format.sampleRate || 44100,
+        bitrate: meta.format.bitrate || null,
+        channels: meta.format.numberOfChannels || 2,
       },
       warnings: ["Pipeline completo indisponível. Resultado mínimo via metadata."],
       frontendCompatible: true,
-      metadata: {
-        processedAt: new Date().toISOString(),
-      },
+      metadata: { processedAt: new Date().toISOString() },
     };
   } catch (err) {
-    console.error("❌ Erro no fallback metadata:", err);
     return {
       status: "error",
       error: {
@@ -122,18 +94,15 @@ async function analyzeFallbackMetadata(localFilePath) {
   }
 }
 
-// ---------- Análise REAL via pipeline (5.1–5.4) ----------
+// ---------- Análise REAL via pipeline ----------
 async function analyzeAudioWithPipeline(localFilePath, job) {
   const filename = path.basename(localFilePath);
   const fileBuffer = await fs.promises.readFile(localFilePath);
 
-  const options = {}; // Placeholder para referência, configs, etc.
-
   const t0 = Date.now();
-  const finalJSON = await processAudioComplete(fileBuffer, filename, options);
+  const finalJSON = await processAudioComplete(fileBuffer, filename, {});
   const totalMs = Date.now() - t0;
 
-  // Garantir compatibilidade visual + log de performance
   finalJSON.performance = {
     ...(finalJSON.performance || {}),
     workerTotalTimeMs: totalMs,
@@ -141,11 +110,7 @@ async function analyzeAudioWithPipeline(localFilePath, job) {
     backendPhase: "5.1-5.4",
   };
 
-  // Tag opcional para UI saber que veio do pipeline
-  finalJSON._worker = {
-    source: "pipeline_complete",
-  };
-
+  finalJSON._worker = { source: "pipeline_complete" };
   return finalJSON;
 }
 
@@ -154,7 +119,6 @@ async function processJob(job) {
   console.log("📥 Processando job:", job.id);
 
   let localFilePath = null;
-
   try {
     await client.query(
       "UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2",
@@ -168,14 +132,13 @@ async function processJob(job) {
     let usedFallback = false;
 
     try {
-      // ✅ Tenta pipeline completo
-      console.log("🚀 Rodando pipeline completo (Fases 5.1–5.4)...");
+      console.log("🚀 Rodando pipeline completo...");
       analysisResult = await analyzeAudioWithPipeline(localFilePath, job);
       console.log(
-        `✅ Pipeline completo OK | score=${analysisResult?.score}, class=${analysisResult?.classification}`
+        `✅ Pipeline OK | score=${analysisResult?.score}, class=${analysisResult?.classification}`
       );
     } catch (pipelineErr) {
-      console.error("⚠️ Falha no pipeline completo. Ativando fallback:", pipelineErr?.message);
+      console.error("⚠️ Falha no pipeline completo. Fallback ativado:", pipelineErr?.message);
       usedFallback = true;
       analysisResult = await analyzeFallbackMetadata(localFilePath);
     }
@@ -186,7 +149,7 @@ async function processJob(job) {
       mode: job.mode,
       analyzedAt: new Date().toISOString(),
       usedFallback,
-      ...analysisResult, // <- UI recebe tudo pronto
+      ...analysisResult,
     };
 
     await client.query(
@@ -202,7 +165,6 @@ async function processJob(job) {
       ["failed", err?.message ?? String(err), job.id]
     );
   } finally {
-    // Limpeza do arquivo local
     if (localFilePath) {
       try {
         await fs.promises.unlink(localFilePath);
@@ -214,19 +176,16 @@ async function processJob(job) {
   }
 }
 
-// ---------- Loop para buscar jobs (com lock simples) ----------
+// ---------- Loop ----------
 let isRunning = false;
-
 async function processJobs() {
   if (isRunning) return;
   isRunning = true;
-
   try {
     console.log("🔄 Worker verificando jobs...");
     const res = await client.query(
       "SELECT * FROM jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1"
     );
-
     if (res.rows.length > 0) {
       await processJob(res.rows[0]);
     } else {
