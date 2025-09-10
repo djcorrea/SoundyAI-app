@@ -15,19 +15,19 @@ const __dirname = path.dirname(__filename);
 let processAudioComplete = null;
 
 const candidatePaths = [
-  // ESM file:// URLs (para containers Linux e Windows)
-  new URL("../api/audio/pipeline-complete.js", import.meta.url).href,
-  
-  // Caminhos relativos (Railway container structure) 
+  // Railway: worker roda de /app/work/, pipeline em /app/api/
   "../api/audio/pipeline-complete.js",
   
-  // Debug: estrutura completa do Railway
+  // ESM URLs (caso esteja rodando de /app/work/)
+  new URL("../api/audio/pipeline-complete.js", import.meta.url).href,
+  
+  // Caso worker rode de /app/ diretamente
+  "./api/audio/pipeline-complete.js",
   "/app/api/audio/pipeline-complete.js",
   
-  // Fallbacks
+  // Fallbacks diversos
   new URL("../../api/audio/pipeline-complete.js", import.meta.url).href,
-  "../../api/audio/pipeline-complete.js",
-  "./api/audio/pipeline-complete.js"
+  "../../api/audio/pipeline-complete.js"
 ];
 
 for (const modulePath of candidatePaths) {
