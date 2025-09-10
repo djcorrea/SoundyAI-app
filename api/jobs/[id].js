@@ -42,7 +42,7 @@ router.get("/:id", async (req, res) => {
       mode: job.mode,
       status: normalizedStatus, // ✅ garante compatibilidade com o pollJobStatus
       error: job.error || null,
-      result: job.result || null,
+      result: job.result || null, // ✅ já vem como objeto do Postgres (jsonb field)
       createdAt: job.created_at,
       updatedAt: job.updated_at,
       completedAt: job.completed_at,

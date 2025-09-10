@@ -115,7 +115,7 @@ async function processJobs() {
   try {
     const res = await client.query(`
       SELECT * FROM jobs 
-      WHERE status = 'pending' 
+      WHERE status IN ('pending', 'queued') 
       ORDER BY created_at ASC 
       LIMIT 1
     `);
