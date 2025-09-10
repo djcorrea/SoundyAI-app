@@ -1,0 +1,17 @@
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+startCommand = "cd work && npm install && node index.js"
+healthcheckPath = "/"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+
+[env]
+NODE_ENV = "production"
+DATABASE_URL = "${{ Postgres.DATABASE_URL }}"
+B2_KEY_ID = "${{ secrets.B2_KEY_ID }}"
+B2_APP_KEY = "${{ secrets.B2_APP_KEY }}"
+B2_BUCKET_NAME = "${{ secrets.B2_BUCKET_NAME }}"
+B2_ENDPOINT = "${{ secrets.B2_ENDPOINT }}"

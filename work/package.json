@@ -2,7 +2,7 @@
   "name": "worker",
   "version": "1.0.0",
   "scripts": {
-    "start": "node index.js"
+    "start": "cd .. && node worker-root.js"
   },
   "dependencies": {
     "aws-sdk": "^2.1692.0",

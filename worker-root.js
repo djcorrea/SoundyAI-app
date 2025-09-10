@@ -1,4 +1,4 @@
-// work/index.js
+// worker-root.js - Worker na raiz do projeto
 import "dotenv/config";
 import pkg from "pg";
 import AWS from "aws-sdk";
@@ -11,43 +11,15 @@ import * as mm from "music-metadata"; // fallback de metadata
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ---------- Importar pipeline completo (ESM + Container compatible) ----------
+// ---------- Importar pipeline completo (caminho direto) ----------
 let processAudioComplete = null;
-
-const candidatePaths = [
-  // ESM file:// URLs (para containers Linux e Windows)
-  new URL("../api/audio/pipeline-complete.js", import.meta.url).href,
-  
-  // Caminhos relativos (Railway container structure) 
-  "../api/audio/pipeline-complete.js",
-  
-  // Debug: estrutura completa do Railway
-  "/app/api/audio/pipeline-complete.js",
-  
-  // Fallbacks
-  new URL("../../api/audio/pipeline-complete.js", import.meta.url).href,
-  "../../api/audio/pipeline-complete.js",
-  "./api/audio/pipeline-complete.js"
-];
-
-for (const modulePath of candidatePaths) {
-  try {
-    console.log(`🔍 Tentando carregar pipeline de: ${modulePath}`);
-    const imported = await import(modulePath);
-    processAudioComplete = imported.processAudioComplete;
-    console.log("✅ Pipeline carregado com sucesso de:", modulePath);
-    break;
-  } catch (err) {
-    console.warn(`⚠️ Falhou em ${modulePath}:`, err.message);
-  }
-}
-
-if (!processAudioComplete) {
-  console.error("❌ CRÍTICO: Nenhum caminho do pipeline funcionou. Worker operará apenas em modo fallback.");
-  console.log("🔍 Debug info:");
-  console.log("   import.meta.url:", import.meta.url);
-  console.log("   process.cwd():", process.cwd());
-  console.log("   __dirname equivalent:", path.dirname(fileURLToPath(import.meta.url)));
+try {
+  const { processAudioComplete: imported } = await import('./api/audio/pipeline-complete.js');
+  processAudioComplete = imported;
+  console.log("✅ Pipeline carregado com sucesso do caminho direto");
+} catch (err) {
+  console.error("❌ CRÍTICO: Falha ao carregar pipeline:", err.message);
+  console.log("🔍 Tentando fallback para modo metadata...");
 }
 
 // ---------- Conectar ao Postgres ----------
@@ -89,7 +61,7 @@ async function downloadFileFromBucket(key) {
     });
 
     write.on("finish", () => {
-      console.log(`📥 Arquivo baixado: ${localPath}`);
+      console.log(`✅ Arquivo baixado: ${localPath}`);
       resolve(localPath);
     });
 
@@ -97,43 +69,39 @@ async function downloadFileFromBucket(key) {
   });
 }
 
-// ---------- Fallback: análise mínima via music-metadata ----------
+// ---------- Fallback: análise via metadata ----------
 async function analyzeFallbackMetadata(localFilePath) {
   try {
-    const meta = await mm.parseFile(localFilePath);
+    const metadata = await mm.parseFile(localFilePath);
     return {
-      status: "success",
+      ok: true,
       mode: "fallback_metadata",
-      score: 50,
-      classification: "Básico",
+      status: "success",
+      qualityOverall: 5.0, // Score neutro para fallback
+      score: 5.0,
       scoringMethod: "error_fallback",
+      processingTime: 50,
       technicalData: {
-        durationSec: meta.format.duration || 0,
-        sampleRate: meta.format.sampleRate || 44100,
-        bitrate: meta.format.bitrate || null,
-        channels: meta.format.numberOfChannels || 2,
+        sampleRate: metadata.format.sampleRate || 48000,
+        duration: metadata.format.duration || 0,
+        channels: metadata.format.numberOfChannels || 2,
       },
       warnings: ["Pipeline completo indisponível. Resultado mínimo via metadata."],
-      frontendCompatible: true,
-      metadata: {
-        processedAt: new Date().toISOString(),
-      },
+      metadata: "fallback-only",
     };
   } catch (err) {
     console.error("❌ Erro no fallback metadata:", err);
     return {
       status: "error",
       error: {
-        message: err?.message ?? String(err),
+        message: err.message,
         type: "fallback_metadata_error",
-        timestamp: new Date().toISOString(),
       },
-      frontendCompatible: false,
     };
   }
 }
 
-// ---------- Análise REAL via pipeline ----------
+// ---------- Análise com pipeline completo ----------
 async function analyzeAudioWithPipeline(localFilePath, job) {
   if (!processAudioComplete) {
     console.warn("⚠️ Pipeline indisponível, caindo no fallback...");
@@ -166,19 +134,20 @@ async function processJob(job) {
   let localFilePath = null;
 
   try {
+    // Atualizar status para "processing"
     await client.query(
       "UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2",
       ["processing", job.id]
     );
 
+    // Baixar arquivo
     localFilePath = await downloadFileFromBucket(job.file_key);
-    console.log(`🎵 Arquivo pronto para análise: ${localFilePath}`);
 
+    // Analisar áudio
     let analysisResult;
     let usedFallback = false;
 
     try {
-      console.log("🚀 Rodando pipeline completo (Fases 5.1–5.4)...");
       analysisResult = await analyzeAudioWithPipeline(localFilePath, job);
       if (analysisResult?.mode === "fallback_metadata") usedFallback = true;
     } catch (pipelineErr) {
@@ -237,12 +206,14 @@ async function processJobs() {
     } else {
       console.log("📭 Nenhum job novo.");
     }
-  } catch (e) {
-    console.error("❌ Erro no loop de jobs:", e);
+  } catch (err) {
+    console.error("❌ Erro no loop de jobs:", err);
   } finally {
     isRunning = false;
   }
 }
 
-setInterval(processJobs, 5000);
-processJobs();
+// ---------- Iniciar worker ----------
+console.log("🚀 Worker iniciado (versão root)");
+setInterval(processJobs, 5000); // Check a cada 5 segundos
+processJobs(); // Primeira execução imediata
