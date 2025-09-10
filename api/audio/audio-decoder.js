@@ -138,7 +138,8 @@ function decodeWavFloat32Stereo(wav) {
 
   // Varredura de chunks (após cabeçalho RIFF/WAVE)
   let off = 12;
-  while (off + 8 <= wav.length) {
+  let chunkCount = 0;
+  while (off + 8 <= wav.length && chunkCount < 20) { // limite de segurança
     const id = wav.toString('ascii', off, off + 4);
     const sz = wav.readUInt32LE(off + 4);
     const payloadStart = off + 8;
@@ -151,7 +152,14 @@ function decodeWavFloat32Stereo(wav) {
       dataSize = sz;
       break; // achou os dados, podemos sair (mantendo robustez, isso é ok)
     }
+    
+    // Verificação de segurança - para com chunks inválidos
+    if (next <= off || next > wav.length || sz > wav.length) {
+      break;
+    }
+    
     off = next;
+    chunkCount++;
   }
 
   if (fmtOffset < 0) throw new Error('WAV_INVALID: chunk "fmt " não encontrado');
@@ -164,14 +172,22 @@ function decodeWavFloat32Stereo(wav) {
   const bitsPerSample = wav.readUInt16LE(fmtOffset + 14);
 
   // Valida formato esperado
-  if (audioFormat !== 3) throw new Error(`WAV_FORMAT_ERROR: Esperado Float (3), recebido ${audioFormat}`);
+  // Formato 3 = IEEE Float, Formato 65534 = WAVE_FORMAT_EXTENSIBLE (também pode ser Float)
+  if (audioFormat !== 3 && audioFormat !== 65534) {
+    throw new Error(`WAV_FORMAT_ERROR: Esperado Float (3) ou Extensible (65534), recebido ${audioFormat}`);
+  }
   if (bitsPerSample !== 32) throw new Error(`WAV_FORMAT_ERROR: Esperado 32-bit, recebido ${bitsPerSample}`);
   if (sampleRate !== SAMPLE_RATE) throw new Error(`WAV_FORMAT_ERROR: Esperado ${SAMPLE_RATE}Hz, recebido ${sampleRate}`);
   if (numChannels !== CHANNELS) throw new Error(`WAV_FORMAT_ERROR: Esperado ${CHANNELS} canais, recebido ${numChannels}`);
 
   const bytesPerSample = 4; // Float32
   const frameBytes = numChannels * bytesPerSample;
-  const totalFrames = Math.floor(dataSize / frameBytes);
+  
+  // Proteção contra dataSize inválido - usa o que realmente temos
+  const maxDataSize = wav.length - dataOffset;
+  const validDataSize = (dataSize > maxDataSize || dataSize === 0xFFFFFFFF) ? maxDataSize : dataSize;
+  
+  const totalFrames = Math.floor(validDataSize / frameBytes);
   const samplesPerChannel = totalFrames;
 
   const left = new Float32Array(samplesPerChannel);
@@ -179,6 +195,11 @@ function decodeWavFloat32Stereo(wav) {
 
   let ptr = dataOffset;
   for (let i = 0; i < samplesPerChannel; i++) {
+    // Verificação de bounds para evitar overflow
+    if (ptr + frameBytes > wav.length) {
+      throw new Error(`WAV_BUFFER_OVERFLOW: Frame ${i} precisa ler bytes ${ptr}-${ptr + frameBytes - 1}, mas buffer tem apenas ${wav.length} bytes`);
+    }
+    
     const l = wav.readFloatLE(ptr);
     const r = wav.readFloatLE(ptr + 4);
     // clamp

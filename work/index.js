@@ -11,15 +11,30 @@ import * as mm from "music-metadata"; // fallback de metadata
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ---------- Importar pipeline completo (com caminho robusto) ----------
+// ---------- Importar pipeline completo (com múltiplos caminhos) ----------
 let processAudioComplete = null;
-try {
-  const modulePath = path.resolve(__dirname, "../api/audio/pipeline-complete.js");
-  const imported = await import(modulePath);
-  processAudioComplete = imported.processAudioComplete;
-  console.log("✅ Pipeline carregado de:", modulePath);
-} catch (err) {
-  console.warn("⚠️ Não foi possível carregar pipeline-complete.js. Usando fallback:", err.message);
+
+const candidatePaths = [
+  path.resolve(__dirname, "../api/audio/pipeline-complete.js"),
+  path.resolve(process.cwd(), "api/audio/pipeline-complete.js"),
+  "./api/audio/pipeline-complete.js",
+  "../api/audio/pipeline-complete.js"
+];
+
+for (const modulePath of candidatePaths) {
+  try {
+    console.log(`🔍 Tentando carregar pipeline de: ${modulePath}`);
+    const imported = await import(modulePath);
+    processAudioComplete = imported.processAudioComplete;
+    console.log("✅ Pipeline carregado com sucesso de:", modulePath);
+    break;
+  } catch (err) {
+    console.warn(`⚠️ Falhou em ${modulePath}:`, err.message);
+  }
+}
+
+if (!processAudioComplete) {
+  console.error("❌ CRÍTICO: Nenhum caminho do pipeline funcionou. Worker operará apenas em modo fallback.");
 }
 
 // ---------- Conectar ao Postgres ----------
