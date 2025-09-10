@@ -1,11 +1,19 @@
-// index.js - Worker principal do Railway (roda de /app/)
+// index.js - Servidor Web + Worker (Railway hybrid)
 import "dotenv/config";
+import express from "express";
+import cors from "cors";
 import pkg from "pg";
 import AWS from "aws-sdk";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import * as mm from "music-metadata";
+
+// Importar rotas do servidor
+import analyzeRoute from "./api/audio/analyze.js";
+import jobsRoute from "./api/jobs/[id].js";
+
+console.log("🚀 Iniciando Servidor Web + Worker híbrido...");
 
 // ---------- Resolver __dirname ----------
 const __filename = fileURLToPath(import.meta.url);
@@ -205,5 +213,30 @@ async function processJobs() {
   }
 }
 
-// Loop infinito
+// ========== SERVIDOR WEB (Express) ==========
+const app = express();
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.static("public"));
+
+// Rotas API
+app.use("/api/audio", analyzeRoute);
+app.use("/api/jobs", jobsRoute);
+
+// SPA Fallback
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api/")) return next();
+  res.sendFile(path.join(__dirname, "public", "index.html"));
+});
+
+// Iniciar servidor
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+  console.log(`🌐 Servidor web rodando na porta ${PORT}`);
+  console.log(`🚀 Worker iniciado em paralelo`);
+});
+
+// Worker em background
 setInterval(processJobs, 5000);
