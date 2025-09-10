@@ -2034,19 +2034,7 @@ async function handleReferenceAnalysisWithResult(analysisResult, fileKey, fileNa
             enableReferenceComparison();
             updateModalProgress(100, '✅ Ambos os arquivos analisados! Comparação disponível.');
             
-            // Esconder modal após sucesso
-            setTimeout(() => {
-                hideModalAfterSuccess();
-            }, 2000);
-        } else {
-            const pending = uploadedFiles.original ? 'referência' : 'original';
-            updateModalProgress(100, `✅ Arquivo ${fileType} analisado! Agora selecione o arquivo de ${pending}.`);
-            
-            // Esconder modal e mostrar próximo passo
-            setTimeout(() => {
-                hideModalAfterSuccess();
-                showNextStepMessage(`Arquivo ${fileType} analisado! Agora selecione o arquivo de ${pending}.`);
-            }, 2000);
+        
         }
         
     } catch (error) {
@@ -2094,13 +2082,7 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         
         updateModalProgress(100, `✅ Análise de ${fileName} concluída!`);
         
-        // Esconder modal após sucesso
-        setTimeout(() => {
-            hideModalAfterSuccess();
-            if (analysisResult.genre) {
-                showSuccessMessage(`Análise concluída! Gênero detectado: ${analysisResult.genre}`);
-            }
-        }, 1500);
+        
         
     } catch (error) {
         console.error('❌ Erro ao processar análise por gênero:', error);
@@ -2145,31 +2127,6 @@ function enableReferenceComparison() {
     }
 }
 
-/**
- * Esconder modal após sucesso
- */
-function hideModalAfterSuccess() {
-    try {
-        const modal = document.getElementById('audioAnalysisModal');
-if (modal) modal.style.display = 'none';
-        showUploadArea();
-        
-        // Limpar progresso
-        const progressText = document.getElementById('audioProgressText');
-        if (progressText) {
-            progressText.innerHTML = '';
-        }
-        
-        // Reset progress bar
-        const progressBar = document.querySelector('.progress-fill');
-        if (progressBar) {
-            progressBar.style.width = '0%';
-        }
-        
-    } catch (error) {
-        console.warn('Erro ao esconder modal após sucesso:', error);
-    }
-}
 
 /**
  * Mostrar mensagem do próximo passo

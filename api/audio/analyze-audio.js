@@ -1,5 +1,5 @@
 import ffmpeg from "fluent-ffmpeg";
-import mm from "music-metadata";
+import * as mm from "music-metadata";
 
 export async function analyzeAudio(filePath) {
   // Metadados básicos
