@@ -1,11 +1,11 @@
 // work/index.js
-import "dotenv/config";                    // ✅ sem .js
+import "dotenv/config";
 import pkg from "pg";
 import AWS from "aws-sdk";
 import fs from "fs";
 import path from "path";
-import * as mm from "music-metadata";      // ✅ import correto (se usar depois)
-import ffmpeg from "fluent-ffmpeg";        // ok se for usar depois
+import * as mm from "music-metadata";   // metadata básica (duração, sampleRate etc.)
+import ffmpeg from "fluent-ffmpeg";     // para conversão e análises futuras
 
 const { Client } = pkg;
 
@@ -48,7 +48,6 @@ async function downloadFileFromBucket(key) {
       reject(err);
     });
 
-    // ✅ só resolve quando o arquivo foi gravado
     write.on("finish", () => {
       console.log(`📥 Arquivo baixado: ${localPath}`);
       resolve(localPath);
@@ -58,34 +57,75 @@ async function downloadFileFromBucket(key) {
   });
 }
 
+// ---------- Função auxiliar: análise mínima ----------
+async function analyzeAudio(localFilePath) {
+  try {
+    const meta = await mm.parseFile(localFilePath);
+    const duration = meta.format.duration || 0;
+    const sampleRate = meta.format.sampleRate || 44100;
+    const bitrate = meta.format.bitrate || null;
+    const numberOfChannels = meta.format.numberOfChannels || 2;
+
+    // ⚠️ Aqui você pode plugar FFT/Meyda/ffmpeg para spectral, loudness etc.
+    // Exemplo de retorno mínimo compatível com o frontend:
+    return {
+      technicalData: {
+        dominantFrequencies: [],   // precisa de FFT real
+        spectralCentroid: null,
+        spectralRolloff85: null,
+        spectralRolloff50: null,
+        spectralFlatness: null,
+        headroomDb: null,
+        headroomTruePeakDb: null,
+        samplePeakLeftDb: null,
+        samplePeakRightDb: null,
+        tonalBalance: {},
+        bandEnergies: {},
+        durationSec: duration,
+        sampleRate,
+        bitrate,
+        channels: numberOfChannels
+      },
+      problems: [],
+      suggestions: []
+    };
+  } catch (err) {
+    console.error("❌ Erro em analyzeAudio:", err);
+    return {
+      technicalData: {
+        dominantFrequencies: [],
+        durationSec: null
+      },
+      problems: [],
+      suggestions: []
+    };
+  }
+}
+
 // ---------- Processar 1 job ----------
 async function processJob(job) {
   console.log("📥 Processando job:", job.id);
 
   try {
-    // Atualiza para "processing"
     await client.query(
       "UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2",
       ["processing", job.id]
     );
 
-    // Baixar arquivo do bucket
     const localFilePath = await downloadFileFromBucket(job.file_key);
     console.log(`🎵 Arquivo pronto para análise: ${localFilePath}`);
 
-    // (Placeholder) — aqui entra sua análise real com mm/ffmpeg
-    // const meta = await mm.parseFile(localFilePath);
-    // console.log("🎶 Metadata:", meta.format);
+    // 🔍 Executa análise mínima
+    const analysisResult = await analyzeAudio(localFilePath);
 
     const result = {
       ok: true,
       file: job.file_key,
       mode: job.mode,
       analyzedAt: new Date().toISOString(),
-      // example: format: meta?.format ?? null,
+      ...analysisResult
     };
 
-    // Salva resultado no banco
     await client.query(
       "UPDATE jobs SET status = $1, result = $2, completed_at = NOW(), updated_at = NOW() WHERE id = $3",
       ["done", JSON.stringify(result), job.id]
@@ -126,7 +166,5 @@ async function processJobs() {
   }
 }
 
-// ---------- Executa a cada 5s ----------
 setInterval(processJobs, 5000);
-// dispara uma vez logo no start
 processJobs();
