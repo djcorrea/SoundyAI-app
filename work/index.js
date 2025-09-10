@@ -3,13 +3,17 @@ import "dotenv/config";
 import pkg from "pg";
 import AWS from "aws-sdk";
 import fs from "fs";
-import path from "path";
+import path, { dirname, resolve } from "path";
 import * as mm from "music-metadata"; // fallback de metadata
-// Removido fluent-ffmpeg (não usado aqui)
+import { fileURLToPath } from "url";
 
-// ✅ Importa o pipeline completo (Fases 5.1–5.4)
-import { processAudioComplete } from "../api/audio/pipeline-complete.js";
+// 🔧 Resolver __dirname no ESM
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
+// 🚀 Import dinâmico do pipeline (caminho sempre correto)
+const pipelinePath = resolve(__dirname, "../api/audio/pipeline-complete.js");
+const { processAudioComplete } = await import(pipelinePath);
 
 const { Client } = pkg;
 
@@ -122,9 +126,7 @@ async function analyzeAudioWithPipeline(localFilePath, job) {
   const filename = path.basename(localFilePath);
   const fileBuffer = await fs.promises.readFile(localFilePath);
 
-  // Você pode passar referência/genre do job (se existir) para o pipeline
-  // Ex.: const reference = job.reference_json ? JSON.parse(job.reference_json) : null;
-  const options = {}; // Placeholder para referência, configs, etc.
+  const options = {}; // Aqui você pode passar reference/genre no futuro
 
   const t0 = Date.now();
   const finalJSON = await processAudioComplete(fileBuffer, filename, options);
@@ -138,10 +140,7 @@ async function analyzeAudioWithPipeline(localFilePath, job) {
     backendPhase: "5.1-5.4",
   };
 
-  // Tag opcional para UI saber que veio do pipeline
-  finalJSON._worker = {
-    source: "pipeline_complete",
-  };
+  finalJSON._worker = { source: "pipeline_complete" };
 
   return finalJSON;
 }
@@ -183,7 +182,7 @@ async function processJob(job) {
       mode: job.mode,
       analyzedAt: new Date().toISOString(),
       usedFallback,
-      ...analysisResult, // <- UI recebe tudo pronto (score, classification, technicalData, etc)
+      ...analysisResult,
     };
 
     await client.query(
@@ -199,7 +198,6 @@ async function processJob(job) {
       ["failed", err?.message ?? String(err), job.id]
     );
   } finally {
-    // Limpeza do arquivo local
     if (localFilePath) {
       try {
         await fs.promises.unlink(localFilePath);
@@ -211,7 +209,7 @@ async function processJob(job) {
   }
 }
 
-// ---------- Loop para buscar jobs (com lock simples) ----------
+// ---------- Loop para buscar jobs ----------
 let isRunning = false;
 
 async function processJobs() {
