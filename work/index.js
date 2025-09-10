@@ -8,7 +8,7 @@ import * as mm from "music-metadata"; // fallback de metadata
 // Removido fluent-ffmpeg (não usado aqui)
 
 // ✅ Importa o pipeline completo (Fases 5.1–5.4)
-import { processAudioComplete } from "../api/audio/pipeline-complete.js";
+import { processAudioComplete } from "./api/audio/pipeline-complete.js";
 
 const { Client } = pkg;
 
