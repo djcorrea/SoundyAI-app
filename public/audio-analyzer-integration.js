@@ -3415,9 +3415,9 @@ function displayModalResults(analysis) {
             })();
             const col3 = [
                 row('Tonal Balance', analysis.technicalData?.tonalBalance ? tonalSummary(analysis.technicalData.tonalBalance) : '—', 'tonalBalance'),
-                (analysis.technicalData.dominantFrequencies.length > 0 ? row('Freq. Dominante', `${Math.round(analysis.technicalData.dominantFrequencies[0].frequency)} Hz`) : ''),
-                row('Problemas', analysis.problems.length > 0 ? `<span class="tag tag-danger">${analysis.problems.length} detectado(s)</span>` : '—'),
-                row('Sugestões', analysis.suggestions.length > 0 ? `<span class="tag tag-success">${analysis.suggestions.length} disponível(s)</span>` : '—'),
+                (analysis.technicalData?.dominantFrequencies?.length > 0 ? row('Freq. Dominante', `${Math.round(analysis.technicalData.dominantFrequencies[0].frequency)} Hz`) : ''),
+                row('Problemas', (analysis.problems?.length || 0) > 0 ? `<span class="tag tag-danger">${analysis.problems.length} detectado(s)</span>` : '—'),
+                row('Sugestões', (analysis.suggestions?.length || 0) > 0 ? `<span class="tag tag-success">${analysis.suggestions.length} disponível(s)</span>` : '—'),
                 col3Extras
             ].join('');
 
@@ -3874,7 +3874,7 @@ function displayModalResults(analysis) {
                             </div>`;
                     }
                 };
-                if (analysis.problems.length > 0) {
+                if ((analysis.problems?.length || 0) > 0) {
                     // 🎯 Função local para deduplicar problemas por tipo
                     const deduplicateByType = (items) => {
                         const seen = new Map();
@@ -4059,7 +4059,7 @@ function displayModalResults(analysis) {
                     }).join('');
                     blocks.push(`<div class="diag-section"><div class="diag-heading">⚠️ Problemas Detectados:</div>${list}</div>`);
                 }
-                if (analysis.suggestions.length > 0) {
+                if ((analysis.suggestions?.length || 0) > 0) {
                     // 🎯 Função local para deduplicar sugestões por tipo
                     const deduplicateByType = (items) => {
                         const seen = new Map();
@@ -4879,7 +4879,7 @@ function generateDetailedReport(analysis) {
     report += `Sample Rate: ${analysis.sampleRate || 'N/A'} Hz\n`;
     report += `Channels: ${analysis.channels || 'N/A'}\n\n`;
     
-    if (analysis.technicalData.dominantFrequencies.length > 0) {
+    if (analysis.technicalData?.dominantFrequencies?.length > 0) {
         report += `🎯 FREQUÊNCIAS DOMINANTES:\n`;
         report += `${'-'.repeat(30)}\n`;
         analysis.technicalData.dominantFrequencies.slice(0, 10).forEach((freq, i) => {

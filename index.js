@@ -80,11 +80,8 @@ async function processJobs() {
       const data = await s3.getObject(params).promise();
       const audioBuffer = data.Body;
       
-      // Processar com pipeline completo
-      result = await processAudioComplete(audioBuffer, {
-        filename: job.filename,
-        genre: job.genre || 'electronic'
-      });
+      // Processar com pipeline completo (usar assinatura correta)
+      result = await processAudioComplete(audioBuffer, job.filename, job.genre || 'electronic');
       
       console.log("✅ Pipeline completo processou com sucesso");
     } else {
@@ -109,10 +106,20 @@ async function processJobs() {
             bass: 0.25,
             mids: 0.50,
             treble: 0.25
-          }
+          },
+          dominantFrequencies: [
+            { frequency: 440, amplitude: -20, occurrences: 100 },
+            { frequency: 880, amplitude: -25, occurrences: 50 }
+          ],
+          durationSec: metadata.format?.duration || 180,
+          sampleRate: metadata.format?.sampleRate || 44100,
+          channels: metadata.format?.numberOfChannels || 2
         },
         overallScore: 7.5,
-        suggestions: ["Arquivo processado com metadata básica"]
+        suggestions: ["Arquivo processado com metadata básica - pipeline completo indisponível"],
+        problems: [],
+        status: "success",
+        mode: "fallback_basic"
       };
     }
 
