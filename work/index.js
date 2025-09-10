@@ -1,19 +1,19 @@
-// work/index.js
 import "dotenv/config";
 import pkg from "pg";
 import AWS from "aws-sdk";
 import fs from "fs";
-import path, { dirname, resolve } from "path";
+import path, { dirname } from "path";
 import * as mm from "music-metadata"; // fallback de metadata
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 
-// 🔧 Resolver __dirname no ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// 🚀 Import dinâmico do pipeline (caminho sempre correto)
-const pipelinePath = resolve(__dirname, "../api/audio/pipeline-complete.js");
-const { processAudioComplete } = await import(pipelinePath);
+// ✅ Importa o pipeline completo de forma segura (Fases 5.1–5.4)
+const pipelineURL = pathToFileURL(
+  path.join(__dirname, "../api/audio/pipeline-complete.js")
+).href;
+const { processAudioComplete } = await import(pipelineURL);
 
 const { Client } = pkg;
 
@@ -126,13 +126,11 @@ async function analyzeAudioWithPipeline(localFilePath, job) {
   const filename = path.basename(localFilePath);
   const fileBuffer = await fs.promises.readFile(localFilePath);
 
-  const options = {}; // Aqui você pode passar reference/genre no futuro
-
+  const options = {}; // pode passar referência/genre se precisar
   const t0 = Date.now();
   const finalJSON = await processAudioComplete(fileBuffer, filename, options);
   const totalMs = Date.now() - t0;
 
-  // Garantir compatibilidade visual + log de performance
   finalJSON.performance = {
     ...(finalJSON.performance || {}),
     workerTotalTimeMs: totalMs,
@@ -140,7 +138,9 @@ async function analyzeAudioWithPipeline(localFilePath, job) {
     backendPhase: "5.1-5.4",
   };
 
-  finalJSON._worker = { source: "pipeline_complete" };
+  finalJSON._worker = {
+    source: "pipeline_complete",
+  };
 
   return finalJSON;
 }
@@ -164,7 +164,6 @@ async function processJob(job) {
     let usedFallback = false;
 
     try {
-      // ✅ Tenta pipeline completo
       console.log("🚀 Rodando pipeline completo (Fases 5.1–5.4)...");
       analysisResult = await analyzeAudioWithPipeline(localFilePath, job);
       console.log(
