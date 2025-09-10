@@ -3377,21 +3377,23 @@ function displayModalResults(analysis) {
 
         const col1 = [
             row('Peak (máximo)', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak'),
-            row('RMS', `${safeFixed(getMetric('rms_db', 'rms'))} dB`, 'rms'),
+            row('RMS Level', `${safeFixed(getMetric('rms_level', 'rmsLevel'))} dB`, 'rmsLevel'),
             row('DR', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
             row('Fator de Crista', `${safeFixed(getMetric('crest_factor', 'crestFactor'))} dB`, 'crestFactor'),
             row('Pico Real (dBTP)', (advancedReady && Number.isFinite(getMetric('true_peak_dbtp', 'truePeakDbtp'))) ? `${safeFixed(getMetric('true_peak_dbtp', 'truePeakDbtp'))} dBTP` : (advancedReady? '—':'⏳'), 'truePeakDbtp'),
-            row('Loudness Integrado (LUFS)', (advancedReady && Number.isFinite(getLufsIntegratedValue())) ? `${safeFixed(getLufsIntegratedValue())} LUFS` : (advancedReady? '—':'⏳'), 'lufsIntegrated'),
-            row('Faixa de Loudness – LRA (LU)', (advancedReady && Number.isFinite(getMetric('lra'))) ? `${safeFixed(getMetric('lra'))} LU` : (advancedReady? '—':'⏳'), 'lra')
+            row('LUFS Integrado', (advancedReady && Number.isFinite(getLufsIntegratedValue())) ? `${safeFixed(getLufsIntegratedValue())} LUFS` : (advancedReady? '—':'⏳'), 'lufsIntegrated'),
+            row('LUFS Short-term', (advancedReady && Number.isFinite(getMetric('lufs_short_term', 'lufsShortTerm'))) ? `${safeFixed(getMetric('lufs_short_term', 'lufsShortTerm'))} LUFS` : (advancedReady? '—':'⏳'), 'lufsShortTerm'),
+            row('LUFS Momentary', (advancedReady && Number.isFinite(getMetric('lufs_momentary', 'lufsMomentary'))) ? `${safeFixed(getMetric('lufs_momentary', 'lufsMomentary'))} LUFS` : (advancedReady? '—':'⏳'), 'lufsMomentary'),
+            row('Headroom', `${safeFixed(getMetric('headroom_db', 'headroomDb'))} dB`, 'headroomDb')
             ].join('');
 
         const col2 = [
-            row('Correlação', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 2) : '—', 'stereoCorrelation'),
-            row('Largura', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? safeFixed(getMetric('stereo_width', 'stereoWidth'), 2) : '—', 'stereoWidth'),
-            row('Balance', Number.isFinite(getMetric('balance_lr', 'balanceLR')) ? safePct(getMetric('balance_lr', 'balanceLR')) : '—', 'balanceLR'),
-            row('Mono Compat.', monoCompat(getMetric('mono_compatibility', 'monoCompatibility')), 'monoCompatibility'),
-            row('Centroide', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroid')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroid')) : '—', 'spectralCentroid'),
-            row('Rolloff (85%)', Number.isFinite(getMetric('spectral_rolloff_85', 'spectralRolloff85')) ? safeHz(getMetric('spectral_rolloff_85', 'spectralRolloff85')) : '—', 'spectralRolloff85'),
+            row('Correlação Estéreo', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 2) : '—', 'stereoCorrelation'),
+            row('Largura Estéreo', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? safeFixed(getMetric('stereo_width', 'stereoWidth'), 2) : '—', 'stereoWidth'),
+            row('Balance L/R', Number.isFinite(getMetric('balance_lr', 'balanceLR')) ? safePct(getMetric('balance_lr', 'balanceLR')) : '—', 'balanceLR'),
+            row('Centroide Espectral', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroid')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroid')) : '—', 'spectralCentroid'),
+            row('Rolloff Espectral', Number.isFinite(getMetric('spectral_rolloff', 'spectralRolloff')) ? safeHz(getMetric('spectral_rolloff', 'spectralRolloff')) : '—', 'spectralRolloff'),
+            row('Zero Crossing Rate', Number.isFinite(getMetric('zero_crossing_rate', 'zeroCrossingRate')) ? safeFixed(getMetric('zero_crossing_rate', 'zeroCrossingRate'), 3) : '—', 'zeroCrossingRate'),
             row('Flux', Number.isFinite(getMetric('spectral_flux', 'spectralFlux')) ? safeFixed(getMetric('spectral_flux', 'spectralFlux'), 3) : '—', 'spectralFlux'),
             row('Flatness', Number.isFinite(getMetric('spectral_flatness', 'spectralFlatness')) ? safeFixed(getMetric('spectral_flatness', 'spectralFlatness'), 3) : '—', 'spectralFlatness')
         ].join('');
@@ -4210,7 +4212,26 @@ function displayModalResults(analysis) {
                     ${col2}
                 </div>
                         <div class="card">
-                    <div class="card-title">🏆 Scores & Diagnóstico</div>
+                    <div class="card-title">� Balance Espectral Detalhado</div>
+                    ${(() => {
+                        const sb = analysis.technicalData?.spectral_balance;
+                        if (!sb || typeof sb !== 'object') return row('Status', 'Dados não disponíveis');
+                        
+                        const formatPct = (v) => Number.isFinite(v) ? `${(v*100).toFixed(1)}%` : '—';
+                        const rows = [];
+                        
+                        if (Number.isFinite(sb.sub)) rows.push(row('Sub (20-60 Hz)', formatPct(sb.sub), 'spectralSub'));
+                        if (Number.isFinite(sb.bass)) rows.push(row('Bass (60-250 Hz)', formatPct(sb.bass), 'spectralBass'));
+                        if (Number.isFinite(sb.mids)) rows.push(row('Mids (250-4k Hz)', formatPct(sb.mids), 'spectralMids'));
+                        if (Number.isFinite(sb.treble)) rows.push(row('Treble (4k-12k Hz)', formatPct(sb.treble), 'spectralTreble'));
+                        if (Number.isFinite(sb.presence)) rows.push(row('Presence (4k-8k Hz)', formatPct(sb.presence), 'spectralPresence'));
+                        if (Number.isFinite(sb.air)) rows.push(row('Air (12k-20k Hz)', formatPct(sb.air), 'spectralAir'));
+                        
+                        return rows.length ? rows.join('') : row('Status', 'Balance não calculado');
+                    })()}
+                </div>
+                        <div class="card">
+                    <div class="card-title">�🏆 Scores & Diagnóstico</div>
                     ${scoreRows}
                     ${col3}
                 </div>
