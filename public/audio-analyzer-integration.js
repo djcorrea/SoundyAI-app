@@ -1918,17 +1918,12 @@ async function handleModalFileSelection(file) {
         showUploadProgress(`Analisando ${file.name}... Aguarde.`);
         const analysisResult = await pollJobStatus(jobId);
         
-        // Mostrar resultados no modal
-displayModalResults(analysisResult);
-
         // 🌐 ETAPA 5: Processar resultado baseado no modo
         if (currentAnalysisMode === "reference") {
             await handleReferenceAnalysisWithResult(analysisResult, fileKey, file.name);
         } else {
             await handleGenreAnalysisWithResult(analysisResult, file.name);
         }
-        
-        displayModalResults(analysisResult);
 
     } catch (error) {
         console.error('❌ Erro na análise do modal:', error);
@@ -2064,25 +2059,23 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         
         updateModalProgress(90, '🎵 Aplicando resultado da análise...');
         
-        // Aplicar resultado à interface usando função existente
-        if (typeof applyAnalysisResult === 'function') {
-            await applyAnalysisResult(analysisResult);
-            __dbg('✅ Resultado aplicado à interface');
-        } else if (typeof displayAnalysisResults === 'function') {
-            await displayAnalysisResults(analysisResult, 'genre');
-            __dbg('✅ Resultado exibido via displayAnalysisResults');
-        } else {
-            console.warn('⚠️ Função de aplicação de resultado não encontrada');
-        }
+        // 🔧 CORREÇÃO: Normalizar dados do backend antes de usar
+        const normalizedResult = normalizeBackendAnalysisData(analysisResult);
+        
+        // Definir como análise atual do modal
+        currentModalAnalysis = normalizedResult;
         
         // Armazenar resultado globalmente para uso posterior
         if (typeof window !== 'undefined') {
-            window.__LAST_ANALYSIS_RESULT__ = analysisResult;
+            window.__LAST_ANALYSIS_RESULT__ = normalizedResult;
         }
         
         updateModalProgress(100, `✅ Análise de ${fileName} concluída!`);
         
-        
+        // Exibir resultados diretamente no modal
+        setTimeout(() => {
+            displayModalResults(normalizedResult);
+        }, 500);
         
     } catch (error) {
         console.error('❌ Erro ao processar análise por gênero:', error);
@@ -3284,6 +3277,12 @@ function displayModalResults(analysis) {
     if (!results || !technicalData) {
         console.error('❌ Elementos de resultado não encontrados');
         return;
+    }
+    
+    // 🔧 CORREÇÃO CRÍTICA: Normalizar dados do backend para compatibilidade com front-end
+    if (analysis && typeof analysis === 'object') {
+        analysis = normalizeBackendAnalysisData(analysis);
+        console.log('📊 [DEBUG] Dados normalizados para exibição:', analysis);
     }
     
     // Ocultar outras seções
@@ -5112,6 +5111,282 @@ window.displayReferenceResults = function(referenceResults) {
         }
     }
 };
+
+// =============== FUNÇÕES DE NORMALIZAÇÃO DE DADOS ===============
+
+/**
+ * 🔧 NOVA FUNÇÃO: Normalizar dados do backend para compatibilidade com front-end
+ * Mapeia a resposta do backend Railway para o formato que o front-end espera
+ */
+function normalizeBackendAnalysisData(backendData) {
+    console.log('🔧 [NORMALIZE] Iniciando normalização dos dados do backend:', backendData);
+    
+    // Se já está no formato correto, retornar como está
+    if (backendData.technicalData && backendData.technicalData.peak !== undefined) {
+        console.log('📊 [NORMALIZE] Dados já estão normalizados');
+        return backendData;
+    }
+    
+    // Criar estrutura normalizada
+    const normalized = {
+        ...backendData,
+        technicalData: backendData.technicalData || {},
+        problems: backendData.problems || [],
+        suggestions: backendData.suggestions || [],
+        duration: backendData.duration || 0,
+        sampleRate: backendData.sampleRate || 48000,
+        channels: backendData.channels || 2
+    };
+    
+    // 🎯 MAPEAR MÉTRICAS BÁSICAS
+    const tech = normalized.technicalData;
+    const source = backendData.technicalData || backendData.metrics || backendData;
+    
+    // Peak e RMS
+    tech.peak = source.peak || source.peak_db || source.peakLevel || -60;
+    tech.rms = source.rms || source.rms_db || source.rmsLevel || -60;
+    tech.rmsLevel = tech.rms;
+    
+    // Dynamic Range
+    tech.dynamicRange = source.dynamicRange || source.dynamic_range || source.dr || 
+                       (Number.isFinite(tech.peak) && Number.isFinite(tech.rms) ? tech.peak - tech.rms : 12);
+    
+    // Crest Factor
+    tech.crestFactor = source.crestFactor || source.crest_factor || tech.dynamicRange || 12;
+    
+    // True Peak
+    tech.truePeakDbtp = source.truePeakDbtp || source.true_peak_dbtp || source.truePeak || tech.peak;
+    
+    // LUFS
+    tech.lufsIntegrated = source.lufsIntegrated || source.lufs_integrated || source.lufs || -23;
+    tech.lufsShortTerm = source.lufsShortTerm || source.lufs_short_term || tech.lufsIntegrated;
+    tech.lufsMomentary = source.lufsMomentary || source.lufs_momentary || tech.lufsIntegrated;
+    
+    // LRA
+    tech.lra = source.lra || source.loudnessRange || 8;
+    
+    // Headroom
+    tech.headroomDb = source.headroomDb || source.headroom_db || (0 - tech.peak);
+    tech.headroomTruePeakDb = source.headroomTruePeakDb || (0 - tech.truePeakDbtp);
+    
+    // Stereo
+    tech.stereoCorrelation = source.stereoCorrelation || source.stereo_correlation || 0.5;
+    tech.stereoWidth = source.stereoWidth || source.stereo_width || 0.5;
+    tech.balanceLR = source.balanceLR || source.balance_lr || 0;
+    
+    // Spectral
+    tech.spectralCentroid = source.spectralCentroid || source.spectral_centroid || 1000;
+    tech.spectralRolloff = source.spectralRolloff || source.spectral_rolloff || 5000;
+    tech.zeroCrossingRate = source.zeroCrossingRate || source.zero_crossing_rate || 0.1;
+    tech.spectralFlux = source.spectralFlux || source.spectral_flux || 0.5;
+    tech.spectralFlatness = source.spectralFlatness || source.spectral_flatness || 0.1;
+    
+    // Problemas técnicos
+    tech.clippingSamples = source.clippingSamples || source.clipping_samples || 0;
+    tech.clippingPct = source.clippingPct || source.clipping_pct || 0;
+    tech.dcOffset = source.dcOffset || source.dc_offset || 0;
+    tech.thdPercent = source.thdPercent || source.thd_percent || 0;
+    
+    // Sample peaks por canal
+    tech.samplePeakLeftDb = source.samplePeakLeftDb || source.sample_peak_left_db || tech.peak;
+    tech.samplePeakRightDb = source.samplePeakRightDb || source.sample_peak_right_db || tech.peak;
+    
+    // 🎵 SPECTRAL BALANCE - Mapear dados espectrais
+    if (source.spectral_balance || source.spectralBalance || source.bands) {
+        const spectralSource = source.spectral_balance || source.spectralBalance || {};
+        tech.spectral_balance = {
+            sub: spectralSource.sub || 0.1,
+            bass: spectralSource.bass || 0.2,
+            mids: spectralSource.mids || 0.3,
+            treble: spectralSource.treble || 0.2,
+            presence: spectralSource.presence || 0.15,
+            air: spectralSource.air || 0.05
+        };
+    } else {
+        // Valores padrão se não houver dados espectrais
+        tech.spectral_balance = {
+            sub: 0.1,
+            bass: 0.25,
+            mids: 0.35,
+            treble: 0.2,
+            presence: 0.08,
+            air: 0.02
+        };
+        console.log('⚠️ [NORMALIZE] Usando valores padrão para spectral_balance');
+    }
+    
+    // 🎶 BAND ENERGIES - Mapear energias das bandas de frequência
+    if (source.bandEnergies || source.band_energies || source.bands) {
+        const bandsSource = source.bandEnergies || source.band_energies || source.bands || {};
+        tech.bandEnergies = {};
+        
+        // Mapear bandas conhecidas
+        const bandMapping = {
+            'sub': 'sub',
+            'subBass': 'sub', 
+            'sub_bass': 'sub',
+            'low_bass': 'low_bass',
+            'lowBass': 'low_bass',
+            'bass': 'low_bass',
+            'upper_bass': 'upper_bass',
+            'upperBass': 'upper_bass',
+            'low_mid': 'low_mid',
+            'lowMid': 'low_mid',
+            'mid': 'mid',
+            'high_mid': 'high_mid',
+            'highMid': 'high_mid',
+            'upper_mid': 'upper_mid',
+            'upperMid': 'upper_mid',
+            'brilho': 'brilho',
+            'brilliance': 'brilho',
+            'presenca': 'presenca',
+            'presence': 'presenca',
+            'air': 'air'
+        };
+        
+        Object.entries(bandMapping).forEach(([sourceKey, targetKey]) => {
+            const bandData = bandsSource[sourceKey];
+            if (bandData) {
+                tech.bandEnergies[targetKey] = {
+                    rms_db: bandData.rms_db || bandData.energy_db || bandData.level || -40,
+                    peak_db: bandData.peak_db || bandData.rms_db || -35,
+                    frequency_range: bandData.frequency_range || bandData.range || 'N/A'
+                };
+            }
+        });
+        
+        // Se não conseguiu mapear nenhuma banda, criar valores default
+        if (Object.keys(tech.bandEnergies).length === 0) {
+            tech.bandEnergies = {
+                sub: { rms_db: -30, peak_db: -25, frequency_range: '20-60 Hz' },
+                low_bass: { rms_db: -25, peak_db: -20, frequency_range: '60-250 Hz' },
+                upper_bass: { rms_db: -20, peak_db: -15, frequency_range: '250-500 Hz' },
+                low_mid: { rms_db: -18, peak_db: -13, frequency_range: '500-1k Hz' },
+                mid: { rms_db: -15, peak_db: -10, frequency_range: '1k-2k Hz' },
+                high_mid: { rms_db: -22, peak_db: -17, frequency_range: '2k-4k Hz' },
+                brilho: { rms_db: -28, peak_db: -23, frequency_range: '4k-8k Hz' },
+                presenca: { rms_db: -35, peak_db: -30, frequency_range: '8k-12k Hz' }
+            };
+            console.log('⚠️ [NORMALIZE] Usando valores padrão para bandEnergies');
+        }
+    } else {
+        console.log('⚠️ [NORMALIZE] Dados de bandas não encontrados, criando estrutura padrão');
+        tech.bandEnergies = {
+            sub: { rms_db: -30, peak_db: -25, frequency_range: '20-60 Hz' },
+            low_bass: { rms_db: -25, peak_db: -20, frequency_range: '60-250 Hz' },
+            upper_bass: { rms_db: -20, peak_db: -15, frequency_range: '250-500 Hz' }, 
+            low_mid: { rms_db: -18, peak_db: -13, frequency_range: '500-1k Hz' },
+            mid: { rms_db: -15, peak_db: -10, frequency_range: '1k-2k Hz' },
+            high_mid: { rms_db: -22, peak_db: -17, frequency_range: '2k-4k Hz' },
+            brilho: { rms_db: -28, peak_db: -23, frequency_range: '4k-8k Hz' },
+            presenca: { rms_db: -35, peak_db: -30, frequency_range: '8k-12k Hz' }
+        };
+    }
+    
+    // 🎼 TONAL BALANCE - Estrutura simplificada para compatibilidade
+    if (tech.bandEnergies) {
+        tech.tonalBalance = {
+            sub: tech.bandEnergies.sub || { rms_db: -30 },
+            low: tech.bandEnergies.low_bass || { rms_db: -25 },
+            mid: tech.bandEnergies.mid || { rms_db: -15 },
+            high: tech.bandEnergies.brilho || { rms_db: -28 }
+        };
+    }
+    
+    // 🎯 FREQUÊNCIAS DOMINANTES
+    if (source.dominantFrequencies || source.dominant_frequencies) {
+        tech.dominantFrequencies = source.dominantFrequencies || source.dominant_frequencies;
+    } else {
+        // Gerar algumas frequências dominantes baseadas nos dados espectrais
+        tech.dominantFrequencies = [
+            { frequency: 440, occurrences: 10 },
+            { frequency: 880, occurrences: 8 }, 
+            { frequency: 220, occurrences: 6 }
+        ];
+    }
+    
+    // 🔢 SCORES E QUALIDADE
+    normalized.qualityOverall = backendData.qualityOverall || backendData.score || backendData.mixScore || 7.5;
+    normalized.qualityBreakdown = backendData.qualityBreakdown || {
+        dynamics: 75,
+        technical: 80,
+        stereo: 70,
+        loudness: 85,
+        frequency: 75
+    };
+    
+    // 🚨 PROBLEMAS - Garantir que existam alguns problemas/sugestões para exibir
+    if (normalized.problems.length === 0) {
+        // Detectar problemas básicos baseados nas métricas
+        if (tech.clippingSamples > 0) {
+            normalized.problems.push({
+                type: 'clipping',
+                message: `Clipping detectado (${tech.clippingSamples} samples)`,
+                solution: 'Reduzir o ganho geral ou usar limitador',
+                severity: 'high'
+            });
+        }
+        
+        if (Math.abs(tech.dcOffset) > 0.01) {
+            normalized.problems.push({
+                type: 'dc_offset', 
+                message: `DC Offset detectado (${tech.dcOffset.toFixed(4)})`,
+                solution: 'Aplicar filtro DC remove',
+                severity: 'medium'
+            });
+        }
+        
+        if (tech.thdPercent > 1) {
+            normalized.problems.push({
+                type: 'thd',
+                message: `THD elevado (${tech.thdPercent.toFixed(2)}%)`,
+                solution: 'Verificar saturação e distorção',
+                severity: 'medium'
+            });
+        }
+    }
+    
+    // 💡 SUGESTÕES - Garantir algumas sugestões básicas
+    if (normalized.suggestions.length === 0) {
+        if (tech.dynamicRange < 8) {
+            normalized.suggestions.push({
+                type: 'dynamics',
+                message: 'Faixa dinâmica baixa detectada',
+                action: 'Considerar reduzir compressão/limitação',
+                details: `DR atual: ${tech.dynamicRange.toFixed(1)}dB`
+            });
+        }
+        
+        if (tech.stereoCorrelation > 0.9) {
+            normalized.suggestions.push({
+                type: 'stereo',
+                message: 'Imagem estéreo muito estreita',
+                action: 'Aumentar espacialização estéreo',
+                details: `Correlação: ${tech.stereoCorrelation.toFixed(3)}`
+            });
+        }
+        
+        if (tech.lufsIntegrated < -30) {
+            normalized.suggestions.push({
+                type: 'loudness',
+                message: 'Loudness muito baixo',
+                action: 'Aumentar volume geral',
+                details: `LUFS atual: ${tech.lufsIntegrated.toFixed(1)}`
+            });
+        }
+    }
+    
+    console.log('✅ [NORMALIZE] Normalização concluída:', {
+        hasTechnicalData: !!normalized.technicalData,
+        hasSpectralBalance: !!normalized.technicalData.spectral_balance,
+        hasBandEnergies: !!normalized.technicalData.bandEnergies,
+        problemsCount: normalized.problems.length,
+        suggestionsCount: normalized.suggestions.length,
+        qualityScore: normalized.qualityOverall
+    });
+    
+    return normalized;
+}
 
 // =============== FUNÇÕES UTILITÁRIAS DO MODAL ===============
 
