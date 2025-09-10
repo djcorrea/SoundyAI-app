@@ -3300,7 +3300,7 @@ function displayModalResults(analysis) {
     
     // Marcar se pacote avançado chegou (LUFS integrado + Pico Real + LRA)
     const advancedReady = (
-        Number.isFinite(analysis?.technicalData?.lufsIntegrated) &&
+        Number.isFinite(analysis?.technicalData?.lufs_integrated) &&
         Number.isFinite(analysis?.technicalData?.truePeakDbtp)
     );
     if (typeof window !== 'undefined') window.__AUDIO_ADVANCED_READY__ = advancedReady;
@@ -3380,7 +3380,7 @@ function displayModalResults(analysis) {
             row('RMS Level', `${safeFixed(getMetric('rms_level', 'rmsLevel'))} dB`, 'rmsLevel'),
             row('DR', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
             row('Fator de Crista', `${safeFixed(getMetric('crest_factor', 'crestFactor'))} dB`, 'crestFactor'),
-            row('Pico Real (dBTP)', (advancedReady && Number.isFinite(getMetric('true_peak_dbtp', 'truePeakDbtp'))) ? `${safeFixed(getMetric('true_peak_dbtp', 'truePeakDbtp'))} dBTP` : (advancedReady? '—':'⏳'), 'truePeakDbtp'),
+            row('Pico Real (dBTP)', (advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp'))) ? `${safeFixed(getMetric('truePeakDbtp', 'truePeakDbtp'))} dBTP` : (advancedReady? '—':'⏳'), 'truePeakDbtp'),
             row('LUFS Integrado', (advancedReady && Number.isFinite(getLufsIntegratedValue())) ? `${safeFixed(getLufsIntegratedValue())} LUFS` : (advancedReady? '—':'⏳'), 'lufsIntegrated'),
             row('LUFS Short-term', (advancedReady && Number.isFinite(getMetric('lufs_short_term', 'lufsShortTerm'))) ? `${safeFixed(getMetric('lufs_short_term', 'lufsShortTerm'))} LUFS` : (advancedReady? '—':'⏳'), 'lufsShortTerm'),
             row('LUFS Momentary', (advancedReady && Number.isFinite(getMetric('lufs_momentary', 'lufsMomentary'))) ? `${safeFixed(getMetric('lufs_momentary', 'lufsMomentary'))} LUFS` : (advancedReady? '—':'⏳'), 'lufsMomentary'),

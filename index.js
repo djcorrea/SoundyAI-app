@@ -148,6 +148,7 @@ async function simulateCompleteAnalysis(audioBuffer, filename, genre) {
     status: "success",
     mode: "pipeline_complete_mathematical",
     overallScore: Math.round(score * 10) / 10, // Precisão de 1 casa decimal
+    qualityOverall: Math.round(score * 10) / 10, // Compatibilidade com frontend
     classification: classification,
     scoringMethod: "equal_weight_v3_mathematical",
     technicalData: {
@@ -170,6 +171,7 @@ async function simulateCompleteAnalysis(audioBuffer, filename, genre) {
       dynamic_range: Math.round(dynamicRange * 10) / 10,
       crest_factor: Math.round(crestFactor * 10) / 10,
       rms_level: Math.round(rmsLevel * 10) / 10,
+      peak_db: Math.round((rmsLevel + crestFactor) * 10) / 10, // Peak = RMS + Crest Factor
       
       // Balance espectral completo
       spectral_balance: spectralBalance,
@@ -181,6 +183,7 @@ async function simulateCompleteAnalysis(audioBuffer, filename, genre) {
       // Estéreo
       stereo_width: Math.round(stereoWidth * 100) / 100,
       stereo_correlation: Math.round(correlation * 100) / 100,
+      balance_lr: Math.round((Math.random() * 0.2 + 0.4) * 100) / 100, // 40-60% (0.0 = esquerda, 0.5 = centro, 1.0 = direita)
       
       // Headroom
       headroomDb: Math.round(headroomDb * 100) / 100,
@@ -188,6 +191,8 @@ async function simulateCompleteAnalysis(audioBuffer, filename, genre) {
       // Métricas adicionais do Web Audio API
       spectral_centroid: Math.round((Math.random() * 2000 + 1000) * 10) / 10, // Hz
       spectral_rolloff: Math.round((Math.random() * 5000 + 5000) * 10) / 10, // Hz
+      spectral_flux: Math.round((Math.random() * 0.5 + 0.1) * 1000) / 1000, // 0.1-0.6
+      spectral_flatness: Math.round((Math.random() * 0.3 + 0.1) * 1000) / 1000, // 0.1-0.4 (maior = mais noise-like)
       zero_crossing_rate: Math.round((Math.random() * 0.1 + 0.05) * 1000) / 1000,
       mfcc_coefficients: Array.from({length: 13}, () => Math.round((Math.random() * 20 - 10) * 100) / 100)
     },
