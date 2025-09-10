@@ -12,6 +12,8 @@ import * as mm from "music-metadata";
 // Importar rotas do servidor
 import analyzeRoute from "./api/audio/analyze.js";
 import jobsRoute from "./api/jobs/[id].js";
+import presignRoute from "./api/presign.js";
+import uploadAudioRoute from "./api/upload-audio.js";
 
 console.log("🚀 Iniciando Servidor Web + Worker híbrido...");
 
@@ -221,9 +223,11 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
 
-// Rotas API
+// Rotas API essenciais
 app.use("/api/audio", analyzeRoute);
 app.use("/api/jobs", jobsRoute);
+app.use("/api", presignRoute);  // Rota de presign para uploads
+app.use("/api/upload-audio", uploadAudioRoute);
 
 // SPA Fallback
 app.get("*", (req, res, next) => {
