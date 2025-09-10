@@ -4,8 +4,11 @@ import pkg from "pg";
 import AWS from "aws-sdk";
 import fs from "fs";
 import path from "path";
-import * as mm from "music-metadata";   // metadata básica (duração, sampleRate etc.)
-import ffmpeg from "fluent-ffmpeg";     // para conversão e análises futuras
+import * as mm from "music-metadata"; // fallback de metadata
+// Removido fluent-ffmpeg (não usado aqui)
+
+// ✅ Importa o pipeline completo (Fases 5.1–5.4)
+import { processAudioComplete } from "../api/audio/pipeline-complete.js";
 
 const { Client } = pkg;
 
@@ -29,7 +32,7 @@ const s3 = new AWS.S3({
 
 const BUCKET_NAME = process.env.B2_BUCKET_NAME;
 
-// ---------- Função para baixar arquivo ----------
+// ---------- Util: baixar arquivo do bucket ----------
 async function downloadFileFromBucket(key) {
   const localPath = path.join("/tmp", path.basename(key)); // Railway usa /tmp
   await fs.promises.mkdir(path.dirname(localPath), { recursive: true });
@@ -57,8 +60,8 @@ async function downloadFileFromBucket(key) {
   });
 }
 
-// ---------- Função auxiliar: análise mínima ----------
-async function analyzeAudio(localFilePath) {
+// ---------- Fallback: análise mínima via music-metadata ----------
+async function analyzeFallbackMetadata(localFilePath) {
   try {
     const meta = await mm.parseFile(localFilePath);
     const duration = meta.format.duration || 0;
@@ -66,11 +69,18 @@ async function analyzeAudio(localFilePath) {
     const bitrate = meta.format.bitrate || null;
     const numberOfChannels = meta.format.numberOfChannels || 2;
 
-    // ⚠️ Aqui você pode plugar FFT/Meyda/ffmpeg para spectral, loudness etc.
-    // Exemplo de retorno mínimo compatível com o frontend:
     return {
+      status: "success",
+      mode: "fallback_metadata",
+      score: 50,
+      classification: "Básico",
+      scoringMethod: "error_fallback",
       technicalData: {
-        dominantFrequencies: [],   // precisa de FFT real
+        durationSec: duration,
+        sampleRate,
+        bitrate,
+        channels: numberOfChannels,
+        dominantFrequencies: [],
         spectralCentroid: null,
         spectralRolloff85: null,
         spectralRolloff50: null,
@@ -81,30 +91,65 @@ async function analyzeAudio(localFilePath) {
         samplePeakRightDb: null,
         tonalBalance: {},
         bandEnergies: {},
-        durationSec: duration,
-        sampleRate,
-        bitrate,
-        channels: numberOfChannels
       },
-      problems: [],
-      suggestions: []
+      warnings: ["Pipeline completo indisponível. Resultado mínimo via metadata."],
+      frontendCompatible: true,
+      metadata: {
+        processedAt: new Date().toISOString(),
+      },
     };
   } catch (err) {
-    console.error("❌ Erro em analyzeAudio:", err);
+    console.error("❌ Erro no fallback metadata:", err);
     return {
-      technicalData: {
-        dominantFrequencies: [],
-        durationSec: null
+      status: "error",
+      error: {
+        message: err?.message ?? String(err),
+        type: "fallback_metadata_error",
+        timestamp: new Date().toISOString(),
       },
-      problems: [],
-      suggestions: []
+      score: 50,
+      classification: "Erro",
+      technicalData: {},
+      warnings: ["Falha também no fallback de metadata."],
+      frontendCompatible: false,
     };
   }
+}
+
+// ---------- Análise REAL via pipeline (5.1–5.4) ----------
+async function analyzeAudioWithPipeline(localFilePath, job) {
+  const filename = path.basename(localFilePath);
+  const fileBuffer = await fs.promises.readFile(localFilePath);
+
+  // Você pode passar referência/genre do job (se existir) para o pipeline
+  // Ex.: const reference = job.reference_json ? JSON.parse(job.reference_json) : null;
+  const options = {}; // Placeholder para referência, configs, etc.
+
+  const t0 = Date.now();
+  const finalJSON = await processAudioComplete(fileBuffer, filename, options);
+  const totalMs = Date.now() - t0;
+
+  // Garantir compatibilidade visual + log de performance
+  finalJSON.performance = {
+    ...(finalJSON.performance || {}),
+    workerTotalTimeMs: totalMs,
+    workerTimestamp: new Date().toISOString(),
+    backendPhase: "5.1-5.4",
+  };
+
+  // Tag opcional para UI saber que veio do pipeline
+  finalJSON._worker = {
+    source: "pipeline_complete",
+  };
+
+  return finalJSON;
 }
 
 // ---------- Processar 1 job ----------
 async function processJob(job) {
   console.log("📥 Processando job:", job.id);
+
+  let localFilePath = null;
 
   try {
     await client.query(
@@ -112,18 +157,32 @@ async function processJob(job) {
       ["processing", job.id]
     );
 
-    const localFilePath = await downloadFileFromBucket(job.file_key);
+    localFilePath = await downloadFileFromBucket(job.file_key);
     console.log(`🎵 Arquivo pronto para análise: ${localFilePath}`);
 
-    // 🔍 Executa análise mínima
-    const analysisResult = await analyzeAudio(localFilePath);
+    let analysisResult;
+    let usedFallback = false;
+
+    try {
+      // ✅ Tenta pipeline completo
+      console.log("🚀 Rodando pipeline completo (Fases 5.1–5.4)...");
+      analysisResult = await analyzeAudioWithPipeline(localFilePath, job);
+      console.log(
+        `✅ Pipeline completo OK | score=${analysisResult?.score}, class=${analysisResult?.classification}`
+      );
+    } catch (pipelineErr) {
+      console.error("⚠️ Falha no pipeline completo. Ativando fallback:", pipelineErr?.message);
+      usedFallback = true;
+      analysisResult = await analyzeFallbackMetadata(localFilePath);
+    }
 
     const result = {
       ok: true,
       file: job.file_key,
       mode: job.mode,
       analyzedAt: new Date().toISOString(),
-      ...analysisResult
+      usedFallback,
+      ...analysisResult, // <- UI recebe tudo pronto (score, classification, technicalData, etc)
     };
 
     await client.query(
@@ -131,17 +190,27 @@ async function processJob(job) {
       ["done", JSON.stringify(result), job.id]
     );
 
-    console.log(`✅ Job ${job.id} concluído`);
+    console.log(`✅ Job ${job.id} concluído (fallback=${usedFallback ? "yes" : "no"})`);
   } catch (err) {
     console.error("❌ Erro no job:", err);
     await client.query(
       "UPDATE jobs SET status = $1, error = $2, updated_at = NOW() WHERE id = $3",
       ["failed", err?.message ?? String(err), job.id]
     );
+  } finally {
+    // Limpeza do arquivo local
+    if (localFilePath) {
+      try {
+        await fs.promises.unlink(localFilePath);
+        console.log(`🧹 /tmp limpo: ${localFilePath}`);
+      } catch (e) {
+        console.warn("⚠️ Não foi possível remover arquivo temporário:", e?.message);
+      }
+    }
   }
 }
 
-// ---------- Loop para buscar jobs (com lock) ----------
+// ---------- Loop para buscar jobs (com lock simples) ----------
 let isRunning = false;
 
 async function processJobs() {
