@@ -71,18 +71,38 @@ function extractTechnicalData(coreMetrics) {
       technicalData.balanceLR = coreMetrics.stereo.balance;
     }
 
-    // Metadata - corrigido para extrair corretamente dos coreMetrics
-    technicalData.sampleRate = coreMetrics.sampleRate || 48000;
-    technicalData.channels = coreMetrics.numberOfChannels || 2;
-    technicalData.duration = coreMetrics.duration || 0;
-    
-    // Log para debug da correção metadata
-    console.log(`🔧 [METADATA CORRECTION] Extraindo metadata dos coreMetrics:`, {
-      sampleRate: technicalData.sampleRate,
-      channels: technicalData.channels,
-      duration: technicalData.duration,
-      source: 'coreMetrics_direct'
-    });
+    // Metadata - CORRIGIDO para usar METADADOS ORIGINAIS REAIS
+    if (coreMetrics.originalMetadata) {
+      // ✅ USAR METADADOS ORIGINAIS REAIS extraídos via FFprobe
+      technicalData.sampleRate = coreMetrics.originalMetadata.sampleRate;
+      technicalData.channels = coreMetrics.originalMetadata.channels;
+      technicalData.duration = coreMetrics.originalMetadata.duration;
+      technicalData.bitrate = coreMetrics.originalMetadata.bitrate;
+      technicalData.codec = coreMetrics.originalMetadata.codec;
+      technicalData.format = coreMetrics.originalMetadata.format;
+      
+      console.log(`🔧 [METADATA REAL] Usando metadados ORIGINAIS:`, {
+        sampleRate: technicalData.sampleRate,
+        channels: technicalData.channels,
+        duration: technicalData.duration,
+        bitrate: technicalData.bitrate,
+        codec: technicalData.codec,
+        format: technicalData.format,
+        source: 'ffprobe_original'
+      });
+    } else {
+      // Fallback (não deveria acontecer na nova implementação)
+      technicalData.sampleRate = coreMetrics.sampleRate || 48000;
+      technicalData.channels = coreMetrics.numberOfChannels || 2;
+      technicalData.duration = coreMetrics.duration || 0;
+      
+      console.warn(`⚠️ [METADATA FALLBACK] originalMetadata ausente, usando fallback:`, {
+        sampleRate: technicalData.sampleRate,
+        channels: technicalData.channels,
+        duration: technicalData.duration,
+        source: 'fallback_processed'
+      });
+    }
 
     // Dynamic Range
     if (coreMetrics.dr !== undefined) {
@@ -109,9 +129,14 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata) {
     metadata: {
       fileName: metadata.fileName || "unknown",
       fileSize: metadata.fileSize || 0,
+      // ✅ METADADOS REAIS ORIGINAIS (não os processados)
       sampleRate: technicalData.sampleRate,
       channels: technicalData.channels,
       duration: technicalData.duration,
+      bitrate: technicalData.bitrate || null,
+      codec: technicalData.codec || null,
+      format: technicalData.format || null,
+      // Metadados de processamento
       processedAt: new Date().toISOString(),
       engineVersion: "5.4.0",
       pipelinePhase: "complete"
@@ -129,10 +154,13 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata) {
       stereoWidth: sanitizeValue(technicalData.stereoWidth),
       balanceLR: sanitizeValue(technicalData.balanceLR),
       spectralCentroid: sanitizeValue(technicalData.spectralCentroid),
-      // ✅ CORREÇÃO: incluir metadata também em technicalData para compatibilidade total
+      // ✅ METADADOS REAIS ORIGINAIS também em technicalData para compatibilidade
       sampleRate: technicalData.sampleRate,
       channels: technicalData.channels,
       duration: technicalData.duration,
+      bitrate: technicalData.bitrate,
+      codec: technicalData.codec,
+      format: technicalData.format,
       frequencyBands: coreMetrics.fft?.frequencyBands?.left || {}
     },
 

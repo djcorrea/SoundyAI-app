@@ -330,35 +330,51 @@ export async function getAudioInfo(fileBuffer, filename) {
     throw new Error('INVALID_INPUT: fileBuffer ausente');
   }
 
-  // Primeiro, tenta via stdin
+  // Usar diretamente arquivo temporário (mais confiável no Windows)
+  const ext = extFromFilename(filename) || '.bin';
+  const tmp = generateTmp(ext);
+  
   try {
-    return await new Promise((resolve, reject) => {
+    await writeFile(tmp, fileBuffer);
+    
+    const info = await new Promise((resolve, reject) => {
       const args = [
         '-v', 'quiet',
         '-print_format', 'json',
         '-show_format',
         '-show_streams',
-        'pipe:0'
+        tmp
       ];
-
-      const pr = spawn(FFPROBE_PATH, args, { stdio: ['pipe', 'pipe', 'pipe'] });
-
+      
+      const pr = spawn(FFPROBE_PATH, args, { stdio: ['ignore', 'pipe', 'pipe'] });
+      
       let out = '';
       let err = '';
-
+      
       pr.stdout.on('data', (d) => (out += d?.toString?.() || ''));
       pr.stderr.on('data', (d) => (err += d?.toString?.() || ''));
-
-      pr.on('close', (code) => {
-        if (code !== 0) return reject(new Error(`FFPROBE_ERROR: ${err || '(sem stderr)'}`));
+      
+      pr.on('close', async (code) => {
+        try { 
+          await unlink(tmp).catch(() => {}); 
+        } catch {}
+        
+        if (code !== 0) {
+          return reject(new Error(`FFPROBE_ERROR: ${err || '(sem stderr)'}`));
+        }
+        
         try {
-          const info = JSON.parse(out);
-          const audioStream = (info.streams || []).find((s) => s.codec_type === 'audio');
-          if (!audioStream) return reject(new Error('NO_AUDIO_STREAM'));
+          const json = JSON.parse(out);
+          const audioStream = (json.streams || []).find((s) => s.codec_type === 'audio');
+          
+          if (!audioStream) {
+            return reject(new Error('NO_AUDIO_STREAM'));
+          }
+          
           resolve({
-            format: info.format?.format_name || '',
-            duration: parseFloat(info.format?.duration || '0') || 0,
-            bitrate: parseInt(info.format?.bit_rate || '0', 10) || 0,
+            format: json.format?.format_name || '',
+            duration: parseFloat(json.format?.duration || '0') || 0,
+            bitrate: parseInt(json.format?.bit_rate || '0', 10) || 0,
             sampleRate: parseInt(audioStream.sample_rate || '0', 10) || 0,
             channels: parseInt(audioStream.channels || '0', 10) || 0,
             codec: audioStream.codec_name || '',
@@ -367,74 +383,26 @@ export async function getAudioInfo(fileBuffer, filename) {
               audioStream.bits_per_sample ||
               null
           });
-        } catch (e) {
-          reject(new Error(`FFPROBE_PARSE_ERROR: ${e.message}`));
+        } catch (e2) {
+          reject(new Error(`FFPROBE_PARSE_ERROR: ${e2.message}`));
         }
       });
-
-      pr.on('error', (e) => {
-        reject(new Error(`FFPROBE_SPAWN_ERROR: ${e.message}`));
+      
+      pr.on('error', async (err) => {
+        try { 
+          await unlink(tmp).catch(() => {}); 
+        } catch {}
+        reject(new Error(`FFPROBE_SPAWN_ERROR: ${err.message}`));
       });
-
-      try {
-        pr.stdin.write(fileBuffer);
-        pr.stdin.end();
-      } catch (e) {
-        reject(new Error(`FFPROBE_STDIN_ERROR: ${e.message}`));
-      }
     });
+    
+    return info;
+    
   } catch (e) {
-    // Fallback: grava tmp (mais resiliente em alguns ambientes)
-    const ext = extFromFilename(filename) || '.bin';
-    const tmp = generateTmp(ext);
-    try {
-      await writeFile(tmp, fileBuffer);
-      const info = await new Promise((resolve, reject) => {
-        const args = [
-          '-v', 'quiet',
-          '-print_format', 'json',
-          '-show_format',
-          '-show_streams',
-          tmp
-        ];
-        const pr = spawn(FFPROBE_PATH, args, { stdio: ['ignore', 'pipe', 'pipe'] });
-        let out = '';
-        let err = '';
-        pr.stdout.on('data', (d) => (out += d?.toString?.() || ''));
-        pr.stderr.on('data', (d) => (err += d?.toString?.() || ''));
-        pr.on('close', async (code) => {
-          try { await unlink(tmp).catch(() => {}); } catch {}
-          if (code !== 0) return reject(new Error(`FFPROBE_ERROR: ${err || '(sem stderr)'}`));
-          try {
-            const json = JSON.parse(out);
-            const audioStream = (json.streams || []).find((s) => s.codec_type === 'audio');
-            if (!audioStream) return reject(new Error('NO_AUDIO_STREAM'));
-            resolve({
-              format: json.format?.format_name || '',
-              duration: parseFloat(json.format?.duration || '0') || 0,
-              bitrate: parseInt(json.format?.bit_rate || '0', 10) || 0,
-              sampleRate: parseInt(audioStream.sample_rate || '0', 10) || 0,
-              channels: parseInt(audioStream.channels || '0', 10) || 0,
-              codec: audioStream.codec_name || '',
-              bitDepth:
-                audioStream.bits_per_raw_sample ||
-                audioStream.bits_per_sample ||
-                null
-            });
-          } catch (e2) {
-            reject(new Error(`FFPROBE_PARSE_ERROR: ${e2.message}`));
-          }
-        });
-        pr.on('error', async (err) => {
-          try { await unlink(tmp).catch(() => {}); } catch {}
-          reject(new Error(`FFPROBE_SPAWN_ERROR: ${err.message}`));
-        });
-      });
-      return info;
-    } catch (e2) {
-      try { await unlink(tmp).catch(() => {}); } catch {}
-      throw e2;
-    }
+    try { 
+      await unlink(tmp).catch(() => {}); 
+    } catch {}
+    throw e;
   }
 }
 

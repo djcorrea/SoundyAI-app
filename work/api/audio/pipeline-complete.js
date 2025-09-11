@@ -1,7 +1,7 @@
 // 🎯 PIPELINE COMPLETO FASES 5.1 - 5.4
 // Integração completa: Decodificação → Segmentação → Core Metrics → JSON Output + Scoring
 
-import decodeAudioFile from "./audio-decoder.js";              // Fase 5.1
+import decodeAudioFile, { getAudioInfo } from "./audio-decoder.js";              // Fase 5.1
 import { segmentAudioTemporal } from "./temporal-segmentation.js"; // Fase 5.2  
 import { calculateCoreMetrics } from "./core-metrics.js";      // Fase 5.3
 import { generateJSONOutput } from "./json-output.js";         // Fase 5.4
@@ -33,18 +33,41 @@ async function processAudioCompleteInternal(audioBuffer, fileName, options = {})
   const startTime = Date.now();
 
   try {
+    // 🔧 FASE 5.0: Extração de Metadados REAIS (ANTES da conversão)
+    console.log('📋 Fase 5.0: Extraindo metadados originais do arquivo...');
+    const metadataStartTime = Date.now();
+    const originalMetadata = await getAudioInfo(audioBuffer, fileName);
+    const metadataTime = Date.now() - metadataStartTime;
+    console.log(`✅ Metadados originais extraídos em ${metadataTime}ms`);
+    console.log(`📊 Arquivo original: ${originalMetadata.sampleRate}Hz, ${originalMetadata.channels}ch, ${originalMetadata.duration.toFixed(2)}s`);
+
     // ✅ FASE 5.1: Decodificação
     console.log('🎵 Fase 5.1: Decodificação...');
     const phaseStartTime = Date.now();
     const audioData = await decodeAudioFile(audioBuffer, fileName);
     const phase1Time = Date.now() - phaseStartTime;
     console.log(`✅ Fase 5.1 concluída em ${phase1Time}ms`);
-    console.log(`📊 Audio decodificado: ${audioData.sampleRate}Hz, ${audioData.channels}ch, ${audioData.duration.toFixed(2)}s`);
+    console.log(`📊 Audio decodificado: ${audioData.sampleRate}Hz, ${audioData.numberOfChannels}ch, ${audioData.duration.toFixed(2)}s`);
+
+    // 🔧 PRESERVAR METADADOS ORIGINAIS no objeto audioData
+    audioData.originalMetadata = {
+      sampleRate: originalMetadata.sampleRate,
+      channels: originalMetadata.channels,
+      duration: originalMetadata.duration,
+      bitrate: originalMetadata.bitrate,
+      codec: originalMetadata.codec,
+      format: originalMetadata.format
+    };
+    console.log(`🔧 Metadados originais preservados no audioData`);
 
     // ✅ FASE 5.2: Segmentação
     console.log('⏱️ Fase 5.2: Segmentação Temporal...');
     const phase2StartTime = Date.now();
     const segmentedData = segmentAudioTemporal(audioData);
+    
+    // 🔧 PROPAGAR METADADOS ORIGINAIS para segmentedData
+    segmentedData.originalMetadata = audioData.originalMetadata;
+    
     const phase2Time = Date.now() - phase2StartTime;
     console.log(`✅ Fase 5.2 concluída em ${phase2Time}ms`);
     console.log(`📊 FFT frames: ${segmentedData.framesFFT.left.length}, RMS frames: ${segmentedData.framesRMS.left.length}`);
@@ -53,6 +76,10 @@ async function processAudioCompleteInternal(audioBuffer, fileName, options = {})
     console.log('📊 Fase 5.3: Core Metrics...');
     const phase3StartTime = Date.now();
     const coreMetrics = await calculateCoreMetrics(segmentedData);
+    
+    // 🔧 INCLUIR METADADOS ORIGINAIS nos coreMetrics
+    coreMetrics.originalMetadata = segmentedData.originalMetadata;
+    
     const phase3Time = Date.now() - phase3StartTime;
     console.log(`✅ Fase 5.3 concluída em ${phase3Time}ms`);
     console.log(`📊 LUFS: ${coreMetrics.lufs.integrated.toFixed(1)}`, 
@@ -65,7 +92,14 @@ async function processAudioCompleteInternal(audioBuffer, fileName, options = {})
     const metadata = {
       fileName,
       fileSize: audioBuffer.length,
-      processingTime: Date.now() - startTime
+      processingTime: Date.now() - startTime,
+      // 🔧 INCLUIR METADADOS ORIGINAIS REAIS
+      originalSampleRate: coreMetrics.originalMetadata?.sampleRate || 48000,
+      originalChannels: coreMetrics.originalMetadata?.channels || 2, 
+      originalDuration: coreMetrics.originalMetadata?.duration || 0,
+      originalBitrate: coreMetrics.originalMetadata?.bitrate || 0,
+      originalCodec: coreMetrics.originalMetadata?.codec || 'unknown',
+      originalFormat: coreMetrics.originalMetadata?.format || 'unknown'
     };
     const reference = options.reference || options.genre || null;
     const finalJSON = generateJSONOutput(coreMetrics, reference, metadata);
