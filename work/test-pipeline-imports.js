@@ -14,6 +14,12 @@ console.log("📁 __dirname:", __dirname);
 // Testar cada dependência individualmente
 async function testImports() {
   const tests = [
+    // Testar caminhos locais primeiro (copiados para work/)
+    "./api/audio/pipeline-complete.js",
+    "./api/audio/audio-decoder.js",
+    "./api/audio/core-metrics.js",
+    
+    // Testar caminhos originais
     "../api/audio/audio-decoder.js",
     "../api/audio/temporal-segmentation.js", 
     "../api/audio/core-metrics.js",

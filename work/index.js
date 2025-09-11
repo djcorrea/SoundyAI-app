@@ -18,22 +18,19 @@ let processAudioComplete = null;
 // Se o pipeline não funcionar, o worker deve falhar claramente para debugging
 
 const candidatePaths = [
-  // 🎯 TENTAR CAMINHOS ABSOLUTOS PRIMEIRO (mais confiável no Railway)
+  // 🎯 PIPELINE COPIADO PARA DENTRO DE work/ (Railway-friendly)
+  "./api/audio/pipeline-complete.js",
+  path.resolve(__dirname, "api/audio/pipeline-complete.js"),
+  path.resolve(process.cwd(), "api/audio/pipeline-complete.js"),
+  
+  // 🎯 CAMINHOS ABSOLUTOS (Railway deploy normal)
   "/app/api/audio/pipeline-complete.js",
   path.resolve("/app", "api/audio/pipeline-complete.js"),
   
-  // 🎯 CAMINHOS RELATIVOS ESM (funcionam localmente)
+  // 🎯 CAMINHOS RELATIVOS (desenvolvimento local)
   new URL("../api/audio/pipeline-complete.js", import.meta.url).href,
   path.resolve(__dirname, "../api/audio/pipeline-complete.js"),
-  
-  // 🎯 FALLBACKS DIVERSOS
-  "../api/audio/pipeline-complete.js",
-  "./api/audio/pipeline-complete.js",
-  "../../api/audio/pipeline-complete.js",
-  
-  // 🎯 OUTROS POSSÍVEIS LOCAIS NO RAILWAY
-  path.resolve(process.cwd(), "api/audio/pipeline-complete.js"),
-  path.resolve(process.cwd(), "../api/audio/pipeline-complete.js")
+  "../api/audio/pipeline-complete.js"
 ];
 
 for (const modulePath of candidatePaths) {
