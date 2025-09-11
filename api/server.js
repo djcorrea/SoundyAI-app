@@ -116,6 +116,101 @@ app.get("/api/presign", async (req, res) => {
   }
 });
 
+// ---------- APIs ANTI-TRAVAMENTO ----------
+
+// 🔄 Resetar job travado
+app.post("/api/reset-job/:jobId", async (req, res) => {
+  const { jobId } = req.params;
+  
+  try {
+    console.log(`🔄 API: Resetando job travado: ${jobId}`);
+    
+    const result = await pool.query(`
+      UPDATE jobs 
+      SET status = 'queued', 
+          error = 'Resetado pelo sistema anti-travamento',
+          updated_at = NOW()
+      WHERE id = $1 AND status = 'processing'
+      RETURNING id, status
+    `, [jobId]);
+    
+    if (result.rows.length > 0) {
+      console.log(`✅ API: Job ${jobId} resetado com sucesso`);
+      res.json({ success: true, message: 'Job resetado com sucesso' });
+    } else {
+      console.log(`⚠️ API: Job ${jobId} não encontrado ou não está em processing`);
+      res.status(404).json({ success: false, message: 'Job não encontrado ou não em processing' });
+    }
+    
+  } catch (error) {
+    console.error(`❌ API: Erro ao resetar job ${jobId}:`, error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ❌ Cancelar job travado
+app.post("/api/cancel-job/:jobId", async (req, res) => {
+  const { jobId } = req.params;
+  
+  try {
+    console.log(`❌ API: Cancelando job: ${jobId}`);
+    
+    const result = await pool.query(`
+      UPDATE jobs 
+      SET status = 'cancelled', 
+          error = 'Cancelado por timeout do sistema',
+          updated_at = NOW()
+      WHERE id = $1 AND status IN ('processing', 'queued')
+      RETURNING id, status
+    `, [jobId]);
+    
+    if (result.rows.length > 0) {
+      console.log(`✅ API: Job ${jobId} cancelado com sucesso`);
+      res.json({ success: true, message: 'Job cancelado com sucesso' });
+    } else {
+      res.status(404).json({ success: false, message: 'Job não encontrado' });
+    }
+    
+  } catch (error) {
+    console.error(`❌ API: Erro ao cancelar job ${jobId}:`, error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// 📊 Status detalhado do job
+app.get("/api/jobs/:jobId", async (req, res) => {
+  const { jobId } = req.params;
+  
+  try {
+    const result = await pool.query(
+      "SELECT * FROM jobs WHERE id = $1",
+      [jobId]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "Job não encontrado" });
+    }
+    
+    const job = result.rows[0];
+    
+    // Estrutura de resposta padronizada
+    res.json({
+      id: job.id,
+      status: job.status,
+      progress: job.progress || null,
+      error: job.error || null,
+      result: job.result ? (typeof job.result === 'string' ? JSON.parse(job.result) : job.result) : null,
+      created_at: job.created_at,
+      updated_at: job.updated_at,
+      completed_at: job.completed_at
+    });
+    
+  } catch (error) {
+    console.error(`❌ API: Erro ao buscar job ${jobId}:`, error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get("/test", async (req, res) => {
   try {
     const result = await pool.query(

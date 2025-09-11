@@ -364,12 +364,34 @@ async function createAnalysisJob(fileKey, mode, fileName) {
 async function pollJobStatus(jobId) {
     return new Promise((resolve, reject) => {
         let attempts = 0;
-        const maxAttempts = 60; // 5 minutos máximo (5s * 60 = 300s)
+        const maxAttempts = 60; // 5 minutos máximo
+        const startTime = Date.now();
+        const maxTimeMs = 120000; // 2 minutos timeout absoluto
+        let lastStatus = 'unknown';
+        let stuckCount = 0;
         
         const poll = async () => {
             try {
                 attempts++;
-                __dbg(`🔄 Verificando status do job (tentativa ${attempts}/${maxAttempts})...`);
+                const elapsed = Date.now() - startTime;
+                
+                // 🚨 TIMEOUT ABSOLUTO - Evita loops infinitos
+                if (elapsed > maxTimeMs) {
+                    console.error(`🚨 TIMEOUT ABSOLUTO: Job ${jobId} excedeu ${maxTimeMs/1000}s`);
+                    
+                    // Tentar resetar job travado
+                    try {
+                        await fetch(`/api/reset-job/${jobId}`, { method: 'POST' });
+                        console.log(`🔄 Job ${jobId} resetado devido a timeout`);
+                    } catch (resetErr) {
+                        console.warn('⚠️ Falha ao resetar job:', resetErr);
+                    }
+                    
+                    reject(new Error(`Timeout: análise excedeu ${maxTimeMs/1000} segundos. Sistema anti-travamento ativado.`));
+                    return;
+                }
+
+                __dbg(`🔄 [${elapsed/1000}s] Verificando status do job (tentativa ${attempts}/${maxAttempts})...`);
 
                 const response = await fetch(`/api/jobs/${jobId}`, {
                     method: 'GET',
@@ -387,14 +409,20 @@ async function pollJobStatus(jobId) {
                 
                 __dbg(`📊 Status do job:`, { 
                     status: jobData.status, 
-                    progress: jobData.progress || 'N/A' 
+                    progress: jobData.progress || 'N/A',
+                    elapsed: `${elapsed/1000}s`
                 });
 
-                // Atualizar progresso na UI se disponível
+                // Atualizar progresso na UI
                 if (jobData.progress) {
                     updateModalProgress(jobData.progress, `Processando análise... ${jobData.progress}%`);
+                } else {
+                    // Progresso estimado baseado no tempo
+                    const progressPercent = Math.min(90, (elapsed / maxTimeMs) * 100);
+                    updateModalProgress(progressPercent, `Analisando áudio... ${progressPercent.toFixed(0)}%`);
                 }
 
+                // ✅ SUCESSO
                 if (jobData.status === 'completed' || jobData.status === 'done') {
                     __dbg('✅ Job concluído com sucesso');
                     console.log('🔍 [JOB RESULT] Estrutura completa do resultado:', jobData);
@@ -405,24 +433,62 @@ async function pollJobStatus(jobId) {
                     return;
                 }
 
+                // ❌ FALHA
                 if (jobData.status === 'failed' || jobData.status === 'error') {
                     const errorMsg = jobData.error || 'Erro desconhecido no processamento';
                     reject(new Error(`Falha na análise: ${errorMsg}`));
                     return;
                 }
 
-                // Status 'queued', 'processing', etc. - continuar polling
+                // 🔄 PROCESSANDO - Sistema anti-travamento
+                if (jobData.status === 'processing') {
+                    if (lastStatus === 'processing') {
+                        stuckCount++;
+                        
+                        // Se ficar muito tempo em processing, resetar
+                        if (stuckCount >= 15) { // 75 segundos travado (15 * 5s)
+                            console.warn(`🚨 Job ${jobId} travado em processing há ${stuckCount * 5}s, resetando...`);
+                            
+                            try {
+                                const resetResponse = await fetch(`/api/reset-job/${jobId}`, { method: 'POST' });
+                                if (resetResponse.ok) {
+                                    console.log(`✅ Job ${jobId} resetado com sucesso`);
+                                    stuckCount = 0; // Reset contador
+                                } else {
+                                    console.warn(`⚠️ Falha ao resetar job ${jobId}`);
+                                }
+                            } catch (resetErr) {
+                                console.warn('⚠️ Erro ao resetar job:', resetErr);
+                            }
+                        }
+                    } else {
+                        stuckCount = 0; // Reset se status mudou
+                    }
+                }
+
+                lastStatus = jobData.status;
+
+                // ⏰ TIMEOUT POR TENTATIVAS
                 if (attempts >= maxAttempts) {
-                    reject(new Error('Timeout: Análise demorou mais que o esperado'));
+                    console.warn(`⚠️ Máximo de tentativas atingido para job ${jobId}`);
+                    reject(new Error('Timeout: Análise demorou mais que o esperado (max tentativas)'));
                     return;
                 }
 
-                // Aguardar 5 segundos antes da próxima verificação
-                setTimeout(poll, 5000);
+                // Aguardar antes da próxima verificação (intervalo adaptativo)
+                const nextInterval = jobData.status === 'processing' ? 5000 : 3000;
+                setTimeout(poll, nextInterval);
 
             } catch (error) {
                 console.error('❌ Erro no polling:', error);
-                reject(error);
+                
+                // Retry em caso de erro de rede (até 5 tentativas)
+                if (attempts <= 5 && (error.message.includes('fetch') || error.message.includes('network'))) {
+                    console.log(`🔄 Retry ${attempts}/5 devido a erro de rede...`);
+                    setTimeout(poll, 3000);
+                } else {
+                    reject(error);
+                }
             }
         };
 
