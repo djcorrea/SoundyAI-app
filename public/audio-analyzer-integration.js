@@ -366,7 +366,8 @@ async function pollJobStatus(jobId) {
         let attempts = 0;
         const maxAttempts = 60; // 5 minutos máximo
         const startTime = Date.now();
-        const maxTimeMs = 120000; // 2 minutos timeout absoluto
+        // 🔧 Ajustado timeout de 120s para 300s para suportar análises complexas
+        const maxTimeMs = 300000; // 5 minutos timeout absoluto
         let lastStatus = 'unknown';
         let stuckCount = 0;
         
@@ -444,8 +445,8 @@ async function pollJobStatus(jobId) {
                             updateModalProgress(95, `Finalizando análise complexa... arquivo pode ser grande`);
                         }
                         
-                        // Timeout mais longo: 2 minutos (24 * 5s = 120s)  
-                        if (stuckCount >= 24) {
+                        // Timeout mais longo: 5 minutos (60 * 5s = 300s) 🔧 Ajustado para análises complexas  
+                        if (stuckCount >= 60) {
                             console.warn(`🚨 Job ${jobId} travado em processing há ${stuckCount * 5}s - cancelando análise`);
                             
                             reject(new Error(`Análise cancelada: arquivo muito complexo ou problemático (${Math.floor(stuckCount * 5 / 60)} minutos). Tente outro arquivo.`));
