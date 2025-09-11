@@ -14,134 +14,26 @@ const __dirname = path.dirname(__filename);
 // ---------- Importar pipeline completo (ESM + Container compatible) ----------
 let processAudioComplete = null;
 
-// 🔧 FALLBACK PIPELINE - Para casos onde o pipeline principal não carrega
-async function fallbackAudioProcessing(audioBuffer, fileName) {
-  console.log("🔧 Executando pipeline de fallback para:", fileName);
-  
-  try {
-    // Usar music-metadata para extrair informações básicas
-    const metadata = await mm.parseBuffer(audioBuffer);
-    
-    const result = {
-      mode: "fallback_basic_analysis",
-      status: "success",
-      metadata: {
-        genre: "unknown",
-        fftSize: 4096,
-        hopSize: 1024,
-        windowType: "hann",
-        processedAt: new Date().toISOString(),
-        analysisDepth: "basic_fallback",
-        overlapPercent: 75,
-        pipelineVersion: "fallback-1.0"
-      },
-      problems: [],
-      comparison: {
-        dr_target: 8,
-        lufs_target: -14,
-        peak_target: -1,
-        genre_target: "unknown",
-        compliance_score: 5.0
-      },
-      performance: {
-        totalTimeMs: 1000,
-        backendPhase: "fallback-basic",
-        fftOperations: 0,
-        workerTimestamp: new Date().toISOString(),
-        samplesProcessed: audioBuffer.length
-      },
-      suggestions: [
-        "Análise básica realizada - pipeline principal indisponível"
-      ],
-      overallScore: 5,
-      scoringMethod: "fallback_basic",
-      technicalData: {
-        // Dados básicos do metadata
-        bitrate: metadata.format?.bitrate || 1411200,
-        channels: metadata.format?.numberOfChannels || 2,
-        sampleRate: metadata.format?.sampleRate || 48000,
-        durationSec: metadata.format?.duration || 120,
-        
-        // Valores estimados básicos (não fictícios)
-        peak_db: -6.0 + (Math.random() * -12.0), // Entre -6 e -18 dB
-        rms_level: -18.0 + (Math.random() * -12.0), // Entre -18 e -30 dB
-        true_peak: -1.0 + (Math.random() * -5.0), // Entre -1 e -6 dBTP
-        dynamic_range: 4.0 + (Math.random() * 8.0), // Entre 4 e 12 dB
-        lufs_integrated: -8.0 + (Math.random() * -16.0), // Entre -8 e -24 LUFS
-        lufs_short_term: -8.0 + (Math.random() * -16.0),
-        lufs_momentary: -8.0 + (Math.random() * -16.0),
-        
-        // Balance básico estimado
-        balance_lr: 0.5 + (Math.random() * 0.3 - 0.15), // Entre 0.35 e 0.65
-        stereo_width: 0.6 + (Math.random() * 0.3), // Entre 0.6 e 0.9
-        stereo_correlation: 0.7 + (Math.random() * 0.25), // Entre 0.7 e 0.95
-        
-        // Spectral balance estimado
-        spectral_balance: {
-          sub: 0.08 + (Math.random() * 0.04), // 8-12%
-          bass: 0.20 + (Math.random() * 0.10), // 20-30%
-          mids: 0.30 + (Math.random() * 0.15), // 30-45%
-          treble: 0.25 + (Math.random() * 0.10), // 25-35%
-          presence: 0.10 + (Math.random() * 0.05), // 10-15%
-          air: 0.05 + (Math.random() * 0.03) // 5-8%
-        },
-        
-        // Tonal balance básico
-        tonalBalance: {
-          sub: {
-            rms_db: -30 + (Math.random() * 8),
-            peak_db: -20 + (Math.random() * 8),
-            energy_ratio: 0.08 + (Math.random() * 0.04)
-          },
-          low: {
-            rms_db: -26 + (Math.random() * 6),
-            peak_db: -14 + (Math.random() * 6),
-            energy_ratio: 0.20 + (Math.random() * 0.10)
-          },
-          mid: {
-            rms_db: -24 + (Math.random() * 4),
-            peak_db: -12 + (Math.random() * 4),
-            energy_ratio: 0.35 + (Math.random() * 0.15)
-          },
-          high: {
-            rms_db: -20 + (Math.random() * 6),
-            peak_db: -16 + (Math.random() * 6),
-            energy_ratio: 0.25 + (Math.random() * 0.10)
-          }
-        }
-      },
-      classification: "Análise Básica",
-      qualityOverall: 5
-    };
-    
-    // Calcular valores derivados
-    result.technicalData.headroomDb = 0 - result.technicalData.peak_db;
-    result.technicalData.crest_factor = result.technicalData.peak_db - result.technicalData.rms_level;
-    result.technicalData.truePeakDbtp = result.technicalData.true_peak;
-    
-    console.log("✅ Pipeline de fallback executado com sucesso");
-    return result;
-    
-  } catch (err) {
-    console.error("❌ Erro no pipeline de fallback:", err);
-    throw err;
-  }
-}
+// 🎯 WORKER FOCADO NO PIPELINE REAL - SEM FALLBACKS!
+// Se o pipeline não funcionar, o worker deve falhar claramente para debugging
 
 const candidatePaths = [
-  // Railway: worker roda de /app/work/, pipeline em /app/api/
-  "../api/audio/pipeline-complete.js",
-  
-  // ESM URLs (caso esteja rodando de /app/work/)
-  new URL("../api/audio/pipeline-complete.js", import.meta.url).href,
-  
-  // Caso worker rode de /app/ diretamente
-  "./api/audio/pipeline-complete.js",
+  // 🎯 TENTAR CAMINHOS ABSOLUTOS PRIMEIRO (mais confiável no Railway)
   "/app/api/audio/pipeline-complete.js",
+  path.resolve("/app", "api/audio/pipeline-complete.js"),
   
-  // Fallbacks diversos
-  new URL("../../api/audio/pipeline-complete.js", import.meta.url).href,
-  "../../api/audio/pipeline-complete.js"
+  // 🎯 CAMINHOS RELATIVOS ESM (funcionam localmente)
+  new URL("../api/audio/pipeline-complete.js", import.meta.url).href,
+  path.resolve(__dirname, "../api/audio/pipeline-complete.js"),
+  
+  // 🎯 FALLBACKS DIVERSOS
+  "../api/audio/pipeline-complete.js",
+  "./api/audio/pipeline-complete.js",
+  "../../api/audio/pipeline-complete.js",
+  
+  // 🎯 OUTROS POSSÍVEIS LOCAIS NO RAILWAY
+  path.resolve(process.cwd(), "api/audio/pipeline-complete.js"),
+  path.resolve(process.cwd(), "../api/audio/pipeline-complete.js")
 ];
 
 for (const modulePath of candidatePaths) {
@@ -157,7 +49,7 @@ for (const modulePath of candidatePaths) {
 }
 
 if (!processAudioComplete) {
-  console.error("❌ CRÍTICO: Nenhum caminho do pipeline funcionou. Worker operará apenas em modo fallback.");
+  console.error("🚨 CRÍTICO: Pipeline não carregou - worker será encerrado!");
   console.log("🔍 Debug info:");
   console.log("   import.meta.url:", import.meta.url);
   console.log("   process.cwd():", process.cwd());
@@ -166,17 +58,39 @@ if (!processAudioComplete) {
   // 🔍 INVESTIGAR ESTRUTURA DO CONTAINER
   try {
     console.log("📁 Listando estrutura do container:");
-    const rootContents = fs.readdirSync("/app");
-    console.log("   /app contents:", rootContents);
     
-    if (rootContents.includes("api")) {
-      const apiContents = fs.readdirSync("/app/api");
-      console.log("   /app/api contents:", apiContents);
+    // Verificar /app
+    if (fs.existsSync("/app")) {
+      const rootContents = fs.readdirSync("/app");
+      console.log("   /app contents:", rootContents);
       
-      if (apiContents.includes("audio")) {
-        const audioContents = fs.readdirSync("/app/api/audio");
-        console.log("   /app/api/audio contents:", audioContents);
+      if (rootContents.includes("api")) {
+        const apiContents = fs.readdirSync("/app/api");
+        console.log("   /app/api contents:", apiContents);
+        
+        if (apiContents.includes("audio")) {
+          const audioContents = fs.readdirSync("/app/api/audio");
+          console.log("   /app/api/audio contents:", audioContents);
+          
+          // Verificar se pipeline-complete.js existe
+          if (audioContents.includes("pipeline-complete.js")) {
+            console.log("   ✅ pipeline-complete.js EXISTE em /app/api/audio/");
+            
+            // Tentar ler o arquivo para verificar permissões
+            try {
+              const fileContent = fs.readFileSync("/app/api/audio/pipeline-complete.js", "utf8");
+              console.log("   ✅ Arquivo é legível, tamanho:", fileContent.length);
+              console.log("   📄 Primeiras linhas:", fileContent.substring(0, 200));
+            } catch (readErr) {
+              console.log("   ❌ Erro ao ler arquivo:", readErr.message);
+            }
+          } else {
+            console.log("   ❌ pipeline-complete.js NÃO ENCONTRADO em /app/api/audio/");
+          }
+        }
       }
+    } else {
+      console.log("   ❌ /app não existe!");
     }
     
     const workContents = fs.readdirSync(process.cwd());
@@ -185,6 +99,10 @@ if (!processAudioComplete) {
   } catch (err) {
     console.log("   ❌ Erro ao listar estrutura:", err.message);
   }
+  
+  // 🚨 FORÇAR SAÍDA - não queremos fallback, queremos o pipeline real!
+  console.log("🚨 ENCERRANDO WORKER - Pipeline deve funcionar ou nada!");
+  process.exit(1);
 }
 
 // ---------- Conectar ao Postgres ----------
@@ -270,58 +188,41 @@ async function analyzeFallbackMetadata(localFilePath) {
   }
 }
 
-// ---------- Análise REAL via pipeline ----------
+// ---------- Análise REAL via pipeline (SEM FALLBACK!) ----------
 async function analyzeAudioWithPipeline(localFilePath, job) {
+  if (!processAudioComplete) {
+    throw new Error("🚨 Pipeline não foi carregado - worker não pode processar áudio!");
+  }
+  
   const filename = path.basename(localFilePath);
   const fileBuffer = await fs.promises.readFile(localFilePath);
   
-  // Tentar usar o pipeline principal primeiro
-  if (processAudioComplete) {
-    try {
-      console.log("🎯 Usando pipeline completo principal...");
-      const t0 = Date.now();
-      const finalJSON = await processAudioComplete(fileBuffer, filename, job?.reference || null);
-      const totalMs = Date.now() - t0;
-
-      finalJSON.performance = {
-        ...(finalJSON.performance || {}),
-        workerTotalTimeMs: totalMs,
-        workerTimestamp: new Date().toISOString(),
-        backendPhase: "5.1-5.4-pipeline-complete",
-      };
-
-      finalJSON._worker = { source: "pipeline_complete_main" };
-      console.log("✅ Pipeline principal executado com sucesso");
-      return finalJSON;
-      
-    } catch (err) {
-      console.error("❌ Erro no pipeline principal:", err);
-      console.warn("🔧 Tentando fallback com dados realistas...");
-    }
-  }
+  console.log(`🎯 Processando ${filename} com pipeline completo real...`);
+  console.log(`📊 Buffer size: ${fileBuffer.length} bytes`);
   
-  // Se chegou aqui, pipeline principal falhou ou não existe
-  try {
-    console.log("🔧 Executando pipeline de fallback melhorado...");
-    const result = await fallbackAudioProcessing(fileBuffer, filename);
-    
-    result.performance = {
-      ...result.performance,
-      workerTotalTimeMs: result.performance.totalTimeMs,
-      workerTimestamp: new Date().toISOString(),
-      backendPhase: "fallback-realista",
-    };
-    
-    result._worker = { source: "fallback_improved" };
-    result.warnings = ["Pipeline principal indisponível - usando análise estimativa realista"];
-    
-    return result;
-    
-  } catch (fallbackErr) {
-    console.error("❌ Erro no fallback melhorado:", fallbackErr);
-    console.warn("🔧 Tentando fallback básico de metadata...");
-    return analyzeFallbackMetadata(localFilePath);
-  }
+  const t0 = Date.now();
+  const finalJSON = await processAudioComplete(fileBuffer, filename, job?.reference || null);
+  const totalMs = Date.now() - t0;
+
+  // Adicionar informações de performance do worker
+  finalJSON.performance = {
+    ...(finalJSON.performance || {}),
+    workerTotalTimeMs: totalMs,
+    workerTimestamp: new Date().toISOString(),
+    backendPhase: "pipeline-complete-real",
+  };
+
+  finalJSON._worker = { 
+    source: "pipeline_complete_main",
+    processingTimeMs: totalMs,
+    filename: filename,
+    bufferSize: fileBuffer.length
+  };
+  
+  console.log(`✅ Pipeline real executado com sucesso em ${totalMs}ms`);
+  console.log(`📊 Score final: ${finalJSON.overallScore || finalJSON.score}`);
+  
+  return finalJSON;
 }
 
 // ---------- Processar 1 job ----------
