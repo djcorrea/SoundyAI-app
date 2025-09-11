@@ -18,8 +18,11 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
   // 🛡️ TIMEOUT RIGOROSO: Máximo 2 minutos por análise
   const timeoutMs = options.timeoutMs || 120000;
   
+  // 📊 Progress: Função callback para atualizar progresso
+  const updateProgress = options.updateProgress || (() => {});
+  
   return Promise.race([
-    processAudioCompleteInternal(audioBuffer, fileName, options),
+    processAudioCompleteInternal(audioBuffer, fileName, { ...options, updateProgress }),
     new Promise((_, reject) => 
       setTimeout(() => {
         console.error(`⏰ TIMEOUT: Pipeline excedeu ${timeoutMs/1000}s para ${fileName}`);
@@ -31,10 +34,18 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
 
 async function processAudioCompleteInternal(audioBuffer, fileName, options = {}) {
   const startTime = Date.now();
+  const updateProgress = options.updateProgress || (() => {});
 
   try {
-    // 🔧 FASE 5.0: Extração de Metadados REAIS (ANTES da conversão)
+    // � Progress: Início
+    updateProgress(5, 'Inicializando análise...');
+    console.log('📊 Progress: 5% - Inicializando análise...');
+
+    // �🔧 FASE 5.0: Extração de Metadados REAIS (ANTES da conversão)
     console.log('📋 Fase 5.0: Extraindo metadados originais do arquivo...');
+    updateProgress(10, 'Extraindo metadados do arquivo...');
+    console.log('📊 Progress: 10% - Extraindo metadados do arquivo...');
+    
     const metadataStartTime = Date.now();
     const originalMetadata = await getAudioInfo(audioBuffer, fileName);
     const metadataTime = Date.now() - metadataStartTime;
@@ -43,6 +54,9 @@ async function processAudioCompleteInternal(audioBuffer, fileName, options = {})
 
     // ✅ FASE 5.1: Decodificação
     console.log('🎵 Fase 5.1: Decodificação...');
+    updateProgress(20, 'Decodificando áudio para análise...');
+    console.log('📊 Progress: 20% - Decodificando áudio para análise...');
+    
     const phaseStartTime = Date.now();
     const audioData = await decodeAudioFile(audioBuffer, fileName);
     const phase1Time = Date.now() - phaseStartTime;
@@ -62,6 +76,9 @@ async function processAudioCompleteInternal(audioBuffer, fileName, options = {})
 
     // ✅ FASE 5.2: Segmentação
     console.log('⏱️ Fase 5.2: Segmentação Temporal...');
+    updateProgress(35, 'Segmentando áudio para análise FFT...');
+    console.log('📊 Progress: 35% - Segmentando áudio para análise FFT...');
+    
     const phase2StartTime = Date.now();
     const segmentedData = segmentAudioTemporal(audioData);
     
@@ -74,8 +91,19 @@ async function processAudioCompleteInternal(audioBuffer, fileName, options = {})
 
     // ✅ FASE 5.3: Core Metrics
     console.log('📊 Fase 5.3: Core Metrics...');
+    updateProgress(50, 'Calculando LUFS e True Peak...');
+    console.log('📊 Progress: 50% - Calculando LUFS e True Peak...');
+    
     const phase3StartTime = Date.now();
-    const coreMetrics = await calculateCoreMetrics(segmentedData);
+    
+    // 📊 Progress: Sub-etapas da Fase 5.3
+    const progressCallback = (subProgress, message) => {
+      const totalProgress = 50 + (subProgress * 0.35); // 50-85% para Core Metrics
+      updateProgress(totalProgress, message);
+      console.log(`📊 Progress: ${totalProgress.toFixed(1)}% - ${message}`);
+    };
+    
+    const coreMetrics = await calculateCoreMetrics(segmentedData, { progressCallback });
     
     // 🔧 INCLUIR METADADOS ORIGINAIS nos coreMetrics
     coreMetrics.originalMetadata = segmentedData.originalMetadata;
@@ -88,6 +116,9 @@ async function processAudioCompleteInternal(audioBuffer, fileName, options = {})
 
     // ✅ FASE 5.4: JSON Output
     console.log('🎯 Fase 5.4: JSON Output + Scoring...');
+    updateProgress(90, 'Finalizando análise e calculando score...');
+    console.log('📊 Progress: 90% - Finalizando análise e calculando score...');
+    
     const phase4StartTime = Date.now();
     const metadata = {
       fileName,
@@ -117,6 +148,10 @@ async function processAudioCompleteInternal(audioBuffer, fileName, options = {})
       phase4_json_output: phase4Time,
       total: totalTime
     };
+
+    // 📊 Progress: Concluído!
+    updateProgress(100, `Análise concluída! Score: ${finalJSON.score}%`);
+    console.log(`📊 Progress: 100% - Análise concluída! Score: ${finalJSON.score}%`);
 
     console.log(`🏁 Pipeline completo finalizado em ${totalTime}ms`);
 

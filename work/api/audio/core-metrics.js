@@ -48,21 +48,49 @@ class CoreMetricsProcessor {
       this.ensureOriginalChannels(segmentedAudio);
 
     try {
+      // 📊 Progress: FFT
+      if (this.progressCallback) {
+        this.progressCallback(10, 'Processando FFT para análise espectral...');
+      }
+      
       const fftResults = await this.calculateFFTMetrics(segmentedAudio.framesFFT);
+      
+      // 📊 Progress: LUFS
+      if (this.progressCallback) {
+        this.progressCallback(40, 'Calculando LUFS (ITU-R BS.1770-4)...');
+      }
+      
       const lufsResults = await this.calculateLUFSMetrics(
         leftChannel,
         rightChannel,
         segmentedAudio.sampleRate
       );
+      
+      // 📊 Progress: True Peak
+      if (this.progressCallback) {
+        this.progressCallback(70, 'Detectando True Peak (4x oversampling)...');
+      }
+      
       const truePeakResults = await this.calculateTruePeakMetrics(
         leftChannel,
         rightChannel,
         segmentedAudio.sampleRate
       );
+      
+      // 📊 Progress: Stereo
+      if (this.progressCallback) {
+        this.progressCallback(90, 'Analisando campo estéreo...');
+      }
+      
       const stereoResults = await this.calculateStereoMetrics(
         leftChannel,
         rightChannel
       );
+
+      // 📊 Progress: Finalizando métricas
+      if (this.progressCallback) {
+        this.progressCallback(100, 'Métricas core finalizadas');
+      }
 
       const processingTime = Date.now() - startTime;
 
@@ -456,8 +484,14 @@ class CoreMetricsProcessor {
 /**
  * Funções de alto nível
  */
-export async function calculateCoreMetrics(segmentedAudio) {
+export async function calculateCoreMetrics(segmentedAudio, options = {}) {
   const p = new CoreMetricsProcessor();
+  
+  // 📊 Progress: Configurar callback de progresso
+  if (options.progressCallback) {
+    p.progressCallback = options.progressCallback;
+  }
+  
   return await p.processMetrics(segmentedAudio);
 }
 

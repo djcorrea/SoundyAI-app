@@ -18,6 +18,7 @@ router.get("/:id", async (req, res) => {
   try {
     const { rows } = await pool.query(
       `SELECT id, file_key, mode, status, error, result,
+              progress, progress_message,
               created_at, updated_at, completed_at
          FROM jobs
         WHERE id = $1
@@ -43,6 +44,8 @@ router.get("/:id", async (req, res) => {
       status: normalizedStatus, // ✅ garante compatibilidade com o pollJobStatus
       error: job.error || null,
       result: job.result || null, // ✅ já vem como objeto do Postgres (jsonb field)
+      progress: job.progress || 0, // ✅ progresso real
+      progressMessage: job.progress_message || null, // ✅ mensagem de progresso
       createdAt: job.created_at,
       updatedAt: job.updated_at,
       completedAt: job.completed_at,

@@ -402,22 +402,32 @@ async function pollJobStatus(jobId) {
                 
                 __dbg(`📊 Status do job:`, { 
                     status: jobData.status, 
-                    progress: jobData.progress || 'N/A',
+                    progress: jobData.progress !== null ? jobData.progress : 'N/A',
+                    progressMessage: jobData.progressMessage || 'Processando...',
                     elapsed: `${elapsed/1000}s`
                 });
 
-                // Atualizar progresso na UI
-                if (jobData.progress) {
-                    updateModalProgress(jobData.progress, `Processando análise... ${jobData.progress}%`);
+                // 📊 Progress: Atualizar progresso na UI com dados reais
+                if (jobData.progress !== null && jobData.progress !== undefined) {
+                    // Usar progresso real do backend
+                    const message = jobData.progressMessage || `Processando análise... ${jobData.progress}%`;
+                    updateModalProgress(jobData.progress, message);
+                    console.log(`📊 Progress: ${jobData.progress}% - ${message}`);
                 } else {
-                    // Progresso estimado baseado no tempo
+                    // Fallback: progresso estimado baseado no tempo (só se não houver progresso real)
                     const progressPercent = Math.min(90, (elapsed / maxTimeMs) * 100);
                     updateModalProgress(progressPercent, `Analisando áudio... ${progressPercent.toFixed(0)}%`);
+                    console.log(`📊 Progress: ${progressPercent.toFixed(0)}% (estimado) - Analisando áudio...`);
                 }
 
                 // ✅ SUCESSO
                 if (jobData.status === 'completed') {
                     __dbg('✅ Job concluído com sucesso');
+                    
+                    // 📊 Progress: Garantir que chegue em 100% quando completo
+                    updateModalProgress(100, `✅ Análise concluída! Score: ${jobData.result?.score || 'N/A'}%`);
+                    console.log('📊 Progress: 100% - Análise concluída!');
+                    
                     console.log('🔍 [JOB RESULT] Estrutura completa do resultado:', jobData);
                     console.log('🔍 [JOB RESULT] Keys no jobData:', Object.keys(jobData));
                     console.log('🔍 [JOB RESULT] jobData.result keys:', Object.keys(jobData.result || {}));
@@ -505,15 +515,35 @@ function showUploadProgress(message) {
  * @param {string} message - Mensagem de status
  */
 function updateModalProgress(percentage, message) {
+    console.log(`📊 Progress: Atualizando UI - ${percentage}% - ${message}`);
+    
     const progressText = document.getElementById('audioProgressText');
     const progressBar = document.querySelector('.progress-fill');
     
     if (progressText) {
         progressText.innerHTML = `${message}`;
+    } else {
+        console.warn('📊 Progress: Elemento #audioProgressText não encontrado');
     }
     
     if (progressBar) {
-        progressBar.style.width = `${percentage}%`;
+        progressBar.style.width = `${Math.max(0, Math.min(100, percentage))}%`;
+        progressBar.style.transition = 'width 0.3s ease';
+    } else {
+        console.warn('📊 Progress: Elemento .progress-fill não encontrado');
+    }
+    
+    // 📊 Progress: Esconder barra quando chegar em 100%
+    if (percentage >= 100) {
+        setTimeout(() => {
+            const progressContainer = document.querySelector('.progress-container');
+            if (progressContainer) {
+                progressContainer.style.opacity = '0';
+                setTimeout(() => {
+                    progressContainer.style.display = 'none';
+                }, 300);
+            }
+        }, 1500); // Aguardar 1.5s para usuário ver o 100%
     }
 }
 
@@ -551,6 +581,20 @@ function handleReferenceFileSelection(type) {
                 const { jobId } = await createAnalysisJob(fileKey, 'reference', file.name);
                 
                 // 4. Aguardar resultado da análise
+                
+                // 📊 Progress: Resetar e exibir barra de progresso
+                const progressContainer = document.querySelector('.progress-container');
+                const progressBar = document.querySelector('.progress-fill');
+                if (progressContainer) {
+                    progressContainer.style.display = 'block';
+                    progressContainer.style.opacity = '1';
+                }
+                if (progressBar) {
+                    progressBar.style.width = '0%';
+                }
+                updateModalProgress(0, 'Iniciando análise de referência...');
+                console.log('📊 Progress: Barra de progresso resetada e exibida (referência)');
+                
                 const analysisResult = await pollJobStatus(jobId);
                 
                 // Mostrar resultados no modal
@@ -1977,6 +2021,20 @@ async function handleModalFileSelection(file) {
         
         // 🌐 ETAPA 4: Acompanhar progresso e aguardar resultado
         showUploadProgress(`Analisando ${file.name}... Aguarde.`);
+        
+        // 📊 Progress: Resetar e exibir barra de progresso
+        const progressContainer = document.querySelector('.progress-container');
+        const progressBar = document.querySelector('.progress-fill');
+        if (progressContainer) {
+            progressContainer.style.display = 'block';
+            progressContainer.style.opacity = '1';
+        }
+        if (progressBar) {
+            progressBar.style.width = '0%';
+        }
+        updateModalProgress(0, 'Iniciando análise...');
+        console.log('📊 Progress: Barra de progresso resetada e exibida');
+        
         const analysisResult = await pollJobStatus(jobId);
         
         // 🌐 ETAPA 5: Processar resultado baseado no modo
@@ -3329,6 +3387,17 @@ function displayModalResults(analysis) {
         console.warn(`🚫 [UI_GATE] displayModalResults cancelado - análise obsoleta (análise: ${analysisRunId}, atual: ${currentRunId})`);
         return;
     }
+    
+    // 📊 Progress: Esconder barra de progresso ao exibir resultados
+    const progressContainer = document.querySelector('.progress-container');
+    const progressBar = document.querySelector('.progress-fill');
+    if (progressContainer) {
+        progressContainer.style.display = 'none';
+    }
+    if (progressBar) {
+        progressBar.style.width = '0%';
+    }
+    console.log('📊 Progress: Barra de progresso ocultada - exibindo resultados');
     
     const uploadArea = document.getElementById('audioUploadArea');
     const loading = document.getElementById('audioAnalysisLoading');

@@ -144,6 +144,19 @@ async function analyzeFallbackMetadata(localFilePath) {
   }
 }
 
+// ---------- Função para atualizar progresso ----------
+async function updateJobProgress(jobId, progress, message) {
+  try {
+    console.log(`📊 Progress: Job ${jobId} - ${progress}% - ${message}`);
+    await client.query(
+      "UPDATE jobs SET status = $1, progress = $2, progress_message = $3, updated_at = NOW() WHERE id = $4",
+      ["processing", progress, message, jobId]
+    );
+  } catch (err) {
+    console.error(`❌ Erro ao atualizar progresso do job ${jobId}:`, err);
+  }
+}
+
 // ---------- Análise com pipeline completo ----------
 async function analyzeAudioWithPipeline(localFilePath, job) {
   if (!processAudioComplete) {
@@ -154,8 +167,16 @@ async function analyzeAudioWithPipeline(localFilePath, job) {
   const filename = path.basename(localFilePath);
   const fileBuffer = await fs.promises.readFile(localFilePath);
 
+  // 📊 Progress: Configurar callback de progresso
+  const updateProgress = (progress, message) => {
+    updateJobProgress(job.id, progress, message).catch(console.error);
+  };
+
   const t0 = Date.now();
-  const finalJSON = await processAudioComplete(fileBuffer, filename, job?.reference || null);
+  const finalJSON = await processAudioComplete(fileBuffer, filename, {
+    reference: job?.reference || null,
+    updateProgress: updateProgress
+  });
   const totalMs = Date.now() - t0;
 
   finalJSON.performance = {
@@ -209,16 +230,16 @@ async function processJob(job) {
     };
 
     await client.query(
-      "UPDATE jobs SET status = $1, result = $2, completed_at = NOW(), updated_at = NOW() WHERE id = $3",
-      ["completed", JSON.stringify(result), job.id]
+      "UPDATE jobs SET status = $1, result = $2, progress = $3, progress_message = $4, completed_at = NOW(), updated_at = NOW() WHERE id = $5",
+      ["completed", JSON.stringify(result), 100, "Análise concluída com sucesso!", job.id]
     );
 
     console.log(`✅ Job ${job.id} concluído (fallback=${usedFallback ? "yes" : "no"})`);
   } catch (err) {
     console.error("❌ Erro no job:", err);
     await client.query(
-      "UPDATE jobs SET status = $1, error = $2, updated_at = NOW() WHERE id = $3",
-      ["failed", err?.message ?? String(err), job.id]
+      "UPDATE jobs SET status = $1, error = $2, progress = $3, progress_message = $4, updated_at = NOW() WHERE id = $5",
+      ["failed", err?.message ?? String(err), 0, "Erro na análise", job.id]
     );
   } finally {
     if (localFilePath) {
