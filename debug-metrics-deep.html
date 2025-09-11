@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SoundyAI - Debug Profundo de Métricas</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+            margin: 0;
+        }
+        .debug-section {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .debug-title {
+            color: #ffff00;
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        .debug-content {
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+        .error { color: #ff4444; }
+        .warning { color: #ffaa00; }
+        .success { color: #44ff44; }
+        .info { color: #4444ff; }
+        
+        #fileInput {
+            margin: 20px 0;
+            padding: 10px;
+            border: 2px dashed #444;
+            background: #333;
+            color: #fff;
+        }
+        
+        button {
+            background: #444;
+            color: #fff;
+            border: 1px solid #666;
+            padding: 10px 20px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 SoundyAI - Debug Profundo de Métricas</h1>
+    
+    <div class="debug-section">
+        <div class="debug-title">📁 Upload de Arquivo</div>
+        <input type="file" id="fileInput" accept="audio/*" />
+        <button onclick="analyzeFile()">🎯 Analisar com Debug Completo</button>
+        <button onclick="clearLogs()">🗑️ Limpar Logs</button>
+    </div>
+
+    <div class="debug-section">
+        <div class="debug-title">🛠️ Status da Análise</div>
+        <div id="analysisStatus" class="debug-content">Aguardando arquivo...</div>
+    </div>
+
+    <div class="debug-section">
+        <div class="debug-title">📊 Dados Brutos do Backend</div>
+        <div id="rawBackendData" class="debug-content">Nenhum dado ainda...</div>
+    </div>
+
+    <div class="debug-section">
+        <div class="debug-title">🔧 Dados Após Normalização</div>
+        <div id="normalizedData" class="debug-content">Nenhum dado ainda...</div>
+    </div>
+
+    <div class="debug-section">
+        <div class="debug-title">📈 Comparação de Métricas</div>
+        <div id="metricsComparison" class="debug-content">Nenhuma comparação ainda...</div>
+    </div>
+
+    <div class="debug-section">
+        <div class="debug-title">🔍 Console Logs em Tempo Real</div>
+        <div id="consoleLogs" class="debug-content">Logs aparecerão aqui...</div>
+    </div>
+
+    <script src="audio-analyzer-integration.js"></script>
+    <script>
+        // Capturar logs do console
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+        
+        let logBuffer = [];
+        
+        function captureLog(level, args) {
+            const timestamp = new Date().toLocaleTimeString();
+            const message = args.map(arg => 
+                typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+            ).join(' ');
+            
+            logBuffer.push(`[${timestamp}] ${level.toUpperCase()}: ${message}`);
+            updateConsoleLogs();
+        }
+        
+        console.log = function(...args) {
+            captureLog('log', args);
+            originalLog.apply(console, args);
+        };
+        
+        console.warn = function(...args) {
+            captureLog('warn', args);
+            originalWarn.apply(console, args);
+        };
+        
+        console.error = function(...args) {
+            captureLog('error', args);
+            originalError.apply(console, args);
+        };
+        
+        function updateConsoleLogs() {
+            const logsDiv = document.getElementById('consoleLogs');
+            logsDiv.textContent = logBuffer.slice(-50).join('\n'); // Últimos 50 logs
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+        
+        function clearLogs() {
+            logBuffer = [];
+            updateConsoleLogs();
+            document.getElementById('rawBackendData').textContent = 'Nenhum dado ainda...';
+            document.getElementById('normalizedData').textContent = 'Nenhum dado ainda...';
+            document.getElementById('metricsComparison').textContent = 'Nenhuma comparação ainda...';
+        }
+        
+        // Interceptar a função de normalização para capturar dados
+        const originalNormalize = window.normalizeBackendAnalysisData;
+        
+        window.normalizeBackendAnalysisData = function(backendData) {
+            console.log('🔍 [DEBUG] Capturando dados brutos do backend');
+            
+            // Mostrar dados brutos
+            document.getElementById('rawBackendData').textContent = JSON.stringify(backendData, null, 2);
+            
+            // Chamar função original
+            const normalized = originalNormalize(backendData);
+            
+            // Mostrar dados normalizados
+            document.getElementById('normalizedData').textContent = JSON.stringify(normalized, null, 2);
+            
+            // Fazer comparação de métricas
+            compareMetrics(backendData, normalized);
+            
+            return normalized;
+        };
+        
+        function compareMetrics(raw, normalized) {
+            const comparison = {
+                'Raw Data Keys': Object.keys(raw || {}),
+                'Normalized Keys': Object.keys(normalized || {}),
+                'Technical Data Present (Raw)': !!raw?.technicalData,
+                'Technical Data Present (Normalized)': !!normalized?.technicalData,
+                'Metrics Present (Raw)': !!raw?.metrics,
+                'Peak Value (Raw)': raw?.technicalData?.peak || raw?.metrics?.peak || raw?.peak || 'NÃO ENCONTRADO',
+                'Peak Value (Normalized)': normalized?.technicalData?.peak || 'NÃO ENCONTRADO',
+                'RMS Value (Raw)': raw?.technicalData?.rms || raw?.metrics?.rms || raw?.rms || 'NÃO ENCONTRADO',
+                'RMS Value (Normalized)': normalized?.technicalData?.rms || 'NÃO ENCONTRADO',
+                'LUFS Value (Raw)': raw?.technicalData?.lufsIntegrated || raw?.metrics?.lufs || raw?.lufs || 'NÃO ENCONTRADO',
+                'LUFS Value (Normalized)': normalized?.technicalData?.lufsIntegrated || 'NÃO ENCONTRADO',
+                'Using Default Values?': checkDefaultValues(normalized)
+            };
+            
+            document.getElementById('metricsComparison').textContent = JSON.stringify(comparison, null, 2);
+        }
+        
+        function checkDefaultValues(normalized) {
+            const defaults = [];
+            const tech = normalized?.technicalData || {};
+            
+            if (tech.peak === -60) defaults.push('Peak = -60 (DEFAULT)');
+            if (tech.rms === -60) defaults.push('RMS = -60 (DEFAULT)');
+            if (tech.lufsIntegrated === -23) defaults.push('LUFS = -23 (DEFAULT)');
+            if (tech.dynamicRange === 12) defaults.push('Dynamic Range = 12 (DEFAULT)');
+            if (tech.lra === 8) defaults.push('LRA = 8 (DEFAULT)');
+            
+            return defaults.length > 0 ? defaults : 'Aparentemente usando valores reais';
+        }
+        
+        async function analyzeFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Por favor, selecione um arquivo de áudio');
+                return;
+            }
+            
+            document.getElementById('analysisStatus').textContent = 'Iniciando análise...';
+            
+            try {
+                console.log('🎯 [DEBUG] Iniciando análise profunda do arquivo:', file.name);
+                
+                // Limpar dados anteriores
+                clearLogs();
+                
+                // Usar a função de análise existente
+                await analyzeAudioFile(file);
+                
+                document.getElementById('analysisStatus').textContent = 'Análise concluída! Verifique os dados acima.';
+                
+            } catch (error) {
+                console.error('❌ Erro na análise:', error);
+                document.getElementById('analysisStatus').textContent = `Erro: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

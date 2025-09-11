@@ -397,6 +397,10 @@ async function pollJobStatus(jobId) {
 
                 if (jobData.status === 'completed' || jobData.status === 'done') {
                     __dbg('✅ Job concluído com sucesso');
+                    console.log('🔍 [JOB RESULT] Estrutura completa do resultado:', jobData);
+                    console.log('🔍 [JOB RESULT] Keys no jobData:', Object.keys(jobData));
+                    console.log('🔍 [JOB RESULT] jobData.result keys:', Object.keys(jobData.result || {}));
+                    console.log('🔍 [JOB RESULT] Métricas técnicas encontradas:', jobData.result?.technicalData || jobData.result?.metrics || 'NENHUMA');
                     resolve(jobData.result || jobData);
                     return;
                 }
@@ -5115,11 +5119,33 @@ window.displayReferenceResults = function(referenceResults) {
 // =============== FUNÇÕES DE NORMALIZAÇÃO DE DADOS ===============
 
 /**
+ * Retorna a faixa de frequência para uma banda específica
+ */
+function getBandFrequencyRange(bandName) {
+    const ranges = {
+        'sub': '20-60 Hz',
+        'low': '60-250 Hz', 
+        'mid': '250-4k Hz',
+        'high': '4k-12k Hz',
+        'bass': '60-250 Hz',
+        'mids': '250-4k Hz',
+        'treble': '4k-12k Hz',
+        'presence': '4k-8k Hz',
+        'air': '12k-20k Hz'
+    };
+    return ranges[bandName] || 'Unknown';
+}
+
+/**
  * 🔧 NOVA FUNÇÃO: Normalizar dados do backend para compatibilidade com front-end
  * Mapeia a resposta do backend Railway para o formato que o front-end espera
  */
 function normalizeBackendAnalysisData(backendData) {
     console.log('🔧 [NORMALIZE] Iniciando normalização dos dados do backend:', backendData);
+    console.log('🔍 [NORMALIZE] Estrutura recebida:', Object.keys(backendData || {}));
+    console.log('🔍 [NORMALIZE] technicalData existe?', !!backendData?.technicalData);
+    console.log('🔍 [NORMALIZE] metrics existe?', !!backendData?.metrics);
+    console.log('🔍 [NORMALIZE] raw_data existe?', !!backendData?.raw_data);
     
     // Se já está no formato correto, retornar como está
     if (backendData.technicalData && backendData.technicalData.peak !== undefined) {
@@ -5138,36 +5164,46 @@ function normalizeBackendAnalysisData(backendData) {
         channels: backendData.channels || 2
     };
     
-    // 🎯 MAPEAR MÉTRICAS BÁSICAS
+    // 🎯 MAPEAR MÉTRICAS BÁSICAS DOS DADOS REAIS DO BACKEND
     const tech = normalized.technicalData;
     const source = backendData.technicalData || backendData.metrics || backendData;
     
-    // Peak e RMS
-    tech.peak = source.peak || source.peak_db || source.peakLevel || -60;
-    tech.rms = source.rms || source.rms_db || source.rmsLevel || -60;
+    console.log('🔍 [NORMALIZE] Source technicalData keys:', Object.keys(source));
+    
+    // Peak e RMS (usando campos corretos do backend)
+    tech.peak = source.peak_db || source.peak || source.peakLevel || -60;
+    tech.rms = source.rms_level || source.rms || source.rms_db || source.rmsLevel || -60;
     tech.rmsLevel = tech.rms;
     
-    // Dynamic Range
-    tech.dynamicRange = source.dynamicRange || source.dynamic_range || source.dr || 
+    // Dynamic Range (campo correto do backend)
+    tech.dynamicRange = source.dynamic_range || source.dynamicRange || source.dr || 
                        (Number.isFinite(tech.peak) && Number.isFinite(tech.rms) ? tech.peak - tech.rms : 12);
     
-    // Crest Factor
-    tech.crestFactor = source.crestFactor || source.crest_factor || tech.dynamicRange || 12;
+    // Crest Factor (campo correto do backend)
+    tech.crestFactor = source.crest_factor || source.crestFactor || tech.dynamicRange || 12;
     
-    // True Peak
-    tech.truePeakDbtp = source.truePeakDbtp || source.true_peak_dbtp || source.truePeak || tech.peak;
+    // True Peak (campo correto do backend)
+    tech.truePeakDbtp = source.true_peak || source.truePeakDbtp || source.true_peak_dbtp || source.truePeak || tech.peak;
     
-    // LUFS
-    tech.lufsIntegrated = source.lufsIntegrated || source.lufs_integrated || source.lufs || -23;
-    tech.lufsShortTerm = source.lufsShortTerm || source.lufs_short_term || tech.lufsIntegrated;
-    tech.lufsMomentary = source.lufsMomentary || source.lufs_momentary || tech.lufsIntegrated;
+    // LUFS (campos corretos do backend)
+    tech.lufsIntegrated = source.lufs_integrated || source.lufsIntegrated || source.lufs || -23;
+    tech.lufsShortTerm = source.lufs_short_term || source.lufsShortTerm || tech.lufsIntegrated;
+    tech.lufsMomentary = source.lufs_momentary || source.lufsMomentary || tech.lufsIntegrated;
     
-    // LRA
-    tech.lra = source.lra || source.loudnessRange || 8;
+    // LRA (campo correto do backend)
+    tech.lra = source.loudness_range || source.lra || source.loudnessRange || 8;
     
-    // Headroom
+    // Headroom (campo correto do backend)
     tech.headroomDb = source.headroomDb || source.headroom_db || (0 - tech.peak);
     tech.headroomTruePeakDb = source.headroomTruePeakDb || (0 - tech.truePeakDbtp);
+    
+    console.log('✅ [NORMALIZE] Métricas mapeadas:', {
+        peak: tech.peak,
+        rms: tech.rms,
+        dynamicRange: tech.dynamicRange,
+        lufs: tech.lufsIntegrated,
+        truePeak: tech.truePeakDbtp
+    });
     
     // Stereo
     tech.stereoCorrelation = source.stereoCorrelation || source.stereo_correlation || 0.5;
@@ -5191,7 +5227,7 @@ function normalizeBackendAnalysisData(backendData) {
     tech.samplePeakLeftDb = source.samplePeakLeftDb || source.sample_peak_left_db || tech.peak;
     tech.samplePeakRightDb = source.samplePeakRightDb || source.sample_peak_right_db || tech.peak;
     
-    // 🎵 SPECTRAL BALANCE - Mapear dados espectrais
+    // 🎵 SPECTRAL BALANCE - Mapear dados espectrais REAIS do backend
     if (source.spectral_balance || source.spectralBalance || source.bands) {
         const spectralSource = source.spectral_balance || source.spectralBalance || {};
         tech.spectral_balance = {
@@ -5202,6 +5238,7 @@ function normalizeBackendAnalysisData(backendData) {
             presence: spectralSource.presence || 0.15,
             air: spectralSource.air || 0.05
         };
+        console.log('✅ [NORMALIZE] Spectral balance encontrado:', tech.spectral_balance);
     } else {
         // Valores padrão se não houver dados espectrais
         tech.spectral_balance = {
@@ -5215,45 +5252,60 @@ function normalizeBackendAnalysisData(backendData) {
         console.log('⚠️ [NORMALIZE] Usando valores padrão para spectral_balance');
     }
     
-    // 🎶 BAND ENERGIES - Mapear energias das bandas de frequência
-    if (source.bandEnergies || source.band_energies || source.bands) {
-        const bandsSource = source.bandEnergies || source.band_energies || source.bands || {};
+    // 🎶 BAND ENERGIES - Mapear energias das bandas de frequência do tonalBalance
+    if (source.tonalBalance || source.bandEnergies || source.band_energies || source.bands) {
+        const bandsSource = source.tonalBalance || source.bandEnergies || source.band_energies || source.bands || {};
         tech.bandEnergies = {};
         
-        // Mapear bandas conhecidas
-        const bandMapping = {
-            'sub': 'sub',
-            'subBass': 'sub', 
-            'sub_bass': 'sub',
-            'low_bass': 'low_bass',
-            'lowBass': 'low_bass',
-            'bass': 'low_bass',
-            'upper_bass': 'upper_bass',
-            'upperBass': 'upper_bass',
-            'low_mid': 'low_mid',
-            'lowMid': 'low_mid',
-            'mid': 'mid',
-            'high_mid': 'high_mid',
-            'highMid': 'high_mid',
-            'upper_mid': 'upper_mid',
-            'upperMid': 'upper_mid',
-            'brilho': 'brilho',
-            'brilliance': 'brilho',
-            'presenca': 'presenca',
-            'presence': 'presenca',
-            'air': 'air'
-        };
+        console.log('🔍 [NORMALIZE] tonalBalance encontrado:', bandsSource);
         
-        Object.entries(bandMapping).forEach(([sourceKey, targetKey]) => {
-            const bandData = bandsSource[sourceKey];
-            if (bandData) {
-                tech.bandEnergies[targetKey] = {
-                    rms_db: bandData.rms_db || bandData.energy_db || bandData.level || -40,
-                    peak_db: bandData.peak_db || bandData.rms_db || -35,
-                    frequency_range: bandData.frequency_range || bandData.range || 'N/A'
+        // Mapear diretamente do tonalBalance (dados reais do backend)
+        if (source.tonalBalance) {
+            Object.entries(source.tonalBalance).forEach(([bandName, bandData]) => {
+                tech.bandEnergies[bandName] = {
+                    rms_db: bandData.rms_db || -40,
+                    peak_db: bandData.peak_db || -35,
+                    energy_ratio: bandData.energy_ratio || 0,
+                    frequency_range: getBandFrequencyRange(bandName)
                 };
-            }
-        });
+            });
+            console.log('✅ [NORMALIZE] Band energies mapeadas do tonalBalance:', tech.bandEnergies);
+        } else {
+            // Mapear bandas conhecidas (fallback)
+            const bandMapping = {
+                'sub': 'sub',
+                'subBass': 'sub', 
+                'sub_bass': 'sub',
+                'low_bass': 'low_bass',
+                'lowBass': 'low_bass',
+                'bass': 'low_bass',
+                'upper_bass': 'upper_bass',
+                'upperBass': 'upper_bass',
+                'low_mid': 'low_mid',
+                'lowMid': 'low_mid',
+                'mid': 'mid',
+                'high_mid': 'high_mid',
+                'highMid': 'high_mid',
+                'upper_mid': 'upper_mid',
+                'upperMid': 'upper_mid',
+                'brilho': 'brilho',
+                'brilliance': 'brilho',
+                'presenca': 'presenca',
+                'presence': 'presenca',
+                'air': 'air'
+            };
+            
+            Object.entries(bandMapping).forEach(([sourceKey, targetKey]) => {
+                const bandData = bandsSource[sourceKey];
+                if (bandData) {
+                    tech.bandEnergies[targetKey] = {
+                        rms_db: bandData.rms_db || bandData.energy_db || bandData.level || -40,
+                        peak_db: bandData.peak_db || bandData.rms_db || -35,
+                        frequency_range: bandData.frequency_range || bandData.range || 'N/A'
+                    };
+                }
+            });
+        }
         
         // Se não conseguiu mapear nenhuma banda, criar valores default
         if (Object.keys(tech.bandEnergies).length === 0) {
