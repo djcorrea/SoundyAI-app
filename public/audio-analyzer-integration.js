@@ -379,15 +379,7 @@ async function pollJobStatus(jobId) {
                 if (elapsed > maxTimeMs) {
                     console.error(`🚨 TIMEOUT ABSOLUTO: Job ${jobId} excedeu ${maxTimeMs/1000}s`);
                     
-                    // Tentar resetar job travado
-                    try {
-                        await fetch(`/api/reset-job/${jobId}`, { method: 'POST' });
-                        console.log(`🔄 Job ${jobId} resetado devido a timeout`);
-                    } catch (resetErr) {
-                        console.warn('⚠️ Falha ao resetar job:', resetErr);
-                    }
-                    
-                    reject(new Error(`Timeout: análise excedeu ${maxTimeMs/1000} segundos. Sistema anti-travamento ativado.`));
+                    reject(new Error(`Timeout: análise excedeu ${maxTimeMs/1000} segundos. Tente novamente com um arquivo diferente ou menor.`));
                     return;
                 }
 
@@ -445,21 +437,13 @@ async function pollJobStatus(jobId) {
                     if (lastStatus === 'processing') {
                         stuckCount++;
                         
-                        // Se ficar muito tempo em processing, resetar
+                        // Se ficar muito tempo em processing, cancelar análise
                         if (stuckCount >= 15) { // 75 segundos travado (15 * 5s)
-                            console.warn(`🚨 Job ${jobId} travado em processing há ${stuckCount * 5}s, resetando...`);
+                            console.warn(`🚨 Job ${jobId} travado em processing há ${stuckCount * 5}s - cancelando análise`);
                             
-                            try {
-                                const resetResponse = await fetch(`/api/reset-job/${jobId}`, { method: 'POST' });
-                                if (resetResponse.ok) {
-                                    console.log(`✅ Job ${jobId} resetado com sucesso`);
-                                    stuckCount = 0; // Reset contador
-                                } else {
-                                    console.warn(`⚠️ Falha ao resetar job ${jobId}`);
-                                }
-                            } catch (resetErr) {
-                                console.warn('⚠️ Erro ao resetar job:', resetErr);
-                            }
+                            // Em vez de tentar resetar (que pode não estar deployado), cancelar a análise
+                            reject(new Error(`Análise cancelada: job travado há ${stuckCount * 5} segundos. Tente novamente com outro arquivo.`));
+                            return;
                         }
                     } else {
                         stuckCount = 0; // Reset se status mudou
