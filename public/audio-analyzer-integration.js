@@ -416,7 +416,7 @@ async function pollJobStatus(jobId) {
                 }
 
                 // ✅ SUCESSO
-                if (jobData.status === 'completed' || jobData.status === 'done') {
+                if (jobData.status === 'completed') {
                     __dbg('✅ Job concluído com sucesso');
                     console.log('🔍 [JOB RESULT] Estrutura completa do resultado:', jobData);
                     console.log('🔍 [JOB RESULT] Keys no jobData:', Object.keys(jobData));

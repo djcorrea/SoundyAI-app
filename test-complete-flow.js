@@ -121,7 +121,7 @@ async function testCompleteFlow() {
             const statusData = await statusResponse.json();
             console.log(`🔄 Tentativa ${attempts}: Status = ${statusData.status}`);
             
-            if (statusData.status === 'completed' || statusData.status === 'done') {
+            if (statusData.status === 'completed') {
                 console.log('\n✅ 5. PROCESSAMENTO CONCLUÍDO!');
                 console.log('📊 Resultado completo:', statusData.result);
                 

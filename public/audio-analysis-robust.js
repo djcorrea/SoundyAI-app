@@ -95,7 +95,7 @@ class AudioAnalysisManager {
           console.log(`📊 [${elapsed/1000}s] Job ${jobId}: ${jobStatus.status}`);
 
           // 🎉 SUCESSO
-          if (jobStatus.status === 'done' || jobStatus.status === 'completed') {
+          if (jobStatus.status === 'completed') {
             if (jobStatus.result) {
               console.log('✅ Job concluído com resultado!');
               resolve(jobStatus.result);

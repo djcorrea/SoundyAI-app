@@ -70,7 +70,7 @@ async function debugStuckJob() {
         const current = updated.rows[0];
         console.log(`   ${i*5+5}s - Status: ${current.status}, Erro: ${current.error || 'nenhum'}`);
         
-        if (current.status === 'done' || current.status === 'completed') {
+        if (current.status === 'completed') {
           console.log('🎉 JOB PROCESSADO COM SUCESSO!');
           break;
         }
