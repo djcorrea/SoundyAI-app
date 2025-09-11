@@ -68,43 +68,6 @@ let jobPollingInterval = null;
 
 // 🎯 Funções de Acessibilidade e Gestão de Modais
 
-function openModeSelectionModal() {
-    const modal = document.getElementById('analysisModeModal');
-    if (modal) {
-        modal.style.display = 'flex';
-        modal.setAttribute('aria-hidden', 'false');
-        
-        // Foco no primeiro botão
-        const firstButton = modal.querySelector('.mode-card button');
-        if (firstButton) {
-            firstButton.focus();
-        }
-        
-        // Adicionar listener para ESC
-        document.addEventListener('keydown', handleModalEscapeKey);
-        
-        // Trap focus no modal
-        trapFocus(modal);
-    }
-}
-
-function closeModeSelectionModal() {
-    const modal = document.getElementById('analysisModeModal');
-    if (modal) {
-        modal.style.display = 'none';
-        modal.setAttribute('aria-hidden', 'true');
-        
-        // Remover listeners
-        document.removeEventListener('keydown', handleModalEscapeKey);
-        
-        // Retornar foco para o botão que abriu o modal
-        const audioAnalysisBtn = document.querySelector('button[onclick="openAudioModal()"]');
-        if (audioAnalysisBtn) {
-            audioAnalysisBtn.focus();
-        }
-    }
-}
-
 function handleModalEscapeKey(e) {
     if (e.key === 'Escape') {
         closeModeSelectionModal();
@@ -134,147 +97,6 @@ function trapFocus(modal) {
     };
     
     modal.addEventListener('keydown', handleTabKey);
-}
-
-// 🎯 Função Principal de Seleção de Modo
-function selectAnalysisMode(mode) {
-    console.log('🎯 Modo selecionado:', mode);
-    
-    // Armazenar modo selecionado
-    window.currentAnalysisMode = mode;
-    
-    // Fechar modal de seleção
-    closeModeSelectionModal();
-    
-    if (mode === 'genre') {
-        // Modo tradicional - abrir modal de análise normal
-        openAnalysisModalForMode('genre');
-    } else if (mode === 'reference') {
-        // Modo referência - abrir interface específica
-        openAnalysisModalForMode('reference');
-    }
-}
-
-// 🎯 NOVO: Abrir modal de análise configurado para o modo
-function openAnalysisModalForMode(mode) {
-    console.log(`🎵 Abrindo modal de análise para modo: ${mode}`);
-    
-    // CORREÇÃO CRÍTICA: Definir window.currentAnalysisMode sempre que o modal for aberto
-    window.currentAnalysisMode = mode;
-    
-    const modal = document.getElementById('audioAnalysisModal');
-    if (!modal) {
-        console.error('Modal de análise não encontrado');
-        return;
-    }
-    
-    // Configurar modal baseado no modo
-    configureModalForMode(mode);
-    
-    // Reset state específico do modo
-    if (mode === 'reference') {
-        resetReferenceState();
-    }
-    
-    modal.style.display = 'flex';
-    resetModalState();
-    modal.setAttribute('tabindex', '-1');
-    modal.focus();
-    
-    if (window.logReferenceEvent) {
-        window.logReferenceEvent('analysis_modal_opened', { mode });
-    }
-}
-
-// 🎯 NOVO: Configurar modal baseado no modo selecionado
-function configureModalForMode(mode) {
-    const title = document.getElementById('audioModalTitle');
-    const subtitle = document.getElementById('audioModalSubtitle');
-    const modeIndicator = document.getElementById('audioModeIndicator');
-    const genreContainer = document.getElementById('audioRefGenreContainer');
-    const progressSteps = document.getElementById('referenceProgressSteps');
-    
-    if (mode === 'genre') {
-        // Modo Gênero: comportamento original
-        if (title) title.textContent = '🎵 Análise de Áudio';
-        if (subtitle) subtitle.style.display = 'none';
-        if (genreContainer) genreContainer.style.display = 'flex';
-        if (progressSteps) progressSteps.style.display = 'none';
-        
-    } else if (mode === 'reference') {
-        // Modo Referência: interface específica
-        if (title) title.textContent = '🎯 Análise por Referência';
-        if (subtitle) {
-            subtitle.style.display = 'block';
-            if (modeIndicator) {
-                modeIndicator.textContent = 'Comparação direta entre suas músicas';
-            }
-        }
-        if (genreContainer) genreContainer.style.display = 'none';
-        if (progressSteps) progressSteps.style.display = 'flex';
-        
-        // Configurar steps iniciais
-        updateReferenceStep('userAudio');
-    }
-}
-
-// 🎯 NOVO: Reset estado do modo referência
-function resetReferenceState() {
-    if (typeof window.referenceStepState === 'undefined') {
-        window.referenceStepState = {};
-    }
-    
-    window.referenceStepState = {
-        currentStep: 'userAudio',
-        userAudioFile: null,
-        referenceAudioFile: null,
-        userAnalysis: null,
-        referenceAnalysis: null
-    };
-    
-    if (window.logReferenceEvent) {
-        window.logReferenceEvent('reference_state_reset');
-    }
-}
-
-// 🎯 NOVO: Atualizar step ativo no modo referência
-function updateReferenceStep(step) {
-    const steps = ['userAudio', 'referenceAudio', 'analysis'];
-    const stepElements = {
-        userAudio: document.getElementById('stepUserAudio'),
-        referenceAudio: document.getElementById('stepReferenceAudio'),
-        analysis: document.getElementById('stepAnalysis')
-    };
-    
-    // Reset todos os steps
-    Object.values(stepElements).forEach(el => {
-        if (el) {
-            el.classList.remove('active', 'completed');
-        }
-    });
-    
-    // Marcar steps anteriores como completed
-    const currentIndex = steps.indexOf(step);
-    for (let i = 0; i < currentIndex; i++) {
-        const stepElement = stepElements[steps[i]];
-        if (stepElement) {
-            stepElement.classList.add('completed');
-        }
-    }
-    
-    // Marcar step atual como active
-    const currentElement = stepElements[step];
-    if (currentElement) {
-        currentElement.classList.add('active');
-    }
-    
-    if (typeof window.referenceStepState !== 'undefined') {
-        window.referenceStepState.currentStep = step;
-    }
-    
-    if (window.logReferenceEvent) {
-        window.logReferenceEvent('reference_step_updated', { step, currentIndex });
-    }
 }
 
 // 🎯 Modal de Análise por Referência
@@ -1806,6 +1628,799 @@ function openAudioModal() {
     }
 }
 
+// 🎯 NOVO: Modal de Seleção de Modo
+function openModeSelectionModal() {
+    __dbg('� Abrindo modal de seleção de modo...');
+    
+    const modal = document.getElementById('analysisModeModal');
+    if (!modal) {
+        console.error('Modal de seleção de modo não encontrado');
+        return;
+    }
+    
+    // Verificar se modo referência está habilitado e mostrar/esconder botão
+    const referenceModeBtn = document.getElementById('referenceModeBtn');
+    if (referenceModeBtn) {
+        const isEnabled = window.FEATURE_FLAGS?.REFERENCE_MODE_ENABLED;
+        referenceModeBtn.style.display = isEnabled ? 'flex' : 'none';
+        
+        if (!isEnabled) {
+            referenceModeBtn.disabled = true;
+        }
+    }
+    
+    modal.style.display = 'flex';
+    modal.setAttribute('tabindex', '-1');
+    modal.focus();
+    
+    window.logReferenceEvent('mode_selection_modal_opened');
+}
+
+function closeModeSelectionModal() {
+    __dbg('❌ Fechando modal de seleção de modo...');
+    
+    const modal = document.getElementById('analysisModeModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    
+    window.logReferenceEvent('mode_selection_modal_closed');
+}
+
+// 🎯 NOVO: Selecionar modo de análise
+function selectAnalysisMode(mode) {
+    window.logReferenceEvent('analysis_mode_selected', { mode });
+    
+    if (mode === 'reference' && !window.FEATURE_FLAGS?.REFERENCE_MODE_ENABLED) {
+        alert('Modo de análise por referência não está disponível no momento.');
+        return;
+    }
+    
+    currentAnalysisMode = mode;
+    
+    // Fechar modal de seleção de modo
+    closeModeSelectionModal();
+    
+    // Abrir modal de análise configurado para o modo selecionado
+    openAnalysisModalForMode(mode);
+}
+
+// 🎯 NOVO: Abrir modal de análise configurado para o modo
+function openAnalysisModalForMode(mode) {
+    __dbg(`🎵 Abrindo modal de análise para modo: ${mode}`);
+    
+    // CORREÇÃO CRÍTICA: Definir window.currentAnalysisMode sempre que o modal for aberto
+    window.currentAnalysisMode = mode;
+    
+    const modal = document.getElementById('audioAnalysisModal');
+    if (!modal) {
+        console.error('Modal de análise não encontrado');
+        return;
+    }
+    
+    // Configurar modal baseado no modo
+    configureModalForMode(mode);
+    
+    // Reset state específico do modo
+    if (mode === 'reference') {
+        resetReferenceState();
+    }
+    
+    modal.style.display = 'flex';
+    resetModalState();
+    modal.setAttribute('tabindex', '-1');
+    modal.focus();
+    
+    window.logReferenceEvent('analysis_modal_opened', { mode });
+}
+
+// 🎯 NOVO: Configurar modal baseado no modo selecionado
+function configureModalForMode(mode) {
+    const title = document.getElementById('audioModalTitle');
+    const subtitle = document.getElementById('audioModalSubtitle');
+    const modeIndicator = document.getElementById('audioModeIndicator');
+    const genreContainer = document.getElementById('audioRefGenreContainer');
+    const progressSteps = document.getElementById('referenceProgressSteps');
+    
+    if (mode === 'genre') {
+        // Modo Gênero: comportamento original
+        if (title) title.textContent = '🎵 Análise de Áudio';
+        if (subtitle) subtitle.style.display = 'none';
+        if (genreContainer) genreContainer.style.display = 'flex';
+        if (progressSteps) progressSteps.style.display = 'none';
+        
+    } else if (mode === 'reference') {
+        // Modo Referência: interface específica
+        if (title) title.textContent = '🎯 Análise por Referência';
+        if (subtitle) {
+            subtitle.style.display = 'block';
+            if (modeIndicator) {
+                modeIndicator.textContent = 'Comparação direta entre suas músicas';
+            }
+        }
+        if (genreContainer) genreContainer.style.display = 'none';
+        if (progressSteps) progressSteps.style.display = 'flex';
+        
+        // Configurar steps iniciais
+        updateReferenceStep('userAudio');
+    }
+}
+
+// 🎯 NOVO: Reset estado do modo referência
+function resetReferenceState() {
+    referenceStepState = {
+        currentStep: 'userAudio',
+        userAudioFile: null,
+        referenceAudioFile: null,
+        userAnalysis: null,
+        referenceAnalysis: null
+    };
+    
+    window.logReferenceEvent('reference_state_reset');
+}
+
+// 🎯 NOVO: Atualizar step ativo no modo referência
+function updateReferenceStep(step) {
+    const steps = ['userAudio', 'referenceAudio', 'analysis'];
+    const stepElements = {
+        userAudio: document.getElementById('stepUserAudio'),
+        referenceAudio: document.getElementById('stepReferenceAudio'),
+        analysis: document.getElementById('stepAnalysis')
+    };
+    
+    // Reset todos os steps
+    Object.values(stepElements).forEach(el => {
+        if (el) {
+            el.classList.remove('active', 'completed');
+        }
+    });
+    
+    // Marcar steps anteriores como completed
+    const currentIndex = steps.indexOf(step);
+    for (let i = 0; i < currentIndex; i++) {
+        const stepElement = stepElements[steps[i]];
+        if (stepElement) {
+            stepElement.classList.add('completed');
+        }
+    }
+    
+    // Marcar step atual como active
+    const currentElement = stepElements[step];
+    if (currentElement) {
+        currentElement.classList.add('active');
+    }
+    
+    referenceStepState.currentStep = step;
+    
+    window.logReferenceEvent('reference_step_updated', { step, currentIndex });
+}
+
+// ❌ Fechar modal de análise de áudio
+function closeAudioModal() {
+    __dbg('❌ Fechando modal de análise de áudio...');
+    
+    const modal = document.getElementById('audioAnalysisModal');
+    if (modal) {
+        modal.style.display = 'none';
+        currentModalAnalysis = null;
+        resetModalState();
+        
+        // 🔧 CORREÇÃO: Garantir que o modal pode ser usado novamente
+        // Limpar cache de arquivos para forçar novo processamento
+        const fileInput = document.getElementById('modalAudioFileInput');
+        if (fileInput) {
+            fileInput.value = ''; // Limpar input para permitir re-seleção do mesmo arquivo
+        }
+        
+        // Resetar flags globais para próxima análise
+        if (typeof window !== 'undefined') {
+            delete window.__AUDIO_ADVANCED_READY__;
+            delete window.__MODAL_ANALYSIS_IN_PROGRESS__;
+        }
+        
+        __dbg('✅ Modal resetado e pronto para próxima análise');
+    }
+}
+
+// 🔄 Reset estado do modal
+function resetModalState() {
+    __dbg('🔄 Resetando estado do modal...');
+    
+    // Mostrar área de upload
+    const uploadArea = document.getElementById('audioUploadArea');
+    const loading = document.getElementById('audioAnalysisLoading');
+    const results = document.getElementById('audioAnalysisResults');
+    
+    if (uploadArea) uploadArea.style.display = 'block';
+    if (loading) loading.style.display = 'none';
+    if (results) results.style.display = 'none';
+    
+    // Reset progress
+    const progressFill = document.getElementById('audioProgressFill');
+    const progressText = document.getElementById('audioProgressText');
+    if (progressFill) progressFill.style.width = '0%';
+    if (progressText) progressText.textContent = '';
+    
+    // 🔧 CORREÇÃO: Limpar análise anterior e flags
+    currentModalAnalysis = null;
+    
+    // Limpar input de arquivo para permitir re-seleção
+    const fileInput = document.getElementById('modalAudioFileInput');
+    if (fileInput) {
+        fileInput.value = '';
+    }
+    
+    // Limpar flags globais
+    if (typeof window !== 'undefined') {
+        delete window.__AUDIO_ADVANCED_READY__;
+        delete window.__MODAL_ANALYSIS_IN_PROGRESS__;
+    }
+    
+    __dbg('✅ Estado do modal resetado completamente');
+}
+
+// ⚙️ Configurar modal de áudio
+function setupAudioModal() {
+    const modal = document.getElementById('audioAnalysisModal');
+    const fileInput = document.getElementById('modalAudioFileInput');
+    const uploadArea = document.getElementById('audioUploadArea');
+    
+    if (!modal || !fileInput || !uploadArea) {
+        __dwrn('⚠️ Elementos do modal não encontrados');
+        return;
+    }
+    
+    // Fechar modal clicando fora
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeAudioModal();
+        }
+    });
+    
+    // Fechar modal com ESC
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && modal.style.display === 'flex') {
+            closeAudioModal();
+        }
+    });
+    
+    // Detectar se é dispositivo móvel
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    if (!isMobile) {
+        // Drag and Drop (apenas para desktop)
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.querySelector('.upload-content').classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadArea.querySelector('.upload-content').classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.querySelector('.upload-content').classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleModalFileSelection(files[0]);
+            }
+        });
+    }
+    
+    // File input change event
+    fileInput.addEventListener('change', (e) => {
+        __dbg('📁 File input change triggered');
+        if (e.target.files.length > 0) {
+            __dbg('📁 File selected:', e.target.files[0].name);
+            handleModalFileSelection(e.target.files[0]);
+        }
+    });
+    
+    // Não adicionar nenhum listener JS ao botão/label de upload!
+    uploadArea.onclick = null;
+    
+    __dbg('✅ Modal de áudio configurado com sucesso');
+}
+
+// 📁 Processar arquivo selecionado no modal
+async function handleModalFileSelection(file) {
+    __dbg('📁 Arquivo selecionado no modal:', file.name);
+    
+    // 🔧 CORREÇÃO: Prevenir múltiplas análises simultâneas
+    if (typeof window !== 'undefined' && window.__MODAL_ANALYSIS_IN_PROGRESS__) {
+        __dbg('⚠️ Análise já em progresso, ignorando nova seleção');
+        return;
+    }
+    
+    try {
+        // Marcar análise em progresso
+        if (typeof window !== 'undefined') {
+            window.__MODAL_ANALYSIS_IN_PROGRESS__ = true;
+        }
+        
+        // Validação comum de arquivo
+        if (!validateAudioFile(file)) {
+            return; // validateAudioFile já mostra erro
+        }
+        
+        // 🌐 NOVO FLUXO COMPLETO: Presigned URL → Upload → Job Creation → Polling
+        __dbg('🌐 Iniciando fluxo de análise remota completo...');
+        
+        // Mostrar loading
+        hideUploadArea();
+        showAnalysisLoading();
+        showUploadProgress(`Preparando upload de ${file.name}...`);
+        
+        // 🌐 ETAPA 1: Obter URL pré-assinada
+        const { uploadUrl, fileKey } = await getPresignedUrl(file);
+        
+        // 🌐 ETAPA 2: Upload direto para bucket
+        await uploadToBucket(uploadUrl, file);
+        
+        // 🌐 ETAPA 3: Criar job de análise no backend
+        const { jobId } = await createAnalysisJob(fileKey, currentAnalysisMode, file.name);
+        
+        // 🌐 ETAPA 4: Acompanhar progresso e aguardar resultado
+        showUploadProgress(`Analisando ${file.name}... Aguarde.`);
+        
+        // 📊 Progress: Resetar e exibir barra de progresso
+        const progressContainer = document.querySelector('.progress-container');
+        const progressBar = document.querySelector('.progress-fill');
+        if (progressContainer) {
+            progressContainer.style.display = 'block';
+            progressContainer.style.opacity = '1';
+        }
+        if (progressBar) {
+            progressBar.style.width = '0%';
+        }
+        updateModalProgress(0, 'Iniciando análise...');
+        console.log('📊 Progress: Barra de progresso resetada e exibida');
+        
+        const analysisResult = await pollJobStatus(jobId);
+        
+        // 🌐 ETAPA 5: Processar resultado baseado no modo
+        if (currentAnalysisMode === "reference") {
+            await handleReferenceAnalysisWithResult(analysisResult, fileKey, file.name);
+        } else {
+            await handleGenreAnalysisWithResult(analysisResult, file.name);
+        }
+
+    } catch (error) {
+        console.error('❌ Erro na análise do modal:', error);
+        
+        // Verificar se é um erro de fallback para modo gênero
+        if (window.FEATURE_FLAGS?.FALLBACK_TO_GENRE && currentAnalysisMode === 'reference') {
+            window.logReferenceEvent('error_fallback_to_genre', { 
+                error: error.message,
+                originalMode: currentAnalysisMode 
+            });
+            
+            showModalError('Erro na análise por referência. Redirecionando para análise por gênero...');
+            
+            setTimeout(() => {
+                currentAnalysisMode = 'genre';
+                configureModalForMode('genre');
+            }, 2000);
+        } else {
+            // Determinar tipo de erro para mensagem mais específica
+            let errorMessage = error.message;
+            if (error.message.includes('Falha ao gerar URL de upload')) {
+                errorMessage = 'Falha ao gerar URL de upload. Verifique sua conexão e tente novamente.';
+            } else if (error.message.includes('Falha ao enviar arquivo para análise')) {
+                errorMessage = 'Falha ao enviar arquivo para análise. Verifique sua conexão e tente novamente.';
+            }
+            
+            showModalError(`Erro ao processar arquivo: ${errorMessage}`);
+        }
+    } finally {
+        // 🎵 WAV CLEANUP: Limpar otimizações WAV em caso de erro
+        try {
+            if (window.wavMobileOptimizer) {
+                window.wavMobileOptimizer.cleanupWAVOptimizations();
+            }
+        } catch (cleanupError) {
+            console.warn('WAV cleanup error in finally (non-critical):', cleanupError);
+        }
+        
+        // 🔧 CORREÇÃO: Sempre limpar flag de análise em progresso
+        if (typeof window !== 'undefined') {
+            delete window.__MODAL_ANALYSIS_IN_PROGRESS__;
+        }
+        __dbg('✅ Flag de análise em progresso removida');
+    }
+}
+
+// � NOVAS FUNÇÕES: Análise baseada em fileKey (pós-upload remoto)
+
+/**
+ * Processar análise por referência usando fileKey
+ * @param {string} fileKey - Chave do arquivo no bucket
+ * @param {string} fileName - Nome original do arquivo
+ */
+// 🌐 NOVAS FUNÇÕES: Análise baseada em resultado remoto
+
+/**
+ * Processar análise por referência usando resultado remoto
+ * @param {Object} analysisResult - Resultado da análise remota
+ * @param {string} fileKey - Chave do arquivo no bucket
+ * @param {string} fileName - Nome original do arquivo
+ */
+async function handleReferenceAnalysisWithResult(analysisResult, fileKey, fileName) {
+    __dbg('🎯 Processando análise por referência com resultado remoto:', { fileKey, fileName });
+    
+    window.logReferenceEvent('reference_analysis_with_result_started', { 
+        fileKey,
+        fileName 
+    });
+    
+    try {
+        // Verificar estrutura do resultado
+        if (!analysisResult || typeof analysisResult !== 'object') {
+            throw new Error('Resultado de análise inválido recebido do servidor');
+        }
+        
+        updateModalProgress(90, '🎯 Aplicando resultado da análise...');
+        
+        // Determinar se é arquivo original ou de referência
+        const isReference = currentAnalysisMode === 'reference' && uploadedFiles.original;
+        const fileType = isReference ? 'reference' : 'original';
+        
+        // Armazenar resultado
+        uploadedFiles[fileType] = {
+            fileKey: fileKey,
+            fileName: fileName,
+            analysisResult: analysisResult
+        };
+        
+        __dbg(`✅ Arquivo ${fileType} armazenado:`, uploadedFiles[fileType]);
+        
+        // Atualizar display na interface
+        updateReferenceFileDisplay(fileType, fileName);
+        
+        // Log do evento
+        window.logReferenceEvent('reference_file_processed', {
+            fileType,
+            fileName,
+            hasResult: !!analysisResult
+        });
+        
+        // Verificar se ambos os arquivos estão prontos para comparação
+        if (uploadedFiles.original && uploadedFiles.reference) {
+            enableReferenceComparison();
+            updateModalProgress(100, '✅ Ambos os arquivos analisados! Comparação disponível.');
+            
+        
+        }
+        
+    } catch (error) {
+        console.error('❌ Erro ao processar análise por referência:', error);
+        window.logReferenceEvent('reference_analysis_error', { 
+            error: error.message,
+            fileKey,
+            fileName 
+        });
+        throw error;
+    }
+}
+
+/**
+ * Processar análise por gênero usando resultado remoto
+ * @param {Object} analysisResult - Resultado da análise remota
+ * @param {string} fileName - Nome original do arquivo
+ */
+async function handleGenreAnalysisWithResult(analysisResult, fileName) {
+    __dbg('🎵 Processando análise por gênero com resultado remoto:', { fileName });
+    
+    try {
+        // Verificar estrutura do resultado
+        if (!analysisResult || typeof analysisResult !== 'object') {
+            throw new Error('Resultado de análise inválido recebido do servidor');
+        }
+        
+        updateModalProgress(90, '🎵 Aplicando resultado da análise...');
+        
+        // 🔧 CORREÇÃO: Normalizar dados do backend antes de usar
+        const normalizedResult = normalizeBackendAnalysisData(analysisResult);
+        
+        // Definir como análise atual do modal
+        currentModalAnalysis = normalizedResult;
+        
+        // Armazenar resultado globalmente para uso posterior
+        if (typeof window !== 'undefined') {
+            window.__LAST_ANALYSIS_RESULT__ = normalizedResult;
+        }
+        
+        updateModalProgress(100, `✅ Análise de ${fileName} concluída!`);
+        
+        // Exibir resultados diretamente no modal
+        setTimeout(() => {
+            displayModalResults(normalizedResult);
+        }, 500);
+        
+    } catch (error) {
+        console.error('❌ Erro ao processar análise por gênero:', error);
+        throw error;
+    }
+}
+
+/**
+ * Atualizar display de arquivo de referência na interface
+ * @param {string} fileType - Tipo do arquivo ('original' ou 'reference')
+ * @param {string} fileName - Nome do arquivo
+ */
+function updateReferenceFileDisplay(fileType, fileName) {
+    const displayElement = document.getElementById(`${fileType}FileDisplay`);
+    if (displayElement) {
+        displayElement.textContent = fileName;
+        displayElement.style.display = 'block';
+    }
+    
+    // Atualizar também elementos relacionados
+    const labelElement = document.querySelector(`label[for="${fileType}FileInput"]`);
+    if (labelElement) {
+        labelElement.style.opacity = '0.7';
+    }
+}
+
+/**
+ * Habilitar botão de comparação de referência
+ */
+function enableReferenceComparison() {
+    const compareButton = document.getElementById('compareButton');
+    if (compareButton) {
+        compareButton.disabled = false;
+        compareButton.style.opacity = '1';
+        compareButton.style.cursor = 'pointer';
+    }
+    
+    // Atualizar indicador visual
+    const indicator = document.querySelector('.reference-ready-indicator');
+    if (indicator) {
+        indicator.style.display = 'block';
+    }
+}
+
+
+/**
+ * Mostrar mensagem do próximo passo
+ * @param {string} message - Mensagem a ser exibida
+ */
+function showNextStepMessage(message) {
+    console.log(`➡️ ${message}`);
+    
+    // Implementar notificação visual se necessário
+    const notification = document.createElement('div');
+    notification.className = 'next-step-notification';
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #28a745;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        z-index: 10000;
+        font-size: 14px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Remover após 5 segundos
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 5000);
+}
+
+// �🎯 NOVO: Validação comum de arquivo
+function validateAudioFile(file) {
+    const MAX_UPLOAD_MB = 60;
+    const MAX_UPLOAD_SIZE = MAX_UPLOAD_MB * 1024 * 1024;
+    
+    // Formatos aceitos: WAV, FLAC, MP3 (simplificado)
+    const allowedTypes = ['audio/wav', 'audio/flac', 'audio/mpeg', 'audio/mp3'];
+    const allowedExtensions = ['.wav', '.flac', '.mp3'];
+    
+    // Validar tipo de arquivo
+    const isValidType = allowedTypes.includes(file.type.toLowerCase()) || 
+                       allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+    
+    if (!isValidType) {
+        showModalError(`Formato não suportado. Apenas WAV, FLAC e MP3 são aceitos.
+                      💡 Prefira WAV ou FLAC para maior precisão na análise.`);
+        return false;
+    }
+    
+    // Validar tamanho (novo limite: 60MB)
+    if (file.size > MAX_UPLOAD_SIZE) {
+        const sizeInMB = (file.size / 1024 / 1024).toFixed(1);
+        showModalError(`Arquivo muito grande: ${sizeInMB}MB. 
+                      Limite máximo: ${MAX_UPLOAD_MB}MB.`);
+        return false;
+    }
+    
+    // 🎵 WAV MOBILE WARNING: Avisar sobre demora em arquivos WAV grandes no mobile
+    const isWAV = file.name.toLowerCase().endsWith('.wav') || file.type.includes('wav');
+    const isMobile = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent);
+    const isLargeWAV = isWAV && file.size > 20 * 1024 * 1024; // >20MB
+    
+    if (isLargeWAV && isMobile) {
+        const sizeInMB = (file.size / 1024 / 1024).toFixed(1);
+        const estimatedTime = Math.ceil(file.size / (2 * 1024 * 1024)); // ~2MB/s no mobile
+        
+        console.warn(`⏱️ WAV grande no mobile: ${sizeInMB}MB - tempo estimado: ${estimatedTime}s`);
+        
+        // Mostrar aviso não-bloqueante
+        setTimeout(() => {
+            if (document.getElementById('audioProgressText')) {
+                document.getElementById('audioProgressText').innerHTML = 
+                    `⏱️ Arquivo WAV grande (${sizeInMB}MB)<br>Tempo estimado: ${estimatedTime}-${estimatedTime*2}s<br>Aguarde...`;
+            }
+        }, 1000);
+    }
+    
+    // Mostrar recomendação para MP3
+    if (file.type === 'audio/mpeg' || file.type === 'audio/mp3' || file.name.toLowerCase().endsWith('.mp3')) {
+        console.log('💡 MP3 detectado - Recomendação: Use WAV ou FLAC para maior precisão');
+    }
+    
+    return true;
+}
+
+// 🎯 NOVO: Processar arquivo no modo referência
+async function processReferenceFileSelection(file) {
+    window.logReferenceEvent('reference_file_selected', { 
+        step: referenceStepState.currentStep,
+        fileName: file.name,
+        fileSize: file.size 
+    });
+    
+    if (referenceStepState.currentStep === 'userAudio') {
+        // Primeiro arquivo: música do usuário
+        referenceStepState.userAudioFile = file;
+        
+        // 🐛 DIAGNÓSTICO: Verificar se está carregando dados de gênero no modo referência
+        console.log('🔍 [DIAGNÓSTICO] Analisando USER audio em modo referência');
+        console.log('🔍 [DIAGNÓSTICO] Current mode:', window.currentAnalysisMode);
+        console.log('🔍 [DIAGNÓSTICO] Genre ativo antes da análise:', window.PROD_AI_REF_GENRE);
+        console.log('🔍 [DIAGNÓSTICO] Active ref data:', !!__activeRefData);
+        
+        // Analisar arquivo do usuário
+        showModalLoading();
+        updateModalProgress(10, '🎵 Analisando sua música...');
+        
+        // 🎯 CORREÇÃO TOTAL: Analisar arquivo do usuário SEM aplicar targets
+        const userAnalysisOptions = { 
+          mode: 'pure_analysis', // Modo puro, sem comparações
+          debugModeReference: true,
+          // Garantir mesmas configurações para ambos os arquivos
+          normalizeLoudness: true,
+          windowDuration: 30,
+          fftSize: 4096
+        };
+        // 🆔 CORREÇÃO: Preparar options com runId
+        const userOptionsWithRunId = prepareAnalysisOptions(userAnalysisOptions, 'user_ref');
+        const analysis = await window.audioAnalyzer.analyzeAudioFile(file, userOptionsWithRunId);
+        
+        // 🐛 VALIDAÇÃO: Verificar que não há comparação com gênero
+        if (analysis.comparison || analysis.mixScore) {
+          console.warn('⚠️ [AVISO] Análise do usuário contaminada com comparação/score');
+        }
+        
+        console.log('🔍 [DIAGNÓSTICO] User analysis (pura):', {
+          lufs: analysis.technicalData?.lufsIntegrated,
+          stereoCorrelation: analysis.technicalData?.stereoCorrelation,
+          dynamicRange: analysis.technicalData?.dynamicRange,
+          truePeak: analysis.technicalData?.truePeakDbtp,
+          hasComparison: !!analysis.comparison,
+          hasScore: !!analysis.mixScore
+        });
+        
+        referenceStepState.userAnalysis = analysis;
+        
+        // Avançar para próximo step
+        updateReferenceStep('referenceAudio');
+        updateUploadAreaForReferenceStep();
+        
+        window.logReferenceEvent('user_audio_analyzed', { 
+            fileName: file.name,
+            hasAnalysis: !!analysis 
+        });
+        
+    } else if (referenceStepState.currentStep === 'referenceAudio') {
+        // Segundo arquivo: música de referência
+        referenceStepState.referenceAudioFile = file;
+        
+        // 🐛 DIAGNÓSTICO: Verificar análise do arquivo de referência
+        console.log('🔍 [DIAGNÓSTICO] Analisando REFERENCE audio em modo referência');
+        console.log('🔍 [DIAGNÓSTICO] Current mode:', window.currentAnalysisMode);
+        console.log('🔍 [DIAGNÓSTICO] Genre ativo antes da análise:', window.PROD_AI_REF_GENRE);
+        
+        // Analisar arquivo de referência (extração de métricas com MESMAS configurações)
+        showModalLoading();
+        updateModalProgress(50, '🎯 Analisando música de referência...');
+        
+        // 🎯 CORREÇÃO TOTAL: Usar EXATAMENTE as mesmas configurações do usuário
+        const refAnalysisOptions = { 
+          mode: 'pure_analysis', // Modo puro, sem comparações
+          debugModeReference: true,
+          // 🎯 GARANTIR parâmetros idênticos
+          normalizeLoudness: true,
+          windowDuration: 30,
+          fftSize: 4096
+        };
+        // 🆔 CORREÇÃO: Preparar options com runId
+        const refOptionsWithRunId = prepareAnalysisOptions(refAnalysisOptions, 'ref_audio');
+        const analysis = await window.audioAnalyzer.analyzeAudioFile(file, refOptionsWithRunId);
+        
+        // 🐛 VALIDAÇÃO: Verificar que não há comparação com gênero
+        if (analysis.comparison || analysis.mixScore) {
+          console.warn('⚠️ [AVISO] Análise da referência contaminada com comparação/score');
+        }
+        
+        console.log('🔍 [DIAGNÓSTICO] Reference analysis (pura):', {
+          lufs: analysis.technicalData?.lufsIntegrated,
+          stereoCorrelation: analysis.technicalData?.stereoCorrelation,
+          dynamicRange: analysis.technicalData?.dynamicRange,
+          truePeak: analysis.technicalData?.truePeakDbtp,
+          hasComparison: !!analysis.comparison,
+          hasScore: !!analysis.mixScore
+        });
+        
+        // 🎯 VALIDAÇÃO: Verificar se conseguimos extrair métricas válidas
+        const referenceMetrics = {
+          lufs: analysis.technicalData?.lufsIntegrated,
+          stereoCorrelation: analysis.technicalData?.stereoCorrelation,
+          dynamicRange: analysis.technicalData?.dynamicRange,
+          truePeak: analysis.technicalData?.truePeakDbtp
+        };
+        
+        // 🚨 ERRO CLARO: Falhar se não conseguir extrair métricas
+        if (!Number.isFinite(referenceMetrics.lufs)) {
+          throw new Error('REFERENCE_METRICS_FAILED: Não foi possível extrair métricas LUFS da música de referência. Verifique se o arquivo é válido.');
+        }
+        
+        if (!Number.isFinite(referenceMetrics.stereoCorrelation)) {
+          throw new Error('REFERENCE_METRICS_FAILED: Não foi possível extrair correlação estéreo da música de referência.');
+        }
+        
+        console.log('✅ [SUCESSO] Métricas da referência extraídas:', referenceMetrics);
+        
+        referenceStepState.referenceAnalysis = analysis;
+        referenceStepState.referenceMetrics = referenceMetrics;
+        
+        // Executar comparação
+        updateReferenceStep('analysis');
+        await performReferenceComparison();
+        
+        // 🎯 EXIBIR resultados da análise por referência
+        const finalAnalysis = referenceStepState.finalAnalysis;
+        
+        updateModalProgress(100, '✅ Análise por referência concluída!');
+        
+        // 🎯 LOGS finais de validação
+        console.log('🎉 [ANÁLISE POR REFERÊNCIA] Concluída com sucesso:');
+        console.log('  - Baseline source:', finalAnalysis.comparison?.baseline_source);
+        console.log('  - LUFS difference:', finalAnalysis.comparison?.loudness?.difference?.toFixed(2));
+        console.log('  - Sugestões:', finalAnalysis.suggestions?.length || 0);
+        console.log('  - Sem gênero:', !finalAnalysis.genre);
+        
+        // Exibir modal de resultados
+        displayReferenceResults(finalAnalysis);
+        
+        window.logReferenceEvent('reference_audio_analyzed', { 
+            fileName: file.name,
+            hasAnalysis: !!analysis 
+        });
+    }
+}
+
 // 🎯 NOVO: Processar arquivo no modo gênero (comportamento original)
 async function handleGenreFileSelection(file) {
     // 🐛 DIAGNÓSTICO: Confirmar que este é o modo gênero
@@ -1942,121 +2557,6 @@ async function handleGenreFileSelection(file) {
         }
         __dbg('✅ Análise concluída com sucesso - flag removida');
     }, 800);
-}
-
-// 🎯 NOVO: Processar arquivo no modo referência  
-async function processReferenceFileSelection(file) {
-    if (window.logReferenceEvent) {
-        window.logReferenceEvent('reference_file_selected', { 
-            step: window.referenceStepState?.currentStep,
-            fileName: file.name,
-            fileSize: file.size 
-        });
-    }
-    
-    if (!window.referenceStepState) {
-        resetReferenceState();
-    }
-    
-    if (window.referenceStepState.currentStep === 'userAudio') {
-        // Primeiro arquivo: música do usuário
-        window.referenceStepState.userAudioFile = file;
-        
-        console.log('🔍 [DIAGNÓSTICO] Analisando USER audio em modo referência');
-        console.log('🔍 [DIAGNÓSTICO] Current mode:', window.currentAnalysisMode);
-        
-        // Analisar arquivo do usuário
-        showModalLoading();
-        updateModalProgress(10, '🎵 Analisando sua música...');
-        
-        // Configurações para análise pura
-        const userAnalysisOptions = { 
-          mode: 'pure_analysis', // Modo puro, sem comparações
-          debugModeReference: true,
-          normalizeLoudness: true,
-          windowDuration: 30,
-          fftSize: 4096
-        };
-        
-        const userOptionsWithRunId = prepareAnalysisOptions(userAnalysisOptions, 'user_ref');
-        const analysis = await window.audioAnalyzer.analyzeAudioFile(file, userOptionsWithRunId);
-        
-        if (analysis.comparison || analysis.mixScore) {
-          console.warn('⚠️ [AVISO] Análise do usuário contaminada com comparação/score');
-        }
-        
-        console.log('🔍 [DIAGNÓSTICO] User analysis (pura):', {
-          lufs: analysis.technicalData?.lufsIntegrated,
-          stereoCorrelation: analysis.technicalData?.stereoCorrelation,
-          dynamicRange: analysis.technicalData?.dynamicRange,
-          truePeak: analysis.technicalData?.truePeakDbtp,
-          hasComparison: !!analysis.comparison,
-          hasScore: !!analysis.mixScore
-        });
-        
-        window.referenceStepState.userAnalysis = analysis;
-        
-        // Avançar para próximo step
-        updateReferenceStep('referenceAudio');
-        updateUploadAreaForReferenceStep();
-        
-        if (window.logReferenceEvent) {
-            window.logReferenceEvent('user_audio_analyzed', { 
-                fileName: file.name,
-                hasAnalysis: !!analysis 
-            });
-        }
-        
-    } else if (window.referenceStepState.currentStep === 'referenceAudio') {
-        // Segundo arquivo: música de referência
-        window.referenceStepState.referenceAudioFile = file;
-        
-        console.log('🔍 [DIAGNÓSTICO] Analisando REFERENCE audio em modo referência');
-        console.log('🔍 [DIAGNÓSTICO] Current mode:', window.currentAnalysisMode);
-        
-        showModalLoading();
-        updateModalProgress(50, '🎯 Analisando música de referência...');
-        
-        // Usar EXATAMENTE as mesmas configurações do usuário
-        const refAnalysisOptions = { 
-          mode: 'pure_analysis', 
-          debugModeReference: true,
-          normalizeLoudness: true,
-          windowDuration: 30,
-          fftSize: 4096
-        };
-        
-        const refOptionsWithRunId = prepareAnalysisOptions(refAnalysisOptions, 'ref_audio');
-        const analysis = await window.audioAnalyzer.analyzeAudioFile(file, refOptionsWithRunId);
-        
-        if (analysis.comparison || analysis.mixScore) {
-          console.warn('⚠️ [AVISO] Análise da referência contaminada com comparação/score');
-        }
-        
-        console.log('🔍 [DIAGNÓSTICO] Reference analysis (pura):', {
-          lufs: analysis.technicalData?.lufsIntegrated,
-          stereoCorrelation: analysis.technicalData?.stereoCorrelation,
-          dynamicRange: analysis.technicalData?.dynamicRange,
-          truePeak: analysis.technicalData?.truePeakDbtp,
-          hasComparison: !!analysis.comparison,
-          hasScore: !!analysis.mixScore
-        });
-        
-        window.referenceStepState.referenceAnalysis = analysis;
-        
-        // Realizar comparação
-        updateReferenceStep('analysis');
-        await performReferenceComparison();
-        
-        if (window.logReferenceEvent) {
-            window.logReferenceEvent('reference_analysis_both_completed', { 
-                userFile: window.referenceStepState.userAudioFile?.name,
-                referenceFile: file.name,
-                fileName: file.name,
-                hasAnalysis: !!analysis 
-            });
-        }
-    }
 }
 
 // 🎯 NOVO: Atualizar upload area para step de referência
@@ -2738,6 +3238,7 @@ function waitForAudioAnalyzer() {
     });
 }
 
+
 // ❌ Mostrar erro no modal
 function showModalError(message) {
     const uploadArea = document.getElementById('audioUploadArea');
@@ -2917,51 +3418,36 @@ function displayModalResults(analysis) {
                 </div>`;
         };
 
-        // 🎯 CENTRALIZAÇÃO DAS MÉTRICAS - Funções de acesso unificado (COM PROTEÇÃO EXTRA)
+        // 🎯 CENTRALIZAÇÃO DAS MÉTRICAS - Funções de acesso unificado
         const getMetric = (metricPath, fallbackPath = null) => {
-            try {
-                // Prioridade: metrics centralizadas > technicalData legado > fallback
-                const centralizedValue = analysis.metrics && getNestedValue(analysis.metrics, metricPath);
-                if (Number.isFinite(centralizedValue)) {
-                    // Log temporário para validação
-                    if (typeof window !== 'undefined' && window.METRICS_UI_VALIDATION !== false) {
-                        const legacyValue = fallbackPath ? getNestedValue(analysis.technicalData, fallbackPath) : getNestedValue(analysis.technicalData, metricPath);
-                        if (Number.isFinite(legacyValue) && Math.abs(centralizedValue - legacyValue) > 0.01) {
-                            console.warn(`🎯 METRIC_DIFF: ${metricPath} centralized=${centralizedValue} vs legacy=${legacyValue}`);
-                        }
+            // Prioridade: metrics centralizadas > technicalData legado > fallback
+            const centralizedValue = analysis.metrics && getNestedValue(analysis.metrics, metricPath);
+            if (Number.isFinite(centralizedValue)) {
+                // Log temporário para validação
+                if (typeof window !== 'undefined' && window.METRICS_UI_VALIDATION !== false) {
+                    const legacyValue = fallbackPath ? getNestedValue(analysis.technicalData, fallbackPath) : getNestedValue(analysis.technicalData, metricPath);
+                    if (Number.isFinite(legacyValue) && Math.abs(centralizedValue - legacyValue) > 0.01) {
+                        console.warn(`🎯 METRIC_DIFF: ${metricPath} centralized=${centralizedValue} vs legacy=${legacyValue}`);
                     }
-                    return centralizedValue;
                 }
-                
-                // Fallback para technicalData legado
-                const legacyValue = fallbackPath ? getNestedValue(analysis.technicalData, fallbackPath) : getNestedValue(analysis.technicalData, metricPath);
-                return Number.isFinite(legacyValue) ? legacyValue : null;
-            } catch (error) {
-                console.warn('🛡️ [SAFE_METRIC] Erro ao acessar métrica:', metricPath, error);
-                return null;
+                return centralizedValue;
             }
+            
+            // Fallback para technicalData legado
+            const legacyValue = fallbackPath ? getNestedValue(analysis.technicalData, fallbackPath) : getNestedValue(analysis.technicalData, metricPath);
+            return Number.isFinite(legacyValue) ? legacyValue : null;
         };
         
         const getNestedValue = (obj, path) => {
-            try {
-                return path.split('.').reduce((current, key) => current?.[key], obj);
-            } catch (error) {
-                console.warn('🛡️ [SAFE_NESTED] Erro ao acessar valor aninhado:', path, error);
-                return null;
-            }
+            return path.split('.').reduce((current, key) => current?.[key], obj);
         };
 
         const safePct = (v) => (Number.isFinite(v) ? `${(v*100).toFixed(0)}%` : '—');
         const monoCompat = (s) => s ? s : '—';
 
-        // Função para obter o valor LUFS integrado usando métricas centralizadas (COM PROTEÇÃO)
+        // Função para obter o valor LUFS integrado usando métricas centralizadas
         const getLufsIntegratedValue = () => {
-            try {
-                return getMetric('lufs_integrated', 'lufsIntegrated');
-            } catch (error) {
-                console.warn('🛡️ [SAFE_LUFS] Erro ao obter LUFS integrado:', error);
-                return null;
-            }
+            return getMetric('lufs_integrated', 'lufsIntegrated');
         };
 
         const col1 = [
@@ -3881,21 +4367,50 @@ function displayModalResults(analysis) {
             ${renderScoreWithProgress('Frequência', finalBreakdown.frequency, '#00ffff')}
         ` : '';
 
+        // 🔬 FUNÇÃO AUXILIAR: Nome amigável para bandas (definida fora do template literal)
+        const getBandDisplayName = (bandName) => {
+            const displayNames = {
+                'sub': 'Sub',
+                'subBass': 'Sub Bass',
+                'sub_bass': 'Sub Bass',
+                'bass': 'Bass',
+                'low_bass': 'Low Bass',
+                'lowBass': 'Low Bass',
+                'upper_bass': 'Upper Bass',
+                'upperBass': 'Upper Bass',
+                'low_mid': 'Low Mid',
+                'lowMid': 'Low Mid',
+                'mid': 'Mid',
+                'high_mid': 'High Mid',
+                'highMid': 'High Mid',
+                'upper_mid': 'Upper Mid',
+                'upperMid': 'Upper Mid',
+                'presence': 'Presence',
+                'presenca': 'Presença',
+                'brilliance': 'Brilliance',
+                'brilho': 'Brilho',
+                'air': 'Air',
+                'treble': 'Treble'
+            };
+            return displayNames[bandName] || bandName.charAt(0).toUpperCase() + bandName.slice(1);
+        };
+
         technicalData.innerHTML = `
             <div class="kpi-row">${scoreKpi}${timeKpi}</div>
                 ${renderSmartSummary(analysis) }
                 
-                <!-- ✅ NOVA SEÇÃO: DIAGNÓSTICOS E SUGESTÕES ESTRUTURADOS (VERSÃO SIMPLIFICADA) -->
+                <!-- ✅ NOVA SEÇÃO: DIAGNÓSTICOS E SUGESTÕES ESTRUTURADOS -->
                 ${(() => {
                     try {
                         // 🛡️ VERIFICAÇÃO DE SEGURANÇA: Verificar se dados existem antes de processar
-                        if (!analysis || typeof analysis !== 'object') {
+                        const hasProblems = safeArray(analysis.problems).length > 0;
+                        const hasSuggestions = safeArray(analysis.suggestions).length > 0;
+                        const hasValidAnalysis = analysis && typeof analysis === 'object';
+                        
+                        if (!hasValidAnalysis) {
                             console.warn('⚠️ [MODAL_EXPANSION] Análise inválida, pulando seção de diagnósticos');
                             return '';
                         }
-                        
-                        const hasProblems = Array.isArray(analysis.problems) && analysis.problems.length > 0;
-                        const hasSuggestions = Array.isArray(analysis.suggestions) && analysis.suggestions.length > 0;
                         
                         if (!hasProblems && !hasSuggestions) {
                             console.log('📊 [MODAL_EXPANSION] Sem problemas ou sugestões para exibir');
@@ -3904,8 +4419,8 @@ function displayModalResults(analysis) {
                         
                         let diagnosticsHTML = '';
                         
-                        // 📊 SEÇÃO DE MÉTRICAS TÉCNICAS PRINCIPAIS (SIMPLIFICADA)
-                        const metricsSection = `
+                        // 📊 SEÇÃO DE MÉTRICAS TÉCNICAS PRINCIPAIS
+                        diagnosticsHTML += `
                             <div class="diagnostics-summary-section">
                                 <div class="section-header">
                                     <h3>📊 Métricas Técnicas Principais</h3>
@@ -3913,15 +4428,15 @@ function displayModalResults(analysis) {
                                 <div class="metrics-grid">
                                     <div class="metric-item">
                                         <span class="metric-label">LUFS Integrado:</span>
-                                        <span class="metric-value">${(advancedReady && Number.isFinite(getLufsIntegratedValue())) ? safeFixed(getLufsIntegratedValue()) + ' LUFS' : '⏳'}</span>
+                                        <span class="metric-value">${(advancedReady && Number.isFinite(getMetric('lufs_integrated', 'lufsIntegrated'))) ? `${safeFixed(getMetric('lufs_integrated', 'lufsIntegrated'))} LUFS` : '⏳'}</span>
                                     </div>
                                     <div class="metric-item">
                                         <span class="metric-label">LUFS Short-term:</span>
-                                        <span class="metric-value">${(advancedReady && Number.isFinite(getMetric('lufs_short_term', 'lufsShortTerm'))) ? safeFixed(getMetric('lufs_short_term', 'lufsShortTerm')) + ' LUFS' : '⏳'}</span>
+                                        <span class="metric-value">${(advancedReady && Number.isFinite(getMetric('lufs_short_term', 'lufsShortTerm'))) ? `${safeFixed(getMetric('lufs_short_term', 'lufsShortTerm'))} LUFS` : '⏳'}</span>
                                     </div>
                                     <div class="metric-item">
                                         <span class="metric-label">True Peak:</span>
-                                        <span class="metric-value">${(advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp'))) ? safeFixed(getMetric('truePeakDbtp', 'truePeakDbtp')) + ' dBTP' : '⏳'}</span>
+                                        <span class="metric-value">${(advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp'))) ? `${safeFixed(getMetric('truePeakDbtp', 'truePeakDbtp'))} dBTP` : '⏳'}</span>
                                     </div>
                                     <div class="metric-item">
                                         <span class="metric-label">Dynamic Range:</span>
@@ -3939,55 +4454,52 @@ function displayModalResults(analysis) {
                             </div>
                         `;
                         
-                        diagnosticsHTML += metricsSection;
-                        
-                        // ⚠️ SEÇÃO DE PROBLEMAS DETECTADOS (SIMPLIFICADA)
+                        // ⚠️ SEÇÃO DE PROBLEMAS DETECTADOS
                         if (hasProblems) {
-                            const problemsSection = `
+                            diagnosticsHTML += `
                                 <div class="diagnostics-summary-section">
                                     <div class="section-header">
                                         <h3>⚠️ Problemas Detectados</h3>
                                         <span class="problem-count">${analysis.problems.length} problema(s)</span>
                                     </div>
                                     <div class="problems-list">
-                                        ${analysis.problems.map((problem, index) => {
-                                            const safeProblem = problem || {};
-                                            const severity = safeProblem.severity || 'medium';
-                                            const severityClass = severity === 'high' || severity === 'critical' ? 'severe' : 
-                                                                 severity === 'medium' ? 'moderate' : 'mild';
+                                        ${safeArray(analysis.problems).map(problem => {
+                                            // 🛡️ FALLBACK SEGURO: Verificar cada campo antes de usar
+                                            const safeProblem = safeObject(problem);
+                                            const severity = safeFallback(safeProblem.severity, 'medium');
+                                            const severityClass = severity === 'high' || severity === 'critical' ? 'severe' : severity === 'medium' ? 'moderate' : 'mild';
                                             
                                             return `
                                                 <div class="problem-item ${severityClass}">
                                                     <div class="problem-header">
-                                                        <span class="problem-type">${safeProblem.type || 'Problema'}</span>
+                                                        <span class="problem-type">${safeFallback(safeProblem.type, 'Problema')}</span>
                                                         <span class="problem-severity ${severityClass}">${severity.toUpperCase()}</span>
                                                     </div>
-                                                    <div class="problem-message">${safeProblem.message || 'Problema detectado'}</div>
-                                                    ${safeProblem.explanation ? '<div class="problem-explanation">💡 ' + safeProblem.explanation + '</div>' : ''}
-                                                    ${safeProblem.solution ? '<div class="problem-solution">🔧 <strong>Solução:</strong> ' + safeProblem.solution + '</div>' : ''}
-                                                    ${safeProblem.frequency_range ? '<div class="problem-technical">📊 Frequências: ' + safeProblem.frequency_range + '</div>' : ''}
-                                                    ${safeProblem.adjustment_db ? '<div class="problem-technical">⚡ Ajuste: ' + safeProblem.adjustment_db + ' dB</div>' : ''}
+                                                    <div class="problem-message">${safeFallback(safeProblem.message, 'Problema detectado')}</div>
+                                                    ${safeProblem.explanation ? `<div class="problem-explanation">💡 ${safeProblem.explanation}</div>` : ''}
+                                                    ${safeProblem.solution ? `<div class="problem-solution">🔧 <strong>Solução:</strong> ${safeProblem.solution}</div>` : ''}
+                                                    ${safeProblem.frequency_range ? `<div class="problem-technical">📊 Frequências: ${safeProblem.frequency_range}</div>` : ''}
+                                                    ${safeProblem.adjustment_db ? `<div class="problem-technical">⚡ Ajuste: ${safeProblem.adjustment_db} dB</div>` : ''}
                                                 </div>
                                             `;
                                         }).join('')}
                                     </div>
                                 </div>
                             `;
-                            
-                            diagnosticsHTML += problemsSection;
                         }
                         
-                        // 💡 SEÇÃO DE SUGESTÕES DE MIXAGEM (SIMPLIFICADA)
+                        // 💡 SEÇÃO DE SUGESTÕES DE MIXAGEM
                         if (hasSuggestions) {
-                            const suggestionsSection = `
+                            diagnosticsHTML += `
                                 <div class="diagnostics-summary-section">
                                     <div class="section-header">
                                         <h3>💡 Sugestões de Mixagem</h3>
                                         <span class="suggestion-count">${analysis.suggestions.length} sugestão(ões)</span>
                                     </div>
                                     <div class="suggestions-list">
-                                        ${analysis.suggestions.map((suggestion, index) => {
-                                            const safeSuggestion = suggestion || {};
+                                        ${safeArray(analysis.suggestions).map(suggestion => {
+                                            // 🛡️ FALLBACK SEGURO: Verificar cada campo antes de usar
+                                            const safeSuggestion = safeObject(suggestion);
                                             const priority = Number.isFinite(safeSuggestion.priority) ? safeSuggestion.priority : 0;
                                             const priorityClass = priority > 7 ? 'high' : priority > 4 ? 'medium' : 'low';
                                             const confidence = Number.isFinite(safeSuggestion.confidence) ? safeSuggestion.confidence : 1;
@@ -3995,26 +4507,24 @@ function displayModalResults(analysis) {
                                             return `
                                                 <div class="suggestion-item ${priorityClass}">
                                                     <div class="suggestion-header">
-                                                        <span class="suggestion-type">${safeSuggestion.type || 'Sugestão'}</span>
+                                                        <span class="suggestion-type">${safeFallback(safeSuggestion.type, 'Sugestão')}</span>
                                                         <div class="suggestion-badges">
                                                             <span class="suggestion-priority ${priorityClass}">P${priority}</span>
                                                             <span class="suggestion-confidence">C${(confidence * 100).toFixed(0)}%</span>
                                                         </div>
                                                     </div>
-                                                    <div class="suggestion-message">${safeSuggestion.message || 'Sugestão de melhoria'}</div>
-                                                    ${safeSuggestion.explanation ? '<div class="suggestion-explanation">💡 ' + safeSuggestion.explanation + '</div>' : ''}
-                                                    ${safeSuggestion.action ? '<div class="suggestion-action">🎯 <strong>Ação:</strong> ' + safeSuggestion.action + '</div>' : ''}
-                                                    ${safeSuggestion.frequency_range ? '<div class="suggestion-technical">📊 Frequências: ' + safeSuggestion.frequency_range + '</div>' : ''}
-                                                    ${safeSuggestion.adjustment_db ? '<div class="suggestion-technical">⚡ Ajuste: ' + safeSuggestion.adjustment_db + ' dB</div>' : ''}
-                                                    ${safeSuggestion.impact ? '<div class="suggestion-impact">⭐ <strong>Impacto:</strong> ' + safeSuggestion.impact + '</div>' : ''}
+                                                    <div class="suggestion-message">${safeFallback(safeSuggestion.message, 'Sugestão de melhoria')}</div>
+                                                    ${safeSuggestion.explanation ? `<div class="suggestion-explanation">💡 ${safeSuggestion.explanation}</div>` : ''}
+                                                    ${safeSuggestion.action ? `<div class="suggestion-action">🎯 <strong>Ação:</strong> ${safeSuggestion.action}</div>` : ''}
+                                                    ${safeSuggestion.frequency_range ? `<div class="suggestion-technical">📊 Frequências: ${safeSuggestion.frequency_range}</div>` : ''}
+                                                    ${safeSuggestion.adjustment_db ? `<div class="suggestion-technical">⚡ Ajuste: ${safeSuggestion.adjustment_db} dB</div>` : ''}
+                                                    ${safeSuggestion.impact ? `<div class="suggestion-impact">⭐ <strong>Impacto:</strong> ${safeSuggestion.impact}</div>` : ''}
                                                 </div>
                                             `;
                                         }).join('')}
                                     </div>
                                 </div>
                             `;
-                            
-                            diagnosticsHTML += suggestionsSection;
                         }
                         
                         return diagnosticsHTML;
@@ -4049,35 +4559,7 @@ function displayModalResults(analysis) {
                         const formatDb = (v) => Number.isFinite(v) ? `${v.toFixed(1)} dB` : '—';
                         const rows = [];
                         
-                        // � FUNÇÃO AUXILIAR: Nome amigável para bandas (MOVIDA PARA CIMA)
-                        function getBandDisplayName(bandName) {
-                            const displayNames = {
-                                'sub': 'Sub',
-                                'subBass': 'Sub Bass',
-                                'sub_bass': 'Sub Bass',
-                                'bass': 'Bass',
-                                'low_bass': 'Low Bass',
-                                'lowBass': 'Low Bass',
-                                'upper_bass': 'Upper Bass',
-                                'upperBass': 'Upper Bass',
-                                'low_mid': 'Low Mid',
-                                'lowMid': 'Low Mid',
-                                'mid': 'Mid',
-                                'high_mid': 'High Mid',
-                                'highMid': 'High Mid',
-                                'upper_mid': 'Upper Mid',
-                                'upperMid': 'Upper Mid',
-                                'presence': 'Presence',
-                                'presenca': 'Presença',
-                                'brilliance': 'Brilliance',
-                                'brilho': 'Brilho',
-                                'air': 'Air',
-                                'treble': 'Treble'
-                            };
-                            return displayNames[bandName] || bandName.charAt(0).toUpperCase() + bandName.slice(1);
-                        }
-                        
-                        // �📊 EXIBIR SPECTRAL BALANCE (6 BANDAS PRINCIPAIS)
+                        // 📊 EXIBIR SPECTRAL BALANCE (6 BANDAS PRINCIPAIS)
                         if (sb && typeof sb === 'object') {
                             if (Number.isFinite(sb.sub)) rows.push(row('Sub (20-60 Hz)', formatPct(sb.sub), 'spectralSub'));
                             if (Number.isFinite(sb.bass)) rows.push(row('Bass (60-250 Hz)', formatPct(sb.bass), 'spectralBass'));
@@ -4145,7 +4627,7 @@ function displayModalResults(analysis) {
     // ✅ LOG FINAL: Confirmar que todas as métricas expandidas foram processadas
     console.log('🎉 [MODAL_EXPANSION] Interface expandida com sucesso!');
     console.log('📊 [MODAL_EXPANSION] Métricas exibidas:', {
-        lufsIntegrated: getLufsIntegratedValue(),
+        lufsIntegrated: getMetric('lufs_integrated', 'lufsIntegrated'),
         lufsShortTerm: getMetric('lufs_short_term', 'lufsShortTerm'),
         truePeak: getMetric('truePeakDbtp', 'truePeakDbtp'),
         spectralBalance: !!analysis.technicalData?.spectral_balance,
