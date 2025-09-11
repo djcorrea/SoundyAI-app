@@ -73,6 +73,10 @@ async function downloadFileFromBucket(key) {
 async function analyzeFallbackMetadata(localFilePath) {
   try {
     const metadata = await mm.parseFile(localFilePath);
+    const sampleRate = metadata.format.sampleRate || 48000;
+    const channels = metadata.format.numberOfChannels || 2;
+    const duration = metadata.format.duration || 0;
+    
     return {
       ok: true,
       mode: "fallback_metadata",
@@ -82,12 +86,19 @@ async function analyzeFallbackMetadata(localFilePath) {
       scoringMethod: "error_fallback",
       processingTime: 50,
       technicalData: {
-        sampleRate: metadata.format.sampleRate || 48000,
-        duration: metadata.format.duration || 0,
-        channels: metadata.format.numberOfChannels || 2,
+        sampleRate: sampleRate,
+        duration: duration,
+        channels: channels,
+      },
+      metadata: { // ✅ CORREÇÃO: incluir metadata corretamente estruturada
+        sampleRate: sampleRate,
+        channels: channels,
+        duration: duration,
+        processedAt: new Date().toISOString(),
+        engineVersion: "fallback-1.0",
+        pipelinePhase: "fallback"
       },
       warnings: ["Pipeline completo indisponível. Resultado mínimo via metadata."],
-      metadata: "fallback-only",
     };
   } catch (err) {
     console.error("❌ Erro no fallback metadata:", err);
@@ -97,6 +108,14 @@ async function analyzeFallbackMetadata(localFilePath) {
         message: err.message,
         type: "fallback_metadata_error",
       },
+      metadata: { // ✅ CORREÇÃO: garantir metadata mesmo em caso de erro
+        sampleRate: 48000,
+        channels: 2,
+        duration: 0,
+        processedAt: new Date().toISOString(),
+        engineVersion: "fallback-error",
+        pipelinePhase: "error"
+      }
     };
   }
 }

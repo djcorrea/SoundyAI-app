@@ -71,16 +71,18 @@ function extractTechnicalData(coreMetrics) {
       technicalData.balanceLR = coreMetrics.stereo.balance;
     }
 
-    // Metadata
-    if (coreMetrics.metadata) {
-      technicalData.sampleRate = coreMetrics.metadata.sampleRate;
-      technicalData.channels = coreMetrics.metadata.channels;
-      technicalData.duration = coreMetrics.metadata.duration;
-    } else {
-      technicalData.sampleRate = coreMetrics.sampleRate || 48000;
-      technicalData.channels = coreMetrics.numberOfChannels || 2;
-      technicalData.duration = coreMetrics.duration || 0;
-    }
+    // Metadata - corrigido para extrair corretamente dos coreMetrics
+    technicalData.sampleRate = coreMetrics.sampleRate || 48000;
+    technicalData.channels = coreMetrics.numberOfChannels || 2;
+    technicalData.duration = coreMetrics.duration || 0;
+    
+    // Log para debug da correção metadata
+    console.log(`🔧 [METADATA CORRECTION] Extraindo metadata dos coreMetrics:`, {
+      sampleRate: technicalData.sampleRate,
+      channels: technicalData.channels,
+      duration: technicalData.duration,
+      source: 'coreMetrics_direct'
+    });
 
     // Dynamic Range
     if (coreMetrics.dr !== undefined) {
@@ -127,6 +129,10 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata) {
       stereoWidth: sanitizeValue(technicalData.stereoWidth),
       balanceLR: sanitizeValue(technicalData.balanceLR),
       spectralCentroid: sanitizeValue(technicalData.spectralCentroid),
+      // ✅ CORREÇÃO: incluir metadata também em technicalData para compatibilidade total
+      sampleRate: technicalData.sampleRate,
+      channels: technicalData.channels,
+      duration: technicalData.duration,
       frequencyBands: coreMetrics.fft?.frequencyBands?.left || {}
     },
 
