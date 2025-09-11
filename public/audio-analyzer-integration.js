@@ -155,6 +155,128 @@ function selectAnalysisMode(mode) {
     }
 }
 
+// 🎯 NOVO: Abrir modal de análise configurado para o modo
+function openAnalysisModalForMode(mode) {
+    console.log(`🎵 Abrindo modal de análise para modo: ${mode}`);
+    
+    // CORREÇÃO CRÍTICA: Definir window.currentAnalysisMode sempre que o modal for aberto
+    window.currentAnalysisMode = mode;
+    
+    const modal = document.getElementById('audioAnalysisModal');
+    if (!modal) {
+        console.error('Modal de análise não encontrado');
+        return;
+    }
+    
+    // Configurar modal baseado no modo
+    configureModalForMode(mode);
+    
+    // Reset state específico do modo
+    if (mode === 'reference') {
+        resetReferenceState();
+    }
+    
+    modal.style.display = 'flex';
+    resetModalState();
+    modal.setAttribute('tabindex', '-1');
+    modal.focus();
+    
+    if (window.logReferenceEvent) {
+        window.logReferenceEvent('analysis_modal_opened', { mode });
+    }
+}
+
+// 🎯 NOVO: Configurar modal baseado no modo selecionado
+function configureModalForMode(mode) {
+    const title = document.getElementById('audioModalTitle');
+    const subtitle = document.getElementById('audioModalSubtitle');
+    const modeIndicator = document.getElementById('audioModeIndicator');
+    const genreContainer = document.getElementById('audioRefGenreContainer');
+    const progressSteps = document.getElementById('referenceProgressSteps');
+    
+    if (mode === 'genre') {
+        // Modo Gênero: comportamento original
+        if (title) title.textContent = '🎵 Análise de Áudio';
+        if (subtitle) subtitle.style.display = 'none';
+        if (genreContainer) genreContainer.style.display = 'flex';
+        if (progressSteps) progressSteps.style.display = 'none';
+        
+    } else if (mode === 'reference') {
+        // Modo Referência: interface específica
+        if (title) title.textContent = '🎯 Análise por Referência';
+        if (subtitle) {
+            subtitle.style.display = 'block';
+            if (modeIndicator) {
+                modeIndicator.textContent = 'Comparação direta entre suas músicas';
+            }
+        }
+        if (genreContainer) genreContainer.style.display = 'none';
+        if (progressSteps) progressSteps.style.display = 'flex';
+        
+        // Configurar steps iniciais
+        updateReferenceStep('userAudio');
+    }
+}
+
+// 🎯 NOVO: Reset estado do modo referência
+function resetReferenceState() {
+    if (typeof window.referenceStepState === 'undefined') {
+        window.referenceStepState = {};
+    }
+    
+    window.referenceStepState = {
+        currentStep: 'userAudio',
+        userAudioFile: null,
+        referenceAudioFile: null,
+        userAnalysis: null,
+        referenceAnalysis: null
+    };
+    
+    if (window.logReferenceEvent) {
+        window.logReferenceEvent('reference_state_reset');
+    }
+}
+
+// 🎯 NOVO: Atualizar step ativo no modo referência
+function updateReferenceStep(step) {
+    const steps = ['userAudio', 'referenceAudio', 'analysis'];
+    const stepElements = {
+        userAudio: document.getElementById('stepUserAudio'),
+        referenceAudio: document.getElementById('stepReferenceAudio'),
+        analysis: document.getElementById('stepAnalysis')
+    };
+    
+    // Reset todos os steps
+    Object.values(stepElements).forEach(el => {
+        if (el) {
+            el.classList.remove('active', 'completed');
+        }
+    });
+    
+    // Marcar steps anteriores como completed
+    const currentIndex = steps.indexOf(step);
+    for (let i = 0; i < currentIndex; i++) {
+        const stepElement = stepElements[steps[i]];
+        if (stepElement) {
+            stepElement.classList.add('completed');
+        }
+    }
+    
+    // Marcar step atual como active
+    const currentElement = stepElements[step];
+    if (currentElement) {
+        currentElement.classList.add('active');
+    }
+    
+    if (typeof window.referenceStepState !== 'undefined') {
+        window.referenceStepState.currentStep = step;
+    }
+    
+    if (window.logReferenceEvent) {
+        window.logReferenceEvent('reference_step_updated', { step, currentIndex });
+    }
+}
+
 // 🎯 Modal de Análise por Referência
 function openReferenceAnalysisModal() {
     const modal = document.getElementById('audioAnalysisModal');
@@ -1820,6 +1942,121 @@ async function handleGenreFileSelection(file) {
         }
         __dbg('✅ Análise concluída com sucesso - flag removida');
     }, 800);
+}
+
+// 🎯 NOVO: Processar arquivo no modo referência  
+async function processReferenceFileSelection(file) {
+    if (window.logReferenceEvent) {
+        window.logReferenceEvent('reference_file_selected', { 
+            step: window.referenceStepState?.currentStep,
+            fileName: file.name,
+            fileSize: file.size 
+        });
+    }
+    
+    if (!window.referenceStepState) {
+        resetReferenceState();
+    }
+    
+    if (window.referenceStepState.currentStep === 'userAudio') {
+        // Primeiro arquivo: música do usuário
+        window.referenceStepState.userAudioFile = file;
+        
+        console.log('🔍 [DIAGNÓSTICO] Analisando USER audio em modo referência');
+        console.log('🔍 [DIAGNÓSTICO] Current mode:', window.currentAnalysisMode);
+        
+        // Analisar arquivo do usuário
+        showModalLoading();
+        updateModalProgress(10, '🎵 Analisando sua música...');
+        
+        // Configurações para análise pura
+        const userAnalysisOptions = { 
+          mode: 'pure_analysis', // Modo puro, sem comparações
+          debugModeReference: true,
+          normalizeLoudness: true,
+          windowDuration: 30,
+          fftSize: 4096
+        };
+        
+        const userOptionsWithRunId = prepareAnalysisOptions(userAnalysisOptions, 'user_ref');
+        const analysis = await window.audioAnalyzer.analyzeAudioFile(file, userOptionsWithRunId);
+        
+        if (analysis.comparison || analysis.mixScore) {
+          console.warn('⚠️ [AVISO] Análise do usuário contaminada com comparação/score');
+        }
+        
+        console.log('🔍 [DIAGNÓSTICO] User analysis (pura):', {
+          lufs: analysis.technicalData?.lufsIntegrated,
+          stereoCorrelation: analysis.technicalData?.stereoCorrelation,
+          dynamicRange: analysis.technicalData?.dynamicRange,
+          truePeak: analysis.technicalData?.truePeakDbtp,
+          hasComparison: !!analysis.comparison,
+          hasScore: !!analysis.mixScore
+        });
+        
+        window.referenceStepState.userAnalysis = analysis;
+        
+        // Avançar para próximo step
+        updateReferenceStep('referenceAudio');
+        updateUploadAreaForReferenceStep();
+        
+        if (window.logReferenceEvent) {
+            window.logReferenceEvent('user_audio_analyzed', { 
+                fileName: file.name,
+                hasAnalysis: !!analysis 
+            });
+        }
+        
+    } else if (window.referenceStepState.currentStep === 'referenceAudio') {
+        // Segundo arquivo: música de referência
+        window.referenceStepState.referenceAudioFile = file;
+        
+        console.log('🔍 [DIAGNÓSTICO] Analisando REFERENCE audio em modo referência');
+        console.log('🔍 [DIAGNÓSTICO] Current mode:', window.currentAnalysisMode);
+        
+        showModalLoading();
+        updateModalProgress(50, '🎯 Analisando música de referência...');
+        
+        // Usar EXATAMENTE as mesmas configurações do usuário
+        const refAnalysisOptions = { 
+          mode: 'pure_analysis', 
+          debugModeReference: true,
+          normalizeLoudness: true,
+          windowDuration: 30,
+          fftSize: 4096
+        };
+        
+        const refOptionsWithRunId = prepareAnalysisOptions(refAnalysisOptions, 'ref_audio');
+        const analysis = await window.audioAnalyzer.analyzeAudioFile(file, refOptionsWithRunId);
+        
+        if (analysis.comparison || analysis.mixScore) {
+          console.warn('⚠️ [AVISO] Análise da referência contaminada com comparação/score');
+        }
+        
+        console.log('🔍 [DIAGNÓSTICO] Reference analysis (pura):', {
+          lufs: analysis.technicalData?.lufsIntegrated,
+          stereoCorrelation: analysis.technicalData?.stereoCorrelation,
+          dynamicRange: analysis.technicalData?.dynamicRange,
+          truePeak: analysis.technicalData?.truePeakDbtp,
+          hasComparison: !!analysis.comparison,
+          hasScore: !!analysis.mixScore
+        });
+        
+        window.referenceStepState.referenceAnalysis = analysis;
+        
+        // Realizar comparação
+        updateReferenceStep('analysis');
+        await performReferenceComparison();
+        
+        if (window.logReferenceEvent) {
+            window.logReferenceEvent('reference_analysis_both_completed', { 
+                userFile: window.referenceStepState.userAudioFile?.name,
+                referenceFile: file.name,
+                fileName: file.name,
+                hasAnalysis: !!analysis 
+            });
+        }
+    }
 }
 
 // 🎯 NOVO: Atualizar upload area para step de referência
