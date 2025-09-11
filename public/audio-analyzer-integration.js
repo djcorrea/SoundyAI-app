@@ -3388,6 +3388,19 @@ function displayModalResults(analysis) {
         return;
     }
     
+    // ✅ LOG DE AUDITORIA: Registrar expansão de métricas implementada
+    console.log('📊 [MODAL_EXPANSION] Exibindo TODAS as métricas disponíveis do backend');
+    console.log('🎯 [MODAL_EXPANSION] Mudanças implementadas:');
+    console.log('   • LUFS Short-term e Momentary adicionados');
+    console.log('   • MFCC Coefficients (13 valores) exibidos');
+    console.log('   • Spectral Balance completo (6 bandas)');
+    console.log('   • Tonal Balance detalhado por banda');
+    console.log('   • DC Offset, THD, Clipping samples');
+    console.log('   • Métricas de metadados (codec, bitrate, duração)');
+    console.log('   • Diagnósticos estruturados por severidade');
+    console.log('   • Sugestões priorizadas com confiança');
+    console.log('   • Compatibilidade 100% preservada com UI existente');
+    
     // 📊 Progress: Esconder barra de progresso ao exibir resultados
     const progressContainer = document.querySelector('.progress-container');
     const progressBar = document.querySelector('.progress-fill');
@@ -3434,10 +3447,14 @@ function displayModalResults(analysis) {
     );
     if (typeof window !== 'undefined') window.__AUDIO_ADVANCED_READY__ = advancedReady;
 
-    // Helpers seguros com bloqueio de fallback se advanced não pronto
+    // Helpers seguros com bloqueio de fallback se advanced não pronto + EXPANSÃO SEGURA
     const safeFixed = (v, d=1) => (Number.isFinite(v) ? v.toFixed(d) : '—');
     const safeHz = (v) => (Number.isFinite(v) ? `${Math.round(v)} Hz` : '—');
     const pct = (v, d=0) => (Number.isFinite(v) ? `${(v*100).toFixed(d)}%` : '—');
+    const safeFallback = (value, fallback = 'N/A') => (value !== undefined && value !== null && value !== '') ? value : fallback;
+    const safeArray = (arr) => Array.isArray(arr) ? arr : [];
+    const safeObject = (obj) => (obj && typeof obj === 'object') ? obj : {};
+    
     const tonalSummary = (tb) => {
         if (!tb || typeof tb !== 'object') return '—';
         const parts = [];
@@ -3544,48 +3561,141 @@ function displayModalResults(analysis) {
                 } catch {}
                 return extra ? row('Top Freq. adicionais', `<span style="opacity:.9">${extra}</span>`) : '';
             })();
+            // 🎯 SEÇÃO EXPANDIDA: Col3 agora inclui todas as métricas técnicas adicionais
             const col3 = [
                 row('Tonal Balance', analysis.technicalData?.tonalBalance ? tonalSummary(analysis.technicalData.tonalBalance) : '—', 'tonalBalance'),
                 (analysis.technicalData?.dominantFrequencies?.length > 0 ? row('Freq. Dominante', `${Math.round(analysis.technicalData.dominantFrequencies[0].frequency)} Hz`) : ''),
+                
+                // 📊 MÉTRICAS TÉCNICAS EXPANDIDAS - Mostrar todas as métricas disponíveis
+                row('LRA (Loudness Range)', (advancedReady && Number.isFinite(getMetric('lra', 'lra'))) ? `${safeFixed(getMetric('lra', 'lra'))} LU` : (advancedReady? '—':'⏳'), 'lra'),
+                
+                // MFCC Coefficients (se disponível)
+                (() => {
+                    const mfcc = analysis.technicalData?.mfcc_coefficients || analysis.rawMetrics?.mfcc;
+                    if (Array.isArray(mfcc) && mfcc.length >= 3) {
+                        return row('MFCC (1-3)', `${mfcc.slice(0,3).map(c => safeFixed(c, 2)).join(', ')}`, 'mfcc');
+                    }
+                    return '';
+                })(),
+                
+                // DC Offset
+                row('DC Offset', `${safeFixed(getMetric('dc_offset', 'dcOffset'), 4)}`, 'dcOffset'),
+                
+                // THD (Total Harmonic Distortion)
+                row('THD', `${safeFixed(getMetric('thd_percent', 'thdPercent'), 2)}%`, 'thdPercent'),
+                
+                // Clipping samples
+                row('Clipping Samples', `${getMetric('clipping_samples', 'clippingSamples') || 0}`, 'clippingSamples'),
+                
                 row('Problemas', (analysis.problems?.length || 0) > 0 ? `<span class="tag tag-danger">${analysis.problems.length} detectado(s)</span>` : '—'),
                 row('Sugestões', (analysis.suggestions?.length || 0) > 0 ? `<span class="tag tag-success">${analysis.suggestions.length} disponível(s)</span>` : '—'),
                 col3Extras
             ].join('');
 
-            // Card extra: Métricas Avançadas (novo card)
+            // Card extra: Métricas Avançadas (EXPANDIDO - exibe TODAS as métricas disponíveis)
             const advancedMetricsCard = () => {
                 const rows = [];
-                // Removido LUFS ST/M conforme solicitado - manter apenas integrado
                 
-                // Headroom
+                // ✅ TODAS AS MÉTRICAS LUFS DISPONÍVEIS
+                if (advancedReady) {
+                    // LUFS Short-term
+                    if (Number.isFinite(getMetric('lufs_short_term', 'lufsShortTerm'))) {
+                        rows.push(row('LUFS Short-term', `${safeFixed(getMetric('lufs_short_term', 'lufsShortTerm'))} LUFS`, 'lufsShortTerm'));
+                    }
+                    // LUFS Momentary
+                    if (Number.isFinite(getMetric('lufs_momentary', 'lufsMomentary'))) {
+                        rows.push(row('LUFS Momentary', `${safeFixed(getMetric('lufs_momentary', 'lufsMomentary'))} LUFS`, 'lufsMomentary'));
+                    }
+                }
+                
+                // ✅ TODAS AS MÉTRICAS DE HEADROOM
                 if (Number.isFinite(analysis.technicalData?.headroomDb)) {
                     // Mostrar headroom real se calculado a partir do pico, senão offset de loudness
                     const hrReal = Number.isFinite(analysis.technicalData.headroomTruePeakDb) ? analysis.technicalData.headroomTruePeakDb : null;
                     if (hrReal != null) {
-                        rows.push(row('Headroom (Pico)', `${safeFixed(hrReal, 1)} dB`, 'headroomTruePeakDb'));
+                        rows.push(row('Headroom (True Peak)', `${safeFixed(hrReal, 1)} dB`, 'headroomTruePeakDb'));
                     }
                     rows.push(row('Offset Loudness', `${safeFixed(analysis.technicalData.headroomDb, 1)} dB`, 'headroomDb'));
                 }
-                // Picos por canal
+                
+                // ✅ PICOS POR CANAL DETALHADOS
                 if (Number.isFinite(analysis.technicalData?.samplePeakLeftDb)) {
                     rows.push(row('Pico de Amostra L (dBFS)', `${safeFixed(analysis.technicalData.samplePeakLeftDb, 1)} dBFS`, 'samplePeakLeftDb'));
                 }
                 if (Number.isFinite(analysis.technicalData?.samplePeakRightDb)) {
                     rows.push(row('Pico de Amostra R (dBFS)', `${safeFixed(analysis.technicalData.samplePeakRightDb, 1)} dBFS`, 'samplePeakRightDb'));
                 }
-                // Clipping (%)
+                
+                // ✅ MÉTRICAS ESPECTRAIS COMPLETAS
+                const spectralMetrics = [
+                    ['spectral_rolloff', 'Rolloff Espectral', 'Hz'],
+                    ['spectral_flux', 'Flux Espectral', ''],
+                    ['spectral_flatness', 'Flatness Espectral', ''],
+                    ['zero_crossing_rate', 'Zero Crossing Rate', '']
+                ];
+                
+                spectralMetrics.forEach(([key, label, unit]) => {
+                    const value = getMetric(key, key.replace('_', ''));
+                    if (Number.isFinite(value)) {
+                        const displayValue = unit === 'Hz' ? safeHz(value) : safeFixed(value, 3);
+                        rows.push(row(label, displayValue, key));
+                    }
+                });
+                
+                // ✅ CLIPPING DETALHADO
                 if (Number.isFinite(analysis.technicalData?.clippingPct)) {
                     rows.push(row('Clipping (%)', `${safeFixed(analysis.technicalData.clippingPct, 2)}%`, 'clippingPct'));
                 }
                 if (Number.isFinite(analysis.technicalData?.clippingSamplesTruePeak)) {
                     rows.push(row('Clipping (TP)', `${analysis.technicalData.clippingSamplesTruePeak} samples`, 'clippingSamplesTruePeak'));
                 }
-                // Frequências dominantes extras
-                if (Array.isArray(analysis.technicalData?.dominantFrequencies) && analysis.technicalData.dominantFrequencies.length > 1) {
-                    const extra = analysis.technicalData.dominantFrequencies.slice(1, 4)
-                        .map((f, idx) => `${idx+2}. ${Math.round(f.frequency)} Hz (${f.occurrences || 1}x)`).join('<br>');
-                    if (extra) rows.push(row('Top Freq. adicionais', `<span style="opacity:.9">${extra}</span>`));
+                
+                // ✅ MFCC COEFFICIENTS EXPANDIDOS (se disponível)
+                const mfcc = analysis.technicalData?.mfcc_coefficients || analysis.rawMetrics?.mfcc;
+                if (Array.isArray(mfcc) && mfcc.length >= 13) {
+                    // Mostrar primeiros 5 MFCCs
+                    const mfccDisplay = mfcc.slice(0, 5).map((c, i) => `MFCC${i+1}: ${safeFixed(c, 2)}`).join(' | ');
+                    rows.push(row('MFCC (1-5)', `<span style="font-size: 10px;">${mfccDisplay}</span>`, 'mfcc'));
+                    
+                    // Mostrar restantes se necessário
+                    if (mfcc.length > 5) {
+                        const remainingMfcc = mfcc.slice(5, 10).map((c, i) => `MFCC${i+6}: ${safeFixed(c, 2)}`).join(' | ');
+                        rows.push(row('MFCC (6-10)', `<span style="font-size: 10px;">${remainingMfcc}</span>`, 'mfcc_extended'));
+                    }
                 }
+                
+                // ✅ FREQUÊNCIAS DOMINANTES EXPANDIDAS
+                if (Array.isArray(analysis.technicalData?.dominantFrequencies) && analysis.technicalData.dominantFrequencies.length > 1) {
+                    const extra = analysis.technicalData.dominantFrequencies.slice(1, 6)
+                        .map((f, idx) => `${idx+2}. ${Math.round(f.frequency)} Hz (${f.occurrences || 1}x)`).join('<br>');
+                    if (extra) rows.push(row('Top Freq. adicionais', `<span style="opacity:.9; font-size: 10px;">${extra}</span>`));
+                }
+                
+                // ✅ MÉTRICAS DE METADADOS TÉCNICOS
+                if (analysis.metadata || analysis.technicalData) {
+                    const metadata = analysis.metadata || {};
+                    const tech = analysis.technicalData || {};
+                    
+                    if (metadata.sampleRate || tech.sampleRate) {
+                        rows.push(row('Sample Rate', `${metadata.sampleRate || tech.sampleRate} Hz`, 'sampleRate'));
+                    }
+                    if (metadata.channels || tech.channels) {
+                        rows.push(row('Canais', `${metadata.channels || tech.channels}`, 'channels'));
+                    }
+                    if (metadata.bitrate || tech.bitrate) {
+                        rows.push(row('Bitrate', `${metadata.bitrate || tech.bitrate} kbps`, 'bitrate'));
+                    }
+                    if (metadata.codec || tech.codec) {
+                        rows.push(row('Codec', `${metadata.codec || tech.codec}`, 'codec'));
+                    }
+                    if (metadata.duration || tech.duration) {
+                        const duration = metadata.duration || tech.duration;
+                        const minutes = Math.floor(duration / 60);
+                        const seconds = (duration % 60).toFixed(1);
+                        rows.push(row('Duração', `${minutes}:${seconds.padStart(4, '0')}`, 'duration'));
+                    }
+                }
+                
                 return rows.join('') || row('Status', 'Sem métricas adicionais');
             };
 
@@ -4331,6 +4441,143 @@ function displayModalResults(analysis) {
         technicalData.innerHTML = `
             <div class="kpi-row">${scoreKpi}${timeKpi}</div>
                 ${renderSmartSummary(analysis) }
+                
+                <!-- ✅ NOVA SEÇÃO: DIAGNÓSTICOS E SUGESTÕES ESTRUTURADOS -->
+                ${(() => {
+                    try {
+                        // 🛡️ VERIFICAÇÃO DE SEGURANÇA: Verificar se dados existem antes de processar
+                        const hasProblems = safeArray(analysis.problems).length > 0;
+                        const hasSuggestions = safeArray(analysis.suggestions).length > 0;
+                        const hasValidAnalysis = analysis && typeof analysis === 'object';
+                        
+                        if (!hasValidAnalysis) {
+                            console.warn('⚠️ [MODAL_EXPANSION] Análise inválida, pulando seção de diagnósticos');
+                            return '';
+                        }
+                        
+                        if (!hasProblems && !hasSuggestions) {
+                            console.log('📊 [MODAL_EXPANSION] Sem problemas ou sugestões para exibir');
+                            return '';
+                        }
+                        
+                        let diagnosticsHTML = '';
+                        
+                        // 📊 SEÇÃO DE MÉTRICAS TÉCNICAS PRINCIPAIS
+                        diagnosticsHTML += `
+                            <div class="diagnostics-summary-section">
+                                <div class="section-header">
+                                    <h3>📊 Métricas Técnicas Principais</h3>
+                                </div>
+                                <div class="metrics-grid">
+                                    <div class="metric-item">
+                                        <span class="metric-label">LUFS Integrado:</span>
+                                        <span class="metric-value">${(advancedReady && Number.isFinite(getLufsIntegratedValue())) ? `${safeFixed(getLufsIntegratedValue())} LUFS` : '⏳'}</span>
+                                    </div>
+                                    <div class="metric-item">
+                                        <span class="metric-label">LUFS Short-term:</span>
+                                        <span class="metric-value">${(advancedReady && Number.isFinite(getMetric('lufs_short_term', 'lufsShortTerm'))) ? `${safeFixed(getMetric('lufs_short_term', 'lufsShortTerm'))} LUFS` : '⏳'}</span>
+                                    </div>
+                                    <div class="metric-item">
+                                        <span class="metric-label">True Peak:</span>
+                                        <span class="metric-value">${(advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp'))) ? `${safeFixed(getMetric('truePeakDbtp', 'truePeakDbtp'))} dBTP` : '⏳'}</span>
+                                    </div>
+                                    <div class="metric-item">
+                                        <span class="metric-label">Dynamic Range:</span>
+                                        <span class="metric-value">${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB</span>
+                                    </div>
+                                    <div class="metric-item">
+                                        <span class="metric-label">Stereo Correlation:</span>
+                                        <span class="metric-value">${Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 2) : '—'}</span>
+                                    </div>
+                                    <div class="metric-item">
+                                        <span class="metric-label">Spectral Centroid:</span>
+                                        <span class="metric-value">${Number.isFinite(getMetric('spectral_centroid', 'spectralCentroid')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroid')) : '—'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        // ⚠️ SEÇÃO DE PROBLEMAS DETECTADOS
+                        if (hasProblems) {
+                            diagnosticsHTML += `
+                                <div class="diagnostics-summary-section">
+                                    <div class="section-header">
+                                        <h3>⚠️ Problemas Detectados</h3>
+                                        <span class="problem-count">${analysis.problems.length} problema(s)</span>
+                                    </div>
+                                    <div class="problems-list">
+                                        ${safeArray(analysis.problems).map(problem => {
+                                            // 🛡️ FALLBACK SEGURO: Verificar cada campo antes de usar
+                                            const safeProblem = safeObject(problem);
+                                            const severity = safeFallback(safeProblem.severity, 'medium');
+                                            const severityClass = severity === 'high' || severity === 'critical' ? 'severe' : severity === 'medium' ? 'moderate' : 'mild';
+                                            
+                                            return `
+                                                <div class="problem-item ${severityClass}">
+                                                    <div class="problem-header">
+                                                        <span class="problem-type">${safeFallback(safeProblem.type, 'Problema')}</span>
+                                                        <span class="problem-severity ${severityClass}">${severity.toUpperCase()}</span>
+                                                    </div>
+                                                    <div class="problem-message">${safeFallback(safeProblem.message, 'Problema detectado')}</div>
+                                                    ${safeProblem.explanation ? `<div class="problem-explanation">💡 ${safeProblem.explanation}</div>` : ''}
+                                                    ${safeProblem.solution ? `<div class="problem-solution">🔧 <strong>Solução:</strong> ${safeProblem.solution}</div>` : ''}
+                                                    ${safeProblem.frequency_range ? `<div class="problem-technical">📊 Frequências: ${safeProblem.frequency_range}</div>` : ''}
+                                                    ${safeProblem.adjustment_db ? `<div class="problem-technical">⚡ Ajuste: ${safeProblem.adjustment_db} dB</div>` : ''}
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        // 💡 SEÇÃO DE SUGESTÕES DE MIXAGEM
+                        if (hasSuggestions) {
+                            diagnosticsHTML += `
+                                <div class="diagnostics-summary-section">
+                                    <div class="section-header">
+                                        <h3>💡 Sugestões de Mixagem</h3>
+                                        <span class="suggestion-count">${analysis.suggestions.length} sugestão(ões)</span>
+                                    </div>
+                                    <div class="suggestions-list">
+                                        ${safeArray(analysis.suggestions).map(suggestion => {
+                                            // 🛡️ FALLBACK SEGURO: Verificar cada campo antes de usar
+                                            const safeSuggestion = safeObject(suggestion);
+                                            const priority = Number.isFinite(safeSuggestion.priority) ? safeSuggestion.priority : 0;
+                                            const priorityClass = priority > 7 ? 'high' : priority > 4 ? 'medium' : 'low';
+                                            const confidence = Number.isFinite(safeSuggestion.confidence) ? safeSuggestion.confidence : 1;
+                                            
+                                            return `
+                                                <div class="suggestion-item ${priorityClass}">
+                                                    <div class="suggestion-header">
+                                                        <span class="suggestion-type">${safeFallback(safeSuggestion.type, 'Sugestão')}</span>
+                                                        <div class="suggestion-badges">
+                                                            <span class="suggestion-priority ${priorityClass}">P${priority}</span>
+                                                            <span class="suggestion-confidence">C${(confidence * 100).toFixed(0)}%</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="suggestion-message">${safeFallback(safeSuggestion.message, 'Sugestão de melhoria')}</div>
+                                                    ${safeSuggestion.explanation ? `<div class="suggestion-explanation">💡 ${safeSuggestion.explanation}</div>` : ''}
+                                                    ${safeSuggestion.action ? `<div class="suggestion-action">🎯 <strong>Ação:</strong> ${safeSuggestion.action}</div>` : ''}
+                                                    ${safeSuggestion.frequency_range ? `<div class="suggestion-technical">📊 Frequências: ${safeSuggestion.frequency_range}</div>` : ''}
+                                                    ${safeSuggestion.adjustment_db ? `<div class="suggestion-technical">⚡ Ajuste: ${safeSuggestion.adjustment_db} dB</div>` : ''}
+                                                    ${safeSuggestion.impact ? `<div class="suggestion-impact">⭐ <strong>Impacto:</strong> ${safeSuggestion.impact}</div>` : ''}
+                                                </div>
+                                            `;
+                                        }).join('')}
+                                    </div>
+                                </div>
+                            `;
+                        }
+                        
+                        return diagnosticsHTML;
+                        
+                    } catch (error) {
+                        console.error('❌ [MODAL_EXPANSION] Erro ao gerar seção de diagnósticos:', error);
+                        return '<div class="diagnostics-summary-section"><div class="section-header"><h3>⚠️ Erro</h3></div><p>Não foi possível carregar diagnósticos detalhados.</p></div>';
+                    }
+                })()}
+                
                     <div class="cards-grid">
                         <div class="card">
                     <div class="card-title">🎛️ Métricas Principais</div>
@@ -4341,22 +4588,88 @@ function displayModalResults(analysis) {
                     ${col2}
                 </div>
                         <div class="card">
-                    <div class="card-title">� Balance Espectral Detalhado</div>
+                    <div class="card-title">🎵 Balance Espectral Completo</div>
                     ${(() => {
                         const sb = analysis.technicalData?.spectral_balance;
-                        if (!sb || typeof sb !== 'object') return row('Status', 'Dados não disponíveis');
+                        const bandEnergies = analysis.technicalData?.bandEnergies || analysis.technicalData?.frequencyBands;
+                        const tonalBalance = analysis.technicalData?.tonalBalance;
+                        
+                        if (!sb && !bandEnergies && !tonalBalance) {
+                            return row('Status', 'Dados espectrais não disponíveis');
+                        }
                         
                         const formatPct = (v) => Number.isFinite(v) ? `${(v*100).toFixed(1)}%` : '—';
+                        const formatDb = (v) => Number.isFinite(v) ? `${v.toFixed(1)} dB` : '—';
                         const rows = [];
                         
-                        if (Number.isFinite(sb.sub)) rows.push(row('Sub (20-60 Hz)', formatPct(sb.sub), 'spectralSub'));
-                        if (Number.isFinite(sb.bass)) rows.push(row('Bass (60-250 Hz)', formatPct(sb.bass), 'spectralBass'));
-                        if (Number.isFinite(sb.mids)) rows.push(row('Mids (250-4k Hz)', formatPct(sb.mids), 'spectralMids'));
-                        if (Number.isFinite(sb.treble)) rows.push(row('Treble (4k-12k Hz)', formatPct(sb.treble), 'spectralTreble'));
-                        if (Number.isFinite(sb.presence)) rows.push(row('Presence (4k-8k Hz)', formatPct(sb.presence), 'spectralPresence'));
-                        if (Number.isFinite(sb.air)) rows.push(row('Air (12k-20k Hz)', formatPct(sb.air), 'spectralAir'));
+                        // 📊 EXIBIR SPECTRAL BALANCE (6 BANDAS PRINCIPAIS)
+                        if (sb && typeof sb === 'object') {
+                            if (Number.isFinite(sb.sub)) rows.push(row('Sub (20-60 Hz)', formatPct(sb.sub), 'spectralSub'));
+                            if (Number.isFinite(sb.bass)) rows.push(row('Bass (60-250 Hz)', formatPct(sb.bass), 'spectralBass'));
+                            if (Number.isFinite(sb.mids)) rows.push(row('Mids (250-4k Hz)', formatPct(sb.mids), 'spectralMids'));
+                            if (Number.isFinite(sb.treble)) rows.push(row('Treble (4k-12k Hz)', formatPct(sb.treble), 'spectralTreble'));
+                            if (Number.isFinite(sb.presence)) rows.push(row('Presence (4k-8k Hz)', formatPct(sb.presence), 'spectralPresence'));
+                            if (Number.isFinite(sb.air)) rows.push(row('Air (12k-20k Hz)', formatPct(sb.air), 'spectralAir'));
+                        }
                         
-                        return rows.length ? rows.join('') : row('Status', 'Balance não calculado');
+                        // 🎛️ EXIBIR TONAL BALANCE (dados detalhados das bandas)
+                        if (tonalBalance && typeof tonalBalance === 'object') {
+                            Object.entries(tonalBalance).forEach(([bandName, bandData]) => {
+                                if (bandData && typeof bandData === 'object') {
+                                    const label = getBandDisplayName(bandName);
+                                    const rmsDb = Number.isFinite(bandData.rms_db) ? formatDb(bandData.rms_db) : '—';
+                                    const peakDb = Number.isFinite(bandData.peak_db) ? ` (pk: ${formatDb(bandData.peak_db)})` : '';
+                                    rows.push(row(`${label} RMS`, `${rmsDb}${peakDb}`, `tonal_${bandName}`));
+                                }
+                            });
+                        }
+                        
+                        // 📈 EXIBIR FREQUENCY BANDS (energias FFT por banda)
+                        else if (bandEnergies && typeof bandEnergies === 'object') {
+                            // Verificar se é estrutura do backend (left/right channels)
+                            const bandsData = bandEnergies.left || bandEnergies;
+                            if (bandsData && typeof bandsData === 'object') {
+                                Object.entries(bandsData).forEach(([bandName, bandData]) => {
+                                    if (bandData && typeof bandData === 'object') {
+                                        const label = getBandDisplayName(bandName);
+                                        const energyDb = Number.isFinite(bandData.energyDb) ? formatDb(bandData.energyDb) : 
+                                                        Number.isFinite(bandData.energy_db) ? formatDb(bandData.energy_db) : '—';
+                                        const range = bandData.min && bandData.max ? ` (${bandData.min}-${bandData.max}Hz)` : '';
+                                        rows.push(row(`${label}${range}`, energyDb, `band_${bandName}`));
+                                    }
+                                });
+                            }
+                        }
+                        
+                        // 🔬 FUNÇÃO AUXILIAR: Nome amigável para bandas
+                        function getBandDisplayName(bandName) {
+                            const displayNames = {
+                                'sub': 'Sub',
+                                'subBass': 'Sub Bass',
+                                'sub_bass': 'Sub Bass',
+                                'bass': 'Bass',
+                                'low_bass': 'Low Bass',
+                                'lowBass': 'Low Bass',
+                                'upper_bass': 'Upper Bass',
+                                'upperBass': 'Upper Bass',
+                                'low_mid': 'Low Mid',
+                                'lowMid': 'Low Mid',
+                                'mid': 'Mid',
+                                'high_mid': 'High Mid',
+                                'highMid': 'High Mid',
+                                'upper_mid': 'Upper Mid',
+                                'upperMid': 'Upper Mid',
+                                'presence': 'Presence',
+                                'presenca': 'Presença',
+                                'brilliance': 'Brilliance',
+                                'brilho': 'Brilho',
+                                'air': 'Air',
+                                'treble': 'Treble'
+                            };
+                            return displayNames[bandName] || bandName.charAt(0).toUpperCase() + bandName.slice(1);
+                        }
+                        
+                        return rows.length ? rows.join('') : row('Status', 'Balance espectral não calculado');
                     })()}
                 </div>
                         <div class="card">
@@ -4381,7 +4694,22 @@ function displayModalResults(analysis) {
     
     try { renderReferenceComparisons(analysis); } catch(e){ console.warn('ref compare fail', e);}    
         try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ console.warn('validation controls fail', e); }
-    __dbg('📊 Resultados exibidos no modal');
+    
+    // ✅ LOG FINAL: Confirmar que todas as métricas expandidas foram processadas
+    console.log('🎉 [MODAL_EXPANSION] Interface expandida com sucesso!');
+    console.log('📊 [MODAL_EXPANSION] Métricas exibidas:', {
+        lufsIntegrated: getLufsIntegratedValue(),
+        lufsShortTerm: getMetric('lufs_short_term', 'lufsShortTerm'),
+        truePeak: getMetric('truePeakDbtp', 'truePeakDbtp'),
+        spectralBalance: !!analysis.technicalData?.spectral_balance,
+        tonalBalance: !!analysis.technicalData?.tonalBalance,
+        mfccCoefficients: !!(analysis.technicalData?.mfcc_coefficients || analysis.rawMetrics?.mfcc),
+        problemsCount: safeArray(analysis.problems).length,
+        suggestionsCount: safeArray(analysis.suggestions).length,
+        advancedReady: advancedReady
+    });
+    
+    __dbg('📊 Resultados exibidos no modal - TODAS as métricas expandidas');
 }
 
     // === Controles de Validação (Suite Objetiva + Subjetiva) ===

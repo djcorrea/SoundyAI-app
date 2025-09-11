@@ -27,6 +27,237 @@
     transform: scale(0.95);
 }
 
+/* ============ 📊 NOVA SEÇÃO: DIAGNÓSTICOS E SUGESTÕES ESTRUTURADOS ============ */
+
+/* Seções de diagnósticos principais */
+.diagnostics-summary-section {
+    background: linear-gradient(135deg, rgba(30, 50, 80, 0.8), rgba(20, 35, 60, 0.9));
+    border: 1px solid rgba(100, 150, 200, 0.3);
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    backdrop-filter: blur(8px);
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.section-header h3 {
+    margin: 0;
+    color: #ffffff;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.problem-count, .suggestion-count {
+    background: rgba(255, 100, 100, 0.2);
+    color: #ff6b6b;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.suggestion-count {
+    background: rgba(100, 200, 100, 0.2);
+    color: #4ade80;
+}
+
+/* Grade de métricas principais */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.metric-item {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.metric-label {
+    color: #b0c4de;
+    font-size: 13px;
+    font-weight: 500;
+}
+
+.metric-value {
+    color: #ffffff;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'Courier New', monospace;
+}
+
+/* Lista de problemas */
+.problems-list, .suggestions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.problem-item, .suggestion-item {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 16px;
+    transition: all 0.3s ease;
+}
+
+.problem-item:hover, .suggestion-item:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+}
+
+/* Severidade dos problemas */
+.problem-item.severe {
+    border-left: 4px solid #ff4444;
+    background: rgba(255, 68, 68, 0.1);
+}
+
+.problem-item.moderate {
+    border-left: 4px solid #ffaa44;
+    background: rgba(255, 170, 68, 0.1);
+}
+
+.problem-item.mild {
+    border-left: 4px solid #44ff44;
+    background: rgba(68, 255, 68, 0.1);
+}
+
+/* Prioridade das sugestões */
+.suggestion-item.high {
+    border-left: 4px solid #00d4ff;
+    background: rgba(0, 212, 255, 0.1);
+}
+
+.suggestion-item.medium {
+    border-left: 4px solid #44aaff;
+    background: rgba(68, 170, 255, 0.1);
+}
+
+.suggestion-item.low {
+    border-left: 4px solid #88ccff;
+    background: rgba(136, 204, 255, 0.1);
+}
+
+/* Headers dos problemas e sugestões */
+.problem-header, .suggestion-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.problem-type, .suggestion-type {
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.problem-severity {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.problem-severity.severe {
+    background: #ff4444;
+    color: #ffffff;
+}
+
+.problem-severity.moderate {
+    background: #ffaa44;
+    color: #000000;
+}
+
+.problem-severity.mild {
+    background: #44ff44;
+    color: #000000;
+}
+
+.suggestion-badges {
+    display: flex;
+    gap: 6px;
+}
+
+.suggestion-priority, .suggestion-confidence {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 10px;
+    font-weight: 700;
+}
+
+.suggestion-priority.high {
+    background: #00d4ff;
+    color: #000000;
+}
+
+.suggestion-priority.medium {
+    background: #44aaff;
+    color: #000000;
+}
+
+.suggestion-priority.low {
+    background: #88ccff;
+    color: #000000;
+}
+
+.suggestion-confidence {
+    background: rgba(255, 255, 255, 0.2);
+    color: #ffffff;
+}
+
+/* Conteúdo dos problemas e sugestões */
+.problem-message, .suggestion-message {
+    color: #ffffff;
+    font-size: 14px;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.problem-explanation, .suggestion-explanation {
+    color: #b0c4de;
+    font-size: 12px;
+    margin-bottom: 6px;
+    font-style: italic;
+}
+
+.problem-solution, .suggestion-action {
+    color: #4ade80;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+
+.problem-technical, .suggestion-technical {
+    color: #ffd700;
+    font-size: 11px;
+    font-family: 'Courier New', monospace;
+    margin-bottom: 4px;
+}
+
+.suggestion-impact {
+    color: #ff9f40;
+    font-size: 12px;
+    margin-top: 8px;
+}
+
 /* Modal de análise de áudio */
 .audio-modal {
     position: fixed;
