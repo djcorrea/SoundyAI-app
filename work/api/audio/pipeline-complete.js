@@ -15,6 +15,23 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
   console.log(`📊 Buffer size: ${audioBuffer.length} bytes`);
   console.log(`🔧 Opções:`, options);
 
+  // 🛡️ TIMEOUT RIGOROSO: Máximo 2 minutos por análise
+  const timeoutMs = options.timeoutMs || 120000;
+  
+  return Promise.race([
+    processAudioCompleteInternal(audioBuffer, fileName, options),
+    new Promise((_, reject) => 
+      setTimeout(() => {
+        console.error(`⏰ TIMEOUT: Pipeline excedeu ${timeoutMs/1000}s para ${fileName}`);
+        reject(new Error(`Pipeline timeout após ${timeoutMs/1000} segundos`));
+      }, timeoutMs)
+    )
+  ]);
+}
+
+async function processAudioCompleteInternal(audioBuffer, fileName, options = {}) {
+  const startTime = Date.now();
+
   try {
     // ✅ FASE 5.1: Decodificação
     console.log('🎵 Fase 5.1: Decodificação...');

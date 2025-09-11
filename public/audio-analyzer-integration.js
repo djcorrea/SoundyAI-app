@@ -432,17 +432,23 @@ async function pollJobStatus(jobId) {
                     return;
                 }
 
-                // 🔄 PROCESSANDO - Sistema anti-travamento
+                // 🔄 PROCESSANDO - Sistema anti-travamento melhorado
                 if (jobData.status === 'processing') {
                     if (lastStatus === 'processing') {
                         stuckCount++;
                         
-                        // Se ficar muito tempo em processing, cancelar análise
-                        if (stuckCount >= 15) { // 75 segundos travado (15 * 5s)
+                        // Feedback melhorado para usuário
+                        if (stuckCount >= 10 && stuckCount < 15) {
+                            updateModalProgress(90, `Processamento avançado... (${Math.floor(stuckCount * 5 / 60)}min)`);
+                        } else if (stuckCount >= 15 && stuckCount < 20) {
+                            updateModalProgress(95, `Finalizando análise complexa... arquivo pode ser grande`);
+                        }
+                        
+                        // Timeout mais longo: 2 minutos (24 * 5s = 120s)  
+                        if (stuckCount >= 24) {
                             console.warn(`🚨 Job ${jobId} travado em processing há ${stuckCount * 5}s - cancelando análise`);
                             
-                            // Em vez de tentar resetar (que pode não estar deployado), cancelar a análise
-                            reject(new Error(`Análise cancelada: job travado há ${stuckCount * 5} segundos. Tente novamente com outro arquivo.`));
+                            reject(new Error(`Análise cancelada: arquivo muito complexo ou problemático (${Math.floor(stuckCount * 5 / 60)} minutos). Tente outro arquivo.`));
                             return;
                         }
                     } else {

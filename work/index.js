@@ -307,5 +307,43 @@ async function processJobs() {
   }
 }
 
+// ---------- Sistema de Alerta para Jobs Travados ----------
+async function checkStuckJobs() {
+  try {
+    const stuckJobs = await client.query(`
+      SELECT id, file_key, updated_at, 
+             EXTRACT(EPOCH FROM (NOW() - updated_at))/60 as minutes_stuck
+      FROM jobs 
+      WHERE status = 'processing' 
+      AND updated_at < NOW() - INTERVAL '5 minutes'
+    `);
+    
+    if (stuckJobs.rows.length > 0) {
+      console.error(`🚨 ALERTA: ${stuckJobs.rows.length} jobs travados detectados:`);
+      stuckJobs.rows.forEach(job => {
+        console.error(`   - Job ${job.id}: ${job.file_key} (${Math.floor(job.minutes_stuck)}min travado)`);
+      });
+      
+      // Auto-reset jobs travados há mais de 10 minutos
+      const resetResult = await client.query(`
+        UPDATE jobs 
+        SET status = 'error', 
+            error = 'Job travado por mais de 10 minutos - resetado automaticamente',
+            updated_at = NOW()
+        WHERE status = 'processing' 
+        AND updated_at < NOW() - INTERVAL '10 minutes'
+        RETURNING id
+      `);
+      
+      if (resetResult.rows.length > 0) {
+        console.log(`✅ ${resetResult.rows.length} jobs travados resetados automaticamente`);
+      }
+    }
+  } catch (error) {
+    console.error("❌ Erro ao verificar jobs travados:", error.message);
+  }
+}
+
 setInterval(processJobs, 5000);
+setInterval(checkStuckJobs, 2 * 60 * 1000); // Verificar jobs travados a cada 2 minutos
 processJobs();

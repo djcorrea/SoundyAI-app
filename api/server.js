@@ -6,7 +6,11 @@ import cors from "cors";
 
 const { Pool } = pkg;
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3000;// 🚨 LISTA NEGRA: Arquivos conhecidos por causar travamento
+const BLACKLISTED_FILES = [
+  'uploads/1757557620994.wav',
+  'uploads/1757557104596.wav'
+];
 
 // ---------- CORS restrito ----------
 app.use(
@@ -225,12 +229,27 @@ app.get("/test", async (req, res) => {
   }
 });
 
+
+
+// ---------- Upload com Lista Negra ----------
 app.post("/upload", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
       return res
         .status(400)
-        .json({ error: "Nenhum arquivo enviado ou tipo inválido." });
+        .json({ error: "Nenhum arquivo foi enviado." });
+    }
+
+    // 🛡️ VERIFICAR LISTA NEGRA
+    const originalname = req.file.originalname;
+    const blacklistedNames = ['1757557620994.wav', '1757557104596.wav'];
+    
+    if (blacklistedNames.some(name => originalname.includes(name))) {
+      console.warn(`🚨 Arquivo bloqueado (lista negra): ${originalname}`);
+      return res.status(400).json({ 
+        error: "Este arquivo é conhecido por causar problemas no sistema. Tente outro arquivo.",
+        code: "FILE_BLACKLISTED"
+      });
     }
 
     const key = `uploads/${Date.now()}-${req.file.originalname}`;
