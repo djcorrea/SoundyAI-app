@@ -374,8 +374,17 @@ async function pollJobStatus(jobId) {
                     
                     console.log('🔍 [JOB RESULT] Estrutura completa do resultado:', jobData);
                     console.log('🔍 [JOB RESULT] Keys no jobData:', Object.keys(jobData));
+                    console.log('🔍 [JOB RESULT] jobData.result COMPLETO:', JSON.stringify(jobData.result, null, 2));
                     console.log('🔍 [JOB RESULT] jobData.result keys:', Object.keys(jobData.result || {}));
                     console.log('🔍 [JOB RESULT] Métricas técnicas encontradas:', jobData.result?.technicalData || jobData.result?.metrics || 'NENHUMA');
+                    
+                    // 🚨 AUDITORIA: Verificar se métricas essenciais estão presentes nos dados reais
+                    const resultData = jobData.result || jobData;
+                    console.log('🚨 [AUDIT] PEAK nos dados reais:', resultData?.technicalData?.peak || resultData?.peak || resultData?.metrics?.peak);
+                    console.log('🚨 [AUDIT] RMS nos dados reais:', resultData?.technicalData?.rms || resultData?.rms_level || resultData?.metrics?.rms);
+                    console.log('🚨 [AUDIT] LUFS nos dados reais:', resultData?.technicalData?.lufs_integrated || resultData?.lufs || resultData?.metrics?.lufs_integrated);
+                    console.log('🚨 [AUDIT] TRUE PEAK nos dados reais:', resultData?.technicalData?.true_peak || resultData?.truePeak || resultData?.metrics?.true_peak);
+                    
                     resolve(jobData.result || jobData);
                     return;
                 }
@@ -3351,10 +3360,19 @@ function displayModalResults(analysis) {
         return;
     }
     
-    // 🔧 CORREÇÃO CRÍTICA: Normalizar dados do backend para compatibilidade com front-end
+    // � DEBUG: Log COMPLETO dos dados brutos do backend ANTES da normalização
+    console.log('🚨 [RAW_BACKEND_DATA] DADOS BRUTOS COMPLETOS DO BACKEND:');
+    console.log('🔍 [RAW_BACKEND_DATA] analysis ORIGINAL:', JSON.stringify(analysis, null, 2));
+    console.log('🔍 [RAW_BACKEND_DATA] analysis.technicalData:', analysis?.technicalData);
+    console.log('🔍 [RAW_BACKEND_DATA] analysis.metrics:', analysis?.metrics);
+    console.log('🔍 [RAW_BACKEND_DATA] analysis.raw_data:', analysis?.raw_data);
+    console.log('🔍 [RAW_BACKEND_DATA] analysis.result:', analysis?.result);
+    
+    // �🔧 CORREÇÃO CRÍTICA: Normalizar dados do backend para compatibilidade com front-end
     if (analysis && typeof analysis === 'object') {
         analysis = normalizeBackendAnalysisData(analysis);
-        console.log('📊 [DEBUG] Dados normalizados para exibição:', analysis);
+        console.log('📊 [DEBUG] Dados APÓS normalização:', analysis);
+        console.log('📊 [DEBUG] technicalData APÓS normalização:', analysis?.technicalData);
     }
     
     // Ocultar outras seções
@@ -5547,40 +5565,72 @@ function normalizeBackendAnalysisData(backendData) {
         channels: backendData.channels || 2
     };
     
-    // 🎯 MAPEAR MÉTRICAS BÁSICAS DOS DADOS REAIS DO BACKEND
+    // 🎯 MAPEAR MÉTRICAS BÁSICAS DOS DADOS REAIS DO BACKEND - SEM VALORES PADRÃO/MOCK
     const tech = normalized.technicalData;
     const source = backendData.technicalData || backendData.metrics || backendData;
     
     console.log('🔍 [NORMALIZE] Source technicalData keys:', Object.keys(source));
+    console.log('🔍 [NORMALIZE] Source technicalData values:', source);
     
-    // Peak e RMS (usando campos corretos do backend)
-    tech.peak = source.peak_db || source.peak || source.peakLevel || -60;
-    tech.rms = source.rms_level || source.rms || source.rms_db || source.rmsLevel || -60;
-    tech.rmsLevel = tech.rms;
+    // 🚨 CORREÇÃO CRÍTICA: Só mapear valores que REALMENTE existem nos dados
+    // Peak e RMS (usando campos corretos do backend) - SEM FALLBACK PARA VALORES MOCK
+    if (source.peak_db !== undefined) tech.peak = source.peak_db;
+    else if (source.peak !== undefined) tech.peak = source.peak;
+    else if (source.peakLevel !== undefined) tech.peak = source.peakLevel;
     
-    // Dynamic Range (campo correto do backend)
-    tech.dynamicRange = source.dynamic_range || source.dynamicRange || source.dr || 
-                       (Number.isFinite(tech.peak) && Number.isFinite(tech.rms) ? tech.peak - tech.rms : 12);
+    if (source.rms_level !== undefined) tech.rms = source.rms_level;
+    else if (source.rms !== undefined) tech.rms = source.rms;
+    else if (source.rms_db !== undefined) tech.rms = source.rms_db;
+    else if (source.rmsLevel !== undefined) tech.rms = source.rmsLevel;
     
-    // Crest Factor (campo correto do backend)
-    tech.crestFactor = source.crest_factor || source.crestFactor || tech.dynamicRange || 12;
+    if (tech.rms !== undefined) tech.rmsLevel = tech.rms;
     
-    // True Peak (campo correto do backend)
-    tech.truePeakDbtp = source.true_peak || source.truePeakDbtp || source.true_peak_dbtp || source.truePeak || tech.peak;
+    // Dynamic Range (campo correto do backend) - SEM FALLBACK PARA VALORES MOCK
+    if (source.dynamic_range !== undefined) tech.dynamicRange = source.dynamic_range;
+    else if (source.dynamicRange !== undefined) tech.dynamicRange = source.dynamicRange;
+    else if (source.dr !== undefined) tech.dynamicRange = source.dr;
+    else if (Number.isFinite(tech.peak) && Number.isFinite(tech.rms)) {
+        tech.dynamicRange = tech.peak - tech.rms;
+    }
     
-    // LUFS (campos corretos do backend)
-    tech.lufsIntegrated = source.lufs_integrated || source.lufsIntegrated || source.lufs || -23;
-    tech.lufsShortTerm = source.lufs_short_term || source.lufsShortTerm || tech.lufsIntegrated;
-    tech.lufsMomentary = source.lufs_momentary || source.lufsMomentary || tech.lufsIntegrated;
+    // Crest Factor (campo correto do backend) - SEM FALLBACK PARA VALORES MOCK
+    if (source.crest_factor !== undefined) tech.crestFactor = source.crest_factor;
+    else if (source.crestFactor !== undefined) tech.crestFactor = source.crestFactor;
+    else if (tech.dynamicRange !== undefined) tech.crestFactor = tech.dynamicRange;
     
-    // LRA (campo correto do backend)
-    tech.lra = source.loudness_range || source.lra || source.loudnessRange || 8;
+    // True Peak (campo correto do backend) - SEM FALLBACK PARA VALORES MOCK
+    if (source.true_peak !== undefined) tech.truePeakDbtp = source.true_peak;
+    else if (source.truePeakDbtp !== undefined) tech.truePeakDbtp = source.truePeakDbtp;
+    else if (source.true_peak_dbtp !== undefined) tech.truePeakDbtp = source.true_peak_dbtp;
+    else if (source.truePeak !== undefined) tech.truePeakDbtp = source.truePeak;
     
-    // Headroom (campo correto do backend)
-    tech.headroomDb = source.headroomDb || source.headroom_db || (0 - tech.peak);
-    tech.headroomTruePeakDb = source.headroomTruePeakDb || (0 - tech.truePeakDbtp);
+    // LUFS (campos corretos do backend) - SEM FALLBACK PARA VALORES MOCK
+    if (source.lufs_integrated !== undefined) tech.lufsIntegrated = source.lufs_integrated;
+    else if (source.lufsIntegrated !== undefined) tech.lufsIntegrated = source.lufsIntegrated;
+    else if (source.lufs !== undefined) tech.lufsIntegrated = source.lufs;
     
-    console.log('✅ [NORMALIZE] Métricas mapeadas:', {
+    if (source.lufs_short_term !== undefined) tech.lufsShortTerm = source.lufs_short_term;
+    else if (source.lufsShortTerm !== undefined) tech.lufsShortTerm = source.lufsShortTerm;
+    else if (tech.lufsIntegrated !== undefined) tech.lufsShortTerm = tech.lufsIntegrated;
+    
+    if (source.lufs_momentary !== undefined) tech.lufsMomentary = source.lufs_momentary;
+    else if (source.lufsMomentary !== undefined) tech.lufsMomentary = source.lufsMomentary;
+    else if (tech.lufsIntegrated !== undefined) tech.lufsMomentary = tech.lufsIntegrated;
+    
+    // LRA (campo correto do backend) - SEM FALLBACK PARA VALORES MOCK
+    if (source.loudness_range !== undefined) tech.lra = source.loudness_range;
+    else if (source.lra !== undefined) tech.lra = source.lra;
+    else if (source.loudnessRange !== undefined) tech.lra = source.loudnessRange;
+    
+    // Headroom (campo correto do backend) - SEM FALLBACK PARA VALORES MOCK  
+    if (source.headroomDb !== undefined) tech.headroomDb = source.headroomDb;
+    else if (source.headroom_db !== undefined) tech.headroomDb = source.headroom_db;
+    else if (Number.isFinite(tech.peak)) tech.headroomDb = 0 - tech.peak;
+    
+    if (source.headroomTruePeakDb !== undefined) tech.headroomTruePeakDb = source.headroomTruePeakDb;
+    else if (Number.isFinite(tech.truePeakDbtp)) tech.headroomTruePeakDb = 0 - tech.truePeakDbtp;
+    
+    console.log('✅ [NORMALIZE] Métricas principais mapeadas:', {
         peak: tech.peak,
         rms: tech.rms,
         dynamicRange: tech.dynamicRange,
@@ -5588,51 +5638,68 @@ function normalizeBackendAnalysisData(backendData) {
         truePeak: tech.truePeakDbtp
     });
     
-    // Stereo
-    tech.stereoCorrelation = source.stereoCorrelation || source.stereo_correlation || 0.5;
-    tech.stereoWidth = source.stereoWidth || source.stereo_width || 0.5;
-    tech.balanceLR = source.balanceLR || source.balance_lr || 0;
+    // 🎧 STEREO - SEM FALLBACK PARA VALORES MOCK
+    if (source.stereoCorrelation !== undefined) tech.stereoCorrelation = source.stereoCorrelation;
+    else if (source.stereo_correlation !== undefined) tech.stereoCorrelation = source.stereo_correlation;
     
-    // Spectral
-    tech.spectralCentroid = source.spectralCentroid || source.spectral_centroid || 1000;
-    tech.spectralRolloff = source.spectralRolloff || source.spectral_rolloff || 5000;
-    tech.zeroCrossingRate = source.zeroCrossingRate || source.zero_crossing_rate || 0.1;
-    tech.spectralFlux = source.spectralFlux || source.spectral_flux || 0.5;
-    tech.spectralFlatness = source.spectralFlatness || source.spectral_flatness || 0.1;
+    if (source.stereoWidth !== undefined) tech.stereoWidth = source.stereoWidth;
+    else if (source.stereo_width !== undefined) tech.stereoWidth = source.stereo_width;
     
-    // Problemas técnicos
-    tech.clippingSamples = source.clippingSamples || source.clipping_samples || 0;
-    tech.clippingPct = source.clippingPct || source.clipping_pct || 0;
-    tech.dcOffset = source.dcOffset || source.dc_offset || 0;
-    tech.thdPercent = source.thdPercent || source.thd_percent || 0;
+    if (source.balanceLR !== undefined) tech.balanceLR = source.balanceLR;
+    else if (source.balance_lr !== undefined) tech.balanceLR = source.balance_lr;
     
-    // Sample peaks por canal
-    tech.samplePeakLeftDb = source.samplePeakLeftDb || source.sample_peak_left_db || tech.peak;
-    tech.samplePeakRightDb = source.samplePeakRightDb || source.sample_peak_right_db || tech.peak;
+    // 🎵 SPECTRAL - SEM FALLBACK PARA VALORES MOCK
+    if (source.spectralCentroid !== undefined) tech.spectralCentroid = source.spectralCentroid;
+    else if (source.spectral_centroid !== undefined) tech.spectralCentroid = source.spectral_centroid;
     
-    // 🎵 SPECTRAL BALANCE - Mapear dados espectrais REAIS do backend
+    if (source.spectralRolloff !== undefined) tech.spectralRolloff = source.spectralRolloff;
+    else if (source.spectral_rolloff !== undefined) tech.spectralRolloff = source.spectral_rolloff;
+    
+    if (source.zeroCrossingRate !== undefined) tech.zeroCrossingRate = source.zeroCrossingRate;
+    else if (source.zero_crossing_rate !== undefined) tech.zeroCrossingRate = source.zero_crossing_rate;
+    
+    if (source.spectralFlux !== undefined) tech.spectralFlux = source.spectralFlux;
+    else if (source.spectral_flux !== undefined) tech.spectralFlux = source.spectral_flux;
+    
+    if (source.spectralFlatness !== undefined) tech.spectralFlatness = source.spectralFlatness;
+    else if (source.spectral_flatness !== undefined) tech.spectralFlatness = source.spectral_flatness;
+    
+    // ⚠️ PROBLEMAS TÉCNICOS - SEM FALLBACK PARA VALORES MOCK
+    if (source.clippingSamples !== undefined) tech.clippingSamples = source.clippingSamples;
+    else if (source.clipping_samples !== undefined) tech.clippingSamples = source.clipping_samples;
+    
+    if (source.clippingPct !== undefined) tech.clippingPct = source.clippingPct;
+    else if (source.clipping_pct !== undefined) tech.clippingPct = source.clipping_pct;
+    
+    if (source.dcOffset !== undefined) tech.dcOffset = source.dcOffset;
+    else if (source.dc_offset !== undefined) tech.dcOffset = source.dc_offset;
+    
+    if (source.thdPercent !== undefined) tech.thdPercent = source.thdPercent;
+    else if (source.thd_percent !== undefined) tech.thdPercent = source.thd_percent;
+    
+    // 📊 SAMPLE PEAKS POR CANAL - SEM FALLBACK PARA VALORES MOCK
+    if (source.samplePeakLeftDb !== undefined) tech.samplePeakLeftDb = source.samplePeakLeftDb;
+    else if (source.sample_peak_left_db !== undefined) tech.samplePeakLeftDb = source.sample_peak_left_db;
+    
+    if (source.samplePeakRightDb !== undefined) tech.samplePeakRightDb = source.samplePeakRightDb;
+    else if (source.sample_peak_right_db !== undefined) tech.samplePeakRightDb = source.sample_peak_right_db;
+    
+    // 🎵 SPECTRAL BALANCE - Mapear dados espectrais REAIS do backend APENAS se existirem
     if (source.spectral_balance || source.spectralBalance || source.bands) {
-        const spectralSource = source.spectral_balance || source.spectralBalance || {};
-        tech.spectral_balance = {
-            sub: spectralSource.sub || 0.1,
-            bass: spectralSource.bass || 0.2,
-            mids: spectralSource.mids || 0.3,
-            treble: spectralSource.treble || 0.2,
-            presence: spectralSource.presence || 0.15,
-            air: spectralSource.air || 0.05
-        };
+        const spectralSource = source.spectral_balance || source.spectralBalance || source.bands || {};
+        tech.spectral_balance = {};
+        
+        // Só adicionar valores que realmente existem
+        if (spectralSource.sub !== undefined) tech.spectral_balance.sub = spectralSource.sub;
+        if (spectralSource.bass !== undefined) tech.spectral_balance.bass = spectralSource.bass;
+        if (spectralSource.mids !== undefined) tech.spectral_balance.mids = spectralSource.mids;
+        if (spectralSource.treble !== undefined) tech.spectral_balance.treble = spectralSource.treble;
+        if (spectralSource.presence !== undefined) tech.spectral_balance.presence = spectralSource.presence;
+        if (spectralSource.air !== undefined) tech.spectral_balance.air = spectralSource.air;
+        
         console.log('✅ [NORMALIZE] Spectral balance encontrado:', tech.spectral_balance);
     } else {
-        // Valores padrão se não houver dados espectrais
-        tech.spectral_balance = {
-            sub: 0.1,
-            bass: 0.25,
-            mids: 0.35,
-            treble: 0.2,
-            presence: 0.08,
-            air: 0.02
-        };
-        console.log('⚠️ [NORMALIZE] Usando valores padrão para spectral_balance');
+        console.log('⚠️ [NORMALIZE] Nenhum dado de spectral_balance encontrado nos dados do backend');
     }
     
     // 🎶 BAND ENERGIES - Mapear energias das bandas de frequência do tonalBalance
