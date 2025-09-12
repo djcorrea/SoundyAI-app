@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste Correções Pipeline</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #0f1419;
+            color: #e6e6e6;
+        }
+        .test-section {
+            background: #1a1f2e;
+            border: 1px solid #2d3748;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 6px;
+            font-family: monospace;
+        }
+        .success { background: #1a2e1a; border-left: 4px solid #22c55e; }
+        .error { background: #2e1a1a; border-left: 4px solid #ef4444; }
+        .warning { background: #2e2a1a; border-left: 4px solid #f59e0b; }
+        .info { background: #1a2a2e; border-left: 4px solid #3b82f6; }
+        pre {
+            background: #111827;
+            padding: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 12px;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 10px 10px 10px 0;
+        }
+        button:hover { background: #2563eb; }
+        .upload-test {
+            border: 2px dashed #4b5563;
+            padding: 30px;
+            text-align: center;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste das Correções - Pipeline Backend → UI</h1>
+    
+    <div class="test-section">
+        <h2>📋 Checklist de Validação</h2>
+        <p>Este teste verifica se as correções implementadas resolveram os problemas identificados na auditoria.</p>
+        
+        <div id="checklist">
+            <div>⏳ Carregando funções...</div>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>🔧 Teste de Normalização</h2>
+        <button onclick="testNormalization()">Executar Teste</button>
+        <div id="normalization-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>🛡️ Teste de Proteção Null</h2>
+        <button onclick="testNullProtection()">Executar Teste</button>
+        <div id="null-protection-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>🎯 Teste de Upload Real</h2>
+        <p>Para teste completo, faça upload de um arquivo real:</p>
+        
+        <div class="upload-test">
+            <p>📁 Arraste um arquivo MP3/WAV aqui ou clique para selecionar</p>
+            <input type="file" id="audioFile" accept=".mp3,.wav,.flac" style="margin: 10px;">
+            <br>
+            <button onclick="testRealUpload()">Testar Upload Real</button>
+        </div>
+        
+        <div id="upload-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>📊 Console Log</h2>
+        <p>Monitore o console do navegador para logs detalhados:</p>
+        <pre id="console-preview">
+Logs aparecerão aqui...
+        </pre>
+        <button onclick="clearConsolePreview()">Limpar</button>
+    </div>
+
+    <!-- Incluir scripts necessários -->
+    <script src="status-suggestion-unified-v1.js"></script>
+    <script src="audio-analyzer-integration.js"></script>
+    
+    <script>
+        // Capturar logs do console
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+        
+        function addToConsolePreview(level, ...args) {
+            const preview = document.getElementById('console-preview');
+            const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)).join(' ');
+            const timestamp = new Date().toLocaleTimeString();
+            preview.textContent += `[${timestamp}] ${level.toUpperCase()}: ${message}\n`;
+            preview.scrollTop = preview.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            addToConsolePreview('log', ...args);
+        };
+        
+        console.warn = function(...args) {
+            originalWarn.apply(console, args);
+            addToConsolePreview('warn', ...args);
+        };
+        
+        console.error = function(...args) {
+            originalError.apply(console, args);
+            addToConsolePreview('error', ...args);
+        };
+        
+        function clearConsolePreview() {
+            document.getElementById('console-preview').textContent = 'Console limpo...\n';
+        }
+        
+        // Dados mock baseados no payload real
+        const mockBackendData = {
+            "mode": "pipeline_complete_mathematical",
+            "status": "success",
+            "qualityOverall": 10,
+            "classification": "Excepcional",
+            "scoringMethod": "equal_weight_v3_mathematical",
+            "problems": [],
+            "suggestions": ["Análise completa finalizada"],
+            "technicalData": {
+                "peak_db": -14.6,
+                "rms_level": -26.4,
+                "lufs_integrated": -16.6,
+                "true_peak": -1.83,
+                "dynamic_range": 7.9,
+                "crest_factor": 11.8,
+                "stereo_correlation": 0.78,
+                "stereo_width": 0.61,
+                "spectral_centroid": 2409,
+                "tonalBalance": {
+                    "low": { "rms_db": -26.857, "peak_db": -13.944, "energy_ratio": 0.243 },
+                    "mid": { "rms_db": -24.720, "peak_db": -12.361, "energy_ratio": 0.549 }
+                }
+            }
+        };
+        
+        function testNormalization() {
+            const results = document.getElementById('normalization-results');
+            results.innerHTML = '<p>🔄 Executando teste...</p>';
+            
+            try {
+                if (typeof normalizeBackendAnalysisData === 'function') {
+                    const normalized = normalizeBackendAnalysisData(mockBackendData);
+                    
+                    const tests = [
+                        { backend: 'peak_db', ui: 'peak', expected: -14.6 },
+                        { backend: 'rms_level', ui: 'rms', expected: -26.4 },
+                        { backend: 'lufs_integrated', ui: 'lufsIntegrated', expected: -16.6 },
+                        { backend: 'true_peak', ui: 'truePeakDbtp', expected: -1.83 },
+                        { backend: 'dynamic_range', ui: 'dynamicRange', expected: 7.9 },
+                        { backend: 'crest_factor', ui: 'crestFactor', expected: 11.8 },
+                        { backend: 'stereo_correlation', ui: 'stereoCorrelation', expected: 0.78 },
+                        { backend: 'qualityOverall', ui: 'score', expected: 10 }
+                    ];
+                    
+                    let html = '<h3>📊 Resultados dos Mapeamentos:</h3>';
+                    let passedTests = 0;
+                    
+                    tests.forEach(test => {
+                        const actualValue = test.ui === 'score' ? normalized[test.ui] : normalized.technicalData?.[test.ui];
+                        const passed = actualValue === test.expected;
+                        
+                        html += `<div class="${passed ? 'success' : 'error'} test-result">
+                            ${passed ? '✅' : '❌'} ${test.backend} → ${test.ui}: ${actualValue} (esperado: ${test.expected})
+                        </div>`;
+                        
+                        if (passed) passedTests++;
+                    });
+                    
+                    html += `<div class="${passedTests === tests.length ? 'success' : 'warning'} test-result">
+                        <strong>📊 Resultado Final: ${passedTests}/${tests.length} testes passaram</strong>
+                    </div>`;
+                    
+                    results.innerHTML = html;
+                    
+                } else {
+                    results.innerHTML = '<div class="error test-result">❌ Função normalizeBackendAnalysisData não encontrada</div>';
+                }
+            } catch (error) {
+                results.innerHTML = `<div class="error test-result">❌ Erro: ${error.message}</div>`;
+            }
+        }
+        
+        function testNullProtection() {
+            const results = document.getElementById('null-protection-results');
+            results.innerHTML = '<p>🔄 Executando teste...</p>';
+            
+            try {
+                if (typeof calcularStatusSugestaoUnificado === 'function') {
+                    const nullTests = [
+                        { valor: null, alvo: -14, tolerancia: 0.2, metrica: 'LUFS' },
+                        { valor: undefined, alvo: -14, tolerancia: 0.2, metrica: 'Peak' },
+                        { valor: -16.6, alvo: null, tolerancia: 0.2, metrica: 'RMS' }
+                    ];
+                    
+                    let html = '<h3>🛡️ Resultados dos Testes Null:</h3>';
+                    let passedTests = 0;
+                    
+                    nullTests.forEach((test, i) => {
+                        try {
+                            const result = calcularStatusSugestaoUnificado(test.valor, test.alvo, test.tolerancia, ' LUFS', test.metrica);
+                            const handledGracefully = result.status && result.status !== 'indefinido' && result.erro;
+                            
+                            html += `<div class="${handledGracefully ? 'success' : 'error'} test-result">
+                                ${handledGracefully ? '✅' : '❌'} Teste ${i+1}: status="${result.status}", erro="${result.erro}"
+                            </div>`;
+                            
+                            if (handledGracefully) passedTests++;
+                        } catch (error) {
+                            html += `<div class="error test-result">❌ Teste ${i+1}: Exceção - ${error.message}</div>`;
+                        }
+                    });
+                    
+                    html += `<div class="${passedTests === nullTests.length ? 'success' : 'warning'} test-result">
+                        <strong>📊 Resultado Final: ${passedTests}/${nullTests.length} testes de null passaram</strong>
+                    </div>`;
+                    
+                    results.innerHTML = html;
+                    
+                } else {
+                    results.innerHTML = '<div class="error test-result">❌ Função calcularStatusSugestaoUnificado não encontrada</div>';
+                }
+            } catch (error) {
+                results.innerHTML = `<div class="error test-result">❌ Erro: ${error.message}</div>`;
+            }
+        }
+        
+        function testRealUpload() {
+            const results = document.getElementById('upload-results');
+            const fileInput = document.getElementById('audioFile');
+            
+            if (!fileInput.files.length) {
+                results.innerHTML = '<div class="warning test-result">⚠️ Selecione um arquivo primeiro</div>';
+                return;
+            }
+            
+            results.innerHTML = '<div class="info test-result">🔄 Para teste real, use a interface principal de upload</div>';
+        }
+        
+        // Verificar disponibilidade das funções
+        function checkFunctions() {
+            const checklist = document.getElementById('checklist');
+            let html = '<h3>🔍 Status das Funções:</h3>';
+            
+            const functions = [
+                'normalizeBackendAnalysisData',
+                'calcularStatusSugestaoUnificado',
+                'displayModalResults'
+            ];
+            
+            functions.forEach(funcName => {
+                const available = typeof window[funcName] === 'function';
+                html += `<div class="${available ? 'success' : 'error'} test-result">
+                    ${available ? '✅' : '❌'} ${funcName}
+                </div>`;
+            });
+            
+            checklist.innerHTML = html;
+        }
+        
+        // Verificar funções quando a página carregar
+        window.addEventListener('load', () => {
+            setTimeout(checkFunctions, 500);
+        });
+    </script>
+</body>
+</html>

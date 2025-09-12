@@ -3373,6 +3373,49 @@ function displayModalResults(analysis) {
         analysis = normalizeBackendAnalysisData(analysis);
         console.log('📊 [DEBUG] Dados APÓS normalização:', analysis);
         console.log('📊 [DEBUG] technicalData APÓS normalização:', analysis?.technicalData);
+        
+        // 🔍 TELEMETRIA CRÍTICA: Verificar se métricas essenciais foram mapeadas
+        console.log('🔍 [AUDIT_METRICS] Verificação pós-normalização:');
+        console.log('🔍 [AUDIT_METRICS] peak:', analysis.technicalData?.peak, '(from backend peak_db)');
+        console.log('🔍 [AUDIT_METRICS] rms:', analysis.technicalData?.rms, '(from backend rms_level)');
+        console.log('🔍 [AUDIT_METRICS] lufsIntegrated:', analysis.technicalData?.lufsIntegrated, '(from backend lufs_integrated)');
+        console.log('🔍 [AUDIT_METRICS] truePeakDbtp:', analysis.technicalData?.truePeakDbtp, '(from backend true_peak)');
+        console.log('🔍 [AUDIT_METRICS] dynamicRange:', analysis.technicalData?.dynamicRange, '(from backend dynamic_range)');
+        console.log('🔍 [AUDIT_METRICS] crestFactor:', analysis.technicalData?.crestFactor, '(from backend crest_factor)');
+        console.log('🔍 [AUDIT_METRICS] stereoCorrelation:', analysis.technicalData?.stereoCorrelation, '(from backend stereo_correlation)');
+        console.log('🔍 [AUDIT_METRICS] score:', analysis.score, '(from backend qualityOverall)');
+        console.log('🔍 [AUDIT_METRICS] classification:', analysis.classification);
+
+        // Telemetria de completude
+        const requiredFields = ['peak', 'rms', 'lufsIntegrated', 'truePeakDbtp', 'dynamicRange'];
+        const missingFields = requiredFields.filter(f => !Number.isFinite(analysis.technicalData?.[f]));
+        const hasAllMainMetrics = missingFields.length === 0;
+        const hasScore = Number.isFinite(analysis.score);
+        const hasClassification = !!analysis.classification;
+        
+        console.log('🔍 [AUDIT_COMPLETENESS] Resumo final:');
+        console.log('🔍 [AUDIT_COMPLETENESS] Missing fields:', missingFields);
+        console.log('🔍 [AUDIT_COMPLETENESS] Has all main metrics:', hasAllMainMetrics);
+        console.log('🔍 [AUDIT_COMPLETENESS] Has score:', hasScore);
+        console.log('🔍 [AUDIT_COMPLETENESS] Has classification:', hasClassification);
+        
+        // Expor para debug global
+        window.__DEBUG_ANALYSIS = { 
+            analysis, 
+            missingFields, 
+            hasAllMainMetrics,
+            hasScore,
+            hasClassification,
+            runId: analysis?.runId || analysis?.metadata?.runId,
+            timestamp: new Date().toISOString()
+        };
+        
+        // Status para validação manual
+        if (hasAllMainMetrics && hasScore) {
+            console.log('✅ [PIPELINE_STATUS] BACKEND_PAYLOAD_OK + NORMALIZE_OK - Pronto para renderização');
+        } else {
+            console.warn('⚠️ [PIPELINE_STATUS] DADOS INCOMPLETOS - Alguns campos podem ficar vazios');
+        }
     }
     
     // Ocultar outras seções
@@ -4657,6 +4700,14 @@ function displayModalResults(analysis) {
     });
     
     __dbg('📊 Resultados exibidos no modal - TODAS as métricas expandidas');
+    
+    // 🔍 LOG FINAL DE VALIDAÇÃO
+    console.log('✅ [UI_RENDER_OK] Modal renderizado com sucesso!');
+    console.log('🔍 [UI_RENDER_OK] Verificação final das seções:');
+    console.log('🔍 [UI_RENDER_OK] - Métricas Principais preenchidas:', !!document.querySelector('.data-row .value') && document.querySelector('.data-row .value').textContent !== '—');
+    console.log('🔍 [UI_RENDER_OK] - Score disponível:', !!analysis.score);
+    console.log('🔍 [UI_RENDER_OK] - Classificação disponível:', !!analysis.classification);
+    console.log('🔍 [UI_RENDER_OK] - RunId:', analysis?.runId || analysis?.metadata?.runId || 'N/A');
 }
 
     // === Controles de Validação (Suite Objetiva + Subjetiva) ===
@@ -4889,6 +4940,13 @@ function renderReferenceComparisons(analysis) {
     const rows = [];
     const nf = (n, d=2) => Number.isFinite(n) ? n.toFixed(d) : '—';
     const pushRow = (label, val, target, tol, unit='') => {
+        // 🛡️ GUARD CRÍTICO: Skip métricas indisponíveis com logging detalhado
+        if (!Number.isFinite(val)) {
+            const valInfo = val === null ? 'NULL' : val === undefined ? 'UNDEFINED' : String(val);
+            console.warn(`[REF_COMPARE] Métrica '${label}' não disponível (val=${valInfo}) - SKIP DA LINHA`);
+            return; // Não adicionar linha na tabela se valor não está disponível
+        }
+        
         // Usar sistema de enhancement se disponível
         const enhancedLabel = (typeof window !== 'undefined' && window.enhanceRowLabel) 
             ? window.enhanceRowLabel(label, label.toLowerCase().replace(/[^a-z]/g, '')) 
@@ -4896,7 +4954,6 @@ function renderReferenceComparisons(analysis) {
             
         // Tratar target null ou NaN como N/A explicitamente
         const targetIsNA = (target == null || target === '' || (typeof target==='number' && !Number.isFinite(target)));
-        if (!Number.isFinite(val) && targetIsNA) return; // nada útil
         if (targetIsNA) {
             rows.push(`<tr>
                 <td>${enhancedLabel}</td>
@@ -4905,6 +4962,7 @@ function renderReferenceComparisons(analysis) {
             </tr>`);
             return;
         }
+        
         const diff = Number.isFinite(val) && Number.isFinite(target) ? (val - target) : null;
         
         // Usar nova função de célula melhorada se disponível
@@ -5572,49 +5630,62 @@ function normalizeBackendAnalysisData(backendData) {
     console.log('🔍 [NORMALIZE] Source technicalData keys:', Object.keys(source));
     console.log('🔍 [NORMALIZE] Source technicalData values:', source);
     
-    // 🚨 CORREÇÃO CRÍTICA: Só mapear valores que REALMENTE existem nos dados
-    // Peak e RMS (usando campos corretos do backend) - SEM FALLBACK PARA VALORES MOCK
-    if (source.peak_db !== undefined) tech.peak = source.peak_db;
-    else if (source.peak !== undefined) tech.peak = source.peak;
+    // 🚨 CORREÇÃO CRÍTICA: Mapear TODOS os campos snake_case → camelCase do backend
+    // Peak e RMS (usando campos corretos do backend) - MAPEAMENTO COMPLETO
+    if (source.peak_db !== undefined) {
+        tech.peak = source.peak_db;
+        tech.peakDb = source.peak_db; // Alias para compatibilidade
+    } else if (source.peak !== undefined) tech.peak = source.peak;
     else if (source.peakLevel !== undefined) tech.peak = source.peakLevel;
     
-    if (source.rms_level !== undefined) tech.rms = source.rms_level;
-    else if (source.rms !== undefined) tech.rms = source.rms;
+    if (source.rms_level !== undefined) {
+        tech.rms = source.rms_level;
+        tech.rmsLevel = source.rms_level; // Alias para compatibilidade
+    } else if (source.rms !== undefined) tech.rms = source.rms;
     else if (source.rms_db !== undefined) tech.rms = source.rms_db;
     else if (source.rmsLevel !== undefined) tech.rms = source.rmsLevel;
     
-    if (tech.rms !== undefined) tech.rmsLevel = tech.rms;
+    if (tech.rms !== undefined && tech.rmsLevel === undefined) tech.rmsLevel = tech.rms;
     
-    // Dynamic Range (campo correto do backend) - SEM FALLBACK PARA VALORES MOCK
-    if (source.dynamic_range !== undefined) tech.dynamicRange = source.dynamic_range;
-    else if (source.dynamicRange !== undefined) tech.dynamicRange = source.dynamicRange;
+    // Dynamic Range (campo correto do backend) - MAPEAMENTO COMPLETO
+    if (source.dynamic_range !== undefined) {
+        tech.dynamicRange = source.dynamic_range;
+        tech.dr = source.dynamic_range; // Alias para compatibilidade
+    } else if (source.dynamicRange !== undefined) tech.dynamicRange = source.dynamicRange;
     else if (source.dr !== undefined) tech.dynamicRange = source.dr;
     else if (Number.isFinite(tech.peak) && Number.isFinite(tech.rms)) {
         tech.dynamicRange = tech.peak - tech.rms;
     }
     
-    // Crest Factor (campo correto do backend) - SEM FALLBACK PARA VALORES MOCK
-    if (source.crest_factor !== undefined) tech.crestFactor = source.crest_factor;
-    else if (source.crestFactor !== undefined) tech.crestFactor = source.crestFactor;
+    // Crest Factor (campo correto do backend) - MAPEAMENTO COMPLETO
+    if (source.crest_factor !== undefined) {
+        tech.crestFactor = source.crest_factor;
+    } else if (source.crestFactor !== undefined) tech.crestFactor = source.crestFactor;
     else if (tech.dynamicRange !== undefined) tech.crestFactor = tech.dynamicRange;
     
-    // True Peak (campo correto do backend) - SEM FALLBACK PARA VALORES MOCK
-    if (source.true_peak !== undefined) tech.truePeakDbtp = source.true_peak;
-    else if (source.truePeakDbtp !== undefined) tech.truePeakDbtp = source.truePeakDbtp;
+    // True Peak (campo correto do backend) - MAPEAMENTO COMPLETO
+    if (source.true_peak !== undefined) {
+        tech.truePeakDbtp = source.true_peak;
+        tech.truePeak = source.true_peak; // Alias para compatibilidade
+    } else if (source.truePeakDbtp !== undefined) tech.truePeakDbtp = source.truePeakDbtp;
     else if (source.true_peak_dbtp !== undefined) tech.truePeakDbtp = source.true_peak_dbtp;
     else if (source.truePeak !== undefined) tech.truePeakDbtp = source.truePeak;
     
-    // LUFS (campos corretos do backend) - SEM FALLBACK PARA VALORES MOCK
-    if (source.lufs_integrated !== undefined) tech.lufsIntegrated = source.lufs_integrated;
-    else if (source.lufsIntegrated !== undefined) tech.lufsIntegrated = source.lufsIntegrated;
+    // LUFS (campos corretos do backend) - MAPEAMENTO COMPLETO
+    if (source.lufs_integrated !== undefined) {
+        tech.lufsIntegrated = source.lufs_integrated;
+        tech.lufs = source.lufs_integrated; // Alias para compatibilidade
+    } else if (source.lufsIntegrated !== undefined) tech.lufsIntegrated = source.lufsIntegrated;
     else if (source.lufs !== undefined) tech.lufsIntegrated = source.lufs;
     
-    if (source.lufs_short_term !== undefined) tech.lufsShortTerm = source.lufs_short_term;
-    else if (source.lufsShortTerm !== undefined) tech.lufsShortTerm = source.lufsShortTerm;
+    if (source.lufs_short_term !== undefined) {
+        tech.lufsShortTerm = source.lufs_short_term;
+    } else if (source.lufsShortTerm !== undefined) tech.lufsShortTerm = source.lufsShortTerm;
     else if (tech.lufsIntegrated !== undefined) tech.lufsShortTerm = tech.lufsIntegrated;
     
-    if (source.lufs_momentary !== undefined) tech.lufsMomentary = source.lufs_momentary;
-    else if (source.lufsMomentary !== undefined) tech.lufsMomentary = source.lufsMomentary;
+    if (source.lufs_momentary !== undefined) {
+        tech.lufsMomentary = source.lufs_momentary;
+    } else if (source.lufsMomentary !== undefined) tech.lufsMomentary = source.lufsMomentary;
     else if (tech.lufsIntegrated !== undefined) tech.lufsMomentary = tech.lufsIntegrated;
     
     // LRA (campo correto do backend) - SEM FALLBACK PARA VALORES MOCK
@@ -5638,31 +5709,39 @@ function normalizeBackendAnalysisData(backendData) {
         truePeak: tech.truePeakDbtp
     });
     
-    // 🎧 STEREO - SEM FALLBACK PARA VALORES MOCK
-    if (source.stereoCorrelation !== undefined) tech.stereoCorrelation = source.stereoCorrelation;
-    else if (source.stereo_correlation !== undefined) tech.stereoCorrelation = source.stereo_correlation;
+    // 🎧 STEREO - MAPEAMENTO COMPLETO
+    if (source.stereo_correlation !== undefined) {
+        tech.stereoCorrelation = source.stereo_correlation;
+    } else if (source.stereoCorrelation !== undefined) tech.stereoCorrelation = source.stereoCorrelation;
     
-    if (source.stereoWidth !== undefined) tech.stereoWidth = source.stereoWidth;
-    else if (source.stereo_width !== undefined) tech.stereoWidth = source.stereo_width;
+    if (source.stereo_width !== undefined) {
+        tech.stereoWidth = source.stereo_width;
+    } else if (source.stereoWidth !== undefined) tech.stereoWidth = source.stereoWidth;
     
-    if (source.balanceLR !== undefined) tech.balanceLR = source.balanceLR;
-    else if (source.balance_lr !== undefined) tech.balanceLR = source.balance_lr;
+    if (source.balance_lr !== undefined) {
+        tech.balanceLR = source.balance_lr;
+    } else if (source.balanceLR !== undefined) tech.balanceLR = source.balanceLR;
     
-    // 🎵 SPECTRAL - SEM FALLBACK PARA VALORES MOCK
-    if (source.spectralCentroid !== undefined) tech.spectralCentroid = source.spectralCentroid;
-    else if (source.spectral_centroid !== undefined) tech.spectralCentroid = source.spectral_centroid;
+    // 🎵 SPECTRAL - MAPEAMENTO COMPLETO
+    if (source.spectral_centroid !== undefined) {
+        tech.spectralCentroid = source.spectral_centroid;
+    } else if (source.spectralCentroid !== undefined) tech.spectralCentroid = source.spectralCentroid;
     
-    if (source.spectralRolloff !== undefined) tech.spectralRolloff = source.spectralRolloff;
-    else if (source.spectral_rolloff !== undefined) tech.spectralRolloff = source.spectral_rolloff;
+    if (source.spectral_rolloff !== undefined) {
+        tech.spectralRolloff = source.spectral_rolloff;
+    } else if (source.spectralRolloff !== undefined) tech.spectralRolloff = source.spectralRolloff;
     
-    if (source.zeroCrossingRate !== undefined) tech.zeroCrossingRate = source.zeroCrossingRate;
-    else if (source.zero_crossing_rate !== undefined) tech.zeroCrossingRate = source.zero_crossing_rate;
+    if (source.zero_crossing_rate !== undefined) {
+        tech.zeroCrossingRate = source.zero_crossing_rate;
+    } else if (source.zeroCrossingRate !== undefined) tech.zeroCrossingRate = source.zeroCrossingRate;
     
-    if (source.spectralFlux !== undefined) tech.spectralFlux = source.spectralFlux;
-    else if (source.spectral_flux !== undefined) tech.spectralFlux = source.spectral_flux;
+    if (source.spectral_flux !== undefined) {
+        tech.spectralFlux = source.spectral_flux;
+    } else if (source.spectralFlux !== undefined) tech.spectralFlux = source.spectralFlux;
     
-    if (source.spectralFlatness !== undefined) tech.spectralFlatness = source.spectralFlatness;
-    else if (source.spectral_flatness !== undefined) tech.spectralFlatness = source.spectral_flatness;
+    if (source.spectral_flatness !== undefined) {
+        tech.spectralFlatness = source.spectral_flatness;
+    } else if (source.spectralFlatness !== undefined) tech.spectralFlatness = source.spectralFlatness;
     
     // ⚠️ PROBLEMAS TÉCNICOS - SEM FALLBACK PARA VALORES MOCK
     if (source.clippingSamples !== undefined) tech.clippingSamples = source.clippingSamples;
@@ -5878,13 +5957,62 @@ function normalizeBackendAnalysisData(backendData) {
         }
     }
     
+    // 🎯 CORREÇÃO CRÍTICA: Mapear score e classificação principal
+    if (backendData.qualityOverall !== undefined) {
+        normalized.score = backendData.qualityOverall;
+        normalized.qualityOverall = backendData.qualityOverall; // Manter original
+    } else if (backendData.score !== undefined) {
+        normalized.score = backendData.score;
+        normalized.qualityOverall = backendData.score;
+    } else if (backendData.overallScore !== undefined) {
+        normalized.score = backendData.overallScore;
+        normalized.qualityOverall = backendData.overallScore;
+    }
+    
+    if (backendData.classification !== undefined) {
+        normalized.classification = backendData.classification;
+    }
+    
+    if (backendData.scoringMethod !== undefined) {
+        normalized.scoringMethod = backendData.scoringMethod;
+    }
+    
+    // 🎯 Garantir que problemas e sugestões estejam mapeados
+    if (Array.isArray(backendData.problems)) {
+        normalized.problems = backendData.problems;
+    }
+    
+    if (Array.isArray(backendData.suggestions)) {
+        normalized.suggestions = backendData.suggestions;
+    }
+    
+    // 🔍 TELEMETRIA: Log de completude das métricas
+    const requiredFields = ['peak', 'rms', 'lufsIntegrated', 'truePeakDbtp', 'dynamicRange', 'crestFactor'];
+    const missingMainMetrics = requiredFields.filter(f => !Number.isFinite(tech[f]));
+    const hasScore = Number.isFinite(normalized.score);
+    const hasClassification = !!normalized.classification;
+    
+    console.log('🔍 [NORMALIZE] Telemetria de completude:');
+    console.log('🔍 [NORMALIZE] Métricas principais ausentes:', missingMainMetrics);
+    console.log('🔍 [NORMALIZE] Tem score:', hasScore, normalized.score);
+    console.log('🔍 [NORMALIZE] Tem classificação:', hasClassification, normalized.classification);
+    console.log('🔍 [NORMALIZE] Métricas mapeadas:', {
+        peak: tech.peak,
+        rms: tech.rms,
+        lufsIntegrated: tech.lufsIntegrated,
+        truePeakDbtp: tech.truePeakDbtp,
+        dynamicRange: tech.dynamicRange,
+        stereoCorrelation: tech.stereoCorrelation
+    });
+    
     console.log('✅ [NORMALIZE] Normalização concluída:', {
         hasTechnicalData: !!normalized.technicalData,
         hasSpectralBalance: !!normalized.technicalData.spectral_balance,
         hasBandEnergies: !!normalized.technicalData.bandEnergies,
         problemsCount: normalized.problems.length,
         suggestionsCount: normalized.suggestions.length,
-        qualityScore: normalized.qualityOverall
+        qualityScore: normalized.qualityOverall,
+        hasAllMainMetrics: missingMainMetrics.length === 0
     });
     
     return normalized;

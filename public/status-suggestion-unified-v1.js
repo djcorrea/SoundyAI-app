@@ -26,38 +26,37 @@ window.STATUS_SUGGESTION_UNIFIED_V1 = window.STATUS_SUGGESTION_UNIFIED_V1 ?? tru
  * @returns {Object} { status, cor, sugestao, dif }
  */
 function calcularStatusSugestaoUnificado(valor, alvo, tolerancia, unidade = '', metrica = '', opcoes = {}) {
-    // 🛡️ Guard Rails - Validação obrigatória
+    // 🛡️ GUARD RAILS MELHORADOS - Validação detalhada com logging
     if (!Number.isFinite(valor)) {
-        console.warn('[STATUS_UNIFIED] Valor inválido:', valor);
+        const valorInfo = valor === null ? 'NULL' : valor === undefined ? 'UNDEFINED' : String(valor);
+        console.warn(`[STATUS_UNIFIED] Valor inválido: ${valorInfo} para métrica '${metrica}' - SKIP COM GRACEFUL DEGRADATION`);
         return { 
-            status: 'indefinido', 
+            status: 'sem_dados', 
             cor: 'na', 
-            sugestao: null, 
+            sugestao: metrica ? `Métrica '${metrica}' não disponível` : 'Dados não disponíveis', 
             dif: NaN,
-            erro: 'Valor não é um número finito'
+            erro: `Valor não disponível: ${valorInfo}`,
+            debug: { valor, alvo, tolerancia, metrica }
         };
     }
     
     if (!Number.isFinite(alvo)) {
-        console.warn('[STATUS_UNIFIED] Alvo inválido:', alvo);
+        const alvoInfo = alvo === null ? 'NULL' : alvo === undefined ? 'UNDEFINED' : String(alvo);
+        console.warn(`[STATUS_UNIFIED] Alvo inválido: ${alvoInfo} para métrica '${metrica}' - SKIP COM GRACEFUL DEGRADATION`);
         return { 
-            status: 'indefinido', 
+            status: 'sem_alvo', 
             cor: 'na', 
-            sugestao: null, 
+            sugestao: metrica ? `Referência para '${metrica}' não disponível` : 'Referência não disponível', 
             dif: NaN,
-            erro: 'Alvo não é um número finito'
+            erro: `Alvo não disponível: ${alvoInfo}`,
+            debug: { valor, alvo, tolerancia, metrica }
         };
     }
     
     if (!Number.isFinite(tolerancia) || tolerancia <= 0) {
-        console.warn('[STATUS_UNIFIED] Tolerância inválida:', tolerancia);
-        return { 
-            status: 'indefinido', 
-            cor: 'na', 
-            sugestao: null, 
-            dif: NaN,
-            erro: 'Tolerância deve ser um número positivo'
-        };
+        console.warn(`[STATUS_UNIFIED] Tolerância inválida: ${tolerancia} para métrica '${metrica}' - USANDO TOLERÂNCIA PADRÃO`);
+        tolerancia = Math.abs(alvo) * 0.1; // 10% do valor do alvo como tolerância padrão
+        console.log(`[STATUS_UNIFIED] Tolerância padrão aplicada: ${tolerancia.toFixed(3)} para '${metrica}'`);
     }
     
     // 📊 Cálculo da diferença
