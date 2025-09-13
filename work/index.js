@@ -38,7 +38,9 @@ for (const modulePath of candidatePaths) {
     console.log(`🔍 Tentando carregar pipeline de: ${modulePath}`);
     const imported = await import(modulePath);
     processAudioComplete = imported.processAudioComplete;
-    console.log("✅ Pipeline carregado com sucesso de:", modulePath);
+    console.log("✅ Pipeline real carregado com sucesso de:", modulePath);
+    console.log("✅ Pipeline real carregado no Railway - SEM SIMULAÇÃO!");
+    console.log("🎯 Função processAudioComplete confirmada:", typeof processAudioComplete);
     break;
   } catch (err) {
     console.warn(`⚠️ Falhou em ${modulePath}:`, err.message);
