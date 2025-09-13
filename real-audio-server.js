@@ -75,49 +75,40 @@ app.post("/api/audio/analyze", upload.single("audio"), async (req, res) => {
     console.log("🎯 True Peak:", result.truePeak?.maxDbtp);
     console.log("📈 Score:", result.score);
     
-    // Adaptar resultado para formato esperado pelo frontend
+    // 🔧 CORREÇÃO: Resposta mais enxuta para evitar overflow do JSON.stringify
     const frontendResult = {
       success: true,
       message: "Análise concluída pelo pipeline real",
+      backend: true,
+      pipeline: "real",
       data: {
-        // LUFS - SEM FALLBACKS FICTÍCIOS
+        // Métricas principais
         lufs_integrated: result.lufs?.integrated,
-        lufs_short_term: result.lufs?.shortTerm,
+        lufs_short_term: result.lufs?.shortTerm, 
         lufs_momentary: result.lufs?.momentary,
-        
-        // True Peak - SEM FALLBACKS FICTÍCIOS
         true_peak_dbtp: result.truePeak?.maxDbtp,
-        true_peak_dbfs: result.truePeak?.maxDbfs,
-        headroom_true_peak_db: result.truePeak?.headroom,
-        
-        // Dinâmica - SEM FALLBACKS FICTÍCIOS
         dynamic_range: result.dynamicRange?.crest,
         lra: result.loudnessRange?.lra,
-        
-        // Estéreo - SEM FALLBACKS FICTÍCIOS
         stereo_correlation: result.stereo?.correlation,
-        balance_lr: result.stereo?.balance,
         
-        // RMS e Pico - SEM FALLBACKS FICTÍCIOS
-        rms_db: result.rms?.db,
-        peak_db: result.peak?.db,
+        // Score e classificação
+        score: result.score,
+        classification: result.classification,
         
-        // Bandas espectrais (se disponíveis)
-        bands: result.bands || {},
-        
-        // Score e problemas
-        score: result.score || 7.5,
-        problems: result.problems || [],
-        suggestions: result.suggestions || [],
-        
-        // Metadata
+        // Timestamp
         timestamp: new Date().toISOString(),
-        backend: true,
-        pipeline: "real",
         processing_time_ms: result.metadata?.processingTime || 0,
         
-        // Dados brutos para debugging
-        rawResult: result
+        // Dados técnicos essenciais (sem objetos muito complexos)
+        technicalData: {
+          lufsIntegrated: result.lufs?.integrated,
+          truePeakDbtp: result.truePeak?.maxDbtp,
+          stereoCorrelation: result.stereo?.correlation,
+          dynamicRange: result.dynamicRange?.crest,
+          sampleRate: 48000,
+          channels: 2,
+          duration: result.metadata?.duration
+        }
       }
     };
     
