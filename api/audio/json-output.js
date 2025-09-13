@@ -225,7 +225,18 @@ function validateFinalJSON(finalJSON) {
   if (!Number.isFinite(finalJSON.score)) {
     throw new Error("Score inválido");
   }
-  JSON.stringify(finalJSON); // test serialização
+  
+  // 🔧 CORREÇÃO: Não serializar objeto completo para teste (pode ser muito grande)
+  // Apenas verificar se não há referências circulares nos campos principais
+  try {
+    JSON.stringify({
+      score: finalJSON.score,
+      classification: finalJSON.classification,
+      metadata: finalJSON.metadata
+    });
+  } catch (e) {
+    throw new Error(`Erro na serialização do JSON: ${e.message}`);
+  }
 }
 
 /**

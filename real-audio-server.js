@@ -80,27 +80,27 @@ app.post("/api/audio/analyze", upload.single("audio"), async (req, res) => {
       success: true,
       message: "Análise concluída pelo pipeline real",
       data: {
-        // LUFS
-        lufs_integrated: result.lufs?.integrated || -14.0,
-        lufs_short_term: result.lufs?.shortTerm || -12.0,
-        lufs_momentary: result.lufs?.momentary || -10.0,
+        // LUFS - SEM FALLBACKS FICTÍCIOS
+        lufs_integrated: result.lufs?.integrated,
+        lufs_short_term: result.lufs?.shortTerm,
+        lufs_momentary: result.lufs?.momentary,
         
-        // True Peak
-        true_peak_dbtp: result.truePeak?.maxDbtp || -1.0,
-        true_peak_dbfs: result.truePeak?.maxDbfs || -1.0,
-        headroom_true_peak_db: result.truePeak?.headroom || 1.0,
+        // True Peak - SEM FALLBACKS FICTÍCIOS
+        true_peak_dbtp: result.truePeak?.maxDbtp,
+        true_peak_dbfs: result.truePeak?.maxDbfs,
+        headroom_true_peak_db: result.truePeak?.headroom,
         
-        // Dinâmica
-        dynamic_range: result.dynamicRange?.crest || 8.0,
-        lra: result.loudnessRange?.lra || 6.0,
+        // Dinâmica - SEM FALLBACKS FICTÍCIOS
+        dynamic_range: result.dynamicRange?.crest,
+        lra: result.loudnessRange?.lra,
         
-        // Estéreo
-        stereo_correlation: result.stereo?.correlation || 0.3,
-        balance_lr: result.stereo?.balance || 0.0,
+        // Estéreo - SEM FALLBACKS FICTÍCIOS
+        stereo_correlation: result.stereo?.correlation,
+        balance_lr: result.stereo?.balance,
         
-        // RMS e Pico
-        rms_db: result.rms?.db || -18.0,
-        peak_db: result.peak?.db || -3.0,
+        // RMS e Pico - SEM FALLBACKS FICTÍCIOS
+        rms_db: result.rms?.db,
+        peak_db: result.peak?.db,
         
         // Bandas espectrais (se disponíveis)
         bands: result.bands || {},
