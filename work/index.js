@@ -349,3 +349,43 @@ async function checkStuckJobs() {
 setInterval(processJobs, 5000);
 setInterval(checkStuckJobs, 2 * 60 * 1000); // Verificar jobs travados a cada 2 minutos
 processJobs();
+
+// ========== SERVIDOR WEB (Express) ==========
+// Importar Express e rotas necessárias
+import express from "express";
+import cors from "cors";
+
+// Importar rotas do servidor (ajustar caminhos para work/)
+import analyzeRoute from "../api/audio/analyze.js";
+import jobsRoute from "../api/jobs/[id].js";
+import presignRoute from "../api/presign.js";
+import uploadAudioRoute from "../api/upload-audio.js";
+
+const app = express();
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, "../public")));
+
+// Rotas API essenciais
+app.use("/api/audio", analyzeRoute);
+app.use("/api/jobs", jobsRoute);
+app.use("/api", presignRoute);  // Rota de presign para uploads
+app.use("/api/upload-audio", uploadAudioRoute);
+
+// SPA Fallback
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api/")) return next();
+  res.sendFile(path.join(__dirname, "../public", "index.html"));
+});
+
+// Iniciar servidor
+const PORT = process.env.PORT || 8080;
+app.listen(PORT, () => {
+  console.log(`🌐 Servidor web rodando na porta ${PORT}`);
+  console.log(`✅ Pipeline real carregado no Railway - SEM SIMULAÇÃO!`);
+  console.log(`🎯 Worker processando jobs em background`);
+});
+
+console.log("🚀 work/index.js: Servidor Web + Worker Real iniciado!");
