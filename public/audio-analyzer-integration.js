@@ -310,8 +310,8 @@ async function pollJobStatus(jobId) {
         let attempts = 0;
         const maxAttempts = 60; // 5 minutos máximo
         const startTime = Date.now();
-        // 🔧 Ajustado timeout de 120s para 300s para suportar análises complexas
-        const maxTimeMs = 300000; // 5 minutos timeout absoluto
+        // 🔧 TIMEOUT UNIFICADO: 180s (3 min) para todo o pipeline
+        const maxTimeMs = 180000; // 3 minutos timeout absoluto UNIFICADO
         let lastStatus = 'unknown';
         let stuckCount = 0;
         
@@ -3317,9 +3317,121 @@ function showModalLoading() {
 // 📈 Simular progresso
 // (função de simulação de progresso removida — não utilizada)
 
+// =============== MODAL GUARD ===============
+
+/**
+ * 🛡️ MODAL GUARD: Só exibe modal quando dados reais estão disponíveis
+ */
+function validateAnalysisDataCompleteness(analysis) {
+    if (!analysis || typeof analysis !== 'object') {
+        console.warn('🛡️ [MODAL_GUARD] Dados de análise inválidos ou ausentes');
+        return { valid: false, reason: 'Dados ausentes' };
+    }
+    
+    // Verificar se tem métricas principais
+    const tech = analysis.technicalData || {};
+    const requiredMetrics = {
+        'peak': tech.peak,
+        'rms': tech.rms, 
+        'lufsIntegrated': tech.lufsIntegrated,
+        'dynamicRange': tech.dynamicRange
+    };
+    
+    const missingMetrics = [];
+    Object.entries(requiredMetrics).forEach(([metric, value]) => {
+        if (!Number.isFinite(value)) {
+            missingMetrics.push(metric);
+        }
+    });
+    
+    // Verificar se é fallback incompleto
+    const isFallback = analysis.mode === 'fallback_metadata' || 
+                      analysis.usedFallback === true ||
+                      analysis.scoringMethod === 'error_fallback';
+    
+    const hasScore = Number.isFinite(analysis.score) || Number.isFinite(analysis.qualityOverall);
+    
+    if (missingMetrics.length > 2) {
+        console.warn('🛡️ [MODAL_GUARD] Muitas métricas principais ausentes:', missingMetrics);
+        return { 
+            valid: false, 
+            reason: `Métricas ausentes: ${missingMetrics.join(', ')}`
+        };
+    }
+    
+    if (isFallback && !hasScore) {
+        console.warn('🛡️ [MODAL_GUARD] Fallback sem score válido');
+        return { 
+            valid: false, 
+            reason: 'Fallback incompleto'
+        };
+    }
+    
+    console.log('✅ [MODAL_GUARD] Dados validados - modal pode ser exibido');
+    return { 
+        valid: true, 
+        dataQuality: isFallback ? 'fallback' : 'complete',
+        missingCount: missingMetrics.length 
+    };
+}
+
+/**
+ * Exibe erro de análise para o usuário
+ */
+function showAnalysisError(message) {
+    const loading = document.getElementById('audioAnalysisLoading');
+    const results = document.getElementById('audioAnalysisResults');
+    
+    if (loading) loading.style.display = 'none';
+    if (results) {
+        results.style.display = 'block';
+        results.innerHTML = `
+            <div class="analysis-error" style="
+                padding: 40px;
+                text-align: center;
+                background: #1a1a1a;
+                border: 2px solid #ff6b6b;
+                border-radius: 12px;
+                margin: 20px;
+            ">
+                <h3 style="color: #ff6b6b; margin-bottom: 20px;">⚠️ Análise Incompleta</h3>
+                <p style="color: #ccc; margin-bottom: 20px;">${message}</p>
+                <p style="color: #999; margin-bottom: 30px;">Tente novamente com um arquivo diferente ou aguarde alguns minutos.</p>
+                <button onclick="location.reload()" style="
+                    background: #4CAF50;
+                    color: white;
+                    border: none;
+                    padding: 12px 24px;
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 16px;
+                " class="retry-btn">🔄 Tentar Novamente</button>
+            </div>
+        `;
+    }
+}
+
 // 📊 Mostrar resultados no modal
 // 📊 Mostrar resultados no modal
 function displayModalResults(analysis) {
+    // 🛡️ APLICAR MODAL GUARD: Verificar dados antes de exibir
+    const validation = validateAnalysisDataCompleteness(analysis);
+    
+    if (!validation.valid) {
+        console.error('🛡️ [MODAL_GUARD] Bloqueando exibição do modal:', validation.reason);
+        
+        // Exibir erro para usuário ao invés de modal vazio
+        showAnalysisError(`Análise incompleta: ${validation.reason}`);
+        return;
+    }
+    
+    console.log('✅ [MODAL_GUARD] Validação passou - prosseguindo com exibição');
+    console.log(`📊 [MODAL_GUARD] Qualidade dos dados: ${validation.dataQuality}`);
+    console.log(`🔍 [MODAL_GUARD] Métricas ausentes: ${validation.missingCount}`);
+    
+    // Adicionar flags de qualidade dos dados para referência
+    analysis._dataQuality = validation.dataQuality;
+    analysis._missingMetrics = validation.missingCount;
     // 🔒 UI GATE: Verificação final antes de renderizar
     const analysisRunId = analysis?.runId || analysis?.metadata?.runId;
     const currentRunId = window.__CURRENT_ANALYSIS_RUN_ID__;

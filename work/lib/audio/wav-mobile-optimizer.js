@@ -4,11 +4,11 @@
  * Inclui feedback de progresso, timeouts estendidos e fallbacks
  */
 
-// Configurações específicas para WAV mobile
+// Configurações específicas para WAV mobile - TIMEOUTS UNIFICADOS
 const WAV_MOBILE_CONFIG = {
   LARGE_FILE_THRESHOLD: 20 * 1024 * 1024, // 20MB
-  MOBILE_DECODE_TIMEOUT: 45000, // 45s
-  DESKTOP_DECODE_TIMEOUT: 30000, // 30s
+  MOBILE_DECODE_TIMEOUT: 120000, // 2 min UNIFICADO 
+  DESKTOP_DECODE_TIMEOUT: 90000, // 1.5 min UNIFICADO
   ESTIMATED_SPEED_MOBILE: 2 * 1024 * 1024, // 2MB/s estimado mobile
   ESTIMATED_SPEED_DESKTOP: 8 * 1024 * 1024, // 8MB/s estimado desktop
   CHUNK_SIZE: 5 * 1024 * 1024, // 5MB chunks para fallback

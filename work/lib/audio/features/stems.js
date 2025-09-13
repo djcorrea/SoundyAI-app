@@ -79,7 +79,7 @@ function computeBasicMetrics(audioBuffer){
   return { peakDb: toDb(peak), rmsDb: toDb(rms) };
 }
 
-export async function separateStems(audioBuffer, options={ timeoutMs:90000 }) {
+export async function separateStems(audioBuffer, options={ timeoutMs:120000 }) { // 2 min UNIFICADO
   const start = Date.now();
   try {
     caiarLog('STEMS_START','Iniciando separação com novo sistema');

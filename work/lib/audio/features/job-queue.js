@@ -17,7 +17,7 @@ export function setQueueOptions(opts={}){
   if (typeof window !== 'undefined') window.STEMS_MAX_CONCURRENCY = state.maxConcurrent;
 }
 
-export function enqueueJob(fn, { priority=5, label='job', timeoutMs=60000 }={}){
+export function enqueueJob(fn, { priority=5, label='job', timeoutMs=120000 }={}){ // 2 min UNIFICADO
   if (typeof fn !== 'function') return Promise.reject(new Error('fn inválido'));
   return new Promise((resolve, reject)=>{
     const id = ++state.seq;

@@ -120,7 +120,7 @@ async function separateViaWorker(audioBuffer, options = {}) {
       const index = workerPool.findIndex(w => w.id === worker.id);
       if (index >= 0) workerPool.splice(index, 1);
       reject(new Error('Worker timeout'));
-    }, options.timeoutMs || 90000);
+    }, options.timeoutMs || 120000); // 2 min UNIFICADO
     
     // Message handler
     worker.onmessage = function(event) {
@@ -341,8 +341,8 @@ function computeBasicMetrics(audioBuffer) {
   return { peakDb: toDb(peak), rmsDb: toDb(rms) };
 }
 
-// Função principal com estratégia adaptativa
-export async function separateStems(audioBuffer, options = { timeoutMs: 90000 }) {
+// Função principal com estratégia adaptativa - TIMEOUT UNIFICADO
+export async function separateStems(audioBuffer, options = { timeoutMs: 120000 }) { // 2 min UNIFICADO
   const start = Date.now();
   const capabilities = detectCapabilities();
   

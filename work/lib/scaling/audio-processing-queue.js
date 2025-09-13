@@ -4,10 +4,10 @@
  * Previne sobrecarga e melhora performance com múltiplos usuários
  */
 
-// Configurações padrão
+// Configurações padrão UNIFICADAS
 const DEFAULT_MAX_CONCURRENT = 2;
 const DEFAULT_QUEUE_TIMEOUT = 5 * 60 * 1000; // 5 minutos
-const DEFAULT_JOB_TIMEOUT = 120 * 1000; // 2 minutos
+const DEFAULT_JOB_TIMEOUT = 150 * 1000; // 2.5 minutos UNIFICADO
 
 /**
  * Processador de fila de áudio avançado
