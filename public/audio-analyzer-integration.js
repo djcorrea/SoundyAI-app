@@ -2021,25 +2021,13 @@ async function handleModalFileSelection(file) {
             return; // validateAudioFile já mostra erro
         }
         
-        // 🌐 NOVO FLUXO COMPLETO: Presigned URL → Upload → Job Creation → Polling
-        __dbg('🌐 Iniciando fluxo de análise remota completo...');
+        // � BACKEND REAL: Usar servidor local 8083 diretamente
+        __dbg('� Usando backend real na porta 8083...');
         
         // Mostrar loading
         hideUploadArea();
         showAnalysisLoading();
-        showUploadProgress(`Preparando upload de ${file.name}...`);
-        
-        // 🌐 ETAPA 1: Obter URL pré-assinada
-        const { uploadUrl, fileKey } = await getPresignedUrl(file);
-        
-        // 🌐 ETAPA 2: Upload direto para bucket
-        await uploadToBucket(uploadUrl, file);
-        
-        // 🌐 ETAPA 3: Criar job de análise no backend
-        const { jobId } = await createAnalysisJob(fileKey, currentAnalysisMode, file.name);
-        
-        // 🌐 ETAPA 4: Acompanhar progresso e aguardar resultado
-        showUploadProgress(`Analisando ${file.name}... Aguarde.`);
+        showUploadProgress(`Enviando ${file.name} para análise...`);
         
         // 📊 Progress: Resetar e exibir barra de progresso
         const progressContainer = document.querySelector('.progress-container');
@@ -2051,70 +2039,53 @@ async function handleModalFileSelection(file) {
         if (progressBar) {
             progressBar.style.width = '0%';
         }
-        updateModalProgress(0, 'Iniciando análise...');
-        console.log('📊 Progress: Barra de progresso resetada e exibida');
+        updateModalProgress(10, 'Enviando arquivo para backend...');
         
-        const analysisResult = await pollJobStatus(jobId);
+        // 🎯 CHAMADA BACKEND REAL
+        const formData = new FormData();
+        formData.append('audio', file);
+        formData.append('genre', window.PROD_AI_REF_GENRE || 'funk_bruxaria');
+        formData.append('mode', currentAnalysisMode || 'genre');
         
-        // 🌐 ETAPA 5: Processar resultado baseado no modo
-        if (currentAnalysisMode === "reference") {
-            await handleReferenceAnalysisWithResult(analysisResult, fileKey, file.name);
-        } else {
-            await handleGenreAnalysisWithResult(analysisResult, file.name);
+        updateModalProgress(20, 'Processando áudio no servidor...');
+        
+        const response = await fetch('http://localhost:8083/api/audio/analyze', {
+            method: 'POST',
+            body: formData
+        });
+        
+        updateModalProgress(80, 'Finalizando análise...');
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Erro do servidor: ${response.status} - ${errorText}`);
         }
+        
+        const analysisResult = await response.json();
+        
+        updateModalProgress(100, 'Análise concluída!');
+        
+        // Mostrar resultados
+        await handleGenreAnalysisWithResult(analysisResult, file.name);
 
     } catch (error) {
         console.error('❌ Erro na análise do modal:', error);
         
-        // Verificar se é um erro de fallback para modo gênero
-        if (window.FEATURE_FLAGS?.FALLBACK_TO_GENRE && currentAnalysisMode === 'reference') {
-            window.logReferenceEvent('error_fallback_to_genre', { 
-                error: error.message,
-                originalMode: currentAnalysisMode 
-            });
-            
-            showModalError('Erro na análise por referência. Redirecionando para análise por gênero...');
-            
-            setTimeout(() => {
-                currentAnalysisMode = 'genre';
-                configureModalForMode('genre');
-            }, 2000);
-        } else {
-            // Determinar tipo de erro para mensagem mais específica
-            let errorMessage = error.message;
-            if (error.message.includes('Falha ao gerar URL de upload')) {
-                errorMessage = 'Falha ao gerar URL de upload. Verifique sua conexão e tente novamente.';
-            } else if (error.message.includes('Falha ao enviar arquivo para análise')) {
-                errorMessage = 'Falha ao enviar arquivo para análise. Verifique sua conexão e tente novamente.';
-            }
-            
-            showModalError(`Erro ao processar arquivo: ${errorMessage}`);
-        }
-    } finally {
-        // 🎵 WAV CLEANUP: Limpar otimizações WAV em caso de erro
-        try {
-            if (window.wavMobileOptimizer) {
-                window.wavMobileOptimizer.cleanupWAVOptimizations();
-            }
-        } catch (cleanupError) {
-            console.warn('WAV cleanup error in finally (non-critical):', cleanupError);
+        // Determinar tipo de erro para mensagem mais específica
+        let errorMessage = error.message;
+        if (error.message.includes('Failed to fetch')) {
+            errorMessage = 'Não foi possível conectar ao servidor de análise. Verifique se o backend está rodando na porta 8083.';
         }
         
-        // 🔧 CORREÇÃO: Sempre limpar flag de análise em progresso
+        showModalError(`Erro ao processar arquivo: ${errorMessage}`);
+    } finally {
+        // Limpar flag de progresso
         if (typeof window !== 'undefined') {
-            delete window.__MODAL_ANALYSIS_IN_PROGRESS__;
+            window.__MODAL_ANALYSIS_IN_PROGRESS__ = false;
         }
-        __dbg('✅ Flag de análise em progresso removida');
     }
 }
 
-// � NOVAS FUNÇÕES: Análise baseada em fileKey (pós-upload remoto)
-
-/**
- * Processar análise por referência usando fileKey
- * @param {string} fileKey - Chave do arquivo no bucket
- * @param {string} fileName - Nome original do arquivo
- */
 // 🌐 NOVAS FUNÇÕES: Análise baseada em resultado remoto
 
 /**
