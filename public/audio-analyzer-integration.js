@@ -2021,8 +2021,8 @@ async function handleModalFileSelection(file) {
             return; // validateAudioFile já mostra erro
         }
         
-        // � BACKEND REAL: Usar servidor local 8083 diretamente
-        __dbg('� Usando backend real na porta 8083...');
+        // 🎯 BACKEND REAL: Usar Railway backend diretamente
+        __dbg('🚀 Usando Railway backend...');
         
         // Mostrar loading
         hideUploadArea();
@@ -2049,7 +2049,14 @@ async function handleModalFileSelection(file) {
         
         updateModalProgress(20, 'Processando áudio no servidor...');
         
-        const response = await fetch('http://localhost:8083/api/audio/analyze', {
+        // 🎯 CORREÇÃO: Usar Railway ao invés de localhost
+        const backendUrl = window.location.origin.includes('railway.app') 
+            ? `${window.location.origin}/api/audio/analyze`  // Railway auto-detect
+            : 'https://soundyai-app-production.up.railway.app/api/audio/analyze'; // Railway explícito
+        
+        console.log('🚀 [BACKEND] URL corrigida para Railway:', backendUrl);
+        
+        const response = await fetch(backendUrl, {
             method: 'POST',
             body: formData
         });
@@ -2074,7 +2081,7 @@ async function handleModalFileSelection(file) {
         // Determinar tipo de erro para mensagem mais específica
         let errorMessage = error.message;
         if (error.message.includes('Failed to fetch')) {
-            errorMessage = 'Não foi possível conectar ao servidor de análise. Verifique se o backend está rodando na porta 8083.';
+            errorMessage = 'Não foi possível conectar ao servidor de análise Railway. Verifique sua conexão.';
         }
         
         showModalError(`Erro ao processar arquivo: ${errorMessage}`);
@@ -2493,11 +2500,16 @@ async function handleGenreFileSelection(file) {
         
         updateModalProgress(20, '📤 Enviando arquivo para análise...');
         
-        console.log('🚀 [BACKEND] Enviando para:', 'http://localhost:8083/api/audio/analyze');
-        console.log('� [BACKEND] Arquivo:', file.name, 'Tamanho:', file.size);
+        // 🎯 CORREÇÃO: Usar Railway ao invés de localhost
+        const backendUrl = window.location.origin.includes('railway.app') 
+            ? `${window.location.origin}/api/audio/analyze`  // Railway auto-detect
+            : 'https://soundyai-app-production.up.railway.app/api/audio/analyze'; // Railway explícito
+        
+        console.log('🚀 [BACKEND] URL corrigida para Railway:', backendUrl);
+        console.log('📁 [BACKEND] Arquivo:', file.name, 'Tamanho:', file.size);
         
         // Fazer upload real para o backend
-        const response = await fetch('http://localhost:8083/api/audio/analyze', {
+        const response = await fetch(backendUrl, {
             method: 'POST',
             body: formData
         });
@@ -3439,6 +3451,104 @@ function displayValue(value, unit = '', decimals = 2) {
 }
 
 /**
+ * ✅ NOVA FUNÇÃO: Gerar seção de status das métricas
+ */
+function generateMetricsStatusSection(analysis) {
+    const checks = [
+        { 
+            name: 'Métricas Básicas', 
+            items: ['LUFS', 'True Peak', 'Dynamic Range', 'RMS'],
+            available: analysis.lufsIntegrated !== undefined && analysis.truePeakDbtp !== undefined,
+            status: 'complete'
+        },
+        { 
+            name: 'Bandas Espectrais', 
+            items: ['Sub', 'Low', 'Mid', 'High'],
+            available: analysis.spectral_balance && Object.keys(analysis.spectral_balance).length > 0,
+            status: analysis.spectral_balance && Object.keys(analysis.spectral_balance).length > 0 ? 'complete' : 'missing'
+        },
+        { 
+            name: 'Frequências Dominantes', 
+            items: ['15 frequências', 'Amplitudes', 'Ocorrências'],
+            available: analysis.dominantFrequencies && analysis.dominantFrequencies.length > 0,
+            status: analysis.dominantFrequencies && analysis.dominantFrequencies.length > 0 ? 'complete' : 'missing'
+        },
+        { 
+            name: 'MFCC (Análise Tímbrica)', 
+            items: ['13 coeficientes', 'Características espectrais'],
+            available: analysis.mfcc_coefficients && analysis.mfcc_coefficients.length > 0,
+            status: analysis.mfcc_coefficients && analysis.mfcc_coefficients.length > 0 ? 'complete' : 'missing'
+        },
+        { 
+            name: 'Diagnósticos', 
+            items: ['Problemas detectados', 'Sugestões específicas'],
+            available: (analysis.problems && analysis.problems.length > 0) || (analysis.suggestions && analysis.suggestions.length > 0),
+            status: (analysis.problems && analysis.problems.length > 0) || (analysis.suggestions && analysis.suggestions.length > 0) ? 'complete' : 'missing'
+        },
+        { 
+            name: 'Tabela de Referência', 
+            items: ['Comparação com gênero', 'Targets específicos'],
+            available: analysis.comparison && Object.keys(analysis.comparison).length > 0,
+            status: analysis.comparison && Object.keys(analysis.comparison).length > 0 ? 'complete' : 'missing'
+        }
+    ];
+    
+    const completeCount = checks.filter(check => check.status === 'complete').length;
+    const totalCount = checks.length;
+    const percentComplete = Math.round((completeCount / totalCount) * 100);
+    
+    let statusColor = '#28a745'; // Verde para completo
+    if (percentComplete < 50) statusColor = '#dc3545'; // Vermelho para incompleto
+    else if (percentComplete < 80) statusColor = '#ffc107'; // Amarelo para parcial
+    
+    return `
+        <div class="metrics-status-section" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 16px; margin: 16px 0;">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+                <h4 style="margin: 0; color: #fff; font-size: 16px;">📊 Status da Análise</h4>
+                <div style="background: ${statusColor}; color: white; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold;">
+                    ${completeCount}/${totalCount} (${percentComplete}%)
+                </div>
+            </div>
+            
+            <div class="metrics-checklist" style="display: grid; gap: 8px;">
+                ${checks.map(check => `
+                    <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: rgba(255,255,255,0.02); border-radius: 4px;">
+                        <span style="font-size: 16px;">${check.status === 'complete' ? '✅' : '❌'}</span>
+                        <div style="flex: 1;">
+                            <strong style="color: ${check.status === 'complete' ? '#28a745' : '#dc3545'};">${check.name}</strong>
+                            <div style="font-size: 12px; color: #6c757d;">${check.items.join(', ')}</div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+            
+            ${percentComplete < 100 ? `
+                <div style="margin-top: 12px; padding: 12px; background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); border-radius: 6px;">
+                    <div style="display: flex; align-items: center; gap: 8px; color: #ffc107;">
+                        <span>⚠️</span>
+                        <strong>Análise Incompleta</strong>
+                    </div>
+                    <p style="margin: 4px 0 0 0; color: #ffc107; font-size: 13px;">
+                        O backend atual está retornando apenas ${percentComplete}% das métricas possíveis. 
+                        Para análise completa, use o pipeline completo ou corrija o backend local.
+                    </p>
+                </div>
+            ` : `
+                <div style="margin-top: 12px; padding: 12px; background: rgba(40, 167, 69, 0.1); border: 1px solid rgba(40, 167, 69, 0.3); border-radius: 6px;">
+                    <div style="display: flex; align-items: center; gap: 8px; color: #28a745;">
+                        <span>🎉</span>
+                        <strong>Análise Completa</strong>
+                    </div>
+                    <p style="margin: 4px 0 0 0; color: #28a745; font-size: 13px;">
+                        Todas as métricas foram calculadas com sucesso!
+                    </p>
+                </div>
+            `}
+        </div>
+    `;
+}
+
+/**
  * 🛡️ MODAL GUARD: Só exibe modal quando dados reais estão disponíveis
  * Agora com CACHE INVALIDATION automática para dados inconsistentes
  */
@@ -3614,6 +3724,12 @@ function displayModalResults(analysis) {
     console.log('   • Sugestões priorizadas com confiança');
     console.log('   • Compatibilidade 100% preservada com UI existente');
     
+    // 🚨 Verificar se backend está completo ou limitado
+    const hasAdvancedMetrics = analysis.spectral_balance && Object.keys(analysis.spectral_balance).length > 0;
+    if (!hasAdvancedMetrics) {
+        console.warn('⚠️ [MODAL_EXPANSION] Backend limitado detectado - métricas avançadas ausentes');
+    }
+    
     // 📊 Progress: Esconder barra de progresso ao exibir resultados
     const progressContainer = document.querySelector('.progress-container');
     const progressBar = document.querySelector('.progress-fill');
@@ -3642,6 +3758,25 @@ function displayModalResults(analysis) {
     console.log('🔍 [RAW_BACKEND_DATA] analysis.metrics:', analysis?.metrics);
     console.log('🔍 [RAW_BACKEND_DATA] analysis.raw_data:', analysis?.raw_data);
     console.log('🔍 [RAW_BACKEND_DATA] analysis.result:', analysis?.result);
+    
+    // 🚨 DIAGNÓSTICO CRÍTICO: Backend incompleto detectado
+    const isIncompleteBackend = !analysis.spectral_balance || Object.keys(analysis.spectral_balance).length === 0;
+    if (isIncompleteBackend) {
+        console.warn('🚨 [BACKEND_INCOMPLETE] Backend Railway está retornando apenas métricas básicas!');
+        console.warn('🚨 [BACKEND_INCOMPLETE] spectral_balance vazio:', analysis.spectral_balance);
+        console.warn('🚨 [BACKEND_INCOMPLETE] Métricas avançadas ausentes: bandas espectrais, frequências, MFCC, etc.');
+        console.warn('🚨 [BACKEND_INCOMPLETE] SOLUÇÃO: Use Railway backend ou corrija pipeline local');
+        console.warn('🚨 [BACKEND_INCOMPLETE] MÉTRICAS FALTANDO:');
+        console.warn('   - spectral_balance (bandas espectrais)');
+        console.warn('   - dominantFrequencies (frequências dominantes)');
+        console.warn('   - mfcc_coefficients (análise tímbrica)');
+        console.warn('   - tonalBalance (balance tonal por banda)');
+        console.warn('   - problems (diagnósticos técnicos)');
+        console.warn('   - suggestions (sugestões específicas)');
+        console.warn('   - comparison (tabela de referência)');
+    } else {
+        console.log('✅ [BACKEND_COMPLETE] Backend retornou dados completos!');
+    }
     
     // �🔧 CORREÇÃO CRÍTICA: Normalizar dados do backend para compatibilidade com front-end
     if (analysis && typeof analysis === 'object') {
@@ -4808,6 +4943,9 @@ function displayModalResults(analysis) {
         technicalData.innerHTML = `
             <div class="kpi-row">${scoreKpi}${timeKpi}</div>
                 ${renderSmartSummary(analysis) }
+                
+                <!-- ✅ NOVA SEÇÃO: STATUS DAS MÉTRICAS -->
+                ${generateMetricsStatusSection(analysis)}
                 
                 <!-- ✅ NOVA SEÇÃO: DIAGNÓSTICOS E SUGESTÕES ESTRUTURADOS -->
                 ${(() => {
