@@ -337,7 +337,11 @@ async function pollJobStatus(jobId) {
                     console.error(`⏱️ Análise excedeu limite: ${elapsed/1000}s > ${maxTimeMs/1000}s`);
                     console.error(`📊 Status final: ${lastStatus} (${attempts} tentativas)`);
                     
-                    // 🔔 Alerta para usuário com contexto
+                    // � CACHE INVALIDATION: Timeout crítico detectado
+                    invalidateInconsistentCache({ status: lastStatus, attempts, elapsed }, jobId, 
+                        `Timeout absoluto: ${elapsed/1000}s excedeu limite de ${maxTimeMs/1000}s`);
+                    
+                    // �🔔 Alerta para usuário com contexto
                     const userMessage = `Timeout: análise excedeu ${maxTimeMs/1000} segundos. 
 Status: ${lastStatus} | Tentativas: ${attempts}
 Tente com um arquivo menor ou diferente.`;
@@ -456,6 +460,10 @@ Tente com um arquivo menor ou diferente.`;
                     console.warn(`⚠️ TIMEOUT POR TENTATIVAS:`, attemptTimeoutDetails);
                     console.warn(`📊 Job ${jobId}: ${attempts}/${maxAttempts} tentativas em ${attemptTimeoutDetails.elapsedTime}`);
                     console.warn(`🔄 Status final: ${lastStatus}, travamentos: ${stuckCount}`);
+                    
+                    // 🔄 CACHE INVALIDATION: Timeout por tentativas detectado
+                    invalidateInconsistentCache({ status: lastStatus, attempts, stuckCount }, jobId, 
+                        `Timeout por tentativas: ${attempts}/${maxAttempts} em ${attemptTimeoutDetails.elapsedTime}`);
                     
                     const userMessage = `Timeout: análise demorou mais que esperado.
 Tentativas: ${attempts}/${maxAttempts} | Tempo: ${attemptTimeoutDetails.elapsedTime}
@@ -3375,7 +3383,84 @@ function showModalLoading() {
 // =============== MODAL GUARD ===============
 
 /**
- * 🛡️ MODAL GUARD: Só exibe modal quando dados reais estão disponíveis
+ * � INTELLIGENT CACHE INVALIDATION
+ * Invalida cache automaticamente quando dados inconsistentes são detectados
+ */
+function invalidateInconsistentCache(data, jobId, reason) {
+    console.warn(`🗑️ [CACHE_INVALIDATION] Invalidando cache: ${reason}`);
+    
+    const invalidationRecord = {
+        jobId: jobId,
+        reason: reason,
+        timestamp: new Date().toISOString(),
+        cachesCleared: []
+    };
+
+    // 1. Limpar cache de referências
+    if (window.__refDataCache) {
+        Object.keys(window.__refDataCache).forEach(key => {
+            delete window.__refDataCache[key];
+        });
+        invalidationRecord.cachesCleared.push('__refDataCache');
+    }
+
+    // 2. Limpar localStorage relacionado
+    try {
+        const keysToRemove = [];
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (key.includes(jobId) || key.includes('analysis') || key.includes('audio'))) {
+                keysToRemove.push(key);
+            }
+        }
+        
+        keysToRemove.forEach(key => {
+            localStorage.removeItem(key);
+            invalidationRecord.cachesCleared.push(`localStorage:${key}`);
+        });
+    } catch (e) {
+        // Ignore storage errors
+    }
+
+    // 3. Limpar caches globais
+    const globalCacheVars = [
+        '__AUDIO_ANALYSIS_CACHE__',
+        '__refCache',
+        '__audioCache',
+        '__stemsCache',
+        '__metricsCache'
+    ];
+
+    globalCacheVars.forEach(varName => {
+        if (window[varName]) {
+            if (typeof window[varName] === 'object') {
+                Object.keys(window[varName]).forEach(key => delete window[varName][key]);
+            } else {
+                delete window[varName];
+            }
+            invalidationRecord.cachesCleared.push(varName);
+        }
+    });
+
+    // 4. Forçar bypass para próximas requisições
+    window.REFS_BYPASS_CACHE = true;
+    window.FORCE_FRESH_ANALYSIS = true;
+    
+    // Reset após 30 segundos
+    setTimeout(() => {
+        window.REFS_BYPASS_CACHE = false;
+        window.FORCE_FRESH_ANALYSIS = false;
+    }, 30000);
+
+    console.warn('🔄 Cache invalidation completed:', invalidationRecord);
+    console.warn(`💥 Cleared ${invalidationRecord.cachesCleared.length} caches, forcing fresh analysis`);
+    
+    return invalidationRecord;
+}
+
+/**
+ * �🛡️ MODAL GUARD: Só exibe modal quando dados reais estão disponíveis
+ * Agora com CACHE INVALIDATION automática para dados inconsistentes
  */
 function validateAnalysisDataCompleteness(analysis) {
     if (!analysis || typeof analysis !== 'object') {
@@ -3408,6 +3493,11 @@ function validateAnalysisDataCompleteness(analysis) {
     
     if (missingMetrics.length > 2) {
         console.warn('🛡️ [MODAL_GUARD] Muitas métricas principais ausentes:', missingMetrics);
+        
+        // 🔄 CACHE INVALIDATION: Dados incompletos detectados
+        invalidateInconsistentCache(analysis, analysis.jobId || 'unknown', 
+            `Métricas principais ausentes: ${missingMetrics.join(', ')}`);
+        
         return { 
             valid: false, 
             reason: `Métricas ausentes: ${missingMetrics.join(', ')}`
@@ -3416,6 +3506,11 @@ function validateAnalysisDataCompleteness(analysis) {
     
     if (isFallback && !hasScore) {
         console.warn('🛡️ [MODAL_GUARD] Fallback sem score válido');
+        
+        // 🔄 CACHE INVALIDATION: Fallback incompleto detectado
+        invalidateInconsistentCache(analysis, analysis.jobId || 'unknown', 
+            'Fallback incompleto sem score válido');
+        
         return { 
             valid: false, 
             reason: 'Fallback incompleto'
