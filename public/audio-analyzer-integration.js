@@ -179,14 +179,13 @@ async function getPresignedUrl(file) {
            size: `${(file.size / 1024 / 1024).toFixed(2)}MB`
     });
 
-    // ✅ Agora manda "ext" 
-    const response = await fetch(`/api/presign?ext=${encodeURIComponent(ext)}`, {
-  method: "GET",
-  headers: {
-    "Accept": "application/json",
-    "X-Requested-With": "XMLHttpRequest"
-  }
-});
+    // ✅ Chamando Railway backend para presigned URL
+    const response = await fetch(`https://soundyai-app-production.up.railway.app/api/presign?ext=${encodeURIComponent(ext)}`, {
+      method: "GET",
+      headers: {
+        "Accept": "application/json"
+      }
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -6798,11 +6797,11 @@ async function analyzeAudioFileRailway(file, options = {}) {
         
         // 2. Upload do arquivo para S3 usando função existente
         console.log(`⬆️ [${runId}] Fazendo upload para S3 com fileKey:`, fileKey);
-        await uploadFileToPresignedUrl(uploadUrl, file);
+        await uploadToBucket(uploadUrl, file);
         
         // 3. Criar job de análise Railway
         console.log(`🔧 [${runId}] Criando job de análise Railway...`);
-        const response = await fetch('https://soundyai-production.up.railway.app/api/audio/analyze', {
+        const response = await fetch('https://soundyai-app-production.up.railway.app/api/audio/analyze', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -6824,7 +6823,7 @@ async function analyzeAudioFileRailway(file, options = {}) {
         const intervalMs = 2000;
         
         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-            const statusResponse = await fetch(`https://soundyai-production.up.railway.app/api/jobs/${jobId}/status`);
+            const statusResponse = await fetch(`https://soundyai-app-production.up.railway.app/api/jobs/${jobId}`);
             
             if (!statusResponse.ok) {
                 throw new Error(`Erro ao verificar status: ${statusResponse.status}`);
