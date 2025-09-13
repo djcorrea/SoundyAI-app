@@ -3276,6 +3276,9 @@ function generateSpectralComparisonCard(band, data) {
 function waitForAudioAnalyzer() {
     return new Promise((resolve) => {
         if (window.audioAnalyzer) {
+            // Substituir analyzeAudioFile por Railway quando disponível
+            console.log('🔄 Substituindo analyzeAudioFile por analyzeAudioFileRailway...');
+            window.audioAnalyzer.analyzeAudioFile = analyzeAudioFileRailway;
             resolve();
             return;
         }
@@ -3283,6 +3286,9 @@ function waitForAudioAnalyzer() {
         const checkInterval = setInterval(() => {
             if (window.audioAnalyzer) {
                 clearInterval(checkInterval);
+                // Substituir analyzeAudioFile por Railway quando disponível
+                console.log('🔄 Substituindo analyzeAudioFile por analyzeAudioFileRailway...');
+                window.audioAnalyzer.analyzeAudioFile = analyzeAudioFileRailway;
                 resolve();
             }
         }, 100);
@@ -6778,4 +6784,77 @@ function identifyMissingMetrics(analysis) {
     });
     
     return missing;
+}
+
+// 🚀 ANÁLISE USANDO RAILWAY BACKEND - Fluxo completo
+async function analyzeAudioFileRailway(file, options = {}) {
+    const runId = options.runId || 'railway_' + Date.now();
+    console.log(`🚀 [${runId}] Iniciando análise Railway para:`, file.name);
+    
+    try {
+        // 1. Obter URL presignada usando a função existente
+        console.log(`📡 [${runId}] Obtendo URL presignada...`);
+        const { uploadUrl, fileKey } = await getPresignedUrl(file);
+        
+        // 2. Upload do arquivo para S3 usando função existente
+        console.log(`⬆️ [${runId}] Fazendo upload para S3 com fileKey:`, fileKey);
+        await uploadFileToPresignedUrl(uploadUrl, file);
+        
+        // 3. Criar job de análise Railway
+        console.log(`🔧 [${runId}] Criando job de análise Railway...`);
+        const response = await fetch('https://soundyai-production.up.railway.app/api/audio/analyze', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ fileKey })
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Erro ao criar job: ${response.status} - ${errorText}`);
+        }
+        
+        const { jobId } = await response.json();
+        console.log(`📝 [${runId}] Job criado: ${jobId}`);
+        
+        // 4. Polling do status do job
+        console.log(`⏳ [${runId}] Aguardando análise completa...`);
+        const maxAttempts = 60;
+        const intervalMs = 2000;
+        
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            const statusResponse = await fetch(`https://soundyai-production.up.railway.app/api/jobs/${jobId}/status`);
+            
+            if (!statusResponse.ok) {
+                throw new Error(`Erro ao verificar status: ${statusResponse.status}`);
+            }
+            
+            const job = await statusResponse.json();
+            
+            if (job.status === 'completed') {
+                if (job.result) {
+                    console.log(`✅ [${runId}] Análise Railway concluída!`);
+                    return job.result;
+                } else {
+                    throw new Error('Job completado mas sem resultado');
+                }
+            } else if (job.status === 'failed') {
+                throw new Error(`Job falhou: ${job.error || 'Erro desconhecido'}`);
+            }
+            
+            // Status pending/processing - aguardar
+            console.log(`⏳ Job ${jobId} status: ${job.status} (tentativa ${attempt}/${maxAttempts})`);
+            
+            if (attempt < maxAttempts) {
+                await new Promise(resolve => setTimeout(resolve, intervalMs));
+            }
+        }
+        
+        throw new Error(`Timeout: Job ${jobId} não concluído após ${maxAttempts} tentativas`);
+        
+    } catch (error) {
+        console.error(`❌ [${runId}] Erro na análise Railway:`, error);
+        throw error;
+    }
 }
