@@ -66,11 +66,34 @@ class CoreMetricsProcessor {
 
       const processingTime = Date.now() - startTime;
 
+      // ✅ ADICIONADO: Métricas básicas RMS e Peak necessárias para frontend
+      const leftChannel = segmentedAudio.leftChannel;
+      const rightChannel = segmentedAudio.rightChannel;
+      const leftRMS = this.calculateRMS(leftChannel);
+      const rightRMS = this.calculateRMS(rightChannel);
+      const avgRMS = (leftRMS + rightRMS) / 2;
+      
+      const leftPeak = this.calculateAbsMax(leftChannel);
+      const rightPeak = this.calculateAbsMax(rightChannel);
+      const maxPeak = Math.max(leftPeak, rightPeak);
+
       const results = {
         originalLength: segmentedAudio.originalLength,
         sampleRate: segmentedAudio.sampleRate,
         duration: segmentedAudio.duration,
         numberOfChannels: segmentedAudio.numberOfChannels,
+
+        // ✅ MÉTRICAS BÁSICAS ADICIONADAS
+        basicMetrics: {
+          rms: avgRMS,
+          rmsDb: avgRMS > 0 ? 20 * Math.log10(avgRMS) : -120,
+          peak: maxPeak,
+          peakDb: maxPeak > 0 ? 20 * Math.log10(maxPeak) : -120,
+          channels: {
+            left: { rms: leftRMS, peak: leftPeak },
+            right: { rms: rightRMS, peak: rightPeak }
+          }
+        },
 
         fft: fftResults,
         lufs: lufsResults,

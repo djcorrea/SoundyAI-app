@@ -75,42 +75,79 @@ app.post("/api/audio/analyze", upload.single("audio"), async (req, res) => {
     console.log("🎯 True Peak:", result.truePeak?.maxDbtp);
     console.log("📈 Score:", result.score);
     
-    // 🔧 CORREÇÃO: Resposta mais enxuta para evitar overflow do JSON.stringify
+    // 🔧 LOGS ADICIONAIS para debug das métricas
+    console.log("🔍 [DEBUG] Estrutura do result completa:");
+    console.log("🔍 [DEBUG] result.technicalData:", !!result.technicalData);
+    console.log("🔍 [DEBUG] result.rms:", result.rms);
+    console.log("🔍 [DEBUG] result.peak:", result.peak);
+    console.log("🔍 [DEBUG] result.dynamicRange:", result.dynamicRange);
+    console.log("🔍 [DEBUG] result.bandEnergies:", !!result.bandEnergies);
+    
+    // 🎯 RESPOSTA COMPLETA com TODAS as métricas obrigatórias
     const frontendResult = {
       success: true,
-      message: "Análise concluída pelo pipeline real",
       backend: true,
       pipeline: "real",
-      data: {
-        // Métricas principais
-        lufs_integrated: result.lufs?.integrated,
-        lufs_short_term: result.lufs?.shortTerm, 
-        lufs_momentary: result.lufs?.momentary,
-        true_peak_dbtp: result.truePeak?.maxDbtp,
-        dynamic_range: result.dynamicRange?.crest,
-        lra: result.loudnessRange?.lra,
-        stereo_correlation: result.stereo?.correlation,
-        
-        // Score e classificação
-        score: result.score,
-        classification: result.classification,
-        
-        // Timestamp
-        timestamp: new Date().toISOString(),
-        processing_time_ms: result.metadata?.processingTime || 0,
-        
-        // Dados técnicos essenciais (sem objetos muito complexos)
-        technicalData: {
-          lufsIntegrated: result.lufs?.integrated,
-          truePeakDbtp: result.truePeak?.maxDbtp,
-          stereoCorrelation: result.stereo?.correlation,
-          dynamicRange: result.dynamicRange?.crest,
-          sampleRate: 48000,
-          channels: 2,
-          duration: result.metadata?.duration
-        }
+      message: "Análise concluída pelo pipeline real",
+      
+      // ✅ MÉTRICAS OBRIGATÓRIAS (exatamente como esperado pelo frontend)
+      metrics: {
+        peak: result.peak?.db || result.technicalData?.peak || null,
+        rms: result.rms?.db || result.technicalData?.rms || null, 
+        lufsIntegrated: result.lufs?.integrated || result.technicalData?.lufsIntegrated || null,
+        truePeakDbtp: result.truePeak?.maxDbtp || result.technicalData?.truePeakDbtp || null,
+        dynamicRange: result.dynamicRange?.crest || result.technicalData?.dynamicRange || null,
+        stereoCorrelation: result.stereo?.correlation || result.technicalData?.stereoCorrelation || null,
+        lra: result.loudnessRange?.lra || result.technicalData?.lra || null
+      },
+      
+      // ✅ DADOS TÉCNICOS COMPLETOS
+      technicalData: {
+        lufsIntegrated: result.lufs?.integrated || result.technicalData?.lufsIntegrated || null,
+        lufsShortTerm: result.lufs?.shortTerm || result.technicalData?.lufsShortTerm || null,
+        lufsMomentary: result.lufs?.momentary || result.technicalData?.lufsMomentary || null,
+        truePeakDbtp: result.truePeak?.maxDbtp || result.technicalData?.truePeakDbtp || null,
+        truePeakLinear: result.truePeak?.linear || result.technicalData?.truePeakLinear || null,
+        // ✅ MÉTRICAS BÁSICAS CORRIGIDAS - usar basicMetrics primeiro
+        peak: result.basicMetrics?.peak || result.technicalData?.peak || null,
+        rms: result.basicMetrics?.rms || result.technicalData?.rms || null,
+        dynamicRange: result.dynamicRange?.crest || result.technicalData?.dynamicRange || null,
+        lra: result.loudnessRange?.lra || result.technicalData?.lra || null,
+        stereoCorrelation: result.stereo?.correlation || result.technicalData?.stereoCorrelation || null,
+        stereoWidth: result.stereo?.width || result.technicalData?.stereoWidth || null,
+        balanceLR: result.stereo?.balance || result.technicalData?.balanceLR || null,
+        sampleRate: result.metadata?.sampleRate || 48000,
+        channels: result.metadata?.channels || 2,
+        duration: result.metadata?.duration || 0
+      },
+      
+      // ✅ BALANÇO ESPECTRAL
+      spectral_balance: result.bandEnergies || result.technicalData?.bandEnergies || {},
+      
+      // ✅ SCORE E CLASSIFICAÇÃO  
+      score: result.score || null,
+      classification: result.classification || "Básico",
+      
+      // ✅ METADATA
+      metadata: {
+        fileName: analysisOptions.fileName,
+        sampleRate: result.metadata?.sampleRate || 48000,
+        channels: result.metadata?.channels || 2,
+        duration: result.metadata?.duration || 0,
+        processedAt: new Date().toISOString(),
+        processingTime: result.metadata?.processingTime || 0,
+        engineVersion: "5.4.0-real",
+        pipelinePhase: "complete"
       }
     };
+    
+    // 🔍 LOGS FINAIS de validação
+    console.log("🔍 [VALIDATION] Métricas na resposta:");
+    console.log("🔍 [VALIDATION] peak:", frontendResult.metrics.peak);
+    console.log("🔍 [VALIDATION] rms:", frontendResult.metrics.rms);
+    console.log("🔍 [VALIDATION] lufsIntegrated:", frontendResult.metrics.lufsIntegrated);
+    console.log("🔍 [VALIDATION] truePeakDbtp:", frontendResult.metrics.truePeakDbtp);
+    console.log("🔍 [VALIDATION] dynamicRange:", frontendResult.metrics.dynamicRange);
     
     console.log("📤 Enviando resposta adaptada para frontend");
     res.json(frontendResult);

@@ -36,6 +36,15 @@ function extractTechnicalData(coreMetrics) {
   const technicalData = {};
 
   try {
+    // ✅ ADICIONADO: Métricas básicas RMS e Peak
+    if (coreMetrics.basicMetrics) {
+      technicalData.rms = coreMetrics.basicMetrics.rms;
+      technicalData.rmsDb = coreMetrics.basicMetrics.rmsDb;
+      technicalData.peak = coreMetrics.basicMetrics.peak;
+      technicalData.peakDb = coreMetrics.basicMetrics.peakDb;
+      console.log(`✅ [BASIC METRICS] RMS: ${technicalData.rms.toFixed(4)}, Peak: ${technicalData.peak.toFixed(4)}`);
+    }
+
     // Loudness
     if (coreMetrics.lufs) {
       technicalData.lufsIntegrated = coreMetrics.lufs.integrated;
@@ -143,6 +152,12 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata) {
     },
 
     technicalData: {
+      // ✅ MÉTRICAS BÁSICAS ADICIONADAS (esperadas pelo frontend)
+      rms: sanitizeValue(technicalData.rms),
+      rmsDb: sanitizeValue(technicalData.rmsDb),
+      peak: sanitizeValue(technicalData.peak),
+      peakDb: sanitizeValue(technicalData.peakDb),
+      
       lufsIntegrated: sanitizeValue(technicalData.lufsIntegrated),
       lufsShortTerm: sanitizeValue(technicalData.lufsShortTerm),
       lufsMomentary: sanitizeValue(technicalData.lufsMomentary),
