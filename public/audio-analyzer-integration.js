@@ -3429,7 +3429,17 @@ function invalidateInconsistentCache(data, jobId, reason) {
 }
 
 /**
- * �🛡️ MODAL GUARD: Só exibe modal quando dados reais estão disponíveis
+ * 🔧 FUNÇÃO AUXILIAR: Exibir valor ou N/A de forma segura
+ */
+function displayValue(value, unit = '', decimals = 2) {
+    if (value === undefined || value === null || isNaN(value)) {
+        return 'N/A';
+    }
+    return typeof value === 'number' ? `${value.toFixed(decimals)}${unit}` : String(value);
+}
+
+/**
+ * 🛡️ MODAL GUARD: Só exibe modal quando dados reais estão disponíveis
  * Agora com CACHE INVALIDATION automática para dados inconsistentes
  */
 function validateAnalysisDataCompleteness(analysis) {
@@ -3455,10 +3465,10 @@ function validateAnalysisDataCompleteness(analysis) {
         }
     });
     
-    // ✅ CORRIGIDO: Bloquear apenas se mais de 3 métricas PRINCIPAIS estão ausentes
-    // Métricas avançadas (MFCC, spectral, etc.) podem estar ausentes sem bloquear
-    if (missingMainMetrics.length > 3) {
-        console.warn('🛡️ [MODAL_GUARD] Muitas métricas PRINCIPAIS ausentes:', missingMainMetrics);
+    // ✅ CORRIGIDO: Bloquear apenas se métricas PRINCIPAIS estão ausentes
+    // Modal Guard deve validar apenas as 5 métricas essenciais
+    if (missingMainMetrics.length > 0) {
+        console.warn('🛡️ [MODAL_GUARD] Métricas PRINCIPAIS ausentes:', missingMainMetrics);
         
         // 🔄 CACHE INVALIDATION: Dados incompletos detectados
         invalidateInconsistentCache(analysis, analysis.jobId || 'unknown', 
@@ -3873,6 +3883,22 @@ function displayModalResults(analysis) {
                     rows.push(row('Offset Loudness', `${safeFixed(analysis.technicalData.headroomDb, 1)} dB`, 'headroomDb'));
                 }
                 
+                // ✅ IMAGEM ESTÉREO COMPLETA
+                if (Number.isFinite(analysis.technicalData?.stereoCorrelation)) {
+                    rows.push(row('Correlação Estéreo', `${safeFixed(analysis.technicalData.stereoCorrelation, 3)}`, 'stereoCorrelation'));
+                }
+                if (Number.isFinite(analysis.technicalData?.stereoWidth)) {
+                    rows.push(row('Largura Estéreo', `${safeFixed(analysis.technicalData.stereoWidth, 3)}`, 'stereoWidth'));
+                }
+                if (Number.isFinite(analysis.technicalData?.balanceLR)) {
+                    rows.push(row('Balanço L/R', `${safeFixed(analysis.technicalData.balanceLR, 3)}`, 'balanceLR'));
+                }
+                
+                // ✅ DINÂMICA EXPANDIDA
+                if (Number.isFinite(analysis.technicalData?.crestFactor)) {
+                    rows.push(row('Crest Factor', `${safeFixed(analysis.technicalData.crestFactor, 2)} dB`, 'crestFactor'));
+                }
+                
                 // ✅ PICOS POR CANAL DETALHADOS
                 if (Number.isFinite(analysis.technicalData?.samplePeakLeftDb)) {
                     rows.push(row('Pico de Amostra L (dBFS)', `${safeFixed(analysis.technicalData.samplePeakLeftDb, 1)} dBFS`, 'samplePeakLeftDb'));
@@ -3897,12 +3923,49 @@ function displayModalResults(analysis) {
                     }
                 });
                 
-                // ✅ CLIPPING DETALHADO
+                // ✅ CLIPPING DETALHADO E TÉCNICAS
                 if (Number.isFinite(analysis.technicalData?.clippingPct)) {
                     rows.push(row('Clipping (%)', `${safeFixed(analysis.technicalData.clippingPct, 2)}%`, 'clippingPct'));
                 }
                 if (Number.isFinite(analysis.technicalData?.clippingSamplesTruePeak)) {
                     rows.push(row('Clipping (TP)', `${analysis.technicalData.clippingSamplesTruePeak} samples`, 'clippingSamplesTruePeak'));
+                }
+                if (Number.isFinite(analysis.technicalData?.dcOffset)) {
+                    rows.push(row('DC Offset', `${safeFixed(analysis.technicalData.dcOffset, 6)}`, 'dcOffset'));
+                }
+                if (Number.isFinite(analysis.technicalData?.thdPercent)) {
+                    rows.push(row('THD', `${safeFixed(analysis.technicalData.thdPercent, 2)}%`, 'thdPercent'));
+                }
+                
+                // ✅ SPECTRAL BALANCE COMPLETO (6 BANDAS)
+                const spectralBalance = analysis.technicalData?.spectral_balance;
+                if (spectralBalance && typeof spectralBalance === 'object') {
+                    const bandNames = ['sub', 'bass', 'mids', 'treble', 'presence', 'air'];
+                    const bandLabels = {
+                        'sub': 'Sub (20-60Hz)',
+                        'bass': 'Bass (60-250Hz)', 
+                        'mids': 'Mids (250Hz-4kHz)',
+                        'treble': 'Treble (4k-12kHz)',
+                        'presence': 'Presence (4k-8kHz)',
+                        'air': 'Air (12k-20kHz)'
+                    };
+                    
+                    bandNames.forEach(band => {
+                        if (Number.isFinite(spectralBalance[band])) {
+                            const percentage = (spectralBalance[band] * 100).toFixed(1);
+                            rows.push(row(bandLabels[band], `${percentage}%`, `spectral_${band}`));
+                        }
+                    });
+                }
+                
+                // ✅ TONAL BALANCE EXPANDIDO
+                const tonalBalance = analysis.technicalData?.tonalBalance;
+                if (tonalBalance && typeof tonalBalance === 'object') {
+                    Object.entries(tonalBalance).forEach(([freq, data]) => {
+                        if (data && typeof data === 'object' && Number.isFinite(data.rms_db)) {
+                            rows.push(row(`Tonal ${freq}`, `${safeFixed(data.rms_db, 1)} dB`, `tonal_${freq}`));
+                        }
+                    });
                 }
                 
                 // ✅ MFCC COEFFICIENTS EXPANDIDOS - MOSTRAR TODOS OS 13 DISPONÍVEIS
@@ -5022,6 +5085,9 @@ function displayModalResults(analysis) {
     
     __dbg('📊 Resultados exibidos no modal - TODAS as métricas expandidas');
     
+    // 🔍 AUDITORIA COMPLETA DE RENDERIZAÇÃO
+    performUIRenderAudit(analysis);
+    
     // 🔍 LOG FINAL DE VALIDAÇÃO
     console.log('✅ [UI_RENDER_OK] Modal renderizado com sucesso!');
     console.log('🔍 [UI_RENDER_OK] Verificação final das seções:');
@@ -5056,7 +5122,7 @@ function displayModalResults(analysis) {
     console.log('   ✅ Spectral Balance: 6 bandas com faixas detalhadas e níveis');
     
     // ✅ 4. Verificar dados recebidos vs mapeados
-    const backendMetrics = source || {};
+    const backendMetrics = analysis || {};
     const mappedMetrics = analysis.technicalData || {};
     console.log('🔍 [AUDIT] 4. Métricas Backend vs Frontend:');
     console.log('   📥 Backend forneceu:', Object.keys(backendMetrics).length, 'campos');
@@ -5983,15 +6049,12 @@ function normalizeBackendAnalysisData(backendData) {
         return backendData;
     }
     
-    // Criar estrutura normalizada
+    // Criar estrutura normalizada - SEM VALORES MOCK/FALLBACK
     const normalized = {
         ...backendData,
-        technicalData: backendData.technicalData || {},
-        problems: backendData.problems || [],
-        suggestions: backendData.suggestions || [],
-        duration: backendData.duration || 0,
-        sampleRate: backendData.sampleRate || 48000,
-        channels: backendData.channels || 2
+        technicalData: backendData.technicalData || {}
+        // ❌ REMOVIDO: Não criar arrays vazios para problems/suggestions
+        // ❌ REMOVIDO: Não definir valores padrão para duration/sampleRate/channels
     };
     
     // 🎯 MAPEAR MÉTRICAS BÁSICAS DOS DADOS REAIS DO BACKEND - SEM VALORES PADRÃO/MOCK
@@ -6239,15 +6302,18 @@ function normalizeBackendAnalysisData(backendData) {
         console.log('⚠️ [NORMALIZE] Frequências dominantes não encontradas - não criando mock');
     }
     
-    // 🔢 SCORES E QUALIDADE
-    normalized.qualityOverall = backendData.qualityOverall || backendData.score || backendData.mixScore || 7.5;
-    normalized.qualityBreakdown = backendData.qualityBreakdown || {
-        dynamics: 75,
-        technical: 80,
-        stereo: 70,
-        loudness: 85,
-        frequency: 75
-    };
+    // 🔢 SCORES E QUALIDADE - APENAS DADOS REAIS
+    if (backendData.qualityOverall !== undefined) {
+        normalized.qualityOverall = backendData.qualityOverall;
+    } else if (backendData.score !== undefined) {
+        normalized.qualityOverall = backendData.score;
+    } else if (backendData.mixScore !== undefined) {
+        normalized.qualityOverall = backendData.mixScore;
+    }
+    
+    if (backendData.qualityBreakdown !== undefined) {
+        normalized.qualityBreakdown = backendData.qualityBreakdown;
+    }
     
     // 🚨 PROBLEMAS - CORRIGIDO: Preservar apenas problemas reais do backend
     if (Array.isArray(backendData.problems) && backendData.problems.length > 0) {
@@ -6455,4 +6521,123 @@ function showAnalysisResults() {
     } else {
         __dbg('❌ Elemento audioAnalysisResults não encontrado!');
     }
+}
+
+// 🔍 FUNÇÃO DE AUDITORIA COMPLETA: Verificar correções implementadas
+function performUIRenderAudit(analysis) {
+    console.log('\n🔍 ================ AUDITORIA UI RENDER COMPLETA ================');
+    console.log('📊 [UI_RENDER_AUDIT] Verificando implementação das correções:');
+    
+    // ✅ 1. Contar métricas recebidas do backend
+    const metricsReceived = countMetricsReceived(analysis);
+    
+    // ✅ 2. Verificar se mock values foram removidos
+    const mockValuesCheck = auditMockValuesRemoved(analysis);
+    
+    // ✅ 3. Verificar Modal Guard (só métricas principais)
+    const modalGuardCheck = auditModalGuard(analysis);
+    
+    // ✅ 4. Verificar exibição de métricas avançadas
+    const advancedMetricsCheck = auditAdvancedMetricsDisplay();
+    
+    // ✅ 5. Verificar preservação de dados
+    const dataPreservationCheck = auditDataPreservation(analysis);
+    
+    // Relatório final
+    console.log(`[UI_RENDER_AUDIT] 📊 Métricas recebidas: ${metricsReceived}`);
+    console.log(`[UI_RENDER_AUDIT] 📊 Métricas exibidas: ${countMetricsDisplayed()}`);
+    console.log(`[UI_RENDER_AUDIT] 🚫 Mock values removidos: ${mockValuesCheck ? '✅ SIM' : '❌ NÃO'}`);
+    console.log(`[UI_RENDER_AUDIT] 🛡️ Modal Guard (só principais): ${modalGuardCheck ? '✅ SIM' : '❌ NÃO'}`);
+    console.log(`[UI_RENDER_AUDIT] 📈 Métricas avançadas exibidas: ${advancedMetricsCheck ? '✅ SIM' : '❌ NÃO'}`);
+    console.log(`[UI_RENDER_AUDIT] 💾 Dados preservados: ${dataPreservationCheck ? '✅ SIM' : '❌ NÃO'}`);
+    console.log(`[UI_RENDER_AUDIT] Faltando exibir: ${identifyMissingMetrics(analysis).join(', ') || 'Nenhuma'}`);
+    
+    const allChecksPass = mockValuesCheck && modalGuardCheck && advancedMetricsCheck && dataPreservationCheck;
+    
+    if (allChecksPass) {
+        console.log(`[UI_RENDER_AUDIT] 🎉 AUDITORIA COMPLETA APROVADA - Todas as correções implementadas!`);
+    } else {
+        console.warn(`[UI_RENDER_AUDIT] ⚠️ AUDITORIA PARCIAL - Algumas correções precisam de ajustes`);
+    }
+    
+    console.log('===============================================================\n');
+}
+
+// Funções auxiliares da auditoria
+function countMetricsReceived(analysis) {
+    let count = 0;
+    ['metrics', 'technicalData', 'spectral_balance', 'tonalBalance', 'metadata'].forEach(section => {
+        if (analysis?.[section] && typeof analysis[section] === 'object') {
+            count += Object.keys(analysis[section]).filter(key => 
+                analysis[section][key] !== undefined && 
+                analysis[section][key] !== null && 
+                analysis[section][key] !== ''
+            ).length;
+        }
+    });
+    return count;
+}
+
+function countMetricsDisplayed() {
+    const modalContainer = document.getElementById('modalTechnicalData');
+    if (!modalContainer) return 0;
+    
+    const displayedElements = modalContainer.querySelectorAll('.data-row .value');
+    return Array.from(displayedElements).filter(el => 
+        el.textContent && el.textContent.trim() !== '—' && el.textContent.trim() !== 'N/A'
+    ).length;
+}
+
+function auditMockValuesRemoved(analysis) {
+    const mockIndicators = ['mock', 'default', 'placeholder', 'fake'];
+    const dataStr = JSON.stringify(analysis).toLowerCase();
+    return !mockIndicators.some(indicator => dataStr.includes(indicator));
+}
+
+function auditModalGuard(analysis) {
+    const validation = validateAnalysisDataCompleteness(analysis);
+    return validation.valid;
+}
+
+function auditAdvancedMetricsDisplay() {
+    const modalContainer = document.getElementById('modalTechnicalData');
+    if (!modalContainer) return false;
+    
+    const advancedSections = [
+        'MFCC',
+        'Spectral',
+        'Estéreo',
+        'Técnicas'
+    ];
+    
+    const content = modalContainer.innerHTML;
+    return advancedSections.some(section => content.includes(section));
+}
+
+function auditDataPreservation(analysis) {
+    const importantSections = ['technicalData'];
+    return importantSections.every(section => 
+        analysis?.[section] && Object.keys(analysis[section]).length > 0
+    );
+}
+
+function identifyMissingMetrics(analysis) {
+    const missing = [];
+    
+    // Verificar métricas essenciais que deveriam estar disponíveis
+    const expectedMetrics = {
+        'lufsIntegrated': analysis.technicalData?.lufsIntegrated,
+        'truePeakDbtp': analysis.technicalData?.truePeakDbtp,
+        'dynamicRange': analysis.technicalData?.dynamicRange,
+        'peak': analysis.technicalData?.peak,
+        'rms': analysis.technicalData?.rms
+    };
+    
+    Object.entries(expectedMetrics).forEach(([metric, value]) => {
+        if (value === undefined || value === null || isNaN(value)) {
+            missing.push(metric);
+        }
+    });
+    
+    return missing;
 }
