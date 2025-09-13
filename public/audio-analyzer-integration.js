@@ -258,7 +258,7 @@ async function createAnalysisJob(fileKey, mode, fileName) {
     try {
         __dbg('🔧 Criando job de análise...', { fileKey, mode, fileName });
 
-        const response = await fetch('/api/audio/analyze', {
+        const response = await fetch('https://soundyai-app-production.up.railway.app/api/audio/analyze', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -717,7 +717,7 @@ async function startReferenceAnalysis() {
     try {
         showAnalysisProgress();
 
-        const response = await fetch('/api/audio/analyze', {
+        const response = await fetch('https://soundyai-app-production.up.railway.app/api/audio/analyze', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -2020,7 +2020,44 @@ async function handleModalFileSelection(file) {
             return; // validateAudioFile já mostra erro
         }
         
-        // 🎯 BACKEND REAL: Usar Railway backend diretamente
+        // 🚀 BACKEND RAILWAY: Usar fluxo correto com fileKey
+        __dbg('🚀 Usando Railway backend com fluxo fileKey...');
+
+        // 1. OBTER URL PRESIGNADA
+        const { uploadUrl, fileKey } = await getPresignedUrl(file);
+        __dbg('📡 URL presignada obtida:', { fileKey });
+        updateModalProgress(20, 'Fazendo upload...');
+        
+        // 2. UPLOAD PARA S3
+        await uploadToBucket(uploadUrl, file);
+        updateModalProgress(40, 'Criando job...');
+        
+        // 3. CRIAR JOB DE ANÁLISE
+        const { jobId } = await createAnalysisJob(fileKey, currentAnalysisMode || 'genre', file.name);
+        updateModalProgress(60, 'Processando...');
+        
+        // 4. POLLING DO STATUS
+        let analysisResult = null;
+        for (let attempt = 1; attempt <= 60; attempt++) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            const response = await fetch(`https://soundyai-app-production.up.railway.app/api/jobs/${jobId}`);
+            const job = await response.json();
+            
+            if (job.status === 'completed') {
+                analysisResult = job.result;
+                break;
+            } else if (job.status === 'failed') {
+                throw new Error(`Análise falhou: ${job.error}`);
+            }
+            
+            const progress = Math.min(60 + (attempt / 60) * 30, 90);
+            updateModalProgress(progress, `Processando... (${attempt}/60)`);
+        }
+        
+        if (!analysisResult) {
+            throw new Error('Timeout na análise');
+        }
         __dbg('🚀 Usando Railway backend...');
         
         // Mostrar loading
@@ -2038,37 +2075,6 @@ async function handleModalFileSelection(file) {
         if (progressBar) {
             progressBar.style.width = '0%';
         }
-        updateModalProgress(10, 'Enviando arquivo para backend...');
-        
-        // 🎯 CHAMADA BACKEND REAL
-        const formData = new FormData();
-        formData.append('audio', file);
-        formData.append('genre', window.PROD_AI_REF_GENRE || 'funk_bruxaria');
-        formData.append('mode', currentAnalysisMode || 'genre');
-        
-        updateModalProgress(20, 'Processando áudio no servidor...');
-        
-        // 🎯 CORREÇÃO: Usar Railway ao invés de localhost
-        const backendUrl = window.location.origin.includes('railway.app') 
-            ? `${window.location.origin}/api/audio/analyze`  // Railway auto-detect
-            : 'https://soundyai-app-production.up.railway.app/api/audio/analyze'; // Railway explícito
-        
-        console.log('🚀 [BACKEND] URL corrigida para Railway:', backendUrl);
-        
-        const response = await fetch(backendUrl, {
-            method: 'POST',
-            body: formData
-        });
-        
-        updateModalProgress(80, 'Finalizando análise...');
-        
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Erro do servidor: ${response.status} - ${errorText}`);
-        }
-        
-        const analysisResult = await response.json();
-        
         updateModalProgress(100, 'Análise concluída!');
         
         // Mostrar resultados
