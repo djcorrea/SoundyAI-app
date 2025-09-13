@@ -67,8 +67,7 @@ class CoreMetricsProcessor {
       const processingTime = Date.now() - startTime;
 
       // ✅ ADICIONADO: Métricas básicas RMS e Peak necessárias para frontend
-      const leftChannel = segmentedAudio.leftChannel;
-      const rightChannel = segmentedAudio.rightChannel;
+      // Usar leftChannel e rightChannel já extraídos de ensureOriginalChannels
       const leftRMS = this.calculateRMS(leftChannel);
       const rightRMS = this.calculateRMS(rightChannel);
       const avgRMS = (leftRMS + rightRMS) / 2;
@@ -94,6 +93,9 @@ class CoreMetricsProcessor {
             right: { rms: rightRMS, peak: rightPeak }
           }
         },
+
+        // ✅ DYNAMIC RANGE (Crest Factor) ADICIONADO
+        dr: avgRMS > 0 ? 20 * Math.log10(maxPeak / avgRMS) : 0,
 
         fft: fftResults,
         lufs: lufsResults,

@@ -77,13 +77,29 @@ app.post("/api/audio/analyze", upload.single("audio"), async (req, res) => {
     
     // 🔧 LOGS ADICIONAIS para debug das métricas
     console.log("🔍 [DEBUG] Estrutura do result completa:");
+    // 🔍 DEBUG de valores calculados
+    console.log("🔍 [DEBUG] Valores básicos calculados:");
+    console.log("🔍 [DEBUG] result.basicMetrics:", result.basicMetrics);
     console.log("🔍 [DEBUG] result.technicalData:", !!result.technicalData);
-    console.log("🔍 [DEBUG] result.rms:", result.rms);
-    console.log("🔍 [DEBUG] result.peak:", result.peak);
-    console.log("🔍 [DEBUG] result.dynamicRange:", result.dynamicRange);
+    console.log("🔍 [DEBUG] result.lufs:", result.lufs);
+    console.log("🔍 [DEBUG] result.truePeak:", result.truePeak);
     console.log("🔍 [DEBUG] result.bandEnergies:", !!result.bandEnergies);
     
-    // 🎯 RESPOSTA COMPLETA com TODAS as métricas obrigatórias
+    // ✅ EXTRAÇÃO CORRETA das métricas básicas
+    const extractedPeak = result.basicMetrics?.peak || result.technicalData?.peak || null;
+    const extractedRms = result.basicMetrics?.rms || result.technicalData?.rms || null;
+    const extractedLufs = result.lufs?.integrated || result.technicalData?.lufsIntegrated || null;
+    const extractedTruePeak = result.truePeak?.maxDbtp || result.technicalData?.truePeakDbtp || null;
+    const extractedDynamicRange = result.dr || result.technicalData?.dynamicRange || null;
+    
+    console.log("🎯 [EXTRACTION] Métricas extraídas:");
+    console.log("🎯 [EXTRACTION] peak:", extractedPeak);
+    console.log("🎯 [EXTRACTION] rms:", extractedRms);
+    console.log("🎯 [EXTRACTION] lufsIntegrated:", extractedLufs);
+    console.log("🎯 [EXTRACTION] truePeakDbtp:", extractedTruePeak);
+    console.log("🎯 [EXTRACTION] dynamicRange:", extractedDynamicRange);
+    
+    // 🎯 RESPOSTA PADRONIZADA (formato esperado pelo frontend)
     const frontendResult = {
       success: true,
       backend: true,
@@ -92,30 +108,35 @@ app.post("/api/audio/analyze", upload.single("audio"), async (req, res) => {
       
       // ✅ MÉTRICAS OBRIGATÓRIAS (exatamente como esperado pelo frontend)
       metrics: {
-        peak: result.peak?.db || result.technicalData?.peak || null,
-        rms: result.rms?.db || result.technicalData?.rms || null, 
-        lufsIntegrated: result.lufs?.integrated || result.technicalData?.lufsIntegrated || null,
-        truePeakDbtp: result.truePeak?.maxDbtp || result.technicalData?.truePeakDbtp || null,
-        dynamicRange: result.dynamicRange?.crest || result.technicalData?.dynamicRange || null,
+        peak: extractedPeak,
+        rms: extractedRms,
+        lufsIntegrated: extractedLufs,
+        truePeakDbtp: extractedTruePeak,
+        dynamicRange: extractedDynamicRange,
+        // Métricas complementares
         stereoCorrelation: result.stereo?.correlation || result.technicalData?.stereoCorrelation || null,
-        lra: result.loudnessRange?.lra || result.technicalData?.lra || null
+        lra: result.lufs?.lra || result.technicalData?.lra || null
       },
       
       // ✅ DADOS TÉCNICOS COMPLETOS
       technicalData: {
-        lufsIntegrated: result.lufs?.integrated || result.technicalData?.lufsIntegrated || null,
+        // Métricas principais
+        peak: extractedPeak,
+        rms: extractedRms,
+        lufsIntegrated: extractedLufs,
+        truePeakDbtp: extractedTruePeak,
+        dynamicRange: extractedDynamicRange,
+        // Métricas LUFS complementares
         lufsShortTerm: result.lufs?.shortTerm || result.technicalData?.lufsShortTerm || null,
         lufsMomentary: result.lufs?.momentary || result.technicalData?.lufsMomentary || null,
-        truePeakDbtp: result.truePeak?.maxDbtp || result.technicalData?.truePeakDbtp || null,
-        truePeakLinear: result.truePeak?.linear || result.technicalData?.truePeakLinear || null,
-        // ✅ MÉTRICAS BÁSICAS CORRIGIDAS - usar basicMetrics primeiro
-        peak: result.basicMetrics?.peak || result.technicalData?.peak || null,
-        rms: result.basicMetrics?.rms || result.technicalData?.rms || null,
-        dynamicRange: result.dynamicRange?.crest || result.technicalData?.dynamicRange || null,
-        lra: result.loudnessRange?.lra || result.technicalData?.lra || null,
+        lra: result.lufs?.lra || result.technicalData?.lra || null,
+        // True Peak detalhado
+        truePeakLinear: result.truePeak?.maxLinear || result.technicalData?.truePeakLinear || null,
+        // Métricas estéreo
         stereoCorrelation: result.stereo?.correlation || result.technicalData?.stereoCorrelation || null,
         stereoWidth: result.stereo?.width || result.technicalData?.stereoWidth || null,
         balanceLR: result.stereo?.balance || result.technicalData?.balanceLR || null,
+        // Metadados
         sampleRate: result.metadata?.sampleRate || 48000,
         channels: result.metadata?.channels || 2,
         duration: result.metadata?.duration || 0
@@ -141,15 +162,35 @@ app.post("/api/audio/analyze", upload.single("audio"), async (req, res) => {
       }
     };
     
-    // 🔍 LOGS FINAIS de validação
-    console.log("🔍 [VALIDATION] Métricas na resposta:");
-    console.log("🔍 [VALIDATION] peak:", frontendResult.metrics.peak);
-    console.log("🔍 [VALIDATION] rms:", frontendResult.metrics.rms);
-    console.log("🔍 [VALIDATION] lufsIntegrated:", frontendResult.metrics.lufsIntegrated);
-    console.log("🔍 [VALIDATION] truePeakDbtp:", frontendResult.metrics.truePeakDbtp);
-    console.log("🔍 [VALIDATION] dynamicRange:", frontendResult.metrics.dynamicRange);
+    // ✅ VALIDAÇÃO FINAL COMPLETA das métricas obrigatórias
+    const requiredMetrics = ['peak', 'rms', 'lufsIntegrated', 'truePeakDbtp', 'dynamicRange'];
+    const missingMetrics = [];
+    const presentMetrics = [];
     
-    console.log("📤 Enviando resposta adaptada para frontend");
+    requiredMetrics.forEach(metric => {
+      const value = frontendResult.metrics[metric];
+      if (value === null || value === undefined) {
+        missingMetrics.push(metric);
+      } else {
+        presentMetrics.push(`${metric}: ${value}`);
+      }
+    });
+    
+    console.log("🔍 [VALIDATION] ===== CHECKLIST DE MÉTRICAS =====");
+    console.log("✅ [VALIDATION] Métricas presentes:", presentMetrics.length > 0 ? presentMetrics : "NENHUMA");
+    console.log("❌ [VALIDATION] Métricas ausentes:", missingMetrics.length > 0 ? missingMetrics : "NENHUMA");
+    console.log("🎯 [VALIDATION] Total obrigatórias:", requiredMetrics.length);
+    console.log("✅ [VALIDATION] Total presentes:", presentMetrics.length);
+    console.log("� [VALIDATION] Taxa de completude:", `${(presentMetrics.length / requiredMetrics.length * 100).toFixed(1)}%`);
+    
+    // Status de análise
+    const analysisComplete = missingMetrics.length === 0;
+    console.log(analysisComplete ? 
+      "🎉 [VALIDATION] ANÁLISE COMPLETA - Todas as métricas presentes!" : 
+      "⚠️ [VALIDATION] ANÁLISE INCOMPLETA - Métricas ausentes detectadas"
+    );
+    
+    console.log("📤 Enviando resposta padronizada para frontend");
     res.json(frontendResult);
     
   } catch (error) {
