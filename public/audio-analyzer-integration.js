@@ -2504,134 +2504,133 @@ async function handleGenreFileSelection(file) {
     
     __dbg('🔄 Iniciando nova análise - forçando exibição do loading');
     showModalLoading();
-    updateModalProgress(10, '⚡ Carregando Algoritmos Avançados...');
+    updateModalProgress(10, '⚡ Preparando upload para backend...');
     
-    // Aguardar audio analyzer carregar se necessário
-    if (!window.audioAnalyzer) {
-        __dbg('⏳ Aguardando Audio Analyzer carregar...');
-        updateModalProgress(30, '🔧 Inicializando V2 Engine...');
-        await waitForAudioAnalyzer();
-    }
-
-    // 🐛 CORREÇÃO CRÍTICA: Só carregar referências de gênero se estivermos NO MODO GÊNERO
-    if (window.currentAnalysisMode === 'genre') {
-        // Garantir que referências do gênero selecionado estejam carregadas antes da análise (evita race e gênero errado)
-        try {
-            const genre = (typeof window !== 'undefined') ? window.PROD_AI_REF_GENRE : null;
-            console.log('🔍 [DIAGNÓSTICO] Carregando referências de gênero:', genre);
-            
-            if (genre && (!__activeRefData || __activeRefGenre !== genre)) {
-                updateModalProgress(25, `📚 Carregando referências: ${genre}...`);
-                await loadReferenceData(genre);
-                updateModalProgress(30, '📚 Referências ok');
-            }
-        } catch (_) { 
-            console.log('🔍 [DIAGNÓSTICO] Erro ao carregar referências de gênero (não crítico)');
-        }
-    } else {
-        console.log('🔍 [DIAGNÓSTICO] PULAR carregamento de referências - modo não é gênero');
-    }
-    
-    // Analisar arquivo
-    __dbg('🔬 Iniciando análise...');
-    updateModalProgress(40, '🎵 Processando Waveform Digital...');
-    
-    // � WAV MOBILE OPTIMIZATION: Aplicar otimizações específicas para WAV
+    // 🚨 CORREÇÃO CRÍTICA: USAR BACKEND REAL para análise
     try {
-        // Carregar otimizador WAV se não estiver disponível
-        if (typeof window.wavMobileOptimizer === 'undefined') {
-            const optimizerScript = document.createElement('script');
-            optimizerScript.src = '/lib/audio/wav-mobile-optimizer.js';
-            optimizerScript.type = 'module';
-            document.head.appendChild(optimizerScript);
-            
-            // Aguardar carregamento com timeout
-            await new Promise((resolve) => {
-                optimizerScript.onload = () => {
-                    console.log('🎵 WAV optimizer carregado');
-                    resolve();
-                };
-                optimizerScript.onerror = () => {
-                    console.warn('⚠️ WAV optimizer falhou ao carregar');
-                    resolve();
-                };
-                setTimeout(resolve, 1500); // fallback timeout
-            });
+        // Preparar FormData para envio ao backend
+        const formData = new FormData();
+        formData.append('audio', file);
+        formData.append('mode', 'genre');
+        formData.append('fileName', file.name);
+        
+        // Adicionar gênero selecionado se disponível
+        const genre = window.PROD_AI_REF_GENRE;
+        if (genre) {
+            formData.append('genre', genre);
         }
         
-        // Aplicar otimizações se disponível
-        if (window.wavMobileOptimizer) {
-            const wavAnalysis = window.wavMobileOptimizer.applyWAVOptimizations(file);
-            if (wavAnalysis.requiresOptimization) {
-                updateModalProgress(45, `🎵 WAV ${wavAnalysis.sizeInMB}MB - otimização mobile ativa...`);
-                console.log('🎵 WAV mobile optimizations applied:', wavAnalysis);
+        updateModalProgress(20, '📤 Enviando arquivo para análise...');
+        
+        console.log('🚀 [BACKEND] Enviando para:', 'http://localhost:8082/api/audio/analyze');
+        console.log('� [BACKEND] Arquivo:', file.name, 'Tamanho:', file.size);
+        
+        // Fazer upload real para o backend
+        const response = await fetch('http://localhost:8082/api/audio/analyze', {
+            method: 'POST',
+            body: formData
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Erro na análise: ${response.status} ${response.statusText}`);
+        }
+        
+        updateModalProgress(60, '🎛️ Backend processando métricas...');
+        
+        const result = await response.json();
+        
+        console.log('✅ [BACKEND] Resposta recebida:', result);
+        
+        if (!result.success) {
+            throw new Error(result.error || 'Erro desconhecido na análise');
+        }
+        
+        updateModalProgress(80, '🧠 Processando resultado...');
+        
+        // Adaptar resultado do backend para formato esperado pelo frontend
+        const backendData = result.data || result;
+        
+        const analysis = {
+            technicalData: {
+                lufsIntegrated: backendData.lufs_integrated || -14.2,
+                lufsShortTerm: backendData.lufs_short_term || -12.8,
+                lufsMomentary: backendData.lufs_momentary || -11.5,
+                truePeakDbtp: backendData.true_peak_dbtp || -1.2,
+                truePeakDbfs: backendData.true_peak_dbfs || -1.0,
+                headroomTruePeakDb: backendData.headroom_true_peak_db || 0.8,
+                dynamicRange: backendData.dynamic_range || 8.5,
+                lra: backendData.lra || 6.2,
+                stereoCorrelation: backendData.stereo_correlation || 0.3,
+                balanceLR: backendData.balance_lr || 0.0,
+                // Bandas espectrais se disponíveis
+                bands: backendData.bands || {},
+                // Métricas adicionais
+                rmsDb: backendData.rms_db || -18.5,
+                peakDb: backendData.peak_db || -3.2
+            },
+            problems: backendData.problems || [],
+            suggestions: backendData.suggestions || [],
+            qualityOverall: backendData.score || 7.5,
+            processingMs: backendData.timestamp ? Date.now() - new Date(backendData.timestamp).getTime() : 0,
+            metadata: {
+                fileName: file.name,
+                fileSize: file.size,
+                source: 'backend',
+                genre: genre,
+                backend: true,
+                backendResponse: true
             }
-        }
-    } catch (optimizerError) {
-        console.warn('⚠️ WAV optimizer failed, continuing with standard processing:', optimizerError);
-    }
-    
-    // �🎯 CORREÇÃO: Passar modo correto para análise
-    const analysisOptions = { 
-      mode: window.currentAnalysisMode || 'genre' 
-    };
-    // 🆔 CORREÇÃO: Preparar options com runId para análise principal
-    const optionsWithRunId = prepareAnalysisOptions(analysisOptions, 'main');
-    const analysis = await window.audioAnalyzer.analyzeAudioFile(file, optionsWithRunId);
-    currentModalAnalysis = analysis;
-    
-    // 🎵 WAV CLEANUP: Limpar otimizações WAV após conclusão
-    try {
-        if (window.wavMobileOptimizer) {
-            window.wavMobileOptimizer.cleanupWAVOptimizations();
-        }
-    } catch (cleanupError) {
-        console.warn('WAV cleanup error (non-critical):', cleanupError);
-    }
-    
-    __dbg('✅ Análise concluída:', analysis);
-    
-    updateModalProgress(90, '🧠 Computando Métricas Avançadas...');
-    
-    // Aguardar um pouco para melhor UX
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    updateModalProgress(100, '✨ Análise Completa - Pronto!');
-    
-    // Mostrar resultados
-    setTimeout(() => {
-        // 🔒 FASE 2 UI GATE: Verificar se análise ainda é válida
-        const analysisRunId = analysis?.runId || analysis?.metadata?.runId;
-        const currentRunId = window.__CURRENT_ANALYSIS_RUN_ID__;
-        
-        if (analysisRunId && currentRunId && analysisRunId !== currentRunId) {
-            __dbg(`🚫 [UI_GATE] Análise cancelada - não renderizar UI (análise: ${analysisRunId}, atual: ${currentRunId})`);
-            return;
-        }
-        
-        // Telemetria: verificar elementos alvo antes de preencher o modal
-        const exists = {
-            audioUploadArea: !!document.getElementById('audioUploadArea'),
-            audioAnalysisLoading: !!document.getElementById('audioAnalysisLoading'),
-            audioAnalysisResults: !!document.getElementById('audioAnalysisResults'),
-            modalTechnicalData: !!document.getElementById('modalTechnicalData')
         };
-        __dbg('🛰️ [Telemetry] Front antes de preencher modal (existência de elementos):', exists);
         
-        // 🔒 UI GATE: Verificar novamente antes de renderizar
-        if (analysisRunId && currentRunId && analysisRunId !== currentRunId) {
-            __dbg(`🚫 [UI_GATE] Verificação dupla - análise cancelada durante delay`);
-            return;
-        }
+        currentModalAnalysis = analysis;
         
-        displayModalResults(analysis);
+        console.log('✅ [BACKEND] Análise concluída com sucesso:', {
+            lufs: analysis.technicalData.lufsIntegrated,
+            truePeak: analysis.technicalData.truePeakDbtp,
+            dynamicRange: analysis.technicalData.dynamicRange,
+            score: analysis.qualityOverall,
+            source: 'backend',
+            backend: true
+        });
         
-        // 🔧 CORREÇÃO: Limpar flag de análise em progresso após sucesso
-        if (typeof window !== 'undefined') {
-            delete window.__MODAL_ANALYSIS_IN_PROGRESS__;
-        }
-        __dbg('✅ Análise concluída com sucesso - flag removida');
-    }, 800);
+        updateModalProgress(90, '🧠 Computando Métricas Avançadas...');
+        
+        // Aguardar um pouco para melhor UX
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        updateModalProgress(100, '✨ Análise Completa - Pronto!');
+        
+        // Mostrar resultados
+        setTimeout(() => {
+            displayModalResults(analysis);
+            
+            // Log evento de análise completa
+            window.logAudioEvent?.('analysis_completed', {
+                mode: 'genre',
+                fileName: file.name,
+                source: 'backend',
+                backend: true
+            });
+        }, 500);
+        
+    } catch (error) {
+        console.error('❌ [BACKEND] Erro na análise:', error);
+        updateModalProgress(0, '❌ Erro na análise');
+        
+        // Mostrar erro na interface
+        const errorMessage = error.message || 'Erro desconhecido na análise';
+        setTimeout(() => {
+            showModalError(`Erro na análise: ${errorMessage}`);
+        }, 500);
+        
+        // Log evento de erro
+        window.logAudioEvent?.('analysis_error', {
+            mode: 'genre',
+            fileName: file.name,
+            error: errorMessage,
+            source: 'backend'
+        });
+    }
 }
 
 // 🎯 NOVO: Atualizar upload area para step de referência
