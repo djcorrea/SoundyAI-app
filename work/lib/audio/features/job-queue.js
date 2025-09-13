@@ -38,13 +38,49 @@ function process(){
   let finished = false;
   const timer = setTimeout(()=>{
     if (finished) return; finished = true;
-    state.active--; log('TIMEOUT', { id:item.id, label:item.label });
-    try { item.reject(new Error('Timeout job ('+item.label+')')); } catch{}
+    state.active--;
+    
+    // 📊 LOGS DETALHADOS PARA TIMEOUT DE JOB QUEUE
+    const timeoutDetails = {
+      jobId: item.id,
+      label: item.label,
+      timeoutMs: item.timeoutMs,
+      queuedTime: performance.now() - item.enqueuedAt,
+      activeJobs: state.active,
+      queueLength: state.queue.length,
+      timestamp: new Date().toISOString()
+    };
+    
+    log('TIMEOUT', timeoutDetails);
+    console.error(`⏱️ JOB QUEUE TIMEOUT:`, timeoutDetails);
+    console.error(`💥 Job "${item.label}" excedeu ${item.timeoutMs/1000}s de processamento`);
+    
+    try { item.reject(new Error(`Timeout job queue: "${item.label}" excedeu ${item.timeoutMs/1000}s`)); } catch{}
     process();
   }, item.timeoutMs);
   Promise.resolve().then(()=> item.fn())
     .then(res=>{ if (finished) return; finished = true; clearTimeout(timer); state.active--; log('DONE', { id:item.id, label:item.label, ms:(performance.now()-start).toFixed(1) }); try { item.resolve(res);} catch{} })
-    .catch(err=>{ if (finished) return; finished = true; clearTimeout(timer); state.active--; log('ERROR', { id:item.id, label:item.label, err: err?.message||String(err) }); try { item.reject(err);} catch{} })
+    .catch(err=>{ 
+      if (finished) return; finished = true; clearTimeout(timer); state.active--;
+      
+      // 📊 LOGS DETALHADOS PARA ERRO DE JOB QUEUE
+      const errorDetails = {
+        jobId: item.id,
+        label: item.label,
+        errorType: err?.name || 'Unknown',
+        errorMessage: err?.message || String(err),
+        processingTime: (performance.now()-start).toFixed(1) + 'ms',
+        activeJobs: state.active,
+        queueLength: state.queue.length,
+        timestamp: new Date().toISOString()
+      };
+      
+      log('ERROR', errorDetails);
+      console.error(`❌ JOB QUEUE ERROR:`, errorDetails);
+      console.error(`💥 Job "${item.label}" falhou após ${errorDetails.processingTime}: ${err?.message || String(err)}`);
+      
+      try { item.reject(err);} catch{} 
+    })
     .finally(()=> process());
 }
 

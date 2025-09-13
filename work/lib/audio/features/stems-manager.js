@@ -106,7 +106,19 @@ async function separateViaWorker(audioBuffer, options = {}) {
     const worker = getAvailableWorker();
     
     if (!worker) {
-      reject(new Error('No workers available'));
+      // 📊 LOGS DETALHADOS PARA FALTA DE WORKERS
+      const noWorkerDetails = {
+        currentPoolSize: workerPool.length,
+        maxWorkers: MAX_WORKERS,
+        audioBufferDuration: audioBuffer ? audioBuffer.duration : 'unknown',
+        timestamp: new Date().toISOString()
+      };
+      
+      caiarLog('STEMS_NO_WORKERS', 'Nenhum worker disponível', noWorkerDetails);
+      console.error(`🚫 NENHUM WORKER DISPONÍVEL:`, noWorkerDetails);
+      console.error(`💥 Pool de workers esgotado: ${workerPool.length}/${MAX_WORKERS} em uso`);
+      
+      reject(new Error(`Nenhum worker disponível: ${workerPool.length}/${MAX_WORKERS} workers em uso`));
       return;
     }
     
@@ -119,7 +131,23 @@ async function separateViaWorker(audioBuffer, options = {}) {
       // Remover do pool
       const index = workerPool.findIndex(w => w.id === worker.id);
       if (index >= 0) workerPool.splice(index, 1);
-      reject(new Error('Worker timeout'));
+      
+      // 📊 LOGS DETALHADOS PARA TIMEOUT DE WORKER
+      const workerTimeoutDetails = {
+        workerId: worker.id,
+        requestId: requestId,
+        timeoutMs: options.timeoutMs || 120000,
+        audioBufferDuration: audioBuffer ? audioBuffer.duration : 'unknown',
+        audioBufferChannels: audioBuffer ? audioBuffer.numberOfChannels : 'unknown',
+        workerPoolSize: workerPool.length,
+        timestamp: new Date().toISOString()
+      };
+      
+      caiarLog('STEMS_WORKER_TIMEOUT', 'Worker timeout detectado', workerTimeoutDetails);
+      console.error(`⏱️ WORKER TIMEOUT:`, workerTimeoutDetails);
+      console.error(`💥 Worker ${worker.id} excedeu ${(options.timeoutMs || 120000)/1000}s processando stems`);
+      
+      reject(new Error(`Worker timeout: processamento de stems excedeu ${(options.timeoutMs || 120000)/1000}s`));
     }, options.timeoutMs || 120000); // 2 min UNIFICADO
     
     // Message handler

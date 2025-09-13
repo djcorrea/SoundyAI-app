@@ -72,12 +72,28 @@ class AudioProcessingQueue {
       
       console.log(`➕ Trabalho adicionado à fila: ${job.label} (ID: ${job.id}, Prioridade: ${job.priority})`);
       
-      // Configurar timeout da fila
+      // Configurar timeout da fila com logs detalhados
       setTimeout(() => {
         const stillQueued = this.queue.find(q => q.id === job.id);
         if (stillQueued) {
+          // 📊 LOGS DETALHADOS PARA TIMEOUT DA FILA
+          const queueTimeoutDetails = {
+            jobLabel: job.label,
+            jobId: job.id,
+            queueTimeoutMs: this.queueTimeout,
+            queuePosition: this.queue.findIndex(q => q.id === job.id),
+            totalInQueue: this.queue.length,
+            activeJobs: this.active,
+            runningJobs: this.running.length,
+            timestamp: new Date().toISOString()
+          };
+          
+          console.warn(`⏱️ TIMEOUT DA FILA DETECTADO:`, queueTimeoutDetails);
+          console.warn(`🚫 Job "${job.label}" removido da fila após ${this.queueTimeout/1000}s de espera`);
+          console.warn(`📊 Estado da fila: ${this.queue.length} aguardando, ${this.running.length} processando`);
+          
           this.removeFromQueue(job.id);
-          reject(new Error('Timeout na fila - trabalho removido'));
+          reject(new Error(`Timeout na fila: "${job.label}" aguardou ${this.queueTimeout/1000}s sem ser processado`));
         }
       }, this.queueTimeout);
       
@@ -108,9 +124,25 @@ class AudioProcessingQueue {
     console.log(`🔄 Processando: ${job.label} (ID: ${job.id})`);
     
     try {
-      // Timeout do trabalho individual
+      // Timeout do trabalho individual com logs detalhados
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout no processamento')), job.timeout);
+        setTimeout(() => {
+          // 📊 LOGS DETALHADOS PARA TIMEOUT DE JOB
+          const timeoutDetails = {
+            jobLabel: job.label,
+            jobId: job.id,
+            timeoutMs: job.timeout,
+            queuePosition: this.queue.findIndex(q => q.id === job.id),
+            activeJobs: this.active,
+            totalQueued: this.queue.length,
+            timestamp: new Date().toISOString()
+          };
+          
+          console.error(`⏱️ TIMEOUT DE JOB DETECTADO:`, timeoutDetails);
+          console.error(`💥 Job "${job.label}" excedeu ${job.timeout/1000}s de processamento`);
+          
+          reject(new Error(`Timeout no processamento: ${job.label} excedeu ${job.timeout/1000}s`));
+        }, job.timeout);
       });
       
       // Processar áudio
@@ -125,11 +157,32 @@ class AudioProcessingQueue {
       job.resolve(result);
       
     } catch (error) {
-      // Falha
+      // 📊 LOGS DETALHADOS PARA FALHAS DE JOB
       const processingTime = Date.now() - startTime;
       this.updateMetrics(false, processingTime);
       
-      console.error(`❌ Falhou: ${job.label} - ${error.message}`);
+      const jobFailureDetails = {
+        jobLabel: job.label,
+        jobId: job.id,
+        processingTimeMs: processingTime,
+        errorType: error.name || 'Unknown',
+        errorMessage: error.message,
+        isTimeout: error.message.includes('Timeout'),
+        queueState: {
+          activeJobs: this.active,
+          queuedJobs: this.queue.length,
+          runningJobs: this.running.length
+        },
+        timestamp: new Date().toISOString()
+      };
+      
+      console.error(`❌ FALHA DE JOB DETECTADA:`, jobFailureDetails);
+      console.error(`💥 Job "${job.label}" falhou após ${processingTime}ms: ${error.message}`);
+      
+      if (error.message.includes('Timeout')) {
+        console.error(`⏱️ TIMEOUT: Job excedeu limite de ${job.timeout/1000}s de processamento`);
+      }
+      
       job.reject(error);
       
     } finally {

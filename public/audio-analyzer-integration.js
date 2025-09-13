@@ -322,9 +322,27 @@ async function pollJobStatus(jobId) {
                 
                 // 🚨 TIMEOUT ABSOLUTO - Evita loops infinitos
                 if (elapsed > maxTimeMs) {
-                    console.error(`🚨 TIMEOUT ABSOLUTO: Job ${jobId} excedeu ${maxTimeMs/1000}s`);
+                    // 📊 LOGS DETALHADOS PARA DEBUGGING
+                    const timeoutDetails = {
+                        jobId: jobId,
+                        elapsedMs: elapsed,
+                        maxTimeMs: maxTimeMs,
+                        attempts: attempts,
+                        lastStatus: lastStatus,
+                        stuckCount: stuckCount,
+                        timestamp: new Date().toISOString()
+                    };
                     
-                    reject(new Error(`Timeout: análise excedeu ${maxTimeMs/1000} segundos. Tente novamente com um arquivo diferente ou menor.`));
+                    console.error(`🚨 TIMEOUT ABSOLUTO DETECTADO:`, timeoutDetails);
+                    console.error(`⏱️ Análise excedeu limite: ${elapsed/1000}s > ${maxTimeMs/1000}s`);
+                    console.error(`📊 Status final: ${lastStatus} (${attempts} tentativas)`);
+                    
+                    // 🔔 Alerta para usuário com contexto
+                    const userMessage = `Timeout: análise excedeu ${maxTimeMs/1000} segundos. 
+Status: ${lastStatus} | Tentativas: ${attempts}
+Tente com um arquivo menor ou diferente.`;
+                    
+                    reject(new Error(userMessage));
                     return;
                 }
 
@@ -424,8 +442,26 @@ async function pollJobStatus(jobId) {
 
                 // ⏰ TIMEOUT POR TENTATIVAS
                 if (attempts >= maxAttempts) {
-                    console.warn(`⚠️ Máximo de tentativas atingido para job ${jobId}`);
-                    reject(new Error('Timeout: Análise demorou mais que o esperado (max tentativas)'));
+                    // 📊 LOGS DETALHADOS PARA TIMEOUT POR TENTATIVAS
+                    const attemptTimeoutDetails = {
+                        jobId: jobId,
+                        attempts: attempts,
+                        maxAttempts: maxAttempts,
+                        elapsedTime: Math.round((Date.now() - startTime) / 1000) + 's',
+                        finalStatus: lastStatus,
+                        stuckCount: stuckCount,
+                        timestamp: new Date().toISOString()
+                    };
+                    
+                    console.warn(`⚠️ TIMEOUT POR TENTATIVAS:`, attemptTimeoutDetails);
+                    console.warn(`📊 Job ${jobId}: ${attempts}/${maxAttempts} tentativas em ${attemptTimeoutDetails.elapsedTime}`);
+                    console.warn(`🔄 Status final: ${lastStatus}, travamentos: ${stuckCount}`);
+                    
+                    const userMessage = `Timeout: análise demorou mais que esperado.
+Tentativas: ${attempts}/${maxAttempts} | Tempo: ${attemptTimeoutDetails.elapsedTime}
+Status: ${lastStatus} | Tente novamente ou use outro arquivo.`;
+                    
+                    reject(new Error(userMessage));
                     return;
                 }
 
@@ -434,13 +470,32 @@ async function pollJobStatus(jobId) {
                 setTimeout(poll, nextInterval);
 
             } catch (error) {
-                console.error('❌ Erro no polling:', error);
+                // 🔍 LOGS DETALHADOS PARA ERROS DE POLLING
+                const pollingErrorDetails = {
+                    jobId: jobId,
+                    attempt: attempts,
+                    elapsedTime: Math.round((Date.now() - startTime) / 1000) + 's',
+                    errorType: error.name || 'Unknown',
+                    errorMessage: error.message,
+                    lastKnownStatus: lastStatus,
+                    isNetworkError: error.message.includes('fetch') || error.message.includes('network'),
+                    timestamp: new Date().toISOString()
+                };
+                
+                console.error('❌ ERRO NO POLLING:', pollingErrorDetails);
+                console.error(`🔍 Job ${jobId} falhou na tentativa ${attempts}: ${error.message}`);
                 
                 // Retry em caso de erro de rede (até 5 tentativas)
                 if (attempts <= 5 && (error.message.includes('fetch') || error.message.includes('network'))) {
-                    console.log(`🔄 Retry ${attempts}/5 devido a erro de rede...`);
+                    console.log(`🔄 RETRY ${attempts}/5 - Erro de rede detectado, tentando novamente...`);
+                    console.log(`📡 Detalhes da conexão:`, {
+                        url: `/api/jobs/${jobId}`,
+                        attempt: attempts,
+                        nextRetryIn: '3s'
+                    });
                     setTimeout(poll, 3000);
                 } else {
+                    console.error(`💥 FALHA CRÍTICA: Não foi possível recuperar job ${jobId}`, pollingErrorDetails);
                     reject(error);
                 }
             }
