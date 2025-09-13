@@ -2522,11 +2522,11 @@ async function handleGenreFileSelection(file) {
         
         updateModalProgress(20, '📤 Enviando arquivo para análise...');
         
-        console.log('🚀 [BACKEND] Enviando para:', 'http://localhost:8082/api/audio/analyze');
+        console.log('🚀 [BACKEND] Enviando para:', 'http://localhost:8083/api/audio/analyze');
         console.log('� [BACKEND] Arquivo:', file.name, 'Tamanho:', file.size);
         
         // Fazer upload real para o backend
-        const response = await fetch('http://localhost:8082/api/audio/analyze', {
+        const response = await fetch('http://localhost:8083/api/audio/analyze', {
             method: 'POST',
             body: formData
         });
