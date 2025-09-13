@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste das Correções - SoundyAI</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #0e1422; color: #fff; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #333; border-radius: 8px; }
+        .success { background: #1e4c2c; border-color: #28a745; }
+        .error { background: #4c1e1e; border-color: #dc3545; }
+        .warning { background: #4c3e1e; border-color: #ffc107; }
+        .log { font-family: 'Courier New', monospace; font-size: 12px; margin: 10px 0; padding: 10px; background: #1a1a1a; border-radius: 4px; }
+        button { padding: 8px 16px; margin: 5px; cursor: pointer; border: none; border-radius: 4px; }
+        .test-btn { background: #0d6efd; color: white; }
+        .test-btn:hover { background: #0b5ed7; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Teste das Correções SoundyAI</h1>
+    <p>Validando as correções aplicadas nas 4 fases identificadas na auditoria.</p>
+
+    <!-- Teste 1: Scripts Debug -->
+    <div class="test-section" id="debugScriptsTest">
+        <h3>📁 Teste 1: Scripts Debug (Paths Corrigidos)</h3>
+        <button class="test-btn" onclick="testDebugScripts()">Testar Carregamento Scripts Debug</button>
+        <div class="log" id="debugScriptsLog">Aguardando teste...</div>
+    </div>
+
+    <!-- Teste 2: Duplicação Módulos -->
+    <div class="test-section" id="moduleTest">
+        <h3>🔄 Teste 2: Verificar Duplicação RUNID_ENFORCED</h3>
+        <button class="test-btn" onclick="testModuleDuplication()">Verificar Variáveis Globais</button>
+        <div class="log" id="moduleLog">Aguardando teste...</div>
+    </div>
+
+    <!-- Teste 3: JSONs de Referência -->
+    <div class="test-section" id="refsTest">
+        <h3>📋 Teste 3: Carregamento JSONs de Referência</h3>
+        <button class="test-btn" onclick="testReferencesJSON()">Testar Carregamento Refs</button>
+        <div class="log" id="refsLog">Aguardando teste...</div>
+    </div>
+
+    <!-- Teste 4: Audio Analyzer -->
+    <div class="test-section" id="analyzerTest">
+        <h3>🎵 Teste 4: Audio Analyzer Integration</h3>
+        <button class="test-btn" onclick="testAudioAnalyzer()">Verificar Audio Analyzer</button>
+        <div class="log" id="analyzerLog">Aguardando teste...</div>
+    </div>
+
+    <script>
+        // Utilitários de log
+        function log(sectionId, message, type = 'info') {
+            const element = document.getElementById(sectionId + 'Log');
+            const timestamp = new Date().toLocaleTimeString();
+            const colors = {
+                info: '#ffffff',
+                success: '#28a745',
+                error: '#dc3545',
+                warning: '#ffc107'
+            };
+            element.innerHTML += `<div style="color: ${colors[type]}">[${timestamp}] ${message}</div>`;
+            
+            // Atualizar classe da seção
+            const section = document.getElementById(sectionId);
+            section.className = 'test-section ' + (type === 'error' ? 'error' : type === 'success' ? 'success' : type === 'warning' ? 'warning' : '');
+        }
+
+        // Teste 1: Scripts Debug
+        async function testDebugScripts() {
+            log('debugScripts', '🔍 Iniciando teste de scripts debug...', 'info');
+            
+            const debugScripts = [
+                '../debug-analyzer.js',
+                '../debug-wav-support.js', 
+                '../debug-upload-diagnostic.js',
+                '../debug-upload-test.js',
+                '../debug-audio-analyzer-deep.js'
+            ];
+
+            let passedTests = 0;
+            let totalTests = debugScripts.length;
+
+            for (const script of debugScripts) {
+                try {
+                    const response = await fetch(script);
+                    if (response.ok) {
+                        const content = await response.text();
+                        if (content.trim() && !content.includes('<!DOCTYPE html>')) {
+                            log('debugScripts', `✅ ${script} - OK (${content.length} chars)`, 'success');
+                            passedTests++;
+                        } else {
+                            log('debugScripts', `❌ ${script} - Retornou HTML em vez de JS`, 'error');
+                        }
+                    } else {
+                        log('debugScripts', `❌ ${script} - HTTP ${response.status}`, 'error');
+                    }
+                } catch (error) {
+                    log('debugScripts', `❌ ${script} - Erro: ${error.message}`, 'error');
+                }
+            }
+
+            const finalStatus = passedTests === totalTests ? 'success' : 'warning';
+            log('debugScripts', `📊 Resultado: ${passedTests}/${totalTests} scripts carregados corretamente`, finalStatus);
+        }
+
+        // Teste 2: Módulos
+        function testModuleDuplication() {
+            log('module', '🔍 Verificando duplicação de variáveis globais...', 'info');
+            
+            // Verificar RUNID_ENFORCED
+            if (typeof window.RUNID_ENFORCED !== 'undefined') {
+                log('module', `✅ RUNID_ENFORCED definido: ${window.RUNID_ENFORCED}`, 'success');
+            } else {
+                log('module', '⚠️ RUNID_ENFORCED não encontrado', 'warning');
+            }
+
+            // Verificar AudioAnalyzer
+            if (typeof window.AudioAnalyzer !== 'undefined') {
+                log('module', '✅ AudioAnalyzer definido', 'success');
+            } else {
+                log('module', '❌ AudioAnalyzer não encontrado', 'error');
+            }
+
+            // Verificar duplicação de scripts
+            const scripts = Array.from(document.querySelectorAll('script[src]'));
+            const srcCounts = {};
+            scripts.forEach(script => {
+                const src = script.src;
+                srcCounts[src] = (srcCounts[src] || 0) + 1;
+            });
+
+            const duplicates = Object.entries(srcCounts).filter(([src, count]) => count > 1);
+            if (duplicates.length === 0) {
+                log('module', '✅ Nenhum script duplicado encontrado', 'success');
+            } else {
+                duplicates.forEach(([src, count]) => {
+                    log('module', `❌ Script duplicado: ${src} (${count}x)`, 'error');
+                });
+            }
+        }
+
+        // Teste 3: JSONs de Referência
+        async function testReferencesJSON() {
+            log('refs', '🔍 Testando carregamento de JSONs de referência...', 'info');
+            
+            const refPaths = [
+                'refs/out/funk_mandela.json',
+                'refs/out/trance.json',
+                'refs/out/eletronico.json',
+                'refs/out/genres.json'
+            ];
+
+            let passedTests = 0;
+            let totalTests = refPaths.length;
+
+            for (const path of refPaths) {
+                try {
+                    const response = await fetch(path + '?v=' + Date.now());
+                    if (response.ok) {
+                        const json = await response.json();
+                        if (json && typeof json === 'object') {
+                            log('refs', `✅ ${path} - JSON válido`, 'success');
+                            passedTests++;
+                        } else {
+                            log('refs', `❌ ${path} - JSON inválido`, 'error');
+                        }
+                    } else {
+                        log('refs', `❌ ${path} - HTTP ${response.status}`, 'error');
+                    }
+                } catch (error) {
+                    log('refs', `❌ ${path} - Erro: ${error.message}`, 'error');
+                }
+            }
+
+            const finalStatus = passedTests === totalTests ? 'success' : 'warning';
+            log('refs', `📊 Resultado: ${passedTests}/${totalTests} refs carregados corretamente`, finalStatus);
+        }
+
+        // Teste 4: Audio Analyzer
+        function testAudioAnalyzer() {
+            log('analyzer', '🔍 Verificando Audio Analyzer Integration...', 'info');
+            
+            // Verificar se funções principais existem
+            const requiredFunctions = [
+                'initializeAudioAnalyzerIntegration',
+                'openAudioModal',
+                'loadReferenceData'
+            ];
+
+            requiredFunctions.forEach(funcName => {
+                if (typeof window[funcName] === 'function') {
+                    log('analyzer', `✅ ${funcName} disponível`, 'success');
+                } else {
+                    log('analyzer', `❌ ${funcName} não encontrado`, 'error');
+                }
+            });
+
+            // Verificar variáveis de controle
+            if (typeof window.REFS_ALLOW_NETWORK !== 'undefined') {
+                log('analyzer', `✅ REFS_ALLOW_NETWORK: ${window.REFS_ALLOW_NETWORK}`, 'info');
+            }
+
+            if (typeof window.DEBUG_ANALYZER !== 'undefined') {
+                log('analyzer', `✅ DEBUG_ANALYZER: ${window.DEBUG_ANALYZER}`, 'info');
+            }
+        }
+
+        // Auto-executar alguns testes básicos
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testModuleDuplication();
+            }, 1000);
+        });
+    </script>
+
+    <!-- Carregar scripts do projeto para teste -->
+    <script>
+        // Ativar debug
+        window.DEBUG_ANALYZER = true;
+        window.REFS_ALLOW_NETWORK = true;
+        window.REFS_BYPASS_CACHE = true;
+    </script>
+    
+    <!-- Scripts debug (testando paths corrigidos) -->
+    <script src="../debug-analyzer.js" onerror="console.error('Erro ao carregar debug-analyzer.js')"></script>
+    <script src="../debug-wav-support.js" onerror="console.error('Erro ao carregar debug-wav-support.js')"></script>
+    <script src="../debug-upload-diagnostic.js" onerror="console.error('Erro ao carregar debug-upload-diagnostic.js')"></script>
+    <script src="../debug-upload-test.js" onerror="console.error('Erro ao carregar debug-upload-test.js')"></script>
+    <script src="../debug-audio-analyzer-deep.js" onerror="console.error('Erro ao carregar debug-audio-analyzer-deep.js')"></script>
+    
+    <!-- Audio Analyzer principal -->
+    <script src="audio-analyzer.js?v=test" defer></script>
+    <script src="audio-analyzer-integration.js?v=test" defer></script>
+</body>
+</html>

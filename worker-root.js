@@ -160,12 +160,18 @@ async function updateJobProgress(jobId, progress, message) {
 // ---------- Análise com pipeline completo ----------
 async function analyzeAudioWithPipeline(localFilePath, job) {
   if (!processAudioComplete) {
-    console.warn("⚠️ Pipeline indisponível, caindo no fallback...");
-    return analyzeFallbackMetadata(localFilePath);
+    console.error("🚨 PIPELINE CRÍTICO: processAudioComplete não disponível!");
+    console.error("🔍 Verificando causas possíveis...");
+    console.error("   - Módulo importado:", typeof processAudioComplete);
+    console.error("   - Caminho do pipeline verificado na inicialização");
+    throw new Error("Pipeline não carregado - análise impossível sem pipeline real");
   }
 
   const filename = path.basename(localFilePath);
   const fileBuffer = await fs.promises.readFile(localFilePath);
+
+  console.log(`🎯 PIPELINE REAL: Processando ${filename} com pipeline completo`);
+  console.log(`📊 Buffer: ${fileBuffer.length} bytes | Job: ${job.id}`);
 
   // 📊 Progress: Configurar callback de progresso
   const updateProgress = (progress, message) => {
@@ -179,14 +185,23 @@ async function analyzeAudioWithPipeline(localFilePath, job) {
   });
   const totalMs = Date.now() - t0;
 
+  console.log(`✅ PIPELINE REAL: Concluído em ${totalMs}ms`);
+  console.log(`📊 Score obtido: ${finalJSON.overallScore || finalJSON.score || 'N/A'}`);
+  console.log(`🔬 Mode: ${finalJSON.mode || 'pipeline_complete'}`);
+
   finalJSON.performance = {
     ...(finalJSON.performance || {}),
     workerTotalTimeMs: totalMs,
     workerTimestamp: new Date().toISOString(),
     backendPhase: "5.1-5.4",
+    pipelineMode: "real_pipeline",
   };
 
-  finalJSON._worker = { source: "pipeline_complete" };
+  finalJSON._worker = { 
+    source: "pipeline_complete",
+    executionTimeMs: totalMs,
+    fallbackUsed: false 
+  };
 
   return finalJSON;
 }
@@ -210,14 +225,35 @@ async function processJob(job) {
     // Analisar áudio
     let analysisResult;
     let usedFallback = false;
+    let pipelineError = null;
 
     try {
+      console.log(`🎯 Executando PIPELINE REAL para job ${job.id}...`);
       analysisResult = await analyzeAudioWithPipeline(localFilePath, job);
-      if (analysisResult?.mode === "fallback_metadata") usedFallback = true;
+      
+      // Verificar se o resultado é realmente do pipeline ou um fallback disfarçado
+      if (analysisResult?.mode === "fallback_metadata") {
+        console.warn(`⚠️ Pipeline retornou modo fallback para job ${job.id}`);
+        usedFallback = true;
+      } else {
+        console.log(`✅ Pipeline REAL executado com sucesso para job ${job.id}`);
+      }
+      
     } catch (pipelineErr) {
-      console.error("⚠️ Falha no pipeline completo. Ativando fallback:", pipelineErr?.message);
+      console.error(`🚨 ERRO NO PIPELINE REAL - Job ${job.id}:`, pipelineErr?.message);
+      console.error(`🔍 Stack trace:`, pipelineErr?.stack?.substring(0, 500));
+      
+      pipelineError = pipelineErr;
       usedFallback = true;
-      analysisResult = await analyzeFallbackMetadata(localFilePath);
+      
+      console.log(`🔄 Ativando fallback de emergência para job ${job.id}...`);
+      try {
+        analysisResult = await analyzeFallbackMetadata(localFilePath);
+        console.log(`✅ Fallback concluído para job ${job.id}`);
+      } catch (fallbackErr) {
+        console.error(`🚨 FALLBACK TAMBÉM FALHOU - Job ${job.id}:`, fallbackErr?.message);
+        throw new Error(`Pipeline E fallback falharam: ${pipelineErr?.message} | ${fallbackErr?.message}`);
+      }
     }
 
     const result = {
@@ -226,8 +262,24 @@ async function processJob(job) {
       mode: job.mode,
       analyzedAt: new Date().toISOString(),
       usedFallback,
+      pipelineError: pipelineError ? {
+        message: pipelineError.message,
+        type: pipelineError.name || 'PipelineError',
+        timestamp: new Date().toISOString()
+      } : null,
       ...analysisResult,
     };
+
+    // 📊 Log detalhado do resultado
+    console.log(`📋 RESULTADO FINAL - Job ${job.id}:`);
+    console.log(`   ✓ Fallback usado: ${usedFallback ? 'SIM' : 'NÃO'}`);
+    console.log(`   ✓ Score: ${result.overallScore || result.score || 'N/A'}`);
+    console.log(`   ✓ Mode: ${result.mode || 'N/A'}`);
+    console.log(`   ✓ Pipeline source: ${result._worker?.source || 'N/A'}`);
+    if (result.technicalData) {
+      console.log(`   ✓ LUFS: ${result.technicalData.lufsIntegrated || 'N/A'}`);
+      console.log(`   ✓ True Peak: ${result.technicalData.truePeakDbtp || 'N/A'}`);
+    }
 
     await client.query(
       "UPDATE jobs SET status = $1, result = $2, progress = $3, progress_message = $4, completed_at = NOW(), updated_at = NOW() WHERE id = $5",
