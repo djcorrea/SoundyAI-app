@@ -37,6 +37,12 @@ await client.connect();
 console.log("✅ Worker conectado ao Postgres");
 
 // ---------- Configuração Backblaze ----------
+console.log("🔍 Debug B2 Config:");
+console.log("   B2_KEY_ID:", process.env.B2_KEY_ID);
+console.log("   B2_APP_KEY:", process.env.B2_APP_KEY?.substring(0,10) + "...");
+console.log("   B2_BUCKET_NAME:", process.env.B2_BUCKET_NAME);
+console.log("   B2_ENDPOINT:", process.env.B2_ENDPOINT);
+
 const s3 = new AWS.S3({
   endpoint: process.env.B2_ENDPOINT || "https://s3.us-east-005.backblazeb2.com",
   region: "us-east-005",
@@ -48,6 +54,9 @@ const BUCKET_NAME = process.env.B2_BUCKET_NAME;
 
 // ---------- Baixar arquivo do bucket ----------
 async function downloadFileFromBucket(key) {
+  console.log(`🔍 Tentando baixar: ${key}`);
+  console.log(`🔍 Bucket: ${BUCKET_NAME}`);
+  
   const localPath = path.join("/tmp", path.basename(key)); // Railway usa /tmp
   await fs.promises.mkdir(path.dirname(localPath), { recursive: true });
 
@@ -64,14 +73,19 @@ async function downloadFileFromBucket(key) {
 
     read.on("error", (err) => {
       clearTimeout(timeout);
+      console.error(`❌ Erro no stream de leitura para ${key}:`, err.message);
+      console.error(`❌ Código do erro:`, err.code);
+      console.error(`❌ Status:`, err.statusCode);
       reject(err);
     });
     write.on("error", (err) => {
       clearTimeout(timeout);
+      console.error(`❌ Erro no stream de escrita para ${key}:`, err.message);
       reject(err);
     });
     write.on("finish", () => {
       clearTimeout(timeout);
+      console.log(`✅ Download concluído para ${key}`);
       resolve(localPath);
     });
 
