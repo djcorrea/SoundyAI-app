@@ -7,6 +7,50 @@ import path from "path";
 import { fileURLToPath } from "url";
 import express from "express";
 
+// ---------- Worker Health Monitoring ----------
+let workerHealthy = true;
+let lastHealthCheck = Date.now();
+
+function updateWorkerHealth() {
+  workerHealthy = true;
+  lastHealthCheck = Date.now();
+}
+
+// Monitor de saúde a cada 30 segundos
+setInterval(() => {
+  const timeSinceLastCheck = Date.now() - lastHealthCheck;
+  if (timeSinceLastCheck > 120000) { // 2 minutos sem health check
+    console.error(`🚨 Worker unhealthy: ${timeSinceLastCheck}ms sem update`);
+    workerHealthy = false;
+  }
+}, 30000);
+
+// Tratamento de exceções não capturadas
+process.on('uncaughtException', (err) => {
+  console.error('🚨 UNCAUGHT EXCEPTION - Worker crashing:', err.message);
+  console.error('📜 Stack:', err.stack);
+  
+  // Tentar cleanup de jobs órfãos antes de sair
+  client.query(`
+    UPDATE jobs 
+    SET status = 'failed', 
+        error = 'Worker crashed with uncaught exception: ${err.message}',
+        updated_at = NOW()
+    WHERE status = 'processing'
+  `).catch(cleanupErr => {
+    console.error('❌ Failed to cleanup jobs on crash:', cleanupErr);
+  }).finally(() => {
+    process.exit(1);
+  });
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('🚨 UNHANDLED REJECTION:', reason);
+  console.error('📍 Promise:', promise);
+  // Não mata o worker imediatamente, mas registra o problema
+  workerHealthy = false;
+});
+
 // ---------- Resolver __dirname ----------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -196,7 +240,24 @@ async function processJob(job) {
     localFilePath = await downloadFileFromBucket(job.file_key);
     console.log(`🎵 Arquivo pronto para análise: ${localFilePath}`);
 
+    // 🔍 VALIDAÇÃO BÁSICA DE ARQUIVO
+    console.log(`🔍 [${job.id.substring(0,8)}] Validando arquivo antes do pipeline...`);
+    const stats = await fs.promises.stat(localFilePath);
+    const fileSizeMB = stats.size / (1024 * 1024);
+    
+    if (stats.size < 1000) {
+      throw new Error(`File too small: ${stats.size} bytes (minimum 1KB required)`);
+    }
+    
+    if (fileSizeMB > 100) {
+      throw new Error(`File too large: ${fileSizeMB.toFixed(2)} MB (maximum 100MB allowed)`);
+    }
+    
+    console.log(`✅ [${job.id.substring(0,8)}] Arquivo validado (${fileSizeMB.toFixed(2)} MB)`);
+
     console.log("🚀 Rodando pipeline completo...");
+    // Update health before intensive processing
+    updateWorkerHealth();
     const analysisResult = await analyzeAudioWithPipeline(localFilePath, job);
 
     const result = {
@@ -218,6 +279,7 @@ async function processJob(job) {
     }
 
     console.log(`✅ Job ${job.id} concluído e salvo no banco`);
+    updateWorkerHealth(); // Marcar como healthy após sucesso
   } catch (err) {
     console.error("❌ Erro no job:", err);
     
@@ -257,17 +319,55 @@ async function recoverOrphanedJobs() {
   try {
     console.log("🔄 Verificando jobs órfãos...");
     
-    // Jobs "processing" há mais de 10 minutos = órfãos
+    // 🚫 PRIMEIRO: Blacklist jobs problemáticos
+    console.log("🚫 Verificando jobs problemáticos para blacklist...");
+    const problematicJobs = await client.query(`
+      SELECT file_key, COUNT(*) as failure_count, 
+             ARRAY_AGG(id ORDER BY created_at DESC) as job_ids
+      FROM jobs 
+      WHERE error LIKE '%Recovered from orphaned state%' 
+      OR error LIKE '%Pipeline timeout%'
+      OR error LIKE '%FFmpeg%'
+      OR error LIKE '%Memory%'
+      GROUP BY file_key 
+      HAVING COUNT(*) >= 3
+    `);
+
+    if (problematicJobs.rows.length > 0) {
+      for (const row of problematicJobs.rows) {
+        console.log(`🚫 Blacklisting file: ${row.file_key} (${row.failure_count} failures)`);
+        
+        // Marcar todos os jobs relacionados como failed permanentemente
+        await client.query(`
+          UPDATE jobs 
+          SET status = 'failed', 
+              error = $1, 
+              updated_at = NOW()
+          WHERE file_key = $2 
+          AND status IN ('queued', 'processing')
+        `, [
+          `BLACKLISTED: File failed ${row.failure_count} times - likely corrupted/problematic`,
+          row.file_key
+        ]);
+      }
+      
+      console.log(`🚫 Blacklisted ${problematicJobs.rows.length} problematic files`);
+    } else {
+      console.log("✅ Nenhum job problemático encontrado para blacklist");
+    }
+    
+    // 🔄 DEPOIS: Recuperar jobs órfãos restantes (mas não blacklisted)
     const result = await client.query(`
       UPDATE jobs 
       SET status = 'queued', updated_at = NOW(), error = 'Recovered from orphaned state'
       WHERE status = 'processing' 
       AND updated_at < NOW() - INTERVAL '10 minutes'
-      RETURNING id
+      AND error NOT LIKE '%BLACKLISTED%'
+      RETURNING id, file_key
     `);
 
     if (result.rows.length > 0) {
-      console.log(`🔄 Recuperados ${result.rows.length} jobs órfãos:`, result.rows.map(r => r.id));
+      console.log(`🔄 Recuperados ${result.rows.length} jobs órfãos:`, result.rows.map(r => r.id.substring(0,8)));
     }
   } catch (err) {
     console.error("❌ Erro ao recuperar jobs órfãos:", err);
@@ -285,6 +385,13 @@ async function processJobs() {
   isRunning = true;
 
   try {
+    // 🔍 Verificar saúde do worker
+    if (!workerHealthy) {
+      console.warn("⚠️ Worker não está healthy - pulando cycle");
+      return;
+    }
+    
+    updateWorkerHealth(); // Update health check
     console.log("🔄 Worker verificando jobs...");
     const res = await client.query(
       "SELECT * FROM jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1"

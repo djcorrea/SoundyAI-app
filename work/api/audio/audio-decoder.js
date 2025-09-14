@@ -87,15 +87,30 @@ async function convertToWavPcmStream(inputBuffer) {
 
     let stderr = '';
     const chunks = [];
+    let ffmpegKilled = false;
+
+    // 🔥 TIMEOUT PROTECTION - Matar FFmpeg após 2 minutos
+    const ffmpegTimeout = setTimeout(() => {
+      console.warn(`⚠️ FFmpeg timeout para ${inputFile} - matando processo...`);
+      ffmpegKilled = true;
+      ff.kill('SIGKILL');
+      reject(new Error(`FFMPEG_TIMEOUT: Process killed after 2 minutes`));
+    }, 120000); // 2 minutos
 
     ff.stdout.on('data', (d) => chunks.push(d));
     ff.stderr.on('data', (d) => (stderr += d?.toString?.() || ''));
 
     ff.on('error', (err) => {
-      reject(new Error(`FFMPEG_SPAWN_ERROR: ${err.message}`));
+      clearTimeout(ffmpegTimeout);
+      if (!ffmpegKilled) {
+        reject(new Error(`FFMPEG_SPAWN_ERROR: ${err.message}`));
+      }
     });
 
     ff.on('close', (code) => {
+      clearTimeout(ffmpegTimeout);
+      if (ffmpegKilled) return; // Já rejeitado no timeout
+      
       if (code !== 0) {
         reject(new Error(`FFMPEG_ERROR: code=${code} msg=${stderr || '(sem stderr)'}`));
         return;

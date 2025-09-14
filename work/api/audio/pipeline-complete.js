@@ -10,40 +10,45 @@ console.log('🎵 Pipeline Completo (Fases 5.1-5.4) carregado - Node.js Backend'
 
 export async function processAudioComplete(audioBuffer, fileName, options = {}) {
   const startTime = Date.now();
+  const jobId = options.jobId || 'unknown';
   
-  console.log(`🚀 Iniciando pipeline completo para: ${fileName}`);
-  console.log(`📊 Buffer size: ${audioBuffer.length} bytes`);
-  console.log(`🔧 Opções:`, options);
+  console.log(`🚀 [${jobId.substring(0,8)}] Iniciando pipeline completo para: ${fileName}`);
+  console.log(`📊 [${jobId.substring(0,8)}] Buffer size: ${audioBuffer.length} bytes`);
+  console.log(`🔧 [${jobId.substring(0,8)}] Opções:`, options);
 
   try {
     // ✅ FASE 5.1: Decodificação
-    console.log('🎵 Fase 5.1: Decodificação...');
+    console.log(`🎵 [${jobId.substring(0,8)}] Fase 5.1: Decodificação...`);
+    console.log(`🔧 [${jobId.substring(0,8)}] Chamando decodeAudioFile...`);
     const phaseStartTime = Date.now();
     const audioData = await decodeAudioFile(audioBuffer, fileName);
     const phase1Time = Date.now() - phaseStartTime;
-    console.log(`✅ Fase 5.1 concluída em ${phase1Time}ms`);
-    console.log(`📊 Audio decodificado: ${audioData.sampleRate}Hz, ${audioData.channels}ch, ${audioData.duration.toFixed(2)}s`);
+    console.log(`✅ [${jobId.substring(0,8)}] Fase 5.1 concluída em ${phase1Time}ms`);
+    console.log(`📊 [${jobId.substring(0,8)}] Audio decodificado: ${audioData.sampleRate}Hz, ${audioData.channels}ch, ${audioData.duration.toFixed(2)}s`);
 
     // ✅ FASE 5.2: Segmentação
-    console.log('⏱️ Fase 5.2: Segmentação Temporal...');
+    console.log(`⏱️ [${jobId.substring(0,8)}] Fase 5.2: Segmentação Temporal...`);
+    console.log(`🔧 [${jobId.substring(0,8)}] Chamando segmentAudioTemporal...`);
     const phase2StartTime = Date.now();
     const segmentedData = segmentAudioTemporal(audioData);
     const phase2Time = Date.now() - phase2StartTime;
-    console.log(`✅ Fase 5.2 concluída em ${phase2Time}ms`);
-    console.log(`📊 FFT frames: ${segmentedData.framesFFT.left.length}, RMS frames: ${segmentedData.framesRMS.left.length}`);
+    console.log(`✅ [${jobId.substring(0,8)}] Fase 5.2 concluída em ${phase2Time}ms`);
+    console.log(`📊 [${jobId.substring(0,8)}] FFT frames: ${segmentedData.framesFFT.left.length}, RMS frames: ${segmentedData.framesRMS.left.length}`);
 
     // ✅ FASE 5.3: Core Metrics
-    console.log('📊 Fase 5.3: Core Metrics...');
+    console.log(`📊 [${jobId.substring(0,8)}] Fase 5.3: Core Metrics...`);
+    console.log(`🔧 [${jobId.substring(0,8)}] Chamando calculateCoreMetrics...`);
     const phase3StartTime = Date.now();
     const coreMetrics = await calculateCoreMetrics(segmentedData);
     const phase3Time = Date.now() - phase3StartTime;
-    console.log(`✅ Fase 5.3 concluída em ${phase3Time}ms`);
-    console.log(`📊 LUFS: ${coreMetrics.lufs.integrated.toFixed(1)}`, 
+    console.log(`✅ [${jobId.substring(0,8)}] Fase 5.3 concluída em ${phase3Time}ms`);
+    console.log(`📊 [${jobId.substring(0,8)}] LUFS: ${coreMetrics.lufs.integrated.toFixed(1)}`, 
                 `True Peak: ${coreMetrics.truePeak.maxDbtp.toFixed(1)}dBTP`,
                 `Correlação: ${coreMetrics.stereo.correlation.toFixed(3)}`);
 
     // ✅ FASE 5.4: JSON Output
-    console.log('🎯 Fase 5.4: JSON Output + Scoring...');
+    console.log(`🎯 [${jobId.substring(0,8)}] Fase 5.4: JSON Output + Scoring...`);
+    console.log(`🔧 [${jobId.substring(0,8)}] Chamando generateJSONOutput...`);
     const phase4StartTime = Date.now();
     const metadata = {
       fileName,
@@ -51,13 +56,15 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       processingTime: Date.now() - startTime
     };
     const reference = options.reference || options.genre || null;
+    console.log(`🔧 [${jobId.substring(0,8)}] Metadata preparado, chamando generateJSONOutput...`);
     const finalJSON = generateJSONOutput(coreMetrics, reference, metadata);
     const phase4Time = Date.now() - phase4StartTime;
-    console.log(`✅ Fase 5.4 concluída em ${phase4Time}ms`);
-    console.log(`🎯 Score final: ${finalJSON.score}% (${finalJSON.classification})`);
+    console.log(`✅ [${jobId.substring(0,8)}] Fase 5.4 concluída em ${phase4Time}ms`);
+    console.log(`🎯 [${jobId.substring(0,8)}] Score final: ${finalJSON.score}% (${finalJSON.classification})`);
 
     // ✅ Estatísticas finais
     const totalTime = Date.now() - startTime;
+    console.log(`📊 [${jobId.substring(0,8)}] Preparando estatísticas finais...`);
     finalJSON.metadata.processingTime = totalTime;
     finalJSON.metadata.phaseBreakdown = {
       phase1_decoding: phase1Time,
@@ -67,13 +74,14 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       total: totalTime
     };
 
-    console.log(`🏁 Pipeline completo finalizado em ${totalTime}ms`);
+    console.log(`🏁 [${jobId.substring(0,8)}] Pipeline completo finalizado em ${totalTime}ms`);
 
     return finalJSON;
 
   } catch (error) {
     const totalTime = Date.now() - startTime;
-    console.error(`❌ Pipeline falhou após ${totalTime}ms:`, error);
+    console.error(`💥 [${jobId.substring(0,8)}] Pipeline falhou após ${totalTime}ms:`, error.message);
+    console.error(`📜 [${jobId.substring(0,8)}] Stack:`, error.stack);
 
     // 🔧 Retornar JSON de erro estruturado
     return {
