@@ -86,17 +86,44 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       logAudio('output_scoring', 'start', { fileName, jobId });
       const phase4StartTime = Date.now();
       
+      // Construir metadata completo e seguro
       const metadata = {
-        fileName,
-        fileSize: audioBuffer.length,
+        fileName: fileName || 'unknown',
+        fileSize: audioBuffer ? audioBuffer.length : 0,
+        fileSizeBytes: audioBuffer ? audioBuffer.length * 4 : 0, // Float32 = 4 bytes por sample
+        fileSizeMB: audioBuffer ? (audioBuffer.length * 4) / (1024 * 1024) : 0,
+        duration: audioData ? audioData.duration : 0,
+        sampleRate: audioData ? audioData.sampleRate : 48000,
+        channels: audioData ? audioData.numberOfChannels : 2,
+        format: 'audio/wav',
+        bitDepth: 32, // Float32
+        codec: 'pcm',
         processingTime: Date.now() - startTime,
-        jobId
+        phaseBreakdown: {
+          phase1_decode: timings.phase1_decode || 0,
+          phase2_segmentation: timings.phase2_segmentation || 0,
+          phase3_core_metrics: timings.phase3_core_metrics || 0,
+          phase4_json_output: 0 // Será preenchido depois
+        },
+        jobId: jobId || 'unknown'
       };
+      
       const reference = options.reference || options.genre || null;
+      
+      // Validar coreMetrics antes de passar para generateJSONOutput
+      if (!coreMetrics || typeof coreMetrics !== 'object') {
+        throw makeErr('output_scoring', 'Core metrics is invalid or empty', 'invalid_core_metrics');
+      }
       
       finalJSON = generateJSONOutput(coreMetrics, reference, metadata, { jobId, fileName });
       
       timings.phase4_json_output = Date.now() - phase4StartTime;
+      
+      // Atualizar o breakdown de tempo no metadata final
+      if (finalJSON && finalJSON.metadata && finalJSON.metadata.phaseBreakdown) {
+        finalJSON.metadata.phaseBreakdown.phase4_json_output = timings.phase4_json_output;
+      }
+      
       console.log(`✅ [${jobId.substring(0,8)}] Fase 5.4 concluída em ${timings.phase4_json_output}ms`);
       
       // Log seguro do score
