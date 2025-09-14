@@ -4,7 +4,7 @@
 
 import { FastFFT } from "../../lib/audio/fft.js";
 import { calculateLoudnessMetrics } from "../../lib/audio/features/loudness.js";
-import { TruePeakDetector } from "../../lib/audio/features/truepeak.js";
+import { TruePeakDetector, analyzeTruePeaks } from "../../lib/audio/features/truepeak.js";
 
 // Sistema de tratamento de erros padronizado
 import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../lib/audio/error-handling.js';
@@ -202,6 +202,9 @@ class CoreMetricsProcessor {
         throw makeErr('core_metrics', 'No FFT frames to process', 'no_fft_frames');
       }
 
+      // 🔥 CORREÇÃO: Limpar cache FFT para evitar estado corrompido
+      this.fftEngine.cache.clear();
+
       logAudio('core_metrics', 'fft_processing', { count, jobId: jobId.substring(0,8) });
 
       const fftResults = {
@@ -329,23 +332,33 @@ class CoreMetricsProcessor {
       const lufsMetrics = await calculateLoudnessMetrics(
         leftChannel, 
         rightChannel, 
-        CORE_METRICS_CONFIG
+        CORE_METRICS_CONFIG.SAMPLE_RATE // Usar a sample rate da config
       );
 
-      // Validar métricas LUFS
+      // Mapear campos da saída para estrutura esperada
+      const mappedMetrics = {
+        integrated: lufsMetrics.lufs_integrated,
+        shortTerm: lufsMetrics.lufs_short_term,
+        momentary: lufsMetrics.lufs_momentary,
+        lra: lufsMetrics.lra,
+        // Manter campos originais para compatibilidade
+        ...lufsMetrics
+      };
+
+      // Validar métricas LUFS mapeadas
       const requiredFields = ['integrated', 'shortTerm', 'momentary', 'lra'];
       for (const field of requiredFields) {
-        if (!isFinite(lufsMetrics[field])) {
-          throw makeErr('core_metrics', `Invalid LUFS ${field}: ${lufsMetrics[field]}`, 'invalid_lufs_metric');
+        if (!isFinite(mappedMetrics[field])) {
+          throw makeErr('core_metrics', `Invalid LUFS ${field}: ${mappedMetrics[field]}`, 'invalid_lufs_metric');
         }
       }
 
       // Verificar ranges realistas para LUFS
-      if (lufsMetrics.integrated < -80 || lufsMetrics.integrated > 20) {
-        throw makeErr('core_metrics', `LUFS integrated out of realistic range: ${lufsMetrics.integrated}`, 'lufs_range_error');
+      if (mappedMetrics.integrated < -80 || mappedMetrics.integrated > 20) {
+        throw makeErr('core_metrics', `LUFS integrated out of realistic range: ${mappedMetrics.integrated}`, 'lufs_range_error');
       }
 
-      return lufsMetrics;
+      return mappedMetrics;
 
     } catch (error) {
       if (error.stage === 'core_metrics') {
@@ -368,23 +381,31 @@ class CoreMetricsProcessor {
         jobId: jobId.substring(0,8) 
       });
 
-      const truePeakMetrics = await this.truePeakDetector.detect(
+      const truePeakMetrics = await analyzeTruePeaks(
         leftChannel, 
         rightChannel, 
-        CORE_METRICS_CONFIG.TRUE_PEAK_OVERSAMPLING
+        CORE_METRICS_CONFIG.SAMPLE_RATE
       );
 
       // Validar True Peak
-      if (!isFinite(truePeakMetrics.maxDbtp) || !isFinite(truePeakMetrics.maxLinear)) {
-        throw makeErr('core_metrics', `Invalid true peak values: ${truePeakMetrics.maxDbtp}dBTP`, 'invalid_truepeak');
+      if (!isFinite(truePeakMetrics.true_peak_dbtp) || !isFinite(truePeakMetrics.true_peak_linear)) {
+        throw makeErr('core_metrics', `Invalid true peak values: ${truePeakMetrics.true_peak_dbtp}dBTP`, 'invalid_truepeak');
       }
 
       // Verificar range realista
-      if (truePeakMetrics.maxDbtp > 20 || truePeakMetrics.maxDbtp < -100) {
-        throw makeErr('core_metrics', `True peak out of realistic range: ${truePeakMetrics.maxDbtp}dBTP`, 'truepeak_range_error');
+      if (truePeakMetrics.true_peak_dbtp > 20 || truePeakMetrics.true_peak_dbtp < -100) {
+        throw makeErr('core_metrics', `True peak out of realistic range: ${truePeakMetrics.true_peak_dbtp}dBTP`, 'truepeak_range_error');
       }
 
-      return truePeakMetrics;
+      // Padronizar estrutura do True Peak para compatibilidade
+      const standardizedTruePeak = {
+        maxDbtp: truePeakMetrics.true_peak_dbtp,
+        maxLinear: truePeakMetrics.true_peak_linear,
+        // Manter campos originais para completude
+        ...truePeakMetrics
+      };
+
+      return standardizedTruePeak;
 
     } catch (error) {
       if (error.stage === 'core_metrics') {
@@ -441,11 +462,14 @@ class CoreMetricsProcessor {
   // ========= MÉTODOS AUXILIARES (sem mudanças na lógica) =========
   
   calculateMagnitudeSpectrum(leftFFT, rightFFT) {
-    const magnitude = new Float32Array(leftFFT.length / 2);
+    // leftFFT e rightFFT são objetos com propriedades {real, imag, magnitude, phase}
+    const leftMagnitude = leftFFT.magnitude;
+    const rightMagnitude = rightFFT.magnitude;
+    
+    // Combinar magnitudes L/R (média simples)
+    const magnitude = new Float32Array(leftMagnitude.length);
     for (let i = 0; i < magnitude.length; i++) {
-      const leftMag = Math.sqrt(leftFFT[i*2] ** 2 + leftFFT[i*2+1] ** 2);
-      const rightMag = Math.sqrt(rightFFT[i*2] ** 2 + rightFFT[i*2+1] ** 2);
-      magnitude[i] = (leftMag + rightMag) / 2;
+      magnitude[i] = (leftMagnitude[i] + rightMagnitude[i]) / 2;
     }
     return magnitude;
   }

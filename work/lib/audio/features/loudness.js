@@ -100,9 +100,14 @@ class KWeightingFilter {
 class LUFSMeter {
   constructor(sampleRate = 48000) {
     this.sampleRate = sampleRate;
+    
+    console.log(`🔍 DEBUG Constructor: sampleRate=${sampleRate}, BLOCK_DURATION=${LUFS_CONSTANTS.BLOCK_DURATION}, INTEGRATED_OVERLAP=${LUFS_CONSTANTS.INTEGRATED_OVERLAP}`);
+    
     this.blockSize = Math.round(sampleRate * LUFS_CONSTANTS.BLOCK_DURATION);
     this.shortTermSize = Math.round(sampleRate * LUFS_CONSTANTS.SHORT_TERM_DURATION);
     this.hopSize = Math.round(this.blockSize * (1 - LUFS_CONSTANTS.INTEGRATED_OVERLAP));
+    
+    console.log(`🔍 DEBUG Calculado: blockSize=${this.blockSize}, hopSize=${this.hopSize}, shortTermSize=${this.shortTermSize}`);
     
     this.kWeightingL = new KWeightingFilter();
     this.kWeightingR = new KWeightingFilter();
@@ -198,6 +203,8 @@ class LUFSMeter {
     const blocks = [];
     const numBlocks = Math.floor((leftFiltered.length - this.blockSize) / this.hopSize) + 1;
     
+    console.log(`🔍 DEBUG Block: samples=${leftFiltered.length}, blockSize=${this.blockSize}, hopSize=${this.hopSize}, numBlocks=${numBlocks}`);
+    
     for (let blockIdx = 0; blockIdx < numBlocks; blockIdx++) {
       const startSample = blockIdx * this.hopSize;
       const endSample = Math.min(startSample + this.blockSize, leftFiltered.length);
@@ -227,8 +234,13 @@ class LUFSMeter {
         meanSquareL,
         meanSquareR
       });
+      
+      if (blockIdx < 3) { // Log primeiros 3 blocos
+        console.log(`🔍 DEBUG Block ${blockIdx}: samples ${startSample}-${endSample}, meanSq=${totalMeanSquare.toExponential(2)}, loudness=${loudness.toFixed(1)}`);
+      }
     }
     
+    console.log(`🔍 DEBUG: Gerados ${blocks.length} blocos com loudness válido`);
     return blocks;
   }
 
@@ -268,10 +280,17 @@ class LUFSMeter {
    * 🚪 Apply gating (absolute + relative)
    */
   applyGating(blockLoudness) {
+    // DEBUG: Verificar loudness dos blocos
+    const loudnessValues = blockLoudness.map(b => b.loudness);
+    console.log(`🔍 DEBUG: ${blockLoudness.length} blocos, loudness range: ${Math.min(...loudnessValues.filter(v => v > -Infinity)).toFixed(1)} to ${Math.max(...loudnessValues.filter(v => v > -Infinity)).toFixed(1)} LUFS`);
+    console.log(`🔍 DEBUG: Threshold absoluto: ${LUFS_CONSTANTS.ABSOLUTE_THRESHOLD} LUFS`);
+    
     // Stage 1: Absolute threshold (-70 LUFS)
     const absoluteGated = blockLoudness.filter(block => 
       block.loudness >= LUFS_CONSTANTS.ABSOLUTE_THRESHOLD
     );
+    
+    console.log(`🔍 DEBUG: ${absoluteGated.length}/${blockLoudness.length} blocos passaram gating absoluto`);
     
     if (absoluteGated.length === 0) {
       return { integratedLoudness: -Infinity, gatedBlocks: 0 };

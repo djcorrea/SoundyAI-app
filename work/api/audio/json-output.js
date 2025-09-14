@@ -44,16 +44,17 @@ export function generateJSONOutput(coreMetrics, reference = null, metadata = {},
     const scoringResult = computeMixScore(technicalData, reference);
     
     // Validar resultado do scoring
-    if (!scoringResult || typeof scoringResult.score !== 'number') {
+    const scoreValue = scoringResult.score || scoringResult.scorePct;
+    if (!scoringResult || typeof scoreValue !== 'number') {
       throw makeErr('output_scoring', `Invalid scoring result: ${JSON.stringify(scoringResult)}`, 'invalid_scoring_result');
     }
 
-    if (!isFinite(scoringResult.score)) {
-      throw makeErr('output_scoring', `Score is not finite: ${scoringResult.score}`, 'invalid_score_value');
+    if (!isFinite(scoreValue)) {
+      throw makeErr('output_scoring', `Score is not finite: ${scoreValue}`, 'invalid_score_value');
     }
 
     // ========= CONSTRUÇÃO JSON FINAL =========
-    logAudio('output_scoring', 'build_json', { score: scoringResult.score });
+    logAudio('output_scoring', 'build_json', { score: scoreValue });
     const finalJSON = buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, { jobId });
 
     // ========= VALIDAÇÃO FINAL =========
@@ -74,7 +75,7 @@ export function generateJSONOutput(coreMetrics, reference = null, metadata = {},
     const totalTime = Date.now() - startTime;
     logAudio('output_scoring', 'completed', { 
       ms: totalTime,
-      score: scoringResult.score,
+      score: scoreValue,
       size: jsonSize,
       classification: scoringResult.classification
     });
@@ -194,10 +195,13 @@ function extractTechnicalData(coreMetrics) {
 function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, options = {}) {
   const jobId = options.jobId || 'unknown';
   
+  // Garantir score válido
+  const scoreValue = scoringResult.score || scoringResult.scorePct;
+  
   try {
     const finalJSON = {
       // ========= SCORE E CLASSIFICAÇÃO =========
-      score: Math.round(scoringResult.score * 10) / 10, // 1 decimal
+      score: Math.round(scoreValue * 10) / 10, // 1 decimal
       classification: scoringResult.classification || 'unknown',
       
       // ========= MÉTRICAS TÉCNICAS PRINCIPAIS =========
