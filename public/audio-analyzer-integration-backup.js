@@ -68,92 +68,12 @@ let jobPollingInterval = null;
 
 // 🎯 Funções de Acessibilidade e Gestão de Modais
 
-function openModeSelectionModal() {
-    const modal = document.getElementById('analysisModeModal');
-    if (modal) {
-        modal.style.display = 'flex';
-        modal.setAttribute('aria-hidden', 'false');
-        
-        // Foco no primeiro botão
-        const firstButton = modal.querySelector('.mode-card button');
-        if (firstButton) {
-            firstButton.focus();
-        }
-        
-        // Adicionar listener para ESC
-        document.addEventListener('keydown', handleModalEscapeKey);
-        
-        // Trap focus no modal
-        trapFocus(modal);
-    }
-}
+// Função openModeSelectionModal movida para linha 1583 com implementação completa
 
-function closeModeSelectionModal() {
-    const modal = document.getElementById('analysisModeModal');
-    if (modal) {
-        modal.style.display = 'none';
-        modal.setAttribute('aria-hidden', 'true');
-        
-        // Remover listeners
-        document.removeEventListener('keydown', handleModalEscapeKey);
-        
-        // Retornar foco para o botão que abriu o modal
-        const audioAnalysisBtn = document.querySelector('button[onclick="openAudioModal()"]');
-        if (audioAnalysisBtn) {
-            audioAnalysisBtn.focus();
-        }
-    }
-}
-
-function handleModalEscapeKey(e) {
-    if (e.key === 'Escape') {
-        closeModeSelectionModal();
-    }
-}
-
-function trapFocus(modal) {
-    const focusableElements = modal.querySelectorAll(
-        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
-    );
-    
-    if (focusableElements.length === 0) return;
-    
-    const firstElement = focusableElements[0];
-    const lastElement = focusableElements[focusableElements.length - 1];
-    
-    const handleTabKey = (e) => {
-        if (e.key === 'Tab') {
-            if (e.shiftKey && document.activeElement === firstElement) {
-                e.preventDefault();
-                lastElement.focus();
-            } else if (!e.shiftKey && document.activeElement === lastElement) {
-                e.preventDefault();
-                firstElement.focus();
-            }
-        }
-    };
-    
-    modal.addEventListener('keydown', handleTabKey);
-}
+// Funções movidas para implementação mais completa nas linhas 1583+ 
 
 // 🎯 Função Principal de Seleção de Modo
-function selectAnalysisMode(mode) {
-    console.log('🎯 Modo selecionado:', mode);
-    
-    // Armazenar modo selecionado
-    window.currentAnalysisMode = mode;
-    
-    // Fechar modal de seleção
-    closeModeSelectionModal();
-    
-    if (mode === 'genre') {
-        // Modo tradicional - abrir modal de análise normal
-        openAnalysisModalForMode('genre');
-    } else if (mode === 'reference') {
-        // Modo referência - abrir interface específica
-        openAnalysisModalForMode('reference');
-    }
-}
+// Função selectAnalysisMode movida para implementação completa na linha 1558+
 
 // 🎯 Modal de Análise por Referência
 function openReferenceAnalysisModal() {
@@ -2787,18 +2707,20 @@ async function performReferenceComparison() {
                 // 🔧 CORREÇÃO: Criar estrutura de bands compatível
                 bands: refAnalysis.technicalData?.bandEnergies ? (() => {
                     const refBands = {};
-                    const refBandEnergies = refAnalysis.technicalData.bandEnergies;
+                    const refBandEnergies = refAnalysis.technicalData?.bandEnergies;
                     
                     // Criar estrutura de bands usando as métricas da referência como targets
-                    Object.entries(refBandEnergies).forEach(([bandName, bandData]) => {
-                        if (bandData && Number.isFinite(bandData.rms_db)) {
-                            refBands[bandName] = {
+                    if (refBandEnergies) {
+                        Object.entries(refBandEnergies).forEach(([bandName, bandData]) => {
+                            if (bandData && Number.isFinite(bandData.rms_db)) {
+                                refBands[bandName] = {
                                 target_db: bandData.rms_db,  // Usar valor da referência como target
                                 tol_db: 3.0,  // Tolerância padrão
                                 _target_na: false
                             };
                         }
                     });
+                    }
                     
                     return refBands;
                 })() : null
@@ -3304,29 +3226,50 @@ function displayModalResults(analysis) {
     );
     if (typeof window !== 'undefined') window.__AUDIO_ADVANCED_READY__ = advancedReady;
 
-    // Helpers seguros com bloqueio de fallback se advanced não pronto
-    const safeFixed = (v, d=1) => (Number.isFinite(v) ? v.toFixed(d) : '—');
-    const safeHz = (v) => (Number.isFinite(v) ? `${Math.round(v)} Hz` : '—');
-    const pct = (v, d=0) => (Number.isFinite(v) ? `${(v*100).toFixed(d)}%` : '—');
+    // Helpers seguros SEM fallbacks fictícios - exibir "Não disponível" quando dados ausentes
+    const safeDisplay = (val, unit = '', decimals = 2) => {
+        if (val === null || val === undefined || !Number.isFinite(val)) {
+            return '<span class="unavailable">Não disponível</span>';
+        }
+        return `${val.toFixed(decimals)}${unit ? ' ' + unit : ''}`;
+    };
+    
+    const safeDisplayInteger = (val, unit = '') => {
+        if (val === null || val === undefined || !Number.isFinite(val)) {
+            return '<span class="unavailable">Não disponível</span>';
+        }
+        return `${Math.round(val)}${unit ? ' ' + unit : ''}`;
+    };
+    
+    const safeScore = (val) => {
+        if (val === null || val === undefined || !Number.isFinite(val)) {
+            return '<span class="unavailable">—</span>';
+        }
+        return val.toFixed(1);
+    };
     const tonalSummary = (tb) => {
-        if (!tb || typeof tb !== 'object') return '—';
+        if (!tb || typeof tb !== 'object') return '<span class="unavailable">Não disponível</span>';
         const parts = [];
-        if (tb.sub && Number.isFinite(tb.sub.rms_db)) parts.push(`Sub ${tb.sub.rms_db.toFixed(1)}dB`);
-        if (tb.low && Number.isFinite(tb.low.rms_db)) parts.push(`Low ${tb.low.rms_db.toFixed(1)}dB`);
-        if (tb.mid && Number.isFinite(tb.mid.rms_db)) parts.push(`Mid ${tb.mid.rms_db.toFixed(1)}dB`);
-        if (tb.high && Number.isFinite(tb.high.rms_db)) parts.push(`High ${tb.high.rms_db.toFixed(1)}dB`);
-        return parts.length ? parts.join(' • ') : '—';
+        if (tb.sub && tb.sub.rms_db !== null && Number.isFinite(tb.sub.rms_db)) parts.push(`Sub ${tb.sub.rms_db.toFixed(1)}dB`);
+        if (tb.low && tb.low.rms_db !== null && Number.isFinite(tb.low.rms_db)) parts.push(`Low ${tb.low.rms_db.toFixed(1)}dB`);
+        if (tb.mid && tb.mid.rms_db !== null && Number.isFinite(tb.mid.rms_db)) parts.push(`Mid ${tb.mid.rms_db.toFixed(1)}dB`);
+        if (tb.high && tb.high.rms_db !== null && Number.isFinite(tb.high.rms_db)) parts.push(`High ${tb.high.rms_db.toFixed(1)}dB`);
+        return parts.length ? parts.join(' • ') : '<span class="unavailable">Não disponível</span>';
     };
 
-        // Layout com cards e KPIs, mantendo o container #modalTechnicalData
+        // Layout com cards e KPIs, SEM VALORES FICTÍCIOS
         const kpi = (value, label, cls='') => `
             <div class="kpi ${cls}">
                 <div class="kpi-value">${value}</div>
                 <div class="kpi-label">${label}</div>
             </div>`;
 
-        const scoreKpi = Number.isFinite(analysis.qualityOverall) ? kpi(Number(analysis.qualityOverall.toFixed(1)), 'SCORE GERAL', 'kpi-score') : '';
-        const timeKpi = Number.isFinite(analysis.processingMs) ? kpi(analysis.processingMs, 'TEMPO (MS)', 'kpi-time') : '';
+        const scoreKpi = analysis.qualityOverall !== null && Number.isFinite(analysis.qualityOverall) ? 
+            kpi(safeScore(analysis.qualityOverall), 'SCORE GERAL', 'kpi-score') : 
+            kpi('<span class="unavailable">—</span>', 'SCORE GERAL', 'kpi-score');
+            
+        const timeKpi = Number.isFinite(analysis.processingMs) ? 
+            kpi(analysis.processingMs, 'TEMPO (MS)', 'kpi-time') : '';
 
         const src = (k) => (analysis.technicalData?._sources && analysis.technicalData._sources[k]) ? ` data-src="${analysis.technicalData._sources[k]}" title="origem: ${analysis.technicalData._sources[k]}"` : '';
         const row = (label, valHtml, keyForSource=null) => {
@@ -3375,50 +3318,56 @@ function displayModalResults(analysis) {
         };
 
         const col1 = [
-            row('Peak (máximo)', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak'),
-            row('RMS Level', `${safeFixed(getMetric('rms_level', 'rmsLevel'))} dB`, 'rmsLevel'),
-            row('DR', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
-            row('Fator de Crista', `${safeFixed(getMetric('crest_factor', 'crestFactor'))} dB`, 'crestFactor'),
-            row('Pico Real (dBTP)', (advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp'))) ? `${safeFixed(getMetric('truePeakDbtp', 'truePeakDbtp'))} dBTP` : (advancedReady? '—':'⏳'), 'truePeakDbtp'),
-            row('LUFS Integrado', (advancedReady && Number.isFinite(getLufsIntegratedValue())) ? `${safeFixed(getLufsIntegratedValue())} LUFS` : (advancedReady? '—':'⏳'), 'lufsIntegrated'),
-            row('LUFS Short-term', (advancedReady && Number.isFinite(getMetric('lufs_short_term', 'lufsShortTerm'))) ? `${safeFixed(getMetric('lufs_short_term', 'lufsShortTerm'))} LUFS` : (advancedReady? '—':'⏳'), 'lufsShortTerm'),
-            row('LUFS Momentary', (advancedReady && Number.isFinite(getMetric('lufs_momentary', 'lufsMomentary'))) ? `${safeFixed(getMetric('lufs_momentary', 'lufsMomentary'))} LUFS` : (advancedReady? '—':'⏳'), 'lufsMomentary'),
-            row('Headroom', `${safeFixed(getMetric('headroom_db', 'headroomDb'))} dB`, 'headroomDb')
+            row('Peak (máximo)', safeDisplay(getMetric('peak_db', 'peak'), 'dB'), 'peak'),
+            row('RMS Level', safeDisplay(getMetric('rms_level', 'rmsLevel'), 'dB'), 'rmsLevel'),
+            row('DR', safeDisplay(getMetric('dynamic_range', 'dynamicRange'), 'dB'), 'dynamicRange'),
+            row('Fator de Crista', safeDisplay(getMetric('crest_factor', 'crestFactor'), 'dB'), 'crestFactor'),
+            row('Pico Real (dBTP)', safeDisplay(getMetric('truePeakDbtp', 'truePeakDbtp'), 'dBTP'), 'truePeakDbtp'),
+            row('LUFS Integrado', safeDisplay(getLufsIntegratedValue(), 'LUFS'), 'lufsIntegrated'),
+            row('LUFS Short-term', safeDisplay(getMetric('lufs_short_term', 'lufsShortTerm'), 'LUFS'), 'lufsShortTerm'),
+            row('LUFS Momentary', safeDisplay(getMetric('lufs_momentary', 'lufsMomentary'), 'LUFS'), 'lufsMomentary'),
+            row('Headroom', safeDisplay(getMetric('headroom_db', 'headroomDb'), 'dB'), 'headroomDb')
             ].join('');
 
         const col2 = [
-            row('Correlação Estéreo', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 2) : '—', 'stereoCorrelation'),
-            row('Largura Estéreo', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? safeFixed(getMetric('stereo_width', 'stereoWidth'), 2) : '—', 'stereoWidth'),
-            row('Balance L/R', Number.isFinite(getMetric('balance_lr', 'balanceLR')) ? safePct(getMetric('balance_lr', 'balanceLR')) : '—', 'balanceLR'),
-            row('Centroide Espectral', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroid')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroid')) : '—', 'spectralCentroid'),
-            row('Rolloff Espectral', Number.isFinite(getMetric('spectral_rolloff', 'spectralRolloff')) ? safeHz(getMetric('spectral_rolloff', 'spectralRolloff')) : '—', 'spectralRolloff'),
-            row('Zero Crossing Rate', Number.isFinite(getMetric('zero_crossing_rate', 'zeroCrossingRate')) ? safeFixed(getMetric('zero_crossing_rate', 'zeroCrossingRate'), 3) : '—', 'zeroCrossingRate'),
-            row('Flux', Number.isFinite(getMetric('spectral_flux', 'spectralFlux')) ? safeFixed(getMetric('spectral_flux', 'spectralFlux'), 3) : '—', 'spectralFlux'),
-            row('Flatness', Number.isFinite(getMetric('spectral_flatness', 'spectralFlatness')) ? safeFixed(getMetric('spectral_flatness', 'spectralFlatness'), 3) : '—', 'spectralFlatness')
+            row('Correlação Estéreo', safeDisplay(getMetric('stereo_correlation', 'stereoCorrelation'), '', 2), 'stereoCorrelation'),
+            row('Largura Estéreo', safeDisplay(getMetric('stereo_width', 'stereoWidth'), '', 2), 'stereoWidth'),
+            row('Balance L/R', safeDisplay(getMetric('balance_lr', 'balanceLR'), '%', 1), 'balanceLR'),
+            row('Centroide Espectral', safeDisplayInteger(getMetric('spectral_centroid', 'spectralCentroid'), 'Hz'), 'spectralCentroid'),
+            row('Rolloff Espectral', safeDisplayInteger(getMetric('spectral_rolloff', 'spectralRolloff'), 'Hz'), 'spectralRolloff'),
+            row('Zero Crossing Rate', safeDisplay(getMetric('zero_crossing_rate', 'zeroCrossingRate'), '', 3), 'zeroCrossingRate'),
+            row('Flux', safeDisplay(getMetric('spectral_flux', 'spectralFlux'), '', 3), 'spectralFlux'),
+            row('Flatness', safeDisplay(getMetric('spectral_flatness', 'spectralFlatness'), '', 3), 'spectralFlatness')
         ].join('');
 
             const col3Extras = (()=>{
-                let extra='';
+                if (!Array.isArray(analysis.technicalData?.dominantFrequencies) || analysis.technicalData.dominantFrequencies.length <= 1) {
+                    return '';
+                }
+                
                 try {
-                    const list = Array.isArray(analysis.technicalData.dominantFrequencies) ? analysis.technicalData.dominantFrequencies.slice() : [];
-                    if (list.length>1) {
-                        list.sort((a,b)=> (b.occurrences||0)-(a.occurrences||0) || a.frequency - b.frequency);
-                        const filtered=[];
-                        for (const f of list) {
-                            if (!Number.isFinite(f.frequency)) continue;
-                            if (filtered.some(x=> Math.abs(x.frequency - f.frequency) < 40)) continue;
-                            filtered.push(f); if (filtered.length>=5) break;
-                        }
-                        extra = filtered.slice(1,4).map(f=>`${Math.round(f.frequency)}Hz`).join(', ');
+                    const list = analysis.technicalData.dominantFrequencies.slice();
+                    list.sort((a,b)=> (b.occurrences||0)-(a.occurrences||0) || a.frequency - b.frequency);
+                    const filtered=[];
+                    for (const f of list) {
+                        if (!Number.isFinite(f.frequency)) continue;
+                        if (filtered.some(x=> Math.abs(x.frequency - f.frequency) < 40)) continue;
+                        filtered.push(f); if (filtered.length>=5) break;
                     }
-                } catch {}
-                return extra ? row('Top Freq. adicionais', `<span style="opacity:.9">${extra}</span>`) : '';
+                    const extra = filtered.slice(1,4).map(f=>`${Math.round(f.frequency)}Hz`).join(', ');
+                    return extra ? row('Top Freq. adicionais', `<span style="opacity:.9">${extra}</span>`) : '';
+                } catch {
+                    return '';
+                }
             })();
+            
             const col3 = [
-                row('Tonal Balance', analysis.technicalData?.tonalBalance ? tonalSummary(analysis.technicalData.tonalBalance) : '—', 'tonalBalance'),
-                (analysis.technicalData?.dominantFrequencies?.length > 0 ? row('Freq. Dominante', `${Math.round(analysis.technicalData.dominantFrequencies[0].frequency)} Hz`) : ''),
-                row('Problemas', (analysis.problems?.length || 0) > 0 ? `<span class="tag tag-danger">${analysis.problems.length} detectado(s)</span>` : '—'),
-                row('Sugestões', (analysis.suggestions?.length || 0) > 0 ? `<span class="tag tag-success">${analysis.suggestions.length} disponível(s)</span>` : '—'),
+                row('Tonal Balance', analysis.technicalData?.tonalBalance ? tonalSummary(analysis.technicalData.tonalBalance) : '<span class="unavailable">Não disponível</span>', 'tonalBalance'),
+                (analysis.technicalData?.dominantFrequencies?.length > 0 ? 
+                    row('Freq. Dominante', `${Math.round(analysis.technicalData.dominantFrequencies[0].frequency)} Hz`) : 
+                    row('Freq. Dominante', '<span class="unavailable">Não disponível</span>')),
+                row('Problemas', (analysis.problems?.length || 0) > 0 ? `<span class="tag tag-danger">${analysis.problems.length} detectado(s)</span>` : '<span class="tag tag-success">Nenhum</span>'),
+                row('Sugestões', (analysis.suggestions?.length || 0) > 0 ? `<span class="tag tag-success">${analysis.suggestions.length} disponível(s)</span>` : '<span class="tag tag-info">Nenhuma</span>'),
                 col3Extras
             ].join('');
 
@@ -3430,11 +3379,11 @@ function displayModalResults(analysis) {
                 // Headroom
                 if (Number.isFinite(analysis.technicalData?.headroomDb)) {
                     // Mostrar headroom real se calculado a partir do pico, senão offset de loudness
-                    const hrReal = Number.isFinite(analysis.technicalData.headroomTruePeakDb) ? analysis.technicalData.headroomTruePeakDb : null;
+                    const hrReal = Number.isFinite(analysis.technicalData?.headroomTruePeakDb) ? analysis.technicalData.headroomTruePeakDb : null;
                     if (hrReal != null) {
                         rows.push(row('Headroom (Pico)', `${safeFixed(hrReal, 1)} dB`, 'headroomTruePeakDb'));
                     }
-                    rows.push(row('Offset Loudness', `${safeFixed(analysis.technicalData.headroomDb, 1)} dB`, 'headroomDb'));
+                    rows.push(row('Offset Loudness', `${safeFixed(analysis.technicalData?.headroomDb, 1)} dB`, 'headroomDb'));
                 }
                 // Picos por canal
                 if (Number.isFinite(analysis.technicalData?.samplePeakLeftDb)) {
@@ -3448,7 +3397,7 @@ function displayModalResults(analysis) {
                     rows.push(row('Clipping (%)', `${safeFixed(analysis.technicalData.clippingPct, 2)}%`, 'clippingPct'));
                 }
                 if (Number.isFinite(analysis.technicalData?.clippingSamplesTruePeak)) {
-                    rows.push(row('Clipping (TP)', `${analysis.technicalData.clippingSamplesTruePeak} samples`, 'clippingSamplesTruePeak'));
+                    rows.push(row('Clipping (TP)', `${analysis.technicalData?.clippingSamplesTruePeak || 0} samples`, 'clippingSamplesTruePeak'));
                 }
                 // Frequências dominantes extras
                 if (Array.isArray(analysis.technicalData?.dominantFrequencies) && analysis.technicalData.dominantFrequencies.length > 1) {
@@ -5121,6 +5070,21 @@ window.displayReferenceResults = function(referenceResults) {
 function normalizeBackendAnalysisData(backendData) {
     console.log('🔧 [NORMALIZE] Iniciando normalização dos dados do backend:', backendData);
     
+    // 🔍 DEBUG: Log detalhado da estrutura recebida
+    console.log('🔍 [NORMALIZE] Estrutura de dados recebida:', {
+        hasScore: backendData.score !== undefined,
+        scoreValue: backendData.score,
+        hasLoudness: backendData.loudness !== undefined,
+        loudnessKeys: backendData.loudness ? Object.keys(backendData.loudness) : [],
+        hasTruePeak: backendData.truePeak !== undefined,
+        truePeakKeys: backendData.truePeak ? Object.keys(backendData.truePeak) : [],
+        hasStereo: backendData.stereo !== undefined,
+        stereoKeys: backendData.stereo ? Object.keys(backendData.stereo) : [],
+        hasClassification: backendData.classification !== undefined,
+        classification: backendData.classification,
+        allKeys: Object.keys(backendData)
+    });
+    
     // Se já está no formato correto, retornar como está
     if (backendData.technicalData && backendData.technicalData.peak !== undefined) {
         console.log('📊 [NORMALIZE] Dados já estão normalizados');
@@ -5138,89 +5102,255 @@ function normalizeBackendAnalysisData(backendData) {
         channels: backendData.channels || 2
     };
     
-    // 🎯 MAPEAR MÉTRICAS BÁSICAS
+    // 🎯 MAPEAR MÉTRICAS BÁSICAS - CORRIGIDO PARA FORMATO DO PIPELINE
     const tech = normalized.technicalData;
     const source = backendData.technicalData || backendData.metrics || backendData;
     
-    // Peak e RMS
-    tech.peak = source.peak || source.peak_db || source.peakLevel || -60;
-    tech.rms = source.rms || source.rms_db || source.rmsLevel || -60;
+    console.log('🔧 [NORMALIZE] Dados de entrada:', { 
+        hasLoudness: !!backendData.loudness,
+        hasTruePeak: !!backendData.truePeak,
+        hasStereo: !!backendData.stereo,
+        hasScore: !!backendData.score
+    });
+    
+    // 🎯 CORREÇÃO CRÍTICA: Eliminar fallbacks fictícios - usar apenas dados reais
+    
+    // Peak e RMS - APENAS dados reais, sem fallbacks fictícios
+    const peakCandidate = source.peak || source.peak_db || source.peakLevel || backendData.truePeak?.maxDbtp;
+    tech.peak = Number.isFinite(peakCandidate) ? peakCandidate : null;
+    
+    const rmsCandidate = source.rms || source.rms_db || source.rmsLevel;
+    tech.rms = Number.isFinite(rmsCandidate) ? rmsCandidate : null;
     tech.rmsLevel = tech.rms;
     
-    // Dynamic Range
-    tech.dynamicRange = source.dynamicRange || source.dynamic_range || source.dr || 
-                       (Number.isFinite(tech.peak) && Number.isFinite(tech.rms) ? tech.peak - tech.rms : 12);
+    // Dynamic Range - calcular apenas se temos dados reais
+    const drCandidate = source.dynamicRange || source.dynamic_range || source.dr;
+    if (Number.isFinite(drCandidate)) {
+        tech.dynamicRange = drCandidate;
+    } else if (Number.isFinite(tech.peak) && Number.isFinite(tech.rms)) {
+        tech.dynamicRange = tech.peak - tech.rms;
+    } else {
+        tech.dynamicRange = null; // Não usar fallback fictício
+    }
     
-    // Crest Factor
-    tech.crestFactor = source.crestFactor || source.crest_factor || tech.dynamicRange || 12;
+    // Crest Factor - APENAS dados reais
+    const crestCandidate = source.crestFactor || source.crest_factor;
+    tech.crestFactor = Number.isFinite(crestCandidate) ? crestCandidate : tech.dynamicRange;
     
-    // True Peak
-    tech.truePeakDbtp = source.truePeakDbtp || source.true_peak_dbtp || source.truePeak || tech.peak;
+    // True Peak - CORREÇÃO CRÍTICA: Apenas dados reais do pipeline
+    const truePeakCandidate = backendData.truePeak?.maxDbtp || source.truePeakDbtp || source.true_peak_dbtp || source.truePeak;
+    tech.truePeakDbtp = Number.isFinite(truePeakCandidate) ? truePeakCandidate : null;
     
-    // LUFS
-    tech.lufsIntegrated = source.lufsIntegrated || source.lufs_integrated || source.lufs || -23;
-    tech.lufsShortTerm = source.lufsShortTerm || source.lufs_short_term || tech.lufsIntegrated;
-    tech.lufsMomentary = source.lufsMomentary || source.lufs_momentary || tech.lufsIntegrated;
+    const truePeakLinearCandidate = backendData.truePeak?.maxLinear || source.truePeakLinear || source.true_peak_linear;
+    tech.truePeakLinear = Number.isFinite(truePeakLinearCandidate) ? truePeakLinearCandidate : null;
     
-    // LRA
-    tech.lra = source.lra || source.loudnessRange || 8;
+    // 🔥 TRUE PEAK DETALHADO - APENAS DADOS REAIS DO PIPELINE
+    if (backendData.truePeak) {
+        tech.truePeakDetailed = {
+            maxDbtp: Number.isFinite(backendData.truePeak.maxDbtp) ? backendData.truePeak.maxDbtp : null,
+            maxLinear: Number.isFinite(backendData.truePeak.maxLinear) ? backendData.truePeak.maxLinear : null,
+            oversamplingFactor: Number.isFinite(backendData.truePeak.oversamplingFactor) ? backendData.truePeak.oversamplingFactor : null,
+            clippingCount: Number.isFinite(backendData.truePeak.clippingCount) ? backendData.truePeak.clippingCount : null,
+            leftPeak: Number.isFinite(backendData.truePeak.leftPeak) ? backendData.truePeak.leftPeak : null,
+            rightPeak: Number.isFinite(backendData.truePeak.rightPeak) ? backendData.truePeak.rightPeak : null,
+            unit: backendData.truePeak.unit || 'dBTP'
+        };
+        
+        console.log('🔥 [NORMALIZE] True Peak detalhado:', tech.truePeakDetailed);
+    }
     
-    // Headroom
-    tech.headroomDb = source.headroomDb || source.headroom_db || (0 - tech.peak);
-    tech.headroomTruePeakDb = source.headroomTruePeakDb || (0 - tech.truePeakDbtp);
+    // LUFS - CORREÇÃO CRÍTICA: Apenas dados reais do pipeline ITU-R BS.1770-4
+    const lufsIntegratedCandidate = backendData.loudness?.integrated || source.lufsIntegrated || source.lufs_integrated || source.lufs;
+    tech.lufsIntegrated = Number.isFinite(lufsIntegratedCandidate) ? lufsIntegratedCandidate : null;
     
-    // Stereo
-    tech.stereoCorrelation = source.stereoCorrelation || source.stereo_correlation || 0.5;
-    tech.stereoWidth = source.stereoWidth || source.stereo_width || 0.5;
-    tech.balanceLR = source.balanceLR || source.balance_lr || 0;
+    const lufsShortTermCandidate = backendData.loudness?.shortTerm || source.lufsShortTerm || source.lufs_short_term;
+    tech.lufsShortTerm = Number.isFinite(lufsShortTermCandidate) ? lufsShortTermCandidate : null;
     
-    // Spectral
-    tech.spectralCentroid = source.spectralCentroid || source.spectral_centroid || 1000;
-    tech.spectralRolloff = source.spectralRolloff || source.spectral_rolloff || 5000;
-    tech.zeroCrossingRate = source.zeroCrossingRate || source.zero_crossing_rate || 0.1;
-    tech.spectralFlux = source.spectralFlux || source.spectral_flux || 0.5;
-    tech.spectralFlatness = source.spectralFlatness || source.spectral_flatness || 0.1;
+    const lufsMomentaryCandidate = backendData.loudness?.momentary || source.lufsMomentary || source.lufs_momentary;
+    tech.lufsMomentary = Number.isFinite(lufsMomentaryCandidate) ? lufsMomentaryCandidate : null;
     
-    // Problemas técnicos
-    tech.clippingSamples = source.clippingSamples || source.clipping_samples || 0;
-    tech.clippingPct = source.clippingPct || source.clipping_pct || 0;
-    tech.dcOffset = source.dcOffset || source.dc_offset || 0;
-    tech.thdPercent = source.thdPercent || source.thd_percent || 0;
+    // LRA - CORREÇÃO: Apenas dados reais do pipeline
+    const lraCandidate = backendData.loudness?.lra || source.lra || source.loudnessRange;
+    tech.lra = Number.isFinite(lraCandidate) ? lraCandidate : null;
     
-    // Sample peaks por canal
-    tech.samplePeakLeftDb = source.samplePeakLeftDb || source.sample_peak_left_db || tech.peak;
-    tech.samplePeakRightDb = source.samplePeakRightDb || source.sample_peak_right_db || tech.peak;
+    // Headroom - Calcular apenas se temos dados reais
+    const headroomCandidate = source.headroomDb || source.headroom_db;
+    if (Number.isFinite(headroomCandidate)) {
+        tech.headroomDb = headroomCandidate;
+    } else if (Number.isFinite(tech.peak)) {
+        tech.headroomDb = 0 - tech.peak;
+    } else {
+        tech.headroomDb = null;
+    }
     
-    // 🎵 SPECTRAL BALANCE - Mapear dados espectrais
+    const headroomTruePeakCandidate = source.headroomTruePeakDb;
+    if (Number.isFinite(headroomTruePeakCandidate)) {
+        tech.headroomTruePeakDb = headroomTruePeakCandidate;
+    } else if (Number.isFinite(tech.truePeakDbtp)) {
+        tech.headroomTruePeakDb = 0 - tech.truePeakDbtp;
+    } else {
+        tech.headroomTruePeakDb = null;
+    }
+    
+    // Stereo - CORREÇÃO: Apenas dados reais do pipeline
+    const stereoCorrelationCandidate = backendData.stereo?.correlation || source.stereoCorrelation || source.stereo_correlation;
+    tech.stereoCorrelation = Number.isFinite(stereoCorrelationCandidate) ? stereoCorrelationCandidate : null;
+    
+    const stereoWidthCandidate = backendData.stereo?.width || source.stereoWidth || source.stereo_width;
+    tech.stereoWidth = Number.isFinite(stereoWidthCandidate) ? stereoWidthCandidate : null;
+    
+    const balanceLRCandidate = backendData.stereo?.balance || source.balanceLR || source.balance_lr;
+    tech.balanceLR = Number.isFinite(balanceLRCandidate) ? balanceLRCandidate : null;
+    
+    // 🎧 STEREO DETALHADO - APENAS DADOS REAIS DO PIPELINE
+    if (backendData.stereo) {
+        tech.stereoDetailed = {
+            correlation: Number.isFinite(backendData.stereo.correlation) ? backendData.stereo.correlation : null,
+            width: Number.isFinite(backendData.stereo.width) ? backendData.stereo.width : null,
+            balance: Number.isFinite(backendData.stereo.balance) ? backendData.stereo.balance : null,
+            isMonoCompatible: backendData.stereo.isMonoCompatible !== undefined ? backendData.stereo.isMonoCompatible : null,
+            hasPhaseIssues: backendData.stereo.hasPhaseIssues !== undefined ? backendData.stereo.hasPhaseIssues : null,
+            correlationCategory: backendData.stereo.correlationCategory || null,
+            widthCategory: backendData.stereo.widthCategory || null,
+            algorithm: backendData.stereo.algorithm || 'standard',
+            valid: backendData.stereo.valid !== false
+        };
+        
+        console.log('🎧 [NORMALIZE] Stereo detalhado:', tech.stereoDetailed);
+    }
+    
+    console.log('✅ [NORMALIZE] Métricas mapeadas:', {
+        lufsIntegrated: tech.lufsIntegrated,
+        truePeakDbtp: tech.truePeakDbtp,
+        stereoCorrelation: tech.stereoCorrelation,
+        lra: tech.lra
+    });
+    
+    // Spectral - CORREÇÃO: Apenas dados reais do pipeline FFT
+    const spectralCentroidCandidate = source.spectralCentroid || source.spectral_centroid;
+    tech.spectralCentroid = Number.isFinite(spectralCentroidCandidate) ? spectralCentroidCandidate : null;
+    
+    const spectralRolloffCandidate = source.spectralRolloff || source.spectral_rolloff;
+    tech.spectralRolloff = Number.isFinite(spectralRolloffCandidate) ? spectralRolloffCandidate : null;
+    
+    const zeroCrossingRateCandidate = source.zeroCrossingRate || source.zero_crossing_rate;
+    tech.zeroCrossingRate = Number.isFinite(zeroCrossingRateCandidate) ? zeroCrossingRateCandidate : null;
+    
+    const spectralFluxCandidate = source.spectralFlux || source.spectral_flux;
+    tech.spectralFlux = Number.isFinite(spectralFluxCandidate) ? spectralFluxCandidate : null;
+    
+    const spectralFlatnessCandidate = source.spectralFlatness || source.spectral_flatness;
+    tech.spectralFlatness = Number.isFinite(spectralFlatnessCandidate) ? spectralFlatnessCandidate : null;
+    
+    // 🎵 MÉTRICAS ESPECTRAIS AVANÇADAS - APENAS DADOS REAIS DO PIPELINE
+    if (backendData.fft || backendData.spectral) {
+        const fftSource = backendData.fft || backendData.spectral || {};
+        
+        tech.fftMetrics = {
+            processedFrames: Number.isFinite(fftSource.processedFrames) ? fftSource.processedFrames : null,
+            spectralCentroidHz: Number.isFinite(fftSource.spectralCentroidHz || fftSource.spectralCentroid) ? (fftSource.spectralCentroidHz || fftSource.spectralCentroid) : null,
+            spectralRolloffHz: Number.isFinite(fftSource.spectralRolloffHz || fftSource.spectralRolloff) ? (fftSource.spectralRolloffHz || fftSource.spectralRolloff) : null,
+            spectralBandwidthHz: Number.isFinite(fftSource.spectralBandwidthHz || fftSource.spectralBandwidth) ? (fftSource.spectralBandwidthHz || fftSource.spectralBandwidth) : null,
+            spectralSpreadHz: Number.isFinite(fftSource.spectralSpreadHz || fftSource.spectralSpread) ? (fftSource.spectralSpreadHz || fftSource.spectralSpread) : null,
+            spectralFlatness: Number.isFinite(fftSource.spectralFlatness) ? fftSource.spectralFlatness : null,
+            spectralCrest: Number.isFinite(fftSource.spectralCrest) ? fftSource.spectralCrest : null,
+            spectralSkewness: Number.isFinite(fftSource.spectralSkewness) ? fftSource.spectralSkewness : null,
+            spectralKurtosis: Number.isFinite(fftSource.spectralKurtosis) ? fftSource.spectralKurtosis : null
+        };
+        
+        console.log('🎵 [NORMALIZE] Métricas FFT mapeadas:', tech.fftMetrics);
+    }
+    
+    // 🔊 BANDAS ESPECTRAIS - CORREÇÃO: Apenas dados reais do pipeline
+    if (backendData.spectralBands && typeof backendData.spectralBands === 'object') {
+        tech.spectralBands = backendData.spectralBands;
+        console.log('🔊 [NORMALIZE] Bandas espectrais REAIS mapeadas:', Object.keys(tech.spectralBands));
+    } else {
+        tech.spectralBands = null; // Não usar valores fictícios
+        console.log('⚠️ [NORMALIZE] Bandas espectrais não disponíveis - dados não fictícios');
+    }
+    
+    // 🎯 SPECTRAL CENTROID DETALHADO - APENAS DADOS REAIS
+    if (backendData.spectralCentroid) {
+        tech.spectralCentroidDetailed = {
+            averageHz: Number.isFinite(backendData.spectralCentroid.averageHz) ? backendData.spectralCentroid.averageHz : null,
+            medianHz: Number.isFinite(backendData.spectralCentroid.medianHz) ? backendData.spectralCentroid.medianHz : null,
+            category: backendData.spectralCentroid.category || null,
+            frames: Number.isFinite(backendData.spectralCentroid.frames) ? backendData.spectralCentroid.frames : null
+        };
+        
+        console.log('🎯 [NORMALIZE] Spectral Centroid detalhado:', tech.spectralCentroidDetailed);
+    }
+    
+    // ⚡ DINÂMICA E CREST FACTOR - APENAS DADOS REAIS
+    if (backendData.dynamics) {
+        tech.dynamics = {
+            dynamicRange: Number.isFinite(backendData.dynamics.dynamicRange) ? backendData.dynamics.dynamicRange : null,
+            crestFactor: Number.isFinite(backendData.dynamics.crestFactor) ? backendData.dynamics.crestFactor : null,
+            lra: Number.isFinite(backendData.dynamics.lra) ? backendData.dynamics.lra : null,
+            peakToAverage: Number.isFinite(backendData.dynamics.peakToAverage) ? backendData.dynamics.peakToAverage : null
+        };
+        
+        console.log('⚡ [NORMALIZE] Dinâmica mapeada:', tech.dynamics);
+    }
+    
+    // 📊 NORMALIZAÇÃO INFO - APENAS DADOS REAIS
+    if (backendData.normalization) {
+        tech.normalization = {
+            applied: backendData.normalization.applied !== undefined ? backendData.normalization.applied : null,
+            originalLUFS: Number.isFinite(backendData.normalization.originalLUFS) ? backendData.normalization.originalLUFS : null,
+            gainAppliedDB: Number.isFinite(backendData.normalization.gainAppliedDB) ? backendData.normalization.gainAppliedDB : null,
+            hasClipping: backendData.normalization.hasClipping !== undefined ? backendData.normalization.hasClipping : null,
+            isSilence: backendData.normalization.isSilence !== undefined ? backendData.normalization.isSilence : null
+        };
+        
+        console.log('📊 [NORMALIZE] Normalização mapeada:', tech.normalization);
+    }
+    
+    // Problemas técnicos - CORREÇÃO: Apenas dados reais
+    const clippingSamplesCandidate = source.clippingSamples || source.clipping_samples;
+    tech.clippingSamples = Number.isFinite(clippingSamplesCandidate) ? clippingSamplesCandidate : 0;
+    
+    const clippingPctCandidate = source.clippingPct || source.clipping_pct;
+    tech.clippingPct = Number.isFinite(clippingPctCandidate) ? clippingPctCandidate : 0;
+    
+    const dcOffsetCandidate = source.dcOffset || source.dc_offset;
+    tech.dcOffset = Number.isFinite(dcOffsetCandidate) ? dcOffsetCandidate : 0;
+    
+    const thdPercentCandidate = source.thdPercent || source.thd_percent;
+    tech.thdPercent = Number.isFinite(thdPercentCandidate) ? thdPercentCandidate : 0;
+    
+    // Sample peaks por canal - CORREÇÃO: Apenas dados reais
+    const samplePeakLeftCandidate = source.samplePeakLeftDb || source.sample_peak_left_db;
+    tech.samplePeakLeftDb = Number.isFinite(samplePeakLeftCandidate) ? samplePeakLeftCandidate : null;
+    
+    const samplePeakRightCandidate = source.samplePeakRightDb || source.sample_peak_right_db;
+    tech.samplePeakRightDb = Number.isFinite(samplePeakRightCandidate) ? samplePeakRightCandidate : null;
+    
+    // 🎵 SPECTRAL BALANCE - APENAS DADOS REAIS DO PIPELINE
     if (source.spectral_balance || source.spectralBalance || source.bands) {
         const spectralSource = source.spectral_balance || source.spectralBalance || {};
         tech.spectral_balance = {
-            sub: spectralSource.sub || 0.1,
-            bass: spectralSource.bass || 0.2,
-            mids: spectralSource.mids || 0.3,
-            treble: spectralSource.treble || 0.2,
-            presence: spectralSource.presence || 0.15,
-            air: spectralSource.air || 0.05
+            sub: Number.isFinite(spectralSource.sub) ? spectralSource.sub : null,
+            bass: Number.isFinite(spectralSource.bass) ? spectralSource.bass : null,
+            mids: Number.isFinite(spectralSource.mids) ? spectralSource.mids : null,
+            treble: Number.isFinite(spectralSource.treble) ? spectralSource.treble : null,
+            presence: Number.isFinite(spectralSource.presence) ? spectralSource.presence : null,
+            air: Number.isFinite(spectralSource.air) ? spectralSource.air : null
         };
+        console.log('🎵 [NORMALIZE] Spectral balance REAL mapeado:', tech.spectral_balance);
     } else {
-        // Valores padrão se não houver dados espectrais
-        tech.spectral_balance = {
-            sub: 0.1,
-            bass: 0.25,
-            mids: 0.35,
-            treble: 0.2,
-            presence: 0.08,
-            air: 0.02
-        };
-        console.log('⚠️ [NORMALIZE] Usando valores padrão para spectral_balance');
+        // SEM dados espectrais - não usar valores fictícios
+        tech.spectral_balance = null;
+        console.log('⚠️ [NORMALIZE] Spectral balance não disponível - não usando valores fictícios');
     }
     
-    // 🎶 BAND ENERGIES - Mapear energias das bandas de frequência
+    // 🎶 BAND ENERGIES - CORREÇÃO: Apenas dados reais do pipeline
     if (source.bandEnergies || source.band_energies || source.bands) {
         const bandsSource = source.bandEnergies || source.band_energies || source.bands || {};
         tech.bandEnergies = {};
         
-        // Mapear bandas conhecidas
+        // Mapear bandas conhecidas (apenas dados reais)
         const bandMapping = {
             'sub': 'sub',
             'subBass': 'sub', 
@@ -5246,74 +5376,58 @@ function normalizeBackendAnalysisData(backendData) {
         
         Object.entries(bandMapping).forEach(([sourceKey, targetKey]) => {
             const bandData = bandsSource[sourceKey];
-            if (bandData) {
-                tech.bandEnergies[targetKey] = {
-                    rms_db: bandData.rms_db || bandData.energy_db || bandData.level || -40,
-                    peak_db: bandData.peak_db || bandData.rms_db || -35,
-                    frequency_range: bandData.frequency_range || bandData.range || 'N/A'
-                };
+            if (bandData && typeof bandData === 'object') {
+                const rmsCandidate = bandData.rms_db || bandData.energy_db || bandData.level;
+                const peakCandidate = bandData.peak_db || bandData.rms_db;
+                
+                if (Number.isFinite(rmsCandidate) || Number.isFinite(peakCandidate)) {
+                    tech.bandEnergies[targetKey] = {
+                        rms_db: Number.isFinite(rmsCandidate) ? rmsCandidate : null,
+                        peak_db: Number.isFinite(peakCandidate) ? peakCandidate : null,
+                        frequency_range: bandData.frequency_range || bandData.range || 'N/A'
+                    };
+                }
             }
         });
         
-        // Se não conseguiu mapear nenhuma banda, criar valores default
-        if (Object.keys(tech.bandEnergies).length === 0) {
-            tech.bandEnergies = {
-                sub: { rms_db: -30, peak_db: -25, frequency_range: '20-60 Hz' },
-                low_bass: { rms_db: -25, peak_db: -20, frequency_range: '60-250 Hz' },
-                upper_bass: { rms_db: -20, peak_db: -15, frequency_range: '250-500 Hz' },
-                low_mid: { rms_db: -18, peak_db: -13, frequency_range: '500-1k Hz' },
-                mid: { rms_db: -15, peak_db: -10, frequency_range: '1k-2k Hz' },
-                high_mid: { rms_db: -22, peak_db: -17, frequency_range: '2k-4k Hz' },
-                brilho: { rms_db: -28, peak_db: -23, frequency_range: '4k-8k Hz' },
-                presenca: { rms_db: -35, peak_db: -30, frequency_range: '8k-12k Hz' }
-            };
-            console.log('⚠️ [NORMALIZE] Usando valores padrão para bandEnergies');
-        }
+        console.log(`🎶 [NORMALIZE] Band energies REAIS mapeadas: ${Object.keys(tech.bandEnergies).length} bandas`);
     } else {
-        console.log('⚠️ [NORMALIZE] Dados de bandas não encontrados, criando estrutura padrão');
-        tech.bandEnergies = {
-            sub: { rms_db: -30, peak_db: -25, frequency_range: '20-60 Hz' },
-            low_bass: { rms_db: -25, peak_db: -20, frequency_range: '60-250 Hz' },
-            upper_bass: { rms_db: -20, peak_db: -15, frequency_range: '250-500 Hz' }, 
-            low_mid: { rms_db: -18, peak_db: -13, frequency_range: '500-1k Hz' },
-            mid: { rms_db: -15, peak_db: -10, frequency_range: '1k-2k Hz' },
-            high_mid: { rms_db: -22, peak_db: -17, frequency_range: '2k-4k Hz' },
-            brilho: { rms_db: -28, peak_db: -23, frequency_range: '4k-8k Hz' },
-            presenca: { rms_db: -35, peak_db: -30, frequency_range: '8k-12k Hz' }
-        };
+        tech.bandEnergies = null; // Não usar valores padrão fictícios
+        console.log('⚠️ [NORMALIZE] Band energies não disponíveis - não usando dados fictícios');
     }
     
-    // 🎼 TONAL BALANCE - Estrutura simplificada para compatibilidade
-    if (tech.bandEnergies) {
+    // 🎼 TONAL BALANCE - CORREÇÃO: Apenas se temos dados reais
+    if (tech.bandEnergies && typeof tech.bandEnergies === 'object') {
         tech.tonalBalance = {
-            sub: tech.bandEnergies.sub || { rms_db: -30 },
-            low: tech.bandEnergies.low_bass || { rms_db: -25 },
-            mid: tech.bandEnergies.mid || { rms_db: -15 },
-            high: tech.bandEnergies.brilho || { rms_db: -28 }
+            sub: tech.bandEnergies.sub || null,
+            low: tech.bandEnergies.low_bass || null,
+            mid: tech.bandEnergies.mid || null,
+            high: tech.bandEnergies.brilho || null
         };
+    } else {
+        tech.tonalBalance = null; // Não usar valores fictícios
     }
     
-    // 🎯 FREQUÊNCIAS DOMINANTES
+    // 🎯 FREQUÊNCIAS DOMINANTES - CORREÇÃO: Apenas dados reais
     if (source.dominantFrequencies || source.dominant_frequencies) {
         tech.dominantFrequencies = source.dominantFrequencies || source.dominant_frequencies;
     } else {
-        // Gerar algumas frequências dominantes baseadas nos dados espectrais
-        tech.dominantFrequencies = [
-            { frequency: 440, occurrences: 10 },
-            { frequency: 880, occurrences: 8 }, 
-            { frequency: 220, occurrences: 6 }
-        ];
+        tech.dominantFrequencies = null; // Não gerar frequências fictícias
     }
     
-    // 🔢 SCORES E QUALIDADE
-    normalized.qualityOverall = backendData.qualityOverall || backendData.score || backendData.mixScore || 7.5;
-    normalized.qualityBreakdown = backendData.qualityBreakdown || {
-        dynamics: 75,
-        technical: 80,
-        stereo: 70,
-        loudness: 85,
-        frequency: 75
-    };
+    // 🔢 SCORES E QUALIDADE - CORREÇÃO: Apenas dados reais do pipeline
+    const scoreCandidate = backendData.score || backendData.qualityOverall || backendData.mixScore;
+    normalized.qualityOverall = Number.isFinite(scoreCandidate) ? scoreCandidate : null;
+    
+    normalized.qualityBreakdown = backendData.scoring?.breakdown || backendData.qualityBreakdown || null;
+    
+    // Classificação do pipeline
+    normalized.classification = backendData.classification || 'unknown';
+    
+    console.log('🎯 [NORMALIZE] Score mapeado:', {
+        score: normalized.qualityOverall,
+        classification: normalized.classification
+    });
     
     // 🚨 PROBLEMAS - Garantir que existam alguns problemas/sugestões para exibir
     if (normalized.problems.length === 0) {
@@ -5383,6 +5497,18 @@ function normalizeBackendAnalysisData(backendData) {
         problemsCount: normalized.problems.length,
         suggestionsCount: normalized.suggestions.length,
         qualityScore: normalized.qualityOverall
+    });
+    
+    console.log('🎯 [NORMALIZE] Normalização concluída com sucesso!');
+    console.log('📊 [NORMALIZE] Dados finais normalizados:', {
+        score: normalized.qualityOverall,
+        classification: normalized.classification,
+        lufsIntegrated: normalized.technicalData.lufsIntegrated,
+        truePeakDbtp: normalized.technicalData.truePeakDbtp,
+        stereoCorrelation: normalized.technicalData.stereoCorrelation,
+        lra: normalized.technicalData.lra,
+        hasProblems: normalized.problems.length,
+        hasSuggestions: normalized.suggestions.length
     });
     
     return normalized;
