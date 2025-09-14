@@ -8,6 +8,10 @@ import { TruePeakDetector, analyzeTruePeaks } from "../../lib/audio/features/tru
 import { normalizeAudioToTargetLUFS, validateNormalization } from "../../lib/audio/features/normalization.js";
 import { auditMetricsCorrections, auditMetricsValidation } from "../../lib/audio/features/audit-logging.js";
 import { SpectralMetricsCalculator, SpectralMetricsAggregator, serializeSpectralMetrics } from "../../lib/audio/features/spectral-metrics.js";
+import { calculateDynamicsMetrics } from "../../lib/audio/features/dynamics-corrected.js";
+import { calculateSpectralBands, SpectralBandsCalculator, SpectralBandsAggregator } from "../../lib/audio/features/spectral-bands.js";
+import { calculateSpectralCentroid, SpectralCentroidCalculator, SpectralCentroidAggregator } from "../../lib/audio/features/spectral-centroid.js";
+import { analyzeStereoMetrics, StereoMetricsCalculator, StereoMetricsAggregator } from "../../lib/audio/features/stereo-metrics.js";
 
 // Sistema de tratamento de erros padronizado
 import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../lib/audio/error-handling.js';
@@ -40,15 +44,24 @@ class CoreMetricsProcessor {
     this.truePeakDetector = new TruePeakDetector();
     this.cache = { hannWindow: new Map(), fftResults: new Map() };
     
-    // NOVO: Inicializar calculador de métricas espectrais
+    // NOVO: Inicializar calculadores corrigidos
     this.spectralCalculator = new SpectralMetricsCalculator(
       CORE_METRICS_CONFIG.SAMPLE_RATE,
       CORE_METRICS_CONFIG.FFT_SIZE
     );
+    this.spectralBandsCalculator = new SpectralBandsCalculator(
+      CORE_METRICS_CONFIG.SAMPLE_RATE,
+      CORE_METRICS_CONFIG.FFT_SIZE
+    );
+    this.spectralCentroidCalculator = new SpectralCentroidCalculator(
+      CORE_METRICS_CONFIG.SAMPLE_RATE,
+      CORE_METRICS_CONFIG.FFT_SIZE
+    );
+    this.stereoMetricsCalculator = new StereoMetricsCalculator();
     
     logAudio('core_metrics', 'init', { 
       config: CORE_METRICS_CONFIG,
-      spectralCalculator: true 
+      correctedModules: ['spectral_bands', 'spectral_centroid', 'stereo_metrics', 'dynamics']
     });
   }
 
@@ -85,10 +98,18 @@ class CoreMetricsProcessor {
         gainDB: normalizationResult.gainAppliedDB 
       });
 
-      // ========= CÁLCULO DE MÉTRICAS FFT =========
+      // ========= CÁLCULO DE MÉTRICAS FFT CORRIGIDAS =========
       logAudio('core_metrics', 'fft_start', { frames: segmentedAudio.framesFFT?.count });
       const fftResults = await this.calculateFFTMetrics(segmentedAudio.framesFFT, { jobId });
       assertFinite(fftResults, 'core_metrics');
+
+      // ========= BANDAS ESPECTRAIS CORRIGIDAS (7 BANDAS) =========
+      logAudio('core_metrics', 'spectral_bands_start');
+      const spectralBandsResults = await this.calculateSpectralBandsMetrics(segmentedAudio.framesFFT, { jobId });
+      
+      // ========= SPECTRAL CENTROID CORRIGIDO (Hz) =========
+      logAudio('core_metrics', 'spectral_centroid_start');
+      const spectralCentroidResults = await this.calculateSpectralCentroidMetrics(segmentedAudio.framesFFT, { jobId });
 
       // ========= CÁLCULO LUFS ITU-R BS.1770-4 =========
       logAudio('core_metrics', 'lufs_start', { frames: segmentedAudio.framesRMS?.count });
@@ -100,14 +121,33 @@ class CoreMetricsProcessor {
       const truePeakMetrics = await this.calculateTruePeakMetrics(normalizedLeft, normalizedRight, { jobId });
       assertFinite(truePeakMetrics, 'core_metrics');
 
-      // ========= ANÁLISE ESTÉREO =========
+      // ========= ANÁLISE ESTÉREO CORRIGIDA =========
       logAudio('core_metrics', 'stereo_start', { length: normalizedLeft.length });
-      const stereoMetrics = await this.calculateStereoMetrics(normalizedLeft, normalizedRight, { jobId });
+      const stereoMetrics = await this.calculateStereoMetricsCorrect(normalizedLeft, normalizedRight, { jobId });
       assertFinite(stereoMetrics, 'core_metrics');
 
-      // ========= MONTAGEM DE RESULTADO =========
+      // ========= MÉTRICAS DE DINÂMICA CORRIGIDAS =========
+      logAudio('core_metrics', 'dynamics_start', { length: normalizedLeft.length });
+      const dynamicsMetrics = calculateDynamicsMetrics(
+        normalizedLeft, 
+        normalizedRight, 
+        CORE_METRICS_CONFIG.SAMPLE_RATE,
+        lufsMetrics.lra // Usar LRA já calculado
+      );
+      
+      if (dynamicsMetrics.dynamicRange !== null) {
+        logAudio('core_metrics', 'dynamics_calculated', {
+          dr: dynamicsMetrics.dynamicRange.toFixed(2),
+          crest: dynamicsMetrics.crestFactor?.toFixed(2) || 'null',
+          lra: dynamicsMetrics.lra?.toFixed(2) || 'null'
+        });
+      }
+
+      // ========= MONTAGEM DE RESULTADO CORRIGIDO =========
       const coreMetrics = {
         fft: fftResults,
+        spectralBands: spectralBandsResults, // ✅ NOVO: 7 bandas profissionais
+        spectralCentroid: spectralCentroidResults, // ✅ NOVO: Centro de brilho em Hz
         lufs: {
           ...lufsMetrics,
           // Adicionar dados de normalização aos LUFS
@@ -116,7 +156,8 @@ class CoreMetricsProcessor {
           gainAppliedDB: normalizationResult.gainAppliedDB
         },
         truePeak: truePeakMetrics,
-        stereo: stereoMetrics,
+        stereo: stereoMetrics, // ✅ CORRIGIDO: Correlação (-1 a +1) e Width (0 a 1)
+        dynamics: dynamicsMetrics, // ✅ CORRIGIDO: DR, Crest Factor, LRA
         rms: segmentedAudio.framesRMS, // Passar direto da segmentação
         normalization: {
           applied: normalizationResult.normalizationApplied,
@@ -569,6 +610,149 @@ class CoreMetricsProcessor {
         throw error;
       }
       throw makeErr('core_metrics', `Stereo calculation failed: ${error.message}`, 'stereo_calculation_error');
+    }
+  }
+
+  // ========= MÉTODOS PARA MÉTRICAS CORRIGIDAS =========
+
+  /**
+   * 🌈 Calcular bandas espectrais corrigidas (7 bandas profissionais)
+   */
+  async calculateSpectralBandsMetrics(framesFFT, options = {}) {
+    const { jobId } = options;
+    
+    try {
+      if (!framesFFT || !framesFFT.frames || framesFFT.frames.length === 0) {
+        logAudio('spectral_bands', 'no_frames', { jobId });
+        return this.spectralBandsCalculator.getNullBands();
+      }
+
+      const bandsResults = [];
+      
+      for (let frameIndex = 0; frameIndex < framesFFT.frames.length; frameIndex++) {
+        const frame = framesFFT.frames[frameIndex];
+        
+        if (frame.leftFFT?.magnitude && frame.rightFFT?.magnitude) {
+          const result = this.spectralBandsCalculator.analyzeBands(
+            frame.leftFFT.magnitude,
+            frame.rightFFT.magnitude,
+            frameIndex
+          );
+          
+          if (result.valid) {
+            bandsResults.push(result);
+          }
+        }
+      }
+
+      // Agregar resultados
+      const aggregatedBands = SpectralBandsAggregator.aggregate(bandsResults);
+      
+      logAudio('spectral_bands', 'completed', {
+        validFrames: bandsResults.length,
+        totalPercentage: aggregatedBands.totalPercentage,
+        jobId
+      });
+
+      return aggregatedBands;
+
+    } catch (error) {
+      logAudio('spectral_bands', 'error', { error: error.message, jobId });
+      return this.spectralBandsCalculator.getNullBands();
+    }
+  }
+
+  /**
+   * 🎵 Calcular spectral centroid corrigido (Hz)
+   */
+  async calculateSpectralCentroidMetrics(framesFFT, options = {}) {
+    const { jobId } = options;
+    
+    try {
+      if (!framesFFT || !framesFFT.frames || framesFFT.frames.length === 0) {
+        logAudio('spectral_centroid', 'no_frames', { jobId });
+        return null;
+      }
+
+      const centroidResults = [];
+      
+      for (let frameIndex = 0; frameIndex < framesFFT.frames.length; frameIndex++) {
+        const frame = framesFFT.frames[frameIndex];
+        
+        if (frame.leftFFT?.magnitude && frame.rightFFT?.magnitude) {
+          const result = this.spectralCentroidCalculator.calculateCentroidHz(
+            frame.leftFFT.magnitude,
+            frame.rightFFT.magnitude,
+            frameIndex
+          );
+          
+          if (result && result.valid) {
+            centroidResults.push(result);
+          }
+        }
+      }
+
+      // Agregar resultados
+      const aggregatedCentroid = SpectralCentroidAggregator.aggregate(centroidResults);
+      
+      logAudio('spectral_centroid', 'completed', {
+        validFrames: centroidResults.length,
+        centroidHz: aggregatedCentroid?.centroidHz || null,
+        jobId
+      });
+
+      return aggregatedCentroid;
+
+    } catch (error) {
+      logAudio('spectral_centroid', 'error', { error: error.message, jobId });
+      return null;
+    }
+  }
+
+  /**
+   * 🎭 Análise estéreo corrigida
+   */
+  async calculateStereoMetricsCorrect(leftChannel, rightChannel, options = {}) {
+    const { jobId } = options;
+    
+    try {
+      // Usar novo calculador de métricas estéreo
+      const result = this.stereoMetricsCalculator.analyzeStereoMetrics(leftChannel, rightChannel);
+      
+      if (!result.valid) {
+        logAudio('stereo_metrics', 'invalid_result', { jobId });
+        return {
+          correlation: null,
+          width: null,
+          balance: 0.0, // Compatibilidade com código existente
+          valid: false
+        };
+      }
+      
+      logAudio('stereo_metrics', 'completed', {
+        correlation: result.correlation,
+        width: result.width,
+        jobId
+      });
+      
+      return {
+        correlation: result.correlation,
+        width: result.width,
+        balance: 0.0, // Compatibilidade - balance não é usado nas novas métricas
+        correlationCategory: result.correlationData?.category,
+        widthCategory: result.widthData?.category,
+        algorithm: 'Corrected_Stereo_Metrics',
+        valid: true
+      };
+
+    } catch (error) {
+      logAudio('stereo_metrics', 'error', { error: error.message, jobId });
+      return {
+        correlation: null,
+        width: null,
+        balance: 0.0,
+        valid: false
+      };
     }
   }
 
