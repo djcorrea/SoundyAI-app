@@ -148,7 +148,10 @@ async function analyzeAudioWithPipeline(localFilePath, job) {
     const t0 = Date.now();
     
     // 🔥 TIMEOUT DE 3 MINUTOS PARA EVITAR TRAVAMENTO
-    const pipelinePromise = processAudioComplete(fileBuffer, filename, job?.reference || null);
+    const pipelinePromise = processAudioComplete(fileBuffer, filename, {
+      jobId: job.id,
+      reference: job?.reference || null
+    });
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
         reject(new Error(`Pipeline timeout após 3 minutos para: ${filename}`));
