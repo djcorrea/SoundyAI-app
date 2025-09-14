@@ -5271,12 +5271,6 @@ function normalizeBackendAnalysisData(backendData) {
         });
         
         // Manter apenas as bandas que foram mapeadas com dados reais
-                high_mid: { rms_db: -22, peak_db: -17, frequency_range: '2k-4k Hz' },
-                brilho: { rms_db: -28, peak_db: -23, frequency_range: '4k-8k Hz' },
-                presenca: { rms_db: -35, peak_db: -30, frequency_range: '8k-12k Hz' }
-            };
-            console.log('⚠️ [NORMALIZE] Usando valores padrão para bandEnergies');
-        }
     } else {
         console.log('⚠️ [NORMALIZE] Dados de bandas não encontrados, mantendo estrutura vazia');
         tech.bandEnergies = {};
