@@ -4923,7 +4923,7 @@ function generateDetailedReport(analysis) {
         report += `\n`;
     }
     
-    if (analysis.problems.length > 0) {
+    if (analysis.problems && analysis.problems.length > 0) {
         report += `🚨 PROBLEMAS DETECTADOS:\n`;
         report += `${'-'.repeat(30)}\n`;
         analysis.problems.forEach((problem, i) => {
@@ -4933,7 +4933,7 @@ function generateDetailedReport(analysis) {
         });
     }
     
-    if (analysis.suggestions.length > 0) {
+    if (analysis.suggestions && analysis.suggestions.length > 0) {
         report += `💡 SUGESTÕES DE MELHORIA:\n`;
         report += `${'-'.repeat(30)}\n`;
         analysis.suggestions.forEach((suggestion, i) => {
@@ -5172,17 +5172,17 @@ function normalizeBackendAnalysisData(backendData) {
     // True Peak
     tech.truePeakDbtp = source.truePeakDbtp || source.true_peak_dbtp || source.truePeak || tech.peak;
     
-    // LUFS
-    tech.lufsIntegrated = source.lufsIntegrated || source.lufs_integrated || source.lufs || -23;
-    tech.lufsShortTerm = source.lufsShortTerm || source.lufs_short_term || tech.lufsIntegrated;
-    tech.lufsMomentary = source.lufsMomentary || source.lufs_momentary || tech.lufsIntegrated;
+    // LUFS - apenas valores reais do backend
+    tech.lufsIntegrated = source.lufsIntegrated || source.lufs_integrated || source.lufs || null;
+    tech.lufsShortTerm = source.lufsShortTerm || source.lufs_short_term || null;
+    tech.lufsMomentary = source.lufsMomentary || source.lufs_momentary || null;
     
-    // LRA
-    tech.lra = source.lra || source.loudnessRange || 8;
+    // LRA - apenas valores reais do backend
+    tech.lra = source.lra || source.loudnessRange || null;
     
-    // Headroom
-    tech.headroomDb = source.headroomDb || source.headroom_db || (0 - tech.peak);
-    tech.headroomTruePeakDb = source.headroomTruePeakDb || (0 - tech.truePeakDbtp);
+    // Headroom - apenas calcular se valores reais estão disponíveis
+    tech.headroomDb = source.headroomDb || source.headroom_db || (Number.isFinite(tech.peak) ? (0 - tech.peak) : null);
+    tech.headroomTruePeakDb = source.headroomTruePeakDb || (Number.isFinite(tech.truePeakDbtp) ? (0 - tech.truePeakDbtp) : null);
     
     // Stereo - apenas valores reais do backend
     tech.stereoCorrelation = source.stereoCorrelation || source.stereo_correlation || null;
@@ -5261,23 +5261,16 @@ function normalizeBackendAnalysisData(backendData) {
         
         Object.entries(bandMapping).forEach(([sourceKey, targetKey]) => {
             const bandData = bandsSource[sourceKey];
-            if (bandData) {
+            if (bandData && (bandData.rms_db != null || bandData.energy_db != null || bandData.level != null)) {
                 tech.bandEnergies[targetKey] = {
-                    rms_db: bandData.rms_db || bandData.energy_db || bandData.level || -40,
-                    peak_db: bandData.peak_db || bandData.rms_db || -35,
-                    frequency_range: bandData.frequency_range || bandData.range || 'N/A'
+                    rms_db: bandData.rms_db || bandData.energy_db || bandData.level || null,
+                    peak_db: bandData.peak_db || bandData.rms_db || null,
+                    frequency_range: bandData.frequency_range || bandData.range || null
                 };
             }
         });
         
-        // Se não conseguiu mapear nenhuma banda, criar valores default
-        if (Object.keys(tech.bandEnergies).length === 0) {
-            tech.bandEnergies = {
-                sub: { rms_db: -30, peak_db: -25, frequency_range: '20-60 Hz' },
-                low_bass: { rms_db: -25, peak_db: -20, frequency_range: '60-250 Hz' },
-                upper_bass: { rms_db: -20, peak_db: -15, frequency_range: '250-500 Hz' },
-                low_mid: { rms_db: -18, peak_db: -13, frequency_range: '500-1k Hz' },
-                mid: { rms_db: -15, peak_db: -10, frequency_range: '1k-2k Hz' },
+        // Manter apenas as bandas que foram mapeadas com dados reais
                 high_mid: { rms_db: -22, peak_db: -17, frequency_range: '2k-4k Hz' },
                 brilho: { rms_db: -28, peak_db: -23, frequency_range: '4k-8k Hz' },
                 presenca: { rms_db: -35, peak_db: -30, frequency_range: '8k-12k Hz' }
@@ -5285,111 +5278,34 @@ function normalizeBackendAnalysisData(backendData) {
             console.log('⚠️ [NORMALIZE] Usando valores padrão para bandEnergies');
         }
     } else {
-        console.log('⚠️ [NORMALIZE] Dados de bandas não encontrados, criando estrutura padrão');
-        tech.bandEnergies = {
-            sub: { rms_db: -30, peak_db: -25, frequency_range: '20-60 Hz' },
-            low_bass: { rms_db: -25, peak_db: -20, frequency_range: '60-250 Hz' },
-            upper_bass: { rms_db: -20, peak_db: -15, frequency_range: '250-500 Hz' }, 
-            low_mid: { rms_db: -18, peak_db: -13, frequency_range: '500-1k Hz' },
-            mid: { rms_db: -15, peak_db: -10, frequency_range: '1k-2k Hz' },
-            high_mid: { rms_db: -22, peak_db: -17, frequency_range: '2k-4k Hz' },
-            brilho: { rms_db: -28, peak_db: -23, frequency_range: '4k-8k Hz' },
-            presenca: { rms_db: -35, peak_db: -30, frequency_range: '8k-12k Hz' }
-        };
+        console.log('⚠️ [NORMALIZE] Dados de bandas não encontrados, mantendo estrutura vazia');
+        tech.bandEnergies = {};
     }
     
-    // 🎼 TONAL BALANCE - Estrutura simplificada para compatibilidade
-    if (tech.bandEnergies) {
+    // 🎼 TONAL BALANCE - Apenas com dados reais
+    if (tech.bandEnergies && Object.keys(tech.bandEnergies).length > 0) {
         tech.tonalBalance = {
-            sub: tech.bandEnergies.sub || { rms_db: -30 },
-            low: tech.bandEnergies.low_bass || { rms_db: -25 },
-            mid: tech.bandEnergies.mid || { rms_db: -15 },
-            high: tech.bandEnergies.brilho || { rms_db: -28 }
+            sub: tech.bandEnergies.sub || null,
+            low: tech.bandEnergies.low_bass || null,
+            mid: tech.bandEnergies.mid || null,
+            high: tech.bandEnergies.brilho || null
         };
+    } else {
+        tech.tonalBalance = null;
     }
     
-    // 🎯 FREQUÊNCIAS DOMINANTES
+    // 🎯 FREQUÊNCIAS DOMINANTES - apenas dados reais
     if (source.dominantFrequencies || source.dominant_frequencies) {
         tech.dominantFrequencies = source.dominantFrequencies || source.dominant_frequencies;
     } else {
-        // Gerar algumas frequências dominantes baseadas nos dados espectrais
-        tech.dominantFrequencies = [
-            { frequency: 440, occurrences: 10 },
-            { frequency: 880, occurrences: 8 }, 
-            { frequency: 220, occurrences: 6 }
-        ];
+        tech.dominantFrequencies = [];
     }
     
-    // 🔢 SCORES E QUALIDADE
-    normalized.qualityOverall = backendData.qualityOverall || backendData.score || backendData.mixScore || 7.5;
-    normalized.qualityBreakdown = backendData.qualityBreakdown || {
-        dynamics: 75,
-        technical: 80,
-        stereo: 70,
-        loudness: 85,
-        frequency: 75
-    };
+    // 🔢 SCORES E QUALIDADE - apenas valores reais
+    normalized.qualityOverall = backendData.qualityOverall || backendData.score || backendData.mixScore || null;
+    normalized.qualityBreakdown = backendData.qualityBreakdown || null;
     
-    // 🚨 PROBLEMAS - Garantir que existam alguns problemas/sugestões para exibir
-    if (normalized.problems.length === 0) {
-        // Detectar problemas básicos baseados nas métricas
-        if (tech.clippingSamples > 0) {
-            normalized.problems.push({
-                type: 'clipping',
-                message: `Clipping detectado (${tech.clippingSamples} samples)`,
-                solution: 'Reduzir o ganho geral ou usar limitador',
-                severity: 'high'
-            });
-        }
-        
-        if (Math.abs(tech.dcOffset) > 0.01) {
-            normalized.problems.push({
-                type: 'dc_offset', 
-                message: `DC Offset detectado (${tech.dcOffset.toFixed(4)})`,
-                solution: 'Aplicar filtro DC remove',
-                severity: 'medium'
-            });
-        }
-        
-        if (tech.thdPercent > 1) {
-            normalized.problems.push({
-                type: 'thd',
-                message: `THD elevado (${tech.thdPercent.toFixed(2)}%)`,
-                solution: 'Verificar saturação e distorção',
-                severity: 'medium'
-            });
-        }
-    }
-    
-    // 💡 SUGESTÕES - Garantir algumas sugestões básicas
-    if (normalized.suggestions.length === 0) {
-        if (tech.dynamicRange < 8) {
-            normalized.suggestions.push({
-                type: 'dynamics',
-                message: 'Faixa dinâmica baixa detectada',
-                action: 'Considerar reduzir compressão/limitação',
-                details: `DR atual: ${tech.dynamicRange.toFixed(1)}dB`
-            });
-        }
-        
-        if (tech.stereoCorrelation > 0.9) {
-            normalized.suggestions.push({
-                type: 'stereo',
-                message: 'Imagem estéreo muito estreita',
-                action: 'Aumentar espacialização estéreo',
-                details: `Correlação: ${tech.stereoCorrelation.toFixed(3)}`
-            });
-        }
-        
-        if (tech.lufsIntegrated < -30) {
-            normalized.suggestions.push({
-                type: 'loudness',
-                message: 'Loudness muito baixo',
-                action: 'Aumentar volume geral',
-                details: `LUFS atual: ${tech.lufsIntegrated.toFixed(1)}`
-            });
-        }
-    }
+    // 🚨 PROBLEMAS - Apenas problemas reais detectados pelo backend
     
     console.log('✅ [NORMALIZE] Normalização concluída:', {
         hasTechnicalData: !!normalized.technicalData,
