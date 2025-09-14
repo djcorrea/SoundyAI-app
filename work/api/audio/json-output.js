@@ -77,36 +77,102 @@ function validateCoreMetricsStructure(coreMetrics) {
 function extractTechnicalData(coreMetrics) {
   const technicalData = {};
 
-  // Loudness
-  technicalData.lufsIntegrated = coreMetrics.lufs.integrated;
-  technicalData.lufsShortTerm = coreMetrics.lufs.shortTerm;
-  technicalData.lufsMomentary = coreMetrics.lufs.momentary;
-  technicalData.lra = coreMetrics.lufs.lra;
+  // ===== MÉTRICAS PRINCIPAIS =====
+  
+  // Loudness (LUFS ITU-R BS.1770-4)
+  if (coreMetrics.lufs) {
+    technicalData.lufsIntegrated = coreMetrics.lufs.integrated;
+    technicalData.lufsShortTerm = coreMetrics.lufs.shortTerm;
+    technicalData.lufsMomentary = coreMetrics.lufs.momentary;
+    technicalData.lra = coreMetrics.lufs.lra;
+    technicalData.originalLUFS = coreMetrics.lufs.originalLUFS;
+    technicalData.normalizedTo = coreMetrics.lufs.normalizedTo;
+    technicalData.gainAppliedDB = coreMetrics.lufs.gainAppliedDB;
+  }
 
-  // True Peak
-  technicalData.truePeakDbtp = coreMetrics.truePeak.maxDbtp;
-  technicalData.truePeakLinear = coreMetrics.truePeak.maxLinear;
-
-  // Stereo
-  technicalData.stereoCorrelation = coreMetrics.stereo.correlation;
-  technicalData.stereoBalance = coreMetrics.stereo.balance;
-  technicalData.stereoWidth = coreMetrics.stereo.width;
+  // True Peak (4x Oversampling)
+  if (coreMetrics.truePeak) {
+    technicalData.truePeakDbtp = coreMetrics.truePeak.maxDbtp;
+    technicalData.truePeakLinear = coreMetrics.truePeak.maxLinear;
+    technicalData.samplePeakLeftDb = coreMetrics.truePeak.samplePeakLeftDb;
+    technicalData.samplePeakRightDb = coreMetrics.truePeak.samplePeakRightDb;
+    technicalData.clippingSamples = coreMetrics.truePeak.clippingSamples;
+    technicalData.clippingPct = coreMetrics.truePeak.clippingPct;
+  }
 
   // Dinâmica
   if (coreMetrics.dynamics) {
-    technicalData.dynamicRange = coreMetrics.dynamics.dr;
-    technicalData.crestFactor = coreMetrics.dynamics.crest;
-    technicalData.peakRms = coreMetrics.dynamics.peakRmsDb;
-    technicalData.avgRms = coreMetrics.dynamics.averageRmsDb;
+    technicalData.dynamicRange = coreMetrics.dynamics.dynamicRange;
+    technicalData.crestFactor = coreMetrics.dynamics.crestFactor;
+    technicalData.peakRmsDb = coreMetrics.dynamics.peakRmsDb;
+    technicalData.averageRmsDb = coreMetrics.dynamics.averageRmsDb;
+    technicalData.drCategory = coreMetrics.dynamics.drCategory;
   }
 
-  // Clipping
-  if (coreMetrics.clipping) {
-    technicalData.clippingCount = coreMetrics.clipping.count;
-    technicalData.clippingDetected = coreMetrics.clipping.detected;
+  // ===== ESTÉREO & ESPECTRAL =====
+  
+  // Stereo
+  if (coreMetrics.stereo) {
+    technicalData.stereoCorrelation = coreMetrics.stereo.correlation;
+    technicalData.stereoWidth = coreMetrics.stereo.width;
+    technicalData.balanceLR = coreMetrics.stereo.balance;
+    technicalData.isMonoCompatible = coreMetrics.stereo.isMonoCompatible;
+    technicalData.hasPhaseIssues = coreMetrics.stereo.hasPhaseIssues;
+    technicalData.correlationCategory = coreMetrics.stereo.correlationCategory;
+    technicalData.widthCategory = coreMetrics.stereo.widthCategory;
   }
 
-  // RMS detalhado
+  // Métricas Espectrais (do FFT)
+  if (coreMetrics.fft && coreMetrics.fft.aggregated) {
+    const spectral = coreMetrics.fft.aggregated;
+    technicalData.spectralCentroid = spectral.spectralCentroidHz;
+    technicalData.spectralRolloff = spectral.spectralRolloffHz;
+    technicalData.spectralBandwidth = spectral.spectralBandwidthHz;
+    technicalData.spectralSpread = spectral.spectralSpreadHz;
+    technicalData.spectralFlatness = spectral.spectralFlatness;
+    technicalData.spectralCrest = spectral.spectralCrest;
+    technicalData.spectralSkewness = spectral.spectralSkewness;
+    technicalData.spectralKurtosis = spectral.spectralKurtosis;
+    technicalData.zeroCrossingRate = spectral.zeroCrossingRate;
+    technicalData.spectralFlux = spectral.spectralFlux;
+  }
+
+  // ===== BALANCE ESPECTRAL DETALHADO =====
+  
+  // Bandas Espectrais (7 bandas profissionais)
+  if (coreMetrics.spectralBands && coreMetrics.spectralBands.aggregated) {
+    const bands = coreMetrics.spectralBands.aggregated;
+    technicalData.bandEnergies = {
+      sub: bands.sub ? { rms_db: bands.sub.rmsDb, peak_db: bands.sub.peakDb, frequency_range: bands.sub.frequencyRange } : null,
+      low_bass: bands.lowBass ? { rms_db: bands.lowBass.rmsDb, peak_db: bands.lowBass.peakDb, frequency_range: bands.lowBass.frequencyRange } : null,
+      upper_bass: bands.upperBass ? { rms_db: bands.upperBass.rmsDb, peak_db: bands.upperBass.peakDb, frequency_range: bands.upperBass.frequencyRange } : null,
+      low_mid: bands.lowMid ? { rms_db: bands.lowMid.rmsDb, peak_db: bands.lowMid.peakDb, frequency_range: bands.lowMid.frequencyRange } : null,
+      mid: bands.mid ? { rms_db: bands.mid.rmsDb, peak_db: bands.mid.peakDb, frequency_range: bands.mid.frequencyRange } : null,
+      high_mid: bands.highMid ? { rms_db: bands.highMid.rmsDb, peak_db: bands.highMid.peakDb, frequency_range: bands.highMid.frequencyRange } : null,
+      brilho: bands.brilliance ? { rms_db: bands.brilliance.rmsDb, peak_db: bands.brilliance.peakDb, frequency_range: bands.brilliance.frequencyRange } : null,
+      presenca: bands.presence ? { rms_db: bands.presence.rmsDb, peak_db: bands.presence.peakDb, frequency_range: bands.presence.frequencyRange } : null,
+      air: bands.air ? { rms_db: bands.air.rmsDb, peak_db: bands.air.peakDb, frequency_range: bands.air.frequencyRange } : null
+    };
+    
+    // Spectral Balance simplificado para compatibilidade
+    technicalData.spectral_balance = {
+      sub: bands.sub?.rmsDb || null,
+      bass: bands.lowBass?.rmsDb || bands.upperBass?.rmsDb || null,
+      mids: bands.mid?.rmsDb || null,
+      treble: bands.brilliance?.rmsDb || null,
+      presence: bands.presence?.rmsDb || null,
+      air: bands.air?.rmsDb || null
+    };
+  }
+
+  // Centroide Espectral (Brilho)
+  if (coreMetrics.spectralCentroid && coreMetrics.spectralCentroid.aggregated) {
+    technicalData.spectralCentroidHz = coreMetrics.spectralCentroid.aggregated.centroidHz;
+    technicalData.brightnessCategory = coreMetrics.spectralCentroid.aggregated.brightnessCategory;
+  }
+
+  // ===== RMS DETALHADO =====
+  
   if (coreMetrics.rms) {
     technicalData.rmsLevels = {
       left: coreMetrics.rms.left || null,
@@ -115,21 +181,36 @@ function extractTechnicalData(coreMetrics) {
       peak: coreMetrics.rms.peak || null,
       count: coreMetrics.rms.count || 0
     };
+    
+    // Compatibilidade com nomes legados
+    technicalData.peak = coreMetrics.rms.peak;
+    technicalData.rms = coreMetrics.rms.average;
+    technicalData.rmsLevel = coreMetrics.rms.average;
   }
 
-  // FFT / Spectral
-  if (coreMetrics.fft) {
-    technicalData.spectralData = {
-      processedFrames: coreMetrics.fft.processedFrames || 0,
-      spectralCentroid: coreMetrics.fft.spectralCentroidHz || null,
-      spectralRolloff: coreMetrics.fft.spectralRolloffHz || null,
-      spectralBandwidth: coreMetrics.fft.spectralBandwidthHz || null,
-      spectralSpread: coreMetrics.fft.spectralSpreadHz || null,
-      spectralFlatness: coreMetrics.fft.spectralFlatness || null,
-      spectralCrest: coreMetrics.fft.spectralCrest || null,
-      spectralSkewness: coreMetrics.fft.spectralSkewness || null,
-      spectralKurtosis: coreMetrics.fft.spectralKurtosis || null
-    };
+  // ===== MÉTRICAS TÉCNICAS AVANÇADAS =====
+  
+  // Headroom (calculado a partir do peak)
+  if (technicalData.peak !== null && technicalData.peak !== undefined) {
+    technicalData.headroomDb = 0 - technicalData.peak; // 0 dBFS - peak atual
+  }
+  
+  if (technicalData.truePeakDbtp !== null && technicalData.truePeakDbtp !== undefined) {
+    technicalData.headroomTruePeakDb = 0 - technicalData.truePeakDbtp; // 0 dBTP - true peak atual
+  }
+
+  // Problemas técnicos detectados
+  technicalData.dcOffset = null; // TODO: Implementar se necessário
+  technicalData.thdPercent = null; // TODO: Implementar se necessário
+
+  // ===== FREQUÊNCIAS DOMINANTES =====
+  
+  if (coreMetrics.fft && coreMetrics.fft.dominantFrequencies) {
+    technicalData.dominantFrequencies = coreMetrics.fft.dominantFrequencies.map(freq => ({
+      frequency: freq.frequency,
+      occurrences: freq.occurrences || 1,
+      magnitude: freq.magnitude || null
+    }));
   }
 
   return technicalData;
@@ -144,46 +225,65 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     score: Math.round(scoreValue * 10) / 10,
     classification: scoringResult.classification || 'unknown',
 
-    // ===== Loudness =====
+    // ===== Loudness (LUFS ITU-R BS.1770-4) =====
     loudness: {
       integrated: technicalData.lufsIntegrated,
       shortTerm: technicalData.lufsShortTerm,
       momentary: technicalData.lufsMomentary,
       lra: technicalData.lra,
+      original: technicalData.originalLUFS,
+      normalized: technicalData.normalizedTo,
+      gainDb: technicalData.gainAppliedDB,
       unit: "LUFS"
     },
 
-    // ===== True Peak =====
+    // ===== True Peak (4x Oversampling) =====
     truePeak: {
       maxDbtp: technicalData.truePeakDbtp,
       maxLinear: technicalData.truePeakLinear,
+      samplePeakLeft: technicalData.samplePeakLeftDb,
+      samplePeakRight: technicalData.samplePeakRightDb,
+      clipping: {
+        samples: technicalData.clippingSamples,
+        percentage: technicalData.clippingPct
+      },
       unit: "dBTP"
     },
 
-    // ===== Stereo =====
+    // ===== Stereo & Phase =====
     stereo: {
       correlation: technicalData.stereoCorrelation,
-      balance: technicalData.stereoBalance,
       width: technicalData.stereoWidth,
-      isMonoCompatible: coreMetrics.stereo.isMonoCompatible || false,
-      hasPhaseIssues: coreMetrics.stereo.hasPhaseIssues || false
+      balance: technicalData.balanceLR,
+      isMonoCompatible: technicalData.isMonoCompatible || false,
+      hasPhaseIssues: technicalData.hasPhaseIssues || false,
+      categories: {
+        correlation: technicalData.correlationCategory,
+        width: technicalData.widthCategory
+      }
     },
 
     // ===== Dinâmica =====
     dynamics: {
-      dr: technicalData.dynamicRange,
+      range: technicalData.dynamicRange,
       crest: technicalData.crestFactor,
-      peakRms: technicalData.peakRms,
-      avgRms: technicalData.avgRms
+      peakRms: technicalData.peakRmsDb,
+      avgRms: technicalData.averageRmsDb,
+      category: technicalData.drCategory,
+      // Compatibilidade com nomes legados
+      dr: technicalData.dynamicRange,
+      peakRmsDb: technicalData.peakRmsDb,
+      averageRmsDb: technicalData.averageRmsDb
     },
 
     // ===== Clipping =====
     clipping: {
-      detected: technicalData.clippingDetected || false,
-      count: technicalData.clippingCount || 0
+      detected: (technicalData.clippingSamples > 0) || false,
+      count: technicalData.clippingSamples || 0,
+      percentage: technicalData.clippingPct || 0
     },
 
-    // ===== RMS =====
+    // ===== RMS Detalhado =====
     rms: {
       left: technicalData.rmsLevels?.left,
       right: technicalData.rmsLevels?.right,
@@ -193,18 +293,123 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       hasData: (technicalData.rmsLevels?.count || 0) > 0
     },
 
-    // ===== FFT / Spectral =====
+    // ===== FFT / Análise Espectral Completa =====
     spectral: {
-      processedFrames: technicalData.spectralData?.processedFrames,
-      centroidHz: technicalData.spectralData?.spectralCentroid,
-      rolloffHz: technicalData.spectralData?.spectralRolloff,
-      bandwidthHz: technicalData.spectralData?.spectralBandwidth,
-      spreadHz: technicalData.spectralData?.spectralSpread,
-      flatness: technicalData.spectralData?.spectralFlatness,
-      crest: technicalData.spectralData?.spectralCrest,
-      skewness: technicalData.spectralData?.spectralSkewness,
-      kurtosis: technicalData.spectralData?.spectralKurtosis,
-      hasData: (technicalData.spectralData?.processedFrames || 0) > 0
+      // Métricas básicas
+      processedFrames: coreMetrics.fft?.processedFrames || 0,
+      centroidHz: technicalData.spectralCentroid,
+      centroidMean: technicalData.spectralCentroidHz,
+      rolloffHz: technicalData.spectralRolloff,
+      bandwidthHz: technicalData.spectralBandwidth,
+      spreadHz: technicalData.spectralSpread,
+      flatness: technicalData.spectralFlatness,
+      crest: technicalData.spectralCrest,
+      skewness: technicalData.spectralSkewness,
+      kurtosis: technicalData.spectralKurtosis,
+      zeroCrossingRate: technicalData.zeroCrossingRate,
+      flux: technicalData.spectralFlux,
+      brightness: {
+        category: technicalData.brightnessCategory,
+        centroidHz: technicalData.spectralCentroidHz
+      },
+      hasData: (coreMetrics.fft?.processedFrames || 0) > 0
+    },
+
+    // ===== Bandas Espectrais (7 bandas profissionais) =====
+    spectralBands: {
+      detailed: technicalData.bandEnergies,
+      simplified: technicalData.spectral_balance,
+      processedFrames: coreMetrics.spectralBands?.processedFrames || 0,
+      hasData: (coreMetrics.spectralBands?.processedFrames || 0) > 0
+    },
+
+    // ===== Frequências Dominantes =====
+    dominantFrequencies: technicalData.dominantFrequencies || [],
+
+    // ===== Headroom & Dinâmica Avançada =====
+    headroom: {
+      peak: technicalData.headroomDb,
+      truePeak: technicalData.headroomTruePeakDb
+    },
+
+    // ===== Métricas Técnicas Avançadas =====
+    technical: {
+      dcOffset: technicalData.dcOffset,
+      thdPercent: technicalData.thdPercent,
+      phaseProblems: technicalData.hasPhaseIssues,
+      monoCompatibility: technicalData.isMonoCompatible
+    },
+
+    // ===== Estrutura TechnicalData Completa (para compatibilidade frontend) =====
+    technicalData: {
+      // Loudness
+      lufsIntegrated: technicalData.lufsIntegrated,
+      lufsShortTerm: technicalData.lufsShortTerm,
+      lufsMomentary: technicalData.lufsMomentary,
+      lra: technicalData.lra,
+      originalLUFS: technicalData.originalLUFS,
+      normalizedTo: technicalData.normalizedTo,
+      gainAppliedDB: technicalData.gainAppliedDB,
+      
+      // True Peak
+      truePeakDbtp: technicalData.truePeakDbtp,
+      truePeakLinear: technicalData.truePeakLinear,
+      samplePeakLeftDb: technicalData.samplePeakLeftDb,
+      samplePeakRightDb: technicalData.samplePeakRightDb,
+      clippingSamples: technicalData.clippingSamples,
+      clippingPct: technicalData.clippingPct,
+      
+      // Stereo
+      stereoCorrelation: technicalData.stereoCorrelation,
+      stereoWidth: technicalData.stereoWidth,
+      balanceLR: technicalData.balanceLR,
+      isMonoCompatible: technicalData.isMonoCompatible,
+      hasPhaseIssues: technicalData.hasPhaseIssues,
+      correlationCategory: technicalData.correlationCategory,
+      widthCategory: technicalData.widthCategory,
+      
+      // Dinâmica
+      dynamicRange: technicalData.dynamicRange,
+      crestFactor: technicalData.crestFactor,
+      peakRmsDb: technicalData.peakRmsDb,
+      averageRmsDb: technicalData.averageRmsDb,
+      drCategory: technicalData.drCategory,
+      
+      // Espectral
+      spectralCentroid: technicalData.spectralCentroid,
+      spectralCentroidHz: technicalData.spectralCentroidHz,
+      spectralRolloff: technicalData.spectralRolloff,
+      spectralBandwidth: technicalData.spectralBandwidth,
+      spectralSpread: technicalData.spectralSpread,
+      spectralFlatness: technicalData.spectralFlatness,
+      spectralCrest: technicalData.spectralCrest,
+      spectralSkewness: technicalData.spectralSkewness,
+      spectralKurtosis: technicalData.spectralKurtosis,
+      zeroCrossingRate: technicalData.zeroCrossingRate,
+      spectralFlux: technicalData.spectralFlux,
+      brightnessCategory: technicalData.brightnessCategory,
+      
+      // Bandas & RMS
+      bandEnergies: technicalData.bandEnergies,
+      spectral_balance: technicalData.spectral_balance,
+      rmsLevels: technicalData.rmsLevels,
+      peak: technicalData.peak,
+      rms: technicalData.rms,
+      rmsLevel: technicalData.rmsLevel,
+      
+      // Headroom & Avançadas
+      headroomDb: technicalData.headroomDb,
+      headroomTruePeakDb: technicalData.headroomTruePeakDb,
+      dominantFrequencies: technicalData.dominantFrequencies,
+      dcOffset: technicalData.dcOffset,
+      thdPercent: technicalData.thdPercent,
+      
+      // Compatibilidade com nomes legados
+      correlation: technicalData.stereoCorrelation,
+      balance: technicalData.balanceLR,
+      width: technicalData.stereoWidth,
+      dr: technicalData.dynamicRange,
+      spectralCentroidMean: technicalData.spectralCentroid
     },
 
     // ===== Scoring =====
@@ -215,17 +420,39 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       bonuses: scoringResult.bonuses || {}
     },
 
+    // ===== Dados Raw de Core Metrics (para debugging) =====
+    coreMetrics: {
+      fft: coreMetrics.fft || null,
+      spectralBands: coreMetrics.spectralBands || null,
+      spectralCentroid: coreMetrics.spectralCentroid || null,
+      lufs: coreMetrics.lufs || null,
+      truePeak: coreMetrics.truePeak || null,
+      stereo: coreMetrics.stereo || null,
+      dynamics: coreMetrics.dynamics || null,
+      rms: coreMetrics.rms || null,
+      normalization: coreMetrics.normalization || null
+    },
+
     // ===== Metadata =====
     metadata: {
       fileName: metadata.fileName || 'unknown',
       fileSize: metadata.fileSize || 0,
+      fileSizeBytes: metadata.fileSizeBytes || 0,
+      fileSizeMB: metadata.fileSizeMB || 0,
+      duration: metadata.duration || 0,
+      sampleRate: metadata.sampleRate || 48000,
+      channels: metadata.channels || 2,
+      format: metadata.format || 'audio/wav',
+      bitDepth: metadata.bitDepth || 16,
+      codec: metadata.codec || 'pcm',
       processingTime: metadata.processingTime || 0,
       phaseBreakdown: metadata.phaseBreakdown || {},
       stage: 'output_scoring_completed',
-      pipelineVersion: '5.1-5.4-corrected',
-      buildVersion: '5.4.1-fail-fast',
+      pipelineVersion: '5.1-5.4-enhanced',
+      buildVersion: '5.4.2-complete-metrics',
       timestamp: new Date().toISOString(),
-      jobId: jobId
+      jobId: jobId,
+      processedAt: new Date().toISOString()
     }
   };
 
