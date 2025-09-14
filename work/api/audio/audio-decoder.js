@@ -91,7 +91,7 @@ async function convertToWavPcmStream(inputBuffer) {
 
     // 🔥 TIMEOUT PROTECTION - Matar FFmpeg após 2 minutos
     const ffmpegTimeout = setTimeout(() => {
-      console.warn(`⚠️ FFmpeg timeout para ${inputFile} - matando processo...`);
+      console.warn(`⚠️ FFmpeg timeout - matando processo...`);
       ffmpegKilled = true;
       ff.kill('SIGKILL');
       reject(new Error(`FFMPEG_TIMEOUT: Process killed after 2 minutes`));

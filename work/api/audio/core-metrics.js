@@ -183,8 +183,16 @@ class CoreMetricsProcessor {
 
   async calculateFFTMetrics(framesFFT) {
     console.log(`📊 Processando ${framesFFT.count} frames FFT...`);
+    const startTime = Date.now();
+    
+    // 🔥 PROTEÇÃO CRÍTICA: Limitar número de frames FFT para evitar travamento
+    const maxFrames = Math.min(framesFFT.count, 10000); // máximo 10k frames
+    if (framesFFT.count > maxFrames) {
+      console.warn(`⚠️ FFT: limitando ${framesFFT.count} → ${maxFrames} frames para evitar travamento`);
+    }
+    
     const results = {
-      frameCount: framesFFT.count,
+      frameCount: maxFrames,
       frameSize: framesFFT.frameSize,
       hopSize: framesFFT.hopSize,
       windowType: framesFFT.windowType,
@@ -193,11 +201,21 @@ class CoreMetricsProcessor {
       averageSpectrum: { left: null, right: null },
     };
 
-    for (let i = 0; i < framesFFT.count; i++) {
-      const leftFFT = this.fftEngine.fft(framesFFT.left[i]);
-      results.spectrograms.left.push({
-        magnitude: Array.from(
-          leftFFT.magnitude.slice(0, CORE_METRICS_CONFIG.FFT_SIZE / 2)
+    for (let i = 0; i < maxFrames; i++) {
+      // 🔥 TIMEOUT CHECK a cada 100 frames
+      if (i % 100 === 0) {
+        const elapsed = Date.now() - startTime;
+        if (elapsed > 30000) { // 30 segundos max
+          console.error(`🚨 FFT timeout após ${elapsed}ms, parando em frame ${i}/${maxFrames}`);
+          break;
+        }
+      }
+      
+      try {
+        const leftFFT = this.fftEngine.fft(framesFFT.left[i]);
+        results.spectrograms.left.push({
+          magnitude: Array.from(
+            leftFFT.magnitude.slice(0, CORE_METRICS_CONFIG.FFT_SIZE / 2)
         ),
         phase: Array.from(
           leftFFT.phase.slice(0, CORE_METRICS_CONFIG.FFT_SIZE / 2)
@@ -217,6 +235,11 @@ class CoreMetricsProcessor {
         frameIndex: i,
         timestamp: (i * framesFFT.hopSize) / CORE_METRICS_CONFIG.SAMPLE_RATE,
       });
+      } catch (fftError) {
+        console.warn(`⚠️ FFT falhou no frame ${i}:`, fftError.message);
+        // Continua para o próximo frame em caso de erro
+        continue;
+      }
     }
 
     results.averageSpectrum.left = this.calculateAverageSpectrum(
