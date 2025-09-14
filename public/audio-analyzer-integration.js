@@ -2787,18 +2787,20 @@ async function performReferenceComparison() {
                 // 🔧 CORREÇÃO: Criar estrutura de bands compatível
                 bands: refAnalysis.technicalData?.bandEnergies ? (() => {
                     const refBands = {};
-                    const refBandEnergies = refAnalysis.technicalData.bandEnergies;
+                    const refBandEnergies = refAnalysis.technicalData?.bandEnergies;
                     
                     // Criar estrutura de bands usando as métricas da referência como targets
-                    Object.entries(refBandEnergies).forEach(([bandName, bandData]) => {
-                        if (bandData && Number.isFinite(bandData.rms_db)) {
-                            refBands[bandName] = {
+                    if (refBandEnergies) {
+                        Object.entries(refBandEnergies).forEach(([bandName, bandData]) => {
+                            if (bandData && Number.isFinite(bandData.rms_db)) {
+                                refBands[bandName] = {
                                 target_db: bandData.rms_db,  // Usar valor da referência como target
                                 tol_db: 3.0,  // Tolerância padrão
                                 _target_na: false
                             };
                         }
                     });
+                    }
                     
                     return refBands;
                 })() : null
@@ -3419,7 +3421,7 @@ function displayModalResults(analysis) {
         ].join('');
 
             const col3Extras = (()=>{
-                if (!Array.isArray(analysis.technicalData.dominantFrequencies) || analysis.technicalData.dominantFrequencies.length <= 1) {
+                if (!Array.isArray(analysis.technicalData?.dominantFrequencies) || analysis.technicalData.dominantFrequencies.length <= 1) {
                     return '';
                 }
                 
@@ -3457,11 +3459,11 @@ function displayModalResults(analysis) {
                 // Headroom
                 if (Number.isFinite(analysis.technicalData?.headroomDb)) {
                     // Mostrar headroom real se calculado a partir do pico, senão offset de loudness
-                    const hrReal = Number.isFinite(analysis.technicalData.headroomTruePeakDb) ? analysis.technicalData.headroomTruePeakDb : null;
+                    const hrReal = Number.isFinite(analysis.technicalData?.headroomTruePeakDb) ? analysis.technicalData.headroomTruePeakDb : null;
                     if (hrReal != null) {
                         rows.push(row('Headroom (Pico)', `${safeFixed(hrReal, 1)} dB`, 'headroomTruePeakDb'));
                     }
-                    rows.push(row('Offset Loudness', `${safeFixed(analysis.technicalData.headroomDb, 1)} dB`, 'headroomDb'));
+                    rows.push(row('Offset Loudness', `${safeFixed(analysis.technicalData?.headroomDb, 1)} dB`, 'headroomDb'));
                 }
                 // Picos por canal
                 if (Number.isFinite(analysis.technicalData?.samplePeakLeftDb)) {
@@ -3475,7 +3477,7 @@ function displayModalResults(analysis) {
                     rows.push(row('Clipping (%)', `${safeFixed(analysis.technicalData.clippingPct, 2)}%`, 'clippingPct'));
                 }
                 if (Number.isFinite(analysis.technicalData?.clippingSamplesTruePeak)) {
-                    rows.push(row('Clipping (TP)', `${analysis.technicalData.clippingSamplesTruePeak} samples`, 'clippingSamplesTruePeak'));
+                    rows.push(row('Clipping (TP)', `${analysis.technicalData?.clippingSamplesTruePeak || 0} samples`, 'clippingSamplesTruePeak'));
                 }
                 // Frequências dominantes extras
                 if (Array.isArray(analysis.technicalData?.dominantFrequencies) && analysis.technicalData.dominantFrequencies.length > 1) {
@@ -5222,15 +5224,15 @@ function normalizeBackendAnalysisData(backendData) {
     const truePeakLinearCandidate = backendData.truePeak?.maxLinear || source.truePeakLinear || source.true_peak_linear;
     tech.truePeakLinear = Number.isFinite(truePeakLinearCandidate) ? truePeakLinearCandidate : null;
     
-    // 🔥 TRUE PEAK DETALHADO - DADOS COMPLETOS DO PIPELINE
+    // 🔥 TRUE PEAK DETALHADO - APENAS DADOS REAIS DO PIPELINE
     if (backendData.truePeak) {
         tech.truePeakDetailed = {
-            maxDbtp: backendData.truePeak.maxDbtp || -60,
-            maxLinear: backendData.truePeak.maxLinear || 0.8,
-            oversamplingFactor: backendData.truePeak.oversamplingFactor || 4,
-            clippingCount: backendData.truePeak.clippingCount || 0,
-            leftPeak: backendData.truePeak.leftPeak || -60,
-            rightPeak: backendData.truePeak.rightPeak || -60,
+            maxDbtp: Number.isFinite(backendData.truePeak.maxDbtp) ? backendData.truePeak.maxDbtp : null,
+            maxLinear: Number.isFinite(backendData.truePeak.maxLinear) ? backendData.truePeak.maxLinear : null,
+            oversamplingFactor: Number.isFinite(backendData.truePeak.oversamplingFactor) ? backendData.truePeak.oversamplingFactor : null,
+            clippingCount: Number.isFinite(backendData.truePeak.clippingCount) ? backendData.truePeak.clippingCount : null,
+            leftPeak: Number.isFinite(backendData.truePeak.leftPeak) ? backendData.truePeak.leftPeak : null,
+            rightPeak: Number.isFinite(backendData.truePeak.rightPeak) ? backendData.truePeak.rightPeak : null,
             unit: backendData.truePeak.unit || 'dBTP'
         };
         
@@ -5280,16 +5282,16 @@ function normalizeBackendAnalysisData(backendData) {
     const balanceLRCandidate = backendData.stereo?.balance || source.balanceLR || source.balance_lr;
     tech.balanceLR = Number.isFinite(balanceLRCandidate) ? balanceLRCandidate : null;
     
-    // 🎧 STEREO DETALHADO - ANÁLISE COMPLETA DO PIPELINE
+    // 🎧 STEREO DETALHADO - APENAS DADOS REAIS DO PIPELINE
     if (backendData.stereo) {
         tech.stereoDetailed = {
-            correlation: backendData.stereo.correlation || 0.5,
-            width: backendData.stereo.width || 0.5,
-            balance: backendData.stereo.balance || 0,
-            isMonoCompatible: backendData.stereo.isMonoCompatible || false,
-            hasPhaseIssues: backendData.stereo.hasPhaseIssues || false,
-            correlationCategory: backendData.stereo.correlationCategory || 'unknown',
-            widthCategory: backendData.stereo.widthCategory || 'unknown',
+            correlation: Number.isFinite(backendData.stereo.correlation) ? backendData.stereo.correlation : null,
+            width: Number.isFinite(backendData.stereo.width) ? backendData.stereo.width : null,
+            balance: Number.isFinite(backendData.stereo.balance) ? backendData.stereo.balance : null,
+            isMonoCompatible: backendData.stereo.isMonoCompatible !== undefined ? backendData.stereo.isMonoCompatible : null,
+            hasPhaseIssues: backendData.stereo.hasPhaseIssues !== undefined ? backendData.stereo.hasPhaseIssues : null,
+            correlationCategory: backendData.stereo.correlationCategory || null,
+            widthCategory: backendData.stereo.widthCategory || null,
             algorithm: backendData.stereo.algorithm || 'standard',
             valid: backendData.stereo.valid !== false
         };
@@ -5320,20 +5322,20 @@ function normalizeBackendAnalysisData(backendData) {
     const spectralFlatnessCandidate = source.spectralFlatness || source.spectral_flatness;
     tech.spectralFlatness = Number.isFinite(spectralFlatnessCandidate) ? spectralFlatnessCandidate : null;
     
-    // 🎵 MÉTRICAS ESPECTRAIS AVANÇADAS - MAPEAMENTO COMPLETO DO PIPELINE
+    // 🎵 MÉTRICAS ESPECTRAIS AVANÇADAS - APENAS DADOS REAIS DO PIPELINE
     if (backendData.fft || backendData.spectral) {
         const fftSource = backendData.fft || backendData.spectral || {};
         
         tech.fftMetrics = {
-            processedFrames: fftSource.processedFrames || 0,
-            spectralCentroidHz: fftSource.spectralCentroidHz || fftSource.spectralCentroid || 0,
-            spectralRolloffHz: fftSource.spectralRolloffHz || fftSource.spectralRolloff || 0,
-            spectralBandwidthHz: fftSource.spectralBandwidthHz || fftSource.spectralBandwidth || 0,
-            spectralSpreadHz: fftSource.spectralSpreadHz || fftSource.spectralSpread || 0,
-            spectralFlatness: fftSource.spectralFlatness || 0,
-            spectralCrest: fftSource.spectralCrest || 0,
-            spectralSkewness: fftSource.spectralSkewness || 0,
-            spectralKurtosis: fftSource.spectralKurtosis || 0
+            processedFrames: Number.isFinite(fftSource.processedFrames) ? fftSource.processedFrames : null,
+            spectralCentroidHz: Number.isFinite(fftSource.spectralCentroidHz || fftSource.spectralCentroid) ? (fftSource.spectralCentroidHz || fftSource.spectralCentroid) : null,
+            spectralRolloffHz: Number.isFinite(fftSource.spectralRolloffHz || fftSource.spectralRolloff) ? (fftSource.spectralRolloffHz || fftSource.spectralRolloff) : null,
+            spectralBandwidthHz: Number.isFinite(fftSource.spectralBandwidthHz || fftSource.spectralBandwidth) ? (fftSource.spectralBandwidthHz || fftSource.spectralBandwidth) : null,
+            spectralSpreadHz: Number.isFinite(fftSource.spectralSpreadHz || fftSource.spectralSpread) ? (fftSource.spectralSpreadHz || fftSource.spectralSpread) : null,
+            spectralFlatness: Number.isFinite(fftSource.spectralFlatness) ? fftSource.spectralFlatness : null,
+            spectralCrest: Number.isFinite(fftSource.spectralCrest) ? fftSource.spectralCrest : null,
+            spectralSkewness: Number.isFinite(fftSource.spectralSkewness) ? fftSource.spectralSkewness : null,
+            spectralKurtosis: Number.isFinite(fftSource.spectralKurtosis) ? fftSource.spectralKurtosis : null
         };
         
         console.log('🎵 [NORMALIZE] Métricas FFT mapeadas:', tech.fftMetrics);
@@ -5348,38 +5350,38 @@ function normalizeBackendAnalysisData(backendData) {
         console.log('⚠️ [NORMALIZE] Bandas espectrais não disponíveis - dados não fictícios');
     }
     
-    // 🎯 SPECTRAL CENTROID DETALHADO
+    // 🎯 SPECTRAL CENTROID DETALHADO - APENAS DADOS REAIS
     if (backendData.spectralCentroid) {
         tech.spectralCentroidDetailed = {
-            averageHz: backendData.spectralCentroid.averageHz || 0,
-            medianHz: backendData.spectralCentroid.medianHz || 0,
-            category: backendData.spectralCentroid.category || 'unknown',
-            frames: backendData.spectralCentroid.frames || 0
+            averageHz: Number.isFinite(backendData.spectralCentroid.averageHz) ? backendData.spectralCentroid.averageHz : null,
+            medianHz: Number.isFinite(backendData.spectralCentroid.medianHz) ? backendData.spectralCentroid.medianHz : null,
+            category: backendData.spectralCentroid.category || null,
+            frames: Number.isFinite(backendData.spectralCentroid.frames) ? backendData.spectralCentroid.frames : null
         };
         
         console.log('🎯 [NORMALIZE] Spectral Centroid detalhado:', tech.spectralCentroidDetailed);
     }
     
-    // ⚡ DINÂMICA E CREST FACTOR
+    // ⚡ DINÂMICA E CREST FACTOR - APENAS DADOS REAIS
     if (backendData.dynamics) {
         tech.dynamics = {
-            dynamicRange: backendData.dynamics.dynamicRange || 0,
-            crestFactor: backendData.dynamics.crestFactor || 0,
-            lra: backendData.dynamics.lra || 0,
-            peakToAverage: backendData.dynamics.peakToAverage || 0
+            dynamicRange: Number.isFinite(backendData.dynamics.dynamicRange) ? backendData.dynamics.dynamicRange : null,
+            crestFactor: Number.isFinite(backendData.dynamics.crestFactor) ? backendData.dynamics.crestFactor : null,
+            lra: Number.isFinite(backendData.dynamics.lra) ? backendData.dynamics.lra : null,
+            peakToAverage: Number.isFinite(backendData.dynamics.peakToAverage) ? backendData.dynamics.peakToAverage : null
         };
         
         console.log('⚡ [NORMALIZE] Dinâmica mapeada:', tech.dynamics);
     }
     
-    // 📊 NORMALIZAÇÃO INFO
+    // 📊 NORMALIZAÇÃO INFO - APENAS DADOS REAIS
     if (backendData.normalization) {
         tech.normalization = {
-            applied: backendData.normalization.applied || false,
-            originalLUFS: backendData.normalization.originalLUFS || 0,
-            gainAppliedDB: backendData.normalization.gainAppliedDB || 0,
-            hasClipping: backendData.normalization.hasClipping || false,
-            isSilence: backendData.normalization.isSilence || false
+            applied: backendData.normalization.applied !== undefined ? backendData.normalization.applied : null,
+            originalLUFS: Number.isFinite(backendData.normalization.originalLUFS) ? backendData.normalization.originalLUFS : null,
+            gainAppliedDB: Number.isFinite(backendData.normalization.gainAppliedDB) ? backendData.normalization.gainAppliedDB : null,
+            hasClipping: backendData.normalization.hasClipping !== undefined ? backendData.normalization.hasClipping : null,
+            isSilence: backendData.normalization.isSilence !== undefined ? backendData.normalization.isSilence : null
         };
         
         console.log('📊 [NORMALIZE] Normalização mapeada:', tech.normalization);
@@ -5405,28 +5407,22 @@ function normalizeBackendAnalysisData(backendData) {
     const samplePeakRightCandidate = source.samplePeakRightDb || source.sample_peak_right_db;
     tech.samplePeakRightDb = Number.isFinite(samplePeakRightCandidate) ? samplePeakRightCandidate : null;
     
-    // 🎵 SPECTRAL BALANCE - Mapear dados espectrais
+    // 🎵 SPECTRAL BALANCE - APENAS DADOS REAIS DO PIPELINE
     if (source.spectral_balance || source.spectralBalance || source.bands) {
         const spectralSource = source.spectral_balance || source.spectralBalance || {};
         tech.spectral_balance = {
-            sub: spectralSource.sub || 0.1,
-            bass: spectralSource.bass || 0.2,
-            mids: spectralSource.mids || 0.3,
-            treble: spectralSource.treble || 0.2,
-            presence: spectralSource.presence || 0.15,
-            air: spectralSource.air || 0.05
+            sub: Number.isFinite(spectralSource.sub) ? spectralSource.sub : null,
+            bass: Number.isFinite(spectralSource.bass) ? spectralSource.bass : null,
+            mids: Number.isFinite(spectralSource.mids) ? spectralSource.mids : null,
+            treble: Number.isFinite(spectralSource.treble) ? spectralSource.treble : null,
+            presence: Number.isFinite(spectralSource.presence) ? spectralSource.presence : null,
+            air: Number.isFinite(spectralSource.air) ? spectralSource.air : null
         };
+        console.log('🎵 [NORMALIZE] Spectral balance REAL mapeado:', tech.spectral_balance);
     } else {
-        // Valores padrão se não houver dados espectrais
-        tech.spectral_balance = {
-            sub: 0.1,
-            bass: 0.25,
-            mids: 0.35,
-            treble: 0.2,
-            presence: 0.08,
-            air: 0.02
-        };
-        console.log('⚠️ [NORMALIZE] Usando valores padrão para spectral_balance');
+        // SEM dados espectrais - não usar valores fictícios
+        tech.spectral_balance = null;
+        console.log('⚠️ [NORMALIZE] Spectral balance não disponível - não usando valores fictícios');
     }
     
     // 🎶 BAND ENERGIES - CORREÇÃO: Apenas dados reais do pipeline
