@@ -7,6 +7,7 @@ import { calculateLoudnessMetrics } from "../../lib/audio/features/loudness.js";
 import { TruePeakDetector, analyzeTruePeaks } from "../../lib/audio/features/truepeak.js";
 import { normalizeAudioToTargetLUFS, validateNormalization } from "../../lib/audio/features/normalization.js";
 import { auditMetricsCorrections, auditMetricsValidation } from "../../lib/audio/features/audit-logging.js";
+import { SpectralMetricsCalculator, SpectralMetricsAggregator, serializeSpectralMetrics } from "../../lib/audio/features/spectral-metrics.js";
 
 // Sistema de tratamento de erros padronizado
 import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../lib/audio/error-handling.js';
@@ -38,7 +39,17 @@ class CoreMetricsProcessor {
     this.fftEngine = new FastFFT();
     this.truePeakDetector = new TruePeakDetector();
     this.cache = { hannWindow: new Map(), fftResults: new Map() };
-    logAudio('core_metrics', 'init', { config: CORE_METRICS_CONFIG });
+    
+    // NOVO: Inicializar calculador de métricas espectrais
+    this.spectralCalculator = new SpectralMetricsCalculator(
+      CORE_METRICS_CONFIG.SAMPLE_RATE,
+      CORE_METRICS_CONFIG.FFT_SIZE
+    );
+    
+    logAudio('core_metrics', 'init', { 
+      config: CORE_METRICS_CONFIG,
+      spectralCalculator: true 
+    });
   }
 
   /**
@@ -260,9 +271,20 @@ class CoreMetricsProcessor {
         right: [],
         magnitudeSpectrum: [],
         phaseSpectrum: [],
+        
+        // NOVO: Arrays para 8 métricas espectrais completas
+        spectralCentroidHz: [],
+        spectralRolloffHz: [],
+        spectralBandwidthHz: [],
+        spectralSpreadHz: [],
+        spectralFlatness: [],
+        spectralCrest: [],
+        spectralSkewness: [],
+        spectralKurtosis: [],
+        
+        // LEGACY: manter compatibilidade
         spectralCentroid: [],
-        spectralRolloff: [],
-        spectralFlatness: []
+        spectralRolloff: []
       };
 
       const maxFrames = Math.min(count, 1000); // Limitar frames para evitar timeout
@@ -319,19 +341,22 @@ class CoreMetricsProcessor {
           ensureFiniteArray(magnitude, 'core_metrics');
           fftResults.magnitudeSpectrum.push(magnitude);
 
-          // Métricas espectrais
-          const centroid = this.calculateSpectralCentroid(magnitude);
-          const rolloff = this.calculateSpectralRolloff(magnitude);
-          const flatness = this.calculateSpectralFlatness(magnitude);
+          // NOVO: Métricas espectrais completas (8 métricas)
+          const spectralMetrics = this.calculateSpectralMetrics(magnitude, i);
 
-          // CORREÇÃO: aceitar null para centroid (silêncio absoluto)
-          if ((centroid !== null && !isFinite(centroid)) || !isFinite(rolloff) || !isFinite(flatness)) {
-            throw makeErr('core_metrics', `Invalid spectral metrics at frame ${i}`, 'invalid_spectral_metrics');
-          }
+          // Adicionar todas as métricas aos arrays de resultados
+          fftResults.spectralCentroidHz.push(spectralMetrics.spectralCentroidHz);
+          fftResults.spectralRolloffHz.push(spectralMetrics.spectralRolloffHz);
+          fftResults.spectralBandwidthHz.push(spectralMetrics.spectralBandwidthHz);
+          fftResults.spectralSpreadHz.push(spectralMetrics.spectralSpreadHz);
+          fftResults.spectralFlatness.push(spectralMetrics.spectralFlatness);
+          fftResults.spectralCrest.push(spectralMetrics.spectralCrest);
+          fftResults.spectralSkewness.push(spectralMetrics.spectralSkewness);
+          fftResults.spectralKurtosis.push(spectralMetrics.spectralKurtosis);
 
-          fftResults.spectralCentroid.push(centroid);
-          fftResults.spectralRolloff.push(rolloff);
-          fftResults.spectralFlatness.push(flatness);
+          // LEGACY: manter compatibilidade com nomes antigos
+          fftResults.spectralCentroid.push(spectralMetrics.spectralCentroidHz);
+          fftResults.spectralRolloff.push(spectralMetrics.spectralRolloffHz);
 
         } catch (fftError) {
           logAudio('core_metrics', 'fft_frame_error', { 
@@ -346,32 +371,44 @@ class CoreMetricsProcessor {
 
       fftResults.processedFrames = fftResults.left.length;
       
-      // ========= AGREGAÇÃO ESPECTRAL =========
-      // Agregar spectralCentroid de array para valor único em Hz
-      const validCentroids = fftResults.spectralCentroid.filter(c => c !== null && isFinite(c));
-      if (validCentroids.length > 0) {
-        // Usar mediana para robustez contra outliers
-        validCentroids.sort((a, b) => a - b);
-        const medianIndex = Math.floor(validCentroids.length / 2);
-        fftResults.spectralCentroidHz = validCentroids.length % 2 === 0 
-          ? (validCentroids[medianIndex - 1] + validCentroids[medianIndex]) / 2
-          : validCentroids[medianIndex];
-          
-        logAudio('core_metrics', 'spectral_centroid_aggregated', {
-          frames: validCentroids.length,
-          centroidHz: fftResults.spectralCentroidHz.toFixed(1),
-          min: validCentroids[0].toFixed(1),
-          max: validCentroids[validCentroids.length - 1].toFixed(1)
-        });
-      } else {
-        fftResults.spectralCentroidHz = null;
-        logAudio('core_metrics', 'spectral_centroid_null', { 
-          reason: 'No valid centroid values found' 
+      // ========= NOVA AGREGAÇÃO ESPECTRAL COMPLETA =========
+      
+      // Preparar array de métricas para agregação
+      const metricsArray = [];
+      for (let i = 0; i < fftResults.spectralCentroidHz.length; i++) {
+        metricsArray.push({
+          spectralCentroidHz: fftResults.spectralCentroidHz[i],
+          spectralRolloffHz: fftResults.spectralRolloffHz[i],
+          spectralBandwidthHz: fftResults.spectralBandwidthHz[i],
+          spectralSpreadHz: fftResults.spectralSpreadHz[i],
+          spectralFlatness: fftResults.spectralFlatness[i],
+          spectralCrest: fftResults.spectralCrest[i],
+          spectralSkewness: fftResults.spectralSkewness[i],
+          spectralKurtosis: fftResults.spectralKurtosis[i]
         });
       }
       
-      // Manter array original para compatibilidade, mas adicionar valor agregado
-      fftResults.spectralCentroid = fftResults.spectralCentroidHz;
+      // Usar o novo agregador
+      const aggregatedSpectral = SpectralMetricsAggregator.aggregate(metricsArray);
+      
+      // Serializar para o formato final
+      const finalSpectral = serializeSpectralMetrics(aggregatedSpectral);
+      
+      // Adicionar métricas finais ao fftResults
+      Object.assign(fftResults, finalSpectral);
+      
+      // LEGACY: manter compatibilidade com nomes antigos
+      fftResults.spectralCentroid = finalSpectral.spectralCentroidHz;
+      fftResults.spectralRolloff = finalSpectral.spectralRolloffHz;
+      
+      // Log da agregação
+      logAudio('core_metrics', 'spectral_aggregated', {
+        frames: metricsArray.length,
+        centroidHz: finalSpectral.spectralCentroidHz?.toFixed?.(1) || 'null',
+        rolloffHz: finalSpectral.spectralRolloffHz?.toFixed?.(1) || 'null',
+        bandwidthHz: finalSpectral.spectralBandwidthHz?.toFixed?.(1) || 'null',
+        flatness: finalSpectral.spectralFlatness?.toFixed?.(3) || 'null'
+      });
       
       // Verificação final
       if (fftResults.processedFrames === 0) {
@@ -551,70 +588,39 @@ class CoreMetricsProcessor {
     return magnitude;
   }
 
-  calculateSpectralCentroid(magnitude) {
-    // IMPLEMENTAÇÃO MATEMÁTICA PADRÃO: centroid = Σ(f * magnitude(f)) / Σ magnitude(f)
-    let weightedSum = 0;
-    let totalMagnitude = 0;
-    
-    const sampleRate = CORE_METRICS_CONFIG.SAMPLE_RATE;
-    const fftSize = CORE_METRICS_CONFIG.FFT_SIZE;
-    const frequencyResolution = sampleRate / fftSize; // Hz por bin
-    
-    // Começar do bin 1 para evitar DC component (0 Hz)
-    for (let i = 1; i < magnitude.length; i++) {
-      const frequency = i * frequencyResolution; // f em Hz
-      const magnitudeValue = magnitude[i];
+  // ========= MÉTRICA ESPECTRAL COMPLETA =========
+  // NOVO: Sistema com 8 métricas espectrais com fórmulas matemáticas padrão
+  
+  calculateSpectralMetrics(magnitude, frameIndex = 0) {
+    try {
+      return this.spectralCalculator.calculateAllMetrics(magnitude, frameIndex);
       
-      weightedSum += frequency * magnitudeValue; // Σ(f * magnitude(f))
-      totalMagnitude += magnitudeValue; // Σ magnitude(f)
+    } catch (error) {
+      logAudio('spectral', 'calculator_error', { 
+        frame: frameIndex, 
+        error: error.message 
+      });
+      
+      // Fallback para null metrics
+      return this.spectralCalculator.getNullMetrics();
     }
-    
-    // Retornar valor numérico em Hz ou null para silêncio absoluto
-    if (totalMagnitude <= 0) {
-      return null; // Silêncio absoluto - não mascarar com 0
-    }
-    
-    const centroidHz = weightedSum / totalMagnitude;
-    
-    // Validação do resultado
-    if (!isFinite(centroidHz) || centroidHz < 0 || centroidHz > sampleRate / 2) {
-      return null; // Resultado inválido
-    }
-    
-    return centroidHz; // Retorna sempre Number em Hz
+  }
+
+  // ========= MÉTODOS LEGADOS DEPRECIADOS (compatibilidade) =========
+  
+  calculateSpectralCentroid(magnitude) {
+    const metrics = this.calculateSpectralMetrics(magnitude);
+    return metrics.spectralCentroidHz;
   }
 
   calculateSpectralRolloff(magnitude, threshold = 0.85) {
-    const totalEnergy = magnitude.reduce((sum, val) => sum + val ** 2, 0);
-    const targetEnergy = totalEnergy * threshold;
-    
-    let cumulativeEnergy = 0;
-    for (let i = 0; i < magnitude.length; i++) {
-      cumulativeEnergy += magnitude[i] ** 2;
-      if (cumulativeEnergy >= targetEnergy) {
-        return i / magnitude.length;
-      }
-    }
-    return 1.0;
+    const metrics = this.calculateSpectralMetrics(magnitude);
+    return metrics.spectralRolloffHz;
   }
 
   calculateSpectralFlatness(magnitude) {
-    let geometricMean = 1;
-    let arithmeticMean = 0;
-    let validBins = 0;
-    
-    for (let i = 1; i < magnitude.length; i++) {
-      if (magnitude[i] > 0) {
-        geometricMean *= Math.pow(magnitude[i], 1 / (magnitude.length - 1));
-        arithmeticMean += magnitude[i];
-        validBins++;
-      }
-    }
-    
-    if (validBins === 0) return 0;
-    
-    arithmeticMean /= validBins;
-    return arithmeticMean > 0 ? geometricMean / arithmeticMean : 0;
+    const metrics = this.calculateSpectralMetrics(magnitude);
+    return metrics.spectralFlatness;
   }
 
   calculateStereoCorrelation(leftChannel, rightChannel) {

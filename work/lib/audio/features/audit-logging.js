@@ -72,25 +72,42 @@ export function auditMetricsCorrections(coreMetrics, originalAudio, normalizatio
     console.log(`   ❌ Análise estéreo não calculada`);
   }
   
-  // 5. FFT MAGNITUDE RMS
-  console.log(`\n5️⃣ FFT CORREÇÕES:`);
+  // 5. MÉTRICAS ESPECTRAIS COMPLETAS (8 MÉTRICAS)
+  console.log(`\n5️⃣ MÉTRICAS ESPECTRAIS CORRIGIDAS:`);
   const fft = coreMetrics.fft;
   if (fft) {
     console.log(`   ✅ Magnitude: RMS stereo (corrigido de média aritmética)`);
+    console.log(`   ✅ Energia: magnitude² para cálculos espectrais`);
     
-    // LOG ESPECÍFICO SPECTRAL CENTROID
-    if (fft.spectralCentroid !== null && isFinite(fft.spectralCentroid)) {
-      console.log(`   🎵 [AUDITORIA] Spectral Centroid calculado: ${fft.spectralCentroid.toFixed(2)} Hz`);
-      console.log(`   ✅ Fórmula aplicada: Σ(f * magnitude(f)) / Σ magnitude(f)`);
-    } else {
-      console.log(`   🔇 [AUDITORIA] Spectral Centroid: null (silêncio ou erro)`);
-      console.log(`   ✅ Correção aplicada: não mascarado com 0 fixo`);
-    }
+    // Métricas de frequência (Hz)
+    console.log(`\n   📊 MÉTRICAS DE FREQUÊNCIA:`);
+    console.log(`   🎵 Spectral Centroid: ${fft.spectralCentroidHz?.toFixed(2) || 'null'} Hz`);
+    console.log(`   📈 Spectral Rolloff (85%): ${fft.spectralRolloffHz?.toFixed(2) || 'null'} Hz`);
+    console.log(`   📏 Spectral Bandwidth: ${fft.spectralBandwidthHz?.toFixed(2) || 'null'} Hz`);
+    console.log(`   📐 Spectral Spread: ${fft.spectralSpreadHz?.toFixed(2) || 'null'} Hz`);
     
-    console.log(`   📈 Spectral Rolloff: ${fft.spectralRolloff?.toFixed(3) || 'null'}`);
-    console.log(`   📊 Spectral Flatness: ${fft.spectralFlatness?.toFixed(3) || 'null'}`);
+    // Métricas adimensionais
+    console.log(`\n   � MÉTRICAS ESTATÍSTICAS:`);
+    console.log(`   📊 Spectral Flatness: ${fft.spectralFlatness?.toFixed(4) || 'null'} [0-1]`);
+    console.log(`   🏔️ Spectral Crest: ${fft.spectralCrest?.toFixed(2) || 'null'}`);
+    console.log(`   📈 Spectral Skewness: ${fft.spectralSkewness?.toFixed(4) || 'null'}`);
+    console.log(`   � Spectral Kurtosis: ${fft.spectralKurtosis?.toFixed(4) || 'null'}`);
+    
+    // Configurações FFT
+    console.log(`\n   ⚙️ CONFIGURAÇÕES FFT:`);
     console.log(`   🔢 FFT Size: ${coreMetrics.metadata?.fftSize || 'unknown'}`);
     console.log(`   🎵 Sample Rate: ${coreMetrics.metadata?.sampleRate || 'unknown'} Hz`);
+    console.log(`   🔄 Frames processados: ${fft.processedFrames || 'unknown'}`);
+    
+    // Log detalhado se centroide válido
+    if (fft.spectralCentroidHz !== null && isFinite(fft.spectralCentroidHz)) {
+      console.log(`\n   ✅ [AUDITORIA] Centroide espectral corrigido:`);
+      console.log(`      🧮 Fórmula: Σ(freq[i] * magnitude²[i]) / Σ magnitude²[i]`);
+      console.log(`      📊 Resultado: ${fft.spectralCentroidHz.toFixed(2)} Hz`);
+    } else {
+      console.log(`\n   🔇 [AUDITORIA] Métricas espectrais: null (energia insuficiente)`);
+      console.log(`      ✅ Correção aplicada: não mascarado com valores fixos`);
+    }
   } else {
     console.log(`   ❌ Análise FFT não calculada`);
   }
@@ -143,6 +160,15 @@ export function auditMetricsCorrections(coreMetrics, originalAudio, normalizatio
       balance: stereo?.balance
     },
     fft: {
+      spectralCentroidHz: fft?.spectralCentroidHz,
+      spectralRolloffHz: fft?.spectralRolloffHz,
+      spectralBandwidthHz: fft?.spectralBandwidthHz,
+      spectralSpreadHz: fft?.spectralSpreadHz,
+      spectralFlatness: fft?.spectralFlatness,
+      spectralCrest: fft?.spectralCrest,
+      spectralSkewness: fft?.spectralSkewness,
+      spectralKurtosis: fft?.spectralKurtosis,
+      // Legacy compatibility
       centroidHz: fft?.spectralCentroid,
       rolloff: fft?.spectralRolloff,
       flatness: fft?.spectralFlatness
@@ -196,12 +222,69 @@ export function auditMetricsValidation(metrics, expectedValues = {}) {
     });
   }
   
-  // Validar Spectral Centroid
-  if (metrics.fft?.spectralCentroid !== null) {
-    const nyquist = 24000; // Assumindo 48kHz / 2
-    const valid = metrics.fft.spectralCentroid > 0 && metrics.fft.spectralCentroid <= nyquist;
+  // Validar Métricas Espectrais (8 métricas)
+  const nyquist = 24000; // Assumindo 48kHz / 2
+  
+  // Centroide Espectral (Hz)
+  if (metrics.fft?.spectralCentroidHz !== null) {
+    const valid = metrics.fft.spectralCentroidHz > 0 && metrics.fft.spectralCentroidHz <= nyquist;
     validations.push({
       metric: 'Spectral Centroid',
+      value: `${metrics.fft.spectralCentroidHz?.toFixed(1)} Hz`,
+      valid,
+      reason: valid ? 'Range válido (0-24kHz)' : 'Fora do range de frequências válido'
+    });
+  }
+  
+  // Rolloff Espectral (Hz)
+  if (metrics.fft?.spectralRolloffHz !== null) {
+    const valid = metrics.fft.spectralRolloffHz > 0 && metrics.fft.spectralRolloffHz <= nyquist;
+    validations.push({
+      metric: 'Spectral Rolloff',
+      value: `${metrics.fft.spectralRolloffHz?.toFixed(1)} Hz`,
+      valid,
+      reason: valid ? 'Range válido (0-24kHz)' : 'Fora do range de frequências válido'
+    });
+  }
+  
+  // Largura de Banda Espectral (Hz)
+  if (metrics.fft?.spectralBandwidthHz !== null) {
+    const valid = metrics.fft.spectralBandwidthHz >= 0 && metrics.fft.spectralBandwidthHz <= nyquist;
+    validations.push({
+      metric: 'Spectral Bandwidth',
+      value: `${metrics.fft.spectralBandwidthHz?.toFixed(1)} Hz`,
+      valid,
+      reason: valid ? 'Range válido (0-24kHz)' : 'Fora do range válido'
+    });
+  }
+  
+  // Planura Espectral [0-1]
+  if (metrics.fft?.spectralFlatness !== null) {
+    const valid = metrics.fft.spectralFlatness >= 0 && metrics.fft.spectralFlatness <= 1;
+    validations.push({
+      metric: 'Spectral Flatness',
+      value: `${metrics.fft.spectralFlatness?.toFixed(4)}`,
+      valid,
+      reason: valid ? 'Range válido [0-1]' : 'Fora do range válido'
+    });
+  }
+  
+  // Fator de Crista (≥1)
+  if (metrics.fft?.spectralCrest !== null) {
+    const valid = metrics.fft.spectralCrest >= 1;
+    validations.push({
+      metric: 'Spectral Crest',
+      value: `${metrics.fft.spectralCrest?.toFixed(2)}`,
+      valid,
+      reason: valid ? 'Range válido (≥1)' : 'Valor inválido (deve ser ≥1)'
+    });
+  }
+  
+  // Validar Spectral Centroid (Legacy - compatibilidade)
+  if (metrics.fft?.spectralCentroid !== null) {
+    const valid = metrics.fft.spectralCentroid > 0 && metrics.fft.spectralCentroid <= nyquist;
+    validations.push({
+      metric: 'Spectral Centroid (Legacy)',
       value: `${metrics.fft.spectralCentroid?.toFixed(1)} Hz`,
       valid,
       reason: valid ? 'Range válido (0-24kHz)' : 'Fora do range de frequências válido'
