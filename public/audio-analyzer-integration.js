@@ -5236,13 +5236,25 @@ function normalizeBackendAnalysisData(backendData) {
     // 🎵 SPECTRAL BALANCE - Mapear dados espectrais REAIS
     if (source.spectral_balance || source.spectralBalance || source.bands) {
         const spectralSource = source.spectral_balance || source.spectralBalance || source.bands || {};
+        
+        // Função específica para dados espectrais
+        const getSpectralValue = (...paths) => {
+            for (const path of paths) {
+                const value = path.split('.').reduce((obj, key) => obj?.[key], spectralSource);
+                if (Number.isFinite(value)) {
+                    return value;
+                }
+            }
+            return null;
+        };
+        
         tech.spectral_balance = {
-            sub: getRealValue.call({ source: spectralSource }, 'sub'),
-            bass: getRealValue.call({ source: spectralSource }, 'bass', 'low_bass'),
-            mids: getRealValue.call({ source: spectralSource }, 'mids', 'mid'),
-            treble: getRealValue.call({ source: spectralSource }, 'treble', 'high'),
-            presence: getRealValue.call({ source: spectralSource }, 'presence'),
-            air: getRealValue.call({ source: spectralSource }, 'air')
+            sub: getSpectralValue('sub'),
+            bass: getSpectralValue('bass', 'low_bass'),
+            mids: getSpectralValue('mids', 'mid'),
+            treble: getSpectralValue('treble', 'high'),
+            presence: getSpectralValue('presence'),
+            air: getSpectralValue('air')
         };
         console.log('📊 [NORMALIZE] Spectral balance mapeado:', tech.spectral_balance);
     } else {
@@ -5370,8 +5382,8 @@ function normalizeBackendAnalysisData(backendData) {
     
     // 🚨 PROBLEMAS - Garantir que existam alguns problemas/sugestões para exibir
     if (normalized.problems.length === 0) {
-        // Detectar problemas básicos baseados nas métricas
-        if (tech.clippingSamples > 0) {
+        // Detectar problemas básicos baseados nas métricas - APENAS SE VALORES EXISTEM
+        if (Number.isFinite(tech.clippingSamples) && tech.clippingSamples > 0) {
             normalized.problems.push({
                 type: 'clipping',
                 message: `Clipping detectado (${tech.clippingSamples} samples)`,
@@ -5380,7 +5392,7 @@ function normalizeBackendAnalysisData(backendData) {
             });
         }
         
-        if (Math.abs(tech.dcOffset) > 0.01) {
+        if (Number.isFinite(tech.dcOffset) && Math.abs(tech.dcOffset) > 0.01) {
             normalized.problems.push({
                 type: 'dc_offset', 
                 message: `DC Offset detectado (${tech.dcOffset.toFixed(4)})`,
@@ -5389,7 +5401,7 @@ function normalizeBackendAnalysisData(backendData) {
             });
         }
         
-        if (tech.thdPercent > 1) {
+        if (Number.isFinite(tech.thdPercent) && tech.thdPercent > 1) {
             normalized.problems.push({
                 type: 'thd',
                 message: `THD elevado (${tech.thdPercent.toFixed(2)}%)`,
@@ -5399,9 +5411,9 @@ function normalizeBackendAnalysisData(backendData) {
         }
     }
     
-    // 💡 SUGESTÕES - Garantir algumas sugestões básicas
+    // 💡 SUGESTÕES - Garantir algumas sugestões básicas - APENAS SE VALORES EXISTEM
     if (normalized.suggestions.length === 0) {
-        if (tech.dynamicRange < 8) {
+        if (Number.isFinite(tech.dynamicRange) && tech.dynamicRange < 8) {
             normalized.suggestions.push({
                 type: 'dynamics',
                 message: 'Faixa dinâmica baixa detectada',
@@ -5410,7 +5422,7 @@ function normalizeBackendAnalysisData(backendData) {
             });
         }
         
-        if (tech.stereoCorrelation > 0.9) {
+        if (Number.isFinite(tech.stereoCorrelation) && tech.stereoCorrelation > 0.9) {
             normalized.suggestions.push({
                 type: 'stereo',
                 message: 'Imagem estéreo muito estreita',
@@ -5419,7 +5431,7 @@ function normalizeBackendAnalysisData(backendData) {
             });
         }
         
-        if (tech.lufsIntegrated < -30) {
+        if (Number.isFinite(tech.lufsIntegrated) && tech.lufsIntegrated < -30) {
             normalized.suggestions.push({
                 type: 'loudness',
                 message: 'Loudness muito baixo',
