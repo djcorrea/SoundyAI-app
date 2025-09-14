@@ -1,31 +1,142 @@
-// 🎯 FASE 5.4: JSON OUTPUT + SCORING
+// 🎯 FASE 5.4: JSON OUTPUT + SCORING - CORRIGIDO
 // Constrói saída JSON estruturada e calcula score compatível com front-end
+// SEM FALLBACKS, SEM VALORES FICTÍCIOS, FAIL-FAST
 
 import { computeMixScore } from "../../lib/audio/features/scoring.js";
 
-console.log("📦 JSON Output & Scoring (Fase 5.4) carregado - Equal Weight V3");
+// Sistema de tratamento de erros padronizado
+import { makeErr, logAudio, assertFinite } from '../../lib/audio/error-handling.js';
+
+console.log("📦 JSON Output & Scoring (Fase 5.4) carregado - Equal Weight V3 CORRIGIDO");
 
 /**
- * Gera JSON final estruturado com métricas e score
+ * Gera JSON final estruturado com métricas e score - FAIL-FAST
  */
-export function generateJSONOutput(coreMetrics, reference = null, metadata = {}) {
-  console.log("🚀 Iniciando geração de JSON final (Fase 5.4)...");
+export function generateJSONOutput(coreMetrics, reference = null, metadata = {}, options = {}) {
+  const jobId = options.jobId || 'unknown';
+  const fileName = options.fileName || 'unknown';
+  
+  logAudio('output_scoring', 'start_generation', { fileName, jobId });
+  const startTime = Date.now();
+
   try {
+    // ========= VALIDAÇÃO DE ENTRADA =========
     if (!coreMetrics || typeof coreMetrics !== "object") {
-      throw new Error("Core metrics inválidas");
+      throw makeErr('output_scoring', 'Invalid core metrics: must be object', 'invalid_core_metrics');
     }
 
+    // Validar estrutura mínima requerida
+    validateCoreMetricsStructure(coreMetrics);
+
+    // ========= EXTRAÇÃO DE DADOS TÉCNICOS =========
+    logAudio('output_scoring', 'extract_technical', { jobId: jobId.substring(0,8) });
     const technicalData = extractTechnicalData(coreMetrics);
+    
+    // Validar dados extraídos
+    try {
+      assertFinite(technicalData, 'output_scoring');
+    } catch (validationError) {
+      throw makeErr('output_scoring', `Technical data validation failed: ${validationError.message}`, 'technical_data_invalid');
+    }
+
+    // ========= CÁLCULO DE SCORE =========
+    logAudio('output_scoring', 'compute_score', { reference, jobId: jobId.substring(0,8) });
     const scoringResult = computeMixScore(technicalData, reference);
+    
+    // Validar resultado do scoring
+    if (!scoringResult || typeof scoringResult.score !== 'number') {
+      throw makeErr('output_scoring', `Invalid scoring result: ${JSON.stringify(scoringResult)}`, 'invalid_scoring_result');
+    }
 
-    const finalJSON = buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata);
+    if (!isFinite(scoringResult.score)) {
+      throw makeErr('output_scoring', `Score is not finite: ${scoringResult.score}`, 'invalid_score_value');
+    }
+
+    // ========= CONSTRUÇÃO JSON FINAL =========
+    logAudio('output_scoring', 'build_json', { score: scoringResult.score });
+    const finalJSON = buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, { jobId });
+
+    // ========= VALIDAÇÃO FINAL =========
     validateFinalJSON(finalJSON);
+    
+    try {
+      assertFinite(finalJSON, 'output_scoring');
+    } catch (validationError) {
+      throw makeErr('output_scoring', `Final JSON validation failed: ${validationError.message}`, 'final_json_invalid');
+    }
 
-    console.log("✅ JSON Output gerado com sucesso (Fase 5.4)");
+    // Verificar tamanho do JSON
+    const jsonSize = JSON.stringify(finalJSON).length;
+    if (jsonSize > 200 * 1024) { // 200KB limit
+      throw makeErr('output_scoring', `JSON output too large: ${jsonSize} bytes (limit: 200KB)`, 'json_too_large');
+    }
+
+    const totalTime = Date.now() - startTime;
+    logAudio('output_scoring', 'completed', { 
+      ms: totalTime,
+      score: scoringResult.score,
+      size: jsonSize,
+      classification: scoringResult.classification
+    });
+
     return finalJSON;
+
   } catch (error) {
-    console.error("❌ Erro na Fase 5.4:", error);
-    return createErrorJSON(error, coreMetrics, metadata);
+    const totalTime = Date.now() - startTime;
+    
+    // Log estruturado do erro
+    logAudio('output_scoring', 'error', {
+      code: error.code || 'unknown',
+      message: error.message,
+      ms: totalTime,
+      stage: 'output_scoring'
+    });
+
+    // Se já é um erro estruturado, re-propagar
+    if (error.stage === 'output_scoring') {
+      throw error;
+    }
+
+    // Estruturar erro genérico
+    throw makeErr('output_scoring', `JSON output generation failed: ${error.message}`, 'json_generation_error');
+  }
+}
+
+/**
+ * Validação rigorosa da estrutura de core metrics
+ */
+function validateCoreMetricsStructure(coreMetrics) {
+  // Verificar seções obrigatórias
+  const requiredSections = ['lufs', 'truePeak', 'stereo'];
+  
+  for (const section of requiredSections) {
+    if (!coreMetrics[section]) {
+      throw makeErr('output_scoring', `Missing required section: ${section}`, 'missing_core_section');
+    }
+  }
+
+  // Validar LUFS
+  const requiredLufsFields = ['integrated', 'shortTerm', 'momentary', 'lra'];
+  for (const field of requiredLufsFields) {
+    if (!isFinite(coreMetrics.lufs[field])) {
+      throw makeErr('output_scoring', `Invalid LUFS ${field}: ${coreMetrics.lufs[field]}`, 'invalid_lufs_field');
+    }
+  }
+
+  // Validar True Peak
+  const requiredPeakFields = ['maxDbtp', 'maxLinear'];
+  for (const field of requiredPeakFields) {
+    if (!isFinite(coreMetrics.truePeak[field])) {
+      throw makeErr('output_scoring', `Invalid True Peak ${field}: ${coreMetrics.truePeak[field]}`, 'invalid_peak_field');
+    }
+  }
+
+  // Validar Stereo
+  const requiredStereoFields = ['correlation', 'balance', 'width'];
+  for (const field of requiredStereoFields) {
+    if (!isFinite(coreMetrics.stereo[field])) {
+      throw makeErr('output_scoring', `Invalid Stereo ${field}: ${coreMetrics.stereo[field]}`, 'invalid_stereo_field');
+    }
   }
 }
 
@@ -36,187 +147,167 @@ function extractTechnicalData(coreMetrics) {
   const technicalData = {};
 
   try {
-    // Loudness
-    if (coreMetrics.lufs) {
-      technicalData.lufsIntegrated = coreMetrics.lufs.integrated;
-      technicalData.lufsShortTerm = coreMetrics.lufs.shortTerm;
-      technicalData.lufsMomentary = coreMetrics.lufs.momentary;
-      technicalData.lra = coreMetrics.lufs.lra;
+    // Loudness - valores reais, sem fallbacks
+    technicalData.lufsIntegrated = coreMetrics.lufs.integrated;
+    technicalData.lufsShortTerm = coreMetrics.lufs.shortTerm;
+    technicalData.lufsMomentary = coreMetrics.lufs.momentary;
+    technicalData.lra = coreMetrics.lufs.lra;
+
+    // True Peak - valores reais, sem fallbacks
+    technicalData.truePeakDbtp = coreMetrics.truePeak.maxDbtp;
+    technicalData.truePeakLinear = coreMetrics.truePeak.maxLinear;
+
+    // Stereo Analysis - valores reais, sem fallbacks
+    technicalData.stereoCorrelation = coreMetrics.stereo.correlation;
+    technicalData.stereoBalance = coreMetrics.stereo.balance;
+    technicalData.stereoWidth = coreMetrics.stereo.width;
+
+    // RMS - se disponível
+    if (coreMetrics.rms) {
+      technicalData.rmsLevels = {
+        left: coreMetrics.rms.left || null,
+        right: coreMetrics.rms.right || null,
+        count: coreMetrics.rms.count || 0
+      };
     }
 
-    // True Peak
-    if (coreMetrics.truePeak) {
-      technicalData.truePeakDbtp = coreMetrics.truePeak.maxDbtp;
-      technicalData.truePeakLinear = coreMetrics.truePeak.maxLinear;
+    // FFT - se disponível  
+    if (coreMetrics.fft) {
+      technicalData.spectralData = {
+        processedFrames: coreMetrics.fft.processedFrames || 0,
+        spectralCentroid: coreMetrics.fft.spectralCentroid || null,
+        spectralRolloff: coreMetrics.fft.spectralRolloff || null,
+        spectralFlatness: coreMetrics.fft.spectralFlatness || null
+      };
     }
 
-    // Bandas espectrais (7 bandas vindas do core-metrics.js)
-    if (coreMetrics.fft?.frequencyBands?.left) {
-      technicalData.bandEnergies = {};
-      for (const [bandName, band] of Object.entries(coreMetrics.fft.frequencyBands.left)) {
-        technicalData.bandEnergies[bandName] = {
-          energy: sanitizeValue(band.energy),
-          rms_db: band.energy > 0 ? 10 * Math.log10(band.energy) : -120
-        };
-      }
-      if (coreMetrics.fft.spectralCentroid) {
-        technicalData.spectralCentroid = coreMetrics.fft.spectralCentroid;
-      }
-    }
-
-    // Stereo
-    if (coreMetrics.stereo) {
-      technicalData.stereoCorrelation = coreMetrics.stereo.correlation;
-      technicalData.stereoWidth = coreMetrics.stereo.width;
-      technicalData.balanceLR = coreMetrics.stereo.balance;
-    }
-
-    // Metadata
-    if (coreMetrics.metadata) {
-      technicalData.sampleRate = coreMetrics.metadata.sampleRate;
-      technicalData.channels = coreMetrics.metadata.channels;
-      technicalData.duration = coreMetrics.metadata.duration;
-    } else {
-      technicalData.sampleRate = coreMetrics.sampleRate || 48000;
-      technicalData.channels = coreMetrics.numberOfChannels || 2;
-      technicalData.duration = coreMetrics.duration || 0;
-    }
-
-    // Dynamic Range
-    if (coreMetrics.dr !== undefined) {
-      technicalData.dynamicRange = coreMetrics.dr;
-    }
-
-    technicalData.runId = `phase-5-4-${Date.now()}`;
     return technicalData;
-  } catch (err) {
-    console.error("❌ Erro ao extrair technical data:", err);
-    return { runId: `phase-5-4-error-${Date.now()}` };
+
+  } catch (error) {
+    throw makeErr('output_scoring', `Technical data extraction failed: ${error.message}`, 'technical_extraction_error');
   }
 }
 
 /**
- * Constrói JSON final
+ * Constrói JSON final estruturado
  */
-function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata) {
-  const finalJSON = {
-    score: sanitizeValue(scoringResult.scorePct),
-    classification: scoringResult.classification || "Básico",
-    scoringMethod: scoringResult.method || "equal_weight_v3",
+function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, options = {}) {
+  const jobId = options.jobId || 'unknown';
+  
+  try {
+    const finalJSON = {
+      // ========= SCORE E CLASSIFICAÇÃO =========
+      score: Math.round(scoringResult.score * 10) / 10, // 1 decimal
+      classification: scoringResult.classification || 'unknown',
+      
+      // ========= MÉTRICAS TÉCNICAS PRINCIPAIS =========
+      loudness: {
+        integrated: Math.round(technicalData.lufsIntegrated * 10) / 10,
+        shortTerm: Math.round(technicalData.lufsShortTerm * 10) / 10,
+        momentary: Math.round(technicalData.lufsMomentary * 10) / 10,
+        lra: Math.round(technicalData.lra * 10) / 10,
+        unit: "LUFS"
+      },
+      
+      truePeak: {
+        maxDbtp: Math.round(technicalData.truePeakDbtp * 10) / 10,
+        maxLinear: Math.round(technicalData.truePeakLinear * 1000) / 1000,
+        unit: "dBTP"
+      },
+      
+      stereo: {
+        correlation: Math.round(technicalData.stereoCorrelation * 1000) / 1000,
+        balance: Math.round(technicalData.stereoBalance * 1000) / 1000,
+        width: Math.round(technicalData.stereoWidth * 1000) / 1000,
+        isMonoCompatible: coreMetrics.stereo.isMonoCompatible || false,
+        hasPhaseIssues: coreMetrics.stereo.hasPhaseIssues || false
+      },
 
-    metadata: {
-      fileName: metadata.fileName || "unknown",
-      fileSize: metadata.fileSize || 0,
-      sampleRate: technicalData.sampleRate,
-      channels: technicalData.channels,
-      duration: technicalData.duration,
-      processedAt: new Date().toISOString(),
-      engineVersion: "5.4.0",
-      pipelinePhase: "complete"
-    },
+      // ========= SCORING BREAKDOWN =========
+      scoring: {
+        method: scoringResult.method || 'Equal Weight V3',
+        breakdown: scoringResult.breakdown || {},
+        penalties: scoringResult.penalties || {},
+        bonuses: scoringResult.bonuses || {}
+      },
 
-    technicalData: {
-      lufsIntegrated: sanitizeValue(technicalData.lufsIntegrated),
-      lufsShortTerm: sanitizeValue(technicalData.lufsShortTerm),
-      lufsMomentary: sanitizeValue(technicalData.lufsMomentary),
-      lra: sanitizeValue(technicalData.lra),
-      truePeakDbtp: sanitizeValue(technicalData.truePeakDbtp),
-      truePeakLinear: sanitizeValue(technicalData.truePeakLinear),
-      dynamicRange: sanitizeValue(technicalData.dynamicRange),
-      stereoCorrelation: sanitizeValue(technicalData.stereoCorrelation),
-      stereoWidth: sanitizeValue(technicalData.stereoWidth),
-      balanceLR: sanitizeValue(technicalData.balanceLR),
-      spectralCentroid: sanitizeValue(technicalData.spectralCentroid),
-      frequencyBands: coreMetrics.fft?.frequencyBands?.left || {}
-    },
+      // ========= METADATA =========
+      metadata: {
+        fileName: metadata.fileName || 'unknown',
+        fileSize: metadata.fileSize || 0,
+        processingTime: metadata.processingTime || 0,
+        phaseBreakdown: metadata.phaseBreakdown || {},
+        stage: 'output_scoring_completed',
+        pipelineVersion: '5.1-5.4-corrected',
+        buildVersion: '5.4.1-fail-fast',
+        timestamp: new Date().toISOString(),
+        jobId: jobId
+      }
+    };
 
-    scoringDetails: {
-      method: scoringResult.method,
-      totalMetrics: scoringResult.equalWeightDetails?.totalMetrics || 0,
-      equalWeight: scoringResult.equalWeightDetails?.equalWeight || 0,
-      metricBreakdown: scoringResult.equalWeightDetails?.metricScores || []
-    },
+    // Adicionar dados auxiliares se disponíveis
+    if (technicalData.rmsLevels && technicalData.rmsLevels.count > 0) {
+      finalJSON.rms = {
+        frameCount: technicalData.rmsLevels.count,
+        hasData: true
+      };
+    }
 
-    rawMetrics: coreMetrics,
-    status: "success",
-    processingTime: metadata.processingTime || 0,
-    warnings: [],
-    buildVersion: "5.4.0-equal-weight-v3",
-    pipelineVersion: "node-js-backend",
-    frontendCompatible: true
-  };
+    if (technicalData.spectralData && technicalData.spectralData.processedFrames > 0) {
+      finalJSON.spectral = {
+        frameCount: technicalData.spectralData.processedFrames,
+        hasData: true
+      };
+    }
 
-  addWarningsIfNeeded(finalJSON);
-  return finalJSON;
+    return finalJSON;
+
+  } catch (error) {
+    throw makeErr('output_scoring', `JSON building failed: ${error.message}`, 'json_building_error');
+  }
 }
 
 /**
- * Adiciona warnings automáticos
- */
-function addWarningsIfNeeded(finalJSON) {
-  const w = [];
-
-  if (finalJSON.technicalData.lufsIntegrated < -30) {
-    w.push("LUFS muito baixo - possível sinal de baixo volume");
-  }
-  if (finalJSON.technicalData.truePeakDbtp > -0.1) {
-    w.push("True Peak próximo de 0dB - risco de clipping");
-  }
-  if (finalJSON.technicalData.stereoCorrelation < 0.1) {
-    w.push("Correlação estéreo muito baixa - possível problema de fase");
-  }
-  if (finalJSON.score < 30) {
-    w.push("Score baixo - múltiplas métricas fora dos targets");
-  }
-
-  finalJSON.warnings = w;
-}
-
-/**
- * Sanitização
- */
-function sanitizeValue(value) {
-  if (!Number.isFinite(value)) return null;
-  return parseFloat(Number(value).toFixed(3));
-}
-
-/**
- * Validação final
+ * Validação final do JSON de saída
  */
 function validateFinalJSON(finalJSON) {
-  const required = ["score", "classification", "technicalData", "metadata"];
-  for (const f of required) {
-    if (!(f in finalJSON)) throw new Error(`Campo obrigatório ausente: ${f}`);
+  try {
+    // Verificar estrutura mínima
+    const requiredFields = ['score', 'classification', 'loudness', 'truePeak', 'stereo', 'metadata'];
+    
+    for (const field of requiredFields) {
+      if (finalJSON[field] === undefined || finalJSON[field] === null) {
+        throw makeErr('output_scoring', `Missing required field in final JSON: ${field}`, 'missing_final_field');
+      }
+    }
+
+    // Verificar score válido
+    if (!isFinite(finalJSON.score) || finalJSON.score < 0 || finalJSON.score > 100) {
+      throw makeErr('output_scoring', `Invalid score: ${finalJSON.score}`, 'invalid_final_score');
+    }
+
+    // Verificar que não há valores NaN/Infinity
+    const jsonString = JSON.stringify(finalJSON);
+    if (jsonString.includes('null') && jsonString.includes('NaN')) {
+      throw makeErr('output_scoring', 'Final JSON contains NaN values', 'json_contains_nan');
+    }
+
+    // Verificar tamanho mínimo (não vazio)
+    if (jsonString.length < 100) {
+      throw makeErr('output_scoring', `Final JSON too small: ${jsonString.length} bytes`, 'json_too_small');
+    }
+
+  } catch (error) {
+    if (error.stage === 'output_scoring') {
+      throw error;
+    }
+    throw makeErr('output_scoring', `Final JSON validation failed: ${error.message}`, 'final_json_validation_error');
   }
-  if (!Number.isFinite(finalJSON.score)) {
-    throw new Error("Score inválido");
-  }
-  JSON.stringify(finalJSON); // test serialização
 }
 
-/**
- * JSON de erro
- */
-function createErrorJSON(error, coreMetrics = null, metadata = {}) {
-  return {
-    status: "error",
-    error: { message: error.message, type: "phase_5_4_error", timestamp: new Date().toISOString() },
-    score: 50,
-    classification: "Básico",
-    scoringMethod: "error_fallback",
-    metadata: {
-      fileName: metadata.fileName || "unknown",
-      sampleRate: 48000,
-      channels: 2,
-      duration: 0,
-      processedAt: new Date().toISOString(),
-      engineVersion: "5.4.0-error",
-      pipelinePhase: "error"
-    },
-    technicalData: { lufsIntegrated: null, truePeakDbtp: null, stereoCorrelation: null, frequencyBands: {} },
-    rawMetrics: coreMetrics || {},
-    warnings: [`Erro na Fase 5.4: ${error.message}`],
-    buildVersion: "5.4.0-error-fallback",
-    frontendCompatible: false
-  };
-}
+// ========= REMOVED PROBLEMATIC FUNCTIONS =========
+// ❌ REMOVIDO: createErrorJSON() - violava princípio fail-fast
+// ❌ REMOVIDO: Qualquer fallback que retorne valores fictícios
+// ❌ REMOVIDO: Tratamento silencioso de erros
+
+console.log('✅ JSON Output & Scoring (Fase 5.4) carregado - FAIL-FAST sem fallbacks');

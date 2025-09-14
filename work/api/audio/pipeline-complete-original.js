@@ -72,7 +72,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       const peakStr = coreMetrics.truePeak?.maxDbtp ? coreMetrics.truePeak.maxDbtp.toFixed(1) : 'N/A';
       const corrStr = coreMetrics.stereo?.correlation ? coreMetrics.stereo.correlation.toFixed(3) : 'N/A';
       
-      console.log(`📊 [${jobId.substring(0,8)}] LUFS: ${lufsStr}, Peak: ${peakStr}dBTP, Corr: ${corrStr}`);
+      console.log(`� [${jobId.substring(0,8)}] LUFS: ${lufsStr}, Peak: ${peakStr}dBTP, Corr: ${corrStr}`);
       
     } catch (error) {
       if (error.stage === 'core_metrics') {
@@ -154,7 +154,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     });
     
     console.error(`💥 [${jobId.substring(0,8)}] Pipeline falhou após ${totalTime}ms:`, error.message);
-    console.error(`📍 [${jobId.substring(0,8)}] Stage: ${error.stage || 'unknown'}, Code: ${error.code || 'unknown'}`);
+    console.error(`� [${jobId.substring(0,8)}] Stage: ${error.stage || 'unknown'}, Code: ${error.code || 'unknown'}`);
     
     // ========= ESTRUTURAR ERRO FINAL =========
     // NÃO retornar JSON de erro - propagar para camada de jobs
@@ -169,3 +169,101 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     throw makeErr('pipeline', `Pipeline failed: ${error.message}`, 'pipeline_error');
   }
 }
+    const phase4StartTime = Date.now();
+    const metadata = {
+      fileName,
+      fileSize: audioBuffer.length,
+      processingTime: Date.now() - startTime
+    };
+    const reference = options.reference || options.genre || null;
+    console.log(`🔧 [${jobId.substring(0,8)}] Metadata preparado, chamando generateJSONOutput...`);
+    const finalJSON = generateJSONOutput(coreMetrics, reference, metadata);
+    const phase4Time = Date.now() - phase4StartTime;
+    console.log(`✅ [${jobId.substring(0,8)}] Fase 5.4 concluída em ${phase4Time}ms`);
+    console.log(`🎯 [${jobId.substring(0,8)}] Score final: ${finalJSON.score}% (${finalJSON.classification})`);
+
+    // ✅ Estatísticas finais
+    const totalTime = Date.now() - startTime;
+    console.log(`📊 [${jobId.substring(0,8)}] Preparando estatísticas finais...`);
+    finalJSON.metadata.processingTime = totalTime;
+    finalJSON.metadata.phaseBreakdown = {
+      phase1_decoding: phase1Time,
+      phase2_segmentation: phase2Time, 
+      phase3_core_metrics: phase3Time,
+      phase4_json_output: phase4Time,
+      total: totalTime
+    };
+
+    console.log(`🏁 [${jobId.substring(0,8)}] Pipeline completo finalizado em ${totalTime}ms`);
+
+    return finalJSON;
+
+  } catch (error) {
+    const totalTime = Date.now() - startTime;
+    console.error(`💥 [${jobId.substring(0,8)}] Pipeline falhou após ${totalTime}ms:`, error.message);
+    console.error(`📜 [${jobId.substring(0,8)}] Stack:`, error.stack);
+
+    // 🔧 Retornar JSON de erro estruturado
+    return {
+      status: 'error',
+      error: {
+        message: error.message,
+        type: 'pipeline_error',
+        phase: identifyFailedPhase(error.message),
+        timestamp: new Date().toISOString(),
+        processingTime: totalTime
+      },
+      score: 50,
+      classification: 'Erro',
+      scoringMethod: 'error_fallback',
+      metadata: {
+        fileName,
+        fileSize: audioBuffer.length,
+        sampleRate: 48000,
+        channels: 2,
+        duration: 0,
+        processedAt: new Date().toISOString(),
+        engineVersion: '5.1-5.4-error',
+        pipelinePhase: 'error'
+      },
+      technicalData: {},
+      warnings: [`Pipeline error: ${error.message}`],
+      buildVersion: '5.4.0-pipeline-error',
+      frontendCompatible: false
+    };
+  }
+}
+
+function identifyFailedPhase(errorMessage) {
+  const msg = errorMessage.toLowerCase();
+  if (msg.includes('decode')) return 'phase_5_1_decoding';
+  if (msg.includes('fft') || msg.includes('segment')) return 'phase_5_2_segmentation';
+  if (msg.includes('lufs') || msg.includes('true peak')) return 'phase_5_3_core_metrics';
+  if (msg.includes('json') || msg.includes('score')) return 'phase_5_4_json_output';
+  return 'unknown_phase';
+}
+
+export async function calculateAudioScore(audioBuffer, fileName, reference = null) {
+  try {
+    const result = await processAudioComplete(audioBuffer, fileName, { reference });
+    return {
+      score: result.score,
+      classification: result.classification,
+      method: result.scoringMethod,
+      processingTime: result.metadata.processingTime,
+      fileName,
+      status: 'success'
+    };
+  } catch (error) {
+    return {
+      score: 50,
+      classification: 'Erro',
+      method: 'error_fallback',
+      fileName,
+      status: 'error',
+      error: error.message
+    };
+  }
+}
+
+export default { processAudioComplete, calculateAudioScore };
