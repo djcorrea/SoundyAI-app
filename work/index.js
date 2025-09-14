@@ -1,5 +1,7 @@
-// work/index.js
+// work/index.js - Worker completo com servidor Express para Railway
 import "dotenv/config";
+import express from "express";
+import cors from "cors";
 import pkg from "pg";
 import AWS from "aws-sdk";
 import fs from "fs";
@@ -351,3 +353,60 @@ setInterval(checkStuckJobs, 2 * 60 * 1000); // Verificar jobs travados a cada 2 
 processJobs();
 
 console.log("🎯 work/index.js: Worker dedicado apenas ao processamento de jobs");
+
+// ========== SERVIDOR EXPRESS PARA RAILWAY ==========
+console.log("🌐 [RAILWAY-DEBUG] Iniciando servidor Express...");
+
+const app = express();
+
+// Middleware
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.resolve(process.cwd(), "public")));
+
+// Importar rotas
+const analyzeRoute = await import("../api/audio/analyze.js");
+const jobsRoute = await import("../api/jobs/[id].js");
+const presignRoute = await import("../api/presign.js");
+const uploadAudioRoute = await import("../api/upload-audio.js");
+
+// Rotas API
+app.use("/api/audio", analyzeRoute.default);
+app.use("/api/jobs", jobsRoute.default);
+app.use("/api", presignRoute.default);
+app.use("/api/upload-audio", uploadAudioRoute.default);
+
+// SPA Fallback
+app.get("*", (req, res, next) => {
+  if (req.path.startsWith("/api/")) return next();
+  res.sendFile(path.resolve(process.cwd(), "public", "index.html"));
+});
+
+// Error handler
+app.use((error, req, res, next) => {
+  console.error("❌ [RAILWAY-DEBUG] Express error:", error.message);
+  res.status(500).json({ 
+    error: "Internal server error",
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Iniciar servidor
+const PORT = process.env.PORT || 8080;
+const server = app.listen(PORT, () => {
+  console.log(`🌐 [RAILWAY-DEBUG] Servidor Express rodando na porta ${PORT}`);
+  console.log(`🎯 [RAILWAY-DEBUG] Pipeline real carregado: ${processAudioComplete ? 'SIM' : 'NÃO'}`);
+  console.log(`🚀 [RAILWAY-DEBUG] Sistema completo ativo - Worker + Web Server`);
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  console.log('🛑 [RAILWAY-DEBUG] SIGTERM recebido, encerrando gracefully...');
+  server.close(() => {
+    console.log('🛑 [RAILWAY-DEBUG] Servidor HTTP encerrado');
+    if (client) {
+      client.end();
+    }
+    process.exit(0);
+  });
+});
