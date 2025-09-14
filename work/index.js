@@ -23,7 +23,7 @@ try {
   console.log("   import.meta.url:", import.meta.url);
   console.log("   process.cwd():", process.cwd());
   console.log("   __dirname equivalent:", path.dirname(fileURLToPath(import.meta.url)));
-  process.exit(1); // encerra o worker se não achar o pipeline
+  process.exit(1); // encerra só se pipeline não existir
 }
 
 // ---------- Conectar ao Postgres ----------
@@ -110,18 +110,18 @@ async function processJob(job) {
     };
 
     await client.query(
-      "UPDATE jobs SET status = $1, result = $2, completed_at = NOW(), updated_at = NOW() WHERE id = $3",
-      ["completed", JSON.stringify(result), job.id]
+      "UPDATE jobs SET status = $1, result = $2::jsonb, completed_at = NOW(), updated_at = NOW() WHERE id = $3",
+      ["completed", result, job.id]
     );
 
-    console.log(`✅ Job ${job.id} concluído com sucesso`);
+    console.log(`✅ Job ${job.id} concluído e salvo no banco`);
   } catch (err) {
     console.error("❌ Erro no job:", err);
     await client.query(
       "UPDATE jobs SET status = $1, error = $2, updated_at = NOW() WHERE id = $3",
       ["failed", err?.message ?? String(err), job.id]
     );
-    process.exit(1); // força parar se der erro crítico
+    // não mata o worker — deixa continuar processando próximos jobs
   } finally {
     if (localFilePath) {
       try {
@@ -152,7 +152,6 @@ async function processJobs() {
     }
   } catch (e) {
     console.error("❌ Erro no loop de jobs:", e);
-    process.exit(1);
   } finally {
     isRunning = false;
   }
