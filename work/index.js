@@ -111,7 +111,7 @@ async function processJob(job) {
 
     await client.query(
       "UPDATE jobs SET status = $1, result = $2, completed_at = NOW(), updated_at = NOW() WHERE id = $3",
-      ["done", JSON.stringify(result), job.id]
+      ["completed", JSON.stringify(result), job.id]
     );
 
     console.log(`✅ Job ${job.id} concluído com sucesso`);
