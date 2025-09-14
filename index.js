@@ -215,6 +215,9 @@ async function simulateCompleteAnalysis(audioBuffer, filename, genre) {
       processedAt: new Date().toISOString(),
       filename: filename,
       genre: genre,
+      sampleRate: sampleRate, // ✅ CORREÇÃO: incluir sampleRate na metadata
+      channels: channels,     // ✅ CORREÇÃO: incluir channels na metadata
+      duration: Math.round(durationMs / 1000 * 100) / 100, // ✅ CORREÇÃO: incluir duration na metadata
       pipelineVersion: "5.1-5.4-mathematical-complete",
       analysisDepth: "maximum_precision",
       fftSize: 4096,
