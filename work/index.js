@@ -5,49 +5,25 @@ import AWS from "aws-sdk";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import * as mm from "music-metadata"; // fallback de metadata
 
 // ---------- Resolver __dirname ----------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ---------- Importar pipeline completo (ESM + Container compatible) ----------
+// ---------- Importar pipeline completo ----------
 let processAudioComplete = null;
 
-const candidatePaths = [
-  // Railway: worker roda de /app/work/, pipeline em /app/api/
-  "../api/audio/pipeline-complete.js",
-  
-  // ESM URLs (caso esteja rodando de /app/work/)
-  new URL("../api/audio/pipeline-complete.js", import.meta.url).href,
-  
-  // Caso worker rode de /app/ diretamente
-  "./api/audio/pipeline-complete.js",
-  "/app/api/audio/pipeline-complete.js",
-  
-  // Fallbacks diversos
-  new URL("../../api/audio/pipeline-complete.js", import.meta.url).href,
-  "../../api/audio/pipeline-complete.js"
-];
-
-for (const modulePath of candidatePaths) {
-  try {
-    console.log(`🔍 Tentando carregar pipeline de: ${modulePath}`);
-    const imported = await import(modulePath);
-    processAudioComplete = imported.processAudioComplete;
-    console.log("✅ Pipeline carregado com sucesso de:", modulePath);
-    break;
-  } catch (err) {
-    console.warn(`⚠️ Falhou em ${modulePath}:`, err.message);
-  }
-}
-
-if (!processAudioComplete) {
-  console.error("❌ CRÍTICO: Nenhum caminho do pipeline funcionou. Worker operará apenas em modo fallback.");
+try {
+  const imported = await import("../api/audio/pipeline-complete.js");
+  processAudioComplete = imported.processAudioComplete;
+  console.log("✅ Pipeline completo carregado com sucesso!");
+} catch (err) {
+  console.error("❌ CRÍTICO: Falha ao carregar pipeline:", err.message);
   console.log("🔍 Debug info:");
   console.log("   import.meta.url:", import.meta.url);
   console.log("   process.cwd():", process.cwd());
   console.log("   __dirname equivalent:", path.dirname(fileURLToPath(import.meta.url)));
+  process.exit(1); // encerra o worker se não achar o pipeline
 }
 
 // ---------- Conectar ao Postgres ----------
@@ -78,68 +54,16 @@ async function downloadFileFromBucket(key) {
     const write = fs.createWriteStream(localPath);
     const read = s3.getObject({ Bucket: BUCKET_NAME, Key: key }).createReadStream();
 
-    read.on("error", (err) => {
-      console.error("❌ Erro no stream de leitura S3:", err);
-      reject(err);
-    });
-
-    write.on("error", (err) => {
-      console.error("❌ Erro no stream de escrita local:", err);
-      reject(err);
-    });
-
-    write.on("finish", () => {
-      console.log(`📥 Arquivo baixado: ${localPath}`);
-      resolve(localPath);
-    });
+    read.on("error", (err) => reject(err));
+    write.on("error", (err) => reject(err));
+    write.on("finish", () => resolve(localPath));
 
     read.pipe(write);
   });
 }
 
-// ---------- Fallback: análise mínima via music-metadata ----------
-async function analyzeFallbackMetadata(localFilePath) {
-  try {
-    const meta = await mm.parseFile(localFilePath);
-    return {
-      status: "success",
-      mode: "fallback_metadata",
-      score: 50,
-      classification: "Básico",
-      scoringMethod: "error_fallback",
-      technicalData: {
-        durationSec: meta.format.duration || 0,
-        sampleRate: meta.format.sampleRate || 44100,
-        bitrate: meta.format.bitrate || null,
-        channels: meta.format.numberOfChannels || 2,
-      },
-      warnings: ["Pipeline completo indisponível. Resultado mínimo via metadata."],
-      frontendCompatible: true,
-      metadata: {
-        processedAt: new Date().toISOString(),
-      },
-    };
-  } catch (err) {
-    console.error("❌ Erro no fallback metadata:", err);
-    return {
-      status: "error",
-      error: {
-        message: err?.message ?? String(err),
-        type: "fallback_metadata_error",
-        timestamp: new Date().toISOString(),
-      },
-      frontendCompatible: false,
-    };
-  }
-}
-
 // ---------- Análise REAL via pipeline ----------
 async function analyzeAudioWithPipeline(localFilePath, job) {
-  if (!processAudioComplete) {
-    console.warn("⚠️ Pipeline indisponível, caindo no fallback...");
-    return analyzeFallbackMetadata(localFilePath);
-  }
-
   const filename = path.basename(localFilePath);
   const fileBuffer = await fs.promises.readFile(localFilePath);
 
@@ -174,25 +98,14 @@ async function processJob(job) {
     localFilePath = await downloadFileFromBucket(job.file_key);
     console.log(`🎵 Arquivo pronto para análise: ${localFilePath}`);
 
-    let analysisResult;
-    let usedFallback = false;
-
-    try {
-      console.log("🚀 Rodando pipeline completo (Fases 5.1–5.4)...");
-      analysisResult = await analyzeAudioWithPipeline(localFilePath, job);
-      if (analysisResult?.mode === "fallback_metadata") usedFallback = true;
-    } catch (pipelineErr) {
-      console.error("⚠️ Falha no pipeline completo. Ativando fallback:", pipelineErr?.message);
-      usedFallback = true;
-      analysisResult = await analyzeFallbackMetadata(localFilePath);
-    }
+    console.log("🚀 Rodando pipeline completo...");
+    const analysisResult = await analyzeAudioWithPipeline(localFilePath, job);
 
     const result = {
       ok: true,
       file: job.file_key,
       mode: job.mode,
       analyzedAt: new Date().toISOString(),
-      usedFallback,
       ...analysisResult,
     };
 
@@ -201,18 +114,18 @@ async function processJob(job) {
       ["done", JSON.stringify(result), job.id]
     );
 
-    console.log(`✅ Job ${job.id} concluído (fallback=${usedFallback ? "yes" : "no"})`);
+    console.log(`✅ Job ${job.id} concluído com sucesso`);
   } catch (err) {
     console.error("❌ Erro no job:", err);
     await client.query(
       "UPDATE jobs SET status = $1, error = $2, updated_at = NOW() WHERE id = $3",
       ["failed", err?.message ?? String(err), job.id]
     );
+    process.exit(1); // força parar se der erro crítico
   } finally {
     if (localFilePath) {
       try {
         await fs.promises.unlink(localFilePath);
-        console.log(`🧹 /tmp limpo: ${localFilePath}`);
       } catch (e) {
         console.warn("⚠️ Não foi possível remover arquivo temporário:", e?.message);
       }
@@ -239,6 +152,7 @@ async function processJobs() {
     }
   } catch (e) {
     console.error("❌ Erro no loop de jobs:", e);
+    process.exit(1);
   } finally {
     isRunning = false;
   }
