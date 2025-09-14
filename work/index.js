@@ -110,9 +110,9 @@ async function processJob(job) {
     };
 
     await client.query(
-      "UPDATE jobs SET status = $1, result = $2::jsonb, completed_at = NOW(), updated_at = NOW() WHERE id = $3",
-      ["completed", result, job.id]
-    );
+  "UPDATE jobs SET status = $1, result = $2::jsonb, completed_at = NOW(), updated_at = NOW() WHERE id = $3",
+  ["completed", JSON.stringify(result), job.id]
+);
 
     console.log(`✅ Job ${job.id} concluído e salvo no banco`);
   } catch (err) {
