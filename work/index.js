@@ -5,6 +5,7 @@ import AWS from "aws-sdk";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import express from "express";
 
 // ---------- Resolver __dirname ----------
 const __filename = fileURLToPath(import.meta.url);
@@ -54,9 +55,25 @@ async function downloadFileFromBucket(key) {
     const write = fs.createWriteStream(localPath);
     const read = s3.getObject({ Bucket: BUCKET_NAME, Key: key }).createReadStream();
 
-    read.on("error", (err) => reject(err));
-    write.on("error", (err) => reject(err));
-    write.on("finish", () => resolve(localPath));
+    // 🔥 TIMEOUT DE 2 MINUTOS - EVITA DOWNLOAD INFINITO
+    const timeout = setTimeout(() => {
+      write.destroy();
+      read.destroy();
+      reject(new Error(`Download timeout após 2 minutos para: ${key}`));
+    }, 120000);
+
+    read.on("error", (err) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
+    write.on("error", (err) => {
+      clearTimeout(timeout);
+      reject(err);
+    });
+    write.on("finish", () => {
+      clearTimeout(timeout);
+      resolve(localPath);
+    });
 
     read.pipe(write);
   });
@@ -68,7 +85,16 @@ async function analyzeAudioWithPipeline(localFilePath, job) {
   const fileBuffer = await fs.promises.readFile(localFilePath);
 
   const t0 = Date.now();
-  const finalJSON = await processAudioComplete(fileBuffer, filename, job?.reference || null);
+  
+  // 🔥 TIMEOUT DE 5 MINUTOS - EVITA PIPELINE INFINITO
+  const pipelinePromise = processAudioComplete(fileBuffer, filename, job?.reference || null);
+  const timeoutPromise = new Promise((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`Pipeline timeout após 5 minutos para: ${filename}`));
+    }, 300000); // 5 minutos
+  });
+
+  const finalJSON = await Promise.race([pipelinePromise, timeoutPromise]);
   const totalMs = Date.now() - t0;
 
   finalJSON.performance = {
@@ -88,12 +114,31 @@ async function processJob(job) {
   console.log("📥 Processando job:", job.id);
 
   let localFilePath = null;
+  let heartbeatInterval = null;
 
   try {
-    await client.query(
+    // 🔥 ATUALIZAR STATUS + VERIFICAR SE FUNCIONOU
+    const updateResult = await client.query(
       "UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2",
       ["processing", job.id]
     );
+    
+    if (updateResult.rowCount === 0) {
+      throw new Error(`Falha ao atualizar job ${job.id} para status 'processing'`);
+    }
+
+    // 🔥 HEARTBEAT A CADA 30 SEGUNDOS
+    heartbeatInterval = setInterval(async () => {
+      try {
+        await client.query(
+          "UPDATE jobs SET updated_at = NOW() WHERE id = $1 AND status = 'processing'",
+          [job.id]
+        );
+        console.log(`💓 Heartbeat enviado para job ${job.id}`);
+      } catch (err) {
+        console.warn(`⚠️ Falha no heartbeat para job ${job.id}:`, err.message);
+      }
+    }, 30000);
 
     localFilePath = await downloadFileFromBucket(job.file_key);
     console.log(`🎵 Arquivo pronto para análise: ${localFilePath}`);
@@ -109,20 +154,41 @@ async function processJob(job) {
       ...analysisResult,
     };
 
-    await client.query(
-  "UPDATE jobs SET status = $1, result = $2::jsonb, completed_at = NOW(), updated_at = NOW() WHERE id = $3",
-  ["done", JSON.stringify(result), job.id]
-);
+    // 🔥 ATUALIZAR STATUS FINAL + VERIFICAR SE FUNCIONOU
+    const finalUpdateResult = await client.query(
+      "UPDATE jobs SET status = $1, result = $2::jsonb, completed_at = NOW(), updated_at = NOW() WHERE id = $3",
+      ["done", JSON.stringify(result), job.id]
+    );
+
+    if (finalUpdateResult.rowCount === 0) {
+      throw new Error(`Falha ao atualizar job ${job.id} para status 'done'`);
+    }
 
     console.log(`✅ Job ${job.id} concluído e salvo no banco`);
   } catch (err) {
     console.error("❌ Erro no job:", err);
-    await client.query(
-      "UPDATE jobs SET status = $1, error = $2, updated_at = NOW() WHERE id = $3",
-      ["failed", err?.message ?? String(err), job.id]
-    );
+    
+    // 🔥 ATUALIZAR STATUS ERRO + VERIFICAR SE FUNCIONOU
+    try {
+      const errorUpdateResult = await client.query(
+        "UPDATE jobs SET status = $1, error = $2, updated_at = NOW() WHERE id = $3",
+        ["failed", err?.message ?? String(err), job.id]
+      );
+      
+      if (errorUpdateResult.rowCount === 0) {
+        console.error(`🚨 CRÍTICO: Falha ao atualizar job ${job.id} para status 'failed'`);
+      }
+    } catch (updateErr) {
+      console.error(`🚨 CRÍTICO: Erro ao atualizar status de erro para job ${job.id}:`, updateErr);
+    }
     // não mata o worker — deixa continuar processando próximos jobs
   } finally {
+    // 🔥 PARAR HEARTBEAT
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+      heartbeatInterval = null;
+    }
+
     if (localFilePath) {
       try {
         await fs.promises.unlink(localFilePath);
@@ -132,6 +198,32 @@ async function processJob(job) {
     }
   }
 }
+
+// ---------- Recovery de jobs órfãos ----------
+async function recoverOrphanedJobs() {
+  try {
+    console.log("🔄 Verificando jobs órfãos...");
+    
+    // Jobs "processing" há mais de 10 minutos = órfãos
+    const result = await client.query(`
+      UPDATE jobs 
+      SET status = 'queued', updated_at = NOW(), error = 'Recovered from orphaned state'
+      WHERE status = 'processing' 
+      AND updated_at < NOW() - INTERVAL '10 minutes'
+      RETURNING id
+    `);
+
+    if (result.rows.length > 0) {
+      console.log(`🔄 Recuperados ${result.rows.length} jobs órfãos:`, result.rows.map(r => r.id));
+    }
+  } catch (err) {
+    console.error("❌ Erro ao recuperar jobs órfãos:", err);
+  }
+}
+
+// 🔥 RECOVERY A CADA 5 MINUTOS
+setInterval(recoverOrphanedJobs, 300000);
+recoverOrphanedJobs(); // Executa na inicialização
 
 // ---------- Loop de jobs ----------
 let isRunning = false;
@@ -159,3 +251,27 @@ async function processJobs() {
 
 setInterval(processJobs, 5000);
 processJobs();
+
+// ---------- Servidor Express para Railway ----------
+const app = express();
+const PORT = process.env.PORT || 8080;
+
+app.get('/', (req, res) => {
+  res.json({ 
+    status: 'Worker rodando', 
+    timestamp: new Date().toISOString(),
+    worker: 'active'
+  });
+});
+
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'healthy', 
+    worker: 'active',
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`🌐 Worker + API rodando na porta ${PORT}`);
+});
