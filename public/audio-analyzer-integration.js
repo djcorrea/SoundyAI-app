@@ -5143,6 +5143,7 @@ function normalizeBackendAnalysisData(backendData) {
     const source = backendData.technicalData || backendData.metrics || backendData;
     
     console.log('🔍 [NORMALIZE] Dados de origem recebidos:', source);
+    console.log('🔍 [NORMALIZE] Estrutura completa do backend:', backendData);
     
     // Função para pegar valor real ou null (sem fallbacks fictícios)
     const getRealValue = (...paths) => {
@@ -5150,6 +5151,11 @@ function normalizeBackendAnalysisData(backendData) {
             const value = path.split('.').reduce((obj, key) => obj?.[key], source);
             if (Number.isFinite(value)) {
                 return value;
+            }
+            // NOVO: Também verificar na estrutura raiz do backendData
+            const rootValue = path.split('.').reduce((obj, key) => obj?.[key], backendData);
+            if (Number.isFinite(rootValue)) {
+                return rootValue;
             }
         }
         return null; // Retorna null se não há valor real
@@ -5166,16 +5172,23 @@ function normalizeBackendAnalysisData(backendData) {
     // Crest Factor - APENAS VALORES REAIS
     tech.crestFactor = getRealValue('crestFactor', 'crest_factor');
     
-    // True Peak - APENAS VALORES REAIS
-    tech.truePeakDbtp = getRealValue('truePeakDbtp', 'true_peak_dbtp', 'truePeak');
+    // True Peak - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA
+    tech.truePeakDbtp = getRealValue('truePeakDbtp', 'true_peak_dbtp', 'truePeak') || 
+                       (backendData.truePeak?.maxDbtp && Number.isFinite(backendData.truePeak.maxDbtp) ? backendData.truePeak.maxDbtp : null);
     
-    // LUFS - APENAS VALORES REAIS
-    tech.lufsIntegrated = getRealValue('lufsIntegrated', 'lufs_integrated', 'lufs');
-    tech.lufsShortTerm = getRealValue('lufsShortTerm', 'lufs_short_term');
-    tech.lufsMomentary = getRealValue('lufsMomentary', 'lufs_momentary');
+    // LUFS - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA
+    tech.lufsIntegrated = getRealValue('lufsIntegrated', 'lufs_integrated', 'lufs') ||
+                         (backendData.loudness?.integrated && Number.isFinite(backendData.loudness.integrated) ? backendData.loudness.integrated : null);
     
-    // LRA - APENAS VALORES REAIS
-    tech.lra = getRealValue('lra', 'loudnessRange');
+    tech.lufsShortTerm = getRealValue('lufsShortTerm', 'lufs_short_term') ||
+                        (backendData.loudness?.shortTerm && Number.isFinite(backendData.loudness.shortTerm) ? backendData.loudness.shortTerm : null);
+    
+    tech.lufsMomentary = getRealValue('lufsMomentary', 'lufs_momentary') ||
+                        (backendData.loudness?.momentary && Number.isFinite(backendData.loudness.momentary) ? backendData.loudness.momentary : null);
+    
+    // LRA - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA
+    tech.lra = getRealValue('lra', 'loudnessRange') ||
+              (backendData.loudness?.lra && Number.isFinite(backendData.loudness.lra) ? backendData.loudness.lra : null);
     
     console.log('📊 [NORMALIZE] Métricas mapeadas (apenas reais):', {
         peak: tech.peak,
@@ -5193,10 +5206,15 @@ function normalizeBackendAnalysisData(backendData) {
     tech.headroomDb = getRealValue('headroomDb', 'headroom_db');
     tech.headroomTruePeakDb = getRealValue('headroomTruePeakDb');
     
-    // Stereo - APENAS VALORES REAIS
-    tech.stereoCorrelation = getRealValue('stereoCorrelation', 'stereo_correlation');
-    tech.stereoWidth = getRealValue('stereoWidth', 'stereo_width');
-    tech.balanceLR = getRealValue('balanceLR', 'balance_lr');
+    // Stereo - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA
+    tech.stereoCorrelation = getRealValue('stereoCorrelation', 'stereo_correlation') ||
+                            (backendData.stereo?.correlation && Number.isFinite(backendData.stereo.correlation) ? backendData.stereo.correlation : null);
+    
+    tech.stereoWidth = getRealValue('stereoWidth', 'stereo_width') ||
+                      (backendData.stereo?.width && Number.isFinite(backendData.stereo.width) ? backendData.stereo.width : null);
+    
+    tech.balanceLR = getRealValue('balanceLR', 'balance_lr') ||
+                    (backendData.stereo?.balance && Number.isFinite(backendData.stereo.balance) ? backendData.stereo.balance : null);
     
     // Spectral - APENAS VALORES REAIS
     tech.spectralCentroid = getRealValue('spectralCentroid', 'spectral_centroid');
@@ -5320,8 +5338,8 @@ function normalizeBackendAnalysisData(backendData) {
         console.log('⚠️ [NORMALIZE] Frequências dominantes não encontradas - dominantFrequencies = null');
     }
     
-    // 🔢 SCORES E QUALIDADE - APENAS VALORES REAIS
-    normalized.qualityOverall = getRealValue(backendData, ['qualityOverall', 'score', 'mixScore']);
+    // 🔢 SCORES E QUALIDADE - MAPEAMENTO CORRETO PARA NOVA ESTRUTURA
+    normalized.qualityOverall = backendData.score && Number.isFinite(backendData.score) ? backendData.score : null;
     
     if (backendData.qualityBreakdown && typeof backendData.qualityBreakdown === 'object') {
         normalized.qualityBreakdown = backendData.qualityBreakdown;
@@ -5329,6 +5347,25 @@ function normalizeBackendAnalysisData(backendData) {
     } else {
         normalized.qualityBreakdown = null;
         console.log('⚠️ [NORMALIZE] Quality breakdown não encontrado - qualityBreakdown = null');
+    }
+    
+    // 📊 DADOS AUXILIARES DO NOVO FORMATO
+    if (backendData.metadata) {
+        normalized.processingMs = backendData.metadata.processingTime || backendData.performance?.workerTotalTimeMs || null;
+        normalized.fileName = backendData.metadata.fileName || null;
+        normalized.fileSize = backendData.metadata.fileSize || null;
+        normalized.buildVersion = backendData.metadata.buildVersion || null;
+        normalized.pipelineVersion = backendData.metadata.pipelineVersion || null;
+    }
+    
+    if (backendData.classification) {
+        normalized.classification = backendData.classification;
+    }
+    
+    // 🎯 DADOS DE SCORING DETALHADOS
+    if (backendData.scoring) {
+        normalized.scoring = backendData.scoring;
+        console.log('📊 [NORMALIZE] Dados de scoring encontrados:', backendData.scoring);
     }
     
     // 🚨 PROBLEMAS - Garantir que existam alguns problemas/sugestões para exibir

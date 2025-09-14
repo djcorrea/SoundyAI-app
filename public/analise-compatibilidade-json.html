@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Análise de Compatibilidade JSON - SoundyAI</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        .analysis-section {
+            background: white;
+            margin: 20px 0;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .json-display {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        .mapping-result {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .metric-card {
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #007bff;
+        }
+        .metric-card.found {
+            background: #d4edda;
+            border-left-color: #28a745;
+        }
+        .metric-card.missing {
+            background: #f8d7da;
+            border-left-color: #dc3545;
+        }
+        .metric-card.mismatch {
+            background: #fff3cd;
+            border-left-color: #ffc107;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .status-found { background: #28a745; color: white; }
+        .status-missing { background: #dc3545; color: white; }
+        .status-mismatch { background: #ffc107; color: black; }
+        h1, h2 { color: #333; }
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #495057;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔍 Análise de Compatibilidade JSON Backend ↔ Frontend</h1>
+    
+    <div class="analysis-section">
+        <h2>📄 JSON Original do Backend</h2>
+        <div id="originalJson" class="json-display"></div>
+    </div>
+
+    <div class="analysis-section">
+        <h2>📊 Resultado da Análise</h2>
+        <div id="analysisResults"></div>
+    </div>
+
+    <div class="analysis-section">
+        <h2>🎯 Mapeamento de Métricas</h2>
+        <div id="mappingResults"></div>
+    </div>
+
+    <div class="analysis-section">
+        <h2>🔧 Dados Normalizados (Como ficariam no Frontend)</h2>
+        <div id="normalizedData" class="json-display"></div>
+    </div>
+
+    <script>
+        // JSON original do backend fornecido pelo usuário
+        const backendJson = {
+            "ok": true,
+            "rms": {
+                "hasData": true,
+                "frameCount": 1902
+            },
+            "file": "uploads/1757888586761.wav",
+            "mode": "genre",
+            "score": 97.9,
+            "stereo": {
+                "width": 0.156,
+                "balance": 0,
+                "correlation": 0.986,
+                "hasPhaseIssues": false,
+                "isMonoCompatible": false
+            },
+            "_worker": {
+                "source": "pipeline_complete"
+            },
+            "scoring": {
+                "method": "equal_weight_v3",
+                "bonuses": {},
+                "breakdown": {},
+                "penalties": [
+                    {
+                        "n": 0,
+                        "p": 0,
+                        "u": 0,
+                        "w": 0.4865,
+                        "key": "lufsIntegrated",
+                        "status": "OK",
+                        "severity": null
+                    },
+                    {
+                        "n": 0,
+                        "p": 0,
+                        "u": 0,
+                        "w": 0.045,
+                        "key": "lra",
+                        "status": "OK",
+                        "severity": null
+                    },
+                    {
+                        "n": 1.609,
+                        "p": 0.0839,
+                        "u": 0.2218,
+                        "w": 0.3784,
+                        "key": "truePeakDbtp",
+                        "status": "ALTO",
+                        "severity": "media"
+                    },
+                    {
+                        "n": 0,
+                        "p": 0,
+                        "u": 0,
+                        "w": 0.045,
+                        "key": "stereoCorrelation",
+                        "status": "OK",
+                        "severity": null
+                    },
+                    {
+                        "n": 1.48,
+                        "p": 0.0088,
+                        "u": 0.196,
+                        "w": 0.045,
+                        "key": "stereoWidth",
+                        "status": "BAIXO",
+                        "severity": "media"
+                    }
+                ]
+            },
+            "loudness": {
+                "lra": 7.5,
+                "unit": "LUFS",
+                "momentary": -9.7,
+                "shortTerm": -13.2,
+                "integrated": -13.9
+            },
+            "metadata": {
+                "jobId": "1493ac10-bb56-4934-b35d-3d4b540d247b",
+                "stage": "completed",
+                "fileName": "1757888586761.wav",
+                "fileSize": 33533954,
+                "timestamp": "2025-09-14T22:23:25.855Z",
+                "buildVersion": "5.4.1-fail-fast",
+                "phaseBreakdown": {
+                    "total": 10327,
+                    "phase1_decode": 1131,
+                    "phase4_json_output": 6,
+                    "phase2_segmentation": 1308,
+                    "phase3_core_metrics": 7882
+                },
+                "processingTime": 10327,
+                "pipelineVersion": "5.1-5.4-corrected"
+            },
+            "spectral": {
+                "hasData": true,
+                "frameCount": 1000
+            },
+            "truePeak": {
+                "unit": "dBTP",
+                "maxDbtp": 3,
+                "maxLinear": 1.416
+            },
+            "analyzedAt": "2025-09-14T22:23:25.856Z",
+            "performance": {
+                "backendPhase": "5.1-5.4",
+                "workerTimestamp": "2025-09-14T22:23:25.856Z",
+                "workerTotalTimeMs": 10327
+            },
+            "classification": "Referência Mundial"
+        };
+
+        // Função getRealValue conforme implementada na correção
+        function getRealValue(source, ...paths) {
+            for (const path of paths) {
+                const value = path.split('.').reduce((obj, key) => obj?.[key], source);
+                if (Number.isFinite(value)) {
+                    return value;
+                }
+            }
+            return null;
+        }
+
+        // Simular a função normalizeBackendAnalysisData
+        function simulateNormalization(backendData) {
+            const normalized = {
+                ...backendData,
+                technicalData: backendData.technicalData || {},
+                problems: backendData.problems || [],
+                suggestions: backendData.suggestions || [],
+                duration: backendData.duration || null,
+                sampleRate: backendData.sampleRate || null,
+                channels: backendData.channels || null
+            };
+
+            const tech = normalized.technicalData;
+            const source = backendData.technicalData || backendData.metrics || backendData;
+
+            // Mapear métricas básicas
+            tech.peak = getRealValue(source, 'peak', 'peak_db', 'peakLevel');
+            tech.rms = getRealValue(source, 'rms', 'rms_db', 'rmsLevel');
+            tech.rmsLevel = tech.rms;
+            tech.dynamicRange = getRealValue(source, 'dynamicRange', 'dynamic_range', 'dr');
+            tech.crestFactor = getRealValue(source, 'crestFactor', 'crest_factor');
+            
+            // True Peak - tentar múltiplos caminhos
+            tech.truePeakDbtp = getRealValue(source, 'truePeakDbtp', 'true_peak_dbtp', 'truePeak') ||
+                               getRealValue(source, 'truePeak.maxDbtp') ||
+                               backendData.truePeak?.maxDbtp;
+            
+            // LUFS - tentar múltiplos caminhos
+            tech.lufsIntegrated = getRealValue(source, 'lufsIntegrated', 'lufs_integrated', 'lufs') ||
+                                 getRealValue(source, 'loudness.integrated') ||
+                                 backendData.loudness?.integrated;
+            
+            tech.lufsShortTerm = getRealValue(source, 'lufsShortTerm', 'lufs_short_term') ||
+                                getRealValue(source, 'loudness.shortTerm') ||
+                                backendData.loudness?.shortTerm;
+            
+            tech.lufsMomentary = getRealValue(source, 'lufsMomentary', 'lufs_momentary') ||
+                                getRealValue(source, 'loudness.momentary') ||
+                                backendData.loudness?.momentary;
+
+            // LRA
+            tech.lra = getRealValue(source, 'lra', 'loudnessRange') ||
+                      getRealValue(source, 'loudness.lra') ||
+                      backendData.loudness?.lra;
+
+            // Stereo
+            tech.stereoCorrelation = getRealValue(source, 'stereoCorrelation', 'stereo_correlation') ||
+                                    getRealValue(source, 'stereo.correlation') ||
+                                    backendData.stereo?.correlation;
+            
+            tech.stereoWidth = getRealValue(source, 'stereoWidth', 'stereo_width') ||
+                              getRealValue(source, 'stereo.width') ||
+                              backendData.stereo?.width;
+            
+            tech.balanceLR = getRealValue(source, 'balanceLR', 'balance_lr') ||
+                            getRealValue(source, 'stereo.balance') ||
+                            backendData.stereo?.balance;
+
+            // Outros
+            tech.spectralCentroid = getRealValue(source, 'spectralCentroid', 'spectral_centroid');
+            tech.spectralRolloff = getRealValue(source, 'spectralRolloff', 'spectral_rolloff');
+            tech.zeroCrossingRate = getRealValue(source, 'zeroCrossingRate', 'zero_crossing_rate');
+            tech.spectralFlux = getRealValue(source, 'spectralFlux', 'spectral_flux');
+            tech.spectralFlatness = getRealValue(source, 'spectralFlatness', 'spectral_flatness');
+            
+            tech.clippingSamples = getRealValue(source, 'clippingSamples', 'clipping_samples');
+            tech.clippingPct = getRealValue(source, 'clippingPct', 'clipping_pct');
+            tech.dcOffset = getRealValue(source, 'dcOffset', 'dc_offset');
+            tech.thdPercent = getRealValue(source, 'thdPercent', 'thd_percent');
+
+            tech.samplePeakLeftDb = getRealValue(source, 'samplePeakLeftDb', 'sample_peak_left_db');
+            tech.samplePeakRightDb = getRealValue(source, 'samplePeakRightDb', 'sample_peak_right_db');
+
+            // Adicionar dados auxiliares
+            normalized.qualityOverall = backendData.score;
+            normalized.processingMs = backendData.metadata?.processingTime || backendData.performance?.workerTotalTimeMs;
+
+            return normalized;
+        }
+
+        // Executar análise
+        function analyzeCompatibility() {
+            console.log('🔍 Analisando compatibilidade do JSON...');
+
+            // Exibir JSON original
+            document.getElementById('originalJson').textContent = JSON.stringify(backendJson, null, 2);
+
+            // Executar normalização
+            const normalizedResult = simulateNormalization(backendJson);
+
+            // Exibir dados normalizados
+            document.getElementById('normalizedData').textContent = JSON.stringify(normalizedResult, null, 2);
+
+            // Definir métricas esperadas pelo frontend
+            const expectedMetrics = [
+                { key: 'peak', paths: ['peak', 'peak_db', 'peakLevel'], found: false, value: null },
+                { key: 'rms', paths: ['rms', 'rms_db', 'rmsLevel'], found: false, value: null },
+                { key: 'dynamicRange', paths: ['dynamicRange', 'dynamic_range', 'dr'], found: false, value: null },
+                { key: 'crestFactor', paths: ['crestFactor', 'crest_factor'], found: false, value: null },
+                { key: 'truePeakDbtp', paths: ['truePeakDbtp', 'true_peak_dbtp', 'truePeak', 'truePeak.maxDbtp'], found: false, value: null },
+                { key: 'lufsIntegrated', paths: ['lufsIntegrated', 'lufs_integrated', 'lufs', 'loudness.integrated'], found: false, value: null },
+                { key: 'lufsShortTerm', paths: ['lufsShortTerm', 'lufs_short_term', 'loudness.shortTerm'], found: false, value: null },
+                { key: 'lufsMomentary', paths: ['lufsMomentary', 'lufs_momentary', 'loudness.momentary'], found: false, value: null },
+                { key: 'lra', paths: ['lra', 'loudnessRange', 'loudness.lra'], found: false, value: null },
+                { key: 'stereoCorrelation', paths: ['stereoCorrelation', 'stereo_correlation', 'stereo.correlation'], found: false, value: null },
+                { key: 'stereoWidth', paths: ['stereoWidth', 'stereo_width', 'stereo.width'], found: false, value: null },
+                { key: 'balanceLR', paths: ['balanceLR', 'balance_lr', 'stereo.balance'], found: false, value: null }
+            ];
+
+            // Verificar cada métrica
+            let foundCount = 0;
+            let missingCount = 0;
+            let totalMetrics = expectedMetrics.length;
+
+            expectedMetrics.forEach(metric => {
+                // Verificar se a métrica foi encontrada na normalização
+                const normalizedValue = normalizedResult.technicalData[metric.key];
+                
+                if (Number.isFinite(normalizedValue)) {
+                    metric.found = true;
+                    metric.value = normalizedValue;
+                    foundCount++;
+                } else {
+                    missingCount++;
+                }
+            });
+
+            // Exibir estatísticas
+            const summaryStats = `
+                <div class="summary-stats">
+                    <div class="stat-card">
+                        <div class="stat-number">${foundCount}</div>
+                        <div class="stat-label">Métricas Encontradas</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${missingCount}</div>
+                        <div class="stat-label">Métricas Ausentes</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${Math.round((foundCount / totalMetrics) * 100)}%</div>
+                        <div class="stat-label">Taxa de Compatibilidade</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number">${backendJson.score || '?'}</div>
+                        <div class="stat-label">Score Geral</div>
+                    </div>
+                </div>
+            `;
+
+            // Exibir mapeamento detalhado
+            const mappingHtml = expectedMetrics.map(metric => {
+                const statusClass = metric.found ? 'found' : 'missing';
+                const statusBadge = metric.found ? 
+                    `<span class="status-badge status-found">Encontrada</span>` :
+                    `<span class="status-badge status-missing">Ausente</span>`;
+                
+                return `
+                    <div class="metric-card ${statusClass}">
+                        <h4>${metric.key} ${statusBadge}</h4>
+                        <p><strong>Caminhos Tentados:</strong> ${metric.paths.join(', ')}</p>
+                        <p><strong>Valor Encontrado:</strong> ${metric.found ? metric.value : 'null'}</p>
+                    </div>
+                `;
+            }).join('');
+
+            document.getElementById('analysisResults').innerHTML = summaryStats;
+            document.getElementById('mappingResults').innerHTML = `<div class="mapping-result">${mappingHtml}</div>`;
+
+            // Análise específica dos problemas encontrados
+            const issues = [];
+            
+            // Verificar dados críticos ausentes
+            const criticalMetrics = ['lufsIntegrated', 'truePeakDbtp', 'peak', 'rms'];
+            criticalMetrics.forEach(key => {
+                const metric = expectedMetrics.find(m => m.key === key);
+                if (!metric.found) {
+                    issues.push(`❌ Métrica crítica ausente: ${key}`);
+                }
+            });
+
+            // Verificar se existem dados no local correto mas com nomes diferentes
+            if (backendJson.truePeak?.maxDbtp && !normalizedResult.technicalData.truePeakDbtp) {
+                issues.push(`🔄 TruePeak existe como truePeak.maxDbtp (${backendJson.truePeak.maxDbtp}) mas não foi mapeado`);
+            }
+
+            if (backendJson.loudness?.integrated && !normalizedResult.technicalData.lufsIntegrated) {
+                issues.push(`🔄 LUFS existe como loudness.integrated (${backendJson.loudness.integrated}) mas não foi mapeado`);
+            }
+
+            if (issues.length > 0) {
+                const issuesHtml = `
+                    <div class="analysis-section">
+                        <h2>⚠️ Problemas Detectados</h2>
+                        <ul>
+                            ${issues.map(issue => `<li>${issue}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+                document.getElementById('mappingResults').insertAdjacentHTML('afterend', issuesHtml);
+            }
+
+            return {
+                compatibility: Math.round((foundCount / totalMetrics) * 100),
+                foundMetrics: foundCount,
+                missingMetrics: missingCount,
+                totalMetrics: totalMetrics,
+                issues: issues
+            };
+        }
+
+        // Executar análise quando a página carregar
+        document.addEventListener('DOMContentLoaded', () => {
+            const result = analyzeCompatibility();
+            console.log('📊 Resultado da análise:', result);
+        });
+    </script>
+</body>
+</html>
