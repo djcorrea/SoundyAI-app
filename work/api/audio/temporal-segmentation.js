@@ -253,9 +253,11 @@ export function segmentAudioTemporal(audioBufferLike, options = {}) {
       duration,
       numberOfChannels,
 
-      // Canais originais preservados (para Core Metrics)
-      originalLeft: leftChannel,
-      originalRight: rightChannel,
+      // 🔥 CORREÇÃO CRÍTICA: originalChannels no formato esperado pelo core-metrics
+      originalChannels: {
+        left: leftChannel,
+        right: rightChannel
+      },
 
       // Frames FFT com metadados completos
       framesFFT: {
