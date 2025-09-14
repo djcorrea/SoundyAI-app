@@ -5127,100 +5127,118 @@ function normalizeBackendAnalysisData(backendData) {
         return backendData;
     }
     
-    // Criar estrutura normalizada
+    // Criar estrutura normalizada - SEM FALLBACKS FICTÍCIOS
     const normalized = {
         ...backendData,
         technicalData: backendData.technicalData || {},
         problems: backendData.problems || [],
         suggestions: backendData.suggestions || [],
-        duration: backendData.duration || 0,
-        sampleRate: backendData.sampleRate || 48000,
-        channels: backendData.channels || 2
+        duration: backendData.duration || null,
+        sampleRate: backendData.sampleRate || null,
+        channels: backendData.channels || null
     };
     
-    // 🎯 MAPEAR MÉTRICAS BÁSICAS
+    // 🎯 MAPEAR MÉTRICAS BÁSICAS - SEM FALLBACKS FICTÍCIOS
     const tech = normalized.technicalData;
     const source = backendData.technicalData || backendData.metrics || backendData;
     
-    // Peak e RMS
-    tech.peak = source.peak || source.peak_db || source.peakLevel || -60;
-    tech.rms = source.rms || source.rms_db || source.rmsLevel || -60;
+    console.log('🔍 [NORMALIZE] Dados de origem recebidos:', source);
+    
+    // Função para pegar valor real ou null (sem fallbacks fictícios)
+    const getRealValue = (...paths) => {
+        for (const path of paths) {
+            const value = path.split('.').reduce((obj, key) => obj?.[key], source);
+            if (Number.isFinite(value)) {
+                return value;
+            }
+        }
+        return null; // Retorna null se não há valor real
+    };
+    
+    // Peak e RMS - APENAS VALORES REAIS
+    tech.peak = getRealValue('peak', 'peak_db', 'peakLevel');
+    tech.rms = getRealValue('rms', 'rms_db', 'rmsLevel');
     tech.rmsLevel = tech.rms;
     
-    // Dynamic Range
-    tech.dynamicRange = source.dynamicRange || source.dynamic_range || source.dr || 
-                       (Number.isFinite(tech.peak) && Number.isFinite(tech.rms) ? tech.peak - tech.rms : 12);
+    // Dynamic Range - APENAS VALORES REAIS
+    tech.dynamicRange = getRealValue('dynamicRange', 'dynamic_range', 'dr');
     
-    // Crest Factor
-    tech.crestFactor = source.crestFactor || source.crest_factor || tech.dynamicRange || 12;
+    // Crest Factor - APENAS VALORES REAIS
+    tech.crestFactor = getRealValue('crestFactor', 'crest_factor');
     
-    // True Peak
-    tech.truePeakDbtp = source.truePeakDbtp || source.true_peak_dbtp || source.truePeak || tech.peak;
+    // True Peak - APENAS VALORES REAIS
+    tech.truePeakDbtp = getRealValue('truePeakDbtp', 'true_peak_dbtp', 'truePeak');
     
-    // LUFS
-    tech.lufsIntegrated = source.lufsIntegrated || source.lufs_integrated || source.lufs || -23;
-    tech.lufsShortTerm = source.lufsShortTerm || source.lufs_short_term || tech.lufsIntegrated;
-    tech.lufsMomentary = source.lufsMomentary || source.lufs_momentary || tech.lufsIntegrated;
+    // LUFS - APENAS VALORES REAIS
+    tech.lufsIntegrated = getRealValue('lufsIntegrated', 'lufs_integrated', 'lufs');
+    tech.lufsShortTerm = getRealValue('lufsShortTerm', 'lufs_short_term');
+    tech.lufsMomentary = getRealValue('lufsMomentary', 'lufs_momentary');
     
-    // LRA
-    tech.lra = source.lra || source.loudnessRange || 8;
+    // LRA - APENAS VALORES REAIS
+    tech.lra = getRealValue('lra', 'loudnessRange');
     
-    // Headroom
-    tech.headroomDb = source.headroomDb || source.headroom_db || (0 - tech.peak);
-    tech.headroomTruePeakDb = source.headroomTruePeakDb || (0 - tech.truePeakDbtp);
+    console.log('📊 [NORMALIZE] Métricas mapeadas (apenas reais):', {
+        peak: tech.peak,
+        rms: tech.rms,
+        dynamicRange: tech.dynamicRange,
+        crestFactor: tech.crestFactor,
+        truePeakDbtp: tech.truePeakDbtp,
+        lufsIntegrated: tech.lufsIntegrated,
+        lufsShortTerm: tech.lufsShortTerm,
+        lufsMomentary: tech.lufsMomentary,
+        lra: tech.lra
+    });
     
-    // Stereo
-    tech.stereoCorrelation = source.stereoCorrelation || source.stereo_correlation || 0.5;
-    tech.stereoWidth = source.stereoWidth || source.stereo_width || 0.5;
-    tech.balanceLR = source.balanceLR || source.balance_lr || 0;
+    // Headroom - APENAS VALORES REAIS
+    tech.headroomDb = getRealValue('headroomDb', 'headroom_db');
+    tech.headroomTruePeakDb = getRealValue('headroomTruePeakDb');
     
-    // Spectral
-    tech.spectralCentroid = source.spectralCentroid || source.spectral_centroid || 1000;
-    tech.spectralRolloff = source.spectralRolloff || source.spectral_rolloff || 5000;
-    tech.zeroCrossingRate = source.zeroCrossingRate || source.zero_crossing_rate || 0.1;
-    tech.spectralFlux = source.spectralFlux || source.spectral_flux || 0.5;
-    tech.spectralFlatness = source.spectralFlatness || source.spectral_flatness || 0.1;
+    // Stereo - APENAS VALORES REAIS
+    tech.stereoCorrelation = getRealValue('stereoCorrelation', 'stereo_correlation');
+    tech.stereoWidth = getRealValue('stereoWidth', 'stereo_width');
+    tech.balanceLR = getRealValue('balanceLR', 'balance_lr');
     
-    // Problemas técnicos
-    tech.clippingSamples = source.clippingSamples || source.clipping_samples || 0;
-    tech.clippingPct = source.clippingPct || source.clipping_pct || 0;
-    tech.dcOffset = source.dcOffset || source.dc_offset || 0;
-    tech.thdPercent = source.thdPercent || source.thd_percent || 0;
+    // Spectral - APENAS VALORES REAIS
+    tech.spectralCentroid = getRealValue('spectralCentroid', 'spectral_centroid');
+    tech.spectralRolloff = getRealValue('spectralRolloff', 'spectral_rolloff');
+    tech.zeroCrossingRate = getRealValue('zeroCrossingRate', 'zero_crossing_rate');
+    tech.spectralFlux = getRealValue('spectralFlux', 'spectral_flux');
+    tech.spectralFlatness = getRealValue('spectralFlatness', 'spectral_flatness');
     
-    // Sample peaks por canal
-    tech.samplePeakLeftDb = source.samplePeakLeftDb || source.sample_peak_left_db || tech.peak;
-    tech.samplePeakRightDb = source.samplePeakRightDb || source.sample_peak_right_db || tech.peak;
+    // Problemas técnicos - APENAS VALORES REAIS
+    tech.clippingSamples = getRealValue('clippingSamples', 'clipping_samples');
+    tech.clippingPct = getRealValue('clippingPct', 'clipping_pct');
+    tech.dcOffset = getRealValue('dcOffset', 'dc_offset');
+    tech.thdPercent = getRealValue('thdPercent', 'thd_percent');
     
-    // 🎵 SPECTRAL BALANCE - Mapear dados espectrais
+    // Sample peaks por canal - APENAS VALORES REAIS
+    tech.samplePeakLeftDb = getRealValue('samplePeakLeftDb', 'sample_peak_left_db');
+    tech.samplePeakRightDb = getRealValue('samplePeakRightDb', 'sample_peak_right_db');
+    
+    // 🎵 SPECTRAL BALANCE - Mapear dados espectrais REAIS
     if (source.spectral_balance || source.spectralBalance || source.bands) {
-        const spectralSource = source.spectral_balance || source.spectralBalance || {};
+        const spectralSource = source.spectral_balance || source.spectralBalance || source.bands || {};
         tech.spectral_balance = {
-            sub: spectralSource.sub || 0.1,
-            bass: spectralSource.bass || 0.2,
-            mids: spectralSource.mids || 0.3,
-            treble: spectralSource.treble || 0.2,
-            presence: spectralSource.presence || 0.15,
-            air: spectralSource.air || 0.05
+            sub: getRealValue.call({ source: spectralSource }, 'sub'),
+            bass: getRealValue.call({ source: spectralSource }, 'bass', 'low_bass'),
+            mids: getRealValue.call({ source: spectralSource }, 'mids', 'mid'),
+            treble: getRealValue.call({ source: spectralSource }, 'treble', 'high'),
+            presence: getRealValue.call({ source: spectralSource }, 'presence'),
+            air: getRealValue.call({ source: spectralSource }, 'air')
         };
+        console.log('📊 [NORMALIZE] Spectral balance mapeado:', tech.spectral_balance);
     } else {
-        // Valores padrão se não houver dados espectrais
-        tech.spectral_balance = {
-            sub: 0.1,
-            bass: 0.25,
-            mids: 0.35,
-            treble: 0.2,
-            presence: 0.08,
-            air: 0.02
-        };
-        console.log('⚠️ [NORMALIZE] Usando valores padrão para spectral_balance');
+        // Não definir se não há dados reais
+        tech.spectral_balance = null;
+        console.log('⚠️ [NORMALIZE] Nenhum dado espectral real encontrado - spectral_balance = null');
     }
     
-    // 🎶 BAND ENERGIES - Mapear energias das bandas de frequência
+    // 🎶 BAND ENERGIES - Mapear energias das bandas de frequência REAIS
     if (source.bandEnergies || source.band_energies || source.bands) {
         const bandsSource = source.bandEnergies || source.band_energies || source.bands || {};
         tech.bandEnergies = {};
         
-        // Mapear bandas conhecidas
+        // Mapear bandas conhecidas - APENAS VALORES REAIS
         const bandMapping = {
             'sub': 'sub',
             'subBass': 'sub', 
@@ -5246,74 +5264,72 @@ function normalizeBackendAnalysisData(backendData) {
         
         Object.entries(bandMapping).forEach(([sourceKey, targetKey]) => {
             const bandData = bandsSource[sourceKey];
-            if (bandData) {
-                tech.bandEnergies[targetKey] = {
-                    rms_db: bandData.rms_db || bandData.energy_db || bandData.level || -40,
-                    peak_db: bandData.peak_db || bandData.rms_db || -35,
-                    frequency_range: bandData.frequency_range || bandData.range || 'N/A'
-                };
+            if (bandData && typeof bandData === 'object') {
+                // Pegar apenas valores reais, sem fallbacks
+                const rms_db = Number.isFinite(bandData.rms_db) ? bandData.rms_db : 
+                              Number.isFinite(bandData.energy_db) ? bandData.energy_db :
+                              Number.isFinite(bandData.level) ? bandData.level : null;
+                              
+                const peak_db = Number.isFinite(bandData.peak_db) ? bandData.peak_db : null;
+                const frequency_range = bandData.frequency_range || bandData.range || null;
+                
+                // Só adicionar se tiver pelo menos um valor real
+                if (rms_db !== null || peak_db !== null) {
+                    tech.bandEnergies[targetKey] = {
+                        rms_db: rms_db,
+                        peak_db: peak_db,
+                        frequency_range: frequency_range
+                    };
+                }
             }
         });
         
-        // Se não conseguiu mapear nenhuma banda, criar valores default
+        console.log('📊 [NORMALIZE] Band energies mapeadas (apenas reais):', tech.bandEnergies);
+        
+        // Se não conseguiu mapear nenhuma banda real, deixar null
         if (Object.keys(tech.bandEnergies).length === 0) {
-            tech.bandEnergies = {
-                sub: { rms_db: -30, peak_db: -25, frequency_range: '20-60 Hz' },
-                low_bass: { rms_db: -25, peak_db: -20, frequency_range: '60-250 Hz' },
-                upper_bass: { rms_db: -20, peak_db: -15, frequency_range: '250-500 Hz' },
-                low_mid: { rms_db: -18, peak_db: -13, frequency_range: '500-1k Hz' },
-                mid: { rms_db: -15, peak_db: -10, frequency_range: '1k-2k Hz' },
-                high_mid: { rms_db: -22, peak_db: -17, frequency_range: '2k-4k Hz' },
-                brilho: { rms_db: -28, peak_db: -23, frequency_range: '4k-8k Hz' },
-                presenca: { rms_db: -35, peak_db: -30, frequency_range: '8k-12k Hz' }
-            };
-            console.log('⚠️ [NORMALIZE] Usando valores padrão para bandEnergies');
+            tech.bandEnergies = null;
+            console.log('⚠️ [NORMALIZE] Nenhuma banda real encontrada - bandEnergies = null');
         }
     } else {
-        console.log('⚠️ [NORMALIZE] Dados de bandas não encontrados, criando estrutura padrão');
-        tech.bandEnergies = {
-            sub: { rms_db: -30, peak_db: -25, frequency_range: '20-60 Hz' },
-            low_bass: { rms_db: -25, peak_db: -20, frequency_range: '60-250 Hz' },
-            upper_bass: { rms_db: -20, peak_db: -15, frequency_range: '250-500 Hz' }, 
-            low_mid: { rms_db: -18, peak_db: -13, frequency_range: '500-1k Hz' },
-            mid: { rms_db: -15, peak_db: -10, frequency_range: '1k-2k Hz' },
-            high_mid: { rms_db: -22, peak_db: -17, frequency_range: '2k-4k Hz' },
-            brilho: { rms_db: -28, peak_db: -23, frequency_range: '4k-8k Hz' },
-            presenca: { rms_db: -35, peak_db: -30, frequency_range: '8k-12k Hz' }
-        };
+        tech.bandEnergies = null;
+        console.log('⚠️ [NORMALIZE] Dados de bandas não encontrados - bandEnergies = null');
     }
     
-    // 🎼 TONAL BALANCE - Estrutura simplificada para compatibilidade
-    if (tech.bandEnergies) {
+    // 🎼 TONAL BALANCE - Estrutura simplificada para compatibilidade APENAS COM VALORES REAIS
+    if (tech.bandEnergies && Object.keys(tech.bandEnergies).length > 0) {
         tech.tonalBalance = {
-            sub: tech.bandEnergies.sub || { rms_db: -30 },
-            low: tech.bandEnergies.low_bass || { rms_db: -25 },
-            mid: tech.bandEnergies.mid || { rms_db: -15 },
-            high: tech.bandEnergies.brilho || { rms_db: -28 }
+            sub: tech.bandEnergies.sub || null,
+            low: tech.bandEnergies.low_bass || null,
+            mid: tech.bandEnergies.mid || null,
+            high: tech.bandEnergies.brilho || null
         };
+        console.log('📊 [NORMALIZE] Tonal balance baseado em bandEnergies reais:', tech.tonalBalance);
+    } else {
+        tech.tonalBalance = null;
+        console.log('⚠️ [NORMALIZE] Nenhuma banda real para tonal balance - tonalBalance = null');
     }
     
     // 🎯 FREQUÊNCIAS DOMINANTES
+    // 🎵 FREQUÊNCIAS DOMINANTES - APENAS VALORES REAIS
     if (source.dominantFrequencies || source.dominant_frequencies) {
         tech.dominantFrequencies = source.dominantFrequencies || source.dominant_frequencies;
+        console.log('📊 [NORMALIZE] Frequências dominantes reais encontradas:', tech.dominantFrequencies);
     } else {
-        // Gerar algumas frequências dominantes baseadas nos dados espectrais
-        tech.dominantFrequencies = [
-            { frequency: 440, occurrences: 10 },
-            { frequency: 880, occurrences: 8 }, 
-            { frequency: 220, occurrences: 6 }
-        ];
+        tech.dominantFrequencies = null;
+        console.log('⚠️ [NORMALIZE] Frequências dominantes não encontradas - dominantFrequencies = null');
     }
     
-    // 🔢 SCORES E QUALIDADE
-    normalized.qualityOverall = backendData.qualityOverall || backendData.score || backendData.mixScore || 7.5;
-    normalized.qualityBreakdown = backendData.qualityBreakdown || {
-        dynamics: 75,
-        technical: 80,
-        stereo: 70,
-        loudness: 85,
-        frequency: 75
-    };
+    // 🔢 SCORES E QUALIDADE - APENAS VALORES REAIS
+    normalized.qualityOverall = getRealValue(backendData, ['qualityOverall', 'score', 'mixScore']);
+    
+    if (backendData.qualityBreakdown && typeof backendData.qualityBreakdown === 'object') {
+        normalized.qualityBreakdown = backendData.qualityBreakdown;
+        console.log('📊 [NORMALIZE] Quality breakdown real encontrado:', normalized.qualityBreakdown);
+    } else {
+        normalized.qualityBreakdown = null;
+        console.log('⚠️ [NORMALIZE] Quality breakdown não encontrado - qualityBreakdown = null');
+    }
     
     // 🚨 PROBLEMAS - Garantir que existam alguns problemas/sugestões para exibir
     if (normalized.problems.length === 0) {
