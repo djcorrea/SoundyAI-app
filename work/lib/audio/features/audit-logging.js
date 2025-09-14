@@ -77,7 +77,16 @@ export function auditMetricsCorrections(coreMetrics, originalAudio, normalizatio
   const fft = coreMetrics.fft;
   if (fft) {
     console.log(`   ✅ Magnitude: RMS stereo (corrigido de média aritmética)`);
-    console.log(`   📊 Spectral Centroid: ${fft.spectralCentroid?.toFixed(1) || 'null'} Hz (corrigido de bins)`);
+    
+    // LOG ESPECÍFICO SPECTRAL CENTROID
+    if (fft.spectralCentroid !== null && isFinite(fft.spectralCentroid)) {
+      console.log(`   🎵 [AUDITORIA] Spectral Centroid calculado: ${fft.spectralCentroid.toFixed(2)} Hz`);
+      console.log(`   ✅ Fórmula aplicada: Σ(f * magnitude(f)) / Σ magnitude(f)`);
+    } else {
+      console.log(`   🔇 [AUDITORIA] Spectral Centroid: null (silêncio ou erro)`);
+      console.log(`   ✅ Correção aplicada: não mascarado com 0 fixo`);
+    }
+    
     console.log(`   📈 Spectral Rolloff: ${fft.spectralRolloff?.toFixed(3) || 'null'}`);
     console.log(`   📊 Spectral Flatness: ${fft.spectralFlatness?.toFixed(3) || 'null'}`);
     console.log(`   🔢 FFT Size: ${coreMetrics.metadata?.fftSize || 'unknown'}`);
@@ -184,6 +193,18 @@ export function auditMetricsValidation(metrics, expectedValues = {}) {
       value: `${metrics.stereo.correlation?.toFixed(3)}`,
       valid,
       reason: valid ? 'Range válido [-1, 1]' : 'Fora do range válido'
+    });
+  }
+  
+  // Validar Spectral Centroid
+  if (metrics.fft?.spectralCentroid !== null) {
+    const nyquist = 24000; // Assumindo 48kHz / 2
+    const valid = metrics.fft.spectralCentroid > 0 && metrics.fft.spectralCentroid <= nyquist;
+    validations.push({
+      metric: 'Spectral Centroid',
+      value: `${metrics.fft.spectralCentroid?.toFixed(1)} Hz`,
+      valid,
+      reason: valid ? 'Range válido (0-24kHz)' : 'Fora do range de frequências válido'
     });
   }
   

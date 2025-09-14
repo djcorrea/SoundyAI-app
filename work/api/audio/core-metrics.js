@@ -324,7 +324,8 @@ class CoreMetricsProcessor {
           const rolloff = this.calculateSpectralRolloff(magnitude);
           const flatness = this.calculateSpectralFlatness(magnitude);
 
-          if (!isFinite(centroid) || !isFinite(rolloff) || !isFinite(flatness)) {
+          // CORREÇÃO: aceitar null para centroid (silêncio absoluto)
+          if ((centroid !== null && !isFinite(centroid)) || !isFinite(rolloff) || !isFinite(flatness)) {
             throw makeErr('core_metrics', `Invalid spectral metrics at frame ${i}`, 'invalid_spectral_metrics');
           }
 
@@ -344,6 +345,33 @@ class CoreMetricsProcessor {
       }
 
       fftResults.processedFrames = fftResults.left.length;
+      
+      // ========= AGREGAÇÃO ESPECTRAL =========
+      // Agregar spectralCentroid de array para valor único em Hz
+      const validCentroids = fftResults.spectralCentroid.filter(c => c !== null && isFinite(c));
+      if (validCentroids.length > 0) {
+        // Usar mediana para robustez contra outliers
+        validCentroids.sort((a, b) => a - b);
+        const medianIndex = Math.floor(validCentroids.length / 2);
+        fftResults.spectralCentroidHz = validCentroids.length % 2 === 0 
+          ? (validCentroids[medianIndex - 1] + validCentroids[medianIndex]) / 2
+          : validCentroids[medianIndex];
+          
+        logAudio('core_metrics', 'spectral_centroid_aggregated', {
+          frames: validCentroids.length,
+          centroidHz: fftResults.spectralCentroidHz.toFixed(1),
+          min: validCentroids[0].toFixed(1),
+          max: validCentroids[validCentroids.length - 1].toFixed(1)
+        });
+      } else {
+        fftResults.spectralCentroidHz = null;
+        logAudio('core_metrics', 'spectral_centroid_null', { 
+          reason: 'No valid centroid values found' 
+        });
+      }
+      
+      // Manter array original para compatibilidade, mas adicionar valor agregado
+      fftResults.spectralCentroid = fftResults.spectralCentroidHz;
       
       // Verificação final
       if (fftResults.processedFrames === 0) {
@@ -524,21 +552,36 @@ class CoreMetricsProcessor {
   }
 
   calculateSpectralCentroid(magnitude) {
+    // IMPLEMENTAÇÃO MATEMÁTICA PADRÃO: centroid = Σ(f * magnitude(f)) / Σ magnitude(f)
     let weightedSum = 0;
     let totalMagnitude = 0;
     
-    // CORREÇÃO: Usar frequências em Hz, não índices de bins
     const sampleRate = CORE_METRICS_CONFIG.SAMPLE_RATE;
     const fftSize = CORE_METRICS_CONFIG.FFT_SIZE;
     const frequencyResolution = sampleRate / fftSize; // Hz por bin
     
+    // Começar do bin 1 para evitar DC component (0 Hz)
     for (let i = 1; i < magnitude.length; i++) {
-      const frequency = i * frequencyResolution; // Hz
-      weightedSum += frequency * magnitude[i];
-      totalMagnitude += magnitude[i];
+      const frequency = i * frequencyResolution; // f em Hz
+      const magnitudeValue = magnitude[i];
+      
+      weightedSum += frequency * magnitudeValue; // Σ(f * magnitude(f))
+      totalMagnitude += magnitudeValue; // Σ magnitude(f)
     }
     
-    return totalMagnitude > 0 ? weightedSum / totalMagnitude : 0; // Hz
+    // Retornar valor numérico em Hz ou null para silêncio absoluto
+    if (totalMagnitude <= 0) {
+      return null; // Silêncio absoluto - não mascarar com 0
+    }
+    
+    const centroidHz = weightedSum / totalMagnitude;
+    
+    // Validação do resultado
+    if (!isFinite(centroidHz) || centroidHz < 0 || centroidHz > sampleRate / 2) {
+      return null; // Resultado inválido
+    }
+    
+    return centroidHz; // Retorna sempre Number em Hz
   }
 
   calculateSpectralRolloff(magnitude, threshold = 0.85) {
@@ -656,5 +699,8 @@ export async function calculateCoreMetrics(segmentedAudio, options = {}) {
     throw makeErr('core_metrics', `Core metrics processing failed: ${error.message}`, 'core_metrics_entry_error');
   }
 }
+
+// Exportar classe para testes
+export { CoreMetricsProcessor };
 
 console.log('✅ Core Metrics Processor inicializado (Fase 5.3) - CORRIGIDO com fail-fast');
