@@ -5183,6 +5183,21 @@ function normalizeBackendAnalysisData(backendData) {
     tech.truePeakLinear = backendData.truePeak?.maxLinear || 
                          source.truePeakLinear || source.true_peak_linear || 0.8;
     
+    // 🔥 TRUE PEAK DETALHADO - DADOS COMPLETOS DO PIPELINE
+    if (backendData.truePeak) {
+        tech.truePeakDetailed = {
+            maxDbtp: backendData.truePeak.maxDbtp || -60,
+            maxLinear: backendData.truePeak.maxLinear || 0.8,
+            oversamplingFactor: backendData.truePeak.oversamplingFactor || 4,
+            clippingCount: backendData.truePeak.clippingCount || 0,
+            leftPeak: backendData.truePeak.leftPeak || -60,
+            rightPeak: backendData.truePeak.rightPeak || -60,
+            unit: backendData.truePeak.unit || 'dBTP'
+        };
+        
+        console.log('🔥 [NORMALIZE] True Peak detalhado:', tech.truePeakDetailed);
+    }
+    
     // LUFS - CORRIGIDO: Mapear do formato do pipeline
     tech.lufsIntegrated = backendData.loudness?.integrated || 
                          source.lufsIntegrated || source.lufs_integrated || source.lufs || -23;
@@ -5207,6 +5222,23 @@ function normalizeBackendAnalysisData(backendData) {
     tech.balanceLR = backendData.stereo?.balance || 
                     source.balanceLR || source.balance_lr || 0;
     
+    // 🎧 STEREO DETALHADO - ANÁLISE COMPLETA DO PIPELINE
+    if (backendData.stereo) {
+        tech.stereoDetailed = {
+            correlation: backendData.stereo.correlation || 0.5,
+            width: backendData.stereo.width || 0.5,
+            balance: backendData.stereo.balance || 0,
+            isMonoCompatible: backendData.stereo.isMonoCompatible || false,
+            hasPhaseIssues: backendData.stereo.hasPhaseIssues || false,
+            correlationCategory: backendData.stereo.correlationCategory || 'unknown',
+            widthCategory: backendData.stereo.widthCategory || 'unknown',
+            algorithm: backendData.stereo.algorithm || 'standard',
+            valid: backendData.stereo.valid !== false
+        };
+        
+        console.log('🎧 [NORMALIZE] Stereo detalhado:', tech.stereoDetailed);
+    }
+    
     console.log('✅ [NORMALIZE] Métricas mapeadas:', {
         lufsIntegrated: tech.lufsIntegrated,
         truePeakDbtp: tech.truePeakDbtp,
@@ -5220,6 +5252,78 @@ function normalizeBackendAnalysisData(backendData) {
     tech.zeroCrossingRate = source.zeroCrossingRate || source.zero_crossing_rate || 0.1;
     tech.spectralFlux = source.spectralFlux || source.spectral_flux || 0.5;
     tech.spectralFlatness = source.spectralFlatness || source.spectral_flatness || 0.1;
+    
+    // 🎵 MÉTRICAS ESPECTRAIS AVANÇADAS - MAPEAMENTO COMPLETO DO PIPELINE
+    if (backendData.fft || backendData.spectral) {
+        const fftSource = backendData.fft || backendData.spectral || {};
+        
+        tech.fftMetrics = {
+            processedFrames: fftSource.processedFrames || 0,
+            spectralCentroidHz: fftSource.spectralCentroidHz || fftSource.spectralCentroid || 0,
+            spectralRolloffHz: fftSource.spectralRolloffHz || fftSource.spectralRolloff || 0,
+            spectralBandwidthHz: fftSource.spectralBandwidthHz || fftSource.spectralBandwidth || 0,
+            spectralSpreadHz: fftSource.spectralSpreadHz || fftSource.spectralSpread || 0,
+            spectralFlatness: fftSource.spectralFlatness || 0,
+            spectralCrest: fftSource.spectralCrest || 0,
+            spectralSkewness: fftSource.spectralSkewness || 0,
+            spectralKurtosis: fftSource.spectralKurtosis || 0
+        };
+        
+        console.log('🎵 [NORMALIZE] Métricas FFT mapeadas:', tech.fftMetrics);
+    }
+    
+    // 🔊 BANDAS ESPECTRAIS - MAPEAMENTO COMPLETO
+    if (backendData.spectralBands) {
+        tech.spectralBands = {
+            sub: backendData.spectralBands.sub || { rms_db: -30, peak_db: -25 },
+            low_bass: backendData.spectralBands.low_bass || { rms_db: -25, peak_db: -20 },
+            upper_bass: backendData.spectralBands.upper_bass || { rms_db: -20, peak_db: -15 },
+            low_mid: backendData.spectralBands.low_mid || { rms_db: -18, peak_db: -13 },
+            mid: backendData.spectralBands.mid || { rms_db: -15, peak_db: -10 },
+            high_mid: backendData.spectralBands.high_mid || { rms_db: -22, peak_db: -17 },
+            brilho: backendData.spectralBands.brilho || { rms_db: -28, peak_db: -23 },
+            presenca: backendData.spectralBands.presenca || { rms_db: -35, peak_db: -30 }
+        };
+        
+        console.log('🔊 [NORMALIZE] Bandas espectrais mapeadas:', Object.keys(tech.spectralBands));
+    }
+    
+    // 🎯 SPECTRAL CENTROID DETALHADO
+    if (backendData.spectralCentroid) {
+        tech.spectralCentroidDetailed = {
+            averageHz: backendData.spectralCentroid.averageHz || 0,
+            medianHz: backendData.spectralCentroid.medianHz || 0,
+            category: backendData.spectralCentroid.category || 'unknown',
+            frames: backendData.spectralCentroid.frames || 0
+        };
+        
+        console.log('🎯 [NORMALIZE] Spectral Centroid detalhado:', tech.spectralCentroidDetailed);
+    }
+    
+    // ⚡ DINÂMICA E CREST FACTOR
+    if (backendData.dynamics) {
+        tech.dynamics = {
+            dynamicRange: backendData.dynamics.dynamicRange || 0,
+            crestFactor: backendData.dynamics.crestFactor || 0,
+            lra: backendData.dynamics.lra || 0,
+            peakToAverage: backendData.dynamics.peakToAverage || 0
+        };
+        
+        console.log('⚡ [NORMALIZE] Dinâmica mapeada:', tech.dynamics);
+    }
+    
+    // 📊 NORMALIZAÇÃO INFO
+    if (backendData.normalization) {
+        tech.normalization = {
+            applied: backendData.normalization.applied || false,
+            originalLUFS: backendData.normalization.originalLUFS || 0,
+            gainAppliedDB: backendData.normalization.gainAppliedDB || 0,
+            hasClipping: backendData.normalization.hasClipping || false,
+            isSilence: backendData.normalization.isSilence || false
+        };
+        
+        console.log('📊 [NORMALIZE] Normalização mapeada:', tech.normalization);
+    }
     
     // Problemas técnicos
     tech.clippingSamples = source.clippingSamples || source.clipping_samples || 0;
