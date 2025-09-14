@@ -866,9 +866,12 @@ function __logMetricAnomaly(kind, key, context={}) {
     } catch {}
 }
 
-// Placeholder seguro para valores não finitos (exibe '—' e loga uma vez por chave por render)
+// Formatação segura para valores não finitos (omite linha em vez de exibir placeholder)
 function safeDisplayNumber(val, key, decimals=2) {
-    if (!Number.isFinite(val)) { __logMetricAnomaly('non_finite', key); return '—'; }
+    if (!Number.isFinite(val)) { 
+        console.warn(`🎯 MÉTRICA INVÁLIDA OMITIDA: ${key} = ${val}`); 
+        return null; // Retorna null em vez de "—"
+    }
     return val.toFixed(decimals);
 }
 
@@ -3304,18 +3307,22 @@ function displayModalResults(analysis) {
     );
     if (typeof window !== 'undefined') window.__AUDIO_ADVANCED_READY__ = advancedReady;
 
-    // Helpers seguros com bloqueio de fallback se advanced não pronto
-    const safeFixed = (v, d=1) => (Number.isFinite(v) ? v.toFixed(d) : '—');
-    const safeHz = (v) => (Number.isFinite(v) ? `${Math.round(v)} Hz` : '—');
-    const pct = (v, d=0) => (Number.isFinite(v) ? `${(v*100).toFixed(d)}%` : '—');
+    // Helpers seguros SEM placeholders - só exibe se valor real existir
+    const safeFixed = (v, d=1) => (Number.isFinite(v) ? v.toFixed(d) : null);
+    const safeHz = (v) => (Number.isFinite(v) ? `${Math.round(v)} Hz` : null);
+    const pct = (v, d=0) => (Number.isFinite(v) ? `${(v*100).toFixed(d)}%` : null);
+    const safeLUFS = (v, d=1) => (Number.isFinite(v) ? `${v.toFixed(d)} LUFS` : null);
+    const safeDBTP = (v, d=1) => (Number.isFinite(v) ? `${v.toFixed(d)} dBTP` : null);
+    const safeDeco = (v, unit='', d=1) => (Number.isFinite(v) ? `${v.toFixed(d)} ${unit}` : null);
+    
     const tonalSummary = (tb) => {
-        if (!tb || typeof tb !== 'object') return '—';
+        if (!tb || typeof tb !== 'object') return null;
         const parts = [];
         if (tb.sub && Number.isFinite(tb.sub.rms_db)) parts.push(`Sub ${tb.sub.rms_db.toFixed(1)}dB`);
         if (tb.low && Number.isFinite(tb.low.rms_db)) parts.push(`Low ${tb.low.rms_db.toFixed(1)}dB`);
         if (tb.mid && Number.isFinite(tb.mid.rms_db)) parts.push(`Mid ${tb.mid.rms_db.toFixed(1)}dB`);
         if (tb.high && Number.isFinite(tb.high.rms_db)) parts.push(`High ${tb.high.rms_db.toFixed(1)}dB`);
-        return parts.length ? parts.join(' • ') : '—';
+        return parts.length ? parts.join(' • ') : null;
     };
 
         // Layout com cards e KPIs, mantendo o container #modalTechnicalData
@@ -3366,36 +3373,44 @@ function displayModalResults(analysis) {
             return path.split('.').reduce((current, key) => current?.[key], obj);
         };
 
-        const safePct = (v) => (Number.isFinite(v) ? `${(v*100).toFixed(0)}%` : '—');
-        const monoCompat = (s) => s ? s : '—';
+        const safePct = (v) => (Number.isFinite(v) ? `${(v*100).toFixed(0)}%` : null);
+        const monoCompat = (s) => s ? s : null;
 
         // Função para obter o valor LUFS integrado usando métricas centralizadas
         const getLufsIntegratedValue = () => {
             return getMetric('lufs_integrated', 'lufsIntegrated');
         };
 
+        // Helper para criar linha apenas se valor existir
+        const conditionalRow = (label, value, unit='', keyForSource=null) => {
+            if (value === null || value === undefined || !Number.isFinite(value)) {
+                return ''; // Não exibir linha se não há valor real
+            }
+            return row(label, `${value.toFixed(1)} ${unit}`, keyForSource);
+        };
+
         const col1 = [
-            row('Peak (máximo)', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak'),
-            row('RMS Level', `${safeFixed(getMetric('rms_level', 'rmsLevel'))} dB`, 'rmsLevel'),
-            row('DR', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
-            row('Fator de Crista', `${safeFixed(getMetric('crest_factor', 'crestFactor'))} dB`, 'crestFactor'),
-            row('Pico Real (dBTP)', (advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp'))) ? `${safeFixed(getMetric('truePeakDbtp', 'truePeakDbtp'))} dBTP` : (advancedReady? '—':'⏳'), 'truePeakDbtp'),
-            row('LUFS Integrado', (advancedReady && Number.isFinite(getLufsIntegratedValue())) ? `${safeFixed(getLufsIntegratedValue())} LUFS` : (advancedReady? '—':'⏳'), 'lufsIntegrated'),
-            row('LUFS Short-term', (advancedReady && Number.isFinite(getMetric('lufs_short_term', 'lufsShortTerm'))) ? `${safeFixed(getMetric('lufs_short_term', 'lufsShortTerm'))} LUFS` : (advancedReady? '—':'⏳'), 'lufsShortTerm'),
-            row('LUFS Momentary', (advancedReady && Number.isFinite(getMetric('lufs_momentary', 'lufsMomentary'))) ? `${safeFixed(getMetric('lufs_momentary', 'lufsMomentary'))} LUFS` : (advancedReady? '—':'⏳'), 'lufsMomentary'),
-            row('Headroom', `${safeFixed(getMetric('headroom_db', 'headroomDb'))} dB`, 'headroomDb')
-            ].join('');
+            conditionalRow('Peak (máximo)', getMetric('peak_db', 'peak'), 'dB', 'peak'),
+            conditionalRow('RMS Level', getMetric('rms_level', 'rmsLevel'), 'dB', 'rmsLevel'),
+            conditionalRow('DR', getMetric('dynamic_range', 'dynamicRange'), 'dB', 'dynamicRange'),
+            conditionalRow('Fator de Crista', getMetric('crest_factor', 'crestFactor'), 'dB', 'crestFactor'),
+            conditionalRow('Pico Real (dBTP)', getMetric('truePeakDbtp', 'truePeakDbtp'), 'dBTP', 'truePeakDbtp'),
+            conditionalRow('LUFS Integrado', getLufsIntegratedValue(), 'LUFS', 'lufsIntegrated'),
+            conditionalRow('LUFS Short-term', getMetric('lufs_short_term', 'lufsShortTerm'), 'LUFS', 'lufsShortTerm'),
+            conditionalRow('LUFS Momentary', getMetric('lufs_momentary', 'lufsMomentary'), 'LUFS', 'lufsMomentary'),
+            conditionalRow('Headroom', getMetric('headroom_db', 'headroomDb'), 'dB', 'headroomDb')
+            ].filter(r => r !== '').join('');
 
         const col2 = [
-            row('Correlação Estéreo', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 2) : '—', 'stereoCorrelation'),
-            row('Largura Estéreo', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? safeFixed(getMetric('stereo_width', 'stereoWidth'), 2) : '—', 'stereoWidth'),
-            row('Balance L/R', Number.isFinite(getMetric('balance_lr', 'balanceLR')) ? safePct(getMetric('balance_lr', 'balanceLR')) : '—', 'balanceLR'),
-            row('Centroide Espectral', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroid')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroid')) : '—', 'spectralCentroid'),
-            row('Rolloff Espectral', Number.isFinite(getMetric('spectral_rolloff', 'spectralRolloff')) ? safeHz(getMetric('spectral_rolloff', 'spectralRolloff')) : '—', 'spectralRolloff'),
-            row('Zero Crossing Rate', Number.isFinite(getMetric('zero_crossing_rate', 'zeroCrossingRate')) ? safeFixed(getMetric('zero_crossing_rate', 'zeroCrossingRate'), 3) : '—', 'zeroCrossingRate'),
-            row('Flux', Number.isFinite(getMetric('spectral_flux', 'spectralFlux')) ? safeFixed(getMetric('spectral_flux', 'spectralFlux'), 3) : '—', 'spectralFlux'),
-            row('Flatness', Number.isFinite(getMetric('spectral_flatness', 'spectralFlatness')) ? safeFixed(getMetric('spectral_flatness', 'spectralFlatness'), 3) : '—', 'spectralFlatness')
-        ].join('');
+            conditionalRow('Correlação Estéreo', getMetric('stereo_correlation', 'stereoCorrelation'), '', 'stereoCorrelation'),
+            conditionalRow('Largura Estéreo', getMetric('stereo_width', 'stereoWidth'), '', 'stereoWidth'),
+            conditionalRow('Balance L/R', getMetric('balance_lr', 'balanceLR'), '%', 'balanceLR'),
+            conditionalRow('Centroide Espectral', getMetric('spectral_centroid', 'spectralCentroid'), 'Hz', 'spectralCentroid'),
+            conditionalRow('Rolloff Espectral', getMetric('spectral_rolloff', 'spectralRolloff'), 'Hz', 'spectralRolloff'),
+            conditionalRow('Zero Crossing Rate', getMetric('zero_crossing_rate', 'zeroCrossingRate'), '', 'zeroCrossingRate'),
+            conditionalRow('Flux', getMetric('spectral_flux', 'spectralFlux'), '', 'spectralFlux'),
+            conditionalRow('Flatness', getMetric('spectral_flatness', 'spectralFlatness'), '', 'spectralFlatness')
+        ].filter(r => r !== '').join('');
 
             const col3Extras = (()=>{
                 let extra='';
@@ -4164,7 +4179,7 @@ function displayModalResults(analysis) {
         // Função para renderizar score com barra de progresso
         const renderScoreWithProgress = (label, value, color = '#00ffff') => {
             const numValue = parseFloat(value) || 0;
-            const displayValue = value != null ? value : '—';
+            const displayValue = value != null ? value : null;
             
             // Indicar se o valor foi capeado (comparar com breakdown original)
             const labelKey = label.toLowerCase().replace('faixa dinâmica', 'dynamics').replace('técnico', 'technical').replace('loudness', 'loudness').replace('frequência', 'frequency').replace('stereo', 'stereo');
@@ -4216,15 +4231,15 @@ function displayModalResults(analysis) {
                         const sb = analysis.technicalData?.spectral_balance;
                         if (!sb || typeof sb !== 'object') return row('Status', 'Dados não disponíveis');
                         
-                        const formatPct = (v) => Number.isFinite(v) ? `${(v*100).toFixed(1)}%` : '—';
+                        const formatPct = (v) => Number.isFinite(v) ? `${(v*100).toFixed(1)}%` : null;
                         const rows = [];
                         
-                        if (Number.isFinite(sb.sub)) rows.push(row('Sub (20-60 Hz)', formatPct(sb.sub), 'spectralSub'));
-                        if (Number.isFinite(sb.bass)) rows.push(row('Bass (60-250 Hz)', formatPct(sb.bass), 'spectralBass'));
-                        if (Number.isFinite(sb.mids)) rows.push(row('Mids (250-4k Hz)', formatPct(sb.mids), 'spectralMids'));
-                        if (Number.isFinite(sb.treble)) rows.push(row('Treble (4k-12k Hz)', formatPct(sb.treble), 'spectralTreble'));
-                        if (Number.isFinite(sb.presence)) rows.push(row('Presence (4k-8k Hz)', formatPct(sb.presence), 'spectralPresence'));
-                        if (Number.isFinite(sb.air)) rows.push(row('Air (12k-20k Hz)', formatPct(sb.air), 'spectralAir'));
+                        if (Number.isFinite(sb.sub) && formatPct(sb.sub)) rows.push(row('Sub (20-60 Hz)', formatPct(sb.sub), 'spectralSub'));
+                        if (Number.isFinite(sb.bass) && formatPct(sb.bass)) rows.push(row('Bass (60-250 Hz)', formatPct(sb.bass), 'spectralBass'));
+                        if (Number.isFinite(sb.mids) && formatPct(sb.mids)) rows.push(row('Mids (250-4k Hz)', formatPct(sb.mids), 'spectralMids'));
+                        if (Number.isFinite(sb.treble) && formatPct(sb.treble)) rows.push(row('Treble (4k-12k Hz)', formatPct(sb.treble), 'spectralTreble'));
+                        if (Number.isFinite(sb.presence) && formatPct(sb.presence)) rows.push(row('Presence (4k-8k Hz)', formatPct(sb.presence), 'spectralPresence'));
+                        if (Number.isFinite(sb.air) && formatPct(sb.air)) rows.push(row('Air (12k-20k Hz)', formatPct(sb.air), 'spectralAir'));
                         
                         return rows.length ? rows.join('') : row('Status', 'Balance não calculado');
                     })()}
@@ -4482,7 +4497,7 @@ function renderReferenceComparisons(analysis) {
     const tech = analysis.technicalData || {};
     // Mapeamento de métricas
     const rows = [];
-    const nf = (n, d=2) => Number.isFinite(n) ? n.toFixed(d) : '—';
+    const nf = (n, d=2) => Number.isFinite(n) ? n.toFixed(d) : null;
     const pushRow = (label, val, target, tol, unit='') => {
         // Usar sistema de enhancement se disponível
         const enhancedLabel = (typeof window !== 'undefined' && window.enhanceRowLabel) 
