@@ -5,6 +5,8 @@
 import { FastFFT } from "../../lib/audio/fft.js";
 import { calculateLoudnessMetrics } from "../../lib/audio/features/loudness.js";
 import { TruePeakDetector, analyzeTruePeaks } from "../../lib/audio/features/truepeak.js";
+import { normalizeAudioToTargetLUFS, validateNormalization } from "../../lib/audio/features/normalization.js";
+import { auditMetricsCorrections, auditMetricsValidation } from "../../lib/audio/features/audit-logging.js";
 
 // Sistema de tratamento de erros padronizado
 import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../lib/audio/error-handling.js';
@@ -54,6 +56,24 @@ class CoreMetricsProcessor {
       this.validateInputFrom5_2(segmentedAudio);
       const { leftChannel, rightChannel } = this.ensureOriginalChannels(segmentedAudio);
 
+      // ========= NORMALIZAÇÃO PRÉ-ANÁLISE A -23 LUFS =========
+      logAudio('core_metrics', 'normalization_start', { targetLUFS: -23.0 });
+      const normalizationResult = await normalizeAudioToTargetLUFS(
+        { leftChannel, rightChannel },
+        CORE_METRICS_CONFIG.SAMPLE_RATE,
+        { jobId, targetLUFS: -23.0 }
+      );
+      
+      // Usar canais normalizados para todas as análises
+      const normalizedLeft = normalizationResult.leftChannel;
+      const normalizedRight = normalizationResult.rightChannel;
+      
+      logAudio('core_metrics', 'normalization_completed', { 
+        applied: normalizationResult.normalizationApplied,
+        originalLUFS: normalizationResult.originalLUFS,
+        gainDB: normalizationResult.gainAppliedDB 
+      });
+
       // ========= CÁLCULO DE MÉTRICAS FFT =========
       logAudio('core_metrics', 'fft_start', { frames: segmentedAudio.framesFFT?.count });
       const fftResults = await this.calculateFFTMetrics(segmentedAudio.framesFFT, { jobId });
@@ -61,31 +81,48 @@ class CoreMetricsProcessor {
 
       // ========= CÁLCULO LUFS ITU-R BS.1770-4 =========
       logAudio('core_metrics', 'lufs_start', { frames: segmentedAudio.framesRMS?.count });
-      const lufsMetrics = await this.calculateLUFSMetrics(leftChannel, rightChannel, { jobId });
+      const lufsMetrics = await this.calculateLUFSMetrics(normalizedLeft, normalizedRight, { jobId });
       assertFinite(lufsMetrics, 'core_metrics');
 
       // ========= TRUE PEAK 4X OVERSAMPLING =========
       logAudio('core_metrics', 'truepeak_start', { channels: 2 });
-      const truePeakMetrics = await this.calculateTruePeakMetrics(leftChannel, rightChannel, { jobId });
+      const truePeakMetrics = await this.calculateTruePeakMetrics(normalizedLeft, normalizedRight, { jobId });
       assertFinite(truePeakMetrics, 'core_metrics');
 
       // ========= ANÁLISE ESTÉREO =========
-      logAudio('core_metrics', 'stereo_start', { length: leftChannel.length });
-      const stereoMetrics = await this.calculateStereoMetrics(leftChannel, rightChannel, { jobId });
+      logAudio('core_metrics', 'stereo_start', { length: normalizedLeft.length });
+      const stereoMetrics = await this.calculateStereoMetrics(normalizedLeft, normalizedRight, { jobId });
       assertFinite(stereoMetrics, 'core_metrics');
 
       // ========= MONTAGEM DE RESULTADO =========
       const coreMetrics = {
         fft: fftResults,
-        lufs: lufsMetrics,
+        lufs: {
+          ...lufsMetrics,
+          // Adicionar dados de normalização aos LUFS
+          originalLUFS: normalizationResult.originalLUFS,
+          normalizedTo: -23.0,
+          gainAppliedDB: normalizationResult.gainAppliedDB
+        },
         truePeak: truePeakMetrics,
         stereo: stereoMetrics,
         rms: segmentedAudio.framesRMS, // Passar direto da segmentação
+        normalization: {
+          applied: normalizationResult.normalizationApplied,
+          originalLUFS: normalizationResult.originalLUFS,
+          targetLUFS: normalizationResult.targetLUFS,
+          gainAppliedDB: normalizationResult.gainAppliedDB,
+          gainAppliedLinear: normalizationResult.gainAppliedLinear,
+          isSilence: normalizationResult.isSilence,
+          hasClipping: normalizationResult.hasClipping,
+          processingTime: normalizationResult.processingTime
+        },
         metadata: {
           processingTime: Date.now() - startTime,
           sampleRate: CORE_METRICS_CONFIG.SAMPLE_RATE,
           fftSize: CORE_METRICS_CONFIG.FFT_SIZE,
           stage: 'core_metrics_completed',
+          normalizationEnabled: true,
           jobId
         }
       };
@@ -95,6 +132,17 @@ class CoreMetricsProcessor {
         assertFinite(coreMetrics, 'core_metrics');
       } catch (validationError) {
         throw makeErr('core_metrics', `Final validation failed: ${validationError.message}`, 'validation_error');
+      }
+
+      // ========= AUDITORIA DE CORREÇÕES =========
+      auditMetricsCorrections(coreMetrics, { leftChannel, rightChannel }, normalizationResult);
+      
+      // ========= VALIDAÇÃO DE MÉTRICAS =========
+      const validationResult = auditMetricsValidation(coreMetrics);
+      if (!validationResult.allValid) {
+        logAudio('core_metrics', 'validation_warnings', { 
+          invalidMetrics: validationResult.validations.filter(v => !v.valid).length 
+        });
       }
 
       const totalTime = Date.now() - startTime;
@@ -466,10 +514,11 @@ class CoreMetricsProcessor {
     const leftMagnitude = leftFFT.magnitude;
     const rightMagnitude = rightFFT.magnitude;
     
-    // Combinar magnitudes L/R (média simples)
+    // CORREÇÃO: Combinar magnitudes L/R usando RMS (não média aritmética)
     const magnitude = new Float32Array(leftMagnitude.length);
     for (let i = 0; i < magnitude.length; i++) {
-      magnitude[i] = (leftMagnitude[i] + rightMagnitude[i]) / 2;
+      // RMS da magnitude stereo: sqrt((L² + R²) / 2)
+      magnitude[i] = Math.sqrt((leftMagnitude[i] ** 2 + rightMagnitude[i] ** 2) / 2);
     }
     return magnitude;
   }
@@ -478,12 +527,18 @@ class CoreMetricsProcessor {
     let weightedSum = 0;
     let totalMagnitude = 0;
     
+    // CORREÇÃO: Usar frequências em Hz, não índices de bins
+    const sampleRate = CORE_METRICS_CONFIG.SAMPLE_RATE;
+    const fftSize = CORE_METRICS_CONFIG.FFT_SIZE;
+    const frequencyResolution = sampleRate / fftSize; // Hz por bin
+    
     for (let i = 1; i < magnitude.length; i++) {
-      weightedSum += i * magnitude[i];
+      const frequency = i * frequencyResolution; // Hz
+      weightedSum += frequency * magnitude[i];
       totalMagnitude += magnitude[i];
     }
     
-    return totalMagnitude > 0 ? weightedSum / totalMagnitude : 0;
+    return totalMagnitude > 0 ? weightedSum / totalMagnitude : 0; // Hz
   }
 
   calculateSpectralRolloff(magnitude, threshold = 0.85) {
@@ -521,6 +576,12 @@ class CoreMetricsProcessor {
 
   calculateStereoCorrelation(leftChannel, rightChannel) {
     const length = Math.min(leftChannel.length, rightChannel.length);
+    
+    // Verificar se há dados suficientes
+    if (length < 2) {
+      return null; // Dados insuficientes
+    }
+    
     let sumL = 0, sumR = 0, sumLR = 0, sumL2 = 0, sumR2 = 0;
     
     for (let i = 0; i < length; i++) {
@@ -534,10 +595,26 @@ class CoreMetricsProcessor {
     const meanL = sumL / length;
     const meanR = sumR / length;
     const covariance = (sumLR / length) - (meanL * meanR);
-    const stdL = Math.sqrt((sumL2 / length) - (meanL ** 2));
-    const stdR = Math.sqrt((sumR2 / length) - (meanR ** 2));
+    const varianceL = (sumL2 / length) - (meanL ** 2);
+    const varianceR = (sumR2 / length) - (meanR ** 2);
     
-    return (stdL * stdR) > 0 ? covariance / (stdL * stdR) : 0;
+    // Verificar se existe variância em ambos os canais
+    if (varianceL <= 0 || varianceR <= 0) {
+      // Canal constante ou silêncio: correlação indefinida
+      return null;
+    }
+    
+    const stdL = Math.sqrt(varianceL);
+    const stdR = Math.sqrt(varianceR);
+    const correlation = covariance / (stdL * stdR);
+    
+    // Verificar se o resultado é válido (deve estar entre -1 e 1)
+    if (!isFinite(correlation) || Math.abs(correlation) > 1.001) {
+      return null; // Resultado inválido
+    }
+    
+    // Clampar para range válido por precisão numérica
+    return Math.max(-1, Math.min(1, correlation));
   }
 
   calculateStereoBalance(leftChannel, rightChannel) {

@@ -100,9 +100,8 @@ class TruePeakDetector {
     const startTime = Date.now();
     
     let maxTruePeak = 0;
-    let maxTruePeakdBTP = -Infinity;
     let peakPosition = 0;
-  let clippingCount = 0; // contagem de eventos de clipping em domínio oversampled (true peak)
+    let clippingCount = 0; // contagem de eventos de clipping em domínio oversampled (true peak)
     
     // Reset delay line
     this.delayLine.fill(0);
@@ -131,8 +130,18 @@ class TruePeakDetector {
       }
     }
     
-    // Converter para dBTP
-    maxTruePeakdBTP = maxTruePeak > 0 ? 20 * Math.log10(maxTruePeak) : -Infinity;
+    // Converter para dBTP - CORREÇÃO: usar null para silêncio, não -Infinity
+    let maxTruePeakdBTP;
+    if (maxTruePeak > 0) {
+      maxTruePeakdBTP = 20 * Math.log10(maxTruePeak);
+    } else if (maxTruePeak === 0) {
+      // Silêncio digital: -Infinity matemático, mas reportar como null
+      maxTruePeakdBTP = null;
+    } else {
+      // Erro: true peak não pode ser negativo
+      console.warn(`⚠️ True Peak negativo detectado: ${maxTruePeak}`);
+      maxTruePeakdBTP = null;
+    }
     
     const processingTime = Date.now() - startTime;
     
@@ -209,7 +218,7 @@ class TruePeakDetector {
       clipped_samples: clippedSamples,
       clipping_percentage: (clippedSamples / channel.length) * 100,
       max_sample: maxSample,
-      max_sample_db: maxSample > 0 ? 20 * Math.log10(maxSample) : -Infinity
+      max_sample_db: maxSample > 0 ? 20 * Math.log10(maxSample) : null
     };
   }
 }
@@ -234,15 +243,20 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
   
   // Combinar resultados
   const maxTruePeak = Math.max(leftTruePeak.true_peak_linear, rightTruePeak.true_peak_linear);
-  const maxTruePeakdBTP = maxTruePeak > 0 ? 20 * Math.log10(maxTruePeak) : -Infinity;
+  let maxTruePeakdBTP;
+  if (maxTruePeak > 0) {
+    maxTruePeakdBTP = 20 * Math.log10(maxTruePeak);
+  } else {
+    maxTruePeakdBTP = null; // Silêncio digital
+  }
   const totalClipping = leftTruePeak.clipping_count + rightTruePeak.clipping_count;
   
   // Warnings
   const warnings = [];
-  if (maxTruePeakdBTP > -1.0) {
+  if (maxTruePeakdBTP !== null && maxTruePeakdBTP > -1.0) {
     warnings.push(`True peak excede -1dBTP: ${maxTruePeakdBTP.toFixed(2)}dBTP`);
   }
-  if (maxTruePeakdBTP > -0.1) {
+  if (maxTruePeakdBTP !== null && maxTruePeakdBTP > -0.1) {
     warnings.push(`True peak muito alto: risco de clipping digital`);
   }
   if (totalClipping > 0) {
