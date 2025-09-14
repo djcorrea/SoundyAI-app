@@ -3106,9 +3106,9 @@ function generateComparisonRow(label, comparisonData, unit) {
         `;
     }
     
-    const userValue = comparisonData.user?.toFixed?.(1) || comparisonData.user || '—';
-    const refValue = comparisonData.reference?.toFixed?.(1) || comparisonData.reference || '—';
-    const diff = comparisonData.difference?.toFixed?.(1) || '—';
+    const userValue = comparisonData.user?.toFixed?.(1) || comparisonData.user || null;
+    const refValue = comparisonData.reference?.toFixed?.(1) || comparisonData.reference || null;
+    const diff = comparisonData.difference?.toFixed?.(1) || null;
     const diffClass = comparisonData.difference > 0 ? 'positive' : comparisonData.difference < 0 ? 'negative' : 'neutral';
     
     return `
@@ -3141,7 +3141,7 @@ function generateSpectralComparisonCard(band, data) {
     };
     
     const friendlyName = bandNames[band] || band;
-    const diff = data.difference?.toFixed?.(1) || '—';
+    const diff = data.difference?.toFixed?.(1) || null;
     const diffClass = data.difference > 2 ? 'high-positive' : 
                       data.difference > 0.5 ? 'positive' : 
                       data.difference < -2 ? 'high-negative' : 
@@ -3430,12 +3430,12 @@ function displayModalResults(analysis) {
                 return extra ? row('Top Freq. adicionais', `<span style="opacity:.9">${extra}</span>`) : '';
             })();
             const col3 = [
-                row('Tonal Balance', analysis.technicalData?.tonalBalance ? tonalSummary(analysis.technicalData.tonalBalance) : '—', 'tonalBalance'),
+                analysis.technicalData?.tonalBalance ? row('Tonal Balance', tonalSummary(analysis.technicalData.tonalBalance), 'tonalBalance') : '',
                 (analysis.technicalData?.dominantFrequencies?.length > 0 ? row('Freq. Dominante', `${Math.round(analysis.technicalData.dominantFrequencies[0].frequency)} Hz`) : ''),
-                row('Problemas', (analysis.problems?.length || 0) > 0 ? `<span class="tag tag-danger">${analysis.problems.length} detectado(s)</span>` : '—'),
-                row('Sugestões', (analysis.suggestions?.length || 0) > 0 ? `<span class="tag tag-success">${analysis.suggestions.length} disponível(s)</span>` : '—'),
+                (analysis.problems?.length || 0) > 0 ? row('Problemas', `<span class="tag tag-danger">${analysis.problems.length} detectado(s)</span>`) : '',
+                (analysis.suggestions?.length || 0) > 0 ? row('Sugestões', `<span class="tag tag-success">${analysis.suggestions.length} disponível(s)</span>`) : '',
                 col3Extras
-            ].join('');
+            ].filter(r => r !== '').join('');
 
             // Card extra: Métricas Avançadas (novo card)
             const advancedMetricsCard = () => {
@@ -4510,7 +4510,7 @@ function renderReferenceComparisons(analysis) {
         if (targetIsNA) {
             rows.push(`<tr>
                 <td>${enhancedLabel}</td>
-                <td>${Number.isFinite(val)?nf(val)+unit:'—'}</td>
+                <td>${Number.isFinite(val) ? nf(val)+unit : 'N/A'}</td>
                 <td colspan="2" style="opacity:.55">N/A</td>
             </tr>`);
             return;
@@ -4545,7 +4545,7 @@ function renderReferenceComparisons(analysis) {
         
         rows.push(`<tr>
             <td>${enhancedLabel}</td>
-            <td>${Number.isFinite(val)?nf(val)+unit:'—'}</td>
+            <td>${Number.isFinite(val) ? nf(val)+unit : 'N/A'}</td>
             <td>${Number.isFinite(target)?nf(target)+unit:'N/A'}${tol!=null?`<span class="tol">±${nf(tol,2)}</span>`:''}</td>
             ${diffCell}
         </tr>`);
@@ -5157,17 +5157,17 @@ function normalizeBackendAnalysisData(backendData) {
     const tech = normalized.technicalData;
     const source = backendData.technicalData || backendData.metrics || backendData;
     
-    // Peak e RMS
-    tech.peak = source.peak || source.peak_db || source.peakLevel || -60;
-    tech.rms = source.rms || source.rms_db || source.rmsLevel || -60;
+    // Peak e RMS - apenas valores reais do backend
+    tech.peak = source.peak || source.peak_db || source.peakLevel || null;
+    tech.rms = source.rms || source.rms_db || source.rmsLevel || null;
     tech.rmsLevel = tech.rms;
     
-    // Dynamic Range
+    // Dynamic Range - apenas calcular se valores reais estão disponíveis
     tech.dynamicRange = source.dynamicRange || source.dynamic_range || source.dr || 
-                       (Number.isFinite(tech.peak) && Number.isFinite(tech.rms) ? tech.peak - tech.rms : 12);
+                       (Number.isFinite(tech.peak) && Number.isFinite(tech.rms) ? tech.peak - tech.rms : null);
     
-    // Crest Factor
-    tech.crestFactor = source.crestFactor || source.crest_factor || tech.dynamicRange || 12;
+    // Crest Factor - apenas valores reais do backend
+    tech.crestFactor = source.crestFactor || source.crest_factor || null;
     
     // True Peak
     tech.truePeakDbtp = source.truePeakDbtp || source.true_peak_dbtp || source.truePeak || tech.peak;
@@ -5184,23 +5184,23 @@ function normalizeBackendAnalysisData(backendData) {
     tech.headroomDb = source.headroomDb || source.headroom_db || (0 - tech.peak);
     tech.headroomTruePeakDb = source.headroomTruePeakDb || (0 - tech.truePeakDbtp);
     
-    // Stereo
-    tech.stereoCorrelation = source.stereoCorrelation || source.stereo_correlation || 0.5;
-    tech.stereoWidth = source.stereoWidth || source.stereo_width || 0.5;
-    tech.balanceLR = source.balanceLR || source.balance_lr || 0;
+    // Stereo - apenas valores reais do backend
+    tech.stereoCorrelation = source.stereoCorrelation || source.stereo_correlation || null;
+    tech.stereoWidth = source.stereoWidth || source.stereo_width || null;
+    tech.balanceLR = source.balanceLR || source.balance_lr || null;
     
-    // Spectral
-    tech.spectralCentroid = source.spectralCentroid || source.spectral_centroid || 1000;
-    tech.spectralRolloff = source.spectralRolloff || source.spectral_rolloff || 5000;
-    tech.zeroCrossingRate = source.zeroCrossingRate || source.zero_crossing_rate || 0.1;
-    tech.spectralFlux = source.spectralFlux || source.spectral_flux || 0.5;
-    tech.spectralFlatness = source.spectralFlatness || source.spectral_flatness || 0.1;
+    // Spectral - apenas valores reais do backend
+    tech.spectralCentroid = source.spectralCentroid || source.spectral_centroid || null;
+    tech.spectralRolloff = source.spectralRolloff || source.spectral_rolloff || null;
+    tech.zeroCrossingRate = source.zeroCrossingRate || source.zero_crossing_rate || null;
+    tech.spectralFlux = source.spectralFlux || source.spectral_flux || null;
+    tech.spectralFlatness = source.spectralFlatness || source.spectral_flatness || null;
     
-    // Problemas técnicos
-    tech.clippingSamples = source.clippingSamples || source.clipping_samples || 0;
-    tech.clippingPct = source.clippingPct || source.clipping_pct || 0;
-    tech.dcOffset = source.dcOffset || source.dc_offset || 0;
-    tech.thdPercent = source.thdPercent || source.thd_percent || 0;
+    // Problemas técnicos - apenas valores reais do backend
+    tech.clippingSamples = source.clippingSamples || source.clipping_samples || null;
+    tech.clippingPct = source.clippingPct || source.clipping_pct || null;
+    tech.dcOffset = source.dcOffset || source.dc_offset || null;
+    tech.thdPercent = source.thdPercent || source.thd_percent || null;
     
     // Sample peaks por canal
     tech.samplePeakLeftDb = source.samplePeakLeftDb || source.sample_peak_left_db || tech.peak;

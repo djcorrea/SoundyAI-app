@@ -182,6 +182,8 @@
 
         // Executar testes
         function runTests() {
+            console.log('🎯 INICIANDO TESTES DE INTEGRAÇÃO BACKEND-UI');
+            
             // 1. Análise de placeholders
             const placeholderTests = [
                 { input: null, expected: null, func: safeDisplayNumber },
@@ -195,9 +197,11 @@
             let placeholderHtml = '<table style="width:100%">';
             placeholderHtml += '<tr><th>Input</th><th>Output</th><th>Status</th></tr>';
             
+            let placeholderPassed = 0;
             placeholderTests.forEach(test => {
                 const result = test.func(test.input, 'test');
                 const status = (result === test.expected) ? 'PASS' : 'FAIL';
+                if (status === 'PASS') placeholderPassed++;
                 const statusClass = status === 'PASS' ? 'status-pass' : 'status-fail';
                 placeholderHtml += `<tr>
                     <td>${test.input}</td>
@@ -212,11 +216,23 @@
             const completeTest = testMetricDisplay(completeBackendData, 'Dados Completos');
             const incompleteTest = testMetricDisplay(incompleteBackendData, 'Dados Incompletos');
 
+            // Verificar se há QUALQUER placeholder nos resultados
+            const checkForPlaceholders = (htmlContent, testName) => {
+                const placeholderPattern = /—|placeholder|N\/A|-60|0\.0 dB/gi;
+                const matches = htmlContent.match(placeholderPattern) || [];
+                const hasPlaceholders = matches.length > 0;
+                console.log(`🔍 ${testName}: ${hasPlaceholders ? 'PLACEHOLDERS ENCONTRADOS' : 'SEM PLACEHOLDERS'} - Matches: ${matches.join(', ')}`);
+                return !hasPlaceholders;
+            };
+
+            const completeClean = checkForPlaceholders(completeTest.metricsHtml + completeTest.spectralHtml, 'Dados Completos');
+            const incompleteClean = checkForPlaceholders(incompleteTest.metricsHtml + incompleteTest.spectralHtml, 'Dados Incompletos');
+
             document.getElementById('complete-backend-test').innerHTML = `
                 <div class="results">
                     <p><strong>Métricas exibidas:</strong> ${completeTest.metricsCount}</p>
                     <p><strong>Balance espectral:</strong> ${completeTest.spectralCount} bandas</p>
-                    <p><strong>Placeholders detectados:</strong> ${completeTest.hasPlaceholders ? 'SIM ❌' : 'NÃO ✅'}</p>
+                    <p><strong>Placeholders detectados:</strong> ${!completeClean ? 'SIM ❌' : 'NÃO ✅'}</p>
                     <table style="width:100%">${completeTest.metricsHtml}</table>
                     <h4>Balance Espectral:</h4>
                     <table style="width:100%">${completeTest.spectralHtml}</table>
@@ -227,7 +243,7 @@
                 <div class="results">
                     <p><strong>Métricas exibidas:</strong> ${incompleteTest.metricsCount}</p>
                     <p><strong>Balance espectral:</strong> ${incompleteTest.spectralCount} bandas</p>
-                    <p><strong>Placeholders detectados:</strong> ${incompleteTest.hasPlaceholders ? 'SIM ❌' : 'NÃO ✅'}</p>
+                    <p><strong>Placeholders detectados:</strong> ${!incompleteClean ? 'SIM ❌' : 'NÃO ✅'}</p>
                     <table style="width:100%">${incompleteTest.metricsHtml}</table>
                     <h4>Balance Espectral:</h4>
                     <table style="width:100%">${incompleteTest.spectralHtml}</table>
@@ -245,6 +261,7 @@
             let formatHtml = '<table style="width:100%">';
             formatHtml += '<tr><th>Valor</th><th>Tipo</th><th>Formatação</th><th>Status</th></tr>';
             
+            let formatPassed = 0;
             formatTests.forEach(test => {
                 let formatted;
                 if (test.type === 'LUFS') formatted = `${test.value.toFixed(1)} LUFS`;
@@ -253,6 +270,7 @@
                 else if (test.type === 'Frequency') formatted = `${test.value.toFixed(1)} Hz`;
                 
                 const status = formatted === test.expected ? 'PASS' : 'FAIL';
+                if (status === 'PASS') formatPassed++;
                 const statusClass = status === 'PASS' ? 'status-pass' : 'status-fail';
                 formatHtml += `<tr>
                     <td>${test.value}</td>
@@ -265,32 +283,21 @@
             document.getElementById('formatting-validation').innerHTML = formatHtml;
 
             // 4. Resultados finais
+            const totalPassed = placeholderPassed + formatPassed + (completeClean ? 1 : 0) + (incompleteClean ? 1 : 0);
             const totalTests = placeholderTests.length + formatTests.length + 2;
-            const passedPlaceholders = placeholderTests.filter(t => t.func(t.input, 'test') === t.expected).length;
-            const passedFormats = formatTests.filter(t => {
-                let formatted;
-                if (t.type === 'LUFS') formatted = `${t.value.toFixed(1)} LUFS`;
-                else if (t.type === 'dBTP') formatted = `${t.value.toFixed(1)} dBTP`;
-                else if (t.type === 'Percentage') formatted = `${(t.value * 100).toFixed(1)}%`;
-                else if (t.type === 'Frequency') formatted = `${t.value.toFixed(1)} Hz`;
-                return formatted === t.expected;
-            }).length;
-            
-            const placeholderStatus = !completeTest.hasPlaceholders && !incompleteTest.hasPlaceholders;
-            const totalPassed = passedPlaceholders + passedFormats + (placeholderStatus ? 2 : 0);
 
             document.getElementById('final-results').innerHTML = `
                 <div class="results">
                     <h3>📊 Resumo dos Testes</h3>
-                    <p><strong>Testes de placeholder:</strong> ${passedPlaceholders}/${placeholderTests.length} <span class="status-badge ${passedPlaceholders === placeholderTests.length ? 'status-pass' : 'status-fail'}">${passedPlaceholders === placeholderTests.length ? 'PASS' : 'FAIL'}</span></p>
-                    <p><strong>Testes de formatação:</strong> ${passedFormats}/${formatTests.length} <span class="status-badge ${passedFormats === formatTests.length ? 'status-pass' : 'status-fail'}">${passedFormats === formatTests.length ? 'PASS' : 'FAIL'}</span></p>
-                    <p><strong>Dados completos sem placeholders:</strong> <span class="status-badge ${!completeTest.hasPlaceholders ? 'status-pass' : 'status-fail'}">${!completeTest.hasPlaceholders ? 'PASS' : 'FAIL'}</span></p>
-                    <p><strong>Dados incompletos sem placeholders:</strong> <span class="status-badge ${!incompleteTest.hasPlaceholders ? 'status-pass' : 'status-fail'}">${!incompleteTest.hasPlaceholders ? 'PASS' : 'FAIL'}</span></p>
+                    <p><strong>Testes de placeholder:</strong> ${placeholderPassed}/${placeholderTests.length} <span class="status-badge ${placeholderPassed === placeholderTests.length ? 'status-pass' : 'status-fail'}">${placeholderPassed === placeholderTests.length ? 'PASS' : 'FAIL'}</span></p>
+                    <p><strong>Testes de formatação:</strong> ${formatPassed}/${formatTests.length} <span class="status-badge ${formatPassed === formatTests.length ? 'status-pass' : 'status-fail'}">${formatPassed === formatTests.length ? 'PASS' : 'FAIL'}</span></p>
+                    <p><strong>Dados completos sem placeholders:</strong> <span class="status-badge ${completeClean ? 'status-pass' : 'status-fail'}">${completeClean ? 'PASS' : 'FAIL'}</span></p>
+                    <p><strong>Dados incompletos sem placeholders:</strong> <span class="status-badge ${incompleteClean ? 'status-pass' : 'status-fail'}">${incompleteClean ? 'PASS' : 'FAIL'}</span></p>
                     
                     <h3>🎯 RESULTADO FINAL</h3>
-                    <div style="font-size: 1.2em; padding: 20px; text-align: center; background: ${totalPassed === totalTests + 2 ? '#006600' : '#660000'}; border-radius: 10px;">
-                        <strong>${totalPassed}/${totalTests + 2} testes passaram</strong><br>
-                        ${totalPassed === totalTests + 2 ? '✅ INTEGRAÇÃO BACKEND-UI CORRIGIDA COM SUCESSO!' : '❌ AINDA EXISTEM PROBLEMAS NA INTEGRAÇÃO'}
+                    <div style="font-size: 1.2em; padding: 20px; text-align: center; background: ${totalPassed === totalTests ? '#006600' : '#660000'}; border-radius: 10px;">
+                        <strong>${totalPassed}/${totalTests} testes passaram</strong><br>
+                        ${totalPassed === totalTests ? '✅ INTEGRAÇÃO BACKEND-UI CORRIGIDA COM SUCESSO!' : '❌ AINDA EXISTEM PROBLEMAS NA INTEGRAÇÃO'}
                     </div>
                     
                     <h4>✅ Correções Implementadas:</h4>
@@ -299,7 +306,8 @@
                         <li>✅ Função conditionalRow() omite linhas com valores inválidos</li>
                         <li>✅ Função formatPct() retorna null para valores não finitos</li>
                         <li>✅ Substituição de safePct(), safeHz(), safeFixed() por conditionalRow()</li>
-                        <li>✅ Eliminação de todos os placeholders "—", "-60 dB", "0.0 dB"</li>
+                        <li>✅ Eliminação de fallbacks fictícios (-60, 0.5, 1000, 12)</li>
+                        <li>✅ Correção de comparações e tabelas que usavam "—"</li>
                         <li>✅ Preservação da formatação profissional (LUFS, dBTP, %, Hz)</li>
                     </ul>
                 </div>
