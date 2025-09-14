@@ -1,12 +1,13 @@
 /**
  * API de Análise de Áudio - Criação de Jobs baseado em FileKey
  * Recebe fileKey de arquivos já uploadados via presigned URL
- *
- * Corrigido: 14 de setembro de 2025 - Evita criação duplicada de jobs
+ * 
+ * Corrigido: 9 de setembro de 2025 - Express Router
  */
 
 import express from "express";
 import pkg from "pg";
+
 import { randomUUID } from "crypto";
 
 const { Pool } = pkg;
@@ -39,9 +40,11 @@ function getPool() {
  */
 function validateFeatureFlags() {
   return {
+
     REFERENCE_MODE_ENABLED: process.env.REFERENCE_MODE_ENABLED === "true" || true, // Default true
     FALLBACK_TO_GENRE: process.env.FALLBACK_TO_GENRE === "true" || true,
     DEBUG_REFERENCE_MODE: process.env.DEBUG_REFERENCE_MODE === "true" || false,
+
   };
 }
 
@@ -63,40 +66,44 @@ function validateFileType(fileKey) {
 }
 
 /**
- * Criar job no banco de dados (com checagem para evitar duplicados)
+ * Criar job no banco de dados
  */
 async function createJobInDatabase(fileKey, mode, fileName) {
   try {
+    const jobId = randomUUID();
+    const now = new Date().toISOString();
+
+    console.log(`[ANALYZE] Criando job: ${jobId} para fileKey: ${fileKey}, modo: ${mode}`);
+
     const dbPool = getPool();
 
-    // 1. Verificar se já existe job ativo (queued ou processing) para o mesmo arquivo
-    const existing = await dbPool.query(
-      `SELECT * FROM jobs
-       WHERE file_key = $1 
-         AND status IN ('queued', 'processing')
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [fileKey]
-    );
+    // Se não há pool de conexão, simular criação do job
 
-    if (existing.rows.length > 0) {
-      console.log(`[ANALYZE] ⚠️ Job já existente encontrado: ${existing.rows[0].id}`);
-      return existing.rows[0]; // devolve o job existente
+    if (!dbPool) {
+      console.log(`[ANALYZE] 🧪 MODO MOCK - Job simulado criado com sucesso`);
+      return {
+        id: jobId,
+        file_key: fileKey,
+        mode: mode,
+        status: "queued",
+        file_name: fileName,
+        created_at: now,
+      };
     }
 
-    // 2. Se não existir, cria um novo
-    const jobId = randomUUID();
     const result = await dbPool.query(
+
+
       `INSERT INTO jobs (id, file_key, mode, status, file_name, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
-       RETURNING *`,
+       VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING *`,
       [jobId, fileKey, mode, "queued", fileName || null]
     );
 
-    console.log(`[ANALYZE] ✅ Novo job criado no PostgreSQL:`, result.rows[0]);
+    console.log(`[ANALYZE] Job criado com sucesso no PostgreSQL:`, result.rows[0]);
+
     return result.rows[0];
   } catch (error) {
-    console.error("[ANALYZE] ❌ Erro ao criar job no banco:", error);
+    console.error("[ANALYZE] Erro ao criar job no banco:", error);
     throw new Error(`Erro ao criar job de análise: ${error.message}`);
   }
 }
@@ -172,14 +179,15 @@ router.use((req, res, next) => {
   next();
 });
 
-/**
+/*
  * POST /api/audio/analyze - Criar job de análise baseado em fileKey
  */
 router.post("/analyze", async (req, res) => {
   const startTime = Date.now();
 
   try {
-    console.log(`[ANALYZE] 🔍 Nova requisição de criação de job iniciada`);
+
+    console.log(`[ANALYZE] Nova requisição de criação de job iniciada`);
 
     const flags = validateFeatureFlags();
     console.log(`[ANALYZE] Feature flags:`, flags);
@@ -201,11 +209,10 @@ router.post("/analyze", async (req, res) => {
       throw new Error("Modo de análise por referência não está disponível no momento");
     }
 
-    // 🔑 Checa ou cria o job no banco
     const jobRecord = await createJobInDatabase(fileKey, mode, fileName);
     const processingTime = Date.now() - startTime;
 
-    console.log(`[ANALYZE] ✅ Job pronto em ${processingTime}ms - jobId: ${jobRecord.id}, modo: ${mode}`);
+    console.log(`[ANALYZE] Job criado em ${processingTime}ms - jobId: ${jobRecord.id}, modo: ${mode}`);
 
     // 🔑 Alinhado com o frontend
     res.status(200).json({
@@ -223,8 +230,8 @@ router.post("/analyze", async (req, res) => {
     });
   } catch (error) {
     const processingTime = Date.now() - startTime;
-
-    console.error("[ANALYZE] ❌ Erro na criação do job:", error);
+    
+    console.error("[ANALYZE] Erro na criação do job:", error);
 
     const errorResponse = getErrorMessage(error);
     const statusCode =
