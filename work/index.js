@@ -96,31 +96,70 @@ async function downloadFileFromBucket(key) {
 // ---------- Análise REAL via pipeline ----------
 async function analyzeAudioWithPipeline(localFilePath, job) {
   const filename = path.basename(localFilePath);
-  const fileBuffer = await fs.promises.readFile(localFilePath);
-
-  const t0 = Date.now();
   
-  // 🔥 TIMEOUT DE 5 MINUTOS - EVITA PIPELINE INFINITO
-  const pipelinePromise = processAudioComplete(fileBuffer, filename, job?.reference || null);
-  const timeoutPromise = new Promise((_, reject) => {
-    setTimeout(() => {
-      reject(new Error(`Pipeline timeout após 5 minutos para: ${filename}`));
-    }, 300000); // 5 minutos
-  });
+  try {
+    const fileBuffer = await fs.promises.readFile(localFilePath);
+    console.log(`📊 Arquivo lido: ${fileBuffer.length} bytes`);
 
-  const finalJSON = await Promise.race([pipelinePromise, timeoutPromise]);
-  const totalMs = Date.now() - t0;
+    const t0 = Date.now();
+    
+    // 🔥 TIMEOUT DE 3 MINUTOS PARA EVITAR TRAVAMENTO
+    const pipelinePromise = processAudioComplete(fileBuffer, filename, job?.reference || null);
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Pipeline timeout após 3 minutos para: ${filename}`));
+      }, 180000); // 3 minutos (reduzido de 5)
+    });
 
-  finalJSON.performance = {
-    ...(finalJSON.performance || {}),
-    workerTotalTimeMs: totalMs,
-    workerTimestamp: new Date().toISOString(),
-    backendPhase: "5.1-5.4",
-  };
+    console.log(`⚡ Iniciando processamento de ${filename}...`);
+    const finalJSON = await Promise.race([pipelinePromise, timeoutPromise]);
+    const totalMs = Date.now() - t0;
+    
+    console.log(`✅ Pipeline concluído em ${totalMs}ms`);
 
-  finalJSON._worker = { source: "pipeline_complete" };
+    finalJSON.performance = {
+      ...(finalJSON.performance || {}),
+      workerTotalTimeMs: totalMs,
+      workerTimestamp: new Date().toISOString(),
+      backendPhase: "5.1-5.4",
+    };
 
-  return finalJSON;
+    finalJSON._worker = { source: "pipeline_complete" };
+
+    return finalJSON;
+    
+  } catch (error) {
+    console.error(`❌ Erro crítico no pipeline para ${filename}:`, error.message);
+    
+    // 🔥 RETORNO DE SEGURANÇA - NÃO MATA O WORKER
+    return {
+      status: 'error',
+      error: {
+        message: error.message,
+        type: 'worker_pipeline_error',
+        phase: 'worker_processing',
+        timestamp: new Date().toISOString()
+      },
+      score: 0,
+      classification: 'Erro Crítico',
+      scoringMethod: 'worker_error_fallback',
+      metadata: {
+        fileName: filename,
+        fileSize: 0,
+        sampleRate: 48000,
+        channels: 2,
+        duration: 0,
+        processedAt: new Date().toISOString(),
+        engineVersion: 'worker-error',
+        pipelinePhase: 'error'
+      },
+      technicalData: {},
+      warnings: [`Worker error: ${error.message}`],
+      buildVersion: 'worker-error',
+      frontendCompatible: false,
+      _worker: { source: "pipeline_error", error: true }
+    };
+  }
 }
 
 // ---------- Processar 1 job ----------
