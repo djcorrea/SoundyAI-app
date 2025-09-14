@@ -230,14 +230,37 @@ class CoreMetricsProcessor {
         }
 
         try {
+          // 🔍 DEBUG: Verificar frame de entrada
+          const leftFrame = leftFrames[i];
+          const rightFrame = rightFrames[i];
+          
+          if (!leftFrame || leftFrame.length === 0) {
+            throw makeErr('core_metrics', `Empty left frame at index ${i}`, 'empty_left_frame');
+          }
+          if (!rightFrame || rightFrame.length === 0) {
+            throw makeErr('core_metrics', `Empty right frame at index ${i}`, 'empty_right_frame');
+          }
+
           // FFT para canal esquerdo
-          const leftFFT = this.fftEngine.forward(leftFrames[i]);
-          ensureFiniteArray(leftFFT, 'core_metrics');
+          const leftFFT = this.fftEngine.fft(leftFrame);
+          
+          // 🔍 DEBUG: Verificar resultado FFT esquerdo
+          if (!leftFFT || !leftFFT.magnitude || leftFFT.magnitude.length === 0) {
+            throw makeErr('core_metrics', `FFT left result invalid at frame ${i}`, 'invalid_fft_left');
+          }
+          
+          ensureFiniteArray(leftFFT.magnitude, 'core_metrics', `left_magnitude_frame_${i}`);
           fftResults.left.push(leftFFT);
 
           // FFT para canal direito
-          const rightFFT = this.fftEngine.forward(rightFrames[i]);
-          ensureFiniteArray(rightFFT, 'core_metrics');
+          const rightFFT = this.fftEngine.fft(rightFrame);
+          
+          // 🔍 DEBUG: Verificar resultado FFT direito
+          if (!rightFFT || !rightFFT.magnitude || rightFFT.magnitude.length === 0) {
+            throw makeErr('core_metrics', `FFT right result invalid at frame ${i}`, 'invalid_fft_right');
+          }
+          
+          ensureFiniteArray(rightFFT.magnitude, 'core_metrics', `right_magnitude_frame_${i}`);
           fftResults.right.push(rightFFT);
 
           // Magnitude spectrum (combinado)

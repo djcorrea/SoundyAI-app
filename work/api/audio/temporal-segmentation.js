@@ -283,6 +283,12 @@ export function segmentAudioTemporal(audioBufferLike, options = {}) {
         timestamps: rmsTimestamps
       },
 
+      // 🔥 CORREÇÃO CRÍTICA: timestamps no root para core-metrics
+      timestamps: {
+        fft: fftTimestamps,
+        rms: rmsTimestamps
+      },
+
       // Metadados da fase
       _metadata: {
         stage: '5.2-segmentation',
