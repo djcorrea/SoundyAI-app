@@ -14,7 +14,7 @@ const __dirname = path.dirname(__filename);
 let processAudioComplete = null;
 
 try {
-  const imported = await import("../api/audio/pipeline-complete.js");
+  const imported = await import("./api/audio/pipeline-complete.js");
   processAudioComplete = imported.processAudioComplete;
   console.log("✅ Pipeline completo carregado com sucesso!");
 } catch (err) {
