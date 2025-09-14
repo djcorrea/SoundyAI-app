@@ -5121,6 +5121,21 @@ window.displayReferenceResults = function(referenceResults) {
 function normalizeBackendAnalysisData(backendData) {
     console.log('🔧 [NORMALIZE] Iniciando normalização dos dados do backend:', backendData);
     
+    // 🔍 DEBUG: Log detalhado da estrutura recebida
+    console.log('🔍 [NORMALIZE] Estrutura de dados recebida:', {
+        hasScore: backendData.score !== undefined,
+        scoreValue: backendData.score,
+        hasLoudness: backendData.loudness !== undefined,
+        loudnessKeys: backendData.loudness ? Object.keys(backendData.loudness) : [],
+        hasTruePeak: backendData.truePeak !== undefined,
+        truePeakKeys: backendData.truePeak ? Object.keys(backendData.truePeak) : [],
+        hasStereo: backendData.stereo !== undefined,
+        stereoKeys: backendData.stereo ? Object.keys(backendData.stereo) : [],
+        hasClassification: backendData.classification !== undefined,
+        classification: backendData.classification,
+        allKeys: Object.keys(backendData)
+    });
+    
     // Se já está no formato correto, retornar como está
     if (backendData.technicalData && backendData.technicalData.peak !== undefined) {
         console.log('📊 [NORMALIZE] Dados já estão normalizados');
@@ -5138,12 +5153,20 @@ function normalizeBackendAnalysisData(backendData) {
         channels: backendData.channels || 2
     };
     
-    // 🎯 MAPEAR MÉTRICAS BÁSICAS
+    // 🎯 MAPEAR MÉTRICAS BÁSICAS - CORRIGIDO PARA FORMATO DO PIPELINE
     const tech = normalized.technicalData;
     const source = backendData.technicalData || backendData.metrics || backendData;
     
-    // Peak e RMS
-    tech.peak = source.peak || source.peak_db || source.peakLevel || -60;
+    console.log('🔧 [NORMALIZE] Dados de entrada:', { 
+        hasLoudness: !!backendData.loudness,
+        hasTruePeak: !!backendData.truePeak,
+        hasStereo: !!backendData.stereo,
+        hasScore: !!backendData.score
+    });
+    
+    // Peak e RMS - Mapear do formato do pipeline
+    tech.peak = source.peak || source.peak_db || source.peakLevel || 
+               backendData.truePeak?.maxDbtp || -60;
     tech.rms = source.rms || source.rms_db || source.rmsLevel || -60;
     tech.rmsLevel = tech.rms;
     
@@ -5154,25 +5177,42 @@ function normalizeBackendAnalysisData(backendData) {
     // Crest Factor
     tech.crestFactor = source.crestFactor || source.crest_factor || tech.dynamicRange || 12;
     
-    // True Peak
-    tech.truePeakDbtp = source.truePeakDbtp || source.true_peak_dbtp || source.truePeak || tech.peak;
+    // True Peak - CORRIGIDO: Mapear do formato do pipeline
+    tech.truePeakDbtp = backendData.truePeak?.maxDbtp || 
+                       source.truePeakDbtp || source.true_peak_dbtp || source.truePeak || tech.peak;
+    tech.truePeakLinear = backendData.truePeak?.maxLinear || 
+                         source.truePeakLinear || source.true_peak_linear || 0.8;
     
-    // LUFS
-    tech.lufsIntegrated = source.lufsIntegrated || source.lufs_integrated || source.lufs || -23;
-    tech.lufsShortTerm = source.lufsShortTerm || source.lufs_short_term || tech.lufsIntegrated;
-    tech.lufsMomentary = source.lufsMomentary || source.lufs_momentary || tech.lufsIntegrated;
+    // LUFS - CORRIGIDO: Mapear do formato do pipeline
+    tech.lufsIntegrated = backendData.loudness?.integrated || 
+                         source.lufsIntegrated || source.lufs_integrated || source.lufs || -23;
+    tech.lufsShortTerm = backendData.loudness?.shortTerm || 
+                        source.lufsShortTerm || source.lufs_short_term || tech.lufsIntegrated;
+    tech.lufsMomentary = backendData.loudness?.momentary || 
+                        source.lufsMomentary || source.lufs_momentary || tech.lufsIntegrated;
     
-    // LRA
-    tech.lra = source.lra || source.loudnessRange || 8;
+    // LRA - CORRIGIDO: Mapear do formato do pipeline
+    tech.lra = backendData.loudness?.lra || 
+              source.lra || source.loudnessRange || 8;
     
     // Headroom
     tech.headroomDb = source.headroomDb || source.headroom_db || (0 - tech.peak);
     tech.headroomTruePeakDb = source.headroomTruePeakDb || (0 - tech.truePeakDbtp);
     
-    // Stereo
-    tech.stereoCorrelation = source.stereoCorrelation || source.stereo_correlation || 0.5;
-    tech.stereoWidth = source.stereoWidth || source.stereo_width || 0.5;
-    tech.balanceLR = source.balanceLR || source.balance_lr || 0;
+    // Stereo - CORRIGIDO: Mapear do formato do pipeline
+    tech.stereoCorrelation = backendData.stereo?.correlation || 
+                            source.stereoCorrelation || source.stereo_correlation || 0.5;
+    tech.stereoWidth = backendData.stereo?.width || 
+                      source.stereoWidth || source.stereo_width || 0.5;
+    tech.balanceLR = backendData.stereo?.balance || 
+                    source.balanceLR || source.balance_lr || 0;
+    
+    console.log('✅ [NORMALIZE] Métricas mapeadas:', {
+        lufsIntegrated: tech.lufsIntegrated,
+        truePeakDbtp: tech.truePeakDbtp,
+        stereoCorrelation: tech.stereoCorrelation,
+        lra: tech.lra
+    });
     
     // Spectral
     tech.spectralCentroid = source.spectralCentroid || source.spectral_centroid || 1000;
@@ -5305,15 +5345,23 @@ function normalizeBackendAnalysisData(backendData) {
         ];
     }
     
-    // 🔢 SCORES E QUALIDADE
-    normalized.qualityOverall = backendData.qualityOverall || backendData.score || backendData.mixScore || 7.5;
-    normalized.qualityBreakdown = backendData.qualityBreakdown || {
+    // 🔢 SCORES E QUALIDADE - CORRIGIDO: Mapear do formato do pipeline
+    normalized.qualityOverall = backendData.score || backendData.qualityOverall || backendData.mixScore || 7.5;
+    normalized.qualityBreakdown = backendData.scoring?.breakdown || backendData.qualityBreakdown || {
         dynamics: 75,
         technical: 80,
         stereo: 70,
         loudness: 85,
         frequency: 75
     };
+    
+    // Classificação do pipeline
+    normalized.classification = backendData.classification || 'unknown';
+    
+    console.log('🎯 [NORMALIZE] Score mapeado:', {
+        score: normalized.qualityOverall,
+        classification: normalized.classification
+    });
     
     // 🚨 PROBLEMAS - Garantir que existam alguns problemas/sugestões para exibir
     if (normalized.problems.length === 0) {
@@ -5383,6 +5431,18 @@ function normalizeBackendAnalysisData(backendData) {
         problemsCount: normalized.problems.length,
         suggestionsCount: normalized.suggestions.length,
         qualityScore: normalized.qualityOverall
+    });
+    
+    console.log('🎯 [NORMALIZE] Normalização concluída com sucesso!');
+    console.log('📊 [NORMALIZE] Dados finais normalizados:', {
+        score: normalized.qualityOverall,
+        classification: normalized.classification,
+        lufsIntegrated: normalized.technicalData.lufsIntegrated,
+        truePeakDbtp: normalized.technicalData.truePeakDbtp,
+        stereoCorrelation: normalized.technicalData.stereoCorrelation,
+        lra: normalized.technicalData.lra,
+        hasProblems: normalized.problems.length,
+        hasSuggestions: normalized.suggestions.length
     });
     
     return normalized;
