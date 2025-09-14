@@ -104,11 +104,17 @@ class CoreMetricsProcessor {
       assertFinite(fftResults, 'core_metrics');
 
       // ========= BANDAS ESPECTRAIS CORRIGIDAS (7 BANDAS) =========
-      logAudio('core_metrics', 'spectral_bands_start');
+      logAudio('core_metrics', 'spectral_bands_start', { 
+        hasFramesFFT: !!segmentedAudio.framesFFT,
+        frameCount: segmentedAudio.framesFFT?.frames?.length || 0
+      });
       const spectralBandsResults = await this.calculateSpectralBandsMetrics(segmentedAudio.framesFFT, { jobId });
       
       // ========= SPECTRAL CENTROID CORRIGIDO (Hz) =========
-      logAudio('core_metrics', 'spectral_centroid_start');
+      logAudio('core_metrics', 'spectral_centroid_start', {
+        hasFramesFFT: !!segmentedAudio.framesFFT,
+        frameCount: segmentedAudio.framesFFT?.frames?.length || 0
+      });
       const spectralCentroidResults = await this.calculateSpectralCentroidMetrics(segmentedAudio.framesFFT, { jobId });
 
       // ========= CÁLCULO LUFS ITU-R BS.1770-4 =========
@@ -158,7 +164,7 @@ class CoreMetricsProcessor {
         truePeak: truePeakMetrics,
         stereo: stereoMetrics, // ✅ CORRIGIDO: Correlação (-1 a +1) e Width (0 a 1)
         dynamics: dynamicsMetrics, // ✅ CORRIGIDO: DR, Crest Factor, LRA
-        rms: segmentedAudio.framesRMS, // Passar direto da segmentação
+        rms: this.processRMSMetrics(segmentedAudio.framesRMS), // ✅ NOVO: Processar métricas RMS
         normalization: {
           applied: normalizationResult.normalizationApplied,
           originalLUFS: normalizationResult.originalLUFS,
@@ -344,19 +350,21 @@ class CoreMetricsProcessor {
         }
 
         try {
-          // 🔍 DEBUG: Verificar frame de entrada
+          // 🔍 DEBUG: Verificar frame de entrada (agora são objetos FFT já calculados)
           const leftFrame = leftFrames[i];
           const rightFrame = rightFrames[i];
           
-          if (!leftFrame || leftFrame.length === 0) {
-            throw makeErr('core_metrics', `Empty left frame at index ${i}`, 'empty_left_frame');
+          // ⚡ CORREÇÃO CRÍTICA: Frames agora são objetos {magnitude, phase, real, imag}
+          if (!leftFrame || !leftFrame.magnitude || leftFrame.magnitude.length === 0) {
+            throw makeErr('core_metrics', `Empty or invalid left FFT frame at index ${i}`, 'empty_left_frame');
           }
-          if (!rightFrame || rightFrame.length === 0) {
-            throw makeErr('core_metrics', `Empty right frame at index ${i}`, 'empty_right_frame');
+          if (!rightFrame || !rightFrame.magnitude || rightFrame.magnitude.length === 0) {
+            throw makeErr('core_metrics', `Empty or invalid right FFT frame at index ${i}`, 'empty_right_frame');
           }
 
-          // FFT para canal esquerdo
-          const leftFFT = this.fftEngine.fft(leftFrame);
+          // ⚡ USAR FFT JÁ CALCULADO - sem refazer cálculo
+          const leftFFT = leftFrame;  // Já é {magnitude, phase, real, imag}
+          const rightFFT = rightFrame;  // Já é {magnitude, phase, real, imag}
           
           // 🔍 DEBUG: Verificar resultado FFT esquerdo
           if (!leftFFT || !leftFFT.magnitude || leftFFT.magnitude.length === 0) {
@@ -366,9 +374,6 @@ class CoreMetricsProcessor {
           ensureFiniteArray(leftFFT.magnitude, 'core_metrics', `left_magnitude_frame_${i}`);
           fftResults.left.push(leftFFT);
 
-          // FFT para canal direito
-          const rightFFT = this.fftEngine.fft(rightFrame);
-          
           // 🔍 DEBUG: Verificar resultado FFT direito
           if (!rightFFT || !rightFFT.magnitude || rightFFT.magnitude.length === 0) {
             throw makeErr('core_metrics', `FFT right result invalid at frame ${i}`, 'invalid_fft_right');
@@ -627,6 +632,18 @@ class CoreMetricsProcessor {
         return this.spectralBandsCalculator.getNullBands();
       }
 
+      // Debug: verificar estrutura dos frames
+      const firstFrame = framesFFT.frames[0];
+      logAudio('spectral_bands', 'frame_structure_debug', { 
+        frameCount: framesFFT.frames.length,
+        firstFrameKeys: Object.keys(firstFrame),
+        hasLeftFFT: !!firstFrame.leftFFT,
+        hasRightFFT: !!firstFrame.rightFFT,
+        leftFFTKeys: firstFrame.leftFFT ? Object.keys(firstFrame.leftFFT) : null,
+        hasMagnitude: !!firstFrame.leftFFT?.magnitude,
+        magnitudeLength: firstFrame.leftFFT?.magnitude?.length || 0
+      });
+
       const bandsResults = [];
       
       for (let frameIndex = 0; frameIndex < framesFFT.frames.length; frameIndex++) {
@@ -871,6 +888,103 @@ class CoreMetricsProcessor {
     }
     
     return midMagnitude > 0 ? Math.sqrt(sideMagnitude / midMagnitude) : 0;
+  }
+
+  /**
+   * 📊 Processar métricas RMS dos frames para métricas agregadas
+   */
+  processRMSMetrics(framesRMS) {
+    try {
+      if (!framesRMS || !framesRMS.left || !framesRMS.right || framesRMS.count === 0) {
+        logAudio('core_metrics', 'rms_invalid_input', { hasLeft: !!framesRMS?.left, hasRight: !!framesRMS?.right, count: framesRMS?.count });
+        return {
+          left: null,
+          right: null,
+          average: null,
+          peak: null,
+          count: framesRMS?.count || 0
+        };
+      }
+
+      // Calcular RMS médio para cada canal
+      const leftFrames = framesRMS.left;
+      const rightFrames = framesRMS.right;
+      
+      // Filtrar apenas valores válidos (não-zero, não-NaN, não-Infinity)
+      const validLeftFrames = leftFrames.filter(val => val > 0 && isFinite(val));
+      const validRightFrames = rightFrames.filter(val => val > 0 && isFinite(val));
+      
+      if (validLeftFrames.length === 0 || validRightFrames.length === 0) {
+        logAudio('core_metrics', 'rms_no_valid_frames', { 
+          leftValid: validLeftFrames.length, 
+          rightValid: validRightFrames.length,
+          leftTotal: leftFrames.length,
+          rightTotal: rightFrames.length 
+        });
+        return {
+          left: null,
+          right: null,
+          average: null,
+          peak: null,
+          count: framesRMS.count
+        };
+      }
+      
+      // RMS médio por canal (já são valores RMS por frame)
+      const leftRMS = this.calculateArrayAverage(validLeftFrames);
+      const rightRMS = this.calculateArrayAverage(validRightFrames);
+      
+      // RMS médio total
+      const averageRMS = (leftRMS + rightRMS) / 2;
+      
+      // Peak RMS (maior valor RMS entre todos os frames válidos)
+      const peakRMS = Math.max(
+        Math.max(...validLeftFrames),
+        Math.max(...validRightFrames)
+      );
+
+      // Converter para dB (com segurança)
+      const leftRMSDb = leftRMS > 0 ? 20 * Math.log10(leftRMS) : -120; // Floor -120dB
+      const rightRMSDb = rightRMS > 0 ? 20 * Math.log10(rightRMS) : -120;
+      const averageRMSDb = averageRMS > 0 ? 20 * Math.log10(averageRMS) : -120;
+      const peakRMSDb = peakRMS > 0 ? 20 * Math.log10(peakRMS) : -120;
+
+      logAudio('core_metrics', 'rms_processed', { 
+        leftRMSDb: leftRMSDb.toFixed(2), 
+        rightRMSDb: rightRMSDb.toFixed(2), 
+        averageRMSDb: averageRMSDb.toFixed(2),
+        peakRMSDb: peakRMSDb.toFixed(2),
+        frameCount: framesRMS.count,
+        validFrames: Math.min(validLeftFrames.length, validRightFrames.length)
+      });
+
+      return {
+        left: leftRMSDb,
+        right: rightRMSDb,
+        average: averageRMSDb,
+        peak: peakRMSDb,
+        count: framesRMS.count
+      };
+
+    } catch (error) {
+      logAudio('core_metrics', 'rms_processing_error', { error: error.message });
+      return {
+        left: null,
+        right: null,
+        average: null,
+        peak: null,
+        count: framesRMS?.count || 0
+      };
+    }
+  }
+
+  /**
+   * 📈 Calcular média de um array (helper function)
+   */
+  calculateArrayAverage(array) {
+    if (!array || array.length === 0) return 0;
+    const sum = array.reduce((acc, val) => acc + val, 0);
+    return sum / array.length;
   }
 }
 

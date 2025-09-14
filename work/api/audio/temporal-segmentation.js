@@ -9,6 +9,7 @@
 
 // Sistema de tratamento de erros padronizado
 import { makeErr, ensureFiniteArray, logAudio, assertFinite } from '../../lib/audio/error-handling.js';
+import { FastFFT } from '../../lib/audio/fft.js';
 
 // ========= CONFIGURAÇÕES FIXAS (AUDITORIA) =========
 const SAMPLE_RATE = 48000;
@@ -97,6 +98,9 @@ function segmentChannelForFFT(audioData, channelName) {
   const hannWindow = generateHannWindow(FFT_SIZE);
   const totalSamples = audioData.length;
   
+  // Inicializar FFT engine
+  const fftEngine = new FastFFT();
+  
   // Calcular número de frames de forma determinística
   const numFrames = Math.floor((totalSamples - FFT_SIZE) / FFT_HOP_SIZE) + 1;
   
@@ -115,7 +119,22 @@ function segmentChannelForFFT(audioData, channelName) {
     const rawFrame = extractFrame(audioData, startSample, FFT_SIZE);
     const windowedFrame = applyWindow(rawFrame, hannWindow);
     
-    frames.push(windowedFrame);
+    // ⚡ CORREÇÃO CRÍTICA: Executar FFT real para obter magnitude e phase
+    try {
+      const fftResult = fftEngine.fft(windowedFrame);
+      
+      // Criar objeto frame com magnitude e phase (como esperado por core-metrics.js)
+      const frameWithFFT = {
+        magnitude: fftResult.magnitude,
+        phase: fftResult.phase,
+        real: fftResult.real,
+        imag: fftResult.imag
+      };
+      
+      frames.push(frameWithFFT);
+    } catch (fftError) {
+      throw makeErr('segmentation', `Erro FFT no frame ${frameIndex} de ${channelName}: ${fftError.message}`, 'fft_calculation_error');
+    }
   }
   
   if (frames.length === 0) {
@@ -130,6 +149,7 @@ function segmentChannelForFFT(audioData, channelName) {
  */
 function segmentChannelForRMS(audioData, channelName) {
   const frames = [];
+  const rmsValues = []; // ⚡ NOVO: Array para valores RMS calculados
   const totalSamples = audioData.length;
   
   // Calcular número de blocos de forma determinística
@@ -145,13 +165,28 @@ function segmentChannelForRMS(audioData, channelName) {
     // Último bloco pode ser menor, mas sempre aplicamos zero-padding
     const block = extractFrame(audioData, startSample, RMS_BLOCK_SAMPLES);
     frames.push(block);
+    
+    // ⚡ CORREÇÃO CRÍTICA: Calcular RMS real de cada bloco
+    let sumSquares = 0;
+    for (let i = 0; i < block.length; i++) {
+      sumSquares += block[i] * block[i];
+    }
+    const rmsValue = Math.sqrt(sumSquares / block.length);
+    
+    // Validar RMS finito e não-zero
+    if (isFinite(rmsValue) && rmsValue > 0) {
+      rmsValues.push(rmsValue);
+    } else {
+      // Para blocos de silêncio, adicionar valor muito pequeno mas válido
+      rmsValues.push(1e-8);
+    }
   }
   
   if (frames.length === 0) {
     throw makeErr('segmentation', `Nenhum frame RMS gerado para canal ${channelName}`, 'no_rms_frames');
   }
   
-  return frames;
+  return { frames, rmsValues }; // ⚡ RETORNAR AMBOS: frames brutos e valores RMS
 }
 
 /**
@@ -231,17 +266,17 @@ export function segmentAudioTemporal(audioBufferLike, options = {}) {
     }
 
     // ========= SEGMENTAÇÃO RMS =========
-    const leftRMSFrames = segmentChannelForRMS(leftChannel, 'left');
-    const rightRMSFrames = segmentChannelForRMS(rightChannel, 'right');
+    const leftRMSResult = segmentChannelForRMS(leftChannel, 'left');
+    const rightRMSResult = segmentChannelForRMS(rightChannel, 'right');
 
     // Validar consistência
-    if (leftRMSFrames.length !== rightRMSFrames.length) {
-      throw makeErr(stage, `RMS frames inconsistentes: L=${leftRMSFrames.length}, R=${rightRMSFrames.length}`, 'rms_frame_count_mismatch');
+    if (leftRMSResult.frames.length !== rightRMSResult.frames.length) {
+      throw makeErr(stage, `RMS frames inconsistentes: L=${leftRMSResult.frames.length}, R=${rightRMSResult.frames.length}`, 'rms_frame_count_mismatch');
     }
 
     // ========= GERAR TIMESTAMPS =========
     const fftTimestamps = generateTimestamps(leftFFTFrames.length, FFT_HOP_SIZE, sampleRate);
-    const rmsTimestamps = generateTimestamps(leftRMSFrames.length, RMS_HOP_SAMPLES, sampleRate);
+    const rmsTimestamps = generateTimestamps(leftRMSResult.frames.length, RMS_HOP_SAMPLES, sampleRate);
 
     // ========= RESULTADO ESTRUTURADO =========
     const processingTime = Date.now() - startTime;
@@ -268,18 +303,29 @@ export function segmentAudioTemporal(audioBufferLike, options = {}) {
         windowType: WINDOW_TYPE,
         count: leftFFTFrames.length,
         timestamps: fftTimestamps,
-        overlapPercent: ((FFT_SIZE - FFT_HOP_SIZE) / FFT_SIZE) * 100
+        overlapPercent: ((FFT_SIZE - FFT_HOP_SIZE) / FFT_SIZE) * 100,
+        // 🔥 NOVO: Campo frames combinado para core-metrics
+        frames: leftFFTFrames.map((leftFrame, index) => ({
+          leftFFT: leftFrame,
+          rightFFT: rightFFTFrames[index],
+          timestamp: fftTimestamps[index],
+          frameIndex: index
+        }))
       },
 
       // Frames RMS/LUFS com metadados completos
       framesRMS: {
-        left: leftRMSFrames,
-        right: rightRMSFrames,
+        left: leftRMSResult.rmsValues,  // ⚡ USAR VALORES RMS CALCULADOS 
+        right: rightRMSResult.rmsValues, // ⚡ USAR VALORES RMS CALCULADOS
+        frames: {
+          left: leftRMSResult.frames,   // Frames brutos para LUFS se necessário
+          right: rightRMSResult.frames
+        },
         frameSize: RMS_BLOCK_SAMPLES,
         hopSize: RMS_HOP_SAMPLES,
         blockDurationMs: RMS_BLOCK_DURATION_MS,
         hopDurationMs: RMS_HOP_DURATION_MS,
-        count: leftRMSFrames.length,
+        count: leftRMSResult.rmsValues.length,
         timestamps: rmsTimestamps
       },
 
@@ -317,7 +363,7 @@ export function segmentAudioTemporal(audioBufferLike, options = {}) {
         counts: {
           originalSamples: leftChannel.length,
           fftFrames: leftFFTFrames.length,
-          rmsFrames: leftRMSFrames.length,
+          rmsFrames: leftRMSResult.rmsValues.length,
           fftTimestamps: fftTimestamps.length,
           rmsTimestamps: rmsTimestamps.length
         }
