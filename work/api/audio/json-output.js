@@ -329,8 +329,74 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.headroomTruePeakDb = safeSanitize(0 - technicalData.truePeakDbtp); // 0 dBTP - true peak atual
   }
 
-  // Problemas técnicos detectados
-  technicalData.dcOffset = null; // TODO: Implementar se necessário
+  // ===== NOVOS ANALISADORES =====
+  
+  // DC Offset Analysis
+  if (coreMetrics.dcOffset) {
+    technicalData.dcOffset = {
+      leftDC: safeSanitize(coreMetrics.dcOffset.leftDC),
+      rightDC: safeSanitize(coreMetrics.dcOffset.rightDC),
+      averageDC: safeSanitize(coreMetrics.dcOffset.averageDC),
+      maxAbsDC: safeSanitize(coreMetrics.dcOffset.maxAbsDC),
+      dcImbalance: safeSanitize(coreMetrics.dcOffset.dcImbalance),
+      severity: coreMetrics.dcOffset.severity || 'unknown',
+      hasSignificantDC: coreMetrics.dcOffset.hasSignificantDC || false,
+      needsCorrection: coreMetrics.dcOffset.needsCorrection || false,
+      temporalVariation: safeSanitize(coreMetrics.dcOffset.temporalVariation),
+      quality: coreMetrics.dcOffset.quality || {}
+    };
+  } else {
+    technicalData.dcOffset = null;
+  }
+  
+  // Dominant Frequencies Analysis  
+  if (coreMetrics.dominantFrequencies) {
+    technicalData.dominantFrequencies = {
+      peaks: coreMetrics.dominantFrequencies.peaks || [],
+      primaryFrequency: safeSanitize(coreMetrics.dominantFrequencies.primaryFrequency),
+      secondaryFrequency: safeSanitize(coreMetrics.dominantFrequencies.secondaryFrequency),
+      frequencySpread: safeSanitize(coreMetrics.dominantFrequencies.frequencySpread),
+      harmonicContent: safeSanitize(coreMetrics.dominantFrequencies.harmonicContent),
+      complexity: coreMetrics.dominantFrequencies.complexity || 'unknown',
+      dominanceRatio: safeSanitize(coreMetrics.dominantFrequencies.dominanceRatio),
+      spectralPurity: safeSanitize(coreMetrics.dominantFrequencies.spectralPurity)
+    };
+  } else {
+    technicalData.dominantFrequencies = null;
+  }
+  
+  // Spectral Uniformity Analysis
+  if (coreMetrics.uniformity) {
+    technicalData.spectralUniformity = {
+      coefficient: safeSanitize(coreMetrics.uniformity.uniformity?.coefficient),
+      standardDeviation: safeSanitize(coreMetrics.uniformity.uniformity?.standardDeviation),
+      range: safeSanitize(coreMetrics.uniformity.uniformity?.range),
+      score: safeSanitize(coreMetrics.uniformity.score),
+      rating: coreMetrics.uniformity.rating || 'unknown',
+      isUniform: coreMetrics.uniformity.isUniform || false,
+      needsBalancing: coreMetrics.uniformity.needsBalancing || false,
+      balance: coreMetrics.uniformity.balance || {},
+      characteristics: coreMetrics.uniformity.characteristics || {},
+      bandEnergies: coreMetrics.uniformity.bandEnergies || {},
+      eqSuggestions: coreMetrics.uniformity.eqSuggestions || null
+    };
+  } else {
+    technicalData.spectralUniformity = null;
+  }
+  
+  // Problems and Suggestions Analysis
+  if (coreMetrics.problems || coreMetrics.suggestions) {
+    technicalData.problemsAnalysis = {
+      problems: coreMetrics.problems || [],
+      suggestions: coreMetrics.suggestions || [],
+      qualityAssessment: coreMetrics.qualityAssessment || {},
+      priorityRecommendations: coreMetrics.priorityRecommendations || []
+    };
+  } else {
+    technicalData.problemsAnalysis = null;
+  }
+
+  // Problemas técnicos detectados (legacy compatibility)
   technicalData.thdPercent = null; // TODO: Implementar se necessário
 
   // ===== FREQUÊNCIAS DOMINANTES =====
@@ -476,6 +542,15 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     
     // ===== Frequências Dominantes =====
     dominantFrequencies: technicalData.dominantFrequencies || [],
+
+    // ===== DC Offset Analysis =====
+    dcOffset: technicalData.dcOffset,
+
+    // ===== Spectral Uniformity =====
+    spectralUniformity: technicalData.spectralUniformity,
+
+    // ===== Problems & Suggestions Analysis =====
+    problemsAnalysis: technicalData.problemsAnalysis,
 
     // ===== Headroom & Dinâmica Avançada =====
     headroom: {
