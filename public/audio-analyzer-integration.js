@@ -872,6 +872,53 @@ function safeDisplayNumber(val, key, decimals=2) {
     return val.toFixed(decimals);
 }
 
+// 🆕 Função para exibir estruturas complexas das novas métricas
+function safeDisplayComplexMetric(metric, type = 'generic') {
+    if (!metric || typeof metric !== 'object') return '—';
+    
+    switch (type) {
+        case 'frequency':
+            // Para dominantFrequencies
+            if (metric.value !== undefined) {
+                const unit = metric.unit || 'Hz';
+                const value = Number.isFinite(metric.value) ? metric.value.toFixed(1) : '—';
+                return `${value} ${unit}`;
+            }
+            return '—';
+            
+        case 'dcOffset':
+            // Para dcOffset com canais L/R
+            if (metric.detailed && (metric.detailed.L !== undefined || metric.detailed.R !== undefined)) {
+                const L = Number.isFinite(metric.detailed.L) ? metric.detailed.L.toFixed(4) : '—';
+                const R = Number.isFinite(metric.detailed.R) ? metric.detailed.R.toFixed(4) : '—';
+                return `L: ${L}, R: ${R}`;
+            } else if (metric.value !== undefined) {
+                const value = Number.isFinite(metric.value) ? metric.value.toFixed(4) : '—';
+                const unit = metric.unit || '';
+                return `${value} ${unit}`;
+            }
+            return '—';
+            
+        case 'spectral':
+            // Para spectralUniformity
+            if (metric.value !== undefined) {
+                const value = Number.isFinite(metric.value) ? metric.value.toFixed(3) : '—';
+                const unit = metric.unit || '';
+                return `${value} ${unit}`;
+            }
+            return '—';
+            
+        default:
+            // Generic: tentar exibir value ou primeiro campo numérico
+            if (metric.value !== undefined) {
+                const value = Number.isFinite(metric.value) ? metric.value.toFixed(2) : '—';
+                const unit = metric.unit || '';
+                return `${value} ${unit}`;
+            }
+            return '—';
+    }
+}
+
 // Invalidação ampla de caches derivados quando gênero mudar
 function invalidateReferenceDerivedCaches() {
     try {
@@ -3392,6 +3439,8 @@ function displayModalResults(analysis) {
             row('Balance L/R', Number.isFinite(getMetric('balance_lr', 'balanceLR')) ? safePct(getMetric('balance_lr', 'balanceLR')) : '—', 'balanceLR'),
             row('Centroide Espectral', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroid')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroid')) : '—', 'spectralCentroid'),
             row('Rolloff Espectral', Number.isFinite(getMetric('spectral_rolloff', 'spectralRolloff')) ? safeHz(getMetric('spectral_rolloff', 'spectralRolloff')) : '—', 'spectralRolloff'),
+            row('Largura Espectral', Number.isFinite(getMetric('spectral_bandwidth', 'spectralBandwidth')) ? safeHz(getMetric('spectral_bandwidth', 'spectralBandwidth')) : '—', 'spectralBandwidth'),
+            row('Uniformidade Espectral', Number.isFinite(analysis.spectralUniformity?.score) ? `${safeFixed(analysis.spectralUniformity.score, 1)}/10 (${analysis.spectralUniformity.rating || 'unknown'})` : '—', 'spectralUniformity'),
             row('Zero Crossing Rate', Number.isFinite(getMetric('zero_crossing_rate', 'zeroCrossingRate')) ? safeFixed(getMetric('zero_crossing_rate', 'zeroCrossingRate'), 3) : '—', 'zeroCrossingRate'),
             row('Flux', Number.isFinite(getMetric('spectral_flux', 'spectralFlux')) ? safeFixed(getMetric('spectral_flux', 'spectralFlux'), 3) : '—', 'spectralFlux'),
             row('Flatness', Number.isFinite(getMetric('spectral_flatness', 'spectralFlatness')) ? safeFixed(getMetric('spectral_flatness', 'spectralFlatness'), 3) : '—', 'spectralFlatness')
@@ -3416,7 +3465,9 @@ function displayModalResults(analysis) {
             })();
             const col3 = [
                 row('Tonal Balance', analysis.technicalData?.tonalBalance ? tonalSummary(analysis.technicalData.tonalBalance) : '—', 'tonalBalance'),
-                (analysis.technicalData?.dominantFrequencies?.length > 0 ? row('Freq. Dominante', `${Math.round(analysis.technicalData.dominantFrequencies[0].frequency)} Hz`) : ''),
+                (analysis.dominantFrequencies?.primaryFrequency ? row('Freq. Dominante Principal', `${Math.round(analysis.dominantFrequencies.primaryFrequency)} Hz (${analysis.dominantFrequencies.complexity || 'unknown'})`) : ''),
+                (analysis.dominantFrequencies?.secondaryFrequency ? row('Freq. Dominante Secundária', `${Math.round(analysis.dominantFrequencies.secondaryFrequency)} Hz`) : ''),
+                (analysis.dcOffset ? row('DC Offset', `L: ${safeFixed(analysis.dcOffset.leftDC, 4)} / R: ${safeFixed(analysis.dcOffset.rightDC, 4)} ${analysis.dcOffset.needsCorrection ? '⚠️' : '✅'}`) : ''),
                 row('Problemas', (analysis.problems?.length || 0) > 0 ? `<span class="tag tag-danger">${analysis.problems.length} detectado(s)</span>` : '—'),
                 row('Sugestões', (analysis.suggestions?.length || 0) > 0 ? `<span class="tag tag-success">${analysis.suggestions.length} disponível(s)</span>` : '—'),
                 col3Extras
@@ -3450,11 +3501,41 @@ function displayModalResults(analysis) {
                 if (Number.isFinite(analysis.technicalData?.clippingSamplesTruePeak)) {
                     rows.push(row('Clipping (TP)', `${analysis.technicalData.clippingSamplesTruePeak} samples`, 'clippingSamplesTruePeak'));
                 }
-                // Frequências dominantes extras
+                // Dominant Frequencies detalhadas
+                if (analysis.dominantFrequencies && analysis.dominantFrequencies.peaks && Array.isArray(analysis.dominantFrequencies.peaks)) {
+                    const peaks = analysis.dominantFrequencies.peaks.slice(0, 5)
+                        .map((peak, idx) => `${idx+1}. ${Math.round(peak.frequency)} Hz (${safeFixed(peak.prominence, 2)})`).join('<br>');
+                    if (peaks) rows.push(row('Picos Espectrais Detalhados', `<span style="opacity:.9">${peaks}</span>`));
+                }
+                
+                // Spectral Uniformity detalhada
+                if (analysis.spectralUniformity) {
+                    const uniformity = analysis.spectralUniformity;
+                    if (uniformity.uniformity && Number.isFinite(uniformity.uniformity.coefficient)) {
+                        rows.push(row('Coef. Uniformidade', `${safeFixed(uniformity.uniformity.coefficient, 3)} (${uniformity.rating || 'unknown'})`));
+                    }
+                    if (uniformity.characteristics && uniformity.characteristics.dominantBand) {
+                        rows.push(row('Banda Dominante', `${uniformity.characteristics.dominantBand} (tilt: ${safeFixed(uniformity.characteristics.spectralTilt, 1)}dB)`));
+                    }
+                }
+                
+                // DC Offset detalhado
+                if (analysis.dcOffset) {
+                    const dc = analysis.dcOffset;
+                    if (Number.isFinite(dc.maxAbsDC)) {
+                        const dcStatus = dc.severity === 'none' ? '✅' : dc.severity === 'minor' ? '⚠️' : '🔴';
+                        rows.push(row('DC Offset Max', `${safeFixed(dc.maxAbsDC, 4)} ${dcStatus} (${dc.severity || 'unknown'})`));
+                    }
+                    if (Number.isFinite(dc.temporalVariation)) {
+                        rows.push(row('Variação Temporal DC', `${safeFixed(dc.temporalVariation, 4)} ${dc.quality?.isStable ? '✅' : '⚠️'}`));
+                    }
+                }
+                
+                // Frequências dominantes extras (fallback legacy)
                 if (Array.isArray(analysis.technicalData?.dominantFrequencies) && analysis.technicalData.dominantFrequencies.length > 1) {
                     const extra = analysis.technicalData.dominantFrequencies.slice(1, 4)
                         .map((f, idx) => `${idx+2}. ${Math.round(f.frequency)} Hz (${f.occurrences || 1}x)`).join('<br>');
-                    if (extra) rows.push(row('Top Freq. adicionais', `<span style="opacity:.9">${extra}</span>`));
+                    if (extra) rows.push(row('Top Freq. adicionais (legacy)', `<span style="opacity:.9">${extra}</span>`));
                 }
                 return rows.join('') || row('Status', 'Sem métricas adicionais');
             };
@@ -3542,12 +3623,24 @@ function displayModalResults(analysis) {
                 }
                 rows.push(row('Clipping', `<span class="${clipClass}">${clipText}</span>`, 'clippingSamples'));
                 
-                // 2. DC Offset - SEMPRE mostrar
-                const dcVal = Number.isFinite(analysis.technicalData?.dcOffset) ? analysis.technicalData.dcOffset : 0;
-                const hasDcProblem = Math.abs(dcVal) > 0.01;
-                if (hasDcProblem) hasActualProblems = true;
-                const dcClass = hasDcProblem ? 'warn' : '';
-                rows.push(row('DC Offset', `<span class="${dcClass}">${safeFixed(dcVal, 4)}</span>`, 'dcOffset'));
+                // 2. DC Offset - SEMPRE mostrar (usando nova estrutura)
+                let dcVal, hasDcProblem, dcClass;
+                if (analysis.dcOffset && Number.isFinite(analysis.dcOffset.maxAbsDC)) {
+                    // Usar nova estrutura detalhada
+                    dcVal = analysis.dcOffset.maxAbsDC;
+                    hasDcProblem = analysis.dcOffset.needsCorrection || analysis.dcOffset.severity !== 'none';
+                    dcClass = hasDcProblem ? (analysis.dcOffset.isCritical ? 'error' : 'warn') : '';
+                    if (hasDcProblem) hasActualProblems = true;
+                    const dcDetails = `Max: ${safeFixed(dcVal, 4)} | L: ${safeFixed(analysis.dcOffset.leftDC, 4)} | R: ${safeFixed(analysis.dcOffset.rightDC, 4)} | ${analysis.dcOffset.severity}`;
+                    rows.push(row('DC Offset (Detalhado)', `<span class="${dcClass}">${dcDetails}</span>`, 'dcOffset'));
+                } else {
+                    // Fallback para estrutura legada
+                    dcVal = Number.isFinite(analysis.technicalData?.dcOffset) ? analysis.technicalData.dcOffset : 0;
+                    hasDcProblem = Math.abs(dcVal) > 0.01;
+                    if (hasDcProblem) hasActualProblems = true;
+                    dcClass = hasDcProblem ? 'warn' : '';
+                    rows.push(row('DC Offset', `<span class="${dcClass}">${safeFixed(dcVal, 4)}</span>`, 'dcOffset'));
+                }
                 
                 // 3. THD - SEMPRE mostrar
                 const thdVal = Number.isFinite(analysis.technicalData?.thdPercent) ? analysis.technicalData.thdPercent : 0;
@@ -5233,6 +5326,16 @@ function normalizeBackendAnalysisData(backendData) {
     tech.samplePeakLeftDb = getRealValue('samplePeakLeftDb', 'sample_peak_left_db');
     tech.samplePeakRightDb = getRealValue('samplePeakRightDb', 'sample_peak_right_db');
     
+    // ===== NOVAS MÉTRICAS IMPLEMENTADAS =====
+    
+    // Spectral Bandwidth e outras métricas espectrais
+    tech.spectralBandwidth = getRealValue('spectralBandwidth', 'spectral_bandwidth');
+    tech.spectralBandwidthHz = tech.spectralBandwidth; // Alias
+    tech.spectralSpread = getRealValue('spectralSpread', 'spectral_spread');
+    tech.spectralCrest = getRealValue('spectralCrest', 'spectral_crest');
+    tech.spectralSkewness = getRealValue('spectralSkewness', 'spectral_skewness');
+    tech.spectralKurtosis = getRealValue('spectralKurtosis', 'spectral_kurtosis');
+    
     // 🎵 SPECTRAL BALANCE - Mapear dados espectrais REAIS
     if (source.spectral_balance || source.spectralBalance || source.bands) {
         const spectralSource = source.spectral_balance || source.spectralBalance || source.bands || {};
@@ -5340,14 +5443,104 @@ function normalizeBackendAnalysisData(backendData) {
         console.log('⚠️ [NORMALIZE] Nenhuma banda real para tonal balance - tonalBalance = null');
     }
     
-    // 🎯 FREQUÊNCIAS DOMINANTES
-    // 🎵 FREQUÊNCIAS DOMINANTES - APENAS VALORES REAIS
+    // 🎯 FREQUÊNCIAS DOMINANTES - Estrutura completa com detailed
     if (source.dominantFrequencies || source.dominant_frequencies) {
-        tech.dominantFrequencies = source.dominantFrequencies || source.dominant_frequencies;
-        console.log('📊 [NORMALIZE] Frequências dominantes reais encontradas:', tech.dominantFrequencies);
+        const rawData = source.dominantFrequencies || source.dominant_frequencies;
+        
+        // Se for string/número simples, converter para structured format
+        if (typeof rawData === 'string' || typeof rawData === 'number') {
+            tech.dominantFrequencies = {
+                value: rawData,
+                unit: 'Hz'
+            };
+        } else if (rawData && typeof rawData === 'object') {
+            // Se for object com detailed
+            tech.dominantFrequencies = {
+                value: rawData.value || rawData.primary || null,
+                unit: rawData.unit || 'Hz',
+                detailed: rawData.detailed || {
+                    primary: rawData.primary || rawData.value || null,
+                    secondary: rawData.secondary || null,
+                    peaks: rawData.peaks || []
+                }
+            };
+        } else {
+            tech.dominantFrequencies = null;
+        }
+        console.log('📊 [NORMALIZE] Frequências dominantes estruturadas:', tech.dominantFrequencies);
     } else {
         tech.dominantFrequencies = null;
         console.log('⚠️ [NORMALIZE] Frequências dominantes não encontradas - dominantFrequencies = null');
+    }
+    
+    // 🔄 DC OFFSET - Estrutura completa com canais L/R
+    if (source.dcOffset || source.dc_offset) {
+        const rawDcData = source.dcOffset || source.dc_offset;
+        
+        // Se for número simples, converter para structured format
+        if (typeof rawDcData === 'number') {
+            tech.dcOffset = {
+                value: rawDcData,
+                unit: 'dB',
+                detailed: {
+                    L: rawDcData,
+                    R: rawDcData,
+                    severity: Math.abs(rawDcData) > 0.1 ? 'High' : Math.abs(rawDcData) > 0.01 ? 'Medium' : 'Low'
+                }
+            };
+        } else if (rawDcData && typeof rawDcData === 'object') {
+            // Se for object com detailed
+            tech.dcOffset = {
+                value: rawDcData.value || (rawDcData.detailed ? Math.max(Math.abs(rawDcData.detailed.L || 0), Math.abs(rawDcData.detailed.R || 0)) : null),
+                unit: rawDcData.unit || 'dB',
+                detailed: rawDcData.detailed || {
+                    L: rawDcData.L || rawDcData.left || rawDcData.value || 0,
+                    R: rawDcData.R || rawDcData.right || rawDcData.value || 0,
+                    severity: rawDcData.severity || 'Low'
+                }
+            };
+        } else {
+            tech.dcOffset = null;
+        }
+        console.log('📊 [NORMALIZE] DC Offset estruturado:', tech.dcOffset);
+    } else {
+        tech.dcOffset = null;
+        console.log('⚠️ [NORMALIZE] DC Offset não encontrado - dcOffset = null');
+    }
+    
+    // 📊 SPECTRAL UNIFORMITY - Estrutura detalhada
+    if (source.spectralUniformity || source.spectral_uniformity) {
+        const rawSpectralData = source.spectralUniformity || source.spectral_uniformity;
+        
+        // Se for número simples, converter para structured format
+        if (typeof rawSpectralData === 'number') {
+            tech.spectralUniformity = {
+                value: rawSpectralData,
+                unit: 'ratio',
+                detailed: {
+                    variance: rawSpectralData,
+                    distribution: rawSpectralData > 0.8 ? 'Uniform' : rawSpectralData > 0.5 ? 'Moderate' : 'Irregular',
+                    analysis: rawSpectralData > 0.7 ? 'Well-balanced frequency distribution' : 'Uneven spectral content'
+                }
+            };
+        } else if (rawSpectralData && typeof rawSpectralData === 'object') {
+            // Se for object com detailed
+            tech.spectralUniformity = {
+                value: rawSpectralData.value || rawSpectralData.variance || null,
+                unit: rawSpectralData.unit || 'ratio',
+                detailed: rawSpectralData.detailed || {
+                    variance: rawSpectralData.variance || rawSpectralData.value || null,
+                    distribution: rawSpectralData.distribution || 'Unknown',
+                    analysis: rawSpectralData.analysis || 'Spectral analysis pending'
+                }
+            };
+        } else {
+            tech.spectralUniformity = null;
+        }
+        console.log('📊 [NORMALIZE] Spectral Uniformity estruturado:', tech.spectralUniformity);
+    } else {
+        tech.spectralUniformity = null;
+        console.log('⚠️ [NORMALIZE] Spectral Uniformity não encontrado - spectralUniformity = null');
     }
     
     // 🔢 SCORES E QUALIDADE - MAPEAMENTO CORRETO PARA NOVA ESTRUTURA
@@ -5380,6 +5573,42 @@ function normalizeBackendAnalysisData(backendData) {
         console.log('📊 [NORMALIZE] Dados de scoring encontrados:', backendData.scoring);
     }
     
+    // 🚨 PROBLEMAS/SUGESTÕES DO NOVO ANALYZER - Integrar com structure completa
+    if (source.problemsAnalysis || source.problems_analysis) {
+        const problemsData = source.problemsAnalysis || source.problems_analysis;
+        
+        // Adicionar problemas do analyzer
+        if (problemsData.problems && Array.isArray(problemsData.problems)) {
+            problemsData.problems.forEach(problem => {
+                normalized.problems.push({
+                    type: problem.type || 'analysis',
+                    message: problem.message || problem.description || 'Problema detectado',
+                    solution: problem.solution || problem.recommendation || 'Verificar configurações',
+                    severity: problem.severity || 'medium',
+                    source: 'problems_analyzer'
+                });
+            });
+        }
+        
+        // Adicionar sugestões do analyzer
+        if (problemsData.suggestions && Array.isArray(problemsData.suggestions)) {
+            problemsData.suggestions.forEach(suggestion => {
+                normalized.suggestions.push({
+                    type: suggestion.type || 'optimization',
+                    message: suggestion.message || suggestion.description || 'Sugestão de melhoria',
+                    action: suggestion.action || suggestion.recommendation || 'Aplicar otimização',
+                    details: suggestion.details || suggestion.context || 'Detalhes não disponíveis',
+                    source: 'problems_analyzer'
+                });
+            });
+        }
+        
+        console.log('📊 [NORMALIZE] Problems/Suggestions do analyzer integrados:', {
+            problemsAdded: problemsData.problems?.length || 0,
+            suggestionsAdded: problemsData.suggestions?.length || 0
+        });
+    }
+    
     // 🚨 PROBLEMAS - Garantir que existam alguns problemas/sugestões para exibir
     if (normalized.problems.length === 0) {
         // Detectar problemas básicos baseados nas métricas - APENAS SE VALORES EXISTEM
@@ -5392,7 +5621,17 @@ function normalizeBackendAnalysisData(backendData) {
             });
         }
         
-        if (Number.isFinite(tech.dcOffset) && Math.abs(tech.dcOffset) > 0.01) {
+        if (tech.dcOffset && tech.dcOffset.detailed) {
+            const maxDcOffset = Math.max(Math.abs(tech.dcOffset.detailed.L || 0), Math.abs(tech.dcOffset.detailed.R || 0));
+            if (maxDcOffset > 0.01) {
+                normalized.problems.push({
+                    type: 'dc_offset', 
+                    message: `DC Offset detectado (L: ${tech.dcOffset.detailed.L?.toFixed(4) || 'N/A'}, R: ${tech.dcOffset.detailed.R?.toFixed(4) || 'N/A'})`,
+                    solution: 'Aplicar filtro DC remove',
+                    severity: tech.dcOffset.detailed.severity === 'High' ? 'high' : 'medium'
+                });
+            }
+        } else if (Number.isFinite(tech.dcOffset) && Math.abs(tech.dcOffset) > 0.01) {
             normalized.problems.push({
                 type: 'dc_offset', 
                 message: `DC Offset detectado (${tech.dcOffset.toFixed(4)})`,
@@ -5439,12 +5678,53 @@ function normalizeBackendAnalysisData(backendData) {
                 details: `LUFS atual: ${tech.lufsIntegrated.toFixed(1)}`
             });
         }
+        
+        // Sugestões baseadas nas novas métricas
+        if (tech.spectralUniformity && tech.spectralUniformity.detailed) {
+            const uniformity = tech.spectralUniformity.value || tech.spectralUniformity.detailed.variance;
+            if (Number.isFinite(uniformity) && uniformity < 0.5) {
+                normalized.suggestions.push({
+                    type: 'spectral_balance',
+                    message: 'Distribuição espectral irregular detectada',
+                    action: 'Considerar equalização para melhor balanceamento',
+                    details: `Uniformidade: ${uniformity.toFixed(3)}, ${tech.spectralUniformity.detailed.distribution || 'Análise pendente'}`
+                });
+            }
+        }
+        
+        if (tech.dominantFrequencies && tech.dominantFrequencies.detailed) {
+            const primary = tech.dominantFrequencies.detailed.primary;
+            if (Number.isFinite(primary)) {
+                if (primary < 80) {
+                    normalized.suggestions.push({
+                        type: 'frequency_focus',
+                        message: 'Frequência dominante muito baixa',
+                        action: 'Verificar filtro high-pass ou conteúdo sub-bass excessivo',
+                        details: `Freq. primária: ${primary.toFixed(1)} Hz`
+                    });
+                } else if (primary > 8000) {
+                    normalized.suggestions.push({
+                        type: 'frequency_focus',
+                        message: 'Frequência dominante muito alta',
+                        action: 'Verificar conteúdo excessivo de agudos',
+                        details: `Freq. primária: ${primary.toFixed(1)} Hz`
+                    });
+                }
+            }
+        }
     }
     
     console.log('✅ [NORMALIZE] Normalização concluída:', {
         hasTechnicalData: !!normalized.technicalData,
         hasSpectralBalance: !!normalized.technicalData.spectral_balance,
         hasBandEnergies: !!normalized.technicalData.bandEnergies,
+        // Novas métricas detalhadas
+        hasDominantFreqs: !!normalized.technicalData.dominantFrequencies,
+        hasDcOffset: !!normalized.technicalData.dcOffset,
+        hasSpectralUniformity: !!normalized.technicalData.spectralUniformity,
+        dominantFreqsStructure: normalized.technicalData.dominantFrequencies ? 'structured' : 'missing',
+        dcOffsetStructure: normalized.technicalData.dcOffset ? 'structured' : 'missing',
+        spectralUniformityStructure: normalized.technicalData.spectralUniformity ? 'structured' : 'missing',
         problemsCount: normalized.problems.length,
         suggestionsCount: normalized.suggestions.length,
         qualityScore: normalized.qualityOverall
