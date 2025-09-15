@@ -171,18 +171,39 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.spectralRolloff = technicalData.spectralRolloffHz;
   }
 
-  // ===== Spectral Bands =====
+  // ===== Spectral Bands (Corrigido para incluir na comparação) =====
   if (coreMetrics.spectralBands?.aggregated) {
     const b = coreMetrics.spectralBands.aggregated;
     technicalData.spectral_balance = {
       sub: safeSanitize(b.sub),
       bass: safeSanitize(b.bass),
-      mids: safeSanitize(b.lowMid),
-      treble: safeSanitize(b.highMid),
+      mids: safeSanitize(b.lowMid || b.mids), // fallback para mids
+      treble: safeSanitize(b.highMid || b.treble), // fallback para treble  
       presence: safeSanitize(b.presence),
-      air: safeSanitize(b.air),
-      totalPercentage: 100
+      air: safeSanitize(b.air || b.brilliance), // fallback para air
+      totalPercentage: safeSanitize(b.totalPercentage, 100)
     };
+    
+    // 🔍 Debug log para verificar se as bandas estão sendo incluídas
+    console.log('🎯 [SPECTRAL_BANDS] Bandas incluídas no JSON:', {
+      original: b,
+      processed: technicalData.spectral_balance,
+      hasAllBands: !!(b.sub && b.bass && (b.lowMid || b.mids) && (b.highMid || b.treble) && b.presence)
+    });
+  } else {
+    // 🚨 Fallback: se não há bandas calculadas, usar valores padrão para evitar null
+    technicalData.spectral_balance = {
+      sub: 0,
+      bass: 0, 
+      mids: 0,
+      treble: 0,
+      presence: 0,
+      air: 0,
+      totalPercentage: 0,
+      _status: 'not_calculated'
+    };
+    
+    console.log('⚠️ [SPECTRAL_BANDS] Bandas não calculadas, usando fallback');
   }
 
   // ===== RMS =====
@@ -214,7 +235,7 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.dcOffset = null;
   }
 
-  // ===== Dominant Frequencies =====
+  // ===== Dominant Frequencies (Corrigido para nunca retornar null) =====
   if (coreMetrics.dominantFrequencies && coreMetrics.dominantFrequencies.value) {
     technicalData.dominantFrequencies = {
       value: safeSanitize(coreMetrics.dominantFrequencies.value),
@@ -231,9 +252,21 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
       occurrences: safeSanitize(f.occurrences, 1),
       magnitude: safeSanitize(f.magnitude)
     }));
-    technicalData.dominantFrequencies = freqArray;
+    technicalData.dominantFrequencies = freqArray.length > 0 ? freqArray : [];
   } else {
-    technicalData.dominantFrequencies = null;
+    // 🚨 Fail-safe: nunca retornar null, sempre array vazio ou estrutura padrão
+    technicalData.dominantFrequencies = {
+      value: 0,
+      unit: 'Hz',
+      detailed: {
+        primary: 0,
+        secondary: null,
+        peaks: []
+      },
+      _status: 'not_calculated'
+    };
+    
+    console.log('⚠️ [DOMINANT_FREQUENCIES] Frequências dominantes não calculadas, usando fallback');
   }
 
   // ===== Spectral Uniformity =====
@@ -357,6 +390,20 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     // ===== REFERENCE COMPARISON =====
     referenceComparison: options.reference?.comparison || generateGenreReference(technicalData, options.genre || 'trance'),
 
+    // ===== METRICS (Structured for Frontend) =====
+    metrics: {
+      bands: technicalData.spectral_balance && {
+        sub: { energy_db: technicalData.spectral_balance.sub || 0 },
+        bass: { energy_db: technicalData.spectral_balance.bass || 0 },
+        lowMid: { energy_db: technicalData.spectral_balance.mids || 0 },
+        mid: { energy_db: technicalData.spectral_balance.mids || 0 },
+        highMid: { energy_db: technicalData.spectral_balance.treble || 0 },
+        presence: { energy_db: technicalData.spectral_balance.presence || 0 },
+        air: { energy_db: technicalData.spectral_balance.air || 0 },
+        brilliance: { energy_db: technicalData.spectral_balance.air || 0 }
+      }
+    },
+
     // ===== TECHNICAL DATA (Frontend Compatible) =====
     technicalData: {
       // Loudness
@@ -409,8 +456,20 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       spectralFlux: technicalData.spectralFlux,
       spectralChange: technicalData.spectralChange,
       
-      // Bandas Espectrais
+      // Bandas Espectrais (Detalhadas)
       spectral_balance: technicalData.spectral_balance,
+      spectralBands: technicalData.spectral_balance, // alias para compatibilidade
+      bands: technicalData.spectral_balance, // alias adicional
+      
+      // 🎯 Bandas individuais para compatibilidade direta
+      ...(technicalData.spectral_balance && {
+        bandSub: technicalData.spectral_balance.sub,
+        bandBass: technicalData.spectral_balance.bass,
+        bandMids: technicalData.spectral_balance.mids,
+        bandTreble: technicalData.spectral_balance.treble,
+        bandPresence: technicalData.spectral_balance.presence,
+        bandAir: technicalData.spectral_balance.air
+      }),
       
       // RMS & Peaks
       rmsLevels: technicalData.rmsLevels,
@@ -533,6 +592,65 @@ function generateGenreReference(technicalData, genre) {
       status: (technicalData.stereoCorrelation || 0.7) > 0.3 && (technicalData.stereoCorrelation || 0.7) < 0.9 ? "✅ IDEAL" : "⚠️ AJUSTAR"
     }
   ];
+
+  // ===== 🎯 BANDAS ESPECTRAIS (Correção Principal) =====
+  // Incluir bandas espectrais calculadas na comparação de referência
+  const spectralBands = technicalData.spectral_balance;
+  
+  if (spectralBands && typeof spectralBands === 'object') {
+    // Definir alvos por gênero (valores padrão para referência)
+    const bandTargets = {
+      trance: {
+        sub: { target: 18.5, tolerance: 2.5, name: "Sub (50-120Hz)" },
+        bass: { target: 20.2, tolerance: 2.5, name: "Bass (120-500Hz)" },
+        mids: { target: 16.5, tolerance: 2.5, name: "Médios (500-2kHz)" },
+        treble: { target: 15.8, tolerance: 2.5, name: "Agudos (2-8kHz)" },
+        presence: { target: 14.0, tolerance: 2.5, name: "Presença (8-12kHz)" },
+        air: { target: 12.0, tolerance: 3.0, name: "Ar (12kHz+)" }
+      },
+      funk: {
+        sub: { target: 22.0, tolerance: 3.0, name: "Sub (50-120Hz)" },
+        bass: { target: 25.0, tolerance: 3.0, name: "Bass (120-500Hz)" },
+        mids: { target: 18.0, tolerance: 2.5, name: "Médios (500-2kHz)" },
+        treble: { target: 16.0, tolerance: 2.5, name: "Agudos (2-8kHz)" },
+        presence: { target: 12.0, tolerance: 2.5, name: "Presença (8-12kHz)" },
+        air: { target: 8.0, tolerance: 3.0, name: "Ar (12kHz+)" }
+      }
+    };
+    
+    // Selecionar alvos baseado no gênero (fallback para trance)
+    const targets = bandTargets[genre] || bandTargets.trance;
+    
+    // Mapear nomes das bandas do pipeline para os alvos
+    const bandMapping = {
+      sub: 'sub',
+      bass: 'bass', 
+      mids: 'mids',
+      treble: 'treble',
+      presence: 'presence',
+      air: 'air'
+    };
+    
+    // Adicionar cada banda à comparação
+    Object.entries(bandMapping).forEach(([bandKey, targetKey]) => {
+      const bandValue = spectralBands[bandKey];
+      const target = targets[targetKey];
+      
+      if (target && typeof bandValue === 'number' && !isNaN(bandValue)) {
+        const delta = Math.abs(bandValue - target.target);
+        const isWithinTolerance = delta <= target.tolerance;
+        
+        references.push({
+          metric: target.name,
+          value: Math.round(bandValue * 10) / 10, // 1 decimal
+          ideal: target.target,
+          unit: "%",
+          status: isWithinTolerance ? "✅ IDEAL" : (delta > target.tolerance * 1.5 ? "❌ CORRIGIR" : "⚠️ AJUSTAR"),
+          category: "spectral_bands"
+        });
+      }
+    });
+  }
   
   return references;
 }
