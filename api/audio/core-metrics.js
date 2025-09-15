@@ -12,10 +12,11 @@ import { calculateDynamicsMetrics } from "../../lib/audio/features/dynamics-corr
 import { calculateSpectralBands, SpectralBandsCalculator, SpectralBandsAggregator } from "../../lib/audio/features/spectral-bands.js";
 import { calculateSpectralCentroid, SpectralCentroidCalculator, SpectralCentroidAggregator } from "../../lib/audio/features/spectral-centroid.js";
 import { analyzeStereoMetrics, StereoMetricsCalculator, StereoMetricsAggregator } from "../../lib/audio/features/stereo-metrics.js";
-import { DominantFrequencyAnalyzer, calculateDominantFrequencies } from "../../lib/audio/features/dominant-frequencies.js";
-import { DCOffsetAnalyzer, calculateDCOffset } from "../../lib/audio/features/dc-offset.js";
-import { SpectralUniformityAnalyzer, calculateSpectralUniformity } from "../../lib/audio/features/spectral-uniformity.js";
-import { ProblemsAndSuggestionsAnalyzer, analyzeProblemsAndSuggestions } from "../../lib/audio/features/problems-suggestions.js";
+import { calculateDominantFrequencies } from "../../lib/audio/features/dominant-frequencies.js";
+// SKIP: outras importações removidas temporariamente para evitar quebras
+// import { DCOffsetAnalyzer, calculateDCOffset } from "../../lib/audio/features/dc-offset.js";
+// import { SpectralUniformityAnalyzer, calculateSpectralUniformity } from "../../lib/audio/features/spectral-uniformity.js";
+// import { ProblemsAndSuggestionsAnalyzer, analyzeProblemsAndSuggestions } from "../../lib/audio/features/problems-suggestions.js";
 
 // Sistema de tratamento de erros padronizado
 import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../lib/audio/error-handling.js';
@@ -63,16 +64,16 @@ class CoreMetricsProcessor {
     );
     this.stereoMetricsCalculator = new StereoMetricsCalculator();
     
-    // NOVO: Analisadores para métricas finais (Fase 5.3)
-    this.dominantFreqAnalyzer = new DominantFrequencyAnalyzer();
-    this.dcOffsetAnalyzer = new DCOffsetAnalyzer();
-    this.spectralUniformityAnalyzer = new SpectralUniformityAnalyzer(CORE_METRICS_CONFIG.SAMPLE_RATE);
-    this.problemsAnalyzer = new ProblemsAndSuggestionsAnalyzer();
+    // SKIP: Analisadores removidos temporariamente para evitar quebras
+    // this.dominantFreqAnalyzer = new DominantFrequencyAnalyzer();
+    // this.dcOffsetAnalyzer = new DCOffsetAnalyzer();
+    // this.spectralUniformityAnalyzer = new SpectralUniformityAnalyzer(CORE_METRICS_CONFIG.SAMPLE_RATE);
+    // this.problemsAnalyzer = new ProblemsAndSuggestionsAnalyzer();
     
     logAudio('core_metrics', 'init', { 
       config: CORE_METRICS_CONFIG,
       correctedModules: ['spectral_bands', 'spectral_centroid', 'stereo_metrics', 'dynamics'],
-      newAnalyzers: ['dominant_frequencies', 'dc_offset', 'spectral_uniformity', 'problems_suggestions']
+      skippedAnalyzers: ['dominant_frequencies_class', 'dc_offset', 'spectral_uniformity', 'problems_suggestions']
     });
   }
 
@@ -161,36 +162,31 @@ class CoreMetricsProcessor {
       }
 
       // ========= NOVOS ANALISADORES - MÉTRICAS FINAIS =========
+      // 🚨 IMPORTANTE: Essas métricas são opcionais e não devem quebrar o pipeline se falharem
       
-      // DC Offset Analysis
-      logAudio('core_metrics', 'dc_offset_start', { length: normalizedLeft.length });
-      const dcOffsetMetrics = this.dcOffsetAnalyzer.analyzeDCOffset(normalizedLeft, normalizedRight);
+      // DC Offset Analysis - SKIP por enquanto
+      console.log('[SKIP_METRIC] dcOffset: análise não implementada corretamente - usando null');
+      const dcOffsetMetrics = null;
       
-      // Dominant Frequencies Analysis
-      logAudio('core_metrics', 'dominant_freq_start', { fftFrames: fftResults.magnitudeSpectrum.length });
-      const dominantFreqMetrics = this.dominantFreqAnalyzer.analyzeDominantFrequencies(
-        fftResults.magnitudeSpectrum, 
-        CORE_METRICS_CONFIG.SAMPLE_RATE,
-        CORE_METRICS_CONFIG.FFT_SIZE
-      );
-      
-      // Spectral Uniformity Analysis
-      logAudio('core_metrics', 'spectral_uniformity_start', { fftFrames: fftResults.magnitudeSpectrum.length });
-      let spectralUniformityMetrics = null;
-      if (fftResults.magnitudeSpectrum.length > 0) {
-        // Usar primeiro frame para análise de uniformidade (representativo)
-        const representativeSpectrum = fftResults.magnitudeSpectrum[0];
-        const binCount = representativeSpectrum.length;
-        const frequencyBins = Array.from({length: binCount}, (_, i) => 
-          (i * CORE_METRICS_CONFIG.SAMPLE_RATE) / (2 * binCount)
-        );
-        spectralUniformityMetrics = this.spectralUniformityAnalyzer.analyzeSpectralUniformity(
-          representativeSpectrum,
-          frequencyBins
-        );
-      } else {
-        spectralUniformityMetrics = this.spectralUniformityAnalyzer.getNullResult();
+      // Dominant Frequencies Analysis - USANDO FUNÇÃO STANDALONE
+      console.log('[SKIP_METRIC] dominantFrequencies: usando implementação standalone como fallback');
+      let dominantFreqMetrics = null;
+      try {
+        if (fftResults.magnitudeSpectrum && fftResults.magnitudeSpectrum.length > 0) {
+          dominantFreqMetrics = calculateDominantFrequencies(
+            fftResults.magnitudeSpectrum[0], // Usar primeiro frame
+            CORE_METRICS_CONFIG.SAMPLE_RATE,
+            CORE_METRICS_CONFIG.FFT_SIZE
+          );
+        }
+      } catch (error) {
+        console.log('[SKIP_METRIC] dominantFrequencies: erro na análise -', error.message);
+        dominantFreqMetrics = null;
       }
+      
+      // Spectral Uniformity Analysis - SKIP por enquanto  
+      console.log('[SKIP_METRIC] spectralUniformity: análise não implementada corretamente - usando null');
+      let spectralUniformityMetrics = null;
 
       // ========= MONTAGEM DE RESULTADO CORRIGIDO =========
       const coreMetrics = {
@@ -235,10 +231,16 @@ class CoreMetricsProcessor {
       };
 
       // ========= ANÁLISE DE PROBLEMAS E SUGESTÕES =========
-      logAudio('core_metrics', 'problems_analysis_start', {});
-      const problemsAnalysis = this.problemsAnalyzer.analyzeProblemsAndSuggestions(coreMetrics);
+      // SKIP por enquanto - não implementado corretamente
+      console.log('[SKIP_METRIC] problemsAnalysis: análise não implementada corretamente - usando dados básicos');
+      const problemsAnalysis = {
+        problems: [],
+        suggestions: [],
+        quality: { overall: null, details: null },
+        priorityRecommendations: []
+      };
       
-      // Adicionar análise de problemas aos resultados
+      // Adicionar análise de problemas aos resultados (dados básicos)
       coreMetrics.problems = problemsAnalysis.problems;
       coreMetrics.suggestions = problemsAnalysis.suggestions;
       coreMetrics.qualityAssessment = problemsAnalysis.quality;
