@@ -12,10 +12,10 @@ import { calculateDynamicsMetrics } from "../../lib/audio/features/dynamics-corr
 import { calculateSpectralBands, SpectralBandsCalculator, SpectralBandsAggregator } from "../../lib/audio/features/spectral-bands.js";
 import { calculateSpectralCentroid, SpectralCentroidCalculator, SpectralCentroidAggregator } from "../../lib/audio/features/spectral-centroid.js";
 import { analyzeStereoMetrics, StereoMetricsCalculator, StereoMetricsAggregator } from "../../lib/audio/features/stereo-metrics.js";
-import { DominantFrequencyAnalyzer, calculateDominantFrequencies } from "../../lib/audio/features/dominant-frequencies.js";
-import { DCOffsetAnalyzer, calculateDCOffset } from "../../lib/audio/features/dc-offset.js";
-import { SpectralUniformityAnalyzer, calculateSpectralUniformity } from "../../lib/audio/features/spectral-uniformity.js";
-import { ProblemsAndSuggestionsAnalyzer, analyzeProblemsAndSuggestions } from "../../lib/audio/features/problems-suggestions.js";
+import { calculateDominantFrequencies } from "../../lib/audio/features/dominant-frequencies.js";
+import { calculateDCOffset } from "../../lib/audio/features/dc-offset.js";
+import { calculateSpectralUniformity } from "../../lib/audio/features/spectral-uniformity.js";
+import { analyzeProblemsAndSuggestions } from "../../lib/audio/features/problems-suggestions.js";
 
 // Sistema de tratamento de erros padronizado
 import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../lib/audio/error-handling.js';
@@ -63,16 +63,16 @@ class CoreMetricsProcessor {
     );
     this.stereoMetricsCalculator = new StereoMetricsCalculator();
     
-    // NOVO: Analisadores para métricas finais (Fase 5.3)
-    this.dominantFreqAnalyzer = new DominantFrequencyAnalyzer();
-    this.dcOffsetAnalyzer = new DCOffsetAnalyzer();
-    this.spectralUniformityAnalyzer = new SpectralUniformityAnalyzer(CORE_METRICS_CONFIG.SAMPLE_RATE);
-    this.problemsAnalyzer = new ProblemsAndSuggestionsAnalyzer();
+    // SKIP: Analisadores removidos temporariamente para evitar quebras
+    // this.dominantFreqAnalyzer = new DominantFrequencyAnalyzer();
+    // this.dcOffsetAnalyzer = new DCOffsetAnalyzer();
+    // this.spectralUniformityAnalyzer = new SpectralUniformityAnalyzer(CORE_METRICS_CONFIG.SAMPLE_RATE);
+    // this.problemsAnalyzer = new ProblemsAndSuggestionsAnalyzer();
     
     logAudio('core_metrics', 'init', { 
       config: CORE_METRICS_CONFIG,
       correctedModules: ['spectral_bands', 'spectral_centroid', 'stereo_metrics', 'dynamics'],
-      newAnalyzers: ['dominant_frequencies', 'dc_offset', 'spectral_uniformity', 'problems_suggestions']
+      skippedAnalyzers: ['dominant_frequencies_class', 'dc_offset', 'spectral_uniformity', 'problems_suggestions']
     });
   }
 
@@ -160,36 +160,56 @@ class CoreMetricsProcessor {
         });
       }
 
-      // ========= NOVOS ANALISADORES - MÉTRICAS FINAIS =========
+      // ========= ANÁLISE AUXILIAR - VERSÃO SIMPLIFICADA SEM CLASSES =========
+      // 🚨 IMPORTANTE: Usando apenas funções standalone para evitar erros de classe
+
+      console.log('[PIPELINE] Iniciando análise de métricas auxiliares (standalone functions)');
       
-      // DC Offset Analysis
-      logAudio('core_metrics', 'dc_offset_start', { length: normalizedLeft.length });
-      const dcOffsetMetrics = this.dcOffsetAnalyzer.analyzeDCOffset(normalizedLeft, normalizedRight);
+      // DC Offset - FUNÇÃO STANDALONE SIMPLES
+      let dcOffsetMetrics = null;
+      try {
+        dcOffsetMetrics = calculateDCOffset(normalizedLeft, normalizedRight);
+        console.log('[SUCCESS] DC Offset calculado via função standalone');
+      } catch (error) {
+        console.log('[SKIP_METRIC] dcOffset: erro na função standalone -', error.message);
+        dcOffsetMetrics = null;
+      }
       
-      // Dominant Frequencies Analysis
-      logAudio('core_metrics', 'dominant_freq_start', { fftFrames: fftResults.magnitudeSpectrum.length });
-      const dominantFreqMetrics = this.dominantFreqAnalyzer.analyzeDominantFrequencies(
-        fftResults.magnitudeSpectrum, 
-        CORE_METRICS_CONFIG.SAMPLE_RATE,
-        CORE_METRICS_CONFIG.FFT_SIZE
-      );
+      // Dominant Frequencies - FUNÇÃO STANDALONE
+      let dominantFreqMetrics = null;
+      try {
+        if (fftResults.magnitudeSpectrum && fftResults.magnitudeSpectrum.length > 0) {
+          dominantFreqMetrics = calculateDominantFrequencies(
+            fftResults.magnitudeSpectrum[0], // Usar primeiro frame
+            CORE_METRICS_CONFIG.SAMPLE_RATE,
+            CORE_METRICS_CONFIG.FFT_SIZE
+          );
+          console.log('[SUCCESS] Dominant Frequencies calculado via função standalone');
+        }
+      } catch (error) {
+        console.log('[SKIP_METRIC] dominantFrequencies: erro na função standalone -', error.message);
+        dominantFreqMetrics = null;
+      }
       
-      // Spectral Uniformity Analysis
-      logAudio('core_metrics', 'spectral_uniformity_start', { fftFrames: fftResults.magnitudeSpectrum.length });
+      // Spectral Uniformity - FUNÇÃO STANDALONE
       let spectralUniformityMetrics = null;
-      if (fftResults.magnitudeSpectrum.length > 0) {
-        // Usar primeiro frame para análise de uniformidade (representativo)
-        const representativeSpectrum = fftResults.magnitudeSpectrum[0];
-        const binCount = representativeSpectrum.length;
-        const frequencyBins = Array.from({length: binCount}, (_, i) => 
-          (i * CORE_METRICS_CONFIG.SAMPLE_RATE) / (2 * binCount)
-        );
-        spectralUniformityMetrics = this.spectralUniformityAnalyzer.analyzeSpectralUniformity(
-          representativeSpectrum,
-          frequencyBins
-        );
-      } else {
-        spectralUniformityMetrics = this.spectralUniformityAnalyzer.getNullResult();
+      try {
+        if (fftResults.magnitudeSpectrum && fftResults.magnitudeSpectrum.length > 0) {
+          const representativeSpectrum = fftResults.magnitudeSpectrum[0];
+          const binCount = representativeSpectrum.length;
+          const frequencyBins = Array.from({length: binCount}, (_, i) => 
+            (i * CORE_METRICS_CONFIG.SAMPLE_RATE) / (2 * binCount)
+          );
+          spectralUniformityMetrics = calculateSpectralUniformity(
+            representativeSpectrum,
+            frequencyBins,
+            CORE_METRICS_CONFIG.SAMPLE_RATE
+          );
+          console.log('[SUCCESS] Spectral Uniformity calculado via função standalone');
+        }
+      } catch (error) {
+        console.log('[SKIP_METRIC] spectralUniformity: erro na função standalone -', error.message);
+        spectralUniformityMetrics = null;
       }
 
       // ========= MONTAGEM DE RESULTADO CORRIGIDO =========
@@ -235,8 +255,21 @@ class CoreMetricsProcessor {
       };
 
       // ========= ANÁLISE DE PROBLEMAS E SUGESTÕES =========
-      logAudio('core_metrics', 'problems_analysis_start', {});
-      const problemsAnalysis = this.problemsAnalyzer.analyzeProblemsAndSuggestions(coreMetrics);
+      // Usando função standalone
+      let problemsAnalysis = {
+        problems: [],
+        suggestions: [],
+        quality: { overall: null, details: null },
+        priorityRecommendations: []
+      };
+      
+      try {
+        problemsAnalysis = analyzeProblemsAndSuggestions(coreMetrics);
+        console.log('[SUCCESS] Problems Analysis calculado via função standalone');
+      } catch (error) {
+        console.log('[SKIP_METRIC] problemsAnalysis: erro na função standalone -', error.message);
+        // Manter estrutura padrão
+      }
       
       // Adicionar análise de problemas aos resultados
       coreMetrics.problems = problemsAnalysis.problems;

@@ -329,63 +329,36 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.headroomTruePeakDb = safeSanitize(0 - technicalData.truePeakDbtp); // 0 dBTP - true peak atual
   }
 
-  // ===== NOVOS ANALISADORES =====
+  // ===== MÉTRICAS EXPERIMENTAIS (TEMPORARIAMENTE DESABILITADAS) =====
   
-  // DC Offset Analysis
-  if (coreMetrics.dcOffset) {
-    technicalData.dcOffset = {
-      leftDC: safeSanitize(coreMetrics.dcOffset.leftDC),
-      rightDC: safeSanitize(coreMetrics.dcOffset.rightDC),
-      averageDC: safeSanitize(coreMetrics.dcOffset.averageDC),
-      maxAbsDC: safeSanitize(coreMetrics.dcOffset.maxAbsDC),
-      dcImbalance: safeSanitize(coreMetrics.dcOffset.dcImbalance),
-      severity: coreMetrics.dcOffset.severity || 'unknown',
-      hasSignificantDC: coreMetrics.dcOffset.hasSignificantDC || false,
-      needsCorrection: coreMetrics.dcOffset.needsCorrection || false,
-      temporalVariation: safeSanitize(coreMetrics.dcOffset.temporalVariation),
-      quality: coreMetrics.dcOffset.quality || {}
-    };
-  } else {
-    technicalData.dcOffset = null;
-  }
+  // DC Offset Analysis - SKIP por enquanto
+  console.log('[SKIP_METRIC] dcOffset: não incluído no JSON - implementação instável');
+  technicalData.dcOffset = null;
   
-  // Dominant Frequencies Analysis  
-  if (coreMetrics.dominantFrequencies) {
+  // Dominant Frequencies Analysis - Usando dados do calculateDominantFrequencies se disponível
+  if (coreMetrics.dominantFrequencies && coreMetrics.dominantFrequencies.value) {
+    console.log('[PARTIAL_METRIC] dominantFrequencies: usando dados limitados disponíveis');
     technicalData.dominantFrequencies = {
-      peaks: coreMetrics.dominantFrequencies.peaks || [],
-      primaryFrequency: safeSanitize(coreMetrics.dominantFrequencies.primaryFrequency),
-      secondaryFrequency: safeSanitize(coreMetrics.dominantFrequencies.secondaryFrequency),
-      frequencySpread: safeSanitize(coreMetrics.dominantFrequencies.frequencySpread),
-      harmonicContent: safeSanitize(coreMetrics.dominantFrequencies.harmonicContent),
-      complexity: coreMetrics.dominantFrequencies.complexity || 'unknown',
-      dominanceRatio: safeSanitize(coreMetrics.dominantFrequencies.dominanceRatio),
-      spectralPurity: safeSanitize(coreMetrics.dominantFrequencies.spectralPurity)
+      value: safeSanitize(coreMetrics.dominantFrequencies.value),
+      unit: coreMetrics.dominantFrequencies.unit || 'Hz',
+      detailed: coreMetrics.dominantFrequencies.detailed || {
+        primary: safeSanitize(coreMetrics.dominantFrequencies.value),
+        secondary: null,
+        peaks: []
+      }
     };
   } else {
+    console.log('[SKIP_METRIC] dominantFrequencies: dados não disponíveis no formato esperado');
     technicalData.dominantFrequencies = null;
   }
   
-  // Spectral Uniformity Analysis
-  if (coreMetrics.uniformity) {
-    technicalData.spectralUniformity = {
-      coefficient: safeSanitize(coreMetrics.uniformity.uniformity?.coefficient),
-      standardDeviation: safeSanitize(coreMetrics.uniformity.uniformity?.standardDeviation),
-      range: safeSanitize(coreMetrics.uniformity.uniformity?.range),
-      score: safeSanitize(coreMetrics.uniformity.score),
-      rating: coreMetrics.uniformity.rating || 'unknown',
-      isUniform: coreMetrics.uniformity.isUniform || false,
-      needsBalancing: coreMetrics.uniformity.needsBalancing || false,
-      balance: coreMetrics.uniformity.balance || {},
-      characteristics: coreMetrics.uniformity.characteristics || {},
-      bandEnergies: coreMetrics.uniformity.bandEnergies || {},
-      eqSuggestions: coreMetrics.uniformity.eqSuggestions || null
-    };
-  } else {
-    technicalData.spectralUniformity = null;
-  }
+  // Spectral Uniformity Analysis - SKIP por enquanto
+  console.log('[SKIP_METRIC] spectralUniformity: não incluído no JSON - implementação instável');
+  technicalData.spectralUniformity = null;
   
-  // Problems and Suggestions Analysis
+  // Problems and Suggestions Analysis - Usando dados básicos do core-metrics
   if (coreMetrics.problems || coreMetrics.suggestions) {
+    console.log('[PARTIAL_METRIC] problemsAnalysis: usando dados básicos disponíveis');
     technicalData.problemsAnalysis = {
       problems: coreMetrics.problems || [],
       suggestions: coreMetrics.suggestions || [],
@@ -393,6 +366,7 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
       priorityRecommendations: coreMetrics.priorityRecommendations || []
     };
   } else {
+    console.log('[SKIP_METRIC] problemsAnalysis: dados não disponíveis');
     technicalData.problemsAnalysis = null;
   }
 
