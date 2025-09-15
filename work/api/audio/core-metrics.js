@@ -440,10 +440,18 @@ class CoreMetricsProcessor {
       // Serializar para o formato final
       const finalSpectral = serializeSpectralMetrics(aggregatedSpectral);
       
-      // Adicionar métricas finais ao fftResults
+      // Criar estrutura aggregated para compatibilidade com json-output.js
+      fftResults.aggregated = {
+        ...finalSpectral,
+        // LEGACY: manter compatibilidade com nomes antigos
+        spectralCentroid: finalSpectral.spectralCentroidHz,
+        spectralRolloff: finalSpectral.spectralRolloffHz
+      };
+      
+      // Também adicionar no nível raiz para compatibilidade
       Object.assign(fftResults, finalSpectral);
       
-      // LEGACY: manter compatibilidade com nomes antigos
+      // LEGACY: manter compatibilidade com nomes antigos no nível raiz
       fftResults.spectralCentroid = finalSpectral.spectralCentroidHz;
       fftResults.spectralRolloff = finalSpectral.spectralRolloffHz;
       
@@ -454,6 +462,26 @@ class CoreMetricsProcessor {
         rolloffHz: finalSpectral.spectralRolloffHz?.toFixed?.(1) || 'null',
         bandwidthHz: finalSpectral.spectralBandwidthHz?.toFixed?.(1) || 'null',
         flatness: finalSpectral.spectralFlatness?.toFixed?.(3) || 'null'
+      });
+      
+      // 🔥 DEBUG CRITICAL: Log completo das métricas espectrais agregadas
+      console.log("[AUDIT] Spectral aggregated result:", {
+        spectralCentroidHz: finalSpectral.spectralCentroidHz,
+        spectralRolloffHz: finalSpectral.spectralRolloffHz,
+        spectralBandwidthHz: finalSpectral.spectralBandwidthHz,
+        spectralFlatness: finalSpectral.spectralFlatness,
+        spectralCrest: finalSpectral.spectralCrest,
+        spectralSkewness: finalSpectral.spectralSkewness,
+        spectralKurtosis: finalSpectral.spectralKurtosis,
+        framesProcessed: metricsArray.length
+      });
+      
+      // 🔥 DEBUG CRITICAL: Log da estrutura aggregated criada
+      console.log("[AUDIT] FFT aggregated structure created:", {
+        hasAggregated: !!fftResults.aggregated,
+        aggregatedKeys: Object.keys(fftResults.aggregated || {}),
+        spectralCentroidHz: fftResults.aggregated?.spectralCentroidHz,
+        spectralRolloffHz: fftResults.aggregated?.spectralRolloffHz
       });
       
       // Verificação final

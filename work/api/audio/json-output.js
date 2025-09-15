@@ -190,7 +190,7 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     const spectral = coreMetrics.fft.aggregated;
     
     // 🔬 DEBUG: Log das métricas espectrais disponíveis
-    logAudio('json_output', 'spectral_metrics_debug', {
+    console.log("[AUDIT] Spectral metrics debug:", {
       available: Object.keys(spectral),
       spectralCentroidHz: spectral.spectralCentroidHz,
       spectralRolloffHz: spectral.spectralRolloffHz,
@@ -216,9 +216,18 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.spectralRolloff = technicalData.spectralRolloffHz;
     technicalData.spectralBandwidth = technicalData.spectralBandwidthHz;
     technicalData.spectralSpread = technicalData.spectralSpreadHz;
+    
+    // 🔥 DEBUG CRITICAL: Log das métricas extraídas
+    console.log("[AUDIT] Spectral metrics extracted to technicalData:", {
+      spectralCentroidHz: technicalData.spectralCentroidHz,
+      spectralRolloffHz: technicalData.spectralRolloffHz,
+      spectralBandwidthHz: technicalData.spectralBandwidthHz,
+      spectralFlatness: technicalData.spectralFlatness,
+      jobId
+    });
   } else {
     // 🔬 DEBUG: Log se FFT não está disponível
-    logAudio('json_output', 'fft_missing_debug', {
+    console.log("[AUDIT] FFT missing debug:", {
       hasCoreMetrics: !!coreMetrics,
       hasFFT: !!(coreMetrics.fft),
       hasAggregated: !!(coreMetrics.fft?.aggregated),
@@ -234,7 +243,7 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     const bands = coreMetrics.spectralBands.aggregated;
     
     // 🔬 DEBUG: Log das bandas espectrais disponíveis
-    logAudio('json_output', 'spectral_bands_debug', {
+    console.log("[AUDIT] Spectral bands debug:", {
       available: Object.keys(bands),
       bandsStructure: bands,
       jobId
@@ -274,9 +283,16 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
       air: safeSanitize(bands.air),
       totalPercentage: 100
     };
+    
+    // 🔥 DEBUG CRITICAL: Log das bandas extraídas
+    console.log("[AUDIT] Spectral bands extracted:", {
+      bandEnergies: technicalData.bandEnergies,
+      spectral_balance: technicalData.spectral_balance,
+      jobId
+    });
   } else {
     // 🔬 DEBUG: Log se bandas espectrais não estão disponíveis
-    logAudio('json_output', 'spectral_bands_missing_debug', {
+    console.log("[AUDIT] Spectral bands missing debug:", {
       hasCoreMetrics: !!coreMetrics,
       hasSpectralBands: !!(coreMetrics.spectralBands),
       hasAggregated: !!(coreMetrics.spectralBands?.aggregated),
@@ -594,6 +610,18 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       processedAt: new Date().toISOString()
     }
   };
+
+  // 🔥 DEBUG CRITICAL: Log do JSON export final - verificar se spectralBands está incluído
+  console.log("[AUDIT] JSON export spectralBands:", {
+    hasSpectralBands: !!finalJSON.spectralBands,
+    spectralBandsKeys: finalJSON.spectralBands ? Object.keys(finalJSON.spectralBands) : null,
+    hasDetailed: !!finalJSON.spectralBands?.detailed,
+    hasSimplified: !!finalJSON.spectralBands?.simplified,
+    spectralCentroidHz: finalJSON.spectralCentroidHz,
+    spectralRolloffHz: finalJSON.spectralRolloffHz,
+    technicalDataSpectralCentroid: finalJSON.technicalData?.spectralCentroid,
+    jobId
+  });
 
   return finalJSON;
 }
