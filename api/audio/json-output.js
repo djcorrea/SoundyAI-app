@@ -62,6 +62,13 @@ function extractTechnicalData(coreMetrics) {
       if (coreMetrics.fft.spectralCentroid) {
         technicalData.spectralCentroid = coreMetrics.fft.spectralCentroid;
       }
+    } else {
+      // ❌ ERRO: FFT frequencyBands não disponível - sem fallback
+      console.error('❌ [JSON_OUTPUT] ERRO CRÍTICO: coreMetrics.fft.frequencyBands.left não disponível!');
+      console.error('❌ [JSON_OUTPUT] Estrutura do coreMetrics.fft:', coreMetrics.fft);
+      console.error('❌ [JSON_OUTPUT] SEM FALLBACK - bandEnergies não serão calculadas');
+      
+      // Não adicionar bandEnergies - deixar ausentes para forçar correção
     }
 
     // 🎯 FIXADO: Métricas Espectrais do FFT agregado
@@ -96,6 +103,19 @@ function extractTechnicalData(coreMetrics) {
       // Criar aliases para compatibilidade com scoring
       technicalData.spectralCentroid = technicalData.spectralCentroidHz;
       technicalData.spectralRolloff = technicalData.spectralRolloffHz;
+      
+      // Aliases adicionais para modal (conforme auditoria)
+      technicalData.frequenciaCentral = technicalData.spectralCentroidHz;
+      technicalData.limiteAgudos85 = technicalData.spectralRolloffHz;
+      technicalData.mudancaEspectral = technicalData.spectralFlux;
+      technicalData.uniformidade = technicalData.spectralFlatness;
+    } else {
+      // ❌ ERRO: FFT processing falhou - não usar fallback, deixar visível
+      console.error('❌ [JSON_OUTPUT] ERRO CRÍTICO: coreMetrics.fft.aggregated não disponível!');
+      console.error('❌ [JSON_OUTPUT] Estrutura do coreMetrics.fft:', coreMetrics.fft);
+      console.error('❌ [JSON_OUTPUT] SEM FALLBACK - métricas espectrais não serão calculadas');
+      
+      // Não adicionar métricas espectrais - deixar ausentes para forçar correção
     }
 
     // 🎯 FIXADO: Bandas Espectrais agregadas
@@ -224,7 +244,12 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata) {
       spectralFlux: sanitizeValue(technicalData.spectralFlux),
       spectral_balance: technicalData.spectral_balance || {},
       frequencyBands: coreMetrics.fft?.frequencyBands?.left || {},
-      bandEnergies: technicalData.bandEnergies || {}
+      bandEnergies: technicalData.bandEnergies || {},
+      // 🎵 Métricas espectrais adicionais para o modal
+      frequenciaCentral: sanitizeValue(technicalData.spectralCentroidHz), // Alias para compatibilidade
+      limiteAgudos85: sanitizeValue(technicalData.spectralRolloffHz), // Rolloff 85%
+      mudancaEspectral: sanitizeValue(technicalData.spectralFlux), // Mudança espectral
+      uniformidade: sanitizeValue(technicalData.spectralFlatness) // Uniformidade linear vs peaks
     },
 
     // ===== Métricas Espectrais (nível raiz para compatibilidade frontend) =====
