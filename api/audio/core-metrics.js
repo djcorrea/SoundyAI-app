@@ -269,6 +269,10 @@ class CoreMetricsProcessor {
       };
       
       console.log(`✅ Métricas espectrais agregadas: centroid=${results.aggregated.spectralCentroidHz.toFixed(1)}Hz, rolloff=${results.aggregated.spectralRolloffHz.toFixed(1)}Hz`);
+      console.log('🔍 [CORE_METRICS] Estrutura completa do aggregated:', {
+        keys: Object.keys(results.aggregated),
+        aggregated: results.aggregated
+      });
       
     } catch (spectralError) {
       console.warn("⚠️ Erro ao calcular métricas espectrais agregadas:", spectralError.message);

@@ -65,6 +65,13 @@ function extractTechnicalData(coreMetrics) {
     }
 
     // 🎯 FIXADO: Métricas Espectrais do FFT agregado
+    console.log('🔍 [JSON_OUTPUT] Verificando FFT disponível:', {
+      hasFFT: !!(coreMetrics.fft),
+      hasAggregated: !!(coreMetrics.fft?.aggregated),
+      fftKeys: coreMetrics.fft ? Object.keys(coreMetrics.fft) : [],
+      aggregatedKeys: coreMetrics.fft?.aggregated ? Object.keys(coreMetrics.fft.aggregated) : []
+    });
+    
     if (coreMetrics.fft && coreMetrics.fft.aggregated) {
       const spectral = coreMetrics.fft.aggregated;
       
