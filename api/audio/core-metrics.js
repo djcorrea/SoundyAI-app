@@ -6,6 +6,7 @@ import { FastFFT } from "../../lib/audio/fft.js";
 import { calculateLoudnessMetrics } from "../../lib/audio/features/loudness.js";
 import { TruePeakDetector } from "../../lib/audio/features/truepeak.js";
 import { SpectrumAnalyzer } from "../../lib/audio/features/spectrum.js";
+import { computeTTDynamicRange, computeCrestFactor } from "../../lib/audio/features/dynamics.js";
 
 /**
  * 🎯 CONFIGURAÇÕES DA FASE 5.3 (AUDITORIA)
@@ -65,6 +66,11 @@ class CoreMetricsProcessor {
         leftChannel,
         rightChannel
       );
+      const dynamicRangeResults = await this.calculateDynamicRangeMetrics(
+        leftChannel,
+        rightChannel,
+        segmentedAudio.sampleRate
+      );
 
       const processingTime = Date.now() - startTime;
 
@@ -78,6 +84,7 @@ class CoreMetricsProcessor {
         lufs: lufsResults,
         truePeak: truePeakResults,
         stereo: stereoResults,
+        dynamics: dynamicRangeResults,
 
         _metadata: {
           phase: "5.3-core-metrics",
@@ -383,6 +390,53 @@ class CoreMetricsProcessor {
     balance = Math.max(-1, Math.min(1, balance));
 
     return { correlation, width, balance };
+  }
+
+  /**
+   * 🎚️ DYNAMIC RANGE METRICS
+   * Cálculo de TT-DR (True Technical Dynamic Range) e Crest Factor
+   */
+  async calculateDynamicRangeMetrics(leftChannel, rightChannel, sampleRate) {
+    console.log("🎚️ Calculando Dynamic Range Metrics...");
+    
+    try {
+      // TT-DR: Dynamic Range oficial (P95 RMS - P10 RMS)
+      const ttDR = computeTTDynamicRange(leftChannel, rightChannel, sampleRate);
+      
+      // Crest Factor: Peak-RMS tradicional (métrica auxiliar)
+      const crestFactor = computeCrestFactor(leftChannel, rightChannel);
+      
+      console.log(`✅ DR calculado - TT-DR: ${ttDR.tt_dr?.toFixed(2) || 'null'} dB, Crest: ${crestFactor.crest_factor_db?.toFixed(2) || 'null'} dB`);
+      
+      return {
+        // TT-DR Oficial (principal)
+        tt_dr: ttDR.tt_dr,
+        p95_rms: ttDR.p95_rms,
+        p10_rms: ttDR.p10_rms || ttDR.p05_rms, // Fallback para P05 se usar versão mais sensível
+        
+        // Crest Factor (auxiliar/compatibilidade)
+        crest_factor_db: crestFactor.crest_factor_db,
+        peak_db: crestFactor.peak_db,
+        rms_db: crestFactor.rms_db,
+        
+        // Compatibilidade com pipeline existente
+        dynamic_range: ttDR.tt_dr, // Campo esperado pelo json-output.js
+        crest_legacy: crestFactor.crest_factor_db,
+        
+        // Metadados
+        algorithm: 'TT-DR + Crest Factor',
+        note: 'TT-DR é o padrão da indústria; Crest Factor mantido para compatibilidade'
+      };
+      
+    } catch (error) {
+      console.error("❌ Erro ao calcular Dynamic Range:", error);
+      return {
+        tt_dr: null,
+        dynamic_range: null,
+        crest_factor_db: null,
+        error: error.message
+      };
+    }
   }
 
   calculateAverageSpectrum(spectrograms) {

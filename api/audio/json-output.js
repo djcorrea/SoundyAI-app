@@ -137,9 +137,31 @@ function extractTechnicalData(coreMetrics) {
       technicalData.duration = coreMetrics.duration || 0;
     }
 
-    // Dynamic Range
-    if (coreMetrics.dr !== undefined) {
-      technicalData.dynamicRange = coreMetrics.dr;
+    // 🎚️ Dynamic Range Metrics (TT-DR + Crest Factor)
+    if (coreMetrics.dynamics) {
+      // TT-DR Principal
+      technicalData.dynamicRange = sanitizeValue(coreMetrics.dynamics.dynamic_range);
+      technicalData.ttDR = sanitizeValue(coreMetrics.dynamics.tt_dr);
+      technicalData.p95Rms = sanitizeValue(coreMetrics.dynamics.p95_rms);
+      technicalData.p10Rms = sanitizeValue(coreMetrics.dynamics.p10_rms);
+      
+      // Crest Factor Auxiliar
+      technicalData.crestFactor = sanitizeValue(coreMetrics.dynamics.crest_factor_db);
+      technicalData.peakDb = sanitizeValue(coreMetrics.dynamics.peak_db);
+      technicalData.rmsDb = sanitizeValue(coreMetrics.dynamics.rms_db);
+      
+      // Compatibilidade legacy
+      technicalData.crestLegacy = sanitizeValue(coreMetrics.dynamics.crest_legacy);
+      
+      console.log('🎚️ [JSON_OUTPUT] Dynamics extraído:', {
+        ttDR: technicalData.ttDR,
+        dynamicRange: technicalData.dynamicRange,
+        crestFactor: technicalData.crestFactor
+      });
+    } else if (coreMetrics.dr !== undefined) {
+      // Fallback para compatibilidade com versões antigas
+      technicalData.dynamicRange = sanitizeValue(coreMetrics.dr);
+      console.log('⚠️ [JSON_OUTPUT] Using legacy DR field:', technicalData.dynamicRange);
     }
 
     technicalData.runId = `phase-5-4-${Date.now()}`;
@@ -178,6 +200,13 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata) {
       truePeakDbtp: sanitizeValue(technicalData.truePeakDbtp),
       truePeakLinear: sanitizeValue(technicalData.truePeakLinear),
       dynamicRange: sanitizeValue(technicalData.dynamicRange),
+      // 🎚️ Dynamic Range Metrics Completos
+      ttDR: sanitizeValue(technicalData.ttDR),
+      crestFactor: sanitizeValue(technicalData.crestFactor),
+      p95Rms: sanitizeValue(technicalData.p95Rms),
+      p10Rms: sanitizeValue(technicalData.p10Rms),
+      peakDb: sanitizeValue(technicalData.peakDb),
+      rmsDb: sanitizeValue(technicalData.rmsDb),
       stereoCorrelation: sanitizeValue(technicalData.stereoCorrelation),
       stereoWidth: sanitizeValue(technicalData.stereoWidth),
       balanceLR: sanitizeValue(technicalData.balanceLR),
@@ -215,6 +244,27 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata) {
       simplified: technicalData.spectral_balance || {},
       processedFrames: coreMetrics.spectralBands?.aggregated?.processedFrames || 0,
       hasData: (coreMetrics.spectralBands?.aggregated?.processedFrames || 0) > 0
+    },
+
+    // ===== Dynamic Range Metrics =====
+    dynamics: {
+      // TT-DR Principal (True Technical Dynamic Range)
+      ttDR: sanitizeValue(technicalData.ttDR),
+      p95Rms: sanitizeValue(technicalData.p95Rms),
+      p10Rms: sanitizeValue(technicalData.p10Rms),
+      
+      // Crest Factor Auxiliar
+      crestFactor: sanitizeValue(technicalData.crestFactor),
+      peakDb: sanitizeValue(technicalData.peakDb),
+      rmsDb: sanitizeValue(technicalData.rmsDb),
+      
+      // Compatibilidade/Legacy
+      dynamicRange: sanitizeValue(technicalData.dynamicRange),
+      crestLegacy: sanitizeValue(technicalData.crestLegacy),
+      
+      // Metadados
+      algorithm: 'TT-DR + Crest Factor',
+      hasData: !!(technicalData.ttDR || technicalData.dynamicRange || technicalData.crestFactor)
     },
 
     scoringDetails: {
