@@ -237,7 +237,7 @@ class CoreMetricsProcessor {
     );
 
     // ⭐ NOVA SEÇÃO: Métricas espectrais agregadas para json-output.js
-    console.log("📊 Calculando métricas espectrais agregadas...");
+    console.log("� [CORE_METRICS] INICIANDO cálculo de métricas espectrais agregadas...");
     try {
       // Reconstruir canais completos para análise espectral detalhada
       const leftChannel = this.reconstructFromFrames(framesFFT.left, framesFFT.hopSize);
@@ -275,7 +275,9 @@ class CoreMetricsProcessor {
       });
       
     } catch (spectralError) {
-      console.warn("⚠️ Erro ao calcular métricas espectrais agregadas:", spectralError.message);
+      console.error("❌ ERRO CRÍTICO ao calcular métricas espectrais agregadas:", spectralError);
+      console.error("❌ Stack trace:", spectralError.stack);
+      console.warn("⚠️ Usando fallback para métricas espectrais básicas...");
       // Fallback: métricas básicas a partir do espectro médio
       results.aggregated = this.calculateBasicSpectralAggregated(results.averageSpectrum.left, results.averageSpectrum.right);
     }
@@ -502,7 +504,13 @@ class CoreMetricsProcessor {
    * 📊 Fallback: métricas espectrais básicas a partir do espectro médio
    */
   calculateBasicSpectralAggregated(leftSpectrum, rightSpectrum) {
-    console.log("📊 Usando fallback para métricas espectrais básicas...");
+    console.log("� [FALLBACK] Usando fallback para métricas espectrais básicas...");
+    console.log("🔄 [FALLBACK] Espectros recebidos:", {
+      leftLength: leftSpectrum?.length,
+      rightLength: rightSpectrum?.length,
+      leftEnergy: leftSpectrum?.reduce((sum, val) => sum + val, 0),
+      rightEnergy: rightSpectrum?.reduce((sum, val) => sum + val, 0)
+    });
     
     // Usar espectro com maior energia
     const leftEnergy = leftSpectrum.reduce((sum, val) => sum + val, 0);
