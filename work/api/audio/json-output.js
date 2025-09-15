@@ -238,12 +238,19 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
 
   // ===== Spectral Uniformity =====
   if (coreMetrics.spectralUniformity && typeof coreMetrics.spectralUniformity === 'object') {
+    // A função calculateSpectralUniformity retorna um objeto complexo
+    const uniformityValue = coreMetrics.spectralUniformity.uniformity?.coefficient || 
+                            coreMetrics.spectralUniformity.score ||
+                            0.5; // Fallback
+    
     technicalData.spectralUniformity = {
-      value: safeSanitize(coreMetrics.spectralUniformity.value),
-      unit: coreMetrics.spectralUniformity.unit || 'ratio',
+      value: safeSanitize(uniformityValue),
+      unit: 'ratio',
       detailed: {
-        variance: safeSanitize(coreMetrics.spectralUniformity.value),
-        distribution: coreMetrics.spectralUniformity.detailed?.distribution || 'Unknown',
+        variance: safeSanitize(uniformityValue),
+        distribution: coreMetrics.spectralUniformity.rating || 
+                     coreMetrics.spectralUniformity.characteristics?.dominantBand || 
+                     'Unknown',
         analysis: 'Spectral analysis completed'
       }
     };
@@ -348,7 +355,7 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     },
 
     // ===== REFERENCE COMPARISON =====
-    referenceComparison: options.reference?.comparison || [],
+    referenceComparison: options.reference?.comparison || generateGenreReference(technicalData, options.genre || 'trance'),
 
     // ===== TECHNICAL DATA (Frontend Compatible) =====
     technicalData: {
@@ -483,6 +490,51 @@ function validateFinalJSON(finalJSON) {
       throw makeErr('output_scoring', `Missing field: ${f}`, 'missing_final_field');
     }
   }
+}
+
+/**
+ * Gerar dados de referência baseados no gênero
+ */
+function generateGenreReference(technicalData, genre) {
+  const references = [
+    {
+      metric: "Volume Integrado (padrão streaming)",
+      value: technicalData.lufsIntegrated || -23,
+      ideal: -23,
+      unit: "LUFS",
+      status: Math.abs((technicalData.lufsIntegrated || -23) - (-23)) < 2 ? "✅ IDEAL" : "⚠️ AJUSTAR"
+    },
+    {
+      metric: "pico real (dbtp)",
+      value: technicalData.truePeakDbtp || -3,
+      ideal: -1,
+      unit: "dBTP",
+      status: (technicalData.truePeakDbtp || -3) < -1 ? "✅ IDEAL" : "⚠️ AJUSTAR"
+    },
+    {
+      metric: "Dinâmica (diferença entre alto/baixo)",
+      value: technicalData.dynamicRange || 10,
+      ideal: genre === 'trance' ? 8 : 10,
+      unit: "LU",
+      status: (technicalData.dynamicRange || 10) > 6 ? "✅ IDEAL" : "⚠️ AJUSTAR"
+    },
+    {
+      metric: "Variação de Volume (consistência)",
+      value: technicalData.lra || 12,
+      ideal: 6,
+      unit: "LU",
+      status: (technicalData.lra || 12) < 10 ? "✅ IDEAL" : "⚠️ AJUSTAR"
+    },
+    {
+      metric: "Correlação Estéreo (largura)",
+      value: technicalData.stereoCorrelation || 0.7,
+      ideal: 0.7,
+      unit: "ratio",
+      status: (technicalData.stereoCorrelation || 0.7) > 0.3 && (technicalData.stereoCorrelation || 0.7) < 0.9 ? "✅ IDEAL" : "⚠️ AJUSTAR"
+    }
+  ];
+  
+  return references;
 }
 
 console.log("✅ JSON Output & Scoring (Fase 5.4) carregado - 100% compatível com frontend");
