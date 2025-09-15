@@ -223,7 +223,8 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata) {
       zeroCrossingRate: sanitizeValue(technicalData.zeroCrossingRate),
       spectralFlux: sanitizeValue(technicalData.spectralFlux),
       spectral_balance: technicalData.spectral_balance || {},
-      frequencyBands: coreMetrics.fft?.frequencyBands?.left || {}
+      frequencyBands: coreMetrics.fft?.frequencyBands?.left || {},
+      bandEnergies: technicalData.bandEnergies || {}
     },
 
     // ===== Métricas Espectrais (nível raiz para compatibilidade frontend) =====
