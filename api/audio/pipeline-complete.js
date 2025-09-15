@@ -38,6 +38,27 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     const coreMetrics = await calculateCoreMetrics(segmentedData);
     const phase3Time = Date.now() - phase3StartTime;
     console.log(`✅ Fase 5.3 concluída em ${phase3Time}ms`);
+    
+    // 🔍 DEBUG: Estrutura do coreMetrics para investigar métricas espectrais
+    console.log('🔍 [PIPELINE_COMPLETE] === DEBUG CORE METRICS STRUCTURE ===');
+    console.log('🔍 [PIPELINE_COMPLETE] coreMetrics top-level keys:', Object.keys(coreMetrics));
+    console.log('🔍 [PIPELINE_COMPLETE] coreMetrics.fft exists:', !!coreMetrics.fft);
+    console.log('🔍 [PIPELINE_COMPLETE] coreMetrics.fft keys:', coreMetrics.fft ? Object.keys(coreMetrics.fft) : null);
+    console.log('🔍 [PIPELINE_COMPLETE] coreMetrics.fft.aggregated exists:', !!coreMetrics.fft?.aggregated);
+    console.log('🔍 [PIPELINE_COMPLETE] coreMetrics.fft.aggregated keys:', coreMetrics.fft?.aggregated ? Object.keys(coreMetrics.fft.aggregated) : null);
+    if (coreMetrics.fft?.aggregated?.spectralCentroidHz) {
+      console.log('✅ [PIPELINE_COMPLETE] spectralCentroidHz found:', coreMetrics.fft.aggregated.spectralCentroidHz);
+    } else {
+      console.log('❌ [PIPELINE_COMPLETE] spectralCentroidHz NOT FOUND in aggregated');
+      // Log adicional para debug
+      console.log('🔍 [PIPELINE_COMPLETE] Core metrics completo (primeiros 3 níveis):');
+      console.log(JSON.stringify(coreMetrics, (key, value) => {
+        if (typeof value === 'object' && value !== null && Object.keys(value).length > 10) {
+          return `[Object with ${Object.keys(value).length} keys]`;
+        }
+        return value;
+      }, 2));
+    }
     console.log(`📊 LUFS: ${coreMetrics.lufs.integrated.toFixed(1)}`, 
                 `True Peak: ${coreMetrics.truePeak.maxDbtp.toFixed(1)}dBTP`,
                 `Correlação: ${coreMetrics.stereo.correlation.toFixed(3)}`);
@@ -50,7 +71,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       fileSize: audioBuffer.length,
       processingTime: Date.now() - startTime
     };
-    const reference = options.reference || options.genre || null;
+    const reference = (options && options.reference) || (options && options.genre) || null;
     const finalJSON = generateJSONOutput(coreMetrics, reference, metadata);
     const phase4Time = Date.now() - phase4StartTime;
     console.log(`✅ Fase 5.4 concluída em ${phase4Time}ms`);

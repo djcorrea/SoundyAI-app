@@ -1,5 +1,5 @@
 /**
- * 🔍 VERIFICAÇÃO RÁPIDA: Status dos Jobs
+ * 🔍 VERIFICAÇÃO RÁPIDA: Status dos Jobs + Métricas Espectrais
  */
 
 import { Pool } from 'pg';
@@ -28,11 +28,10 @@ async function checkJobsStatus() {
             console.log(`├─ ${row.status}: ${row.count} jobs`);
         });
         
-        // 🎯 Jobs mais recentes
-        console.log('\n🕐 JOBS MAIS RECENTES:');
+        // 🎯 Jobs mais recentes COM ANÁLISE DE MÉTRICAS
+        console.log('\n🕐 JOBS MAIS RECENTES (com análise de métricas):');
         const recentJobs = await pool.query(`
-            SELECT id, status, created_at, updated_at, 
-                   CASE WHEN result IS NOT NULL THEN 'HAS_RESULT' ELSE 'NO_RESULT' END as result_status
+            SELECT id, status, created_at, updated_at, result, filename
             FROM jobs 
             ORDER BY created_at DESC 
             LIMIT 10
@@ -41,8 +40,74 @@ async function checkJobsStatus() {
         recentJobs.rows.forEach((job, index) => {
             const elapsed = Date.now() - new Date(job.created_at).getTime();
             const minutes = Math.floor(elapsed / 60000);
-            console.log(`├─ [${index + 1}] ID:${job.id} | ${job.status} | ${job.result_status} | ${minutes}min atrás`);
+            
+            let metricasInfo = 'NO_RESULT';
+            if (job.result) {
+                const metricasEspectrais = [
+                    'spectralCentroidHz', 'spectralRolloffHz', 'spectralFlatness',
+                    'frequenciaCentral', 'limiteAgudos85', 'bandEnergies'
+                ];
+                
+                const metricasEncontradas = metricasEspectrais.filter(m => job.result[m] !== undefined);
+                const totalMetricas = Object.keys(job.result).length;
+                
+                if (metricasEncontradas.length > 0) {
+                    metricasInfo = `✅ ${metricasEncontradas.length}/${metricasEspectrais.length} métricas (${totalMetricas} total)`;
+                } else {
+                    metricasInfo = `⚠️ 0 métricas espectrais (${totalMetricas} total)`;
+                }
+            }
+            
+            console.log(`├─ [${index + 1}] ID:${job.id} | ${job.status} | ${metricasInfo} | ${minutes}min atrás`);
+            if (job.filename) console.log(`│   📁 ${job.filename}`);
         });
+        
+        // 🎵 ANÁLISE DETALHADA DE MÉTRICAS
+        console.log('\n🎵 ANÁLISE DE MÉTRICAS ESPECTRAIS:');
+        const metricsAnalysis = await pool.query(`
+            SELECT id, filename, result
+            FROM jobs 
+            WHERE status = 'completed' 
+              AND result IS NOT NULL
+              AND created_at > NOW() - INTERVAL '24 hours'
+            ORDER BY created_at DESC 
+            LIMIT 5
+        `);
+        
+        if (metricsAnalysis.rows.length === 0) {
+            console.log('├─ ❌ Nenhum job completo com result nas últimas 24h');
+        } else {
+            metricsAnalysis.rows.forEach((job, index) => {
+                const metricasEspectrais = [
+                    'spectralCentroidHz', 'spectralRolloffHz', 'spectralFlatness',
+                    'frequenciaCentral', 'limiteAgudos85', 'bandEnergies'
+                ];
+                
+                const metricasStatus = {};
+                metricasEspectrais.forEach(metrica => {
+                    metricasStatus[metrica] = job.result[metrica] !== undefined;
+                });
+                
+                const metricasPresentes = Object.values(metricasStatus).filter(Boolean).length;
+                const statusIcon = metricasPresentes === metricasEspectrais.length ? '✅' : 
+                                 metricasPresentes > 0 ? '⚠️' : '❌';
+                
+                console.log(`├─ ${statusIcon} [${index + 1}] ID:${job.id} | ${metricasPresentes}/${metricasEspectrais.length} métricas`);
+                console.log(`│   📁 ${job.filename || 'sem nome'}`);
+                
+                // Mostrar quais métricas estão presentes/ausentes
+                const presentes = metricasEspectrais.filter(m => metricasStatus[m]);
+                const ausentes = metricasEspectrais.filter(m => !metricasStatus[m]);
+                
+                if (presentes.length > 0) {
+                    console.log(`│   ✅ Presentes: ${presentes.join(', ')}`);
+                }
+                if (ausentes.length > 0) {
+                    console.log(`│   ❌ Ausentes: ${ausentes.join(', ')}`);
+                }
+                console.log('│');
+            });
+        }
         
         // 🚨 Jobs em processamento há muito tempo
         console.log('\n⚠️  JOBS POSSIVELMENTE TRAVADOS:');
@@ -71,4 +136,64 @@ async function checkJobsStatus() {
     }
 }
 
-checkJobsStatus();
+// 📡 Função para endpoint HTTP (se necessário)
+async function checkJobsQuick() {
+    try {
+        const query = `
+            SELECT 
+                id,
+                status,
+                filename,
+                created_at,
+                result
+            FROM jobs 
+            WHERE status IN ('completed', 'processing')
+            AND created_at > NOW() - INTERVAL '24 hours'
+            ORDER BY created_at DESC 
+            LIMIT 10
+        `;
+        
+        const result = await pool.query(query);
+        
+        // Analisar métricas em cada job
+        const jobsComAnalise = result.rows.map(job => {
+            const analise = {
+                id: job.id,
+                status: job.status,
+                filename: job.filename,
+                created_at: job.created_at,
+                temResult: !!job.result,
+                metricas: {}
+            };
+            
+            if (job.result) {
+                const metricasEspectrais = [
+                    'spectralCentroidHz', 'spectralRolloffHz', 'spectralFlatness',
+                    'frequenciaCentral', 'limiteAgudos85', 'bandEnergies'
+                ];
+                
+                metricasEspectrais.forEach(metrica => {
+                    analise.metricas[metrica] = job.result[metrica] !== undefined;
+                });
+                
+                analise.totalMetricas = Object.keys(job.result).length;
+                analise.metricasEspectraisCount = metricasEspectrais.filter(m => analise.metricas[m]).length;
+            }
+            
+            return analise;
+        });
+        
+        return jobsComAnalise;
+        
+    } catch (error) {
+        console.error('❌ [CHECK_JOBS_QUICK] Erro:', error);
+        throw error;
+    }
+}
+
+// Se executado diretamente
+if (import.meta.url === `file://${process.argv[1]}`) {
+    checkJobsStatus();
+}
+
+export { checkJobsQuick };

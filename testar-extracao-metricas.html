@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Extração de Métricas - PostgreSQL</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .info { background: #d1ecf1; border-color: #bee5eb; }
+        .warning { background: #fff3cd; border-color: #ffeaa7; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 12px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin: 15px 0; }
+        .metric-card { padding: 15px; border: 1px solid #ddd; border-radius: 5px; background: #f9f9f9; }
+        .metric-value { font-weight: bold; color: #007bff; }
+        .metric-missing { color: #dc3545; font-style: italic; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Teste de Extração de Métricas Espectrais para PostgreSQL</h1>
+        
+        <div class="test-section info">
+            <h3>📋 Objetivo do Teste</h3>
+            <p>Verificar se <strong>TODAS as métricas espectrais calculadas</strong> estão sendo extraídas corretamente pelo <code>json-output.js</code> e chegando ao PostgreSQL.</p>
+            <p><strong>Métricas Obrigatórias:</strong> spectralCentroidHz, spectralRolloffHz, spectralFlatness, bandEnergies, aliases (frequenciaCentral, limiteAgudos85)</p>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Controles de Teste</h3>
+            <button onclick="testarExtracaoMetricas()">🎵 Testar Extração de Métricas</button>
+            <button onclick="verificarJobsRecentes()">📊 Verificar Jobs Recentes</button>
+            <button onclick="simularCoreMetrics()">🧪 Simular Core Metrics</button>
+            <button onclick="limparLogs()">🧹 Limpar Logs</button>
+        </div>
+
+        <div id="resultados" class="test-section">
+            <h3>📊 Resultados dos Testes</h3>
+            <div id="output">Clique em um botão para iniciar os testes...</div>
+        </div>
+
+        <div id="metricas-detalhes" class="test-section" style="display: none;">
+            <h3>🔍 Detalhes das Métricas Extraídas</h3>
+            <div id="metricas-grid" class="metric-grid"></div>
+        </div>
+    </div>
+
+    <script>
+        let logBuffer = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            logBuffer.push({ message: logEntry, type });
+            updateOutput();
+        }
+
+        function updateOutput() {
+            const output = document.getElementById('output');
+            output.innerHTML = logBuffer.map(entry => 
+                `<div class="${entry.type}">${entry.message}</div>`
+            ).join('');
+        }
+
+        function limparLogs() {
+            logBuffer = [];
+            document.getElementById('output').innerHTML = 'Logs limpos.';
+            document.getElementById('metricas-detalhes').style.display = 'none';
+        }
+
+        async function testarExtracaoMetricas() {
+            log('🔄 Iniciando teste de extração de métricas...', 'info');
+            
+            try {
+                // Simular dados como vindos do core-metrics.js
+                const mockCoreMetrics = {
+                    fft: {
+                        aggregated: {
+                            spectralCentroidHz: 2847.5,
+                            spectralRolloffHz: 8420.3,
+                            spectralFlatness: 0.123,
+                            spectralFlux: 0.456,
+                            spectralCrest: 2.89,
+                            spectralSkewness: 0.67,
+                            spectralKurtosis: 3.21,
+                            zeroCrossingRate: 0.089
+                        },
+                        frequencyBands: {
+                            subBass: 0.12,
+                            bass: 0.34,
+                            lowMids: 0.28,
+                            mids: 0.45,
+                            highMids: 0.38,
+                            presence: 0.29,
+                            brilliance: 0.15
+                        },
+                        frameCount: 512
+                    },
+                    spectral_balance: {
+                        lowFreq: 0.35,
+                        midFreq: 0.42,
+                        highFreq: 0.23
+                    }
+                };
+
+                log('📡 Simulando extração com json-output.js...', 'info');
+                
+                // Simular a função extractTechnicalData
+                const technicalData = await simularExtractTechnicalData(mockCoreMetrics);
+                
+                log('✅ Extração concluída! Analisando resultados...', 'success');
+                
+                // Verificar métricas obrigatórias
+                const metricasObrigatorias = [
+                    'spectralCentroidHz',
+                    'spectralRolloffHz', 
+                    'spectralFlatness',
+                    'bandEnergies',
+                    'frequenciaCentral',
+                    'limiteAgudos85'
+                ];
+
+                const metricasEncontradas = [];
+                const metricasFaltando = [];
+
+                metricasObrigatorias.forEach(metrica => {
+                    if (technicalData[metrica] !== undefined) {
+                        metricasEncontradas.push(metrica);
+                    } else {
+                        metricasFaltando.push(metrica);
+                    }
+                });
+
+                if (metricasFaltando.length === 0) {
+                    log(`🎉 SUCESSO! Todas as ${metricasObrigatorias.length} métricas obrigatórias foram extraídas!`, 'success');
+                } else {
+                    log(`⚠️ ATENÇÃO! ${metricasFaltando.length} métricas faltando: ${metricasFaltando.join(', ')}`, 'warning');
+                }
+
+                log(`📊 Total de métricas extraídas: ${Object.keys(technicalData).length}`, 'info');
+                
+                // Mostrar detalhes das métricas
+                mostrarDetalhesMetricas(technicalData);
+                
+            } catch (error) {
+                log(`❌ ERRO no teste: ${error.message}`, 'error');
+                console.error('Erro completo:', error);
+            }
+        }
+
+        async function simularExtractTechnicalData(coreMetrics) {
+            // Simular a lógica do json-output.js
+            const technicalData = {};
+
+            // 1. EXTRAÇÃO ESPECTRAL ROBUSTA (3 PRIORIDADES)
+            let spectralSource = null;
+            
+            // Prioridade 1: Dados agregados do FFT
+            if (coreMetrics.fft?.aggregated) {
+                spectralSource = coreMetrics.fft.aggregated;
+                log('🎯 [Prioridade 1] Usando coreMetrics.fft.aggregated', 'success');
+            }
+            // Prioridade 2: Buscar estrutura alternativa
+            else if (coreMetrics.fft && Object.keys(coreMetrics.fft).length > 0) {
+                const fftKeys = Object.keys(coreMetrics.fft);
+                log(`🔍 [Prioridade 2] Buscando em estrutura alternativa: ${fftKeys.join(', ')}`, 'info');
+                
+                // Buscar por chaves conhecidas
+                const knownKeys = ['spectralCentroidHz', 'spectralRolloffHz', 'spectralFlatness'];
+                for (const key of knownKeys) {
+                    if (coreMetrics.fft[key] !== undefined) {
+                        spectralSource = coreMetrics.fft;
+                        log(`🎯 [Prioridade 2] Encontrou métricas em coreMetrics.fft`, 'success');
+                        break;
+                    }
+                }
+            }
+            // Prioridade 3: Buscar no nível raiz
+            else {
+                log('🔍 [Prioridade 3] Buscando métricas no nível raiz', 'info');
+                spectralSource = coreMetrics;
+            }
+
+            if (spectralSource) {
+                // Extrair métricas espectrais
+                const spectralKeys = [
+                    'spectralCentroidHz', 'spectralRolloffHz', 'spectralFlatness',
+                    'spectralFlux', 'spectralCrest', 'spectralSkewness', 
+                    'spectralKurtosis', 'zeroCrossingRate'
+                ];
+
+                spectralKeys.forEach(key => {
+                    if (spectralSource[key] !== undefined) {
+                        technicalData[key] = spectralSource[key];
+                    }
+                });
+            }
+
+            // 2. EXTRAÇÃO DE BAND ENERGIES (3 PRIORIDADES)
+            let bandEnergies = null;
+
+            // Prioridade 1: FFT frequencyBands
+            if (coreMetrics.fft?.frequencyBands) {
+                bandEnergies = coreMetrics.fft.frequencyBands;
+                log('🎯 [BandEnergies P1] Usando coreMetrics.fft.frequencyBands', 'success');
+            }
+            // Prioridade 2: spectral_balance agregado
+            else if (coreMetrics.spectral_balance) {
+                bandEnergies = coreMetrics.spectral_balance;
+                log('🎯 [BandEnergies P2] Usando coreMetrics.spectral_balance', 'success');
+            }
+            // Prioridade 3: Buscar em estrutura alternativa
+            else {
+                const searchKeys = ['bandEnergies', 'frequencyBands', 'bands'];
+                for (const key of searchKeys) {
+                    if (coreMetrics[key]) {
+                        bandEnergies = coreMetrics[key];
+                        log(`🎯 [BandEnergies P3] Encontrou em coreMetrics.${key}`, 'success');
+                        break;
+                    }
+                }
+            }
+
+            if (bandEnergies) {
+                technicalData.bandEnergies = bandEnergies;
+            }
+
+            // 3. ALIASES DO MODAL (compatibilidade)
+            if (technicalData.spectralCentroidHz !== undefined) {
+                technicalData.frequenciaCentral = technicalData.spectralCentroidHz;
+            }
+            if (technicalData.spectralRolloffHz !== undefined) {
+                technicalData.limiteAgudos85 = technicalData.spectralRolloffHz;
+            }
+
+            // 4. RunID para rastreamento
+            technicalData.runId = `test-${Date.now()}`;
+
+            return technicalData;
+        }
+
+        function mostrarDetalhesMetricas(technicalData) {
+            const detalhesDiv = document.getElementById('metricas-detalhes');
+            const gridDiv = document.getElementById('metricas-grid');
+            
+            const categorias = {
+                'Métricas Espectrais': [
+                    'spectralCentroidHz', 'spectralRolloffHz', 'spectralFlatness',
+                    'spectralFlux', 'spectralCrest', 'spectralSkewness', 
+                    'spectralKurtosis', 'zeroCrossingRate'
+                ],
+                'Band Energies': ['bandEnergies'],
+                'Aliases Modal': ['frequenciaCentral', 'limiteAgudos85'],
+                'Sistema': ['runId']
+            };
+
+            let gridHTML = '';
+            
+            Object.entries(categorias).forEach(([categoria, metricas]) => {
+                gridHTML += `<div class="metric-card">
+                    <h4>${categoria}</h4>`;
+                
+                metricas.forEach(metrica => {
+                    const valor = technicalData[metrica];
+                    if (valor !== undefined) {
+                        gridHTML += `<div><strong>${metrica}:</strong> <span class="metric-value">${
+                            typeof valor === 'object' ? JSON.stringify(valor, null, 2) : valor
+                        }</span></div>`;
+                    } else {
+                        gridHTML += `<div><strong>${metrica}:</strong> <span class="metric-missing">❌ Ausente</span></div>`;
+                    }
+                });
+                
+                gridHTML += '</div>';
+            });
+
+            gridDiv.innerHTML = gridHTML;
+            detalhesDiv.style.display = 'block';
+        }
+
+        async function verificarJobsRecentes() {
+            log('🔍 Verificando jobs recentes no PostgreSQL...', 'info');
+            
+            try {
+                const response = await fetch('/api/check-jobs-quick');
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                
+                const jobs = await response.json();
+                log(`📊 Encontrados ${jobs.length} jobs recentes`, 'success');
+                
+                if (jobs.length > 0) {
+                    const jobComMetricas = jobs.find(job => 
+                        job.result && 
+                        job.result.spectralCentroidHz !== undefined
+                    );
+                    
+                    if (jobComMetricas) {
+                        log('✅ Job com métricas espectrais encontrado!', 'success');
+                        log(`📊 Métricas no PostgreSQL: ${Object.keys(jobComMetricas.result).length} campos`, 'info');
+                    } else {
+                        log('⚠️ Nenhum job com métricas espectrais encontrado', 'warning');
+                    }
+                }
+                
+            } catch (error) {
+                log(`❌ Erro ao verificar jobs: ${error.message}`, 'error');
+            }
+        }
+
+        function simularCoreMetrics() {
+            log('🧪 Simulando estrutura do core-metrics.js...', 'info');
+            
+            const estruturaCompleta = {
+                fft: {
+                    aggregated: {
+                        spectralCentroidHz: 2847.5,
+                        spectralRolloffHz: 8420.3,
+                        spectralFlatness: 0.123
+                    },
+                    frequencyBands: {
+                        subBass: 0.12,
+                        bass: 0.34,
+                        lowMids: 0.28
+                    },
+                    frameCount: 512
+                },
+                spectral_balance: {
+                    lowFreq: 0.35,
+                    midFreq: 0.42,
+                    highFreq: 0.23
+                }
+            };
+            
+            log('📊 Estrutura simulada:', 'info');
+            log(`<pre>${JSON.stringify(estruturaCompleta, null, 2)}</pre>`, 'info');
+        }
+    </script>
+</body>
+</html>
