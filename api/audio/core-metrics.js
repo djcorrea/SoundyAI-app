@@ -1,12 +1,24 @@
-// 🎵 CORE METRICS - Fase 5.3 Pipeline Migration
+// 🎵 CORE METRICS - Fase 5.3 Pipeline Migration - CORRIGIDO
 // FFT, LUFS ITU-R BS.1770-4, True Peak 4x Oversampling, Stereo Analysis
-// Migração equivalente das métricas do Web Audio API para Node.js
+// Migração equivalente das métricas do Web Audio API para Node.js com fail-fast
 
 import { FastFFT } from "../../lib/audio/fft.js";
 import { calculateLoudnessMetrics } from "../../lib/audio/features/loudness.js";
-import { TruePeakDetector } from "../../lib/audio/features/truepeak.js";
-import { SpectrumAnalyzer } from "../../lib/audio/features/spectrum.js";
-import { computeTTDynamicRange, computeCrestFactor } from "../../lib/audio/features/dynamics.js";
+import { TruePeakDetector, analyzeTruePeaks } from "../../lib/audio/features/truepeak.js";
+import { normalizeAudioToTargetLUFS, validateNormalization } from "../../lib/audio/features/normalization.js";
+import { auditMetricsCorrections, auditMetricsValidation } from "../../lib/audio/features/audit-logging.js";
+import { SpectralMetricsCalculator, SpectralMetricsAggregator, serializeSpectralMetrics } from "../../lib/audio/features/spectral-metrics.js";
+import { calculateDynamicsMetrics } from "../../lib/audio/features/dynamics-corrected.js";
+import { calculateSpectralBands, SpectralBandsCalculator, SpectralBandsAggregator } from "../../lib/audio/features/spectral-bands.js";
+import { calculateSpectralCentroid, SpectralCentroidCalculator, SpectralCentroidAggregator } from "../../lib/audio/features/spectral-centroid.js";
+import { analyzeStereoMetrics, StereoMetricsCalculator, StereoMetricsAggregator } from "../../lib/audio/features/stereo-metrics.js";
+import { DominantFrequencyAnalyzer, calculateDominantFrequencies } from "../../lib/audio/features/dominant-frequencies.js";
+import { DCOffsetAnalyzer, calculateDCOffset } from "../../lib/audio/features/dc-offset.js";
+import { SpectralUniformityAnalyzer, calculateSpectralUniformity } from "../../lib/audio/features/spectral-uniformity.js";
+import { ProblemsAndSuggestionsAnalyzer, analyzeProblemsAndSuggestions } from "../../lib/audio/features/problems-suggestions.js";
+
+// Sistema de tratamento de erros padronizado
+import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../lib/audio/error-handling.js';
 
 /**
  * 🎯 CONFIGURAÇÕES DA FASE 5.3 (AUDITORIA)
@@ -34,643 +46,1129 @@ class CoreMetricsProcessor {
   constructor() {
     this.fftEngine = new FastFFT();
     this.truePeakDetector = new TruePeakDetector();
-    this.spectrumAnalyzer = new SpectrumAnalyzer(CORE_METRICS_CONFIG.FFT_SIZE, CORE_METRICS_CONFIG.FFT_HOP_SIZE, CORE_METRICS_CONFIG.WINDOW_TYPE);
     this.cache = { hannWindow: new Map(), fftResults: new Map() };
-    console.log("✅ Core Metrics Processor inicializado (Fase 5.3)");
+    
+    // NOVO: Inicializar calculadores corrigidos
+    this.spectralCalculator = new SpectralMetricsCalculator(
+      CORE_METRICS_CONFIG.SAMPLE_RATE,
+      CORE_METRICS_CONFIG.FFT_SIZE
+    );
+    this.spectralBandsCalculator = new SpectralBandsCalculator(
+      CORE_METRICS_CONFIG.SAMPLE_RATE,
+      CORE_METRICS_CONFIG.FFT_SIZE
+    );
+    this.spectralCentroidCalculator = new SpectralCentroidCalculator(
+      CORE_METRICS_CONFIG.SAMPLE_RATE,
+      CORE_METRICS_CONFIG.FFT_SIZE
+    );
+    this.stereoMetricsCalculator = new StereoMetricsCalculator();
+    
+    // NOVO: Analisadores para métricas finais (Fase 5.3)
+    this.dominantFreqAnalyzer = new DominantFrequencyAnalyzer();
+    this.dcOffsetAnalyzer = new DCOffsetAnalyzer();
+    this.spectralUniformityAnalyzer = new SpectralUniformityAnalyzer(CORE_METRICS_CONFIG.SAMPLE_RATE);
+    this.problemsAnalyzer = new ProblemsAndSuggestionsAnalyzer();
+    
+    logAudio('core_metrics', 'init', { 
+      config: CORE_METRICS_CONFIG,
+      correctedModules: ['spectral_bands', 'spectral_centroid', 'stereo_metrics', 'dynamics'],
+      newAnalyzers: ['dominant_frequencies', 'dc_offset', 'spectral_uniformity', 'problems_suggestions']
+    });
   }
 
   /**
-   * PROCESSAMENTO PRINCIPAL
+   * PROCESSAMENTO PRINCIPAL COM FAIL-FAST
    */
-  async processMetrics(segmentedAudio) {
-    console.log("🚀 Iniciando cálculo de métricas core (Fase 5.3)...");
+  async processMetrics(segmentedAudio, options = {}) {
+    const jobId = options.jobId || 'unknown';
+    const fileName = options.fileName || 'unknown';
+    
+    logAudio('core_metrics', 'start_processing', { fileName, jobId });
     const startTime = Date.now();
 
-    this.validateInputFrom5_2(segmentedAudio);
-    const { leftChannel, rightChannel } =
-      this.ensureOriginalChannels(segmentedAudio);
-
     try {
-      const fftResults = await this.calculateFFTMetrics(segmentedAudio.framesFFT);
-      const lufsResults = await this.calculateLUFSMetrics(
-        leftChannel,
-        rightChannel,
-        segmentedAudio.sampleRate
-      );
-      const truePeakResults = await this.calculateTruePeakMetrics(
-        leftChannel,
-        rightChannel,
-        segmentedAudio.sampleRate
-      );
-      const stereoResults = await this.calculateStereoMetrics(
-        leftChannel,
-        rightChannel
-      );
-      const dynamicRangeResults = await this.calculateDynamicRangeMetrics(
-        leftChannel,
-        rightChannel,
-        segmentedAudio.sampleRate
-      );
+      // ========= VALIDAÇÃO DE ENTRADA =========
+      this.validateInputFrom5_2(segmentedAudio);
+      const { leftChannel, rightChannel } = this.ensureOriginalChannels(segmentedAudio);
 
-      const processingTime = Date.now() - startTime;
+      // ========= NORMALIZAÇÃO PRÉ-ANÁLISE A -23 LUFS =========
+      logAudio('core_metrics', 'normalization_start', { targetLUFS: -23.0 });
+      const normalizationResult = await normalizeAudioToTargetLUFS(
+        { leftChannel, rightChannel },
+        CORE_METRICS_CONFIG.SAMPLE_RATE,
+        { jobId, targetLUFS: -23.0 }
+      );
+      
+      // Usar canais normalizados para todas as análises
+      const normalizedLeft = normalizationResult.leftChannel;
+      const normalizedRight = normalizationResult.rightChannel;
+      
+      logAudio('core_metrics', 'normalization_completed', { 
+        applied: normalizationResult.normalizationApplied,
+        originalLUFS: normalizationResult.originalLUFS,
+        gainDB: normalizationResult.gainAppliedDB 
+      });
 
-      const results = {
-        originalLength: segmentedAudio.originalLength,
-        sampleRate: segmentedAudio.sampleRate,
-        duration: segmentedAudio.duration,
-        numberOfChannels: segmentedAudio.numberOfChannels,
+      // ========= CÁLCULO DE MÉTRICAS FFT CORRIGIDAS =========
+      logAudio('core_metrics', 'fft_start', { frames: segmentedAudio.framesFFT?.count });
+      const fftResults = await this.calculateFFTMetrics(segmentedAudio.framesFFT, { jobId });
+      assertFinite(fftResults, 'core_metrics');
 
+      // ========= BANDAS ESPECTRAIS CORRIGIDAS (7 BANDAS) =========
+      logAudio('core_metrics', 'spectral_bands_start', { 
+        hasFramesFFT: !!segmentedAudio.framesFFT,
+        frameCount: segmentedAudio.framesFFT?.frames?.length || 0
+      });
+      const spectralBandsResults = await this.calculateSpectralBandsMetrics(segmentedAudio.framesFFT, { jobId });
+      
+      // ========= SPECTRAL CENTROID CORRIGIDO (Hz) =========
+      logAudio('core_metrics', 'spectral_centroid_start', {
+        hasFramesFFT: !!segmentedAudio.framesFFT,
+        frameCount: segmentedAudio.framesFFT?.frames?.length || 0
+      });
+      const spectralCentroidResults = await this.calculateSpectralCentroidMetrics(segmentedAudio.framesFFT, { jobId });
+
+      // ========= CÁLCULO LUFS ITU-R BS.1770-4 =========
+      logAudio('core_metrics', 'lufs_start', { frames: segmentedAudio.framesRMS?.count });
+      const lufsMetrics = await this.calculateLUFSMetrics(normalizedLeft, normalizedRight, { jobId });
+      assertFinite(lufsMetrics, 'core_metrics');
+
+      // ========= TRUE PEAK 4X OVERSAMPLING =========
+      logAudio('core_metrics', 'truepeak_start', { channels: 2 });
+      const truePeakMetrics = await this.calculateTruePeakMetrics(normalizedLeft, normalizedRight, { jobId });
+      assertFinite(truePeakMetrics, 'core_metrics');
+
+      // ========= ANÁLISE ESTÉREO CORRIGIDA =========
+      logAudio('core_metrics', 'stereo_start', { length: normalizedLeft.length });
+      const stereoMetrics = await this.calculateStereoMetricsCorrect(normalizedLeft, normalizedRight, { jobId });
+      assertFinite(stereoMetrics, 'core_metrics');
+
+      // ========= MÉTRICAS DE DINÂMICA CORRIGIDAS =========
+      logAudio('core_metrics', 'dynamics_start', { length: normalizedLeft.length });
+      const dynamicsMetrics = calculateDynamicsMetrics(
+        normalizedLeft, 
+        normalizedRight, 
+        CORE_METRICS_CONFIG.SAMPLE_RATE,
+        lufsMetrics.lra // Usar LRA já calculado
+      );
+      
+      if (dynamicsMetrics.dynamicRange !== null) {
+        logAudio('core_metrics', 'dynamics_calculated', {
+          dr: dynamicsMetrics.dynamicRange.toFixed(2),
+          crest: dynamicsMetrics.crestFactor?.toFixed(2) || 'null',
+          lra: dynamicsMetrics.lra?.toFixed(2) || 'null'
+        });
+      }
+
+      // ========= NOVOS ANALISADORES - MÉTRICAS FINAIS =========
+      
+      // DC Offset Analysis
+      logAudio('core_metrics', 'dc_offset_start', { length: normalizedLeft.length });
+      const dcOffsetMetrics = this.dcOffsetAnalyzer.analyzeDCOffset(normalizedLeft, normalizedRight);
+      
+      // Dominant Frequencies Analysis
+      logAudio('core_metrics', 'dominant_freq_start', { fftFrames: fftResults.magnitudeSpectrum.length });
+      const dominantFreqMetrics = this.dominantFreqAnalyzer.analyzeDominantFrequencies(
+        fftResults.magnitudeSpectrum, 
+        CORE_METRICS_CONFIG.SAMPLE_RATE,
+        CORE_METRICS_CONFIG.FFT_SIZE
+      );
+      
+      // Spectral Uniformity Analysis
+      logAudio('core_metrics', 'spectral_uniformity_start', { fftFrames: fftResults.magnitudeSpectrum.length });
+      let spectralUniformityMetrics = null;
+      if (fftResults.magnitudeSpectrum.length > 0) {
+        // Usar primeiro frame para análise de uniformidade (representativo)
+        const representativeSpectrum = fftResults.magnitudeSpectrum[0];
+        const binCount = representativeSpectrum.length;
+        const frequencyBins = Array.from({length: binCount}, (_, i) => 
+          (i * CORE_METRICS_CONFIG.SAMPLE_RATE) / (2 * binCount)
+        );
+        spectralUniformityMetrics = this.spectralUniformityAnalyzer.analyzeSpectralUniformity(
+          representativeSpectrum,
+          frequencyBins
+        );
+      } else {
+        spectralUniformityMetrics = this.spectralUniformityAnalyzer.getNullResult();
+      }
+
+      // ========= MONTAGEM DE RESULTADO CORRIGIDO =========
+      const coreMetrics = {
         fft: fftResults,
-        lufs: lufsResults,
-        truePeak: truePeakResults,
-        stereo: stereoResults,
-        dynamics: dynamicRangeResults,
-
-        _metadata: {
-          phase: "5.3-core-metrics",
-          processingTime,
-          calculatedAt: new Date().toISOString(),
-          inputSampleRate: segmentedAudio.sampleRate,
-          inputChannels: segmentedAudio.numberOfChannels,
-          config: {
-            fft: {
-              size: CORE_METRICS_CONFIG.FFT_SIZE,
-              hop: CORE_METRICS_CONFIG.FFT_HOP_SIZE,
-              window: CORE_METRICS_CONFIG.WINDOW_TYPE,
-            },
-            lufs: {
-              blockMs: CORE_METRICS_CONFIG.LUFS_BLOCK_DURATION_MS,
-              shortTermMs: CORE_METRICS_CONFIG.LUFS_SHORT_TERM_DURATION_MS,
-              absoluteThreshold: CORE_METRICS_CONFIG.LUFS_ABSOLUTE_THRESHOLD,
-              relativeThreshold: CORE_METRICS_CONFIG.LUFS_RELATIVE_THRESHOLD,
-            },
-            truePeak: {
-              oversampling: CORE_METRICS_CONFIG.TRUE_PEAK_OVERSAMPLING,
-            },
-          },
+        spectralBands: spectralBandsResults, // ✅ NOVO: 7 bandas profissionais
+        spectralCentroid: spectralCentroidResults, // ✅ NOVO: Centro de brilho em Hz
+        lufs: {
+          ...lufsMetrics,
+          // Adicionar dados de normalização aos LUFS
+          originalLUFS: normalizationResult.originalLUFS,
+          normalizedTo: -23.0,
+          gainAppliedDB: normalizationResult.gainAppliedDB
         },
+        truePeak: truePeakMetrics,
+        stereo: stereoMetrics, // ✅ CORRIGIDO: Correlação (-1 a +1) e Width (0 a 1)
+        dynamics: dynamicsMetrics, // ✅ CORRIGIDO: DR, Crest Factor, LRA
+        rms: this.processRMSMetrics(segmentedAudio.framesRMS), // ✅ NOVO: Processar métricas RMS
+        
+        // ========= NOVOS ANALISADORES =========
+        dcOffset: dcOffsetMetrics, // ✅ NOVO: DC Offset analysis
+        dominantFrequencies: dominantFreqMetrics, // ✅ NOVO: Dominant frequencies
+        uniformity: spectralUniformityMetrics, // ✅ NOVO: Spectral uniformity
+        
+        normalization: {
+          applied: normalizationResult.normalizationApplied,
+          originalLUFS: normalizationResult.originalLUFS,
+          targetLUFS: normalizationResult.targetLUFS,
+          gainAppliedDB: normalizationResult.gainAppliedDB,
+          gainAppliedLinear: normalizationResult.gainAppliedLinear,
+          isSilence: normalizationResult.isSilence,
+          hasClipping: normalizationResult.hasClipping,
+          processingTime: normalizationResult.processingTime
+        },
+        metadata: {
+          processingTime: Date.now() - startTime,
+          sampleRate: CORE_METRICS_CONFIG.SAMPLE_RATE,
+          fftSize: CORE_METRICS_CONFIG.FFT_SIZE,
+          stage: 'core_metrics_completed',
+          normalizationEnabled: true,
+          jobId
+        }
       };
 
-      console.log(`✅ Métricas core calculadas em ${processingTime}ms`);
-      console.log(
-        `   - FFT frames processados: ${fftResults.frameCount}`
-      );
-      console.log(
-        `   - LUFS integrado: ${this.formatValue(lufsResults.integrated, "LUFS")}`
-      );
-      console.log(
-        `   - True Peak máximo: ${this.formatValue(truePeakResults.maxDbtp, "dBTP")}`
-      );
-      console.log(
-        `   - Correlação estéreo: ${this.formatValue(stereoResults.correlation, "", 3)}`
-      );
+      // ========= ANÁLISE DE PROBLEMAS E SUGESTÕES =========
+      logAudio('core_metrics', 'problems_analysis_start', {});
+      const problemsAnalysis = this.problemsAnalyzer.analyzeProblemsAndSuggestions(coreMetrics);
+      
+      // Adicionar análise de problemas aos resultados
+      coreMetrics.problems = problemsAnalysis.problems;
+      coreMetrics.suggestions = problemsAnalysis.suggestions;
+      coreMetrics.qualityAssessment = problemsAnalysis.quality;
+      coreMetrics.priorityRecommendations = problemsAnalysis.priorityRecommendations;
 
-      return results;
+      // ========= VALIDAÇÃO FINAL =========
+      try {
+        assertFinite(coreMetrics, 'core_metrics');
+      } catch (validationError) {
+        throw makeErr('core_metrics', `Final validation failed: ${validationError.message}`, 'validation_error');
+      }
+
+      // ========= AUDITORIA DE CORREÇÕES =========
+      auditMetricsCorrections(coreMetrics, { leftChannel, rightChannel }, normalizationResult);
+      
+      // ========= VALIDAÇÃO DE MÉTRICAS =========
+      const validationResult = auditMetricsValidation(coreMetrics);
+      if (!validationResult.allValid) {
+        logAudio('core_metrics', 'validation_warnings', { 
+          invalidMetrics: validationResult.validations.filter(v => !v.valid).length 
+        });
+      }
+
+      const totalTime = Date.now() - startTime;
+      logAudio('core_metrics', 'completed', { 
+        ms: totalTime, 
+        lufs: lufsMetrics.integrated,
+        peak: truePeakMetrics.maxDbtp,
+        correlation: stereoMetrics.correlation
+      });
+
+      return coreMetrics;
+
     } catch (error) {
-      console.error("❌ Erro no cálculo de métricas core:", error.message);
-      throw new Error(`CORE_METRICS_ERROR: ${error.message}`);
+      const totalTime = Date.now() - startTime;
+      
+      // Log estruturado do erro
+      logAudio('core_metrics', 'error', {
+        code: error.code || 'unknown',
+        message: error.message,
+        ms: totalTime,
+        stage: 'core_metrics'
+      });
+
+      // Se já é um erro estruturado, re-propagar
+      if (error.stage === 'core_metrics') {
+        throw error;
+      }
+
+      // Estruturar erro genérico
+      throw makeErr('core_metrics', `Core metrics failed: ${error.message}`, 'core_metrics_error');
     }
   }
 
+  /**
+   * Validação rigorosa da entrada da Fase 5.2
+   */
+  validateInputFrom5_2(segmentedAudio) {
+    const requiredFields = ['framesFFT', 'framesRMS', 'originalChannels', 'timestamps'];
+
+    for (const field of requiredFields) {
+      if (!segmentedAudio[field]) {
+        throw makeErr('core_metrics', `Invalid input from Phase 5.2: Missing ${field}`, 'invalid_input_5_2');
+      }
+    }
+
+    // Validar estrutura FFT
+    if (!segmentedAudio.framesFFT.left || !segmentedAudio.framesFFT.right) {
+      throw makeErr('core_metrics', 'Invalid FFT frames: missing left/right channels', 'invalid_fft_frames');
+    }
+
+    // Validar estrutura RMS
+    if (!segmentedAudio.framesRMS.left || !segmentedAudio.framesRMS.right) {
+      throw makeErr('core_metrics', 'Invalid RMS frames: missing left/right channels', 'invalid_rms_frames');
+    }
+
+    // Validar count consistency
+    if (segmentedAudio.framesFFT.count !== segmentedAudio.framesFFT.left.length) {
+      throw makeErr('core_metrics', 'FFT count mismatch with actual frames', 'fft_count_mismatch');
+    }
+
+    if (segmentedAudio.framesRMS.count !== segmentedAudio.framesRMS.left.length) {
+      throw makeErr('core_metrics', 'RMS count mismatch with actual frames', 'rms_count_mismatch');
+    }
+  }
+
+  /**
+   * Extrai canais originais com validação
+   */
   ensureOriginalChannels(segmentedAudio) {
-    let leftChannel = segmentedAudio.originalLeft;
-    let rightChannel = segmentedAudio.originalRight;
+    if (!segmentedAudio.originalChannels) {
+      throw makeErr('core_metrics', 'Missing originalChannels from Phase 5.2', 'missing_original_channels');
+    }
+
+    const { left: leftChannel, right: rightChannel } = segmentedAudio.originalChannels;
 
     if (!leftChannel || !rightChannel) {
-      console.log(
-        "⚠️ Canais originais ausentes, reconstruindo dos frames RMS..."
-      );
-      leftChannel = this.reconstructFromFrames(
-        segmentedAudio.framesRMS.left,
-        segmentedAudio.framesRMS.hopSize
-      );
-      rightChannel = this.reconstructFromFrames(
-        segmentedAudio.framesRMS.right,
-        segmentedAudio.framesRMS.hopSize
-      );
+      throw makeErr('core_metrics', 'Invalid channels: missing left or right channel', 'invalid_channels');
     }
 
-    if (
-      !leftChannel ||
-      !rightChannel ||
-      leftChannel.length === 0 ||
-      rightChannel.length === 0
-    ) {
-      throw new Error("INVALID_CHANNELS: Canais de áudio ausentes ou vazios");
+    if (leftChannel.length === 0 || rightChannel.length === 0) {
+      throw makeErr('core_metrics', 'Empty audio channels detected', 'empty_channels');
     }
 
-    if (!(leftChannel instanceof Float32Array))
-      leftChannel = new Float32Array(leftChannel);
-    if (!(rightChannel instanceof Float32Array))
-      rightChannel = new Float32Array(rightChannel);
+    // Validar que são Float32Array
+    try {
+      ensureFiniteArray(leftChannel, 'core_metrics');
+      ensureFiniteArray(rightChannel, 'core_metrics');
+    } catch (error) {
+      throw makeErr('core_metrics', `Channel validation failed: ${error.message}`, 'channel_validation_error');
+    }
 
     return { leftChannel, rightChannel };
   }
 
-  reconstructFromFrames(frames, hopSize) {
-    if (!frames || frames.length === 0) return new Float32Array(0);
-    const estimatedLength = (frames.length - 1) * hopSize + frames[0].length;
-    const reconstructed = new Float32Array(estimatedLength);
-    for (let i = 0; i < frames.length; i++) {
-      const frame = frames[i];
-      const startIdx = i * hopSize;
-      for (
-        let j = 0;
-        j < frame.length && startIdx + j < reconstructed.length;
-        j++
-      ) {
-        if (j < hopSize || i === frames.length - 1) {
-          reconstructed[startIdx + j] = frame[j];
-        } else {
-          reconstructed[startIdx + j] =
-            (reconstructed[startIdx + j] + frame[j]) * 0.5;
+  /**
+   * Cálculo de métricas FFT com validação rigorosa
+   */
+  async calculateFFTMetrics(framesFFT, options = {}) {
+    const jobId = options.jobId || 'unknown';
+    
+    try {
+      const { left: leftFrames, right: rightFrames, count } = framesFFT;
+      
+      if (count === 0) {
+        throw makeErr('core_metrics', 'No FFT frames to process', 'no_fft_frames');
+      }
+
+      // 🔥 CORREÇÃO: Limpar cache FFT para evitar estado corrompido
+      this.fftEngine.cache.clear();
+
+      logAudio('core_metrics', 'fft_processing', { count, jobId: jobId.substring(0,8) });
+
+      const fftResults = {
+        left: [],
+        right: [],
+        magnitudeSpectrum: [],
+        phaseSpectrum: [],
+        
+        // NOVO: Arrays para 8 métricas espectrais completas
+        spectralCentroidHz: [],
+        spectralRolloffHz: [],
+        spectralBandwidthHz: [],
+        spectralSpreadHz: [],
+        spectralFlatness: [],
+        spectralCrest: [],
+        spectralSkewness: [],
+        spectralKurtosis: [],
+        
+        // LEGACY: manter compatibilidade
+        spectralCentroid: [],
+        spectralRolloff: []
+      };
+
+      const maxFrames = Math.min(count, 1000); // Limitar frames para evitar timeout
+      const startTime = Date.now();
+
+      for (let i = 0; i < maxFrames; i++) {
+        // Timeout protection
+        const elapsed = Date.now() - startTime;
+        if (elapsed > 30000) { // 30s timeout
+          logAudio('core_metrics', 'fft_timeout', { 
+            processed: i, 
+            total: maxFrames, 
+            elapsed 
+          });
+          break;
+        }
+
+        try {
+          // 🔍 DEBUG: Verificar frame de entrada (agora são objetos FFT já calculados)
+          const leftFrame = leftFrames[i];
+          const rightFrame = rightFrames[i];
+          
+          // ⚡ CORREÇÃO CRÍTICA: Frames agora são objetos {magnitude, phase, real, imag}
+          if (!leftFrame || !leftFrame.magnitude || leftFrame.magnitude.length === 0) {
+            throw makeErr('core_metrics', `Empty or invalid left FFT frame at index ${i}`, 'empty_left_frame');
+          }
+          if (!rightFrame || !rightFrame.magnitude || rightFrame.magnitude.length === 0) {
+            throw makeErr('core_metrics', `Empty or invalid right FFT frame at index ${i}`, 'empty_right_frame');
+          }
+
+          // ⚡ USAR FFT JÁ CALCULADO - sem refazer cálculo
+          const leftFFT = leftFrame;  // Já é {magnitude, phase, real, imag}
+          const rightFFT = rightFrame;  // Já é {magnitude, phase, real, imag}
+          
+          // 🔍 DEBUG: Verificar resultado FFT esquerdo
+          if (!leftFFT || !leftFFT.magnitude || leftFFT.magnitude.length === 0) {
+            throw makeErr('core_metrics', `FFT left result invalid at frame ${i}`, 'invalid_fft_left');
+          }
+          
+          ensureFiniteArray(leftFFT.magnitude, 'core_metrics', `left_magnitude_frame_${i}`);
+          fftResults.left.push(leftFFT);
+
+          // 🔍 DEBUG: Verificar resultado FFT direito
+          if (!rightFFT || !rightFFT.magnitude || rightFFT.magnitude.length === 0) {
+            throw makeErr('core_metrics', `FFT right result invalid at frame ${i}`, 'invalid_fft_right');
+          }
+          
+          ensureFiniteArray(rightFFT.magnitude, 'core_metrics', `right_magnitude_frame_${i}`);
+          fftResults.right.push(rightFFT);
+
+          // Magnitude spectrum (combinado)
+          const magnitude = this.calculateMagnitudeSpectrum(leftFFT, rightFFT);
+          ensureFiniteArray(magnitude, 'core_metrics');
+          fftResults.magnitudeSpectrum.push(magnitude);
+
+          // NOVO: Métricas espectrais completas (8 métricas)
+          const spectralMetrics = this.calculateSpectralMetrics(magnitude, i);
+
+          // Adicionar todas as métricas aos arrays de resultados
+          fftResults.spectralCentroidHz.push(spectralMetrics.spectralCentroidHz);
+          fftResults.spectralRolloffHz.push(spectralMetrics.spectralRolloffHz);
+          fftResults.spectralBandwidthHz.push(spectralMetrics.spectralBandwidthHz);
+          fftResults.spectralSpreadHz.push(spectralMetrics.spectralSpreadHz);
+          fftResults.spectralFlatness.push(spectralMetrics.spectralFlatness);
+          fftResults.spectralCrest.push(spectralMetrics.spectralCrest);
+          fftResults.spectralSkewness.push(spectralMetrics.spectralSkewness);
+          fftResults.spectralKurtosis.push(spectralMetrics.spectralKurtosis);
+
+          // LEGACY: manter compatibilidade com nomes antigos
+          fftResults.spectralCentroid.push(spectralMetrics.spectralCentroidHz);
+          fftResults.spectralRolloff.push(spectralMetrics.spectralRolloffHz);
+
+        } catch (fftError) {
+          logAudio('core_metrics', 'fft_frame_error', { 
+            frame: i, 
+            error: fftError.message 
+          });
+          
+          // Fail-fast: não continuar com FFT corrompido
+          throw makeErr('core_metrics', `FFT processing failed at frame ${i}: ${fftError.message}`, 'fft_processing_error');
         }
       }
-    }
-    return reconstructed;
-  }
 
-  async calculateFFTMetrics(framesFFT) {
-    console.log(`📊 Processando ${framesFFT.count} frames FFT...`);
-    const results = {
-      frameCount: framesFFT.count,
-      frameSize: framesFFT.frameSize,
-      hopSize: framesFFT.hopSize,
-      windowType: framesFFT.windowType,
-      spectrograms: { left: [], right: [] },
-      frequencyBands: { left: {}, right: {} },
-      averageSpectrum: { left: null, right: null },
-    };
-
-    for (let i = 0; i < framesFFT.count; i++) {
-      const leftFFT = this.fftEngine.fft(framesFFT.left[i]);
-      results.spectrograms.left.push({
-        magnitude: Array.from(
-          leftFFT.magnitude.slice(0, CORE_METRICS_CONFIG.FFT_SIZE / 2)
-        ),
-        phase: Array.from(
-          leftFFT.phase.slice(0, CORE_METRICS_CONFIG.FFT_SIZE / 2)
-        ),
-        frameIndex: i,
-        timestamp: (i * framesFFT.hopSize) / CORE_METRICS_CONFIG.SAMPLE_RATE,
-      });
-
-      const rightFFT = this.fftEngine.fft(framesFFT.right[i]);
-      results.spectrograms.right.push({
-        magnitude: Array.from(
-          rightFFT.magnitude.slice(0, CORE_METRICS_CONFIG.FFT_SIZE / 2)
-        ),
-        phase: Array.from(
-          rightFFT.phase.slice(0, CORE_METRICS_CONFIG.FFT_SIZE / 2)
-        ),
-        frameIndex: i,
-        timestamp: (i * framesFFT.hopSize) / CORE_METRICS_CONFIG.SAMPLE_RATE,
-      });
-    }
-
-    results.averageSpectrum.left = this.calculateAverageSpectrum(
-      results.spectrograms.left
-    );
-    results.averageSpectrum.right = this.calculateAverageSpectrum(
-      results.spectrograms.right
-    );
-
-    // 🔧 Ajustado: agora gera 7 bandas espectrais (compatível com json-output.js)
-    results.frequencyBands.left = this.calculateFrequencyBands(
-      results.averageSpectrum.left
-    );
-    results.frequencyBands.right = this.calculateFrequencyBands(
-      results.averageSpectrum.right
-    );
-
-    // ⭐ NOVA SEÇÃO: Métricas espectrais agregadas para json-output.js
-    console.log("� [CORE_METRICS] INICIANDO cálculo de métricas espectrais agregadas...");
-    try {
-      // Reconstruir canais completos para análise espectral detalhada
-      const leftChannel = this.reconstructFromFrames(framesFFT.left, framesFFT.hopSize);
-      const rightChannel = this.reconstructFromFrames(framesFFT.right, framesFFT.hopSize);
+      fftResults.processedFrames = fftResults.left.length;
       
-      // Usar o canal com maior energia para as métricas agregadas (mono)
-      const leftEnergy = leftChannel.reduce((sum, val) => sum + val * val, 0);
-      const rightEnergy = rightChannel.reduce((sum, val) => sum + val * val, 0);
-      const primaryChannel = leftEnergy >= rightEnergy ? leftChannel : rightChannel;
+      // ========= NOVA AGREGAÇÃO ESPECTRAL COMPLETA =========
       
-      // Analisar métricas espectrais detalhadas com SpectrumAnalyzer
-      const spectralFeatures = this.spectrumAnalyzer.analyze(primaryChannel, CORE_METRICS_CONFIG.SAMPLE_RATE);
+      // Preparar array de métricas para agregação
+      const metricsArray = [];
+      for (let i = 0; i < fftResults.spectralCentroidHz.length; i++) {
+        metricsArray.push({
+          spectralCentroidHz: fftResults.spectralCentroidHz[i],
+          spectralRolloffHz: fftResults.spectralRolloffHz[i],
+          spectralBandwidthHz: fftResults.spectralBandwidthHz[i],
+          spectralSpreadHz: fftResults.spectralSpreadHz[i],
+          spectralFlatness: fftResults.spectralFlatness[i],
+          spectralCrest: fftResults.spectralCrest[i],
+          spectralSkewness: fftResults.spectralSkewness[i],
+          spectralKurtosis: fftResults.spectralKurtosis[i]
+        });
+      }
       
-      // Extrair métricas agregadas compatíveis com json-output.js
-      results.aggregated = {
-        spectralCentroidHz: spectralFeatures.centroid_hz || 0,
-        spectralRolloffHz: spectralFeatures.rolloff85_hz || 0,
-        spectralBandwidthHz: spectralFeatures.bandwidth_hz || 0,
-        spectralSpread: spectralFeatures.spread || 0,
-        spectralFlatness: spectralFeatures.flatness || 0,
-        spectralCrest: spectralFeatures.crest || 0,
-        spectralSkewness: spectralFeatures.skewness || 0,
-        spectralKurtosis: spectralFeatures.kurtosis || 0,
-        zeroCrossingRate: spectralFeatures.zcr || 0,
-        spectralFlux: spectralFeatures.spectral_flux || 0,
-        calculatedAt: new Date().toISOString(),
-        framesBased: false, // Calculado no canal reconstruído completo
-        totalFrames: framesFFT.count
+      // Usar o novo agregador
+      const aggregatedSpectral = SpectralMetricsAggregator.aggregate(metricsArray);
+      
+      // Serializar para o formato final
+      const finalSpectral = serializeSpectralMetrics(aggregatedSpectral);
+      
+      // Criar estrutura aggregated para compatibilidade com json-output.js
+      fftResults.aggregated = {
+        ...finalSpectral,
+        // LEGACY: manter compatibilidade com nomes antigos
+        spectralCentroid: finalSpectral.spectralCentroidHz,
+        spectralRolloff: finalSpectral.spectralRolloffHz
       };
       
-      console.log(`✅ Métricas espectrais agregadas: centroid=${results.aggregated.spectralCentroidHz.toFixed(1)}Hz, rolloff=${results.aggregated.spectralRolloffHz.toFixed(1)}Hz`);
-      console.log('🔍 [CORE_METRICS] Estrutura completa do aggregated:', {
-        keys: Object.keys(results.aggregated),
-        aggregated: results.aggregated
+      // Também adicionar no nível raiz para compatibilidade
+      Object.assign(fftResults, finalSpectral);
+      
+      // LEGACY: manter compatibilidade com nomes antigos no nível raiz
+      fftResults.spectralCentroid = finalSpectral.spectralCentroidHz;
+      fftResults.spectralRolloff = finalSpectral.spectralRolloffHz;
+      
+      // Log da agregação
+      logAudio('core_metrics', 'spectral_aggregated', {
+        frames: metricsArray.length,
+        centroidHz: finalSpectral.spectralCentroidHz?.toFixed?.(1) || 'null',
+        rolloffHz: finalSpectral.spectralRolloffHz?.toFixed?.(1) || 'null',
+        bandwidthHz: finalSpectral.spectralBandwidthHz?.toFixed?.(1) || 'null',
+        flatness: finalSpectral.spectralFlatness?.toFixed?.(3) || 'null'
       });
       
-    } catch (spectralError) {
-      console.error("❌ ERRO CRÍTICO ao calcular métricas espectrais agregadas:", spectralError);
-      console.error("❌ Stack trace:", spectralError.stack);
-      console.warn("⚠️ Usando fallback para métricas espectrais básicas...");
-      // Fallback: métricas básicas a partir do espectro médio
-      results.aggregated = this.calculateBasicSpectralAggregated(results.averageSpectrum.left, results.averageSpectrum.right);
+      // 🔥 DEBUG CRITICAL: Log completo das métricas espectrais agregadas
+      console.log("[AUDIT] Spectral aggregated result:", {
+        spectralCentroidHz: finalSpectral.spectralCentroidHz,
+        spectralRolloffHz: finalSpectral.spectralRolloffHz,
+        spectralBandwidthHz: finalSpectral.spectralBandwidthHz,
+        spectralFlatness: finalSpectral.spectralFlatness,
+        spectralCrest: finalSpectral.spectralCrest,
+        spectralSkewness: finalSpectral.spectralSkewness,
+        spectralKurtosis: finalSpectral.spectralKurtosis,
+        framesProcessed: metricsArray.length
+      });
+      
+      // 🔥 DEBUG CRITICAL: Log da estrutura aggregated criada
+      console.log("[AUDIT] FFT aggregated structure created:", {
+        hasAggregated: !!fftResults.aggregated,
+        aggregatedKeys: Object.keys(fftResults.aggregated || {}),
+        spectralCentroidHz: fftResults.aggregated?.spectralCentroidHz,
+        spectralRolloffHz: fftResults.aggregated?.spectralRolloffHz
+      });
+      
+      // Verificação final
+      if (fftResults.processedFrames === 0) {
+        throw makeErr('core_metrics', 'No FFT frames were successfully processed', 'no_fft_processed');
+      }
+
+      logAudio('core_metrics', 'fft_completed', { 
+        processed: fftResults.processedFrames, 
+        requested: count 
+      });
+
+      return fftResults;
+
+    } catch (error) {
+      if (error.stage === 'core_metrics') {
+        throw error;
+      }
+      throw makeErr('core_metrics', `FFT metrics calculation failed: ${error.message}`, 'fft_calculation_error');
     }
-
-    return results;
-  }
-
-  async calculateLUFSMetrics(leftChannel, rightChannel, sampleRate) {
-    const leftRMS = this.calculateRMS(leftChannel);
-    const rightRMS = this.calculateRMS(rightChannel);
-    const avgRMS = (leftRMS + rightRMS) / 2;
-
-    if (avgRMS < 1e-10) return this.createSilentLUFSResult();
-
-    try {
-      const lufsResults = calculateLoudnessMetrics(
-        leftChannel,
-        rightChannel,
-        sampleRate
-      );
-      const integrated = this.sanitizeValue(
-        lufsResults.integrated || lufsResults.lufs_integrated,
-        -70.0
-      );
-      const shortTerm = this.sanitizeValue(
-        lufsResults.shortTerm || lufsResults.lufs_short_term,
-        integrated
-      );
-      const momentary = this.sanitizeValue(
-        lufsResults.momentary || lufsResults.lufs_momentary,
-        integrated
-      );
-      const lra = this.sanitizeValue(
-        lufsResults.lra || lufsResults.range,
-        0.0
-      );
-
-      return {
-        integrated,
-        shortTerm,
-        momentary,
-        lra,
-        gatingInfo: {
-          absoluteThreshold: CORE_METRICS_CONFIG.LUFS_ABSOLUTE_THRESHOLD,
-          relativeThreshold: CORE_METRICS_CONFIG.LUFS_RELATIVE_THRESHOLD,
-        },
-        r128Compliance: {
-          integratedWithinRange: integrated >= -27 && integrated <= -20,
-          truePeakBelowCeiling: true,
-          lraWithinRange: lra <= 20.0,
-        },
-        standard: "ITU-R BS.1770-4",
-        diagnostics: { avgRMS, leftRMS, rightRMS },
-      };
-    } catch (err) {
-      return this.createSilentLUFSResult();
-    }
-  }
-
-  createSilentLUFSResult() {
-    return {
-      integrated: -70.0,
-      shortTerm: -70.0,
-      momentary: -70.0,
-      lra: 0.0,
-    };
-  }
-
-  async calculateTruePeakMetrics(leftChannel, rightChannel) {
-    const leftMax = this.calculateAbsMax(leftChannel);
-    const rightMax = this.calculateAbsMax(rightChannel);
-    if (leftMax < 1e-10 && rightMax < 1e-10)
-      return this.createSilentTruePeakResult();
-
-    const leftPeak = this.truePeakDetector.detectTruePeak(leftChannel);
-    const rightPeak = this.truePeakDetector.detectTruePeak(rightChannel);
-
-    const maxLinear = Math.max(
-      leftPeak.true_peak_linear,
-      rightPeak.true_peak_linear
-    );
-    const maxDbtp =
-      maxLinear > 1e-10 ? 20 * Math.log10(maxLinear) : -60.0;
-
-    return {
-      maxDbtp,
-      maxLinear,
-      channels: {
-        left: leftPeak,
-        right: rightPeak,
-      },
-    };
-  }
-
-  createSilentTruePeakResult() {
-    return { maxDbtp: -60.0, maxLinear: 0.0 };
-  }
-
-  async calculateStereoMetrics(leftChannel, rightChannel) {
-    const correlation = this.calculateCorrelation(leftChannel, rightChannel);
-    const width = this.calculateStereoWidth(leftChannel, rightChannel);
-    let balance = this.calculateStereoBalance(leftChannel, rightChannel);
-    balance = Math.max(-1, Math.min(1, balance));
-
-    return { correlation, width, balance };
   }
 
   /**
-   * 🎚️ DYNAMIC RANGE METRICS
-   * Cálculo de TT-DR (True Technical Dynamic Range) e Crest Factor
+   * Cálculo de métricas LUFS ITU-R BS.1770-4
    */
-  async calculateDynamicRangeMetrics(leftChannel, rightChannel, sampleRate) {
-    console.log("🎚️ Calculando Dynamic Range Metrics...");
+  async calculateLUFSMetrics(leftChannel, rightChannel, options = {}) {
+    const jobId = options.jobId || 'unknown';
     
     try {
-      // TT-DR: Dynamic Range oficial (P95 RMS - P10 RMS)
-      const ttDR = computeTTDynamicRange(leftChannel, rightChannel, sampleRate);
+      logAudio('core_metrics', 'lufs_calculation', { 
+        samples: leftChannel.length, 
+        jobId: jobId.substring(0,8) 
+      });
+
+      const lufsMetrics = await calculateLoudnessMetrics(
+        leftChannel, 
+        rightChannel, 
+        CORE_METRICS_CONFIG.SAMPLE_RATE // Usar a sample rate da config
+      );
+
+      // Mapear campos da saída para estrutura esperada
+      const mappedMetrics = {
+        integrated: lufsMetrics.lufs_integrated,
+        shortTerm: lufsMetrics.lufs_short_term,
+        momentary: lufsMetrics.lufs_momentary,
+        lra: lufsMetrics.lra,
+        // Manter campos originais para compatibilidade
+        ...lufsMetrics
+      };
+
+      // Validar métricas LUFS mapeadas
+      const requiredFields = ['integrated', 'shortTerm', 'momentary', 'lra'];
+      for (const field of requiredFields) {
+        if (!isFinite(mappedMetrics[field])) {
+          throw makeErr('core_metrics', `Invalid LUFS ${field}: ${mappedMetrics[field]}`, 'invalid_lufs_metric');
+        }
+      }
+
+      // Verificar ranges realistas para LUFS
+      if (mappedMetrics.integrated < -80 || mappedMetrics.integrated > 20) {
+        throw makeErr('core_metrics', `LUFS integrated out of realistic range: ${mappedMetrics.integrated}`, 'lufs_range_error');
+      }
+
+      return mappedMetrics;
+
+    } catch (error) {
+      if (error.stage === 'core_metrics') {
+        throw error;
+      }
+      throw makeErr('core_metrics', `LUFS calculation failed: ${error.message}`, 'lufs_calculation_error');
+    }
+  }
+
+  /**
+   * Cálculo True Peak com oversampling 4x
+   */
+  async calculateTruePeakMetrics(leftChannel, rightChannel, options = {}) {
+    const jobId = options.jobId || 'unknown';
+    
+    try {
+      logAudio('core_metrics', 'truepeak_calculation', { 
+        samples: leftChannel.length, 
+        oversampling: CORE_METRICS_CONFIG.TRUE_PEAK_OVERSAMPLING,
+        jobId: jobId.substring(0,8) 
+      });
+
+      const truePeakMetrics = await analyzeTruePeaks(
+        leftChannel, 
+        rightChannel, 
+        CORE_METRICS_CONFIG.SAMPLE_RATE
+      );
+
+      // Validar True Peak
+      if (!isFinite(truePeakMetrics.true_peak_dbtp) || !isFinite(truePeakMetrics.true_peak_linear)) {
+        throw makeErr('core_metrics', `Invalid true peak values: ${truePeakMetrics.true_peak_dbtp}dBTP`, 'invalid_truepeak');
+      }
+
+      // Verificar range realista
+      if (truePeakMetrics.true_peak_dbtp > 20 || truePeakMetrics.true_peak_dbtp < -100) {
+        throw makeErr('core_metrics', `True peak out of realistic range: ${truePeakMetrics.true_peak_dbtp}dBTP`, 'truepeak_range_error');
+      }
+
+      // Padronizar estrutura do True Peak para compatibilidade
+      const standardizedTruePeak = {
+        maxDbtp: truePeakMetrics.true_peak_dbtp,
+        maxLinear: truePeakMetrics.true_peak_linear,
+        // Manter campos originais para completude
+        ...truePeakMetrics
+      };
+
+      return standardizedTruePeak;
+
+    } catch (error) {
+      if (error.stage === 'core_metrics') {
+        throw error;
+      }
+      throw makeErr('core_metrics', `True peak calculation failed: ${error.message}`, 'truepeak_calculation_error');
+    }
+  }
+
+  /**
+   * Cálculo de métricas estéreo
+   */
+  async calculateStereoMetrics(leftChannel, rightChannel, options = {}) {
+    const jobId = options.jobId || 'unknown';
+    
+    try {
+      logAudio('core_metrics', 'stereo_calculation', { 
+        samples: leftChannel.length, 
+        jobId: jobId.substring(0,8) 
+      });
+
+      // Correlação estéreo
+      const correlation = this.calculateStereoCorrelation(leftChannel, rightChannel);
       
-      // Crest Factor: Peak-RMS tradicional (métrica auxiliar)
-      const crestFactor = computeCrestFactor(leftChannel, rightChannel);
+      // Balance L/R
+      const balance = this.calculateStereoBalance(leftChannel, rightChannel);
       
-      console.log(`✅ DR calculado - TT-DR: ${ttDR.tt_dr?.toFixed(2) || 'null'} dB, Crest: ${crestFactor.crest_factor_db?.toFixed(2) || 'null'} dB`);
+      // Width estéreo
+      const width = this.calculateStereoWidth(leftChannel, rightChannel);
+
+      const stereoMetrics = {
+        correlation,
+        balance,
+        width,
+        isMonoCompatible: Math.abs(correlation) > 0.7,
+        hasPhaseIssues: correlation < -0.5
+      };
+
+      // Validar métricas estéreo
+      if (!isFinite(correlation) || !isFinite(balance) || !isFinite(width)) {
+        throw makeErr('core_metrics', `Invalid stereo metrics: corr=${correlation}, bal=${balance}, width=${width}`, 'invalid_stereo_metrics');
+      }
+
+      return stereoMetrics;
+
+    } catch (error) {
+      if (error.stage === 'core_metrics') {
+        throw error;
+      }
+      throw makeErr('core_metrics', `Stereo calculation failed: ${error.message}`, 'stereo_calculation_error');
+    }
+  }
+
+  // ========= MÉTODOS PARA MÉTRICAS CORRIGIDAS =========
+
+  /**
+   * 🌈 Calcular bandas espectrais corrigidas (7 bandas profissionais)
+   */
+  async calculateSpectralBandsMetrics(framesFFT, options = {}) {
+    const { jobId } = options;
+    
+    try {
+      // Debug detalhado da estrutura recebida
+      logAudio('spectral_bands', 'input_debug', { 
+        hasFramesFFT: !!framesFFT,
+        hasFrames: !!(framesFFT && framesFFT.frames),
+        frameCount: framesFFT?.frames?.length || 0,
+        framesFFTKeys: framesFFT ? Object.keys(framesFFT) : null,
+        jobId 
+      });
+
+      if (!framesFFT || !framesFFT.frames || framesFFT.frames.length === 0) {
+        logAudio('spectral_bands', 'no_frames', { 
+          reason: !framesFFT ? 'no_framesFFT' : !framesFFT.frames ? 'no_frames_array' : 'empty_frames_array',
+          jobId 
+        });
+        return this.spectralBandsCalculator.getNullBands();
+      }
+
+      // Debug: verificar estrutura dos frames
+      const firstFrame = framesFFT.frames[0];
+      logAudio('spectral_bands', 'frame_structure_debug', { 
+        frameCount: framesFFT.frames.length,
+        firstFrameKeys: Object.keys(firstFrame),
+        hasLeftFFT: !!firstFrame.leftFFT,
+        hasRightFFT: !!firstFrame.rightFFT,
+        leftFFTKeys: firstFrame.leftFFT ? Object.keys(firstFrame.leftFFT) : null,
+        hasMagnitude: !!firstFrame.leftFFT?.magnitude,
+        magnitudeLength: firstFrame.leftFFT?.magnitude?.length || 0
+      });
+
+      const bandsResults = [];
+      let validFrames = 0;
+      let invalidFrames = 0;
+      
+      for (let frameIndex = 0; frameIndex < framesFFT.frames.length; frameIndex++) {
+        const frame = framesFFT.frames[frameIndex];
+        
+        // Debug mais detalhado dos frames
+        if (frameIndex < 3) { // Log dos primeiros 3 frames
+          logAudio('spectral_bands', 'frame_detail_debug', {
+            frameIndex,
+            frameKeys: Object.keys(frame),
+            hasLeftFFT: !!frame.leftFFT,
+            hasRightFFT: !!frame.rightFFT,
+            leftFFTKeys: frame.leftFFT ? Object.keys(frame.leftFFT) : null,
+            leftMagnitudeLength: frame.leftFFT?.magnitude?.length || 0,
+            rightMagnitudeLength: frame.rightFFT?.magnitude?.length || 0,
+            jobId
+          });
+        }
+        
+        if (frame.leftFFT?.magnitude && frame.rightFFT?.magnitude) {
+          const result = this.spectralBandsCalculator.analyzeBands(
+            frame.leftFFT.magnitude,
+            frame.rightFFT.magnitude,
+            frameIndex
+          );
+          
+          if (result.valid) {
+            bandsResults.push(result);
+            validFrames++;
+          } else {
+            invalidFrames++;
+          }
+        } else {
+          invalidFrames++;
+          if (frameIndex < 3) { // Log detalhado dos primeiros frames inválidos
+            logAudio('spectral_bands', 'invalid_frame', {
+              frameIndex,
+              hasLeftFFT: !!frame.leftFFT,
+              hasRightFFT: !!frame.rightFFT,
+              leftMagnitude: !!frame.leftFFT?.magnitude,
+              rightMagnitude: !!frame.rightFFT?.magnitude,
+              jobId
+            });
+          }
+        }
+      }
+
+      // Agregar resultados
+      const aggregatedBands = SpectralBandsAggregator.aggregate(bandsResults);
+      
+      logAudio('spectral_bands', 'completed', {
+        validFrames,
+        invalidFrames,
+        totalFrames: framesFFT.frames.length,
+        bandsResultsCount: bandsResults.length,
+        totalPercentage: aggregatedBands?.totalPercentage || null,
+        jobId
+      });
+
+      return aggregatedBands;
+
+    } catch (error) {
+      logAudio('spectral_bands', 'error', { error: error.message, jobId });
+      return this.spectralBandsCalculator.getNullBands();
+    }
+  }
+
+  /**
+   * 🎵 Calcular spectral centroid corrigido (Hz)
+   */
+  async calculateSpectralCentroidMetrics(framesFFT, options = {}) {
+    const { jobId } = options;
+    
+    try {
+      // Debug detalhado da estrutura recebida
+      logAudio('spectral_centroid', 'input_debug', { 
+        hasFramesFFT: !!framesFFT,
+        hasFrames: !!(framesFFT && framesFFT.frames),
+        frameCount: framesFFT?.frames?.length || 0,
+        jobId 
+      });
+
+      if (!framesFFT || !framesFFT.frames || framesFFT.frames.length === 0) {
+        logAudio('spectral_centroid', 'no_frames', { 
+          reason: !framesFFT ? 'no_framesFFT' : !framesFFT.frames ? 'no_frames_array' : 'empty_frames_array',
+          jobId 
+        });
+        return null;
+      }
+
+      const centroidResults = [];
+      let validFrames = 0;
+      let invalidFrames = 0;
+      
+      for (let frameIndex = 0; frameIndex < framesFFT.frames.length; frameIndex++) {
+        const frame = framesFFT.frames[frameIndex];
+        
+        if (frame.leftFFT?.magnitude && frame.rightFFT?.magnitude) {
+          const result = this.spectralCentroidCalculator.calculateCentroidHz(
+            frame.leftFFT.magnitude,
+            frame.rightFFT.magnitude,
+            frameIndex
+          );
+          
+          if (result && result.valid) {
+            centroidResults.push(result);
+            validFrames++;
+          } else {
+            invalidFrames++;
+          }
+        } else {
+          invalidFrames++;
+          if (frameIndex < 3) { // Log detalhado dos primeiros frames inválidos
+            logAudio('spectral_centroid', 'invalid_frame', {
+              frameIndex,
+              hasLeftFFT: !!frame.leftFFT,
+              hasRightFFT: !!frame.rightFFT,
+              leftMagnitude: !!frame.leftFFT?.magnitude,
+              rightMagnitude: !!frame.rightFFT?.magnitude,
+              jobId
+            });
+          }
+        }
+      }
+
+      // Agregar resultados
+      const aggregatedCentroid = SpectralCentroidAggregator.aggregate(centroidResults);
+      
+      logAudio('spectral_centroid', 'completed', {
+        validFrames,
+        invalidFrames,
+        totalFrames: framesFFT.frames.length,
+        centroidResultsCount: centroidResults.length,
+        centroidHz: aggregatedCentroid?.centroidHz || null,
+        jobId
+      });
+
+      return aggregatedCentroid;
+
+    } catch (error) {
+      logAudio('spectral_centroid', 'error', { error: error.message, jobId });
+      return null;
+    }
+  }
+
+  /**
+   * 🎭 Análise estéreo corrigida
+   */
+  async calculateStereoMetricsCorrect(leftChannel, rightChannel, options = {}) {
+    const { jobId } = options;
+    
+    try {
+      // Usar novo calculador de métricas estéreo
+      const result = this.stereoMetricsCalculator.analyzeStereoMetrics(leftChannel, rightChannel);
+      
+      if (!result.valid) {
+        logAudio('stereo_metrics', 'invalid_result', { jobId });
+        return {
+          correlation: null,
+          width: null,
+          balance: 0.0, // Compatibilidade com código existente
+          valid: false
+        };
+      }
+      
+      logAudio('stereo_metrics', 'completed', {
+        correlation: result.correlation,
+        width: result.width,
+        jobId
+      });
       
       return {
-        // TT-DR Oficial (principal)
-        tt_dr: ttDR.tt_dr,
-        p95_rms: ttDR.p95_rms,
-        p10_rms: ttDR.p10_rms || ttDR.p05_rms, // Fallback para P05 se usar versão mais sensível
-        
-        // Crest Factor (auxiliar/compatibilidade)
-        crest_factor_db: crestFactor.crest_factor_db,
-        peak_db: crestFactor.peak_db,
-        rms_db: crestFactor.rms_db,
-        
-        // Compatibilidade com pipeline existente
-        dynamic_range: ttDR.tt_dr, // Campo esperado pelo json-output.js
-        crest_legacy: crestFactor.crest_factor_db,
-        
-        // Metadados
-        algorithm: 'TT-DR + Crest Factor',
-        note: 'TT-DR é o padrão da indústria; Crest Factor mantido para compatibilidade'
+        correlation: result.correlation,
+        width: result.width,
+        balance: 0.0, // Compatibilidade - balance não é usado nas novas métricas
+        correlationCategory: result.correlationData?.category,
+        widthCategory: result.widthData?.category,
+        algorithm: 'Corrected_Stereo_Metrics',
+        valid: true
       };
+
+    } catch (error) {
+      logAudio('stereo_metrics', 'error', { error: error.message, jobId });
+      return {
+        correlation: null,
+        width: null,
+        balance: 0.0,
+        valid: false
+      };
+    }
+  }
+
+  // ========= MÉTODOS AUXILIARES (sem mudanças na lógica) =========
+  
+  calculateMagnitudeSpectrum(leftFFT, rightFFT) {
+    // leftFFT e rightFFT são objetos com propriedades {real, imag, magnitude, phase}
+    const leftMagnitude = leftFFT.magnitude;
+    const rightMagnitude = rightFFT.magnitude;
+    
+    // CORREÇÃO: Combinar magnitudes L/R usando RMS (não média aritmética)
+    const magnitude = new Float32Array(leftMagnitude.length);
+    for (let i = 0; i < magnitude.length; i++) {
+      // RMS da magnitude stereo: sqrt((L² + R²) / 2)
+      magnitude[i] = Math.sqrt((leftMagnitude[i] ** 2 + rightMagnitude[i] ** 2) / 2);
+    }
+    return magnitude;
+  }
+
+  // ========= MÉTRICA ESPECTRAL COMPLETA =========
+  // NOVO: Sistema com 8 métricas espectrais com fórmulas matemáticas padrão
+  
+  calculateSpectralMetrics(magnitude, frameIndex = 0) {
+    try {
+      return this.spectralCalculator.calculateAllMetrics(magnitude, frameIndex);
       
     } catch (error) {
-      console.error("❌ Erro ao calcular Dynamic Range:", error);
-      return {
-        tt_dr: null,
-        dynamic_range: null,
-        crest_factor_db: null,
-        error: error.message
-      };
+      logAudio('spectral', 'calculator_error', { 
+        frame: frameIndex, 
+        error: error.message 
+      });
+      
+      // Fallback para null metrics
+      return this.spectralCalculator.getNullMetrics();
     }
   }
 
-  calculateAverageSpectrum(spectrograms) {
-    if (!spectrograms.length) return [];
-    const spectrumLength = spectrograms[0].magnitude.length;
-    const avg = new Array(spectrumLength).fill(0);
-    for (const frame of spectrograms) {
-      for (let i = 0; i < spectrumLength; i++) avg[i] += frame.magnitude[i];
-    }
-    return avg.map((v) => v / spectrograms.length);
+  // ========= MÉTODOS LEGADOS DEPRECIADOS (compatibilidade) =========
+  
+  calculateSpectralCentroid(magnitude) {
+    const metrics = this.calculateSpectralMetrics(magnitude);
+    return metrics.spectralCentroidHz;
   }
 
-  // 🔧 Corrigido: agora gera 7 bandas espectrais, compatíveis com o json-output
-  calculateFrequencyBands(averageSpectrum) {
-    const nyquist = CORE_METRICS_CONFIG.SAMPLE_RATE / 2;
-    const binSize = nyquist / (averageSpectrum.length - 1);
-
-    const bands = {
-      subBass: { min: 20, max: 60, energy: 0 },
-      bass: { min: 60, max: 120, energy: 0 },
-      lowMid: { min: 120, max: 500, energy: 0 },
-      mid: { min: 500, max: 2000, energy: 0 },
-      highMid: { min: 2000, max: 4000, energy: 0 },
-      presence: { min: 4000, max: 8000, energy: 0 },
-      brilliance: { min: 8000, max: 20000, energy: 0 },
-    };
-
-    for (const [name, band] of Object.entries(bands)) {
-      const minBin = Math.floor(band.min / binSize);
-      const maxBin = Math.floor(band.max / binSize);
-      let energy = 0;
-      for (let i = minBin; i <= maxBin && i < averageSpectrum.length; i++) {
-        energy += averageSpectrum[i] ** 2;
-      }
-      band.energy = energy;
-    }
-
-    return bands;
+  calculateSpectralRolloff(magnitude, threshold = 0.85) {
+    const metrics = this.calculateSpectralMetrics(magnitude);
+    return metrics.spectralRolloffHz;
   }
 
-  validateInputFrom5_2(segmentedAudio) {
-    const required = [
-      "originalLength",
-      "sampleRate",
-      "duration",
-      "numberOfChannels",
-      "framesFFT",
-      "framesRMS",
-    ];
-    for (const field of required) {
-      if (!segmentedAudio.hasOwnProperty(field))
-        throw new Error(`INVALID_INPUT_5_2: Missing ${field}`);
-    }
-    if (segmentedAudio.sampleRate !== CORE_METRICS_CONFIG.SAMPLE_RATE) {
-      console.warn(
-        `⚠️ SAMPLE_RATE_MISMATCH: Esperado ${CORE_METRICS_CONFIG.SAMPLE_RATE}, recebido ${segmentedAudio.sampleRate}`
-      );
-    }
+  calculateSpectralFlatness(magnitude) {
+    const metrics = this.calculateSpectralMetrics(magnitude);
+    return metrics.spectralFlatness;
   }
 
-  sanitizeValue(v, fb) {
-    return isNaN(v) || !isFinite(v) ? fb : v;
-  }
-  formatValue(v, unit = "", d = 1) {
-    return isNaN(v) || !isFinite(v) ? `--${unit}` : `${v.toFixed(d)}${unit}`;
-  }
-  calculateRMS(ch) {
-    let sum = 0;
-    for (let i = 0; i < ch.length; i++) sum += ch[i] ** 2;
-    return Math.sqrt(sum / ch.length);
-  }
-  calculateAbsMax(ch) {
-    let max = 0;
-    for (let i = 0; i < ch.length; i++) max = Math.max(max, Math.abs(ch[i]));
-    return max;
-  }
-  calculateCorrelation(L, R) {
-    const len = Math.min(L.length, R.length);
-    let meanL = 0,
-      meanR = 0;
-    for (let i = 0; i < len; i++) {
-      meanL += L[i];
-      meanR += R[i];
+  calculateStereoCorrelation(leftChannel, rightChannel) {
+    const length = Math.min(leftChannel.length, rightChannel.length);
+    
+    // Verificar se há dados suficientes
+    if (length < 2) {
+      return null; // Dados insuficientes
     }
-    meanL /= len;
-    meanR /= len;
-    let cov = 0,
-      varL = 0,
-      varR = 0;
-    for (let i = 0; i < len; i++) {
-      const dL = L[i] - meanL,
-        dR = R[i] - meanR;
-      cov += dL * dR;
-      varL += dL ** 2;
-      varR += dR ** 2;
+    
+    let sumL = 0, sumR = 0, sumLR = 0, sumL2 = 0, sumR2 = 0;
+    
+    for (let i = 0; i < length; i++) {
+      sumL += leftChannel[i];
+      sumR += rightChannel[i];
+      sumLR += leftChannel[i] * rightChannel[i];
+      sumL2 += leftChannel[i] ** 2;
+      sumR2 += rightChannel[i] ** 2;
     }
-    return Math.sqrt(varL * varR) > 0 ? cov / Math.sqrt(varL * varR) : 0.0;
-  }
-  calculateStereoWidth(L, R) {
-    const len = Math.min(L.length, R.length);
-    let sumDiff = 0,
-      sumSum = 0;
-    for (let i = 0; i < len; i++) {
-      const d = L[i] - R[i],
-        s = L[i] + R[i];
-      sumDiff += d ** 2;
-      sumSum += s ** 2;
+    
+    const meanL = sumL / length;
+    const meanR = sumR / length;
+    const covariance = (sumLR / length) - (meanL * meanR);
+    const varianceL = (sumL2 / length) - (meanL ** 2);
+    const varianceR = (sumR2 / length) - (meanR ** 2);
+    
+    // Verificar se existe variância em ambos os canais
+    if (varianceL <= 0 || varianceR <= 0) {
+      // Canal constante ou silêncio: correlação indefinida
+      return null;
     }
-    return sumSum > 0 ? Math.sqrt(sumDiff / sumSum) : 0.0;
+    
+    const stdL = Math.sqrt(varianceL);
+    const stdR = Math.sqrt(varianceR);
+    const correlation = covariance / (stdL * stdR);
+    
+    // Verificar se o resultado é válido (deve estar entre -1 e 1)
+    if (!isFinite(correlation) || Math.abs(correlation) > 1.001) {
+      return null; // Resultado inválido
+    }
+    
+    // Clampar para range válido por precisão numérica
+    return Math.max(-1, Math.min(1, correlation));
   }
-  calculateStereoBalance(L, R) {
-    const lRMS = this.calculateRMS(L),
-      rRMS = this.calculateRMS(R);
-    const total = lRMS + rRMS;
-    return total > 0 ? (rRMS - lRMS) / total : 0.0;
+
+  calculateStereoBalance(leftChannel, rightChannel) {
+    const rmsL = Math.sqrt(leftChannel.reduce((sum, val) => sum + val ** 2, 0) / leftChannel.length);
+    const rmsR = Math.sqrt(rightChannel.reduce((sum, val) => sum + val ** 2, 0) / rightChannel.length);
+    
+    const totalRms = rmsL + rmsR;
+    return totalRms > 0 ? (rmsR - rmsL) / totalRms : 0;
+  }
+
+  calculateStereoWidth(leftChannel, rightChannel) {
+    const length = Math.min(leftChannel.length, rightChannel.length);
+    let sideMagnitude = 0;
+    let midMagnitude = 0;
+    
+    for (let i = 0; i < length; i++) {
+      const mid = (leftChannel[i] + rightChannel[i]) / 2;
+      const side = (leftChannel[i] - rightChannel[i]) / 2;
+      midMagnitude += mid ** 2;
+      sideMagnitude += side ** 2;
+    }
+    
+    return midMagnitude > 0 ? Math.sqrt(sideMagnitude / midMagnitude) : 0;
   }
 
   /**
-   * 📊 Fallback: métricas espectrais básicas a partir do espectro médio
+   * 📊 Processar métricas RMS dos frames para métricas agregadas
    */
-  calculateBasicSpectralAggregated(leftSpectrum, rightSpectrum) {
-    console.log("� [FALLBACK] Usando fallback para métricas espectrais básicas...");
-    console.log("🔄 [FALLBACK] Espectros recebidos:", {
-      leftLength: leftSpectrum?.length,
-      rightLength: rightSpectrum?.length,
-      leftEnergy: leftSpectrum?.reduce((sum, val) => sum + val, 0),
-      rightEnergy: rightSpectrum?.reduce((sum, val) => sum + val, 0)
-    });
-    
-    // Usar espectro com maior energia
-    const leftEnergy = leftSpectrum.reduce((sum, val) => sum + val, 0);
-    const rightEnergy = rightSpectrum.reduce((sum, val) => sum + val, 0);
-    const spectrum = leftEnergy >= rightEnergy ? leftSpectrum : rightSpectrum;
-    
-    if (!spectrum || spectrum.length === 0) {
+  processRMSMetrics(framesRMS) {
+    try {
+      if (!framesRMS || !framesRMS.left || !framesRMS.right || framesRMS.count === 0) {
+        logAudio('core_metrics', 'rms_invalid_input', { hasLeft: !!framesRMS?.left, hasRight: !!framesRMS?.right, count: framesRMS?.count });
+        return {
+          left: null,
+          right: null,
+          average: null,
+          peak: null,
+          count: framesRMS?.count || 0
+        };
+      }
+
+      // Calcular RMS médio para cada canal
+      const leftFrames = framesRMS.left;
+      const rightFrames = framesRMS.right;
+      
+      // Filtrar apenas valores válidos (não-zero, não-NaN, não-Infinity)
+      const validLeftFrames = leftFrames.filter(val => val > 0 && isFinite(val));
+      const validRightFrames = rightFrames.filter(val => val > 0 && isFinite(val));
+      
+      if (validLeftFrames.length === 0 || validRightFrames.length === 0) {
+        logAudio('core_metrics', 'rms_no_valid_frames', { 
+          leftValid: validLeftFrames.length, 
+          rightValid: validRightFrames.length,
+          leftTotal: leftFrames.length,
+          rightTotal: rightFrames.length 
+        });
+        return {
+          left: null,
+          right: null,
+          average: null,
+          peak: null,
+          count: framesRMS.count
+        };
+      }
+      
+      // RMS médio por canal (já são valores RMS por frame)
+      const leftRMS = this.calculateArrayAverage(validLeftFrames);
+      const rightRMS = this.calculateArrayAverage(validRightFrames);
+      
+      // RMS médio total
+      const averageRMS = (leftRMS + rightRMS) / 2;
+      
+      // Peak RMS (maior valor RMS entre todos os frames válidos)
+      const peakRMS = Math.max(
+        Math.max(...validLeftFrames),
+        Math.max(...validRightFrames)
+      );
+
+      // Converter para dB (com segurança)
+      const leftRMSDb = leftRMS > 0 ? 20 * Math.log10(leftRMS) : -120; // Floor -120dB
+      const rightRMSDb = rightRMS > 0 ? 20 * Math.log10(rightRMS) : -120;
+      const averageRMSDb = averageRMS > 0 ? 20 * Math.log10(averageRMS) : -120;
+      const peakRMSDb = peakRMS > 0 ? 20 * Math.log10(peakRMS) : -120;
+
+      logAudio('core_metrics', 'rms_processed', { 
+        leftRMSDb: leftRMSDb.toFixed(2), 
+        rightRMSDb: rightRMSDb.toFixed(2), 
+        averageRMSDb: averageRMSDb.toFixed(2),
+        peakRMSDb: peakRMSDb.toFixed(2),
+        frameCount: framesRMS.count,
+        validFrames: Math.min(validLeftFrames.length, validRightFrames.length)
+      });
+
       return {
-        spectralCentroidHz: 0,
-        spectralRolloffHz: 0,
-        spectralBandwidthHz: 0,
-        spectralSpread: 0,
-        spectralFlatness: 0,
-        spectralCrest: 0,
-        spectralSkewness: 0,
-        spectralKurtosis: 0,
-        zeroCrossingRate: 0,
-        spectralFlux: 0,
-        calculatedAt: new Date().toISOString(),
-        framesBased: true,
-        totalFrames: 0,
-        fallback: true
+        left: leftRMSDb,
+        right: rightRMSDb,
+        average: averageRMSDb,
+        peak: peakRMSDb,
+        count: framesRMS.count
+      };
+
+    } catch (error) {
+      logAudio('core_metrics', 'rms_processing_error', { error: error.message });
+      return {
+        left: null,
+        right: null,
+        average: null,
+        peak: null,
+        count: framesRMS?.count || 0
       };
     }
-    
-    // Frequências correspondentes (FFT bins)
-    const freqBins = spectrum.map((_, i) => (i * CORE_METRICS_CONFIG.SAMPLE_RATE) / (2 * spectrum.length));
-    
-    // Calcular centroide espectral
-    let totalEnergy = 0;
-    let centroidNumerator = 0;
-    for (let i = 1; i < spectrum.length; i++) {
-      const power = spectrum[i];
-      totalEnergy += power;
-      centroidNumerator += freqBins[i] * power;
-    }
-    const spectralCentroidHz = totalEnergy > 0 ? centroidNumerator / totalEnergy : 0;
-    
-    // Calcular rolloff 85%
-    const rolloffTarget = totalEnergy * 0.85;
-    let rolloffEnergy = 0;
-    let spectralRolloffHz = 0;
-    for (let i = 1; i < spectrum.length; i++) {
-      rolloffEnergy += spectrum[i];
-      if (rolloffEnergy >= rolloffTarget) {
-        spectralRolloffHz = freqBins[i];
-        break;
-      }
-    }
-    
-    return {
-      spectralCentroidHz,
-      spectralRolloffHz,
-      spectralBandwidthHz: spectralRolloffHz * 0.6, // Estimativa conservadora
-      spectralSpread: 0, // Não calculável com espectro médio
-      spectralFlatness: 0,
-      spectralCrest: 0,
-      spectralSkewness: 0,
-      spectralKurtosis: 0,
-      zeroCrossingRate: 0,
-      spectralFlux: 0,
-      calculatedAt: new Date().toISOString(),
-      framesBased: true,
-      totalFrames: spectrum.length,
-      fallback: true
-    };
+  }
+
+  /**
+   * 📈 Calcular média de um array (helper function)
+   */
+  calculateArrayAverage(array) {
+    if (!array || array.length === 0) return 0;
+    const sum = array.reduce((acc, val) => acc + val, 0);
+    return sum / array.length;
   }
 }
 
-/**
- * Funções de alto nível
- */
-export async function calculateCoreMetrics(segmentedAudio) {
-  const p = new CoreMetricsProcessor();
-  return await p.processMetrics(segmentedAudio);
+// ========= PONTO DE ENTRADA PÚBLICO =========
+
+const coreMetricsProcessor = new CoreMetricsProcessor();
+
+export async function calculateCoreMetrics(segmentedAudio, options = {}) {
+  try {
+    return await coreMetricsProcessor.processMetrics(segmentedAudio, options);
+  } catch (error) {
+    // Garantir que qualquer erro saia estruturado
+    if (error.stage === 'core_metrics') {
+      throw error;
+    }
+    throw makeErr('core_metrics', `Core metrics processing failed: ${error.message}`, 'core_metrics_entry_error');
+  }
 }
 
-export async function processAudioWithCoreMetrics(fileBuffer, filename) {
-  const { decodeAudioFile } = await import("./audio-decoder.js");
-  const { segmentAudioTemporal } = await import("./temporal-segmentation.js");
+// Exportar classe para testes
+export { CoreMetricsProcessor };
 
-  const audioData = await decodeAudioFile(fileBuffer, filename);
-  const segmentedData = segmentAudioTemporal(audioData);
-  segmentedData.originalLeft = audioData.leftChannel;
-  segmentedData.originalRight = audioData.rightChannel;
-
-  const metricsData = await calculateCoreMetrics(segmentedData);
-
-  return {
-    phase1: audioData,
-    phase2: segmentedData,
-    phase3: metricsData,
-    pipeline: {
-      version: "5.3",
-      phases: [
-        "5.1-decoding",
-        "5.2-temporal-segmentation",
-        "5.3-core-metrics",
-      ],
-      decodedFrom: filename,
-      totalProcessingTime:
-        (metricsData._metadata?.processingTime || 0) +
-        (segmentedData._metadata?.processingTime || 0) +
-        (audioData._metadata?.processingTime || 0),
-    },
-  };
-}
-
-export { CORE_METRICS_CONFIG, CoreMetricsProcessor };
+console.log('✅ Core Metrics Processor inicializado (Fase 5.3) - CORRIGIDO com fail-fast');
