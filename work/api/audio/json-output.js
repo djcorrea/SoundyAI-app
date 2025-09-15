@@ -199,16 +199,23 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
       jobId
     });
     
-    technicalData.spectralCentroid = safeSanitize(spectral.spectralCentroidHz);
-    technicalData.spectralRolloff = safeSanitize(spectral.spectralRolloffHz);
-    technicalData.spectralBandwidth = safeSanitize(spectral.spectralBandwidthHz);
-    technicalData.spectralSpread = safeSanitize(spectral.spectralSpreadHz);
+    // 🎯 FIXADO: Usar nomes com Hz para compatibilidade com frontend
+    technicalData.spectralCentroidHz = safeSanitize(spectral.spectralCentroidHz);
+    technicalData.spectralRolloffHz = safeSanitize(spectral.spectralRolloffHz);
+    technicalData.spectralBandwidthHz = safeSanitize(spectral.spectralBandwidthHz);
+    technicalData.spectralSpreadHz = safeSanitize(spectral.spectralSpreadHz);
     technicalData.spectralFlatness = safeSanitize(spectral.spectralFlatness);
     technicalData.spectralCrest = safeSanitize(spectral.spectralCrest);
     technicalData.spectralSkewness = safeSanitize(spectral.spectralSkewness);
     technicalData.spectralKurtosis = safeSanitize(spectral.spectralKurtosis);
     technicalData.zeroCrossingRate = safeSanitize(spectral.zeroCrossingRate);
     technicalData.spectralFlux = safeSanitize(spectral.spectralFlux);
+    
+    // Também criar aliases para compatibilidade com scoring
+    technicalData.spectralCentroid = technicalData.spectralCentroidHz;
+    technicalData.spectralRolloff = technicalData.spectralRolloffHz;
+    technicalData.spectralBandwidth = technicalData.spectralBandwidthHz;
+    technicalData.spectralSpread = technicalData.spectralSpreadHz;
   } else {
     // 🔬 DEBUG: Log se FFT não está disponível
     logAudio('json_output', 'fft_missing_debug', {
@@ -235,38 +242,37 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     
     technicalData.bandEnergies = {};
     
-    // CORRIGIDO: Nomes corretos das bandas espectrais
+    // 🎯 FIXADO: Estrutura direta bands.sub em vez de bands.bands.sub
     const bandNames = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
     const mappedNames = ['sub', 'bass', 'low_mid', 'mid', 'high_mid', 'presence', 'air'];
     
     for (let i = 0; i < bandNames.length; i++) {
       const bandName = bandNames[i];
       const mappedName = mappedNames[i];
-      const band = bands.bands?.[bandName]; // bands.bands.sub, bands.bands.bass, etc.
+      const bandValue = bands[bandName]; // Direto: bands.sub, bands.bass, etc.
       
-      if (band) {
+      if (bandValue !== null && bandValue !== undefined) {
         technicalData.bandEnergies[mappedName] = {
-          energy: safeSanitize(band.energy),
-          percentage: safeSanitize(band.percentage),
-          name: band.name,
-          description: band.description,
-          frequencyRange: band.frequencyRange || `${bandName}-range`
+          energy: safeSanitize(bandValue),
+          percentage: safeSanitize(bandValue * 100), // Converter para percentual
+          name: bandName,
+          frequencyRange: `${bandName}-range`
         };
       } else {
         technicalData.bandEnergies[mappedName] = null;
       }
     }
     
-    // Spectral Balance simplificado para compatibilidade
+    // Spectral Balance simplificado para compatibilidade (percentuais diretos)
     technicalData.spectral_balance = {
-      sub: safeSanitize(bands.bands?.sub?.percentage),
-      bass: safeSanitize(bands.bands?.bass?.percentage),
-      lowMid: safeSanitize(bands.bands?.lowMid?.percentage),
-      mid: safeSanitize(bands.bands?.mid?.percentage),
-      highMid: safeSanitize(bands.bands?.highMid?.percentage),
-      presence: safeSanitize(bands.bands?.presence?.percentage),
-      air: safeSanitize(bands.bands?.air?.percentage),
-      totalPercentage: safeSanitize(bands.totalPercentage, 100)
+      sub: safeSanitize(bands.sub),
+      bass: safeSanitize(bands.bass),
+      lowMid: safeSanitize(bands.lowMid),
+      mid: safeSanitize(bands.mid),
+      highMid: safeSanitize(bands.highMid),
+      presence: safeSanitize(bands.presence),
+      air: safeSanitize(bands.air),
+      totalPercentage: 100
     };
   } else {
     // 🔬 DEBUG: Log se bandas espectrais não estão disponíveis
@@ -277,12 +283,6 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
       spectralBandsKeys: coreMetrics.spectralBands ? Object.keys(coreMetrics.spectralBands) : null,
       jobId
     });
-  }
-
-  // Centroide Espectral (Brilho)
-  if (coreMetrics.spectralCentroid && coreMetrics.spectralCentroid.aggregated) {
-    technicalData.spectralCentroidHz = safeSanitize(coreMetrics.spectralCentroid.aggregated.centroidHz);
-    technicalData.brightnessCategory = safeSanitize(coreMetrics.spectralCentroid.aggregated.brightnessCategory, 'unknown');
   }
 
   // ===== RMS DETALHADO =====
@@ -442,15 +442,15 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     spectralBands: {
       detailed: technicalData.bandEnergies,
       simplified: technicalData.spectral_balance,
-      processedFrames: coreMetrics.spectralBands?.processedFrames || 0,
-      hasData: (coreMetrics.spectralBands?.processedFrames || 0) > 0
+      processedFrames: coreMetrics.spectralBands?.aggregated?.processedFrames || 0,
+      hasData: (coreMetrics.spectralBands?.aggregated?.processedFrames || 0) > 0
     },
 
     // ===== Métricas Espectrais (nível raiz para compatibilidade) =====
     spectralCentroidHz: technicalData.spectralCentroidHz,
-    spectralRolloffHz: technicalData.spectralRolloff,
-    spectralBandwidthHz: technicalData.spectralBandwidth,
-    spectralSpreadHz: technicalData.spectralSpread,
+    spectralRolloffHz: technicalData.spectralRolloffHz,
+    spectralBandwidthHz: technicalData.spectralBandwidthHz,
+    spectralSpreadHz: technicalData.spectralSpreadHz,
     spectralFlatness: technicalData.spectralFlatness,
     spectralCrest: technicalData.spectralCrest,
     spectralSkewness: technicalData.spectralSkewness,
