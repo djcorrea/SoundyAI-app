@@ -64,6 +64,54 @@ function extractTechnicalData(coreMetrics) {
       }
     }
 
+    // 🎯 FIXADO: Métricas Espectrais do FFT agregado
+    if (coreMetrics.fft && coreMetrics.fft.aggregated) {
+      const spectral = coreMetrics.fft.aggregated;
+      
+      console.log('🔬 [JSON_OUTPUT] Extraindo métricas espectrais do FFT agregado:', {
+        available: Object.keys(spectral),
+        spectralCentroidHz: spectral.spectralCentroidHz,
+        spectralRolloffHz: spectral.spectralRolloffHz
+      });
+      
+      // Usar nomes com Hz para compatibilidade com frontend
+      technicalData.spectralCentroidHz = sanitizeValue(spectral.spectralCentroidHz);
+      technicalData.spectralRolloffHz = sanitizeValue(spectral.spectralRolloffHz);
+      technicalData.spectralBandwidthHz = sanitizeValue(spectral.spectralBandwidthHz);
+      technicalData.spectralSpreadHz = sanitizeValue(spectral.spectralSpreadHz);
+      technicalData.spectralFlatness = sanitizeValue(spectral.spectralFlatness);
+      technicalData.spectralCrest = sanitizeValue(spectral.spectralCrest);
+      technicalData.spectralSkewness = sanitizeValue(spectral.spectralSkewness);
+      technicalData.spectralKurtosis = sanitizeValue(spectral.spectralKurtosis);
+      technicalData.zeroCrossingRate = sanitizeValue(spectral.zeroCrossingRate);
+      technicalData.spectralFlux = sanitizeValue(spectral.spectralFlux);
+      
+      // Criar aliases para compatibilidade com scoring
+      technicalData.spectralCentroid = technicalData.spectralCentroidHz;
+      technicalData.spectralRolloff = technicalData.spectralRolloffHz;
+    }
+
+    // 🎯 FIXADO: Bandas Espectrais agregadas
+    if (coreMetrics.spectralBands && coreMetrics.spectralBands.aggregated) {
+      const bands = coreMetrics.spectralBands.aggregated;
+      
+      console.log('🔬 [JSON_OUTPUT] Extraindo bandas espectrais agregadas:', {
+        available: Object.keys(bands),
+        processedFrames: bands.processedFrames
+      });
+      
+      technicalData.spectral_balance = {
+        sub: sanitizeValue(bands.sub),
+        bass: sanitizeValue(bands.bass),
+        lowMid: sanitizeValue(bands.lowMid),
+        mid: sanitizeValue(bands.mid),
+        highMid: sanitizeValue(bands.highMid),
+        presence: sanitizeValue(bands.presence),
+        air: sanitizeValue(bands.air),
+        totalPercentage: 100
+      };
+    }
+
     // Stereo
     if (coreMetrics.stereo) {
       technicalData.stereoCorrelation = coreMetrics.stereo.correlation;
@@ -127,7 +175,39 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata) {
       stereoWidth: sanitizeValue(technicalData.stereoWidth),
       balanceLR: sanitizeValue(technicalData.balanceLR),
       spectralCentroid: sanitizeValue(technicalData.spectralCentroid),
+      // 🎯 FIXADO: Métricas espectrais completas
+      spectralCentroidHz: sanitizeValue(technicalData.spectralCentroidHz),
+      spectralRolloffHz: sanitizeValue(technicalData.spectralRolloffHz),
+      spectralBandwidthHz: sanitizeValue(technicalData.spectralBandwidthHz),
+      spectralSpreadHz: sanitizeValue(technicalData.spectralSpreadHz),
+      spectralFlatness: sanitizeValue(technicalData.spectralFlatness),
+      spectralCrest: sanitizeValue(technicalData.spectralCrest),
+      spectralSkewness: sanitizeValue(technicalData.spectralSkewness),
+      spectralKurtosis: sanitizeValue(technicalData.spectralKurtosis),
+      zeroCrossingRate: sanitizeValue(technicalData.zeroCrossingRate),
+      spectralFlux: sanitizeValue(technicalData.spectralFlux),
+      spectral_balance: technicalData.spectral_balance || {},
       frequencyBands: coreMetrics.fft?.frequencyBands?.left || {}
+    },
+
+    // ===== Métricas Espectrais (nível raiz para compatibilidade frontend) =====
+    spectralCentroidHz: sanitizeValue(technicalData.spectralCentroidHz),
+    spectralRolloffHz: sanitizeValue(technicalData.spectralRolloffHz),
+    spectralBandwidthHz: sanitizeValue(technicalData.spectralBandwidthHz),
+    spectralSpreadHz: sanitizeValue(technicalData.spectralSpreadHz),
+    spectralFlatness: sanitizeValue(technicalData.spectralFlatness),
+    spectralCrest: sanitizeValue(technicalData.spectralCrest),
+    spectralSkewness: sanitizeValue(technicalData.spectralSkewness),
+    spectralKurtosis: sanitizeValue(technicalData.spectralKurtosis),
+    zeroCrossingRate: sanitizeValue(technicalData.zeroCrossingRate),
+    spectralFlux: sanitizeValue(technicalData.spectralFlux),
+
+    // ===== Bandas Espectrais =====
+    spectralBands: {
+      detailed: technicalData.bandEnergies || {},
+      simplified: technicalData.spectral_balance || {},
+      processedFrames: coreMetrics.spectralBands?.aggregated?.processedFrames || 0,
+      hasData: (coreMetrics.spectralBands?.aggregated?.processedFrames || 0) > 0
     },
 
     scoringDetails: {
