@@ -7,12 +7,12 @@ import { logAudio } from '../error-handling.js';
  * 🎯 Configurações para análise de frequências dominantes
  */
 const DOMINANT_FREQ_CONFIG = {
-  MIN_MAGNITUDE_THRESHOLD: 0.01,  // Magnitude mínima para considerar um pico
+  MIN_MAGNITUDE_THRESHOLD: 0.001,  // ✅ REDUZIDO: Magnitude mínima para considerar um pico
   MIN_FREQUENCY: 20,              // Frequência mínima em Hz
   MAX_FREQUENCY: 20000,           // Frequência máxima em Hz
   MIN_PEAK_SEPARATION: 50,        // Separação mínima entre picos em Hz
   MAX_DOMINANT_FREQUENCIES: 10,   // Máximo de frequências a retornar
-  PEAK_PROMINENCE_THRESHOLD: 0.02 // Threshold para prominência do pico
+  PEAK_PROMINENCE_THRESHOLD: 0.005 // ✅ REDUZIDO: Threshold para prominência do pico
 };
 
 /**

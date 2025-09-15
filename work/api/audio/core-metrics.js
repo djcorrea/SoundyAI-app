@@ -179,12 +179,27 @@ class CoreMetricsProcessor {
       let dominantFreqMetrics = null;
       try {
         if (fftResults.magnitudeSpectrum && fftResults.magnitudeSpectrum.length > 0) {
+          const spectrum = fftResults.magnitudeSpectrum[0];
+          console.log('[DEBUG_DOMINANT] Espectro recebido:', {
+            length: spectrum.length,
+            maxValue: Math.max(...spectrum),
+            avgValue: spectrum.reduce((sum, val) => sum + val, 0) / spectrum.length,
+            first5: spectrum.slice(0, 5),
+            nonZeroCount: spectrum.filter(v => v > 0.001).length
+          });
+          
           dominantFreqMetrics = calculateDominantFrequencies(
             fftResults.magnitudeSpectrum[0], // Usar primeiro frame
             CORE_METRICS_CONFIG.SAMPLE_RATE,
             CORE_METRICS_CONFIG.FFT_SIZE
           );
+          console.log('[DEBUG_DOMINANT] Resultado da função:', dominantFreqMetrics);
           console.log('[SUCCESS] Dominant Frequencies calculado via função standalone');
+        } else {
+          console.log('[DEBUG_DOMINANT] FFT spectrum não disponível:', {
+            hasSpectrum: !!fftResults.magnitudeSpectrum,
+            spectrumLength: fftResults.magnitudeSpectrum?.length || 0
+          });
         }
       } catch (error) {
         console.log('[SKIP_METRIC] dominantFrequencies: erro na função standalone -', error.message);
@@ -200,12 +215,25 @@ class CoreMetricsProcessor {
           const frequencyBins = Array.from({length: binCount}, (_, i) => 
             (i * CORE_METRICS_CONFIG.SAMPLE_RATE) / (2 * binCount)
           );
+          
+          console.log('[DEBUG_UNIFORMITY] Dados de entrada:', {
+            spectrumLength: representativeSpectrum.length,
+            binsLength: frequencyBins.length,
+            sampleRate: CORE_METRICS_CONFIG.SAMPLE_RATE,
+            first5Values: representativeSpectrum.slice(0, 5),
+            first5Bins: frequencyBins.slice(0, 5)
+          });
+          
           spectralUniformityMetrics = calculateSpectralUniformity(
             representativeSpectrum,
             frequencyBins,
             CORE_METRICS_CONFIG.SAMPLE_RATE
           );
+          
+          console.log('[DEBUG_UNIFORMITY] Resultado da função:', spectralUniformityMetrics);
           console.log('[SUCCESS] Spectral Uniformity calculado via função standalone');
+        } else {
+          console.log('[DEBUG_UNIFORMITY] FFT spectrum não disponível');
         }
       } catch (error) {
         console.log('[SKIP_METRIC] spectralUniformity: erro na função standalone -', error.message);
