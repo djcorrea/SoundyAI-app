@@ -171,7 +171,7 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.spectralRolloff = technicalData.spectralRolloffHz;
   }
 
-  // ===== Spectral Bands (Corrigido para incluir na comparação) =====
+  // ===== Spectral Bands (Corrigido para garantir valores reais) =====
   if (coreMetrics.spectralBands?.aggregated) {
     const b = coreMetrics.spectralBands.aggregated;
     
@@ -183,12 +183,16 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
       bandsKeys: b?.bands ? Object.keys(b.bands) : null,
       sampleBandData: b?.bands?.sub || null,
       totalPercentage: b?.totalPercentage || null,
-      isValid: b?.valid || null
+      isValid: b?.valid || null,
+      rawData: b // Log completo da estrutura
     });
     
-    // ✅ CORREÇÃO: Acessar dados em b.bands.bandName.percentage
+    // 🎯 CORREÇÃO AMPLIADA: Múltiplas tentativas de acesso aos dados
+    let extractedBands = null;
+    
+    // Tentativa 1: Estrutura padrão com .bands.bandName.percentage
     if (b.bands && typeof b.bands === 'object') {
-      technicalData.spectral_balance = {
+      extractedBands = {
         sub: safeSanitize(b.bands.sub?.percentage),
         bass: safeSanitize(b.bands.bass?.percentage),
         mids: safeSanitize(b.bands.lowMid?.percentage || b.bands.mid?.percentage), 
@@ -197,22 +201,11 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
         air: safeSanitize(b.bands.air?.percentage),
         totalPercentage: safeSanitize(b.totalPercentage, 100)
       };
-      
-      console.log('🎯 [SPECTRAL_BANDS] Bandas extraídas com sucesso:', {
-        original: b.bands,
-        processed: technicalData.spectral_balance,
-        hasAllBands: !!(
-          technicalData.spectral_balance.sub && 
-          technicalData.spectral_balance.bass && 
-          technicalData.spectral_balance.mids && 
-          technicalData.spectral_balance.treble && 
-          technicalData.spectral_balance.presence && 
-          technicalData.spectral_balance.air
-        )
-      });
-    } else {
-      // Fallback se estrutura for diferente do esperado
-      technicalData.spectral_balance = {
+      console.log('✅ [SPECTRAL_BANDS] Usando estrutura .bands.bandName.percentage');
+    }
+    // Tentativa 2: Estrutura direta .bandName
+    else if (b.sub !== undefined || b.bass !== undefined) {
+      extractedBands = {
         sub: safeSanitize(b.sub),
         bass: safeSanitize(b.bass),
         mids: safeSanitize(b.lowMid || b.mids),
@@ -221,14 +214,59 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
         air: safeSanitize(b.air || b.brilliance),
         totalPercentage: safeSanitize(b.totalPercentage, 100)
       };
-      
-      console.log('⚠️ [SPECTRAL_BANDS] Usando estrutura de fallback:', {
-        original: b,
-        processed: technicalData.spectral_balance
+      console.log('✅ [SPECTRAL_BANDS] Usando estrutura direta .bandName');
+    }
+    // Tentativa 3: Procurar por valores numéricos válidos na estrutura
+    else {
+      const keys = Object.keys(b);
+      extractedBands = {
+        sub: safeSanitize(findNumericValue(b, ['sub', 'sub_bass', 'subBass'])),
+        bass: safeSanitize(findNumericValue(b, ['bass', 'low_bass'])),
+        mids: safeSanitize(findNumericValue(b, ['mids', 'mid', 'lowMid', 'low_mid'])),
+        treble: safeSanitize(findNumericValue(b, ['treble', 'highMid', 'high_mid'])),
+        presence: safeSanitize(findNumericValue(b, ['presence', 'high'])),
+        air: safeSanitize(findNumericValue(b, ['air', 'brilliance', 'ultra_high'])),
+        totalPercentage: safeSanitize(b.totalPercentage || 100)
+      };
+      console.log('⚠️ [SPECTRAL_BANDS] Usando busca flexível por valores numéricos');
+    }
+    
+    // Verificar se temos valores válidos
+    const hasValidData = extractedBands && Object.values(extractedBands).some(val => 
+      typeof val === 'number' && val > 0 && val !== null && !isNaN(val)
+    );
+    
+    if (hasValidData) {
+      technicalData.spectral_balance = extractedBands;
+      console.log('🎯 [SPECTRAL_BANDS] Bandas extraídas com sucesso:', {
+        processed: technicalData.spectral_balance,
+        hasAllBands: !!(
+          technicalData.spectral_balance.sub && 
+          technicalData.spectral_balance.bass && 
+          technicalData.spectral_balance.mids && 
+          technicalData.spectral_balance.treble && 
+          technicalData.spectral_balance.presence && 
+          technicalData.spectral_balance.air
+        ),
+        totalValues: Object.values(extractedBands).filter(v => typeof v === 'number' && v > 0).length
       });
+    } else {
+      // Fallback com status de erro específico
+      technicalData.spectral_balance = {
+        sub: 0,
+        bass: 0, 
+        mids: 0,
+        treble: 0,
+        presence: 0,
+        air: 0,
+        totalPercentage: 0,
+        _status: 'data_structure_invalid',
+        _debug: { receivedKeys: Object.keys(b), receivedData: b }
+      };
+      console.error('❌ [SPECTRAL_BANDS] Estrutura de dados inválida, valores não extraídos');
     }
   } else {
-    // 🚨 Fallback: se não há bandas calculadas, usar valores padrão para evitar null
+    // 🚨 Fallback: se não há bandas calculadas
     technicalData.spectral_balance = {
       sub: 0,
       bass: 0, 
@@ -239,8 +277,24 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
       totalPercentage: 0,
       _status: 'not_calculated'
     };
-    
-    console.log('⚠️ [SPECTRAL_BANDS] Bandas não calculadas, usando fallback');
+    console.log('⚠️ [SPECTRAL_BANDS] Bandas não calculadas no pipeline');
+  }
+  
+  // 🔧 Função auxiliar para buscar valores numéricos
+  function findNumericValue(obj, keys) {
+    for (const key of keys) {
+      if (obj[key] !== undefined && typeof obj[key] === 'number' && !isNaN(obj[key])) {
+        return obj[key];
+      }
+      // Buscar em sub-objetos também
+      if (obj[key] && typeof obj[key] === 'object' && obj[key].percentage !== undefined) {
+        return obj[key].percentage;
+      }
+      if (obj[key] && typeof obj[key] === 'object' && obj[key].value !== undefined) {
+        return obj[key].value;
+      }
+    }
+    return null;
   }
 
   // ===== RMS =====
@@ -272,39 +326,127 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.dcOffset = null;
   }
 
-  // ===== Dominant Frequencies (Corrigido para nunca retornar null) =====
+  // ===== Dominant Frequencies (Corrigido para garantir valores reais) =====
+  let finalDominantFreqs = null;
+  
+  // 🎯 MÚLTIPLAS TENTATIVAS de extrair frequências dominantes
+  console.log('🎵 [DOMINANT_FREQ_DEBUG] Fontes disponíveis:', {
+    hasDirectDominantFreq: !!(coreMetrics.dominantFrequencies),
+    directStructure: coreMetrics.dominantFrequencies,
+    hasFFTDominantFreq: !!(coreMetrics.fft?.dominantFrequencies),
+    fftStructure: coreMetrics.fft?.dominantFrequencies,
+    hasFFTSpectrum: !!(coreMetrics.fft?.magnitudeSpectrum)
+  });
+  
+  // Tentativa 1: Usar dominantFrequencies direto do core metrics
   if (coreMetrics.dominantFrequencies && coreMetrics.dominantFrequencies.value) {
-    technicalData.dominantFrequencies = {
+    finalDominantFreqs = {
       value: safeSanitize(coreMetrics.dominantFrequencies.value),
       unit: coreMetrics.dominantFrequencies.unit || 'Hz',
       detailed: {
         primary: safeSanitize(coreMetrics.dominantFrequencies.value),
-        secondary: null,
-        peaks: []
+        secondary: safeSanitize(coreMetrics.dominantFrequencies.detailed?.secondary),
+        peaks: coreMetrics.dominantFrequencies.detailed?.peaks || []
       }
     };
-  } else if (coreMetrics.fft?.dominantFrequencies && Array.isArray(coreMetrics.fft.dominantFrequencies)) {
+    console.log('✅ [DOMINANT_FREQ] Usando dados diretos do core metrics');
+  }
+  // Tentativa 2: Usar array de frequências do FFT
+  else if (coreMetrics.fft?.dominantFrequencies && Array.isArray(coreMetrics.fft.dominantFrequencies) && coreMetrics.fft.dominantFrequencies.length > 0) {
     const freqArray = coreMetrics.fft.dominantFrequencies.slice(0, 10).map(f => ({
       frequency: safeSanitize(f.frequency),
       occurrences: safeSanitize(f.occurrences, 1),
-      magnitude: safeSanitize(f.magnitude)
+      magnitude: safeSanitize(f.magnitude),
+      consistency: safeSanitize(f.consistency, 0)
     }));
-    technicalData.dominantFrequencies = freqArray.length > 0 ? freqArray : [];
-  } else {
-    // 🚨 Fail-safe: nunca retornar null, sempre array vazio ou estrutura padrão
-    technicalData.dominantFrequencies = {
-      value: 0,
+    
+    if (freqArray.length > 0 && freqArray[0].frequency) {
+      finalDominantFreqs = {
+        value: freqArray[0].frequency,
+        unit: 'Hz',
+        detailed: {
+          primary: freqArray[0].frequency,
+          secondary: freqArray[1]?.frequency || null,
+          peaks: freqArray
+        }
+      };
+      console.log('✅ [DOMINANT_FREQ] Usando array do FFT');
+    }
+  }
+  // Tentativa 3: Calcular na hora usando espectro disponível
+  else if (coreMetrics.fft?.magnitudeSpectrum && Array.isArray(coreMetrics.fft.magnitudeSpectrum) && coreMetrics.fft.magnitudeSpectrum.length > 0) {
+    try {
+      // Importar e executar calculateDominantFrequencies na hora
+      const spectrum = coreMetrics.fft.magnitudeSpectrum[0]; // Primeiro frame
+      
+      if (spectrum && Array.isArray(spectrum) && spectrum.length > 0) {
+        console.log('🔄 [DOMINANT_FREQ] Tentando calcular na hora do JSON output');
+        
+        // Implementação simplificada de detecção de picos
+        const sampleRate = 48000;
+        const fftSize = spectrum.length * 2;
+        const frequencyResolution = sampleRate / fftSize;
+        
+        // Encontrar picos simples
+        const peaks = [];
+        for (let i = 2; i < spectrum.length - 2; i++) {
+          const freq = i * frequencyResolution;
+          if (freq >= 20 && freq <= 20000 && // Faixa audível
+              spectrum[i] > spectrum[i-1] && 
+              spectrum[i] > spectrum[i+1] &&
+              spectrum[i] > 0.001) { // Threshold mínimo
+            peaks.push({
+              frequency: Math.round(freq),
+              magnitude: spectrum[i]
+            });
+          }
+        }
+        
+        // Ordenar por magnitude
+        peaks.sort((a, b) => b.magnitude - a.magnitude);
+        
+        if (peaks.length > 0) {
+          finalDominantFreqs = {
+            value: peaks[0].frequency,
+            unit: 'Hz',
+            detailed: {
+              primary: peaks[0].frequency,
+              secondary: peaks[1]?.frequency || null,
+              peaks: peaks.slice(0, 5).map(p => ({
+                frequency: p.frequency,
+                magnitude: p.magnitude,
+                consistency: 1.0
+              }))
+            }
+          };
+          console.log('✅ [DOMINANT_FREQ] Calculado na hora com sucesso:', {
+            primary: peaks[0].frequency,
+            totalPeaks: peaks.length
+          });
+        }
+      }
+    } catch (calcError) {
+      console.warn('⚠️ [DOMINANT_FREQ] Falha no cálculo na hora:', calcError.message);
+    }
+  }
+  
+  // Se ainda não temos frequências, usar estrutura com null mas SEM zeros falsos
+  if (!finalDominantFreqs) {
+    finalDominantFreqs = {
+      value: null,
       unit: 'Hz',
       detailed: {
-        primary: 0,
+        primary: null,
         secondary: null,
         peaks: []
       },
-      _status: 'not_calculated'
+      _status: 'not_calculated',
+      _reason: 'no_spectrum_data_available'
     };
-    
-    console.log('⚠️ [DOMINANT_FREQUENCIES] Frequências dominantes não calculadas, usando fallback');
+    console.log('⚠️ [DOMINANT_FREQ] Nenhuma frequência disponível, usando null');
   }
+  
+  technicalData.dominantFrequencies = finalDominantFreqs;
 
   // ===== Spectral Uniformity =====
   if (coreMetrics.spectralUniformity && typeof coreMetrics.spectralUniformity === 'object') {
@@ -394,7 +536,36 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     dcOffset: technicalData.dcOffset,
     spectralUniformity: technicalData.spectralUniformity,
 
-    dominantFrequencies: technicalData.dominantFrequencies,
+    // 🎵 DOMINANT FREQUENCIES (Estrutura aprimorada para UI)
+    dominantFrequencies: (() => {
+      const domFreq = technicalData.dominantFrequencies;
+      
+      // Se não temos frequências válidas, retornar estrutura vazia
+      if (!domFreq || domFreq._status === 'not_calculated' || !domFreq.value) {
+        return {
+          value: null,
+          unit: 'Hz',
+          detailed: {
+            primary: null,
+            secondary: null,
+            peaks: []
+          },
+          status: 'not_calculated'
+        };
+      }
+      
+      // Retornar estrutura completa com dados válidos
+      return {
+        value: domFreq.value,
+        unit: domFreq.unit || 'Hz',
+        detailed: {
+          primary: domFreq.detailed?.primary || domFreq.value,
+          secondary: domFreq.detailed?.secondary || null,
+          peaks: domFreq.detailed?.peaks || []
+        },
+        status: 'calculated'
+      };
+    })(),
 
     problemsAnalysis: technicalData.problemsAnalysis,
 
@@ -634,7 +805,7 @@ function generateGenreReference(technicalData, genre) {
   // Incluir bandas espectrais calculadas na comparação de referência
   const spectralBands = technicalData.spectral_balance;
   
-  if (spectralBands && typeof spectralBands === 'object') {
+  if (spectralBands && typeof spectralBands === 'object' && spectralBands._status !== 'not_calculated') {
     // Definir alvos por gênero (valores baseados nos arquivos de referência)
     const bandTargets = {
       trance: {
@@ -681,7 +852,7 @@ function generateGenreReference(technicalData, genre) {
       const bandValue = spectralBands[bandKey];
       const target = targets[targetKey];
       
-      if (target && typeof bandValue === 'number' && !isNaN(bandValue)) {
+      if (target && typeof bandValue === 'number' && !isNaN(bandValue) && bandValue > 0) {
         const delta = Math.abs(bandValue - target.target);
         const isWithinTolerance = delta <= target.tolerance;
         
@@ -695,6 +866,73 @@ function generateGenreReference(technicalData, genre) {
         });
       }
     });
+  }
+  
+  // ===== 🎵 FREQUÊNCIAS DOMINANTES =====
+  // Incluir frequências dominantes na comparação se disponíveis
+  const dominantFreqs = technicalData.dominantFrequencies;
+  
+  if (dominantFreqs && dominantFreqs.value && dominantFreqs._status !== 'not_calculated') {
+    const primaryFreq = dominantFreqs.value || dominantFreqs.detailed?.primary;
+    
+    if (primaryFreq && typeof primaryFreq === 'number' && primaryFreq > 0) {
+      // Análise básica da frequência dominante
+      let freqCategory = 'Desconhecido';
+      let idealRange = { min: 0, max: 20000 };
+      
+      if (primaryFreq < 60) {
+        freqCategory = 'Sub-Bass';
+        idealRange = { min: 40, max: 80 };
+      } else if (primaryFreq < 150) {
+        freqCategory = 'Bass';
+        idealRange = { min: 60, max: 120 };
+      } else if (primaryFreq < 500) {
+        freqCategory = 'Low-Mid';
+        idealRange = { min: 150, max: 400 };
+      } else if (primaryFreq < 2000) {
+        freqCategory = 'Mid';
+        idealRange = { min: 500, max: 1500 };
+      } else if (primaryFreq < 5000) {
+        freqCategory = 'High-Mid';
+        idealRange = { min: 2000, max: 4000 };
+      } else if (primaryFreq < 10000) {
+        freqCategory = 'Presence';
+        idealRange = { min: 5000, max: 8000 };
+      } else {
+        freqCategory = 'Air';
+        idealRange = { min: 10000, max: 15000 };
+      }
+      
+      const isInIdealRange = primaryFreq >= idealRange.min && primaryFreq <= idealRange.max;
+      const status = isInIdealRange ? "✅ IDEAL" : "⚠️ ANALISAR";
+      
+      references.push({
+        metric: `Frequência Dominante (${freqCategory})`,
+        value: Math.round(primaryFreq),
+        ideal: `${idealRange.min}-${idealRange.max}`,
+        unit: "Hz",
+        status: status,
+        category: "dominant_frequency"
+      });
+      
+      // Adicionar picos adicionais se disponíveis
+      if (dominantFreqs.detailed?.peaks && Array.isArray(dominantFreqs.detailed.peaks)) {
+        const significantPeaks = dominantFreqs.detailed.peaks
+          .filter(peak => peak.frequency && peak.frequency !== primaryFreq)
+          .slice(0, 2); // Top 2 picos adicionais
+        
+        significantPeaks.forEach((peak, index) => {
+          references.push({
+            metric: `${index + 2}º Pico Espectral`,
+            value: Math.round(peak.frequency),
+            ideal: "Variável",
+            unit: "Hz",
+            status: "ℹ️ INFO",
+            category: "spectral_peaks"
+          });
+        });
+      }
+    }
   }
   
   return references;
