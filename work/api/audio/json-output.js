@@ -174,22 +174,59 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
   // ===== Spectral Bands (Corrigido para incluir na comparação) =====
   if (coreMetrics.spectralBands?.aggregated) {
     const b = coreMetrics.spectralBands.aggregated;
-    technicalData.spectral_balance = {
-      sub: safeSanitize(b.sub),
-      bass: safeSanitize(b.bass),
-      mids: safeSanitize(b.lowMid || b.mids), // fallback para mids
-      treble: safeSanitize(b.highMid || b.treble), // fallback para treble  
-      presence: safeSanitize(b.presence),
-      air: safeSanitize(b.air || b.brilliance), // fallback para air
-      totalPercentage: safeSanitize(b.totalPercentage, 100)
-    };
     
-    // 🔍 Debug log para verificar se as bandas estão sendo incluídas
-    console.log('🎯 [SPECTRAL_BANDS] Bandas incluídas no JSON:', {
-      original: b,
-      processed: technicalData.spectral_balance,
-      hasAllBands: !!(b.sub && b.bass && (b.lowMid || b.mids) && (b.highMid || b.treble) && b.presence)
+    // 🔍 Debug detalhado da estrutura recebida
+    console.log('🎯 [SPECTRAL_BANDS_DEBUG] Estrutura completa recebida:', {
+      hasAggregated: !!b,
+      aggregatedKeys: b ? Object.keys(b) : null,
+      hasBands: !!(b && b.bands),
+      bandsKeys: b?.bands ? Object.keys(b.bands) : null,
+      sampleBandData: b?.bands?.sub || null,
+      totalPercentage: b?.totalPercentage || null,
+      isValid: b?.valid || null
     });
+    
+    // ✅ CORREÇÃO: Acessar dados em b.bands.bandName.percentage
+    if (b.bands && typeof b.bands === 'object') {
+      technicalData.spectral_balance = {
+        sub: safeSanitize(b.bands.sub?.percentage),
+        bass: safeSanitize(b.bands.bass?.percentage),
+        mids: safeSanitize(b.bands.lowMid?.percentage || b.bands.mid?.percentage), 
+        treble: safeSanitize(b.bands.highMid?.percentage), 
+        presence: safeSanitize(b.bands.presence?.percentage),
+        air: safeSanitize(b.bands.air?.percentage),
+        totalPercentage: safeSanitize(b.totalPercentage, 100)
+      };
+      
+      console.log('🎯 [SPECTRAL_BANDS] Bandas extraídas com sucesso:', {
+        original: b.bands,
+        processed: technicalData.spectral_balance,
+        hasAllBands: !!(
+          technicalData.spectral_balance.sub && 
+          technicalData.spectral_balance.bass && 
+          technicalData.spectral_balance.mids && 
+          technicalData.spectral_balance.treble && 
+          technicalData.spectral_balance.presence && 
+          technicalData.spectral_balance.air
+        )
+      });
+    } else {
+      // Fallback se estrutura for diferente do esperado
+      technicalData.spectral_balance = {
+        sub: safeSanitize(b.sub),
+        bass: safeSanitize(b.bass),
+        mids: safeSanitize(b.lowMid || b.mids),
+        treble: safeSanitize(b.highMid || b.treble),  
+        presence: safeSanitize(b.presence),
+        air: safeSanitize(b.air || b.brilliance),
+        totalPercentage: safeSanitize(b.totalPercentage, 100)
+      };
+      
+      console.log('⚠️ [SPECTRAL_BANDS] Usando estrutura de fallback:', {
+        original: b,
+        processed: technicalData.spectral_balance
+      });
+    }
   } else {
     // 🚨 Fallback: se não há bandas calculadas, usar valores padrão para evitar null
     technicalData.spectral_balance = {
@@ -598,28 +635,36 @@ function generateGenreReference(technicalData, genre) {
   const spectralBands = technicalData.spectral_balance;
   
   if (spectralBands && typeof spectralBands === 'object') {
-    // Definir alvos por gênero (valores padrão para referência)
+    // Definir alvos por gênero (valores baseados nos arquivos de referência)
     const bandTargets = {
       trance: {
-        sub: { target: 18.5, tolerance: 2.5, name: "Sub (50-120Hz)" },
-        bass: { target: 20.2, tolerance: 2.5, name: "Bass (120-500Hz)" },
+        sub: { target: 18.5, tolerance: 2.5, name: "Sub (20-60Hz)" },
+        bass: { target: 20.2, tolerance: 2.5, name: "Bass (60-150Hz)" },
         mids: { target: 16.5, tolerance: 2.5, name: "Médios (500-2kHz)" },
-        treble: { target: 15.8, tolerance: 2.5, name: "Agudos (2-8kHz)" },
-        presence: { target: 14.0, tolerance: 2.5, name: "Presença (8-12kHz)" },
-        air: { target: 12.0, tolerance: 3.0, name: "Ar (12kHz+)" }
+        treble: { target: 15.8, tolerance: 2.5, name: "Agudos (2-5kHz)" },
+        presence: { target: 14.0, tolerance: 2.5, name: "Presença (5-10kHz)" },
+        air: { target: 12.0, tolerance: 3.0, name: "Ar (10-20kHz)" }
+      },
+      funk_mandela: {
+        sub: { target: 29.5, tolerance: 3.0, name: "Sub (20-60Hz)" },
+        bass: { target: 26.8, tolerance: 3.0, name: "Bass (60-150Hz)" },
+        mids: { target: 12.4, tolerance: 2.5, name: "Médios (500-2kHz)" },
+        treble: { target: 8.2, tolerance: 2.5, name: "Agudos (2-5kHz)" },
+        presence: { target: 7.1, tolerance: 2.5, name: "Presença (5-10kHz)" },
+        air: { target: 4.0, tolerance: 3.0, name: "Ar (10-20kHz)" }
       },
       funk: {
-        sub: { target: 22.0, tolerance: 3.0, name: "Sub (50-120Hz)" },
-        bass: { target: 25.0, tolerance: 3.0, name: "Bass (120-500Hz)" },
+        sub: { target: 25.0, tolerance: 3.0, name: "Sub (20-60Hz)" },
+        bass: { target: 24.0, tolerance: 3.0, name: "Bass (60-150Hz)" },
         mids: { target: 18.0, tolerance: 2.5, name: "Médios (500-2kHz)" },
-        treble: { target: 16.0, tolerance: 2.5, name: "Agudos (2-8kHz)" },
-        presence: { target: 12.0, tolerance: 2.5, name: "Presença (8-12kHz)" },
-        air: { target: 8.0, tolerance: 3.0, name: "Ar (12kHz+)" }
+        treble: { target: 16.0, tolerance: 2.5, name: "Agudos (2-5kHz)" },
+        presence: { target: 12.0, tolerance: 2.5, name: "Presença (5-10kHz)" },
+        air: { target: 8.0, tolerance: 3.0, name: "Ar (10-20kHz)" }
       }
     };
     
     // Selecionar alvos baseado no gênero (fallback para trance)
-    const targets = bandTargets[genre] || bandTargets.trance;
+    const targets = bandTargets[genre] || bandTargets[genre.replace(/\s+/g, '_')] || bandTargets.funk || bandTargets.trance;
     
     // Mapear nomes das bandas do pipeline para os alvos
     const bandMapping = {
