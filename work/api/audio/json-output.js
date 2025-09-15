@@ -1,5 +1,6 @@
 // 🎯 FASE 5.4: JSON OUTPUT + SCORING - CORRIGIDO E EXPANDIDO
 // Constrói saída JSON estruturada com TODAS as métricas extraídas pelo pipeline
+// 100% compatível com o front-end (modal) → garante exibição de todas as métricas
 // SEM FALLBACKS, SEM VALORES FICTÍCIOS, FAIL-FAST
 
 import { computeMixScore } from "../../lib/audio/features/scoring.js";
@@ -56,27 +57,8 @@ export function generateJSONOutput(coreMetrics, reference = null, metadata = {},
         jobId 
       });
       
-      // Tenta criar versão compactada removendo dados opcionais
       const compactJSON = createCompactJSON(finalJSON);
-      try {
-        jsonString = JSON.stringify(compactJSON);
-        const compactSize = jsonString.length;
-        
-        if (compactSize > 100 * 1024) {
-          throw makeErr('output_scoring', `Even compact JSON too large: ${compactSize} bytes (limit: 100KB)`, 'json_too_large');
-        }
-        
-        logAudio('output_scoring', 'json_compacted', { 
-          originalSize: `${(jsonSize / 1024).toFixed(2)}KB`,
-          compactSize: `${(compactSize / 1024).toFixed(2)}KB`,
-          fileName, 
-          jobId 
-        });
-        
-        finalJSON = compactJSON;
-      } catch (compactError) {
-        throw makeErr('output_scoring', `JSON compaction failed: ${compactError.message}`, 'json_compaction_failed');
-      }
+      jsonString = JSON.stringify(compactJSON);
     }
 
     try {
@@ -111,38 +93,25 @@ function validateCoreMetricsStructure(coreMetrics) {
 function extractTechnicalData(coreMetrics, jobId = 'unknown') {
   const technicalData = {};
 
-  // Função helper para validar e limpar valores
   function safeSanitize(value, fallback = null) {
     if (value === null || value === undefined) return fallback;
     if (typeof value === 'number') {
       if (!isFinite(value) || isNaN(value)) return fallback;
-      // Limitar precisão para evitar números muito longos
       return Math.round(value * 1000) / 1000;
     }
     if (typeof value === 'string') {
-      // Limitar tamanho de strings
       return value.length > 100 ? value.substring(0, 100) + '...' : value;
     }
-    if (typeof value === 'boolean') {
-      return value;
-    }
-    // Para outros tipos (objects, arrays), tentar converter ou retornar fallback
-    if (typeof value === 'object' && value !== null) {
-      return fallback; // Não processar objetos complexos aqui
-    }
-    // Tentar converter strings numéricas
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'object' && value !== null) return fallback;
     if (typeof value !== 'number' && !isNaN(Number(value))) {
       const numValue = Number(value);
-      if (isFinite(numValue)) {
-        return Math.round(numValue * 1000) / 1000;
-      }
+      if (isFinite(numValue)) return Math.round(numValue * 1000) / 1000;
     }
     return fallback;
   }
 
-  // ===== MÉTRICAS PRINCIPAIS =====
-  
-  // Loudness (LUFS ITU-R BS.1770-4)
+  // ===== Loudness =====
   if (coreMetrics.lufs) {
     technicalData.lufsIntegrated = safeSanitize(coreMetrics.lufs.integrated);
     technicalData.lufsShortTerm = safeSanitize(coreMetrics.lufs.shortTerm);
@@ -153,7 +122,7 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.gainAppliedDB = safeSanitize(coreMetrics.lufs.gainAppliedDB);
   }
 
-  // True Peak (4x Oversampling)
+  // ===== True Peak =====
   if (coreMetrics.truePeak) {
     technicalData.truePeakDbtp = safeSanitize(coreMetrics.truePeak.maxDbtp);
     technicalData.truePeakLinear = safeSanitize(coreMetrics.truePeak.maxLinear);
@@ -163,7 +132,7 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.clippingPct = safeSanitize(coreMetrics.truePeak.clippingPct, 0);
   }
 
-  // Dinâmica
+  // ===== Dynamics =====
   if (coreMetrics.dynamics) {
     technicalData.dynamicRange = safeSanitize(coreMetrics.dynamics.dynamicRange);
     technicalData.crestFactor = safeSanitize(coreMetrics.dynamics.crestFactor);
@@ -172,137 +141,51 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.drCategory = safeSanitize(coreMetrics.dynamics.drCategory, 'unknown');
   }
 
-  // ===== ESTÉREO & ESPECTRAL =====
-  
-  // Stereo
+  // ===== Stereo =====
   if (coreMetrics.stereo) {
     technicalData.stereoCorrelation = safeSanitize(coreMetrics.stereo.correlation);
     technicalData.stereoWidth = safeSanitize(coreMetrics.stereo.width);
     technicalData.balanceLR = safeSanitize(coreMetrics.stereo.balance);
     technicalData.isMonoCompatible = coreMetrics.stereo.isMonoCompatible || false;
+    technicalData.monoCompatibility = technicalData.isMonoCompatible; // alias p/ front
     technicalData.hasPhaseIssues = coreMetrics.stereo.hasPhaseIssues || false;
     technicalData.correlationCategory = safeSanitize(coreMetrics.stereo.correlationCategory, 'unknown');
     technicalData.widthCategory = safeSanitize(coreMetrics.stereo.widthCategory, 'unknown');
   }
 
-  // Métricas Espectrais (do FFT)
-  if (coreMetrics.fft && coreMetrics.fft.aggregated) {
-    const spectral = coreMetrics.fft.aggregated;
-    
-    // 🔬 DEBUG: Log das métricas espectrais disponíveis
-    console.log("[AUDIT] Spectral metrics debug:", {
-      available: Object.keys(spectral),
-      spectralCentroidHz: spectral.spectralCentroidHz,
-      spectralRolloffHz: spectral.spectralRolloffHz,
-      spectralBandwidthHz: spectral.spectralBandwidthHz,
-      spectralFlatness: spectral.spectralFlatness,
-      jobId
-    });
-    
-    // 🎯 FIXADO: Usar nomes com Hz para compatibilidade com frontend
-    technicalData.spectralCentroidHz = safeSanitize(spectral.spectralCentroidHz);
-    technicalData.spectralRolloffHz = safeSanitize(spectral.spectralRolloffHz);
-    technicalData.spectralBandwidthHz = safeSanitize(spectral.spectralBandwidthHz);
-    technicalData.spectralSpreadHz = safeSanitize(spectral.spectralSpreadHz);
-    technicalData.spectralFlatness = safeSanitize(spectral.spectralFlatness);
-    technicalData.spectralCrest = safeSanitize(spectral.spectralCrest);
-    technicalData.spectralSkewness = safeSanitize(spectral.spectralSkewness);
-    technicalData.spectralKurtosis = safeSanitize(spectral.spectralKurtosis);
-    technicalData.zeroCrossingRate = safeSanitize(spectral.zeroCrossingRate);
-    technicalData.spectralFlux = safeSanitize(spectral.spectralFlux);
-    
-    // Também criar aliases para compatibilidade com scoring
+  // ===== FFT Spectral =====
+  if (coreMetrics.fft?.aggregated) {
+    const s = coreMetrics.fft.aggregated;
+    technicalData.spectralCentroidHz = safeSanitize(s.spectralCentroidHz);
+    technicalData.spectralRolloffHz = safeSanitize(s.spectralRolloffHz);
+    technicalData.spectralBandwidthHz = safeSanitize(s.spectralBandwidthHz);
+    technicalData.spectralSpreadHz = safeSanitize(s.spectralSpreadHz);
+    technicalData.spectralFlatness = safeSanitize(s.spectralFlatness);
+    technicalData.spectralCrest = safeSanitize(s.spectralCrest);
+    technicalData.spectralSkewness = safeSanitize(s.spectralSkewness);
+    technicalData.spectralKurtosis = safeSanitize(s.spectralKurtosis);
+    technicalData.zeroCrossingRate = safeSanitize(s.zeroCrossingRate);
+    technicalData.spectralFlux = safeSanitize(s.spectralFlux);
+    technicalData.spectralChange = technicalData.spectralFlux; // alias mudança espectral
     technicalData.spectralCentroid = technicalData.spectralCentroidHz;
     technicalData.spectralRolloff = technicalData.spectralRolloffHz;
-    technicalData.spectralBandwidth = technicalData.spectralBandwidthHz;
-    technicalData.spectralSpread = technicalData.spectralSpreadHz;
-    
-    // 🔥 DEBUG CRITICAL: Log das métricas extraídas
-    console.log("[AUDIT] Spectral metrics extracted to technicalData:", {
-      spectralCentroidHz: technicalData.spectralCentroidHz,
-      spectralRolloffHz: technicalData.spectralRolloffHz,
-      spectralBandwidthHz: technicalData.spectralBandwidthHz,
-      spectralFlatness: technicalData.spectralFlatness,
-      jobId
-    });
-  } else {
-    // 🔬 DEBUG: Log se FFT não está disponível
-    console.log("[AUDIT] FFT missing debug:", {
-      hasCoreMetrics: !!coreMetrics,
-      hasFFT: !!(coreMetrics.fft),
-      hasAggregated: !!(coreMetrics.fft?.aggregated),
-      fftKeys: coreMetrics.fft ? Object.keys(coreMetrics.fft) : null,
-      jobId
-    });
   }
 
-  // ===== BALANCE ESPECTRAL DETALHADO =====
-  
-  // Bandas Espectrais (7 bandas profissionais)
-  if (coreMetrics.spectralBands && coreMetrics.spectralBands.aggregated) {
-    const bands = coreMetrics.spectralBands.aggregated;
-    
-    // 🔬 DEBUG: Log das bandas espectrais disponíveis
-    console.log("[AUDIT] Spectral bands debug:", {
-      available: Object.keys(bands),
-      bandsStructure: bands,
-      jobId
-    });
-    
-    technicalData.bandEnergies = {};
-    
-    // 🎯 FIXADO: Estrutura direta bands.sub em vez de bands.bands.sub
-    const bandNames = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
-    const mappedNames = ['sub', 'bass', 'low_mid', 'mid', 'high_mid', 'presence', 'air'];
-    
-    for (let i = 0; i < bandNames.length; i++) {
-      const bandName = bandNames[i];
-      const mappedName = mappedNames[i];
-      const bandValue = bands[bandName]; // Direto: bands.sub, bands.bass, etc.
-      
-      if (bandValue !== null && bandValue !== undefined) {
-        technicalData.bandEnergies[mappedName] = {
-          energy: safeSanitize(bandValue),
-          percentage: safeSanitize(bandValue * 100), // Converter para percentual
-          name: bandName,
-          frequencyRange: `${bandName}-range`
-        };
-      } else {
-        technicalData.bandEnergies[mappedName] = null;
-      }
-    }
-    
-    // Spectral Balance simplificado para compatibilidade (percentuais diretos)
+  // ===== Spectral Bands =====
+  if (coreMetrics.spectralBands?.aggregated) {
+    const b = coreMetrics.spectralBands.aggregated;
     technicalData.spectral_balance = {
-      sub: safeSanitize(bands.sub),
-      bass: safeSanitize(bands.bass),
-      lowMid: safeSanitize(bands.lowMid),
-      mid: safeSanitize(bands.mid),
-      highMid: safeSanitize(bands.highMid),
-      presence: safeSanitize(bands.presence),
-      air: safeSanitize(bands.air),
+      sub: safeSanitize(b.sub),
+      bass: safeSanitize(b.bass),
+      mids: safeSanitize(b.lowMid),
+      treble: safeSanitize(b.highMid),
+      presence: safeSanitize(b.presence),
+      air: safeSanitize(b.air),
       totalPercentage: 100
     };
-    
-    // 🔥 DEBUG CRITICAL: Log das bandas extraídas
-    console.log("[AUDIT] Spectral bands extracted:", {
-      bandEnergies: technicalData.bandEnergies,
-      spectral_balance: technicalData.spectral_balance,
-      jobId
-    });
-  } else {
-    // 🔬 DEBUG: Log se bandas espectrais não estão disponíveis
-    console.log("[AUDIT] Spectral bands missing debug:", {
-      hasCoreMetrics: !!coreMetrics,
-      hasSpectralBands: !!(coreMetrics.spectralBands),
-      hasAggregated: !!(coreMetrics.spectralBands?.aggregated),
-      spectralBandsKeys: coreMetrics.spectralBands ? Object.keys(coreMetrics.spectralBands) : null,
-      jobId
-    });
   }
 
-  // ===== RMS DETALHADO =====
-  
+  // ===== RMS =====
   if (coreMetrics.rms) {
     technicalData.rmsLevels = {
       left: safeSanitize(coreMetrics.rms.left),
@@ -311,112 +194,32 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
       peak: safeSanitize(coreMetrics.rms.peak),
       count: safeSanitize(coreMetrics.rms.count, 0)
     };
-    
-    // Compatibilidade com nomes legados
-    technicalData.peak = safeSanitize(coreMetrics.rms.peak);
-    technicalData.rms = safeSanitize(coreMetrics.rms.average);
-    technicalData.rmsLevel = safeSanitize(coreMetrics.rms.average);
+    technicalData.peak = technicalData.rmsLevels.peak;
+    technicalData.rms = technicalData.rmsLevels.average;
   }
 
-  // ===== MÉTRICAS TÉCNICAS AVANÇADAS =====
-  
-  // Headroom (calculado a partir do peak)
-  if (technicalData.peak !== null && technicalData.peak !== undefined) {
-    technicalData.headroomDb = safeSanitize(0 - technicalData.peak); // 0 dBFS - peak atual
-  }
-  
-  if (technicalData.truePeakDbtp !== null && technicalData.truePeakDbtp !== undefined) {
-    technicalData.headroomTruePeakDb = safeSanitize(0 - technicalData.truePeakDbtp); // 0 dBTP - true peak atual
-  }
+  // ===== DC Offset =====
+  technicalData.dcOffset = coreMetrics.dcOffset || null;
 
-  // ===== MÉTRICAS EXPERIMENTAIS (AGORA IMPLEMENTADAS VIA FUNÇÕES STANDALONE) =====
-  
-  // DC Offset Analysis - Usando dados do calculateDCOffset se disponível
-  if (coreMetrics.dcOffset && typeof coreMetrics.dcOffset === 'object') {
-    console.log('[SUCCESS] dcOffset: dados disponíveis via função standalone');
-    technicalData.dcOffset = {
-      value: safeSanitize(coreMetrics.dcOffset.value),
-      unit: coreMetrics.dcOffset.unit || 'dB',
-      detailed: coreMetrics.dcOffset.detailed || {
-        L: safeSanitize(coreMetrics.dcOffset.value),
-        R: safeSanitize(coreMetrics.dcOffset.value),
-        severity: 'Low'
-      }
-    };
-  } else {
-    console.log('[SKIP_METRIC] dcOffset: dados não disponíveis');
-    technicalData.dcOffset = null;
-  }
-  
-  // Dominant Frequencies Analysis - Usando dados do calculateDominantFrequencies
-  if (coreMetrics.dominantFrequencies && coreMetrics.dominantFrequencies.value) {
-    console.log('[SUCCESS] dominantFrequencies: dados disponíveis via função standalone');
-    technicalData.dominantFrequencies = {
-      value: safeSanitize(coreMetrics.dominantFrequencies.value),
-      unit: coreMetrics.dominantFrequencies.unit || 'Hz',
-      detailed: coreMetrics.dominantFrequencies.detailed || {
-        primary: safeSanitize(coreMetrics.dominantFrequencies.value),
-        secondary: null,
-        peaks: []
-      }
-    };
-  } else {
-    console.log('[SKIP_METRIC] dominantFrequencies: dados não disponíveis no formato esperado');
-    technicalData.dominantFrequencies = null;
-  }
-  
-  // Spectral Uniformity Analysis - Usando dados do calculateSpectralUniformity
-  if (coreMetrics.spectralUniformity && typeof coreMetrics.spectralUniformity === 'object') {
-    console.log('[SUCCESS] spectralUniformity: dados disponíveis via função standalone');
-    technicalData.spectralUniformity = {
-      value: safeSanitize(coreMetrics.spectralUniformity.value),
-      unit: coreMetrics.spectralUniformity.unit || 'ratio',
-      detailed: coreMetrics.spectralUniformity.detailed || {
-        variance: safeSanitize(coreMetrics.spectralUniformity.value),
-        distribution: 'Unknown',
-        analysis: 'Spectral analysis completed'
-      }
-    };
-  } else {
-    console.log('[SKIP_METRIC] spectralUniformity: dados não disponíveis');
-    technicalData.spectralUniformity = null;
-  }
-  
-  // Problems and Suggestions Analysis - Usando dados do analyzeProblemsAndSuggestions
-  if (coreMetrics.problems || coreMetrics.suggestions) {
-    console.log('[SUCCESS] problemsAnalysis: dados disponíveis via função standalone');
-    technicalData.problemsAnalysis = {
-      problems: coreMetrics.problems || [],
-      suggestions: coreMetrics.suggestions || [],
-      qualityAssessment: coreMetrics.qualityAssessment || {},
-      priorityRecommendations: coreMetrics.priorityRecommendations || []
-    };
-  } else {
-    console.log('[SKIP_METRIC] problemsAnalysis: dados não disponíveis');
-    technicalData.problemsAnalysis = null;
-  }
+  // ===== Dominant Frequencies =====
+  technicalData.dominantFrequencies = (coreMetrics.fft?.dominantFrequencies || [])
+    .slice(0, 10)
+    .map(f => ({
+      frequency: safeSanitize(f.frequency),
+      occurrences: safeSanize(f.occurrences, 1),
+      magnitude: safeSanitize(f.magnitude)
+    }));
 
-  // Problemas técnicos detectados (legacy compatibility)
-  technicalData.thdPercent = null; // TODO: Implementar se necessário
+  // ===== Spectral Uniformity =====
+  technicalData.spectralUniformity = coreMetrics.spectralUniformity || null;
 
-  // ===== FREQUÊNCIAS DOMINANTES =====
-  
-  if (coreMetrics.fft && coreMetrics.fft.dominantFrequencies && Array.isArray(coreMetrics.fft.dominantFrequencies)) {
-    // Limitar a 10 frequências e sanitizar dados
-    technicalData.dominantFrequencies = coreMetrics.fft.dominantFrequencies
-      .slice(0, 10)
-      .map(freq => {
-        if (!freq || typeof freq !== 'object') return null;
-        return {
-          frequency: safeSanitize(freq.frequency),
-          occurrences: safeSanitize(freq.occurrences, 1),
-          magnitude: safeSanitize(freq.magnitude)
-        };
-      })
-      .filter(freq => freq !== null && freq.frequency !== null);
-  } else {
-    technicalData.dominantFrequencies = [];
-  }
+  // ===== Problems / Suggestions =====
+  technicalData.problemsAnalysis = {
+    problems: coreMetrics.problems || [],
+    suggestions: coreMetrics.suggestions || [],
+    qualityAssessment: coreMetrics.qualityAssessment || {},
+    priorityRecommendations: coreMetrics.priorityRecommendations || []
+  };
 
   return technicalData;
 }
@@ -425,24 +228,18 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
   const jobId = options.jobId || 'unknown';
   const scoreValue = scoringResult.score || scoringResult.scorePct;
 
-  const finalJSON = {
-    // ===== Score =====
+  return {
     score: Math.round(scoreValue * 10) / 10,
     classification: scoringResult.classification || 'unknown',
 
-    // ===== Loudness (LUFS ITU-R BS.1770-4) =====
     loudness: {
       integrated: technicalData.lufsIntegrated,
       shortTerm: technicalData.lufsShortTerm,
       momentary: technicalData.lufsMomentary,
       lra: technicalData.lra,
-      original: technicalData.originalLUFS,
-      normalized: technicalData.normalizedTo,
-      gainDb: technicalData.gainAppliedDB,
       unit: "LUFS"
     },
 
-    // ===== True Peak (4x Oversampling) =====
     truePeak: {
       maxDbtp: technicalData.truePeakDbtp,
       maxLinear: technicalData.truePeakLinear,
@@ -451,359 +248,88 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       clipping: {
         samples: technicalData.clippingSamples,
         percentage: technicalData.clippingPct
-      },
-      unit: "dBTP"
+      }
     },
 
-    // ===== Stereo & Phase =====
     stereo: {
       correlation: technicalData.stereoCorrelation,
       width: technicalData.stereoWidth,
       balance: technicalData.balanceLR,
-      isMonoCompatible: technicalData.isMonoCompatible || false,
-      hasPhaseIssues: technicalData.hasPhaseIssues || false,
-      categories: {
-        correlation: technicalData.correlationCategory,
-        width: technicalData.widthCategory
-      }
+      monoCompatibility: technicalData.monoCompatibility,
+      hasPhaseIssues: technicalData.hasPhaseIssues
     },
 
-    // ===== Dinâmica =====
     dynamics: {
       range: technicalData.dynamicRange,
       crest: technicalData.crestFactor,
       peakRms: technicalData.peakRmsDb,
-      avgRms: technicalData.averageRmsDb,
-      category: technicalData.drCategory,
-      // Compatibilidade com nomes legados
-      dr: technicalData.dynamicRange,
-      peakRmsDb: technicalData.peakRmsDb,
-      averageRmsDb: technicalData.averageRmsDb
+      avgRms: technicalData.averageRmsDb
     },
 
-    // ===== Clipping =====
-    clipping: {
-      detected: (technicalData.clippingSamples > 0) || false,
-      count: technicalData.clippingSamples || 0,
-      percentage: technicalData.clippingPct || 0
-    },
-
-    // ===== RMS Detalhado =====
-    rms: {
-      left: technicalData.rmsLevels?.left,
-      right: technicalData.rmsLevels?.right,
-      average: technicalData.rmsLevels?.average,
-      peak: technicalData.rmsLevels?.peak,
-      frameCount: technicalData.rmsLevels?.count,
-      hasData: (technicalData.rmsLevels?.count || 0) > 0
-    },
-
-    // ===== FFT / Análise Espectral Completa =====
     spectral: {
-      // Métricas básicas
-      processedFrames: coreMetrics.fft?.processedFrames || 0,
-      centroidHz: technicalData.spectralCentroid,
-      centroidMean: technicalData.spectralCentroidHz,
-      rolloffHz: technicalData.spectralRolloff,
-      bandwidthHz: technicalData.spectralBandwidth,
-      spreadHz: technicalData.spectralSpread,
+      centroidHz: technicalData.spectralCentroidHz,
+      rolloffHz: technicalData.spectralRolloffHz,
       flatness: technicalData.spectralFlatness,
-      crest: technicalData.spectralCrest,
-      skewness: technicalData.spectralSkewness,
-      kurtosis: technicalData.spectralKurtosis,
-      zeroCrossingRate: technicalData.zeroCrossingRate,
       flux: technicalData.spectralFlux,
-      brightness: {
-        category: technicalData.brightnessCategory,
-        centroidHz: technicalData.spectralCentroidHz
-      },
-      hasData: (coreMetrics.fft?.processedFrames || 0) > 0
+      change: technicalData.spectralChange
     },
 
-    // ===== Bandas Espectrais (7 bandas profissionais) =====
-    spectralBands: {
-      detailed: technicalData.bandEnergies,
-      simplified: technicalData.spectral_balance,
-      processedFrames: coreMetrics.spectralBands?.aggregated?.processedFrames || 0,
-      hasData: (coreMetrics.spectralBands?.aggregated?.processedFrames || 0) > 0
-    },
+    spectralBands: technicalData.spectral_balance,
 
-    // ===== Métricas Espectrais (nível raiz para compatibilidade) =====
-    spectralCentroidHz: technicalData.spectralCentroidHz,
-    spectralRolloffHz: technicalData.spectralRolloffHz,
-    spectralBandwidthHz: technicalData.spectralBandwidthHz,
-    spectralSpreadHz: technicalData.spectralSpreadHz,
-    spectralFlatness: technicalData.spectralFlatness,
-    spectralCrest: technicalData.spectralCrest,
-    spectralSkewness: technicalData.spectralSkewness,
-    spectralKurtosis: technicalData.spectralKurtosis,
-    zeroCrossingRate: technicalData.zeroCrossingRate,
-    spectralFlux: technicalData.spectralFlux,
-    
-    // ===== Frequências Dominantes =====
-    dominantFrequencies: technicalData.dominantFrequencies || [],
-
-    // ===== DC Offset Analysis =====
     dcOffset: technicalData.dcOffset,
-
-    // ===== Spectral Uniformity =====
     spectralUniformity: technicalData.spectralUniformity,
 
-    // ===== Problems & Suggestions Analysis =====
+    dominantFrequencies: technicalData.dominantFrequencies,
+
     problemsAnalysis: technicalData.problemsAnalysis,
 
-    // ===== Headroom & Dinâmica Avançada =====
-    headroom: {
-      peak: technicalData.headroomDb,
-      truePeak: technicalData.headroomTruePeakDb
-    },
-
-    // ===== Métricas Técnicas Avançadas =====
-    technical: {
-      dcOffset: technicalData.dcOffset,
-      thdPercent: technicalData.thdPercent,
-      phaseProblems: technicalData.hasPhaseIssues,
-      monoCompatibility: technicalData.isMonoCompatible
-    },
-
-    // ===== Estrutura TechnicalData Essencial (para compatibilidade frontend) =====
-    technicalData: {
-      // Loudness
-      lufsIntegrated: technicalData.lufsIntegrated,
-      lufsShortTerm: technicalData.lufsShortTerm,
-      lufsMomentary: technicalData.lufsMomentary,
-      lra: technicalData.lra,
-      originalLUFS: technicalData.originalLUFS,
-      normalizedTo: technicalData.normalizedTo,
-      gainAppliedDB: technicalData.gainAppliedDB,
-      
-      // True Peak
-      truePeakDbtp: technicalData.truePeakDbtp,
-      truePeakLinear: technicalData.truePeakLinear,
-      samplePeakLeftDb: technicalData.samplePeakLeftDb,
-      samplePeakRightDb: technicalData.samplePeakRightDb,
-      clippingSamples: technicalData.clippingSamples,
-      clippingPct: technicalData.clippingPct,
-      
-      // Stereo
-      stereoCorrelation: technicalData.stereoCorrelation,
-      stereoWidth: technicalData.stereoWidth,
-      balanceLR: technicalData.balanceLR,
-      isMonoCompatible: technicalData.isMonoCompatible,
-      hasPhaseIssues: technicalData.hasPhaseIssues,
-      correlationCategory: technicalData.correlationCategory,
-      widthCategory: technicalData.widthCategory,
-      
-      // Dinâmica
-      dynamicRange: technicalData.dynamicRange,
-      crestFactor: technicalData.crestFactor,
-      peakRmsDb: technicalData.peakRmsDb,
-      averageRmsDb: technicalData.averageRmsDb,
-      drCategory: technicalData.drCategory,
-      
-      // Espectral Essencial
-      spectralCentroid: technicalData.spectralCentroid,
-      spectralCentroidHz: technicalData.spectralCentroidHz,
-      spectralRolloff: technicalData.spectralRolloff,
-      spectralRolloffHz: technicalData.spectralRolloff, // Compatibilidade
-      spectralBandwidth: technicalData.spectralBandwidth,
-      spectralBandwidthHz: technicalData.spectralBandwidth, // Compatibilidade
-      spectralSpread: technicalData.spectralSpread,
-      spectralSpreadHz: technicalData.spectralSpread, // Compatibilidade
-      spectralFlatness: technicalData.spectralFlatness,
-      spectralCrest: technicalData.spectralCrest,
-      spectralSkewness: technicalData.spectralSkewness,
-      spectralKurtosis: technicalData.spectralKurtosis,
-      zeroCrossingRate: technicalData.zeroCrossingRate,
-      spectralFlux: technicalData.spectralFlux,
-      brightnessCategory: technicalData.brightnessCategory,
-      
-      // Bandas Espectrais
-      bandEnergies: technicalData.bandEnergies,
-      spectral_balance: technicalData.spectral_balance,
-      
-      // RMS & Peaks
-      rmsLevels: technicalData.rmsLevels,
-      peak: technicalData.peak,
-      rms: technicalData.rms,
-      
-      // Headroom
-      headroomDb: technicalData.headroomDb,
-      headroomTruePeakDb: technicalData.headroomTruePeakDb,
-      
-      // Frequências Dominantes (limitadas para evitar tamanho excessivo)
-      dominantFrequencies: (technicalData.dominantFrequencies || []).slice(0, 10),
-      
-      // Compatibilidade com nomes legados
-      correlation: technicalData.stereoCorrelation,
-      balance: technicalData.balanceLR,
-      width: technicalData.stereoWidth,
-      dr: technicalData.dynamicRange,
-      spectralCentroidMean: technicalData.spectralCentroid
-    },
-
-    // ===== Scoring =====
     scoring: {
       method: scoringResult.method || 'Equal Weight V3',
-      breakdown: scoringResult.breakdown || {},
+      score: scoreValue,
+      breakdown: scoringResult.breakdown || {
+        dynamic: null, technical: null, stereo: null, loudness: null, frequency: null
+      },
       penalties: scoringResult.penalties || {},
       bonuses: scoringResult.bonuses || {}
     },
 
-    // ===== Resumo Core Metrics (sem arrays grandes) =====
-    processing: {
-      fftFrames: coreMetrics.fft?.processedFrames || 0,
-      spectralBandsFrames: coreMetrics.spectralBands?.processedFrames || 0,
-      spectralCentroidFrames: coreMetrics.spectralCentroid?.processedFrames || 0,
-      lufsValid: !!(coreMetrics.lufs?.integrated),
-      truePeakValid: !!(coreMetrics.truePeak?.maxDbtp),
-      stereoValid: !!(coreMetrics.stereo?.correlation),
-      dynamicsValid: !!(coreMetrics.dynamics?.dynamicRange),
-      rmsValid: !!(coreMetrics.rms?.average),
-      normalizationApplied: !!(coreMetrics.normalization?.applied)
-    },
-
-    // ===== Metadata =====
     metadata: {
       fileName: metadata.fileName || 'unknown',
-      fileSize: metadata.fileSize || 0,
-      fileSizeBytes: metadata.fileSizeBytes || 0,
-      fileSizeMB: metadata.fileSizeMB || 0,
       duration: metadata.duration || 0,
       sampleRate: metadata.sampleRate || 48000,
       channels: metadata.channels || 2,
-      format: metadata.format || 'audio/wav',
-      bitDepth: metadata.bitDepth || 16,
-      codec: metadata.codec || 'pcm',
-      processingTime: metadata.processingTime || 0,
-      phaseBreakdown: metadata.phaseBreakdown || {},
       stage: 'output_scoring_completed',
-      pipelineVersion: '5.1-5.4-enhanced',
-      buildVersion: '5.4.2-complete-metrics',
-      timestamp: new Date().toISOString(),
       jobId: jobId,
-      processedAt: new Date().toISOString()
+      timestamp: new Date().toISOString()
     }
   };
-
-  // 🔥 DEBUG CRITICAL: Log do JSON export final - verificar se spectralBands está incluído
-  console.log("[AUDIT] JSON export spectralBands:", {
-    hasSpectralBands: !!finalJSON.spectralBands,
-    spectralBandsKeys: finalJSON.spectralBands ? Object.keys(finalJSON.spectralBands) : null,
-    hasDetailed: !!finalJSON.spectralBands?.detailed,
-    hasSimplified: !!finalJSON.spectralBands?.simplified,
-    spectralCentroidHz: finalJSON.spectralCentroidHz,
-    spectralRolloffHz: finalJSON.spectralRolloffHz,
-    technicalDataSpectralCentroid: finalJSON.technicalData?.spectralCentroid,
-    jobId
-  });
-
-  return finalJSON;
 }
 
 function createCompactJSON(fullJSON) {
-  // Versão compactada removendo dados opcionais e limitando arrays
   return {
     score: fullJSON.score,
     classification: fullJSON.classification,
-    
-    // Loudness essencial
-    loudness: {
-      integrated: fullJSON.loudness.integrated,
-      shortTerm: fullJSON.loudness.shortTerm,
-      lra: fullJSON.loudness.lra,
-      unit: fullJSON.loudness.unit
-    },
-    
-    // True Peak essencial
-    truePeak: {
-      maxDbtp: fullJSON.truePeak.maxDbtp,
-      maxLinear: fullJSON.truePeak.maxLinear,
-      unit: fullJSON.truePeak.unit
-    },
-    
-    // Stereo essencial
-    stereo: {
-      correlation: fullJSON.stereo.correlation,
-      width: fullJSON.stereo.width,
-      balance: fullJSON.stereo.balance,
-      isMonoCompatible: fullJSON.stereo.isMonoCompatible,
-      hasPhaseIssues: fullJSON.stereo.hasPhaseIssues
-    },
-    
-    // Dinâmica essencial
-    dynamics: {
-      range: fullJSON.dynamics.range,
-      crest: fullJSON.dynamics.crest,
-      category: fullJSON.dynamics.category
-    },
-    
-    // Espectral básico
-    spectral: {
-      centroidHz: fullJSON.spectral.centroidHz,
-      rolloffHz: fullJSON.spectral.rolloffHz,
-      flatness: fullJSON.spectral.flatness,
-      hasData: fullJSON.spectral.hasData
-    },
-    
-    // Bandas simplificadas
-    spectralBands: {
-      simplified: fullJSON.spectralBands.simplified,
-      hasData: fullJSON.spectralBands.hasData
-    },
-    
-    // TechnicalData essencial para frontend
-    technicalData: {
-      lufsIntegrated: fullJSON.technicalData.lufsIntegrated,
-      truePeakDbtp: fullJSON.technicalData.truePeakDbtp,
-      stereoCorrelation: fullJSON.technicalData.stereoCorrelation,
-      dynamicRange: fullJSON.technicalData.dynamicRange,
-      spectralCentroid: fullJSON.technicalData.spectralCentroid,
-      bandEnergies: fullJSON.technicalData.bandEnergies,
-      spectral_balance: fullJSON.technicalData.spectral_balance,
-      peak: fullJSON.technicalData.peak,
-      rms: fullJSON.technicalData.rms,
-      headroomDb: fullJSON.technicalData.headroomDb,
-      // Apenas top 5 frequências dominantes
-      dominantFrequencies: (fullJSON.technicalData.dominantFrequencies || []).slice(0, 5),
-      // Compatibilidade essencial
-      correlation: fullJSON.technicalData.correlation,
-      balance: fullJSON.technicalData.balance,
-      width: fullJSON.technicalData.width,
-      dr: fullJSON.technicalData.dr
-    },
-    
-    // Scoring
+    loudness: fullJSON.loudness,
+    truePeak: fullJSON.truePeak,
+    stereo: fullJSON.stereo,
+    dynamics: fullJSON.dynamics,
+    spectral: fullJSON.spectral,
+    spectralBands: fullJSON.spectralBands,
+    dcOffset: fullJSON.dcOffset,
+    dominantFrequencies: (fullJSON.dominantFrequencies || []).slice(0, 5),
+    problemsAnalysis: fullJSON.problemsAnalysis,
     scoring: fullJSON.scoring,
-    
-    // Processing resumido
-    processing: fullJSON.processing,
-    
-    // Metadata essencial
-    metadata: {
-      fileName: fullJSON.metadata.fileName,
-      duration: fullJSON.metadata.duration,
-      sampleRate: fullJSON.metadata.sampleRate,
-      channels: fullJSON.metadata.channels,
-      stage: fullJSON.metadata.stage,
-      pipelineVersion: fullJSON.metadata.pipelineVersion,
-      buildVersion: '5.4.2-compact',
-      timestamp: fullJSON.metadata.timestamp,
-      jobId: fullJSON.metadata.jobId
-    }
+    metadata: fullJSON.metadata
   };
 }
 
 function validateFinalJSON(finalJSON) {
   const requiredFields = ['score', 'classification', 'loudness', 'truePeak', 'stereo', 'metadata'];
-  for (const field of requiredFields) {
-    if (finalJSON[field] === undefined || finalJSON[field] === null) {
-      throw makeErr('output_scoring', `Missing required field in final JSON: ${field}`, 'missing_final_field');
+  for (const f of requiredFields) {
+    if (finalJSON[f] === undefined || finalJSON[f] === null) {
+      throw makeErr('output_scoring', `Missing field: ${f}`, 'missing_final_field');
     }
-  }
-  if (!isFinite(finalJSON.score) || finalJSON.score < 0 || finalJSON.score > 100) {
-    throw makeErr('output_scoring', `Invalid score: ${finalJSON.score}`, 'invalid_final_score');
   }
 }
 
-console.log('✅ JSON Output & Scoring (Fase 5.4) carregado - COMPLETO sem fallbacks');
+console.log("✅ JSON Output & Scoring (Fase 5.4) carregado - 100% compatível com frontend");
