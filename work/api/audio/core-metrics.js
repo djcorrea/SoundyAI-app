@@ -232,7 +232,7 @@ class CoreMetricsProcessor {
         // ========= NOVOS ANALISADORES =========
         dcOffset: dcOffsetMetrics, // ✅ NOVO: DC Offset analysis
         dominantFrequencies: dominantFreqMetrics, // ✅ NOVO: Dominant frequencies
-        uniformity: spectralUniformityMetrics, // ✅ NOVO: Spectral uniformity
+        spectralUniformity: spectralUniformityMetrics, // ✅ NOVO: Spectral uniformity
         
         normalization: {
           applied: normalizationResult.normalizationApplied,

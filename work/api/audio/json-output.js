@@ -196,22 +196,60 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     };
     technicalData.peak = technicalData.rmsLevels.peak;
     technicalData.rms = technicalData.rmsLevels.average;
+    technicalData.avgLoudness = technicalData.rmsLevels.average; // alias para Volume Médio
   }
 
   // ===== DC Offset =====
-  technicalData.dcOffset = coreMetrics.dcOffset || null;
+  if (coreMetrics.dcOffset && typeof coreMetrics.dcOffset === 'object') {
+    technicalData.dcOffset = {
+      value: safeSanitize(coreMetrics.dcOffset.value),
+      unit: coreMetrics.dcOffset.unit || 'dB',
+      detailed: {
+        L: safeSanitize(coreMetrics.dcOffset.detailed?.L || coreMetrics.dcOffset.value),
+        R: safeSanitize(coreMetrics.dcOffset.detailed?.R || coreMetrics.dcOffset.value),
+        severity: coreMetrics.dcOffset.detailed?.severity || 'Low'
+      }
+    };
+  } else {
+    technicalData.dcOffset = null;
+  }
 
   // ===== Dominant Frequencies =====
-  technicalData.dominantFrequencies = (coreMetrics.fft?.dominantFrequencies || [])
-    .slice(0, 10)
-    .map(f => ({
+  if (coreMetrics.dominantFrequencies && coreMetrics.dominantFrequencies.value) {
+    technicalData.dominantFrequencies = {
+      value: safeSanitize(coreMetrics.dominantFrequencies.value),
+      unit: coreMetrics.dominantFrequencies.unit || 'Hz',
+      detailed: {
+        primary: safeSanitize(coreMetrics.dominantFrequencies.value),
+        secondary: null,
+        peaks: []
+      }
+    };
+  } else if (coreMetrics.fft?.dominantFrequencies && Array.isArray(coreMetrics.fft.dominantFrequencies)) {
+    const freqArray = coreMetrics.fft.dominantFrequencies.slice(0, 10).map(f => ({
       frequency: safeSanitize(f.frequency),
-      occurrences: safeSanize(f.occurrences, 1),
+      occurrences: safeSanitize(f.occurrences, 1),
       magnitude: safeSanitize(f.magnitude)
     }));
+    technicalData.dominantFrequencies = freqArray;
+  } else {
+    technicalData.dominantFrequencies = null;
+  }
 
   // ===== Spectral Uniformity =====
-  technicalData.spectralUniformity = coreMetrics.spectralUniformity || null;
+  if (coreMetrics.spectralUniformity && typeof coreMetrics.spectralUniformity === 'object') {
+    technicalData.spectralUniformity = {
+      value: safeSanitize(coreMetrics.spectralUniformity.value),
+      unit: coreMetrics.spectralUniformity.unit || 'ratio',
+      detailed: {
+        variance: safeSanitize(coreMetrics.spectralUniformity.value),
+        distribution: coreMetrics.spectralUniformity.detailed?.distribution || 'Unknown',
+        analysis: 'Spectral analysis completed'
+      }
+    };
+  } else {
+    technicalData.spectralUniformity = null;
+  }
 
   // ===== Problems / Suggestions =====
   technicalData.problemsAnalysis = {
@@ -283,14 +321,106 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
 
     problemsAnalysis: technicalData.problemsAnalysis,
 
+    // ===== DIAGNOSTICS =====
+    diagnostics: {
+      problems: technicalData.problemsAnalysis?.problems || [],
+      suggestions: technicalData.problemsAnalysis?.suggestions || [],
+      prioritized: technicalData.problemsAnalysis?.priorityRecommendations || []
+    },
+
+    // ===== SCORES (Subscores) =====
+    scores: {
+      dynamicRange: scoringResult.breakdown?.dynamics || 0,
+      stereo: scoringResult.breakdown?.stereo || 0,
+      loudness: scoringResult.breakdown?.loudness || 0,
+      frequency: scoringResult.breakdown?.frequency || 0,
+      technical: scoringResult.breakdown?.technical || 0
+    },
+
     scoring: {
       method: scoringResult.method || 'Equal Weight V3',
       score: scoreValue,
       breakdown: scoringResult.breakdown || {
-        dynamic: null, technical: null, stereo: null, loudness: null, frequency: null
+        dynamics: null, technical: null, stereo: null, loudness: null, frequency: null
       },
       penalties: scoringResult.penalties || {},
       bonuses: scoringResult.bonuses || {}
+    },
+
+    // ===== REFERENCE COMPARISON =====
+    referenceComparison: options.reference?.comparison || [],
+
+    // ===== TECHNICAL DATA (Frontend Compatible) =====
+    technicalData: {
+      // Loudness
+      lufsIntegrated: technicalData.lufsIntegrated,
+      lufsShortTerm: technicalData.lufsShortTerm,
+      lufsMomentary: technicalData.lufsMomentary,
+      lra: technicalData.lra,
+      originalLUFS: technicalData.originalLUFS,
+      normalizedTo: technicalData.normalizedTo,
+      gainAppliedDB: technicalData.gainAppliedDB,
+      
+      // True Peak
+      truePeakDbtp: technicalData.truePeakDbtp,
+      truePeakLinear: technicalData.truePeakLinear,
+      samplePeakLeftDb: technicalData.samplePeakLeftDb,
+      samplePeakRightDb: technicalData.samplePeakRightDb,
+      clippingSamples: technicalData.clippingSamples,
+      clippingPct: technicalData.clippingPct,
+      
+      // Stereo
+      stereoCorrelation: technicalData.stereoCorrelation,
+      stereoWidth: technicalData.stereoWidth,
+      balanceLR: technicalData.balanceLR,
+      isMonoCompatible: technicalData.isMonoCompatible,
+      monoCompatibility: technicalData.monoCompatibility,
+      hasPhaseIssues: technicalData.hasPhaseIssues,
+      correlationCategory: technicalData.correlationCategory,
+      widthCategory: technicalData.widthCategory,
+      
+      // Dinâmica
+      dynamicRange: technicalData.dynamicRange,
+      crestFactor: technicalData.crestFactor,
+      peakRmsDb: technicalData.peakRmsDb,
+      averageRmsDb: technicalData.averageRmsDb,
+      avgLoudness: technicalData.avgLoudness,
+      drCategory: technicalData.drCategory,
+      
+      // Espectral
+      spectralCentroid: technicalData.spectralCentroid,
+      spectralCentroidHz: technicalData.spectralCentroidHz,
+      spectralRolloff: technicalData.spectralRolloff,
+      spectralRolloffHz: technicalData.spectralRolloffHz,
+      spectralBandwidthHz: technicalData.spectralBandwidthHz,
+      spectralSpreadHz: technicalData.spectralSpreadHz,
+      spectralFlatness: technicalData.spectralFlatness,
+      spectralCrest: technicalData.spectralCrest,
+      spectralSkewness: technicalData.spectralSkewness,
+      spectralKurtosis: technicalData.spectralKurtosis,
+      zeroCrossingRate: technicalData.zeroCrossingRate,
+      spectralFlux: technicalData.spectralFlux,
+      spectralChange: technicalData.spectralChange,
+      
+      // Bandas Espectrais
+      spectral_balance: technicalData.spectral_balance,
+      
+      // RMS & Peaks
+      rmsLevels: technicalData.rmsLevels,
+      peak: technicalData.peak,
+      rms: technicalData.rms,
+      
+      // Experimentais
+      dcOffset: technicalData.dcOffset,
+      spectralUniformity: technicalData.spectralUniformity,
+      dominantFrequencies: technicalData.dominantFrequencies,
+      problemsAnalysis: technicalData.problemsAnalysis,
+      
+      // Compatibilidade com nomes legados
+      correlation: technicalData.stereoCorrelation,
+      balance: technicalData.balanceLR,
+      width: technicalData.stereoWidth,
+      dr: technicalData.dynamicRange
     },
 
     metadata: {
@@ -316,9 +446,32 @@ function createCompactJSON(fullJSON) {
     spectral: fullJSON.spectral,
     spectralBands: fullJSON.spectralBands,
     dcOffset: fullJSON.dcOffset,
+    spectralUniformity: fullJSON.spectralUniformity,
     dominantFrequencies: (fullJSON.dominantFrequencies || []).slice(0, 5),
     problemsAnalysis: fullJSON.problemsAnalysis,
+    diagnostics: fullJSON.diagnostics,
+    scores: fullJSON.scores,
     scoring: fullJSON.scoring,
+    referenceComparison: fullJSON.referenceComparison,
+    // TechnicalData essencial para frontend
+    technicalData: {
+      lufsIntegrated: fullJSON.technicalData?.lufsIntegrated,
+      truePeakDbtp: fullJSON.technicalData?.truePeakDbtp,
+      stereoCorrelation: fullJSON.technicalData?.stereoCorrelation,
+      dynamicRange: fullJSON.technicalData?.dynamicRange,
+      spectralCentroid: fullJSON.technicalData?.spectralCentroid,
+      spectral_balance: fullJSON.technicalData?.spectral_balance,
+      peak: fullJSON.technicalData?.peak,
+      rms: fullJSON.technicalData?.rms,
+      monoCompatibility: fullJSON.technicalData?.monoCompatibility,
+      dcOffset: fullJSON.technicalData?.dcOffset,
+      spectralUniformity: fullJSON.technicalData?.spectralUniformity,
+      dominantFrequencies: (fullJSON.technicalData?.dominantFrequencies || []).slice(0, 5),
+      correlation: fullJSON.technicalData?.correlation,
+      balance: fullJSON.technicalData?.balance,
+      width: fullJSON.technicalData?.width,
+      dr: fullJSON.technicalData?.dr
+    },
     metadata: fullJSON.metadata
   };
 }
