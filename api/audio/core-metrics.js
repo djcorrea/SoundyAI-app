@@ -5,6 +5,7 @@
 import { FastFFT } from "../../lib/audio/fft.js";
 import { calculateLoudnessMetrics } from "../../lib/audio/features/loudness.js";
 import { TruePeakDetector } from "../../lib/audio/features/truepeak.js";
+import { SpectrumAnalyzer } from "../../lib/audio/features/spectrum.js";
 
 /**
  * 🎯 CONFIGURAÇÕES DA FASE 5.3 (AUDITORIA)
@@ -32,6 +33,7 @@ class CoreMetricsProcessor {
   constructor() {
     this.fftEngine = new FastFFT();
     this.truePeakDetector = new TruePeakDetector();
+    this.spectrumAnalyzer = new SpectrumAnalyzer(CORE_METRICS_CONFIG.FFT_SIZE, CORE_METRICS_CONFIG.FFT_HOP_SIZE, CORE_METRICS_CONFIG.WINDOW_TYPE);
     this.cache = { hannWindow: new Map(), fftResults: new Map() };
     console.log("✅ Core Metrics Processor inicializado (Fase 5.3)");
   }
@@ -233,6 +235,46 @@ class CoreMetricsProcessor {
     results.frequencyBands.right = this.calculateFrequencyBands(
       results.averageSpectrum.right
     );
+
+    // ⭐ NOVA SEÇÃO: Métricas espectrais agregadas para json-output.js
+    console.log("📊 Calculando métricas espectrais agregadas...");
+    try {
+      // Reconstruir canais completos para análise espectral detalhada
+      const leftChannel = this.reconstructFromFrames(framesFFT.left, framesFFT.hopSize);
+      const rightChannel = this.reconstructFromFrames(framesFFT.right, framesFFT.hopSize);
+      
+      // Usar o canal com maior energia para as métricas agregadas (mono)
+      const leftEnergy = leftChannel.reduce((sum, val) => sum + val * val, 0);
+      const rightEnergy = rightChannel.reduce((sum, val) => sum + val * val, 0);
+      const primaryChannel = leftEnergy >= rightEnergy ? leftChannel : rightChannel;
+      
+      // Analisar métricas espectrais detalhadas com SpectrumAnalyzer
+      const spectralFeatures = this.spectrumAnalyzer.analyze(primaryChannel, CORE_METRICS_CONFIG.SAMPLE_RATE);
+      
+      // Extrair métricas agregadas compatíveis com json-output.js
+      results.aggregated = {
+        spectralCentroidHz: spectralFeatures.centroid_hz || 0,
+        spectralRolloffHz: spectralFeatures.rolloff85_hz || 0,
+        spectralBandwidthHz: spectralFeatures.bandwidth_hz || 0,
+        spectralSpread: spectralFeatures.spread || 0,
+        spectralFlatness: spectralFeatures.flatness || 0,
+        spectralCrest: spectralFeatures.crest || 0,
+        spectralSkewness: spectralFeatures.skewness || 0,
+        spectralKurtosis: spectralFeatures.kurtosis || 0,
+        zeroCrossingRate: spectralFeatures.zcr || 0,
+        spectralFlux: spectralFeatures.spectral_flux || 0,
+        calculatedAt: new Date().toISOString(),
+        framesBased: false, // Calculado no canal reconstruído completo
+        totalFrames: framesFFT.count
+      };
+      
+      console.log(`✅ Métricas espectrais agregadas: centroid=${results.aggregated.spectralCentroidHz.toFixed(1)}Hz, rolloff=${results.aggregated.spectralRolloffHz.toFixed(1)}Hz`);
+      
+    } catch (spectralError) {
+      console.warn("⚠️ Erro ao calcular métricas espectrais agregadas:", spectralError.message);
+      // Fallback: métricas básicas a partir do espectro médio
+      results.aggregated = this.calculateBasicSpectralAggregated(results.averageSpectrum.left, results.averageSpectrum.right);
+    }
 
     return results;
   }
@@ -450,6 +492,79 @@ class CoreMetricsProcessor {
       rRMS = this.calculateRMS(R);
     const total = lRMS + rRMS;
     return total > 0 ? (rRMS - lRMS) / total : 0.0;
+  }
+
+  /**
+   * 📊 Fallback: métricas espectrais básicas a partir do espectro médio
+   */
+  calculateBasicSpectralAggregated(leftSpectrum, rightSpectrum) {
+    console.log("📊 Usando fallback para métricas espectrais básicas...");
+    
+    // Usar espectro com maior energia
+    const leftEnergy = leftSpectrum.reduce((sum, val) => sum + val, 0);
+    const rightEnergy = rightSpectrum.reduce((sum, val) => sum + val, 0);
+    const spectrum = leftEnergy >= rightEnergy ? leftSpectrum : rightSpectrum;
+    
+    if (!spectrum || spectrum.length === 0) {
+      return {
+        spectralCentroidHz: 0,
+        spectralRolloffHz: 0,
+        spectralBandwidthHz: 0,
+        spectralSpread: 0,
+        spectralFlatness: 0,
+        spectralCrest: 0,
+        spectralSkewness: 0,
+        spectralKurtosis: 0,
+        zeroCrossingRate: 0,
+        spectralFlux: 0,
+        calculatedAt: new Date().toISOString(),
+        framesBased: true,
+        totalFrames: 0,
+        fallback: true
+      };
+    }
+    
+    // Frequências correspondentes (FFT bins)
+    const freqBins = spectrum.map((_, i) => (i * CORE_METRICS_CONFIG.SAMPLE_RATE) / (2 * spectrum.length));
+    
+    // Calcular centroide espectral
+    let totalEnergy = 0;
+    let centroidNumerator = 0;
+    for (let i = 1; i < spectrum.length; i++) {
+      const power = spectrum[i];
+      totalEnergy += power;
+      centroidNumerator += freqBins[i] * power;
+    }
+    const spectralCentroidHz = totalEnergy > 0 ? centroidNumerator / totalEnergy : 0;
+    
+    // Calcular rolloff 85%
+    const rolloffTarget = totalEnergy * 0.85;
+    let rolloffEnergy = 0;
+    let spectralRolloffHz = 0;
+    for (let i = 1; i < spectrum.length; i++) {
+      rolloffEnergy += spectrum[i];
+      if (rolloffEnergy >= rolloffTarget) {
+        spectralRolloffHz = freqBins[i];
+        break;
+      }
+    }
+    
+    return {
+      spectralCentroidHz,
+      spectralRolloffHz,
+      spectralBandwidthHz: spectralRolloffHz * 0.6, // Estimativa conservadora
+      spectralSpread: 0, // Não calculável com espectro médio
+      spectralFlatness: 0,
+      spectralCrest: 0,
+      spectralSkewness: 0,
+      spectralKurtosis: 0,
+      zeroCrossingRate: 0,
+      spectralFlux: 0,
+      calculatedAt: new Date().toISOString(),
+      framesBased: true,
+      totalFrames: spectrum.length,
+      fallback: true
+    };
   }
 }
 
