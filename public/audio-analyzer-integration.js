@@ -3439,9 +3439,9 @@ function displayModalResults(analysis) {
             row('Balance L/R', Number.isFinite(getMetric('balance_lr', 'balanceLR')) ? safePct(getMetric('balance_lr', 'balanceLR')) : '—', 'balanceLR'),
             row('Centroide Espectral', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroid')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroid')) : '—', 'spectralCentroid'),
             row('Rolloff Espectral', Number.isFinite(getMetric('spectral_rolloff', 'spectralRolloff')) ? safeHz(getMetric('spectral_rolloff', 'spectralRolloff')) : '—', 'spectralRolloff'),
-            // SKIP: métricas experimentais temporariamente removidas
-            // row('Largura Espectral', Number.isFinite(getMetric('spectral_bandwidth', 'spectralBandwidth')) ? safeHz(getMetric('spectral_bandwidth', 'spectralBandwidth')) : '—', 'spectralBandwidth'),
-            // row('Uniformidade Espectral', Number.isFinite(analysis.spectralUniformity?.score) ? `${safeFixed(analysis.spectralUniformity.score, 1)}/10 (${analysis.spectralUniformity.rating || 'unknown'})` : '—', 'spectralUniformity'),
+            // Reativando métricas experimentais agora implementadas via funções standalone
+            row('Largura Espectral', Number.isFinite(getMetric('spectral_bandwidth', 'spectralBandwidth')) ? safeHz(getMetric('spectral_bandwidth', 'spectralBandwidth')) : '—', 'spectralBandwidth'),
+            row('Uniformidade Espectral', analysis.technicalData?.spectralUniformity?.value ? `${safeFixed(analysis.technicalData.spectralUniformity.value, 3)} (${analysis.technicalData.spectralUniformity.detailed?.distribution || 'unknown'})` : '—', 'spectralUniformity'),
             row('Zero Crossing Rate', Number.isFinite(getMetric('zero_crossing_rate', 'zeroCrossingRate')) ? safeFixed(getMetric('zero_crossing_rate', 'zeroCrossingRate'), 3) : '—', 'zeroCrossingRate'),
             row('Flux', Number.isFinite(getMetric('spectral_flux', 'spectralFlux')) ? safeFixed(getMetric('spectral_flux', 'spectralFlux'), 3) : '—', 'spectralFlux'),
             row('Flatness', Number.isFinite(getMetric('spectral_flatness', 'spectralFlatness')) ? safeFixed(getMetric('spectral_flatness', 'spectralFlatness'), 3) : '—', 'spectralFlatness')
@@ -3466,10 +3466,10 @@ function displayModalResults(analysis) {
             })();
             const col3 = [
                 row('Tonal Balance', analysis.technicalData?.tonalBalance ? tonalSummary(analysis.technicalData.tonalBalance) : '—', 'tonalBalance'),
-                // SKIP: métricas experimentais temporariamente removidas
-                // (analysis.dominantFrequencies?.primaryFrequency ? row('Freq. Dominante Principal', `${Math.round(analysis.dominantFrequencies.primaryFrequency)} Hz (${analysis.dominantFrequencies.complexity || 'unknown'})`) : ''),
-                // (analysis.dominantFrequencies?.secondaryFrequency ? row('Freq. Dominante Secundária', `${Math.round(analysis.dominantFrequencies.secondaryFrequency)} Hz`) : ''),
-                // (analysis.dcOffset ? row('DC Offset', `L: ${safeFixed(analysis.dcOffset.leftDC, 4)} / R: ${safeFixed(analysis.dcOffset.rightDC, 4)} ${analysis.dcOffset.needsCorrection ? '⚠️' : '✅'}`) : ''),
+                // Reativando métricas experimentais agora implementadas via funções standalone
+                (analysis.technicalData?.dominantFrequencies?.detailed?.primary ? row('Freq. Dominante Principal', `${Math.round(analysis.technicalData.dominantFrequencies.detailed.primary)} Hz`) : ''),
+                (analysis.technicalData?.dominantFrequencies?.detailed?.secondary ? row('Freq. Dominante Secundária', `${Math.round(analysis.technicalData.dominantFrequencies.detailed.secondary)} Hz`) : ''),
+                (analysis.technicalData?.dcOffset?.detailed ? row('DC Offset', `L: ${safeFixed(analysis.technicalData.dcOffset.detailed.L, 4)} / R: ${safeFixed(analysis.technicalData.dcOffset.detailed.R, 4)} (${analysis.technicalData.dcOffset.detailed.severity})`) : ''),
                 row('Problemas', (analysis.problems?.length || 0) > 0 ? `<span class="tag tag-danger">${analysis.problems.length} detectado(s)</span>` : '—'),
                 row('Sugestões', (analysis.suggestions?.length || 0) > 0 ? `<span class="tag tag-success">${analysis.suggestions.length} disponível(s)</span>` : '—'),
                 col3Extras

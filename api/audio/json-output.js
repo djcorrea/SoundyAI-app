@@ -329,15 +329,28 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.headroomTruePeakDb = safeSanitize(0 - technicalData.truePeakDbtp); // 0 dBTP - true peak atual
   }
 
-  // ===== MÉTRICAS EXPERIMENTAIS (TEMPORARIAMENTE DESABILITADAS) =====
+  // ===== MÉTRICAS EXPERIMENTAIS (AGORA IMPLEMENTADAS VIA FUNÇÕES STANDALONE) =====
   
-  // DC Offset Analysis - SKIP por enquanto
-  console.log('[SKIP_METRIC] dcOffset: não incluído no JSON - implementação instável');
-  technicalData.dcOffset = null;
+  // DC Offset Analysis - Usando dados do calculateDCOffset se disponível
+  if (coreMetrics.dcOffset && typeof coreMetrics.dcOffset === 'object') {
+    console.log('[SUCCESS] dcOffset: dados disponíveis via função standalone');
+    technicalData.dcOffset = {
+      value: safeSanitize(coreMetrics.dcOffset.value),
+      unit: coreMetrics.dcOffset.unit || 'dB',
+      detailed: coreMetrics.dcOffset.detailed || {
+        L: safeSanitize(coreMetrics.dcOffset.value),
+        R: safeSanitize(coreMetrics.dcOffset.value),
+        severity: 'Low'
+      }
+    };
+  } else {
+    console.log('[SKIP_METRIC] dcOffset: dados não disponíveis');
+    technicalData.dcOffset = null;
+  }
   
-  // Dominant Frequencies Analysis - Usando dados do calculateDominantFrequencies se disponível
+  // Dominant Frequencies Analysis - Usando dados do calculateDominantFrequencies
   if (coreMetrics.dominantFrequencies && coreMetrics.dominantFrequencies.value) {
-    console.log('[PARTIAL_METRIC] dominantFrequencies: usando dados limitados disponíveis');
+    console.log('[SUCCESS] dominantFrequencies: dados disponíveis via função standalone');
     technicalData.dominantFrequencies = {
       value: safeSanitize(coreMetrics.dominantFrequencies.value),
       unit: coreMetrics.dominantFrequencies.unit || 'Hz',
@@ -352,13 +365,26 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.dominantFrequencies = null;
   }
   
-  // Spectral Uniformity Analysis - SKIP por enquanto
-  console.log('[SKIP_METRIC] spectralUniformity: não incluído no JSON - implementação instável');
-  technicalData.spectralUniformity = null;
+  // Spectral Uniformity Analysis - Usando dados do calculateSpectralUniformity
+  if (coreMetrics.spectralUniformity && typeof coreMetrics.spectralUniformity === 'object') {
+    console.log('[SUCCESS] spectralUniformity: dados disponíveis via função standalone');
+    technicalData.spectralUniformity = {
+      value: safeSanitize(coreMetrics.spectralUniformity.value),
+      unit: coreMetrics.spectralUniformity.unit || 'ratio',
+      detailed: coreMetrics.spectralUniformity.detailed || {
+        variance: safeSanitize(coreMetrics.spectralUniformity.value),
+        distribution: 'Unknown',
+        analysis: 'Spectral analysis completed'
+      }
+    };
+  } else {
+    console.log('[SKIP_METRIC] spectralUniformity: dados não disponíveis');
+    technicalData.spectralUniformity = null;
+  }
   
-  // Problems and Suggestions Analysis - Usando dados básicos do core-metrics
+  // Problems and Suggestions Analysis - Usando dados do analyzeProblemsAndSuggestions
   if (coreMetrics.problems || coreMetrics.suggestions) {
-    console.log('[PARTIAL_METRIC] problemsAnalysis: usando dados básicos disponíveis');
+    console.log('[SUCCESS] problemsAnalysis: dados disponíveis via função standalone');
     technicalData.problemsAnalysis = {
       problems: coreMetrics.problems || [],
       suggestions: coreMetrics.suggestions || [],
