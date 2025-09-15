@@ -3785,6 +3785,16 @@ function displayModalResults(analysis) {
             // Card extra: Diagnóstico & Sugestões listados
             const diagCard = () => {
                 const blocks = [];
+                
+                // 🔍 DEBUG: Verificar estado das sugestões
+                console.log('🔍 [DEBUG_SUGGESTIONS] analysis.suggestions:', analysis.suggestions);
+                console.log('🔍 [DEBUG_SUGGESTIONS] análise completa de sugestões:', {
+                    hasAnalysis: !!analysis,
+                    hasSuggestions: !!analysis.suggestions,
+                    suggestionsType: typeof analysis.suggestions,
+                    suggestionsLength: analysis.suggestions?.length || 0,
+                    suggestionsArray: analysis.suggestions
+                });
 
                 // Helpers para embelezar as sugestões sem mudar layout/IDs
                 const formatNumbers = (text, decimals = 2) => {
@@ -4302,7 +4312,8 @@ function displayModalResults(analysis) {
                 return blocks.join('') || '<div class="diag-empty">Sem diagnósticos</div>';
             };
 
-        const breakdown = analysis.qualityBreakdown || {};
+        // 🎯 SUBSCORES: Corrigir mapeamento para backend Node.js
+        const breakdown = analysis.scores || analysis.qualityBreakdown || {};
         
         // 🎯 APLICAR CAPS EM ESTADO CLIPPED
         const precedenceData = analysis.technicalData?._singleStage;
@@ -4748,6 +4759,16 @@ function renderReferenceComparisons(analysis) {
     // Bandas detalhadas Fase 2: usar métricas centralizadas para bandas
     const centralizedBands = analysis.metrics?.bands;
     const legacyBandEnergies = tech.bandEnergies || null;
+    
+    // 🔍 DEBUG: Verificar estado das bandas
+    console.log('🔍 [DEBUG_BANDS] Verificando bandas espectrais:', {
+        hasCentralizedBands: !!centralizedBands,
+        centralizedBandsKeys: centralizedBands ? Object.keys(centralizedBands) : [],
+        hasLegacyBands: !!legacyBandEnergies,
+        legacyBandsKeys: legacyBandEnergies ? Object.keys(legacyBandEnergies) : [],
+        hasRefBands: !!ref.bands,
+        refBandsKeys: ref.bands ? Object.keys(ref.bands) : []
+    });
     
     // Priorizar bandas centralizadas se disponíveis
     const bandsToUse = centralizedBands && Object.keys(centralizedBands).length > 0 ? centralizedBands : legacyBandEnergies;
