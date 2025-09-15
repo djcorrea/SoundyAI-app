@@ -627,8 +627,20 @@ class CoreMetricsProcessor {
     const { jobId } = options;
     
     try {
+      // Debug detalhado da estrutura recebida
+      logAudio('spectral_bands', 'input_debug', { 
+        hasFramesFFT: !!framesFFT,
+        hasFrames: !!(framesFFT && framesFFT.frames),
+        frameCount: framesFFT?.frames?.length || 0,
+        framesFFTKeys: framesFFT ? Object.keys(framesFFT) : null,
+        jobId 
+      });
+
       if (!framesFFT || !framesFFT.frames || framesFFT.frames.length === 0) {
-        logAudio('spectral_bands', 'no_frames', { jobId });
+        logAudio('spectral_bands', 'no_frames', { 
+          reason: !framesFFT ? 'no_framesFFT' : !framesFFT.frames ? 'no_frames_array' : 'empty_frames_array',
+          jobId 
+        });
         return this.spectralBandsCalculator.getNullBands();
       }
 
@@ -645,9 +657,25 @@ class CoreMetricsProcessor {
       });
 
       const bandsResults = [];
+      let validFrames = 0;
+      let invalidFrames = 0;
       
       for (let frameIndex = 0; frameIndex < framesFFT.frames.length; frameIndex++) {
         const frame = framesFFT.frames[frameIndex];
+        
+        // Debug mais detalhado dos frames
+        if (frameIndex < 3) { // Log dos primeiros 3 frames
+          logAudio('spectral_bands', 'frame_detail_debug', {
+            frameIndex,
+            frameKeys: Object.keys(frame),
+            hasLeftFFT: !!frame.leftFFT,
+            hasRightFFT: !!frame.rightFFT,
+            leftFFTKeys: frame.leftFFT ? Object.keys(frame.leftFFT) : null,
+            leftMagnitudeLength: frame.leftFFT?.magnitude?.length || 0,
+            rightMagnitudeLength: frame.rightFFT?.magnitude?.length || 0,
+            jobId
+          });
+        }
         
         if (frame.leftFFT?.magnitude && frame.rightFFT?.magnitude) {
           const result = this.spectralBandsCalculator.analyzeBands(
@@ -658,6 +686,21 @@ class CoreMetricsProcessor {
           
           if (result.valid) {
             bandsResults.push(result);
+            validFrames++;
+          } else {
+            invalidFrames++;
+          }
+        } else {
+          invalidFrames++;
+          if (frameIndex < 3) { // Log detalhado dos primeiros frames inválidos
+            logAudio('spectral_bands', 'invalid_frame', {
+              frameIndex,
+              hasLeftFFT: !!frame.leftFFT,
+              hasRightFFT: !!frame.rightFFT,
+              leftMagnitude: !!frame.leftFFT?.magnitude,
+              rightMagnitude: !!frame.rightFFT?.magnitude,
+              jobId
+            });
           }
         }
       }
@@ -666,8 +709,11 @@ class CoreMetricsProcessor {
       const aggregatedBands = SpectralBandsAggregator.aggregate(bandsResults);
       
       logAudio('spectral_bands', 'completed', {
-        validFrames: bandsResults.length,
-        totalPercentage: aggregatedBands.totalPercentage,
+        validFrames,
+        invalidFrames,
+        totalFrames: framesFFT.frames.length,
+        bandsResultsCount: bandsResults.length,
+        totalPercentage: aggregatedBands?.totalPercentage || null,
         jobId
       });
 
@@ -686,12 +732,25 @@ class CoreMetricsProcessor {
     const { jobId } = options;
     
     try {
+      // Debug detalhado da estrutura recebida
+      logAudio('spectral_centroid', 'input_debug', { 
+        hasFramesFFT: !!framesFFT,
+        hasFrames: !!(framesFFT && framesFFT.frames),
+        frameCount: framesFFT?.frames?.length || 0,
+        jobId 
+      });
+
       if (!framesFFT || !framesFFT.frames || framesFFT.frames.length === 0) {
-        logAudio('spectral_centroid', 'no_frames', { jobId });
+        logAudio('spectral_centroid', 'no_frames', { 
+          reason: !framesFFT ? 'no_framesFFT' : !framesFFT.frames ? 'no_frames_array' : 'empty_frames_array',
+          jobId 
+        });
         return null;
       }
 
       const centroidResults = [];
+      let validFrames = 0;
+      let invalidFrames = 0;
       
       for (let frameIndex = 0; frameIndex < framesFFT.frames.length; frameIndex++) {
         const frame = framesFFT.frames[frameIndex];
@@ -705,6 +764,21 @@ class CoreMetricsProcessor {
           
           if (result && result.valid) {
             centroidResults.push(result);
+            validFrames++;
+          } else {
+            invalidFrames++;
+          }
+        } else {
+          invalidFrames++;
+          if (frameIndex < 3) { // Log detalhado dos primeiros frames inválidos
+            logAudio('spectral_centroid', 'invalid_frame', {
+              frameIndex,
+              hasLeftFFT: !!frame.leftFFT,
+              hasRightFFT: !!frame.rightFFT,
+              leftMagnitude: !!frame.leftFFT?.magnitude,
+              rightMagnitude: !!frame.rightFFT?.magnitude,
+              jobId
+            });
           }
         }
       }
@@ -713,7 +787,10 @@ class CoreMetricsProcessor {
       const aggregatedCentroid = SpectralCentroidAggregator.aggregate(centroidResults);
       
       logAudio('spectral_centroid', 'completed', {
-        validFrames: centroidResults.length,
+        validFrames,
+        invalidFrames,
+        totalFrames: framesFFT.frames.length,
+        centroidResultsCount: centroidResults.length,
         centroidHz: aggregatedCentroid?.centroidHz || null,
         jobId
       });

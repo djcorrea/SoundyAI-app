@@ -303,7 +303,8 @@ export class SpectralBandsAggregator {
       totalPercentage: Number(totalPercentage.toFixed(1)),
       algorithm: 'RMS_7_Band_Normalized_Aggregated',
       valid: Math.abs(totalPercentage - 100) < 1.0, // Tolerância maior para agregação
-      framesUsed: validBands.length
+      framesUsed: validBands.length,
+      processedFrames: validBands.length  // ← CORRIGE: json-output.js busca processedFrames
     };
   }
 }

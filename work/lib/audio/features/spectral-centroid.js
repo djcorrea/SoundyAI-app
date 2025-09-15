@@ -216,6 +216,7 @@ export class SpectralCentroidAggregator {
       algorithm: 'Weighted_Frequency_RMS_Aggregated',
       brightnessCategory: new SpectralCentroidCalculator().categorizeBrightness(finalCentroid),
       framesUsed: validCentroids.length,
+      processedFrames: validCentroids.length,  // ← CORRIGE: json-output.js busca processedFrames
       valid: true
     };
   }
