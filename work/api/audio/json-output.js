@@ -21,7 +21,7 @@ export function generateJSONOutput(coreMetrics, reference = null, metadata = {},
 
     validateCoreMetricsStructure(coreMetrics);
 
-    const technicalData = extractTechnicalData(coreMetrics);
+    const technicalData = extractTechnicalData(coreMetrics, jobId);
 
     try {
       assertFinite(technicalData, 'output_scoring');
@@ -108,7 +108,7 @@ function validateCoreMetricsStructure(coreMetrics) {
   }
 }
 
-function extractTechnicalData(coreMetrics) {
+function extractTechnicalData(coreMetrics, jobId = 'unknown') {
   const technicalData = {};
 
   // Função helper para validar e limpar valores
@@ -188,6 +188,17 @@ function extractTechnicalData(coreMetrics) {
   // Métricas Espectrais (do FFT)
   if (coreMetrics.fft && coreMetrics.fft.aggregated) {
     const spectral = coreMetrics.fft.aggregated;
+    
+    // 🔬 DEBUG: Log das métricas espectrais disponíveis
+    logAudio('json_output', 'spectral_metrics_debug', {
+      available: Object.keys(spectral),
+      spectralCentroidHz: spectral.spectralCentroidHz,
+      spectralRolloffHz: spectral.spectralRolloffHz,
+      spectralBandwidthHz: spectral.spectralBandwidthHz,
+      spectralFlatness: spectral.spectralFlatness,
+      jobId
+    });
+    
     technicalData.spectralCentroid = safeSanitize(spectral.spectralCentroidHz);
     technicalData.spectralRolloff = safeSanitize(spectral.spectralRolloffHz);
     technicalData.spectralBandwidth = safeSanitize(spectral.spectralBandwidthHz);
@@ -198,6 +209,15 @@ function extractTechnicalData(coreMetrics) {
     technicalData.spectralKurtosis = safeSanitize(spectral.spectralKurtosis);
     technicalData.zeroCrossingRate = safeSanitize(spectral.zeroCrossingRate);
     technicalData.spectralFlux = safeSanitize(spectral.spectralFlux);
+  } else {
+    // 🔬 DEBUG: Log se FFT não está disponível
+    logAudio('json_output', 'fft_missing_debug', {
+      hasCoreMetrics: !!coreMetrics,
+      hasFFT: !!(coreMetrics.fft),
+      hasAggregated: !!(coreMetrics.fft?.aggregated),
+      fftKeys: coreMetrics.fft ? Object.keys(coreMetrics.fft) : null,
+      jobId
+    });
   }
 
   // ===== BALANCE ESPECTRAL DETALHADO =====
@@ -205,24 +225,32 @@ function extractTechnicalData(coreMetrics) {
   // Bandas Espectrais (7 bandas profissionais)
   if (coreMetrics.spectralBands && coreMetrics.spectralBands.aggregated) {
     const bands = coreMetrics.spectralBands.aggregated;
+    
+    // 🔬 DEBUG: Log das bandas espectrais disponíveis
+    logAudio('json_output', 'spectral_bands_debug', {
+      available: Object.keys(bands),
+      bandsStructure: bands,
+      jobId
+    });
+    
     technicalData.bandEnergies = {};
     
-    // Processar cada banda de forma segura
-    const bandNames = ['sub', 'lowBass', 'upperBass', 'lowMid', 'mid', 'highMid', 'brilliance', 'presence', 'air'];
-    const mappedNames = ['sub', 'low_bass', 'upper_bass', 'low_mid', 'mid', 'high_mid', 'brilho', 'presenca', 'air'];
+    // CORRIGIDO: Nomes corretos das bandas espectrais
+    const bandNames = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
+    const mappedNames = ['sub', 'bass', 'low_mid', 'mid', 'high_mid', 'presence', 'air'];
     
     for (let i = 0; i < bandNames.length; i++) {
-      const band = bands[bandNames[i]];
+      const bandName = bandNames[i];
       const mappedName = mappedNames[i];
+      const band = bands.bands?.[bandName]; // bands.bands.sub, bands.bands.bass, etc.
       
       if (band) {
         technicalData.bandEnergies[mappedName] = {
-          rms_db: safeSanitize(band.rmsDb),
-          peak_db: safeSanitize(band.peakDb),
-          frequency_range: band.frequencyRange ? [
-            safeSanitize(band.frequencyRange[0], 0),
-            safeSanitize(band.frequencyRange[1], 20000)
-          ] : null
+          energy: safeSanitize(band.energy),
+          percentage: safeSanitize(band.percentage),
+          name: band.name,
+          description: band.description,
+          frequencyRange: band.frequencyRange || `${bandName}-range`
         };
       } else {
         technicalData.bandEnergies[mappedName] = null;
@@ -231,13 +259,24 @@ function extractTechnicalData(coreMetrics) {
     
     // Spectral Balance simplificado para compatibilidade
     technicalData.spectral_balance = {
-      sub: safeSanitize(bands.sub?.rmsDb),
-      bass: safeSanitize(bands.lowBass?.rmsDb || bands.upperBass?.rmsDb),
-      mids: safeSanitize(bands.mid?.rmsDb),
-      treble: safeSanitize(bands.brilliance?.rmsDb),
-      presence: safeSanitize(bands.presence?.rmsDb),
-      air: safeSanitize(bands.air?.rmsDb)
+      sub: safeSanitize(bands.bands?.sub?.percentage),
+      bass: safeSanitize(bands.bands?.bass?.percentage),
+      lowMid: safeSanitize(bands.bands?.lowMid?.percentage),
+      mid: safeSanitize(bands.bands?.mid?.percentage),
+      highMid: safeSanitize(bands.bands?.highMid?.percentage),
+      presence: safeSanitize(bands.bands?.presence?.percentage),
+      air: safeSanitize(bands.bands?.air?.percentage),
+      totalPercentage: safeSanitize(bands.totalPercentage, 100)
     };
+  } else {
+    // 🔬 DEBUG: Log se bandas espectrais não estão disponíveis
+    logAudio('json_output', 'spectral_bands_missing_debug', {
+      hasCoreMetrics: !!coreMetrics,
+      hasSpectralBands: !!(coreMetrics.spectralBands),
+      hasAggregated: !!(coreMetrics.spectralBands?.aggregated),
+      spectralBandsKeys: coreMetrics.spectralBands ? Object.keys(coreMetrics.spectralBands) : null,
+      jobId
+    });
   }
 
   // Centroide Espectral (Brilho)
@@ -407,6 +446,18 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       hasData: (coreMetrics.spectralBands?.processedFrames || 0) > 0
     },
 
+    // ===== Métricas Espectrais (nível raiz para compatibilidade) =====
+    spectralCentroidHz: technicalData.spectralCentroidHz,
+    spectralRolloffHz: technicalData.spectralRolloff,
+    spectralBandwidthHz: technicalData.spectralBandwidth,
+    spectralSpreadHz: technicalData.spectralSpread,
+    spectralFlatness: technicalData.spectralFlatness,
+    spectralCrest: technicalData.spectralCrest,
+    spectralSkewness: technicalData.spectralSkewness,
+    spectralKurtosis: technicalData.spectralKurtosis,
+    zeroCrossingRate: technicalData.zeroCrossingRate,
+    spectralFlux: technicalData.spectralFlux,
+    
     // ===== Frequências Dominantes =====
     dominantFrequencies: technicalData.dominantFrequencies || [],
 
@@ -463,8 +514,17 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       spectralCentroid: technicalData.spectralCentroid,
       spectralCentroidHz: technicalData.spectralCentroidHz,
       spectralRolloff: technicalData.spectralRolloff,
+      spectralRolloffHz: technicalData.spectralRolloff, // Compatibilidade
       spectralBandwidth: technicalData.spectralBandwidth,
+      spectralBandwidthHz: technicalData.spectralBandwidth, // Compatibilidade
+      spectralSpread: technicalData.spectralSpread,
+      spectralSpreadHz: technicalData.spectralSpread, // Compatibilidade
       spectralFlatness: technicalData.spectralFlatness,
+      spectralCrest: technicalData.spectralCrest,
+      spectralSkewness: technicalData.spectralSkewness,
+      spectralKurtosis: technicalData.spectralKurtosis,
+      zeroCrossingRate: technicalData.zeroCrossingRate,
+      spectralFlux: technicalData.spectralFlux,
       brightnessCategory: technicalData.brightnessCategory,
       
       // Bandas Espectrais
