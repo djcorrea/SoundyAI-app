@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - Tabela de Comparação com Referência (Bandas Espectrais)</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f1aeb5; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        
+        /* Estilos da tabela de referência */
+        .ref-compare-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            font-size: 13px;
+        }
+        .ref-compare-table th,
+        .ref-compare-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .ref-compare-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+        .ref-compare-table .ok {
+            background: #d1e7dd;
+            color: #0f5132;
+        }
+        .ref-compare-table .yellow {
+            background: #fff3cd;
+            color: #664d03;
+        }
+        .ref-compare-table .warn {
+            background: #f8d7da;
+            color: #842029;
+        }
+        .ref-compare-table .na {
+            opacity: 0.6;
+        }
+        .tol {
+            font-size: 11px;
+            opacity: 0.7;
+            margin-left: 4px;
+        }
+        .card {
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .card-title {
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Teste - Tabela de Comparação com Referência (Bandas Espectrais)</h1>
+        
+        <div class="test-section">
+            <h3>📊 Cenários de Teste</h3>
+            <p>Testando a nova tabela de comparação com referência para todas as 7 bandas espectrais:</p>
+            
+            <button class="btn" onclick="testCentralizedBands()">🆕 Testar Bandas Centralizadas (metrics.bands)</button>
+            <button class="btn" onclick="testSpectralBalance()">📊 Testar Spectral Balance (technicalData)</button>
+            <button class="btn" onclick="testLegacyFallback()">🔄 Testar Fallback Legado</button>
+            <button class="btn" onclick="testReferenceMode()">🎯 Testar Modo Referência</button>
+        </div>
+        
+        <div id="results" class="test-section" style="display: none;">
+            <h3>📋 Resultado da Tabela</h3>
+            <div id="output"></div>
+        </div>
+        
+        <div id="status"></div>
+    </div>
+
+    <script>
+        // Simular as funções necessárias do sistema
+        const nf = (n, d=2) => Number.isFinite(n) ? n.toFixed(d) : '—';
+        let testData = null;
+        
+        // Mock da função pushRow (cópia da lógica implementada)
+        function createMockPushRow(rows) {
+            return (label, val, target, tol, unit='') => {
+                const enhancedLabel = label;
+                
+                // Tratar target null ou NaN como N/A explicitamente
+                const targetIsNA = (target == null || target === '' || (typeof target==='number' && !Number.isFinite(target)));
+                if (!Number.isFinite(val) && targetIsNA) return; // nada útil
+                if (targetIsNA) {
+                    rows.push(`<tr>
+                        <td>${enhancedLabel}</td>
+                        <td>${Number.isFinite(val)?nf(val)+unit:'—'}</td>
+                        <td colspan="2" style="opacity:.55">N/A</td>
+                    </tr>`);
+                    return;
+                }
+                const diff = Number.isFinite(val) && Number.isFinite(target) ? (val - target) : null;
+                
+                // Sistema de classificação melhorado para bandas espectrais
+                let cssClass = 'na';
+                let statusText = '';
+                
+                if (Number.isFinite(diff) && Number.isFinite(tol) && tol > 0) {
+                    const adiff = Math.abs(diff);
+                    
+                    // Thresholds específicos para bandas espectrais
+                    if (unit === ' dB' && label.includes('(')) {
+                        if (adiff <= tol * 0.5) {
+                            cssClass = 'ok';
+                            statusText = 'IDEAL';
+                        } else if (adiff <= tol) {
+                            cssClass = 'yellow';
+                            statusText = 'Ajustar';
+                        } else if (adiff <= tol * 2) {
+                            cssClass = 'warn';
+                            statusText = 'Corrigir';
+                        } else {
+                            cssClass = 'warn';
+                            statusText = 'Crítico';
+                        }
+                    } else {
+                        // Para métricas gerais
+                        if (adiff <= tol) {
+                            cssClass = 'ok';
+                            statusText = 'IDEAL';
+                        } else {
+                            const n = adiff / tol;
+                            if (n <= 2) {
+                                cssClass = 'yellow';
+                                statusText = 'Ajustar';
+                            } else {
+                                cssClass = 'warn';
+                                statusText = 'Corrigir';
+                            }
+                        }
+                    }
+                }
+                
+                const diffCell = Number.isFinite(diff)
+                    ? `<td class="${cssClass}" title="${statusText}">${diff>0?'+':''}${nf(diff)}${unit}${statusText ? ` (${statusText})` : ''}</td>`
+                    : '<td class="na" style="opacity:.55">—</td>';
+                
+                rows.push(`<tr>
+                    <td>${enhancedLabel}</td>
+                    <td>${Number.isFinite(val)?nf(val)+unit:'—'}</td>
+                    <td>${Number.isFinite(target)?nf(target)+unit:'N/A'}${tol!=null?`<span class="tol">±${nf(tol,2)}</span>`:''}</td>
+                    ${diffCell}
+                </tr>`);
+            };
+        }
+        
+        // Simular renderReferenceComparisons para bandas espectrais
+        function simulateSpectralBandsComparison(analysis, ref) {
+            const rows = [];
+            const pushRow = createMockPushRow(rows);
+            
+            // Dados das bandas espectrais
+            const centralizedBands = analysis.metrics?.bands;
+            const spectralBands = analysis.technicalData?.spectral_balance || 
+                                analysis.technicalData?.spectralBands || 
+                                centralizedBands || {};
+            
+            console.log('🔍 [DEBUG] Teste - Dados disponíveis:', {
+                hasCentralizedBands: !!centralizedBands,
+                hasSpectralBands: !!spectralBands,
+                hasRefBands: !!ref.bands,
+                spectralBandsKeys: Object.keys(spectralBands),
+                refBandsKeys: ref.bands ? Object.keys(ref.bands) : []
+            });
+            
+            // Mapeamento completo das bandas
+            const bandDisplayNames = {
+                sub: 'Sub (20-60Hz)',
+                bass: 'Bass (60-150Hz)', 
+                low_bass: 'Bass (60-150Hz)',
+                lowMid: 'Low-Mid (150-500Hz)',
+                low_mid: 'Low-Mid (150-500Hz)',
+                mid: 'Mid (500-2kHz)',
+                highMid: 'High-Mid (2-5kHz)',
+                high_mid: 'High-Mid (2-5kHz)',
+                presence: 'Presence (5-10kHz)',
+                presenca: 'Presence (5-10kHz)',
+                air: 'Air (10-20kHz)',
+                brilho: 'Air (10-20kHz)'
+            };
+            
+            // Processar bandas do sistema de referência
+            if (ref.bands) {
+                for (const [band, refBand] of Object.entries(ref.bands)) {
+                    let bLocal;
+                    
+                    // Buscar dados da banda
+                    if (centralizedBands && centralizedBands[band]) {
+                        bLocal = { rms_db: centralizedBands[band].energy_db };
+                    } else if (spectralBands && spectralBands[band]) {
+                        const bandData = spectralBands[band];
+                        if (typeof bandData === 'object' && Number.isFinite(bandData.energy_db)) {
+                            bLocal = { rms_db: bandData.energy_db };
+                        } else if (typeof bandData === 'object' && Number.isFinite(bandData.rms_db)) {
+                            bLocal = { rms_db: bandData.rms_db };
+                        } else if (Number.isFinite(bandData)) {
+                            bLocal = { rms_db: bandData };
+                        }
+                    }
+                    
+                    if (bLocal && Number.isFinite(bLocal.rms_db)) {
+                        const displayName = bandDisplayNames[band] || band;
+                        pushRow(displayName, bLocal.rms_db, refBand.target_db, refBand.tol_db, ' dB');
+                    }
+                }
+            }
+            
+            return rows.join('');
+        }
+        
+        // Funções de teste
+        function testCentralizedBands() {
+            const analysis = {
+                metrics: {
+                    bands: {
+                        sub: { energy_db: -15.2, percentage: 8.5, status: 'calculated' },
+                        low_bass: { energy_db: -12.8, percentage: 25.6, status: 'calculated' },
+                        low_mid: { energy_db: -10.1, percentage: 18.3, status: 'calculated' },
+                        mid: { energy_db: -8.6, percentage: 22.8, status: 'calculated' },
+                        high_mid: { energy_db: -18.2, percentage: 12.1, status: 'calculated' },
+                        presenca: { energy_db: -25.7, percentage: 8.9, status: 'calculated' },
+                        brilho: { energy_db: -28.3, percentage: 3.8, status: 'calculated' }
+                    }
+                }
+            };
+            
+            const ref = {
+                bands: {
+                    sub: { target_db: -17.3, tol_db: 2.5 },
+                    low_bass: { target_db: -14.6, tol_db: 4.3 },
+                    low_mid: { target_db: -12.6, tol_db: 3.7 },
+                    mid: { target_db: -12, tol_db: 4.0 },
+                    high_mid: { target_db: -20.2, tol_db: 3.6 },
+                    presenca: { target_db: -32.1, tol_db: 3.6 },
+                    brilho: { target_db: -24.7, tol_db: 2.5 }
+                }
+            };
+            
+            showResults('🆕 Bandas Centralizadas (metrics.bands)', analysis, ref);
+        }
+        
+        function testSpectralBalance() {
+            const analysis = {
+                technicalData: {
+                    spectral_balance: {
+                        sub: { energy_db: -16.8, percentage: 7.2, range: '20-60Hz', status: 'calculated' },
+                        bass: { energy_db: -13.1, percentage: 24.1, range: '60-150Hz', status: 'calculated' },
+                        lowMid: { energy_db: -11.5, percentage: 19.7, range: '150-500Hz', status: 'calculated' },
+                        mid: { energy_db: -9.8, percentage: 21.6, range: '500-2000Hz', status: 'calculated' },
+                        highMid: { energy_db: -19.4, percentage: 13.8, range: '2000-5000Hz', status: 'calculated' },
+                        presence: { energy_db: -27.2, percentage: 9.2, range: '5000-10000Hz', status: 'calculated' },
+                        air: { energy_db: -29.1, percentage: 4.4, range: '10000-20000Hz', status: 'calculated' }
+                    }
+                }
+            };
+            
+            const ref = {
+                bands: {
+                    sub: { target_db: -17.3, tol_db: 2.5 },
+                    low_bass: { target_db: -14.6, tol_db: 4.3 }, // Mapeado para 'bass'
+                    low_mid: { target_db: -12.6, tol_db: 3.7 }, // Mapeado para 'lowMid'
+                    mid: { target_db: -12, tol_db: 4.0 },
+                    high_mid: { target_db: -20.2, tol_db: 3.6 }, // Mapeado para 'highMid'
+                    presenca: { target_db: -32.1, tol_db: 3.6 }, // Mapeado para 'presence'
+                    brilho: { target_db: -24.7, tol_db: 2.5 } // Mapeado para 'air'
+                }
+            };
+            
+            showResults('📊 Spectral Balance (technicalData)', analysis, ref);
+        }
+        
+        function testLegacyFallback() {
+            const analysis = {
+                technicalData: {
+                    tonalBalance: {
+                        sub: { rms_db: -18.1 },
+                        low: { rms_db: -15.3 },
+                        mid: { rms_db: -11.7 },
+                        high: { rms_db: -22.4 }
+                    }
+                }
+            };
+            
+            const ref = {
+                bands: {
+                    sub: { target_db: -17.3, tol_db: 2.5 },
+                    low_bass: { target_db: -14.6, tol_db: 4.3 },
+                    mid: { target_db: -12, tol_db: 4.0 },
+                    brilho: { target_db: -24.7, tol_db: 2.5 }
+                }
+            };
+            
+            showResults('🔄 Fallback Legado (tonalBalance)', analysis, ref);
+        }
+        
+        function testReferenceMode() {
+            const analysis = {
+                analysisMode: 'reference',
+                referenceMetrics: {
+                    lufs: -12.1,
+                    truePeakDbtp: -1.2,
+                    dynamicRange: 8.5,
+                    bands: {
+                        sub: { target_db: -15.8, tol_db: 0.2 },
+                        low_bass: { target_db: -12.4, tol_db: 0.2 },
+                        low_mid: { target_db: -9.7, tol_db: 0.5 },
+                        mid: { target_db: -8.1, tol_db: 0.5 },
+                        high_mid: { target_db: -17.6, tol_db: 0.5 },
+                        presenca: { target_db: -26.3, tol_db: 0.5 },
+                        brilho: { target_db: -27.9, tol_db: 0.5 }
+                    }
+                },
+                metrics: {
+                    bands: {
+                        sub: { energy_db: -15.6, status: 'calculated' },
+                        low_bass: { energy_db: -12.7, status: 'calculated' },
+                        low_mid: { energy_db: -10.2, status: 'calculated' },
+                        mid: { energy_db: -8.8, status: 'calculated' },
+                        high_mid: { energy_db: -18.1, status: 'calculated' },
+                        presenca: { energy_db: -26.8, status: 'calculated' },
+                        brilho: { energy_db: -28.4, status: 'calculated' }
+                    }
+                }
+            };
+            
+            const ref = analysis.referenceMetrics; // Modo referência usa dados extraídos do áudio
+            
+            showResults('🎯 Modo Referência (áudio de referência)', analysis, ref);
+        }
+        
+        function showResults(testName, analysis, ref) {
+            const output = simulateSpectralBandsComparison(analysis, ref);
+            const resultsDiv = document.getElementById('results');
+            const outputDiv = document.getElementById('output');
+            const statusDiv = document.getElementById('status');
+            
+            resultsDiv.style.display = 'block';
+            
+            const tableHtml = `
+                <div class="card">
+                    <div class="card-title">📌 Comparação de Referência (${testName})</div>
+                    <table class="ref-compare-table">
+                        <thead><tr>
+                            <th>Métrica</th><th>Valor</th><th>Alvo</th><th>Δ</th>
+                        </tr></thead>
+                        <tbody>${output || '<tr><td colspan="4" style="opacity:.6">Sem métricas disponíveis</td></tr>'}</tbody>
+                    </table>
+                </div>
+            `;
+            
+            outputDiv.innerHTML = tableHtml;
+            
+            // Contar quantas bandas foram renderizadas
+            const renderedBands = (output.match(/<tr>/g) || []).length;
+            const hasValidData = output.length > 0 && !output.includes('Sem métricas disponíveis');
+            const hasStatus = output.includes('IDEAL') || output.includes('Ajustar') || output.includes('Corrigir');
+            
+            statusDiv.innerHTML = `
+                <div class="status ${hasValidData ? 'success' : 'warning'}">
+                    <strong>Teste: ${testName}</strong><br>
+                    📊 Bandas renderizadas: ${renderedBands}<br>
+                    ✅ Dados válidos: ${hasValidData ? 'Sim' : 'Não'}<br>
+                    🎯 Status classificados: ${hasStatus ? 'Sim' : 'Não'}
+                </div>
+            `;
+            
+            console.log('🎵 Teste realizado:', testName);
+            console.log('📊 Dados de entrada:', { analysis, ref });
+            console.log('📋 HTML gerado:', output);
+        }
+        
+        // Teste inicial
+        window.onload = function() {
+            document.getElementById('status').innerHTML = `
+                <div class="status success">
+                    ✅ Sistema de teste da tabela de referência carregado! Clique nos botões acima para testar diferentes cenários.
+                </div>
+            `;
+        };
+    </script>
+</body>
+</html>

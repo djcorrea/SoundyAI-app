@@ -4828,24 +4828,49 @@ function renderReferenceComparisons(analysis) {
         if (typeof window !== 'undefined' && window.createEnhancedDiffCell) {
             diffCell = window.createEnhancedDiffCell(diff, unit, tol);
         } else {
-            // Fallback para sistema antigo
+            // Fallback para sistema antigo com thresholds melhorados para bandas espectrais
             let cssClass = 'na';
+            let statusText = '';
+            
             if (Number.isFinite(diff) && Number.isFinite(tol) && tol > 0) {
                 const adiff = Math.abs(diff);
-                if (adiff <= tol) {
-                    cssClass = 'ok';
-                } else {
-                    const n = adiff / tol;
-                    if (n <= 2) {
+                
+                // Thresholds específicos para bandas espectrais (mais rigorosos que métricas gerais)
+                if (unit === ' dB' && label.includes('(')) {
+                    // Para bandas espectrais, usar thresholds mais restritivos
+                    if (adiff <= tol * 0.5) {
+                        cssClass = 'ok';
+                        statusText = 'IDEAL';
+                    } else if (adiff <= tol) {
                         cssClass = 'yellow';
+                        statusText = 'Ajustar';
+                    } else if (adiff <= tol * 2) {
+                        cssClass = 'warn';
+                        statusText = 'Corrigir';
                     } else {
                         cssClass = 'warn';
+                        statusText = 'Crítico';
+                    }
+                } else {
+                    // Para métricas gerais, usar sistema original
+                    if (adiff <= tol) {
+                        cssClass = 'ok';
+                        statusText = 'IDEAL';
+                    } else {
+                        const n = adiff / tol;
+                        if (n <= 2) {
+                            cssClass = 'yellow';
+                            statusText = 'Ajustar';
+                        } else {
+                            cssClass = 'warn';
+                            statusText = 'Corrigir';
+                        }
                     }
                 }
             }
             
             diffCell = Number.isFinite(diff)
-                ? `<td class="${cssClass}">${diff>0?'+':''}${nf(diff)}${unit}</td>`
+                ? `<td class="${cssClass}" title="${statusText}">${diff>0?'+':''}${nf(diff)}${unit}${statusText ? ` (${statusText})` : ''}</td>`
                 : '<td class="na" style="opacity:.55">—</td>';
         }
         
@@ -4913,6 +4938,23 @@ function renderReferenceComparisons(analysis) {
         const normMap = (analysis?.technicalData?.refBandTargetsNormalized?.mapping) || null;
         const showNorm = (typeof window !== 'undefined' && window.SHOW_NORMALIZED_REF_TARGETS === true && normMap);
         
+        // Mapeamento de nomes amigáveis para as bandas
+        const bandDisplayNames = {
+            sub: 'Sub (20-60Hz)',
+            bass: 'Bass (60-150Hz)', 
+            low_bass: 'Bass (60-150Hz)',
+            lowMid: 'Low-Mid (150-500Hz)',
+            low_mid: 'Low-Mid (150-500Hz)',
+            mid: 'Mid (500-2kHz)',
+            highMid: 'High-Mid (2-5kHz)',
+            high_mid: 'High-Mid (2-5kHz)',
+            presence: 'Presence (5-10kHz)',
+            presenca: 'Presence (5-10kHz)',
+            air: 'Air (10-20kHz)',
+            brilho: 'Air (10-20kHz)'
+        };
+        
+        // Primeiro, tentar iterar por todas as bandas do sistema de referência
         for (const [band, refBand] of Object.entries(ref.bands)) {
             let bLocal;
             
@@ -4935,20 +4977,116 @@ function renderReferenceComparisons(analysis) {
                 let tgt = null;
                 if (!refBand._target_na && Number.isFinite(refBand.target_db)) tgt = refBand.target_db;
                 if (showNorm && normMap && Number.isFinite(normMap[band])) tgt = normMap[band];
-                pushRow(band, bLocal.rms_db, tgt, refBand.tol_db);
+                
+                const displayName = bandDisplayNames[band] || band;
+                pushRow(displayName, bLocal.rms_db, tgt, refBand.tol_db, ' dB');
             }
         }
+        
+        // Depois, verificar se há bandas nos dados que não estão no sistema de referência
+        // (para garantir que não perdemos nenhuma banda calculada)
+        if (bandsToUse) {
+            Object.keys(bandsToUse).forEach(bandKey => {
+                // Se esta banda não foi processada no loop anterior
+                if (!ref.bands[bandKey]) {
+                    const bandData = bandsToUse[bandKey];
+                    let energyDb = null;
+                    
+                    if (typeof bandData === 'object' && Number.isFinite(bandData.energy_db)) {
+                        energyDb = bandData.energy_db;
+                    } else if (typeof bandData === 'object' && Number.isFinite(bandData.rms_db)) {
+                        energyDb = bandData.rms_db;
+                    } else if (Number.isFinite(bandData)) {
+                        energyDb = bandData;
+                    }
+                    
+                    if (Number.isFinite(energyDb)) {
+                        const displayName = bandDisplayNames[bandKey] || 
+                                          `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`;
+                        pushRow(displayName, energyDb, null, null, ' dB');
+                    }
+                }
+            });
+        }
     } else {
-        // Fallback antigo: tonalBalance simplificado
-        const tb = tech.tonalBalance || {};
-        const bandMap = { sub:'sub', low:'low_bass', mid:'mid', high:'brilho' };
-        Object.entries(bandMap).forEach(([tbKey, refBand]) => {
-            const bData = tb[tbKey];
-            const refBandData = ref.bands?.[refBand];
-            if (bData && refBandData && Number.isFinite(bData.rms_db)) {
-                pushRow(`${tbKey.toUpperCase()}`, bData.rms_db, refBandData.target_db, refBandData.tol_db);
-            }
-        });
+        // Fallback melhorado: buscar todas as bandas espectrais disponíveis
+        const spectralBands = tech.spectral_balance || 
+                            tech.spectralBands || 
+                            analysis.metrics?.bands || {};
+        
+        // Mapeamento completo das 7 bandas espectrais com mapeamento de chaves de referência
+        const bandMap = {
+            sub: { refKey: 'sub', name: 'Sub (20-60Hz)', range: '20-60Hz' },
+            bass: { refKey: 'low_bass', name: 'Bass (60-150Hz)', range: '60-150Hz' },
+            low_bass: { refKey: 'low_bass', name: 'Bass (60-150Hz)', range: '60-150Hz' },
+            lowMid: { refKey: 'low_mid', name: 'Low-Mid (150-500Hz)', range: '150-500Hz' },
+            low_mid: { refKey: 'low_mid', name: 'Low-Mid (150-500Hz)', range: '150-500Hz' },
+            mid: { refKey: 'mid', name: 'Mid (500-2kHz)', range: '500-2000Hz' },
+            highMid: { refKey: 'high_mid', name: 'High-Mid (2-5kHz)', range: '2000-5000Hz' },
+            high_mid: { refKey: 'high_mid', name: 'High-Mid (2-5kHz)', range: '2000-5000Hz' },
+            presence: { refKey: 'presenca', name: 'Presence (5-10kHz)', range: '5000-10000Hz' },
+            presenca: { refKey: 'presenca', name: 'Presence (5-10kHz)', range: '5000-10000Hz' },
+            air: { refKey: 'brilho', name: 'Air (10-20kHz)', range: '10000-20000Hz' },
+            brilho: { refKey: 'brilho', name: 'Air (10-20kHz)', range: '10000-20000Hz' }
+        };
+        
+        // Tentar primeiro com dados espectrais modernos
+        if (spectralBands && Object.keys(spectralBands).length > 0) {
+            Object.entries(bandMap).forEach(([bandKey, bandInfo]) => {
+                const bandData = spectralBands[bandKey];
+                const refBandData = ref.bands?.[bandInfo.refKey];
+                
+                if (bandData && refBandData) {
+                    let energyDb = null;
+                    
+                    // Verificar formato dos dados da banda
+                    if (typeof bandData === 'object' && bandData.energy_db !== undefined) {
+                        energyDb = bandData.energy_db;
+                    } else if (typeof bandData === 'object' && bandData.rms_db !== undefined) {
+                        energyDb = bandData.rms_db;
+                    } else if (Number.isFinite(bandData)) {
+                        energyDb = bandData;
+                    }
+                    
+                    if (Number.isFinite(energyDb)) {
+                        pushRow(bandInfo.name, energyDb, refBandData.target_db, refBandData.tol_db, ' dB');
+                    }
+                }
+            });
+            
+            // Verificar se há bandas que não foram mapeadas (evitar duplicatas)
+            const processedBands = new Set(Object.keys(bandMap));
+            Object.keys(spectralBands).forEach(bandKey => {
+                if (!processedBands.has(bandKey) && bandKey !== '_status' && bandKey !== 'totalPercentage') {
+                    const bandData = spectralBands[bandKey];
+                    let energyDb = null;
+                    
+                    if (typeof bandData === 'object' && Number.isFinite(bandData.energy_db)) {
+                        energyDb = bandData.energy_db;
+                    } else if (typeof bandData === 'object' && Number.isFinite(bandData.rms_db)) {
+                        energyDb = bandData.rms_db;
+                    } else if (Number.isFinite(bandData)) {
+                        energyDb = bandData;
+                    }
+                    
+                    if (Number.isFinite(energyDb)) {
+                        const displayName = `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`;
+                        pushRow(displayName, energyDb, null, null, ' dB');
+                    }
+                }
+            });
+        } else {
+            // Fallback para tonalBalance simplificado (mantido para compatibilidade)
+            const tb = tech.tonalBalance || {};
+            const legacyBandMap = { sub:'sub', low:'low_bass', mid:'mid', high:'brilho' };
+            Object.entries(legacyBandMap).forEach(([tbKey, refBand]) => {
+                const bData = tb[tbKey];
+                const refBandData = ref.bands?.[refBand];
+                if (bData && refBandData && Number.isFinite(bData.rms_db)) {
+                    pushRow(`${tbKey.toUpperCase()}`, bData.rms_db, refBandData.target_db, refBandData.tol_db, ' dB');
+                }
+            });
+        }
     }
     container.innerHTML = `<div class="card" style="margin-top:12px;">
         <div class="card-title">📌 Comparação de Referência (${titleText})</div>
