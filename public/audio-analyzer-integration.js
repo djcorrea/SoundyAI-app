@@ -3530,35 +3530,34 @@ function displayModalResults(analysis) {
                 }
                 
                 // === BANDAS ESPECTRAIS DETALHADAS ===
-                const bands = analysis.technicalData?.spectralBands || {};
+                // 🌈 CORREÇÃO: Usar dados corrigidos do metrics.bands
+                const bands = analysis.metrics?.bands || analysis.technicalData?.spectral_balance || analysis.technicalData?.spectralBands || {};
+                
                 if (Object.keys(bands).length > 0) {
-                    // Sub-60Hz
-                    if (Number.isFinite(bands.sub)) {
-                        rows.push(row('Sub-60Hz', `${safeFixed(bands.sub, 1)} dB`, 'spectralSub'));
-                    }
-                    // Bass 60-120Hz
-                    if (Number.isFinite(bands.bass)) {
-                        rows.push(row('Bass 60-120Hz', `${safeFixed(bands.bass, 1)} dB`, 'spectralBass'));
-                    }
-                    // Low-Mid 120-500Hz
-                    if (Number.isFinite(bands.lowMid)) {
-                        rows.push(row('Low-Mid 120-500Hz', `${safeFixed(bands.lowMid, 1)} dB`, 'spectralLowMid'));
-                    }
-                    // Mid 500-2kHz
-                    if (Number.isFinite(bands.mid)) {
-                        rows.push(row('Mid 500-2kHz', `${safeFixed(bands.mid, 1)} dB`, 'spectralMid'));
-                    }
-                    // High-Mid 2-4kHz
-                    if (Number.isFinite(bands.highMid)) {
-                        rows.push(row('High-Mid 2-4kHz', `${safeFixed(bands.highMid, 1)} dB`, 'spectralHighMid'));
-                    }
-                    // Presence 4-8kHz
-                    if (Number.isFinite(bands.presence)) {
-                        rows.push(row('Presence 4-8kHz', `${safeFixed(bands.presence, 1)} dB`, 'spectralPresence'));
-                    }
-                    // Brilliance 8kHz+
-                    if (Number.isFinite(bands.brilliance)) {
-                        rows.push(row('Brilliance 8kHz+', `${safeFixed(bands.brilliance, 1)} dB`, 'spectralBrilliance'));
+                    // Definição das 7 bandas espectrais oficiais
+                    const spectralBands = [
+                        { key: 'sub', name: 'Sub-bass', defaultRange: '20-60Hz' },
+                        { key: 'bass', name: 'Bass', defaultRange: '60-150Hz' },
+                        { key: 'lowMid', name: 'Low-Mid', defaultRange: '150-500Hz' },
+                        { key: 'mid', name: 'Mid', defaultRange: '500-2kHz' },
+                        { key: 'highMid', name: 'High-Mid', defaultRange: '2-5kHz' },
+                        { key: 'presence', name: 'Presence', defaultRange: '5-10kHz' },
+                        { key: 'air', name: 'Air', defaultRange: '10-20kHz' }
+                    ];
+                    
+                    for (const band of spectralBands) {
+                        const bandData = bands[band.key];
+                        
+                        if (bandData && typeof bandData === 'object') {
+                            // Estrutura nova: { energy_db, percentage, range, status }
+                            if (bandData.status === 'calculated' && Number.isFinite(bandData.energy_db)) {
+                                const range = bandData.range || band.defaultRange;
+                                rows.push(row(`${band.name} (${range})`, `${safeFixed(bandData.energy_db, 1)} dB`, `spectral${band.key.charAt(0).toUpperCase() + band.key.slice(1)}`));
+                            }
+                        } else if (Number.isFinite(bandData)) {
+                            // Estrutura legacy: valor direto
+                            rows.push(row(`${band.name} (${band.defaultRange})`, `${safeFixed(bandData, 1)} dB`, `spectral${band.key.charAt(0).toUpperCase() + band.key.slice(1)}`));
+                        }
                     }
                 }
                 
@@ -4395,23 +4394,62 @@ function displayModalResults(analysis) {
                         <div class="card">
                     <div class="card-title">🔊 Balance Espectral Detalhado</div>
                     ${(() => {
-                        // Usar dados das bandas espectrais do technicalData
-                        const bands = analysis.technicalData?.spectralBands || {};
-                        const sb = analysis.technicalData?.spectral_balance || bands;
+                        // 🌈 CORREÇÃO: Renderização dinâmica de todas as bandas espectrais
+                        // Priorizar metrics.bands (dados corrigidos), fallback para technicalData.spectral_balance
+                        const bands = analysis.metrics?.bands || analysis.technicalData?.spectral_balance || {};
                         
-                        const formatDb = (v) => Number.isFinite(v) ? `${safeFixed(v, 1)} dB` : '—';
+                        const formatDb = (v) => Number.isFinite(v) ? `${safeFixed(v, 1)} dB` : 'não calculado';
+                        const formatPct = (v) => Number.isFinite(v) ? `${safeFixed(v, 1)}%` : 'não calculado';
                         const rows = [];
                         
-                        // Bandas baseadas nas imagens que você enviou
-                        if (Number.isFinite(sb.sub)) rows.push(row('Graves (50-120Hz)', formatDb(sb.sub), 'spectralSub'));
-                        if (Number.isFinite(sb.bass)) rows.push(row('Graves Altos (120-200Hz)', formatDb(sb.bass), 'spectralBass'));
-                        if (Number.isFinite(sb.lowMid || sb.mids)) rows.push(row('Médios Graves (200-500Hz)', formatDb(sb.lowMid || sb.mids), 'spectralLowMids'));
-                        if (Number.isFinite(sb.mid)) rows.push(row('Médios (500-2kHz)', formatDb(sb.mid), 'spectralMids'));
-                        if (Number.isFinite(sb.highMid || sb.treble)) rows.push(row('Médios Agudos (2-4kHz)', formatDb(sb.highMid || sb.treble), 'spectralHighMids'));
-                        if (Number.isFinite(sb.presence)) rows.push(row('Agudos (4-8kHz)', formatDb(sb.presence), 'spectralAgudos'));
-                        if (Number.isFinite(sb.brilliance)) rows.push(row('Presença (8-12kHz)', formatDb(sb.brilliance), 'spectralPresenca'));
+                        // Definição das 7 bandas espectrais oficiais
+                        const spectralBands = [
+                            { key: 'sub', name: 'Sub-bass', defaultRange: '20-60Hz' },
+                            { key: 'bass', name: 'Bass', defaultRange: '60-150Hz' },
+                            { key: 'lowMid', name: 'Low-Mid', defaultRange: '150-500Hz' },
+                            { key: 'mid', name: 'Mid', defaultRange: '500-2kHz' },
+                            { key: 'highMid', name: 'High-Mid', defaultRange: '2-5kHz' },
+                            { key: 'presence', name: 'Presence', defaultRange: '5-10kHz' },
+                            { key: 'air', name: 'Air', defaultRange: '10-20kHz' }
+                        ];
                         
-                        return rows.length ? rows.join('') : row('Status', 'Balance não calculado');
+                        // Renderizar dinamicamente todas as bandas disponíveis
+                        for (const band of spectralBands) {
+                            const bandData = bands[band.key];
+                            
+                            if (bandData && typeof bandData === 'object') {
+                                // Estrutura nova: { energy_db, percentage, range, status }
+                                const range = bandData.range || band.defaultRange;
+                                const energyDb = formatDb(bandData.energy_db);
+                                const percentage = formatPct(bandData.percentage);
+                                const status = bandData.status || 'unknown';
+                                
+                                if (status === 'calculated') {
+                                    rows.push(row(`${band.name} (${range})`, `${energyDb} | ${percentage}`, `spectral${band.key.charAt(0).toUpperCase() + band.key.slice(1)}`));
+                                } else {
+                                    rows.push(row(`${band.name} (${range})`, 'não calculado', `spectral${band.key.charAt(0).toUpperCase() + band.key.slice(1)}`));
+                                }
+                            } else if (Number.isFinite(bandData)) {
+                                // Estrutura legacy: valor direto
+                                const range = band.defaultRange;
+                                rows.push(row(`${band.name} (${range})`, formatDb(bandData), `spectral${band.key.charAt(0).toUpperCase() + band.key.slice(1)}`));
+                            } else {
+                                // Banda não disponível
+                                rows.push(row(`${band.name} (${band.defaultRange})`, 'não calculado', `spectral${band.key.charAt(0).toUpperCase() + band.key.slice(1)}`));
+                            }
+                        }
+                        
+                        // Se nenhuma banda foi encontrada, mostrar status
+                        if (rows.length === 0) {
+                            return row('Status', 'Bandas espectrais não calculadas');
+                        }
+                        
+                        // Adicionar totalPercentage se disponível
+                        if (Number.isFinite(bands.totalPercentage)) {
+                            rows.push(row('Total', `${safeFixed(bands.totalPercentage, 1)}%`, 'spectralTotal'));
+                        }
+                        
+                        return rows.join('');
                     })()}
                 </div>
                         <div class="card">
