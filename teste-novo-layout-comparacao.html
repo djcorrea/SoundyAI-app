@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - Nova Tabela de Comparação (Formato comparison-grid)</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #444;
+            border-radius: 6px;
+            background: #333;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .success { background: #2d5a2d; color: #90ee90; border: 1px solid #4a7c4a; }
+        .error { background: #5a2d2d; color: #ff9090; border: 1px solid #7c4a4a; }
+        .warning { background: #5a5a2d; color: #ffff90; border: 1px solid #7c7c4a; }
+        
+        /* Estilos do comparison-grid (copiados do sistema original) */
+        .card {
+            background: #2a2a2a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+        .card-title {
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #fff;
+            font-size: 14px;
+        }
+        .comparison-content {
+            margin-top: 10px;
+        }
+        .comparison-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .comparison-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 4px;
+            border-left: 3px solid transparent;
+        }
+        .comparison-row.unavailable {
+            opacity: 0.6;
+            border-left-color: #666;
+        }
+        .comparison-label {
+            font-weight: 500;
+            color: #e0e0e0;
+            flex: 1;
+            font-size: 12px;
+        }
+        .comparison-values {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 11px;
+        }
+        .value-pair {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+        .user-value {
+            color: #90cdf4;
+            font-weight: 500;
+        }
+        .ref-value {
+            color: #a0a0a0;
+            font-style: italic;
+        }
+        .difference-indicator {
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-weight: 600;
+            min-width: 50px;
+            text-align: center;
+            font-size: 10px;
+        }
+        .difference-indicator.positive {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            border: 1px solid rgba(239, 68, 68, 0.3);
+        }
+        .difference-indicator.negative {
+            background: rgba(34, 197, 94, 0.2);
+            color: #86efac;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+        }
+        .difference-indicator.neutral {
+            background: rgba(156, 163, 175, 0.2);
+            color: #d1d5db;
+            border: 1px solid rgba(156, 163, 175, 0.3);
+        }
+        .comparison-unavailable {
+            color: #888;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Teste - Nova Tabela de Comparação (Formato comparison-grid)</h1>
+        
+        <div class="test-section">
+            <h3>📊 Novo Layout Idêntico às Outras Métricas</h3>
+            <p>Testando a nova renderização usando <code>comparison-grid</code> igual ao LUFS, True Peak, etc:</p>
+            
+            <button class="btn" onclick="testNewLayout()">🆕 Testar Novo Layout (comparison-grid)</button>
+            <button class="btn" onclick="testSpectralBandsOnly()">📊 Testar Só Bandas Espectrais</button>
+            <button class="btn" onclick="testCompleteReference()">🎯 Testar Referência Completa</button>
+        </div>
+        
+        <div id="results" class="test-section" style="display: none;">
+            <h3>📋 Resultado da Nova Tabela</h3>
+            <div id="output"></div>
+        </div>
+        
+        <div id="status"></div>
+    </div>
+
+    <script>
+        // Simular as funções do sistema
+        function generateComparisonRow(label, comparisonData, unit) {
+            if (!comparisonData || comparisonData.difference === null) {
+                return `
+                    <div class="comparison-row unavailable">
+                        <div class="comparison-label">${label}</div>
+                        <div class="comparison-values">
+                            <span class="comparison-unavailable">Dados insuficientes</span>
+                        </div>
+                    </div>
+                `;
+            }
+            
+            const userValue = comparisonData.user?.toFixed?.(1) || comparisonData.user || '—';
+            const refValue = comparisonData.reference?.toFixed?.(1) || comparisonData.reference || '—';
+            const diff = comparisonData.difference?.toFixed?.(1) || '—';
+            const diffClass = comparisonData.difference > 0 ? 'positive' : comparisonData.difference < 0 ? 'negative' : 'neutral';
+            
+            return `
+                <div class="comparison-row">
+                    <div class="comparison-label">${label}</div>
+                    <div class="comparison-values">
+                        <div class="value-pair">
+                            <span class="user-value">${userValue}${unit}</span>
+                            <span class="ref-value">${refValue}${unit}</span>
+                        </div>
+                        <div class="difference-indicator ${diffClass}">
+                            ${diff > 0 ? '+' : ''}${diff}${unit}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Simular a função de bandas espectrais
+        function generateSpectralComparisonRows(analysis, ref) {
+            const spectralRows = [];
+            
+            // Simular dados das bandas espectrais
+            const spectralBands = analysis.metrics?.bands || 
+                                analysis.technicalData?.spectral_balance || {};
+            
+            // Mapeamento das bandas
+            const bandMap = {
+                sub: { refKey: 'sub', name: 'Sub', range: '20–60Hz' },
+                low_bass: { refKey: 'low_bass', name: 'Bass', range: '60–150Hz' },
+                low_mid: { refKey: 'low_mid', name: 'Low-Mid', range: '150–500Hz' },
+                mid: { refKey: 'mid', name: 'Mid', range: '500–2kHz' },
+                high_mid: { refKey: 'high_mid', name: 'High-Mid', range: '2–5kHz' },
+                presenca: { refKey: 'presenca', name: 'Presence', range: '5–10kHz' },
+                brilho: { refKey: 'brilho', name: 'Air', range: '10–20kHz' }
+            };
+            
+            // Processar bandas de referência
+            if (ref.bands) {
+                for (const [refBandKey, refBandData] of Object.entries(ref.bands)) {
+                    // Buscar banda correspondente
+                    let bandData = null;
+                    let displayInfo = null;
+                    
+                    for (const [key, info] of Object.entries(bandMap)) {
+                        if (info.refKey === refBandKey && spectralBands[key]) {
+                            bandData = spectralBands[key];
+                            displayInfo = info;
+                            break;
+                        }
+                    }
+                    
+                    if (bandData && displayInfo) {
+                        let energyDb = null;
+                        
+                        if (typeof bandData === 'object' && Number.isFinite(bandData.energy_db)) {
+                            energyDb = bandData.energy_db;
+                        } else if (Number.isFinite(bandData)) {
+                            energyDb = bandData;
+                        }
+                        
+                        if (Number.isFinite(energyDb) && Number.isFinite(refBandData.target_db)) {
+                            const difference = energyDb - refBandData.target_db;
+                            
+                            const comparisonData = {
+                                user: energyDb,
+                                reference: refBandData.target_db,
+                                difference: difference
+                            };
+                            
+                            const label = `${displayInfo.name} ${displayInfo.range}`;
+                            spectralRows.push(generateComparisonRow(label, comparisonData, 'dB'));
+                        }
+                    }
+                }
+            }
+            
+            return spectralRows.join('');
+        }
+        
+        // Funções de teste
+        function testNewLayout() {
+            const analysis = {
+                metrics: {
+                    lufs_integrated: -12.1,
+                    true_peak_dbtp: -1.2,
+                    dynamic_range: 8.5,
+                    lra: 6.8,
+                    stereo_correlation: 0.15,
+                    bands: {
+                        sub: { energy_db: -15.2 },
+                        low_bass: { energy_db: -12.8 },
+                        low_mid: { energy_db: -10.1 },
+                        mid: { energy_db: -8.6 },
+                        high_mid: { energy_db: -18.2 },
+                        presenca: { energy_db: -25.7 },
+                        brilho: { energy_db: -28.3 }
+                    }
+                }
+            };
+            
+            const ref = {
+                lufs_target: -14,
+                true_peak_target: -1.0,
+                dr_target: 9,
+                lra_target: 7,
+                stereo_target: 0.1,
+                bands: {
+                    sub: { target_db: -17.3 },
+                    low_bass: { target_db: -14.6 },
+                    low_mid: { target_db: -12.6 },
+                    mid: { target_db: -12 },
+                    high_mid: { target_db: -20.2 },
+                    presenca: { target_db: -32.1 },
+                    brilho: { target_db: -24.7 }
+                }
+            };
+            
+            showResults('🆕 Novo Layout (comparison-grid)', analysis, ref, true);
+        }
+        
+        function testSpectralBandsOnly() {
+            const analysis = {
+                technicalData: {
+                    spectral_balance: {
+                        sub: { energy_db: -16.8 },
+                        low_bass: { energy_db: -13.1 },
+                        low_mid: { energy_db: -11.5 },
+                        mid: { energy_db: -9.8 },
+                        high_mid: { energy_db: -19.4 },
+                        presenca: { energy_db: -27.2 },
+                        brilho: { energy_db: -29.1 }
+                    }
+                }
+            };
+            
+            const ref = {
+                bands: {
+                    sub: { target_db: -17.3 },
+                    low_bass: { target_db: -14.6 },
+                    low_mid: { target_db: -12.6 },
+                    mid: { target_db: -12 },
+                    high_mid: { target_db: -20.2 },
+                    presenca: { target_db: -32.1 },
+                    brilho: { target_db: -24.7 }
+                }
+            };
+            
+            showResults('📊 Só Bandas Espectrais', analysis, ref, false);
+        }
+        
+        function testCompleteReference() {
+            const analysis = {
+                metrics: {
+                    lufs_integrated: -8.0,
+                    true_peak_dbtp: -0.8,
+                    dynamic_range: 8.1,
+                    lra: 6.6,
+                    stereo_correlation: 0.3,
+                    bands: {
+                        sub: { energy_db: -7.6 },
+                        low_bass: { energy_db: -6.6 },
+                        low_mid: { energy_db: -8.2 },
+                        mid: { energy_db: -6.7 },
+                        high_mid: { energy_db: -12.8 },
+                        presenca: { energy_db: -22.7 },
+                        brilho: { energy_db: -16.6 }
+                    }
+                }
+            };
+            
+            const ref = {
+                lufs_target: -8,
+                true_peak_target: -1.0,
+                dr_target: 8.1,
+                lra_target: 6.6,
+                stereo_target: 0.3,
+                bands: {
+                    sub: { target_db: -7.6 },
+                    low_bass: { target_db: -6.6 },
+                    low_mid: { target_db: -8.2 },
+                    mid: { target_db: -6.7 },
+                    high_mid: { target_db: -12.8 },
+                    presenca: { target_db: -22.7 },
+                    brilho: { target_db: -16.6 }
+                }
+            };
+            
+            showResults('🎯 Referência Completa (Funk Automotivo)', analysis, ref, true);
+        }
+        
+        function showResults(testName, analysis, ref, includeMainMetrics = true) {
+            const resultsDiv = document.getElementById('results');
+            const outputDiv = document.getElementById('output');
+            const statusDiv = document.getElementById('status');
+            
+            resultsDiv.style.display = 'block';
+            
+            let html = `
+                <div class="card">
+                    <div class="card-title">📌 Comparação de Referência (${testName})</div>
+                    <div class="comparison-content">
+                        <div class="comparison-grid">
+            `;
+            
+            if (includeMainMetrics) {
+                // Métricas principais
+                html += generateComparisonRow('Volume Integrado (padrão streaming)', 
+                    { user: analysis.metrics?.lufs_integrated, reference: ref.lufs_target, difference: analysis.metrics?.lufs_integrated && ref.lufs_target ? analysis.metrics.lufs_integrated - ref.lufs_target : null }, 
+                    'LUFS');
+                
+                html += generateComparisonRow('pico real (dBTP)', 
+                    { user: analysis.metrics?.true_peak_dbtp, reference: ref.true_peak_target, difference: analysis.metrics?.true_peak_dbtp && ref.true_peak_target ? analysis.metrics.true_peak_dbtp - ref.true_peak_target : null }, 
+                    'dBTP');
+                
+                html += generateComparisonRow('Distância (diferenças entre alto/baixo)', 
+                    { user: analysis.metrics?.dynamic_range, reference: ref.dr_target, difference: analysis.metrics?.dynamic_range && ref.dr_target ? analysis.metrics.dynamic_range - ref.dr_target : null }, 
+                    '');
+                
+                html += generateComparisonRow('Variação de Volume (conquistada)', 
+                    { user: analysis.metrics?.lra, reference: ref.lra_target, difference: analysis.metrics?.lra && ref.lra_target ? analysis.metrics.lra - ref.lra_target : null }, 
+                    'LU');
+                
+                html += generateComparisonRow('Correlação Estéreo (separar)', 
+                    { user: analysis.metrics?.stereo_correlation, reference: ref.stereo_target, difference: analysis.metrics?.stereo_correlation && ref.stereo_target ? analysis.metrics.stereo_correlation - ref.stereo_target : null }, 
+                    '');
+            }
+            
+            // Bandas espectrais
+            html += generateSpectralComparisonRows(analysis, ref);
+            
+            html += `
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            outputDiv.innerHTML = html;
+            
+            // Contar métricas renderizadas
+            const renderedRows = (html.match(/comparison-row(?! unavailable)/g) || []).length;
+            const spectralBandsCount = (html.match(/comparison-row.*(?:Sub|Bass|Low-Mid|Mid|High-Mid|Presence|Air)/g) || []).length;
+            
+            statusDiv.innerHTML = `
+                <div class="status success">
+                    <strong>Teste: ${testName}</strong><br>
+                    📊 Total de métricas: ${renderedRows}<br>
+                    🎵 Bandas espectrais: ${spectralBandsCount}<br>
+                    ✅ Layout: comparison-grid idêntico às outras métricas
+                </div>
+            `;
+            
+            console.log('🎵 Teste realizado:', testName);
+            console.log('📊 Dados de entrada:', { analysis, ref });
+            console.log('📋 HTML gerado:', html);
+        }
+        
+        // Teste inicial
+        window.onload = function() {
+            document.getElementById('status').innerHTML = `
+                <div class="status success">
+                    ✅ Sistema de teste do novo layout carregado! Clique nos botões acima para testar.
+                </div>
+            `;
+        };
+    </script>
+</body>
+</html>
