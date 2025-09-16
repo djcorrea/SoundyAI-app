@@ -4801,6 +4801,62 @@ function renderReferenceComparisons(analysis) {
     }
     
     const tech = analysis.technicalData || {};
+    
+    // Mapeamento de métricas - RESTAURAR TABELA COMPLETA
+    const rows = [];
+    const nf = (n, d=2) => Number.isFinite(n) ? n.toFixed(d) : '—';
+    const pushRow = (label, val, target, tol, unit='') => {
+        // Usar sistema de enhancement se disponível
+        const enhancedLabel = (typeof window !== 'undefined' && window.enhanceRowLabel) 
+            ? window.enhanceRowLabel(label, label.toLowerCase().replace(/[^a-z]/g, '')) 
+            : label;
+            
+        // Tratar target null ou NaN como N/A explicitamente
+        const targetIsNA = (target == null || target === '' || (typeof target==='number' && !Number.isFinite(target)));
+        if (!Number.isFinite(val) && targetIsNA) return; // nada útil
+        if (targetIsNA) {
+            rows.push(`<tr>
+                <td>${enhancedLabel}</td>
+                <td>${Number.isFinite(val)?nf(val)+unit:'—'}</td>
+                <td colspan="2" style="opacity:.55">N/A</td>
+            </tr>`);
+            return;
+        }
+        const diff = Number.isFinite(val) && Number.isFinite(target) ? (val - target) : null;
+        
+        // Usar nova função de célula melhorada se disponível
+        let diffCell;
+        if (typeof window !== 'undefined' && window.createEnhancedDiffCell) {
+            diffCell = window.createEnhancedDiffCell(diff, unit, tol);
+        } else {
+            // Fallback para sistema antigo
+            let cssClass = 'na';
+            if (Number.isFinite(diff) && Number.isFinite(tol) && tol > 0) {
+                const adiff = Math.abs(diff);
+                if (adiff <= tol) {
+                    cssClass = 'ok';
+                } else {
+                    const n = adiff / tol;
+                    if (n <= 2) {
+                        cssClass = 'yellow';
+                    } else {
+                        cssClass = 'warn';
+                    }
+                }
+            }
+            
+            diffCell = Number.isFinite(diff)
+                ? `<td class="${cssClass}">${diff>0?'+':''}${nf(diff)}${unit}</td>`
+                : '<td class="na" style="opacity:.55">—</td>';
+        }
+        
+        rows.push(`<tr>
+            <td>${enhancedLabel}</td>
+            <td>${Number.isFinite(val)?nf(val)+unit:'—'}</td>
+            <td>${Number.isFinite(target)?nf(target)+unit:'N/A'}${tol!=null?`<span class="tol">±${nf(tol,2)}</span>`:''}</td>
+            ${diffCell}
+        </tr>`);
+    };
     // 🎯 CENTRALIZAÇÃO DAS MÉTRICAS - Função de acesso para comparação por referência
     const getMetricForRef = (metricPath, fallbackPath = null) => {
         // Prioridade: analysis.metrics > tech (technicalData) > fallback
@@ -4825,144 +4881,14 @@ function renderReferenceComparisons(analysis) {
         return path.split('.').reduce((current, key) => current?.[key], obj);
     };
     
-    // 🎯 NOVA FUNÇÃO: Gerar linhas de comparação para bandas espectrais
-    const generateSpectralComparisonRows = () => {
-        const spectralRows = [];
-        
-        // Dados das bandas espectrais
-        const centralizedBands = analysis.metrics?.bands;
-        const spectralBands = analysis.technicalData?.spectral_balance || 
-                            analysis.technicalData?.spectralBands || 
-                            centralizedBands || {};
-        
-        // Mapeamento completo das bandas espectrais
-        const bandMap = {
-            sub: { refKey: 'sub', name: 'Sub', range: '20–60Hz' },
-            bass: { refKey: 'low_bass', name: 'Bass', range: '60–150Hz' },
-            low_bass: { refKey: 'low_bass', name: 'Bass', range: '60–150Hz' },
-            lowMid: { refKey: 'low_mid', name: 'Low-Mid', range: '150–500Hz' },
-            low_mid: { refKey: 'low_mid', name: 'Low-Mid', range: '150–500Hz' },
-            mid: { refKey: 'mid', name: 'Mid', range: '500–2kHz' },
-            highMid: { refKey: 'high_mid', name: 'High-Mid', range: '2–5kHz' },
-            high_mid: { refKey: 'high_mid', name: 'High-Mid', range: '2–5kHz' },
-            presence: { refKey: 'presenca', name: 'Presence', range: '5–10kHz' },
-            presenca: { refKey: 'presenca', name: 'Presence', range: '5–10kHz' },
-            air: { refKey: 'brilho', name: 'Air', range: '10–20kHz' },
-            brilho: { refKey: 'brilho', name: 'Air', range: '10–20kHz' }
-        };
-        
-        // Bandas já processadas para evitar duplicatas
-        const processedBands = new Set();
-        
-        // Processar bandas do sistema de referência
-        if (ref.bands) {
-            for (const [refBandKey, refBandData] of Object.entries(ref.bands)) {
-                // Encontrar a banda correspondente nos dados
-                let bandData = null;
-                let bandKey = null;
-                let displayInfo = null;
-                
-                // Buscar pela chave de referência
-                for (const [key, info] of Object.entries(bandMap)) {
-                    if (info.refKey === refBandKey && !processedBands.has(key)) {
-                        if (centralizedBands && centralizedBands[key]) {
-                            bandData = centralizedBands[key];
-                            bandKey = key;
-                            displayInfo = info;
-                            break;
-                        } else if (spectralBands && spectralBands[key]) {
-                            bandData = spectralBands[key];
-                            bandKey = key;
-                            displayInfo = info;
-                            break;
-                        }
-                    }
-                }
-                
-                // Se não encontrou, tentar busca direta pela chave de referência
-                if (!bandData && !processedBands.has(refBandKey)) {
-                    if (centralizedBands && centralizedBands[refBandKey]) {
-                        bandData = centralizedBands[refBandKey];
-                        bandKey = refBandKey;
-                        displayInfo = bandMap[refBandKey] || { name: refBandKey, range: 'N/A' };
-                    } else if (spectralBands && spectralBands[refBandKey]) {
-                        bandData = spectralBands[refBandKey];
-                        bandKey = refBandKey;
-                        displayInfo = bandMap[refBandKey] || { name: refBandKey, range: 'N/A' };
-                    }
-                }
-                
-                if (bandData && displayInfo && !processedBands.has(bandKey)) {
-                    processedBands.add(bandKey);
-                    
-                    let energyDb = null;
-                    
-                    // Extrair valor da energia
-                    if (typeof bandData === 'object' && Number.isFinite(bandData.energy_db)) {
-                        energyDb = bandData.energy_db;
-                    } else if (typeof bandData === 'object' && Number.isFinite(bandData.rms_db)) {
-                        energyDb = bandData.rms_db;
-                    } else if (Number.isFinite(bandData)) {
-                        energyDb = bandData;
-                    }
-                    
-                    if (Number.isFinite(energyDb) && Number.isFinite(refBandData.target_db)) {
-                        const difference = energyDb - refBandData.target_db;
-                        
-                        const comparisonData = {
-                            user: energyDb,
-                            reference: refBandData.target_db,
-                            difference: difference
-                        };
-                        
-                        const label = `${displayInfo.name} ${displayInfo.range}`;
-                        spectralRows.push(generateComparisonRow(label, comparisonData, 'dB'));
-                    }
-                }
-            }
-        }
-        
-        // Fallback para bandas que não estão no sistema de referência
-        if (spectralRows.length === 0 && spectralBands) {
-            const fallbackBands = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
-            fallbackBands.forEach(bandKey => {
-                const bandData = spectralBands[bandKey];
-                const displayInfo = bandMap[bandKey];
-                
-                if (bandData && displayInfo) {
-                    let energyDb = null;
-                    
-                    if (typeof bandData === 'object' && Number.isFinite(bandData.energy_db)) {
-                        energyDb = bandData.energy_db;
-                    } else if (typeof bandData === 'object' && Number.isFinite(bandData.rms_db)) {
-                        energyDb = bandData.rms_db;
-                    } else if (Number.isFinite(bandData)) {
-                        energyDb = bandData;
-                    }
-                    
-                    if (Number.isFinite(energyDb)) {
-                        const comparisonData = {
-                            user: energyDb,
-                            reference: null,
-                            difference: null
-                        };
-                        
-                        const label = `${displayInfo.name} ${displayInfo.range}`;
-                        spectralRows.push(generateComparisonRow(label, comparisonData, 'dB'));
-                    }
-                }
-            });
-        }
-        
-        return spectralRows.join('');
-    };
-    
+    // 🎯 CENTRALIZAÇÃO DAS MÉTRICAS - Função de acesso para comparação por referência
     // Usar somente métricas reais (sem fallback para RMS/Peak, que têm unidades e conceitos distintos)
     // Função para obter o valor LUFS integrado usando métricas centralizadas
     const getLufsIntegratedValue = () => {
         return getMetricForRef('lufs_integrated', 'lufsIntegrated');
     };
     
+    // ADICIONAR TODAS AS MÉTRICAS PRINCIPAIS
     pushRow('Loudness Integrado (LUFS)', getLufsIntegratedValue(), ref.lufs_target, ref.tol_lufs, ' LUFS');
     pushRow('Pico Real (dBTP)', getMetricForRef('true_peak_dbtp', 'truePeakDbtp'), ref.true_peak_target, ref.tol_true_peak, ' dBTP');
     pushRow('DR', getMetricForRef('dynamic_range', 'dynamicRange'), ref.dr_target, ref.tol_dr, '');
@@ -5140,31 +5066,16 @@ function renderReferenceComparisons(analysis) {
             });
         }
     }
-    // Gerar linhas das bandas espectrais no mesmo formato que as outras métricas
-    const spectralComparisonRows = generateSpectralComparisonRows();
     
+    // MOSTRAR TABELA COMPLETA
     container.innerHTML = `<div class="card" style="margin-top:12px;">
         <div class="card-title">📌 Comparação de Referência (${titleText})</div>
-        <div class="comparison-content">
-            <div class="comparison-grid">
-                ${generateComparisonRow('Volume Integrado (padrão streaming)', 
-                    { user: getLufsIntegratedValue(), reference: ref.lufs_target, difference: Number.isFinite(getLufsIntegratedValue()) && Number.isFinite(ref.lufs_target) ? getLufsIntegratedValue() - ref.lufs_target : null }, 
-                    'LUFS')}
-                ${generateComparisonRow('pico real (dBTP)', 
-                    { user: getMetricForRef('true_peak_dbtp', 'truePeakDbtp'), reference: ref.true_peak_target, difference: Number.isFinite(getMetricForRef('true_peak_dbtp', 'truePeakDbtp')) && Number.isFinite(ref.true_peak_target) ? getMetricForRef('true_peak_dbtp', 'truePeakDbtp') - ref.true_peak_target : null }, 
-                    'dBTP')}
-                ${generateComparisonRow('Distância (diferenças entre alto/baixo)', 
-                    { user: getMetricForRef('dynamic_range', 'dynamicRange'), reference: ref.dr_target, difference: Number.isFinite(getMetricForRef('dynamic_range', 'dynamicRange')) && Number.isFinite(ref.dr_target) ? getMetricForRef('dynamic_range', 'dynamicRange') - ref.dr_target : null }, 
-                    '')}
-                ${generateComparisonRow('Variação de Volume (conquistada)', 
-                    { user: getMetricForRef('lra'), reference: ref.lra_target, difference: Number.isFinite(getMetricForRef('lra')) && Number.isFinite(ref.lra_target) ? getMetricForRef('lra') - ref.lra_target : null }, 
-                    'LU')}
-                ${generateComparisonRow('Correlação Estéreo (separar)', 
-                    { user: getMetricForRef('stereo_correlation', 'stereoCorrelation'), reference: ref.stereo_target, difference: Number.isFinite(getMetricForRef('stereo_correlation', 'stereoCorrelation')) && Number.isFinite(ref.stereo_target) ? getMetricForRef('stereo_correlation', 'stereoCorrelation') - ref.stereo_target : null }, 
-                    '')}
-                ${spectralComparisonRows}
-            </div>
-        </div>
+        <table class="ref-compare-table">
+            <thead><tr>
+                <th>Métrica</th><th>Valor</th><th>Alvo</th><th>Δ</th>
+            </tr></thead>
+            <tbody>${rows.join('') || '<tr><td colspan="4" style="opacity:.6">Sem métricas disponíveis</td></tr>'}</tbody>
+        </table>
     </div>`;
     // Estilos injetados uma vez
     if (!document.getElementById('refCompareStyles')) {
