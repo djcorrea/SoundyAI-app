@@ -775,8 +775,8 @@ class CoreMetricsProcessor {
     const { jobId } = options;
     
     try {
-      // Debug detalhado da estrutura recebida
-      logAudio('spectral_bands', 'input_debug', { 
+      // 🎯 DEBUG CRÍTICO: Rastrear por que bandas não são calculadas
+      console.log('🔍 [SPECTRAL_BANDS_CRITICAL] Início do cálculo:', {
         hasFramesFFT: !!framesFFT,
         hasFrames: !!(framesFFT && framesFFT.frames),
         frameCount: framesFFT?.frames?.length || 0,
@@ -785,23 +785,24 @@ class CoreMetricsProcessor {
       });
 
       if (!framesFFT || !framesFFT.frames || framesFFT.frames.length === 0) {
-        logAudio('spectral_bands', 'no_frames', { 
+        console.error('❌ [SPECTRAL_BANDS_CRITICAL] SEM FRAMES FFT:', { 
           reason: !framesFFT ? 'no_framesFFT' : !framesFFT.frames ? 'no_frames_array' : 'empty_frames_array',
           jobId 
         });
         return this.spectralBandsCalculator.getNullBands();
       }
 
-      // Debug: verificar estrutura dos frames
+      // 🔍 Debug: verificar estrutura dos frames em detalhes
       const firstFrame = framesFFT.frames[0];
-      logAudio('spectral_bands', 'frame_structure_debug', { 
+      console.log('🔍 [SPECTRAL_BANDS_CRITICAL] Estrutura dos frames:', { 
         frameCount: framesFFT.frames.length,
         firstFrameKeys: Object.keys(firstFrame),
         hasLeftFFT: !!firstFrame.leftFFT,
         hasRightFFT: !!firstFrame.rightFFT,
         leftFFTKeys: firstFrame.leftFFT ? Object.keys(firstFrame.leftFFT) : null,
         hasMagnitude: !!firstFrame.leftFFT?.magnitude,
-        magnitudeLength: firstFrame.leftFFT?.magnitude?.length || 0
+        magnitudeLength: firstFrame.leftFFT?.magnitude?.length || 0,
+        magnitudeSample: firstFrame.leftFFT?.magnitude?.slice(0, 5) || null // Primeira amostra
       });
 
       const bandsResults = [];
@@ -811,51 +812,73 @@ class CoreMetricsProcessor {
       for (let frameIndex = 0; frameIndex < framesFFT.frames.length; frameIndex++) {
         const frame = framesFFT.frames[frameIndex];
         
-        // Debug mais detalhado dos frames
-        if (frameIndex < 3) { // Log dos primeiros 3 frames
-          logAudio('spectral_bands', 'frame_detail_debug', {
-            frameIndex,
+        // 🔍 Debug mais detalhado dos frames críticos
+        if (frameIndex < 5) { // Log dos primeiros 5 frames
+          console.log(`🔍 [SPECTRAL_BANDS_CRITICAL] Frame ${frameIndex}:`, {
             frameKeys: Object.keys(frame),
             hasLeftFFT: !!frame.leftFFT,
             hasRightFFT: !!frame.rightFFT,
             leftFFTKeys: frame.leftFFT ? Object.keys(frame.leftFFT) : null,
             leftMagnitudeLength: frame.leftFFT?.magnitude?.length || 0,
             rightMagnitudeLength: frame.rightFFT?.magnitude?.length || 0,
+            leftMagnitudeSample: frame.leftFFT?.magnitude?.slice(0, 3) || null,
+            leftMagnitudeMax: frame.leftFFT?.magnitude ? Math.max(...frame.leftFFT.magnitude) : null,
             jobId
           });
         }
         
         if (frame.leftFFT?.magnitude && frame.rightFFT?.magnitude) {
+          console.log(`✅ [SPECTRAL_BANDS_CRITICAL] Frame ${frameIndex} VÁLIDO - Analisando bandas...`);
+          
           const result = this.spectralBandsCalculator.analyzeBands(
             frame.leftFFT.magnitude,
             frame.rightFFT.magnitude,
             frameIndex
           );
           
+          console.log(`🎯 [SPECTRAL_BANDS_CRITICAL] Frame ${frameIndex} resultado:`, {
+            valid: result.valid,
+            totalPercentage: result.totalPercentage,
+            bandsKeys: result.bands ? Object.keys(result.bands) : null,
+            sampleBand: result.bands?.sub || null
+          });
+          
           if (result.valid) {
             bandsResults.push(result);
             validFrames++;
           } else {
+            console.warn(`⚠️ [SPECTRAL_BANDS_CRITICAL] Frame ${frameIndex} inválido:`, result);
             invalidFrames++;
           }
         } else {
+          console.error(`❌ [SPECTRAL_BANDS_CRITICAL] Frame ${frameIndex} SEM DADOS FFT:`, {
+            hasLeftFFT: !!frame.leftFFT,
+            hasRightFFT: !!frame.rightFFT,
+            leftMagnitude: !!frame.leftFFT?.magnitude,
+            rightMagnitude: !!frame.rightFFT?.magnitude,
+            jobId
+          });
           invalidFrames++;
-          if (frameIndex < 3) { // Log detalhado dos primeiros frames inválidos
-            logAudio('spectral_bands', 'invalid_frame', {
-              frameIndex,
-              hasLeftFFT: !!frame.leftFFT,
-              hasRightFFT: !!frame.rightFFT,
-              leftMagnitude: !!frame.leftFFT?.magnitude,
-              rightMagnitude: !!frame.rightFFT?.magnitude,
-              jobId
-            });
-          }
         }
       }
+
+      console.log('🎯 [SPECTRAL_BANDS_CRITICAL] Agregando resultados:', {
+        bandsResultsCount: bandsResults.length,
+        validFrames,
+        invalidFrames,
+        totalFrames: framesFFT.frames.length
+      });
 
       // Agregar resultados
       const aggregatedBands = SpectralBandsAggregator.aggregate(bandsResults);
       
+      console.log('🎯 [SPECTRAL_BANDS_CRITICAL] Resultado final da agregação:', {
+        aggregatedBands,
+        valid: aggregatedBands?.valid,
+        totalPercentage: aggregatedBands?.totalPercentage,
+        bandsKeys: aggregatedBands?.bands ? Object.keys(aggregatedBands.bands) : null
+      });
+
       logAudio('spectral_bands', 'completed', {
         validFrames,
         invalidFrames,
@@ -868,6 +891,7 @@ class CoreMetricsProcessor {
       return aggregatedBands;
 
     } catch (error) {
+      console.error('💥 [SPECTRAL_BANDS_CRITICAL] ERRO CRÍTICO:', { error: error.message, stack: error.stack, jobId });
       logAudio('spectral_bands', 'error', { error: error.message, jobId });
       return this.spectralBandsCalculator.getNullBands();
     }

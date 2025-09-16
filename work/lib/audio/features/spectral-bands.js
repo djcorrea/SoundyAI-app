@@ -156,19 +156,50 @@ export class SpectralBandsCalculator {
    */
   analyzeBands(leftMagnitude, rightMagnitude, frameIndex = 0) {
     try {
+      // 🎯 DEBUG CRÍTICO: Rastrear entrada no analyzeBands
+      console.log(`🔍 [SPECTRAL_CRITICAL] analyzeBands Frame ${frameIndex}:`, {
+        hasLeftMagnitude: !!leftMagnitude,
+        hasRightMagnitude: !!rightMagnitude,
+        leftLength: leftMagnitude?.length || 0,
+        rightLength: rightMagnitude?.length || 0,
+        leftSample: leftMagnitude?.slice(0, 3) || null,
+        leftMax: leftMagnitude ? Math.max(...leftMagnitude) : null,
+        leftSum: leftMagnitude ? leftMagnitude.reduce((a, b) => a + b, 0) : null
+      });
+
       // Calcular magnitude RMS corrigida
       const magnitude = this.calculateMagnitudeRMS(leftMagnitude, rightMagnitude);
+      
+      console.log(`🔍 [SPECTRAL_CRITICAL] Magnitude RMS Frame ${frameIndex}:`, {
+        magnitudeLength: magnitude?.length || 0,
+        magnitudeSample: magnitude?.slice(0, 3) || null,
+        magnitudeMax: magnitude ? Math.max(...magnitude) : null,
+        magnitudeSum: magnitude ? magnitude.reduce((a, b) => a + b, 0) : null
+      });
       
       // Calcular energias das bandas
       const energyResult = this.calculateBandEnergies(magnitude);
       if (!energyResult) {
+        console.error(`❌ [SPECTRAL_CRITICAL] calculateBandEnergies FALHOU Frame ${frameIndex}`);
         return this.getNullBands();
       }
       
       const { bandEnergies, totalEnergy } = energyResult;
       
+      console.log(`🔍 [SPECTRAL_CRITICAL] Band Energies Frame ${frameIndex}:`, {
+        totalEnergy,
+        bandEnergies,
+        bandKeys: Object.keys(bandEnergies),
+        energySum: Object.values(bandEnergies).reduce((a, b) => a + b, 0)
+      });
+      
       // Calcular percentuais normalizados
       const percentages = this.calculateBandPercentages(bandEnergies, totalEnergy);
+      
+      console.log(`🔍 [SPECTRAL_CRITICAL] Percentages Frame ${frameIndex}:`, {
+        percentages,
+        percentageSum: Object.values(percentages).reduce((a, b) => a + b, 0)
+      });
       
       // Preparar resultado final
       const result = {};
@@ -186,6 +217,15 @@ export class SpectralBandsCalculator {
       const totalPercentage = Object.values(result)
         .reduce((sum, band) => sum + band.percentage, 0);
       
+      const isValid = Math.abs(totalPercentage - 100) < 0.1; // Tolerância de 0.1%
+      
+      console.log(`🎯 [SPECTRAL_CRITICAL] Validação Final Frame ${frameIndex}:`, {
+        totalPercentage,
+        isValid,
+        tolerance: Math.abs(totalPercentage - 100),
+        result: result.sub ? result.sub.percentage : 'NO_SUB'
+      });
+
       // Log para auditoria
       logAudio('spectral_bands', 'calculated', {
         frame: frameIndex,
@@ -198,13 +238,17 @@ export class SpectralBandsCalculator {
         air: result.air.percentage + '%'
       });
       
-      return {
+      const finalResult = {
         bands: result,
         totalEnergy,
         totalPercentage,
         algorithm: 'RMS_7_Band_Normalized',
-        valid: Math.abs(totalPercentage - 100) < 0.1 // Tolerância de 0.1%
+        valid: isValid
       };
+      
+      console.log(`✅ [SPECTRAL_CRITICAL] Retornando Frame ${frameIndex}:`, finalResult);
+      
+      return finalResult;
       
     } catch (error) {
       logAudio('spectral_bands', 'calculation_error', { 
@@ -249,13 +293,30 @@ export class SpectralBandsAggregator {
    * 📊 Agregar resultados de múltiplos frames
    */
   static aggregate(bandsArray) {
+    console.log('🎯 [SPECTRAL_CRITICAL] SpectralBandsAggregator.aggregate ENTRADA:', {
+      hasBandsArray: !!bandsArray,
+      bandsArrayLength: bandsArray?.length || 0,
+      firstBand: bandsArray?.[0] || null,
+      allBandsValid: bandsArray ? bandsArray.map(b => b.valid) : null
+    });
+
     if (!bandsArray || bandsArray.length === 0) {
+      console.error('❌ [SPECTRAL_CRITICAL] aggregate: SEM DADOS DE ENTRADA');
       return new SpectralBandsCalculator().getNullBands();
     }
     
     // Filtrar apenas resultados válidos
     const validBands = bandsArray.filter(b => b.valid);
+    
+    console.log('🔍 [SPECTRAL_CRITICAL] aggregate: Filtro de válidos:', {
+      totalBands: bandsArray.length,
+      validBands: validBands.length,
+      invalidBands: bandsArray.length - validBands.length,
+      validSample: validBands[0] || null
+    });
+    
     if (validBands.length === 0) {
+      console.error('❌ [SPECTRAL_CRITICAL] aggregate: NENHUMA BANDA VÁLIDA');
       return new SpectralBandsCalculator().getNullBands();
     }
     
@@ -297,7 +358,7 @@ export class SpectralBandsAggregator {
     const totalPercentage = Object.values(aggregated)
       .reduce((sum, band) => sum + (band.percentage || 0), 0);
     
-    return {
+    const finalResult = {
       bands: aggregated,
       totalEnergy: null,
       totalPercentage: Number(totalPercentage.toFixed(1)),
@@ -306,6 +367,17 @@ export class SpectralBandsAggregator {
       framesUsed: validBands.length,
       processedFrames: validBands.length  // ← CORRIGE: json-output.js busca processedFrames
     };
+    
+    console.log('🎯 [SPECTRAL_CRITICAL] aggregate RESULTADO FINAL:', {
+      totalPercentage,
+      valid: finalResult.valid,
+      framesUsed: finalResult.framesUsed,
+      aggregatedKeys: Object.keys(aggregated),
+      subPercentage: aggregated.sub?.percentage || null,
+      bassPercentage: aggregated.bass?.percentage || null
+    });
+    
+    return finalResult;
   }
 }
 
