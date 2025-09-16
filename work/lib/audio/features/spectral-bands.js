@@ -140,11 +140,21 @@ export class SpectralBandsCalculator {
       percentageSum += percentage;
     }
     
-    // Normalizar para somar exatamente 100%
+    // Normalizar para somar exatamente 100% (força matemática)
     if (percentageSum > 0) {
-      const normalizationFactor = 100 / percentageSum;
+      const normalizationFactor = 100.0 / percentageSum;
       for (const key of Object.keys(percentages)) {
         percentages[key] *= normalizationFactor;
+      }
+      
+      // Verificação final e ajuste de arredondamento
+      const finalSum = Object.values(percentages).reduce((sum, p) => sum + p, 0);
+      if (Math.abs(finalSum - 100) > 0.001) {
+        // Distribui erro entre todas as bandas proporcionalmente
+        const adjustment = (100 - finalSum) / Object.keys(percentages).length;
+        for (const key of Object.keys(percentages)) {
+          percentages[key] += adjustment;
+        }
       }
     }
     
@@ -171,14 +181,24 @@ export class SpectralBandsCalculator {
       // Calcular percentuais normalizados
       const percentages = this.calculateBandPercentages(bandEnergies, totalEnergy);
       
+      // Calcular RMS global normalizado para referência
+      const globalRMS = Math.sqrt(totalEnergy / magnitude.length);
+      const referenceLevel = Math.max(globalRMS, 1e-12); // EPS protection
+      
       // Preparar resultado final
       const result = {};
       for (const [key, band] of Object.entries(SPECTRAL_BANDS)) {
-        // Conversão para dB: 10 * log10(max(energy_linear, 1e-12))
         const energyLinear = bandEnergies[key];
-        const energyDb = energyLinear > 0 ? 
-          10 * Math.log10(Math.max(energyLinear, 1e-12)) : 
-          -120; // Floor de -120dB para energia zero
+        const binInfo = this.bandBins[key];
+        
+        // Calcular RMS médio da banda: sqrt(energy / Nbins)
+        const bandRMS = energyLinear > 0 ? 
+          Math.sqrt(energyLinear / binInfo.binCount) : 
+          1e-12;
+        
+        // energy_db = 10 * log10(bandRMS / referenceLevel) 
+        // Isso normaliza em relação ao RMS global, dando valores na faixa ±0-20 dB
+        const energyDb = 10 * Math.log10(Math.max(bandRMS / referenceLevel, 1e-12));
         
         result[key] = {
           energy: energyLinear,

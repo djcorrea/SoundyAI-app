@@ -257,7 +257,7 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
         mid: { energy_db: safeSanitize(b.mid), percentage: safeSanitize(b.mid), range: "500-2000Hz" },
         highMid: { energy_db: safeSanitize(b.highMid || b.treble), percentage: safeSanitize(b.highMid || b.treble), range: "2000-5000Hz" },
         presence: { energy_db: safeSanitize(b.presence), percentage: safeSanitize(b.presence), range: "5000-10000Hz" },
-        air: { energy_db: safeSanitize(b.air || b.brilliance), percentage: safeSanitize(b.air || b.brilliance), range: "10000-20000Hz" },
+        air: { energy_db: safeSanitize(b.air), percentage: safeSanitize(b.air), range: "10000-20000Hz" },
         totalPercentage: safeSanitize(b.totalPercentage, 100)
       };
       console.log('✅ [SPECTRAL_BANDS] Usando estrutura direta com energy_db');
@@ -272,7 +272,7 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
         mid: { energy_db: safeSanitize(findNumericValue(b, ['mid'])), range: "500-2000Hz" },
         highMid: { energy_db: safeSanitize(findNumericValue(b, ['treble', 'highMid', 'high_mid'])), range: "2000-5000Hz" },
         presence: { energy_db: safeSanitize(findNumericValue(b, ['presence', 'high'])), range: "5000-10000Hz" },
-        air: { energy_db: safeSanitize(findNumericValue(b, ['air', 'brilliance', 'ultra_high'])), range: "10000-20000Hz" },
+        air: { energy_db: safeSanitize(findNumericValue(b, ['air', 'ultra_high'])), range: "10000-20000Hz" },
         totalPercentage: safeSanitize(b.totalPercentage || 100)
       };
       console.log('⚠️ [SPECTRAL_BANDS] Usando busca flexível por valores numéricos');
@@ -627,7 +627,53 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
         };
       }
       
-      return bands;
+      // Retornar bandas com estrutura padronizada
+      return {
+        sub: { 
+          energy_db: bands.sub?.energy_db || null, 
+          percentage: bands.sub?.percentage || null,
+          range: bands.sub?.range || "20-60Hz",
+          status: bands.sub?.status || "calculated"
+        },
+        bass: { 
+          energy_db: bands.bass?.energy_db || null, 
+          percentage: bands.bass?.percentage || null,
+          range: bands.bass?.range || "60-150Hz",
+          status: bands.bass?.status || "calculated"
+        },
+        lowMid: { 
+          energy_db: bands.lowMid?.energy_db || null, 
+          percentage: bands.lowMid?.percentage || null,
+          range: bands.lowMid?.range || "150-500Hz",
+          status: bands.lowMid?.status || "calculated"
+        },
+        mid: { 
+          energy_db: bands.mid?.energy_db || null, 
+          percentage: bands.mid?.percentage || null,
+          range: bands.mid?.range || "500-2000Hz",
+          status: bands.mid?.status || "calculated"
+        },
+        highMid: { 
+          energy_db: bands.highMid?.energy_db || null, 
+          percentage: bands.highMid?.percentage || null,
+          range: bands.highMid?.range || "2000-5000Hz",
+          status: bands.highMid?.status || "calculated"
+        },
+        presence: { 
+          energy_db: bands.presence?.energy_db || null, 
+          percentage: bands.presence?.percentage || null,
+          range: bands.presence?.range || "5000-10000Hz",
+          status: bands.presence?.status || "calculated"
+        },
+        air: { 
+          energy_db: bands.air?.energy_db || null, 
+          percentage: bands.air?.percentage || null,
+          range: bands.air?.range || "10000-20000Hz",
+          status: bands.air?.status || "calculated"
+        },
+        totalPercentage: bands.totalPercentage || null,
+        status: bands._status || 'calculated'
+      };
     })(),
 
     // 🎵 DOMINANT FREQUENCIES (Estrutura aprimorada para UI)
@@ -715,43 +761,44 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
           sub: { 
             energy_db: bands.sub?.energy_db || null, 
             percentage: bands.sub?.percentage || null,
-            range: bands.sub?.range || "20-60Hz"
+            range: bands.sub?.range || "20-60Hz",
+            status: bands.sub?.status || "calculated"
           },
           bass: { 
             energy_db: bands.bass?.energy_db || null, 
             percentage: bands.bass?.percentage || null,
-            range: bands.bass?.range || "60-150Hz"
+            range: bands.bass?.range || "60-150Hz",
+            status: bands.bass?.status || "calculated"
           },
           lowMid: { 
             energy_db: bands.lowMid?.energy_db || null, 
             percentage: bands.lowMid?.percentage || null,
-            range: bands.lowMid?.range || "150-500Hz"
+            range: bands.lowMid?.range || "150-500Hz",
+            status: bands.lowMid?.status || "calculated"
           },
           mid: { 
             energy_db: bands.mid?.energy_db || null, 
             percentage: bands.mid?.percentage || null,
-            range: bands.mid?.range || "500-2000Hz"
+            range: bands.mid?.range || "500-2000Hz",
+            status: bands.mid?.status || "calculated"
           },
           highMid: { 
             energy_db: bands.highMid?.energy_db || null, 
             percentage: bands.highMid?.percentage || null,
-            range: bands.highMid?.range || "2000-5000Hz"
+            range: bands.highMid?.range || "2000-5000Hz",
+            status: bands.highMid?.status || "calculated"
           },
           presence: { 
             energy_db: bands.presence?.energy_db || null, 
             percentage: bands.presence?.percentage || null,
-            range: bands.presence?.range || "5000-10000Hz"
+            range: bands.presence?.range || "5000-10000Hz",
+            status: bands.presence?.status || "calculated"
           },
           air: { 
             energy_db: bands.air?.energy_db || null, 
             percentage: bands.air?.percentage || null,
-            range: bands.air?.range || "10000-20000Hz"
-          },
-          // Manter compatibilidade com estruturas antigas
-          brilliance: { 
-            energy_db: bands.air?.energy_db || null, 
-            percentage: bands.air?.percentage || null,
-            range: bands.air?.range || "10000-20000Hz"
+            range: bands.air?.range || "10000-20000Hz",
+            status: bands.air?.status || "calculated"
           },
           totalPercentage: bands.totalPercentage || null
         };
