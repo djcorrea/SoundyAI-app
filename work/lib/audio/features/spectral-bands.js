@@ -174,12 +174,20 @@ export class SpectralBandsCalculator {
       // Preparar resultado final
       const result = {};
       for (const [key, band] of Object.entries(SPECTRAL_BANDS)) {
+        // Conversão para dB: 10 * log10(max(energy_linear, 1e-12))
+        const energyLinear = bandEnergies[key];
+        const energyDb = energyLinear > 0 ? 
+          10 * Math.log10(Math.max(energyLinear, 1e-12)) : 
+          -120; // Floor de -120dB para energia zero
+        
         result[key] = {
-          energy: bandEnergies[key],
+          energy: energyLinear,
+          energy_db: Number(energyDb.toFixed(1)),
           percentage: Number(percentages[key].toFixed(SPECTRAL_CONFIG.PERCENTAGE_PRECISION)),
           frequencyRange: `${band.min}-${band.max}Hz`,
           name: band.name,
-          description: band.description
+          description: band.description,
+          status: "calculated"
         };
       }
       
@@ -194,11 +202,11 @@ export class SpectralBandsCalculator {
         frame: frameIndex,
         totalEnergy: totalEnergy.toExponential(3),
         totalPercentage: totalPercentage.toFixed(1),
-        sub: result.sub.percentage + '%',
-        bass: result.bass.percentage + '%',
-        mid: result.mid.percentage + '%',
-        presence: result.presence.percentage + '%',
-        air: result.air.percentage + '%'
+        sub: result.sub.percentage + '% (' + result.sub.energy_db + 'dB)',
+        bass: result.bass.percentage + '% (' + result.bass.energy_db + 'dB)',
+        mid: result.mid.percentage + '% (' + result.mid.energy_db + 'dB)',
+        presence: result.presence.percentage + '% (' + result.presence.energy_db + 'dB)',
+        air: result.air.percentage + '% (' + result.air.energy_db + 'dB)'
       });
       
       const finalResult = {
@@ -236,10 +244,12 @@ export class SpectralBandsCalculator {
     for (const [key, band] of Object.entries(SPECTRAL_BANDS)) {
       result[key] = {
         energy: null,
+        energy_db: null,
         percentage: null,
         frequencyRange: `${band.min}-${band.max}Hz`,
         name: band.name,
-        description: band.description
+        description: band.description,
+        status: "not_calculated"
       };
     }
     
@@ -299,26 +309,40 @@ export class SpectralBandsAggregator {
         .filter(p => p !== null && isFinite(p))
         .sort((a, b) => a - b);
       
-      if (percentages.length > 0) {
+      const energyDbs = validBands
+        .map(b => b.bands[key].energy_db)
+        .filter(db => db !== null && isFinite(db))
+        .sort((a, b) => a - b);
+      
+      if (percentages.length > 0 && energyDbs.length > 0) {
         const medianIndex = Math.floor(percentages.length / 2);
         const medianPercentage = percentages.length % 2 === 0
           ? (percentages[medianIndex - 1] + percentages[medianIndex]) / 2
           : percentages[medianIndex];
         
+        const medianDbIndex = Math.floor(energyDbs.length / 2);
+        const medianEnergyDb = energyDbs.length % 2 === 0
+          ? (energyDbs[medianDbIndex - 1] + energyDbs[medianDbIndex]) / 2
+          : energyDbs[medianDbIndex];
+        
         aggregated[key] = {
           energy: null, // Não agregar energia bruta
+          energy_db: Number(medianEnergyDb.toFixed(1)),
           percentage: Number(medianPercentage.toFixed(SPECTRAL_CONFIG.PERCENTAGE_PRECISION)),
           frequencyRange: SPECTRAL_BANDS[key].min + '-' + SPECTRAL_BANDS[key].max + 'Hz',
           name: SPECTRAL_BANDS[key].name,
-          description: SPECTRAL_BANDS[key].description
+          description: SPECTRAL_BANDS[key].description,
+          status: "calculated"
         };
       } else {
         aggregated[key] = {
           energy: null,
+          energy_db: null,
           percentage: null,
           frequencyRange: SPECTRAL_BANDS[key].min + '-' + SPECTRAL_BANDS[key].max + 'Hz',
           name: SPECTRAL_BANDS[key].name,
-          description: SPECTRAL_BANDS[key].description
+          description: SPECTRAL_BANDS[key].description,
+          status: "not_calculated"
         };
       }
     }
