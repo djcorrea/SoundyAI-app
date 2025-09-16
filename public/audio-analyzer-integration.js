@@ -5000,6 +5000,16 @@ function renderReferenceComparisons(analysis) {
         
         if (bandsToUse) {
             Object.keys(bandsToUse).forEach(calcBandKey => {
+                // Filtrar chaves inválidas (totais, metadados etc.)
+                if (calcBandKey === '_status' || 
+                    calcBandKey === 'totalPercentage' || 
+                    calcBandKey === 'totalpercentage' ||
+                    calcBandKey === 'metadata' ||
+                    calcBandKey === 'total' ||
+                    calcBandKey.toLowerCase().includes('total')) {
+                    return; // Pular esta banda
+                }
+                
                 // Verificar se esta banda já foi processada
                 const refBandKey = bandMappingCalcToRef[calcBandKey];
                 const alreadyProcessed = refBandKey && ref.bands[refBandKey];
@@ -5104,7 +5114,10 @@ function renderReferenceComparisons(analysis) {
                 if (!processedBandKeys.has(bandKey) && 
                     bandKey !== '_status' && 
                     bandKey !== 'totalPercentage' &&
-                    bandKey !== 'metadata') {
+                    bandKey !== 'totalpercentage' &&
+                    bandKey !== 'metadata' &&
+                    bandKey !== 'total' &&
+                    !bandKey.toLowerCase().includes('total')) {
                     
                     const bandData = spectralBands[bandKey];
                     let energyDb = null;
