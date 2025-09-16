@@ -4916,20 +4916,20 @@ function renderReferenceComparisons(analysis) {
         const normMap = (analysis?.technicalData?.refBandTargetsNormalized?.mapping) || null;
         const showNorm = (typeof window !== 'undefined' && window.SHOW_NORMALIZED_REF_TARGETS === true && normMap);
         
-        // Mapeamento de nomes amigáveis para as bandas
+        // Mapeamento de nomes amigáveis para as bandas com ranges de frequência
         const bandDisplayNames = {
-            sub: 'Sub (20-60Hz)',
-            bass: 'Bass (60-150Hz)', 
-            low_bass: 'Bass (60-150Hz)',
-            lowMid: 'Low-Mid (150-500Hz)',
-            low_mid: 'Low-Mid (150-500Hz)',
-            mid: 'Mid (500-2kHz)',
-            highMid: 'High-Mid (2-5kHz)',
-            high_mid: 'High-Mid (2-5kHz)',
-            presence: 'Presence (5-10kHz)',
-            presenca: 'Presence (5-10kHz)',
-            air: 'Air (10-20kHz)',
-            brilho: 'Air (10-20kHz)'
+            sub: 'Sub (20–60Hz)',
+            bass: 'Bass (60–150Hz)', 
+            low_bass: 'Bass (60–150Hz)',
+            lowMid: 'Low-Mid (150–500Hz)',
+            low_mid: 'Low-Mid (150–500Hz)',
+            mid: 'Mid (500–2kHz)',
+            highMid: 'High-Mid (2–5kHz)',
+            high_mid: 'High-Mid (2–5kHz)',
+            presence: 'Presence (5–10kHz)',
+            presenca: 'Presence (5–10kHz)',
+            air: 'Air (10–20kHz)',
+            brilho: 'Air (10–20kHz)'
         };
         
         // Primeiro, tentar iterar por todas as bandas do sistema de referência
@@ -4980,7 +4980,7 @@ function renderReferenceComparisons(analysis) {
                     
                     if (Number.isFinite(energyDb)) {
                         const displayName = bandDisplayNames[bandKey] || 
-                                          `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`;
+                                          `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)} (Nova Banda)`;
                         pushRow(displayName, energyDb, null, null, ' dB');
                     }
                 }
@@ -4992,20 +4992,20 @@ function renderReferenceComparisons(analysis) {
                             tech.spectralBands || 
                             analysis.metrics?.bands || {};
         
-        // Mapeamento completo das 7 bandas espectrais com mapeamento de chaves de referência
+        // Mapeamento completo das 7 bandas espectrais com ranges de frequência
         const bandMap = {
-            sub: { refKey: 'sub', name: 'Sub (20-60Hz)', range: '20-60Hz' },
-            bass: { refKey: 'low_bass', name: 'Bass (60-150Hz)', range: '60-150Hz' },
-            low_bass: { refKey: 'low_bass', name: 'Bass (60-150Hz)', range: '60-150Hz' },
-            lowMid: { refKey: 'low_mid', name: 'Low-Mid (150-500Hz)', range: '150-500Hz' },
-            low_mid: { refKey: 'low_mid', name: 'Low-Mid (150-500Hz)', range: '150-500Hz' },
-            mid: { refKey: 'mid', name: 'Mid (500-2kHz)', range: '500-2000Hz' },
-            highMid: { refKey: 'high_mid', name: 'High-Mid (2-5kHz)', range: '2000-5000Hz' },
-            high_mid: { refKey: 'high_mid', name: 'High-Mid (2-5kHz)', range: '2000-5000Hz' },
-            presence: { refKey: 'presenca', name: 'Presence (5-10kHz)', range: '5000-10000Hz' },
-            presenca: { refKey: 'presenca', name: 'Presence (5-10kHz)', range: '5000-10000Hz' },
-            air: { refKey: 'brilho', name: 'Air (10-20kHz)', range: '10000-20000Hz' },
-            brilho: { refKey: 'brilho', name: 'Air (10-20kHz)', range: '10000-20000Hz' }
+            sub: { refKey: 'sub', name: 'Sub (20–60Hz)', range: '20–60Hz' },
+            bass: { refKey: 'low_bass', name: 'Bass (60–150Hz)', range: '60–150Hz' },
+            low_bass: { refKey: 'low_bass', name: 'Bass (60–150Hz)', range: '60–150Hz' },
+            lowMid: { refKey: 'low_mid', name: 'Low-Mid (150–500Hz)', range: '150–500Hz' },
+            low_mid: { refKey: 'low_mid', name: 'Low-Mid (150–500Hz)', range: '150–500Hz' },
+            mid: { refKey: 'mid', name: 'Mid (500–2kHz)', range: '500–2000Hz' },
+            highMid: { refKey: 'high_mid', name: 'High-Mid (2–5kHz)', range: '2000–5000Hz' },
+            high_mid: { refKey: 'high_mid', name: 'High-Mid (2–5kHz)', range: '2000–5000Hz' },
+            presence: { refKey: 'presenca', name: 'Presence (5–10kHz)', range: '5000–10000Hz' },
+            presenca: { refKey: 'presenca', name: 'Presence (5–10kHz)', range: '5000–10000Hz' },
+            air: { refKey: 'brilho', name: 'Air (10–20kHz)', range: '10000–20000Hz' },
+            brilho: { refKey: 'brilho', name: 'Air (10–20kHz)', range: '10000–20000Hz' }
         };
         
         // Tentar primeiro com dados espectrais modernos
@@ -5048,7 +5048,8 @@ function renderReferenceComparisons(analysis) {
                     }
                     
                     if (Number.isFinite(energyDb)) {
-                        const displayName = `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`;
+                        const displayName = bandMap[bandKey]?.name || 
+                                          `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)} (Detectada)`;
                         pushRow(displayName, energyDb, null, null, ' dB');
                     }
                 }
@@ -5077,20 +5078,23 @@ function renderReferenceComparisons(analysis) {
             <tbody>${rows.join('') || '<tr><td colspan="4" style="opacity:.6">Sem métricas disponíveis</td></tr>'}</tbody>
         </table>
     </div>`;
-    // Estilos injetados uma vez
+    // Estilos injetados uma vez com indicadores visuais melhorados
     if (!document.getElementById('refCompareStyles')) {
         const style = document.createElement('style');
         style.id = 'refCompareStyles';
         style.textContent = `
         .ref-compare-table{width:100%;border-collapse:collapse;font-size:11px;}
-    .ref-compare-table th{font-weight:500;text-align:left;padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.12);font-size:11px;color:#fff;letter-spacing:.3px;}
-    .ref-compare-table td{padding:5px 6px;border-bottom:1px solid rgba(255,255,255,.06);color:#f5f7fa;} 
+        .ref-compare-table th{font-weight:500;text-align:left;padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.12);font-size:11px;color:#fff;letter-spacing:.3px;}
+        .ref-compare-table td{padding:5px 6px;border-bottom:1px solid rgba(255,255,255,.06);color:#f5f7fa;} 
         .ref-compare-table tr:last-child td{border-bottom:0;} 
-    .ref-compare-table td.ok{color:#52f7ad;font-weight:600;} 
-    .ref-compare-table td.yellow{color:#ffce4d;font-weight:600;} 
-    .ref-compare-table td.warn{color:#ff7b7b;font-weight:600;} 
-    .ref-compare-table .tol{opacity:.7;margin-left:4px;font-size:10px;color:#b8c2d6;} 
-    .ref-compare-table tbody tr:hover td{background:rgba(255,255,255,.04);} 
+        .ref-compare-table td.ok{color:#52f7ad;font-weight:600;} 
+        .ref-compare-table td.ok::before{content:'✅ ';margin-right:2px;}
+        .ref-compare-table td.yellow{color:#ffce4d;font-weight:600;} 
+        .ref-compare-table td.yellow::before{content:'⚠️ ';margin-right:2px;}
+        .ref-compare-table td.warn{color:#ff7b7b;font-weight:600;} 
+        .ref-compare-table td.warn::before{content:'❌ ';margin-right:2px;}
+        .ref-compare-table .tol{opacity:.7;margin-left:4px;font-size:10px;color:#b8c2d6;} 
+        .ref-compare-table tbody tr:hover td{background:rgba(255,255,255,.04);} 
         `;
         document.head.appendChild(style);
     }
