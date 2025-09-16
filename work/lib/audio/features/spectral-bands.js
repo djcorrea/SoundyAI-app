@@ -156,26 +156,8 @@ export class SpectralBandsCalculator {
    */
   analyzeBands(leftMagnitude, rightMagnitude, frameIndex = 0) {
     try {
-      // 🎯 DEBUG CRÍTICO: Rastrear entrada no analyzeBands
-      console.log(`🔍 [SPECTRAL_CRITICAL] analyzeBands Frame ${frameIndex}:`, {
-        hasLeftMagnitude: !!leftMagnitude,
-        hasRightMagnitude: !!rightMagnitude,
-        leftLength: leftMagnitude?.length || 0,
-        rightLength: rightMagnitude?.length || 0,
-        leftSample: leftMagnitude?.slice(0, 3) || null,
-        leftMax: leftMagnitude ? Math.max(...leftMagnitude) : null,
-        leftSum: leftMagnitude ? leftMagnitude.reduce((a, b) => a + b, 0) : null
-      });
-
       // Calcular magnitude RMS corrigida
       const magnitude = this.calculateMagnitudeRMS(leftMagnitude, rightMagnitude);
-      
-      console.log(`🔍 [SPECTRAL_CRITICAL] Magnitude RMS Frame ${frameIndex}:`, {
-        magnitudeLength: magnitude?.length || 0,
-        magnitudeSample: magnitude?.slice(0, 3) || null,
-        magnitudeMax: magnitude ? Math.max(...magnitude) : null,
-        magnitudeSum: magnitude ? magnitude.reduce((a, b) => a + b, 0) : null
-      });
       
       // Calcular energias das bandas
       const energyResult = this.calculateBandEnergies(magnitude);
@@ -186,20 +168,8 @@ export class SpectralBandsCalculator {
       
       const { bandEnergies, totalEnergy } = energyResult;
       
-      console.log(`🔍 [SPECTRAL_CRITICAL] Band Energies Frame ${frameIndex}:`, {
-        totalEnergy,
-        bandEnergies,
-        bandKeys: Object.keys(bandEnergies),
-        energySum: Object.values(bandEnergies).reduce((a, b) => a + b, 0)
-      });
-      
       // Calcular percentuais normalizados
       const percentages = this.calculateBandPercentages(bandEnergies, totalEnergy);
-      
-      console.log(`🔍 [SPECTRAL_CRITICAL] Percentages Frame ${frameIndex}:`, {
-        percentages,
-        percentageSum: Object.values(percentages).reduce((a, b) => a + b, 0)
-      });
       
       // Preparar resultado final
       const result = {};
@@ -218,13 +188,6 @@ export class SpectralBandsCalculator {
         .reduce((sum, band) => sum + band.percentage, 0);
       
       const isValid = Math.abs(totalPercentage - 100) < 0.1; // Tolerância de 0.1%
-      
-      console.log(`🎯 [SPECTRAL_CRITICAL] Validação Final Frame ${frameIndex}:`, {
-        totalPercentage,
-        isValid,
-        tolerance: Math.abs(totalPercentage - 100),
-        result: result.sub ? result.sub.percentage : 'NO_SUB'
-      });
 
       // Log para auditoria
       logAudio('spectral_bands', 'calculated', {
@@ -246,7 +209,13 @@ export class SpectralBandsCalculator {
         valid: isValid
       };
       
-      console.log(`✅ [SPECTRAL_CRITICAL] Retornando Frame ${frameIndex}:`, finalResult);
+      if (frameIndex < 3) {
+        console.log(`✅ [SPECTRAL_CRITICAL] Frame ${frameIndex} calculado:`, {
+          totalPercentage: finalResult.totalPercentage,
+          valid: finalResult.valid,
+          sub: result.sub.percentage
+        });
+      }
       
       return finalResult;
       

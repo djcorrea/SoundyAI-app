@@ -827,6 +827,8 @@ class CoreMetricsProcessor {
           });
         }
         
+        // 🎯 CORREÇÃO CRÍTICA: Acessar magnitude corretamente
+        // A estrutura é: frame.leftFFT.magnitude e frame.rightFFT.magnitude
         if (frame.leftFFT?.magnitude && frame.rightFFT?.magnitude) {
           console.log(`✅ [SPECTRAL_BANDS_CRITICAL] Frame ${frameIndex} VÁLIDO - Analisando bandas...`);
           
@@ -856,6 +858,11 @@ class CoreMetricsProcessor {
             hasRightFFT: !!frame.rightFFT,
             leftMagnitude: !!frame.leftFFT?.magnitude,
             rightMagnitude: !!frame.rightFFT?.magnitude,
+            actualStructure: {
+              frameKeys: Object.keys(frame),
+              leftFFTType: typeof frame.leftFFT,
+              rightFFTType: typeof frame.rightFFT
+            },
             jobId
           });
           invalidFrames++;
