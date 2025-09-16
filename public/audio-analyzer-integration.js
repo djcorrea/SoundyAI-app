@@ -4981,7 +4981,13 @@ function renderReferenceComparisons(analysis) {
                     if (Number.isFinite(energyDb)) {
                         const displayName = bandDisplayNames[bandKey] || 
                                           `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)} (Nova Banda)`;
-                        pushRow(displayName, energyDb, null, null, ' dB');
+                        
+                        // Tentar buscar referência direta por chave
+                        const directRefData = ref.bands?.[bandKey];
+                        const target = directRefData?.target_db || null;
+                        const tolerance = directRefData?.tol_db || null;
+                        
+                        pushRow(displayName, energyDb, target, tolerance, ' dB');
                     }
                 }
             });
@@ -5008,13 +5014,17 @@ function renderReferenceComparisons(analysis) {
             brilho: { refKey: 'brilho', name: 'Air (10–20kHz)', range: '10000–20000Hz' }
         };
         
-        // Tentar primeiro com dados espectrais modernos
+        // Tentar primeiro com dados espectrais modernos - PROCESSAR APENAS UMA VEZ
         if (spectralBands && Object.keys(spectralBands).length > 0) {
+            // Conjunto para rastrear bandas já processadas
+            const processedBandKeys = new Set();
+            
+            // Primeiro: processar bandas que têm referência
             Object.entries(bandMap).forEach(([bandKey, bandInfo]) => {
                 const bandData = spectralBands[bandKey];
                 const refBandData = ref.bands?.[bandInfo.refKey];
                 
-                if (bandData && refBandData) {
+                if (bandData && !processedBandKeys.has(bandKey)) {
                     let energyDb = null;
                     
                     // Verificar formato dos dados da banda
@@ -5027,15 +5037,23 @@ function renderReferenceComparisons(analysis) {
                     }
                     
                     if (Number.isFinite(energyDb)) {
-                        pushRow(bandInfo.name, energyDb, refBandData.target_db, refBandData.tol_db, ' dB');
+                        // Se tem referência, usar target, senão N/A
+                        const target = refBandData?.target_db || null;
+                        const tolerance = refBandData?.tol_db || null;
+                        
+                        pushRow(bandInfo.name, energyDb, target, tolerance, ' dB');
+                        processedBandKeys.add(bandKey);
                     }
                 }
             });
             
-            // Verificar se há bandas que não foram mapeadas (evitar duplicatas)
-            const processedBands = new Set(Object.keys(bandMap));
+            // Segundo: processar bandas restantes que não foram mapeadas
             Object.keys(spectralBands).forEach(bandKey => {
-                if (!processedBands.has(bandKey) && bandKey !== '_status' && bandKey !== 'totalPercentage') {
+                if (!processedBandKeys.has(bandKey) && 
+                    bandKey !== '_status' && 
+                    bandKey !== 'totalPercentage' &&
+                    bandKey !== 'metadata') {
+                    
                     const bandData = spectralBands[bandKey];
                     let energyDb = null;
                     
@@ -5048,9 +5066,16 @@ function renderReferenceComparisons(analysis) {
                     }
                     
                     if (Number.isFinite(energyDb)) {
+                        // Buscar nome formatado ou criar um
                         const displayName = bandMap[bandKey]?.name || 
                                           `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)} (Detectada)`;
-                        pushRow(displayName, energyDb, null, null, ' dB');
+                        
+                        // Tentar encontrar referência por chave direta
+                        const directRefData = ref.bands?.[bandKey];
+                        const target = directRefData?.target_db || null;
+                        const tolerance = directRefData?.tol_db || null;
+                        
+                        pushRow(displayName, energyDb, target, tolerance, ' dB');
                     }
                 }
             });
