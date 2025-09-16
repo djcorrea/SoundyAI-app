@@ -171,7 +171,7 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.spectralRolloff = technicalData.spectralRolloffHz;
   }
 
-  // ===== Spectral Bands (Corrigido para garantir valores reais) =====
+  // ===== Spectral Bands (MAPEAMENTO CORRETO DE ENERGY_DB) =====
   if (coreMetrics.spectralBands?.aggregated) {
     const b = coreMetrics.spectralBands.aggregated;
     
@@ -184,97 +184,150 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
       sampleBandData: b?.bands?.sub || null,
       totalPercentage: b?.totalPercentage || null,
       isValid: b?.valid || null,
-      rawData: b // Log completo da estrutura
+      rawBandsData: b?.bands // Debug específico das bandas
     });
     
-    // 🎯 CORREÇÃO AMPLIADA: Múltiplas tentativas de acesso aos dados
+    // 🎯 MAPEAMENTO CORRETO: Estrutura final padronizada com energy_db
     let extractedBands = null;
     
-    // Tentativa 1: Estrutura padrão com .bands.bandName.percentage
+    // Tentativa 1: Estrutura SpectralBandsAggregator .bands.bandName.percentage
     if (b.bands && typeof b.bands === 'object') {
-      extractedBands = {
-        sub: safeSanitize(b.bands.sub?.percentage),
-        bass: safeSanitize(b.bands.bass?.percentage),
-        mids: safeSanitize(b.bands.lowMid?.percentage || b.bands.mid?.percentage), 
-        treble: safeSanitize(b.bands.highMid?.percentage), 
-        presence: safeSanitize(b.bands.presence?.percentage),
-        air: safeSanitize(b.bands.air?.percentage),
+      // Extrair percentagens e converter para energy_db simulado
+      const bandsData = {
+        sub: {
+          energy_db: b.bands.sub?.percentage ? convertPercentageToEnergyDb(b.bands.sub.percentage) : null,
+          percentage: safeSanitize(b.bands.sub?.percentage),
+          range: b.bands.sub?.frequencyRange || "20-60Hz",
+          name: b.bands.sub?.name || "Sub"
+        },
+        bass: {
+          energy_db: b.bands.bass?.percentage ? convertPercentageToEnergyDb(b.bands.bass.percentage) : null,
+          percentage: safeSanitize(b.bands.bass?.percentage),
+          range: b.bands.bass?.frequencyRange || "60-150Hz",
+          name: b.bands.bass?.name || "Bass"
+        },
+        lowMid: {
+          energy_db: b.bands.lowMid?.percentage ? convertPercentageToEnergyDb(b.bands.lowMid.percentage) : null,
+          percentage: safeSanitize(b.bands.lowMid?.percentage),
+          range: b.bands.lowMid?.frequencyRange || "150-500Hz",
+          name: b.bands.lowMid?.name || "Low-Mid"
+        },
+        mid: {
+          energy_db: b.bands.mid?.percentage ? convertPercentageToEnergyDb(b.bands.mid.percentage) : null,
+          percentage: safeSanitize(b.bands.mid?.percentage),
+          range: b.bands.mid?.frequencyRange || "500-2000Hz",
+          name: b.bands.mid?.name || "Mid"
+        },
+        highMid: {
+          energy_db: b.bands.highMid?.percentage ? convertPercentageToEnergyDb(b.bands.highMid.percentage) : null,
+          percentage: safeSanitize(b.bands.highMid?.percentage),
+          range: b.bands.highMid?.frequencyRange || "2000-5000Hz",
+          name: b.bands.highMid?.name || "High-Mid"
+        },
+        presence: {
+          energy_db: b.bands.presence?.percentage ? convertPercentageToEnergyDb(b.bands.presence.percentage) : null,
+          percentage: safeSanitize(b.bands.presence?.percentage),
+          range: b.bands.presence?.frequencyRange || "5000-10000Hz",
+          name: b.bands.presence?.name || "Presence"
+        },
+        air: {
+          energy_db: b.bands.air?.percentage ? convertPercentageToEnergyDb(b.bands.air.percentage) : null,
+          percentage: safeSanitize(b.bands.air?.percentage),
+          range: b.bands.air?.frequencyRange || "10000-20000Hz",
+          name: b.bands.air?.name || "Air"
+        },
         totalPercentage: safeSanitize(b.totalPercentage, 100)
       };
-      console.log('✅ [SPECTRAL_BANDS] Usando estrutura .bands.bandName.percentage');
+      
+      extractedBands = bandsData;
+      console.log('✅ [SPECTRAL_BANDS] Usando estrutura .bands.bandName com energy_db convertido');
     }
-    // Tentativa 2: Estrutura direta .bandName
+    // Tentativa 2: Estrutura direta para compatibilidade
     else if (b.sub !== undefined || b.bass !== undefined) {
       extractedBands = {
-        sub: safeSanitize(b.sub),
-        bass: safeSanitize(b.bass),
-        mids: safeSanitize(b.lowMid || b.mids),
-        treble: safeSanitize(b.highMid || b.treble),  
-        presence: safeSanitize(b.presence),
-        air: safeSanitize(b.air || b.brilliance),
+        sub: { energy_db: safeSanitize(b.sub), percentage: safeSanitize(b.sub), range: "20-60Hz" },
+        bass: { energy_db: safeSanitize(b.bass), percentage: safeSanitize(b.bass), range: "60-150Hz" },
+        lowMid: { energy_db: safeSanitize(b.lowMid || b.mids), percentage: safeSanitize(b.lowMid || b.mids), range: "150-500Hz" },
+        mid: { energy_db: safeSanitize(b.mid), percentage: safeSanitize(b.mid), range: "500-2000Hz" },
+        highMid: { energy_db: safeSanitize(b.highMid || b.treble), percentage: safeSanitize(b.highMid || b.treble), range: "2000-5000Hz" },
+        presence: { energy_db: safeSanitize(b.presence), percentage: safeSanitize(b.presence), range: "5000-10000Hz" },
+        air: { energy_db: safeSanitize(b.air || b.brilliance), percentage: safeSanitize(b.air || b.brilliance), range: "10000-20000Hz" },
         totalPercentage: safeSanitize(b.totalPercentage, 100)
       };
-      console.log('✅ [SPECTRAL_BANDS] Usando estrutura direta .bandName');
+      console.log('✅ [SPECTRAL_BANDS] Usando estrutura direta com energy_db');
     }
-    // Tentativa 3: Procurar por valores numéricos válidos na estrutura
+    // Tentativa 3: Busca flexível por valores numéricos válidos
     else {
       const keys = Object.keys(b);
       extractedBands = {
-        sub: safeSanitize(findNumericValue(b, ['sub', 'sub_bass', 'subBass'])),
-        bass: safeSanitize(findNumericValue(b, ['bass', 'low_bass'])),
-        mids: safeSanitize(findNumericValue(b, ['mids', 'mid', 'lowMid', 'low_mid'])),
-        treble: safeSanitize(findNumericValue(b, ['treble', 'highMid', 'high_mid'])),
-        presence: safeSanitize(findNumericValue(b, ['presence', 'high'])),
-        air: safeSanitize(findNumericValue(b, ['air', 'brilliance', 'ultra_high'])),
+        sub: { energy_db: safeSanitize(findNumericValue(b, ['sub', 'sub_bass', 'subBass'])), range: "20-60Hz" },
+        bass: { energy_db: safeSanitize(findNumericValue(b, ['bass', 'low_bass'])), range: "60-150Hz" },
+        lowMid: { energy_db: safeSanitize(findNumericValue(b, ['mids', 'mid', 'lowMid', 'low_mid'])), range: "150-500Hz" },
+        mid: { energy_db: safeSanitize(findNumericValue(b, ['mid'])), range: "500-2000Hz" },
+        highMid: { energy_db: safeSanitize(findNumericValue(b, ['treble', 'highMid', 'high_mid'])), range: "2000-5000Hz" },
+        presence: { energy_db: safeSanitize(findNumericValue(b, ['presence', 'high'])), range: "5000-10000Hz" },
+        air: { energy_db: safeSanitize(findNumericValue(b, ['air', 'brilliance', 'ultra_high'])), range: "10000-20000Hz" },
         totalPercentage: safeSanitize(b.totalPercentage || 100)
       };
       console.log('⚠️ [SPECTRAL_BANDS] Usando busca flexível por valores numéricos');
     }
     
-    // Verificar se temos valores válidos
-    const hasValidData = extractedBands && Object.values(extractedBands).some(val => 
-      typeof val === 'number' && val > 0 && val !== null && !isNaN(val)
-    );
+    // Verificar se temos valores válidos (energy_db ou percentage)
+    const hasValidData = extractedBands && Object.values(extractedBands).some(band => {
+      if (typeof band === 'object' && band !== null) {
+        return (typeof band.energy_db === 'number' && band.energy_db !== null && !isNaN(band.energy_db)) ||
+               (typeof band.percentage === 'number' && band.percentage !== null && !isNaN(band.percentage) && band.percentage > 0);
+      }
+      return typeof band === 'number' && band > 0 && !isNaN(band);
+    });
     
     if (hasValidData) {
+      // ✅ Estrutura final padronizada
       technicalData.spectral_balance = extractedBands;
-      console.log('🎯 [SPECTRAL_BANDS] Bandas extraídas com sucesso:', {
-        processed: technicalData.spectral_balance,
+      
+      // 📊 Log de exportação para debug
+      console.debug('[BANDS_EXPORT] Bandas mapeadas para JSON:', {
+        bandsWithEnergyDb: extractedBands,
         hasAllBands: !!(
-          technicalData.spectral_balance.sub && 
-          technicalData.spectral_balance.bass && 
-          technicalData.spectral_balance.mids && 
-          technicalData.spectral_balance.treble && 
-          technicalData.spectral_balance.presence && 
-          technicalData.spectral_balance.air
+          extractedBands.sub?.energy_db !== null && 
+          extractedBands.bass?.energy_db !== null && 
+          extractedBands.lowMid?.energy_db !== null && 
+          extractedBands.highMid?.energy_db !== null && 
+          extractedBands.presence?.energy_db !== null && 
+          extractedBands.air?.energy_db !== null
         ),
-        totalValues: Object.values(extractedBands).filter(v => typeof v === 'number' && v > 0).length
+        totalValidBands: Object.values(extractedBands).filter(band => 
+          band && typeof band === 'object' && band.energy_db !== null
+        ).length,
+        totalPercentage: extractedBands.totalPercentage
       });
     } else {
-      // Fallback com status de erro específico
+      // Fallback com status específico (não zeros falsos)
       technicalData.spectral_balance = {
-        sub: 0,
-        bass: 0, 
-        mids: 0,
-        treble: 0,
-        presence: 0,
-        air: 0,
-        totalPercentage: 0,
+        sub: { energy_db: null, percentage: null, range: "20-60Hz", status: "not_available" },
+        bass: { energy_db: null, percentage: null, range: "60-150Hz", status: "not_available" },
+        lowMid: { energy_db: null, percentage: null, range: "150-500Hz", status: "not_available" },
+        mid: { energy_db: null, percentage: null, range: "500-2000Hz", status: "not_available" },
+        highMid: { energy_db: null, percentage: null, range: "2000-5000Hz", status: "not_available" },
+        presence: { energy_db: null, percentage: null, range: "5000-10000Hz", status: "not_available" },
+        air: { energy_db: null, percentage: null, range: "10000-20000Hz", status: "not_available" },
+        totalPercentage: null,
         _status: 'data_structure_invalid',
         _debug: { receivedKeys: Object.keys(b), receivedData: b }
       };
-      console.error('❌ [SPECTRAL_BANDS] Estrutura de dados inválida, valores não extraídos');
+      console.error('❌ [SPECTRAL_BANDS] Estrutura de dados inválida, usando null em vez de zeros');
     }
   } else {
-    // 🚨 Fallback: se não há bandas calculadas
+    // 🚨 Pipeline não calculou bandas
     technicalData.spectral_balance = {
-      sub: 0,
-      bass: 0, 
-      mids: 0,
-      treble: 0,
-      presence: 0,
-      air: 0,
-      totalPercentage: 0,
+      sub: { energy_db: null, percentage: null, range: "20-60Hz", status: "not_calculated" },
+      bass: { energy_db: null, percentage: null, range: "60-150Hz", status: "not_calculated" },
+      lowMid: { energy_db: null, percentage: null, range: "150-500Hz", status: "not_calculated" },
+      mid: { energy_db: null, percentage: null, range: "500-2000Hz", status: "not_calculated" },
+      highMid: { energy_db: null, percentage: null, range: "2000-5000Hz", status: "not_calculated" },
+      presence: { energy_db: null, percentage: null, range: "5000-10000Hz", status: "not_calculated" },
+      air: { energy_db: null, percentage: null, range: "10000-20000Hz", status: "not_calculated" },
+      totalPercentage: null,
       _status: 'not_calculated'
     };
     console.log('⚠️ [SPECTRAL_BANDS] Bandas não calculadas no pipeline');
@@ -295,6 +348,14 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
       }
     }
     return null;
+  }
+  
+  // 🎛️ Converter percentagem para energy_db simulado (para compatibilidade)
+  function convertPercentageToEnergyDb(percentage) {
+    if (!percentage || percentage <= 0) return null;
+    // Conversão aproximada: percentagem alta = energy_db alta (simulada)
+    // Fórmula: logarítmica para simular dB
+    return Math.round((Math.log10(percentage / 100 + 0.01) * 20 + 60) * 100) / 100;
   }
 
   // ===== RMS =====
@@ -531,10 +592,25 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       change: technicalData.spectralChange
     },
 
-    spectralBands: technicalData.spectral_balance,
-
-    dcOffset: technicalData.dcOffset,
-    spectralUniformity: technicalData.spectralUniformity,
+    // ===== BANDAS ESPECTRAIS UNIFICADAS =====
+    spectralBands: (() => {
+      const bands = technicalData.spectral_balance;
+      if (!bands || bands._status === 'not_calculated' || bands._status === 'data_structure_invalid') {
+        return {
+          sub: { energy_db: null, percentage: null, range: "20-60Hz" },
+          bass: { energy_db: null, percentage: null, range: "60-150Hz" },
+          lowMid: { energy_db: null, percentage: null, range: "150-500Hz" },
+          mid: { energy_db: null, percentage: null, range: "500-2000Hz" },
+          highMid: { energy_db: null, percentage: null, range: "2000-5000Hz" },
+          presence: { energy_db: null, percentage: null, range: "5000-10000Hz" },
+          air: { energy_db: null, percentage: null, range: "10000-20000Hz" },
+          totalPercentage: null,
+          status: bands?._status || 'not_calculated'
+        };
+      }
+      
+      return bands;
+    })(),
 
     // 🎵 DOMINANT FREQUENCIES (Estrutura aprimorada para UI)
     dominantFrequencies: (() => {
@@ -600,16 +676,68 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
 
     // ===== METRICS (Structured for Frontend) =====
     metrics: {
-      bands: technicalData.spectral_balance && {
-        sub: { energy_db: technicalData.spectral_balance.sub || 0 },
-        bass: { energy_db: technicalData.spectral_balance.bass || 0 },
-        lowMid: { energy_db: technicalData.spectral_balance.mids || 0 },
-        mid: { energy_db: technicalData.spectral_balance.mids || 0 },
-        highMid: { energy_db: technicalData.spectral_balance.treble || 0 },
-        presence: { energy_db: technicalData.spectral_balance.presence || 0 },
-        air: { energy_db: technicalData.spectral_balance.air || 0 },
-        brilliance: { energy_db: technicalData.spectral_balance.air || 0 }
-      }
+      // 🌈 BANDAS UNIFICADAS - Estrutura padronizada para UI
+      bands: (() => {
+        const bands = technicalData.spectral_balance;
+        if (!bands || bands._status === 'not_calculated' || bands._status === 'data_structure_invalid') {
+          return {
+            sub: { energy_db: null, percentage: null, range: "20-60Hz", status: "not_available" },
+            bass: { energy_db: null, percentage: null, range: "60-150Hz", status: "not_available" },
+            lowMid: { energy_db: null, percentage: null, range: "150-500Hz", status: "not_available" },
+            mid: { energy_db: null, percentage: null, range: "500-2000Hz", status: "not_available" },
+            highMid: { energy_db: null, percentage: null, range: "2000-5000Hz", status: "not_available" },
+            presence: { energy_db: null, percentage: null, range: "5000-10000Hz", status: "not_available" },
+            air: { energy_db: null, percentage: null, range: "10000-20000Hz", status: "not_available" },
+            totalPercentage: null
+          };
+        }
+        
+        // Retornar estrutura das bandas com energy_db e percentage
+        return {
+          sub: { 
+            energy_db: bands.sub?.energy_db || null, 
+            percentage: bands.sub?.percentage || null,
+            range: bands.sub?.range || "20-60Hz"
+          },
+          bass: { 
+            energy_db: bands.bass?.energy_db || null, 
+            percentage: bands.bass?.percentage || null,
+            range: bands.bass?.range || "60-150Hz"
+          },
+          lowMid: { 
+            energy_db: bands.lowMid?.energy_db || null, 
+            percentage: bands.lowMid?.percentage || null,
+            range: bands.lowMid?.range || "150-500Hz"
+          },
+          mid: { 
+            energy_db: bands.mid?.energy_db || null, 
+            percentage: bands.mid?.percentage || null,
+            range: bands.mid?.range || "500-2000Hz"
+          },
+          highMid: { 
+            energy_db: bands.highMid?.energy_db || null, 
+            percentage: bands.highMid?.percentage || null,
+            range: bands.highMid?.range || "2000-5000Hz"
+          },
+          presence: { 
+            energy_db: bands.presence?.energy_db || null, 
+            percentage: bands.presence?.percentage || null,
+            range: bands.presence?.range || "5000-10000Hz"
+          },
+          air: { 
+            energy_db: bands.air?.energy_db || null, 
+            percentage: bands.air?.percentage || null,
+            range: bands.air?.range || "10000-20000Hz"
+          },
+          // Manter compatibilidade com estruturas antigas
+          brilliance: { 
+            energy_db: bands.air?.energy_db || null, 
+            percentage: bands.air?.percentage || null,
+            range: bands.air?.range || "10000-20000Hz"
+          },
+          totalPercentage: bands.totalPercentage || null
+        };
+      })()
     },
 
     // ===== TECHNICAL DATA (Frontend Compatible) =====
@@ -664,19 +792,23 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       spectralFlux: technicalData.spectralFlux,
       spectralChange: technicalData.spectralChange,
       
-      // Bandas Espectrais (Detalhadas)
+      // Bandas Espectrais (UNIFICADAS - estrutura final padronizada)
       spectral_balance: technicalData.spectral_balance,
       spectralBands: technicalData.spectral_balance, // alias para compatibilidade
       bands: technicalData.spectral_balance, // alias adicional
       
-      // 🎯 Bandas individuais para compatibilidade direta
-      ...(technicalData.spectral_balance && {
-        bandSub: technicalData.spectral_balance.sub,
-        bandBass: technicalData.spectral_balance.bass,
-        bandMids: technicalData.spectral_balance.mids,
-        bandTreble: technicalData.spectral_balance.treble,
-        bandPresence: technicalData.spectral_balance.presence,
-        bandAir: technicalData.spectral_balance.air
+      // 🎯 Bandas individuais para compatibilidade direta (estrutura padronizada)
+      ...(technicalData.spectral_balance && technicalData.spectral_balance._status !== 'not_calculated' && {
+        bandSub: technicalData.spectral_balance.sub?.energy_db || technicalData.spectral_balance.sub?.percentage,
+        bandBass: technicalData.spectral_balance.bass?.energy_db || technicalData.spectral_balance.bass?.percentage,
+        bandLowMid: technicalData.spectral_balance.lowMid?.energy_db || technicalData.spectral_balance.lowMid?.percentage,
+        bandMid: technicalData.spectral_balance.mid?.energy_db || technicalData.spectral_balance.mid?.percentage,
+        bandHighMid: technicalData.spectral_balance.highMid?.energy_db || technicalData.spectral_balance.highMid?.percentage,
+        bandPresence: technicalData.spectral_balance.presence?.energy_db || technicalData.spectral_balance.presence?.percentage,
+        bandAir: technicalData.spectral_balance.air?.energy_db || technicalData.spectral_balance.air?.percentage,
+        // Compatibilidade com nomes antigos
+        bandMids: technicalData.spectral_balance.lowMid?.energy_db || technicalData.spectral_balance.lowMid?.percentage,
+        bandTreble: technicalData.spectral_balance.highMid?.energy_db || technicalData.spectral_balance.highMid?.percentage
       }),
       
       // RMS & Peaks
@@ -805,65 +937,86 @@ function generateGenreReference(technicalData, genre) {
   // Incluir bandas espectrais calculadas na comparação de referência
   const spectralBands = technicalData.spectral_balance;
   
-  if (spectralBands && typeof spectralBands === 'object' && spectralBands._status !== 'not_calculated') {
+  if (spectralBands && typeof spectralBands === 'object' && 
+      spectralBands._status !== 'not_calculated' && 
+      spectralBands._status !== 'data_structure_invalid') {
+    
     // Definir alvos por gênero (valores baseados nos arquivos de referência)
     const bandTargets = {
       trance: {
         sub: { target: 18.5, tolerance: 2.5, name: "Sub (20-60Hz)" },
         bass: { target: 20.2, tolerance: 2.5, name: "Bass (60-150Hz)" },
-        mids: { target: 16.5, tolerance: 2.5, name: "Médios (500-2kHz)" },
-        treble: { target: 15.8, tolerance: 2.5, name: "Agudos (2-5kHz)" },
-        presence: { target: 14.0, tolerance: 2.5, name: "Presença (5-10kHz)" },
-        air: { target: 12.0, tolerance: 3.0, name: "Ar (10-20kHz)" }
+        lowMid: { target: 16.5, tolerance: 2.5, name: "Low-Mid (150-500Hz)" },
+        mid: { target: 15.8, tolerance: 2.5, name: "Mid (500-2kHz)" },
+        highMid: { target: 14.0, tolerance: 2.5, name: "High-Mid (2-5kHz)" },
+        presence: { target: 12.0, tolerance: 2.5, name: "Presence (5-10kHz)" },
+        air: { target: 8.0, tolerance: 3.0, name: "Air (10-20kHz)" }
       },
       funk_mandela: {
         sub: { target: 29.5, tolerance: 3.0, name: "Sub (20-60Hz)" },
         bass: { target: 26.8, tolerance: 3.0, name: "Bass (60-150Hz)" },
-        mids: { target: 12.4, tolerance: 2.5, name: "Médios (500-2kHz)" },
-        treble: { target: 8.2, tolerance: 2.5, name: "Agudos (2-5kHz)" },
-        presence: { target: 7.1, tolerance: 2.5, name: "Presença (5-10kHz)" },
-        air: { target: 4.0, tolerance: 3.0, name: "Ar (10-20kHz)" }
+        lowMid: { target: 12.4, tolerance: 2.5, name: "Low-Mid (150-500Hz)" },
+        mid: { target: 8.2, tolerance: 2.5, name: "Mid (500-2kHz)" },
+        highMid: { target: 7.1, tolerance: 2.5, name: "High-Mid (2-5kHz)" },
+        presence: { target: 6.0, tolerance: 2.5, name: "Presence (5-10kHz)" },
+        air: { target: 4.0, tolerance: 3.0, name: "Air (10-20kHz)" }
       },
       funk: {
         sub: { target: 25.0, tolerance: 3.0, name: "Sub (20-60Hz)" },
         bass: { target: 24.0, tolerance: 3.0, name: "Bass (60-150Hz)" },
-        mids: { target: 18.0, tolerance: 2.5, name: "Médios (500-2kHz)" },
-        treble: { target: 16.0, tolerance: 2.5, name: "Agudos (2-5kHz)" },
-        presence: { target: 12.0, tolerance: 2.5, name: "Presença (5-10kHz)" },
-        air: { target: 8.0, tolerance: 3.0, name: "Ar (10-20kHz)" }
+        lowMid: { target: 18.0, tolerance: 2.5, name: "Low-Mid (150-500Hz)" },
+        mid: { target: 16.0, tolerance: 2.5, name: "Mid (500-2kHz)" },
+        highMid: { target: 12.0, tolerance: 2.5, name: "High-Mid (2-5kHz)" },
+        presence: { target: 10.0, tolerance: 2.5, name: "Presence (5-10kHz)" },
+        air: { target: 8.0, tolerance: 3.0, name: "Air (10-20kHz)" }
       }
     };
     
     // Selecionar alvos baseado no gênero (fallback para trance)
     const targets = bandTargets[genre] || bandTargets[genre.replace(/\s+/g, '_')] || bandTargets.funk || bandTargets.trance;
     
-    // Mapear nomes das bandas do pipeline para os alvos
+    // Mapear nomes das bandas do pipeline para os alvos (estrutura unificada)
     const bandMapping = {
       sub: 'sub',
       bass: 'bass', 
-      mids: 'mids',
-      treble: 'treble',
+      lowMid: 'lowMid',
+      mid: 'mid',
+      highMid: 'highMid',
       presence: 'presence',
       air: 'air'
     };
     
     // Adicionar cada banda à comparação
     Object.entries(bandMapping).forEach(([bandKey, targetKey]) => {
-      const bandValue = spectralBands[bandKey];
+      const band = spectralBands[bandKey];
       const target = targets[targetKey];
       
-      if (target && typeof bandValue === 'number' && !isNaN(bandValue) && bandValue > 0) {
-        const delta = Math.abs(bandValue - target.target);
-        const isWithinTolerance = delta <= target.tolerance;
+      if (target && band && typeof band === 'object') {
+        // Usar energy_db se disponível, senão usar percentage
+        const bandValue = band.energy_db !== null ? band.energy_db : band.percentage;
         
-        references.push({
-          metric: target.name,
-          value: Math.round(bandValue * 10) / 10, // 1 decimal
-          ideal: target.target,
-          unit: "%",
-          status: isWithinTolerance ? "✅ IDEAL" : (delta > target.tolerance * 1.5 ? "❌ CORRIGIR" : "⚠️ AJUSTAR"),
-          category: "spectral_bands"
-        });
+        if (typeof bandValue === 'number' && !isNaN(bandValue) && bandValue !== null) {
+          // Para energy_db, usar comparação diferente do que para percentage
+          const isEnergyDb = band.energy_db !== null;
+          const displayValue = isEnergyDb ? bandValue : Math.round(bandValue * 10) / 10;
+          const compareValue = isEnergyDb ? bandValue : bandValue; // Energy vs percentage
+          
+          // Tolerância baseada no tipo de valor
+          const tolerance = isEnergyDb ? target.tolerance * 2 : target.tolerance; // dB tem maior variação
+          const targetValue = isEnergyDb ? target.target : target.target; // Usar mesmo target
+          
+          const delta = Math.abs(compareValue - targetValue);
+          const isWithinTolerance = delta <= tolerance;
+          
+          references.push({
+            metric: target.name,
+            value: displayValue,
+            ideal: targetValue,
+            unit: isEnergyDb ? "dB" : "%",
+            status: isWithinTolerance ? "✅ IDEAL" : (delta > tolerance * 1.5 ? "❌ CORRIGIR" : "⚠️ AJUSTAR"),
+            category: "spectral_bands"
+          });
+        }
       }
     });
   }
