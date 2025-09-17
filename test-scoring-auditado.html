@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🔧 Teste: Sistema de Scoring Auditado e Corrigido</title>
+    <title>Teste: Sistema de Scoring Auditado e Corrigido</title>
     <style>
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -44,10 +44,11 @@
             margin: 5px;
         }
         
-        .score-excellent { background: #4CAF50; }
-        .score-good { background: #8BC34A; }
-        .score-average { background: #FF9800; }
-        .score-poor { background: #f44336; }
+        .score-excellent { background: #4CAF50; }  /* 85-100% */
+        .score-good { background: #8BC34A; }       /* 70-84% */
+        .score-average { background: #FF9800; }    /* 50-69% */
+        .score-poor { background: #f44336; }       /* 20-49% */
+        .score-critical { background: #8e1a1a; }   /* 0-19% */
         
         .result-table {
             width: 100%;
@@ -75,7 +76,7 @@
             border-radius: 5px;
             font-family: 'Courier New', monospace;
             font-size: 12px;
-            max-height: 300px;
+            max-height: 200px;
             overflow-y: auto;
             margin: 10px 0;
         }
@@ -96,123 +97,76 @@
             background: #45a049;
         }
         
-        .curve-visualization {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-            gap: 10px;
-            margin: 15px 0;
-        }
-        
-        .curve-point {
-            background: #444;
-            padding: 10px;
-            border-radius: 5px;
-            text-align: center;
-            border: 2px solid transparent;
-        }
-        
-        .curve-point.perfect { border-color: #4CAF50; }
-        .curve-point.good { border-color: #8BC34A; }
-        .curve-point.average { border-color: #FF9800; }
-        .curve-point.poor { border-color: #f44336; }
-        
         .weight-display {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 10px;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 15px;
             margin: 15px 0;
         }
         
         .weight-item {
             background: #444;
             padding: 15px;
-            border-radius: 5px;
-            text-align: center;
-        }
-        
-        .scenario-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 15px;
-            margin: 15px 0;
-        }
-        
-        .scenario-card {
-            background: #3d3d3d;
-            padding: 15px;
             border-radius: 8px;
-            border-left: 3px solid;
         }
         
-        .scenario-perfect { border-left-color: #4CAF50; }
-        .scenario-good { border-left-color: #8BC34A; }
-        .scenario-average { border-left-color: #FF9800; }
-        .scenario-poor { border-left-color: #f44336; }
+        .weight-breakdown {
+            font-size: 12px;
+            margin-top: 8px;
+        }
+        
+        .expected-result {
+            background: #1a3d1a;
+            border: 1px solid #4CAF50;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
     </style>
 </head>
 <body>
-    <h1>🔧 Teste: Sistema de Scoring Auditado e Corrigido</h1>
+    <h1>🎯 Teste: Sistema de Scoring Auditado</h1>
     <p style="text-align: center; color: #ccc;">
-        Validação da curva de penalização justa e pesos corrigidos por gênero
+        Validação da nova lógica de penalização gradual e pesos por gênero
     </p>
 
-    <!-- Seção 1: Teste da Curva de Penalização Graduada -->
+    <!-- Seção 1: Teste da Penalização Gradual -->
     <div class="test-section">
-        <h2>📈 Teste 1: Curva de Penalização Graduada</h2>
-        <p>Validação dos pontos de referência: 1x=100, 1.5x=~80, 2x=~60, 3x=~40, >3x=~20</p>
+        <h2>📉 Teste 1: Penalização Gradual (Nova Curva)</h2>
+        <p>Validação da nova curva de penalização conforme especificação:</p>
+        <ul>
+            <li>Δ dentro da tolerância → <strong>100%</strong></li>
+            <li>Δ até 1.5x tolerância → <strong>~80%</strong></li>
+            <li>Δ até 2x tolerância → <strong>~60%</strong></li>
+            <li>Δ até 3x tolerância → <strong>~40%</strong></li>
+            <li>Δ acima de 3x tolerância → <strong>~20%</strong> (nunca zerar)</li>
+        </ul>
         
-        <button onclick="testGradualCurve()">🔬 Executar Teste de Curva</button>
+        <button onclick="testGradualPenalization()">🔬 Executar Teste de Penalização</button>
         
-        <div class="curve-visualization" id="curveVisualization" style="display: none;">
-        </div>
-        
-        <table class="result-table" id="curveTestTable" style="display: none;">
+        <table class="result-table" id="penalizationTestTable" style="display: none;">
             <thead>
                 <tr>
+                    <th>Desvio</th>
                     <th>Múltiplo da Tolerância</th>
                     <th>Score Obtido</th>
                     <th>Score Esperado</th>
-                    <th>Variação</th>
                     <th>Status</th>
                 </tr>
             </thead>
-            <tbody id="curveTestBody">
+            <tbody id="penalizationTestBody">
             </tbody>
         </table>
         
-        <div class="console-output" id="curveConsole" style="display: none;"></div>
+        <div class="console-output" id="penalizationConsole" style="display: none;"></div>
     </div>
 
-    <!-- Seção 2: Teste de Scores Técnicos Graduados -->
+    <!-- Seção 2: Teste de Pesos por Gênero -->
     <div class="test-section">
-        <h2>🔧 Teste 2: Scores Técnicos Graduados</h2>
-        <p>Verificação se problemas técnicos são penalizados gradualmente (nunca zero, exceto falhas críticas)</p>
+        <h2>⚖️ Teste 2: Pesos por Gênero (Conforme Especificação)</h2>
+        <p>Verificação dos pesos atualizados conforme solicitado</p>
         
-        <button onclick="testTechnicalGrading()">🔬 Executar Teste Técnico</button>
-        
-        <table class="result-table" id="technicalTestTable" style="display: none;">
-            <thead>
-                <tr>
-                    <th>Tipo de Problema</th>
-                    <th>Valor Testado</th>
-                    <th>Score Obtido</th>
-                    <th>Faixa Esperada</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody id="technicalTestBody">
-            </tbody>
-        </table>
-        
-        <div class="console-output" id="technicalConsole" style="display: none;"></div>
-    </div>
-
-    <!-- Seção 3: Teste de Pesos por Gênero Corrigidos -->
-    <div class="test-section">
-        <h2>⚖️ Teste 3: Pesos por Gênero (Conforme Especificação)</h2>
-        <p>Validação dos pesos exatos conforme solicitado</p>
-        
-        <button onclick="testGenreWeightsFixed()">🔬 Executar Teste de Pesos</button>
+        <button onclick="testGenreWeights()">🔬 Executar Teste de Pesos</button>
         
         <div class="weight-display" id="weightsDisplay" style="display: none;">
         </div>
@@ -220,22 +174,69 @@
         <div class="console-output" id="weightsConsole" style="display: none;"></div>
     </div>
 
-    <!-- Seção 4: Teste de Cenários Realistas -->
+    <!-- Seção 3: Teste de Sub-scores Normalizados -->
     <div class="test-section">
-        <h2>🎯 Teste 4: Cenários de Mix Realistas</h2>
-        <p>Validação se os scores finais refletem a qualidade real esperada</p>
+        <h2>📊 Teste 3: Sub-scores Normalizados (0-100)</h2>
+        <p>Validação se os sub-scores estão sendo calculados corretamente como médias normalizadas</p>
         
-        <button onclick="testRealisticScenarios()">🔬 Executar Teste de Cenários</button>
+        <button onclick="testSubScoresNormalized()">🔬 Executar Teste de Normalização</button>
         
-        <div class="scenario-grid" id="scenarioGrid" style="display: none;">
+        <table class="result-table" id="subScoresTestTable" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Categoria</th>
+                    <th>Métricas de Teste</th>
+                    <th>Sub-score Calculado</th>
+                    <th>Faixa Esperada</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="subScoresTestBody">
+            </tbody>
+        </table>
+        
+        <div class="console-output" id="subScoresConsole" style="display: none;"></div>
+    </div>
+
+    <!-- Seção 4: Teste de Scores Finais Realistas -->
+    <div class="test-section">
+        <h2>🎯 Teste 4: Scores Finais Realistas</h2>
+        <p>Verificação se o sistema produz os scores finais esperados conforme especificação</p>
+        
+        <div class="expected-result">
+            <h4>📋 Resultados Esperados:</h4>
+            <ul>
+                <li><strong>Tracks bem mixadas</strong> com pequenos desvios → Score Final <strong>60–80%</strong></li>
+                <li><strong>Tracks fora do padrão mas audíveis</strong> → Score Final <strong>30–50%</strong></li>
+                <li><strong>Tracks muito ruins/erradas</strong> → Score Final <strong>10–20%</strong></li>
+            </ul>
         </div>
         
-        <div class="console-output" id="scenarioConsole" style="display: none;"></div>
+        <button onclick="testFinalScoresRealistic()">🔬 Executar Teste de Realismo</button>
+        
+        <table class="result-table" id="finalScoresTestTable" style="display: none;">
+            <thead>
+                <tr>
+                    <th>Cenário de Mix</th>
+                    <th>Gênero</th>
+                    <th>Score Final</th>
+                    <th>Faixa Esperada</th>
+                    <th>Sub-scores</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="finalScoresTestBody">
+            </tbody>
+        </table>
+        
+        <div class="console-output" id="finalScoresConsole" style="display: none;"></div>
     </div>
 
     <script>
-        // Implementar a função corrigida de scoring
-        function calculateMetricScoreFixed(actualValue, targetValue, tolerance) {
+        // Implementar as funções de scoring corrigidas
+        
+        // FUNÇÃO DE PENALIZAÇÃO GRADUAL (CONFORME ESPECIFICAÇÃO)
+        function calculateMetricScore(actualValue, targetValue, tolerance) {
             if (!Number.isFinite(actualValue) || !Number.isFinite(targetValue) || !Number.isFinite(tolerance) || tolerance <= 0) {
                 return null;
             }
@@ -247,29 +248,29 @@
                 return 100;
             }
             
-            // Curva de penalização graduada e justa
-            const toleranceRatio = diff / tolerance;
-            
+            // Penalização gradual conforme especificação
+            const ratio = diff / tolerance;
             let score;
-            if (toleranceRatio <= 1.5) {
-                // Entre 1x e 1.5x tolerância: decaimento suave de 100 para 80
-                score = 100 - (toleranceRatio - 1.0) * 40; // 40 pontos em 0.5x tolerância
-            } else if (toleranceRatio <= 2.0) {
-                // Entre 1.5x e 2x tolerância: de 80 para 60
-                score = 80 - (toleranceRatio - 1.5) * 40; // 20 pontos em 0.5x tolerância
-            } else if (toleranceRatio <= 3.0) {
-                // Entre 2x e 3x tolerância: de 60 para 40
-                score = 60 - (toleranceRatio - 2.0) * 20; // 20 pontos em 1x tolerância
+            
+            if (ratio <= 1.5) {
+                // Linear de 100 a 80 entre 1x e 1.5x tolerância
+                score = 100 - ((ratio - 1.0) * 40);
+            } else if (ratio <= 2.0) {
+                // Linear de 80 a 60 entre 1.5x e 2x tolerância  
+                score = 80 - ((ratio - 1.5) * 40);
+            } else if (ratio <= 3.0) {
+                // Linear de 60 a 40 entre 2x e 3x tolerância
+                score = 60 - ((ratio - 2.0) * 20);
             } else {
-                // Acima de 3x tolerância: mínimo de 20
-                score = 20;
+                // Acima de 3x tolerância → mínimo 20
+                score = Math.max(20, 40 - ((ratio - 3.0) * 10));
             }
             
             return Math.max(20, Math.min(100, Math.round(score)));
         }
         
-        // Pesos corrigidos conforme especificação
-        const FIXED_GENRE_WEIGHTS = {
+        // PESOS POR GÊNERO ATUALIZADOS
+        const GENRE_SCORING_WEIGHTS = {
             'funk_mandela': {
                 loudness: 0.32, dinamica: 0.23, frequencia: 0.20, estereo: 0.15, tecnico: 0.10
             },
@@ -281,138 +282,63 @@
             },
             'eletronico': {
                 frequencia: 0.30, estereo: 0.25, loudness: 0.20, dinamica: 0.15, tecnico: 0.10
+            },
+            'funk_bruxaria': {
+                frequencia: 0.30, estereo: 0.25, loudness: 0.20, dinamica: 0.15, tecnico: 0.10
             }
         };
         
-        function testGradualCurve() {
-            const visualization = document.getElementById('curveVisualization');
-            const table = document.getElementById('curveTestTable');
-            const body = document.getElementById('curveTestBody');
-            const console = document.getElementById('curveConsole');
+        function testGradualPenalization() {
+            const table = document.getElementById('penalizationTestTable');
+            const body = document.getElementById('penalizationTestBody');
+            const console = document.getElementById('penalizationConsole');
             
-            visualization.style.display = 'grid';
             table.style.display = 'table';
             console.style.display = 'block';
             
             body.innerHTML = '';
             console.innerHTML = '';
-            visualization.innerHTML = '';
             
             const targetValue = -17.3;
             const tolerance = 3.0;
             
-            const testPoints = [
-                { ratio: 0.0, expected: 100, desc: "Exato no alvo" },
-                { ratio: 1.0, expected: 100, desc: "1x tolerância" },
-                { ratio: 1.5, expected: 80, desc: "1.5x tolerância" },
-                { ratio: 2.0, expected: 60, desc: "2x tolerância" },
-                { ratio: 2.5, expected: 50, desc: "2.5x tolerância" },
-                { ratio: 3.0, expected: 40, desc: "3x tolerância" },
-                { ratio: 4.0, expected: 20, desc: "4x tolerância" }
+            const testCases = [
+                { ratio: 0.0, expectedRange: [100, 100], description: "Exato no alvo" },
+                { ratio: 0.5, expectedRange: [100, 100], description: "0.5x tolerância" },
+                { ratio: 1.0, expectedRange: [100, 100], description: "1x tolerância (limite)" },
+                { ratio: 1.25, expectedRange: [85, 95], description: "1.25x tolerância" },
+                { ratio: 1.5, expectedRange: [75, 85], description: "1.5x tolerância (~80)" },
+                { ratio: 1.75, expectedRange: [65, 75], description: "1.75x tolerância" },
+                { ratio: 2.0, expectedRange: [55, 65], description: "2x tolerância (~60)" },
+                { ratio: 2.5, expectedRange: [45, 55], description: "2.5x tolerância" },
+                { ratio: 3.0, expectedRange: [35, 45], description: "3x tolerância (~40)" },
+                { ratio: 4.0, expectedRange: [20, 30], description: "4x tolerância (~20)" },
+                { ratio: 10.0, expectedRange: [20, 20], description: "10x tolerância (mín 20)" }
             ];
             
-            console.innerHTML += `🔧 Testando curva de penalização graduada\n`;
+            console.innerHTML += `🎯 Testando penalização gradual\n`;
             console.innerHTML += `Target: ${targetValue}, Tolerância: ${tolerance}\n\n`;
             
-            testPoints.forEach(point => {
-                const actualValue = targetValue + (point.ratio * tolerance);
-                const score = calculateMetricScoreFixed(actualValue, targetValue, tolerance);
-                const variance = Math.abs(score - point.expected);
-                const isCorrect = variance <= 5; // Tolerância de ±5 pontos
-                
-                // Visualização
-                const pointDiv = document.createElement('div');
-                pointDiv.className = `curve-point ${getScoreClass(score).replace('score-', '')}`;
-                pointDiv.innerHTML = `
-                    <div><strong>${point.desc}</strong></div>
-                    <div>${point.ratio}x tolerância</div>
-                    <div class="score-display ${getScoreClass(score)}">${score}%</div>
-                    <div style="font-size: 11px; color: #ccc;">Esperado: ${point.expected}%</div>
-                `;
-                visualization.appendChild(pointDiv);
-                
-                // Tabela
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${point.desc} (${point.ratio}x)</td>
-                    <td><span class="score-display ${getScoreClass(score)}">${score}%</span></td>
-                    <td>${point.expected}%</td>
-                    <td style="color: ${variance <= 5 ? '#4CAF50' : '#f44336'}">±${variance}%</td>
-                    <td>${isCorrect ? '✅ OK' : '❌ Erro'}</td>
-                `;
-                body.appendChild(row);
-                
-                console.innerHTML += `${point.desc}: ${score}% (esperado: ${point.expected}%, variação: ±${variance}%) - ${isCorrect ? 'OK' : 'ERRO'}\n`;
-            });
-        }
-        
-        function testTechnicalGrading() {
-            const table = document.getElementById('technicalTestTable');
-            const body = document.getElementById('technicalTestBody');
-            const console = document.getElementById('technicalConsole');
-            
-            table.style.display = 'table';
-            console.style.display = 'block';
-            
-            body.innerHTML = '';
-            console.innerHTML = '';
-            
-            const technicalTests = [
-                { type: "Clipping", value: 0.0005, expectedRange: "90-100%", description: "≤0.1% (perfeito)" },
-                { type: "Clipping", value: 0.005, expectedRange: "70-90%", description: "0.1-1% (bom)" },
-                { type: "Clipping", value: 0.03, expectedRange: "30-50%", description: "1-5% (ruim)" },
-                { type: "Clipping", value: 0.08, expectedRange: "10-20%", description: ">5% (crítico)" },
-                { type: "DC Offset", value: 0.005, expectedRange: "90-100%", description: "≤1% (perfeito)" },
-                { type: "DC Offset", value: 0.03, expectedRange: "70-90%", description: "1-5% (bom)" },
-                { type: "DC Offset", value: 0.08, expectedRange: "40-60%", description: "5-10% (ruim)" },
-                { type: "DC Offset", value: 0.15, expectedRange: "20-30%", description: ">10% (crítico)" },
-                { type: "THD", value: 0.005, expectedRange: "90-100%", description: "≤1% (perfeito)" },
-                { type: "THD", value: 0.02, expectedRange: "70-90%", description: "1-3% (bom)" },
-                { type: "THD", value: 0.08, expectedRange: "40-60%", description: "3-10% (ruim)" },
-                { type: "THD", value: 0.15, expectedRange: "20-30%", description: ">10% (crítico)" }
-            ];
-            
-            console.innerHTML += `🔧 Testando penalização graduada de problemas técnicos\n\n`;
-            
-            technicalTests.forEach(test => {
-                let score;
-                
-                // Simular lógica técnica corrigida
-                if (test.type === "Clipping") {
-                    if (test.value <= 0.001) score = 100;
-                    else if (test.value <= 0.01) score = 80;
-                    else if (test.value <= 0.05) score = 40;
-                    else score = 10;
-                } else if (test.type === "DC Offset") {
-                    if (test.value <= 0.01) score = 100;
-                    else if (test.value <= 0.05) score = 80;
-                    else if (test.value <= 0.1) score = 50;
-                    else score = 20;
-                } else if (test.type === "THD") {
-                    if (test.value <= 0.01) score = 100;
-                    else if (test.value <= 0.03) score = 80;
-                    else if (test.value <= 0.1) score = 50;
-                    else score = 20;
-                }
-                
-                const rangeNumbers = test.expectedRange.match(/(\d+)-(\d+)/);
-                const isInRange = rangeNumbers && score >= parseInt(rangeNumbers[1]) && score <= parseInt(rangeNumbers[2]);
+            testCases.forEach(testCase => {
+                const actualValue = targetValue + (testCase.ratio * tolerance);
+                const score = calculateMetricScore(actualValue, targetValue, tolerance);
+                const isInRange = score >= testCase.expectedRange[0] && score <= testCase.expectedRange[1];
                 
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td>${test.type}</td>
-                    <td>${(test.value * 100).toFixed(2)}% (${test.description})</td>
+                    <td>${(testCase.ratio * tolerance).toFixed(1)}</td>
+                    <td>${testCase.ratio.toFixed(1)}x</td>
                     <td><span class="score-display ${getScoreClass(score)}">${score}%</span></td>
-                    <td>${test.expectedRange}</td>
+                    <td>${testCase.expectedRange[0]}-${testCase.expectedRange[1]}%</td>
                     <td>${isInRange ? '✅ OK' : '❌ Fora da faixa'}</td>
                 `;
                 body.appendChild(row);
                 
-                console.innerHTML += `${test.type} ${(test.value*100).toFixed(2)}%: ${score}% (esperado: ${test.expectedRange}) - ${isInRange ? 'OK' : 'ERRO'}\n`;
+                console.innerHTML += `${testCase.description}: ${score}% (esperado: ${testCase.expectedRange[0]}-${testCase.expectedRange[1]}%) - ${isInRange ? 'OK' : 'ERRO'}\n`;
             });
         }
         
-        function testGenreWeightsFixed() {
+        function testGenreWeights() {
             const display = document.getElementById('weightsDisplay');
             const console = document.getElementById('weightsConsole');
             
@@ -422,81 +348,146 @@
             display.innerHTML = '';
             console.innerHTML = '';
             
-            console.innerHTML += `⚖️ Validação dos pesos corrigidos conforme especificação\n\n`;
+            console.innerHTML += `⚖️ Validação dos pesos por gênero\n\n`;
             
-            Object.entries(FIXED_GENRE_WEIGHTS).forEach(([genre, weights]) => {
+            Object.entries(GENRE_SCORING_WEIGHTS).forEach(([genre, weights]) => {
                 const total = Object.values(weights).reduce((sum, w) => sum + w, 0);
-                const isExact = Math.abs(total - 1.0) < 0.001;
+                const isValidTotal = Math.abs(total - 1.0) < 0.001; // Tolerância para float
                 
                 const weightItem = document.createElement('div');
                 weightItem.className = 'weight-item';
+                
+                const breakdown = Object.entries(weights)
+                    .map(([cat, weight]) => `${cat}: ${(weight * 100).toFixed(0)}%`)
+                    .join('<br>');
+                
                 weightItem.innerHTML = `
                     <h4>${genre.replace('_', ' ').toUpperCase()}</h4>
-                    <div style="text-align: left; font-size: 13px; margin: 10px 0;">
-                        <div>Loudness: <strong>${(weights.loudness * 100).toFixed(0)}%</strong></div>
-                        <div>Dinâmica: <strong>${(weights.dinamica * 100).toFixed(0)}%</strong></div>
-                        <div>Frequência: <strong>${(weights.frequencia * 100).toFixed(0)}%</strong></div>
-                        <div>Estéreo: <strong>${(weights.estereo * 100).toFixed(0)}%</strong></div>
-                        <div>Técnico: <strong>${(weights.tecnico * 100).toFixed(0)}%</strong></div>
-                    </div>
-                    <hr style="border-color: #666;">
-                    <div style="color: ${isExact ? '#4CAF50' : '#f44336'};">
-                        <strong>Total: ${(total * 100).toFixed(1)}% ${isExact ? '✅' : '❌'}</strong>
+                    <div class="weight-breakdown">
+                        ${breakdown}
+                        <hr style="margin: 8px 0;">
+                        <strong>Total: ${(total * 100).toFixed(1)}% ${isValidTotal ? '✅' : '❌'}</strong>
                     </div>
                 `;
                 display.appendChild(weightItem);
                 
-                console.innerHTML += `${genre}: Total=${(total*100).toFixed(1)}% ${isExact ? '✅' : '❌'}\n`;
-                console.innerHTML += `  - Loudness: ${(weights.loudness*100).toFixed(0)}%, Dinâmica: ${(weights.dinamica*100).toFixed(0)}%, Frequência: ${(weights.frequencia*100).toFixed(0)}%\n`;
+                console.innerHTML += `${genre}: Total=${(total*100).toFixed(1)}% ${isValidTotal ? '✅' : '❌'}\n`;
             });
         }
         
-        function testRealisticScenarios() {
-            const grid = document.getElementById('scenarioGrid');
-            const console = document.getElementById('scenarioConsole');
+        function testSubScoresNormalized() {
+            const table = document.getElementById('subScoresTestTable');
+            const body = document.getElementById('subScoresTestBody');
+            const console = document.getElementById('subScoresConsole');
             
-            grid.style.display = 'grid';
+            table.style.display = 'table';
             console.style.display = 'block';
             
-            grid.innerHTML = '';
+            body.innerHTML = '';
             console.innerHTML = '';
             
-            const scenarios = [
+            console.innerHTML += `📊 Testando normalização dos sub-scores\n\n`;
+            
+            const testScenarios = [
                 {
-                    name: "Mix Bem Mixado (pequenos desvios)",
-                    subScores: { loudness: 95, dinamica: 90, frequencia: 88, estereo: 92, tecnico: 95 },
-                    expectedRange: "60-80%",
-                    description: "LUFS perfeito, 1 banda ligeiramente fora",
-                    class: "scenario-perfect"
+                    category: 'Loudness',
+                    metrics: 'LUFS perfeito, True Peak OK, Crest OK',
+                    scores: [100, 95, 90],
+                    expectedRange: [90, 100]
                 },
                 {
-                    name: "Mix Audível (alguns problemas)",
-                    subScores: { loudness: 75, dinamica: 70, frequencia: 65, estereo: 80, tecnico: 85 },
-                    expectedRange: "60-80%",
-                    description: "Algumas métricas fora da tolerância",
-                    class: "scenario-good"
+                    category: 'Frequência',
+                    metrics: '4 bandas OK, 2 ruins, 1 média',
+                    scores: [100, 100, 100, 100, 30, 40, 70],
+                    expectedRange: [70, 80]
                 },
                 {
-                    name: "Mix Fora do Padrão",
-                    subScores: { loudness: 50, dinamica: 45, frequencia: 60, estereo: 55, tecnico: 40 },
-                    expectedRange: "30-50%",
-                    description: "Várias métricas problemáticas",
-                    class: "scenario-average"
+                    category: 'Estéreo',
+                    metrics: 'Correlação boa, Width OK',
+                    scores: [85, 90],
+                    expectedRange: [85, 90]
                 },
                 {
-                    name: "Mix Muito Ruim",
-                    subScores: { loudness: 25, dinamica: 30, frequencia: 35, estereo: 20, tecnico: 15 },
-                    expectedRange: "10-30%",
-                    description: "Múltiplos problemas sérios",
-                    class: "scenario-poor"
+                    category: 'Dinâmica',
+                    metrics: 'DR baixo, LRA alto',
+                    scores: [40, 30, 60],
+                    expectedRange: [40, 50]
+                },
+                {
+                    category: 'Técnico',
+                    metrics: 'Sem clipping, DC offset OK, THD OK',
+                    scores: [100, 95, 100],
+                    expectedRange: [95, 100]
                 }
             ];
             
-            console.innerHTML += `🎯 Testando cenários realistas de mixing\n\n`;
+            testScenarios.forEach(scenario => {
+                const average = scenario.scores.reduce((sum, score) => sum + score, 0) / scenario.scores.length;
+                const subScore = Math.round(average);
+                const isInRange = subScore >= scenario.expectedRange[0] && subScore <= scenario.expectedRange[1];
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${scenario.category}</strong></td>
+                    <td style="font-size: 11px;">${scenario.metrics}</td>
+                    <td><span class="score-display ${getScoreClass(subScore)}">${subScore}%</span></td>
+                    <td>${scenario.expectedRange[0]}-${scenario.expectedRange[1]}%</td>
+                    <td>${isInRange ? '✅ OK' : '❌ Fora da faixa'}</td>
+                `;
+                body.appendChild(row);
+                
+                console.innerHTML += `${scenario.category}: ${subScore}% (média de [${scenario.scores.join(', ')}]) - ${isInRange ? 'OK' : 'ERRO'}\n`;
+            });
+        }
+        
+        function testFinalScoresRealistic() {
+            const table = document.getElementById('finalScoresTestTable');
+            const body = document.getElementById('finalScoresTestBody');
+            const console = document.getElementById('finalScoresConsole');
+            
+            table.style.display = 'table';
+            console.style.display = 'block';
+            
+            body.innerHTML = '';
+            console.innerHTML = '';
+            
+            console.innerHTML += `🎯 Testando realismo dos scores finais\n\n`;
+            
+            const scenarios = [
+                {
+                    name: "Mix bem mixado (pequenos desvios)",
+                    genre: "funk_mandela",
+                    subScores: { loudness: 85, dinamica: 90, frequencia: 80, estereo: 85, tecnico: 95 },
+                    expectedRange: [60, 80]
+                },
+                {
+                    name: "Mix bem mixado (Trap)",
+                    genre: "trap", 
+                    subScores: { loudness: 80, dinamica: 85, frequencia: 90, estereo: 80, tecnico: 90 },
+                    expectedRange: [60, 80]
+                },
+                {
+                    name: "Mix fora do padrão mas audível",
+                    genre: "eletronico",
+                    subScores: { loudness: 60, dinamica: 55, frequencia: 50, estereo: 65, tecnico: 70 },
+                    expectedRange: [30, 50]
+                },
+                {
+                    name: "Mix com problemas graves",
+                    genre: "funk_mandela",
+                    subScores: { loudness: 40, dinamica: 35, frequencia: 45, estereo: 40, tecnico: 30 },
+                    expectedRange: [30, 50]
+                },
+                {
+                    name: "Mix muito ruim/errado",
+                    genre: "trance",
+                    subScores: { loudness: 25, dinamica: 30, frequencia: 20, estereo: 25, tecnico: 20 },
+                    expectedRange: [10, 20]
+                }
+            ];
             
             scenarios.forEach(scenario => {
-                // Calcular score final usando pesos do Funk Mandela
-                const weights = FIXED_GENRE_WEIGHTS.funk_mandela;
+                const weights = GENRE_SCORING_WEIGHTS[scenario.genre];
                 const finalScore = Math.round(
                     (scenario.subScores.loudness * weights.loudness) +
                     (scenario.subScores.dinamica * weights.dinamica) +
@@ -505,36 +496,24 @@
                     (scenario.subScores.tecnico * weights.tecnico)
                 );
                 
-                const rangeNumbers = scenario.expectedRange.match(/(\d+)-(\d+)/);
-                const isInRange = rangeNumbers && finalScore >= parseInt(rangeNumbers[1]) && finalScore <= parseInt(rangeNumbers[2]);
+                const subScoreDisplay = Object.entries(scenario.subScores)
+                    .map(([key, value]) => `${key}: ${value}%`)
+                    .join(', ');
                 
-                const card = document.createElement('div');
-                card.className = `scenario-card ${scenario.class}`;
-                card.innerHTML = `
-                    <h4>${scenario.name}</h4>
-                    <div style="margin: 10px 0;">
-                        <div class="score-display ${getScoreClass(finalScore)}" style="font-size: 18px;">
-                            ${finalScore}%
-                        </div>
-                    </div>
-                    <div style="font-size: 12px; color: #ccc; margin: 10px 0;">
-                        ${scenario.description}
-                    </div>
-                    <div style="font-size: 11px; margin: 10px 0;">
-                        Sub-scores: L:${scenario.subScores.loudness}%, D:${scenario.subScores.dinamica}%, 
-                        F:${scenario.subScores.frequencia}%, E:${scenario.subScores.estereo}%, T:${scenario.subScores.tecnico}%
-                    </div>
-                    <div style="margin-top: 10px; padding: 8px; background: rgba(0,0,0,0.3); border-radius: 4px;">
-                        <div>Esperado: ${scenario.expectedRange}</div>
-                        <div style="color: ${isInRange ? '#4CAF50' : '#f44336'};">
-                            Status: ${isInRange ? '✅ Na faixa' : '❌ Fora da faixa'}
-                        </div>
-                    </div>
+                const isInRange = finalScore >= scenario.expectedRange[0] && finalScore <= scenario.expectedRange[1];
+                
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${scenario.name}</strong></td>
+                    <td>${scenario.genre.replace('_', ' ')}</td>
+                    <td><span class="score-display ${getScoreClass(finalScore)}">${finalScore}%</span></td>
+                    <td>${scenario.expectedRange[0]}-${scenario.expectedRange[1]}%</td>
+                    <td style="font-size: 10px;">${subScoreDisplay}</td>
+                    <td>${isInRange ? '✅ Na faixa' : '❌ Fora da faixa'}</td>
                 `;
-                grid.appendChild(card);
+                body.appendChild(row);
                 
-                console.innerHTML += `${scenario.name}: ${finalScore}% (esperado: ${scenario.expectedRange}) - ${isInRange ? 'OK' : 'ERRO'}\n`;
-                console.innerHTML += `  Sub-scores: L:${scenario.subScores.loudness}% D:${scenario.subScores.dinamica}% F:${scenario.subScores.frequencia}% E:${scenario.subScores.estereo}% T:${scenario.subScores.tecnico}%\n\n`;
+                console.innerHTML += `${scenario.name}: ${finalScore}% (esperado: ${scenario.expectedRange[0]}-${scenario.expectedRange[1]}%) - ${isInRange ? 'OK' : 'ERRO'}\n`;
             });
         }
         
@@ -542,15 +521,16 @@
             if (score >= 85) return 'score-excellent';
             if (score >= 70) return 'score-good';
             if (score >= 50) return 'score-average';
-            return 'score-poor';
+            if (score >= 20) return 'score-poor';
+            return 'score-critical';
         }
         
         // Auto-executar todos os testes
         setTimeout(() => {
-            testGradualCurve();
-            setTimeout(testTechnicalGrading, 500);
-            setTimeout(testGenreWeightsFixed, 1000);
-            setTimeout(testRealisticScenarios, 1500);
+            testGradualPenalization();
+            setTimeout(testGenreWeights, 500);
+            setTimeout(testSubScoresNormalized, 1000);
+            setTimeout(testFinalScoresRealistic, 1500);
         }, 1000);
     </script>
 </body>

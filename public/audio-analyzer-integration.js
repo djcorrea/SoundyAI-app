@@ -1626,7 +1626,62 @@ function openAudioModal() {
     }
 }
 
-// Função removida (duplicata) - usar a implementação original na linha 71
+// 🎯 NOVO: Modal de Seleção de Modo (versão alternativa)
+function openModeSelectionModalAlt() {
+    __dbg('� Abrindo modal de seleção de modo...');
+    
+    const modal = document.getElementById('analysisModeModal');
+    if (!modal) {
+        console.error('Modal de seleção de modo não encontrado');
+        return;
+    }
+    
+    // Verificar se modo referência está habilitado e mostrar/esconder botão
+    const referenceModeBtn = document.getElementById('referenceModeBtn');
+    if (referenceModeBtn) {
+        const isEnabled = window.FEATURE_FLAGS?.REFERENCE_MODE_ENABLED;
+        referenceModeBtn.style.display = isEnabled ? 'flex' : 'none';
+        
+        if (!isEnabled) {
+            referenceModeBtn.disabled = true;
+        }
+    }
+    
+    modal.style.display = 'flex';
+    modal.setAttribute('tabindex', '-1');
+    modal.focus();
+    
+    window.logReferenceEvent('mode_selection_modal_opened');
+}
+
+function closeModeSelectionModalAlt() {
+    __dbg('❌ Fechando modal de seleção de modo...');
+    
+    const modal = document.getElementById('analysisModeModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    
+    window.logReferenceEvent('mode_selection_modal_closed');
+}
+
+// 🎯 NOVO: Selecionar modo de análise (versão alternativa)
+function selectAnalysisModeAlt(mode) {
+    window.logReferenceEvent('analysis_mode_selected', { mode });
+    
+    if (mode === 'reference' && !window.FEATURE_FLAGS?.REFERENCE_MODE_ENABLED) {
+        alert('Modo de análise por referência não está disponível no momento.');
+        return;
+    }
+    
+    currentAnalysisMode = mode;
+    
+    // Fechar modal de seleção de modo
+    closeModeSelectionModal();
+    
+    // Abrir modal de análise configurado para o modo selecionado
+    openAnalysisModalForMode(mode);
+}
 
 // 🎯 NOVO: Abrir modal de análise configurado para o modo
 function openAnalysisModalForMode(mode) {
@@ -2202,8 +2257,8 @@ function validateAudioFile(file) {
     return true;
 }
 
-// 🎯 NOVO: Processar arquivo no modo referência
-async function processReferenceFileSelection(file) {
+// 🎯 NOVO: Processar arquivo no modo referência (versão alternativa)
+async function handleReferenceFileSelectionAlt(file) {
     window.logReferenceEvent('reference_file_selected', { 
         step: referenceStepState.currentStep,
         fileName: file.name,
@@ -3167,8 +3222,21 @@ function waitForAudioAnalyzer() {
     });
 }
 
-// � Atualizar progresso no modal
-// Função removida (duplicata) - usar implementação da linha 446
+// � Atualizar progresso no modal (versão alternativa)
+function updateModalProgressAlt(percentage, message) {
+    const progressFill = document.getElementById('audioProgressFill');
+    const progressText = document.getElementById('audioProgressText');
+    
+    if (progressFill) {
+        progressFill.style.width = percentage + '%';
+    }
+    
+    if (progressText) {
+        progressText.textContent = message || `${percentage}%`;
+    }
+    
+    __dbg(`📈 Progresso: ${percentage}% - ${message}`);
+}
 
 // ❌ Mostrar erro no modal
 function showModalError(message) {
@@ -5215,81 +5283,82 @@ function renderReferenceComparisons(analysis) {
 // 🎯 ===== SISTEMA DE SCORING AVANÇADO =====
 // Sistema completo de pontuação por categorias com adaptação por gênero
 
-// 1. PESOS POR GÊNERO (ATUALIZADOS CONFORME ESPECIFICAÇÃO)
+// 1. PESOS POR GÊNERO (CONFORME ESPECIFICAÇÃO EXATA)
 const GENRE_SCORING_WEIGHTS = {
-    // Funk Mandela - Foco em Loudness e Dinâmica (conforme especificado)
+    // Funk Mandela - Foco em Loudness e Dinâmica
     'funk_mandela': {
-        loudness: 0.32,    // Loudness crítico no funk
-        dinamica: 0.23,    // Dinâmica importante
-        frequencia: 0.20,  // Frequência equilibrada
-        estereo: 0.15,     // Estéreo moderado
-        tecnico: 0.10      // Técnico básico
+        loudness: 0.32,    // 32% - Loudness crítico no funk
+        dinamica: 0.23,    // 23% - Dinâmica importante
+        frequencia: 0.20,  // 20% - Frequência equilibrada
+        estereo: 0.15,     // 15% - Estéreo moderado
+        tecnico: 0.10      // 10% - Técnico básico
     },
     
     // Funk Automotivo (similar ao Mandela)
     'funk_automotivo': {
-        loudness: 0.32,
-        dinamica: 0.23,
-        frequencia: 0.20,
-        estereo: 0.15,
-        tecnico: 0.10
+        loudness: 0.32,    // 32%
+        dinamica: 0.23,    // 23%
+        frequencia: 0.20,  // 20%
+        estereo: 0.15,     // 15%
+        tecnico: 0.10      // 10%
     },
     
-    // Trap/Trance - Foco em Loudness e Frequência (conforme especificado)
+    // Trap/Trance - Foco em Loudness e Frequência
     'trap': {
-        loudness: 0.25,    // Loudness
-        frequencia: 0.30,  // Frequência crítica
-        estereo: 0.20,     // Estéreo importante
-        dinamica: 0.15,    // Dinâmica moderada
-        tecnico: 0.10      // Técnico básico
+        loudness: 0.25,    // 25% - Loudness importante
+        frequencia: 0.30,  // 30% - Frequência crítica
+        estereo: 0.20,     // 20% - Estéreo importante
+        dinamica: 0.15,    // 15% - Dinâmica moderada
+        tecnico: 0.10      // 10% - Técnico básico
     },
     
+    // Trance (mesmo padrão do Trap)
     'trance': {
-        loudness: 0.25,    // Loudness
-        frequencia: 0.30,  // Frequência crítica
-        estereo: 0.20,     // Estéreo importante
-        dinamica: 0.15,    // Dinâmica moderada
-        tecnico: 0.10      // Técnico básico
+        loudness: 0.25,    // 25%
+        frequencia: 0.30,  // 30%
+        estereo: 0.20,     // 20%
+        dinamica: 0.15,    // 15%
+        tecnico: 0.10      // 10%
     },
     
-    // Eletrônico - Foco em Frequência e Estéreo (conforme especificado)
+    // Eletrônico - Foco em Frequência e Estéreo
     'eletronico': {
-        frequencia: 0.30,  // Frequência crítica
-        estereo: 0.25,     // Estéreo importante
-        loudness: 0.20,    // Loudness moderado
-        dinamica: 0.15,    // Dinâmica moderada
-        tecnico: 0.10      // Técnico básico
+        frequencia: 0.30,  // 30% - Frequência crítica
+        estereo: 0.25,     // 25% - Estéreo importante
+        loudness: 0.20,    // 20% - Loudness moderado
+        dinamica: 0.15,    // 15% - Dinâmica moderada
+        tecnico: 0.10      // 10% - Técnico básico
     },
     
-    // Funk Bruxaria - Similar ao Eletrônico
+    // Funk Bruxaria (mesmo padrão do Eletrônico)
     'funk_bruxaria': {
-        frequencia: 0.30,  // Frequência crítica
-        estereo: 0.25,     // Estéreo importante
-        loudness: 0.20,    // Loudness moderado
-        dinamica: 0.15,    // Dinâmica moderada
-        tecnico: 0.10      // Técnico básico
+        frequencia: 0.30,  // 30%
+        estereo: 0.25,     // 25%
+        loudness: 0.20,    // 20%
+        dinamica: 0.15,    // 15%
+        tecnico: 0.10      // 10%
     },
     
-    // Hip Hop - Balanceado entre Frequência e Dinâmica
+    // Hip Hop - Balanceado
     'hip_hop': {
-        frequencia: 0.30,
-        dinamica: 0.25,
-        loudness: 0.20,
-        estereo: 0.15,
-        tecnico: 0.10
+        frequencia: 0.30,  // 30%
+        dinamica: 0.25,    // 25%
+        loudness: 0.20,    // 20%
+        estereo: 0.15,     // 15%
+        tecnico: 0.10      // 10%
     },
     
     // Pesos padrão (fallback) - Distribuição equilibrada
     'default': {
-        loudness: 0.25,
-        frequencia: 0.25,
-        dinamica: 0.20,
-        estereo: 0.15,
-        tecnico: 0.15
+        loudness: 0.25,    // 25%
+        frequencia: 0.25,  // 25%
+        dinamica: 0.20,    // 20%
+        estereo: 0.15,     // 15%
+        tecnico: 0.15      // 15%
     }
 };
 
-// 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (CURVA JUSTA E GRADUAL)
+// 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (PENALIZAÇÃO GRADUAL JUSTA)
 function calculateMetricScore(actualValue, targetValue, tolerance) {
     // Verificar se temos valores válidos
     if (!Number.isFinite(actualValue) || !Number.isFinite(targetValue) || !Number.isFinite(tolerance) || tolerance <= 0) {
@@ -5303,29 +5372,27 @@ function calculateMetricScore(actualValue, targetValue, tolerance) {
         return 100;
     }
     
-    // 🎯 CURVA DE PENALIZAÇÃO GRADUAL E JUSTA
-    const toleranceRatio = diff / tolerance;
+    // 🎯 PENALIZAÇÃO GRADUAL CONFORME ESPECIFICAÇÃO:
+    // Δ até 1.5x tolerância → ~80
+    // Δ até 2x tolerância → ~60  
+    // Δ até 3x tolerância → ~40
+    // Δ acima de 3x tolerância → ~20 (nunca zerar totalmente)
     
-    // Pontos de referência da curva:
-    // - 1x tolerância = 100
-    // - 1.5x tolerância = ~80
-    // - 2x tolerância = ~60  
-    // - 3x tolerância = ~40
-    // - >3x tolerância = ~20 (mínimo, exceto falhas críticas)
-    
+    const ratio = diff / tolerance;
     let score;
-    if (toleranceRatio <= 1.5) {
-        // Entre 1x e 1.5x tolerância: decaimento suave de 100 para 80
-        score = 100 - (toleranceRatio - 1.0) * 40; // 40 pontos em 0.5x tolerância
-    } else if (toleranceRatio <= 2.0) {
-        // Entre 1.5x e 2x tolerância: de 80 para 60
-        score = 80 - (toleranceRatio - 1.5) * 40; // 20 pontos em 0.5x tolerância
-    } else if (toleranceRatio <= 3.0) {
-        // Entre 2x e 3x tolerância: de 60 para 40
-        score = 60 - (toleranceRatio - 2.0) * 20; // 20 pontos em 1x tolerância
+    
+    if (ratio <= 1.5) {
+        // Linear de 100 a 80 entre 1x e 1.5x tolerância
+        score = 100 - ((ratio - 1.0) * 40); // 100 - (0.5 * 40) = 80
+    } else if (ratio <= 2.0) {
+        // Linear de 80 a 60 entre 1.5x e 2x tolerância  
+        score = 80 - ((ratio - 1.5) * 40); // 80 - (0.5 * 40) = 60
+    } else if (ratio <= 3.0) {
+        // Linear de 60 a 40 entre 2x e 3x tolerância
+        score = 60 - ((ratio - 2.0) * 20); // 60 - (1.0 * 20) = 40
     } else {
-        // Acima de 3x tolerância: mínimo de 20 (nunca zero, exceto falhas críticas)
-        score = 20;
+        // Acima de 3x tolerância → mínimo 20 (nunca zerar totalmente)
+        score = Math.max(20, 40 - ((ratio - 3.0) * 10));
     }
     
     return Math.max(20, Math.min(100, Math.round(score)));
@@ -5571,109 +5638,91 @@ function calculateFrequencyScore(analysis, refData) {
 }
 
 // 7. CALCULAR SCORE TÉCNICO
-// 7. CALCULAR SCORE TÉCNICO (CORRIGIDO: Só zero em falhas críticas)
+// 7. CALCULAR SCORE TÉCNICO (Clipping, DC Offset, THD)
 function calculateTechnicalScore(analysis, refData) {
     if (!analysis) return null;
     
     const tech = analysis.technicalData || {};
     const metrics = analysis.metrics || {};
     const scores = [];
+    let baseScore = 100; // Começar com perfeito
     
     console.log('🔧 Calculando Score Técnico...');
     
-    // 1. CLIPPING - Crítico se > 0.1%, moderado se > 0.01%
+    // 1. CLIPPING - Deve ser próximo de 0%
     const clippingValue = tech.clipping || metrics.clipping || 0;
     if (Number.isFinite(clippingValue)) {
-        let clippingScore;
-        if (clippingValue <= 0.001) { // ≤ 0.1% = perfeito
-            clippingScore = 100;
-        } else if (clippingValue <= 0.01) { // 0.1% - 1% = bom
-            clippingScore = 80;
-        } else if (clippingValue <= 0.05) { // 1% - 5% = ruim
-            clippingScore = 40;
-        } else { // > 5% = crítico
-            clippingScore = 10; // Nunca zero, mas muito baixo
+        let clippingScore = 100;
+        if (clippingValue > 0.001) { // Acima de 0.1%
+            clippingScore = Math.max(0, 100 - (clippingValue * 10000)); // Penalidade severa
         }
         scores.push(clippingScore);
         console.log(`🔧 Clipping: ${(clippingValue * 100).toFixed(3)}% = ${clippingScore}%`);
     }
     
-    // 2. DC OFFSET - Tolerante, só penalizar se realmente alto
+    // 2. DC OFFSET - Deve ser próximo de 0
     const dcOffsetValue = Math.abs(tech.dcOffset || metrics.dc_offset || 0);
     if (Number.isFinite(dcOffsetValue)) {
-        let dcScore;
-        if (dcOffsetValue <= 0.01) { // ≤ 1% = perfeito
-            dcScore = 100;
-        } else if (dcOffsetValue <= 0.05) { // 1% - 5% = bom
-            dcScore = 80;
-        } else if (dcOffsetValue <= 0.1) { // 5% - 10% = ruim
-            dcScore = 50;
-        } else { // > 10% = muito ruim
-            dcScore = 20;
+        let dcScore = 100;
+        if (dcOffsetValue > 0.01) { // Acima de 1%
+            dcScore = Math.max(0, 100 - (dcOffsetValue * 500)); // Penalidade moderada
         }
         scores.push(dcScore);
         console.log(`🔧 DC Offset: ${dcOffsetValue.toFixed(4)} = ${dcScore}%`);
     }
     
-    // 3. THD (Total Harmonic Distortion) - Graduado
+    // 3. THD (Total Harmonic Distortion) - Deve ser baixo
     const thdValue = tech.thd || metrics.thd || 0;
     if (Number.isFinite(thdValue)) {
-        let thdScore;
-        if (thdValue <= 0.01) { // ≤ 1% = perfeito
-            thdScore = 100;
-        } else if (thdValue <= 0.03) { // 1% - 3% = bom
-            thdScore = 80;
-        } else if (thdValue <= 0.1) { // 3% - 10% = ruim
-            thdScore = 50;
-        } else { // > 10% = muito ruim
-            thdScore = 20;
+        let thdScore = 100;
+        if (thdValue > 0.01) { // Acima de 1%
+            thdScore = Math.max(0, 100 - (thdValue * 2000)); // Penalidade severa para distorção
         }
         scores.push(thdScore);
         console.log(`🔧 THD: ${(thdValue * 100).toFixed(3)}% = ${thdScore}%`);
     }
     
-    // 4. PROBLEMAS DETECTADOS (Issues) - Penalização graduada
+    // 4. PROBLEMAS DETECTADOS (Issues)
     const issues = analysis.issues || [];
     let issuesScore = 100;
     
     issues.forEach(issue => {
         switch (issue.severity) {
             case 'critical':
-                issuesScore -= 25; // Problema crítico (não mais 30)
-                console.log(`🔧 Issue CRÍTICO: ${issue.description} (-25%)`);
+                issuesScore -= 30; // Problema crítico
+                console.log(`🔧 Issue CRÍTICO: ${issue.description} (-30%)`);
                 break;
             case 'high':
-                issuesScore -= 15; // Problema grave (não mais 20)
-                console.log(`🔧 Issue ALTO: ${issue.description} (-15%)`);
+                issuesScore -= 20; // Problema grave
+                console.log(`🔧 Issue ALTO: ${issue.description} (-20%)`);
                 break;
             case 'medium':
-                issuesScore -= 8; // Problema médio (não mais 10)
-                console.log(`🔧 Issue MÉDIO: ${issue.description} (-8%)`);
+                issuesScore -= 10; // Problema médio
+                console.log(`🔧 Issue MÉDIO: ${issue.description} (-10%)`);
                 break;
             case 'low':
-                issuesScore -= 3; // Problema leve (não mais 5)
-                console.log(`🔧 Issue BAIXO: ${issue.description} (-3%)`);
+                issuesScore -= 5; // Problema leve
+                console.log(`🔧 Issue BAIXO: ${issue.description} (-5%)`);
                 break;
         }
     });
     
-    // Garantir mínimo de 20 mesmo com muitos issues
-    issuesScore = Math.max(20, issuesScore);
+    issuesScore = Math.max(0, issuesScore);
     if (issues.length > 0) {
         scores.push(issuesScore);
         console.log(`🔧 Issues Gerais: ${issuesScore}% (${issues.length} problemas)`);
     }
     
-    // Se não temos métricas técnicas específicas, usar apenas issues ou 100 (perfeito)
+    // Se não temos métricas técnicas específicas, usar apenas issues
     if (scores.length === 0) {
-        const result = issues.length > 0 ? Math.max(20, issuesScore) : 100;
-        console.log(`🔧 Score Técnico Final (sem métricas): ${result}%`);
+        const result = Math.max(0, Math.round(issuesScore));
+        console.log(`🔧 Score Técnico Final (apenas issues): ${result}%`);
         return result;
     }
     
     // Média de todas as métricas técnicas
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
-    const result = Math.max(20, Math.round(average)); // Garantir mínimo de 20
+    const result = Math.round(average);
     console.log(`🔧 Score Técnico Final: ${result}% (média de ${scores.length} métricas)`);
     return result;
 }
