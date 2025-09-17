@@ -5285,66 +5285,66 @@ function renderReferenceComparisons(analysis) {
 
 // 1. PESOS POR GÊNERO (ATUALIZADOS CONFORME ESPECIFICAÇÃO)
 const GENRE_SCORING_WEIGHTS = {
-    // Funk Mandela - Foco em Loudness e Dinâmica
+    // Funk Mandela - Foco em Loudness e Dinâmica (ajustado)
     'funk_mandela': {
-        loudness: 0.32,    // Loudness crítico no funk
-        dinamica: 0.23,    // Dinâmica importante
+        loudness: 0.30,    // Loudness crítico no funk (reduzido de 32% para 30%)
+        dinamica: 0.22,    // Dinâmica importante (reduzido de 23% para 22%)
         frequencia: 0.20,  // Frequência equilibrada
-        estereo: 0.15,     // Estéreo moderado
+        estereo: 0.18,     // Estéreo moderado (aumentado de 15% para 18%)
         tecnico: 0.10      // Técnico básico
     },
     
     // Funk Automotivo (similar ao Mandela)
     'funk_automotivo': {
-        loudness: 0.32,
-        dinamica: 0.23,
+        loudness: 0.30,
+        dinamica: 0.22,
         frequencia: 0.20,
-        estereo: 0.15,
+        estereo: 0.18,
         tecnico: 0.10
     },
     
-    // Funk Bruxaria - Foco em Frequência
+    // Funk Bruxaria - Foco em Frequência (ajustado)
     'funk_bruxaria': {
-        frequencia: 0.30,  // Frequência crítica
+        frequencia: 0.28,  // Frequência crítica (reduzido de 30% para 28%)
         loudness: 0.25,    // Loudness importante
         dinamica: 0.20,    // Dinâmica moderada
-        estereo: 0.15,     // Estéreo moderado
+        estereo: 0.17,     // Estéreo moderado (aumentado de 15% para 17%)
         tecnico: 0.10      // Técnico básico
     },
     
-    // Trap - Foco em Frequência e Dinâmica
+    // Trap - Foco em Frequência e Dinâmica (ajustado)
     'trap': {
-        frequencia: 0.30,  // Frequência crítica
+        frequencia: 0.27,  // Frequência crítica (reduzido de 30% para 27%)
         dinamica: 0.25,    // Dinâmica importante
         loudness: 0.20,    // Loudness moderado
-        estereo: 0.15,     // Estéreo moderado
+        estereo: 0.18,     // Estéreo moderado (aumentado de 15% para 18%)
         tecnico: 0.10      // Técnico básico
     },
     
-    // Eletrônico - Foco em Loudness e Frequência
+    // Eletrônico - Foco em Loudness e Frequência (ajustado)
     'eletronico': {
-        loudness: 0.30,    // Loudness crítico
+        loudness: 0.28,    // Loudness crítico (reduzido de 30% para 28%)
         frequencia: 0.25,  // Frequência importante
         dinamica: 0.20,    // Dinâmica moderada
-        estereo: 0.15,     // Estéreo moderado
+        estereo: 0.17,     // Estéreo moderado (aumentado de 15% para 17%)
         tecnico: 0.10      // Técnico básico
     },
     
-    // Trance - Similar ao Eletrônico
+    // Trance - Similar ao Eletrônico (ajustado)
     'trance': {
-        loudness: 0.30,    // Loudness crítico
+        loudness: 0.28,    // Loudness crítico (reduzido de 30% para 28%)
         frequencia: 0.25,  // Frequência importante
         dinamica: 0.20,    // Dinâmica moderada
-        estereo: 0.15,     // Estéreo moderado
+        estereo: 0.17,     // Estéreo moderado (aumentado de 15% para 17%)
         tecnico: 0.10      // Técnico básico
     },
     
     // Hip Hop - Balanceado entre Frequência e Dinâmica
     'hip_hop': {
-        frequencia: 0.30,
+        frequencia: 0.27,
         dinamica: 0.25,
         loudness: 0.20,
-        estereo: 0.15,
+        estereo: 0.18,
         tecnico: 0.10
     },
     
@@ -5358,32 +5358,29 @@ const GENRE_SCORING_WEIGHTS = {
     }
 };
 
-// 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (CORRIGIDA PARA SER JUSTA)
+// 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (VERSÃO MENOS PUNITIVA)
 function calculateMetricScore(actualValue, targetValue, tolerance) {
     // Verificar se temos valores válidos
     if (!Number.isFinite(actualValue) || !Number.isFinite(targetValue) || !Number.isFinite(tolerance) || tolerance <= 0) {
         return null; // Métrica inválida
     }
     
-    const delta = Math.abs(actualValue - targetValue);
+    const diff = Math.abs(actualValue - targetValue);
     
-    // 🎯 CORREÇÃO CRÍTICA: Se está dentro da tolerância = 100 pontos
-    if (delta <= tolerance) {
-        return 100; // SEMPRE 100 quando dentro da tolerância
+    // 🎯 DENTRO DA TOLERÂNCIA = 100 pontos
+    if (diff <= tolerance) {
+        return 100;
     }
     
-    // Fora da tolerância: decaimento linear até 0
-    // Máximo de erro aceitável = 3x a tolerância (0 pontos)
-    const maxError = tolerance * 3;
+    // 🎯 CURVA SUAVIZADA PARA VALORES FORA DA TOLERÂNCIA
+    const ratio = diff / tolerance;
+    const gamma = 0.7; // Curva mais suave (menos punitiva)
+    let score = Math.max(0, 100 * Math.pow(1 - Math.min(1, ratio), gamma));
     
-    if (delta >= maxError) {
-        return 0; // Muito fora da tolerância
+    // 🎯 MÍNIMO GARANTIDO: Se diff <= 2 * tolerância, score mínimo = 35
+    if (diff <= 2 * tolerance) {
+        score = Math.max(35, score);
     }
-    
-    // Decaimento linear entre tolerância e 3x tolerância
-    const errorBeyondTolerance = delta - tolerance;
-    const maxErrorBeyondTolerance = maxError - tolerance;
-    const score = 100 * (1 - (errorBeyondTolerance / maxErrorBeyondTolerance));
     
     return Math.max(0, Math.min(100, Math.round(score)));
 }
