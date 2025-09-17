@@ -5285,66 +5285,66 @@ function renderReferenceComparisons(analysis) {
 
 // 1. PESOS POR GÊNERO (ATUALIZADOS CONFORME ESPECIFICAÇÃO)
 const GENRE_SCORING_WEIGHTS = {
-    // Funk Mandela - Foco em Loudness e Dinâmica (ajustado)
+    // Funk Mandela - Foco em Loudness e Dinâmica (conforme especificação)
     'funk_mandela': {
-        loudness: 0.30,    // Loudness crítico no funk (reduzido de 32% para 30%)
-        dinamica: 0.22,    // Dinâmica importante (reduzido de 23% para 22%)
-        frequencia: 0.20,  // Frequência equilibrada
-        estereo: 0.18,     // Estéreo moderado (aumentado de 15% para 18%)
-        tecnico: 0.10      // Técnico básico
+        loudness: 0.32,    // Loudness crítico no funk - 32%
+        dinamica: 0.23,    // Dinâmica importante - 23%
+        frequencia: 0.20,  // Frequência equilibrada - 20%
+        estereo: 0.15,     // Estéreo moderado - 15%
+        tecnico: 0.10      // Técnico básico - 10%
     },
     
     // Funk Automotivo (similar ao Mandela)
     'funk_automotivo': {
-        loudness: 0.30,
-        dinamica: 0.22,
+        loudness: 0.32,
+        dinamica: 0.23,
         frequencia: 0.20,
-        estereo: 0.18,
+        estereo: 0.15,
         tecnico: 0.10
     },
     
-    // Funk Bruxaria - Foco em Frequência (ajustado)
-    'funk_bruxaria': {
-        frequencia: 0.28,  // Frequência crítica (reduzido de 30% para 28%)
-        loudness: 0.25,    // Loudness importante
-        dinamica: 0.20,    // Dinâmica moderada
-        estereo: 0.17,     // Estéreo moderado (aumentado de 15% para 17%)
-        tecnico: 0.10      // Técnico básico
-    },
-    
-    // Trap - Foco em Frequência e Dinâmica (ajustado)
+    // Trap/Trance - Foco em Loudness e Frequência (conforme especificação)
     'trap': {
-        frequencia: 0.27,  // Frequência crítica (reduzido de 30% para 27%)
-        dinamica: 0.25,    // Dinâmica importante
-        loudness: 0.20,    // Loudness moderado
-        estereo: 0.18,     // Estéreo moderado (aumentado de 15% para 18%)
-        tecnico: 0.10      // Técnico básico
+        loudness: 0.25,    // Loudness 25%
+        frequencia: 0.30,  // Frequência crítica 30%
+        estereo: 0.20,     // Estéreo 20%
+        dinamica: 0.15,    // Dinâmica 15%
+        tecnico: 0.10      // Técnico 10%
     },
     
-    // Eletrônico - Foco em Loudness e Frequência (ajustado)
-    'eletronico': {
-        loudness: 0.28,    // Loudness crítico (reduzido de 30% para 28%)
-        frequencia: 0.25,  // Frequência importante
-        dinamica: 0.20,    // Dinâmica moderada
-        estereo: 0.17,     // Estéreo moderado (aumentado de 15% para 17%)
-        tecnico: 0.10      // Técnico básico
-    },
-    
-    // Trance - Similar ao Eletrônico (ajustado)
+    // Trance - Mesmo padrão do Trap
     'trance': {
-        loudness: 0.28,    // Loudness crítico (reduzido de 30% para 28%)
-        frequencia: 0.25,  // Frequência importante
-        dinamica: 0.20,    // Dinâmica moderada
-        estereo: 0.17,     // Estéreo moderado (aumentado de 15% para 17%)
-        tecnico: 0.10      // Técnico básico
+        loudness: 0.25,    // Loudness 25%
+        frequencia: 0.30,  // Frequência crítica 30%
+        estereo: 0.20,     // Estéreo 20%
+        dinamica: 0.15,    // Dinâmica 15%
+        tecnico: 0.10      // Técnico 10%
+    },
+    
+    // Eletrônico - Foco em Frequência e Estéreo (conforme especificação)
+    'eletronico': {
+        frequencia: 0.30,  // Frequência crítica 30%
+        estereo: 0.25,     // Estéreo importante 25%
+        loudness: 0.20,    // Loudness 20%
+        dinamica: 0.15,    // Dinâmica 15%
+        tecnico: 0.10      // Técnico 10%
+    },
+    
+    // Funk Bruxaria - Similar ao Eletrônico
+    'funk_bruxaria': {
+        frequencia: 0.30,  // Frequência crítica 30%
+        estereo: 0.25,     // Estéreo importante 25%
+        loudness: 0.20,    // Loudness 20%
+        dinamica: 0.15,    // Dinâmica 15%
+        tecnico: 0.10      // Técnico 10%
     },
     
     // Hip Hop - Balanceado entre Frequência e Dinâmica
     'hip_hop': {
-        frequencia: 0.27,
+        frequencia: 0.30,
         dinamica: 0.25,
         loudness: 0.20,
-        estereo: 0.18,
+        estereo: 0.15,
         tecnico: 0.10
     },
     
@@ -5357,8 +5357,10 @@ const GENRE_SCORING_WEIGHTS = {
         tecnico: 0.15
     }
 };
+    }
+};
 
-// 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (VERSÃO MENOS PUNITIVA)
+// 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (PENALIZAÇÃO GRADUAL JUSTA)
 function calculateMetricScore(actualValue, targetValue, tolerance) {
     // Verificar se temos valores válidos
     if (!Number.isFinite(actualValue) || !Number.isFinite(targetValue) || !Number.isFinite(tolerance) || tolerance <= 0) {
@@ -5372,17 +5374,25 @@ function calculateMetricScore(actualValue, targetValue, tolerance) {
         return 100;
     }
     
-    // 🎯 CURVA SUAVIZADA PARA VALORES FORA DA TOLERÂNCIA
+    // 🎯 PENALIZAÇÃO GRADUAL JUSTA (conforme especificação)
     const ratio = diff / tolerance;
-    const gamma = 0.7; // Curva mais suave (menos punitiva)
-    let score = Math.max(0, 100 * Math.pow(1 - Math.min(1, ratio), gamma));
     
-    // 🎯 MÍNIMO GARANTIDO: Se diff <= 2 * tolerância, score mínimo = 35
-    if (diff <= 2 * tolerance) {
-        score = Math.max(35, score);
+    let score;
+    if (ratio <= 1.5) {
+        // Até 1.5x tolerância → ~80 pontos
+        score = 100 - (ratio - 1) * 40; // De 100 (1x) para 80 (1.5x)
+    } else if (ratio <= 2.0) {
+        // Até 2x tolerância → ~60 pontos  
+        score = 80 - (ratio - 1.5) * 40; // De 80 (1.5x) para 60 (2x)
+    } else if (ratio <= 3.0) {
+        // Até 3x tolerância → ~40 pontos
+        score = 60 - (ratio - 2) * 20; // De 60 (2x) para 40 (3x)
+    } else {
+        // Acima de 3x tolerância → ~20 pontos (nunca zerar totalmente)
+        score = Math.max(20, 40 - (ratio - 3) * 10);
     }
     
-    return Math.max(0, Math.min(100, Math.round(score)));
+    return Math.max(20, Math.min(100, Math.round(score)));
 }
 
 // 3. CALCULAR SCORE DE LOUDNESS (LUFS, True Peak, Crest Factor)
@@ -5624,8 +5634,7 @@ function calculateFrequencyScore(analysis, refData) {
     return result;
 }
 
-// 7. CALCULAR SCORE TÉCNICO
-// 7. CALCULAR SCORE TÉCNICO (Clipping, DC Offset, THD)
+// 7. CALCULAR SCORE TÉCNICO (Penalização forte apenas em problemas sérios)
 function calculateTechnicalScore(analysis, refData) {
     if (!analysis) return null;
     
@@ -5636,34 +5645,37 @@ function calculateTechnicalScore(analysis, refData) {
     
     console.log('🔧 Calculando Score Técnico...');
     
-    // 1. CLIPPING - Deve ser próximo de 0%
+    // 1. CLIPPING - Penalização forte apenas se > 0.1%
     const clippingValue = tech.clipping || metrics.clipping || 0;
     if (Number.isFinite(clippingValue)) {
         let clippingScore = 100;
-        if (clippingValue > 0.001) { // Acima de 0.1%
-            clippingScore = Math.max(0, 100 - (clippingValue * 10000)); // Penalidade severa
+        if (clippingValue > 0.001) { // > 0.1% = problema sério
+            // Penalização gradual: 0.1% = 90, 0.5% = 50, 1% = 20
+            clippingScore = Math.max(20, 100 - (clippingValue * 8000));
         }
         scores.push(clippingScore);
         console.log(`🔧 Clipping: ${(clippingValue * 100).toFixed(3)}% = ${clippingScore}%`);
     }
     
-    // 2. DC OFFSET - Deve ser próximo de 0
+    // 2. DC OFFSET - Penalização forte apenas se > 0.05
     const dcOffsetValue = Math.abs(tech.dcOffset || metrics.dc_offset || 0);
     if (Number.isFinite(dcOffsetValue)) {
         let dcScore = 100;
-        if (dcOffsetValue > 0.01) { // Acima de 1%
-            dcScore = Math.max(0, 100 - (dcOffsetValue * 500)); // Penalidade moderada
+        if (dcOffsetValue > 0.05) { // > 5% = problema sério
+            // Penalização gradual: 5% = 80, 10% = 40, 20% = 20
+            dcScore = Math.max(20, 100 - (dcOffsetValue * 200));
         }
         scores.push(dcScore);
         console.log(`🔧 DC Offset: ${dcOffsetValue.toFixed(4)} = ${dcScore}%`);
     }
     
-    // 3. THD (Total Harmonic Distortion) - Deve ser baixo
+    // 3. THD - Penalização forte apenas se > 1%
     const thdValue = tech.thd || metrics.thd || 0;
     if (Number.isFinite(thdValue)) {
         let thdScore = 100;
-        if (thdValue > 0.01) { // Acima de 1%
-            thdScore = Math.max(0, 100 - (thdValue * 2000)); // Penalidade severa para distorção
+        if (thdValue > 0.01) { // > 1% = problema sério
+            // Penalização gradual: 1% = 80, 3% = 40, 5% = 20
+            thdScore = Math.max(20, 100 - (thdValue * 1600));
         }
         scores.push(thdScore);
         console.log(`🔧 THD: ${(thdValue * 100).toFixed(3)}% = ${thdScore}%`);
