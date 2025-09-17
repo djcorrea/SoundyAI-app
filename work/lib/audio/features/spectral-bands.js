@@ -140,21 +140,11 @@ export class SpectralBandsCalculator {
       percentageSum += percentage;
     }
     
-    // Normalizar para somar exatamente 100% (força matemática)
+    // Normalizar para somar exatamente 100% (aplicar apenas UMA vez)
     if (percentageSum > 0) {
       const normalizationFactor = 100.0 / percentageSum;
       for (const key of Object.keys(percentages)) {
         percentages[key] *= normalizationFactor;
-      }
-      
-      // Verificação final e ajuste de arredondamento
-      const finalSum = Object.values(percentages).reduce((sum, p) => sum + p, 0);
-      if (Math.abs(finalSum - 100) > 0.001) {
-        // Distribui erro entre todas as bandas proporcionalmente
-        const adjustment = (100 - finalSum) / Object.keys(percentages).length;
-        for (const key of Object.keys(percentages)) {
-          percentages[key] += adjustment;
-        }
       }
     }
     

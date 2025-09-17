@@ -184,8 +184,8 @@ class TruePeakDetector {
           output += this.delayLine[delayIndex] * this.coeffs.TAPS[coeffIndex];
         }
       }
-      // Ajuste de ganho (escala pelo fator)
-      upsampled[phase] = output * factor;
+      // Filtro polyphase já aplica ganho correto - remover ganho duplo
+      upsampled[phase] = output;
     }
     return upsampled;
   }
