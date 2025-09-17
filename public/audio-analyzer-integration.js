@@ -5283,62 +5283,82 @@ function renderReferenceComparisons(analysis) {
 // 🎯 ===== SISTEMA DE SCORING AVANÇADO =====
 // Sistema completo de pontuação por categorias com adaptação por gênero
 
-// 1. PESOS POR GÊNERO
+// 1. PESOS POR GÊNERO (ATUALIZADOS CONFORME ESPECIFICAÇÃO)
 const GENRE_SCORING_WEIGHTS = {
-    // Gêneros do sistema atual
+    // Funk Mandela - Foco em Loudness e Dinâmica
     'funk_mandela': {
-        loudness: 0.30,    // Loudness é crítico no funk
-        frequencia: 0.30,  // Sub/graves muito importantes
-        estereo: 0.15,     // Menos crítico
-        dinamica: 0.15,    // Moderado
-        tecnico: 0.10      // Básico
+        loudness: 0.32,    // Loudness crítico no funk
+        dinamica: 0.23,    // Dinâmica importante
+        frequencia: 0.20,  // Frequência equilibrada
+        estereo: 0.15,     // Estéreo moderado
+        tecnico: 0.10      // Técnico básico
     },
+    
+    // Funk Automotivo (similar ao Mandela)
     'funk_automotivo': {
-        loudness: 0.30,
-        frequencia: 0.30,  // Sub/graves críticos
+        loudness: 0.32,
+        dinamica: 0.23,
+        frequencia: 0.20,
         estereo: 0.15,
-        dinamica: 0.15,
         tecnico: 0.10
     },
+    
+    // Funk Bruxaria - Foco em Frequência
+    'funk_bruxaria': {
+        frequencia: 0.30,  // Frequência crítica
+        loudness: 0.25,    // Loudness importante
+        dinamica: 0.20,    // Dinâmica moderada
+        estereo: 0.15,     // Estéreo moderado
+        tecnico: 0.10      // Técnico básico
+    },
+    
+    // Trap - Foco em Frequência e Dinâmica
+    'trap': {
+        frequencia: 0.30,  // Frequência crítica
+        dinamica: 0.25,    // Dinâmica importante
+        loudness: 0.20,    // Loudness moderado
+        estereo: 0.15,     // Estéreo moderado
+        tecnico: 0.10      // Técnico básico
+    },
+    
+    // Eletrônico - Foco em Loudness e Frequência
+    'eletronico': {
+        loudness: 0.30,    // Loudness crítico
+        frequencia: 0.25,  // Frequência importante
+        dinamica: 0.20,    // Dinâmica moderada
+        estereo: 0.15,     // Estéreo moderado
+        tecnico: 0.10      // Técnico básico
+    },
+    
+    // Trance - Similar ao Eletrônico
     'trance': {
-        frequencia: 0.30,  // Equilíbrio espectral crítico
-        estereo: 0.25,     // Estéreo muito importante
-        dinamica: 0.20,    // Dinâmica crucial
-        loudness: 0.15,    // Moderado
-        tecnico: 0.10      // Básico
+        loudness: 0.30,    // Loudness crítico
+        frequencia: 0.25,  // Frequência importante
+        dinamica: 0.20,    // Dinâmica moderada
+        estereo: 0.15,     // Estéreo moderado
+        tecnico: 0.10      // Técnico básico
     },
-    'eletronica': {
-        frequencia: 0.30,
-        estereo: 0.25,
-        dinamica: 0.20,
-        loudness: 0.15,
-        tecnico: 0.10
-    },
+    
+    // Hip Hop - Balanceado entre Frequência e Dinâmica
     'hip_hop': {
-        frequencia: 0.30,  // Graves e médios importantes
-        dinamica: 0.25,    // Dinâmica crucial
-        loudness: 0.15,
-        estereo: 0.15,
-        tecnico: 0.15      // Mais técnico que funk
-    },
-    'rap': {
         frequencia: 0.30,
         dinamica: 0.25,
-        loudness: 0.15,
+        loudness: 0.20,
+        estereo: 0.15,
+        tecnico: 0.10
+    },
+    
+    // Pesos padrão (fallback) - Distribuição equilibrada
+    'default': {
+        loudness: 0.25,
+        frequencia: 0.25,
+        dinamica: 0.20,
         estereo: 0.15,
         tecnico: 0.15
-    },
-    // Pesos padrão (fallback)
-    'default': {
-        loudness: 0.20,
-        frequencia: 0.20,
-        estereo: 0.20,
-        dinamica: 0.20,
-        tecnico: 0.20
     }
 };
 
-// 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA
+// 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (CORRIGIDA PARA SER JUSTA)
 function calculateMetricScore(actualValue, targetValue, tolerance) {
     // Verificar se temos valores válidos
     if (!Number.isFinite(actualValue) || !Number.isFinite(targetValue) || !Number.isFinite(tolerance) || tolerance <= 0) {
@@ -5347,125 +5367,194 @@ function calculateMetricScore(actualValue, targetValue, tolerance) {
     
     const delta = Math.abs(actualValue - targetValue);
     
-    // CORREÇÃO: Fórmula contínua mais suave
-    // Se está exatamente no alvo = 100
-    // Se está no limite da tolerância = 0  
-    // Entre esses pontos, decaimento linear suave
-    
-    if (delta === 0) {
-        return 100; // Perfeito
+    // 🎯 CORREÇÃO CRÍTICA: Se está dentro da tolerância = 100 pontos
+    if (delta <= tolerance) {
+        return 100; // SEMPRE 100 quando dentro da tolerância
     }
     
-    if (delta >= tolerance) {
-        return 0; // Fora da tolerância
+    // Fora da tolerância: decaimento linear até 0
+    // Máximo de erro aceitável = 3x a tolerância (0 pontos)
+    const maxError = tolerance * 3;
+    
+    if (delta >= maxError) {
+        return 0; // Muito fora da tolerância
     }
     
-    // Dentro da tolerância: decaimento linear de 100 a 0
-    const score = 100 * (1 - (delta / tolerance));
+    // Decaimento linear entre tolerância e 3x tolerância
+    const errorBeyondTolerance = delta - tolerance;
+    const maxErrorBeyondTolerance = maxError - tolerance;
+    const score = 100 * (1 - (errorBeyondTolerance / maxErrorBeyondTolerance));
     
-    // Garantir que não ultrapasse os limites e seja contínuo
-    return Math.max(0, Math.min(100, score));
+    return Math.max(0, Math.min(100, Math.round(score)));
 }
 
-// 3. CALCULAR SCORE DE LOUDNESS
+// 3. CALCULAR SCORE DE LOUDNESS (LUFS, True Peak, Crest Factor)
 function calculateLoudnessScore(analysis, refData) {
     if (!analysis || !refData) return null;
     
     const tech = analysis.technicalData || {};
+    const metrics = analysis.metrics || {};
     const scores = [];
     
-    // LUFS Integrado (principal métrica de loudness)
-    const lufsValue = analysis.metrics?.lufs_integrated || tech.lufsIntegrated;
+    // LUFS Integrado (métrica principal de loudness)
+    const lufsValue = metrics.lufs_integrated || tech.lufsIntegrated;
     if (Number.isFinite(lufsValue) && Number.isFinite(refData.lufs_target) && Number.isFinite(refData.tol_lufs)) {
         const score = calculateMetricScore(lufsValue, refData.lufs_target, refData.tol_lufs);
-        if (score !== null) scores.push(score);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 LUFS: ${lufsValue} vs ${refData.lufs_target} (±${refData.tol_lufs}) = ${score}%`);
+        }
     }
     
-    // True Peak (importante para evitar clipping)
-    const truePeakValue = analysis.metrics?.true_peak_dbtp || tech.truePeakDbtp;
+    // True Peak (importante para evitar clipping digital)
+    const truePeakValue = metrics.true_peak_dbtp || tech.truePeakDbtp;
     if (Number.isFinite(truePeakValue) && Number.isFinite(refData.true_peak_target) && Number.isFinite(refData.tol_true_peak)) {
         const score = calculateMetricScore(truePeakValue, refData.true_peak_target, refData.tol_true_peak);
-        if (score !== null) scores.push(score);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 True Peak: ${truePeakValue} vs ${refData.true_peak_target} (±${refData.tol_true_peak}) = ${score}%`);
+        }
     }
     
-    // RMS (se disponível)
-    const rmsValue = tech.rmsDb;
-    if (Number.isFinite(rmsValue) && refData.rms_target && Number.isFinite(refData.rms_target)) {
-        const tolerance = refData.tol_rms || 2.0; // Tolerância padrão
-        const score = calculateMetricScore(rmsValue, refData.rms_target, tolerance);
-        if (score !== null) scores.push(score);
+    // Crest Factor (dinâmica de picos)
+    const crestValue = tech.crestFactor || metrics.crest_factor;
+    if (Number.isFinite(crestValue) && refData.crest_target && Number.isFinite(refData.crest_target)) {
+        const tolerance = refData.tol_crest || 2.0;
+        const score = calculateMetricScore(crestValue, refData.crest_target, tolerance);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 Crest Factor: ${crestValue} vs ${refData.crest_target} (±${tolerance}) = ${score}%`);
+        }
     }
     
-    // CORREÇÃO: Média simples se tivermos scores válidos
+    // Retornar média dos scores válidos
     if (scores.length === 0) return null;
     
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
-    return Math.round(average);
+    const result = Math.round(average);
+    console.log(`🔊 Score Loudness Final: ${result}% (média de ${scores.length} métricas)`);
+    return result;
 }
 
-// 4. CALCULAR SCORE DE DINÂMICA
+// 4. CALCULAR SCORE DE DINÂMICA (LRA, DR, Crest Consistency, Fator de Crista)
 function calculateDynamicsScore(analysis, refData) {
     if (!analysis || !refData) return null;
     
     const tech = analysis.technicalData || {};
+    const metrics = analysis.metrics || {};
     const scores = [];
     
-    // Dynamic Range (principal métrica de dinâmica)
-    const drValue = analysis.metrics?.dynamic_range || tech.dynamicRange;
+    // Dynamic Range (DR) - métrica principal de dinâmica
+    const drValue = metrics.dynamic_range || tech.dynamicRange;
     if (Number.isFinite(drValue) && Number.isFinite(refData.dr_target) && Number.isFinite(refData.tol_dr)) {
         const score = calculateMetricScore(drValue, refData.dr_target, refData.tol_dr);
-        if (score !== null) scores.push(score);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 Dynamic Range: ${drValue} vs ${refData.dr_target} (±${refData.tol_dr}) = ${score}%`);
+        }
     }
     
-    // LRA (Loudness Range)
-    const lraValue = analysis.metrics?.lra || tech.lra;
+    // LRA (Loudness Range) - variação de loudness
+    const lraValue = metrics.lra || tech.lra;
     if (Number.isFinite(lraValue) && Number.isFinite(refData.lra_target) && Number.isFinite(refData.tol_lra)) {
         const score = calculateMetricScore(lraValue, refData.lra_target, refData.tol_lra);
-        if (score !== null) scores.push(score);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 LRA: ${lraValue} vs ${refData.lra_target} (±${refData.tol_lra}) = ${score}%`);
+        }
     }
     
-    // Crest Factor (se disponível)
-    const crestValue = tech.crestFactor;
+    // Crest Factor (já incluído em Loudness, mas importante para dinâmica também)
+    const crestValue = tech.crestFactor || metrics.crest_factor;
     if (Number.isFinite(crestValue) && refData.crest_target && Number.isFinite(refData.crest_target)) {
         const tolerance = refData.tol_crest || 2.0;
         const score = calculateMetricScore(crestValue, refData.crest_target, tolerance);
-        if (score !== null) scores.push(score);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 Crest Factor (Dinâmica): ${crestValue} vs ${refData.crest_target} (±${tolerance}) = ${score}%`);
+        }
     }
     
-    // CORREÇÃO: Média simples se tivermos scores válidos
+    // Compressão detectada (se disponível)
+    const compressionRatio = tech.compressionRatio;
+    if (Number.isFinite(compressionRatio) && refData.compression_target && Number.isFinite(refData.compression_target)) {
+        const tolerance = refData.tol_compression || 1.0;
+        const score = calculateMetricScore(compressionRatio, refData.compression_target, tolerance);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 Compressão: ${compressionRatio} vs ${refData.compression_target} (±${tolerance}) = ${score}%`);
+        }
+    }
+    
+    // Retornar média dos scores válidos
     if (scores.length === 0) return null;
     
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
-    return Math.round(average);
+    const result = Math.round(average);
+    console.log(`📊 Score Dinâmica Final: ${result}% (média de ${scores.length} métricas)`);
+    return result;
 }
 
-// 5. CALCULAR SCORE DE ESTÉREO
+// 5. CALCULAR SCORE DE ESTÉREO (Largura, Correlação, Balanço L/R)
 function calculateStereoScore(analysis, refData) {
     if (!analysis || !refData) return null;
     
     const tech = analysis.technicalData || {};
+    const metrics = analysis.metrics || {};
     const scores = [];
     
     // Correlação Estéreo (principal métrica de estéreo)
-    const stereoValue = analysis.metrics?.stereo_correlation || tech.stereoCorrelation;
+    const stereoValue = metrics.stereo_correlation || tech.stereoCorrelation;
     if (Number.isFinite(stereoValue) && Number.isFinite(refData.stereo_target) && Number.isFinite(refData.tol_stereo)) {
         const score = calculateMetricScore(stereoValue, refData.stereo_target, refData.tol_stereo);
-        if (score !== null) scores.push(score);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 Correlação Estéreo: ${stereoValue} vs ${refData.stereo_target} (±${refData.tol_stereo}) = ${score}%`);
+        }
     }
     
-    // Width (se disponível)
-    const widthValue = tech.stereoWidth;
+    // Largura Estéreo (Width)
+    const widthValue = tech.stereoWidth || metrics.stereo_width;
     if (Number.isFinite(widthValue) && refData.width_target && Number.isFinite(refData.width_target)) {
         const tolerance = refData.tol_width || 0.2;
         const score = calculateMetricScore(widthValue, refData.width_target, tolerance);
-        if (score !== null) scores.push(score);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 Largura Estéreo: ${widthValue} vs ${refData.width_target} (±${tolerance}) = ${score}%`);
+        }
     }
     
-    // CORREÇÃO: Média simples se tivermos scores válidos
+    // Balanço L/R (se disponível)
+    const balanceValue = tech.stereoBalance || metrics.stereo_balance;
+    if (Number.isFinite(balanceValue)) {
+        // Balanço ideal é 0 (perfeitamente centrado)
+        const balanceTarget = refData.balance_target || 0.0;
+        const balanceTolerance = refData.tol_balance || 0.1; // 10% de tolerância
+        const score = calculateMetricScore(balanceValue, balanceTarget, balanceTolerance);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 Balanço L/R: ${balanceValue} vs ${balanceTarget} (±${balanceTolerance}) = ${score}%`);
+        }
+    }
+    
+    // Separação de canais (se disponível)
+    const separationValue = tech.channelSeparation || metrics.channel_separation;
+    if (Number.isFinite(separationValue) && refData.separation_target && Number.isFinite(refData.separation_target)) {
+        const tolerance = refData.tol_separation || 5.0;
+        const score = calculateMetricScore(separationValue, refData.separation_target, tolerance);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 Separação de Canais: ${separationValue} vs ${refData.separation_target} (±${tolerance}) = ${score}%`);
+        }
+    }
+    
+    // Retornar média dos scores válidos
     if (scores.length === 0) return null;
     
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
-    return Math.round(average);
+    const result = Math.round(average);
+    console.log(`🎧 Score Estéreo Final: ${result}% (média de ${scores.length} métricas)`);
+    return result;
 }
 
 // 6. CALCULAR SCORE DE FREQUÊNCIA (BANDAS ESPECTRAIS)
@@ -5479,6 +5568,7 @@ function calculateFrequencyScore(analysis, refData) {
     if (!bandsToUse) return null;
     
     const scores = [];
+    console.log('🎵 Calculando Score de Frequência...');
     
     // Mapeamento das bandas calculadas para referência (exatamente as 7 bandas da tabela UI)
     const bandMapping = {
@@ -5515,8 +5605,10 @@ function calculateFrequencyScore(analysis, refData) {
                 
                 const score = calculateMetricScore(energyDb, refBandData.target_db, refBandData.tol_db);
                 if (score !== null) {
-                    // CORREÇÃO: Peso igual para todas as bandas (média simples das 7 bandas)
                     scores.push(score);
+                    const delta = Math.abs(energyDb - refBandData.target_db);
+                    const status = delta <= refBandData.tol_db ? '✅' : '❌';
+                    console.log(`🎵 ${calcBand.toUpperCase()}: ${energyDb}dB vs ${refBandData.target_db}dB (±${refBandData.tol_db}dB) = ${score}% ${status}`);
                 }
             }
         }
@@ -5525,53 +5617,104 @@ function calculateFrequencyScore(analysis, refData) {
     // Se não encontrou scores válidos, retornar null
     if (scores.length === 0) return null;
     
-    // CORREÇÃO: Média aritmética simples das bandas válidas (não ponderada)
+    // Média aritmética simples das bandas válidas
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    const result = Math.round(average);
     
-    return Math.round(average);
+    console.log(`🎵 Score Frequência Final: ${result}% (média de ${scores.length} bandas)`);
+    console.log(`🎵 Scores individuais: [${scores.join(', ')}]`);
+    
+    return result;
 }
 
 // 7. CALCULAR SCORE TÉCNICO
+// 7. CALCULAR SCORE TÉCNICO (Clipping, DC Offset, THD)
 function calculateTechnicalScore(analysis, refData) {
     if (!analysis) return null;
     
     const tech = analysis.technicalData || {};
-    let score = 100; // Começar com 100 e deduzir problemas
+    const metrics = analysis.metrics || {};
+    const scores = [];
+    let baseScore = 100; // Começar com perfeito
     
-    // Problemas críticos que reduzem drasticamente o score
+    console.log('🔧 Calculando Score Técnico...');
+    
+    // 1. CLIPPING - Deve ser próximo de 0%
+    const clippingValue = tech.clipping || metrics.clipping || 0;
+    if (Number.isFinite(clippingValue)) {
+        let clippingScore = 100;
+        if (clippingValue > 0.001) { // Acima de 0.1%
+            clippingScore = Math.max(0, 100 - (clippingValue * 10000)); // Penalidade severa
+        }
+        scores.push(clippingScore);
+        console.log(`🔧 Clipping: ${(clippingValue * 100).toFixed(3)}% = ${clippingScore}%`);
+    }
+    
+    // 2. DC OFFSET - Deve ser próximo de 0
+    const dcOffsetValue = Math.abs(tech.dcOffset || metrics.dc_offset || 0);
+    if (Number.isFinite(dcOffsetValue)) {
+        let dcScore = 100;
+        if (dcOffsetValue > 0.01) { // Acima de 1%
+            dcScore = Math.max(0, 100 - (dcOffsetValue * 500)); // Penalidade moderada
+        }
+        scores.push(dcScore);
+        console.log(`🔧 DC Offset: ${dcOffsetValue.toFixed(4)} = ${dcScore}%`);
+    }
+    
+    // 3. THD (Total Harmonic Distortion) - Deve ser baixo
+    const thdValue = tech.thd || metrics.thd || 0;
+    if (Number.isFinite(thdValue)) {
+        let thdScore = 100;
+        if (thdValue > 0.01) { // Acima de 1%
+            thdScore = Math.max(0, 100 - (thdValue * 2000)); // Penalidade severa para distorção
+        }
+        scores.push(thdScore);
+        console.log(`🔧 THD: ${(thdValue * 100).toFixed(3)}% = ${thdScore}%`);
+    }
+    
+    // 4. PROBLEMAS DETECTADOS (Issues)
     const issues = analysis.issues || [];
+    let issuesScore = 100;
     
     issues.forEach(issue => {
         switch (issue.severity) {
             case 'critical':
-                score -= 30; // Problema crítico
+                issuesScore -= 30; // Problema crítico
+                console.log(`🔧 Issue CRÍTICO: ${issue.description} (-30%)`);
                 break;
             case 'high':
-                score -= 20; // Problema grave
+                issuesScore -= 20; // Problema grave
+                console.log(`🔧 Issue ALTO: ${issue.description} (-20%)`);
                 break;
             case 'medium':
-                score -= 10; // Problema médio
+                issuesScore -= 10; // Problema médio
+                console.log(`🔧 Issue MÉDIO: ${issue.description} (-10%)`);
                 break;
             case 'low':
-                score -= 5; // Problema leve
+                issuesScore -= 5; // Problema leve
+                console.log(`🔧 Issue BAIXO: ${issue.description} (-5%)`);
                 break;
         }
     });
     
-    // Problemas específicos
-    if (tech.clipping && tech.clipping > 0.01) {
-        score -= 25; // Clipping significativo
+    issuesScore = Math.max(0, issuesScore);
+    if (issues.length > 0) {
+        scores.push(issuesScore);
+        console.log(`🔧 Issues Gerais: ${issuesScore}% (${issues.length} problemas)`);
     }
     
-    if (tech.dcOffset && Math.abs(tech.dcOffset) > 0.1) {
-        score -= 15; // DC Offset
+    // Se não temos métricas técnicas específicas, usar apenas issues
+    if (scores.length === 0) {
+        const result = Math.max(0, Math.round(issuesScore));
+        console.log(`🔧 Score Técnico Final (apenas issues): ${result}%`);
+        return result;
     }
     
-    if (tech.thd && tech.thd > 0.05) {
-        score -= 20; // THD alto
-    }
-    
-    return Math.max(0, Math.round(score));
+    // Média de todas as métricas técnicas
+    const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    const result = Math.round(average);
+    console.log(`🔧 Score Técnico Final: ${result}% (média de ${scores.length} métricas)`);
+    return result;
 }
 
 // 8. FUNÇÃO PRINCIPAL: CALCULAR TODOS OS SCORES
