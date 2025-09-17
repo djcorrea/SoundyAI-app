@@ -3332,6 +3332,33 @@ function displayModalResults(analysis) {
         console.log('📊 [DEBUG] Dados normalizados para exibição:', analysis);
     }
     
+    // 🎯 CALCULAR SCORES DA ANÁLISE
+    if (__activeRefData && analysis) {
+        const detectedGenre = analysis.metadata?.genre || analysis.genre || __activeRefGenre;
+        console.log('🎯 Calculando scores para gênero:', detectedGenre);
+        
+        try {
+            const analysisScores = calculateAnalysisScores(analysis, __activeRefData, detectedGenre);
+            
+            if (analysisScores) {
+                // Adicionar scores à análise
+                analysis.scores = analysisScores;
+                console.log('✅ Scores calculados e adicionados à análise:', analysisScores);
+                
+                // Também armazenar globalmente
+                if (typeof window !== 'undefined') {
+                    window.__LAST_ANALYSIS_SCORES__ = analysisScores;
+                }
+            } else {
+                console.warn('⚠️ Não foi possível calcular scores (dados insuficientes)');
+            }
+        } catch (error) {
+            console.error('❌ Erro ao calcular scores:', error);
+        }
+    } else {
+        console.warn('⚠️ Scores não calculados - dados de referência não disponíveis');
+    }
+    
     // Ocultar outras seções
     if (uploadArea) uploadArea.style.display = 'none';
     if (loading) loading.style.display = 'none';
@@ -4422,13 +4449,70 @@ function displayModalResults(analysis) {
             </div>`;
         };
         
-        const scoreRows = finalBreakdown ? `
-            ${renderScoreWithProgress('Faixa Dinâmica', finalBreakdown.dynamics, '#ffd700')}
-            ${renderScoreWithProgress('Técnico', finalBreakdown.technical, '#00ff92')}
-            ${renderScoreWithProgress('Stereo', finalBreakdown.stereo, '#ff6b6b')}
-            ${renderScoreWithProgress('Loudness', finalBreakdown.loudness, '#ff3366')}
-            ${renderScoreWithProgress('Frequência', finalBreakdown.frequency, '#00ffff')}
-        ` : '';
+        // 🎯 RENDERIZAR SCORES DO NOVO SISTEMA
+        const renderNewScores = () => {
+            // Verificar se temos scores calculados
+            const scores = analysis.scores;
+            
+            if (!scores) {
+                return `<div class="data-row">
+                    <span class="label">Sistema de Scoring:</span>
+                    <span class="value">Não disponível</span>
+                </div>`;
+            }
+            
+            const renderScoreProgressBar = (label, value, color = '#00ffff', emoji = '🎯') => {
+                const numValue = Number.isFinite(value) ? value : 0;
+                const displayValue = Number.isFinite(value) ? Math.round(value) : '—';
+                
+                // Cor baseada no score
+                let scoreColor = color;
+                if (Number.isFinite(value)) {
+                    if (value >= 80) scoreColor = '#00ff92'; // Verde para scores altos
+                    else if (value >= 60) scoreColor = '#ffd700'; // Amarelo para scores médios
+                    else if (value >= 40) scoreColor = '#ff9500'; // Laranja para scores baixos
+                    else scoreColor = '#ff3366'; // Vermelho para scores muito baixos
+                }
+                
+                return `<div class="data-row metric-with-progress">
+                    <span class="label">${emoji} ${label}:</span>
+                    <div class="metric-value-progress">
+                        <span class="value" style="color: ${scoreColor}; font-weight: bold;">${displayValue}</span>
+                        <div class="progress-bar-mini">
+                            <div class="progress-fill-mini" style="width: ${Math.min(Math.max(numValue, 0), 100)}%; background: ${scoreColor};"></div>
+                        </div>
+                    </div>
+                </div>`;
+            };
+            
+            // Score final com destaque
+            const finalScoreHtml = Number.isFinite(scores.final) ? `
+                <div class="data-row" style="border: 2px solid rgba(0, 255, 255, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 10px; background: rgba(0, 255, 255, 0.05);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span class="label" style="font-size: 16px; font-weight: bold;">🏆 SCORE FINAL</span>
+                        <span style="font-size: 24px; font-weight: bold; color: ${scores.final >= 80 ? '#00ff92' : scores.final >= 60 ? '#ffd700' : scores.final >= 40 ? '#ff9500' : '#ff3366'};">
+                            ${Math.round(scores.final)}
+                        </span>
+                    </div>
+                    <div style="font-size: 12px; opacity: 0.7; margin-top: 4px;">
+                        Gênero: ${scores.genre || 'padrão'} • Ponderação adaptativa
+                    </div>
+                </div>
+            ` : '';
+            
+            // Sub-scores
+            const subScoresHtml = `
+                ${renderScoreProgressBar('Loudness', scores.loudness, '#ff3366', '🔊')}
+                ${renderScoreProgressBar('Frequência', scores.frequencia, '#00ffff', '🎵')}
+                ${renderScoreProgressBar('Estéreo', scores.estereo, '#ff6b6b', '🎧')}
+                ${renderScoreProgressBar('Dinâmica', scores.dinamica, '#ffd700', '📊')}
+                ${renderScoreProgressBar('Técnico', scores.tecnico, '#00ff92', '🔧')}
+            `;
+            
+            return finalScoreHtml + subScoresHtml;
+        };
+        
+        const scoreRows = renderNewScores();
 
         technicalData.innerHTML = `
             <div class="kpi-row">${scoreKpi}${timeKpi}</div>
@@ -5194,6 +5278,375 @@ function renderReferenceComparisons(analysis) {
         `;
         document.head.appendChild(style);
     }
+}
+
+// 🎯 ===== SISTEMA DE SCORING AVANÇADO =====
+// Sistema completo de pontuação por categorias com adaptação por gênero
+
+// 1. PESOS POR GÊNERO
+const GENRE_SCORING_WEIGHTS = {
+    // Gêneros do sistema atual
+    'funk_mandela': {
+        loudness: 0.30,    // Loudness é crítico no funk
+        frequencia: 0.30,  // Sub/graves muito importantes
+        estereo: 0.15,     // Menos crítico
+        dinamica: 0.15,    // Moderado
+        tecnico: 0.10      // Básico
+    },
+    'funk_automotivo': {
+        loudness: 0.30,
+        frequencia: 0.30,  // Sub/graves críticos
+        estereo: 0.15,
+        dinamica: 0.15,
+        tecnico: 0.10
+    },
+    'trance': {
+        frequencia: 0.30,  // Equilíbrio espectral crítico
+        estereo: 0.25,     // Estéreo muito importante
+        dinamica: 0.20,    // Dinâmica crucial
+        loudness: 0.15,    // Moderado
+        tecnico: 0.10      // Básico
+    },
+    'eletronica': {
+        frequencia: 0.30,
+        estereo: 0.25,
+        dinamica: 0.20,
+        loudness: 0.15,
+        tecnico: 0.10
+    },
+    'hip_hop': {
+        frequencia: 0.30,  // Graves e médios importantes
+        dinamica: 0.25,    // Dinâmica crucial
+        loudness: 0.15,
+        estereo: 0.15,
+        tecnico: 0.15      // Mais técnico que funk
+    },
+    'rap': {
+        frequencia: 0.30,
+        dinamica: 0.25,
+        loudness: 0.15,
+        estereo: 0.15,
+        tecnico: 0.15
+    },
+    // Pesos padrão (fallback)
+    'default': {
+        loudness: 0.20,
+        frequencia: 0.20,
+        estereo: 0.20,
+        dinamica: 0.20,
+        tecnico: 0.20
+    }
+};
+
+// 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA
+function calculateMetricScore(actualValue, targetValue, tolerance) {
+    // Verificar se temos valores válidos
+    if (!Number.isFinite(actualValue) || !Number.isFinite(targetValue) || !Number.isFinite(tolerance) || tolerance <= 0) {
+        return null; // Métrica inválida
+    }
+    
+    const delta = Math.abs(actualValue - targetValue);
+    const errorRelative = delta / tolerance;
+    
+    // Fórmula linear segura
+    if (errorRelative <= 1) {
+        return Math.max(0, 100 - (errorRelative * 100));
+    } else {
+        return 0; // Muito fora da tolerância
+    }
+}
+
+// 3. CALCULAR SCORE DE LOUDNESS
+function calculateLoudnessScore(analysis, refData) {
+    if (!analysis || !refData) return null;
+    
+    const tech = analysis.technicalData || {};
+    const scores = [];
+    
+    // LUFS Integrado
+    const lufsValue = analysis.metrics?.lufs_integrated || tech.lufsIntegrated;
+    if (Number.isFinite(lufsValue) && Number.isFinite(refData.lufs_target) && Number.isFinite(refData.tol_lufs)) {
+        const score = calculateMetricScore(lufsValue, refData.lufs_target, refData.tol_lufs);
+        if (score !== null) scores.push({ weight: 0.5, score });
+    }
+    
+    // True Peak
+    const truePeakValue = analysis.metrics?.true_peak_dbtp || tech.truePeakDbtp;
+    if (Number.isFinite(truePeakValue) && Number.isFinite(refData.true_peak_target) && Number.isFinite(refData.tol_true_peak)) {
+        const score = calculateMetricScore(truePeakValue, refData.true_peak_target, refData.tol_true_peak);
+        if (score !== null) scores.push({ weight: 0.3, score });
+    }
+    
+    // RMS (se disponível)
+    const rmsValue = tech.rmsDb;
+    if (Number.isFinite(rmsValue) && refData.rms_target && Number.isFinite(refData.rms_target)) {
+        const tolerance = refData.tol_rms || 2.0; // Tolerância padrão
+        const score = calculateMetricScore(rmsValue, refData.rms_target, tolerance);
+        if (score !== null) scores.push({ weight: 0.2, score });
+    }
+    
+    // Calcular média ponderada
+    if (scores.length === 0) return null;
+    
+    const totalWeight = scores.reduce((sum, item) => sum + item.weight, 0);
+    const weightedSum = scores.reduce((sum, item) => sum + (item.score * item.weight), 0);
+    
+    return Math.round(weightedSum / totalWeight);
+}
+
+// 4. CALCULAR SCORE DE DINÂMICA
+function calculateDynamicsScore(analysis, refData) {
+    if (!analysis || !refData) return null;
+    
+    const tech = analysis.technicalData || {};
+    const scores = [];
+    
+    // Dynamic Range
+    const drValue = analysis.metrics?.dynamic_range || tech.dynamicRange;
+    if (Number.isFinite(drValue) && Number.isFinite(refData.dr_target) && Number.isFinite(refData.tol_dr)) {
+        const score = calculateMetricScore(drValue, refData.dr_target, refData.tol_dr);
+        if (score !== null) scores.push({ weight: 0.5, score });
+    }
+    
+    // LRA (Loudness Range)
+    const lraValue = analysis.metrics?.lra || tech.lra;
+    if (Number.isFinite(lraValue) && Number.isFinite(refData.lra_target) && Number.isFinite(refData.tol_lra)) {
+        const score = calculateMetricScore(lraValue, refData.lra_target, refData.tol_lra);
+        if (score !== null) scores.push({ weight: 0.3, score });
+    }
+    
+    // Crest Factor (se disponível)
+    const crestValue = tech.crestFactor;
+    if (Number.isFinite(crestValue) && refData.crest_target && Number.isFinite(refData.crest_target)) {
+        const tolerance = refData.tol_crest || 2.0;
+        const score = calculateMetricScore(crestValue, refData.crest_target, tolerance);
+        if (score !== null) scores.push({ weight: 0.2, score });
+    }
+    
+    if (scores.length === 0) return null;
+    
+    const totalWeight = scores.reduce((sum, item) => sum + item.weight, 0);
+    const weightedSum = scores.reduce((sum, item) => sum + (item.score * item.weight), 0);
+    
+    return Math.round(weightedSum / totalWeight);
+}
+
+// 5. CALCULAR SCORE DE ESTÉREO
+function calculateStereoScore(analysis, refData) {
+    if (!analysis || !refData) return null;
+    
+    const tech = analysis.technicalData || {};
+    const scores = [];
+    
+    // Correlação Estéreo
+    const stereoValue = analysis.metrics?.stereo_correlation || tech.stereoCorrelation;
+    if (Number.isFinite(stereoValue) && Number.isFinite(refData.stereo_target) && Number.isFinite(refData.tol_stereo)) {
+        const score = calculateMetricScore(stereoValue, refData.stereo_target, refData.tol_stereo);
+        if (score !== null) scores.push({ weight: 0.6, score });
+    }
+    
+    // Width (se disponível)
+    const widthValue = tech.stereoWidth;
+    if (Number.isFinite(widthValue) && refData.width_target && Number.isFinite(refData.width_target)) {
+        const tolerance = refData.tol_width || 0.2;
+        const score = calculateMetricScore(widthValue, refData.width_target, tolerance);
+        if (score !== null) scores.push({ weight: 0.4, score });
+    }
+    
+    if (scores.length === 0) return null;
+    
+    const totalWeight = scores.reduce((sum, item) => sum + item.weight, 0);
+    const weightedSum = scores.reduce((sum, item) => sum + (item.score * item.weight), 0);
+    
+    return Math.round(weightedSum / totalWeight);
+}
+
+// 6. CALCULAR SCORE DE FREQUÊNCIA (BANDAS ESPECTRAIS)
+function calculateFrequencyScore(analysis, refData) {
+    if (!analysis || !refData || !refData.bands) return null;
+    
+    const centralizedBands = analysis.metrics?.bands;
+    const legacyBandEnergies = analysis.technicalData?.bandEnergies;
+    const bandsToUse = centralizedBands && Object.keys(centralizedBands).length > 0 ? centralizedBands : legacyBandEnergies;
+    
+    if (!bandsToUse) return null;
+    
+    const scores = [];
+    
+    // Mapeamento das bandas calculadas para referência
+    const bandMapping = {
+        'sub': 'sub',
+        'bass': 'low_bass',
+        'lowMid': 'low_mid',
+        'mid': 'mid',
+        'highMid': 'high_mid',
+        'presence': 'presenca',
+        'air': 'brilho'
+    };
+    
+    // Processar cada banda
+    Object.entries(bandMapping).forEach(([calcBand, refBand]) => {
+        const bandData = bandsToUse[calcBand];
+        const refBandData = refData.bands[refBand];
+        
+        if (bandData && refBandData) {
+            let energyDb = null;
+            
+            if (typeof bandData === 'object' && Number.isFinite(bandData.energy_db)) {
+                energyDb = bandData.energy_db;
+            } else if (typeof bandData === 'object' && Number.isFinite(bandData.rms_db)) {
+                energyDb = bandData.rms_db;
+            } else if (Number.isFinite(bandData)) {
+                energyDb = bandData;
+            }
+            
+            if (Number.isFinite(energyDb) && 
+                Number.isFinite(refBandData.target_db) && 
+                Number.isFinite(refBandData.tol_db)) {
+                
+                const score = calculateMetricScore(energyDb, refBandData.target_db, refBandData.tol_db);
+                if (score !== null) {
+                    // Pesos diferentes por banda (sub/graves mais importantes em alguns gêneros)
+                    let weight = 1.0;
+                    if (calcBand === 'sub' || calcBand === 'bass') {
+                        weight = 1.5; // Sub e graves mais pesados
+                    } else if (calcBand === 'mid') {
+                        weight = 1.2; // Médios importantes
+                    }
+                    
+                    scores.push({ weight, score });
+                }
+            }
+        }
+    });
+    
+    if (scores.length === 0) return null;
+    
+    const totalWeight = scores.reduce((sum, item) => sum + item.weight, 0);
+    const weightedSum = scores.reduce((sum, item) => sum + (item.score * item.weight), 0);
+    
+    return Math.round(weightedSum / totalWeight);
+}
+
+// 7. CALCULAR SCORE TÉCNICO
+function calculateTechnicalScore(analysis, refData) {
+    if (!analysis) return null;
+    
+    const tech = analysis.technicalData || {};
+    let score = 100; // Começar com 100 e deduzir problemas
+    
+    // Problemas críticos que reduzem drasticamente o score
+    const issues = analysis.issues || [];
+    
+    issues.forEach(issue => {
+        switch (issue.severity) {
+            case 'critical':
+                score -= 30; // Problema crítico
+                break;
+            case 'high':
+                score -= 20; // Problema grave
+                break;
+            case 'medium':
+                score -= 10; // Problema médio
+                break;
+            case 'low':
+                score -= 5; // Problema leve
+                break;
+        }
+    });
+    
+    // Problemas específicos
+    if (tech.clipping && tech.clipping > 0.01) {
+        score -= 25; // Clipping significativo
+    }
+    
+    if (tech.dcOffset && Math.abs(tech.dcOffset) > 0.1) {
+        score -= 15; // DC Offset
+    }
+    
+    if (tech.thd && tech.thd > 0.05) {
+        score -= 20; // THD alto
+    }
+    
+    return Math.max(0, Math.round(score));
+}
+
+// 8. FUNÇÃO PRINCIPAL: CALCULAR TODOS OS SCORES
+function calculateAnalysisScores(analysis, refData, genre = null) {
+    console.log('🎯 Calculando scores da análise...', { genre });
+    
+    if (!analysis || !refData) {
+        console.warn('⚠️ Dados insuficientes para calcular scores');
+        return null;
+    }
+    
+    // Calcular sub-scores
+    const loudnessScore = calculateLoudnessScore(analysis, refData);
+    const dynamicsScore = calculateDynamicsScore(analysis, refData);
+    const stereoScore = calculateStereoScore(analysis, refData);
+    const frequencyScore = calculateFrequencyScore(analysis, refData);
+    const technicalScore = calculateTechnicalScore(analysis, refData);
+    
+    console.log('📊 Sub-scores calculados:', {
+        loudness: loudnessScore,
+        dinamica: dynamicsScore,
+        estereo: stereoScore,
+        frequencia: frequencyScore,
+        tecnico: technicalScore
+    });
+    
+    // Determinar pesos por gênero
+    const genreKey = genre ? genre.toLowerCase().replace(/\s+/g, '_') : 'default';
+    const weights = GENRE_SCORING_WEIGHTS[genreKey] || GENRE_SCORING_WEIGHTS['default'];
+    
+    console.log('⚖️ Pesos aplicados:', weights);
+    
+    // Calcular score final
+    let finalScore = 0;
+    let totalWeight = 0;
+    
+    if (loudnessScore !== null) {
+        finalScore += loudnessScore * weights.loudness;
+        totalWeight += weights.loudness;
+    }
+    
+    if (dynamicsScore !== null) {
+        finalScore += dynamicsScore * weights.dinamica;
+        totalWeight += weights.dinamica;
+    }
+    
+    if (stereoScore !== null) {
+        finalScore += stereoScore * weights.estereo;
+        totalWeight += weights.estereo;
+    }
+    
+    if (frequencyScore !== null) {
+        finalScore += frequencyScore * weights.frequencia;
+        totalWeight += weights.frequencia;
+    }
+    
+    if (technicalScore !== null) {
+        finalScore += technicalScore * weights.tecnico;
+        totalWeight += weights.tecnico;
+    }
+    
+    // Normalizar se nem todas as categorias estão disponíveis
+    const normalizedFinalScore = totalWeight > 0 ? Math.round(finalScore / totalWeight) : null;
+    
+    const result = {
+        final: normalizedFinalScore,
+        loudness: loudnessScore,
+        dinamica: dynamicsScore,
+        frequencia: frequencyScore,
+        estereo: stereoScore,
+        tecnico: technicalScore,
+        weights: weights,
+        genre: genreKey
+    };
+    
+    console.log('🎯 Score final calculado:', result);
+    
+    return result;
 }
 
 // Recalcular apenas as sugestões baseadas em referência (sem reprocessar o áudio)
