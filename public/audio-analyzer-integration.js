@@ -5283,52 +5283,52 @@ function renderReferenceComparisons(analysis) {
 // 🎯 ===== SISTEMA DE SCORING AVANÇADO =====
 // Sistema completo de pontuação por categorias com adaptação por gênero
 
-// 1. PESOS POR GÊNERO
+// 1. PESOS POR GÊNERO (CORRIGIDOS - VALORES ESPECÍFICOS)
 const GENRE_SCORING_WEIGHTS = {
-    // Gêneros do sistema atual
+    // Gêneros do sistema atual com pesos específicos e diferentes
     'funk_mandela': {
-        loudness: 0.30,    // Loudness é crítico no funk
-        frequencia: 0.30,  // Sub/graves muito importantes
-        estereo: 0.15,     // Menos crítico
-        dinamica: 0.15,    // Moderado
-        tecnico: 0.10      // Básico
+        loudness: 0.32,     // Loudness é crítico no funk
+        frequencia: 0.30,   // Sub/graves muito importantes
+        dinamica: 0.23,     // Dinâmica importante mas não primária
+        estereo: 0.10,      // Menos crítico no funk
+        tecnico: 0.05       // Básico
     },
     'funk_automotivo': {
-        loudness: 0.30,
-        frequencia: 0.30,  // Sub/graves críticos
-        estereo: 0.15,
-        dinamica: 0.15,
-        tecnico: 0.10
+        loudness: 0.35,     // Ainda mais crítico no automotivo
+        frequencia: 0.32,   // Sub/graves críticos
+        dinamica: 0.20,     // Moderado
+        estereo: 0.08,      // Menos importante
+        tecnico: 0.05       // Básico
     },
     'trance': {
-        frequencia: 0.30,  // Equilíbrio espectral crítico
-        estereo: 0.25,     // Estéreo muito importante
-        dinamica: 0.20,    // Dinâmica crucial
-        loudness: 0.15,    // Moderado
-        tecnico: 0.10      // Básico
+        estereo: 0.28,      // Estéreo muito importante no trance
+        frequencia: 0.28,   // Equilíbrio espectral crítico
+        dinamica: 0.22,     // Dinâmica crucial
+        loudness: 0.15,     // Moderado
+        tecnico: 0.07       // Básico
     },
     'eletronica': {
-        frequencia: 0.30,
-        estereo: 0.25,
-        dinamica: 0.20,
-        loudness: 0.15,
-        tecnico: 0.10
+        frequencia: 0.30,   // Equilíbrio espectral
+        estereo: 0.25,      // Estéreo importante
+        dinamica: 0.20,     // Dinâmica
+        loudness: 0.15,     // Moderado
+        tecnico: 0.10       // Mais técnico que funk
     },
     'hip_hop': {
-        frequencia: 0.30,  // Graves e médios importantes
-        dinamica: 0.25,    // Dinâmica crucial
-        loudness: 0.15,
-        estereo: 0.15,
-        tecnico: 0.15      // Mais técnico que funk
+        frequencia: 0.30,   // Graves e médios importantes
+        dinamica: 0.25,     // Dinâmica crucial no hip hop
+        loudness: 0.18,     // Importante mas não primário
+        estereo: 0.12,      // Moderado
+        tecnico: 0.15       // Mais técnico
     },
     'rap': {
-        frequencia: 0.30,
-        dinamica: 0.25,
-        loudness: 0.15,
-        estereo: 0.15,
-        tecnico: 0.15
+        dinamica: 0.28,     // Dinâmica é chave no rap
+        frequencia: 0.27,   // Frequência importante
+        loudness: 0.20,     // Loudness significativo
+        tecnico: 0.15,      // Técnico importante
+        estereo: 0.10       // Menos crítico
     },
-    // Pesos padrão (fallback)
+    // Pesos padrão (fallback) - distribuição equilibrada
     'default': {
         loudness: 0.20,
         frequencia: 0.20,
@@ -5338,7 +5338,7 @@ const GENRE_SCORING_WEIGHTS = {
     }
 };
 
-// 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA
+// 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (CORRIGIDA)
 function calculateMetricScore(actualValue, targetValue, tolerance) {
     // Verificar se temos valores válidos
     if (!Number.isFinite(actualValue) || !Number.isFinite(targetValue) || !Number.isFinite(tolerance) || tolerance <= 0) {
@@ -5346,17 +5346,20 @@ function calculateMetricScore(actualValue, targetValue, tolerance) {
     }
     
     const delta = Math.abs(actualValue - targetValue);
-    const errorRelative = delta / tolerance;
     
-    // Fórmula linear segura
-    if (errorRelative <= 1) {
-        return Math.max(0, 100 - (errorRelative * 100));
-    } else {
-        return 0; // Muito fora da tolerância
+    // REGRA CORRIGIDA: Se está dentro da tolerância = 100 pontos
+    if (delta <= tolerance) {
+        return 100;
     }
+    
+    // Se está fora da tolerância = decaimento proporcional
+    const errorRelative = (delta - tolerance) / tolerance;
+    const score = Math.max(0, 100 - (errorRelative * 100));
+    
+    return Math.round(score);
 }
 
-// 3. CALCULAR SCORE DE LOUDNESS
+// 3. CALCULAR SCORE DE LOUDNESS (CORRIGIDO - MÉDIA SIMPLES)
 function calculateLoudnessScore(analysis, refData) {
     if (!analysis || !refData) return null;
     
@@ -5367,14 +5370,14 @@ function calculateLoudnessScore(analysis, refData) {
     const lufsValue = analysis.metrics?.lufs_integrated || tech.lufsIntegrated;
     if (Number.isFinite(lufsValue) && Number.isFinite(refData.lufs_target) && Number.isFinite(refData.tol_lufs)) {
         const score = calculateMetricScore(lufsValue, refData.lufs_target, refData.tol_lufs);
-        if (score !== null) scores.push({ weight: 0.5, score });
+        if (score !== null) scores.push(score);
     }
     
     // True Peak
     const truePeakValue = analysis.metrics?.true_peak_dbtp || tech.truePeakDbtp;
     if (Number.isFinite(truePeakValue) && Number.isFinite(refData.true_peak_target) && Number.isFinite(refData.tol_true_peak)) {
         const score = calculateMetricScore(truePeakValue, refData.true_peak_target, refData.tol_true_peak);
-        if (score !== null) scores.push({ weight: 0.3, score });
+        if (score !== null) scores.push(score);
     }
     
     // RMS (se disponível)
@@ -5382,19 +5385,17 @@ function calculateLoudnessScore(analysis, refData) {
     if (Number.isFinite(rmsValue) && refData.rms_target && Number.isFinite(refData.rms_target)) {
         const tolerance = refData.tol_rms || 2.0; // Tolerância padrão
         const score = calculateMetricScore(rmsValue, refData.rms_target, tolerance);
-        if (score !== null) scores.push({ weight: 0.2, score });
+        if (score !== null) scores.push(score);
     }
     
-    // Calcular média ponderada
+    // MÉDIA ARITMÉTICA SIMPLES (todas as métricas com peso igual)
     if (scores.length === 0) return null;
     
-    const totalWeight = scores.reduce((sum, item) => sum + item.weight, 0);
-    const weightedSum = scores.reduce((sum, item) => sum + (item.score * item.weight), 0);
-    
-    return Math.round(weightedSum / totalWeight);
+    const avgScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    return Math.round(avgScore);
 }
 
-// 4. CALCULAR SCORE DE DINÂMICA
+// 4. CALCULAR SCORE DE DINÂMICA (CORRIGIDO - MÉDIA SIMPLES)
 function calculateDynamicsScore(analysis, refData) {
     if (!analysis || !refData) return null;
     
@@ -5405,14 +5406,14 @@ function calculateDynamicsScore(analysis, refData) {
     const drValue = analysis.metrics?.dynamic_range || tech.dynamicRange;
     if (Number.isFinite(drValue) && Number.isFinite(refData.dr_target) && Number.isFinite(refData.tol_dr)) {
         const score = calculateMetricScore(drValue, refData.dr_target, refData.tol_dr);
-        if (score !== null) scores.push({ weight: 0.5, score });
+        if (score !== null) scores.push(score);
     }
     
     // LRA (Loudness Range)
     const lraValue = analysis.metrics?.lra || tech.lra;
     if (Number.isFinite(lraValue) && Number.isFinite(refData.lra_target) && Number.isFinite(refData.tol_lra)) {
         const score = calculateMetricScore(lraValue, refData.lra_target, refData.tol_lra);
-        if (score !== null) scores.push({ weight: 0.3, score });
+        if (score !== null) scores.push(score);
     }
     
     // Crest Factor (se disponível)
@@ -5420,18 +5421,17 @@ function calculateDynamicsScore(analysis, refData) {
     if (Number.isFinite(crestValue) && refData.crest_target && Number.isFinite(refData.crest_target)) {
         const tolerance = refData.tol_crest || 2.0;
         const score = calculateMetricScore(crestValue, refData.crest_target, tolerance);
-        if (score !== null) scores.push({ weight: 0.2, score });
+        if (score !== null) scores.push(score);
     }
     
+    // MÉDIA ARITMÉTICA SIMPLES
     if (scores.length === 0) return null;
     
-    const totalWeight = scores.reduce((sum, item) => sum + item.weight, 0);
-    const weightedSum = scores.reduce((sum, item) => sum + (item.score * item.weight), 0);
-    
-    return Math.round(weightedSum / totalWeight);
+    const avgScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    return Math.round(avgScore);
 }
 
-// 5. CALCULAR SCORE DE ESTÉREO
+// 5. CALCULAR SCORE DE ESTÉREO (CORRIGIDO - MÉDIA SIMPLES)
 function calculateStereoScore(analysis, refData) {
     if (!analysis || !refData) return null;
     
@@ -5442,7 +5442,7 @@ function calculateStereoScore(analysis, refData) {
     const stereoValue = analysis.metrics?.stereo_correlation || tech.stereoCorrelation;
     if (Number.isFinite(stereoValue) && Number.isFinite(refData.stereo_target) && Number.isFinite(refData.tol_stereo)) {
         const score = calculateMetricScore(stereoValue, refData.stereo_target, refData.tol_stereo);
-        if (score !== null) scores.push({ weight: 0.6, score });
+        if (score !== null) scores.push(score);
     }
     
     // Width (se disponível)
@@ -5450,18 +5450,17 @@ function calculateStereoScore(analysis, refData) {
     if (Number.isFinite(widthValue) && refData.width_target && Number.isFinite(refData.width_target)) {
         const tolerance = refData.tol_width || 0.2;
         const score = calculateMetricScore(widthValue, refData.width_target, tolerance);
-        if (score !== null) scores.push({ weight: 0.4, score });
+        if (score !== null) scores.push(score);
     }
     
+    // MÉDIA ARITMÉTICA SIMPLES
     if (scores.length === 0) return null;
     
-    const totalWeight = scores.reduce((sum, item) => sum + item.weight, 0);
-    const weightedSum = scores.reduce((sum, item) => sum + (item.score * item.weight), 0);
-    
-    return Math.round(weightedSum / totalWeight);
+    const avgScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    return Math.round(avgScore);
 }
 
-// 6. CALCULAR SCORE DE FREQUÊNCIA (BANDAS ESPECTRAIS)
+// 6. CALCULAR SCORE DE FREQUÊNCIA (CORRIGIDO - MÉDIA SIMPLES)
 function calculateFrequencyScore(analysis, refData) {
     if (!analysis || !refData || !refData.bands) return null;
     
@@ -5506,26 +5505,17 @@ function calculateFrequencyScore(analysis, refData) {
                 
                 const score = calculateMetricScore(energyDb, refBandData.target_db, refBandData.tol_db);
                 if (score !== null) {
-                    // Pesos diferentes por banda (sub/graves mais importantes em alguns gêneros)
-                    let weight = 1.0;
-                    if (calcBand === 'sub' || calcBand === 'bass') {
-                        weight = 1.5; // Sub e graves mais pesados
-                    } else if (calcBand === 'mid') {
-                        weight = 1.2; // Médios importantes
-                    }
-                    
-                    scores.push({ weight, score });
+                    scores.push(score); // TODAS AS BANDAS COM PESO IGUAL
                 }
             }
         }
     });
     
+    // MÉDIA ARITMÉTICA SIMPLES
     if (scores.length === 0) return null;
     
-    const totalWeight = scores.reduce((sum, item) => sum + item.weight, 0);
-    const weightedSum = scores.reduce((sum, item) => sum + (item.score * item.weight), 0);
-    
-    return Math.round(weightedSum / totalWeight);
+    const avgScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    return Math.round(avgScore);
 }
 
 // 7. CALCULAR SCORE TÉCNICO
