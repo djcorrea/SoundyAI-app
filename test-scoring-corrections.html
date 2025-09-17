@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Correções do Sistema de Scoring</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #1a1a1a; color: #fff; }
+        .test-section { background: #2a2a2a; padding: 20px; margin: 10px 0; border-radius: 8px; }
+        .test-result { background: #0a3a0a; padding: 10px; margin: 5px 0; border-radius: 4px; }
+        .test-fail { background: #3a0a0a; }
+        .test-pass { background: #0a3a0a; }
+        pre { background: #000; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        button { background: #0066cc; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0088ff; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste de Correções do Sistema de Scoring</h1>
+    
+    <div class="test-section">
+        <h2>📋 Testes Implementados</h2>
+        <p>Este arquivo testa as correções matemáticas no sistema de scoring:</p>
+        <ul>
+            <li>✅ Sub-score de Frequência: média simples das 7 bandas</li>
+            <li>✅ Fórmula contínua: valores entre 0-100 sem saltos</li>
+            <li>✅ Scores finais contínuos: 32, 67, 86 (não apenas 0, 50, 100)</li>
+            <li>✅ Tolerância: dentro = 100, fora = 0, gradual entre eles</li>
+        </ul>
+        <button onclick="runAllTests()">🚀 Executar Todos os Testes</button>
+        <button onclick="testRealData()">🎵 Testar com Dados Reais</button>
+    </div>
+
+    <div id="testResults" class="test-section">
+        <h2>📊 Resultados dos Testes</h2>
+        <p>Clique em "Executar Todos os Testes" para ver os resultados...</p>
+    </div>
+
+    <script src="audio-analyzer-integration.js"></script>
+    <script>
+        // Dados de referência simulados para testes
+        const mockRefData = {
+            lufs_target: -14.0,
+            tol_lufs: 2.0,
+            true_peak_target: -1.0,
+            tol_true_peak: 0.5,
+            dr_target: 8.0,
+            tol_dr: 2.0,
+            stereo_target: 0.85,
+            tol_stereo: 0.15,
+            bands: {
+                sub: { target_db: -25.0, tol_db: 3.0 },
+                low_bass: { target_db: -22.0, tol_db: 3.0 },
+                low_mid: { target_db: -18.0, tol_db: 2.5 },
+                mid: { target_db: -15.0, tol_db: 2.0 },
+                high_mid: { target_db: -18.0, tol_db: 2.5 },
+                presenca: { target_db: -20.0, tol_db: 3.0 },
+                brilho: { target_db: -25.0, tol_db: 4.0 }
+            }
+        };
+
+        function log(message, isPass = true) {
+            const div = document.createElement('div');
+            div.className = `test-result ${isPass ? 'test-pass' : 'test-fail'}`;
+            div.innerHTML = message;
+            document.getElementById('testResults').appendChild(div);
+        }
+
+        function clearResults() {
+            document.getElementById('testResults').innerHTML = '<h2>📊 Resultados dos Testes</h2>';
+        }
+
+        function testCalculateMetricScore() {
+            log('<h3>🧮 Teste: calculateMetricScore</h3>');
+            
+            // Teste 1: Valor exato no alvo = 100
+            const score1 = calculateMetricScore(-14.0, -14.0, 2.0);
+            log(`Valor exato (-14.0 = -14.0): ${score1} (esperado: 100)`, score1 === 100);
+            
+            // Teste 2: Metade da tolerância = 50
+            const score2 = calculateMetricScore(-15.0, -14.0, 2.0); // delta = 1, tolerância = 2
+            log(`Metade da tolerância (-15.0 vs -14.0, tol=2.0): ${score2} (esperado: 50)`, score2 === 50);
+            
+            // Teste 3: No limite da tolerância = 0
+            const score3 = calculateMetricScore(-16.0, -14.0, 2.0); // delta = 2, tolerância = 2
+            log(`No limite da tolerância (-16.0 vs -14.0, tol=2.0): ${score3} (esperado: 0)`, score3 === 0);
+            
+            // Teste 4: Fora da tolerância = 0
+            const score4 = calculateMetricScore(-17.0, -14.0, 2.0); // delta = 3, tolerância = 2
+            log(`Fora da tolerância (-17.0 vs -14.0, tol=2.0): ${score4} (esperado: 0)`, score4 === 0);
+            
+            // Teste 5: Valor contínuo dentro da tolerância
+            const score5 = calculateMetricScore(-14.5, -14.0, 2.0); // delta = 0.5, tolerância = 2
+            const expected5 = 100 * (1 - 0.5/2.0); // = 75
+            log(`Valor contínuo (-14.5 vs -14.0, tol=2.0): ${score5} (esperado: 75)`, score5 === 75);
+        }
+
+        function testFrequencyScore() {
+            log('<h3>🎵 Teste: calculateFrequencyScore</h3>');
+            
+            // Análise simulada com 7 bandas
+            const mockAnalysis = {
+                metrics: {
+                    bands: {
+                        sub: { energy_db: -25.0 },       // Perfeito = 100
+                        bass: { energy_db: -23.0 },      // Delta 1, tol 3 = 66.67
+                        lowMid: { energy_db: -16.0 },    // Delta 2, tol 2.5 = 20
+                        mid: { energy_db: -15.0 },       // Perfeito = 100
+                        highMid: { energy_db: -20.5 },   // Delta 2.5, tol 2.5 = 0
+                        presence: { energy_db: -18.0 },  // Delta 2, tol 3 = 33.33
+                        air: { energy_db: -21.0 }        // Delta 4, tol 4 = 0
+                    }
+                }
+            };
+            
+            const freqScore = calculateFrequencyScore(mockAnalysis, mockRefData);
+            log(`Dados de entrada das bandas:`);
+            log(`<pre>${JSON.stringify(mockAnalysis.metrics.bands, null, 2)}</pre>`);
+            log(`Referências:`);
+            log(`<pre>${JSON.stringify(mockRefData.bands, null, 2)}</pre>`);
+            
+            // Cálculo esperado: (100 + 66.67 + 20 + 100 + 0 + 33.33 + 0) / 7 = 45.71 ≈ 46
+            const expectedFreq = Math.round((100 + 66.67 + 20 + 100 + 0 + 33.33 + 0) / 7);
+            log(`Score de frequência calculado: ${freqScore} (esperado: ~46)`, Math.abs(freqScore - expectedFreq) <= 1);
+            
+            // Verificar se não é 100 (importante: se algumas bandas estão fora, não pode ser 100)
+            log(`Verificação: Score ≠ 100 quando bandas estão fora da tolerância: ${freqScore !== 100}`, freqScore !== 100);
+        }
+
+        function testFinalScore() {
+            log('<h3>🏆 Teste: Score Final</h3>');
+            
+            // Análise simulada
+            const mockAnalysis = {
+                metrics: {
+                    lufs_integrated: -14.5,  // Score ≈ 75
+                    true_peak_dbtp: -1.2,    // Score ≈ 60
+                    dynamic_range: 7.0,      // Score ≈ 50
+                    stereo_correlation: 0.80, // Score ≈ 66.67
+                    bands: {
+                        sub: { energy_db: -25.0 },
+                        bass: { energy_db: -22.0 },
+                        lowMid: { energy_db: -18.0 },
+                        mid: { energy_db: -15.0 },
+                        highMid: { energy_db: -18.0 },
+                        presence: { energy_db: -20.0 },
+                        air: { energy_db: -25.0 }
+                    }
+                },
+                technicalData: {},
+                issues: []
+            };
+            
+            const scores = calculateAnalysisScores(mockAnalysis, mockRefData, 'trance');
+            
+            log(`Scores calculados:`);
+            log(`<pre>${JSON.stringify(scores, null, 2)}</pre>`);
+            
+            // Verificar se o score final é contínuo (não apenas 0, 50, 100)
+            const finalScore = scores.final;
+            const isNotRounded = finalScore !== 0 && finalScore !== 50 && finalScore !== 100;
+            log(`Score final contínuo (${finalScore}): ${isNotRounded}`, isNotRounded);
+            
+            // Verificar se todos os sub-scores existem
+            const hasAllSubScores = scores.loudness !== null && scores.frequencia !== null && 
+                                   scores.estereo !== null && scores.dinamica !== null && scores.tecnico !== null;
+            log(`Todos os sub-scores calculados: ${hasAllSubScores}`, hasAllSubScores);
+        }
+
+        function runAllTests() {
+            clearResults();
+            log('<h2>🧪 Executando Testes das Correções...</h2>');
+            
+            try {
+                testCalculateMetricScore();
+                testFrequencyScore();
+                testFinalScore();
+                log('<h3>✅ Todos os testes concluídos!</h3>');
+            } catch (error) {
+                log(`<h3>❌ Erro durante os testes: ${error.message}</h3>`, false);
+                console.error('Erro nos testes:', error);
+            }
+        }
+
+        function testRealData() {
+            clearResults();
+            log('<h2>🎵 Teste com Dados Reais (Simulação)</h2>');
+            
+            // Simular dados de uma análise real com algumas bandas dentro e outras fora da tolerância
+            const realAnalysis = {
+                metadata: { genre: 'funk_mandela' },
+                metrics: {
+                    lufs_integrated: -12.5,    // Pouco acima do target (-14), dentro da tolerância
+                    true_peak_dbtp: -0.8,      // Próximo do limite
+                    dynamic_range: 6.5,        // Abaixo do target (8), mas dentro da tolerância
+                    stereo_correlation: 0.92,  // Acima do target (0.85), dentro da tolerância
+                    bands: {
+                        sub: { energy_db: -23.0 },     // 2dB abaixo do target (-25), dentro da tolerância
+                        bass: { energy_db: -19.0 },    // 3dB acima do target (-22), no limite
+                        lowMid: { energy_db: -16.5 },  // 1.5dB acima do target (-18), dentro da tolerância
+                        mid: { energy_db: -13.0 },     // 2dB acima do target (-15), dentro da tolerância
+                        highMid: { energy_db: -21.0 }, // 3dB abaixo do target (-18), fora da tolerância
+                        presence: { energy_db: -17.0 }, // 3dB acima do target (-20), no limite
+                        air: { energy_db: -30.0 }      // 5dB abaixo do target (-25), fora da tolerância
+                    }
+                },
+                technicalData: {},
+                issues: [
+                    { severity: 'medium', description: 'Leve distorção detectada' }
+                ]
+            };
+            
+            const realScores = calculateAnalysisScores(realAnalysis, mockRefData, 'funk_mandela');
+            
+            log(`Análise simulada (Funk Mandela):`);
+            log(`<pre>${JSON.stringify(realAnalysis.metrics, null, 2)}</pre>`);
+            
+            log(`Scores calculados:`);
+            log(`<pre>${JSON.stringify(realScores, null, 2)}</pre>`);
+            
+            // Verificações importantes
+            const freqScore = realScores.frequencia;
+            log(`🎵 Score de Frequência: ${freqScore}% (deve estar entre 40-70, não 100)`);
+            log(`Verificação 1: Frequência ≠ 100: ${freqScore !== 100}`, freqScore !== 100);
+            log(`Verificação 2: Frequência > 0: ${freqScore > 0}`, freqScore > 0);
+            log(`Verificação 3: Score final contínuo: ${realScores.final}`, 
+                realScores.final > 10 && realScores.final < 90);
+                
+            // Mostrar como cada banda contribui
+            log('<h4>📊 Análise por Banda:</h4>');
+            const bands = realAnalysis.metrics.bands;
+            const refBands = mockRefData.bands;
+            const bandMapping = {
+                'sub': 'sub', 'bass': 'low_bass', 'lowMid': 'low_mid',
+                'mid': 'mid', 'highMid': 'high_mid', 'presence': 'presenca', 'air': 'brilho'
+            };
+            
+            Object.entries(bandMapping).forEach(([calc, ref]) => {
+                const value = bands[calc]?.energy_db;
+                const target = refBands[ref]?.target_db;
+                const tolerance = refBands[ref]?.tol_db;
+                
+                if (value !== undefined && target !== undefined && tolerance !== undefined) {
+                    const delta = Math.abs(value - target);
+                    const score = calculateMetricScore(value, target, tolerance);
+                    const status = delta <= tolerance ? '✅' : '❌';
+                    
+                    log(`${status} ${calc}: ${value}dB (target: ${target}dB, δ: ${delta.toFixed(1)}dB) = ${score}%`);
+                }
+            });
+        }
+
+        // Auto-executar teste básico ao carregar
+        window.addEventListener('load', () => {
+            log('<p>🎯 Página carregada. Sistema de scoring carregado e pronto para testes.</p>');
+        });
+    </script>
+</body>
+</html>
