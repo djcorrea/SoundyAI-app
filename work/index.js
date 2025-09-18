@@ -1,12 +1,8 @@
-// work/index.js - Redirecionamento para arquivo raiz// work/index.js
-
-// Este arquivo existe apenas porque o Railway pode estar configurado para executar work/index.jsimport "dotenv/config";
-
-// Ele simplesmente importa e executa o arquivo index.js da raiz que já foi corrigidoimport pkg from "pg";
-
+// work/index.js
+import "dotenv/config";
+import pkg from "pg";
 import AWS from "aws-sdk";
-
-import '../index.js';import fs from "fs";
+import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import express from "express";

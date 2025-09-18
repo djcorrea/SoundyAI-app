@@ -149,8 +149,7 @@ class CoreMetricsProcessor {
         normalizedLeft, 
         normalizedRight, 
         CORE_METRICS_CONFIG.SAMPLE_RATE,
-        lufsMetrics.lra, // Usar LRA já calculado
-        truePeakMetrics.truePeakDbtp // ESPECIFICAÇÃO: passar True Peak para Crest Factor
+        lufsMetrics.lra // Usar LRA já calculado
       );
       
       if (dynamicsMetrics.dynamicRange !== null) {

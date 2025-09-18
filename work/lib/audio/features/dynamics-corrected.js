@@ -161,16 +161,16 @@ export class DynamicRangeCalculator {
 }
 
 /**
- * 🏔️ CREST FACTOR CORRETO: truePeakDbfs - rmsDbfs
- * Implementação conforme especificação: crestDb = truePeakDbfs - rmsDbfs
+ * 🏔️ CREST FACTOR CORRETO: Peak / RMS em dB
+ * Implementação profissional sem valores fixos
  */
 export class CrestFactorCalculator {
   
   /**
-   * 🎯 Calcular Crest Factor usando True Peak DBFS - RMS DBFS
-   * Nova regra: crestDb = truePeakDbfs - rmsDbfs
+   * 🎯 Calcular Crest Factor profissional
+   * Crest Factor = Peak dB - RMS dB
    */
-  static calculateCrestFactor(leftChannel, rightChannel, truePeakDbfs = null) {
+  static calculateCrestFactor(leftChannel, rightChannel) {
     try {
       const length = Math.min(leftChannel.length, rightChannel.length);
       
@@ -178,88 +178,70 @@ export class CrestFactorCalculator {
         return null;
       }
       
+      let peak = 0;
       let sumSquares = 0;
       
-      // Calcular RMS do canal médio
+      // Análise do canal médio para consistência
       for (let i = 0; i < length; i++) {
         const midSample = (leftChannel[i] + rightChannel[i]) / 2;
+        const absSample = Math.abs(midSample);
+        
+        if (absSample > peak) {
+          peak = absSample;
+        }
+        
         sumSquares += midSample * midSample;
       }
       
-      const rmsLinear = Math.sqrt(sumSquares / length);
-      
-      // Validar RMS mínimo
-      if (rmsLinear < DYNAMICS_CONFIG.CREST_MIN_RMS) {
-        logAudio('dynamics', 'crest_insufficient_rms', { 
-          rmsLinear: rmsLinear.toExponential(3) 
+      // Validar valores mínimos
+      if (peak < DYNAMICS_CONFIG.CREST_MIN_PEAK || sumSquares === 0) {
+        logAudio('dynamics', 'crest_insufficient_signal', { 
+          peak: peak.toExponential(3), 
+          sumSquares: sumSquares.toExponential(3) 
         });
         return null;
       }
       
-      // Converter RMS para DBFS
-      const rmsDbfs = 20 * Math.log10(rmsLinear);
+      const rms = Math.sqrt(sumSquares / length);
       
-      // Se truePeakDbfs não foi fornecido, calcular sample peak como fallback
-      let peakDbfs = truePeakDbfs;
-      if (peakDbfs === null || peakDbfs === undefined) {
-        let samplePeak = 0;
-        for (let i = 0; i < length; i++) {
-          const midSample = Math.abs((leftChannel[i] + rightChannel[i]) / 2);
-          if (midSample > samplePeak) {
-            samplePeak = midSample;
-          }
-        }
-        
-        if (samplePeak < DYNAMICS_CONFIG.CREST_MIN_PEAK) {
-          logAudio('dynamics', 'crest_insufficient_peak', { 
-            samplePeak: samplePeak.toExponential(3) 
-          });
-          return null;
-        }
-        
-        peakDbfs = 20 * Math.log10(samplePeak);
-        logAudio('dynamics', 'crest_using_sample_peak_fallback', { 
-          samplePeakDbfs: peakDbfs.toFixed(2) 
+      if (rms < DYNAMICS_CONFIG.CREST_MIN_RMS) {
+        logAudio('dynamics', 'crest_insufficient_rms', { 
+          rms: rms.toExponential(3) 
         });
+        return null;
       }
       
-      // Calcular Crest Factor: truePeakDbfs - rmsDbfs
-      const crestFactorDb = peakDbfs - rmsDbfs;
+      // Converter para dB
+      const peakDb = 20 * Math.log10(peak);
+      const rmsDb = 20 * Math.log10(rms);
+      const crestFactorDb = peakDb - rmsDb;
       
-      // Assert: crestDb deve estar entre 3 e 20 dB
-      if (!isFinite(crestFactorDb) || crestFactorDb < 3 || crestFactorDb > 20) {
-        logAudio('dynamics', 'crest_out_of_range', { 
-          peakDbfs: peakDbfs.toFixed(2), 
-          rmsDbfs: rmsDbfs.toFixed(2), 
-          crestFactorDb: crestFactorDb.toFixed(2),
-          expectedRange: '3-20 dB'
+      // Validar resultado
+      if (!isFinite(crestFactorDb) || crestFactorDb < 0) {
+        logAudio('dynamics', 'crest_invalid', { 
+          peakDb: peakDb.toFixed(2), 
+          rmsDb: rmsDb.toFixed(2), 
+          crestDb: crestFactorDb.toFixed(2) 
         });
-        
-        // Se fora do range, retornar null em vez de valor inválido
-        if (crestFactorDb < 3 || crestFactorDb > 20) {
-          return null;
-        }
+        return null;
       }
       
       // Log para auditoria
       logAudio('dynamics', 'crest_calculated', {
-        truePeakDbfs: peakDbfs.toFixed(2),
-        rmsDbfs: rmsDbfs.toFixed(2),
+        peakDb: peakDb.toFixed(2),
+        rmsDb: rmsDb.toFixed(2),
         crestFactorDb: crestFactorDb.toFixed(2),
-        samples: length,
-        algorithm: 'truePeakDbfs_minus_rmsDbfs'
+        samples: length
       });
       
       return {
-        // Campo único conforme especificação
-        crestFactorDb: crestFactorDb,
-        // Campos auxiliares para debug
-        truePeakDbfs: peakDbfs,
-        rmsDbfs: rmsDbfs,
-        rmsLinear: rmsLinear,
-        algorithm: 'truePeakDbfs_minus_rmsDbfs',
-        interpretation: this.interpretCrestFactor(crestFactorDb),
-        withinValidRange: crestFactorDb >= 3 && crestFactorDb <= 20
+        crestFactor: crestFactorDb,
+        peakDb: peakDb,
+        rmsDb: rmsDb,
+        peakLinear: peak,
+        rmsLinear: rms,
+        algorithm: 'Peak_dB_minus_RMS_dB',
+        interpretation: this.interpretCrestFactor(crestFactorDb)
       };
       
     } catch (error) {

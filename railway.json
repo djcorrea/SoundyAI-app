@@ -1,12 +1,12 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
-  "services": {
+  "environments": {
     "web": {
       "build": {
         "builder": "NIXPACKS"
       },
       "deploy": {
-        "startCommand": "node index.js",
+        "startCommand": "node server.js",
         "healthcheckPath": "/",
         "healthcheckTimeout": 60,
         "restartPolicyType": "ON_FAILURE",
@@ -18,7 +18,7 @@
         "builder": "NIXPACKS"
       },
       "deploy": {
-        "startCommand": "node index.js",
+        "startCommand": "node work/index.js",
         "healthcheckPath": "/health",
         "healthcheckTimeout": 60,
         "restartPolicyType": "ON_FAILURE",
