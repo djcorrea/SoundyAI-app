@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vercel dev",
     "dev:upload": "node dev-server.js",
-    "start": "node index.js",
+    "start": "node server.js",
+    "start:work": "cd work && node index.js",
     "worker": "node worker-root.js",
     "build:refs": "node tools/reference-builder.js",
     "validate:refs": "node tools/reference-validator.js",
