@@ -136,26 +136,25 @@ class TruePeakDetector {
     if (maxTruePeak > 0) {
       maxTruePeakdBTP = 20 * Math.log10(maxTruePeak);
       
-      // 🎯 VALIDAÇÃO CRÍTICA: Detectar valores irreais
-      if (maxTruePeakdBTP < -10.0) {
-        console.error(`❌ [TRUE_PEAK_UNREALISTIC] Canal com True Peak irreal: ${maxTruePeakdBTP.toFixed(2)} dBTP (< -10 dBTP)`);
-        maxTruePeakdBTP = null; // Marcar como inválido para reprocessamento
-      } else if (maxTruePeakdBTP > 3.0) {
-        console.warn(`⚠️ [TRUE_PEAK_HIGH] Canal com True Peak muito alto: ${maxTruePeakdBTP.toFixed(2)} dBTP (> 3 dBTP)`);
+      // 🎯 VALIDAÇÃO APENAS PARA LOG: Detectar valores irreais (não altera resultado)
+      if (maxTruePeakdBTP < -15.0) {
+        console.warn(`⚠️ [TRUE_PEAK_LOW] Canal com True Peak baixo: ${maxTruePeakdBTP.toFixed(2)} dBTP (< -15 dBTP) - mas mantendo valor calculado`);
+      } else if (maxTruePeakdBTP > 6.0) {
+        console.warn(`⚠️ [TRUE_PEAK_HIGH] Canal com True Peak muito alto: ${maxTruePeakdBTP.toFixed(2)} dBTP (> 6 dBTP) - verificar clipping`);
       }
     } else if (maxTruePeak === 0) {
-      // Silêncio digital: null para diferenciação de erro
-      maxTruePeakdBTP = null;
+      // Silêncio digital: reportar como -Infinity para compatibilidade
+      maxTruePeakdBTP = -Infinity;
     } else {
-      // Erro: true peak não pode ser negativo
-      console.warn(`⚠️ True Peak negativo detectado: ${maxTruePeak}`);
-      maxTruePeakdBTP = null;
+      // Erro: true peak não pode ser negativo - mas manter algum valor
+      console.warn(`⚠️ True Peak negativo detectado: ${maxTruePeak} - usando -Infinity`);
+      maxTruePeakdBTP = -Infinity;
     }
     
     const processingTime = Date.now() - startTime;
     
     console.log(`✅ True Peak detectado em ${processingTime}ms:`, {
-      peak: maxTruePeakdBTP !== null ? `${maxTruePeakdBTP.toFixed(2)} dBTP` : 'silence',
+      peak: isFinite(maxTruePeakdBTP) ? `${maxTruePeakdBTP.toFixed(2)} dBTP` : 'silence',
       position: `${peakPosition.toFixed(1)} samples`,
       clipping: clippingCount > 0 ? `${clippingCount} clips` : 'none'
     });
@@ -259,7 +258,7 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
   if (maxTruePeak > 0) {
     maxTruePeakdBTP = 20 * Math.log10(maxTruePeak);
   } else {
-    maxTruePeakdBTP = null; // Silêncio digital
+    maxTruePeakdBTP = -Infinity; // Silêncio digital - usar -Infinity para compatibilidade
   }
   
   // Sample Peak dBFS calculation
@@ -267,41 +266,30 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
   if (maxSamplePeak > 0) {
     maxSamplePeakdBFS = 20 * Math.log10(maxSamplePeak);
   } else {
-    maxSamplePeakdBFS = null; // Silêncio digital
+    maxSamplePeakdBFS = -Infinity; // Silêncio digital
   }
   
-  // Validação ITU-R BS.1770-4: True Peak deve ser >= Sample Peak (com tolerância)
-  if (maxTruePeakdBTP !== null && maxSamplePeakdBFS !== null) {
+  // Validação ITU-R BS.1770-4: True Peak deve ser >= Sample Peak (APENAS LOGS, não altera valores)
+  if (isFinite(maxTruePeakdBTP) && isFinite(maxSamplePeakdBFS)) {
     if (maxTruePeakdBTP < maxSamplePeakdBFS - 0.1) {
       console.warn(`⚠️ ITU-R BS.1770-4 Validation: True Peak (${maxTruePeakdBTP.toFixed(2)} dBTP) < Sample Peak (${maxSamplePeakdBFS.toFixed(2)} dBFS)`);
     }
     
-    // 🎯 CORREÇÃO CRÍTICA: True Peak NUNCA pode ser menor que Sample Peak
+    // 🎯 LOG DE VALIDAÇÃO: True Peak vs Sample Peak (não altera resultado)
     if (maxTruePeakdBTP < maxSamplePeakdBFS) {
       const difference = maxSamplePeakdBFS - maxTruePeakdBTP;
-      console.warn(`🚨 [TRUE_PEAK_CORRECTION] True Peak (${maxTruePeakdBTP.toFixed(2)} dBTP) < Sample Peak (${maxSamplePeakdBFS.toFixed(2)} dBFS) - Diferença: ${difference.toFixed(2)} dB`);
+      console.warn(`🚨 [TRUE_PEAK_CHECK] True Peak (${maxTruePeakdBTP.toFixed(2)} dBTP) < Sample Peak (${maxSamplePeakdBFS.toFixed(2)} dBFS) - Diferença: ${difference.toFixed(2)} dB - mantendo valor calculado`);
       
-      if (difference > 3.0) {
-        console.error(`❌ [TRUE_PEAK_CRITICAL] Diferença muito grande (${difference.toFixed(2)} dB > 3 dB) - Usando Sample Peak como fallback seguro`);
-        maxTruePeakdBTP = maxSamplePeakdBFS;
-        maxTruePeak = maxSamplePeak; // Corrigir linear também
-      } else {
-        console.warn(`⚠️ [TRUE_PEAK_MINOR] Diferença pequena (${difference.toFixed(2)} dB) - Forçando TP = Sample Peak por coerência física`);
-        maxTruePeakdBTP = maxSamplePeakdBFS;
-        maxTruePeak = maxSamplePeak; // Corrigir linear também
+      if (difference > 5.0) {
+        console.error(`❌ [TRUE_PEAK_ALERT] Diferença muito grande (${difference.toFixed(2)} dB > 5 dB) - possível erro no cálculo, mas mantendo resultado`);
       }
     }
     
-    // 🎯 FAIL-FAST: Validar range [-10 dBTP, +3 dBTP] para detectar valores irreais
-    if (maxTruePeakdBTP < -10.0 || maxTruePeakdBTP > 3.0) {
-      const isUnrealistic = maxTruePeakdBTP < -10.0;
-      console.error(`❌ [TRUE_PEAK_RANGE_ERROR] True Peak fora do range válido: ${maxTruePeakdBTP.toFixed(2)} dBTP ${isUnrealistic ? '(muito baixo)' : '(muito alto)'}`);
-      
-      if (isUnrealistic) {
-        console.error(`🚨 [TRUE_PEAK_FALLBACK] Valor irreal detectado (${maxTruePeakdBTP.toFixed(2)} dBTP < -10 dBTP) - Usando Sample Peak como fallback`);
-        maxTruePeakdBTP = maxSamplePeakdBFS;
-        maxTruePeak = maxSamplePeak;
-      }
+    // 🎯 LOG DE RANGE: Validar valores extremos (não altera resultado)
+    if (maxTruePeakdBTP < -20.0) {
+      console.warn(`⚠️ [TRUE_PEAK_VERY_LOW] True Peak muito baixo: ${maxTruePeakdBTP.toFixed(2)} dBTP (< -20 dBTP) - verificar áudio`);
+    } else if (maxTruePeakdBTP > 6.0) {
+      console.warn(`⚠️ [TRUE_PEAK_VERY_HIGH] True Peak muito alto: ${maxTruePeakdBTP.toFixed(2)} dBTP (> 6 dBTP) - verificar clipping`);
     }
   }
   
@@ -344,9 +332,9 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
     clipping_percentage: (leftClipping.clipping_percentage + rightClipping.clipping_percentage) / 2,
     
     // ✅ Status flags (ITU-R BS.1770-4 compliance)
-    exceeds_minus1dbtp: maxTruePeakdBTP !== null && maxTruePeakdBTP > -1.0,
-    exceeds_0dbtp: maxTruePeakdBTP !== null && maxTruePeakdBTP > 0.0,
-    broadcast_compliant: maxTruePeakdBTP === null || maxTruePeakdBTP <= -1.0, // EBU R128
+    exceeds_minus1dbtp: isFinite(maxTruePeakdBTP) && maxTruePeakdBTP > -1.0,
+    exceeds_0dbtp: isFinite(maxTruePeakdBTP) && maxTruePeakdBTP > 0.0,
+    broadcast_compliant: !isFinite(maxTruePeakdBTP) || maxTruePeakdBTP <= -1.0, // EBU R128
     
     // 🔧 Metadata técnico
     oversampling_factor: detector.coeffs.UPSAMPLING_FACTOR,
@@ -364,13 +352,14 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
 
 /**
  * 🧪 Função de teste para validar True Peak contra referencias conhecidas
+ * NOTA: Esta função é apenas para testes manuais, não é chamada automaticamente
  * @param {Float32Array} testSignal - Sinal de teste
  * @param {number} expectedTruePeak - True Peak esperado em dBTP
  * @param {number} tolerance - Tolerância em dB (padrão 0.2dB)
  * @returns {Object} Resultado do teste
  */
 function validateTruePeakAccuracy(testSignal, expectedTruePeak, tolerance = 0.2) {
-  console.log(`🧪 [TRUE_PEAK_TEST] Testando sinal contra referência: ${expectedTruePeak.toFixed(2)} dBTP`);
+  console.log(`🧪 [TRUE_PEAK_TEST] Testando sinal contra referência: ${expectedTruePeak !== null ? expectedTruePeak.toFixed(2) + ' dBTP' : 'null'}`);
   
   const detector = new TruePeakDetector(48000);
   const leftChannel = testSignal;
