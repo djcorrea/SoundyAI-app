@@ -196,6 +196,11 @@ class TruePeakDetector {
         if (absPeak > maxTruePeak) {
           maxTruePeak = absPeak;
           peakPosition = i + (j / this.coeffs.UPSAMPLING_FACTOR);
+          
+          // 🔍 DEBUG: Log quando encontramos novo pico máximo suspeito
+          if (maxTruePeak > 1.0) {
+            console.warn(`⚠️ [PEAK_WARNING] New max True Peak: ${maxTruePeak.toFixed(6)} linear (${(20 * Math.log10(maxTruePeak)).toFixed(2)} dBTP) at sample ${i}, phase ${j}`);
+          }
         }
         
         // Detectar clipping em true peak usando threshold unificado
@@ -291,6 +296,11 @@ class TruePeakDetector {
     for (let phase = 1; phase < factor; phase++) {
       const t = phase / factor; // 0.25, 0.5, 0.75
       upsampled[phase] = prevSample * (1 - t) + currentSample * t;
+      
+      // 🔍 DEBUG: Log quando interpolação gera valores suspeitos
+      if (Math.abs(upsampled[phase]) > 1.05) {
+        console.warn(`⚠️ [INTERPOLATION_WARNING] Phase ${phase}: ${upsampled[phase].toFixed(6)} (prev: ${prevSample.toFixed(6)}, curr: ${currentSample.toFixed(6)}, t: ${t.toFixed(3)})`);
+      }
     }
     
     return upsampled;
@@ -350,9 +360,18 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
   const leftClipping = leftDetector.detectSampleClipping(leftChannel);
   const rightClipping = rightDetector.detectSampleClipping(rightChannel);
   
-  // Combinar resultados
+  // Combinar resultados CORRETAMENTE
   const maxTruePeak = Math.max(leftTruePeak.true_peak_linear, rightTruePeak.true_peak_linear);
-  const maxSamplePeak = Math.max(leftClipping.max_sample, rightClipping.max_sample);
+  
+  // 🔧 CORREÇÃO: Sample Peak deve usar a mesma lógica dos dados que já temos
+  // Extrair sample peaks dos detectores individuais para consistência
+  const leftSamplePeak = Math.max(...leftChannel.map(Math.abs));
+  const rightSamplePeak = Math.max(...rightChannel.map(Math.abs));
+  const maxSamplePeak = Math.max(leftSamplePeak, rightSamplePeak);
+  
+  console.log(`🔍 [ANALYZE_DEBUG] Left Sample Peak: ${(20 * Math.log10(leftSamplePeak)).toFixed(2)} dB`);
+  console.log(`🔍 [ANALYZE_DEBUG] Right Sample Peak: ${(20 * Math.log10(rightSamplePeak)).toFixed(2)} dB`);
+  console.log(`🔍 [ANALYZE_DEBUG] Combined Sample Peak: ${(20 * Math.log10(maxSamplePeak)).toFixed(2)} dB`);
   
   // ITU-R BS.1770-4: True Peak dBTP calculation
   let maxTruePeakdBTP;
