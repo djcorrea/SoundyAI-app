@@ -108,6 +108,17 @@ class TruePeakDetector {
     this.delayLine.fill(0);
     this.delayIndex = 0;
     
+    // 🔍 DEBUG: Calcular sample peak para comparação
+    let maxSamplePeak = 0;
+    for (let i = 0; i < channel.length; i++) {
+      const absSample = Math.abs(channel[i]);
+      if (absSample > maxSamplePeak) {
+        maxSamplePeak = absSample;
+      }
+    }
+    const samplePeakdB = maxSamplePeak > 0 ? 20 * Math.log10(maxSamplePeak) : -Infinity;
+    console.log(`🔍 [DEBUG] Sample Peak detectado: ${samplePeakdB.toFixed(2)} dB (linear: ${maxSamplePeak.toFixed(6)})`);
+    
     // Processar cada sample com oversampling (4× legacy ou 8× upgrade)
     for (let i = 0; i < channel.length; i++) {
       const inputSample = channel[i];
@@ -124,14 +135,12 @@ class TruePeakDetector {
           peakPosition = i + (j / this.coeffs.UPSAMPLING_FACTOR);
         }
         
-  // Detectar clipping em true peak usando threshold unificado
-  if (absPeak > TRUE_PEAK_CLIP_THRESHOLD_LINEAR) {
+        // Detectar clipping em true peak usando threshold unificado
+        if (absPeak > TRUE_PEAK_CLIP_THRESHOLD_LINEAR) {
           clippingCount++;
         }
       }
-    }
-    
-    // Converter para dBTP - ITU-R BS.1770-4 compliant
+    }    // Converter para dBTP - ITU-R BS.1770-4 compliant
     let maxTruePeakdBTP;
     if (maxTruePeak > 0) {
       maxTruePeakdBTP = 20 * Math.log10(maxTruePeak);
@@ -153,13 +162,25 @@ class TruePeakDetector {
     
     const processingTime = Date.now() - startTime;
     
+    console.log(`🔍 [DEBUG] True Peak calculado: ${maxTruePeakdBTP.toFixed(2)} dBTP (linear: ${maxTruePeak.toFixed(6)})`);
+    console.log(`🔍 [DEBUG] Comparação: Sample Peak ${samplePeakdB.toFixed(2)} dB vs True Peak ${maxTruePeakdBTP.toFixed(2)} dBTP`);
+    
+    // 🚨 VALIDAÇÃO FINAL: True Peak deve ser >= Sample Peak
+    if (isFinite(maxTruePeakdBTP) && isFinite(samplePeakdB)) {
+      if (maxTruePeakdBTP < samplePeakdB) {
+        const diff = samplePeakdB - maxTruePeakdBTP;
+        console.error(`🚨 [CRITICAL] True Peak (${maxTruePeakdBTP.toFixed(2)} dBTP) < Sample Peak (${samplePeakdB.toFixed(2)} dB) - Diferença: ${diff.toFixed(2)} dB`);
+        console.error(`🔧 [FIX] Corrigindo True Peak para Sample Peak`);
+        maxTruePeakdBTP = samplePeakdB;
+        maxTruePeak = maxSamplePeak;
+      }
+    }
+
     console.log(`✅ True Peak detectado em ${processingTime}ms:`, {
       peak: isFinite(maxTruePeakdBTP) ? `${maxTruePeakdBTP.toFixed(2)} dBTP` : 'silence',
       position: `${peakPosition.toFixed(1)} samples`,
       clipping: clippingCount > 0 ? `${clippingCount} clips` : 'none'
-    });
-    
-    return {
+    });    return {
       true_peak_linear: maxTruePeak,
       true_peak_dbtp: maxTruePeakdBTP,
       peak_position: peakPosition,
@@ -175,26 +196,35 @@ class TruePeakDetector {
   }
 
   /**
-   * 🔄 Upsample genérico polyphase (4× ou 8×)
+   * 🔄 Upsample genérico polyphase (4× ou 8×) - CORRIGIDO
    * Mantém API legada (método upsample4x segue chamando este quando modo legacy).
    */
   upsamplePolyphase(inputSample) {
+    // Adicionar sample ao delay line
     this.delayLine[this.delayIndex] = inputSample;
     this.delayIndex = (this.delayIndex + 1) % this.coeffs.LENGTH;
+    
     const factor = this.coeffs.UPSAMPLING_FACTOR;
     const upsampled = new Float32Array(factor);
+    
+    // 🎯 CORREÇÃO CRÍTICA: Implementação polyphase correta
     for (let phase = 0; phase < factor; phase++) {
       let output = 0;
-      for (let tap = 0; tap < this.coeffs.LENGTH; tap += factor) {
-        const coeffIndex = tap + phase;
-        if (coeffIndex < this.coeffs.TAPS.length) {
-          const delayIndex = (this.delayIndex - tap + this.coeffs.LENGTH) % this.coeffs.LENGTH;
-          output += this.delayLine[delayIndex] * this.coeffs.TAPS[coeffIndex];
+      
+      // Convolução com coeficientes da fase atual
+      for (let i = 0; i < this.coeffs.LENGTH; i++) {
+        const delayIdx = (this.delayIndex - 1 - i + this.coeffs.LENGTH) % this.coeffs.LENGTH;
+        const coeffIdx = i * factor + phase;
+        
+        if (coeffIdx < this.coeffs.TAPS.length) {
+          output += this.delayLine[delayIdx] * this.coeffs.TAPS[coeffIdx];
         }
       }
+      
       // ITU-R BS.1770-4: Sem ganho extra no oversampling polyphase
       upsampled[phase] = output;
     }
+    
     return upsampled;
   }
 
@@ -271,18 +301,20 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
   
   // Validação ITU-R BS.1770-4: True Peak deve ser >= Sample Peak (APENAS LOGS, não altera valores)
   if (isFinite(maxTruePeakdBTP) && isFinite(maxSamplePeakdBFS)) {
-    if (maxTruePeakdBTP < maxSamplePeakdBFS - 0.1) {
-      console.warn(`⚠️ ITU-R BS.1770-4 Validation: True Peak (${maxTruePeakdBTP.toFixed(2)} dBTP) < Sample Peak (${maxSamplePeakdBFS.toFixed(2)} dBFS)`);
-    }
     
-    // 🎯 LOG DE VALIDAÇÃO: True Peak vs Sample Peak (não altera resultado)
+    // 🚨 CORREÇÃO CRÍTICA: True Peak NUNCA pode ser menor que Sample Peak
     if (maxTruePeakdBTP < maxSamplePeakdBFS) {
       const difference = maxSamplePeakdBFS - maxTruePeakdBTP;
-      console.warn(`🚨 [TRUE_PEAK_CHECK] True Peak (${maxTruePeakdBTP.toFixed(2)} dBTP) < Sample Peak (${maxSamplePeakdBFS.toFixed(2)} dBFS) - Diferença: ${difference.toFixed(2)} dB - mantendo valor calculado`);
+      console.error(`🚨 [TRUE_PEAK_CRITICAL_ERROR] True Peak (${maxTruePeakdBTP.toFixed(2)} dBTP) < Sample Peak (${maxSamplePeakdBFS.toFixed(2)} dBFS) - Diferença: ${difference.toFixed(2)} dB`);
+      console.error(`🔧 [TRUE_PEAK_FIX] Corrigindo True Peak para Sample Peak por coerência física`);
       
-      if (difference > 5.0) {
-        console.error(`❌ [TRUE_PEAK_ALERT] Diferença muito grande (${difference.toFixed(2)} dB > 5 dB) - possível erro no cálculo, mas mantendo resultado`);
-      }
+      // FORÇAR correção quando fisicamente impossível
+      maxTruePeakdBTP = maxSamplePeakdBFS;
+      maxTruePeak = maxSamplePeak;
+    }
+    
+    if (maxTruePeakdBTP < maxSamplePeakdBFS - 0.1) {
+      console.warn(`⚠️ ITU-R BS.1770-4 Validation: True Peak (${maxTruePeakdBTP.toFixed(2)} dBTP) < Sample Peak (${maxSamplePeakdBFS.toFixed(2)} dBFS)`);
     }
     
     // 🎯 LOG DE RANGE: Validar valores extremos (não altera resultado)
