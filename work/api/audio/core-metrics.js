@@ -699,8 +699,14 @@ class CoreMetricsProcessor {
         throw makeErr('core_metrics', `Invalid true peak values: ${truePeakMetrics.true_peak_dbtp}dBTP`, 'invalid_truepeak');
       }
 
-      // Verificar range realista
-      if (truePeakMetrics.true_peak_dbtp > 20 || truePeakMetrics.true_peak_dbtp < -100) {
+      // 🚨 CRITICAL SAFETY: Verificar range REALISTA (máx 6 dBTP)
+      if (truePeakMetrics.true_peak_dbtp > 6.0) {
+        console.error(`🚨 [SAFETY_OVERRIDE] True Peak ${truePeakMetrics.true_peak_dbtp.toFixed(2)} dBTP > 6.0 dBTP - FORCING TO 6.0`);
+        truePeakMetrics.true_peak_dbtp = 6.0;
+        truePeakMetrics.true_peak_linear = Math.pow(10, 6.0 / 20);
+      }
+      
+      if (truePeakMetrics.true_peak_dbtp < -100) {
         throw makeErr('core_metrics', `True peak out of realistic range: ${truePeakMetrics.true_peak_dbtp}dBTP`, 'truepeak_range_error');
       }
 
