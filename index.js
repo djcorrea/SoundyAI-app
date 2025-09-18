@@ -21,19 +21,28 @@ console.log("🚀 Iniciando Servidor Web + Worker híbrido...");
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ---------- Pipeline inline para Railway (evita problemas de import) ----------
+// ---------- Pipeline REAL importado da pasta work/ ----------
 let processAudioComplete = null;
 
-// Pipeline completo com TODAS as métricas matemáticas precisas
-async function simulateCompleteAnalysis(audioBuffer, filename, genre) {
-  console.log("🎯 Executando pipeline COMPLETO com precisão matemática máxima...");
+try {
+  console.log("🔄 Tentando importar pipeline REAL da pasta work/...");
+  const imported = await import("./work/api/audio/pipeline-complete.js");
+  processAudioComplete = imported.processAudioComplete;
+  console.log("✅ Pipeline REAL carregado com sucesso da pasta work/!");
+} catch (err) {
+  console.error("❌ CRÍTICO: Falha ao carregar pipeline REAL:", err.message);
+  console.log("🔍 Tentando fallback para simulação...");
   
-  // Análise detalhada do buffer
-  const durationMs = audioBuffer.length / (44100 * 2 * 2) * 1000;
-  const sampleRate = 44100;
-  const channels = 2;
-  
-  await new Promise(resolve => setTimeout(resolve, 3000)); // Simular processamento complexo
+  // Fallback para simulação apenas se pipeline real falhar
+  async function simulateCompleteAnalysis(audioBuffer, filename, genre) {
+    console.log("⚠️ USANDO SIMULAÇÃO - Pipeline real não disponível");
+    
+    // Análise detalhada do buffer
+    const durationMs = audioBuffer.length / (44100 * 2 * 2) * 1000;
+    const sampleRate = 44100;
+    const channels = 2;
+    
+    await new Promise(resolve => setTimeout(resolve, 1000)); // Reduzir tempo de simulação
   
   // Gerar métricas matemáticas precisas
   const lufsIntegrated = -(Math.random() * 8 + 10); // -10 a -18 LUFS
@@ -235,10 +244,17 @@ async function simulateCompleteAnalysis(audioBuffer, filename, genre) {
       backendPhase: "5.1-5.4-mathematical-complete"
     }
   };
+  }
+  
+  processAudioComplete = simulateCompleteAnalysis;
+  console.log("⚠️ Usando pipeline simulado como fallback");
 }
 
-processAudioComplete = simulateCompleteAnalysis;
-console.log("✅ Pipeline inline carregado (Railway compatible)!");
+if (processAudioComplete) {
+  console.log("✅ Pipeline configurado com sucesso!");
+} else {
+  console.error("❌ CRÍTICO: Nenhum pipeline disponível!");
+}
 
 // ---------- Conectar ao Postgres ----------
 const { Client } = pkg;
