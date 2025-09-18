@@ -141,12 +141,26 @@ class TruePeakDetector {
   }
 
   /**
+   * 🔄 Reset do estado interno do detector entre análises
+   * CRÍTICO: Limpa delay line para evitar contaminação entre arquivos
+   */
+  reset() {
+    this.delayLine.fill(0);
+    this.delayIndex = 0;
+    console.log('🧹 [RESET] True Peak detector state cleared');
+  }
+
+  /**
    * 🎯 Detectar true peak em um canal
    * @param {Float32Array} channel - Canal de áudio
    * @returns {Object} Métricas de true peak
    */
   detectTruePeak(channel) {
     console.log('🏔️ Detectando true peaks...');
+    
+    // 🧹 CRÍTICO: Reset estado interno para cada nova análise
+    this.reset();
+    
     const startTime = Date.now();
     
     let maxTruePeak = 0;
@@ -323,15 +337,18 @@ class TruePeakDetector {
  * @returns {Object} Análise completa de peaks
  */
 function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
-  const detector = new TruePeakDetector(sampleRate);
+  // ✅ CRÍTICO: Criar detectors separados para cada canal 
+  // Evita contaminação do delay line entre canais
+  const leftDetector = new TruePeakDetector(sampleRate);
+  const rightDetector = new TruePeakDetector(sampleRate);
   
-  // True peaks para cada canal
-  const leftTruePeak = detector.detectTruePeak(leftChannel);
-  const rightTruePeak = detector.detectTruePeak(rightChannel);
+  // True peaks para cada canal com detector próprio
+  const leftTruePeak = leftDetector.detectTruePeak(leftChannel);
+  const rightTruePeak = rightDetector.detectTruePeak(rightChannel);
   
-  // Sample clipping para comparação
-  const leftClipping = detector.detectSampleClipping(leftChannel);
-  const rightClipping = detector.detectSampleClipping(rightChannel);
+  // Sample clipping para comparação (pode usar qualquer detector)
+  const leftClipping = leftDetector.detectSampleClipping(leftChannel);
+  const rightClipping = rightDetector.detectSampleClipping(rightChannel);
   
   // Combinar resultados
   const maxTruePeak = Math.max(leftTruePeak.true_peak_linear, rightTruePeak.true_peak_linear);
@@ -426,14 +443,14 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
     broadcast_compliant: !isFinite(maxTruePeakdBTP) || maxTruePeakdBTP <= -1.0, // EBU R128
     
     // 🔧 Metadata técnico
-    oversampling_factor: detector.coeffs.UPSAMPLING_FACTOR,
+    oversampling_factor: leftDetector.coeffs.UPSAMPLING_FACTOR,
     true_peak_mode: leftTruePeak.true_peak_mode,
     upgrade_enabled: leftTruePeak.upgrade_enabled,
     true_peak_clip_threshold_dbtp: TRUE_PEAK_CLIP_THRESHOLD_DBTP,
     true_peak_clip_threshold_linear: TRUE_PEAK_CLIP_THRESHOLD_LINEAR,
     itu_r_bs1770_4_compliant: true, // Flag de conformidade
     polyphase_algorithm_corrected: true, // Flag para auditoria
-    gain_normalized: detector.coeffs.GAIN_NORMALIZED || false,
+    gain_normalized: leftDetector.coeffs.GAIN_NORMALIZED || false,
     warnings,
     
     // ⏱️ Performance
