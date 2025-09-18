@@ -222,6 +222,63 @@ export function auditMetricsValidation(metrics, expectedValues = {}) {
     });
   }
   
+  // ESPECIFICAÇÃO: Validar Crest Factor de Dinâmica (8-14 dB típico)
+  if (metrics.crestFactor !== null) {
+    const valid = metrics.crestFactor >= 0 && metrics.crestFactor <= 20;
+    const typical = metrics.crestFactor >= 8 && metrics.crestFactor <= 14;
+    validations.push({
+      metric: 'Crest Factor',
+      value: `${metrics.crestFactor?.toFixed(2)} dB`,
+      valid,
+      reason: valid ? (typical ? 'Range típico (8-14 dB)' : 'Range válido (0-20 dB)') : 'Fora do range válido'
+    });
+  }
+  
+  // ESPECIFICAÇÃO: Validar True Peak vs Sample Peak (±1 dB)
+  if (metrics.truePeak?.maxDbtp !== null && metrics.truePeak?.sample_peak_left_db !== null && metrics.truePeak?.sample_peak_right_db !== null) {
+    const truePeakDbtp = metrics.truePeak.maxDbtp;
+    const samplePeakDb = Math.max(metrics.truePeak.sample_peak_left_db, metrics.truePeak.sample_peak_right_db);
+    const delta = Math.abs(truePeakDbtp - samplePeakDb);
+    const valid = delta <= 1.0; // ±1 dB tolerance
+    
+    validations.push({
+      metric: 'True Peak vs Sample Peak',
+      value: `Δ${delta.toFixed(2)} dB`,
+      valid,
+      reason: valid ? 'Delta ≤1 dB (esperado)' : 'Delta >1 dB (possível problema)'
+    });
+  }
+  
+  // ESPECIFICAÇÃO: Validar Bandas Espectrais (soma 100±0.5%)
+  if (metrics.spectralBands?.bands) {
+    const bandValues = Object.values(metrics.spectralBands.bands);
+    const bandsSum = bandValues.reduce((sum, band) => sum + (band.percentage || 0), 0);
+    const valid = Math.abs(bandsSum - 100) <= 0.5; // ±0.5% tolerance
+    
+    validations.push({
+      metric: 'Bandas Espectrais (Soma)',
+      value: `${bandsSum.toFixed(2)}%`,
+      valid,
+      reason: valid ? 'Soma 100±0.5% (válido)' : 'Soma fora de 100±0.5%'
+    });
+  }
+  
+  // ESPECIFICAÇÃO: Validar Sample Peak Range Float [-1, +1]
+  if (metrics.truePeak?.sample_clipping_count !== undefined) {
+    const leftClipping = metrics.truePeak?.sample_peak_left_db;
+    const rightClipping = metrics.truePeak?.sample_peak_right_db;
+    const validLeft = leftClipping <= 0; // Deve ser ≤0 dBFS
+    const validRight = rightClipping <= 0; // Deve ser ≤0 dBFS
+    const valid = validLeft && validRight;
+    
+    validations.push({
+      metric: 'Sample Peak Range',
+      value: `L:${leftClipping?.toFixed(2) || 'null'} R:${rightClipping?.toFixed(2) || 'null'} dBFS`,
+      valid,
+      reason: valid ? 'Sample peaks ≤0 dBFS (válido)' : 'Sample peaks >0 dBFS (clipping)'
+    });
+  }
+  
   // Validar Métricas Espectrais (8 métricas)
   const nyquist = 24000; // Assumindo 48kHz / 2
   

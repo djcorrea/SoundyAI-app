@@ -161,16 +161,21 @@ export class DynamicRangeCalculator {
 }
 
 /**
- * 🏔️ CREST FACTOR CORRETO: Peak / RMS em dB
- * Implementação profissional sem valores fixos
+ * 🏔️ CREST FACTOR CORRETO: conforme especificação
+ * Regra: tudo em dBFS
+ * crestDb = truePeakDbtp - rmsDbfs
+ * assert(crestDb >= 0 && crestDb <= 20)
  */
 export class CrestFactorCalculator {
   
   /**
-   * 🎯 Calcular Crest Factor profissional
-   * Crest Factor = Peak dB - RMS dB
+   * 🎯 Calcular Crest Factor seguindo especificação exata
+   * @param {Float32Array} leftChannel - Canal esquerdo
+   * @param {Float32Array} rightChannel - Canal direito  
+   * @param {number} truePeakDbtp - True Peak em dBTP (será tratado como dBFS)
+   * @returns {Object} Resultado do cálculo do Crest Factor
    */
-  static calculateCrestFactor(leftChannel, rightChannel) {
+  static calculateCrestFactor(leftChannel, rightChannel, truePeakDbtp = null) {
     try {
       const length = Math.min(leftChannel.length, rightChannel.length);
       
@@ -178,70 +183,80 @@ export class CrestFactorCalculator {
         return null;
       }
       
-      let peak = 0;
       let sumSquares = 0;
       
-      // Análise do canal médio para consistência
+      // Calcular RMS do canal médio
       for (let i = 0; i < length; i++) {
         const midSample = (leftChannel[i] + rightChannel[i]) / 2;
-        const absSample = Math.abs(midSample);
-        
-        if (absSample > peak) {
-          peak = absSample;
-        }
-        
         sumSquares += midSample * midSample;
       }
       
-      // Validar valores mínimos
-      if (peak < DYNAMICS_CONFIG.CREST_MIN_PEAK || sumSquares === 0) {
-        logAudio('dynamics', 'crest_insufficient_signal', { 
-          peak: peak.toExponential(3), 
-          sumSquares: sumSquares.toExponential(3) 
-        });
+      if (sumSquares === 0) {
+        logAudio('dynamics', 'crest_silence_detected', { samples: length });
         return null;
       }
       
-      const rms = Math.sqrt(sumSquares / length);
+      const rmsLinear = Math.sqrt(sumSquares / length);
       
-      if (rms < DYNAMICS_CONFIG.CREST_MIN_RMS) {
+      if (rmsLinear < DYNAMICS_CONFIG.CREST_MIN_RMS) {
         logAudio('dynamics', 'crest_insufficient_rms', { 
-          rms: rms.toExponential(3) 
+          rmsLinear: rmsLinear.toExponential(3) 
         });
         return null;
       }
       
-      // Converter para dB
-      const peakDb = 20 * Math.log10(peak);
-      const rmsDb = 20 * Math.log10(rms);
-      const crestFactorDb = peakDb - rmsDb;
+      // ESPECIFICAÇÃO: tudo em dBFS
+      const rmsDbfs = 20 * Math.log10(rmsLinear);   // se ainda estiver em linear
+      const peakDbfs = truePeakDbtp;                // trate dBTP como dBFS para crest
       
-      // Validar resultado
-      if (!isFinite(crestFactorDb) || crestFactorDb < 0) {
-        logAudio('dynamics', 'crest_invalid', { 
-          peakDb: peakDb.toFixed(2), 
-          rmsDb: rmsDb.toFixed(2), 
-          crestDb: crestFactorDb.toFixed(2) 
-        });
+      if (peakDbfs === null || !isFinite(peakDbfs)) {
+        logAudio('dynamics', 'crest_no_true_peak', { truePeakDbtp });
         return null;
+      }
+      
+      const crestDb = peakDbfs - rmsDbfs;
+      
+      // ESPECIFICAÇÃO: assert(crestDb >= 0 && crestDb <= 20)
+      if (crestDb < 0 || crestDb > 20 || !isFinite(crestDb)) {
+        logAudio('dynamics', 'crest_out_of_range', { 
+          peakDbfs: peakDbfs.toFixed(2), 
+          rmsDbfs: rmsDbfs.toFixed(2), 
+          crestDb: crestDb.toFixed(2),
+          valid: false
+        });
+        
+        // Retornar mesmo assim, mas marcar como inválido
+        return {
+          crestFactorDb: crestDb,
+          peakDbfs: peakDbfs,
+          rmsDbfs: rmsDbfs,
+          rmsLinear: rmsLinear,
+          valid: false,
+          outOfRange: true,
+          algorithm: 'TruePeak_dBTP_minus_RMS_dBFS',
+          assertion: 'FAILED: crestDb should be 0-20 dB'
+        };
       }
       
       // Log para auditoria
       logAudio('dynamics', 'crest_calculated', {
-        peakDb: peakDb.toFixed(2),
-        rmsDb: rmsDb.toFixed(2),
-        crestFactorDb: crestFactorDb.toFixed(2),
-        samples: length
+        peakDbfs: peakDbfs.toFixed(2),
+        rmsDbfs: rmsDbfs.toFixed(2),
+        crestFactorDb: crestDb.toFixed(2),
+        samples: length,
+        assertion: 'PASSED: 0 <= crestDb <= 20'
       });
       
       return {
-        crestFactor: crestFactorDb,
-        peakDb: peakDb,
-        rmsDb: rmsDb,
-        peakLinear: peak,
-        rmsLinear: rms,
-        algorithm: 'Peak_dB_minus_RMS_dB',
-        interpretation: this.interpretCrestFactor(crestFactorDb)
+        crestFactorDb: crestDb,
+        peakDbfs: peakDbfs,
+        rmsDbfs: rmsDbfs,
+        rmsLinear: rmsLinear,
+        valid: true,
+        outOfRange: false,
+        algorithm: 'TruePeak_dBTP_minus_RMS_dBFS',
+        assertion: 'PASSED: 0 <= crestDb <= 20',
+        interpretation: this.interpretCrestFactor(crestDb)
       };
       
     } catch (error) {
@@ -313,16 +328,20 @@ export class LRACalculator {
 /**
  * 🎛️ Agregador principal das métricas de dinâmica
  */
-export function calculateDynamicsMetrics(leftChannel, rightChannel, sampleRate = 48000, existingLRA = null) {
+export function calculateDynamicsMetrics(leftChannel, rightChannel, sampleRate = 48000, existingLRA = null, truePeakDbtp = null) {
   const dr = DynamicRangeCalculator.calculateDynamicRange(leftChannel, rightChannel, sampleRate);
-  const crest = CrestFactorCalculator.calculateCrestFactor(leftChannel, rightChannel);
+  const crest = CrestFactorCalculator.calculateCrestFactor(leftChannel, rightChannel, truePeakDbtp);
   const lra = LRACalculator.validateAndEnhanceLRA(existingLRA);
   
   return {
     dynamicRange: dr?.dynamicRange || null,
     dynamicRangeDetails: dr,
-    crestFactor: crest?.crestFactor || null,
+    crestFactor: crest?.crestFactorDb || null,  // Atualizado para usar crestFactorDb
     crestFactorDetails: crest,
+    lra: lra?.lra || null,
+    lraDetails: lra
+  };
+}
     lra: lra?.lra || null,
     lraDetails: lra,
     processingNote: 'Professional dynamics analysis with realistic values'

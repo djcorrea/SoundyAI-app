@@ -197,28 +197,58 @@ class TruePeakDetector {
 
   /**
    * 🔧 Detectar clipping tradicional (sample-level)
+   * ESPECIFICAÇÃO: validar range float -1..+1 com detecção de clipping
    * @param {Float32Array} channel
    * @returns {Object} Estatísticas de clipping
    */
   detectSampleClipping(channel) {
     let clippedSamples = 0;
     let maxSample = 0;
+    let outOfRangeSamples = 0; // ESPECIFICAÇÃO: samples fora de [-1, +1]
     const clippingThreshold = 0.99; // 99% full scale
     
     for (let i = 0; i < channel.length; i++) {
-      const absSample = Math.abs(channel[i]);
+      const sample = channel[i];
+      const absSample = Math.abs(sample);
       maxSample = Math.max(maxSample, absSample);
+      
+      // ESPECIFICAÇÃO: validar range float [-1, +1]
+      if (sample < -1.0 || sample > 1.0) {
+        outOfRangeSamples++;
+      }
       
       if (absSample >= clippingThreshold) {
         clippedSamples++;
       }
     }
     
+    // Validação de integridade do sinal
+    const totalSamples = channel.length;
+    const outOfRangePercentage = (outOfRangeSamples / totalSamples) * 100;
+    const isValidFloat = outOfRangeSamples === 0;
+    
+    if (!isValidFloat) {
+      logAudio('truepeak', 'float_range_violation', {
+        outOfRangeSamples,
+        outOfRangePercentage: outOfRangePercentage.toFixed(3),
+        maxSample: maxSample.toFixed(6)
+      });
+    }
+    
     return {
       clipped_samples: clippedSamples,
       clipping_percentage: (clippedSamples / channel.length) * 100,
       max_sample: maxSample,
-      max_sample_db: maxSample > 0 ? 20 * Math.log10(maxSample) : null
+      max_sample_db: maxSample > 0 ? 20 * Math.log10(maxSample) : null,
+      // ESPECIFICAÇÃO: validação de range float
+      out_of_range_samples: outOfRangeSamples,
+      out_of_range_percentage: outOfRangePercentage,
+      valid_float_range: isValidFloat,
+      range_validation: {
+        valid: isValidFloat,
+        expected: '[-1.0, +1.0]',
+        assertion: isValidFloat ? 'PASSED: all samples in [-1, +1]' : 'FAILED: samples outside [-1, +1] range'
+      }
     };
   }
 }
