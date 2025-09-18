@@ -1,7 +1,0 @@
-[phases.build]
-
-[phases.start]
-cmd = "node index.js"
-
-[variables]
-NODE_ENV = "production"

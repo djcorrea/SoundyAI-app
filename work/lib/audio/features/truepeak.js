@@ -297,8 +297,8 @@ class TruePeakDetector {
       const t = phase / factor; // 0.25, 0.5, 0.75
       upsampled[phase] = prevSample * (1 - t) + currentSample * t;
       
-      // 🔍 DEBUG: Log quando interpolação gera valores suspeitos
-      if (Math.abs(upsampled[phase]) > 1.05) {
+      // 🔍 DEBUG: Log quando interpolação gera valores suspeitos (apenas se extremo)
+      if (Math.abs(upsampled[phase]) > 1.5) {
         console.warn(`⚠️ [INTERPOLATION_WARNING] Phase ${phase}: ${upsampled[phase].toFixed(6)} (prev: ${prevSample.toFixed(6)}, curr: ${currentSample.toFixed(6)}, t: ${t.toFixed(3)})`);
       }
     }
@@ -365,13 +365,25 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
   
   // 🔧 CORREÇÃO: Sample Peak deve usar a mesma lógica dos dados que já temos
   // Extrair sample peaks dos detectores individuais para consistência
-  const leftSamplePeak = Math.max(...leftChannel.map(Math.abs));
-  const rightSamplePeak = Math.max(...rightChannel.map(Math.abs));
+  // ✅ SAFE: Usar loop ao invés de spread operator para evitar stack overflow
+  let leftSamplePeak = 0;
+  for (let i = 0; i < leftChannel.length; i++) {
+    const abs = Math.abs(leftChannel[i]);
+    if (abs > leftSamplePeak) leftSamplePeak = abs;
+  }
+  
+  let rightSamplePeak = 0;
+  for (let i = 0; i < rightChannel.length; i++) {
+    const abs = Math.abs(rightChannel[i]);
+    if (abs > rightSamplePeak) rightSamplePeak = abs;
+  }
+  
   const maxSamplePeak = Math.max(leftSamplePeak, rightSamplePeak);
   
-  console.log(`🔍 [ANALYZE_DEBUG] Left Sample Peak: ${(20 * Math.log10(leftSamplePeak)).toFixed(2)} dB`);
-  console.log(`🔍 [ANALYZE_DEBUG] Right Sample Peak: ${(20 * Math.log10(rightSamplePeak)).toFixed(2)} dB`);
-  console.log(`🔍 [ANALYZE_DEBUG] Combined Sample Peak: ${(20 * Math.log10(maxSamplePeak)).toFixed(2)} dB`);
+  // Logs de debug mais simples
+  if (process.env.AUDIT_MODE === '1') {
+    console.log(`🔍 [ANALYZE_DEBUG] Left: ${(20 * Math.log10(leftSamplePeak)).toFixed(2)} dB, Right: ${(20 * Math.log10(rightSamplePeak)).toFixed(2)} dB, Combined: ${(20 * Math.log10(maxSamplePeak)).toFixed(2)} dB`);
+  }
   
   // ITU-R BS.1770-4: True Peak dBTP calculation
   let maxTruePeakdBTP;
