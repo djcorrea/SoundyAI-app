@@ -115,6 +115,13 @@ class CoreMetricsProcessor {
       assertFinite(fftResults, 'core_metrics');
 
       // ========= BANDAS ESPECTRAIS CORRIGIDAS (7 BANDAS) =========
+      console.log('🚨 [CRITICAL_DEBUG] INICIANDO CÁLCULO DE BANDAS ESPECTRAIS');
+      console.log('📊 [FRAMES_FFT_DEBUG]:', {
+        hasFramesFFT: !!segmentedAudio.framesFFT,
+        hasFrames: !!(segmentedAudio.framesFFT && segmentedAudio.framesFFT.frames),
+        frameCount: segmentedAudio.framesFFT?.frames?.length || 0
+      });
+      
       logAudio('core_metrics', 'spectral_bands_start', { 
         hasFramesFFT: !!segmentedAudio.framesFFT,
         frameCount: segmentedAudio.framesFFT?.frames?.length || 0
