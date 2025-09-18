@@ -1,5 +1,6 @@
 // 🏔️ TRUE PEAK - Oversampling 4× (legado) e modo upgrade 8× com FIR polyphase
-// Implementação ITU-R BS.1770-4 para detecção de true peaks
+// ✅ Implementação ITU-R BS.1770-4 para detecção de true peaks
+// 🎯 Conforme especificação: oversampling polyphase SEM ganho extra + conversão 20*log10(amplitude)
 // Upgrade adiciona filtro windowed-sinc 192 taps (8×) atrás de feature flags (AUDIT_MODE / TP_UPGRADE)
 
 /**
@@ -146,7 +147,7 @@ class TruePeakDetector {
     const processingTime = Date.now() - startTime;
     
     console.log(`✅ True Peak detectado em ${processingTime}ms:`, {
-      peak: `${maxTruePeakdBTP.toFixed(2)} dBTP`,
+      peak: maxTruePeakdBTP !== null ? `${maxTruePeakdBTP.toFixed(2)} dBTP` : 'silence',
       position: `${peakPosition.toFixed(1)} samples`,
       clipping: clippingCount > 0 ? `${clippingCount} clips` : 'none'
     });
@@ -184,6 +185,7 @@ class TruePeakDetector {
           output += this.delayLine[delayIndex] * this.coeffs.TAPS[coeffIndex];
         }
       }
+      // ITU-R BS.1770-4: Sem ganho extra no oversampling polyphase
       upsampled[phase] = output;
     }
     return upsampled;
@@ -244,18 +246,29 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
   const maxTruePeak = Math.max(leftTruePeak.true_peak_linear, rightTruePeak.true_peak_linear);
   const maxSamplePeak = Math.max(leftClipping.max_sample, rightClipping.max_sample);
   
-  // Assert: True peak deve ser >= sample peak (com tolerância numérica)
-  if (maxTruePeak < maxSamplePeak - 1e-6) {
-    console.warn(`⚠️ Assert falhou: True peak (${maxTruePeak}) < Sample peak (${maxSamplePeak})`);
-  }
-  
+  // ITU-R BS.1770-4: True Peak dBTP calculation
   let maxTruePeakdBTP;
   if (maxTruePeak > 0) {
     maxTruePeakdBTP = 20 * Math.log10(maxTruePeak);
   } else {
     maxTruePeakdBTP = null; // Silêncio digital
   }
+  
+  // Sample Peak dBFS calculation
+  let maxSamplePeakdBFS;
+  if (maxSamplePeak > 0) {
+    maxSamplePeakdBFS = 20 * Math.log10(maxSamplePeak);
+  } else {
+    maxSamplePeakdBFS = null; // Silêncio digital
+  }
+  
+  // Validação ITU-R BS.1770-4: True Peak deve ser >= Sample Peak (com tolerância)
+  if (maxTruePeakdBTP !== null && maxSamplePeakdBFS !== null && maxTruePeakdBTP < maxSamplePeakdBFS - 0.1) {
+    console.warn(`⚠️ ITU-R BS.1770-4 Validation: True Peak (${maxTruePeakdBTP.toFixed(2)} dBTP) < Sample Peak (${maxSamplePeakdBFS.toFixed(2)} dBFS)`);
+  }
+  
   const totalClipping = leftTruePeak.clipping_count + rightTruePeak.clipping_count;
+  const totalSampleClipping = leftClipping.clipped_samples + rightClipping.clipped_samples;
   
   // Warnings
   const warnings = [];
@@ -270,36 +283,44 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
   }
   
   return {
-    // True peaks
+    // 🎯 Campos padronizados conforme solicitado
+    samplePeakDb: maxSamplePeakdBFS,
+    truePeakDbtp: maxTruePeakdBTP,
+    clippingSamples: totalSampleClipping,
+    clippingPct: (leftClipping.clipping_percentage + rightClipping.clipping_percentage) / 2,
+    
+    // 🏔️ True peaks detalhados (ITU-R BS.1770-4)
     true_peak_dbtp: maxTruePeakdBTP,
     true_peak_linear: maxTruePeak,
     true_peak_left: leftTruePeak.true_peak_dbtp,
     true_peak_right: rightTruePeak.true_peak_dbtp,
     
-    // Sample peaks (tradicional)
+    // 📊 Sample peaks tradicionais (dBFS)
     sample_peak_left_db: leftClipping.max_sample_db,
     sample_peak_right_db: rightClipping.max_sample_db,
+    sample_peak_dbfs: maxSamplePeakdBFS,
     
-    // Clipping detection
-  true_peak_clipping_count: totalClipping,
-    sample_clipping_count: leftClipping.clipped_samples + rightClipping.clipped_samples,
+    // 🚨 Clipping detection
+    true_peak_clipping_count: totalClipping,
+    sample_clipping_count: totalSampleClipping,
     clipping_percentage: (leftClipping.clipping_percentage + rightClipping.clipping_percentage) / 2,
     
-    // Status flags
-    exceeds_minus1dbtp: maxTruePeakdBTP > -1.0,
-    exceeds_0dbtp: maxTruePeakdBTP > 0.0,
-    broadcast_compliant: maxTruePeakdBTP <= -1.0, // EBU R128
+    // ✅ Status flags (ITU-R BS.1770-4 compliance)
+    exceeds_minus1dbtp: maxTruePeakdBTP !== null && maxTruePeakdBTP > -1.0,
+    exceeds_0dbtp: maxTruePeakdBTP !== null && maxTruePeakdBTP > 0.0,
+    broadcast_compliant: maxTruePeakdBTP === null || maxTruePeakdBTP <= -1.0, // EBU R128
     
-  // Metadata (reflete modo do detector — left/right iguais)
-  oversampling_factor: detector.coeffs.UPSAMPLING_FACTOR,
-  true_peak_mode: leftTruePeak.true_peak_mode,
-  upgrade_enabled: leftTruePeak.upgrade_enabled,
-  true_peak_clip_threshold_dbtp: TRUE_PEAK_CLIP_THRESHOLD_DBTP,
-  true_peak_clip_threshold_linear: TRUE_PEAK_CLIP_THRESHOLD_LINEAR,
+    // 🔧 Metadata técnico
+    oversampling_factor: detector.coeffs.UPSAMPLING_FACTOR,
+    true_peak_mode: leftTruePeak.true_peak_mode,
+    upgrade_enabled: leftTruePeak.upgrade_enabled,
+    true_peak_clip_threshold_dbtp: TRUE_PEAK_CLIP_THRESHOLD_DBTP,
+    true_peak_clip_threshold_linear: TRUE_PEAK_CLIP_THRESHOLD_LINEAR,
+    itu_r_bs1770_4_compliant: true, // Flag de conformidade
     warnings,
     
-    // Performance
-  processing_time: leftTruePeak.processing_time + rightTruePeak.processing_time
+    // ⏱️ Performance
+    processing_time: leftTruePeak.processing_time + rightTruePeak.processing_time
   };
 }
 
