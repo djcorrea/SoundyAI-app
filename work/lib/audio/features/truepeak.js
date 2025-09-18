@@ -382,6 +382,9 @@ class TruePeakDetector {
  * @returns {Object} Análise completa de peaks
  */
 function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
+  // 🚨 FORCE DEBUG: Always log to verify which implementation is running
+  console.log(`📊 [TRUEPEAK_DEBUG] analyzeTruePeaks() starting - Left samples: ${leftChannel.length}, Right samples: ${rightChannel.length}, Sample Rate: ${sampleRate}`);
+  
   // ✅ CRÍTICO: Criar detectors separados para cada canal 
   // Evita contaminação do delay line entre canais
   const leftDetector = new TruePeakDetector(sampleRate);
