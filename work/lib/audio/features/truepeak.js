@@ -196,27 +196,19 @@ class TruePeakDetector {
   }
 
   /**
-   * 🔧 Detectar clipping tradicional e sample peak
-   * ✅ CORRIGIDO: Sample Peak é diferente de True Peak - sem oversampling
+   * 🔧 Detectar clipping tradicional (sample-level)
    * @param {Float32Array} channel
-   * @returns {Object} Estatísticas de clipping e sample peak tradicional
+   * @returns {Object} Estatísticas de clipping
    */
   detectSampleClipping(channel) {
     let clippedSamples = 0;
-    let maxSampleLinear = 0;
-    const clippingThreshold = 0.99; // 99% full scale para clipping detection
+    let maxSample = 0;
+    const clippingThreshold = 0.99; // 99% full scale
     
-    // ✅ SAMPLE PEAK: buscar o maior valor absoluto nas amostras originais
-    // IMPORTANTE: Isso é diferente do True Peak que usa oversampling/interpolação
     for (let i = 0; i < channel.length; i++) {
       const absSample = Math.abs(channel[i]);
+      maxSample = Math.max(maxSample, absSample);
       
-      // Sample Peak: valor máximo absoluto sem interpolação
-      if (absSample > maxSampleLinear) {
-        maxSampleLinear = absSample;
-      }
-      
-      // Clipping detection: threshold de 99%
       if (absSample >= clippingThreshold) {
         clippedSamples++;
       }
@@ -225,12 +217,8 @@ class TruePeakDetector {
     return {
       clipped_samples: clippedSamples,
       clipping_percentage: (clippedSamples / channel.length) * 100,
-      max_sample: maxSampleLinear,
-      max_sample_db: maxSampleLinear > 0 ? 20 * Math.log10(maxSampleLinear) : null,
-      // Metadados para diferenciação
-      algorithm: 'traditional_sample_peak',
-      note: 'Sample Peak ≠ True Peak (sem oversampling)',
-      samples_analyzed: channel.length
+      max_sample: maxSample,
+      max_sample_db: maxSample > 0 ? 20 * Math.log10(maxSample) : null
     };
   }
 }
@@ -255,6 +243,16 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
   
   // Combinar resultados
   const maxTruePeak = Math.max(leftTruePeak.true_peak_linear, rightTruePeak.true_peak_linear);
+  const maxSamplePeak = Math.max(leftClipping.max_sample, rightClipping.max_sample);
+  
+  // Assert: True Peak deve ser >= Sample Peak (com tolerância numérica)
+  if (maxTruePeak > 0 && maxSamplePeak > 0) {
+    const tolerance = 1e-6;
+    if (maxTruePeak < maxSamplePeak - tolerance) {
+      console.warn(`⚠️ True Peak (${maxTruePeak.toFixed(6)}) é menor que Sample Peak (${maxSamplePeak.toFixed(6)}) - possível erro de cálculo`);
+    }
+  }
+  
   let maxTruePeakdBTP;
   if (maxTruePeak > 0) {
     maxTruePeakdBTP = 20 * Math.log10(maxTruePeak);
