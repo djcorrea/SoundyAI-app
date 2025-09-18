@@ -244,6 +244,7 @@ class CoreMetricsProcessor {
       const coreMetrics = {
         fft: fftResults,
         spectralBands: spectralBandsResults, // ✅ NOVO: 7 bandas profissionais
+        bands: spectralBandsResults, // 🔧 COMPATIBILITY: Para frontend que procura por 'bands'
         spectralCentroid: spectralCentroidResults, // ✅ NOVO: Centro de brilho em Hz
         lufs: {
           ...lufsMetrics,
