@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Polyphase Coefficients</title>
+</head>
+<body>
+    <h1>Debug Polyphase Coefficients</h1>
+    <button id="testBtn">Testar Indexação Polyphase</button>
+    <div id="results"></div>
+
+    <script src="work/lib/audio/features/truepeak.js"></script>
+    <script>
+        document.getElementById('testBtn').addEventListener('click', function() {
+            console.log('🧪 Testando indexação polyphase...');
+            
+            // Debug dos coeficientes
+            console.log('📊 POLYPHASE_COEFFS:', POLYPHASE_COEFFS);
+            console.log('Total coeficientes:', POLYPHASE_COEFFS.TAPS.length);
+            console.log('LENGTH:', POLYPHASE_COEFFS.LENGTH);
+            console.log('UPSAMPLING_FACTOR:', POLYPHASE_COEFFS.UPSAMPLING_FACTOR);
+            
+            // Verificar se indexação está correta
+            const factor = POLYPHASE_COEFFS.UPSAMPLING_FACTOR; // 4
+            const length = POLYPHASE_COEFFS.LENGTH; // 48
+            
+            console.log(`🔍 Fator upsampling: ${factor}, Length: ${length}`);
+            console.log(`🔍 Esperado: ${length} coeficientes para ${length/factor} taps por fase`);
+            
+            // Verificar cada fase
+            for (let phase = 0; phase < factor; phase++) {
+                console.log(`\n🔍 Fase ${phase}:`);
+                for (let i = 0; i < Math.min(length, 12); i++) { // primeiros 12 apenas para debug
+                    const coeffIdx = i * factor + phase;
+                    if (coeffIdx < POLYPHASE_COEFFS.TAPS.length) {
+                        console.log(`  i=${i}, coeffIdx=${coeffIdx}, valor=${POLYPHASE_COEFFS.TAPS[coeffIdx]}`);
+                    } else {
+                        console.log(`  i=${i}, coeffIdx=${coeffIdx}, FORA DOS LIMITES!`);
+                    }
+                }
+            }
+            
+            // Teste rápido do detector
+            const detector = new TruePeakDetector(48000);
+            const testSignal = new Float32Array(1000);
+            
+            // Sinal simples: impulso unitário
+            testSignal[0] = 1.0;
+            
+            console.log('\n🧪 Teste impulso unitário...');
+            const result = detector.detectTruePeak(testSignal);
+            console.log('Resultado:', result);
+            
+            document.getElementById('results').innerHTML = `
+                <h3>Debug Polyphase:</h3>
+                <p>Coeficientes: ${POLYPHASE_COEFFS.TAPS.length}</p>
+                <p>Length: ${POLYPHASE_COEFFS.LENGTH}</p>
+                <p>Factor: ${POLYPHASE_COEFFS.UPSAMPLING_FACTOR}</p>
+                <p>True Peak resultado: ${result.true_peak_dbtp?.toFixed(2) || 'null'} dBTP</p>
+                <p><em>Veja o console para detalhes completos</em></p>
+            `;
+        });
+    </script>
+</body>
+</html>

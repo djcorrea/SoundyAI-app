@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug True Peak Test</title>
+</head>
+<body>
+    <h1>Debug True Peak Test</h1>
+    <button id="testBtn">Testar True Peak com sinal conhecido</button>
+    <div id="results"></div>
+
+    <script src="work/lib/audio/features/truepeak.js"></script>
+    <script>
+        document.getElementById('testBtn').addEventListener('click', function() {
+            console.log('🧪 Iniciando teste de debug...');
+            
+            // Criar um sinal de teste simples
+            const sampleRate = 48000;
+            const duration = 0.1; // 100ms
+            const samples = Math.floor(sampleRate * duration);
+            
+            // Sinal senoidal puro em 1kHz com amplitude 0.5 (-6 dB)
+            const leftChannel = new Float32Array(samples);
+            const rightChannel = new Float32Array(samples);
+            
+            const freq = 1000; // 1kHz
+            const amplitude = 0.5; // -6 dB
+            
+            for (let i = 0; i < samples; i++) {
+                const t = i / sampleRate;
+                const value = amplitude * Math.sin(2 * Math.PI * freq * t);
+                leftChannel[i] = value;
+                rightChannel[i] = value;
+            }
+            
+            console.log(`🎵 Sinal gerado: ${freq}Hz, amplitude ${amplitude} (${(20 * Math.log10(amplitude)).toFixed(2)} dB)`);
+            
+            // Testar True Peak
+            const detector = new TruePeakDetector(sampleRate);
+            const leftResult = detector.detectTruePeak(leftChannel);
+            
+            console.log('📊 Resultado True Peak:', leftResult);
+            
+            // Calcular sample peak manualmente para verificação
+            let maxSample = 0;
+            for (let i = 0; i < leftChannel.length; i++) {
+                maxSample = Math.max(maxSample, Math.abs(leftChannel[i]));
+            }
+            const samplePeakdB = 20 * Math.log10(maxSample);
+            
+            console.log(`🔍 Sample Peak manual: ${samplePeakdB.toFixed(2)} dB (linear: ${maxSample.toFixed(6)})`);
+            console.log(`🔍 True Peak resultado: ${leftResult.true_peak_dbtp.toFixed(2)} dBTP (linear: ${leftResult.true_peak_linear.toFixed(6)})`);
+            
+            const diff = leftResult.true_peak_dbtp - samplePeakdB;
+            console.log(`🎯 Diferença TP - SP: ${diff.toFixed(2)} dB`);
+            
+            if (leftResult.true_peak_dbtp < samplePeakdB) {
+                console.error('🚨 ERRO: True Peak menor que Sample Peak!');
+            } else {
+                console.log('✅ OK: True Peak >= Sample Peak');
+            }
+            
+            // Mostrar no HTML também
+            document.getElementById('results').innerHTML = `
+                <h3>Resultados:</h3>
+                <p>Sample Peak: ${samplePeakdB.toFixed(2)} dB</p>
+                <p>True Peak: ${leftResult.true_peak_dbtp.toFixed(2)} dBTP</p>
+                <p>Diferença: ${diff.toFixed(2)} dB</p>
+                <p>Status: ${leftResult.true_peak_dbtp < samplePeakdB ? '🚨 ERRO' : '✅ OK'}</p>
+            `;
+        });
+    </script>
+</body>
+</html>

@@ -5,7 +5,7 @@
 
 /**
  * 🎯 FIR Polyphase Coefficients para oversampling 4×
- * Baseado em filtro anti-aliasing Nyquist para 192kHz
+ * Baseado em filtro anti-aliasing Nyquist para 192kHz (valores originais preservados)
  */
 const POLYPHASE_COEFFS = {
   // Coeficientes do filtro FIR (48 taps, cutoff ~20kHz para 4× upsample)
@@ -196,29 +196,30 @@ class TruePeakDetector {
   }
 
   /**
-   * 🔄 Upsample genérico polyphase (4× ou 8×) - CORRIGIDO
-   * Mantém API legada (método upsample4x segue chamando este quando modo legacy).
+   * 🔄 Upsample genérico polyphase (4× ou 8×) - CORREÇÃO ALGORITMICA FUNDAMENTAL
+   * Implementação correta para coeficientes sequenciais (não intercalados)
    */
   upsamplePolyphase(inputSample) {
     // Adicionar sample ao delay line
     this.delayLine[this.delayIndex] = inputSample;
     this.delayIndex = (this.delayIndex + 1) % this.coeffs.LENGTH;
     
-    const factor = this.coeffs.UPSAMPLING_FACTOR;
+    const factor = this.coeffs.UPSAMPLING_FACTOR; // 4
     const upsampled = new Float32Array(factor);
+    const tapsPerPhase = this.coeffs.LENGTH; // 48 (todos os coeficientes para cada fase)
     
-    // 🎯 CORREÇÃO CRÍTICA: Implementação polyphase correta
+    // � CORREÇÃO FUNDAMENTAL: Para coeficientes sequenciais, usar sub-amostragem
     for (let phase = 0; phase < factor; phase++) {
       let output = 0;
       
-      // Convolução com coeficientes da fase atual
-      for (let i = 0; i < this.coeffs.LENGTH; i++) {
+      // Para cada fase, usar todos os coeficientes mas com offset de fase
+      for (let i = 0; i < tapsPerPhase; i++) {
         const delayIdx = (this.delayIndex - 1 - i + this.coeffs.LENGTH) % this.coeffs.LENGTH;
-        const coeffIdx = i * factor + phase;
         
-        if (coeffIdx < this.coeffs.TAPS.length) {
-          output += this.delayLine[delayIdx] * this.coeffs.TAPS[coeffIdx];
-        }
+        // Sub-amostragem: usar coeficiente a cada 'factor' posições + offset de fase
+        const coeffIdx = (i + phase) % this.coeffs.TAPS.length;
+        
+        output += this.delayLine[delayIdx] * this.coeffs.TAPS[coeffIdx];
       }
       
       // ITU-R BS.1770-4: Sem ganho extra no oversampling polyphase
