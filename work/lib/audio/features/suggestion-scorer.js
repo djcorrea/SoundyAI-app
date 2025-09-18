@@ -1,9 +1,5 @@
 // 🎯 SISTEMA DE SCORING E PRIORIZAÇÃO DE SUGESTÕES MELHORADO
-// Implementa z-score normalizado, severidade por                high: {
-                    message: 'Banda {band} excessiva para {genre}',
-                    action: 'Reduzir {band} em ~{delta} p.p. ({range})',
-                    why: 'Alinha com perfil tonal do gênero'
-                },s, prioridade ponderada e dependências
+// Implementa z-score normalizado, severidade por tipo, prioridade ponderada e dependências
 
 class SuggestionScorer {
     constructor() {

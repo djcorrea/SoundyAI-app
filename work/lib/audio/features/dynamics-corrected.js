@@ -342,10 +342,5 @@ export function calculateDynamicsMetrics(leftChannel, rightChannel, sampleRate =
     lraDetails: lra
   };
 }
-    lra: lra?.lra || null,
-    lraDetails: lra,
-    processingNote: 'Professional dynamics analysis with realistic values'
-  };
-}
 
 console.log('🎚️ Dynamics Metrics Calculator carregado - DR, Crest Factor e LRA profissionais');
