@@ -394,6 +394,16 @@ app.use("/api/jobs", jobsRoute);
 app.use("/api", presignRoute);  // Rota de presign para uploads
 app.use("/api/upload-audio", uploadAudioRoute);
 
+// Health check para Railway
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'healthy', 
+    worker: 'active',
+    timestamp: new Date().toISOString(),
+    pipeline: processAudioComplete ? 'real' : 'fallback'
+  });
+});
+
 // SPA Fallback
 app.get("*", (req, res, next) => {
   if (req.path.startsWith("/api/")) return next();

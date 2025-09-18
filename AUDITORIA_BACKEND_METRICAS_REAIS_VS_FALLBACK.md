@@ -40,9 +40,9 @@ try {
   console.log("✅ Pipeline completo carregado com sucesso!");
 ```
 
-### 🔧 **CORREÇÃO IMPLEMENTADA:**
+### 🔧 **CORREÇÃO IMPLEMENTADA E TESTADA:**
 
-**Atualização do `/index.js` (raiz):**
+**1. Atualização do `/index.js` (raiz):**
 ```javascript
 // ---------- Pipeline REAL importado da pasta work/ ----------
 try {
@@ -56,6 +56,36 @@ try {
   console.log("⚠️ Usando pipeline simulado como fallback");
 }
 ```
+
+**2. Configuração Railway corrigida:**
+```json
+// railway.json & railway.toml
+"startCommand": "node index.js"  // Executa arquivo raiz que importa work/
+```
+
+**3. Rota /health adicionada:**
+```javascript
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'healthy', 
+    worker: 'active',
+    pipeline: processAudioComplete ? 'real' : 'fallback'
+  });
+});
+```
+
+### ✅ **PROBLEMA DE MODULE_NOT_FOUND RESOLVIDO:**
+
+**Erro anterior:**
+```
+Error: Cannot find module '/app/work/index.js'
+```
+
+**Solução:**
+- Railway executa `/app/index.js` (raiz) ✅
+- Arquivo raiz importa pipeline da pasta `work/` ✅  
+- ES Modules funcionando corretamente ✅
+- Health check configurado ✅
 
 ---
 
