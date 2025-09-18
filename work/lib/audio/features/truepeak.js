@@ -196,59 +196,41 @@ class TruePeakDetector {
   }
 
   /**
-   * 🔧 Detectar clipping tradicional (sample-level)
-   * ESPECIFICAÇÃO: validar range float -1..+1 com detecção de clipping
+   * 🔧 Detectar clipping tradicional e sample peak
+   * ✅ CORRIGIDO: Sample Peak é diferente de True Peak - sem oversampling
    * @param {Float32Array} channel
-   * @returns {Object} Estatísticas de clipping
+   * @returns {Object} Estatísticas de clipping e sample peak tradicional
    */
   detectSampleClipping(channel) {
     let clippedSamples = 0;
-    let maxSample = 0;
-    let outOfRangeSamples = 0; // ESPECIFICAÇÃO: samples fora de [-1, +1]
-    const clippingThreshold = 0.99; // 99% full scale
+    let maxSampleLinear = 0;
+    const clippingThreshold = 0.99; // 99% full scale para clipping detection
     
+    // ✅ SAMPLE PEAK: buscar o maior valor absoluto nas amostras originais
+    // IMPORTANTE: Isso é diferente do True Peak que usa oversampling/interpolação
     for (let i = 0; i < channel.length; i++) {
-      const sample = channel[i];
-      const absSample = Math.abs(sample);
-      maxSample = Math.max(maxSample, absSample);
+      const absSample = Math.abs(channel[i]);
       
-      // ESPECIFICAÇÃO: validar range float [-1, +1]
-      if (sample < -1.0 || sample > 1.0) {
-        outOfRangeSamples++;
+      // Sample Peak: valor máximo absoluto sem interpolação
+      if (absSample > maxSampleLinear) {
+        maxSampleLinear = absSample;
       }
       
+      // Clipping detection: threshold de 99%
       if (absSample >= clippingThreshold) {
         clippedSamples++;
       }
     }
     
-    // Validação de integridade do sinal
-    const totalSamples = channel.length;
-    const outOfRangePercentage = (outOfRangeSamples / totalSamples) * 100;
-    const isValidFloat = outOfRangeSamples === 0;
-    
-    if (!isValidFloat) {
-      logAudio('truepeak', 'float_range_violation', {
-        outOfRangeSamples,
-        outOfRangePercentage: outOfRangePercentage.toFixed(3),
-        maxSample: maxSample.toFixed(6)
-      });
-    }
-    
     return {
       clipped_samples: clippedSamples,
       clipping_percentage: (clippedSamples / channel.length) * 100,
-      max_sample: maxSample,
-      max_sample_db: maxSample > 0 ? 20 * Math.log10(maxSample) : null,
-      // ESPECIFICAÇÃO: validação de range float
-      out_of_range_samples: outOfRangeSamples,
-      out_of_range_percentage: outOfRangePercentage,
-      valid_float_range: isValidFloat,
-      range_validation: {
-        valid: isValidFloat,
-        expected: '[-1.0, +1.0]',
-        assertion: isValidFloat ? 'PASSED: all samples in [-1, +1]' : 'FAILED: samples outside [-1, +1] range'
-      }
+      max_sample: maxSampleLinear,
+      max_sample_db: maxSampleLinear > 0 ? 20 * Math.log10(maxSampleLinear) : null,
+      // Metadados para diferenciação
+      algorithm: 'traditional_sample_peak',
+      note: 'Sample Peak ≠ True Peak (sem oversampling)',
+      samples_analyzed: channel.length
     };
   }
 }

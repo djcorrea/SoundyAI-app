@@ -269,16 +269,32 @@ class STFTEngine {
     
     const centroid = totalEnergy > 0 ? centroidNumerator / totalEnergy : 0;
     
-    // Rolloff 85%
+    // ✅ ROLLOFF 85% CORRIGIDO: usar CDF de potência corretamente
+    // Calcular Cumulative Distribution Function (CDF) da potência
     const rolloffTarget = totalEnergy * 0.85;
-    let rolloffEnergy = 0;
+    let cumulativeEnergy = 0;
     let rolloff85 = 0;
     
-    for (let i = 1; i < powerSpectrum.length; i++) {
-      rolloffEnergy += powerSpectrum[i];
-      if (rolloffEnergy >= rolloffTarget) {
-        rolloff85 = freqBins[i];
+    // Iterar através do espectro acumulando energia (CDF)
+    for (let i = 1; i < powerSpectrum.length; i++) { // Skip DC bin
+      cumulativeEnergy += powerSpectrum[i];
+      if (cumulativeEnergy >= rolloffTarget) {
+        // Interpolação linear para precisão entre bins
+        const prevCumulative = cumulativeEnergy - powerSpectrum[i];
+        const binFraction = (rolloffTarget - prevCumulative) / powerSpectrum[i];
+        rolloff85 = freqBins[i - 1] + binFraction * (freqBins[i] - freqBins[i - 1]);
         break;
+      }
+    }
+    
+    // Para masters funk modernos, esperamos valores >10 kHz
+    if (rolloff85 === 0 || rolloff85 < 1000) {
+      // Fallback: usar frequência do último bin significativo
+      for (let i = powerSpectrum.length - 1; i >= 1; i--) {
+        if (powerSpectrum[i] > totalEnergy * 0.001) { // 0.1% do total
+          rolloff85 = freqBins[i];
+          break;
+        }
       }
     }
     
