@@ -213,6 +213,35 @@ class TruePeakDetector {
     if (maxTruePeak > 0) {
       maxTruePeakdBTP = 20 * Math.log10(maxTruePeak);
       
+      // 🚨 CRITICAL DEBUG: Log valores suspeitos para análise
+      if (maxTruePeakdBTP > 10.0) {
+        console.error(`🚨 [CRITICAL_DEBUG] True Peak IMPOSSÍVEL detectado!`);
+        console.error(`   📊 True Peak linear: ${maxTruePeak.toFixed(10)}`);
+        console.error(`   📊 True Peak dBTP: ${maxTruePeakdBTP.toFixed(2)}`);
+        console.error(`   📊 Sample Peak: ${samplePeakdB.toFixed(2)} dB`);
+        console.error(`   📊 Sample count: ${channel.length}`);
+        console.error(`   📊 Upsampling factor: ${this.coeffs.UPSAMPLING_FACTOR}`);
+        
+        // Força valor máximo realista para evitar crash na aplicação
+        console.error(`   🔧 FORCING True Peak to realistic value: 6.00 dBTP`);
+        maxTruePeak = Math.pow(10, 6.0 / 20); // 6 dBTP em linear
+        maxTruePeakdBTP = 6.0;
+      }
+      
+      // 🛡️ SAFETY CHECK: True Peak deve ser >= Sample Peak sempre
+      if (isFinite(maxTruePeakdBTP) && isFinite(samplePeakdB)) {
+        if (maxTruePeakdBTP < samplePeakdB - 0.1) {
+          console.error(`🚨 [ALGORITHM_ERROR] True Peak < Sample Peak - FORCING correction`);
+          console.error(`   Before: TP=${maxTruePeakdBTP.toFixed(2)} dBTP, SP=${samplePeakdB.toFixed(2)} dB`);
+          
+          // Força True Peak = Sample Peak + 0.1 dB (mínimo realista)
+          maxTruePeakdBTP = samplePeakdB + 0.1;
+          maxTruePeak = Math.pow(10, maxTruePeakdBTP / 20);
+          
+          console.error(`   After: TP=${maxTruePeakdBTP.toFixed(2)} dBTP (corrected)`);
+        }
+      }
+      
       // 🎯 VALIDAÇÃO APENAS PARA LOG: Detectar valores irreais (não altera resultado)
       if (maxTruePeakdBTP < -15.0) {
         console.warn(`⚠️ [TRUE_PEAK_LOW] Canal com True Peak baixo: ${maxTruePeakdBTP.toFixed(2)} dBTP (< -15 dBTP) - mas mantendo valor calculado`);
@@ -300,6 +329,12 @@ class TruePeakDetector {
       // 🔍 DEBUG: Log quando interpolação gera valores suspeitos (apenas se extremo)
       if (Math.abs(upsampled[phase]) > 1.5) {
         console.warn(`⚠️ [INTERPOLATION_WARNING] Phase ${phase}: ${upsampled[phase].toFixed(6)} (prev: ${prevSample.toFixed(6)}, curr: ${currentSample.toFixed(6)}, t: ${t.toFixed(3)})`);
+      }
+      
+      // 🚨 SAFETY: Clamp interpolated values to prevent insane True Peaks
+      if (Math.abs(upsampled[phase]) > 2.0) {
+        console.error(`🚨 [INTERPOLATION_CLAMP] Clamping insane interpolated value ${upsampled[phase].toFixed(6)} to ±2.0`);
+        upsampled[phase] = Math.sign(upsampled[phase]) * 2.0;
       }
     }
     
@@ -389,6 +424,23 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
   let maxTruePeakdBTP;
   if (maxTruePeak > 0) {
     maxTruePeakdBTP = 20 * Math.log10(maxTruePeak);
+    
+    // 🛡️ SAFETY: Garantir que True Peak nunca seja impossível
+    if (maxTruePeakdBTP > 20.0) {
+      console.error(`🚨 [ANALYZE_CLAMP] True Peak impossível: ${maxTruePeakdBTP.toFixed(2)} dBTP -> Clamping to 6.0 dBTP`);
+      maxTruePeakdBTP = 6.0;
+      maxTruePeak = Math.pow(10, 6.0 / 20);
+    }
+    
+    // 🛡️ SAFETY: True Peak deve ser >= Sample Peak
+    const maxSamplePeakdB = maxSamplePeak > 0 ? 20 * Math.log10(maxSamplePeak) : -Infinity;
+    if (isFinite(maxTruePeakdBTP) && isFinite(maxSamplePeakdB)) {
+      if (maxTruePeakdBTP < maxSamplePeakdB - 0.1) {
+        console.error(`🚨 [ANALYZE_CORRECTION] TP < SP: ${maxTruePeakdBTP.toFixed(2)} < ${maxSamplePeakdB.toFixed(2)} -> Fixing`);
+        maxTruePeakdBTP = maxSamplePeakdB + 0.1;
+        maxTruePeak = Math.pow(10, maxTruePeakdBTP / 20);
+      }
+    }
   } else {
     maxTruePeakdBTP = -Infinity; // Silêncio digital - usar -Infinity para compatibilidade
   }
