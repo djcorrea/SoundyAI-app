@@ -184,8 +184,8 @@ class TruePeakDetector {
           output += this.delayLine[delayIndex] * this.coeffs.TAPS[coeffIndex];
         }
       }
-      // Filtro polyphase já aplica ganho correto - remover ganho duplo
-      upsampled[phase] = output;
+      // Ajuste de ganho (escala pelo fator)
+      upsampled[phase] = output * factor;
     }
     return upsampled;
   }
@@ -243,16 +243,6 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
   
   // Combinar resultados
   const maxTruePeak = Math.max(leftTruePeak.true_peak_linear, rightTruePeak.true_peak_linear);
-  const maxSamplePeak = Math.max(leftClipping.max_sample, rightClipping.max_sample);
-  
-  // Assert: True Peak deve ser >= Sample Peak (com tolerância numérica)
-  if (maxTruePeak > 0 && maxSamplePeak > 0) {
-    const tolerance = 1e-6;
-    if (maxTruePeak < maxSamplePeak - tolerance) {
-      console.warn(`⚠️ True Peak (${maxTruePeak.toFixed(6)}) é menor que Sample Peak (${maxSamplePeak.toFixed(6)}) - possível erro de cálculo`);
-    }
-  }
-  
   let maxTruePeakdBTP;
   if (maxTruePeak > 0) {
     maxTruePeakdBTP = 20 * Math.log10(maxTruePeak);

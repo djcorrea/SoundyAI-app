@@ -94,26 +94,25 @@ export class SpectralBandsCalculator {
   
   /**
    * 🌈 Calcular energia das 7 bandas espectrais
-   * ✅ CORRIGIDO: usar potência |X|² diretamente
    */
   calculateBandEnergies(magnitude) {
     const bandEnergies = {};
     let totalEnergy = 0;
     
-    // Calcular energia para cada banda usando potência |X|²
+    // Calcular energia para cada banda
     for (const [key, binInfo] of Object.entries(this.bandBins)) {
       let bandEnergy = 0;
       
       for (let bin = binInfo.minBin; bin <= binInfo.maxBin; bin++) {
         if (bin < magnitude.length) {
-          // ✅ CORREÇÃO: usar potência |X|² diretamente
-          const power = magnitude[bin] * magnitude[bin];
-          bandEnergy += power;
+          // Usar energia (magnitude²) para cálculo correto
+          const energy = magnitude[bin] * magnitude[bin];
+          bandEnergy += energy;
+          totalEnergy += energy;
         }
       }
       
       bandEnergies[key] = bandEnergy;
-      totalEnergy += bandEnergy;
     }
     
     // Validar energia total
@@ -124,35 +123,40 @@ export class SpectralBandsCalculator {
       return null;
     }
     
-    logAudio('spectral_bands', 'energy_calculated', {
-      totalEnergy: totalEnergy.toExponential(3),
-      algorithm: 'power_X_squared'
-    });
-    
     return { bandEnergies, totalEnergy };
   }
   
   /**
    * 📈 Calcular percentuais e normalizar para somar 100%
-   * ✅ CORRIGIDO: normalização única sem loops duplos
    */
   calculateBandPercentages(bandEnergies, totalEnergy) {
     const percentages = {};
+    let percentageSum = 0;
     
-    // ✅ CORREÇÃO: normalização única direta
+    // Calcular percentuais brutos
     for (const [key, energy] of Object.entries(bandEnergies)) {
       const percentage = (energy / totalEnergy) * 100;
       percentages[key] = percentage;
+      percentageSum += percentage;
     }
     
-    // Verificar soma para auditoria
-    const percentageSum = Object.values(percentages).reduce((sum, p) => sum + p, 0);
-    
-    logAudio('spectral_bands', 'normalization', {
-      totalEnergy: totalEnergy.toExponential(3),
-      percentageSum: percentageSum.toFixed(2),
-      algorithm: 'single_normalization'
-    });
+    // Normalizar para somar exatamente 100% (força matemática)
+    if (percentageSum > 0) {
+      const normalizationFactor = 100.0 / percentageSum;
+      for (const key of Object.keys(percentages)) {
+        percentages[key] *= normalizationFactor;
+      }
+      
+      // Verificação final e ajuste de arredondamento
+      const finalSum = Object.values(percentages).reduce((sum, p) => sum + p, 0);
+      if (Math.abs(finalSum - 100) > 0.001) {
+        // Distribui erro entre todas as bandas proporcionalmente
+        const adjustment = (100 - finalSum) / Object.keys(percentages).length;
+        for (const key of Object.keys(percentages)) {
+          percentages[key] += adjustment;
+        }
+      }
+    }
     
     return percentages;
   }
@@ -218,22 +222,19 @@ export class SpectralBandsCalculator {
         frame: frameIndex,
         totalEnergy: totalEnergy.toExponential(3),
         totalPercentage: totalPercentage.toFixed(1),
-        sub: result.sub.percentage + '%',
-        bass: result.bass.percentage + '%',
-        mid: result.mid.percentage + '%',
-        presence: result.presence.percentage + '%',
-        air: result.air.percentage + '%',
-        algorithm: 'power_X_squared_single_normalization'
+        sub: result.sub.percentage + '% (' + result.sub.energy_db + 'dB)',
+        bass: result.bass.percentage + '% (' + result.bass.energy_db + 'dB)',
+        mid: result.mid.percentage + '% (' + result.mid.energy_db + 'dB)',
+        presence: result.presence.percentage + '% (' + result.presence.energy_db + 'dB)',
+        air: result.air.percentage + '% (' + result.air.energy_db + 'dB)'
       });
       
-      // ✅ ESTRUTURA JSON UNIFICADA
       const finalResult = {
         bands: result,
         totalEnergy,
         totalPercentage,
-        algorithm: 'power_X_squared_single_normalization',
-        valid: isValid,
-        processedFrames: 1
+        algorithm: 'RMS_7_Band_Normalized',
+        valid: isValid
       };
       
       if (frameIndex < 3) {
@@ -276,9 +277,8 @@ export class SpectralBandsCalculator {
       bands: result,
       totalEnergy: null,
       totalPercentage: null,
-      algorithm: 'power_X_squared_single_normalization',
-      valid: false,
-      processedFrames: 0
+      algorithm: 'RMS_7_Band_Normalized',
+      valid: false
     };
   }
 }
@@ -371,14 +371,14 @@ export class SpectralBandsAggregator {
     const totalPercentage = Object.values(aggregated)
       .reduce((sum, band) => sum + (band.percentage || 0), 0);
     
-    // ✅ ESTRUTURA JSON UNIFICADA para agregação
     const finalResult = {
       bands: aggregated,
       totalEnergy: null,
       totalPercentage: Number(totalPercentage.toFixed(1)),
-      algorithm: 'power_X_squared_aggregated',
-      valid: Math.abs(totalPercentage - 100) < 1.0,
-      processedFrames: validBands.length
+      algorithm: 'RMS_7_Band_Normalized_Aggregated',
+      valid: Math.abs(totalPercentage - 100) < 1.0, // Tolerância maior para agregação
+      framesUsed: validBands.length,
+      processedFrames: validBands.length  // ← CORRIGE: json-output.js busca processedFrames
     };
     
     console.log('🎯 [SPECTRAL_CRITICAL] aggregate RESULTADO FINAL:', {

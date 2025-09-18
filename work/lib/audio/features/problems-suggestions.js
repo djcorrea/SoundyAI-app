@@ -182,22 +182,19 @@ export class ProblemsAndSuggestionsAnalyzer {
    */
   analyzeLoudnessProblems(metrics, problems, suggestions) {
     const lufs = metrics.lufs?.integrated;
-    const truePeak = metrics.truePeak?.maxDbtp || metrics.truePeak?.peak;
+    const truePeak = metrics.truePeak?.peak;
     
     if (lufs !== null && lufs !== undefined) {
-      // CORREÇÃO: Verificar se valor é menor que threshold (valor < target = aumentar)
       if (lufs < this.config.LUFS_THRESHOLDS.TOO_QUIET) {
         problems.push({
           id: 'lufs_too_quiet',
           category: 'loudness',
           title: 'Áudio muito baixo',
-          description: `LUFS de ${lufs.toFixed(1)} dB é muito baixo para distribuição (delta: ${(lufs - (-16)).toFixed(1)} dB)`,
+          description: `LUFS de ${lufs.toFixed(1)} dB é muito baixo para distribuição`,
           severity: SEVERITY_LEVELS.WARNING,
           affectedMetric: 'lufs',
           currentValue: `${lufs.toFixed(1)} LUFS`,
           expectedValue: '-16 a -12 LUFS',
-          delta: lufs - (-16), // Delta correto: valor atual - target ideal
-          direction: 'increase', // CORREÇÃO: quando valor < target, deve aumentar
           impact: 'Usuários precisarão aumentar muito o volume'
         });
         
@@ -205,65 +202,40 @@ export class ProblemsAndSuggestionsAnalyzer {
           id: 'increase_loudness',
           category: 'loudness',
           title: 'Aumentar loudness',
-          description: `Aumentar em ~${Math.abs(lufs - (-16)).toFixed(1)} dB para alcançar nível ideal`,
-          action: 'Apply gentle limiting and gain adjustment to increase loudness',
-          direction: 'increase', // CORREÇÃO: consistente com o problema
-          targetValue: -16,
-          currentValue: lufs,
-          adjustment: Math.abs(lufs - (-16)),
+          description: 'Use um limiter ou maximize para aumentar o loudness geral',
+          action: 'Apply gentle limiting and gain adjustment',
           priority: 'high',
           difficulty: 'medium',
           relatedProblems: ['lufs_too_quiet']
         });
       }
       
-      // CORREÇÃO: Verificar se valor é maior que threshold (valor > target = diminuir)
       if (lufs > this.config.LUFS_THRESHOLDS.TOO_LOUD) {
         problems.push({
           id: 'lufs_too_loud',
           category: 'loudness',
           title: 'Áudio muito alto',
-          description: `LUFS de ${lufs.toFixed(1)} dB pode causar distorção (delta: ${(lufs - (-12)).toFixed(1)} dB)`,
+          description: `LUFS de ${lufs.toFixed(1)} dB pode causar distorção`,
           severity: SEVERITY_LEVELS.ERROR,
           affectedMetric: 'lufs',
           currentValue: `${lufs.toFixed(1)} LUFS`,
           expectedValue: '-16 a -12 LUFS',
-          delta: lufs - (-12), // Delta correto: valor atual - target ideal
-          direction: 'decrease', // CORREÇÃO: quando valor > target, deve diminuir
           impact: 'Possível distorção e fadiga auditiva'
-        });
-        
-        suggestions.push({
-          id: 'decrease_loudness',
-          category: 'loudness',
-          title: 'Reduzir loudness',
-          description: `Reduzir em ~${Math.abs(lufs - (-12)).toFixed(1)} dB para alcançar nível seguro`,
-          action: 'Reduce gain and adjust limiting to decrease loudness',
-          direction: 'decrease', // CORREÇÃO: consistente com o problema
-          targetValue: -12,
-          currentValue: lufs,
-          adjustment: Math.abs(lufs - (-12)),
-          priority: 'high',
-          difficulty: 'medium',
-          relatedProblems: ['lufs_too_loud']
         });
       }
     }
     
     if (truePeak !== null && truePeak !== undefined) {
-      // CORREÇÃO: True Peak > threshold = diminuir (valor > target = diminuir)
       if (truePeak > this.config.TRUE_PEAK_THRESHOLDS.CRITICAL) {
         problems.push({
           id: 'true_peak_clipping',
           category: 'loudness',
           title: 'Clipping detectado',
-          description: `True Peak de ${truePeak.toFixed(2)} dB indica clipping digital (excesso: ${truePeak.toFixed(2)} dB)`,
+          description: `True Peak de ${truePeak.toFixed(2)} dB indica clipping digital`,
           severity: SEVERITY_LEVELS.CRITICAL,
           affectedMetric: 'truePeak',
           currentValue: `${truePeak.toFixed(2)} dB`,
           expectedValue: '< -1 dB',
-          delta: truePeak - (-1), // Delta correto: quanto excede o limite
-          direction: 'decrease', // CORREÇÃO: quando peak > threshold, deve diminuir
           impact: 'Distorção audível e degradação da qualidade'
         });
         
@@ -271,47 +243,11 @@ export class ProblemsAndSuggestionsAnalyzer {
           id: 'fix_clipping',
           category: 'loudness',
           title: 'Corrigir clipping',
-          description: `Reduzir gain em ~${Math.abs(truePeak - (-1)).toFixed(1)} dB para eliminar clipping`,
-          action: 'Reduce overall gain to bring true peak below -1dBTP',
-          direction: 'decrease', // CORREÇÃO: consistente - reduzir gain
-          targetValue: -1,
-          currentValue: truePeak,
-          adjustment: Math.abs(truePeak - (-1)),
+          description: 'Reduzir gain e aplicar limiting adequado',
+          action: 'Reduce overall gain by 3-6dB and apply proper limiting',
           priority: 'critical',
           difficulty: 'easy',
           relatedProblems: ['true_peak_clipping']
-        });
-      }
-      
-      // CORREÇÃO: Adicionar caso intermediário - warning zone
-      else if (truePeak > this.config.TRUE_PEAK_THRESHOLDS.WARNING) {
-        problems.push({
-          id: 'true_peak_warning',
-          category: 'loudness',
-          title: 'True Peak próximo do limite',
-          description: `True Peak de ${truePeak.toFixed(2)} dB está próximo do clipping (margem: ${(-1 - truePeak).toFixed(2)} dB)`,
-          severity: SEVERITY_LEVELS.WARNING,
-          affectedMetric: 'truePeak',
-          currentValue: `${truePeak.toFixed(2)} dB`,
-          expectedValue: '< -1 dB',
-          delta: truePeak - (-1),
-          direction: 'decrease', // CORREÇÃO: ainda precisa diminuir
-          impact: 'Risco de clipping em alguns sistemas'
-        });
-        
-        suggestions.push({
-          id: 'reduce_peak_margin',
-          category: 'loudness',
-          title: 'Aumentar margem de segurança',
-          description: `Reduzir gain em ~${Math.abs(truePeak - (-3)).toFixed(1)} dB para margem segura`,
-          action: 'Apply gentle gain reduction for safety margin',
-          direction: 'decrease',
-          targetValue: -3,
-          currentValue: truePeak,
-          adjustment: Math.abs(truePeak - (-3)),
-          priority: 'medium',
-          difficulty: 'easy',
-          relatedProblems: ['true_peak_warning']
         });
       }
     }
@@ -325,19 +261,16 @@ export class ProblemsAndSuggestionsAnalyzer {
     const crestFactor = metrics.dynamics?.crestFactor;
     
     if (dynamicRange !== null && dynamicRange !== undefined) {
-      // CORREÇÃO: DR < threshold = aumentar dinâmica (reduzir compressão)
       if (dynamicRange < this.config.DYNAMIC_RANGE_THRESHOLDS.OVER_COMPRESSED) {
         problems.push({
           id: 'over_compression',
           category: 'dynamics',
           title: 'Sobre-compressão detectada',
-          description: `Range dinâmico de ${dynamicRange.toFixed(1)} dB indica compressão excessiva (faltam ${(8 - dynamicRange).toFixed(1)} dB)`,
+          description: `Range dinâmico de ${dynamicRange.toFixed(1)} dB indica compressão excessiva`,
           severity: SEVERITY_LEVELS.ERROR,
           affectedMetric: 'dynamicRange',
           currentValue: `${dynamicRange.toFixed(1)} dB`,
           expectedValue: '8-20 dB',
-          delta: dynamicRange - 8, // Negativo quando abaixo do ideal
-          direction: 'increase', // CORREÇÃO: quando DR < ideal, deve aumentar DR (reduzir compressão)
           impact: 'Som "achatado" e perda de musicalidade'
         });
         
@@ -345,82 +278,25 @@ export class ProblemsAndSuggestionsAnalyzer {
           id: 'reduce_compression',
           category: 'dynamics',
           title: 'Reduzir compressão',
-          description: `Reduzir compressão para aumentar dinâmica em ~${(8 - dynamicRange).toFixed(1)} dB`,
-          action: 'Reduce compression ratio and increase attack time to restore dynamics',
-          direction: 'increase', // CORREÇÃO: aumentar dinâmica = reduzir compressão
-          targetValue: 8,
-          currentValue: dynamicRange,
-          adjustment: Math.abs(dynamicRange - 8),
+          description: 'Diminuir ratio dos compressors e ajustar attack/release',
+          action: 'Reduce compression ratio and increase attack time',
           priority: 'high',
           difficulty: 'medium',
           relatedProblems: ['over_compression']
         });
       }
       
-      // CORREÇÃO: DR > threshold = reduzir dinâmica (aumentar controle)
       if (dynamicRange > this.config.DYNAMIC_RANGE_THRESHOLDS.UNDER_COMPRESSED) {
         problems.push({
           id: 'under_compression',
           category: 'dynamics',
           title: 'Falta de controle dinâmico',
-          description: `Range dinâmico de ${dynamicRange.toFixed(1)} dB pode indicar falta de processamento (excesso: ${(dynamicRange - 20).toFixed(1)} dB)`,
+          description: `Range dinâmico de ${dynamicRange.toFixed(1)} dB pode indicar falta de processamento`,
           severity: SEVERITY_LEVELS.INFO,
           affectedMetric: 'dynamicRange',
           currentValue: `${dynamicRange.toFixed(1)} dB`,
           expectedValue: '8-20 dB',
-          delta: dynamicRange - 20, // Positivo quando acima do ideal
-          direction: 'decrease', // CORREÇÃO: quando DR > ideal, deve diminuir DR (mais controle)
           impact: 'Possível inconsistência de volume'
-        });
-        
-        suggestions.push({
-          id: 'add_compression',
-          category: 'dynamics',
-          title: 'Adicionar controle dinâmico',
-          description: `Aplicar compressão suave para reduzir dinâmica em ~${(dynamicRange - 20).toFixed(1)} dB`,
-          action: 'Apply gentle compression to control dynamics',
-          direction: 'decrease', // CORREÇÃO: diminuir dinâmica = adicionar compressão
-          targetValue: 20,
-          currentValue: dynamicRange,
-          adjustment: Math.abs(dynamicRange - 20),
-          priority: 'low',
-          difficulty: 'easy',
-          relatedProblems: ['under_compression']
-        });
-      }
-    }
-    
-    // CORREÇÃO: Análise do Crest Factor
-    if (crestFactor !== null && crestFactor !== undefined) {
-      // Crest Factor baixo indica over-compression
-      if (crestFactor < 3) {
-        problems.push({
-          id: 'low_crest_factor',
-          category: 'dynamics',
-          title: 'Crest Factor muito baixo',
-          description: `Crest Factor de ${crestFactor.toFixed(1)} dB indica compressão excessiva (ideal: 6-12 dB)`,
-          severity: SEVERITY_LEVELS.WARNING,
-          affectedMetric: 'crestFactor',
-          currentValue: `${crestFactor.toFixed(1)} dB`,
-          expectedValue: '6-12 dB',
-          delta: crestFactor - 6, // Negativo quando muito baixo
-          direction: 'increase', // CORREÇÃO: aumentar crest factor = reduzir compressão
-          impact: 'Perda de transientes e impacto'
-        });
-        
-        suggestions.push({
-          id: 'restore_transients',
-          category: 'dynamics',
-          title: 'Restaurar transientes',
-          description: `Reduzir compressão para aumentar Crest Factor em ~${(6 - crestFactor).toFixed(1)} dB`,
-          action: 'Reduce compression and preserve transients',
-          direction: 'increase',
-          targetValue: 6,
-          currentValue: crestFactor,
-          adjustment: Math.abs(crestFactor - 6),
-          priority: 'medium',
-          difficulty: 'medium',
-          relatedProblems: ['low_crest_factor']
         });
       }
     }
@@ -434,19 +310,16 @@ export class ProblemsAndSuggestionsAnalyzer {
     const width = metrics.stereo?.width;
     
     if (correlation !== null && correlation !== undefined) {
-      // CORREÇÃO: Correlação baixa = imagem estreita = aumentar width
       if (correlation < this.config.STEREO_THRESHOLDS.MONO_LIKE) {
         problems.push({
           id: 'narrow_stereo',
           category: 'stereo',
           title: 'Imagem stereo muito estreita',
-          description: `Correlação de ${correlation.toFixed(2)} indica imagem stereo limitada (faltam ${(0.5 - correlation).toFixed(2)} pontos)`,
+          description: `Correlação de ${correlation.toFixed(2)} indica imagem stereo limitada`,
           severity: SEVERITY_LEVELS.WARNING,
           affectedMetric: 'stereoCorrelation',
           currentValue: correlation.toFixed(2),
           expectedValue: '0.3-0.9',
-          delta: correlation - 0.5, // Negativo quando muito baixo
-          direction: 'increase', // CORREÇÃO: aumentar width stereo
           impact: 'Som monofônico ou pouco espacial'
         });
         
@@ -454,114 +327,25 @@ export class ProblemsAndSuggestionsAnalyzer {
           id: 'widen_stereo',
           category: 'stereo',
           title: 'Expandir imagem stereo',
-          description: `Aumentar width stereo em ~${(0.5 - correlation).toFixed(2)} pontos para melhor espacialização`,
-          action: 'Add stereo reverb, delay or use stereo widening techniques',
-          direction: 'increase', // CORREÇÃO: aumentar width
-          targetValue: 0.5,
-          currentValue: correlation,
-          adjustment: Math.abs(correlation - 0.5),
+          description: 'Usar reverb, delay ou stereo widening plugins',
+          action: 'Add stereo reverb or use stereo widening techniques',
           priority: 'medium',
           difficulty: 'easy',
           relatedProblems: ['narrow_stereo']
         });
       }
       
-      // CORREÇÃO: Correlação alta = imagem muito larga = reduzir width
       if (correlation > this.config.STEREO_THRESHOLDS.TOO_WIDE) {
         problems.push({
           id: 'too_wide_stereo',
           category: 'stereo',
           title: 'Imagem stereo excessivamente larga',
-          description: `Correlação de ${correlation.toFixed(2)} pode causar problemas em mono (excesso: ${(correlation - 0.9).toFixed(2)} pontos)`,
+          description: `Correlação de ${correlation.toFixed(2)} pode causar problemas em mono`,
           severity: SEVERITY_LEVELS.WARNING,
           affectedMetric: 'stereoCorrelation',
           currentValue: correlation.toFixed(2),
           expectedValue: '0.3-0.9',
-          delta: correlation - 0.9, // Positivo quando muito alto
-          direction: 'decrease', // CORREÇÃO: diminuir width stereo
           impact: 'Possível cancelamento em reprodução mono'
-        });
-        
-        suggestions.push({
-          id: 'narrow_stereo_width',
-          category: 'stereo',
-          title: 'Reduzir width stereo',
-          description: `Diminuir width stereo em ~${(correlation - 0.9).toFixed(2)} pontos para compatibilidade mono`,
-          action: 'Reduce stereo width or add mono compatibility check',
-          direction: 'decrease', // CORREÇÃO: diminuir width
-          targetValue: 0.9,
-          currentValue: correlation,
-          adjustment: Math.abs(correlation - 0.9),
-          priority: 'medium',
-          difficulty: 'easy',
-          relatedProblems: ['too_wide_stereo']
-        });
-      }
-      
-      // CORREÇÃO: Correlação negativa = problemas de fase
-      if (correlation < -0.3) {
-        problems.push({
-          id: 'phase_issues',
-          category: 'stereo',
-          title: 'Problemas de fase detectados',
-          description: `Correlação negativa de ${correlation.toFixed(2)} indica cancelamento de fase`,
-          severity: SEVERITY_LEVELS.ERROR,
-          affectedMetric: 'stereoCorrelation',
-          currentValue: correlation.toFixed(2),
-          expectedValue: '> 0.3',
-          delta: correlation - 0.3, // Muito negativo
-          direction: 'increase', // CORREÇÃO: corrigir fase = aumentar correlação
-          impact: 'Cancelamento severo em reprodução mono'
-        });
-        
-        suggestions.push({
-          id: 'fix_phase',
-          category: 'stereo',
-          title: 'Corrigir problemas de fase',
-          description: `Corrigir fase para aumentar correlação em ~${Math.abs(correlation - 0.3).toFixed(2)} pontos`,
-          action: 'Check and correct phase relationships between L/R channels',
-          direction: 'increase', // CORREÇÃO: aumentar correlação = corrigir fase
-          targetValue: 0.3,
-          currentValue: correlation,
-          adjustment: Math.abs(correlation - 0.3),
-          priority: 'high',
-          difficulty: 'medium',
-          relatedProblems: ['phase_issues']
-        });
-      }
-    }
-    
-    // CORREÇÃO: Análise adicional do Width se disponível
-    if (width !== null && width !== undefined) {
-      if (width < 0.2) {
-        problems.push({
-          id: 'insufficient_width',
-          category: 'stereo',
-          title: 'Width stereo insuficiente',
-          description: `Width de ${width.toFixed(2)} é muito baixo para mix stereo (ideal: 0.4-0.8)`,
-          severity: SEVERITY_LEVELS.INFO,
-          affectedMetric: 'stereoWidth',
-          currentValue: width.toFixed(2),
-          expectedValue: '0.4-0.8',
-          delta: width - 0.4, // Negativo quando muito baixo
-          direction: 'increase', // CORREÇÃO: aumentar width
-          impact: 'Mix soa monofônico'
-        });
-      }
-      
-      if (width > 1.2) {
-        problems.push({
-          id: 'excessive_width',
-          category: 'stereo',
-          title: 'Width stereo excessivo',
-          description: `Width de ${width.toFixed(2)} pode causar instabilidade (ideal: 0.4-0.8)`,
-          severity: SEVERITY_LEVELS.WARNING,
-          affectedMetric: 'stereoWidth',
-          currentValue: width.toFixed(2),
-          expectedValue: '0.4-0.8',
-          delta: width - 0.8, // Positivo quando muito alto
-          direction: 'decrease', // CORREÇÃO: diminuir width
-          impact: 'Possível instabilidade em diferentes sistemas'
         });
       }
     }
