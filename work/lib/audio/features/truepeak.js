@@ -184,8 +184,7 @@ class TruePeakDetector {
           output += this.delayLine[delayIndex] * this.coeffs.TAPS[coeffIndex];
         }
       }
-      // Ajuste de ganho (escala pelo fator)
-      upsampled[phase] = output * factor;
+      upsampled[phase] = output;
     }
     return upsampled;
   }
@@ -243,6 +242,13 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
   
   // Combinar resultados
   const maxTruePeak = Math.max(leftTruePeak.true_peak_linear, rightTruePeak.true_peak_linear);
+  const maxSamplePeak = Math.max(leftClipping.max_sample, rightClipping.max_sample);
+  
+  // Assert: True peak deve ser >= sample peak (com tolerância numérica)
+  if (maxTruePeak < maxSamplePeak - 1e-6) {
+    console.warn(`⚠️ Assert falhou: True peak (${maxTruePeak}) < Sample peak (${maxSamplePeak})`);
+  }
+  
   let maxTruePeakdBTP;
   if (maxTruePeak > 0) {
     maxTruePeakdBTP = 20 * Math.log10(maxTruePeak);
