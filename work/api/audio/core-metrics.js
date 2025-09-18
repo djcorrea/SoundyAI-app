@@ -1056,9 +1056,22 @@ class CoreMetricsProcessor {
   
   calculateSpectralMetrics(magnitude, frameIndex = 0) {
     try {
-      return this.spectralCalculator.calculateAllMetrics(magnitude, frameIndex);
+      // 🚨 DEBUG: Log antes de chamar calculateAllMetrics
+      console.log(`🔍 [SPECTRAL_DEBUG] Calculando métricas espectrais - Frame: ${frameIndex}, Magnitude length: ${magnitude ? magnitude.length : 'null'}`);
+      
+      if (!magnitude || magnitude.length === 0) {
+        console.error(`❌ [SPECTRAL_ERROR] Magnitude inválida ou vazia`);
+        return this.spectralCalculator.getNullMetrics();
+      }
+      
+      const result = this.spectralCalculator.calculateAllMetrics(magnitude, frameIndex);
+      console.log(`✅ [SPECTRAL_DEBUG] Métricas calculadas com sucesso`);
+      return result;
       
     } catch (error) {
+      console.error(`🚨 [SPECTRAL_CRITICAL_ERROR] Erro fatal no cálculo espectral:`, error.message);
+      console.error(`📊 [SPECTRAL_CONTEXT] Frame: ${frameIndex}, Magnitude: ${magnitude ? magnitude.length : 'null'} samples`);
+      
       logAudio('spectral', 'calculator_error', { 
         frame: frameIndex, 
         error: error.message 
