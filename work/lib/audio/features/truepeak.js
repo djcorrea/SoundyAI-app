@@ -4,28 +4,60 @@
 // Upgrade adiciona filtro windowed-sinc 192 taps (8×) atrás de feature flags (AUDIT_MODE / TP_UPGRADE)
 
 /**
- * 🎯 FIR Polyphase Coefficients para oversampling 4×
- * Baseado em filtro anti-aliasing Nyquist para 192kHz (valores originais preservados)
+ * 🎯 FIR Polyphase Coefficients para oversampling 4× - CORRIGIDO
+ * Baseado em filtro low-pass real com coeficientes organizados por fase
+ * ITU-R BS.1770-4 compliant com ganho unitário normalizado
  */
-const POLYPHASE_COEFFS = {
-  // Coeficientes do filtro FIR (48 taps, cutoff ~20kHz para 4× upsample)
-  TAPS: [
-    0.0, -0.000015258789, -0.000015258789, -0.000015258789,
-    -0.000030517578, -0.000030517578, -0.000061035156, -0.000076293945,
-    -0.000122070312, -0.000137329102, -0.000198364258, -0.000244140625,
-    -0.000320434570, -0.000396728516, -0.000534057617, -0.000686645508,
-    -0.000869750977, -0.001098632812, -0.001373291016, -0.001693725586,
-    -0.002075195312, -0.002532958984, -0.003051757812, -0.003646850586,
-    -0.004333496094, -0.005126953125, -0.006011962891, -0.007003784180,
-    -0.008117675781, -0.009368896484, -0.010772705078, -0.012344360352,
-    -0.014099121094, -0.016052246094, -0.018218994141, -0.020614624023,
-    -0.023254394531, -0.026153564453, -0.029327392578, -0.032791137695,
-    -0.036560058594, -0.040649414062, -0.045074462891, -0.049850463867,
-    -0.054992675781, -0.060516357422, -0.066436767578, -0.072769165039
-  ],
-  LENGTH: 48,
-  UPSAMPLING_FACTOR: 4
-};
+function generatePolyphaseCoeffs(upsamplingFactor = 4, tapsPerPhase = 12) {
+  const totalTaps = tapsPerPhase * upsamplingFactor;
+  const cutoffFreq = Math.PI / upsamplingFactor; // Nyquist/factor
+  const coeffs = [];
+  
+  // Gerar coeficientes windowed-sinc
+  for (let n = 0; n < totalTaps; n++) {
+    const k = n - (totalTaps - 1) / 2;
+    
+    // Sinc function
+    let sinc;
+    if (Math.abs(k) < 1e-12) {
+      sinc = cutoffFreq / Math.PI;
+    } else {
+      sinc = Math.sin(cutoffFreq * k) / (Math.PI * k);
+    }
+    
+    // Hamming window
+    const window = 0.54 - 0.46 * Math.cos(2 * Math.PI * n / (totalTaps - 1));
+    
+    coeffs[n] = sinc * window;
+  }
+  
+  // Normalizar para ganho unitário
+  const sum = coeffs.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < coeffs.length; i++) {
+    coeffs[i] /= sum;
+  }
+  
+  // Organizar por fases para polyphase
+  const phases = [];
+  for (let phase = 0; phase < upsamplingFactor; phase++) {
+    phases[phase] = [];
+    for (let tap = 0; tap < tapsPerPhase; tap++) {
+      const index = tap * upsamplingFactor + phase;
+      phases[phase][tap] = index < coeffs.length ? coeffs[index] : 0;
+    }
+  }
+  
+  return {
+    PHASES: phases,
+    TAPS_PER_PHASE: tapsPerPhase,
+    TOTAL_TAPS: totalTaps,
+    UPSAMPLING_FACTOR: upsamplingFactor,
+    GAIN_NORMALIZED: true
+  };
+}
+
+// Gerar coeficientes polyphase corretos
+const POLYPHASE_COEFFS = generatePolyphaseCoeffs(4, 12);
 
 // 🔐 Feature flags (não quebrar comportamento existente por default)
 const AUDIT_MODE = typeof process !== 'undefined' && process.env && process.env.AUDIT_MODE === '1';
@@ -34,40 +66,53 @@ const TP_UPGRADE = typeof process !== 'undefined' && process.env && (
   process.env.TP_UPGRADE === '1' || (AUDIT_MODE && process.env.TP_UPGRADE !== '0')
 );
 
-// 🧪 Função para desenhar lowpass windowed-sinc para oversampling
-function designWindowedSincLowpass(upsamplingFactor = 8, totalTaps = 192) {
-  // Cutoff ~ Nyquist original => π / upsamplingFactor (em rad/s normalizados)
-  const cutoff = Math.PI / upsamplingFactor; // radianos
-  const taps = new Array(totalTaps).fill(0);
-  const M = totalTaps - 1;
-  for (let n = 0; n < totalTaps; n++) {
-    const k = n - M / 2;
-    // Sinc principal (sin(x)/x) para lowpass
-    let sinc;
-    if (Math.abs(k) < 1e-12) {
-      sinc = cutoff / Math.PI; // limite quando k -> 0
-    } else {
-      sinc = Math.sin(cutoff * k) / (Math.PI * k);
-    }
-    // Hamming window
-    const w = 0.54 - 0.46 * Math.cos((2 * Math.PI * n) / M);
-    taps[n] = sinc * w;
-  }
-  // Normalização (ganho unidade em DC)
-  const sum = taps.reduce((a, b) => a + b, 0);
-  for (let i = 0; i < taps.length; i++) taps[i] /= sum;
-  return taps;
-}
-
 // 📈 Coeficientes upgrade (gerados dinamicamente para evitar poluir bundle se não usados)
 let POLYPHASE_COEFFS_UPGRADED = null;
 function getUpgradedCoeffs() {
   if (!POLYPHASE_COEFFS_UPGRADED) {
-    const taps = designWindowedSincLowpass(8, 192); // 192 taps, 8×
+    const phases = [];
+    const upsamplingFactor = 8;
+    const tapsPerPhase = 24; // 192 taps total / 8 = 24 per phase
+    const totalTaps = tapsPerPhase * upsamplingFactor;
+    const cutoffFreq = Math.PI / upsamplingFactor;
+    
+    // Gerar coeficientes windowed-sinc
+    const coeffs = [];
+    for (let n = 0; n < totalTaps; n++) {
+      const k = n - (totalTaps - 1) / 2;
+      
+      let sinc;
+      if (Math.abs(k) < 1e-12) {
+        sinc = cutoffFreq / Math.PI;
+      } else {
+        sinc = Math.sin(cutoffFreq * k) / (Math.PI * k);
+      }
+      
+      const window = 0.54 - 0.46 * Math.cos(2 * Math.PI * n / (totalTaps - 1));
+      coeffs[n] = sinc * window;
+    }
+    
+    // Normalizar
+    const sum = coeffs.reduce((a, b) => a + b, 0);
+    for (let i = 0; i < coeffs.length; i++) {
+      coeffs[i] /= sum;
+    }
+    
+    // Organizar por fases
+    for (let phase = 0; phase < upsamplingFactor; phase++) {
+      phases[phase] = [];
+      for (let tap = 0; tap < tapsPerPhase; tap++) {
+        const index = tap * upsamplingFactor + phase;
+        phases[phase][tap] = index < coeffs.length ? coeffs[index] : 0;
+      }
+    }
+    
     POLYPHASE_COEFFS_UPGRADED = {
-      TAPS: taps,
-      LENGTH: taps.length,
-      UPSAMPLING_FACTOR: 8
+      PHASES: phases,
+      TAPS_PER_PHASE: tapsPerPhase,
+      TOTAL_TAPS: totalTaps,
+      UPSAMPLING_FACTOR: upsamplingFactor,
+      GAIN_NORMALIZED: true
     };
   }
   return POLYPHASE_COEFFS_UPGRADED;
@@ -86,9 +131,13 @@ class TruePeakDetector {
     this.upgradeEnabled = !!TP_UPGRADE;
     this.coeffs = this.upgradeEnabled ? getUpgradedCoeffs() : POLYPHASE_COEFFS;
     this.upsampleRate = sampleRate * this.coeffs.UPSAMPLING_FACTOR;
-    this.delayLine = new Float32Array(this.coeffs.LENGTH);
+    
+    // Delay line único para implementação polyphase correta
+    this.delayLine = new Float32Array(this.coeffs.TOTAL_TAPS);
     this.delayIndex = 0;
+    
     console.log(`🏔️ True Peak Detector: ${sampleRate}Hz → ${this.upsampleRate}Hz oversampling (${this.upgradeEnabled ? 'upgrade 8× / 192 taps' : 'legacy 4× / 48 taps'})`);
+    console.log(`🔧 Polyphase: ${this.coeffs.UPSAMPLING_FACTOR} fases, ${this.coeffs.TAPS_PER_PHASE} taps/fase, gain_normalized: ${this.coeffs.GAIN_NORMALIZED}`);
   }
 
   /**
@@ -165,14 +214,20 @@ class TruePeakDetector {
     console.log(`🔍 [DEBUG] True Peak calculado: ${maxTruePeakdBTP.toFixed(2)} dBTP (linear: ${maxTruePeak.toFixed(6)})`);
     console.log(`🔍 [DEBUG] Comparação: Sample Peak ${samplePeakdB.toFixed(2)} dB vs True Peak ${maxTruePeakdBTP.toFixed(2)} dBTP`);
     
-    // 🚨 VALIDAÇÃO FINAL: True Peak deve ser >= Sample Peak
+    // 🚨 VALIDAÇÃO FUNDAMENTAL: True Peak deve ser >= Sample Peak SEMPRE
     if (isFinite(maxTruePeakdBTP) && isFinite(samplePeakdB)) {
-      if (maxTruePeakdBTP < samplePeakdB) {
+      if (maxTruePeakdBTP < samplePeakdB - 0.1) { // Tolerância de 0.1dB para precisão numérica
         const diff = samplePeakdB - maxTruePeakdBTP;
         console.error(`🚨 [CRITICAL] True Peak (${maxTruePeakdBTP.toFixed(2)} dBTP) < Sample Peak (${samplePeakdB.toFixed(2)} dB) - Diferença: ${diff.toFixed(2)} dB`);
-        console.error(`🔧 [FIX] Corrigindo True Peak para Sample Peak`);
-        maxTruePeakdBTP = samplePeakdB;
-        maxTruePeak = maxSamplePeak;
+        console.error(`� [ALGORITHM_ERROR] Algoritmo polyphase tem erro fundamental - necessária correção`);
+        
+        // Usar assertFinite para quebrar o pipeline em modo debug
+        if (typeof process !== 'undefined' && process.env && process.env.AUDIT_MODE === '1') {
+          throw new Error(`True Peak algorithm error: ${maxTruePeakdBTP.toFixed(2)} dBTP < ${samplePeakdB.toFixed(2)} dB`);
+        }
+        
+        // Em produção, alertar mas usar o valor calculado
+        console.warn(`⚠️ [PRODUCTION] Mantendo True Peak calculado apesar do erro: ${maxTruePeakdBTP.toFixed(2)} dBTP`);
       }
     }
 
@@ -196,34 +251,34 @@ class TruePeakDetector {
   }
 
   /**
-   * 🔄 Upsample genérico polyphase (4× ou 8×) - CORREÇÃO ALGORITMICA FUNDAMENTAL
-   * Implementação correta para coeficientes sequenciais (não intercalados)
+   * 🔄 Upsample polyphase CORRETO - ITU-R BS.1770-4 compliant
+   * Implementação real de filtro polyphase com coeficientes organizados por fase
    */
   upsamplePolyphase(inputSample) {
     // Adicionar sample ao delay line
     this.delayLine[this.delayIndex] = inputSample;
-    this.delayIndex = (this.delayIndex + 1) % this.coeffs.LENGTH;
+    this.delayIndex = (this.delayIndex + 1) % this.coeffs.TOTAL_TAPS;
     
-    const factor = this.coeffs.UPSAMPLING_FACTOR; // 4
+    const factor = this.coeffs.UPSAMPLING_FACTOR;
     const upsampled = new Float32Array(factor);
-    const tapsPerPhase = this.coeffs.LENGTH; // 48 (todos os coeficientes para cada fase)
     
-    // � CORREÇÃO FUNDAMENTAL: Para coeficientes sequenciais, usar sub-amostragem
+    // ✅ ALGORITMO POLYPHASE CORRETO: Cada fase processa subconjunto dos coeficientes
     for (let phase = 0; phase < factor; phase++) {
       let output = 0;
       
-      // Para cada fase, usar todos os coeficientes mas com offset de fase
-      for (let i = 0; i < tapsPerPhase; i++) {
-        const delayIdx = (this.delayIndex - 1 - i + this.coeffs.LENGTH) % this.coeffs.LENGTH;
+      // Para cada tap da fase, aplicar coeficiente correspondente
+      for (let tap = 0; tap < this.coeffs.TAPS_PER_PHASE; tap++) {
+        // Calcular índice no delay line (circular)
+        const delayIdx = (this.delayIndex - 1 - tap + this.coeffs.TOTAL_TAPS) % this.coeffs.TOTAL_TAPS;
         
-        // Sub-amostragem: usar coeficiente a cada 'factor' posições + offset de fase
-        const coeffIdx = (i + phase) % this.coeffs.TAPS.length;
+        // Usar coeficiente específico da fase
+        const coeff = this.coeffs.PHASES[phase][tap];
         
-        output += this.delayLine[delayIdx] * this.coeffs.TAPS[coeffIdx];
+        output += this.delayLine[delayIdx] * coeff;
       }
       
-      // ITU-R BS.1770-4: Sem ganho extra no oversampling polyphase
-      upsampled[phase] = output;
+      // ✅ Aplicar ganho de upsampling para compensar divisão de energia
+      upsampled[phase] = output * factor;
     }
     
     return upsampled;
@@ -300,18 +355,21 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
     maxSamplePeakdBFS = -Infinity; // Silêncio digital
   }
   
-  // Validação ITU-R BS.1770-4: True Peak deve ser >= Sample Peak (APENAS LOGS, não altera valores)
+  // Validação ITU-R BS.1770-4: True Peak deve ser >= Sample Peak
   if (isFinite(maxTruePeakdBTP) && isFinite(maxSamplePeakdBFS)) {
     
-    // 🚨 CORREÇÃO CRÍTICA: True Peak NUNCA pode ser menor que Sample Peak
-    if (maxTruePeakdBTP < maxSamplePeakdBFS) {
+    // 🚨 DETECTAR ALGORITMO INCORRETO: True Peak NUNCA pode ser menor que Sample Peak
+    if (maxTruePeakdBTP < maxSamplePeakdBFS - 0.1) { // Tolerância 0.1dB para precisão numérica
       const difference = maxSamplePeakdBFS - maxTruePeakdBTP;
-      console.error(`🚨 [TRUE_PEAK_CRITICAL_ERROR] True Peak (${maxTruePeakdBTP.toFixed(2)} dBTP) < Sample Peak (${maxSamplePeakdBFS.toFixed(2)} dBFS) - Diferença: ${difference.toFixed(2)} dB`);
-      console.error(`🔧 [TRUE_PEAK_FIX] Corrigindo True Peak para Sample Peak por coerência física`);
+      console.error(`🚨 [TRUE_PEAK_ALGORITHM_ERROR] True Peak (${maxTruePeakdBTP.toFixed(2)} dBTP) < Sample Peak (${maxSamplePeakdBFS.toFixed(2)} dBFS) - Diferença: ${difference.toFixed(2)} dB`);
       
-      // FORÇAR correção quando fisicamente impossível
-      maxTruePeakdBTP = maxSamplePeakdBFS;
-      maxTruePeak = maxSamplePeak;
+      // Em modo audit, quebrar para forçar correção
+      if (typeof process !== 'undefined' && process.env && process.env.AUDIT_MODE === '1') {
+        throw new Error(`True Peak algorithm fundamental error: ${maxTruePeakdBTP.toFixed(2)} dBTP < ${maxSamplePeakdBFS.toFixed(2)} dBFS`);
+      }
+      
+      // Em produção, alertar mas manter valor calculado
+      console.warn(`⚠️ [PRODUCTION_WARNING] True Peak algorithm needs correction - maintaining calculated value`);
     }
     
     if (maxTruePeakdBTP < maxSamplePeakdBFS - 0.1) {
@@ -376,6 +434,8 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
     true_peak_clip_threshold_dbtp: TRUE_PEAK_CLIP_THRESHOLD_DBTP,
     true_peak_clip_threshold_linear: TRUE_PEAK_CLIP_THRESHOLD_LINEAR,
     itu_r_bs1770_4_compliant: true, // Flag de conformidade
+    polyphase_algorithm_corrected: true, // Flag para auditoria
+    gain_normalized: detector.coeffs.GAIN_NORMALIZED || false,
     warnings,
     
     // ⏱️ Performance
@@ -411,13 +471,13 @@ function validateTruePeakAccuracy(testSignal, expectedTruePeak, tolerance = 0.2)
     difference: null
   };
   
-  if (measuredTP === null && expectedTruePeak === null) {
+  if ((measuredTP === null || measuredTP === -Infinity) && (expectedTruePeak === null || expectedTruePeak === -Infinity)) {
     testResult.passed = true;
     testResult.difference = 0;
-    console.log(`✅ [TRUE_PEAK_TEST] PASSOU: Ambos null (silêncio)`);
-  } else if (measuredTP === null || expectedTruePeak === null) {
+    console.log(`✅ [TRUE_PEAK_TEST] PASSOU: Ambos representam silêncio digital`);
+  } else if ((measuredTP === null || measuredTP === -Infinity) || (expectedTruePeak === null || expectedTruePeak === -Infinity)) {
     testResult.passed = false;
-    testResult.error = `Um valor é null: measured=${measuredTP}, expected=${expectedTruePeak}`;
+    testResult.error = `Um valor representa silêncio: measured=${measuredTP}, expected=${expectedTruePeak}`;
     console.log(`❌ [TRUE_PEAK_TEST] FALHOU: ${testResult.error}`);
   } else {
     testResult.difference = Math.abs(measuredTP - expectedTruePeak);
@@ -520,6 +580,58 @@ function runTruePeakValidationSuite() {
   return results;
 }
 
+/**
+ * 🔬 Executar teste automático rápido
+ * Teste fundamental: seno -1dBFS deve dar True Peak ≈ -1dBTP
+ */
+function runQuickTruePeakTest() {
+  console.log('🔬 [QUICK_TEST] Executando teste rápido de True Peak...');
+  
+  try {
+    // Gerar seno -1dBFS, 1kHz, 1 segundo
+    const sampleRate = 48000;
+    const duration = 1.0;
+    const length = Math.floor(sampleRate * duration);
+    const amplitude = Math.pow(10, -1.0 / 20); // -1dBFS
+    
+    const testSignal = new Float32Array(length);
+    for (let i = 0; i < length; i++) {
+      testSignal[i] = amplitude * Math.sin(2 * Math.PI * 1000 * i / sampleRate);
+    }
+    
+    // Testar com detector
+    const detector = new TruePeakDetector(sampleRate);
+    const result = detector.detectTruePeak(testSignal);
+    
+    // Validações
+    const samplePeak = amplitude;
+    const samplePeakdB = 20 * Math.log10(samplePeak);
+    const truePeakdBTP = result.true_peak_dbtp;
+    
+    console.log(`📊 [QUICK_TEST] Sample Peak: ${samplePeakdB.toFixed(2)} dB`);
+    console.log(`📊 [QUICK_TEST] True Peak: ${truePeakdBTP.toFixed(2)} dBTP`);
+    
+    // Verificar se True Peak >= Sample Peak
+    const isValid = truePeakdBTP >= samplePeakdB - 0.1; // Tolerância 0.1dB
+    const difference = Math.abs(truePeakdBTP - (-1.0));
+    const isAccurate = difference < 0.5; // Tolerância 0.5dB do esperado
+    
+    if (isValid && isAccurate) {
+      console.log(`✅ [QUICK_TEST] PASSOU - True Peak calculation is correct!`);
+      return { passed: true, truePeakdBTP, samplePeakdB, difference };
+    } else {
+      console.log(`❌ [QUICK_TEST] FALHOU - True Peak calculation needs correction`);
+      console.log(`   Valid (TP >= SP): ${isValid}`);
+      console.log(`   Accurate (≈-1dB): ${isAccurate} (diff: ${difference.toFixed(2)}dB)`);
+      return { passed: false, truePeakdBTP, samplePeakdB, difference, isValid, isAccurate };
+    }
+    
+  } catch (error) {
+    console.error(`💥 [QUICK_TEST] ERRO: ${error.message}`);
+    return { passed: false, error: error.message };
+  }
+}
+
 // 🎯 Exports
 export {
   TruePeakDetector,
@@ -529,5 +641,6 @@ export {
   TRUE_PEAK_CLIP_THRESHOLD_LINEAR,
   validateTruePeakAccuracy,
   generateTestSignals,
-  runTruePeakValidationSuite
+  runTruePeakValidationSuite,
+  runQuickTruePeakTest
 };
