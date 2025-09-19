@@ -5,15 +5,66 @@ import decodeAudioFile from "./audio-decoder.js";              // Fase 5.1
 import { segmentAudioTemporal } from "./temporal-segmentation.js"; // Fase 5.2  
 import { calculateCoreMetrics } from "./core-metrics.js";      // Fase 5.3
 import { generateJSONOutput } from "./json-output.js";         // Fase 5.4
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 // Sistema de tratamento de erros padronizado
 import { makeErr, logAudio, assertFinite } from '../../lib/audio/error-handling.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 console.log('🎵 Pipeline Completo (Fases 5.1-5.4) carregado - Node.js Backend CORRIGIDO');
+
+/**
+ * 🗂️ Criar arquivo temporário WAV para FFmpeg True Peak
+ */
+function createTempWavFile(audioBuffer, audioData, fileName, jobId) {
+  try {
+    const tempDir = path.join(__dirname, '../../../temp');
+    
+    // Criar diretório temp se não existir
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    
+    const tempFileName = `${jobId}_${Date.now()}_${path.parse(fileName).name}.wav`;
+    const tempFilePath = path.join(tempDir, tempFileName);
+    
+    console.log(`[TEMP_WAV] Criando arquivo temporário: ${tempFileName}`);
+    
+    // Escrever o audioBuffer original no arquivo temporário
+    fs.writeFileSync(tempFilePath, audioBuffer);
+    
+    console.log(`[TEMP_WAV] ✅ Arquivo temporário criado: ${tempFilePath}`);
+    
+    return tempFilePath;
+    
+  } catch (error) {
+    console.error(`[TEMP_WAV] ❌ Erro ao criar arquivo temporário: ${error.message}`);
+    throw new Error(`Failed to create temp WAV file: ${error.message}`);
+  }
+}
+
+/**
+ * 🗑️ Limpar arquivo temporário
+ */
+function cleanupTempFile(tempFilePath) {
+  try {
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      fs.unlinkSync(tempFilePath);
+      console.log(`[TEMP_WAV] 🗑️ Arquivo temporário removido: ${path.basename(tempFilePath)}`);
+    }
+  } catch (error) {
+    console.warn(`[TEMP_WAV] ⚠️ Erro ao remover arquivo temporário: ${error.message}`);
+  }
+}
 
 export async function processAudioComplete(audioBuffer, fileName, options = {}) {
   const startTime = Date.now();
   const jobId = options.jobId || 'unknown';
+  let tempFilePath = null;
   
   console.log(`🚀 [${jobId.substring(0,8)}] Iniciando pipeline completo para: ${fileName}`);
   console.log(`📊 [${jobId.substring(0,8)}] Buffer size: ${audioBuffer.length} bytes`);
@@ -33,6 +84,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       timings.phase1_decode = Date.now() - phase1StartTime;
       console.log(`✅ [${jobId.substring(0,8)}] Fase 5.1 concluída em ${timings.phase1_decode}ms`);
       console.log(`📊 [${jobId.substring(0,8)}] Audio: ${audioData.sampleRate}Hz, ${audioData.numberOfChannels}ch, ${audioData.duration.toFixed(2)}s`);
+      
+      // Criar arquivo temporário para FFmpeg True Peak
+      tempFilePath = createTempWavFile(audioBuffer, audioData, fileName, jobId);
       
     } catch (error) {
       // Fase 5.1 já estrutura seus próprios erros
@@ -62,7 +116,11 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       logAudio('core_metrics', 'start', { fileName, jobId });
       const phase3StartTime = Date.now();
       
-      coreMetrics = await calculateCoreMetrics(segmentedData, { jobId, fileName });
+      coreMetrics = await calculateCoreMetrics(segmentedData, { 
+        jobId, 
+        fileName,
+        tempFilePath // Passar arquivo temporário para FFmpeg True Peak
+      });
       
       timings.phase3_core_metrics = Date.now() - phase3StartTime;
       console.log(`✅ [${jobId.substring(0,8)}] Fase 5.3 concluída em ${timings.phase3_core_metrics}ms`);
@@ -167,6 +225,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       }
     });
 
+    // Limpar arquivo temporário
+    cleanupTempFile(tempFilePath);
+
     return finalJSON;
 
   } catch (error) {
@@ -182,6 +243,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     
     console.error(`💥 [${jobId.substring(0,8)}] Pipeline falhou após ${totalTime}ms:`, error.message);
     console.error(`📍 [${jobId.substring(0,8)}] Stage: ${error.stage || 'unknown'}, Code: ${error.code || 'unknown'}`);
+    
+    // Limpar arquivo temporário em caso de erro
+    cleanupTempFile(tempFilePath);
     
     // ========= ESTRUTURAR ERRO FINAL =========
     // NÃO retornar JSON de erro - propagar para camada de jobs

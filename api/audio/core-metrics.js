@@ -4,7 +4,7 @@
 
 import { FastFFT } from "../../lib/audio/fft.js";
 import { calculateLoudnessMetrics } from "../../lib/audio/features/loudness.js";
-import { TruePeakDetector, analyzeTruePeaks } from "../../lib/audio/features/truepeak.js";
+import { analyzeTruePeaksFFmpeg } from "../../lib/audio/features/truepeak-ffmpeg.js";
 import { normalizeAudioToTargetLUFS, validateNormalization } from "../../lib/audio/features/normalization.js";
 import { auditMetricsCorrections, auditMetricsValidation } from "../../lib/audio/features/audit-logging.js";
 import { SpectralMetricsCalculator, SpectralMetricsAggregator, serializeSpectralMetrics } from "../../lib/audio/features/spectral-metrics.js";
@@ -45,7 +45,6 @@ const CORE_METRICS_CONFIG = {
 class CoreMetricsProcessor {
   constructor() {
     this.fftEngine = new FastFFT();
-    this.truePeakDetector = new TruePeakDetector();
     this.cache = { hannWindow: new Map(), fftResults: new Map() };
     
     // NOVO: Inicializar calculadores corrigidos
@@ -135,7 +134,10 @@ class CoreMetricsProcessor {
 
       // ========= TRUE PEAK 4X OVERSAMPLING =========
       logAudio('core_metrics', 'truepeak_start', { channels: 2 });
-      const truePeakMetrics = await this.calculateTruePeakMetrics(normalizedLeft, normalizedRight, { jobId });
+      const truePeakMetrics = await this.calculateTruePeakMetrics(normalizedLeft, normalizedRight, { 
+        jobId, 
+        tempFilePath: options.tempFilePath 
+      });
       assertFinite(truePeakMetrics, 'core_metrics');
 
       // ========= ANÁLISE ESTÉREO CORRIGIDA =========

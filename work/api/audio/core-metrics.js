@@ -4,7 +4,7 @@
 
 import { FastFFT } from "../../lib/audio/fft.js";
 import { calculateLoudnessMetrics } from "../../lib/audio/features/loudness.js";
-import { TruePeakDetector, analyzeTruePeaks } from "../../lib/audio/features/truepeak.js";
+import { analyzeTruePeaksFFmpeg } from "../../lib/audio/features/truepeak-ffmpeg.js";
 import { normalizeAudioToTargetLUFS, validateNormalization } from "../../lib/audio/features/normalization.js";
 import { auditMetricsCorrections, auditMetricsValidation } from "../../lib/audio/features/audit-logging.js";
 import { SpectralMetricsCalculator, SpectralMetricsAggregator, serializeSpectralMetrics } from "../../lib/audio/features/spectral-metrics.js";
@@ -45,7 +45,6 @@ const CORE_METRICS_CONFIG = {
 class CoreMetricsProcessor {
   constructor() {
     this.fftEngine = new FastFFT();
-    this.truePeakDetector = new TruePeakDetector();
     this.cache = { hannWindow: new Map(), fftResults: new Map() };
     
     // NOVO: Inicializar calculadores corrigidos
@@ -133,9 +132,12 @@ class CoreMetricsProcessor {
       const lufsMetrics = await this.calculateLUFSMetrics(normalizedLeft, normalizedRight, { jobId });
       assertFinite(lufsMetrics, 'core_metrics');
 
-      // ========= TRUE PEAK 4X OVERSAMPLING =========
-      logAudio('core_metrics', 'truepeak_start', { channels: 2 });
-      const truePeakMetrics = await this.calculateTruePeakMetrics(normalizedLeft, normalizedRight, { jobId });
+      // ========= TRUE PEAK FFmpeg (SEM FALLBACK) =========
+      logAudio('core_metrics', 'truepeak_start', { channels: 2, method: 'ffmpeg_ebur128' });
+      const truePeakMetrics = await this.calculateTruePeakMetrics(normalizedLeft, normalizedRight, { 
+        jobId, 
+        tempFilePath: options.tempFilePath 
+      });
       assertFinite(truePeakMetrics, 'core_metrics');
 
       // ========= ANÁLISE ESTÉREO CORRIGIDA =========
@@ -676,40 +678,56 @@ class CoreMetricsProcessor {
   }
 
   /**
-   * Cálculo True Peak com oversampling 4x
+   * Cálculo True Peak com FFmpeg (sem fallback)
    */
   async calculateTruePeakMetrics(leftChannel, rightChannel, options = {}) {
     const jobId = options.jobId || 'unknown';
+    const tempFilePath = options.tempFilePath;
     
     try {
       logAudio('core_metrics', 'truepeak_calculation', { 
         samples: leftChannel.length, 
-        oversampling: CORE_METRICS_CONFIG.TRUE_PEAK_OVERSAMPLING,
+        method: 'ffmpeg_ebur128',
+        hasTempFile: !!tempFilePath,
         jobId: jobId.substring(0,8) 
       });
 
-      const truePeakMetrics = await analyzeTruePeaks(
+      if (!tempFilePath) {
+        throw makeErr('core_metrics', 'tempFilePath é obrigatório para cálculo FFmpeg True Peak', 'missing_temp_file');
+      }
+
+      const truePeakMetrics = await analyzeTruePeaksFFmpeg(
         leftChannel, 
         rightChannel, 
-        CORE_METRICS_CONFIG.SAMPLE_RATE
+        CORE_METRICS_CONFIG.SAMPLE_RATE,
+        tempFilePath
       );
 
-      // Validar True Peak
-      if (!isFinite(truePeakMetrics.true_peak_dbtp) || !isFinite(truePeakMetrics.true_peak_linear)) {
-        throw makeErr('core_metrics', `Invalid true peak values: ${truePeakMetrics.true_peak_dbtp}dBTP`, 'invalid_truepeak');
-      }
+      // Validar True Peak - apenas se não for null
+      if (truePeakMetrics.true_peak_dbtp !== null) {
+        if (!isFinite(truePeakMetrics.true_peak_dbtp)) {
+          throw makeErr('core_metrics', `Invalid true peak value: ${truePeakMetrics.true_peak_dbtp}dBTP`, 'invalid_truepeak');
+        }
 
-      // Verificar range realista (True Peak não deve exceder 0 dBTP em condições normais)
-      if (truePeakMetrics.true_peak_dbtp > 0.0) {
-        logAudio('core_metrics', 'truepeak_warning', { 
-          value: truePeakMetrics.true_peak_dbtp, 
-          message: 'True Peak > 0 dBTP detectado - possível clipping',
+        // Verificar range realista (True Peak não deve exceder limites extremos)
+        if (truePeakMetrics.true_peak_dbtp > 50 || truePeakMetrics.true_peak_dbtp < -200) {
+          throw makeErr('core_metrics', `True peak out of realistic range: ${truePeakMetrics.true_peak_dbtp}dBTP`, 'truepeak_range_error');
+        }
+
+        // Log warning se exceder -1 dBTP
+        if (truePeakMetrics.true_peak_dbtp > -1.0) {
+          logAudio('core_metrics', 'truepeak_warning', { 
+            value: truePeakMetrics.true_peak_dbtp, 
+            message: 'True Peak > -1 dBTP detectado - possível clipping',
+            jobId: jobId.substring(0,8) 
+          });
+        }
+      } else {
+        logAudio('core_metrics', 'truepeak_null', { 
+          message: 'FFmpeg não conseguiu calcular True Peak',
+          error: truePeakMetrics.error,
           jobId: jobId.substring(0,8) 
         });
-      }
-      
-      if (truePeakMetrics.true_peak_dbtp > 20 || truePeakMetrics.true_peak_dbtp < -100) {
-        throw makeErr('core_metrics', `True peak out of realistic range: ${truePeakMetrics.true_peak_dbtp}dBTP`, 'truepeak_range_error');
       }
 
       // Padronizar estrutura do True Peak para compatibilidade
