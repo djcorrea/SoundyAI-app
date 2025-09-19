@@ -124,23 +124,12 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
 
   // ===== True Peak =====
   if (coreMetrics.truePeak) {
-    console.log('🎯 [JSON-OUTPUT] True Peak Debug:', {
-      'coreMetrics.truePeak': coreMetrics.truePeak,
-      'maxDbtp': coreMetrics.truePeak.maxDbtp,
-      'maxLinear': coreMetrics.truePeak.maxLinear,
-      'sanitized_maxDbtp': safeSanitize(coreMetrics.truePeak.maxDbtp)
-    });
     technicalData.truePeakDbtp = safeSanitize(coreMetrics.truePeak.maxDbtp);
     technicalData.truePeakLinear = safeSanitize(coreMetrics.truePeak.maxLinear);
     technicalData.samplePeakLeftDb = safeSanitize(coreMetrics.truePeak.samplePeakLeftDb);
     technicalData.samplePeakRightDb = safeSanitize(coreMetrics.truePeak.samplePeakRightDb);
     technicalData.clippingSamples = safeSanitize(coreMetrics.truePeak.clippingSamples, 0);
     technicalData.clippingPct = safeSanitize(coreMetrics.truePeak.clippingPct, 0);
-  } else {
-    console.log('🎯 [JSON-OUTPUT] PROBLEMA: coreMetrics.truePeak não existe!', {
-      'coreMetrics': Object.keys(coreMetrics || {}),
-      'truePeak_exists': !!coreMetrics?.truePeak
-    });
   }
 
   // ===== Dynamics =====

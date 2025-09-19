@@ -1,8 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
-// Verificar se há algum job recente com dados de True Peak  
-const workDir = path.join(__dirname, '..', '..');
+// Verificar se há algum job recente com dados de True Peak
+const workDir = path.join(__dirname, 'work', 'storage');
 
 console.log('🔍 Procurando jobs recentes...');
 

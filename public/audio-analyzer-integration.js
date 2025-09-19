@@ -3418,61 +3418,6 @@ function displayModalResults(analysis) {
 
         // 🎯 CENTRALIZAÇÃO DAS MÉTRICAS - Funções de acesso unificado
         const getMetric = (metricPath, fallbackPath = null) => {
-            // 💪 FORÇAR TRUE PEAK - CORREÇÃO DEFINITIVA
-            if (metricPath === 'truePeakDbtp') {
-                // Tentar todos os locais possíveis
-                const locations = [
-                    analysis.technicalData?.truePeakDbtp,
-                    analysis.metrics?.truePeakDbtp,
-                    analysis.coreMetrics?.truePeak?.maxDbtp,
-                    analysis.truePeakDbtp,
-                    analysis.truePeak?.maxDbtp,
-                    analysis.technicalData?.truePeak?.maxDbtp
-                ];
-                
-                console.log('🎯 [TRUEPEAK FORCE DEBUG] Procurando em todas as localizações:', {
-                    locations,
-                    analysis_keys: Object.keys(analysis || {}),
-                    technicalData_keys: Object.keys(analysis?.technicalData || {}),
-                    metrics_keys: Object.keys(analysis?.metrics || {}),
-                    fullAnalysis: analysis
-                });
-                
-                // Retornar o primeiro valor válido encontrado
-                for (const value of locations) {
-                    if (Number.isFinite(value)) {
-                        console.log(`🎯 [TRUEPEAK FOUND] Valor encontrado: ${value} dBTP`, 'success');
-                        return value;
-                    }
-                }
-                
-                // Se não encontrou nada, verificar se existe algum valor não-finito
-                for (const value of locations) {
-                    if (value !== null && value !== undefined) {
-                        console.log(`🎯 [TRUEPEAK INVALID] Valor inválido encontrado: ${value} (tipo: ${typeof value})`, 'warning');
-                        return value; // Retornar mesmo que não seja finito para debug
-                    }
-                }
-                
-                console.log('🎯 [TRUEPEAK NULL] Nenhum valor encontrado - retornando null', 'error');
-                return null;
-            }
-            
-            // Debug temporário para outras métricas
-            if (metricPath !== 'truePeakDbtp') {
-                const centralizedValue = analysis.metrics && getNestedValue(analysis.metrics, metricPath);
-                const legacyValue = fallbackPath ? getNestedValue(analysis.technicalData, fallbackPath) : getNestedValue(analysis.technicalData, metricPath);
-                
-                // Só logar se valores existem (para evitar spam)
-                if (centralizedValue !== undefined || legacyValue !== undefined) {
-                    console.log(`📊 [GETMETRIC] ${metricPath}:`, {
-                        centralizedValue,
-                        legacyValue,
-                        selected: Number.isFinite(centralizedValue) ? centralizedValue : legacyValue
-                    });
-                }
-            }
-            
             // Prioridade: metrics centralizadas > technicalData legado > fallback
             const centralizedValue = analysis.metrics && getNestedValue(analysis.metrics, metricPath);
             if (Number.isFinite(centralizedValue)) {
@@ -3504,39 +3449,11 @@ function displayModalResults(analysis) {
         };
 
         const col1 = [
-            row('Pico de Amostra (Digital)', `${safeFixed(getMetric('peak_db', 'peak'))} dBFS`, 'peak'),
-            // ===== TRUE PEAK DEBUG FORÇADO - VERSÃO ULTRA ROBUSTA =====
-            (() => {
-                const truePeakValue = getMetric('truePeakDbtp', 'truePeakDbtp');
-                
-                // Log extensivo para debug
-                console.log('🎯 [TRUE PEAK RENDER DEBUG]', {
-                    truePeakValue,
-                    type: typeof truePeakValue,
-                    isFinite: Number.isFinite(truePeakValue),
-                    isNull: truePeakValue === null,
-                    isUndefined: truePeakValue === undefined,
-                    stringValue: String(truePeakValue)
-                });
-                
-                // FORÇAR DISPLAY SEM EXCEÇÃO
-                if (Number.isFinite(truePeakValue)) {
-                    // Valor válido - mostrar em verde
-                    console.log(`✅ TRUE PEAK VÁLIDO: ${truePeakValue} dBTP`, 'success');
-                    return row('🎯 TRUE PEAK (FFmpeg)', `<strong style="color: #00ff92; font-size: 14px;">${safeFixed(truePeakValue, 2)} dBTP</strong>`, 'truePeakDbtp');
-                } else if (truePeakValue !== null && truePeakValue !== undefined) {
-                    // Valor existe mas não é finito - mostrar em laranja para debug
-                    console.log(`🟠 TRUE PEAK INVÁLIDO: ${truePeakValue} (${typeof truePeakValue})`, 'warning');
-                    return row('🎯 TRUE PEAK (FFmpeg)', `<strong style="color: #ffa500; font-size: 14px;">DEBUG: ${String(truePeakValue)} (${typeof truePeakValue})</strong>`, 'truePeakDbtp');
-                } else {
-                    // Valor null/undefined - mostrar em amarelo
-                    console.log(`🟡 TRUE PEAK NULL/UNDEFINED`, 'error');
-                    return row('🎯 TRUE PEAK (FFmpeg)', '<strong style="color: #ffd700; font-size: 14px;">❌ Dados não disponíveis</strong>', 'truePeakDbtp');
-                }
-            })(),
+            row('Pico de Amostra', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak'),
             row('Volume Médio (energia)', `${safeFixed(getMetric('rms_level', 'avgLoudness'))} dB`, 'avgLoudness'),
             row('Dinâmica (diferença entre alto/baixo)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
             row('fator de crista', `${safeFixed(getMetric('crest_factor', 'crestFactor'))} dB`, 'crestFactor'),
+            row('pico real (dbtp)', (advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp'))) ? `${safeFixed(getMetric('truePeakDbtp', 'truePeakDbtp'))} dBTP` : (advancedReady? '—':'⏳'), 'truePeakDbtp'),
             row('Volume Integrado (padrão streaming)', (advancedReady && Number.isFinite(getLufsIntegratedValue())) ? `${safeFixed(getLufsIntegratedValue())} LUFS` : (advancedReady? '—':'⏳'), 'lufsIntegrated'),
             row('Volume Integrado (padrão streaming)', (advancedReady && Number.isFinite(getMetric('lufs_short_term', 'lufsShortTerm'))) ? `${safeFixed(getMetric('lufs_short_term', 'lufsShortTerm'))} LUFS` : (advancedReady? '—':'⏳'), 'lufsShortTerm'),
             row('Volume Integrado (padrão streaming)', (advancedReady && Number.isFinite(getMetric('lufs_momentary', 'lufsMomentary'))) ? `${safeFixed(getMetric('lufs_momentary', 'lufsMomentary'))} LUFS` : (advancedReady? '—':'⏳'), 'lufsMomentary'),
@@ -3599,9 +3516,9 @@ function displayModalResults(analysis) {
                 
                 // === MÉTRICAS DE PICO E CLIPPING (seção principal) ===
                 
-                // True Peak (dBTP) - FFmpeg
+                // True Peak (dBTP)
                 if (Number.isFinite(analysis.technicalData?.truePeakDbtp)) {
-                    rows.push(row('🎯 TRUE PEAK (FFmpeg)', `<strong style="color: #00ff92;">${safeFixed(analysis.technicalData.truePeakDbtp, 2)} dBTP</strong>`, 'truePeakDbtp'));
+                    rows.push(row('True Peak (dBTP)', `${safeFixed(analysis.technicalData.truePeakDbtp, 2)} dBTP`, 'truePeakDbtp'));
                 }
                 
                 // Picos por canal separados
@@ -5057,7 +4974,7 @@ function renderReferenceComparisons(analysis) {
     
     // ADICIONAR TODAS AS MÉTRICAS PRINCIPAIS
     pushRow('Loudness Integrado (LUFS)', getLufsIntegratedValue(), ref.lufs_target, ref.tol_lufs, ' LUFS');
-    pushRow('🎯 TRUE PEAK (FFmpeg)', getMetricForRef('true_peak_dbtp', 'truePeakDbtp'), ref.true_peak_target, ref.tol_true_peak, ' dBTP');
+    pushRow('Pico Real (dBTP)', getMetricForRef('true_peak_dbtp', 'truePeakDbtp'), ref.true_peak_target, ref.tol_true_peak, ' dBTP');
     pushRow('DR', getMetricForRef('dynamic_range', 'dynamicRange'), ref.dr_target, ref.tol_dr, '');
     pushRow('Faixa de Loudness – LRA (LU)', getMetricForRef('lra'), ref.lra_target, ref.tol_lra, ' LU');
     pushRow('Stereo Corr.', getMetricForRef('stereo_correlation', 'stereoCorrelation'), ref.stereo_target, ref.tol_stereo, '');
@@ -5984,7 +5901,7 @@ function updateReferenceSuggestions(analysis) {
     const lufsVal = Number.isFinite(tech.lufsIntegrated) ? tech.lufsIntegrated : null;
     addRefSug(lufsVal, ref.lufs_target, ref.tol_lufs, 'reference_loudness', 'LUFS', '');
     const tpVal = Number.isFinite(tech.truePeakDbtp) ? tech.truePeakDbtp : null;
-    addRefSug(tpVal, ref.true_peak_target, ref.tol_true_peak, 'reference_true_peak', '🎯 TRUE PEAK (FFmpeg)', ' dBTP');
+    addRefSug(tpVal, ref.true_peak_target, ref.tol_true_peak, 'reference_true_peak', 'Pico Real', ' dBTP');
     addRefSug(tech.dynamicRange, ref.dr_target, ref.tol_dr, 'reference_dynamics', 'DR', ' dB');
     if (Number.isFinite(tech.lra)) addRefSug(tech.lra, ref.lra_target, ref.tol_lra, 'reference_lra', 'LRA', ' LU');
     if (Number.isFinite(tech.stereoCorrelation)) addRefSug(tech.stereoCorrelation, ref.stereo_target, ref.tol_stereo, 'reference_stereo', 'Stereo Corr', '');
