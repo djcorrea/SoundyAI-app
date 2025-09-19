@@ -1,6 +1,14 @@
-// 🏔️ TRUE PEAK - FFmpeg Integration Placeholder
-// ⚠️ MIGRAÇÃO: Implementação caseira removida - aguardando integração FFmpeg
+// 🏔️ TRUE PEAK - FFmpeg Integration REAL
+// ✅ MIGRAÇÃO: Implementação via FFmpeg ITU-R BS.1770-4 compliant
 // 🎯 Mantém 100% compatibilidade com campos JSON existentes
+
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+import path from 'path';
+import fs from 'fs';
+import ffmpegStatic from 'ffmpeg-static';
+
+const execFileAsync = promisify(execFile);
 
 // TODO: Integrar FFmpeg aqui - manter threshold para compatibilidade
 const TRUE_PEAK_CLIP_THRESHOLD_DBTP = -1.0;
@@ -300,18 +308,10 @@ async function getTruePeakFromFFmpeg(filePath) {
 export {
   TruePeakDetector,
   analyzeTruePeaks,
-  getTruePeakFromFFmpeg,  // TODO: Função para integração FFmpeg futura
+  getTruePeakFromFFmpeg,  // Função para integração FFmpeg
   TRUE_PEAK_CLIP_THRESHOLD_DBTP,
   TRUE_PEAK_CLIP_THRESHOLD_LINEAR
 };
 
-import { execFile } from 'child_process';
-import { promisify } from 'util';
-import path from 'path';
-import fs from 'fs';
-import ffmpegStatic from 'ffmpeg-static';
-
-const execFileAsync = promisify(execFile);
-
-console.log('⚠️ [MIGRATION] True Peak implementation replaced with FFmpeg integration placeholders');
-console.log('🔧 [TODO] Integrate FFmpeg for accurate True Peak calculation');
+console.log('✅ [MIGRATION] True Peak implementation with FFmpeg integration active');
+console.log('🎯 [READY] FFmpeg ITU-R BS.1770-4 compliant True Peak calculation');

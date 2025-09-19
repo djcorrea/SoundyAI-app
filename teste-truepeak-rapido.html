@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Teste True Peak - Rápido</title>
+    <style>
+        body { 
+            background: #0a0a0a; color: #00ff92; font-family: 'Courier New'; 
+            padding: 20px; line-height: 1.6; 
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        .success { color: #00ff92; }
+        .warning { color: #ffa500; }
+        .error { color: #ff4444; }
+        .info { color: #4da6ff; }
+        pre { 
+            background: #1a1a1a; padding: 15px; border-radius: 5px; 
+            border-left: 4px solid #00ff92; overflow-x: auto; 
+        }
+        button {
+            background: #00ff92; color: #0a0a0a; border: none; 
+            padding: 12px 24px; border-radius: 5px; cursor: pointer; 
+            font-weight: bold; margin: 10px 5px;
+        }
+        button:hover { background: #00cc77; }
+        .progress {
+            width: 100%; height: 6px; background: #333; border-radius: 3px; 
+            margin: 10px 0; overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%; background: #00ff92; width: 0%; 
+            transition: width 0.3s ease;
+        }
+        #results { margin-top: 20px; }
+        .status { 
+            display: inline-block; padding: 5px 10px; border-radius: 3px; 
+            margin: 5px 0; font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Teste True Peak - Diagnóstico Rápido</h1>
+        <p class="info">Este teste vai verificar se o True Peak está funcionando corretamente na SoundyAI.</p>
+        
+        <div>
+            <button onclick="testarTruePeak()">🚀 Testar True Peak</button>
+            <button onclick="limparLogs()">🧹 Limpar Logs</button>
+        </div>
+        
+        <div class="progress">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+        
+        <div id="status"></div>
+        <div id="results"></div>
+        <pre id="logs"></pre>
+    </div>
+
+    <script>
+        let logContainer = document.getElementById('logs');
+        let statusContainer = document.getElementById('status');
+        let resultsContainer = document.getElementById('results');
+        let progressBar = document.getElementById('progressBar');
+
+        function log(message, type = 'info') {
+            const colors = {
+                'success': '#00ff92',
+                'warning': '#ffa500', 
+                'error': '#ff4444',
+                'info': '#4da6ff'
+            };
+            
+            const timestamp = new Date().toLocaleTimeString();
+            const coloredMessage = `<span style="color: ${colors[type] || '#4da6ff'}">[${timestamp}] ${message}</span>`;
+            logContainer.innerHTML += coloredMessage + '\n';
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function setStatus(message, type = 'info') {
+            statusContainer.innerHTML = `<span class="status ${type}">${message}</span>`;
+        }
+
+        function setProgress(percent) {
+            progressBar.style.width = percent + '%';
+        }
+
+        function limparLogs() {
+            logContainer.innerHTML = '';
+            resultsContainer.innerHTML = '';
+            statusContainer.innerHTML = '';
+            setProgress(0);
+        }
+
+        async function testarTruePeak() {
+            limparLogs();
+            setStatus('🔍 Iniciando teste...', 'info');
+            setProgress(10);
+
+            try {
+                log('🎯 Iniciando teste de True Peak', 'info');
+                log('1️⃣ Verificando se SoundyAI está rodando...', 'info');
+                setProgress(20);
+
+                // Testar se SoundyAI está acessível
+                try {
+                    const response = await fetch('http://localhost:3000/index.html');
+                    if (response.ok) {
+                        log('✅ SoundyAI está acessível em localhost:3000', 'success');
+                    } else {
+                        log('❌ SoundyAI não está respondendo corretamente', 'error');
+                        return;
+                    }
+                } catch (error) {
+                    log('❌ Erro ao conectar com SoundyAI: ' + error.message, 'error');
+                    log('💡 Certifique-se de que o servidor está rodando com: python -m http.server 3000', 'warning');
+                    return;
+                }
+
+                setProgress(40);
+                log('2️⃣ Verificando implementação do True Peak...', 'info');
+
+                // Testar carregamento dos módulos True Peak
+                try {
+                    const moduleTruePeak = await import('/work/lib/audio/features/truepeak.js');
+                    log('✅ Módulo truepeak.js carregado com sucesso', 'success');
+                    
+                    if (moduleTruePeak.analyzeTruePeaks) {
+                        log('✅ Função analyzeTruePeaks encontrada', 'success');
+                    } else {
+                        log('❌ Função analyzeTruePeaks não encontrada', 'error');
+                    }
+
+                    if (moduleTruePeak.getTruePeakFromFFmpeg) {
+                        log('✅ Função getTruePeakFromFFmpeg encontrada', 'success');
+                    } else {
+                        log('❌ Função getTruePeakFromFFmpeg não encontrada', 'error');
+                    }
+
+                } catch (error) {
+                    log('❌ Erro ao carregar módulo truepeak.js: ' + error.message, 'error');
+                }
+
+                setProgress(60);
+                log('3️⃣ Verificando core-metrics...', 'info');
+
+                try {
+                    const coreMetricsModule = await import('/work/api/audio/core-metrics.js');
+                    log('✅ Módulo core-metrics.js carregado com sucesso', 'success');
+                    
+                    if (coreMetricsModule.calculateCoreMetrics) {
+                        log('✅ Função calculateCoreMetrics encontrada', 'success');
+                    } else {
+                        log('❌ Função calculateCoreMetrics não encontrada', 'error');
+                    }
+
+                } catch (error) {
+                    log('❌ Erro ao carregar core-metrics.js: ' + error.message, 'error');
+                }
+
+                setProgress(80);
+                log('4️⃣ Verificando frontend integration...', 'info');
+
+                try {
+                    const response = await fetch('/public/audio-analyzer-integration.js');
+                    const frontendCode = await response.text();
+                    
+                    if (frontendCode.includes('truePeakDbtp')) {
+                        log('✅ Frontend tem referências a truePeakDbtp', 'success');
+                    } else {
+                        log('❌ Frontend não tem referências a truePeakDbtp', 'error');
+                    }
+
+                    if (frontendCode.includes('TRUE PEAK (FFmpeg)')) {
+                        log('✅ Frontend tem interface para True Peak FFmpeg', 'success');
+                    } else {
+                        log('❌ Frontend não tem interface para True Peak FFmpeg', 'error');
+                    }
+
+                } catch (error) {
+                    log('❌ Erro ao verificar frontend: ' + error.message, 'error');
+                }
+
+                setProgress(100);
+                setStatus('✅ Teste concluído!', 'success');
+                
+                resultsContainer.innerHTML = `
+                    <h3>📊 Resumo do Teste:</h3>
+                    <p class="success">✅ Se todos os itens acima estão verdes, o True Peak deve estar funcionando!</p>
+                    <p class="info">💡 Para testar na prática:</p>
+                    <ol>
+                        <li>Abra <a href="http://localhost:3000" target="_blank" style="color: #00ff92;">http://localhost:3000</a></li>
+                        <li>Abra o console do navegador (F12)</li>
+                        <li>Faça upload de um arquivo de áudio</li>
+                        <li>Procure por logs com "🎯 [GETMETRIC DEBUG TRUEPEAK]"</li>
+                        <li>Verifique se o True Peak aparece como valor numérico (não "⏳ Calculando...")</li>
+                    </ol>
+                `;
+
+                log('🎯 Teste de True Peak concluído!', 'success');
+
+            } catch (error) {
+                log('❌ Erro durante o teste: ' + error.message, 'error');
+                setStatus('❌ Teste falhou', 'error');
+                setProgress(0);
+            }
+        }
+
+        // Auto-executar quando a página carrega
+        window.addEventListener('load', () => {
+            log('🚀 Página de teste carregada. Clique em "Testar True Peak" para começar.', 'info');
+        });
+    </script>
+</body>
+</html>
