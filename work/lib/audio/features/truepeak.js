@@ -279,6 +279,7 @@ class TruePeakDetector {
  * @returns {Object} Análise completa de peaks
  */
 function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
+  const startTime = Date.now();
   const detector = new TruePeakDetector(sampleRate);
   
   // True peaks para cada canal
@@ -356,15 +357,15 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
     
     // 🔧 Metadata técnico
     oversampling_factor: detector.coeffs.UPSAMPLING_FACTOR,
-    true_peak_mode: leftTruePeak.true_peak_mode,
-    upgrade_enabled: leftTruePeak.upgrade_enabled,
+    true_peak_mode: detector.upgradeEnabled ? 'oversampling8x_192tap' : 'legacy4x_48tap',
+    upgrade_enabled: detector.upgradeEnabled,
     true_peak_clip_threshold_dbtp: TRUE_PEAK_CLIP_THRESHOLD_DBTP,
     true_peak_clip_threshold_linear: TRUE_PEAK_CLIP_THRESHOLD_LINEAR,
     itu_r_bs1770_4_compliant: true, // Flag de conformidade
     warnings,
     
     // ⏱️ Performance
-    processing_time: leftTruePeak.processing_time + rightTruePeak.processing_time
+    processing_time: Date.now() - startTime
   };
 }
 
