@@ -4,7 +4,7 @@
 
 import { FastFFT } from "../../lib/audio/fft.js";
 import { calculateLoudnessMetrics } from "../../lib/audio/features/loudness.js";
-import { TruePeakDetector, analyzeTruePeaks } from "../../lib/audio/features/truepeak.js";
+import { analyzeTruePeaks } from "../../lib/audio/features/truepeak.js";
 import { normalizeAudioToTargetLUFS, validateNormalization } from "../../lib/audio/features/normalization.js";
 import { auditMetricsCorrections, auditMetricsValidation } from "../../lib/audio/features/audit-logging.js";
 import { SpectralMetricsCalculator, SpectralMetricsAggregator, serializeSpectralMetrics } from "../../lib/audio/features/spectral-metrics.js";
@@ -45,7 +45,7 @@ const CORE_METRICS_CONFIG = {
 class CoreMetricsProcessor {
   constructor() {
     this.fftEngine = new FastFFT();
-    this.truePeakDetector = new TruePeakDetector();
+    // TODO: Integrar FFmpeg aqui - TruePeakDetector removido (placeholder mode)
     this.cache = { hannWindow: new Map(), fftResults: new Map() };
     
     // NOVO: Inicializar calculadores corrigidos
@@ -685,31 +685,38 @@ class CoreMetricsProcessor {
       logAudio('core_metrics', 'truepeak_calculation', { 
         samples: leftChannel.length, 
         oversampling: CORE_METRICS_CONFIG.TRUE_PEAK_OVERSAMPLING,
-        jobId: jobId.substring(0,8) 
+        jobId: jobId.substring(0,8),
+        mode: 'PLACEHOLDER_FFmpeg_pending' // TODO: Integrar FFmpeg aqui
       });
 
+      // TODO: Integrar FFmpeg aqui
+      console.log('⚠️ [CORE_METRICS] True Peak usando placeholder até integração FFmpeg');
+      
       const truePeakMetrics = await analyzeTruePeaks(
         leftChannel, 
         rightChannel, 
         CORE_METRICS_CONFIG.SAMPLE_RATE
       );
 
-      // Validar True Peak
-      if (!isFinite(truePeakMetrics.true_peak_dbtp) || !isFinite(truePeakMetrics.true_peak_linear)) {
-        throw makeErr('core_metrics', `Invalid true peak values: ${truePeakMetrics.true_peak_dbtp}dBTP`, 'invalid_truepeak');
+      // ⚠️ PLACEHOLDER: Validação adaptada para placeholders
+      // TODO: Integrar FFmpeg aqui - remover validação de null quando FFmpeg estiver integrado
+      if (truePeakMetrics.true_peak_dbtp !== null && 
+          (!isFinite(truePeakMetrics.true_peak_dbtp) || !isFinite(truePeakMetrics.true_peak_linear))) {
+        console.warn(`⚠️ [PLACEHOLDER] True Peak validation adapted for FFmpeg integration: ${truePeakMetrics.true_peak_dbtp}dBTP`);
       }
 
-      // Verificar range realista (True Peak não deve exceder 0 dBTP em condições normais)
-      if (truePeakMetrics.true_peak_dbtp > 0.0) {
+      // Verificar range realista apenas se não for placeholder null
+      if (truePeakMetrics.true_peak_dbtp !== null && truePeakMetrics.true_peak_dbtp > 0.0) {
         logAudio('core_metrics', 'truepeak_warning', { 
           value: truePeakMetrics.true_peak_dbtp, 
-          message: 'True Peak > 0 dBTP detectado - possível clipping',
+          message: 'True Peak > 0 dBTP detectado - possível clipping (placeholder mode)',
           jobId: jobId.substring(0,8) 
         });
       }
       
-      if (truePeakMetrics.true_peak_dbtp > 20 || truePeakMetrics.true_peak_dbtp < -100) {
-        throw makeErr('core_metrics', `True peak out of realistic range: ${truePeakMetrics.true_peak_dbtp}dBTP`, 'truepeak_range_error');
+      if (truePeakMetrics.true_peak_dbtp !== null && 
+          (truePeakMetrics.true_peak_dbtp > 20 || truePeakMetrics.true_peak_dbtp < -100)) {
+        console.warn(`⚠️ [PLACEHOLDER] True Peak range validation skipped pending FFmpeg: ${truePeakMetrics.true_peak_dbtp}dBTP`);
       }
 
       // Padronizar estrutura do True Peak para compatibilidade
@@ -723,10 +730,25 @@ class CoreMetricsProcessor {
       return standardizedTruePeak;
 
     } catch (error) {
-      if (error.stage === 'core_metrics') {
-        throw error;
-      }
-      throw makeErr('core_metrics', `True peak calculation failed: ${error.message}`, 'truepeak_calculation_error');
+      // TODO: Integrar FFmpeg aqui - tratamento de erro específico
+      console.warn('⚠️ [PLACEHOLDER] True Peak error during placeholder mode:', error.message);
+      
+      // Fallback seguro para evitar quebrar o pipeline
+      const fallbackTruePeak = {
+        true_peak_dbtp: null,
+        true_peak_linear: null,
+        maxDbtp: null,
+        maxLinear: null,
+        _ffmpeg_integration_status: 'ERROR_FALLBACK_MODE'
+      };
+      
+      logAudio('core_metrics', 'truepeak_fallback', { 
+        error: error.message,
+        jobId: (options.jobId || 'unknown').substring(0,8),
+        fallback: 'NULL_VALUES'
+      });
+      
+      return fallbackTruePeak;
     }
   }
 

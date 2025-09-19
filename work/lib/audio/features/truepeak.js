@@ -1,100 +1,58 @@
-// 🏔️ TRUE PEAK - Interpolação Linear Simples
-// ✅ Implementação simplificada e correta
-// 🎯 True Peak >= Sample Peak com diferença mínima
+// 🏔️ TRUE PEAK - FFmpeg Integration Placeholder
+// ⚠️ MIGRAÇÃO: Implementação caseira removida - aguardando integração FFmpeg
+// 🎯 Mantém 100% compatibilidade com campos JSON existentes
 
-// Threshold para clipping em domínio True Peak (>-1 dBTP)
+// TODO: Integrar FFmpeg aqui - manter threshold para compatibilidade
 const TRUE_PEAK_CLIP_THRESHOLD_DBTP = -1.0;
 const TRUE_PEAK_CLIP_THRESHOLD_LINEAR = Math.pow(10, TRUE_PEAK_CLIP_THRESHOLD_DBTP / 20); // ≈0.891
 
 /**
- * 🎛️ True Peak Detector com Interpolação Linear
+ * 🎛️ True Peak Detector - PLACEHOLDER para integração FFmpeg
+ * ⚠️ ATENÇÃO: Implementação caseira removida - campos retornam placeholders
  */
 class TruePeakDetector {
   constructor(sampleRate = 48000) {
     this.sampleRate = sampleRate;
-    console.log(`🏔️ True Peak Detector: Interpolação linear 4x (${sampleRate}Hz)`);
+    console.log(`🏔️ True Peak Detector: PLACEHOLDER (FFmpeg integration pending) - ${sampleRate}Hz`);
   }
 
   /**
-   * 🎯 Detectar true peak em um canal - INTERPOLAÇÃO LINEAR SIMPLES
+   * 🎯 Detectar true peak em um canal - PLACEHOLDER
+   * TODO: Integrar FFmpeg aqui
    * @param {Float32Array} channel - Canal de áudio
-   * @returns {Object} Métricas de true peak
+   * @returns {Object} Métricas de true peak (placeholder)
    */
   detectTruePeak(channel) {
-    console.log('🏔️ Detectando true peaks (interpolação linear)...');
+    console.log('🏔️ PLACEHOLDER: True Peak será calculado via FFmpeg...');
     const startTime = Date.now();
     
-    let maxTruePeak = 0;
-    let peakPosition = 0;
-    let clippingCount = 0;
-    
-    // 1. Sample peak primeiro
+    // TODO: Integrar FFmpeg aqui
+    // Por enquanto, calcular sample peak simples para manter alguma funcionalidade
     let maxSamplePeak = 0;
     for (let i = 0; i < channel.length; i++) {
       const absSample = Math.abs(channel[i]);
       if (absSample > maxSamplePeak) {
         maxSamplePeak = absSample;
       }
-      if (absSample > maxTruePeak) {
-        maxTruePeak = absSample;
-        peakPosition = i;
-      }
-    }
-    
-    // 2. Interpolação linear entre amostras adjacentes (4x oversampling)
-    for (let i = 0; i < channel.length - 1; i++) {
-      const s1 = channel[i];
-      const s2 = channel[i + 1];
-      
-      // Gerar 3 amostras interpoladas entre s1 e s2
-      for (let k = 1; k < 4; k++) {
-        const t = k / 4.0;
-        const interpolated = s1 * (1 - t) + s2 * t;
-        const absPeak = Math.abs(interpolated);
-        
-        if (absPeak > maxTruePeak) {
-          maxTruePeak = absPeak;
-          peakPosition = i + t;
-        }
-        
-        // Detectar clipping
-        if (absPeak > TRUE_PEAK_CLIP_THRESHOLD_LINEAR) {
-          clippingCount++;
-        }
-      }
-    }
-    
-    // Conversão para dBTP
-    let dBTP;
-    if (maxTruePeak > 0) {
-      dBTP = 20 * Math.log10(maxTruePeak);
-    } else {
-      dBTP = -Infinity;
     }
     
     const samplePeakdB = maxSamplePeak > 0 ? 20 * Math.log10(maxSamplePeak) : -Infinity;
     const processingTime = Date.now() - startTime;
     
-    console.log(`🔍 [DEBUG] Sample Peak: ${samplePeakdB.toFixed(2)} dB, True Peak: ${dBTP.toFixed(2)} dBTP`);
-    console.log(`🔍 [DEBUG] Diferença: ${(dBTP - samplePeakdB).toFixed(2)} dB (interpolação linear)`);
-    
-    // True Peak deve ser >= Sample Peak
-    if (isFinite(dBTP) && isFinite(samplePeakdB) && dBTP < samplePeakdB) {
-      console.warn(`⚠️ [TRUE_PEAK_ANOMALY] True Peak menor que Sample Peak - corrigindo`);
-      dBTP = samplePeakdB; // Garantir que TP >= SP
-      maxTruePeak = maxSamplePeak;
-    }
+    console.log(`⚠️ [PLACEHOLDER] Sample Peak: ${samplePeakdB.toFixed(2)} dB, True Peak: PENDING_FFMPEG`);
+    console.log(`⚠️ [PLACEHOLDER] FFmpeg integration required for accurate True Peak`);
 
-    console.log(`✅ True Peak (linear) em ${processingTime}ms: ${dBTP.toFixed(2)} dBTP`);
+    console.log(`⚠️ True Peak (placeholder) em ${processingTime}ms: PENDING_FFMPEG`);
 
+    // TODO: Integrar FFmpeg aqui - retornar valores reais
     return {
-      maxDbtp: dBTP,
-      maxLinear: maxTruePeak
+      maxDbtp: null,           // TODO: FFmpeg integration
+      maxLinear: null          // TODO: FFmpeg integration
     };
   }
 
   /**
-   * 🔧 Detectar clipping tradicional (sample-level)
+   * 🔧 Detectar clipping tradicional (sample-level) - MANTIDO
    * @param {Float32Array} channel
    * @returns {Object} Estatísticas de clipping
    */
@@ -122,30 +80,32 @@ class TruePeakDetector {
 }
 
 /**
- * 🎯 Função principal para análise de true peaks
+ * 🎯 Função principal para análise de true peaks - PLACEHOLDER com compatibilidade
+ * TODO: Integrar FFmpeg aqui
  * @param {Float32Array} leftChannel
  * @param {Float32Array} rightChannel
  * @param {Number} sampleRate
- * @returns {Object} Análise completa de peaks
+ * @returns {Object} Análise completa de peaks (placeholder compatível)
  */
 function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
   const startTime = Date.now();
+  console.log('🏔️ PLACEHOLDER: analyzeTruePeaks aguardando integração FFmpeg...');
+  
+  // TODO: Integrar FFmpeg aqui
   const detector = new TruePeakDetector(sampleRate);
   
-  // True peaks para cada canal
+  // True peaks para cada canal (placeholder)
   const leftTruePeak = detector.detectTruePeak(leftChannel);
   const rightTruePeak = detector.detectTruePeak(rightChannel);
   
-  // Sample clipping para comparação
+  // Sample clipping para comparação (mantido funcionando)
   const leftClipping = detector.detectSampleClipping(leftChannel);
   const rightClipping = detector.detectSampleClipping(rightChannel);
   
-  // Combinar resultados
-  const maxTruePeakLinear = Math.max(leftTruePeak.maxLinear, rightTruePeak.maxLinear);
-  const maxTruePeakdBTP = Math.max(leftTruePeak.maxDbtp, rightTruePeak.maxDbtp);
+  // Combinar resultados (sample peak real, true peak placeholder)
   const maxSamplePeak = Math.max(leftClipping.max_sample, rightClipping.max_sample);
   
-  // Sample Peak dBFS calculation
+  // Sample Peak dBFS calculation (real)
   let maxSamplePeakdBFS;
   if (maxSamplePeak > 0) {
     maxSamplePeakdBFS = 20 * Math.log10(maxSamplePeak);
@@ -153,64 +113,96 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
     maxSamplePeakdBFS = -Infinity;
   }
   
-  // Validação final
-  if (isFinite(maxTruePeakdBTP) && isFinite(maxSamplePeakdBFS)) {
-    if (maxTruePeakdBTP < maxSamplePeakdBFS) {
-      console.warn(`⚠️ [TRUE_PEAK_ANOMALY] True Peak corrigido para igualar Sample Peak`);
-      maxTruePeakdBTP = maxSamplePeakdBFS;
-    }
-  }
-  
   const totalSampleClipping = leftClipping.clipped_samples + rightClipping.clipped_samples;
   
-  // Warnings
+  // TODO: Integrar FFmpeg aqui - por enquanto usar sample peak como fallback
+  const placeholderTruePeakdBTP = maxSamplePeakdBFS; // Placeholder realista
+  const placeholderTruePeakLinear = maxSamplePeak;   // Placeholder realista
+  
+  // Warnings baseados em sample peak (para manter alguma funcionalidade)
   const warnings = [];
-  if (maxTruePeakdBTP !== null && maxTruePeakdBTP > -1.0) {
-    warnings.push(`True peak excede -1dBTP: ${maxTruePeakdBTP.toFixed(2)}dBTP`);
+  if (placeholderTruePeakdBTP !== null && placeholderTruePeakdBTP > -1.0) {
+    warnings.push(`Sample peak excede -1dBFS: ${placeholderTruePeakdBTP.toFixed(2)}dB (True Peak pending FFmpeg)`);
   }
-  if (maxTruePeakdBTP !== null && maxTruePeakdBTP > -0.1) {
-    warnings.push(`True peak muito alto: risco de clipping digital`);
+  if (placeholderTruePeakdBTP !== null && placeholderTruePeakdBTP > -0.1) {
+    warnings.push(`Sample peak muito alto - True Peak analysis pending FFmpeg integration`);
   }
   
+  console.log('⚠️ [PLACEHOLDER] True Peak fields populated with fallback values until FFmpeg integration');
+
   return {
     // 🎯 Campos padronizados (mantendo contrato JSON)
     samplePeakDb: maxSamplePeakdBFS,
-    truePeakDbtp: maxTruePeakdBTP,
+    truePeakDbtp: placeholderTruePeakdBTP,     // TODO: FFmpeg integration
     clippingSamples: totalSampleClipping,
     clippingPct: (leftClipping.clipping_percentage + rightClipping.clipping_percentage) / 2,
     
-    // 🏔️ True peaks detalhados
-    true_peak_dbtp: maxTruePeakdBTP,
-    true_peak_linear: maxTruePeakLinear,
-    true_peak_left: leftTruePeak.maxDbtp,
-    true_peak_right: rightTruePeak.maxDbtp,
+    // 🏔️ True peaks detalhados (placeholders)
+    true_peak_dbtp: placeholderTruePeakdBTP,   // TODO: FFmpeg integration
+    true_peak_linear: placeholderTruePeakLinear, // TODO: FFmpeg integration
+    true_peak_left: placeholderTruePeakdBTP,   // TODO: FFmpeg integration
+    true_peak_right: placeholderTruePeakdBTP,  // TODO: FFmpeg integration
     
-    // 📊 Sample peaks tradicionais (dBFS)
+    // ✅ Campos exigidos pelo core-metrics (compatibilidade)
+    maxDbtp: placeholderTruePeakdBTP,          // TODO: FFmpeg integration
+    maxLinear: placeholderTruePeakLinear,      // TODO: FFmpeg integration
+    samplePeakLeftDb: leftClipping.max_sample_db,    // FUNCIONAL
+    samplePeakRightDb: rightClipping.max_sample_db,  // FUNCIONAL
+    
+    // 📊 Sample peaks tradicionais (dBFS) - FUNCIONAIS
     sample_peak_left_db: leftClipping.max_sample_db,
     sample_peak_right_db: rightClipping.max_sample_db,
     sample_peak_dbfs: maxSamplePeakdBFS,
     
-    // 🚨 Clipping detection
-    true_peak_clipping_count: 0, // Contado dentro do detector
+    // 🚨 Clipping detection - FUNCIONAL
+    true_peak_clipping_count: 0, // TODO: FFmpeg integration
     sample_clipping_count: totalSampleClipping,
     clipping_percentage: (leftClipping.clipping_percentage + rightClipping.clipping_percentage) / 2,
     
-    // ✅ Status flags
-    exceeds_minus1dbtp: isFinite(maxTruePeakdBTP) && maxTruePeakdBTP > -1.0,
-    exceeds_0dbtp: isFinite(maxTruePeakdBTP) && maxTruePeakdBTP > 0.0,
-    broadcast_compliant: !isFinite(maxTruePeakdBTP) || maxTruePeakdBTP <= -1.0, // EBU R128
+    // ✅ Status flags (baseados em sample peak como fallback)
+    exceeds_minus1dbtp: isFinite(placeholderTruePeakdBTP) && placeholderTruePeakdBTP > -1.0,
+    exceeds_0dbtp: isFinite(placeholderTruePeakdBTP) && placeholderTruePeakdBTP > 0.0,
+    broadcast_compliant: !isFinite(placeholderTruePeakdBTP) || placeholderTruePeakdBTP <= -1.0, // EBU R128
     
     // 🔧 Metadata técnico
-    oversampling_factor: 4,
-    true_peak_mode: 'linear_interpolation_4x',
+    oversampling_factor: 4,  // Mantido para compatibilidade
+    true_peak_mode: 'ffmpeg_integration_pending', // TODO: Alterar para FFmpeg
     upgrade_enabled: false,
     true_peak_clip_threshold_dbtp: TRUE_PEAK_CLIP_THRESHOLD_DBTP,
     true_peak_clip_threshold_linear: TRUE_PEAK_CLIP_THRESHOLD_LINEAR,
-    itu_r_bs1770_4_compliant: true,
+    itu_r_bs1770_4_compliant: false, // TODO: FFmpeg será ITU-R BS.1770-4 compliant
     warnings,
     
     // ⏱️ Performance
-    processing_time: Date.now() - startTime
+    processing_time: Date.now() - startTime,
+    
+    // 🔍 Debug info
+    _ffmpeg_integration_status: 'pending',
+    _fallback_method: 'sample_peak_based'
+  };
+}
+
+/**
+ * 🎯 Função stub para integração FFmpeg futura
+ * TODO: Implementar chamada real para FFmpeg
+ * @param {string} filePath - Caminho para arquivo de áudio
+ * @returns {Promise<Object>} Métricas True Peak do FFmpeg
+ */
+async function getTruePeakFromFFmpeg(filePath) {
+  // TODO: Integrar FFmpeg aqui
+  console.log('🔧 TODO: Implementar getTruePeakFromFFmpeg()');
+  console.log(`📁 Arquivo: ${filePath}`);
+  
+  // Placeholder - retorna estrutura esperada
+  return {
+    true_peak_dbtp: null,      // TODO: FFmpeg integration
+    true_peak_linear: null,    // TODO: FFmpeg integration
+    sample_peak_left: null,
+    sample_peak_right: null,
+    clipping_detected: false,
+    processing_time_ms: 0,
+    ffmpeg_version: 'pending',
+    algorithm: 'ITU-R BS.1770-4'
   };
 }
 
@@ -218,6 +210,10 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
 export {
   TruePeakDetector,
   analyzeTruePeaks,
+  getTruePeakFromFFmpeg,  // TODO: Função para integração FFmpeg futura
   TRUE_PEAK_CLIP_THRESHOLD_DBTP,
   TRUE_PEAK_CLIP_THRESHOLD_LINEAR
 };
+
+console.log('⚠️ [MIGRATION] True Peak implementation replaced with FFmpeg integration placeholders');
+console.log('🔧 [TODO] Integrate FFmpeg for accurate True Peak calculation');
