@@ -3449,11 +3449,11 @@ function displayModalResults(analysis) {
         };
 
         const col1 = [
-            row('Pico de Amostra', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak'),
+            row('Pico de Amostra (Digital)', `${safeFixed(getMetric('peak_db', 'peak'))} dBFS`, 'peak'),
+            row('🎯 TRUE PEAK (FFmpeg)', (advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp'))) ? `<strong style="color: #00ff92;">${safeFixed(getMetric('truePeakDbtp', 'truePeakDbtp'))} dBTP</strong>` : (advancedReady? '—':'⏳'), 'truePeakDbtp'),
             row('Volume Médio (energia)', `${safeFixed(getMetric('rms_level', 'avgLoudness'))} dB`, 'avgLoudness'),
             row('Dinâmica (diferença entre alto/baixo)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
             row('fator de crista', `${safeFixed(getMetric('crest_factor', 'crestFactor'))} dB`, 'crestFactor'),
-            row('pico real (dbtp)', (advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp'))) ? `${safeFixed(getMetric('truePeakDbtp', 'truePeakDbtp'))} dBTP` : (advancedReady? '—':'⏳'), 'truePeakDbtp'),
             row('Volume Integrado (padrão streaming)', (advancedReady && Number.isFinite(getLufsIntegratedValue())) ? `${safeFixed(getLufsIntegratedValue())} LUFS` : (advancedReady? '—':'⏳'), 'lufsIntegrated'),
             row('Volume Integrado (padrão streaming)', (advancedReady && Number.isFinite(getMetric('lufs_short_term', 'lufsShortTerm'))) ? `${safeFixed(getMetric('lufs_short_term', 'lufsShortTerm'))} LUFS` : (advancedReady? '—':'⏳'), 'lufsShortTerm'),
             row('Volume Integrado (padrão streaming)', (advancedReady && Number.isFinite(getMetric('lufs_momentary', 'lufsMomentary'))) ? `${safeFixed(getMetric('lufs_momentary', 'lufsMomentary'))} LUFS` : (advancedReady? '—':'⏳'), 'lufsMomentary'),
@@ -3516,9 +3516,9 @@ function displayModalResults(analysis) {
                 
                 // === MÉTRICAS DE PICO E CLIPPING (seção principal) ===
                 
-                // True Peak (dBTP)
+                // True Peak (dBTP) - FFmpeg
                 if (Number.isFinite(analysis.technicalData?.truePeakDbtp)) {
-                    rows.push(row('True Peak (dBTP)', `${safeFixed(analysis.technicalData.truePeakDbtp, 2)} dBTP`, 'truePeakDbtp'));
+                    rows.push(row('🎯 TRUE PEAK (FFmpeg)', `<strong style="color: #00ff92;">${safeFixed(analysis.technicalData.truePeakDbtp, 2)} dBTP</strong>`, 'truePeakDbtp'));
                 }
                 
                 // Picos por canal separados
@@ -4974,7 +4974,7 @@ function renderReferenceComparisons(analysis) {
     
     // ADICIONAR TODAS AS MÉTRICAS PRINCIPAIS
     pushRow('Loudness Integrado (LUFS)', getLufsIntegratedValue(), ref.lufs_target, ref.tol_lufs, ' LUFS');
-    pushRow('Pico Real (dBTP)', getMetricForRef('true_peak_dbtp', 'truePeakDbtp'), ref.true_peak_target, ref.tol_true_peak, ' dBTP');
+    pushRow('🎯 TRUE PEAK (FFmpeg)', getMetricForRef('true_peak_dbtp', 'truePeakDbtp'), ref.true_peak_target, ref.tol_true_peak, ' dBTP');
     pushRow('DR', getMetricForRef('dynamic_range', 'dynamicRange'), ref.dr_target, ref.tol_dr, '');
     pushRow('Faixa de Loudness – LRA (LU)', getMetricForRef('lra'), ref.lra_target, ref.tol_lra, ' LU');
     pushRow('Stereo Corr.', getMetricForRef('stereo_correlation', 'stereoCorrelation'), ref.stereo_target, ref.tol_stereo, '');
@@ -5901,7 +5901,7 @@ function updateReferenceSuggestions(analysis) {
     const lufsVal = Number.isFinite(tech.lufsIntegrated) ? tech.lufsIntegrated : null;
     addRefSug(lufsVal, ref.lufs_target, ref.tol_lufs, 'reference_loudness', 'LUFS', '');
     const tpVal = Number.isFinite(tech.truePeakDbtp) ? tech.truePeakDbtp : null;
-    addRefSug(tpVal, ref.true_peak_target, ref.tol_true_peak, 'reference_true_peak', 'Pico Real', ' dBTP');
+    addRefSug(tpVal, ref.true_peak_target, ref.tol_true_peak, 'reference_true_peak', '🎯 TRUE PEAK (FFmpeg)', ' dBTP');
     addRefSug(tech.dynamicRange, ref.dr_target, ref.tol_dr, 'reference_dynamics', 'DR', ' dB');
     if (Number.isFinite(tech.lra)) addRefSug(tech.lra, ref.lra_target, ref.tol_lra, 'reference_lra', 'LRA', ' LU');
     if (Number.isFinite(tech.stereoCorrelation)) addRefSug(tech.stereoCorrelation, ref.stereo_target, ref.tol_stereo, 'reference_stereo', 'Stereo Corr', '');

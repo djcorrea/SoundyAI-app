@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificar True Peak FFmpeg - Display</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #000;
+            color: #00ffff;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .section {
+            background: rgba(0, 255, 255, 0.1);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .highlight {
+            background: rgba(0, 255, 146, 0.2);
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            background: rgba(255, 51, 102, 0.2);
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid rgba(0, 255, 255, 0.3);
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background: rgba(0, 255, 255, 0.2);
+        }
+        .value-ffmpeg {
+            color: #00ff92;
+            font-weight: bold;
+        }
+        .value-sample {
+            color: #ffd700;
+        }
+        button {
+            background: rgba(0, 255, 255, 0.2);
+            border: 1px solid #00ffff;
+            color: #00ffff;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: rgba(0, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Verificação - True Peak FFmpeg vs Sample Peak</h1>
+        
+        <div class="section">
+            <h2>📋 Status do Sistema</h2>
+            <div id="systemStatus"></div>
+        </div>
+
+        <div class="section">
+            <h2>🔍 Análise do Último JSON</h2>
+            <button onclick="loadLastAnalysis()">🔄 Carregar Última Análise</button>
+            <button onclick="testFileUpload()">📁 Testar com Arquivo</button>
+            <div id="analysisData"></div>
+        </div>
+
+        <div class="section">
+            <h2>👁️ Comparação Visual</h2>
+            <div id="visualComparison"></div>
+        </div>
+
+        <div class="section">
+            <h2>🔧 Frontend Integration</h2>
+            <div id="frontendTest"></div>
+        </div>
+    </div>
+
+    <script>
+        function loadLastAnalysis() {
+            const statusDiv = document.getElementById('systemStatus');
+            const analysisDiv = document.getElementById('analysisData');
+            
+            statusDiv.innerHTML = '<p>🔄 Carregando dados do backend...</p>';
+            
+            // Simular carregamento de análise (adapte para seu endpoint real)
+            fetch('/api/last-analysis')
+                .then(response => response.json())
+                .then(data => {
+                    displayAnalysisData(data);
+                })
+                .catch(error => {
+                    // Se não há endpoint, usar dados de exemplo
+                    const exampleData = {
+                        technicalData: {
+                            peak: -0.796,                    // Sample Peak dBFS
+                            truePeakDbtp: -0.796,           // FFmpeg True Peak dBTP
+                            truePeakLinear: 0.913,          // FFmpeg True Peak Linear
+                            samplePeakLeft: -0.796,         // Sample Peak L
+                            samplePeakRight: -1.205         // Sample Peak R
+                        },
+                        source: 'FFmpeg ebur128 filter'
+                    };
+                    
+                    displayAnalysisData(exampleData);
+                });
+        }
+        
+        function displayAnalysisData(data) {
+            const analysisDiv = document.getElementById('analysisData');
+            const statusDiv = document.getElementById('systemStatus');
+            
+            if (!data || !data.technicalData) {
+                analysisDiv.innerHTML = '<div class="error">❌ Dados não encontrados ou inválidos</div>';
+                return;
+            }
+            
+            const td = data.technicalData;
+            
+            // Status do sistema
+            const hasFFmpegTruePeak = Number.isFinite(td.truePeakDbtp);
+            const hasSamplePeak = Number.isFinite(td.peak);
+            
+            statusDiv.innerHTML = `
+                <table>
+                    <tr>
+                        <th>Componente</th>
+                        <th>Status</th>
+                        <th>Valor</th>
+                    </tr>
+                    <tr>
+                        <td>FFmpeg True Peak</td>
+                        <td>${hasFFmpegTruePeak ? '✅ Ativo' : '❌ Inativo'}</td>
+                        <td class="value-ffmpeg">${hasFFmpegTruePeak ? td.truePeakDbtp + ' dBTP' : 'N/A'}</td>
+                    </tr>
+                    <tr>
+                        <td>Sample Peak (Digital)</td>
+                        <td>${hasSamplePeak ? '✅ Ativo' : '❌ Inativo'}</td>
+                        <td class="value-sample">${hasSamplePeak ? td.peak + ' dBFS' : 'N/A'}</td>
+                    </tr>
+                    <tr>
+                        <td>Advanced Ready</td>
+                        <td>${(hasFFmpegTruePeak && Number.isFinite(td.lufs_integrated)) ? '✅ SIM' : '❌ NÃO'}</td>
+                        <td>LUFS: ${td.lufs_integrated || 'N/A'}</td>
+                    </tr>
+                </table>
+            `;
+            
+            // Dados da análise
+            analysisDiv.innerHTML = `
+                <div class="highlight">
+                    <h3>📊 Dados Extraídos</h3>
+                    <pre>${JSON.stringify(td, null, 2)}</pre>
+                </div>
+                
+                <h3>🔍 Comparação de Valores</h3>
+                <table>
+                    <tr>
+                        <th>Métrica</th>
+                        <th>Valor</th>
+                        <th>Unidade</th>
+                        <th>Fonte</th>
+                    </tr>
+                    <tr>
+                        <td>Sample Peak Digital</td>
+                        <td class="value-sample">${td.peak || 'N/A'}</td>
+                        <td>dBFS</td>
+                        <td>Análise de amostras digitais</td>
+                    </tr>
+                    <tr>
+                        <td>🎯 TRUE PEAK (FFmpeg)</td>
+                        <td class="value-ffmpeg">${td.truePeakDbtp || 'N/A'}</td>
+                        <td>dBTP</td>
+                        <td>FFmpeg ebur128 filter</td>
+                    </tr>
+                    <tr>
+                        <td>True Peak Linear</td>
+                        <td class="value-ffmpeg">${td.truePeakLinear || 'N/A'}</td>
+                        <td>Linear</td>
+                        <td>FFmpeg ebur128 filter</td>
+                    </tr>
+                </table>
+            `;
+            
+            // Comparação visual
+            displayVisualComparison(td);
+            
+            // Teste frontend
+            testFrontendIntegration(td);
+        }
+        
+        function displayVisualComparison(td) {
+            const visualDiv = document.getElementById('visualComparison');
+            
+            const samplePeak = td.peak || 0;
+            const truePeak = td.truePeakDbtp || 0;
+            const difference = Math.abs(truePeak - samplePeak);
+            
+            visualDiv.innerHTML = `
+                <h3>📊 Comparação Gráfica</h3>
+                <div style="margin: 20px 0;">
+                    <div style="background: rgba(255, 215, 0, 0.2); padding: 15px; border-radius: 8px; margin: 10px 0;">
+                        <strong>📱 Sample Peak (Digital):</strong> 
+                        <span class="value-sample">${samplePeak} dBFS</span>
+                        <div style="margin-top: 5px; font-size: 12px; opacity: 0.8;">
+                            Baseado em amostras digitais - pode subestimar picos analógicos
+                        </div>
+                    </div>
+                    
+                    <div style="background: rgba(0, 255, 146, 0.2); padding: 15px; border-radius: 8px; margin: 10px 0;">
+                        <strong>🎯 TRUE PEAK (FFmpeg):</strong> 
+                        <span class="value-ffmpeg">${truePeak} dBTP</span>
+                        <div style="margin-top: 5px; font-size: 12px; opacity: 0.8;">
+                            ITU-R BS.1770-4 - oversampling 4x - detecta picos inter-sample
+                        </div>
+                    </div>
+                    
+                    <div style="background: rgba(0, 255, 255, 0.1); padding: 15px; border-radius: 8px; margin: 10px 0;">
+                        <strong>📏 Diferença:</strong> ${difference.toFixed(3)} dB
+                        <div style="margin-top: 5px; font-size: 12px; opacity: 0.8;">
+                            ${difference > 0.1 ? 
+                                '⚠️ Diferença significativa detectada' : 
+                                '✅ Valores próximos (normal para este material)'}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function testFrontendIntegration(td) {
+            const frontendDiv = document.getElementById('frontendTest');
+            
+            // Simular a função getMetric do frontend
+            const mockAnalysis = { 
+                technicalData: td,
+                metrics: {
+                    truePeakDbtp: td.truePeakDbtp,
+                    peak_db: td.peak
+                }
+            };
+            
+            const getMetric = (metricPath, fallbackPath = null) => {
+                const centralizedValue = mockAnalysis.metrics && mockAnalysis.metrics[metricPath];
+                if (Number.isFinite(centralizedValue)) {
+                    return centralizedValue;
+                }
+                const legacyValue = fallbackPath ? 
+                    mockAnalysis.technicalData[fallbackPath] : 
+                    mockAnalysis.technicalData[metricPath];
+                return Number.isFinite(legacyValue) ? legacyValue : null;
+            };
+            
+            const safeFixed = (v, d=1) => (Number.isFinite(v) ? v.toFixed(d) : '—');
+            const advancedReady = Number.isFinite(td.truePeakDbtp) && Number.isFinite(td.lufs_integrated);
+            
+            // Simular a renderização do frontend
+            const samplePeakRow = `Pico de Amostra (Digital): ${safeFixed(getMetric('peak_db', 'peak'))} dBFS`;
+            const truePeakRow = (advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp'))) ? 
+                `🎯 TRUE PEAK (FFmpeg): ${safeFixed(getMetric('truePeakDbtp', 'truePeakDbtp'))} dBTP` : 
+                (advancedReady ? '—' : '⏳');
+            
+            frontendDiv.innerHTML = `
+                <h3>🖥️ Simulação da Interface</h3>
+                <div style="background: rgba(0, 0, 0, 0.3); padding: 20px; border-radius: 8px; font-family: monospace;">
+                    <div style="background: rgba(0, 255, 255, 0.1); padding: 10px; margin: 5px 0; border-radius: 4px;">
+                        ${samplePeakRow}
+                    </div>
+                    <div style="background: rgba(0, 255, 146, 0.2); padding: 10px; margin: 5px 0; border-radius: 4px;">
+                        ${truePeakRow}
+                    </div>
+                </div>
+                
+                <div style="margin-top: 20px;">
+                    <h4>🔧 Configurações Frontend</h4>
+                    <table>
+                        <tr>
+                            <td>advancedReady</td>
+                            <td>${advancedReady ? '✅ true' : '❌ false'}</td>
+                        </tr>
+                        <tr>
+                            <td>getMetric('truePeakDbtp')</td>
+                            <td>${getMetric('truePeakDbtp', 'truePeakDbtp') || 'null'}</td>
+                        </tr>
+                        <tr>
+                            <td>getMetric('peak_db')</td>
+                            <td>${getMetric('peak_db', 'peak') || 'null'}</td>
+                        </tr>
+                    </table>
+                </div>
+            `;
+        }
+        
+        function testFileUpload() {
+            alert('Esta função testaria o upload de um arquivo real. Implemente conforme sua API.');
+        }
+        
+        // Carregar automaticamente ao abrir a página
+        window.onload = function() {
+            loadLastAnalysis();
+        };
+    </script>
+</body>
+</html>
