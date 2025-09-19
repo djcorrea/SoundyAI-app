@@ -3422,13 +3422,14 @@ function displayModalResults(analysis) {
             if (metricPath === 'truePeakDbtp') {
                 const centralizedValue = analysis.metrics && getNestedValue(analysis.metrics, metricPath);
                 const legacyValue = fallbackPath ? getNestedValue(analysis.technicalData, fallbackPath) : getNestedValue(analysis.technicalData, metricPath);
-                console.log('🎯 DEBUG TRUE PEAK:', {
+                console.log('🎯 [GETMETRIC DEBUG TRUEPEAK]:', {
                     metricPath,
                     fallbackPath,
                     centralizedValue,
                     legacyValue,
                     analysis_metrics: analysis.metrics,
-                    analysis_technicalData: analysis.technicalData
+                    analysis_technicalData: analysis.technicalData,
+                    fullAnalysis: analysis
                 });
             }
             
@@ -3464,11 +3465,26 @@ function displayModalResults(analysis) {
 
         const col1 = [
             row('Pico de Amostra (Digital)', `${safeFixed(getMetric('peak_db', 'peak'))} dBFS`, 'peak'),
-            // ===== TRUE PEAK SEMPRE MOSTRADO SE EXISTIR =====
+            // ===== TRUE PEAK DEBUG FORÇADO =====
             (() => {
                 const truePeakValue = getMetric('truePeakDbtp', 'truePeakDbtp');
+                
+                // Log extensivo para debug
+                console.log('🎯 [TRUE PEAK DEBUG EXTENSIVO]', {
+                    truePeakValue,
+                    type: typeof truePeakValue,
+                    isFinite: Number.isFinite(truePeakValue),
+                    isNull: truePeakValue === null,
+                    isUndefined: truePeakValue === undefined,
+                    analysis: window.currentAnalysis || window.analysis,
+                    fullAnalysisStructure: Object.keys(window.currentAnalysis || window.analysis || {})
+                });
+                
                 if (Number.isFinite(truePeakValue)) {
                     return row('🎯 TRUE PEAK (FFmpeg)', `<strong style="color: #00ff92; font-size: 14px;">${safeFixed(truePeakValue)} dBTP</strong>`, 'truePeakDbtp');
+                } else if (truePeakValue !== null && truePeakValue !== undefined) {
+                    // Mostrar qualquer valor que não seja null/undefined
+                    return row('🎯 TRUE PEAK (FFmpeg)', `<strong style="color: #ffa500; font-size: 14px;">VALOR: ${String(truePeakValue)}</strong>`, 'truePeakDbtp');
                 } else {
                     return row('🎯 TRUE PEAK (FFmpeg)', '<span style="color: #ffd700;">⏳ Calculando...</span>', 'truePeakDbtp');
                 }
