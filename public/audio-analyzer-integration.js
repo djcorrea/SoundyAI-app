@@ -3418,6 +3418,20 @@ function displayModalResults(analysis) {
 
         // 🎯 CENTRALIZAÇÃO DAS MÉTRICAS - Funções de acesso unificado
         const getMetric = (metricPath, fallbackPath = null) => {
+            // Debug temporário para True Peak
+            if (metricPath === 'truePeakDbtp') {
+                const centralizedValue = analysis.metrics && getNestedValue(analysis.metrics, metricPath);
+                const legacyValue = fallbackPath ? getNestedValue(analysis.technicalData, fallbackPath) : getNestedValue(analysis.technicalData, metricPath);
+                console.log('🎯 DEBUG TRUE PEAK:', {
+                    metricPath,
+                    fallbackPath,
+                    centralizedValue,
+                    legacyValue,
+                    analysis_metrics: analysis.metrics,
+                    analysis_technicalData: analysis.technicalData
+                });
+            }
+            
             // Prioridade: metrics centralizadas > technicalData legado > fallback
             const centralizedValue = analysis.metrics && getNestedValue(analysis.metrics, metricPath);
             if (Number.isFinite(centralizedValue)) {
@@ -3450,7 +3464,15 @@ function displayModalResults(analysis) {
 
         const col1 = [
             row('Pico de Amostra (Digital)', `${safeFixed(getMetric('peak_db', 'peak'))} dBFS`, 'peak'),
-            row('🎯 TRUE PEAK (FFmpeg)', (advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp'))) ? `<strong style="color: #00ff92;">${safeFixed(getMetric('truePeakDbtp', 'truePeakDbtp'))} dBTP</strong>` : (advancedReady? '—':'⏳'), 'truePeakDbtp'),
+            // ===== TRUE PEAK SEMPRE MOSTRADO SE EXISTIR =====
+            (() => {
+                const truePeakValue = getMetric('truePeakDbtp', 'truePeakDbtp');
+                if (Number.isFinite(truePeakValue)) {
+                    return row('🎯 TRUE PEAK (FFmpeg)', `<strong style="color: #00ff92; font-size: 14px;">${safeFixed(truePeakValue)} dBTP</strong>`, 'truePeakDbtp');
+                } else {
+                    return row('🎯 TRUE PEAK (FFmpeg)', '<span style="color: #ffd700;">⏳ Calculando...</span>', 'truePeakDbtp');
+                }
+            })(),
             row('Volume Médio (energia)', `${safeFixed(getMetric('rms_level', 'avgLoudness'))} dB`, 'avgLoudness'),
             row('Dinâmica (diferença entre alto/baixo)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
             row('fator de crista', `${safeFixed(getMetric('crest_factor', 'crestFactor'))} dB`, 'crestFactor'),
