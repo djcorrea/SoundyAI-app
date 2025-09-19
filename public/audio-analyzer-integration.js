@@ -3418,19 +3418,59 @@ function displayModalResults(analysis) {
 
         // 🎯 CENTRALIZAÇÃO DAS MÉTRICAS - Funções de acesso unificado
         const getMetric = (metricPath, fallbackPath = null) => {
-            // Debug temporário para True Peak
+            // 💪 FORÇAR TRUE PEAK - CORREÇÃO DEFINITIVA
             if (metricPath === 'truePeakDbtp') {
-                const centralizedValue = analysis.metrics && getNestedValue(analysis.metrics, metricPath);
-                const legacyValue = fallbackPath ? getNestedValue(analysis.technicalData, fallbackPath) : getNestedValue(analysis.technicalData, metricPath);
-                console.log('🎯 [GETMETRIC DEBUG TRUEPEAK]:', {
-                    metricPath,
-                    fallbackPath,
-                    centralizedValue,
-                    legacyValue,
-                    analysis_metrics: analysis.metrics,
-                    analysis_technicalData: analysis.technicalData,
+                // Tentar todos os locais possíveis
+                const locations = [
+                    analysis.technicalData?.truePeakDbtp,
+                    analysis.metrics?.truePeakDbtp,
+                    analysis.coreMetrics?.truePeak?.maxDbtp,
+                    analysis.truePeakDbtp,
+                    analysis.truePeak?.maxDbtp,
+                    analysis.technicalData?.truePeak?.maxDbtp
+                ];
+                
+                console.log('🎯 [TRUEPEAK FORCE DEBUG] Procurando em todas as localizações:', {
+                    locations,
+                    analysis_keys: Object.keys(analysis || {}),
+                    technicalData_keys: Object.keys(analysis?.technicalData || {}),
+                    metrics_keys: Object.keys(analysis?.metrics || {}),
                     fullAnalysis: analysis
                 });
+                
+                // Retornar o primeiro valor válido encontrado
+                for (const value of locations) {
+                    if (Number.isFinite(value)) {
+                        console.log(`🎯 [TRUEPEAK FOUND] Valor encontrado: ${value} dBTP`, 'success');
+                        return value;
+                    }
+                }
+                
+                // Se não encontrou nada, verificar se existe algum valor não-finito
+                for (const value of locations) {
+                    if (value !== null && value !== undefined) {
+                        console.log(`🎯 [TRUEPEAK INVALID] Valor inválido encontrado: ${value} (tipo: ${typeof value})`, 'warning');
+                        return value; // Retornar mesmo que não seja finito para debug
+                    }
+                }
+                
+                console.log('🎯 [TRUEPEAK NULL] Nenhum valor encontrado - retornando null', 'error');
+                return null;
+            }
+            
+            // Debug temporário para outras métricas
+            if (metricPath !== 'truePeakDbtp') {
+                const centralizedValue = analysis.metrics && getNestedValue(analysis.metrics, metricPath);
+                const legacyValue = fallbackPath ? getNestedValue(analysis.technicalData, fallbackPath) : getNestedValue(analysis.technicalData, metricPath);
+                
+                // Só logar se valores existem (para evitar spam)
+                if (centralizedValue !== undefined || legacyValue !== undefined) {
+                    console.log(`📊 [GETMETRIC] ${metricPath}:`, {
+                        centralizedValue,
+                        legacyValue,
+                        selected: Number.isFinite(centralizedValue) ? centralizedValue : legacyValue
+                    });
+                }
             }
             
             // Prioridade: metrics centralizadas > technicalData legado > fallback
@@ -3465,28 +3505,33 @@ function displayModalResults(analysis) {
 
         const col1 = [
             row('Pico de Amostra (Digital)', `${safeFixed(getMetric('peak_db', 'peak'))} dBFS`, 'peak'),
-            // ===== TRUE PEAK DEBUG FORÇADO =====
+            // ===== TRUE PEAK DEBUG FORÇADO - VERSÃO ULTRA ROBUSTA =====
             (() => {
                 const truePeakValue = getMetric('truePeakDbtp', 'truePeakDbtp');
                 
                 // Log extensivo para debug
-                console.log('🎯 [TRUE PEAK DEBUG EXTENSIVO]', {
+                console.log('🎯 [TRUE PEAK RENDER DEBUG]', {
                     truePeakValue,
                     type: typeof truePeakValue,
                     isFinite: Number.isFinite(truePeakValue),
                     isNull: truePeakValue === null,
                     isUndefined: truePeakValue === undefined,
-                    analysis: window.currentAnalysis || window.analysis,
-                    fullAnalysisStructure: Object.keys(window.currentAnalysis || window.analysis || {})
+                    stringValue: String(truePeakValue)
                 });
                 
+                // FORÇAR DISPLAY SEM EXCEÇÃO
                 if (Number.isFinite(truePeakValue)) {
-                    return row('🎯 TRUE PEAK (FFmpeg)', `<strong style="color: #00ff92; font-size: 14px;">${safeFixed(truePeakValue)} dBTP</strong>`, 'truePeakDbtp');
+                    // Valor válido - mostrar em verde
+                    console.log(`✅ TRUE PEAK VÁLIDO: ${truePeakValue} dBTP`, 'success');
+                    return row('🎯 TRUE PEAK (FFmpeg)', `<strong style="color: #00ff92; font-size: 14px;">${safeFixed(truePeakValue, 2)} dBTP</strong>`, 'truePeakDbtp');
                 } else if (truePeakValue !== null && truePeakValue !== undefined) {
-                    // Mostrar qualquer valor que não seja null/undefined
-                    return row('🎯 TRUE PEAK (FFmpeg)', `<strong style="color: #ffa500; font-size: 14px;">VALOR: ${String(truePeakValue)}</strong>`, 'truePeakDbtp');
+                    // Valor existe mas não é finito - mostrar em laranja para debug
+                    console.log(`🟠 TRUE PEAK INVÁLIDO: ${truePeakValue} (${typeof truePeakValue})`, 'warning');
+                    return row('🎯 TRUE PEAK (FFmpeg)', `<strong style="color: #ffa500; font-size: 14px;">DEBUG: ${String(truePeakValue)} (${typeof truePeakValue})</strong>`, 'truePeakDbtp');
                 } else {
-                    return row('🎯 TRUE PEAK (FFmpeg)', '<span style="color: #ffd700;">⏳ Calculando...</span>', 'truePeakDbtp');
+                    // Valor null/undefined - mostrar em amarelo
+                    console.log(`🟡 TRUE PEAK NULL/UNDEFINED`, 'error');
+                    return row('🎯 TRUE PEAK (FFmpeg)', '<strong style="color: #ffd700; font-size: 14px;">❌ Dados não disponíveis</strong>', 'truePeakDbtp');
                 }
             })(),
             row('Volume Médio (energia)', `${safeFixed(getMetric('rms_level', 'avgLoudness'))} dB`, 'avgLoudness'),
