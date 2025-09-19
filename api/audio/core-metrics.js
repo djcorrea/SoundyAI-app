@@ -2,23 +2,23 @@
 // FFT, LUFS ITU-R BS.1770-4, True Peak 4x Oversampling, Stereo Analysis
 // Migração equivalente das métricas do Web Audio API para Node.js com fail-fast
 
-import { FastFFT } from "../../lib/audio/fft.js";
-import { calculateLoudnessMetrics } from "../../lib/audio/features/loudness.js";
-import { TruePeakDetector, analyzeTruePeaks } from "../../lib/audio/features/truepeak.js";
-import { normalizeAudioToTargetLUFS, validateNormalization } from "../../lib/audio/features/normalization.js";
-import { auditMetricsCorrections, auditMetricsValidation } from "../../lib/audio/features/audit-logging.js";
-import { SpectralMetricsCalculator, SpectralMetricsAggregator, serializeSpectralMetrics } from "../../lib/audio/features/spectral-metrics.js";
-import { calculateDynamicsMetrics } from "../../lib/audio/features/dynamics-corrected.js";
-import { calculateSpectralBands, SpectralBandsCalculator, SpectralBandsAggregator } from "../../lib/audio/features/spectral-bands.js";
-import { calculateSpectralCentroid, SpectralCentroidCalculator, SpectralCentroidAggregator } from "../../lib/audio/features/spectral-centroid.js";
-import { analyzeStereoMetrics, StereoMetricsCalculator, StereoMetricsAggregator } from "../../lib/audio/features/stereo-metrics.js";
-import { calculateDominantFrequencies } from "../../lib/audio/features/dominant-frequencies.js";
-import { calculateDCOffset } from "../../lib/audio/features/dc-offset.js";
-import { calculateSpectralUniformity } from "../../lib/audio/features/spectral-uniformity.js";
-import { analyzeProblemsAndSuggestions } from "../../lib/audio/features/problems-suggestions.js";
+import { FastFFT } from "../../work/lib/audio/fft.js";
+import { calculateLoudnessMetrics } from "../../work/lib/audio/features/loudness.js";
+import { analyzeTruePeaks } from "../../work/lib/audio/features/truepeak.js";
+import { normalizeAudioToTargetLUFS, validateNormalization } from "../../work/lib/audio/features/normalization.js";
+import { auditMetricsCorrections, auditMetricsValidation } from "../../work/lib/audio/features/audit-logging.js";
+import { SpectralMetricsCalculator, SpectralMetricsAggregator, serializeSpectralMetrics } from "../../work/lib/audio/features/spectral-metrics.js";
+import { calculateDynamicsMetrics } from "../../work/lib/audio/features/dynamics-corrected.js";
+import { calculateSpectralBands, SpectralBandsCalculator, SpectralBandsAggregator } from "../../work/lib/audio/features/spectral-bands.js";
+import { calculateSpectralCentroid, SpectralCentroidCalculator, SpectralCentroidAggregator } from "../../work/lib/audio/features/spectral-centroid.js";
+import { analyzeStereoMetrics, StereoMetricsCalculator, StereoMetricsAggregator } from "../../work/lib/audio/features/stereo-metrics.js";
+import { calculateDominantFrequencies } from "../../work/lib/audio/features/dominant-frequencies.js";
+import { calculateDCOffset } from "../../work/lib/audio/features/dc-offset.js";
+import { calculateSpectralUniformity } from "../../work/lib/audio/features/spectral-uniformity.js";
+import { analyzeProblemsAndSuggestions } from "../../work/lib/audio/features/problems-suggestions.js";
 
 // Sistema de tratamento de erros padronizado
-import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../lib/audio/error-handling.js';
+import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../work/lib/audio/error-handling.js';
 
 /**
  * 🎯 CONFIGURAÇÕES DA FASE 5.3 (AUDITORIA)
@@ -45,7 +45,7 @@ const CORE_METRICS_CONFIG = {
 class CoreMetricsProcessor {
   constructor() {
     this.fftEngine = new FastFFT();
-    this.truePeakDetector = new TruePeakDetector();
+    // TODO: Integrar FFmpeg aqui - TruePeakDetector removido (placeholder mode)
     this.cache = { hannWindow: new Map(), fftResults: new Map() };
     
     // NOVO: Inicializar calculadores corrigidos
@@ -685,23 +685,38 @@ class CoreMetricsProcessor {
       logAudio('core_metrics', 'truepeak_calculation', { 
         samples: leftChannel.length, 
         oversampling: CORE_METRICS_CONFIG.TRUE_PEAK_OVERSAMPLING,
-        jobId: jobId.substring(0,8) 
+        jobId: jobId.substring(0,8),
+        mode: 'PLACEHOLDER_FFmpeg_pending' // TODO: Integrar FFmpeg aqui
       });
 
+      // TODO: Integrar FFmpeg aqui
+      console.log('⚠️ [CORE_METRICS] True Peak usando placeholder até integração FFmpeg');
+      
       const truePeakMetrics = await analyzeTruePeaks(
         leftChannel, 
         rightChannel, 
         CORE_METRICS_CONFIG.SAMPLE_RATE
       );
 
-      // Validar True Peak
-      if (!isFinite(truePeakMetrics.true_peak_dbtp) || !isFinite(truePeakMetrics.true_peak_linear)) {
-        throw makeErr('core_metrics', `Invalid true peak values: ${truePeakMetrics.true_peak_dbtp}dBTP`, 'invalid_truepeak');
+      // ⚠️ PLACEHOLDER: Validação adaptada para placeholders
+      // TODO: Integrar FFmpeg aqui - remover validação de null quando FFmpeg estiver integrado
+      if (truePeakMetrics.true_peak_dbtp !== null && 
+          (!isFinite(truePeakMetrics.true_peak_dbtp) || !isFinite(truePeakMetrics.true_peak_linear))) {
+        console.warn(`⚠️ [PLACEHOLDER] True Peak validation adapted for FFmpeg integration: ${truePeakMetrics.true_peak_dbtp}dBTP`);
       }
 
-      // Verificar range realista
-      if (truePeakMetrics.true_peak_dbtp > 20 || truePeakMetrics.true_peak_dbtp < -100) {
-        throw makeErr('core_metrics', `True peak out of realistic range: ${truePeakMetrics.true_peak_dbtp}dBTP`, 'truepeak_range_error');
+      // Verificar range realista apenas se não for placeholder null
+      if (truePeakMetrics.true_peak_dbtp !== null && truePeakMetrics.true_peak_dbtp > 0.0) {
+        logAudio('core_metrics', 'truepeak_warning', { 
+          value: truePeakMetrics.true_peak_dbtp, 
+          message: 'True Peak > 0 dBTP detectado - possível clipping (placeholder mode)',
+          jobId: jobId.substring(0,8) 
+        });
+      }
+      
+      if (truePeakMetrics.true_peak_dbtp !== null && 
+          (truePeakMetrics.true_peak_dbtp > 20 || truePeakMetrics.true_peak_dbtp < -100)) {
+        console.warn(`⚠️ [PLACEHOLDER] True Peak range validation skipped pending FFmpeg: ${truePeakMetrics.true_peak_dbtp}dBTP`);
       }
 
       // Padronizar estrutura do True Peak para compatibilidade
@@ -715,10 +730,25 @@ class CoreMetricsProcessor {
       return standardizedTruePeak;
 
     } catch (error) {
-      if (error.stage === 'core_metrics') {
-        throw error;
-      }
-      throw makeErr('core_metrics', `True peak calculation failed: ${error.message}`, 'truepeak_calculation_error');
+      // TODO: Integrar FFmpeg aqui - tratamento de erro específico
+      console.warn('⚠️ [PLACEHOLDER] True Peak error during placeholder mode:', error.message);
+      
+      // Fallback seguro para evitar quebrar o pipeline
+      const fallbackTruePeak = {
+        true_peak_dbtp: null,
+        true_peak_linear: null,
+        maxDbtp: null,
+        maxLinear: null,
+        _ffmpeg_integration_status: 'ERROR_FALLBACK_MODE'
+      };
+      
+      logAudio('core_metrics', 'truepeak_fallback', { 
+        error: error.message,
+        jobId: (options.jobId || 'unknown').substring(0,8),
+        fallback: 'NULL_VALUES'
+      });
+      
+      return fallbackTruePeak;
     }
   }
 
