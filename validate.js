@@ -23,8 +23,11 @@ async function validateFile(filePath) {
   console.log(`RMS Frames: ${segmentedData.framesRMS.left.length}`);
   console.log(`RMS Frame size: ${segmentedData.framesRMS.frameSize}`);
 
-  // 3) Métricas core (Fase 5.3)
-  const metrics = await calculateCoreMetrics(segmentedData);
+  // 3) Métricas core (Fase 5.3) - passar filePath para True Peak FFmpeg
+  const metrics = await calculateCoreMetrics(segmentedData, { 
+    fileName: path.basename(filePath),
+    filePath: filePath // Passar caminho para FFmpeg True Peak
+  });
 
   console.log("LUFS:", metrics.lufs.integrated?.toFixed(2), "LUFS");
   console.log("True Peak:", metrics.truePeak.maxDbtp?.toFixed(2), "dBTP");
