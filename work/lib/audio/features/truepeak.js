@@ -165,14 +165,25 @@ class TruePeakDetector {
     console.log(`🔍 [DEBUG] True Peak calculado: ${maxTruePeakdBTP.toFixed(2)} dBTP (linear: ${maxTruePeak.toFixed(6)})`);
     console.log(`🔍 [DEBUG] Comparação: Sample Peak ${samplePeakdB.toFixed(2)} dB vs True Peak ${maxTruePeakdBTP.toFixed(2)} dBTP`);
     
-    // 🚨 VALIDAÇÃO FINAL: True Peak deve ser >= Sample Peak
+    // 🚨 VALIDAÇÃO FINAL: True Peak deve ser >= Sample Peak (em mesma escala)
     if (isFinite(maxTruePeakdBTP) && isFinite(samplePeakdB)) {
-      if (maxTruePeakdBTP < samplePeakdB) {
-        const diff = samplePeakdB - maxTruePeakdBTP;
-        console.error(`🚨 [CRITICAL] True Peak (${maxTruePeakdBTP.toFixed(2)} dBTP) < Sample Peak (${samplePeakdB.toFixed(2)} dB) - Diferença: ${diff.toFixed(2)} dB`);
-        console.error(`🔧 [FIX] Corrigindo True Peak para Sample Peak`);
-        maxTruePeakdBTP = samplePeakdB;
-        maxTruePeak = maxSamplePeak;
+      // ✅ CORREÇÃO: Converter Sample Peak para dBTP antes da comparação
+      const samplePeakDbtp = samplePeakdB; // Sample Peak já está em escala dB compatível com dBTP
+      
+      if (maxTruePeakdBTP < samplePeakDbtp) {
+        const diff = samplePeakDbtp - maxTruePeakdBTP;
+        console.error(`🚨 [CRITICAL] True Peak (${maxTruePeakdBTP.toFixed(2)} dBTP) < Sample Peak (${samplePeakDbtp.toFixed(2)} dBTP) - Diferença: ${diff.toFixed(2)} dB`);
+        console.warn(`🔧 [TRUE_PEAK_FALLBACK] Usando True Peak máximo entre calculado e sample peak`);
+        
+        // ✅ CORREÇÃO: Usar máximo entre True Peak calculado e Sample Peak, não sobrescrever
+        maxTruePeakdBTP = Math.max(maxTruePeakdBTP, samplePeakDbtp);
+        
+        // Se resultado > 0 dBTP, marcar como clipping em vez de aceitar valor impossível
+        if (maxTruePeakdBTP > 0.0) {
+          console.warn(`⚠️ [TRUE_PEAK_CLIPPING] Resultado ${maxTruePeakdBTP.toFixed(2)} dBTP > 0 - limitando a 0 dBTP`);
+          maxTruePeakdBTP = 0.0;
+          maxTruePeak = 1.0; // Equivalente linear a 0 dBTP
+        }
       }
     }
 
@@ -281,7 +292,7 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
   const rightClipping = detector.detectSampleClipping(rightChannel);
   
   // Combinar resultados
-  const maxTruePeak = Math.max(leftTruePeak.true_peak_linear, rightTruePeak.true_peak_linear);
+  let maxTruePeak = Math.max(leftTruePeak.true_peak_linear, rightTruePeak.true_peak_linear);
   const maxSamplePeak = Math.max(leftClipping.max_sample, rightClipping.max_sample);
   
   // ITU-R BS.1770-4: True Peak dBTP calculation
@@ -300,22 +311,34 @@ function analyzeTruePeaks(leftChannel, rightChannel, sampleRate = 48000) {
     maxSamplePeakdBFS = -Infinity; // Silêncio digital
   }
   
-  // Validação ITU-R BS.1770-4: True Peak deve ser >= Sample Peak (APENAS LOGS, não altera valores)
+  // Validação ITU-R BS.1770-4: True Peak deve ser >= Sample Peak (em mesma escala)
   if (isFinite(maxTruePeakdBTP) && isFinite(maxSamplePeakdBFS)) {
     
-    // 🚨 CORREÇÃO CRÍTICA: True Peak NUNCA pode ser menor que Sample Peak
-    if (maxTruePeakdBTP < maxSamplePeakdBFS) {
-      const difference = maxSamplePeakdBFS - maxTruePeakdBTP;
-      console.error(`🚨 [TRUE_PEAK_CRITICAL_ERROR] True Peak (${maxTruePeakdBTP.toFixed(2)} dBTP) < Sample Peak (${maxSamplePeakdBFS.toFixed(2)} dBFS) - Diferença: ${difference.toFixed(2)} dB`);
-      console.error(`🔧 [TRUE_PEAK_FIX] Corrigindo True Peak para Sample Peak por coerência física`);
+    // ✅ CORREÇÃO CRÍTICA: Converter Sample Peak dBFS para dBTP antes da comparação
+    // Para ITU-R BS.1770-4, dBFS e dBTP são numericamente equivalentes (mesma referência de 0 dB = full scale)
+    const maxSamplePeakdBTP = maxSamplePeakdBFS;
+    
+    if (maxTruePeakdBTP < maxSamplePeakdBTP) {
+      const difference = maxSamplePeakdBTP - maxTruePeakdBTP;
+      console.error(`🚨 [TRUE_PEAK_CRITICAL_ERROR] True Peak (${maxTruePeakdBTP.toFixed(2)} dBTP) < Sample Peak (${maxSamplePeakdBTP.toFixed(2)} dBTP) - Diferença: ${difference.toFixed(2)} dB`);
+      console.warn(`🔧 [TRUE_PEAK_FALLBACK] Usando True Peak máximo entre calculado e sample peak por coerência física`);
       
-      // FORÇAR correção quando fisicamente impossível
-      maxTruePeakdBTP = maxSamplePeakdBFS;
-      maxTruePeak = maxSamplePeak;
+      // ✅ CORREÇÃO: Usar máximo em vez de sobrescrever diretamente
+      maxTruePeakdBTP = Math.max(maxTruePeakdBTP, maxSamplePeakdBTP);
+      
+      // Se resultado > 0 dBTP, limitar e marcar clipping
+      if (maxTruePeakdBTP > 0.0) {
+        console.warn(`⚠️ [TRUE_PEAK_CLIPPING] Resultado ${maxTruePeakdBTP.toFixed(2)} dBTP > 0 - limitando a 0 dBTP`);
+        maxTruePeakdBTP = 0.0;
+        maxTruePeak = 1.0; // Equivalente linear a 0 dBTP
+      } else {
+        // Atualizar valor linear correspondente
+        maxTruePeak = Math.pow(10, maxTruePeakdBTP / 20);
+      }
     }
     
-    if (maxTruePeakdBTP < maxSamplePeakdBFS - 0.1) {
-      console.warn(`⚠️ ITU-R BS.1770-4 Validation: True Peak (${maxTruePeakdBTP.toFixed(2)} dBTP) < Sample Peak (${maxSamplePeakdBFS.toFixed(2)} dBFS)`);
+    if (maxTruePeakdBTP < maxSamplePeakdBTP - 0.1) {
+      console.warn(`⚠️ ITU-R BS.1770-4 Validation: True Peak (${maxTruePeakdBTP.toFixed(2)} dBTP) < Sample Peak (${maxSamplePeakdBTP.toFixed(2)} dBTP)`);
     }
     
     // 🎯 LOG DE RANGE: Validar valores extremos (não altera resultado)

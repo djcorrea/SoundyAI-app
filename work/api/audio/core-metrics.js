@@ -699,7 +699,15 @@ class CoreMetricsProcessor {
         throw makeErr('core_metrics', `Invalid true peak values: ${truePeakMetrics.true_peak_dbtp}dBTP`, 'invalid_truepeak');
       }
 
-      // Verificar range realista
+      // Verificar range realista (True Peak não deve exceder 0 dBTP em condições normais)
+      if (truePeakMetrics.true_peak_dbtp > 0.0) {
+        logAudio('core_metrics', 'truepeak_warning', { 
+          value: truePeakMetrics.true_peak_dbtp, 
+          message: 'True Peak > 0 dBTP detectado - possível clipping',
+          jobId: jobId.substring(0,8) 
+        });
+      }
+      
       if (truePeakMetrics.true_peak_dbtp > 20 || truePeakMetrics.true_peak_dbtp < -100) {
         throw makeErr('core_metrics', `True peak out of realistic range: ${truePeakMetrics.true_peak_dbtp}dBTP`, 'truepeak_range_error');
       }
