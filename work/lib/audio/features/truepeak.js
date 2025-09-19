@@ -102,15 +102,19 @@ class TruePeakDetector {
    * @returns {Array<Float32Array>} Fases polyphase
    */
   buildPhases(taps, L) {
+    // Primeiro, normalizar os coeficientes para ganho unitário
+    const sum = taps.reduce((acc, val) => acc + Math.abs(val), 0);
+    const normalizedTaps = taps.map(tap => tap / sum);
+    
     const phases = Array.from({ length: L }, () => []);
-    for (let k = 0; k < taps.length; k++) {
+    for (let k = 0; k < normalizedTaps.length; k++) {
       const p = k % L;
-      phases[p].push(taps[k]);
+      phases[p].push(normalizedTaps[k]);
     }
     
     // Correção de ganho empírica baseada na análise dos coeficientes
     // Fator ajustado para manter True Peak realístico mas >= Sample Peak
-    const empiricalGain = L * 2.0; // Ganho mais conservador
+    const empiricalGain = 1.0; // SEM ganho artificial - usar coeficientes normalizados
     
     for (let p = 0; p < L; p++) {
       for (let i = 0; i < phases[p].length; i++) {
@@ -119,7 +123,7 @@ class TruePeakDetector {
       phases[p] = Float32Array.from(phases[p]);
     }
     
-    console.log(`🔧 Pré-computadas ${L} fases polyphase (${phases[0].length} coeficientes/fase, ganho empírico=${empiricalGain.toFixed(3)}×)`);
+    console.log(`🔧 Pré-computadas ${L} fases polyphase (${phases[0].length} coeficientes/fase, normalização=${sum.toFixed(6)}, ganho empírico=${empiricalGain.toFixed(3)}×)`);
     return phases;
   }
 
