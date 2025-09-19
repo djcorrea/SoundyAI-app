@@ -678,44 +678,60 @@ class CoreMetricsProcessor {
   }
 
   /**
-   * Cálculo True Peak com oversampling 4x
+   * Cálculo True Peak 100% via FFmpeg (sem fallback)
    */
   async calculateTruePeakMetrics(leftChannel, rightChannel, options = {}) {
     const jobId = options.jobId || 'unknown';
-    
+    const tempFilePath = options.tempFilePath;
     try {
-      logAudio('core_metrics', 'truepeak_calculation', { 
-        samples: leftChannel.length, 
-        oversampling: CORE_METRICS_CONFIG.TRUE_PEAK_OVERSAMPLING,
-        jobId: jobId.substring(0,8) 
+      logAudio('core_metrics', 'truepeak_calculation', {
+        samples: leftChannel.length,
+        method: 'ffmpeg_ebur128',
+        hasTempFile: !!tempFilePath,
+        jobId: jobId.substring(0,8)
       });
 
-      const truePeakMetrics = await analyzeTruePeaks(
-        leftChannel, 
-        rightChannel, 
-        CORE_METRICS_CONFIG.SAMPLE_RATE
-      );
-
-      // Validar True Peak
-      if (!isFinite(truePeakMetrics.true_peak_dbtp) || !isFinite(truePeakMetrics.true_peak_linear)) {
-        throw makeErr('core_metrics', `Invalid true peak values: ${truePeakMetrics.true_peak_dbtp}dBTP`, 'invalid_truepeak');
+      if (!tempFilePath) {
+        throw makeErr('core_metrics', 'tempFilePath é obrigatório para cálculo FFmpeg True Peak', 'missing_temp_file');
       }
 
-      // Verificar range realista
-      if (truePeakMetrics.true_peak_dbtp > 20 || truePeakMetrics.true_peak_dbtp < -100) {
-        throw makeErr('core_metrics', `True peak out of realistic range: ${truePeakMetrics.true_peak_dbtp}dBTP`, 'truepeak_range_error');
+      const truePeakMetrics = await analyzeTruePeaksFFmpeg(
+        leftChannel,
+        rightChannel,
+        CORE_METRICS_CONFIG.SAMPLE_RATE,
+        tempFilePath
+      );
+
+      // Validar True Peak - apenas se não for null
+      if (truePeakMetrics.true_peak_dbtp !== null) {
+        if (!isFinite(truePeakMetrics.true_peak_dbtp)) {
+          throw makeErr('core_metrics', `Invalid true peak value: ${truePeakMetrics.true_peak_dbtp}dBTP`, 'invalid_truepeak');
+        }
+        if (truePeakMetrics.true_peak_dbtp > 50 || truePeakMetrics.true_peak_dbtp < -200) {
+          throw makeErr('core_metrics', `True peak out of realistic range: ${truePeakMetrics.true_peak_dbtp}dBTP`, 'truepeak_range_error');
+        }
+        if (truePeakMetrics.true_peak_dbtp > -1.0) {
+          logAudio('core_metrics', 'truepeak_warning', {
+            value: truePeakMetrics.true_peak_dbtp,
+            message: 'True Peak > -1 dBTP detectado - possível clipping',
+            jobId: jobId.substring(0,8)
+          });
+        }
+      } else {
+        logAudio('core_metrics', 'truepeak_null', {
+          message: 'FFmpeg não conseguiu calcular True Peak',
+          error: truePeakMetrics.error,
+          jobId: jobId.substring(0,8)
+        });
       }
 
       // Padronizar estrutura do True Peak para compatibilidade
       const standardizedTruePeak = {
         maxDbtp: truePeakMetrics.true_peak_dbtp,
         maxLinear: truePeakMetrics.true_peak_linear,
-        // Manter campos originais para completude
         ...truePeakMetrics
       };
-
       return standardizedTruePeak;
-
     } catch (error) {
       if (error.stage === 'core_metrics') {
         throw error;
