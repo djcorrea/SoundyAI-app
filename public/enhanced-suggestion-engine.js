@@ -956,6 +956,32 @@ class EnhancedSuggestionEngine {
     }
 }
 
+// ===== HOOK DE AUDITORIA PERMANENTE =====
+// Captura todos os parâmetros que chegam ao processAnalysis para debugging
+(function() {
+    const originalProcessAnalysis = EnhancedSuggestionEngine.prototype.processAnalysis;
+    
+    EnhancedSuggestionEngine.prototype.processAnalysis = function(analysis, referenceData, options = {}) {
+        // Salvar dados globalmente para inspeção
+        window.__DEBUG_ANALYSIS__ = analysis;
+        window.__DEBUG_REF__ = referenceData;
+        window.__DEBUG_OPTIONS__ = options;
+        
+        // Log detalhado para auditoria
+        console.log("[AUDITORIA] processAnalysis capturado", {
+            analysis,
+            referenceData,
+            options,
+            timestamp: new Date().toISOString()
+        });
+        
+        // Chamar método original sem alterações
+        return originalProcessAnalysis.apply(this, arguments);
+    };
+    
+    console.log('🔍 Hook de auditoria ativado para processAnalysis');
+})();
+
 // Instância global do engine
 window.EnhancedSuggestionEngine = EnhancedSuggestionEngine;
 window.enhancedSuggestionEngine = new EnhancedSuggestionEngine();
