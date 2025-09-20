@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Teste do Novo Sistema de Sugestões - SoundyAI</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #0a0a0a;
+            color: #fff;
+            line-height: 1.6;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            border-radius: 12px;
+        }
+        .test-section {
+            background: #1a1a1a;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid #333;
+        }
+        .test-results {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .suggestion-card {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 15px;
+            border-left: 4px solid;
+        }
+        .suggestion-card.critical { border-left-color: #ff4757; }
+        .suggestion-card.warning { border-left-color: #ffa502; }
+        .suggestion-card.ideal { border-left-color: #2ed573; }
+        .metric-title {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 8px;
+        }
+        .metric-values {
+            font-size: 0.9em;
+            color: #aaa;
+            margin-bottom: 8px;
+        }
+        .suggestion-action {
+            background: #333;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 8px 0;
+            font-weight: 500;
+        }
+        .suggestion-explanation {
+            font-size: 0.85em;
+            color: #ccc;
+            line-height: 1.4;
+        }
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .stat {
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .stat-label {
+            font-size: 0.85em;
+            color: #aaa;
+        }
+        .critical { color: #ff4757; }
+        .warning { color: #ffa502; }
+        .ideal { color: #2ed573; }
+        .btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            margin: 10px 5px;
+            transition: transform 0.2s;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+        .data-preview {
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .summary {
+            background: linear-gradient(135deg, #11998e, #38ef7d);
+            color: #000;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 30px;
+            text-align: center;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎯 Teste do Novo Sistema de Sugestões</h1>
+        <p>Validação do processamento de <code>referenceComparison</code> e <code>metrics.bands</code></p>
+    </div>
+
+    <div class="test-section">
+        <h2>🔍 Cenários de Teste</h2>
+        <button class="btn" onclick="testScenario1()">📊 Cenário 1: Problemas Múltiplos</button>
+        <button class="btn" onclick="testScenario2()">🎵 Cenário 2: Modo Referência</button>
+        <button class="btn" onclick="testScenario3()">⚡ Cenário 3: Bandas Problemáticas</button>
+        <button class="btn" onclick="testScenario4()">✅ Cenário 4: Quase Ideal</button>
+    </div>
+
+    <div class="test-section">
+        <h2>📋 Resultados dos Testes</h2>
+        <div id="testResults"></div>
+    </div>
+
+    <script>
+        // 🎯 SIMULAÇÃO DOS DADOS DO SISTEMA REAL
+        
+        // Dados de referência simulados (Trance)
+        const mockRefData = {
+            lufs_target: -14.0,
+            true_peak_target: -1.0,
+            dr_target: 8.5,
+            lra_target: 4.2,
+            stereo_target: 0.85,
+            tol_lufs: 0.3,
+            tol_true_peak: 0.2,
+            tol_dr: 0.8,
+            tol_lra: 0.6,
+            tol_stereo: 0.08,
+            bands: {
+                sub: -18.5,
+                low_bass: -12.2,
+                low_mid: -15.8,
+                mid: -9.4,
+                high_mid: -11.7,
+                presenca: -13.2,
+                brilho: -16.8
+            }
+        };
+
+        // Função para criar dados de análise simulados
+        function createMockAnalysis(scenario) {
+            const baseAnalysis = {
+                technicalData: {},
+                metrics: {
+                    bands: {}
+                },
+                analysisMode: 'genre'
+            };
+
+            switch (scenario) {
+                case 1: // Problemas múltiplos
+                    baseAnalysis.technicalData = {
+                        lufsIntegrated: -18.2,  // Muito baixo
+                        truePeakDbtp: 0.5,      // Clipping
+                        dynamicRange: 4.1,      // Muito comprimido
+                        lra: 8.8,              // Muito variável
+                        stereoCorrelation: 0.42 // Muito estreito
+                    };
+                    baseAnalysis.metrics.bands = {
+                        sub: -15.2,      // +3.3dB alto
+                        bass: -8.8,      // +3.4dB alto  
+                        lowMid: -19.1,   // -3.3dB baixo
+                        mid: -6.2,       // +3.2dB alto
+                        highMid: -15.9,  // -4.2dB baixo
+                        presence: -9.8,  // +3.4dB alto
+                        air: -21.2       // -4.4dB baixo
+                    };
+                    break;
+
+                case 2: // Modo referência
+                    baseAnalysis.analysisMode = 'reference';
+                    baseAnalysis.referenceMetrics = {
+                        lufs: -13.8,
+                        truePeakDbtp: -0.8,
+                        dynamicRange: 9.2,
+                        lra: 3.9,
+                        stereoCorrelation: 0.88,
+                        bands: {
+                            sub: -19.1,
+                            low_bass: -11.8,
+                            low_mid: -16.2,
+                            mid: -8.9,
+                            high_mid: -12.1,
+                            presenca: -12.8,
+                            brilho: -17.2
+                        }
+                    };
+                    baseAnalysis.technicalData = {
+                        lufsIntegrated: -16.4,  // -2.6dB baixo
+                        truePeakDbtp: -0.2,     // +0.6dB alto
+                        dynamicRange: 6.8,      // -2.4dB baixo
+                        lra: 6.1,              // +2.2LU alto
+                        stereoCorrelation: 0.74 // -0.14 baixo
+                    };
+                    baseAnalysis.metrics.bands = {
+                        sub: -17.8,      // +1.3dB alto
+                        bass: -13.9,     // -2.1dB baixo
+                        lowMid: -18.4,   // -2.2dB baixo
+                        mid: -11.2,      // -2.3dB baixo
+                        highMid: -14.5,  // -2.4dB baixo
+                        presence: -15.1, // -2.3dB baixo
+                        air: -19.8       // -2.6dB baixo
+                    };
+                    break;
+
+                case 3: // Bandas problemáticas
+                    baseAnalysis.technicalData = {
+                        lufsIntegrated: -14.1,  // Quase ideal
+                        truePeakDbtp: -1.1,     // Quase ideal
+                        dynamicRange: 8.8,      // Quase ideal
+                        lra: 4.0,              // Ideal
+                        stereoCorrelation: 0.87 // Quase ideal
+                    };
+                    baseAnalysis.metrics.bands = {
+                        sub: -14.2,      // +4.3dB CRÍTICO
+                        bass: -8.1,      // +4.1dB CRÍTICO
+                        lowMid: -21.5,   // -5.7dB CRÍTICO
+                        mid: -9.8,       // -0.4dB ok
+                        highMid: -17.2,  // -5.5dB CRÍTICO
+                        presence: -9.8,  // +3.4dB CRÍTICO
+                        air: -22.1       // -5.3dB CRÍTICO
+                    };
+                    break;
+
+                case 4: // Quase ideal
+                    baseAnalysis.technicalData = {
+                        lufsIntegrated: -14.2,  // -0.2dB (ideal)
+                        truePeakDbtp: -1.1,     // -0.1dB (ideal)
+                        dynamicRange: 8.7,      // +0.2dB (ideal)
+                        lra: 4.0,              // -0.2LU (ideal)
+                        stereoCorrelation: 0.87 // +0.02 (ideal)
+                    };
+                    baseAnalysis.metrics.bands = {
+                        sub: -18.3,      // +0.2dB (ideal)
+                        bass: -12.0,     // +0.2dB (ideal)
+                        lowMid: -15.6,   // +0.2dB (ideal)
+                        mid: -9.2,       // +0.2dB (ideal)
+                        highMid: -11.9,  // -0.2dB (ideal)
+                        presence: -13.0, // +0.2dB (ideal)
+                        air: -16.6       // +0.2dB (ideal)
+                    };
+                    break;
+            }
+
+            return baseAnalysis;
+        }
+
+        // 🎯 REPLICAR A FUNÇÃO DO SISTEMA REAL
+        function generateSuggestionsFromReference(analysis) {
+            console.log('🎯 [TEST] Gerando sugestões baseadas em dados de comparação diretos');
+            
+            if (!analysis || !analysis.technicalData) {
+                console.warn('🎯 [TEST] ❌ Sem dados técnicos disponíveis');
+                return [];
+            }
+
+            const suggestions = [];
+            const tech = analysis.technicalData;
+            
+            // Determinar modo e dados de referência
+            const isReferenceMode = analysis.analysisMode === 'reference';
+            
+            let ref;
+            if (isReferenceMode && analysis.referenceMetrics) {
+                ref = {
+                    lufs_target: analysis.referenceMetrics.lufs,
+                    true_peak_target: analysis.referenceMetrics.truePeakDbtp,
+                    dr_target: analysis.referenceMetrics.dynamicRange,
+                    lra_target: analysis.referenceMetrics.lra,
+                    stereo_target: analysis.referenceMetrics.stereoCorrelation,
+                    tol_lufs: 0.2,
+                    tol_true_peak: 0.2,
+                    tol_dr: 0.5,
+                    tol_lra: 0.5,
+                    tol_stereo: 0.05,
+                    bands: analysis.referenceMetrics.bands || null
+                };
+            } else {
+                ref = mockRefData;
+            }
+
+            if (!ref) {
+                console.warn('🎯 [TEST] ❌ Sem dados de referência disponíveis');
+                return [];
+            }
+
+            // Função auxiliar: Obter valor de métrica
+            const getMetricValue = (metricPath, fallbackPath = null) => {
+                const centralizedValue = analysis.metrics && getNestedValue(analysis.metrics, metricPath);
+                if (Number.isFinite(centralizedValue)) return centralizedValue;
+                
+                const legacyValue = fallbackPath ? getNestedValue(tech, fallbackPath) : getNestedValue(tech, metricPath);
+                return Number.isFinite(legacyValue) ? legacyValue : null;
+            };
+
+            const getNestedValue = (obj, path) => {
+                return path.split('.').reduce((current, key) => current?.[key], obj);
+            };
+
+            // Função auxiliar: Classificar criticidade
+            const classifyCriticality = (currentValue, targetValue, tolerance) => {
+                if (!Number.isFinite(currentValue) || !Number.isFinite(targetValue) || !Number.isFinite(tolerance)) {
+                    return { severity: 'unknown', color: 'gray', status: '❓ Desconhecido' };
+                }
+
+                const diff = Math.abs(currentValue - targetValue);
+                
+                if (diff <= tolerance) {
+                    return { severity: 'ideal', color: 'green', status: '✅ IDEAL' };
+                } else if (diff <= tolerance * 2.5) {
+                    return { severity: 'warning', color: 'yellow', status: '⚠️ AJUSTAR' };
+                } else {
+                    return { severity: 'critical', color: 'red', status: '❌ CORRIGIR' };
+                }
+            };
+
+            // MÉTRICAS PRINCIPAIS
+            const metrics = [
+                {
+                    key: 'lufs',
+                    name: 'LUFS (Loudness)',
+                    value: getMetricValue('lufs_integrated', 'lufsIntegrated'),
+                    target: ref.lufs_target,
+                    tolerance: ref.tol_lufs,
+                    unit: ' LUFS'
+                },
+                {
+                    key: 'truePeak',
+                    name: 'True Peak',
+                    value: getMetricValue('true_peak_dbtp', 'truePeakDbtp'),
+                    target: ref.true_peak_target,
+                    tolerance: ref.tol_true_peak,
+                    unit: ' dBTP'
+                },
+                {
+                    key: 'dr',
+                    name: 'Dynamic Range (DR)',
+                    value: getMetricValue('dynamic_range', 'dynamicRange'),
+                    target: ref.dr_target,
+                    tolerance: ref.tol_dr,
+                    unit: ''
+                },
+                {
+                    key: 'lra',
+                    name: 'LRA (Loudness Range)',
+                    value: getMetricValue('lra'),
+                    target: ref.lra_target,
+                    tolerance: ref.tol_lra,
+                    unit: ' LU'
+                },
+                {
+                    key: 'stereo',
+                    name: 'Stereo Correlation',
+                    value: getMetricValue('stereo_correlation', 'stereoCorrelation'),
+                    target: ref.stereo_target,
+                    tolerance: ref.tol_stereo,
+                    unit: '',
+                    displayMultiplier: 100
+                }
+            ];
+
+            // Processar métricas principais
+            metrics.forEach(metric => {
+                if (Number.isFinite(metric.value) && Number.isFinite(metric.target)) {
+                    const criticality = classifyCriticality(metric.value, metric.target, metric.tolerance);
+                    
+                    if (criticality.severity !== 'ideal') {
+                        const delta = metric.value - metric.target;
+                        const absDelta = Math.abs(delta);
+                        
+                        const displayValue = metric.displayMultiplier ? 
+                            (metric.value * metric.displayMultiplier).toFixed(1) + '%' :
+                            metric.value.toFixed(2) + metric.unit;
+                        
+                        const displayTarget = metric.displayMultiplier ? 
+                            (metric.target * metric.displayMultiplier).toFixed(1) + '%' :
+                            metric.target.toFixed(2) + metric.unit;
+                        
+                        const displayDelta = metric.displayMultiplier ? 
+                            `${delta > 0 ? '+' : ''}${(delta * metric.displayMultiplier).toFixed(1)}%` :
+                            `${delta > 0 ? '+' : ''}${delta.toFixed(2)}${metric.unit}`;
+
+                        suggestions.push({
+                            metric: metric.name,
+                            currentValue: displayValue,
+                            targetValue: displayTarget,
+                            delta: displayDelta,
+                            severity: criticality.severity,
+                            color: criticality.color,
+                            action: generateAction(metric.key, delta, absDelta),
+                            explanation: generateExplanation(metric.key, metric.value, metric.target, criticality.severity, isReferenceMode)
+                        });
+                    }
+                }
+            });
+
+            // BANDAS ESPECTRAIS
+            const centralizedBands = analysis.metrics?.bands;
+            if (centralizedBands && ref.bands) {
+                const bandMapping = {
+                    'sub': 'sub',
+                    'bass': 'low_bass',
+                    'lowMid': 'low_mid',
+                    'mid': 'mid',
+                    'highMid': 'high_mid',
+                    'presence': 'presenca',
+                    'air': 'brilho'
+                };
+
+                const bandLabels = {
+                    'sub': 'Sub Bass (20-60Hz)',
+                    'bass': 'Bass (60-250Hz)',
+                    'lowMid': 'Low Mid (250-500Hz)',
+                    'mid': 'Mid (500-2kHz)',
+                    'highMid': 'High Mid (2k-4kHz)',
+                    'presence': 'Presence (4k-8kHz)',
+                    'air': 'Air (8k-20kHz)'
+                };
+
+                Object.entries(bandMapping).forEach(([calcKey, refKey]) => {
+                    const bandValue = centralizedBands[calcKey];
+                    const bandTarget = ref.bands[refKey];
+                    
+                    if (Number.isFinite(bandValue) && Number.isFinite(bandTarget)) {
+                        const tolerance = 1.5;
+                        const criticality = classifyCriticality(bandValue, bandTarget, tolerance);
+                        
+                        if (criticality.severity !== 'ideal') {
+                            const delta = bandValue - bandTarget;
+                            const absDelta = Math.abs(delta);
+                            const adjustmentAction = delta > 0 ? 'Reduzir' : 'Amplificar';
+                            
+                            suggestions.push({
+                                metric: bandLabels[calcKey],
+                                currentValue: `${bandValue.toFixed(1)} dB`,
+                                targetValue: `${bandTarget.toFixed(1)} dB`,
+                                delta: `${delta > 0 ? '+' : ''}${delta.toFixed(1)} dB`,
+                                severity: criticality.severity,
+                                color: criticality.color,
+                                action: `${adjustmentAction} ${bandLabels[calcKey]} em ${absDelta.toFixed(1)}dB usando EQ`,
+                                explanation: `A banda ${bandLabels[calcKey]} está em ${bandValue.toFixed(1)}dB, mas o ideal é ${bandTarget.toFixed(1)}dB. ${criticality.severity === 'critical' ? 'URGENTE: ' : ''}${adjustmentAction} esta frequência para equilibrar espectro.`
+                            });
+                        }
+                    }
+                });
+            }
+
+            return suggestions;
+        }
+
+        // Funções auxiliares para ações e explicações
+        function generateAction(metricKey, delta, absDelta) {
+            const actions = {
+                lufs: delta > 0 ? `Reduzir volume geral em ${absDelta.toFixed(1)}dB usando limitador` : `Aumentar volume geral em ${absDelta.toFixed(1)}dB usando limitador`,
+                truePeak: delta > 0 ? `Reduzir picos usando limitador (ajuste de ${absDelta.toFixed(1)}dB)` : `Aumentar headroom em ${absDelta.toFixed(1)}dB`,
+                dr: delta > 0 ? `Aumentar compressão para reduzir dinâmica em ${absDelta.toFixed(1)}dB` : `Reduzir compressão para aumentar dinâmica em ${absDelta.toFixed(1)}dB`,
+                lra: delta > 0 ? `Reduzir variação de loudness em ${absDelta.toFixed(1)} LU usando automação` : `Aumentar variação de loudness em ${absDelta.toFixed(1)} LU`,
+                stereo: delta > 0 ? `Estreitar campo estéreo usando processamento M/S` : `Alargar campo estéreo usando stereo enhancer`
+            };
+            return actions[metricKey] || `Ajustar ${metricKey}`;
+        }
+
+        function generateExplanation(metricKey, value, target, severity, isReferenceMode) {
+            const urgency = severity === 'critical' ? 'URGENTE: ' : '';
+            const context = isReferenceMode ? 'estilo' : 'gênero';
+            
+            const explanations = {
+                lufs: `LUFS mede o volume percebido pelo ouvido humano. Seu áudio está em ${value.toFixed(1)} LUFS, mas o padrão para este ${context} é ${target.toFixed(1)} LUFS. ${urgency}Ajuste para alinhar à referência.`,
+                truePeak: `True Peak detecta o pico real após conversão D/A. Seu áudio tem pico de ${value.toFixed(1)} dBTP, mas o ideal é ${target.toFixed(1)} dBTP. ${urgency}Ajuste para evitar distorção.`,
+                dr: `Dynamic Range mede a diferença entre partes altas e baixas. Seu DR está em ${value.toFixed(1)}, mas o padrão é ${target.toFixed(1)}. ${urgency}Ajuste para balancear dinâmica.`,
+                lra: `LRA mede a variação de loudness durante a música. Seu LRA está em ${value.toFixed(1)} LU, mas o ideal é ${target.toFixed(1)} LU. ${urgency}Ajuste para equilibrar dinâmica temporal.`,
+                stereo: `Correlação Estéreo mede a largura do campo sonoro. Seu valor está em ${(value * 100).toFixed(1)}%, mas o ideal é ${(target * 100).toFixed(1)}%. ${urgency}Ajuste para melhorar espacialidade.`
+            };
+            return explanations[metricKey] || `Métrica ${metricKey} precisa ser ajustada.`;
+        }
+
+        // Funções de teste
+        function testScenario1() {
+            const analysis = createMockAnalysis(1);
+            runTest("Cenário 1: Problemas Múltiplos", analysis, "Teste com LUFS baixo, clipping, compressão excessiva e bandas desbalanceadas");
+        }
+
+        function testScenario2() {
+            const analysis = createMockAnalysis(2);
+            runTest("Cenário 2: Modo Referência", analysis, "Teste usando áudio de referência como baseline");
+        }
+
+        function testScenario3() {
+            const analysis = createMockAnalysis(3);
+            runTest("Cenário 3: Bandas Problemáticas", analysis, "Teste com métricas globais ok mas bandas espectrais críticas");
+        }
+
+        function testScenario4() {
+            const analysis = createMockAnalysis(4);
+            runTest("Cenário 4: Quase Ideal", analysis, "Teste com valores próximos ao ideal (deveria gerar poucas ou nenhuma sugestão)");
+        }
+
+        function runTest(title, analysis, description) {
+            console.log(`🧪 Executando teste: ${title}`);
+            
+            const startTime = performance.now();
+            const suggestions = generateSuggestionsFromReference(analysis);
+            const endTime = performance.now();
+            
+            displayResults(title, description, suggestions, analysis, endTime - startTime);
+        }
+
+        function displayResults(title, description, suggestions, analysis, processingTime) {
+            const resultsContainer = document.getElementById('testResults');
+            
+            // Estatísticas
+            const stats = {
+                total: suggestions.length,
+                critical: suggestions.filter(s => s.severity === 'critical').length,
+                warning: suggestions.filter(s => s.severity === 'warning').length,
+                ideal: suggestions.filter(s => s.severity === 'ideal').length
+            };
+
+            const html = `
+                <div class="test-section">
+                    <h3>${title}</h3>
+                    <p>${description}</p>
+                    
+                    <div class="stats">
+                        <div class="stat">
+                            <div class="stat-value">${stats.total}</div>
+                            <div class="stat-label">Total Sugestões</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value critical">${stats.critical}</div>
+                            <div class="stat-label">❌ Críticas</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value warning">${stats.warning}</div>
+                            <div class="stat-label">⚠️ Atenção</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-value">${processingTime.toFixed(1)}ms</div>
+                            <div class="stat-label">Tempo Processamento</div>
+                        </div>
+                    </div>
+
+                    ${suggestions.length === 0 ? 
+                        '<div class="summary">✅ PERFEITO: Nenhuma sugestão necessária - áudio está ideal!</div>' :
+                        `<div class="test-results">
+                            ${suggestions.map(suggestion => `
+                                <div class="suggestion-card ${suggestion.severity}">
+                                    <div class="metric-title">${suggestion.metric}</div>
+                                    <div class="metric-values">
+                                        Atual: <strong>${suggestion.currentValue}</strong> | 
+                                        Ideal: <strong>${suggestion.targetValue}</strong> | 
+                                        Delta: <strong>${suggestion.delta}</strong>
+                                    </div>
+                                    <div class="suggestion-action">
+                                        <strong>Ação:</strong> ${suggestion.action}
+                                    </div>
+                                    <div class="suggestion-explanation">
+                                        ${suggestion.explanation}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>`
+                    }
+
+                    <details style="margin-top: 15px;">
+                        <summary>📊 Ver Dados de Entrada (JSON)</summary>
+                        <div class="data-preview">${JSON.stringify(analysis, null, 2)}</div>
+                    </details>
+                </div>
+            `;
+
+            resultsContainer.innerHTML = html + resultsContainer.innerHTML;
+        }
+
+        // Executar teste inicial
+        window.addEventListener('load', () => {
+            console.log('🎯 Sistema de Testes do SoundyAI carregado');
+            console.log('📋 Execute os cenários de teste para validar o sistema');
+        });
+    </script>
+</body>
+</html>
