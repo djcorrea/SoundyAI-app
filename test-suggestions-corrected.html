@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Teste Sistema de Sugestões Corrigido - SoundyAI</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f1f2f6;
+        }
+        .header h1 {
+            color: #2c3e50;
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .header p {
+            color: #7f8c8d;
+            margin: 10px 0 0 0;
+            font-size: 16px;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #3498db;
+        }
+        .test-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .suggestions-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 15px;
+        }
+        .suggestion-card {
+            background: #f8f9fa;
+            border-left: 4px solid #3498db;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .suggestion-card.critical {
+            border-left-color: #e74c3c;
+            background: linear-gradient(145deg, #fff5f5 0%, #ffffff 100%);
+        }
+        .suggestion-card.adjust {
+            border-left-color: #f39c12;
+            background: linear-gradient(145deg, #fffbf0 0%, #ffffff 100%);
+        }
+        .suggestion-card.ideal {
+            border-left-color: #27ae60;
+            background: linear-gradient(145deg, #f0f9ff 0%, #ffffff 100%);
+        }
+        .suggestion-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .metric-name {
+            font-weight: 600;
+            color: #2c3e50;
+            font-size: 16px;
+        }
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            color: white;
+        }
+        .status-critical { background: #e74c3c; }
+        .status-adjust { background: #f39c12; }
+        .status-ideal { background: #27ae60; }
+        .values-row {
+            display: flex;
+            gap: 20px;
+            margin: 10px 0;
+            padding: 10px;
+            background: rgba(52, 152, 219, 0.1);
+            border-radius: 6px;
+        }
+        .value-item {
+            text-align: center;
+        }
+        .value-label {
+            font-size: 10px;
+            color: #7f8c8d;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .value-number {
+            font-size: 14px;
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .action-text {
+            background: rgba(52, 152, 219, 0.1);
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #2c3e50;
+            margin: 10px 0;
+        }
+        .explanation-text {
+            background: rgba(155, 89, 182, 0.1);
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #2c3e50;
+            line-height: 1.5;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .log {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .stat-item {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            flex: 1;
+        }
+        .stat-number {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #7f8c8d;
+            text-transform: uppercase;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔧 Sistema de Sugestões Corrigido</h1>
+            <p>Teste do sistema que transforma TODOS os problemas de referenceComparison em sugestões educativas</p>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">
+                <span>🧪</span>
+                <span>Teste do Novo Sistema</span>
+            </div>
+            <p>Testando o sistema corrigido que processa métricas globais e bandas espectrais com fallback garantido:</p>
+            <button onclick="testNewSystem()">🚀 Testar Sistema Corrigido</button>
+            <button onclick="testFallbackSystem()">🛡️ Testar Sistema de Fallback</button>
+            <button onclick="clearResults()">🧹 Limpar</button>
+            
+            <div id="suggestions-container" class="suggestions-container" style="display: none;">
+                <h3>📋 Sugestões Geradas:</h3>
+                <div id="suggestions-list"></div>
+                <div id="suggestions-stats" class="stats"></div>
+            </div>
+            
+            <div id="log-container" class="log" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        let logContainer = null;
+        
+        function log(message, type = 'info') {
+            if (!logContainer) {
+                logContainer = document.getElementById('log-container');
+            }
+            
+            const timestamp = new Date().toLocaleTimeString();
+            const colorMap = {
+                'info': '#3498db',
+                'success': '#27ae60', 
+                'warning': '#f39c12',
+                'error': '#e74c3c'
+            };
+            
+            const color = colorMap[type] || '#ecf0f1';
+            logContainer.innerHTML += `<div style="color: ${color};">[${timestamp}] ${message}</div>`;
+            logContainer.style.display = 'block';
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('suggestions-container').style.display = 'none';
+            document.getElementById('log-container').style.display = 'none';
+            document.getElementById('log-container').innerHTML = '';
+            document.getElementById('suggestions-list').innerHTML = '';
+            document.getElementById('suggestions-stats').innerHTML = '';
+        }
+
+        // Simulação dos dados que o sistema real recebe
+        function getTestAnalysisData() {
+            return {
+                technicalData: {
+                    lufs: -18.2,
+                    true_peak_dbtp: -0.1,
+                    dynamic_range: 6.1,
+                    lra: 3.2,
+                    stereo_correlation: 0.62,
+                    bandEnergies: {
+                        sub: { rms_db: -15.2 },
+                        bass: { rms_db: -8.1 },
+                        lowMid: { rms_db: -12.5 },
+                        mid: { rms_db: -10.2 },
+                        highMid: { rms_db: -6.8 },
+                        presence: { rms_db: -14.1 },
+                        air: { rms_db: -18.9 }
+                    }
+                },
+                metrics: {
+                    bands: {
+                        sub: { energy_db: -15.0 },
+                        bass: { energy_db: -8.3 },
+                        lowMid: { energy_db: -12.8 },
+                        mid: { energy_db: -10.5 },
+                        highMid: { energy_db: -7.2 },
+                        presence: { energy_db: -13.8 },
+                        air: { energy_db: -19.2 }
+                    }
+                },
+                suggestions: []
+            };
+        }
+
+        // Simulação de dados de referência (como o sistema carregaria)
+        function getTestReferenceData() {
+            return {
+                lufs_target: -14.0,
+                true_peak_target: -1.0,
+                dr_target: 8.0,
+                lra_target: 6.0,
+                stereo_target: 0.8,
+                tol_lufs: 0.5,
+                tol_true_peak: 0.3,
+                tol_dr: 1.0,
+                tol_lra: 1.0,
+                tol_stereo: 0.1,
+                bands: {
+                    sub: { target_db: -12.0, tol_db: 2.0 },
+                    low_bass: { target_db: -6.0, tol_db: 2.0 },
+                    low_mid: { target_db: -10.0, tol_db: 2.0 },
+                    mid: { target_db: -8.0, tol_db: 2.0 },
+                    high_mid: { target_db: -5.0, tol_db: 2.0 },
+                    presenca: { target_db: -12.0, tol_db: 2.0 },
+                    brilho: { target_db: -16.0, tol_db: 2.0 }
+                }
+            };
+        }
+
+        // Implementação simplificada do classificador de criticidade
+        function classifyCriticality(diff, tolerance) {
+            if (!Number.isFinite(diff) || !Number.isFinite(tolerance) || tolerance === 0) {
+                return { severity: 'ideal', color: 'green', status: '✅ IDEAL' };
+            }
+            
+            const absDiff = Math.abs(diff);
+            if (absDiff <= tolerance) {
+                return { severity: 'ideal', color: 'green', status: '✅ IDEAL' };
+            } else if (absDiff <= tolerance * 2.5) {
+                return { severity: 'adjust', color: 'yellow', status: '⚠️ AJUSTAR' };
+            } else {
+                return { severity: 'critical', color: 'red', status: '❌ CORRIGIR' };
+            }
+        }
+
+        // Renderizar uma sugestão individual
+        function renderSuggestion(suggestion) {
+            const severityClass = suggestion.severity === 'critical' ? 'critical' : 
+                                 suggestion.severity === 'adjust' ? 'adjust' : 'ideal';
+            
+            const statusClass = suggestion.severity === 'critical' ? 'status-critical' : 
+                               suggestion.severity === 'adjust' ? 'status-adjust' : 'status-ideal';
+
+            return `
+                <div class="suggestion-card ${severityClass}">
+                    <div class="suggestion-header">
+                        <div class="metric-name">${suggestion.metric}</div>
+                        <div class="status-badge ${statusClass}">${suggestion.status}</div>
+                    </div>
+                    
+                    <div class="values-row">
+                        <div class="value-item">
+                            <div class="value-label">Atual</div>
+                            <div class="value-number">${suggestion.currentValue}</div>
+                        </div>
+                        <div class="value-item">
+                            <div class="value-label">→</div>
+                            <div class="value-number">→</div>
+                        </div>
+                        <div class="value-item">
+                            <div class="value-label">Ideal</div>
+                            <div class="value-number">${suggestion.targetValue}</div>
+                        </div>
+                        <div class="value-item">
+                            <div class="value-label">Diferença</div>
+                            <div class="value-number">${suggestion.delta}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="action-text">
+                        <strong>🎛️ Ação:</strong> ${suggestion.action}
+                    </div>
+                    
+                    <div class="explanation-text">
+                        <strong>💡 Explicação:</strong> ${suggestion.explanation}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Gerar sugestões usando a lógica do sistema corrigido
+        function generateTestSuggestions(analysis, ref) {
+            const suggestions = [];
+            const tech = analysis.technicalData || {};
+            
+            // Processar métricas globais
+            const globalMetrics = [
+                {
+                    key: 'lufs',
+                    name: 'LUFS (Loudness)',
+                    getValue: () => tech.lufs,
+                    target: ref.lufs_target,
+                    tolerance: ref.tol_lufs,
+                    unit: ' LUFS',
+                    description: 'Medida de loudness percebido. Controla o volume geral da música.'
+                },
+                {
+                    key: 'truePeak',
+                    name: 'True Peak',
+                    getValue: () => tech.true_peak_dbtp,
+                    target: ref.true_peak_target,
+                    tolerance: ref.tol_true_peak,
+                    unit: ' dBTP',
+                    description: 'Pico real do sinal. Previne clipping digital.'
+                },
+                {
+                    key: 'dynamicRange',
+                    name: 'Dynamic Range',
+                    getValue: () => tech.dynamic_range,
+                    target: ref.dr_target,
+                    tolerance: ref.tol_dr,
+                    unit: '',
+                    description: 'Variação entre partes altas e baixas.'
+                },
+                {
+                    key: 'lra',
+                    name: 'LRA (Loudness Range)',
+                    getValue: () => tech.lra,
+                    target: ref.lra_target,
+                    tolerance: ref.tol_lra,
+                    unit: ' LU',
+                    description: 'Variação de loudness ao longo do tempo.'
+                },
+                {
+                    key: 'stereo',
+                    name: 'Stereo Correlation',
+                    getValue: () => tech.stereo_correlation,
+                    target: ref.stereo_target,
+                    tolerance: ref.tol_stereo,
+                    unit: '',
+                    description: 'Correlação entre canais L/R.'
+                }
+            ];
+
+            // Processar cada métrica global
+            globalMetrics.forEach(metric => {
+                const currentValue = metric.getValue();
+                const targetValue = metric.target;
+                
+                if (currentValue === null || targetValue === undefined) return;
+                
+                const diff = currentValue - targetValue;
+                const criticality = classifyCriticality(diff, metric.tolerance);
+                
+                if (criticality.severity === 'ideal') return;
+                
+                suggestions.push({
+                    metric: metric.name,
+                    currentValue: currentValue.toFixed(2) + metric.unit,
+                    targetValue: targetValue.toFixed(2) + metric.unit,
+                    delta: (diff > 0 ? '+' : '') + diff.toFixed(2) + metric.unit,
+                    severity: criticality.severity,
+                    color: criticality.color,
+                    status: criticality.status,
+                    action: generateActionText(metric, diff, criticality.severity),
+                    explanation: metric.description + ` Diferença detectada: ${Math.abs(diff).toFixed(2)}${metric.unit}.`
+                });
+            });
+
+            // Processar bandas espectrais se disponíveis
+            if (ref.bands && (analysis.metrics?.bands || tech.bandEnergies)) {
+                const centralizedBands = analysis.metrics?.bands;
+                const legacyBands = tech.bandEnergies;
+                const bandsToUse = centralizedBands || legacyBands;
+                
+                const bandMapping = {
+                    'sub': 'sub',
+                    'bass': 'low_bass',
+                    'lowMid': 'low_mid', 
+                    'mid': 'mid',
+                    'highMid': 'high_mid',
+                    'presence': 'presenca',
+                    'air': 'brilho'
+                };
+                
+                const bandDisplayInfo = {
+                    sub: { name: 'Sub Bass', range: '20–60Hz' },
+                    bass: { name: 'Bass', range: '60–250Hz' },
+                    lowMid: { name: 'Low Mid', range: '250–500Hz' },
+                    mid: { name: 'Mid', range: '500–2kHz' },
+                    highMid: { name: 'High Mid', range: '2k–4kHz' },
+                    presence: { name: 'Presence', range: '4k–8kHz' },
+                    air: { name: 'Air', range: '8k–20kHz' }
+                };
+                
+                Object.keys(bandMapping).forEach(calcBandKey => {
+                    const refBandKey = bandMapping[calcBandKey];
+                    const bandInfo = bandDisplayInfo[calcBandKey];
+                    const refBand = ref.bands[refBandKey];
+                    
+                    if (!bandInfo || !refBand) return;
+                    
+                    let currentValue = null;
+                    if (centralizedBands && centralizedBands[calcBandKey]) {
+                        currentValue = centralizedBands[calcBandKey].energy_db;
+                    } else if (legacyBands && legacyBands[calcBandKey]) {
+                        currentValue = legacyBands[calcBandKey].rms_db;
+                    }
+                    
+                    if (currentValue === null || refBand.target_db === undefined) return;
+                    
+                    const diff = currentValue - refBand.target_db;
+                    const tolerance = refBand.tol_db || 2.0;
+                    const criticality = classifyCriticality(diff, tolerance);
+                    
+                    if (criticality.severity === 'ideal') return;
+                    
+                    suggestions.push({
+                        metric: `${bandInfo.name} (${bandInfo.range})`,
+                        currentValue: currentValue.toFixed(1) + ' dB',
+                        targetValue: refBand.target_db.toFixed(1) + ' dB',
+                        delta: (diff > 0 ? '+' : '') + diff.toFixed(1) + ' dB',
+                        severity: criticality.severity,
+                        color: criticality.color,
+                        status: criticality.status,
+                        action: generateSpectralActionText(bandInfo, diff, criticality.severity),
+                        explanation: `Banda ${bandInfo.name} ${diff > 0 ? 'excessiva' : 'insuficiente'} comparada à referência. ` +
+                                   `Ajuste a equalização em ${bandInfo.range} para melhor balanceamento.`
+                    });
+                });
+            }
+
+            return suggestions;
+        }
+
+        function generateActionText(metric, diff, severity) {
+            const isPositive = diff > 0;
+            const absDiff = Math.abs(diff);
+            const urgency = severity === 'critical' ? 'URGENTE: ' : '';
+            
+            switch (metric.key) {
+                case 'lufs':
+                    return isPositive 
+                        ? `${urgency}Reduzir volume geral usando limitador (-${absDiff.toFixed(1)} LUFS)`
+                        : `${urgency}Aumentar volume geral (+${absDiff.toFixed(1)} LUFS)`;
+                case 'truePeak':
+                    return isPositive
+                        ? `${urgency}Aplicar limitador com ceiling mais baixo (-${absDiff.toFixed(1)} dBTP)`
+                        : `Mais headroom disponível (+${absDiff.toFixed(1)} dBTP)`;
+                case 'dynamicRange':
+                    return isPositive
+                        ? `${urgency}Reduzir compressão excessiva`
+                        : `Aplicar compressão suave para consistência`;
+                case 'lra':
+                    return isPositive
+                        ? `${urgency}Aplicar automação de volume ou compressão multibanda`
+                        : `Reduzir compressão para mais expressividade`;
+                case 'stereo':
+                    return isPositive
+                        ? `${urgency}Reduzir processamento estéreo excessivo`
+                        : `Expandir campo estéreo com reverb ou delay`;
+                default:
+                    return `${urgency}Ajustar ${metric.name}`;
+            }
+        }
+
+        function generateSpectralActionText(bandInfo, diff, severity) {
+            const isPositive = diff > 0;
+            const absDiff = Math.abs(diff);
+            const urgency = severity === 'critical' ? 'CRÍTICO: ' : '';
+            
+            return isPositive 
+                ? `${urgency}Cortar ${absDiff.toFixed(1)}dB em ${bandInfo.range} usando EQ`
+                : `${urgency}Boost ${absDiff.toFixed(1)}dB em ${bandInfo.range} usando EQ`;
+        }
+
+        function testNewSystem() {
+            clearResults();
+            log('🧪 Iniciando teste do sistema corrigido...', 'info');
+            
+            const analysisData = getTestAnalysisData();
+            const referenceData = getTestReferenceData();
+            
+            log('📊 Dados de análise carregados', 'success');
+            log('📋 Dados de referência carregados', 'success');
+            
+            const suggestions = generateTestSuggestions(analysisData, referenceData);
+            
+            if (suggestions.length > 0) {
+                const container = document.getElementById('suggestions-container');
+                const list = document.getElementById('suggestions-list');
+                const stats = document.getElementById('suggestions-stats');
+                
+                // Renderizar sugestões
+                list.innerHTML = suggestions.map(sug => renderSuggestion(sug)).join('');
+                
+                // Calcular estatísticas
+                const critical = suggestions.filter(s => s.severity === 'critical').length;
+                const adjust = suggestions.filter(s => s.severity === 'adjust').length;
+                const total = suggestions.length;
+                
+                stats.innerHTML = `
+                    <div class="stat-item">
+                        <div class="stat-number">${total}</div>
+                        <div class="stat-label">Total</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" style="color: #e74c3c;">${critical}</div>
+                        <div class="stat-label">Críticas</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" style="color: #f39c12;">${adjust}</div>
+                        <div class="stat-label">Ajustes</div>
+                    </div>
+                `;
+                
+                container.style.display = 'block';
+                log(`✅ ${suggestions.length} sugestões geradas com sucesso!`, 'success');
+                log(`🎯 ${critical} críticas, ${adjust} ajustes necessários`, 'info');
+            } else {
+                log('❌ Nenhuma sugestão foi gerada', 'error');
+            }
+        }
+
+        function testFallbackSystem() {
+            clearResults();
+            log('🛡️ Testando sistema de fallback (sem dados de referência)...', 'warning');
+            
+            const analysisData = getTestAnalysisData();
+            
+            // Simular referência hardcoded mínima
+            const fallbackRef = {
+                lufs_target: -14,
+                true_peak_target: -1,
+                dr_target: 8,
+                lra_target: 6,
+                stereo_target: 0.8,
+                tol_lufs: 1.0,
+                tol_true_peak: 0.5,
+                tol_dr: 2.0,
+                tol_lra: 2.0,
+                tol_stereo: 0.2,
+                bands: null
+            };
+            
+            log('📦 Usando referência hardcoded de fallback', 'warning');
+            
+            const suggestions = generateTestSuggestions(analysisData, fallbackRef);
+            
+            if (suggestions.length > 0) {
+                const container = document.getElementById('suggestions-container');
+                const list = document.getElementById('suggestions-list');
+                const stats = document.getElementById('suggestions-stats');
+                
+                list.innerHTML = suggestions.map(sug => renderSuggestion(sug)).join('');
+                
+                const critical = suggestions.filter(s => s.severity === 'critical').length;
+                const adjust = suggestions.filter(s => s.severity === 'adjust').length;
+                const total = suggestions.length;
+                
+                stats.innerHTML = `
+                    <div class="stat-item">
+                        <div class="stat-number">${total}</div>
+                        <div class="stat-label">Total (Fallback)</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" style="color: #e74c3c;">${critical}</div>
+                        <div class="stat-label">Críticas</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" style="color: #f39c12;">${adjust}</div>
+                        <div class="stat-label">Ajustes</div>
+                    </div>
+                `;
+                
+                container.style.display = 'block';
+                log(`✅ Sistema de fallback funcionou! ${suggestions.length} sugestões geradas`, 'success');
+            } else {
+                log('❌ Falha no sistema de fallback', 'error');
+            }
+        }
+
+        // Auto-executar teste ao carregar página
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🔧 Sistema de teste carregado', 'success');
+            log('O novo sistema processa TODAS as métricas de referenceComparison e centralizedBands', 'info');
+            log('Classificação: ✅ Ideal (verde), ⚠️ Ajustar (amarelo), ❌ Corrigir (vermelho)', 'info');
+        });
+    </script>
+</body>
+</html>
