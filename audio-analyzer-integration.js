@@ -1,13 +1,14 @@
 // 🎵 AUDIO ANALYZER INTEGRATION
 // Conecta o sistema de análise de áudio com o chat existente
 
-// 📝 Carregar gerador de texto didático
-if (typeof window !== 'undefined' && !window.SuggestionTextGenerator) {
+// 🎯 CARREGAR SISTEMA UNIFICADO DE SUGESTÕES
+if (typeof window !== 'undefined' && !window.suggestionSystem) {
     const script = document.createElement('script');
-    script.src = 'suggestion-text-generator.js';
+    script.src = 'suggestion-system-unified.js';
     script.async = true;
     script.onload = () => {
-        console.log('[AudioIntegration] Gerador de texto didático carregado');
+        console.log('🎯 [AudioIntegration] Sistema Unificado de Sugestões carregado');
+        console.log('📋 Acesso via: window.suggestionSystem');
     };
     script.onerror = () => {
         console.warn('[AudioIntegration] Falha ao carregar gerador de texto didático');
@@ -4183,53 +4184,63 @@ function renderReferenceComparisons(analysis) {
 function updateReferenceSuggestions(analysis) {
     if (!analysis || !analysis.technicalData || !__activeRefData) return;
     
-    // 🎯 SISTEMA MELHORADO: Usar Enhanced Suggestion Engine quando disponível
-    if (typeof window !== 'undefined' && window.enhancedSuggestionEngine && window.USE_ENHANCED_SUGGESTIONS !== false) {
+    // 🎯 SISTEMA UNIFICADO: Usar novo sistema de sugestões quando disponível
+    if (typeof window !== 'undefined' && window.suggestionSystem && window.USE_UNIFIED_SUGGESTIONS !== false) {
         try {
-            console.log('🎯 Usando Enhanced Suggestion Engine...');
-            const enhancedAnalysis = window.enhancedSuggestionEngine.processAnalysis(analysis, __activeRefData);
+            console.log('🎯 Usando Sistema Unificado de Sugestões...');
+            
+            // Processar análise com sistema unificado
+            const enhancedAnalysis = window.suggestionSystem.process(analysis, __activeRefData);
             
             // Preservar sugestões não-referência existentes se necessário
             const existingSuggestions = Array.isArray(analysis.suggestions) ? analysis.suggestions : [];
             const nonRefSuggestions = existingSuggestions.filter(s => {
                 const type = s?.type || '';
-                return !type.startsWith('reference_') && !type.startsWith('band_adjust') && !type.startsWith('heuristic_');
+                return !type.includes('loudness') && !type.includes('true_peak') && 
+                       !type.includes('dynamics') && !type.includes('stereo') && 
+                       !type.includes('band') && !type.includes('lra');
             });
             
-            // Combinar sugestões melhoradas com existentes preservadas
+            // Combinar sugestões unificadas com existentes preservadas
             analysis.suggestions = [...enhancedAnalysis.suggestions, ...nonRefSuggestions];
             
-            // Adicionar métricas melhoradas à análise
-            if (enhancedAnalysis.enhancedMetrics) {
-                analysis.enhancedMetrics = enhancedAnalysis.enhancedMetrics;
+            // Adicionar metadata do sistema unificado
+            if (enhancedAnalysis._suggestionMetadata) {
+                analysis._suggestionMetadata = enhancedAnalysis._suggestionMetadata;
+                
+                console.log('🎯 Sistema Unificado - Metadata:', {
+                    suggestions: enhancedAnalysis.suggestions.length,
+                    processingTime: enhancedAnalysis._suggestionMetadata.processingTimeMs + 'ms',
+                    severityDistribution: enhancedAnalysis._suggestionMetadata.auditLog
+                        .filter(log => log.type === 'PROCESS_COMPLETE')[0]?.data?.severityDistribution || {}
+                });
             }
             
-            // Adicionar log de auditoria
-            if (enhancedAnalysis.auditLog) {
-                analysis.auditLog = enhancedAnalysis.auditLog;
-            }
-            
-            console.log(`🎯 Enhanced Suggestions: ${enhancedAnalysis.suggestions.length} sugestões geradas`);
+            console.log(`🎯 Sistema Unificado: ${enhancedAnalysis.suggestions.length} sugestões educativas geradas`);
             return;
             
         } catch (error) {
-            console.warn('🚨 Erro no Enhanced Suggestion Engine, usando fallback:', error);
+            console.warn('🚨 Erro no Sistema Unificado, usando fallback:', error);
             // Continuar com sistema legado em caso de erro
         }
     }
     
-    // 🔄 SISTEMA LEGADO (fallback)
+    // 🔄 SISTEMA LEGADO (fallback) - mantido para compatibilidade
+    console.log('⚠️ Usando sistema legado de sugestões (fallback)');
     const ref = __activeRefData;
     const tech = analysis.technicalData;
-    // Garantir lista
+    
+    // Garantir lista de sugestões
     const sug = Array.isArray(analysis.suggestions) ? analysis.suggestions : (analysis.suggestions = []);
+    
     // Remover sugestões antigas de referência
     const refTypes = new Set(['reference_loudness','reference_dynamics','reference_lra','reference_stereo','reference_true_peak']);
     for (let i = sug.length - 1; i >= 0; i--) {
         const t = sug[i] && sug[i].type;
         if (t && refTypes.has(t)) sug.splice(i, 1);
     }
-    // Helper para criar sugestão se fora da tolerância
+    
+    // Helper para criar sugestão legada
     const addRefSug = (val, target, tol, type, label, unit='') => {
         if (!Number.isFinite(val) || !Number.isFinite(target) || !Number.isFinite(tol)) return;
         const diff = val - target;
@@ -4239,17 +4250,21 @@ function updateReferenceSuggestions(analysis) {
             type,
             message: `${label} ${direction} do alvo (${target}${unit})`,
             action: `Ajustar ${label} ${direction==='acima'?'para baixo':'para cima'} ~${target}${unit}`,
-            details: `Diferença: ${diff.toFixed(2)}${unit} • tolerância ±${tol}${unit} • gênero: ${window.PROD_AI_REF_GENRE}`
+            details: `Diferença: ${diff.toFixed(2)}${unit} • tolerância ±${tol}${unit} • gênero: ${window.PROD_AI_REF_GENRE}`,
+            severity: { level: 'yellow', color: '#ffd93d', label: 'ajustar' }, // severidade padrão legacy
+            priority: 0.5 // prioridade padrão legacy
         });
     };
-    // Aplicar checks principais
+    
+    // Aplicar checks principais usando caminhos robustos
+    const refTarget = ref.legacy_compatibility || ref;
     const lufsVal = Number.isFinite(tech.lufsIntegrated) ? tech.lufsIntegrated : null;
-    addRefSug(lufsVal, ref.lufs_target, ref.tol_lufs, 'reference_loudness', 'LUFS', '');
+    addRefSug(lufsVal, refTarget.lufs_target, refTarget.tol_lufs, 'reference_loudness', 'LUFS', '');
     const tpVal = Number.isFinite(tech.truePeakDbtp) ? tech.truePeakDbtp : null;
-    addRefSug(tpVal, ref.true_peak_target, ref.tol_true_peak, 'reference_true_peak', 'Pico Real', ' dBTP');
-    addRefSug(tech.dynamicRange, ref.dr_target, ref.tol_dr, 'reference_dynamics', 'DR', ' dB');
-    if (Number.isFinite(tech.lra)) addRefSug(tech.lra, ref.lra_target, ref.tol_lra, 'reference_lra', 'LRA', ' LU');
-    if (Number.isFinite(tech.stereoCorrelation)) addRefSug(tech.stereoCorrelation, ref.stereo_target, ref.tol_stereo, 'reference_stereo', 'Stereo Corr', '');
+    addRefSug(tpVal, refTarget.true_peak_target, refTarget.tol_true_peak, 'reference_true_peak', 'Pico Real', ' dBTP');
+    addRefSug(tech.dynamicRange, refTarget.dr_target, refTarget.tol_dr, 'reference_dynamics', 'DR', ' dB');
+    if (Number.isFinite(tech.lra)) addRefSug(tech.lra, refTarget.lra_target, refTarget.tol_lra, 'reference_lra', 'LRA', ' LU');
+    if (Number.isFinite(tech.stereoCorrelation)) addRefSug(tech.stereoCorrelation, refTarget.stereo_target, refTarget.tol_stereo, 'reference_stereo', 'Stereo Corr', '');
 }
 
 // 🎨 Estilos do seletor de gênero (injeção única, não quebra CSS existente)

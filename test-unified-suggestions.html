@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Teste Sistema Unificado de Sugestões</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+        }
+        .suggestion {
+            margin: 10px 0;
+            padding: 12px;
+            border-radius: 6px;
+            border-left: 4px solid;
+        }
+        .severity-green { border-left-color: #28a745; background: #d4edda; }
+        .severity-yellow { border-left-color: #ffc107; background: #fff3cd; }
+        .severity-orange { border-left-color: #fd7e14; background: #ffeaa7; }
+        .severity-red { border-left-color: #dc3545; background: #f8d7da; }
+        .severity-purple { border-left-color: #6f42c1; background: #e2d9f3; }
+        
+        .metadata {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover { background: #0056b3; }
+        
+        .log {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 11px;
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Teste Sistema Unificado de Sugestões</h1>
+        <p>Testando o novo sistema educativo, modular e compatível com cores por severidade.</p>
+        
+        <div class="test-section">
+            <h3>📊 Dados de Teste</h3>
+            <button onclick="testarGeneroFunk()">Testar Funk</button>
+            <button onclick="testarGeneroTrance()">Testar Trance</button>
+            <button onclick="testarValoresExtremos()">Testar Valores Extremos</button>
+            <button onclick="testarCompatibilidade()">Testar Compatibilidade</button>
+            <button onclick="limparResultados()">Limpar</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>🎯 Resultados do Sistema Unificado</h3>
+            <div id="results"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📝 Log de Auditoria</h3>
+            <div id="log" class="log"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📈 Metadata de Performance</h3>
+            <div id="metadata" class="metadata"></div>
+        </div>
+    </div>
+
+    <!-- Carregar sistema unificado -->
+    <script src="suggestion-system-unified.js"></script>
+    
+    <!-- Dados de referência mock -->
+    <script>
+        // Dados mock para Funk
+        const funkReference = {
+            "genre": "funk_mandela",
+            "lufs_target": -12.0,
+            "tol_lufs": 2.0,
+            "dr_target": 8.0,
+            "tol_dr": 2.0,
+            "true_peak_target": -1.0,
+            "tol_true_peak": 0.5,
+            "lra_target": 4.0,
+            "tol_lra": 2.0,
+            "stereo_target": 0.7,
+            "tol_stereo": 0.2,
+            "bands": {
+                "sub_bass": { "target": 0.15, "tolerance": 0.05 },
+                "bass": { "target": 0.25, "tolerance": 0.05 },
+                "low_mid": { "target": 0.20, "tolerance": 0.05 },
+                "mid": { "target": 0.15, "tolerance": 0.05 },
+                "high_mid": { "target": 0.15, "tolerance": 0.05 },
+                "presence": { "target": 0.10, "tolerance": 0.03 }
+            }
+        };
+        
+        // Dados mock para Trance
+        const tranceReference = {
+            "genre": "trance",
+            "lufs_target": -8.0,
+            "tol_lufs": 1.5,
+            "dr_target": 6.0,
+            "tol_dr": 1.5,
+            "true_peak_target": -0.1,
+            "tol_true_peak": 0.3,
+            "lra_target": 3.0,
+            "tol_lra": 1.5,
+            "stereo_target": 0.5,
+            "tol_stereo": 0.3,
+            "bands": {
+                "sub_bass": { "target": 0.10, "tolerance": 0.03 },
+                "bass": { "target": 0.30, "tolerance": 0.05 },
+                "low_mid": { "target": 0.25, "tolerance": 0.05 },
+                "mid": { "target": 0.20, "tolerance": 0.05 },
+                "high_mid": { "target": 0.15, "tolerance": 0.05 }
+            }
+        };
+        
+        function criarAnalyseMock(lufs, truePeak, dr, lra, stereo, bandEnergies) {
+            return {
+                technicalData: {
+                    lufsIntegrated: lufs,
+                    truePeakDbtp: truePeak,
+                    dynamicRange: dr,
+                    lra: lra,
+                    stereoCorrelation: stereo,
+                    bandEnergies: bandEnergies || [0.15, 0.25, 0.20, 0.15, 0.15, 0.10]
+                },
+                suggestions: []
+            };
+        }
+        
+        function testarGeneroFunk() {
+            log('🎵 Testando gênero Funk com valores dentro da tolerância...');
+            const analysis = criarAnalyseMock(-12.5, -1.2, 7.5, 4.2, 0.65);
+            testarSistema(analysis, funkReference, 'Funk - Valores OK');
+        }
+        
+        function testarGeneroTrance() {
+            log('🎵 Testando gênero Trance com alguns valores fora da tolerância...');
+            const analysis = criarAnalyseMock(-6.0, 0.5, 4.0, 1.5, 0.8);
+            testarSistema(analysis, tranceReference, 'Trance - Valores Problemáticos');
+        }
+        
+        function testarValoresExtremos() {
+            log('⚠️ Testando valores extremos para gerar sugestões críticas...');
+            const analysis = criarAnalyseMock(-3.0, 2.0, 2.0, 0.5, 0.9, [0.05, 0.50, 0.30, 0.10, 0.05, 0.00]);
+            testarSistema(analysis, funkReference, 'Funk - Valores Extremos');
+        }
+        
+        function testarCompatibilidade() {
+            log('🔄 Testando compatibilidade com nomes antigos de métricas...');
+            const analysis = {
+                technicalData: {
+                    // Nomes antigos que devem ser normalizados
+                    loudnessLUFS: -15.0,
+                    truePeak: -0.5,
+                    dynamicRangeDb: 9.0,
+                    loudnessRange: 5.0,
+                    stereoWidth: 0.6
+                },
+                suggestions: []
+            };
+            testarSistema(analysis, funkReference, 'Compatibilidade - Nomes Antigos');
+        }
+        
+        function testarSistema(analysis, reference, titulo) {
+            if (!window.suggestionSystem) {
+                log('❌ Sistema unificado não está carregado!');
+                return;
+            }
+            
+            try {
+                log(`\n🎯 Iniciando teste: ${titulo}`);
+                const startTime = performance.now();
+                
+                const result = window.suggestionSystem.process(analysis, reference);
+                
+                const endTime = performance.now();
+                const processingTime = endTime - startTime;
+                
+                log(`✅ Processamento concluído em ${processingTime.toFixed(2)}ms`);
+                log(`📊 ${result.suggestions.length} sugestões geradas`);
+                
+                exibirResultados(result, titulo);
+                exibirMetadata(result._suggestionMetadata, processingTime);
+                
+            } catch (error) {
+                log(`❌ Erro no teste ${titulo}: ${error.message}`);
+                console.error('Erro detalhado:', error);
+            }
+        }
+        
+        function exibirResultados(result, titulo) {
+            const resultsDiv = document.getElementById('results');
+            
+            let html = `<h4>${titulo}</h4>`;
+            
+            if (result.suggestions.length === 0) {
+                html += '<p style="color: #28a745;">✅ Nenhuma sugestão necessária - áudio dentro dos parâmetros ideais!</p>';
+            } else {
+                result.suggestions.forEach(suggestion => {
+                    const severityClass = `severity-${suggestion.severity.color.replace('#', '').slice(0, 3) === '28a' ? 'green' : 
+                                                      suggestion.severity.color.replace('#', '').slice(0, 3) === 'ffc' ? 'yellow' :
+                                                      suggestion.severity.color.replace('#', '').slice(0, 3) === 'fd7' ? 'orange' :
+                                                      suggestion.severity.color.replace('#', '').slice(0, 3) === 'dc3' ? 'red' : 'purple'}`;
+                    
+                    html += `
+                        <div class="suggestion ${severityClass}">
+                            <strong>${suggestion.severity.label.toUpperCase()}</strong>: ${suggestion.message}
+                            <br><em>💡 ${suggestion.action}</em>
+                            <br><small>📝 ${suggestion.details}</small>
+                        </div>
+                    `;
+                });
+            }
+            
+            resultsDiv.innerHTML = html;
+        }
+        
+        function exibirMetadata(metadata, actualTime) {
+            if (!metadata) return;
+            
+            const metadataDiv = document.getElementById('metadata');
+            
+            metadataDiv.innerHTML = `
+                <strong>Performance:</strong><br>
+                - Tempo processamento: ${actualTime.toFixed(2)}ms (reportado: ${metadata.processingTimeMs}ms)<br>
+                - Timestamp: ${new Date(metadata.timestamp).toLocaleString()}<br>
+                - Sistema: ${metadata.systemVersion}<br><br>
+                
+                <strong>Distribuição de Severidade:</strong><br>
+                ${Object.entries(metadata.auditLog.find(log => log.type === 'PROCESS_COMPLETE')?.data?.severityDistribution || {})
+                    .map(([severity, count]) => `- ${severity}: ${count}`)
+                    .join('<br>')}
+            `;
+        }
+        
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.innerHTML += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function limparResultados() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('log').innerHTML = '';
+            document.getElementById('metadata').innerHTML = '';
+        }
+        
+        // Inicialização
+        window.addEventListener('load', () => {
+            log('🎯 Sistema de teste carregado');
+            if (window.suggestionSystem) {
+                log('✅ Sistema Unificado detectado e pronto para uso');
+            } else {
+                log('⚠️ Sistema Unificado não foi carregado - verificar arquivos');
+            }
+        });
+    </script>
+</body>
+</html>
