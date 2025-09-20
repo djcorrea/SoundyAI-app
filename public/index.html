@@ -408,21 +408,42 @@
             console.log('🎯 [INDEX] Forçando ativação do sistema novo...');
             
             let attempts = 0;
-            const maxAttempts = 50;
+            const maxAttempts = 100; // Aumentado para 10 segundos
             
             const forceActivate = () => {
                 attempts++;
                 console.log(`🎯 [INDEX] Tentativa ${attempts} de ativação...`);
                 
-                if (window.suggestionSystem) {
+                if (window.suggestionSystem && typeof window.suggestionSystem.process === 'function') {
                     window.USE_UNIFIED_SUGGESTIONS = true;
                     console.log('🎯 [INDEX] ✅ SISTEMA NOVO ATIVADO COM SUCESSO!');
                     console.log('🎯 [INDEX] window.suggestionSystem:', typeof window.suggestionSystem);
+                    console.log('🎯 [INDEX] window.suggestionSystem.process:', typeof window.suggestionSystem.process);
                     console.log('🎯 [INDEX] window.USE_UNIFIED_SUGGESTIONS:', window.USE_UNIFIED_SUGGESTIONS);
+                    
+                    // 🚨 CRITICAL: Marcar que o sistema está pronto para evitar race conditions
+                    window.__SUGGESTION_SYSTEM_READY = true;
+                    console.log('🎯 [INDEX] Sistema marcado como pronto para uso');
+                    
                 } else if (attempts < maxAttempts) {
                     setTimeout(forceActivate, 100);
                 } else {
-                    console.error('🎯 [INDEX] ❌ FALHA: Sistema não carregou após 5 segundos');
+                    console.error('🎯 [INDEX] ❌ FALHA: Sistema não carregou após 10 segundos');
+                    console.error('🎯 [INDEX] window.suggestionSystem:', typeof window.suggestionSystem);
+                    console.error('🎯 [INDEX] window.SuggestionSystemUnified:', typeof window.SuggestionSystemUnified);
+                    
+                    // Tentar carregar sistema de emergência manualmente
+                    if (typeof window.SuggestionSystemUnified === 'function') {
+                        console.log('🎯 [INDEX] Tentando ativar sistema de emergência...');
+                        try {
+                            window.suggestionSystem = new window.SuggestionSystemUnified();
+                            window.USE_UNIFIED_SUGGESTIONS = true;
+                            window.__SUGGESTION_SYSTEM_READY = true;
+                            console.log('🎯 [INDEX] ✅ Sistema de emergência ativado!');
+                        } catch (e) {
+                            console.error('🎯 [INDEX] ❌ Falha no sistema de emergência:', e);
+                        }
+                    }
                 }
             };
             
