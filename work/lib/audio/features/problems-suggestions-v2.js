@@ -55,8 +55,14 @@ const GENRE_THRESHOLDS = {
     truePeak: { target: -1.0, tolerance: 0.5, critical: 1.0 },
     dr: { target: 6.8, tolerance: 2.0, critical: 3.0 },
     stereo: { target: 0.85, tolerance: 0.2, critical: 0.3 },
+    // 🎵 Bandas espectrais completas
     sub: { target: -17.3, tolerance: 3.0, critical: 5.0 },
-    bass: { target: -17.7, tolerance: 3.0, critical: 5.0 }
+    bass: { target: -17.7, tolerance: 3.0, critical: 5.0 },
+    lowMid: { target: -20.5, tolerance: 3.5, critical: 5.5 },
+    mid: { target: -19.2, tolerance: 3.0, critical: 4.5 },
+    highMid: { target: -22.8, tolerance: 4.0, critical: 6.0 },
+    presenca: { target: -24.1, tolerance: 4.5, critical: 6.5 },
+    brilho: { target: -26.3, tolerance: 5.0, critical: 7.0 }
   },
   
   // 🎭 Funk Mandela - Mais dinâmico
@@ -65,8 +71,14 @@ const GENRE_THRESHOLDS = {
     truePeak: { target: -0.8, tolerance: 0.7, critical: 1.2 },
     dr: { target: 7.3, tolerance: 2.5, critical: 4.0 },
     stereo: { target: 0.85, tolerance: 0.25, critical: 0.35 },
+    // 🎵 Bandas espectrais completas
     sub: { target: -17.3, tolerance: 3.0, critical: 5.0 },
-    bass: { target: -17.7, tolerance: 3.0, critical: 5.0 }
+    bass: { target: -17.7, tolerance: 3.0, critical: 5.0 },
+    lowMid: { target: -21.0, tolerance: 3.5, critical: 5.5 },
+    mid: { target: -19.8, tolerance: 3.2, critical: 4.8 },
+    highMid: { target: -23.5, tolerance: 4.0, critical: 6.0 },
+    presenca: { target: -25.2, tolerance: 4.5, critical: 6.5 },
+    brilho: { target: -27.1, tolerance: 5.0, critical: 7.0 }
   },
   
   // 🎶 Trance - Muito dinâmico
@@ -75,8 +87,14 @@ const GENRE_THRESHOLDS = {
     truePeak: { target: -1.0, tolerance: 1.0, critical: 2.0 },
     dr: { target: 8.8, tolerance: 3.0, critical: 5.0 },
     stereo: { target: 0.72, tolerance: 0.25, critical: 0.35 },
+    // 🎵 Bandas espectrais completas
     sub: { target: -16.0, tolerance: 2.5, critical: 4.0 },
-    bass: { target: -17.8, tolerance: 2.5, critical: 4.0 }
+    bass: { target: -17.8, tolerance: 2.5, critical: 4.0 },
+    lowMid: { target: -22.5, tolerance: 3.0, critical: 4.5 },
+    mid: { target: -20.1, tolerance: 2.8, critical: 4.2 },
+    highMid: { target: -21.5, tolerance: 3.5, critical: 5.0 },
+    presenca: { target: -23.8, tolerance: 4.0, critical: 5.5 },
+    brilho: { target: -24.2, tolerance: 4.5, critical: 6.0 }
   },
   
   // 🎹 Eletrônico - Equilibrado
@@ -85,8 +103,14 @@ const GENRE_THRESHOLDS = {
     truePeak: { target: -1.0, tolerance: 0.8, critical: 1.5 },
     dr: { target: 7.2, tolerance: 2.8, critical: 4.5 },
     stereo: { target: 0.75, tolerance: 0.25, critical: 0.35 },
+    // 🎵 Bandas espectrais completas
     sub: { target: -18.0, tolerance: 3.0, critical: 5.0 },
-    bass: { target: -19.0, tolerance: 3.0, critical: 5.0 }
+    bass: { target: -19.0, tolerance: 3.0, critical: 5.0 },
+    lowMid: { target: -23.2, tolerance: 3.5, critical: 5.5 },
+    mid: { target: -21.5, tolerance: 3.0, critical: 4.5 },
+    highMid: { target: -24.8, tolerance: 4.0, critical: 6.0 },
+    presenca: { target: -26.5, tolerance: 4.5, critical: 6.5 },
+    brilho: { target: -25.8, tolerance: 4.8, critical: 6.8 }
   },
   
   // 🎤 Trap - Bass pesado
@@ -95,8 +119,14 @@ const GENRE_THRESHOLDS = {
     truePeak: { target: -1.0, tolerance: 0.8, critical: 1.5 },
     dr: { target: 7.8, tolerance: 2.5, critical: 4.0 },
     stereo: { target: 0.78, tolerance: 0.22, critical: 0.32 },
+    // 🎵 Bandas espectrais completas
     sub: { target: -15.5, tolerance: 2.8, critical: 4.5 },
-    bass: { target: -16.8, tolerance: 2.8, critical: 4.5 }
+    bass: { target: -16.8, tolerance: 2.8, critical: 4.5 },
+    lowMid: { target: -22.1, tolerance: 3.5, critical: 5.2 },
+    mid: { target: -20.9, tolerance: 3.2, critical: 4.8 },
+    highMid: { target: -24.3, tolerance: 4.2, critical: 6.2 },
+    presenca: { target: -25.8, tolerance: 4.8, critical: 6.8 },
+    brilho: { target: -27.5, tolerance: 5.2, critical: 7.5 }
   },
   
   // 📻 Default/Genérico
@@ -105,8 +135,14 @@ const GENRE_THRESHOLDS = {
     truePeak: { target: -1.0, tolerance: 1.0, critical: 2.0 },
     dr: { target: 8.0, tolerance: 3.0, critical: 5.0 },
     stereo: { target: 0.75, tolerance: 0.25, critical: 0.35 },
+    // 🎵 Bandas espectrais completas - valores genéricos balanceados
     sub: { target: -18.0, tolerance: 3.5, critical: 6.0 },
-    bass: { target: -18.5, tolerance: 3.5, critical: 6.0 }
+    bass: { target: -18.5, tolerance: 3.5, critical: 6.0 },
+    lowMid: { target: -23.0, tolerance: 4.0, critical: 6.5 },
+    mid: { target: -21.5, tolerance: 3.5, critical: 5.5 },
+    highMid: { target: -25.0, tolerance: 4.5, critical: 6.5 },
+    presenca: { target: -27.0, tolerance: 5.0, critical: 7.0 },
+    brilho: { target: -28.0, tolerance: 5.0, critical: 7.0 }
   }
 };
 
@@ -384,18 +420,57 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
    * 🌈 Análise Bandas Espectrais com Sugestões Educativas
    */
   analyzeSpectralBands(metrics, suggestions, problems) {
-    const bands = metrics.centralizedBands || metrics.spectralBands;
+    const bands = metrics.centralizedBands || metrics.spectralBands || metrics.spectral_balance;
     if (!bands || typeof bands !== 'object') return;
     
+    // 🎯 EXPANSÃO COMPLETA: Todas as bandas espectrais com múltiplas variações de nomes
+    
     // Sub Bass (20-60Hz)
-    if (Number.isFinite(bands.sub)) {
-      this.analyzeBand('sub', bands.sub, 'Sub Bass (20-60Hz)', suggestions);
+    let value = bands.sub_energy_db ?? bands.sub?.energy_db ?? bands.sub;
+    if (Number.isFinite(value)) {
+      this.analyzeBand('sub', value, 'Sub Bass (20-60Hz)', suggestions);
     }
     
     // Bass (60-150Hz)  
-    if (Number.isFinite(bands.bass)) {
-      this.analyzeBand('bass', bands.bass, 'Bass (60-150Hz)', suggestions);
+    value = bands.bass_energy_db ?? bands.bass?.energy_db ?? bands.bass;
+    if (Number.isFinite(value)) {
+      this.analyzeBand('bass', value, 'Bass (60-150Hz)', suggestions);
     }
+
+    // 🆕 Low Mid (150-500Hz) - Fundamental e warmth
+    value = bands.lowMid_energy_db ?? bands.lowMid?.energy_db ?? bands.lowMid ?? bands.low_mid;
+    if (Number.isFinite(value)) {
+      this.analyzeBand('lowMid', value, 'Low Mid (150-500Hz)', suggestions);
+    }
+
+    // 🆕 Mid (500-2000Hz) - Vocal clarity e presença
+    value = bands.mid_energy_db ?? bands.mid?.energy_db ?? bands.mid;
+    if (Number.isFinite(value)) {
+      this.analyzeBand('mid', value, 'Mid (500-2000Hz)', suggestions);
+    }
+
+    // 🆕 High Mid (2000-5000Hz) - Definition e clarity  
+    value = bands.highMid_energy_db ?? bands.highMid?.energy_db ?? bands.highMid ?? bands.high_mid;
+    if (Number.isFinite(value)) {
+      this.analyzeBand('highMid', value, 'High Mid (2-5kHz)', suggestions);
+    }
+
+    // 🆕 Presença (3000-6000Hz) - Vocal presence e intelligibility
+    value = bands.presenca_energy_db ?? bands.presenca?.energy_db ?? bands.presenca ?? bands.presence;
+    if (Number.isFinite(value)) {
+      this.analyzeBand('presenca', value, 'Presença (3-6kHz)', suggestions);
+    }
+
+    // 🆕 Brilho/Air (6000-20000Hz) - Sparkle e airiness
+    value = bands.brilho_energy_db ?? bands.brilho?.energy_db ?? bands.brilho ?? bands.air;
+    if (Number.isFinite(value)) {
+      this.analyzeBand('brilho', value, 'Brilho (6-20kHz)', suggestions);
+    }
+
+    logAudio('problems_v2', 'spectral_analysis', { 
+      bandsDetected: Object.keys(bands).length,
+      suggestionsGenerated: suggestions.filter(s => s.metric?.startsWith('band_')).length 
+    });
   }
   
   /**
