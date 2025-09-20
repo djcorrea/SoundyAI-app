@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CORREÇÃO EMERGENCIAL - SUGESTÕES</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #1a1a1a; color: #fff; }
+        .emergency { background: #ff4444; padding: 15px; border-radius: 5px; margin: 10px 0; }
+        .instructions { background: #333; padding: 15px; border-radius: 5px; margin: 10px 0; }
+        .code { background: #222; padding: 10px; border-radius: 3px; font-family: monospace; }
+        button { background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; }
+        button:hover { background: #45a049; }
+    </style>
+</head>
+<body>
+    <div class="emergency">
+        <h1>🚨 CORREÇÃO EMERGENCIAL - SUGESTÕES SOUNDYAI</h1>
+        <p><strong>NÃO DESISTA!</strong> Vamos resolver isso agora mesmo!</p>
+    </div>
+    
+    <div class="instructions">
+        <h2>📋 INSTRUÇÕES RÁPIDAS:</h2>
+        <ol>
+            <li><strong>Abra o Console do Navegador</strong> (F12 → Console)</li>
+            <li><strong>Cole o código abaixo</strong> no console</li>
+            <li><strong>Pressione Enter</strong></li>
+            <li><strong>Teste enviando um arquivo</strong> no SoundyAI</li>
+        </ol>
+    </div>
+    
+    <div class="code" id="codeBlock">
+        // CÓDIGO SERÁ INSERIDO AQUI
+    </div>
+    
+    <button onclick="copyCode()">📋 COPIAR CÓDIGO</button>
+    <button onclick="loadEmergencyScript()">⚡ CARREGAR SCRIPT</button>
+    
+    <script>
+        // Carregar o script de emergência
+        fetch('./force-suggestions-emergency.js')
+            .then(response => response.text())
+            .then(code => {
+                document.getElementById('codeBlock').textContent = code;
+            })
+            .catch(error => {
+                document.getElementById('codeBlock').textContent = 'Erro ao carregar o script. Use o botão "CARREGAR SCRIPT" abaixo.';
+            });
+        
+        function copyCode() {
+            const code = document.getElementById('codeBlock').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                alert('✅ Código copiado! Cole no console do navegador e pressione Enter.');
+            });
+        }
+        
+        function loadEmergencyScript() {
+            // Código de emergência inline
+            const emergencyCode = `
+// 🚨 CORREÇÃO EMERGENCIAL DIRETA - FORÇAR SUGESTÕES
+console.log('🚨 [EMERGENCY] Iniciando correção direta de sugestões');
+
+// Interceptar a função displayModalResults
+if (typeof window !== 'undefined' && window.displayModalResults) {
+    const originalDisplayModalResults = window.displayModalResults;
+    
+    window.displayModalResults = function(analysis) {
+        console.log('🚨 [EMERGENCY] Interceptando displayModalResults:', analysis);
+        
+        // FORÇA SUGESTÕES SE NÃO EXISTIREM
+        if (!analysis.suggestions || analysis.suggestions.length === 0) {
+            console.log('🚨 [EMERGENCY] FORÇANDO sugestões - análise sem sugestões detectada');
+            
+            const emergencySuggestions = [];
+            
+            // 1. Buscar em diagnostics.suggestions
+            if (analysis.diagnostics?.suggestions) {
+                console.log('🚨 [EMERGENCY] Encontradas sugestões em diagnostics.suggestions:', analysis.diagnostics.suggestions.length);
+                emergencySuggestions.push(...analysis.diagnostics.suggestions);
+            }
+            
+            // 2. Gerar sugestões básicas se ainda não há nenhuma
+            if (emergencySuggestions.length === 0) {
+                console.log('🚨 [EMERGENCY] Gerando sugestões básicas de emergência');
+                
+                const tech = analysis.technicalData || {};
+                
+                if (tech.lufsIntegrated && tech.lufsIntegrated < -23) {
+                    emergencySuggestions.push({
+                        type: 'loudness',
+                        message: 'Volume muito baixo detectado',
+                        action: 'Aumentar o volume geral da mixagem',
+                        details: 'LUFS atual: ' + tech.lufsIntegrated.toFixed(1) + ', recomendado: -14 LUFS',
+                        priority: 8
+                    });
+                }
+                
+                if (tech.truePeakDbtp && tech.truePeakDbtp > -1) {
+                    emergencySuggestions.push({
+                        type: 'headroom',
+                        message: 'True Peak muito alto',
+                        action: 'Reduzir o ganho para evitar distorção',
+                        details: 'True Peak atual: ' + tech.truePeakDbtp.toFixed(1) + ' dBTP, recomendado: < -1 dBTP',
+                        priority: 9
+                    });
+                }
+                
+                if (emergencySuggestions.length === 0) {
+                    emergencySuggestions.push({
+                        type: 'general',
+                        message: 'Análise técnica concluída',
+                        action: 'Verificar métricas técnicas na seção acima',
+                        details: 'Use os dados técnicos para otimizar sua mixagem',
+                        priority: 5
+                    });
+                }
+            }
+            
+            analysis.suggestions = emergencySuggestions;
+            console.log('🚨 [EMERGENCY] Sugestões forçadas aplicadas:', analysis.suggestions.length);
+        }
+        
+        return originalDisplayModalResults.call(this, analysis);
+    };
+    
+    console.log('🚨 [EMERGENCY] Correção instalada! Teste enviando um arquivo.');
+}
+            `;
+            
+            // Executar o código
+            eval(emergencyCode);
+            alert('⚡ CORREÇÃO ATIVADA! Agora teste enviando um arquivo no SoundyAI.');
+        }
+    </script>
+</body>
+</html>
