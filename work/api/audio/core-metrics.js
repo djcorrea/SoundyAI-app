@@ -15,7 +15,7 @@ import { analyzeStereoMetrics, StereoMetricsCalculator, StereoMetricsAggregator 
 import { calculateDominantFrequencies } from "../../lib/audio/features/dominant-frequencies.js";
 import { calculateDCOffset } from "../../lib/audio/features/dc-offset.js";
 import { calculateSpectralUniformity } from "../../lib/audio/features/spectral-uniformity.js";
-import { analyzeProblemsAndSuggestions } from "../../lib/audio/features/problems-suggestions.js";
+import { analyzeProblemsAndSuggestionsV2 } from "../../lib/audio/features/problems-suggestions-v2.js";
 
 // Sistema de tratamento de erros padronizado
 import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../lib/audio/error-handling.js';
@@ -71,7 +71,8 @@ class CoreMetricsProcessor {
     logAudio('core_metrics', 'init', { 
       config: CORE_METRICS_CONFIG,
       correctedModules: ['spectral_bands', 'spectral_centroid', 'stereo_metrics', 'dynamics'],
-      skippedAnalyzers: ['dominant_frequencies_class', 'dc_offset', 'spectral_uniformity', 'problems_suggestions']
+      activeAnalyzers: ['problems_suggestions'],
+      skippedAnalyzers: ['dominant_frequencies_class', 'dc_offset', 'spectral_uniformity']
     });
   }
 
@@ -284,28 +285,53 @@ class CoreMetricsProcessor {
         }
       };
 
-      // ========= ANÁLISE DE PROBLEMAS E SUGESTÕES =========
-      // Usando função standalone
+      // ========= ANÁLISE DE PROBLEMAS E SUGESTÕES V2 =========
+      // Sistema educativo com criticidade por cores
       let problemsAnalysis = {
-        problems: [],
+        genre: 'default',
         suggestions: [],
-        quality: { overall: null, details: null },
-        priorityRecommendations: []
+        problems: [],
+        summary: {
+          overallRating: 'Análise não disponível',
+          readyForRelease: false,
+          criticalIssues: 0,
+          warningIssues: 0,
+          okMetrics: 0,
+          totalAnalyzed: 0,
+          score: 0
+        },
+        metadata: {
+          totalSuggestions: 0,
+          criticalCount: 0,
+          warningCount: 0,
+          okCount: 0,
+          analysisDate: new Date().toISOString(),
+          version: '2.0.0'
+        }
       };
       
       try {
-        problemsAnalysis = analyzeProblemsAndSuggestions(coreMetrics);
-        console.log('[SUCCESS] Problems Analysis calculado via função standalone');
+        // Detectar gênero a partir das opções ou usar default
+        const detectedGenre = options.genre || options.reference?.genre || 'default';
+        
+        problemsAnalysis = analyzeProblemsAndSuggestionsV2(coreMetrics, detectedGenre);
+        logAudio('core_metrics', 'problems_analysis_success', { 
+          genre: detectedGenre,
+          totalSuggestions: problemsAnalysis.suggestions.length,
+          criticalCount: problemsAnalysis.metadata.criticalCount,
+          warningCount: problemsAnalysis.metadata.warningCount
+        });
       } catch (error) {
-        console.log('[SKIP_METRIC] problemsAnalysis: erro na função standalone -', error.message);
-        // Manter estrutura padrão
+        logAudio('core_metrics', 'problems_analysis_error', { error: error.message });
+        // Manter estrutura padrão definida acima
       }
       
-      // Adicionar análise de problemas aos resultados
-      coreMetrics.problems = problemsAnalysis.problems;
-      coreMetrics.suggestions = problemsAnalysis.suggestions;
-      coreMetrics.qualityAssessment = problemsAnalysis.quality;
-      coreMetrics.priorityRecommendations = problemsAnalysis.priorityRecommendations;
+      // Adicionar análise de problemas aos resultados com estrutura V2
+      coreMetrics.problems = problemsAnalysis.problems || [];
+      coreMetrics.suggestions = problemsAnalysis.suggestions || [];
+      coreMetrics.qualityAssessment = problemsAnalysis.summary || problemsAnalysis.quality || {};
+      coreMetrics.priorityRecommendations = problemsAnalysis.priorityRecommendations || [];
+      coreMetrics.suggestionMetadata = problemsAnalysis.metadata || {};
 
       // ========= VALIDAÇÃO FINAL =========
       try {

@@ -15,7 +15,7 @@ import { analyzeStereoMetrics, StereoMetricsCalculator, StereoMetricsAggregator 
 import { calculateDominantFrequencies } from "../../lib/audio/features/dominant-frequencies.js";
 import { calculateDCOffset } from "../../lib/audio/features/dc-offset.js";
 import { calculateSpectralUniformity } from "../../lib/audio/features/spectral-uniformity.js";
-import { analyzeProblemsAndSuggestions } from "../../lib/audio/features/problems-suggestions.js";
+import { analyzeProblemsAndSuggestionsV2 } from "../../lib/audio/features/problems-suggestions-v2.js";
 
 // Sistema de tratamento de erros padronizado
 import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../lib/audio/error-handling.js';
@@ -71,7 +71,8 @@ class CoreMetricsProcessor {
     logAudio('core_metrics', 'init', { 
       config: CORE_METRICS_CONFIG,
       correctedModules: ['spectral_bands', 'spectral_centroid', 'stereo_metrics', 'dynamics'],
-      skippedAnalyzers: ['dominant_frequencies_class', 'dc_offset', 'spectral_uniformity', 'problems_suggestions']
+      activeAnalyzers: ['problems_suggestions_v2'],
+      skippedAnalyzers: ['dominant_frequencies_class', 'dc_offset', 'spectral_uniformity']
     });
   }
 
