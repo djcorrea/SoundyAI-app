@@ -2,9 +2,10 @@
 // Integra scoring, heurísticas e referências em um sistema unificado
 
 class EnhancedSuggestionEngine {
-    constructor() {
+    constructor(config = {}) {
         this.scorer = window.suggestionScorer || new SuggestionScorer();
-        this.heuristics = window.heuristicsAnalyzer || new AdvancedHeuristicsAnalyzer();
+        // Removendo dependência problemática do AdvancedHeuristicsAnalyzer
+        this.heuristics = window.heuristicsAnalyzer || null;
         
         // 📊 Log de auditoria para debugging
         this.auditLog = [];
@@ -811,7 +812,12 @@ class EnhancedSuggestionEngine {
                 transientData: this.extractTransientData(analysis)
             };
             
-            // Executar análise heurística
+            // Executar análise heurística (se disponível)
+            if (!this.heuristics) {
+                console.warn('🚨 Heuristics analyzer não disponível - pulando análise heurística');
+                return [];
+            }
+            
             const detections = this.heuristics.analyzeAll(analysisData);
             
             for (const detection of detections) {

@@ -349,6 +349,32 @@
             log('info', '🌐 Sistema carregado na Railway');
             log('info', '🔗 URL: ' + window.location.href);
             log('info', '🕐 Timestamp: ' + new Date().toISOString());
+            
+            // Verificar dependências automaticamente
+            setTimeout(() => {
+                log('info', '🔍 Verificando dependências automaticamente...');
+                
+                if (typeof SuggestionScorer === 'undefined') {
+                    log('error', '❌ SuggestionScorer não carregado - verifique se suggestion-scorer.js está no servidor');
+                } else {
+                    log('success', '✅ SuggestionScorer carregado');
+                }
+                
+                if (typeof EnhancedSuggestionEngine === 'undefined') {
+                    log('error', '❌ EnhancedSuggestionEngine não carregado - verifique se enhanced-suggestion-engine.js está no servidor');
+                } else {
+                    log('success', '✅ EnhancedSuggestionEngine carregado');
+                    
+                    // Testar se consegue instanciar
+                    try {
+                        const testEngine = new EnhancedSuggestionEngine();
+                        log('success', '✅ Engine pode ser instanciado');
+                    } catch (err) {
+                        log('error', '❌ Erro ao instanciar engine: ' + err.message);
+                    }
+                }
+            }, 1000);
+            
             updateStatus('Sistema carregado - pronto para testes', false);
         });
 
