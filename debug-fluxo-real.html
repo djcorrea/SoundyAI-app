@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>🔍 Debug Fluxo Real da Aplicação</title>
+    <style>
+        body { font-family: Arial; margin: 20px; background: #f0f8ff; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; }
+        .log { background: #f8f9fa; border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 5px; font-family: monospace; font-size: 12px; }
+        .status { padding: 15px; margin: 10px 0; border-radius: 8px; font-weight: bold; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        .warning { background: #fff3cd; color: #856404; }
+        button { background: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 5px; cursor: pointer; font-size: 14px; margin: 5px; }
+        button:hover { background: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug Fluxo Real da Aplicação SoundyAI</h1>
+        <p>Este teste simula exatamente o que acontece quando você faz upload de uma música Trance.</p>
+        
+        <div class="status warning">
+            🎯 Este teste vai mostrar exatamente por que o sistema novo não está funcionando na aplicação real.
+        </div>
+        
+        <button onclick="testSystemLoading()">1. 🔍 Testar Carregamento do Sistema</button>
+        <button onclick="testUpdateReferenceSuggestions()">2. 🎵 Simular Análise de Trance</button>
+        <button onclick="clearLogs()">🗑️ Limpar Logs</button>
+        
+        <div id="logs"></div>
+    </div>
+
+    <!-- Carregar exatamente como a aplicação real -->
+    <script src="suggestion-system-emergency.js?v=emergency-20250920"></script>
+    
+    <script>
+        let logs = [];
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = `[${timestamp}] ${message}`;
+            logs.push(entry);
+            console.log(entry);
+            updateLogsDisplay();
+        }
+        
+        function updateLogsDisplay() {
+            document.getElementById('logs').innerHTML = `
+                <div class="log">${logs.join('\n')}</div>
+            `;
+        }
+        
+        function clearLogs() {
+            logs = [];
+            updateLogsDisplay();
+        }
+        
+        function testSystemLoading() {
+            log('🔍 TESTE 1: Verificando carregamento do sistema...');
+            
+            // Verificar window.suggestionSystem
+            if (typeof window.suggestionSystem === 'undefined') {
+                log('❌ PROBLEMA: window.suggestionSystem não existe!');
+                log('Isso significa que o arquivo suggestion-system-emergency.js não foi carregado ou falhou.');
+                return;
+            }
+            
+            log('✅ window.suggestionSystem existe');
+            log(`Tipo: ${typeof window.suggestionSystem}`);
+            
+            // Verificar método process
+            if (typeof window.suggestionSystem.process !== 'function') {
+                log('❌ PROBLEMA: window.suggestionSystem.process não é uma função!');
+                return;
+            }
+            
+            log('✅ window.suggestionSystem.process() disponível');
+            
+            // Verificar variável de controle
+            log(`USE_UNIFIED_SUGGESTIONS: ${window.USE_UNIFIED_SUGGESTIONS}`);
+            
+            // Teste rápido do sistema
+            try {
+                const testResult = window.suggestionSystem.process(
+                    { technicalData: { lufs: -6.0 } },
+                    { genre: 'trance', lufs_target: -9.0, tol_lufs: 1.0 }
+                );
+                log(`✅ Teste rápido OK: ${testResult?.suggestions?.length || 0} sugestões`);
+            } catch (error) {
+                log(`❌ Erro no teste rápido: ${error.message}`);
+            }
+        }
+        
+        function testUpdateReferenceSuggestions() {
+            log('🎵 TESTE 2: Simulando análise de Trance...');
+            
+            // Simular dados de análise como a aplicação real
+            const mockAnalysis = {
+                technicalData: {
+                    lufs: -6.2,           // Problema real
+                    true_peak: -0.1,      // Problema real
+                    dr: 4.5,              // Problema real
+                    lra: 2.8,             // OK
+                    stereo: 0.45,         // Problema real
+                    bands: {
+                        sub: { energy: 8.5 },
+                        bass: { energy: 22.3 },
+                        low_mids: { energy: 16.8 },
+                        mids: { energy: 28.1 },
+                        high_mids: { energy: 17.2 },
+                        highs: { energy: 13.9 }
+                    }
+                },
+                suggestions: []  // Inicialmente vazio
+            };
+            
+            // Simular dados de referência como a aplicação real
+            const mockRefData = {
+                genre: 'trance',
+                lufs_target: -9.0,
+                tol_lufs: 1.0,
+                true_peak_target: -1.0,
+                tol_true_peak: 0.5,
+                dr_target: 7.0,
+                tol_dr: 1.5,
+                lra_target: 3.0,
+                tol_lra: 1.0,
+                stereo_target: 0.7,
+                tol_stereo: 0.15
+            };
+            
+            log('📊 Dados preparados:');
+            log(`  LUFS: ${mockAnalysis.technicalData.lufs} (alvo: ${mockRefData.lufs_target})`);
+            log(`  True Peak: ${mockAnalysis.technicalData.true_peak} (limite: ${mockRefData.true_peak_target})`);
+            log(`  DR: ${mockAnalysis.technicalData.dr} (alvo: ${mockRefData.dr_target})`);
+            log(`  Stereo: ${mockAnalysis.technicalData.stereo} (alvo: ${mockRefData.stereo_target})`);
+            
+            // Simular a lógica exata do updateReferenceSuggestions
+            log('🔍 Verificando condições do sistema novo...');
+            
+            const windowExists = typeof window !== 'undefined';
+            const systemExists = !!window.suggestionSystem;
+            const flagEnabled = window.USE_UNIFIED_SUGGESTIONS !== false;
+            
+            log(`  window exists: ${windowExists}`);
+            log(`  suggestionSystem exists: ${systemExists}`);
+            log(`  USE_UNIFIED_SUGGESTIONS: ${window.USE_UNIFIED_SUGGESTIONS} (enabled: ${flagEnabled})`);
+            
+            if (windowExists && systemExists && flagEnabled) {
+                log('✅ Todas as condições atendidas - usando sistema novo');
+                
+                try {
+                    log('⚡ Executando window.suggestionSystem.process()...');
+                    
+                    const enhancedAnalysis = window.suggestionSystem.process(mockAnalysis, mockRefData);
+                    
+                    log(`✅ Processamento concluído!`);
+                    log(`📋 Sugestões geradas: ${enhancedAnalysis?.suggestions?.length || 0}`);
+                    
+                    if (enhancedAnalysis && enhancedAnalysis.suggestions) {
+                        // Simular a combinação de sugestões
+                        const existingSuggestions = Array.isArray(mockAnalysis.suggestions) ? mockAnalysis.suggestions : [];
+                        mockAnalysis.suggestions = [...enhancedAnalysis.suggestions, ...existingSuggestions];
+                        
+                        log(`📝 Total final: ${mockAnalysis.suggestions.length} sugestões`);
+                        
+                        // Mostrar detalhes das sugestões
+                        enhancedAnalysis.suggestions.forEach((suggestion, index) => {
+                            log(`  ${index + 1}. ${suggestion.metric?.toUpperCase()}: ${suggestion.direction} ${Math.abs(suggestion.delta || 0).toFixed(2)} ${suggestion.unit || ''}`);
+                        });
+                        
+                        log('🎯 SUCESSO: Sistema novo funcionou perfeitamente!');
+                        
+                    } else {
+                        log('❌ PROBLEMA: Resultado inválido do sistema novo');
+                    }
+                    
+                } catch (error) {
+                    log(`❌ ERRO no sistema novo: ${error.message}`);
+                    log('🔄 Aplicação usaria sistema legado como fallback');
+                }
+                
+            } else {
+                log('❌ Condições não atendidas - usaria sistema legado');
+                log('🔄 Por isso você vê as sugestões antigas e ruins!');
+            }
+        }
+        
+        // Auto-executar teste 1 ao carregar
+        setTimeout(() => {
+            testSystemLoading();
+        }, 1000);
+    </script>
+</body>
+</html>

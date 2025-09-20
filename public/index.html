@@ -396,6 +396,34 @@
     <script src="suggestion-text-generator.js?v=20250815" defer></script>
     <!-- 🚨 SISTEMA DE EMERGÊNCIA - SUGESTÕES FUNCIONAIS -->
     <script src="suggestion-system-emergency.js?v=emergency-20250920" defer></script>
+    <!-- 🎯 ATIVAÇÃO FORÇADA DO SISTEMA NOVO -->
+    <script>
+        // Força ativação do sistema novo assim que carregar
+        window.addEventListener('DOMContentLoaded', function() {
+            console.log('🎯 [INDEX] Forçando ativação do sistema novo...');
+            
+            let attempts = 0;
+            const maxAttempts = 50;
+            
+            const forceActivate = () => {
+                attempts++;
+                console.log(`🎯 [INDEX] Tentativa ${attempts} de ativação...`);
+                
+                if (window.suggestionSystem) {
+                    window.USE_UNIFIED_SUGGESTIONS = true;
+                    console.log('🎯 [INDEX] ✅ SISTEMA NOVO ATIVADO COM SUCESSO!');
+                    console.log('🎯 [INDEX] window.suggestionSystem:', typeof window.suggestionSystem);
+                    console.log('🎯 [INDEX] window.USE_UNIFIED_SUGGESTIONS:', window.USE_UNIFIED_SUGGESTIONS);
+                } else if (attempts < maxAttempts) {
+                    setTimeout(forceActivate, 100);
+                } else {
+                    console.error('🎯 [INDEX] ❌ FALHA: Sistema não carregou após 5 segundos');
+                }
+            };
+            
+            forceActivate();
+        });
+    </script>
     <script src="audio-analyzer-integration.js?v=20250823k&final_fix=1724440500" defer></script>
     
     <!-- Inicializar Audio Analyzer -->
