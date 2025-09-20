@@ -21,6 +21,221 @@ class EnhancedSuggestionEngine {
     }
 
     /**
+     * 🔧 Normalizar dados de referência para compatibilidade universal
+     * @param {Object} rawRef - Dados de referência brutos (legacy_compatibility ou hybrid_processing)
+     * @returns {Object} Dados normalizados no formato padrão do motor
+     */
+    normalizeReferenceData(rawRef) {
+        if (!rawRef || typeof rawRef !== 'object') {
+            console.warn('🚨 Dados de referência inválidos ou ausentes');
+            this.logAudit('NORMALIZE_ERROR', 'Dados de referência inválidos', { rawRef });
+            return null;
+        }
+
+        // Detectar estrutura dos dados
+        let sourceData = null;
+        let structureType = 'unknown';
+
+        // Tentar legacy_compatibility primeiro
+        if (rawRef.legacy_compatibility && typeof rawRef.legacy_compatibility === 'object') {
+            sourceData = rawRef.legacy_compatibility;
+            structureType = 'legacy_compatibility';
+        }
+        // Tentar hybrid_processing (estrutura atual dos JSONs)
+        else if (rawRef.hybrid_processing && typeof rawRef.hybrid_processing === 'object') {
+            sourceData = rawRef.hybrid_processing;
+            structureType = 'hybrid_processing';
+        }
+        // Tentar estrutura direta (genreName: {...})
+        else {
+            const firstKey = Object.keys(rawRef)[0];
+            if (firstKey && rawRef[firstKey] && typeof rawRef[firstKey] === 'object') {
+                sourceData = rawRef[firstKey];
+                structureType = 'genre_direct';
+                
+                // Se tem hybrid_processing dentro, usar isso
+                if (sourceData.hybrid_processing) {
+                    sourceData = sourceData.hybrid_processing;
+                    structureType = 'genre_direct_hybrid';
+                }
+            }
+        }
+
+        if (!sourceData) {
+            console.warn('🚨 Estrutura de dados de referência não reconhecida');
+            this.logAudit('NORMALIZE_ERROR', 'Estrutura não reconhecida', { rawRef, keys: Object.keys(rawRef) });
+            return null;
+        }
+
+        this.logAudit('NORMALIZE_START', `Normalizando dados: ${structureType}`, { structureType });
+
+        // Normalizar métricas principais
+        const normalized = {
+            // LUFS
+            lufs_target: this.extractMetric(sourceData, ['lufs_target', 'lufs_ref', 'lufs_integrated'], 'lufs'),
+            tol_lufs: this.extractMetric(sourceData, ['tol_lufs', 'lufs_tolerance', 'tol_lufs_min'], 'lufs_tolerance') ?? 2.0,
+
+            // True Peak
+            true_peak_target: this.extractMetric(sourceData, ['true_peak_target', 'tp_ref', 'true_peak', 'true_peak_dbtp'], 'true_peak'),
+            tol_true_peak: this.extractMetric(sourceData, ['tol_true_peak', 'tp_tolerance', 'true_peak_tolerance'], 'true_peak_tolerance') ?? 1.0,
+
+            // Dynamic Range
+            dr_target: this.extractMetric(sourceData, ['dr_target', 'dr_ref', 'dynamic_range'], 'dr'),
+            tol_dr: this.extractMetric(sourceData, ['tol_dr', 'dr_tolerance', 'dynamic_range_tolerance'], 'dr_tolerance') ?? 2.0,
+
+            // Loudness Range
+            lra_target: this.extractMetric(sourceData, ['lra_target', 'lra_ref', 'lra'], 'lra'),
+            tol_lra: this.extractMetric(sourceData, ['tol_lra', 'lra_tolerance'], 'lra_tolerance') ?? 2.0,
+
+            // Stereo Correlation
+            stereo_target: this.extractMetric(sourceData, ['stereo_target', 'stereo_ref', 'stereo_correlation'], 'stereo'),
+            tol_stereo: this.extractMetric(sourceData, ['tol_stereo', 'stereo_tolerance', 'correlation_tolerance'], 'stereo_tolerance') ?? 0.15,
+
+            // Bandas espectrais
+            bands: this.normalizeBands(sourceData)
+        };
+
+        // Log das métricas encontradas
+        const foundMetrics = Object.keys(normalized).filter(key => 
+            key !== 'bands' && normalized[key] !== null && normalized[key] !== undefined
+        );
+        const foundBands = normalized.bands ? Object.keys(normalized.bands) : [];
+
+        this.logAudit('NORMALIZE_SUCCESS', 'Dados normalizados com sucesso', {
+            structureType,
+            foundMetrics,
+            foundBands,
+            metricsCount: foundMetrics.length,
+            bandsCount: foundBands.length
+        });
+
+        return normalized;
+    }
+
+    /**
+     * 🔍 Extrair métrica com fallbacks
+     * @param {Object} source - Objeto fonte
+     * @param {Array} keys - Lista de chaves possíveis (em ordem de prioridade)
+     * @param {string} metricName - Nome da métrica para log
+     * @returns {number|null} Valor encontrado ou null
+     */
+    extractMetric(source, keys, metricName) {
+        for (const key of keys) {
+            if (source[key] !== undefined && source[key] !== null && Number.isFinite(source[key])) {
+                this.logAudit('METRIC_FOUND', `${metricName}: ${source[key]} (via ${key})`, { metricName, key, value: source[key] });
+                return source[key];
+            }
+        }
+
+        // Tentar buscar em original_metrics se disponível
+        if (source.original_metrics) {
+            for (const key of keys) {
+                if (source.original_metrics[key] !== undefined && Number.isFinite(source.original_metrics[key])) {
+                    this.logAudit('METRIC_FOUND', `${metricName}: ${source.original_metrics[key]} (via original_metrics.${key})`, { metricName, key, value: source.original_metrics[key] });
+                    return source.original_metrics[key];
+                }
+            }
+        }
+
+        console.warn(`⚠️ Métrica não encontrada: ${metricName}`, { tentativas: keys, source: Object.keys(source) });
+        this.logAudit('METRIC_MISSING', `Métrica ausente: ${metricName}`, { keys, availableKeys: Object.keys(source) });
+        return null;
+    }
+
+    /**
+     * 🎵 Normalizar bandas espectrais
+     * @param {Object} source - Objeto fonte
+     * @returns {Object} Bandas normalizadas
+     */
+    normalizeBands(source) {
+        const bands = {};
+        let sourceBands = null;
+
+        // Tentar encontrar bandas em diferentes locais
+        if (source.bands) {
+            sourceBands = source.bands;
+        } else if (source.spectral_bands) {
+            sourceBands = source.spectral_bands;
+        } else if (source.original_metrics && source.original_metrics.bands) {
+            sourceBands = source.original_metrics.bands;
+        }
+
+        if (!sourceBands || typeof sourceBands !== 'object') {
+            console.warn('⚠️ Bandas espectrais não encontradas');
+            this.logAudit('BANDS_MISSING', 'Bandas espectrais ausentes', { source: Object.keys(source) });
+            return {};
+        }
+
+        // Mapeamentos de bandas (de nomes antigos/alternativos para padronizados)
+        const bandMappings = {
+            // Mapeamento direto (nome padrão)
+            'sub': 'sub',
+            'bass': 'bass',
+            'lowMid': 'lowMid', 
+            'mid': 'mid',
+            'highMid': 'highMid',
+            'presence': 'presence',
+            'air': 'air',
+
+            // Mapeamentos específicos dos JSONs atuais
+            'low_bass': 'bass',        // 60-150 Hz
+            'upper_bass': 'lowMid',    // 150-300 Hz (mais adequado para lowMid)
+            'low_mid': 'lowMid',       // 300-800 Hz
+            'high_mid': 'highMid',     // 2-6 kHz
+            'presenca': 'presence',    // 3-6 kHz
+            'brilho': 'air',          // 6-12 kHz
+
+            // Mapeamentos adicionais
+            'low': 'bass',
+            'high': 'air',
+            'brightness': 'air'
+        };
+
+        // Processar cada banda encontrada
+        for (const [sourceBandName, bandData] of Object.entries(sourceBands)) {
+            if (!bandData || typeof bandData !== 'object') continue;
+
+            // Encontrar nome padronizado
+            const standardName = bandMappings[sourceBandName] || sourceBandName;
+
+            // Extrair target_db e tol_db
+            const target_db = Number.isFinite(bandData.target_db) ? bandData.target_db : null;
+            const tol_db = Number.isFinite(bandData.tol_db) ? bandData.tol_db : 
+                          Number.isFinite(bandData.tolerance) ? bandData.tolerance :
+                          Number.isFinite(bandData.toleranceDb) ? bandData.toleranceDb : 3.0; // Default
+
+            if (target_db !== null) {
+                // Se a banda já existe, manter a primeira encontrada (prioridade por ordem)
+                if (!bands[standardName]) {
+                    bands[standardName] = {
+                        target_db,
+                        tol_db
+                    };
+
+                    this.logAudit('BAND_MAPPED', `Banda mapeada: ${sourceBandName} → ${standardName}`, {
+                        sourceName: sourceBandName,
+                        standardName,
+                        target_db,
+                        tol_db
+                    });
+                } else {
+                    this.logAudit('BAND_SKIPPED', `Banda duplicada ignorada: ${sourceBandName} → ${standardName}`, {
+                        sourceName: sourceBandName,
+                        standardName,
+                        existing: bands[standardName],
+                        skipped: { target_db, tol_db }
+                    });
+                }
+            } else {
+                console.warn(`⚠️ Banda sem target_db válido: ${sourceBandName}`);
+                this.logAudit('BAND_INVALID', `Banda inválida: ${sourceBandName}`, { bandData });
+            }
+        }
+
+        return bands;
+    }
+
+    /**
      * 🎯 Processar análise completa e gerar sugestões melhoradas
      * @param {Object} analysis - Análise de áudio existente
      * @param {Object} referenceData - Dados de referência do gênero
@@ -32,9 +247,22 @@ class EnhancedSuggestionEngine {
         this.auditLog = []; // Reset log
         
         try {
-            // 📊 Extrair métricas e calcular z-scores
-            const metrics = this.extractMetrics(analysis, referenceData);
-            const zScores = this.calculateAllZScores(metrics, referenceData);
+            // � NORMALIZAR DADOS DE REFERÊNCIA PRIMEIRO
+            const normalizedRef = this.normalizeReferenceData(referenceData);
+            if (!normalizedRef) {
+                console.warn('🚨 Falha na normalização dos dados de referência - continuando sem sugestões');
+                this.logAudit('PROCESSING_ERROR', 'Dados de referência não normalizáveis', { referenceData });
+                return {
+                    ...analysis,
+                    suggestions: analysis.suggestions || [],
+                    enhancedMetrics: { error: 'Dados de referência inválidos' },
+                    auditLog: [...this.auditLog]
+                };
+            }
+
+            // �📊 Extrair métricas e calcular z-scores
+            const metrics = this.extractMetrics(analysis, normalizedRef);
+            const zScores = this.calculateAllZScores(metrics, normalizedRef);
             
             // 🎖️ Calcular confiança baseada na qualidade da análise
             const confidence = this.scorer.calculateConfidence(this.extractQualityMetrics(analysis));
@@ -44,7 +272,7 @@ class EnhancedSuggestionEngine {
             
             // 🎯 Gerar sugestões baseadas em referência
             const referenceSuggestions = this.generateReferenceSuggestions(
-                metrics, referenceData, zScores, confidence, dependencyBonuses
+                metrics, normalizedRef, zScores, confidence, dependencyBonuses
             );
             
             // 🎵 Gerar sugestões heurísticas (se habilitado)
@@ -119,11 +347,42 @@ class EnhancedSuggestionEngine {
         if (Number.isFinite(tech.lra)) metrics.lra = tech.lra;
         if (Number.isFinite(tech.stereoCorrelation)) metrics.stereo = tech.stereoCorrelation;
         
-        // Bandas espectrais
+        // Bandas espectrais - mapear para nomes padronizados
         const bandEnergies = tech.bandEnergies || {};
-        for (const [band, data] of Object.entries(bandEnergies)) {
+        
+        // Mapeamento reverso: das bandas da análise para as bandas normalizadas
+        const bandMappings = {
+            'sub': 'sub',
+            'low_bass': 'bass',
+            'upper_bass': 'lowMid',
+            'low_mid': 'lowMid',
+            'mid': 'mid',
+            'high_mid': 'highMid',
+            'presenca': 'presence',
+            'brilho': 'air',
+            
+            // Aliases adicionais
+            'bass': 'bass',
+            'lowMid': 'lowMid',
+            'highMid': 'highMid',
+            'presence': 'presence',
+            'air': 'air'
+        };
+        
+        for (const [sourceBand, data] of Object.entries(bandEnergies)) {
             if (data && Number.isFinite(data.rms_db)) {
-                metrics[band] = data.rms_db;
+                // Mapear para nome padrão se disponível
+                const standardBandName = bandMappings[sourceBand] || sourceBand;
+                metrics[standardBandName] = data.rms_db;
+                
+                // Log do mapeamento
+                if (bandMappings[sourceBand] && bandMappings[sourceBand] !== sourceBand) {
+                    this.logAudit('BAND_METRIC_MAPPED', `Banda métrica mapeada: ${sourceBand} → ${standardBandName}`, {
+                        source: sourceBand,
+                        standard: standardBandName,
+                        value: data.rms_db
+                    });
+                }
             }
         }
         
@@ -620,6 +879,80 @@ class EnhancedSuggestionEngine {
             heuristicSuggestions,
             errors: this.auditLog.filter(log => log.type.includes('ERROR')).length
         };
+    }
+
+    /**
+     * 🧪 Testar normalização de dados de referência (para debugging)
+     * @param {Object} rawRef - Dados brutos para teste
+     * @returns {Object} Resultado do teste
+     */
+    testNormalization(rawRef) {
+        console.log('🧪 Testando normalização de dados de referência...');
+        const startTime = Date.now();
+        
+        const result = this.normalizeReferenceData(rawRef);
+        const duration = Date.now() - startTime;
+        
+        console.log(`⏱️ Normalização concluída em ${duration}ms`);
+        console.log('📊 Resultado:', result);
+        console.log('📝 Log de auditoria:', this.auditLog);
+        
+        return {
+            success: result !== null,
+            result,
+            duration,
+            auditLog: [...this.auditLog]
+        };
+    }
+
+    /**
+     * 🔍 Inspecionar dados de referência (para debugging)
+     * @param {Object} rawRef - Dados para inspeção
+     * @returns {Object} Relatório de inspeção
+     */
+    inspectReferenceData(rawRef) {
+        if (!rawRef || typeof rawRef !== 'object') {
+            return { error: 'Dados inválidos' };
+        }
+
+        const inspection = {
+            topLevelKeys: Object.keys(rawRef),
+            hasLegacyCompatibility: !!rawRef.legacy_compatibility,
+            hasHybridProcessing: !!rawRef.hybrid_processing,
+            structures: {}
+        };
+
+        // Analisar cada estrutura encontrada
+        if (rawRef.legacy_compatibility) {
+            inspection.structures.legacy_compatibility = {
+                keys: Object.keys(rawRef.legacy_compatibility),
+                hasMainMetrics: !!(rawRef.legacy_compatibility.lufs_target || 
+                                rawRef.legacy_compatibility.true_peak_target),
+                hasBands: !!rawRef.legacy_compatibility.bands,
+                bandsCount: rawRef.legacy_compatibility.bands ? 
+                           Object.keys(rawRef.legacy_compatibility.bands).length : 0
+            };
+        }
+
+        if (rawRef.hybrid_processing) {
+            inspection.structures.hybrid_processing = {
+                keys: Object.keys(rawRef.hybrid_processing),
+                hasOriginalMetrics: !!rawRef.hybrid_processing.original_metrics,
+                hasSpectralBands: !!rawRef.hybrid_processing.spectral_bands
+            };
+        }
+
+        // Verificar estrutura de gênero direto
+        const firstKey = Object.keys(rawRef)[0];
+        if (firstKey && rawRef[firstKey] && typeof rawRef[firstKey] === 'object') {
+            inspection.structures.genre_direct = {
+                genreName: firstKey,
+                keys: Object.keys(rawRef[firstKey]),
+                hasHybridProcessing: !!rawRef[firstKey].hybrid_processing
+            };
+        }
+
+        return inspection;
     }
 }
 
