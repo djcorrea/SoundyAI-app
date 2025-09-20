@@ -287,44 +287,10 @@ class CoreMetricsProcessor {
       // ========= ANÁLISE DE PROBLEMAS E SUGESTÕES =========
       // Usando função standalone
       let problemsAnalysis = {
-        problems: [
-          {
-            type: 'analysis_info',
-            severity: 'INFO',
-            message: 'Análise de fallback ativa',
-            description: 'Sistema de backup educativo em funcionamento',
-            priority: 1,
-            confidence: 1.0
-          }
-        ],
-        suggestions: [
-          {
-            type: 'educational',
-            severity: { 
-              level: 'info', 
-              label: '🟢 Leve', 
-              color: '#4caf50',
-              emoji: '🟢',
-              educationalTone: 'Sistema educativo'
-            },
-            priority: 1,
-            confidence: 1.0,
-            message: 'Sistema de sugestões educativas ativo',
-            explanation: 'Sua música foi processada pelo sistema de análise educativa de backup. Isso garante que você sempre receba insights úteis para seu desenvolvimento musical',
-            action: 'Continue criando e experimentando com diferentes técnicas musicais - cada música é uma oportunidade de crescimento',
-            details: 'O sistema sempre fornecerá insights úteis para seu desenvolvimento musical, mesmo quando a análise detalhada não estiver disponível',
-            category: 'system_info',
-            subtype: 'educational_fallback'
-          }
-        ],
-        quality: { 
-          overall: 7.0, 
-          details: 'Análise básica concluída com sistema educativo' 
-        },
-        priorityRecommendations: [
-          'Continue explorando sua criatividade musical',
-          'Experimente novas técnicas de produção'
-        ]
+        problems: [],
+        suggestions: [],
+        quality: { overall: null, details: null },
+        priorityRecommendations: []
       };
       
       try {

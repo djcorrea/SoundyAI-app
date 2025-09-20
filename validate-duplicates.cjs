@@ -7,9 +7,9 @@ const lines = content.split('\n');
 const functions = new Map();
 const duplicates = [];
 
-// Buscar declarações de funções (incluindo async)
+// Buscar declarações de funções
 lines.forEach((line, index) => {
-    const match = line.match(/^\s*(?:async\s+)?function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/);
+    const match = line.match(/^\s*function\s+([a-zA-Z_$][a-zA-Z0-9_$]*)\s*\(/);
     if (match) {
         const funcName = match[1];
         if (functions.has(funcName)) {

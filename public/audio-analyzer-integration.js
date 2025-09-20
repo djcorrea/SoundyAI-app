@@ -2751,9 +2751,18 @@ function showModalLoading() {
 // 📊 Mostrar resultados no modal
 // 📊 Mostrar resultados no modal
 function displayModalResults(analysis) {
-    // 🔒 UI GATE: Verificação final antes de renderizar
+    // � DEBUG: Rastrear chamada da função
+    console.log('🔍 [MODAL] displayModalResults chamado');
+    console.log('🔍 [MODAL] analysis recebido:', !!analysis);
+    console.log('🔍 [MODAL] analysis type:', typeof analysis);
+    console.log('🔍 [MODAL] analysis keys:', analysis ? Object.keys(analysis).slice(0, 10) : 'nenhum');
+    
+    // �🔒 UI GATE: Verificação final antes de renderizar
     const analysisRunId = analysis?.runId || analysis?.metadata?.runId;
     const currentRunId = window.__CURRENT_ANALYSIS_RUN_ID__;
+    
+    console.log('🔍 [MODAL] analysisRunId:', analysisRunId);
+    console.log('🔍 [MODAL] currentRunId:', currentRunId);
     
     if (analysisRunId && currentRunId && analysisRunId !== currentRunId) {
         console.warn(`🚫 [UI_GATE] displayModalResults cancelado - análise obsoleta (análise: ${analysisRunId}, atual: ${currentRunId})`);
@@ -2765,8 +2774,16 @@ function displayModalResults(analysis) {
     const results = document.getElementById('audioAnalysisResults');
     const technicalData = document.getElementById('modalTechnicalData');
     
+    // 🔍 DEBUG: Verificar elementos DOM
+    console.log('🔍 [MODAL] uploadArea:', !!uploadArea);
+    console.log('🔍 [MODAL] loading:', !!loading);
+    console.log('🔍 [MODAL] results:', !!results);
+    console.log('🔍 [MODAL] technicalData:', !!technicalData);
+    
     if (!results || !technicalData) {
         console.error('❌ Elementos de resultado não encontrados');
+        console.error('❌ results:', !!results);
+        console.error('❌ technicalData:', !!technicalData);
         return;
     }
     
@@ -3116,8 +3133,8 @@ function displayModalResults(analysis) {
                     });
                 };
                 const renderSuggestionItem = (sug) => {
-                    // � SISTEMA EDUCATIVO: Usar nova estrutura educativa do backend
-                    console.log('� [RENDER] Renderizando sugestão educativa:', sug?.message || sug?.title);
+                    // 🎓 SISTEMA EDUCATIVO: Usar nova estrutura educativa do backend
+                    console.log('🎓 [RENDER] Renderizando sugestão educativa:', sug?.message || sug?.title);
                     
                     // Extrair dados da nova estrutura educativa
                     const message = sug.message || sug.title || 'Sugestão educativa';
@@ -3126,7 +3143,7 @@ function displayModalResults(analysis) {
                     const details = sug.details || sug.technical || '';
                     const learningTip = sug.learningTip || '';
                     
-                    // � NOVA ESTRUTURA DE SEVERIDADE
+                    // 🎯 NOVA ESTRUTURA DE SEVERIDADE
                     const severity = sug.severity || { 
                         level: 'info', 
                         label: '🟢 Leve', 
@@ -3150,12 +3167,6 @@ function displayModalResults(analysis) {
                     const cardClass = severityClasses[severity.level] || 'educational-card info-level';
                     
                     // 🎨 ESTILOS DINÂMICOS BASEADOS NA SEVERIDADE
-                    const cardStyles = {
-                        borderLeftColor: severity.color,
-                        borderLeftWidth: '4px',
-                        borderLeftStyle: 'solid'
-                    };
-                    
                     const headerStyle = `color: ${severity.color}; font-weight: 600;`;
                     const badgeStyle = `background: ${severity.color}20; color: ${severity.color}; border: 1px solid ${severity.color}40;`;
                     
@@ -3227,52 +3238,8 @@ function displayModalResults(analysis) {
                         </div>
                     `;
                 };
-                    
-                    // Extrair frequência e valores técnicos
-                    const freqMatch = (title + ' ' + action).match(/(\d+(?:\.\d+)?)\s*(?:Hz|hz)/i);
-                    const frequency = freqMatch ? freqMatch[1] : null;
-                    
-                    const dbMatch = action.match(/([+-]?\d+(?:\.\d+)?)\s*dB/i);
-                    const dbValue = dbMatch ? dbMatch[1] : null;
-                    
-                    const qMatch = action.match(/Q\s*[=:]?\s*(\d+(?:\.\d+)?)/i);
-                    const qValue = qMatch ? qMatch[1] : null;
-                    
-                    // Extrair faixa de frequência se disponível
-                    const frequencyRange = sug.frequency_range || '';
-                    const adjustmentDb = sug.adjustment_db;
-                    
-                    // 🚨 VERIFICAR SE É UM AVISO CRÍTICO
-                    if (didacticText?.isCritical) {
-                        return `
-                            <div class="${cardClass} critical-alert">
-                                <div class="card-header">
-                                    <h4 class="card-title">🚨 Problema Crítico</h4>
-                                    <div class="card-badges">
-                                        ${frequency ? `<span class="frequency-badge">${frequency} Hz</span>` : ''}
-                                        <span class="severity-badge severa">CRÍTICO</span>
-                                    </div>
-                                </div>
-                                
-                                <div class="card-description" style="border-left-color: #f44336;">
-                                    <strong>⚠️ Problema:</strong> ${didacticText.explanation}
-                                </div>
-                                
-                                <div class="card-action" style="background: rgba(244, 67, 54, 0.15); border-color: #f44336;">
-                                    <div class="card-action-title" style="color: #f44336;">
-                                        🚨 Ação Urgente
-                                    </div>
-                                    <div class="card-action-content">${didacticText.action}</div>
-                                </div>
-                                
-                                <div class="card-impact" style="background: rgba(244, 67, 54, 0.1); border-color: #f44336;">
-                                    <div class="card-impact-title" style="color: #f44336;">⚠️ Por que é crítico</div>
-                                    <div class="card-impact-content">${didacticText.rationale}</div>
-                                </div>
-                            </div>`;
-                    }
-                    
-                    if (isSurgical) {
+                
+                if (analysis.problems.length > 0) {
                         // Card cirúrgico aprimorado
                         const context = title.replace(/\[\d+Hz\]/, '').replace(/\d+Hz/, '').trim();
                         const severity = severityLevel === 'high' ? 'alta' : (severityLevel === 'medium' ? 'moderada' : 'leve');
@@ -3837,6 +3804,13 @@ function displayModalResults(analysis) {
             ${renderScoreWithProgress('Loudness', finalBreakdown.loudness, '#ff3366')}
             ${renderScoreWithProgress('Frequência', finalBreakdown.frequency, '#00ffff')}
         ` : '';
+
+        // 🔍 DEBUG: Verificar antes de definir innerHTML
+        console.log('🔍 [MODAL] Definindo technicalData.innerHTML...');
+        console.log('🔍 [MODAL] scoreKpi length:', scoreKpi ? scoreKpi.length : 'undefined');
+        console.log('🔍 [MODAL] timeKpi length:', timeKpi ? timeKpi.length : 'undefined');
+        console.log('🔍 [MODAL] col1 length:', col1 ? col1.length : 'undefined');
+        console.log('🔍 [MODAL] scoreRows length:', scoreRows ? scoreRows.length : 'undefined');
 
         technicalData.innerHTML = `
             <div class="kpi-row">${scoreKpi}${timeKpi}</div>
