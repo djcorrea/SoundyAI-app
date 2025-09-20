@@ -166,29 +166,31 @@ class EnhancedSuggestionEngine {
             return {};
         }
 
-        // Mapeamentos de bandas (de nomes antigos/alternativos para padronizados)
+        // Mapeamentos de bandas (de nomes antigos/alternativos para padronizados BRASILEIROS)
         const bandMappings = {
-            // Mapeamento direto (nome padrão)
+            // Mapeamento direto (nomes brasileiros padrão)
             'sub': 'sub',
             'bass': 'bass',
             'lowMid': 'lowMid', 
             'mid': 'mid',
             'highMid': 'highMid',
-            'presence': 'presence',
-            'air': 'air',
+            'presenca': 'presenca',  // Manter português
+            'brilho': 'brilho',     // Manter português
 
             // Mapeamentos específicos dos JSONs atuais
             'low_bass': 'bass',        // 60-150 Hz
             'upper_bass': 'lowMid',    // 150-300 Hz (mais adequado para lowMid)
             'low_mid': 'lowMid',       // 300-800 Hz
             'high_mid': 'highMid',     // 2-6 kHz
-            'presenca': 'presence',    // 3-6 kHz
-            'brilho': 'air',          // 6-12 kHz
+
+            // Aliases em inglês → português
+            'presence': 'presenca',    // 3-6 kHz
+            'air': 'brilho',          // 6-12 kHz
 
             // Mapeamentos adicionais
             'low': 'bass',
-            'high': 'air',
-            'brightness': 'air'
+            'high': 'brilho',
+            'brightness': 'brilho'
         };
 
         // Processar cada banda encontrada
@@ -264,6 +266,20 @@ class EnhancedSuggestionEngine {
             const metrics = this.extractMetrics(analysis, normalizedRef);
             const zScores = this.calculateAllZScores(metrics, normalizedRef);
             
+            this.logAudit('METRICS_EXTRACTED_SUMMARY', 'Métricas extraídas para sugestões', {
+                metricsCount: Object.keys(metrics).length,
+                metricsFound: Object.keys(metrics),
+                mainMetrics: {
+                    lufs: metrics.lufs,
+                    true_peak: metrics.true_peak,
+                    dr: metrics.dr,
+                    lra: metrics.lra,
+                    stereo: metrics.stereo
+                },
+                bandsFound: Object.keys(metrics).filter(k => !['lufs', 'true_peak', 'dr', 'lra', 'stereo'].includes(k)),
+                zScoresGenerated: Object.keys(zScores).length
+            });
+            
             // 🎖️ Calcular confiança baseada na qualidade da análise
             const confidence = this.scorer.calculateConfidence(this.extractQualityMetrics(analysis));
             
@@ -275,6 +291,13 @@ class EnhancedSuggestionEngine {
                 metrics, normalizedRef, zScores, confidence, dependencyBonuses
             );
             
+            this.logAudit('REFERENCE_SUGGESTIONS_GENERATED', 'Sugestões de referência geradas', {
+                count: referenceSuggestions?.length || 0,
+                hasMetrics: Object.keys(metrics).length > 0,
+                hasZScores: Object.keys(zScores).length > 0,
+                confidence: confidence
+            });
+            
             // 🎵 Gerar sugestões heurísticas (se habilitado)
             let heuristicSuggestions = [];
             if (this.config.enableHeuristics) {
@@ -283,10 +306,21 @@ class EnhancedSuggestionEngine {
                 );
             }
             
+            this.logAudit('HEURISTIC_SUGGESTIONS_GENERATED', 'Sugestões heurísticas geradas', {
+                enabled: this.config.enableHeuristics,
+                count: heuristicSuggestions?.length || 0
+            });
+            
             // 🔄 Combinar, deduplicar e ordenar sugestões
             let allSuggestions = [...referenceSuggestions, ...heuristicSuggestions];
             allSuggestions = this.scorer.deduplicateSuggestions(allSuggestions);
             allSuggestions = this.filterAndSort(allSuggestions);
+            
+            this.logAudit('SUGGESTIONS_FINAL_PROCESSING', 'Processamento final das sugestões', {
+                totalBeforeDedup: referenceSuggestions.length + heuristicSuggestions.length,
+                afterDedup: allSuggestions?.length || 0,
+                finalCount: allSuggestions?.length || 0
+            });
             
             // 🎨 Agrupar por tema se habilitado
             const groupedSuggestions = this.config.groupByTheme ? 
@@ -312,6 +346,19 @@ class EnhancedSuggestionEngine {
                 heuristicSuggestions: heuristicSuggestions.length,
                 avgPriority: allSuggestions.length > 0 ? 
                     (allSuggestions.reduce((sum, s) => sum + s.priority, 0) / allSuggestions.length).toFixed(3) : 0
+            });
+            
+            // 🚨 RESULTADO FINAL - LOG CRÍTICO PARA DEBUG
+            this.logAudit('FINAL_RESULT', '🎯 RESULTADO FINAL DO PROCESSAMENTO', {
+                success: true,
+                suggestionsReturned: result.suggestions?.length || 0,
+                metricsProcessed: Object.keys(metrics).length,
+                hasGroupedSuggestions: !!result.groupedSuggestions,
+                topSuggestions: (result.suggestions || []).slice(0, 3).map(s => ({
+                    category: s.category,
+                    priority: s.priority,
+                    description: s.description
+                }))
             });
             
             return result;
@@ -340,49 +387,117 @@ class EnhancedSuggestionEngine {
         const tech = analysis.technicalData || {};
         const metrics = {};
         
-        // Métricas principais
-        if (Number.isFinite(tech.lufsIntegrated)) metrics.lufs = tech.lufsIntegrated;
-        if (Number.isFinite(tech.truePeakDbtp)) metrics.true_peak = tech.truePeakDbtp;
-        if (Number.isFinite(tech.dynamicRange)) metrics.dr = tech.dynamicRange;
-        if (Number.isFinite(tech.lra)) metrics.lra = tech.lra;
-        if (Number.isFinite(tech.stereoCorrelation)) metrics.stereo = tech.stereoCorrelation;
+        // 🔍 AUDITORIA: Log da estrutura de entrada para debugging
+        this.logAudit('EXTRACT_METRICS_INPUT', 'Estrutura de análise recebida', {
+            hasTechnicalData: !!tech,
+            technicalDataKeys: Object.keys(tech),
+            hasBandEnergies: !!tech.bandEnergies,
+            bandKeys: Object.keys(tech.bandEnergies || {})
+        });
+
+        // Métricas principais com múltiplos aliases para compatibilidade
+        // LUFS
+        const lufsValue = tech.lufsIntegrated || tech.lufs_integrated || tech.lufs || tech.loudness;
+        if (Number.isFinite(lufsValue)) {
+            metrics.lufs = lufsValue;
+            this.logAudit('METRIC_EXTRACTED', 'LUFS extraído', { value: lufsValue, source: 'lufsIntegrated' });
+        }
+
+        // True Peak
+        const truePeakValue = tech.truePeakDbtp || tech.true_peak_dbtp || tech.truePeak || tech.true_peak;
+        if (Number.isFinite(truePeakValue)) {
+            metrics.true_peak = truePeakValue;
+            this.logAudit('METRIC_EXTRACTED', 'True Peak extraído', { value: truePeakValue, source: 'truePeakDbtp' });
+        }
+
+        // Dynamic Range
+        const drValue = tech.dynamicRange || tech.dynamic_range || tech.dr;
+        if (Number.isFinite(drValue)) {
+            metrics.dr = drValue;
+            this.logAudit('METRIC_EXTRACTED', 'DR extraído', { value: drValue, source: 'dynamicRange' });
+        }
+
+        // LRA
+        const lraValue = tech.lra || tech.loudness_range;
+        if (Number.isFinite(lraValue)) {
+            metrics.lra = lraValue;
+            this.logAudit('METRIC_EXTRACTED', 'LRA extraído', { value: lraValue, source: 'lra' });
+        }
+
+        // Stereo Correlation
+        const stereoValue = tech.stereoCorrelation || tech.stereo_correlation || tech.stereo;
+        if (Number.isFinite(stereoValue)) {
+            metrics.stereo = stereoValue;
+            this.logAudit('METRIC_EXTRACTED', 'Stereo extraído', { value: stereoValue, source: 'stereoCorrelation' });
+        }
         
-        // Bandas espectrais - mapear para nomes padronizados
-        const bandEnergies = tech.bandEnergies || {};
+        // Bandas espectrais - normalização completa com múltiplas fontes
+        const bandEnergies = tech.bandEnergies || tech.band_energies || tech.spectralBands || tech.spectral_bands || {};
         
-        // Mapeamento reverso: das bandas da análise para as bandas normalizadas
+        // Mapeamento bidirecional: entrada → saída normalizada
         const bandMappings = {
+            // Nomes padrão (manter)
             'sub': 'sub',
-            'low_bass': 'bass',
-            'upper_bass': 'lowMid',
-            'low_mid': 'lowMid',
+            'bass': 'bass', 
+            'lowMid': 'lowMid',
             'mid': 'mid',
+            'highMid': 'highMid',
+            'presenca': 'presenca',  // Manter brasileiro
+            'brilho': 'brilho',     // Manter brasileiro
+            
+            // Aliases atuais → nomes brasileiros
+            'low_bass': 'bass',
+            'upper_bass': 'lowMid', 
+            'low_mid': 'lowMid',
             'high_mid': 'highMid',
-            'presenca': 'presence',
-            'brilho': 'air',
+            'presence': 'presenca',  // EN → PT
+            'air': 'brilho',        // EN → PT
             
             // Aliases adicionais
-            'bass': 'bass',
-            'lowMid': 'lowMid',
-            'highMid': 'highMid',
-            'presence': 'presence',
-            'air': 'air'
+            'low': 'bass',
+            'high': 'brilho',
+            'brightness': 'brilho'
         };
-        
+
+        this.logAudit('BANDS_INPUT', 'Bandas disponíveis para extração', {
+            inputBands: Object.keys(bandEnergies),
+            mappingsAvailable: Object.keys(bandMappings)
+        });
+
         for (const [sourceBand, data] of Object.entries(bandEnergies)) {
-            if (data && Number.isFinite(data.rms_db)) {
-                // Mapear para nome padrão se disponível
-                const standardBandName = bandMappings[sourceBand] || sourceBand;
-                metrics[standardBandName] = data.rms_db;
-                
-                // Log do mapeamento
-                if (bandMappings[sourceBand] && bandMappings[sourceBand] !== sourceBand) {
-                    this.logAudit('BAND_METRIC_MAPPED', `Banda métrica mapeada: ${sourceBand} → ${standardBandName}`, {
+            if (!data || typeof data !== 'object') continue;
+
+            // Encontrar nome normalizado
+            const normalizedBandName = bandMappings[sourceBand] || sourceBand;
+            
+            // Extrair valor RMS com múltiplos aliases
+            const rmsValue = data.rms_db || data.rmsDb || data.rms || data.energy_db || data.energyDb || data.value;
+            
+            if (Number.isFinite(rmsValue)) {
+                // Se a banda já existe, manter a primeira encontrada (prioridade)
+                if (!metrics[normalizedBandName]) {
+                    metrics[normalizedBandName] = rmsValue;
+                    
+                    this.logAudit('BAND_METRIC_EXTRACTED', `Banda extraída: ${sourceBand} → ${normalizedBandName}`, {
                         source: sourceBand,
-                        standard: standardBandName,
-                        value: data.rms_db
+                        normalized: normalizedBandName,
+                        value: rmsValue,
+                        originalData: data
+                    });
+                } else {
+                    this.logAudit('BAND_METRIC_SKIPPED', `Banda duplicada ignorada: ${sourceBand}`, {
+                        source: sourceBand,
+                        normalized: normalizedBandName,
+                        existing: metrics[normalizedBandName],
+                        skipped: rmsValue
                     });
                 }
+            } else {
+                this.logAudit('BAND_METRIC_INVALID', `Valor inválido para banda: ${sourceBand}`, {
+                    source: sourceBand,
+                    data: data,
+                    rmsValue: rmsValue
+                });
             }
         }
         
@@ -590,18 +705,53 @@ class EnhancedSuggestionEngine {
         
         // Sugestões para bandas espectrais
         if (referenceData.bands) {
+            this.logAudit('BANDS_REFERENCE_CHECK', 'Bandas de referência disponíveis', {
+                referenceBands: Object.keys(referenceData.bands),
+                metricsAvailable: Object.keys(metrics).filter(k => !['lufs', 'true_peak', 'dr', 'lra', 'stereo'].includes(k))
+            });
+
             for (const [band, refData] of Object.entries(referenceData.bands)) {
                 const value = metrics[band];
                 const target = refData.target_db;
                 const tolerance = refData.tol_db;
                 const zScore = zScores[band + '_z'];
                 
-                if (!Number.isFinite(value) || !Number.isFinite(target) || !Number.isFinite(tolerance)) continue;
+                this.logAudit('BAND_SUGGESTION_CHECK', `Verificando banda: ${band}`, {
+                    band,
+                    hasValue: Number.isFinite(value),
+                    value,
+                    hasTarget: Number.isFinite(target), 
+                    target,
+                    hasTolerance: Number.isFinite(tolerance),
+                    tolerance,
+                    hasZScore: Number.isFinite(zScore),
+                    zScore
+                });
+                
+                if (!Number.isFinite(value) || !Number.isFinite(target) || !Number.isFinite(tolerance)) {
+                    this.logAudit('BAND_SUGGESTION_SKIPPED', `Banda ignorada por valores inválidos: ${band}`, {
+                        band,
+                        value,
+                        target,
+                        tolerance,
+                        reason: !Number.isFinite(value) ? 'value_invalid' : 
+                               !Number.isFinite(target) ? 'target_invalid' : 'tolerance_invalid'
+                    });
+                    continue;
+                }
                 
                 const severity = this.scorer.getSeverity(zScore);
                 
                 const shouldInclude = severity.level !== 'green' || 
                     (severity.level === 'yellow' && this.config.includeYellowSeverity);
+                
+                this.logAudit('BAND_SEVERITY_CHECK', `Severidade da banda: ${band}`, {
+                    band,
+                    severity: severity.level,
+                    shouldInclude,
+                    includeYellow: this.config.includeYellowSeverity,
+                    zScore
+                });
                 
                 if (shouldInclude) {
                     const dependencyBonus = dependencyBonuses[band] || 0;

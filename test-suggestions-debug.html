@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Test Sugestões - Debug Completo</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: #1a1a1a; 
+            color: #e0e0e0; 
+            margin: 0; 
+            padding: 20px; 
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .section { 
+            background: #2a2a2a; 
+            border-radius: 8px; 
+            padding: 20px; 
+            margin: 20px 0; 
+            border-left: 4px solid #4a90e2; 
+        }
+        .log-entry { 
+            background: #333; 
+            border-radius: 4px; 
+            padding: 10px; 
+            margin: 8px 0; 
+            border-left: 3px solid #666; 
+        }
+        .log-entry.success { border-left-color: #4caf50; }
+        .log-entry.warning { border-left-color: #ff9800; }
+        .log-entry.error { border-left-color: #f44336; }
+        .log-entry.info { border-left-color: #2196f3; }
+        .metric { 
+            display: inline-block; 
+            background: #444; 
+            padding: 4px 8px; 
+            border-radius: 4px; 
+            margin: 2px; 
+        }
+        .result { 
+            background: #1e3a5f; 
+            padding: 15px; 
+            border-radius: 6px; 
+            margin: 10px 0; 
+        }
+        button { 
+            background: #4a90e2; 
+            color: white; 
+            border: none; 
+            padding: 12px 24px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 16px; 
+            margin: 10px 0; 
+        }
+        button:hover { background: #357abd; }
+        pre { 
+            background: #1a1a1a; 
+            padding: 15px; 
+            border-radius: 4px; 
+            overflow-x: auto; 
+            font-size: 12px; 
+        }
+        .stats { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); 
+            gap: 15px; 
+            margin: 20px 0; 
+        }
+        .stat-card { 
+            background: #2d3748; 
+            padding: 15px; 
+            border-radius: 6px; 
+            text-align: center; 
+        }
+        .stat-number { 
+            font-size: 24px; 
+            font-weight: bold; 
+            color: #4a90e2; 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Test Sistema de Sugestões - Debug Completo</h1>
+        
+        <div class="section">
+            <h2>🎯 Teste com Dados Reais</h2>
+            <button onclick="testWithRealData()">🚀 Testar Sistema Completo</button>
+            <button onclick="clearResults()">🧹 Limpar Resultados</button>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="total-logs">0</div>
+                    <div>Total Logs</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="suggestions-count">0</div>
+                    <div>Sugestões Geradas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="metrics-count">0</div>
+                    <div>Métricas Extraídas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="processing-time">0ms</div>
+                    <div>Tempo Processamento</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📊 Logs de Auditoria</h2>
+            <div id="audit-logs"></div>
+        </div>
+
+        <div class="section">
+            <h2>🎵 Resultado Final</h2>
+            <div id="final-result"></div>
+        </div>
+
+        <div class="section">
+            <h2>🔧 Debug Detalhado</h2>
+            <div id="debug-info"></div>
+        </div>
+    </div>
+
+    <!-- Carregar dependências -->
+    <script src="lib/audio/analysis/suggestion-scorer.js"></script>
+    <script src="enhanced-suggestion-engine.js"></script>
+
+    <script>
+        // 🎯 Dados de teste simulando uma análise real
+        const testAnalysisData = {
+            metadata: {
+                filename: "test-track.wav",
+                duration: 180.5,
+                sampleRate: 48000,
+                channels: 2
+            },
+            technicalData: {
+                // ✅ Estrutura que o engine espera
+                lufsIntegrated: -14.2,
+                truePeakDbtp: -1.8,
+                dynamicRange: 8.5,
+                lra: 6.2,
+                stereoWidth: 0.75,
+                
+                // 🎵 Bandas espectrais (Brazilian naming)
+                frequencyAnalysis: {
+                    subbass: 0.65,
+                    bass: 0.78,
+                    lowMid: 0.82,
+                    mid: 0.88,
+                    highMid: 0.75,
+                    presenca: 0.68,  // Usando nome brasileiro
+                    brilho: 0.72     // Usando nome brasileiro
+                }
+            },
+            qualityMetrics: {
+                totalHarmonicDistortion: 0.008,
+                signalToNoiseRatio: 72.5,
+                phaseCoherence: 0.85
+            }
+        };
+
+        const testReferenceData = {
+            "lufs_target": -14.0,
+            "lufs_tolerance": 1.0,
+            "true_peak_target": -1.0,
+            "true_peak_tolerance": 0.5,
+            "dr_target": 10.0,
+            "dr_tolerance": 2.0,
+            "lra_target": 7.0,
+            "lra_tolerance": 2.0,
+            "stereo_target": 0.8,
+            "stereo_tolerance": 0.15,
+            "bands": {
+                "subbass": { "target": 0.7, "tolerance": 0.1 },
+                "bass": { "target": 0.8, "tolerance": 0.1 },
+                "lowMid": { "target": 0.85, "tolerance": 0.1 },
+                "mid": { "target": 0.9, "tolerance": 0.1 },
+                "highMid": { "target": 0.8, "tolerance": 0.1 },
+                "presenca": { "target": 0.75, "tolerance": 0.1 },
+                "brilho": { "target": 0.8, "tolerance": 0.1 }
+            }
+        };
+
+        let engine = null;
+
+        function initializeEngine() {
+            try {
+                engine = new EnhancedSuggestionEngine({
+                    maxSuggestions: 12,
+                    enableHeuristics: true,
+                    groupByTheme: true
+                });
+                console.log('✅ Engine inicializado com sucesso');
+                return true;
+            } catch (error) {
+                console.error('❌ Erro ao inicializar engine:', error);
+                return false;
+            }
+        }
+
+        function testWithRealData() {
+            clearResults();
+            
+            if (!initializeEngine()) {
+                showError('Falha na inicialização do engine');
+                return;
+            }
+
+            console.log('🚀 Iniciando teste com dados reais...');
+            
+            try {
+                // 🎯 Processar análise
+                const result = engine.processAnalysis(testAnalysisData, testReferenceData);
+                
+                // 📊 Mostrar logs de auditoria
+                displayAuditLogs(result.auditLog || []);
+                
+                // 🎵 Mostrar resultado final
+                displayFinalResult(result);
+                
+                // 🔧 Mostrar debug info
+                displayDebugInfo(result);
+                
+                // 📈 Atualizar estatísticas
+                updateStats(result);
+                
+                // 💾 Salvar no debug global
+                window.__DEBUG_LAST_ANALYSIS = testAnalysisData;
+                window.__DEBUG_LAST_REFERENCE = testReferenceData;
+                window.__DEBUG_LAST_RESULT = result;
+                
+                console.log('✅ Teste concluído - verifique window.__DEBUG_* para detalhes');
+                
+            } catch (error) {
+                console.error('❌ Erro durante teste:', error);
+                showError(`Erro durante teste: ${error.message}`);
+            }
+        }
+
+        function displayAuditLogs(logs) {
+            const container = document.getElementById('audit-logs');
+            container.innerHTML = '';
+            
+            if (!logs || logs.length === 0) {
+                container.innerHTML = '<div class="log-entry warning">⚠️ Nenhum log de auditoria encontrado</div>';
+                return;
+            }
+            
+            logs.forEach(log => {
+                const entry = document.createElement('div');
+                entry.className = `log-entry ${getLogClass(log.type)}`;
+                entry.innerHTML = `
+                    <strong>[${log.timestamp}] ${log.type}:</strong> ${log.message}
+                    ${log.data ? `<pre>${JSON.stringify(log.data, null, 2)}</pre>` : ''}
+                `;
+                container.appendChild(entry);
+            });
+        }
+
+        function displayFinalResult(result) {
+            const container = document.getElementById('final-result');
+            const suggestions = result.suggestions || [];
+            
+            let html = `
+                <div class="result">
+                    <h3>🎯 Sugestões Geradas: ${suggestions.length}</h3>
+            `;
+            
+            if (suggestions.length === 0) {
+                html += '<p style="color: #ff9800;">⚠️ NENHUMA SUGESTÃO GERADA - verifique logs para debugging</p>';
+            } else {
+                suggestions.slice(0, 5).forEach(s => {
+                    html += `
+                        <div class="metric">
+                            <strong>${s.category}</strong> (${s.priority.toFixed(2)}) - ${s.description}
+                        </div>
+                    `;
+                });
+            }
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function displayDebugInfo(result) {
+            const container = document.getElementById('debug-info');
+            
+            const metrics = result.enhancedMetrics || {};
+            const zScores = metrics.zScores || {};
+            
+            container.innerHTML = `
+                <div class="result">
+                    <h3>🔧 Informações de Debug</h3>
+                    <p><strong>Z-Scores calculados:</strong> ${Object.keys(zScores).length}</p>
+                    <p><strong>Confiança:</strong> ${metrics.confidence || 'N/A'}</p>
+                    <p><strong>Tempo processamento:</strong> ${metrics.processingTimeMs || 0}ms</p>
+                    
+                    <h4>📊 Z-Scores:</h4>
+                    <pre>${JSON.stringify(zScores, null, 2)}</pre>
+                    
+                    <h4>🎵 Dados originais (technicalData):</h4>
+                    <pre>${JSON.stringify(testAnalysisData.technicalData, null, 2)}</pre>
+                </div>
+            `;
+        }
+
+        function updateStats(result) {
+            document.getElementById('total-logs').textContent = (result.auditLog || []).length;
+            document.getElementById('suggestions-count').textContent = (result.suggestions || []).length;
+            document.getElementById('metrics-count').textContent = Object.keys((result.enhancedMetrics?.zScores) || {}).length;
+            document.getElementById('processing-time').textContent = `${(result.enhancedMetrics?.processingTimeMs) || 0}ms`;
+        }
+
+        function getLogClass(type) {
+            if (type.includes('SUCCESS')) return 'success';
+            if (type.includes('ERROR') || type.includes('FAILURE')) return 'error';
+            if (type.includes('WARNING')) return 'warning';
+            return 'info';
+        }
+
+        function showError(message) {
+            const container = document.getElementById('final-result');
+            container.innerHTML = `<div class="result" style="border-left-color: #f44336;"><p style="color: #f44336;">❌ ${message}</p></div>`;
+        }
+
+        function clearResults() {
+            document.getElementById('audit-logs').innerHTML = '';
+            document.getElementById('final-result').innerHTML = '';
+            document.getElementById('debug-info').innerHTML = '';
+            updateStats({ auditLog: [], suggestions: [], enhancedMetrics: {} });
+        }
+
+        // 🎯 Executar teste automático quando página carregar
+        window.addEventListener('load', () => {
+            console.log('🔍 Página de teste carregada - pronta para debugging de sugestões');
+            console.log('💡 Use testWithRealData() para executar teste completo');
+            console.log('📊 Dados de teste disponíveis em testAnalysisData e testReferenceData');
+        });
+    </script>
+</body>
+</html>
