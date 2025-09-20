@@ -3863,7 +3863,16 @@ function displayModalResults(analysis) {
             const diagCard = () => {
                 const blocks = [];
                 
-                // 🔍 DEBUG: Verificar estado das sugestões
+                // 🔍 DEBUG: Rastrear dados de entrada
+                console.log('🔍 [DIAGCARD] Iniciando diagnóstico...');
+                console.log('🔍 [DIAGCARD] analysis object:', typeof analysis);
+                console.log('🔍 [DIAGCARD] analysis.suggestions:', analysis.suggestions);
+                console.log('🔍 [DIAGCARD] analysis.suggestions type:', typeof analysis.suggestions);
+                console.log('🔍 [DIAGCARD] analysis.suggestions length:', analysis.suggestions?.length || 'undefined');
+                console.log('🔍 [DIAGCARD] analysis.problems:', analysis.problems);
+                console.log('🔍 [DIAGCARD] analysis.problems length:', analysis.problems?.length || 'undefined');
+                
+                // 🔍 DEBUG: Verificar estado das sugestões (manter compatibilidade)
                 console.log('🔍 [DEBUG_SUGGESTIONS] analysis.suggestions:', analysis.suggestions);
                 console.log('🔍 [DEBUG_SUGGESTIONS] análise completa de sugestões:', {
                     hasAnalysis: !!analysis,
@@ -3882,63 +3891,128 @@ function displayModalResults(analysis) {
                     });
                 };
                 const renderSuggestionItem = (sug) => {
-                    // 🎯 Verificar se o gerador de texto didático está disponível
-                    const hasTextGenerator = typeof window.SuggestionTextGenerator !== 'undefined';
-                    let didacticText = null;
+                    // � SISTEMA EDUCATIVO: Usar nova estrutura educativa do backend
+                    console.log('🎓 [RENDER] Renderizando sugestão educativa:', sug?.message || sug?.title);
                     
-                    if (hasTextGenerator) {
-                        try {
-                            const generator = new window.SuggestionTextGenerator();
-                            didacticText = generator.generateDidacticText(sug);
-                        } catch (error) {
-                            console.warn('[RenderSuggestion] Erro no gerador de texto:', error);
-                        }
-                    }
+                    // Extrair dados da nova estrutura educativa
+                    const message = sug.message || sug.title || 'Sugestão educativa';
+                    const explanation = sug.explanation || sug.description || '';
+                    const action = sug.action || sug.actionText || '';
+                    const details = sug.details || sug.technical || '';
+                    const learningTip = sug.learningTip || '';
                     
-                    // Usar texto didático se disponível, senão usar texto original
-                    const title = didacticText?.title || sug.message || '';
-                    const explanation = didacticText?.explanation || sug.explanation || '';
-                    const action = didacticText?.action || sug.action || '';
-                    const rationale = didacticText?.rationale || '';
-                    const technical = didacticText?.technical || sug.details || '';
+                    // 🎯 NOVA ESTRUTURA DE SEVERIDADE
+                    const severity = sug.severity || { 
+                        level: 'info', 
+                        label: '🟢 Leve', 
+                        color: '#4caf50',
+                        emoji: '🟢',
+                        educationalTone: 'Sugestão educativa'
+                    };
                     
-                    // 🎯 SISTEMA MELHORADO: Verificar se tem informações de severidade e prioridade
-                    const hasEnhancedInfo = sug.severity && sug.priority;
-                    const severityColor = hasEnhancedInfo ? sug.severity.color : '#9fb3d9';
-                    const severityLevel = hasEnhancedInfo ? sug.severity.level : 'medium';
-                    const severityLabel = hasEnhancedInfo ? sug.severity.label : '';
-                    const priority = hasEnhancedInfo ? sug.priority : 0;
-                    const confidence = hasEnhancedInfo ? sug.confidence : 1;
+                    const priority = sug.priority || 1;
+                    const confidence = sug.confidence || 1.0;
+                    const category = sug.category || 'general';
                     
-                    // Detectar tipo de sugestão
-                    const isSurgical = sug.type === 'surgical_eq' || (sug.subtype && ['sibilance', 'harshness', 'clipping'].includes(sug.subtype));
-                    const isBandAdjust = sug.type === 'band_adjust';
-                    const isClipping = sug.type === 'clipping' || title.toLowerCase().includes('clipping');
-                    const isBalance = sug.type === 'balance' || title.toLowerCase().includes('balance');
+                    // 🎯 CLASSES CSS POR SEVERIDADE
+                    const severityClasses = {
+                        'info': 'educational-card info-level',
+                        'warning': 'educational-card warning-level', 
+                        'error': 'educational-card error-level',
+                        'critical': 'educational-card critical-level'
+                    };
                     
-                    // Determinar classe do card
-                    let cardClass = 'enhanced-card';
-                    if (isSurgical) cardClass += ' surgical';
-                    else if (isBandAdjust) cardClass += ' band-adjust';
-                    else if (isClipping) cardClass += ' clipping';
-                    else if (isBalance) cardClass += ' balance';
-                    else cardClass += ' problem';
+                    const cardClass = severityClasses[severity.level] || 'educational-card info-level';
                     
-                    // Extrair frequência e valores técnicos
-                    const freqMatch = (title + ' ' + action).match(/(\d+(?:\.\d+)?)\s*(?:Hz|hz)/i);
-                    const frequency = freqMatch ? freqMatch[1] : null;
+                    // � ESTILOS DINÂMICOS BASEADOS NA SEVERIDADE
+                    const cardStyles = {
+                        borderLeftColor: severity.color,
+                        borderLeftWidth: '4px',
+                        borderLeftStyle: 'solid'
+                    };
                     
-                    const dbMatch = action.match(/([+-]?\d+(?:\.\d+)?)\s*dB/i);
-                    const dbValue = dbMatch ? dbMatch[1] : null;
+                    const headerStyle = `color: ${severity.color}; font-weight: 600;`;
+                    const badgeStyle = `background: ${severity.color}20; color: ${severity.color}; border: 1px solid ${severity.color}40;`;
                     
-                    const qMatch = action.match(/Q\s*[=:]?\s*(\d+(?:\.\d+)?)/i);
-                    const qValue = qMatch ? qMatch[1] : null;
+                    // 🏆 BADGE DE CONFIANÇA
+                    const confidenceBadge = confidence >= 0.9 ? '🎯 Alta confiança' : 
+                                          confidence >= 0.7 ? '📊 Boa confiança' : 
+                                          '💡 Sugestão experimental';
                     
-                    // Extrair faixa de frequência se disponível
-                    const frequencyRange = sug.frequency_range || '';
-                    const adjustmentDb = sug.adjustment_db;
-                    
-                    // 🚨 VERIFICAR SE É UM AVISO CRÍTICO
+                    return `
+                        <div class="${cardClass}" style="border-left-color: ${severity.color}; margin-bottom: 16px;">
+                            <div class="card-header">
+                                <h4 class="card-title" style="${headerStyle}">
+                                    ${severity.emoji} ${message}
+                                </h4>
+                                <div class="card-badges">
+                                    <span class="severity-badge" style="${badgeStyle}">
+                                        ${severity.label}
+                                    </span>
+                                    <span class="confidence-badge" style="background: #e3f2fd; color: #1976d2; font-size: 11px;">
+                                        ${confidenceBadge}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            ${explanation ? `
+                                <div class="card-explanation" style="background: ${severity.color}08; padding: 12px; border-radius: 6px; margin: 12px 0;">
+                                    <div class="explanation-icon" style="color: ${severity.color}; font-weight: 500; margin-bottom: 6px;">
+                                        💡 ${severity.educationalTone || 'Explicação'}
+                                    </div>
+                                    <div class="explanation-text">${explanation}</div>
+                                </div>
+                            ` : ''}
+                            
+                            ${action ? `
+                                <div class="card-action" style="background: ${severity.color}12; border: 1px solid ${severity.color}20; border-radius: 6px; padding: 12px; margin: 12px 0;">
+                                    <div class="action-title" style="color: ${severity.color}; font-weight: 500; margin-bottom: 6px;">
+                                        🎯 Como proceder
+                                    </div>
+                                    <div class="action-content">${action}</div>
+                                </div>
+                            ` : ''}
+                            
+                            ${details ? `
+                                <div class="card-details" style="background: #f8f9fa; border-radius: 6px; padding: 12px; margin: 12px 0;">
+                                    <div class="details-title" style="color: #6c757d; font-weight: 500; margin-bottom: 6px;">
+                                        🔍 Detalhes técnicos
+                                    </div>
+                                    <div class="details-content" style="color: #6c757d; font-size: 14px;">${details}</div>
+                                </div>
+                            ` : ''}
+                            
+                            ${learningTip ? `
+                                <div class="card-learning-tip" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border: 1px solid #ffb74d40; border-radius: 6px; padding: 12px; margin: 12px 0;">
+                                    <div class="tip-title" style="color: #f57c00; font-weight: 500; margin-bottom: 6px;">
+                                        💡 Dica de aprendizado
+                                    </div>
+                                    <div class="tip-content" style="color: #e65100; font-style: italic;">${learningTip}</div>
+                                </div>
+                            ` : ''}
+                            
+                            <div class="card-footer" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: center;">
+                                <span class="category-tag" style="background: ${severity.color}15; color: ${severity.color}; padding: 4px 8px; border-radius: 12px; font-size: 12px;">
+                                    📂 ${category}
+                                </span>
+                                <span class="priority-indicator" style="color: #6c757d; font-size: 12px;">
+                                    ⭐ Prioridade ${priority}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                };
+                
+                // Helpers para embelezar as sugestões sem mudar layout/IDs
+                const formatNumbers = (text, decimals = 2) => {
+                    if (!text || typeof text !== 'string') return '';
+                    return text.replace(/(-?\d+\.\d{3,})/g, (m) => {
+                        const n = parseFloat(m);
+                        return Number.isFinite(n) ? n.toFixed(decimals) : m;
+                    });
+                };
+                
+                // Análise de problemas se disponível
                     if (didacticText?.isCritical) {
                         return `
                             <div class="${cardClass} critical-alert">
@@ -4386,7 +4460,14 @@ function displayModalResults(analysis) {
                         </div>`).join('');
                     // V2 Pro removido - não mostrar diagnósticos duplicados
                 }
-                return blocks.join('') || '<div class="diag-empty">Sem diagnósticos</div>';
+                
+                // 🔍 DEBUG: Verificar resultado final
+                const finalResult = blocks.join('') || '<div class="diag-empty">Sem diagnósticos</div>';
+                console.log('🔍 [DIAGCARD] Blocks gerados:', blocks.length);
+                console.log('🔍 [DIAGCARD] Resultado final:', finalResult.substring(0, 200) + '...');
+                console.log('🔍 [DIAGCARD] Retornando "Sem diagnósticos"?', finalResult.includes('Sem diagnósticos'));
+                
+                return finalResult;
             };
 
         // 🎯 SUBSCORES: Corrigir mapeamento para backend Node.js
