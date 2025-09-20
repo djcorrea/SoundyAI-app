@@ -107,9 +107,13 @@ export class ProblemsAndSuggestionsAnalyzer {
    * 🎯 Análise completa de problemas e geração de sugestões
    */
   analyzeProblemsAndSuggestions(audioMetrics) {
+    console.log('🔍 [BACKEND] analyzeProblemsAndSuggestions() iniciado');
+    console.log('🔍 [BACKEND] audioMetrics recebido:', !!audioMetrics);
+    
     try {
       if (!audioMetrics) {
         logAudio('problems', 'no_metrics', {});
+        console.log('🔍 [BACKEND] Sem audioMetrics - chamando getNullResult()');
         return this.getNullResult();
       }
       
@@ -151,16 +155,31 @@ export class ProblemsAndSuggestionsAnalyzer {
           impact: p.impact
         })),
         
-        // Sugestões geradas
+        // 🎯 CORREÇÃO CRÍTICA: Preservar estrutura educativa completa das sugestões
         suggestions: suggestions.map(s => ({
+          // Campos originais mantidos para compatibilidade
           id: s.id,
           category: s.category,
-          title: s.title,
-          description: s.description,
+          title: s.title || s.message,  // fallback para compatibilidade
+          description: s.description || s.explanation,  // fallback para compatibilidade
           action: s.action,
           priority: s.priority,
           difficulty: s.difficulty,
-          relatedProblems: s.relatedProblems || []
+          relatedProblems: s.relatedProblems || [],
+          
+          // 🎓 CAMPOS EDUCATIVOS PRESERVADOS
+          type: s.type,
+          message: s.message,
+          explanation: s.explanation,
+          details: s.details,
+          learningTip: s.learningTip,
+          severity: s.severity,  // estrutura completa com emoji, color, etc.
+          confidence: s.confidence,
+          subtype: s.subtype,
+          
+          // Campos adicionais se existirem
+          ...(s.frequency_range && { frequency_range: s.frequency_range }),
+          ...(s.adjustment_db && { adjustment_db: s.adjustment_db })
         })),
         
         // Classificação por severidade
@@ -200,6 +219,23 @@ export class ProblemsAndSuggestionsAnalyzer {
         overallScore: qualitySummary.overallScore,
         readyForRelease: qualitySummary.readyForRelease
       });
+      
+      // 🔍 DEBUG: Verificar resultado final
+      console.log('🔍 [BACKEND] Resultado final gerado:');
+      console.log('🔍 [BACKEND] - problems:', result.problems.length);
+      console.log('🔍 [BACKEND] - suggestions:', result.suggestions.length);
+      console.log('🔍 [BACKEND] - primeira sugestão:', result.suggestions[0]);
+      
+      // 🎯 VERIFICAÇÃO CRÍTICA: Se não há sugestões, usar fallback educativo
+      if (result.suggestions.length === 0) {
+        console.log('🔍 [BACKEND] ATENÇÃO: Nenhuma sugestão gerada - aplicando fallback educativo');
+        const nullResult = this.getNullResult();
+        return {
+          ...result,
+          problems: nullResult.problems,
+          suggestions: nullResult.suggestions
+        };
+      }
       
       return result;
       
@@ -685,6 +721,9 @@ export class ProblemsAndSuggestionsAnalyzer {
    * 🔇 Resultado nulo para casos de erro
    */
   getNullResult() {
+    // 🔍 DEBUG: Rastrear quando getNullResult é chamado
+    console.log('🔍 [BACKEND] getNullResult() foi chamado - gerando sugestões educativas');
+    
     // 🎯 CORREÇÃO CRÍTICA: Sempre retornar sugestões educativas, nunca arrays vazios
     return {
       problems: [

@@ -3097,6 +3097,15 @@ function displayModalResults(analysis) {
             // Card extra: Diagnóstico & Sugestões listados
             const diagCard = () => {
                 const blocks = [];
+                
+                // 🔍 DEBUG: Rastrear dados de entrada
+                console.log('🔍 [DIAGCARD] Iniciando diagnóstico...');
+                console.log('🔍 [DIAGCARD] analysis object:', typeof analysis);
+                console.log('🔍 [DIAGCARD] analysis.suggestions:', analysis.suggestions);
+                console.log('🔍 [DIAGCARD] analysis.suggestions type:', typeof analysis.suggestions);
+                console.log('🔍 [DIAGCARD] analysis.suggestions length:', analysis.suggestions?.length || 'undefined');
+                console.log('🔍 [DIAGCARD] analysis.problems:', analysis.problems);
+                console.log('🔍 [DIAGCARD] analysis.problems length:', analysis.problems?.length || 'undefined');
 
                 // Helpers para embelezar as sugestões sem mudar layout/IDs
                 const formatNumbers = (text, decimals = 2) => {
@@ -3752,7 +3761,14 @@ function displayModalResults(analysis) {
                         </div>`).join('');
                     // V2 Pro removido - não mostrar diagnósticos duplicados
                 }
-                return blocks.join('') || '<div class="diag-empty">Sem diagnósticos</div>';
+                
+                // 🔍 DEBUG: Verificar resultado final
+                const finalResult = blocks.join('') || '<div class="diag-empty">Sem diagnósticos</div>';
+                console.log('🔍 [DIAGCARD] Blocks gerados:', blocks.length);
+                console.log('🔍 [DIAGCARD] Resultado final:', finalResult.substring(0, 200) + '...');
+                console.log('🔍 [DIAGCARD] Retornando "Sem diagnósticos"?', finalResult.includes('Sem diagnósticos'));
+                
+                return finalResult;
             };
 
         const breakdown = analysis.qualityBreakdown || {};
