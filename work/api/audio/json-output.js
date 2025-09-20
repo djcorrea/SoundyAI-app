@@ -552,7 +552,10 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
   // ===== Problems / Suggestions =====
   technicalData.problemsAnalysis = {
     problems: coreMetrics.problems || [],
-    suggestions: coreMetrics.suggestions || [],
+    suggestions: (coreMetrics.suggestions || []).map(s => ({
+      ...s,
+      type: s.type || s.metric  // ✅ CORREÇÃO EMERGENCIAL: Adicionar campo 'type'
+    })),
     qualityAssessment: coreMetrics.qualityAssessment || {},
     priorityRecommendations: coreMetrics.priorityRecommendations || []
   };
@@ -712,7 +715,10 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     // ===== DIAGNOSTICS =====
     diagnostics: {
       problems: technicalData.problemsAnalysis?.problems || [],
-      suggestions: technicalData.problemsAnalysis?.suggestions || [],
+      suggestions: (technicalData.problemsAnalysis?.suggestions || []).map(s => ({
+        ...s,
+        type: s.type || s.metric  // ✅ CORREÇÃO EMERGENCIAL: Adicionar campo 'type'
+      })),
       prioritized: technicalData.problemsAnalysis?.priorityRecommendations || []
     },
 
