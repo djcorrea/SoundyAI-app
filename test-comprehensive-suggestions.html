@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Teste Sistema de Sugestões Compreensivo - SoundyAI</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f1f2f6;
+        }
+        .header h1 {
+            color: #2c3e50;
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .header p {
+            color: #7f8c8d;
+            margin: 10px 0 0 0;
+            font-size: 16px;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 25px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            border-left: 4px solid #3498db;
+        }
+        .test-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .suggestions-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 15px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .log {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.4;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 15px;
+        }
+        .status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 12px;
+            display: inline-block;
+            margin: 5px;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.warning { background: #fff3cd; color: #856404; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.info { background: #d1ecf1; color: #0c5460; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎯 Sistema de Sugestões Compreensivo</h1>
+            <p>Teste do novo sistema que gera sugestões para TODOS os itens do referenceComparison</p>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">
+                <span>🧪</span>
+                <span>Simulação de Dados do Backend</span>
+            </div>
+            <p>Testando o novo sistema de sugestões com dados simulados do backend:</p>
+            <button onclick="testComprehensiveSuggestions()">🚀 Gerar Sugestões Compreensivas</button>
+            <button onclick="testLegacySuggestions()">📦 Testar Sugestões Antigas</button>
+            <button onclick="clearResults()">🧹 Limpar Resultados</button>
+            
+            <div id="suggestions-container" class="suggestions-container" style="display: none;">
+                <h3>📋 Sugestões Geradas:</h3>
+                <div id="suggestions-list"></div>
+            </div>
+            
+            <div id="log-container" class="log" style="display: none;"></div>
+        </div>
+    </div>
+
+    <script>
+        let logContainer = null;
+        
+        function log(message, type = 'info') {
+            if (!logContainer) {
+                logContainer = document.getElementById('log-container');
+            }
+            
+            const timestamp = new Date().toLocaleTimeString();
+            const colorMap = {
+                'info': '#3498db',
+                'success': '#27ae60', 
+                'warning': '#f39c12',
+                'error': '#e74c3c'
+            };
+            
+            const color = colorMap[type] || '#ecf0f1';
+            logContainer.innerHTML += `<div style="color: ${color};">[${timestamp}] ${message}</div>`;
+            logContainer.style.display = 'block';
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('suggestions-container').style.display = 'none';
+            document.getElementById('log-container').style.display = 'none';
+            document.getElementById('log-container').innerHTML = '';
+            document.getElementById('suggestions-list').innerHTML = '';
+        }
+
+        // 🎨 Adicionar estilos para cards enriquecidos
+        function addEnhancedSuggestionStyles() {
+            if (document.getElementById('enhanced-suggestion-styles')) return;
+            
+            const style = document.createElement('style');
+            style.id = 'enhanced-suggestion-styles';
+            style.textContent = `
+                .enhanced-card {
+                    background: white;
+                    border-radius: 12px;
+                    padding: 16px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    transition: all 0.3s ease;
+                    margin-bottom: 16px;
+                }
+                
+                .enhanced-card:hover {
+                    transform: translateY(-2px);
+                    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+                }
+                
+                .priority-critical {
+                    background: linear-gradient(145deg, #fff5f5 0%, #ffffff 100%);
+                    border-left-color: #e74c3c !important;
+                }
+                
+                .priority-moderate {
+                    background: linear-gradient(145deg, #fffbf0 0%, #ffffff 100%);
+                    border-left-color: #f39c12 !important;
+                }
+                
+                .priority-low {
+                    background: linear-gradient(145deg, #f0f9ff 0%, #ffffff 100%);
+                    border-left-color: #3498db !important;
+                }
+                
+                .values-comparison {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                }
+                
+                .status-badge {
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+                
+                .action-section, .explanation-section {
+                    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                }
+                
+                .metric-name {
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                }
+                
+                @media (max-width: 768px) {
+                    .values-comparison {
+                        flex-direction: column;
+                        gap: 8px;
+                    }
+                    
+                    .arrow {
+                        transform: rotate(90deg);
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
+        // 🚀 Função de renderização de cards enriquecidos
+        function renderEnhancedSuggestionCard(suggestion) {
+            const {
+                metric,
+                currentValue,
+                targetValue,
+                delta,
+                status,
+                color,
+                action,
+                explanation,
+                severity
+            } = suggestion;
+            
+            const statusIcons = {
+                'IDEAL': '✅',
+                'AJUSTAR': '⚠️',
+                'CORRIGIR': '❌'
+            };
+            
+            const statusIcon = statusIcons[status] || '⚡';
+            
+            const severityClass = severity === 'high' ? 'priority-critical' : 
+                                 severity === 'medium' ? 'priority-moderate' : 
+                                 'priority-low';
+            
+            return `
+                <div class="enhanced-card ${severityClass}" style="border-left: 4px solid ${color};">
+                    <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <div class="metric-info">
+                            <span class="status-icon" style="font-size: 16px; margin-right: 8px;">${statusIcon}</span>
+                            <span class="metric-name" style="font-weight: 600; color: #2c3e50;">${metric}</span>
+                        </div>
+                        <div class="status-badge" style="
+                            background: ${color}; 
+                            color: white; 
+                            padding: 4px 8px; 
+                            border-radius: 12px; 
+                            font-size: 11px; 
+                            font-weight: 600;
+                        ">${status}</div>
+                    </div>
+                    
+                    <div class="values-comparison" style="
+                        background: rgba(108, 99, 255, 0.05); 
+                        padding: 12px; 
+                        border-radius: 8px; 
+                        margin-bottom: 12px;
+                        display: flex;
+                        justify-content: space-between;
+                        align-items: center;
+                    ">
+                        <div class="current-value">
+                            <div style="font-size: 11px; color: #7f8c8d; font-weight: 500;">ATUAL</div>
+                            <div style="font-size: 14px; font-weight: 600; color: #2c3e50;">${currentValue}</div>
+                        </div>
+                        <div class="arrow" style="color: ${color}; font-size: 16px; margin: 0 8px;">→</div>
+                        <div class="target-value">
+                            <div style="font-size: 11px; color: #7f8c8d; font-weight: 500;">IDEAL</div>
+                            <div style="font-size: 14px; font-weight: 600; color: #27ae60;">${targetValue}</div>
+                        </div>
+                        ${delta ? `
+                        <div class="delta-value" style="margin-left: 12px;">
+                            <div style="font-size: 11px; color: #7f8c8d; font-weight: 500;">DIFERENÇA</div>
+                            <div style="font-size: 14px; font-weight: 600; color: ${parseFloat(delta) > 0 ? '#e74c3c' : '#27ae60'};">${delta}</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    ${action ? `
+                    <div class="action-section" style="margin-bottom: 12px;">
+                        <div style="font-size: 11px; color: #7f8c8d; font-weight: 600; margin-bottom: 6px;">🎛️ AÇÃO RECOMENDADA</div>
+                        <div style="
+                            background: rgba(52, 152, 219, 0.1); 
+                            padding: 10px; 
+                            border-radius: 6px; 
+                            font-size: 13px; 
+                            color: #2c3e50;
+                            line-height: 1.4;
+                        ">${action}</div>
+                    </div>
+                    ` : ''}
+                    
+                    ${explanation ? `
+                    <div class="explanation-section">
+                        <div style="font-size: 11px; color: #7f8c8d; font-weight: 600; margin-bottom: 6px;">💡 EXPLICAÇÃO</div>
+                        <div style="
+                            background: rgba(155, 89, 182, 0.1); 
+                            padding: 10px; 
+                            border-radius: 6px; 
+                            font-size: 12px; 
+                            color: #2c3e50;
+                            line-height: 1.5;
+                        ">${explanation}</div>
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        // 🧪 Dados simulados do backend
+        function getSimulatedBackendData() {
+            return {
+                referenceComparison: {
+                    global: {
+                        lufs: { current: -16.5, ideal: [-16, -14], status: 'AJUSTAR' },
+                        truePeak: { current: -0.2, ideal: [-1, 0], status: 'CORRIGIR' },
+                        dynamicRange: { current: 8.2, ideal: [9, 20], status: 'AJUSTAR' },
+                        lra: { current: 4.1, ideal: [6, 20], status: 'CORRIGIR' },
+                        stereoImaging: { current: 0.65, ideal: [0.7, 1.0], status: 'AJUSTAR' }
+                    },
+                    spectralBands: {
+                        sub: { current: -2.1, ideal: [-1, 1], status: 'CORRIGIR' },
+                        bass: { current: 1.8, ideal: [-1, 1], status: 'AJUSTAR' },
+                        lowMid: { current: 0.3, ideal: [-1, 1], status: 'IDEAL' },
+                        mid: { current: -0.5, ideal: [-1, 1], status: 'IDEAL' },
+                        highMid: { current: 2.2, ideal: [-1, 1], status: 'CORRIGIR' },
+                        presence: { current: 1.1, ideal: [-1, 1], status: 'AJUSTAR' },
+                        air: { current: -1.5, ideal: [-1, 1], status: 'AJUSTAR' }
+                    }
+                }
+            };
+        }
+
+        // 🚀 Função principal de geração de sugestões compreensivas
+        function generateComprehensiveSuggestions(referenceComparison) {
+            log('🚀 Iniciando geração de sugestões compreensivas...', 'info');
+            
+            const suggestions = [];
+            
+            // 🎯 Processar métricas globais
+            const globalMetrics = [
+                { key: 'lufs', name: 'LUFS', unit: ' LUFS', type: 'loudness' },
+                { key: 'truePeak', name: 'True Peak', unit: ' dBTP', type: 'peak' },
+                { key: 'dynamicRange', name: 'Dynamic Range', unit: ' LU', type: 'dynamics' },
+                { key: 'lra', name: 'Loudness Range', unit: ' LU', type: 'dynamics' },
+                { key: 'stereoImaging', name: 'Stereo Imaging', unit: '', type: 'spatial' }
+            ];
+
+            globalMetrics.forEach(metric => {
+                const data = referenceComparison.global[metric.key];
+                if (data) {
+                    const suggestion = generateMetricSuggestion(metric, data);
+                    if (suggestion) {
+                        suggestions.push(suggestion);
+                        log(`✅ Sugestão gerada para ${metric.name}: ${data.status}`, 'success');
+                    }
+                }
+            });
+
+            // 🎵 Processar bandas espectrais
+            const spectralBands = [
+                { key: 'sub', name: 'Sub Bass', range: '20-60 Hz' },
+                { key: 'bass', name: 'Bass', range: '60-250 Hz' },
+                { key: 'lowMid', name: 'Low Mid', range: '250-500 Hz' },
+                { key: 'mid', name: 'Mid', range: '500-2K Hz' },
+                { key: 'highMid', name: 'High Mid', range: '2K-4K Hz' },
+                { key: 'presence', name: 'Presence', range: '4K-8K Hz' },
+                { key: 'air', name: 'Air', range: '8K-20K Hz' }
+            ];
+
+            spectralBands.forEach(band => {
+                const data = referenceComparison.spectralBands[band.key];
+                if (data) {
+                    const suggestion = generateSpectralSuggestion(band, data);
+                    if (suggestion) {
+                        suggestions.push(suggestion);
+                        log(`🎵 Sugestão espectral para ${band.name}: ${data.status}`, 'success');
+                    }
+                }
+            });
+
+            log(`🎯 Total de ${suggestions.length} sugestões geradas`, 'success');
+            return suggestions;
+        }
+
+        function generateMetricSuggestion(metric, data) {
+            const { current, ideal, status } = data;
+            
+            if (status === 'IDEAL') return null; // Não gerar sugestão para valores ideais
+            
+            const severityInfo = getSeverityInfo(status);
+            const targetValue = Array.isArray(ideal) ? `${ideal[0]} a ${ideal[1]}${metric.unit}` : `${ideal}${metric.unit}`;
+            const delta = Array.isArray(ideal) ? 
+                (current < ideal[0] ? (current - ideal[0]).toFixed(1) : (current - ideal[1]).toFixed(1)) : 
+                (current - ideal).toFixed(1);
+
+            return {
+                metric: metric.name,
+                currentValue: current + metric.unit,
+                targetValue: targetValue,
+                delta: delta + metric.unit,
+                status: status,
+                severity: severityInfo.level,
+                color: severityInfo.color,
+                action: generateMetricAction(metric, data),
+                explanation: generateMetricExplanation(metric, data)
+            };
+        }
+
+        function generateSpectralSuggestion(band, data) {
+            const { current, ideal, status } = data;
+            
+            if (status === 'IDEAL') return null;
+            
+            const severityInfo = getSeverityInfo(status);
+            const targetValue = Array.isArray(ideal) ? `${ideal[0]} a ${ideal[1]} dB` : `${ideal} dB`;
+            const delta = Array.isArray(ideal) ? 
+                (current < ideal[0] ? (current - ideal[0]).toFixed(1) : (current - ideal[1]).toFixed(1)) : 
+                (current - ideal).toFixed(1);
+
+            return {
+                metric: `${band.name} (${band.range})`,
+                currentValue: current.toFixed(1) + ' dB',
+                targetValue: targetValue,
+                delta: delta + ' dB',
+                status: status,
+                severity: severityInfo.level,
+                color: severityInfo.color,
+                action: generateSpectralAction(band, data),
+                explanation: generateSpectralExplanation(band, data)
+            };
+        }
+
+        function getSeverityInfo(status) {
+            const severityMap = {
+                'CORRIGIR': { level: 'high', color: '#e74c3c' },
+                'AJUSTAR': { level: 'medium', color: '#f39c12' },
+                'IDEAL': { level: 'low', color: '#27ae60' }
+            };
+            return severityMap[status] || { level: 'medium', color: '#3498db' };
+        }
+
+        function generateMetricAction(metric, data) {
+            const { key, type } = metric;
+            const { current, ideal, status } = data;
+            
+            const actions = {
+                'lufs': status === 'CORRIGIR' ? 'Aplicar limiting/compression para aumentar loudness' : 'Ajustar ganho para atingir -14 a -16 LUFS',
+                'truePeak': 'Aplicar true peak limiting para evitar clipping digital',
+                'dynamicRange': 'Reduzir compression/limiting para preservar dinâmica',
+                'lra': 'Balancear automation e compression para melhor variação de loudness',
+                'stereoImaging': 'Ajustar panning e width processing para melhor imaging'
+            };
+            
+            return actions[key] || 'Aplicar processamento adequado para corrigir valor';
+        }
+
+        function generateMetricExplanation(metric, data) {
+            const explanations = {
+                'lufs': 'LUFS mede a loudness percebida. Valores muito baixos soam fracos, muito altos causam fadiga auditiva.',
+                'truePeak': 'True Peak evita clipping digital. Valores acima de -1 dBTP podem causar distorção em alguns conversores.',
+                'dynamicRange': 'Dynamic Range mede variação entre partes altas e baixas. Valores baixos indicam over-compression.',
+                'lra': 'Loudness Range mede variação de loudness ao longo do tempo. Importante para expressividade musical.',
+                'stereoImaging': 'Stereo Imaging mede distribuição espacial. Valores baixos indicam mixagem muito centralizada.'
+            };
+            
+            return explanations[metric.key] || 'Métrica importante para qualidade sonora';
+        }
+
+        function generateSpectralAction(band, data) {
+            const { key } = band;
+            const { current } = data;
+            
+            const isBoost = current > 0;
+            const amount = Math.abs(current).toFixed(1);
+            
+            const actions = {
+                'sub': isBoost ? `Reduzir ${amount}dB com high-pass filter em 40-80Hz` : `Adicionar ${amount}dB com low shelf em 60Hz`,
+                'bass': isBoost ? `Cortar ${amount}dB entre 80-200Hz` : `Realçar ${amount}dB entre 100-150Hz`,
+                'lowMid': isBoost ? `Reduzir ${amount}dB em 300-400Hz` : `Boost sutil ${amount}dB em 350Hz`,
+                'mid': isBoost ? `Cortar ${amount}dB em 800Hz-1.2kHz` : `Realçar ${amount}dB em 1kHz`,
+                'highMid': isBoost ? `Reduzir ${amount}dB em 2.5-3.5kHz` : `Boost ${amount}dB em 3kHz`,
+                'presence': isBoost ? `Cortar ${amount}dB em 5-6kHz` : `Realçar ${amount}dB em 5kHz`,
+                'air': isBoost ? `Reduzir ${amount}dB com low-pass em 12kHz` : `Adicionar ${amount}dB com high shelf em 10kHz`
+            };
+            
+            return actions[key] || 'Ajustar EQ na faixa correspondente';
+        }
+
+        function generateSpectralExplanation(band, data) {
+            const explanations = {
+                'sub': 'Sub Bass fornece peso e impacto. Excesso pode deixar mix "lamacento", falta remove energia baixa.',
+                'bass': 'Bass é fundamental para groove e fundação. Desequilíbrio afeta definição e punch dos graves.',
+                'lowMid': 'Low Mid afeta clareza e definição. Excesso deixa "boxy", falta remove corpo instrumental.',
+                'mid': 'Mid range é crucial para inteligibilidade vocal e presença de instrumentos melódicos.',
+                'highMid': 'High Mid controla presença e clareza. Excesso causa fadiga, falta reduz definição.',
+                'presence': 'Presence afeta brilho e clareza. Importante para inteligibilidade e percepção de qualidade.',
+                'air': 'Air frequencies adicionam brilho e abertura. Controlam percepção de espaço e qualidade hi-fi.'
+            };
+            
+            return explanations[band.key] || 'Banda espectral importante para balance tonal';
+        }
+
+        function testComprehensiveSuggestions() {
+            clearResults();
+            log('🧪 Iniciando teste do sistema compreensivo...', 'info');
+            
+            const simulatedData = getSimulatedBackendData();
+            log('📊 Dados simulados carregados', 'success');
+            log(JSON.stringify(simulatedData, null, 2), 'info');
+            
+            const suggestions = generateComprehensiveSuggestions(simulatedData.referenceComparison);
+            
+            if (suggestions.length > 0) {
+                addEnhancedSuggestionStyles();
+                
+                const container = document.getElementById('suggestions-container');
+                const list = document.getElementById('suggestions-list');
+                
+                list.innerHTML = suggestions.map(sug => renderEnhancedSuggestionCard(sug)).join('');
+                container.style.display = 'block';
+                
+                log(`✅ ${suggestions.length} sugestões renderizadas com sucesso!`, 'success');
+            } else {
+                log('❌ Nenhuma sugestão foi gerada', 'error');
+            }
+        }
+
+        function testLegacySuggestions() {
+            clearResults();
+            log('📦 Testando sistema de sugestões antigas...', 'warning');
+            
+            const legacySuggestions = [
+                {
+                    message: 'LUFS muito baixo',
+                    action: 'Aumentar loudness',
+                    details: 'Valor atual: -18.2 LUFS'
+                },
+                {
+                    message: 'Dynamic Range baixo', 
+                    action: 'Reduzir compression',
+                    details: 'Valor atual: 6.1 LU'
+                },
+                {
+                    message: 'Stereo imaging limitado',
+                    action: 'Expandir campo estéreo',
+                    details: 'Valor atual: 0.62'
+                }
+            ];
+            
+            const container = document.getElementById('suggestions-container');
+            const list = document.getElementById('suggestions-list');
+            
+            list.innerHTML = legacySuggestions.map(sug => `
+                <div style="
+                    background: #f8f9fa; 
+                    border: 1px solid #dee2e6; 
+                    border-radius: 8px; 
+                    padding: 15px; 
+                    margin-bottom: 10px;
+                ">
+                    <div style="font-weight: 600; color: #2c3e50; margin-bottom: 8px;">${sug.message}</div>
+                    <div style="color: #3498db; margin-bottom: 6px;">${sug.action}</div>
+                    <div style="color: #7f8c8d; font-size: 12px;">${sug.details}</div>
+                </div>
+            `).join('');
+            
+            container.style.display = 'block';
+            log('📦 Sugestões antigas renderizadas (formato simples)', 'warning');
+        }
+
+        // Auto-executar teste ao carregar página
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🎯 Sistema de teste carregado', 'success');
+            log('Use os botões acima para testar os diferentes sistemas de sugestões', 'info');
+        });
+    </script>
+</body>
+</html>
