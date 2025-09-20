@@ -1,19 +1,8 @@
 // 🎵 AUDIO ANALYZER INTEGRATION
 // Conecta o sistema de análise de áudio com o chat existente
 
-// 📝 Carregar gerador de texto didático
-if (typeof window !== 'undefined' && !window.SuggestionTextGenerator) {
-    const script = document.createElement('script');
-    script.src = 'suggestion-text-generator.js';
-    script.async = true;
-    script.onload = () => {
-        console.log('[AudioIntegration] Gerador de texto didático carregado');
-    };
-    script.onerror = () => {
-        console.warn('[AudioIntegration] Falha ao carregar gerador de texto didático');
-    };
-    document.head.appendChild(script);
-}
+// 🎯 SISTEMA UNIFICADO: Usando apenas backend FFmpeg/ORC para sugestões
+// Removido carregamento de suggestion-text-generator.js legado
 
 // Debug flag (silencia logs em produção; defina window.DEBUG_ANALYZER = true para habilitar)
 const __DEBUG_ANALYZER__ = true; // 🔧 TEMPORÁRIO: Ativado para debug do problema
@@ -131,24 +120,6 @@ function trapFocus(modal) {
 }
 
 // 🎯 Função Principal de Seleção de Modo
-function selectAnalysisMode(mode) {
-    console.log('🎯 Modo selecionado:', mode);
-    
-    // Armazenar modo selecionado
-    window.currentAnalysisMode = mode;
-    
-    // Fechar modal de seleção
-    closeModeSelectionModal();
-    
-    if (mode === 'genre') {
-        // Modo tradicional - abrir modal de análise normal
-        openAnalysisModalForMode('genre');
-    } else if (mode === 'reference') {
-        // Modo referência - abrir interface específica
-        openAnalysisModalForMode('reference');
-    }
-}
-
 // 🎯 Modal de Análise por Referência
 function openReferenceAnalysisModal() {
     const modal = document.getElementById('audioAnalysisModal');
@@ -172,7 +143,7 @@ function openReferenceAnalysisModal() {
         const uploadBtn = modal.querySelector('#uploadButton');
         if (uploadBtn) {
             uploadBtn.textContent = '📤 Upload da Música Original';
-            uploadBtn.onclick = () => handleReferenceFileSelection('original');
+            uploadBtn.onclick = () => createReferenceFileInput('original');
         }
         
         modal.style.display = 'flex';
@@ -206,7 +177,7 @@ let uploadedFiles = {
     reference: null
 };
 
-function handleReferenceFileSelection(type) {
+function createReferenceFileInput(type) {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.wav,.flac,.mp3';
@@ -271,7 +242,7 @@ function promptReferenceFile() {
     
     if (uploadBtn) {
         uploadBtn.textContent = '🎯 Upload da Música de Referência';
-        uploadBtn.onclick = () => handleReferenceFileSelection('reference');
+        uploadBtn.onclick = () => createReferenceFileInput('reference');
     }
 }
 
@@ -1349,45 +1320,6 @@ function openAudioModal() {
         // Comportamento original: modo gênero direto
         selectAnalysisMode('genre');
     }
-}
-
-// 🎯 NOVO: Modal de Seleção de Modo
-function openModeSelectionModal() {
-    __dbg('� Abrindo modal de seleção de modo...');
-    
-    const modal = document.getElementById('analysisModeModal');
-    if (!modal) {
-        console.error('Modal de seleção de modo não encontrado');
-        return;
-    }
-    
-    // Verificar se modo referência está habilitado e mostrar/esconder botão
-    const referenceModeBtn = document.getElementById('referenceModeBtn');
-    if (referenceModeBtn) {
-        const isEnabled = window.FEATURE_FLAGS?.REFERENCE_MODE_ENABLED;
-        referenceModeBtn.style.display = isEnabled ? 'flex' : 'none';
-        
-        if (!isEnabled) {
-            referenceModeBtn.disabled = true;
-        }
-    }
-    
-    modal.style.display = 'flex';
-    modal.setAttribute('tabindex', '-1');
-    modal.focus();
-    
-    window.logReferenceEvent('mode_selection_modal_opened');
-}
-
-function closeModeSelectionModal() {
-    __dbg('❌ Fechando modal de seleção de modo...');
-    
-    const modal = document.getElementById('analysisModeModal');
-    if (modal) {
-        modal.style.display = 'none';
-    }
-    
-    window.logReferenceEvent('mode_selection_modal_closed');
 }
 
 // 🎯 NOVO: Selecionar modo de análise
@@ -3175,47 +3107,117 @@ function displayModalResults(analysis) {
                     });
                 };
                 const renderSuggestionItem = (sug) => {
-                    // 🎯 Verificar se o gerador de texto didático está disponível
-                    const hasTextGenerator = typeof window.SuggestionTextGenerator !== 'undefined';
-                    let didacticText = null;
+                    // � SISTEMA EDUCATIVO: Usar nova estrutura educativa do backend
+                    console.log('� [RENDER] Renderizando sugestão educativa:', sug?.message || sug?.title);
                     
-                    if (hasTextGenerator) {
-                        try {
-                            const generator = new window.SuggestionTextGenerator();
-                            didacticText = generator.generateDidacticText(sug);
-                        } catch (error) {
-                            console.warn('[RenderSuggestion] Erro no gerador de texto:', error);
-                        }
-                    }
+                    // Extrair dados da nova estrutura educativa
+                    const message = sug.message || sug.title || 'Sugestão educativa';
+                    const explanation = sug.explanation || sug.description || '';
+                    const action = sug.action || sug.actionText || '';
+                    const details = sug.details || sug.technical || '';
+                    const learningTip = sug.learningTip || '';
                     
-                    // Usar texto didático se disponível, senão usar texto original
-                    const title = didacticText?.title || sug.message || '';
-                    const explanation = didacticText?.explanation || sug.explanation || '';
-                    const action = didacticText?.action || sug.action || '';
-                    const rationale = didacticText?.rationale || '';
-                    const technical = didacticText?.technical || sug.details || '';
+                    // � NOVA ESTRUTURA DE SEVERIDADE
+                    const severity = sug.severity || { 
+                        level: 'info', 
+                        label: '🟢 Leve', 
+                        color: '#4caf50',
+                        emoji: '🟢',
+                        educationalTone: 'Sugestão educativa'
+                    };
                     
-                    // 🎯 SISTEMA MELHORADO: Verificar se tem informações de severidade e prioridade
-                    const hasEnhancedInfo = sug.severity && sug.priority;
-                    const severityColor = hasEnhancedInfo ? sug.severity.color : '#9fb3d9';
-                    const severityLevel = hasEnhancedInfo ? sug.severity.level : 'medium';
-                    const severityLabel = hasEnhancedInfo ? sug.severity.label : '';
-                    const priority = hasEnhancedInfo ? sug.priority : 0;
-                    const confidence = hasEnhancedInfo ? sug.confidence : 1;
+                    const priority = sug.priority || 1;
+                    const confidence = sug.confidence || 1.0;
+                    const category = sug.category || 'general';
                     
-                    // Detectar tipo de sugestão
-                    const isSurgical = sug.type === 'surgical_eq' || (sug.subtype && ['sibilance', 'harshness', 'clipping'].includes(sug.subtype));
-                    const isBandAdjust = sug.type === 'band_adjust';
-                    const isClipping = sug.type === 'clipping' || title.toLowerCase().includes('clipping');
-                    const isBalance = sug.type === 'balance' || title.toLowerCase().includes('balance');
+                    // 🎯 CLASSES CSS POR SEVERIDADE
+                    const severityClasses = {
+                        'info': 'educational-card info-level',
+                        'warning': 'educational-card warning-level', 
+                        'error': 'educational-card error-level',
+                        'critical': 'educational-card critical-level'
+                    };
                     
-                    // Determinar classe do card
-                    let cardClass = 'enhanced-card';
-                    if (isSurgical) cardClass += ' surgical';
-                    else if (isBandAdjust) cardClass += ' band-adjust';
-                    else if (isClipping) cardClass += ' clipping';
-                    else if (isBalance) cardClass += ' balance';
-                    else cardClass += ' problem';
+                    const cardClass = severityClasses[severity.level] || 'educational-card info-level';
+                    
+                    // 🎨 ESTILOS DINÂMICOS BASEADOS NA SEVERIDADE
+                    const cardStyles = {
+                        borderLeftColor: severity.color,
+                        borderLeftWidth: '4px',
+                        borderLeftStyle: 'solid'
+                    };
+                    
+                    const headerStyle = `color: ${severity.color}; font-weight: 600;`;
+                    const badgeStyle = `background: ${severity.color}20; color: ${severity.color}; border: 1px solid ${severity.color}40;`;
+                    
+                    // 🏆 BADGE DE CONFIANÇA
+                    const confidenceBadge = confidence >= 0.9 ? '🎯 Alta confiança' : 
+                                          confidence >= 0.7 ? '📊 Boa confiança' : 
+                                          '💡 Sugestão experimental';
+                    
+                    return `
+                        <div class="${cardClass}" style="border-left-color: ${severity.color}; margin-bottom: 16px;">
+                            <div class="card-header">
+                                <h4 class="card-title" style="${headerStyle}">
+                                    ${severity.emoji} ${message}
+                                </h4>
+                                <div class="card-badges">
+                                    <span class="severity-badge" style="${badgeStyle}">
+                                        ${severity.label}
+                                    </span>
+                                    <span class="confidence-badge" style="background: #e3f2fd; color: #1976d2; font-size: 11px;">
+                                        ${confidenceBadge}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            ${explanation ? `
+                                <div class="card-explanation" style="background: ${severity.color}08; padding: 12px; border-radius: 6px; margin: 12px 0;">
+                                    <div class="explanation-icon" style="color: ${severity.color}; font-weight: 500; margin-bottom: 6px;">
+                                        💡 ${severity.educationalTone || 'Explicação'}
+                                    </div>
+                                    <div class="explanation-text">${explanation}</div>
+                                </div>
+                            ` : ''}
+                            
+                            ${action ? `
+                                <div class="card-action" style="background: ${severity.color}12; border: 1px solid ${severity.color}20; border-radius: 6px; padding: 12px; margin: 12px 0;">
+                                    <div class="action-title" style="color: ${severity.color}; font-weight: 500; margin-bottom: 6px;">
+                                        🎯 Como proceder
+                                    </div>
+                                    <div class="action-content">${action}</div>
+                                </div>
+                            ` : ''}
+                            
+                            ${details ? `
+                                <div class="card-details" style="background: #f8f9fa; border-radius: 6px; padding: 12px; margin: 12px 0;">
+                                    <div class="details-title" style="color: #6c757d; font-weight: 500; margin-bottom: 6px;">
+                                        🔍 Detalhes técnicos
+                                    </div>
+                                    <div class="details-content" style="color: #6c757d; font-size: 14px;">${details}</div>
+                                </div>
+                            ` : ''}
+                            
+                            ${learningTip ? `
+                                <div class="card-learning-tip" style="background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%); border: 1px solid #ffb74d40; border-radius: 6px; padding: 12px; margin: 12px 0;">
+                                    <div class="tip-title" style="color: #f57c00; font-weight: 500; margin-bottom: 6px;">
+                                        💡 Dica de aprendizado
+                                    </div>
+                                    <div class="tip-content" style="color: #e65100; font-style: italic;">${learningTip}</div>
+                                </div>
+                            ` : ''}
+                            
+                            <div class="card-footer" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e9ecef; display: flex; justify-content: space-between; align-items: center;">
+                                <span class="category-tag" style="background: ${severity.color}15; color: ${severity.color}; padding: 4px 8px; border-radius: 12px; font-size: 12px;">
+                                    📂 ${category}
+                                </span>
+                                <span class="priority-indicator" style="color: #6c757d; font-size: 12px;">
+                                    ⭐ Prioridade ${priority}
+                                </span>
+                            </div>
+                        </div>
+                    `;
+                };
                     
                     // Extrair frequência e valores técnicos
                     const freqMatch = (title + ' ' + action).match(/(\d+(?:\.\d+)?)\s*(?:Hz|hz)/i);
@@ -3636,9 +3638,80 @@ function displayModalResults(analysis) {
                         return deduplicated;
                     };
                     
-                    // Aplicar deduplicação das sugestões na UI para evitar duplicatas
+                    // 🎓 AGRUPAMENTO EDUCATIVO POR SEVERIDADE
                     const deduplicatedSuggestions = deduplicateByType(analysis.suggestions);
-                    const list = deduplicatedSuggestions.map(s => renderSuggestionItem(s)).join('');
+                    
+                    // Agrupar sugestões por severidade
+                    const suggestionsBySeverity = {
+                        critical: deduplicatedSuggestions.filter(s => s.severity?.level === 'critical' || s.severity?.level === 'error'),
+                        warning: deduplicatedSuggestions.filter(s => s.severity?.level === 'warning'),
+                        info: deduplicatedSuggestions.filter(s => s.severity?.level === 'info' || !s.severity?.level)
+                    };
+                    
+                    // Renderizar grupos de severidade
+                    let list = '';
+                    
+                    // 🔴 CRÍTICO/ERRO - Prioridade máxima
+                    if (suggestionsBySeverity.critical.length > 0) {
+                        list += `
+                            <div class="severity-group critical-group" style="margin-bottom: 24px;">
+                                <div class="severity-header" style="background: linear-gradient(135deg, #ffebee 0%, #ffcdd2 100%); border: 1px solid #f44336; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                                    <h3 style="margin: 0; color: #d32f2f; display: flex; align-items: center; font-size: 16px;">
+                                        🔴 Atenção Necessária (${suggestionsBySeverity.critical.length})
+                                    </h3>
+                                    <p style="margin: 6px 0 0 0; color: #c62828; font-size: 14px;">
+                                        Problemas que podem impedir lançamento ou comprometer qualidade
+                                    </p>
+                                </div>
+                                ${suggestionsBySeverity.critical.map(s => renderSuggestionItem(s)).join('')}
+                            </div>
+                        `;
+                    }
+                    
+                    // 🟡 MODERADO - Melhorias importantes
+                    if (suggestionsBySeverity.warning.length > 0) {
+                        list += `
+                            <div class="severity-group warning-group" style="margin-bottom: 24px;">
+                                <div class="severity-header" style="background: linear-gradient(135deg, #fff8e1 0%, #ffecb3 100%); border: 1px solid #ff9800; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                                    <h3 style="margin: 0; color: #f57c00; display: flex; align-items: center; font-size: 16px;">
+                                        🟡 Oportunidades de Melhoria (${suggestionsBySeverity.warning.length})
+                                    </h3>
+                                    <p style="margin: 6px 0 0 0; color: #ef6c00; font-size: 14px;">
+                                        Ajustes recomendados para elevar a qualidade da produção
+                                    </p>
+                                </div>
+                                ${suggestionsBySeverity.warning.map(s => renderSuggestionItem(s)).join('')}
+                            </div>
+                        `;
+                    }
+                    
+                    // 🟢 LEVE - Dicas educativas e aprimoramentos
+                    if (suggestionsBySeverity.info.length > 0) {
+                        list += `
+                            <div class="severity-group info-group" style="margin-bottom: 24px;">
+                                <div class="severity-header" style="background: linear-gradient(135deg, #e8f5e8 0%, #c8e6c9 100%); border: 1px solid #4caf50; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+                                    <h3 style="margin: 0; color: #388e3c; display: flex; align-items: center; font-size: 16px;">
+                                        🟢 Dicas Educativas (${suggestionsBySeverity.info.length})
+                                    </h3>
+                                    <p style="margin: 6px 0 0 0; color: #2e7d32; font-size: 14px;">
+                                        Sugestões para crescimento e desenvolvimento musical
+                                    </p>
+                                </div>
+                                ${suggestionsBySeverity.info.map(s => renderSuggestionItem(s)).join('')}
+                            </div>
+                        `;
+                    }
+                    
+                    // Fallback se não houver sugestões
+                    if (list === '') {
+                        list = `
+                            <div class="no-suggestions" style="text-align: center; padding: 40px 20px; color: #6c757d;">
+                                <div style="font-size: 48px; margin-bottom: 16px;">🎵</div>
+                                <h3 style="color: #495057; margin-bottom: 8px;">Análise Concluída</h3>
+                                <p>Continue criando e explorando sua expressão musical!</p>
+                            </div>
+                        `;
+                    }
                     
                     // 🎯 Rodapé melhorado com informações do Enhanced System
                     try {
@@ -3784,7 +3857,6 @@ function displayModalResults(analysis) {
     try { renderReferenceComparisons(analysis); } catch(e){ console.warn('ref compare fail', e);}    
         try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ console.warn('validation controls fail', e); }
     __dbg('📊 Resultados exibidos no modal');
-}
 
     // === Controles de Validação (Suite Objetiva + Subjetiva) ===
     function injectValidationControls(){
@@ -4160,6 +4232,174 @@ function renderReferenceComparisons(analysis) {
             <tbody>${rows.join('') || '<tr><td colspan="4" style="opacity:.6">Sem métricas disponíveis</td></tr>'}</tbody>
         </table>
     </div>`;
+    // 🎓 Estilos para Sistema Educativo
+    if (!document.getElementById('educationalStyles')) {
+        const educationalStyle = document.createElement('style');
+        educationalStyle.id = 'educationalStyles';
+        educationalStyle.textContent = `
+            /* Estilos para Cards Educativos */
+            .educational-card {
+                background: rgba(255, 255, 255, 0.95);
+                border-radius: 12px;
+                padding: 16px;
+                margin-bottom: 12px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+                transition: all 0.3s ease;
+                border-left: 4px solid #ccc;
+            }
+            
+            .educational-card:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+            }
+            
+            .educational-card.info-level {
+                border-left-color: #4caf50;
+                background: linear-gradient(135deg, rgba(76, 175, 80, 0.02) 0%, rgba(255, 255, 255, 0.95) 100%);
+            }
+            
+            .educational-card.warning-level {
+                border-left-color: #ff9800;
+                background: linear-gradient(135deg, rgba(255, 152, 0, 0.02) 0%, rgba(255, 255, 255, 0.95) 100%);
+            }
+            
+            .educational-card.error-level {
+                border-left-color: #f44336;
+                background: linear-gradient(135deg, rgba(244, 67, 54, 0.02) 0%, rgba(255, 255, 255, 0.95) 100%);
+            }
+            
+            .educational-card.critical-level {
+                border-left-color: #d32f2f;
+                background: linear-gradient(135deg, rgba(211, 47, 47, 0.05) 0%, rgba(255, 255, 255, 0.95) 100%);
+            }
+            
+            .card-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: flex-start;
+                margin-bottom: 12px;
+            }
+            
+            .card-title {
+                font-size: 16px;
+                font-weight: 600;
+                margin: 0;
+                line-height: 1.4;
+            }
+            
+            .card-badges {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                align-items: flex-end;
+            }
+            
+            .severity-badge, .confidence-badge {
+                padding: 4px 8px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 500;
+                white-space: nowrap;
+            }
+            
+            .card-explanation, .card-action, .card-details, .card-learning-tip {
+                border-radius: 8px;
+                margin: 8px 0;
+            }
+            
+            .explanation-icon, .action-title, .details-title, .tip-title {
+                font-weight: 500;
+                margin-bottom: 6px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            
+            .card-footer {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                margin-top: 12px;
+                padding-top: 12px;
+                border-top: 1px solid #e9ecef;
+                font-size: 12px;
+            }
+            
+            .category-tag {
+                padding: 4px 8px;
+                border-radius: 12px;
+                font-size: 11px;
+                font-weight: 500;
+            }
+            
+            .severity-group {
+                margin-bottom: 24px;
+            }
+            
+            .severity-header {
+                border-radius: 12px;
+                padding: 16px;
+                margin-bottom: 16px;
+            }
+            
+            .severity-header h3 {
+                margin: 0;
+                font-size: 18px;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+            }
+            
+            .severity-header p {
+                margin: 8px 0 0 0;
+                opacity: 0.9;
+            }
+            
+            .no-suggestions {
+                text-align: center;
+                padding: 40px 20px;
+                color: #6c757d;
+                background: rgba(255, 255, 255, 0.95);
+                border-radius: 12px;
+                margin: 20px 0;
+            }
+            
+            /* Animações suaves */
+            .severity-group {
+                animation: fadeInUp 0.5s ease-out;
+            }
+            
+            @keyframes fadeInUp {
+                from {
+                    opacity: 0;
+                    transform: translateY(20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+            
+            /* Responsivo */
+            @media (max-width: 768px) {
+                .card-header {
+                    flex-direction: column;
+                    gap: 8px;
+                }
+                
+                .card-badges {
+                    align-items: flex-start;
+                    flex-direction: row;
+                }
+                
+                .severity-header h3 {
+                    font-size: 16px;
+                }
+            }
+        `;
+        document.head.appendChild(educationalStyle);
+    }
+
     // Estilos injetados uma vez
     if (!document.getElementById('refCompareStyles')) {
         const style = document.createElement('style');
@@ -4183,11 +4423,9 @@ function renderReferenceComparisons(analysis) {
 function updateReferenceSuggestions(analysis) {
     if (!analysis || !analysis.technicalData || !__activeRefData) return;
     
-    // 🎯 SISTEMA MELHORADO: Usar Enhanced Suggestion Engine quando disponível
-    if (typeof window !== 'undefined' && window.enhancedSuggestionEngine && window.USE_ENHANCED_SUGGESTIONS !== false) {
-        try {
-            console.log('🎯 Usando Enhanced Suggestion Engine...');
-            const enhancedAnalysis = window.enhancedSuggestionEngine.processAnalysis(analysis, __activeRefData);
+    // 🎯 SISTEMA UNIFICADO: Usar apenas backend FFmpeg/ORC para sugestões
+    // Removido sistema legado Enhanced Suggestion Engine - agora 100% backend
+    console.log('🎯 Sistema de sugestões unificado: usando apenas backend FFmpeg/ORC');
             
             // Preservar sugestões não-referência existentes se necessário
             const existingSuggestions = Array.isArray(analysis.suggestions) ? analysis.suggestions : [];
@@ -4210,46 +4448,9 @@ function updateReferenceSuggestions(analysis) {
             }
             
             console.log(`🎯 Enhanced Suggestions: ${enhancedAnalysis.suggestions.length} sugestões geradas`);
-            return;
-            
-        } catch (error) {
-            console.warn('🚨 Erro no Enhanced Suggestion Engine, usando fallback:', error);
-            // Continuar com sistema legado em caso de erro
-        }
-    }
     
-    // 🔄 SISTEMA LEGADO (fallback)
-    const ref = __activeRefData;
-    const tech = analysis.technicalData;
-    // Garantir lista
-    const sug = Array.isArray(analysis.suggestions) ? analysis.suggestions : (analysis.suggestions = []);
-    // Remover sugestões antigas de referência
-    const refTypes = new Set(['reference_loudness','reference_dynamics','reference_lra','reference_stereo','reference_true_peak']);
-    for (let i = sug.length - 1; i >= 0; i--) {
-        const t = sug[i] && sug[i].type;
-        if (t && refTypes.has(t)) sug.splice(i, 1);
-    }
-    // Helper para criar sugestão se fora da tolerância
-    const addRefSug = (val, target, tol, type, label, unit='') => {
-        if (!Number.isFinite(val) || !Number.isFinite(target) || !Number.isFinite(tol)) return;
-        const diff = val - target;
-        if (Math.abs(diff) <= tol) return; // dentro da tolerância
-        const direction = diff > 0 ? 'acima' : 'abaixo';
-        sug.push({
-            type,
-            message: `${label} ${direction} do alvo (${target}${unit})`,
-            action: `Ajustar ${label} ${direction==='acima'?'para baixo':'para cima'} ~${target}${unit}`,
-            details: `Diferença: ${diff.toFixed(2)}${unit} • tolerância ±${tol}${unit} • gênero: ${window.PROD_AI_REF_GENRE}`
-        });
-    };
-    // Aplicar checks principais
-    const lufsVal = Number.isFinite(tech.lufsIntegrated) ? tech.lufsIntegrated : null;
-    addRefSug(lufsVal, ref.lufs_target, ref.tol_lufs, 'reference_loudness', 'LUFS', '');
-    const tpVal = Number.isFinite(tech.truePeakDbtp) ? tech.truePeakDbtp : null;
-    addRefSug(tpVal, ref.true_peak_target, ref.tol_true_peak, 'reference_true_peak', 'Pico Real', ' dBTP');
-    addRefSug(tech.dynamicRange, ref.dr_target, ref.tol_dr, 'reference_dynamics', 'DR', ' dB');
-    if (Number.isFinite(tech.lra)) addRefSug(tech.lra, ref.lra_target, ref.tol_lra, 'reference_lra', 'LRA', ' LU');
-    if (Number.isFinite(tech.stereoCorrelation)) addRefSug(tech.stereoCorrelation, ref.stereo_target, ref.tol_stereo, 'reference_stereo', 'Stereo Corr', '');
+    // Sistema unificado: sugestões vêm exclusivamente do backend FFmpeg/ORC
+    console.log('🎯 [UNIFICADO] Sugestões processadas pelo backend - frontend apenas exibe');
 }
 
 // 🎨 Estilos do seletor de gênero (injeção única, não quebra CSS existente)
