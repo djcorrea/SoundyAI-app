@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>🔧 Diagnóstico Completo - Sugestões SoundyAI</title>
+    <style>
+        body { font-family: Arial; margin: 20px; background: #f0f8ff; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+        .success { background: #d4edda; border-color: #c3e6cb; }
+        .error { background: #f8d7da; border-color: #f5c6cb; }
+        .warning { background: #fff3cd; border-color: #ffeaa7; }
+        .info { background: #d1ecf1; border-color: #bee5eb; }
+        button { 
+            background: #007bff; color: white; border: none; padding: 10px 20px; 
+            border-radius: 5px; cursor: pointer; margin: 5px; 
+        }
+        button:hover { background: #0056b3; }
+        .log { 
+            background: #f8f9fa; border: 1px solid #e9ecef; padding: 10px; 
+            font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; 
+        }
+        .suggestion-card {
+            margin: 10px 0; padding: 15px; background: #ffffff; 
+            border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .metric-header { font-weight: bold; color: #007bff; font-size: 16px; margin-bottom: 8px; }
+        .delta-display { 
+            background: #f8f9fa; padding: 8px; border-radius: 5px; 
+            font-weight: bold; color: #dc3545; margin: 5px 0; 
+        }
+        .educational-content { 
+            margin: 10px 0; padding: 10px; border-left: 4px solid #28a745; 
+            background: #f8fff9; border-radius: 0 5px 5px 0; 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Diagnóstico Completo - Sistema de Sugestões</h1>
+        <p>Este teste vai diagnosticar exatamente por que as sugestões não estão aparecendo ou estão erradas.</p>
+        
+        <!-- Seção 1: Status do Sistema -->
+        <div class="section info">
+            <h2>📊 1. Status do Sistema</h2>
+            <div id="systemStatus" class="log">Verificando...</div>
+            <button onclick="checkSystem()">🔍 Verificar Sistema</button>
+        </div>
+        
+        <!-- Seção 2: Teste de Carregamento -->
+        <div class="section warning">
+            <h2>⚡ 2. Teste de Carregamento</h2>
+            <div id="loadTest" class="log">Aguardando...</div>
+            <button onclick="testLoading()">📥 Testar Carregamento</button>
+        </div>
+        
+        <!-- Seção 3: Teste de Dados -->
+        <div class="section info">
+            <h2>🧪 3. Teste com Dados Reais</h2>
+            <div id="dataTest" class="log">Aguardando...</div>
+            <button onclick="testWithRealData()">🎵 Testar Dados do Trance</button>
+        </div>
+        
+        <!-- Seção 4: Display das Sugestões -->
+        <div class="section">
+            <h2>💡 4. Resultado das Sugestões</h2>
+            <div id="suggestionsDisplay">
+                <p style="color: #6c757d;">As sugestões aparecerão aqui depois dos testes...</p>
+            </div>
+        </div>
+        
+        <!-- Seção 5: Diagnóstico de Problemas -->
+        <div class="section error">
+            <h2>🚨 5. Diagnóstico de Problemas</h2>
+            <div id="problemDiagnostic" class="log">
+                <p>Problemas comuns que podem impedir o funcionamento:</p>
+                <ul>
+                    <li>❌ Sistema não carregado (window.suggestionSystem undefined)</li>
+                    <li>❌ Métodos ausentes (process, normalizer, etc.)</li>
+                    <li>❌ Dados de entrada inválidos</li>
+                    <li>❌ Erros de processamento</li>
+                    <li>❌ Textos educativos não gerados</li>
+                </ul>
+            </div>
+            <button onclick="runFullDiagnostic()">🔍 Executar Diagnóstico Completo</button>
+        </div>
+    </div>
+
+    <!-- Carregar sistema (mesma ordem do index.html) -->
+    <script src="suggestion-system-unified.js?v=20250829-fix-sugestoes"></script>
+    
+    <script>
+        let logs = [];
+        
+        function log(message, section = 'general') {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = `[${timestamp}] ${message}`;
+            logs.push({timestamp, message, section});
+            console.log(entry);
+        }
+        
+        function displayLogs(sectionId, sectionFilter = null) {
+            const container = document.getElementById(sectionId);
+            const filteredLogs = sectionFilter ? logs.filter(l => l.section === sectionFilter) : logs;
+            container.innerHTML = filteredLogs.map(l => `[${l.timestamp}] ${l.message}`).join('\n');
+        }
+        
+        function checkSystem() {
+            logs = logs.filter(l => l.section !== 'system');
+            log('🔍 Verificando status do sistema...', 'system');
+            
+            // Verificar window.suggestionSystem
+            if (typeof window.suggestionSystem === 'undefined') {
+                log('❌ FALHA CRÍTICA: window.suggestionSystem não existe!', 'system');
+                log('Isso significa que o arquivo suggestion-system-unified.js não foi carregado ou falhou.', 'system');
+            } else {
+                log('✅ window.suggestionSystem encontrado', 'system');
+                log(`Tipo: ${typeof window.suggestionSystem}`, 'system');
+                
+                // Verificar métodos
+                const methods = ['process'];
+                methods.forEach(method => {
+                    if (typeof window.suggestionSystem[method] === 'function') {
+                        log(`✅ Método ${method}() disponível`, 'system');
+                    } else {
+                        log(`❌ Método ${method}() NÃO encontrado!`, 'system');
+                    }
+                });
+                
+                // Verificar engine e componentes
+                if (window.suggestionSystem.engine) {
+                    log('✅ Engine disponível', 'system');
+                    const components = ['normalizer', 'scorer', 'textGenerator'];
+                    components.forEach(comp => {
+                        if (window.suggestionSystem.engine[comp]) {
+                            log(`✅ ${comp} disponível`, 'system');
+                        } else {
+                            log(`❌ ${comp} NÃO encontrado!`, 'system');
+                        }
+                    });
+                } else {
+                    log('❌ Engine NÃO encontrada!', 'system');
+                }
+                
+                // Verificar variável de controle
+                if (window.USE_UNIFIED_SUGGESTIONS === true) {
+                    log('✅ USE_UNIFIED_SUGGESTIONS = true', 'system');
+                } else {
+                    log(`⚠️ USE_UNIFIED_SUGGESTIONS = ${window.USE_UNIFIED_SUGGESTIONS}`, 'system');
+                }
+            }
+            
+            displayLogs('systemStatus', 'system');
+        }
+        
+        function testLoading() {
+            logs = logs.filter(l => l.section !== 'loading');
+            log('📥 Testando carregamento do sistema...', 'loading');
+            
+            // Verificar se os scripts foram adicionados ao DOM
+            const scripts = document.querySelectorAll('script[src*="suggestion-system"]');
+            log(`Scripts encontrados: ${scripts.length}`, 'loading');
+            
+            scripts.forEach((script, index) => {
+                log(`Script ${index + 1}: ${script.src}`, 'loading');
+                log(`  - Carregado: ${script.readyState || 'unknown'}`, 'loading');
+            });
+            
+            // Verificar erros de carregamento
+            if (window.suggestionSystem) {
+                log('✅ Sistema carregado com sucesso', 'loading');
+                
+                // Teste rápido de instanciação
+                try {
+                    const testInstance = new window.SuggestionSystemUnified();
+                    log('✅ Nova instância criada com sucesso', 'loading');
+                } catch (error) {
+                    log(`❌ Erro ao criar nova instância: ${error.message}`, 'loading');
+                }
+            } else {
+                log('❌ Sistema NÃO carregado', 'loading');
+                log('Possíveis causas: erro de sintaxe, falha de rede, ordem de carregamento', 'loading');
+            }
+            
+            displayLogs('loadTest', 'loading');
+        }
+        
+        function testWithRealData() {
+            logs = logs.filter(l => l.section !== 'data');
+            log('🎵 Testando com dados reais de Trance...', 'data');
+            
+            if (!window.suggestionSystem) {
+                log('❌ Sistema não disponível para teste!', 'data');
+                displayLogs('dataTest', 'data');
+                return;
+            }
+            
+            // Dados que DEVEM gerar sugestões
+            const testAnalysis = {
+                technicalData: {
+                    lufs: -5.8,           // MUITO ALTO (alvo: -9.0)
+                    true_peak: 0.2,       // ACIMA DO LIMITE (limite: -1.0)
+                    dr: 3.2,              // MUITO BAIXO (alvo: 7.0)
+                    lra: 1.5,             // OK
+                    stereo: 0.4,          // MUITO BAIXO (alvo: 0.7)
+                    bands: {
+                        sub: { energy: 6.8 },        // BAIXO
+                        bass: { energy: 28.2 },      // ALTO
+                        low_mids: { energy: 14.5 },  // OK
+                        mids: { energy: 32.1 },      // MUITO ALTO
+                        high_mids: { energy: 15.8 }, // OK
+                        highs: { energy: 11.2 }      // BAIXO
+                    }
+                }
+            };
+            
+            const referenceData = {
+                genre: 'trance',
+                lufs_target: -9.0, tol_lufs: 1.0,
+                true_peak_target: -1.0, tol_true_peak: 0.5,
+                dr_target: 7.0, tol_dr: 1.5,
+                lra_target: 3.0, tol_lra: 1.0,
+                stereo_target: 0.7, tol_stereo: 0.15,
+                bands: {
+                    sub: { target: 10.0, tolerance: 2.5 },
+                    bass: { target: 20.0, tolerance: 3.5 },
+                    low_mids: { target: 18.0, tolerance: 3.0 },
+                    mids: { target: 25.0, tolerance: 3.5 },
+                    high_mids: { target: 20.0, tolerance: 3.0 },
+                    highs: { target: 17.0, tolerance: 2.5 }
+                }
+            };
+            
+            log('📊 Dados preparados - problemas esperados:', 'data');
+            log(`  LUFS: ${testAnalysis.technicalData.lufs} vs ${referenceData.lufs_target} (deve reduzir ${Math.abs(testAnalysis.technicalData.lufs - referenceData.lufs_target).toFixed(1)})`, 'data');
+            log(`  True Peak: ${testAnalysis.technicalData.true_peak} vs ${referenceData.true_peak_target} (deve reduzir ${Math.abs(testAnalysis.technicalData.true_peak - referenceData.true_peak_target).toFixed(1)})`, 'data');
+            log(`  DR: ${testAnalysis.technicalData.dr} vs ${referenceData.dr_target} (deve aumentar ${Math.abs(testAnalysis.technicalData.dr - referenceData.dr_target).toFixed(1)})`, 'data');
+            log(`  Stereo: ${testAnalysis.technicalData.stereo} vs ${referenceData.stereo_target} (deve aumentar ${Math.abs(testAnalysis.technicalData.stereo - referenceData.stereo_target).toFixed(2)})`, 'data');
+            
+            try {
+                log('⚡ Executando processamento...', 'data');
+                const startTime = performance.now();
+                
+                const result = window.suggestionSystem.process(testAnalysis, referenceData);
+                
+                const endTime = performance.now();
+                log(`✅ Processamento concluído em ${(endTime - startTime).toFixed(2)}ms`, 'data');
+                
+                if (!result) {
+                    log('❌ ERRO: Resultado null/undefined!', 'data');
+                    displayLogs('dataTest', 'data');
+                    return;
+                }
+                
+                const suggestions = result.suggestions || [];
+                log(`📋 Sugestões encontradas: ${suggestions.length}`, 'data');
+                
+                if (suggestions.length === 0) {
+                    log('❌ PROBLEMA: Nenhuma sugestão gerada!', 'data');
+                    log('Isso é inesperado, pois há vários problemas nos dados de teste.', 'data');
+                    
+                    // Debug metadata
+                    if (result._suggestionMetadata) {
+                        log(`Metadata: ${JSON.stringify(result._suggestionMetadata)}`, 'data');
+                    }
+                } else {
+                    log('✅ Sugestões geradas com sucesso!', 'data');
+                    
+                    // Verificar qualidade das sugestões
+                    suggestions.forEach((suggestion, index) => {
+                        const hasEducation = suggestion.problem && suggestion.explanation && suggestion.solution;
+                        const hasCorrectDelta = suggestion.delta !== undefined && suggestion.direction;
+                        
+                        log(`Sugestão ${index + 1} (${suggestion.metric}):`, 'data');
+                        log(`  - Delta: ${suggestion.delta?.toFixed(2)} (direção: ${suggestion.direction})`, 'data');
+                        log(`  - Educação: ${hasEducation ? '✅' : '❌'} ${hasEducation ? 'Completa' : 'Ausente'}`, 'data');
+                    });
+                    
+                    // Mostrar sugestões na UI
+                    displaySuggestions(suggestions);
+                }
+                
+            } catch (error) {
+                log(`❌ ERRO durante processamento: ${error.message}`, 'data');
+                log(`Stack: ${error.stack}`, 'data');
+            }
+            
+            displayLogs('dataTest', 'data');
+        }
+        
+        function displaySuggestions(suggestions) {
+            const container = document.getElementById('suggestionsDisplay');
+            
+            if (!suggestions || suggestions.length === 0) {
+                container.innerHTML = '<div class="error section">❌ Nenhuma sugestão encontrada!</div>';
+                return;
+            }
+            
+            let html = `<h3 style="color: #28a745;">✅ ${suggestions.length} Sugestões Encontradas:</h3>`;
+            
+            suggestions.forEach((suggestion, index) => {
+                const deltaText = suggestion.delta ? 
+                    `${suggestion.direction === 'reduce' ? 'Reduzir' : 'Aumentar'} ${Math.abs(suggestion.delta).toFixed(2)} ${suggestion.unit || ''}` :
+                    'Delta não calculado';
+                    
+                const hasEducation = suggestion.problem && suggestion.explanation && suggestion.solution;
+                
+                html += `
+                    <div class="suggestion-card">
+                        <div class="metric-header">
+                            ${index + 1}. ${suggestion.metric?.toUpperCase() || 'Métrica desconhecida'}
+                        </div>
+                        
+                        <div class="delta-display">
+                            🎯 ${deltaText}
+                            <br>📊 Medido: ${suggestion.measured?.toFixed(2) || 'N/A'} | Alvo: ${suggestion.target?.toFixed(2) || 'N/A'}
+                        </div>
+                        
+                        ${hasEducation ? `
+                            <div class="educational-content">
+                                <strong>🔴 Problema:</strong><br>
+                                ${suggestion.problem}<br><br>
+                                
+                                <strong>📚 Explicação:</strong><br>
+                                ${suggestion.explanation}<br><br>
+                                
+                                <strong>✅ Solução:</strong><br>
+                                ${suggestion.solution}
+                            </div>
+                        ` : `
+                            <div style="color: red; font-weight: bold;">
+                                ❌ ERRO: Conteúdo educativo ausente!
+                            </div>
+                        `}
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        function runFullDiagnostic() {
+            document.getElementById('problemDiagnostic').innerHTML = '<p>🔍 Executando diagnóstico completo...</p>';
+            
+            setTimeout(() => {
+                checkSystem();
+                setTimeout(() => {
+                    testLoading();
+                    setTimeout(() => {
+                        testWithRealData();
+                        
+                        // Resumo final
+                        setTimeout(() => {
+                            const hasSystem = typeof window.suggestionSystem !== 'undefined';
+                            const hasProcess = hasSystem && typeof window.suggestionSystem.process === 'function';
+                            
+                            const diagnostic = `
+                                <h4>📋 Resumo do Diagnóstico:</h4>
+                                <p><strong>Sistema carregado:</strong> ${hasSystem ? '✅ SIM' : '❌ NÃO'}</p>
+                                <p><strong>Método process():</strong> ${hasProcess ? '✅ SIM' : '❌ NÃO'}</p>
+                                <p><strong>Status geral:</strong> ${hasSystem && hasProcess ? '✅ FUNCIONAL' : '❌ COM PROBLEMAS'}</p>
+                                
+                                ${!hasSystem ? '<p style="color: red;"><strong>SOLUÇÃO:</strong> Verificar carregamento do arquivo suggestion-system-unified.js</p>' : ''}
+                                ${hasSystem && !hasProcess ? '<p style="color: red;"><strong>SOLUÇÃO:</strong> Erro na implementação do sistema - verificar console para erros de sintaxe</p>' : ''}
+                            `;
+                            
+                            document.getElementById('problemDiagnostic').innerHTML = diagnostic;
+                        }, 1000);
+                    }, 1000);
+                }, 1000);
+            }, 500);
+        }
+        
+        // Auto-executar ao carregar
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                log('🚀 Página carregada, executando verificação inicial...', 'general');
+                checkSystem();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

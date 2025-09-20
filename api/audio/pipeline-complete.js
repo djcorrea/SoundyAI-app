@@ -1,62 +1,12 @@
-// 🎯 PIPELINE COMPLETO FASES 5.1 - 5.4 - CORRIGIDO
-// Integração completa com tratamento de erros padronizado e fail-fast
+// 🎯 PIPELINE COMPLETO FASES 5.1 - 5.4
+// Integração completa: Decodificação → Segmentação → Core Metrics → JSON Output + Scoring
 
 import decodeAudioFile from "./audio-decoder.js";              // Fase 5.1
 import { segmentAudioTemporal } from "./temporal-segmentation.js"; // Fase 5.2  
 import { calculateCoreMetrics } from "./core-metrics.js";      // Fase 5.3
 import { generateJSONOutput } from "./json-output.js";         // Fase 5.4
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-console.log('🎵 Pipeline Completo (Fases 5.1-5.4) carregado - Node.js Backend CORRIGIDO');
-
-/**
- * 🗂️ Criar arquivo temporário WAV para FFmpeg True Peak
- */
-function createTempWavFile(audioBuffer, audioData, fileName, jobId) {
-  try {
-    const tempDir = path.join(__dirname, '../../temp');
-    
-    // Criar diretório temp se não existir
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-    
-    const tempFileName = `${jobId}_${Date.now()}_${path.parse(fileName).name}.wav`;
-    const tempFilePath = path.join(tempDir, tempFileName);
-    
-    console.log(`[TEMP_WAV] Criando arquivo temporário: ${tempFileName}`);
-    
-    // Escrever o audioBuffer original no arquivo temporário
-    fs.writeFileSync(tempFilePath, audioBuffer);
-    
-    console.log(`[TEMP_WAV] ✅ Arquivo temporário criado: ${tempFilePath}`);
-    
-    return tempFilePath;
-    
-  } catch (error) {
-    console.error(`[TEMP_WAV] ❌ Erro ao criar arquivo temporário: ${error.message}`);
-    throw new Error(`Failed to create temp WAV file: ${error.message}`);
-  }
-}
-
-/**
- * 🗑️ Limpar arquivo temporário
- */
-function cleanupTempFile(tempFilePath) {
-  try {
-    if (tempFilePath && fs.existsSync(tempFilePath)) {
-      fs.unlinkSync(tempFilePath);
-      console.log(`[TEMP_WAV] 🗑️ Arquivo temporário removido: ${path.basename(tempFilePath)}`);
-    }
-  } catch (error) {
-    console.warn(`[TEMP_WAV] ⚠️ Erro ao remover arquivo temporário: ${error.message}`);
-  }
-}
+console.log('🎵 Pipeline Completo (Fases 5.1-5.4) carregado - Node.js Backend');
 
 export async function processAudioComplete(audioBuffer, fileName, options = {}) {
   const startTime = Date.now();
@@ -65,8 +15,6 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
   console.log(`📊 Buffer size: ${audioBuffer.length} bytes`);
   console.log(`🔧 Opções:`, options);
 
-  let tempFilePath = null;
-  
   try {
     // ✅ FASE 5.1: Decodificação
     console.log('🎵 Fase 5.1: Decodificação...');
@@ -75,11 +23,6 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     const phase1Time = Date.now() - phaseStartTime;
     console.log(`✅ Fase 5.1 concluída em ${phase1Time}ms`);
     console.log(`📊 Audio decodificado: ${audioData.sampleRate}Hz, ${audioData.channels}ch, ${audioData.duration.toFixed(2)}s`);
-
-    // 🗂️ Criar arquivo temporário para FFmpeg True Peak
-    console.log('🗂️ Criando arquivo temporário WAV...');
-    const jobId = options.jobId || Date.now().toString();
-    tempFilePath = createTempWavFile(audioBuffer, audioData, fileName, jobId);
 
     // ✅ FASE 5.2: Segmentação
     console.log('⏱️ Fase 5.2: Segmentação Temporal...');
@@ -92,7 +35,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     // ✅ FASE 5.3: Core Metrics
     console.log('📊 Fase 5.3: Core Metrics...');
     const phase3StartTime = Date.now();
-    const coreMetrics = await calculateCoreMetrics(segmentedData, { tempFilePath });
+    const coreMetrics = await calculateCoreMetrics(segmentedData);
     const phase3Time = Date.now() - phase3StartTime;
     console.log(`✅ Fase 5.3 concluída em ${phase3Time}ms`);
     
@@ -147,17 +90,11 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
 
     console.log(`🏁 Pipeline completo finalizado em ${totalTime}ms`);
 
-    // 🗑️ Limpar arquivo temporário
-    cleanupTempFile(tempFilePath);
-
     return finalJSON;
 
   } catch (error) {
     const totalTime = Date.now() - startTime;
     console.error(`❌ Pipeline falhou após ${totalTime}ms:`, error);
-
-    // 🗑️ Limpar arquivo temporário mesmo em caso de erro
-    cleanupTempFile(tempFilePath);
 
     // 🔧 Retornar JSON de erro estruturado
     return {

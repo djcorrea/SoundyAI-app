@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>🚨 Debug Emergencial</title>
+    <style>
+        body { font-family: Arial; margin: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .error { background: #ffebee; border: 1px solid #f44336; color: #c62828; }
+        .success { background: #e8f5e9; border: 1px solid #4caf50; color: #2e7d32; }
+        .warning { background: #fff3e0; border: 1px solid #ff9800; color: #e65100; }
+    </style>
+</head>
+<body>
+    <h1>🚨 Debug Emergencial do Sistema</h1>
+    <div id="log"></div>
+    
+    <script>
+        const log = (msg, type = 'warning') => {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            document.getElementById('log').appendChild(div);
+            console.log(msg);
+        };
+        
+        log('🔍 Iniciando debug...', 'warning');
+        
+        // Verificar se podemos carregar scripts
+        log('📝 Tentando carregar suggestion-system-unified.js diretamente...', 'warning');
+        
+        const script = document.createElement('script');
+        script.src = './suggestion-system-unified.js?v=' + Date.now();
+        script.onload = () => {
+            log('✅ Script carregado com sucesso!', 'success');
+            
+            setTimeout(() => {
+                if (typeof window.suggestionSystem !== 'undefined') {
+                    log('✅ window.suggestionSystem encontrado!', 'success');
+                    log(`Tipo: ${typeof window.suggestionSystem}`, 'success');
+                    
+                    if (typeof window.suggestionSystem.process === 'function') {
+                        log('✅ Método process() disponível!', 'success');
+                        
+                        // Teste rápido
+                        try {
+                            const testResult = window.suggestionSystem.process(
+                                { technicalData: { lufs: -6.0, true_peak: -0.1 } },
+                                { genre: 'trance', lufs_target: -9.0, tol_lufs: 1.0, true_peak_target: -1.0, tol_true_peak: 0.5 }
+                            );
+                            log(`✅ Teste executado! Sugestões: ${testResult?.suggestions?.length || 0}`, 'success');
+                        } catch (error) {
+                            log(`❌ Erro no teste: ${error.message}`, 'error');
+                        }
+                    } else {
+                        log('❌ Método process() não encontrado!', 'error');
+                    }
+                } else {
+                    log('❌ window.suggestionSystem NÃO encontrado!', 'error');
+                }
+            }, 500);
+        };
+        
+        script.onerror = (error) => {
+            log('❌ ERRO ao carregar script!', 'error');
+            log(`Detalhes: ${error}`, 'error');
+            
+            // Tentar caminho alternativo
+            log('🔄 Tentando caminho alternativo...', 'warning');
+            const script2 = document.createElement('script');
+            script2.src = './public/suggestion-system-unified.js?v=' + Date.now();
+            script2.onload = () => log('✅ Script alternativo carregado!', 'success');
+            script2.onerror = () => log('❌ Script alternativo também falhou!', 'error');
+            document.head.appendChild(script2);
+        };
+        
+        document.head.appendChild(script);
+    </script>
+</body>
+</html>

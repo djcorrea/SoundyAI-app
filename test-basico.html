@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Teste Básico Sistema</title>
+</head>
+<body>
+    <h1>Teste Sistema SoundyAI</h1>
+    <div id="result"></div>
+    
+    <script src="public/suggestion-system-unified.js"></script>
+    <script>
+        console.log('=== INICIANDO TESTE ===');
+        
+        setTimeout(() => {
+            console.log('window.suggestionSystem:', window.suggestionSystem);
+            
+            if (window.suggestionSystem) {
+                console.log('✅ Sistema carregado');
+                console.log('Tipo:', typeof window.suggestionSystem);
+                console.log('Método process:', typeof window.suggestionSystem.process);
+                
+                // Teste simples
+                const testData = {
+                    technicalData: {
+                        lufs: -6.0,
+                        true_peak: -0.1,
+                        dr: 4.0
+                    }
+                };
+                
+                const reference = {
+                    genre: 'trance',
+                    lufs_target: -9.0,
+                    tol_lufs: 1.0,
+                    true_peak_target: -1.0,
+                    tol_true_peak: 0.5,
+                    dr_target: 7.0,
+                    tol_dr: 1.5
+                };
+                
+                console.log('🧪 Executando teste...');
+                try {
+                    const result = window.suggestionSystem.process(testData, reference);
+                    console.log('✅ Resultado:', result);
+                    document.getElementById('result').innerHTML = 
+                        `<h2>Resultado:</h2><pre>${JSON.stringify(result, null, 2)}</pre>`;
+                } catch (error) {
+                    console.error('❌ Erro:', error);
+                    document.getElementById('result').innerHTML = 
+                        `<h2>Erro:</h2><pre>${error.message}\n${error.stack}</pre>`;
+                }
+            } else {
+                console.error('❌ Sistema não carregado');
+                document.getElementById('result').innerHTML = '<h2>❌ Sistema não carregado</h2>';
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

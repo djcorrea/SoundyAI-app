@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>🔧 Debug Sistema de Sugestões</title>
+    <style>
+        body { font-family: monospace; margin: 20px; background: #f5f5f5; }
+        .debug { background: white; padding: 15px; margin: 10px 0; border-radius: 4px; border-left: 4px solid #007bff; }
+        .error { border-left-color: #dc3545; background: #f8d7da; }
+        .success { border-left-color: #28a745; background: #d4edda; }
+        .warning { border-left-color: #ffc107; background: #fff3cd; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        button { padding: 8px 16px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Debug Sistema de Sugestões</h1>
+    
+    <div class="debug">
+        <h3>📊 Status do Sistema</h3>
+        <div id="status">Carregando...</div>
+    </div>
+    
+    <div class="debug">
+        <h3>🧪 Teste Rápido</h3>
+        <button onclick="testarSistema()">Testar Sistema</button>
+        <button onclick="debugCompleto()">Debug Completo</button>
+        <button onclick="limpar()">Limpar</button>
+    </div>
+    
+    <div class="debug">
+        <h3>📝 Resultado do Teste</h3>
+        <div id="resultado"></div>
+    </div>
+    
+    <div class="debug">
+        <h3>🔍 Debug Detalhado</h3>
+        <div id="debug"></div>
+    </div>
+
+    <!-- Carregar sistema -->
+    <script src="suggestion-system-unified.js"></script>
+    
+    <script>
+        // Dados de teste simples
+        const testData = {
+            technicalData: {
+                lufsIntegrated: -5.0,    // Muito alto vs -7.8
+                truePeakDbtp: 1.0,       // Muito alto vs -1.0
+                dynamicRange: 15.0,      // Muito alto vs 7.8
+                stereoCorrelation: 0.5,  // Baixo vs 0.85
+                bandEnergies: [
+                    { rms_db: -10.0, energy_percentage: 40.0 },
+                    { rms_db: -10.0, energy_percentage: 30.0 }
+                ]
+            }
+        };
+        
+        const testReference = {
+            funk_mandela: {
+                legacy_compatibility: {
+                    lufs_target: -7.8,
+                    true_peak_target: -1.0,
+                    dr_target: 7.8,
+                    stereo_target: 0.85,
+                    tol_lufs: 2.5,
+                    tol_true_peak: 1.0,
+                    tol_dr: 1.5,
+                    tol_stereo: 0.25
+                }
+            }
+        };
+        
+        function updateStatus() {
+            const statusDiv = document.getElementById('status');
+            let html = '<h4>Sistema Carregado:</h4>';
+            
+            html += `<p>window.suggestionSystem: ${!!window.suggestionSystem}</p>`;
+            html += `<p>window.SuggestionSystemUnified: ${!!window.SuggestionSystemUnified}</p>`;
+            html += `<p>window.MetricsNormalizer: ${!!window.MetricsNormalizer}</p>`;
+            
+            if (window.suggestionSystem) {
+                html += `<p class="success">✅ Sistema disponível</p>`;
+                html += `<p>Tipo: ${typeof window.suggestionSystem}</p>`;
+                html += `<p>Método process: ${typeof window.suggestionSystem.process}</p>`;
+            } else {
+                html += `<p class="error">❌ Sistema não carregado</p>`;
+            }
+            
+            statusDiv.innerHTML = html;
+        }
+        
+        function testarSistema() {
+            const resultDiv = document.getElementById('resultado');
+            
+            if (!window.suggestionSystem) {
+                resultDiv.innerHTML = '<p class="error">❌ Sistema não carregado</p>';
+                return;
+            }
+            
+            try {
+                console.log('🧪 Iniciando teste...');
+                console.log('Dados de entrada:', testData);
+                console.log('Referência:', testReference);
+                
+                const result = window.suggestionSystem.process(testData, testReference);
+                
+                console.log('Resultado:', result);
+                
+                let html = '<h4>Resultado do Teste:</h4>';
+                html += `<p>Sugestões geradas: ${result.suggestions?.length || 0}</p>`;
+                
+                if (result.suggestions && result.suggestions.length > 0) {
+                    html += '<h5>Sugestões:</h5>';
+                    result.suggestions.forEach((s, i) => {
+                        html += `<div style="margin: 10px 0; padding: 8px; background: #f8f9fa; border-radius: 4px;">`;
+                        html += `<strong>${i+1}. ${s.title || s.metric || 'Sem título'}</strong><br>`;
+                        html += `<em>Explicação: ${s.explanation || 'Sem explicação'}</em><br>`;
+                        html += `<small>Solução: ${s.solution || 'Sem solução'}</small><br>`;
+                        html += `<small>Delta: ${s.delta}, Direção: ${s.direction}, Severidade: ${s.severity?.level}</small>`;
+                        html += `</div>`;
+                    });
+                } else {
+                    html += '<p class="warning">⚠️ Nenhuma sugestão gerada</p>';
+                }
+                
+                if (result._suggestionMetadata) {
+                    html += '<h5>Metadata:</h5>';
+                    html += `<pre>${JSON.stringify(result._suggestionMetadata, null, 2)}</pre>`;
+                }
+                
+                resultDiv.innerHTML = html;
+                
+            } catch (error) {
+                console.error('Erro no teste:', error);
+                resultDiv.innerHTML = `<p class="error">❌ Erro: ${error.message}</p><pre>${error.stack}</pre>`;
+            }
+        }
+        
+        function debugCompleto() {
+            const debugDiv = document.getElementById('debug');
+            
+            let html = '<h4>Debug Completo:</h4>';
+            
+            // 1. Verificar classes
+            html += '<h5>1. Classes Disponíveis:</h5>';
+            html += `<p>MetricsNormalizer: ${typeof window.MetricsNormalizer}</p>`;
+            html += `<p>SuggestionEngineUnified: ${typeof window.SuggestionEngineUnified}</p>`;
+            html += `<p>SuggestionScorerUnified: ${typeof window.SuggestionScorerUnified}</p>`;
+            html += `<p>SuggestionTextGeneratorUnified: ${typeof window.SuggestionTextGeneratorUnified}</p>`;
+            
+            // 2. Testar normalização
+            if (window.MetricsNormalizer) {
+                try {
+                    const normalizer = new window.MetricsNormalizer();
+                    const normalized = normalizer.normalizeBackendMetrics(testData.technicalData);
+                    const reference = normalizer.normalizeReferenceData(testReference);
+                    
+                    html += '<h5>2. Normalização:</h5>';
+                    html += `<pre>Métricas normalizadas: ${JSON.stringify(normalized, null, 2)}</pre>`;
+                    html += `<pre>Referência normalizada: ${JSON.stringify(reference, null, 2)}</pre>`;
+                } catch (error) {
+                    html += `<p class="error">Erro na normalização: ${error.message}</p>`;
+                }
+            }
+            
+            // 3. Testar engine
+            if (window.SuggestionEngineUnified) {
+                try {
+                    const engine = new window.SuggestionEngineUnified();
+                    html += '<h5>3. Engine:</h5>';
+                    html += `<p>Engine criado: ${!!engine}</p>`;
+                    html += `<p>Método process: ${typeof engine.process}</p>`;
+                } catch (error) {
+                    html += `<p class="error">Erro no engine: ${error.message}</p>`;
+                }
+            }
+            
+            debugDiv.innerHTML = html;
+        }
+        
+        function limpar() {
+            document.getElementById('resultado').innerHTML = '';
+            document.getElementById('debug').innerHTML = '';
+        }
+        
+        // Inicialização
+        window.addEventListener('load', () => {
+            updateStatus();
+            
+            // Aguardar um pouco para o sistema carregar
+            setTimeout(updateStatus, 1000);
+            setTimeout(updateStatus, 3000);
+        });
+        
+        // Debug global
+        window.debugSuggestions = {
+            testData,
+            testReference,
+            test: testarSistema,
+            debug: debugCompleto
+        };
+    </script>
+</body>
+</html>
