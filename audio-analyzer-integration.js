@@ -1,17 +1,21 @@
 // 🎵 AUDIO ANALYZER INTEGRATION
 // Conecta o sistema de análise de áudio com o chat existente
 
-// 🎯 CARREGAR SISTEMA UNIFICADO DE SUGESTÕES
+// 🎯 CARREGAR SISTEMA UNIFICADO CORRIGIDO - Versão com todas as correções
 if (typeof window !== 'undefined' && !window.suggestionSystem) {
     const script = document.createElement('script');
     script.src = 'suggestion-system-unified.js';
     script.async = true;
     script.onload = () => {
-        console.log('🎯 [AudioIntegration] Sistema Unificado de Sugestões carregado');
+        console.log('🎯 [AudioIntegration] Sistema Unificado CORRIGIDO carregado');
+        console.log('✅ Correções implementadas: delta correto, direção correta, z-score, cobertura total, textos educativos');
         console.log('📋 Acesso via: window.suggestionSystem');
+        // Ativar sistema unificado por padrão
+        window.USE_UNIFIED_SUGGESTIONS = true;
     };
     script.onerror = () => {
-        console.warn('[AudioIntegration] Falha ao carregar gerador de texto didático');
+        console.warn('[AudioIntegration] Falha ao carregar sistema unificado - usando fallback');
+        window.USE_UNIFIED_SUGGESTIONS = false;
     };
     document.head.appendChild(script);
 }

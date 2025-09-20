@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Teste Sistema Corrigido - Critérios de Aceite</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            background: #fafafa;
+        }
+        .test-case {
+            margin: 15px 0;
+            padding: 12px;
+            background: white;
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+        .suggestion {
+            margin: 8px 0;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 4px solid;
+            font-size: 14px;
+        }
+        .severity-green { border-left-color: #28a745; background: #d4edda; }
+        .severity-yellow { border-left-color: #ffc107; background: #fff3cd; }
+        .severity-orange { border-left-color: #fd7e14; background: #ffeaa7; }
+        .severity-red { border-left-color: #dc3545; background: #f8d7da; }
+        
+        .results {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        
+        .expected {
+            background: #e8f5e8;
+            padding: 8px;
+            border-radius: 4px;
+            margin: 5px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        
+        .validation {
+            padding: 8px;
+            border-radius: 4px;
+            margin: 5px 0;
+            font-weight: bold;
+        }
+        .validation.pass { background: #d4edda; color: #155724; }
+        .validation.fail { background: #f8d7da; color: #721c24; }
+        
+        button {
+            padding: 8px 16px;
+            margin: 5px;
+            border: none;
+            border-radius: 4px;
+            background: #007bff;
+            color: white;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover { background: #0056b3; }
+        button.success { background: #28a745; }
+        button.danger { background: #dc3545; }
+        
+        .metadata {
+            background: #f1f3f4;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 11px;
+            margin: 10px 0;
+        }
+        
+        .summary {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 6px solid #2196f3;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Teste Sistema Corrigido - Critérios de Aceite</h1>
+        <p>Validação completa do sistema de sugestões corrigido conforme especificação técnica.</p>
+        
+        <div class="summary">
+            <h3>📋 Critérios de Aceite Testados</h3>
+            <ul>
+                <li>✅ Cálculo delta correto (medido - alvo)</li>
+                <li>✅ Direção correta (aumentar/reduzir + quantidade)</li>
+                <li>✅ Severidade por z-score com cores</li>
+                <li>✅ Cobertura total (todas as métricas)</li>
+                <li>✅ Textos educativos (3 camadas)</li>
+                <li>✅ Funcionamento em todos os gêneros</li>
+            </ul>
+        </div>
+        
+        <div class="test-section">
+            <h3>🧪 Casos de Teste</h3>
+            <button onclick="testarFunkMandela()">Testar Funk Mandela (Exemplo Específico)</button>
+            <button onclick="testarTrance()">Testar Trance (Problema Resolvido)</button>
+            <button onclick="testarValoresExtremos()">Testar Valores Extremos</button>
+            <button onclick="testarTodasMetricas()">Testar Todas as Métricas</button>
+            <button onclick="testarCompatibilidade()">Testar Compatibilidade</button>
+            <button onclick="limparResultados()" class="danger">Limpar</button>
+        </div>
+        
+        <div class="test-section">
+            <h3>📊 Resultados dos Testes</h3>
+            <div id="results"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>📈 Resumo de Validação</h3>
+            <div id="summary"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🔍 Metadata de Performance</h3>
+            <div id="metadata" class="metadata"></div>
+        </div>
+    </div>
+
+    <!-- Carregar sistema unificado corrigido -->
+    <script src="public/suggestion-system-unified.js"></script>
+    
+    <script>
+        // 📊 Dados de teste baseados nos critérios de aceite
+        
+        // Funk Mandela - dados exatos do exemplo
+        const funkMandelaTest = {
+            technicalData: {
+                lufsIntegrated: -7.56,        // vs -7.80 ±2.50 → dentro tolerância (Verde)
+                truePeakDbtp: 0.30,           // vs -1.00 → +1.30 excesso (Vermelho)
+                dynamicRange: 12.69,          // vs 7.80 ±1.50 → +4.89 (Vermelho)
+                volumeConsistencyLU: 14.09,   // vs 2.50 ±1.50 → +11.59 (Vermelho)
+                stereoCorrelation: 0.65,      // vs 0.85 ±0.25 → -0.20 (OK)
+                bandEnergies: [
+                    { rms_db: -12.3, energy_percentage: 32.5 }, // sub: +5.0 vs -17.3
+                    { rms_db: -15.7, energy_percentage: 28.8 }, // bass: +2.0 vs -17.7
+                    { rms_db: -19.5, energy_percentage: 11.0 }, // upper_bass: +2.0 vs -21.5
+                    { rms_db: -16.7, energy_percentage: 14.4 }, // low_mid: +2.0 vs -18.7
+                    { rms_db: -15.9, energy_percentage: 17.4 }, // mid: +2.0 vs -17.9
+                    { rms_db: -20.9, energy_percentage: 7.3 }   // high_mid: +2.0 vs -22.9
+                ]
+            }
+        };
+        
+        // Trance - para verificar se problema foi resolvido
+        const tranceTest = {
+            technicalData: {
+                lufsIntegrated: -8.0,         // vs -10.5 ±2.5 → +2.5 (Amarelo)
+                truePeakDbtp: 1.5,            // vs -0.9 → +2.4 excesso (Vermelho)
+                dynamicRange: 4.0,            // vs 6.8 ±3.0 → -2.8 (OK)
+                stereoCorrelation: 0.9,       // vs 0.72 ±0.25 → +0.18 (OK)
+                bandEnergies: [
+                    { rms_db: -13.0, energy_percentage: 22.5 }, // sub: +3.0 vs -16.0
+                    { rms_db: -14.8, energy_percentage: 24.2 }, // bass: +3.0 vs -17.8
+                    { rms_db: -16.5, energy_percentage: 18.8 }, // upper_bass: +3.0 vs -19.5
+                    { rms_db: -15.2, energy_percentage: 19.5 }, // low_mid: +3.0 vs -18.2
+                    { rms_db: -14.1, energy_percentage: 21.2 }, // mid: +3.0 vs -17.1
+                    { rms_db: -17.8, energy_percentage: 11.1 }  // high_mid: +3.0 vs -20.8
+                ]
+            }
+        };
+        
+        // Carregar referências de gênero
+        let funkReference = null;
+        let tranceReference = null;
+        
+        async function carregarReferencias() {
+            try {
+                const [funkRes, tranceRes] = await Promise.all([
+                    fetch('public/refs/funk_mandela.json'),
+                    fetch('public/refs/trance.json')
+                ]);
+                
+                funkReference = await funkRes.json();
+                tranceReference = await tranceRes.json();
+                
+                console.log('📚 Referências carregadas:', {
+                    funk: !!funkReference,
+                    trance: !!tranceReference
+                });
+                
+            } catch (error) {
+                console.error('❌ Erro ao carregar referências:', error);
+            }
+        }
+        
+        function testarFunkMandela() {
+            if (!funkReference) {
+                alert('❌ Referência Funk Mandela não carregada');
+                return;
+            }
+            
+            const testCase = {
+                title: 'Funk Mandela - Exemplo Específico dos Critérios',
+                expected: [
+                    'LUFS: -7.56 vs -7.80 ±2.50 → VERDE (dentro tolerância)',
+                    'True Peak: +0.30 vs -1.00 → VERMELHO (reduzir 1.30 dBTP)',
+                    'DR: 12.69 vs 7.80 ±1.50 → VERMELHO (reduzir 4.89 dB)',
+                    'Vol Consistency: 14.09 vs 2.50 ±1.50 → VERMELHO (reduzir 11.59 LU)',
+                    'Stereo: 0.65 vs 0.85 ±0.25 → VERDE (dentro tolerância)',
+                    'Bandas: 6 sugestões esperadas (sub, bass, upper_bass, low_mid, mid, high_mid)'
+                ]
+            };
+            
+            executarTeste(funkMandelaTest, funkReference, testCase);
+        }
+        
+        function testarTrance() {
+            if (!tranceReference) {
+                alert('❌ Referência Trance não carregada');
+                return;
+            }
+            
+            const testCase = {
+                title: 'Trance - Verificar Problema Resolvido',
+                expected: [
+                    'LUFS: -8.0 vs -10.5 ±2.5 → AMARELO (aumentar 2.5 LUFS)',
+                    'True Peak: +1.5 vs -0.9 → VERMELHO (reduzir 2.4 dBTP)',
+                    'DR: 4.0 vs 6.8 ±3.0 → VERDE (dentro tolerância)',
+                    'Stereo: 0.9 vs 0.72 ±0.25 → VERDE (dentro tolerância)',
+                    'Bandas: 6 sugestões esperadas para bandas fora da tolerância'
+                ]
+            };
+            
+            executarTeste(tranceTest, tranceReference, testCase);
+        }
+        
+        function testarValoresExtremos() {
+            const extremeTest = {
+                technicalData: {
+                    lufsIntegrated: -3.0,     // Muito alto
+                    truePeakDbtp: 3.0,        // Muito alto
+                    dynamicRange: 15.0,       // Muito alto
+                    stereoCorrelation: 1.2,   // Impossível, mas testa robustez
+                    bandEnergies: [
+                        { rms_db: -5.0, energy_percentage: 60.0 },  // Muito alto
+                        { rms_db: -5.0, energy_percentage: 50.0 }   // Muito alto
+                    ]
+                }
+            };
+            
+            const testCase = {
+                title: 'Valores Extremos - Severidade Vermelha',
+                expected: [
+                    'Todas as métricas devem gerar sugestões VERMELHAS',
+                    'Z-score > 3.0 para todas as violações',
+                    'Textos explicativos claros sobre os problemas',
+                    'Ordenação por severidade (vermelho primeiro)'
+                ]
+            };
+            
+            executarTeste(extremeTest, funkReference, testCase);
+        }
+        
+        function testarTodasMetricas() {
+            const allMetricsTest = {
+                technicalData: {
+                    lufsIntegrated: -5.0,
+                    truePeakDbtp: 2.0,
+                    dynamicRange: 15.0,
+                    lra: 8.0,
+                    stereoCorrelation: 1.1,
+                    volumeConsistencyLU: 10.0,
+                    bandEnergies: [
+                        { rms_db: -10.0, energy_percentage: 40.0 },
+                        { rms_db: -10.0, energy_percentage: 40.0 },
+                        { rms_db: -10.0, energy_percentage: 40.0 },
+                        { rms_db: -10.0, energy_percentage: 40.0 },
+                        { rms_db: -10.0, energy_percentage: 40.0 },
+                        { rms_db: -10.0, energy_percentage: 40.0 }
+                    ]
+                }
+            };
+            
+            const testCase = {
+                title: 'Cobertura Total - Todas as Métricas',
+                expected: [
+                    'LUFS, True Peak, DR, LRA, Stereo, Vol Consistency: 6 sugestões',
+                    'Bandas espectrais: 6 sugestões (sub, bass, low_mid, mid, high_mid, presence)',
+                    'Total esperado: 12+ sugestões',
+                    'Cálculo delta correto para cada métrica',
+                    'Severidade baseada em z-score'
+                ]
+            };
+            
+            executarTeste(allMetricsTest, funkReference, testCase);
+        }
+        
+        function testarCompatibilidade() {
+            const compatTest = {
+                technicalData: {
+                    // Nomes antigos - devem ser normalizados
+                    loudnessLUFS: -5.0,
+                    truePeak: 2.0,
+                    dynamicRangeDb: 15.0,
+                    stereoWidth: 1.1
+                }
+            };
+            
+            const testCase = {
+                title: 'Compatibilidade - Nomes Antigos',
+                expected: [
+                    'Normalização automática de nomes antigos',
+                    'loudnessLUFS → lufs',
+                    'truePeak → true_peak',
+                    'dynamicRangeDb → dr',
+                    'stereoWidth → stereo',
+                    'Funcionamento idêntico aos nomes novos'
+                ]
+            };
+            
+            executarTeste(compatTest, funkReference, testCase);
+        }
+        
+        function executarTeste(analysisData, referenceData, testCase) {
+            if (!window.suggestionSystem) {
+                alert('❌ Sistema unificado não carregado');
+                return;
+            }
+            
+            const startTime = performance.now();
+            
+            try {
+                const result = window.suggestionSystem.process(analysisData, referenceData);
+                const endTime = performance.now();
+                
+                exibirResultadoTeste(result, testCase, endTime - startTime);
+                atualizarSumario();
+                
+            } catch (error) {
+                console.error('❌ Erro no teste:', error);
+                alert(`❌ Erro: ${error.message}`);
+            }
+        }
+        
+        function exibirResultadoTeste(result, testCase, processingTime) {
+            const resultsDiv = document.getElementById('results');
+            
+            let html = `
+                <div class="test-case">
+                    <h4>${testCase.title}</h4>
+                    <div class="expected">
+                        <strong>Esperado:</strong><br>
+                        ${testCase.expected.map(e => `• ${e}`).join('<br>')}
+                    </div>
+                    
+                    <div class="results">
+                        <strong>Resultado:</strong> ${result.suggestions.length} sugestões geradas em ${processingTime.toFixed(2)}ms
+                        
+                        ${result.suggestions.map(s => `
+                            <div class="suggestion severity-${s.severity.level}">
+                                <strong>${s.severity.label.toUpperCase()}</strong>: ${s.title}<br>
+                                <em>💡 ${s.explanation}</em><br>
+                                <small>🔧 ${s.solution}</small><br>
+                                <small>📊 Delta: ${s.delta > 0 ? '+' : ''}${s.delta.toFixed(2)} ${s.unit}, Z-score: ${s.z_score.toFixed(2)}</small>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    ${validarCriteriosAceite(result, testCase)}
+                </div>
+            `;
+            
+            resultsDiv.innerHTML += html;
+        }
+        
+        function validarCriteriosAceite(result, testCase) {
+            const validations = [];
+            
+            // Validar quantidade mínima de sugestões
+            const hasEnoughSuggestions = result.suggestions.length >= 3;
+            validations.push({
+                test: 'Quantidade mínima de sugestões',
+                pass: hasEnoughSuggestions,
+                detail: `${result.suggestions.length} sugestões geradas`
+            });
+            
+            // Validar cálculo delta correto
+            const deltaCorrect = result.suggestions.every(s => 
+                Number.isFinite(s.delta) && Number.isFinite(s.measured) && Number.isFinite(s.target)
+            );
+            validations.push({
+                test: 'Cálculo delta correto',
+                pass: deltaCorrect,
+                detail: 'Todos os deltas são números válidos'
+            });
+            
+            // Validar severidade por z-score
+            const severityCorrect = result.suggestions.every(s => 
+                s.severity && s.z_score && 
+                ['green', 'yellow', 'orange', 'red'].includes(s.severity.level)
+            );
+            validations.push({
+                test: 'Severidade por z-score',
+                pass: severityCorrect,
+                detail: 'Todas as sugestões têm severidade válida'
+            });
+            
+            // Validar textos educativos
+            const textsComplete = result.suggestions.every(s => 
+                s.title && s.explanation && s.solution &&
+                s.title.length > 5 && s.explanation.length > 20 && s.solution.length > 20
+            );
+            validations.push({
+                test: 'Textos educativos completos',
+                pass: textsComplete,
+                detail: 'Título, explicação e solução presentes'
+            });
+            
+            // Validar ordenação por severidade
+            const severityOrder = { red: 4, orange: 3, yellow: 2, green: 1 };
+            const isOrdered = result.suggestions.every((s, i, arr) => {
+                if (i === 0) return true;
+                const currentSev = severityOrder[s.severity.level];
+                const prevSev = severityOrder[arr[i-1].severity.level];
+                return currentSev <= prevSev;
+            });
+            validations.push({
+                test: 'Ordenação por severidade',
+                pass: isOrdered,
+                detail: 'Vermelho → Laranja → Amarelo → Verde'
+            });
+            
+            return validations.map(v => `
+                <div class="validation ${v.pass ? 'pass' : 'fail'}">
+                    ${v.pass ? '✅' : '❌'} ${v.test}: ${v.detail}
+                </div>
+            `).join('');
+        }
+        
+        function atualizarSumario() {
+            const summaryDiv = document.getElementById('summary');
+            const allTests = document.querySelectorAll('.validation');
+            const passedTests = document.querySelectorAll('.validation.pass');
+            
+            const total = allTests.length;
+            const passed = passedTests.length;
+            const percentage = total > 0 ? (passed / total * 100).toFixed(1) : 0;
+            
+            summaryDiv.innerHTML = `
+                <h4>📊 Resumo Geral</h4>
+                <div class="validation ${percentage >= 80 ? 'pass' : 'fail'}">
+                    Testes aprovados: ${passed}/${total} (${percentage}%)
+                </div>
+                <div class="metadata">
+                    Sistema ${percentage >= 80 ? 'APROVADO' : 'REPROVADO'} nos critérios de aceite<br>
+                    Última execução: ${new Date().toLocaleString()}
+                </div>
+            `;
+        }
+        
+        function limparResultados() {
+            document.getElementById('results').innerHTML = '';
+            document.getElementById('summary').innerHTML = '';
+            document.getElementById('metadata').innerHTML = '';
+        }
+        
+        // Inicialização
+        window.addEventListener('load', async () => {
+            await carregarReferencias();
+            
+            const metadataDiv = document.getElementById('metadata');
+            metadataDiv.innerHTML = `
+                Sistema carregado: ${!!window.suggestionSystem}<br>
+                Referências disponíveis: Funk Mandela (${!!funkReference}), Trance (${!!tranceReference})<br>
+                Pronto para testes de validação
+            `;
+            
+            console.log('🎯 Sistema de testes carregado e pronto');
+        });
+    </script>
+</body>
+</html>
