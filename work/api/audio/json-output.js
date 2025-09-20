@@ -6,7 +6,24 @@
 import { computeMixScore } from "../../lib/audio/features/scoring.js";
 import { makeErr, logAudio, assertFinite } from '../../lib/audio/error-handling.js';
 
-console.log("📦 JSON Output & Scoring (Fase 5.4) carregado - Equal Weight V3 COMPLETO");
+// 🚨 CORREÇÃO SUPER AGRESSIVA: Força campo 'type' em TODAS as sugestões
+function FORCE_TYPE_FIELD(suggestions) {
+  if (!Array.isArray(suggestions)) return [];
+  
+  return suggestions.map(s => {
+    if (!s || typeof s !== 'object') return s;
+    
+    // FORÇA O CAMPO TYPE - SEMPRE!
+    const result = { ...s };
+    if (!result.type && result.metric) {
+      result.type = result.metric;
+      console.log(`🚨 FORÇANDO type="${result.metric}" para sugestão:`, result.message?.substring(0, 50));
+    }
+    return result;
+  });
+}
+
+console.log("📦 JSON Output & Scoring (Fase 5.4) carregado - Equal Weight V3 COMPLETO + CORREÇÃO AGRESSIVA");
 
 export function generateJSONOutput(coreMetrics, reference = null, metadata = {}, options = {}) {
   const jobId = options.jobId || 'unknown';
@@ -552,10 +569,7 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
   // ===== Problems / Suggestions =====
   technicalData.problemsAnalysis = {
     problems: coreMetrics.problems || [],
-    suggestions: (coreMetrics.suggestions || []).map(s => ({
-      ...s,
-      type: s.type || s.metric  // ✅ CORREÇÃO EMERGENCIAL: Adicionar campo 'type'
-    })),
+    suggestions: FORCE_TYPE_FIELD(coreMetrics.suggestions || []), // 🚨 CORREÇÃO SUPER AGRESSIVA
     qualityAssessment: coreMetrics.qualityAssessment || {},
     priorityRecommendations: coreMetrics.priorityRecommendations || []
   };
@@ -715,10 +729,7 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     // ===== DIAGNOSTICS =====
     diagnostics: {
       problems: technicalData.problemsAnalysis?.problems || [],
-      suggestions: (technicalData.problemsAnalysis?.suggestions || []).map(s => ({
-        ...s,
-        type: s.type || s.metric  // ✅ CORREÇÃO EMERGENCIAL: Adicionar campo 'type'
-      })),
+      suggestions: FORCE_TYPE_FIELD(technicalData.problemsAnalysis?.suggestions || []), // 🚨 CORREÇÃO SUPER AGRESSIVA
       prioritized: technicalData.problemsAnalysis?.priorityRecommendations || []
     },
 
