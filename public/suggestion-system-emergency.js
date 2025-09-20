@@ -118,8 +118,55 @@
     
     // Exportar globalmente
     if (typeof window !== 'undefined') {
+        // 🎯 PRIORIDADE: Usar EnhancedSuggestionEngine se disponível
+        if (typeof window.EnhancedSuggestionEngine !== 'undefined') {
+            console.log('🎯 [EMERGÊNCIA] ✅ EnhancedSuggestionEngine encontrado - usando versão avançada');
+            
+            class HybridSuggestionSystem {
+                constructor() {
+                    this.enhancedEngine = new window.EnhancedSuggestionEngine();
+                    this.emergencyEngine = new SuggestionSystemEmergency();
+                    console.log('🎯 [HÍBRIDO] Sistema híbrido inicializado');
+                }
+                
+                process(analysis, referenceData) {
+                    console.log('🎯 [HÍBRIDO] Processando com engine avançado...');
+                    
+                    try {
+                        // Tentar usar o engine avançado primeiro
+                        const result = this.enhancedEngine.processAnalysis(analysis, referenceData);
+                        
+                        console.log('🎯 [HÍBRIDO] Engine avançado resultado:', {
+                            suggestions: result.suggestions?.length || 0,
+                            hasAuditLog: !!result.auditLog,
+                            processingTime: result.enhancedMetrics?.processingTimeMs
+                        });
+                        
+                        // Se obteve sugestões, usar resultado avançado
+                        if (result.suggestions && result.suggestions.length > 0) {
+                            console.log('✅ [HÍBRIDO] Usando resultado do engine avançado');
+                            return result;
+                        } else {
+                            console.warn('⚠️ [HÍBRIDO] Engine avançado não gerou sugestões - usando fallback');
+                            return this.emergencyEngine.process(analysis, referenceData);
+                        }
+                        
+                    } catch (error) {
+                        console.error('❌ [HÍBRIDO] Erro no engine avançado:', error);
+                        console.log('🔄 [HÍBRIDO] Usando sistema de emergência...');
+                        return this.emergencyEngine.process(analysis, referenceData);
+                    }
+                }
+            }
+            
+            window.suggestionSystem = new HybridSuggestionSystem();
+            
+        } else {
+            console.log('🚨 [EMERGÊNCIA] EnhancedSuggestionEngine não encontrado - usando sistema simples');
+            window.suggestionSystem = new SuggestionSystemEmergency();
+        }
+        
         window.SuggestionSystemUnified = SuggestionSystemEmergency;
-        window.suggestionSystem = new SuggestionSystemEmergency();
         window.USE_UNIFIED_SUGGESTIONS = true;
         console.log('🚨 [EMERGÊNCIA] Sistema disponível globalmente');
         console.log('✅ window.suggestionSystem:', typeof window.suggestionSystem);

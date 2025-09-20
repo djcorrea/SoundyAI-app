@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>🔍 Debug Timing Sugestões - Railway</title>
+    <style>
+        body { font-family: monospace; background: #1a1a1a; color: #f0f0f0; padding: 20px; }
+        .log { background: #2a2a2a; padding: 10px; margin: 5px 0; border-radius: 4px; border-left: 4px solid #444; }
+        .success { border-left-color: #4caf50; }
+        .error { border-left-color: #f44336; }
+        .warning { border-left-color: #ff9800; }
+        .info { border-left-color: #2196f3; }
+        button { background: #4a90e2; color: white; border: none; padding: 10px; margin: 5px; border-radius: 4px; cursor: pointer; }
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin: 20px 0; }
+        .stat { background: #333; padding: 15px; border-radius: 6px; text-align: center; }
+        .stat-number { font-size: 24px; font-weight: bold; color: #4a90e2; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug Timing Sugestões - Railway</h1>
+    <p>Investigando por que sugestões só aparecem na segunda tentativa</p>
+    
+    <div>
+        <button onclick="debugCompleto()">🔍 Debug Completo</button>
+        <button onclick="testarTiming()">⏱️ Testar Timing</button>
+        <button onclick="simularTrocaGenero()">🔄 Simular Troca Gênero</button>
+        <button onclick="limpar()">🧹 Limpar</button>
+    </div>
+
+    <div class="stats">
+        <div class="stat">
+            <div class="stat-number" id="teste-count">0</div>
+            <div>Testes Executados</div>
+        </div>
+        <div class="stat">
+            <div class="stat-number" id="sugestoes-count">0</div>
+            <div>Sugestões Geradas</div>
+        </div>
+        <div class="stat">
+            <div class="stat-number" id="timing-avg">0ms</div>
+            <div>Tempo Médio</div>
+        </div>
+    </div>
+    
+    <div id="logs"></div>
+
+    <!-- Dependências na ordem correta -->
+    <script src="suggestion-scorer.js"></script>
+    <script src="enhanced-suggestion-engine.js"></script>
+    <script src="suggestion-system-emergency.js"></script>
+
+    <script>
+        let testeCounter = 0;
+        let totalSugestoes = 0;
+        let temposTeste = [];
+
+        function log(tipo, mensagem, dados = null) {
+            const timestamp = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.className = `log ${tipo}`;
+            div.innerHTML = `
+                <strong>[${timestamp}] ${mensagem}</strong>
+                ${dados ? `<pre>${JSON.stringify(dados, null, 2)}</pre>` : ''}
+            `;
+            document.getElementById('logs').appendChild(div);
+            console.log(`[${tipo}] ${mensagem}`, dados || '');
+            div.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+
+        function atualizarStats() {
+            document.getElementById('teste-count').textContent = testeCounter;
+            document.getElementById('sugestoes-count').textContent = totalSugestoes;
+            const avgTime = temposTeste.length > 0 ? 
+                (temposTeste.reduce((a, b) => a + b, 0) / temposTeste.length).toFixed(0) : 0;
+            document.getElementById('timing-avg').textContent = `${avgTime}ms`;
+        }
+
+        function debugCompleto() {
+            const startTime = Date.now();
+            testeCounter++;
+            
+            log('info', `🔍 Iniciando debug completo #${testeCounter}...`);
+            
+            try {
+                // Verificar dependências
+                log('info', '📦 Verificando dependências...');
+                
+                const deps = {
+                    SuggestionScorer: typeof window.SuggestionScorer,
+                    EnhancedSuggestionEngine: typeof window.EnhancedSuggestionEngine,
+                    suggestionSystem: typeof window.suggestionSystem,
+                    USE_UNIFIED_SUGGESTIONS: window.USE_UNIFIED_SUGGESTIONS
+                };
+                
+                log('success', '✅ Dependências verificadas', deps);
+                
+                // Verificar sistema ativo
+                if (!window.suggestionSystem) {
+                    log('error', '❌ window.suggestionSystem não encontrado');
+                    return;
+                }
+                
+                log('info', '⚙️ Testando processamento...');
+                
+                // Dados de teste simulando análise real
+                const testAnalysis = {
+                    metadata: { filename: `debug-test-${testeCounter}.wav` },
+                    technicalData: {
+                        lufs: -12.5,
+                        lufsIntegrated: -12.5,
+                        true_peak: -0.8,
+                        truePeakDbtp: -0.8,
+                        dr: 6.5,
+                        dynamicRange: 6.5,
+                        lra: 4.2,
+                        stereo: 0.85,
+                        stereoWidth: 0.85,
+                        frequencyAnalysis: {
+                            subbass: 0.68,
+                            bass: 0.82,
+                            lowMid: 0.79,
+                            mid: 0.91,
+                            highMid: 0.74,
+                            presenca: 0.66,
+                            brilho: 0.77
+                        }
+                    }
+                };
+                
+                const testReference = {
+                    genre: "Funk Mandela",
+                    lufs_target: -14.0,
+                    lufs_tolerance: 1.0,
+                    tol_lufs: 1.0,
+                    true_peak_target: -1.0,
+                    true_peak_tolerance: 0.5,
+                    tol_true_peak: 0.5,
+                    dr_target: 8.0,
+                    dr_tolerance: 2.0,
+                    lra_target: 6.0,
+                    lra_tolerance: 2.0,
+                    stereo_target: 0.8,
+                    stereo_tolerance: 0.15,
+                    bands: {
+                        subbass: { target: 0.7, tolerance: 0.1 },
+                        bass: { target: 0.8, tolerance: 0.1 },
+                        lowMid: { target: 0.8, tolerance: 0.1 },
+                        mid: { target: 0.9, tolerance: 0.1 },
+                        highMid: { target: 0.75, tolerance: 0.1 },
+                        presenca: { target: 0.7, tolerance: 0.1 },
+                        brilho: { target: 0.8, tolerance: 0.1 }
+                    }
+                };
+                
+                // Processar
+                const resultado = window.suggestionSystem.process(testAnalysis, testReference);
+                const endTime = Date.now();
+                const duracao = endTime - startTime;
+                temposTeste.push(duracao);
+                
+                const sugestoesCount = resultado.suggestions?.length || 0;
+                totalSugestoes += sugestoesCount;
+                
+                log('success', `✅ Teste concluído em ${duracao}ms`, {
+                    sugestoes: sugestoesCount,
+                    hasAuditLog: !!resultado.auditLog,
+                    hasEnhancedMetrics: !!resultado.enhancedMetrics,
+                    primeirasSugestoes: (resultado.suggestions || []).slice(0, 3).map(s => ({
+                        category: s.category,
+                        priority: s.priority?.toFixed(2),
+                        description: s.description?.substring(0, 50) + '...'
+                    }))
+                });
+                
+                // Debug específico para timing
+                if (sugestoesCount === 0) {
+                    log('warning', '⚠️ NENHUMA SUGESTÃO GERADA - investigando...');
+                    
+                    // Tentar novamente após delay
+                    setTimeout(() => {
+                        log('info', '🔄 Tentando novamente após 1s...');
+                        const resultado2 = window.suggestionSystem.process(testAnalysis, testReference);
+                        const sugestoes2 = resultado2.suggestions?.length || 0;
+                        
+                        if (sugestoes2 > 0) {
+                            log('error', `❌ PROBLEMA CONFIRMADO: Segunda tentativa gerou ${sugestoes2} sugestões!`);
+                        } else {
+                            log('info', '🤔 Segunda tentativa também não gerou sugestões');
+                        }
+                    }, 1000);
+                }
+                
+                atualizarStats();
+                
+            } catch (error) {
+                log('error', `💥 Erro no debug: ${error.message}`, { stack: error.stack });
+            }
+        }
+
+        function testarTiming() {
+            log('info', '⏱️ Testando timing de carregamento...');
+            
+            const testes = [0, 100, 500, 1000, 2000];
+            
+            testes.forEach((delay, index) => {
+                setTimeout(() => {
+                    log('info', `🔄 Teste timing ${index + 1}/5 (delay: ${delay}ms)`);
+                    debugCompleto();
+                }, delay);
+            });
+        }
+
+        function simularTrocaGenero() {
+            log('info', '🔄 Simulando troca de gênero...');
+            
+            // Simular o fluxo real: primeiro gênero
+            log('info', '1️⃣ Primeiro gênero (Funk Mandela)...');
+            debugCompleto();
+            
+            setTimeout(() => {
+                log('info', '2️⃣ Mudando para segundo gênero (House)...');
+                
+                // Simular mudança de referência (como acontece na interface)
+                const testAnalysis = {
+                    technicalData: {
+                        lufs: -13.8,
+                        true_peak: -1.2,
+                        dr: 7.2
+                    }
+                };
+                
+                const newReference = {
+                    genre: "House",
+                    lufs_target: -12.0,
+                    true_peak_target: -0.5,
+                    dr_target: 9.0
+                };
+                
+                const resultado = window.suggestionSystem.process(testAnalysis, newReference);
+                log('success', `🎯 Segundo gênero: ${resultado.suggestions?.length || 0} sugestões`);
+                
+                setTimeout(() => {
+                    log('info', '3️⃣ Voltando para primeiro gênero...');
+                    debugCompleto();
+                }, 500);
+                
+            }, 1000);
+        }
+
+        function limpar() {
+            document.getElementById('logs').innerHTML = '';
+            testeCounter = 0;
+            totalSugestoes = 0;
+            temposTeste = [];
+            atualizarStats();
+        }
+
+        // Auto-executar quando carregar
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                log('info', '🌐 Sistema carregado - executando debug inicial...');
+                debugCompleto();
+            }, 1000);
+        });
+
+        // Debug helpers globais
+        window.debugTiming = debugCompleto;
+        window.getCurrentSystem = () => window.suggestionSystem;
+    </script>
+</body>
+</html>
