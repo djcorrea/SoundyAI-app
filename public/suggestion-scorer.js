@@ -116,14 +116,14 @@ class SuggestionScorer {
             },
             band: {
                 high: {
-                    message: 'Banda {band} ligeiramente alta para {genre}',
-                    action: 'Reduzir {band} em {delta}dB para melhor definição ({range})',
-                    why: 'Melhora clareza e alinha com perfil do gênero'
+                    message: 'Banda {band} acima do ideal para {genre}',
+                    action: 'Reduzir {band} em ~{delta}dB ({range})',
+                    why: 'Alinha com perfil tonal do gênero'
                 },
                 low: {
-                    message: 'Banda {band} pode ser reforçada para {genre}',
-                    action: 'Aumentar {band} em {delta}dB para mais presença ({range})',
-                    why: 'Aumenta impacto e alinha com características do gênero'
+                    message: 'Banda {band} abaixo do ideal para {genre}',
+                    action: 'Aumentar {band} em ~{delta}dB ({range})',
+                    why: 'Alinha com perfil tonal do gênero'
                 }
             },
             sibilance: {
@@ -280,35 +280,6 @@ class SuggestionScorer {
         const delta = Math.abs(value - target);
         const direction = value > target ? 'high' : 'low';
         
-        // 🎯 LIMITAÇÃO INTELIGENTE DO DELTA PARA SUGESTÕES REALISTAS
-        let limitedDelta = delta;
-        
-        // Limitar delta baseado no tipo de métrica
-        if (metricType === 'lufs') {
-            limitedDelta = Math.min(delta, 6.0); // Máximo 6dB para LUFS
-        } else if (metricType === 'true_peak') {
-            limitedDelta = Math.min(delta, 3.0); // Máximo 3dB para True Peak  
-        } else if (metricType === 'dr') {
-            limitedDelta = Math.min(delta, 4.0); // Máximo 4dB para DR
-        } else if (metricType === 'band') {
-            limitedDelta = Math.min(delta, 6.0); // Máximo 6dB para bandas
-        } else {
-            limitedDelta = Math.min(delta, 8.0); // Máximo geral 8dB
-        }
-        
-        // Arredondar para valores práticos
-        if (limitedDelta > 3) {
-            limitedDelta = Math.round(limitedDelta); // Números inteiros para valores altos
-        } else {
-            limitedDelta = Math.round(limitedDelta * 2) / 2; // Múltiplos de 0.5 para valores baixos
-        }
-        
-        this.logAudit && this.logAudit('DELTA_LIMITED', 'Delta limitado para sugestão realista', {
-            originalDelta: delta.toFixed(2),
-            limitedDelta: limitedDelta.toFixed(1),
-            metricType
-        });
-        
         // Selecionar template
         let template = this.templates[metricType];
         if (template && template[direction || 'detected']) {
@@ -327,10 +298,10 @@ class SuggestionScorer {
             .replace('{genre}', genre || 'gênero')
             .replace('{band}', band || '')
             .replace('{freq}', freq || '')
-            .replace('{delta}', limitedDelta.toFixed(1));
+            .replace('{delta}', delta.toFixed(1));
             
         const action = template.action
-            .replace('{delta}', limitedDelta.toFixed(1))
+            .replace('{delta}', delta.toFixed(1))
             .replace('{target}', target?.toFixed(1) || '')
             .replace('{range}', this.bandRanges[band] || '')
             .replace('{band}', band || '')

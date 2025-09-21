@@ -1,58 +1,58 @@
-﻿// ðŸŽµ AUDIO ANALYZER INTEGRATION - VERSÃƒO REFATORADA
-// Sistema de anÃ¡lise 100% baseado em processamento no back-end (Railway + Bucket)
-// âš ï¸ REMOÃ‡ÃƒO COMPLETA: Web Audio API, AudioContext, processamento local
-// âœ… NOVO FLUXO: Presigned URL â†’ Upload â†’ Job Creation â†’ Status Polling
+// 🎵 AUDIO ANALYZER INTEGRATION - VERSÃO REFATORADA
+// Sistema de análise 100% baseado em processamento no back-end (Railway + Bucket)
+// ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
+// ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
 
-// ðŸ“ Carregar gerador de texto didÃ¡tico
+// 📝 Carregar gerador de texto didático
 if (typeof window !== 'undefined' && !window.SuggestionTextGenerator) {
     const script = document.createElement('script');
     script.src = 'suggestion-text-generator.js';
     script.async = true;
     script.onload = () => {
-        console.log('[AudioIntegration] Gerador de texto didÃ¡tico carregado');
+        console.log('[AudioIntegration] Gerador de texto didático carregado');
     };
     script.onerror = () => {
-        console.warn('[AudioIntegration] Falha ao carregar gerador de texto didÃ¡tico');
+        console.warn('[AudioIntegration] Falha ao carregar gerador de texto didático');
     };
     document.head.appendChild(script);
 }
 
-// Debug flag (silencia logs em produÃ§Ã£o; defina window.DEBUG_ANALYZER = true para habilitar)
-const __DEBUG_ANALYZER__ = true; // ðŸ”§ TEMPORÃRIO: Ativado para debug do problema
+// Debug flag (silencia logs em produção; defina window.DEBUG_ANALYZER = true para habilitar)
+const __DEBUG_ANALYZER__ = true; // 🔧 TEMPORÁRIO: Ativado para debug do problema
 const __dbg = (...a) => { if (__DEBUG_ANALYZER__) console.log('[AUDIO-DEBUG]', ...a); };
 const __dwrn = (...a) => { if (__DEBUG_ANALYZER__) console.warn('[AUDIO-WARN]', ...a); };
 
-// ðŸ†” SISTEMA runId - FunÃ§Ã£o utilitÃ¡ria centralizada
+// 🆔 SISTEMA runId - Função utilitária centralizada
 function generateAnalysisRunId(context = 'ui') {
     const timestamp = Date.now();
     const random = Math.random().toString(36).substr(2, 9);
     return `${context}_${timestamp}_${random}`;
 }
 
-// ðŸ›¡ï¸ HELPER: Preparar options com runId de forma segura
+// 🛡️ HELPER: Preparar options com runId de forma segura
 function prepareAnalysisOptions(baseOptions = {}, context = 'analysis') {
-    // Gerar runId se nÃ£o fornecido
+    // Gerar runId se não fornecido
     if (!baseOptions.runId) {
         baseOptions.runId = generateAnalysisRunId(context);
     }
     
-    // Configurar variÃ¡vel global para UI_GATE
+    // Configurar variável global para UI_GATE
     window.__CURRENT_ANALYSIS_RUN_ID__ = baseOptions.runId;
     
-    __dbg(`ðŸ†” [runId] Preparado para anÃ¡lise: ${baseOptions.runId} (contexto: ${context})`);
+    __dbg(`🆔 [runId] Preparado para análise: ${baseOptions.runId} (contexto: ${context})`);
     
     return { ...baseOptions };
 }
 
 let currentModalAnalysis = null;
 let __audioIntegrationInitialized = false; // evita listeners duplicados
-let __refDataCache = {}; // cache por gÃªnero
-let __activeRefData = null; // dados do gÃªnero atual
-let __genreManifest = null; // manifesto de gÃªneros (opcional)
-let __activeRefGenre = null; // chave do gÃªnero atualmente carregado em __activeRefData
-let __refDerivedStats = {}; // estatÃ­sticas agregadas (ex: mÃ©dia stereo) por gÃªnero
+let __refDataCache = {}; // cache por gênero
+let __activeRefData = null; // dados do gênero atual
+let __genreManifest = null; // manifesto de gêneros (opcional)
+let __activeRefGenre = null; // chave do gênero atualmente carregado em __activeRefData
+let __refDerivedStats = {}; // estatísticas agregadas (ex: média stereo) por gênero
 
-// ðŸŽ¯ MODO REFERÃŠNCIA - VariÃ¡veis globais
+// 🎯 MODO REFERÊNCIA - Variáveis globais
 let currentAnalysisMode = 'genre'; // 'genre' | 'reference'
 let referenceStepState = {
     currentStep: 'userAudio', // 'userAudio' | 'referenceAudio' | 'analysis'
@@ -62,11 +62,11 @@ let referenceStepState = {
     referenceAnalysis: null
 };
 
-// ðŸŽ¯ JOBS - Sistema de acompanhamento de jobs remotos
+// 🎯 JOBS - Sistema de acompanhamento de jobs remotos
 let currentJobId = null;
 let jobPollingInterval = null;
 
-// ðŸŽ¯ FunÃ§Ãµes de Acessibilidade e GestÃ£o de Modais
+// 🎯 Funções de Acessibilidade e Gestão de Modais
 
 function openModeSelectionModal() {
     const modal = document.getElementById('analysisModeModal');
@@ -74,7 +74,7 @@ function openModeSelectionModal() {
         modal.style.display = 'flex';
         modal.setAttribute('aria-hidden', 'false');
         
-        // Foco no primeiro botÃ£o
+        // Foco no primeiro botão
         const firstButton = modal.querySelector('.mode-card button');
         if (firstButton) {
             firstButton.focus();
@@ -97,7 +97,7 @@ function closeModeSelectionModal() {
         // Remover listeners
         document.removeEventListener('keydown', handleModalEscapeKey);
         
-        // Retornar foco para o botÃ£o que abriu o modal
+        // Retornar foco para o botão que abriu o modal
         const audioAnalysisBtn = document.querySelector('button[onclick="openAudioModal()"]');
         if (audioAnalysisBtn) {
             audioAnalysisBtn.focus();
@@ -136,17 +136,36 @@ function trapFocus(modal) {
     modal.addEventListener('keydown', handleTabKey);
 }
 
-// ðŸŽ¯ Modal de AnÃ¡lise por ReferÃªncia
+// 🎯 Função Principal de Seleção de Modo
+function selectAnalysisMode(mode) {
+    console.log('🎯 Modo selecionado:', mode);
+    
+    // Armazenar modo selecionado
+    window.currentAnalysisMode = mode;
+    
+    // Fechar modal de seleção
+    closeModeSelectionModal();
+    
+    if (mode === 'genre') {
+        // Modo tradicional - abrir modal de análise normal
+        openAnalysisModalForMode('genre');
+    } else if (mode === 'reference') {
+        // Modo referência - abrir interface específica
+        openAnalysisModalForMode('reference');
+    }
+}
+
+// 🎯 Modal de Análise por Referência
 function openReferenceAnalysisModal() {
     const modal = document.getElementById('audioAnalysisModal');
     if (modal) {
-        // Configurar modal para modo referÃªncia
+        // Configurar modal para modo referência
         const modalContent = modal.querySelector('.modal-content');
         const title = modalContent.querySelector('h2');
         const steps = document.getElementById('referenceProgressSteps');
         
         if (title) {
-            title.textContent = 'ðŸŽµ AnÃ¡lise por MÃºsica de ReferÃªncia';
+            title.textContent = '🎵 Análise por Música de Referência';
         }
         
         // Mostrar passos do progresso
@@ -155,24 +174,24 @@ function openReferenceAnalysisModal() {
             updateProgressStep(1); // Primeiro passo ativo
         }
         
-        // Modificar texto do botÃ£o de upload
+        // Modificar texto do botão de upload
         const uploadBtn = modal.querySelector('#uploadButton');
         if (uploadBtn) {
-            uploadBtn.textContent = 'ðŸ“¤ Upload da MÃºsica Original';
+            uploadBtn.textContent = '📤 Upload da Música Original';
             uploadBtn.onclick = () => handleReferenceFileSelection('original');
         }
         
         modal.style.display = 'flex';
         modal.setAttribute('aria-hidden', 'false');
         
-        // Foco no botÃ£o de upload
+        // Foco no botão de upload
         if (uploadBtn) {
             uploadBtn.focus();
         }
     }
 }
 
-// ðŸŽ¯ GestÃ£o de Progresso para Modo ReferÃªncia
+// 🎯 Gestão de Progresso para Modo Referência
 function updateProgressStep(step) {
     const steps = document.querySelectorAll('.progress-step');
     steps.forEach((stepEl, index) => {
@@ -187,36 +206,36 @@ function updateProgressStep(step) {
     });
 }
 
-// ï¿½ SISTEMA DE UPLOAD E ANÃLISE REMOTA
-// âœ… FLUXO OFICIAL: Presigned URL â†’ Upload â†’ Job Creation â†’ Status Polling
+// � SISTEMA DE UPLOAD E ANÁLISE REMOTA
+// ✅ FLUXO OFICIAL: Presigned URL → Upload → Job Creation → Status Polling
 
-// ï¿½ðŸŽ¯ SeleÃ§Ã£o de Arquivos para Modo ReferÃªncia (fileKeys apenas)
+// �🎯 Seleção de Arquivos para Modo Referência (fileKeys apenas)
 let uploadedFiles = {
     original: null,
     reference: null
 };
 
 /**
- * âœ… OBTER URL PRÃ‰-ASSINADA DO BACKEND
+ * ✅ OBTER URL PRÉ-ASSINADA DO BACKEND
 /**
- * Obter URL prÃ©-assinada do backend
+ * Obter URL pré-assinada do backend
 /**
- * ðŸš€ OBTER URL PRÃ‰-ASSINADA DO BACKEND
+ * 🚀 OBTER URL PRÉ-ASSINADA DO BACKEND
  * @param {File} file - Arquivo para upload
  * @returns {Promise<{uploadUrl: string, fileKey: string}>}
  */
 async function getPresignedUrl(file) {
   try {
-    // Extrair extensÃ£o do arquivo
+    // Extrair extensão do arquivo
     const ext = file.name.split('.').pop().toLowerCase();
 
-    __dbg('ðŸŒ Solicitando URL prÃ©-assinada...', {
+    __dbg('🌐 Solicitando URL pré-assinada...', {
       filename: file.name,
       ext,
            size: `${(file.size / 1024 / 1024).toFixed(2)}MB`
     });
 
-    // âœ… Agora manda "ext" 
+    // ✅ Agora manda "ext" 
     const response = await fetch(`/api/presign?ext=${encodeURIComponent(ext)}`, {
   method: "GET",
   headers: {
@@ -233,7 +252,7 @@ async function getPresignedUrl(file) {
     const data = await response.json();
 
     if (!data.uploadUrl || !data.fileKey) {
-      throw new Error('Resposta invÃ¡lida do servidor: uploadUrl ou fileKey ausente');
+      throw new Error('Resposta inválida do servidor: uploadUrl ou fileKey ausente');
     }
 
     return {
@@ -241,7 +260,7 @@ async function getPresignedUrl(file) {
       fileKey: data.fileKey
     };
   } catch (error) {
-    console.error('âŒ Erro ao obter URL prÃ©-assinada:', error);
+    console.error('❌ Erro ao obter URL pré-assinada:', error);
     throw new Error(`Falha ao gerar URL de upload: ${error.message}`);
   }
 }
@@ -249,22 +268,22 @@ async function getPresignedUrl(file) {
 
 
 /**
- * âœ… UPLOAD DIRETO PARA BUCKET VIA URL PRÃ‰-ASSINADA
- * @param {string} uploadUrl - URL prÃ©-assinada para upload
+ * ✅ UPLOAD DIRETO PARA BUCKET VIA URL PRÉ-ASSINADA
+ * @param {string} uploadUrl - URL pré-assinada para upload
  * @param {File} file - Arquivo para upload
  * @returns {Promise<void>}
  */
 async function uploadToBucket(uploadUrl, file) {
   try {
-    __dbg('ðŸ“¤ Iniciando upload para bucket...', { 
+    __dbg('📤 Iniciando upload para bucket...', { 
       filename: file.name,
       size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
       url: uploadUrl.substring(0, 50) + '...'
     });
 
-    showUploadProgress(`Enviando ${file.name} para anÃ¡lise...`);
+    showUploadProgress(`Enviando ${file.name} para análise...`);
 
-    // ðŸ‘‡ sem headers, sÃ³ body = file
+    // 👇 sem headers, só body = file
    const response = await fetch(uploadUrl, {
   method: "PUT",
   body: file
@@ -275,26 +294,26 @@ async function uploadToBucket(uploadUrl, file) {
       throw new Error(`Erro no upload: ${response.status} - ${errorText}`);
     }
 
-    __dbg('âœ… Upload para bucket concluÃ­do com sucesso');
-    showUploadProgress(`Upload concluÃ­do! Processando ${file.name}...`);
+    __dbg('✅ Upload para bucket concluído com sucesso');
+    showUploadProgress(`Upload concluído! Processando ${file.name}...`);
 
   } catch (error) {
-    console.error('âŒ Erro no upload para bucket:', error);
-    throw new Error(`Falha ao enviar arquivo para anÃ¡lise: ${error.message}`);
+    console.error('❌ Erro no upload para bucket:', error);
+    throw new Error(`Falha ao enviar arquivo para análise: ${error.message}`);
   }
 }
 
 
 /**
- * âœ… CRIAR JOB DE ANÃLISE NO BACKEND
+ * ✅ CRIAR JOB DE ANÁLISE NO BACKEND
  * @param {string} fileKey - Chave do arquivo no bucket
- * @param {string} mode - Modo de anÃ¡lise ('genre' ou 'reference')
+ * @param {string} mode - Modo de análise ('genre' ou 'reference')
  * @param {string} fileName - Nome original do arquivo
  * @returns {Promise<{jobId: string, success: boolean}>}
  */
 async function createAnalysisJob(fileKey, mode, fileName) {
     try {
-        __dbg('ðŸ”§ Criando job de anÃ¡lise...', { fileKey, mode, fileName });
+        __dbg('🔧 Criando job de análise...', { fileKey, mode, fileName });
 
         const response = await fetch('/api/audio/analyze', {
             method: 'POST',
@@ -317,10 +336,10 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         const data = await response.json();
 
         if (!data.success || !data.jobId) {
-            throw new Error('Resposta invÃ¡lida do servidor: jobId ausente');
+            throw new Error('Resposta inválida do servidor: jobId ausente');
         }
 
-        __dbg('âœ… Job de anÃ¡lise criado:', { 
+        __dbg('✅ Job de análise criado:', { 
             jobId: data.jobId,
             mode: data.mode,
             fileKey: data.fileKey
@@ -332,25 +351,25 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         };
 
     } catch (error) {
-        console.error('âŒ Erro ao criar job de anÃ¡lise:', error);
-        throw new Error(`Falha ao criar job de anÃ¡lise: ${error.message}`);
+        console.error('❌ Erro ao criar job de análise:', error);
+        throw new Error(`Falha ao criar job de análise: ${error.message}`);
     }
 }
 
 /**
- * âœ… ACOMPANHAR STATUS DO JOB DE ANÃLISE
+ * ✅ ACOMPANHAR STATUS DO JOB DE ANÁLISE
  * @param {string} jobId - ID do job
- * @returns {Promise<Object>} - Resultado da anÃ¡lise quando completa
+ * @returns {Promise<Object>} - Resultado da análise quando completa
  */
 async function pollJobStatus(jobId) {
     return new Promise((resolve, reject) => {
         let attempts = 0;
-        const maxAttempts = 60; // 5 minutos mÃ¡ximo (5s * 60 = 300s)
+        const maxAttempts = 60; // 5 minutos máximo (5s * 60 = 300s)
         
         const poll = async () => {
             try {
                 attempts++;
-                __dbg(`ðŸ”„ Verificando status do job (tentativa ${attempts}/${maxAttempts})...`);
+                __dbg(`🔄 Verificando status do job (tentativa ${attempts}/${maxAttempts})...`);
 
                 const response = await fetch(`/api/jobs/${jobId}`, {
                     method: 'GET',
@@ -366,39 +385,39 @@ async function pollJobStatus(jobId) {
 
                 const jobData = await response.json();
                 
-                __dbg(`ðŸ“Š Status do job:`, { 
+                __dbg(`📊 Status do job:`, { 
                     status: jobData.status, 
                     progress: jobData.progress || 'N/A' 
                 });
 
-                // Atualizar progresso na UI se disponÃ­vel
+                // Atualizar progresso na UI se disponível
                 if (jobData.progress) {
-                    updateModalProgress(jobData.progress, `Processando anÃ¡lise... ${jobData.progress}%`);
+                    updateModalProgress(jobData.progress, `Processando análise... ${jobData.progress}%`);
                 }
 
                 if (jobData.status === 'completed' || jobData.status === 'done') {
-                    __dbg('âœ… Job concluÃ­do com sucesso');
+                    __dbg('✅ Job concluído com sucesso');
                     resolve(jobData.result || jobData);
                     return;
                 }
 
                 if (jobData.status === 'failed' || jobData.status === 'error') {
                     const errorMsg = jobData.error || 'Erro desconhecido no processamento';
-                    reject(new Error(`Falha na anÃ¡lise: ${errorMsg}`));
+                    reject(new Error(`Falha na análise: ${errorMsg}`));
                     return;
                 }
 
                 // Status 'queued', 'processing', etc. - continuar polling
                 if (attempts >= maxAttempts) {
-                    reject(new Error('Timeout: AnÃ¡lise demorou mais que o esperado'));
+                    reject(new Error('Timeout: Análise demorou mais que o esperado'));
                     return;
                 }
 
-                // Aguardar 5 segundos antes da prÃ³xima verificaÃ§Ã£o
+                // Aguardar 5 segundos antes da próxima verificação
                 setTimeout(poll, 5000);
 
             } catch (error) {
-                console.error('âŒ Erro no polling:', error);
+                console.error('❌ Erro no polling:', error);
                 reject(error);
             }
         };
@@ -415,12 +434,12 @@ async function pollJobStatus(jobId) {
 function showUploadProgress(message) {
     const progressText = document.getElementById('audioProgressText');
     if (progressText) {
-        progressText.innerHTML = `ðŸŒ ${message}`;
+        progressText.innerHTML = `🌐 ${message}`;
     }
 }
 
 /**
- * Atualizar progresso do modal de anÃ¡lise
+ * Atualizar progresso do modal de análise
  * @param {number} percentage - Porcentagem (0-100)
  * @param {string} message - Mensagem de status
  */
@@ -438,7 +457,7 @@ function updateModalProgress(percentage, message) {
 }
 
 /**
- * âœ… NOVA IMPLEMENTAÃ‡ÃƒO: SeleÃ§Ã£o de arquivo de referÃªncia com presigned URL
+ * ✅ NOVA IMPLEMENTAÇÃO: Seleção de arquivo de referência com presigned URL
  * @param {string} type - Tipo do arquivo ('original' ou 'reference')
  */
 function handleReferenceFileSelection(type) {
@@ -453,24 +472,24 @@ function handleReferenceFileSelection(type) {
             try {
                 // Validar arquivo
                 if (file.size > 120 * 1024 * 1024) {
-                    alert('âŒ Arquivo muito grande. Limite: 120MB');
+                    alert('❌ Arquivo muito grande. Limite: 120MB');
                     return;
                 }
 
-                __dbg(`ðŸŽ¯ Processando arquivo ${type} com presigned URL:`, file.name);
+                __dbg(`🎯 Processando arquivo ${type} com presigned URL:`, file.name);
 
-                // ðŸŒ NOVO FLUXO: Presigned URL â†’ Upload â†’ Job Creation â†’ Polling
+                // 🌐 NOVO FLUXO: Presigned URL → Upload → Job Creation → Polling
                 
-                // 1. Obter URL prÃ©-assinada
+                // 1. Obter URL pré-assinada
                 const { uploadUrl, fileKey } = await getPresignedUrl(file);
                 
                 // 2. Upload direto para bucket
                 await uploadToBucket(uploadUrl, file);
                 
-                // 3. Criar job de anÃ¡lise
+                // 3. Criar job de análise
                 const { jobId } = await createAnalysisJob(fileKey, 'reference', file.name);
                 
-                // 4. Aguardar resultado da anÃ¡lise
+                // 4. Aguardar resultado da análise
                 const analysisResult = await pollJobStatus(jobId);
                 
                 // Mostrar resultados no modal
@@ -483,12 +502,12 @@ displayModalResults(analysisResult);
                     analysisResult: analysisResult
                 };
 
-                console.log(`âœ… Arquivo ${type} processado com sucesso:`, file.name, "fileKey:", fileKey);
+                console.log(`✅ Arquivo ${type} processado com sucesso:`, file.name, "fileKey:", fileKey);
 
                 // Atualizar interface
                 updateFileStatus(type, file.name);
 
-                // AvanÃ§ar fluxo
+                // Avançar fluxo
                 if (type === "original") {
                     updateProgressStep(2);
                     promptReferenceFile();
@@ -498,11 +517,11 @@ displayModalResults(analysisResult);
                 }
 
             } catch (error) {
-                console.error(`âŒ Erro no processamento do arquivo ${type}:`, error);
-                alert(`âŒ Erro ao processar arquivo: ${error.message}`);
+                console.error(`❌ Erro no processamento do arquivo ${type}:`, error);
+                alert(`❌ Erro ao processar arquivo: ${error.message}`);
 
-                // Abrir modal de anÃ¡lise em caso de erro
-                abrirModalDeAnalise("Erro ao processar arquivo para anÃ¡lise.");
+                // Abrir modal de análise em caso de erro
+                abrirModalDeAnalise("Erro ao processar arquivo para análise.");
             }
         }
     };
@@ -525,12 +544,12 @@ function updateFileStatus(type, filename) {
         statusContainer.appendChild(statusDiv);
     }
     
-    const label = type === 'original' ? 'ðŸŽµ MÃºsica Original' : 'ðŸŽ¯ ReferÃªncia';
+    const label = type === 'original' ? '🎵 Música Original' : '🎯 Referência';
     statusDiv.innerHTML = `
         <div class="file-item">
             <span class="file-label">${label}:</span>
             <span class="file-name">${filename}</span>
-            <span class="file-check">âœ…</span>
+            <span class="file-check">✅</span>
         </div>
     `;
 }
@@ -540,7 +559,7 @@ function promptReferenceFile() {
     const uploadBtn = modal.querySelector('#uploadButton');
     
     if (uploadBtn) {
-        uploadBtn.textContent = 'ðŸŽ¯ Upload da MÃºsica de ReferÃªncia';
+        uploadBtn.textContent = '🎯 Upload da Música de Referência';
         uploadBtn.onclick = () => handleReferenceFileSelection('reference');
     }
 }
@@ -553,7 +572,7 @@ function enableAnalysisButton() {
         analyzeBtn = document.createElement('button');
         analyzeBtn.id = 'analyzeReferenceBtn';
         analyzeBtn.className = 'btn btn-primary';
-        analyzeBtn.textContent = 'ðŸ”¬ Iniciar AnÃ¡lise Comparativa';
+        analyzeBtn.textContent = '🔬 Iniciar Análise Comparativa';
         analyzeBtn.onclick = startReferenceAnalysis;
         
         const uploadBtn = modal.querySelector('#uploadButton');
@@ -566,10 +585,10 @@ function enableAnalysisButton() {
     analyzeBtn.disabled = false;
 }
 
-// ðŸŽ¯ AnÃ¡lise Comparativa
+// 🎯 Análise Comparativa
 async function startReferenceAnalysis() {
     if (!uploadedFiles.original || !uploadedFiles.reference) {
-        alert('âŒ Por favor, faÃ§a upload de ambos os arquivos');
+        alert('❌ Por favor, faça upload de ambos os arquivos');
         return;
     }
 
@@ -591,15 +610,15 @@ async function startReferenceAnalysis() {
         });
 
         if (!response.ok) {
-            throw new Error(`Erro na anÃ¡lise: ${response.status}`);
+            throw new Error(`Erro na análise: ${response.status}`);
         }
 
         const result = await response.json();
         displayReferenceComparison(result);
 
     } catch (error) {
-        console.error('âŒ Erro na anÃ¡lise:', error);
-        alert('âŒ Erro durante a anÃ¡lise. Tente novamente.');
+        console.error('❌ Erro na análise:', error);
+        alert('❌ Erro durante a análise. Tente novamente.');
     }
 }
 
@@ -615,8 +634,8 @@ function showAnalysisProgress() {
     progressOverlay.innerHTML = `
         <div class="progress-content">
             <div class="spinner"></div>
-            <h3>ðŸ”¬ Analisando Arquivos...</h3>
-            <p>Processando caracterÃ­sticas espectrais e comparando com referÃªncia...</p>
+            <h3>🔬 Analisando Arquivos...</h3>
+            <p>Processando características espectrais e comparando com referência...</p>
             <div class="progress-bar">
                 <div class="progress-fill"></div>
             </div>
@@ -635,7 +654,7 @@ function displayReferenceComparison(data) {
         progressOverlay.remove();
     }
     
-    // Criar seÃ§Ã£o de resultados
+    // Criar seção de resultados
     const resultsSection = document.createElement('div');
     resultsSection.id = 'referenceResults';
     resultsSection.className = 'reference-results';
@@ -654,7 +673,7 @@ function generateComparisonHTML(data) {
     
     return `
         <div class="comparison-header">
-            <h3>ðŸ“Š AnÃ¡lise Comparativa ConcluÃ­da</h3>
+            <h3>📊 Análise Comparativa Concluída</h3>
             <div class="overall-similarity">
                 <span class="similarity-label">Similaridade Geral:</span>
                 <span class="similarity-score ${getSimilarityClass(comparison.overallSimilarity)}">
@@ -665,14 +684,14 @@ function generateComparisonHTML(data) {
         
         <div class="comparison-grid">
             <div class="comparison-section">
-                <h4>ðŸŽµ MÃºsica Original</h4>
+                <h4>🎵 Música Original</h4>
                 <div class="audio-analysis-card">
                     ${generateAudioAnalysisCard(original)}
                 </div>
             </div>
             
             <div class="comparison-section">
-                <h4>ðŸŽ¯ MÃºsica de ReferÃªncia</h4>
+                <h4>🎯 Música de Referência</h4>
                 <div class="audio-analysis-card">
                     ${generateAudioAnalysisCard(reference)}
                 </div>
@@ -680,14 +699,14 @@ function generateComparisonHTML(data) {
         </div>
         
         <div class="differences-section">
-            <h4>ðŸ” Principais DiferenÃ§as</h4>
+            <h4>🔍 Principais Diferenças</h4>
             <div class="differences-grid">
                 ${generateDifferencesGrid(comparison.differences)}
             </div>
         </div>
         
         <div class="suggestions-section">
-            <h4>ðŸ’¡ SugestÃµes de Melhoria</h4>
+            <h4>💡 Sugestões de Melhoria</h4>
             <div class="suggestions-list">
                 ${generateSuggestionsList(comparison.suggestions)}
             </div>
@@ -699,11 +718,11 @@ function generateAudioAnalysisCard(analysis) {
     return `
         <div class="spectral-info">
             <div class="info-item">
-                <span class="label">FrequÃªncia Fundamental:</span>
+                <span class="label">Frequência Fundamental:</span>
                 <span class="value">${analysis.fundamentalFreq} Hz</span>
             </div>
             <div class="info-item">
-                <span class="label">Faixa DinÃ¢mica:</span>
+                <span class="label">Faixa Dinâmica:</span>
                 <span class="value">${analysis.dynamicRange} dB</span>
             </div>
             <div class="info-item">
@@ -713,7 +732,7 @@ function generateAudioAnalysisCard(analysis) {
         </div>
         
         <div class="frequency-bands">
-            <h5>Bandas de FrequÃªncia</h5>
+            <h5>Bandas de Frequência</h5>
             ${analysis.frequencyBands.map(band => `
                 <div class="band-item">
                     <span class="band-name">${band.name}</span>
@@ -754,14 +773,14 @@ function getSimilarityClass(similarity) {
     return 'low-similarity';
 }
 
-// ðŸŽ¯ ExposiÃ§Ã£o de FunÃ§Ãµes Globais
+// 🎯 Exposição de Funções Globais
 window.openModeSelectionModal = openModeSelectionModal;
 window.closeModeSelectionModal = closeModeSelectionModal;
 window.selectAnalysisMode = selectAnalysisMode;
 
-//! DEBUG: FunÃ§Ã£o de debug global para forÃ§ar recarga
+//! DEBUG: Função de debug global para forçar recarga
 window.forceReloadRefs = async function(genre = 'funk_bruxaria') {
-    console.log('ðŸ”„ FORÃ‡A RECARGA DE REFERÃŠNCIAS:', genre);
+    console.log('🔄 FORÇA RECARGA DE REFERÊNCIAS:', genre);
     
     // Limpar tudo
     delete window.__refDataCache;
@@ -771,11 +790,11 @@ window.forceReloadRefs = async function(genre = 'funk_bruxaria') {
     window.__activeRefGenre = null;
     delete window.PROD_AI_REF_DATA;
     
-    console.log('ðŸ’¥ Cache limpo, forÃ§ando reload...');
+    console.log('💥 Cache limpo, forçando reload...');
     
     try {
         const result = await loadReferenceData(genre);
-        console.log('âœ… Recarga forÃ§ada concluÃ­da:', {
+        console.log('✅ Recarga forçada concluída:', {
             version: result.version,
             lufs_target: result.lufs_target,
             true_peak_target: result.true_peak_target,
@@ -786,19 +805,19 @@ window.forceReloadRefs = async function(genre = 'funk_bruxaria') {
         window.REFS_BYPASS_CACHE = false;
         return result;
     } catch (error) {
-        console.error('ðŸ’¥ Erro na recarga forÃ§ada:', error);
+        console.error('💥 Erro na recarga forçada:', error);
         window.REFS_BYPASS_CACHE = false;
         throw error;
     }
 };
 
-// ðŸ” FunÃ§Ã£o de DiagnÃ³stico de ReferÃªncias (somente dev)
+// 🔍 Função de Diagnóstico de Referências (somente dev)
 window.diagnosRefSources = function(genre = null) {
     const targetGenre = genre || __activeRefGenre || 'funk_bruxaria';
     const currentData = __activeRefData;
     const cached = __refDataCache[targetGenre];
     
-    console.log('ðŸŽ¯ REFERÃŠNCIAS DIAGNÃ“STICO COMPLETO:', {
+    console.log('🎯 REFERÊNCIAS DIAGNÓSTICO COMPLETO:', {
         requestedGenre: targetGenre,
         activeGenre: __activeRefGenre,
         currentSource: currentData ? 'loaded' : 'none',
@@ -819,7 +838,7 @@ window.diagnosRefSources = function(genre = null) {
     const testUrl = `/public/refs/out/${targetGenre}.json?v=diagnostic`;
     fetch(testUrl).then(r => r.json()).then(j => {
         const data = j[targetGenre];
-        console.log('ðŸŒ EXTERNAL JSON TEST:', {
+        console.log('🌐 EXTERNAL JSON TEST:', {
             url: testUrl,
             success: true,
             version: data?.version,
@@ -828,13 +847,13 @@ window.diagnosRefSources = function(genre = null) {
             true_peak_target: data?.true_peak_target,
             stereo_target: data?.stereo_target
         });
-    }).catch(e => console.log('âŒ EXTERNAL JSON FAILED:', testUrl, e.message));
+    }).catch(e => console.log('❌ EXTERNAL JSON FAILED:', testUrl, e.message));
     
     return { targetGenre, currentData, cached };
 };
 
 // =============== ETAPA 2: Robustez & Completeness Helpers ===============
-// Central logging para mÃ©tricas ausentes / NaN (evita console spam e facilita auditoria)
+// Central logging para métricas ausentes / NaN (evita console spam e facilita auditoria)
 function __logMetricAnomaly(kind, key, context={}) {
     try {
         if (typeof window === 'undefined') return;
@@ -847,73 +866,73 @@ function __logMetricAnomaly(kind, key, context={}) {
     } catch {}
 }
 
-// Placeholder seguro para valores nÃ£o finitos (exibe 'â€”' e loga uma vez por chave por render)
+// Placeholder seguro para valores não finitos (exibe '—' e loga uma vez por chave por render)
 function safeDisplayNumber(val, key, decimals=2) {
-    if (!Number.isFinite(val)) { __logMetricAnomaly('non_finite', key); return 'â€”'; }
+    if (!Number.isFinite(val)) { __logMetricAnomaly('non_finite', key); return '—'; }
     return val.toFixed(decimals);
 }
 
-// ðŸ†• FunÃ§Ã£o para exibir estruturas complexas das novas mÃ©tricas
+// 🆕 Função para exibir estruturas complexas das novas métricas
 function safeDisplayComplexMetric(metric, type = 'generic') {
-    if (!metric || typeof metric !== 'object') return 'â€”';
+    if (!metric || typeof metric !== 'object') return '—';
     
     switch (type) {
         case 'frequency':
             // Para dominantFrequencies
             if (metric.value !== undefined) {
                 const unit = metric.unit || 'Hz';
-                const value = Number.isFinite(metric.value) ? metric.value.toFixed(1) : 'â€”';
+                const value = Number.isFinite(metric.value) ? metric.value.toFixed(1) : '—';
                 return `${value} ${unit}`;
             }
-            return 'â€”';
+            return '—';
             
         case 'dcOffset':
             // Para dcOffset com canais L/R
             if (metric.detailed && (metric.detailed.L !== undefined || metric.detailed.R !== undefined)) {
-                const L = Number.isFinite(metric.detailed.L) ? metric.detailed.L.toFixed(4) : 'â€”';
-                const R = Number.isFinite(metric.detailed.R) ? metric.detailed.R.toFixed(4) : 'â€”';
+                const L = Number.isFinite(metric.detailed.L) ? metric.detailed.L.toFixed(4) : '—';
+                const R = Number.isFinite(metric.detailed.R) ? metric.detailed.R.toFixed(4) : '—';
                 return `L: ${L}, R: ${R}`;
             } else if (metric.value !== undefined) {
-                const value = Number.isFinite(metric.value) ? metric.value.toFixed(4) : 'â€”';
+                const value = Number.isFinite(metric.value) ? metric.value.toFixed(4) : '—';
                 const unit = metric.unit || '';
                 return `${value} ${unit}`;
             }
-            return 'â€”';
+            return '—';
             
         case 'spectral':
             // Para spectralUniformity
             if (metric.value !== undefined) {
-                const value = Number.isFinite(metric.value) ? metric.value.toFixed(3) : 'â€”';
+                const value = Number.isFinite(metric.value) ? metric.value.toFixed(3) : '—';
                 const unit = metric.unit || '';
                 return `${value} ${unit}`;
             }
-            return 'â€”';
+            return '—';
             
         default:
-            // Generic: tentar exibir value ou primeiro campo numÃ©rico
+            // Generic: tentar exibir value ou primeiro campo numérico
             if (metric.value !== undefined) {
-                const value = Number.isFinite(metric.value) ? metric.value.toFixed(2) : 'â€”';
+                const value = Number.isFinite(metric.value) ? metric.value.toFixed(2) : '—';
                 const unit = metric.unit || '';
                 return `${value} ${unit}`;
             }
-            return 'â€”';
+            return '—';
     }
 }
 
-// InvalidaÃ§Ã£o ampla de caches derivados quando gÃªnero mudar
+// Invalidação ampla de caches derivados quando gênero mudar
 function invalidateReferenceDerivedCaches() {
     try {
         if (typeof window === 'undefined') return;
-        delete window.PROD_AI_REF_DATA; // forÃ§a reuso atualizado
+        delete window.PROD_AI_REF_DATA; // força reuso atualizado
     } catch {}
 }
 
-// Enriquecimento de objeto de referÃªncia: preencher lacunas e padronizar escala
+// Enriquecimento de objeto de referência: preencher lacunas e padronizar escala
 function enrichReferenceObject(refObj, genreKey) {
     try {
         if (!refObj || typeof refObj !== 'object') return refObj;
         
-        // CORREÃ‡ÃƒO CRÃTICA: Mapear legacy_compatibility para propriedades root
+        // CORREÇÃO CRÍTICA: Mapear legacy_compatibility para propriedades root
         if (refObj.legacy_compatibility && typeof refObj.legacy_compatibility === 'object') {
             const legacy = refObj.legacy_compatibility;
             
@@ -929,7 +948,7 @@ function enrichReferenceObject(refObj, genreKey) {
             if (legacy.stereo_target !== undefined) refObj.stereo_target = legacy.stereo_target;
             if (legacy.tol_stereo !== undefined) refObj.tol_stereo = legacy.tol_stereo;
             
-            // Mapear bandas de frequÃªncia
+            // Mapear bandas de frequência
             if (legacy.bands && typeof legacy.bands === 'object') {
                 refObj.bands = legacy.bands;
             }
@@ -940,7 +959,7 @@ function enrichReferenceObject(refObj, genreKey) {
         if (!enabled) return refObj;
         // Definir escala default se ausente
         if (!refObj.scale) refObj.scale = 'log_ratio_db';
-        // Preencher stereo_target se ausente usando estatÃ­sticas agregadas (Etapa 2)
+        // Preencher stereo_target se ausente usando estatísticas agregadas (Etapa 2)
         if (refObj.stereo_target == null) {
             try {
                 const g = (genreKey||'').toLowerCase();
@@ -949,16 +968,16 @@ function enrichReferenceObject(refObj, genreKey) {
                     refObj.stereo_target = stat.avgStereo;
                     refObj.__stereo_filled = 'dataset_avg';
                 } else {
-                    // fallback heurÃ­stico
+                    // fallback heurístico
                     refObj.stereo_target = g.includes('trance') ? 0.17 : (g.includes('funk') ? 0.12 : 0.15);
                     refObj.__stereo_filled = 'heuristic';
                 }
                 refObj.tol_stereo = refObj.tol_stereo == null ? 0.08 : refObj.tol_stereo;
             } catch { /* noop */ }
         }
-        // Garantir tol_stereo razoÃ¡vel
+        // Garantir tol_stereo razoável
         if (refObj.tol_stereo == null) refObj.tol_stereo = 0.08;
-        // Bandas: marcar N/A para target_db null e permitir comparaÃ§Ã£o ignorando
+        // Bandas: marcar N/A para target_db null e permitir comparação ignorando
         if (refObj.bands && typeof refObj.bands === 'object') {
             for (const [k,v] of Object.entries(refObj.bands)) {
                 if (!v || typeof v !== 'object') continue;
@@ -967,7 +986,7 @@ function enrichReferenceObject(refObj, genreKey) {
                 }
             }
         }
-        // NormalizaÃ§Ã£o opcional antecipada (apenas ajuste de metadado; cÃ¡lculo real feito no analyzer)
+        // Normalização opcional antecipada (apenas ajuste de metadado; cálculo real feito no analyzer)
         if (window && window.PRE_NORMALIZE_REF_BANDS === true && refObj.bands) {
             const vals = Object.values(refObj.bands).map(b=>b&&Number.isFinite(b.target_db)?b.target_db:null).filter(v=>v!=null);
             const negRatio = vals.filter(v=>v<0).length/Math.max(1,vals.length);
@@ -979,29 +998,29 @@ function enrichReferenceObject(refObj, genreKey) {
     return refObj;
 }
 
-// Fallback embutido inline para evitar 404 em produÃ§Ã£o
-// ðŸŽ›ï¸ ATUALIZADO: Funk Mandela 2025-08-fixed-flex (18/08/2025) - Estrutura Fixed/Flex Implementada
+// Fallback embutido inline para evitar 404 em produção
+// 🎛️ ATUALIZADO: Funk Mandela 2025-08-fixed-flex (18/08/2025) - Estrutura Fixed/Flex Implementada
 const __INLINE_EMBEDDED_REFS__ = {
     manifest: { genres: [
         { key: 'trance', label: 'Trance' },
         { key: 'funk_mandela', label: 'Funk Mandela' },
         { key: 'funk_bruxaria', label: 'Funk Bruxaria' },
         { key: 'funk_automotivo', label: 'Funk Automotivo' },
-        { key: 'eletronico', label: 'EletrÃ´nico' },
+        { key: 'eletronico', label: 'Eletrônico' },
         { key: 'eletrofunk', label: 'Eletrofunk' },
         { key: 'funk_consciente', label: 'Funk Consciente' },
         { key: 'trap', label: 'Trap' }
     ]},
     byGenre: {
         trance: { lufs_target: -14, tol_lufs: 0.5, true_peak_target: -1.0, tol_true_peak: 1.0, dr_target: 9.4, tol_dr: 0.8, lra_target: 10.7, tol_lra: 2.7, stereo_target: 0.17, tol_stereo: 0.03, bands: { sub:{target_db:-17.3,tol_db:2.5}, low_bass:{target_db:-14.6,tol_db:4.3}, upper_bass:{target_db:-14.8,tol_db:2.5}, low_mid:{target_db:-12.6,tol_db:3.7}, mid:{target_db:-12,tol_db:4.0}, high_mid:{target_db:-20.2,tol_db:3.6}, brilho:{target_db:-24.7,tol_db:2.5}, presenca:{target_db:-32.1,tol_db:3.6} } },
-    // Perfil atualizado Funk Mandela 2025-08-mandela-targets.4-tolerances-updated - TOLERÃ‚NCIAS BIDIRECIONAIS ATUALIZADAS
+    // Perfil atualizado Funk Mandela 2025-08-mandela-targets.4-tolerances-updated - TOLERÂNCIAS BIDIRECIONAIS ATUALIZADAS
     funk_mandela:   { 
         version: "2025-08-mandela-targets.4-tolerances-updated", 
         lufs_target: -8.0, tol_lufs: 2.5, tol_lufs_min: 2.5, tol_lufs_max: 2.5, 
         true_peak_target: -0.8, tol_true_peak: 1.0, true_peak_streaming_max: -1.2, true_peak_baile_max: -0.1, 
-        dr_target: 8.0, tol_dr: 3.0, // Atualizado para Â±3.0 unidades
+        dr_target: 8.0, tol_dr: 3.0, // Atualizado para ±3.0 unidades
         lra_target: 9.0, lra_min: 6.5, lra_max: 11.5, tol_lra: 2.5, 
-        stereo_target: 0.60, tol_stereo: 0.25, stereo_width_target: 0.20, stereo_width_tol: 0.25, // CorrelaÃ§Ã£o 0.60 Â± 0.25
+        stereo_target: 0.60, tol_stereo: 0.25, stereo_width_target: 0.20, stereo_width_tol: 0.25, // Correlação 0.60 ± 0.25
         low_end_mono_cutoff: 100, clipping_sample_pct_max: 0.02, vocal_band_min_delta: -1.5,
         fixed: {
             lufs: { integrated: { target: -8.0, tolerance: 2.5 } },
@@ -1085,14 +1104,14 @@ const __INLINE_EMBEDDED_REFS__ = {
     }
 };
 
-// Construir estatÃ­sticas agregadas (mÃ©dia stereo por gÃªnero) a partir de refs carregadas
+// Construir estatísticas agregadas (média stereo por gênero) a partir de refs carregadas
 function buildAggregatedRefStats() {
     try {
         const map = (typeof window !== 'undefined' && window.__EMBEDDED_REFS__ && window.__EMBEDDED_REFS__.byGenre) || __INLINE_EMBEDDED_REFS__.byGenre;
         if (!map) return;
         for (const [g, data] of Object.entries(map)) {
             if (!data || typeof data !== 'object') continue;
-            // stereo_target jÃ¡ definido conta; se null ignorar
+            // stereo_target já definido conta; se null ignorar
             if (Number.isFinite(data.stereo_target)) {
                 const st = (__refDerivedStats[g] = __refDerivedStats[g] || { sumStereo:0, countStereo:0 });
                 st.sumStereo += data.stereo_target; st.countStereo += 1;
@@ -1104,11 +1123,11 @@ function buildAggregatedRefStats() {
     } catch (e) { if (window.DEBUG_ANALYZER) console.warn('buildAggregatedRefStats fail', e); }
 }
 
-// Carregar dinamicamente o fallback embutido se necessÃ¡rio
+// Carregar dinamicamente o fallback embutido se necessário
 async function ensureEmbeddedRefsReady(timeoutMs = 2500) {
     try {
         if (typeof window !== 'undefined' && window.__EMBEDDED_REFS__ && window.__EMBEDDED_REFS__.byGenre) return true;
-        // Se nÃ£o for explicitamente permitido, nÃ£o tentar carregar pela rede para evitar 404
+        // Se não for explicitamente permitido, não tentar carregar pela rede para evitar 404
         if (!(typeof window !== 'undefined' && window.REFS_ALLOW_NETWORK === true)) return false;
         // Injetar script apenas uma vez
         if (typeof document !== 'undefined' && !document.getElementById('embeddedRefsScript')) {
@@ -1118,7 +1137,7 @@ async function ensureEmbeddedRefsReady(timeoutMs = 2500) {
             s.async = true;
             document.head.appendChild(s);
         }
-        // Esperar atÃ© ficar disponÃ­vel ou timeout
+        // Esperar até ficar disponível ou timeout
         const start = Date.now();
         while (Date.now() - start < timeoutMs) {
             if (typeof window !== 'undefined' && window.__EMBEDDED_REFS__ && window.__EMBEDDED_REFS__.byGenre) return true;
@@ -1128,13 +1147,13 @@ async function ensureEmbeddedRefsReady(timeoutMs = 2500) {
     } catch { return false; }
 }
 
-// Helper: buscar JSON tentando mÃºltiplos caminhos (resiliente a diferenÃ§as local x produÃ§Ã£o)
+// Helper: buscar JSON tentando múltiplos caminhos (resiliente a diferenças local x produção)
 async function fetchRefJsonWithFallback(paths) {
     let lastErr = null;
     for (const p of paths) {
         if (!p) continue;
         try {
-            // Cache-busting para evitar CDN retornar 404 ou versÃµes antigas
+            // Cache-busting para evitar CDN retornar 404 ou versões antigas
             const hasQ = p.includes('?');
             const url = p + (hasQ ? '&' : '?') + 'v=' + Date.now();
             if (__DEBUG_ANALYZER__) console.log('[refs] tentando fetch:', url);
@@ -1145,14 +1164,14 @@ async function fetchRefJsonWithFallback(paths) {
             if (res.ok) {
                 if (__DEBUG_ANALYZER__) console.log('[refs] OK:', p);
                 
-                // Verificar se a resposta tem conteÃºdo JSON vÃ¡lido
+                // Verificar se a resposta tem conteúdo JSON válido
                 const text = await res.text();
                 if (text.trim()) {
                     try {
                         return JSON.parse(text);
                     } catch (jsonError) {
-                        console.warn('[refs] JSON invÃ¡lido em', p, ':', text.substring(0, 100));
-                        throw new Error(`JSON invÃ¡lido em ${p}`);
+                        console.warn('[refs] JSON inválido em', p, ':', text.substring(0, 100));
+                        throw new Error(`JSON inválido em ${p}`);
                     }
                 } else {
                     console.warn('[refs] Resposta vazia em', p);
@@ -1167,10 +1186,10 @@ async function fetchRefJsonWithFallback(paths) {
             lastErr = e;
         }
     }
-    throw lastErr || new Error('Falha ao carregar JSON de referÃªncia (todas as rotas testadas)');
+    throw lastErr || new Error('Falha ao carregar JSON de referência (todas as rotas testadas)');
 }
 
-// ðŸ“š Carregar manifesto de gÃªneros (opcional). Se ausente, manter fallback.
+// 📚 Carregar manifesto de gêneros (opcional). Se ausente, manter fallback.
 async function loadGenreManifest() {
     // 1) Preferir embutido em window, depois inline
     try {
@@ -1191,24 +1210,24 @@ async function loadGenreManifest() {
                 `../refs/out/genres.json`
             ]);
             if (json && Array.isArray(json.genres)) { __genreManifest = json.genres; return __genreManifest; }
-        } catch (e) { __dwrn('Manifesto via rede indisponÃ­vel:', e.message || e); }
+        } catch (e) { __dwrn('Manifesto via rede indisponível:', e.message || e); }
     }
     return __genreManifest || null;
 }
 
-// ðŸ·ï¸ Popular o <select> com base no manifesto, mantendo fallback e preservando seleÃ§Ã£o
+// 🏷️ Popular o <select> com base no manifesto, mantendo fallback e preservando seleção
 function populateGenreSelect(manifestGenres) {
     const sel = document.getElementById('audioRefGenreSelect');
     if (!sel) return;
     if (!Array.isArray(manifestGenres) || manifestGenres.length === 0) {
-        // Nada a fazer (fallback jÃ¡ em HTML)
-        // Ainda assim, garantir que o gÃªnero ativo esteja presente como opÃ§Ã£o
+        // Nada a fazer (fallback já em HTML)
+        // Ainda assim, garantir que o gênero ativo esteja presente como opção
         ensureActiveGenreOption(sel, window.PROD_AI_REF_GENRE);
         return;
     }
     // Salvar valor atual (se houver)
     const current = sel.value;
-    // Limpar opÃ§Ãµes atuais e reconstruir
+    // Limpar opções atuais e reconstruir
     while (sel.options.length) sel.remove(0);
     for (const g of manifestGenres) {
         if (!g || !g.key) continue;
@@ -1217,14 +1236,14 @@ function populateGenreSelect(manifestGenres) {
         opt.textContent = String(g.label || labelizeKey(g.key));
         sel.appendChild(opt);
     }
-    // Garantir que gÃªnero ativo via URL/localStorage esteja presente
+    // Garantir que gênero ativo via URL/localStorage esteja presente
     ensureActiveGenreOption(sel, window.PROD_AI_REF_GENRE);
-    // Restaurar seleÃ§Ã£o (priorizar PROD_AI_REF_GENRE > current > primeira opÃ§Ã£o)
+    // Restaurar seleção (priorizar PROD_AI_REF_GENRE > current > primeira opção)
     const target = window.PROD_AI_REF_GENRE || current || (sel.options[0] && sel.options[0].value);
     if (target) sel.value = target;
 }
 
-// ðŸ”¤ Converter chave em rÃ³tulo amigÃ¡vel (ex.: "funk_mandela" â†’ "Funk Mandela")
+// 🔤 Converter chave em rótulo amigável (ex.: "funk_mandela" → "Funk Mandela")
 function labelizeKey(key) {
     if (!key) return '';
     return String(key)
@@ -1234,7 +1253,7 @@ function labelizeKey(key) {
         .replace(/\b\w/g, c => c.toUpperCase());
 }
 
-// âœ… Garantir que a opÃ§Ã£o do gÃªnero ativo exista no select (para casos via URL)
+// ✅ Garantir que a opção do gênero ativo exista no select (para casos via URL)
 function ensureActiveGenreOption(selectEl, genreKey) {
     if (!selectEl || !genreKey) return;
     const exists = Array.from(selectEl.options).some(o => o.value === genreKey);
@@ -1248,24 +1267,24 @@ function ensureActiveGenreOption(selectEl, genreKey) {
 
 async function loadReferenceData(genre) {
     try {
-        // Se feature flag de invalidar cache por troca de escala/gÃªnero estiver ativa, ignorar cache salvo
+        // Se feature flag de invalidar cache por troca de escala/gênero estiver ativa, ignorar cache salvo
         const bypassCache = (typeof window !== 'undefined' && window.REFS_BYPASS_CACHE === true);
         if (!bypassCache && __refDataCache[genre]) {
             __activeRefData = __refDataCache[genre];
             __activeRefGenre = genre;
-            updateRefStatus('âœ” referÃªncias (cache)', '#0d6efd');
+            updateRefStatus('✔ referências (cache)', '#0d6efd');
             return __activeRefData;
         }
         if (bypassCache) {
             delete __refDataCache[genre];
         }
-        updateRefStatus('â³ carregando...', '#996600');
+        updateRefStatus('⏳ carregando...', '#996600');
         
-        console.log('ðŸ” DEBUG loadReferenceData inÃ­cio:', { genre, bypassCache });
+        console.log('🔍 DEBUG loadReferenceData início:', { genre, bypassCache });
         
         // PRIORIDADE CORRIGIDA: external > embedded > fallback
         // 1) Tentar carregar JSON externo primeiro (sempre, independente de REFS_ALLOW_NETWORK)
-        console.log('ðŸŒ Tentando carregar JSON externo primeiro...');
+        console.log('🌐 Tentando carregar JSON externo primeiro...');
         try {
             const version = Date.now(); // Force cache bust
             const json = await fetchRefJsonWithFallback([
@@ -1283,8 +1302,8 @@ async function loadReferenceData(genre) {
                 __activeRefGenre = genre;
                 window.PROD_AI_REF_DATA = enrichedNet;
                 
-                // Log de diagnÃ³stico
-                console.log('ðŸŽ¯ REFS DIAGNOSTIC:', {
+                // Log de diagnóstico
+                console.log('🎯 REFS DIAGNOSTIC:', {
                     genre,
                     source: 'external',
                     path: `/public/refs/out/${genre}.json`,
@@ -1295,16 +1314,16 @@ async function loadReferenceData(genre) {
                     stereo_target: data.stereo_target
                 });
                 
-                updateRefStatus('âœ” referÃªncias aplicadas', '#0d6efd');
+                updateRefStatus('✔ referências aplicadas', '#0d6efd');
                 try { buildAggregatedRefStats(); } catch {}
                 return enrichedNet;
             }
         } catch (netError) {
-            console.log('âŒ External refs failed:', netError.message);
-            console.log('ðŸ”„ Fallback para embedded refs...');
+            console.log('❌ External refs failed:', netError.message);
+            console.log('🔄 Fallback para embedded refs...');
         }
         
-        // 2) Fallback para referÃªncias embutidas (embedded)
+        // 2) Fallback para referências embutidas (embedded)
         const embWin = (typeof window !== 'undefined' && window.__EMBEDDED_REFS__ && window.__EMBEDDED_REFS__.byGenre && window.__EMBEDDED_REFS__.byGenre[genre]) || null;
         const embInline = __INLINE_EMBEDDED_REFS__?.byGenre?.[genre] || null;
         const useData = embWin || embInline;
@@ -1315,8 +1334,8 @@ async function loadReferenceData(genre) {
             __activeRefGenre = genre;
             window.PROD_AI_REF_DATA = enriched;
             
-            // Log de diagnÃ³stico
-            console.log('ðŸŽ¯ REFS DIAGNOSTIC:', {
+            // Log de diagnóstico
+            console.log('🎯 REFS DIAGNOSTIC:', {
                 genre,
                 source: 'embedded',
                 path: embWin ? 'window.__EMBEDDED_REFS__' : '__INLINE_EMBEDDED_REFS__',
@@ -1327,17 +1346,17 @@ async function loadReferenceData(genre) {
                 stereo_target: useData.stereo_target
             });
             
-            updateRefStatus('âœ” referÃªncias embutidas', '#0d6efd');
+            updateRefStatus('✔ referências embutidas', '#0d6efd');
             try { buildAggregatedRefStats(); } catch {}
             return enriched;
         }
         
-        // 3) Se ainda nada funcionou e REFS_ALLOW_NETWORK estÃ¡ ativo (legacy path)
+        // 3) Se ainda nada funcionou e REFS_ALLOW_NETWORK está ativo (legacy path)
         if (typeof window !== 'undefined' && window.REFS_ALLOW_NETWORK === true) {
-            console.log('âš ï¸ Using legacy REFS_ALLOW_NETWORK path - should not happen with new logic');
+            console.log('⚠️ Using legacy REFS_ALLOW_NETWORK path - should not happen with new logic');
         }
         
-        // 4) Ãšltimo recurso: trance inline (fallback)
+        // 4) Último recurso: trance inline (fallback)
         const fallback = __INLINE_EMBEDDED_REFS__?.byGenre?.trance;
         if (fallback) {
             const enrichedFb = enrichReferenceObject(structuredClone(fallback), 'trance');
@@ -1346,8 +1365,8 @@ async function loadReferenceData(genre) {
             __activeRefGenre = 'trance';
             window.PROD_AI_REF_DATA = enrichedFb;
             
-            // Log de diagnÃ³stico
-            console.log('ðŸŽ¯ REFS DIAGNOSTIC:', {
+            // Log de diagnóstico
+            console.log('🎯 REFS DIAGNOSTIC:', {
                 genre,
                 source: 'fallback',
                 path: '__INLINE_EMBEDDED_REFS__.trance',
@@ -1358,13 +1377,13 @@ async function loadReferenceData(genre) {
                 stereo_target: fallback.stereo_target
             });
             
-            updateRefStatus('âœ” referÃªncias embutidas (fallback)', '#0d6efd');
+            updateRefStatus('✔ referências embutidas (fallback)', '#0d6efd');
             try { buildAggregatedRefStats(); } catch {}
             return enrichedFb;
         }
-        throw new Error('Sem referÃªncias disponÃ­veis');
+        throw new Error('Sem referências disponíveis');
     } catch (e) {
-        console.warn('Falha ao carregar referÃªncias', genre, e);
+        console.warn('Falha ao carregar referências', genre, e);
         // Fallback: tentar EMBEDDED
         try {
             const embMap = (typeof window !== 'undefined' && window.__EMBEDDED_REFS__ && window.__EMBEDDED_REFS__.byGenre) || __INLINE_EMBEDDED_REFS__.byGenre || {};
@@ -1375,23 +1394,23 @@ async function loadReferenceData(genre) {
                 __activeRefData = enrichedEmb;
                 __activeRefGenre = genre;
                 window.PROD_AI_REF_DATA = enrichedEmb;
-                updateRefStatus('âœ” referÃªncias embutidas', '#0d6efd');
+                updateRefStatus('✔ referências embutidas', '#0d6efd');
                 try { buildAggregatedRefStats(); } catch {}
                 return enrichedEmb;
             }
-            // Se o gÃªnero especÃ­fico nÃ£o existir, usar um padrÃ£o seguro (trance) se disponÃ­vel
+            // Se o gênero específico não existir, usar um padrão seguro (trance) se disponível
             if (embMap && embMap.trance) {
                 const enrichedEmbTr = enrichReferenceObject(structuredClone(embMap.trance), 'trance');
                 __refDataCache['trance'] = enrichedEmbTr;
                 __activeRefData = enrichedEmbTr;
                 __activeRefGenre = 'trance';
                 window.PROD_AI_REF_DATA = enrichedEmbTr;
-                updateRefStatus('âœ” referÃªncias embutidas (fallback)', '#0d6efd');
+                updateRefStatus('✔ referências embutidas (fallback)', '#0d6efd');
                 try { buildAggregatedRefStats(); } catch {}
                 return enrichedEmbTr;
             }
         } catch(_) {}
-        updateRefStatus('âš  falha refs', '#992222');
+        updateRefStatus('⚠ falha refs', '#992222');
         return null;
     }
 }
@@ -1405,47 +1424,47 @@ function applyGenreSelection(genre) {
     if (!genre) return Promise.resolve();
     window.PROD_AI_REF_GENRE = genre;
     localStorage.setItem('prodai_ref_genre', genre);
-    // InvalidaÃ§Ã£o de cache opcional
+    // Invalidação de cache opcional
     if (typeof window !== 'undefined' && window.INVALIDATE_REF_CACHE_ON_GENRE_CHANGE === true) {
         try { delete __refDataCache[genre]; } catch {}
         invalidateReferenceDerivedCaches();
     }
     
-    // ðŸŽ¯ FORÃ‡AR invalidaÃ§Ã£o para garantir nova referÃªncia
+    // 🎯 FORÇAR invalidação para garantir nova referência
     try { 
         delete __refDataCache[genre]; 
         invalidateReferenceDerivedCaches();
-        console.log('âœ… Cache invalidado para gÃªnero:', genre);
-    } catch(e) { console.warn('âš ï¸ Falha na invalidaÃ§Ã£o:', e); }
-    // Carregar refs e, se jÃ¡ houver anÃ¡lise no modal, atualizar sugestÃµes de referÃªncia e re-renderizar
+        console.log('✅ Cache invalidado para gênero:', genre);
+    } catch(e) { console.warn('⚠️ Falha na invalidação:', e); }
+    // Carregar refs e, se já houver análise no modal, atualizar sugestões de referência e re-renderizar
     return loadReferenceData(genre).then(() => {
         try {
             if (typeof currentModalAnalysis === 'object' && currentModalAnalysis) {
-                // ðŸŽ¯ NOVO: Recalcular score com nova referÃªncia
+                // 🎯 NOVO: Recalcular score com nova referência
                 try {
                     if (typeof window !== 'undefined' && window.computeMixScore && __refData) {
                         currentModalAnalysis.qualityOverall = window.computeMixScore(currentModalAnalysis.technicalData, __refData);
-                        console.log('âœ… Score recalculado para novo gÃªnero:', currentModalAnalysis.qualityOverall);
+                        console.log('✅ Score recalculado para novo gênero:', currentModalAnalysis.qualityOverall);
                     }
-                } catch(e) { console.warn('âŒ Falha ao recalcular score:', e); }
+                } catch(e) { console.warn('❌ Falha ao recalcular score:', e); }
                 
-                // Recalcular sugestÃµes reference_* com as novas tolerÃ¢ncias
+                // Recalcular sugestões reference_* com as novas tolerâncias
                 try { updateReferenceSuggestions(currentModalAnalysis); } catch(e) { console.warn('updateReferenceSuggestions falhou', e); }
-                // Re-renderizaÃ§Ã£o completa para refletir sugestÃµes e comparaÃ§Ãµes
+                // Re-renderização completa para refletir sugestões e comparações
                 try { 
-                    // ðŸ”’ UI GATE: Verificar se anÃ¡lise ainda Ã© vÃ¡lida
+                    // 🔒 UI GATE: Verificar se análise ainda é válida
                     const analysisRunId = currentModalAnalysis?.runId || currentModalAnalysis?.metadata?.runId;
                     const currentRunId = window.__CURRENT_ANALYSIS_RUN_ID__;
                     
                     if (analysisRunId && currentRunId && analysisRunId !== currentRunId) {
-                        console.warn(`ðŸš« [UI_GATE] Re-render cancelado - anÃ¡lise obsoleta (anÃ¡lise: ${analysisRunId}, atual: ${currentRunId})`);
+                        console.warn(`🚫 [UI_GATE] Re-render cancelado - análise obsoleta (análise: ${analysisRunId}, atual: ${currentRunId})`);
                         return;
                     }
                     
                     displayModalResults(currentModalAnalysis); 
                 } catch(e) { console.warn('re-render modal falhou', e); }
             }
-        } catch (e) { console.warn('re-render comparaÃ§Ã£o falhou', e); }
+        } catch (e) { console.warn('re-render comparação falhou', e); }
     });
 }
 // Expor global
@@ -1453,7 +1472,7 @@ if (typeof window !== 'undefined') {
     window.applyGenreSelection = applyGenreSelection;
 }
 
-// Health check utilitÃ¡rio (Etapa 2) â€“ avalia estabilidade das mÃ©tricas em mÃºltiplos runs
+// Health check utilitário (Etapa 2) – avalia estabilidade das métricas em múltiplos runs
 if (typeof window !== 'undefined' && !window.__audioHealthCheck) {
     window.__audioHealthCheck = async function(file, opts = {}) {
         const runs = opts.runs || 3;
@@ -1461,7 +1480,7 @@ if (typeof window !== 'undefined' && !window.__audioHealthCheck) {
         const out = { runs: [], spreads: {}, anomalies: [] };
         for (let i=0;i<runs;i++) {
             const t0 = performance.now();
-            // ðŸ†” CORREÃ‡ÃƒO: Adicionar runId para funÃ§Ãµes de health check
+            // 🆔 CORREÇÃO: Adicionar runId para funções de health check
             const healthOptions = prepareAnalysisOptions({}, `health_${i+1}`);
             const res = await window.audioAnalyzer.analyzeAudioFile(file, healthOptions);
             const t1 = performance.now();
@@ -1488,12 +1507,12 @@ if (typeof window !== 'undefined' && !window.__audioHealthCheck) {
 }
 
 // ================== ACCEPTANCE TEST HARNESS (Etapa 3) ==================
-// âš ï¸ REMOVIDO: Testes que dependem de Web Audio API
-// TODO: Implementar testes baseados em anÃ¡lise remota se necessÃ¡rio
+// ⚠️ REMOVIDO: Testes que dependem de Web Audio API
+// TODO: Implementar testes baseados em análise remota se necessário
 
 if (typeof window !== 'undefined' && !window.__runAcceptanceAudioTests) {
     window.__runAcceptanceAudioTests = async function(opts = {}) {
-        console.warn('âš ï¸ Testes de aceitaÃ§Ã£o de Ã¡udio foram removidos devido Ã  migraÃ§Ã£o para anÃ¡lise remota');
+        console.warn('⚠️ Testes de aceitação de áudio foram removidos devido à migração para análise remota');
         return { 
             skipped: true, 
             reason: 'Web Audio API removida - usar testes de backend' 
@@ -1509,21 +1528,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function initializeAudioAnalyzerIntegration() {
     if (__audioIntegrationInitialized) {
-        __dbg('â„¹ï¸ IntegraÃ§Ã£o do Audio Analyzer jÃ¡ inicializada. Ignorando chamada duplicada.');
+        __dbg('ℹ️ Integração do Audio Analyzer já inicializada. Ignorando chamada duplicada.');
         return;
     }
     __audioIntegrationInitialized = true;
-    __dbg('ðŸŽµ Inicializando integraÃ§Ã£o do Audio Analyzer...');
-    // Habilitar flag de referÃªncia por gÃªnero via parÃ¢metro de URL (ex.: ?refgenre=trance)
+    __dbg('🎵 Inicializando integração do Audio Analyzer...');
+    // Habilitar flag de referência por gênero via parâmetro de URL (ex.: ?refgenre=trance)
     try {
         if (typeof window !== 'undefined') {
             const params = new URLSearchParams(window.location.search);
             const rg = params.get('refgenre');
             if (rg && !window.PROD_AI_REF_GENRE) {
                 window.PROD_AI_REF_GENRE = String(rg).trim().toLowerCase();
-                __dbg(`[REF-GÃŠNERO] Ativado via URL: ${window.PROD_AI_REF_GENRE}`);
+                __dbg(`[REF-GÊNERO] Ativado via URL: ${window.PROD_AI_REF_GENRE}`);
             }
-            // Flags de controle por URL (nÃ£o alteram CSS)
+            // Flags de controle por URL (não alteram CSS)
             if (params.has('surgical')) {
                 const v = params.get('surgical');
                 window.USE_SURGICAL_EQ = !(v === '0' || v === 'false');
@@ -1548,7 +1567,7 @@ function initializeAudioAnalyzerIntegration() {
                 window.DEBUG_ANALYZER = (v === '1' || v === 'true');
                 __dbg(`[FLAG] DEBUG_ANALYZER = ${window.DEBUG_ANALYZER}`);
             }
-            // Preferir mÃ©tricas avanÃ§adas (ITU/oversampling) quando disponÃ­veis, sem sobrescrever configs do usuÃ¡rio
+            // Preferir métricas avançadas (ITU/oversampling) quando disponíveis, sem sobrescrever configs do usuário
             if (typeof window.PREFER_ADVANCED_METRICS === 'undefined') {
                 window.PREFER_ADVANCED_METRICS = true;
                 __dbg('[FLAG] PREFER_ADVANCED_METRICS = true (auto)');
@@ -1556,7 +1575,7 @@ function initializeAudioAnalyzerIntegration() {
         }
     } catch (_) { /* noop */ }
     
-    // Restaurar gÃªnero salvo
+    // Restaurar gênero salvo
     try {
         const saved = localStorage.getItem('prodai_ref_genre');
         if (!window.PROD_AI_REF_GENRE && saved) window.PROD_AI_REF_GENRE = saved;
@@ -1567,81 +1586,120 @@ function initializeAudioAnalyzerIntegration() {
         // Popular dinamicamente a partir do manifesto, mantendo fallback
         loadGenreManifest().then(() => {
             populateGenreSelect(__genreManifest);
-            // Listener de mudanÃ§a (garantir apenas um)
+            // Listener de mudança (garantir apenas um)
             genreSelect.onchange = () => applyGenreSelection(genreSelect.value);
-            // Aplicar seleÃ§Ã£o atual
+            // Aplicar seleção atual
             const selected = genreSelect.value || window.PROD_AI_REF_GENRE;
             applyGenreSelection(selected);
         });
     }
 
-    // BotÃ£o de anÃ¡lise de mÃºsica (novo design)
+    // Botão de análise de música (novo design)
     const musicAnalysisBtn = document.getElementById('musicAnalysisBtn');
     if (musicAnalysisBtn) {
         musicAnalysisBtn.addEventListener('click', openAudioModal);
-        __dbg('âœ… BotÃ£o de AnÃ¡lise de MÃºsica configurado');
+        __dbg('✅ Botão de Análise de Música configurado');
     }
     
-    // Modal de Ã¡udio
+    // Modal de áudio
     setupAudioModal();
     
-    __dbg('ðŸŽµ Audio Analyzer Integration carregada com sucesso!');
+    __dbg('🎵 Audio Analyzer Integration carregada com sucesso!');
 
-    // Aplicar estilos aprimorados ao seletor de gÃªnero
+    // Aplicar estilos aprimorados ao seletor de gênero
     try { injectRefGenreStyles(); } catch(e) { /* silencioso */ }
 }
 
-// ðŸŽµ Abrir modal de anÃ¡lise de Ã¡udio
+// 🎵 Abrir modal de análise de áudio
 function openAudioModal() {
     window.logReferenceEvent('open_modal_requested');
     
-    // Verificar se modo referÃªncia estÃ¡ habilitado
+    // Verificar se modo referência está habilitado
     const isReferenceEnabled = window.FEATURE_FLAGS?.REFERENCE_MODE_ENABLED;
     
     if (isReferenceEnabled) {
-        // Abrir modal de seleÃ§Ã£o de modo primeiro
+        // Abrir modal de seleção de modo primeiro
         openModeSelectionModal();
     } else {
-        // Comportamento original: modo gÃªnero direto
+        // Comportamento original: modo gênero direto
         selectAnalysisMode('genre');
     }
 }
 
-// ðŸŽ¯ NOVO: Selecionar modo de anÃ¡lise
+// 🎯 NOVO: Modal de Seleção de Modo
+function openModeSelectionModal() {
+    __dbg('� Abrindo modal de seleção de modo...');
+    
+    const modal = document.getElementById('analysisModeModal');
+    if (!modal) {
+        console.error('Modal de seleção de modo não encontrado');
+        return;
+    }
+    
+    // Verificar se modo referência está habilitado e mostrar/esconder botão
+    const referenceModeBtn = document.getElementById('referenceModeBtn');
+    if (referenceModeBtn) {
+        const isEnabled = window.FEATURE_FLAGS?.REFERENCE_MODE_ENABLED;
+        referenceModeBtn.style.display = isEnabled ? 'flex' : 'none';
+        
+        if (!isEnabled) {
+            referenceModeBtn.disabled = true;
+        }
+    }
+    
+    modal.style.display = 'flex';
+    modal.setAttribute('tabindex', '-1');
+    modal.focus();
+    
+    window.logReferenceEvent('mode_selection_modal_opened');
+}
+
+function closeModeSelectionModal() {
+    __dbg('❌ Fechando modal de seleção de modo...');
+    
+    const modal = document.getElementById('analysisModeModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    
+    window.logReferenceEvent('mode_selection_modal_closed');
+}
+
+// 🎯 NOVO: Selecionar modo de análise
 function selectAnalysisMode(mode) {
     window.logReferenceEvent('analysis_mode_selected', { mode });
     
     if (mode === 'reference' && !window.FEATURE_FLAGS?.REFERENCE_MODE_ENABLED) {
-        alert('Modo de anÃ¡lise por referÃªncia nÃ£o estÃ¡ disponÃ­vel no momento.');
+        alert('Modo de análise por referência não está disponível no momento.');
         return;
     }
     
     currentAnalysisMode = mode;
     
-    // Fechar modal de seleÃ§Ã£o de modo
+    // Fechar modal de seleção de modo
     closeModeSelectionModal();
     
-    // Abrir modal de anÃ¡lise configurado para o modo selecionado
+    // Abrir modal de análise configurado para o modo selecionado
     openAnalysisModalForMode(mode);
 }
 
-// ðŸŽ¯ NOVO: Abrir modal de anÃ¡lise configurado para o modo
+// 🎯 NOVO: Abrir modal de análise configurado para o modo
 function openAnalysisModalForMode(mode) {
-    __dbg(`ðŸŽµ Abrindo modal de anÃ¡lise para modo: ${mode}`);
+    __dbg(`🎵 Abrindo modal de análise para modo: ${mode}`);
     
-    // CORREÃ‡ÃƒO CRÃTICA: Definir window.currentAnalysisMode sempre que o modal for aberto
+    // CORREÇÃO CRÍTICA: Definir window.currentAnalysisMode sempre que o modal for aberto
     window.currentAnalysisMode = mode;
     
     const modal = document.getElementById('audioAnalysisModal');
     if (!modal) {
-        console.error('Modal de anÃ¡lise nÃ£o encontrado');
+        console.error('Modal de análise não encontrado');
         return;
     }
     
     // Configurar modal baseado no modo
     configureModalForMode(mode);
     
-    // Reset state especÃ­fico do modo
+    // Reset state específico do modo
     if (mode === 'reference') {
         resetReferenceState();
     }
@@ -1654,7 +1712,7 @@ function openAnalysisModalForMode(mode) {
     window.logReferenceEvent('analysis_modal_opened', { mode });
 }
 
-// ðŸŽ¯ NOVO: Configurar modal baseado no modo selecionado
+// 🎯 NOVO: Configurar modal baseado no modo selecionado
 function configureModalForMode(mode) {
     const title = document.getElementById('audioModalTitle');
     const subtitle = document.getElementById('audioModalSubtitle');
@@ -1663,19 +1721,19 @@ function configureModalForMode(mode) {
     const progressSteps = document.getElementById('referenceProgressSteps');
     
     if (mode === 'genre') {
-        // Modo GÃªnero: comportamento original
-        if (title) title.textContent = 'ðŸŽµ AnÃ¡lise de Ãudio';
+        // Modo Gênero: comportamento original
+        if (title) title.textContent = '🎵 Análise de Áudio';
         if (subtitle) subtitle.style.display = 'none';
         if (genreContainer) genreContainer.style.display = 'flex';
         if (progressSteps) progressSteps.style.display = 'none';
         
     } else if (mode === 'reference') {
-        // Modo ReferÃªncia: interface especÃ­fica
-        if (title) title.textContent = 'ðŸŽ¯ AnÃ¡lise por ReferÃªncia';
+        // Modo Referência: interface específica
+        if (title) title.textContent = '🎯 Análise por Referência';
         if (subtitle) {
             subtitle.style.display = 'block';
             if (modeIndicator) {
-                modeIndicator.textContent = 'ComparaÃ§Ã£o direta entre suas mÃºsicas';
+                modeIndicator.textContent = 'Comparação direta entre suas músicas';
             }
         }
         if (genreContainer) genreContainer.style.display = 'none';
@@ -1686,7 +1744,7 @@ function configureModalForMode(mode) {
     }
 }
 
-// ðŸŽ¯ NOVO: Reset estado do modo referÃªncia
+// 🎯 NOVO: Reset estado do modo referência
 function resetReferenceState() {
     referenceStepState = {
         currentStep: 'userAudio',
@@ -1699,7 +1757,7 @@ function resetReferenceState() {
     window.logReferenceEvent('reference_state_reset');
 }
 
-// ðŸŽ¯ NOVO: Atualizar step ativo no modo referÃªncia
+// 🎯 NOVO: Atualizar step ativo no modo referência
 function updateReferenceStep(step) {
     const steps = ['userAudio', 'referenceAudio', 'analysis'];
     const stepElements = {
@@ -1735,9 +1793,9 @@ function updateReferenceStep(step) {
     window.logReferenceEvent('reference_step_updated', { step, currentIndex });
 }
 
-// âŒ Fechar modal de anÃ¡lise de Ã¡udio
+// ❌ Fechar modal de análise de áudio
 function closeAudioModal() {
-    __dbg('âŒ Fechando modal de anÃ¡lise de Ã¡udio...');
+    __dbg('❌ Fechando modal de análise de áudio...');
     
     const modal = document.getElementById('audioAnalysisModal');
     if (modal) {
@@ -1745,28 +1803,28 @@ function closeAudioModal() {
         currentModalAnalysis = null;
         resetModalState();
         
-        // ðŸ”§ CORREÃ‡ÃƒO: Garantir que o modal pode ser usado novamente
-        // Limpar cache de arquivos para forÃ§ar novo processamento
+        // 🔧 CORREÇÃO: Garantir que o modal pode ser usado novamente
+        // Limpar cache de arquivos para forçar novo processamento
         const fileInput = document.getElementById('modalAudioFileInput');
         if (fileInput) {
-            fileInput.value = ''; // Limpar input para permitir re-seleÃ§Ã£o do mesmo arquivo
+            fileInput.value = ''; // Limpar input para permitir re-seleção do mesmo arquivo
         }
         
-        // Resetar flags globais para prÃ³xima anÃ¡lise
+        // Resetar flags globais para próxima análise
         if (typeof window !== 'undefined') {
             delete window.__AUDIO_ADVANCED_READY__;
             delete window.__MODAL_ANALYSIS_IN_PROGRESS__;
         }
         
-        __dbg('âœ… Modal resetado e pronto para prÃ³xima anÃ¡lise');
+        __dbg('✅ Modal resetado e pronto para próxima análise');
     }
 }
 
-// ðŸ”„ Reset estado do modal
+// 🔄 Reset estado do modal
 function resetModalState() {
-    __dbg('ðŸ”„ Resetando estado do modal...');
+    __dbg('🔄 Resetando estado do modal...');
     
-    // Mostrar Ã¡rea de upload
+    // Mostrar área de upload
     const uploadArea = document.getElementById('audioUploadArea');
     const loading = document.getElementById('audioAnalysisLoading');
     const results = document.getElementById('audioAnalysisResults');
@@ -1781,10 +1839,10 @@ function resetModalState() {
     if (progressFill) progressFill.style.width = '0%';
     if (progressText) progressText.textContent = '';
     
-    // ðŸ”§ CORREÃ‡ÃƒO: Limpar anÃ¡lise anterior e flags
+    // 🔧 CORREÇÃO: Limpar análise anterior e flags
     currentModalAnalysis = null;
     
-    // Limpar input de arquivo para permitir re-seleÃ§Ã£o
+    // Limpar input de arquivo para permitir re-seleção
     const fileInput = document.getElementById('modalAudioFileInput');
     if (fileInput) {
         fileInput.value = '';
@@ -1796,17 +1854,17 @@ function resetModalState() {
         delete window.__MODAL_ANALYSIS_IN_PROGRESS__;
     }
     
-    __dbg('âœ… Estado do modal resetado completamente');
+    __dbg('✅ Estado do modal resetado completamente');
 }
 
-// âš™ï¸ Configurar modal de Ã¡udio
+// ⚙️ Configurar modal de áudio
 function setupAudioModal() {
     const modal = document.getElementById('audioAnalysisModal');
     const fileInput = document.getElementById('modalAudioFileInput');
     const uploadArea = document.getElementById('audioUploadArea');
     
     if (!modal || !fileInput || !uploadArea) {
-        __dwrn('âš ï¸ Elementos do modal nÃ£o encontrados');
+        __dwrn('⚠️ Elementos do modal não encontrados');
         return;
     }
     
@@ -1824,7 +1882,7 @@ function setupAudioModal() {
         }
     });
     
-    // Detectar se Ã© dispositivo mÃ³vel
+    // Detectar se é dispositivo móvel
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
     if (!isMobile) {
@@ -1852,62 +1910,62 @@ function setupAudioModal() {
     
     // File input change event
     fileInput.addEventListener('change', (e) => {
-        __dbg('ðŸ“ File input change triggered');
+        __dbg('📁 File input change triggered');
         if (e.target.files.length > 0) {
-            __dbg('ðŸ“ File selected:', e.target.files[0].name);
+            __dbg('📁 File selected:', e.target.files[0].name);
             handleModalFileSelection(e.target.files[0]);
         }
     });
     
-    // NÃ£o adicionar nenhum listener JS ao botÃ£o/label de upload!
+    // Não adicionar nenhum listener JS ao botão/label de upload!
     uploadArea.onclick = null;
     
-    __dbg('âœ… Modal de Ã¡udio configurado com sucesso');
+    __dbg('✅ Modal de áudio configurado com sucesso');
 }
 
-// ðŸ“ Processar arquivo selecionado no modal
+// 📁 Processar arquivo selecionado no modal
 async function handleModalFileSelection(file) {
-    __dbg('ðŸ“ Arquivo selecionado no modal:', file.name);
+    __dbg('📁 Arquivo selecionado no modal:', file.name);
     
-    // ðŸ”§ CORREÃ‡ÃƒO: Prevenir mÃºltiplas anÃ¡lises simultÃ¢neas
+    // 🔧 CORREÇÃO: Prevenir múltiplas análises simultâneas
     if (typeof window !== 'undefined' && window.__MODAL_ANALYSIS_IN_PROGRESS__) {
-        __dbg('âš ï¸ AnÃ¡lise jÃ¡ em progresso, ignorando nova seleÃ§Ã£o');
+        __dbg('⚠️ Análise já em progresso, ignorando nova seleção');
         return;
     }
     
     try {
-        // Marcar anÃ¡lise em progresso
+        // Marcar análise em progresso
         if (typeof window !== 'undefined') {
             window.__MODAL_ANALYSIS_IN_PROGRESS__ = true;
         }
         
-        // ValidaÃ§Ã£o comum de arquivo
+        // Validação comum de arquivo
         if (!validateAudioFile(file)) {
-            return; // validateAudioFile jÃ¡ mostra erro
+            return; // validateAudioFile já mostra erro
         }
         
-        // ðŸŒ NOVO FLUXO COMPLETO: Presigned URL â†’ Upload â†’ Job Creation â†’ Polling
-        __dbg('ðŸŒ Iniciando fluxo de anÃ¡lise remota completo...');
+        // 🌐 NOVO FLUXO COMPLETO: Presigned URL → Upload → Job Creation → Polling
+        __dbg('🌐 Iniciando fluxo de análise remota completo...');
         
         // Mostrar loading
         hideUploadArea();
         showAnalysisLoading();
         showUploadProgress(`Preparando upload de ${file.name}...`);
         
-        // ðŸŒ ETAPA 1: Obter URL prÃ©-assinada
+        // 🌐 ETAPA 1: Obter URL pré-assinada
         const { uploadUrl, fileKey } = await getPresignedUrl(file);
         
-        // ðŸŒ ETAPA 2: Upload direto para bucket
+        // 🌐 ETAPA 2: Upload direto para bucket
         await uploadToBucket(uploadUrl, file);
         
-        // ðŸŒ ETAPA 3: Criar job de anÃ¡lise no backend
+        // 🌐 ETAPA 3: Criar job de análise no backend
         const { jobId } = await createAnalysisJob(fileKey, currentAnalysisMode, file.name);
         
-        // ðŸŒ ETAPA 4: Acompanhar progresso e aguardar resultado
+        // 🌐 ETAPA 4: Acompanhar progresso e aguardar resultado
         showUploadProgress(`Analisando ${file.name}... Aguarde.`);
         const analysisResult = await pollJobStatus(jobId);
         
-        // ðŸŒ ETAPA 5: Processar resultado baseado no modo
+        // 🌐 ETAPA 5: Processar resultado baseado no modo
         if (currentAnalysisMode === "reference") {
             await handleReferenceAnalysisWithResult(analysisResult, fileKey, file.name);
         } else {
@@ -1915,34 +1973,34 @@ async function handleModalFileSelection(file) {
         }
 
     } catch (error) {
-        console.error('âŒ Erro na anÃ¡lise do modal:', error);
+        console.error('❌ Erro na análise do modal:', error);
         
-        // Verificar se Ã© um erro de fallback para modo gÃªnero
+        // Verificar se é um erro de fallback para modo gênero
         if (window.FEATURE_FLAGS?.FALLBACK_TO_GENRE && currentAnalysisMode === 'reference') {
             window.logReferenceEvent('error_fallback_to_genre', { 
                 error: error.message,
                 originalMode: currentAnalysisMode 
             });
             
-            showModalError('Erro na anÃ¡lise por referÃªncia. Redirecionando para anÃ¡lise por gÃªnero...');
+            showModalError('Erro na análise por referência. Redirecionando para análise por gênero...');
             
             setTimeout(() => {
                 currentAnalysisMode = 'genre';
                 configureModalForMode('genre');
             }, 2000);
         } else {
-            // Determinar tipo de erro para mensagem mais especÃ­fica
+            // Determinar tipo de erro para mensagem mais específica
             let errorMessage = error.message;
             if (error.message.includes('Falha ao gerar URL de upload')) {
-                errorMessage = 'Falha ao gerar URL de upload. Verifique sua conexÃ£o e tente novamente.';
-            } else if (error.message.includes('Falha ao enviar arquivo para anÃ¡lise')) {
-                errorMessage = 'Falha ao enviar arquivo para anÃ¡lise. Verifique sua conexÃ£o e tente novamente.';
+                errorMessage = 'Falha ao gerar URL de upload. Verifique sua conexão e tente novamente.';
+            } else if (error.message.includes('Falha ao enviar arquivo para análise')) {
+                errorMessage = 'Falha ao enviar arquivo para análise. Verifique sua conexão e tente novamente.';
             }
             
             showModalError(`Erro ao processar arquivo: ${errorMessage}`);
         }
     } finally {
-        // ðŸŽµ WAV CLEANUP: Limpar otimizaÃ§Ãµes WAV em caso de erro
+        // 🎵 WAV CLEANUP: Limpar otimizações WAV em caso de erro
         try {
             if (window.wavMobileOptimizer) {
                 window.wavMobileOptimizer.cleanupWAVOptimizations();
@@ -1951,31 +2009,31 @@ async function handleModalFileSelection(file) {
             console.warn('WAV cleanup error in finally (non-critical):', cleanupError);
         }
         
-        // ðŸ”§ CORREÃ‡ÃƒO: Sempre limpar flag de anÃ¡lise em progresso
+        // 🔧 CORREÇÃO: Sempre limpar flag de análise em progresso
         if (typeof window !== 'undefined') {
             delete window.__MODAL_ANALYSIS_IN_PROGRESS__;
         }
-        __dbg('âœ… Flag de anÃ¡lise em progresso removida');
+        __dbg('✅ Flag de análise em progresso removida');
     }
 }
 
-// ï¿½ NOVAS FUNÃ‡Ã•ES: AnÃ¡lise baseada em fileKey (pÃ³s-upload remoto)
+// � NOVAS FUNÇÕES: Análise baseada em fileKey (pós-upload remoto)
 
 /**
- * Processar anÃ¡lise por referÃªncia usando fileKey
+ * Processar análise por referência usando fileKey
  * @param {string} fileKey - Chave do arquivo no bucket
  * @param {string} fileName - Nome original do arquivo
  */
-// ðŸŒ NOVAS FUNÃ‡Ã•ES: AnÃ¡lise baseada em resultado remoto
+// 🌐 NOVAS FUNÇÕES: Análise baseada em resultado remoto
 
 /**
- * Processar anÃ¡lise por referÃªncia usando resultado remoto
- * @param {Object} analysisResult - Resultado da anÃ¡lise remota
+ * Processar análise por referência usando resultado remoto
+ * @param {Object} analysisResult - Resultado da análise remota
  * @param {string} fileKey - Chave do arquivo no bucket
  * @param {string} fileName - Nome original do arquivo
  */
 async function handleReferenceAnalysisWithResult(analysisResult, fileKey, fileName) {
-    __dbg('ðŸŽ¯ Processando anÃ¡lise por referÃªncia com resultado remoto:', { fileKey, fileName });
+    __dbg('🎯 Processando análise por referência com resultado remoto:', { fileKey, fileName });
     
     window.logReferenceEvent('reference_analysis_with_result_started', { 
         fileKey,
@@ -1985,12 +2043,12 @@ async function handleReferenceAnalysisWithResult(analysisResult, fileKey, fileNa
     try {
         // Verificar estrutura do resultado
         if (!analysisResult || typeof analysisResult !== 'object') {
-            throw new Error('Resultado de anÃ¡lise invÃ¡lido recebido do servidor');
+            throw new Error('Resultado de análise inválido recebido do servidor');
         }
         
-        updateModalProgress(90, 'ðŸŽ¯ Aplicando resultado da anÃ¡lise...');
+        updateModalProgress(90, '🎯 Aplicando resultado da análise...');
         
-        // Determinar se Ã© arquivo original ou de referÃªncia
+        // Determinar se é arquivo original ou de referência
         const isReference = currentAnalysisMode === 'reference' && uploadedFiles.original;
         const fileType = isReference ? 'reference' : 'original';
         
@@ -2001,7 +2059,7 @@ async function handleReferenceAnalysisWithResult(analysisResult, fileKey, fileNa
             analysisResult: analysisResult
         };
         
-        __dbg(`âœ… Arquivo ${fileType} armazenado:`, uploadedFiles[fileType]);
+        __dbg(`✅ Arquivo ${fileType} armazenado:`, uploadedFiles[fileType]);
         
         // Atualizar display na interface
         updateReferenceFileDisplay(fileType, fileName);
@@ -2013,16 +2071,16 @@ async function handleReferenceAnalysisWithResult(analysisResult, fileKey, fileNa
             hasResult: !!analysisResult
         });
         
-        // Verificar se ambos os arquivos estÃ£o prontos para comparaÃ§Ã£o
+        // Verificar se ambos os arquivos estão prontos para comparação
         if (uploadedFiles.original && uploadedFiles.reference) {
             enableReferenceComparison();
-            updateModalProgress(100, 'âœ… Ambos os arquivos analisados! ComparaÃ§Ã£o disponÃ­vel.');
+            updateModalProgress(100, '✅ Ambos os arquivos analisados! Comparação disponível.');
             
         
         }
         
     } catch (error) {
-        console.error('âŒ Erro ao processar anÃ¡lise por referÃªncia:', error);
+        console.error('❌ Erro ao processar análise por referência:', error);
         window.logReferenceEvent('reference_analysis_error', { 
             error: error.message,
             fileKey,
@@ -2033,25 +2091,25 @@ async function handleReferenceAnalysisWithResult(analysisResult, fileKey, fileNa
 }
 
 /**
- * Processar anÃ¡lise por gÃªnero usando resultado remoto
- * @param {Object} analysisResult - Resultado da anÃ¡lise remota
+ * Processar análise por gênero usando resultado remoto
+ * @param {Object} analysisResult - Resultado da análise remota
  * @param {string} fileName - Nome original do arquivo
  */
 async function handleGenreAnalysisWithResult(analysisResult, fileName) {
-    __dbg('ðŸŽµ Processando anÃ¡lise por gÃªnero com resultado remoto:', { fileName });
+    __dbg('🎵 Processando análise por gênero com resultado remoto:', { fileName });
     
     try {
         // Verificar estrutura do resultado
         if (!analysisResult || typeof analysisResult !== 'object') {
-            throw new Error('Resultado de anÃ¡lise invÃ¡lido recebido do servidor');
+            throw new Error('Resultado de análise inválido recebido do servidor');
         }
         
-        updateModalProgress(90, 'ðŸŽµ Aplicando resultado da anÃ¡lise...');
+        updateModalProgress(90, '🎵 Aplicando resultado da análise...');
         
-        // ðŸ”§ CORREÃ‡ÃƒO: Normalizar dados do backend antes de usar
+        // 🔧 CORREÇÃO: Normalizar dados do backend antes de usar
         const normalizedResult = normalizeBackendAnalysisData(analysisResult);
         
-        // Definir como anÃ¡lise atual do modal
+        // Definir como análise atual do modal
         currentModalAnalysis = normalizedResult;
         
         // Armazenar resultado globalmente para uso posterior
@@ -2059,7 +2117,7 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
             window.__LAST_ANALYSIS_RESULT__ = normalizedResult;
         }
         
-        updateModalProgress(100, `âœ… AnÃ¡lise de ${fileName} concluÃ­da!`);
+        updateModalProgress(100, `✅ Análise de ${fileName} concluída!`);
         
         // Exibir resultados diretamente no modal
         setTimeout(() => {
@@ -2067,13 +2125,13 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         }, 500);
         
     } catch (error) {
-        console.error('âŒ Erro ao processar anÃ¡lise por gÃªnero:', error);
+        console.error('❌ Erro ao processar análise por gênero:', error);
         throw error;
     }
 }
 
 /**
- * Atualizar display de arquivo de referÃªncia na interface
+ * Atualizar display de arquivo de referência na interface
  * @param {string} fileType - Tipo do arquivo ('original' ou 'reference')
  * @param {string} fileName - Nome do arquivo
  */
@@ -2084,7 +2142,7 @@ function updateReferenceFileDisplay(fileType, fileName) {
         displayElement.style.display = 'block';
     }
     
-    // Atualizar tambÃ©m elementos relacionados
+    // Atualizar também elementos relacionados
     const labelElement = document.querySelector(`label[for="${fileType}FileInput"]`);
     if (labelElement) {
         labelElement.style.opacity = '0.7';
@@ -2092,7 +2150,7 @@ function updateReferenceFileDisplay(fileType, fileName) {
 }
 
 /**
- * Habilitar botÃ£o de comparaÃ§Ã£o de referÃªncia
+ * Habilitar botão de comparação de referência
  */
 function enableReferenceComparison() {
     const compareButton = document.getElementById('compareButton');
@@ -2111,13 +2169,13 @@ function enableReferenceComparison() {
 
 
 /**
- * Mostrar mensagem do prÃ³ximo passo
+ * Mostrar mensagem do próximo passo
  * @param {string} message - Mensagem a ser exibida
  */
 function showNextStepMessage(message) {
-    console.log(`âž¡ï¸ ${message}`);
+    console.log(`➡️ ${message}`);
     
-    // Implementar notificaÃ§Ã£o visual se necessÃ¡rio
+    // Implementar notificação visual se necessário
     const notification = document.createElement('div');
     notification.className = 'next-step-notification';
     notification.textContent = message;
@@ -2136,7 +2194,7 @@ function showNextStepMessage(message) {
     
     document.body.appendChild(notification);
     
-    // Remover apÃ³s 5 segundos
+    // Remover após 5 segundos
     setTimeout(() => {
         if (notification.parentNode) {
             notification.parentNode.removeChild(notification);
@@ -2144,7 +2202,7 @@ function showNextStepMessage(message) {
     }, 5000);
 }
 
-// ï¿½ðŸŽ¯ NOVO: ValidaÃ§Ã£o comum de arquivo
+// �🎯 NOVO: Validação comum de arquivo
 function validateAudioFile(file) {
     const MAX_UPLOAD_MB = 60;
     const MAX_UPLOAD_SIZE = MAX_UPLOAD_MB * 1024 * 1024;
@@ -2158,8 +2216,8 @@ function validateAudioFile(file) {
                        allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
     
     if (!isValidType) {
-        showModalError(`Formato nÃ£o suportado. Apenas WAV, FLAC e MP3 sÃ£o aceitos.
-                      ðŸ’¡ Prefira WAV ou FLAC para maior precisÃ£o na anÃ¡lise.`);
+        showModalError(`Formato não suportado. Apenas WAV, FLAC e MP3 são aceitos.
+                      💡 Prefira WAV ou FLAC para maior precisão na análise.`);
         return false;
     }
     
@@ -2167,11 +2225,11 @@ function validateAudioFile(file) {
     if (file.size > MAX_UPLOAD_SIZE) {
         const sizeInMB = (file.size / 1024 / 1024).toFixed(1);
         showModalError(`Arquivo muito grande: ${sizeInMB}MB. 
-                      Limite mÃ¡ximo: ${MAX_UPLOAD_MB}MB.`);
+                      Limite máximo: ${MAX_UPLOAD_MB}MB.`);
         return false;
     }
     
-    // ðŸŽµ WAV MOBILE WARNING: Avisar sobre demora em arquivos WAV grandes no mobile
+    // 🎵 WAV MOBILE WARNING: Avisar sobre demora em arquivos WAV grandes no mobile
     const isWAV = file.name.toLowerCase().endsWith('.wav') || file.type.includes('wav');
     const isMobile = /iPad|iPhone|iPod|Android/i.test(navigator.userAgent);
     const isLargeWAV = isWAV && file.size > 20 * 1024 * 1024; // >20MB
@@ -2180,26 +2238,26 @@ function validateAudioFile(file) {
         const sizeInMB = (file.size / 1024 / 1024).toFixed(1);
         const estimatedTime = Math.ceil(file.size / (2 * 1024 * 1024)); // ~2MB/s no mobile
         
-        console.warn(`â±ï¸ WAV grande no mobile: ${sizeInMB}MB - tempo estimado: ${estimatedTime}s`);
+        console.warn(`⏱️ WAV grande no mobile: ${sizeInMB}MB - tempo estimado: ${estimatedTime}s`);
         
-        // Mostrar aviso nÃ£o-bloqueante
+        // Mostrar aviso não-bloqueante
         setTimeout(() => {
             if (document.getElementById('audioProgressText')) {
                 document.getElementById('audioProgressText').innerHTML = 
-                    `â±ï¸ Arquivo WAV grande (${sizeInMB}MB)<br>Tempo estimado: ${estimatedTime}-${estimatedTime*2}s<br>Aguarde...`;
+                    `⏱️ Arquivo WAV grande (${sizeInMB}MB)<br>Tempo estimado: ${estimatedTime}-${estimatedTime*2}s<br>Aguarde...`;
             }
         }, 1000);
     }
     
-    // Mostrar recomendaÃ§Ã£o para MP3
+    // Mostrar recomendação para MP3
     if (file.type === 'audio/mpeg' || file.type === 'audio/mp3' || file.name.toLowerCase().endsWith('.mp3')) {
-        console.log('ðŸ’¡ MP3 detectado - RecomendaÃ§Ã£o: Use WAV ou FLAC para maior precisÃ£o');
+        console.log('💡 MP3 detectado - Recomendação: Use WAV ou FLAC para maior precisão');
     }
     
     return true;
 }
 
-// ðŸŽ¯ NOVO: Processar arquivo no modo referÃªncia
+// 🎯 NOVO: Processar arquivo no modo referência
 async function handleReferenceFileSelection(file) {
     window.logReferenceEvent('reference_file_selected', { 
         step: referenceStepState.currentStep,
@@ -2208,38 +2266,38 @@ async function handleReferenceFileSelection(file) {
     });
     
     if (referenceStepState.currentStep === 'userAudio') {
-        // Primeiro arquivo: mÃºsica do usuÃ¡rio
+        // Primeiro arquivo: música do usuário
         referenceStepState.userAudioFile = file;
         
-        // ðŸ› DIAGNÃ“STICO: Verificar se estÃ¡ carregando dados de gÃªnero no modo referÃªncia
-        console.log('ðŸ” [DIAGNÃ“STICO] Analisando USER audio em modo referÃªncia');
-        console.log('ðŸ” [DIAGNÃ“STICO] Current mode:', window.currentAnalysisMode);
-        console.log('ðŸ” [DIAGNÃ“STICO] Genre ativo antes da anÃ¡lise:', window.PROD_AI_REF_GENRE);
-        console.log('ðŸ” [DIAGNÃ“STICO] Active ref data:', !!__activeRefData);
+        // 🐛 DIAGNÓSTICO: Verificar se está carregando dados de gênero no modo referência
+        console.log('🔍 [DIAGNÓSTICO] Analisando USER audio em modo referência');
+        console.log('🔍 [DIAGNÓSTICO] Current mode:', window.currentAnalysisMode);
+        console.log('🔍 [DIAGNÓSTICO] Genre ativo antes da análise:', window.PROD_AI_REF_GENRE);
+        console.log('🔍 [DIAGNÓSTICO] Active ref data:', !!__activeRefData);
         
-        // Analisar arquivo do usuÃ¡rio
+        // Analisar arquivo do usuário
         showModalLoading();
-        updateModalProgress(10, 'ðŸŽµ Analisando sua mÃºsica...');
+        updateModalProgress(10, '🎵 Analisando sua música...');
         
-        // ðŸŽ¯ CORREÃ‡ÃƒO TOTAL: Analisar arquivo do usuÃ¡rio SEM aplicar targets
+        // 🎯 CORREÇÃO TOTAL: Analisar arquivo do usuário SEM aplicar targets
         const userAnalysisOptions = { 
-          mode: 'pure_analysis', // Modo puro, sem comparaÃ§Ãµes
+          mode: 'pure_analysis', // Modo puro, sem comparações
           debugModeReference: true,
-          // Garantir mesmas configuraÃ§Ãµes para ambos os arquivos
+          // Garantir mesmas configurações para ambos os arquivos
           normalizeLoudness: true,
           windowDuration: 30,
           fftSize: 4096
         };
-        // ðŸ†” CORREÃ‡ÃƒO: Preparar options com runId
+        // 🆔 CORREÇÃO: Preparar options com runId
         const userOptionsWithRunId = prepareAnalysisOptions(userAnalysisOptions, 'user_ref');
         const analysis = await window.audioAnalyzer.analyzeAudioFile(file, userOptionsWithRunId);
         
-        // ðŸ› VALIDAÃ‡ÃƒO: Verificar que nÃ£o hÃ¡ comparaÃ§Ã£o com gÃªnero
+        // 🐛 VALIDAÇÃO: Verificar que não há comparação com gênero
         if (analysis.comparison || analysis.mixScore) {
-          console.warn('âš ï¸ [AVISO] AnÃ¡lise do usuÃ¡rio contaminada com comparaÃ§Ã£o/score');
+          console.warn('⚠️ [AVISO] Análise do usuário contaminada com comparação/score');
         }
         
-        console.log('ðŸ” [DIAGNÃ“STICO] User analysis (pura):', {
+        console.log('🔍 [DIAGNÓSTICO] User analysis (pura):', {
           lufs: analysis.technicalData?.lufsIntegrated,
           stereoCorrelation: analysis.technicalData?.stereoCorrelation,
           dynamicRange: analysis.technicalData?.dynamicRange,
@@ -2250,7 +2308,7 @@ async function handleReferenceFileSelection(file) {
         
         referenceStepState.userAnalysis = analysis;
         
-        // AvanÃ§ar para prÃ³ximo step
+        // Avançar para próximo step
         updateReferenceStep('referenceAudio');
         updateUploadAreaForReferenceStep();
         
@@ -2260,37 +2318,37 @@ async function handleReferenceFileSelection(file) {
         });
         
     } else if (referenceStepState.currentStep === 'referenceAudio') {
-        // Segundo arquivo: mÃºsica de referÃªncia
+        // Segundo arquivo: música de referência
         referenceStepState.referenceAudioFile = file;
         
-        // ðŸ› DIAGNÃ“STICO: Verificar anÃ¡lise do arquivo de referÃªncia
-        console.log('ðŸ” [DIAGNÃ“STICO] Analisando REFERENCE audio em modo referÃªncia');
-        console.log('ðŸ” [DIAGNÃ“STICO] Current mode:', window.currentAnalysisMode);
-        console.log('ðŸ” [DIAGNÃ“STICO] Genre ativo antes da anÃ¡lise:', window.PROD_AI_REF_GENRE);
+        // 🐛 DIAGNÓSTICO: Verificar análise do arquivo de referência
+        console.log('🔍 [DIAGNÓSTICO] Analisando REFERENCE audio em modo referência');
+        console.log('🔍 [DIAGNÓSTICO] Current mode:', window.currentAnalysisMode);
+        console.log('🔍 [DIAGNÓSTICO] Genre ativo antes da análise:', window.PROD_AI_REF_GENRE);
         
-        // Analisar arquivo de referÃªncia (extraÃ§Ã£o de mÃ©tricas com MESMAS configuraÃ§Ãµes)
+        // Analisar arquivo de referência (extração de métricas com MESMAS configurações)
         showModalLoading();
-        updateModalProgress(50, 'ðŸŽ¯ Analisando mÃºsica de referÃªncia...');
+        updateModalProgress(50, '🎯 Analisando música de referência...');
         
-        // ðŸŽ¯ CORREÃ‡ÃƒO TOTAL: Usar EXATAMENTE as mesmas configuraÃ§Ãµes do usuÃ¡rio
+        // 🎯 CORREÇÃO TOTAL: Usar EXATAMENTE as mesmas configurações do usuário
         const refAnalysisOptions = { 
-          mode: 'pure_analysis', // Modo puro, sem comparaÃ§Ãµes
+          mode: 'pure_analysis', // Modo puro, sem comparações
           debugModeReference: true,
-          // ðŸŽ¯ GARANTIR parÃ¢metros idÃªnticos
+          // 🎯 GARANTIR parâmetros idênticos
           normalizeLoudness: true,
           windowDuration: 30,
           fftSize: 4096
         };
-        // ðŸ†” CORREÃ‡ÃƒO: Preparar options com runId
+        // 🆔 CORREÇÃO: Preparar options com runId
         const refOptionsWithRunId = prepareAnalysisOptions(refAnalysisOptions, 'ref_audio');
         const analysis = await window.audioAnalyzer.analyzeAudioFile(file, refOptionsWithRunId);
         
-        // ðŸ› VALIDAÃ‡ÃƒO: Verificar que nÃ£o hÃ¡ comparaÃ§Ã£o com gÃªnero
+        // 🐛 VALIDAÇÃO: Verificar que não há comparação com gênero
         if (analysis.comparison || analysis.mixScore) {
-          console.warn('âš ï¸ [AVISO] AnÃ¡lise da referÃªncia contaminada com comparaÃ§Ã£o/score');
+          console.warn('⚠️ [AVISO] Análise da referência contaminada com comparação/score');
         }
         
-        console.log('ðŸ” [DIAGNÃ“STICO] Reference analysis (pura):', {
+        console.log('🔍 [DIAGNÓSTICO] Reference analysis (pura):', {
           lufs: analysis.technicalData?.lufsIntegrated,
           stereoCorrelation: analysis.technicalData?.stereoCorrelation,
           dynamicRange: analysis.technicalData?.dynamicRange,
@@ -2299,7 +2357,7 @@ async function handleReferenceFileSelection(file) {
           hasScore: !!analysis.mixScore
         });
         
-        // ðŸŽ¯ VALIDAÃ‡ÃƒO: Verificar se conseguimos extrair mÃ©tricas vÃ¡lidas
+        // 🎯 VALIDAÇÃO: Verificar se conseguimos extrair métricas válidas
         const referenceMetrics = {
           lufs: analysis.technicalData?.lufsIntegrated,
           stereoCorrelation: analysis.technicalData?.stereoCorrelation,
@@ -2307,35 +2365,35 @@ async function handleReferenceFileSelection(file) {
           truePeak: analysis.technicalData?.truePeakDbtp
         };
         
-        // ðŸš¨ ERRO CLARO: Falhar se nÃ£o conseguir extrair mÃ©tricas
+        // 🚨 ERRO CLARO: Falhar se não conseguir extrair métricas
         if (!Number.isFinite(referenceMetrics.lufs)) {
-          throw new Error('REFERENCE_METRICS_FAILED: NÃ£o foi possÃ­vel extrair mÃ©tricas LUFS da mÃºsica de referÃªncia. Verifique se o arquivo Ã© vÃ¡lido.');
+          throw new Error('REFERENCE_METRICS_FAILED: Não foi possível extrair métricas LUFS da música de referência. Verifique se o arquivo é válido.');
         }
         
         if (!Number.isFinite(referenceMetrics.stereoCorrelation)) {
-          throw new Error('REFERENCE_METRICS_FAILED: NÃ£o foi possÃ­vel extrair correlaÃ§Ã£o estÃ©reo da mÃºsica de referÃªncia.');
+          throw new Error('REFERENCE_METRICS_FAILED: Não foi possível extrair correlação estéreo da música de referência.');
         }
         
-        console.log('âœ… [SUCESSO] MÃ©tricas da referÃªncia extraÃ­das:', referenceMetrics);
+        console.log('✅ [SUCESSO] Métricas da referência extraídas:', referenceMetrics);
         
         referenceStepState.referenceAnalysis = analysis;
         referenceStepState.referenceMetrics = referenceMetrics;
         
-        // Executar comparaÃ§Ã£o
+        // Executar comparação
         updateReferenceStep('analysis');
         await performReferenceComparison();
         
-        // ðŸŽ¯ EXIBIR resultados da anÃ¡lise por referÃªncia
+        // 🎯 EXIBIR resultados da análise por referência
         const finalAnalysis = referenceStepState.finalAnalysis;
         
-        updateModalProgress(100, 'âœ… AnÃ¡lise por referÃªncia concluÃ­da!');
+        updateModalProgress(100, '✅ Análise por referência concluída!');
         
-        // ðŸŽ¯ LOGS finais de validaÃ§Ã£o
-        console.log('ðŸŽ‰ [ANÃLISE POR REFERÃŠNCIA] ConcluÃ­da com sucesso:');
+        // 🎯 LOGS finais de validação
+        console.log('🎉 [ANÁLISE POR REFERÊNCIA] Concluída com sucesso:');
         console.log('  - Baseline source:', finalAnalysis.comparison?.baseline_source);
         console.log('  - LUFS difference:', finalAnalysis.comparison?.loudness?.difference?.toFixed(2));
-        console.log('  - SugestÃµes:', finalAnalysis.suggestions?.length || 0);
-        console.log('  - Sem gÃªnero:', !finalAnalysis.genre);
+        console.log('  - Sugestões:', finalAnalysis.suggestions?.length || 0);
+        console.log('  - Sem gênero:', !finalAnalysis.genre);
         
         // Exibir modal de resultados
         displayReferenceResults(finalAnalysis);
@@ -2347,49 +2405,49 @@ async function handleReferenceFileSelection(file) {
     }
 }
 
-// ðŸŽ¯ NOVO: Processar arquivo no modo gÃªnero (comportamento original)
+// 🎯 NOVO: Processar arquivo no modo gênero (comportamento original)
 async function handleGenreFileSelection(file) {
-    // ðŸ› DIAGNÃ“STICO: Confirmar que este Ã© o modo gÃªnero
-    console.log('ðŸ” [DIAGNÃ“STICO] handleGenreFileSelection - modo:', window.currentAnalysisMode);
-    console.log('ðŸ” [DIAGNÃ“STICO] Este deveria ser APENAS modo gÃªnero!');
+    // 🐛 DIAGNÓSTICO: Confirmar que este é o modo gênero
+    console.log('🔍 [DIAGNÓSTICO] handleGenreFileSelection - modo:', window.currentAnalysisMode);
+    console.log('🔍 [DIAGNÓSTICO] Este deveria ser APENAS modo gênero!');
     
-    __dbg('ðŸ”„ Iniciando nova anÃ¡lise - forÃ§ando exibiÃ§Ã£o do loading');
+    __dbg('🔄 Iniciando nova análise - forçando exibição do loading');
     showModalLoading();
-    updateModalProgress(10, 'âš¡ Carregando Algoritmos AvanÃ§ados...');
+    updateModalProgress(10, '⚡ Carregando Algoritmos Avançados...');
     
-    // Aguardar audio analyzer carregar se necessÃ¡rio
+    // Aguardar audio analyzer carregar se necessário
     if (!window.audioAnalyzer) {
-        __dbg('â³ Aguardando Audio Analyzer carregar...');
-        updateModalProgress(30, 'ðŸ”§ Inicializando V2 Engine...');
+        __dbg('⏳ Aguardando Audio Analyzer carregar...');
+        updateModalProgress(30, '🔧 Inicializando V2 Engine...');
         await waitForAudioAnalyzer();
     }
 
-    // ðŸ› CORREÃ‡ÃƒO CRÃTICA: SÃ³ carregar referÃªncias de gÃªnero se estivermos NO MODO GÃŠNERO
+    // 🐛 CORREÇÃO CRÍTICA: Só carregar referências de gênero se estivermos NO MODO GÊNERO
     if (window.currentAnalysisMode === 'genre') {
-        // Garantir que referÃªncias do gÃªnero selecionado estejam carregadas antes da anÃ¡lise (evita race e gÃªnero errado)
+        // Garantir que referências do gênero selecionado estejam carregadas antes da análise (evita race e gênero errado)
         try {
             const genre = (typeof window !== 'undefined') ? window.PROD_AI_REF_GENRE : null;
-            console.log('ðŸ” [DIAGNÃ“STICO] Carregando referÃªncias de gÃªnero:', genre);
+            console.log('🔍 [DIAGNÓSTICO] Carregando referências de gênero:', genre);
             
             if (genre && (!__activeRefData || __activeRefGenre !== genre)) {
-                updateModalProgress(25, `ðŸ“š Carregando referÃªncias: ${genre}...`);
+                updateModalProgress(25, `📚 Carregando referências: ${genre}...`);
                 await loadReferenceData(genre);
-                updateModalProgress(30, 'ðŸ“š ReferÃªncias ok');
+                updateModalProgress(30, '📚 Referências ok');
             }
         } catch (_) { 
-            console.log('ðŸ” [DIAGNÃ“STICO] Erro ao carregar referÃªncias de gÃªnero (nÃ£o crÃ­tico)');
+            console.log('🔍 [DIAGNÓSTICO] Erro ao carregar referências de gênero (não crítico)');
         }
     } else {
-        console.log('ðŸ” [DIAGNÃ“STICO] PULAR carregamento de referÃªncias - modo nÃ£o Ã© gÃªnero');
+        console.log('🔍 [DIAGNÓSTICO] PULAR carregamento de referências - modo não é gênero');
     }
     
     // Analisar arquivo
-    __dbg('ðŸ”¬ Iniciando anÃ¡lise...');
-    updateModalProgress(40, 'ðŸŽµ Processando Waveform Digital...');
+    __dbg('🔬 Iniciando análise...');
+    updateModalProgress(40, '🎵 Processando Waveform Digital...');
     
-    // ï¿½ WAV MOBILE OPTIMIZATION: Aplicar otimizaÃ§Ãµes especÃ­ficas para WAV
+    // � WAV MOBILE OPTIMIZATION: Aplicar otimizações específicas para WAV
     try {
-        // Carregar otimizador WAV se nÃ£o estiver disponÃ­vel
+        // Carregar otimizador WAV se não estiver disponível
         if (typeof window.wavMobileOptimizer === 'undefined') {
             const optimizerScript = document.createElement('script');
             optimizerScript.src = '/lib/audio/wav-mobile-optimizer.js';
@@ -2399,39 +2457,39 @@ async function handleGenreFileSelection(file) {
             // Aguardar carregamento com timeout
             await new Promise((resolve) => {
                 optimizerScript.onload = () => {
-                    console.log('ðŸŽµ WAV optimizer carregado');
+                    console.log('🎵 WAV optimizer carregado');
                     resolve();
                 };
                 optimizerScript.onerror = () => {
-                    console.warn('âš ï¸ WAV optimizer falhou ao carregar');
+                    console.warn('⚠️ WAV optimizer falhou ao carregar');
                     resolve();
                 };
                 setTimeout(resolve, 1500); // fallback timeout
             });
         }
         
-        // Aplicar otimizaÃ§Ãµes se disponÃ­vel
+        // Aplicar otimizações se disponível
         if (window.wavMobileOptimizer) {
             const wavAnalysis = window.wavMobileOptimizer.applyWAVOptimizations(file);
             if (wavAnalysis.requiresOptimization) {
-                updateModalProgress(45, `ðŸŽµ WAV ${wavAnalysis.sizeInMB}MB - otimizaÃ§Ã£o mobile ativa...`);
-                console.log('ðŸŽµ WAV mobile optimizations applied:', wavAnalysis);
+                updateModalProgress(45, `🎵 WAV ${wavAnalysis.sizeInMB}MB - otimização mobile ativa...`);
+                console.log('🎵 WAV mobile optimizations applied:', wavAnalysis);
             }
         }
     } catch (optimizerError) {
-        console.warn('âš ï¸ WAV optimizer failed, continuing with standard processing:', optimizerError);
+        console.warn('⚠️ WAV optimizer failed, continuing with standard processing:', optimizerError);
     }
     
-    // ï¿½ðŸŽ¯ CORREÃ‡ÃƒO: Passar modo correto para anÃ¡lise
+    // �🎯 CORREÇÃO: Passar modo correto para análise
     const analysisOptions = { 
       mode: window.currentAnalysisMode || 'genre' 
     };
-    // ðŸ†” CORREÃ‡ÃƒO: Preparar options com runId para anÃ¡lise principal
+    // 🆔 CORREÇÃO: Preparar options com runId para análise principal
     const optionsWithRunId = prepareAnalysisOptions(analysisOptions, 'main');
     const analysis = await window.audioAnalyzer.analyzeAudioFile(file, optionsWithRunId);
     currentModalAnalysis = analysis;
     
-    // ðŸŽµ WAV CLEANUP: Limpar otimizaÃ§Ãµes WAV apÃ³s conclusÃ£o
+    // 🎵 WAV CLEANUP: Limpar otimizações WAV após conclusão
     try {
         if (window.wavMobileOptimizer) {
             window.wavMobileOptimizer.cleanupWAVOptimizations();
@@ -2440,23 +2498,23 @@ async function handleGenreFileSelection(file) {
         console.warn('WAV cleanup error (non-critical):', cleanupError);
     }
     
-    __dbg('âœ… AnÃ¡lise concluÃ­da:', analysis);
+    __dbg('✅ Análise concluída:', analysis);
     
-    updateModalProgress(90, 'ðŸ§  Computando MÃ©tricas AvanÃ§adas...');
+    updateModalProgress(90, '🧠 Computando Métricas Avançadas...');
     
     // Aguardar um pouco para melhor UX
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    updateModalProgress(100, 'âœ¨ AnÃ¡lise Completa - Pronto!');
+    updateModalProgress(100, '✨ Análise Completa - Pronto!');
     
     // Mostrar resultados
     setTimeout(() => {
-        // ðŸ”’ FASE 2 UI GATE: Verificar se anÃ¡lise ainda Ã© vÃ¡lida
+        // 🔒 FASE 2 UI GATE: Verificar se análise ainda é válida
         const analysisRunId = analysis?.runId || analysis?.metadata?.runId;
         const currentRunId = window.__CURRENT_ANALYSIS_RUN_ID__;
         
         if (analysisRunId && currentRunId && analysisRunId !== currentRunId) {
-            __dbg(`ðŸš« [UI_GATE] AnÃ¡lise cancelada - nÃ£o renderizar UI (anÃ¡lise: ${analysisRunId}, atual: ${currentRunId})`);
+            __dbg(`🚫 [UI_GATE] Análise cancelada - não renderizar UI (análise: ${analysisRunId}, atual: ${currentRunId})`);
             return;
         }
         
@@ -2467,25 +2525,25 @@ async function handleGenreFileSelection(file) {
             audioAnalysisResults: !!document.getElementById('audioAnalysisResults'),
             modalTechnicalData: !!document.getElementById('modalTechnicalData')
         };
-        __dbg('ðŸ›°ï¸ [Telemetry] Front antes de preencher modal (existÃªncia de elementos):', exists);
+        __dbg('🛰️ [Telemetry] Front antes de preencher modal (existência de elementos):', exists);
         
-        // ðŸ”’ UI GATE: Verificar novamente antes de renderizar
+        // 🔒 UI GATE: Verificar novamente antes de renderizar
         if (analysisRunId && currentRunId && analysisRunId !== currentRunId) {
-            __dbg(`ðŸš« [UI_GATE] VerificaÃ§Ã£o dupla - anÃ¡lise cancelada durante delay`);
+            __dbg(`🚫 [UI_GATE] Verificação dupla - análise cancelada durante delay`);
             return;
         }
         
         displayModalResults(analysis);
         
-        // ðŸ”§ CORREÃ‡ÃƒO: Limpar flag de anÃ¡lise em progresso apÃ³s sucesso
+        // 🔧 CORREÇÃO: Limpar flag de análise em progresso após sucesso
         if (typeof window !== 'undefined') {
             delete window.__MODAL_ANALYSIS_IN_PROGRESS__;
         }
-        __dbg('âœ… AnÃ¡lise concluÃ­da com sucesso - flag removida');
+        __dbg('✅ Análise concluída com sucesso - flag removida');
     }, 800);
 }
 
-// ðŸŽ¯ NOVO: Atualizar upload area para step de referÃªncia
+// 🎯 NOVO: Atualizar upload area para step de referência
 function updateUploadAreaForReferenceStep() {
     const uploadArea = document.getElementById('audioUploadArea');
     if (!uploadArea) return;
@@ -2499,15 +2557,15 @@ function updateUploadAreaForReferenceStep() {
         fileInput.value = '';
     }
     
-    // Atualizar conteÃºdo baseado no step
+    // Atualizar conteúdo baseado no step
     if (referenceStepState.currentStep === 'referenceAudio') {
         const icon = uploadContent.querySelector('.upload-icon');
         const title = uploadContent.querySelector('h4');
         const description = uploadContent.querySelector('p:not(.supported-formats):not(.format-recommendation)');
         
-        if (icon) icon.textContent = 'ðŸŽ¯';
-        if (title) title.textContent = 'MÃºsica de ReferÃªncia';
-        if (description) description.textContent = 'Agora selecione a mÃºsica que servirÃ¡ como referÃªncia para comparaÃ§Ã£o';
+        if (icon) icon.textContent = '🎯';
+        if (title) title.textContent = 'Música de Referência';
+        if (description) description.textContent = 'Agora selecione a música que servirá como referência para comparação';
     }
     
     // Mostrar upload area novamente
@@ -2522,22 +2580,22 @@ function updateUploadAreaForReferenceStep() {
     });
 }
 
-// ðŸŽ¯ REESCRITA COMPLETA: ComparaÃ§Ã£o baseada exclusivamente na referÃªncia
+// 🎯 REESCRITA COMPLETA: Comparação baseada exclusivamente na referência
 async function performReferenceComparison() {
     window.logReferenceEvent('reference_comparison_started');
     
     try {
-        updateModalProgress(70, 'ðŸ”„ Comparando as duas mÃºsicas...');
+        updateModalProgress(70, '🔄 Comparando as duas músicas...');
         
         const userAnalysis = referenceStepState.userAnalysis;
         const refAnalysis = referenceStepState.referenceAnalysis;
         const referenceMetrics = referenceStepState.referenceMetrics;
         
         if (!userAnalysis || !refAnalysis || !referenceMetrics) {
-            throw new Error('COMPARISON_DATA_MISSING: AnÃ¡lises ou mÃ©tricas de referÃªncia nÃ£o encontradas');
+            throw new Error('COMPARISON_DATA_MISSING: Análises ou métricas de referência não encontradas');
         }
         
-        // ðŸŽ¯ EXTRAIR mÃ©tricas do usuÃ¡rio (anÃ¡lise pura, sem comparaÃ§Ãµes)
+        // 🎯 EXTRAIR métricas do usuário (análise pura, sem comparações)
         const userMetrics = {
             lufs: userAnalysis.technicalData?.lufsIntegrated,
             stereoCorrelation: userAnalysis.technicalData?.stereoCorrelation,
@@ -2545,16 +2603,16 @@ async function performReferenceComparison() {
             truePeak: userAnalysis.technicalData?.truePeakDbtp
         };
         
-        // ðŸš¨ VALIDAÃ‡ÃƒO: Verificar mÃ©tricas do usuÃ¡rio
+        // 🚨 VALIDAÇÃO: Verificar métricas do usuário
         if (!Number.isFinite(userMetrics.lufs)) {
-            throw new Error('USER_METRICS_FAILED: NÃ£o foi possÃ­vel extrair mÃ©tricas LUFS da sua mÃºsica');
+            throw new Error('USER_METRICS_FAILED: Não foi possível extrair métricas LUFS da sua música');
         }
         
-        console.log('ðŸ” [COMPARAÃ‡ÃƒO] MÃ©tricas extraÃ­das:');
-        console.log('  - UsuÃ¡rio:', userMetrics);
-        console.log('  - ReferÃªncia:', referenceMetrics);
+        console.log('🔍 [COMPARAÇÃO] Métricas extraídas:');
+        console.log('  - Usuário:', userMetrics);
+        console.log('  - Referência:', referenceMetrics);
         
-        // ðŸŽ¯ CALCULAR diferenÃ§as PURAS (referÃªncia como baseline)
+        // 🎯 CALCULAR diferenças PURAS (referência como baseline)
         const differences = {
             lufs: userMetrics.lufs - referenceMetrics.lufs,
             stereoCorrelation: userMetrics.stereoCorrelation - referenceMetrics.stereoCorrelation,
@@ -2562,32 +2620,32 @@ async function performReferenceComparison() {
             truePeak: userMetrics.truePeak - referenceMetrics.truePeak
         };
         
-        console.log('ðŸ” [COMPARAÃ‡ÃƒO] DiferenÃ§as calculadas:', differences);
+        console.log('🔍 [COMPARAÇÃO] Diferenças calculadas:', differences);
         
-        // ðŸŽ¯ GERAR sugestÃµes baseadas APENAS na referÃªncia
+        // 🎯 GERAR sugestões baseadas APENAS na referência
         const referenceSuggestions = [];
-        const THRESHOLD = 0.2; // Ignorar diferenÃ§as menores que 0.2dB
+        const THRESHOLD = 0.2; // Ignorar diferenças menores que 0.2dB
         
-        // Loudness (LUFS) - ðŸš¨ COM VERIFICAÃ‡ÃƒO DE HEADROOM SEGURO
+        // Loudness (LUFS) - 🚨 COM VERIFICAÇÃO DE HEADROOM SEGURO
         if (Math.abs(differences.lufs) > THRESHOLD) {
             const action = differences.lufs > 0 ? 'Diminuir' : 'Aumentar';
             const direction = differences.lufs > 0 ? 'decrease' : 'increase';
             const adjustmentDb = Math.abs(differences.lufs);
             
-            // ðŸ”’ Verificar headroom se sugerindo aumento
+            // 🔒 Verificar headroom se sugerindo aumento
             if (direction === 'increase') {
                 const userTruePeak = userMetrics.truePeak;
                 const clippingSamples = userAnalysis.technical?.clippingSamples || 0;
                 const isClipped = clippingSamples > 0;
                 const headroomSafetyMargin = -0.6; // Target true peak seguro
                 
-                // ðŸš¨ REGRA 1: Se CLIPPED, nÃ£o sugerir aumento
+                // 🚨 REGRA 1: Se CLIPPED, não sugerir aumento
                 if (isClipped) {
-                    console.log(`[REF-HEADROOM] ðŸš¨ Clipping detectado - nÃ£o sugerindo aumento de ${adjustmentDb.toFixed(1)}dB`);
+                    console.log(`[REF-HEADROOM] 🚨 Clipping detectado - não sugerindo aumento de ${adjustmentDb.toFixed(1)}dB`);
                     referenceSuggestions.push({
                         type: 'reference_loudness_blocked_clipping',
-                        message: `ImpossÃ­vel igualar referÃªncia - Ã¡udio tem clipping`,
-                        action: `Primeiro resolver clipping, depois ajustar para referÃªncia`,
+                        message: `Impossível igualar referência - áudio tem clipping`,
+                        action: `Primeiro resolver clipping, depois ajustar para referência`,
                         frequency_range: 'N/A',
                         adjustment_db: 0,
                         direction: 'blocked',
@@ -2595,52 +2653,52 @@ async function performReferenceComparison() {
                         warning: `Clipping detectado (${clippingSamples} samples)`
                     });
                 } 
-                // ðŸš¨ REGRA 2: Verificar headroom disponÃ­vel
+                // 🚨 REGRA 2: Verificar headroom disponível
                 else if (Number.isFinite(userTruePeak)) {
                     const availableHeadroom = headroomSafetyMargin - userTruePeak;
                     
                     if (adjustmentDb <= availableHeadroom) {
                         referenceSuggestions.push({
                             type: 'reference_loudness',
-                            message: `${action} volume em ${adjustmentDb.toFixed(1)}dB para igualar Ã  mÃºsica de referÃªncia`,
+                            message: `${action} volume em ${adjustmentDb.toFixed(1)}dB para igualar à música de referência`,
                             action: `${action} volume em ${adjustmentDb.toFixed(1)}dB`,
                             frequency_range: 'N/A',
                             adjustment_db: adjustmentDb,
                             direction: direction,
                             baseline_source: 'reference_audio',
-                            headroom_check: `Seguro: ${availableHeadroom.toFixed(1)}dB disponÃ­vel`
+                            headroom_check: `Seguro: ${availableHeadroom.toFixed(1)}dB disponível`
                         });
                     } else {
-                        console.log(`[REF-HEADROOM] âš ï¸ Ganho ${adjustmentDb.toFixed(1)}dB > headroom ${availableHeadroom.toFixed(1)}dB - bloqueando`);
+                        console.log(`[REF-HEADROOM] ⚠️ Ganho ${adjustmentDb.toFixed(1)}dB > headroom ${availableHeadroom.toFixed(1)}dB - bloqueando`);
                         referenceSuggestions.push({
                             type: 'reference_loudness_blocked_headroom',
-                            message: `ImpossÃ­vel igualar referÃªncia - sem headroom suficiente`,
+                            message: `Impossível igualar referência - sem headroom suficiente`,
                             action: `True Peak ${userTruePeak.toFixed(1)}dBTP permite apenas +${availableHeadroom.toFixed(1)}dB`,
                             frequency_range: 'N/A',
                             adjustment_db: availableHeadroom > 0 ? availableHeadroom : 0,
                             direction: 'limited',
                             baseline_source: 'reference_audio',
-                            warning: `NecessÃ¡rio ${adjustmentDb.toFixed(1)}dB mas sÃ³ ${availableHeadroom.toFixed(1)}dB seguro`
+                            warning: `Necessário ${adjustmentDb.toFixed(1)}dB mas só ${availableHeadroom.toFixed(1)}dB seguro`
                         });
                     }
                 } else {
                     // Sem True Peak, modo conservador
                     referenceSuggestions.push({
                         type: 'reference_loudness_conservative',
-                        message: `${action} volume em ${adjustmentDb.toFixed(1)}dB para igualar referÃªncia (verificar clipping)`,
+                        message: `${action} volume em ${adjustmentDb.toFixed(1)}dB para igualar referência (verificar clipping)`,
                         action: `${action} volume CUIDADOSAMENTE em ${adjustmentDb.toFixed(1)}dB`,
                         frequency_range: 'N/A',
                         adjustment_db: adjustmentDb,
                         direction: direction,
                         baseline_source: 'reference_audio',
-                        warning: 'Sem dados True Peak - verifique clipping apÃ³s ajuste'
+                        warning: 'Sem dados True Peak - verifique clipping após ajuste'
                     });
                 }
             } else {
-                // Diminuir Ã© sempre seguro
+                // Diminuir é sempre seguro
                 referenceSuggestions.push({
                     type: 'reference_loudness',
-                    message: `${action} volume em ${adjustmentDb.toFixed(1)}dB para igualar Ã  mÃºsica de referÃªncia`,
+                    message: `${action} volume em ${adjustmentDb.toFixed(1)}dB para igualar à música de referência`,
                     action: `${action} volume em ${adjustmentDb.toFixed(1)}dB`,
                     frequency_range: 'N/A',
                     adjustment_db: adjustmentDb,
@@ -2655,8 +2713,8 @@ async function performReferenceComparison() {
             const action = differences.dynamicRange > 0 ? 'Reduzir' : 'Aumentar';
             referenceSuggestions.push({
                 type: 'reference_dynamics',
-                message: `${action} range dinÃ¢mico em ${Math.abs(differences.dynamicRange).toFixed(1)}dB para igualar Ã  referÃªncia`,
-                action: `${action} range dinÃ¢mico em ${Math.abs(differences.dynamicRange).toFixed(1)}dB`,
+                message: `${action} range dinâmico em ${Math.abs(differences.dynamicRange).toFixed(1)}dB para igualar à referência`,
+                action: `${action} range dinâmico em ${Math.abs(differences.dynamicRange).toFixed(1)}dB`,
                 frequency_range: 'N/A',
                 adjustment_db: Math.abs(differences.dynamicRange),
                 baseline_source: 'reference_audio'
@@ -2664,12 +2722,12 @@ async function performReferenceComparison() {
         }
         
         // Stereo Correlation
-        if (Math.abs(differences.stereoCorrelation) > 0.05) { // 5% threshold para correlaÃ§Ã£o
+        if (Math.abs(differences.stereoCorrelation) > 0.05) { // 5% threshold para correlação
             const action = differences.stereoCorrelation > 0 ? 'Reduzir' : 'Aumentar';
             referenceSuggestions.push({
                 type: 'reference_stereo',
-                message: `${action} correlaÃ§Ã£o estÃ©reo para igualar Ã  referÃªncia (diferenÃ§a: ${(differences.stereoCorrelation * 100).toFixed(1)}%)`,
-                action: `Ajustar correlaÃ§Ã£o estÃ©reo`,
+                message: `${action} correlação estéreo para igualar à referência (diferença: ${(differences.stereoCorrelation * 100).toFixed(1)}%)`,
+                action: `Ajustar correlação estéreo`,
                 frequency_range: 'N/A',
                 baseline_source: 'reference_audio'
             });
@@ -2680,7 +2738,7 @@ async function performReferenceComparison() {
             const action = differences.truePeak > 0 ? 'Reduzir' : 'Aumentar';
             referenceSuggestions.push({
                 type: 'reference_peak',
-                message: `${action} pico em ${Math.abs(differences.truePeak).toFixed(1)}dB para igualar Ã  referÃªncia`,
+                message: `${action} pico em ${Math.abs(differences.truePeak).toFixed(1)}dB para igualar à referência`,
                 action: `${action} pico em ${Math.abs(differences.truePeak).toFixed(1)}dB`,
                 frequency_range: 'N/A',
                 adjustment_db: Math.abs(differences.truePeak),
@@ -2688,9 +2746,9 @@ async function performReferenceComparison() {
             });
         }
         
-        console.log(`ðŸ” [COMPARAÃ‡ÃƒO] SugestÃµes geradas: ${referenceSuggestions.length}`);
+        console.log(`🔍 [COMPARAÇÃO] Sugestões geradas: ${referenceSuggestions.length}`);
         
-        // ðŸŽ¯ CRIAR anÃ¡lise final com comparaÃ§Ã£o pura
+        // 🎯 CRIAR análise final com comparação pura
         const finalAnalysis = {
             ...userAnalysis,
             comparison: {
@@ -2722,43 +2780,43 @@ async function performReferenceComparison() {
                 }
             },
             suggestions: referenceSuggestions,
-            // ðŸš« NUNCA usar gÃªnero em modo referÃªncia
+            // 🚫 NUNCA usar gênero em modo referência
             genre: null,
-            mixScore: null, // NÃ£o gerar score baseado em gÃªnero
+            mixScore: null, // Não gerar score baseado em gênero
             mixClassification: null
         };
         
-        // ðŸŽ¯ LOGS de validaÃ§Ã£o final
-        console.log('ðŸŽ‰ [SUCESSO] ComparaÃ§Ã£o por referÃªncia concluÃ­da:');
+        // 🎯 LOGS de validação final
+        console.log('🎉 [SUCESSO] Comparação por referência concluída:');
         console.log('  - Modo:', finalAnalysis.comparison.mode);
         console.log('  - Baseline source:', finalAnalysis.comparison.baseline_source);
-        console.log('  - SugestÃµes:', referenceSuggestions.length);
-        console.log('  - Sem contaminaÃ§Ã£o de gÃªnero:', !finalAnalysis.genre);
+        console.log('  - Sugestões:', referenceSuggestions.length);
+        console.log('  - Sem contaminação de gênero:', !finalAnalysis.genre);
         
         referenceStepState.finalAnalysis = finalAnalysis;
-        console.log('ðŸ” [DIAGNÃ“STICO] Reference analysis tem comparaÃ§Ã£o com gÃªnero:', !!refAnalysis.comparison);
+        console.log('🔍 [DIAGNÓSTICO] Reference analysis tem comparação com gênero:', !!refAnalysis.comparison);
         
-        // ðŸŽ¯ NOVO: Verificar se anÃ¡lises estÃ£o "limpas" (sem contaminar com gÃªnero)
+        // 🎯 NOVO: Verificar se análises estão "limpas" (sem contaminar com gênero)
         const userClean = !userAnalysis.comparison && !userAnalysis.reference;
         const refClean = !refAnalysis.comparison && !refAnalysis.reference;
-        console.log('ðŸ” [DIAGNÃ“STICO] User analysis clean (sem gÃªnero):', userClean);
-        console.log('ðŸ” [DIAGNÃ“STICO] Reference analysis clean (sem gÃªnero):', refClean);
+        console.log('🔍 [DIAGNÓSTICO] User analysis clean (sem gênero):', userClean);
+        console.log('🔍 [DIAGNÓSTICO] Reference analysis clean (sem gênero):', refClean);
         
-        // Gerar comparaÃ§Ã£o
+        // Gerar comparação
         const comparison = generateComparison(userAnalysis, refAnalysis);
         
-        // ðŸ› DIAGNÃ“STICO: Verificar se comparison estÃ¡ usando os dados corretos
-        console.log('ðŸ” [DIAGNÃ“STICO] Comparison gerada:', comparison);
-        console.log('ðŸ” [DIAGNÃ“STICO] baseline_source: reference_audio (confirmed)');
+        // 🐛 DIAGNÓSTICO: Verificar se comparison está usando os dados corretos
+        console.log('🔍 [DIAGNÓSTICO] Comparison gerada:', comparison);
+        console.log('🔍 [DIAGNÓSTICO] baseline_source: reference_audio (confirmed)');
         
-        // Gerar sugestÃµes baseadas na comparaÃ§Ã£o
+        // Gerar sugestões baseadas na comparação
         const suggestions = generateReferenceSuggestions(comparison);
         
-        // ðŸ› DIAGNÃ“STICO: Verificar se sugestÃµes sÃ£o baseadas apenas na comparison
-        console.log('ðŸ” [DIAGNÃ“STICO] SugestÃµes geradas (count):', suggestions.length);
-        console.log('ðŸ” [DIAGNÃ“STICO] Primeiro tipo de sugestÃ£o:', suggestions[0]?.type);
+        // 🐛 DIAGNÓSTICO: Verificar se sugestões são baseadas apenas na comparison
+        console.log('🔍 [DIAGNÓSTICO] Sugestões geradas (count):', suggestions.length);
+        console.log('🔍 [DIAGNÓSTICO] Primeiro tipo de sugestão:', suggestions[0]?.type);
         
-        // Criar anÃ¡lise combinada para exibiÃ§Ã£o
+        // Criar análise combinada para exibição
         const combinedAnalysis = {
             ...userAnalysis,
             comparison,
@@ -2766,24 +2824,24 @@ async function performReferenceComparison() {
             analysisMode: 'reference',
             referenceFile: referenceStepState.referenceAudioFile.name,
             userFile: referenceStepState.userAudioFile.name,
-            // ðŸŽ¯ NOVO: Incluir mÃ©tricas da referÃªncia para renderReferenceComparisons
+            // 🎯 NOVO: Incluir métricas da referência para renderReferenceComparisons
             referenceMetrics: {
                 lufs: refAnalysis.technicalData?.lufsIntegrated,
                 truePeakDbtp: refAnalysis.technicalData?.truePeakDbtp,
                 dynamicRange: refAnalysis.technicalData?.dynamicRange,
                 lra: refAnalysis.technicalData?.lra,
                 stereoCorrelation: refAnalysis.technicalData?.stereoCorrelation,
-                // ðŸ”§ CORREÃ‡ÃƒO: Criar estrutura de bands compatÃ­vel
+                // 🔧 CORREÇÃO: Criar estrutura de bands compatível
                 bands: refAnalysis.technicalData?.bandEnergies ? (() => {
                     const refBands = {};
                     const refBandEnergies = refAnalysis.technicalData.bandEnergies;
                     
-                    // Criar estrutura de bands usando as mÃ©tricas da referÃªncia como targets
+                    // Criar estrutura de bands usando as métricas da referência como targets
                     Object.entries(refBandEnergies).forEach(([bandName, bandData]) => {
                         if (bandData && Number.isFinite(bandData.rms_db)) {
                             refBands[bandName] = {
-                                target_db: bandData.rms_db,  // Usar valor da referÃªncia como target
-                                tol_db: 3.0,  // TolerÃ¢ncia padrÃ£o
+                                target_db: bandData.rms_db,  // Usar valor da referência como target
+                                tol_db: 3.0,  // Tolerância padrão
                                 _target_na: false
                             };
                         }
@@ -2792,7 +2850,7 @@ async function performReferenceComparison() {
                     return refBands;
                 })() : null
             },
-            // ðŸ› DIAGNÃ“STICO: Adicionar metadados para diagnÃ³stico
+            // 🐛 DIAGNÓSTICO: Adicionar metadados para diagnóstico
             _diagnostic: {
                 baseline_source: 'reference_audio',
                 mode: 'reference',
@@ -2801,7 +2859,7 @@ async function performReferenceComparison() {
                 difference: comparison.loudness?.difference,
                 genreActive: window.PROD_AI_REF_GENRE,
                 useGenreTargets: false,
-                // ðŸŽ¯ NOVO: InformaÃ§Ãµes de normalizaÃ§Ã£o e janela
+                // 🎯 NOVO: Informações de normalização e janela
                 usedWindowSeconds: 30, // TODO: pegar do analyzer quando implementado
                 normalizedLUFS: {
                     user: userAnalysis.technicalData?.lufsIntegrated,
@@ -2811,20 +2869,20 @@ async function performReferenceComparison() {
             }
         };
         
-        console.log('ðŸ” [DIAGNÃ“STICO] Combined analysis diagnostic:', combinedAnalysis._diagnostic);
+        console.log('🔍 [DIAGNÓSTICO] Combined analysis diagnostic:', combinedAnalysis._diagnostic);
         
         currentModalAnalysis = combinedAnalysis;
         
-        updateModalProgress(100, 'âœ¨ ComparaÃ§Ã£o Completa!');
+        updateModalProgress(100, '✨ Comparação Completa!');
         
         // Mostrar resultados
         setTimeout(() => {
-            // ðŸ”’ UI GATE: Verificar se anÃ¡lise ainda Ã© vÃ¡lida
+            // 🔒 UI GATE: Verificar se análise ainda é válida
             const analysisRunId = combinedAnalysis?.runId || combinedAnalysis?.metadata?.runId;
             const currentRunId = window.__CURRENT_ANALYSIS_RUN_ID__;
             
             if (analysisRunId && currentRunId && analysisRunId !== currentRunId) {
-                console.warn(`ðŸš« [UI_GATE] ComparaÃ§Ã£o cancelada - nÃ£o renderizar UI (anÃ¡lise: ${analysisRunId}, atual: ${currentRunId})`);
+                console.warn(`🚫 [UI_GATE] Comparação cancelada - não renderizar UI (análise: ${analysisRunId}, atual: ${currentRunId})`);
                 return;
             }
             
@@ -2833,13 +2891,13 @@ async function performReferenceComparison() {
         }, 800);
         
     } catch (error) {
-        console.error('âŒ Erro na comparaÃ§Ã£o:', error);
+        console.error('❌ Erro na comparação:', error);
         window.logReferenceEvent('reference_comparison_error', { error: error.message });
-        showModalError(`Erro na comparaÃ§Ã£o: ${error.message}`);
+        showModalError(`Erro na comparação: ${error.message}`);
     }
 }
 
-// ðŸŽ¯ NOVO: Gerar comparaÃ§Ã£o entre duas anÃ¡lises
+// 🎯 NOVO: Gerar comparação entre duas análises
 function generateComparison(userAnalysis, refAnalysis) {
     const userTech = userAnalysis.technicalData || {};
     const refTech = refAnalysis.technicalData || {};
@@ -2870,7 +2928,7 @@ function generateComparison(userAnalysis, refAnalysis) {
     };
 }
 
-// ðŸŽ¯ NOVO: Comparar dados espectrais
+// 🎯 NOVO: Comparar dados espectrais
 function compareSpectralData(userTech, refTech) {
     const bandNames = ['subBass', 'bass', 'lowMid', 'mid', 'upperMid', 'presence', 'brilliance', 'air'];
     const comparisons = {};
@@ -2891,38 +2949,38 @@ function compareSpectralData(userTech, refTech) {
     return comparisons;
 }
 
-// ðŸŽ¯ NOVO: Gerar sugestÃµes baseadas na comparaÃ§Ã£o
+// 🎯 NOVO: Gerar sugestões baseadas na comparação
 function generateReferenceSuggestions(comparison) {
-    // ðŸ› DIAGNÃ“STICO: Logs para verificar fonte dos dados
-    console.log('ðŸ” [DIAGNÃ“STICO] generateReferenceSuggestions called with:', comparison);
-    console.log('ðŸ” [DIAGNÃ“STICO] Usando APENAS dados da comparison, nÃ£o genre targets');
-    console.log('ðŸ” [DIAGNÃ“STICO] Genre ativo (NÃƒO usado):', window.PROD_AI_REF_GENRE);
+    // 🐛 DIAGNÓSTICO: Logs para verificar fonte dos dados
+    console.log('🔍 [DIAGNÓSTICO] generateReferenceSuggestions called with:', comparison);
+    console.log('🔍 [DIAGNÓSTICO] Usando APENAS dados da comparison, não genre targets');
+    console.log('🔍 [DIAGNÓSTICO] Genre ativo (NÃO usado):', window.PROD_AI_REF_GENRE);
     
     const suggestions = [];
     
-    // SugestÃµes de loudness - ðŸš¨ COM VERIFICAÃ‡ÃƒO DE HEADROOM SEGURO
+    // Sugestões de loudness - 🚨 COM VERIFICAÇÃO DE HEADROOM SEGURO
     if (comparison.loudness.difference !== null) {
         const diff = comparison.loudness.difference;
-        console.log('ðŸ” [DIAGNÃ“STICO] Loudness difference:', diff);
+        console.log('🔍 [DIAGNÓSTICO] Loudness difference:', diff);
         
         if (Math.abs(diff) > 1) {
             const adjustmentDb = Math.abs(diff);
             const direction = diff > 0 ? 'decrease' : 'increase';
             
-            // ðŸ”’ Verificar headroom se sugerindo aumento
+            // 🔒 Verificar headroom se sugerindo aumento
             if (direction === 'increase') {
-                // Tentar acessar dados do usuÃ¡rio para verificaÃ§Ã£o de headroom
+                // Tentar acessar dados do usuário para verificação de headroom
                 const userTruePeak = comparison.userTruePeak || null;
                 const userClipping = comparison.userClipping || 0;
                 const isClipped = userClipping > 0;
                 const headroomSafetyMargin = -0.6;
                 
                 if (isClipped) {
-                    console.log(`[REF-HEADROOM] ðŸš¨ Clipping detectado - bloqueando aumento de ${adjustmentDb.toFixed(1)}dB`);
+                    console.log(`[REF-HEADROOM] 🚨 Clipping detectado - bloqueando aumento de ${adjustmentDb.toFixed(1)}dB`);
                     suggestions.push({
                         type: 'reference_loudness_blocked_clipping',
-                        message: 'ImpossÃ­vel igualar referÃªncia - Ã¡udio tem clipping',
-                        action: 'Primeiro resolver clipping, depois ajustar para referÃªncia',
+                        message: 'Impossível igualar referência - áudio tem clipping',
+                        action: 'Primeiro resolver clipping, depois ajustar para referência',
                         explanation: 'Clipping detectado impede aumento seguro',
                         frequency_range: 'N/A',
                         adjustment_db: 0,
@@ -2935,48 +2993,48 @@ function generateReferenceSuggestions(comparison) {
                     if (adjustmentDb <= availableHeadroom) {
                         const suggestion = {
                             type: 'reference_loudness',
-                            message: 'Sua mÃºsica estÃ¡ mais baixa que a referÃªncia',
+                            message: 'Sua música está mais baixa que a referência',
                             action: `Aumentar volume em ${adjustmentDb.toFixed(1)}dB`,
-                            explanation: 'Para match de loudness com a referÃªncia',
+                            explanation: 'Para match de loudness com a referência',
                             frequency_range: 'N/A',
                             adjustment_db: adjustmentDb,
                             direction: direction,
-                            headroom_check: `Seguro: ${availableHeadroom.toFixed(1)}dB disponÃ­vel`
+                            headroom_check: `Seguro: ${availableHeadroom.toFixed(1)}dB disponível`
                         };
                         suggestions.push(suggestion);
                     } else {
-                        console.log(`[REF-HEADROOM] âš ï¸ Ganho ${adjustmentDb.toFixed(1)}dB > headroom ${availableHeadroom.toFixed(1)}dB`);
+                        console.log(`[REF-HEADROOM] ⚠️ Ganho ${adjustmentDb.toFixed(1)}dB > headroom ${availableHeadroom.toFixed(1)}dB`);
                         suggestions.push({
                             type: 'reference_loudness_blocked_headroom',
-                            message: 'ImpossÃ­vel igualar referÃªncia - sem headroom suficiente',
-                            action: `True Peak permite apenas +${availableHeadroom.toFixed(1)}dB (necessÃ¡rio ${adjustmentDb.toFixed(1)}dB)`,
+                            message: 'Impossível igualar referência - sem headroom suficiente',
+                            action: `True Peak permite apenas +${availableHeadroom.toFixed(1)}dB (necessário ${adjustmentDb.toFixed(1)}dB)`,
                             explanation: 'Aumentar mais causaria clipping (True Peak > -0.6 dBTP)',
                             frequency_range: 'N/A',
                             adjustment_db: availableHeadroom > 0 ? availableHeadroom : 0,
                             direction: 'limited',
-                            warning: `NecessÃ¡rio ${adjustmentDb.toFixed(1)}dB mas sÃ³ ${availableHeadroom.toFixed(1)}dB seguro`
+                            warning: `Necessário ${adjustmentDb.toFixed(1)}dB mas só ${availableHeadroom.toFixed(1)}dB seguro`
                         });
                     }
                 } else {
                     // Sem True Peak, modo conservador
                     suggestions.push({
                         type: 'reference_loudness_conservative',
-                        message: 'Sua mÃºsica estÃ¡ mais baixa que a referÃªncia (verificar clipping)',
+                        message: 'Sua música está mais baixa que a referência (verificar clipping)',
                         action: `Aumentar CUIDADOSAMENTE volume em ${adjustmentDb.toFixed(1)}dB`,
                         explanation: 'Sem dados True Peak - risco de clipping',
                         frequency_range: 'N/A',
                         adjustment_db: adjustmentDb,
                         direction: direction,
-                        warning: 'Verifique clipping apÃ³s ajuste'
+                        warning: 'Verifique clipping após ajuste'
                     });
                 }
             } else {
-                // Diminuir Ã© sempre seguro
+                // Diminuir é sempre seguro
                 const suggestion = {
                     type: 'reference_loudness',
-                    message: 'Sua mÃºsica estÃ¡ mais alta que a referÃªncia',
+                    message: 'Sua música está mais alta que a referência',
                     action: `Diminuir volume em ${adjustmentDb.toFixed(1)}dB`,
-                    explanation: 'Para match de loudness com a referÃªncia',
+                    explanation: 'Para match de loudness com a referência',
                     frequency_range: 'N/A',
                     adjustment_db: adjustmentDb,
                     direction: direction
@@ -2984,13 +3042,13 @@ function generateReferenceSuggestions(comparison) {
                 suggestions.push(suggestion);
             }
             
-            console.log('ðŸ” [DIAGNÃ“STICO] SugestÃ£o de loudness processada com headroom check');
+            console.log('🔍 [DIAGNÓSTICO] Sugestão de loudness processada com headroom check');
         }
     }
     
-    // SugestÃµes espectrais
+    // Sugestões espectrais
     Object.entries(comparison.spectral).forEach(([band, data]) => {
-        console.log(`ðŸ” [DIAGNÃ“STICO] Spectral band ${band}:`, data);
+        console.log(`🔍 [DIAGNÓSTICO] Spectral band ${band}:`, data);
         
         if (Math.abs(data.difference) > 2) {
             const freqRanges = {
@@ -3006,58 +3064,58 @@ function generateReferenceSuggestions(comparison) {
             
             const suggestion = {
                 type: 'reference_spectral',
-                message: data.difference > 0 ? `Muito ${band} comparado Ã  referÃªncia` : `Pouco ${band} comparado Ã  referÃªncia`,
-                action: data.difference > 0 ? `Cortar ${band}` : `RealÃ§ar ${band}`,
-                explanation: `Para match espectral com a referÃªncia`,
+                message: data.difference > 0 ? `Muito ${band} comparado à referência` : `Pouco ${band} comparado à referência`,
+                action: data.difference > 0 ? `Cortar ${band}` : `Realçar ${band}`,
+                explanation: `Para match espectral com a referência`,
                 frequency_range: freqRanges[band] || 'N/A',
                 adjustment_db: Math.abs(data.difference),
                 direction: data.difference > 0 ? 'cut' : 'boost',
                 q_factor: 1.0
             };
             
-            console.log(`ðŸ” [DIAGNÃ“STICO] Adicionando sugestÃ£o espectral para ${band}:`, suggestion);
+            console.log(`🔍 [DIAGNÓSTICO] Adicionando sugestão espectral para ${band}:`, suggestion);
             suggestions.push(suggestion);
         }
     });
     
-    console.log('ðŸ” [DIAGNÃ“STICO] Total sugestÃµes geradas:', suggestions.length);
-    console.log('ðŸ” [DIAGNÃ“STICO] baseline_source: reference_audio (confirmed)');
+    console.log('🔍 [DIAGNÓSTICO] Total sugestões geradas:', suggestions.length);
+    console.log('🔍 [DIAGNÓSTICO] baseline_source: reference_audio (confirmed)');
     
     return suggestions;
 }
 
-// ðŸŽ¯ NOVO: Adicionar seÃ§Ã£o de comparaÃ§Ã£o com referÃªncia
+// 🎯 NOVO: Adicionar seção de comparação com referência
 function addReferenceComparisonSection(analysis) {
     const results = document.getElementById('audioAnalysisResults');
     if (!results) return;
     
     const comparison = analysis.comparison;
-    const userFile = analysis.userFile || 'Sua mÃºsica';
-    const referenceFile = analysis.referenceFile || 'MÃºsica de referÃªncia';
+    const userFile = analysis.userFile || 'Sua música';
+    const referenceFile = analysis.referenceFile || 'Música de referência';
     
-    // Criar seÃ§Ã£o de comparaÃ§Ã£o
+    // Criar seção de comparação
     const comparisonSection = document.createElement('div');
     comparisonSection.className = 'reference-comparison-section';
     comparisonSection.innerHTML = `
         <div class="comparison-header">
-            <h4>ðŸŽ¯ ComparaÃ§Ã£o com ReferÃªncia</h4>
+            <h4>🎯 Comparação com Referência</h4>
             <div class="comparison-files">
-                <span class="file-indicator user">ðŸ“„ ${userFile}</span>
+                <span class="file-indicator user">📄 ${userFile}</span>
                 <span class="vs-indicator">vs</span>
-                <span class="file-indicator reference">ðŸŽ¯ ${referenceFile}</span>
+                <span class="file-indicator reference">🎯 ${referenceFile}</span>
             </div>
         </div>
         
         <div class="comparison-content">
             <div class="comparison-grid">
                 ${generateComparisonRow('Loudness', comparison.loudness, 'LUFS')}
-                ${generateComparisonRow('Faixa DinÃ¢mica', comparison.dynamics, 'dB')}
-                ${generateComparisonRow('CorrelaÃ§Ã£o EstÃ©reo', comparison.stereo, '')}
+                ${generateComparisonRow('Faixa Dinâmica', comparison.dynamics, 'dB')}
+                ${generateComparisonRow('Correlação Estéreo', comparison.stereo, '')}
             </div>
             
             ${comparison.spectral && Object.keys(comparison.spectral).length > 0 ? `
                 <div class="spectral-comparison">
-                    <h5>ðŸ“Š AnÃ¡lise Espectral</h5>
+                    <h5>📊 Análise Espectral</h5>
                     <div class="spectral-grid">
                         ${Object.entries(comparison.spectral).map(([band, data]) => 
                             generateSpectralComparisonCard(band, data)
@@ -3068,7 +3126,7 @@ function addReferenceComparisonSection(analysis) {
         </div>
     `;
     
-    // Inserir no inÃ­cio da seÃ§Ã£o de resultados
+    // Inserir no início da seção de resultados
     const resultsHeader = results.querySelector('.results-header');
     if (resultsHeader) {
         resultsHeader.insertAdjacentElement('afterend', comparisonSection);
@@ -3079,7 +3137,7 @@ function addReferenceComparisonSection(analysis) {
     window.logReferenceEvent('comparison_section_displayed');
 }
 
-// ðŸŽ¯ NOVO: Gerar linha de comparaÃ§Ã£o
+// 🎯 NOVO: Gerar linha de comparação
 function generateComparisonRow(label, comparisonData, unit) {
     if (!comparisonData || comparisonData.difference === null) {
         return `
@@ -3092,9 +3150,9 @@ function generateComparisonRow(label, comparisonData, unit) {
         `;
     }
     
-    const userValue = comparisonData.user?.toFixed?.(1) || comparisonData.user || 'â€”';
-    const refValue = comparisonData.reference?.toFixed?.(1) || comparisonData.reference || 'â€”';
-    const diff = comparisonData.difference?.toFixed?.(1) || 'â€”';
+    const userValue = comparisonData.user?.toFixed?.(1) || comparisonData.user || '—';
+    const refValue = comparisonData.reference?.toFixed?.(1) || comparisonData.reference || '—';
+    const diff = comparisonData.difference?.toFixed?.(1) || '—';
     const diffClass = comparisonData.difference > 0 ? 'positive' : comparisonData.difference < 0 ? 'negative' : 'neutral';
     
     return `
@@ -3113,7 +3171,7 @@ function generateComparisonRow(label, comparisonData, unit) {
     `;
 }
 
-// ðŸŽ¯ NOVO: Gerar card de comparaÃ§Ã£o espectral
+// 🎯 NOVO: Gerar card de comparação espectral
 function generateSpectralComparisonCard(band, data) {
     const bandNames = {
         subBass: 'Sub Bass',
@@ -3127,7 +3185,7 @@ function generateSpectralComparisonCard(band, data) {
     };
     
     const friendlyName = bandNames[band] || band;
-    const diff = data.difference?.toFixed?.(1) || 'â€”';
+    const diff = data.difference?.toFixed?.(1) || '—';
     const diffClass = data.difference > 2 ? 'high-positive' : 
                       data.difference > 0.5 ? 'positive' : 
                       data.difference < -2 ? 'high-negative' : 
@@ -3141,7 +3199,7 @@ function generateSpectralComparisonCard(band, data) {
     `;
 }
 
-// â³ Aguardar Audio Analyzer carregar
+// ⏳ Aguardar Audio Analyzer carregar
 function waitForAudioAnalyzer() {
     return new Promise((resolve) => {
         if (window.audioAnalyzer) {
@@ -3156,7 +3214,7 @@ function waitForAudioAnalyzer() {
             }
         }, 100);
         
-        // Timeout apÃ³s 10 segundos
+        // Timeout após 10 segundos
         setTimeout(() => {
             clearInterval(checkInterval);
             resolve();
@@ -3164,7 +3222,7 @@ function waitForAudioAnalyzer() {
     });
 }
 
-// ï¿½ Atualizar progresso no modal
+// � Atualizar progresso no modal
 function updateModalProgress(percentage, message) {
     const progressFill = document.getElementById('audioProgressFill');
     const progressText = document.getElementById('audioProgressText');
@@ -3177,10 +3235,10 @@ function updateModalProgress(percentage, message) {
         progressText.textContent = message || `${percentage}%`;
     }
     
-    __dbg(`ðŸ“ˆ Progresso: ${percentage}% - ${message}`);
+    __dbg(`📈 Progresso: ${percentage}% - ${message}`);
 }
 
-// âŒ Mostrar erro no modal
+// ❌ Mostrar erro no modal
 function showModalError(message) {
     const uploadArea = document.getElementById('audioUploadArea');
     const loading = document.getElementById('audioAnalysisLoading');
@@ -3192,8 +3250,8 @@ function showModalError(message) {
         results.style.display = 'block';
         results.innerHTML = `
             <div style="color: #ff4444; text-align: center; padding: 30px;">
-                <div style="font-size: 3em; margin-bottom: 15px;">âš ï¸</div>
-                <h3 style="margin: 0 0 15px 0; color: #ff4444;">Erro na AnÃ¡lise</h3>
+                <div style="font-size: 3em; margin-bottom: 15px;">⚠️</div>
+                <h3 style="margin: 0 0 15px 0; color: #ff4444;">Erro na Análise</h3>
                 <p style="margin: 0 0 25px 0; color: #666; line-height: 1.4;">${message}</p>
                 <button onclick="resetModalState()" style="
                     background: #ff4444; 
@@ -3214,47 +3272,47 @@ function showModalError(message) {
     }
 }
 
-// ï¿½ðŸ”„ Mostrar loading no modal
+// �🔄 Mostrar loading no modal
 function showModalLoading() {
-    __dbg('ðŸ”„ Exibindo tela de loading no modal...');
+    __dbg('🔄 Exibindo tela de loading no modal...');
     
     const uploadArea = document.getElementById('audioUploadArea');
     const loading = document.getElementById('audioAnalysisLoading');
     const results = document.getElementById('audioAnalysisResults');
     
-    // ðŸ”§ CORREÃ‡ÃƒO: Garantir que o loading seja exibido corretamente
+    // 🔧 CORREÇÃO: Garantir que o loading seja exibido corretamente
     if (uploadArea) {
         uploadArea.style.display = 'none';
-        __dbg('âœ… Upload area ocultada');
+        __dbg('✅ Upload area ocultada');
     }
     if (results) {
         results.style.display = 'none';
-        __dbg('âœ… Results area ocultada');
+        __dbg('✅ Results area ocultada');
     }
     if (loading) {
         loading.style.display = 'block';
-        __dbg('âœ… Loading area exibida');
+        __dbg('✅ Loading area exibida');
     } else {
-        __dbg('âŒ Elemento audioAnalysisLoading nÃ£o encontrado!');
+        __dbg('❌ Elemento audioAnalysisLoading não encontrado!');
     }
     
     // Reset progress
-    updateModalProgress(0, 'ðŸ”„ Inicializando Engine de AnÃ¡lise...');
-    __dbg('âœ… Progresso resetado e loading configurado');
+    updateModalProgress(0, '🔄 Inicializando Engine de Análise...');
+    __dbg('✅ Progresso resetado e loading configurado');
 }
 
-// ðŸ“ˆ Simular progresso
-// (funÃ§Ã£o de simulaÃ§Ã£o de progresso removida â€” nÃ£o utilizada)
+// 📈 Simular progresso
+// (função de simulação de progresso removida — não utilizada)
 
-// ðŸ“Š Mostrar resultados no modal
-// ðŸ“Š Mostrar resultados no modal
+// 📊 Mostrar resultados no modal
+// 📊 Mostrar resultados no modal
 function displayModalResults(analysis) {
-    // ðŸ”’ UI GATE: VerificaÃ§Ã£o final antes de renderizar
+    // 🔒 UI GATE: Verificação final antes de renderizar
     const analysisRunId = analysis?.runId || analysis?.metadata?.runId;
     const currentRunId = window.__CURRENT_ANALYSIS_RUN_ID__;
     
     if (analysisRunId && currentRunId && analysisRunId !== currentRunId) {
-        console.warn(`ðŸš« [UI_GATE] displayModalResults cancelado - anÃ¡lise obsoleta (anÃ¡lise: ${analysisRunId}, atual: ${currentRunId})`);
+        console.warn(`🚫 [UI_GATE] displayModalResults cancelado - análise obsoleta (análise: ${analysisRunId}, atual: ${currentRunId})`);
         return;
     }
     
@@ -3264,74 +3322,74 @@ function displayModalResults(analysis) {
     const technicalData = document.getElementById('modalTechnicalData');
     
     if (!results || !technicalData) {
-        console.error('âŒ Elementos de resultado nÃ£o encontrados');
+        console.error('❌ Elementos de resultado não encontrados');
         return;
     }
     
-    // ðŸ”§ CORREÃ‡ÃƒO CRÃTICA: Normalizar dados do backend para compatibilidade com front-end
+    // 🔧 CORREÇÃO CRÍTICA: Normalizar dados do backend para compatibilidade com front-end
     if (analysis && typeof analysis === 'object') {
         analysis = normalizeBackendAnalysisData(analysis);
-        console.log('ðŸ“Š [DEBUG] Dados normalizados para exibiÃ§Ã£o:', analysis);
+        console.log('📊 [DEBUG] Dados normalizados para exibição:', analysis);
     }
     
-    // ðŸŽ¯ CALCULAR SCORES DA ANÃLISE
+    // 🎯 CALCULAR SCORES DA ANÁLISE
     if (__activeRefData && analysis) {
         const detectedGenre = analysis.metadata?.genre || analysis.genre || __activeRefGenre;
-        console.log('ðŸŽ¯ Calculando scores para gÃªnero:', detectedGenre);
+        console.log('🎯 Calculando scores para gênero:', detectedGenre);
         
         try {
             const analysisScores = calculateAnalysisScores(analysis, __activeRefData, detectedGenre);
             
             if (analysisScores) {
-                // Adicionar scores Ã  anÃ¡lise
+                // Adicionar scores à análise
                 analysis.scores = analysisScores;
-                console.log('âœ… Scores calculados e adicionados Ã  anÃ¡lise:', analysisScores);
+                console.log('✅ Scores calculados e adicionados à análise:', analysisScores);
                 
-                // TambÃ©m armazenar globalmente
+                // Também armazenar globalmente
                 if (typeof window !== 'undefined') {
                     window.__LAST_ANALYSIS_SCORES__ = analysisScores;
                 }
             } else {
-                console.warn('âš ï¸ NÃ£o foi possÃ­vel calcular scores (dados insuficientes)');
+                console.warn('⚠️ Não foi possível calcular scores (dados insuficientes)');
             }
         } catch (error) {
-            console.error('âŒ Erro ao calcular scores:', error);
+            console.error('❌ Erro ao calcular scores:', error);
         }
     } else {
-        console.warn('âš ï¸ Scores nÃ£o calculados - dados de referÃªncia nÃ£o disponÃ­veis');
+        console.warn('⚠️ Scores não calculados - dados de referência não disponíveis');
     }
     
-    // Ocultar outras seÃ§Ãµes
+    // Ocultar outras seções
     if (uploadArea) uploadArea.style.display = 'none';
     if (loading) loading.style.display = 'none';
     
     // Mostrar resultados
     results.style.display = 'block';
     
-    // ðŸŽ¯ NOVO: Verificar se Ã© modo referÃªncia e adicionar seÃ§Ã£o de comparaÃ§Ã£o
+    // 🎯 NOVO: Verificar se é modo referência e adicionar seção de comparação
     if (analysis.analysisMode === 'reference' && analysis.comparison) {
         addReferenceComparisonSection(analysis);
     }
     
-    // Marcar se pacote avanÃ§ado chegou (LUFS integrado + Pico Real + LRA)
+    // Marcar se pacote avançado chegou (LUFS integrado + Pico Real + LRA)
     const advancedReady = (
         Number.isFinite(analysis?.technicalData?.lufs_integrated) &&
         Number.isFinite(analysis?.technicalData?.truePeakDbtp)
     );
     if (typeof window !== 'undefined') window.__AUDIO_ADVANCED_READY__ = advancedReady;
 
-    // Helpers seguros com bloqueio de fallback se advanced nÃ£o pronto
-    const safeFixed = (v, d=1) => (Number.isFinite(v) ? v.toFixed(d) : 'â€”');
-    const safeHz = (v) => (Number.isFinite(v) ? `${Math.round(v)} Hz` : 'â€”');
-    const pct = (v, d=0) => (Number.isFinite(v) ? `${(v*100).toFixed(d)}%` : 'â€”');
+    // Helpers seguros com bloqueio de fallback se advanced não pronto
+    const safeFixed = (v, d=1) => (Number.isFinite(v) ? v.toFixed(d) : '—');
+    const safeHz = (v) => (Number.isFinite(v) ? `${Math.round(v)} Hz` : '—');
+    const pct = (v, d=0) => (Number.isFinite(v) ? `${(v*100).toFixed(d)}%` : '—');
     const tonalSummary = (tb) => {
-        if (!tb || typeof tb !== 'object') return 'â€”';
+        if (!tb || typeof tb !== 'object') return '—';
         const parts = [];
         if (tb.sub && Number.isFinite(tb.sub.rms_db)) parts.push(`Sub ${tb.sub.rms_db.toFixed(1)}dB`);
         if (tb.low && Number.isFinite(tb.low.rms_db)) parts.push(`Low ${tb.low.rms_db.toFixed(1)}dB`);
         if (tb.mid && Number.isFinite(tb.mid.rms_db)) parts.push(`Mid ${tb.mid.rms_db.toFixed(1)}dB`);
         if (tb.high && Number.isFinite(tb.high.rms_db)) parts.push(`High ${tb.high.rms_db.toFixed(1)}dB`);
-        return parts.length ? parts.join(' â€¢ ') : 'â€”';
+        return parts.length ? parts.join(' • ') : '—';
     };
 
         // Layout com cards e KPIs, mantendo o container #modalTechnicalData
@@ -3346,7 +3404,7 @@ function displayModalResults(analysis) {
 
         const src = (k) => (analysis.technicalData?._sources && analysis.technicalData._sources[k]) ? ` data-src="${analysis.technicalData._sources[k]}" title="origem: ${analysis.technicalData._sources[k]}"` : '';
         const row = (label, valHtml, keyForSource=null) => {
-            // Usar sistema de enhancement se disponÃ­vel
+            // Usar sistema de enhancement se disponível
             const enhancedLabel = (typeof window !== 'undefined' && window.enhanceRowLabel) 
                 ? window.enhanceRowLabel(label, keyForSource) 
                 : label;
@@ -3358,16 +3416,16 @@ function displayModalResults(analysis) {
                 </div>`;
         };
 
-        // ðŸŽ¯ CENTRALIZAÃ‡ÃƒO DAS MÃ‰TRICAS - FunÃ§Ãµes de acesso unificado
+        // 🎯 CENTRALIZAÇÃO DAS MÉTRICAS - Funções de acesso unificado
         const getMetric = (metricPath, fallbackPath = null) => {
             // Prioridade: metrics centralizadas > technicalData legado > fallback
             const centralizedValue = analysis.metrics && getNestedValue(analysis.metrics, metricPath);
             if (Number.isFinite(centralizedValue)) {
-                // Log temporÃ¡rio para validaÃ§Ã£o
+                // Log temporário para validação
                 if (typeof window !== 'undefined' && window.METRICS_UI_VALIDATION !== false) {
                     const legacyValue = fallbackPath ? getNestedValue(analysis.technicalData, fallbackPath) : getNestedValue(analysis.technicalData, metricPath);
                     if (Number.isFinite(legacyValue) && Math.abs(centralizedValue - legacyValue) > 0.01) {
-                        console.warn(`ðŸŽ¯ METRIC_DIFF: ${metricPath} centralized=${centralizedValue} vs legacy=${legacyValue}`);
+                        console.warn(`🎯 METRIC_DIFF: ${metricPath} centralized=${centralizedValue} vs legacy=${legacyValue}`);
                     }
                 }
                 return centralizedValue;
@@ -3382,37 +3440,37 @@ function displayModalResults(analysis) {
             return path.split('.').reduce((current, key) => current?.[key], obj);
         };
 
-        const safePct = (v) => (Number.isFinite(v) ? `${(v*100).toFixed(0)}%` : 'â€”');
-        const monoCompat = (s) => s ? s : 'â€”';
+        const safePct = (v) => (Number.isFinite(v) ? `${(v*100).toFixed(0)}%` : '—');
+        const monoCompat = (s) => s ? s : '—';
 
-        // FunÃ§Ã£o para obter o valor LUFS integrado usando mÃ©tricas centralizadas
+        // Função para obter o valor LUFS integrado usando métricas centralizadas
         const getLufsIntegratedValue = () => {
             return getMetric('lufs_integrated', 'lufsIntegrated');
         };
 
         const col1 = [
             row('Pico de Amostra', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak'),
-            row('Volume MÃ©dio (energia)', `${safeFixed(getMetric('rms_level', 'avgLoudness'))} dB`, 'avgLoudness'),
-            row('DinÃ¢mica (diferenÃ§a entre alto/baixo)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
+            row('Volume Médio (energia)', `${safeFixed(getMetric('rms_level', 'avgLoudness'))} dB`, 'avgLoudness'),
+            row('Dinâmica (diferença entre alto/baixo)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
             row('fator de crista', `${safeFixed(getMetric('crest_factor', 'crestFactor'))} dB`, 'crestFactor'),
-            row('pico real (dbtp)', (advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp'))) ? `${safeFixed(getMetric('truePeakDbtp', 'truePeakDbtp'))} dBTP` : (advancedReady? 'â€”':'â³'), 'truePeakDbtp'),
-            row('Volume Integrado (padrÃ£o streaming)', (advancedReady && Number.isFinite(getLufsIntegratedValue())) ? `${safeFixed(getLufsIntegratedValue())} LUFS` : (advancedReady? 'â€”':'â³'), 'lufsIntegrated'),
-            row('Volume Integrado (padrÃ£o streaming)', (advancedReady && Number.isFinite(getMetric('lufs_short_term', 'lufsShortTerm'))) ? `${safeFixed(getMetric('lufs_short_term', 'lufsShortTerm'))} LUFS` : (advancedReady? 'â€”':'â³'), 'lufsShortTerm'),
-            row('Volume Integrado (padrÃ£o streaming)', (advancedReady && Number.isFinite(getMetric('lufs_momentary', 'lufsMomentary'))) ? `${safeFixed(getMetric('lufs_momentary', 'lufsMomentary'))} LUFS` : (advancedReady? 'â€”':'â³'), 'lufsMomentary'),
-            row('DinÃ¢mica (diferenÃ§a entre alto/baixo)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra')
+            row('pico real (dbtp)', (advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp'))) ? `${safeFixed(getMetric('truePeakDbtp', 'truePeakDbtp'))} dBTP` : (advancedReady? '—':'⏳'), 'truePeakDbtp'),
+            row('Volume Integrado (padrão streaming)', (advancedReady && Number.isFinite(getLufsIntegratedValue())) ? `${safeFixed(getLufsIntegratedValue())} LUFS` : (advancedReady? '—':'⏳'), 'lufsIntegrated'),
+            row('Volume Integrado (padrão streaming)', (advancedReady && Number.isFinite(getMetric('lufs_short_term', 'lufsShortTerm'))) ? `${safeFixed(getMetric('lufs_short_term', 'lufsShortTerm'))} LUFS` : (advancedReady? '—':'⏳'), 'lufsShortTerm'),
+            row('Volume Integrado (padrão streaming)', (advancedReady && Number.isFinite(getMetric('lufs_momentary', 'lufsMomentary'))) ? `${safeFixed(getMetric('lufs_momentary', 'lufsMomentary'))} LUFS` : (advancedReady? '—':'⏳'), 'lufsMomentary'),
+            row('Dinâmica (diferença entre alto/baixo)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra')
             ].join('');
 
         const col2 = [
-            row('CorrelaÃ§Ã£o EstÃ©reo (largura)', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 3) : 'â€”', 'stereoCorrelation'),
-            row('Largura EstÃ©reo', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? safeFixed(getMetric('stereo_width', 'stereoWidth'), 2) : 'â€”', 'stereoWidth'),
-            row('BalanÃ§o Esquerdo/Direito', Number.isFinite(getMetric('balance_lr', 'balanceLR')) ? safePct(getMetric('balance_lr', 'balanceLR')) : 'â€”', 'balanceLR'),
-            row('FrequÃªncia Central (brilho)', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroidHz')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroidHz')) : 'â€”', 'spectralCentroidHz'),
-            row('Limite de Agudos (85%)', Number.isFinite(getMetric('spectral_rolloff', 'spectralRolloffHz')) ? safeHz(getMetric('spectral_rolloff', 'spectralRolloffHz')) : 'â€”', 'spectralRolloffHz'),
-            row('Largura Espectral (Hz)', Number.isFinite(getMetric('spectral_bandwidth', 'spectralBandwidthHz')) ? safeHz(getMetric('spectral_bandwidth', 'spectralBandwidthHz')) : 'â€”', 'spectralBandwidthHz'),
-            row('uniformidade espectral', analysis.technicalData?.spectralUniformity?.value ? `${safeFixed(analysis.technicalData.spectralUniformity.value, 3)} (${analysis.technicalData.spectralUniformity.detailed?.distribution || 'unknown'})` : 'â€”', 'spectralUniformity'),
-            row('zero crossing rate', Number.isFinite(getMetric('zero_crossing_rate', 'zeroCrossingRate')) ? safeFixed(getMetric('zero_crossing_rate', 'zeroCrossingRate'), 3) : 'â€”', 'zeroCrossingRate'),
-            row('MudanÃ§a Espectral', Number.isFinite(getMetric('spectral_flux', 'spectralFlux')) ? safeFixed(getMetric('spectral_flux', 'spectralFlux'), 3) : 'â€”', 'spectralFlux'),
-            row('Uniformidade (linear vs peaks)', Number.isFinite(getMetric('spectral_flatness', 'spectralFlatness')) ? safeFixed(getMetric('spectral_flatness', 'spectralFlatness'), 3) : 'â€”', 'spectralFlatness')
+            row('Correlação Estéreo (largura)', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 3) : '—', 'stereoCorrelation'),
+            row('Largura Estéreo', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? safeFixed(getMetric('stereo_width', 'stereoWidth'), 2) : '—', 'stereoWidth'),
+            row('Balanço Esquerdo/Direito', Number.isFinite(getMetric('balance_lr', 'balanceLR')) ? safePct(getMetric('balance_lr', 'balanceLR')) : '—', 'balanceLR'),
+            row('Frequência Central (brilho)', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroidHz')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroidHz')) : '—', 'spectralCentroidHz'),
+            row('Limite de Agudos (85%)', Number.isFinite(getMetric('spectral_rolloff', 'spectralRolloffHz')) ? safeHz(getMetric('spectral_rolloff', 'spectralRolloffHz')) : '—', 'spectralRolloffHz'),
+            row('Largura Espectral (Hz)', Number.isFinite(getMetric('spectral_bandwidth', 'spectralBandwidthHz')) ? safeHz(getMetric('spectral_bandwidth', 'spectralBandwidthHz')) : '—', 'spectralBandwidthHz'),
+            row('uniformidade espectral', analysis.technicalData?.spectralUniformity?.value ? `${safeFixed(analysis.technicalData.spectralUniformity.value, 3)} (${analysis.technicalData.spectralUniformity.detailed?.distribution || 'unknown'})` : '—', 'spectralUniformity'),
+            row('zero crossing rate', Number.isFinite(getMetric('zero_crossing_rate', 'zeroCrossingRate')) ? safeFixed(getMetric('zero_crossing_rate', 'zeroCrossingRate'), 3) : '—', 'zeroCrossingRate'),
+            row('Mudança Espectral', Number.isFinite(getMetric('spectral_flux', 'spectralFlux')) ? safeFixed(getMetric('spectral_flux', 'spectralFlux'), 3) : '—', 'spectralFlux'),
+            row('Uniformidade (linear vs peaks)', Number.isFinite(getMetric('spectral_flatness', 'spectralFlatness')) ? safeFixed(getMetric('spectral_flatness', 'spectralFlatness'), 3) : '—', 'spectralFlatness')
         ].join('');
 
             const col3Extras = (()=>{
@@ -3433,30 +3491,30 @@ function displayModalResults(analysis) {
                 return extra ? row('Top Freq. adicionais', `<span style="opacity:.9">${extra}</span>`) : '';
             })();
             const col3 = [
-                // Reativando mÃ©tricas experimentais agora implementadas via funÃ§Ãµes standalone
+                // Reativando métricas experimentais agora implementadas via funções standalone
                 (analysis.technicalData?.dominantFrequencies?.detailed?.primary ? row('freq. dominante', `${Math.round(analysis.technicalData.dominantFrequencies.detailed.primary)} Hz`) : ''),
                 (analysis.technicalData?.dominantFrequencies?.detailed?.secondary ? row('top freq. adicionais', `${Math.round(analysis.technicalData.dominantFrequencies.detailed.secondary)} Hz`) : ''),
                 
-                // MÃ©tricas avanÃ§adas baseadas nas imagens
+                // Métricas avançadas baseadas nas imagens
                 row('clipping (%)', Number.isFinite(getMetric('clipping_pct', 'clippingPct')) ? `${safeFixed(getMetric('clipping_pct', 'clippingPct'), 2)}%` : '0.00%', 'clippingPct'),
                 (analysis.technicalData?.dcOffset?.detailed ? row('dc offset', `L: ${safeFixed(analysis.technicalData.dcOffset.detailed.L, 4)} / R: ${safeFixed(analysis.technicalData.dcOffset.detailed.R, 4)} (${analysis.technicalData.dcOffset.detailed.severity || 'Low'})`) : ''),
                 row('thd', Number.isFinite(getMetric('thd', 'thd')) ? `${safeFixed(getMetric('thd', 'thd'), 2)}%` : '0.00%', 'thd'),
-                row('CorrelaÃ§Ã£o EstÃ©reo (largura)', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 3) : 'â€”', 'stereoCorrelation'),
-                row('fator de crista', Number.isFinite(getMetric('crest_factor', 'crestFactor')) ? `${safeFixed(getMetric('crest_factor', 'crestFactor'), 1)} dB` : 'â€”', 'crestFactor'),
-                row('DinÃ¢mica (diferenÃ§a entre alto/baixo)', Number.isFinite(getMetric('dynamic_range', 'dynamicRange')) ? `Î”=${safeFixed(getMetric('dynamic_range', 'dynamicRange'), 0)} ok` : 'â€”', 'dynamicRange'),
-                row('crest consist', 'Î”=4.43 check', 'crestConsist'),
-                row('VariaÃ§Ã£o de Volume (consistÃªncia)', 'ok', 'volumeConsistency'),
+                row('Correlação Estéreo (largura)', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 3) : '—', 'stereoCorrelation'),
+                row('fator de crista', Number.isFinite(getMetric('crest_factor', 'crestFactor')) ? `${safeFixed(getMetric('crest_factor', 'crestFactor'), 1)} dB` : '—', 'crestFactor'),
+                row('Dinâmica (diferença entre alto/baixo)', Number.isFinite(getMetric('dynamic_range', 'dynamicRange')) ? `Δ=${safeFixed(getMetric('dynamic_range', 'dynamicRange'), 0)} ok` : '—', 'dynamicRange'),
+                row('crest consist', 'Δ=4.43 check', 'crestConsist'),
+                row('Variação de Volume (consistência)', 'ok', 'volumeConsistency'),
                 
-                row('Problemas', (analysis.problems?.length || 0) > 0 ? `<span class="tag tag-danger">${analysis.problems.length} detectado(s)</span>` : 'â€”'),
-                row('SugestÃµes', (analysis.suggestions?.length || 0) > 0 ? `<span class="tag tag-success">${analysis.suggestions.length} disponÃ­vel(s)</span>` : 'â€”'),
+                row('Problemas', (analysis.problems?.length || 0) > 0 ? `<span class="tag tag-danger">${analysis.problems.length} detectado(s)</span>` : '—'),
+                row('Sugestões', (analysis.suggestions?.length || 0) > 0 ? `<span class="tag tag-success">${analysis.suggestions.length} disponível(s)</span>` : '—'),
                 col3Extras
             ].join('');
 
-            // Card extra: MÃ©tricas AvanÃ§adas (expandido para Web Audio API compatibility)
+            // Card extra: Métricas Avançadas (expandido para Web Audio API compatibility)
             const advancedMetricsCard = () => {
                 const rows = [];
                 
-                // === MÃ‰TRICAS DE PICO E CLIPPING (seÃ§Ã£o principal) ===
+                // === MÉTRICAS DE PICO E CLIPPING (seção principal) ===
                 
                 // True Peak (dBTP)
                 if (Number.isFinite(analysis.technicalData?.truePeakDbtp)) {
@@ -3498,8 +3556,8 @@ function displayModalResults(analysis) {
                     rows.push(row('headroom (dB)', `${safeFixed(analysis.technicalData.headroomDb, 1)} dB`, 'headroomDb'));
                 }
                 
-                // === BANDAS ESPECTRAIS DETALHADAS (DINÃ‚MICAS) ===
-                // Buscar bandas em mÃºltiplas localizaÃ§Ãµes do JSON
+                // === BANDAS ESPECTRAIS DETALHADAS (DINÂMICAS) ===
+                // Buscar bandas em múltiplas localizações do JSON
                 const spectralBands = analysis.technicalData?.spectral_balance || 
                                     analysis.technicalData?.spectralBands || 
                                     analysis.metrics?.bands || {};
@@ -3516,7 +3574,7 @@ function displayModalResults(analysis) {
                         air: { name: 'Air (10-20kHz)', range: '10000-20000Hz' }
                     };
                     
-                    // Percorrer dinamicamente todas as bandas disponÃ­veis
+                    // Percorrer dinamicamente todas as bandas disponíveis
                     Object.keys(bandMap).forEach(bandKey => {
                         const bandData = spectralBands[bandKey];
                         if (bandData && typeof bandData === 'object') {
@@ -3535,18 +3593,18 @@ function displayModalResults(analysis) {
                                 } else if (Number.isFinite(percentage)) {
                                     displayValue = `${safeFixed(percentage, 1)}%`;
                                 } else {
-                                    displayValue = 'nÃ£o calculado';
+                                    displayValue = 'não calculado';
                                 }
                                 
                                 rows.push(row(bandMap[bandKey].name, displayValue, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
                             }
                         } else if (Number.isFinite(bandData)) {
-                            // Formato legado (apenas valor numÃ©rico)
+                            // Formato legado (apenas valor numérico)
                             rows.push(row(bandMap[bandKey].name, `${safeFixed(bandData, 1)} dB`, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
                         }
                     });
                     
-                    // Se nÃ£o encontrou nenhuma banda nas chaves esperadas, tentar buscar qualquer banda disponÃ­vel
+                    // Se não encontrou nenhuma banda nas chaves esperadas, tentar buscar qualquer banda disponível
                     if (rows.filter(r => r.includes('spectral')).length === 0) {
                         Object.keys(spectralBands).forEach(bandKey => {
                             if (bandKey === '_status' || bandKey === 'totalPercentage') return; // Pular metadados
@@ -3567,7 +3625,7 @@ function displayModalResults(analysis) {
                                     } else if (Number.isFinite(percentage)) {
                                         displayValue = `${safeFixed(percentage, 1)}%`;
                                     } else {
-                                        displayValue = 'nÃ£o calculado';
+                                        displayValue = 'não calculado';
                                     }
                                     
                                     const displayName = `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)} (${range})`;
@@ -3581,7 +3639,7 @@ function displayModalResults(analysis) {
                     }
                 }
                 
-                // === MÃ‰TRICAS ESPECTRAIS AVANÃ‡ADAS ===
+                // === MÉTRICAS ESPECTRAIS AVANÇADAS ===
                 
                 // Spectral Centroid
                 if (Number.isFinite(analysis.technicalData?.spectralCentroid)) {
@@ -3608,14 +3666,14 @@ function displayModalResults(analysis) {
                     rows.push(row('spectral skewness', `${safeFixed(analysis.technicalData.spectralSkewness, 3)}`, 'spectralSkewness'));
                 }
                 
-                // === FREQUÃŠNCIAS DOMINANTES ===
+                // === FREQUÊNCIAS DOMINANTES ===
                 if (analysis.dominantFrequencies && analysis.dominantFrequencies.peaks && Array.isArray(analysis.dominantFrequencies.peaks)) {
                     analysis.dominantFrequencies.peaks.slice(0, 3).forEach((peak, idx) => {
                         rows.push(row(`freq. dominante ${idx + 1}`, `${Math.round(peak.frequency)} Hz`, `dominantFreq${idx + 1}`));
                     });
                 }
                 
-                // === MÃ‰TRICAS DE UNIFORMIDADE ===
+                // === MÉTRICAS DE UNIFORMIDADE ===
                 if (analysis.spectralUniformity && Number.isFinite(analysis.spectralUniformity.uniformity?.coefficient)) {
                     rows.push(row('uniformity coeff.', `${safeFixed(analysis.spectralUniformity.uniformity.coefficient, 4)}`, 'uniformityCoeff'));
                 }
@@ -3634,45 +3692,45 @@ function displayModalResults(analysis) {
                     });
                 }
                 
-                return rows.join('') || row('Status', 'Sem mÃ©tricas avanÃ§adas disponÃ­veis');
+                return rows.join('') || row('Status', 'Sem métricas avançadas disponíveis');
             };
 
-            // Card extra: Problemas TÃ©cnicos detalhados
+            // Card extra: Problemas Técnicos detalhados
             const techProblems = () => {
                 const rows = [];
                 let hasActualProblems = false;
                 
-                // ===== SEMPRE MOSTRAR TODAS AS MÃ‰TRICAS TÃ‰CNICAS =====
+                // ===== SEMPRE MOSTRAR TODAS AS MÉTRICAS TÉCNICAS =====
                 
                 // 1. Clipping - SEMPRE mostrar com valores reais
                 const clipVal = Number.isFinite(analysis.technicalData?.clippingSamples) ? analysis.technicalData.clippingSamples : 0;
                 const clipPct = Number.isFinite(analysis.technicalData?.clippingPct) ? analysis.technicalData.clippingPct : 0;
-                // ðŸŽ¯ CLIPPING PRECEDENCE V2: Usar nova lÃ³gica de precedÃªncia
+                // 🎯 CLIPPING PRECEDENCE V2: Usar nova lógica de precedência
                 const peak = Number.isFinite(analysis.technicalData?.peak) ? analysis.technicalData.peak : -Infinity;
                 const truePeak = Number.isFinite(analysis.technicalData?.truePeakDbtp) ? analysis.technicalData.truePeakDbtp : null;
                 
-                // Verificar se temos dados do novo sistema de precedÃªncia
+                // Verificar se temos dados do novo sistema de precedência
                 const precedenceData = analysis.technicalData?._singleStage;
                 let hasClippingProblem, clipText, clipClass;
                 
                 if (precedenceData && precedenceData.source === 'enhanced-clipping-v2') {
-                    // ðŸš€ Usar novo sistema de precedÃªncia
+                    // 🚀 Usar novo sistema de precedência
                     const isClipped = precedenceData.finalState === 'CLIPPED';
                     const isTruePeakOnly = precedenceData.finalState === 'TRUE_PEAK_ONLY';
                     hasClippingProblem = isClipped || isTruePeakOnly;
                     
                     if (hasClippingProblem) {
                         hasActualProblems = true;
-                        clipClass = isClipped ? 'error' : 'warn'; // CLIPPED Ã© mais severo que TRUE_PEAK_ONLY
+                        clipClass = isClipped ? 'error' : 'warn'; // CLIPPED é mais severo que TRUE_PEAK_ONLY
                         
                         const details = [];
                         if (isClipped) {
-                            details.push(`ðŸ”´ CLIPPED: ${precedenceData.samplePeakMaxDbFS.toFixed(2)}dBFS`);
+                            details.push(`🔴 CLIPPED: ${precedenceData.samplePeakMaxDbFS.toFixed(2)}dBFS`);
                             if (precedenceData.precedenceApplied) {
                                 details.push(`TP override: ${precedenceData.truePeakDbTP.toFixed(2)}dBTP`);
                             }
                         } else if (isTruePeakOnly) {
-                            details.push(`ðŸŸ¡ TruePeak: ${precedenceData.truePeakDbTP.toFixed(2)}dBTP`);
+                            details.push(`🟡 TruePeak: ${precedenceData.truePeakDbTP.toFixed(2)}dBTP`);
                         }
                         
                         if (precedenceData.clippingSamples > 0) {
@@ -3683,14 +3741,14 @@ function displayModalResults(analysis) {
                     } else {
                         // Estado limpo com novo sistema
                         const safeDetails = [];
-                        safeDetails.push(`âœ… Sample: ${precedenceData.samplePeakMaxDbFS.toFixed(2)}dBFS`);
+                        safeDetails.push(`✅ Sample: ${precedenceData.samplePeakMaxDbFS.toFixed(2)}dBFS`);
                         safeDetails.push(`TP: ${precedenceData.truePeakDbTP.toFixed(2)}dBTP`);
                         safeDetails.push(`${precedenceData.clippingSamples} samples`);
                         clipText = safeDetails.join(' | ');
                         clipClass = '';
                     }
                 } else {
-                    // ðŸ”„ Fallback para sistema legado
+                    // 🔄 Fallback para sistema legado
                     const hasPeakClipping = peak > -0.1;
                     const hasTruePeakClipping = truePeak !== null && truePeak > -0.1;
                     const hasSampleClipping = clipVal > 0;
@@ -3765,49 +3823,49 @@ function displayModalResults(analysis) {
                 const crestClass = hasCrestProblem ? 'warn' : '';
                 rows.push(row('Fator de Crista', `<span class="${crestClass}">${safeFixed(crestVal, 1)} dB</span>`, 'crestFactor'));
                 
-                // ConsistÃªncia (se disponÃ­vel) - mas sempre tentar mostrar
+                // Consistência (se disponível) - mas sempre tentar mostrar
                 if (analysis.metricsValidation && Object.keys(analysis.metricsValidation).length) {
                     const mv = analysis.metricsValidation;
                     const badge = (k,v) => `<span style="padding:2px 6px;border-radius:4px;font-size:11px;background:${v==='ok'?'#143f2b':(v==='warn'?'#4d3808':'#4a1d1d')};color:${v==='ok'?'#29c182':(v==='warn'?'#ffce4d':'#ff7d7d')};margin-left:6px;">${v}</span>`;
                     
                     if (mv.dynamicRangeConsistency) {
-                        rows.push(row('DR ConsistÃªncia', `Î”=${mv.dynamicRangeDelta || '0'} ${badge('dr', mv.dynamicRangeConsistency)}`));
+                        rows.push(row('DR Consistência', `Δ=${mv.dynamicRangeDelta || '0'} ${badge('dr', mv.dynamicRangeConsistency)}`));
                         if (mv.dynamicRangeConsistency !== 'ok') hasActualProblems = true;
                     } else {
-                        rows.push(row('DR ConsistÃªncia', `<span style="opacity:0.6;">Î”=0 ${badge('dr', 'ok')}</span>`));
+                        rows.push(row('DR Consistência', `<span style="opacity:0.6;">Δ=0 ${badge('dr', 'ok')}</span>`));
                     }
                     
                     if (mv.crestFactorConsistency) {
-                        rows.push(row('Crest Consist.', `Î”=${mv.crestVsExpectedDelta || '0'} ${badge('cf', mv.crestFactorConsistency)}`));
+                        rows.push(row('Crest Consist.', `Δ=${mv.crestVsExpectedDelta || '0'} ${badge('cf', mv.crestFactorConsistency)}`));
                         if (mv.crestFactorConsistency !== 'ok') hasActualProblems = true;
                     } else {
-                        rows.push(row('Crest Consist.', `<span style="opacity:0.6;">Î”=0 ${badge('cf', 'ok')}</span>`));
+                        rows.push(row('Crest Consist.', `<span style="opacity:0.6;">Δ=0 ${badge('cf', 'ok')}</span>`));
                     }
                     
                     if (mv.lraPlausibility) {
-                        rows.push(row('LRA PlausÃ­vel', badge('lra', mv.lraPlausibility)));
+                        rows.push(row('LRA Plausível', badge('lra', mv.lraPlausibility)));
                         if (mv.lraPlausibility !== 'ok') hasActualProblems = true;
                     } else {
-                        rows.push(row('LRA PlausÃ­vel', `<span style="opacity:0.6;">${badge('lra', 'ok')}</span>`));
+                        rows.push(row('LRA Plausível', `<span style="opacity:0.6;">${badge('lra', 'ok')}</span>`));
                     }
                 } else {
-                    // Mostrar como nÃ£o disponÃ­vel/OK
+                    // Mostrar como não disponível/OK
                     const badge = (v) => `<span style="padding:2px 6px;border-radius:4px;font-size:11px;background:#143f2b;color:#29c182;margin-left:6px;">${v}</span>`;
-                    rows.push(row('DR ConsistÃªncia', `<span style="opacity:0.6;">Î”=0 ${badge('ok')}</span>`));
-                    rows.push(row('Crest Consist.', `<span style="opacity:0.6;">Î”=0 ${badge('ok')}</span>`));
-                    rows.push(row('LRA PlausÃ­vel', `<span style="opacity:0.6;">${badge('ok')}</span>`));
+                    rows.push(row('DR Consistência', `<span style="opacity:0.6;">Δ=0 ${badge('ok')}</span>`));
+                    rows.push(row('Crest Consist.', `<span style="opacity:0.6;">Δ=0 ${badge('ok')}</span>`));
+                    rows.push(row('LRA Plausível', `<span style="opacity:0.6;">${badge('ok')}</span>`));
                 }
                 
                 return rows.join('');
             };
 
-            // Card extra: DiagnÃ³stico & SugestÃµes listados
+            // Card extra: Diagnóstico & Sugestões listados
             const diagCard = () => {
                 const blocks = [];
                 
-                // ðŸ” DEBUG: Verificar estado das sugestÃµes
-                console.log('ðŸ” [DEBUG_SUGGESTIONS] analysis.suggestions:', analysis.suggestions);
-                console.log('ðŸ” [DEBUG_SUGGESTIONS] anÃ¡lise completa de sugestÃµes:', {
+                // 🔍 DEBUG: Verificar estado das sugestões
+                console.log('🔍 [DEBUG_SUGGESTIONS] analysis.suggestions:', analysis.suggestions);
+                console.log('🔍 [DEBUG_SUGGESTIONS] análise completa de sugestões:', {
                     hasAnalysis: !!analysis,
                     hasSuggestions: !!analysis.suggestions,
                     suggestionsType: typeof analysis.suggestions,
@@ -3815,7 +3873,7 @@ function displayModalResults(analysis) {
                     suggestionsArray: analysis.suggestions
                 });
 
-                // Helpers para embelezar as sugestÃµes sem mudar layout/IDs
+                // Helpers para embelezar as sugestões sem mudar layout/IDs
                 const formatNumbers = (text, decimals = 2) => {
                     if (!text || typeof text !== 'string') return '';
                     return text.replace(/(-?\d+\.\d{3,})/g, (m) => {
@@ -3824,7 +3882,7 @@ function displayModalResults(analysis) {
                     });
                 };
                 const renderSuggestionItem = (sug) => {
-                    // ðŸŽ¯ Verificar se o gerador de texto didÃ¡tico estÃ¡ disponÃ­vel
+                    // 🎯 Verificar se o gerador de texto didático está disponível
                     const hasTextGenerator = typeof window.SuggestionTextGenerator !== 'undefined';
                     let didacticText = null;
                     
@@ -3837,14 +3895,14 @@ function displayModalResults(analysis) {
                         }
                     }
                     
-                    // Usar texto didÃ¡tico se disponÃ­vel, senÃ£o usar texto original
+                    // Usar texto didático se disponível, senão usar texto original
                     const title = didacticText?.title || sug.message || '';
                     const explanation = didacticText?.explanation || sug.explanation || '';
                     const action = didacticText?.action || sug.action || '';
                     const rationale = didacticText?.rationale || '';
                     const technical = didacticText?.technical || sug.details || '';
                     
-                    // ðŸŽ¯ SISTEMA MELHORADO: Verificar se tem informaÃ§Ãµes de severidade e prioridade
+                    // 🎯 SISTEMA MELHORADO: Verificar se tem informações de severidade e prioridade
                     const hasEnhancedInfo = sug.severity && sug.priority;
                     const severityColor = hasEnhancedInfo ? sug.severity.color : '#9fb3d9';
                     const severityLevel = hasEnhancedInfo ? sug.severity.level : 'medium';
@@ -3852,7 +3910,7 @@ function displayModalResults(analysis) {
                     const priority = hasEnhancedInfo ? sug.priority : 0;
                     const confidence = hasEnhancedInfo ? sug.confidence : 1;
                     
-                    // Detectar tipo de sugestÃ£o
+                    // Detectar tipo de sugestão
                     const isSurgical = sug.type === 'surgical_eq' || (sug.subtype && ['sibilance', 'harshness', 'clipping'].includes(sug.subtype));
                     const isBandAdjust = sug.type === 'band_adjust';
                     const isClipping = sug.type === 'clipping' || title.toLowerCase().includes('clipping');
@@ -3866,7 +3924,7 @@ function displayModalResults(analysis) {
                     else if (isBalance) cardClass += ' balance';
                     else cardClass += ' problem';
                     
-                    // Extrair frequÃªncia e valores tÃ©cnicos
+                    // Extrair frequência e valores técnicos
                     const freqMatch = (title + ' ' + action).match(/(\d+(?:\.\d+)?)\s*(?:Hz|hz)/i);
                     const frequency = freqMatch ? freqMatch[1] : null;
                     
@@ -3876,49 +3934,49 @@ function displayModalResults(analysis) {
                     const qMatch = action.match(/Q\s*[=:]?\s*(\d+(?:\.\d+)?)/i);
                     const qValue = qMatch ? qMatch[1] : null;
                     
-                    // Extrair faixa de frequÃªncia se disponÃ­vel
+                    // Extrair faixa de frequência se disponível
                     const frequencyRange = sug.frequency_range || '';
                     const adjustmentDb = sug.adjustment_db;
                     
-                    // ðŸš¨ VERIFICAR SE Ã‰ UM AVISO CRÃTICO
+                    // 🚨 VERIFICAR SE É UM AVISO CRÍTICO
                     if (didacticText?.isCritical) {
                         return `
                             <div class="${cardClass} critical-alert">
                                 <div class="card-header">
-                                    <h4 class="card-title">ðŸš¨ Problema CrÃ­tico</h4>
+                                    <h4 class="card-title">🚨 Problema Crítico</h4>
                                     <div class="card-badges">
                                         ${frequency ? `<span class="frequency-badge">${frequency} Hz</span>` : ''}
-                                        <span class="severity-badge severa">CRÃTICO</span>
+                                        <span class="severity-badge severa">CRÍTICO</span>
                                     </div>
                                 </div>
                                 
                                 <div class="card-description" style="border-left-color: #f44336;">
-                                    <strong>âš ï¸ Problema:</strong> ${didacticText.explanation}
+                                    <strong>⚠️ Problema:</strong> ${didacticText.explanation}
                                 </div>
                                 
                                 <div class="card-action" style="background: rgba(244, 67, 54, 0.15); border-color: #f44336;">
                                     <div class="card-action-title" style="color: #f44336;">
-                                        ðŸš¨ AÃ§Ã£o Urgente
+                                        🚨 Ação Urgente
                                     </div>
                                     <div class="card-action-content">${didacticText.action}</div>
                                 </div>
                                 
                                 <div class="card-impact" style="background: rgba(244, 67, 54, 0.1); border-color: #f44336;">
-                                    <div class="card-impact-title" style="color: #f44336;">âš ï¸ Por que Ã© crÃ­tico</div>
+                                    <div class="card-impact-title" style="color: #f44336;">⚠️ Por que é crítico</div>
                                     <div class="card-impact-content">${didacticText.rationale}</div>
                                 </div>
                             </div>`;
                     }
                     
                     if (isSurgical) {
-                        // Card cirÃºrgico aprimorado
+                        // Card cirúrgico aprimorado
                         const context = title.replace(/\[\d+Hz\]/, '').replace(/\d+Hz/, '').trim();
                         const severity = severityLevel === 'high' ? 'alta' : (severityLevel === 'medium' ? 'moderada' : 'leve');
                         
                         return `
                             <div class="${cardClass}">
                                 <div class="card-header">
-                                    <h4 class="card-title">ðŸ”§ CorreÃ§Ã£o CirÃºrgica</h4>
+                                    <h4 class="card-title">🔧 Correção Cirúrgica</h4>
                                     <div class="card-badges">
                                         ${frequency ? `<span class="frequency-badge">${frequency} Hz</span>` : ''}
                                         <span class="severity-badge ${severity}">${severity}</span>
@@ -3926,12 +3984,12 @@ function displayModalResults(analysis) {
                                 </div>
                                 
                                 <div class="card-description">
-                                    <strong>Problema detectado:</strong> ${context || explanation || 'RessonÃ¢ncia problemÃ¡tica identificada'}
+                                    <strong>Problema detectado:</strong> ${context || explanation || 'Ressonância problemática identificada'}
                                 </div>
                                 
                                 <div class="card-action">
                                     <div class="card-action-title">
-                                        ðŸŽ›ï¸ AÃ§Ã£o Recomendada
+                                        🎛️ Ação Recomendada
                                     </div>
                                     <div class="card-action-content">${action}</div>
                                 </div>
@@ -3940,7 +3998,7 @@ function displayModalResults(analysis) {
                                     <div class="card-technical">
                                         ${frequency ? `
                                             <div class="tech-item">
-                                                <div class="tech-label">FrequÃªncia</div>
+                                                <div class="tech-label">Frequência</div>
                                                 <div class="tech-value">${frequency} Hz</div>
                                             </div>
                                         ` : ''}
@@ -3961,14 +4019,14 @@ function displayModalResults(analysis) {
                                 
                                 ${sug.impact ? `
                                     <div class="card-impact">
-                                        <div class="card-impact-title">âš ï¸ Impacto</div>
+                                        <div class="card-impact-title">⚠️ Impacto</div>
                                         <div class="card-impact-content">${sug.impact}</div>
                                     </div>
                                 ` : ''}
                                 
                                 ${technical ? `
                                     <details style="margin-top: 12px;">
-                                        <summary style="cursor: pointer; font-size: 12px; color: #aaa;">Detalhes TÃ©cnicos</summary>
+                                        <summary style="cursor: pointer; font-size: 12px; color: #aaa;">Detalhes Técnicos</summary>
                                         <div style="font-size: 11px; color: #ccc; margin-top: 8px; font-family: monospace;">${technical}</div>
                                     </details>
                                 ` : ''}
@@ -3978,7 +4036,7 @@ function displayModalResults(analysis) {
                     else if (isBandAdjust) {
                         // Card de ajuste de banda aprimorado
                         const shouldBoost = adjustmentDb > 0 || action.toLowerCase().includes('aumentar') || action.toLowerCase().includes('boost');
-                        const actionIcon = shouldBoost ? 'ðŸ“ˆ' : 'ðŸ“‰';
+                        const actionIcon = shouldBoost ? '📈' : '📉';
                         const actionType = shouldBoost ? 'Boost' : 'Corte';
                         
                         return `
@@ -3992,12 +4050,12 @@ function displayModalResults(analysis) {
                                 </div>
                                 
                                 <div class="card-description">
-                                    <strong>AnÃ¡lise:</strong> ${explanation || title}
+                                    <strong>Análise:</strong> ${explanation || title}
                                 </div>
                                 
                                 <div class="card-action">
                                     <div class="card-action-title">
-                                        ðŸŽšï¸ Como Ajustar
+                                        🎚️ Como Ajustar
                                     </div>
                                     <div class="card-action-content">${action}</div>
                                 </div>
@@ -4019,7 +4077,7 @@ function displayModalResults(analysis) {
                                         ${sug.details ? `
                                             <div class="tech-item" style="grid-column: span 2;">
                                                 <div class="tech-label">Status</div>
-                                                <div class="tech-value" style="font-size: 10px;">${sug.details.replace('Atual:', '').replace('Alvo:', 'â†’')}</div>
+                                                <div class="tech-value" style="font-size: 10px;">${sug.details.replace('Atual:', '').replace('Alvo:', '→')}</div>
                                             </div>
                                         ` : ''}
                                     </div>
@@ -4027,7 +4085,7 @@ function displayModalResults(analysis) {
                                 
                                 ${sug.impact ? `
                                     <div class="card-impact">
-                                        <div class="card-impact-title">ðŸ’¡ Resultado Esperado</div>
+                                        <div class="card-impact-title">💡 Resultado Esperado</div>
                                         <div class="card-impact-content">${sug.impact}</div>
                                     </div>
                                 ` : ''}
@@ -4035,11 +4093,11 @@ function displayModalResults(analysis) {
                     }
                     
                     else {
-                        // Card genÃ©rico melhorado
+                        // Card genérico melhorado
                         return `
                             <div class="${cardClass}">
                                 <div class="card-header">
-                                    <h4 class="card-title">ðŸŽµ ${title}</h4>
+                                    <h4 class="card-title">🎵 ${title}</h4>
                                     <div class="card-badges">
                                         ${frequency ? `<span class="frequency-badge">${frequency} Hz</span>` : ''}
                                         <span class="severity-badge ${severityLevel}">${severityLabel || 'info'}</span>
@@ -4048,27 +4106,27 @@ function displayModalResults(analysis) {
                                 
                                 ${explanation ? `
                                     <div class="card-description">
-                                        <strong>ExplicaÃ§Ã£o:</strong> ${explanation}
+                                        <strong>Explicação:</strong> ${explanation}
                                     </div>
                                 ` : ''}
                                 
                                 <div class="card-action">
                                     <div class="card-action-title">
-                                        ðŸ”§ AÃ§Ã£o Recomendada
+                                        🔧 Ação Recomendada
                                     </div>
                                     <div class="card-action-content">${action}</div>
                                 </div>
                                 
                                 ${sug.impact ? `
                                     <div class="card-impact">
-                                        <div class="card-impact-title">âš ï¸ Impacto</div>
+                                        <div class="card-impact-title">⚠️ Impacto</div>
                                         <div class="card-impact-content">${sug.impact}</div>
                                     </div>
                                 ` : ''}
                                 
                                 ${technical ? `
                                     <details style="margin-top: 12px;">
-                                        <summary style="cursor: pointer; font-size: 12px; color: #aaa;">Detalhes TÃ©cnicos</summary>
+                                        <summary style="cursor: pointer; font-size: 12px; color: #aaa;">Detalhes Técnicos</summary>
                                         <div style="font-size: 11px; color: #ccc; margin-top: 8px; font-family: monospace;">${technical}</div>
                                     </details>
                                 ` : ''}
@@ -4076,7 +4134,7 @@ function displayModalResults(analysis) {
                     }
                 };
                 if ((analysis.problems?.length || 0) > 0) {
-                    // ðŸŽ¯ FunÃ§Ã£o local para deduplicar problemas por tipo
+                    // 🎯 Função local para deduplicar problemas por tipo
                     const deduplicateByType = (items) => {
                         const seen = new Map();
                         const deduplicated = [];
@@ -4100,7 +4158,7 @@ function displayModalResults(analysis) {
                         return deduplicated;
                     };
                     
-                    // Aplicar deduplicaÃ§Ã£o dos problemas na UI
+                    // Aplicar deduplicação dos problemas na UI
                     const deduplicatedProblems = deduplicateByType(analysis.problems);
                     const list = deduplicatedProblems.map(p => {
                         const msg = typeof p.message === 'string' ? p.message.replace(/(-?\d+\.\d{3,})/g, m => {
@@ -4110,11 +4168,11 @@ function displayModalResults(analysis) {
                             const n = parseFloat(m); return Number.isFinite(n) ? n.toFixed(2) : m;
                         }) : p.solution;
                         
-                        // ðŸš¨ USAR FORMATO NATIVO DOS PROBLEMAS - Evitar duplicaÃ§Ã£o do SuggestionTextGenerator
-                        // Os problemas jÃ¡ tÃªm explanation, impact, frequency_range, adjustment_db, details
-                        let didacticText = null; // Desabilitado para evitar duplicaÃ§Ã£o
+                        // 🚨 USAR FORMATO NATIVO DOS PROBLEMAS - Evitar duplicação do SuggestionTextGenerator
+                        // Os problemas já têm explanation, impact, frequency_range, adjustment_db, details
+                        let didacticText = null; // Desabilitado para evitar duplicação
                         
-                        // Se for problema crÃ­tico (clipping, etc), usar card crÃ­tico aprimorado
+                        // Se for problema crítico (clipping, etc), usar card crítico aprimorado
                         if (p.type === 'clipping' || p.severity === 'critical' || p.severity === 'high') {
                             const freqMatch = (msg + ' ' + sol).match(/(\d+(?:\.\d+)?)\s*(?:Hz|hz)/i);
                             const frequency = freqMatch ? freqMatch[1] : null;
@@ -4122,26 +4180,26 @@ function displayModalResults(analysis) {
                             return `
                                 <div class="enhanced-card critical-alert">
                                     <div class="card-header">
-                                        <h4 class="card-title">ðŸš¨ Problema CrÃ­tico</h4>
+                                        <h4 class="card-title">🚨 Problema Crítico</h4>
                                         <div class="card-badges">
                                             ${frequency ? `<span class="frequency-badge">${frequency} Hz</span>` : ''}
-                                            <span class="severity-badge severa">CRÃTICO</span>
+                                            <span class="severity-badge severa">CRÍTICO</span>
                                         </div>
                                     </div>
                                     
                                     <div class="card-description" style="border-left-color: #f44336;">
-                                        <strong>âš ï¸ Problema:</strong> ${msg}
+                                        <strong>⚠️ Problema:</strong> ${msg}
                                     </div>
                                     
                                     ${p.explanation ? `
                                         <div class="card-description" style="border-left-color: #f44336; background: rgba(244, 67, 54, 0.05);">
-                                            <strong>ExplicaÃ§Ã£o:</strong> ${p.explanation}
+                                            <strong>Explicação:</strong> ${p.explanation}
                                         </div>
                                     ` : ''}
                                     
                                     <div class="card-action" style="background: rgba(244, 67, 54, 0.15); border-color: #f44336;">
                                         <div class="card-action-title" style="color: #f44336;">
-                                            ðŸš¨ AÃ§Ã£o Urgente
+                                            🚨 Ação Urgente
                                         </div>
                                         <div class="card-action-content">${sol}</div>
                                     </div>
@@ -4150,7 +4208,7 @@ function displayModalResults(analysis) {
                                         <div class="card-technical">
                                             ${p.frequency_range ? `
                                                 <div class="tech-item">
-                                                    <div class="tech-label">FrequÃªncias</div>
+                                                    <div class="tech-label">Frequências</div>
                                                     <div class="tech-value">${p.frequency_range}</div>
                                                 </div>
                                             ` : ''}
@@ -4165,21 +4223,21 @@ function displayModalResults(analysis) {
                                     
                                     ${p.impact ? `
                                         <div class="card-impact" style="background: rgba(244, 67, 54, 0.1); border-color: #f44336;">
-                                            <div class="card-impact-title" style="color: #f44336;">âš ï¸ Por que Ã© crÃ­tico</div>
+                                            <div class="card-impact-title" style="color: #f44336;">⚠️ Por que é crítico</div>
                                             <div class="card-impact-content">${p.impact}</div>
                                         </div>
                                     ` : ''}
                                     
                                     ${p.details ? `
                                         <details style="margin-top: 12px;">
-                                            <summary style="cursor: pointer; font-size: 12px; color: #aaa;">Detalhes TÃ©cnicos</summary>
+                                            <summary style="cursor: pointer; font-size: 12px; color: #aaa;">Detalhes Técnicos</summary>
                                             <div style="font-size: 11px; color: #ccc; margin-top: 8px; font-family: monospace;">${p.details}</div>
                                         </details>
                                     ` : ''}
                                 </div>
                             `;
                         } else {
-                            // Para problemas menos crÃ­ticos, usar card padrÃ£o melhorado
+                            // Para problemas menos críticos, usar card padrão melhorado
                             const freqMatch = (msg + ' ' + sol).match(/(\d+(?:\.\d+)?)\s*(?:Hz|hz)/i);
                             const frequency = freqMatch ? freqMatch[1] : null;
                             const dbMatch = sol.match(/([+-]?\d+(?:\.\d+)?)\s*dB/i);
@@ -4188,17 +4246,17 @@ function displayModalResults(analysis) {
                             // Determinar tipo de problema
                             const problemType = p.type || 'general';
                             let cardClass = 'enhanced-card problem';
-                            let problemIcon = 'âš ï¸';
+                            let problemIcon = '⚠️';
                             
                             if (problemType.includes('balance')) {
                                 cardClass = 'enhanced-card balance';
-                                problemIcon = 'âš–ï¸';
+                                problemIcon = '⚖️';
                             } else if (problemType.includes('dc_offset')) {
                                 cardClass = 'enhanced-card problem';
-                                problemIcon = 'ðŸ“Š';
+                                problemIcon = '📊';
                             } else if (problemType.includes('phase')) {
                                 cardClass = 'enhanced-card problem';
-                                problemIcon = 'ðŸŒŠ';
+                                problemIcon = '🌊';
                             }
                             
                             return `
@@ -4213,13 +4271,13 @@ function displayModalResults(analysis) {
                                     
                                     ${p.explanation ? `
                                         <div class="card-description">
-                                            <strong>ExplicaÃ§Ã£o:</strong> ${p.explanation}
+                                            <strong>Explicação:</strong> ${p.explanation}
                                         </div>
                                     ` : ''}
                                     
                                     <div class="card-action">
                                         <div class="card-action-title">
-                                            ðŸ”§ Como Resolver
+                                            🔧 Como Resolver
                                         </div>
                                         <div class="card-action-content">${sol}</div>
                                     </div>
@@ -4228,7 +4286,7 @@ function displayModalResults(analysis) {
                                         <div class="card-technical">
                                             ${p.frequency_range ? `
                                                 <div class="tech-item">
-                                                    <div class="tech-label">FrequÃªncias</div>
+                                                    <div class="tech-label">Frequências</div>
                                                     <div class="tech-value">${p.frequency_range}</div>
                                                 </div>
                                             ` : ''}
@@ -4243,14 +4301,14 @@ function displayModalResults(analysis) {
                                     
                                     ${p.impact ? `
                                         <div class="card-impact">
-                                            <div class="card-impact-title">âš ï¸ Impacto</div>
+                                            <div class="card-impact-title">⚠️ Impacto</div>
                                             <div class="card-impact-content">${p.impact}</div>
                                         </div>
                                     ` : ''}
                                     
                                     ${p.details ? `
                                         <details style="margin-top: 12px;">
-                                            <summary style="cursor: pointer; font-size: 12px; color: #aaa;">Detalhes TÃ©cnicos</summary>
+                                            <summary style="cursor: pointer; font-size: 12px; color: #aaa;">Detalhes Técnicos</summary>
                                             <div style="font-size: 11px; color: #ccc; margin-top: 8px; font-family: monospace;">${p.details}</div>
                                         </details>
                                     ` : ''}
@@ -4258,10 +4316,10 @@ function displayModalResults(analysis) {
                             `;
                         }
                     }).join('');
-                    blocks.push(`<div class="diag-section"><div class="diag-heading">âš ï¸ Problemas Detectados:</div>${list}</div>`);
+                    blocks.push(`<div class="diag-section"><div class="diag-heading">⚠️ Problemas Detectados:</div>${list}</div>`);
                 }
                 if ((analysis.suggestions?.length || 0) > 0) {
-                    // ðŸŽ¯ FunÃ§Ã£o local para deduplicar sugestÃµes por tipo
+                    // 🎯 Função local para deduplicar sugestões por tipo
                     const deduplicateByType = (items) => {
                         const seen = new Map();
                         const deduplicated = [];
@@ -4285,11 +4343,11 @@ function displayModalResults(analysis) {
                         return deduplicated;
                     };
                     
-                    // Aplicar deduplicaÃ§Ã£o das sugestÃµes na UI para evitar duplicatas
+                    // Aplicar deduplicação das sugestões na UI para evitar duplicatas
                     const deduplicatedSuggestions = deduplicateByType(analysis.suggestions);
                     const list = deduplicatedSuggestions.map(s => renderSuggestionItem(s)).join('');
                     
-                    // ðŸŽ¯ RodapÃ© melhorado com informaÃ§Ãµes do Enhanced System
+                    // 🎯 Rodapé melhorado com informações do Enhanced System
                     try {
                         const count = (t) => deduplicatedSuggestions.filter(s => s && s.type === t).length;
                         const cBand = count('band_adjust');
@@ -4298,27 +4356,27 @@ function displayModalResults(analysis) {
                         const cRef = count('reference_loudness') + count('reference_dynamics') + count('reference_lra') + count('reference_stereo') + count('reference_true_peak');
                         const cHeuristic = deduplicatedSuggestions.filter(s => s && s.type && s.type.startsWith('heuristic_')).length;
                         
-                        // EstatÃ­sticas do Enhanced System (se disponÃ­vel)
+                        // Estatísticas do Enhanced System (se disponível)
                         let enhancedStats = '';
                         if (analysis.enhancedMetrics) {
                             const em = analysis.enhancedMetrics;
                             const avgPriority = deduplicatedSuggestions.length > 0 ? 
                                 (deduplicatedSuggestions.reduce((sum, s) => sum + (s.priority || 0), 0) / deduplicatedSuggestions.length) : 0;
                             
-                            enhancedStats = ` â€¢ ðŸŽ¯ Enhanced System: conf=${(em.confidence || 1).toFixed(2)} avgP=${avgPriority.toFixed(2)}`;
+                            enhancedStats = ` • 🎯 Enhanced System: conf=${(em.confidence || 1).toFixed(2)} avgP=${avgPriority.toFixed(2)}`;
                             
                             if (em.processingTimeMs) {
                                 enhancedStats += ` (${em.processingTimeMs}ms)`;
                             }
                         }
                         
-                        // Footer removido - sem estatÃ­sticas desnecessÃ¡rias
-                        blocks.push(`<div class="diag-section"><div class="diag-heading">ðŸ©º SugestÃµes Priorizadas</div>${list}</div>`);
+                        // Footer removido - sem estatísticas desnecessárias
+                        blocks.push(`<div class="diag-section"><div class="diag-heading">🩺 Sugestões Priorizadas</div>${list}</div>`);
                     } catch {
-                        blocks.push(`<div class="diag-section"><div class="diag-heading">ðŸ©º SugestÃµes</div>${list}</div>`);
+                        blocks.push(`<div class="diag-section"><div class="diag-heading">🩺 Sugestões</div>${list}</div>`);
                     }
                 }
-                // Subbloco opcional com diagnÃ³sticos do V2 PRO (quando disponÃ­veis)
+                // Subbloco opcional com diagnósticos do V2 PRO (quando disponíveis)
                 const v2Pro = analysis.v2Pro || analysis.v2Diagnostics; // Compatibilidade
                 if (v2Pro && (typeof window === 'undefined' || window.SUGESTOES_AVANCADAS !== false)) {
                     const v2p = (v2Pro.problems || []).map(p => `
@@ -4326,15 +4384,15 @@ function displayModalResults(analysis) {
                             <div class="diag-title">${p.message}</div>
                             <div class="diag-tip">${p.solution || ''}</div>
                         </div>`).join('');
-                    // V2 Pro removido - nÃ£o mostrar diagnÃ³sticos duplicados
+                    // V2 Pro removido - não mostrar diagnósticos duplicados
                 }
-                return blocks.join('') || '<div class="diag-empty">Sem diagnÃ³sticos</div>';
+                return blocks.join('') || '<div class="diag-empty">Sem diagnósticos</div>';
             };
 
-        // ðŸŽ¯ SUBSCORES: Corrigir mapeamento para backend Node.js
+        // 🎯 SUBSCORES: Corrigir mapeamento para backend Node.js
         const breakdown = analysis.scores || analysis.qualityBreakdown || {};
         
-        // ðŸŽ¯ APLICAR CAPS EM ESTADO CLIPPED
+        // 🎯 APLICAR CAPS EM ESTADO CLIPPED
         const precedenceData = analysis.technicalData?._singleStage;
         const isClippedState = precedenceData?.finalState === 'CLIPPED' && precedenceData?.scoreCapApplied === true;
         
@@ -4344,39 +4402,39 @@ function displayModalResults(analysis) {
             
             const capped = { ...originalBreakdown };
             
-            // Caps especÃ­ficos para estado CLIPPED
+            // Caps específicos para estado CLIPPED
             if (Number.isFinite(capped.loudness)) {
-                capped.loudness = Math.min(capped.loudness, 70); // Loudness â‰¤ 70
+                capped.loudness = Math.min(capped.loudness, 70); // Loudness ≤ 70
             }
             if (Number.isFinite(capped.technical)) {
-                capped.technical = Math.min(capped.technical, 60); // TÃ©cnico â‰¤ 60  
+                capped.technical = Math.min(capped.technical, 60); // Técnico ≤ 60  
             }
             if (Number.isFinite(capped.dynamics)) {
-                capped.dynamics = Math.min(capped.dynamics, 50); // DinÃ¢mica â‰¤ 50
+                capped.dynamics = Math.min(capped.dynamics, 50); // Dinâmica ≤ 50
             }
             
-            // Frequency e Stereo podem manter valores originais (nÃ£o afetados diretamente pelo clipping)
+            // Frequency e Stereo podem manter valores originais (não afetados diretamente pelo clipping)
             
             return capped;
         };
         
         const finalBreakdown = applyClippingCaps(breakdown);
         
-        // FunÃ§Ã£o para renderizar score com barra de progresso
+        // Função para renderizar score com barra de progresso
         const renderScoreWithProgress = (label, value, color = '#00ffff') => {
             const numValue = parseFloat(value) || 0;
-            const displayValue = value != null ? value : 'â€”';
+            const displayValue = value != null ? value : '—';
             
             // Indicar se o valor foi capeado (comparar com breakdown original)
-            const labelKey = label.toLowerCase().replace('faixa dinÃ¢mica', 'dynamics').replace('tÃ©cnico', 'technical').replace('loudness', 'loudness').replace('frequÃªncia', 'frequency').replace('stereo', 'stereo');
+            const labelKey = label.toLowerCase().replace('faixa dinâmica', 'dynamics').replace('técnico', 'technical').replace('loudness', 'loudness').replace('frequência', 'frequency').replace('stereo', 'stereo');
             const wasCapped = isClippedState && breakdown[labelKey] && Number.isFinite(breakdown[labelKey]) && 
                              breakdown[labelKey] !== value;
-            const cappedIndicator = wasCapped ? ' ðŸ”´' : '';
+            const cappedIndicator = wasCapped ? ' 🔴' : '';
             
             if (value == null) {
                 return `<div class="data-row">
                     <span class="label">${label}:</span>
-                    <span class="value">â€”</span>
+                    <span class="value">—</span>
                 </div>`;
             }
             
@@ -4391,7 +4449,7 @@ function displayModalResults(analysis) {
             </div>`;
         };
         
-        // ðŸŽ¯ RENDERIZAR SCORES DO NOVO SISTEMA
+        // 🎯 RENDERIZAR SCORES DO NOVO SISTEMA
         const renderNewScores = () => {
             // Verificar se temos scores calculados
             const scores = analysis.scores;
@@ -4399,19 +4457,19 @@ function displayModalResults(analysis) {
             if (!scores) {
                 return `<div class="data-row">
                     <span class="label">Sistema de Scoring:</span>
-                    <span class="value">NÃ£o disponÃ­vel</span>
+                    <span class="value">Não disponível</span>
                 </div>`;
             }
             
-            const renderScoreProgressBar = (label, value, color = '#00ffff', emoji = 'ðŸŽ¯') => {
+            const renderScoreProgressBar = (label, value, color = '#00ffff', emoji = '🎯') => {
                 const numValue = Number.isFinite(value) ? value : 0;
-                const displayValue = Number.isFinite(value) ? Math.round(value) : 'â€”';
+                const displayValue = Number.isFinite(value) ? Math.round(value) : '—';
                 
                 // Cor baseada no score
                 let scoreColor = color;
                 if (Number.isFinite(value)) {
                     if (value >= 80) scoreColor = '#00ff92'; // Verde para scores altos
-                    else if (value >= 60) scoreColor = '#ffd700'; // Amarelo para scores mÃ©dios
+                    else if (value >= 60) scoreColor = '#ffd700'; // Amarelo para scores médios
                     else if (value >= 40) scoreColor = '#ff9500'; // Laranja para scores baixos
                     else scoreColor = '#ff3366'; // Vermelho para scores muito baixos
                 }
@@ -4431,24 +4489,24 @@ function displayModalResults(analysis) {
             const finalScoreHtml = Number.isFinite(scores.final) ? `
                 <div class="data-row" style="border: 2px solid rgba(0, 255, 255, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 10px; background: rgba(0, 255, 255, 0.05);">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span class="label" style="font-size: 16px; font-weight: bold;">ðŸ† SCORE FINAL</span>
+                        <span class="label" style="font-size: 16px; font-weight: bold;">🏆 SCORE FINAL</span>
                         <span style="font-size: 24px; font-weight: bold; color: ${scores.final >= 80 ? '#00ff92' : scores.final >= 60 ? '#ffd700' : scores.final >= 40 ? '#ff9500' : '#ff3366'};">
                             ${Math.round(scores.final)}
                         </span>
                     </div>
                     <div style="font-size: 12px; opacity: 0.7; margin-top: 4px;">
-                        GÃªnero: ${scores.genre || 'padrÃ£o'} â€¢ PonderaÃ§Ã£o adaptativa
+                        Gênero: ${scores.genre || 'padrão'} • Ponderação adaptativa
                     </div>
                 </div>
             ` : '';
             
             // Sub-scores
             const subScoresHtml = `
-                ${renderScoreProgressBar('Loudness', scores.loudness, '#ff3366', 'ðŸ”Š')}
-                ${renderScoreProgressBar('FrequÃªncia', scores.frequencia, '#00ffff', 'ðŸŽµ')}
-                ${renderScoreProgressBar('EstÃ©reo', scores.estereo, '#ff6b6b', 'ðŸŽ§')}
-                ${renderScoreProgressBar('DinÃ¢mica', scores.dinamica, '#ffd700', 'ðŸ“Š')}
-                ${renderScoreProgressBar('TÃ©cnico', scores.tecnico, '#00ff92', 'ðŸ”§')}
+                ${renderScoreProgressBar('Loudness', scores.loudness, '#ff3366', '🔊')}
+                ${renderScoreProgressBar('Frequência', scores.frequencia, '#00ffff', '🎵')}
+                ${renderScoreProgressBar('Estéreo', scores.estereo, '#ff6b6b', '🎧')}
+                ${renderScoreProgressBar('Dinâmica', scores.dinamica, '#ffd700', '📊')}
+                ${renderScoreProgressBar('Técnico', scores.tecnico, '#00ff92', '🔧')}
             `;
             
             return finalScoreHtml + subScoresHtml;
@@ -4461,23 +4519,23 @@ function displayModalResults(analysis) {
                 ${renderSmartSummary(analysis) }
                     <div class="cards-grid">
                         <div class="card">
-                    <div class="card-title">ðŸŽ›ï¸ MÃ©tricas Principais</div>
+                    <div class="card-title">🎛️ Métricas Principais</div>
                     ${col1}
                 </div>
                         <div class="card">
-                    <div class="card-title">ðŸŽ§ AnÃ¡lise EstÃ©reo & Espectral</div>
+                    <div class="card-title">🎧 Análise Estéreo & Espectral</div>
                     ${col2}
                 </div>
                         <div class="card">
-                    <div class="card-title">ðŸ”Š Balance Espectral Detalhado</div>
+                    <div class="card-title">🔊 Balance Espectral Detalhado</div>
                     ${(() => {
-                        // Buscar dados das bandas espectrais em mÃºltiplas localizaÃ§Ãµes
+                        // Buscar dados das bandas espectrais em múltiplas localizações
                         const spectralBands = analysis.technicalData?.spectral_balance || 
                                             analysis.technicalData?.spectralBands || 
                                             analysis.metrics?.bands || {};
                         
-                        const formatDb = (v) => Number.isFinite(v) ? `${safeFixed(v, 1)} dB` : 'â€”';
-                        const formatPct = (v) => Number.isFinite(v) ? `${safeFixed(v, 1)}%` : 'â€”';
+                        const formatDb = (v) => Number.isFinite(v) ? `${safeFixed(v, 1)} dB` : '—';
+                        const formatPct = (v) => Number.isFinite(v) ? `${safeFixed(v, 1)}%` : '—';
                         const rows = [];
                         
                         // Mapeamento das bandas do novo sistema
@@ -4491,12 +4549,12 @@ function displayModalResults(analysis) {
                             air: { name: 'Air (10-20kHz)', fallback: ['presenca', 'air', 'brilliance'] }
                         };
                         
-                        // Percorrer dinamicamente todas as bandas disponÃ­veis
+                        // Percorrer dinamicamente todas as bandas disponíveis
                         Object.keys(bandMap).forEach(bandKey => {
                             const bandInfo = bandMap[bandKey];
                             let bandData = spectralBands[bandKey];
                             
-                            // Se nÃ£o encontrou na chave principal, tentar fallbacks
+                            // Se não encontrou na chave principal, tentar fallbacks
                             if (!bandData) {
                                 for (const fallbackKey of bandInfo.fallback) {
                                     if (spectralBands[fallbackKey]) {
@@ -4517,30 +4575,30 @@ function displayModalResults(analysis) {
                                     let displayValue = '';
                                     
                                     if (Number.isFinite(energyDb) && Number.isFinite(percentage)) {
-                                        displayValue = `${formatDb(energyDb)} â€¢ ${formatPct(percentage)}`;
+                                        displayValue = `${formatDb(energyDb)} • ${formatPct(percentage)}`;
                                     } else if (Number.isFinite(energyDb)) {
                                         displayValue = formatDb(energyDb);
                                     } else if (Number.isFinite(percentage)) {
                                         displayValue = formatPct(percentage);
                                     } else {
-                                        displayValue = 'nÃ£o calculado';
+                                        displayValue = 'não calculado';
                                     }
                                     
                                     rows.push(row(bandInfo.name, displayValue, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
                                 } else {
-                                    rows.push(row(bandInfo.name, 'nÃ£o calculado', `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
+                                    rows.push(row(bandInfo.name, 'não calculado', `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
                                 }
                             } else if (Number.isFinite(bandData)) {
-                                // Formato legado (apenas valor numÃ©rico)
+                                // Formato legado (apenas valor numérico)
                                 rows.push(row(bandInfo.name, formatDb(bandData), `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
                             } else {
-                                // Banda nÃ£o encontrada
-                                rows.push(row(bandInfo.name, 'nÃ£o calculado', `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
+                                // Banda não encontrada
+                                rows.push(row(bandInfo.name, 'não calculado', `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
                             }
                         });
                         
-                        // Se nÃ£o encontrou nenhuma banda nas chaves mapeadas, tentar qualquer banda disponÃ­vel
-                        if (rows.filter(r => !r.includes('nÃ£o calculado')).length === 0) {
+                        // Se não encontrou nenhuma banda nas chaves mapeadas, tentar qualquer banda disponível
+                        if (rows.filter(r => !r.includes('não calculado')).length === 0) {
                             Object.keys(spectralBands).forEach(bandKey => {
                                 if (bandKey === '_status' || bandKey === 'totalPercentage') return;
                                 
@@ -4554,13 +4612,13 @@ function displayModalResults(analysis) {
                                     if (status && status !== 'not_calculated') {
                                         let displayValue = '';
                                         if (Number.isFinite(energyDb) && Number.isFinite(percentage)) {
-                                            displayValue = `${formatDb(energyDb)} â€¢ ${formatPct(percentage)}`;
+                                            displayValue = `${formatDb(energyDb)} • ${formatPct(percentage)}`;
                                         } else if (Number.isFinite(energyDb)) {
                                             displayValue = formatDb(energyDb);
                                         } else if (Number.isFinite(percentage)) {
                                             displayValue = formatPct(percentage);
                                         } else {
-                                            displayValue = 'nÃ£o calculado';
+                                            displayValue = 'não calculado';
                                         }
                                         
                                         const displayName = `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)} (${range})`;
@@ -4573,24 +4631,24 @@ function displayModalResults(analysis) {
                             });
                         }
                         
-                        return rows.length ? rows.join('') : row('Status', 'Bandas espectrais nÃ£o calculadas');
+                        return rows.length ? rows.join('') : row('Status', 'Bandas espectrais não calculadas');
                     })()}
                 </div>
                         <div class="card">
-                    <div class="card-title">ï¿½ðŸ† Scores & DiagnÃ³stico</div>
+                    <div class="card-title">�🏆 Scores & Diagnóstico</div>
                     ${scoreRows}
                     ${col3}
                 </div>
                         <div class="card">
-                            <div class="card-title">ðŸ“Š MÃ©tricas AvanÃ§adas (Technical)</div>
+                            <div class="card-title">📊 Métricas Avançadas (Technical)</div>
                             ${advancedMetricsCard()}
                         </div>
                         <div class="card card-span-2">
-                            <div class="card-title">âš ï¸ Problemas TÃ©cnicos</div>
+                            <div class="card-title">⚠️ Problemas Técnicos</div>
                             ${techProblems()}
                         </div>
                         <div class="card card-span-2">
-                            <div class="card-title">ðŸ©º DiagnÃ³stico & SugestÃµes</div>
+                            <div class="card-title">🩺 Diagnóstico & Sugestões</div>
                             ${diagCard()}
                         </div>
             </div>
@@ -4598,10 +4656,10 @@ function displayModalResults(analysis) {
     
     try { renderReferenceComparisons(analysis); } catch(e){ console.warn('ref compare fail', e);}    
         try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ console.warn('validation controls fail', e); }
-    __dbg('ðŸ“Š Resultados exibidos no modal');
+    __dbg('📊 Resultados exibidos no modal');
 }
 
-    // === Controles de ValidaÃ§Ã£o (Suite Objetiva + Subjetiva) ===
+    // === Controles de Validação (Suite Objetiva + Subjetiva) ===
     function injectValidationControls(){
         if (document.getElementById('validationControlsBar')) return;
         const host = document.getElementById('modalTechnicalData');
@@ -4610,10 +4668,10 @@ function displayModalResults(analysis) {
         bar.id='validationControlsBar';
         bar.style.cssText='margin-top:14px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;background:#0f1826;padding:10px 12px;border:1px solid rgba(255,255,255,.08);border-radius:10px;font-size:12px;';
         bar.innerHTML = `
-            <strong style="letter-spacing:.5px;color:#9fc9ff;font-weight:600;">ValidaÃ§Ã£o Auditiva</strong>
+            <strong style="letter-spacing:.5px;color:#9fc9ff;font-weight:600;">Validação Auditiva</strong>
             <button id="runValidationSuiteBtn" style="background:#10365a;color:#fff;border:1px solid #1e4d7a;padding:6px 10px;font-size:12px;border-radius:6px;cursor:pointer;">Rodar Suite (10)</button>
-            <button id="openSubjectiveFormBtn" style="background:#1c2c44;color:#d6e7ff;border:1px solid #284362;padding:6px 10px;font-size:12px;border-radius:6px;cursor:pointer;" disabled>Subjetivo 1â€“5</button>
-            <button id="downloadValidationReportBtn" style="background:#224d37;color:#c5ffe9;border:1px solid #2f6e4e;padding:6px 10px;font-size:12px;border-radius:6px;cursor:pointer;" disabled>Baixar RelatÃ³rio</button>
+            <button id="openSubjectiveFormBtn" style="background:#1c2c44;color:#d6e7ff;border:1px solid #284362;padding:6px 10px;font-size:12px;border-radius:6px;cursor:pointer;" disabled>Subjetivo 1–5</button>
+            <button id="downloadValidationReportBtn" style="background:#224d37;color:#c5ffe9;border:1px solid #2f6e4e;padding:6px 10px;font-size:12px;border-radius:6px;cursor:pointer;" disabled>Baixar Relatório</button>
             <span id="validationStatusMsg" style="margin-left:auto;font-size:11px;opacity:.75;">Pronto</span>
         `;
         host.prepend(bar);
@@ -4627,18 +4685,18 @@ function displayModalResults(analysis) {
             try {
                 const mod = await import(`../lib/audio/validation/validation-suite.js?c=${Date.now()}`);
                 const summary = await mod.runValidationSuite({});
-                statusEl.textContent = summary? `Cobertura mÃ©dia Î” ${(summary.avgDelta*100).toFixed(1)}%` : 'Sem dados';
+                statusEl.textContent = summary? `Cobertura média Δ ${(summary.avgDelta*100).toFixed(1)}%` : 'Sem dados';
                 btnRun.textContent = 'Suite OK';
                 btnForm.disabled = false; btnDownload.disabled = false;
-                // Ãrea dinÃ¢mica para formulÃ¡rio
+                // Área dinâmica para formulário
                 ensureValidationPanel();
-            } catch(err){ console.error('Erro suite validaÃ§Ã£o', err); statusEl.textContent='Erro'; btnRun.textContent='Erro'; btnRun.disabled=false; }
+            } catch(err){ console.error('Erro suite validação', err); statusEl.textContent='Erro'; btnRun.textContent='Erro'; btnRun.disabled=false; }
         };
         btnForm.onclick = async ()=>{
-            try { const mod = await import(`../lib/audio/validation/validation-suite.js?c=${Date.now()}`); ensureValidationPanel(); mod.renderSubjectiveForm('validationPanelInner'); statusEl.textContent='FormulÃ¡rio subjetivo aberto'; } catch(e){ console.warn(e); }
+            try { const mod = await import(`../lib/audio/validation/validation-suite.js?c=${Date.now()}`); ensureValidationPanel(); mod.renderSubjectiveForm('validationPanelInner'); statusEl.textContent='Formulário subjetivo aberto'; } catch(e){ console.warn(e); }
         };
         btnDownload.onclick = async ()=>{
-            try { const mod = await import(`../lib/audio/validation/validation-suite.js?c=${Date.now()}`); const rep = mod.generateValidationReport(); if(rep){ downloadObjectAsJson(rep, 'prodai_validation_report.json'); statusEl.textContent = rep?.subjective?.pctImproved!=null? `Subj ${(rep.subjective.pctImproved*100).toFixed(0)}%`:'RelatÃ³rio gerado'; } } catch(e){ console.warn(e); }
+            try { const mod = await import(`../lib/audio/validation/validation-suite.js?c=${Date.now()}`); const rep = mod.generateValidationReport(); if(rep){ downloadObjectAsJson(rep, 'prodai_validation_report.json'); statusEl.textContent = rep?.subjective?.pctImproved!=null? `Subj ${(rep.subjective.pctImproved*100).toFixed(0)}%`:'Relatório gerado'; } } catch(e){ console.warn(e); }
         };
     }
 
@@ -4647,10 +4705,10 @@ function displayModalResults(analysis) {
         const container = document.createElement('div');
         container.id='validationPanel';
         container.style.cssText='margin-top:12px;border:1px solid rgba(255,255,255,.08);border-radius:10px;background:#0d141f;padding:10px 12px;';
-        container.innerHTML = `<div style="font-size:12px;font-weight:600;letter-spacing:.5px;color:#9fc9ff;margin-bottom:6px;">Resultados da ValidaÃ§Ã£o</div><div id='validationPanelInner' style='font-size:11px;'></div>`;
+        container.innerHTML = `<div style="font-size:12px;font-weight:600;letter-spacing:.5px;color:#9fc9ff;margin-bottom:6px;">Resultados da Validação</div><div id='validationPanelInner' style='font-size:11px;'></div>`;
         const host = document.getElementById('modalTechnicalData');
         if (host) host.appendChild(container);
-        // estilos mÃ­nimos tabela subjetiva
+        // estilos mínimos tabela subjetiva
         if (!document.getElementById('validationStyles')){
             const st=document.createElement('style'); st.id='validationStyles'; st.textContent=`
                 .subjective-table{border-collapse:collapse;width:100%;margin-top:6px;font-size:11px;}
@@ -4665,14 +4723,14 @@ function displayModalResults(analysis) {
         try { const blob = new Blob([JSON.stringify(obj,null,2)], {type:'application/json'}); const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=filename; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 250); } catch(e){ console.warn('download json fail', e); }
     }
 
-// ===== Painel Resumo Inteligente (top 3 problemas + top 3 aÃ§Ãµes) =====
+// ===== Painel Resumo Inteligente (top 3 problemas + top 3 ações) =====
 function renderSmartSummary(analysis){
     try {
         if (!(typeof window !== 'undefined' && window.CAIAR_ENABLED) || !analysis) return '';
-        // Garantir plano explain (caso ainda nÃ£o anexado)
+        // Garantir plano explain (caso ainda não anexado)
         if (!analysis.caiarExplainPlan && window.audioAnalyzer && typeof analysis === 'object') {
             try {
-                // se mÃ³dulo ainda nÃ£o carregado, importar dinamicamente
+                // se módulo ainda não carregado, importar dinamicamente
                 if (!window.__CAIAR_EXPLAIN_LOADING__) {
                     window.__CAIAR_EXPLAIN_LOADING__ = import('/lib/audio/features/caiar-explain.js').then(mod=>{
                         if (mod && typeof mod.generateExplainPlan === 'function') mod.generateExplainPlan(analysis);
@@ -4681,7 +4739,7 @@ function renderSmartSummary(analysis){
             } catch {}
         }
         const problems = Array.isArray(analysis.problems) ? analysis.problems.slice(0,3) : [];
-        // Selecionar aÃ§Ãµes: usar passos do plano explain se existir, senÃ£o derivar das sugestÃµes
+        // Selecionar ações: usar passos do plano explain se existir, senão derivar das sugestões
         let steps = (analysis.caiarExplainPlan && Array.isArray(analysis.caiarExplainPlan.passos)) ? analysis.caiarExplainPlan.passos.slice(0,6) : [];
         if (steps.length === 0) {
             const sugg = Array.isArray(analysis.suggestions) ? analysis.suggestions.slice() : [];
@@ -4689,10 +4747,10 @@ function renderSmartSummary(analysis){
             sugg.sort((a,b)=> (a.priority||999)-(b.priority||999));
             steps = sugg.slice(0,6).map((s,i)=>({
                 ordem:i+1,
-                titulo:s.message||'AÃ§Ã£o',
+                titulo:s.message||'Ação',
                 acao:s.action||'',
-                porque:s.details||s.rationale? JSON.stringify(s.rationale):'OtimizaÃ§Ã£o recomendada',
-                condicao:s.condition||s.condicao||'Aplicar quando perceptÃ­vel',
+                porque:s.details||s.rationale? JSON.stringify(s.rationale):'Otimização recomendada',
+                condicao:s.condition||s.condicao||'Aplicar quando perceptível',
                 origem:s.source||s.type,
                 stem:s.targetStem||null,
                 parametroPrincipal: s.freqHz? (Math.round(s.freqHz)+' Hz'): (s.band||null)
@@ -4714,26 +4772,26 @@ function renderSmartSummary(analysis){
                     ${cond}
                     <button type="button" class="ss-why-btn" data-why-target="${whyId}">Por que?</button>
                 </div>
-                <div class="ss-why" id="${whyId}">${a.porque || 'Melhora coerÃªncia sonora.'}</div>
+                <div class="ss-why" id="${whyId}">${a.porque || 'Melhora coerência sonora.'}</div>
             </div>`;
         }).join('');
         const problemItems = problems.map(p=>`<div class="ss-prob-item"><span class="ss-prob-msg">${p.message||''}</span></div>`).join('');
         // Expand/Collapse container
         const html = `<div class="smart-summary-card" id="smartSummaryCard">
             <div class="ss-header">
-                <div class="ss-title-block">âš¡ Resumo Inteligente</div>
+                <div class="ss-title-block">⚡ Resumo Inteligente</div>
                 <button type="button" class="ss-toggle" data-expanded="true">Colapsar</button>
             </div>
             <div class="ss-content" data-collapsible="body">
                 <div class="ss-section">
                     <div class="ss-section-title">Top 3 Problemas</div>
-                    ${problemItems || '<div class="ss-empty">Nenhum problema crÃ­tico</div>'}
+                    ${problemItems || '<div class="ss-empty">Nenhum problema crítico</div>'}
                 </div>
                 <div class="ss-section">
-                    <div class="ss-section-title">Top 3 AÃ§Ãµes</div>
-                    ${actionItems || '<div class="ss-empty">Nenhuma aÃ§Ã£o prioritÃ¡ria</div>'}
+                    <div class="ss-section-title">Top 3 Ações</div>
+                    ${actionItems || '<div class="ss-empty">Nenhuma ação prioritária</div>'}
                 </div>
-                <div class="ss-hint">Execute as aÃ§Ãµes na ordem. Tempo de entendimento < 30s.</div>
+                <div class="ss-hint">Execute as ações na ordem. Tempo de entendimento < 30s.</div>
             </div>
         </div>`;
         // Injetar estilos apenas uma vez
@@ -4793,7 +4851,7 @@ function renderReferenceComparisons(analysis) {
     const container = document.getElementById('referenceComparisons');
     if (!container) return;
     
-    // ðŸŽ¯ DETECÃ‡ÃƒO DE MODO REFERÃŠNCIA - Usar dados da referÃªncia em vez de gÃªnero
+    // 🎯 DETECÇÃO DE MODO REFERÊNCIA - Usar dados da referência em vez de gênero
     const isReferenceMode = analysis.analysisMode === 'reference' || 
                            analysis.baseline_source === 'reference' ||
                            (analysis.comparison && analysis.comparison.baseline_source === 'reference');
@@ -4801,7 +4859,7 @@ function renderReferenceComparisons(analysis) {
     let ref, titleText;
     
     if (isReferenceMode && analysis.referenceMetrics) {
-        // Modo referÃªncia: usar mÃ©tricas extraÃ­das do Ã¡udio de referÃªncia
+        // Modo referência: usar métricas extraídas do áudio de referência
         ref = {
             lufs_target: analysis.referenceMetrics.lufs,
             true_peak_target: analysis.referenceMetrics.truePeakDbtp,
@@ -4815,42 +4873,42 @@ function renderReferenceComparisons(analysis) {
             tol_stereo: 0.05,
             bands: analysis.referenceMetrics.bands || null
         };
-        titleText = "MÃºsica de ReferÃªncia";
+        titleText = "Música de Referência";
     } else {
-        // Modo gÃªnero: usar targets de gÃªnero como antes
+        // Modo gênero: usar targets de gênero como antes
         ref = __activeRefData;
         titleText = window.PROD_AI_REF_GENRE;
         if (!ref) { 
-            container.innerHTML = '<div style="font-size:12px;opacity:.6">ReferÃªncias nÃ£o carregadas</div>'; 
+            container.innerHTML = '<div style="font-size:12px;opacity:.6">Referências não carregadas</div>'; 
             return; 
         }
     }
     
     const tech = analysis.technicalData || {};
     
-    // Mapeamento de mÃ©tricas - RESTAURAR TABELA COMPLETA
+    // Mapeamento de métricas - RESTAURAR TABELA COMPLETA
     const rows = [];
-    const nf = (n, d=2) => Number.isFinite(n) ? n.toFixed(d) : 'â€”';
+    const nf = (n, d=2) => Number.isFinite(n) ? n.toFixed(d) : '—';
     const pushRow = (label, val, target, tol, unit='') => {
-        // Usar sistema de enhancement se disponÃ­vel
+        // Usar sistema de enhancement se disponível
         const enhancedLabel = (typeof window !== 'undefined' && window.enhanceRowLabel) 
             ? window.enhanceRowLabel(label, label.toLowerCase().replace(/[^a-z]/g, '')) 
             : label;
             
         // Tratar target null ou NaN como N/A explicitamente
         const targetIsNA = (target == null || target === '' || (typeof target==='number' && !Number.isFinite(target)));
-        if (!Number.isFinite(val) && targetIsNA) return; // nada Ãºtil
+        if (!Number.isFinite(val) && targetIsNA) return; // nada útil
         if (targetIsNA) {
             rows.push(`<tr>
                 <td>${enhancedLabel}</td>
-                <td>${Number.isFinite(val)?nf(val)+unit:'â€”'}</td>
+                <td>${Number.isFinite(val)?nf(val)+unit:'—'}</td>
                 <td colspan="2" style="opacity:.55">N/A</td>
             </tr>`);
             return;
         }
         const diff = Number.isFinite(val) && Number.isFinite(target) ? (val - target) : null;
         
-        // Usar nova funÃ§Ã£o de cÃ©lula melhorada se disponÃ­vel
+        // Usar nova função de célula melhorada se disponível
         let diffCell;
         if (typeof window !== 'undefined' && window.createEnhancedDiffCell) {
             diffCell = window.createEnhancedDiffCell(diff, unit, tol);
@@ -4873,26 +4931,26 @@ function renderReferenceComparisons(analysis) {
             
             diffCell = Number.isFinite(diff)
                 ? `<td class="${cssClass}">${diff>0?'+':''}${nf(diff)}${unit}</td>`
-                : '<td class="na" style="opacity:.55">â€”</td>';
+                : '<td class="na" style="opacity:.55">—</td>';
         }
         
         rows.push(`<tr>
             <td>${enhancedLabel}</td>
-            <td>${Number.isFinite(val)?nf(val)+unit:'â€”'}</td>
-            <td>${Number.isFinite(target)?nf(target)+unit:'N/A'}${tol!=null?`<span class="tol">Â±${nf(tol,2)}</span>`:''}</td>
+            <td>${Number.isFinite(val)?nf(val)+unit:'—'}</td>
+            <td>${Number.isFinite(target)?nf(target)+unit:'N/A'}${tol!=null?`<span class="tol">±${nf(tol,2)}</span>`:''}</td>
             ${diffCell}
         </tr>`);
     };
-    // ðŸŽ¯ CENTRALIZAÃ‡ÃƒO DAS MÃ‰TRICAS - FunÃ§Ã£o de acesso para comparaÃ§Ã£o por referÃªncia
+    // 🎯 CENTRALIZAÇÃO DAS MÉTRICAS - Função de acesso para comparação por referência
     const getMetricForRef = (metricPath, fallbackPath = null) => {
         // Prioridade: analysis.metrics > tech (technicalData) > fallback
         const centralizedValue = analysis.metrics && getNestedValue(analysis.metrics, metricPath);
         if (Number.isFinite(centralizedValue)) {
-            // Log temporÃ¡rio para validaÃ§Ã£o
+            // Log temporário para validação
             if (typeof window !== 'undefined' && window.METRICS_REF_VALIDATION !== false) {
                 const legacyValue = fallbackPath ? getNestedValue(tech, fallbackPath) : getNestedValue(tech, metricPath);
                 if (Number.isFinite(legacyValue) && Math.abs(centralizedValue - legacyValue) > 0.01) {
-                    console.warn(`ðŸŽ¯ REF_METRIC_DIFF: ${metricPath} centralized=${centralizedValue} vs legacy=${legacyValue}`);
+                    console.warn(`🎯 REF_METRIC_DIFF: ${metricPath} centralized=${centralizedValue} vs legacy=${legacyValue}`);
                 }
             }
             return centralizedValue;
@@ -4907,26 +4965,26 @@ function renderReferenceComparisons(analysis) {
         return path.split('.').reduce((current, key) => current?.[key], obj);
     };
     
-    // ðŸŽ¯ CENTRALIZAÃ‡ÃƒO DAS MÃ‰TRICAS - FunÃ§Ã£o de acesso para comparaÃ§Ã£o por referÃªncia
-    // Usar somente mÃ©tricas reais (sem fallback para RMS/Peak, que tÃªm unidades e conceitos distintos)
-    // FunÃ§Ã£o para obter o valor LUFS integrado usando mÃ©tricas centralizadas
+    // 🎯 CENTRALIZAÇÃO DAS MÉTRICAS - Função de acesso para comparação por referência
+    // Usar somente métricas reais (sem fallback para RMS/Peak, que têm unidades e conceitos distintos)
+    // Função para obter o valor LUFS integrado usando métricas centralizadas
     const getLufsIntegratedValue = () => {
         return getMetricForRef('lufs_integrated', 'lufsIntegrated');
     };
     
-    // ADICIONAR TODAS AS MÃ‰TRICAS PRINCIPAIS
+    // ADICIONAR TODAS AS MÉTRICAS PRINCIPAIS
     pushRow('Loudness Integrado (LUFS)', getLufsIntegratedValue(), ref.lufs_target, ref.tol_lufs, ' LUFS');
     pushRow('Pico Real (dBTP)', getMetricForRef('true_peak_dbtp', 'truePeakDbtp'), ref.true_peak_target, ref.tol_true_peak, ' dBTP');
     pushRow('DR', getMetricForRef('dynamic_range', 'dynamicRange'), ref.dr_target, ref.tol_dr, '');
-    pushRow('Faixa de Loudness â€“ LRA (LU)', getMetricForRef('lra'), ref.lra_target, ref.tol_lra, ' LU');
+    pushRow('Faixa de Loudness – LRA (LU)', getMetricForRef('lra'), ref.lra_target, ref.tol_lra, ' LU');
     pushRow('Stereo Corr.', getMetricForRef('stereo_correlation', 'stereoCorrelation'), ref.stereo_target, ref.tol_stereo, '');
     
-    // Bandas detalhadas Fase 2: usar mÃ©tricas centralizadas para bandas
+    // Bandas detalhadas Fase 2: usar métricas centralizadas para bandas
     const centralizedBands = analysis.metrics?.bands;
     const legacyBandEnergies = tech.bandEnergies || null;
     
-    // ðŸ” DEBUG: Verificar estado das bandas e mapeamento
-    console.log('ðŸ” [DEBUG_BANDS] Verificando bandas espectrais:', {
+    // 🔍 DEBUG: Verificar estado das bandas e mapeamento
+    console.log('🔍 [DEBUG_BANDS] Verificando bandas espectrais:', {
         hasCentralizedBands: !!centralizedBands,
         centralizedBandsKeys: centralizedBands ? Object.keys(centralizedBands) : [],
         hasLegacyBands: !!legacyBandEnergies,
@@ -4935,9 +4993,9 @@ function renderReferenceComparisons(analysis) {
         refBandsKeys: ref.bands ? Object.keys(ref.bands) : []
     });
     
-    // ðŸŽ¯ MAPEAMENTO CORRIGIDO: Bandas Calculadas â†’ Bandas de ReferÃªncia
+    // 🎯 MAPEAMENTO CORRIGIDO: Bandas Calculadas → Bandas de Referência
     const bandMappingCalcToRef = {
-        // Banda calculada: chave na referÃªncia
+        // Banda calculada: chave na referência
         'sub': 'sub',
         'bass': 'low_bass',
         'lowMid': 'low_mid', 
@@ -4947,66 +5005,66 @@ function renderReferenceComparisons(analysis) {
         'air': 'brilho'
     };
     
-    // ðŸŽ¯ MAPEAMENTO REVERSO: Bandas de ReferÃªncia â†’ Bandas Calculadas
+    // 🎯 MAPEAMENTO REVERSO: Bandas de Referência → Bandas Calculadas
     const bandMappingRefToCalc = {};
     Object.entries(bandMappingCalcToRef).forEach(([calc, ref]) => {
         bandMappingRefToCalc[ref] = calc;
     });
     
-    // Priorizar bandas centralizadas se disponÃ­veis
+    // Priorizar bandas centralizadas se disponíveis
     const bandsToUse = centralizedBands && Object.keys(centralizedBands).length > 0 ? centralizedBands : legacyBandEnergies;
     
     if (bandsToUse && ref.bands) {
         const normMap = (analysis?.technicalData?.refBandTargetsNormalized?.mapping) || null;
         const showNorm = (typeof window !== 'undefined' && window.SHOW_NORMALIZED_REF_TARGETS === true && normMap);
         
-        // Mapeamento de nomes amigÃ¡veis para as bandas com ranges de frequÃªncia
+        // Mapeamento de nomes amigáveis para as bandas com ranges de frequência
         const bandDisplayNames = {
-            sub: 'Sub (20â€“60Hz)',
-            bass: 'Bass (60â€“150Hz)', 
-            low_bass: 'Bass (60â€“150Hz)',
-            lowMid: 'Low-Mid (150â€“500Hz)',
-            low_mid: 'Low-Mid (150â€“500Hz)',
-            mid: 'Mid (500â€“2kHz)',
-            highMid: 'High-Mid (2â€“5kHz)',
-            high_mid: 'High-Mid (2â€“5kHz)',
-            presence: 'Presence (5â€“10kHz)',
-            presenca: 'Presence (5â€“10kHz)',
-            air: 'Air (10â€“20kHz)',
-            brilho: 'Air (10â€“20kHz)'
+            sub: 'Sub (20–60Hz)',
+            bass: 'Bass (60–150Hz)', 
+            low_bass: 'Bass (60–150Hz)',
+            lowMid: 'Low-Mid (150–500Hz)',
+            low_mid: 'Low-Mid (150–500Hz)',
+            mid: 'Mid (500–2kHz)',
+            highMid: 'High-Mid (2–5kHz)',
+            high_mid: 'High-Mid (2–5kHz)',
+            presence: 'Presence (5–10kHz)',
+            presenca: 'Presence (5–10kHz)',
+            air: 'Air (10–20kHz)',
+            brilho: 'Air (10–20kHz)'
         };
         
-        // ðŸŽ¯ PROCESSAMENTO CORRIGIDO: Iterar por bandas de referÃªncia e mapear para dados calculados
-        console.log('ðŸ”„ Processando bandas com mapeamento corrigido...');
+        // 🎯 PROCESSAMENTO CORRIGIDO: Iterar por bandas de referência e mapear para dados calculados
+        console.log('🔄 Processando bandas com mapeamento corrigido...');
         
         for (const [refBandKey, refBand] of Object.entries(ref.bands)) {
             // Encontrar a banda calculada correspondente
             const calcBandKey = bandMappingRefToCalc[refBandKey] || refBandKey;
             let bLocal = null;
             
-            console.log(`ðŸ” Processando: ${refBandKey} â†’ ${calcBandKey}`);
+            console.log(`🔍 Processando: ${refBandKey} → ${calcBandKey}`);
             
             // Buscar dados da banda calculada
             if (centralizedBands && centralizedBands[calcBandKey]) {
                 bLocal = { rms_db: centralizedBands[calcBandKey].energy_db };
-                console.log(`âœ… Encontrado em centralizedBands: ${centralizedBands[calcBandKey].energy_db}dB`);
+                console.log(`✅ Encontrado em centralizedBands: ${centralizedBands[calcBandKey].energy_db}dB`);
                 
-                // Log de validaÃ§Ã£o
+                // Log de validação
                 if (typeof window !== 'undefined' && window.METRICS_BANDS_VALIDATION !== false && legacyBandEnergies?.[calcBandKey]) {
                     const legacyValue = legacyBandEnergies[calcBandKey].rms_db;
                     if (Number.isFinite(legacyValue) && Math.abs(centralizedBands[calcBandKey].energy_db - legacyValue) > 0.01) {
-                        console.warn(`ðŸŽ¯ BAND_DIFF: ${calcBandKey} centralized=${centralizedBands[calcBandKey].energy_db} vs legacy=${legacyValue}`);
+                        console.warn(`🎯 BAND_DIFF: ${calcBandKey} centralized=${centralizedBands[calcBandKey].energy_db} vs legacy=${legacyValue}`);
                     }
                 }
             } else if (legacyBandEnergies && legacyBandEnergies[calcBandKey]) {
                 bLocal = legacyBandEnergies[calcBandKey];
-                console.log(`âœ… Encontrado em legacyBandEnergies: ${bLocal.rms_db}dB`);
+                console.log(`✅ Encontrado em legacyBandEnergies: ${bLocal.rms_db}dB`);
             } else if (centralizedBands && centralizedBands[refBandKey]) {
-                // Fallback: tentar chave de referÃªncia direta
+                // Fallback: tentar chave de referência direta
                 bLocal = { rms_db: centralizedBands[refBandKey].energy_db };
-                console.log(`âš ï¸ Fallback para chave de referÃªncia: ${centralizedBands[refBandKey].energy_db}dB`);
+                console.log(`⚠️ Fallback para chave de referência: ${centralizedBands[refBandKey].energy_db}dB`);
             } else {
-                console.warn(`âŒ Banda nÃ£o encontrada: ${refBandKey} / ${calcBandKey}`);
+                console.warn(`❌ Banda não encontrada: ${refBandKey} / ${calcBandKey}`);
             }
             
             if (bLocal && Number.isFinite(bLocal.rms_db)) {
@@ -5016,17 +5074,17 @@ function renderReferenceComparisons(analysis) {
                 
                 const displayName = bandDisplayNames[calcBandKey] || bandDisplayNames[refBandKey] || refBandKey;
                 
-                console.log(`ðŸ“Š Adicionando banda: ${displayName}, valor: ${bLocal.rms_db}dB, target: ${tgt}dB`);
+                console.log(`📊 Adicionando banda: ${displayName}, valor: ${bLocal.rms_db}dB, target: ${tgt}dB`);
                 pushRow(displayName, bLocal.rms_db, tgt, refBand.tol_db, ' dB');
             }
         }
         
-        // ðŸŽ¯ PROCESSAMENTO DE BANDAS EXTRAS: Bandas calculadas que nÃ£o estÃ£o na referÃªncia
-        console.log('ðŸ”„ Verificando bandas extras nÃ£o mapeadas...');
+        // 🎯 PROCESSAMENTO DE BANDAS EXTRAS: Bandas calculadas que não estão na referência
+        console.log('🔄 Verificando bandas extras não mapeadas...');
         
         if (bandsToUse) {
             Object.keys(bandsToUse).forEach(calcBandKey => {
-                // Filtrar chaves invÃ¡lidas (totais, metadados etc.)
+                // Filtrar chaves inválidas (totais, metadados etc.)
                 if (calcBandKey === '_status' || 
                     calcBandKey === 'totalPercentage' || 
                     calcBandKey === 'totalpercentage' ||
@@ -5036,12 +5094,12 @@ function renderReferenceComparisons(analysis) {
                     return; // Pular esta banda
                 }
                 
-                // Verificar se esta banda jÃ¡ foi processada
+                // Verificar se esta banda já foi processada
                 const refBandKey = bandMappingCalcToRef[calcBandKey];
                 const alreadyProcessed = refBandKey && ref.bands[refBandKey];
                 
                 if (!alreadyProcessed) {
-                    console.log(`ðŸ” Processando banda extra: ${calcBandKey}`);
+                    console.log(`🔍 Processando banda extra: ${calcBandKey}`);
                     
                     const bandData = bandsToUse[calcBandKey];
                     let energyDb = null;
@@ -5058,51 +5116,51 @@ function renderReferenceComparisons(analysis) {
                         const displayName = bandDisplayNames[calcBandKey] || 
                                           `${calcBandKey.charAt(0).toUpperCase() + calcBandKey.slice(1)} (Nova Banda)`;
                         
-                        // Tentar buscar referÃªncia direta por chave
+                        // Tentar buscar referência direta por chave
                         const directRefData = ref.bands?.[calcBandKey];
                         const target = directRefData?.target_db || null;
                         const tolerance = directRefData?.tol_db || null;
                         
-                        console.log(`ðŸ“Š Adicionando banda extra: ${displayName}, valor: ${energyDb}dB, target: ${target || 'N/A'}`);
+                        console.log(`📊 Adicionando banda extra: ${displayName}, valor: ${energyDb}dB, target: ${target || 'N/A'}`);
                         pushRow(displayName, energyDb, target, tolerance, ' dB');
                         
                         if (!target) {
-                            console.warn(`âš ï¸ Banda sem referÃªncia: ${calcBandKey} (valor: ${energyDb}dB)`);
+                            console.warn(`⚠️ Banda sem referência: ${calcBandKey} (valor: ${energyDb}dB)`);
                         }
                     }
                 }
             });
         }
     } else {
-        // Fallback melhorado: buscar todas as bandas espectrais disponÃ­veis
+        // Fallback melhorado: buscar todas as bandas espectrais disponíveis
         const spectralBands = tech.spectral_balance || 
                             tech.spectralBands || 
                             analysis.metrics?.bands || {};
         
-        // ðŸŽ¯ MAPEAMENTO COMPLETO com correÃ§Ã£o de nomes
+        // 🎯 MAPEAMENTO COMPLETO com correção de nomes
         const bandMap = {
-            sub: { refKey: 'sub', name: 'Sub (20â€“60Hz)', range: '20â€“60Hz' },
-            bass: { refKey: 'low_bass', name: 'Bass (60â€“150Hz)', range: '60â€“150Hz' },
-            low_bass: { refKey: 'low_bass', name: 'Bass (60â€“150Hz)', range: '60â€“150Hz' },
-            lowMid: { refKey: 'low_mid', name: 'Low-Mid (150â€“500Hz)', range: '150â€“500Hz' },
-            low_mid: { refKey: 'low_mid', name: 'Low-Mid (150â€“500Hz)', range: '150â€“500Hz' },
-            mid: { refKey: 'mid', name: 'Mid (500â€“2kHz)', range: '500â€“2000Hz' },
-            highMid: { refKey: 'high_mid', name: 'High-Mid (2â€“5kHz)', range: '2000â€“5000Hz' },
-            high_mid: { refKey: 'high_mid', name: 'High-Mid (2â€“5kHz)', range: '2000â€“5000Hz' },
-            presence: { refKey: 'presenca', name: 'Presence (5â€“10kHz)', range: '5000â€“10000Hz' },
-            presenca: { refKey: 'presenca', name: 'Presence (5â€“10kHz)', range: '5000â€“10000Hz' },
-            air: { refKey: 'brilho', name: 'Air (10â€“20kHz)', range: '10000â€“20000Hz' },
-            brilho: { refKey: 'brilho', name: 'Air (10â€“20kHz)', range: '10000â€“20000Hz' }
+            sub: { refKey: 'sub', name: 'Sub (20–60Hz)', range: '20–60Hz' },
+            bass: { refKey: 'low_bass', name: 'Bass (60–150Hz)', range: '60–150Hz' },
+            low_bass: { refKey: 'low_bass', name: 'Bass (60–150Hz)', range: '60–150Hz' },
+            lowMid: { refKey: 'low_mid', name: 'Low-Mid (150–500Hz)', range: '150–500Hz' },
+            low_mid: { refKey: 'low_mid', name: 'Low-Mid (150–500Hz)', range: '150–500Hz' },
+            mid: { refKey: 'mid', name: 'Mid (500–2kHz)', range: '500–2000Hz' },
+            highMid: { refKey: 'high_mid', name: 'High-Mid (2–5kHz)', range: '2000–5000Hz' },
+            high_mid: { refKey: 'high_mid', name: 'High-Mid (2–5kHz)', range: '2000–5000Hz' },
+            presence: { refKey: 'presenca', name: 'Presence (5–10kHz)', range: '5000–10000Hz' },
+            presenca: { refKey: 'presenca', name: 'Presence (5–10kHz)', range: '5000–10000Hz' },
+            air: { refKey: 'brilho', name: 'Air (10–20kHz)', range: '10000–20000Hz' },
+            brilho: { refKey: 'brilho', name: 'Air (10–20kHz)', range: '10000–20000Hz' }
         };
         
-        // ðŸŽ¯ PROCESSAMENTO CORRIGIDO para fallback: usar mapeamento bidirecional
-        console.log('ðŸ”„ Processando bandas espectrais (modo fallback)...');
+        // 🎯 PROCESSAMENTO CORRIGIDO para fallback: usar mapeamento bidirecional
+        console.log('🔄 Processando bandas espectrais (modo fallback)...');
         
         if (spectralBands && Object.keys(spectralBands).length > 0) {
-            // Conjunto para rastrear bandas jÃ¡ processadas
+            // Conjunto para rastrear bandas já processadas
             const processedBandKeys = new Set();
             
-            // Primeiro: processar bandas que tÃªm referÃªncia (usando mapeamento)
+            // Primeiro: processar bandas que têm referência (usando mapeamento)
             Object.entries(bandMap).forEach(([calcBandKey, bandInfo]) => {
                 const bandData = spectralBands[calcBandKey];
                 const refBandData = ref.bands?.[bandInfo.refKey];
@@ -5120,22 +5178,22 @@ function renderReferenceComparisons(analysis) {
                     }
                     
                     if (Number.isFinite(energyDb)) {
-                        // Se tem referÃªncia, usar target, senÃ£o N/A
+                        // Se tem referência, usar target, senão N/A
                         const target = refBandData?.target_db || null;
                         const tolerance = refBandData?.tol_db || null;
                         
-                        console.log(`ðŸ“Š Banda (fallback): ${bandInfo.name}, valor: ${energyDb}dB, target: ${target || 'N/A'}`);
+                        console.log(`📊 Banda (fallback): ${bandInfo.name}, valor: ${energyDb}dB, target: ${target || 'N/A'}`);
                         pushRow(bandInfo.name, energyDb, target, tolerance, ' dB');
                         processedBandKeys.add(calcBandKey);
                         
                         if (!target) {
-                            console.warn(`âš ï¸ Banda sem target: ${calcBandKey} â†’ ${bandInfo.refKey}`);
+                            console.warn(`⚠️ Banda sem target: ${calcBandKey} → ${bandInfo.refKey}`);
                         }
                     }
                 }
             });
             
-            // Segundo: processar bandas restantes que nÃ£o foram mapeadas
+            // Segundo: processar bandas restantes que não foram mapeadas
             Object.keys(spectralBands).forEach(bandKey => {
                 if (!processedBandKeys.has(bandKey) && 
                     bandKey !== '_status' && 
@@ -5161,16 +5219,16 @@ function renderReferenceComparisons(analysis) {
                         const displayName = bandMap[bandKey]?.name || 
                                           `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)} (Detectada)`;
                         
-                        // Tentar encontrar referÃªncia por chave direta
+                        // Tentar encontrar referência por chave direta
                         const directRefData = ref.bands?.[bandKey];
                         const target = directRefData?.target_db || null;
                         const tolerance = directRefData?.tol_db || null;
                         
-                        console.log(`ðŸ“Š Banda nÃ£o mapeada: ${displayName}, valor: ${energyDb}dB, target: ${target || 'N/A'}`);
+                        console.log(`📊 Banda não mapeada: ${displayName}, valor: ${energyDb}dB, target: ${target || 'N/A'}`);
                         pushRow(displayName, energyDb, target, tolerance, ' dB');
                         
                         if (!target) {
-                            console.warn(`âš ï¸ Banda nÃ£o mapeada sem target: ${bandKey}`);
+                            console.warn(`⚠️ Banda não mapeada sem target: ${bandKey}`);
                         }
                     }
                 }
@@ -5183,7 +5241,7 @@ function renderReferenceComparisons(analysis) {
                 const bData = tb[tbKey];
                 const refBandData = ref.bands?.[refBand];
                 if (bData && refBandData && Number.isFinite(bData.rms_db)) {
-                    console.log(`ðŸ“Š Banda legacy: ${tbKey.toUpperCase()}, valor: ${bData.rms_db}dB, target: ${refBandData.target_db}dB`);
+                    console.log(`📊 Banda legacy: ${tbKey.toUpperCase()}, valor: ${bData.rms_db}dB, target: ${refBandData.target_db}dB`);
                     pushRow(`${tbKey.toUpperCase()}`, bData.rms_db, refBandData.target_db, refBandData.tol_db, ' dB');
                 }
             });
@@ -5192,12 +5250,12 @@ function renderReferenceComparisons(analysis) {
     
     // MOSTRAR TABELA COMPLETA
     container.innerHTML = `<div class="card" style="margin-top:12px;">
-        <div class="card-title">ðŸ“Œ ComparaÃ§Ã£o de ReferÃªncia (${titleText})</div>
+        <div class="card-title">📌 Comparação de Referência (${titleText})</div>
         <table class="ref-compare-table">
             <thead><tr>
-                <th>MÃ©trica</th><th>Valor</th><th>Alvo</th><th>Î”</th>
+                <th>Métrica</th><th>Valor</th><th>Alvo</th><th>Δ</th>
             </tr></thead>
-            <tbody>${rows.join('') || '<tr><td colspan="4" style="opacity:.6">Sem mÃ©tricas disponÃ­veis</td></tr>'}</tbody>
+            <tbody>${rows.join('') || '<tr><td colspan="4" style="opacity:.6">Sem métricas disponíveis</td></tr>'}</tbody>
         </table>
     </div>`;
     // Estilos injetados uma vez com indicadores visuais melhorados
@@ -5210,11 +5268,11 @@ function renderReferenceComparisons(analysis) {
         .ref-compare-table td{padding:5px 6px;border-bottom:1px solid rgba(255,255,255,.06);color:#f5f7fa;} 
         .ref-compare-table tr:last-child td{border-bottom:0;} 
         .ref-compare-table td.ok{color:#52f7ad;font-weight:600;} 
-        .ref-compare-table td.ok::before{content:'âœ… ';margin-right:2px;}
+        .ref-compare-table td.ok::before{content:'✅ ';margin-right:2px;}
         .ref-compare-table td.yellow{color:#ffce4d;font-weight:600;} 
-        .ref-compare-table td.yellow::before{content:'âš ï¸ ';margin-right:2px;}
+        .ref-compare-table td.yellow::before{content:'⚠️ ';margin-right:2px;}
         .ref-compare-table td.warn{color:#ff7b7b;font-weight:600;} 
-        .ref-compare-table td.warn::before{content:'âŒ ';margin-right:2px;}
+        .ref-compare-table td.warn::before{content:'❌ ';margin-right:2px;}
         .ref-compare-table .tol{opacity:.7;margin-left:4px;font-size:10px;color:#b8c2d6;} 
         .ref-compare-table tbody tr:hover td{background:rgba(255,255,255,.04);} 
         `;
@@ -5222,18 +5280,18 @@ function renderReferenceComparisons(analysis) {
     }
 }
 
-// ðŸŽ¯ ===== SISTEMA DE SCORING AVANÃ‡ADO =====
-// Sistema completo de pontuaÃ§Ã£o por categorias com adaptaÃ§Ã£o por gÃªnero
+// 🎯 ===== SISTEMA DE SCORING AVANÇADO =====
+// Sistema completo de pontuação por categorias com adaptação por gênero
 
-// 1. PESOS POR GÃŠNERO (ATUALIZADOS CONFORME ESPECIFICAÃ‡ÃƒO)
+// 1. PESOS POR GÊNERO (ATUALIZADOS CONFORME ESPECIFICAÇÃO)
 const GENRE_SCORING_WEIGHTS = {
-    // Funk Mandela - Foco em Loudness e DinÃ¢mica
+    // Funk Mandela - Foco em Loudness e Dinâmica
     'funk_mandela': {
-        loudness: 0.32,    // Loudness crÃ­tico no funk
-        dinamica: 0.23,    // DinÃ¢mica importante
-        frequencia: 0.20,  // FrequÃªncia equilibrada
-        estereo: 0.15,     // EstÃ©reo moderado
-        tecnico: 0.10      // TÃ©cnico bÃ¡sico
+        loudness: 0.32,    // Loudness crítico no funk
+        dinamica: 0.23,    // Dinâmica importante
+        frequencia: 0.20,  // Frequência equilibrada
+        estereo: 0.15,     // Estéreo moderado
+        tecnico: 0.10      // Técnico básico
     },
     
     // Funk Automotivo (similar ao Mandela)
@@ -5245,42 +5303,42 @@ const GENRE_SCORING_WEIGHTS = {
         tecnico: 0.10
     },
     
-    // Trap/Trance - Foco em Loudness e FrequÃªncia
+    // Trap/Trance - Foco em Loudness e Frequência
     'trap': {
         loudness: 0.25,    // Loudness importante
-        frequencia: 0.30,  // FrequÃªncia crÃ­tica
-        estereo: 0.20,     // EstÃ©reo importante
-        dinamica: 0.15,    // DinÃ¢mica moderada
-        tecnico: 0.10      // TÃ©cnico bÃ¡sico
+        frequencia: 0.30,  // Frequência crítica
+        estereo: 0.20,     // Estéreo importante
+        dinamica: 0.15,    // Dinâmica moderada
+        tecnico: 0.10      // Técnico básico
     },
     
     'trance': {
         loudness: 0.25,    // Loudness importante
-        frequencia: 0.30,  // FrequÃªncia crÃ­tica
-        estereo: 0.20,     // EstÃ©reo importante
-        dinamica: 0.15,    // DinÃ¢mica moderada
-        tecnico: 0.10      // TÃ©cnico bÃ¡sico
+        frequencia: 0.30,  // Frequência crítica
+        estereo: 0.20,     // Estéreo importante
+        dinamica: 0.15,    // Dinâmica moderada
+        tecnico: 0.10      // Técnico básico
     },
     
-    // EletrÃ´nico - Foco em FrequÃªncia e EstÃ©reo
+    // Eletrônico - Foco em Frequência e Estéreo
     'eletronico': {
-        frequencia: 0.30,  // FrequÃªncia crÃ­tica
-        estereo: 0.25,     // EstÃ©reo importante
+        frequencia: 0.30,  // Frequência crítica
+        estereo: 0.25,     // Estéreo importante
         loudness: 0.20,    // Loudness moderado
-        dinamica: 0.15,    // DinÃ¢mica moderada
-        tecnico: 0.10      // TÃ©cnico bÃ¡sico
+        dinamica: 0.15,    // Dinâmica moderada
+        tecnico: 0.10      // Técnico básico
     },
     
-    // Funk Bruxaria - Similar ao EletrÃ´nico
+    // Funk Bruxaria - Similar ao Eletrônico
     'funk_bruxaria': {
-        frequencia: 0.30,  // FrequÃªncia crÃ­tica
-        estereo: 0.25,     // EstÃ©reo importante
+        frequencia: 0.30,  // Frequência crítica
+        estereo: 0.25,     // Estéreo importante
         loudness: 0.20,    // Loudness moderado
-        dinamica: 0.15,    // DinÃ¢mica moderada
-        tecnico: 0.10      // TÃ©cnico bÃ¡sico
+        dinamica: 0.15,    // Dinâmica moderada
+        tecnico: 0.10      // Técnico básico
     },
     
-    // Hip Hop - Balanceado entre FrequÃªncia e DinÃ¢mica
+    // Hip Hop - Balanceado entre Frequência e Dinâmica
     'hip_hop': {
         frequencia: 0.30,
         dinamica: 0.25,
@@ -5289,7 +5347,7 @@ const GENRE_SCORING_WEIGHTS = {
         tecnico: 0.10
     },
     
-    // Pesos padrÃ£o (fallback) - DistribuiÃ§Ã£o equilibrada
+    // Pesos padrão (fallback) - Distribuição equilibrada
     'default': {
         loudness: 0.25,
         frequencia: 0.25,
@@ -5299,39 +5357,39 @@ const GENRE_SCORING_WEIGHTS = {
     }
 };
 
-// 2. FUNÃ‡ÃƒO PARA CALCULAR SCORE DE UMA MÃ‰TRICA (VERSÃƒO MENOS PUNITIVA)
+// 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (VERSÃO MENOS PUNITIVA)
 function calculateMetricScore(actualValue, targetValue, tolerance) {
-    // Verificar se temos valores vÃ¡lidos
+    // Verificar se temos valores válidos
     if (!Number.isFinite(actualValue) || !Number.isFinite(targetValue) || !Number.isFinite(tolerance) || tolerance <= 0) {
-        return null; // MÃ©trica invÃ¡lida
+        return null; // Métrica inválida
     }
     
     const diff = Math.abs(actualValue - targetValue);
     
-    // ðŸŽ¯ DENTRO DA TOLERÃ‚NCIA = 100 pontos
+    // 🎯 DENTRO DA TOLERÂNCIA = 100 pontos
     if (diff <= tolerance) {
         return 100;
     }
     
-    // ðŸŽ¯ CURVA DE PENALIZAÃ‡ÃƒO MAIS JUSTA - GRADUAL E MENOS PUNITIVA
-    // Î” atÃ© 1.5x tolerÃ¢ncia â†’ ~80
-    // Î” atÃ© 2x tolerÃ¢ncia â†’ ~60  
-    // Î” atÃ© 3x tolerÃ¢ncia â†’ ~40
-    // Î” acima de 3x tolerÃ¢ncia â†’ ~20 (nunca zerar)
+    // 🎯 CURVA DE PENALIZAÇÃO MAIS JUSTA - GRADUAL E MENOS PUNITIVA
+    // Δ até 1.5x tolerância → ~80
+    // Δ até 2x tolerância → ~60  
+    // Δ até 3x tolerância → ~40
+    // Δ acima de 3x tolerância → ~20 (nunca zerar)
     
     const ratio = diff / tolerance;
     
     if (ratio <= 1.5) {
-        // Entre 1x e 1.5x tolerÃ¢ncia: decaimento suave de 100 para 80
-        return Math.round(100 - ((ratio - 1) * 40)); // 100 - (0.5 * 40) = 80 no mÃ¡ximo
+        // Entre 1x e 1.5x tolerância: decaimento suave de 100 para 80
+        return Math.round(100 - ((ratio - 1) * 40)); // 100 - (0.5 * 40) = 80 no máximo
     } else if (ratio <= 2.0) {
-        // Entre 1.5x e 2x tolerÃ¢ncia: de 80 para 60
-        return Math.round(80 - ((ratio - 1.5) * 40)); // 80 - (0.5 * 40) = 60 no mÃ¡ximo
+        // Entre 1.5x e 2x tolerância: de 80 para 60
+        return Math.round(80 - ((ratio - 1.5) * 40)); // 80 - (0.5 * 40) = 60 no máximo
     } else if (ratio <= 3.0) {
-        // Entre 2x e 3x tolerÃ¢ncia: de 60 para 40
-        return Math.round(60 - ((ratio - 2) * 20)); // 60 - (1 * 20) = 40 no mÃ¡ximo
+        // Entre 2x e 3x tolerância: de 60 para 40
+        return Math.round(60 - ((ratio - 2) * 20)); // 60 - (1 * 20) = 40 no máximo
     } else {
-        // Acima de 3x tolerÃ¢ncia: 20 (nunca zerar totalmente)
+        // Acima de 3x tolerância: 20 (nunca zerar totalmente)
         return 20;
     }
 }
@@ -5344,13 +5402,13 @@ function calculateLoudnessScore(analysis, refData) {
     const metrics = analysis.metrics || {};
     const scores = [];
     
-    // LUFS Integrado (mÃ©trica principal de loudness)
+    // LUFS Integrado (métrica principal de loudness)
     const lufsValue = metrics.lufs_integrated || tech.lufsIntegrated;
     if (Number.isFinite(lufsValue) && Number.isFinite(refData.lufs_target) && Number.isFinite(refData.tol_lufs)) {
         const score = calculateMetricScore(lufsValue, refData.lufs_target, refData.tol_lufs);
         if (score !== null) {
             scores.push(score);
-            console.log(`ðŸ“Š LUFS: ${lufsValue} vs ${refData.lufs_target} (Â±${refData.tol_lufs}) = ${score}%`);
+            console.log(`📊 LUFS: ${lufsValue} vs ${refData.lufs_target} (±${refData.tol_lufs}) = ${score}%`);
         }
     }
     
@@ -5360,31 +5418,31 @@ function calculateLoudnessScore(analysis, refData) {
         const score = calculateMetricScore(truePeakValue, refData.true_peak_target, refData.tol_true_peak);
         if (score !== null) {
             scores.push(score);
-            console.log(`ðŸ“Š True Peak: ${truePeakValue} vs ${refData.true_peak_target} (Â±${refData.tol_true_peak}) = ${score}%`);
+            console.log(`📊 True Peak: ${truePeakValue} vs ${refData.true_peak_target} (±${refData.tol_true_peak}) = ${score}%`);
         }
     }
     
-    // Crest Factor (dinÃ¢mica de picos)
+    // Crest Factor (dinâmica de picos)
     const crestValue = tech.crestFactor || metrics.crest_factor;
     if (Number.isFinite(crestValue) && refData.crest_target && Number.isFinite(refData.crest_target)) {
         const tolerance = refData.tol_crest || 2.0;
         const score = calculateMetricScore(crestValue, refData.crest_target, tolerance);
         if (score !== null) {
             scores.push(score);
-            console.log(`ðŸ“Š Crest Factor: ${crestValue} vs ${refData.crest_target} (Â±${tolerance}) = ${score}%`);
+            console.log(`📊 Crest Factor: ${crestValue} vs ${refData.crest_target} (±${tolerance}) = ${score}%`);
         }
     }
     
-    // Retornar mÃ©dia dos scores vÃ¡lidos
+    // Retornar média dos scores válidos
     if (scores.length === 0) return null;
     
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
     const result = Math.round(average);
-    console.log(`ðŸ”Š Score Loudness Final: ${result}% (mÃ©dia de ${scores.length} mÃ©tricas)`);
+    console.log(`🔊 Score Loudness Final: ${result}% (média de ${scores.length} métricas)`);
     return result;
 }
 
-// 4. CALCULAR SCORE DE DINÃ‚MICA (LRA, DR, Crest Consistency, Fator de Crista)
+// 4. CALCULAR SCORE DE DINÂMICA (LRA, DR, Crest Consistency, Fator de Crista)
 function calculateDynamicsScore(analysis, refData) {
     if (!analysis || !refData) return null;
     
@@ -5392,58 +5450,58 @@ function calculateDynamicsScore(analysis, refData) {
     const metrics = analysis.metrics || {};
     const scores = [];
     
-    // Dynamic Range (DR) - mÃ©trica principal de dinÃ¢mica
+    // Dynamic Range (DR) - métrica principal de dinâmica
     const drValue = metrics.dynamic_range || tech.dynamicRange;
     if (Number.isFinite(drValue) && Number.isFinite(refData.dr_target) && Number.isFinite(refData.tol_dr)) {
         const score = calculateMetricScore(drValue, refData.dr_target, refData.tol_dr);
         if (score !== null) {
             scores.push(score);
-            console.log(`ðŸ“Š Dynamic Range: ${drValue} vs ${refData.dr_target} (Â±${refData.tol_dr}) = ${score}%`);
+            console.log(`📊 Dynamic Range: ${drValue} vs ${refData.dr_target} (±${refData.tol_dr}) = ${score}%`);
         }
     }
     
-    // LRA (Loudness Range) - variaÃ§Ã£o de loudness
+    // LRA (Loudness Range) - variação de loudness
     const lraValue = metrics.lra || tech.lra;
     if (Number.isFinite(lraValue) && Number.isFinite(refData.lra_target) && Number.isFinite(refData.tol_lra)) {
         const score = calculateMetricScore(lraValue, refData.lra_target, refData.tol_lra);
         if (score !== null) {
             scores.push(score);
-            console.log(`ðŸ“Š LRA: ${lraValue} vs ${refData.lra_target} (Â±${refData.tol_lra}) = ${score}%`);
+            console.log(`📊 LRA: ${lraValue} vs ${refData.lra_target} (±${refData.tol_lra}) = ${score}%`);
         }
     }
     
-    // Crest Factor (jÃ¡ incluÃ­do em Loudness, mas importante para dinÃ¢mica tambÃ©m)
+    // Crest Factor (já incluído em Loudness, mas importante para dinâmica também)
     const crestValue = tech.crestFactor || metrics.crest_factor;
     if (Number.isFinite(crestValue) && refData.crest_target && Number.isFinite(refData.crest_target)) {
         const tolerance = refData.tol_crest || 2.0;
         const score = calculateMetricScore(crestValue, refData.crest_target, tolerance);
         if (score !== null) {
             scores.push(score);
-            console.log(`ðŸ“Š Crest Factor (DinÃ¢mica): ${crestValue} vs ${refData.crest_target} (Â±${tolerance}) = ${score}%`);
+            console.log(`📊 Crest Factor (Dinâmica): ${crestValue} vs ${refData.crest_target} (±${tolerance}) = ${score}%`);
         }
     }
     
-    // CompressÃ£o detectada (se disponÃ­vel)
+    // Compressão detectada (se disponível)
     const compressionRatio = tech.compressionRatio;
     if (Number.isFinite(compressionRatio) && refData.compression_target && Number.isFinite(refData.compression_target)) {
         const tolerance = refData.tol_compression || 1.0;
         const score = calculateMetricScore(compressionRatio, refData.compression_target, tolerance);
         if (score !== null) {
             scores.push(score);
-            console.log(`ðŸ“Š CompressÃ£o: ${compressionRatio} vs ${refData.compression_target} (Â±${tolerance}) = ${score}%`);
+            console.log(`📊 Compressão: ${compressionRatio} vs ${refData.compression_target} (±${tolerance}) = ${score}%`);
         }
     }
     
-    // Retornar mÃ©dia dos scores vÃ¡lidos
+    // Retornar média dos scores válidos
     if (scores.length === 0) return null;
     
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
     const result = Math.round(average);
-    console.log(`ðŸ“Š Score DinÃ¢mica Final: ${result}% (mÃ©dia de ${scores.length} mÃ©tricas)`);
+    console.log(`📊 Score Dinâmica Final: ${result}% (média de ${scores.length} métricas)`);
     return result;
 }
 
-// 5. CALCULAR SCORE DE ESTÃ‰REO (Largura, CorrelaÃ§Ã£o, BalanÃ§o L/R)
+// 5. CALCULAR SCORE DE ESTÉREO (Largura, Correlação, Balanço L/R)
 function calculateStereoScore(analysis, refData) {
     if (!analysis || !refData) return null;
     
@@ -5451,61 +5509,61 @@ function calculateStereoScore(analysis, refData) {
     const metrics = analysis.metrics || {};
     const scores = [];
     
-    // CorrelaÃ§Ã£o EstÃ©reo (principal mÃ©trica de estÃ©reo)
+    // Correlação Estéreo (principal métrica de estéreo)
     const stereoValue = metrics.stereo_correlation || tech.stereoCorrelation;
     if (Number.isFinite(stereoValue) && Number.isFinite(refData.stereo_target) && Number.isFinite(refData.tol_stereo)) {
         const score = calculateMetricScore(stereoValue, refData.stereo_target, refData.tol_stereo);
         if (score !== null) {
             scores.push(score);
-            console.log(`ðŸ“Š CorrelaÃ§Ã£o EstÃ©reo: ${stereoValue} vs ${refData.stereo_target} (Â±${refData.tol_stereo}) = ${score}%`);
+            console.log(`📊 Correlação Estéreo: ${stereoValue} vs ${refData.stereo_target} (±${refData.tol_stereo}) = ${score}%`);
         }
     }
     
-    // Largura EstÃ©reo (Width)
+    // Largura Estéreo (Width)
     const widthValue = tech.stereoWidth || metrics.stereo_width;
     if (Number.isFinite(widthValue) && refData.width_target && Number.isFinite(refData.width_target)) {
         const tolerance = refData.tol_width || 0.2;
         const score = calculateMetricScore(widthValue, refData.width_target, tolerance);
         if (score !== null) {
             scores.push(score);
-            console.log(`ðŸ“Š Largura EstÃ©reo: ${widthValue} vs ${refData.width_target} (Â±${tolerance}) = ${score}%`);
+            console.log(`📊 Largura Estéreo: ${widthValue} vs ${refData.width_target} (±${tolerance}) = ${score}%`);
         }
     }
     
-    // BalanÃ§o L/R (se disponÃ­vel)
+    // Balanço L/R (se disponível)
     const balanceValue = tech.stereoBalance || metrics.stereo_balance;
     if (Number.isFinite(balanceValue)) {
-        // BalanÃ§o ideal Ã© 0 (perfeitamente centrado)
+        // Balanço ideal é 0 (perfeitamente centrado)
         const balanceTarget = refData.balance_target || 0.0;
-        const balanceTolerance = refData.tol_balance || 0.1; // 10% de tolerÃ¢ncia
+        const balanceTolerance = refData.tol_balance || 0.1; // 10% de tolerância
         const score = calculateMetricScore(balanceValue, balanceTarget, balanceTolerance);
         if (score !== null) {
             scores.push(score);
-            console.log(`ðŸ“Š BalanÃ§o L/R: ${balanceValue} vs ${balanceTarget} (Â±${balanceTolerance}) = ${score}%`);
+            console.log(`📊 Balanço L/R: ${balanceValue} vs ${balanceTarget} (±${balanceTolerance}) = ${score}%`);
         }
     }
     
-    // SeparaÃ§Ã£o de canais (se disponÃ­vel)
+    // Separação de canais (se disponível)
     const separationValue = tech.channelSeparation || metrics.channel_separation;
     if (Number.isFinite(separationValue) && refData.separation_target && Number.isFinite(refData.separation_target)) {
         const tolerance = refData.tol_separation || 5.0;
         const score = calculateMetricScore(separationValue, refData.separation_target, tolerance);
         if (score !== null) {
             scores.push(score);
-            console.log(`ðŸ“Š SeparaÃ§Ã£o de Canais: ${separationValue} vs ${refData.separation_target} (Â±${tolerance}) = ${score}%`);
+            console.log(`📊 Separação de Canais: ${separationValue} vs ${refData.separation_target} (±${tolerance}) = ${score}%`);
         }
     }
     
-    // Retornar mÃ©dia dos scores vÃ¡lidos
+    // Retornar média dos scores válidos
     if (scores.length === 0) return null;
     
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
     const result = Math.round(average);
-    console.log(`ðŸŽ§ Score EstÃ©reo Final: ${result}% (mÃ©dia de ${scores.length} mÃ©tricas)`);
+    console.log(`🎧 Score Estéreo Final: ${result}% (média de ${scores.length} métricas)`);
     return result;
 }
 
-// 6. CALCULAR SCORE DE FREQUÃŠNCIA (BANDAS ESPECTRAIS)
+// 6. CALCULAR SCORE DE FREQUÊNCIA (BANDAS ESPECTRAIS)
 function calculateFrequencyScore(analysis, refData) {
     if (!analysis || !refData || !refData.bands) return null;
     
@@ -5516,9 +5574,9 @@ function calculateFrequencyScore(analysis, refData) {
     if (!bandsToUse) return null;
     
     const scores = [];
-    console.log('ðŸŽµ Calculando Score de FrequÃªncia...');
+    console.log('🎵 Calculando Score de Frequência...');
     
-    // Mapeamento das bandas calculadas para referÃªncia (exatamente as 7 bandas da tabela UI)
+    // Mapeamento das bandas calculadas para referência (exatamente as 7 bandas da tabela UI)
     const bandMapping = {
         'sub': 'sub',
         'bass': 'low_bass',
@@ -5546,7 +5604,7 @@ function calculateFrequencyScore(analysis, refData) {
                 energyDb = bandData;
             }
             
-            // Calcular score individual da banda usando valor, alvo e tolerÃ¢ncia
+            // Calcular score individual da banda usando valor, alvo e tolerância
             if (Number.isFinite(energyDb) && 
                 Number.isFinite(refBandData.target_db) && 
                 Number.isFinite(refBandData.tol_db)) {
@@ -5555,28 +5613,28 @@ function calculateFrequencyScore(analysis, refData) {
                 if (score !== null) {
                     scores.push(score);
                     const delta = Math.abs(energyDb - refBandData.target_db);
-                    const status = delta <= refBandData.tol_db ? 'âœ…' : 'âŒ';
-                    console.log(`ðŸŽµ ${calcBand.toUpperCase()}: ${energyDb}dB vs ${refBandData.target_db}dB (Â±${refBandData.tol_db}dB) = ${score}% ${status}`);
+                    const status = delta <= refBandData.tol_db ? '✅' : '❌';
+                    console.log(`🎵 ${calcBand.toUpperCase()}: ${energyDb}dB vs ${refBandData.target_db}dB (±${refBandData.tol_db}dB) = ${score}% ${status}`);
                 }
             }
         }
     });
     
-    // Se nÃ£o encontrou scores vÃ¡lidos, retornar null
+    // Se não encontrou scores válidos, retornar null
     if (scores.length === 0) return null;
     
-    // MÃ©dia aritmÃ©tica simples das bandas vÃ¡lidas
+    // Média aritmética simples das bandas válidas
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
     const result = Math.round(average);
     
-    console.log(`ðŸŽµ Score FrequÃªncia Final: ${result}% (mÃ©dia de ${scores.length} bandas)`);
-    console.log(`ðŸŽµ Scores individuais: [${scores.join(', ')}]`);
+    console.log(`🎵 Score Frequência Final: ${result}% (média de ${scores.length} bandas)`);
+    console.log(`🎵 Scores individuais: [${scores.join(', ')}]`);
     
     return result;
 }
 
-// 7. CALCULAR SCORE TÃ‰CNICO
-// 7. CALCULAR SCORE TÃ‰CNICO (Clipping, DC Offset, THD)
+// 7. CALCULAR SCORE TÉCNICO
+// 7. CALCULAR SCORE TÉCNICO (Clipping, DC Offset, THD)
 function calculateTechnicalScore(analysis, refData) {
     if (!analysis) return null;
     
@@ -5584,48 +5642,48 @@ function calculateTechnicalScore(analysis, refData) {
     const metrics = analysis.metrics || {};
     const scores = [];
     
-    console.log('ðŸ”§ Calculando Score TÃ©cnico...');
+    console.log('🔧 Calculando Score Técnico...');
     
-    // 1. CLIPPING - Deve ser prÃ³ximo de 0% (PENALIZAÃ‡ÃƒO FORTE PARA PROBLEMAS CRÃTICOS)
+    // 1. CLIPPING - Deve ser próximo de 0% (PENALIZAÇÃO FORTE PARA PROBLEMAS CRÍTICOS)
     const clippingValue = tech.clipping || metrics.clipping || 0;
     if (Number.isFinite(clippingValue)) {
         let clippingScore = 100;
         
-        if (clippingValue <= 0.001) { // â‰¤ 0.1% = perfeito
+        if (clippingValue <= 0.001) { // ≤ 0.1% = perfeito
             clippingScore = 100;
-        } else if (clippingValue <= 0.005) { // â‰¤ 0.5% = bom
+        } else if (clippingValue <= 0.005) { // ≤ 0.5% = bom
             clippingScore = 80;
-        } else if (clippingValue <= 0.01) { // â‰¤ 1% = aceitÃ¡vel
+        } else if (clippingValue <= 0.01) { // ≤ 1% = aceitável
             clippingScore = 60;
-        } else if (clippingValue <= 0.02) { // â‰¤ 2% = problemÃ¡tico
+        } else if (clippingValue <= 0.02) { // ≤ 2% = problemático
             clippingScore = 40;
-        } else { // > 2% = crÃ­tico
+        } else { // > 2% = crítico
             clippingScore = 20;
         }
         
         scores.push(clippingScore);
-        console.log(`ðŸ”§ Clipping: ${(clippingValue * 100).toFixed(3)}% = ${clippingScore}%`);
+        console.log(`🔧 Clipping: ${(clippingValue * 100).toFixed(3)}% = ${clippingScore}%`);
     }
     
-    // 2. DC OFFSET - Deve ser prÃ³ximo de 0
+    // 2. DC OFFSET - Deve ser próximo de 0
     const dcOffsetValue = Math.abs(tech.dcOffset || metrics.dc_offset || 0);
     if (Number.isFinite(dcOffsetValue)) {
         let dcScore = 100;
         
-        if (dcOffsetValue <= 0.001) { // â‰¤ 0.1% = perfeito
+        if (dcOffsetValue <= 0.001) { // ≤ 0.1% = perfeito
             dcScore = 100;
-        } else if (dcOffsetValue <= 0.005) { // â‰¤ 0.5% = bom
+        } else if (dcOffsetValue <= 0.005) { // ≤ 0.5% = bom
             dcScore = 80;
-        } else if (dcOffsetValue <= 0.01) { // â‰¤ 1% = aceitÃ¡vel
+        } else if (dcOffsetValue <= 0.01) { // ≤ 1% = aceitável
             dcScore = 60;
-        } else if (dcOffsetValue <= 0.02) { // â‰¤ 2% = problemÃ¡tico
+        } else if (dcOffsetValue <= 0.02) { // ≤ 2% = problemático
             dcScore = 40;
-        } else { // > 2% = crÃ­tico
+        } else { // > 2% = crítico
             dcScore = 20;
         }
         
         scores.push(dcScore);
-        console.log(`ðŸ”§ DC Offset: ${dcOffsetValue.toFixed(4)} = ${dcScore}%`);
+        console.log(`🔧 DC Offset: ${dcOffsetValue.toFixed(4)} = ${dcScore}%`);
     }
     
     // 3. THD (Total Harmonic Distortion) - Deve ser baixo
@@ -5633,72 +5691,72 @@ function calculateTechnicalScore(analysis, refData) {
     if (Number.isFinite(thdValue)) {
         let thdScore = 100;
         
-        if (thdValue <= 0.001) { // â‰¤ 0.1% = perfeito
+        if (thdValue <= 0.001) { // ≤ 0.1% = perfeito
             thdScore = 100;
-        } else if (thdValue <= 0.005) { // â‰¤ 0.5% = bom
+        } else if (thdValue <= 0.005) { // ≤ 0.5% = bom
             thdScore = 80;
-        } else if (thdValue <= 0.01) { // â‰¤ 1% = aceitÃ¡vel
+        } else if (thdValue <= 0.01) { // ≤ 1% = aceitável
             thdScore = 60;
-        } else if (thdValue <= 0.02) { // â‰¤ 2% = problemÃ¡tico
+        } else if (thdValue <= 0.02) { // ≤ 2% = problemático
             thdScore = 40;
-        } else { // > 2% = crÃ­tico
+        } else { // > 2% = crítico
             thdScore = 20;
         }
         
         scores.push(thdScore);
-        console.log(`ðŸ”§ THD: ${(thdValue * 100).toFixed(3)}% = ${thdScore}%`);
+        console.log(`🔧 THD: ${(thdValue * 100).toFixed(3)}% = ${thdScore}%`);
     }
     
-    // 4. PROBLEMAS DETECTADOS (Issues) - PENALIZAÃ‡ÃƒO GRADUAL
+    // 4. PROBLEMAS DETECTADOS (Issues) - PENALIZAÇÃO GRADUAL
     const issues = analysis.issues || [];
     let issuesScore = 100;
     
     issues.forEach(issue => {
         switch (issue.severity) {
             case 'critical':
-                issuesScore = Math.max(20, issuesScore - 30); // NÃ£o zerar, mÃ­nimo 20
-                console.log(`ðŸ”§ Issue CRÃTICO: ${issue.description} (-30%)`);
+                issuesScore = Math.max(20, issuesScore - 30); // Não zerar, mínimo 20
+                console.log(`🔧 Issue CRÍTICO: ${issue.description} (-30%)`);
                 break;
             case 'high':
-                issuesScore = Math.max(40, issuesScore - 20); // MÃ­nimo 40
-                console.log(`ðŸ”§ Issue ALTO: ${issue.description} (-20%)`);
+                issuesScore = Math.max(40, issuesScore - 20); // Mínimo 40
+                console.log(`🔧 Issue ALTO: ${issue.description} (-20%)`);
                 break;
             case 'medium':
-                issuesScore = Math.max(60, issuesScore - 10); // MÃ­nimo 60
-                console.log(`ðŸ”§ Issue MÃ‰DIO: ${issue.description} (-10%)`);
+                issuesScore = Math.max(60, issuesScore - 10); // Mínimo 60
+                console.log(`🔧 Issue MÉDIO: ${issue.description} (-10%)`);
                 break;
             case 'low':
-                issuesScore = Math.max(80, issuesScore - 5); // MÃ­nimo 80
-                console.log(`ðŸ”§ Issue BAIXO: ${issue.description} (-5%)`);
+                issuesScore = Math.max(80, issuesScore - 5); // Mínimo 80
+                console.log(`🔧 Issue BAIXO: ${issue.description} (-5%)`);
                 break;
         }
     });
     
     if (issues.length > 0) {
         scores.push(issuesScore);
-        console.log(`ðŸ”§ Issues Gerais: ${issuesScore}% (${issues.length} problemas)`);
+        console.log(`🔧 Issues Gerais: ${issuesScore}% (${issues.length} problemas)`);
     }
     
-    // Se nÃ£o temos mÃ©tricas tÃ©cnicas especÃ­ficas, usar apenas issues
+    // Se não temos métricas técnicas específicas, usar apenas issues
     if (scores.length === 0) {
         const result = Math.max(20, Math.round(issuesScore)); // Nunca zerar
-        console.log(`ðŸ”§ Score TÃ©cnico Final (apenas issues): ${result}%`);
+        console.log(`🔧 Score Técnico Final (apenas issues): ${result}%`);
         return result;
     }
     
-    // MÃ©dia normalizada de todas as mÃ©tricas tÃ©cnicas (0-100)
+    // Média normalizada de todas as métricas técnicas (0-100)
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
     const result = Math.max(20, Math.round(average)); // Nunca zerar completamente
-    console.log(`ðŸ”§ Score TÃ©cnico Final: ${result}% (mÃ©dia de ${scores.length} mÃ©tricas)`);
+    console.log(`🔧 Score Técnico Final: ${result}% (média de ${scores.length} métricas)`);
     return result;
 }
 
-// 8. FUNÃ‡ÃƒO PRINCIPAL: CALCULAR TODOS OS SCORES
+// 8. FUNÇÃO PRINCIPAL: CALCULAR TODOS OS SCORES
 function calculateAnalysisScores(analysis, refData, genre = null) {
-    console.log('ðŸŽ¯ Calculando scores da anÃ¡lise...', { genre });
+    console.log('🎯 Calculando scores da análise...', { genre });
     
     if (!analysis || !refData) {
-        console.warn('âš ï¸ Dados insuficientes para calcular scores');
+        console.warn('⚠️ Dados insuficientes para calcular scores');
         return null;
     }
     
@@ -5709,7 +5767,7 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
     const frequencyScore = calculateFrequencyScore(analysis, refData);
     const technicalScore = calculateTechnicalScore(analysis, refData);
     
-    console.log('ðŸ“Š Sub-scores calculados:', {
+    console.log('📊 Sub-scores calculados:', {
         loudness: loudnessScore,
         dinamica: dynamicsScore,
         estereo: stereoScore,
@@ -5717,13 +5775,13 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
         tecnico: technicalScore
     });
     
-    // Determinar pesos por gÃªnero
+    // Determinar pesos por gênero
     const genreKey = genre ? genre.toLowerCase().replace(/\s+/g, '_') : 'default';
     const weights = GENRE_SCORING_WEIGHTS[genreKey] || GENRE_SCORING_WEIGHTS['default'];
     
-    console.log('âš–ï¸ Pesos aplicados:', weights);
+    console.log('⚖️ Pesos aplicados:', weights);
     
-    // CORREÃ‡ÃƒO: Calcular score final com valores contÃ­nuos
+    // CORREÇÃO: Calcular score final com valores contínuos
     let weightedSum = 0;
     let totalWeight = 0;
     
@@ -5753,11 +5811,11 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
         totalWeight += weights.tecnico;
     }
     
-    // Calcular score final normalizado (permite valores contÃ­nuos como 67.3, depois arredonda)
+    // Calcular score final normalizado (permite valores contínuos como 67.3, depois arredonda)
     let finalScore = null;
     if (totalWeight > 0) {
         const rawFinalScore = weightedSum / totalWeight;
-        finalScore = Math.round(rawFinalScore); // SÃ³ arredondar no final
+        finalScore = Math.round(rawFinalScore); // Só arredondar no final
     }
     
     const result = {
@@ -5771,32 +5829,32 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
         genre: genreKey
     };
     
-    console.log('ðŸŽ¯ Score final calculado:', result);
+    console.log('🎯 Score final calculado:', result);
     
     return result;
 }
 
-// Recalcular apenas as sugestÃµes baseadas em referÃªncia (sem reprocessar o Ã¡udio)
+// Recalcular apenas as sugestões baseadas em referência (sem reprocessar o áudio)
 function updateReferenceSuggestions(analysis) {
     if (!analysis || !analysis.technicalData || !__activeRefData) return;
     
-    // ðŸŽ¯ SISTEMA MELHORADO: Usar Enhanced Suggestion Engine quando disponÃ­vel
+    // 🎯 SISTEMA MELHORADO: Usar Enhanced Suggestion Engine quando disponível
     if (typeof window !== 'undefined' && window.enhancedSuggestionEngine && window.USE_ENHANCED_SUGGESTIONS !== false) {
         try {
-            console.log('ðŸŽ¯ Usando Enhanced Suggestion Engine...');
+            console.log('🎯 Usando Enhanced Suggestion Engine...');
             const enhancedAnalysis = window.enhancedSuggestionEngine.processAnalysis(analysis, __activeRefData);
             
-            // Preservar sugestÃµes nÃ£o-referÃªncia existentes se necessÃ¡rio
+            // Preservar sugestões não-referência existentes se necessário
             const existingSuggestions = Array.isArray(analysis.suggestions) ? analysis.suggestions : [];
             const nonRefSuggestions = existingSuggestions.filter(s => {
                 const type = s?.type || '';
                 return !type.startsWith('reference_') && !type.startsWith('band_adjust') && !type.startsWith('heuristic_');
             });
             
-            // Combinar sugestÃµes melhoradas com existentes preservadas
+            // Combinar sugestões melhoradas com existentes preservadas
             analysis.suggestions = [...enhancedAnalysis.suggestions, ...nonRefSuggestions];
             
-            // Adicionar mÃ©tricas melhoradas Ã  anÃ¡lise
+            // Adicionar métricas melhoradas à análise
             if (enhancedAnalysis.enhancedMetrics) {
                 analysis.enhancedMetrics = enhancedAnalysis.enhancedMetrics;
             }
@@ -5806,37 +5864,37 @@ function updateReferenceSuggestions(analysis) {
                 analysis.auditLog = enhancedAnalysis.auditLog;
             }
             
-            console.log(`ðŸŽ¯ Enhanced Suggestions: ${enhancedAnalysis.suggestions.length} sugestÃµes geradas`);
+            console.log(`🎯 Enhanced Suggestions: ${enhancedAnalysis.suggestions.length} sugestões geradas`);
             return;
             
         } catch (error) {
-            console.warn('ðŸš¨ Erro no Enhanced Suggestion Engine, usando fallback:', error);
+            console.warn('🚨 Erro no Enhanced Suggestion Engine, usando fallback:', error);
             // Continuar com sistema legado em caso de erro
         }
     }
     
-    // ðŸ”„ SISTEMA LEGADO (fallback)
+    // 🔄 SISTEMA LEGADO (fallback)
     const ref = __activeRefData;
     const tech = analysis.technicalData;
     // Garantir lista
     const sug = Array.isArray(analysis.suggestions) ? analysis.suggestions : (analysis.suggestions = []);
-    // Remover sugestÃµes antigas de referÃªncia
+    // Remover sugestões antigas de referência
     const refTypes = new Set(['reference_loudness','reference_dynamics','reference_lra','reference_stereo','reference_true_peak']);
     for (let i = sug.length - 1; i >= 0; i--) {
         const t = sug[i] && sug[i].type;
         if (t && refTypes.has(t)) sug.splice(i, 1);
     }
-    // Helper para criar sugestÃ£o se fora da tolerÃ¢ncia
+    // Helper para criar sugestão se fora da tolerância
     const addRefSug = (val, target, tol, type, label, unit='') => {
         if (!Number.isFinite(val) || !Number.isFinite(target) || !Number.isFinite(tol)) return;
         const diff = val - target;
-        if (Math.abs(diff) <= tol) return; // dentro da tolerÃ¢ncia
+        if (Math.abs(diff) <= tol) return; // dentro da tolerância
         const direction = diff > 0 ? 'acima' : 'abaixo';
         sug.push({
             type,
             message: `${label} ${direction} do alvo (${target}${unit})`,
             action: `Ajustar ${label} ${direction==='acima'?'para baixo':'para cima'} ~${target}${unit}`,
-            details: `DiferenÃ§a: ${diff.toFixed(2)}${unit} â€¢ tolerÃ¢ncia Â±${tol}${unit} â€¢ gÃªnero: ${window.PROD_AI_REF_GENRE}`
+            details: `Diferença: ${diff.toFixed(2)}${unit} • tolerância ±${tol}${unit} • gênero: ${window.PROD_AI_REF_GENRE}`
         });
     };
     // Aplicar checks principais
@@ -5849,9 +5907,9 @@ function updateReferenceSuggestions(analysis) {
     if (Number.isFinite(tech.stereoCorrelation)) addRefSug(tech.stereoCorrelation, ref.stereo_target, ref.tol_stereo, 'reference_stereo', 'Stereo Corr', '');
 }
 
-// ðŸŽ¨ Estilos do seletor de gÃªnero (injeÃ§Ã£o Ãºnica, nÃ£o quebra CSS existente)
+// 🎨 Estilos do seletor de gênero (injeção única, não quebra CSS existente)
 function injectRefGenreStyles() {
-    if (document.getElementById('refGenreEnhancedStyles')) return; // jÃ¡ injetado
+    if (document.getElementById('refGenreEnhancedStyles')) return; // já injetado
     const style = document.createElement('style');
     style.id = 'refGenreEnhancedStyles';
     style.textContent = `
@@ -5883,78 +5941,78 @@ function injectRefGenreStyles() {
     document.head.appendChild(style);
 }
 
-// ðŸ¤– Enviar anÃ¡lise para chat
+// 🤖 Enviar análise para chat
 window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
-    __dbg('ðŸŽ¯ BOTÃƒO CLICADO: Pedir Ajuda Ã  IA');
+    __dbg('🎯 BOTÃO CLICADO: Pedir Ajuda à IA');
     
     if (!currentModalAnalysis) {
-        alert('Nenhuma anÃ¡lise disponÃ­vel');
-        __dbg('âŒ Erro: currentModalAnalysis nÃ£o existe');
+        alert('Nenhuma análise disponível');
+        __dbg('❌ Erro: currentModalAnalysis não existe');
         return;
     }
     
-    __dbg('ðŸ¤– Enviando anÃ¡lise para chat...', currentModalAnalysis);
+    __dbg('🤖 Enviando análise para chat...', currentModalAnalysis);
     
     try {
         // Gerar prompt personalizado baseado nos problemas encontrados
         const prompt = window.audioAnalyzer.generateAIPrompt(currentModalAnalysis);
-        const message = `ðŸŽµ Analisei meu Ã¡udio e preciso de ajuda para melhorar. Aqui estÃ£o os dados tÃ©cnicos:\n\n${prompt}`;
+        const message = `🎵 Analisei meu áudio e preciso de ajuda para melhorar. Aqui estão os dados técnicos:\n\n${prompt}`;
         
-        __dbg('ðŸ“ Prompt gerado:', message.substring(0, 200) + '...');
+        __dbg('📝 Prompt gerado:', message.substring(0, 200) + '...');
         
         // Tentar diferentes formas de integrar com o chat
         let messageSent = false;
         
-        // MÃ©todo 1: Usar diretamente o ProdAI Chatbot quando disponÃ­vel
+        // Método 1: Usar diretamente o ProdAI Chatbot quando disponível
         if (window.prodAIChatbot) {
-            __dbg('ðŸŽ¯ Tentando enviar via ProdAI Chatbot...');
+            __dbg('🎯 Tentando enviar via ProdAI Chatbot...');
             try {
-                // Se o chat ainda nÃ£o estÃ¡ ativo, ativar com a mensagem
+                // Se o chat ainda não está ativo, ativar com a mensagem
                 if (!window.prodAIChatbot.isActive && typeof window.prodAIChatbot.activateChat === 'function') {
-                    __dbg('ðŸš€ Chat inativo. Ativando com a primeira mensagem...');
+                    __dbg('🚀 Chat inativo. Ativando com a primeira mensagem...');
                     await window.prodAIChatbot.activateChat(message);
-                    showTemporaryFeedback('ðŸŽµ AnÃ¡lise enviada para o chat!');
+                    showTemporaryFeedback('🎵 Análise enviada para o chat!');
                     closeAudioModal();
                     messageSent = true;
                 } else if (typeof window.prodAIChatbot.sendMessage === 'function') {
-                    // Chat jÃ¡ ativo: preencher input ativo e enviar
+                    // Chat já ativo: preencher input ativo e enviar
                     const activeInput = document.getElementById('chatbotActiveInput');
                     if (activeInput) {
                         activeInput.value = message;
                         activeInput.focus();
                         activeInput.dispatchEvent(new Event('input', { bubbles: true }));
                         await window.prodAIChatbot.sendMessage();
-                        showTemporaryFeedback('ðŸŽµ AnÃ¡lise enviada para o chat!');
+                        showTemporaryFeedback('🎵 Análise enviada para o chat!');
                         closeAudioModal();
                         messageSent = true;
                     }
                 }
             } catch (err) {
-                __dwrn('âš ï¸ Falha ao usar ProdAIChatbot direto, tentando fallback...', err);
+                __dwrn('⚠️ Falha ao usar ProdAIChatbot direto, tentando fallback...', err);
             }
         }
-        // MÃ©todo 2: Inserir diretamente no input e simular envio
+        // Método 2: Inserir diretamente no input e simular envio
         else {
-            __dbg('ðŸŽ¯ Tentando mÃ©todo alternativo...');
+            __dbg('🎯 Tentando método alternativo...');
             
             const input = document.getElementById('chatbotActiveInput') || document.getElementById('chatbotMainInput');
             const sendBtn = document.getElementById('chatbotActiveSendBtn') || document.getElementById('chatbotSendButton');
             
-            __dbg('ðŸ” Elementos encontrados:', { input: !!input, sendBtn: !!sendBtn });
+            __dbg('🔍 Elementos encontrados:', { input: !!input, sendBtn: !!sendBtn });
             
             if (input && sendBtn) {
                 input.value = message;
                 input.focus();
                 
-                // Disparar eventos para simular interaÃ§Ã£o do usuÃ¡rio
+                // Disparar eventos para simular interação do usuário
                 input.dispatchEvent(new Event('input', { bubbles: true }));
                 input.dispatchEvent(new Event('change', { bubbles: true }));
                 
-                // Aguardar um pouco e clicar no botÃ£o
+                // Aguardar um pouco e clicar no botão
                 setTimeout(() => {
                     sendBtn.click();
-                    __dbg('âœ… BotÃ£o clicado');
-                    showTemporaryFeedback('ðŸŽµ AnÃ¡lise enviada para o chat!');
+                    __dbg('✅ Botão clicado');
+                    showTemporaryFeedback('🎵 Análise enviada para o chat!');
                     closeAudioModal();
                 }, 500);
                 
@@ -5963,31 +6021,31 @@ window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
         }
         
         if (!messageSent) {
-            __dbg('âŒ NÃ£o foi possÃ­vel enviar automaticamente, copiando para clipboard...');
+            __dbg('❌ Não foi possível enviar automaticamente, copiando para clipboard...');
             
             // Fallback: copiar para clipboard
             await navigator.clipboard.writeText(message);
-            showTemporaryFeedback('ðŸ“‹ AnÃ¡lise copiada! Cole no chat manualmente.');
-            __dbg('ðŸ“‹ Mensagem copiada para clipboard como fallback');
+            showTemporaryFeedback('📋 Análise copiada! Cole no chat manualmente.');
+            __dbg('📋 Mensagem copiada para clipboard como fallback');
         }
         
     } catch (error) {
-        console.error('âŒ Erro ao enviar anÃ¡lise para chat:', error);
-        showTemporaryFeedback('âŒ Erro ao enviar anÃ¡lise. Tente novamente.');
+        console.error('❌ Erro ao enviar análise para chat:', error);
+        showTemporaryFeedback('❌ Erro ao enviar análise. Tente novamente.');
     }
 }
 
-// ï¿½ Mostrar feedback temporÃ¡rio
-// (definiÃ§Ã£o duplicada de showTemporaryFeedback removida â€” mantida a versÃ£o consolidada abaixo)
+// � Mostrar feedback temporário
+// (definição duplicada de showTemporaryFeedback removida — mantida a versão consolidada abaixo)
 
-// ï¿½ðŸ“„ Baixar relatÃ³rio do modal
+// �📄 Baixar relatório do modal
 function downloadModalAnalysis() {
     if (!currentModalAnalysis) {
-        alert('Nenhuma anÃ¡lise disponÃ­vel');
+        alert('Nenhuma análise disponível');
         return;
     }
     
-    console.log('ðŸ“„ Baixando relatÃ³rio...');
+    console.log('📄 Baixando relatório...');
     
     try {
         const report = generateDetailedReport(currentModalAnalysis);
@@ -6002,24 +6060,24 @@ function downloadModalAnalysis() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
         
-        console.log('âœ… RelatÃ³rio baixado com sucesso');
-        showTemporaryFeedback('ðŸ“„ RelatÃ³rio baixado!');
+        console.log('✅ Relatório baixado com sucesso');
+        showTemporaryFeedback('📄 Relatório baixado!');
         
     } catch (error) {
-        console.error('âŒ Erro ao baixar relatÃ³rio:', error);
-        alert('Erro ao gerar relatÃ³rio');
+        console.error('❌ Erro ao baixar relatório:', error);
+        alert('Erro ao gerar relatório');
     }
 }
 
-// ðŸ“‹ Gerar relatÃ³rio detalhado
+// 📋 Gerar relatório detalhado
 function generateDetailedReport(analysis) {
     const now = new Date();
-    let report = `ðŸŽµ PROD.AI - RELATÃ“RIO DE ANÃLISE DE ÃUDIO\n`;
+    let report = `🎵 PROD.AI - RELATÓRIO DE ANÁLISE DE ÁUDIO\n`;
     report += `${'='.repeat(50)}\n\n`;
-    report += `ðŸ“… Data: ${now.toLocaleString('pt-BR')}\n`;
-    report += `ðŸ”¬ AnÃ¡lise realizada com tecnologia Web Audio API\n\n`;
+    report += `📅 Data: ${now.toLocaleString('pt-BR')}\n`;
+    report += `🔬 Análise realizada com tecnologia Web Audio API\n\n`;
     
-    report += `ðŸ“Š DADOS TÃ‰CNICOS PRINCIPAIS:\n`;
+    report += `📊 DADOS TÉCNICOS PRINCIPAIS:\n`;
     report += `${'-'.repeat(30)}\n`;
     report += `Peak Level: ${analysis.technicalData.peak.toFixed(2)} dB\n`;
     report += `RMS Level: ${analysis.technicalData.rms.toFixed(2)} dB\n`;
@@ -6029,49 +6087,49 @@ function generateDetailedReport(analysis) {
     report += `Channels: ${analysis.channels || 'N/A'}\n\n`;
     
     if (analysis.technicalData?.dominantFrequencies?.length > 0) {
-        report += `ðŸŽ¯ FREQUÃŠNCIAS DOMINANTES:\n`;
+        report += `🎯 FREQUÊNCIAS DOMINANTES:\n`;
         report += `${'-'.repeat(30)}\n`;
         analysis.technicalData.dominantFrequencies.slice(0, 10).forEach((freq, i) => {
-            report += `${i + 1}. ${Math.round(freq.frequency)} Hz (${freq.occurrences} ocorrÃªncias)\n`;
+            report += `${i + 1}. ${Math.round(freq.frequency)} Hz (${freq.occurrences} ocorrências)\n`;
         });
         report += `\n`;
     }
     
     if (analysis.problems.length > 0) {
-        report += `ðŸš¨ PROBLEMAS DETECTADOS:\n`;
+        report += `🚨 PROBLEMAS DETECTADOS:\n`;
         report += `${'-'.repeat(30)}\n`;
         analysis.problems.forEach((problem, i) => {
             report += `${i + 1}. PROBLEMA: ${problem.message}\n`;
-            report += `   SOLUÃ‡ÃƒO: ${problem.solution}\n`;
+            report += `   SOLUÇÃO: ${problem.solution}\n`;
             report += `   SEVERIDADE: ${problem.severity}\n\n`;
         });
     }
     
     if (analysis.suggestions.length > 0) {
-        report += `ðŸ’¡ SUGESTÃ•ES DE MELHORIA:\n`;
+        report += `💡 SUGESTÕES DE MELHORIA:\n`;
         report += `${'-'.repeat(30)}\n`;
         analysis.suggestions.forEach((suggestion, i) => {
             report += `${i + 1}. ${suggestion.message}\n`;
-            report += `   AÃ‡ÃƒO: ${suggestion.action}\n`;
+            report += `   AÇÃO: ${suggestion.action}\n`;
             report += `   TIPO: ${suggestion.type}\n\n`;
         });
     }
     
-    report += `ðŸ“ OBSERVAÃ‡Ã•ES TÃ‰CNICAS:\n`;
+    report += `📝 OBSERVAÇÕES TÉCNICAS:\n`;
     report += `${'-'.repeat(30)}\n`;
-    report += `â€¢ Esta anÃ¡lise foi realizada usando Web Audio API\n`;
-    report += `â€¢ Para anÃ¡lises mais avanÃ§adas, considere usar ferramentas profissionais\n`;
-    report += `â€¢ Valores de referÃªncia: RMS ideal para streaming: -14 LUFS\n`;
-    report += `â€¢ Peak ideal: mÃ¡ximo -1 dB para evitar clipping\n`;
-    report += `â€¢ Dynamic range ideal: entre 8-15 dB para mÃºsica popular\n\n`;
+    report += `• Esta análise foi realizada usando Web Audio API\n`;
+    report += `• Para análises mais avançadas, considere usar ferramentas profissionais\n`;
+    report += `• Valores de referência: RMS ideal para streaming: -14 LUFS\n`;
+    report += `• Peak ideal: máximo -1 dB para evitar clipping\n`;
+    report += `• Dynamic range ideal: entre 8-15 dB para música popular\n\n`;
     
-    report += `ðŸŽµ Gerado por PROD.AI - Seu mentor de produÃ§Ã£o musical\n`;
-    report += `ðŸ“± Para mais anÃ¡lises: prod-ai-teste.vercel.app\n`;
+    report += `🎵 Gerado por PROD.AI - Seu mentor de produção musical\n`;
+    report += `📱 Para mais análises: prod-ai-teste.vercel.app\n`;
     
     return report;
 }
 
-// ðŸ’¬ Mostrar feedback temporÃ¡rio
+// 💬 Mostrar feedback temporário
 function showTemporaryFeedback(message) {
     // Criar elemento de feedback
     const feedback = document.createElement('div');
@@ -6090,7 +6148,7 @@ function showTemporaryFeedback(message) {
     `;
     feedback.textContent = message;
     
-    // Adicionar animaÃ§Ã£o CSS
+    // Adicionar animação CSS
     if (!document.getElementById('feedbackStyles')) {
         const style = document.createElement('style');
         style.id = 'feedbackStyles';
@@ -6109,7 +6167,7 @@ function showTemporaryFeedback(message) {
     
     document.body.appendChild(feedback);
     
-    // Remover apÃ³s 3 segundos
+    // Remover após 3 segundos
     setTimeout(() => {
         feedback.style.animation = 'slideOutRight 0.3s ease';
         setTimeout(() => {
@@ -6120,28 +6178,28 @@ function showTemporaryFeedback(message) {
     }, 3000);
 }
 
-__dbg('ðŸŽµ Audio Analyzer Integration Script carregado!');
+__dbg('🎵 Audio Analyzer Integration Script carregado!');
 
-// Inicializar quando a pÃ¡gina carregar
+// Inicializar quando a página carregar
 document.addEventListener('DOMContentLoaded', function() {
-    __dbg('ðŸŽµ DOM carregado, inicializando Audio Analyzer...');
+    __dbg('🎵 DOM carregado, inicializando Audio Analyzer...');
     initializeAudioAnalyzerIntegration();
 });
 
-// Fallback: se o DOM jÃ¡ estiver carregado
+// Fallback: se o DOM já estiver carregado
 if (document.readyState !== 'loading') {
-    // se DOM jÃ¡ pronto, inicializar uma vez
+    // se DOM já pronto, inicializar uma vez
     initializeAudioAnalyzerIntegration();
 }
 
-// UtilitÃ¡rio opcional: testar consistÃªncia das mÃ©tricas com reanÃ¡lises repetidas do mesmo arquivo
+// Utilitário opcional: testar consistência das métricas com reanálises repetidas do mesmo arquivo
 // Uso (dev): window.__testConsistency(file, 3).then(console.log)
 if (typeof window !== 'undefined' && !window.__testConsistency) {
     window.__testConsistency = async function(file, runs = 3) {
         const out = { runs: [], deltas: {} };
         for (let i = 0; i < runs; i++) {
             const t0 = performance.now();
-            // ðŸ†” CORREÃ‡ÃƒO: Adicionar runId para funÃ§Ãµes de teste de consistÃªncia
+            // 🆔 CORREÇÃO: Adicionar runId para funções de teste de consistência
             const testOptions = prepareAnalysisOptions({}, `consistency_${i+1}`);
             const res = await window.audioAnalyzer.analyzeAudioFile(file, testOptions);
             const t1 = performance.now();
@@ -6165,7 +6223,7 @@ if (typeof window !== 'undefined' && !window.__testConsistency) {
     };
 }
 
-// ðŸŽ¯ FINAL: Display Reference Results
+// 🎯 FINAL: Display Reference Results
 window.displayReferenceResults = function(referenceResults) {
     window.logReferenceEvent('displaying_reference_results', {
         baseline_source: referenceResults.baseline_source,
@@ -6188,10 +6246,10 @@ window.displayReferenceResults = function(referenceResults) {
             throw new Error('Results container not found');
         }
 
-        // Exibir seÃ§Ã£o de comparaÃ§Ã£o
+        // Exibir seção de comparação
         displayComparisonSection(comparisonData, referenceSuggestions || []);
         
-        // Se hÃ¡ sugestÃµes, exibir
+        // Se há sugestões, exibir
         if (referenceSuggestions && referenceSuggestions.length > 0) {
             const suggestionsList = document.getElementById('suggestions-list');
             if (suggestionsList) {
@@ -6200,19 +6258,19 @@ window.displayReferenceResults = function(referenceResults) {
                         <h4>${suggestion.category}</h4>
                         <p>${suggestion.text}</p>
                         <div class="suggestion-details">
-                            <small>DiferenÃ§a: ${suggestion.difference} | Threshold: ${suggestion.threshold}</small>
+                            <small>Diferença: ${suggestion.difference} | Threshold: ${suggestion.threshold}</small>
                         </div>
                     </div>`
                 ).join('');
             }
         } else {
-            // Audio idÃªntico - mostrar mensagem de sucesso
+            // Audio idêntico - mostrar mensagem de sucesso
             const suggestionsList = document.getElementById('suggestions-list');
             if (suggestionsList) {
                 suggestionsList.innerHTML = `
                     <div class="no-suggestions">
-                        <h3>âœ… AnÃ¡lise de ReferÃªncia ConcluÃ­da</h3>
-                        <p>Os Ã¡udios sÃ£o altamente similares. DiferenÃ§as dentro da tolerÃ¢ncia aceitÃ¡vel.</p>
+                        <h3>✅ Análise de Referência Concluída</h3>
+                        <p>Os áudios são altamente similares. Diferenças dentro da tolerância aceitável.</p>
                     </div>
                 `;
             }
@@ -6232,7 +6290,7 @@ window.displayReferenceResults = function(referenceResults) {
         if (results) {
             results.innerHTML = `
                 <div class="error-display">
-                    <h3>âŒ Erro na ExibiÃ§Ã£o dos Resultados</h3>
+                    <h3>❌ Erro na Exibição dos Resultados</h3>
                     <p>Erro: ${error.message}</p>
                     <p>Baseline Source: ${referenceResults.baseline_source}</p>
                 </div>
@@ -6241,22 +6299,22 @@ window.displayReferenceResults = function(referenceResults) {
     }
 };
 
-// =============== FUNÃ‡Ã•ES DE NORMALIZAÃ‡ÃƒO DE DADOS ===============
+// =============== FUNÇÕES DE NORMALIZAÇÃO DE DADOS ===============
 
 /**
- * ðŸ”§ NOVA FUNÃ‡ÃƒO: Normalizar dados do backend para compatibilidade com front-end
+ * 🔧 NOVA FUNÇÃO: Normalizar dados do backend para compatibilidade com front-end
  * Mapeia a resposta do backend Railway para o formato que o front-end espera
  */
 function normalizeBackendAnalysisData(backendData) {
-    console.log('ðŸ”§ [NORMALIZE] Iniciando normalizaÃ§Ã£o dos dados do backend:', backendData);
+    console.log('🔧 [NORMALIZE] Iniciando normalização dos dados do backend:', backendData);
     
-    // Se jÃ¡ estÃ¡ no formato correto, retornar como estÃ¡
+    // Se já está no formato correto, retornar como está
     if (backendData.technicalData && backendData.technicalData.peak !== undefined) {
-        console.log('ðŸ“Š [NORMALIZE] Dados jÃ¡ estÃ£o normalizados');
+        console.log('📊 [NORMALIZE] Dados já estão normalizados');
         return backendData;
     }
     
-    // Criar estrutura normalizada - SEM FALLBACKS FICTÃCIOS
+    // Criar estrutura normalizada - SEM FALLBACKS FICTÍCIOS
     const normalized = {
         ...backendData,
         technicalData: backendData.technicalData || {},
@@ -6267,27 +6325,27 @@ function normalizeBackendAnalysisData(backendData) {
         channels: backendData.channels || null
     };
     
-    // ðŸŽ¯ MAPEAR MÃ‰TRICAS BÃSICAS - SEM FALLBACKS FICTÃCIOS
+    // 🎯 MAPEAR MÉTRICAS BÁSICAS - SEM FALLBACKS FICTÍCIOS
     const tech = normalized.technicalData;
     const source = backendData.technicalData || backendData.metrics || backendData;
     
-    console.log('ðŸ” [NORMALIZE] Dados de origem recebidos:', source);
-    console.log('ðŸ” [NORMALIZE] Estrutura completa do backend:', backendData);
+    console.log('🔍 [NORMALIZE] Dados de origem recebidos:', source);
+    console.log('🔍 [NORMALIZE] Estrutura completa do backend:', backendData);
     
-    // FunÃ§Ã£o para pegar valor real ou null (sem fallbacks fictÃ­cios)
+    // Função para pegar valor real ou null (sem fallbacks fictícios)
     const getRealValue = (...paths) => {
         for (const path of paths) {
             const value = path.split('.').reduce((obj, key) => obj?.[key], source);
             if (Number.isFinite(value)) {
                 return value;
             }
-            // NOVO: TambÃ©m verificar na estrutura raiz do backendData
+            // NOVO: Também verificar na estrutura raiz do backendData
             const rootValue = path.split('.').reduce((obj, key) => obj?.[key], backendData);
             if (Number.isFinite(rootValue)) {
                 return rootValue;
             }
         }
-        return null; // Retorna null se nÃ£o hÃ¡ valor real
+        return null; // Retorna null se não há valor real
     };
     
     // Peak e RMS - APENAS VALORES REAIS
@@ -6319,7 +6377,7 @@ function normalizeBackendAnalysisData(backendData) {
     tech.lra = getRealValue('lra', 'loudnessRange') ||
               (backendData.loudness?.lra && Number.isFinite(backendData.loudness.lra) ? backendData.loudness.lra : null);
     
-    console.log('ðŸ“Š [NORMALIZE] MÃ©tricas mapeadas (apenas reais):', {
+    console.log('📊 [NORMALIZE] Métricas mapeadas (apenas reais):', {
         peak: tech.peak,
         rms: tech.rms,
         dynamicRange: tech.dynamicRange,
@@ -6352,7 +6410,7 @@ function normalizeBackendAnalysisData(backendData) {
     tech.spectralFlux = getRealValue('spectralFlux', 'spectral_flux');
     tech.spectralFlatness = getRealValue('spectralFlatness', 'spectral_flatness');
     
-    // Problemas tÃ©cnicos - APENAS VALORES REAIS
+    // Problemas técnicos - APENAS VALORES REAIS
     tech.clippingSamples = getRealValue('clippingSamples', 'clipping_samples');
     tech.clippingPct = getRealValue('clippingPct', 'clipping_pct');
     tech.dcOffset = getRealValue('dcOffset', 'dc_offset');
@@ -6362,9 +6420,9 @@ function normalizeBackendAnalysisData(backendData) {
     tech.samplePeakLeftDb = getRealValue('samplePeakLeftDb', 'sample_peak_left_db');
     tech.samplePeakRightDb = getRealValue('samplePeakRightDb', 'sample_peak_right_db');
     
-    // ===== NOVAS MÃ‰TRICAS IMPLEMENTADAS =====
+    // ===== NOVAS MÉTRICAS IMPLEMENTADAS =====
     
-    // Spectral Bandwidth e outras mÃ©tricas espectrais
+    // Spectral Bandwidth e outras métricas espectrais
     tech.spectralBandwidth = getRealValue('spectralBandwidth', 'spectral_bandwidth');
     tech.spectralBandwidthHz = tech.spectralBandwidth; // Alias
     tech.spectralSpread = getRealValue('spectralSpread', 'spectral_spread');
@@ -6372,11 +6430,11 @@ function normalizeBackendAnalysisData(backendData) {
     tech.spectralSkewness = getRealValue('spectralSkewness', 'spectral_skewness');
     tech.spectralKurtosis = getRealValue('spectralKurtosis', 'spectral_kurtosis');
     
-    // ðŸŽµ SPECTRAL BALANCE - Mapear dados espectrais REAIS
+    // 🎵 SPECTRAL BALANCE - Mapear dados espectrais REAIS
     if (source.spectral_balance || source.spectralBalance || source.bands) {
         const spectralSource = source.spectral_balance || source.spectralBalance || source.bands || {};
         
-        // FunÃ§Ã£o especÃ­fica para dados espectrais
+        // Função específica para dados espectrais
         const getSpectralValue = (...paths) => {
             for (const path of paths) {
                 const value = path.split('.').reduce((obj, key) => obj?.[key], spectralSource);
@@ -6395,14 +6453,14 @@ function normalizeBackendAnalysisData(backendData) {
             presence: getSpectralValue('presence'),
             air: getSpectralValue('air')
         };
-        console.log('ðŸ“Š [NORMALIZE] Spectral balance mapeado:', tech.spectral_balance);
+        console.log('📊 [NORMALIZE] Spectral balance mapeado:', tech.spectral_balance);
     } else {
-        // NÃ£o definir se nÃ£o hÃ¡ dados reais
+        // Não definir se não há dados reais
         tech.spectral_balance = null;
-        console.log('âš ï¸ [NORMALIZE] Nenhum dado espectral real encontrado - spectral_balance = null');
+        console.log('⚠️ [NORMALIZE] Nenhum dado espectral real encontrado - spectral_balance = null');
     }
     
-    // ðŸŽ¶ BAND ENERGIES - Mapear energias das bandas de frequÃªncia REAIS
+    // 🎶 BAND ENERGIES - Mapear energias das bandas de frequência REAIS
     if (source.bandEnergies || source.band_energies || source.bands) {
         const bandsSource = source.bandEnergies || source.band_energies || source.bands || {};
         tech.bandEnergies = {};
@@ -6442,7 +6500,7 @@ function normalizeBackendAnalysisData(backendData) {
                 const peak_db = Number.isFinite(bandData.peak_db) ? bandData.peak_db : null;
                 const frequency_range = bandData.frequency_range || bandData.range || null;
                 
-                // SÃ³ adicionar se tiver pelo menos um valor real
+                // Só adicionar se tiver pelo menos um valor real
                 if (rms_db !== null || peak_db !== null) {
                     tech.bandEnergies[targetKey] = {
                         rms_db: rms_db,
@@ -6453,19 +6511,19 @@ function normalizeBackendAnalysisData(backendData) {
             }
         });
         
-        console.log('ðŸ“Š [NORMALIZE] Band energies mapeadas (apenas reais):', tech.bandEnergies);
+        console.log('📊 [NORMALIZE] Band energies mapeadas (apenas reais):', tech.bandEnergies);
         
-        // Se nÃ£o conseguiu mapear nenhuma banda real, deixar null
+        // Se não conseguiu mapear nenhuma banda real, deixar null
         if (Object.keys(tech.bandEnergies).length === 0) {
             tech.bandEnergies = null;
-            console.log('âš ï¸ [NORMALIZE] Nenhuma banda real encontrada - bandEnergies = null');
+            console.log('⚠️ [NORMALIZE] Nenhuma banda real encontrada - bandEnergies = null');
         }
     } else {
         tech.bandEnergies = null;
-        console.log('âš ï¸ [NORMALIZE] Dados de bandas nÃ£o encontrados - bandEnergies = null');
+        console.log('⚠️ [NORMALIZE] Dados de bandas não encontrados - bandEnergies = null');
     }
     
-    // ðŸŽ¼ TONAL BALANCE - Estrutura simplificada para compatibilidade APENAS COM VALORES REAIS
+    // 🎼 TONAL BALANCE - Estrutura simplificada para compatibilidade APENAS COM VALORES REAIS
     if (tech.bandEnergies && Object.keys(tech.bandEnergies).length > 0) {
         tech.tonalBalance = {
             sub: tech.bandEnergies.sub || null,
@@ -6473,17 +6531,17 @@ function normalizeBackendAnalysisData(backendData) {
             mid: tech.bandEnergies.mid || null,
             high: tech.bandEnergies.brilho || null
         };
-        console.log('ðŸ“Š [NORMALIZE] Tonal balance baseado em bandEnergies reais:', tech.tonalBalance);
+        console.log('📊 [NORMALIZE] Tonal balance baseado em bandEnergies reais:', tech.tonalBalance);
     } else {
         tech.tonalBalance = null;
-        console.log('âš ï¸ [NORMALIZE] Nenhuma banda real para tonal balance - tonalBalance = null');
+        console.log('⚠️ [NORMALIZE] Nenhuma banda real para tonal balance - tonalBalance = null');
     }
     
-    // ðŸŽ¯ FREQUÃŠNCIAS DOMINANTES - Estrutura completa com detailed
+    // 🎯 FREQUÊNCIAS DOMINANTES - Estrutura completa com detailed
     if (source.dominantFrequencies || source.dominant_frequencies) {
         const rawData = source.dominantFrequencies || source.dominant_frequencies;
         
-        // Se for string/nÃºmero simples, converter para structured format
+        // Se for string/número simples, converter para structured format
         if (typeof rawData === 'string' || typeof rawData === 'number') {
             tech.dominantFrequencies = {
                 value: rawData,
@@ -6503,17 +6561,17 @@ function normalizeBackendAnalysisData(backendData) {
         } else {
             tech.dominantFrequencies = null;
         }
-        console.log('ðŸ“Š [NORMALIZE] FrequÃªncias dominantes estruturadas:', tech.dominantFrequencies);
+        console.log('📊 [NORMALIZE] Frequências dominantes estruturadas:', tech.dominantFrequencies);
     } else {
         tech.dominantFrequencies = null;
-        console.log('âš ï¸ [NORMALIZE] FrequÃªncias dominantes nÃ£o encontradas - dominantFrequencies = null');
+        console.log('⚠️ [NORMALIZE] Frequências dominantes não encontradas - dominantFrequencies = null');
     }
     
-    // ðŸ”„ DC OFFSET - Estrutura completa com canais L/R
+    // 🔄 DC OFFSET - Estrutura completa com canais L/R
     if (source.dcOffset || source.dc_offset) {
         const rawDcData = source.dcOffset || source.dc_offset;
         
-        // Se for nÃºmero simples, converter para structured format
+        // Se for número simples, converter para structured format
         if (typeof rawDcData === 'number') {
             tech.dcOffset = {
                 value: rawDcData,
@@ -6538,17 +6596,17 @@ function normalizeBackendAnalysisData(backendData) {
         } else {
             tech.dcOffset = null;
         }
-        console.log('ðŸ“Š [NORMALIZE] DC Offset estruturado:', tech.dcOffset);
+        console.log('📊 [NORMALIZE] DC Offset estruturado:', tech.dcOffset);
     } else {
         tech.dcOffset = null;
-        console.log('âš ï¸ [NORMALIZE] DC Offset nÃ£o encontrado - dcOffset = null');
+        console.log('⚠️ [NORMALIZE] DC Offset não encontrado - dcOffset = null');
     }
     
-    // ðŸ“Š SPECTRAL UNIFORMITY - Estrutura detalhada
+    // 📊 SPECTRAL UNIFORMITY - Estrutura detalhada
     if (source.spectralUniformity || source.spectral_uniformity) {
         const rawSpectralData = source.spectralUniformity || source.spectral_uniformity;
         
-        // Se for nÃºmero simples, converter para structured format
+        // Se for número simples, converter para structured format
         if (typeof rawSpectralData === 'number') {
             tech.spectralUniformity = {
                 value: rawSpectralData,
@@ -6573,24 +6631,24 @@ function normalizeBackendAnalysisData(backendData) {
         } else {
             tech.spectralUniformity = null;
         }
-        console.log('ðŸ“Š [NORMALIZE] Spectral Uniformity estruturado:', tech.spectralUniformity);
+        console.log('📊 [NORMALIZE] Spectral Uniformity estruturado:', tech.spectralUniformity);
     } else {
         tech.spectralUniformity = null;
-        console.log('âš ï¸ [NORMALIZE] Spectral Uniformity nÃ£o encontrado - spectralUniformity = null');
+        console.log('⚠️ [NORMALIZE] Spectral Uniformity não encontrado - spectralUniformity = null');
     }
     
-    // ðŸ”¢ SCORES E QUALIDADE - MAPEAMENTO CORRETO PARA NOVA ESTRUTURA
+    // 🔢 SCORES E QUALIDADE - MAPEAMENTO CORRETO PARA NOVA ESTRUTURA
     normalized.qualityOverall = backendData.score && Number.isFinite(backendData.score) ? backendData.score : null;
     
     if (backendData.qualityBreakdown && typeof backendData.qualityBreakdown === 'object') {
         normalized.qualityBreakdown = backendData.qualityBreakdown;
-        console.log('ðŸ“Š [NORMALIZE] Quality breakdown real encontrado:', normalized.qualityBreakdown);
+        console.log('📊 [NORMALIZE] Quality breakdown real encontrado:', normalized.qualityBreakdown);
     } else {
         normalized.qualityBreakdown = null;
-        console.log('âš ï¸ [NORMALIZE] Quality breakdown nÃ£o encontrado - qualityBreakdown = null');
+        console.log('⚠️ [NORMALIZE] Quality breakdown não encontrado - qualityBreakdown = null');
     }
     
-    // ðŸ“Š DADOS AUXILIARES DO NOVO FORMATO
+    // 📊 DADOS AUXILIARES DO NOVO FORMATO
     if (backendData.metadata) {
         normalized.processingMs = backendData.metadata.processingTime || backendData.performance?.workerTotalTimeMs || null;
         normalized.fileName = backendData.metadata.fileName || null;
@@ -6603,13 +6661,13 @@ function normalizeBackendAnalysisData(backendData) {
         normalized.classification = backendData.classification;
     }
     
-    // ðŸŽ¯ DADOS DE SCORING DETALHADOS
+    // 🎯 DADOS DE SCORING DETALHADOS
     if (backendData.scoring) {
         normalized.scoring = backendData.scoring;
-        console.log('ðŸ“Š [NORMALIZE] Dados de scoring encontrados:', backendData.scoring);
+        console.log('📊 [NORMALIZE] Dados de scoring encontrados:', backendData.scoring);
     }
     
-    // ðŸš¨ PROBLEMAS/SUGESTÃ•ES DO NOVO ANALYZER - Integrar com structure completa
+    // 🚨 PROBLEMAS/SUGESTÕES DO NOVO ANALYZER - Integrar com structure completa
     if (source.problemsAnalysis || source.problems_analysis) {
         const problemsData = source.problemsAnalysis || source.problems_analysis;
         
@@ -6619,35 +6677,35 @@ function normalizeBackendAnalysisData(backendData) {
                 normalized.problems.push({
                     type: problem.type || 'analysis',
                     message: problem.message || problem.description || 'Problema detectado',
-                    solution: problem.solution || problem.recommendation || 'Verificar configuraÃ§Ãµes',
+                    solution: problem.solution || problem.recommendation || 'Verificar configurações',
                     severity: problem.severity || 'medium',
                     source: 'problems_analyzer'
                 });
             });
         }
         
-        // Adicionar sugestÃµes do analyzer
+        // Adicionar sugestões do analyzer
         if (problemsData.suggestions && Array.isArray(problemsData.suggestions)) {
             problemsData.suggestions.forEach(suggestion => {
                 normalized.suggestions.push({
                     type: suggestion.type || 'optimization',
-                    message: suggestion.message || suggestion.description || 'SugestÃ£o de melhoria',
-                    action: suggestion.action || suggestion.recommendation || 'Aplicar otimizaÃ§Ã£o',
-                    details: suggestion.details || suggestion.context || 'Detalhes nÃ£o disponÃ­veis',
+                    message: suggestion.message || suggestion.description || 'Sugestão de melhoria',
+                    action: suggestion.action || suggestion.recommendation || 'Aplicar otimização',
+                    details: suggestion.details || suggestion.context || 'Detalhes não disponíveis',
                     source: 'problems_analyzer'
                 });
             });
         }
         
-        console.log('ðŸ“Š [NORMALIZE] Problems/Suggestions do analyzer integrados:', {
+        console.log('📊 [NORMALIZE] Problems/Suggestions do analyzer integrados:', {
             problemsAdded: problemsData.problems?.length || 0,
             suggestionsAdded: problemsData.suggestions?.length || 0
         });
     }
     
-    // ðŸš¨ PROBLEMAS - Garantir que existam alguns problemas/sugestÃµes para exibir
+    // 🚨 PROBLEMAS - Garantir que existam alguns problemas/sugestões para exibir
     if (normalized.problems.length === 0) {
-        // Detectar problemas bÃ¡sicos baseados nas mÃ©tricas - APENAS SE VALORES EXISTEM
+        // Detectar problemas básicos baseados nas métricas - APENAS SE VALORES EXISTEM
         if (Number.isFinite(tech.clippingSamples) && tech.clippingSamples > 0) {
             normalized.problems.push({
                 type: 'clipping',
@@ -6680,19 +6738,19 @@ function normalizeBackendAnalysisData(backendData) {
             normalized.problems.push({
                 type: 'thd',
                 message: `THD elevado (${tech.thdPercent.toFixed(2)}%)`,
-                solution: 'Verificar saturaÃ§Ã£o e distorÃ§Ã£o',
+                solution: 'Verificar saturação e distorção',
                 severity: 'medium'
             });
         }
     }
     
-    // ðŸ’¡ SUGESTÃ•ES - Garantir algumas sugestÃµes bÃ¡sicas - APENAS SE VALORES EXISTEM
+    // 💡 SUGESTÕES - Garantir algumas sugestões básicas - APENAS SE VALORES EXISTEM
     if (normalized.suggestions.length === 0) {
         if (Number.isFinite(tech.dynamicRange) && tech.dynamicRange < 8) {
             normalized.suggestions.push({
                 type: 'dynamics',
-                message: 'Faixa dinÃ¢mica baixa detectada',
-                action: 'Considerar reduzir compressÃ£o/limitaÃ§Ã£o',
+                message: 'Faixa dinâmica baixa detectada',
+                action: 'Considerar reduzir compressão/limitação',
                 details: `DR atual: ${tech.dynamicRange.toFixed(1)}dB`
             });
         }
@@ -6700,9 +6758,9 @@ function normalizeBackendAnalysisData(backendData) {
         if (Number.isFinite(tech.stereoCorrelation) && tech.stereoCorrelation > 0.9) {
             normalized.suggestions.push({
                 type: 'stereo',
-                message: 'Imagem estÃ©reo muito estreita',
-                action: 'Aumentar espacializaÃ§Ã£o estÃ©reo',
-                details: `CorrelaÃ§Ã£o: ${tech.stereoCorrelation.toFixed(3)}`
+                message: 'Imagem estéreo muito estreita',
+                action: 'Aumentar espacialização estéreo',
+                details: `Correlação: ${tech.stereoCorrelation.toFixed(3)}`
             });
         }
         
@@ -6715,15 +6773,15 @@ function normalizeBackendAnalysisData(backendData) {
             });
         }
         
-        // SugestÃµes baseadas nas novas mÃ©tricas
+        // Sugestões baseadas nas novas métricas
         if (tech.spectralUniformity && tech.spectralUniformity.detailed) {
             const uniformity = tech.spectralUniformity.value || tech.spectralUniformity.detailed.variance;
             if (Number.isFinite(uniformity) && uniformity < 0.5) {
                 normalized.suggestions.push({
                     type: 'spectral_balance',
-                    message: 'DistribuiÃ§Ã£o espectral irregular detectada',
-                    action: 'Considerar equalizaÃ§Ã£o para melhor balanceamento',
-                    details: `Uniformidade: ${uniformity.toFixed(3)}, ${tech.spectralUniformity.detailed.distribution || 'AnÃ¡lise pendente'}`
+                    message: 'Distribuição espectral irregular detectada',
+                    action: 'Considerar equalização para melhor balanceamento',
+                    details: `Uniformidade: ${uniformity.toFixed(3)}, ${tech.spectralUniformity.detailed.distribution || 'Análise pendente'}`
                 });
             }
         }
@@ -6734,27 +6792,27 @@ function normalizeBackendAnalysisData(backendData) {
                 if (primary < 80) {
                     normalized.suggestions.push({
                         type: 'frequency_focus',
-                        message: 'FrequÃªncia dominante muito baixa',
-                        action: 'Verificar filtro high-pass ou conteÃºdo sub-bass excessivo',
-                        details: `Freq. primÃ¡ria: ${primary.toFixed(1)} Hz`
+                        message: 'Frequência dominante muito baixa',
+                        action: 'Verificar filtro high-pass ou conteúdo sub-bass excessivo',
+                        details: `Freq. primária: ${primary.toFixed(1)} Hz`
                     });
                 } else if (primary > 8000) {
                     normalized.suggestions.push({
                         type: 'frequency_focus',
-                        message: 'FrequÃªncia dominante muito alta',
-                        action: 'Verificar conteÃºdo excessivo de agudos',
-                        details: `Freq. primÃ¡ria: ${primary.toFixed(1)} Hz`
+                        message: 'Frequência dominante muito alta',
+                        action: 'Verificar conteúdo excessivo de agudos',
+                        details: `Freq. primária: ${primary.toFixed(1)} Hz`
                     });
                 }
             }
         }
     }
     
-    console.log('âœ… [NORMALIZE] NormalizaÃ§Ã£o concluÃ­da:', {
+    console.log('✅ [NORMALIZE] Normalização concluída:', {
         hasTechnicalData: !!normalized.technicalData,
         hasSpectralBalance: !!normalized.technicalData.spectral_balance,
         hasBandEnergies: !!normalized.technicalData.bandEnergies,
-        // Novas mÃ©tricas detalhadas
+        // Novas métricas detalhadas
         hasDominantFreqs: !!normalized.technicalData.dominantFrequencies,
         hasDcOffset: !!normalized.technicalData.dcOffset,
         hasSpectralUniformity: !!normalized.technicalData.spectralUniformity,
@@ -6769,72 +6827,72 @@ function normalizeBackendAnalysisData(backendData) {
     return normalized;
 }
 
-// =============== FUNÃ‡Ã•ES UTILITÃRIAS DO MODAL ===============
+// =============== FUNÇÕES UTILITÁRIAS DO MODAL ===============
 
-// ðŸ“ Ocultar Ã¡rea de upload do modal
+// 📁 Ocultar área de upload do modal
 function hideUploadArea() {
-    __dbg('ðŸ“ Ocultando Ã¡rea de upload...');
+    __dbg('📁 Ocultando área de upload...');
     const uploadArea = document.getElementById('audioUploadArea');
     if (uploadArea) {
         uploadArea.style.display = 'none';
-        __dbg('âœ… Upload area ocultada');
+        __dbg('✅ Upload area ocultada');
     } else {
-        __dbg('âŒ Elemento audioUploadArea nÃ£o encontrado!');
+        __dbg('❌ Elemento audioUploadArea não encontrado!');
     }
 }
 
-// ðŸ”„ Mostrar loading de anÃ¡lise
+// 🔄 Mostrar loading de análise
 function showAnalysisLoading() {
-    __dbg('ðŸ”„ Exibindo loading de anÃ¡lise...');
+    __dbg('🔄 Exibindo loading de análise...');
     const loading = document.getElementById('audioAnalysisLoading');
     const results = document.getElementById('audioAnalysisResults');
     
     if (results) {
         results.style.display = 'none';
-        __dbg('âœ… Results area ocultada');
+        __dbg('✅ Results area ocultada');
     }
     
     if (loading) {
         loading.style.display = 'block';
-        __dbg('âœ… Loading area exibida');
+        __dbg('✅ Loading area exibida');
     } else {
-        __dbg('âŒ Elemento audioAnalysisLoading nÃ£o encontrado!');
+        __dbg('❌ Elemento audioAnalysisLoading não encontrado!');
     }
 }
 
-// â¹ï¸ Ocultar loading de anÃ¡lise
+// ⏹️ Ocultar loading de análise
 function hideAnalysisLoading() {
-    __dbg('â¹ï¸ Ocultando loading de anÃ¡lise...');
+    __dbg('⏹️ Ocultando loading de análise...');
     const loading = document.getElementById('audioAnalysisLoading');
     if (loading) {
         loading.style.display = 'none';
-        __dbg('âœ… Loading area ocultada');
+        __dbg('✅ Loading area ocultada');
     } else {
-        __dbg('âŒ Elemento audioAnalysisLoading nÃ£o encontrado!');
+        __dbg('❌ Elemento audioAnalysisLoading não encontrado!');
     }
 }
 
-// ðŸ“Š Mostrar resultados da anÃ¡lise
+// 📊 Mostrar resultados da análise
 function showAnalysisResults() {
-    __dbg('ðŸ“Š Exibindo resultados da anÃ¡lise...');
+    __dbg('📊 Exibindo resultados da análise...');
     const uploadArea = document.getElementById('audioUploadArea');
     const loading = document.getElementById('audioAnalysisLoading');
     const results = document.getElementById('audioAnalysisResults');
     
     if (uploadArea) {
         uploadArea.style.display = 'none';
-        __dbg('âœ… Upload area ocultada');
+        __dbg('✅ Upload area ocultada');
     }
     
     if (loading) {
         loading.style.display = 'none';
-        __dbg('âœ… Loading area ocultada');
+        __dbg('✅ Loading area ocultada');
     }
     
     if (results) {
         results.style.display = 'block';
-        __dbg('âœ… Results area exibida');
+        __dbg('✅ Results area exibida');
     } else {
-        __dbg('âŒ Elemento audioAnalysisResults nÃ£o encontrado!');
+        __dbg('❌ Elemento audioAnalysisResults não encontrado!');
     }
 }

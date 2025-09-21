@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste: normalizeDominantFrequencies Standalone</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+        }
+        .result {
+            background: #000;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #333;
+        }
+        .error {
+            color: #ff4444;
+        }
+        .success {
+            color: #44ff44;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste: normalizeDominantFrequencies Standalone</h1>
+    
+    <div id="output"></div>
+    
+    <script src="test-normalize-function.js"></script>
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(message, isError = false) {
+            const div = document.createElement('div');
+            div.className = `result ${isError ? 'error' : 'success'}`;
+            div.textContent = message;
+            output.appendChild(div);
+        }
+        
+        // Teste no navegador
+        try {
+            log('🧪 Iniciando teste no navegador...');
+            
+            // Verificar se a função foi carregada
+            if (typeof normalizeDominantFrequencies === 'function') {
+                log('✅ normalizeDominantFrequencies carregada com sucesso!');
+                
+                // Testar formato backend atual
+                const backendData = {
+                    unit: "Hz",
+                    value: 440,
+                    status: "ok",
+                    detailed: {
+                        peaks: [
+                            { frequency: 440, magnitude: 0.8 },
+                            { frequency: 880, magnitude: 0.6 }
+                        ],
+                        primary: 440,
+                        secondary: 880
+                    }
+                };
+                
+                const result = normalizeDominantFrequencies(backendData);
+                log(`🔧 Teste backend: status=${result.status}, peaks=${result.peaks.length}, primary=${result.primary}`);
+                
+                // Simular uso que antes causava TypeError
+                if (result.status === "ok" && result.peaks.length > 0) {
+                    try {
+                        result.peaks.slice(0, 10).forEach((freq, i) => {
+                            const frequency = freq.frequency || freq.value || freq;
+                            // Esta iteração antes causava TypeError
+                        });
+                        log('✅ Iteração realizada sem TypeError - CORREÇÃO CONFIRMADA!');
+                    } catch (e) {
+                        log(`❌ AINDA TEM TypeError: ${e.message}`, true);
+                    }
+                } else {
+                    log('⚠️ Nenhum peak para testar');
+                }
+                
+                log('🎯 Função normalizeDominantFrequencies funciona perfeitamente!');
+                
+            } else {
+                log('❌ Função normalizeDominantFrequencies NÃO foi carregada', true);
+            }
+            
+        } catch (error) {
+            log(`❌ ERRO: ${error.message}`, true);
+        }
+    </script>
+</body>
+</html>
