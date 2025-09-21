@@ -792,6 +792,99 @@ class EnhancedSuggestionEngine {
             }
         }
         
+        // 🎯 NOVO: Processar referenceComparison para bandas espectrais
+        if (typeof window !== 'undefined' && window.PRE_UPDATE_REFERENCE_SUGGESTIONS_DATA) {
+            const referenceComparison = window.PRE_UPDATE_REFERENCE_SUGGESTIONS_DATA;
+            
+            this.logAudit('REFERENCE_COMPARISON_CHECK', 'Verificando dados de referenceComparison', {
+                hasReferenceComparison: !!referenceComparison,
+                isArray: Array.isArray(referenceComparison),
+                length: referenceComparison?.length || 0
+            });
+            
+            if (Array.isArray(referenceComparison)) {
+                // Filtrar apenas itens de bandas espectrais
+                const spectralBands = referenceComparison.filter(item => 
+                    item && item.category === 'spectral_bands'
+                );
+                
+                this.logAudit('SPECTRAL_BANDS_FOUND', 'Bandas espectrais encontradas em referenceComparison', {
+                    totalItems: referenceComparison.length,
+                    spectralBandsCount: spectralBands.length,
+                    spectralBandNames: spectralBands.map(b => b.metric || b.name)
+                });
+                
+                for (const item of spectralBands) {
+                    if (!item.metric) continue;
+                    
+                    const value = item.value;
+                    const ideal = item.ideal;
+                    const delta = Number.isFinite(ideal) && Number.isFinite(value) ? ideal - value : null;
+                    
+                    // 🎯 LOG de verificação solicitado
+                    this.logAudit('SUGGESTIONS', `Banda ${item.metric} - atual: ${value}, alvo: ${ideal}, delta: ${delta}`, {
+                        metric: item.metric,
+                        value: value,
+                        ideal: ideal,
+                        delta: delta,
+                        hasValidData: Number.isFinite(delta)
+                    });
+                    
+                    if (!Number.isFinite(delta) || Math.abs(delta) < 0.2) {
+                        // Ignorar diferenças muito pequenas ou dados inválidos
+                        continue;
+                    }
+                    
+                    // Usar valor real da tolerância se disponível, senão usar padrão para bandas
+                    const tolerance = item.tolerance || 3.0;
+                    
+                    // Calcular z-score baseado no delta e tolerância
+                    const zScore = Math.abs(delta) / tolerance;
+                    const severity = this.scorer.getSeverity(zScore);
+                    
+                    const shouldInclude = severity.level !== 'green' || 
+                        (severity.level === 'yellow' && this.config.includeYellowSeverity);
+                    
+                    if (shouldInclude) {
+                        const priority = this.scorer.calculatePriority({
+                            metricType: 'band',
+                            severity,
+                            confidence,
+                            dependencyBonus: 0
+                        });
+                        
+                        const suggestion = this.scorer.generateSuggestion({
+                            type: 'reference_band_comparison',
+                            subtype: item.metric,
+                            value,
+                            target: ideal,
+                            tolerance,
+                            zScore,
+                            severity,
+                            priority,
+                            confidence,
+                            genre: window.PROD_AI_REF_GENRE || 'unknown',
+                            metricType: 'band',
+                            band: item.metric
+                        });
+                        
+                        suggestions.push(suggestion);
+                        
+                        this.logAudit('REFERENCE_COMPARISON_SUGGESTION', `Sugestão de banda baseada em referenceComparison: ${item.metric}`, {
+                            value: +value.toFixed(2),
+                            ideal: +ideal.toFixed(2),
+                            delta: +delta.toFixed(2),
+                            realDelta: delta, // valor não limitado
+                            zScore: +zScore.toFixed(2),
+                            severity: severity.level,
+                            priority: +priority.toFixed(3),
+                            source: 'referenceComparison'
+                        });
+                    }
+                }
+            }
+        }
+        
         return suggestions;
     }
 
@@ -897,13 +990,19 @@ class EnhancedSuggestionEngine {
         
         // Fallback: tentar construir a partir de dados disponíveis
         if (analysis.technicalData?.dominantFrequencies) {
+            // 🎯 CORREÇÃO: Extrair dados de frequências dominantes corretamente
+            const df = analysis.technicalData.dominantFrequencies;
+            const peaks = Array.isArray(df) ? df : df?.detailed?.peaks || [];
+            
             // Construir espectro simplificado a partir de frequências dominantes
             const freqBins = [];
             const magnitude = [];
             
-            for (const freq of analysis.technicalData.dominantFrequencies) {
-                freqBins.push(freq.frequency);
-                magnitude.push(freq.magnitude || 0.1);
+            for (const freq of peaks) {
+                if (freq && typeof freq === 'object' && Number.isFinite(freq.frequency)) {
+                    freqBins.push(freq.frequency);
+                    magnitude.push(freq.magnitude || 0.1);
+                }
             }
             
             return freqBins.length > 0 ? { freqBins, magnitude } : null;

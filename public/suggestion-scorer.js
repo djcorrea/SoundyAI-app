@@ -291,7 +291,12 @@ class SuggestionScorer {
         } else if (metricType === 'dr') {
             limitedDelta = Math.min(delta, 4.0); // Máximo 4dB para DR
         } else if (metricType === 'band') {
-            limitedDelta = Math.min(delta, 6.0); // Máximo 6dB para bandas
+            // 🎯 CORREÇÃO: Usar delta real para bandas de referenceComparison
+            if (type === 'reference_band_comparison') {
+                limitedDelta = delta; // Sem limitação para dados reais de referência
+            } else {
+                limitedDelta = Math.min(delta, 6.0); // Máximo 6dB para bandas genéricas
+            }
         } else {
             limitedDelta = Math.min(delta, 8.0); // Máximo geral 8dB
         }
