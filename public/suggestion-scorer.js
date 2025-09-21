@@ -334,12 +334,32 @@ class SuggestionScorer {
             .replace('{freq}', freq || '')
             .replace('{delta}', limitedDelta.toFixed(1));
             
-        const action = template.action
-            .replace('{delta}', limitedDelta.toFixed(1))
-            .replace('{target}', target?.toFixed(1) || '')
-            .replace('{range}', this.bandRanges[band] || '')
-            .replace('{band}', band || '')
-            .replace('{freq}', freq || '');
+        // 🎯 CORREÇÃO: Gerar action com delta real para bandas de referenceComparison
+        let action, diagnosis;
+        if (type === 'reference_band_comparison' && Number.isFinite(value) && Number.isFinite(target)) {
+            // Usar delta real sem limitação para dados de referência
+            const realDelta = target - value;
+            const direction = realDelta > 0 ? "Aumentar" : "Reduzir";
+            const amount = Math.abs(realDelta).toFixed(1);
+            const bandRange = this.bandRanges[band] || '';
+            
+            action = `${direction} ${band || metricType} em ${amount} dB${bandRange ? ` (${bandRange})` : ''}`;
+            diagnosis = `Atual: ${value.toFixed(1)} dB, Alvo: ${target.toFixed(1)} dB, Diferença: ${realDelta.toFixed(1)} dB`;
+            
+            // Log de verificação solicitado
+            if (typeof console !== 'undefined') {
+                console.log(`🎯 [SUGGESTION_FINAL] ${band || metricType}: value=${value.toFixed(1)}, ideal=${target.toFixed(1)}, delta=${realDelta.toFixed(1)}`);
+            }
+        } else {
+            // Usar template padrão com limitedDelta
+            action = template.action
+                .replace('{delta}', limitedDelta.toFixed(1))
+                .replace('{target}', target?.toFixed(1) || '')
+                .replace('{range}', this.bandRanges[band] || '')
+                .replace('{band}', band || '')
+                .replace('{freq}', freq || '');
+            diagnosis = null; // Não adicionar diagnosis para sugestões normais
+        }
         
         return {
             type: type || 'reference_metric',
@@ -347,6 +367,7 @@ class SuggestionScorer {
             message,
             action,
             why: template.why,
+            diagnosis, // 🎯 NOVO: Campo diagnosis para sugestões baseadas em referência
             
             // Dados técnicos para auditoria
             technical: {

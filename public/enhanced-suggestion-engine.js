@@ -819,7 +819,19 @@ class EnhancedSuggestionEngine {
                     
                     const value = item.value;
                     const ideal = item.ideal;
-                    const delta = Number.isFinite(ideal) && Number.isFinite(value) ? ideal - value : null;
+                    
+                    // 🎯 REGRA: Se value ou ideal não existirem → não gerar sugestão
+                    if (!Number.isFinite(value) || !Number.isFinite(ideal)) {
+                        this.logAudit('SUGGESTION_SKIPPED', `Banda ignorada por valores inválidos: ${item.metric}`, {
+                            metric: item.metric,
+                            value: value,
+                            ideal: ideal,
+                            reason: !Number.isFinite(value) ? 'value_invalid' : 'ideal_invalid'
+                        });
+                        continue;
+                    }
+                    
+                    const delta = ideal - value;
                     
                     // 🎯 LOG de verificação solicitado
                     this.logAudit('SUGGESTIONS', `Banda ${item.metric} - atual: ${value}, alvo: ${ideal}, delta: ${delta}`, {
@@ -827,11 +839,16 @@ class EnhancedSuggestionEngine {
                         value: value,
                         ideal: ideal,
                         delta: delta,
-                        hasValidData: Number.isFinite(delta)
+                        hasValidData: true
                     });
                     
-                    if (!Number.isFinite(delta) || Math.abs(delta) < 0.2) {
-                        // Ignorar diferenças muito pequenas ou dados inválidos
+                    if (Math.abs(delta) < 0.2) {
+                        // Ignorar diferenças muito pequenas
+                        this.logAudit('SUGGESTION_SKIPPED', `Banda ignorada por delta muito pequeno: ${item.metric}`, {
+                            metric: item.metric,
+                            delta: delta,
+                            threshold: 0.2
+                        });
                         continue;
                     }
                     
