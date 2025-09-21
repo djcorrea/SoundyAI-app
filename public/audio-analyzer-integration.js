@@ -5018,14 +5018,35 @@ function renderReferenceComparisons(analysis) {
         'mid': 'mid',
         'highMid': 'high_mid',
         'presence': 'presenca',
-        'air': 'brilho'
+        'air': 'brilho',
+        // Variações adicionais
+        'low_bass': 'low_bass',
+        'low_mid': 'low_mid',
+        'high_mid': 'high_mid',
+        'presenca': 'presenca',
+        'brilho': 'brilho'
     };
     
     // 🎯 MAPEAMENTO REVERSO: Bandas de Referência → Bandas Calculadas
-    const bandMappingRefToCalc = {};
-    Object.entries(bandMappingCalcToRef).forEach(([calc, ref]) => {
-        bandMappingRefToCalc[ref] = calc;
-    });
+    const bandMappingRefToCalc = {
+        'sub': 'sub',
+        'low_bass': 'bass',
+        'upper_bass': 'bass', // 🎯 NOVO: upper_bass → bass
+        'low_mid': 'lowMid',
+        'mid': 'mid',
+        'high_mid': 'highMid',
+        'presenca': 'presence',
+        'brilho': 'air'
+    };
+    
+    // 🎯 ALIAS DE BANDAS: Nomes alternativos para busca
+    const bandAliases = {
+        'bass': ['low_bass', 'upper_bass'],
+        'lowMid': ['low_mid'],
+        'highMid': ['high_mid'],
+        'presence': ['presenca'],
+        'air': ['brilho']
+    };
     
     // Priorizar bandas centralizadas se disponíveis
     const bandsToUse = centralizedBands && Object.keys(centralizedBands).length > 0 ? centralizedBands : legacyBandEnergies;
@@ -5058,41 +5079,74 @@ function renderReferenceComparisons(analysis) {
             const calcBandKey = bandMappingRefToCalc[refBandKey] || refBandKey;
             let bLocal = null;
             
-            console.log(`🔍 Processando: ${refBandKey} → ${calcBandKey}`);
+            console.log(`🔍 [BANDS] Processando: ${refBandKey} → ${calcBandKey}`);
             
-            // Buscar dados da banda calculada
-            if (centralizedBands && centralizedBands[calcBandKey]) {
-                bLocal = { rms_db: centralizedBands[calcBandKey].energy_db };
-                console.log(`✅ Encontrado em centralizedBands: ${centralizedBands[calcBandKey].energy_db}dB`);
+            // 🎯 NOVO: Busca melhorada com sistema de alias
+            const searchBandData = (bandKey) => {
+                // Buscar diretamente
+                if (centralizedBands && centralizedBands[bandKey]) {
+                    return { rms_db: centralizedBands[bandKey].energy_db, source: 'centralized' };
+                }
+                if (legacyBandEnergies && legacyBandEnergies[bandKey]) {
+                    return { ...legacyBandEnergies[bandKey], source: 'legacy' };
+                }
                 
-                // Log de validação
-                if (typeof window !== 'undefined' && window.METRICS_BANDS_VALIDATION !== false && legacyBandEnergies?.[calcBandKey]) {
-                    const legacyValue = legacyBandEnergies[calcBandKey].rms_db;
-                    if (Number.isFinite(legacyValue) && Math.abs(centralizedBands[calcBandKey].energy_db - legacyValue) > 0.01) {
-                        console.warn(`🎯 BAND_DIFF: ${calcBandKey} centralized=${centralizedBands[calcBandKey].energy_db} vs legacy=${legacyValue}`);
+                // Buscar por alias
+                if (bandAliases[bandKey]) {
+                    for (const alias of bandAliases[bandKey]) {
+                        if (centralizedBands && centralizedBands[alias]) {
+                            console.log(`🔄 [ALIAS] ${bandKey} → ${alias} (centralized)`);
+                            return { rms_db: centralizedBands[alias].energy_db, source: 'centralized-alias' };
+                        }
+                        if (legacyBandEnergies && legacyBandEnergies[alias]) {
+                            console.log(`🔄 [ALIAS] ${bandKey} → ${alias} (legacy)`);
+                            return { ...legacyBandEnergies[alias], source: 'legacy-alias' };
+                        }
                     }
                 }
-            } else if (legacyBandEnergies && legacyBandEnergies[calcBandKey]) {
-                bLocal = legacyBandEnergies[calcBandKey];
-                console.log(`✅ Encontrado em legacyBandEnergies: ${bLocal.rms_db}dB`);
-            } else if (centralizedBands && centralizedBands[refBandKey]) {
-                // Fallback: tentar chave de referência direta
-                bLocal = { rms_db: centralizedBands[refBandKey].energy_db };
-                console.log(`⚠️ Fallback para chave de referência: ${centralizedBands[refBandKey].energy_db}dB`);
-            } else {
-                console.warn(`❌ Banda não encontrada: ${refBandKey} / ${calcBandKey}`);
+                
+                return null;
+            };
+            
+            // Buscar dados da banda
+            bLocal = searchBandData(calcBandKey);
+            
+            // Se não encontrou, tentar busca direta pela chave de referência
+            if (!bLocal) {
+                bLocal = searchBandData(refBandKey);
+                if (bLocal) {
+                    console.log(`⚠️ [BANDS] Fallback para chave de referência: ${refBandKey}`);
+                }
             }
             
-            if (bLocal && Number.isFinite(bLocal.rms_db)) {
-                let tgt = null;
-                if (!refBand._target_na && Number.isFinite(refBand.target_db)) tgt = refBand.target_db;
-                if (showNorm && normMap && Number.isFinite(normMap[refBandKey])) tgt = normMap[refBandKey];
-                
-                const displayName = bandDisplayNames[calcBandKey] || bandDisplayNames[refBandKey] || refBandKey;
-                
-                console.log(`📊 Adicionando banda: ${displayName}, valor: ${bLocal.rms_db}dB, target: ${tgt}dB`);
-                pushRow(displayName, bLocal.rms_db, tgt, refBand.tol_db, ' dB');
+            // 🎯 TRATAMENTO SILENCIOSO: Ignorar bandas não encontradas sem erro
+            if (!bLocal || !Number.isFinite(bLocal.rms_db)) {
+                console.log(`🔇 [BANDS] Ignorando banda inexistente: ${refBandKey} / ${calcBandKey}`);
+                continue; // Pular silenciosamente
             }
+            
+            // Banda encontrada - processar normalmente
+            console.log(`✅ [BANDS] Encontrado ${refBandKey}: ${bLocal.rms_db}dB (${bLocal.source})`);
+            
+            // Log de validação entre sistemas
+            if (typeof window !== 'undefined' && window.METRICS_BANDS_VALIDATION !== false && 
+                bLocal.source === 'centralized' && legacyBandEnergies?.[calcBandKey]) {
+                const legacyValue = legacyBandEnergies[calcBandKey].rms_db;
+                if (Number.isFinite(legacyValue) && Math.abs(bLocal.rms_db - legacyValue) > 0.01) {
+                    console.warn(`🎯 BAND_DIFF: ${calcBandKey} centralized=${bLocal.rms_db} vs legacy=${legacyValue}`);
+                }
+            }
+            
+            // Determinar target
+            let tgt = null;
+            if (!refBand._target_na && Number.isFinite(refBand.target_db)) tgt = refBand.target_db;
+            if (showNorm && normMap && Number.isFinite(normMap[refBandKey])) tgt = normMap[refBandKey];
+            
+            // Nome para exibição
+            const displayName = bandDisplayNames[calcBandKey] || bandDisplayNames[refBandKey] || refBandKey;
+            
+            console.log(`📊 [BANDS] Adicionando: ${displayName}, valor: ${bLocal.rms_db}dB, target: ${tgt}dB`);
+            pushRow(displayName, bLocal.rms_db, tgt, refBand.tol_db, ' dB');
         }
         
         // 🎯 PROCESSAMENTO DE BANDAS EXTRAS: Bandas calculadas que não estão na referência
@@ -5263,6 +5317,19 @@ function renderReferenceComparisons(analysis) {
             });
         }
     }
+    
+    // 🎯 LOG DE RESUMO: Bandas processadas com sucesso
+    const bandasDisponiveis = ref.bands ? Object.keys(ref.bands).length : 0;
+    const bandasProcessadas = rows.length - 5; // Subtrair métricas básicas (LUFS, Peak, DR, LRA, Stereo)
+    
+    console.log('📊 [BANDS] Resumo do processamento de bandas:', {
+        bandas_na_referencia: bandasDisponiveis,
+        bandas_processadas: Math.max(0, bandasProcessadas),
+        metricas_totais: rows.length,
+        centralized_bands_ok: !!centralizedBands,
+        legacy_bands_ok: !!legacyBandEnergies,
+        modo_referencia: isReferenceMode
+    });
     
     // MOSTRAR TABELA COMPLETA
     container.innerHTML = `<div class="card" style="margin-top:12px;">
@@ -6361,7 +6428,25 @@ function normalizeBackendAnalysisData(backendData) {
     console.log('🔍 [NORMALIZE] Dados de origem recebidos:', source);
     console.log('🔍 [NORMALIZE] Estrutura completa do backend:', backendData);
     
-    // Função para pegar valor real ou null (sem fallbacks fictícios)
+    // 🎯 ALIAS MAP - Mapeamento de nomes divergentes de métricas
+    const aliasMap = {
+        // Métricas principais
+        'dr': ['dynamic_range', 'dynamicRange'],
+        'lra': ['loudness.lra', 'loudnessRange', 'lra_tolerance'],
+        'crestFactor': ['dynamics.crest', 'crest_factor'],
+        'truePeakDbtp': ['truePeak.maxDbtp', 'true_peak_dbtp', 'truePeak'],
+        'lufsIntegrated': ['loudness.integrated', 'lufs_integrated', 'lufs'],
+        
+        // Bandas espectrais - normalização de nomes
+        'low_mid': ['lowMid', 'low_mid'],
+        'high_mid': ['highMid', 'high_mid'],
+        'presenca': ['presence'],
+        'brilho': ['air'],
+        'low_bass': ['bass'],
+        'upper_bass': ['bass', 'low_bass'] // upper_bass → bass como fallback
+    };
+    
+    // Função para pegar valor real ou null (sem fallbacks fictícios) + suporte a alias
     const getRealValue = (...paths) => {
         for (const path of paths) {
             const value = path.split('.').reduce((obj, key) => obj?.[key], source);
@@ -6372,6 +6457,23 @@ function normalizeBackendAnalysisData(backendData) {
             const rootValue = path.split('.').reduce((obj, key) => obj?.[key], backendData);
             if (Number.isFinite(rootValue)) {
                 return rootValue;
+            }
+            
+            // 🎯 NOVO: Verificar alias se não encontrou valor direto
+            if (aliasMap[path]) {
+                for (const aliasPath of aliasMap[path]) {
+                    const aliasValue = aliasPath.split('.').reduce((obj, key) => obj?.[key], source);
+                    if (Number.isFinite(aliasValue)) {
+                        console.log(`🔄 [ALIAS] ${path} → ${aliasPath}: ${aliasValue}`);
+                        return aliasValue;
+                    }
+                    // Verificar alias na estrutura raiz também
+                    const rootAliasValue = aliasPath.split('.').reduce((obj, key) => obj?.[key], backendData);
+                    if (Number.isFinite(rootAliasValue)) {
+                        console.log(`🔄 [ALIAS] ${path} → ${aliasPath}: ${rootAliasValue}`);
+                        return rootAliasValue;
+                    }
+                }
             }
         }
         return null; // Retorna null se não há valor real
@@ -6851,6 +6953,21 @@ function normalizeBackendAnalysisData(backendData) {
         problemsCount: normalized.problems.length,
         suggestionsCount: normalized.suggestions.length,
         qualityScore: normalized.qualityOverall
+    });
+    
+    // 🎯 LOG DE RESUMO: Métricas normalizadas com sucesso
+    const normalizedMetrics = Object.keys(normalized.technicalData).filter(key => 
+        Number.isFinite(normalized.technicalData[key])
+    );
+    
+    console.log('📊 [NORMALIZE] Resumo da normalização:', {
+        metricas_normalizadas: normalizedMetrics.length,
+        metricas_disponiveis: normalizedMetrics,
+        spectral_balance_ok: !!normalized.technicalData.spectral_balance,
+        bandas_disponiveis: normalized.technicalData.bandEnergies ? 
+            Object.keys(normalized.technicalData.bandEnergies).length : 0,
+        problemas_detectados: normalized.problems.length,
+        sugestoes_iniciais: normalized.suggestions.length
     });
     
     return normalized;
