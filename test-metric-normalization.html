@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Teste: Normalização de Métricas - SoundyAI</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #0f0f23;
+            color: #cccccc;
+        }
+        .header {
+            background: linear-gradient(135deg, #1e1e3f, #2d2d5f);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .test-section {
+            background: #1a1a2e;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            border-left: 4px solid #4a9eff;
+        }
+        .success {
+            border-left-color: #28a745;
+        }
+        .error {
+            border-left-color: #dc3545;
+        }
+        .warning {
+            border-left-color: #ffc107;
+        }
+        pre {
+            background: #0d1117;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+        }
+        .metric-item {
+            background: #16213e;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #333;
+        }
+        .metric-name {
+            font-weight: bold;
+            color: #4a9eff;
+        }
+        .metric-value {
+            color: #28a745;
+        }
+        .metric-missing {
+            color: #dc3545;
+        }
+        button {
+            background: #4a9eff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #357abd;
+        }
+        #results {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔧 Teste de Normalização de Métricas</h1>
+        <p>Verificando se todas as métricas do backend são convertidas corretamente para o Suggestion Engine</p>
+    </div>
+
+    <div class="test-section">
+        <h3>🎯 Objetivo</h3>
+        <p>Garantir que todas as métricas calculadas no backend sejam convertidas corretamente para os nomes esperados pelo Suggestion Engine, evitando valores undefined e garantindo sugestões completas.</p>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 Dados de Teste</h3>
+        <button onclick="runNormalizationTest()">🚀 Executar Teste de Normalização</button>
+        <button onclick="clearResults()">🧹 Limpar Resultados</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script src="audio-analyzer-integration.js"></script>
+    <script>
+        // 🧪 Dados de teste simulando resposta do backend com nomes inconsistentes
+        const mockBackendResponse = {
+            technicalData: {
+                // ⚠️ Nomes inconsistentes que precisam ser normalizados
+                lufs: -18.5,           // deve virar lufsIntegrated
+                dbtp: -1.2,           // deve virar truePeakDbtp  
+                dr: 8.5,              // deve virar dynamicRange
+                correlation: 0.85,    // deve virar stereoCorrelation
+                width: 65,            // deve virar stereoWidth
+                balance: 0.02,        // deve virar balanceLR
+                centroid: 2500,       // deve virar spectralCentroid
+                rolloff: 8000,        // deve virar spectralRolloff
+                zcr: 0.15,           // deve virar zeroCrossingRate
+                clipping: 15,         // deve virar clippingSamples
+                clip_pct: 0.5,       // deve virar clippingPct
+                dc: 0.001,           // deve virar dcOffset
+                thd: 0.8,            // deve virar thdPercent
+                
+                // Métricas já com nomes corretos (devem ser preservadas)
+                peak: -3.2,
+                rms: -21.8,
+                crestFactor: 12.5,
+                lra: 4.2,
+                lufsShortTerm: -18.8,
+                lufsMomentary: -19.1,
+                
+                // Bandas espectrais com nomes inconsistentes
+                spectral_balance: {
+                    low_bass: -25.3,    // deve virar bass
+                    bass: -22.1,        // já correto
+                    low_mid: -18.5,     // deve virar lowMid
+                    mid: -16.2,         // já correto
+                    high_mid: -14.8,    // deve virar highMid
+                    presence: -12.3,    // já correto
+                    brilho: -10.1      // deve virar air
+                },
+                
+                bandEnergies: {
+                    sub_bass: 0.05,     // deve virar subBass
+                    low_bass: 0.12,     // deve virar bass
+                    bass: 0.18,         // já correto
+                    low_mids: 0.22,     // deve virar lowMid
+                    mids: 0.25,         // deve virar mid
+                    high_mids: 0.20,    // deve virar highMid
+                    presence: 0.15,     // já correto
+                    brilliance: 0.08    // deve virar air
+                }
+            },
+            problems: ['mock_problem'],
+            suggestions: ['mock_suggestion'],
+            qualityOverall: 7.5
+        };
+
+        function runNormalizationTest() {
+            const resultsDiv = document.getElementById('results');
+            
+            try {
+                console.log('🧪 Iniciando teste de normalização...');
+                
+                // Executar normalização
+                const normalized = normalizeBackendAnalysisData(mockBackendResponse);
+                
+                // Verificar se a função de normalização existe
+                if (typeof normalizeMetricNames !== 'function') {
+                    throw new Error('Função normalizeMetricNames não encontrada!');
+                }
+                
+                if (typeof normalizeSpectralBands !== 'function') {
+                    throw new Error('Função normalizeSpectralBands não encontrada!');
+                }
+                
+                // Executar normalizações individuais para teste
+                const normalizedMetrics = normalizeMetricNames(mockBackendResponse.technicalData);
+                const normalizedBands = normalizeSpectralBands(mockBackendResponse.technicalData.spectral_balance || {});
+                const normalizedEnergies = normalizeSpectralBands(mockBackendResponse.technicalData.bandEnergies || {});
+                
+                resultsDiv.innerHTML = `
+                    <div class="test-section success">
+                        <h3>✅ Teste Executado com Sucesso!</h3>
+                        <p>Todas as funções de normalização foram encontradas e executadas.</p>
+                    </div>
+                    
+                    <div class="test-section">
+                        <h3>📊 Métricas Normalizadas</h3>
+                        <div class="metric-grid">
+                            ${generateMetricValidation(normalized.technicalData, normalizedMetrics)}
+                        </div>
+                    </div>
+                    
+                    <div class="test-section">
+                        <h3>🎵 Bandas Espectrais Normalizadas</h3>
+                        <div class="metric-grid">
+                            ${generateBandValidation(normalized.technicalData.spectral_balance, normalizedBands)}
+                        </div>
+                    </div>
+                    
+                    <div class="test-section">
+                        <h3>🔊 Energias de Banda Normalizadas</h3>
+                        <div class="metric-grid">
+                            ${generateBandValidation(normalized.technicalData.bandEnergies, normalizedEnergies)}
+                        </div>
+                    </div>
+                    
+                    <div class="test-section">
+                        <h3>🔍 Verificação de Métricas Undefined</h3>
+                        ${checkUndefinedMetrics(normalized.technicalData)}
+                    </div>
+                    
+                    <div class="test-section">
+                        <h3>📝 Log Detalhado</h3>
+                        <pre>${JSON.stringify(normalized, null, 2)}</pre>
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('❌ Erro no teste:', error);
+                resultsDiv.innerHTML = `
+                    <div class="test-section error">
+                        <h3>❌ Erro no Teste</h3>
+                        <p><strong>Erro:</strong> ${error.message}</p>
+                        <pre>${error.stack}</pre>
+                    </div>
+                `;
+            }
+        }
+        
+        function generateMetricValidation(finalData, normalizedData) {
+            const expectedMappings = {
+                'lufs → lufsIntegrated': [finalData.lufsIntegrated, normalizedData.lufsIntegrated],
+                'dbtp → truePeakDbtp': [finalData.truePeakDbtp, normalizedData.truePeakDbtp],
+                'dr → dynamicRange': [finalData.dynamicRange, normalizedData.dynamicRange],
+                'correlation → stereoCorrelation': [finalData.stereoCorrelation, normalizedData.stereoCorrelation],
+                'width → stereoWidth': [finalData.stereoWidth, normalizedData.stereoWidth],
+                'balance → balanceLR': [finalData.balanceLR, normalizedData.balanceLR],
+                'centroid → spectralCentroid': [finalData.spectralCentroid, normalizedData.spectralCentroid],
+                'rolloff → spectralRolloff': [finalData.spectralRolloff, normalizedData.spectralRolloff],
+                'zcr → zeroCrossingRate': [finalData.zeroCrossingRate, normalizedData.zeroCrossingRate],
+                'clipping → clippingSamples': [finalData.clippingSamples, normalizedData.clippingSamples],
+                'clip_pct → clippingPct': [finalData.clippingPct, normalizedData.clippingPct],
+                'dc → dcOffset': [finalData.dcOffset, normalizedData.dcOffset],
+                'thd → thdPercent': [finalData.thdPercent, normalizedData.thdPercent]
+            };
+            
+            return Object.entries(expectedMappings)
+                .map(([mapping, [finalValue, normalizedValue]]) => {
+                    const isValid = finalValue !== undefined && normalizedValue !== undefined;
+                    const className = isValid ? 'metric-value' : 'metric-missing';
+                    return `
+                        <div class="metric-item">
+                            <div class="metric-name">${mapping}</div>
+                            <div class="${className}">
+                                Final: ${finalValue !== undefined ? finalValue : 'undefined'}<br>
+                                Normalizado: ${normalizedValue !== undefined ? normalizedValue : 'undefined'}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+        }
+        
+        function generateBandValidation(finalData, normalizedData) {
+            const expectedBandMappings = {
+                'low_bass → bass': [finalData?.bass, normalizedData?.bass],
+                'low_mid → lowMid': [finalData?.lowMid, normalizedData?.lowMid],
+                'high_mid → highMid': [finalData?.highMid, normalizedData?.highMid],
+                'brilho → air': [finalData?.air, normalizedData?.air],
+                'sub_bass → subBass': [finalData?.subBass, normalizedData?.subBass],
+                'low_mids → lowMid': [finalData?.lowMid, normalizedData?.lowMid],
+                'mids → mid': [finalData?.mid, normalizedData?.mid],
+                'high_mids → highMid': [finalData?.highMid, normalizedData?.highMid],
+                'brilliance → air': [finalData?.air, normalizedData?.air]
+            };
+            
+            return Object.entries(expectedBandMappings)
+                .map(([mapping, [finalValue, normalizedValue]]) => {
+                    const isValid = finalValue !== undefined && normalizedValue !== undefined;
+                    const className = isValid ? 'metric-value' : 'metric-missing';
+                    return `
+                        <div class="metric-item">
+                            <div class="metric-name">${mapping}</div>
+                            <div class="${className}">
+                                Final: ${finalValue !== undefined ? finalValue : 'undefined'}<br>
+                                Normalizado: ${normalizedValue !== undefined ? normalizedValue : 'undefined'}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+        }
+        
+        function checkUndefinedMetrics(technicalData) {
+            const undefinedMetrics = Object.entries(technicalData)
+                .filter(([key, value]) => value === undefined)
+                .map(([key]) => key);
+            
+            if (undefinedMetrics.length === 0) {
+                return `
+                    <div class="metric-item success">
+                        <div class="metric-name">✅ Verificação Completa</div>
+                        <div class="metric-value">
+                            Nenhuma métrica undefined detectada!<br>
+                            Todas as ${Object.keys(technicalData).length} métricas foram normalizadas com sucesso.
+                        </div>
+                    </div>
+                `;
+            } else {
+                return `
+                    <div class="metric-item error">
+                        <div class="metric-name">⚠️ Métricas Undefined</div>
+                        <div class="metric-missing">
+                            ${undefinedMetrics.length} métricas undefined:<br>
+                            ${undefinedMetrics.join(', ')}
+                        </div>
+                    </div>
+                `;
+            }
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            console.clear();
+            console.log('🧹 Resultados limpos');
+        }
+        
+        // Auto-executar teste ao carregar a página
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('📄 Página de teste carregada');
+            console.log('🎯 Objetivo: Testar normalização de métricas do backend para Suggestion Engine');
+        });
+    </script>
+</body>
+</html>

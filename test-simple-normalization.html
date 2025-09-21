@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste Simples: Normalização SoundyAI</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+        }
+        .result {
+            background: #000;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #333;
+        }
+        .error {
+            color: #ff4444;
+        }
+        .success {
+            color: #44ff44;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste Simples: Normalização de Métricas</h1>
+    
+    <div id="output"></div>
+    
+    <script src="audio-analyzer-integration.js"></script>
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(message, isError = false) {
+            const div = document.createElement('div');
+            div.className = `result ${isError ? 'error' : 'success'}`;
+            div.textContent = message;
+            output.appendChild(div);
+            console.log(message);
+        }
+        
+        // Teste básico das funções
+        try {
+            log('🧪 Iniciando teste...');
+            
+            // Verificar se as funções existem
+            if (typeof normalizeMetricNames === 'function') {
+                log('✅ normalizeMetricNames encontrada');
+            } else {
+                log('❌ normalizeMetricNames NÃO encontrada', true);
+            }
+            
+            if (typeof normalizeSpectralBands === 'function') {
+                log('✅ normalizeSpectralBands encontrada');
+            } else {
+                log('❌ normalizeSpectralBands NÃO encontrada', true);
+            }
+            
+            if (typeof normalizeBackendAnalysisData === 'function') {
+                log('✅ normalizeBackendAnalysisData encontrada');
+            } else {
+                log('❌ normalizeBackendAnalysisData NÃO encontrada', true);
+            }
+            
+            // Teste rápido de normalização
+            const testMetrics = {
+                lufs: -18.5,
+                dbtp: -1.2,
+                correlation: 0.85
+            };
+            
+            const normalizedMetrics = normalizeMetricNames(testMetrics);
+            log(`🔧 Teste normalizeMetricNames: ${Object.keys(normalizedMetrics).length} métricas processadas`);
+            
+            const testBands = {
+                low_bass: -25.3,
+                brilho: -10.1
+            };
+            
+            const normalizedBands = normalizeSpectralBands(testBands);
+            log(`🎵 Teste normalizeSpectralBands: ${normalizedBands ? Object.keys(normalizedBands).length : 0} bandas processadas`);
+            
+            // Teste completo
+            const testData = {
+                technicalData: testMetrics,
+                problems: [],
+                suggestions: []
+            };
+            
+            const result = normalizeBackendAnalysisData(testData);
+            log(`📊 Teste normalizeBackendAnalysisData: ${result ? 'SUCESSO' : 'FALHOU'}`);
+            
+            log('🎯 Teste concluído com sucesso!');
+            
+        } catch (error) {
+            log(`❌ ERRO no teste: ${error.message}`, true);
+            console.error('Stack trace:', error);
+        }
+    </script>
+</body>
+</html>
