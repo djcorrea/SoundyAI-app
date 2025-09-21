@@ -2109,6 +2109,22 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         // 🔧 CORREÇÃO: Normalizar dados do backend antes de usar
         const normalizedResult = normalizeBackendAnalysisData(analysisResult);
         
+        // 🎯 CORREÇÃO CRÍTICA: Gerar sugestões no primeiro load
+        if (__activeRefData && !normalizedResult._suggestionsGenerated) {
+            console.log('🎯 [SUGGESTIONS] Engine chamado no primeiro load');
+            try {
+                updateReferenceSuggestions(normalizedResult, __activeRefData);
+                normalizedResult._suggestionsGenerated = true;
+                console.log(`🎯 [SUGGESTIONS] ${normalizedResult.suggestions?.length || 0} sugestões geradas no primeiro load`);
+            } catch (error) {
+                console.error('❌ [SUGGESTIONS] Erro ao gerar sugestões no primeiro load:', error);
+            }
+        } else if (!__activeRefData) {
+            console.log('🎯 [SUGGESTIONS] Dados de referência não disponíveis para gerar sugestões');
+        } else {
+            console.log('🎯 [SUGGESTIONS] Sugestões já foram geradas anteriormente');
+        }
+        
         // Definir como análise atual do modal
         currentModalAnalysis = normalizedResult;
         
@@ -5838,6 +5854,12 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
 function updateReferenceSuggestions(analysis) {
     if (!analysis || !analysis.technicalData || !__activeRefData) return;
     
+    // 🛡️ PROTEÇÃO: Evitar duplicação - resetar flag se chamado via applyGenreSelection
+    if (analysis._suggestionsGenerated) {
+        console.log('🎯 [SUGGESTIONS] Recalculando sugestões para novo gênero (resetando flag)');
+        analysis._suggestionsGenerated = false;
+    }
+    
     // 🎯 SISTEMA MELHORADO: Usar Enhanced Suggestion Engine quando disponível
     if (typeof window !== 'undefined' && window.enhancedSuggestionEngine && window.USE_ENHANCED_SUGGESTIONS !== false) {
         try {
@@ -5864,7 +5886,9 @@ function updateReferenceSuggestions(analysis) {
                 analysis.auditLog = enhancedAnalysis.auditLog;
             }
             
-            console.log(`🎯 Enhanced Suggestions: ${enhancedAnalysis.suggestions.length} sugestões geradas`);
+            console.log(`🎯 [SUGGESTIONS] Enhanced Engine: ${enhancedAnalysis.suggestions.length} sugestões geradas`);
+            console.log(`🎯 [SUGGESTIONS] Sugestões preservadas: ${nonRefSuggestions.length}`);
+            console.log(`🎯 [SUGGESTIONS] Total final: ${analysis.suggestions.length} sugestões`);
             return;
             
         } catch (error) {
@@ -5905,6 +5929,11 @@ function updateReferenceSuggestions(analysis) {
     addRefSug(tech.dynamicRange, ref.dr_target, ref.tol_dr, 'reference_dynamics', 'DR', ' dB');
     if (Number.isFinite(tech.lra)) addRefSug(tech.lra, ref.lra_target, ref.tol_lra, 'reference_lra', 'LRA', ' LU');
     if (Number.isFinite(tech.stereoCorrelation)) addRefSug(tech.stereoCorrelation, ref.stereo_target, ref.tol_stereo, 'reference_stereo', 'Stereo Corr', '');
+    
+    console.log(`🎯 [SUGGESTIONS] Sistema legado: ${sug.length} sugestões geradas`);
+    
+    // 🛡️ Marcar que sugestões foram geradas (proteção contra duplicação)
+    analysis._suggestionsGenerated = true;
 }
 
 // 🎨 Estilos do seletor de gênero (injeção única, não quebra CSS existente)
