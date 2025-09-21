@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste Simples: dominantFrequencies</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+        }
+        .result {
+            background: #000;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #333;
+        }
+        .error {
+            color: #ff4444;
+        }
+        .success {
+            color: #44ff44;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste Simples: dominantFrequencies</h1>
+    
+    <div id="output"></div>
+    
+    <script src="audio-analyzer-integration.js"></script>
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(message, isError = false) {
+            const div = document.createElement('div');
+            div.className = `result ${isError ? 'error' : 'success'}`;
+            div.textContent = message;
+            output.appendChild(div);
+            console.log(message);
+        }
+        
+        // Teste básico da função
+        try {
+            log('🧪 Iniciando teste básico...');
+            
+            // Verificar se a função existe
+            if (typeof normalizeDominantFrequencies === 'function') {
+                log('✅ normalizeDominantFrequencies encontrada');
+            } else {
+                log('❌ normalizeDominantFrequencies NÃO encontrada', true);
+                throw new Error('Função não encontrada');
+            }
+            
+            // Teste 1: Formato backend atual (objeto)
+            const backendFormat = {
+                unit: "Hz",
+                value: 440,
+                status: "ok",
+                detailed: {
+                    peaks: [
+                        { frequency: 440, magnitude: 0.8 },
+                        { frequency: 880, magnitude: 0.6 }
+                    ],
+                    primary: 440,
+                    secondary: 880
+                }
+            };
+            
+            const result1 = normalizeDominantFrequencies(backendFormat);
+            log(`🔧 Teste formato backend: status=${result1.status}, peaks=${result1.peaks.length}, primary=${result1.primary}`);
+            
+            // Teste 2: Array antigo
+            const arrayFormat = [
+                { frequency: 440, occurrences: 150 },
+                { frequency: 880, occurrences: 100 }
+            ];
+            
+            const result2 = normalizeDominantFrequencies(arrayFormat);
+            log(`🔧 Teste formato array: status=${result2.status}, peaks=${result2.peaks.length}, primary=${result2.primary}`);
+            
+            // Teste 3: Null/undefined
+            const result3 = normalizeDominantFrequencies(null);
+            log(`🔧 Teste null: status=${result3.status}, peaks=${result3.peaks.length}`);
+            
+            // Teste 4: Simular o uso problemático anterior
+            try {
+                // Isto causava TypeError antes
+                if (result1.status === "ok" && result1.peaks.length > 0) {
+                    result1.peaks.slice(0, 10).forEach((freq, i) => {
+                        const frequency = freq.frequency || freq.value || freq;
+                        // Esta linha antes causava erro
+                    });
+                    log('✅ Iteração sem TypeError - CORREÇÃO FUNCIONOU!');
+                } else {
+                    log('⚠️ Nenhum peak para testar iteração');
+                }
+            } catch (e) {
+                log(`❌ AINDA TEM TypeError: ${e.message}`, true);
+            }
+            
+            log('🎯 Teste concluído com sucesso!');
+            
+        } catch (error) {
+            log(`❌ ERRO no teste: ${error.message}`, true);
+            console.error('Stack trace:', error);
+        }
+    </script>
+</body>
+</html>
