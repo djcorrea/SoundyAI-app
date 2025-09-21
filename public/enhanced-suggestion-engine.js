@@ -902,6 +902,9 @@ class EnhancedSuggestionEngine {
             }
         }
         
+        // 🎯 PÓS-PROCESSAMENTO: Corrigir actions de todas as sugestões de banda que ainda usam valores incorretos
+        suggestions = this.postProcessBandSuggestions(suggestions);
+        
         return suggestions;
     }
 
@@ -1225,6 +1228,83 @@ class EnhancedSuggestionEngine {
         }
 
         return inspection;
+    }
+    
+    /**
+     * Pós-processa sugestões de banda para garantir que o campo 'action' 
+     * use valores calculados reais em vez de valores fixos (6.0, 4.0 dB)
+     */
+    postProcessBandSuggestions(suggestions) {
+        if (!Array.isArray(suggestions)) return suggestions;
+        
+        const processed = suggestions.map(suggestion => {
+            // Verificar se é uma sugestão de banda que precisa ser corrigida
+            const isBandSuggestion = suggestion.type === 'band_adjust' || 
+                                    suggestion.type === 'reference_band_comparison' ||
+                                    (suggestion.subtype && this.scorer.bandRanges && this.scorer.bandRanges[suggestion.subtype]);
+            
+            if (!isBandSuggestion) return suggestion;
+            
+            // Verificar se tem dados técnicos
+            const technical = suggestion.technical;
+            if (!technical || !Number.isFinite(technical.value) || !Number.isFinite(technical.target)) {
+                return suggestion;
+            }
+            
+            const delta = technical.target - technical.value;
+            technical.delta = delta; // garantir que o delta está calculado
+            
+            // Verificar se o action contém valores fixos problemáticos
+            const currentAction = suggestion.action || '';
+            const hasFixedValues = /\b(?:6\.0|4\.0)\s*dB\b/.test(currentAction);
+            
+            if (!hasFixedValues) {
+                // Action já correto, apenas garantir que technical.delta está presente
+                return { ...suggestion, technical: { ...technical, delta } };
+            }
+            
+            // Reconstruir action com valor real
+            const bandName = this.getBandDisplayName(suggestion.subtype);
+            const isPositive = delta > 0;
+            const action = isPositive 
+                ? `Aumentar ${bandName} em ${Math.abs(delta).toFixed(1)} dB`
+                : `Reduzir ${bandName} em ${Math.abs(delta).toFixed(1)} dB`;
+            
+            this.logAudit('ACTION_CORRECTED', `Action corrigido para banda ${suggestion.subtype}`, {
+                band: suggestion.subtype,
+                oldAction: currentAction,
+                newAction: action,
+                value: technical.value,
+                target: technical.target,
+                delta: delta,
+                source: 'postProcessBandSuggestions'
+            });
+            
+            return {
+                ...suggestion,
+                action,
+                technical: { ...technical, delta }
+            };
+        });
+        
+        return processed;
+    }
+    
+    /**
+     * Obtém nome de exibição para uma banda
+     */
+    getBandDisplayName(bandKey) {
+        const bandNames = {
+            'sub': 'Sub',
+            'bass': 'Bass', 
+            'low_mid': 'Low Mid',
+            'mid': 'Mid',
+            'high_mid': 'High Mid',
+            'presence': 'Presence',
+            'brilliance': 'Brilliance'
+        };
+        
+        return bandNames[bandKey] || bandKey;
     }
 }
 

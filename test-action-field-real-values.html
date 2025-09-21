@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste: Campo Action com Valores Reais</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f8f9fa;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .test-section {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            border-left: 4px solid #667eea;
+        }
+        
+        .test-title {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            font-weight: 600;
+        }
+        
+        .test-button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            margin: 5px;
+            transition: transform 0.2s;
+        }
+        
+        .test-button:hover {
+            transform: translateY(-2px);
+        }
+        
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border: 1px solid #e9ecef;
+        }
+        
+        .suggestion-item {
+            background: white;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
+            box-shadow: 0 1px 5px rgba(0,0,0,0.1);
+        }
+        
+        .suggestion-header {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .technical-data {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 8px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        
+        .action-field {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 8px 0;
+            font-weight: 600;
+            color: #1976d2;
+        }
+        
+        .fixed-value-alert {
+            background: #ffebee;
+            color: #c62828;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 8px 0;
+            border: 1px solid #ef5350;
+        }
+        
+        .real-value-success {
+            background: #e8f5e8;
+            color: #2e7d32;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 8px 0;
+            border: 1px solid #4caf50;
+        }
+        
+        .log-output {
+            background: #263238;
+            color: #b0bec5;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎯 Teste: Campo Action com Valores Reais</h1>
+        <p>Verificação se sugestões de banda usam technical.delta em vez de valores fixos (6.0, 4.0 dB)</p>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">📋 Testes de Validação</div>
+        <button class="test-button" onclick="testBandSuggestionsWithRealValues()">Testar Sugestões de Banda com Valores Reais</button>
+        <button class="test-button" onclick="testPostProcessing()">Testar Pós-processamento</button>
+        <button class="test-button" onclick="testFixedValueDetection()">Detectar Valores Fixos</button>
+        <button class="test-button" onclick="clearResults()">Limpar Resultados</button>
+        <div id="test-results" class="results" style="display: none;"></div>
+    </div>
+
+    <div class="test-section">
+        <div class="test-title">📊 Log de Auditoria</div>
+        <div id="audit-log" class="log-output"></div>
+    </div>
+
+    <script src="public/suggestion-scorer.js"></script>
+    <script src="public/enhanced-suggestion-engine.js"></script>
+
+    <script>
+        let auditLogs = [];
+
+        // Capturar logs de auditoria
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            if (args[0] && typeof args[0] === 'string' && args[0].includes('[AUDITORIA]')) {
+                auditLogs.push(args.join(' '));
+                updateAuditLog();
+            }
+        };
+
+        function updateAuditLog() {
+            const logElement = document.getElementById('audit-log');
+            logElement.textContent = auditLogs.slice(-20).join('\n');
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function clearResults() {
+            document.getElementById('test-results').style.display = 'none';
+            document.getElementById('test-results').innerHTML = '';
+            auditLogs = [];
+            updateAuditLog();
+        }
+
+        function showResults(html) {
+            const resultsDiv = document.getElementById('test-results');
+            resultsDiv.innerHTML = html;
+            resultsDiv.style.display = 'block';
+        }
+
+        // Dados de teste simulando spectralData real
+        const mockSpectralData = {
+            sub: { value: 10.1, target: -17.3, tolerance: 3.0 },
+            bass: { value: -12.5, target: -15.8, tolerance: 3.0 },
+            low_mid: { value: -8.2, target: -10.0, tolerance: 2.5 },
+            mid: { value: -6.5, target: -8.0, tolerance: 2.5 },
+            high_mid: { value: -14.2, target: -12.0, tolerance: 3.0 },
+            presence: { value: -18.5, target: -15.0, tolerance: 3.5 },
+            brilliance: { value: -22.1, target: -18.0, tolerance: 4.0 }
+        };
+
+        function testBandSuggestionsWithRealValues() {
+            console.log('[AUDITORIA] Iniciando teste de sugestões de banda com valores reais');
+            
+            const engine = new EnhancedSuggestionEngine();
+            const suggestions = [];
+            
+            // Simular geração de sugestões com dados técnicos reais
+            for (const [band, data] of Object.entries(mockSpectralData)) {
+                const delta = data.target - data.value;
+                const zScore = Math.abs(delta) / data.tolerance;
+                
+                if (Math.abs(delta) > 0.5) { // apenas deltas significativos
+                    const suggestion = {
+                        type: 'band_adjust',
+                        subtype: band,
+                        action: `Ajustar ${band} em 6.0 dB`, // valor fixo simulado (PROBLEMA)
+                        technical: {
+                            value: data.value,
+                            target: data.target,
+                            delta: delta
+                        },
+                        severity: { level: zScore > 1 ? 'red' : 'yellow' },
+                        priority: 0.8,
+                        confidence: 0.9
+                    };
+                    
+                    suggestions.push(suggestion);
+                }
+            }
+            
+            console.log('[AUDITORIA] Sugestões antes do pós-processamento:', suggestions);
+            
+            // Aplicar pós-processamento
+            const processedSuggestions = engine.postProcessBandSuggestions(suggestions);
+            
+            console.log('[AUDITORIA] Sugestões após pós-processamento:', processedSuggestions);
+            
+            // Verificar resultados
+            let html = '<h3>🎯 Resultados do Teste de Valores Reais</h3>';
+            
+            processedSuggestions.forEach((suggestion, index) => {
+                const hasFixedValues = /\b(?:6\.0|4\.0)\s*dB\b/.test(suggestion.action);
+                const technical = suggestion.technical;
+                const expectedDelta = Math.abs(technical.target - technical.value).toFixed(1);
+                const actionHasCorrectDelta = suggestion.action.includes(expectedDelta);
+                
+                html += `
+                    <div class="suggestion-item">
+                        <div class="suggestion-header">Sugestão ${index + 1}: ${suggestion.subtype}</div>
+                        
+                        <div class="technical-data">
+                            <strong>Dados Técnicos:</strong><br>
+                            Valor: ${technical.value}<br>
+                            Alvo: ${technical.target}<br>
+                            Delta: ${technical.delta.toFixed(2)} dB<br>
+                            Delta Absoluto: ${expectedDelta} dB
+                        </div>
+                        
+                        <div class="action-field">
+                            <strong>Action:</strong> ${suggestion.action}
+                        </div>
+                        
+                        ${hasFixedValues ? 
+                            '<div class="fixed-value-alert">❌ PROBLEMA: Action contém valor fixo (6.0 ou 4.0 dB)</div>' :
+                            '<div class="real-value-success">✅ CORRETO: Action não contém valores fixos</div>'
+                        }
+                        
+                        ${actionHasCorrectDelta ?
+                            '<div class="real-value-success">✅ CORRETO: Action usa delta correto (' + expectedDelta + ' dB)</div>' :
+                            '<div class="fixed-value-alert">❌ PROBLEMA: Action não usa delta correto (' + expectedDelta + ' dB)</div>'
+                        }
+                    </div>
+                `;
+            });
+            
+            showResults(html);
+        }
+
+        function testPostProcessing() {
+            console.log('[AUDITORIA] Testando função postProcessBandSuggestions diretamente');
+            
+            const engine = new EnhancedSuggestionEngine();
+            
+            // Criar sugestão com valor fixo problemático
+            const problematicSuggestion = {
+                type: 'band_adjust',
+                subtype: 'sub',
+                action: 'Reduzir Sub em 6.0 dB', // valor fixo (PROBLEMA)
+                technical: {
+                    value: 10.1,
+                    target: -17.3,
+                    delta: -27.4 // valor correto
+                }
+            };
+            
+            const beforeProcessing = [problematicSuggestion];
+            const afterProcessing = engine.postProcessBandSuggestions(beforeProcessing);
+            
+            let html = '<h3>🔧 Teste de Pós-processamento</h3>';
+            
+            html += `
+                <div class="suggestion-item">
+                    <div class="suggestion-header">Antes do Pós-processamento</div>
+                    <div class="action-field">${beforeProcessing[0].action}</div>
+                    <div class="fixed-value-alert">❌ Contém valor fixo: 6.0 dB</div>
+                </div>
+                
+                <div class="suggestion-item">
+                    <div class="suggestion-header">Depois do Pós-processamento</div>
+                    <div class="action-field">${afterProcessing[0].action}</div>
+                    <div class="technical-data">
+                        Delta calculado: ${afterProcessing[0].technical.delta.toFixed(1)} dB
+                    </div>
+                    ${afterProcessing[0].action.includes('27.4') ?
+                        '<div class="real-value-success">✅ CORRETO: Action usa valor real (27.4 dB)</div>' :
+                        '<div class="fixed-value-alert">❌ PROBLEMA: Action ainda não usa valor real</div>'
+                    }
+                </div>
+            `;
+            
+            showResults(html);
+        }
+
+        function testFixedValueDetection() {
+            console.log('[AUDITORIA] Testando detecção de valores fixos');
+            
+            const testCases = [
+                { action: 'Reduzir Sub em 6.0 dB', shouldDetect: true },
+                { action: 'Aumentar Bass em 4.0 dB', shouldDetect: true },
+                { action: 'Reduzir Mid em 27.4 dB', shouldDetect: false },
+                { action: 'Aumentar Presence em 3.5 dB', shouldDetect: false },
+                { action: 'Ajustar Low Mid em 6.0 dB para melhor clareza', shouldDetect: true },
+                { action: 'Reduzir Brilliance em 16.1 dB', shouldDetect: false }
+            ];
+            
+            let html = '<h3>🔍 Teste de Detecção de Valores Fixos</h3>';
+            
+            testCases.forEach((testCase, index) => {
+                const hasFixedValues = /\b(?:6\.0|4\.0)\s*dB\b/.test(testCase.action);
+                const isCorrect = hasFixedValues === testCase.shouldDetect;
+                
+                html += `
+                    <div class="suggestion-item">
+                        <div class="suggestion-header">Teste ${index + 1}</div>
+                        <div class="action-field">${testCase.action}</div>
+                        <div class="technical-data">
+                            Deve detectar valor fixo: ${testCase.shouldDetect ? 'Sim' : 'Não'}<br>
+                            Detectou valor fixo: ${hasFixedValues ? 'Sim' : 'Não'}
+                        </div>
+                        ${isCorrect ?
+                            '<div class="real-value-success">✅ CORRETO: Detecção funcionou</div>' :
+                            '<div class="fixed-value-alert">❌ ERRO: Detecção falhou</div>'
+                        }
+                    </div>
+                `;
+            });
+            
+            showResults(html);
+        }
+
+        // Executar teste automático ao carregar
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('[AUDITORIA] Página carregada, executando teste inicial');
+            setTimeout(testBandSuggestionsWithRealValues, 1000);
+        });
+    </script>
+</body>
+</html>

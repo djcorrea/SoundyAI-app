@@ -334,10 +334,10 @@ class SuggestionScorer {
             .replace('{freq}', freq || '')
             .replace('{delta}', limitedDelta.toFixed(1));
             
-        // 🎯 CORREÇÃO: Gerar action com delta real para bandas de referenceComparison
+        // 🎯 CORREÇÃO: Gerar action com delta real para bandas de referenceComparison e band_adjust
         let action, diagnosis;
-        if (type === 'reference_band_comparison' && Number.isFinite(value) && Number.isFinite(target)) {
-            // Usar delta real sem limitação para dados de referência
+        if ((type === 'reference_band_comparison' || type === 'band_adjust') && Number.isFinite(value) && Number.isFinite(target)) {
+            // Usar delta real sem limitação para dados de referência e band_adjust
             const realDelta = target - value;
             const direction = realDelta > 0 ? "Aumentar" : "Reduzir";
             const amount = Math.abs(realDelta).toFixed(1);
@@ -361,7 +361,8 @@ class SuggestionScorer {
             diagnosis = null; // Não adicionar diagnosis para sugestões normais
         }
         
-        return {
+        // 🎯 NOVO: Pós-processar sugestões que já tenham technical.delta definido
+        const returnedSuggestion = {
             type: type || 'reference_metric',
             subtype,
             message,
@@ -395,6 +396,25 @@ class SuggestionScorer {
             // Para compatibilidade com sistema existente
             details: `Δ=${delta.toFixed(2)} • z=${zScore.toFixed(2)} • ${severity.label} • conf=${confidence.toFixed(2)} • prior=${priority.toFixed(3)}`
         };
+        
+        // 🎯 VERIFICAÇÃO ADICIONAL: Se a sugestão já tem technical.delta, corrigir a action
+        if (returnedSuggestion.technical.delta !== null && 
+            (type === 'band_adjust' || metricType === 'band') && 
+            !action.includes(Math.abs(returnedSuggestion.technical.delta).toFixed(1))) {
+            
+            const technicalDelta = returnedSuggestion.technical.delta;
+            const direction = technicalDelta > 0 ? "Aumentar" : "Reduzir";
+            const amount = Math.abs(technicalDelta).toFixed(1);
+            const bandRange = this.bandRanges[band] || '';
+            
+            returnedSuggestion.action = `${direction} ${band || metricType} em ${amount} dB${bandRange ? ` (${bandRange})` : ''}`;
+            
+            if (typeof console !== 'undefined') {
+                console.log(`🎯 [SUGGESTION_FINAL_CORRECTED] ${band || metricType}: technical.delta=${technicalDelta.toFixed(1)}, action corrected`);
+            }
+        }
+        
+        return returnedSuggestion;
     }
 
     /**
