@@ -4156,17 +4156,29 @@ function displayModalResults(analysis) {
                         const deduplicated = [];
                         for (const item of items) {
                             if (!item || !item.type) continue;
-                            const existing = seen.get(item.type);
+                            
+                            // 🎯 CORREÇÃO: Para band_adjust, usar type + subtype como chave única
+                            let uniqueKey = item.type;
+                            if (item.type === 'band_adjust' && item.subtype) {
+                                uniqueKey = `${item.type}:${item.subtype}`;
+                            }
+                            
+                            const existing = seen.get(uniqueKey);
                             if (!existing) {
-                                seen.set(item.type, item);
+                                seen.set(uniqueKey, item);
                                 deduplicated.push(item);
                             } else {
                                 // Manter o mais detalhado (com mais propriedades)
                                 const currentScore = Object.keys(item).length + (item.explanation ? 10 : 0) + (item.impact ? 5 : 0);
                                 const existingScore = Object.keys(existing).length + (existing.explanation ? 10 : 0) + (existing.impact ? 5 : 0);
                                 if (currentScore > existingScore) {
-                                    seen.set(item.type, item);
-                                    const index = deduplicated.findIndex(d => d.type === item.type);
+                                    seen.set(uniqueKey, item);
+                                    const index = deduplicated.findIndex(d => {
+                                        if (d.type === 'band_adjust' && item.type === 'band_adjust') {
+                                            return d.type === item.type && d.subtype === item.subtype;
+                                        }
+                                        return d.type === item.type;
+                                    });
                                     if (index >= 0) deduplicated[index] = item;
                                 }
                             }
@@ -4341,17 +4353,30 @@ function displayModalResults(analysis) {
                         const deduplicated = [];
                         for (const item of items) {
                             if (!item || !item.type) continue;
-                            const existing = seen.get(item.type);
+                            
+                            // 🎯 CORREÇÃO: Para band_adjust, usar type + subtype como chave única
+                            // Isso permite múltiplas sugestões de banda (uma para cada banda)
+                            let uniqueKey = item.type;
+                            if (item.type === 'band_adjust' && item.subtype) {
+                                uniqueKey = `${item.type}:${item.subtype}`;
+                            }
+                            
+                            const existing = seen.get(uniqueKey);
                             if (!existing) {
-                                seen.set(item.type, item);
+                                seen.set(uniqueKey, item);
                                 deduplicated.push(item);
                             } else {
                                 // Manter o mais detalhado (com mais propriedades)
                                 const currentScore = Object.keys(item).length + (item.explanation ? 10 : 0) + (item.impact ? 5 : 0);
                                 const existingScore = Object.keys(existing).length + (existing.explanation ? 10 : 0) + (existing.impact ? 5 : 0);
                                 if (currentScore > existingScore) {
-                                    seen.set(item.type, item);
-                                    const index = deduplicated.findIndex(d => d.type === item.type);
+                                    seen.set(uniqueKey, item);
+                                    const index = deduplicated.findIndex(d => {
+                                        if (d.type === 'band_adjust' && item.type === 'band_adjust') {
+                                            return d.type === item.type && d.subtype === item.subtype;
+                                        }
+                                        return d.type === item.type;
+                                    });
                                     if (index >= 0) deduplicated[index] = item;
                                 }
                             }
