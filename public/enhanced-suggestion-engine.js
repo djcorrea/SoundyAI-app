@@ -22,6 +22,23 @@ class EnhancedSuggestionEngine {
     }
 
     /**
+     * 🎯 Obter ícone apropriado para métrica
+     * @param {string} metricType - Tipo da métrica
+     * @returns {string} Ícone apropriado
+     */
+    getMetricIcon(metricType) {
+        const icons = {
+            'lufs': '🔊',
+            'true_peak': '⚡',
+            'dr': '📊',
+            'lra': '📈',
+            'stereo': '🎧',
+            'band': '🎵'
+        };
+        return icons[metricType] || '🎛️';
+    }
+
+    /**
      * 🔧 Normalizar dados de referência para compatibilidade universal
      * @param {Object} rawRef - Dados de referência brutos (legacy_compatibility ou hybrid_processing)
      * @returns {Object} Dados normalizados no formato padrão do motor
@@ -84,9 +101,12 @@ class EnhancedSuggestionEngine {
             dr_target: this.extractMetric(sourceData, ['dr_target', 'dr_ref', 'dynamic_range'], 'dr'),
             tol_dr: this.extractMetric(sourceData, ['tol_dr', 'dr_tolerance', 'dynamic_range_tolerance'], 'dr_tolerance') ?? 2.0,
 
-            // Loudness Range
-            lra_target: this.extractMetric(sourceData, ['lra_target', 'lra_ref', 'lra'], 'lra'),
-            tol_lra: this.extractMetric(sourceData, ['tol_lra', 'lra_tolerance'], 'lra_tolerance') ?? 2.0,
+            // Loudness Range - BUSCAR EM MÚLTIPLAS ESTRUTURAS
+            lra_target: this.extractMetric(sourceData, ['lra_target', 'lra_ref', 'lra'], 'lra') ||
+                       this.extractMetric(sourceData.legacy_compatibility || {}, ['lra_target', 'lra_ref', 'lra'], 'lra') ||
+                       this.extractMetric(sourceData.hybrid_processing?.original_metrics || {}, ['lra', 'lra_target'], 'lra'),
+            tol_lra: (this.extractMetric(sourceData, ['tol_lra', 'lra_tolerance'], 'lra_tolerance') ||
+                     this.extractMetric(sourceData.legacy_compatibility || {}, ['tol_lra', 'lra_tolerance'], 'lra_tolerance')) ?? 2.0,
 
             // Stereo Correlation
             stereo_target: this.extractMetric(sourceData, ['stereo_target', 'stereo_ref', 'stereo_correlation'], 'stereo'),
@@ -288,9 +308,20 @@ class EnhancedSuggestionEngine {
             const dependencyBonuses = this.scorer.calculateDependencyBonus(zScores);
             
             // 🎯 Gerar sugestões baseadas em referência
+            this.logAudit('BEFORE_GENERATE_REFERENCE', 'Chamando generateReferenceSuggestions', {
+                metricsCount: Object.keys(metrics).length,
+                metricsKeys: Object.keys(metrics),
+                hasNormalizedRef: !!normalizedRef,
+                normalizedRefKeys: normalizedRef ? Object.keys(normalizedRef) : null
+            });
+            
             const referenceSuggestions = this.generateReferenceSuggestions(
                 metrics, normalizedRef, zScores, confidence, dependencyBonuses
             );
+            
+            this.logAudit('AFTER_GENERATE_REFERENCE', 'generateReferenceSuggestions concluído', {
+                suggestionsCount: referenceSuggestions?.length || 0
+            });
             
             this.logAudit('REFERENCE_SUGGESTIONS_GENERATED', 'Sugestões de referência geradas', {
                 count: referenceSuggestions?.length || 0,
@@ -418,11 +449,16 @@ class EnhancedSuggestionEngine {
             this.logAudit('METRIC_EXTRACTED', 'DR extraído', { value: drValue, source: 'dynamicRange' });
         }
 
-        // LRA
-        const lraValue = tech.lra || tech.loudness_range;
+        // LRA - BUSCAR EM MÚLTIPLOS ALIASES
+        const lraValue = tech.lra || tech.loudness_range || tech.loudnessRange || tech.lra_tolerance;
         if (Number.isFinite(lraValue)) {
             metrics.lra = lraValue;
             this.logAudit('METRIC_EXTRACTED', 'LRA extraído', { value: lraValue, source: 'lra' });
+        } else {
+            this.logAudit('METRIC_MISSING', 'LRA não encontrado nos dados técnicos', { 
+                checked: ['lra', 'loudness_range', 'loudnessRange', 'lra_tolerance'],
+                availableKeys: Object.keys(tech)
+            });
         }
 
         // Stereo Correlation
@@ -433,7 +469,14 @@ class EnhancedSuggestionEngine {
         }
         
         // Bandas espectrais - normalização completa com múltiplas fontes
-        const bandEnergies = tech.bandEnergies || tech.band_energies || tech.spectralBands || tech.spectral_bands || {};
+        const bandEnergies = tech.bandEnergies || tech.band_energies || tech.spectralBands || tech.spectral_bands || tech.spectral_balance || {};
+        
+        this.logAudit('BAND_ENERGIES_DEBUG', 'Debug extração de bandas', {
+            hasBandEnergies: Object.keys(bandEnergies).length > 0,
+            bandEnergiesKeys: Object.keys(bandEnergies),
+            spectral_balance: tech.spectral_balance,
+            spectral_balance_keys: tech.spectral_balance ? Object.keys(tech.spectral_balance) : null
+        });
         
         // Mapeamento bidirecional: entrada → saída normalizada
         const bandMappings = {
@@ -466,13 +509,19 @@ class EnhancedSuggestionEngine {
         });
 
         for (const [sourceBand, data] of Object.entries(bandEnergies)) {
-            if (!data || typeof data !== 'object') continue;
-
             // Encontrar nome normalizado
             const normalizedBandName = bandMappings[sourceBand] || sourceBand;
             
-            // Extrair valor RMS com múltiplos aliases
-            const rmsValue = data.rms_db || data.rmsDb || data.rms || data.energy_db || data.energyDb || data.value;
+            let rmsValue;
+            
+            // Verificar se é um número direto ou objeto
+            if (Number.isFinite(data)) {
+                // Valor direto (ex: spectral_balance: { sub: -24.1 })
+                rmsValue = data;
+            } else if (data && typeof data === 'object') {
+                // Objeto com propriedades (ex: bandEnergies: { sub: { rms_db: -24.1 } })
+                rmsValue = data.rms_db || data.rmsDb || data.rms || data.energy_db || data.energyDb || data.value;
+            }
             
             if (Number.isFinite(rmsValue)) {
                 // Se a banda já existe, manter a primeira encontrada (prioridade)
@@ -483,7 +532,8 @@ class EnhancedSuggestionEngine {
                         source: sourceBand,
                         normalized: normalizedBandName,
                         value: rmsValue,
-                        originalData: data
+                        originalData: data,
+                        dataType: Number.isFinite(data) ? 'direct_number' : 'object'
                     });
                 } else {
                     this.logAudit('BAND_METRIC_SKIPPED', `Banda duplicada ignorada: ${sourceBand}`, {
@@ -601,6 +651,15 @@ class EnhancedSuggestionEngine {
      * @returns {Array} Sugestões baseadas em referência
      */
     generateReferenceSuggestions(metrics, referenceData, zScores, confidence, dependencyBonuses) {
+        // 🔍 AUDITORIA: Log das métricas recebidas para geração de sugestões
+        this.logAudit('GENERATE_SUGGESTIONS_INPUT', 'Métricas recebidas para geração de sugestões', {
+            metricsCount: Object.keys(metrics).length,
+            metricsKeys: Object.keys(metrics),
+            referenceDataKeys: referenceData ? Object.keys(referenceData) : null,
+            hasLRA: 'lra' in metrics,
+            hasBands: Object.keys(metrics).filter(k => ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presenca', 'brilho'].includes(k)).length > 0
+        });
+        
         // 🎯 CORREÇÃO: Usar let em vez de const para suggestions que será reatribuído
         let suggestions = [];
         
@@ -659,7 +718,27 @@ class EnhancedSuggestionEngine {
             const value = metrics[metric.key];
             const target = referenceData[metric.target];
             const tolerance = referenceData[metric.tol];
+            
+            this.logAudit('METRIC_VALIDATION', `Validando métrica: ${metric.key}`, {
+                metricKey: metric.key,
+                hasValue: value !== undefined,
+                value: value,
+                hasTarget: target !== undefined,
+                target: target,
+                hasTolerance: tolerance !== undefined,
+                tolerance: tolerance,
+                zScore: zScores[metric.key]
+            });
+            
+            // 🔍 z-score tem sufixo '_z' nas chaves
             const zScore = zScores[metric.key + '_z'];
+            
+            this.logAudit('ZSCORE_LOOKUP', `Z-Score lookup para ${metric.key}`, {
+                metricKey: metric.key,
+                searchKey: metric.key + '_z',
+                zScore: zScore,
+                allZScores: Object.keys(zScores)
+            });
             
             if (!Number.isFinite(value) || !Number.isFinite(target) || !Number.isFinite(tolerance)) continue;
             
@@ -690,6 +769,19 @@ class EnhancedSuggestionEngine {
                     genre: window.PROD_AI_REF_GENRE || 'unknown',
                     metricType: metric.metricType
                 });
+                
+                // 🎯 GARANTIR CAMPOS OBRIGATÓRIOS PARA MÉTRICAS PRINCIPAIS (incluindo LRA)
+                suggestion.icon = this.getMetricIcon(metric.metricType);
+                suggestion.targetValue = target;
+                suggestion.currentValue = value;
+                
+                // Se fields estão vazios, preencher com valores padrão
+                if (!suggestion.message || suggestion.message.trim() === '') {
+                    suggestion.message = `Ajustar ${metric.label} para alinhamento com referência`;
+                }
+                if (!suggestion.why || suggestion.why.trim() === '') {
+                    suggestion.why = `${metric.label} fora da faixa ideal para o gênero`;
+                }
                 
                 suggestions.push(suggestion);
                 
@@ -789,6 +881,19 @@ class EnhancedSuggestionEngine {
                     } else {
                         suggestion.action = null;
                         suggestion.diagnosis = null;
+                    }
+                    
+                    // 🎯 GARANTIR CAMPOS OBRIGATÓRIOS PARA SUGESTÕES DE BANDA
+                    suggestion.icon = '🎵';  // Ícone padrão para bandas
+                    suggestion.targetValue = target;
+                    suggestion.currentValue = value;
+                    
+                    // Se action ou why estão vazios, preencher com valores padrão
+                    if (!suggestion.message || suggestion.message.trim() === '') {
+                        suggestion.message = `Ajustar ${band} para alinhamento com referência`;
+                    }
+                    if (!suggestion.why || suggestion.why.trim() === '') {
+                        suggestion.why = `Banda ${band} fora da faixa ideal para o gênero`;
                     }
                     
                     suggestions.push(suggestion);

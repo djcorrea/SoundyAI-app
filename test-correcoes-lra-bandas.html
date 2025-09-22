@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Teste: Correções LRA e Bandas Espectrais</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 20px; 
+            line-height: 1.6;
+        }
+        .container {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .success { background: #d4edda; border-left: 4px solid #28a745; }
+        .error { background: #f8d7da; border-left: 4px solid #dc3545; }
+        .warning { background: #fff3cd; border-left: 4px solid #ffc107; }
+        .info { background: #d1ecf1; border-left: 4px solid #17a2b8; }
+        pre { 
+            background: #2d3748; 
+            color: #e2e8f0; 
+            padding: 15px; 
+            border-radius: 4px; 
+            overflow-x: auto;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+        .suggestion-item {
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 5px 0;
+            background: white;
+        }
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            margin: 10px 0;
+        }
+        .metric-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #6c757d;
+        }
+        .metric-card.found { border-left-color: #28a745; }
+        .metric-card.missing { border-left-color: #dc3545; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover { background: #0056b3; }
+        #results { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Teste: Correções LRA e Bandas Espectrais</h1>
+    
+    <div class="container info">
+        <h3>📋 Objetivo do Teste</h3>
+        <p>Validar as correções implementadas:</p>
+        <ul>
+            <li><strong>LRA:</strong> Reconhecimento correto com busca em múltiplas estruturas</li>
+            <li><strong>Bandas Espectrais:</strong> Todas as bandas incluídas nos diagnósticos com campos obrigatórios</li>
+        </ul>
+    </div>
+
+    <button onclick="executarTeste()">🚀 Executar Teste</button>
+    <button onclick="limparResultados()">🧹 Limpar</button>
+
+    <div id="results"></div>
+
+    <!-- Carregar dependências -->
+    <script src="suggestion-scorer.js"></script>
+    <script src="enhanced-suggestion-engine.js"></script>
+    <script src="audio-analyzer-integration.js"></script>
+
+    <script>
+        // 🧪 DADOS DE TESTE: Simular resposta do backend real
+        const dadosBackendTeste = {
+            technicalData: {
+                peak: -2.1,
+                rms: -17.8,
+                dynamicRange: 8.2,
+                lufsIntegrated: -13.5,
+                truePeakDbtp: -1.8,
+                lra: 5.63,  // LRA presente
+                stereoCorrelation: 0.85,
+                spectral_balance: {
+                    sub: -24.1,
+                    bass: -19.2,
+                    lowMid: -16.8,
+                    mid: -14.3,
+                    highMid: -17.9,
+                    presence: -21.2,
+                    air: -23.8
+                }
+            },
+            problems: [],
+            suggestions: []
+        };
+
+        // 📊 DADOS DE REFERÊNCIA COM LRA
+        const dadosReferenciaTeste = {
+            legacy_compatibility: {
+                lufs_target: -14.0,
+                tol_lufs: 1.5,
+                true_peak_target: -1.0,
+                tol_true_peak: 0.5,
+                dr_target: 8.0,
+                tol_dr: 2.0,
+                lra_target: 6.0,  // LRA target
+                tol_lra: 1.5,     // LRA tolerance
+                stereo_target: 0.80,
+                tol_stereo: 0.15,
+                bands: {
+                    sub: { target_db: -25.0, tol_db: 2.5 },
+                    bass: { target_db: -20.0, tol_db: 2.0 },
+                    lowMid: { target_db: -17.0, tol_db: 2.0 },
+                    mid: { target_db: -14.0, tol_db: 1.5 },
+                    highMid: { target_db: -18.0, tol_db: 2.0 },
+                    presenca: { target_db: -22.0, tol_db: 2.5 },
+                    brilho: { target_db: -24.0, tol_db: 3.0 }
+                }
+            }
+        };
+
+        function adicionarResultado(titulo, conteudo, tipo = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `container ${tipo}`;
+            div.innerHTML = `<h3>${titulo}</h3>${conteudo}`;
+            results.appendChild(div);
+        }
+
+        function limparResultados() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function executarTeste() {
+            limparResultados();
+            
+            try {
+                adicionarResultado('🚀 Iniciando Teste', 'Testando correções do Enhanced Suggestion Engine...');
+
+                // Verificar se Enhanced Suggestion Engine está disponível
+                if (typeof window.enhancedSuggestionEngine === 'undefined') {
+                    if (typeof EnhancedSuggestionEngine !== 'undefined') {
+                        window.enhancedSuggestionEngine = new EnhancedSuggestionEngine();
+                        adicionarResultado('✅ Enhanced Suggestion Engine', 'Instância criada com sucesso');
+                    } else {
+                        throw new Error('Enhanced Suggestion Engine não encontrado');
+                    }
+                }
+
+                const engine = window.enhancedSuggestionEngine;
+
+                // 1. TESTAR PROCESSAMENTO COMPLETO
+                adicionarResultado('🔄 Processando Análise', 'Executando processamento completo...');
+                
+                const resultado = engine.processAnalysis(dadosBackendTeste, dadosReferenciaTeste);
+                
+                adicionarResultado(
+                    '📊 Resultado do Processamento',
+                    `<strong>Total de sugestões:</strong> ${resultado.suggestions.length}<br>
+                     <strong>Tempo de processamento:</strong> ${resultado.enhancedMetrics?.processingTimeMs || 'N/A'}ms<br>
+                     <strong>Confiança média:</strong> ${resultado.enhancedMetrics?.confidence || 'N/A'}`
+                );
+
+                // 2. VERIFICAR LRA
+                const sugestoesLRA = resultado.suggestions.filter(s => 
+                    s.type === 'reference_lra' || 
+                    (s.technical && s.technical.value && s.message && s.message.toLowerCase().includes('lra'))
+                );
+                
+                if (sugestoesLRA.length > 0) {
+                    const lraSuggestion = sugestoesLRA[0];
+                    adicionarResultado(
+                        '✅ LRA: SUCESSO',
+                        `<strong>Sugestão LRA encontrada:</strong><br>
+                         <div class="suggestion-item">
+                             <strong>Tipo:</strong> ${lraSuggestion.type}<br>
+                             <strong>Mensagem:</strong> ${lraSuggestion.message}<br>
+                             <strong>Action:</strong> ${lraSuggestion.action || 'N/A'}<br>
+                             <strong>Why:</strong> ${lraSuggestion.why || 'N/A'}<br>
+                             <strong>Ícone:</strong> ${lraSuggestion.icon || 'N/A'}<br>
+                             <strong>Target Value:</strong> ${lraSuggestion.targetValue || 'N/A'}<br>
+                             <strong>Current Value:</strong> ${lraSuggestion.currentValue || 'N/A'}<br>
+                             <strong>Technical:</strong> ${JSON.stringify(lraSuggestion.technical, null, 2)}
+                         </div>`,
+                        'success'
+                    );
+                } else {
+                    adicionarResultado(
+                        '❌ LRA: ERRO',
+                        'Nenhuma sugestão LRA foi gerada',
+                        'error'
+                    );
+                }
+
+                // 3. VERIFICAR BANDAS ESPECTRAIS
+                const sugestoesBandas = resultado.suggestions.filter(s => s.type === 'band_adjust');
+                
+                if (sugestoesBandas.length > 0) {
+                    let bandasHtml = `<strong>Sugestões de bandas encontradas: ${sugestoesBandas.length}</strong><br><br>`;
+                    
+                    sugestoesBandas.forEach(banda => {
+                        const temCamposObrigatorios = 
+                            banda.icon && 
+                            banda.message && 
+                            banda.action && 
+                            banda.why && 
+                            banda.targetValue !== undefined && 
+                            banda.currentValue !== undefined;
+                        
+                        bandasHtml += `
+                        <div class="suggestion-item" style="border-left-color: ${temCamposObrigatorios ? '#28a745' : '#dc3545'}">
+                            <strong>Banda:</strong> ${banda.subtype || 'N/A'}<br>
+                            <strong>Mensagem:</strong> ${banda.message}<br>
+                            <strong>Action:</strong> ${banda.action || '❌ FALTANDO'}<br>
+                            <strong>Why:</strong> ${banda.why || '❌ FALTANDO'}<br>
+                            <strong>Ícone:</strong> ${banda.icon || '❌ FALTANDO'}<br>
+                            <strong>Target Value:</strong> ${banda.targetValue !== undefined ? banda.targetValue : '❌ FALTANDO'}<br>
+                            <strong>Current Value:</strong> ${banda.currentValue !== undefined ? banda.currentValue : '❌ FALTANDO'}<br>
+                            <strong>Campos OK:</strong> ${temCamposObrigatorios ? '✅' : '❌'}
+                        </div>`;
+                    });
+                    
+                    adicionarResultado(
+                        '🎵 Bandas Espectrais: Resultado',
+                        bandasHtml,
+                        sugestoesBandas.every(b => b.icon && b.action && b.why && b.targetValue !== undefined && b.currentValue !== undefined) ? 'success' : 'warning'
+                    );
+                } else {
+                    adicionarResultado(
+                        '❌ Bandas Espectrais: ERRO',
+                        'Nenhuma sugestão de banda foi gerada',
+                        'error'
+                    );
+                }
+
+                // 4. VERIFICAR AUDIT LOG
+                if (resultado.auditLog && resultado.auditLog.length > 0) {
+                    const logsRelevantes = resultado.auditLog
+                        .filter(entry => 
+                            entry.includes('LRA') || 
+                            entry.includes('BAND') || 
+                            entry.includes('METRIC_EXTRACTED') ||
+                            entry.includes('METRIC_MISSING')
+                        )
+                        .slice(0, 15);
+                    
+                    if (logsRelevantes.length > 0) {
+                        adicionarResultado(
+                            '🔍 Audit Log (Relevante)',
+                            `<pre>${logsRelevantes.join('\n')}</pre>`
+                        );
+                    }
+                }
+
+                // 5. RESUMO FINAL
+                const problemasEncontrados = [];
+                const sucessos = [];
+                
+                if (sugestoesLRA.length > 0) {
+                    sucessos.push('✅ LRA: Sugestões geradas corretamente');
+                } else {
+                    problemasEncontrados.push('❌ LRA: Nenhuma sugestão foi gerada');
+                }
+                
+                if (sugestoesBandas.length > 0) {
+                    const bandasCompletas = sugestoesBandas.filter(b => 
+                        b.icon && b.action && b.why && b.targetValue !== undefined && b.currentValue !== undefined
+                    );
+                    if (bandasCompletas.length === sugestoesBandas.length) {
+                        sucessos.push(`✅ Bandas: Todas as ${sugestoesBandas.length} sugestões têm campos obrigatórios`);
+                    } else {
+                        problemasEncontrados.push(`❌ Bandas: ${sugestoesBandas.length - bandasCompletas.length} sugestões sem campos obrigatórios`);
+                    }
+                } else {
+                    problemasEncontrados.push('❌ Bandas: Nenhuma sugestão foi gerada');
+                }
+                
+                const resumo = `
+                    <h4>Sucessos (${sucessos.length}):</h4>
+                    <ul>${sucessos.map(s => `<li>${s}</li>`).join('')}</ul>
+                    <h4>Problemas (${problemasEncontrados.length}):</h4>
+                    <ul>${problemasEncontrados.map(p => `<li>${p}</li>`).join('')}</ul>
+                `;
+                
+                adicionarResultado(
+                    '📋 Resumo Final',
+                    resumo,
+                    problemasEncontrados.length === 0 ? 'success' : 'warning'
+                );
+
+            } catch (error) {
+                adicionarResultado(
+                    '💥 Erro no Teste',
+                    `Erro inesperado: ${error.message}<br><pre>${error.stack}</pre>`,
+                    'error'
+                );
+            }
+        }
+
+        // Executar teste automaticamente quando a página carregar
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                adicionarResultado(
+                    '📝 Instruções',
+                    'Clique em "🚀 Executar Teste" para validar as correções implementadas.',
+                    'info'
+                );
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
