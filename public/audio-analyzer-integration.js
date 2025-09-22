@@ -731,15 +731,8 @@ function generateAudioAnalysisCard(analysis) {
             </div>
         </div>
         
-        <div class="frequency-bands">
-            <h5>Bandas de Frequência</h5>
-            ${analysis.frequencyBands.map(band => `
-                <div class="band-item">
-                    <span class="band-name">${band.name}</span>
-                    <span class="band-level">${band.level} dB</span>
-                </div>
-            `).join('')}
-        </div>
+        <!-- REMOVED: Bandas de Frequência duplicada - consolidada nas métricas avançadas -->
+        <!-- frequency-bands section removed to avoid duplication -->
     `;
 }
 
@@ -3467,13 +3460,15 @@ function displayModalResults(analysis) {
         const col1 = [
             row('Pico de Amostra', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak'),
             row('Volume Médio (energia)', `${safeFixed(getMetric('rms_level', 'avgLoudness'))} dB`, 'avgLoudness'),
-            row('Dinâmica (diferença entre alto/baixo)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
-            row('fator de crista', `${safeFixed(getMetric('crest_factor', 'crestFactor'))} dB`, 'crestFactor'),
-            row('pico real (dbtp)', (advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp'))) ? `${safeFixed(getMetric('truePeakDbtp', 'truePeakDbtp'))} dBTP` : (advancedReady? '—':'⏳'), 'truePeakDbtp'),
-            row('Volume Integrado (padrão streaming)', (advancedReady && Number.isFinite(getLufsIntegratedValue())) ? `${safeFixed(getLufsIntegratedValue())} LUFS` : (advancedReady? '—':'⏳'), 'lufsIntegrated'),
-            row('Volume Integrado (padrão streaming)', (advancedReady && Number.isFinite(getMetric('lufs_short_term', 'lufsShortTerm'))) ? `${safeFixed(getMetric('lufs_short_term', 'lufsShortTerm'))} LUFS` : (advancedReady? '—':'⏳'), 'lufsShortTerm'),
-            row('Volume Integrado (padrão streaming)', (advancedReady && Number.isFinite(getMetric('lufs_momentary', 'lufsMomentary'))) ? `${safeFixed(getMetric('lufs_momentary', 'lufsMomentary'))} LUFS` : (advancedReady? '—':'⏳'), 'lufsMomentary'),
-            row('Dinâmica (diferença entre alto/baixo)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra')
+            row('Dynamic Range (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
+            row('Loudness Range (LRA)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra'),
+            row('Fator de Crista', `${safeFixed(getMetric('crest_factor', 'crestFactor'))} dB`, 'crestFactor'),
+            // REMOVED: True Peak placeholder/ampulheta - só exibir quando há valor válido
+            (advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp')) ? row('pico real (dbtp)', `${safeFixed(getMetric('truePeakDbtp', 'truePeakDbtp'))} dBTP`, 'truePeakDbtp') : ''),
+            // REMOVED: LUFS placeholder/ampulheta - só exibir quando há valor válido  
+            (advancedReady && Number.isFinite(getLufsIntegratedValue()) ? row('Volume Integrado (padrão streaming)', `${safeFixed(getLufsIntegratedValue())} LUFS`, 'lufsIntegrated') : ''),
+            (advancedReady && Number.isFinite(getMetric('lufs_short_term', 'lufsShortTerm')) ? row('Volume Short-Term', `${safeFixed(getMetric('lufs_short_term', 'lufsShortTerm'))} LUFS`, 'lufsShortTerm') : ''),
+            (advancedReady && Number.isFinite(getMetric('lufs_momentary', 'lufsMomentary')) ? row('Volume Momentary', `${safeFixed(getMetric('lufs_momentary', 'lufsMomentary'))} LUFS`, 'lufsMomentary') : '')
             ].join('');
 
         const col2 = [
@@ -3483,47 +3478,36 @@ function displayModalResults(analysis) {
             row('Frequência Central (brilho)', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroidHz')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroidHz')) : '—', 'spectralCentroidHz'),
             row('Limite de Agudos (85%)', Number.isFinite(getMetric('spectral_rolloff', 'spectralRolloffHz')) ? safeHz(getMetric('spectral_rolloff', 'spectralRolloffHz')) : '—', 'spectralRolloffHz'),
             row('Largura Espectral (Hz)', Number.isFinite(getMetric('spectral_bandwidth', 'spectralBandwidthHz')) ? safeHz(getMetric('spectral_bandwidth', 'spectralBandwidthHz')) : '—', 'spectralBandwidthHz'),
-            row('uniformidade espectral', analysis.technicalData?.spectralUniformity?.value ? `${safeFixed(analysis.technicalData.spectralUniformity.value, 3)} (${analysis.technicalData.spectralUniformity.detailed?.distribution || 'unknown'})` : '—', 'spectralUniformity'),
+            // REMOVED: uniformidade espectral (mantendo cálculo interno para problems-suggestions.js)
             row('zero crossing rate', Number.isFinite(getMetric('zero_crossing_rate', 'zeroCrossingRate')) ? safeFixed(getMetric('zero_crossing_rate', 'zeroCrossingRate'), 3) : '—', 'zeroCrossingRate'),
             row('Mudança Espectral', Number.isFinite(getMetric('spectral_flux', 'spectralFlux')) ? safeFixed(getMetric('spectral_flux', 'spectralFlux'), 3) : '—', 'spectralFlux'),
             row('Uniformidade (linear vs peaks)', Number.isFinite(getMetric('spectral_flatness', 'spectralFlatness')) ? safeFixed(getMetric('spectral_flatness', 'spectralFlatness'), 3) : '—', 'spectralFlatness')
         ].join('');
 
-            const col3Extras = (()=>{
-                let extra='';
-                try {
-                    const list = Array.isArray(analysis.technicalData.dominantFrequencies) ? analysis.technicalData.dominantFrequencies.slice() : [];
-                    if (list.length>1) {
-                        list.sort((a,b)=> (b.occurrences||0)-(a.occurrences||0) || a.frequency - b.frequency);
-                        const filtered=[];
-                        for (const f of list) {
-                            if (!Number.isFinite(f.frequency)) continue;
-                            if (filtered.some(x=> Math.abs(x.frequency - f.frequency) < 40)) continue;
-                            filtered.push(f); if (filtered.length>=5) break;
-                        }
-                        extra = filtered.slice(1,4).map(f=>`${Math.round(f.frequency)}Hz`).join(', ');
-                    }
-                } catch {}
-                return extra ? row('Top Freq. adicionais', `<span style="opacity:.9">${extra}</span>`) : '';
-            })();
+            // REMOVED: col3Extras (Dominant Frequencies)  
+            // Reason: REMOVAL_SKIPPED_USED_BY_SCORE:dominantFrequencies - usado por enhanced-suggestion-engine.js
+            console.warn('REMOVAL_SKIPPED_USED_BY_SCORE:dominantFrequencies - mantendo cálculo interno, ocultando UI');
+            
             const col3 = [
-                // Reativando métricas experimentais agora implementadas via funções standalone
-                (analysis.technicalData?.dominantFrequencies?.detailed?.primary ? row('freq. dominante', `${Math.round(analysis.technicalData.dominantFrequencies.detailed.primary)} Hz`) : ''),
-                (analysis.technicalData?.dominantFrequencies?.detailed?.secondary ? row('top freq. adicionais', `${Math.round(analysis.technicalData.dominantFrequencies.detailed.secondary)} Hz`) : ''),
+                // REMOVED: Dominant Frequencies UI (mantendo cálculo interno para suggestions)
                 
                 // Métricas avançadas baseadas nas imagens
-                row('clipping (%)', Number.isFinite(getMetric('clipping_pct', 'clippingPct')) ? `${safeFixed(getMetric('clipping_pct', 'clippingPct'), 2)}%` : '0.00%', 'clippingPct'),
+                (Number.isFinite(getMetric('clipping_pct', 'clippingPct')) ? row('clipping (%)', `${safeFixed(getMetric('clipping_pct', 'clippingPct'), 2)}%`, 'clippingPct') : ''),
                 (analysis.technicalData?.dcOffset?.detailed ? row('dc offset', `L: ${safeFixed(analysis.technicalData.dcOffset.detailed.L, 4)} / R: ${safeFixed(analysis.technicalData.dcOffset.detailed.R, 4)} (${analysis.technicalData.dcOffset.detailed.severity || 'Low'})`) : ''),
-                row('thd', Number.isFinite(getMetric('thd', 'thd')) ? `${safeFixed(getMetric('thd', 'thd'), 2)}%` : '0.00%', 'thd'),
-                row('Correlação Estéreo (largura)', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 3) : '—', 'stereoCorrelation'),
-                row('fator de crista', Number.isFinite(getMetric('crest_factor', 'crestFactor')) ? `${safeFixed(getMetric('crest_factor', 'crestFactor'), 1)} dB` : '—', 'crestFactor'),
-                row('Dinâmica (diferença entre alto/baixo)', Number.isFinite(getMetric('dynamic_range', 'dynamicRange')) ? `Δ=${safeFixed(getMetric('dynamic_range', 'dynamicRange'), 0)} ok` : '—', 'dynamicRange'),
-                row('crest consist', 'Δ=4.43 check', 'crestConsist'),
-                row('Variação de Volume (consistência)', 'ok', 'volumeConsistency'),
+                (Number.isFinite(getMetric('thd', 'thd')) ? row('thd', `${safeFixed(getMetric('thd', 'thd'), 2)}%`, 'thd') : ''),
+                
+                // REMOVED: Dinâmica e Fator de Crista duplicados - já exibidos em col1
+                // REMOVED: row('Correlação Estéreo (largura)') - duplicado de col2
+                // REMOVED: row('fator de crista') - duplicado de col1
+                // REMOVED: row('Dinâmica (diferença entre alto/baixo)') - duplicado de col1 com DR e LRA
+                
+                // REMOVED: Placeholders hardcoded - substituir por valores reais quando disponíveis
+                // row('crest consist', 'Δ=4.43 check', 'crestConsist'),
+                // row('Variação de Volume (consistência)', 'ok', 'volumeConsistency'),
                 
                 row('Problemas', (analysis.problems?.length || 0) > 0 ? `<span class="tag tag-danger">${analysis.problems.length} detectado(s)</span>` : '—'),
-                row('Sugestões', (analysis.suggestions?.length || 0) > 0 ? `<span class="tag tag-success">${analysis.suggestions.length} disponível(s)</span>` : '—'),
-                col3Extras
+                row('Sugestões', (analysis.suggestions?.length || 0) > 0 ? `<span class="tag tag-success">${analysis.suggestions.length} disponível(s)</span>` : '—')
+                // REMOVED: col3Extras (dominant frequencies UI)
             ].join('');
 
             // Card extra: Métricas Avançadas (expandido para Web Audio API compatibility)
@@ -3683,16 +3667,12 @@ function displayModalResults(analysis) {
                 }
                 
                 // === FREQUÊNCIAS DOMINANTES ===
-                if (analysis.dominantFrequencies && analysis.dominantFrequencies.peaks && Array.isArray(analysis.dominantFrequencies.peaks)) {
-                    analysis.dominantFrequencies.peaks.slice(0, 3).forEach((peak, idx) => {
-                        rows.push(row(`freq. dominante ${idx + 1}`, `${Math.round(peak.frequency)} Hz`, `dominantFreq${idx + 1}`));
-                    });
-                }
+                // REMOVED: Dominant Frequencies display (mantendo cálculo interno para enhanced-suggestion-engine.js)
+                console.warn('REMOVAL_SKIPPED_USED_BY_SCORE:dominantFrequencies - ocultando UI, mantendo cálculo');
                 
-                // === MÉTRICAS DE UNIFORMIDADE ===
-                if (analysis.spectralUniformity && Number.isFinite(analysis.spectralUniformity.uniformity?.coefficient)) {
-                    rows.push(row('uniformity coeff.', `${safeFixed(analysis.spectralUniformity.uniformity.coefficient, 4)}`, 'uniformityCoeff'));
-                }
+                // === MÉTRICAS DE UNIFORMIDADE ===  
+                // REMOVED: Spectral Uniformity display (mantendo cálculo interno para problems-suggestions.js)
+                console.warn('REMOVAL_SKIPPED_USED_BY_SCORE:spectralUniformity - ocultando UI, mantendo cálculo');
                 
                 // === ZEROS CROSSING RATE ===
                 if (Number.isFinite(analysis.technicalData?.zcr)) {
@@ -4724,7 +4704,7 @@ function displayModalResults(analysis) {
                     ${col2}
                 </div>
                         <div class="card">
-                    <div class="card-title">🔊 Balance Espectral Detalhado</div>
+                    <div class="card-title">🔊 Bandas Espectrais (Consolidado)</div>
                     ${(() => {
                         // Buscar dados das bandas espectrais em múltiplas localizações
                         const spectralBands = analysis.technicalData?.spectral_balance || 

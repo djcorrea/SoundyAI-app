@@ -1,0 +1,305 @@
+{
+  "auditReport": {
+    "timestamp": "2025-09-22T00:00:00Z",
+    "purpose": "Inventário completo de métricas para remoção de duplicadas/desnecessárias",
+    "ruleOfGold": "Se alimenta score, manter cálculo interno + apenas ocultar UI/export"
+  },
+  "metricsInventory": {
+    "dominantFrequencies": {
+      "key": "dominantFrequencies",
+      "displayName": "Frequências Dominantes",
+      "units": "Hz",
+      "sourceModule": "work/lib/audio/features/dominant-frequencies.js",
+      "whereUsed": [
+        "public/audio-analyzer-integration.js:3495-3512 (modal rendering)",
+        "public/audio-analyzer-integration.js:3685-3687 (modal card extra)",
+        "work/lib/audio/features/enhanced-suggestion-engine.js:594-596 (suggestions)"
+      ],
+      "feedsScore": true,
+      "feedsAnalysis": "✅ SIM - Usado pelo enhanced-suggestion-engine.js para análise de frequências",
+      "action": "KEEP_CALCULATION_HIDE_UI",
+      "reason": "Alimenta suggestions, manter cálculo interno mas remover da UI/export"
+    },
+    "spectralUniformity": {
+      "key": "spectralUniformity", 
+      "displayName": "Uniformidade Espectral",
+      "units": "coefficient (0-1)",
+      "sourceModule": "work/lib/audio/features/spectral-uniformity.js",
+      "whereUsed": [
+        "work/lib/audio/features/problems-suggestions.js:359-397 (problems detection)",
+        "public/audio-analyzer-integration.js:? (modal rendering)"
+      ],
+      "feedsScore": true,
+      "feedsAnalysis": "✅ SIM - Usado pelo problems-suggestions.js para detectar 'poor_spectral_balance'",
+      "action": "KEEP_CALCULATION_HIDE_UI", 
+      "reason": "Alimenta sistema de problemas/sugestões, manter cálculo interno mas remover da UI/export"
+    },
+    "spectralBands": {
+      "key": "spectral_bands/spectralBands/frequencyBands",
+      "displayName": "Bandas Espectrais (7-band)",
+      "units": "dB + percentage",
+      "sourceModule": "work/api/audio/json-output-original.js",
+      "whereUsed": [
+        "public/audio-analyzer-integration.js:3555+ (multiple band rendering)",
+        "work/api/audio/json-output-original.js:52-63 (technicalData export)"
+      ],
+      "feedsScore": true,
+      "feedsAnalysis": "✅ SIM - Bandas são parte do core scoring system",
+      "action": "DEDUPLICATE_KEEP_ONE",
+      "reason": "Manter apenas UMA tabela consolidada, remover duplicatas"
+    },
+    "spectralCentroid": {
+      "key": "spectralCentroid/spectralCentroidHz",
+      "displayName": "Centroide Espectral", 
+      "units": "Hz",
+      "sourceModule": "core FFT processing",
+      "whereUsed": [
+        "public/audio-analyzer-integration.js:? (modal rendering)",
+        "work/api/audio/json-output-original.js:125 (technicalData export)"
+      ],
+      "feedsScore": false,
+      "feedsAnalysis": "❌ NÃO - Apenas informativo",
+      "action": "KEEP",
+      "reason": "Métrica core válida, manter"
+    },
+    "spectralRolloff": {
+      "key": "spectralRolloff/spectralRolloffHz", 
+      "displayName": "Rolloff Espectral",
+      "units": "Hz",
+      "sourceModule": "core FFT processing", 
+      "whereUsed": [
+        "public/audio-analyzer-integration.js:? (modal rendering)"
+      ],
+      "feedsScore": false,
+      "feedsAnalysis": "❌ NÃO - Apenas informativo",
+      "action": "KEEP_BUT_FIX_LATER",
+      "reason": "Não tocar agora, corrigir na próxima etapa"
+    },
+    "truePeak": {
+      "key": "truePeakDbtp/truePeakLinear",
+      "displayName": "True Peak",
+      "units": "dBTP",
+      "sourceModule": "core FFmpeg + TruePeakDetector",
+      "whereUsed": [
+        "work/api/audio/json-output-original.js:120-121 (export)",
+        "public/audio-analyzer-integration.js:? (modal)",
+        "work/lib/audio/features/suggestion-scorer.js:12 (score weight 0.9)"
+      ],
+      "feedsScore": true,
+      "feedsAnalysis": "✅ SIM - Weight 0.9 no scoring system",
+      "action": "KEEP",
+      "reason": "Métrica core crítica para scoring"
+    },
+    "samplePeak": {
+      "key": "samplePeakLeftDb/samplePeakRightDb",
+      "displayName": "Sample Peak",
+      "units": "dBFS", 
+      "sourceModule": "core processing",
+      "whereUsed": [
+        "public/audio-analyzer-integration.js:3530+ (modal rendering)"
+      ],
+      "feedsScore": false,
+      "feedsAnalysis": "❌ NÃO - Apenas informativo",
+      "action": "KEEP",
+      "reason": "Métrica core válida, manter"
+    },
+    "lufs": {
+      "key": "lufsIntegrated/lufsShortTerm/lufsMomentary",
+      "displayName": "LUFS (Loudness)",
+      "units": "LUFS",
+      "sourceModule": "core FFmpeg",
+      "whereUsed": [
+        "work/api/audio/json-output-original.js:116-118 (export)",
+        "work/lib/audio/features/suggestion-scorer.js:11 (score weight 1.0)"
+      ],
+      "feedsScore": true,
+      "feedsAnalysis": "✅ SIM - Weight 1.0 no scoring system (crítico)",
+      "action": "KEEP",
+      "reason": "Métrica mais crítica do sistema"
+    },
+    "lra": {
+      "key": "lra",
+      "displayName": "Loudness Range", 
+      "units": "LU",
+      "sourceModule": "core FFmpeg",
+      "whereUsed": [
+        "work/api/audio/json-output-original.js:119 (export)",
+        "work/lib/audio/features/suggestion-scorer.js:14 (score weight 0.6)"
+      ],
+      "feedsScore": true,
+      "feedsAnalysis": "✅ SIM - Weight 0.6 no scoring system",
+      "action": "KEEP",
+      "reason": "Métrica core para scoring"
+    },
+    "dynamicRange": {
+      "key": "dynamicRange/dr",
+      "displayName": "Dynamic Range",
+      "units": "dB",
+      "sourceModule": "core processing",
+      "whereUsed": [
+        "work/api/audio/json-output-original.js:122 (export)",
+        "work/lib/audio/features/suggestion-scorer.js:13 (score weight 0.8)"
+      ],
+      "feedsScore": true,
+      "feedsAnalysis": "✅ SIM - Weight 0.8 no scoring system",
+      "action": "KEEP",
+      "reason": "Métrica core para scoring"
+    },
+    "crestFactor": {
+      "key": "crestFactor",
+      "displayName": "Fator de Crista",
+      "units": "dB",
+      "sourceModule": "core processing",
+      "whereUsed": [
+        "public/audio-analyzer-integration.js:? (modal rendering)"
+      ],
+      "feedsScore": false,
+      "feedsAnalysis": "❌ NÃO - Apenas informativo",
+      "action": "KEEP",
+      "reason": "Métrica core válida, manter"
+    },
+    "stereoCorrelation": {
+      "key": "stereoCorrelation",
+      "displayName": "Correlação Estéreo",
+      "units": "-1 to +1",
+      "sourceModule": "core stereo processing",
+      "whereUsed": [
+        "work/api/audio/json-output-original.js:123 (export)",
+        "work/lib/audio/features/suggestion-scorer.js:15 (score weight 0.5)"
+      ],
+      "feedsScore": true,
+      "feedsAnalysis": "✅ SIM - Weight 0.5 no scoring system",
+      "action": "KEEP",
+      "reason": "Métrica core para scoring"
+    },
+    "stereoWidth": {
+      "key": "stereoWidth",
+      "displayName": "Largura Estéreo",
+      "units": "0-1",
+      "sourceModule": "core stereo processing",
+      "whereUsed": [
+        "work/api/audio/json-output-original.js:124 (export)",
+        "public/audio-analyzer-integration.js:? (modal rendering)"
+      ],
+      "feedsScore": false,
+      "feedsAnalysis": "❌ NÃO - Apenas informativo",
+      "action": "KEEP",
+      "reason": "Métrica core válida, manter"
+    },
+    "panBalance": {
+      "key": "balanceLR",
+      "displayName": "Pan Balance",
+      "units": "L/R",
+      "sourceModule": "core stereo processing",
+      "whereUsed": [
+        "work/api/audio/json-output-original.js:125 (export)"
+      ],
+      "feedsScore": false,
+      "feedsAnalysis": "❌ NÃO - Apenas informativo",
+      "action": "KEEP",
+      "reason": "Métrica core válida, manter"
+    },
+    "clippingPct": {
+      "key": "clippingPct",
+      "displayName": "Clipping",
+      "units": "%",
+      "sourceModule": "core processing",
+      "whereUsed": [
+        "public/audio-analyzer-integration.js:3513+ (modal rendering)"
+      ],
+      "feedsScore": false,
+      "feedsAnalysis": "❌ NÃO - Apenas informativo",
+      "action": "KEEP",
+      "reason": "Métrica core válida, manter"
+    },
+    "dcOffset": {
+      "key": "dcOffset",
+      "displayName": "DC Offset",
+      "units": "linear",
+      "sourceModule": "core processing",
+      "whereUsed": [
+        "public/audio-analyzer-integration.js:3514+ (modal rendering)"
+      ],
+      "feedsScore": false,
+      "feedsAnalysis": "❌ NÃO - Apenas informativo", 
+      "action": "KEEP",
+      "reason": "Métrica core válida, manter"
+    },
+    "thd": {
+      "key": "thd/thdPercent",
+      "displayName": "THD (Total Harmonic Distortion)",
+      "units": "%",
+      "sourceModule": "core processing",
+      "whereUsed": [
+        "public/audio-analyzer-integration.js:3515+ (modal rendering)"
+      ],
+      "feedsScore": false,
+      "feedsAnalysis": "❌ NÃO - Apenas informativo",
+      "action": "KEEP",
+      "reason": "Métrica core válida, manter"
+    }
+  },
+  "placeholdersFound": {
+    "samplePeakZero": {
+      "pattern": "Sample Peak = 0.000",
+      "whereFound": "public/audio-analyzer-integration.js (modal)",
+      "action": "REMOVE_PLACEHOLDER",
+      "reason": "Valor placeholder sem significado"
+    },
+    "truePeakAmpulheta": {
+      "pattern": "picos reais sem valor (ampulheta \"–\")",
+      "whereFound": "public/audio-analyzer-integration.js (modal)",
+      "action": "REMOVE_PLACEHOLDER",
+      "reason": "Placeholder visual confuso"
+    },
+    "nullUnknownValues": {
+      "pattern": "null/unknown aparecendo",
+      "whereFound": "Vários locais do modal",
+      "action": "DONT_RENDER_IF_NULL",
+      "reason": "Trocar por não renderizar quando null"
+    }
+  },
+  "duplicatesFound": {
+    "dynamicRangeDuplicates": {
+      "problem": "Múltiplas linhas de dinâmica: 'diferença alto/baixo 19.1 dB', LRA, DR, Crest",
+      "whereFound": "public/audio-analyzer-integration.js:3517+ (col3)",
+      "action": "KEEP_ONLY_LRA_DR_CREST",
+      "reason": "Manter apenas as 3 métricas canônicas"
+    },
+    "spectralBandsDuplicates": {
+      "problem": "Múltiplas tabelas/frames de bandas sendo exibidas",
+      "whereFound": "public/audio-analyzer-integration.js:3555+ (advancedMetricsCard)",
+      "action": "KEEP_ONE_CONSOLIDATED_TABLE",
+      "reason": "Manter apenas a tabela consolidada"
+    }
+  },
+  "removalSummary": {
+    "toRemoveFromUI": [
+      "dominantFrequencies (manter cálculo interno)",
+      "spectralUniformity (manter cálculo interno)", 
+      "placeholders vazios (0.000, ampulheta, null)",
+      "dinâmica duplicada (manter só LRA, DR, Crest)",
+      "bandas duplicadas (manter só a consolidada)"
+    ],
+    "toRemoveFromPAPERLINE": [
+      "dominantFrequencies chave no payload",
+      "spectralUniformity chave no payload",
+      "bandas duplicadas no technicalData"
+    ],
+    "toKeepIntact": [
+      "truePeakDbtp (weight 0.9)",
+      "lufsIntegrated (weight 1.0)", 
+      "lra (weight 0.6)",
+      "dynamicRange (weight 0.8)",
+      "stereoCorrelation (weight 0.5)",
+      "stereoWidth",
+      "balanceLR",
+      "spectralCentroid",
+      "clippingPct",
+      "dcOffset", 
+      "thd",
+      "1 tabela consolidada de bandas 7-band",
+      "score e sub-scores (NÃO ALTERAR)"
+    ]
+  }
+}

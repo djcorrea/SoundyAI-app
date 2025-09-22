@@ -422,149 +422,16 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.dcOffset = null;
   }
 
-  // ===== Dominant Frequencies (Corrigido para garantir valores reais) =====
-  let finalDominantFreqs = null;
+  // ===== Dominant Frequencies =====
+  // REMOVED: Export processing for dominantFrequencies
+  // Reason: REMOVAL_SKIPPED_USED_BY_SCORE:dominantFrequencies - mantendo cálculo interno apenas
+  // O cálculo continua acontecendo em enhanced-suggestion-engine.js para análise interna
+  console.log('🎵 [DOMINANT_FREQ] Processamento de export removido - mantendo apenas cálculo interno');
   
-  // 🎯 MÚLTIPLAS TENTATIVAS de extrair frequências dominantes
-  console.log('🎵 [DOMINANT_FREQ_DEBUG] Fontes disponíveis:', {
-    hasDirectDominantFreq: !!(coreMetrics.dominantFrequencies),
-    directStructure: coreMetrics.dominantFrequencies,
-    hasFFTDominantFreq: !!(coreMetrics.fft?.dominantFrequencies),
-    fftStructure: coreMetrics.fft?.dominantFrequencies,
-    hasFFTSpectrum: !!(coreMetrics.fft?.magnitudeSpectrum)
-  });
-  
-  // Tentativa 1: Usar dominantFrequencies direto do core metrics
-  if (coreMetrics.dominantFrequencies && coreMetrics.dominantFrequencies.value) {
-    finalDominantFreqs = {
-      value: safeSanitize(coreMetrics.dominantFrequencies.value),
-      unit: coreMetrics.dominantFrequencies.unit || 'Hz',
-      detailed: {
-        primary: safeSanitize(coreMetrics.dominantFrequencies.value),
-        secondary: safeSanitize(coreMetrics.dominantFrequencies.detailed?.secondary),
-        peaks: coreMetrics.dominantFrequencies.detailed?.peaks || []
-      }
-    };
-    console.log('✅ [DOMINANT_FREQ] Usando dados diretos do core metrics');
-  }
-  // Tentativa 2: Usar array de frequências do FFT
-  else if (coreMetrics.fft?.dominantFrequencies && Array.isArray(coreMetrics.fft.dominantFrequencies) && coreMetrics.fft.dominantFrequencies.length > 0) {
-    const freqArray = coreMetrics.fft.dominantFrequencies.slice(0, 10).map(f => ({
-      frequency: safeSanitize(f.frequency),
-      occurrences: safeSanitize(f.occurrences, 1),
-      magnitude: safeSanitize(f.magnitude),
-      consistency: safeSanitize(f.consistency, 0)
-    }));
-    
-    if (freqArray.length > 0 && freqArray[0].frequency) {
-      finalDominantFreqs = {
-        value: freqArray[0].frequency,
-        unit: 'Hz',
-        detailed: {
-          primary: freqArray[0].frequency,
-          secondary: freqArray[1]?.frequency || null,
-          peaks: freqArray
-        }
-      };
-      console.log('✅ [DOMINANT_FREQ] Usando array do FFT');
-    }
-  }
-  // Tentativa 3: Calcular na hora usando espectro disponível
-  else if (coreMetrics.fft?.magnitudeSpectrum && Array.isArray(coreMetrics.fft.magnitudeSpectrum) && coreMetrics.fft.magnitudeSpectrum.length > 0) {
-    try {
-      // Importar e executar calculateDominantFrequencies na hora
-      const spectrum = coreMetrics.fft.magnitudeSpectrum[0]; // Primeiro frame
-      
-      if (spectrum && Array.isArray(spectrum) && spectrum.length > 0) {
-        console.log('🔄 [DOMINANT_FREQ] Tentando calcular na hora do JSON output');
-        
-        // Implementação simplificada de detecção de picos
-        const sampleRate = 48000;
-        const fftSize = spectrum.length * 2;
-        const frequencyResolution = sampleRate / fftSize;
-        
-        // Encontrar picos simples
-        const peaks = [];
-        for (let i = 2; i < spectrum.length - 2; i++) {
-          const freq = i * frequencyResolution;
-          if (freq >= 20 && freq <= 20000 && // Faixa audível
-              spectrum[i] > spectrum[i-1] && 
-              spectrum[i] > spectrum[i+1] &&
-              spectrum[i] > 0.001) { // Threshold mínimo
-            peaks.push({
-              frequency: Math.round(freq),
-              magnitude: spectrum[i]
-            });
-          }
-        }
-        
-        // Ordenar por magnitude
-        peaks.sort((a, b) => b.magnitude - a.magnitude);
-        
-        if (peaks.length > 0) {
-          finalDominantFreqs = {
-            value: peaks[0].frequency,
-            unit: 'Hz',
-            detailed: {
-              primary: peaks[0].frequency,
-              secondary: peaks[1]?.frequency || null,
-              peaks: peaks.slice(0, 5).map(p => ({
-                frequency: p.frequency,
-                magnitude: p.magnitude,
-                consistency: 1.0
-              }))
-            }
-          };
-          console.log('✅ [DOMINANT_FREQ] Calculado na hora com sucesso:', {
-            primary: peaks[0].frequency,
-            totalPeaks: peaks.length
-          });
-        }
-      }
-    } catch (calcError) {
-      console.warn('⚠️ [DOMINANT_FREQ] Falha no cálculo na hora:', calcError.message);
-    }
-  }
-  
-  // Se ainda não temos frequências, usar estrutura com null mas SEM zeros falsos
-  if (!finalDominantFreqs) {
-    finalDominantFreqs = {
-      value: null,
-      unit: 'Hz',
-      detailed: {
-        primary: null,
-        secondary: null,
-        peaks: []
-      },
-      _status: 'not_calculated',
-      _reason: 'no_spectrum_data_available'
-    };
-    console.log('⚠️ [DOMINANT_FREQ] Nenhuma frequência disponível, usando null');
-  }
-  
-  technicalData.dominantFrequencies = finalDominantFreqs;
-
   // ===== Spectral Uniformity =====
-  if (coreMetrics.spectralUniformity && typeof coreMetrics.spectralUniformity === 'object') {
-    // A função calculateSpectralUniformity retorna um objeto complexo
-    const uniformityValue = coreMetrics.spectralUniformity.uniformity?.coefficient || 
-                            coreMetrics.spectralUniformity.score ||
-                            0.5; // Fallback
-    
-    technicalData.spectralUniformity = {
-      value: safeSanitize(uniformityValue),
-      unit: 'ratio',
-      detailed: {
-        variance: safeSanitize(uniformityValue),
-        distribution: coreMetrics.spectralUniformity.rating || 
-                     coreMetrics.spectralUniformity.characteristics?.dominantBand || 
-                     'Unknown',
-        analysis: 'Spectral analysis completed'
-      }
-    };
-  } else {
-    technicalData.spectralUniformity = null;
-  }
+  // REMOVED: technicalData.spectralUniformity export  
+  // Reason: REMOVAL_SKIPPED_USED_BY_SCORE:spectralUniformity - mantendo cálculo interno, removendo export
+  console.warn('REMOVAL_SKIPPED_USED_BY_SCORE:spectralUniformity - não exportando para PAPERLINE');
 
   // ===== Problems / Suggestions =====
   technicalData.problemsAnalysis = {
@@ -693,36 +560,8 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       };
     })(),
 
-    // 🎵 DOMINANT FREQUENCIES (Estrutura aprimorada para UI)
-    dominantFrequencies: (() => {
-      const domFreq = technicalData.dominantFrequencies;
-      
-      // Se não temos frequências válidas, retornar estrutura vazia
-      if (!domFreq || domFreq._status === 'not_calculated' || !domFreq.value) {
-        return {
-          value: null,
-          unit: 'Hz',
-          detailed: {
-            primary: null,
-            secondary: null,
-            peaks: []
-          },
-          status: 'not_calculated'
-        };
-      }
-      
-      // Retornar estrutura completa com dados válidos
-      return {
-        value: domFreq.value,
-        unit: domFreq.unit || 'Hz',
-        detailed: {
-          primary: domFreq.detailed?.primary || domFreq.value,
-          secondary: domFreq.detailed?.secondary || null,
-          peaks: domFreq.detailed?.peaks || []
-        },
-        status: 'calculated'
-      };
-    })(),
+    // REMOVED: dominantFrequencies export (mantendo cálculo interno para suggestions)
+    // dominantFrequencies: null,
 
     problemsAnalysis: technicalData.problemsAnalysis,
 
@@ -757,7 +596,7 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
 
     // ===== METRICS (Structured for Frontend) =====
     metrics: {
-      // 🌈 BANDAS UNIFICADAS - Estrutura padronizada para UI
+      // REMOVED: 🌈 BANDAS UNIFICADAS - duplicação comentada, usar spectralBands
       bands: (() => {
         const bands = technicalData.spectral_balance;
         if (!bands || bands._status === 'not_calculated' || bands._status === 'data_structure_invalid') {
@@ -900,8 +739,7 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       
       // Experimentais
       dcOffset: technicalData.dcOffset,
-      spectralUniformity: technicalData.spectralUniformity,
-      dominantFrequencies: technicalData.dominantFrequencies,
+      // REMOVED: spectralUniformity, dominantFrequencies (mantendo cálculo interno, removendo export)
       problemsAnalysis: technicalData.problemsAnalysis,
       
       // Compatibilidade com nomes legados
@@ -953,8 +791,7 @@ function createCompactJSON(fullJSON) {
       rms: fullJSON.technicalData?.rms,
       monoCompatibility: fullJSON.technicalData?.monoCompatibility,
       dcOffset: fullJSON.technicalData?.dcOffset,
-      spectralUniformity: fullJSON.technicalData?.spectralUniformity,
-      dominantFrequencies: (fullJSON.technicalData?.dominantFrequencies || []).slice(0, 5),
+      // REMOVED: spectralUniformity, dominantFrequencies (mantendo cálculo interno, removendo export)
       correlation: fullJSON.technicalData?.correlation,
       balance: fullJSON.technicalData?.balance,
       width: fullJSON.technicalData?.width,
@@ -1103,71 +940,9 @@ function generateGenreReference(technicalData, genre) {
   }
   
   // ===== 🎵 FREQUÊNCIAS DOMINANTES =====
-  // Incluir frequências dominantes na comparação se disponíveis
-  const dominantFreqs = technicalData.dominantFrequencies;
-  
-  if (dominantFreqs && dominantFreqs.value && dominantFreqs._status !== 'not_calculated') {
-    const primaryFreq = dominantFreqs.value || dominantFreqs.detailed?.primary;
-    
-    if (primaryFreq && typeof primaryFreq === 'number' && primaryFreq > 0) {
-      // Análise básica da frequência dominante
-      let freqCategory = 'Desconhecido';
-      let idealRange = { min: 0, max: 20000 };
-      
-      if (primaryFreq < 60) {
-        freqCategory = 'Sub-Bass';
-        idealRange = { min: 40, max: 80 };
-      } else if (primaryFreq < 150) {
-        freqCategory = 'Bass';
-        idealRange = { min: 60, max: 120 };
-      } else if (primaryFreq < 500) {
-        freqCategory = 'Low-Mid';
-        idealRange = { min: 150, max: 400 };
-      } else if (primaryFreq < 2000) {
-        freqCategory = 'Mid';
-        idealRange = { min: 500, max: 1500 };
-      } else if (primaryFreq < 5000) {
-        freqCategory = 'High-Mid';
-        idealRange = { min: 2000, max: 4000 };
-      } else if (primaryFreq < 10000) {
-        freqCategory = 'Presence';
-        idealRange = { min: 5000, max: 8000 };
-      } else {
-        freqCategory = 'Air';
-        idealRange = { min: 10000, max: 15000 };
-      }
-      
-      const isInIdealRange = primaryFreq >= idealRange.min && primaryFreq <= idealRange.max;
-      const status = isInIdealRange ? "✅ IDEAL" : "⚠️ ANALISAR";
-      
-      references.push({
-        metric: `Frequência Dominante (${freqCategory})`,
-        value: Math.round(primaryFreq),
-        ideal: `${idealRange.min}-${idealRange.max}`,
-        unit: "Hz",
-        status: status,
-        category: "dominant_frequency"
-      });
-      
-      // Adicionar picos adicionais se disponíveis
-      if (dominantFreqs.detailed?.peaks && Array.isArray(dominantFreqs.detailed.peaks)) {
-        const significantPeaks = dominantFreqs.detailed.peaks
-          .filter(peak => peak.frequency && peak.frequency !== primaryFreq)
-          .slice(0, 2); // Top 2 picos adicionais
-        
-        significantPeaks.forEach((peak, index) => {
-          references.push({
-            metric: `${index + 2}º Pico Espectral`,
-            value: Math.round(peak.frequency),
-            ideal: "Variável",
-            unit: "Hz",
-            status: "ℹ️ INFO",
-            category: "spectral_peaks"
-          });
-        });
-      }
-    }
-  }
+  // REMOVED: Dominant Frequencies reference processing
+  // Reason: REMOVAL_SKIPPED_USED_BY_SCORE:dominantFrequencies - removendo do export/referência
+  console.warn('REMOVAL_SKIPPED_USED_BY_SCORE:dominantFrequencies - removendo da referência por gênero');
   
   return references;
 }
