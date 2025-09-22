@@ -1,0 +1,89 @@
+{
+  "auditDate": "2025-09-22",
+  "targetedMetrics": {
+    "Pico de Amostra": {
+      "currentLabel": "Pico de Amostra",
+      "metricKey": "peak_db",
+      "uiLocation": "line 3461 - col1",
+      "feedsScore": false,
+      "status": "PLACEHOLDER_IF_ZERO",
+      "action": "CONDITIONAL_RENDER",
+      "reason": "Remove if 0.000, else keep as valid metric"
+    },
+    "Limite de Agudos (85%)": {
+      "currentLabel": "Limite de Agudos (85%)",  
+      "metricKey": "spectral_rolloff",
+      "uiLocation": "line 3479 - col2",
+      "feedsScore": true,
+      "scoringKey": "rolloff85",
+      "scoringLocation": "scoring.js:397",
+      "status": "FEEDS_SCORE",
+      "action": "KEEP_INTERNAL_HIDE_UI",
+      "reason": "Used in scoring but inconsistent calculation mentioned"
+    },
+    "zero crossing rate": {
+      "currentLabel": "zero crossing rate",
+      "metricKey": "zero_crossing_rate", 
+      "uiLocation": "line 3482 - col2",
+      "feedsScore": false,
+      "status": "PLACEHOLDER_ONLY",
+      "action": "REMOVE_COMPLETELY",
+      "reason": "Not used in scoring, often shows — placeholder"
+    },
+    "Mudança Espectral": {
+      "currentLabel": "Mudança Espectral",
+      "metricKey": "spectral_flux",
+      "uiLocation": "line 3483 - col2", 
+      "feedsScore": false,
+      "status": "PLACEHOLDER_ONLY",
+      "action": "REMOVE_COMPLETELY",
+      "reason": "Not used in scoring, often shows — placeholder"
+    },
+    "Uniformidade (linear vs peaks)": {
+      "currentLabel": "Uniformidade (linear vs peaks)",
+      "metricKey": "spectral_flatness",
+      "uiLocation": "line 3484 - col2",
+      "feedsScore": true,
+      "scoringKey": "spectralFlatness", 
+      "scoringLocation": "scoring.js:393",
+      "status": "FEEDS_SCORE_BUT_BUGGY",
+      "action": "KEEP_INTERNAL_HIDE_UI",
+      "reason": "Used in scoring but marked as buggy/inconsistent"
+    },
+    "Largura Estéreo": {
+      "currentLabel": "Largura Estéreo",
+      "metricKey": "stereo_width",
+      "uiLocation": "line 3476 - col2",
+      "feedsScore": true,
+      "scoringKey": "stereoWidth",
+      "scoringLocation": "scoring.js:132,156,166",
+      "status": "CORE_METRIC",
+      "action": "KEEP_INTACT", 
+      "reason": "Core stereo metric used in scoring"
+    },
+    "Largura Espectral (Hz)": {
+      "currentLabel": "Largura Espectral (Hz)",
+      "metricKey": "spectral_bandwidth",
+      "uiLocation": "line 3480 - col2",
+      "feedsScore": false,
+      "status": "NOT_CORE",
+      "action": "MOVE_TO_TECHNICAL",
+      "reason": "Not used in scoring, technical metric only"
+    }
+  },
+  "duplicatedSections": {
+    "bandasEspectrais": {
+      "locations": ["frequency-bands primitive", "Métricas Avançadas"],
+      "action": "CONSOLIDATE_TO_ADVANCED",
+      "reason": "Keep only comprehensive section"
+    }
+  },
+  "summary": {
+    "totalAnalyzed": 7,
+    "feedsScore": 3,
+    "removeCompletely": 2,
+    "hideButKeepInternal": 2,
+    "keepIntact": 1,
+    "moveToTechnical": 1
+  }
+}

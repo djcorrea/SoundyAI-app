@@ -3458,7 +3458,8 @@ function displayModalResults(analysis) {
         };
 
         const col1 = [
-            row('Pico de Amostra', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak'),
+            // CONDITIONAL: Pico de Amostra - só exibir se não for placeholder 0.000
+            (Number.isFinite(getMetric('peak_db', 'peak')) && getMetric('peak_db', 'peak') !== 0 ? row('Pico de Amostra', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak') : ''),
             row('Volume Médio (energia)', `${safeFixed(getMetric('rms_level', 'avgLoudness'))} dB`, 'avgLoudness'),
             row('Dynamic Range (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
             row('Loudness Range (LRA)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra'),
@@ -3475,13 +3476,12 @@ function displayModalResults(analysis) {
             row('Correlação Estéreo (largura)', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 3) : '—', 'stereoCorrelation'),
             row('Largura Estéreo', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? safeFixed(getMetric('stereo_width', 'stereoWidth'), 2) : '—', 'stereoWidth'),
             row('Balanço Esquerdo/Direito', Number.isFinite(getMetric('balance_lr', 'balanceLR')) ? safePct(getMetric('balance_lr', 'balanceLR')) : '—', 'balanceLR'),
-            row('Frequência Central (brilho)', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroidHz')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroidHz')) : '—', 'spectralCentroidHz'),
-            row('Limite de Agudos (85%)', Number.isFinite(getMetric('spectral_rolloff', 'spectralRolloffHz')) ? safeHz(getMetric('spectral_rolloff', 'spectralRolloffHz')) : '—', 'spectralRolloffHz'),
-            row('Largura Espectral (Hz)', Number.isFinite(getMetric('spectral_bandwidth', 'spectralBandwidthHz')) ? safeHz(getMetric('spectral_bandwidth', 'spectralBandwidthHz')) : '—', 'spectralBandwidthHz'),
-            // REMOVED: uniformidade espectral (mantendo cálculo interno para problems-suggestions.js)
-            row('zero crossing rate', Number.isFinite(getMetric('zero_crossing_rate', 'zeroCrossingRate')) ? safeFixed(getMetric('zero_crossing_rate', 'zeroCrossingRate'), 3) : '—', 'zeroCrossingRate'),
-            row('Mudança Espectral', Number.isFinite(getMetric('spectral_flux', 'spectralFlux')) ? safeFixed(getMetric('spectral_flux', 'spectralFlux'), 3) : '—', 'spectralFlux'),
-            row('Uniformidade (linear vs peaks)', Number.isFinite(getMetric('spectral_flatness', 'spectralFlatness')) ? safeFixed(getMetric('spectral_flatness', 'spectralFlatness'), 3) : '—', 'spectralFlatness')
+            row('Frequência Central (brilho)', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroidHz')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroidHz')) : '—', 'spectralCentroidHz')
+            // REMOVED: Limite de Agudos (85%) - feeds score but inconsistent calculation
+            // REMOVED: Largura Espectral (Hz) - moved to technical section (not core, doesn't feed score)
+            // REMOVED: zero crossing rate - not used in scoring, placeholder only
+            // REMOVED: Mudança Espectral - not used in scoring, placeholder only
+            // REMOVED: Uniformidade (linear vs peaks) - feeds score but buggy, hide UI
         ].join('');
 
             // REMOVED: col3Extras (Dominant Frequencies)  
@@ -3654,6 +3654,11 @@ function displayModalResults(analysis) {
                 // Spectral Flatness
                 if (Number.isFinite(analysis.technicalData?.spectralFlatness)) {
                     rows.push(row('spectral flatness', `${safeFixed(analysis.technicalData.spectralFlatness, 4)}`, 'spectralFlatness'));
+                }
+                
+                // Spectral Bandwidth (moved from main UI - not core metric)
+                if (Number.isFinite(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))) {
+                    rows.push(row('spectral bandwidth', `${safeHz(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))}`, 'spectralBandwidthHz'));
                 }
                 
                 // Spectral Kurtosis
@@ -4703,114 +4708,8 @@ function displayModalResults(analysis) {
                     <div class="card-title">🎧 Análise Estéreo & Espectral</div>
                     ${col2}
                 </div>
-                        <div class="card">
-                    <div class="card-title">🔊 Bandas Espectrais (Consolidado)</div>
-                    ${(() => {
-                        // Buscar dados das bandas espectrais em múltiplas localizações
-                        const spectralBands = analysis.technicalData?.spectral_balance || 
-                                            analysis.technicalData?.spectralBands || 
-                                            analysis.metrics?.bands || {};
+                        <!-- REMOVED: 🔊 Bandas Espectrais (Consolidado) - duplicação removida, mantida apenas em Métricas Avançadas -->
                         
-                        const formatDb = (v) => Number.isFinite(v) ? `${safeFixed(v, 1)} dB` : '—';
-                        const formatPct = (v) => Number.isFinite(v) ? `${safeFixed(v, 1)}%` : '—';
-                        const rows = [];
-                        
-                        // Mapeamento das bandas do novo sistema
-                        const bandMap = {
-                            sub: { name: 'Sub (20-60Hz)', fallback: ['graves', 'subBass'] },
-                            bass: { name: 'Bass (60-150Hz)', fallback: ['gravesAltos', 'bass'] },
-                            lowMid: { name: 'Low-Mid (150-500Hz)', fallback: ['mediosGraves', 'lowMid', 'mids'] },
-                            mid: { name: 'Mid (500-2kHz)', fallback: ['medios', 'mid'] },
-                            highMid: { name: 'High-Mid (2-5kHz)', fallback: ['mediosAgudos', 'highMid', 'treble'] },
-                            presence: { name: 'Presence (5-10kHz)', fallback: ['agudos', 'presence'] },
-                            air: { name: 'Air (10-20kHz)', fallback: ['presenca', 'air', 'brilliance'] }
-                        };
-                        
-                        // Percorrer dinamicamente todas as bandas disponíveis
-                        Object.keys(bandMap).forEach(bandKey => {
-                            const bandInfo = bandMap[bandKey];
-                            let bandData = spectralBands[bandKey];
-                            
-                            // Se não encontrou na chave principal, tentar fallbacks
-                            if (!bandData) {
-                                for (const fallbackKey of bandInfo.fallback) {
-                                    if (spectralBands[fallbackKey]) {
-                                        bandData = spectralBands[fallbackKey];
-                                        break;
-                                    }
-                                }
-                            }
-                            
-                            if (bandData && typeof bandData === 'object') {
-                                // Novo formato com energy_db e percentage
-                                const energyDb = bandData.energy_db;
-                                const percentage = bandData.percentage;
-                                const status = bandData.status;
-                                const range = bandData.range || bandData.frequencyRange || 'N/A';
-                                
-                                if (status && status !== 'not_calculated') {
-                                    let displayValue = '';
-                                    
-                                    if (Number.isFinite(energyDb) && Number.isFinite(percentage)) {
-                                        displayValue = `${formatDb(energyDb)} • ${formatPct(percentage)}`;
-                                    } else if (Number.isFinite(energyDb)) {
-                                        displayValue = formatDb(energyDb);
-                                    } else if (Number.isFinite(percentage)) {
-                                        displayValue = formatPct(percentage);
-                                    } else {
-                                        displayValue = 'não calculado';
-                                    }
-                                    
-                                    rows.push(row(bandInfo.name, displayValue, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
-                                } else {
-                                    rows.push(row(bandInfo.name, 'não calculado', `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
-                                }
-                            } else if (Number.isFinite(bandData)) {
-                                // Formato legado (apenas valor numérico)
-                                rows.push(row(bandInfo.name, formatDb(bandData), `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
-                            } else {
-                                // Banda não encontrada
-                                rows.push(row(bandInfo.name, 'não calculado', `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
-                            }
-                        });
-                        
-                        // Se não encontrou nenhuma banda nas chaves mapeadas, tentar qualquer banda disponível
-                        if (rows.filter(r => !r.includes('não calculado')).length === 0) {
-                            Object.keys(spectralBands).forEach(bandKey => {
-                                if (bandKey === '_status' || bandKey === 'totalPercentage') return;
-                                
-                                const bandData = spectralBands[bandKey];
-                                if (bandData && typeof bandData === 'object') {
-                                    const energyDb = bandData.energy_db;
-                                    const percentage = bandData.percentage;
-                                    const range = bandData.range || bandData.frequencyRange || 'N/A';
-                                    const status = bandData.status;
-                                    
-                                    if (status && status !== 'not_calculated') {
-                                        let displayValue = '';
-                                        if (Number.isFinite(energyDb) && Number.isFinite(percentage)) {
-                                            displayValue = `${formatDb(energyDb)} • ${formatPct(percentage)}`;
-                                        } else if (Number.isFinite(energyDb)) {
-                                            displayValue = formatDb(energyDb);
-                                        } else if (Number.isFinite(percentage)) {
-                                            displayValue = formatPct(percentage);
-                                        } else {
-                                            displayValue = 'não calculado';
-                                        }
-                                        
-                                        const displayName = `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)} (${range})`;
-                                        rows.push(row(displayName, displayValue, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
-                                    }
-                                } else if (Number.isFinite(bandData)) {
-                                    const displayName = `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`;
-                                    rows.push(row(displayName, formatDb(bandData), `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
-                                }
-                            });
-                        }
-                        
-                        return rows.length ? rows.join('') : row('Status', 'Bandas espectrais não calculadas');
-                    })()}
-                </div>
                         <div class="card">
                     <div class="card-title">�🏆 Scores & Diagnóstico</div>
                     ${scoreRows}
