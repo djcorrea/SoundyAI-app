@@ -372,6 +372,30 @@ class EnhancedSuggestionEngine {
                 auditLog: [...this.auditLog]
             };
             
+            // 🎯 NOVO: Garantir que diagnostics.suggestions está populado
+            if (!result.diagnostics) {
+                result.diagnostics = {};
+            }
+            
+            // Transferir sugestões para diagnostics.suggestions
+            result.diagnostics.suggestions = allSuggestions.map(suggestion => ({
+                ...suggestion,
+                // Garantir que todos os campos obrigatórios estão presentes
+                icon: suggestion.icon || '🎛️',
+                targetValue: suggestion.targetValue || null,
+                currentValue: suggestion.currentValue || null,
+                message: suggestion.message || 'Sugestão de melhoria',
+                action: suggestion.action || 'Aplicar ajuste',
+                why: suggestion.why || suggestion.justification || 'Otimização recomendada',
+                source: 'enhanced_suggestion_engine'
+            }));
+            
+            this.logAudit('DIAGNOSTICS_POPULATED', 'diagnostics.suggestions populado', {
+                suggestionsCount: result.diagnostics.suggestions.length,
+                lraCount: result.diagnostics.suggestions.filter(s => s.type?.includes('lra')).length,
+                bandsCount: result.diagnostics.suggestions.filter(s => s.type === 'band_adjust' || s.type === 'reference_band_comparison').length
+            });
+            
             this.logAudit('PROCESSING_COMPLETE', `Processamento concluído em ${result.enhancedMetrics.processingTimeMs}ms`, {
                 totalSuggestions: allSuggestions.length,
                 referenceSuggestions: referenceSuggestions.length,
@@ -449,15 +473,45 @@ class EnhancedSuggestionEngine {
             this.logAudit('METRIC_EXTRACTED', 'DR extraído', { value: drValue, source: 'dynamicRange' });
         }
 
-        // LRA - BUSCAR EM MÚLTIPLOS ALIASES
-        const lraValue = tech.lra || tech.loudness_range || tech.loudnessRange || tech.lra_tolerance;
-        if (Number.isFinite(lraValue)) {
+        // LRA - BUSCAR EM MÚLTIPLOS ALIASES E ESTRUTURAS
+        let lraValue = null;
+        
+        // 1. Buscar diretamente em technicalData
+        const lraSources = ['lra', 'loudness_range', 'loudnessRange', 'lra_tolerance'];
+        for (const source of lraSources) {
+            if (Number.isFinite(tech[source])) {
+                lraValue = tech[source];
+                this.logAudit('METRIC_EXTRACTED', `LRA extraído via technicalData.${source}`, { value: lraValue, source });
+                break;
+            }
+        }
+        
+        // 2. Buscar em analysis.metrics se disponível
+        if (!lraValue && analysis.metrics) {
+            for (const source of lraSources) {
+                if (Number.isFinite(analysis.metrics[source])) {
+                    lraValue = analysis.metrics[source];
+                    this.logAudit('METRIC_EXTRACTED', `LRA extraído via analysis.metrics.${source}`, { value: lraValue, source });
+                    break;
+                }
+            }
+        }
+        
+        // 3. Buscar em estruturas aninhadas (loudness.lra)
+        if (!lraValue && analysis.loudness && Number.isFinite(analysis.loudness.lra)) {
+            lraValue = analysis.loudness.lra;
+            this.logAudit('METRIC_EXTRACTED', 'LRA extraído via analysis.loudness.lra', { value: lraValue, source: 'loudness.lra' });
+        }
+        
+        if (lraValue !== null) {
             metrics.lra = lraValue;
-            this.logAudit('METRIC_EXTRACTED', 'LRA extraído', { value: lraValue, source: 'lra' });
+            this.logAudit('METRIC_EXTRACTED', 'LRA extraído com sucesso', { value: lraValue });
         } else {
-            this.logAudit('METRIC_MISSING', 'LRA não encontrado nos dados técnicos', { 
-                checked: ['lra', 'loudness_range', 'loudnessRange', 'lra_tolerance'],
-                availableKeys: Object.keys(tech)
+            this.logAudit('METRIC_MISSING', 'LRA não encontrado em nenhuma estrutura', { 
+                checked: [...lraSources, 'analysis.metrics.*', 'analysis.loudness.lra'],
+                availableKeys: Object.keys(tech),
+                hasAnalysisMetrics: !!analysis.metrics,
+                hasLoudnessData: !!analysis.loudness
             });
         }
 
@@ -469,13 +523,47 @@ class EnhancedSuggestionEngine {
         }
         
         // Bandas espectrais - normalização completa com múltiplas fontes
-        const bandEnergies = tech.bandEnergies || tech.band_energies || tech.spectralBands || tech.spectral_bands || tech.spectral_balance || {};
+        let bandEnergies = {};
+        
+        // 1. Buscar em technicalData com múltiplos aliases
+        const bandSources = [
+            tech.bandEnergies, 
+            tech.band_energies, 
+            tech.spectralBands, 
+            tech.spectral_bands, 
+            tech.spectral_balance
+        ];
+        
+        // 2. Buscar também em analysis.metrics se disponível
+        if (analysis.metrics) {
+            bandSources.push(
+                analysis.metrics.bandEnergies,
+                analysis.metrics.band_energies,
+                analysis.metrics.spectral_balance,
+                analysis.metrics.bands
+            );
+        }
+        
+        // 3. Buscar diretamente em analysis
+        bandSources.push(
+            analysis.bandEnergies,
+            analysis.spectral_balance,
+            analysis.bands
+        );
+        
+        // Encontrar primeira fonte válida
+        for (const source of bandSources) {
+            if (source && typeof source === 'object' && Object.keys(source).length > 0) {
+                bandEnergies = source;
+                break;
+            }
+        }
         
         this.logAudit('BAND_ENERGIES_DEBUG', 'Debug extração de bandas', {
-            hasBandEnergies: Object.keys(bandEnergies).length > 0,
+            foundSource: Object.keys(bandEnergies).length > 0,
             bandEnergiesKeys: Object.keys(bandEnergies),
-            spectral_balance: tech.spectral_balance,
-            spectral_balance_keys: tech.spectral_balance ? Object.keys(tech.spectral_balance) : null
+            sourcesChecked: bandSources.length,
+            availableTechKeys: Object.keys(tech)
         });
         
         // Mapeamento bidirecional: entrada → saída normalizada
@@ -871,29 +959,29 @@ class EnhancedSuggestionEngine {
                         band
                     });
                     
-                    // 🎯 APLICAR LÓGICA SEGURA SOLICITADA DIRETAMENTE
-                    const delta = suggestion.technical?.delta;
-                    if (typeof delta === "number" && !isNaN(delta)) {
-                        const direction = delta > 0 ? "Reduzir" : "Aumentar";
-                        const amount = Math.abs(delta).toFixed(1);
-                        suggestion.action = `${direction} ${suggestion.subtype} em ${amount} dB`;
-                        suggestion.diagnosis = `Atual: ${suggestion.technical.value} dB, Alvo: ${suggestion.technical.target} dB, Diferença: ${amount} dB`;
-                    } else {
-                        suggestion.action = null;
-                        suggestion.diagnosis = null;
-                    }
-                    
                     // 🎯 GARANTIR CAMPOS OBRIGATÓRIOS PARA SUGESTÕES DE BANDA
-                    suggestion.icon = '🎵';  // Ícone padrão para bandas
+                    suggestion.icon = '🎵';  // Ícone obrigatório para bandas
                     suggestion.targetValue = target;
                     suggestion.currentValue = value;
                     
-                    // Se action ou why estão vazios, preencher com valores padrão
+                    // Garantir campos de texto obrigatórios
                     if (!suggestion.message || suggestion.message.trim() === '') {
                         suggestion.message = `Ajustar ${band} para alinhamento com referência`;
                     }
                     if (!suggestion.why || suggestion.why.trim() === '') {
                         suggestion.why = `Banda ${band} fora da faixa ideal para o gênero`;
+                    }
+                    
+                    // 🎯 APLICAR LÓGICA SEGURA PARA ACTION E DIAGNOSIS
+                    const delta = suggestion.technical?.delta;
+                    if (typeof delta === "number" && !isNaN(delta)) {
+                        const direction = delta > 0 ? "Reduzir" : "Aumentar";
+                        const amount = Math.abs(delta).toFixed(1);
+                        suggestion.action = `${direction} ${band} em ${amount} dB`;
+                        suggestion.diagnosis = `Atual: ${value.toFixed(1)} dB, Alvo: ${target.toFixed(1)} dB, Diferença: ${amount} dB`;
+                    } else {
+                        suggestion.action = `Ajustar banda ${band}`;
+                        suggestion.diagnosis = `Verificar níveis da banda ${band}`;
                     }
                     
                     suggestions.push(suggestion);
@@ -1003,16 +1091,29 @@ class EnhancedSuggestionEngine {
                             band: item.metric
                         });
                         
-                        // 🎯 APLICAR LÓGICA SEGURA SOLICITADA DIRETAMENTE
+                        // 🎯 GARANTIR CAMPOS OBRIGATÓRIOS PARA BANDAS DE REFERÊNCIA
+                        suggestion.icon = '🎵';  // Ícone obrigatório para bandas
+                        suggestion.targetValue = ideal;
+                        suggestion.currentValue = value;
+                        
+                        // Garantir campos de texto obrigatórios
+                        if (!suggestion.message || suggestion.message.trim() === '') {
+                            suggestion.message = `Ajustar ${item.metric} para alinhamento com referência`;
+                        }
+                        if (!suggestion.why || suggestion.why.trim() === '') {
+                            suggestion.why = `Banda ${item.metric} fora da faixa ideal`;
+                        }
+                        
+                        // 🎯 APLICAR LÓGICA SEGURA PARA ACTION E DIAGNOSIS
                         const suggestionDelta = suggestion.technical?.delta;
                         if (typeof suggestionDelta === "number" && !isNaN(suggestionDelta)) {
                             const direction = suggestionDelta > 0 ? "Reduzir" : "Aumentar";
                             const amount = Math.abs(suggestionDelta).toFixed(1);
-                            suggestion.action = `${direction} ${suggestion.subtype} em ${amount} dB`;
-                            suggestion.diagnosis = `Atual: ${suggestion.technical.value} dB, Alvo: ${suggestion.technical.target} dB, Diferença: ${amount} dB`;
+                            suggestion.action = `${direction} ${item.metric} em ${amount} dB`;
+                            suggestion.diagnosis = `Atual: ${value.toFixed(1)} dB, Alvo: ${ideal.toFixed(1)} dB, Diferença: ${amount} dB`;
                         } else {
-                            suggestion.action = null;
-                            suggestion.diagnosis = null;
+                            suggestion.action = `Ajustar banda ${item.metric}`;
+                            suggestion.diagnosis = `Verificar níveis da banda ${item.metric}`;
                         }
                         
                         suggestions.push(suggestion);

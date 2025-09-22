@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Final: Correções LRA e Bandas</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #0a0a0a; color: #fff; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .result { 
+            margin: 20px 0; padding: 15px; border-radius: 8px; 
+            border: 1px solid #333; background: #1a1a1a;
+        }
+        .success { border-color: #28a745; background: #0d2818; }
+        .warning { border-color: #ffc107; background: #332b0a; }
+        .error { border-color: #dc3545; background: #2c0a0a; }
+        .suggestion-item {
+            margin: 10px 0; padding: 10px; border-radius: 6px;
+            background: #2a2a2a; border-left: 4px solid #007bff;
+        }
+        .band-suggestion { border-left-color: #ff6b35; }
+        .lra-suggestion { border-left-color: #28a745; }
+        pre { background: #111; padding: 10px; border-radius: 4px; overflow: auto; }
+        button { 
+            background: #007bff; color: white; border: none; 
+            padding: 10px 20px; border-radius: 5px; cursor: pointer;
+            margin: 10px 5px 0 0;
+        }
+        button:hover { background: #0056b3; }
+        .log-entry { margin: 5px 0; padding: 5px; background: #2a2a2a; border-radius: 3px; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Teste Final: Correções LRA e Bandas</h1>
+        <p>Validação das correções implementadas no Enhanced Suggestion Engine</p>
+        
+        <button onclick="executarTeste()">🧪 Executar Teste</button>
+        <button onclick="limparResultados()">🗑️ Limpar</button>
+        
+        <div id="resultados"></div>
+    </div>
+
+    <!-- Carregar dependências -->
+    <script src="public/suggestion-scorer.js"></script>
+    <script src="public/enhanced-suggestion-engine.js"></script>
+    <script src="public/audio-analyzer-integration.js"></script>
+
+    <script>
+        function limparResultados() {
+            document.getElementById('resultados').innerHTML = '';
+        }
+
+        function logResult(title, content, type = 'result') {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = `<h3>${title}</h3>${content}`;
+            document.getElementById('resultados').appendChild(div);
+        }
+
+        function executarTeste() {
+            limparResultados();
+            
+            try {
+                // Verificar se Enhanced Suggestion Engine está disponível
+                if (!window.enhancedSuggestionEngine) {
+                    logResult('❌ Erro', 'Enhanced Suggestion Engine não encontrado', 'error');
+                    return;
+                }
+                
+                logResult('✅ Inicialização', 'Enhanced Suggestion Engine carregado com sucesso', 'success');
+                
+                // Dados de teste simulando JSON real com LRA e bandas
+                const mockAnalysis = {
+                    technicalData: {
+                        lufsIntegrated: -14.5,
+                        truePeakDbtp: -1.2,
+                        dynamicRange: 8.5,
+                        lra: 6.8, // ← LRA presente
+                        stereoCorrelation: 0.75,
+                        // Bandas espectrais presentes
+                        spectral_balance: {
+                            sub: -28.5,
+                            bass: -18.2,
+                            lowMid: -12.4,
+                            mid: -8.1,
+                            highMid: -10.5,
+                            presenca: -15.3,
+                            brilho: -22.1
+                        }
+                    },
+                    metrics: {
+                        lra: 6.8 // ← LRA também em metrics
+                    }
+                };
+                
+                const mockReference = {
+                    lufs_target: -16.0,
+                    tol_lufs: 2.0,
+                    true_peak_target: -1.0,
+                    tol_true_peak: 1.0,
+                    dr_target: 7.0,
+                    tol_dr: 2.0,
+                    lra_target: 5.0, // ← Target LRA
+                    tol_lra: 1.5,    // ← Tolerância LRA
+                    stereo_target: 0.8,
+                    tol_stereo: 0.15,
+                    bands: {
+                        sub: { target_db: -30.0, tol_db: 3.0 },
+                        bass: { target_db: -20.0, tol_db: 3.0 },
+                        lowMid: { target_db: -15.0, tol_db: 3.0 },
+                        mid: { target_db: -10.0, tol_db: 3.0 },
+                        highMid: { target_db: -12.0, tol_db: 3.0 },
+                        presenca: { target_db: -18.0, tol_db: 3.0 },
+                        brilho: { target_db: -25.0, tol_db: 3.0 }
+                    }
+                };
+                
+                // Executar processamento
+                logResult('🔄 Processamento', 'Executando Enhanced Suggestion Engine...', 'warning');
+                
+                const resultado = window.enhancedSuggestionEngine.processAnalysis(
+                    mockAnalysis, 
+                    mockReference
+                );
+                
+                // Analisar resultados
+                const sugestoes = resultado.suggestions || [];
+                const diagnostics = resultado.diagnostics || {};
+                const diagnosticsSuggestions = diagnostics.suggestions || [];
+                
+                // Filtrar sugestões
+                const sugestoesLRA = sugestoes.filter(s => 
+                    s.type === 'reference_lra' || s.subtype === 'lra' || 
+                    (s.technical && s.technical.metric === 'lra')
+                );
+                
+                const sugestoesBandas = sugestoes.filter(s => 
+                    s.type === 'band_adjust' || s.type === 'reference_band_comparison' ||
+                    (s.subtype && ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presenca', 'brilho'].includes(s.subtype))
+                );
+                
+                // Verificar diagnostics.suggestions
+                const diagnosticsLRA = diagnosticsSuggestions.filter(s => 
+                    s.type === 'reference_lra' || s.subtype === 'lra'
+                );
+                
+                const diagnosticsBandas = diagnosticsSuggestions.filter(s => 
+                    s.type === 'band_adjust' || s.type === 'reference_band_comparison'
+                );
+                
+                // Resultados principais
+                logResult('📊 Resultados Principais', `
+                    <strong>Total de sugestões:</strong> ${sugestoes.length}<br>
+                    <strong>Sugestões LRA:</strong> ${sugestoesLRA.length}<br>
+                    <strong>Sugestões Bandas:</strong> ${sugestoesBandas.length}<br>
+                    <strong>diagnostics.suggestions:</strong> ${diagnosticsSuggestions.length}<br>
+                    <strong>LRA em diagnostics:</strong> ${diagnosticsLRA.length}<br>
+                    <strong>Bandas em diagnostics:</strong> ${diagnosticsBandas.length}
+                `, sugestoes.length > 0 ? 'success' : 'warning');
+                
+                // Detalhes das sugestões LRA
+                if (sugestoesLRA.length > 0) {
+                    let lraDetails = '<h4>🎯 Sugestões LRA:</h4>';
+                    sugestoesLRA.forEach((s, i) => {
+                        lraDetails += `
+                            <div class="suggestion-item lra-suggestion">
+                                <strong>LRA ${i+1}:</strong> ${s.message || 'N/A'}<br>
+                                <strong>Ação:</strong> ${s.action || 'N/A'}<br>
+                                <strong>Ícone:</strong> ${s.icon || 'N/A'}<br>
+                                <strong>Valor Atual:</strong> ${s.currentValue || 'N/A'}<br>
+                                <strong>Valor Alvo:</strong> ${s.targetValue || 'N/A'}<br>
+                                <strong>Tipo:</strong> ${s.type || 'N/A'}
+                            </div>
+                        `;
+                    });
+                    logResult('✅ LRA Detectado', lraDetails, 'success');
+                } else {
+                    logResult('❌ LRA Ausente', 'Nenhuma sugestão LRA foi gerada', 'error');
+                }
+                
+                // Detalhes das sugestões de bandas
+                if (sugestoesBandas.length > 0) {
+                    let bandasDetails = '<h4>🎵 Sugestões Bandas:</h4>';
+                    sugestoesBandas.forEach((s, i) => {
+                        bandasDetails += `
+                            <div class="suggestion-item band-suggestion">
+                                <strong>Banda ${i+1} (${s.subtype}):</strong> ${s.message || 'N/A'}<br>
+                                <strong>Ação:</strong> ${s.action || 'N/A'}<br>
+                                <strong>Ícone:</strong> ${s.icon || 'N/A'}<br>
+                                <strong>Valor Atual:</strong> ${s.currentValue || 'N/A'}<br>
+                                <strong>Valor Alvo:</strong> ${s.targetValue || 'N/A'}<br>
+                                <strong>Tipo:</strong> ${s.type || 'N/A'}
+                            </div>
+                        `;
+                    });
+                    logResult('✅ Bandas Detectadas', bandasDetails, 'success');
+                } else {
+                    logResult('❌ Bandas Ausentes', 'Nenhuma sugestão de banda foi gerada', 'error');
+                }
+                
+                // Verificar diagnostics.suggestions
+                logResult('🔍 diagnostics.suggestions', `
+                    <strong>Total:</strong> ${diagnosticsSuggestions.length}<br>
+                    <strong>LRA:</strong> ${diagnosticsLRA.length}<br>
+                    <strong>Bandas:</strong> ${diagnosticsBandas.length}<br>
+                    <strong>Status:</strong> ${diagnosticsSuggestions.length > 0 ? '✅ Populado' : '❌ Vazio'}
+                `, diagnosticsSuggestions.length > 0 ? 'success' : 'error');
+                
+                // Log de auditoria relevante
+                if (resultado.auditLog && resultado.auditLog.length > 0) {
+                    const logRelevante = resultado.auditLog
+                        .filter(log => 
+                            log.type.includes('LRA') || 
+                            log.type.includes('BAND') || 
+                            log.type.includes('SUGGESTION') ||
+                            log.type.includes('DIAGNOSTICS')
+                        )
+                        .slice(-10); // Últimas 10 entradas relevantes
+                    
+                    let auditDetails = '<h4>📝 Log de Auditoria (Relevante):</h4>';
+                    logRelevante.forEach(log => {
+                        auditDetails += `
+                            <div class="log-entry">
+                                <strong>${log.type}:</strong> ${log.message}
+                                ${log.data ? `<br><small>Dados: ${JSON.stringify(log.data, null, 2)}</small>` : ''}
+                            </div>
+                        `;
+                    });
+                    logResult('📋 Auditoria', auditDetails, 'warning');
+                }
+                
+                // Resumo final
+                const sucessoLRA = sugestoesLRA.length > 0;
+                const sucessoBandas = sugestoesBandas.length > 0;
+                const sucessoDiagnostics = diagnosticsSuggestions.length > 0;
+                
+                const statusFinal = sucessoLRA && sucessoBandas && sucessoDiagnostics ? 'success' : 
+                                   (sucessoLRA || sucessoBandas) ? 'warning' : 'error';
+                
+                logResult('🎯 Resumo Final', `
+                    <strong>LRA:</strong> ${sucessoLRA ? '✅ OK' : '❌ FALHOU'}<br>
+                    <strong>Bandas:</strong> ${sucessoBandas ? '✅ OK' : '❌ FALHOU'}<br>
+                    <strong>diagnostics.suggestions:</strong> ${sucessoDiagnostics ? '✅ OK' : '❌ FALHOU'}<br>
+                    <br>
+                    <strong>Status Geral:</strong> ${statusFinal === 'success' ? '✅ TODAS AS CORREÇÕES FUNCIONANDO' : 
+                                                    statusFinal === 'warning' ? '⚠️ CORREÇÕES PARCIAIS' : 
+                                                    '❌ CORREÇÕES FALHARAM'}
+                `, statusFinal);
+                
+            } catch (error) {
+                console.error('Erro no teste:', error);
+                logResult('❌ Erro Fatal', `
+                    <strong>Erro:</strong> ${error.message}<br>
+                    <pre>${error.stack}</pre>
+                `, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
