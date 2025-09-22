@@ -4,8 +4,9 @@
 class EnhancedSuggestionEngine {
     constructor(config = {}) {
         this.scorer = window.suggestionScorer || new SuggestionScorer();
-        // Removendo dependência problemática do AdvancedHeuristicsAnalyzer
-        this.heuristics = window.heuristicsAnalyzer || null;
+        
+        // 🎯 CORREÇÃO: Inicializar AdvancedHeuristicsAnalyzer se não estiver disponível
+        this.heuristics = window.heuristicsAnalyzer || this.createInlineHeuristicsAnalyzer();
         
         // 📊 Log de auditoria para debugging
         this.auditLog = [];
@@ -18,6 +19,63 @@ class EnhancedSuggestionEngine {
             includeYellowSeverity: true, // Incluir severidade "amarela" (monitorar)
             enableHeuristics: true,    // Habilitar análise heurística
             enableDependencies: true   // Habilitar regras de dependência
+        };
+    }
+
+    /**
+     * 🎯 CORREÇÃO: Criar instância inline do AdvancedHeuristicsAnalyzer
+     * Versão simplificada que funciona independentemente de scripts externos
+     */
+    createInlineHeuristicsAnalyzer() {
+        return {
+            // Método principal compatível com a interface esperada
+            analyzeAll: (analysisData) => {
+                const detections = [];
+                
+                // 🎵 Análise simplificada de sibilância
+                if (analysisData.spectralData && analysisData.spectralData.bands) {
+                    const bands = analysisData.spectralData.bands;
+                    
+                    // Detectar sibilância excessiva (6-9 kHz)
+                    if (bands.presenca && bands.presenca.energy > -10) {
+                        detections.push({
+                            type: 'sibilance',
+                            intensity: Math.min(1.0, (bands.presenca.energy + 10) / 15),
+                            confidence: 0.8,
+                            frequency: 7500,
+                            description: 'Sibilância excessiva detectada na faixa de presença',
+                            suggestion: 'Reduzir presença (6-9 kHz) com EQ ou de-esser'
+                        });
+                    }
+                    
+                    // Detectar harshness nos médios-altos (3-5 kHz)
+                    if (bands.mid && bands.mid.energy > -8) {
+                        detections.push({
+                            type: 'harshness',
+                            intensity: Math.min(1.0, (bands.mid.energy + 8) / 12),
+                            confidence: 0.75,
+                            frequency: 4000,
+                            description: 'Agressividade excessiva nos médios-altos',
+                            suggestion: 'Suavizar médios-altos (3-5 kHz) com EQ suave'
+                        });
+                    }
+                    
+                    // Detectar masking/lama nos graves (80-250 Hz)
+                    if (bands.bass && bands.sub && (bands.bass.energy - bands.sub.energy) < 3) {
+                        detections.push({
+                            type: 'masking',
+                            intensity: 0.6,
+                            confidence: 0.7,
+                            frequency: 150,
+                            description: 'Possível masking entre sub e bass',
+                            suggestion: 'Clarear graves com high-pass ou EQ notch'
+                        });
+                    }
+                }
+                
+                console.log(`🎯 [HEURISTICS] Análise inline concluída: ${detections.length} detecções`);
+                return detections;
+            }
         };
     }
 
@@ -1162,6 +1220,7 @@ class EnhancedSuggestionEngine {
                 return [];
             }
             
+            console.log('🎯 [HEURISTICS] Heuristics analyzer ativado com sucesso');
             const detections = this.heuristics.analyzeAll(analysisData);
             
             for (const detection of detections) {
