@@ -3889,6 +3889,72 @@ function displayModalResults(analysis) {
                     suggestionsArray: analysis.suggestions
                 });
 
+                // 🚀 INTEGRAÇÃO SISTEMA ULTRA-AVANÇADO: Aplicar enrichment nas sugestões
+                let enrichedSuggestions = analysis.suggestions || [];
+                
+                if (typeof window.AdvancedEducationalSuggestionSystem !== 'undefined' && enrichedSuggestions.length > 0) {
+                    try {
+                        console.log('🎯 [ULTRA_ADVANCED] Iniciando sistema educacional avançado...');
+                        
+                        const ultraSystem = new window.AdvancedEducationalSuggestionSystem();
+                        
+                        // Preparar dados de contexto para o sistema ultra-avançado
+                        const contextData = {
+                            originalAnalysis: analysis,
+                            audioData: {
+                                sampleRate: analysis.sampleRate || 48000,
+                                duration: analysis.duration || 0,
+                                channels: analysis.channels || 2
+                            },
+                            metrics: {
+                                lufs: analysis.lufs,
+                                truePeak: analysis.truePeak,
+                                lra: analysis.lra,
+                                spectralBands: analysis.spectralBands,
+                                scores: analysis.scores
+                            },
+                            userLevel: 'intermediate', // Pode ser detectado dinamicamente
+                            preferredDAW: 'multi', // Mostrar exemplos para múltiplas DAWs
+                            musicGenre: analysis.detectedGenre || 'general'
+                        };
+                        
+                        // Gerar sugestões ultra-avançadas
+                        const ultraResults = ultraSystem.generateAdvancedSuggestions(enrichedSuggestions, contextData);
+                        
+                        if (ultraResults && ultraResults.enhancedSuggestions && ultraResults.enhancedSuggestions.length > 0) {
+                            enrichedSuggestions = ultraResults.enhancedSuggestions;
+                            
+                            console.log('✨ [ULTRA_ADVANCED] Sistema educacional aplicado com sucesso!', {
+                                originalCount: analysis.suggestions?.length || 0,
+                                enhancedCount: enrichedSuggestions.length,
+                                confidenceScore: ultraResults.confidenceScore,
+                                educationalLevel: ultraResults.educationalLevel
+                            });
+                            
+                            // Adicionar métricas do sistema ultra-avançado à análise
+                            if (!analysis.enhancedMetrics) analysis.enhancedMetrics = {};
+                            analysis.enhancedMetrics.ultraAdvancedSystem = {
+                                applied: true,
+                                confidenceScore: ultraResults.confidenceScore,
+                                educationalLevel: ultraResults.educationalLevel,
+                                processingTimeMs: ultraResults.processingTimeMs,
+                                enhancedCount: enrichedSuggestions.length
+                            };
+                        } else {
+                            console.warn('⚠️ [ULTRA_ADVANCED] Sistema não retornou sugestões válidas');
+                        }
+                        
+                    } catch (error) {
+                        console.error('❌ [ULTRA_ADVANCED] Erro no sistema educacional:', error);
+                        // Manter sugestões originais em caso de erro
+                    }
+                } else {
+                    console.log('⚠️ [ULTRA_ADVANCED] Sistema educacional não disponível ou sem sugestões para processar');
+                }
+                
+                // Atualizar analysis.suggestions com as sugestões enriched
+                analysis.suggestions = enrichedSuggestions;
+
                 // Helpers para embelezar as sugestões sem mudar layout/IDs
                 const formatNumbers = (text, decimals = 2) => {
                     if (!text || typeof text !== 'string') return '';
@@ -4384,11 +4450,11 @@ function displayModalResults(analysis) {
                         return deduplicated;
                     };
                     
-                    // Aplicar deduplicação das sugestões na UI para evitar duplicatas
+                    // 🚀 Aplicar deduplicação nas sugestões enriched (já processadas pelo sistema ultra-avançado)
                     const deduplicatedSuggestions = deduplicateByType(analysis.suggestions);
                     const list = deduplicatedSuggestions.map(s => renderSuggestionItem(s)).join('');
                     
-                    // 🎯 Rodapé melhorado com informações do Enhanced System
+                    // 🎯 Rodapé melhorado com informações do Sistema Ultra-Avançado
                     try {
                         const count = (t) => deduplicatedSuggestions.filter(s => s && s.type === t).length;
                         const cBand = count('band_adjust');
@@ -4397,9 +4463,19 @@ function displayModalResults(analysis) {
                         const cRef = count('reference_loudness') + count('reference_dynamics') + count('reference_lra') + count('reference_stereo') + count('reference_true_peak');
                         const cHeuristic = deduplicatedSuggestions.filter(s => s && s.type && s.type.startsWith('heuristic_')).length;
                         
-                        // Estatísticas do Enhanced System (se disponível)
+                        // Estatísticas do Sistema Ultra-Avançado (se disponível)
                         let enhancedStats = '';
-                        if (analysis.enhancedMetrics) {
+                        if (analysis.enhancedMetrics?.ultraAdvancedSystem) {
+                            const uas = analysis.enhancedMetrics.ultraAdvancedSystem;
+                            const avgPriority = deduplicatedSuggestions.length > 0 ? 
+                                (deduplicatedSuggestions.reduce((sum, s) => sum + (s.priority || 0), 0) / deduplicatedSuggestions.length) : 0;
+                            
+                            enhancedStats = ` • 🚀 Sistema Ultra-Avançado: conf=${(uas.confidenceScore || 1).toFixed(2)} nível=${uas.educationalLevel || 'intermediate'} avgP=${avgPriority.toFixed(2)}`;
+                            
+                            if (uas.processingTimeMs) {
+                                enhancedStats += ` (${uas.processingTimeMs}ms)`;
+                            }
+                        } else if (analysis.enhancedMetrics) {
                             const em = analysis.enhancedMetrics;
                             const avgPriority = deduplicatedSuggestions.length > 0 ? 
                                 (deduplicatedSuggestions.reduce((sum, s) => sum + (s.priority || 0), 0) / deduplicatedSuggestions.length) : 0;
@@ -4411,8 +4487,12 @@ function displayModalResults(analysis) {
                             }
                         }
                         
-                        // Footer removido - sem estatísticas desnecessárias
-                        blocks.push(`<div class="diag-section"><div class="diag-heading">🩺 Sugestões Priorizadas</div>${list}</div>`);
+                        // Header com indicação do sistema aplicado
+                        const headerTitle = analysis.enhancedMetrics?.ultraAdvancedSystem ? 
+                            '🚀 Sugestões Educacionais Ultra-Avançadas' : 
+                            '🩺 Sugestões Priorizadas';
+                            
+                        blocks.push(`<div class="diag-section"><div class="diag-heading">${headerTitle}</div>${list}</div>`);
                     } catch {
                         blocks.push(`<div class="diag-section"><div class="diag-heading">🩺 Sugestões</div>${list}</div>`);
                     }
