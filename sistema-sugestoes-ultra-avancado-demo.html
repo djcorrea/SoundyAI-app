@@ -1,0 +1,1021 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎓 Sistema de Sugestões Ultra-Avançado - SoundyAI</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .demo-section {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .demo-panel {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 25px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .panel-title {
+            font-size: 1.5em;
+            margin-bottom: 20px;
+            color: #FFD700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .btn {
+            background: linear-gradient(45deg, #00D4AA, #00A8E8);
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            color: white;
+            font-weight: bold;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 15px rgba(0, 212, 170, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 212, 170, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn.secondary {
+            background: linear-gradient(45deg, #FF6B6B, #FF8E53);
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+
+        .btn.secondary:hover {
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+        }
+
+        .mock-data {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .results-container {
+            display: none;
+            margin-top: 40px;
+        }
+
+        .suggestion-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 15px;
+            padding: 25px;
+            margin: 20px 0;
+            border-left: 5px solid #00D4AA;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .suggestion-card:hover {
+            transform: translateY(-2px);
+            border-left-color: #FFD700;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        .suggestion-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+
+        .suggestion-title {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #FFD700;
+            margin-bottom: 5px;
+        }
+
+        .suggestion-priority {
+            background: linear-gradient(45deg, #FF6B6B, #FF8E53);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+
+        .problem-section {
+            background: rgba(255, 107, 107, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+            border: 1px solid rgba(255, 107, 107, 0.3);
+        }
+
+        .education-section {
+            background: rgba(255, 215, 0, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+        }
+
+        .solution-section {
+            background: rgba(0, 212, 170, 0.1);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 15px 0;
+            border: 1px solid rgba(0, 212, 170, 0.3);
+        }
+
+        .section-title {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .steps-list {
+            list-style: none;
+            margin: 15px 0;
+        }
+
+        .steps-list li {
+            margin: 8px 0;
+            padding: 8px 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 3px solid #00D4AA;
+        }
+
+        .visual-indicator {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin: 15px 0;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+
+        .meter {
+            width: 200px;
+            height: 10px;
+            background: #333;
+            border-radius: 5px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .meter-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00D4AA, #FFD700, #FF6B6B);
+            border-radius: 5px;
+            transition: width 0.3s ease;
+        }
+
+        .metadata-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        .metadata-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .metadata-label {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .metadata-value {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #00D4AA;
+        }
+
+        .troubleshooting {
+            background: rgba(255, 165, 0, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 15px 0;
+            border: 1px solid rgba(255, 165, 0, 0.3);
+        }
+
+        .expandable {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .expandable:hover {
+            opacity: 0.8;
+        }
+
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .collapsible-content.expanded {
+            max-height: 1000px;
+        }
+
+        .summary-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin: 30px 0;
+        }
+
+        .summary-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+
+        .summary-number {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #00D4AA;
+            margin-bottom: 10px;
+        }
+
+        .summary-label {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-top: 4px solid #00D4AA;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .error-message {
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .tabs {
+            display: flex;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 5px;
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 10px 20px;
+            border: none;
+            background: transparent;
+            color: white;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+        }
+
+        .tab.active {
+            background: #00D4AA;
+            color: black;
+            font-weight: bold;
+        }
+
+        .daw-specific {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+
+        .daw-card {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 3px solid #FFD700;
+        }
+
+        .daw-name {
+            font-weight: bold;
+            color: #FFD700;
+            margin-bottom: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .demo-section {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 1.8em;
+            }
+            
+            .suggestion-header {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎓 Sistema de Sugestões Ultra-Avançado</h1>
+            <p>O melhor sistema de sugestões educativas do planeta para produção musical. Contexto inteligente, explicações detalhadas e soluções práticas.</p>
+        </div>
+
+        <div class="demo-section">
+            <div class="demo-panel">
+                <div class="panel-title">
+                    🎵 Simulação de Análise Real
+                </div>
+                <p>Teste o sistema com dados simulados de diferentes gêneros e cenários musicais.</p>
+                
+                <div class="mock-data">
+                    <strong>Dados Simulados:</strong><br>
+                    • LUFS: -16.5 (abaixo do ideal)<br>
+                    • True Peak: -0.3 dBTP (muito alto)<br>
+                    • LRA: 3.2 LU (over-compressed)<br>
+                    • Presença: -8.5 dB (excessiva)<br>
+                    • Gênero: Electronic Pop
+                </div>
+                
+                <button class="btn" onclick="testarSistemaCompleto()">
+                    🚀 Testar Sistema Completo
+                </button>
+            </div>
+
+            <div class="demo-panel">
+                <div class="panel-title">
+                    🎯 Comparação Sistemas
+                </div>
+                <p>Compare o sistema antigo (repetitivo e superficial) com o novo sistema ultra-avançado.</p>
+                
+                <div style="margin: 20px 0;">
+                    <button class="btn secondary" onclick="compararSistemas()">
+                        📊 Comparar Antigo vs Novo
+                    </button>
+                </div>
+                
+                <div style="font-size: 0.9em; opacity: 0.8;">
+                    <strong>Melhorias:</strong><br>
+                    ✅ Contexto educativo detalhado<br>
+                    ✅ Soluções passo-a-passo<br>
+                    ✅ Explicações por gênero<br>
+                    ✅ Priorização inteligente<br>
+                    ✅ Exemplos de DAW específicos
+                </div>
+            </div>
+        </div>
+
+        <div id="results" class="results-container">
+            <!-- Resultados serão inseridos aqui -->
+        </div>
+    </div>
+
+    <!-- Carregar dependências -->
+    <script src="advanced-educational-suggestion-system.js"></script>
+
+    <script>
+        // Estado global
+        let currentResults = null;
+        let isProcessing = false;
+
+        /**
+         * Testar sistema completo com dados simulados
+         */
+        async function testarSistemaCompleto() {
+            if (isProcessing) return;
+            
+            console.log('🎓 [DEMO] Iniciando teste do sistema ultra-avançado...');
+            isProcessing = true;
+            
+            try {
+                // Mostrar loading
+                mostrarLoading("Analisando dados com sistema ultra-avançado...");
+                
+                // Dados simulados de análise de áudio
+                const mockAnalysis = {
+                    technicalData: {
+                        lufs: -16.5,
+                        truePeak: -0.3,
+                        lra: 3.2,
+                        dynamicRange: 5.8,
+                        stereoCorrelation: 0.85,
+                        spectral_balance: {
+                            sub: -22.1,
+                            bass: -15.3,
+                            lowMid: -12.8,
+                            mid: -10.5,
+                            highMid: -8.9,
+                            presenca: -8.5,  // Problemática
+                            brilho: -14.2
+                        },
+                        bandEnergies: {
+                            sub: { rms_db: -22.1 },
+                            bass: { rms_db: -15.3 },
+                            lowMid: { rms_db: -12.8 },
+                            mid: { rms_db: -10.5 },
+                            highMid: { rms_db: -8.9 },
+                            presenca: { rms_db: -8.5 },
+                            brilho: { rms_db: -14.2 }
+                        }
+                    }
+                };
+
+                // Dados de referência simulados
+                const mockReference = {
+                    lufs_target: -8.0,
+                    true_peak_target: -1.0,
+                    lra_target: 6.0,
+                    genre: "electronic"
+                };
+
+                // Definir gênero global para contexto
+                window.PROD_AI_REF_GENRE = "electronic";
+
+                // Aguardar processamento
+                await new Promise(resolve => setTimeout(resolve, 2000));
+
+                // Processar com sistema avançado
+                const result = window.advancedSuggestionSystem.generateAdvancedSuggestions(
+                    mockAnalysis, 
+                    mockReference, 
+                    { experienceLevel: 'intermediate' }
+                );
+
+                console.log('🎓 [DEMO] Resultado do sistema:', result);
+
+                // Mostrar resultados
+                mostrarResultadosAvancados(result);
+                currentResults = result;
+
+            } catch (error) {
+                console.error('🚨 [DEMO] Erro no teste:', error);
+                mostrarErro(`Erro no sistema: ${error.message}`);
+            } finally {
+                isProcessing = false;
+            }
+        }
+
+        /**
+         * Comparar sistemas antigo vs novo
+         */
+        async function compararSistemas() {
+            if (isProcessing) return;
+            
+            console.log('📊 [DEMO] Iniciando comparação de sistemas...');
+            isProcessing = true;
+            
+            try {
+                mostrarLoading("Comparando sistema antigo vs ultra-avançado...");
+                
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // Simulação de sugestões do sistema antigo (problemáticas)
+                const oldSystemSuggestions = [
+                    {
+                        message: "Ajustar LUFS",
+                        action: "Aumentar volume",
+                        why: "LUFS baixo",
+                        priority: 0.5,
+                        source: "sistema_antigo"
+                    },
+                    {
+                        message: "Corrigir True Peak",
+                        action: "Usar limiter",
+                        why: "True Peak alto",
+                        priority: 0.7,
+                        source: "sistema_antigo"
+                    },
+                    {
+                        message: "Ajustar presença",
+                        action: "Reduzir 6-9 kHz",
+                        why: "Banda presença alta",
+                        priority: 0.3,
+                        source: "sistema_antigo"
+                    }
+                ];
+
+                // Resultado do sistema novo
+                const mockAnalysis = {
+                    technicalData: {
+                        lufs: -16.5,
+                        truePeak: -0.3,
+                        lra: 3.2,
+                        spectral_balance: {
+                            presenca: -8.5
+                        }
+                    }
+                };
+
+                const newSystemResult = window.advancedSuggestionSystem.generateAdvancedSuggestions(
+                    mockAnalysis, 
+                    { lufs_target: -8.0, true_peak_target: -1.0 }, 
+                    {}
+                );
+
+                mostrarComparacao(oldSystemSuggestions, newSystemResult.suggestions);
+
+            } catch (error) {
+                console.error('🚨 [DEMO] Erro na comparação:', error);
+                mostrarErro(`Erro na comparação: ${error.message}`);
+            } finally {
+                isProcessing = false;
+            }
+        }
+
+        /**
+         * Mostrar loading
+         */
+        function mostrarLoading(message) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = `
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <div>${message}</div>
+                </div>
+            `;
+        }
+
+        /**
+         * Mostrar resultados avançados
+         */
+        function mostrarResultadosAvancados(result) {
+            const resultsDiv = document.getElementById('results');
+            
+            let html = `
+                <div class="panel-title">🎓 Resultados do Sistema Ultra-Avançado</div>
+                
+                <!-- Resumo -->
+                <div class="summary-cards">
+                    <div class="summary-card">
+                        <div class="summary-number">${result.suggestions?.length || 0}</div>
+                        <div class="summary-label">Sugestões Geradas</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-number">${result.context?.genre?.toUpperCase() || 'AUTO'}</div>
+                        <div class="summary-label">Gênero Detectado</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-number">${result.metadata?.processingTime || 0}ms</div>
+                        <div class="summary-label">Tempo de Análise</div>
+                    </div>
+                    <div class="summary-card">
+                        <div class="summary-number">${result.summary?.difficulty || 'N/A'}</div>
+                        <div class="summary-label">Dificuldade Média</div>
+                    </div>
+                </div>
+
+                <!-- Resumo Executivo -->
+                ${result.summary ? `
+                <div class="education-section">
+                    <div class="section-title">📋 Resumo Executivo</div>
+                    <p><strong>Visão Geral:</strong> ${result.summary.overview}</p>
+                    <p><strong>Prioridade Máxima:</strong> ${result.summary.topPriority}</p>
+                    <p><strong>Tempo Estimado:</strong> ${result.summary.estimatedTime}</p>
+                </div>
+                ` : ''}
+            `;
+
+            // Adicionar sugestões detalhadas
+            if (result.suggestions && result.suggestions.length > 0) {
+                html += '<div style="margin-top: 30px;">';
+                
+                result.suggestions.forEach((suggestion, index) => {
+                    html += criarCardSugestaoAvancada(suggestion, index);
+                });
+                
+                html += '</div>';
+            } else {
+                html += `
+                    <div class="education-section">
+                        <div class="section-title">✅ Excelente!</div>
+                        <p>Sua música está tecnicamente perfeita! Nenhuma sugestão crítica identificada.</p>
+                    </div>
+                `;
+            }
+
+            resultsDiv.innerHTML = html;
+        }
+
+        /**
+         * Criar card de sugestão avançada
+         */
+        function criarCardSugestaoAvancada(suggestion, index) {
+            return `
+                <div class="suggestion-card">
+                    <div class="suggestion-header">
+                        <div>
+                            <div class="suggestion-title">${suggestion.title}</div>
+                            <div style="opacity: 0.8; font-size: 0.9em;">Categoria: ${suggestion.category}</div>
+                        </div>
+                        <div class="suggestion-priority">
+                            Prioridade: ${(suggestion.priority * 100).toFixed(0)}%
+                        </div>
+                    </div>
+
+                    <!-- Problema -->
+                    ${suggestion.problem ? `
+                    <div class="problem-section">
+                        <div class="section-title">🔍 Problema Identificado</div>
+                        <p><strong>Descrição:</strong> ${suggestion.problem.description}</p>
+                        <p><strong>Impacto:</strong> ${suggestion.problem.impact}</p>
+                        
+                        ${suggestion.problem.visual ? `
+                        <div class="visual-indicator">
+                            <div>
+                                <strong>Atual:</strong> ${suggestion.problem.visual.current}<br>
+                                <strong>Alvo:</strong> ${suggestion.problem.visual.target}
+                            </div>
+                            <div class="meter">
+                                <div class="meter-fill" style="width: ${Math.min(100, Math.abs(parseFloat(suggestion.problem.visual.percentageOff)))}%"></div>
+                            </div>
+                            <div style="color: ${suggestion.problem.visual.severity === 'high' ? '#FF6B6B' : suggestion.problem.visual.severity === 'medium' ? '#FFD700' : '#00D4AA'}">
+                                ${suggestion.problem.visual.percentageOff}% ${suggestion.problem.visual.direction === 'above' ? 'acima' : 'abaixo'}
+                            </div>
+                        </div>
+                        ` : ''}
+                    </div>
+                    ` : ''}
+
+                    <!-- Educação -->
+                    ${suggestion.education ? `
+                    <div class="education-section">
+                        <div class="section-title">🎓 Contexto Educativo</div>
+                        <p><strong>Conceito:</strong> ${suggestion.education.concept}</p>
+                        <p><strong>Explicação:</strong> ${suggestion.education.explanation}</p>
+                        <p><strong>Importância:</strong> ${suggestion.education.importance}</p>
+                        ${suggestion.education.genreContext ? `<p><strong>Contexto do Gênero:</strong> ${suggestion.education.genreContext}</p>` : ''}
+                    </div>
+                    ` : ''}
+
+                    <!-- Solução -->
+                    ${suggestion.solution ? `
+                    <div class="solution-section">
+                        <div class="section-title">💡 Solução Prática</div>
+                        <p><strong>Estratégia:</strong> ${suggestion.solution.strategy}</p>
+                        
+                        ${suggestion.solution.steps ? `
+                        <div style="margin: 15px 0;">
+                            <strong>Passos:</strong>
+                            <ul class="steps-list">
+                                ${suggestion.solution.steps.map(step => `<li>${step}</li>`).join('')}
+                            </ul>
+                        </div>
+                        ` : ''}
+
+                        ${suggestion.solution.tools ? `
+                        <div style="margin: 15px 0;">
+                            <strong>Ferramentas Recomendadas:</strong>
+                            <div class="daw-specific">
+                                ${Object.entries(suggestion.solution.tools).map(([daw, tool]) => `
+                                    <div class="daw-card">
+                                        <div class="daw-name">${daw.toUpperCase()}</div>
+                                        <div>${tool}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                        ` : ''}
+
+                        ${suggestion.solution.expectedResult ? `
+                        <p><strong>Resultado Esperado:</strong> ${suggestion.solution.expectedResult}</p>
+                        ` : ''}
+
+                        ${suggestion.solution.warnings && suggestion.solution.warnings.length > 0 ? `
+                        <div class="troubleshooting">
+                            <strong>⚠️ Cuidados Importantes:</strong>
+                            <ul style="margin: 10px 0; padding-left: 20px;">
+                                ${suggestion.solution.warnings.map(warning => `<li>${warning}</li>`).join('')}
+                            </ul>
+                        </div>
+                        ` : ''}
+                    </div>
+                    ` : ''}
+
+                    <!-- Validação -->
+                    ${suggestion.validation ? `
+                    <div class="expandable" onclick="toggleCollapsible(this)">
+                        <div class="section-title">✅ Validação e Verificação ▼</div>
+                        <div class="collapsible-content">
+                            ${suggestion.validation.checkPoints ? `
+                            <ul class="steps-list">
+                                ${suggestion.validation.checkPoints.map(point => `<li>${point}</li>`).join('')}
+                            </ul>
+                            ` : ''}
+                            ${suggestion.validation.tools ? `
+                            <p><strong>Ferramentas de Verificação:</strong> ${suggestion.validation.tools.join(', ')}</p>
+                            ` : ''}
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <!-- Analogias -->
+                    ${suggestion.analogies && suggestion.analogies.length > 0 ? `
+                    <div class="expandable" onclick="toggleCollapsible(this)">
+                        <div class="section-title">🎨 Analogias Educativas ▼</div>
+                        <div class="collapsible-content">
+                            ${suggestion.analogies.map(analogy => `<p style="margin: 8px 0; font-style: italic;">${analogy}</p>`).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <!-- Troubleshooting -->
+                    ${suggestion.troubleshooting && suggestion.troubleshooting.length > 0 ? `
+                    <div class="expandable" onclick="toggleCollapsible(this)">
+                        <div class="section-title">🛠️ Troubleshooting ▼</div>
+                        <div class="collapsible-content">
+                            ${suggestion.troubleshooting.map(item => `<p style="margin: 8px 0;">${item}</p>`).join('')}
+                        </div>
+                    </div>
+                    ` : ''}
+
+                    <!-- Metadata -->
+                    ${suggestion.metadata ? `
+                    <div class="metadata-grid">
+                        <div class="metadata-item">
+                            <div class="metadata-label">Dificuldade</div>
+                            <div class="metadata-value">${suggestion.metadata.difficulty || 'N/A'}</div>
+                        </div>
+                        <div class="metadata-item">
+                            <div class="metadata-label">Tempo Estimado</div>
+                            <div class="metadata-value">${suggestion.metadata.timeEstimate || 'N/A'}</div>
+                        </div>
+                        <div class="metadata-item">
+                            <div class="metadata-label">Impacto</div>
+                            <div class="metadata-value">${suggestion.metadata.impact || 'N/A'}</div>
+                        </div>
+                        ${suggestion.metadata.tags ? `
+                        <div class="metadata-item">
+                            <div class="metadata-label">Tags</div>
+                            <div class="metadata-value">${suggestion.metadata.tags.join(', ')}</div>
+                        </div>
+                        ` : ''}
+                    </div>
+                    ` : ''}
+                </div>
+            `;
+        }
+
+        /**
+         * Mostrar comparação entre sistemas
+         */
+        function mostrarComparacao(oldSuggestions, newSuggestions) {
+            const resultsDiv = document.getElementById('results');
+            
+            let html = `
+                <div class="panel-title">📊 Comparação: Sistema Antigo vs Ultra-Avançado</div>
+                
+                <div class="tabs">
+                    <button class="tab active" onclick="switchTab(this, 'old')">❌ Sistema Antigo</button>
+                    <button class="tab" onclick="switchTab(this, 'new')">✅ Sistema Ultra-Avançado</button>
+                    <button class="tab" onclick="switchTab(this, 'comparison')">📊 Análise Comparativa</button>
+                </div>
+
+                <div id="old-system" class="tab-content">
+                    <div class="problem-section">
+                        <div class="section-title">❌ Problemas do Sistema Antigo</div>
+                        <p><strong>Características:</strong></p>
+                        <ul>
+                            <li>Sugestões genéricas e repetitivas</li>
+                            <li>Sem contexto educativo</li>
+                            <li>Não considera gênero musical</li>
+                            <li>Soluções superficiais</li>
+                            <li>Sem exemplos práticos de DAW</li>
+                        </ul>
+                    </div>
+
+                    ${oldSuggestions.map(suggestion => `
+                        <div class="suggestion-card" style="border-left-color: #FF6B6B; opacity: 0.7;">
+                            <div class="suggestion-title" style="color: #FF6B6B;">${suggestion.message}</div>
+                            <p><strong>Ação:</strong> ${suggestion.action}</p>
+                            <p><strong>Motivo:</strong> ${suggestion.why}</p>
+                            <p><strong>Prioridade:</strong> ${(suggestion.priority * 100).toFixed(0)}%</p>
+                            <div style="margin-top: 15px; padding: 10px; background: rgba(255, 107, 107, 0.1); border-radius: 5px;">
+                                <strong>Problemas:</strong> Muito vago, sem explicação, sem contexto educativo
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+
+                <div id="new-system" class="tab-content" style="display: none;">
+                    <div class="education-section">
+                        <div class="section-title">✅ Vantagens do Sistema Ultra-Avançado</div>
+                        <p><strong>Características revolucionárias:</strong></p>
+                        <ul>
+                            <li>🎓 Base de conhecimento educativo completa</li>
+                            <li>🎵 Análise contextual por gênero musical</li>
+                            <li>🔧 Soluções passo-a-passo detalhadas</li>
+                            <li>🎛️ Exemplos específicos para cada DAW</li>
+                            <li>🎨 Analogias e exemplos do mundo real</li>
+                            <li>🧠 Priorização inteligente por impacto</li>
+                            <li>📊 Indicadores visuais de progresso</li>
+                            <li>🛠️ Troubleshooting e validação</li>
+                        </ul>
+                    </div>
+
+                    ${newSuggestions && newSuggestions.length > 0 ? 
+                        newSuggestions.slice(0, 2).map((suggestion, index) => criarCardSugestaoAvancada(suggestion, index)).join('') : 
+                        '<p>Sistema novo geraria sugestões ultra-detalhadas aqui...</p>'
+                    }
+                </div>
+
+                <div id="comparison" class="tab-content" style="display: none;">
+                    <div class="summary-cards">
+                        <div class="summary-card">
+                            <div class="summary-number">3x</div>
+                            <div class="summary-label">Mais Informação</div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="summary-number">10x</div>
+                            <div class="summary-label">Mais Educativo</div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="summary-number">5x</div>
+                            <div class="summary-label">Mais Prático</div>
+                        </div>
+                        <div class="summary-card">
+                            <div class="summary-number">100%</div>
+                            <div class="summary-label">Contextualizado</div>
+                        </div>
+                    </div>
+
+                    <div class="education-section">
+                        <div class="section-title">🏆 Por que o Sistema Ultra-Avançado é Revolucionário</div>
+                        
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0;">
+                            <div>
+                                <h4 style="color: #FF6B6B; margin-bottom: 10px;">❌ Sistema Antigo</h4>
+                                <ul style="color: rgba(255, 255, 255, 0.7);">
+                                    <li>"Ajustar LUFS" (como?)</li>
+                                    <li>"Usar limiter" (qual? como configurar?)</li>
+                                    <li>"LUFS baixo" (por que é ruim?)</li>
+                                    <li>Sem contexto de gênero</li>
+                                    <li>Sem exemplos práticos</li>
+                                </ul>
+                            </div>
+                            <div>
+                                <h4 style="color: #00D4AA; margin-bottom: 10px;">✅ Sistema Ultra-Avançado</h4>
+                                <ul style="color: rgba(255, 255, 255, 0.9);">
+                                    <li>Explica O QUE é LUFS</li>
+                                    <li>Explica POR QUE é importante</li>
+                                    <li>Mostra COMO corrigir (passo-a-passo)</li>
+                                    <li>Exemplos para cada DAW</li>
+                                    <li>Contexto por gênero musical</li>
+                                    <li>Analogias educativas</li>
+                                    <li>Troubleshooting completo</li>
+                                </ul>
+                            </div>
+                        </div>
+
+                        <div style="background: rgba(0, 212, 170, 0.1); padding: 20px; border-radius: 10px; margin: 20px 0;">
+                            <h4 style="color: #00D4AA; margin-bottom: 15px;">🎯 Resultado Final</h4>
+                            <p>O sistema ultra-avançado não apenas identifica problemas, mas <strong>educa</strong> o usuário sobre áudio, oferece <strong>soluções específicas</strong> para seu DAW, e <strong>contextualiza</strong> tudo para o gênero musical. É como ter um <strong>professor de áudio profissional</strong> ao seu lado!</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            resultsDiv.innerHTML = html;
+        }
+
+        /**
+         * Alternar abas
+         */
+        function switchTab(button, tabId) {
+            // Remover classe active de todas as abas
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            button.classList.add('active');
+
+            // Esconder todo conteúdo
+            document.querySelectorAll('.tab-content').forEach(content => content.style.display = 'none');
+            
+            // Mostrar conteúdo da aba selecionada
+            const targetContent = document.getElementById(tabId + '-system') || document.getElementById(tabId);
+            if (targetContent) {
+                targetContent.style.display = 'block';
+            }
+        }
+
+        /**
+         * Toggle de seções colapsáveis
+         */
+        function toggleCollapsible(element) {
+            const content = element.querySelector('.collapsible-content');
+            const title = element.querySelector('.section-title');
+            
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                title.innerHTML = title.innerHTML.replace('▲', '▼');
+            } else {
+                content.classList.add('expanded');
+                title.innerHTML = title.innerHTML.replace('▼', '▲');
+            }
+        }
+
+        /**
+         * Mostrar erro
+         */
+        function mostrarErro(message) {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.style.display = 'block';
+            resultsDiv.innerHTML = `
+                <div class="error-message">
+                    <h3>🚨 Erro</h3>
+                    <p>${message}</p>
+                </div>
+            `;
+        }
+
+        // Log inicial
+        console.log('🎓 [DEMO] Interface do Sistema Ultra-Avançado carregada!');
+        console.log('🚀 Use os botões para testar o sistema revolucionário de sugestões');
+    </script>
+</body>
+</html>

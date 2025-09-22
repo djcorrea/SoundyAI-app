@@ -144,8 +144,24 @@
         <div id="estatisticas" class="stats" style="display: none;"></div>
     </div>
 
-    <!-- Carregar Enhanced Suggestion Engine -->
+    <!-- Carregar dependências na ordem correta -->
+    <script src="public/suggestion-scorer.js"></script>
     <script src="public/enhanced-suggestion-engine.js"></script>
+    
+    <script>
+        // Verificar se as dependências foram carregadas
+        if (typeof SuggestionScorer === 'undefined') {
+            console.error('❌ SuggestionScorer não carregado');
+        } else {
+            console.log('✅ SuggestionScorer carregado com sucesso');
+        }
+        
+        if (typeof EnhancedSuggestionEngine === 'undefined') {
+            console.error('❌ EnhancedSuggestionEngine não carregado');
+        } else {
+            console.log('✅ EnhancedSuggestionEngine carregado com sucesso');
+        }
+    </script>
 
     <script>
         async function executarTeste() {
