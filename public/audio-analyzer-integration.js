@@ -3889,67 +3889,77 @@ function displayModalResults(analysis) {
                     suggestionsArray: analysis.suggestions
                 });
 
-                // 🚀 INTEGRAÇÃO SISTEMA ULTRA-AVANÇADO: Aplicar enrichment nas sugestões
+                // 🚀 INTEGRAÇÃO SISTEMA ULTRA-AVANÇADO V2: Enriquecimento direto das sugestões existentes
                 let enrichedSuggestions = analysis.suggestions || [];
                 
-                if (typeof window.AdvancedEducationalSuggestionSystem !== 'undefined' && enrichedSuggestions.length > 0) {
+                if (typeof window.UltraAdvancedSuggestionEnhancer !== 'undefined' && enrichedSuggestions.length > 0) {
                     try {
-                        console.log('🎯 [ULTRA_ADVANCED] Iniciando sistema educacional avançado...');
+                        console.log('🚀 [ULTRA_V2] Iniciando sistema ultra-avançado V2...');
+                        console.log('📊 [ULTRA_V2] Sugestões para enriquecer:', enrichedSuggestions.length);
                         
-                        const ultraSystem = new window.AdvancedEducationalSuggestionSystem();
+                        const ultraEnhancer = new window.UltraAdvancedSuggestionEnhancer();
                         
-                        // Preparar dados de contexto para o sistema ultra-avançado
-                        const contextData = {
-                            originalAnalysis: analysis,
-                            audioData: {
-                                sampleRate: analysis.sampleRate || 48000,
-                                duration: analysis.duration || 0,
-                                channels: analysis.channels || 2
-                            },
-                            metrics: {
-                                lufs: analysis.lufs,
-                                truePeak: analysis.truePeak,
-                                lra: analysis.lra,
-                                spectralBands: analysis.spectralBands,
-                                scores: analysis.scores
-                            },
-                            userLevel: 'intermediate', // Pode ser detectado dinamicamente
-                            preferredDAW: 'multi', // Mostrar exemplos para múltiplas DAWs
-                            musicGenre: analysis.detectedGenre || 'general'
+                        // Preparar contexto de análise
+                        const analysisContext = {
+                            detectedGenre: analysis.detectedGenre || 'general',
+                            lufs: analysis.lufs,
+                            truePeak: analysis.truePeak,
+                            lra: analysis.lra,
+                            fileName: analysis.fileName,
+                            duration: analysis.duration,
+                            sampleRate: analysis.sampleRate
                         };
                         
-                        // Gerar sugestões ultra-avançadas
-                        const ultraResults = ultraSystem.generateAdvancedSuggestions(enrichedSuggestions, contextData);
+                        // 🚀 Enriquecer sugestões existentes
+                        const ultraResults = ultraEnhancer.enhanceExistingSuggestions(enrichedSuggestions, analysisContext);
                         
                         if (ultraResults && ultraResults.enhancedSuggestions && ultraResults.enhancedSuggestions.length > 0) {
                             enrichedSuggestions = ultraResults.enhancedSuggestions;
                             
-                            console.log('✨ [ULTRA_ADVANCED] Sistema educacional aplicado com sucesso!', {
+                            console.log('✨ [ULTRA_V2] Sistema ultra-avançado V2 aplicado com sucesso!', {
                                 originalCount: analysis.suggestions?.length || 0,
                                 enhancedCount: enrichedSuggestions.length,
-                                confidenceScore: ultraResults.confidenceScore,
-                                educationalLevel: ultraResults.educationalLevel
+                                processingTime: ultraResults.metadata?.processingTimeMs,
+                                educationalLevel: ultraResults.metadata?.educationalLevel
                             });
                             
                             // Adicionar métricas do sistema ultra-avançado à análise
                             if (!analysis.enhancedMetrics) analysis.enhancedMetrics = {};
                             analysis.enhancedMetrics.ultraAdvancedSystem = {
                                 applied: true,
-                                confidenceScore: ultraResults.confidenceScore,
-                                educationalLevel: ultraResults.educationalLevel,
-                                processingTimeMs: ultraResults.processingTimeMs,
-                                enhancedCount: enrichedSuggestions.length
+                                version: ultraResults.metadata?.version,
+                                processingTimeMs: ultraResults.metadata?.processingTimeMs,
+                                enhancedCount: enrichedSuggestions.length,
+                                educationalLevel: ultraResults.metadata?.educationalLevel,
+                                originalCount: ultraResults.metadata?.originalCount
                             };
+                            
+                            // Log da primeira sugestão enriquecida para debug
+                            if (enrichedSuggestions.length > 0) {
+                                const firstEnhanced = enrichedSuggestions[0];
+                                console.log('🎓 [ULTRA_V2] Exemplo de sugestão enriquecida:', {
+                                    original: firstEnhanced.message,
+                                    educationalTitle: firstEnhanced.educationalContent?.title,
+                                    hasDAWExamples: !!(firstEnhanced.educationalContent?.dawExamples),
+                                    severity: firstEnhanced.severity?.label,
+                                    priority: firstEnhanced.priority
+                                });
+                            }
+                            
                         } else {
-                            console.warn('⚠️ [ULTRA_ADVANCED] Sistema não retornou sugestões válidas');
+                            console.warn('⚠️ [ULTRA_V2] Sistema não retornou sugestões válidas:', ultraResults);
                         }
                         
                     } catch (error) {
-                        console.error('❌ [ULTRA_ADVANCED] Erro no sistema educacional:', error);
+                        console.error('❌ [ULTRA_V2] Erro no sistema ultra-avançado V2:', error);
                         // Manter sugestões originais em caso de erro
                     }
                 } else {
-                    console.log('⚠️ [ULTRA_ADVANCED] Sistema educacional não disponível ou sem sugestões para processar');
+                    if (typeof window.UltraAdvancedSuggestionEnhancer === 'undefined') {
+                        console.log('⚠️ [ULTRA_V2] Sistema ultra-avançado V2 não está disponível');
+                    } else {
+                        console.log('⚠️ [ULTRA_V2] Nenhuma sugestão para processar');
+                    }
                 }
                 
                 // Atualizar analysis.suggestions com as sugestões enriched
@@ -3964,7 +3974,72 @@ function displayModalResults(analysis) {
                     });
                 };
                 const renderSuggestionItem = (sug) => {
-                    // 🎯 Verificar se o gerador de texto didático está disponível
+                    // 🚀 PRIORIDADE: Verificar se tem conteúdo educacional do Sistema Ultra-Avançado V2
+                    const hasUltraV2Content = sug.educationalContent && sug.educationalContent.title;
+                    
+                    if (hasUltraV2Content) {
+                        // � SISTEMA ULTRA-AVANÇADO V2: Renderizar com conteúdo educacional completo
+                        const edu = sug.educationalContent;
+                        const severity = sug.severity || { level: 'medium', color: '#FF9800', label: 'Moderada' };
+                        
+                        // Extrair frequência se disponível
+                        const freqMatch = (edu.action || sug.action || '').match(/(\d+(?:\.\d+)?)\s*(?:Hz|hz|khz|kHz)/i);
+                        const frequency = freqMatch ? freqMatch[1] : null;
+                        
+                        return `
+                            <div class="enhanced-card ultra-advanced-v2">
+                                <div class="card-header">
+                                    <h4 class="card-title">${edu.title}</h4>
+                                    <div class="card-badges">
+                                        ${frequency ? `<span class="frequency-badge">${frequency}${frequency > 1000 ? 'Hz' : 'kHz'}</span>` : ''}
+                                        <span class="severity-badge ${severity.level}" style="background-color: ${severity.color};">${severity.label}</span>
+                                        <span class="priority-badge">P${sug.priority || 5}</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="card-description" style="border-left-color: ${severity.color};">
+                                    <strong>📚 Explicação:</strong> ${edu.explanation}
+                                </div>
+                                
+                                <div class="card-action" style="background: rgba(76, 175, 80, 0.1); border-color: #4CAF50;">
+                                    <div class="card-action-title">🔧 Ação Recomendada</div>
+                                    <div class="card-action-content">${edu.action}</div>
+                                </div>
+                                
+                                ${edu.dawExamples ? `
+                                    <div class="card-daw-examples" style="background: rgba(33, 150, 243, 0.1); border-color: #2196F3; margin: 12px 0; padding: 12px; border-radius: 6px; border-left: 3px solid #2196F3;">
+                                        <div class="card-daw-title" style="font-weight: bold; margin-bottom: 8px; color: #2196F3;">🎛️ Exemplos por DAW</div>
+                                        ${Object.entries(edu.dawExamples).map(([daw, instruction]) => 
+                                            `<div style="margin-bottom: 6px;"><strong>${daw}:</strong> ${instruction}</div>`
+                                        ).join('')}
+                                    </div>
+                                ` : ''}
+                                
+                                ${edu.expectedResult ? `
+                                    <div class="card-result" style="background: rgba(76, 175, 80, 0.1); border-color: #4CAF50; margin: 12px 0; padding: 12px; border-radius: 6px; border-left: 3px solid #4CAF50;">
+                                        <div class="card-result-title" style="font-weight: bold; margin-bottom: 8px; color: #4CAF50;">✨ Resultado Esperado</div>
+                                        <div class="card-result-content">${edu.expectedResult}</div>
+                                    </div>
+                                ` : ''}
+                                
+                                ${edu.technicalDetails ? `
+                                    <details style="margin-top: 12px;">
+                                        <summary style="cursor: pointer; font-size: 12px; color: #aaa; font-weight: bold;">📋 Detalhes Técnicos</summary>
+                                        <div style="font-size: 11px; color: #ccc; margin-top: 8px; font-family: monospace; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 4px;">${edu.technicalDetails}</div>
+                                    </details>
+                                ` : ''}
+                                
+                                ${sug.educationalMetadata ? `
+                                    <div class="educational-metadata" style="margin-top: 12px; padding: 8px; background: rgba(255,255,255,0.03); border-radius: 4px; font-size: 11px; color: #888;">
+                                        📖 Tempo de leitura: ${sug.educationalMetadata.estimatedReadTime} | 
+                                        🎯 Dificuldade: ${sug.educationalMetadata.practicalDifficulty} | 
+                                        🧠 Conceitos: ${sug.educationalMetadata.concepts?.join(', ') || 'N/A'}
+                                    </div>
+                                ` : ''}
+                            </div>`;
+                    }
+                    
+                    // 🔄 FALLBACK: Sistema anterior se não tiver conteúdo Ultra-Avançado V2
                     const hasTextGenerator = typeof window.SuggestionTextGenerator !== 'undefined';
                     let didacticText = null;
                     
@@ -4488,7 +4563,8 @@ function displayModalResults(analysis) {
                         }
                         
                         // Header com indicação do sistema aplicado
-                        const headerTitle = analysis.enhancedMetrics?.ultraAdvancedSystem ? 
+                        const hasUltraV2Applied = analysis.enhancedMetrics?.ultraAdvancedSystem?.applied;
+                        const headerTitle = hasUltraV2Applied ? 
                             '🚀 Sugestões Educacionais Ultra-Avançadas' : 
                             '🩺 Sugestões Priorizadas';
                             
