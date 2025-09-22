@@ -6432,18 +6432,20 @@ function normalizeBackendAnalysisData(backendData) {
     const aliasMap = {
         // Métricas principais
         'dr': ['dynamic_range', 'dynamicRange'],
-        'lra': ['loudness.lra', 'loudnessRange', 'lra_tolerance'],
+        'lra': ['loudness.lra', 'loudnessRange', 'lra_tolerance', 'loudness_range'],
         'crestFactor': ['dynamics.crest', 'crest_factor'],
         'truePeakDbtp': ['truePeak.maxDbtp', 'true_peak_dbtp', 'truePeak'],
         'lufsIntegrated': ['loudness.integrated', 'lufs_integrated', 'lufs'],
         
         // Bandas espectrais - normalização de nomes
-        'low_mid': ['lowMid', 'low_mid'],
-        'high_mid': ['highMid', 'high_mid'],
-        'presenca': ['presence'],
-        'brilho': ['air'],
-        'low_bass': ['bass'],
-        'upper_bass': ['bass', 'low_bass'] // upper_bass → bass como fallback
+        'low_mid': ['lowMid', 'low_mid', 'lowmid'],
+        'high_mid': ['highMid', 'high_mid', 'highmid'],
+        'presenca': ['presence', 'presenca'],
+        'brilho': ['air', 'brilho', 'treble', 'high'],
+        'low_bass': ['bass', 'low_bass', 'lowBass'],
+        'upper_bass': ['bass', 'low_bass', 'upper_bass', 'upperBass'], // upper_bass → bass como fallback
+        'sub': ['sub', 'subBass', 'sub_bass'],
+        'mid': ['mid', 'mids', 'middle']
     };
     
     // Função para pegar valor real ou null (sem fallbacks fictícios) + suporte a alias
@@ -6504,9 +6506,10 @@ function normalizeBackendAnalysisData(backendData) {
     tech.lufsMomentary = getRealValue('lufsMomentary', 'lufs_momentary') ||
                         (backendData.loudness?.momentary && Number.isFinite(backendData.loudness.momentary) ? backendData.loudness.momentary : null);
     
-    // LRA - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA
-    tech.lra = getRealValue('lra', 'loudnessRange') ||
-              (backendData.loudness?.lra && Number.isFinite(backendData.loudness.lra) ? backendData.loudness.lra : null);
+    // LRA - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA + MÚLTIPLOS ALIASES
+    tech.lra = getRealValue('lra', 'loudnessRange', 'lra_tolerance', 'loudness_range') ||
+              (backendData.loudness?.lra && Number.isFinite(backendData.loudness.lra) ? backendData.loudness.lra : null) ||
+              (backendData.lra && Number.isFinite(backendData.lra) ? backendData.lra : null);
     
     console.log('📊 [NORMALIZE] Métricas mapeadas (apenas reais):', {
         peak: tech.peak,
@@ -6519,6 +6522,14 @@ function normalizeBackendAnalysisData(backendData) {
         lufsMomentary: tech.lufsMomentary,
         lra: tech.lra
     });
+    
+    // 🎯 LOG ESPECÍFICO PARA AUDITORIA: LRA
+    if (tech.lra !== null) {
+        console.log('✅ [LRA] SUCESSO: LRA mapeado corretamente =', tech.lra);
+    } else {
+        console.warn('❌ [LRA] PROBLEMA: LRA não foi encontrado no backend data');
+        console.log('🔍 [LRA] Debug - backend data:', backendData);
+    }
     
     // Headroom - APENAS VALORES REAIS
     tech.headroomDb = getRealValue('headroomDb', 'headroom_db');
@@ -6577,14 +6588,26 @@ function normalizeBackendAnalysisData(backendData) {
         };
         
         tech.spectral_balance = {
-            sub: getSpectralValue('sub'),
-            bass: getSpectralValue('bass', 'low_bass'),
-            mids: getSpectralValue('mids', 'mid'),
-            treble: getSpectralValue('treble', 'high'),
-            presence: getSpectralValue('presence'),
-            air: getSpectralValue('air')
+            sub: getSpectralValue('sub', 'subBass', 'sub_bass'),
+            bass: getSpectralValue('bass', 'low_bass', 'lowBass'),  // Normalizar para 'bass'
+            lowMid: getSpectralValue('lowMid', 'low_mid', 'lowmid'),
+            mid: getSpectralValue('mid', 'mids', 'middle'),
+            highMid: getSpectralValue('highMid', 'high_mid', 'highmid'),
+            presence: getSpectralValue('presence', 'presenca'),
+            air: getSpectralValue('air', 'brilho', 'treble', 'high')
         };
         console.log('📊 [NORMALIZE] Spectral balance mapeado:', tech.spectral_balance);
+        
+        // 🎯 LOG ESPECÍFICO PARA AUDITORIA: BANDAS ESPECTRAIS
+        const bandasDetectadas = Object.entries(tech.spectral_balance)
+            .filter(([key, value]) => value !== null)
+            .map(([key, value]) => `${key}: ${value}`);
+        
+        if (bandasDetectadas.length > 0) {
+            console.log(`✅ [BANDAS] SUCESSO: ${bandasDetectadas.length} bandas mapeadas:`, bandasDetectadas.join(', '));
+        } else {
+            console.warn('❌ [BANDAS] PROBLEMA: Nenhuma banda espectral foi mapeada');
+        }
     } else {
         // Não definir se não há dados reais
         tech.spectral_balance = null;
@@ -6601,23 +6624,29 @@ function normalizeBackendAnalysisData(backendData) {
             'sub': 'sub',
             'subBass': 'sub', 
             'sub_bass': 'sub',
-            'low_bass': 'low_bass',
-            'lowBass': 'low_bass',
-            'bass': 'low_bass',
-            'upper_bass': 'upper_bass',
-            'upperBass': 'upper_bass',
-            'low_mid': 'low_mid',
-            'lowMid': 'low_mid',
+            'low_bass': 'bass',  // Normalizar para 'bass'
+            'lowBass': 'bass',
+            'bass': 'bass',
+            'upper_bass': 'bass',
+            'upperBass': 'bass',
+            'low_mid': 'lowMid',  // Normalizar para 'lowMid'
+            'lowMid': 'lowMid',
+            'lowmid': 'lowMid',
             'mid': 'mid',
-            'high_mid': 'high_mid',
-            'highMid': 'high_mid',
-            'upper_mid': 'upper_mid',
-            'upperMid': 'upper_mid',
-            'brilho': 'brilho',
-            'brilliance': 'brilho',
-            'presenca': 'presenca',
-            'presence': 'presenca',
-            'air': 'air'
+            'mids': 'mid',
+            'middle': 'mid',
+            'high_mid': 'highMid',  // Normalizar para 'highMid'
+            'highMid': 'highMid',
+            'highmid': 'highMid',
+            'upper_mid': 'highMid',
+            'upperMid': 'highMid',
+            'brilho': 'air',  // Normalizar para 'air'
+            'brilliance': 'air',
+            'air': 'air',
+            'treble': 'air',
+            'high': 'air',
+            'presenca': 'presence',  // Normalizar para 'presence'
+            'presence': 'presence'
         };
         
         Object.entries(bandMapping).forEach(([sourceKey, targetKey]) => {
