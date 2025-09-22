@@ -6016,6 +6016,46 @@ function updateReferenceSuggestions(analysis) {
             console.log(`🎯 [SUGGESTIONS] Enhanced Engine: ${enhancedAnalysis.suggestions.length} sugestões geradas`);
             console.log(`🎯 [SUGGESTIONS] Sugestões preservadas: ${nonRefSuggestions.length}`);
             console.log(`🎯 [SUGGESTIONS] Total final: ${analysis.suggestions.length} sugestões`);
+            
+            // 🤖 NOVA CAMADA DE IA: Pós-processamento inteligente de sugestões (Enhanced Engine)
+            if (typeof window !== 'undefined' && window.AI_SUGGESTION_LAYER_ENABLED && window.aiSuggestionLayer) {
+                try {
+                    console.log('🤖 [AI-LAYER] Enriquecendo sugestões do Enhanced Engine...');
+                    
+                    // Preparar contexto para IA
+                    const aiContext = {
+                        technicalData: analysis.technicalData,
+                        genre: __activeRefGenre || analysis.genre,
+                        referenceData: __activeRefData,
+                        problems: analysis.problems,
+                        enhancedMetrics: enhancedAnalysis.enhancedMetrics
+                    };
+                    
+                    // Chamar IA de forma assíncrona
+                    window.aiSuggestionLayer.process(analysis.suggestions, aiContext)
+                        .then(enhancedSuggestions => {
+                            if (enhancedSuggestions && enhancedSuggestions.length > 0) {
+                                analysis.suggestions = enhancedSuggestions;
+                                analysis._aiEnhanced = true;
+                                analysis._aiTimestamp = new Date().toISOString();
+                                analysis._aiSource = 'enhanced_engine';
+                                
+                                console.log(`🤖 [AI-LAYER] ✅ Enhanced Engine + IA: ${enhancedSuggestions.length} sugestões`);
+                                
+                                // Re-renderizar se modal visível
+                                if (document.getElementById('audioAnalysisModal')?.style.display !== 'none') {
+                                    displayModalResults(analysis);
+                                }
+                            }
+                        })
+                        .catch(error => {
+                            console.warn('🤖 [AI-LAYER] ❌ Erro na IA do Enhanced Engine:', error);
+                        });
+                } catch (error) {
+                    console.warn('🤖 [AI-LAYER] ❌ Erro na integração IA Enhanced Engine:', error);
+                }
+            }
+            
             return;
             
         } catch (error) {
@@ -6058,6 +6098,52 @@ function updateReferenceSuggestions(analysis) {
     if (Number.isFinite(tech.stereoCorrelation)) addRefSug(tech.stereoCorrelation, ref.stereo_target, ref.tol_stereo, 'reference_stereo', 'Stereo Corr', '');
     
     console.log(`🎯 [SUGGESTIONS] Sistema legado: ${sug.length} sugestões geradas`);
+    
+    // 🤖 NOVA CAMADA DE IA: Pós-processamento inteligente de sugestões
+    // PONTO DE INTEGRAÇÃO SEGURO: Após geração de todas as sugestões
+    if (typeof window !== 'undefined' && window.AI_SUGGESTION_LAYER_ENABLED && window.aiSuggestionLayer) {
+        try {
+            console.log('🤖 [AI-LAYER] Iniciando enriquecimento inteligente das sugestões...');
+            
+            // Preparar contexto para IA
+            const aiContext = {
+                technicalData: analysis.technicalData,
+                genre: __activeRefGenre || analysis.genre,
+                referenceData: __activeRefData,
+                problems: analysis.problems
+            };
+            
+            // Chamar IA de forma assíncrona com fallback
+            window.aiSuggestionLayer.process(analysis.suggestions, aiContext)
+                .then(enhancedSuggestions => {
+                    if (enhancedSuggestions && enhancedSuggestions.length > 0) {
+                        analysis.suggestions = enhancedSuggestions;
+                        console.log(`🤖 [AI-LAYER] ✅ ${enhancedSuggestions.length} sugestões enriquecidas com IA`);
+                        
+                        // Marcar que IA foi aplicada
+                        analysis._aiEnhanced = true;
+                        analysis._aiTimestamp = new Date().toISOString();
+                        
+                        // Re-renderizar modal se estiver visível
+                        if (document.getElementById('audioAnalysisModal')?.style.display !== 'none') {
+                            console.log('🎨 [AI-LAYER] Re-renderizando modal com sugestões IA');
+                            displayModalResults(analysis);
+                        }
+                    } else {
+                        console.warn('🤖 [AI-LAYER] ⚠️ IA retornou resultado vazio, mantendo sugestões originais');
+                    }
+                })
+                .catch(error => {
+                    console.warn('🤖 [AI-LAYER] ❌ Erro na camada de IA, mantendo sugestões originais:', error);
+                    // Sistema continua funcionando normalmente com sugestões originais
+                });
+                
+        } catch (error) {
+            console.warn('🤖 [AI-LAYER] ❌ Erro na inicialização da IA, sistema continua normal:', error);
+        }
+    } else {
+        console.log('🤖 [AI-LAYER] Sistema de IA desabilitado ou não disponível');
+    }
     
     // 🛡️ Marcar que sugestões foram geradas (proteção contra duplicação)
     analysis._suggestionsGenerated = true;

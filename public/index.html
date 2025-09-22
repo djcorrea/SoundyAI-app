@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="friendly-labels.css?v=20250817">
     <link rel="stylesheet" href="image-upload-styles.css?v=20241219">
     <link rel="stylesheet" href="ultra-advanced-styles.css?v=20250920-ultra">
+    <link rel="stylesheet" href="ai-suggestion-styles.css?v=20250922-ai-layer">
     
     <!-- Fontes otimizadas -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -375,6 +376,79 @@
                         📄 Baixar Relatório
                     </button>
                 </div>
+                
+                <!-- 🤖 NOVA SEÇÃO: Sugestões Inteligentes com IA -->
+                <div id="aiSuggestionsSection" class="ai-suggestions-container" style="display: none;">
+                    <div class="ai-suggestions-header">
+                        <h4>🤖 Sugestões Inteligentes</h4>
+                        <div class="ai-status-badge" id="aiStatusBadge">
+                            <span class="ai-status-icon">🔄</span>
+                            <span class="ai-status-text">Processando...</span>
+                        </div>
+                    </div>
+                    
+                    <div class="ai-suggestions-content" id="aiSuggestionsContent">
+                        <!-- Sugestões IA serão inseridas aqui -->
+                    </div>
+                    
+                    <div class="ai-suggestions-footer">
+                        <div class="ai-powered-by">
+                            <span>Powered by</span>
+                            <div class="ai-model-badge" id="aiModelBadge">GPT-3.5</div>
+                        </div>
+                        <button class="action-btn ai-toggle" onclick="toggleAILayer()">
+                            <span id="aiToggleText">Desativar IA</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🌟 MODAL GLASSMORPHISM EXPANDIDO - Sugestões IA em Tela Cheia -->
+    <div id="aiSuggestionsFullModal" class="ai-full-modal glassmorphism" style="display: none;">
+        <div class="ai-full-modal-backdrop" onclick="closeAIFullModal()"></div>
+        <div class="ai-full-modal-container">
+            <div class="ai-full-modal-header">
+                <div class="ai-modal-title">
+                    <h2>🚀 Sugestões Inteligentes</h2>
+                    <div class="ai-modal-subtitle">Análise detalhada com IA para otimização profissional</div>
+                </div>
+                <button class="ai-modal-close" onclick="closeAIFullModal()">
+                    <span>×</span>
+                </button>
+            </div>
+            
+            <div class="ai-full-modal-content" id="aiFullModalContent">
+                <div class="ai-suggestions-grid">
+                    <!-- Grid de sugestões será inserido aqui -->
+                </div>
+            </div>
+            
+            <div class="ai-full-modal-footer">
+                <div class="ai-stats-container">
+                    <div class="ai-stat-item">
+                        <span class="ai-stat-label">Sugestões:</span>
+                        <span class="ai-stat-value" id="aiStatsCount">0</span>
+                    </div>
+                    <div class="ai-stat-item">
+                        <span class="ai-stat-label">Modelo:</span>
+                        <span class="ai-stat-value" id="aiStatsModel">GPT-3.5</span>
+                    </div>
+                    <div class="ai-stat-item">
+                        <span class="ai-stat-label">Tempo:</span>
+                        <span class="ai-stat-value" id="aiStatsTime">--</span>
+                    </div>
+                </div>
+                
+                <div class="ai-modal-actions">
+                    <button class="action-btn secondary" onclick="downloadAISuggestions()">
+                        📄 Baixar Sugestões IA
+                    </button>
+                    <button class="action-btn primary" onclick="sendAISuggestionsToChat()">
+                        💬 Discutir com IA
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -414,6 +488,13 @@
     <script src="suggestion-text-generator.js?v=20250815" defer></script>
     <!-- 🚨 SISTEMA DE EMERGÊNCIA - SUGESTÕES FUNCIONAIS -->
     <script src="suggestion-system-emergency.js?v=emergency-20250920" defer></script>
+    
+    <!-- 🤖 NOVA CAMADA DE IA - Sistema Inteligente de Sugestões -->
+    <script src="ai-suggestion-layer.js?v=20250922-ai-layer" defer></script>
+    <script src="ai-configuration-manager.js?v=20250922-config" defer></script>
+    <script src="ai-suggestion-ui-controller.js?v=20250922-ui" defer></script>
+    <script src="ai-suggestion-system-tester.js?v=20250922-test" defer></script>
+    
     <!-- 🎯 ATIVAÇÃO FORÇADA DO SISTEMA NOVO -->
     <script>
         // Força ativação do sistema novo assim que carregar
