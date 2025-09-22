@@ -601,7 +601,8 @@ class EnhancedSuggestionEngine {
      * @returns {Array} Sugestões baseadas em referência
      */
     generateReferenceSuggestions(metrics, referenceData, zScores, confidence, dependencyBonuses) {
-        const suggestions = [];
+        // 🎯 CORREÇÃO: Usar let em vez de const para suggestions que será reatribuído
+        let suggestions = [];
         
         if (!referenceData) return suggestions;
         
@@ -778,6 +779,18 @@ class EnhancedSuggestionEngine {
                         band
                     });
                     
+                    // 🎯 APLICAR LÓGICA SEGURA SOLICITADA DIRETAMENTE
+                    const delta = suggestion.technical?.delta;
+                    if (typeof delta === "number" && !isNaN(delta)) {
+                        const direction = delta > 0 ? "Reduzir" : "Aumentar";
+                        const amount = Math.abs(delta).toFixed(1);
+                        suggestion.action = `${direction} ${suggestion.subtype} em ${amount} dB`;
+                        suggestion.diagnosis = `Atual: ${suggestion.technical.value} dB, Alvo: ${suggestion.technical.target} dB, Diferença: ${amount} dB`;
+                    } else {
+                        suggestion.action = null;
+                        suggestion.diagnosis = null;
+                    }
+                    
                     suggestions.push(suggestion);
                     
                     this.logAudit('BAND_SUGGESTION', `Sugestão de banda: ${band}`, {
@@ -884,6 +897,18 @@ class EnhancedSuggestionEngine {
                             metricType: 'band',
                             band: item.metric
                         });
+                        
+                        // 🎯 APLICAR LÓGICA SEGURA SOLICITADA DIRETAMENTE
+                        const suggestionDelta = suggestion.technical?.delta;
+                        if (typeof suggestionDelta === "number" && !isNaN(suggestionDelta)) {
+                            const direction = suggestionDelta > 0 ? "Reduzir" : "Aumentar";
+                            const amount = Math.abs(suggestionDelta).toFixed(1);
+                            suggestion.action = `${direction} ${suggestion.subtype} em ${amount} dB`;
+                            suggestion.diagnosis = `Atual: ${suggestion.technical.value} dB, Alvo: ${suggestion.technical.target} dB, Diferença: ${amount} dB`;
+                        } else {
+                            suggestion.action = null;
+                            suggestion.diagnosis = null;
+                        }
                         
                         suggestions.push(suggestion);
                         
@@ -1251,40 +1276,52 @@ class EnhancedSuggestionEngine {
                 return suggestion;
             }
             
-            const delta = technical.target - technical.value;
-            technical.delta = delta; // garantir que o delta está calculado
+            // 🎯 CORREÇÃO: Usar let em vez de const para delta que pode ser reatribuído
+            let delta = technical.target - technical.value;
             
-            // Verificar se o action contém valores fixos problemáticos
-            const currentAction = suggestion.action || '';
-            const hasFixedValues = /\b(?:6\.0|4\.0)\s*dB\b/.test(currentAction);
-            
-            if (!hasFixedValues) {
-                // Action já correto, apenas garantir que technical.delta está presente
-                return { ...suggestion, technical: { ...technical, delta } };
+            // 🎯 LÓGICA SEGURA: Aplicar critério solicitado
+            if (typeof delta === "number" && !isNaN(delta)) {
+                // Garantir que technical.delta está presente
+                technical.delta = delta;
+                
+                // Verificar se o action contém valores fixos problemáticos
+                const currentAction = suggestion.action || '';
+                const hasFixedValues = /\b(?:6\.0|4\.0)\s*dB\b/.test(currentAction);
+                
+                if (!hasFixedValues) {
+                    // Action já correto, apenas garantir que technical.delta está presente
+                    return { ...suggestion, technical: { ...technical, delta } };
+                }
+                
+                // 🎯 APLICAR LÓGICA SEGURA SOLICITADA
+                const direction = delta > 0 ? "Reduzir" : "Aumentar";
+                const amount = Math.abs(delta).toFixed(1);
+                const bandName = this.getBandDisplayName(suggestion.subtype);
+                
+                // 🎯 NÃO REATRIBUIR OBJETO - APENAS ATUALIZAR PROPRIEDADES
+                suggestion.action = `${direction} ${bandName} em ${amount} dB`;
+                suggestion.diagnosis = `Atual: ${technical.value} dB, Alvo: ${technical.target} dB, Diferença: ${amount} dB`;
+                
+                this.logAudit('ACTION_CORRECTED', `Action corrigido para banda ${suggestion.subtype}`, {
+                    band: suggestion.subtype,
+                    oldAction: currentAction,
+                    newAction: suggestion.action,
+                    value: technical.value,
+                    target: technical.target,
+                    delta: delta,
+                    source: 'postProcessBandSuggestions'
+                });
+                
+                return {
+                    ...suggestion,
+                    technical: { ...technical, delta }
+                };
+            } else {
+                // 🎯 SE DELTA NÃO EXISTIR, NÃO GERAR ACTION
+                suggestion.action = null;
+                suggestion.diagnosis = null;
+                return suggestion;
             }
-            
-            // Reconstruir action com valor real
-            const bandName = this.getBandDisplayName(suggestion.subtype);
-            const isPositive = delta > 0;
-            const action = isPositive 
-                ? `Aumentar ${bandName} em ${Math.abs(delta).toFixed(1)} dB`
-                : `Reduzir ${bandName} em ${Math.abs(delta).toFixed(1)} dB`;
-            
-            this.logAudit('ACTION_CORRECTED', `Action corrigido para banda ${suggestion.subtype}`, {
-                band: suggestion.subtype,
-                oldAction: currentAction,
-                newAction: action,
-                value: technical.value,
-                target: technical.target,
-                delta: delta,
-                source: 'postProcessBandSuggestions'
-            });
-            
-            return {
-                ...suggestion,
-                action,
-                technical: { ...technical, delta }
-            };
         });
         
         return processed;
