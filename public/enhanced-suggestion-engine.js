@@ -51,6 +51,16 @@ class EnhancedSuggestionEngine {
             },
             
             // === DYNAMIC RANGE ===
+            dr_low: {
+                explanation: "Dynamic Range muito baixo indica que sua música está over-comprimida, perdendo dinâmica natural e groove.",
+                action: "Reduza compressão geral, use compressão paralela, e preserve transientes. Objetivo: DR acima de 6-8 para músicas comerciais.",
+                dawExample: "Reduzir ratio do compressor master. Crear bus paralelo com compressor pesado (10:1) e misturar sutilmente (20-30%)."
+            },
+            dr_high: {
+                explanation: "Dynamic Range excessivo pode indicar falta de coesão e consistência, dificultando playback em sistemas variados.",
+                action: "Use compressão suave para unificar a dinâmica, mantendo a musicalidade. Objetivo: DR entre 8-14 dependendo do gênero.",
+                dawExample: "Compressor suave no master: 2:1 ratio, attack médio (10ms), release auto. Leveling para equilibrar seções."
+            },
             lra_too_low: {
                 explanation: "Range dinâmico muito baixo indica over-compression, resultando em fadiga auditiva e perda do groove natural da música.",
                 action: "Reduza a quantidade de compressão, especialmente no master bus. Use compressão paralela para manter dinâmica.",
@@ -594,10 +604,14 @@ class EnhancedSuggestionEngine {
             allSuggestions = this.scorer.deduplicateSuggestions(allSuggestions);
             allSuggestions = this.filterAndSort(allSuggestions);
             
+            // 🎓 Aplicar enriquecimento educativo universal a TODAS as sugestões
+            allSuggestions = this.applyUniversalEducationalEnrichment(allSuggestions);
+            
             this.logAudit('SUGGESTIONS_FINAL_PROCESSING', 'Processamento final das sugestões', {
                 totalBeforeDedup: referenceSuggestions.length + heuristicSuggestions.length,
                 afterDedup: allSuggestions?.length || 0,
-                finalCount: allSuggestions?.length || 0
+                finalCount: allSuggestions?.length || 0,
+                enrichedCount: allSuggestions.filter(s => s.context || s.cause || s.solution || s.dawTip).length
             });
             
             // 🎨 Agrupar por tema se habilitado
@@ -1525,6 +1539,190 @@ class EnhancedSuggestionEngine {
         };
         
         return mapping[detectionType] || 'reference_comparison';
+    }
+
+    /**
+     * 🎓 Aplicar enriquecimento educativo universal a TODAS as sugestões
+     * @param {Array} suggestions - Todas as sugestões (referência + heurísticas)
+     * @returns {Array} Sugestões enriquecidas com campos educativos
+     */
+    applyUniversalEducationalEnrichment(suggestions) {
+        if (!suggestions || !Array.isArray(suggestions)) {
+            console.warn('🚨 [EDUCATIONAL] Sugestões inválidas recebidas para enriquecimento');
+            return [];
+        }
+
+        let enrichmentCount = 0;
+        const enrichedSuggestions = suggestions.map(suggestion => {
+            try {
+                // Determinar template educativo baseado no tipo da sugestão
+                const templateKey = this.mapSuggestionTypeToEducationalTemplate(suggestion);
+                const template = this.heuristicTemplates[templateKey];
+
+                if (template) {
+                    enrichmentCount++;
+                    
+                    // Aplicar campos educativos sem sobrescrever campos existentes
+                    const enrichedSuggestion = {
+                        ...suggestion,
+                        
+                        // Campos educativos novos
+                        context: template.explanation || `Contexto para ${suggestion.type}`,
+                        cause: this.generateCauseText(suggestion, template),
+                        solution: template.action || suggestion.action || 'Aplicar ajuste recomendado',
+                        dawTip: template.dawExample || 'Use as ferramentas de EQ/compressor do seu DAW',
+                        
+                        // Metadados de enriquecimento
+                        enriched: true,
+                        educationalLevel: 'comprehensive',
+                        templateUsed: templateKey,
+                        enrichmentSource: 'universal_educational_enrichment'
+                    };
+                    
+                    return enrichedSuggestion;
+                }
+                
+                // Se não há template específico, criar enriquecimento genérico
+                return {
+                    ...suggestion,
+                    context: this.generateGenericContext(suggestion),
+                    cause: this.generateGenericCause(suggestion),
+                    solution: suggestion.action || 'Aplicar ajuste conforme sugerido',
+                    dawTip: 'Use as ferramentas de áudio do seu DAW para aplicar este ajuste',
+                    enriched: true,
+                    educationalLevel: 'basic',
+                    enrichmentSource: 'generic_educational_enrichment'
+                };
+                
+            } catch (error) {
+                console.warn('🚨 [EDUCATIONAL] Erro ao enriquecer sugestão:', error, suggestion);
+                return suggestion; // Retornar sugestão original em caso de erro
+            }
+        });
+
+        console.log(`🎓 [EDUCATIONAL] Enriquecimento universal aplicado: ${enrichmentCount}/${suggestions.length} sugestões enriquecidas`);
+        return enrichedSuggestions;
+    }
+
+    /**
+     * 🗺️ Mapear tipos de sugestão para templates educativos
+     * @param {Object} suggestion - Sugestão a ser enriquecida
+     * @returns {string} Chave do template educativo
+     */
+    mapSuggestionTypeToEducationalTemplate(suggestion) {
+        const type = suggestion.type || '';
+        const metricType = suggestion.metricType || '';
+        const subtype = suggestion.subtype || '';
+
+        // Mapeamento direto por tipo principal
+        const directMapping = {
+            'reference_loudness': 'lufs_too_low',
+            'reference_true_peak': 'true_peak_high', 
+            'reference_lra': 'lra_too_low',
+            'reference_dynamics': 'dr_low',
+            'reference_stereo': 'stereo_narrow',
+            'band_adjust': 'spectral_imbalance',
+            'reference_band_comparison': 'spectral_imbalance',
+            'heuristic_sibilance': 'sibilance',
+            'heuristic_harshness': 'harshness',
+            'heuristic_masking': 'masking',
+            'heuristic_spectral_imbalance': 'spectral_imbalance'
+        };
+
+        // Buscar mapeamento direto primeiro
+        if (directMapping[type]) {
+            return directMapping[type];
+        }
+
+        // Mapeamento por metricType para sugestões de referência
+        if (type.startsWith('reference_')) {
+            const metricMapping = {
+                'lufs': 'lufs_too_low',
+                'true_peak': 'true_peak_high',
+                'lra': 'lra_too_low', 
+                'dr': 'dr_low',
+                'stereo': 'stereo_narrow',
+                'band': 'spectral_imbalance'
+            };
+            
+            if (metricMapping[metricType]) {
+                return metricMapping[metricType];
+            }
+        }
+
+        // Mapeamento por subtipo para bandas espectrais
+        if (type === 'band_adjust' && subtype) {
+            return 'spectral_imbalance'; // Todas as bandas usam o mesmo template
+        }
+
+        // Fallback para template genérico
+        return 'reference_comparison';
+    }
+
+    /**
+     * 📝 Gerar texto de causa baseado na sugestão e template
+     * @param {Object} suggestion - Sugestão original
+     * @param {Object} template - Template educativo
+     * @returns {string} Texto explicativo da causa
+     */
+    generateCauseText(suggestion, template) {
+        const currentValue = suggestion.currentValue;
+        const targetValue = suggestion.targetValue;
+        const metricType = suggestion.metricType || '';
+        
+        if (Number.isFinite(currentValue) && Number.isFinite(targetValue)) {
+            const diff = (currentValue - targetValue).toFixed(1);
+            const direction = currentValue > targetValue ? 'alto' : 'baixo';
+            
+            return `Valor atual (${currentValue.toFixed(1)}) está ${Math.abs(diff)} unidades ${direction} do alvo (${targetValue.toFixed(1)}) para ${metricType.toUpperCase()}`;
+        }
+        
+        return template.explanation || `Métrica ${metricType} fora do range ideal para o gênero`;
+    }
+
+    /**
+     * 🔤 Gerar contexto genérico para sugestões sem template específico
+     * @param {Object} suggestion - Sugestão original
+     * @returns {string} Contexto educativo genérico
+     */
+    generateGenericContext(suggestion) {
+        const type = suggestion.type || 'ajuste';
+        const metricType = suggestion.metricType || '';
+        
+        if (type.includes('reference_')) {
+            return `Esta sugestão compara sua música com padrões de referência do gênero para ${metricType.toUpperCase()}`;
+        }
+        
+        if (type.includes('heuristic_')) {
+            return `Esta sugestão foi gerada por análise heurística avançada de características de áudio`;
+        }
+        
+        if (type.includes('band_')) {
+            return `Esta sugestão ajusta o balanço espectral para melhor adequação ao gênero`;
+        }
+        
+        return `Esta sugestão visa otimizar a qualidade técnica da sua música`;
+    }
+
+    /**
+     * 🎯 Gerar causa genérica para sugestões sem template específico
+     * @param {Object} suggestion - Sugestão original
+     * @returns {string} Causa genérica
+     */
+    generateGenericCause(suggestion) {
+        const severity = suggestion.severity?.level || 'medium';
+        const metricType = suggestion.metricType || 'parâmetro';
+        
+        const severityTexts = {
+            'red': 'significativamente fora',
+            'yellow': 'ligeiramente fora',
+            'green': 'dentro',
+            'medium': 'moderadamente fora'
+        };
+        
+        const severityText = severityTexts[severity] || 'fora';
+        
+        return `${metricType.toUpperCase()} está ${severityText} do range ideal para o gênero musical`;
     }
 
     /**

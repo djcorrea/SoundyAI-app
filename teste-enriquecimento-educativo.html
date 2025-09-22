@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎓 Teste Enriquecimento Educativo Universal</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        .test-section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .test-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #FFD700;
+        }
+        .suggestion-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #00ff88;
+        }
+        .suggestion-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .suggestion-type {
+            font-weight: bold;
+            color: #FFD700;
+        }
+        .suggestion-priority {
+            background: #ff6b6b;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+        }
+        .field-group {
+            margin: 8px 0;
+        }
+        .field-label {
+            font-weight: bold;
+            color: #87CEEB;
+            margin-right: 8px;
+        }
+        .field-value {
+            color: #f0f0f0;
+        }
+        .educational-fields {
+            background: rgba(255, 215, 0, 0.1);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 10px;
+            border: 1px solid rgba(255, 215, 0, 0.3);
+        }
+        .educational-title {
+            font-weight: bold;
+            color: #FFD700;
+            margin-bottom: 8px;
+        }
+        .results {
+            background: rgba(0, 255, 0, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+            border: 1px solid rgba(0, 255, 0, 0.3);
+        }
+        .error {
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+        }
+        .log-entry {
+            font-family: monospace;
+            font-size: 0.9em;
+            margin: 5px 0;
+            padding: 5px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #00ff88;
+        }
+        .stat-label {
+            font-size: 0.9em;
+            color: #ccc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎓 Teste de Enriquecimento Educativo Universal</h1>
+        
+        <div class="test-section">
+            <div class="test-title">🎯 Simulação de Sugestões de Diferentes Tipos</div>
+            <p>Este teste simula sugestões de referência (LUFS, True Peak, LRA, bandas) e heurísticas para validar o enriquecimento educativo.</p>
+            <button onclick="executarTeste()" style="background: #00ff88; color: black; border: none; padding: 10px 20px; border-radius: 5px; font-weight: bold; cursor: pointer;">🚀 Executar Teste</button>
+        </div>
+
+        <div id="resultados" class="test-section" style="display: none;">
+            <div class="test-title">📊 Resultados do Teste</div>
+            <div id="conteudo-resultados"></div>
+        </div>
+
+        <div id="estatisticas" class="stats" style="display: none;"></div>
+    </div>
+
+    <!-- Carregar Enhanced Suggestion Engine -->
+    <script src="public/enhanced-suggestion-engine.js"></script>
+
+    <script>
+        async function executarTeste() {
+            console.log('🎯 [TESTE] Iniciando teste de enriquecimento educativo');
+            
+            try {
+                // Simular diferentes tipos de sugestões
+                const mockSuggestions = [
+                    // Sugestão de LUFS
+                    {
+                        type: 'reference_loudness',
+                        metricType: 'lufs',
+                        currentValue: -16.5,
+                        targetValue: -10.0,
+                        message: 'LUFS muito baixo para o gênero',
+                        action: 'Aumentar loudness com limiter',
+                        why: 'LUFS fora da faixa ideal',
+                        priority: 0.85,
+                        severity: { level: 'yellow', score: 0.7 }
+                    },
+                    // Sugestão de True Peak
+                    {
+                        type: 'reference_true_peak',
+                        metricType: 'true_peak',
+                        currentValue: -0.2,
+                        targetValue: -1.0,
+                        message: 'True Peak muito alto',
+                        action: 'Reduzir peak com limiter',
+                        why: 'Risco de distorção digital',
+                        priority: 0.92,
+                        severity: { level: 'red', score: 0.9 }
+                    },
+                    // Sugestão de LRA
+                    {
+                        type: 'reference_lra',
+                        metricType: 'lra',
+                        currentValue: 3.2,
+                        targetValue: 8.0,
+                        message: 'LRA muito baixo',
+                        action: 'Reduzir compressão',
+                        why: 'Over-compression detectada',
+                        priority: 0.75,
+                        severity: { level: 'yellow', score: 0.6 }
+                    },
+                    // Sugestão de Banda Espectral
+                    {
+                        type: 'band_adjust',
+                        subtype: 'presenca',
+                        metricType: 'band',
+                        currentValue: -8.5,
+                        targetValue: -12.0,
+                        message: 'Presença muito alta',
+                        action: 'Reduzir presença em 3.5 dB',
+                        why: 'Banda presença fora do ideal',
+                        priority: 0.68,
+                        severity: { level: 'yellow', score: 0.5 }
+                    },
+                    // Sugestão Heurística
+                    {
+                        type: 'heuristic_sibilance',
+                        subtype: 'sibilance',
+                        metricType: 'spectral',
+                        message: 'Sibilância detectada',
+                        action: 'Aplicar de-esser',
+                        why: 'Frequências agressivas em 7kHz',
+                        priority: 0.55,
+                        severity: { level: 'yellow', score: 0.4 },
+                        technical: { frequency: 7500, intensity: 0.7 }
+                    }
+                ];
+
+                // Criar instância do Enhanced Suggestion Engine
+                const engine = new EnhancedSuggestionEngine();
+                
+                console.log('🎯 [TESTE] Aplicando enriquecimento educativo...');
+                
+                // Aplicar enriquecimento educativo
+                const enrichedSuggestions = engine.applyUniversalEducationalEnrichment(mockSuggestions);
+                
+                console.log('🎯 [TESTE] Enriquecimento concluído:', enrichedSuggestions);
+                
+                // Mostrar resultados
+                mostrarResultados(mockSuggestions, enrichedSuggestions);
+                
+            } catch (error) {
+                console.error('🚨 [TESTE] Erro durante teste:', error);
+                mostrarErro(error);
+            }
+        }
+
+        function mostrarResultados(original, enriched) {
+            const resultadosDiv = document.getElementById('resultados');
+            const conteudoDiv = document.getElementById('conteudo-resultados');
+            const estatisticasDiv = document.getElementById('estatisticas');
+
+            // Calcular estatísticas
+            const stats = {
+                total: enriched.length,
+                enriched: enriched.filter(s => s.enriched).length,
+                withContext: enriched.filter(s => s.context).length,
+                withCause: enriched.filter(s => s.cause).length,
+                withSolution: enriched.filter(s => s.solution).length,
+                withDawTip: enriched.filter(s => s.dawTip).length
+            };
+
+            // Mostrar estatísticas
+            estatisticasDiv.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-number">${stats.total}</div>
+                    <div class="stat-label">Total de Sugestões</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${stats.enriched}</div>
+                    <div class="stat-label">Sugestões Enriquecidas</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${stats.withContext}</div>
+                    <div class="stat-label">Com Contexto</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${stats.withCause}</div>
+                    <div class="stat-label">Com Causa</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${stats.withSolution}</div>
+                    <div class="stat-label">Com Solução</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">${stats.withDawTip}</div>
+                    <div class="stat-label">Com Dica de DAW</div>
+                </div>
+            `;
+
+            // Mostrar sugestões detalhadas
+            let html = '';
+            
+            enriched.forEach((suggestion, index) => {
+                const originalSuggestion = original[index];
+                
+                html += `
+                    <div class="suggestion-card">
+                        <div class="suggestion-header">
+                            <span class="suggestion-type">${suggestion.type} (${suggestion.metricType || 'N/A'})</span>
+                            <span class="suggestion-priority">Prioridade: ${suggestion.priority?.toFixed(2) || 'N/A'}</span>
+                        </div>
+                        
+                        <div class="field-group">
+                            <span class="field-label">📝 Message:</span>
+                            <span class="field-value">${suggestion.message}</span>
+                        </div>
+                        
+                        <div class="field-group">
+                            <span class="field-label">🎯 Action:</span>
+                            <span class="field-value">${suggestion.action}</span>
+                        </div>
+                        
+                        <div class="field-group">
+                            <span class="field-label">❓ Why:</span>
+                            <span class="field-value">${suggestion.why}</span>
+                        </div>
+                        
+                        ${suggestion.enriched ? `
+                            <div class="educational-fields">
+                                <div class="educational-title">🎓 Campos Educativos Adicionados:</div>
+                                
+                                <div class="field-group">
+                                    <span class="field-label">🔍 Context:</span>
+                                    <span class="field-value">${suggestion.context || 'N/A'}</span>
+                                </div>
+                                
+                                <div class="field-group">
+                                    <span class="field-label">🎭 Cause:</span>
+                                    <span class="field-value">${suggestion.cause || 'N/A'}</span>
+                                </div>
+                                
+                                <div class="field-group">
+                                    <span class="field-label">💡 Solution:</span>
+                                    <span class="field-value">${suggestion.solution || 'N/A'}</span>
+                                </div>
+                                
+                                <div class="field-group">
+                                    <span class="field-label">🎛️ DAW Tip:</span>
+                                    <span class="field-value">${suggestion.dawTip || 'N/A'}</span>
+                                </div>
+                                
+                                <div class="field-group">
+                                    <span class="field-label">🏷️ Template Used:</span>
+                                    <span class="field-value">${suggestion.templateUsed || 'N/A'}</span>
+                                </div>
+                                
+                                <div class="field-group">
+                                    <span class="field-label">🎓 Educational Level:</span>
+                                    <span class="field-value">${suggestion.educationalLevel || 'N/A'}</span>
+                                </div>
+                            </div>
+                        ` : '<div style="color: #ff6b6b;">❌ Sugestão não foi enriquecida</div>'}
+                    </div>
+                `;
+            });
+
+            conteudoDiv.innerHTML = html;
+            resultadosDiv.style.display = 'block';
+            estatisticasDiv.style.display = 'grid';
+        }
+
+        function mostrarErro(error) {
+            const resultadosDiv = document.getElementById('resultados');
+            const conteudoDiv = document.getElementById('conteudo-resultados');
+            
+            conteudoDiv.innerHTML = `
+                <div class="results error">
+                    <h3>🚨 Erro durante o teste</h3>
+                    <div class="log-entry">${error.message}</div>
+                    <div class="log-entry">${error.stack}</div>
+                </div>
+            `;
+            
+            resultadosDiv.style.display = 'block';
+        }
+
+        // Log inicial
+        console.log('🎯 [TESTE] Sistema de teste carregado');
+    </script>
+</body>
+</html>
