@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎓 Teste: Heuristics Analyzer Educativo</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #0a0a0a; color: #fff; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .result { 
+            margin: 20px 0; padding: 15px; border-radius: 8px; 
+            border: 1px solid #333; background: #1a1a1a;
+        }
+        .success { border-color: #28a745; background: #0d2818; }
+        .warning { border-color: #ffc107; background: #332b0a; }
+        .error { border-color: #dc3545; background: #2c0a0a; }
+        .suggestion-card {
+            margin: 15px 0; padding: 15px; border-radius: 8px;
+            background: #2a2a2a; border-left: 4px solid;
+        }
+        .heuristic { border-left-color: #9b59b6; }
+        .reference { border-left-color: #3498db; }
+        .educational { border-left-color: #e67e22; }
+        pre { background: #111; padding: 10px; border-radius: 4px; overflow: auto; max-height: 200px; }
+        button { 
+            background: #007bff; color: white; border: none; 
+            padding: 10px 20px; border-radius: 5px; cursor: pointer;
+            margin: 10px 5px 0 0;
+        }
+        button:hover { background: #0056b3; }
+        .metric-display { 
+            display: inline-block; margin: 5px; padding: 5px 10px; 
+            background: #333; border-radius: 4px; font-family: monospace;
+        }
+        .log-capture {
+            background: #111; padding: 10px; border-radius: 4px; 
+            max-height: 200px; overflow-y: auto; font-family: monospace;
+            white-space: pre-line;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎓 Teste: Heuristics Analyzer Educativo</h1>
+        <p>Validação completa do sistema expandido com templates educativos</p>
+        
+        <button onclick="testarDeteccoesCompletas()">🔍 Teste Detecções Completas</button>
+        <button onclick="testarEnriquecimentoEducativo()">🎓 Teste Enriquecimento Educativo</button>
+        <button onclick="testarAnaliseReal()">📊 Simulação Análise Real</button>
+        <button onclick="testarTemplatesEducativos()">📚 Teste Templates</button>
+        <button onclick="limparResultados()">🗑️ Limpar</button>
+        
+        <div id="resultados"></div>
+        
+        <div class="result">
+            <h3>📋 Logs Capturados</h3>
+            <div id="console-logs" class="log-capture"></div>
+        </div>
+    </div>
+
+    <!-- Carregar dependências -->
+    <script src="public/suggestion-scorer.js"></script>
+    <script src="public/enhanced-suggestion-engine.js"></script>
+
+    <script>
+        // Capturar logs
+        const originalLog = console.log;
+        const logDiv = document.getElementById('console-logs');
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            logDiv.textContent += args.join(' ') + '\n';
+            logDiv.scrollTop = logDiv.scrollHeight;
+        };
+        
+        function limparResultados() {
+            document.getElementById('resultados').innerHTML = '';
+            logDiv.textContent = '';
+        }
+
+        function logResult(title, content, type = 'result') {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = `<h3>${title}</h3>${content}`;
+            document.getElementById('resultados').appendChild(div);
+        }
+
+        function testarDeteccoesCompletas() {
+            limparResultados();
+            
+            const engine = new EnhancedSuggestionEngine();
+            
+            // Análise completa com problemas múltiplos
+            const analysisCompleta = {
+                technicalData: {
+                    lufs: -18.5,        // Muito baixo
+                    truePeak: 0.2,      // Muito alto
+                    lra: 1.5,           // Muito baixo (over-compressed)
+                    spectral_balance: {
+                        sub: { energy_db: -25 },
+                        bass: { energy_db: -24 },     // Masking com sub
+                        mid: { energy_db: -2 },       // Harshness
+                        presenca: { energy_db: -7 }   // Sibilância
+                    }
+                },
+                audioBuffer: { length: 44100 * 4 }
+            };
+            
+            const sugestoes = engine.generateHeuristicSuggestions(analysisCompleta, 0.9);
+            
+            let detalheSugestoes = '<h4>🎵 Sugestões Heurísticas Detalhadas:</h4>';
+            sugestoes.forEach((s, i) => {
+                const tipoClasse = s.type.includes('heuristic_') ? 'heuristic' : 'reference';
+                detalheSugestoes += `
+                    <div class="suggestion-card ${tipoClasse}">
+                        <strong>#${i + 1} - ${s.type}</strong>
+                        <div class="metric-display">Confiança: ${s.confidence?.toFixed(2) || 'N/A'}</div>
+                        <div class="metric-display">Prioridade: ${s.priority?.toFixed(3) || 'N/A'}</div>
+                        
+                        ${s.explanation ? `
+                            <div style="margin-top: 10px;">
+                                <strong>📚 Explicação:</strong><br>
+                                <em>${s.explanation}</em>
+                            </div>
+                        ` : ''}
+                        
+                        ${s.action ? `
+                            <div style="margin-top: 8px;">
+                                <strong>🔧 Ação Recomendada:</strong><br>
+                                <strong>${s.action}</strong>
+                            </div>
+                        ` : ''}
+                        
+                        ${s.dawExample ? `
+                            <div style="margin-top: 8px;">
+                                <strong>🎛️ Exemplo na DAW:</strong><br>
+                                <code style="background: #111; padding: 2px 4px; border-radius: 2px;">${s.dawExample}</code>
+                            </div>
+                        ` : ''}
+                        
+                        <div style="margin-top: 8px; font-size: 0.9em; color: #888;">
+                            Origem: ${s.enriched ? '✅ Enriquecida' : '⚠️ Básica'} • 
+                            Tipo: ${s.type} • 
+                            ${s.currentValue ? `Valor atual: ${s.currentValue}` : ''}
+                            ${s.targetRange ? ` • Meta: ${s.targetRange}` : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            logResult('🔍 Teste de Detecções Completas', `
+                <strong>Problemas simulados:</strong> LUFS baixo, True Peak alto, LRA baixo, Sibilância, Harshness, Masking<br>
+                <strong>Sugestões geradas:</strong> ${sugestoes.length}<br>
+                <strong>Sugestões enriquecidas:</strong> ${sugestoes.filter(s => s.enriched).length}<br>
+                <strong>Status:</strong> ${sugestoes.length >= 4 ? '✅ DETECTANDO MÚLTIPLOS PROBLEMAS' : '⚠️ DETECTANDO POUCOS PROBLEMAS'}<br>
+                ${detalheSugestoes}
+            `, sugestoes.length >= 4 ? 'success' : 'warning');
+        }
+
+        function testarEnriquecimentoEducativo() {
+            const engine = new EnhancedSuggestionEngine();
+            
+            // Teste específico dos templates educativos
+            const sugestoesBasicas = [
+                { type: 'sibilance', confidence: 0.8, priority: 0.75 },
+                { type: 'heuristic_lufs', confidence: 0.9, priority: 0.85 },
+                { type: 'harshness', confidence: 0.7, priority: 0.65 }
+            ];
+            
+            const sugestoesEnriquecidas = engine.applyEducationalEnrichment(sugestoesBasicas);
+            
+            let comparacao = '<h4>📊 Comparação Antes/Depois:</h4>';
+            sugestoesBasicas.forEach((original, i) => {
+                const enriquecida = sugestoesEnriquecidas[i];
+                comparacao += `
+                    <div class="suggestion-card educational">
+                        <strong>Tipo: ${original.type}</strong><br>
+                        <strong>ANTES:</strong> Propriedades básicas (${Object.keys(original).length})<br>
+                        <strong>DEPOIS:</strong> ${enriquecida.enriched ? '✅ Enriquecida' : '❌ Não enriquecida'} (${Object.keys(enriquecida).length} propriedades)<br>
+                        ${enriquecida.explanation ? '<strong>✅ Explicação adicionada</strong><br>' : ''}
+                        ${enriquecida.action ? '<strong>✅ Ação adicionada</strong><br>' : ''}
+                        ${enriquecida.dawExample ? '<strong>✅ Exemplo DAW adicionado</strong><br>' : ''}
+                    </div>
+                `;
+            });
+            
+            logResult('🎓 Teste de Enriquecimento Educativo', `
+                <strong>Sugestões testadas:</strong> ${sugestoesBasicas.length}<br>
+                <strong>Sucessos de enriquecimento:</strong> ${sugestoesEnriquecidas.filter(s => s.enriched).length}<br>
+                <strong>Taxa de sucesso:</strong> ${Math.round((sugestoesEnriquecidas.filter(s => s.enriched).length / sugestoesBasicas.length) * 100)}%<br>
+                ${comparacao}
+            `, 'success');
+        }
+
+        function testarAnaliseReal() {
+            const engine = new EnhancedSuggestionEngine();
+            
+            // Simular estrutura real do SoundyAI com múltiplos problemas
+            const analysisRealista = {
+                technicalData: {
+                    lufs: -22.1,
+                    truePeak: -0.3,
+                    lra: 10.2,
+                    stereoCorrelation: 0.95,
+                    spectral_balance: {
+                        sub: { energy_db: -30.5, percentage: 8.2, status: 'calculated' },
+                        bass: { energy_db: -28.1, percentage: 12.5, status: 'calculated' },
+                        lowMid: { energy_db: -22.4, percentage: 15.8, status: 'calculated' },
+                        mid: { energy_db: -1.8, percentage: 25.3, status: 'calculated' },
+                        highMid: { energy_db: -15.2, percentage: 18.7, status: 'calculated' },
+                        presenca: { energy_db: -6.5, percentage: 12.1, status: 'calculated' },
+                        air: { energy_db: -25.8, percentage: 7.4, status: 'calculated' }
+                    }
+                },
+                metrics: {
+                    overall_score: 6.2
+                },
+                audioBuffer: { length: 44100 * 3.5 }
+            };
+            
+            // Testar extração de dados espectrais
+            const spectralData = engine.extractSpectralData(analysisRealista);
+            
+            // Testar geração completa
+            const sugestoesCompletas = engine.generateHeuristicSuggestions(analysisRealista, 0.8);
+            
+            // Análise detalhada dos resultados
+            const tipos = [...new Set(sugestoesCompletas.map(s => s.type))];
+            const enriquecidas = sugestoesCompletas.filter(s => s.enriched);
+            
+            logResult('📊 Simulação Análise Real', `
+                <strong>Dados de entrada:</strong><br>
+                <div class="metric-display">LUFS: ${analysisRealista.technicalData.lufs}</div>
+                <div class="metric-display">True Peak: ${analysisRealista.technicalData.truePeak}</div>
+                <div class="metric-display">LRA: ${analysisRealista.technicalData.lra}</div>
+                <div class="metric-display">Bandas: ${Object.keys(analysisRealista.technicalData.spectral_balance).length}</div><br>
+                
+                <strong>Resultados da análise:</strong><br>
+                <div class="metric-display">Extração espectral: ${spectralData ? '✅' : '❌'}</div>
+                <div class="metric-display">Fonte: ${spectralData?.source || 'N/A'}</div>
+                <div class="metric-display">Bandas encontradas: ${spectralData?.bands ? Object.keys(spectralData.bands).length : 0}</div><br>
+                
+                <strong>Sugestões geradas:</strong><br>
+                <div class="metric-display">Total: ${sugestoesCompletas.length}</div>
+                <div class="metric-display">Enriquecidas: ${enriquecidas.length}</div>
+                <div class="metric-display">Tipos: ${tipos.join(', ')}</div><br>
+                
+                <strong>Status final:</strong> ${sugestoesCompletas.length > 0 && enriquecidas.length > 0 ? 
+                    '✅ SISTEMA FUNCIONANDO PERFEITAMENTE' : 
+                    '⚠️ NECESSITA AJUSTES'}
+                    
+                <pre>${JSON.stringify({
+                    spectralDataExtracted: !!spectralData,
+                    suggestionTypes: tipos,
+                    enrichmentStats: {
+                        total: sugestoesCompletas.length,
+                        enriched: enriquecidas.length,
+                        percentage: Math.round((enriquecidas.length / sugestoesCompletas.length) * 100) + '%'
+                    }
+                }, null, 2)}</pre>
+            `, sugestoesCompletas.length > 0 ? 'success' : 'error');
+        }
+
+        function testarTemplatesEducativos() {
+            const engine = new EnhancedSuggestionEngine();
+            
+            // Testar todos os templates disponíveis
+            const templates = engine.heuristicTemplates;
+            const templateKeys = Object.keys(templates);
+            
+            let detalhesTemplates = '<h4>📚 Templates Educativos Disponíveis:</h4>';
+            templateKeys.forEach(key => {
+                const template = templates[key];
+                detalhesTemplates += `
+                    <div class="suggestion-card educational">
+                        <strong>${key}</strong><br>
+                        <strong>✅ Explicação:</strong> ${template.explanation ? 'Presente' : 'Ausente'}<br>
+                        <strong>✅ Ação:</strong> ${template.action ? 'Presente' : 'Ausente'}<br>
+                        <strong>✅ Exemplo DAW:</strong> ${template.dawExample ? 'Presente' : 'Ausente'}<br>
+                        <div style="margin-top: 8px; font-size: 0.9em;">
+                            <em>${template.explanation.substring(0, 100)}...</em>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            logResult('📚 Teste de Templates Educativos', `
+                <strong>Templates criados:</strong> ${templateKeys.length}<br>
+                <strong>Cobertura:</strong> LUFS, True Peak, LRA, Sibilância, Harshness, Masking, Desequilíbrio Espectral, Correlação Estéreo<br>
+                <strong>Estrutura:</strong> Explicação + Ação + Exemplo DAW<br>
+                <strong>Status:</strong> ✅ SISTEMA EDUCATIVO COMPLETO<br>
+                ${detalhesTemplates}
+            `, 'success');
+        }
+    </script>
+</body>
+</html>

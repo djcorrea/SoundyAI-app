@@ -20,11 +20,94 @@ class EnhancedSuggestionEngine {
             enableHeuristics: true,    // Habilitar análise heurística
             enableDependencies: true   // Habilitar regras de dependência
         };
+        
+        // 🎓 Templates educativos para enriquecimento de sugestões
+        this.heuristicTemplates = this.createEducationalTemplates();
+    }
+    
+    /**
+     * 🎓 Criar templates educativos para enriquecimento de sugestões
+     * Como um professor de produção musical explicando problemas e soluções
+     */
+    createEducationalTemplates() {
+        return {
+            // === MÉTRICAS DE LOUDNESS ===
+            lufs_too_low: {
+                explanation: "Sua faixa está muito abaixo do nível ideal de loudness. Isso reduz o impacto e competitividade da música, especialmente em plataformas de streaming.",
+                action: "Use um limiter ou compressor no master e ajuste o ganho até atingir cerca de -8 a -10 LUFS para releases comerciais.",
+                dawExample: "Monitore com LUFS Meter no insert final. No Pro Tools: AudioSuite > Loudness Analyzer. No Logic: Multipressor + Adaptive Limiter."
+            },
+            lufs_too_high: {
+                explanation: "Sua faixa está com loudness excessivo, causando fadiga auditiva e possível distorção. Plataformas como Spotify vão reduzir o volume automaticamente.",
+                action: "Reduza o ganho do limiter ou compressor principal. Objetivo: -8 a -14 LUFS dependendo do gênero.",
+                dawExample: "No master bus: reduza Output Gain do limiter em 2-4 dB. Ableton: reduzir o Gain do Limiter. Cubase: reduzir Output no Maximizer."
+            },
+            
+            // === TRUE PEAK ===
+            true_peak_high: {
+                explanation: "True Peak alto pode causar distorção digital em conversores D/A e problemas de inter-sample peaks, especialmente em sistemas de reprodução consumer.",
+                action: "Use um limiter com oversampling ou true peak limiting para manter abaixo de -1 dBTP.",
+                dawExample: "Pro Tools: Pro Limiter com 'ISP' ativado. Logic: Adaptive Limiter com 'True Peak Detection'. Waves: L3 Multimaximizer."
+            },
+            
+            // === DYNAMIC RANGE ===
+            lra_too_low: {
+                explanation: "Range dinâmico muito baixo indica over-compression, resultando em fadiga auditiva e perda do groove natural da música.",
+                action: "Reduza a quantidade de compressão, especialmente no master bus. Use compressão paralela para manter dinâmica.",
+                dawExample: "Reduzir Ratio do compressor master de 4:1 para 2:1. Criar send para compressor pesado e misturar subtilmente."
+            },
+            lra_too_high: {
+                explanation: "Range dinâmico excessivo pode tornar a música inconsistente em diferentes sistemas de reprodução, com partes muito baixas ou altas.",
+                action: "Use compressão suave para controlar os picos e leveling para equilibrar as seções.",
+                dawExample: "Compressor multibanda no master: attack lento (30ms), release médio (300ms), ratio 3:1 apenas nos picos."
+            },
+            
+            // === PROBLEMAS ESPECTRAIS ===
+            sibilance: {
+                explanation: "Sibilância excessiva (sons 'sss' e 'ttt') torna a voz agressiva e desconfortável, especialmente em headphones e sistemas hi-fi.",
+                action: "Use de-esser na faixa vocal ou EQ dinâmico com corte suave entre 6-9 kHz.",
+                dawExample: "Pro Tools: DeEsser plugin na vocal. Logic: DeEsser2 com frequência em 7 kHz. Plugin terceiros: FabFilter Pro-DS."
+            },
+            harshness: {
+                explanation: "Agressividade nos médios-altos (3-5 kHz) causa fadiga auditiva e torna o mix desconfortável em reprodução prolongada.",
+                action: "EQ subtrativo suave nesta faixa, ou compressor multibanda apenas nos picos problemáticos.",
+                dawExample: "EQ paramétrico: corte de 2-3 dB em 4 kHz com Q médio (0.8). Compressor multibanda: ratio 3:1 apenas em 3-5 kHz."
+            },
+            masking: {
+                explanation: "Masking nos graves significa que bass e sub-bass estão competindo, criando 'lama' e perda de definição no low-end.",
+                action: "Side-chain compression do bass pelo kick, ou EQ complementar (bass em 100Hz, sub em 60Hz).",
+                dawExample: "Compressor no bass com key input do kick. Ou EQ: high-pass no bass em 80Hz, low-pass no sub em 120Hz."
+            },
+            spectral_imbalance: {
+                explanation: "Desequilíbrio espectral significativo torna o mix desbalanceado, com algumas frequências dominando outras.",
+                action: "EQ multibanda para equilibrar energia entre as faixas de frequência, priorizando médios e médios-agudos.",
+                dawExample: "EQ multibanda no master: dividir em 4 bandas (80Hz, 800Hz, 8kHz) e equilibrar níveis relativos."
+            },
+            
+            // === CORRELAÇÃO ESTÉREO ===
+            stereo_narrow: {
+                explanation: "Imagem estéreo muito estreita reduz a sensação de amplitude e impacto do mix, soando 'pequeno' em sistemas stereo.",
+                action: "Use plugins de widening, delay estéreo sutil, ou reverb para aumentar a largura percebida.",
+                dawExample: "Stereo widener no master (cuidado com mono compatibility). Waves S1: Width em +20%. Delay L/R com 10-15ms."
+            },
+            stereo_wide: {
+                explanation: "Imagem estéreo excessivamente ampla pode causar problemas de compatibilidade mono e perda de foco central.",
+                action: "Reduza efeitos de widening, centralize elementos importantes (vocal, kick, bass).",
+                dawExample: "Mid/Side EQ: reduzir Side em frequências graves. Ozone Imager: Stereo Width em -20%. Verificar sempre em mono."
+            },
+            
+            // === ENRIQUECIMENTO GERAL ===
+            reference_comparison: {
+                explanation: "Sua faixa apresenta diferenças significativas em relação às referências do gênero, o que pode afetar a competitividade comercial.",
+                action: "Compare A/B com faixas de referência e ajuste gradualmente os parâmetros identificados.",
+                dawExample: "Plugin de reference matching ou import de faixa de referência em nova track para comparação visual e auditiva."
+            }
+        };
     }
 
     /**
      * 🎯 CORREÇÃO: Criar instância inline do AdvancedHeuristicsAnalyzer
-     * Versão simplificada que funciona independentemente de scripts externos
+     * Versão expandida com templates educativos e análise de métricas reais
      */
     createInlineHeuristicsAnalyzer() {
         return {
@@ -32,44 +115,149 @@ class EnhancedSuggestionEngine {
             analyzeAll: (analysisData) => {
                 const detections = [];
                 
-                // 🎵 Análise simplificada de sibilância
+                // 🎵 Análise de bandas espectrais (fonte principal)
                 if (analysisData.spectralData && analysisData.spectralData.bands) {
                     const bands = analysisData.spectralData.bands;
                     
-                    // Detectar sibilância excessiva (6-9 kHz)
-                    if (bands.presenca && bands.presenca.energy > -10) {
+                    // Detectar sibilância excessiva (presença/presence)
+                    const presencaKey = bands.presenca || bands.presence;
+                    if (presencaKey && presencaKey.energy_db > -10) {
                         detections.push({
                             type: 'sibilance',
-                            intensity: Math.min(1.0, (bands.presenca.energy + 10) / 15),
+                            intensity: Math.min(1.0, (presencaKey.energy_db + 10) / 15),
                             confidence: 0.8,
                             frequency: 7500,
                             description: 'Sibilância excessiva detectada na faixa de presença',
-                            suggestion: 'Reduzir presença (6-9 kHz) com EQ ou de-esser'
+                            suggestion: 'Reduzir presença (6-9 kHz) com EQ ou de-esser',
+                            energyLevel: presencaKey.energy_db
                         });
                     }
                     
-                    // Detectar harshness nos médios-altos (3-5 kHz)
-                    if (bands.mid && bands.mid.energy > -8) {
+                    // Detectar harshness nos médios-altos
+                    const midKey = bands.mid || bands.highMid;
+                    if (midKey && midKey.energy_db > -8) {
                         detections.push({
                             type: 'harshness',
-                            intensity: Math.min(1.0, (bands.mid.energy + 8) / 12),
+                            intensity: Math.min(1.0, (midKey.energy_db + 8) / 12),
                             confidence: 0.75,
                             frequency: 4000,
                             description: 'Agressividade excessiva nos médios-altos',
-                            suggestion: 'Suavizar médios-altos (3-5 kHz) com EQ suave'
+                            suggestion: 'Suavizar médios-altos (3-5 kHz) com EQ suave',
+                            energyLevel: midKey.energy_db
                         });
                     }
                     
-                    // Detectar masking/lama nos graves (80-250 Hz)
-                    if (bands.bass && bands.sub && (bands.bass.energy - bands.sub.energy) < 3) {
+                    // Detectar masking/lama nos graves
+                    if (bands.bass && bands.sub && 
+                        bands.bass.energy_db && bands.sub.energy_db &&
+                        (bands.bass.energy_db - bands.sub.energy_db) < 3) {
                         detections.push({
                             type: 'masking',
                             intensity: 0.6,
                             confidence: 0.7,
                             frequency: 150,
                             description: 'Possível masking entre sub e bass',
-                            suggestion: 'Clarear graves com high-pass ou EQ notch'
+                            suggestion: 'Clarear graves com high-pass ou EQ notch',
+                            bassLevel: bands.bass.energy_db,
+                            subLevel: bands.sub.energy_db
                         });
+                    }
+                    
+                    // Detectar desequilíbrio espectral
+                    const allBands = Object.values(bands).filter(b => b && b.energy_db);
+                    if (allBands.length >= 3) {
+                        const energies = allBands.map(b => b.energy_db);
+                        const max = Math.max(...energies);
+                        const min = Math.min(...energies);
+                        
+                        if ((max - min) > 20) {
+                            detections.push({
+                                type: 'spectral_imbalance',
+                                intensity: Math.min(1.0, (max - min - 20) / 15),
+                                confidence: 0.6,
+                                frequency: 1000,
+                                description: 'Desequilíbrio espectral significativo detectado',
+                                suggestion: 'Equilibrar frequências com EQ multibanda',
+                                maxEnergy: max,
+                                minEnergy: min,
+                                difference: max - min
+                            });
+                        }
+                    }
+                }
+                
+                // 🔊 Análise de métricas principais (LUFS, True Peak, LRA)
+                if (analysisData.analysis) {
+                    const tech = analysisData.analysis.technicalData;
+                    
+                    // Análise LUFS
+                    if (tech && Number.isFinite(tech.lufs)) {
+                        if (tech.lufs < -20) {
+                            detections.push({
+                                type: 'heuristic_lufs',
+                                intensity: Math.min(1.0, (-20 - tech.lufs) / 10),
+                                confidence: 0.9,
+                                frequency: 'fullband',
+                                description: `LUFS muito baixo (${tech.lufs.toFixed(1)} dB)`,
+                                suggestion: 'Aumentar loudness para competitividade comercial',
+                                currentValue: tech.lufs,
+                                targetRange: '-8 a -14 LUFS'
+                            });
+                        } else if (tech.lufs > -6) {
+                            detections.push({
+                                type: 'heuristic_lufs',
+                                intensity: Math.min(1.0, (tech.lufs + 6) / 6),
+                                confidence: 0.9,
+                                frequency: 'fullband',
+                                description: `LUFS muito alto (${tech.lufs.toFixed(1)} dB)`,
+                                suggestion: 'Reduzir loudness para evitar fadiga auditiva',
+                                currentValue: tech.lufs,
+                                targetRange: '-8 a -14 LUFS'
+                            });
+                        }
+                    }
+                    
+                    // Análise True Peak
+                    if (tech && Number.isFinite(tech.truePeak)) {
+                        if (tech.truePeak > -0.5) {
+                            detections.push({
+                                type: 'heuristic_true_peak',
+                                intensity: Math.min(1.0, (tech.truePeak + 0.5) / 2),
+                                confidence: 0.85,
+                                frequency: 'fullband',
+                                description: `True Peak alto (${tech.truePeak.toFixed(1)} dBTP)`,
+                                suggestion: 'Usar limiter com true peak detection',
+                                currentValue: tech.truePeak,
+                                targetRange: 'abaixo de -1.0 dBTP'
+                            });
+                        }
+                    }
+                    
+                    // Análise LRA (Dynamic Range)
+                    if (tech && Number.isFinite(tech.lra)) {
+                        if (tech.lra < 2) {
+                            detections.push({
+                                type: 'heuristic_lra',
+                                intensity: Math.min(1.0, (2 - tech.lra) / 2),
+                                confidence: 0.7,
+                                frequency: 'fullband',
+                                description: `Range dinâmico muito baixo (${tech.lra.toFixed(1)} LU)`,
+                                suggestion: 'Reduzir compressão para preservar dinâmica',
+                                currentValue: tech.lra,
+                                targetRange: '4-12 LU'
+                            });
+                        } else if (tech.lra > 15) {
+                            detections.push({
+                                type: 'heuristic_lra',
+                                intensity: Math.min(1.0, (tech.lra - 15) / 10),
+                                confidence: 0.6,
+                                frequency: 'fullband',
+                                description: `Range dinâmico muito alto (${tech.lra.toFixed(1)} LU)`,
+                                suggestion: 'Adicionar compressão suave para controle',
+                                currentValue: tech.lra,
+                                targetRange: '4-12 LU'
+                            });
+                        }
                     }
                 }
                 
@@ -1211,7 +1399,8 @@ class EnhancedSuggestionEngine {
             const analysisData = {
                 audioBuffer: analysis.audioBuffer,
                 spectralData: this.extractSpectralData(analysis),
-                transientData: this.extractTransientData(analysis)
+                transientData: this.extractTransientData(analysis),
+                analysis: analysis  // 🎯 Adicionar análise completa para métricas LUFS/TP/LRA
             };
             
             // Executar análise heurística (se disponível)
@@ -1277,7 +1466,65 @@ class EnhancedSuggestionEngine {
             this.logAudit('HEURISTIC_ERROR', 'Erro na análise heurística', { error: error.message });
         }
         
-        return suggestions;
+        // 🎓 Aplicar enriquecimento educativo às sugestões
+        const enrichedSuggestions = this.applyEducationalEnrichment(suggestions);
+        
+        return enrichedSuggestions;
+    }
+
+    /**
+     * 🎓 Aplicar enriquecimento educativo às sugestões heurísticas
+     * @param {Array} suggestions - Sugestões heurísticas básicas
+     * @returns {Array} Sugestões enriquecidas com templates educativos
+     */
+    applyEducationalEnrichment(suggestions) {
+        let enrichmentCount = 0;
+        
+        const enrichedSuggestions = suggestions.map(suggestion => {
+            // Mapear tipos de detecção para templates
+            const templateKey = this.mapDetectionToTemplate(suggestion.type);
+            const template = this.heuristicTemplates[templateKey];
+            
+            if (template) {
+                enrichmentCount++;
+                
+                // Aplicar template educativo
+                return {
+                    ...suggestion,
+                    explanation: template.explanation,
+                    action: template.action,
+                    dawExample: template.dawExample,
+                    enriched: true,
+                    educationalLevel: 'detailed'
+                };
+            }
+            
+            return suggestion;
+        });
+        
+        console.log(`🎯 [HEURISTICS] ${enrichmentCount} enriquecimentos aplicados`);
+        
+        return enrichedSuggestions;
+    }
+    
+    /**
+     * 🔄 Mapear tipos de detecção para templates educativos
+     * @param {string} detectionType - Tipo de detecção heurística
+     * @returns {string} Chave do template correspondente
+     */
+    mapDetectionToTemplate(detectionType) {
+        const mapping = {
+            'sibilance': 'sibilance',
+            'harshness': 'harshness', 
+            'masking': 'masking',
+            'spectral_imbalance': 'spectral_imbalance',
+            'heuristic_lufs': 'lufs_too_low',
+            'heuristic_true_peak': 'true_peak_high',
+            'heuristic_lra': 'lra_too_low',
+            'heuristic_stereo': 'stereo_narrow'
+        };
+        
+        return mapping[detectionType] || 'reference_comparison';
     }
 
     /**
@@ -1286,21 +1533,43 @@ class EnhancedSuggestionEngine {
      * @returns {Object|null} Dados espectrais
      */
     extractSpectralData(analysis) {
-        // Tentar extrair dados espectrais de várias fontes possíveis
-        if (analysis.spectralData) {
-            return analysis.spectralData;
-        }
+        // 🎯 CORREÇÃO: Mapear estruturas de dados reais do SoundyAI
         
-        if (analysis.technicalData?.spectrum) {
+        // 1. Tentar technicalData.spectral_balance (formato principal)
+        if (analysis.technicalData?.spectral_balance) {
             return {
-                freqBins: analysis.technicalData.spectrum.freqBins,
-                magnitude: analysis.technicalData.spectrum.magnitude
+                bands: analysis.technicalData.spectral_balance,
+                source: 'spectral_balance'
             };
         }
         
-        // Fallback: tentar construir a partir de dados disponíveis
+        // 2. Tentar technicalData.spectralBands (formato alternativo)
+        if (analysis.technicalData?.spectralBands) {
+            return {
+                bands: analysis.technicalData.spectralBands,
+                source: 'spectralBands'
+            };
+        }
+        
+        // 3. Tentar metrics.bands (formato de métricas)
+        if (analysis.metrics?.bands) {
+            return {
+                bands: analysis.metrics.bands,
+                source: 'metrics_bands'
+            };
+        }
+        
+        // 4. Fallback: tentar construir a partir de spectrum raw
+        if (analysis.technicalData?.spectrum) {
+            return {
+                freqBins: analysis.technicalData.spectrum.freqBins,
+                magnitude: analysis.technicalData.spectrum.magnitude,
+                source: 'raw_spectrum'
+            };
+        }
+        
+        // 5. Fallback: tentar construir a partir de frequências dominantes
         if (analysis.technicalData?.dominantFrequencies) {
-            // 🎯 CORREÇÃO: Extrair dados de frequências dominantes corretamente
             const df = analysis.technicalData.dominantFrequencies;
             const peaks = Array.isArray(df) ? df : df?.detailed?.peaks || [];
             
@@ -1315,7 +1584,7 @@ class EnhancedSuggestionEngine {
                 }
             }
             
-            return freqBins.length > 0 ? { freqBins, magnitude } : null;
+            return freqBins.length > 0 ? { freqBins, magnitude, source: 'dominant_freq' } : null;
         }
         
         return null;
