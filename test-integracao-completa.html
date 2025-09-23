@@ -140,38 +140,66 @@
         // Dados de teste simulando análise real com problemas detectáveis
         const mockAnalysisData = {
             loudness: -15.2,    // Muito baixo (target: -8.3)
-            loudnessTarget: -8.3,
-            loudnessTolerance: 1.22,
-            truePeak: 0.8,      // Muito alto (target: -1.0)
-            truePeakTarget: -1.0,
-            truePeakTolerance: 0.5,
+            truePeak: 0.8,      // Muito alto (target: -1.0)  
             dynamicRange: 6.1,  // Muito baixo (target: 10.1)
-            dynamicRangeTarget: 10.1,
-            dynamicRangeTolerance: 1.35,
             bands: {
-                bass: 18.5,     // Muito alto (target: 13.3)
-                lowMid: 12.8,   // Muito alto (target: 8.8)
-                mid: 6.2,       // Muito alto (target: 2.5)
-                highMid: -2.1,  // Muito alto (target: -6.7)
-                presence: -18.5, // Muito alto (target: -22.7)
-                air: -8.2       // Muito alto (target: -13.1)
-            }
+                low_bass: 18.5,     // Muito alto (target: 13.3)
+                upper_bass: 15.8,   // Muito alto (target: 11.5)
+                low_mid: 12.8,      // Muito alto (target: 8.8)
+                mid: 6.2,           // Muito alto (target: 2.5)
+                upper_mid: -2.1,    // Muito alto (target: -6.7)
+                presence: -18.5,    // Muito alto (target: -22.7)
+                air: -8.2           // Muito alto (target: -13.1)
+            },
+            // Dados adicionais que podem ser esperados
+            genre: 'eletrofunk',
+            analysisDate: new Date().toISOString()
         };
 
         const mockReferenceData = {
-            lufs_target: -8.3,
-            lufs_tolerance: 1.22,
-            true_peak_target: -1.0,
-            true_peak_tolerance: 0.5,
-            dr_target: 10.1,
-            dr_tolerance: 1.35,
-            bands: {
-                bass: { target: 13.3, tolerance: 2.36 },
-                lowMid: { target: 8.8, tolerance: 2.07 },
-                mid: { target: 2.5, tolerance: 1.81 },
-                highMid: { target: -6.7, tolerance: 1.52 },
-                presence: { target: -22.7, tolerance: 3.47 },
-                air: { target: -13.1, tolerance: 2.38 }
+            "eletrofunk": {
+                "version": "1.0",
+                "num_tracks": 148,
+                "lufs_target": -8.3,
+                "tol_lufs": 1.22,
+                "true_peak_target": -1,
+                "tol_true_peak": 0.5,
+                "dr_target": 10.1,
+                "tol_dr": 1.35,
+                "lra_target": 8.4,
+                "tol_lra": 2.54,
+                "stereo_target": null,
+                "tol_stereo": 0.07,
+                "bands": {
+                    "low_bass": {
+                        "target_db": 13.3,
+                        "tol_db": 2.36
+                    },
+                    "upper_bass": {
+                        "target_db": 11.5,
+                        "tol_db": 2.02
+                    },
+                    "low_mid": {
+                        "target_db": 8.8,
+                        "tol_db": 2.07
+                    },
+                    "mid": {
+                        "target_db": 2.5,
+                        "tol_db": 1.81
+                    },
+                    "upper_mid": {
+                        "target_db": -6.7,
+                        "tol_db": 1.52
+                    },
+                    "presence": {
+                        "target_db": -22.7,
+                        "tol_db": 3.47
+                    },
+                    "air": {
+                        "target_db": -13.1,
+                        "tol_db": 2.38
+                    }
+                }
             }
         };
 
@@ -234,6 +262,16 @@
                 addToLog(`🔍 Resultado processAnalysis: ${result ? 'objeto retornado' : 'undefined/null'}`);
                 addToLog(`📋 Tipo do resultado: ${typeof result}`);
                 
+                if (result) {
+                    addToLog(`📊 Estrutura do resultado: ${JSON.stringify(Object.keys(result))}`);
+                    if (result.suggestions) {
+                        addToLog(`📋 Tipo suggestions: ${Array.isArray(result.suggestions) ? 'array' : typeof result.suggestions}`);
+                    }
+                    if (result.enhancedMetrics) {
+                        addToLog(`📈 Métricas enhanced: ${JSON.stringify(Object.keys(result.enhancedMetrics))}`);
+                    }
+                }
+                
                 if (!result) {
                     addToLog('❌ ERRO: processAnalysis retornou null/undefined');
                     showStatus('❌ ERRO: Engine não gerou resultado', 'error');
@@ -242,6 +280,12 @@
                 
                 const suggestions = result.suggestions || [];
                 addToLog(`📋 Sugestões extraídas: ${suggestions.length} itens`);
+                
+                if (suggestions.length > 0) {
+                    addToLog(`🔍 Primeira sugestão: ${JSON.stringify(suggestions[0])}`);
+                } else {
+                    addToLog('⚠️ Nenhuma sugestão gerada - dados podem estar dentro das tolerâncias');
+                }
                 
                 if (!Array.isArray(suggestions)) {
                     addToLog('❌ ERRO: suggestions não é um array');
