@@ -173,28 +173,24 @@ class AISuggestionsIntegration {
                 this.updateStatus('error', 'IA não respondeu corretamente');
             }
             
+            // 🎯 MERGE INTELIGENTE: Sempre preservar TODAS as sugestões originais
+            const mergedSuggestions = this.mergeAISuggestionsWithOriginals(validSuggestions, allEnhancedSuggestions);
+            
             // Log final detalhado
             console.log('📈 [AI-INTEGRATION] RESULTADO FINAL:', {
-                suggestionsOriginais: suggestions?.length || 0,
+                suggestionsOriginais: validSuggestions.length,
                 suggestionsEnriquecidas: allEnhancedSuggestions.length,
+                suggestionsFinais: mergedSuggestions.length,
                 sucessosIA: aiSuccessCount,
                 errosIA: aiErrorCount,
                 tempoTotal: `${processingTime}ms`,
                 fonteFinal: data.source
             });
             
-            // Exibir TODAS as sugestões processadas (só IA, sem fallback)
-            if (allEnhancedSuggestions.length > 0) {
-                this.displaySuggestions(allEnhancedSuggestions, 'ai');
-                this.updateStats(allEnhancedSuggestions.length, processingTime, 'ai');
-                this.hideFallbackNotice();
-            } else {
-                // Se IA falhou completamente, mostrar erro e não exibir nada
-                console.error('🚫 [AI-INTEGRATION] IA falhou completamente - não exibindo sugestões');
-                this.updateStatus('error', 'IA indisponível');
-                this.showFallbackNotice('IA não conseguiu processar as sugestões. Tente novamente.');
-                this.displaySuggestions([], 'error');
-            }
+            // ✅ SEMPRE exibir TODAS as sugestões (originais + enriquecidas)
+            this.displaySuggestions(mergedSuggestions, allEnhancedSuggestions.length > 0 ? 'ai' : 'local');
+            this.updateStats(mergedSuggestions.length, processingTime, allEnhancedSuggestions.length > 0 ? 'ai' : 'local');
+            this.hideFallbackNotice();
             
         } catch (error) {
             console.error('❌ [AI-INTEGRATION] Erro crítico no processamento:', error);
@@ -286,6 +282,114 @@ class AISuggestionsIntegration {
         });
 
         return payload;
+    }
+
+    /**
+     * Mescla as sugestões originais com as respostas da IA
+     * Preserva TODAS as sugestões originais e enriquece com dados da IA
+     */
+    mergeAISuggestionsWithOriginals(originalSuggestions, aiResponse) {
+        console.log('[AI-MERGE] Iniciando merge de sugestões:', {
+            originais: originalSuggestions?.length || 0,
+            aiResponse: aiResponse ? 'presente' : 'ausente'
+        });
+
+        // Se não há sugestões originais, retorna array vazio
+        if (!originalSuggestions || !Array.isArray(originalSuggestions)) {
+            console.warn('[AI-MERGE] ⚠️ Sugestões originais inválidas');
+            return [];
+        }
+
+        // Se não há resposta da IA, retorna as originais
+        if (!aiResponse || !aiResponse.suggestions || !Array.isArray(aiResponse.suggestions)) {
+            console.log('[AI-MERGE] 📋 Sem resposta IA válida, retornando originais:', originalSuggestions.length);
+            return originalSuggestions;
+        }
+
+        console.log('[AI-MERGE] 🤖 Processando enriquecimento com IA:', aiResponse.suggestions.length);
+
+        // Cria cópia das sugestões originais para não modificar o array original
+        const mergedSuggestions = [...originalSuggestions];
+
+        // Para cada sugestão da IA, tenta encontrar correspondência nas originais
+        aiResponse.suggestions.forEach((aiSuggestion, index) => {
+            console.log(`[AI-MERGE] Processando sugestão IA ${index + 1}:`, aiSuggestion.title || aiSuggestion.category);
+
+            // Busca por correspondência usando múltiplos critérios
+            const matchIndex = mergedSuggestions.findIndex(original => {
+                // Critério 1: Título exato
+                if (aiSuggestion.title && original.title === aiSuggestion.title) {
+                    return true;
+                }
+                
+                // Critério 2: Categoria
+                if (aiSuggestion.category && original.category === aiSuggestion.category) {
+                    return true;
+                }
+                
+                // Critério 3: Type/metric
+                if (aiSuggestion.type && original.type === aiSuggestion.type) {
+                    return true;
+                }
+                
+                // Critério 4: Metric name
+                if (aiSuggestion.metric && original.metric === aiSuggestion.metric) {
+                    return true;
+                }
+
+                return false;
+            });
+
+            if (matchIndex !== -1) {
+                // Encontrou correspondência - enriquece a sugestão original
+                console.log(`[AI-MERGE] ✅ Match encontrado no índice ${matchIndex}`);
+                
+                const originalSuggestion = mergedSuggestions[matchIndex];
+                
+                // Enriquece com dados da IA, preservando dados originais importantes
+                mergedSuggestions[matchIndex] = {
+                    ...originalSuggestion, // Mantém todos os dados originais
+                    
+                    // Enriquece com dados da IA quando disponíveis
+                    ...(aiSuggestion.title && { aiTitle: aiSuggestion.title }),
+                    ...(aiSuggestion.description && { aiDescription: aiSuggestion.description }),
+                    ...(aiSuggestion.solution && { aiSolution: aiSuggestion.solution }),
+                    ...(aiSuggestion.priority && { aiPriority: aiSuggestion.priority }),
+                    ...(aiSuggestion.rationale && { aiRationale: aiSuggestion.rationale }),
+                    ...(aiSuggestion.techniques && { aiTechniques: aiSuggestion.techniques }),
+                    
+                    // Marca como enriquecida pela IA
+                    aiEnhanced: true,
+                    aiEnhancedAt: new Date().toISOString()
+                };
+                
+                console.log(`[AI-MERGE] 🎯 Sugestão ${matchIndex} enriquecida com IA`);
+            } else {
+                // Não encontrou correspondência - adiciona como nova sugestão
+                console.log('[AI-MERGE] ➕ Adicionando nova sugestão da IA');
+                
+                mergedSuggestions.push({
+                    ...aiSuggestion,
+                    isAIGenerated: true,
+                    aiEnhanced: true,
+                    aiEnhancedAt: new Date().toISOString(),
+                    // Garante que tenha campos obrigatórios
+                    title: aiSuggestion.title || 'Sugestão da IA',
+                    description: aiSuggestion.description || 'Sugestão gerada pela inteligência artificial',
+                    category: aiSuggestion.category || 'ai-generated',
+                    priority: aiSuggestion.priority || 'medium'
+                });
+            }
+        });
+
+        console.log('[AI-MERGE] 🎉 Merge concluído:', {
+            originais: originalSuggestions.length,
+            finais: mergedSuggestions.length,
+            enriquecidas: mergedSuggestions.filter(s => s.aiEnhanced).length,
+            novasIA: mergedSuggestions.filter(s => s.isAIGenerated).length
+        });
+
+        return mergedSuggestions;
     }
 
     /**
@@ -748,3 +852,7 @@ window.sendAISuggestionsToChat = function() {
 };
 
 console.log('📦 [AI-INTEGRATION] Módulo carregado - aguardando inicialização');
+
+// Exportar classe para uso global
+window.AISuggestionIntegration = AISuggestionsIntegration;
+window.AISuggestionsIntegration = AISuggestionsIntegration;

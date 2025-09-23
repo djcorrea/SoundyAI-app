@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Merge AI - SoundyAI</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .test-section {
+            background: #2d2d2d;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #00ff88;
+        }
+        .log-output {
+            background: #000;
+            color: #00ff88;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        button {
+            background: #00ff88;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 5px;
+        }
+        button:hover {
+            background: #00cc6a;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .status.success { background: #004d1a; color: #00ff88; }
+        .status.error { background: #4d0000; color: #ff6b6b; }
+        .status.info { background: #003d4d; color: #4dabf7; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste de Merge AI - SoundyAI</h1>
+    <p>Este teste verifica se a função <code>mergeAISuggestionsWithOriginals</code> está funcionando corretamente.</p>
+
+    <div class="test-section">
+        <h2>🎯 Testes de Merge</h2>
+        <button onclick="testMergeBasic()">Teste Básico</button>
+        <button onclick="testMergeWithEnrichment()">Teste com Enriquecimento</button>
+        <button onclick="testMergeWithNewSuggestions()">Teste com Novas Sugestões</button>
+        <button onclick="testMergeEdgeCases()">Teste Casos Extremos</button>
+        <button onclick="clearLog()">Limpar Log</button>
+    </div>
+
+    <div class="test-section">
+        <h2>📊 Status dos Testes</h2>
+        <div id="test-status"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>📝 Log de Execução</h2>
+        <div id="log-output" class="log-output"></div>
+    </div>
+
+    <!-- Scripts necessários -->
+    <script src="public/ai-suggestions-integration.js"></script>
+
+    <script>
+        // Variável global para o log
+        let testLog = '';
+
+        // Função para adicionar ao log
+        function addToLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logMessage = `[${timestamp}] ${message}\n`;
+            testLog += logMessage;
+            document.getElementById('log-output').textContent = testLog;
+            
+            // Auto-scroll para o final
+            const logElement = document.getElementById('log-output');
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        // Função para limpar o log
+        function clearLog() {
+            testLog = '';
+            document.getElementById('log-output').textContent = '';
+        }
+
+        // Função para mostrar status
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('test-status');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        // Override do console.log para capturar logs da integração
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+            // Captura logs que começam com [AI-MERGE]
+            const message = args.join(' ');
+            if (message.includes('[AI-MERGE]')) {
+                addToLog(message);
+            }
+            originalConsoleLog.apply(console, args);
+        };
+
+        // Dados de teste
+        const mockOriginalSuggestions = [
+            {
+                id: 1,
+                title: "Ajustar Loudness",
+                description: "Loudness está muito baixo",
+                category: "loudness",
+                type: "adjustment",
+                metric: "loudness",
+                priority: "high",
+                score: 8.5
+            },
+            {
+                id: 2,
+                title: "Controlar True Peak",
+                description: "True peak muito alto",
+                category: "dynamics",
+                type: "limiting",
+                metric: "truePeak",
+                priority: "medium",
+                score: 7.2
+            },
+            {
+                id: 3,
+                title: "Melhorar Dynamic Range",
+                description: "Dynamic range pode ser otimizado",
+                category: "dynamics",
+                type: "compression",
+                metric: "dynamicRange",
+                priority: "low",
+                score: 6.8
+            }
+        ];
+
+        const mockAIResponse = {
+            suggestions: [
+                {
+                    title: "Ajustar Loudness",
+                    description: "Aumente o loudness usando compressão multibanda",
+                    solution: "Use um compressor multibanda com ratio 3:1",
+                    priority: "high",
+                    rationale: "Loudness inadequado pode causar problemas de compatibilidade",
+                    techniques: ["Compressão Multibanda", "Limitador de Saída"]
+                },
+                {
+                    title: "Nova Sugestão da IA",
+                    description: "Sugestão adicional gerada pela IA",
+                    category: "ai-enhancement",
+                    priority: "medium",
+                    solution: "Aplicar EQ criativo nas frequências médias"
+                }
+            ]
+        };
+
+        // Teste básico
+        function testMergeBasic() {
+            addToLog('🧪 INICIANDO TESTE BÁSICO', 'info');
+            
+            try {
+                // Criar instância da integração
+                const integration = new AISuggestionIntegration();
+                
+                // Testar merge básico
+                const result = integration.mergeAISuggestionsWithOriginals(
+                    mockOriginalSuggestions,
+                    mockAIResponse
+                );
+                
+                addToLog(`✅ Resultado: ${result.length} sugestões finais`);
+                addToLog(`📊 Originais: ${mockOriginalSuggestions.length}, IA: ${mockAIResponse.suggestions.length}`);
+                
+                // Verificar se preservou todas as originais
+                const enrichedCount = result.filter(s => s.aiEnhanced).length;
+                const newAICount = result.filter(s => s.isAIGenerated).length;
+                
+                addToLog(`🎯 Enriquecidas: ${enrichedCount}, Novas da IA: ${newAICount}`);
+                
+                if (result.length >= mockOriginalSuggestions.length) {
+                    showStatus('✅ Teste Básico: PASSOU - Todas sugestões preservadas', 'success');
+                } else {
+                    showStatus('❌ Teste Básico: FALHOU - Sugestões perdidas', 'error');
+                }
+                
+            } catch (error) {
+                addToLog(`❌ ERRO no teste básico: ${error.message}`, 'error');
+                showStatus(`❌ Teste Básico: ERRO - ${error.message}`, 'error');
+            }
+        }
+
+        // Teste com enriquecimento
+        function testMergeWithEnrichment() {
+            addToLog('🧪 INICIANDO TESTE DE ENRIQUECIMENTO', 'info');
+            
+            try {
+                const integration = new AISuggestionIntegration();
+                
+                const result = integration.mergeAISuggestionsWithOriginals(
+                    mockOriginalSuggestions,
+                    mockAIResponse
+                );
+                
+                // Verificar se a primeira sugestão foi enriquecida
+                const enrichedSuggestion = result.find(s => s.title === "Ajustar Loudness");
+                
+                if (enrichedSuggestion && enrichedSuggestion.aiEnhanced) {
+                    addToLog('✅ Sugestão enriquecida encontrada:');
+                    addToLog(`   - Título original: ${enrichedSuggestion.title}`);
+                    addToLog(`   - Solução IA: ${enrichedSuggestion.aiSolution || 'N/A'}`);
+                    addToLog(`   - Rationale IA: ${enrichedSuggestion.aiRationale || 'N/A'}`);
+                    showStatus('✅ Teste Enriquecimento: PASSOU - Dados IA adicionados', 'success');
+                } else {
+                    addToLog('❌ Sugestão não foi enriquecida como esperado');
+                    showStatus('❌ Teste Enriquecimento: FALHOU - Dados IA não adicionados', 'error');
+                }
+                
+            } catch (error) {
+                addToLog(`❌ ERRO no teste de enriquecimento: ${error.message}`, 'error');
+                showStatus(`❌ Teste Enriquecimento: ERRO - ${error.message}`, 'error');
+            }
+        }
+
+        // Teste com novas sugestões
+        function testMergeWithNewSuggestions() {
+            addToLog('🧪 INICIANDO TESTE DE NOVAS SUGESTÕES', 'info');
+            
+            try {
+                const integration = new AISuggestionIntegration();
+                
+                const result = integration.mergeAISuggestionsWithOriginals(
+                    mockOriginalSuggestions,
+                    mockAIResponse
+                );
+                
+                // Verificar se nova sugestão da IA foi adicionada
+                const newAISuggestion = result.find(s => s.isAIGenerated);
+                
+                if (newAISuggestion) {
+                    addToLog('✅ Nova sugestão da IA encontrada:');
+                    addToLog(`   - Título: ${newAISuggestion.title}`);
+                    addToLog(`   - Categoria: ${newAISuggestion.category}`);
+                    addToLog(`   - Gerada pela IA: ${newAISuggestion.isAIGenerated}`);
+                    showStatus('✅ Teste Novas Sugestões: PASSOU - Sugestão IA adicionada', 'success');
+                } else {
+                    addToLog('❌ Nova sugestão da IA não foi adicionada');
+                    showStatus('❌ Teste Novas Sugestões: FALHOU - Sugestão IA não adicionada', 'error');
+                }
+                
+            } catch (error) {
+                addToLog(`❌ ERRO no teste de novas sugestões: ${error.message}`, 'error');
+                showStatus(`❌ Teste Novas Sugestões: ERRO - ${error.message}`, 'error');
+            }
+        }
+
+        // Teste casos extremos
+        function testMergeEdgeCases() {
+            addToLog('🧪 INICIANDO TESTE DE CASOS EXTREMOS', 'info');
+            
+            try {
+                const integration = new AISuggestionIntegration();
+                
+                // Teste 1: Sem resposta IA
+                let result1 = integration.mergeAISuggestionsWithOriginals(mockOriginalSuggestions, null);
+                addToLog(`📊 Teste sem IA: ${result1.length} sugestões (esperado: ${mockOriginalSuggestions.length})`);
+                
+                // Teste 2: Sem sugestões originais
+                let result2 = integration.mergeAISuggestionsWithOriginals([], mockAIResponse);
+                addToLog(`📊 Teste sem originais: ${result2.length} sugestões (esperado: 0)`);
+                
+                // Teste 3: Ambos vazios
+                let result3 = integration.mergeAISuggestionsWithOriginals([], null);
+                addToLog(`📊 Teste ambos vazios: ${result3.length} sugestões (esperado: 0)`);
+                
+                if (result1.length === mockOriginalSuggestions.length && 
+                    result2.length === 0 && 
+                    result3.length === 0) {
+                    showStatus('✅ Teste Casos Extremos: PASSOU - Todos cenários funcionando', 'success');
+                } else {
+                    showStatus('❌ Teste Casos Extremos: FALHOU - Alguns cenários com problemas', 'error');
+                }
+                
+            } catch (error) {
+                addToLog(`❌ ERRO no teste de casos extremos: ${error.message}`, 'error');
+                showStatus(`❌ Teste Casos Extremos: ERRO - ${error.message}`, 'error');
+            }
+        }
+
+        // Inicializar página
+        document.addEventListener('DOMContentLoaded', function() {
+            showStatus('🚀 Sistema de testes carregado. Clique nos botões para executar os testes.', 'info');
+            addToLog('🚀 Sistema de testes de merge AI inicializado');
+            addToLog('📋 Dados de teste preparados:');
+            addToLog(`   - ${mockOriginalSuggestions.length} sugestões originais`);
+            addToLog(`   - ${mockAIResponse.suggestions.length} sugestões da IA no mock`);
+        });
+    </script>
+</body>
+</html>
