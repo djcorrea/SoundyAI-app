@@ -67,20 +67,50 @@ class AISuggestionsIntegration {
             console.log('⚠️ [AI-INTEGRATION] Processamento já em andamento');
             return;
         }
-        
-        console.log('🚀 [AI-INTEGRATION] Iniciando processamento COMPLETO com IA...', {
-            suggestionsOriginais: suggestions?.length || 0,
+
+        // 🔍 VALIDAÇÃO CRÍTICA: Verificar se há sugestões válidas
+        if (!suggestions || !Array.isArray(suggestions) || suggestions.length === 0) {
+            console.log('� [AI-INTEGRATION] Nenhuma sugestão detectada - exibindo mensagem informativa');
+            
+            this.isProcessing = true;
+            this.currentSuggestions = [];
+            
+            // Mostrar container sem loading
+            this.showContainer();
+            this.setLoadingState(false);
+            this.updateStatus('info', 'Áudio analisado');
+            this.hideFallbackNotice();
+            
+            // Exibir mensagem de nenhuma sugestão
+            this.displayEmptyState('Nenhuma sugestão disponível para este arquivo');
+            this.updateStats(0, 0, 'empty');
+            
+            this.isProcessing = false;
+            return;
+        }
+
+        // 🔍 VALIDAÇÃO DO PAYLOAD: Garantir estrutura correta
+        const validSuggestions = this.validateAndNormalizeSuggestions(suggestions);
+        if (validSuggestions.length === 0) {
+            console.warn('⚠️ [AI-INTEGRATION] Sugestões inválidas após validação');
+            this.displayEmptyState('Sugestões detectadas são inválidas');
+            return;
+        }
+
+        console.log('�🚀 [AI-INTEGRATION] Iniciando processamento COMPLETO com IA...', {
+            suggestionsOriginais: suggestions.length,
+            suggestionsValidas: validSuggestions.length,
             genre: genre || 'não especificado',
             metricas: Object.keys(metrics).length
         });
         
         this.isProcessing = true;
-        this.currentSuggestions = suggestions || [];
+        this.currentSuggestions = validSuggestions;
         
         // Show container and loading state
         this.showContainer();
         this.setLoadingState(true);
-        this.updateStatus('processing', `Processando ${suggestions?.length || 0} sugestões...`);
+        this.updateStatus('processing', `Processando ${validSuggestions.length} sugestões...`);
         
         const startTime = Date.now();
         const allEnhancedSuggestions = [];
@@ -88,20 +118,24 @@ class AISuggestionsIntegration {
         let aiErrorCount = 0;
         
         try {
-            console.log('📋 [AI-INTEGRATION] Enviando TODAS as sugestões para IA:', suggestions?.length || 0);
+            console.log('📋 [AI-INTEGRATION] Enviando TODAS as sugestões para IA:', validSuggestions.length);
+
+            // 🔍 MONTAGEM DO PAYLOAD VÁLIDO
+            const payload = this.buildValidPayload(validSuggestions, metrics, genre);
+            console.log('📦 [AI-INTEGRATION] Payload construído:', {
+                genre: payload.genre,
+                metricsKeys: Object.keys(payload.metrics),
+                suggestionsCount: payload.suggestions.length
+            });
             
-            // Enviar TODAS as sugestões para a IA de uma vez
+            // Enviar para a IA
             const response = await fetch(this.apiEndpoint, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: JSON.stringify({
-                    suggestions: suggestions || [],
-                    metrics: metrics || {},
-                    genre: genre || 'geral'
-                })
+                body: JSON.stringify(payload)
             });
             
             if (!response.ok) {
@@ -193,6 +227,159 @@ class AISuggestionsIntegration {
             this.isProcessing = false;
             this.retryAttempts = 0; // Reset para próxima chamada
         }
+    }
+
+    /**
+     * Validar e normalizar sugestões antes de enviar para IA
+     */
+    validateAndNormalizeSuggestions(suggestions) {
+        if (!Array.isArray(suggestions)) {
+            console.warn('⚠️ [AI-INTEGRATION] Sugestões não são array:', typeof suggestions);
+            return [];
+        }
+
+        const validSuggestions = suggestions.filter(suggestion => {
+            // Validar se tem pelo menos message ou issue
+            const hasContent = suggestion && (suggestion.message || suggestion.issue || suggestion.title);
+            
+            if (!hasContent) {
+                console.warn('⚠️ [AI-INTEGRATION] Sugestão inválida (sem conteúdo):', suggestion);
+                return false;
+            }
+
+            return true;
+        }).map(suggestion => {
+            // Normalizar estrutura para o formato esperado pelo backend
+            return {
+                metric: suggestion.metric || suggestion.type || 'geral',
+                issue: suggestion.issue || suggestion.message || suggestion.title || 'Problema detectado',
+                solution: suggestion.solution || suggestion.action || suggestion.description || 'Ajuste recomendado',
+                priority: suggestion.priority || 5,
+                confidence: suggestion.confidence || 0.7
+            };
+        });
+
+        console.log('✅ [AI-INTEGRATION] Sugestões validadas:', {
+            original: suggestions.length,
+            valid: validSuggestions.length,
+            filtered: suggestions.length - validSuggestions.length
+        });
+
+        return validSuggestions;
+    }
+
+    /**
+     * Construir payload válido para o backend
+     */
+    buildValidPayload(suggestions, metrics, genre) {
+        // Estrutura base do payload
+        const payload = {
+            genre: genre || 'geral',
+            metrics: this.normalizeMetrics(metrics),
+            suggestions: suggestions
+        };
+
+        console.log('📦 [AI-INTEGRATION] Payload válido construído:', {
+            genre: payload.genre,
+            metricsStructure: Object.keys(payload.metrics),
+            suggestionsCount: payload.suggestions.length
+        });
+
+        return payload;
+    }
+
+    /**
+     * Normalizar métricas para o formato esperado
+     */
+    normalizeMetrics(metrics) {
+        if (!metrics || typeof metrics !== 'object') {
+            return {};
+        }
+
+        const normalized = {};
+
+        // Métricas principais
+        if (metrics.loudness !== undefined) {
+            normalized.loudness = {
+                value: metrics.loudness,
+                target: metrics.loudnessTarget || -8.3,
+                tolerance: metrics.loudnessTolerance || 1.22
+            };
+        }
+
+        if (metrics.truePeak !== undefined) {
+            normalized.truePeak = {
+                value: metrics.truePeak,
+                target: metrics.truePeakTarget || -1,
+                tolerance: metrics.truePeakTolerance || 0.5
+            };
+        }
+
+        if (metrics.dynamicRange !== undefined) {
+            normalized.dynamicRange = {
+                value: metrics.dynamicRange,
+                target: metrics.dynamicRangeTarget || 10.1,
+                tolerance: metrics.dynamicRangeTolerance || 1.35
+            };
+        }
+
+        // Bandas espectrais
+        if (metrics.bands || metrics.spectralBands) {
+            const bands = metrics.bands || metrics.spectralBands || {};
+            normalized.bands = {};
+
+            const bandMapping = {
+                bass: { target: 13.3, tolerance: 2.36 },
+                lowMid: { target: 8.8, tolerance: 2.07 },
+                mid: { target: 2.5, tolerance: 1.81 },
+                highMid: { target: -6.7, tolerance: 1.52 },
+                presence: { target: -22.7, tolerance: 3.47 },
+                air: { target: -13.1, tolerance: 2.38 }
+            };
+
+            Object.keys(bandMapping).forEach(band => {
+                if (bands[band] !== undefined) {
+                    normalized.bands[band] = {
+                        value: bands[band],
+                        target: bandMapping[band].target,
+                        tolerance: bandMapping[band].tolerance
+                    };
+                }
+            });
+        }
+
+        // Fallback para métricas diretas
+        Object.keys(metrics).forEach(key => {
+            if (!normalized[key] && typeof metrics[key] === 'number') {
+                normalized[key] = metrics[key];
+            }
+        });
+
+        return normalized;
+    }
+
+    /**
+     * Exibir estado vazio quando não há sugestões
+     */
+    displayEmptyState(message) {
+        if (!this.elements.grid) {
+            console.error('❌ [AI-INTEGRATION] Grid element not found');
+            return;
+        }
+
+        this.elements.grid.innerHTML = `
+            <div class="ai-suggestions-empty">
+                <div class="ai-empty-icon">✅</div>
+                <h3>Áudio Analisado com Sucesso</h3>
+                <p>${message}</p>
+                <div class="ai-empty-details">
+                    <small>Isso significa que seu áudio está dentro dos padrões de qualidade para o gênero selecionado.</small>
+                </div>
+            </div>
+        `;
+
+        this.elements.grid.style.display = 'block';
+        console.log('📋 [AI-INTEGRATION] Estado vazio exibido:', message);
     }
     
     /**
@@ -398,11 +585,17 @@ class AISuggestionsIntegration {
         }
         
         if (this.elements.time) {
-            this.elements.time.textContent = `${Math.round(timeMs)}ms`;
+            this.elements.time.textContent = timeMs > 0 ? `${Math.round(timeMs)}ms` : '-';
         }
         
         if (this.elements.mode) {
-            this.elements.mode.textContent = mode === 'ai' ? 'IA' : 'Base';
+            const modeMap = {
+                'ai': 'IA',
+                'empty': 'OK',
+                'error': 'Erro',
+                'fallback': 'Base'
+            };
+            this.elements.mode.textContent = modeMap[mode] || mode;
         }
     }
     
