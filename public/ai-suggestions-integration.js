@@ -129,6 +129,12 @@ class AISuggestionsIntegration {
                 contextSuggestionsCount: payload.suggestionsContext ? payload.suggestionsContext.length : 0
             });
             
+            // ✅ VALIDAÇÃO DE PAYLOAD ANTES DE ENVIAR
+            if (!payload.detectedIssues || payload.detectedIssues.length === 0) {
+                console.warn('⚠️ [AI-INTEGRATION] Payload sem problemas detectados - usando fallback');
+                throw new Error('PAYLOAD_INVALID: Nenhum problema detectado para análise');
+            }
+            
             // Enviar para a IA
             const response = await fetch(this.apiEndpoint, {
                 method: 'POST',
@@ -196,7 +202,17 @@ class AISuggestionsIntegration {
         } catch (error) {
             console.error('❌ [AI-INTEGRATION] Erro crítico no processamento:', error);
             
-            // Se der erro, tentar retry
+            // Se for erro de payload inválido, não tentar retry - exibir sugestões originais
+            if (error.message.includes('PAYLOAD_INVALID')) {
+                console.log('🔄 [AI-INTEGRATION] Payload inválido - exibindo sugestões originais');
+                this.updateStatus('ready', 'Sugestões locais');
+                this.displaySuggestions(validSuggestions, 'local');
+                this.updateStats(validSuggestions.length, Date.now() - startTime, 'local');
+                this.hideFallbackNotice();
+                return;
+            }
+            
+            // Se der erro, tentar retry apenas para erros de conexão
             if (this.retryAttempts < this.maxRetries) {
                 this.retryAttempts++;
                 console.log(`🔄 [AI-INTEGRATION] Tentativa ${this.retryAttempts}/${this.maxRetries}...`);
@@ -212,12 +228,12 @@ class AISuggestionsIntegration {
                 return;
             }
             
-            // Erro final - não mostrar fallback, só erro
-            console.error('🚫 [AI-INTEGRATION] FALHA TOTAL após todas as tentativas');
-            this.updateStatus('error', 'Erro na conexão');
-            this.showFallbackNotice('Erro na conexão com IA. Verifique sua internet e tente novamente.');
-            this.displaySuggestions([], 'error');
-            this.updateStats(0, Date.now() - startTime, 'error');
+            // Erro final - exibir sugestões originais como fallback
+            console.error('🚫 [AI-INTEGRATION] FALHA TOTAL - exibindo sugestões originais');
+            this.updateStatus('ready', 'Sugestões locais (IA indisponível)');
+            this.displaySuggestions(validSuggestions, 'local');
+            this.updateStats(validSuggestions.length, Date.now() - startTime, 'local');
+            this.showFallbackNotice('IA temporariamente indisponível. Exibindo análise local.');
             
         } finally {
             this.setLoadingState(false);
@@ -315,32 +331,57 @@ class AISuggestionsIntegration {
         // 1. Extrair problemas das sugestões existentes
         suggestions.forEach((suggestion, index) => {
             console.log(`🔍 [AI-DEBUG] Sugestão ${index}:`, {
-                hasCategory: !!suggestion.category,
-                hasDescription: !!suggestion.description,
-                category: suggestion.category,
-                description: suggestion.description?.substring(0, 50) + '...',
+                hasType: !!suggestion.type,
+                hasMessage: !!suggestion.message,
+                hasText: !!suggestion.text,
+                hasAction: !!suggestion.action,
+                hasPriority: !!suggestion.priority,
+                type: suggestion.type,
+                message: suggestion.message?.substring(0, 50) + '...',
                 todasChaves: Object.keys(suggestion)
             });
             
-            if (suggestion.category && suggestion.description) {
+            // CORRIGIDO: mapear campos reais das sugestões do Enhanced Engine
+            const issueType = suggestion.type || suggestion.category || 'unknown';
+            const description = suggestion.message || suggestion.text || suggestion.description || suggestion.action;
+            
+            if (issueType && description) {
                 const issue = {
-                    type: suggestion.category,
-                    description: suggestion.description,
-                    severity: this.mapPriorityToSeverity(suggestion.priority),
-                    metric: suggestion.metric || suggestion.type,
+                    type: issueType,
+                    description: description,
+                    severity: this.mapPriorityToSeverity(suggestion.priority || 1.0),
+                    metric: suggestion.metricType || suggestion.metric || issueType,
                     source: 'suggestion_engine'
                 };
                 issues.push(issue);
                 console.log(`✅ [AI-DEBUG] Issue adicionado:`, issue);
             } else {
                 console.log(`❌ [AI-DEBUG] Sugestão ${index} rejeitada:`, {
-                    category: suggestion.category,
-                    description: !!suggestion.description
+                    type: issueType,
+                    description: !!description,
+                    hasMappableFields: !!(suggestion.message || suggestion.text || suggestion.action)
                 });
             }
         });
 
-        // 2. Detectar problemas diretamente das métricas
+        // 2. FALLBACK: Se poucos issues foram detectados, criar com base em campos genéricos
+        if (issues.length === 0 && suggestions.length > 0) {
+            console.log('🔄 [AI-FALLBACK] Aplicando lógica de fallback para detectar problemas...');
+            
+            suggestions.forEach((suggestion, index) => {
+                const fallbackIssue = {
+                    type: 'audio_optimization',
+                    description: suggestion.message || suggestion.text || suggestion.action || `Sugestão de melhoria ${index + 1}`,
+                    severity: this.mapPriorityToSeverity(suggestion.priority || 1.0),
+                    metric: 'general',
+                    source: 'fallback_detection'
+                };
+                issues.push(fallbackIssue);
+                console.log(`🔄 [AI-FALLBACK] Issue criado:`, fallbackIssue);
+            });
+        }
+
+        // 3. Detectar problemas diretamente das métricas
         const metricIssues = this.detectMetricIssues(metrics);
         issues.push(...metricIssues);
 
