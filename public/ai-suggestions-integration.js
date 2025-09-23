@@ -118,24 +118,26 @@ class AISuggestionsIntegration {
         let aiErrorCount = 0;
         
         try {
-            console.log('📋 [AI-INTEGRATION] Enviando TODAS as sugestões para IA:', validSuggestions.length);
+            console.log('🎨 [AI-INTEGRATION] Enviando sugestões para ENRIQUECIMENTO:', validSuggestions.length);
 
-            // 🔍 MONTAGEM DO PAYLOAD VÁLIDO
+            // 🔍 MONTAGEM DO PAYLOAD DE ENRIQUECIMENTO
             const payload = this.buildValidPayload(validSuggestions, metrics, genre);
-            console.log('📦 [AI-INTEGRATION] Payload construído:', {
+            console.log('📦 [AI-INTEGRATION] Payload de enriquecimento construído:', {
                 genre: payload.genre,
-                metricsKeys: Object.keys(payload.metrics),
-                detectedIssuesCount: payload.detectedIssues ? payload.detectedIssues.length : 0,
-                contextSuggestionsCount: payload.suggestionsContext ? payload.suggestionsContext.length : 0
+                mode: payload.mode,
+                originalSuggestions: payload.originalSuggestions.length,
+                enhancementStyle: payload.enhancementRequest.style
             });
             
-            // ✅ VALIDAÇÃO DE PAYLOAD ANTES DE ENVIAR
-            if (!payload.detectedIssues || payload.detectedIssues.length === 0) {
-                console.warn('⚠️ [AI-INTEGRATION] Payload sem problemas detectados - usando fallback');
-                throw new Error('PAYLOAD_INVALID: Nenhum problema detectado para análise');
+            // ✅ VALIDAÇÃO DO PAYLOAD DE ENRIQUECIMENTO
+            if (!payload.originalSuggestions || payload.originalSuggestions.length === 0) {
+                console.warn('⚠️ [AI-INTEGRATION] Nenhuma sugestão para enriquecer - exibindo originais');
+                this.displaySuggestions(validSuggestions, 'local');
+                this.updateStats(validSuggestions.length, Date.now() - startTime, 'local');
+                return;
             }
             
-            // Enviar para a IA
+            // Enviar para a IA para enriquecimento
             const response = await fetch(this.apiEndpoint, {
                 method: 'POST',
                 headers: {
@@ -152,65 +154,44 @@ class AISuggestionsIntegration {
             const data = await response.json();
             const processingTime = Date.now() - startTime;
             
-            console.log('📊 [AI-INTEGRATION] Resposta completa da IA:', {
+            console.log('🎨 [AI-INTEGRATION] Resposta de enriquecimento da IA:', {
                 success: data.success,
                 source: data.source,
-                suggestionsRecebidas: suggestions?.length || 0,
+                suggestionsOriginais: validSuggestions.length,
                 suggestionsEnriquecidas: data.enhancedSuggestions?.length || 0,
                 processingTime: `${processingTime}ms`
             });
             
-            if (data.source === 'ai' && data.enhancedSuggestions?.length > 0) {
-                aiSuccessCount = data.enhancedSuggestions.length;
-                allEnhancedSuggestions.push(...data.enhancedSuggestions);
-                
-                console.log('✅ [AI-INTEGRATION] IA processou com sucesso:', {
-                    total: aiSuccessCount,
-                    exemploBlocos: data.enhancedSuggestions[0]?.blocks ? Object.keys(data.enhancedSuggestions[0].blocks) : 'N/A'
+            if (data.success && data.enhancedSuggestions?.length > 0) {
+                console.log('✅ [AI-INTEGRATION] Sugestões enriquecidas com sucesso:', {
+                    total: data.enhancedSuggestions.length,
+                    exemploEnriquecido: data.enhancedSuggestions[0]?.educationalContent ? 'Sim' : 'Não'
                 });
                 
-                this.updateStatus('success', `IA processou ${aiSuccessCount} sugestões`);
+                // Combinar sugestões originais com versões enriquecidas
+                const enrichedSuggestions = this.mergeEnrichedSuggestions(validSuggestions, data.enhancedSuggestions);
+                
+                this.updateStatus('success', `${data.enhancedSuggestions.length} sugestões enriquecidas`);
+                this.displaySuggestions(enrichedSuggestions, 'ai');
+                this.updateStats(enrichedSuggestions.length, processingTime, 'ai');
+                
             } else {
-                console.error('❌ [AI-INTEGRATION] IA não retornou sugestões válidas:', {
+                console.warn('⚠️ [AI-INTEGRATION] Falha no enriquecimento - exibindo originais:', {
                     source: data.source,
                     message: data.message,
                     error: data.error
                 });
-                aiErrorCount = suggestions?.length || 0;
-                this.updateStatus('error', 'IA não respondeu corretamente');
+                
+                // Fallback: exibir sugestões originais
+                this.displaySuggestions(validSuggestions, 'local');
+                this.updateStats(validSuggestions.length, processingTime, 'local');
             }
+                aiErrorCount = suggestions?.length || 0;
             
-            // 🎯 MERGE INTELIGENTE: Sempre preservar TODAS as sugestões originais
-            const mergedSuggestions = this.mergeAISuggestionsWithOriginals(validSuggestions, allEnhancedSuggestions);
-            
-            // Log final detalhado
-            console.log('📈 [AI-INTEGRATION] RESULTADO FINAL:', {
-                suggestionsOriginais: validSuggestions.length,
-                suggestionsEnriquecidas: allEnhancedSuggestions.length,
-                suggestionsFinais: mergedSuggestions.length,
-                sucessosIA: aiSuccessCount,
-                errosIA: aiErrorCount,
-                tempoTotal: `${processingTime}ms`,
-                fonteFinal: data.source
-            });
-            
-            // ✅ SEMPRE exibir TODAS as sugestões (originais + enriquecidas)
-            this.displaySuggestions(mergedSuggestions, allEnhancedSuggestions.length > 0 ? 'ai' : 'local');
-            this.updateStats(mergedSuggestions.length, processingTime, allEnhancedSuggestions.length > 0 ? 'ai' : 'local');
             this.hideFallbackNotice();
             
         } catch (error) {
-            console.error('❌ [AI-INTEGRATION] Erro crítico no processamento:', error);
-            
-            // Se for erro de payload inválido, não tentar retry - exibir sugestões originais
-            if (error.message.includes('PAYLOAD_INVALID')) {
-                console.log('🔄 [AI-INTEGRATION] Payload inválido - exibindo sugestões originais');
-                this.updateStatus('ready', 'Sugestões locais');
-                this.displaySuggestions(validSuggestions, 'local');
-                this.updateStats(validSuggestions.length, Date.now() - startTime, 'local');
-                this.hideFallbackNotice();
-                return;
-            }
+            console.error('❌ [AI-INTEGRATION] Erro no enriquecimento:', error);
             
             // Se der erro, tentar retry apenas para erros de conexão
             if (this.retryAttempts < this.maxRetries) {
@@ -218,6 +199,29 @@ class AISuggestionsIntegration {
                 console.log(`🔄 [AI-INTEGRATION] Tentativa ${this.retryAttempts}/${this.maxRetries}...`);
                 
                 this.updateStatus('processing', `Tentativa ${this.retryAttempts}...`);
+                
+                // Exponential backoff
+                const delay = Math.pow(2, this.retryAttempts) * 1000;
+                setTimeout(() => {
+                    this.processWithAI(suggestions, metrics, genre);
+                }, delay);
+                
+                return;
+            }
+            
+            // Erro final - exibir sugestões originais como fallback
+            console.log('� [AI-INTEGRATION] Falha total - exibindo sugestões originais');
+            this.updateStatus('ready', 'Sugestões locais (IA indisponível)');
+            this.displaySuggestions(validSuggestions, 'local');
+            this.updateStats(validSuggestions.length, Date.now() - startTime, 'local');
+            this.showFallbackNotice('IA temporariamente indisponível. Exibindo análise local.');
+            
+        } finally {
+            this.setLoadingState(false);
+            this.isProcessing = false;
+            this.retryAttempts = 0; // Reset para próxima chamada
+        }
+    }
                 
                 // Exponential backoff
                 const delay = Math.pow(2, this.retryAttempts) * 1000;
@@ -282,38 +286,76 @@ class AISuggestionsIntegration {
     }
 
     /**
-     * Construir payload válido para o backend - FOCADO EM PROBLEMAS DETECTADOS
+     * Construir payload válido para o backend - ENRIQUECER SUGESTÕES EXISTENTES
      */
     buildValidPayload(suggestions, metrics, genre) {
-        // Em vez de enviar sugestões prontas, vamos enviar os PROBLEMAS DETECTADOS
-        const detectedIssues = this.extractDetectedIssues(suggestions, metrics);
-        
-        // Estrutura base do payload focada nos PROBLEMAS
-        const payload = {
+        // NOVA ABORDAGEM: Enviar sugestões existentes para ENRIQUECIMENTO
+        const enrichmentPayload = {
             genre: genre || 'geral',
-            metrics: this.normalizeMetrics(metrics),
-            detectedIssues: detectedIssues,
+            mode: 'enhance_suggestions', // Novo modo: enriquecer ao invés de detectar
+            originalSuggestions: suggestions.map(s => ({
+                type: s.type,
+                message: s.message || s.text,
+                action: s.action,
+                priority: s.priority,
+                currentValue: s.currentValue,
+                targetValue: s.targetValue,
+                metric: s.metric
+            })),
             analysisContext: {
-                totalIssues: detectedIssues.length,
-                severityDistribution: this.categorizeSeverity(detectedIssues),
-                primaryConcerns: this.identifyPrimaryConcerns(detectedIssues)
+                genre: genre,
+                totalSuggestions: suggestions.length,
+                metrics: this.normalizeMetrics(metrics),
+                analysisType: 'reference_based'
             },
-            // Manter suggestions para compatibilidade, mas marcar como contexto
-            suggestionsContext: suggestions.map(s => ({
-                category: s.category,
-                metric: s.metric,
-                priority: s.priority
-            }))
+            enhancementRequest: {
+                style: 'educational',
+                includeExplanations: true,
+                includeDAWExamples: true,
+                technicalLevel: 'intermediate',
+                language: 'pt-BR'
+            }
         };
 
-        console.log('📦 [AI-INTEGRATION] Payload focado em PROBLEMAS construído:', {
-            genre: payload.genre,
-            detectedIssues: payload.detectedIssues.length,
-            primaryConcerns: payload.analysisContext.primaryConcerns,
-            contextSuggestions: payload.suggestionsContext.length
+        console.log('📦 [AI-INTEGRATION] Payload de ENRIQUECIMENTO construído:', {
+            genre: enrichmentPayload.genre,
+            originalSuggestions: enrichmentPayload.originalSuggestions.length,
+            mode: enrichmentPayload.mode,
+            enhancementStyle: enrichmentPayload.enhancementRequest.style
         });
 
-        return payload;
+        return enrichmentPayload;
+    }
+
+    /**
+     * Merge sugestões originais com versões enriquecidas da IA
+     */
+    mergeEnrichedSuggestions(originalSuggestions, enrichedSuggestions) {
+        if (!enrichedSuggestions || enrichedSuggestions.length === 0) {
+            return originalSuggestions;
+        }
+
+        // Mapear sugestões enriquecidas por índice ou tipo
+        const enrichedMap = new Map();
+        enrichedSuggestions.forEach((enriched, index) => {
+            enrichedMap.set(index, enriched);
+        });
+
+        // Combinar originais com enriquecidas
+        return originalSuggestions.map((original, index) => {
+            const enriched = enrichedMap.get(index);
+            if (enriched) {
+                return {
+                    ...original,
+                    educationalContent: enriched.educationalContent,
+                    explanation: enriched.explanation,
+                    dawExamples: enriched.dawExamples,
+                    technicalDetails: enriched.technicalDetails,
+                    enhancedBy: 'ai'
+                };
+            }
+            return original;
+        });
     }
 
     /**
