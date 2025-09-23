@@ -86,12 +86,7 @@ class AISuggestionLayer {
         const startTime = performance.now();
         
         try {
-            // Validações iniciais
-            if (!this.apiKey || this.apiKey === 'demo-mode') {
-                console.warn('⚠️ [AI-LAYER] API Key não configurada - usando sugestões originais');
-                return existingSuggestions;
-            }
-            
+            // NOVO: Não precisa mais verificar API Key - backend que gerencia
             if (!existingSuggestions || existingSuggestions.length === 0) {
                 console.warn('⚠️ [AI-LAYER] Nenhuma sugestão para processar');
                 return existingSuggestions;
@@ -109,15 +104,17 @@ class AISuggestionLayer {
             // Rate limiting
             await this.enforceRateLimit();
             
-            // Preparar dados para IA
-            const aiInput = this.prepareAIInput(existingSuggestions, analysisContext);
+            // Preparar dados para o backend
+            const simpleSuggestions = this.prepareSimpleSuggestions(existingSuggestions);
+            const metrics = this.extractMetrics(analysisContext);
+            const genre = this.extractGenreInfo(analysisContext).genre;
             
-            // Chamar IA
+            // Chamar backend
             this.stats.totalRequests++;
-            const aiResponse = await this.callOpenAI(aiInput);
+            const backendResponse = await this.callBackendAPI(simpleSuggestions, metrics, genre);
             
-            // Processar resposta
-            const enhancedSuggestions = this.processAIResponse(aiResponse, existingSuggestions);
+            // Processar resposta do backend
+            const enhancedSuggestions = this.processBackendResponse(backendResponse, existingSuggestions);
             
             // Atualizar cache e estatísticas
             this.saveToCache(cacheKey, enhancedSuggestions);
@@ -142,31 +139,62 @@ class AISuggestionLayer {
     }
     
     /**
-     * 📝 Preparar input estruturado para a IA
+     * 📝 Preparar sugestões simples para o backend
      */
-    prepareAIInput(suggestions, context) {
-        // Extrair métricas principais do contexto
-        const metrics = this.extractMetrics(context);
-        
-        // Extrair informações de gênero e referência
-        const genreInfo = this.extractGenreInfo(context);
-        
-        // Categorizar sugestões por tipo
-        const categorizedSuggestions = this.categorizeSuggestions(suggestions);
-        
-        return {
-            role: "system",
-            content: this.buildSystemPrompt(),
-            user_input: {
-                metrics: metrics,
-                genre: genreInfo,
-                suggestions: categorizedSuggestions,
-                context: {
-                    timestamp: new Date().toISOString(),
-                    version: 'SoundyAI_v2.0_AI_Enhanced'
-                }
+    prepareSimpleSuggestions(existingSuggestions) {
+        return existingSuggestions.map(suggestion => ({
+            message: suggestion.title || suggestion.message || suggestion.problem || 'Sugestão detectada',
+            action: suggestion.description || suggestion.action || suggestion.solution || 'Ajuste recomendado',
+            priority: suggestion.priority || 5,
+            confidence: suggestion.confidence || 0.7
+        }));
+    }
+
+    /**
+     * 🔄 Processar resposta do backend
+     */
+    processBackendResponse(backendResponse, originalSuggestions) {
+        try {
+            console.log('🔄 [AI-LAYER] Processando resposta do backend:', backendResponse);
+            
+            if (backendResponse.success && backendResponse.enhancedSuggestions) {
+                const enhancedSuggestions = backendResponse.enhancedSuggestions;
+                
+                // Converter formato do backend para formato esperado pelo frontend
+                return enhancedSuggestions.map((backendSuggestion, index) => {
+                    const originalSuggestion = originalSuggestions[index] || {};
+                    
+                    return {
+                        // Manter dados originais
+                        ...originalSuggestion,
+                        
+                        // Adicionar enriquecimento do backend
+                        ai_enhanced: true,
+                        ai_blocks: backendSuggestion.blocks || {},
+                        ai_category: backendSuggestion.metadata?.processing_type || 'geral',
+                        ai_priority: backendSuggestion.metadata?.priority === 'alta' ? 8 : 
+                                   backendSuggestion.metadata?.priority === 'média' ? 5 : 3,
+                        ai_technical_details: {
+                            difficulty: backendSuggestion.metadata?.difficulty || 'intermediário',
+                            frequency_range: backendSuggestion.metadata?.frequency_range || '',
+                            tools_suggested: [backendSuggestion.blocks?.plugin || 'EQ/Compressor'].filter(Boolean)
+                        },
+                        
+                        // Manter compatibilidade com sistema existente
+                        title: backendSuggestion.blocks?.problem || originalSuggestion.title || originalSuggestion.message,
+                        description: backendSuggestion.blocks?.solution || originalSuggestion.description || originalSuggestion.action
+                    };
+                });
+            } else {
+                console.warn('🤖 [AI-LAYER] Backend não retornou sugestões enriquecidas');
+                return originalSuggestions.map(s => ({...s, ai_enhanced: false}));
             }
-        };
+            
+        } catch (error) {
+            console.error('❌ [AI-LAYER] Erro ao processar resposta do backend:', error);
+            // Fallback: retornar sugestões originais
+            return originalSuggestions.map(s => ({...s, ai_enhanced: false}));
+        }
     }
     
     /**
@@ -323,57 +351,45 @@ DIRETRIZES:
     }
     
     /**
-     * 🌐 Chamar API da OpenAI
+     * 🌐 Chamar API do Backend (corrigido para usar /api/suggestions)
      */
-    async callOpenAI(input) {
-        const requestBody = {
-            model: this.model,
-            messages: [
-                {
-                    role: "system",
-                    content: input.content
-                },
-                {
-                    role: "user", 
-                    content: `Analise estes dados de áudio e sugestões, e crie explicações educacionais estruturadas:
+    async callBackendAPI(suggestions, metrics, genre) {
+        console.log('[AI-LAYER] Payload enviado:', {
+            suggestions: suggestions,
+            metrics: metrics,
+            genre: genre
+        });
 
-MÉTRICAS TÉCNICAS:
-${JSON.stringify(input.user_input.metrics, null, 2)}
-
-GÊNERO MUSICAL:
-${JSON.stringify(input.user_input.genre, null, 2)}
-
-SUGESTÕES ATUAIS:
-${JSON.stringify(input.user_input.suggestions, null, 2)}
-
-Gere explicações educacionais seguindo exatamente o formato JSON especificado.`
-                }
-            ],
-            max_tokens: 2000,
-            temperature: 0.7,
-            response_format: { type: "json_object" }
-        };
-        
-        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        const response = await fetch('/api/suggestions', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.apiKey}`
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify({
+                suggestions: suggestions,
+                metrics: metrics,
+                genre: genre
+            })
         });
         
         if (!response.ok) {
             const errorText = await response.text();
-            throw new Error(`OpenAI API Error: ${response.status} - ${errorText}`);
+            console.error('[AI-LAYER] Erro na API do backend:', {
+                status: response.status,
+                statusText: response.statusText,
+                error: errorText
+            });
+            throw new Error(`Backend API Error: ${response.status} - ${errorText}`);
         }
         
         const data = await response.json();
-        return data.choices[0].message.content;
+        console.log('[AI-LAYER] Resposta recebida:', data);
+        
+        return data;
     }
     
     /**
-     * 🔄 Processar resposta da IA e mesclar com sugestões originais
+     * 🔄 Processar resposta da IA e mesclar com sugestões originais (LEGADO - mantido para compatibilidade)
      */
     processAIResponse(aiResponse, originalSuggestions) {
         try {

@@ -233,11 +233,17 @@ class AISuggestionUIController {
         let html = preview.map((suggestion, index) => {
             const category = suggestion.ai_category || suggestion.category || 'geral';
             const priority = suggestion.ai_priority || suggestion.priority || 5;
-            const problemText = suggestion.ai_blocks?.problema || suggestion.title || suggestion.message || suggestion.original;
-            const solutionText = suggestion.ai_blocks?.solucao || suggestion.description || suggestion.action || suggestion.educationalTitle;
+            const isEnhanced = suggestion.ai_enhanced || suggestion.aiEnhanced;
+            
+            // Extrair textos dos blocos (tanto formato português quanto inglês)
+            const blocks = suggestion.ai_blocks || {};
+            const problemText = blocks.problem || blocks.problema || 
+                               suggestion.title || suggestion.message || 'Problema detectado';
+            const solutionText = blocks.solution || blocks.solucao || 
+                               suggestion.description || suggestion.action || 'Solução recomendada';
             
             // Se for sugestão base, usar formato simples
-            if (isBaseSuggestions) {
+            if (isBaseSuggestions || !isEnhanced) {
                 return `
                     <div class="ai-suggestion-card ai-compact ai-base-suggestion ai-new" style="animation-delay: ${index * 0.1}s">
                         <div class="ai-suggestion-header">
@@ -264,11 +270,13 @@ class AISuggestionUIController {
                 `;
             }
             
+            // Para sugestões enriquecidas do backend
             return `
-                <div class="ai-suggestion-card ai-compact ai-new" style="animation-delay: ${index * 0.1}s">
+                <div class="ai-suggestion-card ai-compact ai-enhanced ai-new" style="animation-delay: ${index * 0.1}s">
                     <div class="ai-suggestion-header">
                         <span class="ai-suggestion-category">${category}</span>
                         <div class="ai-suggestion-priority ${this.getPriorityClass(priority)}">${priority}</div>
+                        <span class="ai-enhancement-badge">🤖 IA</span>
                     </div>
                     
                     <div class="ai-suggestion-preview">
@@ -399,22 +407,40 @@ class AISuggestionUIController {
      * 🎴 Renderizar card completo de sugestão
      */
     renderFullSuggestionCard(suggestion, index) {
-        const category = suggestion.ai_category || 'geral';
-        const priority = suggestion.ai_priority || 5;
+        const category = suggestion.ai_category || suggestion.category || 'geral';
+        const priority = suggestion.ai_priority || suggestion.priority || 5;
         const blocks = suggestion.ai_blocks || {};
         const technical = suggestion.ai_technical_details || {};
         
+        // Verificar se é sugestão enriquecida do backend
+        const isEnhanced = suggestion.ai_enhanced || suggestion.aiEnhanced;
+        
         const blocksHtml = Object.entries(blocks).map(([key, content]) => {
             const icons = {
+                problem: '⚠️',
+                cause: '🎯', 
+                solution: '🛠️',
+                tip: '💡',
+                plugin: '🎹',
+                result: '✅',
+                // Suporte aos campos em português
                 problema: '⚠️',
                 causa: '🎯',
                 solucao: '🛠️',
                 dica: '💡'
             };
             
+            const displayKey = key === 'problem' ? 'Problema' :
+                              key === 'cause' ? 'Causa' :
+                              key === 'solution' ? 'Solução' :
+                              key === 'tip' ? 'Dica' :
+                              key === 'plugin' ? 'Ferramenta' :
+                              key === 'result' ? 'Resultado' :
+                              key.charAt(0).toUpperCase() + key.slice(1);
+            
             return `
                 <div class="ai-block ai-block-${key}">
-                    <div class="ai-block-title">${icons[key] || '📝'} ${key.charAt(0).toUpperCase() + key.slice(1)}</div>
+                    <div class="ai-block-title">${icons[key] || '📝'} ${displayKey}</div>
                     <div class="ai-block-content">${content}</div>
                 </div>
             `;
@@ -440,10 +466,18 @@ class AISuggestionUIController {
             </div>
         ` : '';
         
+        // Badge indicando se é IA ou não
+        const aiBadge = isEnhanced ? 
+            '<span class="ai-enhancement-badge">🤖 IA</span>' : 
+            '<span class="ai-enhancement-badge base">📋 BASE</span>';
+        
         return `
-            <div class="ai-suggestion-card ai-new" style="animation-delay: ${index * 0.1}s">
-                <span class="ai-suggestion-category">${category}</span>
-                <div class="ai-suggestion-priority ${this.getPriorityClass(priority)}">${priority}</div>
+            <div class="ai-suggestion-card ai-new ${isEnhanced ? 'ai-enhanced' : 'ai-base'}" style="animation-delay: ${index * 0.1}s">
+                <div class="ai-card-header">
+                    <span class="ai-suggestion-category">${category}</span>
+                    <div class="ai-suggestion-priority ${this.getPriorityClass(priority)}">${priority}</div>
+                    ${aiBadge}
+                </div>
                 
                 <div class="ai-suggestion-blocks">
                     ${blocksHtml}
