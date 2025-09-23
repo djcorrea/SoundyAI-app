@@ -84,58 +84,89 @@ class AISuggestionLayer {
      */
     async process(existingSuggestions, analysisContext) {
         const startTime = performance.now();
+        const maxRetries = 3; // Máximo 3 tentativas para resposta completa
+        let lastError = null;
         
-        try {
-            // NOVO: Não precisa mais verificar API Key - backend que gerencia
-            if (!existingSuggestions || existingSuggestions.length === 0) {
-                console.warn('⚠️ [AI-LAYER] Nenhuma sugestão para processar');
-                return existingSuggestions;
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                console.log(`🚀 [AI-LAYER] Tentativa ${attempt}/${maxRetries} - Processando ${existingSuggestions.length} sugestões`);
+                
+                // NOVO: Não precisa mais verificar API Key - backend que gerencia
+                if (!existingSuggestions || existingSuggestions.length === 0) {
+                    console.warn('⚠️ [AI-LAYER] Nenhuma sugestão para processar');
+                    return existingSuggestions;
+                }
+                
+                // Verificar cache (apenas na primeira tentativa)
+                if (attempt === 1) {
+                    const cacheKey = this.generateCacheKey(existingSuggestions, analysisContext);
+                    const cached = this.getFromCache(cacheKey);
+                    if (cached) {
+                        this.stats.cacheHits++;
+                        console.log('💾 [AI-LAYER] Resultado encontrado no cache');
+                        return cached;
+                    }
+                }
+                
+                // Rate limiting
+                await this.enforceRateLimit();
+                
+                // Preparar dados para o backend
+                const simpleSuggestions = this.prepareSimpleSuggestions(existingSuggestions);
+                const metrics = this.extractMetrics(analysisContext);
+                const genre = this.extractGenreInfo(analysisContext).genre;
+                
+                // Chamar backend
+                this.stats.totalRequests++;
+                const backendResponse = await this.callBackendAPI(simpleSuggestions, metrics, genre);
+                
+                // Processar resposta do backend (vai rejeitar respostas parciais)
+                const enhancedSuggestions = this.processBackendResponse(backendResponse, existingSuggestions);
+                
+                // ✅ Chegou até aqui = resposta completa aceita
+                console.log(`🎯 [AI-LAYER] ✅ SUCESSO na tentativa ${attempt}: ${enhancedSuggestions.length} sugestões enriquecidas`);
+                
+                // Atualizar cache e estatísticas (apenas salvar quando bem-sucedido)
+                if (attempt === 1) {
+                    const cacheKey = this.generateCacheKey(existingSuggestions, analysisContext);
+                    this.saveToCache(cacheKey, enhancedSuggestions);
+                }
+                this.stats.successfulRequests++;
+                
+                const responseTime = performance.now() - startTime;
+                this.updateAverageResponseTime(responseTime);
+                
+                console.log(`🤖 [AI-LAYER] Processamento concluído em ${responseTime.toFixed(0)}ms`);
+                
+                return enhancedSuggestions;
+                
+            } catch (error) {
+                lastError = error;
+                this.stats.failedRequests++;
+                
+                // Detectar especificamente respostas parciais vs outros erros
+                if (error.message.includes('Resposta parcial:')) {
+                    console.warn(`⚠️ [AI-LAYER] Tentativa ${attempt}/${maxRetries}: Resposta parcial - ${error.message}`);
+                    
+                    // Se não é a última tentativa, aguardar um pouco antes da próxima
+                    if (attempt < maxRetries) {
+                        const waitTime = attempt * 500; // 500ms, 1000ms, 1500ms
+                        console.log(`⏳ [AI-LAYER] Aguardando ${waitTime}ms antes da próxima tentativa...`);
+                        await new Promise(resolve => setTimeout(resolve, waitTime));
+                        continue;
+                    }
+                } else {
+                    // Erro diferente de resposta parcial - não retry
+                    console.error('❌ [AI-LAYER] Erro não-retry:', error);
+                    break;
+                }
             }
-            
-            // Verificar cache
-            const cacheKey = this.generateCacheKey(existingSuggestions, analysisContext);
-            const cached = this.getFromCache(cacheKey);
-            if (cached) {
-                this.stats.cacheHits++;
-                console.log('💾 [AI-LAYER] Resultado encontrado no cache');
-                return cached;
-            }
-            
-            // Rate limiting
-            await this.enforceRateLimit();
-            
-            // Preparar dados para o backend
-            const simpleSuggestions = this.prepareSimpleSuggestions(existingSuggestions);
-            const metrics = this.extractMetrics(analysisContext);
-            const genre = this.extractGenreInfo(analysisContext).genre;
-            
-            // Chamar backend
-            this.stats.totalRequests++;
-            const backendResponse = await this.callBackendAPI(simpleSuggestions, metrics, genre);
-            
-            // Processar resposta do backend
-            const enhancedSuggestions = this.processBackendResponse(backendResponse, existingSuggestions);
-            
-            // Atualizar cache e estatísticas
-            this.saveToCache(cacheKey, enhancedSuggestions);
-            this.stats.successfulRequests++;
-            
-            const responseTime = performance.now() - startTime;
-            this.updateAverageResponseTime(responseTime);
-            
-            console.log(`🤖 [AI-LAYER] Processamento concluído em ${responseTime.toFixed(0)}ms`);
-            console.log(`📊 [AI-LAYER] ${existingSuggestions.length} → ${enhancedSuggestions.length} sugestões`);
-            
-            return enhancedSuggestions;
-            
-        } catch (error) {
-            this.stats.failedRequests++;
-            console.error('❌ [AI-LAYER] Erro no processamento:', error);
-            
-            // NÃO USAR FALLBACK: Se o backend falhou, reportar erro
-            console.error('🛡️ [AI-LAYER] Backend IA falhou - não exibir sugestões brutas');
-            throw error;
         }
+        
+        // Se chegou aqui, todas as tentativas falharam
+        console.error(`❌ [AI-LAYER] FALHA após ${maxRetries} tentativas. Último erro:`, lastError);
+        console.error('🛡️ [AI-LAYER] Backend IA falhou - não exibir sugestões brutas');
+        throw lastError;
     }
     
     /**
@@ -200,6 +231,14 @@ class AISuggestionLayer {
             
             if (backendResponse.success && backendResponse.enhancedSuggestions) {
                 const enhancedSuggestions = backendResponse.enhancedSuggestions;
+                
+                // 🚨 FILTRO: Rejeitar respostas parciais (só aceitar se tem todas as sugestões)
+                if (enhancedSuggestions.length !== originalSuggestions.length) {
+                    console.warn(`⚠️ [AI-LAYER] Resposta PARCIAL ignorada: recebido ${enhancedSuggestions.length}, esperado ${originalSuggestions.length}`);
+                    throw new Error(`Resposta parcial: ${enhancedSuggestions.length}/${originalSuggestions.length} sugestões`);
+                }
+                
+                console.log(`✅ [AI-LAYER] Resposta COMPLETA aceita: ${enhancedSuggestions.length} sugestões processadas`);
                 
                 // Converter formato do backend para formato esperado pelo frontend
                 return enhancedSuggestions.map((backendSuggestion, index) => {
@@ -427,7 +466,7 @@ DIRETRIZES:
      * 🌐 Chamar API do Backend (corrigido para usar /api/suggestions)
      */
     async callBackendAPI(suggestions, metrics, genre) {
-        console.log('[AI-LAYER] Payload enviado:', {
+        console.log(`[AI-LAYER] 📤 Enviando payload com ${suggestions.length} sugestões:`, {
             suggestions: suggestions,
             metrics: metrics,
             genre: genre
@@ -456,6 +495,19 @@ DIRETRIZES:
         }
         
         const data = await response.json();
+        
+        // 🔍 DIAGNÓSTICO: Verificar se resposta é parcial
+        if (data.success && data.enhancedSuggestions) {
+            const receivedCount = data.enhancedSuggestions.length;
+            const expectedCount = suggestions.length;
+            
+            if (receivedCount !== expectedCount) {
+                console.warn(`⚠️ [AI-LAYER] 📥 RESPOSTA PARCIAL detectada: recebido ${receivedCount}/${expectedCount} sugestões`);
+            } else {
+                console.log(`✅ [AI-LAYER] 📥 RESPOSTA COMPLETA recebida: ${receivedCount}/${expectedCount} sugestões`);
+            }
+        }
+        
         console.log('[AI-LAYER] Resposta recebida:', data);
         
         return data;

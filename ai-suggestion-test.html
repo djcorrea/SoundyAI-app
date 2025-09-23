@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste AI Suggestion Layer - Filtro de Respostas Parciais</title>
+    <style>
+        body { 
+            font-family: 'Consolas', monospace; 
+            background: #1a1a1a; 
+            color: #00ff00; 
+            padding: 20px;
+        }
+        .log { 
+            background: #000; 
+            padding: 15px; 
+            margin: 10px 0; 
+            border: 1px solid #333;
+            border-radius: 5px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        button {
+            background: #0066cc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover { background: #0088ff; }
+        .success { color: #00ff00; }
+        .warning { color: #ffaa00; }
+        .error { color: #ff4444; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste AI Suggestion Layer - Filtro de Respostas Parciais</h1>
+    
+    <div>
+        <button onclick="testPartialResponseFilter()">Testar Filtro de Respostas Parciais</button>
+        <button onclick="clearLog()">Limpar Log</button>
+    </div>
+    
+    <div id="log" class="log"></div>
+    
+    <script src="ai-suggestion-layer.js"></script>
+    
+    <script>
+        const log = document.getElementById('log');
+        
+        function addLog(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.appendChild(div);
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function clearLog() {
+            log.innerHTML = '';
+        }
+        
+        // Interceptar console logs para mostrar no HTML
+        const originalConsoleLog = console.log;
+        const originalConsoleWarn = console.warn;
+        const originalConsoleError = console.error;
+        
+        console.log = (...args) => {
+            originalConsoleLog(...args);
+            addLog(args.join(' '), 'success');
+        };
+        
+        console.warn = (...args) => {
+            originalConsoleWarn(...args);
+            addLog(args.join(' '), 'warning');
+        };
+        
+        console.error = (...args) => {
+            originalConsoleError(...args);
+            addLog(args.join(' '), 'error');
+        };
+        
+        // Mock do backend para testar respostas parciais vs completas
+        class MockAISuggestionLayer extends AISuggestionLayer {
+            constructor() {
+                super();
+                this.mockResponseType = 'partial_first'; // 'partial_first', 'always_complete', 'always_partial'
+            }
+            
+            async callBackendAPI(suggestions, metrics, genre) {
+                await new Promise(resolve => setTimeout(resolve, 200)); // Simular delay de rede
+                
+                const totalSuggestions = suggestions.length;
+                
+                if (this.mockResponseType === 'partial_first') {
+                    // Primeira chamada = resposta parcial, segunda = completa
+                    if (!this.firstCallMade) {
+                        this.firstCallMade = true;
+                        addLog(`🔄 Backend simulado: retornando ${Math.ceil(totalSuggestions/2)} de ${totalSuggestions} sugestões (PARCIAL)`, 'warning');
+                        
+                        return {
+                            success: true,
+                            enhancedSuggestions: suggestions.slice(0, Math.ceil(totalSuggestions/2)).map(s => ({
+                                blocks: {
+                                    problem: `AI Problem: ${s.message}`,
+                                    solution: `AI Solution: ${s.action}`,
+                                    plugin: 'AI Plugin'
+                                },
+                                metadata: {
+                                    priority: 'alta',
+                                    difficulty: 'intermediário'
+                                }
+                            }))
+                        };
+                    } else {
+                        // Segunda chamada = resposta completa
+                        addLog(`✅ Backend simulado: retornando ${totalSuggestions} de ${totalSuggestions} sugestões (COMPLETA)`, 'success');
+                        
+                        return {
+                            success: true,
+                            enhancedSuggestions: suggestions.map(s => ({
+                                blocks: {
+                                    problem: `AI Problem: ${s.message}`,
+                                    solution: `AI Solution: ${s.action}`,
+                                    plugin: 'AI Plugin'
+                                },
+                                metadata: {
+                                    priority: 'alta',
+                                    difficulty: 'intermediário'
+                                }
+                            }))
+                        };
+                    }
+                }
+                
+                // Outros tipos de mock...
+                return { success: false, error: 'Mock não configurado' };
+            }
+        }
+        
+        async function testPartialResponseFilter() {
+            addLog('🧪 Iniciando teste do filtro de respostas parciais...', 'info');
+            
+            try {
+                // Criar instância do mock
+                const mockLayer = new MockAISuggestionLayer();
+                
+                // Criar sugestões de teste (12 sugestões como no sistema real)
+                const testSuggestions = Array.from({length: 12}, (_, i) => ({
+                    message: `Problema ${i + 1}`,
+                    action: `Ação ${i + 1}`,
+                    priority: 'alta',
+                    confidence: 0.9
+                }));
+                
+                const testContext = {
+                    technicalData: {
+                        lufsIntegrated: -14.5,
+                        truePeak: -1.2
+                    }
+                };
+                
+                addLog(`📊 Testando com ${testSuggestions.length} sugestões originais`, 'info');
+                
+                // Processar (deve rejeitar primeira resposta parcial, aceitar segunda completa)
+                const result = await mockLayer.process(testSuggestions, testContext);
+                
+                if (result && result.length === testSuggestions.length) {
+                    addLog(`✅ SUCESSO: Recebeu ${result.length} sugestões enriquecidas (resposta completa aceita)`, 'success');
+                    addLog(`🎯 Primeira sugestão: "${result[0].title}"`, 'success');
+                } else {
+                    addLog(`❌ ERRO: Resultado inesperado`, 'error');
+                }
+                
+            } catch (error) {
+                addLog(`❌ ERRO no teste: ${error.message}`, 'error');
+            }
+        }
+    </script>
+</body>
+</html>
