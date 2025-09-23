@@ -296,7 +296,8 @@ class EnhancedSuggestionEngine {
 
     /**
      * 🔧 Normalizar dados de referência para compatibilidade universal
-     * @param {Object} rawRef - Dados de referência brutos (legacy_compatibility ou hybrid_processing)
+     * CORRIGIDO para aceitar estrutura real do backend: analysis.scores
+     * @param {Object} rawRef - Dados de referência brutos (legacy_compatibility, hybrid_processing ou analysis.scores)
      * @returns {Object} Dados normalizados no formato padrão do motor
      */
     normalizeReferenceData(rawRef) {
@@ -306,7 +307,58 @@ class EnhancedSuggestionEngine {
             return null;
         }
 
-        // Detectar estrutura dos dados
+        // 🎯 PRIORIDADE 1: Estrutura analysis.scores (formato real do backend)
+        if (rawRef.scores && typeof rawRef.scores === 'object') {
+            const scores = rawRef.scores;
+            const structureType = 'backend_scores';
+            
+            console.log('🎯 [NORMALIZE] Detectada estrutura backend_scores:', scores);
+            
+            // Normalizar diretamente da estrutura scores
+            const normalized = {
+                // LUFS - extrair de loudness
+                lufs_target: scores.loudness?.target,
+                tol_lufs: scores.loudness?.tolerance ?? 2.0,
+
+                // True Peak
+                true_peak_target: scores.truePeak?.target,
+                tol_true_peak: scores.truePeak?.tolerance ?? 1.0,
+
+                // Dynamic Range
+                dr_target: scores.dynamicRange?.target,
+                tol_dr: scores.dynamicRange?.tolerance ?? 2.0,
+
+                // LRA (Loudness Range)
+                lra_target: scores.lra?.target,
+                tol_lra: scores.lra?.tolerance ?? 2.0,
+
+                // Stereo Correlation
+                stereo_target: scores.stereo?.target || scores.stereoCorrelation?.target,
+                tol_stereo: (scores.stereo?.tolerance || scores.stereoCorrelation?.tolerance) ?? 0.15,
+
+                // Bandas espectrais
+                bands: this.normalizeBandsFromScores(scores.bands || {})
+            };
+
+            // Log das métricas encontradas
+            const foundMetrics = Object.keys(normalized).filter(key => 
+                key !== 'bands' && normalized[key] !== null && normalized[key] !== undefined
+            );
+            const foundBands = normalized.bands ? Object.keys(normalized.bands) : [];
+
+            this.logAudit('NORMALIZE_SUCCESS', 'Dados backend_scores normalizados', {
+                structureType,
+                foundMetrics,
+                foundBands,
+                metricsCount: foundMetrics.length,
+                bandsCount: foundBands.length,
+                originalScores: scores
+            });
+
+            return normalized;
+        }
+
+        // ESTRUTURAS LEGADAS (detectar estrutura dos dados)
         let sourceData = null;
         let structureType = 'unknown';
 
@@ -515,7 +567,38 @@ class EnhancedSuggestionEngine {
     }
 
     /**
-     * 🎯 Processar análise completa e gerar sugestões melhoradas
+     * � Normalizar bandas da estrutura scores.bands (formato do backend)
+     */
+    normalizeBandsFromScores(bandsScores) {
+        if (!bandsScores || typeof bandsScores !== 'object') {
+            return {};
+        }
+
+        const normalizedBands = {};
+        
+        // Mapear cada banda de scores.bands
+        Object.keys(bandsScores).forEach(bandKey => {
+            const band = bandsScores[bandKey];
+            if (band && typeof band === 'object' && band.target !== undefined) {
+                normalizedBands[bandKey] = {
+                    target_db: band.target,
+                    tol_db: band.tolerance ?? 3.0 // Tolerância padrão para bandas
+                };
+            }
+        });
+
+        console.log('🎵 [NORMALIZE] Bandas normalizadas:', normalizedBands);
+        this.logAudit('BANDS_FROM_SCORES', 'Bandas normalizadas do backend', {
+            inputBands: Object.keys(bandsScores),
+            outputBands: Object.keys(normalizedBands),
+            count: Object.keys(normalizedBands).length
+        });
+        
+        return normalizedBands;
+    }
+
+    /**
+     * �🎯 Processar análise completa e gerar sugestões melhoradas
      * @param {Object} analysis - Análise de áudio existente
      * @param {Object} referenceData - Dados de referência do gênero
      * @param {Object} options - Opções de processamento

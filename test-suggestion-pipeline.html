@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Teste do Pipeline de Sugestões Corrigido</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #121212;
+            color: #fff;
+        }
+        .test-section {
+            background: #1e1e1e;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            border-left: 4px solid #00a8ff;
+        }
+        .result {
+            background: #2d3748;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .success { border-left-color: #28a745; }
+        .error { border-left-color: #dc3545; }
+        .warning { border-left-color: #ffc107; }
+        button {
+            background: #00a8ff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 5px 10px 0;
+        }
+        button:hover {
+            background: #0097e6;
+        }
+        .log {
+            background: #000;
+            color: #0f0;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Teste do Pipeline de Sugestões Corrigido</h1>
+    <p>Verificando se o EnhancedSuggestionEngine agora consegue processar a estrutura analysis.scores do backend.</p>
+
+    <div class="test-section">
+        <h3>📊 Teste 1: Estrutura Backend Scores</h3>
+        <button onclick="testBackendScores()">Testar Processamento Backend</button>
+        <div id="test1-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🎵 Teste 2: Normalização de Bandas</h3>
+        <button onclick="testBandsNormalization()">Testar Bandas Scores</button>
+        <div id="test2-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🚀 Teste 3: Pipeline Completo</h3>
+        <button onclick="testFullPipeline()">Testar Pipeline Completo</button>
+        <div id="test3-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📝 Log de Auditoria</h3>
+        <button onclick="clearLog()">Limpar Log</button>
+        <div id="audit-log" class="log"></div>
+    </div>
+
+    <script src="enhanced-suggestion-engine.js"></script>
+    <script>
+        let engine = null;
+        let auditLog = [];
+
+        // Mock do console.log para capturar logs
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            auditLog.push(args.join(' '));
+            updateAuditLog();
+        };
+
+        function updateAuditLog() {
+            const logDiv = document.getElementById('audit-log');
+            logDiv.textContent = auditLog.slice(-50).join('\n'); // Últimas 50 linhas
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function clearLog() {
+            auditLog = [];
+            updateAuditLog();
+        }
+
+        // Dados de teste simulando a estrutura do backend
+        const mockBackendAnalysis = {
+            scores: {
+                loudness: {
+                    value: -18.5,
+                    target: -16.0,
+                    tolerance: 2.0
+                },
+                truePeak: {
+                    value: -1.2,
+                    target: -1.0,
+                    tolerance: 0.5
+                },
+                dynamicRange: {
+                    value: 8.5,
+                    target: 12.0,
+                    tolerance: 3.0
+                },
+                stereo: {
+                    value: 0.85,
+                    target: 0.9,
+                    tolerance: 0.15
+                },
+                bands: {
+                    sub_bass: {
+                        value: -22.0,
+                        target: -18.0,
+                        tolerance: 4.0
+                    },
+                    bass: {
+                        value: -16.5,
+                        target: -14.0,
+                        tolerance: 3.0
+                    },
+                    low_mid: {
+                        value: -15.0,
+                        target: -12.0,
+                        tolerance: 3.0
+                    },
+                    mid: {
+                        value: -13.5,
+                        target: -10.0,
+                        tolerance: 3.0
+                    },
+                    high_mid: {
+                        value: -17.0,
+                        target: -12.0,
+                        tolerance: 3.0
+                    },
+                    presence: {
+                        value: -20.0,
+                        target: -15.0,
+                        tolerance: 4.0
+                    },
+                    brilliance: {
+                        value: -25.0,
+                        target: -18.0,
+                        tolerance: 5.0
+                    }
+                }
+            }
+        };
+
+        function testBackendScores() {
+            try {
+                engine = new EnhancedSuggestionEngine();
+                console.log('🔧 Iniciando teste de estrutura backend...');
+                
+                // Testar normalização de dados
+                const normalized = engine.normalizeReferenceData(mockBackendAnalysis);
+                
+                const result = {
+                    success: true,
+                    message: 'Estrutura backend processada com sucesso!',
+                    normalized: normalized,
+                    bandsCount: Object.keys(normalized.bands || {}).length
+                };
+                
+                document.getElementById('test1-result').textContent = JSON.stringify(result, null, 2);
+                document.getElementById('test1-result').className = 'result success';
+                
+            } catch (error) {
+                const result = {
+                    success: false,
+                    error: error.message,
+                    stack: error.stack
+                };
+                
+                document.getElementById('test1-result').textContent = JSON.stringify(result, null, 2);
+                document.getElementById('test1-result').className = 'result error';
+                console.error('❌ Erro no teste backend:', error);
+            }
+        }
+
+        function testBandsNormalization() {
+            try {
+                engine = engine || new EnhancedSuggestionEngine();
+                console.log('🎵 Testando normalização de bandas...');
+                
+                const bandsResult = engine.normalizeBandsFromScores(mockBackendAnalysis.scores.bands);
+                
+                const result = {
+                    success: true,
+                    message: 'Bandas normalizadas com sucesso!',
+                    inputBands: Object.keys(mockBackendAnalysis.scores.bands),
+                    outputBands: Object.keys(bandsResult),
+                    normalized: bandsResult
+                };
+                
+                document.getElementById('test2-result').textContent = JSON.stringify(result, null, 2);
+                document.getElementById('test2-result').className = 'result success';
+                
+            } catch (error) {
+                const result = {
+                    success: false,
+                    error: error.message,
+                    stack: error.stack
+                };
+                
+                document.getElementById('test2-result').textContent = JSON.stringify(result, null, 2);
+                document.getElementById('test2-result').className = 'result error';
+                console.error('❌ Erro no teste bandas:', error);
+            }
+        }
+
+        function testFullPipeline() {
+            try {
+                engine = engine || new EnhancedSuggestionEngine();
+                console.log('🚀 Testando pipeline completo...');
+                
+                // Simular análise completa
+                const fullAnalysis = {
+                    scores: mockBackendAnalysis.scores,
+                    metadata: {
+                        filename: 'test-track.mp3',
+                        duration: 180.5,
+                        sampleRate: 48000
+                    }
+                };
+                
+                // Processar análise
+                const suggestions = engine.processAnalysis(fullAnalysis);
+                
+                const result = {
+                    success: true,
+                    message: 'Pipeline completo executado com sucesso!',
+                    suggestionsCount: suggestions?.suggestions?.length || 0,
+                    hasEducationalContent: !!(suggestions?.educational),
+                    suggestions: suggestions
+                };
+                
+                document.getElementById('test3-result').textContent = JSON.stringify(result, null, 2);
+                document.getElementById('test3-result').className = 'result success';
+                
+            } catch (error) {
+                const result = {
+                    success: false,
+                    error: error.message,
+                    stack: error.stack
+                };
+                
+                document.getElementById('test3-result').textContent = JSON.stringify(result, null, 2);
+                document.getElementById('test3-result').className = 'result error';
+                console.error('❌ Erro no pipeline completo:', error);
+            }
+        }
+
+        // Auto-executar primeiro teste ao carregar
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🔧 Página de teste carregada. Pronto para testar o pipeline corrigido!');
+        });
+    </script>
+</body>
+</html>
