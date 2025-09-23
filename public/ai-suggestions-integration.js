@@ -125,7 +125,8 @@ class AISuggestionsIntegration {
             console.log('📦 [AI-INTEGRATION] Payload construído:', {
                 genre: payload.genre,
                 metricsKeys: Object.keys(payload.metrics),
-                suggestionsCount: payload.suggestions.length
+                detectedIssuesCount: payload.detectedIssues ? payload.detectedIssues.length : 0,
+                contextSuggestionsCount: payload.suggestionsContext ? payload.suggestionsContext.length : 0
             });
             
             // Enviar para a IA
@@ -305,8 +306,22 @@ class AISuggestionsIntegration {
     extractDetectedIssues(suggestions, metrics) {
         const issues = [];
         
+        console.log('🔍 [AI-DEBUG] Analisando sugestões recebidas:', {
+            total: suggestions.length,
+            primeiraSugestao: suggestions[0],
+            estrutura: suggestions.length > 0 ? Object.keys(suggestions[0]) : 'N/A'
+        });
+        
         // 1. Extrair problemas das sugestões existentes
-        suggestions.forEach(suggestion => {
+        suggestions.forEach((suggestion, index) => {
+            console.log(`🔍 [AI-DEBUG] Sugestão ${index}:`, {
+                hasCategory: !!suggestion.category,
+                hasDescription: !!suggestion.description,
+                category: suggestion.category,
+                description: suggestion.description?.substring(0, 50) + '...',
+                todasChaves: Object.keys(suggestion)
+            });
+            
             if (suggestion.category && suggestion.description) {
                 const issue = {
                     type: suggestion.category,
@@ -316,6 +331,12 @@ class AISuggestionsIntegration {
                     source: 'suggestion_engine'
                 };
                 issues.push(issue);
+                console.log(`✅ [AI-DEBUG] Issue adicionado:`, issue);
+            } else {
+                console.log(`❌ [AI-DEBUG] Sugestão ${index} rejeitada:`, {
+                    category: suggestion.category,
+                    description: !!suggestion.description
+                });
             }
         });
 
