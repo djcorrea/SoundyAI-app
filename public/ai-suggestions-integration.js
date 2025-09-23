@@ -60,7 +60,7 @@ class AISuggestionsIntegration {
     }
     
     /**
-     * Processar sugestões com IA
+     * Processar sugestões com IA - VERSÃO COMPLETA
      */
     async processWithAI(suggestions, metrics = {}, genre = null) {
         if (this.isProcessing) {
@@ -68,7 +68,7 @@ class AISuggestionsIntegration {
             return;
         }
         
-        console.log('🚀 [AI-INTEGRATION] Iniciando processamento com IA...', {
+        console.log('🚀 [AI-INTEGRATION] Iniciando processamento COMPLETO com IA...', {
             suggestionsCount: suggestions?.length || 0,
             genre: genre || 'não especificado'
         });
@@ -79,75 +79,106 @@ class AISuggestionsIntegration {
         // Show container and loading state
         this.showContainer();
         this.setLoadingState(true);
-        this.updateStatus('processing', 'Conectando com IA...');
+        this.updateStatus('processing', 'Processando todas as sugestões...');
         
         const startTime = Date.now();
+        const originalCount = suggestions?.length || 0;
+        let aiEnhancedCount = 0;
+        let fallbackCount = 0;
+        let processedSuggestions = [];
         
         try {
-            // Call API
-            const response = await fetch(this.apiEndpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: JSON.stringify({
-                    suggestions: suggestions || [],
-                    metrics: metrics || {},
-                    genre: genre || 'geral'
-                })
-            });
-            
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            // Processar TODAS as sugestões
+            for (let i = 0; i < originalCount; i++) {
+                const suggestion = suggestions[i];
+                this.updateStatus('processing', `Processando ${i + 1}/${originalCount}...`);
+                
+                console.log(`🔄 [AI-PROCESSING] Processando sugestão ${i + 1}/${originalCount}:`, {
+                    message: suggestion.message || suggestion.title,
+                    action: suggestion.action || suggestion.description
+                });
+                
+                try {
+                    // Tentar processar com IA
+                    const enhancedSuggestion = await this.processSingleSuggestion(suggestion, metrics, genre);
+                    
+                    if (enhancedSuggestion && enhancedSuggestion.aiEnhanced) {
+                        processedSuggestions.push(enhancedSuggestion);
+                        aiEnhancedCount++;
+                        console.log(`✅ [AI-PROCESSING] Sugestão ${i + 1} enriquecida pela IA`);
+                    } else {
+                        // Fallback automático
+                        const fallbackSuggestion = this.createFallbackSuggestion(suggestion);
+                        processedSuggestions.push(fallbackSuggestion);
+                        fallbackCount++;
+                        console.log(`🔄 [AI-PROCESSING] Sugestão ${i + 1} usando fallback`);
+                    }
+                    
+                } catch (suggestionError) {
+                    console.warn(`⚠️ [AI-PROCESSING] Erro na sugestão ${i + 1}, usando fallback:`, suggestionError.message);
+                    const fallbackSuggestion = this.createFallbackSuggestion(suggestion);
+                    processedSuggestions.push(fallbackSuggestion);
+                    fallbackCount++;
+                }
+                
+                // Pequeno delay para não sobrecarregar a API
+                if (i < originalCount - 1) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
             }
             
-            const data = await response.json();
             const processingTime = Date.now() - startTime;
+            const source = aiEnhancedCount > 0 ? 'mixed' : 'fallback';
             
-            console.log('✅ [AI-INTEGRATION] Resposta da IA recebida:', {
-                success: data.success,
-                source: data.source,
-                suggestionsCount: data.enhancedSuggestions?.length || 0,
-                processingTime: `${processingTime}ms`
+            // Log detalhado do processamento
+            console.log('📊 [AI-INTEGRATION] Processamento COMPLETO finalizado:', {
+                originalCount: originalCount,
+                aiEnhancedCount: aiEnhancedCount,
+                fallbackCount: fallbackCount,
+                totalProcessed: processedSuggestions.length,
+                processingTime: `${processingTime}ms`,
+                successRate: `${Math.round((aiEnhancedCount / originalCount) * 100)}%`
             });
             
-            // Display results
-            this.displaySuggestions(data.enhancedSuggestions || [], data.source || 'fallback');
-            this.updateStats(data.enhancedSuggestions?.length || 0, processingTime, data.source);
+            // Garantir que TODAS as sugestões sejam exibidas
+            if (processedSuggestions.length !== originalCount) {
+                console.error('❌ [AI-INTEGRATION] ERRO: Número de sugestões processadas não confere!', {
+                    expected: originalCount,
+                    actual: processedSuggestions.length
+                });
+                
+                // Fallback de emergência: usar todas as originais
+                processedSuggestions = suggestions.map(s => this.createFallbackSuggestion(s));
+                fallbackCount = originalCount;
+                aiEnhancedCount = 0;
+            }
             
-            if (data.source === 'ai') {
-                this.updateStatus('success', 'IA conectada');
-                this.retryAttempts = 0; // Reset on success
+            // Display ALL results
+            this.displaySuggestions(processedSuggestions, source);
+            this.updateStats(processedSuggestions.length, processingTime, source);
+            
+            if (aiEnhancedCount > 0) {
+                this.updateStatus('success', `IA ativa: ${aiEnhancedCount}/${originalCount}`);
+                this.retryAttempts = 0;
             } else {
                 this.updateStatus('fallback', 'Modo básico');
-                this.showFallbackNotice(data.message || 'IA temporariamente indisponível');
+                this.showFallbackNotice('IA indisponível - usando sugestões básicas');
             }
             
         } catch (error) {
-            console.error('❌ [AI-INTEGRATION] Erro no processamento:', error);
+            console.error('❌ [AI-INTEGRATION] Erro geral no processamento:', error);
             
-            // Retry logic
-            if (this.retryAttempts < this.maxRetries) {
-                this.retryAttempts++;
-                console.log(`🔄 [AI-INTEGRATION] Tentativa ${this.retryAttempts}/${this.maxRetries}...`);
-                
-                this.updateStatus('processing', `Tentativa ${this.retryAttempts}...`);
-                
-                // Exponential backoff
-                const delay = Math.pow(2, this.retryAttempts) * 1000;
-                setTimeout(() => {
-                    this.processWithAI(suggestions, metrics, genre);
-                }, delay);
-                
-                return;
-            }
-            
-            // Fallback to original suggestions
-            this.displaySuggestions(suggestions || [], 'fallback');
+            // Fallback TOTAL: exibir todas as sugestões originais
+            const allFallbackSuggestions = suggestions.map(s => this.createFallbackSuggestion(s));
+            this.displaySuggestions(allFallbackSuggestions, 'fallback');
             this.updateStatus('fallback', 'Modo básico');
-            this.showFallbackNotice('Erro na conexão com IA. Exibindo sugestões básicas.');
-            this.updateStats(suggestions?.length || 0, Date.now() - startTime, 'fallback');
+            this.showFallbackNotice('Erro na IA. Exibindo todas as sugestões básicas.');
+            this.updateStats(allFallbackSuggestions.length, Date.now() - startTime, 'fallback');
+            
+            console.log('🔄 [AI-INTEGRATION] Fallback TOTAL aplicado:', {
+                originalCount: originalCount,
+                fallbackCount: allFallbackSuggestions.length
+            });
             
         } finally {
             this.setLoadingState(false);
@@ -156,7 +187,63 @@ class AISuggestionsIntegration {
     }
     
     /**
-     * Exibir sugestões no grid
+     * Processar uma única sugestão com IA
+     */
+    async processSingleSuggestion(suggestion, metrics, genre) {
+        const response = await fetch(this.apiEndpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                suggestions: [suggestion], // Enviar UMA sugestão por vez
+                metrics: metrics || {},
+                genre: genre || 'geral'
+            })
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        
+        if (data.success && data.enhancedSuggestions && data.enhancedSuggestions.length > 0) {
+            return data.enhancedSuggestions[0]; // Retornar a primeira (e única) sugestão
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Criar sugestão fallback estruturada
+     */
+    createFallbackSuggestion(originalSuggestion) {
+        return {
+            blocks: {
+                problem: `⚠️ ${originalSuggestion.message || originalSuggestion.title || 'Problema detectado'}`,
+                cause: '🎯 Análise automática identificou desvio dos padrões técnicos de referência',
+                solution: `🛠️ ${originalSuggestion.action || originalSuggestion.description || 'Ajuste recomendado pelo sistema'}`,
+                tip: '💡 Monitore resultado em diferentes sistemas de reprodução para validar melhoria',
+                plugin: '🎹 Use EQ nativo da sua DAW ou plugins gratuitos como ReaEQ (Reaper)',
+                result: '✅ Melhoria na qualidade sonora geral e maior compatibilidade com padrões profissionais'
+            },
+            metadata: {
+                priority: originalSuggestion.priority || 'média',
+                difficulty: 'intermediário', 
+                confidence: originalSuggestion.confidence || 0.7,
+                frequency_range: originalSuggestion.frequency_range || 'amplo espectro',
+                processing_type: 'Ajuste geral',
+                genre_specific: 'Aplicável a todos os gêneros musicais'
+            },
+            aiEnhanced: false,
+            fallbackApplied: true
+        };
+    }
+    
+    /**
+     * Exibir sugestões no grid - VERSÃO COMPLETA
      */
     displaySuggestions(suggestions, source = 'ai') {
         if (!this.elements.grid) {
@@ -176,9 +263,21 @@ class AISuggestionsIntegration {
             return;
         }
         
-        // Generate cards
+        // Contar tipos de sugestões
+        const aiCount = suggestions.filter(s => s.aiEnhanced === true).length;
+        const fallbackCount = suggestions.filter(s => s.aiEnhanced === false || s.fallbackApplied === true).length;
+        
+        console.log('📊 [AI-DISPLAY] Estatísticas de exibição:', {
+            totalSuggestions: suggestions.length,
+            aiEnhanced: aiCount,
+            fallback: fallbackCount,
+            source: source
+        });
+        
+        // Generate cards - TODAS as sugestões
         suggestions.forEach((suggestion, index) => {
-            const card = this.createSuggestionCard(suggestion, index, source);
+            const cardSource = suggestion.aiEnhanced === true ? 'ai' : 'fallback';
+            const card = this.createSuggestionCard(suggestion, index, cardSource);
             this.elements.grid.appendChild(card);
         });
         
@@ -188,21 +287,24 @@ class AISuggestionsIntegration {
         // Animate cards
         this.animateCards();
         
-        console.log(`✅ [AI-INTEGRATION] ${suggestions.length} sugestões exibidas (fonte: ${source})`);
+        console.log(`✅ [AI-INTEGRATION] ${suggestions.length} sugestões exibidas (IA: ${aiCount}, Fallback: ${fallbackCount})`);
     }
     
     /**
-     * Criar card de sugestão
+     * Criar card de sugestão - VERSÃO MELHORADA
      */
     createSuggestionCard(suggestion, index, source) {
         const card = document.createElement('div');
-        card.className = `ai-suggestion-card ${source === 'fallback' ? 'ai-base-suggestion' : ''}`;
+        const isAIEnhanced = suggestion.aiEnhanced === true;
+        const isFallback = suggestion.fallbackApplied === true || !isAIEnhanced;
+        
+        // Classes mais específicas
+        card.className = `ai-suggestion-card ${isFallback ? 'ai-base-suggestion' : 'ai-enhanced-suggestion'}`;
         card.style.animationDelay = `${index * 0.1}s`;
         
         // Extract data
         const blocks = suggestion.blocks || this.createFallbackBlocks(suggestion);
         const metadata = suggestion.metadata || { priority: 'média', difficulty: 'intermediário' };
-        const isAIEnhanced = suggestion.aiEnhanced !== false && source === 'ai';
         
         card.innerHTML = `
             <div class="ai-suggestion-blocks">
@@ -225,9 +327,10 @@ class AISuggestionsIntegration {
                     ${metadata.genre_specific ? `<span class="ai-badge genre">${metadata.genre_specific}</span>` : ''}
                 </div>
                 
-                <div class="ai-enhanced-indicator ${isAIEnhanced ? '' : 'fallback'}">
+                <div class="ai-enhanced-indicator ${isAIEnhanced ? 'ai-enhanced' : 'fallback'}">
                     <span>${isAIEnhanced ? '🤖' : '⚙️'}</span>
                     <span>${isAIEnhanced ? 'IA' : 'Base'}</span>
+                    ${metadata.confidence ? `<span class="confidence">${Math.round(metadata.confidence * 100)}%</span>` : ''}
                 </div>
             </div>
         `;
