@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="image-upload-styles.css?v=20241219">
     <link rel="stylesheet" href="ultra-advanced-styles.css?v=20250920-ultra">
     <link rel="stylesheet" href="ai-suggestion-styles.css?v=20250922-ai-layer">
+    <link rel="stylesheet" href="ai-suggestions-expanded.css?v=20250922-expanded">>
     
     <!-- Fontes otimizadas -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -367,6 +368,70 @@
                     <!-- Dados técnicos serão inseridos aqui -->
                 </div>
                 <div id="referenceComparisons" style="margin-top:16px;"></div>
+                
+                <!-- 🚀 NOVA SEÇÃO: Modal Expansivo de Sugestões IA integrado -->
+                <div id="aiSuggestionsExpanded" class="ai-suggestions-expanded" style="display: none;">
+                    <div class="ai-expanded-header">
+                        <div class="ai-header-left">
+                            <h3>🚀 Análise Inteligente & Sugestões</h3>
+                            <div class="ai-header-subtitle">Powered by AI • Sugestões educativas e práticas</div>
+                        </div>
+                        <div class="ai-header-right">
+                            <div class="ai-status-indicator" id="aiExpandedStatus">
+                                <span class="ai-status-dot"></span>
+                                <span class="ai-status-text">Analisando...</span>
+                            </div>
+                            <button class="ai-expanded-toggle" onclick="toggleAIExpanded()">
+                                <span id="aiExpandedToggleIcon">↗</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="ai-expanded-content" id="aiExpandedContent">
+                        <div class="ai-suggestions-loading" id="aiExpandedLoading">
+                            <div class="ai-loading-spinner"></div>
+                            <p>Conectando com sistema de IA...</p>
+                        </div>
+                        
+                        <div class="ai-suggestions-grid" id="aiExpandedGrid" style="display: none;">
+                            <!-- Grid de sugestões será inserido aqui -->
+                        </div>
+                        
+                        <div class="ai-fallback-notice" id="aiFallbackNotice" style="display: none;">
+                            <div class="ai-fallback-icon">⚠️</div>
+                            <div class="ai-fallback-content">
+                                <strong>IA temporariamente indisponível</strong>
+                                <p>Exibindo sugestões básicas do sistema. A funcionalidade completa será restaurada em breve.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="ai-expanded-footer">
+                        <div class="ai-footer-stats">
+                            <div class="ai-stat">
+                                <span class="ai-stat-label">Sugestões:</span>
+                                <span class="ai-stat-value" id="aiExpandedCount">0</span>
+                            </div>
+                            <div class="ai-stat">
+                                <span class="ai-stat-label">Tempo:</span>
+                                <span class="ai-stat-value" id="aiExpandedTime">--</span>
+                            </div>
+                            <div class="ai-stat">
+                                <span class="ai-stat-label">Modo:</span>
+                                <span class="ai-stat-value" id="aiExpandedMode">IA</span>
+                            </div>
+                        </div>
+                        
+                        <div class="ai-footer-actions">
+                            <button class="action-btn secondary" onclick="downloadAISuggestionsReport()">
+                                📄 Exportar Relatório
+                            </button>
+                            <button class="action-btn primary" onclick="sendAISuggestionsToChat()">
+                                💬 Discutir com IA
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
                 <div class="analysis-actions">
                     <button class="action-btn primary" onclick="sendModalAnalysisToChat()">
@@ -493,6 +558,7 @@
     <script src="ai-suggestion-layer.js?v=20250922-ai-layer" defer></script>
     <script src="ai-configuration-manager.js?v=20250922-config" defer></script>
     <script src="ai-suggestion-ui-controller.js?v=20250922-ui" defer></script>
+    <script src="ai-suggestions-integration.js?v=20250922-integration" defer></script>
     <script src="ai-suggestion-system-tester.js?v=20250922-test" defer></script>
     <script src="ai-force-test.js?v=20250922-force" defer></script>
     <script src="ai-auto-config.js?v=20250922-autoconfig" defer></script>
