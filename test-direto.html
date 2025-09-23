@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Teste Direto - Sistema de Sugestões</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+        }
+        .test-btn {
+            background: linear-gradient(135deg, #42e695, #3bb2b8);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 8px;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+        .test-btn:hover {
+            transform: translateY(-2px);
+        }
+        .success { color: #2ecc71; font-weight: bold; }
+        .error { color: #e74c3c; font-weight: bold; }
+        .warning { color: #f39c12; font-weight: bold; }
+        .info { color: #3498db; }
+        .output {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Teste Direto - Sistema de Sugestões</h1>
+        <p>Teste direto com scripts carregados em sequência.</p>
+        
+        <div>
+            <button class="test-btn" onclick="testeCompleto()">🚀 Executar Teste</button>
+            <button class="test-btn" onclick="clearOutput()">🧹 Limpar</button>
+        </div>
+        
+        <div id="output" class="output">🎯 Carregando scripts...</div>
+    </div>
+
+    <!-- Scripts carregados em ordem -->
+    <script src="public/suggestion-scorer.js"></script>
+    <script src="public/enhanced-suggestion-engine.js"></script>
+    <script src="public/ai-suggestion-ui-controller.js"></script>
+
+    <script>
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type;
+            output.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearOutput() {
+            document.getElementById('output').innerHTML = '🎯 Output limpo...\n';
+        }
+
+        function testeCompleto() {
+            log('🎯 TESTE DIRETO DO SISTEMA DE SUGESTÕES', 'info');
+            log('=' * 50, 'info');
+            
+            try {
+                // ETAPA 1: Verificação de componentes
+                log('\n🔍 ETAPA 1: Verificando componentes...', 'info');
+                
+                if (typeof window.SuggestionScorer === 'undefined') {
+                    throw new Error('SuggestionScorer não disponível');
+                }
+                log('✅ SuggestionScorer disponível', 'success');
+                
+                if (typeof window.EnhancedSuggestionEngine === 'undefined') {
+                    throw new Error('EnhancedSuggestionEngine não disponível');
+                }
+                log('✅ EnhancedSuggestionEngine disponível', 'success');
+                
+                if (typeof window.AISuggestionUIController === 'undefined') {
+                    throw new Error('AISuggestionUIController não disponível');
+                }
+                log('✅ AISuggestionUIController disponível', 'success');
+                
+                // ETAPA 2: Instanciação
+                log('\n🏭 ETAPA 2: Instanciando classes...', 'info');
+                
+                const scorer = new window.SuggestionScorer();
+                log('✅ SuggestionScorer instanciado', 'success');
+                
+                const engine = new window.EnhancedSuggestionEngine();
+                log('✅ EnhancedSuggestionEngine instanciado', 'success');
+                
+                const uiController = new window.AISuggestionUIController();
+                log('✅ AISuggestionUIController instanciado', 'success');
+                
+                // ETAPA 3: Teste com dados reais
+                log('\n⚙️ ETAPA 3: Testando com dados reais de eletrofunk...', 'info');
+                
+                // Configuração global que o sistema espera
+                window.PROD_AI_REF_GENRE = 'eletrofunk';
+                
+                // Dados de referência eletrofunk (exatos do JSON)
+                const refData = {
+                    lufs_target: -8.3,
+                    tol_lufs: 1.22,
+                    true_peak_target: -1,
+                    tol_true_peak: 0.5,
+                    dr_target: 10.1,
+                    tol_dr: 1.35,
+                    lra_target: 8.4,
+                    tol_lra: 2.54,
+                    stereo_target: null,
+                    tol_stereo: 0.07,
+                    bands: {
+                        sub: { target_db: null, tol_db: 1.78 },
+                        low_bass: { target_db: 13.3, tol_db: 2.36 },
+                        upper_bass: { target_db: 11.5, tol_db: 2.02 },
+                        low_mid: { target_db: 8.8, tol_db: 2.07 },
+                        mid: { target_db: 2.5, tol_db: 1.81 },
+                        high_mid: { target_db: -6.7, tol_db: 1.52 },
+                        brilho: { target_db: -13.1, tol_db: 2.38 },
+                        presenca: { target_db: -22.7, tol_db: 3.47 }
+                    }
+                };
+                
+                // Simular dados de análise típicos
+                const analysisData = {
+                    technicalData: {
+                        lufs: -11.394,          // 3.1 dB mais baixo que target (-8.3)
+                        lufsIntegrated: -11.394,
+                        truePeak: 0.3,          // 1.3 dB mais alto que target (-1)
+                        truePeakDbtp: 0.3,
+                        dynamicRange: 8.724,    // 1.4 dB menor que target (10.1)
+                        lra: 13.268,           // 4.9 LU maior que target (8.4)
+                        stereoCorrelation: 0.981
+                    },
+                    suggestions: [],
+                    scores: {
+                        genre: 'eletrofunk',
+                        final: 61,
+                        loudness: 49,
+                        dinamica: 81,
+                        frequencia: 60,
+                        estereo: 20,
+                        tecnico: 100
+                    }
+                };
+                
+                log('📊 Dados preparados:', 'info');
+                log(`   LUFS: ${analysisData.technicalData.lufs} (target: ${refData.lufs_target})`, 'info');
+                log(`   True Peak: ${analysisData.technicalData.truePeak} (target: ${refData.true_peak_target})`, 'info');
+                log(`   DR: ${analysisData.technicalData.dynamicRange} (target: ${refData.dr_target})`, 'info');
+                log(`   LRA: ${analysisData.technicalData.lra} (target: ${refData.lra_target})`, 'info');
+                
+                // ETAPA 4: Testar normalização
+                log('\n🔧 ETAPA 4: Testando normalização...', 'info');
+                
+                const normalized = engine.normalizeReferenceData(refData);
+                if (!normalized) {
+                    throw new Error('Normalização de dados falhou');
+                }
+                log('✅ Normalização funcionou!', 'success');
+                log(`   Normalizado - LUFS: ${normalized.lufs_target}`, 'info');
+                
+                // ETAPA 5: Processamento de análise
+                log('\n🎯 ETAPA 5: Processando análise...', 'info');
+                
+                const result = engine.processAnalysis(analysisData, refData);
+                if (!result || !result.suggestions) {
+                    throw new Error('ProcessAnalysis falhou');
+                }
+                
+                log(`✅ ProcessAnalysis concluído: ${result.suggestions.length} sugestões`, 'success');
+                
+                // ETAPA 6: Verificação de sugestões
+                log('\n📝 ETAPA 6: Analisando sugestões...', 'info');
+                
+                if (result.suggestions.length === 0) {
+                    log('⚠️ 0 sugestões geradas', 'warning');
+                    log('Possível causa: valores dentro da tolerância', 'warning');
+                    
+                    // Debug das diferenças
+                    const lufsDiff = Math.abs(analysisData.technicalData.lufs - refData.lufs_target);
+                    const tpDiff = Math.abs(analysisData.technicalData.truePeak - refData.true_peak_target);
+                    const drDiff = Math.abs(analysisData.technicalData.dynamicRange - refData.dr_target);
+                    const lraDiff = Math.abs(analysisData.technicalData.lra - refData.lra_target);
+                    
+                    log(`\nDIFERENÇAS vs TOLERÂNCIAS:`, 'info');
+                    log(`LUFS: ${lufsDiff.toFixed(2)} (tol: ${refData.tol_lufs}) ${lufsDiff > refData.tol_lufs ? '❌' : '✅'}`, 'info');
+                    log(`True Peak: ${tpDiff.toFixed(2)} (tol: ${refData.tol_true_peak}) ${tpDiff > refData.tol_true_peak ? '❌' : '✅'}`, 'info');
+                    log(`DR: ${drDiff.toFixed(2)} (tol: ${refData.tol_dr}) ${drDiff > refData.tol_dr ? '❌' : '✅'}`, 'info');
+                    log(`LRA: ${lraDiff.toFixed(2)} (tol: ${refData.tol_lra}) ${lraDiff > refData.tol_lra ? '❌' : '✅'}`, 'info');
+                    
+                } else {
+                    log(`🎉 ${result.suggestions.length} SUGESTÕES GERADAS COM SUCESSO!`, 'success');
+                    
+                    log('\n📋 SUGESTÕES:', 'info');
+                    result.suggestions.slice(0, 6).forEach((sug, i) => {
+                        log(`${i+1}. ${sug.message || sug.title}`, 'info');
+                        if (sug.action) {
+                            log(`   Ação: ${sug.action}`, 'info');
+                        }
+                        if (sug.priority !== undefined) {
+                            log(`   Prioridade: ${sug.priority.toFixed(2)}`, 'info');
+                        }
+                        log('', 'info');
+                    });
+                }
+                
+                // ETAPA 7: Teste da interface
+                log('\n🎨 ETAPA 7: Testando interface UI...', 'info');
+                
+                try {
+                    if (typeof uiController.checkForAISuggestions === 'function') {
+                        uiController.checkForAISuggestions(result);
+                        log('✅ Interface processou as sugestões', 'success');
+                    } else {
+                        log('⚠️ checkForAISuggestions não encontrado', 'warning');
+                    }
+                } catch (uiError) {
+                    log(`⚠️ Interface teve problema: ${uiError.message}`, 'warning');
+                }
+                
+                // RESULTADO FINAL
+                log('\n' + '='.repeat(50), 'success');
+                log('🎉 TESTE COMPLETO FINALIZADO!', 'success');
+                log('='.repeat(50), 'success');
+                
+                if (result.suggestions.length > 0) {
+                    log('\n✅ PROBLEMA RESOLVIDO COMPLETAMENTE!', 'success');
+                    log('O sistema está gerando sugestões educativas.', 'success');
+                    log('As sugestões agora devem aparecer no sistema principal.', 'success');
+                } else {
+                    log('\n⚠️ Sistema funcional mas sem sugestões para estes dados', 'warning');
+                    log('Ajuste os valores para ultrapassar as tolerâncias.', 'warning');
+                }
+                
+            } catch (error) {
+                log('\n❌ ERRO NO TESTE:', 'error');
+                log(error.message, 'error');
+                console.error('Erro completo:', error);
+            }
+        }
+
+        // Auto-start após carregamento
+        window.addEventListener('load', () => {
+            // Aguardar todos os scripts carregarem
+            setTimeout(() => {
+                log('🎯 Todos os scripts carregados! Clique em "Executar Teste".', 'info');
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

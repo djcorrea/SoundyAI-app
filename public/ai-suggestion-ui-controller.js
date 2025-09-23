@@ -821,6 +821,9 @@ window.showAIQuickConfig = function() {
 (function() {
     'use strict';
     
+    // Exportar a classe para window
+    window.AISuggestionUIController = AISuggestionUIController;
+    
     // Aguardar carregamento da camada de IA (com fallback)
     const initUI = () => {
         // Tentar inicializar mesmo sem aiSuggestionLayer (modo compatibilidade)
