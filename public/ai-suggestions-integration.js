@@ -210,6 +210,8 @@ class AISuggestionsIntegration {
                 ${this.createBlock('causa', blocks.cause)}
                 ${this.createBlock('solucao', blocks.solution)}
                 ${this.createBlock('dica', blocks.tip)}
+                ${blocks.plugin ? this.createBlock('plugin', blocks.plugin) : ''}
+                ${blocks.result ? this.createBlock('resultado', blocks.result) : ''}
             </div>
             
             <div class="ai-suggestion-metadata">
@@ -220,6 +222,7 @@ class AISuggestionsIntegration {
                     <span class="ai-badge difficulty">
                         ${metadata.difficulty || 'Intermediário'}
                     </span>
+                    ${metadata.genre_specific ? `<span class="ai-badge genre">${metadata.genre_specific}</span>` : ''}
                 </div>
                 
                 <div class="ai-enhanced-indicator ${isAIEnhanced ? '' : 'fallback'}">
@@ -240,14 +243,18 @@ class AISuggestionsIntegration {
             problema: '⚠️',
             causa: '🎯',
             solucao: '🛠️',
-            dica: '💡'
+            dica: '💡',
+            plugin: '🎹',
+            resultado: '✅'
         };
         
         const titles = {
             problema: 'Problema',
             causa: 'Causa Provável',
             solucao: 'Solução Prática',
-            dica: 'Dica Extra'
+            dica: 'Dica Extra',
+            plugin: 'Plugin/Ferramenta',
+            resultado: 'Resultado Esperado'
         };
         
         return `
@@ -269,7 +276,9 @@ class AISuggestionsIntegration {
             problem: `⚠️ ${suggestion.message || suggestion.title || 'Problema detectado na análise'}`,
             cause: '🎯 Análise automática detectou desvio dos padrões de referência',
             solution: `🛠️ ${suggestion.action || suggestion.description || 'Ajuste recomendado pelo sistema'}`,
-            tip: '💡 Monitore o resultado em diferentes sistemas de áudio para validar a melhoria'
+            tip: '💡 Monitore o resultado em diferentes sistemas de áudio para validar a melhoria',
+            plugin: '🎹 Use EQ nativo da sua DAW ou plugins gratuitos como ReaEQ',
+            result: '✅ Melhoria na qualidade sonora e maior compatibilidade profissional'
         };
     }
     

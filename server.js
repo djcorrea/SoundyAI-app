@@ -115,25 +115,26 @@ app.post("/api/suggestions", async (req, res) => {
         messages: [
           {
             role: 'system',
-            content: `🎵 VOCÊ É O MAIOR ESPECIALISTA MUNDIAL EM ÁUDIO ENGINEERING
+            content: `🎵 VOCÊ É UM ASSISTENTE DE MIXAGEM E MASTERIZAÇÃO MUSICAL ULTRA-AVANÇADO
 
-🎯 EXPERTISE:
-- 25+ anos mixagem/mastering profissional
-- Especialista em psychoacoustics e DSP
-- Conhecimento profundo de Fletcher-Munson, masking, phase
-- Experiência com todos os gêneros e plataformas de streaming
+🎯 SUA MISSÃO:
+Analisar os PROBLEMAS de áudio detectados e gerar sugestões EDUCATIVAS, claras e aplicáveis para o usuário.
 
-🔬 SUA MISSÃO:
-- Analisar problemas de áudio com precisão cirúrgica
-- Fornecer soluções EXATAS com valores específicos
-- Ensinar conceitos técnicos avançados
-- Sempre responder em JSON estruturado
+📋 ESTRUTURA OBRIGATÓRIA para cada sugestão:
 
-⚡ CARACTERÍSTICAS:
-- Precisão técnica absoluta
-- Soluções práticas e testadas
-- Explicações educativas claras
-- Foco em resultados auditivos reais
+⚠️ Problema: [descrição curta e clara]
+🎯 Causa Provável: [explicação técnica simples, sem jargão pesado]
+🛠️ Solução Prática: [passo a passo direto que pode ser feito em qualquer DAW]
+💡 Dica Extra: [truque avançado ou consideração criativa]
+🎹 Exemplo de Plugin/Ferramenta: [cite pelo menos 1 plugin popular ou gratuito que ajude]
+✅ Resultado Esperado: [explique de forma motivadora o que vai melhorar no som]
+
+� REGRAS DE OURO:
+- Escreva de forma educativa e motivadora, sem ser rígido
+- Use linguagem simples, mas com conteúdo técnico real
+- Sempre que possível, dê referências a gêneros musicais (Funk, Trap, Eletrônico, etc.)
+- Saída formatada em blocos claros com emojis para facilitar leitura
+- Seja prático: usuário deve conseguir aplicar HOJE no seu projeto
 
 🚀 RESPONDA SEMPRE EM JSON PURO, SEM EXPLICAÇÕES EXTRAS.`
           },
@@ -228,10 +229,12 @@ ${genreContext}
   "suggestions": [
     {
       "blocks": {
-        "problem": "⚠️ Descrição técnica precisa do problema",
-        "cause": "🎯 Causa raiz específica e detalhada", 
-        "solution": "🛠️ Solução prática com valores exatos",
-        "tip": "💡 Dica avançada ou conceito técnico extra"
+        "problem": "⚠️ [descrição curta e clara do problema]",
+        "cause": "🎯 [explicação técnica simples, sem jargão pesado]", 
+        "solution": "🛠️ [passo a passo direto que pode ser feito em qualquer DAW]",
+        "tip": "💡 [truque avançado ou consideração criativa]",
+        "plugin": "🎹 [cite pelo menos 1 plugin popular ou gratuito que ajude]",
+        "result": "✅ [explique de forma motivadora o que vai melhorar no som]"
       },
       "metadata": {
         "priority": "alta|média|baixa",
@@ -239,7 +242,7 @@ ${genreContext}
         "confidence": 0.95,
         "frequency_range": "20-60Hz",
         "processing_type": "EQ|Compressor|Limiter|Spatial",
-        "expected_improvement": "Melhoria específica esperada"
+        "genre_specific": "Se aplicável ao gênero analisado"
       },
       "aiEnhanced": true
     }
@@ -315,9 +318,11 @@ function processAIResponse(originalSuggestions, aiResponse) {
     return originalSuggestions.map(suggestion => ({
       blocks: {
         problem: `⚠️ ${suggestion.message || suggestion.title || 'Problema detectado'}`,
-        cause: '🎯 Análise automática identificou desvio dos padrões técnicos',
-        solution: `🛠️ ${suggestion.action || suggestion.description || 'Ajuste recomendado'}`,
-        tip: '💡 Monitore resultado em diferentes sistemas de reprodução'
+        cause: '🎯 Análise automática identificou desvio dos padrões técnicos de referência',
+        solution: `🛠️ ${suggestion.action || suggestion.description || 'Ajuste recomendado pelo sistema'}`,
+        tip: '💡 Monitore resultado em diferentes sistemas de reprodução para validar melhoria',
+        plugin: '🎹 Use EQ nativo da sua DAW ou plugins gratuitos como ReaEQ (Reaper) ou FabFilter Pro-Q 3',
+        result: '✅ Melhoria na qualidade sonora geral e maior compatibilidade com padrões profissionais'
       },
       metadata: {
         priority: suggestion.priority || 'média',
@@ -325,7 +330,7 @@ function processAIResponse(originalSuggestions, aiResponse) {
         confidence: suggestion.confidence || 0.7,
         frequency_range: suggestion.frequency_range || 'amplo espectro',
         processing_type: 'Ajuste geral',
-        expected_improvement: 'Melhoria na qualidade sonora geral'
+        genre_specific: 'Aplicável a todos os gêneros musicais'
       },
       aiEnhanced: false
     }));
