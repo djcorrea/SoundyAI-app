@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste EnhancedSuggestionEngine - Normalization Fix</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        h1 { text-align: center; margin-bottom: 30px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3); }
+        .test-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .test-btn {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+        .test-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .result {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success { border-left: 4px solid #27ae60; }
+        .error { border-left: 4px solid #e74c3c; }
+        .info { border-left: 4px solid #3498db; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste Correção EnhancedSuggestionEngine</h1>
+        
+        <div class="test-section">
+            <h3>🎯 Teste 1: Normalização estrutura backend</h3>
+            <p>Testa se normalizeReferenceData funciona com dados do backend (analysis.referenceData)</p>
+            <button class="test-btn" onclick="testBackendStructure()">▶️ Testar Estrutura Backend</button>
+            <div id="test1-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 Teste 2: Normalização estrutura JSON</h3>
+            <p>Testa se normalizeReferenceData ainda funciona com JSONs tradicionais</p>
+            <button class="test-btn" onclick="testJSONStructure()">▶️ Testar Estrutura JSON</button>
+            <div id="test2-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 Teste 3: aiUIController métodos</h3>
+            <p>Testa se métodos updateUI e bindAnalysis foram implementados</p>
+            <button class="test-btn" onclick="testUIController()">▶️ Testar aiUIController</button>
+            <div id="test3-result" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 Teste 4: Processamento completo</h3>
+            <p>Testa processamento completo com dados simulados do backend</p>
+            <button class="test-btn" onclick="testCompleteProcessing()">▶️ Testar Processamento</button>
+            <div id="test4-result" class="result"></div>
+        </div>
+    </div>
+
+    <!-- Scripts necessários -->
+    <script src="enhanced-suggestion-engine.js"></script>
+    <script src="ai-suggestion-ui-controller.js"></script>
+
+    <script>
+        // 🧪 Teste 1: Estrutura Backend
+        function testBackendStructure() {
+            const resultEl = document.getElementById('test1-result');
+            resultEl.className = 'result info';
+            resultEl.textContent = '🔄 Testando normalização estrutura backend...';
+            
+            try {
+                // Simular dados do backend
+                const backendData = {
+                    loudness: -12.5,
+                    truePeak: -1.2,
+                    dynamicRange: 8.3,
+                    lra: 3.2,
+                    stereoCorrelation: 0.85,
+                    bands: {
+                        sub: { target_db: -15.0, energy_pct: 25.0 },
+                        low_bass: { target_db: -16.5, energy_pct: 28.0 },
+                        mid: { target_db: -18.0, energy_pct: 20.0 }
+                    }
+                };
+
+                if (typeof window.EnhancedSuggestionEngine === 'undefined') {
+                    throw new Error('EnhancedSuggestionEngine não carregado');
+                }
+
+                const engine = new window.EnhancedSuggestionEngine();
+                const normalized = engine.normalizeReferenceData(backendData);
+
+                resultEl.className = 'result success';
+                resultEl.textContent = `✅ SUCESSO: Normalização backend funcional\n\n` +
+                    `Dados originais: ${Object.keys(backendData).join(', ')}\n` +
+                    `Dados normalizados: ${normalized ? Object.keys(normalized).join(', ') : 'null'}\n\n` +
+                    `LUFS: ${normalized?.lufs_target}\n` +
+                    `True Peak: ${normalized?.true_peak_target}\n` +
+                    `DR: ${normalized?.dr_target}\n` +
+                    `LRA: ${normalized?.lra_target}\n` +
+                    `Bandas: ${normalized?.bands ? Object.keys(normalized.bands).length : 0}`;
+
+            } catch (error) {
+                resultEl.className = 'result error';
+                resultEl.textContent = `❌ ERRO: ${error.message}\n\nStack: ${error.stack}`;
+            }
+        }
+
+        // 🧪 Teste 2: Estrutura JSON
+        function testJSONStructure() {
+            const resultEl = document.getElementById('test2-result');
+            resultEl.className = 'result info';
+            resultEl.textContent = '🔄 Testando normalização estrutura JSON...';
+            
+            try {
+                // Simular dados do JSON
+                const jsonData = {
+                    funk_mandela: {
+                        hybrid_processing: {
+                            original_metrics: {
+                                lufs_integrated: -8.5,
+                                true_peak_dbtp: -1.0,
+                                dynamic_range: 7.8,
+                                lra: 2.5
+                            },
+                            spectral_bands: {
+                                sub: { target_db: -17.3, energy_pct: 29.5 },
+                                low_bass: { target_db: -17.7, energy_pct: 26.8 }
+                            }
+                        }
+                    }
+                };
+
+                const engine = new window.EnhancedSuggestionEngine();
+                const normalized = engine.normalizeReferenceData(jsonData);
+
+                resultEl.className = 'result success';
+                resultEl.textContent = `✅ SUCESSO: Normalização JSON funcional\n\n` +
+                    `Estrutura detectada: genre_direct_hybrid\n` +
+                    `LUFS: ${normalized?.lufs_target}\n` +
+                    `True Peak: ${normalized?.true_peak_target}\n` +
+                    `DR: ${normalized?.dr_target}\n` +
+                    `Bandas: ${normalized?.bands ? Object.keys(normalized.bands).length : 0}`;
+
+            } catch (error) {
+                resultEl.className = 'result error';
+                resultEl.textContent = `❌ ERRO: ${error.message}`;
+            }
+        }
+
+        // 🧪 Teste 3: aiUIController
+        function testUIController() {
+            const resultEl = document.getElementById('test3-result');
+            resultEl.className = 'result info';
+            resultEl.textContent = '🔄 Testando métodos aiUIController...';
+            
+            try {
+                const methods = [];
+                
+                if (typeof window.aiUIController !== 'undefined') {
+                    methods.push('✅ aiUIController existe');
+                    
+                    if (typeof window.aiUIController.updateUI === 'function') {
+                        methods.push('✅ updateUI() disponível');
+                        // Testar chamada
+                        window.aiUIController.updateUI({ suggestions: [] });
+                        methods.push('✅ updateUI() executado com sucesso');
+                    } else {
+                        methods.push('❌ updateUI() não encontrado');
+                    }
+                    
+                    if (typeof window.aiUIController.bindAnalysis === 'function') {
+                        methods.push('✅ bindAnalysis() disponível');
+                        // Testar chamada
+                        window.aiUIController.bindAnalysis({ suggestions: [] });
+                        methods.push('✅ bindAnalysis() executado com sucesso');
+                    } else {
+                        methods.push('❌ bindAnalysis() não encontrado');
+                    }
+                    
+                    if (typeof window.aiUIController.hideAISection === 'function') {
+                        methods.push('✅ hideAISection() disponível');
+                    } else {
+                        methods.push('❌ hideAISection() não encontrado');
+                    }
+                } else {
+                    methods.push('❌ aiUIController não existe');
+                }
+
+                resultEl.className = 'result success';
+                resultEl.textContent = methods.join('\n');
+
+            } catch (error) {
+                resultEl.className = 'result error';
+                resultEl.textContent = `❌ ERRO: ${error.message}`;
+            }
+        }
+
+        // 🧪 Teste 4: Processamento Completo
+        function testCompleteProcessing() {
+            const resultEl = document.getElementById('test4-result');
+            resultEl.className = 'result info';
+            resultEl.textContent = '🔄 Testando processamento completo...';
+            
+            try {
+                const mockAnalysis = {
+                    technicalData: {
+                        lufs: -12.0,
+                        truePeak: -1.5,
+                        dynamicRange: 8.0,
+                        lra: 3.0
+                    },
+                    suggestions: [
+                        { message: 'Teste sugestão', priority: 5, confidence: 0.8 }
+                    ]
+                };
+
+                const mockRefData = {
+                    loudness: -10.0,
+                    truePeak: -1.0,
+                    dynamicRange: 9.0,
+                    lra: 2.5,
+                    bands: {
+                        sub: { target_db: -15.0 },
+                        mid: { target_db: -18.0 }
+                    }
+                };
+
+                const engine = new window.EnhancedSuggestionEngine();
+                const result = engine.processAnalysis(mockAnalysis, mockRefData);
+
+                const steps = [];
+                steps.push('✅ Engine criado');
+                steps.push('✅ processAnalysis executado');
+                steps.push(`✅ Sugestões: ${result.suggestions?.length || 0}`);
+                steps.push(`✅ Métricas: ${result.enhancedMetrics ? 'presentes' : 'ausentes'}`);
+                steps.push(`✅ Audit log: ${result.auditLog?.length || 0} entradas`);
+
+                resultEl.className = 'result success';
+                resultEl.textContent = steps.join('\n') + '\n\n' + 
+                    `Resultado completo:\n${JSON.stringify(result, null, 2)}`;
+
+            } catch (error) {
+                resultEl.className = 'result error';
+                resultEl.textContent = `❌ ERRO: ${error.message}\n\nStack: ${error.stack}`;
+            }
+        }
+
+        // 🚀 Auto-teste na inicialização
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                console.log('🧪 [TESTE] Iniciando auto-teste...');
+                testBackendStructure();
+                setTimeout(() => testJSONStructure(), 1000);
+                setTimeout(() => testUIController(), 2000);
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

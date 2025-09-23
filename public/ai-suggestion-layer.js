@@ -66,6 +66,19 @@ class AISuggestionLayer {
     }
     
     /**
+     * 🤖 Configurar modelo de IA
+     */
+    setModel(modelName) {
+        this.model = modelName || 'gpt-3.5-turbo';
+        
+        // Salvar no localStorage para persistência
+        localStorage.setItem('soundyai_ai_model', this.model);
+        
+        console.log(`🤖 [AI-LAYER] Modelo atualizado: ${this.model}`);
+        return this;
+    }
+    
+    /**
      * 🚀 FUNÇÃO PRINCIPAL: Processar sugestões existentes com IA
      * Esta é a função chamada pelo sistema principal
      */

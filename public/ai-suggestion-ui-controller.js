@@ -742,6 +742,48 @@
             totalElements: Object.keys(this.elements).length
         };
     }
+
+    /**
+     * 🎯 Atualizar interface com análise (método compatibilidade)
+     */
+    updateUI(analysis) {
+        console.log('🎯 [AI-UI] updateUI chamado:', {
+            hasAnalysis: !!analysis,
+            suggestionCount: analysis?.suggestions?.length || 0
+        });
+        
+        // Redirecionar para checkForAISuggestions que é o método principal
+        if (analysis) {
+            this.checkForAISuggestions(analysis);
+        }
+    }
+
+    /**
+     * 🎯 Vincular análise (método compatibilidade)
+     */
+    bindAnalysis(analysis) {
+        console.log('🎯 [AI-UI] bindAnalysis chamado:', {
+            hasAnalysis: !!analysis,
+            analysisKeys: analysis ? Object.keys(analysis) : null
+        });
+        
+        // Armazenar análise globalmente para acesso posterior
+        if (analysis) {
+            window.currentModalAnalysis = analysis;
+            // Processar sugestões se disponíveis
+            this.checkForAISuggestions(analysis);
+        }
+    }
+
+    /**
+     * 🎯 Esconder seção IA (método compatibilidade)
+     */
+    hideAISection() {
+        if (this.elements.aiSection) {
+            this.elements.aiSection.style.display = 'none';
+            console.log('🎯 [AI-UI] Seção IA ocultada');
+        }
+    }
 }
 
 // 🌍 Funções globais para integração com HTML

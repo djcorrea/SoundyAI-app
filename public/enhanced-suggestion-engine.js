@@ -296,8 +296,7 @@ class EnhancedSuggestionEngine {
 
     /**
      * 🔧 Normalizar dados de referência para compatibilidade universal
-     * CORRIGIDO para aceitar estrutura real do backend: analysis.scores
-     * @param {Object} rawRef - Dados de referência brutos (legacy_compatibility, hybrid_processing ou analysis.scores)
+     * @param {Object} rawRef - Dados de referência brutos (legacy_compatibility ou hybrid_processing)
      * @returns {Object} Dados normalizados no formato padrão do motor
      */
     normalizeReferenceData(rawRef) {
@@ -307,63 +306,29 @@ class EnhancedSuggestionEngine {
             return null;
         }
 
-        // 🎯 PRIORIDADE 1: Estrutura analysis.scores (formato real do backend)
-        if (rawRef.scores && typeof rawRef.scores === 'object') {
-            const scores = rawRef.scores;
-            const structureType = 'backend_scores';
-            
-            console.log('🎯 [NORMALIZE] Detectada estrutura backend_scores:', scores);
-            
-            // Normalizar diretamente da estrutura scores
-            const normalized = {
-                // LUFS - extrair de loudness
-                lufs_target: scores.loudness?.target,
-                tol_lufs: scores.loudness?.tolerance ?? 2.0,
-
-                // True Peak
-                true_peak_target: scores.truePeak?.target,
-                tol_true_peak: scores.truePeak?.tolerance ?? 1.0,
-
-                // Dynamic Range
-                dr_target: scores.dynamicRange?.target,
-                tol_dr: scores.dynamicRange?.tolerance ?? 2.0,
-
-                // LRA (Loudness Range)
-                lra_target: scores.lra?.target,
-                tol_lra: scores.lra?.tolerance ?? 2.0,
-
-                // Stereo Correlation
-                stereo_target: scores.stereo?.target || scores.stereoCorrelation?.target,
-                tol_stereo: (scores.stereo?.tolerance || scores.stereoCorrelation?.tolerance) ?? 0.15,
-
-                // Bandas espectrais
-                bands: this.normalizeBandsFromScores(scores.bands || {})
-            };
-
-            // Log das métricas encontradas
-            const foundMetrics = Object.keys(normalized).filter(key => 
-                key !== 'bands' && normalized[key] !== null && normalized[key] !== undefined
-            );
-            const foundBands = normalized.bands ? Object.keys(normalized.bands) : [];
-
-            this.logAudit('NORMALIZE_SUCCESS', 'Dados backend_scores normalizados', {
-                structureType,
-                foundMetrics,
-                foundBands,
-                metricsCount: foundMetrics.length,
-                bandsCount: foundBands.length,
-                originalScores: scores
-            });
-
-            return normalized;
-        }
-
-        // ESTRUTURAS LEGADAS (detectar estrutura dos dados)
+        // Detectar estrutura dos dados
         let sourceData = null;
         let structureType = 'unknown';
 
+        // 🆕 NOVA ESTRUTURA: Dados diretos do backend (analysis.referenceData)
+        if (rawRef.loudness !== undefined || rawRef.truePeak !== undefined || rawRef.dynamicRange !== undefined) {
+            console.log('🎯 [NORMALIZE] Detectada estrutura backend analysis.referenceData');
+            
+            // Converter estrutura backend para estrutura esperada
+            sourceData = {
+                original_metrics: {
+                    lufs_integrated: rawRef.loudness,
+                    true_peak_dbtp: rawRef.truePeak,
+                    dynamic_range: rawRef.dynamicRange,
+                    lra: rawRef.lra,
+                    stereo_correlation: rawRef.stereoCorrelation || 0.85
+                },
+                spectral_bands: rawRef.bands || {}
+            };
+            structureType = 'backend_analysis';
+        }
         // Tentar legacy_compatibility primeiro
-        if (rawRef.legacy_compatibility && typeof rawRef.legacy_compatibility === 'object') {
+        else if (rawRef.legacy_compatibility && typeof rawRef.legacy_compatibility === 'object') {
             sourceData = rawRef.legacy_compatibility;
             structureType = 'legacy_compatibility';
         }
@@ -393,31 +358,36 @@ class EnhancedSuggestionEngine {
             return null;
         }
 
-        this.logAudit('NORMALIZE_START', `Normalizando dados: ${structureType}`, { structureType });
+        this.logAudit('NORMALIZE_START', `Normalizando dados: ${structureType}`, { structureType, sourceData });
 
-        // Normalizar métricas principais
+        // Normalizar métricas principais - adaptado para múltiplas estruturas
         const normalized = {
-            // LUFS
-            lufs_target: this.extractMetric(sourceData, ['lufs_target', 'lufs_ref', 'lufs_integrated'], 'lufs'),
+            // LUFS - buscar em original_metrics primeiro, depois direto no sourceData
+            lufs_target: this.extractMetric(sourceData.original_metrics || sourceData, ['lufs_target', 'lufs_ref', 'lufs_integrated'], 'lufs') ||
+                        this.extractMetric(sourceData, ['lufs_target', 'lufs_ref', 'lufs_integrated'], 'lufs'),
             tol_lufs: this.extractMetric(sourceData, ['tol_lufs', 'lufs_tolerance', 'tol_lufs_min'], 'lufs_tolerance') ?? 2.0,
 
-            // True Peak
-            true_peak_target: this.extractMetric(sourceData, ['true_peak_target', 'tp_ref', 'true_peak', 'true_peak_dbtp'], 'true_peak'),
+            // True Peak - buscar em original_metrics primeiro, depois direto no sourceData
+            true_peak_target: this.extractMetric(sourceData.original_metrics || sourceData, ['true_peak_target', 'tp_ref', 'true_peak', 'true_peak_dbtp'], 'true_peak') ||
+                             this.extractMetric(sourceData, ['true_peak_target', 'tp_ref', 'true_peak', 'true_peak_dbtp'], 'true_peak'),
             tol_true_peak: this.extractMetric(sourceData, ['tol_true_peak', 'tp_tolerance', 'true_peak_tolerance'], 'true_peak_tolerance') ?? 1.0,
 
-            // Dynamic Range
-            dr_target: this.extractMetric(sourceData, ['dr_target', 'dr_ref', 'dynamic_range'], 'dr'),
+            // Dynamic Range - buscar em original_metrics primeiro, depois direto no sourceData
+            dr_target: this.extractMetric(sourceData.original_metrics || sourceData, ['dr_target', 'dr_ref', 'dynamic_range'], 'dr') ||
+                      this.extractMetric(sourceData, ['dr_target', 'dr_ref', 'dynamic_range'], 'dr'),
             tol_dr: this.extractMetric(sourceData, ['tol_dr', 'dr_tolerance', 'dynamic_range_tolerance'], 'dr_tolerance') ?? 2.0,
 
-            // Loudness Range - BUSCAR EM MÚLTIPLAS ESTRUTURAS
-            lra_target: this.extractMetric(sourceData, ['lra_target', 'lra_ref', 'lra'], 'lra') ||
+            // Loudness Range - BUSCAR EM MÚLTIPLAS ESTRUTURAS INCLUINDO BACKEND
+            lra_target: this.extractMetric(sourceData.original_metrics || sourceData, ['lra_target', 'lra_ref', 'lra'], 'lra') ||
+                       this.extractMetric(sourceData, ['lra_target', 'lra_ref', 'lra'], 'lra') ||
                        this.extractMetric(sourceData.legacy_compatibility || {}, ['lra_target', 'lra_ref', 'lra'], 'lra') ||
                        this.extractMetric(sourceData.hybrid_processing?.original_metrics || {}, ['lra', 'lra_target'], 'lra'),
             tol_lra: (this.extractMetric(sourceData, ['tol_lra', 'lra_tolerance'], 'lra_tolerance') ||
                      this.extractMetric(sourceData.legacy_compatibility || {}, ['tol_lra', 'lra_tolerance'], 'lra_tolerance')) ?? 2.0,
 
-            // Stereo Correlation
-            stereo_target: this.extractMetric(sourceData, ['stereo_target', 'stereo_ref', 'stereo_correlation'], 'stereo'),
+            // Stereo Correlation - buscar em original_metrics primeiro, depois direto no sourceData
+            stereo_target: this.extractMetric(sourceData.original_metrics || sourceData, ['stereo_target', 'stereo_ref', 'stereo_correlation'], 'stereo') ||
+                          this.extractMetric(sourceData, ['stereo_target', 'stereo_ref', 'stereo_correlation'], 'stereo'),
             tol_stereo: this.extractMetric(sourceData, ['tol_stereo', 'stereo_tolerance', 'correlation_tolerance'], 'stereo_tolerance') ?? 0.15,
 
             // Bandas espectrais
@@ -480,13 +450,17 @@ class EnhancedSuggestionEngine {
         const bands = {};
         let sourceBands = null;
 
-        // Tentar encontrar bandas em diferentes locais
+        // Tentar encontrar bandas em diferentes locais (incluindo estrutura backend)
         if (source.bands) {
             sourceBands = source.bands;
         } else if (source.spectral_bands) {
             sourceBands = source.spectral_bands;
         } else if (source.original_metrics && source.original_metrics.bands) {
             sourceBands = source.original_metrics.bands;
+        }
+        // 🆕 Suporte para estrutura backend: pode vir direto como spectral_bands
+        else if (source.spectral_bands) {
+            sourceBands = source.spectral_bands;
         }
 
         if (!sourceBands || typeof sourceBands !== 'object') {
@@ -567,38 +541,7 @@ class EnhancedSuggestionEngine {
     }
 
     /**
-     * � Normalizar bandas da estrutura scores.bands (formato do backend)
-     */
-    normalizeBandsFromScores(bandsScores) {
-        if (!bandsScores || typeof bandsScores !== 'object') {
-            return {};
-        }
-
-        const normalizedBands = {};
-        
-        // Mapear cada banda de scores.bands
-        Object.keys(bandsScores).forEach(bandKey => {
-            const band = bandsScores[bandKey];
-            if (band && typeof band === 'object' && band.target !== undefined) {
-                normalizedBands[bandKey] = {
-                    target_db: band.target,
-                    tol_db: band.tolerance ?? 3.0 // Tolerância padrão para bandas
-                };
-            }
-        });
-
-        console.log('🎵 [NORMALIZE] Bandas normalizadas:', normalizedBands);
-        this.logAudit('BANDS_FROM_SCORES', 'Bandas normalizadas do backend', {
-            inputBands: Object.keys(bandsScores),
-            outputBands: Object.keys(normalizedBands),
-            count: Object.keys(normalizedBands).length
-        });
-        
-        return normalizedBands;
-    }
-
-    /**
-     * �🎯 Processar análise completa e gerar sugestões melhoradas
+     * 🎯 Processar análise completa e gerar sugestões melhoradas
      * @param {Object} analysis - Análise de áudio existente
      * @param {Object} referenceData - Dados de referência do gênero
      * @param {Object} options - Opções de processamento
