@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Integração - Sugestões IA</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            max-width: 800px; 
+            margin: 50px auto; 
+            padding: 20px;
+            background: #0a0b0f;
+            color: #fff;
+        }
+        .test-section { 
+            margin: 20px 0; 
+            padding: 20px; 
+            border: 1px solid #333; 
+            border-radius: 8px;
+            background: #1a1b1f;
+        }
+        button { 
+            background: #0066cc; 
+            color: white; 
+            border: none; 
+            padding: 10px 20px; 
+            border-radius: 5px; 
+            cursor: pointer; 
+            margin: 5px;
+        }
+        button:hover { background: #0052a3; }
+        .result { 
+            background: #2a2b2f; 
+            padding: 15px; 
+            margin-top: 10px; 
+            border-radius: 5px; 
+            white-space: pre-wrap;
+        }
+        .error { background: #4a1a1a; color: #ff6666; }
+        .success { background: #1a4a1a; color: #66ff66; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste de Integração - Sistema de Sugestões IA</h1>
+    
+    <div class="test-section">
+        <h3>🔧 1. Verificação de Arquivos Carregados</h3>
+        <button onclick="testFilesLoaded()">Testar Carregamento</button>
+        <div id="filesResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📡 2. Teste de Comunicação Backend</h3>
+        <button onclick="testBackendAPI()">Testar Backend</button>
+        <div id="backendResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>⚙️ 3. Teste de Payload Formatting</h3>
+        <button onclick="testPayloadFormatting()">Testar Formato de Payload</button>
+        <div id="payloadResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🎨 4. Teste de UI Controller</h3>
+        <button onclick="testUIController()">Testar Interface</button>
+        <div id="uiResult" class="result"></div>
+    </div>
+
+    <!-- Scripts do sistema -->
+    <script src="ai-suggestion-layer.js?v=20250922-ai-layer"></script>
+    <script src="ai-suggestions-integration.js?v=20250922-integration"></script>
+    <script src="ai-suggestion-ui-controller.js?v=20250922-ui"></script>
+
+    <script>
+        // 🧪 TESTES DE INTEGRAÇÃO
+        
+        function testFilesLoaded() {
+            const result = document.getElementById('filesResult');
+            result.className = 'result';
+            
+            const tests = [
+                { name: 'AISuggestionLayer', obj: window.AISuggestionLayer },
+                { name: 'AISuggestionsIntegration', obj: window.AISuggestionsIntegration },
+                { name: 'AISuggestionUIController', obj: window.AISuggestionUIController }
+            ];
+            
+            let output = '📋 Verificação de Classes Carregadas:\n\n';
+            let allLoaded = true;
+            
+            tests.forEach(test => {
+                const status = test.obj ? '✅ CARREGADO' : '❌ FALHOU';
+                output += `${test.name}: ${status}\n`;
+                if (!test.obj) allLoaded = false;
+            });
+            
+            result.textContent = output;
+            result.className = `result ${allLoaded ? 'success' : 'error'}`;
+        }
+
+        async function testBackendAPI() {
+            const result = document.getElementById('backendResult');
+            result.className = 'result';
+            result.textContent = '🔄 Testando comunicação com backend...';
+            
+            try {
+                if (!window.AISuggestionLayer) {
+                    throw new Error('AISuggestionLayer não carregado');
+                }
+                
+                const aiLayer = new AISuggestionLayer();
+                
+                const mockSuggestions = [{
+                    message: 'Teste de integração',
+                    action: 'verificar sistema',
+                    priority: 3,
+                    confidence: 0.8
+                }];
+                
+                const mockMetrics = {
+                    lufsIntegrated: -14.0,
+                    truePeakDbtp: -3.2,
+                    dynamicRange: 8.5,
+                    bands: {
+                        sub: { value: 0.1, ideal: 0.15 }
+                    }
+                };
+                
+                const mockGenre = 'trance';
+                
+                console.log('[TEST] Testando backend com:', { mockSuggestions, mockMetrics, mockGenre });
+                
+                const response = await aiLayer.callBackendAPI(mockSuggestions, mockMetrics, mockGenre);
+                
+                let output = '📡 Teste de Backend:\n\n';
+                output += `Status: ${response.success ? '✅ SUCESSO' : '❌ FALHOU'}\n`;
+                output += `Resposta: ${JSON.stringify(response, null, 2)}\n`;
+                
+                result.textContent = output;
+                result.className = `result ${response.success ? 'success' : (response.error.includes('API Key') ? 'success' : 'error')}`;
+                
+            } catch (error) {
+                result.textContent = `❌ Erro no teste:\n${error.message}\n\n${error.stack}`;
+                result.className = 'result error';
+            }
+        }
+
+        function testPayloadFormatting() {
+            const result = document.getElementById('payloadResult');
+            result.className = 'result';
+            
+            try {
+                if (!window.AISuggestionLayer) {
+                    throw new Error('AISuggestionLayer não carregado');
+                }
+                
+                const aiLayer = new AISuggestionLayer();
+                
+                const mockSuggestions = [{
+                    message: 'Baixe o volume dos graves',
+                    action: 'Reduza a banda de baixo em 2dB',
+                    priority: 3,
+                    confidence: 0.9
+                }];
+                
+                const mockMetrics = {
+                    lufs: -14.0,  // Campo antigo
+                    truePeak: -3.2,  // Campo antigo
+                    dynamicRange: 8.5,
+                    bands: {
+                        sub: { value: 0.1, ideal: 0.15 },
+                        bass: { value: 0.25, ideal: 0.20 }
+                    }
+                };
+                
+                const extractedMetrics = aiLayer.extractMetrics(mockMetrics);
+                const payload = aiLayer.buildPayload(mockSuggestions, extractedMetrics, 'trance');
+                
+                let output = '⚙️ Teste de Formatação de Payload:\n\n';
+                output += `Métricas Extraídas:\n${JSON.stringify(extractedMetrics, null, 2)}\n\n`;
+                output += `Payload Final:\n${JSON.stringify(payload, null, 2)}\n`;
+                
+                // Verificar se o formato está correto
+                const isValid = payload.suggestions && 
+                                payload.metrics && 
+                                payload.metrics.lufsIntegrated !== undefined &&
+                                payload.metrics.truePeakDbtp !== undefined &&
+                                payload.genre;
+                
+                output += `\n✅ Formato válido: ${isValid ? 'SIM' : 'NÃO'}`;
+                
+                result.textContent = output;
+                result.className = `result ${isValid ? 'success' : 'error'}`;
+                
+            } catch (error) {
+                result.textContent = `❌ Erro no teste:\n${error.message}`;
+                result.className = 'result error';
+            }
+        }
+
+        function testUIController() {
+            const result = document.getElementById('uiResult');
+            result.className = 'result';
+            
+            try {
+                if (!window.AISuggestionUIController) {
+                    throw new Error('AISuggestionUIController não carregado');
+                }
+                
+                const uiController = new AISuggestionUIController();
+                
+                const mockEnhancedSuggestion = {
+                    ai_enhanced: true,
+                    ai_blocks: {
+                        problem: 'Problema detectado pela IA',
+                        cause: 'Causa identificada',
+                        solution: 'Solução proposta',
+                        tip: 'Dica prática',
+                        plugin: 'EQ/Compressor',
+                        result: 'Resultado esperado'
+                    },
+                    ai_priority: 3,
+                    ai_technical_details: {
+                        difficulty: 'intermediário',
+                        tools_suggested: ['EQ', 'Compressor']
+                    }
+                };
+                
+                // Criar elemento temporário para teste
+                const tempContainer = document.createElement('div');
+                document.body.appendChild(tempContainer);
+                
+                const cardHTML = uiController.renderFullSuggestionCard(mockEnhancedSuggestion, 0);
+                tempContainer.innerHTML = cardHTML;
+                
+                let output = '🎨 Teste de UI Controller:\n\n';
+                output += `Renderização: ${cardHTML ? '✅ SUCESSO' : '❌ FALHOU'}\n`;
+                output += `Tamanho do HTML: ${cardHTML.length} caracteres\n`;
+                output += `Contém blocos IA: ${cardHTML.includes('ai_blocks') ? '✅ SIM' : '❌ NÃO'}\n`;
+                
+                // Limpar elemento temporário
+                document.body.removeChild(tempContainer);
+                
+                result.textContent = output;
+                result.className = 'result success';
+                
+            } catch (error) {
+                result.textContent = `❌ Erro no teste:\n${error.message}`;
+                result.className = 'result error';
+            }
+        }
+
+        // Executar teste inicial automaticamente
+        window.addEventListener('DOMContentLoaded', function() {
+            setTimeout(testFilesLoaded, 1000);
+        });
+    </script>
+</body>
+</html>

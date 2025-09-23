@@ -285,35 +285,100 @@ class AISuggestionsIntegration {
      * Construir payload válido para o backend - FOCADO EM PROBLEMAS DETECTADOS
      */
     buildValidPayload(suggestions, metrics, genre) {
-        // Em vez de enviar sugestões prontas, vamos enviar os PROBLEMAS DETECTADOS
-        const detectedIssues = this.extractDetectedIssues(suggestions, metrics);
+        // NOVO: Formato simples esperado pelo backend
+        const formattedSuggestions = suggestions.map(suggestion => {
+            // Extrair dados da sugestão original
+            const problemText = suggestion.title || suggestion.message || suggestion.text || suggestion.problem || 'Problema detectado';
+            const actionText = suggestion.description || suggestion.action || suggestion.solution || 'Ajuste recomendado';
+            
+            // Determinar prioridade (backend espera 1-10)
+            let priority = suggestion.priority || 5;
+            if (typeof priority !== 'number') {
+                if (priority === 'alta' || priority === 'high') priority = 8;
+                else if (priority === 'média' || priority === 'medium') priority = 5; 
+                else if (priority === 'baixa' || priority === 'low') priority = 2;
+                else priority = 5;
+            }
+            
+            return {
+                message: problemText,
+                action: actionText, 
+                priority: Math.max(1, Math.min(10, priority)),
+                confidence: suggestion.confidence || 0.9
+            };
+        });
         
-        // Estrutura base do payload focada nos PROBLEMAS
+        // Normalizar métricas para formato backend
+        const normalizedMetrics = this.normalizeMetricsForBackend(metrics);
+        
         const payload = {
-            genre: genre || 'geral',
-            metrics: this.normalizeMetrics(metrics),
-            detectedIssues: detectedIssues,
-            analysisContext: {
-                totalIssues: detectedIssues.length,
-                severityDistribution: this.categorizeSeverity(detectedIssues),
-                primaryConcerns: this.identifyPrimaryConcerns(detectedIssues)
-            },
-            // Manter suggestions para compatibilidade, mas marcar como contexto
-            suggestionsContext: suggestions.map(s => ({
-                category: s.category,
-                metric: s.metric,
-                priority: s.priority
-            }))
+            suggestions: formattedSuggestions,
+            metrics: normalizedMetrics,
+            genre: genre || window.__activeRefGenre || 'geral'
         };
 
-        console.log('📦 [AI-INTEGRATION] Payload focado em PROBLEMAS construído:', {
+        console.log('📦 [AI-INTEGRATION] Payload para backend construído:', {
+            suggestions: payload.suggestions.length,
             genre: payload.genre,
-            detectedIssues: payload.detectedIssues.length,
-            primaryConcerns: payload.analysisContext.primaryConcerns,
-            contextSuggestions: payload.suggestionsContext.length
+            hasMetrics: !!payload.metrics,
+            metricsKeys: Object.keys(payload.metrics || {})
         });
 
         return payload;
+    }
+    
+    /**
+     * Normalizar métricas para formato do backend
+     */
+    normalizeMetricsForBackend(metrics) {
+        if (!metrics) return {};
+        
+        const normalized = {
+            lufsIntegrated: metrics.lufsIntegrated || metrics.lufs || null,
+            truePeakDbtp: metrics.truePeakDbtp || metrics.truePeak || metrics.true_peak || null,
+            dynamicRange: metrics.dynamicRange || metrics.dr || null,
+            lra: metrics.lra || null,
+            stereoCorrelation: metrics.stereoCorrelation || metrics.stereo || null
+        };
+        
+        // Adicionar bandas se disponíveis
+        if (metrics.bandEnergies) {
+            const bandEnergies = metrics.bandEnergies;
+            const referenceTargets = window.__activeRefData?.bands || {};
+            
+            normalized.bands = {
+                sub: {
+                    value: bandEnergies.sub?.rms_db || 0,
+                    ideal: referenceTargets.sub?.target || -16.0
+                },
+                bass: {
+                    value: bandEnergies.low_bass?.rms_db || 0,
+                    ideal: referenceTargets.bass?.target || -17.8
+                },
+                lowMid: {
+                    value: bandEnergies.upper_bass?.rms_db || 0,
+                    ideal: referenceTargets.lowMid?.target || -18.2
+                },
+                mid: {
+                    value: bandEnergies.mid?.rms_db || 0,
+                    ideal: referenceTargets.mid?.target || -17.1
+                },
+                highMid: {
+                    value: bandEnergies.high_mid?.rms_db || 0,
+                    ideal: referenceTargets.highMid?.target || -20.8
+                },
+                presence: {
+                    value: bandEnergies.presenca?.rms_db || 0,
+                    ideal: referenceTargets.presence?.target || -34.6
+                },
+                air: {
+                    value: bandEnergies.brilho?.rms_db || 0,
+                    ideal: referenceTargets.air?.target || -25.5
+                }
+            };
+        }
+        
+        return normalized;
     }
 
     /**
@@ -483,10 +548,10 @@ class AISuggestionsIntegration {
      * Mescla as sugestões originais com as respostas da IA
      * Preserva TODAS as sugestões originais e enriquece com dados da IA
      */
-    mergeAISuggestionsWithOriginals(originalSuggestions, aiResponse) {
+    mergeAISuggestionsWithOriginals(originalSuggestions, aiEnhancedSuggestions) {
         console.log('[AI-MERGE] Iniciando merge de sugestões:', {
             originais: originalSuggestions?.length || 0,
-            aiResponse: aiResponse ? 'presente' : 'ausente'
+            enriquecidas: aiEnhancedSuggestions?.length || 0
         });
 
         // Se não há sugestões originais, retorna array vazio
@@ -495,96 +560,104 @@ class AISuggestionsIntegration {
             return [];
         }
 
-        // Se não há resposta da IA, retorna as originais
-        if (!aiResponse || !aiResponse.suggestions || !Array.isArray(aiResponse.suggestions)) {
-            console.log('[AI-MERGE] 📋 Sem resposta IA válida, retornando originais:', originalSuggestions.length);
-            return originalSuggestions;
+        // Se não há sugestões enriquecidas da IA, retorna as originais
+        if (!aiEnhancedSuggestions || !Array.isArray(aiEnhancedSuggestions)) {
+            console.log('[AI-MERGE] 📋 Sem sugestões IA, retornando originais:', originalSuggestions.length);
+            return originalSuggestions.map(s => ({...s, ai_enhanced: false}));
         }
 
-        console.log('[AI-MERGE] 🤖 Processando enriquecimento com IA:', aiResponse.suggestions.length);
+        console.log('[AI-MERGE] 🤖 Processando enriquecimento com IA:', aiEnhancedSuggestions.length);
 
-        // Cria cópia das sugestões originais para não modificar o array original
-        const mergedSuggestions = [...originalSuggestions];
+        // Mesclar sugestões enriquecidas com as originais
+        const mergedSuggestions = [];
 
-        // Para cada sugestão da IA, tenta encontrar correspondência nas originais
-        aiResponse.suggestions.forEach((aiSuggestion, index) => {
-            console.log(`[AI-MERGE] Processando sugestão IA ${index + 1}:`, aiSuggestion.title || aiSuggestion.category);
+        for (let i = 0; i < Math.max(originalSuggestions.length, aiEnhancedSuggestions.length); i++) {
+            const originalSuggestion = originalSuggestions[i];
+            const aiSuggestion = aiEnhancedSuggestions[i];
 
-            // Busca por correspondência usando múltiplos critérios
-            const matchIndex = mergedSuggestions.findIndex(original => {
-                // Critério 1: Título exato
-                if (aiSuggestion.title && original.title === aiSuggestion.title) {
-                    return true;
-                }
-                
-                // Critério 2: Categoria
-                if (aiSuggestion.category && original.category === aiSuggestion.category) {
-                    return true;
-                }
-                
-                // Critério 3: Type/metric
-                if (aiSuggestion.type && original.type === aiSuggestion.type) {
-                    return true;
-                }
-                
-                // Critério 4: Metric name
-                if (aiSuggestion.metric && original.metric === aiSuggestion.metric) {
-                    return true;
-                }
-
-                return false;
-            });
-
-            if (matchIndex !== -1) {
-                // Encontrou correspondência - enriquece a sugestão original
-                console.log(`[AI-MERGE] ✅ Match encontrado no índice ${matchIndex}`);
-                
-                const originalSuggestion = mergedSuggestions[matchIndex];
-                
-                // Enriquece com dados da IA, preservando dados originais importantes
-                mergedSuggestions[matchIndex] = {
-                    ...originalSuggestion, // Mantém todos os dados originais
-                    
-                    // Enriquece com dados da IA quando disponíveis
-                    ...(aiSuggestion.title && { aiTitle: aiSuggestion.title }),
-                    ...(aiSuggestion.description && { aiDescription: aiSuggestion.description }),
-                    ...(aiSuggestion.solution && { aiSolution: aiSuggestion.solution }),
-                    ...(aiSuggestion.priority && { aiPriority: aiSuggestion.priority }),
-                    ...(aiSuggestion.rationale && { aiRationale: aiSuggestion.rationale }),
-                    ...(aiSuggestion.techniques && { aiTechniques: aiSuggestion.techniques }),
-                    
-                    // Marca como enriquecida pela IA
-                    aiEnhanced: true,
-                    aiEnhancedAt: new Date().toISOString()
+            if (originalSuggestion && aiSuggestion) {
+                // Caso 1: Temos ambas - mesclar
+                const merged = {
+                    ...originalSuggestion,
+                    ai_enhanced: true,
+                    ai_blocks: aiSuggestion.blocks || {},
+                    ai_category: aiSuggestion.metadata?.processing_type || 'geral',
+                    ai_priority: this.mapPriorityFromBackend(aiSuggestion.metadata?.priority),
+                    ai_technical_details: {
+                        difficulty: aiSuggestion.metadata?.difficulty || 'intermediário',
+                        frequency_range: aiSuggestion.metadata?.frequency_range || '',
+                        tools_suggested: this.extractToolsFromBlocks(aiSuggestion.blocks)
+                    },
+                    // Atualizar título e descrição com versões enriquecidas se disponível
+                    title: aiSuggestion.blocks?.problem || originalSuggestion.title || originalSuggestion.message,
+                    description: aiSuggestion.blocks?.solution || originalSuggestion.description || originalSuggestion.action
                 };
                 
-                console.log(`[AI-MERGE] 🎯 Sugestão ${matchIndex} enriquecida com IA`);
-            } else {
-                // Não encontrou correspondência - adiciona como nova sugestão
-                console.log('[AI-MERGE] ➕ Adicionando nova sugestão da IA');
+                mergedSuggestions.push(merged);
+                console.log(`[AI-MERGE] ✅ Sugestão ${i + 1} enriquecida com IA`);
                 
+            } else if (originalSuggestion) {
+                // Caso 2: Só temos a original - manter sem enriquecimento
                 mergedSuggestions.push({
-                    ...aiSuggestion,
-                    isAIGenerated: true,
-                    aiEnhanced: true,
-                    aiEnhancedAt: new Date().toISOString(),
-                    // Garante que tenha campos obrigatórios
-                    title: aiSuggestion.title || 'Sugestão da IA',
-                    description: aiSuggestion.description || 'Sugestão gerada pela inteligência artificial',
-                    category: aiSuggestion.category || 'ai-generated',
-                    priority: aiSuggestion.priority || 'medium'
+                    ...originalSuggestion,
+                    ai_enhanced: false
                 });
+                console.log(`[AI-MERGE] 📋 Sugestão ${i + 1} mantida original`);
+                
+            } else if (aiSuggestion) {
+                // Caso 3: Só temos a da IA - criar nova sugestão
+                const newSuggestion = {
+                    ai_enhanced: true,
+                    ai_blocks: aiSuggestion.blocks || {},
+                    ai_category: aiSuggestion.metadata?.processing_type || 'geral',
+                    ai_priority: this.mapPriorityFromBackend(aiSuggestion.metadata?.priority),
+                    ai_technical_details: {
+                        difficulty: aiSuggestion.metadata?.difficulty || 'intermediário',
+                        frequency_range: aiSuggestion.metadata?.frequency_range || '',
+                        tools_suggested: this.extractToolsFromBlocks(aiSuggestion.blocks)
+                    },
+                    title: aiSuggestion.blocks?.problem || 'Sugestão da IA',
+                    description: aiSuggestion.blocks?.solution || 'Melhoria recomendada'
+                };
+                
+                mergedSuggestions.push(newSuggestion);
+                console.log(`[AI-MERGE] ✨ Nova sugestão ${i + 1} criada pela IA`);
             }
-        });
+        }
 
-        console.log('[AI-MERGE] 🎉 Merge concluído:', {
-            originais: originalSuggestions.length,
-            finais: mergedSuggestions.length,
-            enriquecidas: mergedSuggestions.filter(s => s.aiEnhanced).length,
-            novasIA: mergedSuggestions.filter(s => s.isAIGenerated).length
+        console.log('[AI-MERGE] 📈 Merge concluído:', {
+            total: mergedSuggestions.length,
+            enriquecidas: mergedSuggestions.filter(s => s.ai_enhanced).length,
+            originais: mergedSuggestions.filter(s => !s.ai_enhanced).length
         });
 
         return mergedSuggestions;
+    }
+    
+    /**
+     * Mapear prioridade do backend para número
+     */
+    mapPriorityFromBackend(priority) {
+        if (!priority) return 5;
+        if (priority === 'alta' || priority === 'high') return 8;
+        if (priority === 'média' || priority === 'medium') return 5;
+        if (priority === 'baixa' || priority === 'low') return 2;
+        return 5;
+    }
+    
+    /**
+     * Extrair ferramentas dos blocos da IA
+     */
+    extractToolsFromBlocks(blocks) {
+        if (!blocks) return ['EQ/Compressor'];
+        
+        const tools = [];
+        if (blocks.plugin) tools.push(blocks.plugin);
+        if (blocks.tip && blocks.tip.includes('EQ')) tools.push('EQ');
+        if (blocks.tip && blocks.tip.includes('compressor')) tools.push('Compressor');
+        if (blocks.solution && blocks.solution.includes('limiter')) tools.push('Limiter');
+        
+        return tools.length > 0 ? tools : ['EQ/Compressor'];
     }
 
     /**

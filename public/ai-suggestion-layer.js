@@ -142,12 +142,53 @@ class AISuggestionLayer {
      * 📝 Preparar sugestões simples para o backend
      */
     prepareSimpleSuggestions(existingSuggestions) {
-        return existingSuggestions.map(suggestion => ({
-            message: suggestion.title || suggestion.message || suggestion.problem || 'Sugestão detectada',
-            action: suggestion.description || suggestion.action || suggestion.solution || 'Ajuste recomendado',
-            priority: suggestion.priority || 5,
-            confidence: suggestion.confidence || 0.7
-        }));
+        return existingSuggestions.map(suggestion => {
+            // Extrair dados da sugestão original
+            const problemText = suggestion.title || suggestion.message || suggestion.problem || 'Problema detectado';
+            const actionText = suggestion.description || suggestion.action || suggestion.solution || 'Ajuste recomendado';
+            
+            // Determinar prioridade baseado no tipo ou gravidade
+            let priority = suggestion.priority || 5;
+            if (typeof priority !== 'number') {
+                // Converter string para número
+                if (priority === 'alta' || priority === 'high') priority = 8;
+                else if (priority === 'média' || priority === 'medium') priority = 5;
+                else if (priority === 'baixa' || priority === 'low') priority = 2;
+                else priority = 5; // default
+            }
+            
+            // Determinar confiança baseado no tipo de análise
+            let confidence = suggestion.confidence || 0.9;
+            if (suggestion.type?.includes('heuristic')) confidence = 0.9;
+            else if (suggestion.type?.includes('reference')) confidence = 0.8;
+            else if (suggestion.type?.includes('spectral')) confidence = 0.7;
+            
+            // Criar mensagem educativa mais específica
+            let detailedMessage = problemText;
+            let detailedAction = actionText;
+            
+            // Enriquecer baseado no tipo de problema
+            if (suggestion.metric) {
+                const metric = suggestion.metric.toLowerCase();
+                if (metric.includes('lufs')) {
+                    detailedMessage = `Loudness ${suggestion.currentValue ? 'atual: ' + suggestion.currentValue + ' LUFS' : 'fora do alvo'}`;
+                    detailedAction = `Ajustar limitador para atingir o alvo ideal de ${suggestion.targetValue || '-14 LUFS'}`;
+                } else if (metric.includes('peak')) {
+                    detailedMessage = `True Peak ${suggestion.currentValue ? 'detectado: ' + suggestion.currentValue + ' dBTP' : 'acima do recomendado'}`;
+                    detailedAction = `Reduzir ganho ou usar limitador para manter abaixo de ${suggestion.targetValue || '-1.0 dBTP'}`;
+                } else if (metric.includes('dr') || metric.includes('dynamic')) {
+                    detailedMessage = `Range dinâmico ${suggestion.currentValue ? 'atual: ' + suggestion.currentValue + ' LU' : 'inadequado para o gênero'}`;
+                    detailedAction = `Ajustar compressão para atingir ${suggestion.targetValue || '6-8 LU'} de dinâmica`;
+                }
+            }
+            
+            return {
+                message: detailedMessage,
+                action: detailedAction,
+                priority: Math.max(1, Math.min(10, priority)), // Garantir que está entre 1-10
+                confidence: Math.max(0, Math.min(1, confidence)) // Garantir que está entre 0-1
+            };
+        });
     }
 
     /**
@@ -203,10 +244,11 @@ class AISuggestionLayer {
     extractMetrics(context) {
         const tech = context?.technicalData || {};
         
+        // Formato esperado pelo backend
         return {
             // Métricas principais de loudness
-            lufs: tech.lufsIntegrated || tech.lufs || null,
-            truePeak: tech.truePeakDbtp || tech.true_peak || null,
+            lufsIntegrated: tech.lufsIntegrated || tech.lufs || null,
+            truePeakDbtp: tech.truePeakDbtp || tech.true_peak || null,
             dynamicRange: tech.dynamicRange || tech.dr || null,
             lra: tech.lra || null,
             
@@ -215,19 +257,50 @@ class AISuggestionLayer {
             stereoWidth: tech.stereoWidth || null,
             spectralCentroid: tech.spectralCentroidHz || null,
             
-            // Bandas espectrais (se disponíveis)
-            bands: tech.bandEnergies ? {
-                sub: tech.bandEnergies.sub?.rms_db,
-                bass: tech.bandEnergies.low_bass?.rms_db,
-                lowMid: tech.bandEnergies.upper_bass?.rms_db,
-                mid: tech.bandEnergies.mid?.rms_db,
-                highMid: tech.bandEnergies.high_mid?.rms_db,
-                presence: tech.bandEnergies.presenca?.rms_db,
-                air: tech.bandEnergies.brilho?.rms_db
-            } : null,
-            
-            // Problemas detectados
-            detectedIssues: this.extractDetectedIssues(context)
+            // Bandas espectrais no formato esperado pelo backend
+            bands: this.extractBandEnergies(tech)
+        };
+    }
+
+    /**
+     * 🎵 Extrair bandas espectrais no formato esperado pelo backend
+     */
+    extractBandEnergies(tech) {
+        if (!tech.bandEnergies) return null;
+        
+        // Converter para o formato esperado pelo backend
+        const bandEnergies = tech.bandEnergies;
+        const referenceTargets = window.__activeRefData?.bands || {};
+        
+        return {
+            sub: {
+                value: bandEnergies.sub?.rms_db || 0,
+                ideal: referenceTargets.sub?.target || -16.0
+            },
+            bass: {
+                value: bandEnergies.low_bass?.rms_db || 0,  
+                ideal: referenceTargets.bass?.target || -17.8
+            },
+            lowMid: {
+                value: bandEnergies.upper_bass?.rms_db || 0,
+                ideal: referenceTargets.lowMid?.target || -18.2
+            },
+            mid: {
+                value: bandEnergies.mid?.rms_db || 0,
+                ideal: referenceTargets.mid?.target || -17.1
+            },
+            highMid: {
+                value: bandEnergies.high_mid?.rms_db || 0,
+                ideal: referenceTargets.highMid?.target || -20.8
+            },
+            presence: {
+                value: bandEnergies.presenca?.rms_db || 0,
+                ideal: referenceTargets.presence?.target || -34.6
+            },
+            air: {
+                value: bandEnergies.brilho?.rms_db || 0,
+                ideal: referenceTargets.air?.target || -25.5
+            }
         };
     }
     
