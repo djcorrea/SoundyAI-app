@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 Debug EnhancedSuggestionEngine Real</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .debug-btn {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 10px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+        .debug-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+        }
+        .debug-output {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Debug EnhancedSuggestionEngine - Teste Real</h1>
+        
+        <div>
+            <button class="debug-btn" onclick="debugActiveRefData()">📊 Debug __activeRefData</button>
+            <button class="debug-btn" onclick="debugGenreSettings()">🎵 Debug Gênero Atual</button>
+            <button class="debug-btn" onclick="testDirectEngine()">⚡ Teste Engine Direto</button>
+            <button class="debug-btn" onclick="forceLoadRef()">🔄 Forçar Carregar Ref</button>
+        </div>
+        
+        <div id="debug-output" class="debug-output">📝 Output aparecerá aqui...</div>
+    </div>
+
+    <script>
+        function log(message) {
+            const output = document.getElementById('debug-output');
+            const timestamp = new Date().toLocaleTimeString();
+            output.textContent += `[${timestamp}] ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function debugActiveRefData() {
+            log('🔍 DEBUG __activeRefData:');
+            log(`  - Exists: ${typeof __activeRefData !== 'undefined'}`);
+            log(`  - Value: ${__activeRefData}`);
+            log(`  - Type: ${typeof __activeRefData}`);
+            
+            if (__activeRefData) {
+                log(`  - Keys: ${Object.keys(__activeRefData).join(', ')}`);
+                log(`  - Structure: ${JSON.stringify(__activeRefData, null, 2).substring(0, 500)}...`);
+            }
+            
+            log(`  - __activeRefGenre: ${typeof __activeRefGenre !== 'undefined' ? __activeRefGenre : 'undefined'}`);
+            log(`  - window.PROD_AI_REF_GENRE: ${window.PROD_AI_REF_GENRE || 'undefined'}`);
+        }
+
+        function debugGenreSettings() {
+            log('🎵 DEBUG Configurações de Gênero:');
+            log(`  - window.PROD_AI_REF_GENRE: ${window.PROD_AI_REF_GENRE || 'não definido'}`);
+            log(`  - Genre Select Value: ${document.querySelector('#genre-select')?.value || 'não encontrado'}`);
+            log(`  - Cache de referências:`);
+            
+            if (typeof __refDataCache !== 'undefined') {
+                const cacheKeys = Object.keys(__refDataCache);
+                log(`    - Keys no cache: ${cacheKeys.join(', ')}`);
+                cacheKeys.forEach(key => {
+                    log(`    - ${key}: ${__refDataCache[key] ? 'carregado' : 'null'}`);
+                });
+            } else {
+                log('    - __refDataCache não definido');
+            }
+        }
+
+        function testDirectEngine() {
+            log('⚡ TESTE Engine Direto:');
+            
+            if (typeof window.EnhancedSuggestionEngine === 'undefined') {
+                log('❌ EnhancedSuggestionEngine não carregado');
+                return;
+            }
+            
+            // Teste com dados simulados do eletrofunk
+            const testRef = {
+                "eletrofunk": {
+                    "version": "1.0",
+                    "lufs_target": -8.3,
+                    "true_peak_target": -1,
+                    "dr_target": 10.1,
+                    "lra_target": 8.4,
+                    "bands": {
+                        "low_bass": { "target_db": 13.3 },
+                        "mid": { "target_db": 2.5 }
+                    }
+                }
+            };
+            
+            const testAnalysis = {
+                technicalData: {
+                    lufs: -11.394,
+                    truePeak: 0.3,
+                    dynamicRange: 8.724
+                },
+                suggestions: []
+            };
+            
+            try {
+                const engine = new window.EnhancedSuggestionEngine();
+                log('✅ Engine criado com sucesso');
+                
+                const normalized = engine.normalizeReferenceData(testRef);
+                log(`✅ Normalização: ${normalized ? 'sucesso' : 'falhou'}`);
+                
+                if (normalized) {
+                    log(`  - LUFS target: ${normalized.lufs_target}`);
+                    log(`  - True Peak target: ${normalized.true_peak_target}`);
+                    log(`  - Bandas: ${normalized.bands ? Object.keys(normalized.bands).length : 0}`);
+                    
+                    const result = engine.processAnalysis(testAnalysis, testRef);
+                    log(`✅ processAnalysis executado: ${result.suggestions?.length || 0} sugestões`);
+                } else {
+                    log('❌ Falha na normalização - testando estrutura direta');
+                    
+                    // Testar estrutura backend
+                    const backendRef = {
+                        loudness: -8.3,
+                        truePeak: -1,
+                        dynamicRange: 10.1,
+                        lra: 8.4,
+                        bands: {
+                            low_bass: { target_db: 13.3 },
+                            mid: { target_db: 2.5 }
+                        }
+                    };
+                    
+                    const normalized2 = engine.normalizeReferenceData(backendRef);
+                    log(`✅ Normalização backend: ${normalized2 ? 'sucesso' : 'falhou'}`);
+                }
+                
+            } catch (error) {
+                log(`❌ Erro no teste: ${error.message}`);
+                log(`   Stack: ${error.stack}`);
+            }
+        }
+
+        function forceLoadRef() {
+            log('🔄 Forçando carregamento de referência...');
+            
+            if (typeof loadReferenceData === 'function') {
+                loadReferenceData('eletrofunk').then(() => {
+                    log('✅ Referência carregada com sucesso');
+                    debugActiveRefData();
+                }).catch(err => {
+                    log(`❌ Erro ao carregar: ${err.message}`);
+                });
+            } else {
+                log('❌ Função loadReferenceData não encontrada');
+            }
+        }
+
+        // Auto-start debug
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                log('🚀 Iniciando debug automático...');
+                debugGenreSettings();
+                debugActiveRefData();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

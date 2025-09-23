@@ -6036,7 +6036,80 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
 
 // Recalcular apenas as sugestões baseadas em referência (sem reprocessar o áudio)
 function updateReferenceSuggestions(analysis) {
-    if (!analysis || !analysis.technicalData || !__activeRefData) return;
+    console.log('🔍 [DEBUG-REF] updateReferenceSuggestions chamado:', {
+        hasAnalysis: !!analysis,
+        hasTechnicalData: !!analysis?.technicalData,
+        hasActiveRefData: !!__activeRefData,
+        activeRefGenre: __activeRefGenre,
+        activeRefDataKeys: __activeRefData ? Object.keys(__activeRefData) : null,
+        currentGenre: window.PROD_AI_REF_GENRE
+    });
+    
+    if (!analysis || !analysis.technicalData) {
+        console.warn('🚨 [DEBUG-REF] analysis ou technicalData ausentes');
+        return;
+    }
+    
+    if (!__activeRefData) {
+        console.warn('🚨 [DEBUG-REF] __activeRefData está null - tentando carregar gênero atual');
+        
+        // Tentar carregar dados de referência do gênero atual
+        if (window.PROD_AI_REF_GENRE) {
+            console.log('🔄 [DEBUG-REF] Tentando carregar dados para gênero:', window.PROD_AI_REF_GENRE);
+            loadReferenceData(window.PROD_AI_REF_GENRE).then(() => {
+                console.log('✅ [DEBUG-REF] Dados carregados, reprocessando sugestões');
+                updateReferenceSuggestions(analysis);
+            }).catch(err => {
+                console.error('❌ [DEBUG-REF] Erro ao carregar dados:', err);
+            });
+        } else {
+            // Tentar com dados de referência padrão embutidos
+            console.log('🔄 [DEBUG-REF] Usando dados de referência embutidos');
+            
+            // Verificar se existem dados embutidos para o gênero detectado nos scores
+            if (analysis.scores && analysis.scores.genre) {
+                const detectedGenre = analysis.scores.genre;
+                console.log('🎯 [DEBUG-REF] Gênero detectado nos scores:', detectedGenre);
+                
+                // Usar dados embutidos se disponíveis
+                const embeddedRefs = {
+                    eletrofunk: {
+                        lufs_target: -8.3,
+                        true_peak_target: -1,
+                        dr_target: 10.1,
+                        lra_target: 8.4,
+                        stereo_target: 0.12,
+                        bands: {
+                            low_bass: { target_db: 13.3, tol_db: 2.36 },
+                            low_mid: { target_db: 8.8, tol_db: 2.07 },
+                            mid: { target_db: 2.5, tol_db: 1.81 },
+                            high_mid: { target_db: -6.7, tol_db: 1.52 },
+                            presenca: { target_db: -22.7, tol_db: 3.47 },
+                            brilho: { target_db: -13.1, tol_db: 2.38 }
+                        }
+                    }
+                };
+                
+                if (embeddedRefs[detectedGenre]) {
+                    console.log('✅ [DEBUG-REF] Usando dados embutidos para', detectedGenre);
+                    __activeRefData = embeddedRefs[detectedGenre];
+                    __activeRefGenre = detectedGenre;
+                    // Continuar com o processamento
+                } else {
+                    console.warn('❌ [DEBUG-REF] Gênero não suportado nos dados embutidos:', detectedGenre);
+                    return;
+                }
+            } else {
+                console.warn('❌ [DEBUG-REF] Nenhuma estratégia de recuperação disponível');
+                return;
+            }
+        }
+        
+        // Se chegou até aqui sem return, __activeRefData foi definido pelos dados embutidos
+        if (!__activeRefData) {
+            return;
+        }
+    }
     
     // 🛡️ PROTEÇÃO: Evitar duplicação - resetar flag se chamado via applyGenreSelection
     if (analysis._suggestionsGenerated) {
@@ -6048,6 +6121,22 @@ function updateReferenceSuggestions(analysis) {
     if (typeof window !== 'undefined' && window.enhancedSuggestionEngine && window.USE_ENHANCED_SUGGESTIONS !== false) {
         try {
             console.log('🎯 Usando Enhanced Suggestion Engine...');
+            console.log('🔍 [DEBUG-ENGINE] Dados sendo passados para Enhanced Engine:', {
+                analysis: {
+                    hasTechnicalData: !!analysis.technicalData,
+                    technicalDataKeys: analysis.technicalData ? Object.keys(analysis.technicalData) : null,
+                    hasSuggestions: !!analysis.suggestions,
+                    suggestionsCount: analysis.suggestions?.length || 0
+                },
+                activeRefData: {
+                    isNull: __activeRefData === null,
+                    isUndefined: __activeRefData === undefined,
+                    type: typeof __activeRefData,
+                    keys: __activeRefData ? Object.keys(__activeRefData) : null,
+                    structure: __activeRefData ? 'present' : 'missing'
+                }
+            });
+            
             const enhancedAnalysis = window.enhancedSuggestionEngine.processAnalysis(analysis, __activeRefData);
             
             // Preservar sugestões não-referência existentes se necessário

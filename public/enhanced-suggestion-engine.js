@@ -327,6 +327,22 @@ class EnhancedSuggestionEngine {
             };
             structureType = 'backend_analysis';
         }
+        // 🔧 ESTRUTURA JSON ELETROFUNK: Dados diretos na raiz (lufs_target, true_peak_target, etc.)
+        else if (rawRef.lufs_target !== undefined || rawRef.true_peak_target !== undefined || rawRef.dr_target !== undefined) {
+            console.log('🎯 [NORMALIZE] Detectada estrutura JSON direta (eletrofunk style)');
+            
+            sourceData = {
+                original_metrics: {
+                    lufs_integrated: rawRef.lufs_target,
+                    true_peak_dbtp: rawRef.true_peak_target,
+                    dynamic_range: rawRef.dr_target,
+                    lra: rawRef.lra_target,
+                    stereo_correlation: rawRef.stereo_target || 0.85
+                },
+                spectral_bands: rawRef.bands || {}
+            };
+            structureType = 'json_direct';
+        }
         // Tentar legacy_compatibility primeiro
         else if (rawRef.legacy_compatibility && typeof rawRef.legacy_compatibility === 'object') {
             sourceData = rawRef.legacy_compatibility;
@@ -348,6 +364,21 @@ class EnhancedSuggestionEngine {
                 if (sourceData.hybrid_processing) {
                     sourceData = sourceData.hybrid_processing;
                     structureType = 'genre_direct_hybrid';
+                }
+                // 🔧 Se tem dados diretos na estrutura do gênero, processar
+                else if (sourceData.lufs_target !== undefined || sourceData.true_peak_target !== undefined) {
+                    console.log('🎯 [NORMALIZE] Detectada estrutura JSON dentro do gênero');
+                    // Manter sourceData como está, mas criar original_metrics se não existir
+                    if (!sourceData.original_metrics) {
+                        sourceData.original_metrics = {
+                            lufs_integrated: sourceData.lufs_target,
+                            true_peak_dbtp: sourceData.true_peak_target,
+                            dynamic_range: sourceData.dr_target,
+                            lra: sourceData.lra_target,
+                            stereo_correlation: sourceData.stereo_target || 0.85
+                        };
+                    }
+                    structureType = 'genre_direct_json';
                 }
             }
         }

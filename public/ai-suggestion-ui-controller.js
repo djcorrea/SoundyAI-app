@@ -1,26 +1,10 @@
 // 🎨 AI SUGGESTION UI CONTROLLER - Controle da Interface de Sugestões IA
-// Sistema de interface futurista para exibição de sugestões en    /**
-     * 🔍 Verificar e processar sugestões IA
-     */
-    checkForAISuggestions(analysis) {
-        if (!analysis || !analysis.suggestions) return;
-        
-        // Verificar se há sugestões enriquecidas com IA
-        const aiSuggestions = analysis.suggestions.filter(s => s.ai_enhanced === true);
-        
-        if (aiSuggestions.length > 0) {
-            console.log(`🤖 [AI-UI] ${aiSuggestions.length} sugestões IA detectadas`);
-            this.displayAISuggestions(aiSuggestions, analysis);
-        } else {
-            // 🚀 FORÇA EXIBIÇÃO: Mesmo sem IA configurada, mostrar interface com sugestões base
-            if (analysis.suggestions && analysis.suggestions.length > 0) {
-                console.log(`🤖 [AI-UI] Exibindo ${analysis.suggestions.length} sugestões base (IA não configurada)`);
-                this.displayBaseSuggestions(analysis.suggestions, analysis);
-            } else {
-                this.hideAISection();
-            }
-        }
-    }ass AISuggestionUIController {
+// Sistema de interface futurista para exibição de sugestões educativas
+
+/**
+ * 🎨 Controlador de Interface para Sugestões de IA
+ */
+class AISuggestionUIController {
     constructor() {
         this.isInitialized = false;
         this.currentSuggestions = [];
@@ -837,11 +821,14 @@ window.showAIQuickConfig = function() {
 (function() {
     'use strict';
     
-    // Aguardar carregamento da camada de IA
+    // Aguardar carregamento da camada de IA (com fallback)
     const initUI = () => {
-        if (typeof window.aiSuggestionLayer !== 'undefined') {
-            window.aiUIController = new AISuggestionUIController();
-            console.log('🎨 [AI-UI] Sistema de interface inicializado globalmente');
+        // Tentar inicializar mesmo sem aiSuggestionLayer (modo compatibilidade)
+        if (typeof window.aiSuggestionLayer !== 'undefined' || document.readyState === 'complete') {
+            if (!window.aiUIController) {
+                window.aiUIController = new AISuggestionUIController();
+                console.log('🎨 [AI-UI] Sistema de interface inicializado globalmente');
+            }
         } else {
             setTimeout(initUI, 100);
         }
