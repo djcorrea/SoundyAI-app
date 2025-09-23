@@ -947,18 +947,21 @@ class AISuggestionsIntegration {
                 // Call original function first
                 const result = originalDisplayModalResults.call(this, analysis);
                 
-                // Extract suggestions and trigger AI processing
-                if (analysis && analysis.suggestions) {
-                    const genre = analysis.metadata?.genre || analysis.genre || window.PROD_AI_REF_GENRE;
-                    const metrics = analysis.technicalData || {};
+                // ❌ AI PROCESSING DESABILITADO - USAR APENAS SUGESTÕES ORIGINAIS
+                console.log('🚫 [AI-INTEGRATION] Processamento IA DESABILITADO - usando sugestões originais');
+                
+                // // Extract suggestions and trigger AI processing
+                // if (analysis && analysis.suggestions) {
+                //     const genre = analysis.metadata?.genre || analysis.genre || window.PROD_AI_REF_GENRE;
+                //     const metrics = analysis.technicalData || {};
                     
-                    console.log('🔗 [AI-INTEGRATION] Interceptando sugestões para processamento IA');
+                //     console.log('🔗 [AI-INTEGRATION] Interceptando sugestões para processamento IA');
                     
-                    // Delay slightly to ensure modal is rendered
-                    setTimeout(() => {
-                        this.processWithAI(analysis.suggestions, metrics, genre);
-                    }, 100);
-                }
+                //     // Delay slightly to ensure modal is rendered
+                //     setTimeout(() => {
+                //         this.processWithAI(analysis.suggestions, metrics, genre);
+                //     }, 100);
+                // }
                 
                 return result;
             };

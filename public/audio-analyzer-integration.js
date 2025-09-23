@@ -6163,8 +6163,9 @@ function updateReferenceSuggestions(analysis) {
             console.log(`🎯 [SUGGESTIONS] Sugestões preservadas: ${nonRefSuggestions.length}`);
             console.log(`🎯 [SUGGESTIONS] Total final: ${analysis.suggestions.length} sugestões`);
             
-            // 🤖 NOVA CAMADA DE IA: Pós-processamento inteligente de sugestões (Enhanced Engine)
-            if (typeof window !== 'undefined' && window.AI_SUGGESTION_LAYER_ENABLED && window.aiSuggestionLayer) {
+            // 🤖 CAMADA DE IA DESABILITADA POR SOLICITAÇÃO DO USUÁRIO
+            // if (typeof window !== 'undefined' && window.AI_SUGGESTION_LAYER_ENABLED && window.aiSuggestionLayer) {
+            console.log('🚫 [AI-LAYER] Camada de IA desabilitada - usando sugestões diretas do Enhanced Engine');
                 try {
                     console.log('🤖 [AI-LAYER] Enriquecendo sugestões do Enhanced Engine...');
                     
