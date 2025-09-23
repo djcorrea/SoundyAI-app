@@ -534,9 +534,6 @@
     <script src="ai-suggestion-layer.js?v=20250922-ai-layer" defer></script>
     <script src="ai-configuration-manager.js?v=20250922-config" defer></script>
     <script src="ai-suggestion-ui-controller.js?v=20250922-ui" defer></script>
-    
-    <!-- 🧪 TESTE TEMPORÁRIO -->
-    <script src="test-frontend-integration.js" defer></script>
     <script src="ai-suggestions-integration.js?v=20250922-integration" defer></script>
     <script src="ai-suggestion-system-tester.js?v=20250922-test" defer></script>
     <script src="ai-force-test.js?v=20250922-force" defer></script>
@@ -545,10 +542,6 @@
     
     <!-- 🎯 ATIVAÇÃO FORÇADA DO SISTEMA NOVO -->
     <script>
-        // 🚩 FEATURE FLAG: Permite rollback rápido do sistema de enriquecimento
-        window.AI_ENRICH_ENABLED = true; // Set false para voltar ao sistema legado
-        console.log('🚩 [INDEX] AI_ENRICH_ENABLED:', window.AI_ENRICH_ENABLED);
-        
         // Força ativação do sistema novo assim que carregar
         window.addEventListener('DOMContentLoaded', function() {
             console.log('🎯 [INDEX] Forçando ativação do sistema novo...');

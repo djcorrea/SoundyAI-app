@@ -76,9 +76,7 @@ class AISuggestionsIntegration {
             this.currentSuggestions = [];
             
             // Mostrar container sem loading
-            // TODO: simple modal removed by design (AI-only)
-            // this.showContainer();
-            console.log('🚫 [AI-INTEGRATION] Container aiSuggestionsExpanded desabilitado - usando apenas modal roxo');
+            this.showContainer();
             this.setLoadingState(false);
             this.updateStatus('info', 'Áudio analisado');
             this.hideFallbackNotice();
@@ -110,9 +108,7 @@ class AISuggestionsIntegration {
         this.currentSuggestions = validSuggestions;
         
         // Show container and loading state
-        // TODO: simple modal removed by design (AI-only)
-        // this.showContainer();
-        console.log('🚫 [AI-INTEGRATION] Container aiSuggestionsExpanded desabilitado - usando apenas modal roxo');
+        this.showContainer();
         this.setLoadingState(true);
         this.updateStatus('processing', `Processando ${validSuggestions.length} sugestões...`);
         

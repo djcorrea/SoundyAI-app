@@ -75,10 +75,6 @@ app.use("/api", presignRoute);
 app.use("/api/audio", analyzeRoute);
 app.use("/api/jobs", jobsRoute); // ✅ rota de jobs conectada ao banco
 
-// 🤖 Rota de enriquecimento de sugestões (nova)
-import enrichRoute from "./api/routes/enrich.js";
-app.use("/api", enrichRoute);
-
 // ---------- ROTA REVOLUCIONÁRIA DE SUGESTÕES IA ----------
 app.post("/api/suggestions", async (req, res) => {
   try {
