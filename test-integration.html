@@ -105,40 +105,67 @@
             result.textContent = '🔄 Testando comunicação com backend...';
             
             try {
-                if (!window.AISuggestionLayer) {
-                    throw new Error('AISuggestionLayer não carregado');
+                if (!window.AISuggestionsIntegration) {
+                    throw new Error('AISuggestionsIntegration não carregado');
                 }
                 
-                const aiLayer = new AISuggestionLayer();
+                const aiIntegration = new AISuggestionsIntegration();
                 
-                const mockSuggestions = [{
-                    message: 'Teste de integração',
-                    action: 'verificar sistema',
-                    priority: 3,
-                    confidence: 0.8
-                }];
+                // Simular sugestões já processadas pelo engine (formato correto)
+                const mockSuggestions = [
+                    {
+                        metric: 'lufs',
+                        issue: 'LUFS muito alto: -10.2 dB vs -14 dB alvo',
+                        solution: 'Reduza o volume geral em -4.2 dB',
+                        priority: 1,
+                        confidence: 0.9
+                    },
+                    {
+                        metric: 'bass',
+                        issue: 'Banda de grave excessiva: +5.8 dB acima do ideal',
+                        solution: 'Use EQ para reduzir 80-120Hz em -3dB',
+                        priority: 2,
+                        confidence: 0.8
+                    }
+                ];
                 
                 const mockMetrics = {
-                    lufsIntegrated: -14.0,
-                    truePeakDbtp: -3.2,
-                    dynamicRange: 8.5,
+                    lufs: -10.2,
+                    truePeak: -2.1,
+                    dynamicRange: 6.5,
                     bands: {
-                        sub: { value: 0.1, ideal: 0.15 }
+                        sub: { value: 0.12, ideal: 0.15 },
+                        bass: { value: 0.28, ideal: 0.20 }
                     }
                 };
                 
                 const mockGenre = 'trance';
                 
-                console.log('[TEST] Testando backend com:', { mockSuggestions, mockMetrics, mockGenre });
+                console.log('[TEST] Testando com payload corrigido:', {
+                    suggestions: mockSuggestions.length,
+                    metrics: mockMetrics,
+                    genre: mockGenre
+                });
                 
-                const response = await aiLayer.callBackendAPI(mockSuggestions, mockMetrics, mockGenre);
+                // Construir payload como o sistema faz
+                const payload = aiIntegration.buildValidPayload(mockSuggestions, mockMetrics, mockGenre);
                 
                 let output = '📡 Teste de Backend:\n\n';
-                output += `Status: ${response.success ? '✅ SUCESSO' : '❌ FALHOU'}\n`;
-                output += `Resposta: ${JSON.stringify(response, null, 2)}\n`;
+                output += `Payload construído:\n${JSON.stringify(payload, null, 2)}\n\n`;
+                
+                // Testar se payload tem formato correto
+                const isValidFormat = payload.suggestions && 
+                                     Array.isArray(payload.suggestions) &&
+                                     payload.suggestions.every(s => s.message && s.action && s.priority && s.confidence) &&
+                                     payload.metrics &&
+                                     payload.genre;
+                
+                output += `Formato válido: ${isValidFormat ? '✅ SIM' : '❌ NÃO'}\n`;
+                output += `Sugestões: ${payload.suggestions.length}\n`;
+                output += `Primeira sugestão: ${JSON.stringify(payload.suggestions[0] || {}, null, 2)}\n`;
                 
                 result.textContent = output;
-                result.className = `result ${response.success ? 'success' : (response.error.includes('API Key') ? 'success' : 'error')}`;
+                result.className = `result ${isValidFormat ? 'success' : 'error'}`;
                 
             } catch (error) {
                 result.textContent = `❌ Erro no teste:\n${error.message}\n\n${error.stack}`;

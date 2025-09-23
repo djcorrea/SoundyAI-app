@@ -132,9 +132,9 @@ class AISuggestionLayer {
             this.stats.failedRequests++;
             console.error('❌ [AI-LAYER] Erro no processamento:', error);
             
-            // FALLBACK CRÍTICO: Sempre retornar sugestões originais em caso de erro
-            console.log('🛡️ [AI-LAYER] Usando fallback - sugestões originais mantidas');
-            return existingSuggestions;
+            // NÃO USAR FALLBACK: Se o backend falhou, reportar erro
+            console.error('🛡️ [AI-LAYER] Backend IA falhou - não exibir sugestões brutas');
+            throw error;
         }
     }
     
@@ -228,13 +228,13 @@ class AISuggestionLayer {
                 });
             } else {
                 console.warn('🤖 [AI-LAYER] Backend não retornou sugestões enriquecidas');
-                return originalSuggestions.map(s => ({...s, ai_enhanced: false}));
+                throw new Error('Backend não forneceu sugestões válidas');
             }
             
         } catch (error) {
             console.error('❌ [AI-LAYER] Erro ao processar resposta do backend:', error);
-            // Fallback: retornar sugestões originais
-            return originalSuggestions.map(s => ({...s, ai_enhanced: false}));
+            // NÃO USAR FALLBACK: Se backend falhou, reportar erro
+            throw error;
         }
     }
     
@@ -500,8 +500,8 @@ DIRETRIZES:
             
         } catch (error) {
             console.error('❌ [AI-LAYER] Erro ao processar resposta da IA:', error);
-            // Fallback: retornar sugestões originais
-            return originalSuggestions.map(s => ({...s, ai_enhanced: false}));
+            // NÃO USAR FALLBACK: Se processamento falhou, reportar erro
+            throw error;
         }
     }
     

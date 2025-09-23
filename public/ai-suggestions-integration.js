@@ -124,15 +124,15 @@ class AISuggestionsIntegration {
             const payload = this.buildValidPayload(validSuggestions, metrics, genre);
             console.log('📦 [AI-INTEGRATION] Payload construído:', {
                 genre: payload.genre,
-                metricsKeys: Object.keys(payload.metrics),
-                detectedIssuesCount: payload.detectedIssues ? payload.detectedIssues.length : 0,
-                contextSuggestionsCount: payload.suggestionsContext ? payload.suggestionsContext.length : 0
+                suggestionsCount: payload.suggestions ? payload.suggestions.length : 0,
+                metricsKeys: Object.keys(payload.metrics || {}),
+                sample: payload.suggestions ? payload.suggestions.slice(0, 2) : []
             });
             
             // ✅ VALIDAÇÃO DE PAYLOAD ANTES DE ENVIAR
-            if (!payload.detectedIssues || payload.detectedIssues.length === 0) {
-                console.warn('⚠️ [AI-INTEGRATION] Payload sem problemas detectados - usando fallback');
-                throw new Error('PAYLOAD_INVALID: Nenhum problema detectado para análise');
+            if (!payload.suggestions || payload.suggestions.length === 0) {
+                console.warn('⚠️ [AI-INTEGRATION] Payload sem sugestões válidas - usando fallback');
+                throw new Error('PAYLOAD_INVALID: Nenhuma sugestão válida para análise');
             }
             
             // Enviar para a IA
@@ -202,13 +202,12 @@ class AISuggestionsIntegration {
         } catch (error) {
             console.error('❌ [AI-INTEGRATION] Erro crítico no processamento:', error);
             
-            // Se for erro de payload inválido, não tentar retry - exibir sugestões originais
+            // Se for erro de payload inválido, não tentar retry - exibir erro
             if (error.message.includes('PAYLOAD_INVALID')) {
-                console.log('🔄 [AI-INTEGRATION] Payload inválido - exibindo sugestões originais');
-                this.updateStatus('ready', 'Sugestões locais');
-                this.displaySuggestions(validSuggestions, 'local');
-                this.updateStats(validSuggestions.length, Date.now() - startTime, 'local');
-                this.hideFallbackNotice();
+                console.log('🔄 [AI-INTEGRATION] Payload inválido - não exibir sugestões brutas');
+                this.updateStatus('error', 'Payload inválido');
+                this.displayEmptyState('Erro no formato dos dados. Tente analisar novamente.');
+                this.showFallbackNotice('Erro interno detectado. Recarregue a página.');
                 return;
             }
             
@@ -228,12 +227,11 @@ class AISuggestionsIntegration {
                 return;
             }
             
-            // Erro final - exibir sugestões originais como fallback
-            console.error('🚫 [AI-INTEGRATION] FALHA TOTAL - exibindo sugestões originais');
-            this.updateStatus('ready', 'Sugestões locais (IA indisponível)');
-            this.displaySuggestions(validSuggestions, 'local');
-            this.updateStats(validSuggestions.length, Date.now() - startTime, 'local');
-            this.showFallbackNotice('IA temporariamente indisponível. Exibindo análise local.');
+            // Erro final - NÃO EXIBIR SUGESTÕES BRUTAS
+            console.error('🚫 [AI-INTEGRATION] FALHA TOTAL - Backend IA não funcionou');
+            this.updateStatus('error', 'Sistema de IA indisponível');
+            this.displayEmptyState('Sistema de sugestões inteligentes temporariamente indisponível');
+            this.showFallbackNotice('IA temporariamente indisponível. Tente novamente em alguns minutos.');
             
         } finally {
             this.setLoadingState(false);
@@ -285,26 +283,29 @@ class AISuggestionsIntegration {
      * Construir payload válido para o backend - FOCADO EM PROBLEMAS DETECTADOS
      */
     buildValidPayload(suggestions, metrics, genre) {
-        // NOVO: Formato simples esperado pelo backend
-        const formattedSuggestions = suggestions.map(suggestion => {
-            // Extrair dados da sugestão original
-            const problemText = suggestion.title || suggestion.message || suggestion.text || suggestion.problem || 'Problema detectado';
-            const actionText = suggestion.description || suggestion.action || suggestion.solution || 'Ajuste recomendado';
+        // 🎯 FORMATO CORRETO: Montar array de sugestões detalhadas
+        const formattedSuggestions = suggestions.map((suggestion, index) => {
+            // Extrair dados da sugestão normalizada
+            const problemText = suggestion.issue || suggestion.message || suggestion.title || 'Problema detectado';
+            const actionText = suggestion.solution || suggestion.action || suggestion.description || 'Ajuste recomendado';
             
-            // Determinar prioridade (backend espera 1-10)
-            let priority = suggestion.priority || 5;
+            // Determinar prioridade (1=alta, 2=média, 3=baixa)
+            let priority = suggestion.priority || 2;
             if (typeof priority !== 'number') {
-                if (priority === 'alta' || priority === 'high') priority = 8;
-                else if (priority === 'média' || priority === 'medium') priority = 5; 
-                else if (priority === 'baixa' || priority === 'low') priority = 2;
-                else priority = 5;
+                if (priority === 'alta' || priority === 'high') priority = 1;
+                else if (priority === 'média' || priority === 'medium') priority = 2; 
+                else if (priority === 'baixa' || priority === 'low') priority = 3;
+                else priority = 2;
             }
+            
+            // Garantir que priority está no range correto (1-3)
+            priority = Math.max(1, Math.min(3, Math.floor(priority)));
             
             return {
                 message: problemText,
                 action: actionText, 
-                priority: Math.max(1, Math.min(10, priority)),
-                confidence: suggestion.confidence || 0.9
+                priority: priority,
+                confidence: suggestion.confidence || 0.8
             };
         });
         
@@ -318,10 +319,10 @@ class AISuggestionsIntegration {
         };
 
         console.log('📦 [AI-INTEGRATION] Payload para backend construído:', {
-            suggestions: payload.suggestions.length,
+            suggestionsCount: payload.suggestions.length,
             genre: payload.genre,
             hasMetrics: !!payload.metrics,
-            metricsKeys: Object.keys(payload.metrics || {})
+            firstSuggestion: payload.suggestions[0] || null
         });
 
         return payload;
