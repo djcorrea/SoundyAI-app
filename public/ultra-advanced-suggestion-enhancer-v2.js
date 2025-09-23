@@ -71,10 +71,24 @@ class UltraAdvancedSuggestionEnhancer {
      * 🚀 Enriquecer sugestões existentes com conteúdo educacional ultra-avançado
      */
     enhanceExistingSuggestions(suggestions, analysisContext = {}) {
+        // 🔍 AUDITORIA: ULTRA ADVANCED ENHANCER ENTRADA
+        console.group('🔍 [AUDITORIA] ULTRA ADVANCED ENHANCER - ENTRADA');
         console.log('🚀 [ULTRA_V2] Enriquecendo sugestões existentes...', {
-            inputCount: suggestions.length,
-            context: analysisContext
+            inputCount: suggestions?.length || 0,
+            context: analysisContext,
+            isArray: Array.isArray(suggestions)
         });
+        
+        if (suggestions && Array.isArray(suggestions)) {
+            suggestions.forEach((sug, index) => {
+                console.log(`🚀 Ultra Input ${index + 1}:`, {
+                    message: sug.message || sug.issue || sug.title || 'N/A',
+                    action: sug.action || sug.solution || sug.description || 'N/A',
+                    keys: Object.keys(sug)
+                });
+            });
+        }
+        console.groupEnd();
         
         const startTime = performance.now();
         const enhancedSuggestions = [];
@@ -99,11 +113,29 @@ class UltraAdvancedSuggestionEnhancer {
             processingTime: `${processingTime}ms`
         });
         
+        // 🔍 AUDITORIA: ULTRA ADVANCED ENHANCER SAÍDA
+        console.group('🔍 [AUDITORIA] ULTRA ADVANCED ENHANCER - SAÍDA');
+        console.log('🚀 [ULTRA_V2] Resultado do enhancement:', {
+            originalCount: suggestions?.length || 0,
+            enhancedCount: enhancedSuggestions.length,
+            processingTime: processingTime + 'ms'
+        });
+        
+        enhancedSuggestions.forEach((sug, index) => {
+            console.log(`🚀 Ultra Output ${index + 1}:`, {
+                message: sug.message || sug.issue || sug.title || 'N/A',
+                action: sug.action || sug.solution || sug.description || 'N/A',
+                enhanced: !!sug.enhanced,
+                keys: Object.keys(sug)
+            });
+        });
+        console.groupEnd();
+        
         return {
             enhancedSuggestions: enhancedSuggestions,
             metadata: {
                 processingTimeMs: parseFloat(processingTime),
-                originalCount: suggestions.length,
+                originalCount: suggestions?.length || 0,
                 enhancedCount: enhancedSuggestions.length,
                 educationalLevel: 'ultra-advanced',
                 version: '2.0.0-direct-enhancement'
