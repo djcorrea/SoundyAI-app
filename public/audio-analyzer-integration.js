@@ -2117,6 +2117,18 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         } else {
             console.log('🎯 [SUGGESTIONS] Sugestões já foram geradas anteriormente');
         }
+
+        // 🚀 FORÇA EXIBIÇÃO: Sempre mostrar interface IA após sugestões serem processadas
+        if (normalizedResult.suggestions && normalizedResult.suggestions.length > 0) {
+            setTimeout(() => {
+                if (window.aiUIController) {
+                    console.log(`🚀 [AI-UI-FORCE] Forçando interface IA aparecer com ${normalizedResult.suggestions.length} sugestões`);
+                    window.aiUIController.checkForAISuggestions(normalizedResult, true); // force = true
+                } else {
+                    console.warn('⚠️ [AI-UI-FORCE] aiUIController não encontrado');
+                }
+            }, 500); // Delay para garantir que o DOM esteja renderizado
+        }
         
         // Definir como análise atual do modal
         currentModalAnalysis = normalizedResult;
