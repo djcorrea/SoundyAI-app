@@ -74,7 +74,7 @@ class AISuggestionLayer {
         
         try {
             // Validações iniciais
-            if (!this.apiKey) {
+            if (!this.apiKey || this.apiKey === 'demo-mode') {
                 console.warn('⚠️ [AI-LAYER] API Key não configurada - usando sugestões originais');
                 return existingSuggestions;
             }

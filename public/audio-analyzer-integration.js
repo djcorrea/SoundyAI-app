@@ -2121,11 +2121,56 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         // 🚀 FORÇA EXIBIÇÃO: Sempre mostrar interface IA após sugestões serem processadas
         if (normalizedResult.suggestions && normalizedResult.suggestions.length > 0) {
             setTimeout(() => {
+                console.log(`🚀 [AI-UI-FORCE] Tentando forçar interface IA aparecer com ${normalizedResult.suggestions.length} sugestões`);
+                
+                // Verificar múltiplas formas de chamar a interface IA
                 if (window.aiUIController) {
-                    console.log(`🚀 [AI-UI-FORCE] Forçando interface IA aparecer com ${normalizedResult.suggestions.length} sugestões`);
-                    window.aiUIController.checkForAISuggestions(normalizedResult, true); // force = true
+                    console.log(`🚀 [AI-UI-FORCE] Usando aiUIController existente`);
+                    window.aiUIController.checkForAISuggestions(normalizedResult, true);
+                } else if (window.forceShowAISuggestions) {
+                    console.log(`🚀 [AI-UI-FORCE] Usando forceShowAISuggestions como fallback`);
+                    window.forceShowAISuggestions(normalizedResult);
                 } else {
-                    console.warn('⚠️ [AI-UI-FORCE] aiUIController não encontrado');
+                    console.warn('⚠️ [AI-UI-FORCE] Nenhum método de interface IA encontrado, criando interface básica...');
+                    
+                    // Criar interface básica na hora
+                    const aiSection = document.createElement('div');
+                    aiSection.id = 'ai-suggestions-section';
+                    aiSection.style.cssText = `
+                        margin: 20px 0; padding: 20px; border: 2px solid #4CAF50;
+                        border-radius: 10px; background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+                        color: white; font-family: Arial, sans-serif;
+                    `;
+                    aiSection.innerHTML = `
+                        <h3 style="color: #4CAF50; margin: 0 0 15px 0;">🤖 Sugestões Inteligentes</h3>
+                        <div style="background: rgba(76, 175, 80, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid #4CAF50;">
+                            <p style="margin: 0 0 10px 0; color: #A5D6A7;">
+                                💡 Interface IA carregada com ${normalizedResult.suggestions.length} sugestões
+                            </p>
+                            <p style="margin: 0; font-size: 14px; color: #81C784;">
+                                Configure uma API Key da OpenAI para sugestões inteligentes personalizadas.
+                            </p>
+                            <button onclick="if(window.promptForAPIKey) window.promptForAPIKey(); else alert('Configure API Key da OpenAI para ativar IA')" 
+                                    style="margin-top: 10px; padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                ⚙️ Configurar IA
+                            </button>
+                        </div>
+                    `;
+                    
+                    // Inserir na interface
+                    const modal = document.getElementById('audioAnalysisModal');
+                    const content = modal?.querySelector('.modal-content');
+                    if (content) {
+                        // Remover seção anterior se existir
+                        const existing = content.querySelector('#ai-suggestions-section');
+                        if (existing) existing.remove();
+                        
+                        // Adicionar nova seção
+                        content.appendChild(aiSection);
+                        console.log('✅ [AI-UI-FORCE] Interface IA básica criada e inserida');
+                    } else {
+                        console.error('❌ [AI-UI-FORCE] Modal não encontrado para inserir interface');
+                    }
                 }
             }, 500); // Delay para garantir que o DOM esteja renderizado
         }
@@ -6068,6 +6113,16 @@ function updateReferenceSuggestions(analysis) {
                         })
                         .catch(error => {
                             console.warn('🤖 [AI-LAYER] ❌ Erro na IA do Enhanced Engine:', error);
+                            
+                            // 🚀 FORÇA EXIBIÇÃO: Mostrar interface IA mesmo em caso de erro
+                            setTimeout(() => {
+                                if (window.aiUIController && analysis.suggestions) {
+                                    console.log(`🚀 [AI-UI-FORCE-ERROR] Forçando interface IA aparecer após erro com ${analysis.suggestions.length} sugestões`);
+                                    window.aiUIController.checkForAISuggestions(analysis, true); // force = true
+                                } else {
+                                    console.warn('⚠️ [AI-UI-FORCE-ERROR] aiUIController não encontrado ou sem sugestões');
+                                }
+                            }, 100);
                         });
                 } catch (error) {
                     console.warn('🤖 [AI-LAYER] ❌ Erro na integração IA Enhanced Engine:', error);
