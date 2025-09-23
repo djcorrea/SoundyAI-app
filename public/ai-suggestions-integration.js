@@ -129,10 +129,10 @@ class AISuggestionsIntegration {
                 contextSuggestionsCount: payload.suggestionsContext ? payload.suggestionsContext.length : 0
             });
             
-            // ✅ VALIDAÇÃO DE PAYLOAD ANTES DE ENVIAR
-            if (!payload.detectedIssues || payload.detectedIssues.length === 0) {
-                console.warn('⚠️ [AI-INTEGRATION] Payload sem problemas detectados - usando fallback');
-                throw new Error('PAYLOAD_INVALID: Nenhum problema detectado para análise');
+            // ✅ VALIDAÇÃO DE PAYLOAD PARA ENRIQUECIMENTO
+            if (!payload.originalSuggestions || payload.originalSuggestions.length === 0) {
+                console.warn('⚠️ [AI-INTEGRATION] Payload sem sugestões para enriquecer - usando originais');
+                throw new Error('PAYLOAD_INVALID: Nenhuma sugestão para enriquecer');
             }
             
             // Enviar para a IA
@@ -152,51 +152,54 @@ class AISuggestionsIntegration {
             const data = await response.json();
             const processingTime = Date.now() - startTime;
             
-            console.log('📊 [AI-INTEGRATION] Resposta completa da IA:', {
+            console.log('📊 [AI-INTEGRATION] Resposta de enriquecimento da IA:', {
                 success: data.success,
                 source: data.source,
-                suggestionsRecebidas: suggestions?.length || 0,
-                suggestionsEnriquecidas: data.enhancedSuggestions?.length || 0,
+                suggestionsOriginais: validSuggestions.length,
+                suggestionsEnriquecidas: data.enrichedSuggestions?.length || 0,
                 processingTime: `${processingTime}ms`
             });
             
-            if (data.source === 'ai' && data.enhancedSuggestions?.length > 0) {
-                aiSuccessCount = data.enhancedSuggestions.length;
-                allEnhancedSuggestions.push(...data.enhancedSuggestions);
+            if (data.success && data.enrichedSuggestions?.length > 0) {
+                aiSuccessCount = data.enrichedSuggestions.length;
                 
-                console.log('✅ [AI-INTEGRATION] IA processou com sucesso:', {
+                // ✅ USAR SUGESTÕES ENRIQUECIDAS DIRETAMENTE
+                allEnhancedSuggestions = data.enrichedSuggestions;
+                
+                console.log('✅ [AI-INTEGRATION] IA enriqueceu sugestões com sucesso:', {
                     total: aiSuccessCount,
-                    exemploBlocos: data.enhancedSuggestions[0]?.blocks ? Object.keys(data.enhancedSuggestions[0].blocks) : 'N/A'
+                    exemploEnriquecido: data.enrichedSuggestions[0]?.educationalContent ? 'SIM' : 'NÃO'
                 });
                 
-                this.updateStatus('success', `IA processou ${aiSuccessCount} sugestões`);
+                this.updateStatus('success', `IA enriqueceu ${aiSuccessCount} sugestões`);
             } else {
-                console.error('❌ [AI-INTEGRATION] IA não retornou sugestões válidas:', {
+                console.warn('⚠️ [AI-INTEGRATION] IA não conseguiu enriquecer - usando originais:', {
                     source: data.source,
                     message: data.message,
                     error: data.error
                 });
-                aiErrorCount = suggestions?.length || 0;
-                this.updateStatus('error', 'IA não respondeu corretamente');
+                aiErrorCount = validSuggestions?.length || 0;
+                allEnhancedSuggestions = validSuggestions; // Usar originais como fallback
+                this.updateStatus('warning', 'Usando sugestões originais');
             }
             
-            // 🎯 MERGE INTELIGENTE: Sempre preservar TODAS as sugestões originais
-            const mergedSuggestions = this.mergeAISuggestionsWithOriginals(validSuggestions, allEnhancedSuggestions);
+            // 🎯 USAR SUGESTÕES ENRIQUECIDAS OU ORIGINAIS (sem merge complexo)
+            const finalSuggestions = allEnhancedSuggestions.length > 0 ? allEnhancedSuggestions : validSuggestions;
             
             // Log final detalhado
             console.log('📈 [AI-INTEGRATION] RESULTADO FINAL:', {
                 suggestionsOriginais: validSuggestions.length,
                 suggestionsEnriquecidas: allEnhancedSuggestions.length,
-                suggestionsFinais: mergedSuggestions.length,
+                suggestionsFinais: finalSuggestions.length,
                 sucessosIA: aiSuccessCount,
                 errosIA: aiErrorCount,
                 tempoTotal: `${processingTime}ms`,
-                fonteFinal: data.source
+                tipoFinal: allEnhancedSuggestions.length > 0 ? 'ENRIQUECIDAS' : 'ORIGINAIS'
             });
             
-            // ✅ SEMPRE exibir TODAS as sugestões (originais + enriquecidas)
-            this.displaySuggestions(mergedSuggestions, allEnhancedSuggestions.length > 0 ? 'ai' : 'local');
-            this.updateStats(mergedSuggestions.length, processingTime, allEnhancedSuggestions.length > 0 ? 'ai' : 'local');
+            // ✅ EXIBIR sugestões finais (enriquecidas ou originais)
+            this.displaySuggestions(finalSuggestions, allEnhancedSuggestions.length > 0 ? 'ai' : 'local');
+            this.updateStats(finalSuggestions.length, processingTime, allEnhancedSuggestions.length > 0 ? 'ai' : 'local');
             this.hideFallbackNotice();
             
         } catch (error) {
@@ -282,117 +285,44 @@ class AISuggestionsIntegration {
     }
 
     /**
-     * Construir payload válido para o backend - FOCADO EM PROBLEMAS DETECTADOS
+     * Construir payload para ENRIQUECIMENTO das sugestões reais
      */
     buildValidPayload(suggestions, metrics, genre) {
-        // Em vez de enviar sugestões prontas, vamos enviar os PROBLEMAS DETECTADOS
-        const detectedIssues = this.extractDetectedIssues(suggestions, metrics);
-        
-        // Estrutura base do payload focada nos PROBLEMAS
+        // Enviar as sugestões REAIS para enriquecimento educativo
         const payload = {
+            action: 'enrich_suggestions', // Especificar que é para enriquecimento
             genre: genre || 'geral',
-            metrics: this.normalizeMetrics(metrics),
-            detectedIssues: detectedIssues,
-            analysisContext: {
-                totalIssues: detectedIssues.length,
-                severityDistribution: this.categorizeSeverity(detectedIssues),
-                primaryConcerns: this.identifyPrimaryConcerns(detectedIssues)
-            },
-            // Manter suggestions para compatibilidade, mas marcar como contexto
-            suggestionsContext: suggestions.map(s => ({
-                category: s.category,
-                metric: s.metric,
-                priority: s.priority
-            }))
+            originalSuggestions: suggestions.map(suggestion => ({
+                type: suggestion.type || 'optimization',
+                message: suggestion.message || suggestion.text || suggestion.description,
+                priority: suggestion.priority || 1.0,
+                targetValue: suggestion.targetValue,
+                currentValue: suggestion.currentValue,
+                action: suggestion.action,
+                justification: suggestion.why || suggestion.justification
+            })),
+            context: {
+                audioMetrics: this.normalizeMetrics(metrics),
+                totalSuggestions: suggestions.length,
+                genre: genre
+            }
         };
 
-        console.log('📦 [AI-INTEGRATION] Payload focado em PROBLEMAS construído:', {
+        console.log('📦 [AI-INTEGRATION] Payload para ENRIQUECIMENTO construído:', {
+            action: payload.action,
             genre: payload.genre,
-            detectedIssues: payload.detectedIssues.length,
-            primaryConcerns: payload.analysisContext.primaryConcerns,
-            contextSuggestions: payload.suggestionsContext.length
+            originalSuggestionsCount: payload.originalSuggestions.length,
+            contextKeys: Object.keys(payload.context)
         });
 
         return payload;
     }
 
     /**
-     * Extrair problemas detectados das sugestões e métricas
+     * ❌ FUNÇÃO REMOVIDA: extractDetectedIssues
+     * Não é mais necessária pois agora enviamos as sugestões reais diretamente
+     * para enriquecimento educativo, não para detectar problemas
      */
-    extractDetectedIssues(suggestions, metrics) {
-        const issues = [];
-        
-        console.log('🔍 [AI-DEBUG] Analisando sugestões recebidas:', {
-            total: suggestions.length,
-            primeiraSugestao: suggestions[0],
-            estrutura: suggestions.length > 0 ? Object.keys(suggestions[0]) : 'N/A'
-        });
-        
-        // 1. Extrair problemas das sugestões existentes
-        suggestions.forEach((suggestion, index) => {
-            console.log(`🔍 [AI-DEBUG] Sugestão ${index}:`, {
-                hasType: !!suggestion.type,
-                hasMessage: !!suggestion.message,
-                hasText: !!suggestion.text,
-                hasAction: !!suggestion.action,
-                hasPriority: !!suggestion.priority,
-                type: suggestion.type,
-                message: suggestion.message?.substring(0, 50) + '...',
-                todasChaves: Object.keys(suggestion)
-            });
-            
-            // CORRIGIDO: mapear campos reais das sugestões do Enhanced Engine
-            const issueType = suggestion.type || suggestion.category || 'unknown';
-            const description = suggestion.message || suggestion.text || suggestion.description || suggestion.action;
-            
-            if (issueType && description) {
-                const issue = {
-                    type: issueType,
-                    description: description,
-                    severity: this.mapPriorityToSeverity(suggestion.priority || 1.0),
-                    metric: suggestion.metricType || suggestion.metric || issueType,
-                    source: 'suggestion_engine'
-                };
-                issues.push(issue);
-                console.log(`✅ [AI-DEBUG] Issue adicionado:`, issue);
-            } else {
-                console.log(`❌ [AI-DEBUG] Sugestão ${index} rejeitada:`, {
-                    type: issueType,
-                    description: !!description,
-                    hasMappableFields: !!(suggestion.message || suggestion.text || suggestion.action)
-                });
-            }
-        });
-
-        // 2. FALLBACK: Se poucos issues foram detectados, criar com base em campos genéricos
-        if (issues.length === 0 && suggestions.length > 0) {
-            console.log('🔄 [AI-FALLBACK] Aplicando lógica de fallback para detectar problemas...');
-            
-            suggestions.forEach((suggestion, index) => {
-                const fallbackIssue = {
-                    type: 'audio_optimization',
-                    description: suggestion.message || suggestion.text || suggestion.action || `Sugestão de melhoria ${index + 1}`,
-                    severity: this.mapPriorityToSeverity(suggestion.priority || 1.0),
-                    metric: 'general',
-                    source: 'fallback_detection'
-                };
-                issues.push(fallbackIssue);
-                console.log(`🔄 [AI-FALLBACK] Issue criado:`, fallbackIssue);
-            });
-        }
-
-        // 3. Detectar problemas diretamente das métricas
-        const metricIssues = this.detectMetricIssues(metrics);
-        issues.push(...metricIssues);
-
-        console.log('🔍 [AI-INTEGRATION] Problemas detectados:', {
-            fromSuggestions: suggestions.length,
-            fromMetrics: metricIssues.length,
-            total: issues.length
-        });
-
-        return issues;
-    }
 
     /**
      * Detectar problemas diretamente das métricas

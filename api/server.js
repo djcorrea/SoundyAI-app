@@ -69,14 +69,29 @@ const upload = multer({
 // ---------- Rota para sugestões com IA ----------
 app.post("/api/suggestions", async (req, res) => {
   try {
-    const { suggestions, metrics, genre } = req.body;
+    // ✅ NOVO FORMATO: Suporte para enriquecimento de sugestões
+    const { action, originalSuggestions, context, suggestions, metrics, genre } = req.body;
+
+    // Determinar formato (novo ou legado)
+    const isEnrichmentMode = action === 'enrich_suggestions';
+    const suggestionsToProcess = isEnrichmentMode ? originalSuggestions : suggestions;
+    const processingMetrics = isEnrichmentMode ? context?.audioMetrics : metrics;
+    const processingGenre = isEnrichmentMode ? context?.genre : genre;
 
     // Validação dos dados de entrada
-    if (!suggestions || !Array.isArray(suggestions)) {
+    if (!suggestionsToProcess || !Array.isArray(suggestionsToProcess)) {
       return res.status(400).json({ 
         error: "Lista de sugestões é obrigatória",
-        fallbackSuggestions: suggestions || []
+        fallbackSuggestions: suggestionsToProcess || []
       });
+    }
+
+    console.log(`🎵 [SUGGESTIONS-API] Modo: ${isEnrichmentMode ? 'ENRIQUECIMENTO' : 'LEGADO'}`);
+    console.log(`📊 [SUGGESTIONS-API] Processando ${suggestionsToProcess.length} sugestões para ${processingGenre}`);
+
+    // Log das primeiras sugestões para debug
+    if (suggestionsToProcess.length > 0) {
+      console.log("🔍 [DEBUG] Primeira sugestão:", JSON.stringify(suggestionsToProcess[0], null, 2));
     }
 
     // Se não tiver API key, retornar sugestões normais
@@ -91,8 +106,31 @@ app.post("/api/suggestions", async (req, res) => {
       });
     }
 
-    // Construir prompt para IA
-    const prompt = buildSuggestionPrompt(suggestions, metrics, genre);
+    // Construir prompt contextual
+    const basePrompt = buildSuggestionPrompt(suggestionsToProcess, processingMetrics, processingGenre);
+    
+    // ✅ NOVO: Prompt específico para enriquecimento educativo
+    const enrichmentPrompt = isEnrichmentMode ? `
+MODO ENRIQUECIMENTO EDUCATIVO
+
+SUGESTÕES ORIGINAIS PARA ENRIQUECER:
+${JSON.stringify(suggestionsToProcess, null, 2)}
+
+INSTRUÇÕES ESPECÍFICAS:
+1. Preserve EXATAMENTE a estrutura de cada sugestão (category, issue, solution, severity, etc.)
+2. Enriqueça o campo 'solution' com explicações educativas detalhadas
+3. Adicione o campo 'educationalContext' explicando o conceito técnico por trás
+4. Adicione o campo 'learningTips' com dicas práticas para evitar o problema
+5. Mantenha a severidade e categoria originais
+6. Use linguagem clara e educativa, mas tecnicamente precisa
+
+CONTEXTO DO ÁUDIO:
+${basePrompt}
+
+Retorne um JSON com exatamente a mesma quantidade de sugestões, mas enriquecidas educacionalmente com os novos campos.
+` : basePrompt;
+
+    const finalPrompt = isEnrichmentMode ? enrichmentPrompt : basePrompt;
 
     // Chamar OpenAI
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -130,7 +168,7 @@ app.post("/api/suggestions", async (req, res) => {
           },
           {
             role: 'user', 
-            content: prompt
+            content: finalPrompt
           }
         ],
         temperature: parseFloat(process.env.AI_TEMPERATURE || '0.3'), // Mais focado
@@ -153,35 +191,56 @@ app.post("/api/suggestions", async (req, res) => {
       throw new Error('Resposta vazia da IA');
     }
 
-    // Processar resposta da IA e enriquecer sugestões
-    const enhancedSuggestions = processAIResponse(suggestions, aiSuggestion);
+    // Processar resposta da IA
+    const processedSuggestions = isEnrichmentMode 
+      ? processEnrichedResponse(suggestionsToProcess, aiSuggestion)
+      : processAIResponse(suggestionsToProcess, aiSuggestion);
 
-    console.log(`✅ Sugestões enriquecidas com IA: ${enhancedSuggestions.length} items`);
+    console.log(`✅ [SUGGESTIONS-API] Processamento concluído: ${processedSuggestions.length} sugestões`);
 
-    res.json({
+    // ✅ NOVO: Resposta adequada ao formato
+    const responseData = isEnrichmentMode ? {
       success: true,
-      enhancedSuggestions,
+      enrichedSuggestions: processedSuggestions,
+      source: 'ai_enriched',
+      message: `Sugestões enriquecidas educacionalmente`,
+      metadata: {
+        originalCount: suggestionsToProcess.length,
+        enhancedCount: processedSuggestions.length,
+        genre: processingGenre || 'não especificado',
+        processingTime: Date.now(),
+        mode: 'enrichment'
+      }
+    } : {
+      success: true,
+      enhancedSuggestions: processedSuggestions,
       source: 'ai',
       message: 'Sugestões enriquecidas com IA',
       metadata: {
-        originalCount: suggestions.length,
-        enhancedCount: enhancedSuggestions.length,
-        genre: genre || 'não especificado',
-        processingTime: Date.now()
+        originalCount: suggestionsToProcess.length,
+        enhancedCount: processedSuggestions.length,
+        genre: processingGenre || 'não especificado',
+        processingTime: Date.now(),
+        mode: 'legacy'
       }
-    });
+    };
+
+    res.json(responseData);
 
   } catch (error) {
     console.error("❌ Erro no endpoint de sugestões:", error.message);
     
     // Sempre retornar fallback em caso de erro
-    const { suggestions } = req.body;
+    const { action, originalSuggestions, suggestions } = req.body;
+    const fallbackSuggestions = originalSuggestions || suggestions || [];
+    
     res.json({
       success: true,
-      enhancedSuggestions: suggestions || [],
+      enhancedSuggestions: fallbackSuggestions,
       source: 'fallback',
       message: 'Usando sugestões básicas devido a erro na IA',
-      error: error.message
+      error: error.message,
+      mode: action === 'enrich_suggestions' ? 'enrichment_fallback' : 'legacy_fallback'
     });
   }
 });
@@ -291,7 +350,7 @@ function getGenreContext(genre) {
 - True Peak: máximo -1dBTP para streaming`;
 }
 
-// Função para processar resposta da IA
+// Função para processar resposta da IA (modo legado)
 function processAIResponse(originalSuggestions, aiResponse) {
   try {
     console.log("🤖 [AI-PROCESSING] Processando resposta da IA...");
@@ -408,6 +467,93 @@ function processAIResponse(originalSuggestions, aiResponse) {
         difficulty: 'intermediário',
         enhanced: false
       }
+    }));
+  }
+}
+
+// ✅ NOVA: Função para processar enriquecimento educativo
+function processEnrichedResponse(originalSuggestions, aiResponse) {
+  try {
+    console.log("🎓 [ENRICHMENT-PROCESSING] Processando enriquecimento educativo...");
+    
+    // Tentar parsear JSON da resposta
+    let aiData;
+    try {
+      aiData = JSON.parse(aiResponse);
+      console.log("✅ [ENRICHMENT-PROCESSING] JSON válido parseado");
+    } catch (jsonError) {
+      console.warn("⚠️ [ENRICHMENT-PROCESSING] JSON inválido, tentando extrair...");
+      // Tentar extrair JSON da resposta
+      const jsonMatch = aiResponse.match(/\[.*\]/s) || aiResponse.match(/\{.*\}/s);
+      if (jsonMatch) {
+        aiData = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('Formato de resposta inválido para enriquecimento');
+      }
+    }
+
+    // Validar se é um array de sugestões enriquecidas
+    const enrichedData = Array.isArray(aiData) ? aiData : (aiData.suggestions || aiData.enrichedSuggestions || []);
+    
+    if (!Array.isArray(enrichedData)) {
+      throw new Error('Resposta não contém array de sugestões enriquecidas');
+    }
+
+    console.log(`🎓 [ENRICHMENT-PROCESSING] ${enrichedData.length} sugestões enriquecidas recebidas`);
+
+    // Combinar sugestões originais com enriquecimento educativo da IA
+    const enriched = originalSuggestions.map((original, index) => {
+      const aiEnrichment = enrichedData[index];
+      
+      if (aiEnrichment) {
+        console.log(`📚 [ENRICHMENT-PROCESSING] Enriquecendo sugestão ${index + 1}: ${original.issue?.substring(0, 50)}...`);
+        
+        return {
+          ...original,
+          // Preservar estrutura original
+          category: original.category,
+          issue: original.issue,
+          solution: aiEnrichment.solution || original.solution,
+          severity: original.severity,
+          
+          // ✅ NOVOS CAMPOS EDUCATIVOS
+          educationalContext: aiEnrichment.educationalContext || `Conceito técnico relacionado a ${original.category}`,
+          learningTips: aiEnrichment.learningTips || ['Monitore este parâmetro durante a mixagem', 'Teste em diferentes sistemas de reprodução'],
+          
+          // Metadados de enriquecimento
+          aiEnriched: true,
+          enrichmentTimestamp: new Date().toISOString(),
+          source: 'ai_enriched',
+          
+          // Preservar campos técnicos originais
+          ...(original.frequency && { frequency: original.frequency }),
+          ...(original.value && { value: original.value }),
+          ...(original.threshold && { threshold: original.threshold })
+        };
+      }
+
+      console.log(`⚠️ [ENRICHMENT-PROCESSING] Sugestão ${index + 1} sem enriquecimento - mantendo original`);
+      
+      // Fallback: manter sugestão original sem modificação
+      return {
+        ...original,
+        aiEnriched: false,
+        source: 'original'
+      };
+    });
+
+    console.log(`✅ [ENRICHMENT-PROCESSING] ${enriched.length} sugestões processadas com enriquecimento`);
+    return enriched;
+
+  } catch (error) {
+    console.error("❌ Erro ao processar enriquecimento educativo:", error.message);
+    
+    // Fallback: retornar sugestões originais sem modificação
+    return originalSuggestions.map(original => ({
+      ...original,
+      aiEnriched: false,
+      source: 'original_fallback',
+      fallbackReason: 'Erro no enriquecimento IA'
     }));
   }
 }
