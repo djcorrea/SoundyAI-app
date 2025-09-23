@@ -159,16 +159,15 @@ window.testarSistemaUltraAvancadoManual = function() {
     }
 };
 
-// ❌ DESABILITADO: Monitor para evitar conflitos e loops
 // Aguardar carregamento e iniciar interceptação
-// window.addEventListener('DOMContentLoaded', function() {
-//     setTimeout(() => {
-//         console.log('🎯 [MODAL_MONITOR] Iniciando interceptação...');
-//         interceptarDisplayModalResults();
-//     }, 3000);
-// });
+window.addEventListener('DOMContentLoaded', function() {
+    setTimeout(() => {
+        console.log('🎯 [MODAL_MONITOR] Iniciando interceptação...');
+        interceptarDisplayModalResults();
+    }, 3000);
+});
 
 // Disponibilizar teste no console para debug
-console.log('💡 [MODAL_MONITOR] DESABILITADO - Para testar manualmente, execute: testarSistemaUltraAvancadoManual()');
+console.log('💡 [MODAL_MONITOR] Para testar manualmente, execute: testarSistemaUltraAvancadoManual()');
 
-console.log('🎯 [MODAL_MONITOR] Monitor desabilitado para evitar loops');
+console.log('🎯 [MODAL_MONITOR] Monitor carregado e aguardando análises de áudio');

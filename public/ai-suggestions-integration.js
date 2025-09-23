@@ -129,10 +129,10 @@ class AISuggestionsIntegration {
                 contextSuggestionsCount: payload.suggestionsContext ? payload.suggestionsContext.length : 0
             });
             
-            // ✅ VALIDAÇÃO DE PAYLOAD PARA ENRIQUECIMENTO
-            if (!payload.originalSuggestions || payload.originalSuggestions.length === 0) {
-                console.warn('⚠️ [AI-INTEGRATION] Payload sem sugestões para enriquecer - usando originais');
-                throw new Error('PAYLOAD_INVALID: Nenhuma sugestão para enriquecer');
+            // ✅ VALIDAÇÃO DE PAYLOAD ANTES DE ENVIAR
+            if (!payload.detectedIssues || payload.detectedIssues.length === 0) {
+                console.warn('⚠️ [AI-INTEGRATION] Payload sem problemas detectados - usando fallback');
+                throw new Error('PAYLOAD_INVALID: Nenhum problema detectado para análise');
             }
             
             // Enviar para a IA
@@ -152,54 +152,51 @@ class AISuggestionsIntegration {
             const data = await response.json();
             const processingTime = Date.now() - startTime;
             
-            console.log('📊 [AI-INTEGRATION] Resposta de enriquecimento da IA:', {
+            console.log('📊 [AI-INTEGRATION] Resposta completa da IA:', {
                 success: data.success,
                 source: data.source,
-                suggestionsOriginais: validSuggestions.length,
-                suggestionsEnriquecidas: data.enrichedSuggestions?.length || 0,
+                suggestionsRecebidas: suggestions?.length || 0,
+                suggestionsEnriquecidas: data.enhancedSuggestions?.length || 0,
                 processingTime: `${processingTime}ms`
             });
             
-            if (data.success && data.enrichedSuggestions?.length > 0) {
-                aiSuccessCount = data.enrichedSuggestions.length;
+            if (data.source === 'ai' && data.enhancedSuggestions?.length > 0) {
+                aiSuccessCount = data.enhancedSuggestions.length;
+                allEnhancedSuggestions.push(...data.enhancedSuggestions);
                 
-                // ✅ USAR SUGESTÕES ENRIQUECIDAS DIRETAMENTE
-                allEnhancedSuggestions = data.enrichedSuggestions;
-                
-                console.log('✅ [AI-INTEGRATION] IA enriqueceu sugestões com sucesso:', {
+                console.log('✅ [AI-INTEGRATION] IA processou com sucesso:', {
                     total: aiSuccessCount,
-                    exemploEnriquecido: data.enrichedSuggestions[0]?.educationalContent ? 'SIM' : 'NÃO'
+                    exemploBlocos: data.enhancedSuggestions[0]?.blocks ? Object.keys(data.enhancedSuggestions[0].blocks) : 'N/A'
                 });
                 
-                this.updateStatus('success', `IA enriqueceu ${aiSuccessCount} sugestões`);
+                this.updateStatus('success', `IA processou ${aiSuccessCount} sugestões`);
             } else {
-                console.warn('⚠️ [AI-INTEGRATION] IA não conseguiu enriquecer - usando originais:', {
+                console.error('❌ [AI-INTEGRATION] IA não retornou sugestões válidas:', {
                     source: data.source,
                     message: data.message,
                     error: data.error
                 });
-                aiErrorCount = validSuggestions?.length || 0;
-                allEnhancedSuggestions = validSuggestions; // Usar originais como fallback
-                this.updateStatus('warning', 'Usando sugestões originais');
+                aiErrorCount = suggestions?.length || 0;
+                this.updateStatus('error', 'IA não respondeu corretamente');
             }
             
-            // 🎯 USAR SUGESTÕES ENRIQUECIDAS OU ORIGINAIS (sem merge complexo)
-            const finalSuggestions = allEnhancedSuggestions.length > 0 ? allEnhancedSuggestions : validSuggestions;
+            // 🎯 MERGE INTELIGENTE: Sempre preservar TODAS as sugestões originais
+            const mergedSuggestions = this.mergeAISuggestionsWithOriginals(validSuggestions, allEnhancedSuggestions);
             
             // Log final detalhado
             console.log('📈 [AI-INTEGRATION] RESULTADO FINAL:', {
                 suggestionsOriginais: validSuggestions.length,
                 suggestionsEnriquecidas: allEnhancedSuggestions.length,
-                suggestionsFinais: finalSuggestions.length,
+                suggestionsFinais: mergedSuggestions.length,
                 sucessosIA: aiSuccessCount,
                 errosIA: aiErrorCount,
                 tempoTotal: `${processingTime}ms`,
-                tipoFinal: allEnhancedSuggestions.length > 0 ? 'ENRIQUECIDAS' : 'ORIGINAIS'
+                fonteFinal: data.source
             });
             
-            // ✅ EXIBIR sugestões finais (enriquecidas ou originais)
-            this.displaySuggestions(finalSuggestions, allEnhancedSuggestions.length > 0 ? 'ai' : 'local');
-            this.updateStats(finalSuggestions.length, processingTime, allEnhancedSuggestions.length > 0 ? 'ai' : 'local');
+            // ✅ SEMPRE exibir TODAS as sugestões (originais + enriquecidas)
+            this.displaySuggestions(mergedSuggestions, allEnhancedSuggestions.length > 0 ? 'ai' : 'local');
+            this.updateStats(mergedSuggestions.length, processingTime, allEnhancedSuggestions.length > 0 ? 'ai' : 'local');
             this.hideFallbackNotice();
             
         } catch (error) {
@@ -285,44 +282,117 @@ class AISuggestionsIntegration {
     }
 
     /**
-     * Construir payload para ENRIQUECIMENTO das sugestões reais
+     * Construir payload válido para o backend - FOCADO EM PROBLEMAS DETECTADOS
      */
     buildValidPayload(suggestions, metrics, genre) {
-        // Enviar as sugestões REAIS para enriquecimento educativo
+        // Em vez de enviar sugestões prontas, vamos enviar os PROBLEMAS DETECTADOS
+        const detectedIssues = this.extractDetectedIssues(suggestions, metrics);
+        
+        // Estrutura base do payload focada nos PROBLEMAS
         const payload = {
-            action: 'enrich_suggestions', // Especificar que é para enriquecimento
             genre: genre || 'geral',
-            originalSuggestions: suggestions.map(suggestion => ({
-                type: suggestion.type || 'optimization',
-                message: suggestion.message || suggestion.text || suggestion.description,
-                priority: suggestion.priority || 1.0,
-                targetValue: suggestion.targetValue,
-                currentValue: suggestion.currentValue,
-                action: suggestion.action,
-                justification: suggestion.why || suggestion.justification
-            })),
-            context: {
-                audioMetrics: this.normalizeMetrics(metrics),
-                totalSuggestions: suggestions.length,
-                genre: genre
-            }
+            metrics: this.normalizeMetrics(metrics),
+            detectedIssues: detectedIssues,
+            analysisContext: {
+                totalIssues: detectedIssues.length,
+                severityDistribution: this.categorizeSeverity(detectedIssues),
+                primaryConcerns: this.identifyPrimaryConcerns(detectedIssues)
+            },
+            // Manter suggestions para compatibilidade, mas marcar como contexto
+            suggestionsContext: suggestions.map(s => ({
+                category: s.category,
+                metric: s.metric,
+                priority: s.priority
+            }))
         };
 
-        console.log('📦 [AI-INTEGRATION] Payload para ENRIQUECIMENTO construído:', {
-            action: payload.action,
+        console.log('📦 [AI-INTEGRATION] Payload focado em PROBLEMAS construído:', {
             genre: payload.genre,
-            originalSuggestionsCount: payload.originalSuggestions.length,
-            contextKeys: Object.keys(payload.context)
+            detectedIssues: payload.detectedIssues.length,
+            primaryConcerns: payload.analysisContext.primaryConcerns,
+            contextSuggestions: payload.suggestionsContext.length
         });
 
         return payload;
     }
 
     /**
-     * ❌ FUNÇÃO REMOVIDA: extractDetectedIssues
-     * Não é mais necessária pois agora enviamos as sugestões reais diretamente
-     * para enriquecimento educativo, não para detectar problemas
+     * Extrair problemas detectados das sugestões e métricas
      */
+    extractDetectedIssues(suggestions, metrics) {
+        const issues = [];
+        
+        console.log('🔍 [AI-DEBUG] Analisando sugestões recebidas:', {
+            total: suggestions.length,
+            primeiraSugestao: suggestions[0],
+            estrutura: suggestions.length > 0 ? Object.keys(suggestions[0]) : 'N/A'
+        });
+        
+        // 1. Extrair problemas das sugestões existentes
+        suggestions.forEach((suggestion, index) => {
+            console.log(`🔍 [AI-DEBUG] Sugestão ${index}:`, {
+                hasType: !!suggestion.type,
+                hasMessage: !!suggestion.message,
+                hasText: !!suggestion.text,
+                hasAction: !!suggestion.action,
+                hasPriority: !!suggestion.priority,
+                type: suggestion.type,
+                message: suggestion.message?.substring(0, 50) + '...',
+                todasChaves: Object.keys(suggestion)
+            });
+            
+            // CORRIGIDO: mapear campos reais das sugestões do Enhanced Engine
+            const issueType = suggestion.type || suggestion.category || 'unknown';
+            const description = suggestion.message || suggestion.text || suggestion.description || suggestion.action;
+            
+            if (issueType && description) {
+                const issue = {
+                    type: issueType,
+                    description: description,
+                    severity: this.mapPriorityToSeverity(suggestion.priority || 1.0),
+                    metric: suggestion.metricType || suggestion.metric || issueType,
+                    source: 'suggestion_engine'
+                };
+                issues.push(issue);
+                console.log(`✅ [AI-DEBUG] Issue adicionado:`, issue);
+            } else {
+                console.log(`❌ [AI-DEBUG] Sugestão ${index} rejeitada:`, {
+                    type: issueType,
+                    description: !!description,
+                    hasMappableFields: !!(suggestion.message || suggestion.text || suggestion.action)
+                });
+            }
+        });
+
+        // 2. FALLBACK: Se poucos issues foram detectados, criar com base em campos genéricos
+        if (issues.length === 0 && suggestions.length > 0) {
+            console.log('🔄 [AI-FALLBACK] Aplicando lógica de fallback para detectar problemas...');
+            
+            suggestions.forEach((suggestion, index) => {
+                const fallbackIssue = {
+                    type: 'audio_optimization',
+                    description: suggestion.message || suggestion.text || suggestion.action || `Sugestão de melhoria ${index + 1}`,
+                    severity: this.mapPriorityToSeverity(suggestion.priority || 1.0),
+                    metric: 'general',
+                    source: 'fallback_detection'
+                };
+                issues.push(fallbackIssue);
+                console.log(`🔄 [AI-FALLBACK] Issue criado:`, fallbackIssue);
+            });
+        }
+
+        // 3. Detectar problemas diretamente das métricas
+        const metricIssues = this.detectMetricIssues(metrics);
+        issues.push(...metricIssues);
+
+        console.log('🔍 [AI-INTEGRATION] Problemas detectados:', {
+            fromSuggestions: suggestions.length,
+            fromMetrics: metricIssues.length,
+            total: issues.length
+        });
+
+        return issues;
+    }
 
     /**
      * Detectar problemas diretamente das métricas
@@ -895,11 +965,12 @@ class AISuggestionsIntegration {
             
             console.log('✅ [AI-INTEGRATION] Integração com displayModalResults configurada');
         } else {
-            console.warn('⚠️ [AI-INTEGRATION] displayModalResults não encontrada - integracao desabilitada');
-            // ❌ DESABILITADO: Não retentar para evitar loop infinito
-            // setTimeout(() => {
-            //     this.integrateWithExistingSystem();
-            // }, 1000);
+            console.warn('⚠️ [AI-INTEGRATION] displayModalResults não encontrada - aguardando...');
+            
+            // Retry in 1 second
+            setTimeout(() => {
+                this.integrateWithExistingSystem();
+            }, 1000);
         }
     }
 }
@@ -907,30 +978,28 @@ class AISuggestionsIntegration {
 // Initialize AI system
 let aiSuggestionsSystem;
 
-// ❌ DESABILITADO: Inicialização automática da IA para evitar loops
 // Wait for DOM to be ready
-// if (document.readyState === 'loading') {
-//     document.addEventListener('DOMContentLoaded', initializeAISuggestions);
-// } else {
-//     initializeAISuggestions();
-// }
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeAISuggestions);
+} else {
+    initializeAISuggestions();
+}
 
 function initializeAISuggestions() {
-    console.log('⚠️ [AI-INTEGRATION] Inicialização automática desabilitada para evitar loops');
-    // try {
-    //     aiSuggestionsSystem = new AISuggestionsIntegration();
+    try {
+        aiSuggestionsSystem = new AISuggestionsIntegration();
         
-    //     // Integrate with existing system
-    //     aiSuggestionsSystem.integrateWithExistingSystem();
+        // Integrate with existing system
+        aiSuggestionsSystem.integrateWithExistingSystem();
         
-    //     // Expose globally for manual testing
-    //     window.aiSuggestionsSystem = aiSuggestionsSystem;
+        // Expose globally for manual testing
+        window.aiSuggestionsSystem = aiSuggestionsSystem;
         
-    //     console.log('🚀 [AI-INTEGRATION] Sistema iniciado e pronto para uso');
+        console.log('🚀 [AI-INTEGRATION] Sistema iniciado e pronto para uso');
         
-    // } catch (error) {
-    //     console.error('❌ [AI-INTEGRATION] Erro na inicialização:', error);
-    // }
+    } catch (error) {
+        console.error('❌ [AI-INTEGRATION] Erro na inicialização:', error);
+    }
 }
 
 // Global functions for UI interactions
