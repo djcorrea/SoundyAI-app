@@ -76,7 +76,9 @@ class AISuggestionsIntegration {
             this.currentSuggestions = [];
             
             // Mostrar container sem loading
-            this.showContainer();
+            // TODO: simple modal removed by design (AI-only)
+            // this.showContainer();
+            console.log('🚫 [AI-INTEGRATION] Container aiSuggestionsExpanded desabilitado - usando apenas modal roxo');
             this.setLoadingState(false);
             this.updateStatus('info', 'Áudio analisado');
             this.hideFallbackNotice();
@@ -108,7 +110,9 @@ class AISuggestionsIntegration {
         this.currentSuggestions = validSuggestions;
         
         // Show container and loading state
-        this.showContainer();
+        // TODO: simple modal removed by design (AI-only)
+        // this.showContainer();
+        console.log('🚫 [AI-INTEGRATION] Container aiSuggestionsExpanded desabilitado - usando apenas modal roxo');
         this.setLoadingState(true);
         this.updateStatus('processing', `Processando ${validSuggestions.length} sugestões...`);
         
@@ -125,8 +129,15 @@ class AISuggestionsIntegration {
             console.log('📦 [AI-INTEGRATION] Payload construído:', {
                 genre: payload.genre,
                 metricsKeys: Object.keys(payload.metrics),
-                suggestionsCount: payload.suggestions.length
+                detectedIssuesCount: payload.detectedIssues ? payload.detectedIssues.length : 0,
+                contextSuggestionsCount: payload.suggestionsContext ? payload.suggestionsContext.length : 0
             });
+            
+            // ✅ VALIDAÇÃO DE PAYLOAD ANTES DE ENVIAR
+            if (!payload.detectedIssues || payload.detectedIssues.length === 0) {
+                console.warn('⚠️ [AI-INTEGRATION] Payload sem problemas detectados - usando fallback');
+                throw new Error('PAYLOAD_INVALID: Nenhum problema detectado para análise');
+            }
             
             // Enviar para a IA
             const response = await fetch(this.apiEndpoint, {
@@ -195,7 +206,17 @@ class AISuggestionsIntegration {
         } catch (error) {
             console.error('❌ [AI-INTEGRATION] Erro crítico no processamento:', error);
             
-            // Se der erro, tentar retry
+            // Se for erro de payload inválido, não tentar retry - exibir sugestões originais
+            if (error.message.includes('PAYLOAD_INVALID')) {
+                console.log('🔄 [AI-INTEGRATION] Payload inválido - exibindo sugestões originais');
+                this.updateStatus('ready', 'Sugestões locais');
+                this.displaySuggestions(validSuggestions, 'local');
+                this.updateStats(validSuggestions.length, Date.now() - startTime, 'local');
+                this.hideFallbackNotice();
+                return;
+            }
+            
+            // Se der erro, tentar retry apenas para erros de conexão
             if (this.retryAttempts < this.maxRetries) {
                 this.retryAttempts++;
                 console.log(`🔄 [AI-INTEGRATION] Tentativa ${this.retryAttempts}/${this.maxRetries}...`);
@@ -211,12 +232,12 @@ class AISuggestionsIntegration {
                 return;
             }
             
-            // Erro final - não mostrar fallback, só erro
-            console.error('🚫 [AI-INTEGRATION] FALHA TOTAL após todas as tentativas');
-            this.updateStatus('error', 'Erro na conexão');
-            this.showFallbackNotice('Erro na conexão com IA. Verifique sua internet e tente novamente.');
-            this.displaySuggestions([], 'error');
-            this.updateStats(0, Date.now() - startTime, 'error');
+            // Erro final - exibir sugestões originais como fallback
+            console.error('🚫 [AI-INTEGRATION] FALHA TOTAL - exibindo sugestões originais');
+            this.updateStatus('ready', 'Sugestões locais (IA indisponível)');
+            this.displaySuggestions(validSuggestions, 'local');
+            this.updateStats(validSuggestions.length, Date.now() - startTime, 'local');
+            this.showFallbackNotice('IA temporariamente indisponível. Exibindo análise local.');
             
         } finally {
             this.setLoadingState(false);
@@ -265,23 +286,201 @@ class AISuggestionsIntegration {
     }
 
     /**
-     * Construir payload válido para o backend
+     * Construir payload válido para o backend - FOCADO EM PROBLEMAS DETECTADOS
      */
     buildValidPayload(suggestions, metrics, genre) {
-        // Estrutura base do payload
+        // Em vez de enviar sugestões prontas, vamos enviar os PROBLEMAS DETECTADOS
+        const detectedIssues = this.extractDetectedIssues(suggestions, metrics);
+        
+        // Estrutura base do payload focada nos PROBLEMAS
         const payload = {
             genre: genre || 'geral',
             metrics: this.normalizeMetrics(metrics),
-            suggestions: suggestions
+            detectedIssues: detectedIssues,
+            analysisContext: {
+                totalIssues: detectedIssues.length,
+                severityDistribution: this.categorizeSeverity(detectedIssues),
+                primaryConcerns: this.identifyPrimaryConcerns(detectedIssues)
+            },
+            // Manter suggestions para compatibilidade, mas marcar como contexto
+            suggestionsContext: suggestions.map(s => ({
+                category: s.category,
+                metric: s.metric,
+                priority: s.priority
+            }))
         };
 
-        console.log('📦 [AI-INTEGRATION] Payload válido construído:', {
+        console.log('📦 [AI-INTEGRATION] Payload focado em PROBLEMAS construído:', {
             genre: payload.genre,
-            metricsStructure: Object.keys(payload.metrics),
-            suggestionsCount: payload.suggestions.length
+            detectedIssues: payload.detectedIssues.length,
+            primaryConcerns: payload.analysisContext.primaryConcerns,
+            contextSuggestions: payload.suggestionsContext.length
         });
 
         return payload;
+    }
+
+    /**
+     * Extrair problemas detectados das sugestões e métricas
+     */
+    extractDetectedIssues(suggestions, metrics) {
+        const issues = [];
+        
+        console.log('🔍 [AI-DEBUG] Analisando sugestões recebidas:', {
+            total: suggestions.length,
+            primeiraSugestao: suggestions[0],
+            estrutura: suggestions.length > 0 ? Object.keys(suggestions[0]) : 'N/A'
+        });
+        
+        // 1. Extrair problemas das sugestões existentes
+        suggestions.forEach((suggestion, index) => {
+            console.log(`🔍 [AI-DEBUG] Sugestão ${index}:`, {
+                hasType: !!suggestion.type,
+                hasMessage: !!suggestion.message,
+                hasText: !!suggestion.text,
+                hasAction: !!suggestion.action,
+                hasPriority: !!suggestion.priority,
+                type: suggestion.type,
+                message: suggestion.message?.substring(0, 50) + '...',
+                todasChaves: Object.keys(suggestion)
+            });
+            
+            // CORRIGIDO: mapear campos reais das sugestões do Enhanced Engine
+            const issueType = suggestion.type || suggestion.category || 'unknown';
+            const description = suggestion.message || suggestion.text || suggestion.description || suggestion.action;
+            
+            if (issueType && description) {
+                const issue = {
+                    type: issueType,
+                    description: description,
+                    severity: this.mapPriorityToSeverity(suggestion.priority || 1.0),
+                    metric: suggestion.metricType || suggestion.metric || issueType,
+                    source: 'suggestion_engine'
+                };
+                issues.push(issue);
+                console.log(`✅ [AI-DEBUG] Issue adicionado:`, issue);
+            } else {
+                console.log(`❌ [AI-DEBUG] Sugestão ${index} rejeitada:`, {
+                    type: issueType,
+                    description: !!description,
+                    hasMappableFields: !!(suggestion.message || suggestion.text || suggestion.action)
+                });
+            }
+        });
+
+        // 2. FALLBACK: Se poucos issues foram detectados, criar com base em campos genéricos
+        if (issues.length === 0 && suggestions.length > 0) {
+            console.log('🔄 [AI-FALLBACK] Aplicando lógica de fallback para detectar problemas...');
+            
+            suggestions.forEach((suggestion, index) => {
+                const fallbackIssue = {
+                    type: 'audio_optimization',
+                    description: suggestion.message || suggestion.text || suggestion.action || `Sugestão de melhoria ${index + 1}`,
+                    severity: this.mapPriorityToSeverity(suggestion.priority || 1.0),
+                    metric: 'general',
+                    source: 'fallback_detection'
+                };
+                issues.push(fallbackIssue);
+                console.log(`🔄 [AI-FALLBACK] Issue criado:`, fallbackIssue);
+            });
+        }
+
+        // 3. Detectar problemas diretamente das métricas
+        const metricIssues = this.detectMetricIssues(metrics);
+        issues.push(...metricIssues);
+
+        console.log('🔍 [AI-INTEGRATION] Problemas detectados:', {
+            fromSuggestions: suggestions.length,
+            fromMetrics: metricIssues.length,
+            total: issues.length
+        });
+
+        return issues;
+    }
+
+    /**
+     * Detectar problemas diretamente das métricas
+     */
+    detectMetricIssues(metrics) {
+        const issues = [];
+        
+        // Verificar loudness
+        if (metrics.loudness !== undefined && metrics.loudness.target !== undefined) {
+            const current = metrics.loudness.value || metrics.loudness;
+            const target = metrics.loudness.target;
+            const tolerance = metrics.loudness.tolerance || 1.0;
+            const deviation = Math.abs(current - target);
+            
+            if (deviation > tolerance) {
+                issues.push({
+                    type: 'loudness',
+                    description: `Loudness atual (${current} LUFS) ${current > target ? 'acima' : 'abaixo'} do target (${target} LUFS)`,
+                    severity: deviation > tolerance * 2 ? 'high' : 'medium',
+                    metric: 'loudness',
+                    currentValue: current,
+                    targetValue: target,
+                    deviation: deviation,
+                    source: 'metrics_analysis'
+                });
+            }
+        }
+
+        // Verificar true peak
+        if (metrics.truePeak !== undefined && metrics.truePeak.target !== undefined) {
+            const current = metrics.truePeak.value || metrics.truePeak;
+            const target = metrics.truePeak.target;
+            const tolerance = metrics.truePeak.tolerance || 0.5;
+            const deviation = Math.abs(current - target);
+            
+            if (deviation > tolerance) {
+                issues.push({
+                    type: 'truePeak',
+                    description: `True Peak atual (${current} dB) ${current > target ? 'acima' : 'abaixo'} do target (${target} dB)`,
+                    severity: deviation > tolerance * 2 ? 'high' : 'medium',
+                    metric: 'truePeak',
+                    currentValue: current,
+                    targetValue: target,
+                    deviation: deviation,
+                    source: 'metrics_analysis'
+                });
+            }
+        }
+
+        return issues;
+    }
+
+    /**
+     * Mapear prioridade para severidade
+     */
+    mapPriorityToSeverity(priority) {
+        const mapping = {
+            'urgent': 'high',
+            'high': 'high',
+            'medium': 'medium',
+            'low': 'low'
+        };
+        return mapping[priority] || 'medium';
+    }
+
+    /**
+     * Categorizar severidade dos problemas
+     */
+    categorizeSeverity(issues) {
+        const distribution = { high: 0, medium: 0, low: 0 };
+        issues.forEach(issue => {
+            distribution[issue.severity] = (distribution[issue.severity] || 0) + 1;
+        });
+        return distribution;
+    }
+
+    /**
+     * Identificar principais preocupações
+     */
+    identifyPrimaryConcerns(issues) {
+        return issues
+            .filter(issue => issue.severity === 'high')
+            .map(issue => issue.type)
+            .slice(0, 3); // Top 3 concerns
     }
 
     /**

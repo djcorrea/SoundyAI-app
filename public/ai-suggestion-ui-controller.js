@@ -140,26 +140,42 @@ class AISuggestionUIController {
     }
     
     /**
-     * 🤖 Verificar e processar sugestões IA
+     * 🤖 Verificar e processar sugestões IA - NOVA VERSÃO (só modal roxo)
      */
-    checkForAISuggestions(analysis) {
+    async checkForAISuggestions(analysis) {
         if (!analysis || !analysis.suggestions) return;
         
-        // Verificar se há sugestões enriquecidas com IA
-        const aiSuggestions = analysis.suggestions.filter(s => s.ai_enhanced === true);
+        console.log(`🚀 [AI-UI] Processando ${analysis.suggestions.length} sugestões...`);
         
-        if (aiSuggestions.length > 0) {
-            console.log(`🤖 [AI-UI] ${aiSuggestions.length} sugestões IA detectadas`);
-            this.displayAISuggestions(aiSuggestions, analysis);
-        } else {
-            // 🚀 FORÇA EXIBIÇÃO: Mesmo sem IA configurada, mostrar interface com sugestões base
-            if (analysis.suggestions && analysis.suggestions.length > 0) {
-                console.log(`🤖 [AI-UI] Exibindo ${analysis.suggestions.length} sugestões base (IA não configurada)`);
-                this.displayBaseSuggestions(analysis.suggestions, analysis);
-            } else {
-                this.hideAISection();
+        // Feature flag para rollback rápido
+        if (window.AI_ENRICH_ENABLED === false) {
+            console.log('🔄 [AI-UI] AI_ENRICH_ENABLED=false, usando modo legado');
+            this.displayBaseSuggestions(analysis.suggestions, analysis);
+            return;
+        }
+        
+        // 🎯 SEMPRE tentar enriquecer via backend (se disponível)
+        if (window.aiSuggestionLayer && typeof window.aiSuggestionLayer.fetchEnrichedSuggestions === 'function') {
+            try {
+                console.log('🔄 [AI-UI] Chamando backend para enriquecimento...');
+                const { ok, suggestions, source } = await window.aiSuggestionLayer.fetchEnrichedSuggestions(analysis.suggestions);
+                
+                if (ok && suggestions.length > 0) {
+                    console.log(`✅ [AI-UI] Enriquecimento ${source} concluído: ${suggestions.length} sugestões`);
+                    // DIRETO para o modal roxo com sugestões enriquecidas
+                    this.displayEnrichedSuggestionsInPurpleModal(suggestions, analysis);
+                    return;
+                } else {
+                    console.warn('⚠️ [AI-UI] Enriquecimento falhou, usando fallback');
+                }
+            } catch (error) {
+                console.error('❌ [AI-UI] Erro no enriquecimento:', error);
             }
         }
+        
+        // FALLBACK: Renderizar sugestões originais no modal roxo (sem duplicação)
+        console.log('🔄 [AI-UI] Usando fallback - renderizando sugestões originais no modal roxo');
+        this.displayEnrichedSuggestionsInPurpleModal(analysis.suggestions, analysis, false);
     }
     
     /**
@@ -190,9 +206,11 @@ class AISuggestionUIController {
     }
     
     /**
-     * 🎨 Exibir sugestões base (sem IA) na interface
+     * 🎨 LEGADO: Exibir sugestões base (APENAS para rollback via feature flag)
      */
     displayBaseSuggestions(suggestions, analysis) {
+        console.log('⚠️ [AI-UI] displayBaseSuggestions chamado - modo legado ativado');
+        
         if (!this.elements.aiSection) return;
         
         this.currentSuggestions = suggestions;
@@ -218,7 +236,7 @@ class AISuggestionUIController {
         // Adicionar mensagem para configurar IA
         this.addConfigPrompt();
         
-        console.log('🎨 [AI-UI] Sugestões base exibidas (IA não configurada)');
+        console.log('🎨 [AI-UI] Sugestões base exibidas (modo legado)');
     }
     
     /**
@@ -767,6 +785,31 @@ class AISuggestionUIController {
             this.elements.aiSection.style.display = 'none';
             console.log('🎯 [AI-UI] Seção IA ocultada');
         }
+    }
+
+    /**
+     * 🎯 NOVO: Exibir sugestões enriquecidas APENAS no modal roxo
+     */
+    displayEnrichedSuggestionsInPurpleModal(suggestions, analysis, isEnriched = true) {
+        if (!this.elements.fullModal || !suggestions || suggestions.length === 0) return;
+        
+        console.log(`🎨 [AI-UI] Renderizando ${suggestions.length} sugestões no modal roxo (enriquecidas: ${isEnriched})`);
+        
+        // Configurar sugestões atuais
+        this.currentSuggestions = suggestions;
+        
+        // Ocultar seção AI antiga (modal simples)
+        this.hideAISection();
+        
+        // Renderizar diretamente no modal roxo
+        this.renderFullSuggestions(suggestions);
+        
+        // Abrir modal roxo automaticamente
+        this.openFullModal();
+        
+        // Log de sucesso
+        const source = isEnriched ? 'backend' : 'fallback';
+        console.log(`✅ [AI-UI] Modal roxo exibido com sugestões (fonte: ${source})`);
     }
 }
 

@@ -30,6 +30,36 @@ class AISuggestionLayer {
         // Auto-configurar API key se disponível
         this.autoConfigureApiKey();
     }
+
+    /**
+     * 🌐 NOVA FUNÇÃO: Buscar sugestões enriquecidas do backend
+     */
+    async fetchEnrichedSuggestions(simpleSuggestions) {
+        try {
+            console.log(`🔄 [AI-LAYER] Enviando ${simpleSuggestions.length} sugestões para enriquecimento...`);
+            
+            const res = await fetch("/api/enrich-suggestions", {
+                method: "POST",
+                headers: {"Content-Type":"application/json"},
+                body: JSON.stringify({ suggestions: simpleSuggestions })
+            });
+            
+            const data = await res.json();
+            
+            if (!data?.ok || !Array.isArray(data?.suggestions)) {
+                console.warn("[AI-LAYER] Resposta inválida do backend, usando fallback local.");
+                return { ok: false, suggestions: simpleSuggestions, source: "fallback" };
+            }
+            
+            console.log(`✅ [AI-LAYER] Backend retornou ${data.suggestions.length} sugestões enriquecidas`);
+            return { ok: true, suggestions: data.suggestions, source: "backend" };
+            
+        } catch (e) {
+            console.error("[AI-LAYER] Erro no enriquecimento backend:", e);
+            return { ok: false, suggestions: simpleSuggestions, source: "fallback" };
+        }
+    }
+    }
     
     /**
      * 🔑 Auto-configuração da API Key
