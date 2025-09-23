@@ -1,7 +1,26 @@
 // 🎨 AI SUGGESTION UI CONTROLLER - Controle da Interface de Sugestões IA
-// Sistema de interface futurista para exibição de sugestões enriquecidas
-
-class AISuggestionUIController {
+// Sistema de interface futurista para exibição de sugestões en    /**
+     * 🔍 Verificar e processar sugestões IA
+     */
+    checkForAISuggestions(analysis) {
+        if (!analysis || !analysis.suggestions) return;
+        
+        // Verificar se há sugestões enriquecidas com IA
+        const aiSuggestions = analysis.suggestions.filter(s => s.ai_enhanced === true);
+        
+        if (aiSuggestions.length > 0) {
+            console.log(`🤖 [AI-UI] ${aiSuggestions.length} sugestões IA detectadas`);
+            this.displayAISuggestions(aiSuggestions, analysis);
+        } else {
+            // 🚀 FORÇA EXIBIÇÃO: Mesmo sem IA configurada, mostrar interface com sugestões base
+            if (analysis.suggestions && analysis.suggestions.length > 0) {
+                console.log(`🤖 [AI-UI] Exibindo ${analysis.suggestions.length} sugestões base (IA não configurada)`);
+                this.displayBaseSuggestions(analysis.suggestions, analysis);
+            } else {
+                this.hideAISection();
+            }
+        }
+    }ass AISuggestionUIController {
     constructor() {
         this.isInitialized = false;
         this.currentSuggestions = [];
@@ -149,7 +168,13 @@ class AISuggestionUIController {
             console.log(`🤖 [AI-UI] ${aiSuggestions.length} sugestões IA detectadas`);
             this.displayAISuggestions(aiSuggestions, analysis);
         } else {
-            this.hideAISection();
+            // 🚀 FORÇA EXIBIÇÃO: Mesmo sem IA configurada, mostrar interface com sugestões base
+            if (analysis.suggestions && analysis.suggestions.length > 0) {
+                console.log(`🤖 [AI-UI] Exibindo ${analysis.suggestions.length} sugestões base (IA não configurada)`);
+                this.displayBaseSuggestions(analysis.suggestions, analysis);
+            } else {
+                this.hideAISection();
+            }
         }
     }
     
@@ -181,19 +206,79 @@ class AISuggestionUIController {
     }
     
     /**
+     * 🎨 Exibir sugestões base (sem IA) na interface
+     */
+    displayBaseSuggestions(suggestions, analysis) {
+        if (!this.elements.aiSection) return;
+        
+        this.currentSuggestions = suggestions;
+        
+        // Mostrar seção
+        this.elements.aiSection.style.display = 'block';
+        this.elements.aiSection.classList.add('ai-fade-in');
+        
+        // Atualizar status para indicar que IA não está configurada
+        this.updateStatus('disabled', 'IA não configurada - sugestões base');
+        
+        // Atualizar modelo
+        if (this.elements.aiModelBadge) {
+            this.elements.aiModelBadge.textContent = 'BASE';
+        }
+        
+        // Renderizar preview compacto das sugestões base
+        this.renderCompactPreview(suggestions, true);
+        
+        // Adicionar botão para expandir
+        this.addExpandButton();
+        
+        // Adicionar mensagem para configurar IA
+        this.addConfigPrompt();
+        
+        console.log('🎨 [AI-UI] Sugestões base exibidas (IA não configurada)');
+    }
+    
+    /**
      * 📋 Renderizar preview compacto das sugestões
      */
-    renderCompactPreview(suggestions) {
+    renderCompactPreview(suggestions, isBaseSuggestions = false) {
         if (!this.elements.aiContent) return;
         
         const preview = suggestions.slice(0, 3); // Máximo 3 no preview
         const hasMore = suggestions.length > 3;
         
         let html = preview.map((suggestion, index) => {
-            const category = suggestion.ai_category || 'geral';
-            const priority = suggestion.ai_priority || 5;
-            const problemText = suggestion.ai_blocks?.problema || suggestion.title || suggestion.message;
-            const solutionText = suggestion.ai_blocks?.solucao || suggestion.description || suggestion.action;
+            const category = suggestion.ai_category || suggestion.category || 'geral';
+            const priority = suggestion.ai_priority || suggestion.priority || 5;
+            const problemText = suggestion.ai_blocks?.problema || suggestion.title || suggestion.message || suggestion.original;
+            const solutionText = suggestion.ai_blocks?.solucao || suggestion.description || suggestion.action || suggestion.educationalTitle;
+            
+            // Se for sugestão base, usar formato simples
+            if (isBaseSuggestions) {
+                return `
+                    <div class="ai-suggestion-card ai-compact ai-base-suggestion ai-new" style="animation-delay: ${index * 0.1}s">
+                        <div class="ai-suggestion-header">
+                            <span class="ai-suggestion-category">${category}</span>
+                            <div class="ai-suggestion-priority base">${priority}</div>
+                        </div>
+                        
+                        <div class="ai-suggestion-preview">
+                            <div class="ai-block ai-block-problema">
+                                <div class="ai-block-title">⚠️ Problema</div>
+                                <div class="ai-block-content">${problemText}</div>
+                            </div>
+                            
+                            <div class="ai-block ai-block-solucao">
+                                <div class="ai-block-title">🛠️ Solução</div>
+                                <div class="ai-block-content">${solutionText}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="ai-base-notice">
+                            💡 Configure API Key para sugestões inteligentes
+                        </div>
+                    </div>
+                `;
+            }
             
             return `
                 <div class="ai-suggestion-card ai-compact ai-new" style="animation-delay: ${index * 0.1}s">
@@ -228,6 +313,30 @@ class AISuggestionUIController {
         }
         
         this.elements.aiContent.innerHTML = html;
+    }
+    
+    /**
+     * 💡 Adicionar prompt de configuração para sugestões base
+     */
+    addConfigPrompt() {
+        if (!this.elements.aiContent) return;
+        
+        const configPrompt = document.createElement('div');
+        configPrompt.className = 'ai-config-prompt';
+        configPrompt.innerHTML = `
+            <div class="ai-config-message">
+                <span class="ai-config-icon">🚀</span>
+                <div class="ai-config-text">
+                    <strong>Quer sugestões mais inteligentes?</strong>
+                    <p>Configure sua API Key da OpenAI para receber análises detalhadas com IA</p>
+                </div>
+                <button class="action-btn primary" onclick="aiUIController.showQuickConfig()">
+                    ⚙️ Configurar IA
+                </button>
+            </div>
+        `;
+        
+        this.elements.aiContent.appendChild(configPrompt);
     }
     
     /**

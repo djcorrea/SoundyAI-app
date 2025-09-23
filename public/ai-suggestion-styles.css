@@ -488,6 +488,67 @@
     color: #f87171;
 }
 
+/* 🎨 Sugestões Base (sem IA) */
+.ai-suggestion-card.ai-base-suggestion {
+    background: linear-gradient(135deg, 
+        rgba(255, 193, 7, 0.1) 0%, 
+        rgba(255, 193, 7, 0.05) 100%);
+    border-color: rgba(255, 193, 7, 0.3);
+}
+
+.ai-suggestion-card.ai-base-suggestion:hover {
+    border-color: rgba(255, 193, 7, 0.5);
+}
+
+.ai-base-notice {
+    background: rgba(255, 193, 7, 0.1);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    margin-top: 0.75rem;
+    font-size: 0.875rem;
+    color: #f59e0b;
+    text-align: center;
+}
+
+/* 🎨 Prompt de Configuração */
+.ai-config-prompt {
+    background: linear-gradient(135deg, 
+        rgba(99, 102, 241, 0.1) 0%, 
+        rgba(99, 102, 241, 0.05) 100%);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-top: 1rem;
+    animation: aiPulseGlow 2s ease-in-out infinite;
+}
+
+.ai-config-message {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.ai-config-icon {
+    font-size: 1.5rem;
+    animation: aiFloat 3s ease-in-out infinite;
+}
+
+.ai-config-text {
+    flex: 1;
+}
+
+.ai-config-text strong {
+    color: #6366f1;
+    font-weight: 600;
+}
+
+.ai-config-text p {
+    margin: 0.25rem 0 0 0;
+    font-size: 0.875rem;
+    opacity: 0.8;
+}
+
 .ai-suggestions-empty {
     padding: 24px;
     text-align: center;

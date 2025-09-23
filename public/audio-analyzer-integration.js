@@ -6042,6 +6042,12 @@ function updateReferenceSuggestions(analysis) {
                                 
                                 console.log(`🤖 [AI-LAYER] ✅ Enhanced Engine + IA: ${enhancedSuggestions.length} sugestões`);
                                 
+                                // 🚀 FORÇA EXIBIÇÃO: Sempre mostrar interface IA
+                                if (window.aiUIController) {
+                                    console.log(`🚀 [FORCE-AI-UI] Forçando exibição da interface IA com ${enhancedSuggestions.length} sugestões`);
+                                    window.aiUIController.checkForAISuggestions(analysis);
+                                }
+                                
                                 // Re-renderizar se modal visível
                                 if (document.getElementById('audioAnalysisModal')?.style.display !== 'none') {
                                     displayModalResults(analysis);
