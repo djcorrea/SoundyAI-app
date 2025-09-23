@@ -80,28 +80,35 @@ app.post("/api/suggestions", async (req, res) => {
   try {
     const { suggestions, metrics, genre } = req.body;
 
+    console.log(`🚀 [AI-API] Recebidas ${suggestions?.length || 0} sugestões para processamento`);
+
     // Validação dos dados de entrada
-    if (!suggestions || !Array.isArray(suggestions)) {
+    if (!suggestions || !Array.isArray(suggestions) || suggestions.length === 0) {
+      console.error("❌ [AI-API] Lista de sugestões inválida");
       return res.status(400).json({ 
-        error: "Lista de sugestões é obrigatória",
-        fallbackSuggestions: suggestions || []
+        error: "Lista de sugestões é obrigatória e não pode estar vazia",
+        received: suggestions
       });
     }
 
-    // Se não tiver API key, retornar sugestões normais
+    // Se não tiver API key, retornar erro (não fallback)
     const openaiApiKey = process.env.OPENAI_API_KEY;
     if (!openaiApiKey || openaiApiKey === 'your_openai_api_key_here') {
-      console.log("⚠️ OpenAI API Key não configurada - usando fallback");
-      return res.json({
-        success: true,
-        enhancedSuggestions: suggestions,
-        source: 'fallback',
-        message: 'Sugestões básicas (IA indisponível)'
+      console.error("⚠️ [AI-API] OpenAI API Key não configurada");
+      return res.status(503).json({
+        success: false,
+        error: 'API Key da IA não configurada',
+        source: 'error',
+        message: 'Configure OPENAI_API_KEY nas variáveis de ambiente'
       });
     }
 
-    // Construir prompt para IA
+    console.log(`📋 [AI-API] Construindo prompt para ${suggestions.length} sugestões do gênero: ${genre || 'geral'}`);
+
+    // Construir prompt para TODAS as sugestões
     const prompt = buildSuggestionPrompt(suggestions, metrics, genre);
+
+    console.log(`🤖 [AI-API] Enviando prompt para OpenAI...`);
 
     // Chamar OpenAI
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -166,32 +173,42 @@ Analisar os PROBLEMAS de áudio detectados e gerar sugestões EDUCATIVAS, claras
     // Processar resposta da IA e enriquecer sugestões
     const enhancedSuggestions = processAIResponse(suggestions, aiSuggestion);
 
-    console.log(`✅ Sugestões enriquecidas com IA: ${enhancedSuggestions.length} items`);
+    console.log(`✅ [AI-API] Processamento concluído:`, {
+      suggestionsOriginais: suggestions.length,
+      suggestionsEnriquecidas: enhancedSuggestions.length,
+      sucessoTotal: enhancedSuggestions.length === suggestions.length ? 'SIM' : 'PARCIAL'
+    });
 
     res.json({
       success: true,
       enhancedSuggestions,
       source: 'ai',
-      message: 'Sugestões enriquecidas com IA',
+      message: `${enhancedSuggestions.length} sugestões enriquecidas pela IA`,
       metadata: {
         originalCount: suggestions.length,
         enhancedCount: enhancedSuggestions.length,
         genre: genre || 'não especificado',
-        processingTime: Date.now()
+        processingTime: Date.now(),
+        aiSuccess: enhancedSuggestions.length,
+        aiErrors: Math.max(0, suggestions.length - enhancedSuggestions.length)
       }
     });
 
   } catch (error) {
-    console.error("❌ Erro no endpoint de sugestões:", error.message);
+    console.error("❌ [AI-API] Erro crítico no processamento:", error.message);
     
-    // Sempre retornar fallback em caso de erro
-    const { suggestions } = req.body;
-    res.json({
-      success: true,
-      enhancedSuggestions: suggestions || [],
-      source: 'fallback',
-      message: 'Usando sugestões básicas devido a erro na IA',
-      error: error.message
+    // Retornar erro ao invés de fallback
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      source: 'error',
+      message: 'Erro no processamento da IA. Tente novamente.',
+      metadata: {
+        originalCount: suggestions?.length || 0,
+        enhancedCount: 0,
+        aiSuccess: 0,
+        aiErrors: suggestions?.length || 0
+      }
     });
   }
 });
