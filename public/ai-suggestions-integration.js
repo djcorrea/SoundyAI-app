@@ -3,14 +3,23 @@
 
 class AISuggestionsIntegration {
     constructor() {
-        this.apiEndpoint = '/api/suggestions';
+        // 🔧 Detecta ambiente e configura URL correta
+        const isLocalDevelopment = window.location.hostname === 'localhost' || 
+                                   window.location.hostname === '127.0.0.1' ||
+                                   window.location.port === '3000';
+        
+        this.apiEndpoint = isLocalDevelopment 
+            ? 'http://localhost:8080/api/suggestions'  // Desenvolvimento
+            : '/api/suggestions';                       // Produção (Railway)
+            
         this.isProcessing = false;
         this.currentSuggestions = [];
         this.isExpanded = false;
         this.retryAttempts = 0;
         this.maxRetries = 3;
         
-        console.log('🚀 [AI-INTEGRATION] Sistema de integração IA inicializado');
+        console.log(`🚀 [AI-INTEGRATION] Sistema inicializado - Ambiente: ${isLocalDevelopment ? 'desenvolvimento' : 'produção'}`);
+        console.log(`🔗 [AI-INTEGRATION] API URL: ${this.apiEndpoint}`);
         
         // Bind methods
         this.processWithAI = this.processWithAI.bind(this);
