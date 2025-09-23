@@ -895,12 +895,11 @@ class AISuggestionsIntegration {
             
             console.log('✅ [AI-INTEGRATION] Integração com displayModalResults configurada');
         } else {
-            console.warn('⚠️ [AI-INTEGRATION] displayModalResults não encontrada - aguardando...');
-            
-            // Retry in 1 second
-            setTimeout(() => {
-                this.integrateWithExistingSystem();
-            }, 1000);
+            console.warn('⚠️ [AI-INTEGRATION] displayModalResults não encontrada - integracao desabilitada');
+            // ❌ DESABILITADO: Não retentar para evitar loop infinito
+            // setTimeout(() => {
+            //     this.integrateWithExistingSystem();
+            // }, 1000);
         }
     }
 }
@@ -908,28 +907,30 @@ class AISuggestionsIntegration {
 // Initialize AI system
 let aiSuggestionsSystem;
 
+// ❌ DESABILITADO: Inicialização automática da IA para evitar loops
 // Wait for DOM to be ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeAISuggestions);
-} else {
-    initializeAISuggestions();
-}
+// if (document.readyState === 'loading') {
+//     document.addEventListener('DOMContentLoaded', initializeAISuggestions);
+// } else {
+//     initializeAISuggestions();
+// }
 
 function initializeAISuggestions() {
-    try {
-        aiSuggestionsSystem = new AISuggestionsIntegration();
+    console.log('⚠️ [AI-INTEGRATION] Inicialização automática desabilitada para evitar loops');
+    // try {
+    //     aiSuggestionsSystem = new AISuggestionsIntegration();
         
-        // Integrate with existing system
-        aiSuggestionsSystem.integrateWithExistingSystem();
+    //     // Integrate with existing system
+    //     aiSuggestionsSystem.integrateWithExistingSystem();
         
-        // Expose globally for manual testing
-        window.aiSuggestionsSystem = aiSuggestionsSystem;
+    //     // Expose globally for manual testing
+    //     window.aiSuggestionsSystem = aiSuggestionsSystem;
         
-        console.log('🚀 [AI-INTEGRATION] Sistema iniciado e pronto para uso');
+    //     console.log('🚀 [AI-INTEGRATION] Sistema iniciado e pronto para uso');
         
-    } catch (error) {
-        console.error('❌ [AI-INTEGRATION] Erro na inicialização:', error);
-    }
+    // } catch (error) {
+    //     console.error('❌ [AI-INTEGRATION] Erro na inicialização:', error);
+    // }
 }
 
 // Global functions for UI interactions

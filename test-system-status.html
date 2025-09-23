@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✅ Teste - Sistema Sem Loops</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .success {
+            background: #2d5f3f;
+            border-left: 4px solid #4CAF50;
+        }
+        .error {
+            background: #5f2d2d;
+            border-left: 4px solid #f44336;
+        }
+        .warning {
+            background: #5f4f2d;
+            border-left: 4px solid #ff9800;
+        }
+        .test-result {
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        #console-output {
+            background: #1e1e1e;
+            padding: 10px;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✅ Teste - Sistema Funcionando Sem Loops</h1>
+        
+        <div class="test-result">
+            <h3>🔍 Status do Sistema</h3>
+            <div id="system-status"></div>
+        </div>
+
+        <div class="test-result">
+            <h3>🚫 Verificação de Loops</h3>
+            <div id="loop-check"></div>
+        </div>
+
+        <div class="test-result">
+            <h3>📱 Disponibilidade do Analisador</h3>
+            <div id="analyzer-check"></div>
+        </div>
+
+        <button onclick="runSystemTest()">🧪 Executar Teste Completo</button>
+        <button onclick="clearConsole()">🧹 Limpar Console</button>
+
+        <div class="test-result">
+            <h3>📋 Console de Debug</h3>
+            <div id="console-output"></div>
+        </div>
+    </div>
+
+    <script>
+        let loopCounter = {};
+        let originalConsoleLog = console.log;
+        let originalConsoleWarn = console.warn;
+        let originalConsoleError = console.error;
+
+        // Interceptar console para detectar loops
+        function interceptConsole() {
+            console.log = function(...args) {
+                const message = args.join(' ');
+                trackMessage(message);
+                originalConsoleLog.apply(console, args);
+                updateConsoleOutput('LOG', message);
+            };
+
+            console.warn = function(...args) {
+                const message = args.join(' ');
+                trackMessage(message);
+                originalConsoleWarn.apply(console, args);
+                updateConsoleOutput('WARN', message);
+            };
+
+            console.error = function(...args) {
+                const message = args.join(' ');
+                trackMessage(message);
+                originalConsoleError.apply(console, args);
+                updateConsoleOutput('ERROR', message);
+            };
+        }
+
+        function trackMessage(message) {
+            // Detectar mensagens repetitivas que podem indicar loops
+            const key = message.substring(0, 100); // Primeiros 100 caracteres
+            
+            if (!loopCounter[key]) {
+                loopCounter[key] = { count: 0, lastTime: Date.now() };
+            }
+            
+            loopCounter[key].count++;
+            const timeDiff = Date.now() - loopCounter[key].lastTime;
+            
+            // Se a mesma mensagem aparece mais de 5 vezes em 10 segundos, é provável loop
+            if (loopCounter[key].count > 5 && timeDiff < 10000) {
+                detectLoop(key, loopCounter[key].count);
+            }
+            
+            loopCounter[key].lastTime = Date.now();
+        }
+
+        function detectLoop(messageKey, count) {
+            const loopCheckDiv = document.getElementById('loop-check');
+            loopCheckDiv.innerHTML += `
+                <div class="status error">
+                    🚨 POSSÍVEL LOOP DETECTADO: "${messageKey.substring(0, 50)}..." 
+                    (${count} repetições)
+                </div>
+            `;
+        }
+
+        function updateConsoleOutput(type, message) {
+            const output = document.getElementById('console-output');
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'ERROR' ? '❌' : type === 'WARN' ? '⚠️' : '📝';
+            
+            output.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearConsole() {
+            document.getElementById('console-output').textContent = '';
+            loopCounter = {};
+        }
+
+        function runSystemTest() {
+            const systemStatus = document.getElementById('system-status');
+            const loopCheck = document.getElementById('loop-check');
+            const analyzerCheck = document.getElementById('analyzer-check');
+            
+            systemStatus.innerHTML = '<div class="status warning">🔄 Testando...</div>';
+            loopCheck.innerHTML = '<div class="status warning">🔍 Monitorando loops...</div>';
+            analyzerCheck.innerHTML = '<div class="status warning">🔍 Verificando analisador...</div>';
+            
+            // Limpar contadores
+            loopCounter = {};
+            
+            setTimeout(() => {
+                // Verificar se componentes essenciais estão disponíveis
+                const tests = [
+                    {
+                        name: 'displayModalResults',
+                        check: () => typeof window.displayModalResults === 'function',
+                        critical: true
+                    },
+                    {
+                        name: 'Audio Context',
+                        check: () => window.AudioContext || window.webkitAudioContext,
+                        critical: true
+                    },
+                    {
+                        name: 'Analisador de áudio',
+                        check: () => typeof window.analyzeAudio === 'function',
+                        critical: true
+                    },
+                    {
+                        name: 'Integração IA (desabilitada)',
+                        check: () => typeof window.aiSuggestionsSystem === 'undefined',
+                        critical: false,
+                        inverted: true // Queremos que seja undefined
+                    }
+                ];
+                
+                let allCriticalPassed = true;
+                let systemStatusHTML = '';
+                
+                tests.forEach(test => {
+                    const passed = test.inverted ? !test.check() : test.check();
+                    const statusClass = passed ? 'success' : (test.critical ? 'error' : 'warning');
+                    const icon = passed ? '✅' : (test.critical ? '❌' : '⚠️');
+                    
+                    systemStatusHTML += `<div class="status ${statusClass}">${icon} ${test.name}</div>`;
+                    
+                    if (test.critical && !passed) {
+                        allCriticalPassed = false;
+                    }
+                });
+                
+                systemStatus.innerHTML = systemStatusHTML;
+                
+                // Verificar se houve loops nos últimos 5 segundos
+                setTimeout(() => {
+                    const hasLoops = Object.keys(loopCounter).some(key => loopCounter[key].count > 3);
+                    
+                    if (!hasLoops) {
+                        loopCheck.innerHTML = '<div class="status success">✅ Nenhum loop detectado</div>';
+                    }
+                    
+                    // Status final do analisador
+                    if (allCriticalPassed && !hasLoops) {
+                        analyzerCheck.innerHTML = '<div class="status success">✅ Analisador pronto para uso</div>';
+                    } else {
+                        analyzerCheck.innerHTML = '<div class="status error">❌ Analisador com problemas</div>';
+                    }
+                }, 5000);
+                
+            }, 1000);
+        }
+
+        // Inicializar interceptação do console
+        interceptConsole();
+        
+        // Executar teste automaticamente
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                runSystemTest();
+            }, 2000);
+        });
+    </script>
+</body>
+</html>
