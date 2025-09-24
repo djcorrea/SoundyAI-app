@@ -1361,7 +1361,8 @@ class CoreMetricsProcessor {
 
       return { 
         bpm: finalResult.bpm, 
-        bpmConfidence: Math.round(finalResult.confidence * 100) / 100
+        bpmConfidence: Math.round(finalResult.confidence * 100) / 100,
+        bpmSource: finalResult.source || 'UNKNOWN'
       };
 
     } catch (error) {
@@ -1373,7 +1374,8 @@ class CoreMetricsProcessor {
       
       return { 
         bpm: null, 
-        bpmConfidence: null
+        bpmConfidence: null,
+        bpmSource: 'ERROR'
       };
     }
   }
@@ -1506,34 +1508,65 @@ class CoreMetricsProcessor {
   crossValidateBpmResults(result1, result2, minBpm, maxBpm, confidenceThreshold) {
     // Se ambos métodos falharam
     if (!result1.bpm && !result2.bpm) {
-      return { bpm: null, confidence: 0 };
+      return { bpm: null, confidence: 0, source: 'NO_DETECTION' };
     }
 
     // Se apenas um método teve resultado
-    if (!result1.bpm) return this.validateAndCorrectHarmonics(result2, minBpm, maxBpm, confidenceThreshold);
-    if (!result2.bpm) return this.validateAndCorrectHarmonics(result1, minBpm, maxBpm, confidenceThreshold);
+    if (!result1.bpm) return this.validateAndCorrectHarmonics(result2, minBpm, maxBpm, confidenceThreshold, 'SINGLE_METHOD');
+    if (!result2.bpm) return this.validateAndCorrectHarmonics(result1, minBpm, maxBpm, confidenceThreshold, 'SINGLE_METHOD');
+
+    // ========= NOVA LÓGICA: FALLBACK RÍGIDO =========
+    const bpmDifference = Math.abs(result1.bpm - result2.bpm);
+    const hasGoodConfidence = result1.confidence >= confidenceThreshold || result2.confidence >= confidenceThreshold;
+    const hasMinConfidence = result1.confidence >= 0.5 || result2.confidence >= 0.5;
 
     // Se ambos métodos concordam (±2 BPM)
-    if (Math.abs(result1.bpm - result2.bpm) <= 2) {
+    if (bpmDifference <= 2) {
       const avgBpm = Math.round((result1.bpm + result2.bpm) / 2);
       const avgConfidence = (result1.confidence + result2.confidence) / 2;
-      return this.validateAndCorrectHarmonics({ bpm: avgBpm, confidence: avgConfidence }, minBpm, maxBpm, confidenceThreshold);
+
+      // ✅ NORMAL: Confiança alta
+      if (hasGoodConfidence) {
+        console.log(`[WORKER][BPM] Métodos concordantes (${result1.bpm} vs ${result2.bpm}) com alta confiança`);
+        return this.validateAndCorrectHarmonics({ bpm: avgBpm, confidence: avgConfidence }, minBpm, maxBpm, confidenceThreshold, 'NORMAL');
+      }
+      
+      // ✅ FALLBACK RÍGIDO: Confiança baixa mas métodos próximos
+      else if (hasMinConfidence) {
+        console.log(`[WORKER][BPM] Confiança baixa, mas métodos próximos (${result1.bpm} vs ${result2.bpm}, conf=${avgConfidence.toFixed(2)})`);
+        console.log(`[WORKER][BPM] Aplicando fallback rígido → ${avgBpm} BPM`);
+        
+        // Aplicar fallback rígido (não usar validateAndCorrectHarmonics que pode descartar)
+        return this.applyStrictFallback({ bpm: avgBpm, confidence: avgConfidence }, minBpm, maxBpm);
+      }
+      
+      // ❌ Ambas confianças muito baixas (< 0.5)
+      else {
+        console.log(`[WORKER][BPM] Métodos próximos mas ambas confianças muito baixas (${result1.confidence.toFixed(2)}, ${result2.confidence.toFixed(2)}) - descartando`);
+        return { bpm: null, confidence: Math.max(result1.confidence, result2.confidence), source: 'CONFIDENCE_TOO_LOW' };
+      }
     }
 
     // Verificar se um é harmônico do outro
     const harmonicResult = this.checkHarmonics(result1, result2);
     if (harmonicResult) {
-      return this.validateAndCorrectHarmonics(harmonicResult, minBpm, maxBpm, confidenceThreshold);
+      return this.validateAndCorrectHarmonics(harmonicResult, minBpm, maxBpm, confidenceThreshold, 'HARMONIC_CORRECTED');
     }
 
-    // Usar o resultado com maior confiança
-    const bestResult = result1.confidence > result2.confidence ? result1 : result2;
-    return this.validateAndCorrectHarmonics(bestResult, minBpm, maxBpm, confidenceThreshold);
+    // ❌ Diferença > 2 BPM: usar apenas se pelo menos um tiver confiança >= 0.7
+    if (hasGoodConfidence) {
+      const bestResult = result1.confidence > result2.confidence ? result1 : result2;
+      console.log(`[WORKER][BPM] Métodos discordantes (${result1.bpm} vs ${result2.bpm}), usando mais confiável: ${bestResult.bpm}`);
+      return this.validateAndCorrectHarmonics(bestResult, minBpm, maxBpm, confidenceThreshold, 'BEST_CONFIDENCE');
+    } else {
+      console.log(`[WORKER][BPM] Métodos discordantes (${result1.bpm} vs ${result2.bpm}) e ambas confianças baixas - descartando`);
+      return { bpm: null, confidence: Math.max(result1.confidence, result2.confidence), source: 'DISCORDANT_LOW_CONFIDENCE' };
+    }
   }
 
   // ========= VALIDAÇÃO E CORREÇÃO DE HARMÔNICOS =========
-  validateAndCorrectHarmonics(result, minBpm, maxBpm, confidenceThreshold) {
-    if (!result.bpm) return { bpm: null, confidence: 0 };
+  validateAndCorrectHarmonics(result, minBpm, maxBpm, confidenceThreshold, source = 'UNKNOWN') {
+    if (!result.bpm) return { bpm: null, confidence: 0, source: source };
 
     let correctedBpm = result.bpm;
     let confidence = result.confidence;
@@ -1560,10 +1593,50 @@ class CoreMetricsProcessor {
     // Aplicar threshold de confiança
     if (confidence < confidenceThreshold) {
       console.log(`[WORKER][BPM] Confiança baixa: ${confidence.toFixed(2)} < ${confidenceThreshold} - descartando resultado`);
-      return { bpm: null, confidence: confidence };
+      return { bpm: null, confidence: confidence, source: source };
     }
 
-    return { bpm: correctedBpm, confidence: confidence };
+    return { bpm: correctedBpm, confidence: confidence, source: source };
+  }
+
+  // ========= FALLBACK RÍGIDO - ACEITA CONFIANÇA >= 0.5 =========
+  applyStrictFallback(result, minBpm, maxBpm) {
+    if (!result.bpm) return { bpm: null, confidence: 0, source: 'FALLBACK_FAILED' };
+
+    let correctedBpm = result.bpm;
+    let confidence = result.confidence;
+
+    // Correção de harmônicos mesmo com confiança baixa (mas >= 0.5)
+    if (correctedBpm > 150) {
+      const halfBpm = Math.round(correctedBpm / 2);
+      if (halfBpm >= minBpm && halfBpm <= 150) {
+        console.log(`[WORKER][BPM] FALLBACK: Correção harmônica ${correctedBpm} → ${halfBpm} (÷2)`);
+        correctedBpm = halfBpm;
+        confidence *= 0.95; // Pequena penalidade por correção
+      }
+    } else if (correctedBpm < 80) {
+      const doubleBpm = correctedBpm * 2;
+      if (doubleBpm <= maxBpm && doubleBpm >= 80) {
+        console.log(`[WORKER][BPM] FALLBACK: Correção harmônica ${correctedBpm} → ${doubleBpm} (×2)`);
+        correctedBpm = doubleBpm;
+        confidence *= 0.95; // Pequena penalidade por correção
+      }
+    }
+
+    // Verificar se está no range válido
+    if (correctedBpm < minBpm || correctedBpm > maxBpm) {
+      console.log(`[WORKER][BPM] FALLBACK: BPM ${correctedBpm} fora do range ${minBpm}-${maxBpm} - descartando`);
+      return { bpm: null, confidence: confidence, source: 'FALLBACK_OUT_OF_RANGE' };
+    }
+
+    // Aplicar threshold mínimo de 0.5 para fallback rígido
+    if (confidence < 0.5) {
+      console.log(`[WORKER][BPM] FALLBACK: Confiança ${confidence.toFixed(2)} < 0.5 - descartando`);
+      return { bpm: null, confidence: confidence, source: 'FALLBACK_CONFIDENCE_TOO_LOW' };
+    }
+
+    console.log(`[WORKER][BPM] FALLBACK: Aceito BPM ${correctedBpm} com confiança ${confidence.toFixed(2)}`);
+    return { bpm: correctedBpm, confidence: confidence, source: 'FALLBACK_STRICT' };
   }
 
   // ========= VERIFICAÇÃO DE HARMÔNICOS ENTRE MÉTODOS =========
