@@ -110,7 +110,7 @@ app.post("/api/suggestions", async (req, res) => {
 
     console.log(`🤖 [AI-API] Enviando prompt para OpenAI...`);
 
-    // Chamar OpenAI
+  // Chamar OpenAI
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -122,39 +122,21 @@ app.post("/api/suggestions", async (req, res) => {
         messages: [
           {
             role: 'system',
-            content: `🎵 VOCÊ É UM ASSISTENTE DE MIXAGEM E MASTERIZAÇÃO MUSICAL ULTRA-AVANÇADO
+            content: `Você é um assistente de mix/master altamente técnico.
 
-🎯 SUA MISSÃO:
-Analisar os PROBLEMAS de áudio detectados e gerar sugestões EDUCATIVAS, claras e aplicáveis para o usuário.
-
-📋 ESTRUTURA OBRIGATÓRIA para cada sugestão:
-
-⚠️ Problema: [descrição curta e clara]
-🎯 Causa Provável: [explicação técnica simples, sem jargão pesado]
-🛠️ Solução Prática: [passo a passo direto que pode ser feito em qualquer DAW]
-💡 Dica Extra: [truque avançado ou consideração criativa]
-🎹 Exemplo de Plugin/Ferramenta: [cite pelo menos 1 plugin popular ou gratuito que ajude]
-✅ Resultado Esperado: [explique de forma motivadora o que vai melhorar no som]
-
-� REGRAS DE OURO:
-- Escreva de forma educativa e motivadora, sem ser rígido
-- Use linguagem simples, mas com conteúdo técnico real
-- Sempre que possível, dê referências a gêneros musicais (Funk, Trap, Eletrônico, etc.)
-- Saída formatada em blocos claros com emojis para facilitar leitura
-- Seja prático: usuário deve conseguir aplicar HOJE no seu projeto
-
-🚀 RESPONDA SEMPRE EM JSON PURO, SEM EXPLICAÇÕES EXTRAS.
-
-📐 FORMATO UNIVERSAL POR SUGESTÃO (CHAVES EM PT-BR):
-Cada sugestão deve conter exatamente:
-{
-  "problema": "...",
-  "causaProvavel": "...",
-  "solucaoPratica": "...",
-  "dicaExtra": "...",
-  "pluginFerramenta": "...",
-  "resultadoEsperado": "..."
-}
+REGRAS CRÍTICAS DE SAÍDA:
+- Responda SOMENTE com JSON VÁLIDO (sem texto antes/depois, sem markdown), codificação UTF-8.
+- Retorne um objeto com o campo "suggestions" contendo um array do MESMO comprimento das sugestões recebidas.
+- Cada sugestão deve ser um objeto com as chaves (PT-BR):
+  {
+    "problema": "Texto explicando o problema com valores exatos (ex: Sub 20–60 Hz +24.1 dB acima do alvo -17.5 dB ±2.5 dB)",
+    "causa": "Causa provável em linguagem simples",
+    "solucao": "Explicação educativa e prática, incluindo faixas exatas em Hz ou dB",
+    "plugin": "Plugins indicados (ex: FabFilter Pro-Q3, ReaEQ, stock DAW)",
+    "resultado": "Benefício esperado (ex: mais clareza no sub e melhor compatibilidade para streaming)"
+  }
+- SEMPRE incluir no campo "problema" os valores medidos, alvo e tolerância no formato: "Valor medido: X dB/Hz, alvo: Y ±Z → diferença: W".
+- Não inclua campos extras. Não use markdown. Não explique o JSON.
 `
           },
           {
@@ -182,8 +164,8 @@ Cada sugestão deve conter exatamente:
       throw new Error('Resposta vazia da IA');
     }
 
-  // Processar resposta da IA e enriquecer sugestões (parser ultra blindado)
-  const enhancedSuggestions = processAIResponse(suggestions, aiSuggestion);
+  // Processar resposta da IA e enriquecer sugestões (parser ultra blindado + autocorreção)
+  const enhancedSuggestions = await processAIResponse(suggestions, aiSuggestion, process.env.OPENAI_API_KEY, process.env.AI_MODEL || 'gpt-3.5-turbo');
 
     console.log(`✅ [AI-API] Processamento concluído:`, {
       suggestionsOriginais: suggestions.length,
@@ -263,38 +245,27 @@ function buildSuggestionPrompt(suggestions, metrics, genre) {
   const genreContext = getGenreContext(genre);
 
   return `
-🎵 VOCÊ É O MAIS AVANÇADO ENGENHEIRO DE ÁUDIO E MASTERING DO MUNDO
+Analise estas ${suggestions.length} detecções automáticas para ${genre || 'música geral'} e transforme cada uma numa sugestão EDUCACIONAL, aplicável e precisa.
 
-Analise estas detecções automáticas para ${genre || 'música geral'} e transforme cada uma numa sugestão REVOLUCIONÁRIA:
-
+Sugestões originais (contexto):
 ${suggestionsList}
 
+Métricas (apoio):
 ${metricsInfo}
 
-${genreContext}
-
-📋 RETORNE JSON PURO com este formato EXATO (uso de chaves em PT-BR conforme padrão universal):
+Diretiva de saída (OBRIGATÓRIO): retorne JSON PURO com este formato EXATO:
 {
   "suggestions": [
     {
-      "problema": "⚠️ [descrição curta e clara do problema]",
-      "causaProvavel": "🎯 [explicação técnica simples, sem jargão pesado]",
-      "solucaoPratica": "🛠️ [passo a passo direto que pode ser feito em qualquer DAW]",
-      "dicaExtra": "💡 [truque avançado ou consideração criativa]",
-      "pluginFerramenta": "🎹 [cite pelo menos 1 plugin popular ou gratuito que ajude]",
-      "resultadoEsperado": "✅ [explique de forma motivadora o que vai melhorar no som]",
-      "metadata": {
-        "priority": "alta|média|baixa",
-        "difficulty": "iniciante|intermediário|avançado",
-        "confidence": 0.95,
-        "frequency_range": "20-60Hz",
-        "processing_type": "EQ|Compressor|Limiter|Spatial",
-        "genre_specific": "Se aplicável ao gênero analisado"
-      },
-      "aiEnhanced": true
+      "problema": "Texto com valores exatos (ex: Sub 20–60 Hz +24.1 dB acima do alvo -17.5 dB ±2.5 dB; Valor medido: +6.6 dB, alvo: -17.5 dB ±2.5 dB → diferença: +24.1 dB)",
+      "causa": "Causa provável em linguagem simples",
+      "solucao": "Passos práticos e educativos incluindo Hz/dB",
+      "plugin": "Plugins específicos (ex: FabFilter Pro-Q3, ReaEQ)",
+      "resultado": "Benefício esperado para o usuário"
     }
   ]
-}`;
+}
+`;
 }
 
 // Função para obter contexto do gênero
@@ -339,7 +310,7 @@ function getGenreContext(genre) {
 }
 
 // Função para processar resposta da IA
-function processAIResponse(originalSuggestions, aiResponse) {
+async function processAIResponse(originalSuggestions, aiResponse, openaiApiKey, model) {
   console.log('🤖 [AI-PROCESSING] Processando resposta da IA...');
 
   // Pequena função utilitária para normalizar um item vindo da IA
@@ -398,30 +369,45 @@ function processAIResponse(originalSuggestions, aiResponse) {
   }
 
   try {
-    const parsedArray = safeParseAIResponse(aiResponse, originalSuggestions);
+    let parsed = safeParseAIResponse(aiResponse, originalSuggestions);
 
-    // Se o safe parser devolveu as sugestões originais (fallback), normaliza todas
-    const usingFallback = parsedArray === originalSuggestions;
+    // Se o parse não retornou algo útil, tentar autocorreção via IA (até 2 tentativas)
+    if (parsed === originalSuggestions) {
+      console.log('[AI-PROCESSING] Conteúdo não parseável: ativando recuperação assistida por IA (tentativas: até 2)');
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const fixed = await fixResponseToValidJSON(aiResponse, openaiApiKey, model);
+          const reparsed = safeParseAIResponse(fixed, originalSuggestions);
+          if (reparsed !== originalSuggestions) {
+            parsed = reparsed;
+            console.log(`[AI-PROCESSING] Recuperação bem-sucedida na tentativa ${attempt}`);
+            break;
+          }
+        } catch (e) {
+          console.warn(`[AI-PROCESSING] Tentativa de recuperação ${attempt} falhou: ${e.message}`);
+        }
+      }
+    }
 
+    // Normalização final
     let normalized = [];
-    if (usingFallback) {
-      console.log(`�️ [AI-PROCESSING] Fallback usado, preservando ${originalSuggestions.length} sugestões`);
+    const aiArray = Array.isArray(parsed)
+      ? parsed
+      : (parsed && Array.isArray(parsed.suggestions) ? parsed.suggestions : []);
+
+    if (aiArray.length === 0) {
+      console.log(`[AI-PROCESSING] Mantendo ${originalSuggestions.length} itens após recuperação`);
       normalized = originalSuggestions.map((orig) => normalizeAISuggestion(null, orig));
     } else {
-      // parsedArray pode ser o próprio array de sugestões da IA OU um objeto com .suggestions
-      const aiArray = Array.isArray(parsedArray)
-        ? parsedArray
-        : (parsedArray && Array.isArray(parsedArray.suggestions) ? parsedArray.suggestions : []);
-
-      // Normalizar cada item, alinhando por índice com as originais
+      // Garantir o mesmo comprimento das originais (nunca perder sugestões)
       normalized = originalSuggestions.map((orig, idx) => normalizeAISuggestion(aiArray[idx], orig));
     }
 
-    console.log(`✅ [AI-PROCESSING] Parse bem-sucedido: ${normalized.length} sugestões`);
+    console.log(`✅ [AI-PROCESSING] Processamento concluído: ${normalized.length} sugestões`);
     return normalized;
   } catch (err) {
     console.error('❌ [AI-PROCESSING] Erro crítico no processamento:', err.message);
-    console.log(`�️ [AI-PROCESSING] Fallback usado, preservando ${originalSuggestions.length} sugestões`);
+    console.log(`[AI-PROCESSING] Mantendo ${originalSuggestions.length} itens (modo de contingência)`);
     return originalSuggestions.map((orig) => normalizeAISuggestion(null, orig));
   }
 }
@@ -432,18 +418,29 @@ function safeParseAIResponse(raw, fallbackArray) {
     const rawStr = typeof raw === 'string' ? raw : String(raw ?? '');
     console.log(`[AI-PROCESSING] Resposta recebida: ${rawStr.length} chars`);
 
+    // 0) Se existir bloco ```json ... ```, extrair somente o conteúdo interno
+    const fenceMatch = rawStr.match(/```json\s*([\s\S]*?)```/i);
+    let work = fenceMatch ? fenceMatch[1] : rawStr;
+
     // 1) Sanitização básica
-    let cleaned = rawStr
-      // remover cercas de código markdown
+    let cleaned = work
+      // remover cercas de código remanescentes
       .replace(/```json\s*|```/g, '')
       // normalizar quebras de linha
       .replace(/\r\n|\r/g, '\n')
+      // normalizar aspas tipográficas
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'")
+      // remover BOM
+      .replace(/^\uFEFF/, '')
       // remover caracteres de controle inválidos
       .replace(/[^\x09\x0A\x0D\x20-\x7E\u00A0-\uFFFF]/g, '')
       .trim();
 
     // remover vírgulas soltas antes de ] ou }
     cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
+    // tentar balancear colchetes básicos: remover sufixos soltos comuns
+    cleaned = cleaned.replace(/\n+\s*\/{2,}.*$/gm, '');
 
     // 2) Tentar JSON.parse direto
     try {
@@ -455,7 +452,7 @@ function safeParseAIResponse(raw, fallbackArray) {
     }
 
     // 3) Extração do array [...] válido via regex/recorte
-    console.log('[AI-PROCESSING] Parse falhou, correção aplicada');
+    console.log('[AI-PROCESSING] Aplicando reformatador de conteúdo (extração de array)');
     const firstIdx = cleaned.indexOf('[');
     const lastIdx = cleaned.lastIndexOf(']');
     if (firstIdx !== -1 && lastIdx !== -1 && lastIdx > firstIdx) {
@@ -471,13 +468,54 @@ function safeParseAIResponse(raw, fallbackArray) {
       }
     }
 
+    // 3.1) Extração de objeto { ... } com campo suggestions
+    console.log('[AI-PROCESSING] Tentando extrair objeto com suggestions');
+    const objFirst = cleaned.indexOf('{');
+    const objLast = cleaned.lastIndexOf('}');
+    if (objFirst !== -1 && objLast !== -1 && objLast > objFirst) {
+      let objText = cleaned.slice(objFirst, objLast + 1);
+      objText = objText.replace(/,\s*}/g, '}');
+      try {
+        const obj = JSON.parse(objText);
+        if (obj && Array.isArray(obj.suggestions)) return obj;
+      } catch (_) {
+        // segue
+      }
+    }
+
     // 4) Falhou: retornar fallback
-    console.warn('[AI-PROCESSING] Parse falhou, usando fallback');
+    console.warn('[AI-PROCESSING] Conteúdo da IA fora do padrão esperado (ativar recuperação)');
     return fallbackArray; // devolve exatamente o fallback recebido
   } catch (e) {
     console.error('[AI-PROCESSING] Erro inesperado no safeParse:', e.message);
     return fallbackArray;
   }
+}
+
+// Solicita à IA que converta um texto em JSON válido no formato exigido
+async function fixResponseToValidJSON(raw, apiKey, model) {
+  const body = {
+    model: model || 'gpt-3.5-turbo',
+    messages: [
+      { role: 'system', content: 'Você corrige respostas para JSON válido. Responda SOMENTE com JSON válido (sem markdown).' },
+      { role: 'user', content: `Corrija este texto para JSON válido, no formato {"suggestions": [ { "problema": "...", "causa": "...", "solucao": "...", "plugin": "...", "resultado": "..." } ] }. Mantenha o mesmo número de itens do input. Não explique. Não adicione texto fora do JSON.\n\nTEXTO:\n${raw}` }
+    ],
+    temperature: 0.0,
+    max_tokens: 1800
+  };
+
+  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+  if (!resp.ok) throw new Error(`OpenAI JSON-fix HTTP ${resp.status}`);
+  const data = await resp.json();
+  const content = data.choices?.[0]?.message?.content || '';
+  return content;
 }
 
 // 👉 Fallback SPA: qualquer rota não-API cai no app (index.html)
