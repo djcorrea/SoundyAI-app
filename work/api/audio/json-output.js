@@ -425,9 +425,10 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
   // ===== BPM (Beats Per Minute) =====
   technicalData.bpm = safeSanitize(coreMetrics.bpm); // ✅ CORREÇÃO: campo correto 'bpm' para frontend modal
   technicalData.bpmConfidence = safeSanitize(coreMetrics.bpmConfidence); // ✅ CORREÇÃO: bmpConfidence → bpmConfidence
+  technicalData.bpmSource = safeSanitize(coreMetrics.bpmSource, 'UNKNOWN'); // ✅ NOVO: Fonte do cálculo BPM
   
   // ✅ Log de debug para confirmar valores finais
-  console.log('[WORKER][BPM] Final JSON:', technicalData.bpm, technicalData.bpmConfidence);
+  console.log('[WORKER][BPM] Final JSON:', technicalData.bpm, technicalData.bpmConfidence, 'source:', technicalData.bpmSource);
 
   // ===== Dominant Frequencies =====
   // REMOVED: Export processing for dominantFrequencies
@@ -751,6 +752,7 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       // BPM (Beats Per Minute) ✅ CORREÇÃO: incluído na seção technicalData
       bpm: technicalData.bpm, // ✅ CAMPO CORRETO 'bpm' para frontend modal (não 'bmp')
       bpmConfidence: technicalData.bpmConfidence, // ✅ CORREÇÃO: bmpConfidence → bpmConfidence
+      bpmSource: technicalData.bpmSource, // ✅ NOVO: Fonte do cálculo (NORMAL, FALLBACK_STRICT, etc)
       
       problemsAnalysis: technicalData.problemsAnalysis,
       
@@ -786,6 +788,7 @@ function createCompactJSON(fullJSON) {
     dcOffset: fullJSON.dcOffset,
     bpm: fullJSON.technicalData?.bpm, // ✅ CORREÇÃO: usar 'bpm' correto (não 'bmp')
     bpmConfidence: fullJSON.technicalData?.bpmConfidence, // ✅ CORREÇÃO: bmpConfidence → bpmConfidence
+    bpmSource: fullJSON.technicalData?.bpmSource, // ✅ NOVO: Fonte do cálculo BPM
     spectralUniformity: fullJSON.spectralUniformity,
     dominantFrequencies: (fullJSON.dominantFrequencies || []).slice(0, 5),
     problemsAnalysis: fullJSON.problemsAnalysis,

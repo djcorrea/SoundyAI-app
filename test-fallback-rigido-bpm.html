@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 FALLBACK RÍGIDO BPM - Confiança >= 0.5</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f8f9fa; }
+        .container { max-width: 900px; margin: 0 auto; }
+        .enhancement { background: #d1ecf1; padding: 15px; margin: 15px 0; border: 1px solid #bee5eb; border-radius: 8px; }
+        .logic { background: #e7f3ff; padding: 15px; margin: 15px 0; border: 1px solid #b8daff; border-radius: 8px; }
+        .fallback { background: #fff3cd; padding: 15px; margin: 15px 0; border: 1px solid #ffeaa7; border-radius: 8px; }
+        .result { background: #d4edda; padding: 15px; margin: 15px 0; border: 1px solid #c3e6cb; border-radius: 8px; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 12px; }
+        .highlight { background: #fff3cd; padding: 2px 4px; border-radius: 3px; font-weight: bold; }
+        .code { background: #2d3748; color: #e2e8f0; padding: 12px; border-radius: 6px; font-family: 'Courier New', monospace; }
+        ul li { margin: 8px 0; }
+        .status { display: inline-block; padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; }
+        .status.normal { background: #d4edda; color: #155724; }
+        .status.fallback { background: #fff3cd; color: #856404; }
+        .status.rejected { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 FALLBACK RÍGIDO BPM - Confiança >= 0.5</h1>
+        
+        <div class="enhancement">
+            <h3>🎯 PROBLEMA RESOLVIDO:</h3>
+            <p><strong>ANTES:</strong> Métodos concordantes (130 vs 132 BPM) eram descartados se confiança < 0.7</p>
+            <p><strong>AGORA:</strong> <span class="highlight">Fallback rígido aceita se diferença ≤ 2 BPM e confiança ≥ 0.5</span></p>
+            <p><strong>RESULTADO:</strong> Mais detecções válidas sem comprometer a qualidade</p>
+        </div>
+
+        <div class="logic">
+            <h3>🔄 NOVA LÓGICA DE VALIDAÇÃO:</h3>
+            <div class="code">
+// 1. Métodos concordam (±2 BPM)
+if (bpmDifference <= 2) {
+  // ✅ NORMAL: Alta confiança (>= 0.7)
+  if (hasGoodConfidence) → ACEITAR
+  
+  // ✅ FALLBACK RÍGIDO: Confiança média (>= 0.5)  
+  else if (hasMinConfidence) → ACEITAR com fonte FALLBACK_STRICT
+  
+  // ❌ DESCARTAR: Ambas confianças < 0.5
+  else → REJEITAR
+}
+
+// 2. Métodos discordantes (> 2 BPM)
+else {
+  // ✅ Usar apenas se alta confiança (>= 0.7)
+  if (hasGoodConfidence) → ACEITAR melhor
+  
+  // ❌ Descartar se ambas confianças baixas
+  else → REJEITAR
+}</div>
+        </div>
+
+        <div class="fallback">
+            <h3>🚀 CASOS DE USO DO FALLBACK RÍGIDO:</h3>
+            
+            <h4>📋 Cenário 1: <span class="status normal">NORMAL</span></h4>
+            <pre>Método 1: 130 BPM (conf: 0.85)
+Método 2: 131 BPM (conf: 0.78)
+→ Diferença: 1 BPM, alta confiança
+→ Resultado: 131 BPM, conf: 0.82, source: NORMAL</pre>
+
+            <h4>📋 Cenário 2: <span class="status fallback">FALLBACK_STRICT</span></h4>
+            <pre>Método 1: 130 BPM (conf: 0.52)
+Método 2: 132 BPM (conf: 0.58)
+→ Diferença: 2 BPM, confiança baixa mas >= 0.5
+→ Resultado: 131 BPM, conf: 0.55, source: FALLBACK_STRICT</pre>
+
+            <h4>📋 Cenário 3: <span class="status rejected">REJEITADO</span></h4>
+            <pre>Método 1: 128 BPM (conf: 0.42)
+Método 2: 130 BPM (conf: 0.38)
+→ Diferença: 2 BPM, mas ambas confianças < 0.5
+→ Resultado: null (modal mostra "—")</pre>
+        </div>
+
+        <div class="result">
+            <h3>📊 LOGS ESPERADOS:</h3>
+            
+            <h4>✅ Fallback Aplicado:</h4>
+            <pre>[WORKER][BPM] Confiança baixa, mas métodos próximos (130 vs 132, conf=0.55)
+[WORKER][BPM] Aplicando fallback rígido → 131 BPM
+[WORKER][BPM] FALLBACK: Aceito BPM 131 com confiança 0.55</pre>
+
+            <h4>❌ Fallback Rejeitado:</h4>
+            <pre>[WORKER][BPM] Métodos próximos mas ambas confianças muito baixas (0.42, 0.38) - descartando</pre>
+
+            <h4>📊 JSON Final (Fallback Aplicado):</h4>
+            <pre>{
+  "technicalData": {
+    <span class="highlight">"bpm": 131,</span>
+    <span class="highlight">"bpmConfidence": 0.55,</span>
+    <span class="highlight">"bpmSource": "FALLBACK_STRICT"</span>
+  }
+}</pre>
+        </div>
+
+        <div class="enhancement">
+            <h3>🔍 TIPOS DE FONTE (bpmSource):</h3>
+            <ul>
+                <li><strong>NORMAL:</strong> Confiança alta (>= 0.7), métodos concordantes</li>
+                <li><strong>FALLBACK_STRICT:</strong> Confiança média (>= 0.5), métodos próximos</li>
+                <li><strong>HARMONIC_CORRECTED:</strong> Correção de harmônicos aplicada</li>
+                <li><strong>BEST_CONFIDENCE:</strong> Métodos discordantes, usado o mais confiável</li>
+                <li><strong>SINGLE_METHOD:</strong> Apenas um método retornou resultado</li>
+                <li><strong>ERROR:</strong> Erro durante o cálculo</li>
+            </ul>
+        </div>
+
+        <div class="result">
+            <h3>✅ CRITÉRIOS DE ACEITE ATENDIDOS:</h3>
+            <ul>
+                <li>✅ <strong>Diferença ≤ 2 BPM + confiança ≥ 0.5</strong> → Aceitar com FALLBACK_STRICT</li>
+                <li>✅ <strong>Diferença > 2 BPM ou confiança < 0.5</strong> → Rejeitar (null)</li>
+                <li>✅ <strong>Logs claros</strong> quando fallback é aplicado</li>
+                <li>✅ <strong>Campo bpmSource</strong> identifica origem do cálculo</li>
+                <li>✅ <strong>Modal nunca mostra "—"</strong> quando condições atendidas</li>
+                <li>✅ <strong>Preserva qualidade</strong> rejeitando casos muito duvidosos</li>
+            </ul>
+        </div>
+
+        <div class="fallback">
+            <h3>🧪 PRÓXIMO PASSO: TESTE COM ÁUDIO REAL</h3>
+            <p>Carregue arquivos da pasta <code>C:\Users\DJ Correa\Desktop\possivel musicas do set</code> e verifique:</p>
+            <ol>
+                <li><strong>Mais detecções:</strong> BPM aparece em casos antes rejeitados</li>
+                <li><strong>Qualidade mantida:</strong> BPM detectado = DAW ± 1-2</li>
+                <li><strong>Confiança visível:</strong> ≥ 0.5 para resultados aceitos</li>
+                <li><strong>Logs detalhados:</strong> Mostram quando fallback é usado</li>
+                <li><strong>Campo bpmSource:</strong> Identifica a origem do cálculo</li>
+            </ol>
+        </div>
+
+        <div class="enhancement">
+            <h3>🎯 RESUMO DA IMPLEMENTAÇÃO:</h3>
+            <p><strong>Arquivos modificados:</strong></p>
+            <ul>
+                <li><code>work/api/audio/core-metrics.js</code> - Nova lógica de fallback rígido</li>
+                <li><code>work/api/audio/json-output.js</code> - Incluir bpmSource no JSON</li>
+            </ul>
+            
+            <p><strong>Funções implementadas:</strong></p>
+            <ul>
+                <li><code>crossValidateBpmResults()</code> - Lógica de fallback rígido</li>
+                <li><code>applyStrictFallback()</code> - Aceita confiança ≥ 0.5</li>
+                <li><code>validateAndCorrectHarmonics()</code> - Atualizada com campo source</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        console.log('🎯 FALLBACK RÍGIDO BPM implementado');
+        console.log('✅ Aceita confiança >= 0.5 se métodos concordam (≤ 2 BPM)');
+        console.log('✅ Campo bpmSource identifica origem do cálculo');
+        console.log('✅ Logs detalhados para rastreamento');
+        console.log('🧪 Pronto para teste com áudio real');
+        
+        const expectedFallbackOutput = {
+            technicalData: {
+                bpm: 131,
+                bpmConfidence: 0.55,
+                bpmSource: 'FALLBACK_STRICT'
+            }
+        };
+        
+        console.log('📊 Estrutura JSON esperada (fallback):', expectedFallbackOutput);
+    </script>
+</body>
+</html>
