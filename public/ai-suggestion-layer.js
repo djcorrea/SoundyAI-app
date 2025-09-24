@@ -84,197 +84,89 @@ class AISuggestionLayer {
      */
     async process(existingSuggestions, analysisContext) {
         const startTime = performance.now();
-        const maxRetries = 3; // Máximo 3 tentativas para resposta completa
-        let lastError = null;
         
-        for (let attempt = 1; attempt <= maxRetries; attempt++) {
-            try {
-                console.log(`🚀 [AI-LAYER] Tentativa ${attempt}/${maxRetries} - Processando ${existingSuggestions.length} sugestões`);
-                
-                // NOVO: Não precisa mais verificar API Key - backend que gerencia
-                if (!existingSuggestions || existingSuggestions.length === 0) {
-                    console.warn('⚠️ [AI-LAYER] Nenhuma sugestão para processar');
-                    return existingSuggestions;
-                }
-                
-                // Verificar cache (apenas na primeira tentativa)
-                if (attempt === 1) {
-                    const cacheKey = this.generateCacheKey(existingSuggestions, analysisContext);
-                    const cached = this.getFromCache(cacheKey);
-                    if (cached) {
-                        this.stats.cacheHits++;
-                        console.log('💾 [AI-LAYER] Resultado encontrado no cache');
-                        return cached;
-                    }
-                }
-                
-                // Rate limiting
-                await this.enforceRateLimit();
-                
-                // Preparar dados para o backend
-                const simpleSuggestions = this.prepareSimpleSuggestions(existingSuggestions);
-                const metrics = this.extractMetrics(analysisContext);
-                const genre = this.extractGenreInfo(analysisContext).genre;
-                
-                // Chamar backend
-                this.stats.totalRequests++;
-                const backendResponse = await this.callBackendAPI(simpleSuggestions, metrics, genre);
-                
-                // Processar resposta do backend (vai rejeitar respostas parciais)
-                const enhancedSuggestions = this.processBackendResponse(backendResponse, existingSuggestions);
-                
-                // ✅ Chegou até aqui = resposta completa aceita
-                console.log(`🎯 [AI-LAYER] ✅ SUCESSO na tentativa ${attempt}: ${enhancedSuggestions.length} sugestões enriquecidas`);
-                
-                // Atualizar cache e estatísticas (apenas salvar quando bem-sucedido)
-                if (attempt === 1) {
-                    const cacheKey = this.generateCacheKey(existingSuggestions, analysisContext);
-                    this.saveToCache(cacheKey, enhancedSuggestions);
-                }
-                this.stats.successfulRequests++;
-                
-                const responseTime = performance.now() - startTime;
-                this.updateAverageResponseTime(responseTime);
-                
-                console.log(`🤖 [AI-LAYER] Processamento concluído em ${responseTime.toFixed(0)}ms`);
-                
-                return enhancedSuggestions;
-                
-            } catch (error) {
-                lastError = error;
-                this.stats.failedRequests++;
-                
-                // Detectar especificamente respostas parciais vs outros erros
-                if (error.message.includes('Resposta parcial:')) {
-                    console.warn(`⚠️ [AI-LAYER] Tentativa ${attempt}/${maxRetries}: Resposta parcial - ${error.message}`);
-                    
-                    // Se não é a última tentativa, aguardar um pouco antes da próxima
-                    if (attempt < maxRetries) {
-                        const waitTime = attempt * 500; // 500ms, 1000ms, 1500ms
-                        console.log(`⏳ [AI-LAYER] Aguardando ${waitTime}ms antes da próxima tentativa...`);
-                        await new Promise(resolve => setTimeout(resolve, waitTime));
-                        continue;
-                    }
-                } else {
-                    // Erro diferente de resposta parcial - não retry
-                    console.error('❌ [AI-LAYER] Erro não-retry:', error);
-                    break;
-                }
+        try {
+            // Validações iniciais
+            if (!this.apiKey || this.apiKey === 'demo-mode') {
+                console.warn('⚠️ [AI-LAYER] API Key não configurada - usando sugestões originais');
+                return existingSuggestions;
             }
+            
+            if (!existingSuggestions || existingSuggestions.length === 0) {
+                console.warn('⚠️ [AI-LAYER] Nenhuma sugestão para processar');
+                return existingSuggestions;
+            }
+            
+            // Verificar cache
+            const cacheKey = this.generateCacheKey(existingSuggestions, analysisContext);
+            const cached = this.getFromCache(cacheKey);
+            if (cached) {
+                this.stats.cacheHits++;
+                console.log('💾 [AI-LAYER] Resultado encontrado no cache');
+                return cached;
+            }
+            
+            // Rate limiting
+            await this.enforceRateLimit();
+            
+            // Preparar dados para IA
+            const aiInput = this.prepareAIInput(existingSuggestions, analysisContext);
+            
+            // Chamar IA
+            this.stats.totalRequests++;
+            const aiResponse = await this.callOpenAI(aiInput);
+            
+            // Processar resposta
+            const enhancedSuggestions = this.processAIResponse(aiResponse, existingSuggestions);
+            
+            // Atualizar cache e estatísticas
+            this.saveToCache(cacheKey, enhancedSuggestions);
+            this.stats.successfulRequests++;
+            
+            const responseTime = performance.now() - startTime;
+            this.updateAverageResponseTime(responseTime);
+            
+            console.log(`🤖 [AI-LAYER] Processamento concluído em ${responseTime.toFixed(0)}ms`);
+            console.log(`📊 [AI-LAYER] ${existingSuggestions.length} → ${enhancedSuggestions.length} sugestões`);
+            
+            return enhancedSuggestions;
+            
+        } catch (error) {
+            this.stats.failedRequests++;
+            console.error('❌ [AI-LAYER] Erro no processamento:', error);
+            
+            // FALLBACK CRÍTICO: Sempre retornar sugestões originais em caso de erro
+            console.log('🛡️ [AI-LAYER] Usando fallback - sugestões originais mantidas');
+            return existingSuggestions;
         }
-        
-        // Se chegou aqui, todas as tentativas falharam
-        console.error(`❌ [AI-LAYER] FALHA após ${maxRetries} tentativas. Último erro:`, lastError);
-        console.error('🛡️ [AI-LAYER] Backend IA falhou - não exibir sugestões brutas');
-        throw lastError;
     }
     
     /**
-     * 📝 Preparar sugestões simples para o backend
+     * 📝 Preparar input estruturado para a IA
      */
-    prepareSimpleSuggestions(existingSuggestions) {
-        return existingSuggestions.map(suggestion => {
-            // Extrair dados da sugestão original
-            const problemText = suggestion.title || suggestion.message || suggestion.problem || 'Problema detectado';
-            const actionText = suggestion.description || suggestion.action || suggestion.solution || 'Ajuste recomendado';
-            
-            // Determinar prioridade baseado no tipo ou gravidade
-            let priority = suggestion.priority || 5;
-            if (typeof priority !== 'number') {
-                // Converter string para número
-                if (priority === 'alta' || priority === 'high') priority = 8;
-                else if (priority === 'média' || priority === 'medium') priority = 5;
-                else if (priority === 'baixa' || priority === 'low') priority = 2;
-                else priority = 5; // default
-            }
-            
-            // Determinar confiança baseado no tipo de análise
-            let confidence = suggestion.confidence || 0.9;
-            if (suggestion.type?.includes('heuristic')) confidence = 0.9;
-            else if (suggestion.type?.includes('reference')) confidence = 0.8;
-            else if (suggestion.type?.includes('spectral')) confidence = 0.7;
-            
-            // Criar mensagem educativa mais específica
-            let detailedMessage = problemText;
-            let detailedAction = actionText;
-            
-            // Enriquecer baseado no tipo de problema
-            if (suggestion.metric) {
-                const metric = suggestion.metric.toLowerCase();
-                if (metric.includes('lufs')) {
-                    detailedMessage = `Loudness ${suggestion.currentValue ? 'atual: ' + suggestion.currentValue + ' LUFS' : 'fora do alvo'}`;
-                    detailedAction = `Ajustar limitador para atingir o alvo ideal de ${suggestion.targetValue || '-14 LUFS'}`;
-                } else if (metric.includes('peak')) {
-                    detailedMessage = `True Peak ${suggestion.currentValue ? 'detectado: ' + suggestion.currentValue + ' dBTP' : 'acima do recomendado'}`;
-                    detailedAction = `Reduzir ganho ou usar limitador para manter abaixo de ${suggestion.targetValue || '-1.0 dBTP'}`;
-                } else if (metric.includes('dr') || metric.includes('dynamic')) {
-                    detailedMessage = `Range dinâmico ${suggestion.currentValue ? 'atual: ' + suggestion.currentValue + ' LU' : 'inadequado para o gênero'}`;
-                    detailedAction = `Ajustar compressão para atingir ${suggestion.targetValue || '6-8 LU'} de dinâmica`;
+    prepareAIInput(suggestions, context) {
+        // Extrair métricas principais do contexto
+        const metrics = this.extractMetrics(context);
+        
+        // Extrair informações de gênero e referência
+        const genreInfo = this.extractGenreInfo(context);
+        
+        // Categorizar sugestões por tipo
+        const categorizedSuggestions = this.categorizeSuggestions(suggestions);
+        
+        return {
+            role: "system",
+            content: this.buildSystemPrompt(),
+            user_input: {
+                metrics: metrics,
+                genre: genreInfo,
+                suggestions: categorizedSuggestions,
+                context: {
+                    timestamp: new Date().toISOString(),
+                    version: 'SoundyAI_v2.0_AI_Enhanced'
                 }
             }
-            
-            return {
-                message: detailedMessage,
-                action: detailedAction,
-                priority: Math.max(1, Math.min(10, priority)), // Garantir que está entre 1-10
-                confidence: Math.max(0, Math.min(1, confidence)) // Garantir que está entre 0-1
-            };
-        });
-    }
-
-    /**
-     * 🔄 Processar resposta do backend
-     */
-    processBackendResponse(backendResponse, originalSuggestions) {
-        try {
-            console.log('🔄 [AI-LAYER] Processando resposta do backend:', backendResponse);
-            
-            if (backendResponse.success && backendResponse.enhancedSuggestions) {
-                const enhancedSuggestions = backendResponse.enhancedSuggestions;
-                
-                // 🚨 FILTRO: Rejeitar respostas parciais (só aceitar se tem todas as sugestões)
-                if (enhancedSuggestions.length !== originalSuggestions.length) {
-                    console.warn(`⚠️ [AI-LAYER] Resposta PARCIAL ignorada: recebido ${enhancedSuggestions.length}, esperado ${originalSuggestions.length}`);
-                    throw new Error(`Resposta parcial: ${enhancedSuggestions.length}/${originalSuggestions.length} sugestões`);
-                }
-                
-                console.log(`✅ [AI-LAYER] Resposta COMPLETA aceita: ${enhancedSuggestions.length} sugestões processadas`);
-                
-                // Converter formato do backend para formato esperado pelo frontend
-                return enhancedSuggestions.map((backendSuggestion, index) => {
-                    const originalSuggestion = originalSuggestions[index] || {};
-                    
-                    return {
-                        // Manter dados originais
-                        ...originalSuggestion,
-                        
-                        // Adicionar enriquecimento do backend
-                        ai_enhanced: true,
-                        ai_blocks: backendSuggestion.blocks || {},
-                        ai_category: backendSuggestion.metadata?.processing_type || 'geral',
-                        ai_priority: backendSuggestion.metadata?.priority === 'alta' ? 8 : 
-                                   backendSuggestion.metadata?.priority === 'média' ? 5 : 3,
-                        ai_technical_details: {
-                            difficulty: backendSuggestion.metadata?.difficulty || 'intermediário',
-                            frequency_range: backendSuggestion.metadata?.frequency_range || '',
-                            tools_suggested: [backendSuggestion.blocks?.plugin || 'EQ/Compressor'].filter(Boolean)
-                        },
-                        
-                        // Manter compatibilidade com sistema existente
-                        title: backendSuggestion.blocks?.problem || originalSuggestion.title || originalSuggestion.message,
-                        description: backendSuggestion.blocks?.solution || originalSuggestion.description || originalSuggestion.action
-                    };
-                });
-            } else {
-                console.warn('🤖 [AI-LAYER] Backend não retornou sugestões enriquecidas');
-                throw new Error('Backend não forneceu sugestões válidas');
-            }
-            
-        } catch (error) {
-            console.error('❌ [AI-LAYER] Erro ao processar resposta do backend:', error);
-            // NÃO USAR FALLBACK: Se backend falhou, reportar erro
-            throw error;
-        }
+        };
     }
     
     /**
@@ -283,11 +175,10 @@ class AISuggestionLayer {
     extractMetrics(context) {
         const tech = context?.technicalData || {};
         
-        // Formato esperado pelo backend
         return {
             // Métricas principais de loudness
-            lufsIntegrated: tech.lufsIntegrated || tech.lufs || null,
-            truePeakDbtp: tech.truePeakDbtp || tech.true_peak || null,
+            lufs: tech.lufsIntegrated || tech.lufs || null,
+            truePeak: tech.truePeakDbtp || tech.true_peak || null,
             dynamicRange: tech.dynamicRange || tech.dr || null,
             lra: tech.lra || null,
             
@@ -296,50 +187,19 @@ class AISuggestionLayer {
             stereoWidth: tech.stereoWidth || null,
             spectralCentroid: tech.spectralCentroidHz || null,
             
-            // Bandas espectrais no formato esperado pelo backend
-            bands: this.extractBandEnergies(tech)
-        };
-    }
-
-    /**
-     * 🎵 Extrair bandas espectrais no formato esperado pelo backend
-     */
-    extractBandEnergies(tech) {
-        if (!tech.bandEnergies) return null;
-        
-        // Converter para o formato esperado pelo backend
-        const bandEnergies = tech.bandEnergies;
-        const referenceTargets = window.__activeRefData?.bands || {};
-        
-        return {
-            sub: {
-                value: bandEnergies.sub?.rms_db || 0,
-                ideal: referenceTargets.sub?.target || -16.0
-            },
-            bass: {
-                value: bandEnergies.low_bass?.rms_db || 0,  
-                ideal: referenceTargets.bass?.target || -17.8
-            },
-            lowMid: {
-                value: bandEnergies.upper_bass?.rms_db || 0,
-                ideal: referenceTargets.lowMid?.target || -18.2
-            },
-            mid: {
-                value: bandEnergies.mid?.rms_db || 0,
-                ideal: referenceTargets.mid?.target || -17.1
-            },
-            highMid: {
-                value: bandEnergies.high_mid?.rms_db || 0,
-                ideal: referenceTargets.highMid?.target || -20.8
-            },
-            presence: {
-                value: bandEnergies.presenca?.rms_db || 0,
-                ideal: referenceTargets.presence?.target || -34.6
-            },
-            air: {
-                value: bandEnergies.brilho?.rms_db || 0,
-                ideal: referenceTargets.air?.target || -25.5
-            }
+            // Bandas espectrais (se disponíveis)
+            bands: tech.bandEnergies ? {
+                sub: tech.bandEnergies.sub?.rms_db,
+                bass: tech.bandEnergies.low_bass?.rms_db,
+                lowMid: tech.bandEnergies.upper_bass?.rms_db,
+                mid: tech.bandEnergies.mid?.rms_db,
+                highMid: tech.bandEnergies.high_mid?.rms_db,
+                presence: tech.bandEnergies.presenca?.rms_db,
+                air: tech.bandEnergies.brilho?.rms_db
+            } : null,
+            
+            // Problemas detectados
+            detectedIssues: this.extractDetectedIssues(context)
         };
     }
     
@@ -463,58 +323,57 @@ DIRETRIZES:
     }
     
     /**
-     * 🌐 Chamar API do Backend (corrigido para usar /api/suggestions)
+     * 🌐 Chamar API da OpenAI
      */
-    async callBackendAPI(suggestions, metrics, genre) {
-        console.log(`[AI-LAYER] 📤 Enviando payload com ${suggestions.length} sugestões:`, {
-            suggestions: suggestions,
-            metrics: metrics,
-            genre: genre
-        });
+    async callOpenAI(input) {
+        const requestBody = {
+            model: this.model,
+            messages: [
+                {
+                    role: "system",
+                    content: input.content
+                },
+                {
+                    role: "user", 
+                    content: `Analise estes dados de áudio e sugestões, e crie explicações educacionais estruturadas:
 
-        const response = await fetch('/api/suggestions', {
+MÉTRICAS TÉCNICAS:
+${JSON.stringify(input.user_input.metrics, null, 2)}
+
+GÊNERO MUSICAL:
+${JSON.stringify(input.user_input.genre, null, 2)}
+
+SUGESTÕES ATUAIS:
+${JSON.stringify(input.user_input.suggestions, null, 2)}
+
+Gere explicações educacionais seguindo exatamente o formato JSON especificado.`
+                }
+            ],
+            max_tokens: 2000,
+            temperature: 0.7,
+            response_format: { type: "json_object" }
+        };
+        
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.apiKey}`
             },
-            body: JSON.stringify({
-                suggestions: suggestions,
-                metrics: metrics,
-                genre: genre
-            })
+            body: JSON.stringify(requestBody)
         });
         
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('[AI-LAYER] Erro na API do backend:', {
-                status: response.status,
-                statusText: response.statusText,
-                error: errorText
-            });
-            throw new Error(`Backend API Error: ${response.status} - ${errorText}`);
+            throw new Error(`OpenAI API Error: ${response.status} - ${errorText}`);
         }
         
         const data = await response.json();
-        
-        // 🔍 DIAGNÓSTICO: Verificar se resposta é parcial
-        if (data.success && data.enhancedSuggestions) {
-            const receivedCount = data.enhancedSuggestions.length;
-            const expectedCount = suggestions.length;
-            
-            if (receivedCount !== expectedCount) {
-                console.warn(`⚠️ [AI-LAYER] 📥 RESPOSTA PARCIAL detectada: recebido ${receivedCount}/${expectedCount} sugestões`);
-            } else {
-                console.log(`✅ [AI-LAYER] 📥 RESPOSTA COMPLETA recebida: ${receivedCount}/${expectedCount} sugestões`);
-            }
-        }
-        
-        console.log('[AI-LAYER] Resposta recebida:', data);
-        
-        return data;
+        return data.choices[0].message.content;
     }
     
     /**
-     * 🔄 Processar resposta da IA e mesclar com sugestões originais (LEGADO - mantido para compatibilidade)
+     * 🔄 Processar resposta da IA e mesclar com sugestões originais
      */
     processAIResponse(aiResponse, originalSuggestions) {
         try {
@@ -552,8 +411,8 @@ DIRETRIZES:
             
         } catch (error) {
             console.error('❌ [AI-LAYER] Erro ao processar resposta da IA:', error);
-            // NÃO USAR FALLBACK: Se processamento falhou, reportar erro
-            throw error;
+            // Fallback: retornar sugestões originais
+            return originalSuggestions.map(s => ({...s, ai_enhanced: false}));
         }
     }
     

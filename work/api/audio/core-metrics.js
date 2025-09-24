@@ -244,13 +244,13 @@ class CoreMetricsProcessor {
       }
 
       // ========= CÁLCULO DE BPM =========
-      let bmpMetrics = { bpm: null, bmpConfidence: null };
+      let bmpMetrics = { bpm: null, bpmConfidence: null }; // ✅ CORREÇÃO: bmpConfidence → bpmConfidence
       try {
         bmpMetrics = this.calculateBpmMetrics(normalizedLeft, normalizedRight, { jobId });
         console.log('[SUCCESS] BPM calculado via método da classe');
       } catch (error) {
         console.log('[SKIP_METRIC] BPM: erro no método da classe -', error.message);
-        bmpMetrics = { bpm: null, bmpConfidence: null };
+        bmpMetrics = { bpm: null, bpmConfidence: null }; // ✅ CORREÇÃO: bmpConfidence → bpmConfidence
       }
 
       // ========= MONTAGEM DE RESULTADO CORRIGIDO =========
@@ -275,7 +275,7 @@ class CoreMetricsProcessor {
         dominantFrequencies: dominantFreqMetrics, // ✅ NOVO: Dominant frequencies
         spectralUniformity: spectralUniformityMetrics, // ✅ NOVO: Spectral uniformity
         bpm: bmpMetrics.bpm, // ✅ NOVO: Beats Per Minute
-        bmpConfidence: bmpMetrics.bmpConfidence, // ✅ NOVO: BPM Confidence
+        bpmConfidence: bmpMetrics.bpmConfidence, // ✅ CORREÇÃO: BPM Confidence (corrigido bmpConfidence → bpmConfidence)
         
         normalization: {
           applied: normalizationResult.normalizationApplied,
@@ -1315,12 +1315,12 @@ class CoreMetricsProcessor {
       // Validar entrada
       if (!leftChannel || !rightChannel || leftChannel.length === 0) {
         console.warn('[BPM] Canais inválidos ou vazios');
-        return { bpm: null, bmpConfidence: null };
+        return { bpm: null, bpmConfidence: null }; // ✅ CORREÇÃO: bmpConfidence → bmpConfidence
       }
 
       if (leftChannel.length < 1000) {
         console.warn('[BPM] Sinal muito curto para análise de BPM');
-        return { bpm: null, bmpConfidence: null };
+        return { bpm: null, bpmConfidence: null }; // ✅ CORREÇÃO: bmpConfidence → bpmConfidence
       }
 
       // Usar apenas canal esquerdo para análise (como é comum em algoritmos de BPM)
@@ -1357,7 +1357,7 @@ class CoreMetricsProcessor {
 
       if (onsets.length < 4) {
         console.warn('[BPM] Muito poucos onsets detectados para análise');
-        return { bpm: null, bmpConfidence: null };
+        return { bpm: null, bpmConfidence: null }; // ✅ CORREÇÃO: bmpConfidence → bpmConfidence
       }
 
       // Calcular intervalos entre onsets
@@ -1377,7 +1377,7 @@ class CoreMetricsProcessor {
 
       if (Object.keys(histogramBins).length === 0) {
         console.warn('[BPM] Nenhum BPM válido encontrado no range 60-200');
-        return { bpm: null, bmpConfidence: null };
+        return { bpm: null, bpmConfidence: null }; // ✅ CORREÇÃO: bmpConfidence → bpmConfidence
       }
 
       // Encontrar BPM mais frequente
@@ -1393,9 +1393,10 @@ class CoreMetricsProcessor {
       // Calcular confiança baseada na frequência relativa
       const confidence = Math.min(1, Math.max(0, maxCount / intervals.length));
 
-      console.log(`[AUDIO] BPM calculado: ${detectedBpm}, confiança: ${confidence.toFixed(2)}`);
+      // ✅ CORREÇÃO: Log no formato solicitado pelo usuário
+      console.log(`[WORKER][BPM] calculado: ${detectedBpm} conf: ${confidence.toFixed(2)}`);
 
-      logAudio('core_metrics', 'bmp_calculation_completed', { 
+      logAudio('core_metrics', 'bpm_calculation_completed', { 
         bpm: detectedBpm,
         confidence: confidence.toFixed(2),
         onsets: onsets.length,
@@ -1405,7 +1406,7 @@ class CoreMetricsProcessor {
 
       return { 
         bpm: detectedBpm, 
-        bmpConfidence: Math.round(confidence * 100) / 100 // Arredondar para 2 casas
+        bpmConfidence: Math.round(confidence * 100) / 100 // ✅ CORREÇÃO: bmpConfidence → bpmConfidence
       };
 
     } catch (error) {
@@ -1417,7 +1418,7 @@ class CoreMetricsProcessor {
       
       return { 
         bpm: null, 
-        bmpConfidence: null 
+        bpmConfidence: null  // ✅ CORREÇÃO: bmpConfidence → bpmConfidence
       };
     }
   }
