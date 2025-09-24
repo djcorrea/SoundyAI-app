@@ -259,13 +259,9 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
   }
 
   // ===== Tempo / BPM =====
-  if (coreMetrics.tempo && (coreMetrics.tempo.bpm != null || coreMetrics.tempo.confidence != null)) {
-    technicalData.bpm = safeSanitize(coreMetrics.tempo.bpm);
-    technicalData.bpmConfidence = safeSanitize(coreMetrics.tempo.confidence);
-  } else {
-    technicalData.bpm = null;
-    technicalData.bpmConfidence = null;
-  }
+  // Mapear campos diretos de coreMetrics para technicalData
+  technicalData.bpm = safeSanitize(coreMetrics.bpm) ?? null;
+  technicalData.bpmConfidence = safeSanitize(coreMetrics.bpmConfidence) ?? null;
 
   // ===== Problems / Suggestions =====
   technicalData.problemsAnalysis = {
@@ -274,6 +270,14 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     qualityAssessment: coreMetrics.qualityAssessment || {},
     priorityRecommendations: coreMetrics.priorityRecommendations || []
   };
+
+  // Log de auditoria para confirmar presença do BPM
+  if (technicalData.bpm !== null) {
+    console.log("[AUDIT] TechnicalData JSON inclui bpm", { 
+      bpm: technicalData.bpm, 
+      confidence: technicalData.bpmConfidence 
+    });
+  }
 
   return technicalData;
 }
