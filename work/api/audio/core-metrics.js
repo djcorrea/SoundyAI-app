@@ -1306,121 +1306,284 @@ class CoreMetricsProcessor {
     const jobId = options.jobId || 'unknown';
     
     try {
-      logAudio('core_metrics', 'bmp_calculation_start', { 
+      logAudio('core_metrics', 'bpm_calculation_start', { 
         samples: leftChannel.length, 
-        method: 'onset_detection',
+        method: 'enhanced_onset_detection_with_harmonics',
         jobId: jobId.substring(0,8) 
       });
 
       // Validar entrada
       if (!leftChannel || !rightChannel || leftChannel.length === 0) {
         console.warn('[BPM] Canais inválidos ou vazios');
-        return { bpm: null, bpmConfidence: null }; // ✅ CORREÇÃO: bmpConfidence → bmpConfidence
+        return { bpm: null, bpmConfidence: null };
       }
 
       if (leftChannel.length < 1000) {
         console.warn('[BPM] Sinal muito curto para análise de BPM');
-        return { bpm: null, bpmConfidence: null }; // ✅ CORREÇÃO: bmpConfidence → bpmConfidence
+        return { bpm: null, bpmConfidence: null };
       }
 
-      // Usar apenas canal esquerdo para análise (como é comum em algoritmos de BPM)
       const signal = leftChannel;
       const sampleRate = CORE_METRICS_CONFIG.SAMPLE_RATE;
+      const BPM_MIN = 60;
+      const BPM_MAX = 180; // ✅ Range mais restrito para música eletrônica/dance
+      const CONFIDENCE_THRESHOLD = 0.7; // ✅ Threshold mínimo de confiança
 
-      console.log(`[BPM] Processando sinal de ${signal.length} amostras @ ${sampleRate}Hz`);
+      console.log(`[WORKER][BPM] Processando sinal: ${signal.length} amostras @ ${sampleRate}Hz`);
 
-      // Criar onset envelope baseado na energia do sinal
-      const onsets = [];
-      const windowSize = Math.floor(sampleRate * 0.1); // Janela de 100ms
+      // ========= MÉTODO 1: ONSET DETECTION MELHORADO =========
+      const onsetBpm = this.calculateOnsetBasedBpm(signal, sampleRate, BPM_MIN, BPM_MAX);
       
-      for (let i = windowSize; i < signal.length - windowSize; i += windowSize) {
-        let energy = 0;
-        let prevEnergy = 0;
-        
-        // Energia da janela atual
-        for (let j = i; j < i + windowSize; j++) {
-          energy += Math.abs(signal[j]);
-        }
-        
-        // Energia da janela anterior
-        for (let j = i - windowSize; j < i; j++) {
-          prevEnergy += Math.abs(signal[j]);
-        }
-        
-        // Detectar onset se a energia aumentou significativamente
-        if (energy > prevEnergy * 1.3 && energy > 0.02) {
-          onsets.push(i / sampleRate); // Converter para segundos
-        }
+      // ========= MÉTODO 2: AUTOCORRELATION =========
+      const autocorrBpm = this.calculateAutocorrelationBpm(signal, sampleRate, BPM_MIN, BPM_MAX);
+      
+      console.log(`[WORKER][BPM] Método 1 (Onset): ${onsetBpm.bpm} (conf: ${onsetBpm.confidence.toFixed(2)})`);
+      console.log(`[WORKER][BPM] Método 2 (Autocorr): ${autocorrBpm.bpm} (conf: ${autocorrBpm.confidence.toFixed(2)})`);
+
+      // ========= CROSS-VALIDATION E CORREÇÃO DE HARMÔNICOS =========
+      const finalResult = this.crossValidateBpmResults(onsetBpm, autocorrBpm, BPM_MIN, BPM_MAX, CONFIDENCE_THRESHOLD);
+      
+      // ✅ Log detalhado do resultado final
+      if (finalResult.bpm !== null) {
+        console.log(`[WORKER][BPM] Detected: ${finalResult.bpm} Confidence: ${finalResult.confidence.toFixed(2)}`);
+      } else {
+        console.log(`[WORKER][BPM] Detected: BAIXA_CONFIANÇA (< ${CONFIDENCE_THRESHOLD}) - retornando null`);
       }
-
-      console.log(`[BPM] Detectados ${onsets.length} onsets/picos`);
-
-      if (onsets.length < 4) {
-        console.warn('[BPM] Muito poucos onsets detectados para análise');
-        return { bpm: null, bpmConfidence: null }; // ✅ CORREÇÃO: bmpConfidence → bpmConfidence
-      }
-
-      // Calcular intervalos entre onsets
-      const intervals = [];
-      for (let i = 1; i < onsets.length; i++) {
-        intervals.push(onsets[i] - onsets[i-1]);
-      }
-
-      // Encontrar o intervalo mais comum (análise de histograma simples)
-      const histogramBins = {};
-      intervals.forEach(interval => {
-        const bpm = Math.round(60 / interval);
-        if (bpm >= 60 && bpm <= 200) { // Range válido
-          histogramBins[bpm] = (histogramBins[bpm] || 0) + 1;
-        }
-      });
-
-      if (Object.keys(histogramBins).length === 0) {
-        console.warn('[BPM] Nenhum BPM válido encontrado no range 60-200');
-        return { bpm: null, bpmConfidence: null }; // ✅ CORREÇÃO: bmpConfidence → bpmConfidence
-      }
-
-      // Encontrar BPM mais frequente
-      let maxCount = 0;
-      let detectedBpm = null;
-      for (const [bpm, count] of Object.entries(histogramBins)) {
-        if (count > maxCount) {
-          maxCount = count;
-          detectedBpm = parseInt(bpm);
-        }
-      }
-
-      // Calcular confiança baseada na frequência relativa
-      const confidence = Math.min(1, Math.max(0, maxCount / intervals.length));
-
-      // ✅ CORREÇÃO: Log no formato solicitado pelo usuário
-      console.log(`[WORKER][BPM] calculado: ${detectedBpm} conf: ${confidence.toFixed(2)}`);
 
       logAudio('core_metrics', 'bpm_calculation_completed', { 
-        bpm: detectedBpm,
-        confidence: confidence.toFixed(2),
-        onsets: onsets.length,
-        intervals: intervals.length,
+        bpm: finalResult.bpm,
+        confidence: finalResult.confidence.toFixed(2),
+        method1: onsetBpm,
+        method2: autocorrBpm,
+        threshold: CONFIDENCE_THRESHOLD,
         jobId: jobId.substring(0,8) 
       });
 
       return { 
-        bpm: detectedBpm, 
-        bpmConfidence: Math.round(confidence * 100) / 100 // ✅ CORREÇÃO: bmpConfidence → bpmConfidence
+        bpm: finalResult.bpm, 
+        bpmConfidence: Math.round(finalResult.confidence * 100) / 100
       };
 
     } catch (error) {
-      console.error("[BPM] Erro ao calcular BPM:", error);
-      logAudio('core_metrics', 'bmp_calculation_error', { 
+      console.error("[WORKER][BPM] Erro ao calcular BPM:", error);
+      logAudio('core_metrics', 'bpm_calculation_error', { 
         error: error.message,
         jobId: jobId.substring(0,8) 
       });
       
       return { 
         bpm: null, 
-        bpmConfidence: null  // ✅ CORREÇÃO: bmpConfidence → bpmConfidence
+        bpmConfidence: null
       };
     }
+  }
+
+  // ========= MÉTODO 1: ONSET DETECTION MELHORADO =========
+  calculateOnsetBasedBpm(signal, sampleRate, minBpm, maxBpm) {
+    const onsets = [];
+    const windowSize = Math.floor(sampleRate * 0.046); // ~46ms janela (melhor para detecção de kicks)
+    const hopSize = Math.floor(windowSize / 4); // 75% overlap
+    
+    // Detectar onsets com filtro passa-baixa para focar em kicks/bass
+    for (let i = windowSize; i < signal.length - windowSize; i += hopSize) {
+      let energy = 0;
+      let prevEnergy = 0;
+      
+      // Energia atual (com peso maior para baixas frequências)
+      for (let j = i; j < i + windowSize; j++) {
+        const sample = signal[j];
+        energy += sample * sample; // RMS em vez de magnitude
+      }
+      
+      // Energia anterior
+      for (let j = i - windowSize; j < i; j++) {
+        const sample = signal[j];
+        prevEnergy += sample * sample;
+      }
+      
+      // Normalizar
+      energy = Math.sqrt(energy / windowSize);
+      prevEnergy = Math.sqrt(prevEnergy / windowSize);
+      
+      // Onset detection com threshold adaptativo
+      const threshold = Math.max(0.01, prevEnergy * 1.5);
+      if (energy > threshold && energy > prevEnergy * 1.2) {
+        onsets.push(i / sampleRate);
+      }
+    }
+
+    return this.calculateBpmFromOnsets(onsets, minBpm, maxBpm, sampleRate);
+  }
+
+  // ========= MÉTODO 2: AUTOCORRELATION =========
+  calculateAutocorrelationBpm(signal, sampleRate, minBpm, maxBpm) {
+    const downsampleFactor = 4; // Reduzir para 12kHz para performance
+    const downsampledSignal = [];
+    for (let i = 0; i < signal.length; i += downsampleFactor) {
+      downsampledSignal.push(signal[i]);
+    }
+    
+    const newSampleRate = sampleRate / downsampleFactor;
+    const minPeriod = Math.floor(newSampleRate * 60 / maxBpm);
+    const maxPeriod = Math.floor(newSampleRate * 60 / minBpm);
+    
+    let bestBpm = null;
+    let bestScore = 0;
+    
+    // Calcular autocorrelação para diferentes lags
+    for (let lag = minPeriod; lag <= maxPeriod; lag++) {
+      let correlation = 0;
+      let count = 0;
+      
+      for (let i = 0; i < downsampledSignal.length - lag; i++) {
+        correlation += downsampledSignal[i] * downsampledSignal[i + lag];
+        count++;
+      }
+      
+      if (count > 0) {
+        correlation /= count;
+        
+        if (correlation > bestScore) {
+          bestScore = correlation;
+          bestBpm = Math.round(newSampleRate * 60 / lag);
+        }
+      }
+    }
+    
+    // Confiança baseada na correlação normalizada
+    const confidence = Math.max(0, Math.min(1, bestScore * 10)); // Ajustar scaling
+    
+    return { bpm: bestBpm, confidence: confidence };
+  }
+
+  // ========= CÁLCULO BPM A PARTIR DE ONSETS =========
+  calculateBpmFromOnsets(onsets, minBpm, maxBpm, sampleRate) {
+    if (onsets.length < 4) {
+      return { bpm: null, confidence: 0 };
+    }
+
+    // Calcular intervalos entre onsets
+    const intervals = [];
+    for (let i = 1; i < onsets.length; i++) {
+      intervals.push(onsets[i] - onsets[i-1]);
+    }
+
+    // Histograma com bins mais precisos
+    const histogramBins = {};
+    intervals.forEach(interval => {
+      const bpm = 60 / interval;
+      const roundedBpm = Math.round(bpm);
+      
+      if (roundedBpm >= minBpm && roundedBpm <= maxBpm) {
+        histogramBins[roundedBpm] = (histogramBins[roundedBpm] || 0) + 1;
+      }
+    });
+
+    if (Object.keys(histogramBins).length === 0) {
+      return { bpm: null, confidence: 0 };
+    }
+
+    // Encontrar BPM mais frequente
+    let maxCount = 0;
+    let detectedBpm = null;
+    
+    for (const [bpm, count] of Object.entries(histogramBins)) {
+      if (count > maxCount) {
+        maxCount = count;
+        detectedBpm = parseInt(bpm);
+      }
+    }
+
+    // Confiança melhorada baseada em consistência
+    const confidence = maxCount / intervals.length;
+    const consistencyBonus = Object.keys(histogramBins).length < 5 ? 0.2 : 0; // Bonus se poucos candidatos
+    const finalConfidence = Math.min(1, confidence + consistencyBonus);
+    
+    return { bpm: detectedBpm, confidence: finalConfidence };
+  }
+
+  // ========= CROSS-VALIDATION E CORREÇÃO DE HARMÔNICOS =========
+  crossValidateBpmResults(result1, result2, minBpm, maxBpm, confidenceThreshold) {
+    // Se ambos métodos falharam
+    if (!result1.bpm && !result2.bpm) {
+      return { bpm: null, confidence: 0 };
+    }
+
+    // Se apenas um método teve resultado
+    if (!result1.bpm) return this.validateAndCorrectHarmonics(result2, minBpm, maxBpm, confidenceThreshold);
+    if (!result2.bpm) return this.validateAndCorrectHarmonics(result1, minBpm, maxBpm, confidenceThreshold);
+
+    // Se ambos métodos concordam (±2 BPM)
+    if (Math.abs(result1.bpm - result2.bpm) <= 2) {
+      const avgBpm = Math.round((result1.bpm + result2.bpm) / 2);
+      const avgConfidence = (result1.confidence + result2.confidence) / 2;
+      return this.validateAndCorrectHarmonics({ bpm: avgBpm, confidence: avgConfidence }, minBpm, maxBpm, confidenceThreshold);
+    }
+
+    // Verificar se um é harmônico do outro
+    const harmonicResult = this.checkHarmonics(result1, result2);
+    if (harmonicResult) {
+      return this.validateAndCorrectHarmonics(harmonicResult, minBpm, maxBpm, confidenceThreshold);
+    }
+
+    // Usar o resultado com maior confiança
+    const bestResult = result1.confidence > result2.confidence ? result1 : result2;
+    return this.validateAndCorrectHarmonics(bestResult, minBpm, maxBpm, confidenceThreshold);
+  }
+
+  // ========= VALIDAÇÃO E CORREÇÃO DE HARMÔNICOS =========
+  validateAndCorrectHarmonics(result, minBpm, maxBpm, confidenceThreshold) {
+    if (!result.bpm) return { bpm: null, confidence: 0 };
+
+    let correctedBpm = result.bpm;
+    let confidence = result.confidence;
+
+    // Correção de harmônicos: se BPM está fora do range preferido
+    if (correctedBpm > 150) {
+      // Tentar dividir por 2
+      const halfBpm = Math.round(correctedBpm / 2);
+      if (halfBpm >= minBpm && halfBpm <= 150) {
+        console.log(`[WORKER][BPM] Correção harmônica: ${correctedBpm} → ${halfBpm} (÷2)`);
+        correctedBpm = halfBpm;
+        confidence *= 0.9; // Pequena penalidade por correção
+      }
+    } else if (correctedBpm < 80) {
+      // Tentar multiplicar por 2
+      const doubleBpm = correctedBpm * 2;
+      if (doubleBpm <= maxBpm && doubleBpm >= 80) {
+        console.log(`[WORKER][BPM] Correção harmônica: ${correctedBpm} → ${doubleBpm} (×2)`);
+        correctedBpm = doubleBpm;
+        confidence *= 0.9; // Pequena penalidade por correção
+      }
+    }
+
+    // Aplicar threshold de confiança
+    if (confidence < confidenceThreshold) {
+      console.log(`[WORKER][BPM] Confiança baixa: ${confidence.toFixed(2)} < ${confidenceThreshold} - descartando resultado`);
+      return { bpm: null, confidence: confidence };
+    }
+
+    return { bpm: correctedBpm, confidence: confidence };
+  }
+
+  // ========= VERIFICAÇÃO DE HARMÔNICOS ENTRE MÉTODOS =========
+  checkHarmonics(result1, result2) {
+    const bpm1 = result1.bpm;
+    const bpm2 = result2.bpm;
+    
+    // Verificar se bpm2 é aproximadamente 2x bpm1
+    if (Math.abs(bpm2 - bpm1 * 2) <= 3) {
+      // Preferir o BPM menor (mais provável ser o correto)
+      return result1.confidence > result2.confidence * 0.8 ? result1 : { bpm: bpm1, confidence: (result1.confidence + result2.confidence) / 2 };
+    }
+    
+    // Verificar se bpm1 é aproximadamente 2x bpm2
+    if (Math.abs(bpm1 - bpm2 * 2) <= 3) {
+      // Preferir o BPM menor (mais provável ser o correto)
+      return result2.confidence > result1.confidence * 0.8 ? result2 : { bpm: bpm2, confidence: (result1.confidence + result2.confidence) / 2 };
+    }
+    
+    return null;
   }
 
   /**
