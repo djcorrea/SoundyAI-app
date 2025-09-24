@@ -16,6 +16,7 @@ import { calculateDominantFrequencies } from "../../lib/audio/features/dominant-
 import { calculateDCOffset } from "../../lib/audio/features/dc-offset.js";
 import { calculateSpectralUniformity } from "../../lib/audio/features/spectral-uniformity.js";
 import { analyzeProblemsAndSuggestionsV2 } from "../../lib/audio/features/problems-suggestions-v2.js";
+import { calculateBpm } from "./bpm-analyzer.js";
 
 // Sistema de tratamento de erros padronizado
 import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../lib/audio/error-handling.js';
@@ -284,6 +285,30 @@ class CoreMetricsProcessor {
           jobId
         }
       };
+
+      // ========= CÁLCULO DE BPM =========
+      try {
+        console.log('[BPM] Iniciando cálculo de BPM...');
+        
+        // Extrair frames de áudio dos canais normalizados para análise de BPM
+        const audioFrames = [normalizedLeft, normalizedRight];
+        const bpmResult = calculateBpm(audioFrames, CORE_METRICS_CONFIG.SAMPLE_RATE);
+        
+        // Adicionar resultado ao coreMetrics
+        coreMetrics.tempo = {
+          bpm: bpmResult.bpm,
+          confidence: bpmResult.confidence
+        };
+        
+        console.log(`[BPM] BPM calculado: ${bpmResult.bpm}, confiança: ${bpmResult.confidence}`);
+      } catch (bpmError) {
+        console.warn('[BPM] Erro no cálculo de BPM (não crítico):', bpmError.message);
+        // Garantir que os campos existam mesmo em caso de erro
+        coreMetrics.tempo = {
+          bpm: null,
+          confidence: null
+        };
+      }
 
       // ========= ANÁLISE DE PROBLEMAS E SUGESTÕES =========
       // Usando função standalone
