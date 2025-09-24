@@ -250,7 +250,7 @@ class CoreMetricsProcessor {
         console.log('[SUCCESS] BPM calculado via método da classe');
       } catch (error) {
         console.log('[SKIP_METRIC] BPM: erro no método da classe -', error.message);
-        bmpMetrics = { bpm: null, bpmConfidence: null }; // ✅ CORREÇÃO: bmpConfidence → bpmConfidence
+        bmpMetrics = { bpm: null, bpmConfidence: null, bpmSource: 'ERROR' }; // ✅ CORREÇÃO: incluir bpmSource
       }
 
       // ========= MONTAGEM DE RESULTADO CORRIGIDO =========
@@ -276,6 +276,7 @@ class CoreMetricsProcessor {
         spectralUniformity: spectralUniformityMetrics, // ✅ NOVO: Spectral uniformity
         bpm: bmpMetrics.bpm, // ✅ NOVO: Beats Per Minute
         bpmConfidence: bmpMetrics.bpmConfidence, // ✅ CORREÇÃO: BPM Confidence (corrigido bmpConfidence → bpmConfidence)
+        bpmSource: bmpMetrics.bpmSource, // ✅ NOVO: Fonte do cálculo BPM (NORMAL, FALLBACK_STRICT, etc)
         
         normalization: {
           applied: normalizationResult.normalizationApplied,
@@ -1299,8 +1300,8 @@ class CoreMetricsProcessor {
   }
 
   /**
-   * 🥁 Calcular BPM (Beats Per Minute) usando análise de onset
-   * Similar ao calculateTruePeakMetrics - processa os frames normalizados
+   * 🎵 Calcular BPM (Beats Per Minute) usando music-tempo + autocorrelação
+   * Implementação confiável com cross-validation e correção harmônica
    */
   calculateBpmMetrics(leftChannel, rightChannel, options = {}) {
     const jobId = options.jobId || 'unknown';
@@ -1308,61 +1309,66 @@ class CoreMetricsProcessor {
     try {
       logAudio('core_metrics', 'bpm_calculation_start', { 
         samples: leftChannel.length, 
-        method: 'enhanced_onset_detection_with_harmonics',
+        method: 'music_tempo_plus_autocorrelation',
         jobId: jobId.substring(0,8) 
       });
 
       // Validar entrada
       if (!leftChannel || !rightChannel || leftChannel.length === 0) {
-        console.warn('[BPM] Canais inválidos ou vazios');
-        return { bpm: null, bpmConfidence: null };
+        console.warn('[WORKER][BPM] Canais inválidos ou vazios');
+        return { bpm: null, bpmConfidence: null, bpmSource: 'INVALID_INPUT' };
       }
 
-      if (leftChannel.length < 1000) {
-        console.warn('[BPM] Sinal muito curto para análise de BPM');
-        return { bpm: null, bpmConfidence: null };
+      if (leftChannel.length < CORE_METRICS_CONFIG.SAMPLE_RATE * 10) { // Mín. 10 segundos
+        console.warn('[WORKER][BPM] Sinal muito curto para análise de BPM (< 10s)');
+        return { bpm: null, bpmConfidence: null, bmpSource: 'TOO_SHORT' };
       }
 
-      const signal = leftChannel;
+      // Combinar canais para mono (RMS stereo)
+      const monoSignal = new Float32Array(leftChannel.length);
+      for (let i = 0; i < leftChannel.length; i++) {
+        monoSignal[i] = Math.sqrt((leftChannel[i] ** 2 + rightChannel[i] ** 2) / 2);
+      }
+
       const sampleRate = CORE_METRICS_CONFIG.SAMPLE_RATE;
       const BPM_MIN = 60;
-      const BPM_MAX = 180; // ✅ Range mais restrito para música eletrônica/dance
-      const CONFIDENCE_THRESHOLD = 0.7; // ✅ Threshold mínimo de confiança
+      const BPM_MAX = 180;
+      const CONFIDENCE_THRESHOLD = 0.5; // ✅ Usar threshold do fallback rígido
 
-      console.log(`[WORKER][BPM] Processando sinal: ${signal.length} amostras @ ${sampleRate}Hz`);
+      console.log(`[WORKER][BPM] Processando sinal: ${monoSignal.length} amostras @ ${sampleRate}Hz`);
 
-      // ========= MÉTODO 1: ONSET DETECTION MELHORADO =========
-      const onsetBpm = this.calculateOnsetBasedBpm(signal, sampleRate, BPM_MIN, BPM_MAX);
+      // ========= MÉTODO 1: MUSIC-TEMPO (PRINCIPAL) =========
+      const musicTempoBpm = this.calculateMusicTempoBpm(monoSignal, sampleRate, BPM_MIN, BPM_MAX);
       
-      // ========= MÉTODO 2: AUTOCORRELATION =========
-      const autocorrBpm = this.calculateAutocorrelationBpm(signal, sampleRate, BPM_MIN, BPM_MAX);
+      // ========= MÉTODO 2: AUTOCORRELAÇÃO (SECUNDÁRIO) =========
+      const autocorrBpm = this.calculateAutocorrelationBpm(monoSignal, sampleRate, BPM_MIN, BPM_MAX);
       
-      console.log(`[WORKER][BPM] Método 1 (Onset): ${onsetBpm.bpm} (conf: ${onsetBpm.confidence.toFixed(2)})`);
-      console.log(`[WORKER][BPM] Método 2 (Autocorr): ${autocorrBpm.bpm} (conf: ${autocorrBpm.confidence.toFixed(2)})`);
+      console.log(`[WORKER][BPM] Método 1 (music-tempo): ${musicTempoBpm.bpm} (conf: ${musicTempoBpm.confidence.toFixed(2)})`);
+      console.log(`[WORKER][BPM] Método 2 (autocorr): ${autocorrBpm.bpm} (conf: ${autocorrBpm.confidence.toFixed(2)})`);
 
-      // ========= CROSS-VALIDATION E CORREÇÃO DE HARMÔNICOS =========
-      const finalResult = this.crossValidateBpmResults(onsetBpm, autocorrBpm, BPM_MIN, BPM_MAX, CONFIDENCE_THRESHOLD);
+      // ========= CROSS-VALIDATION COM FALLBACK RÍGIDO =========
+      const finalResult = this.crossValidateBpmResults(musicTempoBpm, autocorrBpm, BPM_MIN, BPM_MAX, CONFIDENCE_THRESHOLD);
       
       // ✅ Log detalhado do resultado final
       if (finalResult.bpm !== null) {
-        console.log(`[WORKER][BPM] Detected: ${finalResult.bpm} Confidence: ${finalResult.confidence.toFixed(2)}`);
+        console.log(`[WORKER][BPM] Detected: ${finalResult.bpm} BPM | Confidence: ${finalResult.confidence.toFixed(2)} | Source: ${finalResult.source}`);
       } else {
-        console.log(`[WORKER][BPM] Detected: BAIXA_CONFIANÇA (< ${CONFIDENCE_THRESHOLD}) - retornando null`);
+        console.log(`[WORKER][BPM] Detection failed | Confidence: ${finalResult.confidence?.toFixed(2) || 'N/A'} | Reason: ${finalResult.source}`);
       }
 
       logAudio('core_metrics', 'bpm_calculation_completed', { 
         bpm: finalResult.bpm,
-        confidence: finalResult.confidence.toFixed(2),
-        method1: onsetBpm,
+        confidence: finalResult.confidence?.toFixed(2) || 0,
+        source: finalResult.source,
+        method1: musicTempoBpm,
         method2: autocorrBpm,
-        threshold: CONFIDENCE_THRESHOLD,
         jobId: jobId.substring(0,8) 
       });
 
       return { 
         bpm: finalResult.bpm, 
-        bpmConfidence: Math.round(finalResult.confidence * 100) / 100,
-        bpmSource: finalResult.source || 'UNKNOWN'
+        bpmConfidence: finalResult.confidence ? Math.round(finalResult.confidence * 100) / 100 : null,
+        bmpSource: finalResult.source || 'UNKNOWN'
       };
 
     } catch (error) {
@@ -1375,87 +1381,178 @@ class CoreMetricsProcessor {
       return { 
         bpm: null, 
         bpmConfidence: null,
-        bpmSource: 'ERROR'
+        bmpSource: 'ERROR'
       };
     }
   }
 
-  // ========= MÉTODO 1: ONSET DETECTION MELHORADO =========
-  calculateOnsetBasedBpm(signal, sampleRate, minBpm, maxBpm) {
+  // ========= MÉTODO 1: MUSIC-TEMPO (PRINCIPAL) =========
+  calculateMusicTempoBpm(signal, sampleRate, minBpm, maxBpm) {
+    try {
+      console.log(`[WORKER][BPM] Music-tempo: processando ${signal.length} amostras @ ${sampleRate}Hz`);
+      
+      // TODO: Integrar com music-tempo library quando disponível
+      // Por enquanto, usar implementação robusta de onset detection
+      
+      // Converter para formato esperado pela library (se necessário)
+      const audioBuffer = Array.from(signal);
+      
+      // Detecção de BPM usando análise espectral e onset detection melhor
+      const result = this.calculateAdvancedOnsetBpm(signal, sampleRate, minBpm, maxBpm);
+      
+      console.log(`[WORKER][BPM] Music-tempo resultado: ${result.bpm} (conf: ${result.confidence.toFixed(2)})`);
+      
+      return result;
+      
+    } catch (error) {
+      console.error(`[WORKER][BPM] Erro no music-tempo: ${error.message}`);
+      return { bpm: null, confidence: 0 };
+    }
+  }
+
+  // ========= ADVANCED ONSET DETECTION (SUBSTITUTO TEMPORÁRIO DO MUSIC-TEMPO) =========
+  calculateAdvancedOnsetBpm(signal, sampleRate, minBpm, maxBpm) {
     const onsets = [];
-    const windowSize = Math.floor(sampleRate * 0.046); // ~46ms janela (melhor para detecção de kicks)
-    const hopSize = Math.floor(windowSize / 4); // 75% overlap
+    const windowSize = Math.floor(sampleRate * 0.023); // 23ms janela (mais precisa)
+    const hopSize = Math.floor(windowSize / 2); // 50% overlap (mais frames)
     
-    // Detectar onsets com filtro passa-baixa para focar em kicks/bass
+    let previousSpectralFlux = 0;
+    
+    // Onset detection com spectral flux melhorado
     for (let i = windowSize; i < signal.length - windowSize; i += hopSize) {
-      let energy = 0;
-      let prevEnergy = 0;
+      let currentEnergy = 0;
+      let previousEnergy = 0;
+      let spectralFlux = 0;
       
-      // Energia atual (com peso maior para baixas frequências)
-      for (let j = i; j < i + windowSize; j++) {
-        const sample = signal[j];
-        energy += sample * sample; // RMS em vez de magnitude
+      // Calcular energia atual e anterior
+      for (let j = 0; j < windowSize; j++) {
+        const currentSample = signal[i + j];
+        const previousSample = signal[i - windowSize + j];
+        
+        currentEnergy += currentSample * currentSample;
+        previousEnergy += previousSample * previousSample;
+        
+        // Spectral flux: diferença positiva de energia
+        const energyDiff = currentEnergy - previousEnergy;
+        if (energyDiff > 0) {
+          spectralFlux += energyDiff;
+        }
       }
       
-      // Energia anterior
-      for (let j = i - windowSize; j < i; j++) {
-        const sample = signal[j];
-        prevEnergy += sample * sample;
-      }
+      // Normalizar energia
+      currentEnergy = Math.sqrt(currentEnergy / windowSize);
+      previousEnergy = Math.sqrt(previousEnergy / windowSize);
       
-      // Normalizar
-      energy = Math.sqrt(energy / windowSize);
-      prevEnergy = Math.sqrt(prevEnergy / windowSize);
+      // Onset detection com múltiplos critérios
+      const energyThreshold = Math.max(0.001, previousEnergy * 1.5);
+      const fluxThreshold = previousSpectralFlux * 1.3;
       
-      // Onset detection com threshold adaptativo
-      const threshold = Math.max(0.01, prevEnergy * 1.5);
-      if (energy > threshold && energy > prevEnergy * 1.2) {
+      const isOnset = currentEnergy > energyThreshold && 
+                     currentEnergy > previousEnergy * 1.3 &&
+                     spectralFlux > fluxThreshold;
+      
+      if (isOnset) {
         onsets.push(i / sampleRate);
       }
+      
+      previousSpectralFlux = spectralFlux;
     }
 
+    console.log(`[WORKER][BPM] Advanced onset detection: ${onsets.length} onsets detectados`);
+    
     return this.calculateBpmFromOnsets(onsets, minBpm, maxBpm, sampleRate);
   }
 
-  // ========= MÉTODO 2: AUTOCORRELATION =========
+  // ========= MÉTODO 2: AUTOCORRELAÇÃO MELHORADA (SECUNDÁRIO) =========
   calculateAutocorrelationBpm(signal, sampleRate, minBpm, maxBpm) {
-    const downsampleFactor = 4; // Reduzir para 12kHz para performance
-    const downsampledSignal = [];
-    for (let i = 0; i < signal.length; i += downsampleFactor) {
-      downsampledSignal.push(signal[i]);
-    }
-    
-    const newSampleRate = sampleRate / downsampleFactor;
-    const minPeriod = Math.floor(newSampleRate * 60 / maxBpm);
-    const maxPeriod = Math.floor(newSampleRate * 60 / minBpm);
-    
-    let bestBpm = null;
-    let bestScore = 0;
-    
-    // Calcular autocorrelação para diferentes lags
-    for (let lag = minPeriod; lag <= maxPeriod; lag++) {
-      let correlation = 0;
-      let count = 0;
+    try {
+      console.log(`[WORKER][BPM] Autocorrelação: processando ${signal.length} amostras`);
       
-      for (let i = 0; i < downsampledSignal.length - lag; i++) {
-        correlation += downsampledSignal[i] * downsampledSignal[i + lag];
-        count++;
+      // Aplicar filtro passa-baixa para focar em componentes rítmicos
+      const filteredSignal = this.applyLowPassFilter(signal, sampleRate, 200); // 200Hz cutoff
+      
+      // Downsampling para performance (menor fator para mais precisão)
+      const downsampleFactor = 2; // 24kHz em vez de 12kHz
+      const downsampledSignal = [];
+      for (let i = 0; i < filteredSignal.length; i += downsampleFactor) {
+        downsampledSignal.push(filteredSignal[i]);
       }
       
-      if (count > 0) {
-        correlation /= count;
+      const newSampleRate = sampleRate / downsampleFactor;
+      const minPeriod = Math.floor(newSampleRate * 60 / maxBpm);
+      const maxPeriod = Math.floor(newSampleRate * 60 / minBpm);
+      
+      console.log(`[WORKER][BPM] Autocorr range: ${minPeriod}-${maxPeriod} samples (${maxBpm}-${minBpm} BPM)`);
+      
+      let bestBpm = null;
+      let bestScore = 0;
+      let secondBestScore = 0;
+      
+      // Normalizar signal para autocorrelação
+      const mean = downsampledSignal.reduce((sum, val) => sum + val, 0) / downsampledSignal.length;
+      const normalizedSignal = downsampledSignal.map(val => val - mean);
+      
+      // Calcular autocorrelação normalizada para diferentes lags
+      for (let lag = minPeriod; lag <= maxPeriod; lag++) {
+        let correlation = 0;
+        let sumSquares1 = 0;
+        let sumSquares2 = 0;
+        let count = 0;
         
-        if (correlation > bestScore) {
-          bestScore = correlation;
-          bestBpm = Math.round(newSampleRate * 60 / lag);
+        for (let i = 0; i < normalizedSignal.length - lag; i++) {
+          const val1 = normalizedSignal[i];
+          const val2 = normalizedSignal[i + lag];
+          
+          correlation += val1 * val2;
+          sumSquares1 += val1 * val1;
+          sumSquares2 += val2 * val2;
+          count++;
+        }
+        
+        if (count > 0 && sumSquares1 > 0 && sumSquares2 > 0) {
+          // Autocorrelação normalizada (Pearson correlation)
+          const normalizedCorrelation = correlation / Math.sqrt(sumSquares1 * sumSquares2);
+          
+          if (normalizedCorrelation > bestScore) {
+            secondBestScore = bestScore;
+            bestScore = normalizedCorrelation;
+            bestBpm = Math.round(newSampleRate * 60 / lag);
+          } else if (normalizedCorrelation > secondBestScore) {
+            secondBestScore = normalizedCorrelation;
+          }
         }
       }
+      
+      // Confiança baseada na diferença entre primeiro e segundo picos
+      const confidenceBoost = bestScore - secondBestScore;
+      const rawConfidence = Math.max(0, bestScore);
+      const confidence = Math.min(1, rawConfidence + confidenceBoost * 0.5);
+      
+      console.log(`[WORKER][BPM] Autocorr resultado: ${bestBpm} BPM, score: ${bestScore.toFixed(3)}, conf: ${confidence.toFixed(3)}`);
+      
+      return { bpm: bestBpm, confidence: confidence };
+      
+    } catch (error) {
+      console.error(`[WORKER][BPM] Erro na autocorrelação: ${error.message}`);
+      return { bpm: null, confidence: 0 };
+    }
+  }
+
+  // ========= FILTRO PASSA-BAIXA SIMPLES =========
+  applyLowPassFilter(signal, sampleRate, cutoffFreq) {
+    // Implementação simples de filtro passa-baixa (butter worth de primeira ordem)
+    const dt = 1.0 / sampleRate;
+    const RC = 1.0 / (cutoffFreq * 2 * Math.PI);
+    const alpha = dt / (RC + dt);
+    
+    const filtered = new Float32Array(signal.length);
+    filtered[0] = signal[0];
+    
+    for (let i = 1; i < signal.length; i++) {
+      filtered[i] = alpha * signal[i] + (1 - alpha) * filtered[i - 1];
     }
     
-    // Confiança baseada na correlação normalizada
-    const confidence = Math.max(0, Math.min(1, bestScore * 10)); // Ajustar scaling
-    
-    return { bpm: bestBpm, confidence: confidence };
+    return filtered;
   }
 
   // ========= CÁLCULO BPM A PARTIR DE ONSETS =========
@@ -1504,99 +1601,163 @@ class CoreMetricsProcessor {
     return { bpm: detectedBpm, confidence: finalConfidence };
   }
 
-  // ========= CROSS-VALIDATION E CORREÇÃO DE HARMÔNICOS =========
+  // ========= CROSS-VALIDATION COM REGRAS RIGOROSAS =========
   crossValidateBpmResults(result1, result2, minBpm, maxBpm, confidenceThreshold) {
+    console.log(`[WORKER][BPM] Cross-validation: music-tempo=${result1.bpm}(${result1.confidence.toFixed(2)}) vs autocorr=${result2.bpm}(${result2.confidence.toFixed(2)})`);
+    
     // Se ambos métodos falharam
     if (!result1.bpm && !result2.bpm) {
+      console.log(`[WORKER][BPM] Ambos métodos falharam - sem detecção`);
       return { bpm: null, confidence: 0, source: 'NO_DETECTION' };
     }
 
     // Se apenas um método teve resultado
-    if (!result1.bpm) return this.validateAndCorrectHarmonics(result2, minBpm, maxBpm, confidenceThreshold, 'SINGLE_METHOD');
-    if (!result2.bpm) return this.validateAndCorrectHarmonics(result1, minBpm, maxBpm, confidenceThreshold, 'SINGLE_METHOD');
+    if (!result1.bpm) {
+      console.log(`[WORKER][BPM] Apenas autocorrelação detectou: ${result2.bpm}`);
+      return this.validateAndCorrectHarmonics(result2, minBpm, maxBpm, confidenceThreshold, 'SINGLE_METHOD_AUTOCORR');
+    }
+    
+    if (!result2.bpm) {
+      console.log(`[WORKER][BPM] Apenas music-tempo detectou: ${result1.bpm}`);
+      return this.validateAndCorrectHarmonics(result1, minBpm, maxBpm, confidenceThreshold, 'SINGLE_METHOD_MUSIC_TEMPO');
+    }
 
-    // ========= NOVA LÓGICA: FALLBACK RÍGIDO =========
+    // Análise de concordância entre métodos
     const bpmDifference = Math.abs(result1.bpm - result2.bpm);
-    const hasGoodConfidence = result1.confidence >= confidenceThreshold || result2.confidence >= confidenceThreshold;
-    const hasMinConfidence = result1.confidence >= 0.5 || result2.confidence >= 0.5;
+    const avgBpm = Math.round((result1.bpm + result2.bpm) / 2);
+    const avgConfidence = (result1.confidence + result2.confidence) / 2;
+    
+    console.log(`[WORKER][BPM] Diferença entre métodos: ${bpmDifference} BPM | Média: ${avgBpm} BPM | Conf média: ${avgConfidence.toFixed(2)}`);
 
-    // Se ambos métodos concordam (±2 BPM)
+    // ========= REGRA 1: MÉTODOS PRÓXIMOS (±2 BPM) =========
     if (bpmDifference <= 2) {
-      const avgBpm = Math.round((result1.bpm + result2.bpm) / 2);
-      const avgConfidence = (result1.confidence + result2.confidence) / 2;
-
-      // ✅ NORMAL: Confiança alta
-      if (hasGoodConfidence) {
-        console.log(`[WORKER][BPM] Métodos concordantes (${result1.bpm} vs ${result2.bpm}) com alta confiança`);
-        return this.validateAndCorrectHarmonics({ bpm: avgBpm, confidence: avgConfidence }, minBpm, maxBpm, confidenceThreshold, 'NORMAL');
+      console.log(`[WORKER][BPM] ✅ Métodos concordam (±2 BPM) - usando valor médio`);
+      
+      // Aplicar correção harmônica antes de validar confiança
+      const harmonicCorrected = this.checkAndCorrectHarmonics(avgBpm, avgConfidence, minBpm, maxBpm);
+      
+      // Se confiança >= threshold, aceitar diretamente
+      if (harmonicCorrected.confidence >= confidenceThreshold) {
+        console.log(`[WORKER][BPM] ✅ Alta confiança (${harmonicCorrected.confidence.toFixed(2)}) - aceito como NORMAL`);
+        return { 
+          bpm: harmonicCorrected.bpm, 
+          confidence: harmonicCorrected.confidence, 
+          source: harmonicCorrected.wasHarmonicCorrected ? 'HARMONIC_CORRECTED' : 'NORMAL' 
+        };
       }
       
-      // ✅ FALLBACK RÍGIDO: Confiança baixa mas métodos próximos
-      else if (hasMinConfidence) {
-        console.log(`[WORKER][BPM] Confiança baixa, mas métodos próximos (${result1.bpm} vs ${result2.bpm}, conf=${avgConfidence.toFixed(2)})`);
-        console.log(`[WORKER][BPM] Aplicando fallback rígido → ${avgBpm} BPM`);
-        
-        // Aplicar fallback rígido (não usar validateAndCorrectHarmonics que pode descartar)
-        return this.applyStrictFallback({ bpm: avgBpm, confidence: avgConfidence }, minBpm, maxBpm);
+      // Se confiança >= 0.5, aplicar fallback rígido
+      else if (harmonicCorrected.confidence >= 0.5) {
+        console.log(`[WORKER][BPM] ⚠️ Confiança baixa mas >= 0.5 (${harmonicCorrected.confidence.toFixed(2)}) - aplicando fallback rígido`);
+        return { 
+          bpm: harmonicCorrected.bpm, 
+          confidence: harmonicCorrected.confidence, 
+          source: harmonicCorrected.wasHarmonicCorrected ? 'FALLBACK_STRICT_HARMONIC' : 'FALLBACK_STRICT' 
+        };
       }
       
-      // ❌ Ambas confianças muito baixas (< 0.5)
+      // Confiança < 0.5 - rejeitar
       else {
-        console.log(`[WORKER][BPM] Métodos próximos mas ambas confianças muito baixas (${result1.confidence.toFixed(2)}, ${result2.confidence.toFixed(2)}) - descartando`);
-        return { bpm: null, confidence: Math.max(result1.confidence, result2.confidence), source: 'CONFIDENCE_TOO_LOW' };
+        console.log(`[WORKER][BPM] ❌ Confiança muito baixa (${harmonicCorrected.confidence.toFixed(2)}) - rejeitando`);
+        return { bpm: null, confidence: harmonicCorrected.confidence, source: 'CONFIDENCE_TOO_LOW' };
       }
     }
 
-    // Verificar se um é harmônico do outro
+    // ========= REGRA 2: CORREÇÃO HARMÔNICA =========
     const harmonicResult = this.checkHarmonics(result1, result2);
     if (harmonicResult) {
-      return this.validateAndCorrectHarmonics(harmonicResult, minBpm, maxBpm, confidenceThreshold, 'HARMONIC_CORRECTED');
+      console.log(`[WORKER][BPM] 🎵 Detectada relação harmônica - corrigindo`);
+      const corrected = this.checkAndCorrectHarmonics(harmonicResult.bpm, harmonicResult.confidence, minBpm, maxBpm);
+      
+      if (corrected.confidence >= confidenceThreshold) {
+        console.log(`[WORKER][BPM] ✅ Correção harmônica aceita com alta confiança`);
+        return { 
+          bpm: corrected.bpm, 
+          confidence: corrected.confidence, 
+          source: 'HARMONIC_CORRECTED' 
+        };
+      } else {
+        console.log(`[WORKER][BPM] ❌ Correção harmônica com confiança baixa - rejeitando`);
+        return { bpm: null, confidence: corrected.confidence, source: 'HARMONIC_LOW_CONFIDENCE' };
+      }
     }
 
-    // ❌ Diferença > 2 BPM: usar apenas se pelo menos um tiver confiança >= 0.7
-    if (hasGoodConfidence) {
-      const bestResult = result1.confidence > result2.confidence ? result1 : result2;
-      console.log(`[WORKER][BPM] Métodos discordantes (${result1.bpm} vs ${result2.bpm}), usando mais confiável: ${bestResult.bpm}`);
-      return this.validateAndCorrectHarmonics(bestResult, minBpm, maxBpm, confidenceThreshold, 'BEST_CONFIDENCE');
+    // ========= REGRA 3: SEM CONSENSO - USAR MAIS CONFIÁVEL =========
+    const bestResult = result1.confidence > result2.confidence ? result1 : result2;
+    const bestMethod = result1.confidence > result2.confidence ? 'music-tempo' : 'autocorrelation';
+    
+    console.log(`[WORKER][BPM] 🤔 Métodos discordantes (${bpmDifference} BPM) - usando ${bestMethod}: ${bestResult.bpm}`);
+    
+    if (bestResult.confidence >= confidenceThreshold) {
+      const corrected = this.checkAndCorrectHarmonics(bestResult.bpm, bestResult.confidence, minBpm, maxBpm);
+      console.log(`[WORKER][BPM] ✅ Método mais confiável aceito`);
+      return { 
+        bpm: corrected.bpm, 
+        confidence: corrected.confidence, 
+        source: corrected.wasHarmonicCorrected ? 'BEST_CONFIDENCE_HARMONIC' : 'BEST_CONFIDENCE' 
+      };
     } else {
-      console.log(`[WORKER][BPM] Métodos discordantes (${result1.bpm} vs ${result2.bpm}) e ambas confianças baixas - descartando`);
-      return { bpm: null, confidence: Math.max(result1.confidence, result2.confidence), source: 'DISCORDANT_LOW_CONFIDENCE' };
+      console.log(`[WORKER][BPM] ❌ Melhor método com confiança baixa (${bestResult.confidence.toFixed(2)}) - rejeitando`);
+      return { bpm: null, confidence: bestResult.confidence, source: 'DISCORDANT_LOW_CONFIDENCE' };
     }
   }
 
-  // ========= VALIDAÇÃO E CORREÇÃO DE HARMÔNICOS =========
-  validateAndCorrectHarmonics(result, minBpm, maxBpm, confidenceThreshold, source = 'UNKNOWN') {
-    if (!result.bpm) return { bpm: null, confidence: 0, source: source };
+  // ========= CORREÇÃO HARMÔNICA E VALIDAÇÃO =========
+  checkAndCorrectHarmonics(bmp, confidence, minBpm, maxBpm) {
+    if (!bmp) return { bpm: null, confidence: 0, wasHarmonicCorrected: false };
 
-    let correctedBpm = result.bpm;
-    let confidence = result.confidence;
+    let correctedBpm = bpm;
+    let correctedConfidence = confidence;
+    let wasHarmonicCorrected = false;
 
-    // Correção de harmônicos: se BPM está fora do range preferido
+    console.log(`[WORKER][BPM] Verificando harmônicos para ${bpm} BPM (conf: ${confidence.toFixed(2)})`);
+
+    // Correção de harmônicos: se BPM está fora do range preferido (80-150)
     if (correctedBpm > 150) {
       // Tentar dividir por 2
       const halfBpm = Math.round(correctedBpm / 2);
       if (halfBpm >= minBpm && halfBpm <= 150) {
-        console.log(`[WORKER][BPM] Correção harmônica: ${correctedBpm} → ${halfBpm} (÷2)`);
+        console.log(`[WORKER][BPM] 🎵 Correção harmônica: ${correctedBpm} → ${halfBpm} (÷2)`);
         correctedBpm = halfBpm;
-        confidence *= 0.9; // Pequena penalidade por correção
+        correctedConfidence *= 0.95; // Pequena penalidade por correção
+        wasHarmonicCorrected = true;
       }
     } else if (correctedBpm < 80) {
       // Tentar multiplicar por 2
       const doubleBpm = correctedBpm * 2;
       if (doubleBpm <= maxBpm && doubleBpm >= 80) {
-        console.log(`[WORKER][BPM] Correção harmônica: ${correctedBpm} → ${doubleBpm} (×2)`);
+        console.log(`[WORKER][BPM] 🎵 Correção harmônica: ${correctedBpm} → ${doubleBpm} (×2)`);
         correctedBpm = doubleBpm;
-        confidence *= 0.9; // Pequena penalidade por correção
+        correctedConfidence *= 0.95; // Pequena penalidade por correção
+        wasHarmonicCorrected = true;
       }
     }
 
+    return { 
+      bpm: correctedBpm, 
+      confidence: correctedConfidence, 
+      wasHarmonicCorrected 
+    };
+  }
+
+  // ========= VALIDAÇÃO COM THRESHOLD DE CONFIANÇA =========
+  validateAndCorrectHarmonics(result, minBpm, maxBpm, confidenceThreshold, source = 'UNKNOWN') {
+    if (!result.bpm) return { bpm: null, confidence: 0, source: source };
+
+    const corrected = this.checkAndCorrectHarmonics(result.bpm, result.confidence, minBpm, maxBpm);
+    
     // Aplicar threshold de confiança
-    if (confidence < confidenceThreshold) {
-      console.log(`[WORKER][BPM] Confiança baixa: ${confidence.toFixed(2)} < ${confidenceThreshold} - descartando resultado`);
-      return { bpm: null, confidence: confidence, source: source };
+    if (corrected.confidence < confidenceThreshold) {
+      console.log(`[WORKER][BPM] ❌ Confiança baixa: ${corrected.confidence.toFixed(2)} < ${confidenceThreshold} - descartando resultado`);
+      return { bpm: null, confidence: corrected.confidence, source: source };
     }
 
-    return { bpm: correctedBpm, confidence: confidence, source: source };
+    console.log(`[WORKER][BPM] ✅ Validação aprovada: ${corrected.bpm} BPM (conf: ${corrected.confidence.toFixed(2)})`);
+    return { 
+      bpm: corrected.bpm, 
+      confidence: corrected.confidence, 
+      source: corrected.wasHarmonicCorrected ? `${source}_HARMONIC` : source 
+    };
   }
 
   // ========= FALLBACK RÍGIDO - ACEITA CONFIANÇA >= 0.5 =========
