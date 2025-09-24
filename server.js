@@ -16,8 +16,10 @@ import jobsRoute from "./api/jobs/[id].js"; // 👈 rota de jobs conectada ao Po
 console.log("📂 Arquivo .env carregado");
 console.log("B2_KEY_ID:", process.env.B2_KEY_ID);
 console.log("B2_APP_KEY:", process.env.B2_APP_KEY);
-console.log("B2_BUCKET_NAME:", process.env.B2_BUCKET_NAME);
-console.log("B2_ENDPOINT:", process.env.B2_ENDPOINT);
+console.log("B2_BUCKET_NAME:", process.env.B2_BUCKET_NAME);    console.log(`✅ [AI-PROCESSING] Sucesso total: ${parsed.suggestions.length} sugestões válidas processadas`);
+    return parsed.suggestions;
+    
+  } catch (error) {log("B2_ENDPOINT:", process.env.B2_ENDPOINT);
 console.log("🗄️ DATABASE_URL:", process.env.DATABASE_URL ? "✅ Configurada" : "❌ Não configurada");
 
 const app = express();
@@ -326,6 +328,120 @@ function getGenreContext(genre) {
 - Foque na inteligibilidade e impacto emocional`;
 }
 
+// 🛡️ PARSER ULTRA BLINDADO CONTRA QUALQUER JSON INVÁLIDO DA IA
+function safeParseAIResponse(rawResponse, fallbackSuggestions) {
+  console.log(`🛡️ [AI-PROCESSING] Resposta recebida: ${rawResponse ? rawResponse.length : 0} chars`);
+  
+  if (!rawResponse || typeof rawResponse !== 'string' || rawResponse.trim() === '') {
+    console.error(`❌ [AI-PROCESSING] Resposta vazia ou inválida`);
+    console.log(`🛡️ [AI-PROCESSING] Fallback usado, preservando ${fallbackSuggestions.length} sugestões`);
+    return fallbackSuggestions;
+  }
+
+  try {
+    // PASSO 1: SANITIZAÇÃO AGRESSIVA
+    let cleaned = rawResponse.trim();
+    
+    // Remover markdown e formatação
+    cleaned = cleaned.replace(/```json\s*|\s*```/g, '');
+    cleaned = cleaned.replace(/```\s*|\s*```/g, '');
+    
+    // Encontrar início e fim do array/objeto principal
+    const arrayStart = cleaned.indexOf('[');
+    const arrayEnd = cleaned.lastIndexOf(']');
+    const objectStart = cleaned.indexOf('{');
+    const objectEnd = cleaned.lastIndexOf('}');
+    
+    // Priorizar array se existe, senão objeto
+    let jsonStart = -1, jsonEnd = -1;
+    if (arrayStart !== -1 && arrayEnd > arrayStart) {
+      jsonStart = arrayStart;
+      jsonEnd = arrayEnd + 1;
+      console.log(`🔍 [AI-PROCESSING] Detectado array JSON`);
+    } else if (objectStart !== -1 && objectEnd > objectStart) {
+      jsonStart = objectStart;
+      jsonEnd = objectEnd + 1;
+      console.log(`🔍 [AI-PROCESSING] Detectado objeto JSON`);
+    }
+    
+    if (jsonStart === -1 || jsonEnd <= jsonStart) {
+      console.warn(`⚠️ [AI-PROCESSING] Nenhuma estrutura JSON detectada na resposta`);
+      console.log(`🛡️ [AI-PROCESSING] Fallback usado, preservando ${fallbackSuggestions.length} sugestões`);
+      return fallbackSuggestions;
+    }
+    
+    // Extrair apenas a parte JSON válida
+    cleaned = cleaned.substring(jsonStart, jsonEnd);
+    
+    // Remover vírgulas problemáticas
+    cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1'); // }, ] → }]
+    cleaned = cleaned.replace(/,(\s*)$/g, '$1'); // vírgula final
+    
+    console.log(`🧹 [AI-PROCESSING] JSON sanitizado extraído (${cleaned.length} chars)`);
+    
+    // PASSO 2: TENTATIVA DE PARSE DIRETO
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+      console.log(`✅ [AI-PROCESSING] Parse bem-sucedido: ${JSON.stringify(parsed).substring(0, 100)}...`);
+    } catch (parseError) {
+      console.warn(`⚠️ [AI-PROCESSING] Parse direto falhou: ${parseError.message}`);
+      
+      // PASSO 3: CORREÇÃO AVANÇADA COM REGEX
+      console.log(`🔧 [AI-PROCESSING] Parse falhou, correção aplicada`);
+      
+      // Tentar extrair array de sugestões com regex
+      const arrayMatch = cleaned.match(/\[([\s\S]*)\]/);
+      if (arrayMatch) {
+        let arrayContent = arrayMatch[1];
+        
+        // Limpar conteúdo do array
+        arrayContent = arrayContent.replace(/,(\s*[}\]])/g, '$1');
+        arrayContent = arrayContent.replace(/,(\s*)$/g, '$1');
+        
+        try {
+          parsed = JSON.parse(`[${arrayContent}]`);
+          console.log(`✅ [AI-PROCESSING] Parse corrigido bem-sucedido: ${parsed.length} itens`);
+        } catch (regexError) {
+          console.error(`❌ [AI-PROCESSING] Correção com regex falhou: ${regexError.message}`);
+          console.log(`🛡️ [AI-PROCESSING] Fallback usado, preservando ${fallbackSuggestions.length} sugestões`);
+          return fallbackSuggestions;
+        }
+      } else {
+        console.error(`❌ [AI-PROCESSING] Nenhum array detectável encontrado`);
+        console.log(`🛡️ [AI-PROCESSING] Fallback usado, preservando ${fallbackSuggestions.length} sugestões`);
+        return fallbackSuggestions;
+      }
+    }
+    
+    // PASSO 4: VALIDAÇÃO E EXTRAÇÃO
+    let suggestions = [];
+    
+    // Se parsed é array, usar diretamente
+    if (Array.isArray(parsed)) {
+      suggestions = parsed;
+    }
+    // Se é objeto, tentar extrair array de diferentes propriedades
+    else if (parsed && typeof parsed === 'object') {
+      suggestions = parsed.suggestions || parsed.enhanced_suggestions || parsed.results || parsed.data || [];
+    }
+    
+    if (!Array.isArray(suggestions)) {
+      console.warn(`⚠️ [AI-PROCESSING] Resposta não contém array válido de sugestões`);
+      console.log(`🛡️ [AI-PROCESSING] Fallback usado, preservando ${fallbackSuggestions.length} sugestões`);
+      return fallbackSuggestions;
+    }
+    
+    console.log(`📊 [AI-PROCESSING] Parse bem-sucedido: ${suggestions.length} sugestões extraídas`);
+    return suggestions;
+    
+  } catch (criticalError) {
+    console.error(`❌ [AI-PROCESSING] Erro crítico no parser blindado: ${criticalError.message}`);
+    console.log(`🛡️ [AI-PROCESSING] Fallback usado, preservando ${fallbackSuggestions.length} sugestões`);
+    return fallbackSuggestions;
+  }
+}
+
 // 🛡️ FUNÇÃO UTILITÁRIA ULTRA-ROBUSTA PARA PARSE SEGURO DE JSON DA IA
 function safeParseAIResponse(rawResponse, originalSuggestions, context = 'AI-PROCESSING') {
   console.log(`🛡️ [${context}] Iniciando parse ultra-seguro de resposta IA...`);
@@ -522,114 +638,36 @@ function createFallbackSuggestion(originalSuggestion, index, context = 'FALLBACK
   };
 }
 
-// Função para processar resposta da IA com parse ULTRA-SEGURO
+// Função para processar resposta da IA com parse ULTRA-SEGURO (SIMPLIFICADA)
 function processAIResponseSafe(originalSuggestions, aiResponse) {
-  console.log('🤖 [AI-PROCESSING] Processando resposta da IA com parsing ultra-seguro...');
+  console.log('🤖 [AI-PROCESSING] Processando resposta da IA com parser ultra-robusto...');
   
   const expectedCount = originalSuggestions.length;
   console.log(`🎯 [AI-PROCESSING] Esperado: ${expectedCount} sugestões`);
 
   try {
-    // 1. LIMPEZA AGRESSIVA DO JSON
-    let cleanResponse = aiResponse.replace(/```json\n?|\n?```/g, '').trim();
+    // USA O NOVO PARSER ULTRA-ROBUSTO
+    const parsed = safeParseAIResponse(aiResponse, originalSuggestions);
     
-    // 2. TENTATIVA DE PARSE DIRETO
-    let parsed;
-    try {
-      parsed = JSON.parse(cleanResponse);
-      console.log('✅ [AI-PROCESSING] JSON válido parseado na primeira tentativa');
-    } catch (parseError) {
-      console.warn('⚠️ [AI-PROCESSING] Parse direto falhou, tentando correção automática...');
-      
-      // 3. CORREÇÃO AUTOMÁTICA DE JSON TRUNCADO
-      cleanResponse = fixTruncatedJSON(cleanResponse);
-      
-      try {
-        parsed = JSON.parse(cleanResponse);
-        console.log('✅ [AI-PROCESSING] JSON corrigido parseado com sucesso');
-      } catch (secondError) {
-        console.error('❌ [AI-PROCESSING] Falha definitiva no parse JSON:', secondError.message);
-        throw new Error(`JSON inválido mesmo após correção: ${secondError.message}`);
-      }
+    // VALIDAÇÃO FINAL
+    if (parsed.suggestions.length !== expectedCount) {
+      console.error(`❌ [AI-PROCESSING] ERRO CRÍTICO: ${parsed.suggestions.length} !== ${expectedCount}`);
+      throw new Error(`Contagem final inválida: ${parsed.suggestions.length}/${expectedCount}`);
     }
     
-    // 4. VALIDAÇÃO DE ESTRUTURA
-    if (!parsed.suggestions || !Array.isArray(parsed.suggestions)) {
-      throw new Error('Resposta não contém array "suggestions" válido');
-    }
+    console.log(`✅ [AI-PROCESSING] Sucesso total: ${parsed.suggestions.length} sugestões válidas processadas`);
+    return parsed.suggestions;
     
     let aiSuggestions = parsed.suggestions;
     const receivedCount = aiSuggestions.length;
     
     console.log(`� [AI-PROCESSING] Recebido: ${receivedCount}/${expectedCount} sugestões da IA`);
     
-    // 5. COMPLETAR SUGESTÕES FALTANTES (CRÍTICO)
-    if (receivedCount < expectedCount) {
-      console.warn(`⚠️ [AI-PROCESSING] RESPOSTA INCOMPLETA: Completando ${expectedCount - receivedCount} sugestões faltantes`);
-      
-      for (let i = receivedCount; i < expectedCount; i++) {
-        const originalSuggestion = originalSuggestions[i];
-        
-        const fallbackSuggestion = {
-          blocks: {
-            problem: `⚠️ ${originalSuggestion.message || originalSuggestion.title || `Problema ${i + 1}`}`,
-            cause: '🎯 Análise automática identificou desvio dos padrões técnicos de referência',
-            solution: `🛠️ ${originalSuggestion.action || originalSuggestion.description || 'Ajuste recomendado pelo sistema'}`,
-            tip: '💡 Monitore resultado em diferentes sistemas de reprodução para validar melhoria',
-            plugin: '🎹 Use EQ/Compressor nativo da sua DAW ou plugins gratuitos',
-            result: '✅ Melhoria na qualidade sonora geral e maior compatibilidade profissional'
-          },
-          metadata: {
-            priority: originalSuggestion.priority || 'média',
-            difficulty: 'intermediário',
-            confidence: originalSuggestion.confidence || 0.7,
-            frequency_range: 'espectro amplo',
-            processing_type: 'Ajuste geral',
-            genre_specific: 'Aplicável universalmente'
-          },
-          aiEnhanced: false // Marca como não-enriquecida pela IA
-        };
-        
-        aiSuggestions.push(fallbackSuggestion);
-        console.log(`🔧 [AI-PROCESSING] Sugestão ${i + 1} completada com fallback estruturado`);
-      }
-    }
-    
-    // 6. GARANTIR CONTAGEM EXATA
-    if (aiSuggestions.length !== expectedCount) {
-      console.error(`❌ [AI-PROCESSING] ERRO CRÍTICO: ${aiSuggestions.length} !== ${expectedCount}`);
-      throw new Error(`Contagem final inválida: ${aiSuggestions.length}/${expectedCount}`);
-    }
-    
-    console.log(`✅ [AI-PROCESSING] Sucesso total: ${aiSuggestions.length} sugestões válidas processadas`);
-    return aiSuggestions;
-    
   } catch (error) {
-    console.error('❌ [AI-PROCESSING] Erro crítico, usando fallback completo:', error.message);
+    console.error('❌ [AI-PROCESSING] Erro crítico no parser, usando fallback de emergência:', error.message);
     
-    // 7. FALLBACK TOTAL: Estruturar TODAS as sugestões originais
-    const fallbackSuggestions = originalSuggestions.map((suggestion, index) => ({
-      blocks: {
-        problem: `⚠️ ${suggestion.message || suggestion.title || `Problema ${index + 1} detectado`}`,
-        cause: '🎯 Sistema identificou desvio dos padrões técnicos de referência profissional',
-        solution: `🛠️ ${suggestion.action || suggestion.description || 'Aplicar correção recomendada pelo sistema'}`,
-        tip: '💡 Teste resultado em diferentes sistemas de reprodução para validar melhoria',
-        plugin: '🎹 Utilize EQ/Compressor nativo da DAW ou plugins gratuitos como ReaEQ',
-        result: '✅ Melhor qualidade sonora e maior compatibilidade com padrões profissionais'
-      },
-      metadata: {
-        priority: suggestion.priority || 'média',
-        difficulty: 'intermediário',
-        confidence: suggestion.confidence || 0.7,
-        frequency_range: suggestion.frequency_range || 'espectro completo',
-        processing_type: 'Correção geral',
-        genre_specific: 'Aplicável a todos os gêneros musicais'
-      },
-      aiEnhanced: false
-    }));
-    
-    console.log(`🛡️ [AI-PROCESSING] Fallback aplicado: ${fallbackSuggestions.length} sugestões estruturadas`);
-    return fallbackSuggestions;
+    // FALLBACK DE EMERGÊNCIA (NUNCA DEVERIA CHEGAR AQUI)
+    return generateFallbackSuggestions(originalSuggestions);
   }
 }
 
