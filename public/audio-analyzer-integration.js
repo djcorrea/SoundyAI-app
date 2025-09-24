@@ -1295,20 +1295,6 @@ async function loadReferenceData(genre) {
                 __activeRefGenre = genre;
                 window.PROD_AI_REF_DATA = enrichedNet;
                 
-                                // Garantir retrocompatibilidade de tolerâncias
-                                if (window.PROD_AI_REF_DATA) {
-                                    const refData = window.PROD_AI_REF_DATA;
-
-                                    Object.keys(refData).forEach(key => {
-                                        if (key.startsWith("tol_")) {
-                                            const newKey = key.replace("tol_", "") + "_tolerance";
-                                            if (!refData[newKey]) {
-                                                refData[newKey] = refData[key];
-                                            }
-                                        }
-                                    });
-                                }
-                
                 // Log de diagnóstico
                 console.log('🎯 REFS DIAGNOSTIC:', {
                     genre,
@@ -1341,20 +1327,6 @@ async function loadReferenceData(genre) {
             __activeRefGenre = genre;
             window.PROD_AI_REF_DATA = enriched;
             
-                        // Garantir retrocompatibilidade de tolerâncias
-                        if (window.PROD_AI_REF_DATA) {
-                            const refData = window.PROD_AI_REF_DATA;
-
-                            Object.keys(refData).forEach(key => {
-                                if (key.startsWith("tol_")) {
-                                    const newKey = key.replace("tol_", "") + "_tolerance";
-                                    if (!refData[newKey]) {
-                                        refData[newKey] = refData[key];
-                                    }
-                                }
-                            });
-                        }
-            
             // Log de diagnóstico
             console.log('🎯 REFS DIAGNOSTIC:', {
                 genre,
@@ -1386,20 +1358,6 @@ async function loadReferenceData(genre) {
             __activeRefGenre = 'trance';
             window.PROD_AI_REF_DATA = enrichedFb;
             
-                        // Garantir retrocompatibilidade de tolerâncias
-                        if (window.PROD_AI_REF_DATA) {
-                            const refData = window.PROD_AI_REF_DATA;
-
-                            Object.keys(refData).forEach(key => {
-                                if (key.startsWith("tol_")) {
-                                    const newKey = key.replace("tol_", "") + "_tolerance";
-                                    if (!refData[newKey]) {
-                                        refData[newKey] = refData[key];
-                                    }
-                                }
-                            });
-                        }
-            
             // Log de diagnóstico
             console.log('🎯 REFS DIAGNOSTIC:', {
                 genre,
@@ -1429,20 +1387,6 @@ async function loadReferenceData(genre) {
                 __activeRefData = enrichedEmb;
                 __activeRefGenre = genre;
                 window.PROD_AI_REF_DATA = enrichedEmb;
-                
-                                // Garantir retrocompatibilidade de tolerâncias
-                                if (window.PROD_AI_REF_DATA) {
-                                    const refData = window.PROD_AI_REF_DATA;
-
-                                    Object.keys(refData).forEach(key => {
-                                        if (key.startsWith("tol_")) {
-                                            const newKey = key.replace("tol_", "") + "_tolerance";
-                                            if (!refData[newKey]) {
-                                                refData[newKey] = refData[key];
-                                            }
-                                        }
-                                    });
-                                }
                 updateRefStatus('✔ referências embutidas', '#0d6efd');
                 try { buildAggregatedRefStats(); } catch {}
                 return enrichedEmb;
@@ -1454,20 +1398,6 @@ async function loadReferenceData(genre) {
                 __activeRefData = enrichedEmbTr;
                 __activeRefGenre = 'trance';
                 window.PROD_AI_REF_DATA = enrichedEmbTr;
-                
-                                // Garantir retrocompatibilidade de tolerâncias
-                                if (window.PROD_AI_REF_DATA) {
-                                    const refData = window.PROD_AI_REF_DATA;
-
-                                    Object.keys(refData).forEach(key => {
-                                        if (key.startsWith("tol_")) {
-                                            const newKey = key.replace("tol_", "") + "_tolerance";
-                                            if (!refData[newKey]) {
-                                                refData[newKey] = refData[key];
-                                            }
-                                        }
-                                    });
-                                }
                 updateRefStatus('✔ referências embutidas (fallback)', '#0d6efd');
                 try { buildAggregatedRefStats(); } catch {}
                 return enrichedEmbTr;
@@ -3590,6 +3520,8 @@ function displayModalResults(analysis) {
             row('Volume Médio (energia)', `${safeFixed(getMetric('rms_level', 'avgLoudness'))} dB`, 'avgLoudness'),
             row('Dynamic Range (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
             row('Loudness Range (LRA)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra'),
+            // 🥁 BPM – exibir como métrica principal, null-safe (mostra — quando ausente)
+            row('BPM', `${Number.isFinite(getMetric('bpm', 'bpm')) ? safeFixed(getMetric('bpm', 'bpm'), 0) : '—'}`, 'bpm'),
             row('Fator de Crista', `${safeFixed(getMetric('crest_factor', 'crestFactor'))} dB`, 'crestFactor'),
             // REMOVED: True Peak placeholder/ampulheta - só exibir quando há valor válido
             (advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp')) ? row('pico real (dbtp)', `${safeFixed(getMetric('truePeakDbtp', 'truePeakDbtp'))} dBTP`, 'truePeakDbtp') : ''),

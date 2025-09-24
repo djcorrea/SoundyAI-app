@@ -3,7 +3,7 @@
 
 import decodeAudioFile from "./audio-decoder.js";              // Fase 5.1
 import { segmentAudioTemporal } from "./temporal-segmentation.js"; // Fase 5.2  
-import { calculateCoreMetrics } from "./core-metrics.js";      // Fase 5.3
+import { calculateCoreMetrics, calculateBpm } from "./core-metrics.js";      // Fase 5.3
 import { generateJSONOutput } from "./json-output.js";         // Fase 5.4
 
 console.log('🎵 Pipeline Completo (Fases 5.1-5.4) carregado - Node.js Backend');
@@ -35,7 +35,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     // ✅ FASE 5.3: Core Metrics
     console.log('📊 Fase 5.3: Core Metrics...');
     const phase3StartTime = Date.now();
-    const coreMetrics = await calculateCoreMetrics(segmentedData);
+  const coreMetrics = await calculateCoreMetrics(segmentedData);
     const phase3Time = Date.now() - phase3StartTime;
     console.log(`✅ Fase 5.3 concluída em ${phase3Time}ms`);
     
@@ -62,6 +62,16 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     console.log(`📊 LUFS: ${coreMetrics.lufs.integrated.toFixed(1)}`, 
                 `True Peak: ${coreMetrics.truePeak.maxDbtp.toFixed(1)}dBTP`,
                 `Correlação: ${coreMetrics.stereo.correlation.toFixed(3)}`);
+
+    // 🧠 BPM: calcular após core metrics, reaproveitando frames da Fase 5.2
+    try {
+      const bpmRes = await calculateBpm(segmentedData.framesFFT, audioData?.sampleRate || 48000);
+      if (bpmRes && (bpmRes.bpm != null || bpmRes.confidence != null)) {
+        coreMetrics.tempo = { bpm: bpmRes.bpm, confidence: bpmRes.confidence };
+      }
+    } catch (bpmError) {
+      console.warn('[PIPELINE] BPM calculation failed (non-critical):', bpmError?.message || bpmError);
+    }
 
     // ✅ FASE 5.4: JSON Output
     console.log('🎯 Fase 5.4: JSON Output + Scoring...');

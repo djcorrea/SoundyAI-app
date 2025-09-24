@@ -1252,3 +1252,143 @@ export async function calculateCoreMetrics(segmentedAudio, options = {}) {
 export { CoreMetricsProcessor };
 
 console.log('✅ Core Metrics Processor inicializado (Fase 5.3) - CORRIGIDO com fail-fast');
+
+/**
+ * calculateBpm(framesFFT, sampleRate)
+ * Detecção de BPM via autocorrelação da onset envelope (spectral flux positivo),
+ * reutilizando exatamente os frames gerados na Fase 5.2 (fftSize=4096, hop=1024, janela Hann),
+ * conforme regras críticas do pipeline. Não recalcula FFT.
+ *
+ * Entrada:
+ * - framesFFT: objeto com estrutura { frames: [{ leftFFT: { magnitude }, rightFFT: { magnitude } }, ...] }
+ *              também aceita formato alternativo { left: [...], right: [...] } com objetos FFT contendo magnitude.
+ * - sampleRate: taxa de amostragem (esperado 48000 Hz)
+ *
+ * Saída:
+ * - { bpm: number|null, confidence: number|null }
+ */
+export async function calculateBpm(framesFFT, sampleRate = CORE_METRICS_CONFIG.SAMPLE_RATE) {
+  try {
+    // Validar entrada mínima
+    if (!framesFFT) {
+      logAudio('bpm', 'skip', { reason: 'no_framesFFT' });
+      return { bpm: null, confidence: null };
+    }
+
+    // Extrair lista de frames independente do formato
+    let frames = [];
+    if (Array.isArray(framesFFT.frames)) {
+      frames = framesFFT.frames;
+    } else if (Array.isArray(framesFFT.left) && Array.isArray(framesFFT.right)) {
+      // Emparelhar left/right por índice
+      const count = Math.min(framesFFT.left.length, framesFFT.right.length);
+      for (let i = 0; i < count; i++) {
+        frames.push({ leftFFT: framesFFT.left[i], rightFFT: framesFFT.right[i] });
+      }
+    } else {
+      logAudio('bpm', 'skip', { reason: 'unknown_frames_structure' });
+      return { bpm: null, confidence: null };
+    }
+
+    const hop = CORE_METRICS_CONFIG.FFT_HOP_SIZE || 1024;
+    const dt = hop / (sampleRate || CORE_METRICS_CONFIG.SAMPLE_RATE);
+
+    // Limitar quantidade de frames para conter custo (≈ até ~30s de áudio)
+    const MAX_FRAMES = 1500; // 1500 * 1024 / 48000 ≈ 32s
+    const totalFrames = Math.min(frames.length, MAX_FRAMES);
+    if (totalFrames < 16) {
+      logAudio('bpm', 'skip', { reason: 'too_few_frames', totalFrames });
+      return { bpm: null, confidence: null };
+    }
+
+    // Construir onset envelope via spectral flux (apenas diferenças positivas)
+    let prevMag = null;
+    const flux = [];
+    for (let i = 0; i < totalFrames; i++) {
+      const f = frames[i];
+      const L = f?.leftFFT?.magnitude;
+      const R = f?.rightFFT?.magnitude;
+      if (!L || !R || L.length !== R.length || L.length === 0) {
+        // pular frames inválidos
+        continue;
+      }
+      // Combinar magnitudes L/R usando RMS (mesmo método do pipeline)
+      const mag = new Float32Array(L.length);
+      for (let k = 0; k < L.length; k++) {
+        const l = L[k];
+        const r = R[k];
+        mag[k] = Math.sqrt(((l * l) + (r * r)) / 2);
+      }
+      if (prevMag) {
+        let sum = 0;
+        const len = mag.length;
+        for (let k = 0; k < len; k++) {
+          const d = mag[k] - prevMag[k];
+          if (d > 0) sum += d;
+        }
+        flux.push(sum);
+      }
+      prevMag = mag;
+    }
+
+    if (flux.length < 8) {
+      logAudio('bpm', 'skip', { reason: 'too_few_flux', fluxLen: flux.length });
+      return { bpm: null, confidence: null };
+    }
+
+    // Normalização simples do envelope (zero-mean + unit variance aprox)
+    const mean = flux.reduce((a, b) => a + b, 0) / flux.length;
+    let variance = 0;
+    for (let i = 0; i < flux.length; i++) variance += (flux[i] - mean) ** 2;
+    variance /= Math.max(1, flux.length - 1);
+    const std = Math.sqrt(Math.max(variance, 1e-12));
+    const x = flux.map(v => (v - mean) / std);
+
+    // Busca de BPM por correlação em janelas de lag correspondentes (70–175 BPM)
+    const minBPM = 70;
+    const maxBPM = 175;
+    const candidates = [];
+    for (let bpm = minBPM; bpm <= maxBPM; bpm += 0.5) {
+      const periodSec = 60 / bpm;
+      const lag = Math.round(periodSec / dt);
+      if (lag <= 1 || lag >= x.length - 2) continue;
+
+      // Correlação normalizada x[t] com x[t+lag]
+      let num = 0, denA = 0, denB = 0;
+      for (let t = 0; t + lag < x.length; t++) {
+        const a = x[t];
+        const b = x[t + lag];
+        num += a * b;
+        denA += a * a;
+        denB += b * b;
+      }
+      const r = num / Math.sqrt(Math.max(denA, 1e-12) * Math.max(denB, 1e-12));
+      candidates.push({ bpm, r });
+    }
+
+    if (!candidates.length) {
+      logAudio('bpm', 'skip', { reason: 'no_candidates' });
+      return { bpm: null, confidence: null };
+    }
+
+    // Escolher maior correlação e calcular confiança relativa
+    candidates.sort((a, b) => b.r - a.r);
+    const best = candidates[0];
+    const second = candidates[1] || { r: 0 };
+    const rawConf = Math.max(0, best.r - second.r);
+    // Misturar com magnitude absoluta da melhor correlação
+    let confidence = Math.min(1, rawConf * 0.6 + Math.max(0, best.r) * 0.4);
+
+    // Resultado
+    const result = {
+      bpm: Number.isFinite(best.bpm) ? +best.bpm.toFixed(2) : null,
+      confidence: Number.isFinite(confidence) ? +confidence.toFixed(3) : null
+    };
+
+    logAudio('bpm', 'computed', { bpm: result.bpm, confidence: result.confidence, framesUsed: totalFrames });
+    return result;
+  } catch (error) {
+    logAudio('bpm', 'error', { message: error.message });
+    return { bpm: null, confidence: null };
+  }
+}

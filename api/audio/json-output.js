@@ -258,6 +258,15 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.spectralUniformity = null;
   }
 
+  // ===== Tempo / BPM =====
+  if (coreMetrics.tempo && (coreMetrics.tempo.bpm != null || coreMetrics.tempo.confidence != null)) {
+    technicalData.bpm = safeSanitize(coreMetrics.tempo.bpm);
+    technicalData.bpmConfidence = safeSanitize(coreMetrics.tempo.confidence);
+  } else {
+    technicalData.bpm = null;
+    technicalData.bpmConfidence = null;
+  }
+
   // ===== Problems / Suggestions =====
   technicalData.problemsAnalysis = {
     problems: coreMetrics.problems || [],
