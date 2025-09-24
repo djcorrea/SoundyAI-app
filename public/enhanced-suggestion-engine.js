@@ -24,6 +24,79 @@ class EnhancedSuggestionEngine {
         // 🎓 Templates educativos para enriquecimento de sugestões
         this.heuristicTemplates = this.createEducationalTemplates();
     }
+
+    /**
+     * 📐 Avaliar status com tolerância
+     * @returns {{status: 'ideal'|'alto'|'baixo', delta: number}}
+     */
+    evaluateToleranceStatus(value, target, tolerance) {
+        const delta = value - target;
+        if (Math.abs(delta) <= tolerance) return { status: 'ideal', delta };
+        return { status: delta > tolerance ? 'alto' : 'baixo', delta };
+    }
+
+    /**
+     * 🔎 Faixas padrão por banda (para textos educativos)
+     */
+    getBandRangeLabel(band) {
+        const ranges = {
+            sub: '20–60 Hz',
+            bass: '60–150 Hz',
+            lowMid: '150–400 Hz',
+            mid: '400 Hz – 2 kHz',
+            highMid: '2–5 kHz',
+            presenca: '3–6 kHz',
+            brilho: '8–16 kHz'
+        };
+        return ranges[band] || '';
+    }
+
+    /**
+     * 🧩 Construir bloco educativo enriquecido com valores exatos
+     */
+    buildEducationalBlock({ kind, label, band, value, target, tolerance, delta, status, unit }) {
+        const sign = delta >= 0 ? '+' : '';
+        const absDelta = Math.abs(delta).toFixed(1);
+        const tUnit = unit || '';
+        const rangeLabel = band ? this.getBandRangeLabel(band) : '';
+
+        const problem = band
+            ? `${band} ${rangeLabel} ${status === 'alto' ? 'muito alto' : 'muito baixo'}: ${sign}${absDelta}${tUnit} vs alvo ${target.toFixed(1)}${tUnit} ±${tolerance.toFixed(1)}${tUnit}`
+            : `${label} ${status === 'alto' ? 'alto' : 'baixo'}: ${sign}${absDelta}${tUnit} vs alvo ${target.toFixed(1)}${tUnit} ±${tolerance.toFixed(1)}${tUnit}`;
+
+        // Causas e soluções genéricas por tipo
+        let cause = '';
+        if (kind === 'metric') {
+            if (label === 'LUFS') cause = 'Loudness fora do intervalo ideal pode causar falta de impacto (baixo) ou fadiga/distorção (alto).';
+            else if (label === 'True Peak') cause = 'True Peak acima do recomendado aumenta risco de distorção de inter-amostra; abaixo pode indicar headroom excessivo.';
+            else if (label === 'DR' || label === 'LRA') cause = 'Desvio de dinâmica impacta a naturalidade e consistência da audição.';
+            else if (label === 'Stereo Corr') cause = 'Correlação estéreo fora da faixa ideal afeta mono-compatibilidade ou amplitude percebida.';
+            else cause = 'Desvio em relação ao alvo de referência para o gênero.';
+        } else {
+            cause = status === 'alto'
+                ? 'Excesso de energia nessa faixa causa masking e cansaço auditivo.'
+                : 'Falta de energia nessa faixa reduz presença e definição.';
+        }
+
+        let solution;
+        if (kind === 'metric') {
+            if (label === 'LUFS') solution = status === 'alto' ? 'Reduza o ganho do limiter/compressor no master até entrar no alvo.' : 'Aumente o ganho/limiter para atingir o alvo de loudness.';
+            else if (label === 'True Peak') solution = 'Use limiter com detecção de True Peak e oversampling para manter no alvo.';
+            else if (label === 'DR' || label === 'LRA') solution = status === 'alto' ? 'Aplique compressão suave para controlar picos e reduzir variação.' : 'Reduza compressão excessiva, use compressão paralela para recuperar dinâmica.';
+            else if (label === 'Stereo Corr') solution = status === 'alto' ? 'Reduza widening e verifique compatibilidade mono.' : 'Aumente largura estéreo com técnicas seguras (M/S, reverb/delay estéreo).';
+            else solution = 'Ajuste o parâmetro para ficar dentro do alvo e tolerância.';
+        } else {
+            // Bandas: sugerir ajuste em dB na faixa
+            const direction = delta > 0 ? 'Reduza' : 'Aumente';
+            solution = `${direction} cerca de ${absDelta}${tUnit} em ${rangeLabel} com EQ paramétrico para aproximar do alvo.`;
+        }
+
+        const tip = 'Compare em diferentes sistemas e use referência A/B do gênero.';
+        const plugin = 'Use EQ e compressor nativos da sua DAW ou plugins gratuitos (ReaEQ/Pro-Q3, ReaComp).';
+        const result = 'Clareza, balanceamento espectral e compatibilidade de reprodução aprimorados.';
+
+        return { problem, cause, solution, tip, plugin, result };
+    }
     
     /**
      * 🎓 Criar templates educativos para enriquecimento de sugestões
@@ -1146,13 +1219,18 @@ class EnhancedSuggestionEngine {
             });
             
             if (!Number.isFinite(value) || !Number.isFinite(target) || !Number.isFinite(tolerance)) continue;
-            
+
+            // 📐 NOVO: Status por tolerância
+            const { status, delta } = this.evaluateToleranceStatus(value, target, tolerance);
+            if (status === 'ideal') {
+                this.logAudit('METRIC_IDEAL', `${metric.label} dentro da tolerância`, {
+                    metric: metric.key, value, target, tolerance, delta
+                });
+                continue; // não gera sugestão
+            }
+
             const severity = this.scorer.getSeverity(zScore);
-            
-            // Incluir sugestão se fora do verde ou se amarelo e configurado para incluir
-            const shouldInclude = severity.level !== 'green' || 
-                (severity.level === 'yellow' && this.config.includeYellowSeverity);
-            
+            const shouldInclude = true; // fora da tolerância sempre gera
             if (shouldInclude) {
                 const dependencyBonus = dependencyBonuses[metric.key] || 0;
                 const priority = this.scorer.calculatePriority({
@@ -1179,6 +1257,15 @@ class EnhancedSuggestionEngine {
                 suggestion.icon = this.getMetricIcon(metric.metricType);
                 suggestion.targetValue = target;
                 suggestion.currentValue = value;
+
+                // 🧩 Enriquecer mensagens com valores e tolerância
+                const block = this.buildEducationalBlock({
+                    kind: 'metric', label: metric.label, value, target, tolerance, delta, status, unit: metric.unit
+                });
+                suggestion.blocks = block;
+                suggestion.message = block.problem;
+                suggestion.action = block.solution;
+                suggestion.why = block.cause;
                 
                 // Se fields estão vazios, preencher com valores padrão
                 if (!suggestion.message || suggestion.message.trim() === '') {
@@ -1193,7 +1280,7 @@ class EnhancedSuggestionEngine {
                 this.logAudit('REFERENCE_SUGGESTION', `Sugestão gerada: ${metric.label}`, {
                     value: +value.toFixed(2),
                     target: +target.toFixed(2),
-                    delta: +(value - target).toFixed(2),
+                    delta: +delta.toFixed(2),
                     zScore: +zScore.toFixed(2),
                     severity: severity.level,
                     priority: +priority.toFixed(3),
@@ -1239,11 +1326,16 @@ class EnhancedSuggestionEngine {
                     continue;
                 }
                 
+                // 📐 NOVO: Status por tolerância
+                const { status, delta } = this.evaluateToleranceStatus(value, target, tolerance);
+                if (status === 'ideal') {
+                    this.logAudit('BAND_IDEAL', `Banda dentro da tolerância: ${band}`, { band, value, target, tolerance, delta });
+                    continue;
+                }
+
                 const severity = this.scorer.getSeverity(zScore);
-                
-                const shouldInclude = severity.level !== 'green' || 
-                    (severity.level === 'yellow' && this.config.includeYellowSeverity);
-                
+
+                const shouldInclude = true; // fora da tolerância sempre gera
                 this.logAudit('BAND_SEVERITY_CHECK', `Severidade da banda: ${band}`, {
                     band,
                     severity: severity.level,
@@ -1280,6 +1372,15 @@ class EnhancedSuggestionEngine {
                     suggestion.icon = '🎵';  // Ícone obrigatório para bandas
                     suggestion.targetValue = target;
                     suggestion.currentValue = value;
+
+                    // 🧩 Enriquecer mensagens com valores e tolerância
+                    const block = this.buildEducationalBlock({
+                        kind: 'band', band, value, target, tolerance, delta, status, unit: ' dB'
+                    });
+                    suggestion.blocks = block;
+                    suggestion.message = block.problem;
+                    suggestion.action = block.solution;
+                    suggestion.why = block.cause;
                     
                     // Garantir campos de texto obrigatórios
                     if (!suggestion.message || suggestion.message.trim() === '') {
@@ -1290,23 +1391,17 @@ class EnhancedSuggestionEngine {
                     }
                     
                     // 🎯 APLICAR LÓGICA SEGURA PARA ACTION E DIAGNOSIS
-                    const delta = suggestion.technical?.delta;
-                    if (typeof delta === "number" && !isNaN(delta)) {
-                        const direction = delta > 0 ? "Reduzir" : "Aumentar";
-                        const amount = Math.abs(delta).toFixed(1);
-                        suggestion.action = `${direction} ${band} em ${amount} dB`;
-                        suggestion.diagnosis = `Atual: ${value.toFixed(1)} dB, Alvo: ${target.toFixed(1)} dB, Diferença: ${amount} dB`;
-                    } else {
-                        suggestion.action = `Ajustar banda ${band}`;
-                        suggestion.diagnosis = `Verificar níveis da banda ${band}`;
-                    }
+                    // Diagnóstico com valores
+                    const amount = Math.abs(delta).toFixed(1);
+                    const direction = delta > 0 ? 'Reduzir' : 'Aumentar';
+                    suggestion.diagnosis = `Atual: ${value.toFixed(1)} dB, Alvo: ${target.toFixed(1)} dB, Tolerância: ±${tolerance.toFixed(1)} dB, Diferença: ${amount} dB (${direction})`;
                     
                     suggestions.push(suggestion);
                     
                     this.logAudit('BAND_SUGGESTION', `Sugestão de banda: ${band}`, {
                         value: +value.toFixed(2),
                         target: +target.toFixed(2),
-                        delta: +(value - target).toFixed(2),
+                        delta: +delta.toFixed(2),
                         zScore: +zScore.toFixed(2),
                         severity: severity.level,
                         priority: +priority.toFixed(3)
