@@ -294,20 +294,20 @@ class CoreMetricsProcessor {
         const audioFrames = [normalizedLeft, normalizedRight];
         const bpmResult = calculateBpm(audioFrames, CORE_METRICS_CONFIG.SAMPLE_RATE);
         
-        // Adicionar resultado ao coreMetrics
-        coreMetrics.tempo = {
+        // Adicionar resultado ao coreMetrics (campos diretos)
+        coreMetrics.bpm = bpmResult.bpm;
+        coreMetrics.bpmConfidence = bpmResult.confidence;
+        
+        // Log padronizado para auditoria
+        console.log("[AUDIO] bpm_calculated stage=core_metrics", {
           bpm: bpmResult.bpm,
           confidence: bpmResult.confidence
-        };
-        
-        console.log(`[BPM] BPM calculado: ${bpmResult.bpm}, confiança: ${bpmResult.confidence}`);
+        });
       } catch (bpmError) {
         console.warn('[BPM] Erro no cálculo de BPM (não crítico):', bpmError.message);
         // Garantir que os campos existam mesmo em caso de erro
-        coreMetrics.tempo = {
-          bpm: null,
-          confidence: null
-        };
+        coreMetrics.bpm = null;
+        coreMetrics.bpmConfidence = null;
       }
 
       // ========= ANÁLISE DE PROBLEMAS E SUGESTÕES =========
@@ -1292,7 +1292,7 @@ console.log('✅ Core Metrics Processor inicializado (Fase 5.3) - CORRIGIDO com 
  * Saída:
  * - { bpm: number|null, confidence: number|null }
  */
-export async function calculateBpm(framesFFT, sampleRate = CORE_METRICS_CONFIG.SAMPLE_RATE) {
+export async function calculateBpmLegacy(framesFFT, sampleRate = CORE_METRICS_CONFIG.SAMPLE_RATE) {
   try {
     // Validar entrada mínima
     if (!framesFFT) {

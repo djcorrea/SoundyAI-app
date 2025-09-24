@@ -18,7 +18,7 @@ export function calculateBpm(frames, sampleRate = 48000) {
     // Validar entrada
     if (!frames || !Array.isArray(frames) || frames.length === 0) {
       console.warn('[BPM] Frames inválidos ou vazios');
-      return { bmp: null, confidence: 0 };
+      return { bpm: null, confidence: 0 };
     }
 
     // Garantir que temos um sinal flat (concatenar canais se necessário)
