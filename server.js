@@ -103,10 +103,10 @@ app.post("/api/suggestions", async (req, res) => {
       });
     }
 
-  console.log(`📋 [AI-API] Construindo prompt para ${suggestions.length} sugestões do gênero: ${genre || 'geral'}`);
+    console.log(`📋 [AI-API] Construindo prompt para ${suggestions.length} sugestões do gênero: ${genre || 'geral'}`);
 
     // Construir prompt para TODAS as sugestões
-  const prompt = buildSuggestionPrompt(suggestions, metrics, genre);
+    const prompt = buildSuggestionPrompt(suggestions, metrics, genre);
 
     console.log(`🤖 [AI-API] Enviando prompt para OpenAI...`);
 
@@ -124,10 +124,13 @@ app.post("/api/suggestions", async (req, res) => {
             role: 'system',
             content: `Você é um assistente de mixagem/masterização musical.
 
-INSTRUÇÕES OBRIGATÓRIAS DE SAÍDA:
+⚠️ REGRAS ABSOLUTAS DE SAÍDA:
 - Responda EXCLUSIVAMENTE com um JSON VÁLIDO.
-- O JSON deve ser um ARRAY com exatamente N itens (N = número de sugestões originais enviadas).
-- Cada item do array deve ter esta estrutura exata:
+- O JSON deve ser um ARRAY com exatamente N itens (N = número de sugestões enviadas).
+- Não escreva nada antes ou depois do JSON (sem markdown, sem explicação, sem texto solto).
+- Se não tiver certeza, devolva array vazio [].
+- Não invente valores técnicos, preserve apenas os fornecidos.
+- Estrutura obrigatória de cada item:
   {
     "problema": string,
     "causa": string,
@@ -135,11 +138,7 @@ INSTRUÇÕES OBRIGATÓRIAS DE SAÍDA:
     "dica_extra": string,
     "plugin": string,
     "resultado": string
-  }
-- NÃO inclua nenhum texto fora do JSON. Nenhum prosa, nenhuma explicação, nenhum markdown.
-- Preserve e não invente valores numéricos técnicos já presentes nas sugestões originais (Hz, kHz, dB, dBFS, dBTP, Q, ms). Se for mencionar valores, use apenas os valores fornecidos.
-- Use linguagem educativa e prática, aplicável em qualquer DAW.
-`
+  }`
           },
           {
             role: 'user', 
@@ -160,7 +159,14 @@ INSTRUÇÕES OBRIGATÓRIAS DE SAÍDA:
     }
 
     const openaiData = await openaiResponse.json();
-    const aiSuggestion = openaiData.choices[0]?.message?.content;
+    let aiSuggestion = openaiData.choices[0]?.message?.content || "";
+
+    // 🔒 Sanitização extra antes do parse
+    aiSuggestion = aiSuggestion
+      .replace(/```json/gi, "")
+      .replace(/```/g, "")
+      .replace(/[\u0000-\u001F]+/g, "")
+      .trim();
 
     if (!aiSuggestion) {
       throw new Error('Resposta vazia da IA');
@@ -174,13 +180,13 @@ INSTRUÇÕES OBRIGATÓRIAS DE SAÍDA:
     // Garantir cardinalidade: preencher faltantes com fallback das originais
     let enhancedSuggestions = ensureCardinality(parsedItems, suggestions);
 
-    // Normalização de prioridade: aplicar string "alta" nas enriquecidas (e metadata)
+    // Normalização de prioridade
     let normalizedCount = 0;
     enhancedSuggestions = enhancedSuggestions.map((sug) => {
       const isAI = sug.ai_enhanced === true;
-      const rootPriority = typeof sug.priority === 'string' ? sug.priority : (isAI ? 'alta' : (typeof sug.priority === 'string' ? sug.priority : undefined));
+      const rootPriority = typeof sug.priority === 'string' ? sug.priority : (isAI ? 'alta' : undefined);
       const meta = sug.metadata || {};
-      const metaPriority = typeof meta.priority === 'string' ? meta.priority : (isAI ? 'alta' : (typeof meta.priority === 'string' ? meta.priority : undefined));
+      const metaPriority = typeof meta.priority === 'string' ? meta.priority : (isAI ? 'alta' : undefined);
       if (isAI && (rootPriority !== 'alta' || metaPriority !== 'alta')) normalizedCount++;
       return {
         ...sug,
@@ -205,27 +211,23 @@ INSTRUÇÕES OBRIGATÓRIAS DE SAÍDA:
       },
     }));
 
-    // Relatórios
-    console.log(`[AI-API] Originais: ${suggestions.length} | Enriquecidas: ${enhancedSuggestions.length}`);
-
     res.json({
       success: true,
-      enhancedSuggestions,
+      enhancedSuggestions: finalEnhanced,
       source: 'ai',
-      message: `${enhancedSuggestions.length} sugestões enriquecidas pela IA`,
+      message: `${finalEnhanced.length} sugestões enriquecidas pela IA`,
       metadata: {
         originalCount: suggestions.length,
-        enhancedCount: enhancedSuggestions.length,
+        enhancedCount: finalEnhanced.length,
         genre: genre || 'não especificado',
         processingTime: Date.now(),
-        aiSuccess: enhancedSuggestions.filter(s=>s.ai_enhanced === true).length,
-        aiErrors: Math.max(0, suggestions.length - enhancedSuggestions.filter(s=>s.ai_enhanced === true).length)
+        aiSuccess: finalEnhanced.filter(s=>s.ai_enhanced === true).length,
+        aiErrors: Math.max(0, suggestions.length - finalEnhanced.filter(s=>s.ai_enhanced === true).length)
       }
     });
 
   } catch (error) {
     console.error("❌ [AI-API] Erro crítico no processamento:", error.message);
-    // Fallback: retornar array completo com base nas originais (ai_enhanced=false)
     const originals = Array.isArray(req.body?.suggestions) ? req.body.suggestions : [];
     const fallback = originals.map((s) => fallbackFromOriginal(s));
     console.log(`[AI-PROCESSING] Fallback total aplicado: ${fallback.length}/${originals.length}`);
@@ -252,18 +254,18 @@ function buildSuggestionPrompt(suggestions, metrics, genre) {
 
   const metricsInfo = metrics ? `
 🔊 ANÁLISE ESPECTRAL DETALHADA:
-- LUFS Integrado: ${metrics.lufsIntegrated || 'N/A'} dB (Loudness global)
-- True Peak: ${metrics.truePeakDbtp || 'N/A'} dBTP (Picos digitais)  
-- Dynamic Range: ${metrics.dynamicRange || 'N/A'} LU (Dinâmica)
-- Correlação Estéreo: ${metrics.stereoCorrelation || 'N/A'} (Espacialização)
-- LRA (Range): ${metrics.lra || 'N/A'} LU (Variação dinâmica)
+- LUFS Integrado: ${metrics.lufsIntegrated || 'N/A'} dB
+- True Peak: ${metrics.truePeakDbtp || 'N/A'} dBTP
+- Dynamic Range: ${metrics.dynamicRange || 'N/A'} LU
+- Correlação Estéreo: ${metrics.stereoCorrelation || 'N/A'}
+- LRA: ${metrics.lra || 'N/A'} LU
 ` : '';
 
   const genreContext = getGenreContext(genre);
 
   const expected = suggestions.length;
   return `
-Analise estas detecções para ${genre || 'música geral'} e gere sugestões práticas. Retorne APENAS um JSON que seja um ARRAY com exatamente ${expected} itens. Para cada item, preencha:
+Analise estas detecções para ${genre || 'música geral'} e gere sugestões práticas. Retorne APENAS um JSON que seja um ARRAY com exatamente ${expected} itens. Para cada item:
 {
   "problema": "descrição clara",
   "causa": "explicação simples",
@@ -289,55 +291,45 @@ function getGenreContext(genre) {
   const contexts = {
     funk_mandela: `
 🎵 CONTEXTO FUNK MANDELA:
-- Foco em sub bass (40-80Hz) com presença forte
-- Mid bass (80-200Hz) deve ter punch sem masking
-- Vocal range (1-4kHz) cristalino para inteligibilidade
-- High-end (8-15kHz) controlado mas presente
-- Dinâmica: moderada (DR 4-6) para energia constante
-- True Peak: máximo -1dBTP para sistemas potentes
-- LUFS target: -8 a -12 LUFS para som competitivo`,
+- Sub bass (40-80Hz) forte
+- Mid bass (80-200Hz) com punch
+- Vocais (1-4kHz) claros
+- High-end (8-15kHz) controlado
+- DR 4-6 | True Peak -1dBTP | LUFS -8 a -12`,
     
     trance: `
 🎵 CONTEXTO TRANCE:
-- Sub bass limpo (30-60Hz) sem distorção
-- Kick punch (60-120Hz) definido e controlado  
-- Lead synths (2-8kHz) brilhantes e espaciais
-- Reverb/delay equilibrados para profundidade
-- Dinâmica: baixa (DR 3-5) para energia sustentada
-- True Peak: -0.5dBTP para maximizar loudness
-- LUFS target: -6 a -9 LUFS para dancefloor impact`,
+- Sub bass limpo (30-60Hz)
+- Kick (60-120Hz) definido
+- Leads (2-8kHz) brilhantes
+- Reverb/delay equilibrados
+- DR 3-5 | True Peak -0.5dBTP | LUFS -6 a -9`,
     
     bruxaria: `
-🎵 CONTEXTO BRUXARIA/EXPERIMENTAL:
-- Frequências graves (20-100Hz) podem ser não-convencionais
-- Mid range (200Hz-2kHz) com espaço para atmosferas
-- High-end (5-20kHz) pode ter texturas únicas
-- Dinâmica: variável (DR 6-12) para expressividade
-- True Peak: flexível (-3 a -1dBTP) conforme estética
-- LUFS target: -12 a -16 LUFS para preservar dinâmica`
+🎵 CONTEXTO BRUXARIA:
+- Graves (20-100Hz) livres
+- Médios (200Hz-2kHz) atmosféricos
+- High-end (5-20kHz) texturizado
+- DR 6-12 | True Peak -3 a -1dBTP | LUFS -12 a -16`
   };
   
   return contexts[genre] || `
 🎵 CONTEXTO GERAL:
-- Analise características específicas do gênero
-- Balance entre clareza e energia
-- Respeite a dinâmica natural do estilo
-- Foque na inteligibilidade e impacto emocional`;
+- Balance clareza/energia
+- Preserve dinâmica do estilo
+- Foque em inteligibilidade`;
 }
 
-// Função para processar resposta da IA
-// =============== Helpers de processamento seguro e fallback ===============
+// Helpers de parse e fallback
 function safeParseEnrichedArray(aiContent, expectedLength) {
   let repaired = false;
   try {
     const clean = aiContent.replace(/```json\n?|```/g, '').trim();
     const parsed = JSON.parse(clean);
     if (Array.isArray(parsed)) return { items: parsed, repaired };
-    // Se vier objeto com chave suggestions, tente extrair
     if (parsed && Array.isArray(parsed.suggestions)) return { items: parsed.suggestions, repaired };
     throw new Error('Formato inválido: não é array');
   } catch (e1) {
-    // Tentativa de reparo simples
     try {
       const onlyArray = extractJsonArray(aiContent);
       const fixed = fixTrailingCommas(onlyArray);
@@ -360,7 +352,6 @@ function extractJsonArray(text) {
 }
 
 function fixTrailingCommas(jsonStr) {
-  // remove vírgulas antes de ] ou }
   return jsonStr
     .replace(/,\s*([\]}])/g, '$1')
     .replace(/\u0000/g, '');
@@ -399,16 +390,16 @@ function fallbackFromOriginal(s) {
     problema: `⚠️ ${s.message || s.title || 'Problema detectado'}`,
     causa: 'Análise automática identificou desvio dos padrões de referência',
     solucao: `🛠️ ${s.action || s.description || 'Ajuste recomendado pelo sistema'}`,
-    dica_extra: '💡 Valide em diferentes sistemas de áudio (fone, carro, caixa pequena)',
-    plugin: '🎹 EQ/Compressor nativo da DAW ou alternativo gratuito',
-    resultado: '✅ Melhoria de clareza e compatibilidade técnica',
+    dica_extra: '💡 Valide em diferentes sistemas de áudio',
+    plugin: '🎹 EQ/Compressor nativo da DAW ou gratuito',
+    resultado: '✅ Melhoria de clareza e compatibilidade',
     ai_enhanced: false,
     priority: 'média',
     metadata: { priority: 'média' }
   };
 }
 
-// 👉 Fallback SPA: qualquer rota não-API cai no app (index.html)
+// 👉 Fallback SPA
 app.get("*", (req, res, next) => {
   if (req.path.startsWith("/api/")) return next();
   res.sendFile(path.join(__dirname, "public", "index.html"));
