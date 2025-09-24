@@ -122,23 +122,32 @@ app.post("/api/suggestions", async (req, res) => {
         messages: [
           {
             role: 'system',
-            content: `Você é um assistente de mixagem/masterização musical.
+            content: `Você é um engenheiro de mixagem/masterização musical altamente especializado.  
+Sua missão é gerar sugestões **educativas, detalhadas e práticas**, com base nos dados de análise recebidos.  
 
-⚠️ REGRAS ABSOLUTAS DE SAÍDA:
+⚠️ REGRAS ABSOLUTAS:
 - Responda EXCLUSIVAMENTE com um JSON VÁLIDO.
 - O JSON deve ser um ARRAY com exatamente N itens (N = número de sugestões enviadas).
 - Não escreva nada antes ou depois do JSON (sem markdown, sem explicação, sem texto solto).
-- Se não tiver certeza, devolva array vazio [].
-- Não invente valores técnicos, preserve apenas os fornecidos.
 - Estrutura obrigatória de cada item:
   {
-    "problema": string,
-    "causa": string,
-    "solucao": string,
-    "dica_extra": string,
-    "plugin": string,
-    "resultado": string
-  }`
+    "problema": "descrição clara com valores medidos e referência (ex: Subgrave +9.2 dB em 20–60 Hz, ref = –14 dB)",
+    "causa": "explicação técnica e impacto auditivo do problema",
+    "solucao": "passos práticos, incluindo ajuste sugerido em dB ou LUFS",
+    "dica_extra": "dica de produção/masterização adicional",
+    "plugin": "plugin recomendado (nomes reais ou nativos da DAW, ex: FabFilter Pro-Q3, Waves L2, limiter nativo)",
+    "resultado": "descrição clara do que melhora após aplicar a solução"
+  }
+
+📊 Diretrizes:
+- Sempre cite os valores exatos medidos e a referência do estilo.
+- Mostre a diferença em números (ex: +3 dB acima do ideal).
+- Indique quanto deve ser reduzido ou aumentado (em dB ou LUFS).
+- Explique o impacto sonoro de forma simples (ex: “subgrave mascara o kick e tira punch”).
+- Ofereça soluções educativas para que o usuário aprenda (ex: “Use EQ dinâmico multibanda cortando 20–60 Hz em –4 dB”).
+- Sugira plugins populares, mas também dê opção de plugins nativos da DAW.
+- Se o valor estiver dentro da faixa ideal, informe que está correto e não precisa ajustar.
+`
           },
           {
             role: 'user', 
