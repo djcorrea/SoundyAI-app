@@ -242,65 +242,35 @@ class AISuggestionsIntegration {
                 this.updateStatus('error', 'IA não respondeu corretamente');
             }
             
-            // 🎯 MERGE INTELIGENTE: Sempre preservar TODAS as sugestões originais
-            const mergedSuggestions = this.mergeAISuggestionsWithOriginals(validSuggestions, allEnhancedSuggestions);
-            
-            // 🔍 AUDITORIA PASSO 4: MERGE DAS SUGESTÕES
-            console.group('🔍 [AUDITORIA] MERGE DAS SUGESTÕES');
-            console.log('🔀 Antes do merge:', {
-                validSuggestions: validSuggestions.length,
-                allEnhancedSuggestions: allEnhancedSuggestions.length
+            // 🎯 PASSO 4: USO EXCLUSIVO DAS SUGESTÕES ENRIQUECIDAS
+            const finalSuggestions = (Array.isArray(data.enhancedSuggestions) ? data.enhancedSuggestions : [])
+                .map(s => ({ ...s, ai_enhanced: true }));
+
+            console.group('🔍 [AUDITORIA] PASSO 4: SUGESTÕES ENRIQUECIDAS (SEM MERGE)');
+            console.log('✅ Usando apenas enhancedSuggestions do backend:', {
+                enhancedCount: finalSuggestions.length,
+                processingTime: `${processingTime}ms`
             });
-            console.log('🔀 Após o merge:', {
-                mergedSuggestions: mergedSuggestions.length,
-                aiEnhanced: mergedSuggestions.filter(s => s.ai_enhanced).length,
-                nonEnhanced: mergedSuggestions.filter(s => !s.ai_enhanced).length
-            });
-            
-            mergedSuggestions.forEach((sug, index) => {
-                console.log(`📋 Merged Sugestão ${index + 1}:`, {
-                    ai_enhanced: sug.ai_enhanced,
-                    hasBlocks: !!sug.ai_blocks,
-                    title: sug.title || sug.message || 'N/A',
-                    source: sug.ai_enhanced ? 'AI' : 'Original'
+            finalSuggestions.forEach((sug, index) => {
+                console.log(`📋 Enhanced Sugestão ${index + 1}:`, {
+                    ai_enhanced: true,
+                    keys: Object.keys(sug)
                 });
             });
             console.groupEnd();
-            
-            // Log final detalhado
-            console.log('📈 [AI-INTEGRATION] RESULTADO FINAL:', {
-                suggestionsOriginais: validSuggestions.length,
-                suggestionsEnriquecidas: allEnhancedSuggestions.length,
-                suggestionsFinais: mergedSuggestions.length,
-                sucessosIA: aiSuccessCount,
-                errosIA: aiErrorCount,
-                tempoTotal: `${processingTime}ms`,
-                fonteFinal: data.source
-            });
-            
-            // ✅ SEMPRE exibir TODAS as sugestões (originais + enriquecidas)
-            
-            // 🔍 AUDITORIA PASSO 5: EXIBIÇÃO NO UI
+
+            // � PASSO 5: EXIBIÇÃO NO UI (apenas enriquecidas)
             console.group('🔍 [AUDITORIA] EXIBIÇÃO NO UI');
-            console.log('🎨 Enviando para displaySuggestions:', {
-                totalSuggestions: mergedSuggestions.length,
-                source: allEnhancedSuggestions.length > 0 ? 'ai' : 'local',
-                aiEnhanced: mergedSuggestions.filter(s => s.ai_enhanced).length,
-                processingTime: processingTime
-            });
-            
-            mergedSuggestions.forEach((sug, index) => {
+            console.log('[AI-UI] Renderizando sugestões enriquecidas:', finalSuggestions.length);
+            finalSuggestions.forEach((sug, index) => {
                 console.log(`🎨 UI Sugestão ${index + 1}:`, {
-                    ai_enhanced: sug.ai_enhanced,
-                    title: sug.title || sug.message || 'N/A',
-                    hasAiBlocks: !!sug.ai_blocks,
-                    aiBlocksKeys: sug.ai_blocks ? Object.keys(sug.ai_blocks) : null
+                    ai_enhanced: true
                 });
             });
             console.groupEnd();
-            
-            this.displaySuggestions(mergedSuggestions, allEnhancedSuggestions.length > 0 ? 'ai' : 'local');
-            this.updateStats(mergedSuggestions.length, processingTime, allEnhancedSuggestions.length > 0 ? 'ai' : 'local');
+
+            this.displaySuggestions(finalSuggestions, 'ai');
+            this.updateStats(finalSuggestions.length, processingTime, 'ai');
             this.hideFallbackNotice();
             
         } catch (error) {
@@ -865,6 +835,7 @@ class AISuggestionsIntegration {
     displaySuggestions(suggestions, source = 'ai') {
         // 🔍 AUDITORIA PASSO 6: RENDERIZAÇÃO FINAL
         console.group('🔍 [AUDITORIA] RENDERIZAÇÃO FINAL');
+        console.log('[AI-UI] Renderizando sugestões enriquecidas:', suggestions?.length || 0);
         console.log('🖥️ displaySuggestions chamado com:', {
             totalSuggestions: suggestions?.length || 0,
             source: source,
@@ -875,7 +846,7 @@ class AISuggestionsIntegration {
         if (suggestions && Array.isArray(suggestions)) {
             suggestions.forEach((sug, index) => {
                 console.log(`🖥️ Renderizando Sugestão ${index + 1}:`, {
-                    ai_enhanced: sug.ai_enhanced,
+                    ai_enhanced: true,
                     title: sug.title || sug.message || 'N/A',
                     hasAiBlocks: !!sug.ai_blocks,
                     willRenderAsCard: true
@@ -967,17 +938,24 @@ class AISuggestionsIntegration {
         card.className = `ai-suggestion-card ${source === 'fallback' ? 'ai-base-suggestion' : ''}`;
         card.style.animationDelay = `${index * 0.1}s`;
         
-        // Extract data
-        const blocks = suggestion.blocks || this.createFallbackBlocks(suggestion);
+        // Extract data (campos enriquecidos diretos)
+        const blocks = {
+            problem: suggestion.problema || suggestion.blocks?.problem,
+            cause: suggestion.causa || suggestion.blocks?.cause,
+            solution: suggestion.solucao || suggestion.blocks?.solution,
+            tip: suggestion.dica_extra || suggestion.blocks?.tip,
+            plugin: suggestion.plugin || suggestion.blocks?.plugin,
+            result: suggestion.resultado || suggestion.blocks?.result
+        };
         const metadata = suggestion.metadata || { priority: 'média', difficulty: 'intermediário' };
-        const isAIEnhanced = suggestion.aiEnhanced !== false && source === 'ai';
+        const isAIEnhanced = true;
         
         card.innerHTML = `
             <div class="ai-suggestion-blocks">
-                ${this.createBlock('problema', blocks.problem)}
-                ${this.createBlock('causa', blocks.cause)}
-                ${this.createBlock('solucao', blocks.solution)}
-                ${this.createBlock('dica', blocks.tip)}
+                ${blocks.problem ? this.createBlock('problema', blocks.problem) : ''}
+                ${blocks.cause ? this.createBlock('causa', blocks.cause) : ''}
+                ${blocks.solution ? this.createBlock('solucao', blocks.solution) : ''}
+                ${blocks.tip ? this.createBlock('dica', blocks.tip) : ''}
                 ${blocks.plugin ? this.createBlock('plugin', blocks.plugin) : ''}
                 ${blocks.result ? this.createBlock('resultado', blocks.result) : ''}
             </div>
