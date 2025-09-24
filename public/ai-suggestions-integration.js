@@ -1209,19 +1209,18 @@ class AISuggestionsIntegration {
                 // Call original function first
                 const result = originalDisplayModalResults.call(this, analysis);
                 
-                // Exibir APENAS as sugestões enriquecidas da IA
-                const enhancedOnly = Array.isArray(analysis?.enhancedSuggestions)
-                    ? analysis.enhancedSuggestions
-                    : [];
-
-                console.log("⚡ Exibindo apenas sugestões enriquecidas da IA:", analysis.enhancedSuggestions);
-
-                // Garantir que a UI sempre receba um array (mesmo vazio)
-                setTimeout(() => {
-                    this.displaySuggestions(enhancedOnly, 'ai');
-                    this.updateStats(enhancedOnly.length, 0, 'ai');
-                    this.hideFallbackNotice();
-                }, 100);
+                // Extract suggestions and trigger AI processing
+                if (analysis && analysis.suggestions) {
+                    const genre = analysis.metadata?.genre || analysis.genre || window.PROD_AI_REF_GENRE;
+                    const metrics = analysis.technicalData || {};
+                    
+                    console.log('🔗 [AI-INTEGRATION] Interceptando sugestões para processamento IA');
+                    
+                    // Delay slightly to ensure modal is rendered
+                    setTimeout(() => {
+                        this.processWithAI(analysis.suggestions, metrics, genre);
+                    }, 100);
+                }
                 
                 return result;
             };
