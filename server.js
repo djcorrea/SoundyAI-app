@@ -103,7 +103,7 @@ app.post("/api/suggestions", async (req, res) => {
       });
     }
 
-    console.log(`📋 [AI-API] Construindo prompt para ${suggestions.length} sugestões do gênero: ${genre || 'geral'}`);
+  console.log(`📋 [AI-API] Construindo prompt para ${suggestions.length} sugestões do gênero: ${genre || 'geral'}`);
 
     // Construir prompt para TODAS as sugestões
     const prompt = buildSuggestionPrompt(suggestions, metrics, genre);
@@ -143,7 +143,19 @@ Analisar os PROBLEMAS de áudio detectados e gerar sugestões EDUCATIVAS, claras
 - Saída formatada em blocos claros com emojis para facilitar leitura
 - Seja prático: usuário deve conseguir aplicar HOJE no seu projeto
 
-🚀 RESPONDA SEMPRE EM JSON PURO, SEM EXPLICAÇÕES EXTRAS.`
+🚀 RESPONDA SEMPRE EM JSON PURO, SEM EXPLICAÇÕES EXTRAS.
+
+📐 FORMATO UNIVERSAL POR SUGESTÃO (CHAVES EM PT-BR):
+Cada sugestão deve conter exatamente:
+{
+  "problema": "...",
+  "causaProvavel": "...",
+  "solucaoPratica": "...",
+  "dicaExtra": "...",
+  "pluginFerramenta": "...",
+  "resultadoEsperado": "..."
+}
+`
           },
           {
             role: 'user', 
@@ -261,18 +273,16 @@ ${metricsInfo}
 
 ${genreContext}
 
-📋 RETORNE JSON PURO com este formato EXATO:
+📋 RETORNE JSON PURO com este formato EXATO (uso de chaves em PT-BR conforme padrão universal):
 {
   "suggestions": [
     {
-      "blocks": {
-        "problem": "⚠️ [descrição curta e clara do problema]",
-        "cause": "🎯 [explicação técnica simples, sem jargão pesado]", 
-        "solution": "🛠️ [passo a passo direto que pode ser feito em qualquer DAW]",
-        "tip": "💡 [truque avançado ou consideração criativa]",
-        "plugin": "🎹 [cite pelo menos 1 plugin popular ou gratuito que ajude]",
-        "result": "✅ [explique de forma motivadora o que vai melhorar no som]"
-      },
+      "problema": "⚠️ [descrição curta e clara do problema]",
+      "causaProvavel": "🎯 [explicação técnica simples, sem jargão pesado]",
+      "solucaoPratica": "🛠️ [passo a passo direto que pode ser feito em qualquer DAW]",
+      "dicaExtra": "💡 [truque avançado ou consideração criativa]",
+      "pluginFerramenta": "🎹 [cite pelo menos 1 plugin popular ou gratuito que ajude]",
+      "resultadoEsperado": "✅ [explique de forma motivadora o que vai melhorar no som]",
       "metadata": {
         "priority": "alta|média|baixa",
         "difficulty": "iniciante|intermediário|avançado",
@@ -355,14 +365,21 @@ function processAIResponse(originalSuggestions, aiResponse) {
       };
     }
 
-    // Se vier no formato "flat" (problem/solution), converte para blocks
+    // Mapear diferentes esquemas de chaves (en/pt-br) e blocks
+    const problem = aiItem?.blocks?.problem || aiItem?.problem || aiItem?.problema;
+    const cause = aiItem?.blocks?.cause || aiItem?.cause || aiItem?.causa || aiItem?.causaProvavel;
+    const solution = aiItem?.blocks?.solution || aiItem?.solution || aiItem?.solucao || aiItem?.solucaoPratica;
+    const tip = aiItem?.blocks?.tip || aiItem?.tip || aiItem?.dica || aiItem?.dicaExtra;
+    const plugin = aiItem?.blocks?.plugin || aiItem?.plugin || aiItem?.pluginFerramenta;
+    const result = aiItem?.blocks?.result || aiItem?.result || aiItem?.resultadoEsperado;
+
     const blocks = aiItem.blocks || {
-      problem: aiItem.problem || `⚠️ ${original.message || original.title || 'Problema detectado'}`,
-      cause: aiItem.cause || '🎯 Causa técnica em análise',
-      solution: aiItem.solution || `🛠️ ${original.action || original.description || 'Solução recomendada'}`,
-      tip: aiItem.tip || '💡 Verifique com referência e mono-compatibilidade',
-      plugin: aiItem.plugin || '🎹 EQ/Compressor',
-      result: aiItem.result || '✅ Melhoria na qualidade sonora geral'
+      problem: problem || `⚠️ ${original.message || original.title || 'Problema detectado'}`,
+      cause: cause || '🎯 Causa técnica em análise',
+      solution: solution || `🛠️ ${original.action || original.description || 'Solução recomendada'}`,
+      tip: tip || '💡 Verifique com referência e mono-compatibilidade',
+      plugin: plugin || '🎹 EQ/Compressor',
+      result: result || '✅ Melhoria na qualidade sonora geral'
     };
 
     const metadata = aiItem.metadata || {

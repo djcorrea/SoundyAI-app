@@ -314,13 +314,20 @@ function processAIResponse(originalSuggestions, aiResponse) {
       };
     }
 
+    const problem = aiItem?.blocks?.problem || aiItem?.problem || aiItem?.problema;
+    const cause = aiItem?.blocks?.cause || aiItem?.cause || aiItem?.causa || aiItem?.causaProvavel;
+    const solution = aiItem?.blocks?.solution || aiItem?.solution || aiItem?.solucao || aiItem?.solucaoPratica;
+    const tip = aiItem?.blocks?.tip || aiItem?.tip || aiItem?.dica || aiItem?.dicaExtra;
+    const plugin = aiItem?.blocks?.plugin || aiItem?.plugin || aiItem?.pluginFerramenta;
+    const result = aiItem?.blocks?.result || aiItem?.result || aiItem?.resultadoEsperado;
+
     const blocks = aiItem.blocks || {
-      problem: aiItem.problem || `⚠️ ${original.message || original.title || 'Problema detectado'}`,
-      cause: aiItem.cause || '🎯 Causa técnica em análise',
-      solution: aiItem.solution || `🛠️ ${original.action || original.description || 'Solução recomendada'}`,
-      tip: aiItem.tip || '💡 Teste em diferentes sistemas',
-      plugin: aiItem.plugin || '🎹 EQ/Compressor',
-      result: aiItem.result || '✅ Melhoria na qualidade sonora'
+      problem: problem || `⚠️ ${original.message || original.title || 'Problema detectado'}`,
+      cause: cause || '🎯 Causa técnica em análise',
+      solution: solution || `🛠️ ${original.action || original.description || 'Solução recomendada'}`,
+      tip: tip || '💡 Teste em diferentes sistemas',
+      plugin: plugin || '🎹 EQ/Compressor',
+      result: result || '✅ Melhoria na qualidade sonora'
     };
 
     const metadata = aiItem.metadata || {
