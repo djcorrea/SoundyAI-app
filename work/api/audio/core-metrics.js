@@ -243,6 +243,16 @@ class CoreMetricsProcessor {
         spectralUniformityMetrics = null;
       }
 
+      // ========= CÁLCULO DE BPM =========
+      let bmpMetrics = { bpm: null, bmpConfidence: null };
+      try {
+        bmpMetrics = this.calculateBpmMetrics(normalizedLeft, normalizedRight, { jobId });
+        console.log('[SUCCESS] BPM calculado via método da classe');
+      } catch (error) {
+        console.log('[SKIP_METRIC] BPM: erro no método da classe -', error.message);
+        bmpMetrics = { bpm: null, bmpConfidence: null };
+      }
+
       // ========= MONTAGEM DE RESULTADO CORRIGIDO =========
       const coreMetrics = {
         fft: fftResults,
@@ -264,6 +274,8 @@ class CoreMetricsProcessor {
         dcOffset: dcOffsetMetrics, // ✅ NOVO: DC Offset analysis
         dominantFrequencies: dominantFreqMetrics, // ✅ NOVO: Dominant frequencies
         spectralUniformity: spectralUniformityMetrics, // ✅ NOVO: Spectral uniformity
+        bpm: bmpMetrics.bpm, // ✅ NOVO: Beats Per Minute
+        bmpConfidence: bmpMetrics.bmpConfidence, // ✅ NOVO: BPM Confidence
         
         normalization: {
           applied: normalizationResult.normalizationApplied,
@@ -1282,6 +1294,130 @@ class CoreMetricsProcessor {
         average: null,
         peak: null,
         count: framesRMS?.count || 0
+      };
+    }
+  }
+
+  /**
+   * 🥁 Calcular BPM (Beats Per Minute) usando análise de onset
+   * Similar ao calculateTruePeakMetrics - processa os frames normalizados
+   */
+  calculateBpmMetrics(leftChannel, rightChannel, options = {}) {
+    const jobId = options.jobId || 'unknown';
+    
+    try {
+      logAudio('core_metrics', 'bmp_calculation_start', { 
+        samples: leftChannel.length, 
+        method: 'onset_detection',
+        jobId: jobId.substring(0,8) 
+      });
+
+      // Validar entrada
+      if (!leftChannel || !rightChannel || leftChannel.length === 0) {
+        console.warn('[BPM] Canais inválidos ou vazios');
+        return { bpm: null, bmpConfidence: null };
+      }
+
+      if (leftChannel.length < 1000) {
+        console.warn('[BPM] Sinal muito curto para análise de BPM');
+        return { bpm: null, bmpConfidence: null };
+      }
+
+      // Usar apenas canal esquerdo para análise (como é comum em algoritmos de BPM)
+      const signal = leftChannel;
+      const sampleRate = CORE_METRICS_CONFIG.SAMPLE_RATE;
+
+      console.log(`[BPM] Processando sinal de ${signal.length} amostras @ ${sampleRate}Hz`);
+
+      // Criar onset envelope baseado na energia do sinal
+      const onsets = [];
+      const windowSize = Math.floor(sampleRate * 0.1); // Janela de 100ms
+      
+      for (let i = windowSize; i < signal.length - windowSize; i += windowSize) {
+        let energy = 0;
+        let prevEnergy = 0;
+        
+        // Energia da janela atual
+        for (let j = i; j < i + windowSize; j++) {
+          energy += Math.abs(signal[j]);
+        }
+        
+        // Energia da janela anterior
+        for (let j = i - windowSize; j < i; j++) {
+          prevEnergy += Math.abs(signal[j]);
+        }
+        
+        // Detectar onset se a energia aumentou significativamente
+        if (energy > prevEnergy * 1.3 && energy > 0.02) {
+          onsets.push(i / sampleRate); // Converter para segundos
+        }
+      }
+
+      console.log(`[BPM] Detectados ${onsets.length} onsets/picos`);
+
+      if (onsets.length < 4) {
+        console.warn('[BPM] Muito poucos onsets detectados para análise');
+        return { bpm: null, bmpConfidence: null };
+      }
+
+      // Calcular intervalos entre onsets
+      const intervals = [];
+      for (let i = 1; i < onsets.length; i++) {
+        intervals.push(onsets[i] - onsets[i-1]);
+      }
+
+      // Encontrar o intervalo mais comum (análise de histograma simples)
+      const histogramBins = {};
+      intervals.forEach(interval => {
+        const bpm = Math.round(60 / interval);
+        if (bpm >= 60 && bpm <= 200) { // Range válido
+          histogramBins[bpm] = (histogramBins[bpm] || 0) + 1;
+        }
+      });
+
+      if (Object.keys(histogramBins).length === 0) {
+        console.warn('[BPM] Nenhum BPM válido encontrado no range 60-200');
+        return { bpm: null, bmpConfidence: null };
+      }
+
+      // Encontrar BPM mais frequente
+      let maxCount = 0;
+      let detectedBpm = null;
+      for (const [bpm, count] of Object.entries(histogramBins)) {
+        if (count > maxCount) {
+          maxCount = count;
+          detectedBpm = parseInt(bpm);
+        }
+      }
+
+      // Calcular confiança baseada na frequência relativa
+      const confidence = Math.min(1, Math.max(0, maxCount / intervals.length));
+
+      console.log(`[AUDIO] BPM calculado: ${detectedBpm}, confiança: ${confidence.toFixed(2)}`);
+
+      logAudio('core_metrics', 'bmp_calculation_completed', { 
+        bpm: detectedBpm,
+        confidence: confidence.toFixed(2),
+        onsets: onsets.length,
+        intervals: intervals.length,
+        jobId: jobId.substring(0,8) 
+      });
+
+      return { 
+        bpm: detectedBpm, 
+        bmpConfidence: Math.round(confidence * 100) / 100 // Arredondar para 2 casas
+      };
+
+    } catch (error) {
+      console.error("[BPM] Erro ao calcular BPM:", error);
+      logAudio('core_metrics', 'bmp_calculation_error', { 
+        error: error.message,
+        jobId: jobId.substring(0,8) 
+      });
+      
+      return { 
+        bpm: null, 
+        bmpConfidence: null 
       };
     }
   }
