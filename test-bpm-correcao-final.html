@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚨 CORREÇÃO BMP → BPM - Teste Final</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f8f9fa; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .fix { background: #d4edda; padding: 15px; margin: 15px 0; border: 1px solid #c3e6cb; border-radius: 8px; }
+        .issue { background: #f8d7da; padding: 15px; margin: 15px 0; border: 1px solid #f5c6cb; border-radius: 8px; }
+        .test { background: #e7f3ff; padding: 15px; margin: 15px 0; border: 1px solid #bee5eb; border-radius: 8px; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 13px; }
+        .highlight { background: #fff3cd; padding: 2px 4px; border-radius: 3px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 CORREÇÃO: BMP → BPM - Pipeline Work</h1>
+        
+        <div class="issue">
+            <h3>❌ Problema Identificado:</h3>
+            <ul>
+                <li>JSON final estava retornando <span class="highlight">"bmp": 150</span> em vez de <span class="highlight">"bpm": 150</span></li>
+                <li>Frontend modal procura por <code>technicalData.bpm</code> e não encontrava</li>
+                <li>Resultado: Modal exibia "—" em vez do valor BPM</li>
+            </ul>
+        </div>
+
+        <div class="fix">
+            <h3>✅ Correções Aplicadas:</h3>
+            <ol>
+                <li><strong>work/api/audio/json-output.js linha 426:</strong><br>
+                    <code>technicalData.bmp</code> → <code>technicalData.bpm</code></li>
+                
+                <li><strong>work/api/audio/json-output.js linha 751:</strong><br>
+                    <code>bmp: technicalData.bmp</code> → <code>bpm: technicalData.bpm</code></li>
+                
+                <li><strong>work/api/audio/json-output.js linha 787:</strong><br>
+                    <code>bmp: fullJSON.technicalData?.bmp</code> → <code>bpm: fullJSON.technicalData?.bpm</code></li>
+                
+                <li><strong>Log de debug adicionado:</strong><br>
+                    <code>console.log('[WORKER][BPM] Final JSON:', technicalData.bpm, technicalData.bpmConfidence);</code></li>
+            </ol>
+        </div>
+
+        <div class="test">
+            <h3>🧪 Estrutura JSON Esperada (APÓS CORREÇÃO):</h3>
+            <pre>{
+  "technicalData": {
+    <span class="highlight">"bpm": 150,</span>              // ✅ CAMPO CORRETO (não mais "bmp")
+    "bpmConfidence": 0.23,     // ✅ Confiança BPM
+    "lufsIntegrated": -14.2,
+    // ... outras métricas
+  }
+}</pre>
+        </div>
+
+        <div class="test">
+            <h3>📋 Critérios de Aceite:</h3>
+            <ul>
+                <li>✅ JSON final tem <code>"bpm"</code> (não mais <code>"bmp"</code>)</li>
+                <li>✅ Modal exibe o BPM corretamente</li>
+                <li>✅ Logs do worker mostram <code>[WORKER][BPM] Final JSON: ...</code></li>
+            </ul>
+        </div>
+
+        <div class="test">
+            <h3>🎵 Para Testar:</h3>
+            <ol>
+                <li>Carregue um arquivo de áudio do pipeline work</li>
+                <li>Verifique no console do navegador o log: <code>[WORKER][BPM] Final JSON: 150 0.23</code></li>
+                <li>Confirme no JSON de resposta que aparece <code>"bpm": 150</code></li>
+                <li>Verifique se o modal agora exibe o valor BPM em vez de "—"</li>
+            </ol>
+        </div>
+
+        <div class="fix">
+            <h3>🎯 Status Final:</h3>
+            <p><strong>✅ CORRIGIDO:</strong> Campo <code>bmp</code> → <code>bpm</code> no JSON final</p>
+            <p><strong>✅ CORRIGIDO:</strong> Logs de debug implementados</p>
+            <p><strong>✅ PRONTO:</strong> Modal agora deve exibir BPM corretamente</p>
+        </div>
+    </div>
+
+    <script>
+        console.log('🚨 CORREÇÃO BMP → BPM aplicada');
+        console.log('✅ JSON agora retorna "bpm" em vez de "bmp"');
+        console.log('✅ Logs de debug implementados');
+        console.log('🎵 Pipeline work pronto para teste com áudio real');
+        
+        // Estrutura esperada APÓS correção
+        const correctedStructure = {
+            technicalData: {
+                bpm: 150,           // ✅ CORRETO (não mais "bmp")
+                bpmConfidence: 0.23 // ✅ Mantido
+            }
+        };
+        
+        console.log('📋 Estrutura JSON corrigida:', correctedStructure);
+    </script>
+</body>
+</html>
