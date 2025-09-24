@@ -368,7 +368,98 @@ class EnhancedSuggestionEngine {
     }
 
     /**
-     * 🔧 Normalizar dados de referência para compatibilidade universal
+     * � Método principal de processamento com resiliência total
+     * Garante que erros internos não reduzam sugestões; em erro, retorna sugestões originais
+     */
+    processAnalysis(analysis, referenceData, options = {}) {
+        try {
+            const startTime = Date.now();
+
+            // Normalização segura com defaults mínimos de tolerância
+            let normalizedRef = this.normalizeReferenceData(referenceData);
+            if (!normalizedRef) {
+                normalizedRef = {
+                    lufs_tolerance: 2.5,
+                    true_peak_tolerance: 3,
+                    dr_tolerance: 3,
+                    stereo_tolerance: 0.25
+                };
+                this.logAudit('REFERENCE_DEFAULTS', 'Usando tolerâncias padrão por falta de referência válida', normalizedRef);
+            }
+
+            // Extrair métricas e z-scores
+            const metrics = this.extractMetrics(analysis, normalizedRef);
+            const zScores = this.calculateAllZScores(metrics, normalizedRef);
+
+            // Confiança e bônus
+            const confidence = this.scorer.calculateConfidence(this.extractQualityMetrics(analysis));
+            const dependencyBonuses = this.scorer.calculateDependencyBonus(zScores);
+
+            // Gerar sugestões de referência + heurísticas
+            const referenceSuggestions = this.generateReferenceSuggestions(metrics, normalizedRef, zScores, confidence, dependencyBonuses) || [];
+            const heuristicSuggestions = this.config.enableHeuristics ? (this.generateHeuristicSuggestions(analysis, confidence) || []) : [];
+
+            // Combinar, deduplicar, ordenar e enriquecer
+            let allSuggestions = [...referenceSuggestions, ...heuristicSuggestions];
+            allSuggestions = this.scorer.deduplicateSuggestions(allSuggestions);
+            allSuggestions = this.filterAndSort(allSuggestions);
+            allSuggestions = this.applyUniversalEducationalEnrichment(allSuggestions);
+
+            // GARANTIA: Não reduzir sugestões em relação às originais
+            const originalSuggestions = Array.isArray(analysis.suggestions) ? analysis.suggestions : [];
+            if (originalSuggestions.length > allSuggestions.length) {
+                console.warn('[EnhancedEngine] Mantendo sugestões originais (maior quantidade) para evitar redução indesejada', {
+                    original: originalSuggestions.length,
+                    generated: allSuggestions.length
+                });
+                allSuggestions = originalSuggestions;
+            }
+
+            // Agrupar por tema se habilitado
+            const groupedSuggestions = this.config.groupByTheme ? this.scorer.groupSuggestionsByTheme(allSuggestions) : null;
+
+            // Resultado final estável
+            const result = {
+                ...analysis,
+                suggestions: allSuggestions,
+                groupedSuggestions,
+                enhancedMetrics: {
+                    zScores,
+                    confidence,
+                    dependencyBonuses,
+                    processingTimeMs: Date.now() - startTime
+                },
+                auditLog: [...this.auditLog]
+            };
+
+            // Diagnostics
+            if (!result.diagnostics) result.diagnostics = {};
+            result.diagnostics.suggestions = allSuggestions.map(suggestion => ({
+                ...suggestion,
+                icon: suggestion.icon || '🎛️',
+                targetValue: suggestion.targetValue ?? null,
+                currentValue: suggestion.currentValue ?? null,
+                message: suggestion.message || 'Sugestão de melhoria',
+                action: suggestion.action || 'Aplicar ajuste',
+                why: suggestion.why || suggestion.justification || 'Otimização recomendada',
+                source: 'enhanced_suggestion_engine'
+            }));
+
+            return result;
+        } catch (err) {
+            console.error('[EnhancedEngine] Falha no processAnalysis:', err);
+            // Fallback: devolver sugestões originais sem alterações
+            return {
+                ...analysis,
+                suggestions: Array.isArray(analysis.suggestions) ? analysis.suggestions : [],
+                enhancedMetrics: { error: err?.message || String(err) },
+                auditLog: [...this.auditLog, { timestamp: Date.now(), type: 'ERROR', message: 'processAnalysis failed', data: { error: err?.message } }]
+            };
+        }
+    }
+
+    /**
+     * �🔧 Normalizar dados de referência para compatibilidade universal
      * @param {Object} rawRef - Dados de referência brutos (legacy_compatibility ou hybrid_processing)
      * @returns {Object} Dados normalizados no formato padrão do motor
      */
@@ -2013,8 +2104,26 @@ class EnhancedSuggestionEngine {
             timestamp: new Date().toISOString()
         });
         
-        // Chamar método original sem alterações
-        return originalProcessAnalysis.apply(this, arguments);
+        // Chamar método original com proteção
+        if (typeof originalProcessAnalysis === 'function') {
+            try {
+                return originalProcessAnalysis.apply(this, arguments);
+            } catch (err) {
+                console.error('[EnhancedEngine] Erro ao chamar processAnalysis original:', err);
+                return {
+                    ...analysis,
+                    suggestions: Array.isArray(analysis.suggestions) ? analysis.suggestions : [],
+                    enhancedMetrics: { error: err?.message || String(err) },
+                    auditLog: [...(this?.auditLog || []), { timestamp: Date.now(), type: 'ERROR', message: 'original processAnalysis call failed', data: { error: err?.message } }]
+                };
+            }
+        } else {
+            console.warn('[EnhancedEngine] Função processAnalysis original indefinida, retornando sugestões originais');
+            return {
+                ...analysis,
+                suggestions: Array.isArray(analysis.suggestions) ? analysis.suggestions : []
+            };
+        }
     };
     
     console.log('🔍 Hook de auditoria ativado para processAnalysis');
