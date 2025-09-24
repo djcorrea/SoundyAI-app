@@ -1,9 +1,10 @@
 // 🎯 PIPELINE COMPLETO FASES 5.1 - 5.4
-// Integração completa: Decodificação → Segmentação → Core Metrics → JSON Output + Scoring
+// Integração completa: D    // BPM já calculado dentro de calculateCoreMetricsção → Segmentação → Core Metrics → JSON Output + Scoring
 
 import decodeAudioFile from "./audio-decoder.js";              // Fase 5.1
 import { segmentAudioTemporal } from "./temporal-segmentation.js"; // Fase 5.2  
-import { calculateCoreMetrics, calculateBpm } from "./core-metrics.js";      // Fase 5.3
+import { calculateCoreMetrics } from "./core-metrics.js";      // Fase 5.3
+import { calculateBpm } from "./bpm-analyzer.js";            // BPM analyzer module
 import { generateJSONOutput } from "./json-output.js";         // Fase 5.4
 
 console.log('🎵 Pipeline Completo (Fases 5.1-5.4) carregado - Node.js Backend');

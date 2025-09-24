@@ -16,19 +16,28 @@ export function calculateBpm(frames, sampleRate = 48000) {
     console.log('[BPM] Iniciando cálculo de BPM...');
     
     // Validar entrada
-    if (!frames || !Array.isArray(frames) || frames.length === 0) {
+    if (!frames || (!Array.isArray(frames) && !(frames instanceof Float32Array)) || frames.length === 0) {
       console.warn('[BPM] Frames inválidos ou vazios');
       return { bpm: null, confidence: 0 };
     }
 
     // Garantir que temos um sinal flat (concatenar canais se necessário)
     let signal;
-    if (Array.isArray(frames[0])) {
-      // Se frames é array de arrays, flatten
-      signal = frames.flat();
-    } else {
-      // Já é um array flat
+    if (frames instanceof Float32Array) {
+      // Single channel Float32Array
       signal = frames;
+      console.log(`[BPM] Usando Float32Array diretamente, tamanho: ${signal.length}`);
+    } else if (Array.isArray(frames) && frames.length > 0 && (frames[0] instanceof Float32Array || Array.isArray(frames[0]))) {
+      // Array de canais - usar apenas o primeiro canal para análise de BPM
+      signal = frames[0];
+      console.log(`[BPM] Usando primeiro canal de múltiplos, tamanho: ${signal.length}`);
+    } else if (Array.isArray(frames)) {
+      // Array flat regular
+      signal = frames;
+      console.log(`[BPM] Usando array flat, tamanho: ${signal.length}`);
+    } else {
+      console.warn('[BPM] Formato de frames não reconhecido');
+      return { bmp: null, confidence: 0 };
     }
 
     if (signal.length < 1000) {

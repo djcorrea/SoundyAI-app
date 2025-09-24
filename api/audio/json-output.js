@@ -436,6 +436,10 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       dominantFrequencies: technicalData.dominantFrequencies,
       problemsAnalysis: technicalData.problemsAnalysis,
       
+      // BPM Detection
+      bpm: technicalData.bpm,
+      bpmConfidence: technicalData.bpmConfidence,
+      
       // Compatibilidade com nomes legados
       correlation: technicalData.stereoCorrelation,
       balance: technicalData.balanceLR,
