@@ -151,7 +151,7 @@ Analisar os PROBLEMAS de áudio detectados e gerar sugestões EDUCATIVAS, claras
           }
         ],
         temperature: parseFloat(process.env.AI_TEMPERATURE || '0.3'),
-        max_tokens: parseInt(process.env.AI_MAX_TOKENS || '2000'),
+        max_tokens: parseInt(process.env.AI_MAX_TOKENS || '3000'), // ⬆️ AUMENTADO para evitar truncamento
         top_p: 0.9,
         frequency_penalty: 0.1,
         presence_penalty: 0.1
@@ -170,13 +170,23 @@ Analisar os PROBLEMAS de áudio detectados e gerar sugestões EDUCATIVAS, claras
       throw new Error('Resposta vazia da IA');
     }
 
-    // Processar resposta da IA e enriquecer sugestões
-    const enhancedSuggestions = processAIResponse(suggestions, aiSuggestion);
+    console.log(`🔍 [AI-PROCESSING] Resposta bruta da IA recebida (${aiSuggestion.length} chars)`);
 
-    console.log(`✅ [AI-API] Processamento concluído:`, {
+    // 🚨 PARSE SEGURO: Processar resposta da IA e enriquecer sugestões com validação rigorosa
+    const enhancedSuggestions = processAIResponseSafe(suggestions, aiSuggestion);
+
+    // 🔒 VALIDAÇÃO FINAL CRÍTICA: Garantir contagem exata antes de retornar
+    if (enhancedSuggestions.length !== suggestions.length) {
+      console.error(`❌ [AI-API] ERRO CRÍTICO: Contagem final inválida ${enhancedSuggestions.length}/${suggestions.length}`);
+      throw new Error(`Contagem final não confere: ${enhancedSuggestions.length}/${suggestions.length}`);
+    }
+
+    console.log(`✅ [AI-API] ✅ SUCESSO TOTAL: Processamento concluído com ${enhancedSuggestions.length} sugestões:`, {
       suggestionsOriginais: suggestions.length,
       suggestionsEnriquecidas: enhancedSuggestions.length,
-      sucessoTotal: enhancedSuggestions.length === suggestions.length ? 'SIM' : 'PARCIAL'
+      sucessoCompleto: enhancedSuggestions.length === suggestions.length ? '✅ SIM' : '❌ PARCIAL',
+      aiEnriquecidas: enhancedSuggestions.filter(s => s.aiEnhanced === true).length,
+      fallbackUsadas: enhancedSuggestions.filter(s => s.aiEnhanced === false).length
     });
 
     res.json({
@@ -241,7 +251,14 @@ ${metricsInfo}
 
 ${genreContext}
 
-📋 RETORNE JSON PURO com este formato EXATO:
+� INSTRUÇÕES CRÍTICAS:
+- Retorne exatamente ${suggestions.length} sugestões enriquecidas
+- NUNCA omita, corte ou deixe sugestões em branco
+- Cada sugestão deve ser uma versão enriquecida da correspondente da lista acima
+- JSON deve ser válido e completo até o último caractere
+- Se houver limitações de tokens, priorize completar o array ao invés de detalhes extras
+
+�📋 RETORNE JSON PURO com este formato EXATO (${suggestions.length} objetos no array):
 {
   "suggestions": [
     {
@@ -308,50 +325,164 @@ function getGenreContext(genre) {
 - Foque na inteligibilidade e impacto emocional`;
 }
 
-// Função para processar resposta da IA
-function processAIResponse(originalSuggestions, aiResponse) {
-  console.log('🤖 [AI-PROCESSING] Processando resposta da IA...');
+// Função para processar resposta da IA com parse ULTRA-SEGURO
+function processAIResponseSafe(originalSuggestions, aiResponse) {
+  console.log('🤖 [AI-PROCESSING] Processando resposta da IA com parsing ultra-seguro...');
   
+  const expectedCount = originalSuggestions.length;
+  console.log(`🎯 [AI-PROCESSING] Esperado: ${expectedCount} sugestões`);
+
   try {
-    // Limpar resposta (remover markdown, etc.)
-    const cleanResponse = aiResponse.replace(/```json\n?|\n?```/g, '').trim();
+    // 1. LIMPEZA AGRESSIVA DO JSON
+    let cleanResponse = aiResponse.replace(/```json\n?|\n?```/g, '').trim();
     
-    // Tentar parsear JSON
-    const parsed = JSON.parse(cleanResponse);
-    console.log('✅ [AI-PROCESSING] JSON válido parseado');
-    
-    if (parsed.suggestions && Array.isArray(parsed.suggestions)) {
-      console.log(`🔄 [AI-PROCESSING] ${parsed.suggestions.length} sugestões processadas pela IA`);
-      return parsed.suggestions;
+    // 2. TENTATIVA DE PARSE DIRETO
+    let parsed;
+    try {
+      parsed = JSON.parse(cleanResponse);
+      console.log('✅ [AI-PROCESSING] JSON válido parseado na primeira tentativa');
+    } catch (parseError) {
+      console.warn('⚠️ [AI-PROCESSING] Parse direto falhou, tentando correção automática...');
+      
+      // 3. CORREÇÃO AUTOMÁTICA DE JSON TRUNCADO
+      cleanResponse = fixTruncatedJSON(cleanResponse);
+      
+      try {
+        parsed = JSON.parse(cleanResponse);
+        console.log('✅ [AI-PROCESSING] JSON corrigido parseado com sucesso');
+      } catch (secondError) {
+        console.error('❌ [AI-PROCESSING] Falha definitiva no parse JSON:', secondError.message);
+        throw new Error(`JSON inválido mesmo após correção: ${secondError.message}`);
+      }
     }
     
-    throw new Error('Formato de resposta inválido');
+    // 4. VALIDAÇÃO DE ESTRUTURA
+    if (!parsed.suggestions || !Array.isArray(parsed.suggestions)) {
+      throw new Error('Resposta não contém array "suggestions" válido');
+    }
+    
+    let aiSuggestions = parsed.suggestions;
+    const receivedCount = aiSuggestions.length;
+    
+    console.log(`� [AI-PROCESSING] Recebido: ${receivedCount}/${expectedCount} sugestões da IA`);
+    
+    // 5. COMPLETAR SUGESTÕES FALTANTES (CRÍTICO)
+    if (receivedCount < expectedCount) {
+      console.warn(`⚠️ [AI-PROCESSING] RESPOSTA INCOMPLETA: Completando ${expectedCount - receivedCount} sugestões faltantes`);
+      
+      for (let i = receivedCount; i < expectedCount; i++) {
+        const originalSuggestion = originalSuggestions[i];
+        
+        const fallbackSuggestion = {
+          blocks: {
+            problem: `⚠️ ${originalSuggestion.message || originalSuggestion.title || `Problema ${i + 1}`}`,
+            cause: '🎯 Análise automática identificou desvio dos padrões técnicos de referência',
+            solution: `🛠️ ${originalSuggestion.action || originalSuggestion.description || 'Ajuste recomendado pelo sistema'}`,
+            tip: '💡 Monitore resultado em diferentes sistemas de reprodução para validar melhoria',
+            plugin: '🎹 Use EQ/Compressor nativo da sua DAW ou plugins gratuitos',
+            result: '✅ Melhoria na qualidade sonora geral e maior compatibilidade profissional'
+          },
+          metadata: {
+            priority: originalSuggestion.priority || 'média',
+            difficulty: 'intermediário',
+            confidence: originalSuggestion.confidence || 0.7,
+            frequency_range: 'espectro amplo',
+            processing_type: 'Ajuste geral',
+            genre_specific: 'Aplicável universalmente'
+          },
+          aiEnhanced: false // Marca como não-enriquecida pela IA
+        };
+        
+        aiSuggestions.push(fallbackSuggestion);
+        console.log(`🔧 [AI-PROCESSING] Sugestão ${i + 1} completada com fallback estruturado`);
+      }
+    }
+    
+    // 6. GARANTIR CONTAGEM EXATA
+    if (aiSuggestions.length !== expectedCount) {
+      console.error(`❌ [AI-PROCESSING] ERRO CRÍTICO: ${aiSuggestions.length} !== ${expectedCount}`);
+      throw new Error(`Contagem final inválida: ${aiSuggestions.length}/${expectedCount}`);
+    }
+    
+    console.log(`✅ [AI-PROCESSING] Sucesso total: ${aiSuggestions.length} sugestões válidas processadas`);
+    return aiSuggestions;
     
   } catch (error) {
-    console.error('❌ [AI-PROCESSING] Erro ao processar resposta:', error.message);
-    console.log('🔄 [AI-PROCESSING] Usando fallback estruturado...');
+    console.error('❌ [AI-PROCESSING] Erro crítico, usando fallback completo:', error.message);
     
-    // Fallback: estruturar sugestões originais
-    return originalSuggestions.map(suggestion => ({
+    // 7. FALLBACK TOTAL: Estruturar TODAS as sugestões originais
+    const fallbackSuggestions = originalSuggestions.map((suggestion, index) => ({
       blocks: {
-        problem: `⚠️ ${suggestion.message || suggestion.title || 'Problema detectado'}`,
-        cause: '🎯 Análise automática identificou desvio dos padrões técnicos de referência',
-        solution: `🛠️ ${suggestion.action || suggestion.description || 'Ajuste recomendado pelo sistema'}`,
-        tip: '💡 Monitore resultado em diferentes sistemas de reprodução para validar melhoria',
-        plugin: '🎹 Use EQ nativo da sua DAW ou plugins gratuitos como ReaEQ (Reaper) ou FabFilter Pro-Q 3',
-        result: '✅ Melhoria na qualidade sonora geral e maior compatibilidade com padrões profissionais'
+        problem: `⚠️ ${suggestion.message || suggestion.title || `Problema ${index + 1} detectado`}`,
+        cause: '🎯 Sistema identificou desvio dos padrões técnicos de referência profissional',
+        solution: `🛠️ ${suggestion.action || suggestion.description || 'Aplicar correção recomendada pelo sistema'}`,
+        tip: '💡 Teste resultado em diferentes sistemas de reprodução para validar melhoria',
+        plugin: '🎹 Utilize EQ/Compressor nativo da DAW ou plugins gratuitos como ReaEQ',
+        result: '✅ Melhor qualidade sonora e maior compatibilidade com padrões profissionais'
       },
       metadata: {
         priority: suggestion.priority || 'média',
-        difficulty: 'intermediário', 
+        difficulty: 'intermediário',
         confidence: suggestion.confidence || 0.7,
-        frequency_range: suggestion.frequency_range || 'amplo espectro',
-        processing_type: 'Ajuste geral',
+        frequency_range: suggestion.frequency_range || 'espectro completo',
+        processing_type: 'Correção geral',
         genre_specific: 'Aplicável a todos os gêneros musicais'
       },
       aiEnhanced: false
     }));
+    
+    console.log(`🛡️ [AI-PROCESSING] Fallback aplicado: ${fallbackSuggestions.length} sugestões estruturadas`);
+    return fallbackSuggestions;
   }
+}
+
+// Função para corrigir JSON truncado automaticamente
+function fixTruncatedJSON(jsonString) {
+  console.log('🔧 [JSON-FIX] Tentando corrigir JSON truncado...');
+  
+  let fixed = jsonString;
+  
+  // Remover vírgulas finais problemáticas
+  fixed = fixed.replace(/,(\s*[}\]])/g, '$1');
+  
+  // Verificar se termina adequadamente
+  const trimmed = fixed.trim();
+  
+  // Se não termina com }, tentar completar objeto atual
+  if (!trimmed.endsWith('}') && !trimmed.endsWith(']')) {
+    console.log('🔧 [JSON-FIX] Fechando objeto truncado...');
+    
+    // Contar níveis de abertura
+    let braceLevel = 0;
+    let bracketLevel = 0;
+    
+    for (let char of fixed) {
+      if (char === '{') braceLevel++;
+      if (char === '}') braceLevel--;
+      if (char === '[') bracketLevel++;
+      if (char === ']') bracketLevel--;
+    }
+    
+    // Fechar chaves abertas
+    while (braceLevel > 0) {
+      fixed += '}';
+      braceLevel--;
+    }
+    
+    // Fechar colchetes abertos  
+    while (bracketLevel > 0) {
+      fixed += ']';
+      bracketLevel--;
+    }
+  }
+  
+  // Tentar garantir que há fechamento do objeto principal
+  if (!fixed.trim().endsWith('}')) {
+    fixed += '}';
+  }
+  
+  console.log('🔧 [JSON-FIX] Correção aplicada');
+  return fixed;
 }
 
 // 👉 Fallback SPA: qualquer rota não-API cai no app (index.html)
