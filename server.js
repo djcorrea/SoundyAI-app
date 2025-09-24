@@ -71,86 +71,6 @@ app.use("/api/voice", voiceMessageRoute);
 app.use("/api/webhook", webhookRoute);
 app.use("/api", presignRoute);
 
-// =============================================================
-// Enriquecimento de Sugestões via GPT-3.5 (função dedicada)
-// =============================================================
-async function enrichSuggestions(suggestionsOriginal, genre) {
-  try {
-    console.log("🚀 [AI-API] Enviando sugestões para enriquecimento...");
-
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey || apiKey === 'your_openai_api_key_here') {
-      console.warn("⚠️ [AI-API] OPENAI_API_KEY ausente - retornando sugestões originais");
-      return suggestionsOriginal;
-    }
-
-    const body = {
-      model: process.env.AI_MODEL || "gpt-3.5-turbo",
-      temperature: 0.5,
-      messages: [
-        {
-          role: "system",
-          content: `Você é um assistente especializado em mixagem/masterização.
-Sua tarefa é enriquecer sugestões técnicas, tornando-as mais educativas e práticas.
-Saída obrigatória: um array JSON válido no formato:
-[
-  {
-    "problema": "...",
-    "causa": "...",
-    "solucao": "...",
-    "dica_extra": "...",
-    "plugin": "...",
-    "resultado": "..."
-  }
-]`
-        },
-        {
-          role: "user",
-          content: `Gênero: ${genre}\nSugestões originais:\n${JSON.stringify(suggestionsOriginal)}`
-        }
-      ]
-    };
-
-    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
-
-    if (!resp.ok) {
-      const txt = await resp.text().catch(()=> '');
-      throw new Error(`HTTP ${resp.status} OpenAI: ${txt || resp.statusText}`);
-    }
-
-    const data = await resp.json();
-    const raw = data.choices?.[0]?.message?.content;
-    if (!raw) throw new Error('Resposta vazia da IA');
-
-    let parsed;
-    try {
-      parsed = JSON.parse(raw);
-    } catch (e) {
-      console.warn("⚠️ [AI-PROCESSING] JSON inválido da IA, retornando originais");
-      return suggestionsOriginal;
-    }
-
-    if (!Array.isArray(parsed)) {
-      console.warn("⚠️ [AI-PROCESSING] Formato inesperado (não é array), retornando originais");
-      return suggestionsOriginal;
-    }
-
-    console.log("✅ [AI-PROCESSING] Sugestões enriquecidas:", parsed.length);
-    return parsed;
-
-  } catch (err) {
-    console.error("❌ [AI-API] Erro ao enriquecer sugestões:", err.message);
-    return suggestionsOriginal;
-  }
-}
-
 // Rotas de análise
 app.use("/api/audio", analyzeRoute);
 app.use("/api/jobs", jobsRoute); // ✅ rota de jobs conectada ao banco
@@ -183,120 +103,139 @@ app.post("/api/suggestions", async (req, res) => {
       });
     }
 
-    // Novo fluxo simples: enriquecer imediatamente após capturar as sugestões
-    const suggestionsOriginal = suggestions;
-    const suggestionsEnriquecidas = await enrichSuggestions(suggestionsOriginal, genre);
+    console.log(`📋 [AI-API] Construindo prompt para ${suggestions.length} sugestões do gênero: ${genre || 'geral'}`);
 
-    // Normalizar para o formato esperado pelo frontend (blocks/metadata)
-    const enhancedSuggestions = (Array.isArray(suggestionsEnriquecidas) ? suggestionsEnriquecidas : suggestionsOriginal)
-      .map((item, idx) => {
-        const orig = suggestionsOriginal[idx] || {};
-        // quando vier no novo formato da IA
-        const problem = item?.problema || item?.problem;
-        const cause = item?.causa || item?.cause;
-        const solution = item?.solucao || item?.solution;
-        const tip = item?.dica_extra || item?.tip || item?.dica;
-        const plugin = item?.plugin;
-        const result = item?.resultado || item?.result;
+    // Construir prompt para TODAS as sugestões
+    const prompt = buildSuggestionPrompt(suggestions, metrics, genre);
 
-        // se não houver campos do novo formato, construir fallback com original
-        if (!problem && !solution && !cause) {
-          return {
-            blocks: {
-              problem: `⚠️ ${orig.message || orig.title || 'Problema detectado'}`,
-              cause: '🎯 Análise automática',
-              solution: `🛠️ ${orig.action || orig.description || 'Ajuste recomendado'}`,
-              tip: '💡 Monitore em diferentes sistemas',
-              plugin: '🎹 EQ/Compressor nativos',
-              result: '✅ Melhoria esperada na clareza e impacto'
-            },
-            metadata: {
-              priority: orig.priority || 'média',
-              difficulty: 'intermediário',
-              confidence: orig.confidence || 0.7,
-              frequency_range: orig.frequency_range || 'amplo espectro',
-              processing_type: 'Ajuste geral'
-            },
-            aiEnhanced: false
-          };
-        }
+    console.log(`🤖 [AI-API] Enviando prompt para OpenAI...`);
 
+    // Chamar OpenAI
+    const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: process.env.AI_MODEL || 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: `🎵 VOCÊ É UM ASSISTENTE DE MIXAGEM E MASTERIZAÇÃO MUSICAL ULTRA-AVANÇADO
+
+🎯 SUA MISSÃO:
+Analisar os PROBLEMAS de áudio detectados e gerar sugestões EDUCATIVAS, claras e aplicáveis para o usuário.
+
+📋 ESTRUTURA OBRIGATÓRIA para cada sugestão:
+
+⚠️ Problema: [descrição curta e clara]
+🎯 Causa Provável: [explicação técnica simples, sem jargão pesado]
+🛠️ Solução Prática: [passo a passo direto que pode ser feito em qualquer DAW]
+💡 Dica Extra: [truque avançado ou consideração criativa]
+🎹 Exemplo de Plugin/Ferramenta: [cite pelo menos 1 plugin popular ou gratuito que ajude]
+✅ Resultado Esperado: [explique de forma motivadora o que vai melhorar no som]
+
+� REGRAS DE OURO:
+- Escreva de forma educativa e motivadora, sem ser rígido
+- Use linguagem simples, mas com conteúdo técnico real
+- Sempre que possível, dê referências a gêneros musicais (Funk, Trap, Eletrônico, etc.)
+- Saída formatada em blocos claros com emojis para facilitar leitura
+- Seja prático: usuário deve conseguir aplicar HOJE no seu projeto
+
+🚀 RESPONDA SEMPRE EM JSON PURO, SEM EXPLICAÇÕES EXTRAS.`
+          },
+          {
+            role: 'user', 
+            content: prompt
+          }
+        ],
+        temperature: parseFloat(process.env.AI_TEMPERATURE || '0.3'),
+        max_tokens: parseInt(process.env.AI_MAX_TOKENS || '2000'),
+        top_p: 0.9,
+        frequency_penalty: 0.1,
+        presence_penalty: 0.1
+      })
+    });
+
+    if (!openaiResponse.ok) {
+      console.error("❌ Erro na API da OpenAI:", openaiResponse.status, openaiResponse.statusText);
+      throw new Error(`OpenAI API retornou ${openaiResponse.status}`);
+    }
+
+    const openaiData = await openaiResponse.json();
+    const aiSuggestion = openaiData.choices[0]?.message?.content;
+
+    if (!aiSuggestion) {
+      throw new Error('Resposta vazia da IA');
+    }
+
+    // Processar resposta da IA e enriquecer sugestões
+    let enhancedSuggestions = processAIResponse(suggestions, aiSuggestion);
+
+    // Normalizar priority para string em todas as sugestões enriquecidas
+    let normalizedCount = 0;
+    enhancedSuggestions = (enhancedSuggestions || []).map((sug) => {
+      const metadata = sug && typeof sug === 'object' ? (sug.metadata || {}) : {};
+      const priority = metadata.priority;
+      if (typeof priority !== 'string') {
+        normalizedCount++;
         return {
-          blocks: {
-            problem: problem || `⚠️ ${orig.message || orig.title || 'Problema detectado'}`,
-            cause: cause || '🎯 Causa técnica em análise',
-            solution: solution || `🛠️ ${orig.action || orig.description || 'Solução recomendada'}`,
-            tip: tip || '💡 Verifique com referência e mono-compatibilidade',
-            plugin: plugin || '🎹 EQ/Compressor',
-            result: result || '✅ Melhoria na qualidade sonora geral'
-          },
+          ...sug,
           metadata: {
-            priority: orig.priority || 'média',
-            difficulty: 'intermediário',
-            confidence: orig.confidence || 0.8,
-            frequency_range: orig.frequency_range || 'banda_ampla',
-            processing_type: orig.processing_type || 'eq'
+            ...metadata,
+            priority: 'alta',
           },
-          aiEnhanced: true
         };
-      });
+      }
+      return sug;
+    });
+    console.log(`[AI-NORMALIZE] priority normalizados: ${normalizedCount}/${enhancedSuggestions.length}`);
 
     console.log(`✅ [AI-API] Processamento concluído:`, {
-      suggestionsOriginais: suggestionsOriginal.length,
+      suggestionsOriginais: suggestions.length,
       suggestionsEnriquecidas: enhancedSuggestions.length,
-      sucessoTotal: enhancedSuggestions.length === suggestionsOriginal.length ? 'SIM' : 'PARCIAL'
+      sucessoTotal: enhancedSuggestions.length === suggestions.length ? 'SIM' : 'PARCIAL'
     });
-    console.log(`[AI-SUGGESTIONS] Normalizadas: ${enhancedSuggestions.length}`);
 
-    return res.json({
-      success: true,
-      enhancedSuggestions,
-      source: 'ai',
-      message: `${enhancedSuggestions.length} sugestões enriquecidas pela IA`,
+    // Garantir que todas têm priority string antes de enviar
+    const finalEnhanced = enhancedSuggestions.map((sug) => ({
+      ...sug,
       metadata: {
-        originalCount: suggestionsOriginal.length,
-        enhancedCount: enhancedSuggestions.length,
+        ...(sug.metadata || {}),
+        priority: typeof sug?.metadata?.priority === 'string' ? sug.metadata.priority : 'alta',
+      },
+    }));
+
+    res.json({
+      success: true,
+      enhancedSuggestions: finalEnhanced,
+      source: 'ai',
+      message: `${finalEnhanced.length} sugestões enriquecidas pela IA`,
+      metadata: {
+        originalCount: suggestions.length,
+        enhancedCount: finalEnhanced.length,
         genre: genre || 'não especificado',
         processingTime: Date.now(),
-        aiSuccess: enhancedSuggestions.length,
-        aiErrors: Math.max(0, suggestionsOriginal.length - enhancedSuggestions.length)
+        aiSuccess: finalEnhanced.length,
+        aiErrors: Math.max(0, suggestions.length - finalEnhanced.length)
       }
     });
 
   } catch (error) {
     console.error("❌ [AI-API] Erro crítico no processamento:", error.message);
-
-    // Manter o sistema funcionando: retornar fallback estruturado (200 OK)
-    const original = req.body?.suggestions || [];
-    const fallbackEnhanced = original.map((s) => ({
-      blocks: {
-        problem: `⚠️ ${s.message || s.title || 'Problema detectado'}`,
-        cause: '🎯 Análise automática',
-        solution: `🛠️ ${s.action || s.description || 'Ajuste recomendado'}`,
-        tip: '💡 Monitore em diferentes sistemas',
-        plugin: '🎹 EQ/Compressor nativos',
-        result: '✅ Melhoria na inteligibilidade e equilíbrio'
-      },
+    
+    // Retornar erro ao invés de fallback
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      source: 'error',
+      message: 'Erro no processamento da IA. Tente novamente.',
       metadata: {
-        priority: s.priority || 'média',
-        difficulty: 'intermediário',
-        confidence: s.confidence || 0.7,
-        frequency_range: s.frequency_range || 'amplo espectro',
-        processing_type: 'Ajuste geral'
-      },
-      aiEnhanced: false
-    }));
-
-    res.json({
-      success: true,
-      enhancedSuggestions: fallbackEnhanced,
-      source: 'fallback',
-      message: 'Usando sugestões estruturadas devido a erro da IA',
-      metadata: {
-        originalCount: original.length,
-        enhancedCount: fallbackEnhanced.length,
+        originalCount: suggestions?.length || 0,
+        enhancedCount: 0,
         aiSuccess: 0,
-        aiErrors: Math.max(0, original.length - fallbackEnhanced.length)
+        aiErrors: suggestions?.length || 0
       }
     });
   }
@@ -320,27 +259,40 @@ function buildSuggestionPrompt(suggestions, metrics, genre) {
   const genreContext = getGenreContext(genre);
 
   return `
-Analise estas ${suggestions.length} detecções automáticas para ${genre || 'música geral'} e transforme cada uma numa sugestão EDUCACIONAL, aplicável e precisa.
+🎵 VOCÊ É O MAIS AVANÇADO ENGENHEIRO DE ÁUDIO E MASTERING DO MUNDO
 
-Sugestões originais (contexto):
+Analise estas detecções automáticas para ${genre || 'música geral'} e transforme cada uma numa sugestão REVOLUCIONÁRIA:
+
 ${suggestionsList}
 
-Métricas (apoio):
 ${metricsInfo}
 
-Diretiva de saída (OBRIGATÓRIO): retorne JSON PURO com este formato EXATO:
+${genreContext}
+
+📋 RETORNE JSON PURO com este formato EXATO:
 {
   "suggestions": [
     {
-      "problema": "Texto com valores exatos (ex: Sub 20–60 Hz +24.1 dB acima do alvo -17.5 dB ±2.5 dB; Valor medido: +6.6 dB, alvo: -17.5 dB ±2.5 dB → diferença: +24.1 dB)",
-      "causa": "Causa provável em linguagem simples",
-      "solucao": "Passos práticos e educativos incluindo Hz/dB",
-      "plugin": "Plugins específicos (ex: FabFilter Pro-Q3, ReaEQ)",
-      "resultado": "Benefício esperado para o usuário"
+      "blocks": {
+        "problem": "⚠️ [descrição curta e clara do problema]",
+        "cause": "🎯 [explicação técnica simples, sem jargão pesado]", 
+        "solution": "🛠️ [passo a passo direto que pode ser feito em qualquer DAW]",
+        "tip": "💡 [truque avançado ou consideração criativa]",
+        "plugin": "🎹 [cite pelo menos 1 plugin popular ou gratuito que ajude]",
+        "result": "✅ [explique de forma motivadora o que vai melhorar no som]"
+      },
+      "metadata": {
+        "priority": "alta|média|baixa",
+        "difficulty": "iniciante|intermediário|avançado",
+        "confidence": 0.95,
+        "frequency_range": "20-60Hz",
+        "processing_type": "EQ|Compressor|Limiter|Spatial",
+        "genre_specific": "Se aplicável ao gênero analisado"
+      },
+      "aiEnhanced": true
     }
   ]
-}
-`;
+}`;
 }
 
 // Função para obter contexto do gênero
@@ -385,212 +337,49 @@ function getGenreContext(genre) {
 }
 
 // Função para processar resposta da IA
-async function processAIResponse(originalSuggestions, aiResponse, openaiApiKey, model) {
+function processAIResponse(originalSuggestions, aiResponse) {
   console.log('🤖 [AI-PROCESSING] Processando resposta da IA...');
-
-  // Pequena função utilitária para normalizar um item vindo da IA
-  function normalizeAISuggestion(aiItem, original) {
-    if (!aiItem || typeof aiItem !== 'object') {
-      return {
-        blocks: {
-          problem: `⚠️ ${original.message || original.title || 'Problema detectado'}`,
-          cause: '🎯 Análise automática',
-          solution: `🛠️ ${original.action || original.description || 'Ajuste recomendado'}`,
-          tip: '💡 Monitore em diferentes sistemas',
-          plugin: '🎹 EQ/Compressor nativos',
-          result: '✅ Melhoria esperada na clareza e impacto'
-        },
-        metadata: {
-          priority: original.priority || 'média',
-          difficulty: 'intermediário',
-          confidence: original.confidence || 0.7,
-          frequency_range: original.frequency_range || 'amplo espectro',
-          processing_type: 'Ajuste geral'
-        },
-        aiEnhanced: false
-      };
-    }
-
-    // Mapear diferentes esquemas de chaves (en/pt-br) e blocks
-    const problem = aiItem?.blocks?.problem || aiItem?.problem || aiItem?.problema;
-    const cause = aiItem?.blocks?.cause || aiItem?.cause || aiItem?.causa || aiItem?.causaProvavel;
-    const solution = aiItem?.blocks?.solution || aiItem?.solution || aiItem?.solucao || aiItem?.solucaoPratica;
-    const tip = aiItem?.blocks?.tip || aiItem?.tip || aiItem?.dica || aiItem?.dicaExtra;
-    const plugin = aiItem?.blocks?.plugin || aiItem?.plugin || aiItem?.pluginFerramenta;
-    const result = aiItem?.blocks?.result || aiItem?.result || aiItem?.resultadoEsperado;
-
-    const blocks = aiItem.blocks || {
-      problem: problem || `⚠️ ${original.message || original.title || 'Problema detectado'}`,
-      cause: cause || '🎯 Causa técnica em análise',
-      solution: solution || `🛠️ ${original.action || original.description || 'Solução recomendada'}`,
-      tip: tip || '💡 Verifique com referência e mono-compatibilidade',
-      plugin: plugin || '🎹 EQ/Compressor',
-      result: result || '✅ Melhoria na qualidade sonora geral'
-    };
-
-    const metadata = aiItem.metadata || {
-      priority: aiItem.priority || original.priority || 'média',
-      difficulty: aiItem.difficulty || 'intermediário',
-      confidence: aiItem.confidence || original.confidence || 0.8,
-      frequency_range: aiItem.frequency_range || original.frequency_range || 'banda_ampla',
-      processing_type: aiItem.processing_type || 'eq'
-    };
-
-    return {
-      blocks,
-      metadata,
-      aiEnhanced: aiItem.aiEnhanced !== undefined ? aiItem.aiEnhanced : true
-    };
-  }
-
+  
   try {
-    let parsed = safeParseAIResponse(aiResponse, originalSuggestions);
-
-    // Se o parse não retornou algo útil, tentar autocorreção via IA (até 2 tentativas)
-    if (parsed === originalSuggestions) {
-      console.log('[AI-PROCESSING] Conteúdo não parseável: ativando recuperação assistida por IA (tentativas: até 2)');
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          const fixed = await fixResponseToValidJSON(aiResponse, openaiApiKey, model);
-          const reparsed = safeParseAIResponse(fixed, originalSuggestions);
-          if (reparsed !== originalSuggestions) {
-            parsed = reparsed;
-            console.log(`[AI-PROCESSING] Recuperação bem-sucedida na tentativa ${attempt}`);
-            break;
-          }
-        } catch (e) {
-          console.warn(`[AI-PROCESSING] Tentativa de recuperação ${attempt} falhou: ${e.message}`);
-        }
-      }
+    // Limpar resposta (remover markdown, etc.)
+    const cleanResponse = aiResponse.replace(/```json\n?|\n?```/g, '').trim();
+    
+    // Tentar parsear JSON
+    const parsed = JSON.parse(cleanResponse);
+    console.log('✅ [AI-PROCESSING] JSON válido parseado');
+    
+    if (parsed.suggestions && Array.isArray(parsed.suggestions)) {
+      console.log(`🔄 [AI-PROCESSING] ${parsed.suggestions.length} sugestões processadas pela IA`);
+      return parsed.suggestions;
     }
-
-    // Normalização final
-    let normalized = [];
-    const aiArray = Array.isArray(parsed)
-      ? parsed
-      : (parsed && Array.isArray(parsed.suggestions) ? parsed.suggestions : []);
-
-    if (aiArray.length === 0) {
-      console.log(`[AI-PROCESSING] Mantendo ${originalSuggestions.length} itens após recuperação`);
-      normalized = originalSuggestions.map((orig) => normalizeAISuggestion(null, orig));
-    } else {
-      // Garantir o mesmo comprimento das originais (nunca perder sugestões)
-      normalized = originalSuggestions.map((orig, idx) => normalizeAISuggestion(aiArray[idx], orig));
-    }
-
-    console.log(`✅ [AI-PROCESSING] Processamento concluído: ${normalized.length} sugestões`);
-    return normalized;
-  } catch (err) {
-    console.error('❌ [AI-PROCESSING] Erro crítico no processamento:', err.message);
-    console.log(`[AI-PROCESSING] Mantendo ${originalSuggestions.length} itens (modo de contingência)`);
-    return originalSuggestions.map((orig) => normalizeAISuggestion(null, orig));
+    
+    throw new Error('Formato de resposta inválido');
+    
+  } catch (error) {
+    console.error('❌ [AI-PROCESSING] Erro ao processar resposta:', error.message);
+    console.log('🔄 [AI-PROCESSING] Usando fallback estruturado...');
+    
+    // Fallback: estruturar sugestões originais
+    return originalSuggestions.map(suggestion => ({
+      blocks: {
+        problem: `⚠️ ${suggestion.message || suggestion.title || 'Problema detectado'}`,
+        cause: '🎯 Análise automática identificou desvio dos padrões técnicos de referência',
+        solution: `🛠️ ${suggestion.action || suggestion.description || 'Ajuste recomendado pelo sistema'}`,
+        tip: '💡 Monitore resultado em diferentes sistemas de reprodução para validar melhoria',
+        plugin: '🎹 Use EQ nativo da sua DAW ou plugins gratuitos como ReaEQ (Reaper) ou FabFilter Pro-Q 3',
+        result: '✅ Melhoria na qualidade sonora geral e maior compatibilidade com padrões profissionais'
+      },
+      metadata: {
+        priority: suggestion.priority || 'média',
+        difficulty: 'intermediário', 
+        confidence: suggestion.confidence || 0.7,
+        frequency_range: suggestion.frequency_range || 'amplo espectro',
+        processing_type: 'Ajuste geral',
+        genre_specific: 'Aplicável a todos os gêneros musicais'
+      },
+      aiEnhanced: false
+    }));
   }
-}
-
-// Parser ultra blindado para resposta da IA
-function safeParseAIResponse(raw, fallbackArray) {
-  try {
-    const rawStr = typeof raw === 'string' ? raw : String(raw ?? '');
-    console.log(`[AI-PROCESSING] Resposta recebida: ${rawStr.length} chars`);
-
-    // 0) Se existir bloco ```json ... ```, extrair somente o conteúdo interno
-    const fenceMatch = rawStr.match(/```json\s*([\s\S]*?)```/i);
-    let work = fenceMatch ? fenceMatch[1] : rawStr;
-
-    // 1) Sanitização básica
-    let cleaned = work
-      // remover cercas de código remanescentes
-      .replace(/```json\s*|```/g, '')
-      // normalizar quebras de linha
-      .replace(/\r\n|\r/g, '\n')
-      // normalizar aspas tipográficas
-      .replace(/[“”]/g, '"')
-      .replace(/[‘’]/g, "'")
-      // remover BOM
-      .replace(/^\uFEFF/, '')
-      // remover caracteres de controle inválidos
-      .replace(/[^\x09\x0A\x0D\x20-\x7E\u00A0-\uFFFF]/g, '')
-      .trim();
-
-    // remover vírgulas soltas antes de ] ou }
-    cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
-    // tentar balancear colchetes básicos: remover sufixos soltos comuns
-    cleaned = cleaned.replace(/\n+\s*\/{2,}.*$/gm, '');
-
-    // 2) Tentar JSON.parse direto
-    try {
-      const direct = JSON.parse(cleaned);
-      const arr = Array.isArray(direct) ? direct : (direct && direct.suggestions);
-      if (Array.isArray(arr)) return direct; // mantém estrutura original (array puro ou objeto com suggestions)
-    } catch (_) {
-      // segue para estratégia de extração
-    }
-
-    // 3) Extração do array [...] válido via regex/recorte
-    console.log('[AI-PROCESSING] Aplicando reformatador de conteúdo (extração de array)');
-    const firstIdx = cleaned.indexOf('[');
-    const lastIdx = cleaned.lastIndexOf(']');
-    if (firstIdx !== -1 && lastIdx !== -1 && lastIdx > firstIdx) {
-      let arrayText = cleaned.slice(firstIdx, lastIdx + 1);
-      // limpar vírgulas finais novamente
-      arrayText = arrayText.replace(/,\s*]/g, ']');
-      arrayText = arrayText.replace(/,\s*}/g, '}');
-      try {
-        const arr = JSON.parse(arrayText);
-        if (Array.isArray(arr)) return arr; // retorna array puro
-      } catch (_) {
-        // ainda não deu
-      }
-    }
-
-    // 3.1) Extração de objeto { ... } com campo suggestions
-    console.log('[AI-PROCESSING] Tentando extrair objeto com suggestions');
-    const objFirst = cleaned.indexOf('{');
-    const objLast = cleaned.lastIndexOf('}');
-    if (objFirst !== -1 && objLast !== -1 && objLast > objFirst) {
-      let objText = cleaned.slice(objFirst, objLast + 1);
-      objText = objText.replace(/,\s*}/g, '}');
-      try {
-        const obj = JSON.parse(objText);
-        if (obj && Array.isArray(obj.suggestions)) return obj;
-      } catch (_) {
-        // segue
-      }
-    }
-
-    // 4) Falhou: retornar fallback
-    console.warn('[AI-PROCESSING] Conteúdo da IA fora do padrão esperado (ativar recuperação)');
-    return fallbackArray; // devolve exatamente o fallback recebido
-  } catch (e) {
-    console.error('[AI-PROCESSING] Erro inesperado no safeParse:', e.message);
-    return fallbackArray;
-  }
-}
-
-// Solicita à IA que converta um texto em JSON válido no formato exigido
-async function fixResponseToValidJSON(raw, apiKey, model) {
-  const body = {
-    model: model || 'gpt-3.5-turbo',
-    messages: [
-      { role: 'system', content: 'Você corrige respostas para JSON válido. Responda SOMENTE com JSON válido (sem markdown).' },
-      { role: 'user', content: `Corrija este texto para JSON válido, no formato {"suggestions": [ { "problema": "...", "causa": "...", "solucao": "...", "plugin": "...", "resultado": "..." } ] }. Mantenha o mesmo número de itens do input. Não explique. Não adicione texto fora do JSON.\n\nTEXTO:\n${raw}` }
-    ],
-    temperature: 0.0,
-    max_tokens: 1800
-  };
-
-  const resp = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(body)
-  });
-  if (!resp.ok) throw new Error(`OpenAI JSON-fix HTTP ${resp.status}`);
-  const data = await resp.json();
-  const content = data.choices?.[0]?.message?.content || '';
-  return content;
 }
 
 // 👉 Fallback SPA: qualquer rota não-API cai no app (index.html)
