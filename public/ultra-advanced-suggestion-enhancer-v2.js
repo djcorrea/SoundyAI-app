@@ -71,24 +71,10 @@ class UltraAdvancedSuggestionEnhancer {
      * 🚀 Enriquecer sugestões existentes com conteúdo educacional ultra-avançado
      */
     enhanceExistingSuggestions(suggestions, analysisContext = {}) {
-        // 🔍 AUDITORIA: ULTRA ADVANCED ENHANCER ENTRADA
-        console.group('🔍 [AUDITORIA] ULTRA ADVANCED ENHANCER - ENTRADA');
         console.log('🚀 [ULTRA_V2] Enriquecendo sugestões existentes...', {
-            inputCount: suggestions?.length || 0,
-            context: analysisContext,
-            isArray: Array.isArray(suggestions)
+            inputCount: suggestions.length,
+            context: analysisContext
         });
-        
-        if (suggestions && Array.isArray(suggestions)) {
-            suggestions.forEach((sug, index) => {
-                console.log(`🚀 Ultra Input ${index + 1}:`, {
-                    message: sug.message || sug.issue || sug.title || 'N/A',
-                    action: sug.action || sug.solution || sug.description || 'N/A',
-                    keys: Object.keys(sug)
-                });
-            });
-        }
-        console.groupEnd();
         
         const startTime = performance.now();
         const enhancedSuggestions = [];
@@ -113,29 +99,11 @@ class UltraAdvancedSuggestionEnhancer {
             processingTime: `${processingTime}ms`
         });
         
-        // 🔍 AUDITORIA: ULTRA ADVANCED ENHANCER SAÍDA
-        console.group('🔍 [AUDITORIA] ULTRA ADVANCED ENHANCER - SAÍDA');
-        console.log('🚀 [ULTRA_V2] Resultado do enhancement:', {
-            originalCount: suggestions?.length || 0,
-            enhancedCount: enhancedSuggestions.length,
-            processingTime: processingTime + 'ms'
-        });
-        
-        enhancedSuggestions.forEach((sug, index) => {
-            console.log(`🚀 Ultra Output ${index + 1}:`, {
-                message: sug.message || sug.issue || sug.title || 'N/A',
-                action: sug.action || sug.solution || sug.description || 'N/A',
-                enhanced: !!sug.enhanced,
-                keys: Object.keys(sug)
-            });
-        });
-        console.groupEnd();
-        
         return {
             enhancedSuggestions: enhancedSuggestions,
             metadata: {
                 processingTimeMs: parseFloat(processingTime),
-                originalCount: suggestions?.length || 0,
+                originalCount: suggestions.length,
                 enhancedCount: enhancedSuggestions.length,
                 educationalLevel: 'ultra-advanced',
                 version: '2.0.0-direct-enhancement'
@@ -154,7 +122,7 @@ class UltraAdvancedSuggestionEnhancer {
         const severity = this.calculateSeverity(suggestion);
         const dawInstructions = this.generateDAWInstructions(suggestion);
         
-        // Adicionar conteúdo educacional ultra-avançado (back-compat)
+        // Adicionar conteúdo educacional ultra-avançado
         enhanced.educationalContent = {
             title: this.generateEducationalTitle(suggestion, problemType),
             explanation: this.generateEducationalExplanation(suggestion, problemType, context),
@@ -165,11 +133,6 @@ class UltraAdvancedSuggestionEnhancer {
             relatedConcepts: this.getRelatedConcepts(problemType)
         };
         
-        // Novo bloco padronizado solicitado: original/enriched
-        const enrichedBlock = this.buildEnrichedSuggestion(suggestion, problemType, context);
-        enhanced.original = suggestion.message || suggestion.issue || suggestion.title || '';
-        enhanced.enriched = enrichedBlock;
-
         // Adicionar classificação de severidade
         enhanced.severity = severity;
         
@@ -185,110 +148,6 @@ class UltraAdvancedSuggestionEnhancer {
         };
         
         return enhanced;
-    }
-
-    /**
-     * 🧩 Extrair valores técnicos exatos do texto (sem inventar)
-     */
-    extractTechnicalValues(suggestion) {
-        const text = `${suggestion.message || ''} ${suggestion.action || ''}`;
-        const freqMatch = text.match(/(\d+(?:\.\d+)?)\s*(k?hz)/i);
-        const dbMatch = text.match(/([+-]?\d+(?:\.\d+)?)\s*d\s*B/i);
-        const qMatch = text.match(/\bQ\s*[=:]?\s*(\d+(?:\.\d+)?)/i);
-        const tolMatch = text.match(/(?:±|\+\/-)\s*(\d+(?:\.\d+)?)/);
-
-        let frequencyHz = null;
-        if (freqMatch) {
-            const value = parseFloat(freqMatch[1]);
-            const unit = freqMatch[2].toLowerCase();
-            frequencyHz = unit === 'khz' ? value * 1000 : value;
-        }
-
-        const gainDb = dbMatch ? parseFloat(dbMatch[1]) : null;
-        const qValue = qMatch ? parseFloat(qMatch[1]) : null;
-        const tolerance = tolMatch ? parseFloat(tolMatch[1]) : null;
-
-        return { frequencyHz, gainDb, qValue, tolerance };
-    }
-
-    /**
-     * 🧠 Mapear causa provável por tipo de problema
-     */
-    probableCause(problemType) {
-        const causes = {
-            sibilance: 'Excesso de energia entre 5–8 kHz no vocal, frequentemente amplificado por compressão ou microfone próximo.',
-            harshness: 'Acúmulo de frequências agressivas em 2–5 kHz causando fadiga auditiva.',
-            muddiness: 'Sobreposição de graves/baixo-médios (150–400 Hz) gerando mix turva.',
-            boomy_bass: 'Ressonâncias em 60–120 Hz por sala ou soma de subcamadas.',
-            brightness: 'Agudos realçados excessivamente, soando áspero e artificial.',
-            darkness: 'Falta de energia em altas frequências, mix abafada.',
-            clipping: 'Nível acima de 0 dBFS causando distorção digital (True Peak excedido).',
-            loudness_issues: 'Loudness fora do alvo do gênero/plataforma ou limitador forçando transientes.',
-            dynamics: 'Compressão excessiva ou falta de controle dinâmico gerando LRA inadequado.',
-            stereo_issues: 'Correlação muito alta (mono) ou muito baixa (fase) prejudicando imagem estéreo.',
-            surgical_eq: 'Ressonância localizada exigindo corte preciso com Q alto.',
-            spectral_balance: 'Desbalanceamento entre bandas espectrais em relação à referência.'
-        };
-        return causes[problemType] || 'Comportamento espectral/dinâmico fora do ideal para o contexto.';
-    }
-
-    /**
-     * 🧰 Construir bloco enriched conforme especificação
-     */
-    buildEnrichedSuggestion(suggestion, problemType, context) {
-        const { frequencyHz, gainDb, qValue, tolerance } = this.extractTechnicalValues(suggestion);
-
-        // Problema: usar base educacional + tipo detectado
-        const problema = this.generateEducationalExplanation(suggestion, problemType, context);
-
-        // Causa provável: mapeada por tipo
-        const causaProvavel = this.probableCause(problemType);
-
-        // Solução prática: usar exatamente o que já veio em action/message
-        const baseAction = suggestion.action || '';
-        const detalhes = [];
-        if (Number.isFinite(frequencyHz)) detalhes.push(`Freq: ${frequencyHz.toFixed(0)} Hz`);
-        if (Number.isFinite(gainDb)) detalhes.push(`Ganho: ${gainDb} dB`);
-        if (Number.isFinite(qValue)) detalhes.push(`Q: ${qValue}`);
-        if (Number.isFinite(tolerance)) detalhes.push(`Tolerância: ±${tolerance}`);
-        const sufixo = detalhes.length ? ` ( ${detalhes.join(' | ')} )` : '';
-        const solucaoPratica = baseAction ? `${baseAction}${sufixo}` : '';
-
-        // Plugins sugeridos: escolher por tipo de operação
-        const actionLower = (suggestion.action || '').toLowerCase();
-        let pluginsSugeridos = [];
-        if (actionLower.includes('de-ess') || actionLower.includes('deess') || problemType === 'sibilance') {
-            pluginsSugeridos = ['FabFilter Pro-DS', 'Waves Sibilance', 'TDR Nova (dinâmico)'];
-        } else if (actionLower.includes('compress') || problemType === 'dynamics') {
-            pluginsSugeridos = ['TDR Kotelnikov', 'FabFilter Pro-C2', 'Waves SSL Comp'];
-        } else if (actionLower.includes('limit') || problemType === 'loudness_issues' || actionLower.includes('true peak')) {
-            pluginsSugeridos = ['iZotope Ozone Maximizer', 'FabFilter Pro-L2', 'Limiter No6'];
-        } else {
-            // EQ corretivo/tonal por padrão
-            pluginsSugeridos = ['FabFilter Pro-Q3', 'TDR Nova', 'ReaEQ', 'Ozone EQ'];
-        }
-
-        // Como aplicar: passo-a-passo prático na DAW usando valores extraídos (quando existirem)
-        const passos = [];
-        passos.push('1) Insira um plugin adequado no canal afetado.');
-        if (pluginsSugeridos.length) passos.push(`2) Selecione: ${pluginsSugeridos[0]}.`);
-        if (Number.isFinite(frequencyHz)) passos.push(`3) Selecione uma banda Bell e ajuste a frequência para ~${frequencyHz.toFixed(0)} Hz.`);
-        if (Number.isFinite(gainDb)) passos.push(`4) Ajuste o ganho para ${gainDb} dB (positivo = realce, negativo = corte).`);
-        if (Number.isFinite(qValue)) passos.push(`5) Defina Q ≈ ${qValue} para controlar a largura da atuação.`);
-        passos.push('6) Faça A/B e ajuste ouvindo em volume moderado.');
-        const comoAplicar = passos.join(' ');
-
-        // Dica extra: sempre presente (técnica e acessível)
-        const dicaExtra = 'Compare com uma faixa de referência e verifique em fones e caixas diferentes. Pequenas alterações (±0,5–1,5 dB) podem ser suficientes.';
-
-        return {
-            problema: problema || '',
-            causaProvavel: causaProvavel || '',
-            solucaoPratica: solucaoPratica || (suggestion.action || ''),
-            pluginsSugeridos,
-            comoAplicar,
-            dicaExtra
-        };
     }
     
     /**

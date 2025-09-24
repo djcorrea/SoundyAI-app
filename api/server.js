@@ -154,7 +154,7 @@ app.post("/api/suggestions", async (req, res) => {
     }
 
     // Processar resposta da IA e enriquecer sugestões
-  const enhancedSuggestions = processAIResponse(suggestions, aiSuggestion);
+    const enhancedSuggestions = processAIResponse(suggestions, aiSuggestion);
 
     console.log(`✅ Sugestões enriquecidas com IA: ${enhancedSuggestions.length} items`);
 
@@ -293,109 +293,122 @@ function getGenreContext(genre) {
 
 // Função para processar resposta da IA
 function processAIResponse(originalSuggestions, aiResponse) {
-  console.log('🤖 [AI-PROCESSING] Processando resposta da IA...');
+  try {
+    console.log("🤖 [AI-PROCESSING] Processando resposta da IA...");
+    
+    // Tentar parsear JSON da resposta
+    let aiData;
+    try {
+      aiData = JSON.parse(aiResponse);
+      console.log("✅ [AI-PROCESSING] JSON válido parseado");
+    } catch (jsonError) {
+      console.log("🔧 [AI-PROCESSING] Tentando extrair JSON de markdown...");
+      // Se não for JSON válido, tentar extrair JSON de markdown ou texto
+      const jsonMatch = aiResponse.match(/```(?:json)?\s*({[\s\S]*})\s*```/) || 
+                       aiResponse.match(/({[\s\S]*"suggestions"[\s\S]*})/);
+      if (jsonMatch) {
+        aiData = JSON.parse(jsonMatch[1]);
+        console.log("✅ [AI-PROCESSING] JSON extraído com sucesso");
+      } else {
+        console.log("⚠️ [AI-PROCESSING] Formato não reconhecido, usando fallback");
+        throw new Error('Resposta não está em formato JSON válido');
+      }
+    }
 
-  function normalize(aiItem, original) {
-    if (!aiItem || typeof aiItem !== 'object') {
+    if (!aiData.suggestions || !Array.isArray(aiData.suggestions)) {
+      console.log("❌ [AI-PROCESSING] Estrutura de sugestões inválida");
+      throw new Error('Formato de resposta inválido - esperado array de suggestions');
+    }
+
+    console.log(`🎯 [AI-PROCESSING] ${aiData.suggestions.length} sugestões IA recebidas`);
+
+    // Combinar sugestões originais com melhorias ULTRA-AVANÇADAS da IA
+    const enhanced = originalSuggestions.map((original, index) => {
+      const aiSuggestion = aiData.suggestions[index];
+      
+      if (aiSuggestion) {
+        console.log(`🎨 [AI-PROCESSING] Processando sugestão ${index + 1}: ${aiSuggestion.problem?.substring(0, 50)}...`);
+        
+        return {
+          ...original,
+          aiEnhanced: true,
+          enhanced: true,
+          source: 'ai_ultra_advanced',
+          timestamp: new Date().toISOString(),
+          
+          // 🎯 BLOCOS EDUCACIONAIS ULTRA-AVANÇADOS
+          blocks: {
+            problem: aiSuggestion.problem || `⚠️ ${original.message || 'Problema detectado'}`,
+            cause: aiSuggestion.cause || '🎯 Análise espectral em progresso...',
+            solution: aiSuggestion.solution || `🛠️ ${original.action || 'Solução técnica recomendada'}`,
+            tip: aiSuggestion.tip || '💡 Monitore em diferentes sistemas de reprodução'
+          },
+          
+          // 🔬 METADADOS TÉCNICOS AVANÇADOS
+          metadata: {
+            priority: aiSuggestion.priority || original.priority || 'média',
+            difficulty: aiSuggestion.difficulty || 'intermediário',
+            frequency_range: aiSuggestion.frequency_range || 'banda_ampla',
+            processing_type: aiSuggestion.processing_type || 'eq',
+            confidence: aiSuggestion.confidence || original.confidence || 0.8,
+            enhanced: true,
+            ai_powered: true,
+            processing_time: Date.now()
+          },
+          
+          // 🎵 PARÂMETROS TÉCNICOS ESPECÍFICOS
+          technical: {
+            original_priority: original.priority || 5,
+            original_confidence: original.confidence || 0.5,
+            ai_enhancement_level: 'ultra_advanced',
+            spectral_analysis: true
+          }
+        };
+      }
+
+      console.log(`⚠️ [AI-PROCESSING] Sugestão ${index + 1} sem correspondência IA - usando enhanced fallback`);
+      
+      // 🚀 FALLBACK MELHORADO (não mais básico!)
       return {
         ...original,
         aiEnhanced: false,
+        enhanced: true,
+        source: 'enhanced_fallback',
         blocks: {
-          problem: `⚠️ ${original.message || original.title || 'Problema detectado'}`,
-          cause: '🎯 Análise automática',
-          solution: `🛠️ ${original.action || original.description || 'Ajuste recomendado'}`,
-          tip: '💡 Monitore em diferentes sistemas'
+          problem: `⚠️ ${original.message || 'Problema detectado automaticamente'}`,
+          cause: '🎯 Requer análise técnica aprofundada',
+          solution: `🛠️ ${original.action || 'Solução recomendada'}`,
+          tip: '💡 Verifique o resultado em sistemas de monitoração'
         },
         metadata: {
-          priority: original.priority || 'média',
+          priority: 'média',
           difficulty: 'intermediário',
           enhanced: false
         }
       };
-    }
+    });
 
-    const problem = aiItem?.blocks?.problem || aiItem?.problem || aiItem?.problema;
-    const cause = aiItem?.blocks?.cause || aiItem?.cause || aiItem?.causa || aiItem?.causaProvavel;
-    const solution = aiItem?.blocks?.solution || aiItem?.solution || aiItem?.solucao || aiItem?.solucaoPratica;
-    const tip = aiItem?.blocks?.tip || aiItem?.tip || aiItem?.dica || aiItem?.dicaExtra;
-    const plugin = aiItem?.blocks?.plugin || aiItem?.plugin || aiItem?.pluginFerramenta;
-    const result = aiItem?.blocks?.result || aiItem?.result || aiItem?.resultadoEsperado;
+    return enhanced;
 
-    const blocks = aiItem.blocks || {
-      problem: problem || `⚠️ ${original.message || original.title || 'Problema detectado'}`,
-      cause: cause || '🎯 Causa técnica em análise',
-      solution: solution || `🛠️ ${original.action || original.description || 'Solução recomendada'}`,
-      tip: tip || '💡 Teste em diferentes sistemas',
-      plugin: plugin || '🎹 EQ/Compressor',
-      result: result || '✅ Melhoria na qualidade sonora'
-    };
-
-    const metadata = aiItem.metadata || {
-      priority: aiItem.priority || original.priority || 'média',
-      difficulty: aiItem.difficulty || 'intermediário',
-      confidence: aiItem.confidence || original.confidence || 0.8,
-      frequency_range: aiItem.frequency_range || original.frequency_range || 'banda_ampla',
-      processing_type: aiItem.processing_type || 'eq'
-    };
-
-    return {
+  } catch (error) {
+    console.error("❌ Erro ao processar resposta da IA:", error.message);
+    
+    // Fallback: retornar sugestões originais com estrutura básica
+    return originalSuggestions.map(original => ({
       ...original,
-      aiEnhanced: true,
-      blocks,
-      metadata
-    };
-  }
-
-  try {
-    const parsed = safeParseAIResponse(aiResponse, originalSuggestions);
-    const arr = Array.isArray(parsed) ? parsed : (parsed && parsed.suggestions) || [];
-
-    const result = originalSuggestions.map((orig, idx) => normalize(arr[idx], orig));
-    console.log(`✅ [AI-PROCESSING] Parse bem-sucedido: ${result.length} sugestões`);
-    return result;
-  } catch (err) {
-    console.error('❌ [AI-PROCESSING] Erro crítico no processamento:', err.message);
-    console.log(`�️ [AI-PROCESSING] Fallback usado, preservando ${originalSuggestions.length} sugestões`);
-    return originalSuggestions.map((orig) => normalize(null, orig));
-  }
-}
-
-function safeParseAIResponse(raw, fallbackArray) {
-  try {
-    const rawStr = typeof raw === 'string' ? raw : String(raw ?? '');
-    console.log(`[AI-PROCESSING] Resposta recebida: ${rawStr.length} chars`);
-
-    let cleaned = rawStr
-      .replace(/```json\s*|```/g, '')
-      .replace(/\r\n|\r/g, '\n')
-      .replace(/[^\x09\x0A\x0D\x20-\x7E\u00A0-\uFFFF]/g, '')
-      .trim();
-    cleaned = cleaned.replace(/,\s*([\]}])/g, '$1');
-
-    try {
-      const direct = JSON.parse(cleaned);
-      const arr = Array.isArray(direct) ? direct : (direct && direct.suggestions);
-      if (Array.isArray(arr)) return direct;
-    } catch (_) {}
-
-    console.log('[AI-PROCESSING] Parse falhou, correção aplicada');
-    const firstIdx = cleaned.indexOf('[');
-    const lastIdx = cleaned.lastIndexOf(']');
-    if (firstIdx !== -1 && lastIdx !== -1 && lastIdx > firstIdx) {
-      let arrayText = cleaned.slice(firstIdx, lastIdx + 1);
-      arrayText = arrayText.replace(/,\s*]/g, ']');
-      arrayText = arrayText.replace(/,\s*}/g, '}');
-      try {
-        const arr = JSON.parse(arrayText);
-        if (Array.isArray(arr)) return arr;
-      } catch (_) {}
-    }
-
-    console.warn('[AI-PROCESSING] Parse falhou, usando fallback');
-    return fallbackArray;
-  } catch (e) {
-    console.error('[AI-PROCESSING] Erro inesperado no safeParse:', e.message);
-    return fallbackArray;
+      aiEnhanced: false,
+      blocks: {
+        problem: `⚠️ ${original.message || 'Problema detectado'}`,
+        cause: '🎯 Análise automática',
+        solution: `🛠️ ${original.action || 'Ajuste recomendado'}`,
+        tip: '💡 Teste em diferentes sistemas de áudio'
+      },
+      metadata: {
+        priority: 'média',
+        difficulty: 'intermediário',
+        enhanced: false
+      }
+    }));
   }
 }
 

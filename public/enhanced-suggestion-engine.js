@@ -24,79 +24,6 @@ class EnhancedSuggestionEngine {
         // 🎓 Templates educativos para enriquecimento de sugestões
         this.heuristicTemplates = this.createEducationalTemplates();
     }
-
-    /**
-     * 📐 Avaliar status com tolerância
-     * @returns {{status: 'ideal'|'alto'|'baixo', delta: number}}
-     */
-    evaluateToleranceStatus(value, target, tolerance) {
-        const delta = value - target;
-        if (Math.abs(delta) <= tolerance) return { status: 'ideal', delta };
-        return { status: delta > tolerance ? 'alto' : 'baixo', delta };
-    }
-
-    /**
-     * 🔎 Faixas padrão por banda (para textos educativos)
-     */
-    getBandRangeLabel(band) {
-        const ranges = {
-            sub: '20–60 Hz',
-            bass: '60–150 Hz',
-            lowMid: '150–400 Hz',
-            mid: '400 Hz – 2 kHz',
-            highMid: '2–5 kHz',
-            presenca: '3–6 kHz',
-            brilho: '8–16 kHz'
-        };
-        return ranges[band] || '';
-    }
-
-    /**
-     * 🧩 Construir bloco educativo enriquecido com valores exatos
-     */
-    buildEducationalBlock({ kind, label, band, value, target, tolerance, delta, status, unit }) {
-        const sign = delta >= 0 ? '+' : '';
-        const absDelta = Math.abs(delta).toFixed(1);
-        const tUnit = unit || '';
-        const rangeLabel = band ? this.getBandRangeLabel(band) : '';
-
-        const problem = band
-            ? `${band} ${rangeLabel} ${status === 'alto' ? 'muito alto' : 'muito baixo'}: ${sign}${absDelta}${tUnit} vs alvo ${target.toFixed(1)}${tUnit} ±${tolerance.toFixed(1)}${tUnit}`
-            : `${label} ${status === 'alto' ? 'alto' : 'baixo'}: ${sign}${absDelta}${tUnit} vs alvo ${target.toFixed(1)}${tUnit} ±${tolerance.toFixed(1)}${tUnit}`;
-
-        // Causas e soluções genéricas por tipo
-        let cause = '';
-        if (kind === 'metric') {
-            if (label === 'LUFS') cause = 'Loudness fora do intervalo ideal pode causar falta de impacto (baixo) ou fadiga/distorção (alto).';
-            else if (label === 'True Peak') cause = 'True Peak acima do recomendado aumenta risco de distorção de inter-amostra; abaixo pode indicar headroom excessivo.';
-            else if (label === 'DR' || label === 'LRA') cause = 'Desvio de dinâmica impacta a naturalidade e consistência da audição.';
-            else if (label === 'Stereo Corr') cause = 'Correlação estéreo fora da faixa ideal afeta mono-compatibilidade ou amplitude percebida.';
-            else cause = 'Desvio em relação ao alvo de referência para o gênero.';
-        } else {
-            cause = status === 'alto'
-                ? 'Excesso de energia nessa faixa causa masking e cansaço auditivo.'
-                : 'Falta de energia nessa faixa reduz presença e definição.';
-        }
-
-        let solution;
-        if (kind === 'metric') {
-            if (label === 'LUFS') solution = status === 'alto' ? 'Reduza o ganho do limiter/compressor no master até entrar no alvo.' : 'Aumente o ganho/limiter para atingir o alvo de loudness.';
-            else if (label === 'True Peak') solution = 'Use limiter com detecção de True Peak e oversampling para manter no alvo.';
-            else if (label === 'DR' || label === 'LRA') solution = status === 'alto' ? 'Aplique compressão suave para controlar picos e reduzir variação.' : 'Reduza compressão excessiva, use compressão paralela para recuperar dinâmica.';
-            else if (label === 'Stereo Corr') solution = status === 'alto' ? 'Reduza widening e verifique compatibilidade mono.' : 'Aumente largura estéreo com técnicas seguras (M/S, reverb/delay estéreo).';
-            else solution = 'Ajuste o parâmetro para ficar dentro do alvo e tolerância.';
-        } else {
-            // Bandas: sugerir ajuste em dB na faixa
-            const direction = delta > 0 ? 'Reduza' : 'Aumente';
-            solution = `${direction} cerca de ${absDelta}${tUnit} em ${rangeLabel} com EQ paramétrico para aproximar do alvo.`;
-        }
-
-        const tip = 'Compare em diferentes sistemas e use referência A/B do gênero.';
-        const plugin = 'Use EQ e compressor nativos da sua DAW ou plugins gratuitos (ReaEQ/Pro-Q3, ReaComp).';
-        const result = 'Clareza, balanceamento espectral e compatibilidade de reprodução aprimorados.';
-
-        return { problem, cause, solution, tip, plugin, result };
-    }
     
     /**
      * 🎓 Criar templates educativos para enriquecimento de sugestões
@@ -368,57 +295,387 @@ class EnhancedSuggestionEngine {
     }
 
     /**
-     * � Método principal de processamento com resiliência total
-     * Garante que erros internos não reduzam sugestões; em erro, retorna sugestões originais
+     * 🔧 Normalizar dados de referência para compatibilidade universal
+     * @param {Object} rawRef - Dados de referência brutos (legacy_compatibility ou hybrid_processing)
+     * @returns {Object} Dados normalizados no formato padrão do motor
+     */
+    normalizeReferenceData(rawRef) {
+        if (!rawRef || typeof rawRef !== 'object') {
+            console.warn('🚨 Dados de referência inválidos ou ausentes');
+            this.logAudit('NORMALIZE_ERROR', 'Dados de referência inválidos', { rawRef });
+            return null;
+        }
+
+        // Detectar estrutura dos dados
+        let sourceData = null;
+        let structureType = 'unknown';
+
+        // 🆕 NOVA ESTRUTURA: Dados diretos do backend (analysis.referenceData)
+        if (rawRef.loudness !== undefined || rawRef.truePeak !== undefined || rawRef.dynamicRange !== undefined) {
+            console.log('🎯 [NORMALIZE] Detectada estrutura backend analysis.referenceData');
+            
+            // Converter estrutura backend para estrutura esperada
+            sourceData = {
+                original_metrics: {
+                    lufs_integrated: rawRef.loudness,
+                    true_peak_dbtp: rawRef.truePeak,
+                    dynamic_range: rawRef.dynamicRange,
+                    lra: rawRef.lra,
+                    stereo_correlation: rawRef.stereoCorrelation || 0.85
+                },
+                spectral_bands: rawRef.bands || {}
+            };
+            structureType = 'backend_analysis';
+        }
+        // 🔧 ESTRUTURA JSON ELETROFUNK: Dados diretos na raiz (lufs_target, true_peak_target, etc.)
+        else if (rawRef.lufs_target !== undefined || rawRef.true_peak_target !== undefined || rawRef.dr_target !== undefined) {
+            console.log('🎯 [NORMALIZE] Detectada estrutura JSON direta (eletrofunk style)');
+            
+            sourceData = {
+                original_metrics: {
+                    lufs_integrated: rawRef.lufs_target,
+                    true_peak_dbtp: rawRef.true_peak_target,
+                    dynamic_range: rawRef.dr_target,
+                    lra: rawRef.lra_target,
+                    stereo_correlation: rawRef.stereo_target || 0.85
+                },
+                spectral_bands: rawRef.bands || {}
+            };
+            structureType = 'json_direct';
+        }
+        // Tentar legacy_compatibility primeiro
+        else if (rawRef.legacy_compatibility && typeof rawRef.legacy_compatibility === 'object') {
+            sourceData = rawRef.legacy_compatibility;
+            structureType = 'legacy_compatibility';
+        }
+        // Tentar hybrid_processing (estrutura atual dos JSONs)
+        else if (rawRef.hybrid_processing && typeof rawRef.hybrid_processing === 'object') {
+            sourceData = rawRef.hybrid_processing;
+            structureType = 'hybrid_processing';
+        }
+        // Tentar estrutura direta (genreName: {...})
+        else {
+            const firstKey = Object.keys(rawRef)[0];
+            if (firstKey && rawRef[firstKey] && typeof rawRef[firstKey] === 'object') {
+                sourceData = rawRef[firstKey];
+                structureType = 'genre_direct';
+                
+                // Se tem hybrid_processing dentro, usar isso
+                if (sourceData.hybrid_processing) {
+                    sourceData = sourceData.hybrid_processing;
+                    structureType = 'genre_direct_hybrid';
+                }
+                // 🔧 Se tem dados diretos na estrutura do gênero, processar
+                else if (sourceData.lufs_target !== undefined || sourceData.true_peak_target !== undefined) {
+                    console.log('🎯 [NORMALIZE] Detectada estrutura JSON dentro do gênero');
+                    // Manter sourceData como está, mas criar original_metrics se não existir
+                    if (!sourceData.original_metrics) {
+                        sourceData.original_metrics = {
+                            lufs_integrated: sourceData.lufs_target,
+                            true_peak_dbtp: sourceData.true_peak_target,
+                            dynamic_range: sourceData.dr_target,
+                            lra: sourceData.lra_target,
+                            stereo_correlation: sourceData.stereo_target || 0.85
+                        };
+                    }
+                    structureType = 'genre_direct_json';
+                }
+            }
+        }
+
+        if (!sourceData) {
+            console.warn('🚨 Estrutura de dados de referência não reconhecida');
+            this.logAudit('NORMALIZE_ERROR', 'Estrutura não reconhecida', { rawRef, keys: Object.keys(rawRef) });
+            return null;
+        }
+
+        this.logAudit('NORMALIZE_START', `Normalizando dados: ${structureType}`, { structureType, sourceData });
+
+        // Normalizar métricas principais - adaptado para múltiplas estruturas
+        const normalized = {
+            // LUFS - buscar em original_metrics primeiro, depois direto no sourceData
+            lufs_target: this.extractMetric(sourceData.original_metrics || sourceData, ['lufs_target', 'lufs_ref', 'lufs_integrated'], 'lufs') ||
+                        this.extractMetric(sourceData, ['lufs_target', 'lufs_ref', 'lufs_integrated'], 'lufs'),
+            tol_lufs: this.extractMetric(sourceData, ['tol_lufs', 'lufs_tolerance', 'tol_lufs_min'], 'lufs_tolerance') ?? 2.0,
+
+            // True Peak - buscar em original_metrics primeiro, depois direto no sourceData
+            true_peak_target: this.extractMetric(sourceData.original_metrics || sourceData, ['true_peak_target', 'tp_ref', 'true_peak', 'true_peak_dbtp'], 'true_peak') ||
+                             this.extractMetric(sourceData, ['true_peak_target', 'tp_ref', 'true_peak', 'true_peak_dbtp'], 'true_peak'),
+            tol_true_peak: this.extractMetric(sourceData, ['tol_true_peak', 'tp_tolerance', 'true_peak_tolerance'], 'true_peak_tolerance') ?? 1.0,
+
+            // Dynamic Range - buscar em original_metrics primeiro, depois direto no sourceData
+            dr_target: this.extractMetric(sourceData.original_metrics || sourceData, ['dr_target', 'dr_ref', 'dynamic_range'], 'dr') ||
+                      this.extractMetric(sourceData, ['dr_target', 'dr_ref', 'dynamic_range'], 'dr'),
+            tol_dr: this.extractMetric(sourceData, ['tol_dr', 'dr_tolerance', 'dynamic_range_tolerance'], 'dr_tolerance') ?? 2.0,
+
+            // Loudness Range - BUSCAR EM MÚLTIPLAS ESTRUTURAS INCLUINDO BACKEND
+            lra_target: this.extractMetric(sourceData.original_metrics || sourceData, ['lra_target', 'lra_ref', 'lra'], 'lra') ||
+                       this.extractMetric(sourceData, ['lra_target', 'lra_ref', 'lra'], 'lra') ||
+                       this.extractMetric(sourceData.legacy_compatibility || {}, ['lra_target', 'lra_ref', 'lra'], 'lra') ||
+                       this.extractMetric(sourceData.hybrid_processing?.original_metrics || {}, ['lra', 'lra_target'], 'lra'),
+            tol_lra: (this.extractMetric(sourceData, ['tol_lra', 'lra_tolerance'], 'lra_tolerance') ||
+                     this.extractMetric(sourceData.legacy_compatibility || {}, ['tol_lra', 'lra_tolerance'], 'lra_tolerance')) ?? 2.0,
+
+            // Stereo Correlation - buscar em original_metrics primeiro, depois direto no sourceData
+            stereo_target: this.extractMetric(sourceData.original_metrics || sourceData, ['stereo_target', 'stereo_ref', 'stereo_correlation'], 'stereo') ||
+                          this.extractMetric(sourceData, ['stereo_target', 'stereo_ref', 'stereo_correlation'], 'stereo'),
+            tol_stereo: this.extractMetric(sourceData, ['tol_stereo', 'stereo_tolerance', 'correlation_tolerance'], 'stereo_tolerance') ?? 0.15,
+
+            // Bandas espectrais
+            bands: this.normalizeBands(sourceData)
+        };
+
+        // Log das métricas encontradas
+        const foundMetrics = Object.keys(normalized).filter(key => 
+            key !== 'bands' && normalized[key] !== null && normalized[key] !== undefined
+        );
+        const foundBands = normalized.bands ? Object.keys(normalized.bands) : [];
+
+        this.logAudit('NORMALIZE_SUCCESS', 'Dados normalizados com sucesso', {
+            structureType,
+            foundMetrics,
+            foundBands,
+            metricsCount: foundMetrics.length,
+            bandsCount: foundBands.length
+        });
+
+        return normalized;
+    }
+
+    /**
+     * 🔍 Extrair métrica com fallbacks
+     * @param {Object} source - Objeto fonte
+     * @param {Array} keys - Lista de chaves possíveis (em ordem de prioridade)
+     * @param {string} metricName - Nome da métrica para log
+     * @returns {number|null} Valor encontrado ou null
+     */
+    extractMetric(source, keys, metricName) {
+        for (const key of keys) {
+            if (source[key] !== undefined && source[key] !== null && Number.isFinite(source[key])) {
+                this.logAudit('METRIC_FOUND', `${metricName}: ${source[key]} (via ${key})`, { metricName, key, value: source[key] });
+                return source[key];
+            }
+        }
+
+        // Tentar buscar em original_metrics se disponível
+        if (source.original_metrics) {
+            for (const key of keys) {
+                if (source.original_metrics[key] !== undefined && Number.isFinite(source.original_metrics[key])) {
+                    this.logAudit('METRIC_FOUND', `${metricName}: ${source.original_metrics[key]} (via original_metrics.${key})`, { metricName, key, value: source.original_metrics[key] });
+                    return source.original_metrics[key];
+                }
+            }
+        }
+
+        console.warn(`⚠️ Métrica não encontrada: ${metricName}`, { tentativas: keys, source: Object.keys(source) });
+        this.logAudit('METRIC_MISSING', `Métrica ausente: ${metricName}`, { keys, availableKeys: Object.keys(source) });
+        return null;
+    }
+
+    /**
+     * 🎵 Normalizar bandas espectrais
+     * @param {Object} source - Objeto fonte
+     * @returns {Object} Bandas normalizadas
+     */
+    normalizeBands(source) {
+        const bands = {};
+        let sourceBands = null;
+
+        // Tentar encontrar bandas em diferentes locais (incluindo estrutura backend)
+        if (source.bands) {
+            sourceBands = source.bands;
+        } else if (source.spectral_bands) {
+            sourceBands = source.spectral_bands;
+        } else if (source.original_metrics && source.original_metrics.bands) {
+            sourceBands = source.original_metrics.bands;
+        }
+        // 🆕 Suporte para estrutura backend: pode vir direto como spectral_bands
+        else if (source.spectral_bands) {
+            sourceBands = source.spectral_bands;
+        }
+
+        if (!sourceBands || typeof sourceBands !== 'object') {
+            console.warn('⚠️ Bandas espectrais não encontradas');
+            this.logAudit('BANDS_MISSING', 'Bandas espectrais ausentes', { source: Object.keys(source) });
+            return {};
+        }
+
+        // Mapeamentos de bandas (de nomes antigos/alternativos para padronizados BRASILEIROS)
+        const bandMappings = {
+            // Mapeamento direto (nomes brasileiros padrão)
+            'sub': 'sub',
+            'bass': 'bass',
+            'lowMid': 'lowMid', 
+            'mid': 'mid',
+            'highMid': 'highMid',
+            'presenca': 'presenca',  // Manter português
+            'brilho': 'brilho',     // Manter português
+
+            // Mapeamentos específicos dos JSONs atuais
+            'low_bass': 'bass',        // 60-150 Hz
+            'upper_bass': 'lowMid',    // 150-300 Hz (mais adequado para lowMid)
+            'low_mid': 'lowMid',       // 300-800 Hz
+            'high_mid': 'highMid',     // 2-6 kHz
+
+            // Aliases em inglês → português
+            'presence': 'presenca',    // 3-6 kHz
+            'air': 'brilho',          // 6-12 kHz
+
+            // Mapeamentos adicionais
+            'low': 'bass',
+            'high': 'brilho',
+            'brightness': 'brilho'
+        };
+
+        // Processar cada banda encontrada
+        for (const [sourceBandName, bandData] of Object.entries(sourceBands)) {
+            if (!bandData || typeof bandData !== 'object') continue;
+
+            // Encontrar nome padronizado
+            const standardName = bandMappings[sourceBandName] || sourceBandName;
+
+            // Extrair target_db e tol_db
+            const target_db = Number.isFinite(bandData.target_db) ? bandData.target_db : null;
+            const tol_db = Number.isFinite(bandData.tol_db) ? bandData.tol_db : 
+                          Number.isFinite(bandData.tolerance) ? bandData.tolerance :
+                          Number.isFinite(bandData.toleranceDb) ? bandData.toleranceDb : 3.0; // Default
+
+            if (target_db !== null) {
+                // Se a banda já existe, manter a primeira encontrada (prioridade por ordem)
+                if (!bands[standardName]) {
+                    bands[standardName] = {
+                        target_db,
+                        tol_db
+                    };
+
+                    this.logAudit('BAND_MAPPED', `Banda mapeada: ${sourceBandName} → ${standardName}`, {
+                        sourceName: sourceBandName,
+                        standardName,
+                        target_db,
+                        tol_db
+                    });
+                } else {
+                    this.logAudit('BAND_SKIPPED', `Banda duplicada ignorada: ${sourceBandName} → ${standardName}`, {
+                        sourceName: sourceBandName,
+                        standardName,
+                        existing: bands[standardName],
+                        skipped: { target_db, tol_db }
+                    });
+                }
+            } else {
+                console.warn(`⚠️ Banda sem target_db válido: ${sourceBandName}`);
+                this.logAudit('BAND_INVALID', `Banda inválida: ${sourceBandName}`, { bandData });
+            }
+        }
+
+        return bands;
+    }
+
+    /**
+     * 🎯 Processar análise completa e gerar sugestões melhoradas
+     * @param {Object} analysis - Análise de áudio existente
+     * @param {Object} referenceData - Dados de referência do gênero
+     * @param {Object} options - Opções de processamento
+     * @returns {Object} Análise enriquecida com sugestões melhoradas
      */
     processAnalysis(analysis, referenceData, options = {}) {
+        const startTime = Date.now();
+        this.auditLog = []; // Reset log
+        
         try {
-            const startTime = Date.now();
-
-            // Normalização segura com defaults mínimos de tolerância
-            let normalizedRef = this.normalizeReferenceData(referenceData);
+            // � NORMALIZAR DADOS DE REFERÊNCIA PRIMEIRO
+            const normalizedRef = this.normalizeReferenceData(referenceData);
             if (!normalizedRef) {
-                normalizedRef = {
-                    lufs_tolerance: 2.5,
-                    true_peak_tolerance: 3,
-                    dr_tolerance: 3,
-                    stereo_tolerance: 0.25
+                console.warn('🚨 Falha na normalização dos dados de referência - continuando sem sugestões');
+                this.logAudit('PROCESSING_ERROR', 'Dados de referência não normalizáveis', { referenceData });
+                return {
+                    ...analysis,
+                    suggestions: analysis.suggestions || [],
+                    enhancedMetrics: { error: 'Dados de referência inválidos' },
+                    auditLog: [...this.auditLog]
                 };
-                this.logAudit('REFERENCE_DEFAULTS', 'Usando tolerâncias padrão por falta de referência válida', normalizedRef);
             }
 
-            // Extrair métricas e z-scores
+            // �📊 Extrair métricas e calcular z-scores
             const metrics = this.extractMetrics(analysis, normalizedRef);
             const zScores = this.calculateAllZScores(metrics, normalizedRef);
-
-            // Confiança e bônus
+            
+            this.logAudit('METRICS_EXTRACTED_SUMMARY', 'Métricas extraídas para sugestões', {
+                metricsCount: Object.keys(metrics).length,
+                metricsFound: Object.keys(metrics),
+                mainMetrics: {
+                    lufs: metrics.lufs,
+                    true_peak: metrics.true_peak,
+                    dr: metrics.dr,
+                    lra: metrics.lra,
+                    stereo: metrics.stereo
+                },
+                bandsFound: Object.keys(metrics).filter(k => !['lufs', 'true_peak', 'dr', 'lra', 'stereo'].includes(k)),
+                zScoresGenerated: Object.keys(zScores).length
+            });
+            
+            // 🎖️ Calcular confiança baseada na qualidade da análise
             const confidence = this.scorer.calculateConfidence(this.extractQualityMetrics(analysis));
+            
+            // 🔗 Calcular bônus de dependência
             const dependencyBonuses = this.scorer.calculateDependencyBonus(zScores);
-
-            // Gerar sugestões de referência + heurísticas
-            const referenceSuggestions = this.generateReferenceSuggestions(metrics, normalizedRef, zScores, confidence, dependencyBonuses) || [];
-            const heuristicSuggestions = this.config.enableHeuristics ? (this.generateHeuristicSuggestions(analysis, confidence) || []) : [];
-
-            // Combinar, deduplicar, ordenar e enriquecer
+            
+            // 🎯 Gerar sugestões baseadas em referência
+            this.logAudit('BEFORE_GENERATE_REFERENCE', 'Chamando generateReferenceSuggestions', {
+                metricsCount: Object.keys(metrics).length,
+                metricsKeys: Object.keys(metrics),
+                hasNormalizedRef: !!normalizedRef,
+                normalizedRefKeys: normalizedRef ? Object.keys(normalizedRef) : null
+            });
+            
+            const referenceSuggestions = this.generateReferenceSuggestions(
+                metrics, normalizedRef, zScores, confidence, dependencyBonuses
+            );
+            
+            this.logAudit('AFTER_GENERATE_REFERENCE', 'generateReferenceSuggestions concluído', {
+                suggestionsCount: referenceSuggestions?.length || 0
+            });
+            
+            this.logAudit('REFERENCE_SUGGESTIONS_GENERATED', 'Sugestões de referência geradas', {
+                count: referenceSuggestions?.length || 0,
+                hasMetrics: Object.keys(metrics).length > 0,
+                hasZScores: Object.keys(zScores).length > 0,
+                confidence: confidence
+            });
+            
+            // 🎵 Gerar sugestões heurísticas (se habilitado)
+            let heuristicSuggestions = [];
+            if (this.config.enableHeuristics) {
+                heuristicSuggestions = this.generateHeuristicSuggestions(
+                    analysis, confidence
+                );
+            }
+            
+            this.logAudit('HEURISTIC_SUGGESTIONS_GENERATED', 'Sugestões heurísticas geradas', {
+                enabled: this.config.enableHeuristics,
+                count: heuristicSuggestions?.length || 0
+            });
+            
+            // 🔄 Combinar, deduplicar e ordenar sugestões
             let allSuggestions = [...referenceSuggestions, ...heuristicSuggestions];
             allSuggestions = this.scorer.deduplicateSuggestions(allSuggestions);
             allSuggestions = this.filterAndSort(allSuggestions);
+            
+            // 🎓 Aplicar enriquecimento educativo universal a TODAS as sugestões
             allSuggestions = this.applyUniversalEducationalEnrichment(allSuggestions);
-
-            // GARANTIA: Não reduzir sugestões em relação às originais
-            const originalSuggestions = Array.isArray(analysis.suggestions) ? analysis.suggestions : [];
-            if (originalSuggestions.length > allSuggestions.length) {
-                console.warn('[EnhancedEngine] Mantendo sugestões originais (maior quantidade) para evitar redução indesejada', {
-                    original: originalSuggestions.length,
-                    generated: allSuggestions.length
-                });
-                allSuggestions = originalSuggestions;
-            }
-
-            // Agrupar por tema se habilitado
-            const groupedSuggestions = this.config.groupByTheme ? this.scorer.groupSuggestionsByTheme(allSuggestions) : null;
-
-            // Resultado final estável
+            
+            this.logAudit('SUGGESTIONS_FINAL_PROCESSING', 'Processamento final das sugestões', {
+                totalBeforeDedup: referenceSuggestions.length + heuristicSuggestions.length,
+                afterDedup: allSuggestions?.length || 0,
+                finalCount: allSuggestions?.length || 0,
+                enrichedCount: allSuggestions.filter(s => s.context || s.cause || s.solution || s.dawTip).length
+            });
+            
+            // 🎨 Agrupar por tema se habilitado
+            const groupedSuggestions = this.config.groupByTheme ? 
+                this.scorer.groupSuggestionsByTheme(allSuggestions) : null;
+            
+            // 📊 Preparar resultado final
             const result = {
                 ...analysis,
                 suggestions: allSuggestions,
@@ -431,191 +688,65 @@ class EnhancedSuggestionEngine {
                 },
                 auditLog: [...this.auditLog]
             };
-
-            // Diagnostics
-            if (!result.diagnostics) result.diagnostics = {};
+            
+            // 🎯 NOVO: Garantir que diagnostics.suggestions está populado
+            if (!result.diagnostics) {
+                result.diagnostics = {};
+            }
+            
+            // Transferir sugestões para diagnostics.suggestions
             result.diagnostics.suggestions = allSuggestions.map(suggestion => ({
                 ...suggestion,
+                // Garantir que todos os campos obrigatórios estão presentes
                 icon: suggestion.icon || '🎛️',
-                targetValue: suggestion.targetValue ?? null,
-                currentValue: suggestion.currentValue ?? null,
+                targetValue: suggestion.targetValue || null,
+                currentValue: suggestion.currentValue || null,
                 message: suggestion.message || 'Sugestão de melhoria',
                 action: suggestion.action || 'Aplicar ajuste',
                 why: suggestion.why || suggestion.justification || 'Otimização recomendada',
                 source: 'enhanced_suggestion_engine'
             }));
-
+            
+            this.logAudit('DIAGNOSTICS_POPULATED', 'diagnostics.suggestions populado', {
+                suggestionsCount: result.diagnostics.suggestions.length,
+                lraCount: result.diagnostics.suggestions.filter(s => s.type?.includes('lra')).length,
+                bandsCount: result.diagnostics.suggestions.filter(s => s.type === 'band_adjust' || s.type === 'reference_band_comparison').length
+            });
+            
+            this.logAudit('PROCESSING_COMPLETE', `Processamento concluído em ${result.enhancedMetrics.processingTimeMs}ms`, {
+                totalSuggestions: allSuggestions.length,
+                referenceSuggestions: referenceSuggestions.length,
+                heuristicSuggestions: heuristicSuggestions.length,
+                avgPriority: allSuggestions.length > 0 ? 
+                    (allSuggestions.reduce((sum, s) => sum + s.priority, 0) / allSuggestions.length).toFixed(3) : 0
+            });
+            
+            // 🚨 RESULTADO FINAL - LOG CRÍTICO PARA DEBUG
+            this.logAudit('FINAL_RESULT', '🎯 RESULTADO FINAL DO PROCESSAMENTO', {
+                success: true,
+                suggestionsReturned: result.suggestions?.length || 0,
+                metricsProcessed: Object.keys(metrics).length,
+                hasGroupedSuggestions: !!result.groupedSuggestions,
+                topSuggestions: (result.suggestions || []).slice(0, 3).map(s => ({
+                    category: s.category,
+                    priority: s.priority,
+                    description: s.description
+                }))
+            });
+            
             return result;
-        } catch (err) {
-            console.error('[EnhancedEngine] Falha no processAnalysis:', err);
-            // Fallback: devolver sugestões originais sem alterações
+            
+        } catch (error) {
+            console.error('🚨 Erro no processamento de sugestões:', error);
+            this.logAudit('ERROR', 'Erro no processamento', { error: error.message });
+            
+            // Fallback: retornar análise original com log de erro
             return {
                 ...analysis,
-                suggestions: Array.isArray(analysis.suggestions) ? analysis.suggestions : [],
-                enhancedMetrics: { error: err?.message || String(err) },
-                auditLog: [...this.auditLog, { timestamp: Date.now(), type: 'ERROR', message: 'processAnalysis failed', data: { error: err?.message } }]
+                suggestions: analysis.suggestions || [],
+                enhancedMetrics: { error: error.message },
+                auditLog: [...this.auditLog]
             };
-        }
-    }
-
-    /**
-     * �🔧 Normalizar dados de referência para compatibilidade universal
-     * @param {Object} rawRef - Dados de referência brutos (legacy_compatibility ou hybrid_processing)
-     * @returns {Object} Dados normalizados no formato padrão do motor
-     */
-    normalizeReferenceData(rawRef) {
-        // Aceitar formatos aninhados e aliases PT/EN e retornar chaves achatadas *_target / *_tolerance
-        try {
-            if (!rawRef || typeof rawRef !== 'object') {
-                console.warn('🚨 Dados de referência inválidos ou ausentes');
-                this.logAudit('NORMALIZE_ERROR', 'Dados de referência inválidos', { rawRef });
-                return null;
-            }
-
-            this.logAudit('NORMALIZE_START', 'Normalizando dados de referência (flatten)', {
-                topLevelKeys: Object.keys(rawRef)
-            });
-
-            // Aliases PT/EN e variações de nome
-            const ALIASES = {
-                lufs:       ['lufs','integrated_lufs','volume_integrado','loudness'],
-                true_peak:  ['true_peak','truePeak','dbtp','pico_real','truePeakDbtp'],
-                dr:         ['dr','dynamic_range','dinamica'],
-                lra:        ['lra','loudness_range','loudnessRange'],
-                stereo:     ['stereo','stereo_correlation','correlacao_estereo','correlation'],
-                sub:        ['sub','20_60hz','sub_20_60'],
-                bass:       ['bass','60_150hz','low_bass','upper_bass'],
-                low_mid:    ['low_mid','lowMid','150_500hz'],
-                mid:        ['mid','500_2khz'],
-                high_mid:   ['high_mid','highMid','2k_5khz'],
-                presence:   ['presence','presenca','5k_10khz'],
-                air:        ['air','brilho','10k_20khz'],
-            };
-
-            // getter seguro para caminhos "a.b.c"
-            const getPath = (obj, path) => path.split('.').reduce((o,k)=> (o==null ? undefined : o[k]), obj);
-
-            // tenta várias rotas/nomes até achar um número
-            const pickNum = (obj, paths) => {
-                for (const p of paths) {
-                    const v = p.includes('.') ? getPath(obj,p) : obj?.[p];
-                    if (typeof v === 'number' && Number.isFinite(v)) return v;
-                }
-                return undefined;
-            };
-
-            // Facilitar leitura em estruturas alternativas
-            const t = rawRef.targets || rawRef;
-            const bandsNode = t.bands || rawRef.bands || rawRef.hybrid_processing?.spectral_bands || {};
-
-            const out = {};
-
-            // Defaults seguros (LRA opcional - não definir por padrão)
-            const DEF = {
-                lufs_tolerance: 2.5,
-                true_peak_tolerance: 3,
-                dr_tolerance: 3,
-                stereo_tolerance: 0.25,
-                band_tolerance: 2.5
-            };
-
-            // Métricas globais (targets e tolerances)
-            for (const key of ['lufs','true_peak','dr','lra','stereo']) {
-                const names = ALIASES[key] || [key];
-                // buscar target
-                out[`${key}_target`] = pickNum(t, [
-                    `${key}_target`,
-                    ...names.map(n=>`${n}.target`),
-                    ...names.map(n=>`${n}.value`),
-                    // estruturas conhecidas
-                    key,
-                    key === 'lufs' ? 'loudness' : undefined,
-                    key === 'true_peak' ? 'truePeak' : undefined,
-                    key === 'dr' ? 'dynamicRange' : undefined,
-                ].filter(Boolean));
-
-                // buscar tolerance (não forçar LRA)
-                const tolVal = pickNum(t, [
-                    `${key}_tolerance`,
-                    ...names.map(n=>`${n}.tol`),
-                    ...names.map(n=>`${n}.tolerance`),
-                    `tolerances.${key}`
-                ]);
-                if (tolVal !== undefined) {
-                    out[`${key}_tolerance`] = tolVal;
-                }
-            }
-
-            // Aplicar defaults globais exceto LRA
-            out.lufs_tolerance      ??= DEF.lufs_tolerance;
-            out.true_peak_tolerance ??= DEF.true_peak_tolerance;
-            out.dr_tolerance        ??= DEF.dr_tolerance;
-            out.stereo_tolerance    ??= DEF.stereo_tolerance;
-
-            // Bandas (targets e tolerances)
-            const bandList = ['sub','bass','low_mid','mid','high_mid','presence','air'];
-            const bandsOut = {};
-            const bandKeyMap = {
-                sub: 'sub',
-                bass: 'bass',
-                low_mid: 'lowMid',
-                mid: 'mid',
-                high_mid: 'highMid',
-                presence: 'presenca',
-                air: 'brilho'
-            };
-
-            for (const b of bandList) {
-                const names = ALIASES[b] || [b];
-                const target = pickNum(bandsNode, [
-                    `${b}_target`,
-                    ...names.map(n=>`bands.${n}.target`),
-                    ...names.map(n=>`${n}.target`),
-                    ...names.map(n=>`bands.${n}.target_db`),
-                    ...names.map(n=>`${n}.target_db`)
-                ]);
-
-                const tol = pickNum(bandsNode, [
-                    `${b}_tolerance`,
-                    ...names.map(n=>`bands.${n}.tol`),
-                    ...names.map(n=>`bands.${n}.tolerance`),
-                    ...names.map(n=>`bands.${n}.tol_db`),
-                    ...names.map(n=>`${n}.tol`),
-                    ...names.map(n=>`${n}.tolerance`),
-                    ...names.map(n=>`${n}.tol_db`)
-                ]);
-
-                if (typeof target === 'number' && Number.isFinite(target)) {
-                    // Chaves achatadas
-                    out[`${b}_target`] = target;
-                    out[`${b}_tolerance`] = tol ?? DEF.band_tolerance;
-                    // Retrocompat: montar bands para consumidores antigos
-                    const outName = bandKeyMap[b] || b;
-                    bandsOut[outName] = {
-                        target_db: target,
-                        tol_db: out[`${b}_tolerance`]
-                    };
-                }
-            }
-
-            if (Object.keys(bandsOut).length > 0) {
-                out.bands = bandsOut;
-            }
-
-            // Verificação: precisa ter pelo menos alguma métrica ou banda
-            const hasAny = ['lufs_target','true_peak_target','dr_target','lra_target','stereo_target']
-                .some(k => typeof out[k] === 'number') || (out.bands && Object.keys(out.bands).length>0);
-            if (!hasAny) {
-                this.logAudit('NORMALIZE_WARNING', 'Nenhum alvo/tolerância válido encontrado', { rawRef });
-            }
-
-            try { if (console && console.table) console.table(out); } catch(_) {}
-            this.logAudit('NORMALIZE_SUCCESS', 'Dados de referência normalizados (flatten)', { keys: Object.keys(out) });
-            return out;
-        } catch (error) {
-            console.error('🚨 Erro ao normalizar dados de referência:', error);
-            this.logAudit('REFERENCE_NORMALIZATION_ERROR', 'Falha ao normalizar dados de referência', { error: error.message });
-            return null;
         }
     }
 
@@ -847,11 +978,11 @@ class EnhancedSuggestionEngine {
         
         // Z-scores para métricas principais
         const mainMetrics = [
-            { key: 'lufs', target: 'lufs_target', tol: 'lufs_tolerance' },
-            { key: 'true_peak', target: 'true_peak_target', tol: 'true_peak_tolerance' },
-            { key: 'dr', target: 'dr_target', tol: 'dr_tolerance' },
-            { key: 'lra', target: 'lra_target', tol: 'lra_tolerance' },
-            { key: 'stereo', target: 'stereo_target', tol: 'stereo_tolerance' }
+            { key: 'lufs', target: 'lufs_target', tol: 'tol_lufs' },
+            { key: 'true_peak', target: 'true_peak_target', tol: 'tol_true_peak' },
+            { key: 'dr', target: 'dr_target', tol: 'tol_dr' },
+            { key: 'lra', target: 'lra_target', tol: 'tol_lra' },
+            { key: 'stereo', target: 'stereo_target', tol: 'tol_stereo' }
         ];
         
         for (const { key, target, tol } of mainMetrics) {
@@ -867,21 +998,12 @@ class EnhancedSuggestionEngine {
         // Z-scores para bandas
         if (referenceData.bands) {
             for (const [band, refData] of Object.entries(referenceData.bands)) {
-                const target = refData?.target_db;
-                const tol = refData?.tol_db;
-                if (Number.isFinite(metrics[band]) && Number.isFinite(target) && Number.isFinite(tol)) {
-                    zScores[band + '_z'] = this.scorer.calculateZScore(metrics[band], target, tol);
-                }
-            }
-        } else {
-            // Fallback: usar chaves achatadas sub_target/sub_tolerance etc.
-            const bandKeys = ['sub','bass','lowMid','mid','highMid','presenca','brilho'];
-            for (const band of bandKeys) {
-                const flatKey = band.replace('lowMid','low_mid').replace('highMid','high_mid').replace('presenca','presence').replace('brilho','air');
-                const target = referenceData[`${flatKey}_target`];
-                const tol = referenceData[`${flatKey}_tolerance`];
-                if (Number.isFinite(metrics[band]) && Number.isFinite(target) && Number.isFinite(tol)) {
-                    zScores[band + '_z'] = this.scorer.calculateZScore(metrics[band], target, tol);
+                if (Number.isFinite(metrics[band]) && Number.isFinite(refData.target_db) && Number.isFinite(refData.tol_db)) {
+                    zScores[band + '_z'] = this.scorer.calculateZScore(
+                        metrics[band],
+                        refData.target_db,
+                        refData.tol_db
+                    );
                 }
             }
         }
@@ -953,7 +1075,7 @@ class EnhancedSuggestionEngine {
             { 
                 key: 'lufs', 
                 target: 'lufs_target', 
-                tol: 'lufs_tolerance', 
+                tol: 'tol_lufs', 
                 type: 'reference_loudness',
                 metricType: 'lufs',
                 unit: '',
@@ -962,7 +1084,7 @@ class EnhancedSuggestionEngine {
             { 
                 key: 'true_peak', 
                 target: 'true_peak_target', 
-                tol: 'true_peak_tolerance',
+                tol: 'tol_true_peak',
                 type: 'reference_true_peak',
                 metricType: 'true_peak', 
                 unit: ' dBTP',
@@ -971,7 +1093,7 @@ class EnhancedSuggestionEngine {
             { 
                 key: 'dr', 
                 target: 'dr_target', 
-                tol: 'dr_tolerance',
+                tol: 'tol_dr',
                 type: 'reference_dynamics',
                 metricType: 'dr',
                 unit: ' dB',
@@ -980,7 +1102,7 @@ class EnhancedSuggestionEngine {
             { 
                 key: 'lra', 
                 target: 'lra_target', 
-                tol: 'lra_tolerance',
+                tol: 'tol_lra',
                 type: 'reference_lra',
                 metricType: 'lra',
                 unit: ' dB',
@@ -989,7 +1111,7 @@ class EnhancedSuggestionEngine {
             { 
                 key: 'stereo', 
                 target: 'stereo_target', 
-                tol: 'stereo_tolerance',
+                tol: 'tol_stereo',
                 type: 'reference_stereo',
                 metricType: 'stereo',
                 unit: '',
@@ -1024,18 +1146,13 @@ class EnhancedSuggestionEngine {
             });
             
             if (!Number.isFinite(value) || !Number.isFinite(target) || !Number.isFinite(tolerance)) continue;
-
-            // 📐 NOVO: Status por tolerância
-            const { status, delta } = this.evaluateToleranceStatus(value, target, tolerance);
-            if (status === 'ideal') {
-                this.logAudit('METRIC_IDEAL', `${metric.label} dentro da tolerância`, {
-                    metric: metric.key, value, target, tolerance, delta
-                });
-                continue; // não gera sugestão
-            }
-
+            
             const severity = this.scorer.getSeverity(zScore);
-            const shouldInclude = true; // fora da tolerância sempre gera
+            
+            // Incluir sugestão se fora do verde ou se amarelo e configurado para incluir
+            const shouldInclude = severity.level !== 'green' || 
+                (severity.level === 'yellow' && this.config.includeYellowSeverity);
+            
             if (shouldInclude) {
                 const dependencyBonus = dependencyBonuses[metric.key] || 0;
                 const priority = this.scorer.calculatePriority({
@@ -1062,15 +1179,6 @@ class EnhancedSuggestionEngine {
                 suggestion.icon = this.getMetricIcon(metric.metricType);
                 suggestion.targetValue = target;
                 suggestion.currentValue = value;
-
-                // 🧩 Enriquecer mensagens com valores e tolerância
-                const block = this.buildEducationalBlock({
-                    kind: 'metric', label: metric.label, value, target, tolerance, delta, status, unit: metric.unit
-                });
-                suggestion.blocks = block;
-                suggestion.message = block.problem;
-                suggestion.action = block.solution;
-                suggestion.why = block.cause;
                 
                 // Se fields estão vazios, preencher com valores padrão
                 if (!suggestion.message || suggestion.message.trim() === '') {
@@ -1085,7 +1193,7 @@ class EnhancedSuggestionEngine {
                 this.logAudit('REFERENCE_SUGGESTION', `Sugestão gerada: ${metric.label}`, {
                     value: +value.toFixed(2),
                     target: +target.toFixed(2),
-                    delta: +delta.toFixed(2),
+                    delta: +(value - target).toFixed(2),
                     zScore: +zScore.toFixed(2),
                     severity: severity.level,
                     priority: +priority.toFixed(3),
@@ -1131,16 +1239,11 @@ class EnhancedSuggestionEngine {
                     continue;
                 }
                 
-                // 📐 NOVO: Status por tolerância
-                const { status, delta } = this.evaluateToleranceStatus(value, target, tolerance);
-                if (status === 'ideal') {
-                    this.logAudit('BAND_IDEAL', `Banda dentro da tolerância: ${band}`, { band, value, target, tolerance, delta });
-                    continue;
-                }
-
                 const severity = this.scorer.getSeverity(zScore);
-
-                const shouldInclude = true; // fora da tolerância sempre gera
+                
+                const shouldInclude = severity.level !== 'green' || 
+                    (severity.level === 'yellow' && this.config.includeYellowSeverity);
+                
                 this.logAudit('BAND_SEVERITY_CHECK', `Severidade da banda: ${band}`, {
                     band,
                     severity: severity.level,
@@ -1177,15 +1280,6 @@ class EnhancedSuggestionEngine {
                     suggestion.icon = '🎵';  // Ícone obrigatório para bandas
                     suggestion.targetValue = target;
                     suggestion.currentValue = value;
-
-                    // 🧩 Enriquecer mensagens com valores e tolerância
-                    const block = this.buildEducationalBlock({
-                        kind: 'band', band, value, target, tolerance, delta, status, unit: ' dB'
-                    });
-                    suggestion.blocks = block;
-                    suggestion.message = block.problem;
-                    suggestion.action = block.solution;
-                    suggestion.why = block.cause;
                     
                     // Garantir campos de texto obrigatórios
                     if (!suggestion.message || suggestion.message.trim() === '') {
@@ -1196,73 +1290,28 @@ class EnhancedSuggestionEngine {
                     }
                     
                     // 🎯 APLICAR LÓGICA SEGURA PARA ACTION E DIAGNOSIS
-                    // Diagnóstico com valores
-                    const amount = Math.abs(delta).toFixed(1);
-                    const direction = delta > 0 ? 'Reduzir' : 'Aumentar';
-                    suggestion.diagnosis = `Atual: ${value.toFixed(1)} dB, Alvo: ${target.toFixed(1)} dB, Tolerância: ±${tolerance.toFixed(1)} dB, Diferença: ${amount} dB (${direction})`;
+                    const delta = suggestion.technical?.delta;
+                    if (typeof delta === "number" && !isNaN(delta)) {
+                        const direction = delta > 0 ? "Reduzir" : "Aumentar";
+                        const amount = Math.abs(delta).toFixed(1);
+                        suggestion.action = `${direction} ${band} em ${amount} dB`;
+                        suggestion.diagnosis = `Atual: ${value.toFixed(1)} dB, Alvo: ${target.toFixed(1)} dB, Diferença: ${amount} dB`;
+                    } else {
+                        suggestion.action = `Ajustar banda ${band}`;
+                        suggestion.diagnosis = `Verificar níveis da banda ${band}`;
+                    }
                     
                     suggestions.push(suggestion);
                     
                     this.logAudit('BAND_SUGGESTION', `Sugestão de banda: ${band}`, {
                         value: +value.toFixed(2),
                         target: +target.toFixed(2),
-                        delta: +delta.toFixed(2),
+                        delta: +(value - target).toFixed(2),
                         zScore: +zScore.toFixed(2),
                         severity: severity.level,
                         priority: +priority.toFixed(3)
                     });
                 }
-            }
-        } else {
-            // Fallback: usar estrutura achatada *_target/*_tolerance
-            const flatToDisplay = {
-                sub: 'sub', bass: 'bass', low_mid: 'lowMid', mid: 'mid', high_mid: 'highMid', presence: 'presenca', air: 'brilho'
-            };
-            for (const [flatKey, displayKey] of Object.entries(flatToDisplay)) {
-                const value = metrics[displayKey];
-                const target = referenceData[`${flatKey}_target`];
-                const tolerance = referenceData[`${flatKey}_tolerance`];
-                const zScore = zScores[displayKey + '_z'];
-
-                if (!Number.isFinite(value) || !Number.isFinite(target) || !Number.isFinite(tolerance)) continue;
-
-                const { status, delta } = this.evaluateToleranceStatus(value, target, tolerance);
-                if (status === 'ideal') continue;
-
-                const severity = this.scorer.getSeverity(zScore);
-                const dependencyBonus = dependencyBonuses[displayKey] || 0;
-                const priority = this.scorer.calculatePriority({ metricType: 'band', severity, confidence, dependencyBonus });
-
-                const suggestion = this.scorer.generateSuggestion({
-                    type: 'band_adjust',
-                    subtype: displayKey,
-                    value,
-                    target,
-                    tolerance,
-                    zScore,
-                    severity,
-                    priority,
-                    confidence,
-                    genre: window.PROD_AI_REF_GENRE || 'unknown',
-                    metricType: 'band',
-                    band: displayKey
-                });
-
-                suggestion.icon = '🎵';
-                suggestion.targetValue = target;
-                suggestion.currentValue = value;
-
-                const block = this.buildEducationalBlock({ kind: 'band', band: displayKey, value, target, tolerance, delta, status, unit: ' dB' });
-                suggestion.blocks = block;
-                suggestion.message = block.problem;
-                suggestion.action = block.solution;
-                suggestion.why = block.cause;
-
-                const amount = Math.abs(delta).toFixed(1);
-                const direction = delta > 0 ? 'Reduzir' : 'Aumentar';
-                suggestion.diagnosis = `Atual: ${value.toFixed(1)} dB, Alvo: ${target.toFixed(1)} dB, Tolerância: ±${tolerance.toFixed(1)} dB, Diferença: ${amount} dB (${direction})`;
-
-                suggestions.push(suggestion);
             }
         }
         
@@ -2104,26 +2153,8 @@ class EnhancedSuggestionEngine {
             timestamp: new Date().toISOString()
         });
         
-        // Chamar método original com proteção
-        if (typeof originalProcessAnalysis === 'function') {
-            try {
-                return originalProcessAnalysis.apply(this, arguments);
-            } catch (err) {
-                console.error('[EnhancedEngine] Erro ao chamar processAnalysis original:', err);
-                return {
-                    ...analysis,
-                    suggestions: Array.isArray(analysis.suggestions) ? analysis.suggestions : [],
-                    enhancedMetrics: { error: err?.message || String(err) },
-                    auditLog: [...(this?.auditLog || []), { timestamp: Date.now(), type: 'ERROR', message: 'original processAnalysis call failed', data: { error: err?.message } }]
-                };
-            }
-        } else {
-            console.warn('[EnhancedEngine] Função processAnalysis original indefinida, retornando sugestões originais');
-            return {
-                ...analysis,
-                suggestions: Array.isArray(analysis.suggestions) ? analysis.suggestions : []
-            };
-        }
+        // Chamar método original sem alterações
+        return originalProcessAnalysis.apply(this, arguments);
     };
     
     console.log('🔍 Hook de auditoria ativado para processAnalysis');
