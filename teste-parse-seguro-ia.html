@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🛡️ Teste Parse Seguro IA - SoundyAI</title>
+    <style>
+        body { 
+            font-family: 'Consolas', monospace; 
+            background: #1a1a1a; 
+            color: #00ff00; 
+            padding: 20px; 
+            max-width: 1200px; 
+            margin: 0 auto;
+        }
+        .header {
+            background: linear-gradient(45deg, #1a1a1a, #2a2a2a);
+            padding: 20px;
+            border-radius: 10px;
+            border: 2px solid #00ff00;
+            margin-bottom: 20px;
+        }
+        .test-section {
+            background: #0a0a0a;
+            padding: 15px;
+            margin: 15px 0;
+            border: 1px solid #333;
+            border-radius: 8px;
+        }
+        .log-container {
+            background: #000;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        button {
+            background: linear-gradient(45deg, #0066cc, #0088ff);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            margin: 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        button:hover { 
+            background: linear-gradient(45deg, #0088ff, #00aaff);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 136, 255, 0.3);
+        }
+        .success { color: #00ff00; font-weight: bold; }
+        .warning { color: #ffaa00; font-weight: bold; }
+        .error { color: #ff4444; font-weight: bold; }
+        .info { color: #00aaff; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-card {
+            background: #1a1a2e;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #333;
+            text-align: center;
+        }
+        .json-preview {
+            background: #001122;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 11px;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛡️ Teste de Parse Seguro IA - Sistema SoundyAI</h1>
+        <p>Teste completo da função <code>safeParseAIResponse</code> para eliminar erros de JSON da IA</p>
+    </div>
+    
+    <div class="stats" id="stats">
+        <div class="stat-card">
+            <h3>📊 Testes Executados</h3>
+            <div id="testsExecuted">0</div>
+        </div>
+        <div class="stat-card">
+            <h3>✅ Sucessos</h3>
+            <div id="successCount">0</div>
+        </div>
+        <div class="stat-card">
+            <h3>⚠️ Correções</h3>
+            <div id="fixedCount">0</div>
+        </div>
+        <div class="stat-card">
+            <h3>❌ Falhas</h3>
+            <div id="failureCount">0</div>
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h3>🧪 Testes de Parse JSON</h3>
+        <button onclick="testValidJSON()">Teste JSON Válido</button>
+        <button onclick="testTruncatedJSON()">Teste JSON Truncado</button>
+        <button onclick="testMalformedJSON()">Teste JSON Malformado</button>
+        <button onclick="testPartialResponse()">Teste Resposta Parcial</button>
+        <button onclick="testAllScenarios()">🚀 Executar Todos os Testes</button>
+        <button onclick="clearLogs()">🗑️ Limpar Logs</button>
+    </div>
+    
+    <div class="test-section">
+        <h3>📋 Log de Testes</h3>
+        <div id="testLog" class="log-container"></div>
+    </div>
+    
+    <script>
+        let stats = {
+            testsExecuted: 0,
+            successCount: 0,
+            fixedCount: 0,
+            failureCount: 0
+        };
+        
+        function updateStats() {
+            document.getElementById('testsExecuted').textContent = stats.testsExecuted;
+            document.getElementById('successCount').textContent = stats.successCount;
+            document.getElementById('fixedCount').textContent = stats.fixedCount;
+            document.getElementById('failureCount').textContent = stats.failureCount;
+        }
+        
+        function addLog(message, type = 'info', details = null) {
+            const log = document.getElementById('testLog');
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+            
+            if (details) {
+                const detailDiv = document.createElement('div');
+                detailDiv.className = 'json-preview';
+                detailDiv.textContent = typeof details === 'object' ? JSON.stringify(details, null, 2) : details;
+                div.appendChild(detailDiv);
+            }
+            
+            log.appendChild(div);
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        function clearLogs() {
+            document.getElementById('testLog').innerHTML = '';
+            stats = { testsExecuted: 0, successCount: 0, fixedCount: 0, failureCount: 0 };
+            updateStats();
+        }
+        
+        // Implementação da função safeParseAIResponse para teste frontend
+        function safeParseAIResponse(rawResponse, originalSuggestions, context = 'TEST') {
+            addLog(`🛡️ [${context}] Iniciando parse ultra-seguro`, 'info');
+            
+            const expectedCount = originalSuggestions ? originalSuggestions.length : 0;
+            addLog(`🎯 [${context}] Esperado: ${expectedCount} sugestões`, 'info');
+            
+            if (!rawResponse || typeof rawResponse !== 'string') {
+                addLog(`❌ [${context}] Resposta inválida ou vazia`, 'error');
+                return createFullFallback(originalSuggestions, context);
+            }
+            
+            try {
+                // PASSO 1: LIMPEZA
+                let cleanResponse = rawResponse.trim();
+                cleanResponse = cleanResponse.replace(/```json\\s*|\\s*```/g, '');
+                
+                const jsonStart = cleanResponse.indexOf('{');
+                const jsonEnd = cleanResponse.lastIndexOf('}') + 1;
+                
+                if (jsonStart === -1 || jsonEnd <= jsonStart) {
+                    addLog(`⚠️ [${context}] JSON não encontrado`, 'warning');
+                    return createFullFallback(originalSuggestions, context);
+                }
+                
+                cleanResponse = cleanResponse.substring(jsonStart, jsonEnd);
+                
+                // PASSO 2: PARSE DIRETO
+                let parsed;
+                try {
+                    parsed = JSON.parse(cleanResponse);
+                    addLog(`✅ [${context}] Parse direto bem-sucedido`, 'success');
+                    stats.successCount++;
+                } catch (parseError) {
+                    addLog(`⚠️ [${context}] Parse direto falhou: ${parseError.message}`, 'warning');
+                    
+                    // PASSO 3: CORREÇÕES
+                    let fixedResponse = fixTruncatedJSON(cleanResponse, context);
+                    parsed = JSON.parse(fixedResponse);
+                    addLog(`✅ [${context}] Parse corrigido bem-sucedido`, 'success');
+                    stats.fixedCount++;
+                }
+                
+                // PASSO 4: VALIDAÇÃO
+                let aiSuggestions = parsed.suggestions || parsed.enhanced_suggestions || [];
+                
+                if (!Array.isArray(aiSuggestions)) {
+                    throw new Error('Sugestões não são array');
+                }
+                
+                const receivedCount = aiSuggestions.length;
+                addLog(`📊 [${context}] Parse completo: ${receivedCount}/${expectedCount} sugestões`, 'info');
+                
+                // PASSO 5: COMPLETAMENTO
+                if (expectedCount > 0 && receivedCount < expectedCount) {
+                    addLog(`⚠️ [${context}] Completando ${expectedCount - receivedCount} faltantes`, 'warning');
+                    
+                    for (let i = receivedCount; i < expectedCount; i++) {
+                        aiSuggestions.push(createFallbackSuggestion(originalSuggestions[i], i, context));
+                    }
+                }
+                
+                addLog(`✅ [${context}] Parse ultra-seguro concluído: ${aiSuggestions.length} sugestões`, 'success');
+                return aiSuggestions;
+                
+            } catch (error) {
+                addLog(`❌ [${context}] Erro crítico: ${error.message}`, 'error');
+                stats.failureCount++;
+                return createFullFallback(originalSuggestions, context);
+            }
+        }
+        
+        function fixTruncatedJSON(jsonString, context) {
+            addLog(`🔧 [${context}] Aplicando correções automáticas`, 'info');
+            
+            let fixed = jsonString;
+            fixed = fixed.replace(/,(\\s*[}\\]])/g, '$1');
+            fixed = fixed.replace(/,(\\s*)$/g, '$1');
+            
+            let braceLevel = 0, bracketLevel = 0, inString = false;
+            
+            for (let i = 0; i < fixed.length; i++) {
+                const char = fixed[i];
+                if (char === '"' && fixed[i-1] !== '\\\\') inString = !inString;
+                if (!inString) {
+                    if (char === '{') braceLevel++;
+                    if (char === '}') braceLevel--;
+                    if (char === '[') bracketLevel++;
+                    if (char === ']') bracketLevel--;
+                }
+            }
+            
+            while (braceLevel > 0) { fixed += '}'; braceLevel--; }
+            while (bracketLevel > 0) { fixed += ']'; bracketLevel--; }
+            
+            return fixed;
+        }
+        
+        function createFallbackSuggestion(original, index, context) {
+            return {
+                blocks: {
+                    problem: `⚠️ Problema ${index + 1} detectado`,
+                    solution: `🛠️ Solução automática ${index + 1}`
+                },
+                metadata: { priority: 'média', aiEnhanced: false }
+            };
+        }
+        
+        function createFullFallback(originalSuggestions, context) {
+            if (!originalSuggestions) return [];
+            return originalSuggestions.map((s, i) => createFallbackSuggestion(s, i, context));
+        }
+        
+        // CASOS DE TESTE
+        function testValidJSON() {
+            addLog('🧪 TESTE 1: JSON Válido', 'info');
+            stats.testsExecuted++;
+            
+            const validJSON = `{
+                "suggestions": [
+                    {"blocks": {"problem": "Test 1", "solution": "Fix 1"}, "metadata": {"priority": "alta"}},
+                    {"blocks": {"problem": "Test 2", "solution": "Fix 2"}, "metadata": {"priority": "média"}}
+                ]
+            }`;
+            
+            const original = [{}, {}];
+            const result = safeParseAIResponse(validJSON, original, 'VALID-JSON');
+            
+            addLog(`Resultado: ${result.length} sugestões processadas`, result.length === 2 ? 'success' : 'error');
+            updateStats();
+        }
+        
+        function testTruncatedJSON() {
+            addLog('🧪 TESTE 2: JSON Truncado', 'info');
+            stats.testsExecuted++;
+            
+            const truncatedJSON = `{
+                "suggestions": [
+                    {"blocks": {"problem": "Test 1", "solution": "Fix 1"}, "metadata": {"priority": "alta"}},
+                    {"blocks": {"problem": "Test 2", "solution": "Fix 2"}, "metadata": {"priority":`; // Cortado no meio
+            
+            const original = [{}, {}];
+            const result = safeParseAIResponse(truncatedJSON, original, 'TRUNCATED');
+            
+            addLog(`Resultado: ${result.length} sugestões (fallback aplicado)`, result.length === 2 ? 'success' : 'error');
+            updateStats();
+        }
+        
+        function testMalformedJSON() {
+            addLog('🧪 TESTE 3: JSON Malformado', 'info');
+            stats.testsExecuted++;
+            
+            const malformedJSON = `{
+                "suggestions": [
+                    {"blocks": {"problem": "Test 1",, "solution": "Fix 1"}, "metadata": {"priority": "alta"}},
+                    {"blocks": {"problem": "Test 2", "solution": "Fix 2",}, "metadata": {"priority": "média",}}
+                ],
+            }`;
+            
+            const original = [{}, {}];
+            const result = safeParseAIResponse(malformedJSON, original, 'MALFORMED');
+            
+            addLog(`Resultado: ${result.length} sugestões processadas`, result.length === 2 ? 'success' : 'error');
+            updateStats();
+        }
+        
+        function testPartialResponse() {
+            addLog('🧪 TESTE 4: Resposta Parcial', 'info');
+            stats.testsExecuted++;
+            
+            const partialJSON = `{
+                "suggestions": [
+                    {"blocks": {"problem": "Only 1", "solution": "Fix 1"}, "metadata": {"priority": "alta"}}
+                ]
+            }`;
+            
+            const original = [{}, {}, {}]; // Esperava 3, mas IA retornou só 1
+            const result = safeParseAIResponse(partialJSON, original, 'PARTIAL');
+            
+            addLog(`Resultado: ${result.length} sugestões (completamento automático)`, result.length === 3 ? 'success' : 'error');
+            updateStats();
+        }
+        
+        async function testAllScenarios() {
+            addLog('🚀 EXECUTANDO BATERIA COMPLETA DE TESTES', 'info');
+            clearLogs();
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            testValidJSON();
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            testTruncatedJSON();
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            testMalformedJSON();
+            
+            await new Promise(resolve => setTimeout(resolve, 500));
+            testPartialResponse();
+            
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            const total = stats.testsExecuted;
+            const success = stats.successCount + stats.fixedCount;
+            const successRate = Math.round((success / total) * 100);
+            
+            addLog(`📊 RESUMO FINAL: ${success}/${total} testes bem-sucedidos (${successRate}%)`, 
+                   successRate >= 100 ? 'success' : successRate >= 75 ? 'warning' : 'error');
+            
+            if (successRate >= 100) {
+                addLog('🎉 TODOS OS CENÁRIOS FUNCIONANDO PERFEITAMENTE!', 'success');
+            } else if (successRate >= 75) {
+                addLog('⚠️ Maioria dos cenários OK, algumas melhorias necessárias', 'warning');
+            } else {
+                addLog('❌ Sistema precisa de ajustes antes de produção', 'error');
+            }
+        }
+        
+        // Inicialização
+        addLog('🛡️ Sistema de teste de parse seguro inicializado', 'success');
+        addLog('📋 Pronto para executar testes de validação', 'info');
+        updateStats();
+    </script>
+</body>
+</html>

@@ -514,11 +514,50 @@ DIRETRIZES:
     }
     
     /**
-     * 🔄 Processar resposta da IA e mesclar com sugestões originais (LEGADO - mantido para compatibilidade)
+     * �️ Parse seguro de JSON para respostas da IA
+     */
+    safeParseJSON(jsonString, context = 'AI-PARSE') {
+        console.log(`🛡️ [${context}] Iniciando parse seguro...`);
+        
+        if (!jsonString || typeof jsonString !== 'string') {
+            console.error(`❌ [${context}] JSON inválido ou vazio`);
+            throw new Error('JSON inválido ou vazio');
+        }
+        
+        try {
+            // Limpeza básica
+            let cleaned = jsonString.trim();
+            cleaned = cleaned.replace(/```json\s*|\s*```/g, '');
+            
+            // Tentativa direta
+            try {
+                const parsed = JSON.parse(cleaned);
+                console.log(`✅ [${context}] Parse direto bem-sucedido`);
+                return parsed;
+            } catch (parseError) {
+                console.warn(`⚠️ [${context}] Parse direto falhou: ${parseError.message}`);
+                
+                // Correções automáticas básicas
+                cleaned = cleaned.replace(/,(\s*[}\]])/g, '$1'); // Remove vírgulas extras
+                cleaned = cleaned.replace(/,(\s*)$/g, '$1'); // Remove vírgula final
+                
+                const parsed = JSON.parse(cleaned);
+                console.log(`✅ [${context}] Parse corrigido bem-sucedido`);
+                return parsed;
+            }
+        } catch (error) {
+            console.error(`❌ [${context}] Parse falhou completamente: ${error.message}`);
+            throw error;
+        }
+    }
+    
+    /**
+     * �🔄 Processar resposta da IA e mesclar com sugestões originais (LEGADO - mantido para compatibilidade)
      */
     processAIResponse(aiResponse, originalSuggestions) {
         try {
-            const parsedResponse = JSON.parse(aiResponse);
+            // 🛡️ USAR PARSE SEGURO ao invés de JSON.parse direto
+            const parsedResponse = this.safeParseJSON(aiResponse, 'AI-LAYER-LEGACY');
             const enhancedSuggestions = parsedResponse.enhanced_suggestions || [];
             
             // Criar sugestões enriquecidas mantendo estrutura original

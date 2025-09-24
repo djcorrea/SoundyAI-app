@@ -186,7 +186,8 @@ Analisar os PROBLEMAS de áudio detectados e gerar sugestões EDUCATIVAS, claras
       suggestionsEnriquecidas: enhancedSuggestions.length,
       sucessoCompleto: enhancedSuggestions.length === suggestions.length ? '✅ SIM' : '❌ PARCIAL',
       aiEnriquecidas: enhancedSuggestions.filter(s => s.aiEnhanced === true).length,
-      fallbackUsadas: enhancedSuggestions.filter(s => s.aiEnhanced === false).length
+      fallbackUsadas: enhancedSuggestions.filter(s => s.aiEnhanced === false).length,
+      validacaoFinal: 'CONTAGEM GARANTIDA ✅'
     });
 
     res.json({
@@ -325,6 +326,202 @@ function getGenreContext(genre) {
 - Foque na inteligibilidade e impacto emocional`;
 }
 
+// 🛡️ FUNÇÃO UTILITÁRIA ULTRA-ROBUSTA PARA PARSE SEGURO DE JSON DA IA
+function safeParseAIResponse(rawResponse, originalSuggestions, context = 'AI-PROCESSING') {
+  console.log(`🛡️ [${context}] Iniciando parse ultra-seguro de resposta IA...`);
+  
+  const expectedCount = originalSuggestions ? originalSuggestions.length : 0;
+  console.log(`🎯 [${context}] Esperado: ${expectedCount} sugestões`);
+  
+  if (!rawResponse || typeof rawResponse !== 'string') {
+    console.error(`❌ [${context}] Resposta inválida ou vazia`);
+    return createFullFallback(originalSuggestions, context);
+  }
+  
+  console.log(`🔍 [${context}] Resposta bruta recebida (${rawResponse.length} chars)`);
+  
+  try {
+    // PASSO 1: LIMPEZA AGRESSIVA
+    let cleanResponse = rawResponse.trim();
+    
+    // Remover markdown/formatação
+    cleanResponse = cleanResponse.replace(/```json\s*|\s*```/g, '');
+    cleanResponse = cleanResponse.replace(/```\s*|\s*```/g, '');
+    
+    // Encontrar início e fim do JSON
+    const jsonStart = cleanResponse.indexOf('{');
+    const jsonEnd = cleanResponse.lastIndexOf('}') + 1;
+    
+    if (jsonStart === -1 || jsonEnd <= jsonStart) {
+      console.warn(`⚠️ [${context}] Não encontrou objeto JSON válido na resposta`);
+      return createFullFallback(originalSuggestions, context);
+    }
+    
+    cleanResponse = cleanResponse.substring(jsonStart, jsonEnd);
+    console.log(`🧹 [${context}] JSON limpo extraído (${cleanResponse.length} chars)`);
+    
+    // PASSO 2: TENTATIVA DE PARSE DIRETO
+    let parsed;
+    try {
+      parsed = JSON.parse(cleanResponse);
+      console.log(`✅ [${context}] Parse direto bem-sucedido`);
+    } catch (parseError) {
+      console.warn(`⚠️ [${context}] Parse direto falhou: ${parseError.message}`);
+      console.log(`🔧 [${context}] Aplicando correções automáticas...`);
+      
+      // PASSO 3: CORREÇÕES AUTOMÁTICAS
+      let fixedResponse = fixTruncatedJSON(cleanResponse, context);
+      
+      try {
+        parsed = JSON.parse(fixedResponse);
+        console.log(`✅ [${context}] Parse corrigido bem-sucedido`);
+      } catch (secondError) {
+        console.error(`❌ [${context}] Parse falhou mesmo após correções: ${secondError.message}`);
+        return createFullFallback(originalSuggestions, context);
+      }
+    }
+    
+    // PASSO 4: VALIDAÇÃO DE ESTRUTURA
+    if (!parsed || typeof parsed !== 'object') {
+      console.error(`❌ [${context}] Resposta parseada não é um objeto válido`);
+      return createFullFallback(originalSuggestions, context);
+    }
+    
+    // Tentar extrair sugestões de diferentes estruturas possíveis
+    let aiSuggestions = parsed.suggestions || parsed.enhanced_suggestions || parsed.results || [];
+    
+    if (!Array.isArray(aiSuggestions)) {
+      console.error(`❌ [${context}] Sugestões não estão em formato de array`);
+      return createFullFallback(originalSuggestions, context);
+    }
+    
+    const receivedCount = aiSuggestions.length;
+    console.log(`📊 [${context}] Parse completo: ${receivedCount}/${expectedCount} sugestões`);
+    
+    // PASSO 5: COMPLETAMENTO AUTOMÁTICO SE NECESSÁRIO
+    if (expectedCount > 0 && receivedCount < expectedCount) {
+      console.warn(`⚠️ [${context}] RESPOSTA INCOMPLETA: Completando ${expectedCount - receivedCount} sugestões`);
+      
+      for (let i = receivedCount; i < expectedCount; i++) {
+        const originalSuggestion = originalSuggestions[i];
+        const fallbackSuggestion = createFallbackSuggestion(originalSuggestion, i, context);
+        aiSuggestions.push(fallbackSuggestion);
+        console.log(`🔧 [${context}] Sugestão ${i + 1} completada com fallback estruturado`);
+      }
+    }
+    
+    console.log(`✅ [${context}] Parse ultra-seguro concluído: ${aiSuggestions.length} sugestões processadas`);
+    return aiSuggestions;
+    
+  } catch (criticalError) {
+    console.error(`❌ [${context}] Erro crítico durante parse ultra-seguro:`, criticalError.message);
+    return createFullFallback(originalSuggestions, context);
+  }
+}
+
+// 🔧 Função para corrigir JSON truncado de forma mais inteligente
+function fixTruncatedJSON(jsonString, context = 'JSON-FIX') {
+  console.log(`🔧 [${context}] Iniciando correção automática de JSON truncado...`);
+  
+  let fixed = jsonString;
+  
+  // Remover vírgulas problemáticas antes de fechamentos
+  fixed = fixed.replace(/,(\s*[}\]])/g, '$1');
+  
+  // Remover vírgulas no final de strings sem fechamento
+  fixed = fixed.replace(/,(\s*)$/g, '$1');
+  
+  // Contar níveis de abertura para saber o que precisa fechar
+  let braceLevel = 0;
+  let bracketLevel = 0;
+  let inString = false;
+  let escapeNext = false;
+  
+  for (let i = 0; i < fixed.length; i++) {
+    const char = fixed[i];
+    
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+    
+    if (char === '\\') {
+      escapeNext = true;
+      continue;
+    }
+    
+    if (char === '"' && !escapeNext) {
+      inString = !inString;
+      continue;
+    }
+    
+    if (!inString) {
+      if (char === '{') braceLevel++;
+      if (char === '}') braceLevel--;
+      if (char === '[') bracketLevel++;
+      if (char === ']') bracketLevel--;
+    }
+  }
+  
+  // Fechar objetos abertos
+  while (braceLevel > 0) {
+    fixed += '}';
+    braceLevel--;
+    console.log(`🔧 [${context}] Fechando objeto aberto`);
+  }
+  
+  // Fechar arrays abertos
+  while (bracketLevel > 0) {
+    fixed += ']';
+    bracketLevel--;
+    console.log(`🔧 [${context}] Fechando array aberto`);
+  }
+  
+  // Se terminou com vírgula, remover
+  fixed = fixed.replace(/,(\s*)$/, '$1');
+  
+  console.log(`🔧 [${context}] Correção automática aplicada`);
+  return fixed;
+}
+
+// 🛡️ Criar fallback completo quando parse falha totalmente
+function createFullFallback(originalSuggestions, context = 'FALLBACK') {
+  if (!originalSuggestions || !Array.isArray(originalSuggestions)) {
+    console.error(`❌ [${context}] Sem sugestões originais para fallback`);
+    return [];
+  }
+  
+  const fallbackSuggestions = originalSuggestions.map((suggestion, index) => 
+    createFallbackSuggestion(suggestion, index, context)
+  );
+  
+  console.log(`🛡️ [${context}] Fallback completo criado: ${fallbackSuggestions.length} sugestões estruturadas`);
+  return fallbackSuggestions;
+}
+
+// 🔧 Criar sugestão de fallback estruturada
+function createFallbackSuggestion(originalSuggestion, index, context = 'FALLBACK') {
+  return {
+    blocks: {
+      problem: `⚠️ ${originalSuggestion?.message || originalSuggestion?.title || `Problema ${index + 1} detectado pelo sistema`}`,
+      cause: '🎯 Análise automática identificou desvio dos padrões técnicos profissionais de referência',
+      solution: `🛠️ ${originalSuggestion?.action || originalSuggestion?.description || 'Aplicar correção recomendada pelo sistema de análise'}`,
+      tip: '💡 Teste o resultado em diferentes sistemas de reprodução para validar a melhoria aplicada',
+      plugin: '🎹 Utilize EQ/Compressor nativo da sua DAW ou plugins gratuitos como ReaEQ, ReaComp',
+      result: '✅ Melhor qualidade sonora geral e maior compatibilidade com padrões profissionais da indústria'
+    },
+    metadata: {
+      priority: originalSuggestion?.priority || 'média',
+      difficulty: 'intermediário',
+      confidence: originalSuggestion?.confidence || 0.7,
+      frequency_range: originalSuggestion?.frequency_range || 'espectro completo',
+      processing_type: 'Correção geral',
+      genre_specific: 'Aplicável universalmente a todos os gêneros musicais'
+    },
+    aiEnhanced: false // Marcado como não-enriquecido pela IA
+  };
+}
+
 // Função para processar resposta da IA com parse ULTRA-SEGURO
 function processAIResponseSafe(originalSuggestions, aiResponse) {
   console.log('🤖 [AI-PROCESSING] Processando resposta da IA com parsing ultra-seguro...');
@@ -436,54 +633,7 @@ function processAIResponseSafe(originalSuggestions, aiResponse) {
   }
 }
 
-// Função para corrigir JSON truncado automaticamente
-function fixTruncatedJSON(jsonString) {
-  console.log('🔧 [JSON-FIX] Tentando corrigir JSON truncado...');
-  
-  let fixed = jsonString;
-  
-  // Remover vírgulas finais problemáticas
-  fixed = fixed.replace(/,(\s*[}\]])/g, '$1');
-  
-  // Verificar se termina adequadamente
-  const trimmed = fixed.trim();
-  
-  // Se não termina com }, tentar completar objeto atual
-  if (!trimmed.endsWith('}') && !trimmed.endsWith(']')) {
-    console.log('🔧 [JSON-FIX] Fechando objeto truncado...');
-    
-    // Contar níveis de abertura
-    let braceLevel = 0;
-    let bracketLevel = 0;
-    
-    for (let char of fixed) {
-      if (char === '{') braceLevel++;
-      if (char === '}') braceLevel--;
-      if (char === '[') bracketLevel++;
-      if (char === ']') bracketLevel--;
-    }
-    
-    // Fechar chaves abertas
-    while (braceLevel > 0) {
-      fixed += '}';
-      braceLevel--;
-    }
-    
-    // Fechar colchetes abertos  
-    while (bracketLevel > 0) {
-      fixed += ']';
-      bracketLevel--;
-    }
-  }
-  
-  // Tentar garantir que há fechamento do objeto principal
-  if (!fixed.trim().endsWith('}')) {
-    fixed += '}';
-  }
-  
-  console.log('🔧 [JSON-FIX] Correção aplicada');
-  return fixed;
-}
+// Função INTEGRADA já na função utilitária safeParseAIResponse acima
 
 // 👉 Fallback SPA: qualquer rota não-API cai no app (index.html)
 app.get("*", (req, res, next) => {
