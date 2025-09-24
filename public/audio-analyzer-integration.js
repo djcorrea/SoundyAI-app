@@ -1295,6 +1295,20 @@ async function loadReferenceData(genre) {
                 __activeRefGenre = genre;
                 window.PROD_AI_REF_DATA = enrichedNet;
                 
+                                // Garantir retrocompatibilidade de tolerâncias
+                                if (window.PROD_AI_REF_DATA) {
+                                    const refData = window.PROD_AI_REF_DATA;
+
+                                    Object.keys(refData).forEach(key => {
+                                        if (key.startsWith("tol_")) {
+                                            const newKey = key.replace("tol_", "") + "_tolerance";
+                                            if (!refData[newKey]) {
+                                                refData[newKey] = refData[key];
+                                            }
+                                        }
+                                    });
+                                }
+                
                 // Log de diagnóstico
                 console.log('🎯 REFS DIAGNOSTIC:', {
                     genre,
@@ -1327,6 +1341,20 @@ async function loadReferenceData(genre) {
             __activeRefGenre = genre;
             window.PROD_AI_REF_DATA = enriched;
             
+                        // Garantir retrocompatibilidade de tolerâncias
+                        if (window.PROD_AI_REF_DATA) {
+                            const refData = window.PROD_AI_REF_DATA;
+
+                            Object.keys(refData).forEach(key => {
+                                if (key.startsWith("tol_")) {
+                                    const newKey = key.replace("tol_", "") + "_tolerance";
+                                    if (!refData[newKey]) {
+                                        refData[newKey] = refData[key];
+                                    }
+                                }
+                            });
+                        }
+            
             // Log de diagnóstico
             console.log('🎯 REFS DIAGNOSTIC:', {
                 genre,
@@ -1358,6 +1386,20 @@ async function loadReferenceData(genre) {
             __activeRefGenre = 'trance';
             window.PROD_AI_REF_DATA = enrichedFb;
             
+                        // Garantir retrocompatibilidade de tolerâncias
+                        if (window.PROD_AI_REF_DATA) {
+                            const refData = window.PROD_AI_REF_DATA;
+
+                            Object.keys(refData).forEach(key => {
+                                if (key.startsWith("tol_")) {
+                                    const newKey = key.replace("tol_", "") + "_tolerance";
+                                    if (!refData[newKey]) {
+                                        refData[newKey] = refData[key];
+                                    }
+                                }
+                            });
+                        }
+            
             // Log de diagnóstico
             console.log('🎯 REFS DIAGNOSTIC:', {
                 genre,
@@ -1387,6 +1429,20 @@ async function loadReferenceData(genre) {
                 __activeRefData = enrichedEmb;
                 __activeRefGenre = genre;
                 window.PROD_AI_REF_DATA = enrichedEmb;
+                
+                                // Garantir retrocompatibilidade de tolerâncias
+                                if (window.PROD_AI_REF_DATA) {
+                                    const refData = window.PROD_AI_REF_DATA;
+
+                                    Object.keys(refData).forEach(key => {
+                                        if (key.startsWith("tol_")) {
+                                            const newKey = key.replace("tol_", "") + "_tolerance";
+                                            if (!refData[newKey]) {
+                                                refData[newKey] = refData[key];
+                                            }
+                                        }
+                                    });
+                                }
                 updateRefStatus('✔ referências embutidas', '#0d6efd');
                 try { buildAggregatedRefStats(); } catch {}
                 return enrichedEmb;
@@ -1398,6 +1454,20 @@ async function loadReferenceData(genre) {
                 __activeRefData = enrichedEmbTr;
                 __activeRefGenre = 'trance';
                 window.PROD_AI_REF_DATA = enrichedEmbTr;
+                
+                                // Garantir retrocompatibilidade de tolerâncias
+                                if (window.PROD_AI_REF_DATA) {
+                                    const refData = window.PROD_AI_REF_DATA;
+
+                                    Object.keys(refData).forEach(key => {
+                                        if (key.startsWith("tol_")) {
+                                            const newKey = key.replace("tol_", "") + "_tolerance";
+                                            if (!refData[newKey]) {
+                                                refData[newKey] = refData[key];
+                                            }
+                                        }
+                                    });
+                                }
                 updateRefStatus('✔ referências embutidas (fallback)', '#0d6efd');
                 try { buildAggregatedRefStats(); } catch {}
                 return enrichedEmbTr;
