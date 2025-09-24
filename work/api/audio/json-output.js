@@ -422,6 +422,10 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.dcOffset = null;
   }
 
+  // ===== BPM (Beats Per Minute) =====
+  technicalData.bpm = safeSanitize(coreMetrics.bpm);
+  technicalData.bmpConfidence = safeSanitize(coreMetrics.bmpConfidence);
+
   // ===== Dominant Frequencies =====
   // REMOVED: Export processing for dominantFrequencies
   // Reason: REMOVAL_SKIPPED_USED_BY_SCORE:dominantFrequencies - mantendo cálculo interno apenas
@@ -740,6 +744,11 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       // Experimentais
       dcOffset: technicalData.dcOffset,
       // REMOVED: spectralUniformity, dominantFrequencies (mantendo cálculo interno, removendo export)
+      
+      // BPM (Beats Per Minute)
+      bpm: technicalData.bmp,
+      bmpConfidence: technicalData.bmpConfidence,
+      
       problemsAnalysis: technicalData.problemsAnalysis,
       
       // Compatibilidade com nomes legados
@@ -772,6 +781,8 @@ function createCompactJSON(fullJSON) {
     spectral: fullJSON.spectral,
     spectralBands: fullJSON.spectralBands,
     dcOffset: fullJSON.dcOffset,
+    bmp: fullJSON.technicalData?.bpm,
+    bmpConfidence: fullJSON.technicalData?.bmpConfidence,
     spectralUniformity: fullJSON.spectralUniformity,
     dominantFrequencies: (fullJSON.dominantFrequencies || []).slice(0, 5),
     problemsAnalysis: fullJSON.problemsAnalysis,
