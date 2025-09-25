@@ -1623,9 +1623,12 @@ class CoreMetricsProcessor {
     const has1 = Number.isFinite(m1?.bpm);
     const has2 = Number.isFinite(m2?.bpm);
 
-    const STRONG = 0.70;
-    const FALLBACK = 0.50;
-    const TOL = 2;
+    // ✅ NOVOS THRESHOLDS MAIS FLEXÍVEIS
+    const STRONG_THRESHOLD = 0.45;      // Confiança forte (era 0.70)
+    const MIN_ACCEPTABLE = 0.30;        // Confiança mínima aceitável (era 0.50)
+    const VERY_WEAK = 0.10;            // Confiança muito fraca
+    const AGREEMENT_TOL = 3;           // Tolerância para concordância (era 2)
+    const CLOSE_TOL = 2;               // Tolerância para valores próximos
 
     const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
     const diff = (has1 && has2) ? Math.abs(m1.bpm - m2.bpm) : Infinity;
@@ -1633,9 +1636,9 @@ class CoreMetricsProcessor {
     const isHarmonic = (a, b) => {
       if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
       return (
-        Math.abs(a - b) <= TOL ||
-        Math.abs(a - 2 * b) <= TOL ||
-        Math.abs(a - b / 2) <= TOL
+        Math.abs(a - b) <= CLOSE_TOL ||
+        Math.abs(a - 2 * b) <= CLOSE_TOL ||
+        Math.abs(a - b / 2) <= CLOSE_TOL
       );
     };
 
@@ -1645,19 +1648,15 @@ class CoreMetricsProcessor {
       
       let finalSource = 'cross-validated'; // Default
       
-      // Regras de mapeamento conforme solicitado:
-      if (reason === 'm1-strong' && m1.source === 'music-tempo') {
+      // ✅ REGRAS DE MAPEAMENTO FLEXÍVEL:
+      if (reason?.includes('m1-') && m1.source === 'music-tempo') {
         finalSource = 'music-tempo';
-      } else if (reason === 'm1-strong' && m1.source === 'autocorr') {
+      } else if (reason?.includes('m1-') && m1.source === 'autocorr') {
         finalSource = 'autocorr';
-      } else if (reason === 'm2-strong' && m2.source === 'music-tempo') {
+      } else if (reason?.includes('m2-') && m2.source === 'music-tempo') {
         finalSource = 'music-tempo';
-      } else if (reason === 'm2-strong' && m2.source === 'autocorr') {
+      } else if (reason?.includes('m2-') && m2.source === 'autocorr') {
         finalSource = 'autocorr';
-      } else if (reason?.includes('fallback')) {
-        finalSource = 'fallback';
-      } else if (reason?.includes('agree') || reason?.includes('harmonic')) {
-        finalSource = 'cross-validated';
       } else if (reason === 'only-method1' && m1.source === 'music-tempo') {
         finalSource = 'music-tempo';
       } else if (reason === 'only-method1' && m1.source === 'autocorr') {
@@ -1666,6 +1665,10 @@ class CoreMetricsProcessor {
         finalSource = 'music-tempo';
       } else if (reason === 'only-method2' && m2.source === 'autocorr') {
         finalSource = 'autocorr';
+      } else if (reason?.includes('agreement') || reason?.includes('harmonic')) {
+        finalSource = 'cross-validated';
+      } else if (reason?.includes('weak') || reason?.includes('close') || reason?.includes('fallback')) {
+        finalSource = 'fallback';
       }
       
       return {
@@ -1675,75 +1678,82 @@ class CoreMetricsProcessor {
       };
     };
 
-    console.log(`[WORKER][BPM] Cross-validation: m1=${m1.bpm}(${clamp01(m1.confidence).toFixed(2)}) vs m2=${m2.bpm}(${clamp01(m2.confidence).toFixed(2)})`);
+    console.log(`[WORKER][BPM] Cross-validation FLEXÍVEL: m1=${m1.bpm}(${clamp01(m1.confidence).toFixed(2)}) vs m2=${m2.bpm}(${clamp01(m2.confidence).toFixed(2)}), diff=${diff.toFixed(1)}`);
 
     // casos com apenas um válido
     if (has1 && !has2) {
-      console.log(`[WORKER][BPM] Apenas método 1 válido`);
+      console.log(`[WORKER][BPM] ✅ Apenas método 1 válido - usando m1`);
       return mapSourceName(m1, 'only-method1');
     }
     if (!has1 && has2) {
-      console.log(`[WORKER][BPM] Apenas método 2 válido`);
+      console.log(`[WORKER][BPM] ✅ Apenas método 2 válido - usando m2`);
       return mapSourceName(m2, 'only-method2');
     }
     if (!has1 && !has2) {
-      console.log(`[WORKER][BPM] Nenhum método válido`);
+      console.log(`[WORKER][BPM] ❌ Nenhum método válido`);
       return null;
     }
 
-    const m1Strong = m1.confidence >= STRONG;
-    const m2Strong = m2.confidence >= STRONG;
-    const m1Ok = m1.confidence >= FALLBACK;
-    const m2Ok = m2.confidence >= FALLBACK;
+    // ✅ NOVA CLASSIFICAÇÃO FLEXÍVEL
+    const m1Strong = m1.confidence >= STRONG_THRESHOLD;
+    const m2Strong = m2.confidence >= STRONG_THRESHOLD;
+    const m1Acceptable = m1.confidence >= MIN_ACCEPTABLE;
+    const m2Acceptable = m2.confidence >= MIN_ACCEPTABLE;
+    const m1VeryWeak = m1.confidence < VERY_WEAK;
+    const m2VeryWeak = m2.confidence < VERY_WEAK;
 
-    console.log(`[WORKER][BPM] Análise: diff=${diff.toFixed(1)}, m1_strong=${m1Strong}, m2_strong=${m2Strong}, m1_ok=${m1Ok}, m2_ok=${m2Ok}`);
+    console.log(`[WORKER][BPM] Análise flexível: m1_strong=${m1Strong}(${m1.confidence.toFixed(2)}), m2_strong=${m2Strong}(${m2.confidence.toFixed(2)}), diff=${diff.toFixed(1)}`);
 
-    // 1) Ambos fortes
-    if (m1Strong && m2Strong) {
-      console.log(`[WORKER][BPM] Ambos métodos com confiança FORTE (>= 0.70)`);
-      if (diff <= TOL) {
-        const avg = (m1.bpm + m2.bpm) / 2;
-        const conf = clamp01((m1.confidence + m2.confidence) / 2);
-        console.log(`[WORKER][BPM] ✅ Concordam (diff=${diff}) - média: ${avg.toFixed(1)}`);
-        return mapSourceName({ bpm: avg, confidence: conf }, 'agree-avg');
-      }
-      if (isHarmonic(m1.bpm, m2.bpm)) {
-        console.log(`[WORKER][BPM] 🎵 Relação harmônica detectada`);
-        if (m1.confidence > m2.confidence) return mapSourceName({ ...m1 }, 'harmonic-m1');
-        if (m2.confidence > m1.confidence) return mapSourceName({ ...m2 }, 'harmonic-m2');
-        return mapSourceName({ ...(m1.bpm >= m2.bmp ? m1 : m2) }, 'harmonic-tie');
-      }
-      console.log(`[WORKER][BPM] Discordantes - usando mais confiável`);
-      return mapSourceName(m1.confidence >= m2.confidence ? { ...m1 } : { ...m2 }, 'strong-higher-conf');
+    // ✅ REGRA 1: MÉTODOS CONCORDAM (diff < 3 BPM) E PELO MENOS UM >= 0.3
+    if (diff < AGREEMENT_TOL && (m1Acceptable || m2Acceptable)) {
+      const avg = (m1.bpm + m2.bpm) / 2;
+      const avgConfidence = (m1.confidence + m2.confidence) / 2;
+      console.log(`[WORKER][BPM] ✅ REGRA 1: Métodos concordam (diff=${diff.toFixed(1)}) e pelo menos um >= 0.3`);
+      console.log(`[WORKER][BPM] ✅ Aceito: BPM médio ${avg.toFixed(0)}, confiança média ${avgConfidence.toFixed(2)}`);
+      return mapSourceName({ bpm: avg, confidence: avgConfidence }, 'agreement-flexible');
     }
 
-    // 2) Um forte e outro fraco
+    // ✅ REGRA 2: UM FORTE (>= 0.45) E OUTRO MUITO FRACO (< 0.1)
+    if (m1Strong && m2VeryWeak) {
+      console.log(`[WORKER][BPM] ✅ REGRA 2: Método 1 forte (${m1.confidence.toFixed(2)}) vs método 2 muito fraco (${m2.confidence.toFixed(2)})`);
+      console.log(`[WORKER][BPM] ✅ Aceito: BPM ${m1.bpm}, método 1 dominante`);
+      return mapSourceName({ ...m1 }, 'm1-dominant');
+    }
+    if (m2Strong && m1VeryWeak) {
+      console.log(`[WORKER][BPM] ✅ REGRA 2: Método 2 forte (${m2.confidence.toFixed(2)}) vs método 1 muito fraco (${m1.confidence.toFixed(2)})`);
+      console.log(`[WORKER][BPM] ✅ Aceito: BPM ${m2.bpm}, método 2 dominante`);
+      return mapSourceName({ ...m2 }, 'm2-dominant');
+    }
+
+    // ✅ REGRA 3: AMBOS FRACOS MAS PRÓXIMOS (±2 BPM)
+    if (!m1Strong && !m2Strong && diff <= CLOSE_TOL) {
+      const chosen = m1.confidence >= m2.confidence ? m1 : m2;
+      console.log(`[WORKER][BPM] ⚠️ REGRA 3: Ambos fracos mas próximos (diff=${diff.toFixed(1)})`);
+      console.log(`[WORKER][BPM] ⚠️ Aceito: BPM ${chosen.bpm}, maior confiança ${chosen.confidence.toFixed(2)}`);
+      return mapSourceName({ ...chosen }, 'weak-but-close');
+    }
+
+    // ✅ CASOS ESPECIAIS: UM MÉTODO FORTE (sem considerar o outro)
     if (m1Strong && !m2Strong) {
-      console.log(`[WORKER][BPM] ✅ Método 1 FORTE, método 2 fraco - usando m1`);
-      return mapSourceName({ ...m1 }, 'm1-strong');
+      console.log(`[WORKER][BPM] ✅ CASO ESPECIAL: Método 1 forte (${m1.confidence.toFixed(2)}), ignorando método 2`);
+      return mapSourceName({ ...m1 }, 'm1-strong-solo');
     }
-    if (!m1Strong && m2Strong) {
-      console.log(`[WORKER][BPM] ✅ Método 2 FORTE, método 1 fraco - usando m2`);
-      return mapSourceName({ ...m2 }, 'm2-strong');
-    }
-
-    // 3) Nenhum forte, mas algum >= 0.50
-    if ((m1Ok || m2Ok)) {
-      console.log(`[WORKER][BPM] Nenhum forte, mas algum >= 0.50 (FALLBACK)`);
-      if (diff <= TOL) {
-        console.log(`[WORKER][BPM] ⚠️ Fallback - métodos próximos (diff=${diff})`);
-        return mapSourceName(m1.confidence >= m2.confidence ? { ...m1 } : { ...m2 }, 'fallback-close');
-      }
-      if (isHarmonic(m1.bpm, m2.bpm)) {
-        console.log(`[WORKER][BPM] ⚠️ Fallback - harmônica detectada`);
-        return mapSourceName(m1.confidence >= m2.confidence ? { ...m1 } : { ...m2 }, 'fallback-harmonic');
-      }
-      console.log(`[WORKER][BPM] ❌ Fallback - métodos discordantes sem harmônica`);
-      return null;
+    if (m2Strong && !m1Strong) {
+      console.log(`[WORKER][BPM] ✅ CASO ESPECIAL: Método 2 forte (${m2.confidence.toFixed(2)}), ignorando método 1`);
+      return mapSourceName({ ...m2 }, 'm2-strong-solo');
     }
 
-    // 4) Ambos fracos (<0.50)
-    console.log(`[WORKER][BPM] ❌ Ambos métodos com confiança muito baixa (< 0.50)`);
+    // ✅ RELAÇÃO HARMÔNICA COMO ÚLTIMO RECURSO
+    if (isHarmonic(m1.bpm, m2.bpm) && (m1Acceptable || m2Acceptable)) {
+      const chosen = m1.confidence >= m2.confidence ? m1 : m2;
+      console.log(`[WORKER][BPM] 🎵 HARMÔNICA: Relação detectada com confiança aceitável`);
+      console.log(`[WORKER][BPM] 🎵 Aceito: BPM ${chosen.bpm}, confiança ${chosen.confidence.toFixed(2)}`);
+      return mapSourceName({ ...chosen }, 'harmonic-acceptable');
+    }
+
+    // ❌ REJEITAR: Baixa confiança geral
+    console.log(`[WORKER][BPM] ❌ REJEITADO: Métodos discordantes ou confiança insuficiente`);
+    console.log(`[WORKER][BPM] ❌ m1: ${m1.bpm}(${m1.confidence.toFixed(2)}), m2: ${m2.bpm}(${m2.confidence.toFixed(2)}), diff: ${diff.toFixed(1)}`);
     return null;
   }
 
