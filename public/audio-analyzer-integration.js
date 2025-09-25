@@ -4531,92 +4531,14 @@ function displayModalResults(analysis) {
                     }).join('');
                     blocks.push(`<div class="diag-section"><div class="diag-heading">⚠️ Problemas Detectados:</div>${list}</div>`);
                 }
+                // 🛑 CARD DE SUGESTÕES ANTIGAS DESATIVADO - Removido conforme solicitado
+                // O card "SUGESTÕES EDUCACIONAIS ULTRA-AVANÇADAS" foi desativado para limpar a UI
+                // Apenas o novo sistema de sugestões (que aparece no final do modal) deve ser usado
+                /*
                 if ((analysis.suggestions?.length || 0) > 0) {
-                    // 🎯 Função local para deduplicar sugestões por tipo
-                    const deduplicateByType = (items) => {
-                        const seen = new Map();
-                        const deduplicated = [];
-                        for (const item of items) {
-                            if (!item || !item.type) continue;
-                            
-                            // 🎯 CORREÇÃO: Para band_adjust, usar type + subtype como chave única
-                            // Isso permite múltiplas sugestões de banda (uma para cada banda)
-                            let uniqueKey = item.type;
-                            if (item.type === 'band_adjust' && item.subtype) {
-                                uniqueKey = `${item.type}:${item.subtype}`;
-                            }
-                            
-                            const existing = seen.get(uniqueKey);
-                            if (!existing) {
-                                seen.set(uniqueKey, item);
-                                deduplicated.push(item);
-                            } else {
-                                // Manter o mais detalhado (com mais propriedades)
-                                const currentScore = Object.keys(item).length + (item.explanation ? 10 : 0) + (item.impact ? 5 : 0);
-                                const existingScore = Object.keys(existing).length + (existing.explanation ? 10 : 0) + (existing.impact ? 5 : 0);
-                                if (currentScore > existingScore) {
-                                    seen.set(uniqueKey, item);
-                                    const index = deduplicated.findIndex(d => {
-                                        if (d.type === 'band_adjust' && item.type === 'band_adjust') {
-                                            return d.type === item.type && d.subtype === item.subtype;
-                                        }
-                                        return d.type === item.type;
-                                    });
-                                    if (index >= 0) deduplicated[index] = item;
-                                }
-                            }
-                        }
-                        return deduplicated;
-                    };
-                    
-                    // 🚀 Aplicar deduplicação nas sugestões enriched (já processadas pelo sistema ultra-avançado)
-                    const deduplicatedSuggestions = deduplicateByType(analysis.suggestions);
-                    const list = deduplicatedSuggestions.map(s => renderSuggestionItem(s)).join('');
-                    
-                    // 🎯 Rodapé melhorado com informações do Sistema Ultra-Avançado
-                    try {
-                        const count = (t) => deduplicatedSuggestions.filter(s => s && s.type === t).length;
-                        const cBand = count('band_adjust');
-                        const cGroup = count('band_group_adjust');
-                        const cSurg = count('surgical_eq');
-                        const cRef = count('reference_loudness') + count('reference_dynamics') + count('reference_lra') + count('reference_stereo') + count('reference_true_peak');
-                        const cHeuristic = deduplicatedSuggestions.filter(s => s && s.type && s.type.startsWith('heuristic_')).length;
-                        
-                        // Estatísticas do Sistema Ultra-Avançado (se disponível)
-                        let enhancedStats = '';
-                        if (analysis.enhancedMetrics?.ultraAdvancedSystem) {
-                            const uas = analysis.enhancedMetrics.ultraAdvancedSystem;
-                            const avgPriority = deduplicatedSuggestions.length > 0 ? 
-                                (deduplicatedSuggestions.reduce((sum, s) => sum + (s.priority || 0), 0) / deduplicatedSuggestions.length) : 0;
-                            
-                            enhancedStats = ` • 🚀 Sistema Ultra-Avançado: conf=${(uas.confidenceScore || 1).toFixed(2)} nível=${uas.educationalLevel || 'intermediate'} avgP=${avgPriority.toFixed(2)}`;
-                            
-                            if (uas.processingTimeMs) {
-                                enhancedStats += ` (${uas.processingTimeMs}ms)`;
-                            }
-                        } else if (analysis.enhancedMetrics) {
-                            const em = analysis.enhancedMetrics;
-                            const avgPriority = deduplicatedSuggestions.length > 0 ? 
-                                (deduplicatedSuggestions.reduce((sum, s) => sum + (s.priority || 0), 0) / deduplicatedSuggestions.length) : 0;
-                            
-                            enhancedStats = ` • 🎯 Enhanced System: conf=${(em.confidence || 1).toFixed(2)} avgP=${avgPriority.toFixed(2)}`;
-                            
-                            if (em.processingTimeMs) {
-                                enhancedStats += ` (${em.processingTimeMs}ms)`;
-                            }
-                        }
-                        
-                        // Header com indicação do sistema aplicado
-                        const hasUltraV2Applied = analysis.enhancedMetrics?.ultraAdvancedSystem?.applied;
-                        const headerTitle = hasUltraV2Applied ? 
-                            '🚀 Sugestões Educacionais Ultra-Avançadas' : 
-                            '🩺 Sugestões Priorizadas';
-                            
-                        blocks.push(`<div class="diag-section"><div class="diag-heading">${headerTitle}</div>${list}</div>`);
-                    } catch {
-                        blocks.push(`<div class="diag-section"><div class="diag-heading">🩺 Sugestões</div>${list}</div>`);
-                    }
+                    // [CÓDIGO COMENTADO - Card de sugestões antigas removido]
                 }
+                */
                 // Subbloco opcional com diagnósticos do V2 PRO (quando disponíveis)
                 const v2Pro = analysis.v2Pro || analysis.v2Diagnostics; // Compatibilidade
                 if (v2Pro && (typeof window === 'undefined' || window.SUGESTOES_AVANCADAS !== false)) {
