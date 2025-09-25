@@ -4704,10 +4704,13 @@ function displayModalResults(analysis) {
                             <div class="card-title">⚠️ Problemas Técnicos</div>
                             ${techProblems()}
                         </div>
+                        <!-- Card "Diagnóstico & Sugestões" removido conforme solicitado -->
+                        <!-- 
                         <div class="card card-span-2">
                             <div class="card-title">🩺 Diagnóstico & Sugestões</div>
                             ${diagCard()}
                         </div>
+                        -->
             </div>
         `;
     
