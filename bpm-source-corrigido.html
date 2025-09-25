@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>✅ BPM SOURCE CORRIGIDO - JSON Final</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f8f9fa; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .success { background: #d4edda; padding: 15px; margin: 15px 0; border: 1px solid #c3e6cb; border-radius: 8px; }
+        .fix { background: #e7f3ff; padding: 15px; margin: 15px 0; border: 1px solid #b8daff; border-radius: 8px; }
+        .mapping { background: #fff3cd; padding: 15px; margin: 15px 0; border: 1px solid #ffeaa7; border-radius: 8px; }
+        .code { background: #2d3748; color: #e2e8f0; padding: 12px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 13px; }
+        .highlight { background: #fff3cd; padding: 2px 4px; border-radius: 3px; font-weight: bold; }
+        ul li { margin: 8px 0; }
+        table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+        table, th, td { border: 1px solid #ddd; }
+        th, td { padding: 8px; text-align: left; }
+        th { background-color: #f8f9fa; }
+        .json-example { background: #1a202c; color: #e2e8f0; padding: 15px; border-radius: 6px; font-family: 'Courier New', monospace; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✅ BPM SOURCE CORRIGIDO - JSON Final</h1>
+        
+        <div class="success">
+            <h3>🎯 PROBLEMA RESOLVIDO!</h3>
+            <p><strong>Arquivo corrigido:</strong> <code>work/api/audio/core-metrics.js</code></p>
+            <p><strong>Campo corrigido:</strong> <code>bpmSource</code> agora é preenchido corretamente</p>
+            <p><strong>Problema anterior:</strong> Campo sempre retornava <code>"UNKNOWN"</code></p>
+        </div>
+
+        <div class="fix">
+            <h3>🔧 CORREÇÕES APLICADAS:</h3>
+            
+            <h4>1️⃣ Correção de Nomenclatura:</h4>
+            <div class="code">
+// ❌ ANTES (ERRADO):
+technicalData.bmpSource = consolidated.source;
+
+// ✅ DEPOIS (CORRETO):
+technicalData.bpmSource = consolidated.source;</div>
+
+            <h4>2️⃣ Mapeamento de Fontes Melhorado:</h4>
+            <div class="code">
+const mapSourceName = (chosen, reason) => {
+  let finalSource = 'cross-validated'; // Default
+  
+  // Regras de mapeamento conforme solicitado:
+  if (reason === 'm1-strong' && m1.source === 'music-tempo') {
+    finalSource = 'music-tempo';
+  } else if (reason === 'm1-strong' && m1.source === 'autocorr') {
+    finalSource = 'autocorr';
+  } else if (reason?.includes('fallback')) {
+    finalSource = 'fallback';
+  } else if (reason?.includes('agree') || reason?.includes('harmonic')) {
+    finalSource = 'cross-validated';
+  }
+  
+  return { bpm: Math.round(chosen.bpm), confidence: clamp01(chosen.confidence), source: finalSource };
+};</div>
+
+            <h4>3️⃣ Logs Corrigidos:</h4>
+            <div class="code">
+// ❌ ANTES:
+source: technicalData.bmpSource
+
+// ✅ DEPOIS:
+source: technicalData.bpmSource</div>
+        </div>
+
+        <div class="mapping">
+            <h3>🎯 REGRAS DE MAPEAMENTO IMPLEMENTADAS:</h3>
+            
+            <table>
+                <tr><th>Condição</th><th>bpmSource</th><th>Descrição</th></tr>
+                <tr><td>music-tempo forte (≥0.70)</td><td><code>"music-tempo"</code></td><td>Método music-tempo com alta confiança</td></tr>
+                <tr><td>autocorr forte (≥0.70)</td><td><code>"autocorr"</code></td><td>Método autocorrelação com alta confiança</td></tr>
+                <tr><td>Média entre métodos</td><td><code>"cross-validated"</code></td><td>Validação cruzada ou correção harmônica</td></tr>
+                <tr><td>Fallback (0.50-0.69)</td><td><code>"fallback"</code></td><td>Confiança moderada com fallback</td></tr>
+                <tr><td>Só um método válido</td><td><code>"music-tempo"</code> ou <code>"autocorr"</code></td><td>Baseado no método que funcionou</td></tr>
+                <tr><td>Erro ou confiança baixa</td><td><code>"UNKNOWN"</code></td><td>Quando BPM não pode ser determinado</td></tr>
+            </table>
+        </div>
+
+        <div class="success">
+            <h3>📊 EXEMPLOS DE JSON ESPERADO:</h3>
+            
+            <h4>🎵 Caso 1: Método Autocorr Forte</h4>
+            <div class="json-example">
+{
+  "bpm": 132,
+  "bpmConfidence": 0.95,
+  "bpmSource": "autocorr"
+}</div>
+
+            <h4>🎶 Caso 2: Método Music-Tempo Forte</h4>
+            <div class="json-example">
+{
+  "bpm": 128,
+  "bpmConfidence": 0.85,
+  "bpmSource": "music-tempo"
+}</div>
+
+            <h4>🔄 Caso 3: Cross-Validation (Média)</h4>
+            <div class="json-example">
+{
+  "bpm": 130,
+  "bpmConfidence": 0.78,
+  "bpmSource": "cross-validated"
+}</div>
+
+            <h4>⚠️ Caso 4: Fallback</h4>
+            <div class="json-example">
+{
+  "bpm": 125,
+  "bpmConfidence": 0.55,
+  "bpmSource": "fallback"
+}</div>
+
+            <h4>❌ Caso 5: Falha na Detecção</h4>
+            <div class="json-example">
+{
+  "bpm": null,
+  "bpmConfidence": 0.35,
+  "bpmSource": "UNKNOWN"
+}</div>
+        </div>
+
+        <div class="fix">
+            <h3>🧪 COMPORTAMENTO ESPERADO:</h3>
+            
+            <h4>📋 Fluxo de Decisão:</h4>
+            <ol>
+                <li><strong>Análise Individual:</strong> music-tempo e autocorr calculam BPM independentemente</li>
+                <li><strong>Cross-Validation:</strong> <code>crossValidateBpmResults()</code> analisa ambos os resultados</li>
+                <li><strong>Mapeamento Inteligente:</strong> <code>mapSourceName()</code> determina a fonte final</li>
+                <li><strong>JSON Final:</strong> Campo <code>bpmSource</code> reflete exatamente como o BPM foi determinado</li>
+            </ol>
+
+            <h4>🎯 Logs Esperados:</h4>
+            <div class="code">
+[WORKER][BPM] Cross-validation: m1=132(0.95) vs m2=128(0.72)
+[WORKER][BPM] ✅ Método 1 FORTE, método 2 fraco - usando m1
+[WORKER][BPM] Final: { bpm: 132, confidence: 0.95, source: 'autocorr' }</div>
+        </div>
+
+        <div class="success">
+            <h3>✅ VERIFICAÇÕES IMPLEMENTADAS:</h3>
+            <ul>
+                <li>✅ <strong>Campo correto:</strong> <code>bpmSource</code> em vez de <code>bmpSource</code></li>
+                <li>✅ <strong>Mapeamento inteligente:</strong> Reconhece método individual vs cross-validation</li>
+                <li>✅ <strong>Fallback identificado:</strong> Distingue confiança moderada vs alta</li>
+                <li>✅ <strong>Logs consistentes:</strong> Mesma fonte no log e no JSON</li>
+                <li>✅ <strong>Casos de erro:</strong> <code>UNKNOWN</code> quando apropriado</li>
+                <li>✅ <strong>Compatibilidade:</strong> Estrutura JSON mantida</li>
+            </ul>
+        </div>
+
+        <div class="mapping">
+            <h3>🚀 PRÓXIMO PASSO:</h3>
+            <p>A correção está <strong>implementada e pronta</strong>! Agora o campo <code>bpmSource</code> será preenchido corretamente de acordo com a decisão do algoritmo.</p>
+            
+            <p><strong>Para validar:</strong></p>
+            <ol>
+                <li>Execute o pipeline com um arquivo de áudio</li>
+                <li>Verifique no JSON final se <code>bpmSource</code> não é mais <code>"UNKNOWN"</code></li>
+                <li>Confirme se a fonte corresponde ao método usado (autocorr, music-tempo, cross-validated, fallback)</li>
+                <li>Verifique se os logs <code>[WORKER][BPM]</code> mostram a mesma fonte do JSON</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        console.log('✅ BPM Source corrigido!');
+        console.log('🎯 Campo bpmSource agora é preenchido corretamente');
+        console.log('📊 Mapeamento implementado: autocorr, music-tempo, cross-validated, fallback');
+        console.log('🔧 Logs corrigidos para usar bpmSource em vez de bmpSource');
+        
+        const expectedSources = [
+            'autocorr',          // Método autocorrelação forte
+            'music-tempo',       // Método music-tempo forte  
+            'cross-validated',   // Validação cruzada ou harmônica
+            'fallback',          // Confiança moderada
+            'UNKNOWN'            // Erro ou confiança muito baixa
+        ];
+        
+        console.log('🎵 Fontes possíveis:', expectedSources);
+    </script>
+</body>
+</html>
