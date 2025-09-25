@@ -83,6 +83,9 @@ class CoreMetricsProcessor {
     const jobId = options.jobId || 'unknown';
     const fileName = options.fileName || 'unknown';
     
+    // Flag para desativar sistema de sugestões via ambiente
+    const DISABLE_SUGGESTIONS = process.env.DISABLE_SUGGESTIONS === 'true';
+    
     logAudio('core_metrics', 'start_processing', { fileName, jobId });
     const startTime = Date.now();
 
@@ -323,20 +326,26 @@ class CoreMetricsProcessor {
         }
       };
       
-      try {
-        // Detectar gênero a partir das opções ou usar default
-        const detectedGenre = options.genre || options.reference?.genre || 'default';
-        
-        problemsAnalysis = analyzeProblemsAndSuggestionsV2(coreMetrics, detectedGenre);
-        logAudio('core_metrics', 'problems_analysis_success', { 
-          genre: detectedGenre,
-          totalSuggestions: problemsAnalysis.suggestions.length,
-          criticalCount: problemsAnalysis.metadata.criticalCount,
-          warningCount: problemsAnalysis.metadata.warningCount
-        });
-      } catch (error) {
-        logAudio('core_metrics', 'problems_analysis_error', { error: error.message });
-        // Manter estrutura padrão definida acima
+      if (!DISABLE_SUGGESTIONS) {
+        try {
+          // Detectar gênero a partir das opções ou usar default
+          const detectedGenre = options.genre || options.reference?.genre || 'default';
+          
+          console.log("[SUGGESTIONS] Ativas (V2 rodando normalmente).");
+          problemsAnalysis = analyzeProblemsAndSuggestionsV2(coreMetrics, detectedGenre);
+          logAudio('core_metrics', 'problems_analysis_success', { 
+            genre: detectedGenre,
+            totalSuggestions: problemsAnalysis.suggestions.length,
+            criticalCount: problemsAnalysis.metadata.criticalCount,
+            warningCount: problemsAnalysis.metadata.warningCount
+          });
+        } catch (error) {
+          logAudio('core_metrics', 'problems_analysis_error', { error: error.message });
+          // Manter estrutura padrão definida acima
+        }
+      } else {
+        console.log("[SUGGESTIONS] Desativadas via flag de ambiente.");
+        problemsAnalysis = null; // garante consistência no JSON
       }
       
       // Adicionar análise de problemas aos resultados com estrutura V2
