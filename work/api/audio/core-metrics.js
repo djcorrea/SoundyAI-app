@@ -1346,29 +1346,43 @@ class CoreMetricsProcessor {
       console.log(`[WORKER][BPM] Método 1 (music-tempo): ${musicTempoBpm.bpm} (conf: ${musicTempoBpm.confidence.toFixed(2)})`);
       console.log(`[WORKER][BPM] Método 2 (autocorr): ${autocorrBpm.bpm} (conf: ${autocorrBpm.confidence.toFixed(2)})`);
 
-      // ========= CROSS-VALIDATION COM FALLBACK RÍGIDO =========
-      const finalResult = this.crossValidateBpmResults(musicTempoBpm, autocorrBpm, BPM_MIN, BPM_MAX, CONFIDENCE_THRESHOLD);
-      
-      // ✅ Log detalhado do resultado final
-      if (finalResult.bpm !== null) {
-        console.log(`[WORKER][BPM] Detected: ${finalResult.bpm} BPM | Confidence: ${finalResult.confidence.toFixed(2)} | Source: ${finalResult.source}`);
+      // ========= CROSS-VALIDATION REFORÇADA =========
+      const musicTempoResult = { bpm: musicTempoBpm.bpm, confidence: musicTempoBpm.confidence, source: 'music-tempo' };
+      const autocorrResult   = { bpm: autocorrBpm.bpm, confidence: autocorrBpm.confidence, source: 'autocorr' };
+
+      const consolidated = this.crossValidateBpmResults(musicTempoResult, autocorrResult);
+
+      // Preparar technicalData
+      const technicalData = {};
+
+      if (consolidated) {
+        technicalData.bpm = consolidated.bpm;
+        technicalData.bpmConfidence = consolidated.confidence;
+        technicalData.bmpSource = consolidated.source;
+        console.log('[WORKER][BPM] Final:', consolidated);
       } else {
-        console.log(`[WORKER][BPM] Detection failed | Confidence: ${finalResult.confidence?.toFixed(2) || 'N/A'} | Reason: ${finalResult.source}`);
+        technicalData.bpm = null;
+        technicalData.bpmConfidence = Math.max(
+          Number(musicTempoResult.confidence) || 0,
+          Number(autocorrResult.confidence) || 0
+        );
+        technicalData.bmpSource = 'UNKNOWN';
+        console.log('[WORKER][BPM] Final: null (conf baixa / métodos discordantes)');
       }
 
       logAudio('core_metrics', 'bpm_calculation_completed', { 
-        bpm: finalResult.bpm,
-        confidence: finalResult.confidence?.toFixed(2) || 0,
-        source: finalResult.source,
-        method1: musicTempoBpm,
-        method2: autocorrBpm,
+        bpm: technicalData.bpm,
+        confidence: technicalData.bpmConfidence?.toFixed?.(2) || technicalData.bmpConfidence || 0,
+        source: technicalData.bmpSource,
+        method1: musicTempoResult,
+        method2: autocorrResult,
         jobId: jobId.substring(0,8) 
       });
 
       return { 
-        bpm: finalResult.bpm, 
-        bpmConfidence: finalResult.confidence ? Math.round(finalResult.confidence * 100) / 100 : null,
-        bmpSource: finalResult.source || 'UNKNOWN'
+        bpm: technicalData.bpm, 
+        bpmConfidence: technicalData.bpmConfidence,
+        bmpSource: technicalData.bmpSource
       };
 
     } catch (error) {
@@ -1601,105 +1615,113 @@ class CoreMetricsProcessor {
     return { bpm: detectedBpm, confidence: finalConfidence };
   }
 
-  // ========= CROSS-VALIDATION COM REGRAS RIGOROSAS =========
-  crossValidateBpmResults(result1, result2, minBpm, maxBpm, confidenceThreshold) {
-    console.log(`[WORKER][BPM] Cross-validation: music-tempo=${result1.bpm}(${result1.confidence.toFixed(2)}) vs autocorr=${result2.bpm}(${result2.confidence.toFixed(2)})`);
-    
-    // Se ambos métodos falharam
-    if (!result1.bpm && !result2.bpm) {
-      console.log(`[WORKER][BPM] Ambos métodos falharam - sem detecção`);
-      return { bpm: null, confidence: 0, source: 'NO_DETECTION' };
-    }
+  // ========= CROSS-VALIDATION REFORÇADA (NOVA VERSÃO) =========
+  crossValidateBpmResults(method1, method2) {
+    const m1 = method1 || { bpm: null, confidence: 0, source: 'unknown' };
+    const m2 = method2 || { bpm: null, confidence: 0, source: 'unknown' };
 
-    // Se apenas um método teve resultado
-    if (!result1.bpm) {
-      console.log(`[WORKER][BPM] Apenas autocorrelação detectou: ${result2.bpm}`);
-      return this.validateAndCorrectHarmonics(result2, minBpm, maxBpm, confidenceThreshold, 'SINGLE_METHOD_AUTOCORR');
-    }
-    
-    if (!result2.bpm) {
-      console.log(`[WORKER][BPM] Apenas music-tempo detectou: ${result1.bpm}`);
-      return this.validateAndCorrectHarmonics(result1, minBpm, maxBpm, confidenceThreshold, 'SINGLE_METHOD_MUSIC_TEMPO');
-    }
+    const has1 = Number.isFinite(m1?.bpm);
+    const has2 = Number.isFinite(m2?.bpm);
 
-    // Análise de concordância entre métodos
-    const bpmDifference = Math.abs(result1.bpm - result2.bpm);
-    const avgBpm = Math.round((result1.bpm + result2.bpm) / 2);
-    const avgConfidence = (result1.confidence + result2.confidence) / 2;
-    
-    console.log(`[WORKER][BPM] Diferença entre métodos: ${bpmDifference} BPM | Média: ${avgBpm} BPM | Conf média: ${avgConfidence.toFixed(2)}`);
+    const STRONG = 0.70;
+    const FALLBACK = 0.50;
+    const TOL = 2;
 
-    // ========= REGRA 1: MÉTODOS PRÓXIMOS (±2 BPM) =========
-    if (bpmDifference <= 2) {
-      console.log(`[WORKER][BPM] ✅ Métodos concordam (±2 BPM) - usando valor médio`);
-      
-      // Aplicar correção harmônica antes de validar confiança
-      const harmonicCorrected = this.checkAndCorrectHarmonics(avgBpm, avgConfidence, minBpm, maxBpm);
-      
-      // Se confiança >= threshold, aceitar diretamente
-      if (harmonicCorrected.confidence >= confidenceThreshold) {
-        console.log(`[WORKER][BPM] ✅ Alta confiança (${harmonicCorrected.confidence.toFixed(2)}) - aceito como NORMAL`);
-        return { 
-          bpm: harmonicCorrected.bpm, 
-          confidence: harmonicCorrected.confidence, 
-          source: harmonicCorrected.wasHarmonicCorrected ? 'HARMONIC_CORRECTED' : 'NORMAL' 
-        };
-      }
-      
-      // Se confiança >= 0.5, aplicar fallback rígido
-      else if (harmonicCorrected.confidence >= 0.5) {
-        console.log(`[WORKER][BPM] ⚠️ Confiança baixa mas >= 0.5 (${harmonicCorrected.confidence.toFixed(2)}) - aplicando fallback rígido`);
-        return { 
-          bpm: harmonicCorrected.bpm, 
-          confidence: harmonicCorrected.confidence, 
-          source: harmonicCorrected.wasHarmonicCorrected ? 'FALLBACK_STRICT_HARMONIC' : 'FALLBACK_STRICT' 
-        };
-      }
-      
-      // Confiança < 0.5 - rejeitar
-      else {
-        console.log(`[WORKER][BPM] ❌ Confiança muito baixa (${harmonicCorrected.confidence.toFixed(2)}) - rejeitando`);
-        return { bpm: null, confidence: harmonicCorrected.confidence, source: 'CONFIDENCE_TOO_LOW' };
-      }
-    }
+    const clamp01 = (v) => Math.max(0, Math.min(1, Number(v) || 0));
+    const diff = (has1 && has2) ? Math.abs(m1.bpm - m2.bpm) : Infinity;
 
-    // ========= REGRA 2: CORREÇÃO HARMÔNICA =========
-    const harmonicResult = this.checkHarmonics(result1, result2);
-    if (harmonicResult) {
-      console.log(`[WORKER][BPM] 🎵 Detectada relação harmônica - corrigindo`);
-      const corrected = this.checkAndCorrectHarmonics(harmonicResult.bpm, harmonicResult.confidence, minBpm, maxBpm);
-      
-      if (corrected.confidence >= confidenceThreshold) {
-        console.log(`[WORKER][BPM] ✅ Correção harmônica aceita com alta confiança`);
-        return { 
-          bpm: corrected.bpm, 
-          confidence: corrected.confidence, 
-          source: 'HARMONIC_CORRECTED' 
-        };
-      } else {
-        console.log(`[WORKER][BPM] ❌ Correção harmônica com confiança baixa - rejeitando`);
-        return { bpm: null, confidence: corrected.confidence, source: 'HARMONIC_LOW_CONFIDENCE' };
-      }
-    }
+    const isHarmonic = (a, b) => {
+      if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
+      return (
+        Math.abs(a - b) <= TOL ||
+        Math.abs(a - 2 * b) <= TOL ||
+        Math.abs(a - b / 2) <= TOL
+      );
+    };
 
-    // ========= REGRA 3: SEM CONSENSO - USAR MAIS CONFIÁVEL =========
-    const bestResult = result1.confidence > result2.confidence ? result1 : result2;
-    const bestMethod = result1.confidence > result2.confidence ? 'music-tempo' : 'autocorrelation';
-    
-    console.log(`[WORKER][BPM] 🤔 Métodos discordantes (${bpmDifference} BPM) - usando ${bestMethod}: ${bestResult.bpm}`);
-    
-    if (bestResult.confidence >= confidenceThreshold) {
-      const corrected = this.checkAndCorrectHarmonics(bestResult.bpm, bestResult.confidence, minBpm, maxBpm);
-      console.log(`[WORKER][BPM] ✅ Método mais confiável aceito`);
-      return { 
-        bpm: corrected.bpm, 
-        confidence: corrected.confidence, 
-        source: corrected.wasHarmonicCorrected ? 'BEST_CONFIDENCE_HARMONIC' : 'BEST_CONFIDENCE' 
+    const pick = (chosen, reason) => {
+      if (!chosen || !Number.isFinite(chosen.bpm)) return null;
+      return {
+        bpm: Math.round(chosen.bpm),
+        confidence: clamp01(chosen.confidence),
+        source: chosen.source || reason || 'cross-validate'
       };
-    } else {
-      console.log(`[WORKER][BPM] ❌ Melhor método com confiança baixa (${bestResult.confidence.toFixed(2)}) - rejeitando`);
-      return { bpm: null, confidence: bestResult.confidence, source: 'DISCORDANT_LOW_CONFIDENCE' };
+    };
+
+    console.log(`[WORKER][BPM] Cross-validation: m1=${m1.bpm}(${clamp01(m1.confidence).toFixed(2)}) vs m2=${m2.bpm}(${clamp01(m2.confidence).toFixed(2)})`);
+
+    // casos com apenas um válido
+    if (has1 && !has2) {
+      console.log(`[WORKER][BPM] Apenas método 1 válido`);
+      return pick(m1, 'only-method1');
     }
+    if (!has1 && has2) {
+      console.log(`[WORKER][BPM] Apenas método 2 válido`);
+      return pick(m2, 'only-method2');
+    }
+    if (!has1 && !has2) {
+      console.log(`[WORKER][BPM] Nenhum método válido`);
+      return null;
+    }
+
+    const m1Strong = m1.confidence >= STRONG;
+    const m2Strong = m2.confidence >= STRONG;
+    const m1Ok = m1.confidence >= FALLBACK;
+    const m2Ok = m2.confidence >= FALLBACK;
+
+    console.log(`[WORKER][BPM] Análise: diff=${diff.toFixed(1)}, m1_strong=${m1Strong}, m2_strong=${m2Strong}, m1_ok=${m1Ok}, m2_ok=${m2Ok}`);
+
+    // 1) Ambos fortes
+    if (m1Strong && m2Strong) {
+      console.log(`[WORKER][BPM] Ambos métodos com confiança FORTE (>= 0.70)`);
+      if (diff <= TOL) {
+        const avg = (m1.bpm + m2.bpm) / 2;
+        const conf = clamp01((m1.confidence + m2.confidence) / 2);
+        console.log(`[WORKER][BPM] ✅ Concordam (diff=${diff}) - média: ${avg.toFixed(1)}`);
+        return pick({ bpm: avg, confidence: conf, source: 'agree-avg' });
+      }
+      if (isHarmonic(m1.bpm, m2.bpm)) {
+        console.log(`[WORKER][BPM] 🎵 Relação harmônica detectada`);
+        if (m1.confidence > m2.confidence) return pick({ ...m1, source: 'harmonic-m1' });
+        if (m2.confidence > m1.confidence) return pick({ ...m2, source: 'harmonic-m2' });
+        return pick({ ...(m1.bpm >= m2.bpm ? m1 : m2), source: 'harmonic-tie-high-bpm' });
+      }
+      console.log(`[WORKER][BPM] Discordantes - usando mais confiável`);
+      return pick(m1.confidence >= m2.confidence ? { ...m1, source: 'strong-higher-conf' }
+                                                 : { ...m2, source: 'strong-higher-conf' });
+    }
+
+    // 2) Um forte e outro fraco
+    if (m1Strong && !m2Strong) {
+      console.log(`[WORKER][BPM] ✅ Método 1 FORTE, método 2 fraco - usando m1`);
+      return pick({ ...m1, source: 'm1-strong' });
+    }
+    if (!m1Strong && m2Strong) {
+      console.log(`[WORKER][BPM] ✅ Método 2 FORTE, método 1 fraco - usando m2`);
+      return pick({ ...m2, source: 'm2-strong' });
+    }
+
+    // 3) Nenhum forte, mas algum >= 0.50
+    if ((m1Ok || m2Ok)) {
+      console.log(`[WORKER][BPM] Nenhum forte, mas algum >= 0.50 (FALLBACK)`);
+      if (diff <= TOL) {
+        console.log(`[WORKER][BPM] ⚠️ Fallback - métodos próximos (diff=${diff})`);
+        return pick(m1.confidence >= m2.confidence ? { ...m1, source: 'fallback-close-m1' }
+                                                   : { ...m2, source: 'fallback-close-m2' });
+      }
+      if (isHarmonic(m1.bpm, m2.bpm)) {
+        console.log(`[WORKER][BPM] ⚠️ Fallback - harmônica detectada`);
+        if (m1.confidence > m2.confidence) return pick({ ...m1, source: 'fallback-harmonic-m1' });
+        if (m2.confidence > m1.confidence) return pick({ ...m2, source: 'fallback-harmonic-m2' });
+        return pick({ ...(m1.bpm >= m2.bpm ? m1 : m2), source: 'fallback-harmonic-tie-high-bpm' });
+      }
+      console.log(`[WORKER][BPM] ❌ Fallback - métodos discordantes sem harmônica`);
+      return null;
+    }
+
+    // 4) Ambos fracos (<0.50)
+    console.log(`[WORKER][BPM] ❌ Ambos métodos com confiança muito baixa (< 0.50)`);
+    return null;
   }
 
   // ========= CORREÇÃO HARMÔNICA E VALIDAÇÃO =========
