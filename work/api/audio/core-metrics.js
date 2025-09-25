@@ -1321,7 +1321,7 @@ class CoreMetricsProcessor {
 
       if (leftChannel.length < CORE_METRICS_CONFIG.SAMPLE_RATE * 10) { // Mín. 10 segundos
         console.warn('[WORKER][BPM] Sinal muito curto para análise de BPM (< 10s)');
-        return { bpm: null, bpmConfidence: null, bmpSource: 'TOO_SHORT' };
+        return { bpm: null, bpmConfidence: null, bpmSource: 'TOO_SHORT' };
       }
 
       // Combinar canais para mono (RMS stereo)
@@ -1358,7 +1358,7 @@ class CoreMetricsProcessor {
       if (consolidated) {
         technicalData.bpm = consolidated.bpm;
         technicalData.bpmConfidence = consolidated.confidence;
-        technicalData.bmpSource = consolidated.source;
+        technicalData.bpmSource = consolidated.source; // ✅ CORREÇÃO: bmpSource → bpmSource
         console.log('[WORKER][BPM] Final:', consolidated);
       } else {
         technicalData.bpm = null;
@@ -1366,14 +1366,14 @@ class CoreMetricsProcessor {
           Number(musicTempoResult.confidence) || 0,
           Number(autocorrResult.confidence) || 0
         );
-        technicalData.bmpSource = 'UNKNOWN';
+        technicalData.bpmSource = 'UNKNOWN'; // ✅ CORREÇÃO: bmpSource → bpmSource
         console.log('[WORKER][BPM] Final: null (conf baixa / métodos discordantes)');
       }
 
       logAudio('core_metrics', 'bpm_calculation_completed', { 
         bpm: technicalData.bpm,
-        confidence: technicalData.bpmConfidence?.toFixed?.(2) || technicalData.bmpConfidence || 0,
-        source: technicalData.bmpSource,
+        confidence: technicalData.bpmConfidence?.toFixed?.(2) || technicalData.bpmConfidence || 0,
+        source: technicalData.bpmSource, // ✅ CORREÇÃO: bmpSource → bpmSource
         method1: musicTempoResult,
         method2: autocorrResult,
         jobId: jobId.substring(0,8) 
@@ -1382,7 +1382,7 @@ class CoreMetricsProcessor {
       return { 
         bpm: technicalData.bpm, 
         bpmConfidence: technicalData.bpmConfidence,
-        bmpSource: technicalData.bmpSource
+        bpmSource: technicalData.bpmSource // ✅ CORREÇÃO: bmpSource → bpmSource
       };
 
     } catch (error) {
@@ -1395,7 +1395,7 @@ class CoreMetricsProcessor {
       return { 
         bpm: null, 
         bpmConfidence: null,
-        bmpSource: 'ERROR'
+        bpmSource: 'ERROR'
       };
     }
   }
@@ -1639,12 +1639,39 @@ class CoreMetricsProcessor {
       );
     };
 
-    const pick = (chosen, reason) => {
+    // ✅ MAPEAMENTO PARA FONTES ESPECIFICADAS
+    const mapSourceName = (chosen, reason) => {
       if (!chosen || !Number.isFinite(chosen.bpm)) return null;
+      
+      let finalSource = 'cross-validated'; // Default
+      
+      // Regras de mapeamento conforme solicitado:
+      if (reason === 'm1-strong' && m1.source === 'music-tempo') {
+        finalSource = 'music-tempo';
+      } else if (reason === 'm1-strong' && m1.source === 'autocorr') {
+        finalSource = 'autocorr';
+      } else if (reason === 'm2-strong' && m2.source === 'music-tempo') {
+        finalSource = 'music-tempo';
+      } else if (reason === 'm2-strong' && m2.source === 'autocorr') {
+        finalSource = 'autocorr';
+      } else if (reason?.includes('fallback')) {
+        finalSource = 'fallback';
+      } else if (reason?.includes('agree') || reason?.includes('harmonic')) {
+        finalSource = 'cross-validated';
+      } else if (reason === 'only-method1' && m1.source === 'music-tempo') {
+        finalSource = 'music-tempo';
+      } else if (reason === 'only-method1' && m1.source === 'autocorr') {
+        finalSource = 'autocorr';
+      } else if (reason === 'only-method2' && m2.source === 'music-tempo') {
+        finalSource = 'music-tempo';
+      } else if (reason === 'only-method2' && m2.source === 'autocorr') {
+        finalSource = 'autocorr';
+      }
+      
       return {
         bpm: Math.round(chosen.bpm),
         confidence: clamp01(chosen.confidence),
-        source: chosen.source || reason || 'cross-validate'
+        source: finalSource
       };
     };
 
@@ -1653,11 +1680,11 @@ class CoreMetricsProcessor {
     // casos com apenas um válido
     if (has1 && !has2) {
       console.log(`[WORKER][BPM] Apenas método 1 válido`);
-      return pick(m1, 'only-method1');
+      return mapSourceName(m1, 'only-method1');
     }
     if (!has1 && has2) {
       console.log(`[WORKER][BPM] Apenas método 2 válido`);
-      return pick(m2, 'only-method2');
+      return mapSourceName(m2, 'only-method2');
     }
     if (!has1 && !has2) {
       console.log(`[WORKER][BPM] Nenhum método válido`);
@@ -1678,27 +1705,26 @@ class CoreMetricsProcessor {
         const avg = (m1.bpm + m2.bpm) / 2;
         const conf = clamp01((m1.confidence + m2.confidence) / 2);
         console.log(`[WORKER][BPM] ✅ Concordam (diff=${diff}) - média: ${avg.toFixed(1)}`);
-        return pick({ bpm: avg, confidence: conf, source: 'agree-avg' });
+        return mapSourceName({ bpm: avg, confidence: conf }, 'agree-avg');
       }
       if (isHarmonic(m1.bpm, m2.bpm)) {
         console.log(`[WORKER][BPM] 🎵 Relação harmônica detectada`);
-        if (m1.confidence > m2.confidence) return pick({ ...m1, source: 'harmonic-m1' });
-        if (m2.confidence > m1.confidence) return pick({ ...m2, source: 'harmonic-m2' });
-        return pick({ ...(m1.bpm >= m2.bpm ? m1 : m2), source: 'harmonic-tie-high-bpm' });
+        if (m1.confidence > m2.confidence) return mapSourceName({ ...m1 }, 'harmonic-m1');
+        if (m2.confidence > m1.confidence) return mapSourceName({ ...m2 }, 'harmonic-m2');
+        return mapSourceName({ ...(m1.bpm >= m2.bmp ? m1 : m2) }, 'harmonic-tie');
       }
       console.log(`[WORKER][BPM] Discordantes - usando mais confiável`);
-      return pick(m1.confidence >= m2.confidence ? { ...m1, source: 'strong-higher-conf' }
-                                                 : { ...m2, source: 'strong-higher-conf' });
+      return mapSourceName(m1.confidence >= m2.confidence ? { ...m1 } : { ...m2 }, 'strong-higher-conf');
     }
 
     // 2) Um forte e outro fraco
     if (m1Strong && !m2Strong) {
       console.log(`[WORKER][BPM] ✅ Método 1 FORTE, método 2 fraco - usando m1`);
-      return pick({ ...m1, source: 'm1-strong' });
+      return mapSourceName({ ...m1 }, 'm1-strong');
     }
     if (!m1Strong && m2Strong) {
       console.log(`[WORKER][BPM] ✅ Método 2 FORTE, método 1 fraco - usando m2`);
-      return pick({ ...m2, source: 'm2-strong' });
+      return mapSourceName({ ...m2 }, 'm2-strong');
     }
 
     // 3) Nenhum forte, mas algum >= 0.50
@@ -1706,14 +1732,11 @@ class CoreMetricsProcessor {
       console.log(`[WORKER][BPM] Nenhum forte, mas algum >= 0.50 (FALLBACK)`);
       if (diff <= TOL) {
         console.log(`[WORKER][BPM] ⚠️ Fallback - métodos próximos (diff=${diff})`);
-        return pick(m1.confidence >= m2.confidence ? { ...m1, source: 'fallback-close-m1' }
-                                                   : { ...m2, source: 'fallback-close-m2' });
+        return mapSourceName(m1.confidence >= m2.confidence ? { ...m1 } : { ...m2 }, 'fallback-close');
       }
       if (isHarmonic(m1.bpm, m2.bpm)) {
         console.log(`[WORKER][BPM] ⚠️ Fallback - harmônica detectada`);
-        if (m1.confidence > m2.confidence) return pick({ ...m1, source: 'fallback-harmonic-m1' });
-        if (m2.confidence > m1.confidence) return pick({ ...m2, source: 'fallback-harmonic-m2' });
-        return pick({ ...(m1.bpm >= m2.bpm ? m1 : m2), source: 'fallback-harmonic-tie-high-bpm' });
+        return mapSourceName(m1.confidence >= m2.confidence ? { ...m1 } : { ...m2 }, 'fallback-harmonic');
       }
       console.log(`[WORKER][BPM] ❌ Fallback - métodos discordantes sem harmônica`);
       return null;
