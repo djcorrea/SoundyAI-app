@@ -349,11 +349,11 @@ class CoreMetricsProcessor {
       }
       
       // Adicionar análise de problemas aos resultados com estrutura V2
-      coreMetrics.problems = problemsAnalysis.problems || [];
-      coreMetrics.suggestions = problemsAnalysis.suggestions || [];
-      coreMetrics.qualityAssessment = problemsAnalysis.summary || problemsAnalysis.quality || {};
-      coreMetrics.priorityRecommendations = problemsAnalysis.priorityRecommendations || [];
-      coreMetrics.suggestionMetadata = problemsAnalysis.metadata || {};
+      coreMetrics.problems = problemsAnalysis?.problems || [];
+      coreMetrics.suggestions = problemsAnalysis?.suggestions || [];
+      coreMetrics.qualityAssessment = problemsAnalysis?.summary || problemsAnalysis?.quality || {};
+      coreMetrics.priorityRecommendations = problemsAnalysis?.priorityRecommendations || [];
+      coreMetrics.suggestionMetadata = problemsAnalysis?.metadata || {};
 
       // ========= VALIDAÇÃO FINAL =========
       try {
