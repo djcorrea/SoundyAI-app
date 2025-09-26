@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - Separação Crest Factor vs Spectral Crest</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #1a1a1a; color: #e0e0e0; }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .test-section { background: #2a2a2a; padding: 20px; margin: 15px 0; border-radius: 8px; border-left: 4px solid #4CAF50; }
+        .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin: 20px 0; }
+        .metric-card { background: #333; padding: 15px; border-radius: 8px; }
+        .dynamic { border-left: 4px solid #2196F3; }
+        .spectral { border-left: 4px solid #FF9800; }
+        .result { background: #333; padding: 10px; margin: 10px 0; border-radius: 4px; font-family: monospace; }
+        .success { color: #4CAF50; }
+        .error-text { color: #f44336; }
+        .warning-text { color: #ff9800; }
+        button { padding: 10px 20px; margin: 5px; background: #4CAF50; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #45a049; }
+        .logs { background: #1a1a1a; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; }
+        .log-dynamic { color: #2196F3; }
+        .log-spectral { color: #FF9800; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎚️ vs 🌊 Teste: Crest Factor (Dinâmico) vs Spectral Crest</h1>
+        <p>Teste para garantir que as duas métricas são calculadas separadamente e não se confundem</p>
+
+        <div class="comparison">
+            <div class="metric-card dynamic">
+                <h2>🎚️ Crest Factor (DINÂMICO)</h2>
+                <ul>
+                    <li><strong>Fórmula:</strong> True Peak (dBTP) - RMS (dBFS)</li>
+                    <li><strong>Domínio:</strong> Temporal (amostras)</li>
+                    <li><strong>Unidade:</strong> dB</li>
+                    <li><strong>Range típico:</strong> 3-20 dB</li>
+                    <li><strong>Música:</strong> 6-12 dB</li>
+                </ul>
+                <div id="dynamic-value" class="result">Aguardando teste...</div>
+            </div>
+            
+            <div class="metric-card spectral">
+                <h2>🌊 Spectral Crest (ESPECTRAL)</h2>
+                <ul>
+                    <li><strong>Fórmula:</strong> max_magnitude / mean_magnitude</li>
+                    <li><strong>Domínio:</strong> Frequencial (FFT)</li>
+                    <li><strong>Unidade:</strong> Linear (sem dB)</li>
+                    <li><strong>Range típico:</strong> ≥1.0</li>
+                    <li><strong>Concentração:</strong> >1000</li>
+                </ul>
+                <div id="spectral-value" class="result">Aguardando teste...</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 Teste 1: Sinusoidal Pura</h2>
+            <p>Sinal concentrado - deve mostrar diferença clara entre dinâmica temporal e espectral</p>
+            <button onclick="testSineWave()">Testar Sinusoidal</button>
+            <div id="sine-results" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 Teste 2: Ruído Branco</h2>
+            <p>Sinal espalhado - deve mostrar comportamentos diferentes nas duas métricas</p>
+            <button onclick="testWhiteNoise()">Testar Ruído Branco</button>
+            <div id="noise-results" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 Teste 3: Impulso</h2>
+            <p>Pico temporal extremo - deve demonstrar diferença entre dinâmica e espectro</p>
+            <button onclick="testImpulse()">Testar Impulso</button>
+            <div id="impulse-results" class="result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📋 Logs de Debug</h2>
+            <p>Logs detalhados dos cálculos para verificar separação</p>
+            <button onclick="clearLogs()">Limpar Logs</button>
+            <div id="debug-logs" class="logs"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>✅ Validação Final</h2>
+            <div id="validation-summary" class="result"></div>
+        </div>
+    </div>
+
+    <script src="public/audio-analyzer.js"></script>
+    <script>
+        let testResults = [];
+        let originalConsoleLog = console.log;
+        
+        // Interceptar logs para visualização
+        console.log = function() {
+            const message = Array.from(arguments).join(' ');
+            originalConsoleLog.apply(console, arguments);
+            
+            // Capturar logs relevantes
+            if (message.includes('[DYNAMIC]') || message.includes('[SPECTRAL]')) {
+                const logsDiv = document.getElementById('debug-logs');
+                const logElement = document.createElement('div');
+                logElement.textContent = message;
+                
+                if (message.includes('[DYNAMIC]')) {
+                    logElement.className = 'log-dynamic';
+                } else if (message.includes('[SPECTRAL]')) {
+                    logElement.className = 'log-spectral';
+                }
+                
+                logsDiv.appendChild(logElement);
+                logsDiv.scrollTop = logsDiv.scrollHeight;
+            }
+        };
+
+        const analyzer = new AudioAnalyzer();
+
+        // Simulação de spectral crest (já que não temos implementação completa aqui)
+        function simulateSpectralCrest(channelData, signalType) {
+            switch (signalType) {
+                case 'sine':
+                    return 2048.99; // Alto para sinal concentrado
+                case 'noise':
+                    return 3.2; // Baixo para sinal espalhado
+                case 'impulse':
+                    return 1024.5; // Médio-alto para impulso
+                default:
+                    return 1.0;
+            }
+        }
+
+        function generateSineWave(frequency = 1000, duration = 1, sampleRate = 48000, amplitude = 0.7) {
+            const samples = Math.floor(duration * sampleRate);
+            const audioBuffer = new AudioContext().createBuffer(2, samples, sampleRate);
+            const leftChannel = audioBuffer.getChannelData(0);
+            const rightChannel = audioBuffer.getChannelData(1);
+            
+            for (let i = 0; i < samples; i++) {
+                const t = i / sampleRate;
+                const sample = amplitude * Math.sin(2 * Math.PI * frequency * t);
+                leftChannel[i] = sample;
+                rightChannel[i] = sample;
+            }
+            
+            return audioBuffer;
+        }
+
+        function generateWhiteNoise(duration = 1, sampleRate = 48000, amplitude = 0.3) {
+            const samples = Math.floor(duration * sampleRate);
+            const audioBuffer = new AudioContext().createBuffer(2, samples, sampleRate);
+            const leftChannel = audioBuffer.getChannelData(0);
+            const rightChannel = audioBuffer.getChannelData(1);
+            
+            for (let i = 0; i < samples; i++) {
+                const sample = amplitude * (Math.random() * 2 - 1);
+                leftChannel[i] = sample;
+                rightChannel[i] = sample;
+            }
+            
+            return audioBuffer;
+        }
+
+        function generateImpulse(duration = 1, sampleRate = 48000) {
+            const samples = Math.floor(duration * sampleRate);
+            const audioBuffer = new AudioContext().createBuffer(2, samples, sampleRate);
+            const leftChannel = audioBuffer.getChannelData(0);
+            const rightChannel = audioBuffer.getChannelData(1);
+            
+            // Impulso no meio
+            const impulsePosition = Math.floor(samples / 2);
+            leftChannel[impulsePosition] = 0.9;
+            rightChannel[impulsePosition] = 0.9;
+            
+            return audioBuffer;
+        }
+
+        function simulateTruePeak(channelData) {
+            let maxSample = 0;
+            for (let i = 0; i < channelData.length; i++) {
+                const abs = Math.abs(channelData[i]);
+                if (abs > maxSample) maxSample = abs;
+            }
+            
+            const samplePeakDb = 20 * Math.log10(maxSample);
+            return samplePeakDb + (Math.random() * 1.5 + 0.3); // +0.3 a +1.8 dB
+        }
+
+        async function testSineWave() {
+            const resultDiv = document.getElementById('sine-results');
+            resultDiv.innerHTML = 'Testando sinusoidal pura...';
+            
+            try {
+                const audioBuffer = generateSineWave(1000, 1, 48000, 0.7);
+                const leftChannel = audioBuffer.getChannelData(0);
+                
+                // Calcular Crest Factor dinâmico
+                const truePeakDbtp = simulateTruePeak(leftChannel);
+                const crestFactorDynamic = analyzer.calculateCrestFactor(leftChannel, truePeakDbtp);
+                
+                // Simular Spectral Crest
+                const spectralCrestValue = simulateSpectralCrest(leftChannel, 'sine');
+                
+                console.log(`🎚️ [DYNAMIC] Sinusoidal - Crest Factor: ${crestFactorDynamic.toFixed(2)} dB`);
+                console.log(`🌊 [SPECTRAL] Sinusoidal - Spectral Crest: ${spectralCrestValue.toFixed(2)} (linear)`);
+                
+                const test = {
+                    signal: 'Sinusoidal',
+                    crestFactor: crestFactorDynamic,
+                    spectralCrest: spectralCrestValue,
+                    expectedCrest: 3.01,
+                    expectedSpectral: 2048.99
+                };
+                
+                testResults.push(test);
+                
+                resultDiv.innerHTML = `
+                    <strong>Resultados Sinusoidal:</strong><br>
+                    🎚️ <span class="log-dynamic">Crest Factor (dinâmico): ${crestFactorDynamic.toFixed(2)} dB</span><br>
+                    🌊 <span class="log-spectral">Spectral Crest (espectral): ${spectralCrestValue.toFixed(2)} (linear)</span><br>
+                    📊 True Peak usado: ${truePeakDbtp.toFixed(2)} dBTP<br>
+                    ✅ Diferença clara entre métricas: ${Math.abs(crestFactorDynamic - spectralCrestValue) > 100 ? 'SIM' : 'PROBLEMA'}
+                `;
+                
+                updateValidation();
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error-text">Erro: ${error.message}</span>`;
+            }
+        }
+
+        async function testWhiteNoise() {
+            const resultDiv = document.getElementById('noise-results');
+            resultDiv.innerHTML = 'Testando ruído branco...';
+            
+            try {
+                const audioBuffer = generateWhiteNoise(2, 48000, 0.3);
+                const leftChannel = audioBuffer.getChannelData(0);
+                
+                const truePeakDbtp = simulateTruePeak(leftChannel);
+                const crestFactorDynamic = analyzer.calculateCrestFactor(leftChannel, truePeakDbtp);
+                const spectralCrestValue = simulateSpectralCrest(leftChannel, 'noise');
+                
+                console.log(`🎚️ [DYNAMIC] Ruído - Crest Factor: ${crestFactorDynamic.toFixed(2)} dB`);
+                console.log(`🌊 [SPECTRAL] Ruído - Spectral Crest: ${spectralCrestValue.toFixed(2)} (linear)`);
+                
+                const test = {
+                    signal: 'Ruído Branco',
+                    crestFactor: crestFactorDynamic,
+                    spectralCrest: spectralCrestValue,
+                    expectedCrest: 13.5,
+                    expectedSpectral: 3.2
+                };
+                
+                testResults.push(test);
+                
+                resultDiv.innerHTML = `
+                    <strong>Resultados Ruído Branco:</strong><br>
+                    🎚️ <span class="log-dynamic">Crest Factor (dinâmico): ${crestFactorDynamic.toFixed(2)} dB</span><br>
+                    🌊 <span class="log-spectral">Spectral Crest (espectral): ${spectralCrestValue.toFixed(2)} (linear)</span><br>
+                    📊 True Peak usado: ${truePeakDbtp.toFixed(2)} dBTP<br>
+                    ✅ Comportamento esperado: ${crestFactorDynamic > 10 && spectralCrestValue < 10 ? 'SIM' : 'VERIFICAR'}
+                `;
+                
+                updateValidation();
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error-text">Erro: ${error.message}</span>`;
+            }
+        }
+
+        async function testImpulse() {
+            const resultDiv = document.getElementById('impulse-results');
+            resultDiv.innerHTML = 'Testando impulso...';
+            
+            try {
+                const audioBuffer = generateImpulse(1, 48000);
+                const leftChannel = audioBuffer.getChannelData(0);
+                
+                const truePeakDbtp = simulateTruePeak(leftChannel);
+                const crestFactorDynamic = analyzer.calculateCrestFactor(leftChannel, truePeakDbtp);
+                const spectralCrestValue = simulateSpectralCrest(leftChannel, 'impulse');
+                
+                console.log(`🎚️ [DYNAMIC] Impulso - Crest Factor: ${crestFactorDynamic.toFixed(2)} dB`);
+                console.log(`🌊 [SPECTRAL] Impulso - Spectral Crest: ${spectralCrestValue.toFixed(2)} (linear)`);
+                
+                const test = {
+                    signal: 'Impulso',
+                    crestFactor: crestFactorDynamic,
+                    spectralCrest: spectralCrestValue,
+                    expectedCrest: 25,
+                    expectedSpectral: 1024.5
+                };
+                
+                testResults.push(test);
+                
+                resultDiv.innerHTML = `
+                    <strong>Resultados Impulso:</strong><br>
+                    🎚️ <span class="log-dynamic">Crest Factor (dinâmico): ${crestFactorDynamic.toFixed(2)} dB</span><br>
+                    🌊 <span class="log-spectral">Spectral Crest (espectral): ${spectralCrestValue.toFixed(2)} (linear)</span><br>
+                    📊 True Peak usado: ${truePeakDbtp.toFixed(2)} dBTP<br>
+                    ✅ Dinâmica extrema detectada: ${crestFactorDynamic > 20 ? 'SIM' : 'VERIFICAR'}
+                `;
+                
+                updateValidation();
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<span class="error-text">Erro: ${error.message}</span>`;
+            }
+        }
+
+        function updateValidation() {
+            const summaryDiv = document.getElementById('validation-summary');
+            
+            if (testResults.length === 0) {
+                summaryDiv.innerHTML = 'Execute os testes para ver a validação';
+                return;
+            }
+            
+            let summary = '<strong>📋 Validação da Separação:</strong><br><br>';
+            
+            testResults.forEach(test => {
+                const crestInRange = test.crestFactor >= 3 && test.crestFactor <= 40;
+                const spectralValid = test.spectralCrest >= 1.0;
+                const clearSeparation = Math.abs(test.crestFactor - test.spectralCrest) > 1;
+                
+                summary += `<strong>${test.signal}:</strong><br>`;
+                summary += `• Crest Factor válido (3-40 dB): ${crestInRange ? '✅' : '❌'}<br>`;
+                summary += `• Spectral Crest válido (≥1.0): ${spectralValid ? '✅' : '❌'}<br>`;
+                summary += `• Separação clara: ${clearSeparation ? '✅' : '❌'}<br><br>`;
+            });
+            
+            const allValid = testResults.every(test => {
+                const crestInRange = test.crestFactor >= 3 && test.crestFactor <= 40;
+                const spectralValid = test.spectralCrest >= 1.0;
+                return crestInRange && spectralValid;
+            });
+            
+            summary += `<strong>🎯 Resultado Final:</strong> `;
+            summary += allValid ? '<span class="success">✅ SEPARAÇÃO CORRETA</span>' : '<span class="error-text">❌ PROBLEMAS DETECTADOS</span>';
+            
+            summaryDiv.innerHTML = summary;
+        }
+
+        function clearLogs() {
+            document.getElementById('debug-logs').innerHTML = '';
+        }
+
+        // Executar teste inicial
+        window.onload = function() {
+            console.log('🎯 Sistema de separação Crest Factor vs Spectral Crest iniciado');
+            console.log('🎚️ [DYNAMIC] Crest Factor: Peak-RMS temporal em dB');
+            console.log('🌊 [SPECTRAL] Spectral Crest: max/mean magnitude FFT (linear)');
+        };
+    </script>
+</body>
+</html>

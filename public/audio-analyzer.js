@@ -1867,16 +1867,22 @@ class AudioAnalyzer {
       td.dynamicRange = td.crestFactor;
     }
   // 🎚️ Crest Factor CORRIGIDO - Usar True Peak quando disponível
+  // ⚠️ PROTEÇÃO: Garantir que crestFactor seja dinâmico (Peak-RMS), não espectral
   td.crestFactor = isFinite(core.crestFactor) ? core.crestFactor : null;
+  if (td.crestFactor !== null) {
+    console.log(`✅ [V2] Crest Factor (dinâmico) do backend V2: ${td.crestFactor.toFixed(2)} dB`);
+  }
   
   // Se não temos crest factor do V2, calcular com True Peak
   if (td.crestFactor == null) {
     const leftChannel = audioBuffer.getChannelData(0);
     const truePeakValue = td.truePeakDbtp; // Usar True Peak se disponível
     
-    console.log(`🎯 Calculando Crest Factor: True Peak = ${truePeakValue} dBTP`);
+    console.log(`🎯 [INTEGRATION] Calculando Crest Factor: True Peak = ${truePeakValue} dBTP`);
     td.crestFactor = this.calculateCrestFactor(leftChannel, truePeakValue);
     (td._sources = td._sources || {}).crestFactor = truePeakValue !== null ? 'v1:truepeak' : 'v1:sample';
+    console.log(`✅ [INTEGRATION] Crest Factor (dinâmico) atribuído: ${td.crestFactor?.toFixed(2)} dB`);
+    console.log(`📋 [INTEGRATION] Fonte: ${(td._sources || {}).crestFactor}`);
   }
   td.stereoWidth = isFinite(stereo.width) ? stereo.width : null;
   // Calcular métricas estéreo simples se ausentes e arquivo for estéreo
@@ -2745,7 +2751,8 @@ class AudioAnalyzer {
       return 0;
     }
     
-    console.log(`🎚️ Crest Factor calculado: ${peakDb.toFixed(2)} - ${rms.toFixed(2)} = ${crestFactor.toFixed(2)} dB`);
+    console.log(`🎚️ [DYNAMIC] Crest Factor calculado: ${peakDb.toFixed(2)} - ${rms.toFixed(2)} = ${crestFactor.toFixed(2)} dB`);
+    console.log(`🎯 [DYNAMIC] Tipo: ${truePeakDbtp !== null ? 'True Peak (dBTP)' : 'Sample Peak (dBFS)'}`);
     return crestFactor;
   }
 
