@@ -3533,7 +3533,6 @@ function displayModalResults(analysis) {
             row('Loudness Range (LRA)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra'),
             // 🥁 BPM – exibir como métrica principal, null-safe (mostra — quando ausente)
             row('BPM', `${Number.isFinite(getMetric('bpm', 'bpm')) ? safeFixed(getMetric('bpm', 'bpm'), 0) : '—'}`, 'bpm'),
-            // 🎚️ Fator de Crista DINÂMICO (Peak-RMS) - NÃO spectralCrest
             row('Fator de Crista', `${safeFixed(getMetric('crest_factor', 'crestFactor'))} dB`, 'crestFactor'),
             // REMOVED: True Peak placeholder/ampulheta - só exibir quando há valor válido
             (advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp')) ? (() => {
@@ -3893,27 +3892,12 @@ function displayModalResults(analysis) {
                 }
                 rows.push(row('Stereo Corr.', `<span class="${stereoClass}">${stereoText}</span>`, 'stereoCorrelation'));
                 
-                // 5. Fator de Crista - CORRIGIDO com alertas precisos
+                // 5. Fator de Crista - SEMPRE mostrar  
                 const crestVal = Number.isFinite(analysis.technicalData?.crestFactor) ? analysis.technicalData.crestFactor : 0;
-                
-                // ✅ Alertas baseados em padrões de engenharia de áudio:
-                let crestClass = '';
-                let crestAlert = '';
-                
-                if (crestVal < 5) {
-                    crestClass = 'critical';
-                    crestAlert = ' (Compressão excessiva - som muito achatado)';
-                    hasActualProblems = true;
-                } else if (crestVal > 15) {
-                    crestClass = 'warn';
-                    crestAlert = ' (Dinâmica excessiva - pode soar fraco para streaming)';
-                } else if (crestVal >= 5 && crestVal <= 15) {
-                    // Valores dentro da faixa normal
-                    crestClass = '';
-                    crestAlert = '';
-                }
-                
-                rows.push(row('Fator de Crista', `<span class="${crestClass}">${safeFixed(crestVal, 1)} dB${crestAlert}</span>`, 'crestFactor'));
+                const hasCrestProblem = crestVal < 6 || crestVal > 20; // Valores normais: 6-20dB
+                if (hasCrestProblem) hasActualProblems = true;
+                const crestClass = hasCrestProblem ? 'warn' : '';
+                rows.push(row('Fator de Crista', `<span class="${crestClass}">${safeFixed(crestVal, 1)} dB</span>`, 'crestFactor'));
                 
                 // Consistência (se disponível) - mas sempre tentar mostrar
                 if (analysis.metricsValidation && Object.keys(analysis.metricsValidation).length) {
@@ -6834,13 +6818,7 @@ function normalizeBackendAnalysisData(backendData) {
     tech.dynamicRange = getRealValue('dynamicRange', 'dynamic_range', 'dr');
     
     // Crest Factor - APENAS VALORES REAIS
-    // 🎚️ CREST FACTOR - Métrica dinâmica (Peak dB - RMS dB)
-    // ⚠️ NÃO confundir com spectralCrest (métrica espectral de FFT)
     tech.crestFactor = getRealValue('crestFactor', 'crest_factor');
-    if (tech.crestFactor !== null) {
-        console.log(`🎚️ [DYNAMIC] Crest Factor (dinâmico): ${tech.crestFactor.toFixed(2)} dB`);
-        console.log(`📋 [DYNAMIC] Tipo: Peak - RMS temporal (True Peak preferido)`);
-    }
     
     // True Peak - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA
     tech.truePeakDbtp = getRealValue('truePeakDbtp', 'true_peak_dbtp', 'truePeak') || 
@@ -6918,13 +6896,7 @@ function normalizeBackendAnalysisData(backendData) {
     tech.spectralBandwidth = getRealValue('spectralBandwidth', 'spectral_bandwidth');
     tech.spectralBandwidthHz = tech.spectralBandwidth; // Alias
     tech.spectralSpread = getRealValue('spectralSpread', 'spectral_spread');
-    // 🌊 SPECTRAL CREST - Métrica espectral separada (NÃO confundir com crestFactor dinâmico)
-    // Formula: max_magnitude / mean_magnitude (domínio FFT)
     tech.spectralCrest = getRealValue('spectralCrest', 'spectral_crest');
-    if (tech.spectralCrest !== null) {
-        console.log(`🌊 [SPECTRAL] Spectral Crest (espectral): ${tech.spectralCrest.toFixed(2)} (linear, sem dB)`);
-        console.log(`📋 [SPECTRAL] Tipo: Análise de frequências FFT (max/mean magnitude)`);
-    }
     tech.spectralSkewness = getRealValue('spectralSkewness', 'spectral_skewness');
     tech.spectralKurtosis = getRealValue('spectralKurtosis', 'spectral_kurtosis');
     
