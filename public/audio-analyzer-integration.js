@@ -3517,7 +3517,7 @@ function displayModalResults(analysis) {
         const col1 = [
             // CONDITIONAL: Pico de Amostra - só exibir se não for placeholder 0.000
             (Number.isFinite(getMetric('peak_db', 'peak')) && getMetric('peak_db', 'peak') !== 0 ? row('Pico de Amostra', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak') : ''),
-            row('Volume Médio (energia)', `${safeFixed(getMetric('rms_level', 'avgLoudness'))} dB`, 'avgLoudness'),
+            row('Volume Médio (RMS)', `${safeFixed(getMetric('rms_level', 'avgLoudness'))} dBFS`, 'avgLoudness'),
             row('Dynamic Range (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
             row('Loudness Range (LRA)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra'),
             // 🥁 BPM – exibir como métrica principal, null-safe (mostra — quando ausente)
@@ -3526,9 +3526,9 @@ function displayModalResults(analysis) {
             // REMOVED: True Peak placeholder/ampulheta - só exibir quando há valor válido
             (advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp')) ? row('pico real (dbtp)', `${safeFixed(getMetric('truePeakDbtp', 'truePeakDbtp'))} dBTP`, 'truePeakDbtp') : ''),
             // REMOVED: LUFS placeholder/ampulheta - só exibir quando há valor válido  
-            (advancedReady && Number.isFinite(getLufsIntegratedValue()) ? row('Volume Integrado (padrão streaming)', `${safeFixed(getLufsIntegratedValue())} LUFS`, 'lufsIntegrated') : ''),
-            (advancedReady && Number.isFinite(getMetric('lufs_short_term', 'lufsShortTerm')) ? row('Volume Short-Term', `${safeFixed(getMetric('lufs_short_term', 'lufsShortTerm'))} LUFS`, 'lufsShortTerm') : ''),
-            (advancedReady && Number.isFinite(getMetric('lufs_momentary', 'lufsMomentary')) ? row('Volume Momentary', `${safeFixed(getMetric('lufs_momentary', 'lufsMomentary'))} LUFS`, 'lufsMomentary') : '')
+            (advancedReady && Number.isFinite(getLufsIntegratedValue()) ? row('LUFS Integrado (EBU R128)', `${safeFixed(getLufsIntegratedValue())} LUFS`, 'lufsIntegrated') : ''),
+            (advancedReady && Number.isFinite(getMetric('lufs_short_term', 'lufsShortTerm')) ? row('LUFS Curto Prazo', `${safeFixed(getMetric('lufs_short_term', 'lufsShortTerm'))} LUFS`, 'lufsShortTerm') : ''),
+            (advancedReady && Number.isFinite(getMetric('lufs_momentary', 'lufsMomentary')) ? row('LUFS Momentâneo', `${safeFixed(getMetric('lufs_momentary', 'lufsMomentary'))} LUFS`, 'lufsMomentary') : '')
             ].join('');
 
         const col2 = [
