@@ -1861,10 +1861,22 @@ class AudioAnalyzer {
       (td._sources = td._sources || {}).balanceLR = 'v2:stereo';
     }
     td.tonalBalance = tonal && typeof tonal === 'object' ? tonal : null;
-  // Extras para visual completo
+    
+    // 🔄 Compatibilidade: dynamic range = crest factor
+    if (Number.isFinite(td.crestFactor)) {
+      td.dynamicRange = td.crestFactor;
+    }
+  // 🎚️ Crest Factor CORRIGIDO - Usar True Peak quando disponível
   td.crestFactor = isFinite(core.crestFactor) ? core.crestFactor : null;
-  if (td.crestFactor == null && Number.isFinite(baseAnalysis.technicalData?.peak) && Number.isFinite(baseAnalysis.technicalData?.rms)) {
-    td.crestFactor = (baseAnalysis.technicalData.peak - baseAnalysis.technicalData.rms).toFixed(2)*1;
+  
+  // Se não temos crest factor do V2, calcular com True Peak
+  if (td.crestFactor == null) {
+    const leftChannel = audioBuffer.getChannelData(0);
+    const truePeakValue = td.truePeakDbtp; // Usar True Peak se disponível
+    
+    console.log(`🎯 Calculando Crest Factor: True Peak = ${truePeakValue} dBTP`);
+    td.crestFactor = this.calculateCrestFactor(leftChannel, truePeakValue);
+    (td._sources = td._sources || {}).crestFactor = truePeakValue !== null ? 'v1:truepeak' : 'v1:sample';
   }
   td.stereoWidth = isFinite(stereo.width) ? stereo.width : null;
   // Calcular métricas estéreo simples se ausentes e arquivo for estéreo
@@ -2562,10 +2574,11 @@ class AudioAnalyzer {
       }
     }
     
-    // 🎚️ Crest Factor (DR_CF): Métrica auxiliar - mantida para compatibilidade
-    analysis.technicalData.crestFactor = this.calculateCrestFactor(leftChannel);
+    // 🎚️ Crest Factor (DR_CF): Será calculado APÓS True Peak estar disponível
+    // (Temporariamente comentado para calcular com True Peak mais tarde)
+    // analysis.technicalData.crestFactor = this.calculateCrestFactor(leftChannel);
     // 🔄 Manter dynamicRange para retrocompatibilidade (Crest Factor legacy)
-    analysis.technicalData.dynamicRange = analysis.technicalData.crestFactor;
+    // analysis.technicalData.dynamicRange = analysis.technicalData.crestFactor;
 
     // Garantir crestFactor base (peak - rms) já inicial
     if (Number.isFinite(analysis.technicalData.peak) && Number.isFinite(analysis.technicalData.rms)) {
@@ -2700,17 +2713,40 @@ class AudioAnalyzer {
   // 🎚️ Calcular Crest Factor (DR_CF) - Métrica auxiliar 
   // ⚠️ IMPORTANTE: Esta é a diferença Peak-RMS (Crest Factor), NÃO o Dynamic Range oficial
   // Para TT-DR (True Technical Dynamic Range), use tt_dr ou dr_stat
-  // Crest Factor permanece disponível para compatibilidade e comparação
-  calculateCrestFactor(channelData) {
-    const peak = this.findPeakLevel(channelData);
+  // ✅ CORRIGIDO: Agora usa True Peak (dBTP) em vez de Sample Peak para precisão
+  calculateCrestFactor(channelData, truePeakDbtp = null) {
     const rms = this.calculateRMS(channelData);
     
-    // Verificar valores válidos
-    if (rms === -Infinity || isNaN(peak) || isNaN(rms)) {
+    // Verificar RMS válido
+    if (rms === -Infinity || isNaN(rms)) {
       return 0;
     }
     
-    return Math.abs(peak - rms);
+    // 🏔️ Usar True Peak se disponível, senão fallback para Sample Peak
+    let peakDb;
+    if (truePeakDbtp !== null && Number.isFinite(truePeakDbtp)) {
+      peakDb = truePeakDbtp;
+      console.log(`🎯 Crest Factor usando True Peak: ${peakDb.toFixed(2)} dBTP`);
+    } else {
+      peakDb = this.findPeakLevel(channelData);
+      console.log(`⚠️ Crest Factor usando Sample Peak (fallback): ${peakDb.toFixed(2)} dBFS`);
+    }
+    
+    // Verificar Peak válido
+    if (isNaN(peakDb) || !Number.isFinite(peakDb)) {
+      return 0;
+    }
+    
+    const crestFactor = peakDb - rms;
+    
+    // ✅ Validar resultado (Crest Factor nunca deve ser negativo)
+    if (crestFactor < 0) {
+      console.warn(`⚠️ Crest Factor negativo detectado: ${crestFactor.toFixed(2)} dB - corrigindo para 0`);
+      return 0;
+    }
+    
+    console.log(`🎚️ Crest Factor calculado: ${peakDb.toFixed(2)} - ${rms.toFixed(2)} = ${crestFactor.toFixed(2)} dB`);
+    return crestFactor;
   }
 
   // 🔄 Alias para compatibilidade (DEPRECATED - use calculateCrestFactor)
