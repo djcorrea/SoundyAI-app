@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Auditoria Fluxo Bandas Espectrais - Debug Valores Positivos</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Arial, sans-serif; 
+            margin: 20px; 
+            background: #1e1e1e; 
+            color: #ffffff; 
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        .header { 
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%); 
+            padding: 20px; 
+            border-radius: 10px; 
+            margin-bottom: 20px; 
+        }
+        .debug-section { 
+            background: #2d2d2d; 
+            padding: 20px; 
+            border-radius: 10px; 
+            margin-bottom: 20px; 
+            border-left: 4px solid #e74c3c; 
+        }
+        .flow-step { 
+            background: #3d3d3d; 
+            padding: 15px; 
+            border-radius: 8px; 
+            margin: 10px 0; 
+            border-left: 3px solid #f39c12; 
+        }
+        .positive { color: #e74c3c; font-weight: bold; }
+        .negative { color: #27ae60; font-weight: bold; }
+        .neutral { color: #95a5a6; }
+        .calculation { 
+            background: #2c3e50; 
+            padding: 10px; 
+            border-radius: 5px; 
+            font-family: 'Courier New', monospace; 
+            margin: 10px 0; 
+        }
+        .btn { 
+            background: #e74c3c; 
+            color: white; 
+            border: none; 
+            padding: 12px 24px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            margin: 5px; 
+        }
+        .btn:hover { background: #c0392b; }
+        pre { 
+            background: #2d2d2d; 
+            padding: 15px; 
+            border-radius: 8px; 
+            overflow-x: auto; 
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 Auditoria Valores Positivos em Bandas Espectrais</h1>
+            <p>Investigar onde e por que bandas RMS aparecem positivas quando deveriam ser negativas (dBFS)</p>
+        </div>
+
+        <div class="debug-section">
+            <h2>🔍 Fluxo Energia → dB (Rastrear Valores Positivos)</h2>
+            <input type="file" id="audioFile" accept="audio/*" class="btn">
+            <button onclick="debugSpectralFlow()" class="btn">🔬 Debug Fluxo Completo</button>
+            <button onclick="simulateValues()" class="btn">🧮 Simular Valores</button>
+        </div>
+
+        <div id="flowResults"></div>
+
+        <div class="debug-section">
+            <h2>📊 Fórmulas e Cenários Problemáticos</h2>
+            <div class="calculation">
+<pre>// Fórmula atual (linha 3787 audio-analyzer.js):
+rmsDb = 20 * Math.log10(Math.sqrt(band.totalEnergy / validTotalEnergy))
+
+// ⚠️ PROBLEMA: Se (band.totalEnergy / validTotalEnergy) > 1.0
+// Então Math.sqrt(ratio) > 1.0 → log10 > 0 → rmsDb POSITIVO!
+
+// Cenários que causam ratio > 1.0:
+// 1. Normalização LUFS excessiva (+7dB ou mais)
+// 2. Banda dominante após processamento 
+// 3. Áudio clipado com energia concentrada
+</pre>
+            </div>
+
+            <h3>🎯 Targets de Referência (Funk Mandela):</h3>
+            <div class="calculation">
+<pre>Todos os targets são NEGATIVOS (correto):
+sub:       -17.3dB  bass:      -17.7dB  
+upper_bass:-21.5dB  low_mid:   -18.7dB
+mid:       -17.9dB  high_mid:  -22.9dB
+brilho:    -29.3dB  presenca:  -34.0dB
+
+✅ Os targets estão corretos
+❌ O problema está no cálculo das bandas medidas
+</pre>
+            </div>
+        </div>
+
+        <div class="debug-section">
+            <h2>📋 Console Logs</h2>
+            <pre id="logOutput">Aguardando análise...</pre>
+        </div>
+    </div>
+
+    <script src="audio-analyzer.js"></script>
+    
+    <script>
+    let audioAnalyzer = new AudioAnalyzer();
+    let originalConsoleLog = console.log;
+    let logs = [];
+
+    // Interceptar logs
+    console.log = function(...args) {
+        logs.push(args.join(' '));
+        originalConsoleLog.apply(console, args);
+        updateLogDisplay();
+    };
+
+    function updateLogDisplay() {
+        const logOutput = document.getElementById('logOutput');
+        if (logOutput) {
+            logOutput.textContent = logs.slice(-30).join('\n');
+        }
+    }
+
+    async function debugSpectralFlow() {
+        const fileInput = document.getElementById('audioFile');
+        if (!fileInput.files[0]) {
+            alert('Selecione um arquivo de áudio primeiro');
+            return;
+        }
+
+        const flowResults = document.getElementById('flowResults');
+        flowResults.innerHTML = '<div class="flow-step">🔄 Processando áudio e rastreando fluxo...</div>';
+
+        try {
+            const file = fileInput.files[0];
+            const arrayBuffer = await file.arrayBuffer();
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+            console.log('🎵 === INÍCIO DEBUG FLUXO ESPECTRAL ===');
+            console.log('Arquivo:', file.name);
+            console.log('Duração:', audioBuffer.duration.toFixed(2), 's');
+
+            const leftChannel = audioBuffer.getChannelData(0);
+
+            // Debug modificado
+            const originalCalculateSpectralBalance = audioAnalyzer.calculateSpectralBalance;
+            audioAnalyzer.calculateSpectralBalance = function(audioData, sampleRate) {
+                console.log('🔍 === ENTRANDO EM calculateSpectralBalance ===');
+                
+                const result = originalCalculateSpectralBalance.call(this, audioData, sampleRate);
+                
+                if (result && result.bands) {
+                    console.log('🎯 === ANÁLISE DE VALORES POR BANDA ===');
+                    result.bands.forEach((band, index) => {
+                        const isPositive = band.rmsDb > 0;
+                        const status = isPositive ? '❌ POSITIVO' : '✅ NEGATIVO';
+                        
+                        console.log('Band ' + (index + 1) + ' - ' + band.name + ':');
+                        console.log('  RMS dB: ' + band.rmsDb.toFixed(2) + 'dB ' + status);
+                        console.log('  % Energia: ' + band.energyPct.toFixed(2) + '%');
+                        
+                        if (isPositive) {
+                            const ratio = band.energy / result.totalEnergy;
+                            console.log('  ⚠️ PROBLEMA: Valor positivo!');
+                            console.log('  🔬 energyRatio = ' + ratio.toFixed(6));
+                            console.log('  🔬 sqrt(ratio) = ' + Math.sqrt(ratio).toFixed(6));
+                        }
+                        console.log('');
+                    });
+                }
+                
+                return result;
+            };
+
+            const spectralResult = audioAnalyzer.calculateSpectralBalance(leftChannel, audioBuffer.sampleRate);
+            audioAnalyzer.calculateSpectralBalance = originalCalculateSpectralBalance;
+
+            if (spectralResult) {
+                displayFlowResults(spectralResult);
+            }
+
+        } catch (error) {
+            console.error('Erro no debug:', error);
+            flowResults.innerHTML = '<div class="flow-step">❌ Erro: ' + error.message + '</div>';
+        }
+    }
+
+    function displayFlowResults(result) {
+        const positives = result.bands.filter(b => b.rmsDb > 0);
+        const negatives = result.bands.filter(b => b.rmsDb <= 0);
+        
+        let html = '<div class="debug-section">';
+        html += '<h2>📊 Resultados do Debug</h2>';
+        
+        html += '<div class="flow-step">';
+        html += '<h3>📈 Resumo Geral:</h3>';
+        html += '<div>Total de bandas: ' + result.bands.length + '</div>';
+        html += '<div class="positive">Bandas POSITIVAS: ' + positives.length + ' ⚠️</div>';
+        html += '<div class="negative">Bandas NEGATIVAS: ' + negatives.length + ' ✅</div>';
+        html += '</div>';
+
+        if (positives.length > 0) {
+            html += '<div class="flow-step">';
+            html += '<h3>🚨 BANDAS PROBLEMÁTICAS (Valores Positivos):</h3>';
+            positives.forEach(band => {
+                html += '<div class="calculation">';
+                html += '<strong>' + band.name + '</strong> (' + band.hzLow + '-' + band.hzHigh + 'Hz)<br>';
+                html += 'RMS dB: <span class="positive">' + band.rmsDb.toFixed(2) + 'dB</span><br>';
+                html += '% Energia: ' + band.energyPct.toFixed(2) + '%<br>';
+                html += 'Energia raw: ' + band.energy.toExponential(3);
+                html += '</div>';
+            });
+            html += '</div>';
+        }
+
+        html += '<div class="flow-step">';
+        html += '<h3>🔍 Análise da Causa:</h3>';
+        html += '<div class="calculation">';
+        if (positives.length > 0) { 
+            html += '❌ <strong>PROBLEMA CONFIRMADO:</strong> Bandas com valores positivos detectadas.<br>';
+            html += '🔬 <strong>Causa provável:</strong><br>';
+            html += '• Normalização LUFS excessiva (+5dB ou mais)<br>';
+            html += '• Banda dominante com >100% da energia normalizada<br>';
+            html += '• Bug na divisão por validTotalEnergy';
+        } else {
+            html += '✅ <strong>SISTEMA OK:</strong> Todas as bandas têm valores negativos corretos.<br>';
+            html += '🎯 Valores estão em dBFS como esperado.';
+        }
+        html += '</div></div></div>';
+        
+        document.getElementById('flowResults').innerHTML = html;
+    }
+
+    function simulateValues() {
+        let html = '<div class="debug-section">';
+        html += '<h2>🧮 Simulação de Valores (Teoria vs Prática)</h2>';
+        
+        html += '<div class="flow-step">';
+        html += '<h3>Cenário 1: Áudio Normal (-18 LUFS)</h3>';
+        html += '<div class="calculation">';
+        html += 'LUFS original: -18dB → Normalizar para -23dB → Ganho: -5dB ✅<br>';
+        html += 'Banda dominante: 45% energia → ratio = 0.45 → sqrt(0.45) = 0.67<br>';
+        html += '20*log10(0.67) = <span class="negative">-3.5dB</span> ✅ NEGATIVO';
+        html += '</div></div>';
+
+        html += '<div class="flow-step">';
+        html += '<h3>Cenário 2: Áudio Muito Baixo (-30 LUFS)</h3>';
+        html += '<div class="calculation">';
+        html += 'LUFS original: -30dB → Normalizar para -23dB → Ganho: +7dB ⚠️<br>';
+        html += 'Após ganho: Banda pode ficar >100% energia normalizada<br>';
+        html += 'Banda dominante: 120% energia → ratio = 1.2 → sqrt(1.2) = 1.095<br>';
+        html += '20*log10(1.095) = <span class="positive">+0.8dB</span> ❌ POSITIVO!';
+        html += '</div></div>';
+
+        html += '<div class="flow-step">';
+        html += '<h3>🎯 Conclusão da Simulação:</h3>';
+        html += '<div class="calculation">';
+        html += '<strong>O problema NÃO é a fórmula</strong> - 20*log10(sqrt()) está correta.<br>';
+        html += '<strong>O problema É a normalização</strong> - criando ratios > 1.0<br><br>';
+        html += '<strong>Soluções possíveis:</strong><br>';
+        html += '1. Limitar normalização LUFS a máximo +3dB<br>';
+        html += '2. Usar escala absoluta (não relativa por energia total)<br>';
+        html += '3. Detectar clipping e ajustar referência';
+        html += '</div></div></div>';
+        
+        document.getElementById('flowResults').innerHTML = html;
+    }
+
+    // Inicialização
+    window.addEventListener('load', () => {
+        console.log('🔍 Sistema de auditoria carregado');
+        console.log('📋 Objetivo: Encontrar origem dos valores positivos em bandas espectrais');
+    });
+    </script>
+</body>
+</html>

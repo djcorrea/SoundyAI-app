@@ -3781,10 +3781,22 @@ AudioAnalyzer.prototype.calculateSpectralBalance = function(audioData, sampleRat
       throw new Error('Energia total zero - áudio silencioso ou erro');
     }
     
-    // Calcular porcentagens e dB
+    // 🎚️ CÁLCULO CORRETO EM dBFS ABSOLUTO
+    // 1. Baseline RMS do track em dBFS
+    const eps = 1e-12;
+    const totalSamples = audioData.length * processedFrames / maxFrames; // Aproximação de samples processados
+    const trackRms = Math.sqrt(totalSignalEnergy / Math.max(totalSamples, 1));
+    const trackRmsDbfs = 20 * Math.log10(Math.max(trackRms, eps)); // sempre ≤ 0
+    
+    console.log(`🎯 Track RMS baseline: ${trackRmsDbfs.toFixed(1)} dBFS`);
+    
+    // 2. Cálculo por banda em dBFS absoluto
     const bands = bandEnergies.map(band => {
-      const energyPct = (band.totalEnergy / validTotalEnergy) * 100;
-      const rmsDb = band.totalEnergy > 0 ? 20 * Math.log10(Math.sqrt(band.totalEnergy / validTotalEnergy)) : -80;
+      const bandEnergy = Math.max(band.totalEnergy, 0);
+      const ratio = Math.max(bandEnergy / validTotalEnergy, eps); // 0..1
+      const relDb = 10 * Math.log10(ratio); // dB relativo de potência
+      const rmsDbfs = trackRmsDbfs + relDb; // dBFS absoluto da banda (≤ 0 sempre)
+      const energyPct = 100 * (bandEnergy / validTotalEnergy); // % de energia, só pra UI
       
       return {
         name: band.name,
@@ -3792,7 +3804,9 @@ AudioAnalyzer.prototype.calculateSpectralBalance = function(audioData, sampleRat
         hzHigh: band.hzHigh,
         energy: band.totalEnergy,
         energyPct: energyPct,
-        rmsDb: rmsDb
+        rmsDb: rmsDbfs,  // Agora sempre ≤ 0 dBFS
+        rms_dbfs: rmsDbfs, // Campo adicional para compatibilidade
+        trackRmsDbfs: trackRmsDbfs // Para debug
       };
     });
     
@@ -4188,14 +4202,24 @@ AudioAnalyzer.prototype._tryAdvancedMetricsAdapter = async function(audioBuffer,
               spectralBands.forEach(band => {
                 const mappedName = bandMapping[band.name] || band.name.toLowerCase().replace(' ', '_');
                 if (mappedName) {
-                  // Converter % energia para dB relativo
-                  const energyRatio = band.energyPct / 100; // Converter % para proporção
-                  const db = 10 * Math.log10(energyRatio || 1e-9);
+                  // 🎚️ Usar valor dBFS corrigido diretamente
+                  const rmsDbfs = band.rms_dbfs || band.rmsDb || -80; // dBFS já corrigido
+                  
+                  // 📊 Implementar Delta Normalizado
+                  // Buscar LUFS atual e target (se disponível via baseAnalysis)
+                  const currentLufs = baseAnalysis?.lufs?.integrated || -14; // Fallback típico
+                  const targetLufs = -8; // Default funk mandela, pode ser parametrizado depois
+                  const normalizationGainDb = targetLufs - currentLufs;
+                  const measuredDbNorm = rmsDbfs + normalizationGainDb;
+                  
                   bandEnergies[mappedName] = { 
                     energy: band.energy, 
-                    rms_db: db,
-                    energyPct: band.energyPct, // ✨ Novo campo!
-                    scale: 'spectral_balance_auto' 
+                    rms_db: rmsDbfs, // Sempre ≤ 0 dBFS
+                    energyPct: band.energyPct,
+                    rms_dbfs: rmsDbfs, // Campo para compatibilidade
+                    measured_db_norm: measuredDbNorm, // Valor normalizado para comparação com target
+                    normalization_gain_db: normalizationGainDb, // Para debug/auditoria
+                    scale: 'spectral_balance_corrected' 
                   };
                 }
               });
