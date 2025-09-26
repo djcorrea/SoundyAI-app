@@ -3695,6 +3695,28 @@ AudioAnalyzer.prototype.calculateSpectralBalance = function(audioData, sampleRat
     const hopSize = fftSize / 4;
     const maxFrames = 50;
     
+    // NORMALIZAÇÃO LUFS: Normalizar para -23 LUFS antes do cálculo espectral
+    let normalizedAudio = new Float32Array(audioData);
+    try {
+      const lufsResult = this.calculateLUFS([normalizedAudio], sampleRate);
+      if (lufsResult && lufsResult.integrated !== null) {
+        const targetLUFS = -23.0; // Padrão EBU R128
+        const gainNeeded = targetLUFS - lufsResult.integrated;
+        const linearGain = Math.pow(10, gainNeeded / 20);
+        
+        // Aplicar ganho de normalização
+        for (let i = 0; i < normalizedAudio.length; i++) {
+          normalizedAudio[i] *= linearGain;
+        }
+        console.log(`🎯 LUFS normalizado: ${lufsResult.integrated.toFixed(1)} → ${targetLUFS} LUFS (ganho: ${gainNeeded.toFixed(1)}dB)`);
+      }
+    } catch (lufsError) {
+      console.warn('⚠️ Normalização LUFS falhou, usando áudio original:', lufsError.message);
+    }
+    
+    // Usar áudio normalizado para análise espectral
+    audioData = normalizedAudio;
+    
     // Definir bandas de frequência
     const bandDefinitions = [
       { name: 'Sub Bass', hzLow: 20, hzHigh: 60 },
@@ -3762,7 +3784,7 @@ AudioAnalyzer.prototype.calculateSpectralBalance = function(audioData, sampleRat
     // Calcular porcentagens e dB
     const bands = bandEnergies.map(band => {
       const energyPct = (band.totalEnergy / validTotalEnergy) * 100;
-      const rmsDb = band.totalEnergy > 0 ? 10 * Math.log10(band.totalEnergy / validTotalEnergy) : -80;
+      const rmsDb = band.totalEnergy > 0 ? 20 * Math.log10(Math.sqrt(band.totalEnergy / validTotalEnergy)) : -80;
       
       return {
         name: band.name,
