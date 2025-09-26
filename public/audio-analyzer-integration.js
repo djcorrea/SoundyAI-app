@@ -3514,6 +3514,17 @@ function displayModalResults(analysis) {
             return getMetric('lufs_integrated', 'lufsIntegrated');
         };
 
+        // 🎯 FUNÇÃO DE STATUS DO TRUE PEAK (CORREÇÃO CRÍTICA)
+        const getTruePeakStatus = (value) => {
+            if (!Number.isFinite(value)) return { status: '—', class: '' };
+            
+            if (value <= -1.5) return { status: 'EXCELENTE', class: 'status-excellent' };
+            if (value <= -1.0) return { status: 'IDEAL', class: 'status-ideal' };
+            if (value <= -0.5) return { status: 'BOM', class: 'status-good' };
+            if (value <= 0.0) return { status: 'ACEITÁVEL', class: 'status-warning' };
+            return { status: 'ESTOURADO', class: 'status-critical' };
+        };
+
         const col1 = [
             // CONDITIONAL: Pico de Amostra - só exibir se não for placeholder 0.000
             (Number.isFinite(getMetric('peak_db', 'peak')) && getMetric('peak_db', 'peak') !== 0 ? row('Pico de Amostra', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak') : ''),
@@ -3524,7 +3535,11 @@ function displayModalResults(analysis) {
             row('BPM', `${Number.isFinite(getMetric('bpm', 'bpm')) ? safeFixed(getMetric('bpm', 'bpm'), 0) : '—'}`, 'bpm'),
             row('Fator de Crista', `${safeFixed(getMetric('crest_factor', 'crestFactor'))} dB`, 'crestFactor'),
             // REMOVED: True Peak placeholder/ampulheta - só exibir quando há valor válido
-            (advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp')) ? row('pico real (dbtp)', `${safeFixed(getMetric('truePeakDbtp', 'truePeakDbtp'))} dBTP`, 'truePeakDbtp') : ''),
+            (advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp')) ? (() => {
+                const tpValue = getMetric('truePeakDbtp', 'truePeakDbtp');
+                const tpStatus = getTruePeakStatus(tpValue);
+                return row('Pico Real (dBTP)', `${safeFixed(tpValue)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp');
+            })() : ''),
             // REMOVED: LUFS placeholder/ampulheta - só exibir quando há valor válido  
             (advancedReady && Number.isFinite(getLufsIntegratedValue()) ? row('LUFS Integrado (EBU R128)', `${safeFixed(getLufsIntegratedValue())} LUFS`, 'lufsIntegrated') : ''),
             (advancedReady && Number.isFinite(getMetric('lufs_short_term', 'lufsShortTerm')) ? row('LUFS Curto Prazo', `${safeFixed(getMetric('lufs_short_term', 'lufsShortTerm'))} LUFS`, 'lufsShortTerm') : ''),
@@ -3577,7 +3592,8 @@ function displayModalResults(analysis) {
                 
                 // True Peak (dBTP)
                 if (Number.isFinite(analysis.technicalData?.truePeakDbtp)) {
-                    rows.push(row('True Peak (dBTP)', `${safeFixed(analysis.technicalData.truePeakDbtp, 2)} dBTP`, 'truePeakDbtp'));
+                    const tpStatus = getTruePeakStatus(analysis.technicalData.truePeakDbtp);
+                    rows.push(row('True Peak (dBTP)', `${safeFixed(analysis.technicalData.truePeakDbtp, 2)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp'));
                 }
                 
                 // Picos por canal separados
@@ -5864,6 +5880,38 @@ function calculateTechnicalScore(analysis, refData) {
         console.log(`🔧 Issues Gerais: ${issuesScore}% (${issues.length} problemas)`);
     }
     
+    // 🎯 NOVA VALIDAÇÃO TRUE PEAK (CORREÇÃO CRÍTICA)
+    const truePeak = tech.truePeakDbtp || metrics.truePeakDbtp;
+    let truePeakScore = 100; // Score padrão se não houver dados
+    let hasTruePeakData = false;
+    
+    if (Number.isFinite(truePeak)) {
+        hasTruePeakData = true;
+        console.log(`🔧 True Peak: ${truePeak.toFixed(2)} dBTP`);
+        
+        if (truePeak <= -1.5) { // Excelente
+            truePeakScore = 100;
+            console.log(`🔧 True Peak EXCELENTE: ${truePeakScore}%`);
+        } else if (truePeak <= -1.0) { // Ideal
+            truePeakScore = 90;
+            console.log(`🔧 True Peak IDEAL: ${truePeakScore}%`);
+        } else if (truePeak <= -0.5) { // Bom
+            truePeakScore = 80;
+            console.log(`🔧 True Peak BOM: ${truePeakScore}%`);
+        } else if (truePeak <= 0.0) { // Aceitável
+            truePeakScore = 70;
+            console.log(`🔧 True Peak ACEITÁVEL: ${truePeakScore}%`);
+        } else if (truePeak <= 0.5) { // Problemático
+            truePeakScore = 40;
+            console.log(`🔧 True Peak PROBLEMÁTICO: ${truePeakScore}%`);
+        } else { // Crítico
+            truePeakScore = 20;
+            console.log(`🔧 True Peak CRÍTICO: ${truePeakScore}%`);
+        }
+        
+        scores.push(truePeakScore);
+    }
+    
     // Se não temos métricas técnicas específicas, usar apenas issues
     if (scores.length === 0) {
         const result = Math.max(20, Math.round(issuesScore)); // Nunca zerar
@@ -5872,9 +5920,20 @@ function calculateTechnicalScore(analysis, refData) {
     }
     
     // Média normalizada de todas as métricas técnicas (0-100)
-    const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
-    const result = Math.max(20, Math.round(average)); // Nunca zerar completamente
-    console.log(`🔧 Score Técnico Final: ${result}% (média de ${scores.length} métricas)`);
+    let average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    let result = Math.max(20, Math.round(average)); // Nunca zerar completamente
+    
+    // 🚨 HARD CAP: True Peak ESTOURADO (> 0.0 dBTP) limita score a 60%
+    if (hasTruePeakData && truePeak > 0.0) {
+        const maxScoreWithClipping = 60;
+        const originalResult = result;
+        result = Math.min(result, maxScoreWithClipping);
+        
+        console.log(`🚨 HARD CAP APLICADO: True Peak estourado (${truePeak.toFixed(2)} dBTP)`);
+        console.log(`🚨 Score limitado de ${originalResult}% para ${result}% (máx: ${maxScoreWithClipping}%)`);
+    }
+    
+    console.log(`🔧 Score Técnico Final: ${result}% (média de ${scores.length} métricas${hasTruePeakData ? ', True Peak incluído' : ''})`);
     return result;
 }
 
@@ -6180,8 +6239,42 @@ function updateReferenceSuggestions(analysis) {
     // Aplicar checks principais
     const lufsVal = Number.isFinite(tech.lufsIntegrated) ? tech.lufsIntegrated : null;
     addRefSug(lufsVal, ref.lufs_target, ref.tol_lufs, 'reference_loudness', 'LUFS', '');
+    // 🎯 TRUE PEAK - SUGESTÕES ESPECÍFICAS E TÉCNICAS (CORREÇÃO CRÍTICA)
     const tpVal = Number.isFinite(tech.truePeakDbtp) ? tech.truePeakDbtp : null;
-    addRefSug(tpVal, ref.true_peak_target, ref.tol_true_peak, 'reference_true_peak', 'Pico Real', ' dBTP');
+    if (tpVal !== null) {
+        if (tpVal > 0.0) {
+            // CRÍTICO: True Peak estourado
+            sug.push({
+                type: 'reference_true_peak_critical',
+                message: `True Peak ESTOURADO: ${tpVal.toFixed(2)} dBTP (crítico para plataformas)`,
+                action: `Use limiter com oversampling 4x, ceiling em -1.0 dBTP para evitar distorção digital`,
+                details: `Diferença: +${(tpVal - (-1.0)).toFixed(2)} dBTP acima do seguro • Pode causar clipping em DACs • gênero: ${window.PROD_AI_REF_GENRE || 'N/A'}`,
+                priority: 'high',
+                technical: {
+                    currentValue: tpVal,
+                    targetValue: -1.0,
+                    severity: 'critical',
+                    recommendation: 'limiter_with_oversampling'
+                }
+            });
+        } else if (tpVal > -1.0) {
+            // ACEITÁVEL: Mas próximo do limite
+            sug.push({
+                type: 'reference_true_peak_warning',
+                message: `True Peak aceitável mas próximo do limite: ${tpVal.toFixed(2)} dBTP`,
+                action: `Considere usar limiter com ceiling em -1.5 dBTP para maior margem de segurança`,
+                details: `Margem atual: ${(-1.0 - tpVal).toFixed(2)} dB até o limite • Para streaming: ideal ≤ -1.0 dBTP • gênero: ${window.PROD_AI_REF_GENRE || 'N/A'}`,
+                priority: 'medium',
+                technical: {
+                    currentValue: tpVal,
+                    targetValue: -1.0,
+                    severity: 'medium',
+                    recommendation: 'conservative_limiting'
+                }
+            });
+        }
+        // Se tpVal <= -1.0, não gerar sugestão (está ideal)
+    }
     addRefSug(tech.dynamicRange, ref.dr_target, ref.tol_dr, 'reference_dynamics', 'DR', ' dB');
     if (Number.isFinite(tech.lra)) addRefSug(tech.lra, ref.lra_target, ref.tol_lra, 'reference_lra', 'LRA', ' LU');
     if (Number.isFinite(tech.stereoCorrelation)) addRefSug(tech.stereoCorrelation, ref.stereo_target, ref.tol_stereo, 'reference_stereo', 'Stereo Corr', '');
@@ -7305,4 +7398,70 @@ function showAnalysisResults() {
     } else {
         __dbg('❌ Elemento audioAnalysisResults não encontrado!');
     }
+}
+
+// 🎨 INJETAR ESTILOS CSS PARA STATUS DE TRUE PEAK
+function injectTruePeakStatusStyles() {
+    if (document.getElementById('truePeakStatusStyles')) return; // já injetado
+    
+    const style = document.createElement('style');
+    style.id = 'truePeakStatusStyles';
+    style.textContent = `
+        /* Status do True Peak */
+        .status-excellent {
+            color: #00ff88 !important;
+            font-weight: 600;
+            text-shadow: 0 0 2px rgba(0, 255, 136, 0.3);
+        }
+        
+        .status-ideal {
+            color: #28a745 !important;
+            font-weight: 600;
+        }
+        
+        .status-good {
+            color: #17a2b8 !important;
+            font-weight: 600;
+        }
+        
+        .status-warning {
+            color: #ffc107 !important;
+            font-weight: 600;
+            text-shadow: 0 0 2px rgba(255, 193, 7, 0.3);
+        }
+        
+        .status-critical {
+            color: #dc3545 !important;
+            font-weight: 700;
+            text-shadow: 0 0 3px rgba(220, 53, 69, 0.4);
+            animation: criticalPulse 2s infinite;
+        }
+        
+        @keyframes criticalPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        /* Responsive para mobile */
+        @media (max-width: 600px) {
+            .status-excellent,
+            .status-ideal,
+            .status-good,
+            .status-warning,
+            .status-critical {
+                font-size: 11px;
+                font-weight: 600;
+            }
+        }
+    `;
+    
+    document.head.appendChild(style);
+    console.log('🎨 Estilos CSS do True Peak injetados');
+}
+
+// Injetar estilos automaticamente quando o DOM carregar
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', injectTruePeakStatusStyles);
+} else {
+    injectTruePeakStatusStyles();
 }
