@@ -3892,12 +3892,27 @@ function displayModalResults(analysis) {
                 }
                 rows.push(row('Stereo Corr.', `<span class="${stereoClass}">${stereoText}</span>`, 'stereoCorrelation'));
                 
-                // 5. Fator de Crista - SEMPRE mostrar  
+                // 5. Fator de Crista - CORRIGIDO com alertas precisos
                 const crestVal = Number.isFinite(analysis.technicalData?.crestFactor) ? analysis.technicalData.crestFactor : 0;
-                const hasCrestProblem = crestVal < 6 || crestVal > 20; // Valores normais: 6-20dB
-                if (hasCrestProblem) hasActualProblems = true;
-                const crestClass = hasCrestProblem ? 'warn' : '';
-                rows.push(row('Fator de Crista', `<span class="${crestClass}">${safeFixed(crestVal, 1)} dB</span>`, 'crestFactor'));
+                
+                // ✅ Alertas baseados em padrões de engenharia de áudio:
+                let crestClass = '';
+                let crestAlert = '';
+                
+                if (crestVal < 5) {
+                    crestClass = 'critical';
+                    crestAlert = ' (Compressão excessiva - som muito achatado)';
+                    hasActualProblems = true;
+                } else if (crestVal > 15) {
+                    crestClass = 'warn';
+                    crestAlert = ' (Dinâmica excessiva - pode soar fraco para streaming)';
+                } else if (crestVal >= 5 && crestVal <= 15) {
+                    // Valores dentro da faixa normal
+                    crestClass = '';
+                    crestAlert = '';
+                }
+                
+                rows.push(row('Fator de Crista', `<span class="${crestClass}">${safeFixed(crestVal, 1)} dB${crestAlert}</span>`, 'crestFactor'));
                 
                 // Consistência (se disponível) - mas sempre tentar mostrar
                 if (analysis.metricsValidation && Object.keys(analysis.metricsValidation).length) {
