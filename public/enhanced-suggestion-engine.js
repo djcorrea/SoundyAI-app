@@ -1,6 +1,124 @@
 // 🎯 SISTEMA PRINCIPAL DE SUGESTÕES MELHORADO
 // Integra scoring, heurísticas e referências em um sistema unificado
 
+// 🎚️ CAPs - Limites seguros e musicais por banda (em dB)
+const BAND_CAPS_DB = {
+    sub:      { boost: 4.0,  cut: 6.0 },  // 20–60 Hz: boosts moderados, cortes maiorzinhos
+    bass:     { boost: 4.0,  cut: 6.0 },  // 60–150 Hz
+    lowMid:   { boost: 4.0,  cut: 5.0 },  // 150–500 Hz
+    mid:      { boost: 3.5,  cut: 5.0 },  // 500 Hz–2 kHz
+    highMid:  { boost: 3.0,  cut: 4.0 },  // 2–5 kHz
+    presence: { boost: 3.0,  cut: 4.0 },  // 5–10 kHz
+    air:      { boost: 2.5,  cut: 3.0 }   // 10–20 kHz
+};
+
+const MIN_ACTION_DB = 1.5; // abaixo disso, ou fica "opcional" ou some a dica (respeitando tolerância)
+
+// 🎵 Ranges das bandas espectrais
+const BAND_RANGES = {
+    sub: '20–60 Hz', 
+    bass: '60–150 Hz', 
+    lowMid: '150–500 Hz',
+    mid: '500–2 kHz', 
+    highMid: '2–5 kHz', 
+    presence: '5–10 kHz', 
+    air: '10–20 kHz'
+};
+
+/**
+ * 🎚️ Aplicar CAP (limite) por banda no valor "Δ sugerido"
+ * @param {string} metricKey - Chave da métrica (sub, bass, lowMid, mid, highMid, presence, air)
+ * @param {number} rawDelta - Delta original calculado
+ * @param {number} tolerance - Tolerância da banda
+ * @returns {Object} Resultado com delta limitado e informações
+ */
+function clampDeltaByBand(metricKey, rawDelta, tolerance) {
+    // Se está dentro da tolerância, não sugerir nada
+    if (Math.abs(rawDelta) <= (tolerance ?? 0)) {
+        return { clamped: 0, capped: false, show: false, reason: 'within_tol' };
+    }
+    
+    const bandKey = metricKey; // as métricas já usam as chaves originais (sub, bass, lowMid, mid, highMid, presence, air)
+    const caps = BAND_CAPS_DB[bandKey];
+    
+    if (!caps) {
+        // Para métricas não-espectrais, não faz nada
+        return { clamped: rawDelta, capped: false, show: Math.abs(rawDelta) >= MIN_ACTION_DB };
+    }
+    
+    const isBoost = rawDelta > 0;
+    const limit = isBoost ? caps.boost : caps.cut;
+    const clamped = Math.sign(rawDelta) * Math.min(Math.abs(rawDelta), limit);
+    const capped = Math.abs(rawDelta) > limit;
+
+    // Se ainda ficou muito pequeno, trata como opcional/oculta
+    const show = Math.abs(clamped) >= MIN_ACTION_DB;
+    return { clamped, capped, show, range: BAND_RANGES[bandKey] };
+}
+
+/**
+ * 🎯 Aplicar CAPs nos ITENS DA TABELA DE REFERÊNCIA (Δ mostrado ao lado do alvo)
+ * @param {Array} items - Itens da comparação de referência
+ * @param {Object} tolerancesByMetric - Tolerâncias por métrica
+ * @returns {Array} Itens com CAPs aplicados
+ */
+function applyCapsInReferenceComparison(items, tolerancesByMetric) {
+    return items.map(it => {
+        if (it.category !== 'spectral_bands') return it;
+        
+        const tol = tolerancesByMetric?.[it.metricKey] ?? it.tolerance ?? 0; // preserve a tolerância existente
+        const rawDelta = it.delta ?? (it.ideal - it.value); // manter a forma como o projeto já calcula
+        const { clamped, capped, show, range } = clampDeltaByBand(it.metricKey, rawDelta, tol);
+
+        // Guarda campos auxiliares sem quebrar nada que usa value/ideal
+        it._rawDelta = rawDelta;
+        it._deltaCapped = capped;
+        it._deltaClamped = clamped;
+
+        // Texto curto e musical (apenas se show=true e fora da tolerância)
+        if (show) {
+            const mag = Math.abs(clamped);
+            const approx = mag >= 2 ? `entre ${Math.max(1, Math.round(mag - 1))} e ${Math.round(mag)} dB` : `~${mag.toFixed(1)} dB`;
+            const verb = clamped > 0 ? 'aumentar' : 'reduzir';
+            it.shortHint = `Experimente ${verb} ${approx} (${range})`;
+        } else {
+            it.shortHint = undefined;
+        }
+        // Mantém status baseado em tolerância já existente (IDEAL/AJUSTAR/CORRIGIR)
+        return it;
+    });
+}
+
+/**
+ * 🎯 Aplicar CAPs nas SUGESTÕES AVANÇADAS (antes de gerar texto final)
+ * @param {Array} suggestions - Sugestões avançadas
+ * @param {Object} tolerancesByMetric - Tolerâncias por métrica
+ * @returns {Array} Sugestões com CAPs aplicados
+ */
+function applyCapsInAdvancedSuggestions(suggestions, tolerancesByMetric) {
+    return suggestions.map(s => {
+        if (s.category !== 'spectral_bands' || typeof s.technical?.delta !== 'number') return s;
+
+        const tol = tolerancesByMetric?.[s.metricKey] ?? s.tolerance ?? 0;
+        const { clamped, capped, show, range } = clampDeltaByBand(s.metricKey, s.technical.delta, tol);
+
+        s.technical._rawDelta = s.technical.delta;
+        s.technical.delta = clamped;
+        s.technical._deltaCapped = capped;
+
+        // Frase curta adicional (para UI compacta)
+        if (show) {
+            const mag = Math.abs(clamped);
+            const approx = mag >= 2 ? `entre ${Math.max(1, Math.round(mag - 1))} e ${Math.round(mag)} dB` : `~${mag.toFixed(1)} dB`;
+            const verb = clamped > 0 ? 'aumentar' : 'reduzir';
+            s.shortHint = `Experimente ${verb} ${approx} (${range})`;
+        } else {
+            s.shortHint = undefined;
+        }
+        return s;
+    });
+}
+
 class EnhancedSuggestionEngine {
     constructor(config = {}) {
         this.scorer = window.suggestionScorer || new SuggestionScorer();
@@ -278,7 +396,46 @@ class EnhancedSuggestionEngine {
     }
 
     /**
-     * 🎯 Obter ícone apropriado para métrica
+     * �️ Extrair tolerâncias por métrica dos dados de referência
+     * @param {Object} normalizedRef - Dados de referência normalizados
+     * @returns {Object} Tolerâncias por métrica
+     */
+    extractTolerancesByMetric(normalizedRef) {
+        const tolerances = {};
+        
+        if (!normalizedRef) return tolerances;
+        
+        // Tolerâncias das métricas principais
+        if (Number.isFinite(normalizedRef.tol_lufs)) {
+            tolerances.lufs = normalizedRef.tol_lufs;
+        }
+        if (Number.isFinite(normalizedRef.tol_true_peak)) {
+            tolerances.true_peak = normalizedRef.tol_true_peak;
+        }
+        if (Number.isFinite(normalizedRef.tol_dr)) {
+            tolerances.dr = normalizedRef.tol_dr;
+        }
+        if (Number.isFinite(normalizedRef.tol_lra)) {
+            tolerances.lra = normalizedRef.tol_lra;
+        }
+        if (Number.isFinite(normalizedRef.tol_stereo)) {
+            tolerances.stereo = normalizedRef.tol_stereo;
+        }
+        
+        // Tolerâncias das bandas espectrais
+        if (normalizedRef.bands) {
+            for (const [bandKey, bandData] of Object.entries(normalizedRef.bands)) {
+                if (Number.isFinite(bandData.tol_db)) {
+                    tolerances[bandKey] = bandData.tol_db;
+                }
+            }
+        }
+        
+        return tolerances;
+    }
+
+    /**
+     * �🎯 Obter ícone apropriado para métrica
      * @param {string} metricType - Tipo da métrica
      * @returns {string} Ícone apropriado
      */
@@ -658,6 +815,19 @@ class EnhancedSuggestionEngine {
             
             // 🔄 Combinar, deduplicar e ordenar sugestões
             let allSuggestions = [...referenceSuggestions, ...heuristicSuggestions];
+            
+            // 🎚️ Aplicar CAPs nas Sugestões Avançadas (antes de deduplicar)
+            const tolerancesByMetric = this.extractTolerancesByMetric(normalizedRef);
+            const suggestionsBefore = allSuggestions.length;
+            allSuggestions = applyCapsInAdvancedSuggestions(allSuggestions, tolerancesByMetric);
+            
+            this.logAudit('CAPS_APPLIED_SUGGESTIONS', 'CAPs aplicados nas sugestões avançadas', {
+                suggestionsBefore,
+                suggestionsAfter: allSuggestions.length,
+                cappedSuggestions: allSuggestions.filter(s => s.technical?._deltaCapped).length,
+                tolerancesUsed: Object.keys(tolerancesByMetric).length
+            });
+            
             allSuggestions = this.scorer.deduplicateSuggestions(allSuggestions);
             allSuggestions = this.filterAndSort(allSuggestions);
             
@@ -1047,127 +1217,7 @@ class EnhancedSuggestionEngine {
     }
 
     /**
-     * �️ SISTEMA DE CAPS MUSICAIS POR BANDA
-     * Limita deltas a valores musicalmente aplicáveis
-     * @param {string} bandName - Nome da banda (sub, bass, lowMid, etc.)
-     * @param {number} rawDelta - Delta original calculado
-     * @returns {number} Delta limitado aos caps musicais
-     */
-    clampDeltaByBand(bandName, rawDelta) {
-        // 🎚️ Caps por banda baseados em práticas musicais reais
-        const caps = {
-            // Mapeamento completo de nomes de bandas para caps
-            'sub': 5.0,           // 20–60Hz - graves pesados aceitam mais ajuste
-            'bass': 4.5,          // 60–150Hz - punch e energia
-            'low_bass': 4.5,      // Alias para bass
-            'upper_bass': 4.0,    // 150–250Hz - transição graves/médios
-            'lowMid': 3.5,        // 150–500Hz - warmth/mudiness
-            'low_mid': 3.5,       // Alias para lowMid
-            'mid': 3.0,           // 500–2000Hz - fundamentais, sensível
-            'highMid': 2.5,       // 2000–5000Hz - presença, muito sensível
-            'high_mid': 2.5,      // Alias para highMid
-            'presenca': 2.5,      // 5000–10000Hz - voz, detalhes
-            'presence': 2.5,      // Alias EN para presença
-            'brilho': 2.0,        // 10000–20000Hz - air/brilho, delicado
-            'air': 2.0            // Alias EN para brilho
-        };
-
-        const cap = caps[bandName] || 3.0; // Fallback: 3dB para bandas não mapeadas
-        
-        // Aplicar clamp simétrico: -cap <= delta <= +cap
-        const clampedDelta = Math.max(-cap, Math.min(cap, rawDelta));
-        
-        this.logAudit('DELTA_CLAMPED', `Delta clamped para banda ${bandName}`, {
-            bandName,
-            rawDelta: rawDelta.toFixed(2),
-            cap: cap.toFixed(1),
-            clampedDelta: clampedDelta.toFixed(2),
-            wasClamped: Math.abs(rawDelta) > cap
-        });
-        
-        return clampedDelta;
-    }
-
-    /**
-     * ✍️ TRADUÇÃO MUSICAL EDUCATIVA
-     * Converte delta clamped em frase educativa curta
-     * @param {string} bandName - Nome da banda
-     * @param {number} clampedDelta - Delta já limitado aos caps
-     * @returns {string} Frase educativa musical
-     */
-    generateEducationalMessage(bandName, clampedDelta) {
-        const absValue = Math.abs(clampedDelta);
-        const direction = clampedDelta > 0 ? 'increase' : 'decrease';
-        
-        // 🎵 Templates educativos por banda
-        const educationalTemplates = {
-            'sub': {
-                increase: `Experimente Aumentar ~${absValue.toFixed(1)} dB p/ dar peso`,
-                decrease: `Experimente Reduzir ~${absValue.toFixed(1)} dB p/ controlar sub`
-            },
-            'bass': {
-                increase: `Realce entre +${absValue.toFixed(1)} dB p/ mais impacto`,
-                decrease: `Reduza entre -${absValue.toFixed(1)} dB p/ equilibrar`
-            },
-            'low_bass': {
-                increase: `Realce entre +${absValue.toFixed(1)} dB p/ mais impacto`,
-                decrease: `Reduza entre -${absValue.toFixed(1)} dB p/ equilibrar`
-            },
-            'upper_bass': {
-                increase: `Experimente Aumentar +${absValue.toFixed(1)} dB p/ corpo`,
-                decrease: `Experimente Reduzir -${absValue.toFixed(1)} dB p/ clarear`
-            },
-            'lowMid': {
-                increase: `Experimente Aumentar +${absValue.toFixed(1)} dB p/ aquecer mix`,
-                decrease: `Experimente Reduzir ~${absValue.toFixed(1)} dB p/ limpar mix`
-            },
-            'low_mid': {
-                increase: `Experimente Aumentar +${absValue.toFixed(1)} dB p/ aquecer mix`,
-                decrease: `Experimente Reduzir ~${absValue.toFixed(1)} dB p/ limpar mix`
-            },
-            'mid': {
-                increase: `Experimente Aumentar +${absValue.toFixed(1)} dB p/ presença`,
-                decrease: `Experimente Reduzir -${absValue.toFixed(1)} a -${(absValue + 1).toFixed(1)} dB p/ clarear`
-            },
-            'highMid': {
-                increase: `Experimente Aumentar +${absValue.toFixed(1)} dB p/ ataque`,
-                decrease: `Experimente Reduzir ~${absValue.toFixed(1)} dB p/ suavizar`
-            },
-            'high_mid': {
-                increase: `Experimente Aumentar +${absValue.toFixed(1)} dB p/ ataque`,
-                decrease: `Experimente Reduzir ~${absValue.toFixed(1)} dB p/ suavizar`
-            },
-            'presenca': {
-                increase: `Experimente Aumentar +${absValue.toFixed(1)} dB p/ destacar voz`,
-                decrease: `Experimente Reduzir ~${absValue.toFixed(1)} dB p/ suavizar voz`
-            },
-            'presence': {
-                increase: `Experimente Aumentar +${absValue.toFixed(1)} dB p/ destacar voz`,
-                decrease: `Experimente Reduzir ~${absValue.toFixed(1)} dB p/ suavizar voz`
-            },
-            'brilho': {
-                increase: `Experimente Adicionar +${absValue.toFixed(1)} dB p/ brilho`,
-                decrease: `Experimente Reduzir ~${absValue.toFixed(1)} dB p/ menos aspereza`
-            },
-            'air': {
-                increase: `Experimente Adicionar +${absValue.toFixed(1)} dB p/ brilho`,
-                decrease: `Experimente Reduzir ~${absValue.toFixed(1)} dB p/ menos aspereza`
-            }
-        };
-
-        const template = educationalTemplates[bandName];
-        if (template && template[direction]) {
-            return template[direction];
-        }
-
-        // Fallback genérico
-        const verb = direction === 'increase' ? 'Aumentar' : 'Reduzir';
-        const sign = direction === 'increase' ? '+' : '-';
-        return `Experimente ${verb} ${sign}${absValue.toFixed(1)} dB na banda ${bandName}`;
-    }
-
-    /**
-     * �🎯 Gerar sugestões baseadas em referência
+     * 🎯 Gerar sugestões baseadas em referência
      * @param {Object} metrics - Métricas medidas
      * @param {Object} referenceData - Dados de referência
      * @param {Object} zScores - Z-scores calculados
@@ -1373,13 +1423,6 @@ class EnhancedSuggestionEngine {
                 });
                 
                 if (shouldInclude) {
-                    // 🎚️ NOVO: Calcular delta bruto e aplicar caps musicais
-                    const rawDelta = value - target;
-                    const clampedDelta = this.clampDeltaByBand(band, rawDelta);
-                    
-                    // 🎵 NOVO: Gerar mensagem educativa com delta clamped
-                    const educationalMessage = this.generateEducationalMessage(band, clampedDelta);
-                    
                     const dependencyBonus = dependencyBonuses[band] || 0;
                     const priority = this.scorer.calculatePriority({
                         metricType: 'band',
@@ -1408,32 +1451,24 @@ class EnhancedSuggestionEngine {
                     suggestion.targetValue = target;
                     suggestion.currentValue = value;
                     
-                    // 🎵 APLICAR SISTEMA DE CAPS + TRADUÇÃO EDUCATIVA
-                    suggestion.message = educationalMessage; // Usar mensagem educativa
-                    suggestion.action = educationalMessage;   // Action também educativa
-                    suggestion.why = `Banda ${band} pode ser otimizada para melhor balanço tonal`;
-                    
-                    // 🎯 TECHNICAL DATA COM CAPS APLICADOS
-                    if (suggestion.technical) {
-                        suggestion.technical.rawDelta = rawDelta;
-                        suggestion.technical.clampedDelta = clampedDelta;
-                        suggestion.technical.wasClamped = Math.abs(rawDelta) > Math.abs(clampedDelta);
-                        suggestion.technical.delta = clampedDelta; // Sobrescrever com valor clamped
+                    // Garantir campos de texto obrigatórios
+                    if (!suggestion.message || suggestion.message.trim() === '') {
+                        suggestion.message = `Ajustar ${band} para alinhamento com referência`;
+                    }
+                    if (!suggestion.why || suggestion.why.trim() === '') {
+                        suggestion.why = `Banda ${band} fora da faixa ideal para o gênero`;
                     }
                     
-                    // 🎯 DIAGNOSIS MELHORADA
-                    const direction = clampedDelta > 0 ? "aumentar" : "reduzir";
-                    const amount = Math.abs(clampedDelta).toFixed(1);
-                    suggestion.diagnosis = `${band}: ${direction} ${amount}dB (atual: ${value.toFixed(1)}dB, alvo: ${target.toFixed(1)}dB)`;
-                    
-                    // 🛡️ VALIDAÇÃO: Se delta clamped é muito pequeno, não incluir
-                    if (Math.abs(clampedDelta) < 0.5) {
-                        this.logAudit('SUGGESTION_FILTERED_SMALL_DELTA', `Sugestão filtrada por delta muito pequeno: ${band}`, {
-                            band,
-                            clampedDelta: clampedDelta.toFixed(2),
-                            reason: 'Delta clamped menor que 0.5dB'
-                        });
-                        continue; // Pular esta sugestão
+                    // 🎯 APLICAR LÓGICA SEGURA PARA ACTION E DIAGNOSIS
+                    const delta = suggestion.technical?.delta;
+                    if (typeof delta === "number" && !isNaN(delta)) {
+                        const direction = delta > 0 ? "Reduzir" : "Aumentar";
+                        const amount = Math.abs(delta).toFixed(1);
+                        suggestion.action = `${direction} ${band} em ${amount} dB`;
+                        suggestion.diagnosis = `Atual: ${value.toFixed(1)} dB, Alvo: ${target.toFixed(1)} dB, Diferença: ${amount} dB`;
+                    } else {
+                        suggestion.action = `Ajustar banda ${band}`;
+                        suggestion.diagnosis = `Verificar níveis da banda ${band}`;
                     }
                     
                     suggestions.push(suggestion);
@@ -1452,7 +1487,7 @@ class EnhancedSuggestionEngine {
         
         // 🎯 NOVO: Processar referenceComparison para bandas espectrais
         if (typeof window !== 'undefined' && window.PRE_UPDATE_REFERENCE_SUGGESTIONS_DATA) {
-            const referenceComparison = window.PRE_UPDATE_REFERENCE_SUGGESTIONS_DATA;
+            let referenceComparison = window.PRE_UPDATE_REFERENCE_SUGGESTIONS_DATA;
             
             this.logAudit('REFERENCE_COMPARISON_CHECK', 'Verificando dados de referenceComparison', {
                 hasReferenceComparison: !!referenceComparison,
@@ -1461,6 +1496,26 @@ class EnhancedSuggestionEngine {
             });
             
             if (Array.isArray(referenceComparison)) {
+                // 🎚️ Aplicar CAPs nos itens da tabela de referência antes de processar
+                const tolerancesByMetric = this.extractTolerancesByMetric(normalizedRef);
+                const itemsBefore = referenceComparison.length;
+                const spectralItemsBefore = referenceComparison.filter(item => item.category === 'spectral_bands').length;
+                
+                referenceComparison = applyCapsInReferenceComparison(referenceComparison, tolerancesByMetric);
+                
+                const cappedItems = referenceComparison.filter(item => item._deltaCapped).length;
+                const itemsWithHints = referenceComparison.filter(item => item.shortHint).length;
+                
+                this.logAudit('CAPS_APPLIED_REFERENCE_COMPARISON', 'CAPs aplicados na tabela de referência', {
+                    totalItems: itemsBefore,
+                    spectralItems: spectralItemsBefore,
+                    cappedItems,
+                    itemsWithHints,
+                    tolerancesUsed: Object.keys(tolerancesByMetric).length
+                });
+                
+                // Atualizar a variável global com os dados processados
+                window.PRE_UPDATE_REFERENCE_SUGGESTIONS_DATA = referenceComparison;
                 // Filtrar apenas itens de bandas espectrais
                 const spectralBands = referenceComparison.filter(item => 
                     item && item.category === 'spectral_bands'
@@ -1521,22 +1576,6 @@ class EnhancedSuggestionEngine {
                         (severity.level === 'yellow' && this.config.includeYellowSeverity);
                     
                     if (shouldInclude) {
-                        // 🎚️ NOVO: Aplicar caps musicais também no referenceComparison
-                        const clampedDelta = this.clampDeltaByBand(item.metric, delta);
-                        
-                        // 🛡️ VALIDAÇÃO: Se delta clamped é muito pequeno, não incluir
-                        if (Math.abs(clampedDelta) < 0.5) {
-                            this.logAudit('SUGGESTION_FILTERED_SMALL_DELTA_REF', `Sugestão de referência filtrada por delta muito pequeno: ${item.metric}`, {
-                                metric: item.metric,
-                                clampedDelta: clampedDelta.toFixed(2),
-                                reason: 'Delta clamped menor que 0.5dB'
-                            });
-                            continue; // Pular esta sugestão
-                        }
-                        
-                        // 🎵 NOVO: Gerar mensagem educativa com delta clamped
-                        const educationalMessage = this.generateEducationalMessage(item.metric, clampedDelta);
-                        
                         const priority = this.scorer.calculatePriority({
                             metricType: 'band',
                             severity,
@@ -1564,24 +1603,25 @@ class EnhancedSuggestionEngine {
                         suggestion.targetValue = ideal;
                         suggestion.currentValue = value;
                         
-                        // 🎵 APLICAR SISTEMA DE CAPS + TRADUÇÃO EDUCATIVA (referenceComparison)
-                        suggestion.message = educationalMessage; // Usar mensagem educativa
-                        suggestion.action = educationalMessage;   // Action também educativa
-                        suggestion.why = `Banda ${item.metric} pode ser otimizada para melhor balanço tonal`;
-                        
-                        // 🎯 TECHNICAL DATA COM CAPS APLICADOS
-                        if (suggestion.technical) {
-                            suggestion.technical.rawDelta = delta;
-                            suggestion.technical.clampedDelta = clampedDelta;
-                            suggestion.technical.wasClamped = Math.abs(delta) > Math.abs(clampedDelta);
-                            suggestion.technical.delta = clampedDelta; // Sobrescrever com valor clamped
+                        // Garantir campos de texto obrigatórios
+                        if (!suggestion.message || suggestion.message.trim() === '') {
+                            suggestion.message = `Ajustar ${item.metric} para alinhamento com referência`;
+                        }
+                        if (!suggestion.why || suggestion.why.trim() === '') {
+                            suggestion.why = `Banda ${item.metric} fora da faixa ideal`;
                         }
                         
-                        // 🎯 DIAGNOSIS MELHORADA
-                        const direction = clampedDelta > 0 ? "aumentar" : "reduzir";
-                        const amount = Math.abs(clampedDelta).toFixed(1);
-                        suggestion.diagnosis = `${item.metric}: ${direction} ${amount}dB (atual: ${value.toFixed(1)}dB, alvo: ${ideal.toFixed(1)}dB)`;
-                        
+                        // 🎯 APLICAR LÓGICA SEGURA PARA ACTION E DIAGNOSIS
+                        const suggestionDelta = suggestion.technical?.delta;
+                        if (typeof suggestionDelta === "number" && !isNaN(suggestionDelta)) {
+                            const direction = suggestionDelta > 0 ? "Reduzir" : "Aumentar";
+                            const amount = Math.abs(suggestionDelta).toFixed(1);
+                            suggestion.action = `${direction} ${item.metric} em ${amount} dB`;
+                            suggestion.diagnosis = `Atual: ${value.toFixed(1)} dB, Alvo: ${ideal.toFixed(1)} dB, Diferença: ${amount} dB`;
+                        } else {
+                            suggestion.action = `Ajustar banda ${item.metric}`;
+                            suggestion.diagnosis = `Verificar níveis da banda ${item.metric}`;
+                        }
                         
                         suggestions.push(suggestion);
                         
