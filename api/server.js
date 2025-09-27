@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3000;
 // Middleware para JSON
 app.use(express.json({ limit: '10mb' }));
 
-// ---------- CORS restrito ----------
+// ---------- CORS restrito ---------
 app.use(
   cors({
     origin: [
@@ -338,7 +338,7 @@ function buildSuggestionPrompt(suggestions, metrics, genre) {
 ⚠️ REGRAS ABSOLUTAS:
 - Responda EXCLUSIVAMENTE com um JSON VÁLIDO (ARRAY com exatamente ${expected} itens).
 - Sugestões devem ser sempre EDUCATIVAS e ORIENTATIVAS, nunca imperativas.
-- SEMPRE cite o valor real da diferença medida no campo "problema" (ex: "Sub está -19 dB abaixo do padrão").
+- SEMPRE cite o valor real da diferença medida que aparece em [DIFERENÇA REAL MEDIDA: X dB] no campo "problema" (ex: se mostra "-7.1 dB", escreva "Sub está -7.1 dB abaixo do padrão").
 - Use esse valor APENAS para contexto educativo, NUNCA como valor exato da sugestão.
 - Ajustes PROPORCIONAIS à diferença medida seguindo caps por banda:
   • Sub (20–60Hz): máximo ±6 dB
@@ -370,9 +370,9 @@ function buildSuggestionPrompt(suggestions, metrics, genre) {
 
 � ESTRUTURA OBRIGATÓRIA - LINGUAGEM EDUCATIVA E ENCORAJADORA:
 {
-  "problema": "SEMPRE citar o valor real da diferença (ex: 'Banda Sub está -19 dB abaixo do padrão do gênero')",
+  "problema": "SEMPRE citar o valor real da diferença que aparece nos dados fornecidos (ex: 'Banda Sub está -7.1 dB abaixo do padrão do gênero')",
   "causa": "Explicação clara do impacto auditivo (ex: 'A ausência de subgrave consistente reduz o impacto e a pressão sonora')",
-  "solucao": "Instrução prática com intervalo proporcional + contexto educativo (ex: 'Experimente reforçar entre +4 a +6 dB nessa região (20–60Hz). Como a diferença real é de -19 dB, não é recomendado corrigir tudo de uma vez; faça em etapas ou considere reforçar o sample/produção')",
+  "solucao": "Instrução prática com intervalo proporcional + contexto educativo (ex: 'Experimente reforçar entre +3 a +4 dB nessa região (20–60Hz). Como a diferença real é de -7.1 dB, um ajuste gradual será suficiente')",
   "dica_extra": "Dica musical contextual encorajadora (ex: 'Mantenha o equilíbrio com o kick para não mascarar a batida')",
   "plugin": "Ferramenta específica profissional (ex: 'Waves Renaissance Bass, FabFilter Pro-MB ou EQ nativo')",
   "resultado": "Resultado esperado claro e motivador (ex: 'Graves mais presentes e impactantes, mantendo clareza e punch do kick')"
@@ -387,37 +387,13 @@ ${metricsInfo}
 🎵 DIRETRIZES ESPECÍFICAS DO GÊNERO:
 ${genreContext}
 
-🎯 EXEMPLOS DE SUGESTÕES IDEAIS - LINGUAGEM EDUCATIVA:
+🎯 INSTRUÇÕES PARA USAR VALORES REAIS:
 
-EXEMPLO DIFERENÇA PEQUENA (+2.5 dB no sub):
-{
-  "problema": "Banda Sub está +2.5 dB acima do padrão do gênero",
-  "causa": "Pode mascarar levemente o kick e comprometer o punch natural da batida",
-  "solucao": "Experimente reduzir entre -1 a -2 dB na região de 40-80Hz. Como a diferença é pequena, um ajuste suave será suficiente",
-  "dica_extra": "Monitore o groove do kick enquanto ajusta para não tirar a pegada característica",
-  "plugin": "FabFilter Pro-Q3 ou EQ nativo com filtro bell suave (Q=1.0-1.5)",
-  "resultado": "Kick mais presente e definido, sub controlado, groove natural preservado"
-}
-
-EXEMPLO DIFERENÇA GRANDE (+8 dB nos médios):
-{
-  "problema": "Banda Mid está +8 dB muito acima da referência do gênero",
-  "causa": "Máscara vocal e outros elementos importantes, criando som 'boxeado' e perda de clareza",
-  "solucao": "Experimente reduzir entre -4 a -5 dB em 800Hz-2kHz. Como a diferença é significativa (+8 dB), considere fazer o ajuste em etapas para manter naturalidade",
-  "dica_extra": "Use EQ dinâmico para preservar transientes importantes dos instrumentos durante passagens mais intensas",
-  "plugin": "Waves C6 ou FabFilter Pro-MB para controle dinâmico inteligente",
-  "resultado": "Vocal destacado e inteligível, instrumentos com espaço para respirar, mix aberto e profissional"
-}
-
-EXEMPLO DIFERENÇA ABSURDA (-19 dB no sub - caso do exemplo):
-{
-  "problema": "Banda Sub está -19 dB abaixo do padrão do gênero Funk Mandela",
-  "causa": "A ausência de subgrave consistente reduz drasticamente o impacto e a pressão sonora característica do estilo",
-  "solucao": "Experimente reforçar entre +4 a +6 dB nessa região (20–60Hz). Como a diferença real é de -19 dB, não é recomendado corrigir tudo de uma vez; faça em etapas ou considere reforçar na produção/samples",
-  "dica_extra": "Mantenha o equilíbrio com o kick para não mascarar a batida e preserve o groove característico do funk",
-  "plugin": "Waves Renaissance Bass, FabFilter Pro-MB ou EQ nativo com reforço gradual",
-  "resultado": "Graves mais presentes e impactantes, mantendo clareza e punch do kick, som mais profissional"
-}
+- Use EXATAMENTE o valor de diferença medido que aparece em [DIFERENÇA REAL MEDIDA: X dB]
+- Exemplo: se mostra "Sub -7.10 dB", cite: "Banda Sub está -7.1 dB abaixo do padrão"
+- Para diferença de -7.1 dB (moderada), sugira ajuste proporcional: "entre +3 a +4 dB"
+- Para diferença de -12.7 dB (grande), sugira ajuste máximo: "entre +4 a +6 dB"
+- NUNCA use valores fictícios, sempre os dados reais fornecidos
 
 🚀 LEMBRE-SE: Seja educativo, realista e musical. O usuário deve aprender e se sentir confiante aplicando suas sugestões!
 `;
