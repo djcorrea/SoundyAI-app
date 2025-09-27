@@ -93,6 +93,12 @@ app.post("/api/suggestions", async (req, res) => {
 
     // Construir prompt para IA
     const prompt = buildSuggestionPrompt(suggestions, metrics, genre);
+    
+    // 🎯 LOG CRÍTICO: Mostrar prompt completo enviado para IA
+    console.log('🎯 [PROMPT_PARA_IA] Prompt completo enviado para OpenAI:');
+    console.log('=' .repeat(80));
+    console.log(prompt);
+    console.log('=' .repeat(80));
 
     // Chamar OpenAI
     const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -304,8 +310,12 @@ function buildSuggestionPrompt(suggestions, metrics, genre) {
     
     // Adicionar informações técnicas detalhadas se disponível
     if (s.adjustmentGuide) {
-      baseSuggestion += ` [DIFERENÇA REAL MEDIDA: ${s.adjustmentGuide.originalDelta > 0 ? '+' : ''}${s.adjustmentGuide.originalDelta.toFixed(1)} dB na banda ${s.adjustmentGuide.band.toUpperCase()}]`;
+      const deltaText = `${s.adjustmentGuide.originalDelta > 0 ? '+' : ''}${s.adjustmentGuide.originalDelta.toFixed(1)} dB`;
+      baseSuggestion += ` [DIFERENÇA REAL MEDIDA: ${deltaText} na banda ${s.adjustmentGuide.band.toUpperCase()}]`;
       baseSuggestion += ` [AJUSTE PROPORCIONAL CALCULADO: ${s.adjustmentGuide.direction} ${s.adjustmentGuide.suggestedRange}]`;
+      
+      // 🎯 LOG CRÍTICO para debug
+      console.log(`🎯 [BACKEND_PREP] Banda ${s.adjustmentGuide.band.toUpperCase()}: DIFERENÇA REAL MEDIDA = ${deltaText}`);
     }
     
     // Adicionar dados técnicos adicionais se disponível

@@ -86,6 +86,25 @@ class AISuggestionLayer {
         const startTime = performance.now();
         
         try {
+            // 🎯 CORREÇÃO CRÍTICA: Pular processamento de sugestões de bandas espectrais
+            // Para evitar valores fictícios, deixar backend processar com valores reais
+            const bandSuggestions = existingSuggestions.filter(s => 
+                s.type === 'band_adjust' || 
+                s.subtype === 'presence' || 
+                s.subtype === 'sub' || 
+                s.subtype === 'bass' || 
+                s.subtype === 'low_bass' ||
+                s.subtype === 'low_mid' ||
+                s.subtype === 'mid' ||
+                s.subtype === 'high_mid' ||
+                s.subtype === 'air'
+            );
+            
+            if (bandSuggestions.length > 0) {
+                console.log('🎯 [AI-LAYER] PULANDO processamento de bandas espectrais para preservar valores reais');
+                return existingSuggestions.map(s => ({...s, ai_enhanced: false, ai_skipped_for_real_values: true}));
+            }
+            
             // Validações iniciais
             if (!this.apiKey || this.apiKey === 'demo-mode') {
                 console.warn('⚠️ [AI-LAYER] API Key não configurada - usando sugestões originais');

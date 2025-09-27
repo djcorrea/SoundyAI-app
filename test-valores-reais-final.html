@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>🎯 TESTE FINAL - Valores Reais GARANTIDOS</title>
+    <style>
+        body { font-family: monospace; margin: 20px; background: #0f0f23; color: #cccccc; }
+        .section { margin: 20px 0; padding: 15px; border: 2px solid #333; background: #1a1a2e; border-radius: 8px; }
+        .correct { background-color: #0f3460; border-color: #4ade80; color: #4ade80; }
+        .incorrect { background-color: #4c1d24; border-color: #f87171; color: #f87171; }
+        .warning { background-color: #4d3319; border-color: #fbbf24; color: #fbbf24; }
+        .info { background-color: #1e3a8a; border-color: #93c5fd; color: #93c5fd; }
+        pre { background: #0a0a0a; padding: 15px; overflow: auto; max-height: 400px; border: 1px solid #444; color: #00ff00; }
+        button { padding: 12px 20px; margin: 5px; background: #3b82f6; color: white; border: none; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        button:hover { background: #2563eb; }
+        .expected-value { font-size: 18px; font-weight: bold; color: #00ff00; }
+        .actual-value { font-size: 18px; font-weight: bold; }
+        .test-case { border: 1px solid #555; margin: 10px 0; padding: 15px; background: #0a0a1a; }
+    </style>
+</head>
+<body>
+    <h1>🎯 TESTE FINAL - Garantindo Valores Reais da Tabela</h1>
+    
+    <div class="section info">
+        <h3>📋 O QUE DEVE ACONTECER</h3>
+        <div class="expected-value">Presença: -4.90 dB (valor da tabela)</div>
+        <div class="expected-value">Sub: -10.80 dB (valor da tabela)</div>
+        <div class="expected-value">Bass: -6.90 dB (valor da tabela)</div>
+        <p>⚠️ Se aparecer valores como -19 dB, +8 dB = PROBLEMA NÃO RESOLVIDO</p>
+    </div>
+    
+    <div class="section">
+        <h3>🧪 Controles de Teste</h3>
+        <button onclick="testCompleteFlow()">🚀 TESTE COMPLETO</button>
+        <button onclick="simulateBackendCall()">📤 SIMULAR BACKEND</button>
+        <button onclick="clearResults()">🧹 LIMPAR</button>
+    </div>
+    
+    <div class="section">
+        <h3>📊 Status dos Sistemas</h3>
+        <div id="system-status"></div>
+    </div>
+    
+    <div class="section">
+        <h3>🎯 Resultado do Teste</h3>
+        <div id="test-results"></div>
+    </div>
+    
+    <div class="section">
+        <h3>🔍 Debug Detalhado</h3>
+        <div id="debug-output"></div>
+    </div>
+
+    <!-- Scripts necessários -->
+    <script src="public/suggestion-scorer.js"></script>
+    <script src="public/enhanced-suggestion-engine.js"></script>
+    <script src="public/ai-suggestion-layer.js"></script>
+    
+    <script>
+        function checkSystemStatus() {
+            const statusDiv = document.getElementById('system-status');
+            
+            const aiEnabled = window.AI_SUGGESTION_LAYER_ENABLED;
+            const hasEngine = typeof window.EnhancedSuggestionEngine !== 'undefined';
+            const hasAILayer = typeof window.AISuggestionLayer !== 'undefined';
+            
+            statusDiv.innerHTML = `
+                <div class="${hasEngine ? 'correct' : 'incorrect'}">
+                    🎯 Enhanced Suggestion Engine: ${hasEngine ? '✅ CARREGADO' : '❌ FALTANDO'}
+                </div>
+                <div class="${hasAILayer ? 'info' : 'warning'}">
+                    🤖 AI Suggestion Layer: ${hasAILayer ? '✅ CARREGADA' : '❌ FALTANDO'}
+                </div>
+                <div class="${aiEnabled ? 'warning' : 'correct'}">
+                    🔧 AI Processing: ${aiEnabled ? '⚠️ ATIVADO (pode alterar valores)' : '✅ DESATIVADO PARA BANDAS'}
+                </div>
+            `;
+        }
+        
+        async function testCompleteFlow() {
+            const resultsDiv = document.getElementById('test-results');
+            const debugDiv = document.getElementById('debug-output');
+            
+            resultsDiv.innerHTML = '<div class="info">🧪 Executando teste completo...</div>';
+            
+            try {
+                // Dados de teste exatos das suas imagens
+                const testAnalysis = {
+                    spectral_bands: {
+                        sub: -28.10,           // Atual: -28.10 dB
+                        bass: -24.60,          // Atual: -24.60 dB  
+                        low_bass: -24.60,      // Atual: -24.60 dB
+                        low_mid: -26.70,       // Atual: -26.70 dB
+                        mid: -31.20,           // Atual: -31.20 dB
+                        high_mid: -35.40,      // Atual: -35.40 dB
+                        air: -44.80,           // Atual: -44.80 dB
+                        presence: -38.90       // Atual: -38.90 dB
+                    }
+                };
+                
+                const testReference = {
+                    bands: {
+                        sub: { target_db: -17.30, tol_db: 3.0 },          // Diferença: -10.80 dB
+                        bass: { target_db: -17.70, tol_db: 3.0 },         // Diferença: -6.90 dB  
+                        low_bass: { target_db: -21.50, tol_db: 3.0 },     // Diferença: -3.10 dB
+                        low_mid: { target_db: -18.70, tol_db: 2.5 },      // Diferença: -8.00 dB
+                        mid: { target_db: -17.90, tol_db: 2.5 },          // Diferença: -13.30 dB
+                        high_mid: { target_db: -22.90, tol_db: 2.5 },     // Diferença: -12.50 dB
+                        air: { target_db: -29.30, tol_db: 3.5 },          // Diferença: -15.50 dB
+                        presence: { target_db: -34.00, tol_db: 3.5 }      // Diferença: -4.90 dB ⭐
+                    }
+                };
+                
+                // Passo 1: Gerar sugestões originais
+                console.log('🎯 Gerando sugestões com Enhanced Engine...');
+                const engine = new EnhancedSuggestionEngine();
+                const originalResult = engine.processAnalysis(testAnalysis, testReference);
+                const originalSuggestions = originalResult.suggestions || [];
+                
+                // Passo 2: Processar com AI Layer (se ativada)
+                let finalSuggestions = originalSuggestions;
+                let aiProcessed = false;
+                
+                if (window.AI_SUGGESTION_LAYER_ENABLED && window.aiSuggestionLayer) {
+                    console.log('🤖 Processando com AI Layer...');
+                    const aiContext = {
+                        technicalData: testAnalysis,
+                        genre: 'Funk Mandela',
+                        referenceData: testReference
+                    };
+                    
+                    try {
+                        finalSuggestions = await window.aiSuggestionLayer.process(originalSuggestions, aiContext);
+                        aiProcessed = true;
+                    } catch (error) {
+                        console.warn('AI Layer falhou:', error.message);
+                    }
+                }
+                
+                // Passo 3: Analisar resultados
+                let testResults = '<h4>📊 RESULTADOS DO TESTE:</h4>';
+                let allTestsPassed = true;
+                
+                const expectedValues = {
+                    'presence': -4.90,
+                    'sub': -10.80,
+                    'bass': -6.90,
+                    'low_mid': -8.00,
+                    'mid': -13.30,
+                    'high_mid': -12.50
+                };
+                
+                for (const [expectedBand, expectedDelta] of Object.entries(expectedValues)) {
+                    const suggestion = finalSuggestions.find(s => s.subtype === expectedBand);
+                    
+                    if (suggestion) {
+                        const actualDelta = suggestion.technical?.delta;
+                        const valuesMatch = actualDelta !== undefined && Math.abs(actualDelta - expectedDelta) < 0.1;
+                        
+                        const cssClass = valuesMatch ? 'correct' : 'incorrect';
+                        if (!valuesMatch) allTestsPassed = false;
+                        
+                        testResults += `
+                            <div class="test-case ${cssClass}">
+                                <strong>${expectedBand.toUpperCase()}:</strong><br>
+                                • Esperado: ${expectedDelta.toFixed(1)} dB<br>
+                                • Encontrado: ${actualDelta ? actualDelta.toFixed(1) + ' dB' : 'N/A'}<br>
+                                • Action: ${suggestion.action || 'N/A'}<br>
+                                • Status: ${valuesMatch ? '✅ CORRETO' : '❌ INCORRETO'}
+                            </div>
+                        `;
+                    } else {
+                        testResults += `
+                            <div class="test-case incorrect">
+                                <strong>${expectedBand.toUpperCase()}:</strong> ❌ SUGESTÃO NÃO ENCONTRADA
+                            </div>
+                        `;
+                        allTestsPassed = false;
+                    }
+                }
+                
+                // Resultado final
+                const finalStatus = allTestsPassed ? 
+                    '<div class="correct">🎉 TODOS OS TESTES PASSARAM! Valores reais da tabela sendo usados.</div>' :
+                    '<div class="incorrect">❌ ALGUNS TESTES FALHARAM! Ainda há valores incorretos.</div>';
+                
+                resultsDiv.innerHTML = finalStatus + testResults;
+                
+                // Debug detalhado
+                let debugInfo = '<h4>🔍 DEBUG DETALHADO:</h4>';
+                debugInfo += `<pre>AI Layer Processou: ${aiProcessed ? 'SIM' : 'NÃO'}\n`;
+                debugInfo += `Sugestões Originais: ${originalSuggestions.length}\n`;
+                debugInfo += `Sugestões Finais: ${finalSuggestions.length}\n\n`;
+                
+                finalSuggestions.forEach((s, i) => {
+                    if (s.subtype && expectedValues[s.subtype]) {
+                        debugInfo += `${s.subtype}: delta=${s.technical?.delta}, action="${s.action}"\n`;
+                    }
+                });
+                
+                debugInfo += '</pre>';
+                debugDiv.innerHTML = debugInfo;
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="incorrect">❌ ERRO NO TESTE: ${error.message}</div>`;
+                console.error('Erro no teste completo:', error);
+            }
+        }
+        
+        async function simulateBackendCall() {
+            // Simular chamada ao backend com sugestão de presença
+            const mockSuggestion = {
+                subtype: 'presence',
+                action: 'Aumentar presence em 4.9 dB',
+                technical: {
+                    value: -38.90,
+                    target: -34.00,  
+                    delta: -4.90  // Valor real da tabela
+                }
+            };
+            
+            // Simular o preprocessSuggestions
+            const adjustment = {
+                originalDelta: mockSuggestion.technical.delta,
+                band: mockSuggestion.subtype
+            };
+            
+            const promptLine = `DIFERENÇA REAL MEDIDA: ${adjustment.originalDelta > 0 ? '+' : ''}${adjustment.originalDelta.toFixed(1)} dB na banda ${adjustment.band.toUpperCase()}`;
+            
+            const debugDiv = document.getElementById('debug-output');
+            debugDiv.innerHTML = `
+                <h4>📤 SIMULAÇÃO BACKEND:</h4>
+                <div class="correct">
+                    <strong>Prompt enviado para IA:</strong><br>
+                    "${promptLine}"<br><br>
+                    <strong>Resultado esperado:</strong><br>
+                    "Presença está 4.90 dB abaixo da referência do gênero"
+                </div>
+            `;
+        }
+        
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+            document.getElementById('debug-output').innerHTML = '';
+        }
+        
+        // Inicialização
+        setTimeout(() => {
+            checkSystemStatus();
+        }, 1000);
+        
+        // Auto-teste após carregamento
+        setTimeout(() => {
+            testCompleteFlow();
+        }, 3000);
+    </script>
+</body>
+</html>
