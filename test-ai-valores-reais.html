@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>✅ Teste - IA com Valores Reais</title>
+    <style>
+        body { font-family: monospace; margin: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .correct { background-color: #d4edda; color: #155724; }
+        .incorrect { background-color: #f8d7da; color: #721c24; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+        pre { background: #f4f4f4; padding: 10px; overflow: auto; max-height: 300px; }
+        button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .value-check { padding: 10px; margin: 5px 0; border-left: 4px solid #ddd; }
+    </style>
+</head>
+<body>
+    <h1>✅ Teste - IA Enriquecendo com Valores Reais</h1>
+    
+    <div class="section">
+        <h3>Status do Sistema</h3>
+        <div id="system-status"></div>
+        <button onclick="testAILayerIntegration()">Testar Integração IA</button>
+        <button onclick="clearLogs()">Limpar Logs</button>
+    </div>
+    
+    <div class="section">
+        <h3>Teste com Dados Reais</h3>
+        <div id="test-results"></div>
+    </div>
+    
+    <div class="section">
+        <h3>Comparação: Antes vs Depois da IA</h3>
+        <div id="before-after"></div>
+    </div>
+    
+    <div class="section">
+        <h3>Logs de Debug</h3>
+        <div id="debug-logs"></div>
+    </div>
+
+    <!-- Scripts necessários -->
+    <script src="public/suggestion-scorer.js"></script>
+    <script src="public/enhanced-suggestion-engine.js"></script>
+    <script src="public/ai-suggestion-layer.js"></script>
+    
+    <script>
+        let logs = [];
+        
+        // Interceptar console.log
+        const originalLog = console.log;
+        console.log = function(...args) {
+            const logText = args.join(' ');
+            logs.push(`${new Date().toISOString()}: ${logText}`);
+            if (logs.length > 100) logs.shift();
+            originalLog.apply(console, args);
+            updateDebugLogs();
+        };
+        
+        function updateDebugLogs() {
+            const debugDiv = document.getElementById('debug-logs');
+            const relevantLogs = logs.filter(log => 
+                log.includes('AI-LAYER') || 
+                log.includes('ENHANCED_ENGINE_VALUES') ||
+                log.includes('SUGGESTION_FINAL') ||
+                log.includes('valores') ||
+                log.includes('preservados')
+            );
+            debugDiv.innerHTML = '<pre>' + relevantLogs.slice(-15).join('\n') + '</pre>';
+        }
+        
+        function clearLogs() {
+            logs = [];
+            document.getElementById('debug-logs').innerHTML = '';
+        }
+        
+        function checkSystemStatus() {
+            const statusDiv = document.getElementById('system-status');
+            
+            const aiLayerEnabled = window.AI_SUGGESTION_LAYER_ENABLED;
+            const hasAISuggestionLayer = typeof window.AISuggestionLayer !== 'undefined';
+            const hasEnhancedEngine = typeof window.EnhancedSuggestionEngine !== 'undefined';
+            
+            let status = `
+                <div class="${aiLayerEnabled ? 'correct' : 'warning'}">
+                    🤖 AI Layer: ${aiLayerEnabled ? '✅ ATIVADA' : '❌ DESATIVADA'}
+                </div>
+                <div class="${hasAISuggestionLayer ? 'correct' : 'incorrect'}">
+                    📚 AISuggestionLayer: ${hasAISuggestionLayer ? '✅ Carregada' : '❌ Não encontrada'}
+                </div>
+                <div class="${hasEnhancedEngine ? 'correct' : 'incorrect'}">
+                    🎯 EnhancedSuggestionEngine: ${hasEnhancedEngine ? '✅ Carregado' : '❌ Não encontrado'}
+                </div>
+            `;
+            
+            statusDiv.innerHTML = status;
+        }
+        
+        async function testAILayerIntegration() {
+            const resultsDiv = document.getElementById('test-results');
+            const beforeAfterDiv = document.getElementById('before-after');
+            
+            try {
+                // 1. Gerar sugestões originais (sem IA)
+                console.log('🧪 [TESTE] Gerando sugestões originais...');
+                
+                const testAnalysis = {
+                    spectral_bands: {
+                        sub: -15.2,
+                        low_bass: -12.8,   // Atual: -12.8 dB
+                        mid_bass: -9.4,
+                        low_mid: -11.6,    // Atual: -11.6 dB  
+                        mid: -8.9,
+                        high_mid: -6.7,    // Atual: -6.7 dB
+                        presence: -10.1,
+                        brilliance: -14.3
+                    },
+                    lufs: -14.5,
+                    true_peak: -1.2,
+                    dr: 8.5
+                };
+                
+                const testReference = {
+                    bands: {
+                        sub: { target_db: -12.5, tol_db: 2.0 },
+                        low_bass: { target_db: -11.6, tol_db: 1.5 },   // Alvo: -11.6 dB
+                        mid_bass: { target_db: -8.2, tol_db: 1.2 },
+                        low_mid: { target_db: -6.7, tol_db: 1.8 },     // Alvo: -6.7 dB  
+                        mid: { target_db: -7.1, tol_db: 1.0 },
+                        high_mid: { target_db: -8.4, tol_db: 1.5 },    // Alvo: -8.4 dB
+                        presence: { target_db: -9.8, tol_db: 2.0 },
+                        brilliance: { target_db: -13.2, tol_db: 1.8 }
+                    }
+                };
+                
+                const engine = new EnhancedSuggestionEngine();
+                const originalResult = engine.processAnalysis(testAnalysis, testReference);
+                const originalSuggestions = originalResult.suggestions || [];
+                
+                console.log(`🎯 [TESTE] ${originalSuggestions.length} sugestões originais geradas`);
+                
+                // 2. Processar com IA (se disponível)
+                let enhancedSuggestions = originalSuggestions;
+                let aiProcessed = false;
+                
+                if (window.AI_SUGGESTION_LAYER_ENABLED && window.aiSuggestionLayer) {
+                    console.log('🤖 [TESTE] Processando com IA...');
+                    
+                    const aiContext = {
+                        technicalData: testAnalysis,
+                        genre: 'test',
+                        referenceData: testReference
+                    };
+                    
+                    try {
+                        enhancedSuggestions = await window.aiSuggestionLayer.process(originalSuggestions, aiContext);
+                        aiProcessed = true;
+                        console.log(`🤖 [TESTE] IA processou ${enhancedSuggestions.length} sugestões`);
+                    } catch (error) {
+                        console.warn('⚠️ [TESTE] IA falhou, usando sugestões originais:', error.message);
+                    }
+                }
+                
+                // 3. Comparar valores
+                let comparisonHtml = '<h4>Comparação de Valores:</h4>';
+                
+                originalSuggestions.forEach((original, index) => {
+                    const enhanced = enhancedSuggestions[index];
+                    if (!enhanced) return;
+                    
+                    const originalAction = original.action || 'N/A';
+                    const enhancedAction = enhanced.action || 'N/A';
+                    
+                    const valuesPreserved = originalAction === enhancedAction || 
+                                          (enhanced.technical?.value === original.technical?.value &&
+                                           enhanced.technical?.target === original.technical?.target);
+                    
+                    const cssClass = valuesPreserved ? 'correct' : 'incorrect';
+                    
+                    comparisonHtml += `
+                        <div class="value-check ${cssClass}">
+                            <strong>Sugestão ${index + 1} (${original.subtype || 'N/A'}):</strong><br>
+                            <strong>Original:</strong> ${originalAction}<br>
+                            <strong>IA:</strong> ${enhancedAction}<br>
+                            <strong>Valores preservados:</strong> ${valuesPreserved ? '✅ SIM' : '❌ NÃO'}<br>
+                            <strong>IA Enriquecida:</strong> ${enhanced.ai_enhanced ? '✅ SIM' : '❌ NÃO'}
+                        </div>
+                    `;
+                });
+                
+                beforeAfterDiv.innerHTML = comparisonHtml;
+                
+                // 4. Mostrar resultados
+                const aiStatus = aiProcessed ? 
+                    '<div class="correct">✅ IA processou sugestões mantendo valores reais</div>' :
+                    '<div class="warning">⚠️ IA não disponível ou desativada</div>';
+                
+                resultsDiv.innerHTML = `
+                    ${aiStatus}
+                    <div class="info">
+                        📊 <strong>Estatísticas:</strong><br>
+                        • Sugestões originais: ${originalSuggestions.length}<br>
+                        • Sugestões após IA: ${enhancedSuggestions.length}<br>
+                        • IA ativada: ${window.AI_SUGGESTION_LAYER_ENABLED ? 'SIM' : 'NÃO'}
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('🚨 [TESTE] Erro:', error);
+                resultsDiv.innerHTML = `<div class="incorrect">❌ Erro no teste: ${error.message}</div>`;
+            }
+        }
+        
+        // Inicialização
+        setTimeout(() => {
+            checkSystemStatus();
+        }, 1000);
+        
+        // Atualizar status a cada 5 segundos
+        setInterval(checkSystemStatus, 5000);
+    </script>
+</body>
+</html>
