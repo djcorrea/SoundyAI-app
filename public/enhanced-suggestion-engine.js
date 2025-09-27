@@ -3,13 +3,19 @@
 
 // 🎚️ CAPs - Limites seguros e musicais por banda (em dB)
 const BAND_CAPS_DB = {
-    sub:      { boost: 4.0,  cut: 6.0 },  // 20–60 Hz: boosts moderados, cortes maiorzinhos
-    bass:     { boost: 4.0,  cut: 6.0 },  // 60–150 Hz
-    lowMid:   { boost: 4.0,  cut: 5.0 },  // 150–500 Hz
-    mid:      { boost: 3.5,  cut: 5.0 },  // 500 Hz–2 kHz
-    highMid:  { boost: 3.0,  cut: 4.0 },  // 2–5 kHz
-    presence: { boost: 3.0,  cut: 4.0 },  // 5–10 kHz
-    air:      { boost: 2.5,  cut: 3.0 }   // 10–20 kHz
+    sub:       { boost: 6.0,  cut: 6.0 },  // 20–60 Hz: ±6 dB
+    bass:      { boost: 5.0,  cut: 5.0 },  // 60–150 Hz: ±5 dB
+    low_bass:  { boost: 5.0,  cut: 5.0 },  // 60–150 Hz: ±5 dB (alias)
+    lowMid:    { boost: 4.5,  cut: 4.5 },  // 150–500 Hz: ±4.5 dB
+    low_mid:   { boost: 4.5,  cut: 4.5 },  // 150–500 Hz: ±4.5 dB (alias)
+    upper_bass:{ boost: 4.5,  cut: 4.5 },  // 150–500 Hz: ±4.5 dB (alias)
+    mid:       { boost: 4.0,  cut: 4.0 },  // 500 Hz–2 kHz: ±4 dB
+    highMid:   { boost: 3.5,  cut: 3.5 },  // 2–5 kHz: ±3.5 dB
+    high_mid:  { boost: 3.5,  cut: 3.5 },  // 2–5 kHz: ±3.5 dB (alias)
+    presence:  { boost: 3.5,  cut: 3.5 },  // 5–10 kHz: ±3.5 dB
+    presenca:  { boost: 3.5,  cut: 3.5 },  // 5–10 kHz: ±3.5 dB (alias português)
+    air:       { boost: 3.0,  cut: 3.0 },  // 10–20 kHz: ±3 dB
+    brilho:    { boost: 3.0,  cut: 3.0 }   // 10–20 kHz: ±3 dB (alias português)
 };
 
 const MIN_ACTION_DB = 1.5; // abaixo disso, ou fica "opcional" ou some a dica (respeitando tolerância)
@@ -17,12 +23,18 @@ const MIN_ACTION_DB = 1.5; // abaixo disso, ou fica "opcional" ou some a dica (r
 // 🎵 Ranges das bandas espectrais
 const BAND_RANGES = {
     sub: '20–60 Hz', 
-    bass: '60–150 Hz', 
+    bass: '60–150 Hz',
+    low_bass: '60–150 Hz',
     lowMid: '150–500 Hz',
+    low_mid: '150–500 Hz',
+    upper_bass: '150–500 Hz',
     mid: '500–2 kHz', 
-    highMid: '2–5 kHz', 
-    presence: '5–10 kHz', 
-    air: '10–20 kHz'
+    highMid: '2–5 kHz',
+    high_mid: '2–5 kHz',
+    presence: '5–10 kHz',
+    presenca: '5–10 kHz',  // alias português
+    air: '10–20 kHz',
+    brilho: '10–20 kHz'    // alias português
 };
 
 /**
@@ -78,9 +90,8 @@ function applyCapsInReferenceComparison(items, tolerancesByMetric) {
         // Texto curto e musical (apenas se show=true e fora da tolerância)
         if (show) {
             const mag = Math.abs(clamped);
-            const approx = mag >= 2 ? `entre ${Math.max(1, Math.round(mag - 1))} e ${Math.round(mag)} dB` : `~${mag.toFixed(1)} dB`;
             const verb = clamped > 0 ? 'aumentar' : 'reduzir';
-            it.shortHint = `Experimente ${verb} ${approx} (${range})`;
+            it.shortHint = `Experimente ${verb} ~${mag.toFixed(1)} dB em ${range}`;
         } else {
             it.shortHint = undefined;
         }
@@ -109,9 +120,8 @@ function applyCapsInAdvancedSuggestions(suggestions, tolerancesByMetric) {
         // Frase curta adicional (para UI compacta)
         if (show) {
             const mag = Math.abs(clamped);
-            const approx = mag >= 2 ? `entre ${Math.max(1, Math.round(mag - 1))} e ${Math.round(mag)} dB` : `~${mag.toFixed(1)} dB`;
             const verb = clamped > 0 ? 'aumentar' : 'reduzir';
-            s.shortHint = `Experimente ${verb} ${approx} (${range})`;
+            s.shortHint = `Experimente ${verb} ~${mag.toFixed(1)} dB em ${range}`;
         } else {
             s.shortHint = undefined;
         }
