@@ -255,11 +255,109 @@ Sua missão é gerar sugestões **educativas, detalhadas e práticas**, com base
   }
 });
 
+// 🎛️ Função auxiliar para garantir caps por banda (limites máximos em dB)
+function clampDeltaByBand(band, delta) {
+  const caps = {
+    sub: 6,           // Sub (20–60Hz): ±6 dB
+    bass: 6,          // Bass (60–150Hz): ±6 dB  
+    low_mid: 5,       // Low-Mid (150–500Hz): ±5 dB
+    mid: 5,           // Mid (500Hz–2kHz): ±5 dB
+    high_mid: 5,      // High-Mid (2–5kHz): ±5 dB
+    presence: 5,      // Presence (5–10kHz): ±5 dB
+    air: 4,           // Air (10–20kHz): ±4 dB
+    
+    // Aliases para compatibilidade
+    lowMid: 5,
+    highMid: 5,
+    presenca: 5,
+    brilho: 4
+  };
+  
+  const maxCap = caps[band] || 5; // Default 5 dB se banda não encontrada
+  return Math.max(-maxCap, Math.min(maxCap, delta));
+}
+
+// 📊 Função para calcular ajuste proporcional baseado no delta
+function calculateProportionalAdjustment(delta, band) {
+  const caps = {
+    sub: 6, bass: 6, low_mid: 5, mid: 5, high_mid: 5, presence: 5, air: 4,
+    lowMid: 5, highMid: 5, presenca: 5, brilho: 4
+  };
+  
+  const clampedDelta = clampDeltaByBand(band, delta);
+  const absDelta = Math.abs(clampedDelta);
+  
+  let minAdjust, maxAdjust;
+  
+  // Proporcionalidade: quanto maior o delta, maior o ajuste (respeitando caps)
+  if (absDelta <= 3) {
+    // Diferença pequena: correção mínima (30-60% do delta)
+    minAdjust = Math.max(1, Math.floor(absDelta * 0.3));
+    maxAdjust = Math.max(2, Math.ceil(absDelta * 0.6));
+  } else if (absDelta <= 6) {
+    // Diferença moderada: ajuste intermediário (50-75% do delta)
+    minAdjust = Math.max(2, Math.floor(absDelta * 0.5));
+    maxAdjust = Math.max(3, Math.ceil(absDelta * 0.75));
+  } else {
+    // Diferença grande: ajuste máximo permitido pelo cap (75-100% do delta)
+    minAdjust = Math.max(3, Math.floor(absDelta * 0.75));
+    maxAdjust = Math.min(caps[band] || 5, Math.ceil(absDelta * 1.0));
+  }
+  
+  // Garantir que não ultrapasse os caps
+  const maxCap = caps[band] || 5;
+  minAdjust = Math.min(minAdjust, maxCap);
+  maxAdjust = Math.min(maxAdjust, maxCap);
+  
+  // Manter sinal do delta original
+  const sign = clampedDelta >= 0 ? '+' : '-';
+  
+  return {
+    range: `${sign}${minAdjust} a ${sign}${maxAdjust} dB`,
+    direction: clampedDelta > 0 ? 'reforçar' : 'reduzir',
+    intensity: absDelta <= 3 ? 'suavemente' : absDelta <= 6 ? 'moderadamente' : 'com mais ênfase'
+  };
+}
+
+// 🔧 Função para preprocessar sugestões aplicando caps e calculando ajustes proporcionais
+function preprocessSuggestions(suggestions) {
+  return suggestions.map((s, i) => {
+    let enhancedSuggestion = { ...s };
+    
+    // Se a sugestão tem dados técnicos com delta e banda, calcular ajuste proporcional
+    if (s.technical && s.technical.delta && s.subtype) {
+      const band = s.subtype.toLowerCase();
+      const adjustment = calculateProportionalAdjustment(s.technical.delta, band);
+      
+      enhancedSuggestion.adjustmentGuide = {
+        originalDelta: s.technical.delta,
+        suggestedRange: adjustment.range,
+        direction: adjustment.direction,
+        intensity: adjustment.intensity,
+        band: band
+      };
+    }
+    
+    return enhancedSuggestion;
+  });
+}
+
 // Função para construir o prompt da IA
 function buildSuggestionPrompt(suggestions, metrics, genre) {
-  const suggestionsList = suggestions.map((s, i) => 
-    `${i + 1}. ${s.message || s.title || 'Sugestão'} - ${s.action || s.description || 'Sem ação definida'} (Prioridade: ${s.priority || 5}, Confiança: ${s.confidence || 0.5})`
-  ).join('\n');
+  // Preprocessar sugestões para incluir dados de ajuste proporcional
+  const preprocessedSuggestions = preprocessSuggestions(suggestions);
+  
+  const suggestionsList = preprocessedSuggestions.map((s, i) => {
+    let baseSuggestion = `${i + 1}. ${s.message || s.title || 'Sugestão'} - ${s.action || s.description || 'Sem ação definida'}`;
+    
+    // Adicionar informações de ajuste se disponível
+    if (s.adjustmentGuide) {
+      baseSuggestion += ` [AJUSTE CALCULADO: ${s.adjustmentGuide.direction} ${s.adjustmentGuide.suggestedRange} na banda ${s.adjustmentGuide.band}]`;
+    }
+    
+    baseSuggestion += ` (Prioridade: ${s.priority || 5}, Confiança: ${s.confidence || 0.5})`;
+    return baseSuggestion;
+  }).join('\n');
 
   const metricsInfo = metrics ? `
 🔊 ANÁLISE ESPECTRAL DETALHADA:
@@ -274,59 +372,199 @@ function buildSuggestionPrompt(suggestions, metrics, genre) {
 
   const expected = suggestions.length;
   return `
-Analise estas detecções para ${genre || 'música geral'} e gere sugestões práticas. Retorne APENAS um JSON que seja um ARRAY com exatamente ${expected} itens. Para cada item:
+🎛️ ANALISE ESTAS DETECÇÕES PARA ${(genre || 'música geral').toUpperCase()} E GERE SUGESTÕES REALISTAS E EDUCATIVAS.
+
+⚠️ REGRAS ABSOLUTAS:
+- Responda EXCLUSIVAMENTE com um JSON VÁLIDO (ARRAY com exatamente ${expected} itens).
+- Sugestões devem ser sempre EDUCATIVAS e ORIENTATIVAS, nunca imperativas.
+- Ajustes PROPORCIONAIS à diferença medida (quanto maior o delta, maior o ajuste).
+- NUNCA sugerir mais que os limites por banda:
+  • Sub/Bass (20–150Hz): máximo ±6 dB
+  • Médios (150Hz–5kHz): máximo ±5 dB  
+  • Agudos (5kHz+): máximo ±4 dB
+- Sempre incluir faixa de dB em formato "entre -X e -Y dB" ou "entre +X e +Y dB".
+- NUNCA valores fixos, sempre ranges orientativos.
+
+🎵 LINGUAGEM OBRIGATÓRIA:
+- "Experimente reduzir entre -2 a -3 dB nesta região..."
+- "Considere reforçar entre +1 a +2 dB no sub para dar mais punch..."
+- "Avalie se o sample ou instrumento já se encaixa naturalmente..."
+- "Teste um corte suave entre -1 a -2 dB..."
+
+📊 PROPORCIONALIDADE:
+- Delta pequeno (até 3 dB): sugerir correção mínima (1-2 dB)
+- Delta moderado (3-6 dB): sugerir ajuste intermediário (2-4 dB)  
+- Delta grande (6+ dB): sugerir ajuste máximo permitido pelo cap
+
+🔧 ESTRUTURA OBRIGATÓRIA:
 {
-  "problema": "descrição clara",
-  "causa": "explicação simples",
-  "solucao": "passos aplicáveis",
-  "dica_extra": "dica útil",
-  "plugin": "exemplo de plugin",
-  "resultado": "resultado esperado"
+  "problema": "descrição curta com valor medido vs referência (ex: 'Sub +4.2 dB acima do ideal')",
+  "causa": "impacto auditivo claro (ex: 'Máscara o kick e tira o punch')",
+  "solucao": "instrução orientativa com range proporcional (ex: 'Experimente reduzir entre -2 a -3 dB em 40-80Hz')",
+  "dica_extra": "dica contextual musical (ex: 'Cuidado para não tirar o groove do kick')",
+  "plugin": "ferramenta específica por banda (FabFilter Pro-Q3 para médios, Waves C6 para graves, De-Esser para sibilância)",
+  "resultado": "melhoria auditiva realista (ex: 'Kick mais presente, grove definido, mix limpo')"
 }
 
-Sugestões originais:
+🎯 SUGESTÕES ORIGINAIS DETECTADAS:
 ${suggestionsList}
 
-Contexto técnico:
+🔊 CONTEXTO TÉCNICO DETALHADO:
 ${metricsInfo}
 
-Diretrizes de gênero:
+🎵 DIRETRIZES ESPECÍFICAS DO GÊNERO:
 ${genreContext}
+
+� EXEMPLOS DE SUGESTÕES IDEAIS:
+
+EXEMPLO DELTA PEQUENO (-2.5 dB no sub):
+{
+  "problema": "Sub bass +2.5 dB acima do ideal",
+  "causa": "Pode mascarar levemente o kick e comprometer o punch",
+  "solucao": "Experimente reduzir entre -1 a -2 dB na região de 40-80Hz",
+  "dica_extra": "Monitore o groove do kick para não tirar a pegada",
+  "plugin": "FabFilter Pro-Q3 ou EQ nativo com filtro bell suave",
+  "resultado": "Kick mais presente, sub controlado, groove definido"
+}
+
+EXEMPLO DELTA GRANDE (-8 dB nos médios):
+{
+  "problema": "Médios +8 dB muito acima da referência",
+  "causa": "Máscara vocal e outros elementos, som 'boxeado'",
+  "solucao": "Experimente reduzir entre -4 a -5 dB em 800Hz-2kHz",
+  "dica_extra": "Use EQ dinâmico para preservar transientes importantes",
+  "plugin": "Waves C6 ou FabFilter Pro-MB para controle dinâmico",
+  "resultado": "Vocal destacado, instrumentos com espaço, mix aberto"
+}
+
+�🚀 LEMBRE-SE: Seja educativo, realista e musical. O usuário deve aprender e se sentir confiante aplicando suas sugestões!
 `;
 }
 
-// Função para obter contexto do gênero
+// Função para obter contexto educativo e musical do gênero
 function getGenreContext(genre) {
   const contexts = {
     funk_mandela: `
-🎵 CONTEXTO FUNK MANDELA:
-- Sub bass (40-80Hz) forte
-- Mid bass (80-200Hz) com punch
-- Vocais (1-4kHz) claros
-- High-end (8-15kHz) controlado
-- DR 4-6 | True Peak -1dBTP | LUFS -8 a -12`,
+🎵 CONTEXTO FUNK MANDELA - LINGUAGEM E PRIORIDADES:
+- LINGUAGEM: Use termos do funk ("grave pesado", "vocal cristalino", "pancada no peito")
+- SUB/BASS (20-150Hz): PRIORITÁRIO - Deve "bater no peito" sem mascarar o kick
+  • Plugin ideal: Waves Renaissance Bass, FabFilter Pro-MB
+  • Dica: Side-chain com kick, preserve groove 
+- MÉDIOS (200Hz-2kHz): Vocal sempre em evidência, cuidado com máscara
+  • Plugin ideal: FabFilter Pro-Q3, Waves C6
+  • Dica: EQ complementar (corta onde vocal precisa brilhar)
+- AGUDOS (5-15kHz): Controlado, nunca agressivo
+  • Plugin ideal: De-Esser nativo, Waves DeEsser
+  • Resultado: "Hi-hat crocante, vocal inteligível"
+- TARGETS: DR 4-6 | True Peak -1dBTP | LUFS -8 a -12`,
     
     trance: `
-🎵 CONTEXTO TRANCE:
-- Sub bass limpo (30-60Hz)
-- Kick (60-120Hz) definido
-- Leads (2-8kHz) brilhantes
-- Reverb/delay equilibrados
-- DR 3-5 | True Peak -0.5dBTP | LUFS -6 a -9`,
+🎵 CONTEXTO TRANCE - LINGUAGEM E PRIORIDADES:  
+- LINGUAGEM: Use termos eletrônicos ("kick punchy", "lead cortante", "atmosfera ampla")
+- SUB (20-60Hz): Limpo e controlado para não competir com kick
+  • Plugin ideal: FabFilter Pro-Q3 high-pass, Waves Renaissance Bass
+  • Dica: Mono até 100Hz, side-chain com kick
+- KICK (60-120Hz): Deve ser o protagonista dos graves
+  • Plugin ideal: FabFilter Pro-MB, compressão multibanda
+  • Resultado: "Kick perfurado, presença definida"
+- LEADS (2-8kHz): Brilhantes mas não agressivos, com espaço para vocal
+  • Plugin ideal: FabFilter Pro-Q3, harmonic exciter sutil
+  • Dica: Use EQ dinâmico para não brigar com vocal
+- REVERB/DELAY: Equilibrado, sem máscara
+  • Resultado: "Atmosfera ampla, leads definidos, kick presente"
+- TARGETS: DR 3-5 | True Peak -0.5dBTP | LUFS -6 a -9`,
     
     bruxaria: `
-🎵 CONTEXTO BRUXARIA:
-- Graves (20-100Hz) livres
-- Médios (200Hz-2kHz) atmosféricos
-- High-end (5-20kHz) texturizado
-- DR 6-12 | True Peak -3 a -1dBTP | LUFS -12 a -16`
+🎵 CONTEXTO BRUXARIA - LINGUAGEM E PRIORIDADES:
+- LINGUAGEM: Use termos atmosféricos ("texturas orgânicas", "ambiência natural", "dinâmica respirante")
+- GRAVES (20-100Hz): Livres e orgânicos, nunca over-processed
+  • Plugin ideal: EQ vintage (Neve, API emulation), compressão suave
+  • Dica: Preserve transientes naturais, menos side-chain
+- MÉDIOS (200Hz-2kHz): Atmosféricos, com espaço para respirar
+  • Plugin ideal: EQ analógico modelado, compressão ótica
+  • Resultado: "Vozes orgânicas, instrumentos com corpo natural"
+- AGUDOS (5-20kHz): Texturizados, nunca limpos demais
+  • Plugin ideal: EQ vintage, tape saturation sutil
+  • Dica: Harmônicos naturais, evite filtros digitais duros
+- DINÂMICA: Preserve variações naturais, menos limitação
+  • Resultado: "Mix respirante, texturas ricas, ambiência natural"
+- TARGETS: DR 6-12 | True Peak -3 a -1dBTP | LUFS -12 a -16`,
+
+    electronic: `
+🎵 CONTEXTO ELETRÔNICO GERAL:
+- LINGUAGEM: "Precisão digital", "punch eletrônico", "clareza sintética"
+- SUB (20-80Hz): Controlado digitalmente, mono perfeito
+  • Plugin ideal: FabFilter Pro-Q3, análise em tempo real
+- MÉDIOS: Separação precisa entre elementos sintéticos  
+  • Plugin ideal: EQ dinâmico, compressão multibanda
+- AGUDOS: Cristalinos mas não metálicos
+  • Resultado: "Sínteses definidas, espacialização precisa"
+- TARGETS: DR 4-8 | True Peak -1dBTP | LUFS -8 a -12`,
+
+    hip_hop: `
+🎵 CONTEXTO HIP HOP:
+- LINGUAGEM: "Boom bap", "vocal na frente", "groove pesado"
+- SUB/KICK: Deve "bater forte" sem distorção
+  • Plugin ideal: Waves CLA Bass, side-chain com vocal
+- VOCAL: SEMPRE protagonista, clareza total
+  • Plugin ideal: Waves CLA Vocals, De-Esser obrigatório
+- SAMPLES: Preserve caráter original, evite over-processing
+  • Resultado: "Vocal cristalino, beat pesado, samples com alma"
+- TARGETS: DR 5-8 | True Peak -1dBTP | LUFS -9 a -13`
   };
   
-  return contexts[genre] || `
-🎵 CONTEXTO GERAL:
-- Balance clareza/energia
-- Preserve dinâmica do estilo
-- Foque em inteligibilidade`;
+  return contexts[genre] || contexts[detectGenreType(genre)] || `
+🎵 CONTEXTO MUSICAL GERAL:
+- LINGUAGEM: Seja educativo e musical, evite jargões técnicos pesados
+- GRAVES: Balance presença vs. limpeza, preserve groove natural
+  • Plugin ideal: EQ nativo da DAW, compressor suave
+- MÉDIOS: Foque na inteligibilidade, evite máscara entre elementos
+  • Plugin ideal: FabFilter Pro-Q3, EQ dinâmico
+- AGUDOS: Brilho sem agressividade, preserve naturalidade
+  • Plugin ideal: De-Esser nativo, EQ shelf suave
+- FILOSOFIA: "Realce a musicalidade, preserve a emoção"
+- RESULTADO: "Mix equilibrado, musical e profissional"`;
+}
+
+// Função auxiliar para detectar tipo de gênero
+function detectGenreType(genre) {
+  if (!genre) return null;
+  
+  const genreLower = genre.toLowerCase();
+  
+  if (genreLower.includes('funk') || genreLower.includes('mandela')) return 'funk_mandela';
+  if (genreLower.includes('trance') || genreLower.includes('progressive')) return 'trance';  
+  if (genreLower.includes('brux') || genreLower.includes('ambient')) return 'bruxaria';
+  if (genreLower.includes('electronic') || genreLower.includes('edm') || genreLower.includes('house')) return 'electronic';
+  if (genreLower.includes('hip') || genreLower.includes('rap') || genreLower.includes('trap')) return 'hip_hop';
+  
+  return null;
+}
+
+// 🧪 Função de teste para validar caps e proporcionalidade
+function testRealisticSuggestions() {
+  console.log('🧪 [TESTE] Validando sistema de caps e proporcionalidade...');
+  
+  const testCases = [
+    { band: 'sub', delta: -2.5, expected: 'ajuste mínimo (1-2 dB)' },
+    { band: 'bass', delta: -7.0, expected: 'ajuste máximo limitado ao cap (6 dB)' },
+    { band: 'mid', delta: 4.5, expected: 'ajuste intermediário (2-4 dB)' },
+    { band: 'presence', delta: -12.0, expected: 'ajuste máximo limitado ao cap (5 dB)' },
+    { band: 'air', delta: 2.0, expected: 'ajuste mínimo (1-2 dB)' }
+  ];
+  
+  testCases.forEach(test => {
+    const clampedDelta = clampDeltaByBand(test.band, test.delta);
+    const adjustment = calculateProportionalAdjustment(test.delta, test.band);
+    
+    console.log(`📊 Banda: ${test.band} | Delta original: ${test.delta} dB`);
+    console.log(`   ✂️ Delta limitado: ${clampedDelta} dB`);
+    console.log(`   🎯 Ajuste sugerido: ${adjustment.range}`);
+    console.log(`   📝 Esperado: ${test.expected}`);
+    console.log(`   ✅ Status: ${Math.abs(clampedDelta) <= (test.band === 'air' ? 4 : test.band.includes('mid') || test.band === 'presence' ? 5 : 6) ? 'PASSOU' : 'FALHOU'}\n`);
+  });
+  
+  return true;
 }
 
 // Helpers de parse e fallback
@@ -418,6 +656,12 @@ app.get("*", (req, res, next) => {
 const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor SoundyAI rodando na porta ${PORT}`);
+  
+  // 🧪 Executar testes de validação na inicialização (apenas em desenvolvimento)
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('\n🔧 [DEV] Executando testes de validação...');
+    testRealisticSuggestions();
+  }
 });
 
 export default app;
