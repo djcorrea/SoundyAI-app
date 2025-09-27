@@ -184,14 +184,17 @@ function obterVisualizacaoStatus(status) {
  * 🔧 HELPER: Formatação de sugestão para UI
  * 
  * Converte objeto sugestão em texto legível
+ * MODIFICADO: Remove frases descritivas, mantém apenas direção simples
  */
 function formatarSugestaoTexto(sugestao) {
     if (!sugestao) return '';
     
+    // Apenas símbolo de direção, sem texto descritivo
     const simbolo = sugestao.direcao === 'aumentar' ? '↑' : '↓';
-    const intensidade = sugestao.urgencia ? '↑↑' : simbolo;
+    const intensidade = sugestao.urgencia ? (sugestao.direcao === 'aumentar' ? '↑↑' : '↓↓') : simbolo;
     
-    return `${intensidade} ${sugestao.texto}`;
+    // Retorna apenas o símbolo, sem texto descritivo
+    return intensidade;
 }
 
 /**
@@ -208,17 +211,16 @@ function criarCelulaDiferenca(valor, alvo, tolerancia, unidade = '', metrica = '
     
     const resultado = calcularStatusSugestaoUnificado(valor, alvo, tolerancia, unidade, metrica);
     const visual = obterVisualizacaoStatus(resultado.status);
-    const sugestaoTexto = formatarSugestaoTexto(resultado.sugestao);
     
     const difFormatada = Number.isFinite(resultado.dif) 
         ? `${resultado.dif > 0 ? '+' : ''}${resultado.dif.toFixed(2)}${unidade}`
         : '—';
     
+    // MODIFICADO: Remove linha de sugestão descritiva, mantém apenas valor e status
     return `<td class="${resultado.cor}">
         <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
             <div style="font-size: 12px; font-weight: 600;">${difFormatada}</div>
             <div style="font-size: 10px; opacity: 0.8;">${visual.icone} ${visual.texto}</div>
-            ${sugestaoTexto ? `<div style="font-size: 9px; color: #666;">${sugestaoTexto}</div>` : ''}
         </div>
     </td>`;
 }

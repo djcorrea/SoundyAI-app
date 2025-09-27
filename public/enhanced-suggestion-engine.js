@@ -1,134 +1,6 @@
 // 🎯 SISTEMA PRINCIPAL DE SUGESTÕES MELHORADO
 // Integra scoring, heurísticas e referências em um sistema unificado
 
-// 🎚️ CAPs - Limites seguros e musicais por banda (em dB)
-const BAND_CAPS_DB = {
-    sub:       { boost: 6.0,  cut: 6.0 },  // 20–60 Hz: ±6 dB
-    bass:      { boost: 5.0,  cut: 5.0 },  // 60–150 Hz: ±5 dB
-    low_bass:  { boost: 5.0,  cut: 5.0 },  // 60–150 Hz: ±5 dB (alias)
-    lowMid:    { boost: 4.5,  cut: 4.5 },  // 150–500 Hz: ±4.5 dB
-    low_mid:   { boost: 4.5,  cut: 4.5 },  // 150–500 Hz: ±4.5 dB (alias)
-    upper_bass:{ boost: 4.5,  cut: 4.5 },  // 150–500 Hz: ±4.5 dB (alias)
-    mid:       { boost: 4.0,  cut: 4.0 },  // 500 Hz–2 kHz: ±4 dB
-    highMid:   { boost: 3.5,  cut: 3.5 },  // 2–5 kHz: ±3.5 dB
-    high_mid:  { boost: 3.5,  cut: 3.5 },  // 2–5 kHz: ±3.5 dB (alias)
-    presence:  { boost: 3.5,  cut: 3.5 },  // 5–10 kHz: ±3.5 dB
-    presenca:  { boost: 3.5,  cut: 3.5 },  // 5–10 kHz: ±3.5 dB (alias português)
-    air:       { boost: 3.0,  cut: 3.0 },  // 10–20 kHz: ±3 dB
-    brilho:    { boost: 3.0,  cut: 3.0 }   // 10–20 kHz: ±3 dB (alias português)
-};
-
-const MIN_ACTION_DB = 1.5; // abaixo disso, ou fica "opcional" ou some a dica (respeitando tolerância)
-
-// 🎵 Ranges das bandas espectrais
-const BAND_RANGES = {
-    sub: '20–60 Hz', 
-    bass: '60–150 Hz',
-    low_bass: '60–150 Hz',
-    lowMid: '150–500 Hz',
-    low_mid: '150–500 Hz',
-    upper_bass: '150–500 Hz',
-    mid: '500–2 kHz', 
-    highMid: '2–5 kHz',
-    high_mid: '2–5 kHz',
-    presence: '5–10 kHz',
-    presenca: '5–10 kHz',  // alias português
-    air: '10–20 kHz',
-    brilho: '10–20 kHz'    // alias português
-};
-
-/**
- * 🎚️ Aplicar CAP (limite) por banda no valor "Δ sugerido"
- * @param {string} metricKey - Chave da métrica (sub, bass, lowMid, mid, highMid, presence, air)
- * @param {number} rawDelta - Delta original calculado
- * @param {number} tolerance - Tolerância da banda
- * @returns {Object} Resultado com delta limitado e informações
- */
-function clampDeltaByBand(metricKey, rawDelta, tolerance) {
-    // Se está dentro da tolerância, não sugerir nada
-    if (Math.abs(rawDelta) <= (tolerance ?? 0)) {
-        return { clamped: 0, capped: false, show: false, reason: 'within_tol' };
-    }
-    
-    const bandKey = metricKey; // as métricas já usam as chaves originais (sub, bass, lowMid, mid, highMid, presence, air)
-    const caps = BAND_CAPS_DB[bandKey];
-    
-    if (!caps) {
-        // Para métricas não-espectrais, não faz nada
-        return { clamped: rawDelta, capped: false, show: Math.abs(rawDelta) >= MIN_ACTION_DB };
-    }
-    
-    const isBoost = rawDelta > 0;
-    const limit = isBoost ? caps.boost : caps.cut;
-    const clamped = Math.sign(rawDelta) * Math.min(Math.abs(rawDelta), limit);
-    const capped = Math.abs(rawDelta) > limit;
-
-    // Se ainda ficou muito pequeno, trata como opcional/oculta
-    const show = Math.abs(clamped) >= MIN_ACTION_DB;
-    return { clamped, capped, show, range: BAND_RANGES[bandKey] };
-}
-
-/**
- * 🎯 Aplicar CAPs nos ITENS DA TABELA DE REFERÊNCIA (Δ mostrado ao lado do alvo)
- * @param {Array} items - Itens da comparação de referência
- * @param {Object} tolerancesByMetric - Tolerâncias por métrica
- * @returns {Array} Itens com CAPs aplicados
- */
-function applyCapsInReferenceComparison(items, tolerancesByMetric) {
-    return items.map(it => {
-        if (it.category !== 'spectral_bands') return it;
-        
-        const tol = tolerancesByMetric?.[it.metricKey] ?? it.tolerance ?? 0; // preserve a tolerância existente
-        const rawDelta = it.delta ?? (it.ideal - it.value); // manter a forma como o projeto já calcula
-        const { clamped, capped, show, range } = clampDeltaByBand(it.metricKey, rawDelta, tol);
-
-        // Guarda campos auxiliares sem quebrar nada que usa value/ideal
-        it._rawDelta = rawDelta;
-        it._deltaCapped = capped;
-        it._deltaClamped = clamped;
-
-        // Texto curto e musical (apenas se show=true e fora da tolerância)
-        if (show) {
-            const mag = Math.abs(clamped);
-            const verb = clamped > 0 ? 'aumentar' : 'reduzir';
-            it.shortHint = `Experimente ${verb} ~${mag.toFixed(1)} dB em ${range}`;
-        } else {
-            it.shortHint = undefined;
-        }
-        // Mantém status baseado em tolerância já existente (IDEAL/AJUSTAR/CORRIGIR)
-        return it;
-    });
-}
-
-/**
- * 🎯 Aplicar CAPs nas SUGESTÕES AVANÇADAS (antes de gerar texto final)
- * @param {Array} suggestions - Sugestões avançadas
- * @param {Object} tolerancesByMetric - Tolerâncias por métrica
- * @returns {Array} Sugestões com CAPs aplicados
- */
-function applyCapsInAdvancedSuggestions(suggestions, tolerancesByMetric) {
-    return suggestions.map(s => {
-        if (s.category !== 'spectral_bands' || typeof s.technical?.delta !== 'number') return s;
-
-        const tol = tolerancesByMetric?.[s.metricKey] ?? s.tolerance ?? 0;
-        const { clamped, capped, show, range } = clampDeltaByBand(s.metricKey, s.technical.delta, tol);
-
-        s.technical._rawDelta = s.technical.delta;
-        s.technical.delta = clamped;
-        s.technical._deltaCapped = capped;
-
-        // Frase curta adicional (para UI compacta)
-        if (show) {
-            const mag = Math.abs(clamped);
-            const verb = clamped > 0 ? 'aumentar' : 'reduzir';
-            s.shortHint = `Experimente ${verb} ~${mag.toFixed(1)} dB em ${range}`;
-        } else {
-            s.shortHint = undefined;
-        }
-        return s;
-    });
-}
-
 class EnhancedSuggestionEngine {
     constructor(config = {}) {
         this.scorer = window.suggestionScorer || new SuggestionScorer();
@@ -406,46 +278,7 @@ class EnhancedSuggestionEngine {
     }
 
     /**
-     * �️ Extrair tolerâncias por métrica dos dados de referência
-     * @param {Object} normalizedRef - Dados de referência normalizados
-     * @returns {Object} Tolerâncias por métrica
-     */
-    extractTolerancesByMetric(normalizedRef) {
-        const tolerances = {};
-        
-        if (!normalizedRef) return tolerances;
-        
-        // Tolerâncias das métricas principais
-        if (Number.isFinite(normalizedRef.tol_lufs)) {
-            tolerances.lufs = normalizedRef.tol_lufs;
-        }
-        if (Number.isFinite(normalizedRef.tol_true_peak)) {
-            tolerances.true_peak = normalizedRef.tol_true_peak;
-        }
-        if (Number.isFinite(normalizedRef.tol_dr)) {
-            tolerances.dr = normalizedRef.tol_dr;
-        }
-        if (Number.isFinite(normalizedRef.tol_lra)) {
-            tolerances.lra = normalizedRef.tol_lra;
-        }
-        if (Number.isFinite(normalizedRef.tol_stereo)) {
-            tolerances.stereo = normalizedRef.tol_stereo;
-        }
-        
-        // Tolerâncias das bandas espectrais
-        if (normalizedRef.bands) {
-            for (const [bandKey, bandData] of Object.entries(normalizedRef.bands)) {
-                if (Number.isFinite(bandData.tol_db)) {
-                    tolerances[bandKey] = bandData.tol_db;
-                }
-            }
-        }
-        
-        return tolerances;
-    }
-
-    /**
-     * �🎯 Obter ícone apropriado para métrica
+     * 🎯 Obter ícone apropriado para métrica
      * @param {string} metricType - Tipo da métrica
      * @returns {string} Ícone apropriado
      */
@@ -825,19 +658,6 @@ class EnhancedSuggestionEngine {
             
             // 🔄 Combinar, deduplicar e ordenar sugestões
             let allSuggestions = [...referenceSuggestions, ...heuristicSuggestions];
-            
-            // 🎚️ Aplicar CAPs nas Sugestões Avançadas (antes de deduplicar)
-            const tolerancesByMetric = this.extractTolerancesByMetric(normalizedRef);
-            const suggestionsBefore = allSuggestions.length;
-            allSuggestions = applyCapsInAdvancedSuggestions(allSuggestions, tolerancesByMetric);
-            
-            this.logAudit('CAPS_APPLIED_SUGGESTIONS', 'CAPs aplicados nas sugestões avançadas', {
-                suggestionsBefore,
-                suggestionsAfter: allSuggestions.length,
-                cappedSuggestions: allSuggestions.filter(s => s.technical?._deltaCapped).length,
-                tolerancesUsed: Object.keys(tolerancesByMetric).length
-            });
-            
             allSuggestions = this.scorer.deduplicateSuggestions(allSuggestions);
             allSuggestions = this.filterAndSort(allSuggestions);
             
@@ -1497,7 +1317,7 @@ class EnhancedSuggestionEngine {
         
         // 🎯 NOVO: Processar referenceComparison para bandas espectrais
         if (typeof window !== 'undefined' && window.PRE_UPDATE_REFERENCE_SUGGESTIONS_DATA) {
-            let referenceComparison = window.PRE_UPDATE_REFERENCE_SUGGESTIONS_DATA;
+            const referenceComparison = window.PRE_UPDATE_REFERENCE_SUGGESTIONS_DATA;
             
             this.logAudit('REFERENCE_COMPARISON_CHECK', 'Verificando dados de referenceComparison', {
                 hasReferenceComparison: !!referenceComparison,
@@ -1506,26 +1326,6 @@ class EnhancedSuggestionEngine {
             });
             
             if (Array.isArray(referenceComparison)) {
-                // 🎚️ Aplicar CAPs nos itens da tabela de referência antes de processar
-                const tolerancesByMetric = this.extractTolerancesByMetric(normalizedRef);
-                const itemsBefore = referenceComparison.length;
-                const spectralItemsBefore = referenceComparison.filter(item => item.category === 'spectral_bands').length;
-                
-                referenceComparison = applyCapsInReferenceComparison(referenceComparison, tolerancesByMetric);
-                
-                const cappedItems = referenceComparison.filter(item => item._deltaCapped).length;
-                const itemsWithHints = referenceComparison.filter(item => item.shortHint).length;
-                
-                this.logAudit('CAPS_APPLIED_REFERENCE_COMPARISON', 'CAPs aplicados na tabela de referência', {
-                    totalItems: itemsBefore,
-                    spectralItems: spectralItemsBefore,
-                    cappedItems,
-                    itemsWithHints,
-                    tolerancesUsed: Object.keys(tolerancesByMetric).length
-                });
-                
-                // Atualizar a variável global com os dados processados
-                window.PRE_UPDATE_REFERENCE_SUGGESTIONS_DATA = referenceComparison;
                 // Filtrar apenas itens de bandas espectrais
                 const spectralBands = referenceComparison.filter(item => 
                     item && item.category === 'spectral_bands'
