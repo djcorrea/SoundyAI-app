@@ -6,44 +6,47 @@
  * Garante que tanto referenceComparison quanto suggestions falem a mesma língua (EQ real)
  * 
  * @param {number} delta - Delta bruto calculado (target - value ou measured - target)
- * @returns {Object} Objeto com valor seguro e anotação educativa
+ * @returns {Object} Objeto com valor seguro, note e delta_real no formato padrão
  */
 function applyMusicalCap(delta) {
   // Validação de entrada
   if (typeof delta !== 'number' || !isFinite(delta)) {
     return {
       value: 0,
-      annotation: null,
-      wasCapped: false,
-      originalValue: delta
+      note: null,
+      delta_real: delta,
+      wasCapped: false
     };
   }
   
-  const absDelta = Math.abs(delta);
-  const signal = delta >= 0 ? 1 : -1;
+  const maxDelta = 6;
+  
+  // Se excede +6 dB, aplica cap positivo
+  if (delta > maxDelta) {
+    return {
+      value: maxDelta,
+      note: `ajuste seguro (+${maxDelta} dB, diferença real: +${delta.toFixed(2)} dB)`,
+      delta_real: delta,
+      wasCapped: true
+    };
+  }
+  
+  // Se excede -6 dB, aplica cap negativo  
+  if (delta < -maxDelta) {
+    return {
+      value: -maxDelta,
+      note: `ajuste seguro (-${maxDelta} dB, diferença real: ${delta.toFixed(2)} dB)`,
+      delta_real: delta,
+      wasCapped: true
+    };
+  }
   
   // Se está dentro do limite seguro (±6 dB), retorna valor exato
-  if (absDelta <= 6) {
-    const deltaShown = `${delta >= 0 ? '+' : ''}${delta.toFixed(1)} dB`;
-    return {
-      value: delta,
-      annotation: null,
-      wasCapped: false,
-      originalValue: delta,
-      deltaShown: deltaShown
-    };
-  }
-  
-  // Se excede ±6 dB, aplica cap e adiciona anotação educativa
-  const cappedValue = signal * 6.0;
-  const annotation = `ajuste seguro: ${cappedValue >= 0 ? '+' : ''}${cappedValue.toFixed(1)} dB (diferença real detectada: ${delta >= 0 ? '+' : ''}${delta.toFixed(1)} dB)`;
-  
   return {
-    value: cappedValue,
-    annotation: annotation,
-    wasCapped: true,
-    originalValue: delta,
-    deltaShown: annotation  // Para valores limitados, deltaShown é a anotação educativa
+    value: delta,
+    note: null,
+    delta_real: delta,
+    wasCapped: false
   };
 }
 
@@ -73,7 +76,7 @@ function formatDeltaWithCap(delta, unit = 'dB') {
  * Modifica os dados de comparação para incluir delta_shown com cap e anotação
  * 
  * @param {Array} referenceComparison - Array de comparações de referência
- * @returns {Array} Array modificado com delta_shown aplicado
+ * @returns {Array} Array modificado com delta_shown, delta_real e note
  */
 function applyMusicalCapToReference(referenceComparison) {
   if (!Array.isArray(referenceComparison)) {
@@ -86,7 +89,7 @@ function applyMusicalCapToReference(referenceComparison) {
         typeof item.value === 'number' && 
         typeof item.ideal === 'number') {
       
-      // Calcular delta bruto (target - valor atual)
+      // Calcular delta bruto (ideal - valor atual)
       const deltaRaw = item.ideal - item.value;
       
       // Aplicar cap musical
@@ -94,9 +97,10 @@ function applyMusicalCapToReference(referenceComparison) {
       
       return {
         ...item,
-        delta_shown: capped.deltaShown,
-        delta_raw: deltaRaw,  // Manter delta bruto para auditoria
-        delta_capped: capped.wasCapped
+        delta_real: capped.delta_real,     // Valor bruto para debug
+        delta_shown: capped.value,         // Valor exibido com cap
+        note: capped.note,                 // Observação caso tenha sido capado
+        delta_capped: capped.wasCapped     // Flag para indicar se foi limitado
       };
     }
     
