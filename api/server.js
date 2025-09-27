@@ -338,7 +338,7 @@ function buildSuggestionPrompt(suggestions, metrics, genre) {
 ⚠️ REGRAS ABSOLUTAS:
 - Responda EXCLUSIVAMENTE com um JSON VÁLIDO (ARRAY com exatamente ${expected} itens).
 - Sugestões devem ser sempre EDUCATIVAS e ORIENTATIVAS, nunca imperativas.
-- SEMPRE cite o valor real da diferença medida que aparece em [DIFERENÇA REAL MEDIDA: X dB] no campo "problema" (ex: se mostra "-7.1 dB", escreva "Sub está -7.1 dB abaixo do padrão").
+- OBRIGATÓRIO: Use EXATAMENTE o valor que aparece em [DIFERENÇA REAL MEDIDA: X dB]. NÃO INVENTE valores (ex: se aparecer "-11.6 dB", escreva "Sub está -11.6 dB abaixo do padrão").
 - Use esse valor APENAS para contexto educativo, NUNCA como valor exato da sugestão.
 - Ajustes PROPORCIONAIS à diferença medida seguindo caps por banda:
   • Sub (20–60Hz): máximo ±6 dB
@@ -370,7 +370,7 @@ function buildSuggestionPrompt(suggestions, metrics, genre) {
 
 � ESTRUTURA OBRIGATÓRIA - LINGUAGEM EDUCATIVA E ENCORAJADORA:
 {
-  "problema": "SEMPRE citar o valor real da diferença que aparece nos dados fornecidos (ex: 'Banda Sub está -7.1 dB abaixo do padrão do gênero')",
+  "problema": "COPIE EXATAMENTE o valor de [DIFERENÇA REAL MEDIDA: X dB] (ex: se aparecer -11.6 dB, escreva 'Banda Sub está -11.6 dB abaixo do padrão')",,
   "causa": "Explicação clara do impacto auditivo (ex: 'A ausência de subgrave consistente reduz o impacto e a pressão sonora')",
   "solucao": "Instrução prática com intervalo proporcional + contexto educativo (ex: 'Experimente reforçar entre +3 a +4 dB nessa região (20–60Hz). Como a diferença real é de -7.1 dB, um ajuste gradual será suficiente')",
   "dica_extra": "Dica musical contextual encorajadora (ex: 'Mantenha o equilíbrio com o kick para não mascarar a batida')",
@@ -387,13 +387,13 @@ ${metricsInfo}
 🎵 DIRETRIZES ESPECÍFICAS DO GÊNERO:
 ${genreContext}
 
-🎯 INSTRUÇÕES PARA USAR VALORES REAIS:
+🚨 OBRIGATÓRIO - USAR VALORES REAIS DOS DADOS:
 
-- Use EXATAMENTE o valor de diferença medido que aparece em [DIFERENÇA REAL MEDIDA: X dB]
-- Exemplo: se mostra "Sub -7.10 dB", cite: "Banda Sub está -7.1 dB abaixo do padrão"
-- Para diferença de -7.1 dB (moderada), sugira ajuste proporcional: "entre +3 a +4 dB"
-- Para diferença de -12.7 dB (grande), sugira ajuste máximo: "entre +4 a +6 dB"
-- NUNCA use valores fictícios, sempre os dados reais fornecidos
+- LEIA o valor exato em [DIFERENÇA REAL MEDIDA: X dB] e COPIE esse número
+- Se aparecer "-11.6 dB", escreva "Banda Sub está -11.6 dB abaixo do padrão"
+- Se aparecer "-6.8 dB", escreva "Banda Bass está -6.8 dB abaixo do padrão"
+- JAMAIS use -19 dB, -7 dB ou outros valores que não estejam nos dados
+- PROIBIDO inventar números. Use SOMENTE os valores fornecidos.
 
 🚀 LEMBRE-SE: Seja educativo, realista e musical. O usuário deve aprender e se sentir confiante aplicando suas sugestões!
 `;
