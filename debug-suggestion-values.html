@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Debug - Valores das Sugestões</title>
+    <style>
+        body { font-family: monospace; margin: 20px; }
+        .debug-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; }
+        .value-check { padding: 10px; margin: 5px 0; }
+        .correct { background-color: #d4edda; color: #155724; }
+        .incorrect { background-color: #f8d7da; color: #721c24; }
+        .warning { background-color: #fff3cd; color: #856404; }
+        .log-entry { font-size: 12px; margin: 2px 0; padding: 2px; background: #f8f9fa; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug - Valores das Sugestões vs Tabela de Referência</h1>
+    
+    <div class="debug-section">
+        <h3>Estado do Sistema</h3>
+        <div id="system-status"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>Dados de Referência Carregados</h3>
+        <div id="reference-data"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>Última Análise - Comparação de Valores</h3>
+        <div id="value-comparison"></div>
+    </div>
+    
+    <div class="debug-section">
+        <h3>Logs do Console (últimos 50)</h3>
+        <div id="console-logs"></div>
+    </div>
+
+    <!-- Scripts necessários -->
+    <script src="public/suggestion-scorer.js"></script>
+    <script src="public/enhanced-suggestion-engine.js"></script>
+    
+    <script>
+        // 🎯 Interceptar console.log para capturar logs relevantes
+        const originalLog = console.log;
+        const logs = [];
+        
+        console.log = function(...args) {
+            const logText = args.join(' ');
+            logs.push(`${new Date().toLocaleTimeString()}: ${logText}`);
+            if (logs.length > 50) logs.shift();
+            originalLog.apply(console, args);
+            updateLogs();
+        };
+        
+        function updateLogs() {
+            const logsDiv = document.getElementById('console-logs');
+            logsDiv.innerHTML = logs
+                .filter(log => log.includes('SUGGESTION_FINAL') || log.includes('BAND') || log.includes('delta'))
+                .map(log => `<div class="log-entry">${log}</div>`)
+                .join('');
+        }
+        
+        function checkSystemStatus() {
+            const statusDiv = document.getElementById('system-status');
+            let status = '';
+            
+            status += `SuggestionScorer: ${typeof window.SuggestionScorer !== 'undefined' ? '✅ Carregado' : '❌ Não encontrado'}<br>`;
+            status += `EnhancedSuggestionEngine: ${typeof window.EnhancedSuggestionEngine !== 'undefined' ? '✅ Carregado' : '❌ Não encontrado'}<br>`;
+            status += `Gênero ativo: ${window.PROD_AI_REF_GENRE || 'Não definido'}<br>`;
+            status += `Dados de referência: ${window.PROD_AI_REF_DATA ? '✅ Disponível' : '❌ Não encontrado'}<br>`;
+            
+            statusDiv.innerHTML = status;
+        }
+        
+        function checkReferenceData() {
+            const refDiv = document.getElementById('reference-data');
+            
+            if (!window.PROD_AI_REF_DATA) {
+                refDiv.innerHTML = '<div class="incorrect">❌ Dados de referência não encontrados</div>';
+                return;
+            }
+            
+            let html = '<div class="correct">✅ Dados de referência carregados</div>';
+            
+            try {
+                const data = window.PROD_AI_REF_DATA;
+                html += `<pre>${JSON.stringify(data, null, 2).substring(0, 1000)}...</pre>`;
+                
+                // Verificar se há bandas espectrais
+                if (data.bands || data.spectral_bands) {
+                    const bands = data.bands || data.spectral_bands;
+                    html += '<h4>Bandas encontradas:</h4>';
+                    Object.entries(bands).forEach(([band, value]) => {
+                        html += `<div>${band}: ${value} dB</div>`;
+                    });
+                }
+            } catch (error) {
+                html += `<div class="incorrect">❌ Erro ao processar dados: ${error.message}</div>`;
+            }
+            
+            refDiv.innerHTML = html;
+        }
+        
+        function simulateAnalysis() {
+            const compDiv = document.getElementById('value-comparison');
+            
+            if (!window.PROD_AI_REF_DATA) {
+                compDiv.innerHTML = '<div class="incorrect">❌ Não é possível simular sem dados de referência</div>';
+                return;
+            }
+            
+            // Simular dados de análise
+            const mockAnalysisData = {
+                spectral_bands: {
+                    sub: -15.2,
+                    low_bass: -12.8,
+                    mid_bass: -9.4,
+                    low_mid: -11.6,
+                    mid: -8.9,
+                    high_mid: -6.7,
+                    presence: -10.1,
+                    brilliance: -14.3
+                }
+            };
+            
+            console.log('🎯 [DEBUG] Simulando análise com dados:', mockAnalysisData);
+            
+            try {
+                const engine = new EnhancedSuggestionEngine();
+                const suggestions = engine.generateSuggestions(mockAnalysisData, window.PROD_AI_REF_DATA);
+                
+                let html = '<h4>Sugestões geradas:</h4>';
+                suggestions.forEach((suggestion, index) => {
+                    const isValueCorrect = suggestion.diagnosis && suggestion.diagnosis.includes('Atual:');
+                    const cssClass = isValueCorrect ? 'correct' : 'warning';
+                    
+                    html += `
+                        <div class="value-check ${cssClass}">
+                            <strong>${suggestion.action || 'Sem ação'}</strong><br>
+                            ${suggestion.diagnosis || 'Sem diagnosis'}<br>
+                            <small>Tipo: ${suggestion.type}, Subtipo: ${suggestion.subtype}</small>
+                        </div>
+                    `;
+                });
+                
+                compDiv.innerHTML = html;
+                
+            } catch (error) {
+                compDiv.innerHTML = `<div class="incorrect">❌ Erro na simulação: ${error.message}</div>`;
+                console.error('Erro na simulação:', error);
+            }
+        }
+        
+        // Executar verificações
+        checkSystemStatus();
+        checkReferenceData();
+        
+        // Tentar simular análise após um pequeno delay
+        setTimeout(() => {
+            simulateAnalysis();
+        }, 1000);
+        
+        // Atualizar a cada 5 segundos
+        setInterval(() => {
+            checkSystemStatus();
+            checkReferenceData();
+        }, 5000);
+    </script>
+</body>
+</html>
