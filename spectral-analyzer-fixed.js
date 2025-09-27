@@ -258,23 +258,63 @@ function calculateSpectralBalanceCorrected(audioData, sampleRate, options = {}) 
 }
 
 /**
- * 🧮 Cálculo de Delta Padronizado e Correto
- * Garante que deltas sejam calculados consistentemente
+ * 🎯 Normalização de Delta - Etapa 1 do Sistema de Correção Espectral
+ * Aplica regras de segurança para valores seguros em equalizadores
+ */
+function normalizeDelta(delta) {
+    // Validação de entrada
+    if (typeof delta !== 'number' || !isFinite(delta)) {
+        console.warn('⚠️ [DELTA_NORMALIZER] Valor delta inválido:', delta);
+        return 0;
+    }
+    
+    // Calcular valor absoluto para comparações
+    const absDelta = Math.abs(delta);
+    const signal = delta >= 0 ? 1 : -1; // Preservar sinal original
+    
+    // REGRA 1: Deltas insignificantes (< 0.5 dB) → ignorar
+    if (absDelta < 0.5) {
+        return 0;
+    }
+    
+    // REGRA 2: Ajuste leve (0.5 dB ≤ |delta| < 2 dB) → valor integral
+    if (absDelta < 2.0) {
+        return delta; // Retorna valor original sem modificação
+    }
+    
+    // REGRA 3: Compressão suave (2 dB ≤ |delta| < 6 dB) → soft-knee 0.8x
+    if (absDelta < 6.0) {
+        return delta * 0.8; // Aplica compressão suave
+    }
+    
+    // REGRA 4: Cap máximo (|delta| ≥ 6 dB) → limita a ±6 dB
+    return signal * 6.0; // Retorna ±6 dB respeitando o sinal
+}
+
+/**
+ * 🧮 Cálculo de Delta Padronizado e Correto com Normalização
+ * Garante que deltas sejam calculados consistentemente e normalizados para uso seguro
  */
 function calculateSpectralDelta(measuredDb, targetDb, options = {}) {
     const debug = options.debug || false;
+    const applyNormalization = options.applyNormalization !== false; // Padrão: true
     
     // Garantir que ambos os valores são números finitos
     if (!Number.isFinite(measuredDb) || !Number.isFinite(targetDb)) {
         return {
             delta: null,
+            deltaNormalized: null,
             measured: measuredDb,
             target: targetDb,
             isExcess: false,
             isDeficit: false,
             absoluteDifference: null,
             status: 'INVALID',
-            error: 'Valores não-finitos'
+            error: 'Valores não-finitos',
+            normalization: {
+                applied: false,
+                reason: 'Valores inválidos'
+            }
         };
     }
     
@@ -283,20 +323,68 @@ function calculateSpectralDelta(measuredDb, targetDb, options = {}) {
     // Negativo = falta (valor medido < target) = precisa aumentar
     const delta = measuredDb - targetDb;
     
+    // 🎯 APLICAR NORMALIZAÇÃO (ETAPA 1)
+    let deltaNormalized = delta;
+    let normalizationInfo = {
+        applied: false,
+        originalDelta: delta,
+        normalizedDelta: delta,
+        rule: 'Nenhuma normalização aplicada',
+        reduction: 0
+    };
+    
+    if (applyNormalization) {
+        deltaNormalized = normalizeDelta(delta);
+        
+        // Gerar relatório de normalização
+        const absDelta = Math.abs(delta);
+        let rule = '';
+        let action = '';
+        
+        if (absDelta < 0.5) {
+            rule = 'REGRA 1: Insignificante';
+            action = 'Ignorado (retorna 0)';
+        } else if (absDelta < 2.0) {
+            rule = 'REGRA 2: Ajuste leve';
+            action = 'Preservado integral';
+        } else if (absDelta < 6.0) {
+            rule = 'REGRA 3: Compressão suave';
+            action = 'Aplicado soft-knee (0.8x)';
+        } else {
+            rule = 'REGRA 4: Cap máximo';
+            action = 'Limitado a ±6dB';
+        }
+        
+        normalizationInfo = {
+            applied: true,
+            originalDelta: Number(delta.toFixed(2)),
+            normalizedDelta: Number(deltaNormalized.toFixed(2)),
+            rule,
+            action,
+            reduction: Number((Math.abs(delta - deltaNormalized)).toFixed(2)),
+            safe: deltaNormalized >= -6.0 && deltaNormalized <= 6.0
+        };
+    }
+    
     const result = {
         delta: delta,
+        deltaNormalized: deltaNormalized,
         measured: measuredDb,
         target: targetDb,
         isExcess: delta > 0,
         isDeficit: delta < 0,
         absoluteDifference: Math.abs(delta),
         status: null,  // Será definido pela classificação adaptativa
-        _calculation: `${measuredDb.toFixed(2)} - ${targetDb.toFixed(2)} = ${delta.toFixed(2)}dB`
+        normalization: normalizationInfo,
+        _calculation: `${measuredDb.toFixed(2)} - ${targetDb.toFixed(2)} = ${delta.toFixed(2)}dB ${applyNormalization ? `→ ${deltaNormalized.toFixed(2)}dB` : ''}`
     };
     
     if (debug) {
         const direction = delta > 0 ? 'EXCESSO' : (delta < 0 ? 'FALTA' : 'PERFEITO');
-        console.log(`🔍 [DELTA_DEBUG] ${result._calculation} → ${direction} (${Math.abs(delta).toFixed(2)}dB)`);
+        console.log(`🔍 [DELTA_DEBUG] ${result._calculation} → ${direction}`);
+        if (applyNormalization) {
+            console.log(`🎯 [NORMALIZATION_DEBUG] ${normalizationInfo.rule} → ${normalizationInfo.action}`);
+        }
     }
     
     return result;
