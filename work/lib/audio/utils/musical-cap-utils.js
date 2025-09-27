@@ -2,7 +2,36 @@
 // Reutilizado em referenceComparison e suggestions para consistência
 
 /**
- * 🎯 Aplica cap musical de ±6 dB com anotação educativa
+ * � Gera anotação educativa inteligente para caps
+ * Fornece sugestões práticas em vez de valores impossíveis
+ * 
+ * @param {number} deltaReal - Delta real detectado
+ * @param {number} cappedValue - Valor com cap aplicado
+ * @returns {string} Anotação educativa prática
+ */
+function generateEducationalNote(deltaReal, cappedValue) {
+  const absDelta = Math.abs(deltaReal);
+  const direction = deltaReal > 0 ? 'aumentar' : 'diminuir';
+  const eqDirection = deltaReal > 0 ? 'boostar' : 'cortar';
+  
+  // Categorizar a diferença para sugestões graduais
+  if (absDelta <= 8) {
+    // Diferença pequena: sugestão de 3-4 dB como primeiro passo
+    return `experimente ${direction} entre 3-4 dB como primeiro passo`;
+  } else if (absDelta <= 15) {
+    // Diferença média: sugestão de 4-6 dB em etapas
+    return `${eqDirection} gradualmente: comece com 4-6 dB, depois ajuste conforme o resultado`;
+  } else if (absDelta <= 25) {
+    // Diferença grande: abordagem em etapas
+    return `diferença grande detectada: ${eqDirection} em etapas de 4-6 dB, não tudo de uma vez`;
+  } else {
+    // Diferença muito grande: sugestão de redesign
+    return `diferença muito significativa: considere reprocessar/regravar esta banda ou ${eqDirection} gradualmente em múltiplas sessões`;
+  }
+}
+
+/**
+ * �🎯 Aplica cap musical de ±6 dB com anotação educativa
  * Garante que tanto referenceComparison quanto suggestions falem a mesma língua (EQ real)
  * 
  * @param {number} delta - Delta bruto calculado (target - value ou measured - target)
@@ -25,7 +54,7 @@ function applyMusicalCap(delta) {
   if (delta > maxDelta) {
     return {
       value: maxDelta,
-      note: `ajuste seguro (+${maxDelta} dB, diferença real detectada: +${delta.toFixed(1)} dB)`,
+      note: generateEducationalNote(delta, maxDelta),
       delta_real: delta,
       wasCapped: true
     };
@@ -35,7 +64,7 @@ function applyMusicalCap(delta) {
   if (delta < -maxDelta) {
     return {
       value: -maxDelta,
-      note: `ajuste seguro (-${maxDelta} dB, diferença real detectada: ${delta.toFixed(1)} dB)`,
+      note: generateEducationalNote(delta, -maxDelta),
       delta_real: delta,
       wasCapped: true
     };
