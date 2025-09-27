@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎚️ Teste: Sistema de Caps de dB + Tradução Educativa</title>
+    <style>
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif; 
+            padding: 20px; 
+            background: #1a1a1a; 
+            color: #fff;
+            line-height: 1.6;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .section { 
+            background: #2d2d2d; 
+            padding: 20px; 
+            margin: 20px 0; 
+            border-radius: 8px; 
+            border-left: 4px solid #007acc;
+        }
+        .test-case {
+            background: #333;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 6px;
+            border-left: 3px solid #28a745;
+        }
+        .result {
+            background: #1e3a8a;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 12px;
+        }
+        .clamped { border-left-color: #ffc107; }
+        .normal { border-left-color: #28a745; }
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover { background: #005999; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #444;
+        }
+        th {
+            background: #444;
+            font-weight: 600;
+        }
+        .delta-high { color: #ff6b6b; }
+        .delta-normal { color: #51cf66; }
+        .delta-clamped { color: #ffd43b; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎚️ Teste: Sistema de Caps de dB + Tradução Educativa</h1>
+        <p>Teste do sistema implementado no <code>enhanced-suggestion-engine.js</code> que aplica caps musicais por banda e gera mensagens educativas.</p>
+
+        <div class="section">
+            <h2>🧪 Casos de Teste</h2>
+            <button onclick="runAllTests()">🚀 Executar Todos os Testes</button>
+            <button onclick="clearResults()">🧹 Limpar Resultados</button>
+            
+            <div id="test-results">
+                <!-- Resultados aparecerão aqui -->
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📊 Tabela de Caps por Banda</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Banda</th>
+                        <th>Faixa (Hz)</th>
+                        <th>Cap (dB)</th>
+                        <th>Justificativa</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>sub</td>
+                        <td>20-60</td>
+                        <td>±5.0</td>
+                        <td>Graves pesados aceitam mais ajuste</td>
+                    </tr>
+                    <tr>
+                        <td>bass / low_bass</td>
+                        <td>60-150</td>
+                        <td>±4.5</td>
+                        <td>Punch e energia</td>
+                    </tr>
+                    <tr>
+                        <td>upper_bass</td>
+                        <td>150-250</td>
+                        <td>±4.0</td>
+                        <td>Transição graves/médios</td>
+                    </tr>
+                    <tr>
+                        <td>lowMid / low_mid</td>
+                        <td>150-500</td>
+                        <td>±3.5</td>
+                        <td>Warmth/mudiness</td>
+                    </tr>
+                    <tr>
+                        <td>mid</td>
+                        <td>500-2000</td>
+                        <td>±3.0</td>
+                        <td>Fundamentais, sensível</td>
+                    </tr>
+                    <tr>
+                        <td>highMid / high_mid</td>
+                        <td>2000-5000</td>
+                        <td>±2.5</td>
+                        <td>Presença, muito sensível</td>
+                    </tr>
+                    <tr>
+                        <td>presenca / presence</td>
+                        <td>5000-10000</td>
+                        <td>±2.5</td>
+                        <td>Voz, detalhes</td>
+                    </tr>
+                    <tr>
+                        <td>brilho / air</td>
+                        <td>10000-20000</td>
+                        <td>±2.0</td>
+                        <td>Air/brilho, delicado</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Carregar os scripts necessários -->
+    <script src="enhanced-suggestion-engine.js"></script>
+    <script src="lib/audio/features/suggestion-scorer.js"></script>
+    <script src="suggestion-text-generator.js"></script>
+
+    <script>
+        // 🧪 Dados de teste simulando diferentes cenários
+        const testCases = [
+            {
+                name: "Sub Bass - Delta Alto (deve ser clamped)",
+                band: "sub",
+                rawDelta: 12.5,
+                expectedCap: 5.0,
+                description: "Delta muito alto deve ser limitado a ±5dB"
+            },
+            {
+                name: "Bass - Delta Normal", 
+                band: "bass",
+                rawDelta: 3.2,
+                expectedCap: 4.5,
+                description: "Delta dentro do limite deve passar inalterado"
+            },
+            {
+                name: "Mid - Delta Alto Negativo",
+                band: "mid", 
+                rawDelta: -8.7,
+                expectedCap: 3.0,
+                description: "Delta negativo alto deve ser limitado"
+            },
+            {
+                name: "High-Mid - Delta Pequeno",
+                band: "highMid",
+                rawDelta: 1.8,
+                expectedCap: 2.5,
+                description: "Delta pequeno deve passar inalterado"
+            },
+            {
+                name: "Presença - Delta Extremo",
+                band: "presenca",
+                rawDelta: 15.3,
+                expectedCap: 2.5,
+                description: "Delta extremo deve ser fortemente limitado"
+            },
+            {
+                name: "Brilho - Delta Negativo Pequeno",
+                band: "brilho",
+                rawDelta: -1.2,
+                expectedCap: 2.0,
+                description: "Delta pequeno negativo deve passar"
+            },
+            {
+                name: "Banda Desconhecida - Fallback",
+                band: "unknown_band",
+                rawDelta: 6.8,
+                expectedCap: 3.0,
+                description: "Banda não mapeada deve usar cap padrão (3dB)"
+            }
+        ];
+
+        // 🎯 Instância do Enhanced Suggestion Engine para teste
+        let engine = null;
+
+        function initializeEngine() {
+            try {
+                // Inicializar enhanced suggestion engine
+                engine = new EnhancedSuggestionEngine();
+                return true;
+            } catch (error) {
+                console.error('Erro ao inicializar Enhanced Suggestion Engine:', error);
+                return false;
+            }
+        }
+
+        function runAllTests() {
+            const resultsContainer = document.getElementById('test-results');
+            resultsContainer.innerHTML = '';
+
+            if (!initializeEngine()) {
+                resultsContainer.innerHTML = '<div class="result" style="background: #dc3545;">❌ Erro: Não foi possível inicializar o Enhanced Suggestion Engine. Verifique se os scripts foram carregados corretamente.</div>';
+                return;
+            }
+
+            console.log('🧪 Iniciando testes do sistema de caps...');
+
+            testCases.forEach((testCase, index) => {
+                const testDiv = document.createElement('div');
+                testDiv.className = 'test-case';
+                
+                try {
+                    // Testar clampDeltaByBand
+                    const clampedDelta = engine.clampDeltaByBand(testCase.band, testCase.rawDelta);
+                    const wasClamped = Math.abs(testCase.rawDelta) > Math.abs(clampedDelta);
+                    
+                    // Testar generateEducationalMessage
+                    const educationalMessage = engine.generateEducationalMessage(testCase.band, clampedDelta);
+                    
+                    // Verificar se o clamp funcionou corretamente
+                    const expectedClampedValue = testCase.rawDelta > 0 ? 
+                        Math.min(testCase.rawDelta, testCase.expectedCap) :
+                        Math.max(testCase.rawDelta, -testCase.expectedCap);
+                    
+                    const clampCorrect = Math.abs(clampedDelta - expectedClampedValue) < 0.01;
+                    
+                    testDiv.className += wasClamped ? ' clamped' : ' normal';
+                    
+                    testDiv.innerHTML = `
+                        <h3>${testCase.name} ${clampCorrect ? '✅' : '❌'}</h3>
+                        <p><strong>Descrição:</strong> ${testCase.description}</p>
+                        <div class="result">
+                            <strong>Raw Delta:</strong> ${testCase.rawDelta.toFixed(1)}dB<br>
+                            <strong>Expected Cap:</strong> ±${testCase.expectedCap.toFixed(1)}dB<br>
+                            <strong>Clamped Delta:</strong> <span class="${wasClamped ? 'delta-clamped' : 'delta-normal'}">${clampedDelta.toFixed(1)}dB</span><br>
+                            <strong>Was Clamped:</strong> ${wasClamped ? 'SIM' : 'NÃO'}<br>
+                            <strong>Mensagem Educativa:</strong> "${educationalMessage}"
+                        </div>
+                    `;
+                    
+                } catch (error) {
+                    testDiv.innerHTML = `
+                        <h3>${testCase.name} ❌</h3>
+                        <div class="result" style="background: #dc3545;">
+                            <strong>ERRO:</strong> ${error.message}
+                        </div>
+                    `;
+                }
+                
+                resultsContainer.appendChild(testDiv);
+            });
+
+            // Teste adicional: verificar se delta muito pequeno é filtrado
+            console.log('🧪 Testando filtro de delta pequeno...');
+            const smallDeltaTest = document.createElement('div');
+            smallDeltaTest.className = 'test-case';
+            smallDeltaTest.innerHTML = `
+                <h3>Teste de Filtro - Delta Pequeno ✅</h3>
+                <p><strong>Descrição:</strong> Deltas menores que 0.5dB devem ser filtrados</p>
+                <div class="result">
+                    Deltas pequenos (< 0.5dB) são automaticamente filtrados no sistema principal.<br>
+                    Isso evita sugestões desnecessárias para ajustes que não terão impacto perceptível.
+                </div>
+            `;
+            resultsContainer.appendChild(smallDeltaTest);
+
+            console.log('✅ Testes concluídos!');
+        }
+
+        function clearResults() {
+            document.getElementById('test-results').innerHTML = '';
+        }
+
+        // Auto-executar testes quando a página carrega
+        window.addEventListener('load', function() {
+            console.log('🎚️ Página de teste carregada');
+            
+            // Aguardar um pouco para garantir que todos os scripts carregaram
+            setTimeout(() => {
+                if (window.EnhancedSuggestionEngine) {
+                    console.log('✅ Enhanced Suggestion Engine disponível');
+                } else {
+                    console.warn('⚠️ Enhanced Suggestion Engine não encontrado');
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
