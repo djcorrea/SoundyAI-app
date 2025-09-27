@@ -151,6 +151,24 @@ class AISuggestionLayer {
         // Extrair informações de gênero e referência
         const genreInfo = this.extractGenreInfo(context);
         
+        // 🎯 NOVO: Extrair valores reais das sugestões para preservá-los
+        const suggestionsWithRealValues = suggestions.map(suggestion => ({
+            originalSuggestion: suggestion,
+            action: suggestion.action,
+            diagnosis: suggestion.diagnosis,
+            currentValue: suggestion.technical?.value || suggestion.currentValue,
+            targetValue: suggestion.technical?.target || suggestion.targetValue,
+            delta: suggestion.technical?.delta,
+            band: suggestion.subtype,
+            type: suggestion.type,
+            // Preservar valores calculados
+            realValues: {
+                current: suggestion.technical?.value || suggestion.currentValue,
+                target: suggestion.technical?.target || suggestion.targetValue,
+                difference: suggestion.technical?.delta
+            }
+        }));
+        
         // Categorizar sugestões por tipo
         const categorizedSuggestions = this.categorizeSuggestions(suggestions);
         
@@ -161,9 +179,10 @@ class AISuggestionLayer {
                 metrics: metrics,
                 genre: genreInfo,
                 suggestions: categorizedSuggestions,
+                suggestionsWithRealValues: suggestionsWithRealValues, // 🎯 NOVO: Dados reais preservados
                 context: {
                     timestamp: new Date().toISOString(),
-                    version: 'SoundyAI_v2.0_AI_Enhanced'
+                    version: 'SoundyAI_v2.0_AI_Enhanced_RealValues'
                 }
             }
         };
@@ -283,7 +302,9 @@ class AISuggestionLayer {
     buildSystemPrompt() {
         return `Você é um especialista em produção musical e masterização trabalhando no sistema SoundyAI. 
 
-Sua função é analisar dados técnicos de áudio e sugestões de melhoria já geradas pelo sistema, e criar explicações educacionais estruturadas.
+Sua função é ENRIQUECER sugestões técnicas já calculadas pelo sistema, criando explicações educacionais MANTENDO os valores exatos fornecidos.
+
+🚨 REGRA CRÍTICA: NUNCA invente valores! Use APENAS os valores reais fornecidos nas sugestões originais.
 
 IMPORTANTE: Você deve retornar um JSON válido com este formato exato:
 
@@ -293,16 +314,19 @@ IMPORTANTE: Você deve retornar um JSON válido com este formato exato:
       "id": "unique_id",
       "category": "loudness|dynamics|spectral|stereo|technical",
       "priority": 1-10,
+      "preserve_original_values": true,
       "blocks": {
-        "problema": "⚠️ Descrição clara do problema técnico",
-        "causa": "🎯 Explicação da causa provável",
-        "solucao": "🛠️ Passos práticos específicos para resolver",
-        "dica": "💡 Dica profissional ou contextual adicional"
+        "problema": "⚠️ Use os valores EXATOS da sugestão original (ex: atual -12.8 dB, alvo -11.6 dB)",
+        "causa": "🎯 Explicação da causa provável baseada nos valores reais",
+        "solucao": "🛠️ Passos práticos usando os valores fornecidos",
+        "dica": "💡 Dica profissional contextual"
       },
       "technical_details": {
         "frequency_range": "se aplicável",
         "tools_suggested": ["lista", "de", "ferramentas"],
-        "difficulty": "iniciante|intermediário|avançado"
+        "difficulty": "iniciante|intermediário|avançado",
+        "original_action": "COPIE exatamente o campo 'action' da sugestão original",
+        "original_diagnosis": "COPIE exatamente o campo 'diagnosis' da sugestão original"
       }
     }
   ],
@@ -313,7 +337,10 @@ IMPORTANTE: Você deve retornar um JSON válido com este formato exato:
   }
 }
 
-DIRETRIZES:
+DIRETRIZES OBRIGATÓRIAS:
+- 🎯 USE APENAS os valores fornecidos nas sugestões originais
+- 🎯 COPIE exatamente os campos 'action' e 'diagnosis' originais
+- 🎯 ENRIQUEÇA apenas as explicações educacionais
 - Use linguagem educativa e amigável, como um mentor experiente
 - Seja específico e prático nas soluções
 - Mencione ferramentas e técnicas reais
@@ -335,16 +362,21 @@ DIRETRIZES:
                 },
                 {
                     role: "user", 
-                    content: `Analise estes dados de áudio e sugestões, e crie explicações educacionais estruturadas:
+                    content: `🎯 ENRIQUEÇA estas sugestões MANTENDO os valores exatos fornecidos:
 
-MÉTRICAS TÉCNICAS:
+SUGESTÕES COM VALORES REAIS (USE ESTES VALORES EXATOS):
+${JSON.stringify(input.user_input.suggestionsWithRealValues, null, 2)}
+
+MÉTRICAS TÉCNICAS DE CONTEXTO:
 ${JSON.stringify(input.user_input.metrics, null, 2)}
 
 GÊNERO MUSICAL:
 ${JSON.stringify(input.user_input.genre, null, 2)}
 
-SUGESTÕES ATUAIS:
-${JSON.stringify(input.user_input.suggestions, null, 2)}
+🚨 LEMBRE-SE: 
+- COPIE exatamente os valores das sugestões originais
+- ENRIQUEÇA APENAS as explicações educacionais
+- NÃO invente valores diferentes
 
 Gere explicações educacionais seguindo exatamente o formato JSON especificado.`
                 }
@@ -380,24 +412,43 @@ Gere explicações educacionais seguindo exatamente o formato JSON especificado.
             const parsedResponse = JSON.parse(aiResponse);
             const enhancedSuggestions = parsedResponse.enhanced_suggestions || [];
             
-            // Criar sugestões enriquecidas mantendo estrutura original
+            // Criar sugestões enriquecidas PRESERVANDO valores originais
             const processed = enhancedSuggestions.map((aiSuggestion, index) => {
                 const originalSuggestion = originalSuggestions[index] || {};
                 
                 return {
-                    // Manter dados originais
+                    // 🎯 PRESERVAR TODOS OS DADOS ORIGINAIS CRÍTICOS
                     ...originalSuggestion,
                     
-                    // Adicionar enriquecimento da IA
+                    // 🎯 GARANTIR que action e diagnosis originais sejam mantidos
+                    action: aiSuggestion.technical_details?.original_action || originalSuggestion.action,
+                    diagnosis: aiSuggestion.technical_details?.original_diagnosis || originalSuggestion.diagnosis,
+                    
+                    // 🎯 PRESERVAR valores técnicos originais
+                    technical: originalSuggestion.technical, // Manter dados técnicos originais
+                    currentValue: originalSuggestion.currentValue,
+                    targetValue: originalSuggestion.targetValue,
+                    
+                    // Adicionar enriquecimento da IA SEM sobrescrever dados críticos
                     ai_enhanced: true,
                     ai_blocks: aiSuggestion.blocks,
                     ai_category: aiSuggestion.category,
                     ai_priority: aiSuggestion.priority,
                     ai_technical_details: aiSuggestion.technical_details,
                     
-                    // Manter compatibilidade com sistema existente
-                    title: aiSuggestion.blocks?.problema || originalSuggestion.title || originalSuggestion.message,
-                    description: aiSuggestion.blocks?.solucao || originalSuggestion.description || originalSuggestion.action
+                    // Enriquecimento educacional adicional (sem sobrescrever campos críticos)
+                    ai_educational: {
+                        problema: aiSuggestion.blocks?.problema,
+                        causa: aiSuggestion.blocks?.causa,
+                        solucao: aiSuggestion.blocks?.solucao,
+                        dica: aiSuggestion.blocks?.dica
+                    },
+                    
+                    // Manter compatibilidade - usar original se IA não preservou
+                    title: originalSuggestion.title || originalSuggestion.message,
+                    description: originalSuggestion.description || originalSuggestion.action,
+                    message: originalSuggestion.message,
+                    why: originalSuggestion.why
                 };
             });
             
@@ -407,6 +458,7 @@ Gere explicações educacionais seguindo exatamente o formato JSON especificado.
                 processed.push(...remaining.map(s => ({...s, ai_enhanced: false})));
             }
             
+            console.log('🎯 [AI-LAYER] Valores originais preservados, textos enriquecidos');
             return processed;
             
         } catch (error) {
@@ -509,7 +561,7 @@ Gere explicações educacionais seguindo exatamente o formato JSON especificado.
     
     // Feature flag principal
     if (typeof window.AI_SUGGESTION_LAYER_ENABLED === 'undefined') {
-        window.AI_SUGGESTION_LAYER_ENABLED = false; // 🎯 DESATIVADO para corrigir valores fictícios
+        window.AI_SUGGESTION_LAYER_ENABLED = true; // ✅ REATIVADO com correção para preservar valores reais
     }
     
     // Instância global
@@ -518,8 +570,8 @@ Gere explicações educacionais seguindo exatamente o formato JSON especificado.
     // Função de configuração rápida para desenvolvedores
     window.configureAI = function(apiKey, model = 'gpt-3.5-turbo') {
         window.aiSuggestionLayer.setApiKey(apiKey, model);
-        window.AI_SUGGESTION_LAYER_ENABLED = false; // 🎯 MANTER DESATIVADO até correção
-        console.log('🤖 [AI-LAYER] Configuração concluída - DESATIVADO para preservar valores reais!');
+        window.AI_SUGGESTION_LAYER_ENABLED = true; // ✅ REATIVADO com valores reais preservados
+        console.log('🤖 [AI-LAYER] Configuração concluída - usando valores reais das sugestões!');
     };
     
     // Função para alternar IA
