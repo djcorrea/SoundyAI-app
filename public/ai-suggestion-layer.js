@@ -509,7 +509,7 @@ Gere explicações educacionais seguindo exatamente o formato JSON especificado.
     
     // Feature flag principal
     if (typeof window.AI_SUGGESTION_LAYER_ENABLED === 'undefined') {
-        window.AI_SUGGESTION_LAYER_ENABLED = true; // Ativado por padrão
+        window.AI_SUGGESTION_LAYER_ENABLED = false; // 🎯 DESATIVADO para corrigir valores fictícios
     }
     
     // Instância global
@@ -518,8 +518,8 @@ Gere explicações educacionais seguindo exatamente o formato JSON especificado.
     // Função de configuração rápida para desenvolvedores
     window.configureAI = function(apiKey, model = 'gpt-3.5-turbo') {
         window.aiSuggestionLayer.setApiKey(apiKey, model);
-        window.AI_SUGGESTION_LAYER_ENABLED = true;
-        console.log('🤖 [AI-LAYER] Configuração concluída!');
+        window.AI_SUGGESTION_LAYER_ENABLED = false; // 🎯 MANTER DESATIVADO até correção
+        console.log('🤖 [AI-LAYER] Configuração concluída - DESATIVADO para preservar valores reais!');
     };
     
     // Função para alternar IA

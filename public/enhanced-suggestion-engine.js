@@ -1261,6 +1261,9 @@ class EnhancedSuggestionEngine {
                         dependencyBonus
                     });
                     
+                    // 🎯 LOG CRÍTICO: Verificar valores antes de gerar sugestão
+                    console.log(`🎯 [ENHANCED_ENGINE_VALUES] Banda: ${band}, value: ${value}, target: ${target}, delta: ${(target - value).toFixed(1)}`);
+                    
                     const suggestion = this.scorer.generateSuggestion({
                         type: 'band_adjust',
                         subtype: band,
