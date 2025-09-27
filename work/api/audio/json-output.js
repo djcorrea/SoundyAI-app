@@ -5,7 +5,6 @@
 
 import { computeMixScore } from "../../lib/audio/features/scoring.js";
 import { makeErr, logAudio, assertFinite } from '../../lib/audio/error-handling.js';
-import { applyMusicalCapToReference } from '../../lib/audio/utils/musical-cap-utils.js';
 
 // 🚨 CORREÇÃO SUPER AGRESSIVA: Força campo 'type' em TODAS as sugestões
 function FORCE_TYPE_FIELD(suggestions) {
@@ -962,11 +961,7 @@ function generateGenreReference(technicalData, genre) {
   // Reason: REMOVAL_SKIPPED_USED_BY_SCORE:dominantFrequencies - removendo do export/referência
   console.warn('REMOVAL_SKIPPED_USED_BY_SCORE:dominantFrequencies - removendo da referência por gênero');
   
-  // 🎯 APLICAR CAP MUSICAL DE ±6 dB EM BANDAS ESPECTRAIS
-  // Garante que referenceComparison e suggestions falem a mesma língua (EQ real)
-  const referencesWithCap = applyMusicalCapToReference(references);
-  
-  return referencesWithCap;
+  return references;
 }
 
 console.log("✅ JSON Output & Scoring (Fase 5.4) carregado - 100% compatível com frontend");

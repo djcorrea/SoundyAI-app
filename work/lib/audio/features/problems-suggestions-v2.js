@@ -2,7 +2,6 @@
 // Implementação completa para análise inteligente de problemas e geração de sugestões educativas
 
 import { logAudio } from '../error-handling.js';
-import { applyMusicalCap } from '../utils/musical-cap-utils.js';
 
 /**
  * 🎨 Sistema de Criticidade com Cores
@@ -484,26 +483,17 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     const diff = Math.abs(value - threshold.target);
     const severity = this.calculateSeverity(diff, threshold.tolerance, threshold.critical);
     
-    // 🎯 Calcular delta com cap musical unificado ANTES das actions
-    const deltaRaw = value - threshold.target;
-    const cappedDelta = applyMusicalCap(deltaRaw);
-    const safeDelta = Math.abs(cappedDelta.value);  // Valor absoluto do delta seguro para actions
-    
     let message, explanation, action;
     
     if (severity.level === 'critical') {
       if (value > threshold.target + threshold.critical) {
         message = `🔴 ${bandName} muito alto: ${value.toFixed(1)} dB`;
         explanation = `Excesso nesta faixa pode causar "booming" e mascarar outras frequências.`;
-        action = cappedDelta.wasCapped ? 
-          `Corte gradual: comece com ${safeDelta.toFixed(1)} dB em ${bandName} (ajuste seguro). ${cappedDelta.annotation}` :
-          `Corte ${safeDelta.toFixed(1)} dB em ${bandName} com EQ. Use filtro Q médio.`;
+        action = `Corte ${(value - threshold.target).toFixed(1)} dB em ${bandName} com EQ. Use filtro Q médio.`;
       } else {
         message = `🔴 ${bandName} muito baixo: ${value.toFixed(1)} dB`;
         explanation = `Falta de energia nesta faixa deixa o som sem fundação e corpo.`;
-        action = cappedDelta.wasCapped ? 
-          `Aumento gradual: comece com ${safeDelta.toFixed(1)} dB em ${bandName} (ajuste seguro). ${cappedDelta.annotation}` :
-          `Aumente ${safeDelta.toFixed(1)} dB em ${bandName} com EQ suave.`;
+        action = `Aumente ${Math.abs(value - threshold.target).toFixed(1)} dB em ${bandName} com EQ suave.`;
       }
     } else if (severity.level === 'warning') {
       if (value > threshold.target) {
@@ -529,11 +519,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       action,
       currentValue: `${value.toFixed(1)} dB`,
       targetValue: `${threshold.target} dB`,
-      delta: `${cappedDelta.value >= 0 ? '+' : ''}${cappedDelta.value.toFixed(1)} dB`, // Valor exibido com cap
-      delta_real: cappedDelta.delta_real,       // Valor bruto para debug
-      delta_shown: cappedDelta.value,           // Valor numérico com cap aplicado
-      note: cappedDelta.note,                   // Observação caso tenha sido capado
-      delta_capped: cappedDelta.wasCapped,      // Flag para indicar se foi limitado
+      delta: `${(value - threshold.target).toFixed(1)} dB`,
       priority: severity.priority,
       bandName
     });
@@ -618,10 +604,6 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       currentValue: suggestion.currentValue,
       targetValue: suggestion.targetValue,
       delta: suggestion.delta,
-      delta_real: suggestion.delta_real,        // 🎯 VALOR BRUTO PARA DEBUG
-      delta_shown: suggestion.delta_shown,      // 🎯 VALOR NUMÉRICO COM CAP
-      note: suggestion.note,                    // 🎯 OBSERVAÇÃO CASO TENHA SIDO CAPADO
-      delta_capped: suggestion.delta_capped,    // 🎯 FLAG DE CAP APLICADO
       priority: suggestion.priority,
       bandName: suggestion.bandName || null
     };
