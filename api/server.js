@@ -186,78 +186,111 @@ app.post("/api/suggestions", async (req, res) => {
   }
 });
 
-// Funções de caps e proporcionalidade para sugestões realistas
-function clampDeltaByBand(band, deltaDb) {
+// 🎛️ Função auxiliar para garantir caps por banda (limites máximos em dB)
+function clampDeltaByBand(band, delta) {
   const caps = {
-    'sub': 6,
-    'bass': 6,
-    'low_mid': 5,
-    'mid': 5,
-    'presence': 5,
-    'air': 4,
-    'high': 4
+    sub: 6,           // Sub (20–60Hz): ±6 dB
+    bass: 6,          // Bass (60–150Hz): ±6 dB  
+    low_mid: 5,       // Low-Mid (150–500Hz): ±5 dB
+    mid: 5,           // Mid (500Hz–2kHz): ±5 dB
+    high_mid: 5,      // High-Mid (2–5kHz): ±5 dB
+    presence: 5,      // Presence (5–10kHz): ±5 dB
+    air: 5,           // Air (10–20kHz): ±5 dB
+    
+    // Aliases para compatibilidade
+    lowMid: 5,
+    highMid: 5,
+    presenca: 5,
+    brilho: 5
   };
   
-  const cap = caps[band] || 5;
-  return Math.max(-cap, Math.min(cap, deltaDb));
+  const maxCap = caps[band] || 5; // Default 5 dB se banda não encontrada
+  return Math.max(-maxCap, Math.min(maxCap, delta));
 }
 
-function calculateProportionalAdjustment(deltaDb, band) {
-  const absDelta = Math.abs(deltaDb);
-  const sign = deltaDb >= 0 ? '-' : '+';
+// 📊 Função para calcular ajuste proporcional baseado no delta
+function calculateProportionalAdjustmentNew(delta, band) {
+  const caps = {
+    sub: 6, bass: 6, low_mid: 5, mid: 5, high_mid: 5, presence: 5, air: 5,
+    lowMid: 5, highMid: 5, presenca: 5, brilho: 5
+  };
   
-  let minAdj, maxAdj;
+  // Usar o delta original (não limitado) para calcular proporcionalidade
+  const originalAbsDelta = Math.abs(delta);
+  const maxCap = caps[band] || 5;
   
-  if (absDelta < 3) {
-    // Delta pequeno: ajuste sutil
-    minAdj = 1;
-    maxAdj = 2;
-  } else if (absDelta <= 8) {
-    // Delta moderado: 40-60% do delta
-    minAdj = Math.round(absDelta * 0.4);
-    maxAdj = Math.round(absDelta * 0.6);
+  let minAdjust, maxAdjust;
+  
+  // Proporcionalidade baseada no delta original, conforme especificação:
+  if (originalAbsDelta <= 3) {
+    // Diferença pequena (até 3 dB) → sugerir ±2 dB
+    minAdjust = 1;
+    maxAdjust = 2;
+  } else if (originalAbsDelta <= 8) {
+    // Diferença moderada (3–8 dB) → sugerir ±3 a ±4 dB
+    minAdjust = 3;
+    maxAdjust = 4;
+  } else if (originalAbsDelta <= 15) {
+    // Diferença grande (8–15 dB) → sugerir ±4 a ±6 dB
+    minAdjust = 4;
+    maxAdjust = 6;
   } else {
-    // Delta grande: usar cap máximo
-    const cap = band === 'air' || band === 'high' ? 4 : 
-                band.includes('mid') || band === 'presence' ? 5 : 6;
-    minAdj = cap - 1;
-    maxAdj = cap;
+    // Diferença absurda (>15 dB) → sugerir ±6 dB + aviso
+    minAdjust = 4;
+    maxAdjust = 6;
+  }
+  
+  // Garantir que não ultrapasse os caps por banda
+  minAdjust = Math.min(minAdjust, maxCap);
+  maxAdjust = Math.min(maxAdjust, maxCap);
+  
+  // CORREÇÃO LÓGICA: O sinal do ajuste deve ser OPOSTO ao delta
+  // Se delta é negativo (está abaixo), precisa reforçar (positivo)
+  // Se delta é positivo (está acima), precisa reduzir (negativo)
+  const adjustmentSign = delta < 0 ? '+' : '-';
+  const direction = delta < 0 ? 'reforçar' : 'reduzir';
+  
+  // Determinar intensidade baseada no delta original
+  let intensity;
+  if (originalAbsDelta <= 3) {
+    intensity = 'suavemente';
+  } else if (originalAbsDelta <= 8) {
+    intensity = 'moderadamente';
+  } else if (originalAbsDelta <= 15) {
+    intensity = 'com mais ênfase';
+  } else {
+    intensity = 'gradualmente (delta muito alto)';
   }
   
   return {
-    range: `${sign}${minAdj} a ${sign}${maxAdj} dB`,
-    delta: absDelta,
-    needsStaging: absDelta > 15
+    range: `${adjustmentSign}${minAdjust} a ${adjustmentSign}${maxAdjust} dB`,
+    direction: direction,
+    intensity: intensity,
+    isExtreme: originalAbsDelta > 15 // Flag para avisos especiais
   };
 }
 
-// Função para preprocessar sugestões com informações de ajuste
+// 🔧 Função para preprocessar sugestões aplicando caps e calculando ajustes proporcionais
 function preprocessSuggestions(suggestions) {
-  return suggestions.map(suggestion => {
-    // Tentar extrair informações de banda e delta da mensagem/ação
-    const message = suggestion.message || suggestion.action || '';
+  return suggestions.map((s, i) => {
+    let enhancedSuggestion = { ...s };
     
-    // Buscar patterns de diferença em dB
-    const deltaMatch = message.match(/([+-]?\d+\.?\d*)\s*dB/i);
-    const bandMatch = message.match(/(sub|bass|mid|presence|air|high|low|treble)/i);
-    
-    if (deltaMatch && bandMatch) {
-      const delta = parseFloat(deltaMatch[1]);
-      const band = bandMatch[1].toLowerCase();
+    // Se a sugestão tem dados técnicos com delta e banda, calcular ajuste proporcional
+    if (s.technical && s.technical.delta && s.subtype) {
+      const band = s.subtype.toLowerCase();
+      const adjustment = calculateProportionalAdjustmentNew(s.technical.delta, band);
       
-      const adjustmentGuide = calculateProportionalAdjustment(delta, band);
-      adjustmentGuide.band = band;
-      adjustmentGuide.originalDelta = delta;
-      adjustmentGuide.clampedDelta = clampDeltaByBand(band, delta);
-      adjustmentGuide.direction = delta >= 0 ? 'Reduzir' : 'Aumentar';
-      
-      return {
-        ...suggestion,
-        adjustmentGuide
+      enhancedSuggestion.adjustmentGuide = {
+        originalDelta: s.technical.delta,
+        suggestedRange: adjustment.range,
+        direction: adjustment.direction,
+        intensity: adjustment.intensity,
+        band: band,
+        isExtreme: adjustment.isExtreme
       };
     }
     
-    return suggestion;
+    return enhancedSuggestion;
   });
 }
 
@@ -269,12 +302,16 @@ function buildSuggestionPrompt(suggestions, metrics, genre) {
   const suggestionsList = preprocessedSuggestions.map((s, i) => {
     let baseSuggestion = `${i + 1}. ${s.message || s.title || 'Sugestão'} - ${s.action || s.description || 'Sem ação definida'}`;
     
-    // Adicionar informações de ajuste se disponível
+    // Adicionar informações técnicas detalhadas se disponível
     if (s.adjustmentGuide) {
-      baseSuggestion += ` [VALOR REAL: ${s.adjustmentGuide.originalDelta > 0 ? '+' : ''}${s.adjustmentGuide.originalDelta} dB | AJUSTE CALCULADO: ${s.adjustmentGuide.direction} ${s.adjustmentGuide.range} na banda ${s.adjustmentGuide.band}]`;
-      
-      if (s.adjustmentGuide.needsStaging) {
-        baseSuggestion += ` [⚠️ CORREÇÃO EM ETAPAS RECOMENDADA]`;
+      baseSuggestion += ` [DIFERENÇA REAL MEDIDA: ${s.adjustmentGuide.originalDelta > 0 ? '+' : ''}${s.adjustmentGuide.originalDelta.toFixed(1)} dB na banda ${s.adjustmentGuide.band.toUpperCase()}]`;
+      baseSuggestion += ` [AJUSTE PROPORCIONAL CALCULADO: ${s.adjustmentGuide.direction} ${s.adjustmentGuide.suggestedRange}]`;
+    }
+    
+    // Adicionar dados técnicos adicionais se disponível
+    if (s.technical) {
+      if (s.technical.value !== undefined && s.technical.target !== undefined) {
+        baseSuggestion += ` [VALORES: Atual=${s.technical.value.toFixed(1)}dB, Referência=${s.technical.target.toFixed(1)}dB]`;
       }
     }
     
@@ -284,63 +321,105 @@ function buildSuggestionPrompt(suggestions, metrics, genre) {
 
   const metricsInfo = metrics ? `
 🔊 ANÁLISE ESPECTRAL DETALHADA:
-- LUFS Integrado: ${metrics.lufsIntegrated || 'N/A'} dB (Loudness global)
-- True Peak: ${metrics.truePeakDbtp || 'N/A'} dBTP (Picos digitais)  
-- Dynamic Range: ${metrics.dynamicRange || 'N/A'} LU (Dinâmica)
-- Correlação Estéreo: ${metrics.stereoCorrelation || 'N/A'} (Espacialização)
-- LRA (Range): ${metrics.lra || 'N/A'} LU (Variação dinâmica)
+- LUFS Integrado: ${metrics.lufsIntegrated || 'N/A'} dB
+- True Peak: ${metrics.truePeakDbtp || 'N/A'} dBTP
+- Dynamic Range: ${metrics.dynamicRange || 'N/A'} LU
+- Correlação Estéreo: ${metrics.stereoCorrelation || 'N/A'}
+- LRA: ${metrics.lra || 'N/A'} LU
 ` : '';
 
   const genreContext = getGenreContext(genre);
 
+  const expected = suggestions.length;
+
   return `
-🎵 VOCÊ É O MAIS AVANÇADO ENGENHEIRO DE ÁUDIO E MASTERING DO MUNDO
+�️ ANALISE ESTAS DETECÇÕES PARA ${(genre || 'música geral').toUpperCase()} E GERE SUGESTÕES REALISTAS E EDUCATIVAS.
 
-Analise estas detecções automáticas para ${genre || 'música geral'} e transforme cada uma numa sugestão REVOLUCIONÁRIA:
+⚠️ REGRAS ABSOLUTAS:
+- Responda EXCLUSIVAMENTE com um JSON VÁLIDO (ARRAY com exatamente ${expected} itens).
+- Sugestões devem ser sempre EDUCATIVAS e ORIENTATIVAS, nunca imperativas.
+- SEMPRE cite o valor real da diferença medida no campo "problema" (ex: "Sub está -19 dB abaixo do padrão").
+- Use esse valor APENAS para contexto educativo, NUNCA como valor exato da sugestão.
+- Ajustes PROPORCIONAIS à diferença medida seguindo caps por banda:
+  • Sub (20–60Hz): máximo ±6 dB
+  • Bass (60–150Hz): máximo ±6 dB
+  • Low-mid (150–500Hz): máximo ±5 dB
+  • Mid (500–2kHz): máximo ±5 dB
+  • High-mid (2–5kHz): máximo ±5 dB
+  • Presence (5–10kHz): máximo ±5 dB
+  • Air (10–20kHz): máximo ±5 dB
+- PROPORCIONALIDADE OBRIGATÓRIA:
+  • Diferença pequena (até 3 dB) → sugerir ±2 dB
+  • Diferença moderada (3–8 dB) → sugerir ±3 a ±4 dB
+  • Diferença grande (8–15 dB) → sugerir ±4 a ±6 dB
+  • Diferença absurda (>15 dB) → OBRIGATÓRIO avisar sobre correção em etapas
+- Sempre usar intervalos em formato "entre +X e +Y dB" ou "entre -X e -Y dB".
+- NUNCA valores fixos, sempre ranges orientativos seguros.
+- Para diferenças EXTREMAS (>15 dB): OBRIGATÓRIO incluir aviso de que "não é recomendado corrigir tudo de uma vez" e sugerir "fazer em etapas" ou "considerar reforçar na produção/samples".
 
-${suggestionsList}
+🎵 LINGUAGEM OBRIGATÓRIA:
+- "Experimente reduzir entre -2 a -3 dB nesta região..."
+- "Considere reforçar entre +1 a +2 dB no sub para dar mais punch..."
+- "Avalie se o sample ou instrumento já se encaixa naturalmente..."
+- "Teste um corte suave entre -1 a -2 dB..."
 
-${metricsInfo}
+📊 PROPORCIONALIDADE:
+- Delta pequeno (até 3 dB): sugerir correção mínima (1-2 dB)
+- Delta moderado (3-6 dB): sugerir ajuste intermediário (2-4 dB)  
+- Delta grande (6+ dB): sugerir ajuste máximo permitido pelo cap
 
-${genreContext}
-
-🎯 INSTRUÇÕES ULTRA-ESPECÍFICAS:
-
-1. Para CADA sugestão, identifique o problema REAL psicoacústico
-2. Explique a CAUSA técnica profunda (masking, phase, resonance, etc.)
-3. Dê solução PRECISA com valores de EQ, compressão, etc.
-4. Adicione dica PROFISSIONAL que poucos conhecem
-
-⚡ INSTRUÇÕES CRÍTICAS PARA VALORES REAIS:
-• SEMPRE cite o valor absoluto da diferença real calculada no campo "problem"
-• Use proporcionalidade segura para ajustes: <3dB = sugestão sutil, 3-8dB = moderada, >8dB = máxima
-• Para diferenças >15 dB: recomende correção em etapas (ex: "primeira sessão: -6 dB, depois ajuste fino")
-• Caps máximos por banda: Sub/Bass ±6dB, Médios ±5dB, Agudos ±4dB
-
-📊 ESTRUTURA JSON OBRIGATÓRIA:
+� ESTRUTURA OBRIGATÓRIA - LINGUAGEM EDUCATIVA E ENCORAJADORA:
 {
-  "suggestions": [
-    {
-      "id": 1,
-      "problem": "⚠️ [TÉCNICO] Descrição precisa do problema com valor real medido (ex: 'Sub bass +4.2 dB acima do ideal')",
-      "cause": "🎯 Causa física/técnica específica (Hz, dB, ms, fase, etc.)",
-      "solution": "🛠️ Solução proporcional respeitando caps: EQ range orientativo (ex: 'Experimente entre -2 a -3 dB em 3.2kHz, Q=1.4')",
-      "tip": "💡 Segredo profissional ou conceito avançado",
-      "priority": "crítica|alta|média|baixa",
-      "difficulty": "profissional|avançado|intermediário|básico",
-      "frequency_range": "20-60Hz|60-200Hz|200-500Hz|500-2kHz|2-5kHz|5-10kHz|10-20kHz",
-      "processing_type": "eq|compression|stereo|dynamics|harmonic|temporal"
-    }
-  ]
+  "problema": "SEMPRE citar o valor real da diferença (ex: 'Banda Sub está -19 dB abaixo do padrão do gênero')",
+  "causa": "Explicação clara do impacto auditivo (ex: 'A ausência de subgrave consistente reduz o impacto e a pressão sonora')",
+  "solucao": "Instrução prática com intervalo proporcional + contexto educativo (ex: 'Experimente reforçar entre +4 a +6 dB nessa região (20–60Hz). Como a diferença real é de -19 dB, não é recomendado corrigir tudo de uma vez; faça em etapas ou considere reforçar o sample/produção')",
+  "dica_extra": "Dica musical contextual encorajadora (ex: 'Mantenha o equilíbrio com o kick para não mascarar a batida')",
+  "plugin": "Ferramenta específica profissional (ex: 'Waves Renaissance Bass, FabFilter Pro-MB ou EQ nativo')",
+  "resultado": "Resultado esperado claro e motivador (ex: 'Graves mais presentes e impactantes, mantendo clareza e punch do kick')"
 }
 
-🚀 FOQUE EM:
-- Problemas REAIS que afetam a qualidade
-- Valores PRECISOS (não genéricos)
-- Explicações que ENSINAM técnica avançada
-- Soluções que funcionam no MUNDO REAL
+🎯 SUGESTÕES ORIGINAIS DETECTADAS:
+${suggestionsList}
 
-⚡ RESPONDA APENAS JSON PURO, SEM EXPLICAÇÕES EXTRAS.
+🔊 CONTEXTO TÉCNICO DETALHADO:
+${metricsInfo}
+
+🎵 DIRETRIZES ESPECÍFICAS DO GÊNERO:
+${genreContext}
+
+🎯 EXEMPLOS DE SUGESTÕES IDEAIS - LINGUAGEM EDUCATIVA:
+
+EXEMPLO DIFERENÇA PEQUENA (+2.5 dB no sub):
+{
+  "problema": "Banda Sub está +2.5 dB acima do padrão do gênero",
+  "causa": "Pode mascarar levemente o kick e comprometer o punch natural da batida",
+  "solucao": "Experimente reduzir entre -1 a -2 dB na região de 40-80Hz. Como a diferença é pequena, um ajuste suave será suficiente",
+  "dica_extra": "Monitore o groove do kick enquanto ajusta para não tirar a pegada característica",
+  "plugin": "FabFilter Pro-Q3 ou EQ nativo com filtro bell suave (Q=1.0-1.5)",
+  "resultado": "Kick mais presente e definido, sub controlado, groove natural preservado"
+}
+
+EXEMPLO DIFERENÇA GRANDE (+8 dB nos médios):
+{
+  "problema": "Banda Mid está +8 dB muito acima da referência do gênero",
+  "causa": "Máscara vocal e outros elementos importantes, criando som 'boxeado' e perda de clareza",
+  "solucao": "Experimente reduzir entre -4 a -5 dB em 800Hz-2kHz. Como a diferença é significativa (+8 dB), considere fazer o ajuste em etapas para manter naturalidade",
+  "dica_extra": "Use EQ dinâmico para preservar transientes importantes dos instrumentos durante passagens mais intensas",
+  "plugin": "Waves C6 ou FabFilter Pro-MB para controle dinâmico inteligente",
+  "resultado": "Vocal destacado e inteligível, instrumentos com espaço para respirar, mix aberto e profissional"
+}
+
+EXEMPLO DIFERENÇA ABSURDA (-19 dB no sub - caso do exemplo):
+{
+  "problema": "Banda Sub está -19 dB abaixo do padrão do gênero Funk Mandela",
+  "causa": "A ausência de subgrave consistente reduz drasticamente o impacto e a pressão sonora característica do estilo",
+  "solucao": "Experimente reforçar entre +4 a +6 dB nessa região (20–60Hz). Como a diferença real é de -19 dB, não é recomendado corrigir tudo de uma vez; faça em etapas ou considere reforçar na produção/samples",
+  "dica_extra": "Mantenha o equilíbrio com o kick para não mascarar a batida e preserve o groove característico do funk",
+  "plugin": "Waves Renaissance Bass, FabFilter Pro-MB ou EQ nativo com reforço gradual",
+  "resultado": "Graves mais presentes e impactantes, mantendo clareza e punch do kick, som mais profissional"
+}
+
+🚀 LEMBRE-SE: Seja educativo, realista e musical. O usuário deve aprender e se sentir confiante aplicando suas sugestões!
 `;
 }
 
