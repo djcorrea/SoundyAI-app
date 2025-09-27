@@ -25,7 +25,7 @@ function applyMusicalCap(delta) {
   if (delta > maxDelta) {
     return {
       value: maxDelta,
-      note: `ajuste seguro (+${maxDelta} dB, diferença real: +${delta.toFixed(2)} dB)`,
+      note: `ajuste seguro (+${maxDelta} dB, diferença real detectada: +${delta.toFixed(1)} dB)`,
       delta_real: delta,
       wasCapped: true
     };
@@ -35,7 +35,7 @@ function applyMusicalCap(delta) {
   if (delta < -maxDelta) {
     return {
       value: -maxDelta,
-      note: `ajuste seguro (-${maxDelta} dB, diferença real: ${delta.toFixed(2)} dB)`,
+      note: `ajuste seguro (-${maxDelta} dB, diferença real detectada: ${delta.toFixed(1)} dB)`,
       delta_real: delta,
       wasCapped: true
     };
