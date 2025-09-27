@@ -529,9 +529,11 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       action,
       currentValue: `${value.toFixed(1)} dB`,
       targetValue: `${threshold.target} dB`,
-      delta: cappedDelta.deltaShown,  // Usar formato unificado com cap
-      delta_raw: deltaRaw,            // Manter valor bruto para auditoria
-      delta_capped: cappedDelta.wasCapped,  // Flag para indicar se foi limitado
+      delta: `${cappedDelta.value >= 0 ? '+' : ''}${cappedDelta.value.toFixed(1)} dB`, // Valor exibido com cap
+      delta_real: cappedDelta.delta_real,       // Valor bruto para debug
+      delta_shown: cappedDelta.value,           // Valor numérico com cap aplicado
+      note: cappedDelta.note,                   // Observação caso tenha sido capado
+      delta_capped: cappedDelta.wasCapped,      // Flag para indicar se foi limitado
       priority: severity.priority,
       bandName
     });
@@ -616,7 +618,9 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       currentValue: suggestion.currentValue,
       targetValue: suggestion.targetValue,
       delta: suggestion.delta,
-      delta_raw: suggestion.delta_raw,          // 🎯 VALOR BRUTO PARA AUDITORIA
+      delta_real: suggestion.delta_real,        // 🎯 VALOR BRUTO PARA DEBUG
+      delta_shown: suggestion.delta_shown,      // 🎯 VALOR NUMÉRICO COM CAP
+      note: suggestion.note,                    // 🎯 OBSERVAÇÃO CASO TENHA SIDO CAPADO
       delta_capped: suggestion.delta_capped,    // 🎯 FLAG DE CAP APLICADO
       priority: suggestion.priority,
       bandName: suggestion.bandName || null
