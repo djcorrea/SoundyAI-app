@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>🔍 Debug - Valores Reais vs IA</title>
+    <style>
+        body { font-family: monospace; margin: 20px; background: #1a1a2e; color: #eee; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #444; background: #16213e; }
+        .correct { background-color: #1e4d2b; color: #4ade80; }
+        .incorrect { background-color: #4c1d24; color: #f87171; }
+        .warning { background-color: #4d3319; color: #fbbf24; }
+        .info { background-color: #1e3a8a; color: #93c5fd; }
+        pre { background: #0f0f23; padding: 10px; overflow: auto; max-height: 300px; border: 1px solid #333; }
+        button { padding: 10px 20px; margin: 5px; background: #3b82f6; color: white; border: none; cursor: pointer; }
+        button:hover { background: #2563eb; }
+        .value-debug { padding: 10px; margin: 5px 0; border-left: 4px solid #666; }
+        .step { border: 1px solid #555; margin: 10px 0; padding: 10px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug Completo - Valores Reais vs IA</h1>
+    
+    <div class="section">
+        <h3>Controles</h3>
+        <button onclick="debugFullFlow()">🚀 Debug Fluxo Completo</button>
+        <button onclick="clearLogs()">🧹 Limpar Logs</button>
+        <button onclick="testBackendPrompt()">📤 Testar Prompt Backend</button>
+    </div>
+    
+    <div class="section">
+        <h3>Passo 1: Enhanced Suggestion Engine (Valores Originais)</h3>
+        <div id="step1-original"></div>
+    </div>
+    
+    <div class="section">
+        <h3>Passo 2: AI Suggestion Layer (Processamento IA)</h3>
+        <div id="step2-ai"></div>
+    </div>
+    
+    <div class="section">
+        <h3>Passo 3: Backend buildSuggestionPrompt</h3>
+        <div id="step3-backend"></div>
+    </div>
+    
+    <div class="section">
+        <h3>Logs de Debug</h3>
+        <div id="debug-logs"></div>
+    </div>
+
+    <!-- Scripts necessários -->
+    <script src="public/suggestion-scorer.js"></script>
+    <script src="public/enhanced-suggestion-engine.js"></script>
+    <script src="public/ai-suggestion-layer.js"></script>
+    
+    <script>
+        let logs = [];
+        
+        // Interceptar console.log
+        const originalLog = console.log;
+        console.log = function(...args) {
+            const logText = args.join(' ');
+            logs.push(`${new Date().toLocaleTimeString()}: ${logText}`);
+            if (logs.length > 50) logs.shift();
+            originalLog.apply(console, args);
+            updateDebugLogs();
+        };
+        
+        function updateDebugLogs() {
+            const debugDiv = document.getElementById('debug-logs');
+            const relevantLogs = logs.filter(log => 
+                log.includes('ENHANCED_ENGINE_VALUES') || 
+                log.includes('AI-LAYER') ||
+                log.includes('valores') ||
+                log.includes('preservados') ||
+                log.includes('technical') ||
+                log.includes('delta')
+            );
+            debugDiv.innerHTML = '<pre>' + relevantLogs.slice(-20).join('\n') + '</pre>';
+        }
+        
+        function clearLogs() {
+            logs = [];
+            document.getElementById('debug-logs').innerHTML = '';
+        }
+        
+        async function debugFullFlow() {
+            console.log('🔍 [DEBUG] Iniciando debug completo do fluxo...');
+            
+            // Dados de teste baseados na sua imagem
+            const testAnalysis = {
+                spectral_bands: {
+                    sub: -28.10,           // Sub atual: -28.10 dB
+                    bass: -24.60,          // Bass atual: -24.60 dB  
+                    low_bass: -24.60,      // Low bass atual: -24.60 dB
+                    low_mid: -26.70,       // Low-mid atual: -26.70 dB
+                    mid: -31.20,           // Mid atual: -31.20 dB
+                    high_mid: -35.40,      // High-mid atual: -35.40 dB
+                    air: -44.80,           // Air atual: -44.80 dB
+                    presence: -38.90       // Presence atual: -38.90 dB (deve dar -4.90 dB diferença)
+                },
+                lufs: -14.5,
+                true_peak: -1.2,
+                dr: 8.5
+            };
+            
+            const testReference = {
+                bands: {
+                    sub: { target_db: -17.30, tol_db: 3.0 },          // Alvo: -17.30 dB
+                    bass: { target_db: -17.70, tol_db: 3.0 },         // Alvo: -17.70 dB  
+                    low_bass: { target_db: -21.50, tol_db: 3.0 },     // Alvo: -21.50 dB
+                    low_mid: { target_db: -18.70, tol_db: 2.5 },      // Alvo: -18.70 dB
+                    mid: { target_db: -17.90, tol_db: 2.5 },          // Alvo: -17.90 dB
+                    high_mid: { target_db: -22.90, tol_db: 2.5 },     // Alvo: -22.90 dB
+                    air: { target_db: -29.30, tol_db: 3.5 },          // Alvo: -29.30 dB
+                    presence: { target_db: -34.00, tol_db: 3.5 }      // Alvo: -34.00 dB (diferença: -4.90 dB)
+                }
+            };
+            
+            // PASSO 1: Enhanced Suggestion Engine
+            console.log('🎯 [STEP1] Gerando sugestões originais...');
+            const engine = new EnhancedSuggestionEngine();
+            const originalResult = engine.processAnalysis(testAnalysis, testReference);
+            const originalSuggestions = originalResult.suggestions || [];
+            
+            let step1Html = `<div class="correct">✅ Enhanced Engine gerou ${originalSuggestions.length} sugestões</div>`;
+            
+            originalSuggestions.forEach((s, i) => {
+                if (s.subtype === 'presence') {
+                    const realDelta = s.technical?.delta;
+                    const currentValue = s.technical?.value;
+                    const targetValue = s.technical?.target;
+                    
+                    step1Html += `
+                        <div class="value-debug correct">
+                            <strong>PRESENÇA (Original):</strong><br>
+                            • Action: ${s.action}<br>
+                            • Current: ${currentValue} dB<br>
+                            • Target: ${targetValue} dB<br>
+                            • Delta: ${realDelta} dB<br>
+                            • Diagnosis: ${s.diagnosis}
+                        </div>
+                    `;
+                }
+            });
+            
+            document.getElementById('step1-original').innerHTML = step1Html;
+            
+            // PASSO 2: AI Suggestion Layer
+            let step2Html = '';
+            let enhancedSuggestions = originalSuggestions;
+            
+            if (window.AI_SUGGESTION_LAYER_ENABLED && window.aiSuggestionLayer) {
+                console.log('🤖 [STEP2] Processando com AI Suggestion Layer...');
+                
+                const aiContext = {
+                    technicalData: testAnalysis,
+                    genre: 'Funk Mandela',
+                    referenceData: testReference
+                };
+                
+                try {
+                    enhancedSuggestions = await window.aiSuggestionLayer.process(originalSuggestions, aiContext);
+                    
+                    step2Html = `<div class="info">🤖 AI Layer processou ${enhancedSuggestions.length} sugestões</div>`;
+                    
+                    enhancedSuggestions.forEach((s, i) => {
+                        if (s.subtype === 'presence') {
+                            const preservedAction = s.action;
+                            const preservedTechnical = s.technical;
+                            const aiEnhanced = s.ai_enhanced;
+                            
+                            const valuesPreserved = preservedTechnical && 
+                                                  preservedTechnical.delta === originalSuggestions[i]?.technical?.delta;
+                            
+                            const cssClass = valuesPreserved ? 'correct' : 'incorrect';
+                            
+                            step2Html += `
+                                <div class="value-debug ${cssClass}">
+                                    <strong>PRESENÇA (Após IA):</strong><br>
+                                    • Action: ${preservedAction}<br> 
+                                    • Technical preservado: ${valuesPreserved ? '✅ SIM' : '❌ NÃO'}<br>
+                                    • Delta: ${preservedTechnical?.delta} dB<br>
+                                    • AI Enhanced: ${aiEnhanced ? '✅ SIM' : '❌ NÃO'}<br>
+                                    • AI Educational: ${s.ai_educational ? '✅ Presente' : '❌ Ausente'}
+                                </div>
+                            `;
+                        }
+                    });
+                    
+                } catch (error) {
+                    step2Html = `<div class="incorrect">❌ Erro na IA: ${error.message}</div>`;
+                }
+            } else {
+                step2Html = `<div class="warning">⚠️ AI Layer desativada</div>`;
+            }
+            
+            document.getElementById('step2-ai').innerHTML = step2Html;
+            
+            // PASSO 3: Simular backend
+            console.log('📤 [STEP3] Simulando processamento backend...');
+            
+            let step3Html = `<div class="info">📤 Simulando buildSuggestionPrompt...</div>`;
+            
+            enhancedSuggestions.forEach((s, i) => {
+                if (s.subtype === 'presence') {
+                    const technicalData = s.technical;
+                    const hasCorrectDelta = technicalData && technicalData.delta;
+                    
+                    // Simular o que o preprocessSuggestions faria
+                    const adjustmentGuide = hasCorrectDelta ? {
+                        originalDelta: technicalData.delta,
+                        band: s.subtype
+                    } : null;
+                    
+                    const promptLine = adjustmentGuide ? 
+                        `DIFERENÇA REAL MEDIDA: ${adjustmentGuide.originalDelta > 0 ? '+' : ''}${adjustmentGuide.originalDelta.toFixed(1)} dB na banda ${adjustmentGuide.band.toUpperCase()}` :
+                        'DIFERENÇA NÃO DISPONÍVEL';
+                    
+                    const cssClass = hasCorrectDelta ? 'correct' : 'incorrect';
+                    
+                    step3Html += `
+                        <div class="value-debug ${cssClass}">
+                            <strong>PRESENÇA (Prompt Backend):</strong><br>
+                            • ${promptLine}<br>
+                            • Dados técnicos disponíveis: ${hasCorrectDelta ? '✅ SIM' : '❌ NÃO'}<br>
+                            • Valor será passado para IA: ${hasCorrectDelta ? technicalData.delta.toFixed(1) + ' dB' : 'VALOR FICTÍCIO'}
+                        </div>
+                    `;
+                }
+            });
+            
+            document.getElementById('step3-backend').innerHTML = step3Html;
+        }
+        
+        function testBackendPrompt() {
+            // Simular o que seria enviado para o backend
+            const mockSuggestion = {
+                subtype: 'presence',
+                action: 'Aumentar presence em 4.9 dB',
+                technical: {
+                    value: -38.90,
+                    target: -34.00,
+                    delta: -4.90  // Este é o valor que deve aparecer na IA
+                }
+            };
+            
+            console.log('📤 [BACKEND-TEST] Simulando prompt que seria enviado:', mockSuggestion);
+            
+            // Simular preprocessSuggestions
+            const adjustment = {
+                originalDelta: mockSuggestion.technical.delta,
+                band: mockSuggestion.subtype
+            };
+            
+            const promptLine = `DIFERENÇA REAL MEDIDA: ${adjustment.originalDelta > 0 ? '+' : ''}${adjustment.originalDelta.toFixed(1)} dB na banda ${adjustment.band.toUpperCase()}`;
+            
+            alert(`Prompt que seria enviado para IA:\n\n"${promptLine}"\n\nEste valor (-4.90 dB) deveria aparecer exatamente nas sugestões!`);
+        }
+        
+        // Auto-start
+        setTimeout(() => {
+            debugFullFlow();
+        }, 2000);
+    </script>
+</body>
+</html>
