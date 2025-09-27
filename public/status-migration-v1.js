@@ -21,9 +21,10 @@ function createEnhancedDiffCellMigrado(diff, unit, tolerance, metricName = '') {
         return window.criarCelulaDiferenca(valor, alvo, tolerance, unit, metricName);
     }
     
-    // Fallback para sistema legacy - MODIFICADO: Remove sugestões descritivas
+    // Fallback para sistema legacy
     let cssClass = 'na';
     let statusText = '';
+    let suggestion = '';
     
     if (Number.isFinite(diff) && Number.isFinite(tolerance) && tolerance > 0) {
         const absDiff = Math.abs(diff);
@@ -31,25 +32,28 @@ function createEnhancedDiffCellMigrado(diff, unit, tolerance, metricName = '') {
         if (absDiff <= tolerance) {
             cssClass = 'ok';
             statusText = '✅ IDEAL';
+            suggestion = ''; // NUNCA sugestão se ideal
         } else {
             const n = absDiff / tolerance;
             if (n <= 2) {
                 cssClass = 'yellow';
                 statusText = '⚠️ AJUSTAR';
+                suggestion = diff > 0 ? '↓ DIMINUIR' : '↑ AUMENTAR';
             } else {
                 cssClass = 'warn';
                 statusText = '🚨 CORRIGIR';
+                suggestion = diff > 0 ? '↓↓ REDUZIR' : '↑↑ ELEVAR';
             }
         }
     }
     
     const diffValue = Number.isFinite(diff) ? `${diff > 0 ? '+' : ''}${diff.toFixed(2)}${unit}` : '—';
     
-    // MODIFICADO: Remove linha de sugestão descritiva
     return `<td class="${cssClass}">
         <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
             <div style="font-size: 12px; font-weight: 600;">${diffValue}</div>
             <div style="font-size: 10px; opacity: 0.8;">${statusText}</div>
+            ${suggestion ? `<div style="font-size: 9px; color: #666;">${suggestion}</div>` : ''}
         </div>
     </td>`;
 }

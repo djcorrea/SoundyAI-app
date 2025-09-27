@@ -3708,30 +3708,41 @@ function renderReferenceComparisons(analysis) {
         }
         const diff = Number.isFinite(val) && Number.isFinite(target) ? (val - target) : null;
         
-        // Usar nova função de célula melhorada se disponível
+        // 🎯 CORREÇÃO: Mostrar apenas status visual (não valores numéricos)
         let diffCell;
-        if (typeof window !== 'undefined' && window.createEnhancedDiffCell) {
-            diffCell = window.createEnhancedDiffCell(diff, unit, tol);
+        if (!Number.isFinite(diff) || !Number.isFinite(tol) || tol <= 0) {
+            diffCell = '<td class="na" style="text-align: center;"><span style="opacity: 0.6;">—</span></td>';
         } else {
-            // Fallback para sistema antigo
-            let cssClass = 'na';
-            if (Number.isFinite(diff) && Number.isFinite(tol) && tol > 0) {
-                const adiff = Math.abs(diff);
-                if (adiff <= tol) {
-                    cssClass = 'ok';
+            const absDiff = Math.abs(diff);
+            let cssClass, statusIcon, statusText;
+            
+            // Mesma lógica de limites do sistema unificado
+            if (absDiff <= tol) {
+                // ✅ ZONA IDEAL
+                cssClass = 'ok';
+                statusIcon = '✅';
+                statusText = 'Ideal';
+            } else {
+                const multiplicador = absDiff / tol;
+                if (multiplicador <= 2) {
+                    // ⚠️ ZONA AJUSTAR
+                    cssClass = 'yellow';
+                    statusIcon = '⚠️';
+                    statusText = 'Ajuste leve';
                 } else {
-                    const n = adiff / tol;
-                    if (n <= 2) {
-                        cssClass = 'yellow';
-                    } else {
-                        cssClass = 'warn';
-                    }
+                    // ❌ ZONA CORRIGIR
+                    cssClass = 'warn';
+                    statusIcon = '❌';
+                    statusText = 'Corrigir';
                 }
             }
             
-            diffCell = Number.isFinite(diff)
-                ? `<td class="${cssClass}">${diff>0?'+':''}${nf(diff)}${unit}</td>`
-                : '<td class="na" style="opacity:.55">—</td>';
+            diffCell = `<td class="${cssClass}" style="text-align: center; padding: 8px;">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+                    <div style="font-size: 16px;">${statusIcon}</div>
+                    <div style="font-size: 11px; font-weight: 500; opacity: 0.9;">${statusText}</div>
+                </div>
+            </td>`;
         }
         
         rows.push(`<tr>

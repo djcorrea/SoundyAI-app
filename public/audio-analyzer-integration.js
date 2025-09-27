@@ -4984,30 +4984,41 @@ function renderReferenceComparisons(analysis) {
         }
         const diff = Number.isFinite(val) && Number.isFinite(target) ? (val - target) : null;
         
-        // Usar nova função de célula melhorada se disponível
+        // 🎯 CORREÇÃO: Mostrar apenas status visual (não valores numéricos)
         let diffCell;
-        if (typeof window !== 'undefined' && window.createEnhancedDiffCell) {
-            diffCell = window.createEnhancedDiffCell(diff, unit, tol);
+        if (!Number.isFinite(diff) || !Number.isFinite(tol) || tol <= 0) {
+            diffCell = '<td class="na" style="text-align: center;"><span style="opacity: 0.6;">—</span></td>';
         } else {
-            // Fallback para sistema antigo
-            let cssClass = 'na';
-            if (Number.isFinite(diff) && Number.isFinite(tol) && tol > 0) {
-                const adiff = Math.abs(diff);
-                if (adiff <= tol) {
-                    cssClass = 'ok';
+            const absDiff = Math.abs(diff);
+            let cssClass, statusIcon, statusText;
+            
+            // Mesma lógica de limites do sistema unificado
+            if (absDiff <= tol) {
+                // ✅ ZONA IDEAL
+                cssClass = 'ok';
+                statusIcon = '✅';
+                statusText = 'Ideal';
+            } else {
+                const multiplicador = absDiff / tol;
+                if (multiplicador <= 2) {
+                    // ⚠️ ZONA AJUSTAR
+                    cssClass = 'yellow';
+                    statusIcon = '⚠️';
+                    statusText = 'Ajuste leve';
                 } else {
-                    const n = adiff / tol;
-                    if (n <= 2) {
-                        cssClass = 'yellow';
-                    } else {
-                        cssClass = 'warn';
-                    }
+                    // ❌ ZONA CORRIGIR
+                    cssClass = 'warn';
+                    statusIcon = '❌';
+                    statusText = 'Corrigir';
                 }
             }
             
-            diffCell = Number.isFinite(diff)
-                ? `<td class="${cssClass}">${diff>0?'+':''}${nf(diff)}${unit}</td>`
-                : '<td class="na" style="opacity:.55">—</td>';
+            diffCell = `<td class="${cssClass}" style="text-align: center; padding: 8px;">
+                <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+                    <div style="font-size: 16px;">${statusIcon}</div>
+                    <div style="font-size: 11px; font-weight: 500; opacity: 0.9;">${statusText}</div>
+                </div>
+            </td>`;
         }
         
         rows.push(`<tr>
@@ -7466,33 +7477,19 @@ if (document.readyState === 'loading') {
     injectTruePeakStatusStyles();
 }
 
-// 🎯 INTEGRAÇÃO: Carregar correção da tabela de referência
-(function loadReferenceTableFix() {
-    // Verificar se a correção já foi carregada
-    if (typeof window.REFERENCE_TABLE_HIDE_VALUES !== 'undefined') {
-        console.log('✅ [INTEGRATION] Correção da tabela de referência já carregada');
-        return;
-    }
+// 🎯 PATCH DEFINITIVO: Carregar correção da tabela de referência
+(function loadReferenceTablePatch() {
+    console.log('📦 [INTEGRATION] Carregando patch definitivo da tabela de referência...');
     
-    console.log('📦 [INTEGRATION] Carregando correção da tabela de referência...');
-    
-    // Tentar carregar o script de correção
+    // Tentar carregar o patch definitivo
     const script = document.createElement('script');
-    script.src = 'reference-table-ui-fix.js';
+    script.src = 'patch-tabela-referencia-final.js';
     script.onload = function() {
-        console.log('✅ [INTEGRATION] Correção da tabela carregada com sucesso');
-        
-        // Auto-aplicar após carregamento se necessário
-        if (window.REFERENCE_TABLE_HIDE_VALUES && typeof window.applyReferenceTableFix === 'function') {
-            setTimeout(() => {
-                console.log('🔧 [INTEGRATION] Auto-aplicando correção da tabela...');
-                window.applyReferenceTableFix();
-            }, 100);
-        }
+        console.log('✅ [INTEGRATION] Patch definitivo carregado com sucesso');
     };
     script.onerror = function() {
-        console.warn('⚠️ [INTEGRATION] Não foi possível carregar reference-table-ui-fix.js');
-        console.log('💡 [INTEGRATION] A tabela continuará funcionando normalmente');
+        console.warn('⚠️ [INTEGRATION] Não foi possível carregar patch-tabela-referencia-final.js');
+        console.log('💡 [INTEGRATION] A correção já foi aplicada diretamente no código');
     };
     
     document.head.appendChild(script);
