@@ -186,11 +186,101 @@ app.post("/api/suggestions", async (req, res) => {
   }
 });
 
+// Funções de caps e proporcionalidade para sugestões realistas
+function clampDeltaByBand(band, deltaDb) {
+  const caps = {
+    'sub': 6,
+    'bass': 6,
+    'low_mid': 5,
+    'mid': 5,
+    'presence': 5,
+    'air': 4,
+    'high': 4
+  };
+  
+  const cap = caps[band] || 5;
+  return Math.max(-cap, Math.min(cap, deltaDb));
+}
+
+function calculateProportionalAdjustment(deltaDb, band) {
+  const absDelta = Math.abs(deltaDb);
+  const sign = deltaDb >= 0 ? '-' : '+';
+  
+  let minAdj, maxAdj;
+  
+  if (absDelta < 3) {
+    // Delta pequeno: ajuste sutil
+    minAdj = 1;
+    maxAdj = 2;
+  } else if (absDelta <= 8) {
+    // Delta moderado: 40-60% do delta
+    minAdj = Math.round(absDelta * 0.4);
+    maxAdj = Math.round(absDelta * 0.6);
+  } else {
+    // Delta grande: usar cap máximo
+    const cap = band === 'air' || band === 'high' ? 4 : 
+                band.includes('mid') || band === 'presence' ? 5 : 6;
+    minAdj = cap - 1;
+    maxAdj = cap;
+  }
+  
+  return {
+    range: `${sign}${minAdj} a ${sign}${maxAdj} dB`,
+    delta: absDelta,
+    needsStaging: absDelta > 15
+  };
+}
+
+// Função para preprocessar sugestões com informações de ajuste
+function preprocessSuggestions(suggestions) {
+  return suggestions.map(suggestion => {
+    // Tentar extrair informações de banda e delta da mensagem/ação
+    const message = suggestion.message || suggestion.action || '';
+    
+    // Buscar patterns de diferença em dB
+    const deltaMatch = message.match(/([+-]?\d+\.?\d*)\s*dB/i);
+    const bandMatch = message.match(/(sub|bass|mid|presence|air|high|low|treble)/i);
+    
+    if (deltaMatch && bandMatch) {
+      const delta = parseFloat(deltaMatch[1]);
+      const band = bandMatch[1].toLowerCase();
+      
+      const adjustmentGuide = calculateProportionalAdjustment(delta, band);
+      adjustmentGuide.band = band;
+      adjustmentGuide.originalDelta = delta;
+      adjustmentGuide.clampedDelta = clampDeltaByBand(band, delta);
+      adjustmentGuide.direction = delta >= 0 ? 'Reduzir' : 'Aumentar';
+      
+      return {
+        ...suggestion,
+        adjustmentGuide
+      };
+    }
+    
+    return suggestion;
+  });
+}
+
 // Função para construir o prompt da IA
 function buildSuggestionPrompt(suggestions, metrics, genre) {
-  const suggestionsList = suggestions.map((s, i) => 
-    `${i + 1}. ${s.message || s.title || 'Sugestão'} - ${s.action || s.description || 'Sem ação definida'} (Prioridade: ${s.priority || 5}, Confiança: ${s.confidence || 0.5})`
-  ).join('\n');
+  // Preprocessar sugestões para incluir dados de ajuste proporcional
+  const preprocessedSuggestions = preprocessSuggestions(suggestions);
+  
+  const suggestionsList = preprocessedSuggestions.map((s, i) => {
+    let baseSuggestion = `${i + 1}. ${s.message || s.title || 'Sugestão'} - ${s.action || s.description || 'Sem ação definida'}`;
+    
+    // Adicionar informações de ajuste se disponível
+    if (s.adjustmentGuide) {
+      baseSuggestion += ` [VALOR REAL: ${s.adjustmentGuide.originalDelta > 0 ? '+' : ''}${s.adjustmentGuide.originalDelta} dB | AJUSTE CALCULADO: ${s.adjustmentGuide.direction} ${s.adjustmentGuide.range} na banda ${s.adjustmentGuide.band}]`;
+      
+      if (s.adjustmentGuide.needsStaging) {
+        baseSuggestion += ` [⚠️ CORREÇÃO EM ETAPAS RECOMENDADA]`;
+      }
+    }
+    
+    baseSuggestion += ` (Prioridade: ${s.priority || 5}, Confiança: ${s.confidence || 0.5})`;
+    return baseSuggestion;
+  }).join('\n');
 
   const metricsInfo = metrics ? `
 🔊 ANÁLISE ESPECTRAL DETALHADA:
@@ -221,14 +311,20 @@ ${genreContext}
 3. Dê solução PRECISA com valores de EQ, compressão, etc.
 4. Adicione dica PROFISSIONAL que poucos conhecem
 
+⚡ INSTRUÇÕES CRÍTICAS PARA VALORES REAIS:
+• SEMPRE cite o valor absoluto da diferença real calculada no campo "problem"
+• Use proporcionalidade segura para ajustes: <3dB = sugestão sutil, 3-8dB = moderada, >8dB = máxima
+• Para diferenças >15 dB: recomende correção em etapas (ex: "primeira sessão: -6 dB, depois ajuste fino")
+• Caps máximos por banda: Sub/Bass ±6dB, Médios ±5dB, Agudos ±4dB
+
 📊 ESTRUTURA JSON OBRIGATÓRIA:
 {
   "suggestions": [
     {
       "id": 1,
-      "problem": "⚠️ [TÉCNICO] Descrição precisa do problema psicoacústico",
+      "problem": "⚠️ [TÉCNICO] Descrição precisa do problema com valor real medido (ex: 'Sub bass +4.2 dB acima do ideal')",
       "cause": "🎯 Causa física/técnica específica (Hz, dB, ms, fase, etc.)",
-      "solution": "🛠️ Solução EXATA: EQ 3.2kHz -2.8dB Q=1.4, Compressor 4:1 @ 30ms",
+      "solution": "🛠️ Solução proporcional respeitando caps: EQ range orientativo (ex: 'Experimente entre -2 a -3 dB em 3.2kHz, Q=1.4')",
       "tip": "💡 Segredo profissional ou conceito avançado",
       "priority": "crítica|alta|média|baixa",
       "difficulty": "profissional|avançado|intermediário|básico",
