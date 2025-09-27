@@ -1241,17 +1241,15 @@ class EnhancedSuggestionEngine {
                 
                 const severity = this.scorer.getSeverity(zScore);
                 
-                // 🎯 CORREÇÃO TEMPORAL: Incluir TODAS as bandas com diferenças para debug
-                const shouldInclude = Math.abs(value - target) > 0.1; // Incluir se há diferença > 0.1 dB
+                const shouldInclude = severity.level !== 'green' || 
+                    (severity.level === 'yellow' && this.config.includeYellowSeverity);
                 
                 this.logAudit('BAND_SEVERITY_CHECK', `Severidade da banda: ${band}`, {
                     band,
                     severity: severity.level,
                     shouldInclude,
                     includeYellow: this.config.includeYellowSeverity,
-                    zScore,
-                    difference: Math.abs(value - target),
-                    debugMode: 'INCLUINDO_TODAS_BANDAS'
+                    zScore
                 });
                 
                 if (shouldInclude) {
@@ -1262,11 +1260,6 @@ class EnhancedSuggestionEngine {
                         confidence,
                         dependencyBonus
                     });
-                    
-                    // 🎯 LOG CRÍTICO: Verificar valores antes de gerar sugestão
-                    const calculatedDelta = target - value;
-                    console.log(`🎯 [ENHANCED_ENGINE_VALUES] Banda: ${band}, value: ${value.toFixed(2)}, target: ${target.toFixed(2)}, delta: ${calculatedDelta.toFixed(2)}`);
-                    console.log(`🎯 [BANDA_PARA_BACKEND] ${band.toUpperCase()}: DIFERENÇA REAL = ${calculatedDelta > 0 ? '+' : ''}${calculatedDelta.toFixed(1)} dB`);
                     
                     const suggestion = this.scorer.generateSuggestion({
                         type: 'band_adjust',
