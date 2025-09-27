@@ -7465,3 +7465,35 @@ if (document.readyState === 'loading') {
 } else {
     injectTruePeakStatusStyles();
 }
+
+// 🎯 INTEGRAÇÃO: Carregar correção da tabela de referência
+(function loadReferenceTableFix() {
+    // Verificar se a correção já foi carregada
+    if (typeof window.REFERENCE_TABLE_HIDE_VALUES !== 'undefined') {
+        console.log('✅ [INTEGRATION] Correção da tabela de referência já carregada');
+        return;
+    }
+    
+    console.log('📦 [INTEGRATION] Carregando correção da tabela de referência...');
+    
+    // Tentar carregar o script de correção
+    const script = document.createElement('script');
+    script.src = 'reference-table-ui-fix.js';
+    script.onload = function() {
+        console.log('✅ [INTEGRATION] Correção da tabela carregada com sucesso');
+        
+        // Auto-aplicar após carregamento se necessário
+        if (window.REFERENCE_TABLE_HIDE_VALUES && typeof window.applyReferenceTableFix === 'function') {
+            setTimeout(() => {
+                console.log('🔧 [INTEGRATION] Auto-aplicando correção da tabela...');
+                window.applyReferenceTableFix();
+            }, 100);
+        }
+    };
+    script.onerror = function() {
+        console.warn('⚠️ [INTEGRATION] Não foi possível carregar reference-table-ui-fix.js');
+        console.log('💡 [INTEGRATION] A tabela continuará funcionando normalmente');
+    };
+    
+    document.head.appendChild(script);
+})();

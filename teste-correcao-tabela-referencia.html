@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Teste - Correção da Tabela de Referência</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .controls {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        
+        button {
+            margin: 5px;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        .btn-danger { background: #dc3545; color: white; }
+        
+        .test-results {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f1f3f4;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        
+        /* Estilos da tabela de referência (copiados do sistema original) */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        th {
+            background-color: #f2f2f2;
+            font-weight: 600;
+        }
+        
+        /* Classes de status (iguais ao sistema original) */
+        .ok { background-color: #d4edda; color: #155724; }
+        .yellow { background-color: #fff3cd; color: #856404; }
+        .warn { background-color: #f8d7da; color: #721c24; }
+        .na { background-color: #f8f9fa; color: #6c757d; }
+        
+        .comparison-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin: 20px 0 10px 0;
+            color: #333;
+        }
+        
+        .status-indicator {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .status-active { background: #d4edda; color: #155724; }
+        .status-inactive { background: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Teste - Correção da Tabela de Referência</h1>
+        
+        <div class="status-indicator" id="correctionStatus">
+            <strong>Status:</strong> Carregando...
+        </div>
+        
+        <div class="controls">
+            <h3>🎛️ Controles de Teste</h3>
+            <button class="btn-primary" onclick="applyFix()">
+                🔧 Aplicar Correção (Ocultar Valores)
+            </button>
+            <button class="btn-warning" onclick="showValues()">
+                🔢 Mostrar Valores Numéricos
+            </button>
+            <button class="btn-danger" onclick="rollbackFix()">
+                ⏪ Rollback Completo
+            </button>
+            <button class="btn-success" onclick="runTests()">
+                🧪 Executar Testes
+            </button>
+            <button class="btn-primary" onclick="runAudit()">
+                🔍 Auditoria de Integridade
+            </button>
+        </div>
+        
+        <div class="comparison-title">📊 Tabela de Referência - Exemplo</div>
+        
+        <table id="referenceTable">
+            <thead>
+                <tr>
+                    <th>Métrica</th>
+                    <th>Calculado</th>
+                    <th>Alvo</th>
+                    <th>Diferença/Status</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <!-- Será preenchido via JavaScript -->
+            </tbody>
+        </table>
+        
+        <div class="test-results" id="testResults">
+            <strong>📋 Resultados dos Testes:</strong><br>
+            Clique em "Executar Testes" para ver os resultados...
+        </div>
+    </div>
+    
+    <!-- Scripts do sistema -->
+    <script src="status-suggestion-unified-v1.js"></script>
+    <script src="status-migration-v1.js"></script>
+    <script src="reference-table-ui-fix.js"></script>
+    
+    <script>
+        // 🎯 DADOS DE TESTE (simulando uma análise real)
+        const testData = [
+            { label: 'Loudness Integrado (LUFS)', value: -14.2, target: -14.0, tolerance: 1.0, unit: ' LUFS' },
+            { label: 'Pico Real (dBTP)', value: -1.2, target: -1.0, tolerance: 0.5, unit: ' dBTP' },
+            { label: 'DR', value: 7.8, target: 8.0, tolerance: 1.0, unit: ' dB' },
+            { label: 'LRA', value: 3.2, target: 3.0, tolerance: 0.8, unit: ' LU' },
+            { label: 'Stereo Corr.', value: 0.85, target: 0.9, tolerance: 0.1, unit: '' },
+            { label: 'Sub (20–60Hz)', value: -18.5, target: -20.0, tolerance: 2.0, unit: ' dB' },
+            { label: 'Bass (60–150Hz)', value: -16.2, target: -15.0, tolerance: 1.5, unit: ' dB' },
+            { label: 'Mid (500–2kHz)', value: -12.8, target: -12.0, tolerance: 1.0, unit: ' dB' }
+        ];
+        
+        // 🏗️ CONSTRUIR TABELA
+        function buildTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+            
+            for (const row of testData) {
+                const diff = row.value - row.target;
+                
+                // Usar função de criação de célula (será interceptada pela correção)
+                let diffCell;
+                if (typeof window.createEnhancedDiffCell === 'function') {
+                    diffCell = window.createEnhancedDiffCell(diff, row.unit, row.tolerance, row.label);
+                } else {
+                    // Fallback básico
+                    diffCell = `<td class="na">${diff > 0 ? '+' : ''}${diff.toFixed(2)}${row.unit}</td>`;
+                }
+                
+                const tableRow = `
+                    <tr>
+                        <td>${row.label}</td>
+                        <td>${row.value.toFixed(2)}${row.unit}</td>
+                        <td>${row.target.toFixed(2)}${row.unit} <span style="opacity:0.6">±${row.tolerance}</span></td>
+                        ${diffCell}
+                    </tr>
+                `;
+                
+                tbody.innerHTML += tableRow;
+            }
+        }
+        
+        // 🎛️ FUNÇÕES DOS CONTROLES
+        function applyFix() {
+            if (typeof window.applyReferenceTableFix === 'function') {
+                window.applyReferenceTableFix();
+                updateStatus('Correção aplicada - Exibindo apenas status visuais', true);
+                buildTable();
+            } else {
+                updateStatus('Erro: Função de correção não encontrada', false);
+            }
+        }
+        
+        function showValues() {
+            if (typeof window.toggleReferenceTableDisplay === 'function') {
+                window.toggleReferenceTableDisplay(true);
+                updateStatus('Modo valores - Exibindo diferenças numéricas', false);
+                buildTable();
+            } else {
+                updateStatus('Erro: Função de toggle não encontrada', false);
+            }
+        }
+        
+        function rollbackFix() {
+            if (typeof window.rollbackReferenceTableFix === 'function') {
+                window.rollbackReferenceTableFix();
+                updateStatus('Rollback concluído - Sistema restaurado', false);
+                buildTable();
+            } else {
+                updateStatus('Erro: Função de rollback não encontrada', false);
+            }
+        }
+        
+        function runTests() {
+            const results = document.getElementById('testResults');
+            results.innerHTML = '<strong>📋 Executando Testes...</strong><br>';
+            
+            // Capturar logs do console
+            const originalLog = console.log;
+            const logs = [];
+            console.log = function(...args) {
+                logs.push(args.join(' '));
+                originalLog.apply(console, args);
+            };
+            
+            try {
+                if (typeof window.testReferenceTableFix !== 'undefined') {
+                    // Executar testes internos (não existe função pública, mas podemos simular)
+                    results.innerHTML += '🧪 Testando função de criação de células...<br>';
+                    
+                    const testCases = [
+                        { diff: 0.2, tol: 0.5, expected: 'Ideal' },
+                        { diff: -1.2, tol: 0.5, expected: 'Ajuste leve' },
+                        { diff: 2.5, tol: 0.5, expected: 'Corrigir' }
+                    ];
+                    
+                    let passed = 0;
+                    for (const test of testCases) {
+                        if (typeof window.createStatusOnlyDiffCell === 'function') {
+                            const result = window.createStatusOnlyDiffCell(test.diff, 'dB', test.tol);
+                            if (result.includes(test.expected)) {
+                                passed++;
+                                results.innerHTML += `✅ Teste passou: diff=${test.diff} → ${test.expected}<br>`;
+                            } else {
+                                results.innerHTML += `❌ Teste falhou: diff=${test.diff} esperado=${test.expected}<br>`;
+                            }
+                        }
+                    }
+                    
+                    results.innerHTML += `<br><strong>🎯 Resultado: ${passed}/${testCases.length} testes passaram</strong><br>`;
+                } else {
+                    results.innerHTML += '⚠️ Função de teste não encontrada<br>';
+                }
+                
+                // Mostrar logs capturados
+                if (logs.length > 0) {
+                    results.innerHTML += '<br><strong>📝 Logs:</strong><br>';
+                    logs.forEach(log => {
+                        if (log.includes('REFERENCE_TABLE_FIX')) {
+                            results.innerHTML += `${log}<br>`;
+                        }
+                    });
+                }
+                
+            } finally {
+                console.log = originalLog;
+            }
+        }
+        
+        function runAudit() {
+            if (typeof window.auditReferenceTableIntegrity === 'function') {
+                const auditResult = window.auditReferenceTableIntegrity();
+                const results = document.getElementById('testResults');
+                
+                if (auditResult.passed) {
+                    results.innerHTML = `
+                        <strong>🎉 Auditoria de Integridade: PASSOU</strong><br>
+                        ✅ ${auditResult.checks - auditResult.totalFailures}/${auditResult.checks} verificações passaram<br>
+                        🔒 Nenhuma funcionalidade crítica foi quebrada<br>
+                        📊 Sistema funcionando corretamente
+                    `;
+                    updateStatus('Auditoria passou - Sistema íntegro', true);
+                } else {
+                    results.innerHTML = `
+                        <strong>🚨 Auditoria de Integridade: FALHOU</strong><br>
+                        ❌ ${auditResult.criticalFailures} falhas críticas<br>
+                        ⚠️ ${auditResult.totalFailures} falhas totais<br>
+                        🔧 Verifique o console para detalhes
+                    `;
+                    updateStatus('Auditoria falhou - Verificar console', false);
+                }
+            } else {
+                updateStatus('Erro: Função de auditoria não encontrada', false);
+            }
+        }
+        
+        function updateStatus(message, isGood) {
+            const status = document.getElementById('correctionStatus');
+            status.innerHTML = `<strong>Status:</strong> ${message}`;
+            status.className = isGood ? 'status-indicator status-active' : 'status-indicator status-inactive';
+        }
+        
+        // 🚀 INICIALIZAÇÃO
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🎯 [TEST PAGE] Iniciando página de teste...');
+            
+            // Verificar se scripts foram carregados
+            const hasUnifiedSystem = typeof window.calcularStatusSugestaoUnificado === 'function';
+            const hasMigration = typeof window.createEnhancedDiffCellMigrado === 'function';
+            const hasFix = typeof window.applyReferenceTableFix === 'function';
+            
+            if (hasUnifiedSystem && hasMigration && hasFix) {
+                updateStatus('Todos os sistemas carregados - Pronto para teste', true);
+            } else {
+                updateStatus('Alguns sistemas não carregaram - Verificar console', false);
+                console.warn('🚨 Sistemas carregados:', { hasUnifiedSystem, hasMigration, hasFix });
+            }
+            
+            // Construir tabela inicial
+            buildTable();
+            
+            console.log('✅ [TEST PAGE] Página de teste pronta');
+        });
+    </script>
+</body>
+</html>
