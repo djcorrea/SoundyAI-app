@@ -3398,6 +3398,13 @@ function displayModalResults(analysis) {
         console.log('📊 [DEBUG] Dados normalizados para exibição:', analysis);
     }
     
+    // 🤖 ATIVAR IA SE AINDA NÃO ESTIVER CONFIGURADA
+    if (window.aiSuggestionLayer && !window.aiSuggestionLayer.apiKey) {
+        console.log('🤖 Configurando IA para desenvolvimento...');
+        // Configurar uma key de desenvolvimento (substitua pela sua)
+        window.aiSuggestionLayer.setApiKey('dev-mode-enabled', 'gpt-3.5-turbo');
+    }
+
     // 🎯 CALCULAR SCORES DA ANÁLISE
     if (analysis) {
         const detectedGenre = analysis.metadata?.genre || analysis.genre || __activeRefGenre || 'funk_mandela';
@@ -5555,8 +5562,8 @@ function getScoringParameters(genre, metricKey) {
 
 // 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (REDIRECIONAMENTO PARA SCORING.JS)
 function calculateMetricScore(actualValue, targetValue, tolerance, metricName = 'generic', options = {}) {
-    // 🎯 CORREÇÃO: Usar a versão do scoring.js se disponível
-    if (typeof window !== 'undefined' && typeof window.calculateMetricScore === 'function') {
+    // 🎯 CORREÇÃO: Usar a versão do scoring.js se disponível, mas evitar recursão
+    if (typeof window !== 'undefined' && typeof window.calculateMetricScore === 'function' && window.calculateMetricScore !== calculateMetricScore) {
         return window.calculateMetricScore(actualValue, targetValue, tolerance, metricName, options);
     }
     
