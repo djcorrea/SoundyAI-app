@@ -138,17 +138,22 @@ function calculateMetricScore(value, target, tolerance, options = {}) {
   const bufferZone = tolerance * bufferFactor;
   const severityFactor = severity || (tolerance * 2);
   
-  // 🟡 AMARELO: Entre tolerância e tolerância+buffer
+  // 🟡 AMARELO: Entre tolerância e tolerância+buffer (zona de transição)
   if (toleranceDistance <= bufferZone) {
     const ratio = toleranceDistance / bufferZone;
     return Math.round(100 - ((100 - yellowMin) * ratio));
   }
   
-  // 🔴 VERMELHO: Além do buffer
+  // 🔴 VERMELHO: Além do buffer - SCORE PROGRESSIVO IMPLEMENTADO
   const extraDistance = toleranceDistance - bufferZone;
-  const redScore = Math.max(0, yellowMin - (extraDistance / severityFactor) * yellowMin);
   
-  return Math.round(redScore);
+  // 🎯 NOVA LÓGICA: Score progressivo com decaimento suave
+  // Quanto menor a distância, maior o score (sempre mostra progresso)
+  const progressRatio = 1 / (1 + extraDistance / severityFactor);
+  const score = Math.round(yellowMin * progressRatio);
+  
+  // 🛡️ Garantir score mínimo de 10 (nunca zerar completamente)
+  return Math.max(10, score);
 }
 
 // 🎯 FUNÇÃO AUXILIAR PARA DETERMINAR ZONA COM HISTERESE
