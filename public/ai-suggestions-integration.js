@@ -363,17 +363,17 @@ class AISuggestionsIntegration {
             const problemText = suggestion.issue || suggestion.message || suggestion.title || 'Problema detectado';
             const actionText = suggestion.solution || suggestion.action || suggestion.description || 'Ajuste recomendado';
             
-            // Determinar prioridade (1=alta, 2=média, 3=baixa)
-            let priority = suggestion.priority || 2;
+            // Determinar prioridade (valores altos = alta prioridade, como sistema principal)
+            let priority = suggestion.priority || 5;
             if (typeof priority !== 'number') {
-                if (priority === 'alta' || priority === 'high') priority = 1;
-                else if (priority === 'média' || priority === 'medium') priority = 2; 
-                else if (priority === 'baixa' || priority === 'low') priority = 3;
-                else priority = 2;
+                if (priority === 'alta' || priority === 'high') priority = 8;
+                else if (priority === 'média' || priority === 'medium') priority = 5; 
+                else if (priority === 'baixa' || priority === 'low') priority = 2;
+                else priority = 5;
             }
             
-            // Garantir que priority está no range correto (1-3)
-            priority = Math.max(1, Math.min(3, Math.floor(priority)));
+            // Garantir que priority está no range correto (1-10, compatível com sistema principal)
+            priority = Math.max(1, Math.min(10, Math.floor(priority)));
             
             return {
                 message: problemText,
