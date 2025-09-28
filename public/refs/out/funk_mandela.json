@@ -45,19 +45,19 @@
           "severity": "soft"
         },
         "high_mid": {
-          "target_db": -19.2,
+          "target_db": -26.2,
           "energy_pct": 5.3,
           "tol_db": 2.5,
           "severity": "soft"
         },
         "brilho": {
-          "target_db": -29.3,
+          "target_db": -33.3,
           "energy_pct": 1.4,
           "tol_db": 3.0,
           "severity": "soft"
         },
         "presenca": {
-          "target_db": -21,
+          "target_db": -29.6,
           "energy_pct": 0.16,
           "tol_db": 3.0,
           "severity": "soft"
@@ -108,19 +108,19 @@
           "severity": "soft"
         },
         "high_mid": {
-          "target_db": -19.2,
+          "target_db": -26.2,
           "energy_pct": 5.3,
           "tol_db": 2.5,
           "severity": "soft"
         },
         "brilho": {
-          "target_db": -29.3,
+          "target_db": -33.3,
           "energy_pct": 1.4,
           "tol_db": 3.0,
           "severity": "soft"
         },
         "presenca": {
-          "target_db": -21,
+          "target_db": -29.6,
           "energy_pct": 0.16,
           "tol_db": 3.0,
           "severity": "soft"
