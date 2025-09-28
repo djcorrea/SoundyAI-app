@@ -3399,30 +3399,41 @@ function displayModalResults(analysis) {
     }
     
     // 🎯 CALCULAR SCORES DA ANÁLISE
-    if (__activeRefData && analysis) {
-        const detectedGenre = analysis.metadata?.genre || analysis.genre || __activeRefGenre;
+    if (analysis) {
+        const detectedGenre = analysis.metadata?.genre || analysis.genre || __activeRefGenre || 'funk_mandela';
         console.log('🎯 Calculando scores para gênero:', detectedGenre);
         
-        try {
-            const analysisScores = calculateAnalysisScores(analysis, __activeRefData, detectedGenre);
-            
-            if (analysisScores) {
-                // Adicionar scores à análise
-                analysis.scores = analysisScores;
-                console.log('✅ Scores calculados e adicionados à análise:', analysisScores);
-                
-                // Também armazenar globalmente
-                if (typeof window !== 'undefined') {
-                    window.__LAST_ANALYSIS_SCORES__ = analysisScores;
-                }
-            } else {
-                console.warn('⚠️ Não foi possível calcular scores (dados insuficientes)');
-            }
-        } catch (error) {
-            console.error('❌ Erro ao calcular scores:', error);
+        // 🔧 CORREÇÃO: Garantir que referência exista, senão usar fallback
+        let refData = __activeRefData;
+        if (!refData) {
+            console.warn('⚠️ __activeRefData ausente, tentando fallback de referência');
+            // Tentar usar referência embarcada
+            const embeddedRefs = window.audioRefs || {};
+            refData = embeddedRefs[detectedGenre] || embeddedRefs['funk_mandela'];
         }
-    } else {
-        console.warn('⚠️ Scores não calculados - dados de referência não disponíveis');
+        
+        if (refData) {
+            try {
+                const analysisScores = calculateAnalysisScores(analysis, refData, detectedGenre);
+                
+                if (analysisScores) {
+                    // Adicionar scores à análise
+                    analysis.scores = analysisScores;
+                    console.log('✅ Scores calculados e adicionados à análise:', analysisScores);
+                    
+                    // Também armazenar globalmente
+                    if (typeof window !== 'undefined') {
+                        window.__LAST_ANALYSIS_SCORES__ = analysisScores;
+                    }
+                } else {
+                    console.warn('⚠️ Não foi possível calcular scores (dados insuficientes)');
+                }
+            } catch (error) {
+                console.error('❌ Erro ao calcular scores:', error);
+            }
+        } else {
+            console.error('❌ Nenhuma referência disponível para calcular scores');
+        }
     }
     
     // Ocultar outras seções
@@ -4819,8 +4830,9 @@ function renderSmartSummary(analysis){
         let steps = (analysis.caiarExplainPlan && Array.isArray(analysis.caiarExplainPlan.passos)) ? analysis.caiarExplainPlan.passos.slice(0,6) : [];
         if (steps.length === 0) {
             const sugg = Array.isArray(analysis.suggestions) ? analysis.suggestions.slice() : [];
-            // Ordenar por prioridade se houver
-            sugg.sort((a,b)=> (a.priority||999)-(b.priority||999));
+            // 🎯 CORREÇÃO CRÍTICA: Ordenar por prioridade DECRESCENTE (maior primeiro)
+            // True Peak deve aparecer primeiro (priority alta), não por último
+            sugg.sort((a,b)=> (b.priority||0)-(a.priority||0));
             steps = sugg.slice(0,6).map((s,i)=>({
                 ordem:i+1,
                 titulo:s.message||'Ação',
