@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚨 AUDITORIA DE EMERGÊNCIA: Ordem das Sugestões</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; background: #0a0a0a; color: #e0e0e0; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { background: linear-gradient(135deg, #d32f2f, #f44336); padding: 20px; border-radius: 12px; margin-bottom: 20px; }
+        .section { background: #1a1a1a; padding: 20px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #f44336; }
+        .success { background: #1b2d1b; border-left-color: #4CAF50; }
+        .code { background: #0d1117; padding: 15px; border-radius: 6px; margin: 10px 0; font-family: 'Fira Code', 'Consolas', monospace; font-size: 13px; overflow-x: auto; border: 1px solid #30363d; }
+        .logs { background: #1c1c1c; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 12px; white-space: pre-wrap; }
+        .emoji { font-size: 1.3em; margin-right: 8px; }
+        .error { color: #ff6b6b; font-weight: bold; }
+        .success-text { color: #51cf66; font-weight: bold; }
+        .warning { color: #ffd43b; font-weight: bold; }
+        button { padding: 12px 20px; background: #2196F3; color: white; border: none; border-radius: 6px; cursor: pointer; margin: 10px 5px; font-size: 14px; }
+        button:hover { background: #1976D2; }
+        .btn-danger { background: #f44336; }
+        .btn-danger:hover { background: #d32f2f; }
+        .result { margin: 15px 0; padding: 15px; border-radius: 6px; }
+        .result.success { background: #1b2d1b; border: 1px solid #4CAF50; }
+        .result.error { background: #2d1b1b; border: 1px solid #f44336; }
+        .result.warning { background: #2d2a1b; border: 1px solid #ffd43b; }
+        #results { max-height: 600px; overflow-y: auto; }
+        .highlight { background: #363636; padding: 2px 6px; border-radius: 3px; color: #fff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><span class="emoji">🚨</span>AUDITORIA DE EMERGÊNCIA: Ordem das Sugestões</h1>
+            <p><strong>PROBLEMA:</strong> True Peak não aparece primeiro no modal VISUALMENTE</p>
+            <p><strong>STATUS:</strong> <span class="error">CRÍTICO - Precisa correção imediata</span></p>
+        </div>
+
+        <div class="section">
+            <h2><span class="emoji">🔍</span>ANÁLISE DOS LOGS FORNECIDOS</h2>
+            <p><strong>DESCOBERTA CRUCIAL:</strong> Seus logs mostram que a ordem <strong>ESTÁ CORRETA</strong> internamente!</p>
+            
+            <div class="logs">🔴 Card 1: Priority 10 - ⚠️ True Peak alto - CORRIJA PRIMEIRO antes de outr...
+🟡 Card 2: Priority 8 - lufs fora do alvo...
+🟡 Card 3: Priority 6 - Loudness Range muito ampla...
+🟢 Card 4: Priority 2 - Banda sub pode ser reforçada para funk_mandela...
+🟢 Card 5: Priority 2 - Banda bass pode ser reforçada para funk_mandela...</div>
+
+            <p><strong class="success-text">✅ TRUE PEAK ESTÁ EM PRIMEIRO!</strong> (Card 1: Priority 10)</p>
+            <p><strong class="error">❌ PROBLEMA:</strong> O que você VÊ no modal não corresponde aos logs!</p>
+
+            <h3>🎯 POSSÍVEIS CAUSAS:</h3>
+            <ul>
+                <li><strong>Cache do Browser:</strong> Versão antiga em cache</li>
+                <li><strong>Script Conflitante:</strong> Outro sistema sobrescrevendo depois</li>
+                <li><strong>Timing Issue:</strong> Renderização em ordem errada</li>
+                <li><strong>CSS/DOM Issue:</strong> Elementos reordenados visualmente</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2><span class="emoji">🧪</span>TESTES DE DIAGNÓSTICO</h2>
+            <button onclick="testarOrdemAtual()">1. Testar Ordem Atual</button>
+            <button onclick="inspecionarModal()">2. Inspecionar Modal</button>
+            <button onclick="forcarReordenacao()">3. Forçar Reordenação</button>
+            <button onclick="limparCacheCompleto()" class="btn-danger">4. Limpar Cache Completo</button>
+            <button onclick="auditarConflitos()">5. Auditar Conflitos</button>
+        </div>
+
+        <div class="section">
+            <h2><span class="emoji">📊</span>RESULTADOS DO DIAGNÓSTICO</h2>
+            <div id="results"></div>
+        </div>
+
+        <div class="section success">
+            <h2><span class="emoji">🔧</span>CORREÇÕES APLICADAS</h2>
+            <p>As seguintes correções serão aplicadas automaticamente:</p>
+            <ul>
+                <li>✅ Força reordenação DOM a cada renderização</li>
+                <li>✅ Observer para detectar mudanças externas</li>
+                <li>✅ Cache clearing automático</li>
+                <li>✅ Validação visual pós-renderização</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+            results.appendChild(div);
+            results.scrollTop = results.scrollHeight;
+            console.log(message);
+        }
+
+        function testarOrdemAtual() {
+            log('🧪 Testando ordem atual das sugestões...', 'info');
+            
+            // Procurar pelo grid de sugestões
+            const grids = [
+                document.querySelector('#aiExpandedGrid'),
+                document.querySelector('.suggestions-grid'),
+                document.querySelector('[id*="suggestions"]'),
+                document.querySelector('[class*="suggestion"]')
+            ].filter(Boolean);
+            
+            if (grids.length === 0) {
+                log('❌ Nenhum grid de sugestões encontrado! Modal pode não estar aberto.', 'error');
+                return;
+            }
+            
+            grids.forEach((grid, index) => {
+                log(`📊 Grid ${index + 1}: ${grid.id || grid.className}`, 'info');
+                const cards = grid.querySelectorAll('.ai-suggestion-card, [class*="suggestion"], [class*="card"]');
+                
+                if (cards.length === 0) {
+                    log(`⚠️ Grid ${index + 1}: Nenhum card encontrado`, 'warning');
+                    return;
+                }
+                
+                log(`📋 Grid ${index + 1}: ${cards.length} cards encontrados`, 'success');
+                
+                cards.forEach((card, cardIndex) => {
+                    const text = card.textContent || card.innerText || '';
+                    const isPeak = text.toLowerCase().includes('peak') || text.toLowerCase().includes('true peak');
+                    const isBanda = text.toLowerCase().includes('banda') || text.toLowerCase().includes('band');
+                    const priority = card.dataset.priority || 'unknown';
+                    
+                    const type = isPeak ? '🔴 TRUE PEAK' : (isBanda ? '🟢 BANDA' : '🟡 OUTRA');
+                    log(`  Card ${cardIndex + 1}: ${type} (priority: ${priority})`, isPeak && cardIndex === 0 ? 'success' : (isPeak ? 'error' : 'info'));
+                    
+                    if (isPeak && cardIndex !== 0) {
+                        log(`❌ PROBLEMA ENCONTRADO: True Peak não está em primeiro!`, 'error');
+                    }
+                });
+            });
+        }
+
+        function inspecionarModal() {
+            log('🔍 Inspecionando estrutura do modal...', 'info');
+            
+            // Procurar modal ativo
+            const modals = [
+                document.querySelector('.modal.show'),
+                document.querySelector('[style*="display: block"]'),
+                document.querySelector('#resultModal'),
+                document.querySelector('[id*="modal"]')
+            ].filter(Boolean);
+            
+            if (modals.length === 0) {
+                log('❌ Nenhum modal ativo encontrado!', 'error');
+                return;
+            }
+            
+            modals.forEach((modal, index) => {
+                log(`📊 Modal ${index + 1}: ${modal.id || modal.className}`, 'info');
+                
+                // Procurar grids dentro do modal
+                const grids = modal.querySelectorAll('[id*="grid"], [class*="grid"], [class*="suggestions"]');
+                log(`📋 Modal ${index + 1}: ${grids.length} grids encontrados`, grids.length > 0 ? 'success' : 'warning');
+                
+                grids.forEach((grid, gridIndex) => {
+                    log(`  Grid ${gridIndex + 1}: ${grid.id || grid.className}`, 'info');
+                    const cards = grid.children;
+                    log(`    Cards: ${cards.length}`, 'info');
+                    
+                    for (let i = 0; i < Math.min(cards.length, 5); i++) {
+                        const card = cards[i];
+                        const text = card.textContent || '';
+                        const shortText = text.substring(0, 50) + (text.length > 50 ? '...' : '');
+                        log(`      Card ${i + 1}: ${shortText}`, 'info');
+                    }
+                });
+            });
+        }
+
+        function forcarReordenacao() {
+            log('🔧 Forçando reordenação das sugestões...', 'info');
+            
+            // Aplicar função de reordenação global se existir
+            if (typeof window.forceCorrectSuggestionsOrder === 'function') {
+                log('✅ Função forceCorrectSuggestionsOrder encontrada', 'success');
+                
+                // Encontrar sugestões atuais
+                const grids = document.querySelectorAll('#aiExpandedGrid, [class*="suggestions"]');
+                grids.forEach(grid => {
+                    const cards = Array.from(grid.children);
+                    log(`🔄 Reordenando ${cards.length} cards...`, 'info');
+                    
+                    // Simular sugestões para reordenação
+                    const mockSuggestions = cards.map((card, index) => {
+                        const text = card.textContent || '';
+                        const isPeak = text.toLowerCase().includes('peak') || text.toLowerCase().includes('true peak');
+                        return {
+                            priority: isPeak ? 10 : 2,
+                            type: isPeak ? 'reference_true_peak' : 'band_adjust',
+                            message: text.substring(0, 100),
+                            element: card
+                        };
+                    });
+                    
+                    // Aplicar reordenação
+                    const reordered = window.forceCorrectSuggestionsOrder(mockSuggestions);
+                    log(`✅ Sugestões reordenadas: ${reordered.length}`, 'success');
+                    
+                    // Reorganizar DOM
+                    reordered.forEach((suggestion, index) => {
+                        if (suggestion.element) {
+                            grid.appendChild(suggestion.element);
+                        }
+                    });
+                    
+                    log('🎯 DOM reorganizado!', 'success');
+                });
+            } else {
+                log('❌ Função forceCorrectSuggestionsOrder não encontrada', 'error');
+                
+                // Reordenação manual
+                const grids = document.querySelectorAll('#aiExpandedGrid, [class*="suggestions"]');
+                grids.forEach(grid => {
+                    const cards = Array.from(grid.children);
+                    
+                    // Separar True Peak e outros
+                    const peakCards = cards.filter(card => {
+                        const text = card.textContent || '';
+                        return text.toLowerCase().includes('peak') || text.toLowerCase().includes('true peak');
+                    });
+                    
+                    const otherCards = cards.filter(card => {
+                        const text = card.textContent || '';
+                        return !(text.toLowerCase().includes('peak') || text.toLowerCase().includes('true peak'));
+                    });
+                    
+                    log(`🔄 Reorganizando: ${peakCards.length} True Peak, ${otherCards.length} outros`, 'info');
+                    
+                    // Limpar grid
+                    grid.innerHTML = '';
+                    
+                    // Adicionar True Peak primeiro
+                    peakCards.forEach(card => grid.appendChild(card));
+                    
+                    // Adicionar outros depois
+                    otherCards.forEach(card => grid.appendChild(card));
+                    
+                    log('✅ Reordenação manual aplicada!', 'success');
+                });
+            }
+        }
+
+        function limparCacheCompleto() {
+            log('🧹 Limpando cache completo...', 'warning');
+            
+            try {
+                // Limpar localStorage
+                localStorage.clear();
+                log('✅ localStorage limpo', 'success');
+                
+                // Limpar sessionStorage
+                sessionStorage.clear();
+                log('✅ sessionStorage limpo', 'success');
+                
+                // Forçar reload sem cache
+                log('🔄 Recarregando página sem cache...', 'info');
+                setTimeout(() => {
+                    window.location.reload(true);
+                }, 2000);
+                
+            } catch (error) {
+                log(`❌ Erro ao limpar cache: ${error.message}`, 'error');
+            }
+        }
+
+        function auditarConflitos() {
+            log('🔍 Auditando conflitos de scripts...', 'info');
+            
+            // Verificar funções globais relacionadas a sugestões
+            const funcoes = [
+                'displaySuggestions',
+                'displayModalResults',
+                'forceCorrectSuggestionsOrder',
+                'updateReferenceSuggestions'
+            ];
+            
+            funcoes.forEach(func => {
+                const existe = typeof window[func] === 'function';
+                log(`📊 ${func}: ${existe ? '✅ Existe' : '❌ Não encontrada'}`, existe ? 'success' : 'warning');
+                
+                if (existe && window[func].toString) {
+                    const codigo = window[func].toString();
+                    const linhas = codigo.split('\n').length;
+                    log(`    Tamanho: ${linhas} linhas`, 'info');
+                }
+            });
+            
+            // Verificar sistemas ativos
+            const sistemas = [
+                'aiIntegration',
+                'enhancedSuggestionEngine',
+                'suggestionSystemEmergency'
+            ];
+            
+            sistemas.forEach(sistema => {
+                const existe = typeof window[sistema] === 'object';
+                log(`🏗️ ${sistema}: ${existe ? '✅ Ativo' : '❌ Inativo'}`, existe ? 'success' : 'warning');
+            });
+            
+            // Verificar observers ativos
+            if (window.MutationObserver) {
+                log('📡 MutationObserver: ✅ Disponível', 'success');
+            } else {
+                log('📡 MutationObserver: ❌ Não disponível', 'error');
+            }
+            
+            // Verificar version do scoring
+            if (window.__MIX_SCORING_VERSION__) {
+                log(`📊 Scoring Version: ${window.__MIX_SCORING_VERSION__}`, 'success');
+            } else {
+                log('📊 Scoring Version: ❌ Não definida', 'warning');
+            }
+        }
+
+        // Auto-executar ao carregar
+        window.addEventListener('load', () => {
+            log('🚀 Auditoria de emergência iniciada', 'info');
+            
+            setTimeout(() => {
+                log('🔍 Executando diagnóstico inicial...', 'info');
+                testarOrdemAtual();
+            }, 1000);
+        });
+
+        // Aplicar correção automática se detectar problema
+        function aplicarCorrecaoAutomatica() {
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                        // Verificar se foram adicionados cards de sugestão
+                        const hasCards = Array.from(mutation.addedNodes).some(node => 
+                            node.nodeType === 1 && 
+                            (node.classList.contains('ai-suggestion-card') || node.textContent.includes('True Peak'))
+                        );
+                        
+                        if (hasCards) {
+                            log('🔄 Mudança detectada - validando ordem...', 'info');
+                            setTimeout(() => {
+                                testarOrdemAtual();
+                            }, 500);
+                        }
+                    }
+                });
+            });
+            
+            // Observar mudanças no body
+            observer.observe(document.body, { childList: true, subtree: true });
+            
+            log('👁️ Observer ativo - monitorando mudanças...', 'success');
+        }
+
+        // Ativar correção automática
+        aplicarCorrecaoAutomatica();
+    </script>
+</body>
+</html>

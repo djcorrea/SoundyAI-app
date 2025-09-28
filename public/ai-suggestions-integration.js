@@ -91,6 +91,105 @@ class AISuggestionsIntegration {
             console.log('🔍 [AUDITORIA] Sistema de monitoramento de renderização ativo');
         }
     }
+
+    verificarECorrigirOrdemVisual(suggestions) {
+        console.log('🚨 [EMERGÊNCIA] Verificando ordem visual no DOM...');
+        
+        if (!this.elements.grid || !suggestions || suggestions.length === 0) {
+            console.warn('⚠️ [EMERGÊNCIA] Grid ou sugestões não disponíveis para verificação visual');
+            return;
+        }
+        
+        const domCards = Array.from(this.elements.grid.children);
+        if (domCards.length === 0) {
+            console.warn('⚠️ [EMERGÊNCIA] Nenhum card encontrado no DOM');
+            return;
+        }
+        
+        console.log(`📊 [EMERGÊNCIA] Verificando ${domCards.length} cards no DOM...`);
+        
+        // Verificar se True Peak está em primeiro
+        let truePeakFirst = false;
+        let problemasEncontrados = [];
+        
+        domCards.forEach((card, index) => {
+            const text = card.textContent || card.innerText || '';
+            const isPeak = text.toLowerCase().includes('peak') || text.toLowerCase().includes('true peak');
+            const priority = card.dataset.priority || 'unknown';
+            
+            if (isPeak) {
+                if (index === 0) {
+                    truePeakFirst = true;
+                    console.log('✅ [EMERGÊNCIA] True Peak está em primeiro lugar visual!');
+                } else {
+                    problemasEncontrados.push(`True Peak encontrado na posição ${index + 1} (deveria ser 1)`);
+                }
+            }
+            
+            console.log(`📋 [EMERGÊNCIA] Card ${index + 1}: ${isPeak ? '🔴 TRUE PEAK' : '🟢 OUTRO'} (priority: ${priority})`);
+        });
+        
+        // Se True Peak não está primeiro, forçar correção
+        if (!truePeakFirst && problemasEncontrados.length > 0) {
+            console.error('❌ [EMERGÊNCIA] PROBLEMA VISUAL DETECTADO:', problemasEncontrados);
+            
+            // 🚨 CORREÇÃO FORÇADA: Reorganizar DOM
+            this.forcarReorganizacaoDOM(suggestions);
+            
+        } else if (truePeakFirst) {
+            console.log('✅ [EMERGÊNCIA] Ordem visual está CORRETA!');
+            
+            // Adicionar marcação visual para debug
+            const firstCard = domCards[0];
+            if (firstCard) {
+                firstCard.style.border = '3px solid #4CAF50';
+                firstCard.style.boxShadow = '0 0 15px rgba(76, 175, 80, 0.5)';
+                console.log('🎯 [EMERGÊNCIA] Primeiro card marcado visualmente (verde = correto)');
+            }
+        }
+    }
+
+    forcarReorganizacaoDOM(suggestions) {
+        console.warn('🚨 [EMERGÊNCIA] Aplicando reorganização forçada do DOM...');
+        
+        // Ordenar sugestões por prioridade
+        const suggestionsOrdenadas = [...suggestions].sort((a, b) => {
+            return (b.priority || 0) - (a.priority || 0);
+        });
+        
+        // Limpar grid
+        this.elements.grid.innerHTML = '';
+        
+        // Recriar cards na ordem correta
+        suggestionsOrdenadas.forEach((suggestion, index) => {
+            const card = this.createSuggestionCard(suggestion, index, 'emergency-fix');
+            this.elements.grid.appendChild(card);
+            
+            // Marcar visualmente para debug
+            if (index === 0) {
+                card.style.border = '3px solid #ff9800';
+                card.style.boxShadow = '0 0 15px rgba(255, 152, 0, 0.7)';
+                console.log('🚨 [EMERGÊNCIA] Primeiro card corrigido e marcado (laranja = correção aplicada)');
+            }
+        });
+        
+        console.log('✅ [EMERGÊNCIA] DOM reorganizado! True Peak deve estar primeiro agora.');
+        
+        // Verificar novamente após correção
+        setTimeout(() => {
+            const primeiroCard = this.elements.grid.children[0];
+            if (primeiroCard) {
+                const text = primeiroCard.textContent || '';
+                const isPeak = text.toLowerCase().includes('peak') || text.toLowerCase().includes('true peak');
+                
+                if (isPeak) {
+                    console.log('🎉 [EMERGÊNCIA] SUCESSO! True Peak agora está primeiro após correção!');
+                } else {
+                    console.error('❌ [EMERGÊNCIA] FALHA! True Peak ainda não está primeiro mesmo após correção!');
+                }
+            }
+        }, 50);
+    }
     
     setupOrderGuarantee() {
         // 🎯 FUNÇÃO GLOBAL: Garantir ordem correta das sugestões
@@ -1016,30 +1115,50 @@ class AISuggestionsIntegration {
             return;
         }
         
-        // Generate cards
+        // 🎯 ORDENAÇÃO FINAL GARANTIDA: Garantir ordem correta antes da renderização
+        console.log('🎯 [ORDEM-FINAL] Aplicando ordenação final garantida...');
+        
+        const suggestionsOrdenadas = [...suggestions].sort((a, b) => {
+            // Ordenar por prioridade decrescente (maior prioridade primeiro)
+            const priorityA = a.priority || a.ai_priority || 0;
+            const priorityB = b.priority || b.ai_priority || 0;
+            return priorityB - priorityA;
+        });
+        
+        console.log('🎯 [ORDEM-FINAL] Ordem aplicada:');
+        suggestionsOrdenadas.forEach((sug, index) => {
+            const priority = sug.priority || sug.ai_priority || 0;
+            const type = sug.type || 'unknown';
+            const message = (sug.message || sug.title || '').substring(0, 30);
+            console.log(`  ${index + 1}. Priority ${priority} (${type}): ${message}...`);
+        });
+
+        // Generate cards COM ORDEM CORRETA
         // 🔍 AUDITORIA: Contando cards criados
         let cardsCreated = 0;
-        suggestions.forEach((suggestion, index) => {
+        suggestionsOrdenadas.forEach((suggestion, index) => {
             const card = this.createSuggestionCard(suggestion, index, source);
             this.elements.grid.appendChild(card);
             cardsCreated++;
             
             console.log(`🖥️ Card ${cardsCreated} criado para:`, {
-                index: index,
+                originalIndex: suggestions.indexOf(suggestion),
+                orderedIndex: index,
                 ai_enhanced: suggestion.ai_enhanced,
-                priority: suggestion.priority,
+                priority: suggestion.priority || suggestion.ai_priority,
                 message: (suggestion.message || '').substring(0, 40) + '...',
                 cardElement: !!card,
                 appendedToGrid: true
             });
         });
         
-        // 🎯 AUDITORIA VISUAL: Confirmar ordem dos cards renderizados
+        // 🎯 AUDITORIA VISUAL: Confirmar ordem dos cards renderizados (ORDENADOS)
         console.group('🎯 [AUDITORIA] ORDEM FINAL DOS CARDS RENDERIZADOS');
         console.log('📊 Ordem dos cards no DOM (deve ser TP → LUFS → DR → LRA → Stereo → Bandas):');
-        suggestions.forEach((sug, index) => {
-            const priorityEmoji = sug.priority >= 9 ? '🔴' : sug.priority >= 5 ? '🟡' : '🟢';
-            console.log(`${priorityEmoji} Card ${index + 1}: Priority ${sug.priority} - ${(sug.message || '').substring(0, 50)}...`);
+        suggestionsOrdenadas.forEach((sug, index) => {
+            const priority = sug.priority || sug.ai_priority || 0;
+            const priorityEmoji = priority >= 9 ? '🔴' : priority >= 5 ? '🟡' : '🟢';
+            console.log(`${priorityEmoji} Card ${index + 1}: Priority ${priority} - ${(sug.message || '').substring(0, 50)}...`);
         });
         console.groupEnd();
         
@@ -1048,6 +1167,11 @@ class AISuggestionsIntegration {
             gridChildren: this.elements.grid.children.length,
             suggestionsReceived: suggestions.length
         });
+
+        // 🚨 CORREÇÃO VISUAL DE EMERGÊNCIA: Verificar ordem real no DOM e corrigir se necessário
+        setTimeout(() => {
+            this.verificarECorrigirOrdemVisual(suggestionsOrdenadas);
+        }, 100); // Pequeno delay para garantir que DOM está atualizado
         
         // Show grid
         this.elements.grid.style.display = 'grid';
