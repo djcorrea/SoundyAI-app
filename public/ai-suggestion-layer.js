@@ -86,10 +86,10 @@ class AISuggestionLayer {
         const startTime = performance.now();
         
         try {
-            // Validações iniciais
+            // Validações iniciais - NÃO interferir se IA real estiver disponível
             if (!this.apiKey || this.apiKey === 'demo-mode') {
-                console.warn('⚠️ [AI-LAYER] API Key não configurada - usando sugestões originais');
-                return existingSuggestions;
+                console.warn('⚠️ [AI-LAYER] API Key não configurada - retornando originais (IA real via AI-Integration)');
+                return existingSuggestions; // Deixa AI-Integration cuidar da IA real
             }
             
             // 🔧 MODO DE DESENVOLVIMENTO: Simular processamento IA
