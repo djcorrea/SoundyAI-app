@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 DEBUG: Score Educativo por Tolerância</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #0a0e1a; color: #e0e6ed; margin: 20px; }
+        .test-card { background: #141b2d; border: 1px solid #2a3441; border-radius: 8px; padding: 20px; margin: 15px 0; }
+        .result { padding: 10px; margin: 5px 0; border-radius: 4px; }
+        .success { background: #0f4c3a; border-left: 4px solid #10b981; }
+        .error { background: #4c1d1d; border-left: 4px solid #ef4444; }
+        .warning { background: #4c3d1d; border-left: 4px solid #f59e0b; }
+        .info { background: #1e3a8a; border-left: 4px solid #3b82f6; }
+        pre { background: #0f1419; padding: 10px; border-radius: 4px; overflow-x: auto; font-size: 12px; }
+        .metric-test { border: 1px solid #374151; margin: 10px 0; padding: 15px; background: #1f2937; }
+        button { background: #3b82f6; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #2563eb; }
+        .score-display { font-size: 18px; font-weight: bold; color: #10b981; }
+    </style>
+</head>
+<body>
+    <h1>🔍 DEBUG: Score Educativo por Tolerância</h1>
+    
+    <div class="test-card">
+        <h2>🎯 Status do Sistema</h2>
+        <div id="system-status"></div>
+        <button onclick="debugSystem()">🔍 Verificar Sistema</button>
+    </div>
+
+    <div class="test-card">
+        <h2>📊 Teste Score Educativo</h2>
+        <div>
+            <label>Valor Atual: <input type="number" id="actual" value="-16" step="0.1"></label><br><br>
+            <label>Valor Target: <input type="number" id="target" value="-14" step="0.1"></label><br><br>
+            <label>Tolerância: <input type="number" id="tolerance" value="1" step="0.1"></label><br><br>
+            <button onclick="testScore()">🧮 Calcular Score</button>
+        </div>
+        <div id="score-result"></div>
+    </div>
+
+    <div class="test-card">
+        <h2>📈 Teste Cenários Educativos</h2>
+        <button onclick="testEducationalScenarios()">📊 Testar Cenários</button>
+        <div id="educational-results"></div>
+    </div>
+
+    <div class="test-card">
+        <h2>💬 Teste Mensagens Educativas</h2>
+        <button onclick="testEducationalMessages()">💬 Testar Mensagens</button>
+        <div id="message-results"></div>
+    </div>
+
+    <!-- Carregar scoring.js -->
+    <script src="public/lib/audio/features/scoring.js"></script>
+    
+    <!-- Carregar suggestion-scorer.js -->
+    <script src="public/suggestion-scorer.js"></script>
+    
+    <!-- Verificação de carregamento -->
+    <script>
+        window.addEventListener('load', () => {
+            console.log('🎯 VERIFICAÇÃO DE CARREGAMENTO:');
+            console.log('  - scoring.js carregado:', typeof window.calculateMetricScore === 'function');
+            console.log('  - suggestion-scorer.js carregado:', typeof window.SuggestionScorer === 'function');
+        });
+    </script>
+
+    <script>
+        function log(message, type = 'info') {
+            const classes = {
+                success: 'success',
+                error: 'error', 
+                warning: 'warning',
+                info: 'info'
+            };
+            return `<div class="result ${classes[type]}">${message}</div>`;
+        }
+
+        function debugSystem() {
+            let html = '<h3>🔍 Análise do Sistema:</h3>';
+            
+            // Verificar se scoring.js foi carregado
+            const hasScoringJS = typeof window.calculateMetricScore === 'function';
+            html += log(`✅ scoring.js carregado: ${hasScoringJS}`, hasScoringJS ? 'success' : 'error');
+            
+            // Verificar se suggestion-scorer.js foi carregado
+            const hasSuggestionScorer = typeof window.SuggestionScorer === 'function';
+            html += log(`✅ suggestion-scorer.js carregado: ${hasSuggestionScorer}`, hasSuggestionScorer ? 'success' : 'error');
+            
+            // Verificar instância global
+            const hasGlobalScorer = typeof window.suggestionScorer === 'object';
+            html += log(`✅ window.suggestionScorer instância: ${hasGlobalScorer}`, hasGlobalScorer ? 'success' : 'error');
+            
+            // Testar função calculateMetricScore
+            if (hasScoringJS) {
+                try {
+                    const testScore = window.calculateMetricScore(-16, -14, 1, 'lufs');
+                    html += log(`✅ Teste calculateMetricScore: ${testScore} pontos`, 'success');
+                    html += log(`📊 Função do scoring.js funcionando corretamente`, 'success');
+                } catch (error) {
+                    html += log(`❌ Erro ao testar calculateMetricScore: ${error.message}`, 'error');
+                }
+            }
+            
+            // Testar generateSuggestion
+            if (hasGlobalScorer) {
+                try {
+                    const testSuggestion = window.suggestionScorer.generateSuggestion({
+                        type: 'lufs',
+                        value: -16,
+                        target: -14,
+                        tolerance: 1,
+                        severity: 'medium',
+                        metricType: 'lufs'
+                    });
+                    html += log(`✅ Teste generateSuggestion: "${testSuggestion.message}"`, 'success');
+                    html += log(`📊 Delta limitado a: ${testSuggestion.adjustmentValue} dB`, 'info');
+                } catch (error) {
+                    html += log(`❌ Erro ao testar generateSuggestion: ${error.message}`, 'error');
+                }
+            }
+            
+            document.getElementById('system-status').innerHTML = html;
+        }
+
+        function testScore() {
+            const actual = parseFloat(document.getElementById('actual').value);
+            const target = parseFloat(document.getElementById('target').value);
+            const tolerance = parseFloat(document.getElementById('tolerance').value);
+            
+            if (!window.calculateMetricScore) {
+                document.getElementById('score-result').innerHTML = 
+                    log('❌ Função calculateMetricScore não disponível', 'error');
+                return;
+            }
+            
+            try {
+                const score = window.calculateMetricScore(actual, target, tolerance, 'lufs');
+                const diff = Math.abs(actual - target);
+                
+                let html = '<h3>📊 Resultado do Score:</h3>';
+                html += `<div class="score-display">Score: ${score} pontos</div>`;
+                html += log(`🎯 Diferença: ${diff.toFixed(2)} (tolerância: ${tolerance})`, 'info');
+                
+                if (diff <= tolerance) {
+                    html += log(`🟢 DENTRO da tolerância → Score = 100%`, 'success');
+                } else {
+                    const toleranceDistance = diff - tolerance;
+                    html += log(`🟡 FORA da tolerância → Distância extra: ${toleranceDistance.toFixed(2)}`, 'warning');
+                    html += log(`📈 Score educativo aplicado: degradação progressiva`, 'info');
+                }
+                
+                document.getElementById('score-result').innerHTML = html;
+            } catch (error) {
+                document.getElementById('score-result').innerHTML = 
+                    log(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        function testEducationalScenarios() {
+            if (!window.calculateMetricScore) {
+                document.getElementById('educational-results').innerHTML = 
+                    log('❌ Função calculateMetricScore não disponível', 'error');
+                return;
+            }
+            
+            const scenarios = [
+                { name: 'Perfeito (dentro tolerância)', actual: -14, target: -14, tolerance: 1 },
+                { name: 'Quase perfeito (limite tolerância)', actual: -15, target: -14, tolerance: 1 },
+                { name: 'Zona amarela (pouco fora)', actual: -16, target: -14, tolerance: 1 },
+                { name: 'Zona vermelha (muito fora)', actual: -18, target: -14, tolerance: 1 },
+                { name: 'Crítico (extremamente fora)', actual: -20, target: -14, tolerance: 1 }
+            ];
+            
+            let html = '<h3>📈 Cenários Educativos:</h3>';
+            
+            scenarios.forEach(scenario => {
+                try {
+                    const score = window.calculateMetricScore(scenario.actual, scenario.target, scenario.tolerance, 'lufs');
+                    const diff = Math.abs(scenario.actual - scenario.target);
+                    
+                    let color = 'success';
+                    if (score < 70) color = 'error';
+                    else if (score < 90) color = 'warning';
+                    
+                    html += log(`${scenario.name}: ${score} pontos (diff: ${diff})`, color);
+                } catch (error) {
+                    html += log(`❌ Erro no cenário "${scenario.name}": ${error.message}`, 'error');
+                }
+            });
+            
+            document.getElementById('educational-results').innerHTML = html;
+        }
+
+        function testEducationalMessages() {
+            if (!window.suggestionScorer) {
+                document.getElementById('message-results').innerHTML = 
+                    log('❌ window.suggestionScorer não disponível', 'error');
+                return;
+            }
+            
+            const testCases = [
+                { type: 'lufs', value: -16, target: -14, tolerance: 1, expected: 'máx 6 dB' },
+                { type: 'true_peak', value: -0.5, target: -1, tolerance: 0.2, expected: 'máx 3 dB' },
+                { type: 'dr', value: 8, target: 12, tolerance: 2, expected: 'máx 4 dB' }
+            ];
+            
+            let html = '<h3>💬 Mensagens Educativas:</h3>';
+            
+            testCases.forEach(testCase => {
+                try {
+                    const suggestion = window.suggestionScorer.generateSuggestion({
+                        type: testCase.type,
+                        value: testCase.value,
+                        target: testCase.target,
+                        tolerance: testCase.tolerance,
+                        severity: 'medium',
+                        metricType: testCase.type
+                    });
+                    
+                    html += log(`🎯 ${testCase.type.toUpperCase()}: "${suggestion.message}"`, 'info');
+                    html += log(`📊 Ajuste sugerido: ${suggestion.adjustmentValue} dB`, 'success');
+                    
+                    // Verificar se o ajuste está dentro dos limites educativos
+                    const adjustmentAbs = Math.abs(suggestion.adjustmentValue);
+                    const limits = { lufs: 6, true_peak: 3, dr: 4 };
+                    const limit = limits[testCase.type] || 6;
+                    
+                    if (adjustmentAbs <= limit) {
+                        html += log(`✅ Ajuste dentro do limite educativo (≤ ${limit} dB)`, 'success');
+                    } else {
+                        html += log(`⚠️ Ajuste acima do limite educativo (> ${limit} dB)`, 'warning');
+                    }
+                    
+                } catch (error) {
+                    html += log(`❌ Erro no teste ${testCase.type}: ${error.message}`, 'error');
+                }
+            });
+            
+            document.getElementById('message-results').innerHTML = html;
+        }
+
+        // Auto-executar ao carregar
+        setTimeout(() => {
+            debugSystem();
+        }, 500);
+    </script>
+</body>
+</html>
