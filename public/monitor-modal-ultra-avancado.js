@@ -8,6 +8,13 @@ function interceptarDisplayModalResults() {
     const aguardarScript = setInterval(() => {
         if (typeof window.displayModalResults === 'function') {
             clearInterval(aguardarScript);
+            
+            // 🔒 PROTEÇÃO: Se AI Integration já interceptou, não interceptar novamente
+            if (window.displayModalResults.__aiIntegrationHooked) {
+                console.log('🔒 [MODAL_MONITOR] AI Integration já interceptou - monitorando sem interceptar');
+                return;
+            }
+            
             console.log('🎯 [MODAL_MONITOR] displayModalResults encontrada, interceptando...');
             
             // Fazer backup da função original

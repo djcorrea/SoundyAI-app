@@ -256,18 +256,30 @@ class AISuggestionsIntegration {
                 this.updateStatus('error', 'IA não respondeu corretamente');
             }
             
-            // 🎯 PASSO 4: USO EXCLUSIVO DAS SUGESTÕES ENRIQUECIDAS
-            const finalSuggestions = (Array.isArray(data.enhancedSuggestions) ? data.enhancedSuggestions : [])
+            // 🎯 PASSO 4: USO EXCLUSIVO DAS SUGESTÕES ENRIQUECIDAS COM ORDEM CORRETA
+            let finalSuggestions = (Array.isArray(data.enhancedSuggestions) ? data.enhancedSuggestions : [])
                 .map(s => ({ ...s, ai_enhanced: true }));
 
-            console.group('🔍 [AUDITORIA] PASSO 4: SUGESTÕES ENRIQUECIDAS (SEM MERGE)');
+            // 🎯 ORDENAÇÃO POR PRIORITY: True Peak PRIMEIRO!
+            finalSuggestions = finalSuggestions.sort((a, b) => {
+                const priorityA = a.metadata?.priority_score || a.priority || 1;
+                const priorityB = b.metadata?.priority_score || b.priority || 1;
+                
+                // True Peak tem priority 10 - deve vir PRIMEIRO (ordem decrescente)
+                return priorityB - priorityA;
+            });
+
+            console.group('🔍 [AUDITORIA] PASSO 4: SUGESTÕES ENRIQUECIDAS (SEM MERGE) COM ORDENAÇÃO');
             console.log('✅ Usando apenas enhancedSuggestions do backend:', {
                 enhancedCount: finalSuggestions.length,
                 processingTime: `${processingTime}ms`
             });
+            console.log('🎯 ORDENAÇÃO APLICADA: Priority decrescente (True Peak primeiro)');
             finalSuggestions.forEach((sug, index) => {
                 console.log(`📋 Enhanced Sugestão ${index + 1}:`, {
                     ai_enhanced: true,
+                    priority: sug.metadata?.priority_score || sug.priority || 'N/A',
+                    message: (sug.message || sug.title || '').substring(0, 50) + '...',
                     keys: Object.keys(sug)
                 });
             });
