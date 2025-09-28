@@ -590,15 +590,16 @@
         });
     </script>
     
-    <!-- 🎯 CORREÇÃO CRÍTICA: Carregar scoring.js ANTES da integração -->
-    <script type="module">
-        try {
-            const scoringModule = await import('./lib/audio/features/scoring.js');
-            console.log('✅ scoring.js carregado com sucesso');
-            console.log('🎯 computeMixScore disponível:', typeof window.computeMixScore === 'function');
-        } catch (error) {
-            console.error('❌ Erro ao carregar scoring.js:', error);
-        }
+    <!-- 🎯 CORREÇÃO CRÍTICA: Carregar scoring.js ANTES da integração (como script normal) -->
+    <script src="lib/audio/features/scoring.js"></script>
+    <script>
+        // Verificar se carregou corretamente
+        setTimeout(() => {
+            console.log('🎯 VERIFICAÇÃO SCORING.JS:');
+            console.log('  - computeMixScore disponível:', typeof window.computeMixScore === 'function');
+            console.log('  - calculateMetricScore disponível:', typeof window.calculateMetricScore === 'function');
+            console.log('  - Versão:', window.__MIX_SCORING_VERSION__);
+        }, 100);
     </script>
     
     <script src="audio-analyzer-integration.js?v=20250823k&final_fix=1724440500" defer></script>
