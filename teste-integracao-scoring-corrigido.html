@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 TESTE: Integração Scoring.js Corrigida</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; background: #0a0a0a; color: #e0e0e0; }
+        .container { max-width: 1000px; margin: 0 auto; }
+        .header { background: linear-gradient(135deg, #1e3c72, #2a5298); padding: 20px; border-radius: 12px; margin-bottom: 20px; }
+        .test-section { background: #1a1a1a; padding: 20px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #4CAF50; }
+        .logs { background: #0d1117; padding: 15px; border-radius: 6px; margin: 10px 0; font-family: 'Fira Code', 'Consolas', monospace; font-size: 13px; overflow-x: auto; border: 1px solid #30363d; }
+        .success { color: #51cf66; font-weight: bold; }
+        .error { color: #ff6b6b; font-weight: bold; }
+        .warning { color: #ffd43b; font-weight: bold; }
+        .emoji { font-size: 1.3em; margin-right: 8px; }
+        .status-indicator { padding: 5px 10px; border-radius: 15px; font-size: 12px; font-weight: bold; margin: 0 5px; }
+        .status-ok { background: #1b5e1f; color: #51cf66; }
+        .status-error { background: #5e1b1b; color: #ff6b6b; }
+        .status-warning { background: #5e4b1b; color: #ffd43b; }
+        button { background: #2a5298; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 14px; margin: 10px 5px; }
+        button:hover { background: #1e3c72; }
+        #testResults { min-height: 200px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><span class="emoji">🔧</span>TESTE: Integração Scoring.js Corrigida</h1>
+            <p><strong>Objetivo:</strong> Verificar se o scoring.js carrega sem erros e elimina o fallback</p>
+            <p><strong>Status:</strong> <span id="loadStatus" class="warning">⏳ Carregando...</span></p>
+        </div>
+
+        <div class="test-section">
+            <h3><span class="emoji">📋</span>Testes Automáticos de Carregamento</h3>
+            <button onclick="runFullTest()">🧪 Executar Teste Completo</button>
+            <button onclick="testCalculateMetricScore()">📊 Testar calculateMetricScore</button>
+            <button onclick="clearLogs()">🧹 Limpar Logs</button>
+            
+            <div id="testResults" class="logs">
+                Clique em "Executar Teste Completo" para iniciar...
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3><span class="emoji">🔍</span>Status das Funções-Chave</h3>
+            <div id="functionStatus">
+                <div>🔄 Verificando disponibilidade das funções...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 🎯 CARREGAR SCORING.JS (CORRIGIDO) -->
+    <script src="public/lib/audio/features/scoring.js"></script>
+    
+    <!-- 🎯 CARREGAR ADVANCED EDUCATIONAL SYSTEM -->
+    <script src="public/advanced-educational-suggestion-system.js?v=20250920-ultra" defer></script>
+
+    <script>
+        let testResults = [];
+
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const emoji = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️';
+            const colorClass = type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : '';
+            
+            testResults.push(`[${timestamp}] ${emoji} ${message}`);
+            updateDisplay();
+            console.log(`${emoji} [TEST] ${message}`);
+        }
+
+        function updateDisplay() {
+            const resultsDiv = document.getElementById('testResults');
+            resultsDiv.innerHTML = testResults.map(result => 
+                `<div class="${result.includes('✅') ? 'success' : result.includes('❌') ? 'error' : result.includes('⚠️') ? 'warning' : ''}">${result}</div>`
+            ).join('');
+            resultsDiv.scrollTop = resultsDiv.scrollHeight;
+        }
+
+        function clearLogs() {
+            testResults = [];
+            updateDisplay();
+            document.getElementById('testResults').innerHTML = 'Logs limpos. Execute novos testes...';
+        }
+
+        function updateLoadStatus(status, type) {
+            const statusElement = document.getElementById('loadStatus');
+            statusElement.innerHTML = `<span class="status-indicator status-${type}">${status}</span>`;
+        }
+
+        function updateFunctionStatus() {
+            const statusDiv = document.getElementById('functionStatus');
+            
+            // Verificar todas as funções necessárias
+            const functions = [
+                { name: 'window.computeMixScore', available: typeof window.computeMixScore === 'function' },
+                { name: 'window.computeMixScoreBoth', available: typeof window.computeMixScoreBoth === 'function' },
+                { name: 'window.calculateMetricScore', available: typeof window.calculateMetricScore === 'function' },
+                { name: 'window.AdvancedEducationalSuggestionSystem', available: typeof window.AdvancedEducationalSuggestionSystem !== 'undefined' },
+                { name: 'window.__MIX_SCORING_VERSION__', available: !!window.__MIX_SCORING_VERSION__ }
+            ];
+
+            const statusHTML = functions.map(func => {
+                const statusClass = func.available ? 'status-ok' : 'status-error';
+                const statusText = func.available ? 'OK' : 'AUSENTE';
+                return `<div>${func.name}: <span class="status-indicator ${statusClass}">${statusText}</span></div>`;
+            }).join('');
+
+            statusDiv.innerHTML = statusHTML;
+            
+            // Update main status
+            const allAvailable = functions.every(f => f.available);
+            if (allAvailable) {
+                updateLoadStatus('✅ Todas as funções carregadas', 'ok');
+            } else {
+                const missing = functions.filter(f => !f.available).length;
+                updateLoadStatus(`❌ ${missing} função(ões) ausente(s)`, 'error');
+            }
+        }
+
+        async function runFullTest() {
+            log('🧪 Iniciando teste completo da integração scoring.js...', 'info');
+            
+            // Teste 1: Verificar carregamento básico
+            log('📦 Teste 1: Verificando carregamento das funções principais...', 'info');
+            
+            const hasComputeMixScore = typeof window.computeMixScore === 'function';
+            const hasCalculateMetricScore = typeof window.calculateMetricScore === 'function';
+            const hasVersion = !!window.__MIX_SCORING_VERSION__;
+            const hasAdvancedSystem = typeof window.AdvancedEducationalSuggestionSystem !== 'undefined';
+            
+            log(`computeMixScore: ${hasComputeMixScore ? '✅ Disponível' : '❌ Ausente'}`, hasComputeMixScore ? 'success' : 'error');
+            log(`calculateMetricScore: ${hasCalculateMetricScore ? '✅ Disponível' : '❌ Ausente'}`, hasCalculateMetricScore ? 'success' : 'error');
+            log(`__MIX_SCORING_VERSION__: ${hasVersion ? '✅ ' + window.__MIX_SCORING_VERSION__ : '❌ Ausente'}`, hasVersion ? 'success' : 'error');
+            log(`AdvancedEducationalSuggestionSystem: ${hasAdvancedSystem ? '✅ Disponível' : '❌ Ausente'}`, hasAdvancedSystem ? 'success' : 'error');
+            
+            // Teste 2: Teste funcional do calculateMetricScore
+            if (hasCalculateMetricScore) {
+                log('📊 Teste 2: Testando funcionalidade do calculateMetricScore...', 'info');
+                await testCalculateMetricScore();
+            } else {
+                log('❌ Teste 2: Pulado - calculateMetricScore não disponível', 'error');
+            }
+            
+            // Teste 3: Verificar se não está caindo no fallback
+            log('🔍 Teste 3: Verificando se não cai no fallback...', 'info');
+            
+            // Capturar console.warn para detectar fallback
+            const originalWarn = console.warn;
+            let fallbackDetected = false;
+            
+            console.warn = function(...args) {
+                if (args.some(arg => typeof arg === 'string' && arg.includes('FALLBACK'))) {
+                    fallbackDetected = true;
+                    log('❌ FALLBACK detectado: ' + args.join(' '), 'error');
+                }
+                originalWarn.apply(console, args);
+            };
+            
+            // Executar uma operação que deveria usar o scoring.js
+            try {
+                const testResult = window.calculateMetricScore(10, 8, 2, 'test');
+                if (!fallbackDetected) {
+                    log('✅ Nenhum fallback detectado - usando scoring.js corretamente!', 'success');
+                } else {
+                    log('⚠️ Fallback foi acionado mesmo com scoring.js disponível', 'warning');
+                }
+            } catch (error) {
+                log('❌ Erro ao testar calculateMetricScore: ' + error.message, 'error');
+            } finally {
+                console.warn = originalWarn;
+            }
+            
+            // Resultado final
+            const successCount = testResults.filter(r => r.includes('✅')).length;
+            const errorCount = testResults.filter(r => r.includes('❌')).length;
+            
+            log(`🎯 Teste completo finalizado: ${successCount} sucessos, ${errorCount} erros`, errorCount === 0 ? 'success' : 'warning');
+            
+            if (errorCount === 0) {
+                log('🎉 SUCESSO TOTAL: Integração scoring.js funcionando perfeitamente!', 'success');
+            }
+        }
+
+        async function testCalculateMetricScore() {
+            if (typeof window.calculateMetricScore !== 'function') {
+                log('❌ calculateMetricScore não disponível para teste', 'error');
+                return;
+            }
+
+            log('📊 Testando calculateMetricScore com valores reais...', 'info');
+            
+            // Testes com diferentes cenários
+            const tests = [
+                { actual: 10, target: 8, tolerance: 2, expected: 'should work' },
+                { actual: -12, target: -14, tolerance: 3, expected: 'negative values' },
+                { actual: 0.5, target: 0.7, tolerance: 0.3, expected: 'decimals' }
+            ];
+            
+            for (const test of tests) {
+                try {
+                    const result = window.calculateMetricScore(test.actual, test.target, test.tolerance, 'test');
+                    if (result !== null && typeof result === 'number') {
+                        log(`✅ Test (${test.expected}): ${test.actual} vs ${test.target} ±${test.tolerance} = ${result.toFixed(2)}`, 'success');
+                    } else {
+                        log(`⚠️ Test (${test.expected}): resultado inválido (${result})`, 'warning');
+                    }
+                } catch (error) {
+                    log(`❌ Test (${test.expected}): erro - ${error.message}`, 'error');
+                }
+            }
+        }
+
+        // Verificar status quando a página carrega
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                updateFunctionStatus();
+                log('🔄 Status inicial verificado', 'info');
+            }, 200);
+        });
+
+        // Verificar periodicamente se tudo carregou
+        const checkInterval = setInterval(() => {
+            updateFunctionStatus();
+            
+            // Parar de verificar quando tudo estiver carregado
+            if (typeof window.calculateMetricScore === 'function' && 
+                typeof window.computeMixScore === 'function' && 
+                window.__MIX_SCORING_VERSION__) {
+                clearInterval(checkInterval);
+                log('✅ Todas as funções principais detectadas e carregadas!', 'success');
+            }
+        }, 500);
+
+        // Parar verificação após 10 segundos
+        setTimeout(() => {
+            clearInterval(checkInterval);
+        }, 10000);
+    </script>
+</body>
+</html>

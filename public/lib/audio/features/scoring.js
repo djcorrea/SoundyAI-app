@@ -1165,7 +1165,21 @@ if (typeof window !== 'undefined') {
   window.computeMixScoreBoth = computeMixScoreBoth;
   window.calculateMetricScore = calculateMetricScore;
   console.log('✅ computeMixScore, computeMixScoreBoth e calculateMetricScore exportados para window');
+
+  // 🎯 AUDITORIA: Confirmar integração scoring.js ativa
+  console.log('🎯 [SCORING] Integração restaurada - calculateMetricScore ativo');
+  
+  // 🔍 AUDITORIA COMPLETA: Status final das funções
+  setTimeout(() => {
+    console.log('📊 [SCORING] Status final após carregamento:', {
+      computeMixScore: typeof window.computeMixScore === 'function',
+      computeMixScoreBoth: typeof window.computeMixScoreBoth === 'function', 
+      calculateMetricScore: typeof window.calculateMetricScore === 'function',
+      version: window.__MIX_SCORING_VERSION__,
+      timestamp: new Date().toISOString()
+    });
+  }, 50);
 }
 
-// Export das funções principais
-export { computeMixScore, computeMixScoreBoth };
+// 🎯 CORREÇÃO: Removido export para compatibilidade com carregamento via <script>
+// O arquivo já expõe as funções no window objeto acima
