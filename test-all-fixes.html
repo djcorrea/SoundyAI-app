@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 TESTE: Sub-Scores + IA + Ordenação</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #0a0e1a; color: #e0e6ed; margin: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .fix-card { background: #0f3a0f; border: 2px solid #10b981; border-radius: 8px; padding: 20px; margin: 15px 0; }
+        .test-card { background: #141b2d; border: 1px solid #2a3441; border-radius: 8px; padding: 20px; margin: 15px 0; }
+        .result { padding: 10px; margin: 5px 0; border-radius: 4px; }
+        .success { background: #0f4c3a; border-left: 4px solid #10b981; }
+        .error { background: #4c1d1d; border-left: 4px solid #ef4444; }
+        .warning { background: #4c3d1d; border-left: 4px solid #f59e0b; }
+        .info { background: #1e3a8a; border-left: 4px solid #3b82f6; }
+        button { background: #059669; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; margin: 8px; font-size: 14px; }
+        button:hover { background: #047857; }
+        pre { background: #0f1419; padding: 15px; border-radius: 6px; overflow-x: auto; font-size: 12px; border: 1px solid #374151; }
+        .highlight { background: #fbbf24; color: #000; padding: 2px 6px; border-radius: 3px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 TESTE: Sub-Scores + IA + Ordenação</h1>
+        
+        <div class="fix-card">
+            <h3>🔧 CORREÇÕES APLICADAS:</h3>
+            <div class="result success">✅ <strong>Recursão Infinita Fixed:</strong> calculateMetricScore não chama mais a si mesmo</div>
+            <div class="result success">✅ <strong>IA Ativada:</strong> Modo de desenvolvimento configurado com enriquecimentos simulados</div>
+            <div class="result success">✅ <strong>Ordenação Fixed:</strong> True Peak aparece primeiro (priority decrescente)</div>
+        </div>
+
+        <div class="test-card">
+            <h2>🧪 TESTE 1: Recursão Infinita</h2>
+            <button onclick="testRecursionFix()">🔍 Testar calculateMetricScore</button>
+            <div id="recursion-results"></div>
+        </div>
+
+        <div class="test-card">
+            <h2>📊 TESTE 2: Sub-Scores</h2>
+            <button onclick="testSubScores()">📈 Testar Cálculo de Sub-Scores</button>
+            <div id="subscores-results"></div>
+        </div>
+
+        <div class="test-card">
+            <h2>🤖 TESTE 3: Sistema de IA</h2>
+            <button onclick="testAISystem()">🚀 Testar IA Dev Mode</button>
+            <div id="ai-results"></div>
+        </div>
+
+        <div class="test-card">
+            <h2>🎯 TESTE 4: Ordenação</h2>
+            <button onclick="testOrdering()">📋 Testar Ordenação de Sugestões</button>
+            <div id="ordering-results"></div>
+        </div>
+
+        <div class="test-card">
+            <h2>✅ TESTE INTEGRADO FINAL</h2>
+            <button onclick="testCompleteSystem()">🎉 Testar Sistema Completo</button>
+            <div id="complete-results"></div>
+        </div>
+    </div>
+
+    <!-- Carregar scripts necessários -->
+    <script src="public/lib/audio/features/scoring.js"></script>
+    <script src="public/suggestion-scorer.js"></script>
+    <script src="public/enhanced-suggestion-engine.js"></script>
+    <script src="public/ai-suggestion-layer.js"></script>
+
+    <script>
+        function log(message, type = 'info') {
+            const classes = { success: 'success', error: 'error', warning: 'warning', info: 'info' };
+            return `<div class="result ${classes[type]}">${message}</div>`;
+        }
+
+        function testRecursionFix() {
+            let html = '<h3>🔍 Teste de Recursão Infinita</h3>';
+            
+            try {
+                // Testar função do arquivo atual (deveria usar fallback local)
+                const testValue = -16;
+                const testTarget = -14;
+                const testTolerance = 1;
+                
+                html += log('Testando calculateMetricScore local...', 'info');
+                
+                // Simular que não existe window.calculateMetricScore ou é igual à função local
+                const originalWindowFunc = window.calculateMetricScore;
+                
+                // Testar se a função executa sem recursão infinita
+                const startTime = Date.now();
+                const result = window.calculateMetricScore(testValue, testTarget, testTolerance, 'lufs');
+                const endTime = Date.now();
+                
+                if (endTime - startTime < 100 && Number.isFinite(result)) {
+                    html += log(`✅ SUCCESS: Resultado ${result}% em ${endTime - startTime}ms`, 'success');
+                    html += log('Recursão infinita corrigida com sucesso!', 'success');
+                } else {
+                    html += log(`⚠️ Demorou muito (${endTime - startTime}ms) - possível problema`, 'warning');
+                }
+                
+            } catch (error) {
+                if (error.message.includes('Maximum call stack size exceeded')) {
+                    html += log('❌ RECURSÃO INFINITA AINDA EXISTE!', 'error');
+                } else {
+                    html += log(`❌ Erro inesperado: ${error.message}`, 'error');
+                }
+            }
+            
+            document.getElementById('recursion-results').innerHTML = html;
+        }
+
+        function testSubScores() {
+            let html = '<h3>📈 Teste de Sub-Scores</h3>';
+            
+            try {
+                // Testar se as funções de sub-score existem e funcionam
+                const functions = [
+                    'calculateLoudnessScore',
+                    'calculateDynamicsScore', 
+                    'calculateStereoScore',
+                    'calculateFrequencyScore',
+                    'calculateTechnicalScore'
+                ];
+                
+                html += '<h4>🔍 Funções Disponíveis:</h4>';
+                let functionsOk = 0;
+                
+                functions.forEach(funcName => {
+                    const exists = typeof window[funcName] === 'function';
+                    html += log(`${funcName}: ${exists ? 'DISPONÍVEL' : 'AUSENTE'}`, exists ? 'success' : 'error');
+                    if (exists) functionsOk++;
+                });
+                
+                // Testar calculateMetricScore (função base)
+                html += '<h4>📊 Teste da Função Base:</h4>';
+                if (typeof window.calculateMetricScore === 'function') {
+                    try {
+                        const lufsScore = window.calculateMetricScore(-16, -14, 1, 'lufs');
+                        const truePeakScore = window.calculateMetricScore(-0.5, -1, 0.2, 'true_peak');
+                        const drScore = window.calculateMetricScore(8, 12, 2, 'dr');
+                        
+                        html += log(`LUFS Score: ${lufsScore}%`, lufsScore > 0 ? 'success' : 'error');
+                        html += log(`True Peak Score: ${truePeakScore}%`, truePeakScore > 0 ? 'success' : 'error');
+                        html += log(`DR Score: ${drScore}%`, drScore > 0 ? 'success' : 'error');
+                        
+                        if (lufsScore > 0 && truePeakScore > 0 && drScore > 0) {
+                            html += log('✅ calculateMetricScore funcionando sem recursão!', 'success');
+                        }
+                        
+                    } catch (error) {
+                        html += log(`❌ Erro ao testar calculateMetricScore: ${error.message}`, 'error');
+                    }
+                } else {
+                    html += log('❌ calculateMetricScore não disponível', 'error');
+                }
+                
+                // Status final
+                if (functionsOk >= 3) {
+                    html += log('✅ Sub-scores devem funcionar corretamente!', 'success');
+                } else {
+                    html += log('⚠️ Algumas funções de sub-score ausentes', 'warning');
+                }
+                
+            } catch (error) {
+                html += log(`❌ Erro no teste: ${error.message}`, 'error');
+            }
+            
+            document.getElementById('subscores-results').innerHTML = html;
+        }
+
+        function testAISystem() {
+            let html = '<h3>🤖 Teste do Sistema de IA</h3>';
+            
+            try {
+                // Verificar se aiSuggestionLayer existe
+                if (typeof window.aiSuggestionLayer === 'object') {
+                    html += log('✅ aiSuggestionLayer encontrado', 'success');
+                    
+                    // Verificar se API key foi configurada
+                    const stats = window.aiSuggestionLayer.getStats();
+                    html += log(`API Key configurada: ${stats.hasApiKey ? 'SIM' : 'NÃO'}`, stats.hasApiKey ? 'success' : 'warning');
+                    html += log(`Modo de desenvolvimento: ${stats.devMode ? 'SIM' : 'NÃO'}`, stats.devMode ? 'success' : 'info');
+                    
+                    // Testar processamento simulado
+                    if (window.aiSuggestionLayer.simulateAIEnrichment) {
+                        const testSuggestions = [
+                            {
+                                type: 'reference_true_peak',
+                                message: '⚠️ True Peak alto',
+                                action: 'Use limiter'
+                            },
+                            {
+                                type: 'band_adjust',
+                                message: 'Banda bass baixa',
+                                action: 'Aumentar bass em 3 dB'
+                            }
+                        ];
+                        
+                        const enriched = window.aiSuggestionLayer.simulateAIEnrichment(testSuggestions, {});
+                        
+                        html += log(`Sugestões enriquecidas: ${enriched.length}`, 'info');
+                        
+                        enriched.forEach((suggestion, index) => {
+                            const hasPlugin = !!suggestion.pluginSuggestion;
+                            const hasTip = !!suggestion.dawTip;
+                            const hasContext = !!suggestion.educationalContext;
+                            
+                            html += log(`Sugestão ${index + 1}: Plugin=${hasPlugin}, Tip=${hasTip}, Context=${hasContext}`, 
+                                       (hasPlugin && hasTip) ? 'success' : 'warning');
+                        });
+                        
+                        if (enriched.length > 0 && enriched[0].pluginSuggestion) {
+                            html += log('✅ Sistema de IA simulado funcionando!', 'success');
+                        }
+                    } else {
+                        html += log('⚠️ Função simulateAIEnrichment não encontrada', 'warning');
+                    }
+                    
+                } else {
+                    html += log('❌ aiSuggestionLayer não encontrado', 'error');
+                }
+                
+            } catch (error) {
+                html += log(`❌ Erro no teste IA: ${error.message}`, 'error');
+            }
+            
+            document.getElementById('ai-results').innerHTML = html;
+        }
+
+        function testOrdering() {
+            let html = '<h3>📋 Teste de Ordenação</h3>';
+            
+            try {
+                if (!window.EnhancedSuggestionEngine) {
+                    html += log('❌ Enhanced Suggestion Engine não disponível', 'error');
+                    document.getElementById('ordering-results').innerHTML = html;
+                    return;
+                }
+                
+                const engine = new window.EnhancedSuggestionEngine();
+                
+                // Dados que devem gerar True Peak primeiro
+                const testAnalysis = {
+                    technicalData: {
+                        lufs: { value: -15, lufs: -15 },           // Problema pequeno
+                        true_peak: { value: -0.1, true_peak: -0.1 }, // 🚨 PROBLEMA CRÍTICO
+                        dr: { value: 10, dr: 10 }                  // Problema pequeno
+                    }
+                };
+                
+                const testReference = {
+                    lufs_target: -14, tol_lufs: 1,
+                    true_peak_target: -1, tol_true_peak: 0.2,
+                    dr_target: 12, tol_dr: 2
+                };
+                
+                const suggestions = engine.generateSuggestions(testAnalysis, testReference);
+                
+                html += log(`Sugestões geradas: ${suggestions.length}`, 'info');
+                
+                if (suggestions.length > 0) {
+                    const first = suggestions[0];
+                    const isTruePeakFirst = first.type === 'reference_true_peak' || first.type === 'heuristic_true_peak';
+                    
+                    html += log(`Primeira sugestão: ${first.type} (priority: ${first.priority})`, 'info');
+                    html += log(`True Peak é primeiro: ${isTruePeakFirst ? 'SIM' : 'NÃO'}`, 
+                               isTruePeakFirst ? 'success' : 'error');
+                    
+                    // Mostrar as primeiras 3 sugestões
+                    html += '<h4>🔍 Ordem das Sugestões:</h4>';
+                    suggestions.slice(0, 3).forEach((s, i) => {
+                        const priorityText = s.priority ? s.priority.toFixed(1) : 'N/A';
+                        html += log(`${i + 1}°: ${s.type} (priority: ${priorityText})`, 'info');
+                    });
+                    
+                    if (isTruePeakFirst) {
+                        html += log('✅ ORDENAÇÃO CORRETA: True Peak está primeiro!', 'success');
+                    } else {
+                        html += log('❌ ORDENAÇÃO INCORRETA: True Peak deveria estar primeiro', 'error');
+                    }
+                }
+                
+            } catch (error) {
+                html += log(`❌ Erro no teste: ${error.message}`, 'error');
+            }
+            
+            document.getElementById('ordering-results').innerHTML = html;
+        }
+
+        function testCompleteSystem() {
+            let html = '<h3>🎉 Teste do Sistema Completo</h3>';
+            
+            try {
+                html += '<h4>🔧 Verificação dos Componentes:</h4>';
+                
+                // 1. Sub-scores sem recursão
+                let subScoresOk = false;
+                try {
+                    const testScore = window.calculateMetricScore(-16, -14, 1, 'lufs');
+                    subScoresOk = Number.isFinite(testScore) && testScore > 0;
+                    html += log(`1. Sub-scores: ${subScoresOk ? 'OK' : 'ERRO'}`, subScoresOk ? 'success' : 'error');
+                } catch (e) {
+                    html += log(`1. Sub-scores: ERRO (${e.message})`, 'error');
+                }
+                
+                // 2. IA configurada
+                const aiConfigured = window.aiSuggestionLayer?.getStats()?.hasApiKey;
+                html += log(`2. IA configurada: ${aiConfigured ? 'OK' : 'ERRO'}`, aiConfigured ? 'success' : 'error');
+                
+                // 3. Ordenação funcionando
+                let orderingOk = false;
+                try {
+                    const engine = new window.EnhancedSuggestionEngine();
+                    const testSuggs = engine.generateSuggestions({
+                        technicalData: {
+                            true_peak: { value: -0.1, true_peak: -0.1 },
+                            lufs: { value: -15, lufs: -15 }
+                        }
+                    }, {
+                        true_peak_target: -1, tol_true_peak: 0.2,
+                        lufs_target: -14, tol_lufs: 1
+                    });
+                    
+                    orderingOk = testSuggs.length > 0 && 
+                        (testSuggs[0].type === 'reference_true_peak' || testSuggs[0].type === 'heuristic_true_peak');
+                    
+                    html += log(`3. Ordenação: ${orderingOk ? 'OK' : 'ERRO'}`, orderingOk ? 'success' : 'error');
+                } catch (e) {
+                    html += log(`3. Ordenação: ERRO (${e.message})`, 'error');
+                }
+                
+                // 4. Enhanced Suggestion Engine
+                const engineOk = typeof window.EnhancedSuggestionEngine === 'function';
+                html += log(`4. Enhanced Engine: ${engineOk ? 'OK' : 'ERRO'}`, engineOk ? 'success' : 'error');
+                
+                // 5. Suggestion Scorer
+                const scorerOk = typeof window.suggestionScorer === 'object';
+                html += log(`5. Suggestion Scorer: ${scorerOk ? 'OK' : 'ERRO'}`, scorerOk ? 'success' : 'error');
+                
+                // Resultado final
+                const allSystemsOk = subScoresOk && aiConfigured && orderingOk && engineOk && scorerOk;
+                
+                html += '<br><div class="fix-card">';
+                html += '<h4>📋 RESULTADO FINAL:</h4>';
+                if (allSystemsOk) {
+                    html += log('🎉 SISTEMA COMPLETAMENTE FUNCIONAL!', 'success');
+                    html += log('✅ Sub-scores funcionando sem recursão', 'success');
+                    html += log('✅ IA configurada com enriquecimentos', 'success');
+                    html += log('✅ Ordenação correta (True Peak primeiro)', 'success');
+                    html += log('✅ Todos os componentes operacionais', 'success');
+                } else {
+                    html += log('⚠️ Sistema parcialmente funcional', 'warning');
+                    html += log('Alguns componentes podem precisar de ajustes', 'info');
+                }
+                html += '</div>';
+                
+            } catch (error) {
+                html += log(`❌ Erro no teste completo: ${error.message}`, 'error');
+            }
+            
+            document.getElementById('complete-results').innerHTML = html;
+        }
+
+        // Auto-executar teste básico ao carregar
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                console.log('🎯 Executando teste automático...');
+                testRecursionFix();
+                testAISystem();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
