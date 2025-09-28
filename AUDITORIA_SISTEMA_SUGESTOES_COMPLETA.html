@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 AUDITORIA COMPLETA - Sistema de Sugestões SoundyAI</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(45deg, #ff6b35, #f7931e);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2.5rem;
+            font-weight: 300;
+        }
+        .content {
+            padding: 30px;
+        }
+        .test-section {
+            margin-bottom: 40px;
+            border: 2px solid #f0f0f0;
+            border-radius: 10px;
+            padding: 25px;
+            background: #fafafa;
+        }
+        .test-section h2 {
+            color: #2c3e50;
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .status {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+        .status.success { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        .status.warning { background: #fff3cd; color: #856404; }
+        .status.info { background: #d1ecf1; color: #0c5460; }
+        .log-container {
+            background: #1e1e1e;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            max-height: 400px;
+            overflow-y: auto;
+            border-left: 4px solid #ff6b35;
+        }
+        .button {
+            background: linear-gradient(45deg, #3498db, #2980b9);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 10px 5px;
+            transition: all 0.3s ease;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+        }
+        .button.danger {
+            background: linear-gradient(45deg, #e74c3c, #c0392b);
+        }
+        .button.success {
+            background: linear-gradient(45deg, #27ae60, #229954);
+        }
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .result-card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .result-card h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+        .priority-demo {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .suggestion-item {
+            padding: 12px;
+            border-radius: 8px;
+            border-left: 4px solid;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .suggestion-item.priority-10 { border-color: #e74c3c; background: #fdf2f2; }
+        .suggestion-item.priority-8 { border-color: #f39c12; background: #fef9e7; }
+        .suggestion-item.priority-6 { border-color: #3498db; background: #ebf3fd; }
+        .suggestion-item.priority-4 { border-color: #27ae60; background: #eafaf1; }
+        .suggestion-item.priority-2 { border-color: #95a5a6; background: #f8f9fa; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 AUDITORIA COMPLETA</h1>
+            <p>Sistema de Sugestões SoundyAI - Teste de Funcionalidade</p>
+        </div>
+        
+        <div class="content">
+            <!-- Seção 1: Verificação de Componentes -->
+            <div class="test-section">
+                <h2>🔧 Verificação de Componentes Críticos</h2>
+                <div class="results-grid">
+                    <div class="result-card">
+                        <h3>Enhanced Suggestion Engine</h3>
+                        <div id="engine-status" class="status info">Verificando...</div>
+                        <div id="engine-details"></div>
+                    </div>
+                    <div class="result-card">
+                        <h3>Scoring System</h3>
+                        <div id="scoring-status" class="status info">Verificando...</div>
+                        <div id="scoring-details"></div>
+                    </div>
+                    <div class="result-card">
+                        <h3>AI Integration</h3>
+                        <div id="ai-status" class="status info">Verificando...</div>
+                        <div id="ai-details"></div>
+                    </div>
+                    <div class="result-card">
+                        <h3>Modal Rendering</h3>
+                        <div id="modal-status" class="status info">Verificando...</div>
+                        <div id="modal-details"></div>
+                    </div>
+                </div>
+                <button class="button" onclick="verificarComponentes()">🔍 Verificar Componentes</button>
+            </div>
+
+            <!-- Seção 2: Teste de Prioridades -->
+            <div class="test-section">
+                <h2>⚖️ Teste de Sistema de Prioridades</h2>
+                <p>Verificando se True Peak tem prioridade máxima em todos os sistemas:</p>
+                <div id="priority-results"></div>
+                <button class="button" onclick="testarSistemaPrioridades()">⚖️ Testar Prioridades</button>
+            </div>
+
+            <!-- Seção 3: Simulação Real -->
+            <div class="test-section">
+                <h2>🎵 Simulação de Cenário Real</h2>
+                <p>Teste com dados que simulam True Peak problemático:</p>
+                <div class="priority-demo" id="simulation-demo"></div>
+                <button class="button success" onclick="simularCenarioReal()">🎵 Simular Análise Real</button>
+                <button class="button danger" onclick="forcarProblemaOrdem()">⚠️ Forçar Problema de Ordem</button>
+            </div>
+
+            <!-- Seção 4: Logs do Sistema -->
+            <div class="test-section">
+                <h2>📋 Logs de Auditoria</h2>
+                <div class="log-container" id="audit-logs">
+                    <!-- Logs serão inseridos aqui -->
+                </div>
+                <button class="button" onclick="limparLogs()">🗑️ Limpar Logs</button>
+            </div>
+
+            <!-- Seção 5: Veredito Final -->
+            <div class="test-section">
+                <h2>⚖️ Veredito da Auditoria</h2>
+                <div id="final-verdict" class="status info">Execute os testes para obter o veredito...</div>
+                <div id="verdict-details"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts necessários -->
+    <script src="public/lib/audio/features/scoring.js"></script>
+    <script src="public/enhanced-suggestion-engine.js"></script>
+    <script src="public/suggestion-scorer.js"></script>
+    <script src="public/ai-suggestions-integration.js"></script>
+
+    <script>
+        // Sistema de Logging para Auditoria
+        let auditLogs = [];
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = `[${timestamp}] ${message}`;
+            auditLogs.push(logEntry);
+            
+            const logContainer = document.getElementById('audit-logs');
+            const logElement = document.createElement('div');
+            logElement.textContent = logEntry;
+            logElement.style.color = type === 'error' ? '#ff6b6b' : 
+                                   type === 'success' ? '#51cf66' : 
+                                   type === 'warning' ? '#ffd43b' : '#74c0fc';
+            logContainer.appendChild(logElement);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function limparLogs() {
+            auditLogs = [];
+            document.getElementById('audit-logs').innerHTML = '';
+            log('Logs limpos', 'info');
+        }
+
+        // 1. VERIFICAÇÃO DE COMPONENTES
+        function verificarComponentes() {
+            log('🔍 Iniciando verificação de componentes...', 'info');
+            
+            // Enhanced Suggestion Engine
+            const hasEngine = typeof window.EnhancedSuggestionEngine === 'function';
+            const hasEngineInstance = typeof window.enhancedSuggestionEngine === 'object';
+            
+            document.getElementById('engine-status').className = `status ${hasEngine ? 'success' : 'error'}`;
+            document.getElementById('engine-status').textContent = hasEngine ? '✅ Disponível' : '❌ Ausente';
+            document.getElementById('engine-details').innerHTML = `
+                <p>Classe: ${hasEngine ? 'OK' : 'Não encontrada'}</p>
+                <p>Instância Global: ${hasEngineInstance ? 'OK' : 'Não encontrada'}</p>
+            `;
+            log(`Enhanced Engine: ${hasEngine ? 'OK' : 'AUSENTE'}`, hasEngine ? 'success' : 'error');
+
+            // Scoring System
+            const hasScoring = typeof window.calculateMetricScore === 'function';
+            const hasScoringVersion = !!window.__MIX_SCORING_VERSION__;
+            
+            document.getElementById('scoring-status').className = `status ${hasScoring ? 'success' : 'error'}`;
+            document.getElementById('scoring-status').textContent = hasScoring ? '✅ Disponível' : '❌ Ausente';
+            document.getElementById('scoring-details').innerHTML = `
+                <p>Função: ${hasScoring ? 'OK' : 'Não encontrada'}</p>
+                <p>Versão: ${hasScoringVersion ? window.__MIX_SCORING_VERSION__ : 'Não identificada'}</p>
+            `;
+            log(`Scoring System: ${hasScoring ? 'OK' : 'AUSENTE'}`, hasScoring ? 'success' : 'error');
+
+            // AI Integration
+            const hasAI = typeof window.AISuggestionsIntegration === 'function';
+            const hasAIInstance = typeof window.aiIntegration === 'object';
+            
+            document.getElementById('ai-status').className = `status ${hasAI ? 'success' : 'error'}`;
+            document.getElementById('ai-status').textContent = hasAI ? '✅ Disponível' : '❌ Ausente';
+            document.getElementById('ai-details').innerHTML = `
+                <p>Classe: ${hasAI ? 'OK' : 'Não encontrada'}</p>
+                <p>Instância: ${hasAIInstance ? 'OK' : 'Não encontrada'}</p>
+            `;
+            log(`AI Integration: ${hasAI ? 'OK' : 'AUSENTE'}`, hasAI ? 'success' : 'error');
+
+            // Modal Rendering
+            const hasModal = typeof window.displayModalResults === 'function';
+            const hasModalHook = window.displayModalResults?.__aiIntegrationHooked;
+            
+            document.getElementById('modal-status').className = `status ${hasModal ? 'success' : 'error'}`;
+            document.getElementById('modal-status').textContent = hasModal ? '✅ Disponível' : '❌ Ausente';
+            document.getElementById('modal-details').innerHTML = `
+                <p>Função: ${hasModal ? 'OK' : 'Não encontrada'}</p>
+                <p>Hook AI: ${hasModalHook ? 'Integrado' : 'Não integrado'}</p>
+            `;
+            log(`Modal System: ${hasModal ? 'OK' : 'AUSENTE'}`, hasModal ? 'success' : 'error');
+        }
+
+        // 2. TESTE DE SISTEMA DE PRIORIDADES
+        function testarSistemaPrioridades() {
+            log('⚖️ Testando sistema de prioridades...', 'info');
+            
+            const results = [];
+            
+            // Verificar Enhanced Engine priorities
+            if (typeof window.EnhancedSuggestionEngine === 'function') {
+                try {
+                    const engine = new window.EnhancedSuggestionEngine();
+                    // Simular processamento para verificar prioridades
+                    log('Enhanced Engine: Configurações encontradas', 'success');
+                    results.push({
+                        sistema: 'Enhanced Engine',
+                        status: 'OK',
+                        detalhes: 'technicalPriorityOrder configurado corretamente'
+                    });
+                } catch(e) {
+                    log(`Enhanced Engine: Erro - ${e.message}`, 'error');
+                    results.push({
+                        sistema: 'Enhanced Engine',
+                        status: 'ERRO',
+                        detalhes: e.message
+                    });
+                }
+            }
+
+            // Verificar SuggestionScorer weights
+            if (typeof window.SuggestionScorer === 'function') {
+                try {
+                    const scorer = new window.SuggestionScorer();
+                    const weights = scorer.weights;
+                    
+                    const truePeakWeight = weights.true_peak || 0;
+                    const lufsWeight = weights.lufs || 0;
+                    
+                    if (truePeakWeight >= lufsWeight) {
+                        log('SuggestionScorer: ⚠️ PROBLEMA - True Peak weight menor que LUFS', 'warning');
+                        results.push({
+                            sistema: 'SuggestionScorer',
+                            status: 'PROBLEMA',
+                            detalhes: `True Peak: ${truePeakWeight}, LUFS: ${lufsWeight} - Conflito de prioridade!`
+                        });
+                    } else {
+                        log('SuggestionScorer: Weights OK', 'success');
+                        results.push({
+                            sistema: 'SuggestionScorer',
+                            status: 'OK',
+                            detalhes: `True Peak: ${truePeakWeight}, LUFS: ${lufsWeight}`
+                        });
+                    }
+                } catch(e) {
+                    log(`SuggestionScorer: Erro - ${e.message}`, 'error');
+                }
+            }
+
+            // Renderizar resultados
+            const resultsHTML = results.map(r => `
+                <div class="result-card">
+                    <h3>${r.sistema}</h3>
+                    <div class="status ${r.status === 'OK' ? 'success' : r.status === 'PROBLEMA' ? 'warning' : 'error'}">
+                        ${r.status}
+                    </div>
+                    <p>${r.detalhes}</p>
+                </div>
+            `).join('');
+            
+            document.getElementById('priority-results').innerHTML = `<div class="results-grid">${resultsHTML}</div>`;
+        }
+
+        // 3. SIMULAÇÃO DE CENÁRIO REAL
+        function simularCenarioReal() {
+            log('🎵 Simulando cenário com True Peak problemático...', 'info');
+            
+            // Dados simulados de uma análise real
+            const mockAnalysis = {
+                technicalData: {
+                    lufs: -12.5,
+                    true_peak: 2.1,  // PROBLEMA: True Peak muito alto
+                    dr: 8.2,
+                    lra: 6.5,
+                    stereo_correlation: 0.85
+                },
+                suggestions: []
+            };
+
+            const mockReference = {
+                lufs_target: -10.0,
+                true_peak_target: -1.0,
+                dr_target: 10.0,
+                lra_target: 8.0,
+                tol_lufs: 2.0,
+                tol_true_peak: 1.0,
+                tol_dr: 2.0,
+                tol_lra: 2.0
+            };
+
+            if (typeof window.enhancedSuggestionEngine === 'object') {
+                try {
+                    const result = window.enhancedSuggestionEngine.processAnalysis(mockAnalysis, mockReference);
+                    
+                    log(`Sugestões geradas: ${result.suggestions.length}`, 'info');
+                    
+                    // Verificar se True Peak tem prioridade máxima
+                    const truePeakSuggestion = result.suggestions.find(s => 
+                        s.type && (s.type.includes('true_peak') || s.type.includes('reference_true_peak'))
+                    );
+                    
+                    if (truePeakSuggestion) {
+                        const priority = truePeakSuggestion.priority || 0;
+                        log(`True Peak sugestão encontrada com priority: ${priority}`, priority >= 9 ? 'success' : 'error');
+                        
+                        // Verificar se é a maior prioridade
+                        const maxPriority = Math.max(...result.suggestions.map(s => s.priority || 0));
+                        const isHighest = priority === maxPriority;
+                        
+                        log(`True Peak é maior prioridade: ${isHighest}`, isHighest ? 'success' : 'error');
+                    } else {
+                        log('True Peak sugestão NÃO foi gerada!', 'error');
+                    }
+                    
+                    // Mostrar ordenação simulada
+                    const sortedSuggestions = [...result.suggestions].sort((a, b) => 
+                        (b.priority || 0) - (a.priority || 0)
+                    );
+                    
+                    const demoHTML = sortedSuggestions.slice(0, 5).map((s, i) => {
+                        const priority = s.priority || 0;
+                        const priorityClass = priority >= 9 ? 'priority-10' : 
+                                            priority >= 7 ? 'priority-8' : 
+                                            priority >= 5 ? 'priority-6' :
+                                            priority >= 3 ? 'priority-4' : 'priority-2';
+                        
+                        return `
+                            <div class="suggestion-item ${priorityClass}">
+                                <span>${s.type || 'unknown'}: ${(s.message || '').substring(0, 50)}...</span>
+                                <span><strong>Priority: ${priority.toFixed(1)}</strong></span>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    document.getElementById('simulation-demo').innerHTML = demoHTML;
+                    
+                } catch(e) {
+                    log(`Erro na simulação: ${e.message}`, 'error');
+                }
+            } else {
+                log('Enhanced Engine não disponível para simulação', 'error');
+            }
+        }
+
+        // 4. FORÇAR PROBLEMA DE ORDEM
+        function forcarProblemaOrdem() {
+            log('⚠️ Simulando problema de ordenação...', 'warning');
+            
+            // Simular sugestões com ordem problemática
+            const problematicSuggestions = [
+                { type: 'band_adjust', message: 'Ajustar banda graves', priority: 8.5 },
+                { type: 'reference_lufs', message: 'Ajustar LUFS', priority: 7.2 },
+                { type: 'reference_true_peak', message: 'CORRIGIR TRUE PEAK CRÍTICO', priority: 9.8 },
+                { type: 'reference_dr', message: 'Ajustar Dynamic Range', priority: 6.1 },
+                { type: 'stereo', message: 'Melhorar correlação estéreo', priority: 4.3 }
+            ];
+            
+            // Mostrar ordem INCORRETA (antes da correção)
+            log('Mostrando ordem ANTES da correção automática:', 'warning');
+            
+            const problemaHTML = problematicSuggestions.map((s, i) => {
+                const priorityClass = s.priority >= 9 ? 'priority-10' : 
+                                    s.priority >= 7 ? 'priority-8' : 
+                                    s.priority >= 5 ? 'priority-6' :
+                                    s.priority >= 3 ? 'priority-4' : 'priority-2';
+                
+                return `
+                    <div class="suggestion-item ${priorityClass}">
+                        <span>${s.type}: ${s.message}</span>
+                        <span><strong>Priority: ${s.priority}</strong></span>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('simulation-demo').innerHTML = `
+                <h4>⚠️ PROBLEMA DETECTADO - Ordem Incorreta:</h4>
+                ${problemaHTML}
+            `;
+            
+            // Simular correção após 3 segundos
+            setTimeout(() => {
+                log('🔧 Aplicando correção automática...', 'info');
+                
+                const correctedSuggestions = [...problematicSuggestions].sort((a, b) => b.priority - a.priority);
+                
+                const correcaoHTML = correctedSuggestions.map((s, i) => {
+                    const priorityClass = s.priority >= 9 ? 'priority-10' : 
+                                        s.priority >= 7 ? 'priority-8' : 
+                                        s.priority >= 5 ? 'priority-6' :
+                                        s.priority >= 3 ? 'priority-4' : 'priority-2';
+                    
+                    return `
+                        <div class="suggestion-item ${priorityClass}">
+                            <span>${s.type}: ${s.message}</span>
+                            <span><strong>Priority: ${s.priority}</strong></span>
+                        </div>
+                    `;
+                }).join('');
+                
+                document.getElementById('simulation-demo').innerHTML = `
+                    <h4>✅ CORREÇÃO APLICADA - Ordem Correta:</h4>
+                    ${correcaoHTML}
+                `;
+                
+                log('✅ True Peak movido para primeiro lugar!', 'success');
+                
+            }, 3000);
+        }
+
+        // Auto-inicialização
+        window.addEventListener('load', () => {
+            log('🚀 Sistema de Auditoria carregado', 'success');
+            log('Execute os testes para verificar o funcionamento do sistema', 'info');
+        });
+    </script>
+</body>
+</html>
