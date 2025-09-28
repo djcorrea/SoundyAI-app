@@ -5562,10 +5562,23 @@ function getScoringParameters(genre, metricKey) {
 
 // 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (REDIRECIONAMENTO PARA SCORING.JS)
 function calculateMetricScore(actualValue, targetValue, tolerance, metricName = 'generic', options = {}) {
+    // 🎯 AUDITORIA DETALHADA: Verificar disponibilidade do scoring.js
+    const hasWindow = typeof window !== 'undefined';
+    const hasFunction = hasWindow && typeof window.calculateMetricScore === 'function';
+    const isDifferent = hasWindow && window.calculateMetricScore !== calculateMetricScore;
+    const hasVersion = hasWindow && !!window.__MIX_SCORING_VERSION__;
+    
+    console.log('🔍 [SCORING] Auditoria de disponibilidade:', {
+        hasWindow,
+        hasFunction,
+        isDifferent,
+        hasVersion,
+        version: hasWindow ? window.__MIX_SCORING_VERSION__ : 'no-window',
+        functionType: hasWindow ? typeof window.calculateMetricScore : 'no-window'
+    });
+    
     // 🎯 CORREÇÃO: Usar a versão do scoring.js se disponível, mas evitar recursão
-    if (typeof window !== 'undefined' && 
-        typeof window.calculateMetricScore === 'function' && 
-        window.calculateMetricScore !== calculateMetricScore) {
+    if (hasWindow && hasFunction && isDifferent) {
         
         // ✅ USAR SCORING.JS GLOBAL (com ou sem versão)
         console.log('✅ [SCORING] Usando scoring.js global:', {
