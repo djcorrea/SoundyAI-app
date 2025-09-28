@@ -92,6 +92,13 @@ class AISuggestionsIntegration {
 
         // 🚀 CACHE INTELIGENTE: Evitar processamento duplicado
         const suggestionsHash = window.generateSuggestionsHash(suggestions);
+        console.log('🔍 [AI-INTEGRATION] Hash Debug:', {
+            currentHash: suggestionsHash,
+            lastHash: window.lastProcessedHash,
+            suggestionsCount: suggestions.length,
+            firstSuggestion: suggestions[0]?.message || 'N/A'
+        });
+        
         if (window.lastProcessedHash === suggestionsHash) {
             console.log('🎯 [AI-INTEGRATION] Sugestões idênticas já processadas - usando cache');
             return;
@@ -1228,13 +1235,6 @@ class AISuggestionsIntegration {
                 if (analysis && analysis.suggestions) {
                     const genre = analysis.metadata?.genre || analysis.genre || window.PROD_AI_REF_GENRE;
                     const metrics = analysis.technicalData || {};
-                    
-                    // 🎯 CACHE PREVENTIVO: Verificar se já processamos essas sugestões
-                    const quickHash = window.generateSuggestionsHash(analysis.suggestions);
-                    if (window.lastProcessedHash === quickHash) {
-                        console.log('🎯 [AI-INTEGRATION] Cache preventivo: sugestões já processadas, ignorando');
-                        return result;
-                    }
                     
                     console.log('🔗 [AI-INTEGRATION] Interceptando sugestões para processamento IA');
                     
