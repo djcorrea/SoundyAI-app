@@ -323,10 +323,10 @@ class AISuggestionsIntegration {
 
         // 🔍 VALIDAÇÃO DO PAYLOAD: Garantir estrutura correta
         const validSuggestions = this.validateAndNormalizeSuggestions(suggestions);
-        if (validSuggestions.length === 0) {
-            console.warn('⚠️ [AI-INTEGRATION] Sugestões inválidas após validação');
-            this.displayEmptyState('Sugestões detectadas são inválidas');
-            return;
+        // [TP-FIX] Não interromper o fluxo se há métricas disponíveis (pode ter True Peak)
+        const hasAtLeastOne = validSuggestions && validSuggestions.length > 0;
+        if (!hasAtLeastOne) {
+            console.warn('[TP-FIX] Nenhuma sugestão "forte" pós-validação; seguindo com fluxo para exibir TP via fallback de render.');
         }
 
         console.log('�🚀 [AI-INTEGRATION] Iniciando processamento COMPLETO com IA...', {
@@ -517,6 +517,7 @@ class AISuggestionsIntegration {
             });
             console.groupEnd();
 
+            console.debug('[TP-FIX] TP presente pós-merge?', finalSuggestions.some(s => s.type === 'reference_true_peak'));
             this.displaySuggestions(finalSuggestions, 'ai');
             this.updateStats(finalSuggestions.length, processingTime, 'ai');
             this.hideFallbackNotice();
@@ -563,7 +564,27 @@ class AISuggestionsIntegration {
     }
 
     /**
+     * [TP-FIX] Helper: extrai texto legível sem destruir a estrutura original
+     */
+    __extractBlocksText(blocks) {
+        if (!blocks) return [];
+        if (Array.isArray(blocks)) {
+            return blocks
+                .map(b => (typeof b === 'string' ? b : (b && (b.content || b.text)) || ''))
+                .filter(Boolean);
+        }
+        // suporte a objeto com subcampos (ex.: {problem, cause, solution})
+        const candidates = ['problem','cause','solution','tip','plugin','result','problema','causa','solucao'];
+        return candidates.map(k => blocks[k]).flatMap(v => {
+            if (!v) return [];
+            if (Array.isArray(v)) return v.map(x => (typeof x === 'string' ? x : x?.content || x?.text || '')).filter(Boolean);
+            return [typeof v === 'string' ? v : v?.content || v?.text || ''].filter(Boolean);
+        }).filter(Boolean);
+    }
+
+    /**
      * Validar e normalizar sugestões antes de enviar para IA
+     * [TP-FIX] Agora não-destrutiva, preserva todos os campos originais
      */
     validateAndNormalizeSuggestions(suggestions) {
         if (!Array.isArray(suggestions)) {
@@ -571,34 +592,43 @@ class AISuggestionsIntegration {
             return [];
         }
 
-        const validSuggestions = suggestions.filter(suggestion => {
-            // Validar se tem pelo menos message ou issue
-            const hasContent = suggestion && (suggestion.message || suggestion.issue || suggestion.title);
-            
-            if (!hasContent) {
-                console.warn('⚠️ [AI-INTEGRATION] Sugestão inválida (sem conteúdo):', suggestion);
-                return false;
+        const out = [];
+        for (const s of (suggestions || [])) {
+            if (!s) continue;
+
+            // mantém tudo que já existe
+            const clone = { ...s };
+
+            // preserva prioridade e tipo
+            if (clone.type === 'reference_true_peak' && (clone.priority == null || Number.isNaN(clone.priority))) {
+                clone.priority = 10; // manter prioridade alta para TP
             }
 
-            return true;
-        }).map(suggestion => {
-            // Normalizar estrutura para o formato esperado pelo backend
-            return {
-                metric: suggestion.metric || suggestion.type || 'geral',
-                issue: suggestion.issue || suggestion.message || suggestion.title || 'Problema detectado',
-                solution: suggestion.solution || suggestion.action || suggestion.description || 'Ajuste recomendado',
-                priority: suggestion.priority || 5,
-                confidence: suggestion.confidence || 0.7
-            };
-        });
+            // derive conteúdos legíveis sem destruir campos
+            const blocksText = this.__extractBlocksText(clone.blocks);
+            clone.__blocksText = blocksText; // apenas para render fallback
 
-        console.log('✅ [AI-INTEGRATION] Sugestões validadas:', {
+            // checagem mínima (não destrutiva)
+            const hasAnyText =
+                !!clone.title || !!clone.message || !!clone.issue ||
+                (Array.isArray(blocksText) && blocksText.length > 0);
+
+            if (!hasAnyText) {
+                console.warn('[TP-FIX] Sugestão sem conteúdo mínimo, mantendo para merge mas marcando como low-visibility:', clone.type || clone.metric);
+                clone.__lowVisibility = true; // não descartar
+            }
+
+            out.push(clone);
+        }
+
+        console.log('✅ [TP-FIX] Sugestões validadas (não-destrutiva):', {
             original: suggestions.length,
-            valid: validSuggestions.length,
-            filtered: suggestions.length - validSuggestions.length
+            processadas: out.length,
+            lowVisibility: out.filter(s => s.__lowVisibility).length,
+            truePeakPresente: out.some(s => s.type === 'reference_true_peak')
         });
 
-        return validSuggestions;
+        return out;
     }
 
     /**
@@ -871,98 +901,99 @@ class AISuggestionsIntegration {
      * Mescla as sugestões originais com as respostas da IA
      * Preserva TODAS as sugestões originais e enriquece com dados da IA
      */
+    /**
+     * [TP-FIX] Gera chave estável para identificar sugestões
+     */
+    __keyOf(s) {
+        const v = s?.id || s?.type || s?.metric || s?.title || s?.message || s?.issue || '';
+        return String(v).toLowerCase().replace(/\s+/g,'_').slice(0,80);
+    }
+
     mergeAISuggestionsWithOriginals(originalSuggestions, aiEnhancedSuggestions) {
         console.log('[AI-MERGE] Iniciando merge de sugestões:', {
             originais: originalSuggestions?.length || 0,
             enriquecidas: aiEnhancedSuggestions?.length || 0
         });
 
-        // Se não há sugestões originais, retorna array vazio
-        if (!originalSuggestions || !Array.isArray(originalSuggestions)) {
-            console.warn('[AI-MERGE] ⚠️ Sugestões originais inválidas');
-            return [];
+        // [TP-FIX] Merge por chave estável, não por índice
+        const byKey = new Map();
+        
+        // Primeira passada: registrar sugestões originais
+        for (const s of originalSuggestions || []) {
+            if (!s) continue;
+            byKey.set(this.__keyOf(s), { ...s });
         }
-
-        // Se não há sugestões enriquecidas da IA, retorna as originais
-        if (!aiEnhancedSuggestions || !Array.isArray(aiEnhancedSuggestions)) {
-            console.log('[AI-MERGE] 📋 Sem sugestões IA, retornando originais:', originalSuggestions.length);
-            return originalSuggestions.map(s => ({...s, ai_enhanced: false}));
+        
+        // Segunda passada: merge com sugestões da IA
+        for (const a of aiEnhancedSuggestions || []) {
+            if (!a) continue;
+            const k = this.__keyOf(a);
+            const base = byKey.get(k) || {};
+            
+            // merge cuidadoso
+            const merged = {
+                ...base,
+                ...a,
+                type: base.type || a.type,                // preserva tipo original se existir
+                priority: Number.isFinite(base.priority) ? base.priority : a.priority,
+                blocks: base.blocks ?? a.blocks,          // nunca zere blocks se o original tem
+                ai_enhanced: true,
+                ai_blocks: a.blocks || {},
+                ai_category: a.metadata?.processing_type || 'geral',
+                ai_priority: this.mapPriorityFromBackend(a.metadata?.priority),
+                ai_technical_details: {
+                    difficulty: a.metadata?.difficulty || 'intermediário',
+                    frequency_range: a.metadata?.frequency_range || '',
+                    tools_suggested: this.extractToolsFromBlocks(a.blocks)
+                },
+                // 🎯 PRESERVAR valores específicos de dB das sugestões originais
+                title: base.title || base.message || a.blocks?.problem,
+                description: base.description || base.action || a.blocks?.solution,
+                // Adicionar blocos IA como enriquecimento adicional
+                ai_enrichment: {
+                    problem_analysis: a.blocks?.problem,
+                    enhanced_solution: a.blocks?.solution,
+                    professional_tip: a.blocks?.tip,
+                    recommended_plugin: a.blocks?.plugin
+                }
+            };
+            
+            // mantenha também __blocksText se existir em qualquer lado
+            merged.__blocksText = base.__blocksText || a.__blocksText || merged.__blocksText;
+            byKey.set(k, merged);
         }
-
-        console.log('[AI-MERGE] 🤖 Processando enriquecimento com IA:', aiEnhancedSuggestions.length);
-
-        // Mesclar sugestões enriquecidas com as originais
-        const mergedSuggestions = [];
-
-        for (let i = 0; i < Math.max(originalSuggestions.length, aiEnhancedSuggestions.length); i++) {
-            const originalSuggestion = originalSuggestions[i];
-            const aiSuggestion = aiEnhancedSuggestions[i];
-
-            if (originalSuggestion && aiSuggestion) {
-                // Caso 1: Temos ambas - mesclar
-                const merged = {
-                    ...originalSuggestion,
-                    ai_enhanced: true,
-                    ai_blocks: aiSuggestion.blocks || {},
-                    ai_category: aiSuggestion.metadata?.processing_type || 'geral',
-                    ai_priority: this.mapPriorityFromBackend(aiSuggestion.metadata?.priority),
-                    ai_technical_details: {
-                        difficulty: aiSuggestion.metadata?.difficulty || 'intermediário',
-                        frequency_range: aiSuggestion.metadata?.frequency_range || '',
-                        tools_suggested: this.extractToolsFromBlocks(aiSuggestion.blocks)
-                    },
-                    // 🎯 PRESERVAR valores específicos de dB das sugestões originais
-                    // Manter title/description originais que contêm informações técnicas precisas
-                    title: originalSuggestion.title || originalSuggestion.message || aiSuggestion.blocks?.problem,
-                    description: originalSuggestion.description || originalSuggestion.action || aiSuggestion.blocks?.solution,
-                    // Adicionar blocos IA como enriquecimento adicional
-                    ai_enrichment: {
-                        problem_analysis: aiSuggestion.blocks?.problem,
-                        enhanced_solution: aiSuggestion.blocks?.solution,
-                        professional_tip: aiSuggestion.blocks?.tip,
-                        recommended_plugin: aiSuggestion.blocks?.plugin
-                    }
-                };
-                
-                mergedSuggestions.push(merged);
-                console.log(`[AI-MERGE] ✅ Sugestão ${i + 1} enriquecida com IA`);
-                
-            } else if (originalSuggestion) {
-                // Caso 2: Só temos a original - manter sem enriquecimento
-                mergedSuggestions.push({
-                    ...originalSuggestion,
-                    ai_enhanced: false
-                });
-                console.log(`[AI-MERGE] 📋 Sugestão ${i + 1} mantida original`);
-                
-            } else if (aiSuggestion) {
-                // Caso 3: Só temos a da IA - criar nova sugestão
-                const newSuggestion = {
-                    ai_enhanced: true,
-                    ai_blocks: aiSuggestion.blocks || {},
-                    ai_category: aiSuggestion.metadata?.processing_type || 'geral',
-                    ai_priority: this.mapPriorityFromBackend(aiSuggestion.metadata?.priority),
-                    ai_technical_details: {
-                        difficulty: aiSuggestion.metadata?.difficulty || 'intermediário',
-                        frequency_range: aiSuggestion.metadata?.frequency_range || '',
-                        tools_suggested: this.extractToolsFromBlocks(aiSuggestion.blocks)
-                    },
-                    title: aiSuggestion.blocks?.problem || 'Sugestão da IA',
-                    description: aiSuggestion.blocks?.solution || 'Melhoria recomendada'
-                };
-                
-                mergedSuggestions.push(newSuggestion);
-                console.log(`[AI-MERGE] ✨ Nova sugestão ${i + 1} criada pela IA`);
+        
+        // Se não há sugestões originais, adicionar as não-matched da IA
+        if (!originalSuggestions || originalSuggestions.length === 0) {
+            for (const a of aiEnhancedSuggestions || []) {
+                if (!a) continue;
+                const k = this.__keyOf(a);
+                if (!byKey.has(k)) {
+                    const newSuggestion = {
+                        ...a,
+                        ai_enhanced: true,
+                        ai_blocks: a.blocks || {},
+                        ai_category: a.metadata?.processing_type || 'geral',
+                        title: a.blocks?.problem || 'Sugestão da IA',
+                        description: a.blocks?.solution || 'Melhoria recomendada'
+                    };
+                    byKey.set(k, newSuggestion);
+                }
             }
         }
 
-        console.log('[AI-MERGE] 📈 Merge concluído:', {
-            total: mergedSuggestions.length,
-            enriquecidas: mergedSuggestions.filter(s => s.ai_enhanced).length,
-            originais: mergedSuggestions.filter(s => !s.ai_enhanced).length
+        // [TP-FIX] ordene por prioridade numérica desc (True Peak primeiro)
+        const result = [...byKey.values()]
+            .sort((a,b)=>(Number(b?.priority)||0)-(Number(a?.priority)||0));
+
+        console.log('[TP-FIX] Merge concluído por chave estável:', {
+            total: result.length,
+            enriquecidas: result.filter(s => s.ai_enhanced).length,
+            originais: result.filter(s => !s.ai_enhanced).length,
+            truePeakPresente: result.some(s => s.type === 'reference_true_peak')
         });
 
-        return mergedSuggestions;
+        return result;
     }
     
     /**
@@ -1092,6 +1123,7 @@ class AISuggestionsIntegration {
         // 🔍 AUDITORIA PASSO 6: RENDERIZAÇÃO FINAL
         console.group('🔍 [AUDITORIA] RENDERIZAÇÃO FINAL');
         console.log('[AI-UI] Renderizando sugestões enriquecidas:', suggestions?.length || 0);
+        console.debug('[TP-FIX] TP presente antes da renderização?', suggestions?.some(s => s.type === 'reference_true_peak'));
         console.log('🖥️ displaySuggestions chamado com:', {
             totalSuggestions: suggestions?.length || 0,
             source: source,
@@ -1654,6 +1686,27 @@ window.sendAISuggestionsToChat = function() {
 };
 
 console.log('📦 [AI-INTEGRATION] Módulo carregado - aguardando inicialização');
+
+/*
+[TP-FIX] CASOS DE TESTE PARA TRUE PEAK
+
+Caso A (formato novo):
+[{ type:'reference_true_peak', priority:10, blocks:[{content:'True Peak: -2.1 dBTP | Target: -1.0 dBTP | Score: 8.5'}] }]
+
+Caso B (formato antigo):
+[{ type:'reference_true_peak', priority:10, blocks:['True Peak acima do alvo - ajustar limitador'] }]
+
+Caso C (sem blocks, só message):
+[{ type:'reference_true_peak', priority:10, message:'True Peak crítico detectado' }]
+
+Resultado esperado nos três: card visível, TP no topo.
+
+Para testar:
+1. Abra o DevTools
+2. Execute: aiIntegration.processWithAI(CASO_A, {}, 'electronic')
+3. Verifique se True Peak aparece no modal
+4. Confirme presença dos logs [TP-FIX]
+*/
 
 // Exportar classe para uso global
 window.AISuggestionIntegration = AISuggestionsIntegration;
