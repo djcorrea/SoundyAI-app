@@ -1240,8 +1240,19 @@ class AISuggestionsIntegration {
                     
                     // Delay slightly to ensure modal is rendered
                     setTimeout(() => {
+                        console.log('🔗 [AI-INTEGRATION] Timeout executado - verificando processamento');
+                        console.log('🔗 aiIntegration existe?', !!window.aiIntegration);
+                        console.log('🔗 isProcessing?', window.aiIntegration?.isProcessing);
+                        console.log('🔗 Sugestões para processar:', analysis.suggestions?.length || 0);
+                        
                         if (window.aiIntegration && !window.aiIntegration.isProcessing) {
+                            console.log('🚀 [AI-INTEGRATION] Iniciando processamento IA das sugestões...');
                             window.aiIntegration.processWithAI(analysis.suggestions, metrics, genre);
+                        } else {
+                            console.warn('⚠️ [AI-INTEGRATION] Processamento bloqueado:', {
+                                hasAiIntegration: !!window.aiIntegration,
+                                isProcessing: window.aiIntegration?.isProcessing
+                            });
                         }
                     }, 100);
                 }
@@ -1280,6 +1291,8 @@ function initializeAISuggestions() {
         
         // Expose globally for manual testing
         window.aiSuggestionsSystem = aiSuggestionsSystem;
+        // CRITICAL: Expose as aiIntegration for the interceptor
+        window.aiIntegration = aiSuggestionsSystem;
         
         console.log('🚀 [AI-INTEGRATION] Sistema iniciado e pronto para uso');
         
