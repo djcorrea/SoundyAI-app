@@ -227,7 +227,14 @@ class AISuggestionUIController {
     renderCompactPreview(suggestions, isBaseSuggestions = false) {
         if (!this.elements.aiContent) return;
         
-        const preview = suggestions.slice(0, 3); // Máximo 3 no preview
+        // 🎯 ORDENAÇÃO FINAL GARANTIDA: Garantir ordem correta no preview
+        const suggestionsOrdenadas = [...suggestions].sort((a, b) => {
+            const priorityA = a.priority || a.ai_priority || 0;
+            const priorityB = b.priority || b.ai_priority || 0;
+            return priorityB - priorityA;
+        });
+        
+        const preview = suggestionsOrdenadas.slice(0, 3); // Máximo 3 no preview (ordenados)
         const hasMore = suggestions.length > 3;
         
         let html = preview.map((suggestion, index) => {
@@ -384,7 +391,25 @@ class AISuggestionUIController {
     renderFullSuggestions(suggestions) {
         if (!this.elements.fullModalContent) return;
         
-        const gridHtml = suggestions.map((suggestion, index) => {
+        // 🎯 ORDENAÇÃO FINAL GARANTIDA: Garantir ordem correta no modal
+        console.log('🎯 [MODAL-ORDEM] Aplicando ordenação final no modal...');
+        
+        const suggestionsOrdenadas = [...suggestions].sort((a, b) => {
+            // Ordenar por prioridade decrescente (maior prioridade primeiro)
+            const priorityA = a.priority || a.ai_priority || 0;
+            const priorityB = b.priority || b.ai_priority || 0;
+            return priorityB - priorityA;
+        });
+        
+        console.log('🎯 [MODAL-ORDEM] Ordem no modal:');
+        suggestionsOrdenadas.forEach((sug, index) => {
+            const priority = sug.priority || sug.ai_priority || 0;
+            const type = sug.type || 'unknown';
+            const message = (sug.message || sug.title || '').substring(0, 30);
+            console.log(`  ${index + 1}. Priority ${priority} (${type}): ${message}...`);
+        });
+        
+        const gridHtml = suggestionsOrdenadas.map((suggestion, index) => {
             return this.renderFullSuggestionCard(suggestion, index);
         }).join('');
         
