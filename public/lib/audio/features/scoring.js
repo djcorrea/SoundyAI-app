@@ -1154,6 +1154,12 @@ try {
 if (typeof window !== 'undefined') { 
   window.__MIX_SCORING_VERSION__ = '2.0.0-equal-weight-v3-FORCED'; 
   console.log('🎯 NOVO SISTEMA CARREGADO - Versão:', window.__MIX_SCORING_VERSION__);
+  
+  // 🎯 CORREÇÃO CRÍTICA: Exportar funções para window
+  window.computeMixScore = computeMixScore;
+  window.computeMixScoreBoth = computeMixScoreBoth;
+  window.calculateMetricScore = calculateMetricScore;
+  console.log('✅ computeMixScore, computeMixScoreBoth e calculateMetricScore exportados para window');
 }
 
 // Export das funções principais

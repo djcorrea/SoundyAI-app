@@ -5541,32 +5541,37 @@ function getScoringParameters(genre, metricKey) {
     };
 }
 
-// 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (NOVA VERSÃO BASEADA EM TOLERÂNCIA)
-function calculateMetricScore(actualValue, targetValue, tolerance, options = {}) {
+// 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (REDIRECIONAMENTO PARA SCORING.JS)
+function calculateMetricScore(actualValue, targetValue, tolerance, metricName = 'generic', options = {}) {
+    // 🎯 CORREÇÃO: Usar a versão do scoring.js se disponível
+    if (typeof window !== 'undefined' && typeof window.calculateMetricScore === 'function') {
+        return window.calculateMetricScore(actualValue, targetValue, tolerance, metricName, options);
+    }
+    
+    // FALLBACK: Versão básica para compatibilidade (caso scoring.js não tenha carregado)
+    console.warn('⚠️ FALLBACK: usando calculateMetricScore local (scoring.js não disponível)');
+    
     // Parâmetros configuráveis com defaults
     const {
         yellowMin = 70,
         bufferFactor = 1.5,
         severity = null,
-        invert = false, // Para métricas como True Peak que só penalizam acima
+        invert = false,
         hysteresis = 0.2,
         previousZone = null
     } = options;
     
     // Verificar se temos valores válidos
     if (!Number.isFinite(actualValue) || !Number.isFinite(targetValue) || !Number.isFinite(tolerance) || tolerance <= 0) {
-        return null; // Métrica inválida
+        return null;
     }
     
     let diff;
     
-    // Tratamento para métricas assimétricas (True Peak, DR, LRA)
+    // Tratamento para métricas assimétricas
     if (invert) {
-        // Para True Peak: só penaliza valores acima do target
-        // Para DR/LRA: só penaliza valores muito altos
         diff = Math.max(0, actualValue - targetValue);
     } else {
-        // Comportamento padrão: penaliza desvios em ambas as direções
         diff = Math.abs(actualValue - targetValue);
     }
     

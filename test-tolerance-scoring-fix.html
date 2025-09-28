@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>🎯 Teste - Correção Scoring Tolerância</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #0a0b14; color: #e9e9f1; }
+        .test-section { margin-bottom: 30px; padding: 20px; border: 1px solid #333; border-radius: 8px; }
+        .passed { color: #4CAF50; }
+        .failed { color: #f44336; }
+        .warning { color: #ff9800; }
+        pre { background: #1a1b26; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        button { padding: 10px 20px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+        .test-btn { background: #2196F3; color: white; }
+        .fix-btn { background: #4CAF50; color: white; }
+    </style>
+</head>
+<body>
+    <h1>🎯 Teste - Correção Sistema de Scoring por Tolerância</h1>
+    
+    <div class="test-section">
+        <h2>1. Verificação de Carregamento</h2>
+        <div id="loading-status"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>2. Teste de Scoring Tolerância</h2>
+        <button class="test-btn" onclick="testToleranceScoring()">Testar Scoring por Tolerância</button>
+        <div id="tolerance-results"></div>
+    </div>
+    
+    <div class="test-section">
+        <h2>3. Simulação Caso Real</h2>
+        <p>Simula o caso do usuário: mid = -31.3 dB (target -17.9, tolerance ±2.5)</p>
+        <button class="test-btn" onclick="testRealCase()">Simular Caso Real</button>
+        <div id="real-case-results"></div>
+    </div>
+    
+    <!-- Carregar scoring.js -->
+    <script type="module">
+        let scoringLoaded = false;
+        let computeMixScoreAvailable = false;
+        
+        // Função para atualizar status
+        function updateLoadingStatus() {
+            const statusDiv = document.getElementById('loading-status');
+            const checks = [
+                { name: 'scoring.js importado', status: scoringLoaded },
+                { name: 'window.computeMixScore', status: typeof window.computeMixScore === 'function' },
+                { name: 'calculateMetricScore', status: typeof window.calculateMetricScore === 'function' }
+            ];
+            
+            statusDiv.innerHTML = checks.map(check => 
+                `<div class="${check.status ? 'passed' : 'failed'}">
+                    ${check.status ? '✅' : '❌'} ${check.name}
+                </div>`
+            ).join('');
+        }
+        
+        // Carregar scoring.js
+        try {
+            const scoringModule = await import('./lib/audio/features/scoring.js');
+            scoringLoaded = true;
+            console.log('✅ scoring.js carregado');
+            
+            // Aguardar um pouco para window ser definido
+            setTimeout(updateLoadingStatus, 100);
+        } catch (error) {
+            console.error('❌ Erro ao carregar scoring.js:', error);
+            setTimeout(updateLoadingStatus, 100);
+        }
+        
+        // Teste de scoring por tolerância
+        window.testToleranceScoring = function() {
+            const resultsDiv = document.getElementById('tolerance-results');
+            
+            if (typeof window.calculateMetricScore !== 'function') {
+                resultsDiv.innerHTML = '<div class="failed">❌ calculateMetricScore não disponível</div>';
+                return;
+            }
+            
+            const testCases = [
+                {
+                    name: 'Dentro da Tolerância (deveria dar score alto)',
+                    value: -18.5,
+                    target: -17.9,
+                    tolerance: 2.5,
+                    expectedHigh: true
+                },
+                {
+                    name: 'Fora da Tolerância (deveria dar score baixo)', 
+                    value: -31.3,
+                    target: -17.9,
+                    tolerance: 2.5,
+                    expectedHigh: false
+                },
+                {
+                    name: 'Na Borda da Tolerância',
+                    value: -20.4,  // target -17.9 + tolerance 2.5 = -20.4
+                    target: -17.9,
+                    tolerance: 2.5,
+                    expectedHigh: true
+                }
+            ];
+            
+            let results = '<h3>Resultados dos Testes:</h3>';
+            
+            testCases.forEach((testCase, index) => {
+                try {
+                    const score = window.calculateMetricScore(
+                        testCase.value,
+                        testCase.target, 
+                        testCase.tolerance,
+                        'mid',
+                        { yellowMin: 0.3, bufferFactor: 0.1, severity: 1.2 }
+                    );
+                    
+                    const passed = testCase.expectedHigh ? score > 5 : score < 5;
+                    
+                    results += `<div class="${passed ? 'passed' : 'failed'}">
+                        ${passed ? '✅' : '❌'} ${testCase.name}<br>
+                        Valor: ${testCase.value}, Target: ${testCase.target}, Tolerância: ${testCase.tolerance}<br>
+                        Score: ${score.toFixed(2)}/10<br>
+                        Esperado: ${testCase.expectedHigh ? 'Alto (>5)' : 'Baixo (<5)'}
+                    </div><br>`;
+                } catch (error) {
+                    results += `<div class="failed">❌ ${testCase.name}: Erro - ${error.message}</div><br>`;
+                }
+            });
+            
+            resultsDiv.innerHTML = results;
+        };
+        
+        // Teste do caso real do usuário
+        window.testRealCase = function() {
+            const resultsDiv = document.getElementById('real-case-results');
+            
+            if (typeof window.calculateMetricScore !== 'function') {
+                resultsDiv.innerHTML = '<div class="failed">❌ calculateMetricScore não disponível</div>';
+                return;
+            }
+            
+            const baseValue = -31.3;
+            const target = -17.9;
+            const tolerance = 2.5;
+            
+            // Simular ajustes graduais de EQ (+1 a +4 dB)
+            const adjustments = [0, 1, 2, 3, 4];
+            
+            let results = '<h3>Simulação Caso Real:</h3>';
+            results += `<p>Base: mid = ${baseValue} dB, Target: ${target} dB, Tolerância: ±${tolerance} dB</p>`;
+            
+            adjustments.forEach(adjustment => {
+                const currentValue = baseValue + adjustment;
+                
+                try {
+                    const score = window.calculateMetricScore(
+                        currentValue,
+                        target,
+                        tolerance, 
+                        'mid',
+                        { yellowMin: 0.3, bufferFactor: 0.1, severity: 1.2 }
+                    );
+                    
+                    results += `<div>
+                        Ajuste +${adjustment} dB → ${currentValue} dB: 
+                        <strong>${score.toFixed(2)}/10</strong>
+                        ${adjustment > 0 && score > 0 ? '<span class="passed"> (✅ Progresso detectado!)</span>' : ''}
+                    </div>`;
+                } catch (error) {
+                    results += `<div class="failed">Ajuste +${adjustment} dB: Erro - ${error.message}</div>`;
+                }
+            });
+            
+            resultsDiv.innerHTML = results;
+        };
+        
+        // Atualizar status inicial
+        updateLoadingStatus();
+    </script>
+</body>
+</html>
