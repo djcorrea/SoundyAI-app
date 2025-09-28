@@ -5565,13 +5565,13 @@ function calculateMetricScore(actualValue, targetValue, tolerance, metricName = 
     // 🎯 CORREÇÃO: Usar a versão do scoring.js se disponível, mas evitar recursão
     if (typeof window !== 'undefined' && 
         typeof window.calculateMetricScore === 'function' && 
-        window.__MIX_SCORING_VERSION__ && 
         window.calculateMetricScore !== calculateMetricScore) {
         
-        // ✅ USAR SCORING.JS GLOBAL
+        // ✅ USAR SCORING.JS GLOBAL (com ou sem versão)
         console.log('✅ [SCORING] Usando scoring.js global:', {
-            version: window.__MIX_SCORING_VERSION__,
-            hasGlobalFunction: true
+            version: window.__MIX_SCORING_VERSION__ || 'detected-without-version',
+            hasGlobalFunction: true,
+            hasVersion: !!window.__MIX_SCORING_VERSION__
         });
         return window.calculateMetricScore(actualValue, targetValue, tolerance, metricName, options);
     }

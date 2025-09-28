@@ -256,31 +256,50 @@ class AISuggestionsIntegration {
                 this.updateStatus('error', 'IA não respondeu corretamente');
             }
             
-            // 🎯 PASSO 4: USO EXCLUSIVO DAS SUGESTÕES ENRIQUECIDAS COM ORDEM CORRETA
-            let finalSuggestions = (Array.isArray(data.enhancedSuggestions) ? data.enhancedSuggestions : [])
-                .map(s => ({ ...s, ai_enhanced: true }));
+            // 🎯 PASSO 4: MERGE INTELIGENTE - PRESERVAR DETALHES ORIGINAIS + ENRIQUECIMENTO IA
+            const enhancedFromAI = Array.isArray(data.enhancedSuggestions) ? data.enhancedSuggestions : [];
+            
+            // 🔗 COMBINAR: Detalhes técnicos originais + Enriquecimento da IA
+            let finalSuggestions = validSuggestions.map((original, index) => {
+                const enhanced = enhancedFromAI[index] || {};
+                
+                // Preservar dados técnicos originais + adicionar enriquecimento IA
+                return {
+                    ...original,          // Valores dB, plugins, ações específicas
+                    ...enhanced,          // Enriquecimento da IA (se houver)
+                    ai_enhanced: true,
+                    
+                    // Garantir que valores técnicos originais não sejam perdidos
+                    message: original.message || enhanced.message || original.issue,
+                    action: original.action || enhanced.action || original.solution,
+                    priority: original.priority || enhanced.metadata?.priority_score || 1
+                };
+            });
 
-            // 🎯 ORDENAÇÃO POR PRIORITY: True Peak PRIMEIRO!
+            // 🎯 ORDENAÇÃO POR PRIORITY NUMÉRICA: True Peak PRIMEIRO!
             finalSuggestions = finalSuggestions.sort((a, b) => {
-                const priorityA = a.metadata?.priority_score || a.priority || 1;
-                const priorityB = b.metadata?.priority_score || b.priority || 1;
+                const priorityA = parseFloat(a.priority) || 1;
+                const priorityB = parseFloat(b.priority) || 1;
                 
                 // True Peak tem priority 10 - deve vir PRIMEIRO (ordem decrescente)
                 return priorityB - priorityA;
             });
 
-            console.group('🔍 [AUDITORIA] PASSO 4: SUGESTÕES ENRIQUECIDAS (SEM MERGE) COM ORDENAÇÃO');
-            console.log('✅ Usando apenas enhancedSuggestions do backend:', {
-                enhancedCount: finalSuggestions.length,
+            console.group('🔍 [AUDITORIA] PASSO 4: MERGE INTELIGENTE COM PRESERVAÇÃO DE DETALHES');
+            console.log('✅ Combinando detalhes originais + enriquecimento IA:', {
+                originaisCount: validSuggestions.length,
+                enhancedCount: enhancedFromAI.length,
+                finalCount: finalSuggestions.length,
                 processingTime: `${processingTime}ms`
             });
-            console.log('🎯 ORDENAÇÃO APLICADA: Priority decrescente (True Peak primeiro)');
+            console.log('🎯 ORDENAÇÃO APLICADA: Priority numérica decrescente (True Peak primeiro)');
             finalSuggestions.forEach((sug, index) => {
-                console.log(`📋 Enhanced Sugestão ${index + 1}:`, {
+                console.log(`📋 Final Sugestão ${index + 1}:`, {
                     ai_enhanced: true,
-                    priority: sug.metadata?.priority_score || sug.priority || 'N/A',
-                    message: (sug.message || sug.title || '').substring(0, 50) + '...',
-                    keys: Object.keys(sug)
+                    priority: sug.priority,
+                    message: (sug.message || '').substring(0, 60) + '...',
+                    action: (sug.action || '').substring(0, 40) + '...',
+                    preservedOriginal: !!(sug.message && sug.action)
                 });
             });
             console.groupEnd();
