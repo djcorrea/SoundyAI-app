@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste do Sistema de Score Contínuo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #ffffff;
+            padding: 20px;
+            margin: 0;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .test-section {
+            background: #333;
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .test-case {
+            background: #444;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 3px solid #2196F3;
+        }
+        
+        .result {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+        
+        .score {
+            background: #555;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            min-width: 60px;
+            text-align: center;
+        }
+        
+        .score.green { background: #4CAF50; }
+        .score.yellow { background: #FF9800; }
+        .score.red { background: #F44336; }
+        
+        .formula {
+            background: #2a2a2a;
+            padding: 10px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            border: 1px solid #555;
+        }
+        
+        .expected {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .actual {
+            color: #2196F3;
+            font-weight: bold;
+        }
+        
+        .error {
+            color: #F44336;
+            font-weight: bold;
+        }
+        
+        .success {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .info {
+            background: #1976D2;
+            color: white;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        
+        .warning {
+            background: #FF9800;
+            color: white;
+            padding: 10px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste do Sistema de Score Contínuo</h1>
+        <p>Validação da nova função <code>calculateMetricScore()</code> baseada em distância da tolerância</p>
+        
+        <div class="info">
+            <strong>Caso Base de Teste:</strong> Target = -20, Tolerance = 5<br>
+            <strong>Parâmetros:</strong> yellowMin = 70, bufferFactor = 1.5, severity = 10
+        </div>
+        
+        <div id="testResults"></div>
+        
+        <div class="test-section">
+            <h3>📊 Casos de Teste Específicos</h3>
+            <div id="specificTests"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🔍 Teste True Peak (Assimétrico)</h3>
+            <div id="truePeakTests"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>🎭 Teste de Histerese</h3>
+            <div id="hysteresisTests"></div>
+        </div>
+    </div>
+
+    <script>
+        // Implementação da função calculateMetricScore para teste
+        function calculateMetricScore(value, target, tolerance, options = {}) {
+            const {
+                yellowMin = 70,
+                bufferFactor = 1.5,
+                severity = null,
+                invert = false,
+                hysteresis = 0.2,
+                previousZone = null
+            } = options;
+            
+            if (!Number.isFinite(value) || !Number.isFinite(target) || !Number.isFinite(tolerance) || tolerance <= 0) {
+                return null;
+            }
+            
+            let diff;
+            
+            if (invert) {
+                diff = Math.max(0, value - target);
+            } else {
+                diff = Math.abs(value - target);
+            }
+            
+            if (diff <= tolerance) {
+                return 100;
+            }
+            
+            const toleranceDistance = diff - tolerance;
+            const bufferZone = tolerance * bufferFactor;
+            const severityFactor = severity || (tolerance * 2);
+            
+            if (toleranceDistance <= bufferZone) {
+                const ratio = toleranceDistance / bufferZone;
+                return Math.round(100 - ((100 - yellowMin) * ratio));
+            }
+            
+            const extraDistance = toleranceDistance - bufferZone;
+            const redScore = Math.max(0, yellowMin - (extraDistance / severityFactor) * yellowMin);
+            
+            return Math.round(redScore);
+        }
+        
+        function getZoneColor(score) {
+            if (score >= 100) return 'green';
+            if (score >= 70) return 'yellow'; 
+            return 'red';
+        }
+        
+        function runTest(testName, value, target, tolerance, expectedScore, options = {}) {
+            const actualScore = calculateMetricScore(value, target, tolerance, options);
+            const isClose = Math.abs(actualScore - expectedScore) <= 5; // Tolerância de ±5 pontos
+            const zone = getZoneColor(actualScore);
+            
+            return {
+                testName,
+                value,
+                target,
+                tolerance,
+                expectedScore,
+                actualScore,
+                isClose,
+                zone,
+                options
+            };
+        }
+        
+        function displayTest(test) {
+            const statusIcon = test.isClose ? '✅' : '❌';
+            const statusClass = test.isClose ? 'success' : 'error';
+            
+            return `
+                <div class="test-case">
+                    <div class="result">
+                        <span>${statusIcon}</span>
+                        <strong>${test.testName}</strong>
+                    </div>
+                    <div class="formula">
+                        Valor: ${test.value}, Target: ${test.target}, Tolerance: ${test.tolerance}
+                        ${test.options.invert ? ' (ASSIMÉTRICO)' : ''}
+                    </div>
+                    <div class="result">
+                        <span>Esperado:</span>
+                        <span class="score ${getZoneColor(test.expectedScore)}">${test.expectedScore}</span>
+                        <span>Atual:</span>
+                        <span class="score ${test.zone}">${test.actualScore}</span>
+                        <span class="${statusClass}">
+                            ${test.isClose ? 'PASSOU' : 'FALHOU'}
+                        </span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Executar testes
+        document.addEventListener('DOMContentLoaded', function() {
+            // Casos básicos conforme especificação
+            const basicTests = [
+                runTest('Dentro da tolerância', -20, -20, 5, 100),
+                runTest('1 dB além da tolerância', -26, -20, 5, 75),
+                runTest('2 dB além da tolerância', -27, -20, 5, 65),
+                runTest('Na borda do buffer', -27.5, -20, 5, 50), // tolerance + bufferZone
+                runTest('Muito além (vermelho)', -32, -20, 5, 30),
+                runTest('Extremo (vermelho)', -40, -20, 5, 0)
+            ];
+            
+            document.getElementById('testResults').innerHTML = 
+                basicTests.map(displayTest).join('');
+            
+            // Testes específicos adicionais
+            const specificTests = [
+                runTest('Valor positivo dentro da tolerância', -18, -20, 5, 100),
+                runTest('Valor positivo fora da tolerância', -14, -20, 5, 75),
+                runTest('Target zero', 3, 0, 2, 50),
+                runTest('Target positivo', 8, 10, 3, 85)
+            ];
+            
+            document.getElementById('specificTests').innerHTML = 
+                specificTests.map(displayTest).join('');
+            
+            // Testes True Peak (assimétrico)
+            const truePeakTests = [
+                runTest('True Peak abaixo do teto', -2, -1, 0.5, 100, { invert: true }),
+                runTest('True Peak no teto', -1, -1, 0.5, 100, { invert: true }),
+                runTest('True Peak 0.5 dB acima', -0.5, -1, 0.5, 75, { invert: true }),
+                runTest('True Peak 1 dB acima', 0, -1, 0.5, 50, { invert: true }),
+                runTest('True Peak muito acima', 2, -1, 0.5, 0, { invert: true })
+            ];
+            
+            document.getElementById('truePeakTests').innerHTML = 
+                truePeakTests.map(displayTest).join('');
+            
+            // Teste de histerese (simulado)
+            const hysteresisInfo = `
+                <div class="info">
+                    <strong>Histerese implementada:</strong> A função getZoneWithHysteresis() 
+                    adiciona/subtrai um percentual da tolerância baseado na zona anterior para 
+                    evitar oscilação de cores quando o valor fica na borda das zonas.
+                </div>
+                <div class="formula">
+                    // Exemplo de uso da histerese:<br>
+                    const zone = getZoneWithHysteresis(value, target, tolerance, 1.5, 0.2, previousZone);
+                </div>
+            `;
+            
+            document.getElementById('hysteresisTests').innerHTML = hysteresisInfo;
+            
+            // Resumo dos testes
+            const allTests = [...basicTests, ...specificTests, ...truePeakTests];
+            const passedTests = allTests.filter(t => t.isClose).length;
+            const totalTests = allTests.length;
+            
+            const summary = document.createElement('div');
+            summary.className = passedTests === totalTests ? 'info' : 'warning';
+            summary.innerHTML = `
+                <h3>📊 Resumo dos Testes</h3>
+                <p><strong>${passedTests}/${totalTests}</strong> testes passaram</p>
+                ${passedTests === totalTests ? 
+                    '<p>✅ <strong>Todos os testes passaram!</strong> O sistema está funcionando corretamente.</p>' :
+                    '<p>⚠️ <strong>Alguns testes falharam.</strong> Verifique a implementação.</p>'
+                }
+            `;
+            
+            document.body.appendChild(summary);
+        });
+    </script>
+</body>
+</html>

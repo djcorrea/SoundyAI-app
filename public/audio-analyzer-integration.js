@@ -5508,41 +5508,89 @@ const GENRE_SCORING_WEIGHTS = {
     }
 };
 
-// 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (VERSÃO MENOS PUNITIVA)
-function calculateMetricScore(actualValue, targetValue, tolerance) {
+// 1.5. FUNÇÃO PARA OBTER PARÂMETROS DE SCORING DINÂMICOS
+function getScoringParameters(genre, metricKey) {
+    // Tenta buscar parâmetros do scoring-v2-config.json se disponível
+    const globalConfig = window.__SCORING_V2_CONFIG__ || {};
+    const scoringParams = globalConfig.scoring_parameters || {};
+    
+    // Buscar parâmetros específicos do gênero, senão usar defaults
+    const genreParams = scoringParams[genre] || scoringParams.default || {};
+    
+    // Defaults seguros
+    const defaults = {
+        yellowMin: 70,
+        bufferFactor: 1.5,
+        severity: null,
+        hysteresis: 0.2,
+        invert: false
+    };
+    
+    // Casos especiais por métrica
+    if (metricKey === 'truePeakDbtp' || metricKey === 'dcOffset' || 
+        metricKey === 'thdPercent' || metricKey === 'clippingPct') {
+        defaults.invert = true;
+    }
+    
+    return {
+        yellowMin: genreParams.yellowMin || defaults.yellowMin,
+        bufferFactor: genreParams.bufferFactor || defaults.bufferFactor,
+        severity: genreParams.severity || defaults.severity,
+        hysteresis: genreParams.hysteresis || defaults.hysteresis,
+        invert: defaults.invert
+    };
+}
+
+// 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (NOVA VERSÃO BASEADA EM TOLERÂNCIA)
+function calculateMetricScore(actualValue, targetValue, tolerance, options = {}) {
+    // Parâmetros configuráveis com defaults
+    const {
+        yellowMin = 70,
+        bufferFactor = 1.5,
+        severity = null,
+        invert = false, // Para métricas como True Peak que só penalizam acima
+        hysteresis = 0.2,
+        previousZone = null
+    } = options;
+    
     // Verificar se temos valores válidos
     if (!Number.isFinite(actualValue) || !Number.isFinite(targetValue) || !Number.isFinite(tolerance) || tolerance <= 0) {
         return null; // Métrica inválida
     }
     
-    const diff = Math.abs(actualValue - targetValue);
+    let diff;
     
-    // 🎯 DENTRO DA TOLERÂNCIA = 100 pontos
+    // Tratamento para métricas assimétricas (True Peak, DR, LRA)
+    if (invert) {
+        // Para True Peak: só penaliza valores acima do target
+        // Para DR/LRA: só penaliza valores muito altos
+        diff = Math.max(0, actualValue - targetValue);
+    } else {
+        // Comportamento padrão: penaliza desvios em ambas as direções
+        diff = Math.abs(actualValue - targetValue);
+    }
+    
+    // 🟢 VERDE: Dentro da tolerância = 100 pontos
     if (diff <= tolerance) {
         return 100;
     }
     
-    // 🎯 CURVA DE PENALIZAÇÃO MAIS JUSTA - GRADUAL E MENOS PUNITIVA
-    // Δ até 1.5x tolerância → ~80
-    // Δ até 2x tolerância → ~60  
-    // Δ até 3x tolerância → ~40
-    // Δ acima de 3x tolerância → ~20 (nunca zerar)
+    // Calcular distância além da tolerância
+    const toleranceDistance = diff - tolerance;
+    const bufferZone = tolerance * bufferFactor;
+    const severityFactor = severity || (tolerance * 2);
     
-    const ratio = diff / tolerance;
-    
-    if (ratio <= 1.5) {
-        // Entre 1x e 1.5x tolerância: decaimento suave de 100 para 80
-        return Math.round(100 - ((ratio - 1) * 40)); // 100 - (0.5 * 40) = 80 no máximo
-    } else if (ratio <= 2.0) {
-        // Entre 1.5x e 2x tolerância: de 80 para 60
-        return Math.round(80 - ((ratio - 1.5) * 40)); // 80 - (0.5 * 40) = 60 no máximo
-    } else if (ratio <= 3.0) {
-        // Entre 2x e 3x tolerância: de 60 para 40
-        return Math.round(60 - ((ratio - 2) * 20)); // 60 - (1 * 20) = 40 no máximo
-    } else {
-        // Acima de 3x tolerância: 20 (nunca zerar totalmente)
-        return 20;
+    // 🟡 AMARELO: Entre tolerância e tolerância+buffer
+    if (toleranceDistance <= bufferZone) {
+        const ratio = toleranceDistance / bufferZone;
+        return Math.round(100 - ((100 - yellowMin) * ratio));
     }
+    
+    // 🔴 VERMELHO: Além do buffer
+    const extraDistance = toleranceDistance - bufferZone;
+    const redScore = Math.max(0, yellowMin - (extraDistance / severityFactor) * yellowMin);
+    
+    return Math.round(redScore);
 }
 
 // 3. CALCULAR SCORE DE LOUDNESS (LUFS, True Peak, Crest Factor)
@@ -5556,7 +5604,9 @@ function calculateLoudnessScore(analysis, refData) {
     // LUFS Integrado (métrica principal de loudness)
     const lufsValue = metrics.lufs_integrated || tech.lufsIntegrated;
     if (Number.isFinite(lufsValue) && Number.isFinite(refData.lufs_target) && Number.isFinite(refData.tol_lufs)) {
-        const score = calculateMetricScore(lufsValue, refData.lufs_target, refData.tol_lufs);
+        const genre = refData.genre || 'default';
+        const scoringParams = getScoringParameters(genre, 'lufsIntegrated');
+        const score = calculateMetricScore(lufsValue, refData.lufs_target, refData.tol_lufs, scoringParams);
         if (score !== null) {
             scores.push(score);
             console.log(`📊 LUFS: ${lufsValue} vs ${refData.lufs_target} (±${refData.tol_lufs}) = ${score}%`);
@@ -5566,7 +5616,9 @@ function calculateLoudnessScore(analysis, refData) {
     // True Peak (importante para evitar clipping digital)
     const truePeakValue = metrics.true_peak_dbtp || tech.truePeakDbtp;
     if (Number.isFinite(truePeakValue) && Number.isFinite(refData.true_peak_target) && Number.isFinite(refData.tol_true_peak)) {
-        const score = calculateMetricScore(truePeakValue, refData.true_peak_target, refData.tol_true_peak);
+        const genre = refData.genre || 'default';
+        const scoringParams = getScoringParameters(genre, 'truePeakDbtp');
+        const score = calculateMetricScore(truePeakValue, refData.true_peak_target, refData.tol_true_peak, scoringParams);
         if (score !== null) {
             scores.push(score);
             console.log(`📊 True Peak: ${truePeakValue} vs ${refData.true_peak_target} (±${refData.tol_true_peak}) = ${score}%`);
@@ -5604,6 +5656,8 @@ function calculateDynamicsScore(analysis, refData) {
     // Dynamic Range (DR) - métrica principal de dinâmica
     const drValue = metrics.dynamic_range || tech.dynamicRange;
     if (Number.isFinite(drValue) && Number.isFinite(refData.dr_target) && Number.isFinite(refData.tol_dr)) {
+        // DR: valores muito altos podem indicar falta de compressão (dependendo do gênero)
+        // Para a maioria dos gêneros, usar comportamento padrão (simétrico)
         const score = calculateMetricScore(drValue, refData.dr_target, refData.tol_dr);
         if (score !== null) {
             scores.push(score);
@@ -5614,6 +5668,8 @@ function calculateDynamicsScore(analysis, refData) {
     // LRA (Loudness Range) - variação de loudness
     const lraValue = metrics.lra || tech.lra;
     if (Number.isFinite(lraValue) && Number.isFinite(refData.lra_target) && Number.isFinite(refData.tol_lra)) {
+        // LRA: valores muito altos podem indicar falta de controle de dinâmica
+        // Para a maioria dos gêneros, usar comportamento padrão (simétrico)
         const score = calculateMetricScore(lraValue, refData.lra_target, refData.tol_lra);
         if (score !== null) {
             scores.push(score);
