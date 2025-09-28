@@ -17,35 +17,35 @@
         "sub": {
           "target_db": -17.3,
           "energy_pct": 29.5,
-          "tol_db": 2.5,
+          "tol_db": 4,
           "severity": "soft"
         },
         "low_bass": {
-          "target_db": -17.7,
+          "target_db": -15,
           "energy_pct": 26.8,
-          "tol_db": 2.5,
+          "tol_db": 3,
           "severity": "soft"
         },
         "upper_bass": {
           "target_db": -21.5,
           "energy_pct": 9,
-          "tol_db": 2.5,
+          "tol_db": 3,
           "severity": "soft"
         },
         "low_mid": {
-          "target_db": -18.7,
+          "target_db": -21,
           "energy_pct": 12.4,
           "tol_db": 2.5,
           "severity": "soft"
         },
         "mid": {
-          "target_db": -17.9,
+          "target_db": -23,
           "energy_pct": 15.4,
           "tol_db": 2.5,
           "severity": "soft"
         },
         "high_mid": {
-          "target_db": -22.9,
+          "target_db": -19.2,
           "energy_pct": 5.3,
           "tol_db": 2.5,
           "severity": "soft"
@@ -53,13 +53,13 @@
         "brilho": {
           "target_db": -29.3,
           "energy_pct": 1.4,
-          "tol_db": 3.5,
+          "tol_db": 3.0,
           "severity": "soft"
         },
         "presenca": {
-          "target_db": -34,
+          "target_db": -21,
           "energy_pct": 0.16,
-          "tol_db": 3.5,
+          "tol_db": 3.0,
           "severity": "soft"
         }
       },
@@ -125,9 +125,7 @@
           "tol_db": 3.0,
           "severity": "soft"
         }
-      },
-      "lra_target": 2.5,
-      "tol_lra": 1.5
+      }
     },
     "last_updated": "2025-08-31T15:20:09.224Z",
     "cache_bust": 1756653609224,
