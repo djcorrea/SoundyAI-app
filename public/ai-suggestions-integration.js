@@ -114,7 +114,9 @@ class AISuggestionsIntegration {
         
         domCards.forEach((card, index) => {
             const text = card.textContent || card.innerText || '';
-            const isPeak = text.toLowerCase().includes('peak') || text.toLowerCase().includes('true peak');
+            const isPeak = card.dataset.type?.includes('true_peak')
+                         || card.dataset.type?.includes('reference_true_peak')
+                         || card.dataset.priority === '10';
             const priority = card.dataset.priority || 'unknown';
             
             if (isPeak) {
@@ -151,6 +153,17 @@ class AISuggestionsIntegration {
 
     forcarReorganizacaoDOM(suggestions) {
         console.warn('🚨 [EMERGÊNCIA] Aplicando reorganização forçada do DOM...');
+        
+        // 🎯 VERIFICAÇÃO INTELIGENTE: Só reordenar se necessário
+        const domCards = Array.from(this.elements.grid.children);
+        const allHavePriority = domCards.every(c => c.dataset.priority && c.dataset.priority !== 'unknown');
+        
+        if (allHavePriority) {
+            console.log('✅ [ORDEM] Cards já possuem prioridade válida, mantendo ordem calculada');
+            return;
+        }
+        
+        console.log('⚠️ [ORDEM] Cards sem prioridade detectados, aplicando reorganização...');
         
         // Ordenar sugestões por prioridade
         const suggestionsOrdenadas = [...suggestions].sort((a, b) => {
@@ -1283,6 +1296,12 @@ class AISuggestionsIntegration {
                 </div>
             </div>
         `;
+        
+        // 🎯 ATRIBUTOS DE CONTROLE: Adicionar data attributes para detecção robusta
+        card.dataset.priority = suggestion.priority || suggestion.ai_priority || '0';
+        card.dataset.type = suggestion.type || suggestion.metric || 'unknown';
+        card.dataset.index = index;
+        card.id = `suggestion-${card.dataset.type}-${index}`;
         
         return card;
     }

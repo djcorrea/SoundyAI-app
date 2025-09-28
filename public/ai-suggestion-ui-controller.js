@@ -59,12 +59,15 @@ class AISuggestionUIController {
      */
     cacheElements() {
         this.elements = {
-            aiSection: document.getElementById('aiSuggestionsSection'),
-            aiContent: document.getElementById('aiSuggestionsContent'),
+            // 🔒 DESATIVADO: Elementos inexistentes no DOM
+            aiSection: null, // document.getElementById('aiSuggestionsSection'), - NÃO EXISTE
+            aiContent: null, // document.getElementById('aiSuggestionsContent'), - NÃO EXISTE
             aiStatusBadge: document.getElementById('aiStatusBadge'),
             aiModelBadge: document.getElementById('aiModelBadge'),
             fullModal: document.getElementById('aiSuggestionsFullModal'),
             fullModalContent: document.getElementById('aiFullModalContent'),
+            // 🎯 USAR APENAS: aiExpandedGrid como container principal
+            aiExpandedGrid: document.getElementById('aiExpandedGrid'),
             aiStatsCount: document.getElementById('aiStatsCount'),
             aiStatsModel: document.getElementById('aiStatsModel'),
             aiStatsTime: document.getElementById('aiStatsTime')
