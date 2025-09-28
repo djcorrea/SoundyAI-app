@@ -43,11 +43,11 @@ class EnhancedSuggestionEngine {
                 dawExample: "No master bus: reduza Output Gain do limiter em 2-4 dB. Ableton: reduzir o Gain do Limiter. Cubase: reduzir Output no Maximizer."
             },
             
-            // === TRUE PEAK ===
+            // === TRUE PEAK ===  
             true_peak_high: {
-                explanation: "True Peak alto pode causar distorção digital em conversores D/A e problemas de inter-sample peaks, especialmente em sistemas de reprodução consumer.",
-                action: "Use um limiter com oversampling ou true peak limiting para manter abaixo de -1 dBTP.",
-                dawExample: "Pro Tools: Pro Limiter com 'ISP' ativado. Logic: Adaptive Limiter com 'True Peak Detection'. Waves: L3 Multimaximizer."
+                explanation: "⚠️ ATENÇÃO: O True Peak está acima do limite recomendado e deve ser corrigido PRIMEIRO, antes de qualquer outro ajuste. Se você não corrigir o True Peak antes, ao reduzir o volume geral da faixa para compensar os picos, todos os ajustes que você fizer nas bandas de frequência (EQ) podem perder o efeito ou serem mascarados na próxima análise.",
+                action: "PRIORIDADE MÁXIMA: Use um limiter com oversampling ou true peak detection para manter abaixo de -1 dBTP. Só depois disso, faça outros ajustes.",
+                dawExample: "CRÍTICO: Pro Tools: Pro Limiter com 'ISP' ativado. Logic: Adaptive Limiter com 'True Peak Detection'. Waves: L3 Multimaximizer. Aplique ANTES de qualquer EQ ou compressão adicional."
             },
             
             // === DYNAMIC RANGE ===
@@ -1180,12 +1180,24 @@ class EnhancedSuggestionEngine {
                 suggestion.targetValue = target;
                 suggestion.currentValue = value;
                 
-                // Se fields estão vazios, preencher com valores padrão
-                if (!suggestion.message || suggestion.message.trim() === '') {
-                    suggestion.message = `Ajustar ${metric.label} para alinhamento com referência`;
-                }
-                if (!suggestion.why || suggestion.why.trim() === '') {
-                    suggestion.why = `${metric.label} fora da faixa ideal para o gênero`;
+                // 🚨 TEXTO EDUCATIVO ESPECIAL PARA TRUE PEAK
+                if (metric.metricType === 'true_peak') {
+                    suggestion.message = `⚠️ True Peak alto - CORRIJA PRIMEIRO antes de outros ajustes`;
+                    suggestion.why = `Se não corrigir o True Peak antes, ajustes posteriores (EQ/bandas) podem ser mascarados ao reduzir o volume geral`;
+                    suggestion.action = `Use limiter com True Peak detection para manter abaixo de -1 dBTP ANTES de qualquer outro ajuste`;
+                    suggestion.urgency = 'CRÍTICO';
+                    suggestion.educationalNote = 'O True Peak deve sempre ser a primeira correção, pois afeta todos os outros parâmetros';
+                    
+                    // Boost na prioridade para True Peak
+                    suggestion.priority = Math.max(suggestion.priority, 9.5); // Garantir prioridade máxima
+                } else {
+                    // Para outras métricas, usar textos padrão
+                    if (!suggestion.message || suggestion.message.trim() === '') {
+                        suggestion.message = `Ajustar ${metric.label} para alinhamento com referência`;
+                    }
+                    if (!suggestion.why || suggestion.why.trim() === '') {
+                        suggestion.why = `${metric.label} fora da faixa ideal para o gênero`;
+                    }
                 }
                 
                 suggestions.push(suggestion);
@@ -1926,8 +1938,8 @@ class EnhancedSuggestionEngine {
         // Filtrar por prioridade mínima
         let filtered = suggestions.filter(s => s.priority >= this.config.minPriority);
         
-        // Ordenar por prioridade (descendente)
-        filtered.sort((a, b) => b.priority - a.priority);
+        // 🎯 NOVA ORDENAÇÃO INTELIGENTE: Prioridade técnica correta
+        filtered = this.applyIntelligentOrdering(filtered);
         
         // Limitar quantidade máxima
         if (filtered.length > this.config.maxSuggestions) {
@@ -1935,6 +1947,129 @@ class EnhancedSuggestionEngine {
         }
         
         return filtered;
+    }
+
+    /**
+     * 🎯 NOVA FUNÇÃO: Aplicar ordenação inteligente baseada em dependências técnicas
+     * Ordem correta: [True Peak, LUFS, DR, LRA, Stereo] → depois bandas espectrais
+     * @param {Array} suggestions - Sugestões para ordenar
+     * @returns {Array} Sugestões reordenadas
+     */
+    applyIntelligentOrdering(suggestions) {
+        // 🎯 DEFINIR ORDEM DE PRIORIDADE TÉCNICA
+        const technicalPriorityOrder = {
+            // Nível 1: CRÍTICO - Deve ser corrigido primeiro
+            'reference_true_peak': 1,
+            'heuristic_true_peak': 1,
+            
+            // Nível 2: LOUDNESS - Segundo mais importante
+            'reference_loudness': 2,
+            'heuristic_lufs': 2,
+            
+            // Nível 3: DINÂMICA - Terceiro
+            'reference_dynamics': 3,
+            'reference_lra': 3,
+            'heuristic_lra': 3,
+            
+            // Nível 4: ESTÉREO - Quarto
+            'reference_stereo': 4,
+            'heuristic_stereo': 4,
+            
+            // Nível 5: BANDAS ESPECTRAIS - Por último
+            'band_adjust': 5,
+            'reference_band_comparison': 5,
+            'heuristic_spectral_imbalance': 5,
+            
+            // Nível 6: OUTROS - Final
+            'heuristic_sibilance': 6,
+            'heuristic_harshness': 6,
+            'heuristic_masking': 6
+        };
+
+        // 🔄 FUNÇÃO DE COMPARAÇÃO INTELIGENTE
+        const intelligentSort = (a, b) => {
+            const typeA = a.type || 'unknown';
+            const typeB = b.type || 'unknown';
+            
+            const levelA = technicalPriorityOrder[typeA] || 999;
+            const levelB = technicalPriorityOrder[typeB] || 999;
+            
+            // 1. Primeiro: ordernar por nível técnico
+            if (levelA !== levelB) {
+                return levelA - levelB;
+            }
+            
+            // 2. Dentro do mesmo nível: ordenar por prioridade original (mais alta primeiro)
+            if (a.priority !== b.priority) {
+                return b.priority - a.priority;
+            }
+            
+            // 3. Em caso de empate: ordenar por severidade (mais severo primeiro)
+            const severityOrder = { 'red': 1, 'orange': 2, 'yellow': 3, 'green': 4 };
+            const severityA = severityOrder[a.severity?.level] || 999;
+            const severityB = severityOrder[b.severity?.level] || 999;
+            
+            return severityA - severityB;
+        };
+
+        // 🎯 APLICAR ORDENAÇÃO
+        const ordered = [...suggestions].sort(intelligentSort);
+        
+        // 📊 LOG DE AUDITORIA
+        this.logAudit('INTELLIGENT_ORDERING_APPLIED', 'Sugestões reordenadas com prioridade técnica', {
+            originalCount: suggestions.length,
+            reorderedCount: ordered.length,
+            orderChanges: this.calculateOrderChanges(suggestions, ordered),
+            topSuggestions: ordered.slice(0, 5).map(s => ({
+                type: s.type,
+                level: technicalPriorityOrder[s.type] || 999,
+                priority: s.priority,
+                severity: s.severity?.level
+            }))
+        });
+
+        return ordered;
+    }
+
+    /**
+     * 📊 Calcular mudanças na ordem das sugestões (para auditoria)
+     * @param {Array} original - Lista original
+     * @param {Array} reordered - Lista reordenada
+     * @returns {Object} Estatísticas das mudanças
+     */
+    calculateOrderChanges(original, reordered) {
+        let moved = 0;
+        let truePeakMovedToTop = false;
+        let bandsMovedToBottom = false;
+
+        // Verificar se True Peak foi movido para o topo
+        const firstSuggestion = reordered[0];
+        if (firstSuggestion && (firstSuggestion.type === 'reference_true_peak' || firstSuggestion.type === 'heuristic_true_peak')) {
+            const originalIndex = original.findIndex(s => s.type === firstSuggestion.type);
+            if (originalIndex > 0) {
+                truePeakMovedToTop = true;
+            }
+        }
+
+        // Verificar se bandas foram movidas para depois das métricas principais
+        const lastMainMetricIndex = reordered.findLastIndex(s => 
+            s.type && (s.type.includes('reference_') || s.type.includes('heuristic_')) && 
+            !s.type.includes('band') && !s.type.includes('spectral')
+        );
+        
+        const firstBandIndex = reordered.findIndex(s => 
+            s.type && (s.type.includes('band') || s.type.includes('spectral'))
+        );
+
+        if (lastMainMetricIndex >= 0 && firstBandIndex >= 0 && firstBandIndex > lastMainMetricIndex) {
+            bandsMovedToBottom = true;
+        }
+
+        return {
+            totalMoved: moved,
+            truePeakPrioritized: truePeakMovedToTop,
+            bandsAfterMainMetrics: bandsMovedToBottom
+        };
     }
 
     /**
