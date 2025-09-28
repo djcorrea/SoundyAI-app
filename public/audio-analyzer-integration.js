@@ -5563,7 +5563,16 @@ function getScoringParameters(genre, metricKey) {
 // 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (REDIRECIONAMENTO PARA SCORING.JS)
 function calculateMetricScore(actualValue, targetValue, tolerance, metricName = 'generic', options = {}) {
     // 🎯 CORREÇÃO: Usar a versão do scoring.js se disponível, mas evitar recursão
-    if (typeof window !== 'undefined' && typeof window.calculateMetricScore === 'function' && window.calculateMetricScore !== calculateMetricScore) {
+    if (typeof window !== 'undefined' && 
+        typeof window.calculateMetricScore === 'function' && 
+        window.__MIX_SCORING_VERSION__ && 
+        window.calculateMetricScore !== calculateMetricScore) {
+        
+        // ✅ USAR SCORING.JS GLOBAL
+        console.log('✅ [SCORING] Usando scoring.js global:', {
+            version: window.__MIX_SCORING_VERSION__,
+            hasGlobalFunction: true
+        });
         return window.calculateMetricScore(actualValue, targetValue, tolerance, metricName, options);
     }
     
@@ -5571,6 +5580,7 @@ function calculateMetricScore(actualValue, targetValue, tolerance, metricName = 
     console.warn('⚠️ FALLBACK: usando calculateMetricScore local (scoring.js não disponível)', {
         hasWindow: typeof window !== 'undefined',
         hasFunction: typeof window?.calculateMetricScore === 'function',
+        hasScoringVersion: !!window?.__MIX_SCORING_VERSION__,
         isDifferent: window?.calculateMetricScore !== calculateMetricScore,
         scoringVersion: window?.__MIX_SCORING_VERSION__
     });
