@@ -90,6 +90,13 @@ class AISuggestionsIntegration {
             return;
         }
 
+        // 🚀 CACHE INTELIGENTE: Evitar processamento duplicado
+        const suggestionsHash = window.generateSuggestionsHash(suggestions);
+        if (window.lastProcessedHash === suggestionsHash) {
+            console.log('🎯 [AI-INTEGRATION] Sugestões idênticas já processadas - usando cache');
+            return;
+        }
+
         // 🔍 VALIDAÇÃO CRÍTICA: Verificar se há sugestões válidas
         if (!suggestions || !Array.isArray(suggestions) || suggestions.length === 0) {
             console.log('� [AI-INTEGRATION] Nenhuma sugestão detectada - exibindo mensagem informativa');
@@ -132,7 +139,7 @@ class AISuggestionsIntegration {
         // Show container and loading state
         this.showContainer();
         this.setLoadingState(true);
-        this.updateStatus('processing', `Processando ${validSuggestions.length} sugestões...`);
+        this.updateStatus('processing', `🤖 Enriquecendo ${validSuggestions.length} sugestões com IA...`);
         
         const startTime = Date.now();
         const allEnhancedSuggestions = [];
@@ -902,6 +909,12 @@ class AISuggestionsIntegration {
         
         console.log(`✅ [AI-INTEGRATION] ${suggestions.length} sugestões exibidas (fonte: ${source})`);
         
+        // 💾 SALVAR HASH PARA CACHE
+        if (source === 'ai') {
+            window.lastProcessedHash = window.generateSuggestionsHash(suggestions);
+            console.log('💾 [AI-INTEGRATION] Hash do cache salvo:', window.lastProcessedHash);
+        }
+        
         // 🔍 AUDITORIA: RELATÓRIO FINAL COMPLETO
         console.group('🔍 [AUDITORIA] RELATÓRIO FINAL COMPLETO');
         console.log('📊 RESUMO DO FLUXO DE SUGESTÕES:');
@@ -1278,6 +1291,24 @@ window.downloadAISuggestionsReport = function() {
     } else {
         alert('Nenhuma sugestão disponível para exportar.');
     }
+};
+
+/**
+ * 🔄 Gerar hash para cache de sugestões
+ */
+window.generateSuggestionsHash = function(suggestions) {
+    const hashString = suggestions.map(s => 
+        `${s.message || ''}:${s.action || ''}:${s.priority || 0}`
+    ).join('|');
+    
+    // Simple hash function
+    let hash = 0;
+    for (let i = 0; i < hashString.length; i++) {
+        const char = hashString.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash; // Convert to 32bit integer
+    }
+    return hash.toString();
 };
 
 window.sendAISuggestionsToChat = function() {
