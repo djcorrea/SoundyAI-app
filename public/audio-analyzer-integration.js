@@ -6201,8 +6201,9 @@ function updateReferenceSuggestions(analysis) {
                 return !type.startsWith('reference_') && !type.startsWith('band_adjust') && !type.startsWith('heuristic_');
             });
             
-            // Combinar sugestões melhoradas com existentes preservadas
-            analysis.suggestions = [...enhancedAnalysis.suggestions, ...nonRefSuggestions];
+            // 🎯 CORREÇÃO CRÍTICA: Aplicar ordenação determinística SEMPRE
+            const allSuggestions = [...enhancedAnalysis.suggestions, ...nonRefSuggestions];
+            analysis.suggestions = applyFinalDeterministicOrdering(allSuggestions);
             
             // Adicionar métricas melhoradas à análise
             if (enhancedAnalysis.enhancedMetrics) {
@@ -6216,7 +6217,7 @@ function updateReferenceSuggestions(analysis) {
             
             console.log(`🎯 [SUGGESTIONS] Enhanced Engine: ${enhancedAnalysis.suggestions.length} sugestões geradas`);
             console.log(`🎯 [SUGGESTIONS] Sugestões preservadas: ${nonRefSuggestions.length}`);
-            console.log(`🎯 [SUGGESTIONS] Total final: ${analysis.suggestions.length} sugestões`);
+            console.log(`🎯 [SUGGESTIONS] Total final: ${analysis.suggestions.length} sugestões (ordem determinística aplicada)`);
             
             // 🤖 NOVA CAMADA DE IA: Pós-processamento inteligente de sugestões (Enhanced Engine)
             if (typeof window !== 'undefined' && window.AI_SUGGESTION_LAYER_ENABLED && window.aiSuggestionLayer) {
@@ -6281,6 +6282,114 @@ function updateReferenceSuggestions(analysis) {
         }
     }
     
+    // 🎯 FUNÇÃO DE ORDENAÇÃO DETERMINÍSTICA UNIVERSAL
+    function applyFinalDeterministicOrdering(suggestions) {
+        if (!Array.isArray(suggestions) || suggestions.length === 0) {
+            return suggestions;
+        }
+
+        // 🎯 CONSTANTE DE PRIORIDADE TÉCNICA (conforme solicitado no pedido)
+        const SUGGESTION_PRIORITY = {
+            // Nível 1: CRÍTICO - True Peak deve ser sempre primeiro
+            true_peak: 10,
+            reference_true_peak: 10,
+            reference_true_peak_critical: 10,
+            reference_true_peak_warning: 10,
+            heuristic_true_peak: 10,
+            
+            // Nível 2: LOUDNESS - Segundo mais importante
+            lufs: 20,
+            reference_loudness: 20,
+            heuristic_lufs: 20,
+            
+            // Nível 3: DINÂMICA - Terceiro
+            dr: 30,
+            reference_dynamics: 30,
+            heuristic_lra: 30,
+            
+            // Nível 4: LRA - Quarto
+            lra: 40,
+            reference_lra: 40,
+            
+            // Nível 5: ESTÉREO - Quinto
+            stereo: 50,
+            reference_stereo: 50,
+            heuristic_stereo: 50,
+            
+            // Nível 6: BANDAS ESPECTRAIS - Por último (conforme solicitado)
+            sub: 100,
+            bass: 110,
+            low_mid: 120,
+            lowMid: 120,
+            mid: 130,
+            high_mid: 140,
+            highMid: 140,
+            presence: 150,
+            presenca: 150,
+            air: 160,
+            brilho: 160,
+            
+            // Tipos de banda
+            band_adjust: 170,
+            reference_band_comparison: 170,
+            heuristic_spectral_imbalance: 170
+        };
+
+        // 🎯 FUNÇÃO DE COMPARAÇÃO ESTÁVEL (conforme solicitado no pedido)
+        function stableSuggestionSort(a, b) {
+            // Normalizar metricKey/tipo para busca de prioridade
+            const getMetricKey = (suggestion) => {
+                return suggestion.metricKey || 
+                       suggestion.type || 
+                       suggestion.subtype || 
+                       suggestion.band || 
+                       'unknown';
+            };
+
+            const keyA = getMetricKey(a);
+            const keyB = getMetricKey(b);
+            
+            const pa = SUGGESTION_PRIORITY[keyA] ?? 9999;
+            const pb = SUGGESTION_PRIORITY[keyB] ?? 9999;
+            
+            // 1. Primeiro: ordenar por prioridade técnica
+            if (pa !== pb) return pa - pb;
+            
+            // 2. Segundo: ordenar por priority numérica (mais alta primeiro)
+            const priorityA = a.priority || 0;
+            const priorityB = b.priority || 0;
+            if (priorityA !== priorityB) return priorityB - priorityA;
+            
+            // 3. Terceiro: ordenar por severidade
+            const severityOrder = { 'red': 1, 'orange': 2, 'yellow': 3, 'green': 4 };
+            const severityA = severityOrder[a.severity?.level] || 999;
+            const severityB = severityOrder[b.severity?.level] || 999;
+            if (severityA !== severityB) return severityA - severityB;
+            
+            // 4. Quarto: ordenar alfabeticamente para estabilidade
+            return (keyA || '').localeCompare(keyB || '');
+        }
+
+        // 🎯 APLICAR ORDENAÇÃO
+        const orderedSuggestions = [...suggestions].sort(stableSuggestionSort);
+        
+        console.log('🎯 [ORDENAÇÃO] Aplicada ordenação determinística:', {
+            originalCount: suggestions.length,
+            orderedCount: orderedSuggestions.length,
+            firstSuggestion: orderedSuggestions[0] ? {
+                type: orderedSuggestions[0].type,
+                metricKey: orderedSuggestions[0].metricKey,
+                priority: SUGGESTION_PRIORITY[orderedSuggestions[0].type || orderedSuggestions[0].metricKey] || 'not_found'
+            } : null,
+            truePeakFirst: orderedSuggestions[0] && (
+                orderedSuggestions[0].type?.includes('true_peak') || 
+                orderedSuggestions[0].metricKey?.includes('true_peak')
+            )
+        });
+        
+        return orderedSuggestions;
+    }
+
     // 🔄 SISTEMA LEGADO (fallback)
     const ref = __activeRefData;
     const tech = analysis.technicalData;
