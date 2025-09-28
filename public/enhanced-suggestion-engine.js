@@ -1177,6 +1177,7 @@ class EnhancedSuggestionEngine {
                 
                 // 🎯 GARANTIR CAMPOS OBRIGATÓRIOS PARA MÉTRICAS PRINCIPAIS (incluindo LRA)
                 suggestion.icon = this.getMetricIcon(metric.metricType);
+                suggestion.metricKey = metric.metricType; // ← CRITICAL: Define metricKey para ordenação
                 suggestion.targetValue = target;
                 suggestion.currentValue = value;
                 
