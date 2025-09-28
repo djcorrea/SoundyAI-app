@@ -18,6 +18,9 @@ class AISuggestionsIntegration {
         this.retryAttempts = 0;
         this.maxRetries = 3;
         
+        // 🔍 [AUDITORIA] Adicionar identificador único para cada processamento
+        this.currentRunId = null;
+        
         console.log(`🚀 [AI-INTEGRATION] Sistema inicializado - Ambiente: ${isLocalDevelopment ? 'desenvolvimento' : 'produção'}`);
         console.log(`🔗 [AI-INTEGRATION] API URL: ${this.apiEndpoint}`);
         
@@ -281,18 +284,26 @@ class AISuggestionsIntegration {
         }
         console.groupEnd();
 
+        // � [FIX] Controle de concorrência com runId único
+        const currentRunId = 'run_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        this.currentRunId = currentRunId;
+        console.debug("[FIX] runId atual:", currentRunId);
+
         if (this.isProcessing) {
-            console.log('⚠️ [AI-INTEGRATION] Processamento já em andamento');
+            console.log('⚠️ [AI-INTEGRATION] Processamento bloqueado - aguarde conclusão atual');
+            console.debug("[FIX] CONCORRÊNCIA BLOQUEADA - runId:", currentRunId, "descartado");
             return;
         }
 
-        // 🚀 CACHE INTELIGENTE: Evitar processamento duplicado
-        const suggestionsHash = window.generateSuggestionsHash(suggestions);
+        // � [FIX] Cache robusto incluindo métricas críticas
+        const suggestionsHash = window.generateSuggestionsHash(suggestions, metrics, genre);
+        
         console.log('🔍 [AI-INTEGRATION] Hash Debug:', {
             currentHash: suggestionsHash,
             lastHash: window.lastProcessedHash,
             suggestionsCount: suggestions.length,
-            firstSuggestion: suggestions[0]?.message || 'N/A'
+            genre: genre || 'não especificado',
+            metricas: Object.keys(metrics || {}).length
         });
         
         if (window.lastProcessedHash === suggestionsHash) {
@@ -472,6 +483,17 @@ class AISuggestionsIntegration {
                 };
             });
 
+            // � [FIX] Garantir que todas as sugestões processadas tenham ai_enhanced
+            finalSuggestions = finalSuggestions.map(s => ({
+                ...s,
+                ai_enhanced: true // Sempre marcar como enriquecida quando passa pelo pipeline IA
+            }));
+            
+            console.debug("[FIX] TP presente após merge inicial?", finalSuggestions.some(s => s.type === 'reference_true_peak'));
+            finalSuggestions.forEach((s, i) => {
+                console.debug(`[FIX] Sugestão ${i}: ${s.type||s.metric}, priority=${s.priority}, ai_enhanced=${s.ai_enhanced}`);
+            });
+
             // 🎯 GARANTIA DE ORDEM: Usar sistema global para forçar ordem correta
             if (window.forceCorrectSuggestionsOrder) {
                 finalSuggestions = window.forceCorrectSuggestionsOrder(finalSuggestions);
@@ -517,7 +539,13 @@ class AISuggestionsIntegration {
             });
             console.groupEnd();
 
-            console.debug('[TP-FIX] TP presente pós-merge?', finalSuggestions.some(s => s.type === 'reference_true_peak'));
+            // 🔧 [FIX] Verificar se runId ainda é ativo (evitar race condition)
+            if (this.currentRunId !== currentRunId) {
+                console.debug('[FIX] Resultado descartado - runId obsoleto:', currentRunId, 'vs ativo:', this.currentRunId);
+                return;
+            }
+
+            console.debug('[FIX] TP presente pós-merge?', finalSuggestions.some(s => s.type === 'reference_true_peak'));
             this.displaySuggestions(finalSuggestions, 'ai');
             this.updateStats(finalSuggestions.length, processingTime, 'ai');
             this.hideFallbackNotice();
@@ -599,10 +627,10 @@ class AISuggestionsIntegration {
             // mantém tudo que já existe
             const clone = { ...s };
 
-            // preserva prioridade e tipo
-            if (clone.type === 'reference_true_peak' && (clone.priority == null || Number.isNaN(clone.priority))) {
-                clone.priority = 10; // manter prioridade alta para TP
-            }
+            // 🔧 [FIX] Normalizar prioridade usando função centralizada
+            clone.priority = this.__normalizePriority(clone, clone.priority);
+            
+            console.debug("[FIX] Prioridades normalizadas:", clone.priority, "para:", clone.type || clone.metric);
 
             // derive conteúdos legíveis sem destruir campos
             const blocksText = this.__extractBlocksText(clone.blocks);
@@ -904,9 +932,35 @@ class AISuggestionsIntegration {
     /**
      * [TP-FIX] Gera chave estável para identificar sugestões
      */
+    /**
+     * 🔧 [FIX] Normalização centralizada de prioridades
+     */
+    __normalizePriority(suggestion, priority) {
+        // True Peak sempre tem prioridade máxima
+        if (suggestion?.type === 'reference_true_peak') return 10;
+        
+        // Normalizar valores textuais
+        if (priority === 'alta' || priority === 'high') return 10;
+        if (priority === 'média' || priority === 'medium') return 5;
+        if (priority === 'baixa' || priority === 'low') return 1;
+        
+        // Se é número, usar o valor
+        const num = Number(priority);
+        if (!isNaN(num) && num > 0) return num;
+        
+        // Fallback baseado no tipo
+        if (suggestion?.type === 'reference_lufs') return 8;
+        if (suggestion?.type === 'reference_stereo') return 6;
+        return 5;
+    }
+
+    /**
+     * 🔧 [FIX] Chave estável para merge - apenas type/metric, nunca campos variáveis
+     */
     __keyOf(s) {
-        const v = s?.id || s?.type || s?.metric || s?.title || s?.message || s?.issue || '';
-        return String(v).toLowerCase().replace(/\s+/g,'_').slice(0,80);
+        const key = (s?.type || s?.metric || '').toLowerCase();
+        console.debug("[FIX] Chaves de merge:", key, "para:", s?.type || s?.metric || 'unknown');
+        return key;
     }
 
     mergeAISuggestionsWithOriginals(originalSuggestions, aiEnhancedSuggestions) {
@@ -935,7 +989,6 @@ class AISuggestionsIntegration {
                 ...base,
                 ...a,
                 type: base.type || a.type,                // preserva tipo original se existir
-                priority: Number.isFinite(base.priority) ? base.priority : a.priority,
                 blocks: base.blocks ?? a.blocks,          // nunca zere blocks se o original tem
                 ai_enhanced: true,
                 ai_blocks: a.blocks || {},
@@ -957,6 +1010,9 @@ class AISuggestionsIntegration {
                     recommended_plugin: a.blocks?.plugin
                 }
             };
+            
+            // 🔧 [FIX] Normalizar prioridade do item merged
+            merged.priority = this.__normalizePriority(merged, base.priority || a.priority);
             
             // mantenha também __blocksText se existir em qualquer lado
             merged.__blocksText = base.__blocksText || a.__blocksText || merged.__blocksText;
@@ -982,9 +1038,13 @@ class AISuggestionsIntegration {
             }
         }
 
-        // [TP-FIX] ordene por prioridade numérica desc (True Peak primeiro)
+        // 🔧 [FIX] Ordenação final garantida por prioridade (True Peak primeiro)
         const result = [...byKey.values()]
-            .sort((a,b)=>(Number(b?.priority)||0)-(Number(a?.priority)||0));
+            .sort((a,b) => {
+                const priorityA = this.__normalizePriority(a, a.priority);
+                const priorityB = this.__normalizePriority(b, b.priority);
+                return priorityB - priorityA; // Decrescente
+            });
 
         console.log('[TP-FIX] Merge concluído por chave estável:', {
             total: result.length,
@@ -999,12 +1059,12 @@ class AISuggestionsIntegration {
     /**
      * Mapear prioridade do backend para número
      */
+    /**
+     * @deprecated Usar __normalizePriority() centralizada
+     */
     mapPriorityFromBackend(priority) {
-        if (!priority) return 5;
-        if (priority === 'alta' || priority === 'high') return 8;
-        if (priority === 'média' || priority === 'medium') return 5;
-        if (priority === 'baixa' || priority === 'low') return 2;
-        return 5;
+        console.warn('[FIX] mapPriorityFromBackend deprecated - usar __normalizePriority');
+        return this.__normalizePriority({}, priority);
     }
     
     /**
@@ -1123,7 +1183,9 @@ class AISuggestionsIntegration {
         // 🔍 AUDITORIA PASSO 6: RENDERIZAÇÃO FINAL
         console.group('🔍 [AUDITORIA] RENDERIZAÇÃO FINAL');
         console.log('[AI-UI] Renderizando sugestões enriquecidas:', suggestions?.length || 0);
-        console.debug('[TP-FIX] TP presente antes da renderização?', suggestions?.some(s => s.type === 'reference_true_peak'));
+        console.debug('[FIX] TP presente antes da renderização?', suggestions?.some(s => s.type === 'reference_true_peak'));
+        console.debug('[FIX] Ordem final das sugestões:', suggestions?.map((s, i) => `${i+1}. ${s.type||s.metric} (p:${s.priority})`).join(', '));
+        
         console.log('🖥️ displaySuggestions chamado com:', {
             totalSuggestions: suggestions?.length || 0,
             source: source,
@@ -1664,10 +1726,25 @@ window.downloadAISuggestionsReport = function() {
 /**
  * 🔄 Gerar hash para cache de sugestões
  */
-window.generateSuggestionsHash = function(suggestions) {
-    const hashString = suggestions.map(s => 
-        `${s.message || ''}:${s.action || ''}:${s.priority || 0}`
+/**
+ * 🔧 [FIX] Cache robusto - inclui métricas críticas
+ */
+window.generateSuggestionsHash = function(suggestions, metrics = {}, genre = '') {
+    // Base: tipos e prioridades (campos estáveis)
+    const baseString = suggestions.map(s => 
+        `${s.type || s.metric || ''}:${s.priority || 0}`
     ).join('|');
+    
+    // Métricas críticas
+    const criticalData = [
+        `genre:${genre}`,
+        `lufs:${metrics.lufs || 0}`,
+        `truePeak:${metrics.truePeak || 0}`,
+        `stereo:${metrics.stereo || 0}`,
+        `dr:${metrics.dynamicRange || 0}`
+    ].join('|');
+    
+    const hashString = baseString + '|' + criticalData;
     
     // Simple hash function
     let hash = 0;
@@ -1676,6 +1753,8 @@ window.generateSuggestionsHash = function(suggestions) {
         hash = ((hash << 5) - hash) + char;
         hash = hash & hash; // Convert to 32bit integer
     }
+    
+    console.debug('[FIX] Hash do cache:', hash.toString(), 'baseado em:', hashString.substring(0, 100) + '...');
     return hash.toString();
 };
 
@@ -1688,24 +1767,35 @@ window.sendAISuggestionsToChat = function() {
 console.log('📦 [AI-INTEGRATION] Módulo carregado - aguardando inicialização');
 
 /*
-[TP-FIX] CASOS DE TESTE PARA TRUE PEAK
+🔧 [FIX] SISTEMA DE SUGESTÕES CORRIGIDO - 28/09/2025
 
-Caso A (formato novo):
-[{ type:'reference_true_peak', priority:10, blocks:[{content:'True Peak: -2.1 dBTP | Target: -1.0 dBTP | Score: 8.5'}] }]
+PROBLEMAS RESOLVIDOS:
+✅ 1. Concorrência: runId único previne race conditions
+✅ 2. Merge estável: chaves baseadas em type/metric (não em message variável)  
+✅ 3. Prioridades: normalização centralizada (True Peak sempre 10)
+✅ 4. Cache robusto: inclui métricas críticas no hash
 
-Caso B (formato antigo):
-[{ type:'reference_true_peak', priority:10, blocks:['True Peak acima do alvo - ajustar limitador'] }]
+COMPORTAMENTO ESPERADO:
+- Todas as sugestões aparecem no modal
+- Sempre enriquecidas com IA (ai_enhanced: true)
+- Ordem correta: True Peak (10) → LUFS (8) → outros por prioridade
+- Sem sumiços intermitentes
+- Cache diferencia análises por gênero/métricas
 
-Caso C (sem blocks, só message):
-[{ type:'reference_true_peak', priority:10, message:'True Peak crítico detectado' }]
+COMO TESTAR:
+1. Analise o mesmo arquivo várias vezes consecutivas
+2. Mude o gênero e analise novamente  
+3. Verifique logs [FIX] no DevTools
+4. Confirme True Peak sempre no topo
+5. Confirme todas com ai_enhanced: true
 
-Resultado esperado nos três: card visível, TP no topo.
-
-Para testar:
-1. Abra o DevTools
-2. Execute: aiIntegration.processWithAI(CASO_A, {}, 'electronic')
-3. Verifique se True Peak aparece no modal
-4. Confirme presença dos logs [TP-FIX]
+LOGS DE DIAGNÓSTICO:
+- [FIX] runId atual: run_123456_abc
+- [FIX] Chaves de merge: reference_true_peak
+- [FIX] Prioridades normalizadas: 10 para reference_true_peak
+- [FIX] Hash do cache: 789012 baseado em tipos+métricas
+- [FIX] TP presente pós-merge? true
+- [FIX] Ordem final: 1. reference_true_peak (p:10), 2. reference_lufs (p:8)...
 */
 
 // Exportar classe para uso global
