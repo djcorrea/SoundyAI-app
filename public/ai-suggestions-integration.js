@@ -1203,6 +1203,12 @@ class AISuggestionsIntegration {
      * Integração com sistema existente
      */
     integrateWithExistingSystem() {
+        // 🔒 PROTEÇÃO: Evitar múltiplas integrações
+        if (window.displayModalResults?.__aiIntegrationHooked) {
+            console.log('🔒 [AI-INTEGRATION] Sistema já integrado - pulando dupla integração');
+            return;
+        }
+        
         // Hook into displayModalResults to trigger AI processing
         const originalDisplayModalResults = window.displayModalResults;
         
@@ -1259,6 +1265,9 @@ class AISuggestionsIntegration {
                 
                 return result;
             };
+            
+            // 🔒 MARCAR COMO INTEGRADO
+            window.displayModalResults.__aiIntegrationHooked = true;
             
             console.log('✅ [AI-INTEGRATION] Integração com displayModalResults configurada');
         } else {

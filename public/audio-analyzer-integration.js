@@ -5568,7 +5568,12 @@ function calculateMetricScore(actualValue, targetValue, tolerance, metricName = 
     }
     
     // FALLBACK: Versão básica para compatibilidade (caso scoring.js não tenha carregado)
-    console.warn('⚠️ FALLBACK: usando calculateMetricScore local (scoring.js não disponível)');
+    console.warn('⚠️ FALLBACK: usando calculateMetricScore local (scoring.js não disponível)', {
+        hasWindow: typeof window !== 'undefined',
+        hasFunction: typeof window?.calculateMetricScore === 'function',
+        isDifferent: window?.calculateMetricScore !== calculateMetricScore,
+        scoringVersion: window?.__MIX_SCORING_VERSION__
+    });
     
     // Parâmetros configuráveis com defaults
     const {
