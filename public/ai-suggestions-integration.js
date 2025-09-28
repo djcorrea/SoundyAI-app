@@ -670,9 +670,17 @@ class AISuggestionsIntegration {
                         frequency_range: aiSuggestion.metadata?.frequency_range || '',
                         tools_suggested: this.extractToolsFromBlocks(aiSuggestion.blocks)
                     },
-                    // Atualizar título e descrição com versões enriquecidas se disponível
-                    title: aiSuggestion.blocks?.problem || originalSuggestion.title || originalSuggestion.message,
-                    description: aiSuggestion.blocks?.solution || originalSuggestion.description || originalSuggestion.action
+                    // 🎯 PRESERVAR valores específicos de dB das sugestões originais
+                    // Manter title/description originais que contêm informações técnicas precisas
+                    title: originalSuggestion.title || originalSuggestion.message || aiSuggestion.blocks?.problem,
+                    description: originalSuggestion.description || originalSuggestion.action || aiSuggestion.blocks?.solution,
+                    // Adicionar blocos IA como enriquecimento adicional
+                    ai_enrichment: {
+                        problem_analysis: aiSuggestion.blocks?.problem,
+                        enhanced_solution: aiSuggestion.blocks?.solution,
+                        professional_tip: aiSuggestion.blocks?.tip,
+                        recommended_plugin: aiSuggestion.blocks?.plugin
+                    }
                 };
                 
                 mergedSuggestions.push(merged);
@@ -960,7 +968,23 @@ class AISuggestionsIntegration {
             plugin: suggestion.plugin || suggestion.blocks?.plugin,
             result: suggestion.resultado || suggestion.blocks?.result
         };
-        const metadata = suggestion.metadata || { priority: 'média', difficulty: 'intermediário' };
+        
+        // 🎯 PRESERVAR PRIORIDADE ORIGINAL da sugestão do Enhanced Engine
+        let originalPriority = 'média'; // fallback
+        if (suggestion.priority) {
+            if (typeof suggestion.priority === 'number') {
+                if (suggestion.priority >= 8) originalPriority = 'alta';
+                else if (suggestion.priority >= 5) originalPriority = 'média';
+                else originalPriority = 'baixa';
+            } else {
+                originalPriority = suggestion.priority;
+            }
+        }
+        
+        const metadata = suggestion.metadata || { 
+            priority: originalPriority, 
+            difficulty: suggestion.difficulty || 'intermediário' 
+        };
         const isAIEnhanced = true;
         
         card.innerHTML = `
@@ -1205,11 +1229,20 @@ class AISuggestionsIntegration {
                     const genre = analysis.metadata?.genre || analysis.genre || window.PROD_AI_REF_GENRE;
                     const metrics = analysis.technicalData || {};
                     
+                    // 🎯 CACHE PREVENTIVO: Verificar se já processamos essas sugestões
+                    const quickHash = window.generateSuggestionsHash(analysis.suggestions);
+                    if (window.lastProcessedHash === quickHash) {
+                        console.log('🎯 [AI-INTEGRATION] Cache preventivo: sugestões já processadas, ignorando');
+                        return result;
+                    }
+                    
                     console.log('🔗 [AI-INTEGRATION] Interceptando sugestões para processamento IA');
                     
                     // Delay slightly to ensure modal is rendered
                     setTimeout(() => {
-                        this.processWithAI(analysis.suggestions, metrics, genre);
+                        if (window.aiIntegration && !window.aiIntegration.isProcessing) {
+                            window.aiIntegration.processWithAI(analysis.suggestions, metrics, genre);
+                        }
                     }, 100);
                 }
                 
