@@ -105,12 +105,32 @@
             
             console.log(`🚨 [EMERGÊNCIA] ${suggestions.length} sugestões geradas`);
             
+            // 🎯 CORREÇÃO CRÍTICA: GARANTIR ORDEM CORRETA NO SISTEMA DE EMERGÊNCIA
+            // True Peak → LUFS → DR → LRA → Stereo → Bandas
+            const priorityOrder = {
+                'true_peak': 10,  // Máxima prioridade
+                'lufs': 8,
+                'dr': 6,
+                'lra': 4,
+                'stereo': 2
+            };
+            
+            // Aplicar prioridades e ordenar
+            suggestions = suggestions.map(sug => {
+                sug.priority = priorityOrder[sug.metric] || 1;
+                return sug;
+            }).sort((a, b) => b.priority - a.priority);
+            
+            console.log('🎯 [EMERGÊNCIA] Sugestões ordenadas por prioridade:', 
+                suggestions.map(s => `${s.metric}(${s.priority})`).join(' → '));
+            
             return {
                 suggestions: suggestions,
                 _suggestionMetadata: {
                     processingTimeMs: 1,
                     genre: ref.genre,
-                    emergency: true
+                    emergency: true,
+                    orderedByPriority: true
                 }
             };
         }
@@ -145,9 +165,23 @@
                         // Se obteve sugestões, usar resultado avançado
                         if (result.suggestions && result.suggestions.length > 0) {
                             console.log('✅ [HÍBRIDO] Usando resultado do engine avançado');
+                            console.log('🎯 [AUDITORIA] SISTEMA HYBRID/ENHANCED ENGINE ATIVO');
+                            
+                            // 🎯 CORREÇÃO: Garantir ordem correta mesmo no engine avançado
+                            if (result.suggestions) {
+                                result.suggestions.sort((a, b) => {
+                                    const priorityA = parseFloat(a.priority) || 1;
+                                    const priorityB = parseFloat(b.priority) || 1;
+                                    return priorityB - priorityA; // Ordem decrescente
+                                });
+                                console.log('🎯 [HÍBRIDO] Sugestões reordenadas por prioridade:', 
+                                    result.suggestions.map(s => `${s.type || s.metric}(${s.priority})`).join(' → '));
+                            }
+                            
                             return result;
                         } else {
                             console.warn('⚠️ [HÍBRIDO] Engine avançado não gerou sugestões - usando fallback');
+                            console.log('🚨 [AUDITORIA] SISTEMA EMERGENCY ATIVO - Engine avançado falhou');
                             return this.emergencyEngine.process(analysis, referenceData);
                         }
                         

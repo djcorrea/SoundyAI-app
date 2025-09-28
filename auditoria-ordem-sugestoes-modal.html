@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔧 AUDITORIA: Ordem das Sugestões no Modal</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 20px; background: #0a0a0a; color: #e0e0e0; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header { background: linear-gradient(135deg, #1e3c72, #2a5298); padding: 20px; border-radius: 12px; margin-bottom: 20px; }
+        .section { background: #1a1a1a; padding: 20px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #4CAF50; }
+        .problem { background: #2d1b1b; border-left-color: #f44336; }
+        .solution { background: #1b2d1b; border-left-color: #4CAF50; }
+        .test-section { background: #1a2d1a; padding: 20px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #4CAF50; }
+        .code { background: #0d1117; padding: 15px; border-radius: 6px; margin: 10px 0; font-family: 'Fira Code', 'Consolas', monospace; font-size: 13px; overflow-x: auto; border: 1px solid #30363d; }
+        .logs { background: #1c1c1c; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 12px; max-height: 400px; overflow-y: auto; }
+        .emoji { font-size: 1.3em; margin-right: 8px; }
+        .success { color: #51cf66; font-weight: bold; }
+        .error { color: #ff6b6b; font-weight: bold; }
+        .warning { color: #ffd43b; font-weight: bold; }
+        ul li { margin: 8px 0; }
+        button { background: #2a5298; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 14px; margin: 10px 5px; }
+        button:hover { background: #1e3c72; }
+        .status-indicator { padding: 5px 10px; border-radius: 15px; font-size: 12px; font-weight: bold; margin: 0 5px; }
+        .status-ok { background: #1b5e1f; color: #51cf66; }
+        .status-error { background: #5e1b1b; color: #ff6b6b; }
+        .status-warning { background: #5e4b1b; color: #ffd43b; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><span class="emoji">🔧</span>AUDITORIA: Ordem das Sugestões no Modal</h1>
+            <p><strong>Objetivo:</strong> Verificar se as sugestões aparecem na ordem correta: True Peak → LUFS → DR → LRA → Stereo → Bandas</p>
+            <p><strong>Status dos Sistemas:</strong> <span id="systemStatus">⏳ Verificando...</span></p>
+        </div>
+
+        <!-- DIAGNÓSTICO DOS SISTEMAS -->
+        <div class="section">
+            <h2><span class="emoji">🔍</span>Diagnóstico dos Sistemas de Sugestões</h2>
+            
+            <div id="systemDiagnostic">
+                <p>Executando diagnóstico dos sistemas...</p>
+            </div>
+            
+            <button onclick="runSystemDiagnostic()">🔍 Executar Diagnóstico Completo</button>
+            <button onclick="clearLogs()">🧹 Limpar Logs</button>
+        </div>
+
+        <!-- TESTES PRÁTICOS -->
+        <div class="test-section">
+            <h2><span class="emoji">🧪</span>Testes Práticos de Ordem</h2>
+            
+            <button onclick="testOrderFunction()">🎯 Testar Função de Ordem Global</button>
+            <button onclick="simulateSuggestions()">📋 Simular Sugestões Desordenadas</button>
+            <button onclick="inspectModalElements()">🔍 Inspecionar Elementos do Modal</button>
+            
+            <div id="testResults" class="logs">
+                <div>Clique nos botões acima para executar testes específicos...</div>
+            </div>
+        </div>
+
+        <!-- INSTRUÇÕES DE USO -->
+        <div class="section">
+            <h2><span class="emoji">📋</span>Como Usar Esta Auditoria</h2>
+            
+            <ol>
+                <li><strong>Execute o Diagnóstico:</strong> Clique em "Executar Diagnóstico Completo" para verificar todos os sistemas</li>
+                <li><strong>Analise os Logs:</strong> Observe se há mensagens de erro ou conflitos entre sistemas</li>
+                <li><strong>Teste a Ordem:</strong> Use os testes práticos para verificar se a função de ordem está funcionando</li>
+                <li><strong>Analise um Áudio Real:</strong> Execute uma análise no projeto principal e observe os logs do console</li>
+                <li><strong>Verifique no Modal:</strong> Confirme se as sugestões aparecem na ordem: TP → LUFS → DR → LRA → Stereo → Bandas</li>
+            </ol>
+        </div>
+
+        <!-- LOGS ESPERADOS -->
+        <div class="section">
+            <h2><span class="emoji">📊</span>Logs que Você Deve Ver (Ordem Correta)</h2>
+            <div class="logs">
+<strong class="success">✅ LOGS CORRETOS (AI Integration Ativo):</strong>
+
+🎯 [AI-INTEGRATION] SISTEMA PRINCIPAL ATIVO - Sugestões renderizadas no #aiExpandedGrid
+🎯 [AUDITORIA] ORDEM FINAL DOS CARDS RENDERIZADOS
+📊 Ordem dos cards no DOM (deve ser TP → LUFS → DR → LRA → Stereo → Bandas):
+🔴 Card 1: Priority 10 - ⚠️ True Peak alto - CORRIJA PRIMEIRO antes de outros...
+🟡 Card 2: Priority 8 - LUFS fora do alvo...
+🟡 Card 3: Priority 6 - Dynamic Range muito baixo...
+🟡 Card 4: Priority 4 - Correlação estéreo muito alta...
+🟢 Card 5: Priority 2 - Banda mid pode ser reforçada...
+
+<strong class="warning">⚠️ LOGS DE PROBLEMA (Sistema Emergency Ativo):</strong>
+
+🚨 [AUDITORIA] SISTEMA EMERGENCY ATIVO - Engine avançado falhou
+🎯 [EMERGÊNCIA] Sugestões ordenadas por prioridade: true_peak(10) → lufs(8) → dr(6)
+
+<strong class="error">❌ LOGS DE ERRO (Sistemas Conflitantes):</strong>
+
+⚠️ [AUDITORIA] Renderização externa detectada no grid!
+⚠️ [AI-INTEGRATION] displayModalResults não encontrada - aguardando...
+❌ [AI-INTEGRATION] Elementos obrigatórios não encontrados: ['grid']
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let diagnosticResults = [];
+        
+        function log(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            const emoji = type === 'success' ? '✅' : type === 'error' ? '❌' : type === 'warning' ? '⚠️' : 'ℹ️';
+            
+            diagnosticResults.push(`[${timestamp}] ${emoji} ${message}`);
+            updateTestResults();
+            
+            console.log(`${emoji} [AUDIT] ${message}`);
+        }
+        
+        function updateTestResults() {
+            const resultsDiv = document.getElementById('testResults');
+            if (resultsDiv) {
+                resultsDiv.innerHTML = diagnosticResults.map(result => 
+                    `<div class="${result.includes('✅') ? 'success' : result.includes('❌') ? 'error' : result.includes('⚠️') ? 'warning' : ''}">${result}</div>`
+                ).join('');
+                resultsDiv.scrollTop = resultsDiv.scrollHeight;
+            }
+        }
+        
+        function clearLogs() {
+            diagnosticResults = [];
+            updateTestResults();
+            document.getElementById('testResults').innerHTML = '<div>Logs limpos. Execute novos testes...</div>';
+        }
+        
+        function updateSystemStatus(message, type = 'info') {
+            const statusElement = document.getElementById('systemStatus');
+            if (statusElement) {
+                const statusClass = type === 'success' ? 'status-ok' : type === 'error' ? 'status-error' : 'status-warning';
+                statusElement.innerHTML = `<span class="status-indicator ${statusClass}">${message}</span>`;
+            }
+        }
+        
+        async function runSystemDiagnostic() {
+            log('🔍 Iniciando diagnóstico completo dos sistemas de sugestões...', 'info');
+            
+            const diagnosticDiv = document.getElementById('systemDiagnostic');
+            let diagnosticHtml = '<h3>📊 Resultados do Diagnóstico:</h3><ul>';
+            
+            // 1. Verificar AI Integration
+            const hasAiIntegration = typeof window.aiIntegration !== 'undefined';
+            const aiIntegrationStatus = hasAiIntegration ? 'Disponível' : 'Ausente';
+            diagnosticHtml += `<li>AI Integration System: <span class="${hasAiIntegration ? 'success' : 'error'}">${aiIntegrationStatus}</span></li>`;
+            log(`AI Integration System: ${aiIntegrationStatus}`, hasAiIntegration ? 'success' : 'error');
+            
+            // 2. Verificar Enhanced Engine
+            const hasEnhancedEngine = typeof window.EnhancedSuggestionEngine !== 'undefined';
+            const enhancedEngineStatus = hasEnhancedEngine ? 'Disponível' : 'Ausente';
+            diagnosticHtml += `<li>Enhanced Suggestion Engine: <span class="${hasEnhancedEngine ? 'success' : 'error'}">${enhancedEngineStatus}</span></li>`;
+            log(`Enhanced Suggestion Engine: ${enhancedEngineStatus}`, hasEnhancedEngine ? 'success' : 'error');
+            
+            // 3. Verificar Emergency System
+            const hasEmergencySystem = typeof window.suggestionSystem !== 'undefined';
+            const emergencySystemStatus = hasEmergencySystem ? 'Disponível' : 'Ausente';
+            diagnosticHtml += `<li>Emergency System: <span class="${hasEmergencySystem ? 'success' : 'error'}">${emergencySystemStatus}</span></li>`;
+            log(`Emergency System: ${emergencySystemStatus}`, hasEmergencySystem ? 'success' : 'error');
+            
+            // 4. Verificar displayModalResults
+            const hasDisplayModalResults = typeof window.displayModalResults === 'function';
+            const displayModalResultsStatus = hasDisplayModalResults ? 'Disponível' : 'Ausente';
+            diagnosticHtml += `<li>displayModalResults Function: <span class="${hasDisplayModalResults ? 'success' : 'error'}">${displayModalResultsStatus}</span></li>`;
+            log(`displayModalResults Function: ${displayModalResultsStatus}`, hasDisplayModalResults ? 'success' : 'error');
+            
+            // 5. Verificar elementos do DOM
+            const aiGrid = document.getElementById('aiExpandedGrid');
+            const hasAiGrid = !!aiGrid;
+            const aiGridStatus = hasAiGrid ? 'Encontrado' : 'Ausente';
+            diagnosticHtml += `<li>AI Grid Element (#aiExpandedGrid): <span class="${hasAiGrid ? 'success' : 'error'}">${aiGridStatus}</span></li>`;
+            log(`AI Grid Element: ${aiGridStatus}`, hasAiGrid ? 'success' : 'error');
+            
+            // 6. Verificar função de ordem global
+            const hasOrderFunction = typeof window.forceCorrectSuggestionsOrder === 'function';
+            const orderFunctionStatus = hasOrderFunction ? 'Disponível' : 'Ausente';
+            diagnosticHtml += `<li>Global Order Function: <span class="${hasOrderFunction ? 'success' : 'error'}">${orderFunctionStatus}</span></li>`;
+            log(`Global Order Function: ${orderFunctionStatus}`, hasOrderFunction ? 'success' : 'error');
+            
+            diagnosticHtml += '</ul>';
+            
+            // Análise final
+            const systemsWorking = [hasAiIntegration, hasEnhancedEngine, hasDisplayModalResults, hasAiGrid].filter(Boolean).length;
+            const totalSystems = 4;
+            
+            if (systemsWorking === totalSystems) {
+                diagnosticHtml += '<p class="success">✅ Todos os sistemas principais estão funcionando!</p>';
+                updateSystemStatus('✅ Todos os sistemas OK', 'success');
+                log('Diagnóstico: Todos os sistemas principais funcionando', 'success');
+            } else if (systemsWorking >= 2) {
+                diagnosticHtml += '<p class="warning">⚠️ Alguns sistemas estão ausentes, mas o básico funciona</p>';
+                updateSystemStatus(`⚠️ ${systemsWorking}/${totalSystems} sistemas OK`, 'warning');
+                log(`Diagnóstico: ${systemsWorking}/${totalSystems} sistemas funcionando`, 'warning');
+            } else {
+                diagnosticHtml += '<p class="error">❌ Múltiplos sistemas críticos ausentes!</p>';
+                updateSystemStatus('❌ Sistemas críticos ausentes', 'error');
+                log('Diagnóstico: Múltiplos sistemas críticos ausentes', 'error');
+            }
+            
+            diagnosticDiv.innerHTML = diagnosticHtml;
+            log('🎯 Diagnóstico completo finalizado', 'info');
+        }
+        
+        function testOrderFunction() {
+            log('🎯 Testando função de ordem global...', 'info');
+            
+            if (typeof window.forceCorrectSuggestionsOrder !== 'function') {
+                log('❌ Função de ordem global não encontrada!', 'error');
+                return;
+            }
+            
+            // Criar sugestões de teste desordenadas
+            const testSuggestions = [
+                { type: 'band_adjust', priority: 2, message: 'Banda mid precisa de ajuste' },
+                { type: 'reference_true_peak', priority: 10, message: 'True Peak muito alto' },
+                { type: 'heuristic_stereo', priority: 4, message: 'Correlação estéreo inadequada' },
+                { type: 'reference_loudness', priority: 8, message: 'LUFS fora do alvo' },
+                { type: 'reference_dynamics', priority: 6, message: 'Dynamic Range baixo' }
+            ];
+            
+            log(`Sugestões originais (${testSuggestions.length}): ${testSuggestions.map(s => s.type).join(' → ')}`, 'info');
+            
+            const orderedSuggestions = window.forceCorrectSuggestionsOrder(testSuggestions);
+            
+            log(`Sugestões ordenadas (${orderedSuggestions.length}): ${orderedSuggestions.map(s => `${s.type}(${s.priority})`).join(' → ')}`, 'success');
+            
+            // Verificar se a ordem está correta
+            const expectedOrder = ['reference_true_peak', 'reference_loudness', 'reference_dynamics', 'heuristic_stereo', 'band_adjust'];
+            const actualOrder = orderedSuggestions.map(s => s.type);
+            
+            const isCorrectOrder = JSON.stringify(expectedOrder) === JSON.stringify(actualOrder);
+            
+            if (isCorrectOrder) {
+                log('✅ Ordem está CORRETA! True Peak primeiro, bandas por último', 'success');
+            } else {
+                log('❌ Ordem está INCORRETA!', 'error');
+                log(`Esperado: ${expectedOrder.join(' → ')}`, 'error');
+                log(`Atual: ${actualOrder.join(' → ')}`, 'error');
+            }
+        }
+        
+        function simulateSuggestions() {
+            log('📋 Simulando processamento de sugestões desordenadas...', 'info');
+            
+            // Simular o que acontece no AI Integration
+            const mockSuggestions = [
+                { type: 'heuristic_spectral_imbalance', priority: 1.2, message: 'Desbalanceamento espectral detectado' },
+                { type: 'reference_true_peak', priority: 9.8, message: '⚠️ True Peak alto - CORRIJA PRIMEIRO' },
+                { type: 'reference_stereo', priority: 3.4, message: 'Correlação estéreo fora do ideal' },
+                { type: 'reference_loudness', priority: 7.6, message: 'LUFS precisa ser ajustado' },
+                { type: 'band_adjust', priority: 2.1, message: 'Banda highMid pode ser reforçada' }
+            ];
+            
+            log('Simulando fluxo completo do AI Integration...', 'info');
+            log('1. Sugestões recebidas do Enhanced Engine', 'info');
+            log('2. Aplicando merge inteligente com backend IA', 'info');
+            log('3. Aplicando função de ordem global', 'info');
+            
+            if (window.forceCorrectSuggestionsOrder) {
+                const ordered = window.forceCorrectSuggestionsOrder(mockSuggestions);
+                log('4. Ordem aplicada com sucesso!', 'success');
+                
+                ordered.forEach((sug, index) => {
+                    const priorityEmoji = sug.priority >= 9 ? '🔴' : sug.priority >= 5 ? '🟡' : '🟢';
+                    log(`${priorityEmoji} Card ${index + 1}: Priority ${sug.priority} - ${sug.message}`, 'success');
+                });
+            } else {
+                log('4. ❌ Função de ordem não disponível!', 'error');
+            }
+        }
+        
+        function inspectModalElements() {
+            log('🔍 Inspecionando elementos do modal de sugestões...', 'info');
+            
+            const elements = {
+                'aiSuggestionsExpanded': document.getElementById('aiSuggestionsExpanded'),
+                'aiExpandedGrid': document.getElementById('aiExpandedGrid'),
+                'modalTechnicalData': document.getElementById('modalTechnicalData'),
+                'audioAnalysisResults': document.getElementById('audioAnalysisResults')
+            };
+            
+            Object.entries(elements).forEach(([name, element]) => {
+                if (element) {
+                    log(`✅ ${name}: Encontrado (${element.children.length} filhos)`, 'success');
+                    if (element.style.display === 'none') {
+                        log(`   └─ Status: Oculto (display: none)`, 'warning');
+                    } else {
+                        log(`   └─ Status: Visível`, 'success');
+                    }
+                } else {
+                    log(`❌ ${name}: Não encontrado`, 'error');
+                }
+            });
+            
+            // Verificar se há cards de sugestões renderizados
+            const aiGrid = document.getElementById('aiExpandedGrid');
+            if (aiGrid) {
+                const suggestionCards = aiGrid.querySelectorAll('.ai-suggestion-card');
+                log(`📋 Cards de sugestões encontrados: ${suggestionCards.length}`, suggestionCards.length > 0 ? 'success' : 'warning');
+                
+                if (suggestionCards.length > 0) {
+                    log('Ordem atual dos cards:', 'info');
+                    suggestionCards.forEach((card, index) => {
+                        const title = card.querySelector('.ai-suggestion-title')?.textContent || 'Sem título';
+                        log(`   Card ${index + 1}: ${title.substring(0, 50)}...`, 'info');
+                    });
+                }
+            }
+        }
+        
+        // Executar diagnóstico inicial quando a página carrega
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                runSystemDiagnostic();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -56,7 +56,91 @@ class AISuggestionsIntegration {
         }
         
         console.log('✅ [AI-INTEGRATION] Elementos validados com sucesso');
+        
+        // 🎯 SISTEMA DE AUDITORIA: Detectar conflitos de renderização
+        this.setupAuditSystem();
+        
+        // 🎯 SISTEMA DE GARANTIA: Função global para forçar ordem correta
+        this.setupOrderGuarantee();
+        
         return true;
+    }
+    
+    setupAuditSystem() {
+        // Observar mudanças no grid para detectar renderizações externas
+        if (this.elements.grid && window.MutationObserver) {
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                        const aiIntegrationActive = Array.from(mutation.addedNodes).some(node => 
+                            node.nodeType === 1 && node.classList && node.classList.contains('ai-suggestion-card')
+                        );
+                        
+                        if (!aiIntegrationActive && mutation.addedNodes.length > 0) {
+                            console.warn('⚠️ [AUDITORIA] Renderização externa detectada no grid!', {
+                                addedNodes: mutation.addedNodes.length,
+                                source: 'unknown-system',
+                                grid: this.elements.grid.id
+                            });
+                        }
+                    }
+                });
+            });
+            
+            observer.observe(this.elements.grid, { childList: true, subtree: true });
+            console.log('🔍 [AUDITORIA] Sistema de monitoramento de renderização ativo');
+        }
+    }
+    
+    setupOrderGuarantee() {
+        // 🎯 FUNÇÃO GLOBAL: Garantir ordem correta das sugestões
+        window.forceCorrectSuggestionsOrder = (suggestions) => {
+            if (!Array.isArray(suggestions)) return suggestions;
+            
+            console.log('🎯 [ORDER-GUARANTEE] Aplicando ordem correta forçada');
+            
+            // Definir ordem técnica correta
+            const typeOrder = {
+                'reference_true_peak': 10,
+                'heuristic_true_peak': 10,
+                'true_peak': 10,
+                'reference_loudness': 8,
+                'heuristic_lufs': 8,
+                'lufs': 8,
+                'reference_dynamics': 6,
+                'reference_lra': 6,
+                'heuristic_lra': 6,
+                'dr': 6,
+                'lra': 6,
+                'reference_stereo': 4,
+                'heuristic_stereo': 4,
+                'stereo': 4,
+                'band_adjust': 2,
+                'reference_band_comparison': 2,
+                'heuristic_spectral_imbalance': 2
+            };
+            
+            // Aplicar prioridades baseadas no tipo + prioridade original
+            const ordered = suggestions.map(sug => {
+                const basePriority = typeOrder[sug.type] || typeOrder[sug.metric] || 1;
+                const originalPriority = parseFloat(sug.priority) || 1;
+                
+                // Usar a maior prioridade entre tipo e original
+                sug.priority = Math.max(basePriority, originalPriority);
+                return sug;
+            }).sort((a, b) => {
+                const priorityA = parseFloat(a.priority) || 1;
+                const priorityB = parseFloat(b.priority) || 1;
+                return priorityB - priorityA; // Ordem decrescente
+            });
+            
+            console.log('🎯 [ORDER-GUARANTEE] Ordem aplicada:', 
+                ordered.slice(0, 5).map(s => `${s.type || s.metric}(${s.priority})`).join(' → '));
+            
+            return ordered;
+        };
+        
+        console.log('🎯 [ORDER-GUARANTEE] Sistema de garantia de ordem criado globalmente');
     }
     
     /**
@@ -276,14 +360,21 @@ class AISuggestionsIntegration {
                 };
             });
 
-            // 🎯 ORDENAÇÃO POR PRIORITY NUMÉRICA: True Peak PRIMEIRO!
-            finalSuggestions = finalSuggestions.sort((a, b) => {
-                const priorityA = parseFloat(a.priority) || 1;
-                const priorityB = parseFloat(b.priority) || 1;
-                
-                // True Peak tem priority 10 - deve vir PRIMEIRO (ordem decrescente)
-                return priorityB - priorityA;
-            });
+            // 🎯 GARANTIA DE ORDEM: Usar sistema global para forçar ordem correta
+            if (window.forceCorrectSuggestionsOrder) {
+                finalSuggestions = window.forceCorrectSuggestionsOrder(finalSuggestions);
+                console.log('🎯 [AI-INTEGRATION] Ordem forçada aplicada via sistema global');
+            } else {
+                // Fallback: Ordenação local
+                finalSuggestions = finalSuggestions.sort((a, b) => {
+                    const priorityA = parseFloat(a.priority) || 1;
+                    const priorityB = parseFloat(b.priority) || 1;
+                    
+                    // True Peak tem priority 10 - deve vir PRIMEIRO (ordem decrescente)
+                    return priorityB - priorityA;
+                });
+                console.log('🎯 [AI-INTEGRATION] Ordem aplicada via fallback local');
+            }
 
             console.group('🔍 [AUDITORIA] PASSO 4: MERGE INTELIGENTE COM PRESERVAÇÃO DE DETALHES');
             console.log('✅ Combinando detalhes originais + enriquecimento IA:', {
@@ -936,10 +1027,21 @@ class AISuggestionsIntegration {
             console.log(`🖥️ Card ${cardsCreated} criado para:`, {
                 index: index,
                 ai_enhanced: suggestion.ai_enhanced,
+                priority: suggestion.priority,
+                message: (suggestion.message || '').substring(0, 40) + '...',
                 cardElement: !!card,
                 appendedToGrid: true
             });
         });
+        
+        // 🎯 AUDITORIA VISUAL: Confirmar ordem dos cards renderizados
+        console.group('🎯 [AUDITORIA] ORDEM FINAL DOS CARDS RENDERIZADOS');
+        console.log('📊 Ordem dos cards no DOM (deve ser TP → LUFS → DR → LRA → Stereo → Bandas):');
+        suggestions.forEach((sug, index) => {
+            const priorityEmoji = sug.priority >= 9 ? '🔴' : sug.priority >= 5 ? '🟡' : '🟢';
+            console.log(`${priorityEmoji} Card ${index + 1}: Priority ${sug.priority} - ${(sug.message || '').substring(0, 50)}...`);
+        });
+        console.groupEnd();
         
         console.log('🔍 [AUDITORIA] CARDS FINAIS CRIADOS:', {
             totalCards: cardsCreated,
@@ -950,10 +1052,15 @@ class AISuggestionsIntegration {
         // Show grid
         this.elements.grid.style.display = 'grid';
         
+        // 🎯 MARCAÇÃO VISUAL: Identificar que AI Integration está ativo
+        this.elements.grid.style.border = '2px solid #4CAF50';
+        this.elements.grid.style.boxShadow = '0 0 10px rgba(76, 175, 80, 0.3)';
+        
         // Animate cards
         this.animateCards();
         
         console.log(`✅ [AI-INTEGRATION] ${suggestions.length} sugestões exibidas (fonte: ${source})`);
+        console.log('🎯 [AI-INTEGRATION] SISTEMA PRINCIPAL ATIVO - Sugestões renderizadas no #aiExpandedGrid');
         
         // 💾 SALVAR HASH PARA CACHE
         if (source === 'ai') {
