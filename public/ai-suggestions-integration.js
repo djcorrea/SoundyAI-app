@@ -1,6 +1,10 @@
 // 🚀 AI SUGGESTIONS INTEGRATION SYSTEM
 // Sistema de integração das sugestões IA com o modal expandido
 
+// 🎯 CONTROLE GLOBAL: Apenas fluxo AI renderiza DOM
+window.__AI_RENDER_MODE_ACTIVE__ = false;
+window.__BLOCK_ORIGINAL_RENDERING__ = false;
+
 class AISuggestionsIntegration {
     constructor() {
         // 🔧 Detecta ambiente e configura URL correta
@@ -544,6 +548,11 @@ class AISuggestionsIntegration {
                 console.debug('[FIX] Resultado descartado - runId obsoleto:', currentRunId, 'vs ativo:', this.currentRunId);
                 return;
             }
+
+            // 🎯 [REFATORACAO] Ativar modo AI unificado
+            window.__AI_RENDER_MODE_ACTIVE__ = true;
+            window.__BLOCK_ORIGINAL_RENDERING__ = true;
+            console.debug('[REFATORACAO] Modo AI ativado - bloqueando renderização original');
 
             console.debug('[FIX] TP presente pós-merge?', finalSuggestions.some(s => s.type === 'reference_true_peak'));
             this.displaySuggestions(finalSuggestions, 'ai');
@@ -1235,12 +1244,21 @@ class AISuggestionsIntegration {
         // Clear grid
         this.elements.grid.innerHTML = '';
         
+        // 🎯 [REFATORACAO] Fallback inteligente baseado no estado
         if (!suggestions || suggestions.length === 0) {
-            this.elements.grid.innerHTML = `
-                <div class="ai-suggestions-empty">
-                    <p>Nenhuma sugestão disponível no momento.</p>
-                </div>
-            `;
+            const fallbackHtml = this.isProcessing ? 
+                `<div class="ai-suggestions-loading">
+                    <div class="ai-spinner"></div>
+                    <p>🤖 Processando sugestões com IA...</p>
+                    <small>Analisando métricas e gerando recomendações personalizadas</small>
+                </div>` :
+                `<div class="ai-suggestions-empty">
+                    <p>✅ Análise concluída</p>
+                    <small>Nenhuma sugestão necessária - áudio dentro dos padrões</small>
+                </div>`;
+            
+            this.elements.grid.innerHTML = fallbackHtml;
+            console.debug('[REFATORACAO] Fallback renderizado:', this.isProcessing ? 'Loading' : 'Empty');
             return;
         }
         
@@ -1296,6 +1314,20 @@ class AISuggestionsIntegration {
             gridChildren: this.elements.grid.children.length,
             suggestionsReceived: suggestions.length
         });
+
+        // ✅ [REFATORACAO] Confirmação final do sistema unificado
+        console.group('✅ [REFATORACAO] SISTEMA UNIFICADO ATIVO');
+        console.log('🎯 Modal renderizado exclusivamente pelo fluxo AI');
+        console.log('🚫 Fluxo original bloqueado:', {
+            aiModeActive: window.__AI_RENDER_MODE_ACTIVE__,
+            originalBlocked: window.__BLOCK_ORIGINAL_RENDERING__
+        });
+        console.log('🏆 True Peak no topo:', {
+            truePeakFound: suggestionsOrdenadas.some(s => s.type === 'reference_true_peak'),
+            firstItemType: suggestionsOrdenadas[0]?.type,
+            firstItemPriority: suggestionsOrdenadas[0]?.priority
+        });
+        console.groupEnd();
 
         // 🚨 CORREÇÃO VISUAL DE EMERGÊNCIA: Verificar ordem real no DOM e corrigir se necessário
         setTimeout(() => {

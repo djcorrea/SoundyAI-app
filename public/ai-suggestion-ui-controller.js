@@ -434,6 +434,21 @@ class AISuggestionUIController {
             return priorityB - priorityA;
         });
         
+        // 🎯 [REFATORACAO] Fallback para modal vazio
+        if (suggestionsOrdenadas.length === 0) {
+            this.elements.fullModalContent.innerHTML = `
+                <div class="ai-suggestions-empty-modal">
+                    <div class="ai-empty-icon">🎵</div>
+                    <h3>Análise Concluída</h3>
+                    <p>Nenhuma sugestão necessária</p>
+                    <small>Seu áudio está dentro dos padrões recomendados</small>
+                </div>
+            `;
+            console.debug('[REFATORACAO] Modal vazio - fallback renderizado');
+            console.groupEnd();
+            return;
+        }
+
         console.log('🎯 [MODAL-ORDEM] Ordem no modal:');
         suggestionsOrdenadas.forEach((sug, index) => {
             const priority = sug.priority || sug.ai_priority || 0;
