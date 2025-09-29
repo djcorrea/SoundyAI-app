@@ -2631,3 +2631,124 @@ details[open] summary {
     }
 }
 
+/* ============ 🚨 TRUE PEAK PRIORITY STYLES ============ */
+
+/* True Peak Priority Card */
+.enhanced-card.true-peak-priority {
+    background: linear-gradient(135deg, rgba(255, 87, 34, 0.15), rgba(255, 87, 34, 0.05));
+    border: 2px solid #FF5722;
+    box-shadow: 0 8px 32px rgba(255, 87, 34, 0.3);
+    position: relative;
+    animation: priorityPulse 2s ease-in-out infinite;
+}
+
+.enhanced-card.true-peak-priority::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, #FF5722, #FF9800, #FFC107, #FF9800, #FF5722);
+    background-size: 300% 300%;
+    border-radius: 18px;
+    z-index: -1;
+    animation: priorityGradient 3s ease infinite;
+}
+
+.enhanced-card.true-peak-priority:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(255, 87, 34, 0.4);
+}
+
+/* Priority Warning Box */
+.priority-warning {
+    animation: warningGlow 2s ease-in-out infinite alternate;
+    font-weight: 600;
+    border-left: 4px solid #FFC107 !important;
+}
+
+/* Priority Badge */
+.priority-badge.primeiro {
+    background: linear-gradient(135deg, #FFC107, #FF9800);
+    color: #000;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 11px;
+    box-shadow: 0 2px 8px rgba(255, 193, 7, 0.4);
+    animation: priorityBadge 1.5s ease-in-out infinite;
+}
+
+/* Severity Badge Critical */
+.severity-badge.critica {
+    background: linear-gradient(135deg, #f44336, #d32f2f);
+    color: white;
+    font-weight: bold;
+    box-shadow: 0 2px 8px rgba(244, 67, 54, 0.4);
+}
+
+/* Priority Animations */
+@keyframes priorityPulse {
+    0%, 100% {
+        box-shadow: 0 8px 32px rgba(255, 87, 34, 0.3);
+    }
+    50% {
+        box-shadow: 0 8px 32px rgba(255, 87, 34, 0.6);
+    }
+}
+
+@keyframes priorityGradient {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+@keyframes warningGlow {
+    0% {
+        background-color: rgba(255, 193, 7, 0.2);
+        border-color: #FFC107;
+    }
+    100% {
+        background-color: rgba(255, 193, 7, 0.35);
+        border-color: #FFD54F;
+    }
+}
+
+@keyframes priorityBadge {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(255, 193, 7, 0.6);
+    }
+}
+
+/* Responsive adjustments for priority warning */
+@media (max-width: 768px) {
+    .enhanced-card.true-peak-priority {
+        border-width: 1px;
+        padding: 16px;
+    }
+    
+    .priority-warning {
+        padding: 10px;
+        margin: 10px 0;
+        font-size: 13px;
+    }
+    
+    .priority-badge.primeiro {
+        font-size: 10px;
+        padding: 3px 8px;
+    }
+}
+
