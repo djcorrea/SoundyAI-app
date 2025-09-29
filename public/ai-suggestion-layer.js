@@ -86,16 +86,10 @@ class AISuggestionLayer {
         const startTime = performance.now();
         
         try {
-            // Validações iniciais - NÃO interferir se IA real estiver disponível
+            // Validações iniciais
             if (!this.apiKey || this.apiKey === 'demo-mode') {
-                console.warn('⚠️ [AI-LAYER] API Key não configurada - retornando originais (IA real via AI-Integration)');
-                return existingSuggestions; // Deixa AI-Integration cuidar da IA real
-            }
-            
-            // 🔧 MODO DE DESENVOLVIMENTO: Simular processamento IA
-            if (this.apiKey === 'dev-mode-enabled') {
-                console.log('🤖 [AI-LAYER] Modo de desenvolvimento ativo - aplicando enriquecimentos simulados...');
-                return this.simulateAIEnrichment(existingSuggestions, analysisContext);
+                console.warn('⚠️ [AI-LAYER] API Key não configurada - usando sugestões originais');
+                return existingSuggestions;
             }
             
             if (!existingSuggestions || existingSuggestions.length === 0) {
@@ -390,6 +384,22 @@ Gere explicações educacionais seguindo exatamente o formato JSON especificado.
             const processed = enhancedSuggestions.map((aiSuggestion, index) => {
                 const originalSuggestion = originalSuggestions[index] || {};
                 
+                // ⚡ PROTEÇÃO ESPECIAL PARA TRUE PEAK: Preservar mensagem estendida
+                if (originalSuggestion._isTruePeakExtended && originalSuggestion.extendedMessage) {
+                    console.log('🎯 [AI-LAYER] Preservando mensagem estendida do True Peak');
+                    return {
+                        // Manter TODOS os dados originais do True Peak
+                        ...originalSuggestion,
+                        
+                        // Adicionar apenas marcação de IA sem sobrescrever
+                        ai_enhanced: true,
+                        ai_preserved_extended: true, // Flag para indicar que mensagem estendida foi preservada
+                        
+                        // NÃO sobrescrever title/description para True Peak
+                        _aiPreservedExtended: 'True Peak mantido com mensagem didática original'
+                    };
+                }
+                
                 return {
                     // Manter dados originais
                     ...originalSuggestion,
@@ -485,69 +495,6 @@ Gere explicações educacionais seguindo exatamente o formato JSON especificado.
     }
     
     /**
-     * 🤖 Simular enriquecimento IA para desenvolvimento
-     * @param {Array} suggestions - Sugestões originais
-     * @param {Object} context - Contexto da análise
-     * @returns {Array} Sugestões enriquecidas simuladas
-     */
-    simulateAIEnrichment(suggestions, context) {
-        console.log('🧪 [AI-DEV] Simulando enriquecimento IA...');
-        
-        const pluginSuggestions = [
-            'FabFilter Pro-Q3 ou EQ nativo com filtro shelf',
-            'Waves Renaissance Bass ou EQ nativo com filtro shelf', 
-            'FabFilter Pro-L2 ou limiter nativo da DAW',
-            'Compressor nativo da DAW ou similar',
-            'De-Esser nativo ou Waves DeEsser',
-            'Waves L3 Multimaximizer ou similar'
-        ];
-        
-        return suggestions.map((suggestion, index) => {
-            const enriched = { ...suggestion };
-            
-            // Adicionar sugestões de plugins
-            if (suggestion.type === 'reference_true_peak' || suggestion.type === 'heuristic_true_peak') {
-                enriched.pluginSuggestion = 'FabFilter Pro-L2 ou limiter nativo com True Peak detection';
-                enriched.dawTip = 'Configure o limiter com oversampling 4x e ceiling em -1 dBTP';
-            } else if (suggestion.type?.includes('band') || suggestion.action?.includes('dB')) {
-                enriched.pluginSuggestion = pluginSuggestions[index % pluginSuggestions.length];
-                enriched.dawTip = 'Use Q factor moderado (0.7-1.2) para evitar artefatos';
-            } else {
-                enriched.pluginSuggestion = 'EQ/Compressor nativo da DAW ou gratuito';
-                enriched.dawTip = 'Aplique mudanças gradualmente e compare A/B';
-            }
-            
-            // Enriquecer mensagens educativas
-            if (suggestion.message && suggestion.message.length < 100) {
-                enriched.educationalContext = this.generateEducationalContext(suggestion);
-            }
-            
-            return enriched;
-        });
-    }
-    
-    /**
-     * 🎓 Gerar contexto educativo para sugestão
-     * @param {Object} suggestion - Sugestão original
-     * @returns {String} Contexto educativo
-     */
-    generateEducationalContext(suggestion) {
-        const contexts = {
-            'true_peak': 'True Peak alto pode causar distorção em sistemas digitais. Priorize sempre este ajuste.',
-            'lufs': 'LUFS mede loudness percebido. Targets: Streaming -14, Rádio -9, Master -8 LUFS.',
-            'dr': 'Dynamic Range preserva punch e clareza. DR baixo pode soar cansativo.',
-            'band': 'Ajustes espectrais devem respeitar o balanço tonal do gênero.',
-            'default': 'Aplique ajustes gradualmente e sempre compare com referências.'
-        };
-        
-        const type = suggestion.type || 'default';
-        for (const [key, context] of Object.entries(contexts)) {
-            if (type.includes(key)) return context;
-        }
-        return contexts.default;
-    }
-
-    /**
      * 📈 Obter estatísticas de uso
      */
     getStats() {
@@ -559,8 +506,7 @@ Gere explicações educacionais seguindo exatamente o formato JSON especificado.
             successRate: successRate + '%',
             cacheSize: this.cache.size,
             model: this.model,
-            hasApiKey: !!this.apiKey,
-            devMode: this.apiKey === 'dev-mode-enabled'
+            hasApiKey: !!this.apiKey
         };
     }
     

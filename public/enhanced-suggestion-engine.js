@@ -541,6 +541,67 @@ class EnhancedSuggestionEngine {
     }
 
     /**
+     * ⚡ Criar mensagem estendida e didática para True Peak
+     * @param {number} valorReal - Valor atual do True Peak
+     * @param {number} valorAlvo - Valor alvo do True Peak
+     * @param {Object} severity - Severidade calculada
+     * @param {number} priority - Prioridade calculada
+     * @param {number} confidence - Confiança calculada
+     * @returns {Object} Sugestão completa com mensagem estendida
+     */
+    createTruePeakExtendedSuggestion(valorReal, valorAlvo, severity, priority, confidence) {
+        const diferenca = valorReal - valorAlvo;
+        
+        // Determinar direção do ajuste
+        const direcaoAjuste = diferenca > 0 ? 'reduzir' : 'aumentar';
+        const valorAbsoluto = Math.abs(diferenca);
+        
+        // Mensagem estendida e didática
+        const mensagemEstendida = {
+            problema: `True Peak atual ${valorReal.toFixed(2)} dBTP (alvo: ${valorAlvo.toFixed(2)} dBTP)`,
+            causaProvavel: "O True Peak é a métrica mais crítica. Quando está acima do ideal, gera clipping digital, distorções e mascara frequências médias/altas, comprometendo toda a mixagem.",
+            solucaoPratica: `Use um limiter com oversampling (ex: FabFilter Pro-L2 ou limiter nativo da DAW) e ${direcaoAjuste} aproximadamente ${valorAbsoluto.toFixed(2)} dB para atingir o alvo.`,
+            dicaExtra: "Sempre corrija o True Peak primeiro. Assim, as demais métricas (LUFS, dinâmica, espectro) ficam consistentes e a mix mantém clareza.",
+            pluginFerramenta: "Limiter nativo da DAW ou FabFilter Pro-L2",
+            resultadoEsperado: "Áudio limpo, sem distorções de pico, com headroom correto para masterização."
+        };
+        
+        return {
+            type: 'reference_true_peak',
+            metricType: 'true_peak',
+            icon: '⚡',
+            targetValue: valorAlvo,
+            currentValue: valorReal,
+            
+            // Campos tradicionais para compatibilidade
+            message: mensagemEstendida.problema,
+            action: mensagemEstendida.solucaoPratica,
+            why: mensagemEstendida.causaProvavel,
+            
+            // Mensagem estendida completa para o modal
+            extendedMessage: mensagemEstendida,
+            
+            // Dados técnicos
+            priority: priority,
+            severity: severity.level,
+            confidence: confidence || 0.8,
+            genre: window.PROD_AI_REF_GENRE || 'unknown',
+            technical: {
+                currentValue: valorReal,
+                targetValue: valorAlvo,
+                delta: diferenca,
+                unit: ' dBTP',
+                direcaoAjuste: direcaoAjuste,
+                valorAbsoluto: valorAbsoluto
+            },
+            
+            // Marcação especial para True Peak
+            _isTruePeakExtended: true,
+            _truePeakPriority: 1 // Sempre primeiro na ordem
+        };
+    }
+
+    /**
      * 🎯 Garantir ordem determinística das sugestões
      * Prioridade: True Peak → LUFS → DR → LRA → Stereo → Bandas espectrais
      * @param {Array} suggestions - Lista de sugestões
@@ -565,17 +626,29 @@ class EnhancedSuggestionEngine {
         for (const metricType of criticalOrder) {
             const metricSuggestions = suggestions.filter(s => s.type === metricType);
             if (metricSuggestions.length > 0) {
-                // Se há múltiplas sugestões do mesmo tipo, pegar a de maior prioridade
-                const bestSuggestion = metricSuggestions.reduce((best, current) => 
-                    (current.priority || 0) > (best.priority || 0) ? current : best
-                );
+                // Para True Peak, priorizar sugestões estendidas
+                let bestSuggestion;
+                if (metricType === 'reference_true_peak') {
+                    // Priorizar sugestões com mensagem estendida
+                    const extendedSuggestion = metricSuggestions.find(s => s._isTruePeakExtended);
+                    bestSuggestion = extendedSuggestion || metricSuggestions.reduce((best, current) => 
+                        (current.priority || 0) > (best.priority || 0) ? current : best
+                    );
+                } else {
+                    // Para outras métricas, pegar a de maior prioridade
+                    bestSuggestion = metricSuggestions.reduce((best, current) => 
+                        (current.priority || 0) > (best.priority || 0) ? current : best
+                    );
+                }
+                
                 orderedSuggestions.push(bestSuggestion);
                 
                 this.logAudit('ORDERED_SUGGESTION_ADDED', `Métrica crítica adicionada: ${metricType}`, {
                     type: metricType,
                     priority: bestSuggestion.priority,
                     currentValue: bestSuggestion.currentValue,
-                    targetValue: bestSuggestion.targetValue
+                    targetValue: bestSuggestion.targetValue,
+                    isExtended: bestSuggestion._isTruePeakExtended || false
                 });
             }
         }
@@ -1357,28 +1430,34 @@ class EnhancedSuggestionEngine {
                         dependencyBonus
                     });
                     
-                    const suggestion = {
-                        type: metric.type,
-                        metricType: metric.metricType,
-                        icon: this.getMetricIcon(metric.metricType),
-                        targetValue: usedTarget,
-                        currentValue: value,
-                        message: suggestionMessage || `Ajustar ${metric.label} para alinhamento com referência`,
-                        action: suggestionAction || `Ajustar ${metric.label}`,
-                        why: `${metric.label} é uma métrica crítica para qualidade de áudio`,
-                        priority: priority,
-                        severity: severity.level,
-                        confidence: confidence || 0.8,
-                        genre: window.PROD_AI_REF_GENRE || 'unknown',
-                        technical: {
-                            currentValue: value,
+                    // 🎯 TRUE PEAK: Mensagem estendida e didática especial
+                    let suggestion;
+                    if (metric.key === 'true_peak') {
+                        suggestion = this.createTruePeakExtendedSuggestion(value, usedTarget, severity, priority, confidence);
+                    } else {
+                        suggestion = {
+                            type: metric.type,
+                            metricType: metric.metricType,
+                            icon: this.getMetricIcon(metric.metricType),
                             targetValue: usedTarget,
-                            tolerance: usedTolerance,
-                            delta: value - usedTarget,
-                            unit: metric.unit
-                        },
-                        _criticalMetricFallback: !Number.isFinite(target) || !Number.isFinite(tolerance)
-                    };
+                            currentValue: value,
+                            message: suggestionMessage || `Ajustar ${metric.label} para alinhamento com referência`,
+                            action: suggestionAction || `Ajustar ${metric.label}`,
+                            why: `${metric.label} é uma métrica crítica para qualidade de áudio`,
+                            priority: priority,
+                            severity: severity.level,
+                            confidence: confidence || 0.8,
+                            genre: window.PROD_AI_REF_GENRE || 'unknown',
+                            technical: {
+                                currentValue: value,
+                                targetValue: usedTarget,
+                                tolerance: usedTolerance,
+                                delta: value - usedTarget,
+                                unit: metric.unit
+                            },
+                            _criticalMetricFallback: !Number.isFinite(target) || !Number.isFinite(tolerance)
+                        };
+                    }
                     
                     suggestions.push(suggestion);
                     
