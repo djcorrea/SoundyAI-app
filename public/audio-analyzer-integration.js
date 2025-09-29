@@ -3394,15 +3394,8 @@ function showModalLoading() {
 function displayModalResults(analysis) {
     // � AUDITORIA DO MODAL ORIGINAL
     // 🚨 AUDITORIA CRÍTICA: FLUXO ORIGINAL ATIVO
-    console.log('[FIXED] displayModalResults bypassado - AI renderiza modal');
-    console.debug('[FIXED] Análise ignorada pelo fluxo original:', {
-        hasAnalysis: !!analysis,
-        suggestionsLength: analysis?.suggestions?.length || 0,
-        redirectTo: 'AI Controller'
-    });
-    
-    // 🛑 STUB: Não manipular DOM - AI controller gerencia modal
-    return;
+    console.group('🚨 [AUDITORIA-FLUXO] displayModalResults chamado (fluxo antigo)');
+    console.error('[AUDITORIA-FLUXO] SISTEMA ORIGINAL RENDERIZANDO - Este pode ser o problema!');
     
     console.group('🔍 [AUDITORIA-MODAL-ORIGINAL] displayModalResults CHAMADO');
     console.debug('[AUDITORIA-MODAL] Origem da chamada:', (new Error()).stack.split('\n')[1]?.trim());
@@ -4810,8 +4803,32 @@ function displayModalResults(analysis) {
         suggestionsListContent: document.getElementById('suggestions-list')?.innerHTML?.length || 0
     });
     console.groupEnd();
+}
+
+// ✅ [FIXED] displayModalResults redirecionado para fluxo AI unificado
+function displayModalResults(analysis) {
+    // ✅ [FIXED] Modal antigo redirecionado para fluxo AI unificado
+    console.log("[FIXED] displayModalResults redirecionado para sistema AI");
+    console.debug("[FIXED] Análise disponível:", {
+        hasAnalysis: !!analysis,
+        hasSuggestions: !!analysis?.suggestions,
+        suggestionsLength: analysis?.suggestions?.length || 0
+    });
     
-    __dbg('📊 Resultados exibidos no modal');
+    // Delegar para o sistema AI unificado
+    if (window.aiSuggestionUIController) {
+        console.log("[FIXED] Delegando para aiSuggestionUIController.openFullModal()");
+        window.aiSuggestionUIController.openFullModal();
+    } else {
+        console.warn("[FIXED] aiSuggestionUIController não encontrado, tentando método alternativo");
+        // Fallback: procurar pelo controlador na janela
+        const modalElement = document.querySelector('.ai-full-modal, .modal, [data-modal]');
+        if (modalElement) {
+            modalElement.style.display = 'flex';
+            modalElement.classList.add('show');
+            console.log("[FIXED] Modal aberto via fallback DOM");
+        }
+    }
 }
 
     // === Controles de Validação (Suite Objetiva + Subjetiva) ===
@@ -6197,13 +6214,11 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
     return result;
 }
 
-// ❌ [BLOQUEADA] Recalcular sugestões baseadas em referência - FLUXO ORIGINAL DESABILITADO
+// Recalcular apenas as sugestões baseadas em referência (sem reprocessar o áudio)
 function updateReferenceSuggestions(analysis) {
-    console.log('❌ [FIXED] updateReferenceSuggestions BLOQUEADA - Fluxo unificado AI ativo');
-    console.warn('🚫 [ELIMINAÇÃO] Função original desabilitada para evitar conflito com sistema AI');
-    
-    // 🛑 RETORNO IMEDIATO - Não executar lógica original
-    return;
+    // 🔍 AUDITORIA: MANIPULAÇÃO DOM DETECTADA
+    console.group('🔍 [AUDITORIA-FLUXO] updateReferenceSuggestions manipulando DOM');
+    console.warn('[AUDITORIA-FLUXO] Esta função pode estar sobrescrevendo o sistema AI!');
     
     console.log('🔍 [DEBUG-REF] updateReferenceSuggestions chamado:', {
         hasAnalysis: !!analysis,

@@ -100,11 +100,9 @@ class AISuggestionsIntegration {
     }
 
     verificarECorrigirOrdemVisual(suggestions) {
-        console.log('❌ [FIXED] verificarECorrigirOrdemVisual DESABILITADA - Preservando ordem por priority');
-        console.warn('🚫 [ELIMINAÇÃO] Reordenação DOM desabilitada para manter True Peak priority=10 no topo');
-        
-        // 🛑 RETORNO IMEDIATO - Não reordenar DOM
-        return;
+        // ✅ [FIXED] Função de reordenação DOM desabilitada para preservar order by priority
+        console.log('✅ [FIXED] verificarECorrigirOrdemVisual DESABILITADA - preservando ordem por priority');
+        return; // DESABILITADA - não alterar ordem DOM
         
         console.log('🚨 [EMERGÊNCIA] Verificando ordem visual no DOM...');
         
@@ -168,11 +166,9 @@ class AISuggestionsIntegration {
     }
 
     forcarReorganizacaoDOM(suggestions) {
-        console.log('❌ [FIXED] forcarReorganizacaoDOM DESABILITADA - Preservando ordem por priority');
-        console.warn('🚫 [ELIMINAÇÃO] Reorganização forçada desabilitada para manter True Peak priority=10 no topo');
-        
-        // 🛑 RETORNO IMEDIATO - Não reorganizar DOM
-        return;
+        // ✅ [FIXED] Função de reordenação forçada desabilitada para preservar order by priority
+        console.log('✅ [FIXED] forcarReorganizacaoDOM DESABILITADA - preservando ordem por priority');
+        return; // DESABILITADA - não alterar ordem DOM
         
         console.warn('🚨 [EMERGÊNCIA] Aplicando reorganização forçada do DOM...');
         
