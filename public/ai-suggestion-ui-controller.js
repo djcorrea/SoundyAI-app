@@ -169,6 +169,17 @@ class AISuggestionUIController {
      * 🎨 Exibir sugestões IA na interface
      */
     displayAISuggestions(suggestions, analysis) {
+        // 🔍 AUDITORIA: ORIGEM DOS DADOS
+        console.group('🔍 [AUDITORIA-FLUXO] displayAISuggestions - Setting currentSuggestions');
+        console.log('[AUDITORIA-FLUXO] FINALSUGGESTIONS SENDO SETADAS - Sistema correto!');
+        console.debug('[AUDITORIA-FLUXO] Sugestões AI recebidas:', {
+            length: suggestions?.length || 0,
+            types: suggestions?.map(s => s.type || s.metric),
+            firstPriority: suggestions?.[0]?.priority || suggestions?.[0]?.ai_priority,
+            hasTruePeak: suggestions?.some(s => s.type === 'reference_true_peak')
+        });
+        console.groupEnd();
+        
         if (!this.elements.aiSection) return;
         
         this.currentSuggestions = suggestions;
@@ -193,35 +204,63 @@ class AISuggestionUIController {
     }
     
     /**
-     * 🎨 Exibir sugestões base (sem IA) na interface
+     * 🚫 FUNÇÃO DESATIVADA - FLUXO ORIGINAL REMOVIDO
      */
     displayBaseSuggestions(suggestions, analysis) {
+        // � [FIXED] FUNÇÃO DESATIVADA - Usando apenas fluxo AI
+        console.warn('[FIXED] displayBaseSuggestions DESATIVADA - Redirecionando para fluxo AI');
+        
+        // Redirecionar para fluxo AI com as mesmas sugestões
+        // mas garantindo que sejam processadas pela IA
+        if (window.aiSuggestionIntegration) {
+            console.log('[FIXED] Redirecionando originalSuggestions para processamento AI');
+            window.aiSuggestionIntegration.processSuggestions(suggestions, analysis);
+        } else {
+            console.warn('[FIXED] AI Integration não disponível - renderizando loading state');
+            this.displayLoadingState('⏳ Processando sugestões da IA...');
+        }
+        
+        return; // FUNÇÃO BLOQUEADA
+    }
+
+    /**
+     * 📱 Exibir estado de carregamento
+     */
+    displayLoadingState(message = '⏳ Processando sugestões da IA...') {
         if (!this.elements.aiSection) return;
         
-        this.currentSuggestions = suggestions;
-        
-        // Mostrar seção
         this.elements.aiSection.style.display = 'block';
         this.elements.aiSection.classList.add('ai-fade-in');
         
-        // Atualizar status para indicar que IA não está configurada
-        this.updateStatus('disabled', 'IA não configurada - sugestões base');
-        
-        // Atualizar modelo
-        if (this.elements.aiModelBadge) {
-            this.elements.aiModelBadge.textContent = 'BASE';
+        // Limpar conteúdo atual
+        if (this.elements.aiContent) {
+            this.elements.aiContent.innerHTML = `
+                <div class="ai-loading-state">
+                    <div class="ai-spinner"></div>
+                    <p>${message}</p>
+                </div>
+            `;
         }
         
-        // Renderizar preview compacto das sugestões base
-        this.renderCompactPreview(suggestions, true);
+        this.updateStatus('processing', 'Processando...');
+    }
+
+    /**
+     * ❌ [BLOQUEADA] Sugestões básicas - Redirecionamento para IA
+     * MOTIVO: Eliminação do fluxo duplo para garantir True Peak sempre no topo
+     */
+    displayBaseSuggestions(suggestions) {
+        console.log('[FIXED] displayBaseSuggestions bloqueada - Fluxo unificado ativo');
         
-        // Adicionar botão para expandir
-        this.addExpandButton();
+        // 🚫 Bloquear fluxo original - forçar apenas AI
+        if (window.aiController && window.aiController.isConfigured()) {
+            console.log('[REDIRECT] Redirecionando para displayAISuggestions');
+            return this.displayAISuggestions(suggestions);
+        }
         
-        // Adicionar mensagem para configurar IA
-        this.addConfigPrompt();
-        
-        console.log('🎨 [AI-UI] Sugestões base exibidas (IA não configurada)');
+        // ⏳ Mostrar estado de carregamento se IA não configurada
+        this.displayLoadingState('Aguardando configuração da IA...');
+        return;
     }
     
     /**
@@ -409,13 +448,16 @@ class AISuggestionUIController {
      * 🎯 Renderizar sugestões completas no modal
      */
     renderFullSuggestions(suggestions) {
-        // 🔍 AUDITORIA DO RENDER MODAL
-        console.group('🔍 [AUDITORIA-RENDER-MODAL] renderFullSuggestions chamado');
-        console.debug('[AUDITORIA-RENDER] Sugestões recebidas para modal:', {
+        // 🔍 AUDITORIA COMPLETA: MODAL AI
+        console.group('🔍 [AUDITORIA-FLUXO] renderFullSuggestions renderizou N sugestões');
+        console.log('[AUDITORIA-FLUXO] MODAL AI ATIVO - Sistema correto funcionando');
+        console.debug('[AUDITORIA-FLUXO] Sugestões recebidas para modal:', {
             length: suggestions?.length || 0,
             isArray: Array.isArray(suggestions),
             types: suggestions?.map(s => s.type || s.metric),
-            hasTruePeak: suggestions?.some(s => s.type === 'reference_true_peak' || s.metric === 'reference_true_peak')
+            hasTruePeak: suggestions?.some(s => s.type === 'reference_true_peak' || s.metric === 'reference_true_peak'),
+            firstSuggestionType: suggestions?.[0]?.type || suggestions?.[0]?.metric,
+            firstSuggestionPriority: suggestions?.[0]?.priority || suggestions?.[0]?.ai_priority
         });
         
         if (!this.elements.fullModalContent) {

@@ -100,6 +100,12 @@ class AISuggestionsIntegration {
     }
 
     verificarECorrigirOrdemVisual(suggestions) {
+        console.log('❌ [FIXED] verificarECorrigirOrdemVisual DESABILITADA - Preservando ordem por priority');
+        console.warn('🚫 [ELIMINAÇÃO] Reordenação DOM desabilitada para manter True Peak priority=10 no topo');
+        
+        // 🛑 RETORNO IMEDIATO - Não reordenar DOM
+        return;
+        
         console.log('🚨 [EMERGÊNCIA] Verificando ordem visual no DOM...');
         
         if (!this.elements.grid || !suggestions || suggestions.length === 0) {
@@ -156,9 +162,18 @@ class AISuggestionsIntegration {
                 console.log('🎯 [EMERGÊNCIA] Primeiro card marcado visualmente (verde = correto)');
             }
         }
+        
+        console.debug('[AUDITORIA-FLUXO] verificarECorrigirOrdemVisual concluída');
+        console.groupEnd();
     }
 
     forcarReorganizacaoDOM(suggestions) {
+        console.log('❌ [FIXED] forcarReorganizacaoDOM DESABILITADA - Preservando ordem por priority');
+        console.warn('🚫 [ELIMINAÇÃO] Reorganização forçada desabilitada para manter True Peak priority=10 no topo');
+        
+        // 🛑 RETORNO IMEDIATO - Não reorganizar DOM
+        return;
+        
         console.warn('🚨 [EMERGÊNCIA] Aplicando reorganização forçada do DOM...');
         
         // 🎯 VERIFICAÇÃO INTELIGENTE: Só reordenar se necessário
@@ -209,6 +224,9 @@ class AISuggestionsIntegration {
                 }
             }
         }, 50);
+        
+        console.debug('[AUDITORIA-FLUXO] forcarReorganizacaoDOM concluída');
+        console.groupEnd();
     }
     
     setupOrderGuarantee() {
@@ -1189,9 +1207,10 @@ class AISuggestionsIntegration {
      * Exibir sugestões no grid
      */
     displaySuggestions(suggestions, source = 'ai') {
-        // 🔍 AUDITORIA PASSO 6: RENDERIZAÇÃO FINAL
-        console.group('🔍 [AUDITORIA-UI] RENDERIZAÇÃO FINAL');
-        console.debug("[AUDITORIA-UI] Recebido para renderizar:", {
+        // 🔍 AUDITORIA COMPLETA: FLUXO AI ATIVO
+        console.group('🔍 [AUDITORIA-FLUXO] displaySuggestions chamado com finalSuggestions');
+        console.warn('[AUDITORIA-FLUXO] SISTEMA AI RENDERIZANDO - Este é o fluxo correto!');
+        console.debug("[AUDITORIA-FLUXO] Recebido para renderizar:", {
             array: suggestions,
             length: suggestions?.length || 0,
             source: source,
@@ -1385,6 +1404,15 @@ class AISuggestionsIntegration {
      * Criar card de sugestão
      */
     createSuggestionCard(suggestion, index, source) {
+        // 🔍 AUDITORIA: CRIAÇÃO DE CARD
+        console.debug(`[AUDITORIA-FLUXO] createSuggestionCard #${index + 1}:`, {
+            type: suggestion.type || suggestion.metric,
+            priority: suggestion.priority || suggestion.ai_priority,
+            source: source,
+            isEnriched: !!(suggestion.ai_blocks || suggestion.blocks),
+            isTruePeak: (suggestion.type === 'reference_true_peak')
+        });
+        
         const card = document.createElement('div');
         card.className = `ai-suggestion-card ${source === 'fallback' ? 'ai-base-suggestion' : ''}`;
         card.style.animationDelay = `${index * 0.1}s`;

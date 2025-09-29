@@ -3393,6 +3393,14 @@ function showModalLoading() {
 // 📊 Mostrar resultados no modal
 function displayModalResults(analysis) {
     // � AUDITORIA DO MODAL ORIGINAL
+    // 🚨 AUDITORIA CRÍTICA: FLUXO ORIGINAL ATIVO
+    console.log('❌ [FIXED] displayModalResults BLOQUEADA - Fluxo unificado AI ativo');
+    console.warn('🚫 [ELIMINAÇÃO] Modal original desabilitado para evitar conflito com sistema AI');
+    
+    // 🛑 RETORNO IMEDIATO - Não executar renderização original
+    return;
+    console.error('[AUDITORIA-FLUXO] SISTEMA ORIGINAL RENDERIZANDO - Este pode ser o problema!');
+    
     console.group('🔍 [AUDITORIA-MODAL-ORIGINAL] displayModalResults CHAMADO');
     console.debug('[AUDITORIA-MODAL] Origem da chamada:', (new Error()).stack.split('\n')[1]?.trim());
     console.debug('[AUDITORIA-MODAL] Análise recebida:', {
@@ -6186,8 +6194,14 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
     return result;
 }
 
-// Recalcular apenas as sugestões baseadas em referência (sem reprocessar o áudio)
+// ❌ [BLOQUEADA] Recalcular sugestões baseadas em referência - FLUXO ORIGINAL DESABILITADO
 function updateReferenceSuggestions(analysis) {
+    console.log('❌ [FIXED] updateReferenceSuggestions BLOQUEADA - Fluxo unificado AI ativo');
+    console.warn('🚫 [ELIMINAÇÃO] Função original desabilitada para evitar conflito com sistema AI');
+    
+    // 🛑 RETORNO IMEDIATO - Não executar lógica original
+    return;
+    
     console.log('🔍 [DEBUG-REF] updateReferenceSuggestions chamado:', {
         hasAnalysis: !!analysis,
         hasTechnicalData: !!analysis?.technicalData,
