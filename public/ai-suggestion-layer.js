@@ -384,22 +384,6 @@ Gere explicações educacionais seguindo exatamente o formato JSON especificado.
             const processed = enhancedSuggestions.map((aiSuggestion, index) => {
                 const originalSuggestion = originalSuggestions[index] || {};
                 
-                // ⚡ PROTEÇÃO ESPECIAL PARA TRUE PEAK: Preservar mensagem estendida
-                if (originalSuggestion._isTruePeakExtended && originalSuggestion.extendedMessage) {
-                    console.log('🎯 [AI-LAYER] Preservando mensagem estendida do True Peak');
-                    return {
-                        // Manter TODOS os dados originais do True Peak
-                        ...originalSuggestion,
-                        
-                        // Adicionar apenas marcação de IA sem sobrescrever
-                        ai_enhanced: true,
-                        ai_preserved_extended: true, // Flag para indicar que mensagem estendida foi preservada
-                        
-                        // NÃO sobrescrever title/description para True Peak
-                        _aiPreservedExtended: 'True Peak mantido com mensagem didática original'
-                    };
-                }
-                
                 return {
                     // Manter dados originais
                     ...originalSuggestion,
