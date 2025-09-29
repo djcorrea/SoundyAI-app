@@ -47,7 +47,9 @@ class EnhancedSuggestionEngine {
             true_peak_high: {
                 explanation: "True Peak alto pode causar distorção digital em conversores D/A e problemas de inter-sample peaks, especialmente em sistemas de reprodução consumer.",
                 action: "Use um limiter com oversampling ou true peak limiting para manter abaixo de -1 dBTP.",
-                dawExample: "Pro Tools: Pro Limiter com 'ISP' ativado. Logic: Adaptive Limiter com 'True Peak Detection'. Waves: L3 Multimaximizer."
+                dawExample: "Pro Tools: Pro Limiter com 'ISP' ativado. Logic: Adaptive Limiter com 'True Peak Detection'. Waves: L3 Multimaximizer.",
+                priority: "CRÍTICO: Corrija o True Peak PRIMEIRO antes de ajustar outras métricas, pois alterações no limiter podem afetar significativamente o balanço espectral e invalidar outros ajustes de EQ/compressão.",
+                warningMessage: "⚠️ ATENÇÃO: True Peak deve ser corrigido antes de outros ajustes, pois pode interferir nas bandas espectrais!"
             },
             
             // === DYNAMIC RANGE ===
@@ -1380,6 +1382,17 @@ class EnhancedSuggestionEngine {
                         _criticalMetricFallback: !Number.isFinite(target) || !Number.isFinite(tolerance)
                     };
                     
+                    // 🚨 MENSAGEM ESPECIAL PARA TRUE PEAK: Adicionar aviso de prioridade (também para fallback)
+                    if (metric.metricType === 'true_peak') {
+                        const truePeakTemplate = this.heuristicTemplates.true_peak_high;
+                        suggestion.priorityWarning = truePeakTemplate.warningMessage;
+                        suggestion.correctionOrder = "PRIMEIRO";
+                        suggestion.message = `⚡ True Peak requer correção PRIORITÁRIA (${value.toFixed(1)} dBTP → ${usedTarget.toFixed(1)} dBTP)`;
+                        suggestion.why = `${truePeakTemplate.priority}`;
+                        suggestion.specialAlert = true;
+                        suggestion.alertType = "priority_first";
+                    }
+                    
                     suggestions.push(suggestion);
                     
                     this.logAudit('CRITICAL_METRIC_SUGGESTION', `Sugestão crítica gerada: ${metric.label}`, {
@@ -1439,12 +1452,23 @@ class EnhancedSuggestionEngine {
                     suggestion.targetValue = target;
                     suggestion.currentValue = value;
                     
-                    // Se fields estão vazios, preencher com valores padrão
-                    if (!suggestion.message || suggestion.message.trim() === '') {
-                        suggestion.message = `Ajustar ${metric.label} para alinhamento com referência`;
-                    }
-                    if (!suggestion.why || suggestion.why.trim() === '') {
-                        suggestion.why = `${metric.label} fora da faixa ideal para o gênero`;
+                    // 🚨 MENSAGEM ESPECIAL PARA TRUE PEAK: Adicionar aviso de prioridade
+                    if (metric.metricType === 'true_peak') {
+                        const truePeakTemplate = this.heuristicTemplates.true_peak_high;
+                        suggestion.priorityWarning = truePeakTemplate.warningMessage;
+                        suggestion.correctionOrder = "PRIMEIRO";
+                        suggestion.message = `⚡ True Peak requer correção PRIORITÁRIA (${value.toFixed(1)} dBTP → ${target.toFixed(1)} dBTP)`;
+                        suggestion.why = `${truePeakTemplate.priority}`;
+                        suggestion.specialAlert = true;
+                        suggestion.alertType = "priority_first";
+                    } else {
+                        // Se fields estão vazios, preencher com valores padrão
+                        if (!suggestion.message || suggestion.message.trim() === '') {
+                            suggestion.message = `Ajustar ${metric.label} para alinhamento com referência`;
+                        }
+                        if (!suggestion.why || suggestion.why.trim() === '') {
+                            suggestion.why = `${metric.label} fora da faixa ideal para o gênero`;
+                        }
                     }
                     
                     suggestions.push(suggestion);
@@ -1550,12 +1574,22 @@ class EnhancedSuggestionEngine {
                     }
                     
                     // 🎯 APLICAR LÓGICA SEGURA PARA ACTION E DIAGNOSIS
-                    const delta = suggestion.technical?.delta;
+                    // Delta = current - target (positivo = atual maior que alvo = reduzir)
+                    const calculatedDelta = value - target;
+                    const delta = suggestion.technical?.delta || calculatedDelta;
+                    
                     if (typeof delta === "number" && !isNaN(delta)) {
                         const direction = delta > 0 ? "Reduzir" : "Aumentar";
                         const amount = Math.abs(delta).toFixed(1);
                         suggestion.action = `${direction} ${band} em ${amount} dB`;
                         suggestion.diagnosis = `Atual: ${value.toFixed(1)} dB, Alvo: ${target.toFixed(1)} dB, Diferença: ${amount} dB`;
+                        
+                        // Garantir que delta está salvo corretamente
+                        if (suggestion.technical) {
+                            suggestion.technical.delta = delta;
+                            suggestion.technical.currentValue = value;
+                            suggestion.technical.targetValue = target;
+                        }
                     } else {
                         suggestion.action = `Ajustar banda ${band}`;
                         suggestion.diagnosis = `Verificar níveis da banda ${band}`;
@@ -1682,12 +1716,22 @@ class EnhancedSuggestionEngine {
                         }
                         
                         // 🎯 APLICAR LÓGICA SEGURA PARA ACTION E DIAGNOSIS
-                        const suggestionDelta = suggestion.technical?.delta;
+                        // Delta = current - target (positivo = atual maior que alvo = reduzir)
+                        const calculatedDelta = value - ideal;
+                        const suggestionDelta = suggestion.technical?.delta || calculatedDelta;
+                        
                         if (typeof suggestionDelta === "number" && !isNaN(suggestionDelta)) {
                             const direction = suggestionDelta > 0 ? "Reduzir" : "Aumentar";
                             const amount = Math.abs(suggestionDelta).toFixed(1);
                             suggestion.action = `${direction} ${item.metric} em ${amount} dB`;
                             suggestion.diagnosis = `Atual: ${value.toFixed(1)} dB, Alvo: ${ideal.toFixed(1)} dB, Diferença: ${amount} dB`;
+                            
+                            // Garantir que delta está salvo corretamente
+                            if (suggestion.technical) {
+                                suggestion.technical.delta = suggestionDelta;
+                                suggestion.technical.currentValue = value;
+                                suggestion.technical.targetValue = ideal;
+                            }
                         } else {
                             suggestion.action = `Ajustar banda ${item.metric}`;
                             suggestion.diagnosis = `Verificar níveis da banda ${item.metric}`;
@@ -2321,55 +2365,130 @@ class EnhancedSuggestionEngine {
             
             // Verificar se tem dados técnicos
             const technical = suggestion.technical;
-            if (!technical || !Number.isFinite(technical.value) || !Number.isFinite(technical.target)) {
+            if (!technical) {
+                this.logAudit('POST_PROCESS_SKIP', `Banda sem dados técnicos: ${suggestion.subtype}`, {
+                    band: suggestion.subtype,
+                    hasTechnical: !!technical
+                });
                 return suggestion;
             }
             
-            // 🎯 CORREÇÃO: Usar let em vez de const para delta que pode ser reatribuído
-            let delta = technical.target - technical.value;
+            // 🎯 CORREÇÃO CRÍTICA: Verificar múltiplas fontes para value e target
+            let currentValue = null;
+            let targetValue = null;
+            
+            // 1. Buscar em technical (preferência)
+            if (Number.isFinite(technical.value)) currentValue = technical.value;
+            if (Number.isFinite(technical.target)) targetValue = technical.target;
+            
+            // 2. Buscar em suggestion.currentValue/targetValue (fallback)
+            if (currentValue === null && Number.isFinite(suggestion.currentValue)) {
+                currentValue = suggestion.currentValue;
+            }
+            if (targetValue === null && Number.isFinite(suggestion.targetValue)) {
+                targetValue = suggestion.targetValue;
+            }
+            
+            // 3. Buscar em technical com aliases alternativos
+            if (currentValue === null && Number.isFinite(technical.currentValue)) {
+                currentValue = technical.currentValue;
+            }
+            if (targetValue === null && Number.isFinite(technical.targetValue)) {
+                targetValue = technical.targetValue;
+            }
+            
+            // Validar se temos os valores necessários
+            if (!Number.isFinite(currentValue) || !Number.isFinite(targetValue)) {
+                this.logAudit('POST_PROCESS_SKIP', `Banda sem valores válidos: ${suggestion.subtype}`, {
+                    band: suggestion.subtype,
+                    currentValue,
+                    targetValue,
+                    technicalKeys: Object.keys(technical),
+                    suggestionKeys: Object.keys(suggestion).filter(k => k.includes('Value') || k.includes('value'))
+                });
+                return suggestion;
+            }
+            
+            // 🎯 CORREÇÃO: Calcular delta de forma consistente
+            // Delta = current - target (positivo = atual maior que alvo = reduzir)
+            const delta = currentValue - targetValue;
             
             // 🎯 LÓGICA SEGURA: Aplicar critério solicitado
             if (typeof delta === "number" && !isNaN(delta)) {
-                // Garantir que technical.delta está presente
-                technical.delta = delta;
+                // Atualizar dados técnicos com valores corretos
+                const updatedTechnical = {
+                    ...technical,
+                    value: currentValue,
+                    target: targetValue,
+                    delta: delta,
+                    currentValue: currentValue,
+                    targetValue: targetValue
+                };
                 
                 // Verificar se o action contém valores fixos problemáticos
                 const currentAction = suggestion.action || '';
                 const hasFixedValues = /\b(?:6\.0|4\.0)\s*dB\b/.test(currentAction);
                 
-                if (!hasFixedValues) {
-                    // Action já correto, apenas garantir que technical.delta está presente
-                    return { ...suggestion, technical: { ...technical, delta } };
+                if (!hasFixedValues && currentAction.includes(Math.abs(delta).toFixed(1))) {
+                    // Action já correto com valor real, apenas garantir que technical está atualizado
+                    this.logAudit('POST_PROCESS_KEEP', `Action já correto para banda ${suggestion.subtype}`, {
+                        band: suggestion.subtype,
+                        action: currentAction,
+                        delta: delta,
+                        source: 'postProcessBandSuggestions'
+                    });
+                    
+                    return { 
+                        ...suggestion, 
+                        technical: updatedTechnical,
+                        currentValue: currentValue,
+                        targetValue: targetValue
+                    };
                 }
                 
                 // 🎯 APLICAR LÓGICA SEGURA SOLICITADA
                 const direction = delta > 0 ? "Reduzir" : "Aumentar";
                 const amount = Math.abs(delta).toFixed(1);
-                const bandName = this.getBandDisplayName(suggestion.subtype);
+                const bandName = this.getBandDisplayName(suggestion.subtype || suggestion.band);
                 
-                // 🎯 NÃO REATRIBUIR OBJETO - APENAS ATUALIZAR PROPRIEDADES
-                suggestion.action = `${direction} ${bandName} em ${amount} dB`;
-                suggestion.diagnosis = `Atual: ${technical.value} dB, Alvo: ${technical.target} dB, Diferença: ${amount} dB`;
+                // Atualizar action e diagnosis
+                const newAction = `${direction} ${bandName} em ${amount} dB`;
+                const newDiagnosis = `Atual: ${currentValue.toFixed(1)} dB, Alvo: ${targetValue.toFixed(1)} dB, Diferença: ${amount} dB`;
                 
                 this.logAudit('ACTION_CORRECTED', `Action corrigido para banda ${suggestion.subtype}`, {
                     band: suggestion.subtype,
                     oldAction: currentAction,
-                    newAction: suggestion.action,
-                    value: technical.value,
-                    target: technical.target,
+                    newAction: newAction,
+                    currentValue: currentValue,
+                    targetValue: targetValue,
                     delta: delta,
                     source: 'postProcessBandSuggestions'
                 });
                 
                 return {
                     ...suggestion,
-                    technical: { ...technical, delta }
+                    action: newAction,
+                    diagnosis: newDiagnosis,
+                    technical: updatedTechnical,
+                    currentValue: currentValue,
+                    targetValue: targetValue
                 };
             } else {
                 // 🎯 SE DELTA NÃO EXISTIR, NÃO GERAR ACTION
-                suggestion.action = null;
-                suggestion.diagnosis = null;
-                return suggestion;
+                this.logAudit('POST_PROCESS_ERROR', `Delta inválido para banda ${suggestion.subtype}`, {
+                    band: suggestion.subtype,
+                    currentValue,
+                    targetValue,
+                    delta,
+                    deltaType: typeof delta
+                });
+                
+                return {
+                    ...suggestion,
+                    action: `Verificar banda ${suggestion.subtype}`,
+                    diagnosis: `Erro no cálculo de diferença`,
+                    technical: { ...technical, error: 'delta_invalid' }
+                };
             }
         });
         
