@@ -1181,7 +1181,29 @@ class AISuggestionsIntegration {
      */
     displaySuggestions(suggestions, source = 'ai') {
         // 🔍 AUDITORIA PASSO 6: RENDERIZAÇÃO FINAL
-        console.group('🔍 [AUDITORIA] RENDERIZAÇÃO FINAL');
+        console.group('🔍 [AUDITORIA-UI] RENDERIZAÇÃO FINAL');
+        console.debug("[AUDITORIA-UI] Recebido para renderizar:", {
+            array: suggestions,
+            length: suggestions?.length || 0,
+            source: source,
+            arrayType: Array.isArray(suggestions) ? 'Array' : typeof suggestions
+        });
+
+        // Verificar se é finalSuggestions ou outro array
+        if (suggestions && Array.isArray(suggestions)) {
+            suggestions.forEach((sug, index) => {
+                console.debug(`[AUDITORIA-UI] Item ${index}:`, {
+                    type: sug.type,
+                    metric: sug.metric,
+                    priority: sug.priority,
+                    ai_enhanced: sug.ai_enhanced,
+                    hasBlocks: !!sug.blocks,
+                    hasAiBlocks: !!sug.ai_blocks,
+                    message: (sug.message || '').substring(0, 30) + '...'
+                });
+            });
+        }
+
         console.log('[AI-UI] Renderizando sugestões enriquecidas:', suggestions?.length || 0);
         console.debug('[FIX] TP presente antes da renderização?', suggestions?.some(s => s.type === 'reference_true_peak'));
         console.debug('[FIX] Ordem final das sugestões:', suggestions?.map((s, i) => `${i+1}. ${s.type||s.metric} (p:${s.priority})`).join(', '));
