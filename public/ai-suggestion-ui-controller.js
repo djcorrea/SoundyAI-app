@@ -182,7 +182,9 @@ class AISuggestionUIController {
         
         if (!this.elements.aiSection) return;
         
+        // ✅ GARANTIA: currentSuggestions sempre será finalSuggestions
         this.currentSuggestions = suggestions;
+        console.log(`[FIXED] currentSuggestions definido como finalSuggestions (${suggestions?.length || 0} itens)`);
         
         // Mostrar seção
         this.elements.aiSection.style.display = 'block';
@@ -390,24 +392,27 @@ class AISuggestionUIController {
      * 🖥️ Abrir modal em tela cheia
      */
     openFullModal() {
-        // 🔍 AUDITORIA DO MODAL AI
-        console.group('🔍 [AUDITORIA-MODAL-AI] openFullModal chamado');
-        console.debug('[AUDITORIA-MODAL-AI] Estado ao abrir modal:', {
+        console.log('🎯 [FIXED] openFullModal - Forçando fluxo AI único');
+        console.debug('[FIXED] Estado do modal:', {
             hasModal: !!this.elements.fullModal,
             suggestionsLength: this.currentSuggestions?.length || 0,
-            suggestionsSource: 'currentSuggestions',
-            firstSuggestionType: this.currentSuggestions?.[0]?.type || this.currentSuggestions?.[0]?.metric,
-            hasTruePeak: this.currentSuggestions?.some(s => s.type === 'reference_true_peak' || s.metric === 'reference_true_peak')
+            suggestionsType: this.currentSuggestions ? 'finalSuggestions' : 'vazio',
+            aiConfigured: window.aiController?.isConfigured() || false
         });
         
-        if (!this.elements.fullModal || !this.currentSuggestions.length) {
-            console.debug('[AUDITORIA-MODAL-AI] Modal não aberto - condições não atendidas');
-            console.groupEnd();
+        if (!this.elements.fullModal) {
+            console.warn('[FIXED] Modal element não encontrado');
             return;
         }
         
-        // Renderizar conteúdo completo
-        this.renderFullSuggestions(this.currentSuggestions);
+        // ✅ FLUXO AI ÚNICO: Sempre renderizar via AI, mesmo se vazio
+        if (!this.currentSuggestions?.length) {
+            console.log('[FIXED] Sugestões vazias - Exibindo loading state');
+            this.renderLoadingModal();
+        } else {
+            console.log(`[FIXED] Modal renderizado via fluxo AI com ${this.currentSuggestions.length} sugestões`);
+            this.renderFullSuggestions(this.currentSuggestions);
+        }
         
         // Exibir modal
         this.elements.fullModal.style.display = 'flex';
@@ -421,10 +426,39 @@ class AISuggestionUIController {
         // Atualizar estatísticas
         this.updateFullModalStats();
         
-        console.debug('[AUDITORIA-MODAL-AI] Modal aberto com sucesso');
-        console.groupEnd();
+        console.log('🖥️ [FIXED] Modal full aberto via fluxo AI');
+    }
+
+    /**
+     * 🔄 Renderizar modal com estado de loading
+     */
+    renderLoadingModal() {
+        if (!this.elements.fullModal) return;
         
-        console.log('🖥️ [AI-UI] Modal full aberto');
+        const modalContent = this.elements.fullModal.querySelector('.modal-content .modal-body');
+        if (!modalContent) return;
+        
+        modalContent.innerHTML = `
+            <div class="ai-suggestions-loading-modal">
+                <div class="loading-spinner">⏳</div>
+                <h3>Processando sugestões da IA...</h3>
+                <p>Aguarde enquanto enriquecemos suas sugestões com inteligência artificial.</p>
+                <div class="loading-details">
+                    <small>O modal será atualizado automaticamente quando o processamento estiver completo.</small>
+                </div>
+            </div>
+        `;
+        
+        // Exibir modal mesmo em loading
+        this.elements.fullModal.style.display = 'flex';
+        setTimeout(() => {
+            this.elements.fullModal.classList.add('show');
+        }, 10);
+        
+        this.isFullModalOpen = true;
+        document.body.style.overflow = 'hidden';
+        
+        console.log('[FIXED] Modal loading state exibido');
     }
     
     /**
@@ -448,17 +482,27 @@ class AISuggestionUIController {
      * 🎯 Renderizar sugestões completas no modal
      */
     renderFullSuggestions(suggestions) {
-        // 🔍 AUDITORIA COMPLETA: MODAL AI
-        console.group('🔍 [AUDITORIA-FLUXO] renderFullSuggestions renderizou N sugestões');
-        console.log('[AUDITORIA-FLUXO] MODAL AI ATIVO - Sistema correto funcionando');
-        console.debug('[AUDITORIA-FLUXO] Sugestões recebidas para modal:', {
-            length: suggestions?.length || 0,
-            isArray: Array.isArray(suggestions),
-            types: suggestions?.map(s => s.type || s.metric),
-            hasTruePeak: suggestions?.some(s => s.type === 'reference_true_peak' || s.metric === 'reference_true_peak'),
-            firstSuggestionType: suggestions?.[0]?.type || suggestions?.[0]?.metric,
-            firstSuggestionPriority: suggestions?.[0]?.priority || suggestions?.[0]?.ai_priority
-        });
+        console.log(`[FIXED] renderFullSuggestions iniciado com ${suggestions?.length || 0} sugestões`);
+        
+        // 🎯 ORDENAÇÃO OBRIGATÓRIA: True Peak priority=10 sempre no topo
+        if (suggestions && suggestions.length > 0) {
+            suggestions = [...suggestions].sort((a, b) => {
+                const priorityA = a.priority || a.ai_priority || 0;
+                const priorityB = b.priority || b.ai_priority || 0;
+                
+                // True Peak sempre no topo
+                const isTruePeakA = (a.type === 'reference_true_peak' || a.metric === 'reference_true_peak');
+                const isTruePeakB = (b.type === 'reference_true_peak' || b.metric === 'reference_true_peak');
+                
+                if (isTruePeakA && !isTruePeakB) return -1;
+                if (!isTruePeakA && isTruePeakB) return 1;
+                
+                // Ordenação por priority (maior primeiro)
+                return priorityB - priorityA;
+            });
+            
+            console.log(`[FIXED] Sugestões ordenadas - Primeira: ${suggestions[0]?.type || suggestions[0]?.metric} (priority: ${suggestions[0]?.priority || suggestions[0]?.ai_priority})`);
+        }
         
         if (!this.elements.fullModalContent) {
             console.debug('[AUDITORIA-RENDER] Cancelado - elemento fullModalContent não encontrado');
@@ -509,12 +553,16 @@ class AISuggestionUIController {
             </div>
         `;
         
-        console.debug('[AUDITORIA-RENDER] Modal renderizado com sucesso:', {
-            cardsGerados: suggestionsOrdenadas.length,
-            htmlLength: gridHtml.length,
-            modalContentUpdated: true
-        });
-        console.groupEnd();
+        console.log(`[FIXED] Modal renderizado via fluxo AI com ${suggestionsOrdenadas.length} sugestões`);
+        
+        // ✅ Verificar se True Peak está no topo
+        const firstSuggestion = suggestionsOrdenadas[0];
+        const isTruePeakFirst = firstSuggestion && (firstSuggestion.type === 'reference_true_peak' || firstSuggestion.metric === 'reference_true_peak');
+        if (isTruePeakFirst) {
+            console.log('[FIXED] ✅ True Peak confirmado no topo com AI enrichment');
+        } else if (suggestionsOrdenadas.length > 0) {
+            console.warn('[FIXED] ⚠️ True Peak não encontrado no topo - primeira sugestão:', firstSuggestion?.type || firstSuggestion?.metric);
+        }
     }
     
     /**
