@@ -351,7 +351,21 @@ class AISuggestionUIController {
      * 🖥️ Abrir modal em tela cheia
      */
     openFullModal() {
-        if (!this.elements.fullModal || !this.currentSuggestions.length) return;
+        // 🔍 AUDITORIA DO MODAL AI
+        console.group('🔍 [AUDITORIA-MODAL-AI] openFullModal chamado');
+        console.debug('[AUDITORIA-MODAL-AI] Estado ao abrir modal:', {
+            hasModal: !!this.elements.fullModal,
+            suggestionsLength: this.currentSuggestions?.length || 0,
+            suggestionsSource: 'currentSuggestions',
+            firstSuggestionType: this.currentSuggestions?.[0]?.type || this.currentSuggestions?.[0]?.metric,
+            hasTruePeak: this.currentSuggestions?.some(s => s.type === 'reference_true_peak' || s.metric === 'reference_true_peak')
+        });
+        
+        if (!this.elements.fullModal || !this.currentSuggestions.length) {
+            console.debug('[AUDITORIA-MODAL-AI] Modal não aberto - condições não atendidas');
+            console.groupEnd();
+            return;
+        }
         
         // Renderizar conteúdo completo
         this.renderFullSuggestions(this.currentSuggestions);
@@ -367,6 +381,9 @@ class AISuggestionUIController {
         
         // Atualizar estatísticas
         this.updateFullModalStats();
+        
+        console.debug('[AUDITORIA-MODAL-AI] Modal aberto com sucesso');
+        console.groupEnd();
         
         console.log('🖥️ [AI-UI] Modal full aberto');
     }
@@ -392,7 +409,20 @@ class AISuggestionUIController {
      * 🎯 Renderizar sugestões completas no modal
      */
     renderFullSuggestions(suggestions) {
-        if (!this.elements.fullModalContent) return;
+        // 🔍 AUDITORIA DO RENDER MODAL
+        console.group('🔍 [AUDITORIA-RENDER-MODAL] renderFullSuggestions chamado');
+        console.debug('[AUDITORIA-RENDER] Sugestões recebidas para modal:', {
+            length: suggestions?.length || 0,
+            isArray: Array.isArray(suggestions),
+            types: suggestions?.map(s => s.type || s.metric),
+            hasTruePeak: suggestions?.some(s => s.type === 'reference_true_peak' || s.metric === 'reference_true_peak')
+        });
+        
+        if (!this.elements.fullModalContent) {
+            console.debug('[AUDITORIA-RENDER] Cancelado - elemento fullModalContent não encontrado');
+            console.groupEnd();
+            return;
+        }
         
         // 🎯 ORDENAÇÃO FINAL GARANTIDA: Garantir ordem correta no modal
         console.log('🎯 [MODAL-ORDEM] Aplicando ordenação final no modal...');
@@ -421,6 +451,13 @@ class AISuggestionUIController {
                 ${gridHtml}
             </div>
         `;
+        
+        console.debug('[AUDITORIA-RENDER] Modal renderizado com sucesso:', {
+            cardsGerados: suggestionsOrdenadas.length,
+            htmlLength: gridHtml.length,
+            modalContentUpdated: true
+        });
+        console.groupEnd();
     }
     
     /**

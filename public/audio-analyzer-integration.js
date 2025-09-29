@@ -3373,12 +3373,24 @@ function showModalLoading() {
 // 📊 Mostrar resultados no modal
 // 📊 Mostrar resultados no modal
 function displayModalResults(analysis) {
-    // 🔒 UI GATE: Verificação final antes de renderizar
+    // � AUDITORIA DO MODAL ORIGINAL
+    console.group('🔍 [AUDITORIA-MODAL-ORIGINAL] displayModalResults CHAMADO');
+    console.debug('[AUDITORIA-MODAL] Origem da chamada:', (new Error()).stack.split('\n')[1]?.trim());
+    console.debug('[AUDITORIA-MODAL] Análise recebida:', {
+        hasAnalysis: !!analysis,
+        hasSuggestions: !!analysis?.suggestions,
+        suggestionsLength: analysis?.suggestions?.length || 0,
+        runId: analysis?.runId || analysis?.metadata?.runId,
+        currentRunId: window.__CURRENT_ANALYSIS_RUN_ID__
+    });
+
+    // �🔒 UI GATE: Verificação final antes de renderizar
     const analysisRunId = analysis?.runId || analysis?.metadata?.runId;
     const currentRunId = window.__CURRENT_ANALYSIS_RUN_ID__;
     
     if (analysisRunId && currentRunId && analysisRunId !== currentRunId) {
         console.warn(`🚫 [UI_GATE] displayModalResults cancelado - análise obsoleta (análise: ${analysisRunId}, atual: ${currentRunId})`);
+        console.groupEnd();
         return;
     }
     
@@ -4750,6 +4762,17 @@ function displayModalResults(analysis) {
     
     try { renderReferenceComparisons(analysis); } catch(e){ console.warn('ref compare fail', e);}    
         try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ console.warn('validation controls fail', e); }
+    
+    // 🔍 AUDITORIA FINAL DO MODAL
+    console.debug('[AUDITORIA-MODAL] Modal renderizado - estado final:', {
+        suggestionsLength: analysis?.suggestions?.length || 0,
+        suggestionsTypes: analysis?.suggestions?.map(s => s.type || s.metric) || [],
+        modalElement: !!document.getElementById('modalTechnicalData'),
+        suggestionsListElement: !!document.getElementById('suggestions-list'),
+        suggestionsListContent: document.getElementById('suggestions-list')?.innerHTML?.length || 0
+    });
+    console.groupEnd();
+    
     __dbg('📊 Resultados exibidos no modal');
 }
 
@@ -6900,6 +6923,13 @@ window.displayReferenceResults = function(referenceResults) {
         
         // Se há sugestões, exibir
         if (referenceSuggestions && referenceSuggestions.length > 0) {
+            console.warn('🔍 [AUDITORIA-DOM] MANIPULAÇÃO DIRETA DE suggestions-list');
+            console.debug('[AUDITORIA-DOM] Origem:', (new Error()).stack.split('\n')[1]?.trim());
+            console.debug('[AUDITORIA-DOM] Renderizando referenceSuggestions:', {
+                length: referenceSuggestions.length,
+                types: referenceSuggestions.map(s => s.category || s.type)
+            });
+            
             const suggestionsList = document.getElementById('suggestions-list');
             if (suggestionsList) {
                 suggestionsList.innerHTML = referenceSuggestions.map(suggestion => 
@@ -6913,6 +6943,7 @@ window.displayReferenceResults = function(referenceResults) {
                 ).join('');
             }
         } else {
+            console.debug('🔍 [AUDITORIA-DOM] Renderizando mensagem de sucesso (sem sugestões)');
             // Audio idêntico - mostrar mensagem de sucesso
             const suggestionsList = document.getElementById('suggestions-list');
             if (suggestionsList) {
