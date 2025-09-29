@@ -1441,8 +1441,18 @@ function applyGenreSelection(genre) {
                     }
                 } catch(e) { console.warn('❌ Falha ao recalcular score:', e); }
                 
-                // Recalcular sugestões reference_* com as novas tolerâncias
-                try { updateReferenceSuggestions(currentModalAnalysis); } catch(e) { console.warn('updateReferenceSuggestions falhou', e); }
+                // 🎯 [REFATORACAO] Redirecionar para fluxo AI unificado
+                try { 
+                    console.debug('[REFATORACAO] Redirecionando updateReferenceSuggestions para fluxo AI');
+                    // Processar dados sem renderizar DOM (deixar para o AI)
+                    updateReferenceSuggestions(currentModalAnalysis); 
+                    
+                    // Triggerar re-processamento AI se disponível
+                    if (window.aiSuggestionIntegration && currentModalAnalysis?.suggestions) {
+                        console.debug('[REFATORACAO] Triggering AI reprocessing após mudança de gênero');
+                        window.aiSuggestionIntegration.processSuggestions(currentModalAnalysis.suggestions, currentModalAnalysis);
+                    }
+                } catch(e) { console.warn('Processamento de sugestões falhou', e); }
                 // Re-renderização completa para refletir sugestões e comparações
                 try { 
                     // 🔒 UI GATE: Verificar se análise ainda é válida
@@ -2102,20 +2112,29 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         // 🔧 CORREÇÃO: Normalizar dados do backend antes de usar
         const normalizedResult = normalizeBackendAnalysisData(analysisResult);
         
-        // 🎯 CORREÇÃO CRÍTICA: Gerar sugestões no primeiro load
+        // 🎯 [REFATORACAO] Gerar sugestões e processar via fluxo AI unificado
         if (__activeRefData && !normalizedResult._suggestionsGenerated) {
-            console.log('🎯 [SUGGESTIONS] Engine chamado no primeiro load');
+            console.log('🎯 [REFATORACAO] Gerando sugestões para fluxo AI no primeiro load');
             try {
+                // Gerar dados de sugestões sem renderizar DOM
                 updateReferenceSuggestions(normalizedResult, __activeRefData);
                 normalizedResult._suggestionsGenerated = true;
-                console.log(`🎯 [SUGGESTIONS] ${normalizedResult.suggestions?.length || 0} sugestões geradas no primeiro load`);
+                console.log(`🎯 [REFATORACAO] ${normalizedResult.suggestions?.length || 0} sugestões geradas`);
+                
+                // Processar via sistema AI se disponível
+                if (window.aiSuggestionIntegration && normalizedResult.suggestions) {
+                    console.debug('[REFATORACAO] Processando sugestões via sistema AI');
+                    setTimeout(() => {
+                        window.aiSuggestionIntegration.processSuggestions(normalizedResult.suggestions, normalizedResult);
+                    }, 100); // Pequeno delay para garantir que o modal está pronto
+                }
             } catch (error) {
-                console.error('❌ [SUGGESTIONS] Erro ao gerar sugestões no primeiro load:', error);
+                console.error('❌ [REFATORACAO] Erro ao processar sugestões:', error);
             }
         } else if (!__activeRefData) {
-            console.log('🎯 [SUGGESTIONS] Dados de referência não disponíveis para gerar sugestões');
+            console.log('🎯 [REFATORACAO] Dados de referência não disponíveis - AI renderizará placeholder');
         } else {
-            console.log('🎯 [SUGGESTIONS] Sugestões já foram geradas anteriormente');
+            console.log('🎯 [REFATORACAO] Sugestões já processadas anteriormente');
         }
 
         // 🚀 FORÇA EXIBIÇÃO: Sempre mostrar interface IA após sugestões serem processadas
@@ -3383,6 +3402,14 @@ function displayModalResults(analysis) {
         runId: analysis?.runId || analysis?.metadata?.runId,
         currentRunId: window.__CURRENT_ANALYSIS_RUN_ID__
     });
+
+    // 🎯 [REFATORACAO] Verificar se fluxo AI está ativo
+    if (window.__AI_RENDER_MODE_ACTIVE__ || window.__BLOCK_ORIGINAL_RENDERING__) {
+        console.debug('[REFATORACAO] displayModalResults bloqueado - fluxo AI ativo');
+        console.debug('[REFATORACAO] Dados processados mas renderização delegada ao sistema AI');
+        console.groupEnd();
+        return;
+    }
 
     // �🔒 UI GATE: Verificação final antes de renderizar
     const analysisRunId = analysis?.runId || analysis?.metadata?.runId;
@@ -6921,39 +6948,21 @@ window.displayReferenceResults = function(referenceResults) {
         // Exibir seção de comparação
         displayComparisonSection(comparisonData, referenceSuggestions || []);
         
-        // Se há sugestões, exibir
+        // � [REFATORACAO] RENDERIZAÇÃO DOM DESATIVADA - Usando fluxo AI unificado
+        console.debug('[REFATORACAO] updateReferenceSuggestions - DOM direto desativado');
+        console.debug('[REFATORACAO] referenceSuggestions processadas mas não renderizadas:', {
+            length: referenceSuggestions?.length || 0,
+            types: referenceSuggestions?.map(s => s.category || s.type) || [],
+            redirectTo: 'Fluxo AI (displaySuggestions + renderFullSuggestions)'
+        });
+        
+        // DADOS PROCESSADOS: Manter para compatibilidade, mas não renderizar DOM
         if (referenceSuggestions && referenceSuggestions.length > 0) {
-            console.warn('🔍 [AUDITORIA-DOM] MANIPULAÇÃO DIRETA DE suggestions-list');
-            console.debug('[AUDITORIA-DOM] Origem:', (new Error()).stack.split('\n')[1]?.trim());
-            console.debug('[AUDITORIA-DOM] Renderizando referenceSuggestions:', {
-                length: referenceSuggestions.length,
-                types: referenceSuggestions.map(s => s.category || s.type)
-            });
-            
-            const suggestionsList = document.getElementById('suggestions-list');
-            if (suggestionsList) {
-                suggestionsList.innerHTML = referenceSuggestions.map(suggestion => 
-                    `<div class="suggestion-item">
-                        <h4>${suggestion.category}</h4>
-                        <p>${suggestion.text}</p>
-                        <div class="suggestion-details">
-                            <small>Diferença: ${suggestion.difference} | Threshold: ${suggestion.threshold}</small>
-                        </div>
-                    </div>`
-                ).join('');
-            }
+            console.debug('[REFATORACAO] Sugestões disponíveis para fluxo AI:', referenceSuggestions.length);
+            // DOM será atualizado pelo sistema AI via displaySuggestions()
         } else {
-            console.debug('🔍 [AUDITORIA-DOM] Renderizando mensagem de sucesso (sem sugestões)');
-            // Audio idêntico - mostrar mensagem de sucesso
-            const suggestionsList = document.getElementById('suggestions-list');
-            if (suggestionsList) {
-                suggestionsList.innerHTML = `
-                    <div class="no-suggestions">
-                        <h3>✅ Análise de Referência Concluída</h3>
-                        <p>Os áudios são altamente similares. Diferenças dentro da tolerância aceitável.</p>
-                    </div>
-                `;
-            }
+            console.debug('[REFATORACAO] Nenhuma sugestão - AI renderizará placeholder');
+            // AI renderizará mensagem adequada
         }
         
         window.logReferenceEvent('reference_results_displayed_successfully');
