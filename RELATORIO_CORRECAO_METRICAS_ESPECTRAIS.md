@@ -27,7 +27,7 @@ As métricas espectrais (spectralBands, spectralCentroid, rolloffHz, brightness,
 
 ### 1. **Estrutura `aggregated` Corrigida**
 **Arquivo**: `work/api/audio/core-metrics.js`
-
+xs
 ```javascript
 // ❌ ANTES: Métricas adicionadas apenas no nível raiz
 Object.assign(fftResults, finalSpectral);
