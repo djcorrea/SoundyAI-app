@@ -1111,13 +1111,8 @@ function applyGenreSelection(genre) {
     return loadReferenceData(genre).then(() => {
         try {
             if (typeof currentModalAnalysis === 'object' && currentModalAnalysis) {
-                // 🎯 NOVO: Recalcular score com nova referência
-                try {
-                    if (typeof window !== 'undefined' && window.computeMixScore && __refData) {
-                        currentModalAnalysis.qualityOverall = window.computeMixScore(currentModalAnalysis.technicalData, __refData);
-                        console.log('✅ Score recalculado para novo gênero:', currentModalAnalysis.qualityOverall);
-                    }
-                } catch(e) { console.warn('❌ Falha ao recalcular score:', e); }
+                // ✅ Enhanced Engine é responsável por todos os cálculos
+                // Não recalcular scores aqui - usar valores já calculados
                 
                 // Recalcular sugestões reference_* com as novas tolerâncias
                 try { updateReferenceSuggestions(currentModalAnalysis); } catch(e) { console.warn('updateReferenceSuggestions falhou', e); }
