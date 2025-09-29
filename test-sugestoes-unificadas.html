@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste: Fluxo de Sugestões Unificado</title>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px; 
+            background: #1a1a1a; 
+            color: #fff; 
+        }
+        .test-section { 
+            background: #2a2a2a; 
+            padding: 15px; 
+            margin: 10px 0; 
+            border-radius: 8px; 
+            border-left: 4px solid #007acc; 
+        }
+        .success { border-left-color: #28a745; }
+        .warning { border-left-color: #ffc107; }
+        .error { border-left-color: #dc3545; }
+        .suggestion-item {
+            background: #3a3a3a;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border-left: 3px solid #007acc;
+        }
+        .suggestion-critical { border-left-color: #dc3545; }
+        .suggestion-spectral { border-left-color: #17a2b8; }
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #005ea2; }
+        .log { 
+            background: #1e1e1e; 
+            padding: 10px; 
+            font-family: monospace; 
+            font-size: 12px; 
+            max-height: 300px; 
+            overflow-y: auto; 
+            border: 1px solid #444;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎯 Teste: Sistema de Sugestões Unificado</h1>
+    <p>Este teste valida se as correções do fluxo de sugestões estão funcionando corretamente.</p>
+
+    <div class="test-section">
+        <h3>🔧 Controles de Teste</h3>
+        <button onclick="testarFluxoEnhancedEngine()">1. Testar Enhanced Engine</button>
+        <button onclick="testarFluxoLegado()">2. Testar Sistema Legado (deve estar desabilitado)</button>
+        <button onclick="testarMetricasCriticas()">3. Testar Métricas Críticas</button>
+        <button onclick="testarOrdemDeterministica()">4. Testar Ordem Determinística</button>
+        <button onclick="limparLog()">🗑️ Limpar Log</button>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 Status dos Componentes</h3>
+        <div id="componentStatus"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>🎵 Resultado do Teste</h3>
+        <div id="testResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>📝 Log de Execução</h3>
+        <div id="logOutput" class="log"></div>
+    </div>
+
+    <!-- Carregar dependências -->
+    <script src="enhanced-suggestion-engine.js"></script>
+    <script src="audio-analyzer-integration.js"></script>
+    <script src="ai-suggestion-layer.js"></script>
+
+    <script>
+        let logContainer;
+        
+        function log(message, type = 'info') {
+            if (!logContainer) logContainer = document.getElementById('logOutput');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.style.color = type === 'error' ? '#ff6b6b' : 
+                                 type === 'success' ? '#51cf66' : 
+                                 type === 'warning' ? '#ffd43b' : '#74c0fc';
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function limparLog() {
+            document.getElementById('logOutput').innerHTML = '';
+        }
+
+        function verificarComponentes() {
+            const status = document.getElementById('componentStatus');
+            const componentes = [
+                { nome: 'Enhanced Suggestion Engine', disponivel: typeof window.EnhancedSuggestionEngine !== 'undefined' },
+                { nome: 'AI Suggestion Layer', disponivel: typeof window.aiSuggestionLayer !== 'undefined' },
+                { nome: 'updateReferenceSuggestions', disponivel: typeof updateReferenceSuggestions === 'function' },
+                { nome: 'displayModalResults', disponivel: typeof displayModalResults === 'function' }
+            ];
+
+            status.innerHTML = componentes.map(comp => `
+                <div style="color: ${comp.disponivel ? '#51cf66' : '#ff6b6b'}">
+                    ${comp.disponivel ? '✅' : '❌'} ${comp.nome}
+                </div>
+            `).join('');
+
+            log(`Verificação de componentes concluída: ${componentes.filter(c => c.disponivel).length}/${componentes.length} disponíveis`);
+        }
+
+        // Dados de teste simulando uma análise real
+        const dadosTeste = {
+            technicalData: {
+                lufsIntegrated: -9.2,
+                truePeakDbtp: -0.3,
+                dynamicRange: 6.8,
+                lra: 7.5,
+                stereoCorrelation: 0.45,
+                bandEnergies: {
+                    sub: { rms_db: -12.1 },
+                    low_bass: { rms_db: -8.7 },
+                    upper_bass: { rms_db: -10.4 },
+                    low_mid: { rms_db: -7.2 },
+                    mid: { rms_db: -5.1 },
+                    high_mid: { rms_db: -11.8 },
+                    presenca: { rms_db: -18.3 },
+                    brilho: { rms_db: -15.7 }
+                }
+            },
+            runId: 'test_' + Date.now(),
+            metadata: { genre: 'funk_mandela' }
+        };
+
+        const referenciaTeste = {
+            lufs_target: -8.0,
+            tol_lufs: 2.5,
+            true_peak_target: -0.8,
+            tol_true_peak: 1.0,
+            dr_target: 8.0,
+            tol_dr: 3.0,
+            lra_target: 9.0,
+            tol_lra: 2.5,
+            stereo_target: 0.60,
+            tol_stereo: 0.25,
+            bands: {
+                sub: { target_db: -7.2, tol_db: 2.5 },
+                low_bass: { target_db: -8.9, tol_db: 2.5 },
+                upper_bass: { target_db: -12.8, tol_db: 2.5 },
+                low_mid: { target_db: -9.2, tol_db: 2.0 },
+                mid: { target_db: -6.8, tol_db: 1.5 },
+                high_mid: { target_db: -12.3, tol_db: 1.5 },
+                presenca: { target_db: -19.1, tol_db: 2.5 },
+                brilho: { target_db: -16.2, tol_db: 2.0 }
+            }
+        };
+
+        function testarFluxoEnhancedEngine() {
+            log('🎯 Iniciando teste do Enhanced Engine...', 'info');
+            
+            if (typeof window.EnhancedSuggestionEngine === 'undefined') {
+                log('❌ Enhanced Engine não disponível', 'error');
+                return;
+            }
+
+            try {
+                const engine = new window.EnhancedSuggestionEngine();
+                const resultado = engine.processAnalysis(dadosTeste, referenciaTeste);
+                
+                log(`✅ Enhanced Engine executado com sucesso`, 'success');
+                log(`📊 Sugestões geradas: ${resultado.suggestions?.length || 0}`, 'info');
+                
+                // Verificar se métricas críticas estão presentes
+                const metricasCriticas = ['reference_true_peak', 'reference_loudness', 'reference_dynamics', 'reference_lra', 'reference_stereo'];
+                const criticasEncontradas = metricasCriticas.filter(tipo => 
+                    resultado.suggestions?.some(s => s.type === tipo)
+                );
+                
+                log(`🎯 Métricas críticas encontradas: ${criticasEncontradas.length}/5`, criticasEncontradas.length === 5 ? 'success' : 'warning');
+                criticasEncontradas.forEach(metrica => log(`  ✓ ${metrica}`, 'success'));
+                
+                // Exibir resultado
+                exibirResultadoTeste(resultado.suggestions || [], 'Enhanced Engine');
+                
+            } catch (error) {
+                log(`❌ Erro no Enhanced Engine: ${error.message}`, 'error');
+            }
+        }
+
+        function testarFluxoLegado() {
+            log('🔄 Testando sistema legado (deve estar desabilitado)...', 'info');
+            
+            // Simular dados globais necessários
+            window.__activeRefData = referenciaTeste;
+            window.__activeRefGenre = 'funk_mandela';
+            window.PROD_AI_REF_GENRE = 'funk_mandela';
+            
+            const analiseClone = JSON.parse(JSON.stringify(dadosTeste));
+            analiseClone.suggestions = [];
+            
+            try {
+                updateReferenceSuggestions(analiseClone);
+                
+                const sugestoesGeradas = analiseClone.suggestions?.length || 0;
+                
+                if (sugestoesGeradas === 0) {
+                    log('✅ Sistema legado corretamente desabilitado - não gerou sugestões', 'success');
+                } else {
+                    log(`⚠️ Sistema legado ainda ativo - gerou ${sugestoesGeradas} sugestões`, 'warning');
+                    exibirResultadoTeste(analiseClone.suggestions, 'Sistema Legado');
+                }
+                
+            } catch (error) {
+                log(`❌ Erro no sistema legado: ${error.message}`, 'error');
+            }
+        }
+
+        function testarMetricasCriticas() {
+            log('🎯 Testando garantia de métricas críticas...', 'info');
+            
+            if (typeof window.EnhancedSuggestionEngine === 'undefined') {
+                log('❌ Enhanced Engine não disponível para teste', 'error');
+                return;
+            }
+
+            // Teste com dados de referência incompletos (sem tolerâncias)
+            const referenciaIncompleta = {
+                lufs_target: -8.0,
+                // tol_lufs removida intencionalmente
+                true_peak_target: -0.8,
+                // tol_true_peak removida intencionalmente
+                dr_target: 8.0,
+                tol_dr: 3.0, // Esta mantida
+                // lra_target removida completamente
+                stereo_target: 0.60
+                // tol_stereo removida intencionalmente
+            };
+
+            try {
+                const engine = new window.EnhancedSuggestionEngine();
+                const resultado = engine.processAnalysis(dadosTeste, referenciaIncompleta);
+                
+                log(`📊 Teste com referência incompleta: ${resultado.suggestions?.length || 0} sugestões`, 'info');
+                
+                // Verificar se métricas críticas foram criadas mesmo sem tolerância
+                const metricasCriticas = ['reference_true_peak', 'reference_loudness', 'reference_lra'];
+                const criticasComFallback = metricasCriticas.filter(tipo => 
+                    resultado.suggestions?.some(s => s.type === tipo && s._criticalMetricFallback)
+                );
+                
+                log(`🛡️ Métricas críticas com fallback: ${criticasComFallback.length}/${metricasCriticas.length}`, 
+                    criticasComFallback.length > 0 ? 'success' : 'warning');
+                
+                exibirResultadoTeste(resultado.suggestions || [], 'Métricas Críticas (Referência Incompleta)');
+                
+            } catch (error) {
+                log(`❌ Erro no teste de métricas críticas: ${error.message}`, 'error');
+            }
+        }
+
+        function testarOrdemDeterministica() {
+            log('📋 Testando ordem determinística das sugestões...', 'info');
+            
+            if (typeof window.EnhancedSuggestionEngine === 'undefined') {
+                log('❌ Enhanced Engine não disponível para teste', 'error');
+                return;
+            }
+
+            try {
+                const engine = new window.EnhancedSuggestionEngine();
+                
+                // Executar múltiplas vezes para verificar consistência
+                const resultados = [];
+                for (let i = 0; i < 3; i++) {
+                    const resultado = engine.processAnalysis(dadosTeste, referenciaTeste);
+                    resultados.push(resultado.suggestions?.map(s => s.type) || []);
+                }
+                
+                // Verificar se ordem é consistente
+                const ordemConsistente = resultados.every(ordem => 
+                    JSON.stringify(ordem) === JSON.stringify(resultados[0])
+                );
+                
+                log(`🎯 Ordem determinística: ${ordemConsistente ? 'CONSISTENTE' : 'INCONSISTENTE'}`, 
+                    ordemConsistente ? 'success' : 'error');
+                
+                if (resultados[0].length > 0) {
+                    log(`📋 Ordem padrão: ${resultados[0].slice(0, 8).join(' → ')}`, 'info');
+                    
+                    // Verificar se True Peak está primeiro
+                    if (resultados[0][0]?.includes('true_peak')) {
+                        log('✅ True Peak está em primeiro lugar', 'success');
+                    } else {
+                        log('⚠️ True Peak não está em primeiro lugar', 'warning');
+                    }
+                }
+                
+            } catch (error) {
+                log(`❌ Erro no teste de ordem: ${error.message}`, 'error');
+            }
+        }
+
+        function exibirResultadoTeste(sugestoes, fonte) {
+            const container = document.getElementById('testResults');
+            
+            const resultadoHtml = `
+                <h4>🎵 ${fonte} - ${sugestoes.length} sugestões</h4>
+                ${sugestoes.map((sug, index) => `
+                    <div class="suggestion-item ${sug.type?.includes('reference_') ? 'suggestion-critical' : 'suggestion-spectral'}">
+                        <strong>${index + 1}. ${sug.icon || '🎛️'} ${sug.type || 'Sem tipo'}</strong><br>
+                        <small>Mensagem: ${sug.message || 'N/A'}</small><br>
+                        <small>Ação: ${sug.action || 'N/A'}</small><br>
+                        ${sug._criticalMetricFallback ? '<small style="color: #ffd43b;">⚠️ Fallback aplicado</small>' : ''}
+                    </div>
+                `).join('')}
+            `;
+            
+            container.innerHTML = resultadoHtml;
+        }
+
+        // Inicialização
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🚀 Sistema de testes inicializado', 'success');
+            verificarComponentes();
+        });
+    </script>
+</body>
+</html>
