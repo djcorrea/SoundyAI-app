@@ -663,17 +663,8 @@ class AISuggestionsIntegration {
                         frequency_range: aiSuggestion.metadata?.frequency_range || '',
                         tools_suggested: this.extractToolsFromBlocks(aiSuggestion.blocks)
                     },
-
-                    // ✅ Preservar campos especiais do TP
-                    priorityWarning: originalSuggestion.priorityWarning,
-                    correctionOrder: originalSuggestion.correctionOrder,
-                    specialAlert: originalSuggestion.specialAlert,
-                    alertType: originalSuggestion.alertType,
-
-                    // ✅ Se for TP, manter mensagem educativa fixa
-                    title: (originalSuggestion.type === 'reference_true_peak' || originalSuggestion.metricType === 'true_peak')
-                        ? (originalSuggestion.message || "⚡ Correção Prioritária: Ajuste o True Peak primeiro. Um TP elevado pode distorcer os transientes, alterar o equilíbrio das frequências e comprometer toda a mixagem. Corrigir o TP primeiro garante uma base estável antes de ajustar DR e LUFS.")
-                        : (aiSuggestion.blocks?.problem || originalSuggestion.title || originalSuggestion.message),
+                    // Atualizar título e descrição com versões enriquecidas se disponível
+                    title: aiSuggestion.blocks?.problem || originalSuggestion.title || originalSuggestion.message,
                     description: aiSuggestion.blocks?.solution || originalSuggestion.description || originalSuggestion.action
                 };
                 
