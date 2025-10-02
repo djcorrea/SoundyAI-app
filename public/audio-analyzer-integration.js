@@ -1441,18 +1441,8 @@ function applyGenreSelection(genre) {
                     }
                 } catch(e) { console.warn('❌ Falha ao recalcular score:', e); }
                 
-                // 🎯 [REFATORACAO] Redirecionar para fluxo AI unificado
-                try { 
-                    console.debug('[REFATORACAO] Redirecionando updateReferenceSuggestions para fluxo AI');
-                    // Processar dados sem renderizar DOM (deixar para o AI)
-                    updateReferenceSuggestions(currentModalAnalysis); 
-                    
-                    // Triggerar re-processamento AI se disponível
-                    if (window.aiSuggestionIntegration && currentModalAnalysis?.suggestions) {
-                        console.debug('[REFATORACAO] Triggering AI reprocessing após mudança de gênero');
-                        window.aiSuggestionIntegration.processSuggestions(currentModalAnalysis.suggestions, currentModalAnalysis);
-                    }
-                } catch(e) { console.warn('Processamento de sugestões falhou', e); }
+                // Recalcular sugestões reference_* com as novas tolerâncias
+                try { updateReferenceSuggestions(currentModalAnalysis); } catch(e) { console.warn('updateReferenceSuggestions falhou', e); }
                 // Re-renderização completa para refletir sugestões e comparações
                 try { 
                     // 🔒 UI GATE: Verificar se análise ainda é válida
@@ -2112,29 +2102,20 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         // 🔧 CORREÇÃO: Normalizar dados do backend antes de usar
         const normalizedResult = normalizeBackendAnalysisData(analysisResult);
         
-        // 🎯 [REFATORACAO] Gerar sugestões e processar via fluxo AI unificado
+        // 🎯 CORREÇÃO CRÍTICA: Gerar sugestões no primeiro load
         if (__activeRefData && !normalizedResult._suggestionsGenerated) {
-            console.log('🎯 [REFATORACAO] Gerando sugestões para fluxo AI no primeiro load');
+            console.log('🎯 [SUGGESTIONS] Engine chamado no primeiro load');
             try {
-                // Gerar dados de sugestões sem renderizar DOM
                 updateReferenceSuggestions(normalizedResult, __activeRefData);
                 normalizedResult._suggestionsGenerated = true;
-                console.log(`🎯 [REFATORACAO] ${normalizedResult.suggestions?.length || 0} sugestões geradas`);
-                
-                // Processar via sistema AI se disponível
-                if (window.aiSuggestionIntegration && normalizedResult.suggestions) {
-                    console.debug('[REFATORACAO] Processando sugestões via sistema AI');
-                    setTimeout(() => {
-                        window.aiSuggestionIntegration.processSuggestions(normalizedResult.suggestions, normalizedResult);
-                    }, 100); // Pequeno delay para garantir que o modal está pronto
-                }
+                console.log(`🎯 [SUGGESTIONS] ${normalizedResult.suggestions?.length || 0} sugestões geradas no primeiro load`);
             } catch (error) {
-                console.error('❌ [REFATORACAO] Erro ao processar sugestões:', error);
+                console.error('❌ [SUGGESTIONS] Erro ao gerar sugestões no primeiro load:', error);
             }
         } else if (!__activeRefData) {
-            console.log('🎯 [REFATORACAO] Dados de referência não disponíveis - AI renderizará placeholder');
+            console.log('🎯 [SUGGESTIONS] Dados de referência não disponíveis para gerar sugestões');
         } else {
-            console.log('🎯 [REFATORACAO] Sugestões já processadas anteriormente');
+            console.log('🎯 [SUGGESTIONS] Sugestões já foram geradas anteriormente');
         }
 
         // 🚀 FORÇA EXIBIÇÃO: Sempre mostrar interface IA após sugestões serem processadas
@@ -3392,32 +3373,12 @@ function showModalLoading() {
 // 📊 Mostrar resultados no modal
 // 📊 Mostrar resultados no modal
 function displayModalResults(analysis) {
-    // � AUDITORIA DO MODAL ORIGINAL
-    console.group('🔍 [AUDITORIA-MODAL-ORIGINAL] displayModalResults CHAMADO');
-    console.debug('[AUDITORIA-MODAL] Origem da chamada:', (new Error()).stack.split('\n')[1]?.trim());
-    console.debug('[AUDITORIA-MODAL] Análise recebida:', {
-        hasAnalysis: !!analysis,
-        hasSuggestions: !!analysis?.suggestions,
-        suggestionsLength: analysis?.suggestions?.length || 0,
-        runId: analysis?.runId || analysis?.metadata?.runId,
-        currentRunId: window.__CURRENT_ANALYSIS_RUN_ID__
-    });
-
-    // 🎯 [REFATORACAO] Verificar se fluxo AI está ativo
-    if (window.__AI_RENDER_MODE_ACTIVE__ || window.__BLOCK_ORIGINAL_RENDERING__) {
-        console.debug('[REFATORACAO] displayModalResults bloqueado - fluxo AI ativo');
-        console.debug('[REFATORACAO] Dados processados mas renderização delegada ao sistema AI');
-        console.groupEnd();
-        return;
-    }
-
-    // �🔒 UI GATE: Verificação final antes de renderizar
+    // 🔒 UI GATE: Verificação final antes de renderizar
     const analysisRunId = analysis?.runId || analysis?.metadata?.runId;
     const currentRunId = window.__CURRENT_ANALYSIS_RUN_ID__;
     
     if (analysisRunId && currentRunId && analysisRunId !== currentRunId) {
         console.warn(`🚫 [UI_GATE] displayModalResults cancelado - análise obsoleta (análise: ${analysisRunId}, atual: ${currentRunId})`);
-        console.groupEnd();
         return;
     }
     
@@ -3437,49 +3398,31 @@ function displayModalResults(analysis) {
         console.log('📊 [DEBUG] Dados normalizados para exibição:', analysis);
     }
     
-    // 🤖 ATIVAR IA SE AINDA NÃO ESTIVER CONFIGURADA
-    if (window.aiSuggestionLayer && !window.aiSuggestionLayer.apiKey) {
-        console.log('🤖 Configurando IA para desenvolvimento...');
-        // Configurar uma key de desenvolvimento (substitua pela sua)
-        window.aiSuggestionLayer.setApiKey('dev-mode-enabled', 'gpt-3.5-turbo');
-    }
-
     // 🎯 CALCULAR SCORES DA ANÁLISE
-    if (analysis) {
-        const detectedGenre = analysis.metadata?.genre || analysis.genre || __activeRefGenre || 'funk_mandela';
+    if (__activeRefData && analysis) {
+        const detectedGenre = analysis.metadata?.genre || analysis.genre || __activeRefGenre;
         console.log('🎯 Calculando scores para gênero:', detectedGenre);
         
-        // 🔧 CORREÇÃO: Garantir que referência exista, senão usar fallback
-        let refData = __activeRefData;
-        if (!refData) {
-            console.warn('⚠️ __activeRefData ausente, tentando fallback de referência');
-            // Tentar usar referência embarcada
-            const embeddedRefs = window.audioRefs || {};
-            refData = embeddedRefs[detectedGenre] || embeddedRefs['funk_mandela'];
-        }
-        
-        if (refData) {
-            try {
-                const analysisScores = calculateAnalysisScores(analysis, refData, detectedGenre);
+        try {
+            const analysisScores = calculateAnalysisScores(analysis, __activeRefData, detectedGenre);
+            
+            if (analysisScores) {
+                // Adicionar scores à análise
+                analysis.scores = analysisScores;
+                console.log('✅ Scores calculados e adicionados à análise:', analysisScores);
                 
-                if (analysisScores) {
-                    // Adicionar scores à análise
-                    analysis.scores = analysisScores;
-                    console.log('✅ Scores calculados e adicionados à análise:', analysisScores);
-                    
-                    // Também armazenar globalmente
-                    if (typeof window !== 'undefined') {
-                        window.__LAST_ANALYSIS_SCORES__ = analysisScores;
-                    }
-                } else {
-                    console.warn('⚠️ Não foi possível calcular scores (dados insuficientes)');
+                // Também armazenar globalmente
+                if (typeof window !== 'undefined') {
+                    window.__LAST_ANALYSIS_SCORES__ = analysisScores;
                 }
-            } catch (error) {
-                console.error('❌ Erro ao calcular scores:', error);
+            } else {
+                console.warn('⚠️ Não foi possível calcular scores (dados insuficientes)');
             }
-        } else {
-            console.error('❌ Nenhuma referência disponível para calcular scores');
+        } catch (error) {
+            console.error('❌ Erro ao calcular scores:', error);
         }
+    } else {
+        console.warn('⚠️ Scores não calculados - dados de referência não disponíveis');
     }
     
     // Ocultar outras seções
@@ -4367,6 +4310,58 @@ function displayModalResults(analysis) {
                     }
                     
                     else {
+                        // 🚨 VERIFICAR SE É TRUE PEAK COM MENSAGEM ESPECIAL
+                        const isTruePeak = sug.type === 'reference_true_peak' || sug.metricType === 'true_peak' || 
+                                         title.toLowerCase().includes('true peak') || title.toLowerCase().includes('tp');
+                        const hasSpecialAlert = sug.specialAlert || sug.priorityWarning;
+                        
+                        if (isTruePeak && hasSpecialAlert) {
+                            // Card especial para True Peak com mensagem de prioridade
+                            return `
+                                <div class="${cardClass} true-peak-priority">
+                                    <div class="card-header">
+                                        <h4 class="card-title">⚡ ${title}</h4>
+                                        <div class="card-badges">
+                                            <span class="priority-badge primeiro">PRIMEIRO</span>
+                                            <span class="severity-badge critica">CRÍTICO</span>
+                                        </div>
+                                    </div>
+                                    
+                                    ${sug.priorityWarning ? `
+                                        <div class="priority-warning" style="background: rgba(255, 193, 7, 0.2); border: 1px solid #FFC107; border-radius: 6px; padding: 12px; margin: 12px 0; color: #856404;">
+                                            ${sug.priorityWarning}
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${explanation ? `
+                                        <div class="card-description" style="border-left-color: #FF5722;">
+                                            <strong>⚠️ Por que é prioritário:</strong> ${explanation}
+                                        </div>
+                                    ` : ''}
+                                    
+                                    <div class="card-action" style="background: rgba(255, 87, 34, 0.1); border-color: #FF5722;">
+                                        <div class="card-action-title" style="color: #FF5722;">
+                                            🚨 Correção Prioritária
+                                        </div>
+                                        <div class="card-action-content">${action}</div>
+                                    </div>
+                                    
+                                    ${sug.why ? `
+                                        <div class="card-impact" style="background: rgba(255, 87, 34, 0.05); border-color: #FF5722;">
+                                            <div class="card-impact-title" style="color: #FF5722;">🔴 Motivo da Prioridade</div>
+                                            <div class="card-impact-content">${sug.why}</div>
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${technical ? `
+                                        <details style="margin-top: 12px;">
+                                            <summary style="cursor: pointer; font-size: 12px; color: #aaa;">Detalhes Técnicos</summary>
+                                            <div style="font-size: 11px; color: #ccc; margin-top: 8px; font-family: monospace;">${technical}</div>
+                                        </details>
+                                    ` : ''}
+                                </div>`;
+                        }
+                        
                         // Card genérico melhorado
                         return `
                             <div class="${cardClass}">
@@ -4789,17 +4784,6 @@ function displayModalResults(analysis) {
     
     try { renderReferenceComparisons(analysis); } catch(e){ console.warn('ref compare fail', e);}    
         try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ console.warn('validation controls fail', e); }
-    
-    // 🔍 AUDITORIA FINAL DO MODAL
-    console.debug('[AUDITORIA-MODAL] Modal renderizado - estado final:', {
-        suggestionsLength: analysis?.suggestions?.length || 0,
-        suggestionsTypes: analysis?.suggestions?.map(s => s.type || s.metric) || [],
-        modalElement: !!document.getElementById('modalTechnicalData'),
-        suggestionsListElement: !!document.getElementById('suggestions-list'),
-        suggestionsListContent: document.getElementById('suggestions-list')?.innerHTML?.length || 0
-    });
-    console.groupEnd();
-    
     __dbg('📊 Resultados exibidos no modal');
 }
 
@@ -4887,9 +4871,8 @@ function renderSmartSummary(analysis){
         let steps = (analysis.caiarExplainPlan && Array.isArray(analysis.caiarExplainPlan.passos)) ? analysis.caiarExplainPlan.passos.slice(0,6) : [];
         if (steps.length === 0) {
             const sugg = Array.isArray(analysis.suggestions) ? analysis.suggestions.slice() : [];
-            // 🎯 CORREÇÃO CRÍTICA: Ordenar por prioridade DECRESCENTE (maior primeiro)
-            // True Peak deve aparecer primeiro (priority alta), não por último
-            sugg.sort((a,b)=> (b.priority||0)-(a.priority||0));
+            // Ordenar por prioridade se houver
+            sugg.sort((a,b)=> (a.priority||999)-(b.priority||999));
             steps = sugg.slice(0,6).map((s,i)=>({
                 ordem:i+1,
                 titulo:s.message||'Ação',
@@ -5577,122 +5560,41 @@ const GENRE_SCORING_WEIGHTS = {
     }
 };
 
-// 1.5. FUNÇÃO PARA OBTER PARÂMETROS DE SCORING DINÂMICOS
-function getScoringParameters(genre, metricKey) {
-    // Tenta buscar parâmetros do scoring-v2-config.json se disponível
-    const globalConfig = window.__SCORING_V2_CONFIG__ || {};
-    const scoringParams = globalConfig.scoring_parameters || {};
-    
-    // Buscar parâmetros específicos do gênero, senão usar defaults
-    const genreParams = scoringParams[genre] || scoringParams.default || {};
-    
-    // Defaults seguros
-    const defaults = {
-        yellowMin: 70,
-        bufferFactor: 1.5,
-        severity: null,
-        hysteresis: 0.2,
-        invert: false
-    };
-    
-    // Casos especiais por métrica
-    if (metricKey === 'truePeakDbtp' || metricKey === 'dcOffset' || 
-        metricKey === 'thdPercent' || metricKey === 'clippingPct') {
-        defaults.invert = true;
-    }
-    
-    return {
-        yellowMin: genreParams.yellowMin || defaults.yellowMin,
-        bufferFactor: genreParams.bufferFactor || defaults.bufferFactor,
-        severity: genreParams.severity || defaults.severity,
-        hysteresis: genreParams.hysteresis || defaults.hysteresis,
-        invert: defaults.invert
-    };
-}
-
-// 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (REDIRECIONAMENTO PARA SCORING.JS)
-function calculateMetricScore(actualValue, targetValue, tolerance, metricName = 'generic', options = {}) {
-    // 🎯 AUDITORIA DETALHADA: Verificar disponibilidade do scoring.js
-    const hasWindow = typeof window !== 'undefined';
-    const hasFunction = hasWindow && typeof window.calculateMetricScore === 'function';
-    const isDifferent = hasWindow && window.calculateMetricScore !== calculateMetricScore;
-    const hasVersion = hasWindow && !!window.__MIX_SCORING_VERSION__;
-    
-    console.log('🔍 [SCORING] Auditoria de disponibilidade:', {
-        hasWindow,
-        hasFunction,
-        isDifferent,
-        hasVersion,
-        version: hasWindow ? window.__MIX_SCORING_VERSION__ : 'no-window',
-        functionType: hasWindow ? typeof window.calculateMetricScore : 'no-window'
-    });
-    
-    // 🎯 CORREÇÃO: Usar a versão do scoring.js se disponível, mas evitar recursão
-    if (hasWindow && hasFunction && isDifferent) {
-        
-        // ✅ USAR SCORING.JS GLOBAL (com ou sem versão)
-        console.log('✅ [SCORING] Usando scoring.js global:', {
-            version: window.__MIX_SCORING_VERSION__ || 'detected-without-version',
-            hasGlobalFunction: true,
-            hasVersion: !!window.__MIX_SCORING_VERSION__
-        });
-        return window.calculateMetricScore(actualValue, targetValue, tolerance, metricName, options);
-    }
-    
-    // FALLBACK: Versão básica para compatibilidade (caso scoring.js não tenha carregado)
-    console.warn('⚠️ FALLBACK: usando calculateMetricScore local (scoring.js não disponível)', {
-        hasWindow: typeof window !== 'undefined',
-        hasFunction: typeof window?.calculateMetricScore === 'function',
-        hasScoringVersion: !!window?.__MIX_SCORING_VERSION__,
-        isDifferent: window?.calculateMetricScore !== calculateMetricScore,
-        scoringVersion: window?.__MIX_SCORING_VERSION__
-    });
-    
-    // Parâmetros configuráveis com defaults
-    const {
-        yellowMin = 70,
-        bufferFactor = 1.5,
-        severity = null,
-        invert = false,
-        hysteresis = 0.2,
-        previousZone = null
-    } = options;
-    
+// 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (VERSÃO MENOS PUNITIVA)
+function calculateMetricScore(actualValue, targetValue, tolerance) {
     // Verificar se temos valores válidos
     if (!Number.isFinite(actualValue) || !Number.isFinite(targetValue) || !Number.isFinite(tolerance) || tolerance <= 0) {
-        return null;
+        return null; // Métrica inválida
     }
     
-    let diff;
+    const diff = Math.abs(actualValue - targetValue);
     
-    // Tratamento para métricas assimétricas
-    if (invert) {
-        diff = Math.max(0, actualValue - targetValue);
-    } else {
-        diff = Math.abs(actualValue - targetValue);
-    }
-    
-    // 🟢 VERDE: Dentro da tolerância = 100 pontos
+    // 🎯 DENTRO DA TOLERÂNCIA = 100 pontos
     if (diff <= tolerance) {
         return 100;
     }
     
-    // Calcular distância além da tolerância
-    const toleranceDistance = diff - tolerance;
-    const bufferZone = tolerance * bufferFactor;
-    const severityFactor = severity || (tolerance * 2);
+    // 🎯 CURVA DE PENALIZAÇÃO MAIS JUSTA - GRADUAL E MENOS PUNITIVA
+    // Δ até 1.5x tolerância → ~80
+    // Δ até 2x tolerância → ~60  
+    // Δ até 3x tolerância → ~40
+    // Δ acima de 3x tolerância → ~20 (nunca zerar)
     
-    // 🟡 AMARELO: Entre tolerância e tolerância+buffer
-    if (toleranceDistance <= bufferZone) {
-        const ratio = toleranceDistance / bufferZone;
-        return Math.round(100 - ((100 - yellowMin) * ratio));
+    const ratio = diff / tolerance;
+    
+    if (ratio <= 1.5) {
+        // Entre 1x e 1.5x tolerância: decaimento suave de 100 para 80
+        return Math.round(100 - ((ratio - 1) * 40)); // 100 - (0.5 * 40) = 80 no máximo
+    } else if (ratio <= 2.0) {
+        // Entre 1.5x e 2x tolerância: de 80 para 60
+        return Math.round(80 - ((ratio - 1.5) * 40)); // 80 - (0.5 * 40) = 60 no máximo
+    } else if (ratio <= 3.0) {
+        // Entre 2x e 3x tolerância: de 60 para 40
+        return Math.round(60 - ((ratio - 2) * 20)); // 60 - (1 * 20) = 40 no máximo
+    } else {
+        // Acima de 3x tolerância: 20 (nunca zerar totalmente)
+        return 20;
     }
-    
-    // 🔴 VERMELHO: Além do buffer
-    const extraDistance = toleranceDistance - bufferZone;
-    const redScore = Math.max(0, yellowMin - (extraDistance / severityFactor) * yellowMin);
-    
-    return Math.round(redScore);
 }
 
 // 3. CALCULAR SCORE DE LOUDNESS (LUFS, True Peak, Crest Factor)
@@ -5706,9 +5608,7 @@ function calculateLoudnessScore(analysis, refData) {
     // LUFS Integrado (métrica principal de loudness)
     const lufsValue = metrics.lufs_integrated || tech.lufsIntegrated;
     if (Number.isFinite(lufsValue) && Number.isFinite(refData.lufs_target) && Number.isFinite(refData.tol_lufs)) {
-        const genre = refData.genre || 'default';
-        const scoringParams = getScoringParameters(genre, 'lufsIntegrated');
-        const score = calculateMetricScore(lufsValue, refData.lufs_target, refData.tol_lufs, scoringParams);
+        const score = calculateMetricScore(lufsValue, refData.lufs_target, refData.tol_lufs);
         if (score !== null) {
             scores.push(score);
             console.log(`📊 LUFS: ${lufsValue} vs ${refData.lufs_target} (±${refData.tol_lufs}) = ${score}%`);
@@ -5718,9 +5618,7 @@ function calculateLoudnessScore(analysis, refData) {
     // True Peak (importante para evitar clipping digital)
     const truePeakValue = metrics.true_peak_dbtp || tech.truePeakDbtp;
     if (Number.isFinite(truePeakValue) && Number.isFinite(refData.true_peak_target) && Number.isFinite(refData.tol_true_peak)) {
-        const genre = refData.genre || 'default';
-        const scoringParams = getScoringParameters(genre, 'truePeakDbtp');
-        const score = calculateMetricScore(truePeakValue, refData.true_peak_target, refData.tol_true_peak, scoringParams);
+        const score = calculateMetricScore(truePeakValue, refData.true_peak_target, refData.tol_true_peak);
         if (score !== null) {
             scores.push(score);
             console.log(`📊 True Peak: ${truePeakValue} vs ${refData.true_peak_target} (±${refData.tol_true_peak}) = ${score}%`);
@@ -5758,8 +5656,6 @@ function calculateDynamicsScore(analysis, refData) {
     // Dynamic Range (DR) - métrica principal de dinâmica
     const drValue = metrics.dynamic_range || tech.dynamicRange;
     if (Number.isFinite(drValue) && Number.isFinite(refData.dr_target) && Number.isFinite(refData.tol_dr)) {
-        // DR: valores muito altos podem indicar falta de compressão (dependendo do gênero)
-        // Para a maioria dos gêneros, usar comportamento padrão (simétrico)
         const score = calculateMetricScore(drValue, refData.dr_target, refData.tol_dr);
         if (score !== null) {
             scores.push(score);
@@ -5770,8 +5666,6 @@ function calculateDynamicsScore(analysis, refData) {
     // LRA (Loudness Range) - variação de loudness
     const lraValue = metrics.lra || tech.lra;
     if (Number.isFinite(lraValue) && Number.isFinite(refData.lra_target) && Number.isFinite(refData.tol_lra)) {
-        // LRA: valores muito altos podem indicar falta de controle de dinâmica
-        // Para a maioria dos gêneros, usar comportamento padrão (simétrico)
         const score = calculateMetricScore(lraValue, refData.lra_target, refData.tol_lra);
         if (score !== null) {
             scores.push(score);
@@ -6298,9 +6192,8 @@ function updateReferenceSuggestions(analysis) {
                 return !type.startsWith('reference_') && !type.startsWith('band_adjust') && !type.startsWith('heuristic_');
             });
             
-            // 🎯 CORREÇÃO CRÍTICA: Aplicar ordenação determinística SEMPRE
-            const allSuggestions = [...enhancedAnalysis.suggestions, ...nonRefSuggestions];
-            analysis.suggestions = applyFinalDeterministicOrdering(allSuggestions);
+            // Combinar sugestões melhoradas com existentes preservadas
+            analysis.suggestions = [...enhancedAnalysis.suggestions, ...nonRefSuggestions];
             
             // Adicionar métricas melhoradas à análise
             if (enhancedAnalysis.enhancedMetrics) {
@@ -6314,7 +6207,7 @@ function updateReferenceSuggestions(analysis) {
             
             console.log(`🎯 [SUGGESTIONS] Enhanced Engine: ${enhancedAnalysis.suggestions.length} sugestões geradas`);
             console.log(`🎯 [SUGGESTIONS] Sugestões preservadas: ${nonRefSuggestions.length}`);
-            console.log(`🎯 [SUGGESTIONS] Total final: ${analysis.suggestions.length} sugestões (ordem determinística aplicada)`);
+            console.log(`🎯 [SUGGESTIONS] Total final: ${analysis.suggestions.length} sugestões`);
             
             // 🤖 NOVA CAMADA DE IA: Pós-processamento inteligente de sugestões (Enhanced Engine)
             if (typeof window !== 'undefined' && window.AI_SUGGESTION_LAYER_ENABLED && window.aiSuggestionLayer) {
@@ -6334,6 +6227,10 @@ function updateReferenceSuggestions(analysis) {
                     window.aiSuggestionLayer.process(analysis.suggestions, aiContext)
                         .then(enhancedSuggestions => {
                             if (enhancedSuggestions && enhancedSuggestions.length > 0) {
+                                // ✅ aplicar ordem garantida após IA
+                                enhancedSuggestions = window.enhancedSuggestionEngine
+                                    .enforceOrderedSuggestions(enhancedSuggestions);
+
                                 analysis.suggestions = enhancedSuggestions;
                                 analysis._aiEnhanced = true;
                                 analysis._aiTimestamp = new Date().toISOString();
@@ -6379,182 +6276,23 @@ function updateReferenceSuggestions(analysis) {
         }
     }
     
-    // 🎯 FUNÇÃO DE ORDENAÇÃO DETERMINÍSTICA UNIVERSAL
-    function applyFinalDeterministicOrdering(suggestions) {
-        if (!Array.isArray(suggestions) || suggestions.length === 0) {
-            return suggestions;
-        }
-
-        // 🎯 CONSTANTE DE PRIORIDADE TÉCNICA (conforme solicitado no pedido)
-        const SUGGESTION_PRIORITY = {
-            // Nível 1: CRÍTICO - True Peak deve ser sempre primeiro
-            true_peak: 10,
-            reference_true_peak: 10,
-            reference_true_peak_critical: 10,
-            reference_true_peak_warning: 10,
-            heuristic_true_peak: 10,
-            
-            // Nível 2: LOUDNESS - Segundo mais importante
-            lufs: 20,
-            reference_loudness: 20,
-            heuristic_lufs: 20,
-            
-            // Nível 3: DINÂMICA - Terceiro
-            dr: 30,
-            reference_dynamics: 30,
-            heuristic_lra: 30,
-            
-            // Nível 4: LRA - Quarto
-            lra: 40,
-            reference_lra: 40,
-            
-            // Nível 5: ESTÉREO - Quinto
-            stereo: 50,
-            reference_stereo: 50,
-            heuristic_stereo: 50,
-            
-            // Nível 6: BANDAS ESPECTRAIS - Por último (conforme solicitado)
-            sub: 100,
-            bass: 110,
-            low_mid: 120,
-            lowMid: 120,
-            mid: 130,
-            high_mid: 140,
-            highMid: 140,
-            presence: 150,
-            presenca: 150,
-            air: 160,
-            brilho: 160,
-            
-            // Tipos de banda
-            band_adjust: 170,
-            reference_band_comparison: 170,
-            heuristic_spectral_imbalance: 170
-        };
-
-        // 🎯 FUNÇÃO DE COMPARAÇÃO ESTÁVEL (conforme solicitado no pedido)
-        function stableSuggestionSort(a, b) {
-            // Normalizar metricKey/tipo para busca de prioridade
-            const getMetricKey = (suggestion) => {
-                return suggestion.metricKey || 
-                       suggestion.type || 
-                       suggestion.subtype || 
-                       suggestion.band || 
-                       'unknown';
-            };
-
-            const keyA = getMetricKey(a);
-            const keyB = getMetricKey(b);
-            
-            const pa = SUGGESTION_PRIORITY[keyA] ?? 9999;
-            const pb = SUGGESTION_PRIORITY[keyB] ?? 9999;
-            
-            // 1. Primeiro: ordenar por prioridade técnica
-            if (pa !== pb) return pa - pb;
-            
-            // 2. Segundo: ordenar por priority numérica (mais alta primeiro)
-            const priorityA = a.priority || 0;
-            const priorityB = b.priority || 0;
-            if (priorityA !== priorityB) return priorityB - priorityA;
-            
-            // 3. Terceiro: ordenar por severidade
-            const severityOrder = { 'red': 1, 'orange': 2, 'yellow': 3, 'green': 4 };
-            const severityA = severityOrder[a.severity?.level] || 999;
-            const severityB = severityOrder[b.severity?.level] || 999;
-            if (severityA !== severityB) return severityA - severityB;
-            
-            // 4. Quarto: ordenar alfabeticamente para estabilidade
-            return (keyA || '').localeCompare(keyB || '');
-        }
-
-        // 🎯 APLICAR ORDENAÇÃO
-        const orderedSuggestions = [...suggestions].sort(stableSuggestionSort);
-        
-        console.log('🎯 [ORDENAÇÃO] Aplicada ordenação determinística:', {
-            originalCount: suggestions.length,
-            orderedCount: orderedSuggestions.length,
-            firstSuggestion: orderedSuggestions[0] ? {
-                type: orderedSuggestions[0].type,
-                metricKey: orderedSuggestions[0].metricKey,
-                priority: SUGGESTION_PRIORITY[orderedSuggestions[0].type || orderedSuggestions[0].metricKey] || 'not_found'
-            } : null,
-            truePeakFirst: orderedSuggestions[0] && (
-                orderedSuggestions[0].type?.includes('true_peak') || 
-                orderedSuggestions[0].metricKey?.includes('true_peak')
-            )
-        });
-        
-        return orderedSuggestions;
-    }
-
-    // 🔄 SISTEMA LEGADO (fallback)
-    const ref = __activeRefData;
-    const tech = analysis.technicalData;
-    // Garantir lista
-    const sug = Array.isArray(analysis.suggestions) ? analysis.suggestions : (analysis.suggestions = []);
-    // Remover sugestões antigas de referência
-    const refTypes = new Set(['reference_loudness','reference_dynamics','reference_lra','reference_stereo','reference_true_peak']);
-    for (let i = sug.length - 1; i >= 0; i--) {
-        const t = sug[i] && sug[i].type;
-        if (t && refTypes.has(t)) sug.splice(i, 1);
-    }
-    // Helper para criar sugestão se fora da tolerância
-    const addRefSug = (val, target, tol, type, label, unit='') => {
-        if (!Number.isFinite(val) || !Number.isFinite(target) || !Number.isFinite(tol)) return;
-        const diff = val - target;
-        if (Math.abs(diff) <= tol) return; // dentro da tolerância
-        const direction = diff > 0 ? 'acima' : 'abaixo';
-        sug.push({
-            type,
-            message: `${label} ${direction} do alvo (${target}${unit})`,
-            action: `Ajustar ${label} ${direction==='acima'?'para baixo':'para cima'} ~${target}${unit}`,
-            details: `Diferença: ${diff.toFixed(2)}${unit} • tolerância ±${tol}${unit} • gênero: ${window.PROD_AI_REF_GENRE}`
-        });
-    };
-    // Aplicar checks principais
-    const lufsVal = Number.isFinite(tech.lufsIntegrated) ? tech.lufsIntegrated : null;
-    addRefSug(lufsVal, ref.lufs_target, ref.tol_lufs, 'reference_loudness', 'LUFS', '');
-    // 🎯 TRUE PEAK - SUGESTÕES ESPECÍFICAS E TÉCNICAS (CORREÇÃO CRÍTICA)
-    const tpVal = Number.isFinite(tech.truePeakDbtp) ? tech.truePeakDbtp : null;
-    if (tpVal !== null) {
-        if (tpVal > 0.0) {
-            // CRÍTICO: True Peak estourado
-            sug.push({
-                type: 'reference_true_peak_critical',
-                message: `True Peak ESTOURADO: ${tpVal.toFixed(2)} dBTP (crítico para plataformas)`,
-                action: `Use limiter com oversampling 4x, ceiling em -1.0 dBTP para evitar distorção digital`,
-                details: `Diferença: +${(tpVal - (-1.0)).toFixed(2)} dBTP acima do seguro • Pode causar clipping em DACs • gênero: ${window.PROD_AI_REF_GENRE || 'N/A'}`,
-                priority: 'high',
-                technical: {
-                    currentValue: tpVal,
-                    targetValue: -1.0,
-                    severity: 'critical',
-                    recommendation: 'limiter_with_oversampling'
-                }
-            });
-        } else if (tpVal > -1.0) {
-            // ACEITÁVEL: Mas próximo do limite
-            sug.push({
-                type: 'reference_true_peak_warning',
-                message: `True Peak aceitável mas próximo do limite: ${tpVal.toFixed(2)} dBTP`,
-                action: `Considere usar limiter com ceiling em -1.5 dBTP para maior margem de segurança`,
-                details: `Margem atual: ${(-1.0 - tpVal).toFixed(2)} dB até o limite • Para streaming: ideal ≤ -1.0 dBTP • gênero: ${window.PROD_AI_REF_GENRE || 'N/A'}`,
-                priority: 'medium',
-                technical: {
-                    currentValue: tpVal,
-                    targetValue: -1.0,
-                    severity: 'medium',
-                    recommendation: 'conservative_limiting'
-                }
-            });
-        }
-        // Se tpVal <= -1.0, não gerar sugestão (está ideal)
-    }
-    addRefSug(tech.dynamicRange, ref.dr_target, ref.tol_dr, 'reference_dynamics', 'DR', ' dB');
-    if (Number.isFinite(tech.lra)) addRefSug(tech.lra, ref.lra_target, ref.tol_lra, 'reference_lra', 'LRA', ' LU');
-    if (Number.isFinite(tech.stereoCorrelation)) addRefSug(tech.stereoCorrelation, ref.stereo_target, ref.tol_stereo, 'reference_stereo', 'Stereo Corr', '');
+    // 🔄 SISTEMA LEGADO (fallback) - APENAS PARA SCORES, NÃO DEVE ALTERAR SUGESTÕES
+    console.log('🔄 [FALLBACK] Sistema legado ativado - usando apenas para calcular scores');
     
-    console.log(`🎯 [SUGGESTIONS] Sistema legado: ${sug.length} sugestões geradas`);
+    // IMPORTANTE: NÃO modificar analysis.suggestions aqui para não interferir com Enhanced Engine
+    // Apenas calcular scores se necessário
+    if (!analysis.scores && __activeRefData && analysis.technicalData) {
+        try {
+            analysis.scores = this.calculateFallbackScores(analysis.technicalData, __activeRefData);
+            console.log('✅ [FALLBACK] Scores calculados pelo sistema legado');
+        } catch (error) {
+            console.warn('⚠️ [FALLBACK] Erro ao calcular scores legados:', error);
+        }
+    }
+    
+    console.log('🎯 [FALLBACK] Sistema legado concluído sem alterar sugestões');
+    
+    return; // ❌ SISTEMA LEGADO DESATIVADO - Enhanced Engine deve ser usado para sugestões
     
     // 🤖 NOVA CAMADA DE IA: Pós-processamento inteligente de sugestões
     // PONTO DE INTEGRAÇÃO SEGURO: Após geração de todas as sugestões
@@ -6574,6 +6312,10 @@ function updateReferenceSuggestions(analysis) {
             window.aiSuggestionLayer.process(analysis.suggestions, aiContext)
                 .then(enhancedSuggestions => {
                     if (enhancedSuggestions && enhancedSuggestions.length > 0) {
+                        // ✅ aplicar ordem garantida após IA
+                        enhancedSuggestions = window.enhancedSuggestionEngine
+                            .enforceOrderedSuggestions(enhancedSuggestions);
+
                         analysis.suggestions = enhancedSuggestions;
                         console.log(`🤖 [AI-LAYER] ✅ ${enhancedSuggestions.length} sugestões enriquecidas com IA`);
                         
@@ -6604,6 +6346,56 @@ function updateReferenceSuggestions(analysis) {
     
     // 🛡️ Marcar que sugestões foram geradas (proteção contra duplicação)
     analysis._suggestionsGenerated = true;
+}
+
+/**
+ * 🔢 Calcular scores básicos quando Enhanced Engine não está disponível
+ * @param {Object} technicalData - Dados técnicos da análise
+ * @param {Object} referenceData - Dados de referência
+ * @returns {Object} Scores calculados
+ */
+function calculateFallbackScores(technicalData, referenceData) {
+    const scores = {};
+    
+    try {
+        // Score LUFS
+        if (Number.isFinite(technicalData.lufsIntegrated) && Number.isFinite(referenceData.lufs_target)) {
+            const delta = Math.abs(technicalData.lufsIntegrated - referenceData.lufs_target);
+            const tolerance = referenceData.tol_lufs || 2.0;
+            scores.lufs = Math.max(0, Math.min(10, 10 - (delta / tolerance) * 2));
+        }
+        
+        // Score True Peak
+        if (Number.isFinite(technicalData.truePeakDbtp)) {
+            if (technicalData.truePeakDbtp > 0) {
+                scores.truePeak = 0; // Crítico
+            } else if (technicalData.truePeakDbtp > -1.0) {
+                scores.truePeak = 5; // Aceitável mas não ideal
+            } else {
+                scores.truePeak = 10; // Ideal
+            }
+        }
+        
+        // Score DR
+        if (Number.isFinite(technicalData.dynamicRange) && Number.isFinite(referenceData.dr_target)) {
+            const delta = Math.abs(technicalData.dynamicRange - referenceData.dr_target);
+            const tolerance = referenceData.tol_dr || 2.0;
+            scores.dr = Math.max(0, Math.min(10, 10 - (delta / tolerance) * 2));
+        }
+        
+        // Score geral (média dos scores disponíveis)
+        const availableScores = Object.values(scores).filter(s => Number.isFinite(s));
+        if (availableScores.length > 0) {
+            scores.overall = availableScores.reduce((sum, score) => sum + score, 0) / availableScores.length;
+        }
+        
+        console.log('📊 [FALLBACK] Scores calculados:', scores);
+        return scores;
+        
+    } catch (error) {
+        console.error('❌ [FALLBACK] Erro ao calcular scores:', error);
+        return {};
+    }
 }
 
 // 🎨 Estilos do seletor de gênero (injeção única, não quebra CSS existente)
@@ -6948,21 +6740,31 @@ window.displayReferenceResults = function(referenceResults) {
         // Exibir seção de comparação
         displayComparisonSection(comparisonData, referenceSuggestions || []);
         
-        // � [REFATORACAO] RENDERIZAÇÃO DOM DESATIVADA - Usando fluxo AI unificado
-        console.debug('[REFATORACAO] updateReferenceSuggestions - DOM direto desativado');
-        console.debug('[REFATORACAO] referenceSuggestions processadas mas não renderizadas:', {
-            length: referenceSuggestions?.length || 0,
-            types: referenceSuggestions?.map(s => s.category || s.type) || [],
-            redirectTo: 'Fluxo AI (displaySuggestions + renderFullSuggestions)'
-        });
-        
-        // DADOS PROCESSADOS: Manter para compatibilidade, mas não renderizar DOM
+        // Se há sugestões, exibir
         if (referenceSuggestions && referenceSuggestions.length > 0) {
-            console.debug('[REFATORACAO] Sugestões disponíveis para fluxo AI:', referenceSuggestions.length);
-            // DOM será atualizado pelo sistema AI via displaySuggestions()
+            const suggestionsList = document.getElementById('suggestions-list');
+            if (suggestionsList) {
+                suggestionsList.innerHTML = referenceSuggestions.map(suggestion => 
+                    `<div class="suggestion-item">
+                        <h4>${suggestion.category}</h4>
+                        <p>${suggestion.text}</p>
+                        <div class="suggestion-details">
+                            <small>Diferença: ${suggestion.difference} | Threshold: ${suggestion.threshold}</small>
+                        </div>
+                    </div>`
+                ).join('');
+            }
         } else {
-            console.debug('[REFATORACAO] Nenhuma sugestão - AI renderizará placeholder');
-            // AI renderizará mensagem adequada
+            // Audio idêntico - mostrar mensagem de sucesso
+            const suggestionsList = document.getElementById('suggestions-list');
+            if (suggestionsList) {
+                suggestionsList.innerHTML = `
+                    <div class="no-suggestions">
+                        <h3>✅ Análise de Referência Concluída</h3>
+                        <p>Os áudios são altamente similares. Diferenças dentro da tolerância aceitável.</p>
+                    </div>
+                `;
+            }
         }
         
         window.logReferenceEvent('reference_results_displayed_successfully');
