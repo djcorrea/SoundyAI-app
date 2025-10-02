@@ -1,10 +1,6 @@
 // 🚀 AI SUGGESTIONS INTEGRATION SYSTEM
 // Sistema de integração das sugestões IA com o modal expandido
 
-// 🎯 CONTROLE GLOBAL: Apenas fluxo AI renderiza DOM
-window.__AI_RENDER_MODE_ACTIVE__ = false;
-window.__BLOCK_ORIGINAL_RENDERING__ = false;
-
 class AISuggestionsIntegration {
     constructor() {
         // 🔧 Detecta ambiente e configura URL correta
@@ -21,9 +17,6 @@ class AISuggestionsIntegration {
         this.isExpanded = false;
         this.retryAttempts = 0;
         this.maxRetries = 3;
-        
-        // 🔍 [AUDITORIA] Adicionar identificador único para cada processamento
-        this.currentRunId = null;
         
         console.log(`🚀 [AI-INTEGRATION] Sistema inicializado - Ambiente: ${isLocalDevelopment ? 'desenvolvimento' : 'produção'}`);
         console.log(`🔗 [AI-INTEGRATION] API URL: ${this.apiEndpoint}`);
@@ -63,203 +56,7 @@ class AISuggestionsIntegration {
         }
         
         console.log('✅ [AI-INTEGRATION] Elementos validados com sucesso');
-        
-        // 🎯 SISTEMA DE AUDITORIA: Detectar conflitos de renderização
-        this.setupAuditSystem();
-        
-        // 🎯 SISTEMA DE GARANTIA: Função global para forçar ordem correta
-        this.setupOrderGuarantee();
-        
         return true;
-    }
-    
-    setupAuditSystem() {
-        // Observar mudanças no grid para detectar renderizações externas
-        if (this.elements.grid && window.MutationObserver) {
-            const observer = new MutationObserver((mutations) => {
-                mutations.forEach((mutation) => {
-                    if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-                        const aiIntegrationActive = Array.from(mutation.addedNodes).some(node => 
-                            node.nodeType === 1 && node.classList && node.classList.contains('ai-suggestion-card')
-                        );
-                        
-                        if (!aiIntegrationActive && mutation.addedNodes.length > 0) {
-                            console.warn('⚠️ [AUDITORIA] Renderização externa detectada no grid!', {
-                                addedNodes: mutation.addedNodes.length,
-                                source: 'unknown-system',
-                                grid: this.elements.grid.id
-                            });
-                        }
-                    }
-                });
-            });
-            
-            observer.observe(this.elements.grid, { childList: true, subtree: true });
-            console.log('🔍 [AUDITORIA] Sistema de monitoramento de renderização ativo');
-        }
-    }
-
-    verificarECorrigirOrdemVisual(suggestions) {
-        console.log('🚨 [EMERGÊNCIA] Verificando ordem visual no DOM...');
-        
-        if (!this.elements.grid || !suggestions || suggestions.length === 0) {
-            console.warn('⚠️ [EMERGÊNCIA] Grid ou sugestões não disponíveis para verificação visual');
-            return;
-        }
-        
-        const domCards = Array.from(this.elements.grid.children);
-        if (domCards.length === 0) {
-            console.warn('⚠️ [EMERGÊNCIA] Nenhum card encontrado no DOM');
-            return;
-        }
-        
-        console.log(`📊 [EMERGÊNCIA] Verificando ${domCards.length} cards no DOM...`);
-        
-        // Verificar se True Peak está em primeiro
-        let truePeakFirst = false;
-        let problemasEncontrados = [];
-        
-        domCards.forEach((card, index) => {
-            const text = card.textContent || card.innerText || '';
-            const isPeak = card.dataset.type?.includes('true_peak')
-                         || card.dataset.type?.includes('reference_true_peak')
-                         || card.dataset.priority === '10';
-            const priority = card.dataset.priority || 'unknown';
-            
-            if (isPeak) {
-                if (index === 0) {
-                    truePeakFirst = true;
-                    console.log('✅ [EMERGÊNCIA] True Peak está em primeiro lugar visual!');
-                } else {
-                    problemasEncontrados.push(`True Peak encontrado na posição ${index + 1} (deveria ser 1)`);
-                }
-            }
-            
-            console.log(`📋 [EMERGÊNCIA] Card ${index + 1}: ${isPeak ? '🔴 TRUE PEAK' : '🟢 OUTRO'} (priority: ${priority})`);
-        });
-        
-        // Se True Peak não está primeiro, forçar correção
-        if (!truePeakFirst && problemasEncontrados.length > 0) {
-            console.error('❌ [EMERGÊNCIA] PROBLEMA VISUAL DETECTADO:', problemasEncontrados);
-            
-            // 🚨 CORREÇÃO FORÇADA: Reorganizar DOM
-            this.forcarReorganizacaoDOM(suggestions);
-            
-        } else if (truePeakFirst) {
-            console.log('✅ [EMERGÊNCIA] Ordem visual está CORRETA!');
-            
-            // Adicionar marcação visual para debug
-            const firstCard = domCards[0];
-            if (firstCard) {
-                firstCard.style.border = '3px solid #4CAF50';
-                firstCard.style.boxShadow = '0 0 15px rgba(76, 175, 80, 0.5)';
-                console.log('🎯 [EMERGÊNCIA] Primeiro card marcado visualmente (verde = correto)');
-            }
-        }
-    }
-
-    forcarReorganizacaoDOM(suggestions) {
-        console.warn('🚨 [EMERGÊNCIA] Aplicando reorganização forçada do DOM...');
-        
-        // 🎯 VERIFICAÇÃO INTELIGENTE: Só reordenar se necessário
-        const domCards = Array.from(this.elements.grid.children);
-        const allHavePriority = domCards.every(c => c.dataset.priority && c.dataset.priority !== 'unknown');
-        
-        if (allHavePriority) {
-            console.log('✅ [ORDEM] Cards já possuem prioridade válida, mantendo ordem calculada');
-            return;
-        }
-        
-        console.log('⚠️ [ORDEM] Cards sem prioridade detectados, aplicando reorganização...');
-        
-        // Ordenar sugestões por prioridade
-        const suggestionsOrdenadas = [...suggestions].sort((a, b) => {
-            return (b.priority || 0) - (a.priority || 0);
-        });
-        
-        // Limpar grid
-        this.elements.grid.innerHTML = '';
-        
-        // Recriar cards na ordem correta
-        suggestionsOrdenadas.forEach((suggestion, index) => {
-            const card = this.createSuggestionCard(suggestion, index, 'emergency-fix');
-            this.elements.grid.appendChild(card);
-            
-            // Marcar visualmente para debug
-            if (index === 0) {
-                card.style.border = '3px solid #ff9800';
-                card.style.boxShadow = '0 0 15px rgba(255, 152, 0, 0.7)';
-                console.log('🚨 [EMERGÊNCIA] Primeiro card corrigido e marcado (laranja = correção aplicada)');
-            }
-        });
-        
-        console.log('✅ [EMERGÊNCIA] DOM reorganizado! True Peak deve estar primeiro agora.');
-        
-        // Verificar novamente após correção
-        setTimeout(() => {
-            const primeiroCard = this.elements.grid.children[0];
-            if (primeiroCard) {
-                const text = primeiroCard.textContent || '';
-                const isPeak = text.toLowerCase().includes('peak') || text.toLowerCase().includes('true peak');
-                
-                if (isPeak) {
-                    console.log('🎉 [EMERGÊNCIA] SUCESSO! True Peak agora está primeiro após correção!');
-                } else {
-                    console.error('❌ [EMERGÊNCIA] FALHA! True Peak ainda não está primeiro mesmo após correção!');
-                }
-            }
-        }, 50);
-    }
-    
-    setupOrderGuarantee() {
-        // 🎯 FUNÇÃO GLOBAL: Garantir ordem correta das sugestões
-        window.forceCorrectSuggestionsOrder = (suggestions) => {
-            if (!Array.isArray(suggestions)) return suggestions;
-            
-            console.log('🎯 [ORDER-GUARANTEE] Aplicando ordem correta forçada');
-            
-            // Definir ordem técnica correta
-            const typeOrder = {
-                'reference_true_peak': 10,
-                'heuristic_true_peak': 10,
-                'true_peak': 10,
-                'reference_loudness': 8,
-                'heuristic_lufs': 8,
-                'lufs': 8,
-                'reference_dynamics': 6,
-                'reference_lra': 6,
-                'heuristic_lra': 6,
-                'dr': 6,
-                'lra': 6,
-                'reference_stereo': 4,
-                'heuristic_stereo': 4,
-                'stereo': 4,
-                'band_adjust': 2,
-                'reference_band_comparison': 2,
-                'heuristic_spectral_imbalance': 2
-            };
-            
-            // Aplicar prioridades baseadas no tipo + prioridade original
-            const ordered = suggestions.map(sug => {
-                const basePriority = typeOrder[sug.type] || typeOrder[sug.metric] || 1;
-                const originalPriority = parseFloat(sug.priority) || 1;
-                
-                // Usar a maior prioridade entre tipo e original
-                sug.priority = Math.max(basePriority, originalPriority);
-                return sug;
-            }).sort((a, b) => {
-                const priorityA = parseFloat(a.priority) || 1;
-                const priorityB = parseFloat(b.priority) || 1;
-                return priorityB - priorityA; // Ordem decrescente
-            });
-            
-            console.log('🎯 [ORDER-GUARANTEE] Ordem aplicada:', 
-                ordered.slice(0, 5).map(s => `${s.type || s.metric}(${s.priority})`).join(' → '));
-            
-            return ordered;
-        };
-        
-        console.log('🎯 [ORDER-GUARANTEE] Sistema de garantia de ordem criado globalmente');
     }
     
     /**
@@ -288,30 +85,8 @@ class AISuggestionsIntegration {
         }
         console.groupEnd();
 
-        // � [FIX] Controle de concorrência com runId único
-        const currentRunId = 'run_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        this.currentRunId = currentRunId;
-        console.debug("[FIX] runId atual:", currentRunId);
-
         if (this.isProcessing) {
-            console.log('⚠️ [AI-INTEGRATION] Processamento bloqueado - aguarde conclusão atual');
-            console.debug("[FIX] CONCORRÊNCIA BLOQUEADA - runId:", currentRunId, "descartado");
-            return;
-        }
-
-        // � [FIX] Cache robusto incluindo métricas críticas
-        const suggestionsHash = window.generateSuggestionsHash(suggestions, metrics, genre);
-        
-        console.log('🔍 [AI-INTEGRATION] Hash Debug:', {
-            currentHash: suggestionsHash,
-            lastHash: window.lastProcessedHash,
-            suggestionsCount: suggestions.length,
-            genre: genre || 'não especificado',
-            metricas: Object.keys(metrics || {}).length
-        });
-        
-        if (window.lastProcessedHash === suggestionsHash) {
-            console.log('🎯 [AI-INTEGRATION] Sugestões idênticas já processadas - usando cache');
+            console.log('⚠️ [AI-INTEGRATION] Processamento já em andamento');
             return;
         }
 
@@ -338,10 +113,10 @@ class AISuggestionsIntegration {
 
         // 🔍 VALIDAÇÃO DO PAYLOAD: Garantir estrutura correta
         const validSuggestions = this.validateAndNormalizeSuggestions(suggestions);
-        // [TP-FIX] Não interromper o fluxo se há métricas disponíveis (pode ter True Peak)
-        const hasAtLeastOne = validSuggestions && validSuggestions.length > 0;
-        if (!hasAtLeastOne) {
-            console.warn('[TP-FIX] Nenhuma sugestão "forte" pós-validação; seguindo com fluxo para exibir TP via fallback de render.');
+        if (validSuggestions.length === 0) {
+            console.warn('⚠️ [AI-INTEGRATION] Sugestões inválidas após validação');
+            this.displayEmptyState('Sugestões detectadas são inválidas');
+            return;
         }
 
         console.log('�🚀 [AI-INTEGRATION] Iniciando processamento COMPLETO com IA...', {
@@ -357,7 +132,7 @@ class AISuggestionsIntegration {
         // Show container and loading state
         this.showContainer();
         this.setLoadingState(true);
-        this.updateStatus('processing', `🤖 Enriquecendo ${validSuggestions.length} sugestões com IA...`);
+        this.updateStatus('processing', `Processando ${validSuggestions.length} sugestões...`);
         
         const startTime = Date.now();
         const allEnhancedSuggestions = [];
@@ -467,68 +242,19 @@ class AISuggestionsIntegration {
                 this.updateStatus('error', 'IA não respondeu corretamente');
             }
             
-            // 🎯 PASSO 4: MERGE INTELIGENTE - PRESERVAR DETALHES ORIGINAIS + ENRIQUECIMENTO IA
-            const enhancedFromAI = Array.isArray(data.enhancedSuggestions) ? data.enhancedSuggestions : [];
-            
-            // 🔗 COMBINAR: Detalhes técnicos originais + Enriquecimento da IA
-            let finalSuggestions = validSuggestions.map((original, index) => {
-                const enhanced = enhancedFromAI[index] || {};
-                
-                // Preservar dados técnicos originais + adicionar enriquecimento IA
-                return {
-                    ...original,          // Valores dB, plugins, ações específicas
-                    ...enhanced,          // Enriquecimento da IA (se houver)
-                    ai_enhanced: true,
-                    
-                    // Garantir que valores técnicos originais não sejam perdidos
-                    message: original.message || enhanced.message || original.issue,
-                    action: original.action || enhanced.action || original.solution,
-                    priority: original.priority || enhanced.metadata?.priority_score || 1
-                };
-            });
+            // 🎯 PASSO 4: USO EXCLUSIVO DAS SUGESTÕES ENRIQUECIDAS
+            const finalSuggestions = (Array.isArray(data.enhancedSuggestions) ? data.enhancedSuggestions : [])
+                .map(s => ({ ...s, ai_enhanced: true }));
 
-            // � [FIX] Garantir que todas as sugestões processadas tenham ai_enhanced
-            finalSuggestions = finalSuggestions.map(s => ({
-                ...s,
-                ai_enhanced: true // Sempre marcar como enriquecida quando passa pelo pipeline IA
-            }));
-            
-            console.debug("[FIX] TP presente após merge inicial?", finalSuggestions.some(s => s.type === 'reference_true_peak'));
-            finalSuggestions.forEach((s, i) => {
-                console.debug(`[FIX] Sugestão ${i}: ${s.type||s.metric}, priority=${s.priority}, ai_enhanced=${s.ai_enhanced}`);
-            });
-
-            // 🎯 GARANTIA DE ORDEM: Usar sistema global para forçar ordem correta
-            if (window.forceCorrectSuggestionsOrder) {
-                finalSuggestions = window.forceCorrectSuggestionsOrder(finalSuggestions);
-                console.log('🎯 [AI-INTEGRATION] Ordem forçada aplicada via sistema global');
-            } else {
-                // Fallback: Ordenação local
-                finalSuggestions = finalSuggestions.sort((a, b) => {
-                    const priorityA = parseFloat(a.priority) || 1;
-                    const priorityB = parseFloat(b.priority) || 1;
-                    
-                    // True Peak tem priority 10 - deve vir PRIMEIRO (ordem decrescente)
-                    return priorityB - priorityA;
-                });
-                console.log('🎯 [AI-INTEGRATION] Ordem aplicada via fallback local');
-            }
-
-            console.group('🔍 [AUDITORIA] PASSO 4: MERGE INTELIGENTE COM PRESERVAÇÃO DE DETALHES');
-            console.log('✅ Combinando detalhes originais + enriquecimento IA:', {
-                originaisCount: validSuggestions.length,
-                enhancedCount: enhancedFromAI.length,
-                finalCount: finalSuggestions.length,
+            console.group('🔍 [AUDITORIA] PASSO 4: SUGESTÕES ENRIQUECIDAS (SEM MERGE)');
+            console.log('✅ Usando apenas enhancedSuggestions do backend:', {
+                enhancedCount: finalSuggestions.length,
                 processingTime: `${processingTime}ms`
             });
-            console.log('🎯 ORDENAÇÃO APLICADA: Priority numérica decrescente (True Peak primeiro)');
             finalSuggestions.forEach((sug, index) => {
-                console.log(`📋 Final Sugestão ${index + 1}:`, {
+                console.log(`📋 Enhanced Sugestão ${index + 1}:`, {
                     ai_enhanced: true,
-                    priority: sug.priority,
-                    message: (sug.message || '').substring(0, 60) + '...',
-                    action: (sug.action || '').substring(0, 40) + '...',
-                    preservedOriginal: !!(sug.message && sug.action)
+                    keys: Object.keys(sug)
                 });
             });
             console.groupEnd();
@@ -543,18 +269,6 @@ class AISuggestionsIntegration {
             });
             console.groupEnd();
 
-            // 🔧 [FIX] Verificar se runId ainda é ativo (evitar race condition)
-            if (this.currentRunId !== currentRunId) {
-                console.debug('[FIX] Resultado descartado - runId obsoleto:', currentRunId, 'vs ativo:', this.currentRunId);
-                return;
-            }
-
-            // 🎯 [REFATORACAO] Ativar modo AI unificado
-            window.__AI_RENDER_MODE_ACTIVE__ = true;
-            window.__BLOCK_ORIGINAL_RENDERING__ = true;
-            console.debug('[REFATORACAO] Modo AI ativado - bloqueando renderização original');
-
-            console.debug('[FIX] TP presente pós-merge?', finalSuggestions.some(s => s.type === 'reference_true_peak'));
             this.displaySuggestions(finalSuggestions, 'ai');
             this.updateStats(finalSuggestions.length, processingTime, 'ai');
             this.hideFallbackNotice();
@@ -601,27 +315,7 @@ class AISuggestionsIntegration {
     }
 
     /**
-     * [TP-FIX] Helper: extrai texto legível sem destruir a estrutura original
-     */
-    __extractBlocksText(blocks) {
-        if (!blocks) return [];
-        if (Array.isArray(blocks)) {
-            return blocks
-                .map(b => (typeof b === 'string' ? b : (b && (b.content || b.text)) || ''))
-                .filter(Boolean);
-        }
-        // suporte a objeto com subcampos (ex.: {problem, cause, solution})
-        const candidates = ['problem','cause','solution','tip','plugin','result','problema','causa','solucao'];
-        return candidates.map(k => blocks[k]).flatMap(v => {
-            if (!v) return [];
-            if (Array.isArray(v)) return v.map(x => (typeof x === 'string' ? x : x?.content || x?.text || '')).filter(Boolean);
-            return [typeof v === 'string' ? v : v?.content || v?.text || ''].filter(Boolean);
-        }).filter(Boolean);
-    }
-
-    /**
      * Validar e normalizar sugestões antes de enviar para IA
-     * [TP-FIX] Agora não-destrutiva, preserva todos os campos originais
      */
     validateAndNormalizeSuggestions(suggestions) {
         if (!Array.isArray(suggestions)) {
@@ -629,43 +323,34 @@ class AISuggestionsIntegration {
             return [];
         }
 
-        const out = [];
-        for (const s of (suggestions || [])) {
-            if (!s) continue;
-
-            // mantém tudo que já existe
-            const clone = { ...s };
-
-            // 🔧 [FIX] Normalizar prioridade usando função centralizada
-            clone.priority = this.__normalizePriority(clone, clone.priority);
+        const validSuggestions = suggestions.filter(suggestion => {
+            // Validar se tem pelo menos message ou issue
+            const hasContent = suggestion && (suggestion.message || suggestion.issue || suggestion.title);
             
-            console.debug("[FIX] Prioridades normalizadas:", clone.priority, "para:", clone.type || clone.metric);
-
-            // derive conteúdos legíveis sem destruir campos
-            const blocksText = this.__extractBlocksText(clone.blocks);
-            clone.__blocksText = blocksText; // apenas para render fallback
-
-            // checagem mínima (não destrutiva)
-            const hasAnyText =
-                !!clone.title || !!clone.message || !!clone.issue ||
-                (Array.isArray(blocksText) && blocksText.length > 0);
-
-            if (!hasAnyText) {
-                console.warn('[TP-FIX] Sugestão sem conteúdo mínimo, mantendo para merge mas marcando como low-visibility:', clone.type || clone.metric);
-                clone.__lowVisibility = true; // não descartar
+            if (!hasContent) {
+                console.warn('⚠️ [AI-INTEGRATION] Sugestão inválida (sem conteúdo):', suggestion);
+                return false;
             }
 
-            out.push(clone);
-        }
-
-        console.log('✅ [TP-FIX] Sugestões validadas (não-destrutiva):', {
-            original: suggestions.length,
-            processadas: out.length,
-            lowVisibility: out.filter(s => s.__lowVisibility).length,
-            truePeakPresente: out.some(s => s.type === 'reference_true_peak')
+            return true;
+        }).map(suggestion => {
+            // Normalizar estrutura para o formato esperado pelo backend
+            return {
+                metric: suggestion.metric || suggestion.type || 'geral',
+                issue: suggestion.issue || suggestion.message || suggestion.title || 'Problema detectado',
+                solution: suggestion.solution || suggestion.action || suggestion.description || 'Ajuste recomendado',
+                priority: suggestion.priority || 5,
+                confidence: suggestion.confidence || 0.7
+            };
         });
 
-        return out;
+        console.log('✅ [AI-INTEGRATION] Sugestões validadas:', {
+            original: suggestions.length,
+            valid: validSuggestions.length,
+            filtered: suggestions.length - validSuggestions.length
+        });
+
+        return validSuggestions;
     }
 
     /**
@@ -678,17 +363,17 @@ class AISuggestionsIntegration {
             const problemText = suggestion.issue || suggestion.message || suggestion.title || 'Problema detectado';
             const actionText = suggestion.solution || suggestion.action || suggestion.description || 'Ajuste recomendado';
             
-            // Determinar prioridade (valores altos = alta prioridade, como sistema principal)
-            let priority = suggestion.priority || 5;
+            // Determinar prioridade (1=alta, 2=média, 3=baixa)
+            let priority = suggestion.priority || 2;
             if (typeof priority !== 'number') {
-                if (priority === 'alta' || priority === 'high') priority = 8;
-                else if (priority === 'média' || priority === 'medium') priority = 5; 
-                else if (priority === 'baixa' || priority === 'low') priority = 2;
-                else priority = 5;
+                if (priority === 'alta' || priority === 'high') priority = 1;
+                else if (priority === 'média' || priority === 'medium') priority = 2; 
+                else if (priority === 'baixa' || priority === 'low') priority = 3;
+                else priority = 2;
             }
             
-            // Garantir que priority está no range correto (1-10, compatível com sistema principal)
-            priority = Math.max(1, Math.min(10, Math.floor(priority)));
+            // Garantir que priority está no range correto (1-3)
+            priority = Math.max(1, Math.min(3, Math.floor(priority)));
             
             return {
                 message: problemText,
@@ -938,142 +623,110 @@ class AISuggestionsIntegration {
      * Mescla as sugestões originais com as respostas da IA
      * Preserva TODAS as sugestões originais e enriquece com dados da IA
      */
-    /**
-     * [TP-FIX] Gera chave estável para identificar sugestões
-     */
-    /**
-     * 🔧 [FIX] Normalização centralizada de prioridades
-     */
-    __normalizePriority(suggestion, priority) {
-        // True Peak sempre tem prioridade máxima
-        if (suggestion?.type === 'reference_true_peak') return 10;
-        
-        // Normalizar valores textuais
-        if (priority === 'alta' || priority === 'high') return 10;
-        if (priority === 'média' || priority === 'medium') return 5;
-        if (priority === 'baixa' || priority === 'low') return 1;
-        
-        // Se é número, usar o valor
-        const num = Number(priority);
-        if (!isNaN(num) && num > 0) return num;
-        
-        // Fallback baseado no tipo
-        if (suggestion?.type === 'reference_lufs') return 8;
-        if (suggestion?.type === 'reference_stereo') return 6;
-        return 5;
-    }
-
-    /**
-     * 🔧 [FIX] Chave estável para merge - apenas type/metric, nunca campos variáveis
-     */
-    __keyOf(s) {
-        const key = (s?.type || s?.metric || '').toLowerCase();
-        console.debug("[FIX] Chaves de merge:", key, "para:", s?.type || s?.metric || 'unknown');
-        return key;
-    }
-
     mergeAISuggestionsWithOriginals(originalSuggestions, aiEnhancedSuggestions) {
         console.log('[AI-MERGE] Iniciando merge de sugestões:', {
             originais: originalSuggestions?.length || 0,
             enriquecidas: aiEnhancedSuggestions?.length || 0
         });
 
-        // [TP-FIX] Merge por chave estável, não por índice
-        const byKey = new Map();
-        
-        // Primeira passada: registrar sugestões originais
-        for (const s of originalSuggestions || []) {
-            if (!s) continue;
-            byKey.set(this.__keyOf(s), { ...s });
+        // Se não há sugestões originais, retorna array vazio
+        if (!originalSuggestions || !Array.isArray(originalSuggestions)) {
+            console.warn('[AI-MERGE] ⚠️ Sugestões originais inválidas');
+            return [];
         }
-        
-        // Segunda passada: merge com sugestões da IA
-        for (const a of aiEnhancedSuggestions || []) {
-            if (!a) continue;
-            const k = this.__keyOf(a);
-            const base = byKey.get(k) || {};
-            
-            // merge cuidadoso
-            const merged = {
-                ...base,
-                ...a,
-                type: base.type || a.type,                // preserva tipo original se existir
-                blocks: base.blocks ?? a.blocks,          // nunca zere blocks se o original tem
-                ai_enhanced: true,
-                ai_blocks: a.blocks || {},
-                ai_category: a.metadata?.processing_type || 'geral',
-                ai_priority: this.mapPriorityFromBackend(a.metadata?.priority),
-                ai_technical_details: {
-                    difficulty: a.metadata?.difficulty || 'intermediário',
-                    frequency_range: a.metadata?.frequency_range || '',
-                    tools_suggested: this.extractToolsFromBlocks(a.blocks)
-                },
-                // 🎯 PRESERVAR valores específicos de dB das sugestões originais
-                title: base.title || base.message || a.blocks?.problem,
-                description: base.description || base.action || a.blocks?.solution,
-                // Adicionar blocos IA como enriquecimento adicional
-                ai_enrichment: {
-                    problem_analysis: a.blocks?.problem,
-                    enhanced_solution: a.blocks?.solution,
-                    professional_tip: a.blocks?.tip,
-                    recommended_plugin: a.blocks?.plugin
-                }
-            };
-            
-            // 🔧 [FIX] Normalizar prioridade do item merged
-            merged.priority = this.__normalizePriority(merged, base.priority || a.priority);
-            
-            // mantenha também __blocksText se existir em qualquer lado
-            merged.__blocksText = base.__blocksText || a.__blocksText || merged.__blocksText;
-            byKey.set(k, merged);
+
+        // Se não há sugestões enriquecidas da IA, retorna as originais
+        if (!aiEnhancedSuggestions || !Array.isArray(aiEnhancedSuggestions)) {
+            console.log('[AI-MERGE] 📋 Sem sugestões IA, retornando originais:', originalSuggestions.length);
+            return originalSuggestions.map(s => ({...s, ai_enhanced: false}));
         }
-        
-        // Se não há sugestões originais, adicionar as não-matched da IA
-        if (!originalSuggestions || originalSuggestions.length === 0) {
-            for (const a of aiEnhancedSuggestions || []) {
-                if (!a) continue;
-                const k = this.__keyOf(a);
-                if (!byKey.has(k)) {
-                    const newSuggestion = {
-                        ...a,
-                        ai_enhanced: true,
-                        ai_blocks: a.blocks || {},
-                        ai_category: a.metadata?.processing_type || 'geral',
-                        title: a.blocks?.problem || 'Sugestão da IA',
-                        description: a.blocks?.solution || 'Melhoria recomendada'
-                    };
-                    byKey.set(k, newSuggestion);
-                }
+
+        console.log('[AI-MERGE] 🤖 Processando enriquecimento com IA:', aiEnhancedSuggestions.length);
+
+        // Mesclar sugestões enriquecidas com as originais
+        const mergedSuggestions = [];
+
+        for (let i = 0; i < Math.max(originalSuggestions.length, aiEnhancedSuggestions.length); i++) {
+            const originalSuggestion = originalSuggestions[i];
+            const aiSuggestion = aiEnhancedSuggestions[i];
+
+            if (originalSuggestion && aiSuggestion) {
+                // Caso 1: Temos ambas - mesclar
+                const merged = {
+                    ...originalSuggestion,
+                    ai_enhanced: true,
+                    ai_blocks: aiSuggestion.blocks || {},
+                    ai_category: aiSuggestion.metadata?.processing_type || 'geral',
+                    ai_priority: this.mapPriorityFromBackend(aiSuggestion.metadata?.priority),
+                    ai_technical_details: {
+                        difficulty: aiSuggestion.metadata?.difficulty || 'intermediário',
+                        frequency_range: aiSuggestion.metadata?.frequency_range || '',
+                        tools_suggested: this.extractToolsFromBlocks(aiSuggestion.blocks)
+                    },
+
+                    // ✅ Preservar campos especiais do TP
+                    priorityWarning: originalSuggestion.priorityWarning,
+                    correctionOrder: originalSuggestion.correctionOrder,
+                    specialAlert: originalSuggestion.specialAlert,
+                    alertType: originalSuggestion.alertType,
+
+                    // ✅ Se for TP, manter mensagem educativa fixa
+                    title: (originalSuggestion.type === 'reference_true_peak' || originalSuggestion.metricType === 'true_peak')
+                        ? (originalSuggestion.message || "⚡ Correção Prioritária: Ajuste o True Peak primeiro. Um TP elevado pode distorcer os transientes, alterar o equilíbrio das frequências e comprometer toda a mixagem. Corrigir o TP primeiro garante uma base estável antes de ajustar DR e LUFS.")
+                        : (aiSuggestion.blocks?.problem || originalSuggestion.title || originalSuggestion.message),
+                    description: aiSuggestion.blocks?.solution || originalSuggestion.description || originalSuggestion.action
+                };
+                
+                mergedSuggestions.push(merged);
+                console.log(`[AI-MERGE] ✅ Sugestão ${i + 1} enriquecida com IA`);
+                
+            } else if (originalSuggestion) {
+                // Caso 2: Só temos a original - manter sem enriquecimento
+                mergedSuggestions.push({
+                    ...originalSuggestion,
+                    ai_enhanced: false
+                });
+                console.log(`[AI-MERGE] 📋 Sugestão ${i + 1} mantida original`);
+                
+            } else if (aiSuggestion) {
+                // Caso 3: Só temos a da IA - criar nova sugestão
+                const newSuggestion = {
+                    ai_enhanced: true,
+                    ai_blocks: aiSuggestion.blocks || {},
+                    ai_category: aiSuggestion.metadata?.processing_type || 'geral',
+                    ai_priority: this.mapPriorityFromBackend(aiSuggestion.metadata?.priority),
+                    ai_technical_details: {
+                        difficulty: aiSuggestion.metadata?.difficulty || 'intermediário',
+                        frequency_range: aiSuggestion.metadata?.frequency_range || '',
+                        tools_suggested: this.extractToolsFromBlocks(aiSuggestion.blocks)
+                    },
+                    title: aiSuggestion.blocks?.problem || 'Sugestão da IA',
+                    description: aiSuggestion.blocks?.solution || 'Melhoria recomendada'
+                };
+                
+                mergedSuggestions.push(newSuggestion);
+                console.log(`[AI-MERGE] ✨ Nova sugestão ${i + 1} criada pela IA`);
             }
         }
 
-        // 🔧 [FIX] Ordenação final garantida por prioridade (True Peak primeiro)
-        const result = [...byKey.values()]
-            .sort((a,b) => {
-                const priorityA = this.__normalizePriority(a, a.priority);
-                const priorityB = this.__normalizePriority(b, b.priority);
-                return priorityB - priorityA; // Decrescente
-            });
-
-        console.log('[TP-FIX] Merge concluído por chave estável:', {
-            total: result.length,
-            enriquecidas: result.filter(s => s.ai_enhanced).length,
-            originais: result.filter(s => !s.ai_enhanced).length,
-            truePeakPresente: result.some(s => s.type === 'reference_true_peak')
+        console.log('[AI-MERGE] 📈 Merge concluído:', {
+            total: mergedSuggestions.length,
+            enriquecidas: mergedSuggestions.filter(s => s.ai_enhanced).length,
+            originais: mergedSuggestions.filter(s => !s.ai_enhanced).length
         });
 
-        return result;
+        return mergedSuggestions;
     }
     
     /**
      * Mapear prioridade do backend para número
      */
-    /**
-     * @deprecated Usar __normalizePriority() centralizada
-     */
     mapPriorityFromBackend(priority) {
-        console.warn('[FIX] mapPriorityFromBackend deprecated - usar __normalizePriority');
-        return this.__normalizePriority({}, priority);
+        if (!priority) return 5;
+        if (priority === 'alta' || priority === 'high') return 8;
+        if (priority === 'média' || priority === 'medium') return 5;
+        if (priority === 'baixa' || priority === 'low') return 2;
+        return 5;
     }
     
     /**
@@ -1190,33 +843,8 @@ class AISuggestionsIntegration {
      */
     displaySuggestions(suggestions, source = 'ai') {
         // 🔍 AUDITORIA PASSO 6: RENDERIZAÇÃO FINAL
-        console.group('🔍 [AUDITORIA-UI] RENDERIZAÇÃO FINAL');
-        console.debug("[AUDITORIA-UI] Recebido para renderizar:", {
-            array: suggestions,
-            length: suggestions?.length || 0,
-            source: source,
-            arrayType: Array.isArray(suggestions) ? 'Array' : typeof suggestions
-        });
-
-        // Verificar se é finalSuggestions ou outro array
-        if (suggestions && Array.isArray(suggestions)) {
-            suggestions.forEach((sug, index) => {
-                console.debug(`[AUDITORIA-UI] Item ${index}:`, {
-                    type: sug.type,
-                    metric: sug.metric,
-                    priority: sug.priority,
-                    ai_enhanced: sug.ai_enhanced,
-                    hasBlocks: !!sug.blocks,
-                    hasAiBlocks: !!sug.ai_blocks,
-                    message: (sug.message || '').substring(0, 30) + '...'
-                });
-            });
-        }
-
+        console.group('🔍 [AUDITORIA] RENDERIZAÇÃO FINAL');
         console.log('[AI-UI] Renderizando sugestões enriquecidas:', suggestions?.length || 0);
-        console.debug('[FIX] TP presente antes da renderização?', suggestions?.some(s => s.type === 'reference_true_peak'));
-        console.debug('[FIX] Ordem final das sugestões:', suggestions?.map((s, i) => `${i+1}. ${s.type||s.metric} (p:${s.priority})`).join(', '));
-        
         console.log('🖥️ displaySuggestions chamado com:', {
             totalSuggestions: suggestions?.length || 0,
             source: source,
@@ -1244,114 +872,44 @@ class AISuggestionsIntegration {
         // Clear grid
         this.elements.grid.innerHTML = '';
         
-        // 🎯 [REFATORACAO] Fallback inteligente baseado no estado
         if (!suggestions || suggestions.length === 0) {
-            const fallbackHtml = this.isProcessing ? 
-                `<div class="ai-suggestions-loading">
-                    <div class="ai-spinner"></div>
-                    <p>🤖 Processando sugestões com IA...</p>
-                    <small>Analisando métricas e gerando recomendações personalizadas</small>
-                </div>` :
-                `<div class="ai-suggestions-empty">
-                    <p>✅ Análise concluída</p>
-                    <small>Nenhuma sugestão necessária - áudio dentro dos padrões</small>
-                </div>`;
-            
-            this.elements.grid.innerHTML = fallbackHtml;
-            console.debug('[REFATORACAO] Fallback renderizado:', this.isProcessing ? 'Loading' : 'Empty');
+            this.elements.grid.innerHTML = `
+                <div class="ai-suggestions-empty">
+                    <p>Nenhuma sugestão disponível no momento.</p>
+                </div>
+            `;
             return;
         }
         
-        // 🎯 ORDENAÇÃO FINAL GARANTIDA: Garantir ordem correta antes da renderização
-        console.log('🎯 [ORDEM-FINAL] Aplicando ordenação final garantida...');
-        
-        const suggestionsOrdenadas = [...suggestions].sort((a, b) => {
-            // Ordenar por prioridade decrescente (maior prioridade primeiro)
-            const priorityA = a.priority || a.ai_priority || 0;
-            const priorityB = b.priority || b.ai_priority || 0;
-            return priorityB - priorityA;
-        });
-        
-        console.log('🎯 [ORDEM-FINAL] Ordem aplicada:');
-        suggestionsOrdenadas.forEach((sug, index) => {
-            const priority = sug.priority || sug.ai_priority || 0;
-            const type = sug.type || 'unknown';
-            const message = (sug.message || sug.title || '').substring(0, 30);
-            console.log(`  ${index + 1}. Priority ${priority} (${type}): ${message}...`);
-        });
-
-        // Generate cards COM ORDEM CORRETA
+        // Generate cards
         // 🔍 AUDITORIA: Contando cards criados
         let cardsCreated = 0;
-        suggestionsOrdenadas.forEach((suggestion, index) => {
+        suggestions.forEach((suggestion, index) => {
             const card = this.createSuggestionCard(suggestion, index, source);
             this.elements.grid.appendChild(card);
             cardsCreated++;
             
             console.log(`🖥️ Card ${cardsCreated} criado para:`, {
-                originalIndex: suggestions.indexOf(suggestion),
-                orderedIndex: index,
+                index: index,
                 ai_enhanced: suggestion.ai_enhanced,
-                priority: suggestion.priority || suggestion.ai_priority,
-                message: (suggestion.message || '').substring(0, 40) + '...',
                 cardElement: !!card,
                 appendedToGrid: true
             });
         });
-        
-        // 🎯 AUDITORIA VISUAL: Confirmar ordem dos cards renderizados (ORDENADOS)
-        console.group('🎯 [AUDITORIA] ORDEM FINAL DOS CARDS RENDERIZADOS');
-        console.log('📊 Ordem dos cards no DOM (deve ser TP → LUFS → DR → LRA → Stereo → Bandas):');
-        suggestionsOrdenadas.forEach((sug, index) => {
-            const priority = sug.priority || sug.ai_priority || 0;
-            const priorityEmoji = priority >= 9 ? '🔴' : priority >= 5 ? '🟡' : '🟢';
-            console.log(`${priorityEmoji} Card ${index + 1}: Priority ${priority} - ${(sug.message || '').substring(0, 50)}...`);
-        });
-        console.groupEnd();
         
         console.log('🔍 [AUDITORIA] CARDS FINAIS CRIADOS:', {
             totalCards: cardsCreated,
             gridChildren: this.elements.grid.children.length,
             suggestionsReceived: suggestions.length
         });
-
-        // ✅ [REFATORACAO] Confirmação final do sistema unificado
-        console.group('✅ [REFATORACAO] SISTEMA UNIFICADO ATIVO');
-        console.log('🎯 Modal renderizado exclusivamente pelo fluxo AI');
-        console.log('🚫 Fluxo original bloqueado:', {
-            aiModeActive: window.__AI_RENDER_MODE_ACTIVE__,
-            originalBlocked: window.__BLOCK_ORIGINAL_RENDERING__
-        });
-        console.log('🏆 True Peak no topo:', {
-            truePeakFound: suggestionsOrdenadas.some(s => s.type === 'reference_true_peak'),
-            firstItemType: suggestionsOrdenadas[0]?.type,
-            firstItemPriority: suggestionsOrdenadas[0]?.priority
-        });
-        console.groupEnd();
-
-        // 🚨 CORREÇÃO VISUAL DE EMERGÊNCIA: Verificar ordem real no DOM e corrigir se necessário
-        setTimeout(() => {
-            this.verificarECorrigirOrdemVisual(suggestionsOrdenadas);
-        }, 100); // Pequeno delay para garantir que DOM está atualizado
         
         // Show grid
         this.elements.grid.style.display = 'grid';
-        
-        // 🎯 MARCAÇÃO VISUAL: Identificar que AI Integration está ativo
-        this.elements.grid.style.border = '2px solid #4CAF50';
-        this.elements.grid.style.boxShadow = '0 0 10px rgba(76, 175, 80, 0.3)';
         
         // Animate cards
         this.animateCards();
         
         console.log(`✅ [AI-INTEGRATION] ${suggestions.length} sugestões exibidas (fonte: ${source})`);
-        console.log('🎯 [AI-INTEGRATION] SISTEMA PRINCIPAL ATIVO - Sugestões renderizadas no #aiExpandedGrid');
-        
-        // 💾 SALVAR HASH PARA CACHE
-        if (source === 'ai') {
-            window.lastProcessedHash = window.generateSuggestionsHash(suggestions);
-            console.log('💾 [AI-INTEGRATION] Hash do cache salvo:', window.lastProcessedHash);
-        }
         
         // 🔍 AUDITORIA: RELATÓRIO FINAL COMPLETO
         console.group('🔍 [AUDITORIA] RELATÓRIO FINAL COMPLETO');
@@ -1398,23 +956,7 @@ class AISuggestionsIntegration {
             plugin: suggestion.plugin || suggestion.blocks?.plugin,
             result: suggestion.resultado || suggestion.blocks?.result
         };
-        
-        // 🎯 PRESERVAR PRIORIDADE ORIGINAL da sugestão do Enhanced Engine
-        let originalPriority = 'média'; // fallback
-        if (suggestion.priority) {
-            if (typeof suggestion.priority === 'number') {
-                if (suggestion.priority >= 8) originalPriority = 'alta';
-                else if (suggestion.priority >= 5) originalPriority = 'média';
-                else originalPriority = 'baixa';
-            } else {
-                originalPriority = suggestion.priority;
-            }
-        }
-        
-        const metadata = suggestion.metadata || { 
-            priority: originalPriority, 
-            difficulty: suggestion.difficulty || 'intermediário' 
-        };
+        const metadata = suggestion.metadata || { priority: 'média', difficulty: 'intermediário' };
         const isAIEnhanced = true;
         
         card.innerHTML = `
@@ -1444,12 +986,6 @@ class AISuggestionsIntegration {
                 </div>
             </div>
         `;
-        
-        // 🎯 ATRIBUTOS DE CONTROLE: Adicionar data attributes para detecção robusta
-        card.dataset.priority = suggestion.priority || suggestion.ai_priority || '0';
-        card.dataset.type = suggestion.type || suggestion.metric || 'unknown';
-        card.dataset.index = index;
-        card.id = `suggestion-${card.dataset.type}-${index}`;
         
         return card;
     }
@@ -1632,12 +1168,6 @@ class AISuggestionsIntegration {
      * Integração com sistema existente
      */
     integrateWithExistingSystem() {
-        // 🔒 PROTEÇÃO: Evitar múltiplas integrações
-        if (window.displayModalResults?.__aiIntegrationHooked) {
-            console.log('🔒 [AI-INTEGRATION] Sistema já integrado - pulando dupla integração');
-            return;
-        }
-        
         // Hook into displayModalResults to trigger AI processing
         const originalDisplayModalResults = window.displayModalResults;
         
@@ -1675,28 +1205,12 @@ class AISuggestionsIntegration {
                     
                     // Delay slightly to ensure modal is rendered
                     setTimeout(() => {
-                        console.log('🔗 [AI-INTEGRATION] Timeout executado - verificando processamento');
-                        console.log('🔗 aiIntegration existe?', !!window.aiIntegration);
-                        console.log('🔗 isProcessing?', window.aiIntegration?.isProcessing);
-                        console.log('🔗 Sugestões para processar:', analysis.suggestions?.length || 0);
-                        
-                        if (window.aiIntegration && !window.aiIntegration.isProcessing) {
-                            console.log('🚀 [AI-INTEGRATION] Iniciando processamento IA das sugestões...');
-                            window.aiIntegration.processWithAI(analysis.suggestions, metrics, genre);
-                        } else {
-                            console.warn('⚠️ [AI-INTEGRATION] Processamento bloqueado:', {
-                                hasAiIntegration: !!window.aiIntegration,
-                                isProcessing: window.aiIntegration?.isProcessing
-                            });
-                        }
+                        this.processWithAI(analysis.suggestions, metrics, genre);
                     }, 100);
                 }
                 
                 return result;
             };
-            
-            // 🔒 MARCAR COMO INTEGRADO
-            window.displayModalResults.__aiIntegrationHooked = true;
             
             console.log('✅ [AI-INTEGRATION] Integração com displayModalResults configurada');
         } else {
@@ -1729,8 +1243,6 @@ function initializeAISuggestions() {
         
         // Expose globally for manual testing
         window.aiSuggestionsSystem = aiSuggestionsSystem;
-        // CRITICAL: Expose as aiIntegration for the interceptor
-        window.aiIntegration = aiSuggestionsSystem;
         
         console.log('🚀 [AI-INTEGRATION] Sistema iniciado e pronto para uso');
         
@@ -1777,41 +1289,6 @@ window.downloadAISuggestionsReport = function() {
     }
 };
 
-/**
- * 🔄 Gerar hash para cache de sugestões
- */
-/**
- * 🔧 [FIX] Cache robusto - inclui métricas críticas
- */
-window.generateSuggestionsHash = function(suggestions, metrics = {}, genre = '') {
-    // Base: tipos e prioridades (campos estáveis)
-    const baseString = suggestions.map(s => 
-        `${s.type || s.metric || ''}:${s.priority || 0}`
-    ).join('|');
-    
-    // Métricas críticas
-    const criticalData = [
-        `genre:${genre}`,
-        `lufs:${metrics.lufs || 0}`,
-        `truePeak:${metrics.truePeak || 0}`,
-        `stereo:${metrics.stereo || 0}`,
-        `dr:${metrics.dynamicRange || 0}`
-    ].join('|');
-    
-    const hashString = baseString + '|' + criticalData;
-    
-    // Simple hash function
-    let hash = 0;
-    for (let i = 0; i < hashString.length; i++) {
-        const char = hashString.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash; // Convert to 32bit integer
-    }
-    
-    console.debug('[FIX] Hash do cache:', hash.toString(), 'baseado em:', hashString.substring(0, 100) + '...');
-    return hash.toString();
-};
-
 window.sendAISuggestionsToChat = function() {
     // This would integrate with the existing chat system
     console.log('💬 [AI-INTEGRATION] Funcionalidade de chat em desenvolvimento');
@@ -1819,38 +1296,6 @@ window.sendAISuggestionsToChat = function() {
 };
 
 console.log('📦 [AI-INTEGRATION] Módulo carregado - aguardando inicialização');
-
-/*
-🔧 [FIX] SISTEMA DE SUGESTÕES CORRIGIDO - 28/09/2025
-
-PROBLEMAS RESOLVIDOS:
-✅ 1. Concorrência: runId único previne race conditions
-✅ 2. Merge estável: chaves baseadas em type/metric (não em message variável)  
-✅ 3. Prioridades: normalização centralizada (True Peak sempre 10)
-✅ 4. Cache robusto: inclui métricas críticas no hash
-
-COMPORTAMENTO ESPERADO:
-- Todas as sugestões aparecem no modal
-- Sempre enriquecidas com IA (ai_enhanced: true)
-- Ordem correta: True Peak (10) → LUFS (8) → outros por prioridade
-- Sem sumiços intermitentes
-- Cache diferencia análises por gênero/métricas
-
-COMO TESTAR:
-1. Analise o mesmo arquivo várias vezes consecutivas
-2. Mude o gênero e analise novamente  
-3. Verifique logs [FIX] no DevTools
-4. Confirme True Peak sempre no topo
-5. Confirme todas com ai_enhanced: true
-
-LOGS DE DIAGNÓSTICO:
-- [FIX] runId atual: run_123456_abc
-- [FIX] Chaves de merge: reference_true_peak
-- [FIX] Prioridades normalizadas: 10 para reference_true_peak
-- [FIX] Hash do cache: 789012 baseado em tipos+métricas
-- [FIX] TP presente pós-merge? true
-- [FIX] Ordem final: 1. reference_true_peak (p:10), 2. reference_lufs (p:8)...
-*/
 
 // Exportar classe para uso global
 window.AISuggestionIntegration = AISuggestionsIntegration;
