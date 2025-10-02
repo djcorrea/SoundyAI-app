@@ -1,6 +1,20 @@
 // 🎯 SISTEMA PRINCIPAL DE SUGESTÕES MELHORADO
 // Integra scoring, heurísticas e referências em um sistema unificado
 
+const SUG_PRIORITY = {
+  'reference_true_peak': 1,
+  'reference_loudness': 2,
+  'reference_dynamics': 3
+};
+
+function normalizeKey(k) {
+  const s = k.toLowerCase().replace(/[_-]/g, '');
+  if (['tp','truepeak','dbtp'].includes(s)) return 'reference_true_peak';
+  if (['lufs','lufus','loudness','integratedlufs'].includes(s)) return 'reference_loudness';
+  if (['dr','dynamics','dynamicrange'].includes(s)) return 'reference_dynamics';
+  return k;
+}
+
 class EnhancedSuggestionEngine {
     constructor(config = {}) {
         this.scorer = window.suggestionScorer || new SuggestionScorer();
@@ -549,92 +563,16 @@ class EnhancedSuggestionEngine {
      * @returns {Array} Sugestões ordenadas
      */
     enforceOrderedSuggestions(suggestions) {
-        const orderedSuggestions = [];
-        
-        // Definir ordem de prioridade das métricas críticas
-        const criticalOrder = [
-            'reference_true_peak',
-            'reference_loudness', 
-            'reference_dynamics',
-            'reference_lra',
-            'reference_stereo'
-        ];
-        
-        // Definir ordem de bandas espectrais
-        const bandOrder = ['sub', 'bass', 'low_bass', 'lowMid', 'upper_bass', 'low_mid', 'mid', 'highMid', 'high_mid', 'presenca', 'presence', 'brilho', 'air'];
-        
-        // 1. Adicionar métricas críticas na ordem correta
-        for (const metricType of criticalOrder) {
-            const metricSuggestions = suggestions.filter(s => s.type === metricType);
-            if (metricSuggestions.length > 0) {
-                // Se há múltiplas sugestões do mesmo tipo, pegar a de maior prioridade
-                const bestSuggestion = metricSuggestions.reduce((best, current) => 
-                    (current.priority || 0) > (best.priority || 0) ? current : best
-                );
-                orderedSuggestions.push(bestSuggestion);
-                
-                this.logAudit('ORDERED_SUGGESTION_ADDED', `Métrica crítica adicionada: ${metricType}`, {
-                    type: metricType,
-                    priority: bestSuggestion.priority,
-                    currentValue: bestSuggestion.currentValue,
-                    targetValue: bestSuggestion.targetValue
-                });
-            }
-        }
-        
-        // 2. Adicionar sugestões de bandas na ordem espectral correta
-        for (const band of bandOrder) {
-            const bandSuggestions = suggestions.filter(s => 
-                (s.type === 'band_adjust' || s.type === 'reference_band_comparison') && 
-                (s.subtype === band || s.band === band)
-            );
-            
-            if (bandSuggestions.length > 0) {
-                // Se há múltiplas sugestões da mesma banda, pegar a de maior prioridade
-                const bestBandSuggestion = bandSuggestions.reduce((best, current) => 
-                    (current.priority || 0) > (best.priority || 0) ? current : best
-                );
-                orderedSuggestions.push(bestBandSuggestion);
-                
-                this.logAudit('ORDERED_BAND_ADDED', `Banda adicionada: ${band}`, {
-                    band: band,
-                    type: bestBandSuggestion.type,
-                    priority: bestBandSuggestion.priority
-                });
-            }
-        }
-        
-        // 3. Adicionar outras sugestões que não se encaixam nas categorias acima
-        const processedTypes = new Set([...criticalOrder, 'band_adjust', 'reference_band_comparison']);
-        const otherSuggestions = suggestions.filter(s => {
-            if (processedTypes.has(s.type)) {
-                // Para bandas, verificar se já foi processada
-                if (s.type === 'band_adjust' || s.type === 'reference_band_comparison') {
-                    const bandName = s.subtype || s.band;
-                    return !bandOrder.includes(bandName);
-                }
-                return false; // Métricas críticas já processadas
-            }
-            return true; // Outras sugestões não processadas
-        });
-        
-        // Ordenar outras sugestões por prioridade
-        otherSuggestions.sort((a, b) => (b.priority || 0) - (a.priority || 0));
-        orderedSuggestions.push(...otherSuggestions);
-        
-        this.logAudit('SUGGESTIONS_REORDERED', 'Sugestões reordenadas deterministicamente', {
-            originalCount: suggestions.length,
-            reorderedCount: orderedSuggestions.length,
-            criticalMetricsFound: criticalOrder.filter(type => 
-                orderedSuggestions.some(s => s.type === type)
-            ).length,
-            bandsFound: bandOrder.filter(band => 
-                orderedSuggestions.some(s => s.subtype === band || s.band === band)
-            ).length,
-            otherSuggestionsCount: otherSuggestions.length
-        });
-        
-        return orderedSuggestions;
+        if (!Array.isArray(suggestions)) return [];
+
+        return suggestions
+            .map(s => ({ ...s, type: normalizeKey(s.type) }))
+            .sort((a, b) => {
+                const pa = SUG_PRIORITY[a.type] || 999;
+                const pb = SUG_PRIORITY[b.type] || 999;
+                if (pa !== pb) return pa - pb; // prioridade TP > LUFS > DR
+                return (b.priority || 0) - (a.priority || 0); // severidade como desempate
+            });
     }
 
     /**
