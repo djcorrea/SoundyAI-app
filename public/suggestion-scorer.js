@@ -88,6 +88,11 @@ class SuggestionScorer {
                     message: 'Dynamic Range muito comprimido',
                     action: 'Reduzir compressão ou usar compressão multibanda',
                     why: 'Preserva dinâmica e naturalidade'
+                },
+                high: {
+                    message: 'Dynamic Range muito amplo',
+                    action: 'Aplicar compressão suave para controlar dinâmica',
+                    why: 'Melhora consistência e controle'
                 }
             },
             lra: {

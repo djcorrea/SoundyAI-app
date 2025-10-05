@@ -1913,12 +1913,54 @@ class EnhancedSuggestionEngine {
         const metricType = suggestion.metricType || '';
         const subtype = suggestion.subtype || '';
 
-        // Mapeamento direto por tipo principal
+        // 🎯 CORREÇÃO CRÍTICA: Mapeamento dinâmico para DR baseado na comparação atual vs. target
+        if (type === 'reference_dynamics' || metricType === 'dr') {
+            const currentValue = suggestion.currentValue || suggestion.technical?.currentValue;
+            const targetValue = suggestion.targetValue || suggestion.technical?.targetValue;
+            
+            if (Number.isFinite(currentValue) && Number.isFinite(targetValue)) {
+                // Se DR atual > target → muita variação → precisa mais compressão
+                // Se DR atual < target → pouca variação → precisa menos compressão
+                return currentValue > targetValue ? 'dr_high' : 'dr_low';
+            }
+            
+            // Fallback: usar dr_low como padrão (mais comum)
+            return 'dr_low';
+        }
+
+        // 🎯 CORREÇÃO CRÍTICA: Mapeamento dinâmico para LUFS baseado na comparação atual vs. target
+        if (type === 'reference_loudness' || metricType === 'lufs') {
+            const currentValue = suggestion.currentValue || suggestion.technical?.currentValue;
+            const targetValue = suggestion.targetValue || suggestion.technical?.targetValue;
+            
+            if (Number.isFinite(currentValue) && Number.isFinite(targetValue)) {
+                // Se LUFS atual < target → muito baixo → precisa aumentar
+                // Se LUFS atual > target → muito alto → precisa reduzir  
+                return currentValue < targetValue ? 'lufs_too_low' : 'lufs_too_high';
+            }
+            
+            // Fallback: usar lufs_too_low como padrão (mais comum)
+            return 'lufs_too_low';
+        }
+
+        // 🎯 CORREÇÃO CRÍTICA: Mapeamento dinâmico para LRA baseado na comparação atual vs. target
+        if (type === 'reference_lra' || metricType === 'lra') {
+            const currentValue = suggestion.currentValue || suggestion.technical?.currentValue;
+            const targetValue = suggestion.targetValue || suggestion.technical?.targetValue;
+            
+            if (Number.isFinite(currentValue) && Number.isFinite(targetValue)) {
+                // Se LRA atual < target → muito baixo → precisa menos compressão
+                // Se LRA atual > target → muito alto → precisa mais compressão
+                return currentValue < targetValue ? 'lra_too_low' : 'lra_too_high';
+            }
+            
+            // Fallback: usar lra_too_low como padrão (mais comum)
+            return 'lra_too_low';
+        }
+
+        // Mapeamento direto por tipo principal (para outros tipos)
         const directMapping = {
-            'reference_loudness': 'lufs_too_low',
             'reference_true_peak': 'true_peak_high', 
-            'reference_lra': 'lra_too_low',
-            'reference_dynamics': 'dr_low',
             'reference_stereo': 'stereo_narrow',
             'band_adjust': 'spectral_imbalance',
             'reference_band_comparison': 'spectral_imbalance',
@@ -1933,13 +1975,10 @@ class EnhancedSuggestionEngine {
             return directMapping[type];
         }
 
-        // Mapeamento por metricType para sugestões de referência
+        // Mapeamento por metricType para sugestões de referência (apenas para tipos restantes)
         if (type.startsWith('reference_')) {
             const metricMapping = {
-                'lufs': 'lufs_too_low',
                 'true_peak': 'true_peak_high',
-                'lra': 'lra_too_low', 
-                'dr': 'dr_low',
                 'stereo': 'stereo_narrow',
                 'band': 'spectral_imbalance'
             };
