@@ -3225,21 +3225,9 @@ function displayModalResults(analysis) {
                         }
                         
                         // Footer removido - sem estatísticas desnecessárias
-                        blocks.push(`<div class="diag-section"><div class="diag-heading">🩺 Sugestões Priorizadas</div>${list}<div class="diag-info-text">
-                            <p>
-                                As métricas e sugestões são baseadas em ciência de áudio e referências reais do gênero.<br>
-                                Porém, música é arte: cada produtor pode querer características diferentes.<br>
-                                Use estas dicas como um guia de referência, não como uma regra absoluta.
-                            </p>
-                        </div></div>`);
+                        blocks.push(`<div class="diag-section"><div class="diag-heading">🩺 Sugestões Priorizadas</div>${list}</div>`);
                     } catch {
-                        blocks.push(`<div class="diag-section"><div class="diag-heading">🩺 Sugestões</div>${list}<div class="diag-info-text">
-                            <p>
-                                As métricas e sugestões são baseadas em ciência de áudio e referências reais do gênero.<br>
-                                Porém, música é arte: cada produtor pode querer características diferentes.<br>
-                                Use estas dicas como um guia de referência, não como uma regra absoluta.
-                            </p>
-                        </div></div>`);
+                        blocks.push(`<div class="diag-section"><div class="diag-heading">🩺 Sugestões</div>${list}</div>`);
                     }
                 }
                 // Subbloco opcional com diagnósticos do V2 PRO (quando disponíveis)

@@ -1300,3 +1300,35 @@ body {
         border-color: rgba(0, 150, 255, 0.5);
     }
 }
+
+/* ============ TEXTO INFORMATIVO DA ANÁLISE COMPLETA ============ */
+.analysis-info-text {
+    margin-top: 14px;
+    margin-bottom: 10px;
+    padding: 10px 20px;
+    text-align: center;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: #d6c8ff;
+    opacity: 0.85;
+    font-weight: 400;
+    font-family: "Inter", "Montserrat", "Noto Sans", sans-serif;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    backdrop-filter: blur(6px);
+    box-shadow: 0 0 8px rgba(144, 63, 255, 0.15);
+    animation: fadeInInfo 0.8s ease forwards;
+}
+
+@keyframes fadeInInfo {
+    from { 
+        opacity: 0; 
+        transform: translateY(6px); 
+    }
+    to { 
+        opacity: 0.85; 
+        transform: translateY(0); 
+    }
+}
