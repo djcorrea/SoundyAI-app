@@ -5179,7 +5179,6 @@ function renderReferenceComparisons(analysis) {
         const bandDisplayNames = {
             sub: 'Sub (20–60Hz)',
             bass: 'Bass (60–150Hz)', 
-            // low_bass: removido para eliminar duplicação - usa apenas 'bass'
             lowMid: 'Low-Mid (150–500Hz)',
             low_mid: 'Low-Mid (150–500Hz)',
             mid: 'Mid (500–2kHz)',
@@ -5331,7 +5330,6 @@ function renderReferenceComparisons(analysis) {
         const bandMap = {
             sub: { refKey: 'sub', name: 'Sub (20–60Hz)', range: '20–60Hz' },
             bass: { refKey: 'low_bass', name: 'Bass (60–150Hz)', range: '60–150Hz' },
-            // low_bass: removido para eliminar duplicação - dados mapeados via 'bass'
             lowMid: { refKey: 'low_mid', name: 'Low-Mid (150–500Hz)', range: '150–500Hz' },
             low_mid: { refKey: 'low_mid', name: 'Low-Mid (150–500Hz)', range: '150–500Hz' },
             mid: { refKey: 'mid', name: 'Mid (500–2kHz)', range: '500–2000Hz' },
@@ -5352,14 +5350,7 @@ function renderReferenceComparisons(analysis) {
             
             // Primeiro: processar bandas que têm referência (usando mapeamento)
             Object.entries(bandMap).forEach(([calcBandKey, bandInfo]) => {
-                let bandData = spectralBands[calcBandKey];
-                
-                // 🎯 FALLBACK ESPECÍFICO: Se 'bass' não existir, usar 'low_bass'
-                if (!bandData && calcBandKey === 'bass' && spectralBands['low_bass']) {
-                    bandData = spectralBands['low_bass'];
-                    console.log('🔄 Fallback aplicado: bass ← low_bass');
-                }
-                
+                const bandData = spectralBands[calcBandKey];
                 const refBandData = ref.bands?.[bandInfo.refKey];
                 
                 if (bandData && !processedBandKeys.has(calcBandKey)) {
@@ -5398,6 +5389,7 @@ function renderReferenceComparisons(analysis) {
                     bandKey !== 'totalpercentage' &&
                     bandKey !== 'metadata' &&
                     bandKey !== 'total' &&
+                    bandKey !== 'low_bass' && // Evitar duplicação - low_bass já é mapeado via bass
                     !bandKey.toLowerCase().includes('total')) {
                     
                     const bandData = spectralBands[bandKey];
