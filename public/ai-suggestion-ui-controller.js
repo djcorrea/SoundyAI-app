@@ -59,15 +59,12 @@ class AISuggestionUIController {
      */
     cacheElements() {
         this.elements = {
-            // 🔒 DESATIVADO: Elementos inexistentes no DOM
-            aiSection: null, // document.getElementById('aiSuggestionsSection'), - NÃO EXISTE
-            aiContent: null, // document.getElementById('aiSuggestionsContent'), - NÃO EXISTE
+            aiSection: document.getElementById('aiSuggestionsSection'),
+            aiContent: document.getElementById('aiSuggestionsContent'),
             aiStatusBadge: document.getElementById('aiStatusBadge'),
             aiModelBadge: document.getElementById('aiModelBadge'),
             fullModal: document.getElementById('aiSuggestionsFullModal'),
             fullModalContent: document.getElementById('aiFullModalContent'),
-            // 🎯 USAR APENAS: aiExpandedGrid como container principal
-            aiExpandedGrid: document.getElementById('aiExpandedGrid'),
             aiStatsCount: document.getElementById('aiStatsCount'),
             aiStatsModel: document.getElementById('aiStatsModel'),
             aiStatsTime: document.getElementById('aiStatsTime')
@@ -230,14 +227,7 @@ class AISuggestionUIController {
     renderCompactPreview(suggestions, isBaseSuggestions = false) {
         if (!this.elements.aiContent) return;
         
-        // 🎯 ORDENAÇÃO FINAL GARANTIDA: Garantir ordem correta no preview
-        const suggestionsOrdenadas = [...suggestions].sort((a, b) => {
-            const priorityA = a.priority || a.ai_priority || 0;
-            const priorityB = b.priority || b.ai_priority || 0;
-            return priorityB - priorityA;
-        });
-        
-        const preview = suggestionsOrdenadas.slice(0, 3); // Máximo 3 no preview (ordenados)
+        const preview = suggestions.slice(0, 3); // Máximo 3 no preview
         const hasMore = suggestions.length > 3;
         
         let html = preview.map((suggestion, index) => {
@@ -351,21 +341,7 @@ class AISuggestionUIController {
      * 🖥️ Abrir modal em tela cheia
      */
     openFullModal() {
-        // 🔍 AUDITORIA DO MODAL AI
-        console.group('🔍 [AUDITORIA-MODAL-AI] openFullModal chamado');
-        console.debug('[AUDITORIA-MODAL-AI] Estado ao abrir modal:', {
-            hasModal: !!this.elements.fullModal,
-            suggestionsLength: this.currentSuggestions?.length || 0,
-            suggestionsSource: 'currentSuggestions',
-            firstSuggestionType: this.currentSuggestions?.[0]?.type || this.currentSuggestions?.[0]?.metric,
-            hasTruePeak: this.currentSuggestions?.some(s => s.type === 'reference_true_peak' || s.metric === 'reference_true_peak')
-        });
-        
-        if (!this.elements.fullModal || !this.currentSuggestions.length) {
-            console.debug('[AUDITORIA-MODAL-AI] Modal não aberto - condições não atendidas');
-            console.groupEnd();
-            return;
-        }
+        if (!this.elements.fullModal || !this.currentSuggestions.length) return;
         
         // Renderizar conteúdo completo
         this.renderFullSuggestions(this.currentSuggestions);
@@ -381,9 +357,6 @@ class AISuggestionUIController {
         
         // Atualizar estatísticas
         this.updateFullModalStats();
-        
-        console.debug('[AUDITORIA-MODAL-AI] Modal aberto com sucesso');
-        console.groupEnd();
         
         console.log('🖥️ [AI-UI] Modal full aberto');
     }
@@ -409,55 +382,9 @@ class AISuggestionUIController {
      * 🎯 Renderizar sugestões completas no modal
      */
     renderFullSuggestions(suggestions) {
-        // 🔍 AUDITORIA DO RENDER MODAL
-        console.group('🔍 [AUDITORIA-RENDER-MODAL] renderFullSuggestions chamado');
-        console.debug('[AUDITORIA-RENDER] Sugestões recebidas para modal:', {
-            length: suggestions?.length || 0,
-            isArray: Array.isArray(suggestions),
-            types: suggestions?.map(s => s.type || s.metric),
-            hasTruePeak: suggestions?.some(s => s.type === 'reference_true_peak' || s.metric === 'reference_true_peak')
-        });
+        if (!this.elements.fullModalContent) return;
         
-        if (!this.elements.fullModalContent) {
-            console.debug('[AUDITORIA-RENDER] Cancelado - elemento fullModalContent não encontrado');
-            console.groupEnd();
-            return;
-        }
-        
-        // 🎯 ORDENAÇÃO FINAL GARANTIDA: Garantir ordem correta no modal
-        console.log('🎯 [MODAL-ORDEM] Aplicando ordenação final no modal...');
-        
-        const suggestionsOrdenadas = [...suggestions].sort((a, b) => {
-            // Ordenar por prioridade decrescente (maior prioridade primeiro)
-            const priorityA = a.priority || a.ai_priority || 0;
-            const priorityB = b.priority || b.ai_priority || 0;
-            return priorityB - priorityA;
-        });
-        
-        // 🎯 [REFATORACAO] Fallback para modal vazio
-        if (suggestionsOrdenadas.length === 0) {
-            this.elements.fullModalContent.innerHTML = `
-                <div class="ai-suggestions-empty-modal">
-                    <div class="ai-empty-icon">🎵</div>
-                    <h3>Análise Concluída</h3>
-                    <p>Nenhuma sugestão necessária</p>
-                    <small>Seu áudio está dentro dos padrões recomendados</small>
-                </div>
-            `;
-            console.debug('[REFATORACAO] Modal vazio - fallback renderizado');
-            console.groupEnd();
-            return;
-        }
-
-        console.log('🎯 [MODAL-ORDEM] Ordem no modal:');
-        suggestionsOrdenadas.forEach((sug, index) => {
-            const priority = sug.priority || sug.ai_priority || 0;
-            const type = sug.type || 'unknown';
-            const message = (sug.message || sug.title || '').substring(0, 30);
-            console.log(`  ${index + 1}. Priority ${priority} (${type}): ${message}...`);
-        });
-        
-        const gridHtml = suggestionsOrdenadas.map((suggestion, index) => {
+        const gridHtml = suggestions.map((suggestion, index) => {
             return this.renderFullSuggestionCard(suggestion, index);
         }).join('');
         
@@ -466,13 +393,6 @@ class AISuggestionUIController {
                 ${gridHtml}
             </div>
         `;
-        
-        console.debug('[AUDITORIA-RENDER] Modal renderizado com sucesso:', {
-            cardsGerados: suggestionsOrdenadas.length,
-            htmlLength: gridHtml.length,
-            modalContentUpdated: true
-        });
-        console.groupEnd();
     }
     
     /**

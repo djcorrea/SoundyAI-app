@@ -298,43 +298,6 @@
     }
   ],
   "correlations": {},
-  "scoring_parameters": {
-    "default": {
-      "yellowMin": 70,
-      "bufferFactor": 1.5,
-      "severity": null,
-      "hysteresis": 0.2,
-      "note": "Parâmetros padrão para score contínuo baseado em tolerância"
-    },
-    "funk_mandela": {
-      "yellowMin": 75,
-      "bufferFactor": 1.4,
-      "severity": null,
-      "hysteresis": 0.15,
-      "note": "Configuração otimizada para funk mandela"
-    },
-    "eletronico": {
-      "yellowMin": 80,
-      "bufferFactor": 1.3,
-      "severity": null,
-      "hysteresis": 0.1,
-      "note": "Configuração mais tolerante para eletrônico"
-    },
-    "funk_automotivo": {
-      "yellowMin": 70,
-      "bufferFactor": 1.6,
-      "severity": null,
-      "hysteresis": 0.2,
-      "note": "Configuração padrão para funk automotivo"
-    },
-    "funk_bruxaria": {
-      "yellowMin": 75,
-      "bufferFactor": 1.5,
-      "severity": null,
-      "hysteresis": 0.15,
-      "note": "Configuração equilibrada para funk bruxaria"
-    }
-  },
   "targets_by_genre": {
     "funk_mandela": {
       "lufs": {

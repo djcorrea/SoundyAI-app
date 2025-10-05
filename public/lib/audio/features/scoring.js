@@ -98,79 +98,6 @@ const CATEGORY_WEIGHTS_LEGACY = {
   technical: 5    // Era muito subvalorizado
 };
 
-// 🎯 NOVA FUNÇÃO DE SCORE CONTÍNUO BASEADO EM TOLERÂNCIA
-// Calcula score baseado na distância da borda da tolerância, não do alvo absoluto
-function calculateMetricScore(value, target, tolerance, options = {}) {
-  // Parâmetros configuráveis com defaults
-  const {
-    yellowMin = 70,
-    bufferFactor = 1.5,
-    severity = null,
-    invert = false, // Para métricas como True Peak que só penalizam acima
-    hysteresis = 0.2,
-    previousZone = null
-  } = options;
-  
-  // Validação de entrada
-  if (!Number.isFinite(value) || !Number.isFinite(target) || !Number.isFinite(tolerance) || tolerance <= 0) {
-    return null;
-  }
-  
-  let diff;
-  
-  // Tratamento para métricas assimétricas (True Peak, DR, LRA)
-  if (invert) {
-    // Para True Peak: só penaliza valores acima do target
-    // Para DR/LRA: só penaliza valores muito altos
-    diff = Math.max(0, value - target);
-  } else {
-    // Comportamento padrão: penaliza desvios em ambas as direções
-    diff = Math.abs(value - target);
-  }
-  
-  // 🟢 VERDE: Dentro da tolerância = 100 pontos
-  if (diff <= tolerance) {
-    return 100;
-  }
-  
-  // Calcular distância além da tolerância
-  const toleranceDistance = diff - tolerance;
-  const bufferZone = tolerance * bufferFactor;
-  const severityFactor = severity || (tolerance * 2);
-  
-  // 🟡 AMARELO: Entre tolerância e tolerância+buffer (zona de transição)
-  if (toleranceDistance <= bufferZone) {
-    const ratio = toleranceDistance / bufferZone;
-    return Math.round(100 - ((100 - yellowMin) * ratio));
-  }
-  
-  // 🔴 VERMELHO: Além do buffer - SCORE PROGRESSIVO IMPLEMENTADO
-  const extraDistance = toleranceDistance - bufferZone;
-  
-  // 🎯 NOVA LÓGICA: Score progressivo com decaimento suave
-  // Quanto menor a distância, maior o score (sempre mostra progresso)
-  const progressRatio = 1 / (1 + extraDistance / severityFactor);
-  const score = Math.round(yellowMin * progressRatio);
-  
-  // 🛡️ Garantir score mínimo de 10 (nunca zerar completamente)
-  return Math.max(10, score);
-}
-
-// 🎯 FUNÇÃO AUXILIAR PARA DETERMINAR ZONA COM HISTERESE
-function getZoneWithHysteresis(value, target, tolerance, bufferFactor = 1.5, hysteresis = 0.2, previousZone = null) {
-  const diff = Math.abs(value - target);
-  const toleranceWithHyst = tolerance * (1 + (previousZone === 'green' ? hysteresis : -hysteresis));
-  const bufferWithHyst = tolerance * bufferFactor * (1 + (previousZone === 'yellow' ? hysteresis : -hysteresis));
-  
-  if (diff <= toleranceWithHyst) {
-    return 'green';
-  } else if (diff <= bufferWithHyst) {
-    return 'yellow';
-  } else {
-    return 'red';
-  }
-}
-
 // 🎯 NOVO SISTEMA DE SCORING: PESOS IGUAIS V3
 function _computeEqualWeightV3(analysisData) {
   console.log('[EQUAL_WEIGHT_V3] 🎯 Iniciando cálculo com pesos iguais');
@@ -262,54 +189,51 @@ function _computeEqualWeightV3(analysisData) {
   let metricCount = 0;
   const details = [];
   
-  // Cálculo com peso igual para cada métrica usando nova função de score contínuo
+  // Cálculo com peso igual para cada métrica
   for (const [key, value] of Object.entries(metricValues)) {
     if (targets[key] !== undefined && tolerances[key] !== undefined && Number.isFinite(value)) {
       const target = targets[key];
       const tolerance = tolerances[key];
+      const deviation = Math.abs(value - target);
+      const deviationRatio = tolerance > 0 ? deviation / tolerance : 0;
       
       // 🔍 LOG CRÍTICO: Cada cálculo de métrica
       console.log(`[EQUAL_WEIGHT_V3] 📊 MÉTRICA ${key}:`);
       console.log(`  valor: ${value}, target: ${target}, tolerance: ${tolerance}`);
+      console.log(`  deviation: ${deviation.toFixed(3)}, ratio: ${deviationRatio.toFixed(3)}`);
       
-      // Configurar opções específicas por métrica
-      const scoreOptions = {
-        yellowMin: 70,
-        bufferFactor: 1.5,
-        severity: tolerance * 2,
-        invert: false // Por padrão, penaliza em ambas as direções
-      };
+      let metricScore = 100;
       
-      // Casos especiais para métricas assimétricas
-      if (key === 'truePeakDbtp' || key === 'dcOffset' || key === 'thdPercent' || key === 'clippingPct') {
-        scoreOptions.invert = true; // Só penaliza valores acima do target
+      // Curva de penalização suave
+      if (deviationRatio > 0) {
+        if (deviationRatio <= 1) {
+          metricScore = 100; // Dentro da tolerância = perfeito
+        } else if (deviationRatio <= 2) {
+          metricScore = 100 - (deviationRatio - 1) * 25; // 75-100%
+        } else if (deviationRatio <= 3) {
+          metricScore = 75 - (deviationRatio - 2) * 20; // 55-75%
+        } else {
+          metricScore = Math.max(30, 55 - (deviationRatio - 3) * 15); // 30-55%
+        }
       }
       
-      // Usar a nova função de score contínuo
-      const metricScore = calculateMetricScore(value, target, tolerance, scoreOptions);
+      // 🎯 LOG DO SCORE CALCULADO
+      console.log(`  score calculado: ${metricScore.toFixed(1)}%`);
       
-      if (metricScore !== null) {
-        // 🎯 LOG DO SCORE CALCULADO
-        console.log(`  score calculado: ${metricScore}%`);
-        
-        totalScore += metricScore;
-        metricCount++;
-        
-        const deviation = Math.abs(value - target);
-        const deviationRatio = tolerance > 0 ? deviation / tolerance : 0;
-        
-        details.push({
-          key,
-          value,
-          target,
-          tolerance,
-          deviation,
-          deviationRatio: parseFloat(deviationRatio.toFixed(3)),
-          metricScore: parseFloat(metricScore.toFixed(1))
-        });
-        
-        console.log(`[EQUAL_WEIGHT_V3] ${key}: ${value} -> ${metricScore}% (tolerância: ${tolerance})`);
-      }
+      totalScore += metricScore;
+      metricCount++;
+      
+      details.push({
+        key,
+        value,
+        target,
+        tolerance,
+        deviation,
+        deviationRatio: parseFloat(deviationRatio.toFixed(3)),
+        metricScore: parseFloat(metricScore.toFixed(1))
+      });
+      
+      console.log(`[EQUAL_WEIGHT_V3] ${key}: ${value} -> ${metricScore.toFixed(1)}% (dev: ${deviationRatio.toFixed(2)}x)`);
     }
   }
   
@@ -1159,27 +1083,7 @@ try {
 if (typeof window !== 'undefined') { 
   window.__MIX_SCORING_VERSION__ = '2.0.0-equal-weight-v3-FORCED'; 
   console.log('🎯 NOVO SISTEMA CARREGADO - Versão:', window.__MIX_SCORING_VERSION__);
-  
-  // 🎯 CORREÇÃO CRÍTICA: Exportar funções para window
-  window.computeMixScore = computeMixScore;
-  window.computeMixScoreBoth = computeMixScoreBoth;
-  window.calculateMetricScore = calculateMetricScore;
-  console.log('✅ computeMixScore, computeMixScoreBoth e calculateMetricScore exportados para window');
-
-  // 🎯 AUDITORIA: Confirmar integração scoring.js ativa
-  console.log('🎯 [SCORING] Integração restaurada - calculateMetricScore ativo');
-  
-  // 🔍 AUDITORIA COMPLETA: Status final das funções
-  setTimeout(() => {
-    console.log('📊 [SCORING] Status final após carregamento:', {
-      computeMixScore: typeof window.computeMixScore === 'function',
-      computeMixScoreBoth: typeof window.computeMixScoreBoth === 'function', 
-      calculateMetricScore: typeof window.calculateMetricScore === 'function',
-      version: window.__MIX_SCORING_VERSION__,
-      timestamp: new Date().toISOString()
-    });
-  }, 50);
 }
 
-// 🎯 CORREÇÃO: Removido export para compatibilidade com carregamento via <script>
-// O arquivo já expõe as funções no window objeto acima
+// Export das funções principais
+export { computeMixScore, computeMixScoreBoth };
