@@ -3681,8 +3681,16 @@ function displayModalResults(analysis) {
                     
                     // Se não encontrou nenhuma banda nas chaves esperadas, tentar buscar qualquer banda disponível
                     if (rows.filter(r => r.includes('spectral')).length === 0) {
+                        const processedBands = new Set(); // Evitar duplicação de bass/low_bass
+                        
                         Object.keys(spectralBands).forEach(bandKey => {
                             if (bandKey === '_status' || bandKey === 'totalPercentage') return; // Pular metadados
+                            
+                            // 🎯 ANTI-DUPLICAÇÃO: Se for 'low_bass' e 'bass' já foi processado, pular
+                            if (bandKey === 'low_bass' && processedBands.has('bass')) {
+                                console.log(`⏭️ Pulando ${bandKey} na exibição geral - bass já processado`);
+                                return;
+                            }
                             
                             const bandData = spectralBands[bandKey];
                             if (bandData && typeof bandData === 'object') {
@@ -3703,11 +3711,27 @@ function displayModalResults(analysis) {
                                         displayValue = 'não calculado';
                                     }
                                     
-                                    const displayName = `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)} (${range})`;
+                                    // 🎯 NORMALIZAÇÃO DE NOMES: Usar "Bass" para ambos bass e low_bass
+                                    let displayName;
+                                    if (bandKey === 'bass' || bandKey === 'low_bass') {
+                                        displayName = `Bass (${range})`;
+                                        processedBands.add('bass'); // Marcar como processado
+                                    } else {
+                                        displayName = `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)} (${range})`;
+                                    }
+                                    
                                     rows.push(row(displayName, displayValue, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
                                 }
                             } else if (Number.isFinite(bandData)) {
-                                const displayName = `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`;
+                                // Formato legado (apenas valor numérico)
+                                let displayName;
+                                if (bandKey === 'bass' || bandKey === 'low_bass') {
+                                    if (processedBands.has('bass')) return; // Pular se já processado
+                                    displayName = `Bass`;
+                                    processedBands.add('bass');
+                                } else {
+                                    displayName = `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`;
+                                }
                                 rows.push(row(displayName, `${safeFixed(bandData, 1)} dB`, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
                             }
                         });
