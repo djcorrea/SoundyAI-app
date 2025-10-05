@@ -2155,13 +2155,6 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
                                 ⚙️ Configurar IA
                             </button>
                         </div>
-                        <div style="margin-top: 18px; padding: 12px 16px; text-align: center; font-size: 0.9rem; color: #ccc; line-height: 1.4; font-style: italic; border-top: 1px solid rgba(255, 255, 255, 0.1); opacity: 0.85;">
-                            <p style="margin: 0;">
-                                As métricas e sugestões são baseadas em ciência de áudio e referências reais do gênero.<br>
-                                Porém, música é arte: cada produtor pode querer características diferentes.<br>
-                                Use estas dicas como um guia de referência, não como uma regra absoluta.
-                            </p>
-                        </div>
                     `;
                     
                     // Inserir na interface

@@ -296,17 +296,6 @@ class AISuggestionUIController {
             `;
         }
         
-        // Adicionar texto informativo
-        html += `
-            <div class="ai-info-text">
-                <p>
-                    As métricas e sugestões são baseadas em ciência de áudio e referências reais do gênero.<br>
-                    Porém, música é arte: cada produtor pode querer características diferentes.<br>
-                    Use estas dicas como um guia de referência, não como uma regra absoluta.
-                </p>
-            </div>
-        `;
-        
         this.elements.aiContent.innerHTML = html;
     }
     
@@ -402,13 +391,6 @@ class AISuggestionUIController {
         this.elements.fullModalContent.innerHTML = `
             <div class="ai-suggestions-grid">
                 ${gridHtml}
-            </div>
-            <div class="ai-info-text">
-                <p>
-                    As métricas e sugestões são baseadas em ciência de áudio e referências reais do gênero.<br>
-                    Porém, música é arte: cada produtor pode querer características diferentes.<br>
-                    Use estas dicas como um guia de referência, não como uma regra absoluta.
-                </p>
             </div>
         `;
     }
