@@ -3681,16 +3681,8 @@ function displayModalResults(analysis) {
                     
                     // Se não encontrou nenhuma banda nas chaves esperadas, tentar buscar qualquer banda disponível
                     if (rows.filter(r => r.includes('spectral')).length === 0) {
-                        const processedBands = new Set(); // Evitar duplicação de bass/low_bass
-                        
                         Object.keys(spectralBands).forEach(bandKey => {
                             if (bandKey === '_status' || bandKey === 'totalPercentage') return; // Pular metadados
-                            
-                            // 🎯 ANTI-DUPLICAÇÃO: Se for 'low_bass' e 'bass' já foi processado, pular
-                            if (bandKey === 'low_bass' && processedBands.has('bass')) {
-                                console.log(`⏭️ Pulando ${bandKey} na exibição geral - bass já processado`);
-                                return;
-                            }
                             
                             const bandData = spectralBands[bandKey];
                             if (bandData && typeof bandData === 'object') {
@@ -3711,27 +3703,11 @@ function displayModalResults(analysis) {
                                         displayValue = 'não calculado';
                                     }
                                     
-                                    // 🎯 NORMALIZAÇÃO DE NOMES: Usar "Bass" para ambos bass e low_bass
-                                    let displayName;
-                                    if (bandKey === 'bass' || bandKey === 'low_bass') {
-                                        displayName = `Bass (${range})`;
-                                        processedBands.add('bass'); // Marcar como processado
-                                    } else {
-                                        displayName = `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)} (${range})`;
-                                    }
-                                    
+                                    const displayName = `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)} (${range})`;
                                     rows.push(row(displayName, displayValue, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
                                 }
                             } else if (Number.isFinite(bandData)) {
-                                // Formato legado (apenas valor numérico)
-                                let displayName;
-                                if (bandKey === 'bass' || bandKey === 'low_bass') {
-                                    if (processedBands.has('bass')) return; // Pular se já processado
-                                    displayName = `Bass`;
-                                    processedBands.add('bass');
-                                } else {
-                                    displayName = `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`;
-                                }
+                                const displayName = `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`;
                                 rows.push(row(displayName, `${safeFixed(bandData, 1)} dB`, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
                             }
                         });
@@ -5199,11 +5175,11 @@ function renderReferenceComparisons(analysis) {
         const normMap = (analysis?.technicalData?.refBandTargetsNormalized?.mapping) || null;
         const showNorm = (typeof window !== 'undefined' && window.SHOW_NORMALIZED_REF_TARGETS === true && normMap);
         
-        // Mapeamento de nomes amigáveis para as bandas com ranges de frequência - DUPLICAÇÃO CORRIGIDA
+        // Mapeamento de nomes amigáveis para as bandas com ranges de frequência
         const bandDisplayNames = {
             sub: 'Sub (20–60Hz)',
             bass: 'Bass (60–150Hz)', 
-            // low_bass: REMOVIDO para evitar duplicação com 'bass'
+            // low_bass: removido para eliminar duplicação - usa apenas 'bass'
             lowMid: 'Low-Mid (150–500Hz)',
             low_mid: 'Low-Mid (150–500Hz)',
             mid: 'Mid (500–2kHz)',
@@ -5216,18 +5192,9 @@ function renderReferenceComparisons(analysis) {
         };
         
         // 🎯 PROCESSAMENTO CORRIGIDO: Iterar por bandas de referência e mapear para dados calculados
-        // PRIORIZAÇÃO: Processar 'bass' antes de 'low_bass' para evitar duplicação
         console.log('🔄 Processando bandas com mapeamento corrigido...');
         
-        const processedRefBands = new Set(); // Rastrear bandas de referência já processadas
-        
         for (const [refBandKey, refBand] of Object.entries(ref.bands)) {
-            // 🎯 ANTI-DUPLICAÇÃO: Se refBandKey é 'low_bass' e já processamos através de 'bass', pular
-            if (refBandKey === 'low_bass' && processedRefBands.has('bass-via-low_bass')) {
-                console.log(`⏭️ Pulando ${refBandKey} - já processado via mapeamento de 'bass'`);
-                continue;
-            }
-            
             // Encontrar a banda calculada correspondente
             const calcBandKey = bandMappingRefToCalc[refBandKey] || refBandKey;
             let bLocal = null;
@@ -5300,12 +5267,6 @@ function renderReferenceComparisons(analysis) {
             
             console.log(`📊 [BANDS] Adicionando: ${displayName}, valor: ${bLocal.rms_db}dB, target: ${tgt}dB`);
             pushRow(displayName, bLocal.rms_db, tgt, refBand.tol_db, ' dB');
-            
-            // 🎯 MARCAR como processado para evitar duplicação
-            if (refBandKey === 'low_bass' && calcBandKey === 'bass') {
-                processedRefBands.add('bass-via-low_bass');
-                console.log(`✅ Marcado 'bass-via-low_bass' como processado`);
-            }
         }
         
         // 🎯 PROCESSAMENTO DE BANDAS EXTRAS: Bandas calculadas que não estão na referência
@@ -5366,11 +5327,11 @@ function renderReferenceComparisons(analysis) {
                             tech.spectralBands || 
                             analysis.metrics?.bands || {};
         
-        // 🎯 MAPEAMENTO COMPLETO com correção de nomes - DUPLICAÇÃO CORRIGIDA
+        // 🎯 MAPEAMENTO COMPLETO com correção de nomes
         const bandMap = {
             sub: { refKey: 'sub', name: 'Sub (20–60Hz)', range: '20–60Hz' },
             bass: { refKey: 'low_bass', name: 'Bass (60–150Hz)', range: '60–150Hz' },
-            // low_bass: REMOVIDO para evitar duplicação com 'bass'
+            // low_bass: removido para eliminar duplicação - dados mapeados via 'bass'
             lowMid: { refKey: 'low_mid', name: 'Low-Mid (150–500Hz)', range: '150–500Hz' },
             low_mid: { refKey: 'low_mid', name: 'Low-Mid (150–500Hz)', range: '150–500Hz' },
             mid: { refKey: 'mid', name: 'Mid (500–2kHz)', range: '500–2000Hz' },
@@ -5391,7 +5352,14 @@ function renderReferenceComparisons(analysis) {
             
             // Primeiro: processar bandas que têm referência (usando mapeamento)
             Object.entries(bandMap).forEach(([calcBandKey, bandInfo]) => {
-                const bandData = spectralBands[calcBandKey];
+                let bandData = spectralBands[calcBandKey];
+                
+                // 🎯 FALLBACK ESPECÍFICO: Se 'bass' não existir, usar 'low_bass'
+                if (!bandData && calcBandKey === 'bass' && spectralBands['low_bass']) {
+                    bandData = spectralBands['low_bass'];
+                    console.log('🔄 Fallback aplicado: bass ← low_bass');
+                }
+                
                 const refBandData = ref.bands?.[bandInfo.refKey];
                 
                 if (bandData && !processedBandKeys.has(calcBandKey)) {
@@ -5422,7 +5390,7 @@ function renderReferenceComparisons(analysis) {
                 }
             });
             
-            // Segundo: processar bandas restantes que não foram mapeadas + FALLBACK SEGURO para low_bass
+            // Segundo: processar bandas restantes que não foram mapeadas
             Object.keys(spectralBands).forEach(bandKey => {
                 if (!processedBandKeys.has(bandKey) && 
                     bandKey !== '_status' && 
@@ -5444,27 +5412,14 @@ function renderReferenceComparisons(analysis) {
                     }
                     
                     if (Number.isFinite(energyDb)) {
-                        // 🎯 FALLBACK ESPECIAL: se for 'low_bass' e 'bass' não foi processado, tratar como bass
-                        let displayName, refKey, target, tolerance;
+                        // Buscar nome formatado ou criar um
+                        const displayName = bandMap[bandKey]?.name || 
+                                          `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)} (Detectada)`;
                         
-                        if (bandKey === 'low_bass' && !processedBandKeys.has('bass')) {
-                            // Tratar low_bass como bass quando bass não está disponível
-                            displayName = 'Bass (60–150Hz)';
-                            refKey = 'low_bass';
-                            const refData = ref.bands?.[refKey];
-                            target = refData?.target_db || null;
-                            tolerance = refData?.tol_db || null;
-                            console.log(`🔄 FALLBACK: Processando 'low_bass' como 'Bass' (bass não disponível)`);
-                        } else {
-                            // Processar banda normal
-                            displayName = bandMap[bandKey]?.name || 
-                                        `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)} (Detectada)`;
-                            
-                            // Tentar encontrar referência por chave direta
-                            const directRefData = ref.bands?.[bandKey];
-                            target = directRefData?.target_db || null;
-                            tolerance = directRefData?.tol_db || null;
-                        }
+                        // Tentar encontrar referência por chave direta
+                        const directRefData = ref.bands?.[bandKey];
+                        const target = directRefData?.target_db || null;
+                        const tolerance = directRefData?.tol_db || null;
                         
                         console.log(`📊 Banda não mapeada: ${displayName}, valor: ${energyDb}dB, target: ${target || 'N/A'}`);
                         pushRow(displayName, energyDb, target, tolerance, ' dB');
