@@ -823,6 +823,13 @@ class AISuggestionsIntegration {
                     <small>Isso significa que seu áudio está dentro dos padrões de qualidade para o gênero selecionado.</small>
                 </div>
             </div>
+            <div class="ai-info-text" style="margin-top: 18px; padding: 12px 16px; text-align: center; font-size: 0.9rem; color: #ccc; line-height: 1.4; font-style: italic; border-top: 1px solid rgba(255, 255, 255, 0.1); opacity: 0.85;">
+                <p style="margin: 0;">
+                    As métricas e sugestões são baseadas em ciência de áudio e referências reais do gênero.<br>
+                    Porém, música é arte: cada produtor pode querer características diferentes.<br>
+                    Use estas dicas como um guia de referência, não como uma regra absoluta.
+                </p>
+            </div>
         `;
 
         this.elements.grid.style.display = 'block';
@@ -868,6 +875,13 @@ class AISuggestionsIntegration {
                 <div class="ai-suggestions-empty">
                     <p>Nenhuma sugestão disponível no momento.</p>
                 </div>
+                <div class="ai-info-text" style="margin-top: 18px; padding: 12px 16px; text-align: center; font-size: 0.9rem; color: #ccc; line-height: 1.4; font-style: italic; border-top: 1px solid rgba(255, 255, 255, 0.1); opacity: 0.85;">
+                    <p style="margin: 0;">
+                        As métricas e sugestões são baseadas em ciência de áudio e referências reais do gênero.<br>
+                        Porém, música é arte: cada produtor pode querer características diferentes.<br>
+                        Use estas dicas como um guia de referência, não como uma regra absoluta.
+                    </p>
+                </div>
             `;
             return;
         }
@@ -896,6 +910,31 @@ class AISuggestionsIntegration {
         
         // Show grid
         this.elements.grid.style.display = 'grid';
+        
+        // Adicionar texto informativo após as sugestões
+        const infoText = document.createElement('div');
+        infoText.className = 'ai-info-text';
+        infoText.style.cssText = `
+            margin-top: 18px;
+            padding: 12px 16px;
+            text-align: center;
+            font-size: 0.9rem;
+            color: #ccc;
+            line-height: 1.4;
+            font-style: italic;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            opacity: 0.85;
+            animation: fadeInInfo 0.6s ease forwards;
+            grid-column: 1 / -1;
+        `;
+        infoText.innerHTML = `
+            <p style="margin: 0;">
+                As métricas e sugestões são baseadas em ciência de áudio e referências reais do gênero.<br>
+                Porém, música é arte: cada produtor pode querer características diferentes.<br>
+                Use estas dicas como um guia de referência, não como uma regra absoluta.
+            </p>
+        `;
+        this.elements.grid.appendChild(infoText);
         
         // Animate cards
         this.animateCards();
