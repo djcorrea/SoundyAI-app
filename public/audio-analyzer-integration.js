@@ -5016,8 +5016,15 @@ function renderReferenceComparisons(analysis) {
     
     // Mapeamento de métricas - RESTAURAR TABELA COMPLETA
     const rows = [];
+    const addedLabels = new Set(); // 🎯 Controle de duplicação por nome
     const nf = (n, d=2) => Number.isFinite(n) ? n.toFixed(d) : '—';
     const pushRow = (label, val, target, tol, unit='') => {
+        // 🎯 PREVENÇÃO DE DUPLICATAS: evitar bandas com mesmo nome
+        if (addedLabels.has(label)) {
+            console.warn(`⚠️ Duplicata evitada: ${label}`);
+            return;
+        }
+        addedLabels.add(label);
         // Usar sistema de enhancement se disponível
         const enhancedLabel = (typeof window !== 'undefined' && window.enhanceRowLabel) 
             ? window.enhanceRowLabel(label, label.toLowerCase().replace(/[^a-z]/g, '')) 
@@ -5180,12 +5187,9 @@ function renderReferenceComparisons(analysis) {
             sub: 'Sub (20–60Hz)',
             bass: 'Bass (60–150Hz)', 
             lowMid: 'Low-Mid (150–500Hz)',
-            low_mid: 'Low-Mid (150–500Hz)',
             mid: 'Mid (500–2kHz)',
             highMid: 'High-Mid (2–5kHz)',
-            high_mid: 'High-Mid (2–5kHz)',
             presence: 'Presence (5–10kHz)',
-            presenca: 'Presence (5–10kHz)',
             air: 'Air (10–20kHz)',
             brilho: 'Air (10–20kHz)'
         };
@@ -5331,14 +5335,10 @@ function renderReferenceComparisons(analysis) {
             sub: { refKey: 'sub', name: 'Sub (20–60Hz)', range: '20–60Hz' },
             bass: { refKey: 'low_bass', name: 'Bass (60–150Hz)', range: '60–150Hz' },
             lowMid: { refKey: 'low_mid', name: 'Low-Mid (150–500Hz)', range: '150–500Hz' },
-            low_mid: { refKey: 'low_mid', name: 'Low-Mid (150–500Hz)', range: '150–500Hz' },
             mid: { refKey: 'mid', name: 'Mid (500–2kHz)', range: '500–2000Hz' },
             highMid: { refKey: 'high_mid', name: 'High-Mid (2–5kHz)', range: '2000–5000Hz' },
-            high_mid: { refKey: 'high_mid', name: 'High-Mid (2–5kHz)', range: '2000–5000Hz' },
             presence: { refKey: 'presenca', name: 'Presence (5–10kHz)', range: '5000–10000Hz' },
-            presenca: { refKey: 'presenca', name: 'Presence (5–10kHz)', range: '5000–10000Hz' },
-            air: { refKey: 'brilho', name: 'Air (10–20kHz)', range: '10000–20000Hz' },
-            brilho: { refKey: 'brilho', name: 'Air (10–20kHz)', range: '10000–20000Hz' }
+            air: { refKey: 'brilho', name: 'Air (10–20kHz)', range: '10000–20000Hz' }
         };
         
         // 🎯 PROCESSAMENTO CORRIGIDO para fallback: usar mapeamento bidirecional
@@ -5389,7 +5389,6 @@ function renderReferenceComparisons(analysis) {
                     bandKey !== 'totalpercentage' &&
                     bandKey !== 'metadata' &&
                     bandKey !== 'total' &&
-                    bandKey !== 'low_bass' && // Evitar duplicação - low_bass já é mapeado via bass
                     !bandKey.toLowerCase().includes('total')) {
                     
                     const bandData = spectralBands[bandKey];
