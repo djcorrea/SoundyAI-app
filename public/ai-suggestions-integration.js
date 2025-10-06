@@ -334,8 +334,10 @@ class AISuggestionsIntegration {
 
             return true;
         }).map(suggestion => {
-            // Normalizar estrutura para o formato esperado pelo backend
+            // 🚨 CORREÇÃO CRÍTICA: PRESERVAR todos os campos originais
             return {
+                ...suggestion, // 🚨 PRESERVAR TODOS OS CAMPOS ORIGINAIS
+                // Apenas normalizar campos essenciais sem remover outros
                 metric: suggestion.metric || suggestion.type || 'geral',
                 issue: suggestion.issue || suggestion.message || suggestion.title || 'Problema detectado',
                 solution: suggestion.solution || suggestion.action || suggestion.description || 'Ajuste recomendado',
@@ -357,7 +359,7 @@ class AISuggestionsIntegration {
      * Construir payload válido para o backend - FOCADO EM PROBLEMAS DETECTADOS
      */
     buildValidPayload(suggestions, metrics, genre) {
-        // 🎯 FORMATO CORRETO: Montar array de sugestões detalhadas
+        // 🎯 FORMATO CORRETO: Montar array de sugestões detalhadas - PRESERVANDO TODOS OS CAMPOS
         const formattedSuggestions = suggestions.map((suggestion, index) => {
             // Extrair dados da sugestão normalizada
             const problemText = suggestion.issue || suggestion.message || suggestion.title || 'Problema detectado';
@@ -375,11 +377,18 @@ class AISuggestionsIntegration {
             // Garantir que priority está no range correto (1-3)
             priority = Math.max(1, Math.min(3, Math.floor(priority)));
             
+            // 🚨 CORREÇÃO CRÍTICA: Preservar TODOS os campos da sugestão original
             return {
+                ...suggestion, // 🚨 PRESERVAR todos os campos originais
                 message: problemText,
                 action: actionText, 
                 priority: priority,
-                confidence: suggestion.confidence || 0.8
+                confidence: suggestion.confidence || 0.8,
+                // 🚨 GARANTIR que campos críticos não sejam perdidos
+                specialAlert: suggestion.specialAlert,
+                priorityWarning: suggestion.priorityWarning,
+                type: suggestion.type,
+                metricType: suggestion.metricType
             };
         });
         

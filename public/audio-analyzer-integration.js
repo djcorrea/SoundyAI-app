@@ -4045,7 +4045,19 @@ function displayModalResults(analysis) {
                     });
                 };
                 const renderSuggestionItem = (sug) => {
-                    // 🚀 PRIORIDADE: Verificar se tem conteúdo educacional do Sistema Ultra-Avançado V2
+                    // � DEBUG: Log detalhado de cada sugestão para debugging UI
+                    console.log('[DEBUG-UI-RENDER] 🔍 Processando sugestão:', {
+                        message: sug.message,
+                        type: sug.type,
+                        metricType: sug.metricType,
+                        specialAlert: sug.specialAlert,
+                        priorityWarning: sug.priorityWarning,
+                        priority: sug.priority,
+                        hasUltraV2: !!(sug.educationalContent && sug.educationalContent.title),
+                        allKeys: Object.keys(sug)
+                    });
+                    
+                    // �🚀 PRIORIDADE: Verificar se tem conteúdo educacional do Sistema Ultra-Avançado V2
                     const hasUltraV2Content = sug.educationalContent && sug.educationalContent.title;
                     
                     if (hasUltraV2Content) {
@@ -4323,10 +4335,32 @@ function displayModalResults(analysis) {
                     else {
                         // 🚨 VERIFICAR SE É TRUE PEAK COM MENSAGEM ESPECIAL
                         const isTruePeak = sug.type === 'reference_true_peak' || sug.metricType === 'true_peak' || 
-                                         title.toLowerCase().includes('true peak') || title.toLowerCase().includes('tp');
+                                         title.toLowerCase().includes('true peak') || title.toLowerCase().includes('tp') ||
+                                         sug.message?.toLowerCase().includes('true peak') || sug.message?.toLowerCase().includes('⚡');
                         const hasSpecialAlert = sug.specialAlert || sug.priorityWarning;
                         
-                        if (isTruePeak && hasSpecialAlert) {
+                        // 🚨 DEBUG: Log específico para True Peak
+                        if (isTruePeak) {
+                            console.log('[DEBUG-UI-RENDER] 🚨 TRUE PEAK detectado:', {
+                                isTruePeak: isTruePeak,
+                                hasSpecialAlert: hasSpecialAlert,
+                                specialAlert: sug.specialAlert,
+                                priorityWarning: sug.priorityWarning,
+                                title: title,
+                                message: sug.message,
+                                willRenderSpecial: isTruePeak && hasSpecialAlert,
+                                // 🚨 NOVA VERIFICAÇÃO: Forçar renderização especial se for True Peak
+                                shouldForceSpecial: isTruePeak && (hasSpecialAlert || sug.message?.includes('⚡') || sug.message?.includes('PRIORITÁRIA'))
+                            });
+                        }
+                        
+                        // 🚨 CORREÇÃO: Melhorar a condição para detectar True Peak prioritário
+                        const shouldRenderSpecial = isTruePeak && (hasSpecialAlert || 
+                                                                  sug.message?.includes('⚡') || 
+                                                                  sug.message?.includes('PRIORITÁRIA') ||
+                                                                  sug.message?.includes('prioritária'));
+                        
+                        if (shouldRenderSpecial) {
                             // Card especial para True Peak com mensagem de prioridade
                             return `
                                 <div class="${cardClass} true-peak-priority">
@@ -4343,6 +4377,53 @@ function displayModalResults(analysis) {
                                             ${sug.priorityWarning}
                                         </div>
                                     ` : ''}
+                                    
+                                    ${explanation ? `
+                                        <div class="card-description" style="border-left-color: #FF5722;">
+                                            <strong>⚠️ Por que é prioritário:</strong> ${explanation}
+                                        </div>
+                                    ` : ''}
+                                    
+                                    <div class="card-action" style="background: rgba(255, 87, 34, 0.1); border-color: #FF5722;">
+                                        <div class="card-action-title" style="color: #FF5722;">
+                                            🚨 Correção Prioritária
+                                        </div>
+                                        <div class="card-action-content">${action}</div>
+                                    </div>
+                                    
+                                    ${sug.why ? `
+                                        <div class="card-impact" style="background: rgba(255, 87, 34, 0.05); border-color: #FF5722;">
+                                            <div class="card-impact-title" style="color: #FF5722;">🔴 Motivo da Prioridade</div>
+                                            <div class="card-impact-content">${sug.why}</div>
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${technical ? `
+                                        <details style="margin-top: 12px;">
+                                            <summary style="cursor: pointer; font-size: 12px; color: #aaa;">Detalhes Técnicos</summary>
+                                            <div style="font-size: 11px; color: #ccc; margin-top: 8px; font-family: monospace;">${technical}</div>
+                                        </details>
+                                    ` : ''}
+                                </div>`;
+                        }
+                        
+                        // 🚨 FALLBACK ESPECIAL: Se for True Peak com mensagem prioritária, forçar renderização especial
+                        else if (isTruePeak && (sug.message?.includes('⚡') || sug.message?.includes('PRIORITÁRIA'))) {
+                            console.log('[DEBUG-UI-RENDER] 🔥 FALLBACK ESPECIAL: True Peak prioritário detectado por mensagem');
+                            // Usar o mesmo template especial, mesmo sem flags específicas
+                            return `
+                                <div class="${cardClass} true-peak-priority">
+                                    <div class="card-header">
+                                        <h4 class="card-title">⚡ ${title}</h4>
+                                        <div class="card-badges">
+                                            <span class="priority-badge primeiro">PRIMEIRO</span>
+                                            <span class="severity-badge critica">CRÍTICO</span>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="priority-warning" style="background: rgba(255, 193, 7, 0.2); border: 1px solid #FFC107; border-radius: 6px; padding: 12px; margin: 12px 0; color: #856404;">
+                                        ${sug.message || '⚡ True Peak requer correção PRIORITÁRIA'}
+                                    </div>
                                     
                                     ${explanation ? `
                                         <div class="card-description" style="border-left-color: #FF5722;">
