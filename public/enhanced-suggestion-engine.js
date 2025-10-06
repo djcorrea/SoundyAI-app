@@ -407,12 +407,12 @@ class EnhancedSuggestionEngine {
 
         this.logAudit('NORMALIZE_START', `Normalizando dados: ${structureType}`, { structureType, sourceData });
 
-        // Normalizar métricas principais - adaptado para múltiplas estruturas
+        // Normalizar métricas principais - ORDEM CORRIGIDA das tolerâncias
         const normalized = {
             // LUFS - buscar em original_metrics primeiro, depois direto no sourceData
             lufs_target: this.extractMetric(sourceData.original_metrics || sourceData, ['lufs_target', 'lufs_ref', 'lufs_integrated'], 'lufs') ||
                         this.extractMetric(sourceData, ['lufs_target', 'lufs_ref', 'lufs_integrated'], 'lufs'),
-            tol_lufs: this.extractMetric(sourceData, ['tol_lufs', 'lufs_tolerance', 'tol_lufs_min'], 'lufs_tolerance') ?? 2.0,
+            tol_lufs: this.extractMetric(sourceData, ['tol_lufs', 'tol_lufs_min', 'lufs_tolerance'], 'lufs_tolerance') ?? 2.0,
 
             // True Peak - buscar em original_metrics primeiro, depois direto no sourceData
             true_peak_target: this.extractMetric(sourceData.original_metrics || sourceData, ['true_peak_target', 'tp_ref', 'true_peak', 'true_peak_dbtp'], 'true_peak') ||
@@ -435,7 +435,7 @@ class EnhancedSuggestionEngine {
             // Stereo Correlation - buscar em original_metrics primeiro, depois direto no sourceData
             stereo_target: this.extractMetric(sourceData.original_metrics || sourceData, ['stereo_target', 'stereo_ref', 'stereo_correlation'], 'stereo') ||
                           this.extractMetric(sourceData, ['stereo_target', 'stereo_ref', 'stereo_correlation'], 'stereo'),
-            tol_stereo: this.extractMetric(sourceData, ['tol_stereo', 'stereo_tolerance', 'correlation_tolerance'], 'stereo_tolerance') ?? 0.15,
+            tol_stereo: this.extractMetric(sourceData, ['tol_stereo', 'correlation_tolerance', 'stereo_tolerance'], 'stereo_tolerance') ?? 0.15,
 
             // Bandas espectrais
             bands: this.normalizeBands(sourceData)
@@ -459,32 +459,67 @@ class EnhancedSuggestionEngine {
     }
 
     /**
-     * 🔍 Extrair métrica com fallbacks
+     * 🔍 Extrair métrica com fallbacks - VERSÃO CORRIGIDA
      * @param {Object} source - Objeto fonte
      * @param {Array} keys - Lista de chaves possíveis (em ordem de prioridade)
      * @param {string} metricName - Nome da métrica para log
      * @returns {number|null} Valor encontrado ou null
      */
     extractMetric(source, keys, metricName) {
-        for (const key of keys) {
-            if (source[key] !== undefined && source[key] !== null && Number.isFinite(source[key])) {
-                this.logAudit('METRIC_FOUND', `${metricName}: ${source[key]} (via ${key})`, { metricName, key, value: source[key] });
-                return source[key];
-            }
-        }
+        // 🎯 CORREÇÃO: Buscar primeiro em todas as estruturas possíveis
+        const searchLocations = [
+            { obj: source, prefix: '' },
+            { obj: source.original_metrics || {}, prefix: 'original_metrics.' },
+            { obj: source.legacy_compatibility || {}, prefix: 'legacy_compatibility.' },
+            { obj: source.hybrid_processing || {}, prefix: 'hybrid_processing.' }
+        ];
 
-        // Tentar buscar em original_metrics se disponível
-        if (source.original_metrics) {
+        for (const location of searchLocations) {
             for (const key of keys) {
-                if (source.original_metrics[key] !== undefined && Number.isFinite(source.original_metrics[key])) {
-                    this.logAudit('METRIC_FOUND', `${metricName}: ${source.original_metrics[key]} (via original_metrics.${key})`, { metricName, key, value: source.original_metrics[key] });
-                    return source.original_metrics[key];
+                const value = location.obj[key];
+                if (value !== undefined && value !== null && Number.isFinite(value)) {
+                    // 🎯 CORREÇÃO: Log apropriado baseado no tipo de métrica
+                    const isToleranceSearch = metricName.includes('_tolerance') || metricName.includes('tolerance');
+                    const foundAlternative = key !== keys[0]; // se não encontrou a primeira opção preferida
+                    
+                    if (isToleranceSearch && foundAlternative) {
+                        // Para tolerâncias, logar como FIX quando encontrar formato alternativo
+                        console.log(`✅ [FIX] Métrica ${metricName} encontrada via ${location.prefix}${key}: ${value}`);
+                        this.logAudit('METRIC_FOUND_FALLBACK', `${metricName}: ${value} (via ${location.prefix}${key})`, { 
+                            metricName, 
+                            key, 
+                            value, 
+                            location: location.prefix,
+                            isFallback: true 
+                        });
+                    } else {
+                        // Log normal para métricas principais
+                        this.logAudit('METRIC_FOUND', `${metricName}: ${value} (via ${location.prefix}${key})`, { 
+                            metricName, 
+                            key, 
+                            value, 
+                            location: location.prefix
+                        });
+                    }
+                    return value;
                 }
             }
         }
 
-        console.warn(`⚠️ Métrica não encontrada: ${metricName}`, { tentativas: keys, source: Object.keys(source) });
-        this.logAudit('METRIC_MISSING', `Métrica ausente: ${metricName}`, { keys, availableKeys: Object.keys(source) });
+        // 🎯 CORREÇÃO: Só logar como erro se realmente não encontrou nada
+        const isToleranceSearch = metricName.includes('_tolerance') || metricName.includes('tolerance');
+        if (isToleranceSearch) {
+            // Para tolerâncias, não logar erro - usar default
+            this.logAudit('METRIC_TOLERANCE_DEFAULT', `${metricName} não encontrada - usando valor padrão`, { 
+                keys, 
+                searchedLocations: searchLocations.map(l => l.prefix || 'root')
+            });
+        } else {
+            // Para métricas principais, manter log de warning
+            console.warn(`⚠️ Métrica não encontrada: ${metricName}`, { tentativas: keys, source: Object.keys(source) });
+            this.logAudit('METRIC_MISSING', `Métrica ausente: ${metricName}`, { keys, availableKeys: Object.keys(source) });
+        }
+        
         return null;
     }
 
