@@ -1459,7 +1459,13 @@ function applyGenreSelection(genre) {
                         return;
                     }
                     
-                    displayModalResults(currentModalAnalysis); 
+                    // 🛡️ [SAFEGUARD] Verificar se análise já foi processada antes do re-render
+                    if (!currentModalAnalysis._suggestionsGenerated && currentModalAnalysis.suggestions?.length) {
+                        console.log("[FORCE-ACTIVATOR] 📊 Re-renderizando modal (análise não processada anteriormente)");
+                        displayModalResults(currentModalAnalysis);
+                    } else {
+                        console.log("[FORCE-ACTIVATOR] 🔒 Ignorando re-renderização redundante - análise já processada ou sem sugestões");
+                    } 
                 } catch(e) { console.warn('re-render modal falhou', e); }
             }
         } catch (e) { console.warn('re-render comparação falhou', e); }
@@ -2198,7 +2204,13 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         
         // Exibir resultados diretamente no modal
         setTimeout(() => {
-            displayModalResults(normalizedResult);
+            // 🛡️ [SAFEGUARD] Verificar se análise já foi processada antes de exibir
+            if (!normalizedResult._suggestionsGenerated && normalizedResult.suggestions?.length) {
+                console.log("[FORCE-ACTIVATOR] 📊 Exibindo resultados normalizados (não processados anteriormente)");
+                displayModalResults(normalizedResult);
+            } else {
+                console.log("[FORCE-ACTIVATOR] 🔒 Ignorando renderização redundante - análise já processada ou sem sugestões");
+            }
         }, 500);
         
     } catch (error) {
@@ -2610,7 +2622,13 @@ async function handleGenreFileSelection(file) {
             return;
         }
         
-        displayModalResults(analysis);
+        // 🛡️ [SAFEGUARD] Verificar se análise já foi processada
+        if (!analysis._suggestionsGenerated && analysis.suggestions?.length) {
+            console.log("[FORCE-ACTIVATOR] 📊 Exibindo análise final (não processada anteriormente)");
+            displayModalResults(analysis);
+        } else {
+            console.log("[FORCE-ACTIVATOR] 🔒 Ignorando renderização redundante - análise já processada ou sem sugestões");
+        }
         
         // 🔧 CORREÇÃO: Limpar flag de análise em progresso após sucesso
         if (typeof window !== 'undefined') {
@@ -2963,7 +2981,13 @@ async function performReferenceComparison() {
                 return;
             }
             
-            displayModalResults(combinedAnalysis);
+            // 🛡️ [SAFEGUARD] Verificar se análise combinada já foi processada
+            if (!combinedAnalysis._suggestionsGenerated && combinedAnalysis.suggestions?.length) {
+                console.log("[FORCE-ACTIVATOR] 📊 Exibindo análise combinada (não processada anteriormente)");
+                displayModalResults(combinedAnalysis);
+            } else {
+                console.log("[FORCE-ACTIVATOR] 🔒 Ignorando renderização redundante - análise combinada já processada ou sem sugestões");
+            }
             window.logReferenceEvent('reference_comparison_completed');
         }, 800);
         
@@ -3384,13 +3408,39 @@ function showModalLoading() {
 // 📊 Mostrar resultados no modal
 // 📊 Mostrar resultados no modal
 function displayModalResults(analysis) {
-    // 🔒 UI GATE: Verificação final antes de renderizar
+    // � [AUDITORIA DISPLAY] Log de entrada para rastrear chamadas
+    console.group("[AUDITORIA DISPLAY] 🔁 Display chamado");
+    console.log("Timestamp:", Date.now());
+    console.log("Analysis RunId:", analysis?.runId || analysis?.metadata?.runId || 'N/A');
+    console.log("Analysis Summary:", analysis?.metricSummary || 'N/A');
+    console.log("Suggestions Count:", analysis?.suggestions?.length || 0);
+    console.log("_suggestionsGenerated flag:", analysis?._suggestionsGenerated);
+    console.groupEnd();
+    
+    // �🔒 UI GATE: Verificação final antes de renderizar
     const analysisRunId = analysis?.runId || analysis?.metadata?.runId;
     const currentRunId = window.__CURRENT_ANALYSIS_RUN_ID__;
     
     if (analysisRunId && currentRunId && analysisRunId !== currentRunId) {
         console.warn(`🚫 [UI_GATE] displayModalResults cancelado - análise obsoleta (análise: ${analysisRunId}, atual: ${currentRunId})`);
         return;
+    }
+    
+    // 🛡️ [SAFEGUARD] Proteção contra re-renderização de sugestões já processadas
+    if (analysis && analysis._suggestionsGenerated) {
+        console.warn("[SAFEGUARD] 🔒 Ignorando renderização duplicada - sugestões já processadas para esta análise");
+        console.log("[SAFEGUARD] 📊 Análise protegida:", {
+            runId: analysisRunId,
+            suggestionsCount: analysis.suggestions?.length || 0,
+            timestamp: Date.now()
+        });
+        return;
+    }
+    
+    // 🏷️ [SAFEGUARD] Marcar esta análise como processada
+    if (analysis) {
+        analysis._suggestionsGenerated = true;
+        console.log("[SAFEGUARD] ✅ Análise marcada como processada:", analysisRunId);
     }
     
     const uploadArea = document.getElementById('audioUploadArea');
@@ -6336,7 +6386,13 @@ function updateReferenceSuggestions(analysis) {
                                 
                                 // Re-renderizar se modal visível
                                 if (document.getElementById('audioAnalysisModal')?.style.display !== 'none') {
-                                    displayModalResults(analysis);
+                                    // 🛡️ [SAFEGUARD] Verificar se análise já foi processada antes do re-render pós-IA
+                                    if (!analysis._suggestionsGenerated && analysis.suggestions?.length) {
+                                        console.log("[FORCE-ACTIVATOR] 📊 Re-renderizando modal pós-IA (análise não processada anteriormente)");
+                                        displayModalResults(analysis);
+                                    } else {
+                                        console.log("[FORCE-ACTIVATOR] 🔒 Ignorando re-renderização pós-IA redundante - análise já processada");
+                                    }
                                 }
                             }
                         })
@@ -6415,8 +6471,13 @@ function updateReferenceSuggestions(analysis) {
                         
                         // Re-renderizar modal se estiver visível
                         if (document.getElementById('audioAnalysisModal')?.style.display !== 'none') {
-                            console.log('🎨 [AI-LAYER] Re-renderizando modal com sugestões IA');
-                            displayModalResults(analysis);
+                            // 🛡️ [SAFEGUARD] Verificar se análise já foi processada antes do re-render pós-IA
+                            if (!analysis._suggestionsGenerated && analysis.suggestions?.length) {
+                                console.log('🎨 [AI-LAYER] Re-renderizando modal com sugestões IA (análise não processada anteriormente)');
+                                displayModalResults(analysis);
+                            } else {
+                                console.log('[SAFEGUARD] 🔒 Ignorando re-renderização pós-IA redundante - análise já processada');
+                            }
                         }
                     } else {
                         console.warn('🤖 [AI-LAYER] ⚠️ IA retornou resultado vazio, mantendo sugestões originais');
