@@ -334,10 +334,8 @@ class AISuggestionsIntegration {
 
             return true;
         }).map(suggestion => {
-            // 🚨 CORREÇÃO CRÍTICA: PRESERVAR todos os campos originais
+            // Normalizar estrutura para o formato esperado pelo backend
             return {
-                ...suggestion, // 🚨 PRESERVAR TODOS OS CAMPOS ORIGINAIS
-                // Apenas normalizar campos essenciais sem remover outros
                 metric: suggestion.metric || suggestion.type || 'geral',
                 issue: suggestion.issue || suggestion.message || suggestion.title || 'Problema detectado',
                 solution: suggestion.solution || suggestion.action || suggestion.description || 'Ajuste recomendado',
@@ -359,7 +357,7 @@ class AISuggestionsIntegration {
      * Construir payload válido para o backend - FOCADO EM PROBLEMAS DETECTADOS
      */
     buildValidPayload(suggestions, metrics, genre) {
-        // 🎯 FORMATO CORRETO: Montar array de sugestões detalhadas - PRESERVANDO TODOS OS CAMPOS
+        // 🎯 FORMATO CORRETO: Montar array de sugestões detalhadas
         const formattedSuggestions = suggestions.map((suggestion, index) => {
             // Extrair dados da sugestão normalizada
             const problemText = suggestion.issue || suggestion.message || suggestion.title || 'Problema detectado';
@@ -377,18 +375,11 @@ class AISuggestionsIntegration {
             // Garantir que priority está no range correto (1-3)
             priority = Math.max(1, Math.min(3, Math.floor(priority)));
             
-            // 🚨 CORREÇÃO CRÍTICA: Preservar TODOS os campos da sugestão original
             return {
-                ...suggestion, // 🚨 PRESERVAR todos os campos originais
                 message: problemText,
                 action: actionText, 
                 priority: priority,
-                confidence: suggestion.confidence || 0.8,
-                // 🚨 GARANTIR que campos críticos não sejam perdidos
-                specialAlert: suggestion.specialAlert,
-                priorityWarning: suggestion.priorityWarning,
-                type: suggestion.type,
-                metricType: suggestion.metricType
+                confidence: suggestion.confidence || 0.8
             };
         });
         
@@ -660,9 +651,9 @@ class AISuggestionsIntegration {
             const aiSuggestion = aiEnhancedSuggestions[i];
 
             if (originalSuggestion && aiSuggestion) {
-                // Caso 1: Temos ambas - mesclar preservando TODOS os campos originais
+                // Caso 1: Temos ambas - mesclar
                 const merged = {
-                    ...originalSuggestion, // 🚨 PRESERVAR TODOS OS CAMPOS ORIGINAIS PRIMEIRO
+                    ...originalSuggestion,
                     ai_enhanced: true,
                     ai_blocks: aiSuggestion.blocks || {},
                     ai_category: aiSuggestion.metadata?.processing_type || 'geral',
@@ -672,47 +663,20 @@ class AISuggestionsIntegration {
                         frequency_range: aiSuggestion.metadata?.frequency_range || '',
                         tools_suggested: this.extractToolsFromBlocks(aiSuggestion.blocks)
                     },
-                    // Atualizar título e descrição APENAS se não há versão original ou está vazia
-                    title: originalSuggestion.title || originalSuggestion.message || aiSuggestion.blocks?.problem,
-                    description: originalSuggestion.description || originalSuggestion.action || aiSuggestion.blocks?.solution
+                    // Atualizar título e descrição com versões enriquecidas se disponível
+                    title: aiSuggestion.blocks?.problem || originalSuggestion.title || originalSuggestion.message,
+                    description: aiSuggestion.blocks?.solution || originalSuggestion.description || originalSuggestion.action
                 };
-                
-                // 🚨 LOG ESPECÍFICO PARA TRUE PEAK - verificar se flags especiais estão sendo preservadas
-                if (originalSuggestion.metricType === 'true_peak' || originalSuggestion.type?.includes('true_peak')) {
-                    console.log('[AI-MERGE] 🚨 TRUE PEAK - Verificando preservação de flags especiais:', {
-                        priorityWarning: !!merged.priorityWarning,
-                        specialAlert: !!merged.specialAlert,
-                        alertType: merged.alertType,
-                        correctionOrder: merged.correctionOrder,
-                        originalHadFlags: !!(originalSuggestion.priorityWarning || originalSuggestion.specialAlert),
-                        mergedType: merged.type,
-                        mergedMetricType: merged.metricType
-                    });
-                }
                 
                 mergedSuggestions.push(merged);
                 console.log(`[AI-MERGE] ✅ Sugestão ${i + 1} enriquecida com IA`);
                 
             } else if (originalSuggestion) {
-                // Caso 2: Só temos a original - manter TODOS os campos sem enriquecimento
-                const preserved = {
-                    ...originalSuggestion, // 🚨 PRESERVAR TODOS OS CAMPOS
+                // Caso 2: Só temos a original - manter sem enriquecimento
+                mergedSuggestions.push({
+                    ...originalSuggestion,
                     ai_enhanced: false
-                };
-                
-                // 🚨 LOG ESPECÍFICO PARA TRUE PEAK
-                if (originalSuggestion.metricType === 'true_peak' || originalSuggestion.type?.includes('true_peak')) {
-                    console.log('[AI-MERGE] 🚨 TRUE PEAK - Preservando sugestão original:', {
-                        priorityWarning: !!preserved.priorityWarning,
-                        specialAlert: !!preserved.specialAlert,
-                        alertType: preserved.alertType,
-                        correctionOrder: preserved.correctionOrder,
-                        type: preserved.type,
-                        metricType: preserved.metricType
-                    });
-                }
-                
-                mergedSuggestions.push(preserved);
+                });
                 console.log(`[AI-MERGE] 📋 Sugestão ${i + 1} mantida original`);
                 
             } else if (aiSuggestion) {
@@ -971,12 +935,7 @@ class AISuggestionsIntegration {
      */
     createSuggestionCard(suggestion, index, source) {
         const card = document.createElement('div');
-        
-        // 🚨 CORREÇÃO: Detectar se é sugestão prioritária de True Peak
-        const isPriorityAlert = suggestion.specialAlert === true || suggestion.alertType === "priority_first" || 
-                               suggestion.correctionOrder === "PRIMEIRO" || suggestion.priorityWarning;
-        
-        card.className = `ai-suggestion-card ${source === 'fallback' ? 'ai-base-suggestion' : ''} ${isPriorityAlert ? 'priority-alert' : ''}`;
+        card.className = `ai-suggestion-card ${source === 'fallback' ? 'ai-base-suggestion' : ''}`;
         card.style.animationDelay = `${index * 0.1}s`;
         
         // Extract data (campos enriquecidos diretos)
@@ -988,38 +947,27 @@ class AISuggestionsIntegration {
             plugin: suggestion.plugin || suggestion.blocks?.plugin,
             result: suggestion.resultado || suggestion.blocks?.result
         };
-        
-        // 🚨 CORREÇÃO: Se é True Peak prioritário, sobrescrever blocos com mensagem especial
-        if (isPriorityAlert) {
-            blocks.problem = `🚨 ${suggestion.message || suggestion.priorityWarning || 'True Peak estourado - Corrigir PRIMEIRO!'}`;
-            blocks.cause = suggestion.why || 'True Peak alto pode mascarar frequências e distorcer toda a análise das outras métricas';
-            blocks.solution = suggestion.action || 'Usar limiter com True Peak detection para reduzir abaixo de -1.0 dBTP';
-            blocks.tip = '⚠️ IMPORTANTE: Corrija o True Peak ANTES de ajustar outras métricas (EQ, compressão), pois ele pode invalidar outros ajustes';
-        }
-        
         const metadata = suggestion.metadata || { priority: 'média', difficulty: 'intermediário' };
         const isAIEnhanced = true;
         
         card.innerHTML = `
-            ${isPriorityAlert ? '<div class="priority-alert-banner">🚨 CORREÇÃO PRIORITÁRIA - RESOLVER PRIMEIRO</div>' : ''}
             <div class="ai-suggestion-blocks">
-                ${blocks.problem ? this.createBlock('problema', blocks.problem, isPriorityAlert) : ''}
-                ${blocks.cause ? this.createBlock('causa', blocks.cause, isPriorityAlert) : ''}
-                ${blocks.solution ? this.createBlock('solucao', blocks.solution, isPriorityAlert) : ''}
-                ${blocks.tip ? this.createBlock('dica', blocks.tip, isPriorityAlert) : ''}
-                ${blocks.plugin ? this.createBlock('plugin', blocks.plugin, isPriorityAlert) : ''}
-                ${blocks.result ? this.createBlock('resultado', blocks.result, isPriorityAlert) : ''}
+                ${blocks.problem ? this.createBlock('problema', blocks.problem) : ''}
+                ${blocks.cause ? this.createBlock('causa', blocks.cause) : ''}
+                ${blocks.solution ? this.createBlock('solucao', blocks.solution) : ''}
+                ${blocks.tip ? this.createBlock('dica', blocks.tip) : ''}
+                ${blocks.plugin ? this.createBlock('plugin', blocks.plugin) : ''}
+                ${blocks.result ? this.createBlock('resultado', blocks.result) : ''}
             </div>
             
             <div class="ai-suggestion-metadata">
                 <div class="ai-metadata-badges">
-                    <span class="ai-badge priority-${isPriorityAlert ? 'critica' : (metadata.priority?.toLowerCase() || 'media')}">
-                        ${isPriorityAlert ? '🚨 CRÍTICA' : (metadata.priority || 'Média')}
+                    <span class="ai-badge priority-${metadata.priority?.toLowerCase() || 'media'}">
+                        ${metadata.priority || 'Média'}
                     </span>
                     <span class="ai-badge difficulty">
                         ${metadata.difficulty || 'Intermediário'}
                     </span>
-                    ${isPriorityAlert ? '<span class="ai-badge correction-order">⚡ PRIMEIRO</span>' : ''}
                     ${metadata.genre_specific ? `<span class="ai-badge genre">${metadata.genre_specific}</span>` : ''}
                 </div>
                 
@@ -1036,27 +984,27 @@ class AISuggestionsIntegration {
     /**
      * Criar bloco de conteúdo
      */
-    createBlock(type, content, isPriority = false) {
+    createBlock(type, content) {
         const icons = {
-            problema: isPriority ? '🚨' : '⚠️',
+            problema: '⚠️',
             causa: '🎯',
-            solucao: isPriority ? '⚡' : '🛠️',
-            dica: isPriority ? '⚠️' : '💡',
+            solucao: '🛠️',
+            dica: '💡',
             plugin: '🎹',
             resultado: '✅'
         };
         
         const titles = {
-            problema: isPriority ? 'PROBLEMA CRÍTICO' : 'Problema',
+            problema: 'Problema',
             causa: 'Causa Provável',
-            solucao: isPriority ? 'Correção PRIORITÁRIA' : 'Solução Prática',
-            dica: isPriority ? 'AVISO IMPORTANTE' : 'Dica Extra',
+            solucao: 'Solução Prática',
+            dica: 'Dica Extra',
             plugin: 'Plugin/Ferramenta',
             resultado: 'Resultado Esperado'
         };
         
         return `
-            <div class="ai-block ai-block-${type} ${isPriority ? 'ai-block-priority' : ''}">
+            <div class="ai-block ai-block-${type}">
                 <div class="ai-block-title">
                     <span>${icons[type]}</span>
                     <strong>${titles[type]}</strong>
@@ -1222,8 +1170,7 @@ class AISuggestionsIntegration {
                     hasAnalysis: !!analysis,
                     hasSuggestions: !!(analysis && analysis.suggestions),
                     suggestionsCount: analysis?.suggestions?.length || 0,
-                    analysisKeys: analysis ? Object.keys(analysis) : null,
-                    alreadyProcessed: analysis?._suggestionsGenerated
+                    analysisKeys: analysis ? Object.keys(analysis) : null
                 });
                 
                 if (analysis && analysis.suggestions) {
@@ -1237,24 +1184,15 @@ class AISuggestionsIntegration {
                 }
                 console.groupEnd();
                 
-                // 🛡️ [SAFEGUARD] Verificar se já foi processado antes de chamar original
-                if (analysis && analysis._suggestionsGenerated) {
-                    console.warn('[SAFEGUARD] 🔒 AI-Integration: Ignorando interceptação - análise já processada');
-                    return;
-                }
-                
                 // Call original function first
                 const result = originalDisplayModalResults.call(this, analysis);
                 
                 // Extract suggestions and trigger AI processing
-                if (analysis && analysis.suggestions && !analysis._aiProcessingScheduled) {
+                if (analysis && analysis.suggestions) {
                     const genre = analysis.metadata?.genre || analysis.genre || window.PROD_AI_REF_GENRE;
                     const metrics = analysis.technicalData || {};
                     
                     console.log('🔗 [AI-INTEGRATION] Interceptando sugestões para processamento IA');
-                    
-                    // 🚨 Marcar como agendado para processamento para evitar duplicação
-                    analysis._aiProcessingScheduled = true;
                     
                     // Delay slightly to ensure modal is rendered
                     setTimeout(() => {

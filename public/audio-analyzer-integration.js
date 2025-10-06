@@ -1415,11 +1415,6 @@ function updateRefStatus(text, color) {
 
 function applyGenreSelection(genre) {
     if (!genre) return Promise.resolve();
-    
-    // 🚨 CORREÇÃO CRÍTICA #3: Limpar flag ANTES de qualquer processamento de gênero
-    console.log('🧹 [GENRE] Limpando flag _suggestionsGenerated para forçar regeneração após troca de gênero');
-    _suggestionsGenerated = false;
-    
     window.PROD_AI_REF_GENRE = genre;
     localStorage.setItem('prodai_ref_genre', genre);
     // Invalidação de cache opcional
@@ -1459,13 +1454,7 @@ function applyGenreSelection(genre) {
                         return;
                     }
                     
-                    // 🛡️ [SAFEGUARD] Verificar se análise já foi processada antes do re-render
-                    if (!currentModalAnalysis._suggestionsGenerated && currentModalAnalysis.suggestions?.length) {
-                        console.log("[FORCE-ACTIVATOR] 📊 Re-renderizando modal (análise não processada anteriormente)");
-                        displayModalResults(currentModalAnalysis);
-                    } else {
-                        console.log("[FORCE-ACTIVATOR] 🔒 Ignorando re-renderização redundante - análise já processada ou sem sugestões");
-                    } 
+                    displayModalResults(currentModalAnalysis); 
                 } catch(e) { console.warn('re-render modal falhou', e); }
             }
         } catch (e) { console.warn('re-render comparação falhou', e); }
@@ -2113,26 +2102,20 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         // 🔧 CORREÇÃO: Normalizar dados do backend antes de usar
         const normalizedResult = normalizeBackendAnalysisData(analysisResult);
         
-        // 🚨 CORREÇÃO CRÍTICA: SEMPRE LIMPAR FLAG ANTES DE GERAR SUGESTÕES
-        // Isso resolve o problema das sugestões prioritárias do True Peak não aparecerem após primeira análise
-        if (normalizedResult._suggestionsGenerated) {
-            console.log('🎯 [SUGGESTIONS] Limpando flag _suggestionsGenerated para forçar regeneração');
-            normalizedResult._suggestionsGenerated = false;
-            delete normalizedResult._suggestionsGenerated;
-        }
-        
-        // 🎯 CORREÇÃO CRÍTICA: SEMPRE gerar sugestões para garantir que True Peak prioritário apareça
-        if (__activeRefData) {
-            console.log('🎯 [SUGGESTIONS] Engine chamado - forçando regeneração de sugestões');
+        // 🎯 CORREÇÃO CRÍTICA: Gerar sugestões no primeiro load
+        if (__activeRefData && !normalizedResult._suggestionsGenerated) {
+            console.log('🎯 [SUGGESTIONS] Engine chamado no primeiro load');
             try {
                 updateReferenceSuggestions(normalizedResult, __activeRefData);
                 normalizedResult._suggestionsGenerated = true;
-                console.log(`🎯 [SUGGESTIONS] ${normalizedResult.suggestions?.length || 0} sugestões geradas (incluindo True Peak prioritário)`);
+                console.log(`🎯 [SUGGESTIONS] ${normalizedResult.suggestions?.length || 0} sugestões geradas no primeiro load`);
             } catch (error) {
-                console.error('❌ [SUGGESTIONS] Erro ao gerar sugestões:', error);
+                console.error('❌ [SUGGESTIONS] Erro ao gerar sugestões no primeiro load:', error);
             }
-        } else {
+        } else if (!__activeRefData) {
             console.log('🎯 [SUGGESTIONS] Dados de referência não disponíveis para gerar sugestões');
+        } else {
+            console.log('🎯 [SUGGESTIONS] Sugestões já foram geradas anteriormente');
         }
 
         // 🚀 FORÇA EXIBIÇÃO: Sempre mostrar interface IA após sugestões serem processadas
@@ -2204,31 +2187,8 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         
         // Exibir resultados diretamente no modal
         setTimeout(() => {
-            // 🛡️ [SAFEGUARD] Verificar se análise já foi processada antes de exibir
-            if (!normalizedResult._suggestionsGenerated && normalizedResult.suggestions?.length) {
-                console.log("[FORCE-ACTIVATOR] 📊 Exibindo resultados normalizados (não processados anteriormente)");
-                displayModalResults(normalizedResult);
-            } else {
-                console.log("[FORCE-ACTIVATOR] 🔒 Ignorando renderização redundante - análise já processada ou sem sugestões");
-            }
-            
-            // ⚡ Fallback: se IA exibiu sugestões mas o modal principal não abriu, forçar exibição final
-            setTimeout(() => {
-                if (normalizedResult?.suggestions?.length && !document.querySelector('.modal-result-container')) {
-                    console.warn("[FORCE-ACTIVATOR] ⚡ Forçando exibição final do modal (fallback seguro)");
-                    displayModalResults(normalizedResult);
-                }
-            }, 1000);
+            displayModalResults(normalizedResult);
         }, 500);
-        
-        // 🏁 LOG FINAL DE CONCLUSÃO DO PIPELINE
-        console.log(`🏁 [PIPELINE COMPLETO] handleGenreAnalysisWithResult finalizada para ${fileName}:
-- ✅ Resultado normalizado
-- ✅ Sugestões: ${normalizedResult.suggestions?.length || 0}
-- ✅ Interface IA: configurada  
-- ✅ Modal: programado para exibição
-- ✅ Flag _suggestionsGenerated: ${normalizedResult._suggestionsGenerated ? 'true' : 'false'}
-🚀 Pipeline completo - modal deve aparecer em instantes`);
         
     } catch (error) {
         console.error('❌ Erro ao processar análise por gênero:', error);
@@ -2639,21 +2599,7 @@ async function handleGenreFileSelection(file) {
             return;
         }
         
-        // 🛡️ [SAFEGUARD] Verificar se análise já foi processada
-        if (!analysis._suggestionsGenerated && analysis.suggestions?.length) {
-            console.log("[FORCE-ACTIVATOR] 📊 Exibindo análise final (não processada anteriormente)");
-            displayModalResults(analysis);
-        } else {
-            console.log("[FORCE-ACTIVATOR] 🔒 Ignorando renderização redundante - análise já processada ou sem sugestões");
-        }
-        
-        // ⚡ Fallback: se IA exibiu sugestões mas o modal principal não abriu, forçar exibição final
-        setTimeout(() => {
-            if (analysis?.suggestions?.length && !document.querySelector('.modal-result-container')) {
-                console.warn("[FORCE-ACTIVATOR] ⚡ Forçando exibição final do modal (fallback seguro)");
-                displayModalResults(analysis);
-            }
-        }, 1000);
+        displayModalResults(analysis);
         
         // 🔧 CORREÇÃO: Limpar flag de análise em progresso após sucesso
         if (typeof window !== 'undefined') {
@@ -3006,22 +2952,7 @@ async function performReferenceComparison() {
                 return;
             }
             
-            // 🛡️ [SAFEGUARD] Verificar se análise combinada já foi processada
-            if (!combinedAnalysis._suggestionsGenerated && combinedAnalysis.suggestions?.length) {
-                console.log("[FORCE-ACTIVATOR] 📊 Exibindo análise combinada (não processada anteriormente)");
-                displayModalResults(combinedAnalysis);
-            } else {
-                console.log("[FORCE-ACTIVATOR] 🔒 Ignorando renderização redundante - análise combinada já processada ou sem sugestões");
-            }
-            
-            // ⚡ Fallback: se IA exibiu sugestões mas o modal principal não abriu, forçar exibição final
-            setTimeout(() => {
-                if (combinedAnalysis?.suggestions?.length && !document.querySelector('.modal-result-container')) {
-                    console.warn("[FORCE-ACTIVATOR] ⚡ Forçando exibição final do modal combinado (fallback seguro)");
-                    displayModalResults(combinedAnalysis);
-                }
-            }, 1000);
-            
+            displayModalResults(combinedAnalysis);
             window.logReferenceEvent('reference_comparison_completed');
         }, 800);
         
@@ -3442,16 +3373,7 @@ function showModalLoading() {
 // 📊 Mostrar resultados no modal
 // 📊 Mostrar resultados no modal
 function displayModalResults(analysis) {
-    // � [AUDITORIA DISPLAY] Log de entrada para rastrear chamadas
-    console.group("[AUDITORIA DISPLAY] 🔁 Display chamado");
-    console.log("Timestamp:", Date.now());
-    console.log("Analysis RunId:", analysis?.runId || analysis?.metadata?.runId || 'N/A');
-    console.log("Analysis Summary:", analysis?.metricSummary || 'N/A');
-    console.log("Suggestions Count:", analysis?.suggestions?.length || 0);
-    console.log("_suggestionsGenerated flag:", analysis?._suggestionsGenerated);
-    console.groupEnd();
-    
-    // �🔒 UI GATE: Verificação final antes de renderizar
+    // 🔒 UI GATE: Verificação final antes de renderizar
     const analysisRunId = analysis?.runId || analysis?.metadata?.runId;
     const currentRunId = window.__CURRENT_ANALYSIS_RUN_ID__;
     
@@ -3459,25 +3381,6 @@ function displayModalResults(analysis) {
         console.warn(`🚫 [UI_GATE] displayModalResults cancelado - análise obsoleta (análise: ${analysisRunId}, atual: ${currentRunId})`);
         return;
     }
-    
-    // 🛡️ [SAFEGUARD] Proteção contra re-renderização de sugestões já processadas
-    if (analysis && analysis._suggestionsGenerated) {
-        console.warn("[SAFEGUARD] 🔒 Ignorando renderização duplicada - sugestões já processadas para esta análise");
-        console.log("[SAFEGUARD] 📊 Análise protegida:", {
-            runId: analysisRunId,
-            suggestionsCount: analysis.suggestions?.length || 0,
-            timestamp: Date.now()
-        });
-        return;
-    }
-    
-    // 🕓 [SAFEGUARD] Marcar como processada APÓS renderização (evita bloqueio prematuro)
-    setTimeout(() => {
-        if (analysis) {
-            analysis._suggestionsGenerated = true;
-            console.log("[SAFEGUARD] ✅ Flag _suggestionsGenerated marcada após renderização:", analysisRunId);
-        }
-    }, 500);
     
     const uploadArea = document.getElementById('audioUploadArea');
     const loading = document.getElementById('audioAnalysisLoading');
@@ -4131,19 +4034,7 @@ function displayModalResults(analysis) {
                     });
                 };
                 const renderSuggestionItem = (sug) => {
-                    // � DEBUG: Log detalhado de cada sugestão para debugging UI
-                    console.log('[DEBUG-UI-RENDER] 🔍 Processando sugestão:', {
-                        message: sug.message,
-                        type: sug.type,
-                        metricType: sug.metricType,
-                        specialAlert: sug.specialAlert,
-                        priorityWarning: sug.priorityWarning,
-                        priority: sug.priority,
-                        hasUltraV2: !!(sug.educationalContent && sug.educationalContent.title),
-                        allKeys: Object.keys(sug)
-                    });
-                    
-                    // �🚀 PRIORIDADE: Verificar se tem conteúdo educacional do Sistema Ultra-Avançado V2
+                    // 🚀 PRIORIDADE: Verificar se tem conteúdo educacional do Sistema Ultra-Avançado V2
                     const hasUltraV2Content = sug.educationalContent && sug.educationalContent.title;
                     
                     if (hasUltraV2Content) {
@@ -4421,32 +4312,10 @@ function displayModalResults(analysis) {
                     else {
                         // 🚨 VERIFICAR SE É TRUE PEAK COM MENSAGEM ESPECIAL
                         const isTruePeak = sug.type === 'reference_true_peak' || sug.metricType === 'true_peak' || 
-                                         title.toLowerCase().includes('true peak') || title.toLowerCase().includes('tp') ||
-                                         sug.message?.toLowerCase().includes('true peak') || sug.message?.toLowerCase().includes('⚡');
+                                         title.toLowerCase().includes('true peak') || title.toLowerCase().includes('tp');
                         const hasSpecialAlert = sug.specialAlert || sug.priorityWarning;
                         
-                        // 🚨 DEBUG: Log específico para True Peak
-                        if (isTruePeak) {
-                            console.log('[DEBUG-UI-RENDER] 🚨 TRUE PEAK detectado:', {
-                                isTruePeak: isTruePeak,
-                                hasSpecialAlert: hasSpecialAlert,
-                                specialAlert: sug.specialAlert,
-                                priorityWarning: sug.priorityWarning,
-                                title: title,
-                                message: sug.message,
-                                willRenderSpecial: isTruePeak && hasSpecialAlert,
-                                // 🚨 NOVA VERIFICAÇÃO: Forçar renderização especial se for True Peak
-                                shouldForceSpecial: isTruePeak && (hasSpecialAlert || sug.message?.includes('⚡') || sug.message?.includes('PRIORITÁRIA'))
-                            });
-                        }
-                        
-                        // 🚨 CORREÇÃO: Melhorar a condição para detectar True Peak prioritário
-                        const shouldRenderSpecial = isTruePeak && (hasSpecialAlert || 
-                                                                  sug.message?.includes('⚡') || 
-                                                                  sug.message?.includes('PRIORITÁRIA') ||
-                                                                  sug.message?.includes('prioritária'));
-                        
-                        if (shouldRenderSpecial) {
+                        if (isTruePeak && hasSpecialAlert) {
                             // Card especial para True Peak com mensagem de prioridade
                             return `
                                 <div class="${cardClass} true-peak-priority">
@@ -4463,53 +4332,6 @@ function displayModalResults(analysis) {
                                             ${sug.priorityWarning}
                                         </div>
                                     ` : ''}
-                                    
-                                    ${explanation ? `
-                                        <div class="card-description" style="border-left-color: #FF5722;">
-                                            <strong>⚠️ Por que é prioritário:</strong> ${explanation}
-                                        </div>
-                                    ` : ''}
-                                    
-                                    <div class="card-action" style="background: rgba(255, 87, 34, 0.1); border-color: #FF5722;">
-                                        <div class="card-action-title" style="color: #FF5722;">
-                                            🚨 Correção Prioritária
-                                        </div>
-                                        <div class="card-action-content">${action}</div>
-                                    </div>
-                                    
-                                    ${sug.why ? `
-                                        <div class="card-impact" style="background: rgba(255, 87, 34, 0.05); border-color: #FF5722;">
-                                            <div class="card-impact-title" style="color: #FF5722;">🔴 Motivo da Prioridade</div>
-                                            <div class="card-impact-content">${sug.why}</div>
-                                        </div>
-                                    ` : ''}
-                                    
-                                    ${technical ? `
-                                        <details style="margin-top: 12px;">
-                                            <summary style="cursor: pointer; font-size: 12px; color: #aaa;">Detalhes Técnicos</summary>
-                                            <div style="font-size: 11px; color: #ccc; margin-top: 8px; font-family: monospace;">${technical}</div>
-                                        </details>
-                                    ` : ''}
-                                </div>`;
-                        }
-                        
-                        // 🚨 FALLBACK ESPECIAL: Se for True Peak com mensagem prioritária, forçar renderização especial
-                        else if (isTruePeak && (sug.message?.includes('⚡') || sug.message?.includes('PRIORITÁRIA'))) {
-                            console.log('[DEBUG-UI-RENDER] 🔥 FALLBACK ESPECIAL: True Peak prioritário detectado por mensagem');
-                            // Usar o mesmo template especial, mesmo sem flags específicas
-                            return `
-                                <div class="${cardClass} true-peak-priority">
-                                    <div class="card-header">
-                                        <h4 class="card-title">⚡ ${title}</h4>
-                                        <div class="card-badges">
-                                            <span class="priority-badge primeiro">PRIMEIRO</span>
-                                            <span class="severity-badge critica">CRÍTICO</span>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="priority-warning" style="background: rgba(255, 193, 7, 0.2); border: 1px solid #FFC107; border-radius: 6px; padding: 12px; margin: 12px 0; color: #856404;">
-                                        ${sug.message || '⚡ True Peak requer correção PRIORITÁRIA'}
-                                    </div>
                                     
                                     ${explanation ? `
                                         <div class="card-description" style="border-left-color: #FF5722;">
@@ -6422,13 +6244,7 @@ function updateReferenceSuggestions(analysis) {
                                 
                                 // Re-renderizar se modal visível
                                 if (document.getElementById('audioAnalysisModal')?.style.display !== 'none') {
-                                    // 🛡️ [SAFEGUARD] Verificar se análise já foi processada antes do re-render pós-IA
-                                    if (!analysis._suggestionsGenerated && analysis.suggestions?.length) {
-                                        console.log("[FORCE-ACTIVATOR] 📊 Re-renderizando modal pós-IA (análise não processada anteriormente)");
-                                        displayModalResults(analysis);
-                                    } else {
-                                        console.log("[FORCE-ACTIVATOR] 🔒 Ignorando re-renderização pós-IA redundante - análise já processada");
-                                    }
+                                    displayModalResults(analysis);
                                 }
                             }
                         })
@@ -6507,13 +6323,8 @@ function updateReferenceSuggestions(analysis) {
                         
                         // Re-renderizar modal se estiver visível
                         if (document.getElementById('audioAnalysisModal')?.style.display !== 'none') {
-                            // 🛡️ [SAFEGUARD] Verificar se análise já foi processada antes do re-render pós-IA
-                            if (!analysis._suggestionsGenerated && analysis.suggestions?.length) {
-                                console.log('🎨 [AI-LAYER] Re-renderizando modal com sugestões IA (análise não processada anteriormente)');
-                                displayModalResults(analysis);
-                            } else {
-                                console.log('[SAFEGUARD] 🔒 Ignorando re-renderização pós-IA redundante - análise já processada');
-                            }
+                            console.log('🎨 [AI-LAYER] Re-renderizando modal com sugestões IA');
+                            displayModalResults(analysis);
                         }
                     } else {
                         console.warn('🤖 [AI-LAYER] ⚠️ IA retornou resultado vazio, mantendo sugestões originais');
@@ -6986,40 +6797,21 @@ window.displayReferenceResults = function(referenceResults) {
 function normalizeBackendAnalysisData(backendData) {
     console.log('🔧 [NORMALIZE] Iniciando normalização dos dados do backend:', backendData);
     
-    // Se já está no formato correto, retornar como está MAS LIMPANDO FLAGS PROBLEMÁTICAS
+    // Se já está no formato correto, retornar como está
     if (backendData.technicalData && backendData.technicalData.peak !== undefined) {
         console.log('📊 [NORMALIZE] Dados já estão normalizados');
-        
-        // 🚨 CORREÇÃO CRÍTICA: Sempre limpar flags de estado que impedem regeneração
-        const cleaned = { ...backendData };
-        if (cleaned._suggestionsGenerated) {
-            console.log('🧹 [NORMALIZE] Limpando flag _suggestionsGenerated de dados já normalizados');
-            delete cleaned._suggestionsGenerated;
-        }
-        return cleaned;
+        return backendData;
     }
     
-    // Criar estrutura normalizada - SEM PRESERVAR FLAGS PROBLEMÁTICAS
+    // Criar estrutura normalizada - SEM FALLBACKS FICTÍCIOS
     const normalized = {
-        // 🚨 CORREÇÃO: NÃO usar spread operator que preserva flags antigas
-        // ...backendData, ❌ REMOVIDO - causava persistência de _suggestionsGenerated
-        
-        // ✅ NOVO: Preservar apenas campos necessários e limpos
+        ...backendData,
         technicalData: backendData.technicalData || {},
         problems: backendData.problems || [],
         suggestions: backendData.suggestions || [],
         duration: backendData.duration || null,
         sampleRate: backendData.sampleRate || null,
-        channels: backendData.channels || null,
-        
-        // Preservar campos importantes mas não flags problemáticas
-        metadata: backendData.metadata || {},
-        runId: backendData.runId || null,
-        analysisMode: backendData.analysisMode || null,
-        qualityOverall: backendData.qualityOverall || null,
-        scores: backendData.scores || null,
-        
-        // 🚨 NÃO preservar _suggestionsGenerated - será definida apenas quando necessário
+        channels: backendData.channels || null
     };
     
     // 🎯 MAPEAR MÉTRICAS BÁSICAS - SEM FALLBACKS FICTÍCIOS

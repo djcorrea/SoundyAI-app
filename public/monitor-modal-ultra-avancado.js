@@ -18,15 +18,8 @@ function interceptarDisplayModalResults() {
                 console.log('🎯 [MODAL_MONITOR] Modal sendo exibido, dados recebidos:', {
                     hasSuggestions: !!(analysis && analysis.suggestions),
                     suggestionsCount: analysis?.suggestions?.length || 0,
-                    hasUltraSystem: typeof window.AdvancedEducationalSuggestionSystem !== 'undefined',
-                    alreadyProcessed: analysis?._suggestionsGenerated
+                    hasUltraSystem: typeof window.AdvancedEducationalSuggestionSystem !== 'undefined'
                 });
-                
-                // 🛡️ [SAFEGUARD] Verificar se já foi processado
-                if (analysis && analysis._suggestionsGenerated) {
-                    console.warn('[SAFEGUARD] 🔒 Monitor: Ignorando interceptação - análise já processada');
-                    return;
-                }
                 
                 // Verificar se as sugestões foram enriquecidas pelo sistema ultra-avançado
                 if (analysis && analysis.suggestions && analysis.suggestions.length > 0) {
