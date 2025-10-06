@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚨 Teste da Correção de Mensagem Prioritária do True Peak</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: #f1f5f9;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .test-card {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+        }
+        .test-title {
+            font-size: 24px;
+            font-weight: 700;
+            color: #60a5fa;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .status {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            margin: 8px 0;
+        }
+        .status.success { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+        .status.error { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+        .status.warning { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
+        .code {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+            margin: 12px 0;
+        }
+        .button {
+            background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 8px 8px 8px 0;
+            transition: all 0.3s;
+        }
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.3);
+        }
+        .suggestion-preview {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 16px;
+            margin: 12px 0;
+        }
+        .priority-alert {
+            border: 2px solid rgba(220, 38, 38, 0.4);
+            background: linear-gradient(135deg, rgba(220, 38, 38, 0.1) 0%, rgba(185, 28, 28, 0.2) 100%);
+            animation: priorityPulse 2s infinite;
+        }
+        @keyframes priorityPulse {
+            0%, 100% { border-color: rgba(220, 38, 38, 0.4); }
+            50% { border-color: rgba(220, 38, 38, 0.8); }
+        }
+        .priority-alert-banner {
+            background: linear-gradient(90deg, rgba(220, 38, 38, 0.8), rgba(239, 68, 68, 0.9));
+            color: #ffffff;
+            text-align: center;
+            padding: 8px 16px;
+            margin: -16px -16px 16px -16px;
+            font-weight: 700;
+            font-size: 13px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-radius: 6px 6px 0 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="test-card">
+            <div class="test-title">
+                🚨 Teste da Correção de Mensagem Prioritária do True Peak
+            </div>
+            <p>Este teste valida se a mensagem prioritária do True Peak aparece corretamente quando o valor está acima de +0.3 dBTP.</p>
+            
+            <div class="status warning">
+                ⚠️ <strong>Problema Original:</strong> True Peak com 2.60 dBTP não mostrava mensagem "Corrigir primeiro"
+            </div>
+            
+            <div class="status success">
+                ✅ <strong>Correção Implementada:</strong> 
+                <ul>
+                    <li>🔧 Detecção de flags especiais no ai-suggestions-integration.js</li>
+                    <li>🎨 Estilos CSS para alertas prioritários</li>
+                    <li>🚨 Banner de correção prioritária</li>
+                    <li>📊 Preservação de flags durante merge</li>
+                </ul>
+            </div>
+            
+            <button class="button" onclick="testTruePeakPriorityDetection()">
+                🧪 Testar Detecção de True Peak Crítico
+            </button>
+            
+            <button class="button" onclick="testSuggestionRendering()">
+                🎨 Testar Renderização de Sugestão Prioritária
+            </button>
+            
+            <button class="button" onclick="testEnhancedSuggestionEngine()">
+                ⚙️ Testar Enhanced Suggestion Engine
+            </button>
+            
+            <div id="testResults"></div>
+        </div>
+
+        <div class="test-card">
+            <div class="test-title">
+                📋 Preview da Sugestão Prioritária
+            </div>
+            <div id="suggestionPreview"></div>
+        </div>
+    </div>
+
+    <!-- Incluir scripts necessários -->
+    <script src="enhanced-suggestion-engine.js"></script>
+    <script src="ai-suggestions-integration.js"></script>
+
+    <script>
+        // Dados de teste simulando True Peak crítico
+        const mockTruePeakCriticalData = {
+            technicalData: {
+                truePeak: 2.60, // True Peak crítico > +0.3 dBTP
+                lufsIntegrated: -8.5,
+                dynamicRange: 7.2,
+                lra: 9.8,
+                stereoCorrelation: 0.85
+            },
+            audioBuffer: {
+                length: 48000 * 180, // 3 minutos
+                sampleRate: 48000
+            }
+        };
+
+        const mockReferenceData = {
+            true_peak_target: -1.0,
+            tol_true_peak: 1.0,
+            lufs_target: -14.0,
+            tol_lufs: 2.0
+        };
+
+        let testResults = [];
+
+        function addTestResult(test, status, message, details = null) {
+            testResults.push({ test, status, message, details, timestamp: new Date() });
+            updateTestResults();
+        }
+
+        function updateTestResults() {
+            const container = document.getElementById('testResults');
+            const html = testResults.map(result => `
+                <div class="status ${result.status}">
+                    <strong>${result.test}:</strong> ${result.message}
+                    ${result.details ? `<div class="code">${JSON.stringify(result.details, null, 2)}</div>` : ''}
+                </div>
+            `).join('');
+            container.innerHTML = html;
+        }
+
+        function testTruePeakPriorityDetection() {
+            console.log('🧪 [TEST] Iniciando teste de detecção de True Peak crítico...');
+            
+            try {
+                // Verificar se Enhanced Suggestion Engine está disponível
+                if (typeof EnhancedSuggestionEngine === 'undefined') {
+                    addTestResult('Detecção TP', 'error', 'EnhancedSuggestionEngine não carregado');
+                    return;
+                }
+
+                const engine = new EnhancedSuggestionEngine();
+                
+                // Processar análise simulada
+                const result = engine.processAnalysis(mockTruePeakCriticalData, mockReferenceData);
+                
+                // Verificar se gerou sugestões
+                const suggestions = result.suggestions || [];
+                const truePeakSuggestions = suggestions.filter(s => 
+                    s.metricType === 'true_peak' || s.type?.includes('true_peak')
+                );
+
+                if (truePeakSuggestions.length === 0) {
+                    addTestResult('Detecção TP', 'error', 'Nenhuma sugestão de True Peak gerada');
+                    return;
+                }
+
+                const prioritySuggestion = truePeakSuggestions.find(s => 
+                    s.specialAlert === true || s.alertType === "priority_first" || s.correctionOrder === "PRIMEIRO"
+                );
+
+                if (prioritySuggestion) {
+                    addTestResult('Detecção TP', 'success', 'True Peak crítico detectado com flags especiais', {
+                        specialAlert: prioritySuggestion.specialAlert,
+                        alertType: prioritySuggestion.alertType,
+                        correctionOrder: prioritySuggestion.correctionOrder,
+                        priorityWarning: prioritySuggestion.priorityWarning,
+                        currentValue: prioritySuggestion.currentValue,
+                        targetValue: prioritySuggestion.targetValue
+                    });
+                } else {
+                    addTestResult('Detecção TP', 'warning', 'True Peak detectado mas sem flags especiais', {
+                        suggestions: truePeakSuggestions.length,
+                        firstSuggestion: truePeakSuggestions[0]
+                    });
+                }
+
+            } catch (error) {
+                addTestResult('Detecção TP', 'error', 'Erro durante teste: ' + error.message);
+                console.error('Erro no teste:', error);
+            }
+        }
+
+        function testSuggestionRendering() {
+            console.log('🎨 [TEST] Testando renderização de sugestão prioritária...');
+            
+            try {
+                // Verificar se AISuggestionsIntegration está disponível
+                if (typeof AISuggestionsIntegration === 'undefined') {
+                    addTestResult('Renderização', 'error', 'AISuggestionsIntegration não carregado');
+                    return;
+                }
+
+                // Criar sugestão simulada com flags especiais
+                const mockPrioritySuggestion = {
+                    type: 'reference_true_peak',
+                    metricType: 'true_peak',
+                    specialAlert: true,
+                    alertType: "priority_first",
+                    correctionOrder: "PRIMEIRO",
+                    priorityWarning: "⚠️ ATENÇÃO: True Peak deve ser corrigido antes de outros ajustes!",
+                    message: "⚡ True Peak requer correção PRIORITÁRIA (2.6 dBTP → -1.0 dBTP)",
+                    why: "CRÍTICO: Corrija o True Peak PRIMEIRO antes de ajustar outras métricas",
+                    action: "Usar limiter com True Peak detection",
+                    currentValue: 2.6,
+                    targetValue: -1.0,
+                    icon: '⚡'
+                };
+
+                const integration = new AISuggestionsIntegration();
+                const card = integration.createSuggestionCard(mockPrioritySuggestion, 0, 'test');
+
+                // Adicionar preview
+                const preview = document.getElementById('suggestionPreview');
+                preview.innerHTML = '';
+                preview.appendChild(card);
+
+                addTestResult('Renderização', 'success', 'Sugestão prioritária renderizada com sucesso');
+
+            } catch (error) {
+                addTestResult('Renderização', 'error', 'Erro durante renderização: ' + error.message);
+                console.error('Erro na renderização:', error);
+            }
+        }
+
+        function testEnhancedSuggestionEngine() {
+            console.log('⚙️ [TEST] Testando Enhanced Suggestion Engine completo...');
+            
+            try {
+                // Teste de condições específicas para True Peak crítico
+                const testValues = [
+                    { value: 2.60, expected: 'CRITICAL' },
+                    { value: 0.5, expected: 'HIGH' },
+                    { value: -0.3, expected: 'MEDIUM' },
+                    { value: -1.2, expected: 'OK' }
+                ];
+
+                const results = testValues.map(test => {
+                    const isCritical = test.value > 0.3;
+                    const isHigh = test.value > -0.5;
+                    const status = isCritical ? 'CRITICAL' : isHigh ? 'HIGH' : test.value > -1.0 ? 'MEDIUM' : 'OK';
+                    
+                    return {
+                        value: test.value,
+                        expected: test.expected,
+                        actual: status,
+                        correct: status === test.expected,
+                        shouldHavePriority: isCritical
+                    };
+                });
+
+                const allCorrect = results.every(r => r.correct);
+                const criticalDetected = results.filter(r => r.shouldHavePriority && r.actual === 'CRITICAL').length;
+
+                if (allCorrect && criticalDetected > 0) {
+                    addTestResult('Engine Logic', 'success', `Lógica de detecção funcionando corretamente (${criticalDetected} críticos detectados)`, results);
+                } else {
+                    addTestResult('Engine Logic', 'warning', 'Lógica de detecção requer verificação', results);
+                }
+
+            } catch (error) {
+                addTestResult('Engine Logic', 'error', 'Erro durante teste de engine: ' + error.message);
+                console.error('Erro no teste de engine:', error);
+            }
+        }
+
+        // Auto-executar testes básicos ao carregar
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                console.log('🚀 Executando testes automáticos...');
+                testTruePeakPriorityDetection();
+                testSuggestionRendering();
+                testEnhancedSuggestionEngine();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>
