@@ -1415,6 +1415,11 @@ function updateRefStatus(text, color) {
 
 function applyGenreSelection(genre) {
     if (!genre) return Promise.resolve();
+    
+    // 🚨 CORREÇÃO CRÍTICA #3: Limpar flag ANTES de qualquer processamento de gênero
+    console.log('🧹 [GENRE] Limpando flag _suggestionsGenerated para forçar regeneração após troca de gênero');
+    _suggestionsGenerated = false;
+    
     window.PROD_AI_REF_GENRE = genre;
     localStorage.setItem('prodai_ref_genre', genre);
     // Invalidação de cache opcional
@@ -2102,20 +2107,26 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         // 🔧 CORREÇÃO: Normalizar dados do backend antes de usar
         const normalizedResult = normalizeBackendAnalysisData(analysisResult);
         
-        // 🎯 CORREÇÃO CRÍTICA: Gerar sugestões no primeiro load
-        if (__activeRefData && !normalizedResult._suggestionsGenerated) {
-            console.log('🎯 [SUGGESTIONS] Engine chamado no primeiro load');
+        // 🚨 CORREÇÃO CRÍTICA: SEMPRE LIMPAR FLAG ANTES DE GERAR SUGESTÕES
+        // Isso resolve o problema das sugestões prioritárias do True Peak não aparecerem após primeira análise
+        if (normalizedResult._suggestionsGenerated) {
+            console.log('🎯 [SUGGESTIONS] Limpando flag _suggestionsGenerated para forçar regeneração');
+            normalizedResult._suggestionsGenerated = false;
+            delete normalizedResult._suggestionsGenerated;
+        }
+        
+        // 🎯 CORREÇÃO CRÍTICA: SEMPRE gerar sugestões para garantir que True Peak prioritário apareça
+        if (__activeRefData) {
+            console.log('🎯 [SUGGESTIONS] Engine chamado - forçando regeneração de sugestões');
             try {
                 updateReferenceSuggestions(normalizedResult, __activeRefData);
                 normalizedResult._suggestionsGenerated = true;
-                console.log(`🎯 [SUGGESTIONS] ${normalizedResult.suggestions?.length || 0} sugestões geradas no primeiro load`);
+                console.log(`🎯 [SUGGESTIONS] ${normalizedResult.suggestions?.length || 0} sugestões geradas (incluindo True Peak prioritário)`);
             } catch (error) {
-                console.error('❌ [SUGGESTIONS] Erro ao gerar sugestões no primeiro load:', error);
+                console.error('❌ [SUGGESTIONS] Erro ao gerar sugestões:', error);
             }
-        } else if (!__activeRefData) {
-            console.log('🎯 [SUGGESTIONS] Dados de referência não disponíveis para gerar sugestões');
         } else {
-            console.log('🎯 [SUGGESTIONS] Sugestões já foram geradas anteriormente');
+            console.log('🎯 [SUGGESTIONS] Dados de referência não disponíveis para gerar sugestões');
         }
 
         // 🚀 FORÇA EXIBIÇÃO: Sempre mostrar interface IA após sugestões serem processadas
@@ -6797,21 +6808,40 @@ window.displayReferenceResults = function(referenceResults) {
 function normalizeBackendAnalysisData(backendData) {
     console.log('🔧 [NORMALIZE] Iniciando normalização dos dados do backend:', backendData);
     
-    // Se já está no formato correto, retornar como está
+    // Se já está no formato correto, retornar como está MAS LIMPANDO FLAGS PROBLEMÁTICAS
     if (backendData.technicalData && backendData.technicalData.peak !== undefined) {
         console.log('📊 [NORMALIZE] Dados já estão normalizados');
-        return backendData;
+        
+        // 🚨 CORREÇÃO CRÍTICA: Sempre limpar flags de estado que impedem regeneração
+        const cleaned = { ...backendData };
+        if (cleaned._suggestionsGenerated) {
+            console.log('🧹 [NORMALIZE] Limpando flag _suggestionsGenerated de dados já normalizados');
+            delete cleaned._suggestionsGenerated;
+        }
+        return cleaned;
     }
     
-    // Criar estrutura normalizada - SEM FALLBACKS FICTÍCIOS
+    // Criar estrutura normalizada - SEM PRESERVAR FLAGS PROBLEMÁTICAS
     const normalized = {
-        ...backendData,
+        // 🚨 CORREÇÃO: NÃO usar spread operator que preserva flags antigas
+        // ...backendData, ❌ REMOVIDO - causava persistência de _suggestionsGenerated
+        
+        // ✅ NOVO: Preservar apenas campos necessários e limpos
         technicalData: backendData.technicalData || {},
         problems: backendData.problems || [],
         suggestions: backendData.suggestions || [],
         duration: backendData.duration || null,
         sampleRate: backendData.sampleRate || null,
-        channels: backendData.channels || null
+        channels: backendData.channels || null,
+        
+        // Preservar campos importantes mas não flags problemáticas
+        metadata: backendData.metadata || {},
+        runId: backendData.runId || null,
+        analysisMode: backendData.analysisMode || null,
+        qualityOverall: backendData.qualityOverall || null,
+        scores: backendData.scores || null,
+        
+        // 🚨 NÃO preservar _suggestionsGenerated - será definida apenas quando necessário
     };
     
     // 🎯 MAPEAR MÉTRICAS BÁSICAS - SEM FALLBACKS FICTÍCIOS
