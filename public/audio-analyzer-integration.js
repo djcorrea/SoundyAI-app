@@ -2211,7 +2211,24 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
             } else {
                 console.log("[FORCE-ACTIVATOR] 🔒 Ignorando renderização redundante - análise já processada ou sem sugestões");
             }
+            
+            // ⚡ Fallback: se IA exibiu sugestões mas o modal principal não abriu, forçar exibição final
+            setTimeout(() => {
+                if (normalizedResult?.suggestions?.length && !document.querySelector('.modal-result-container')) {
+                    console.warn("[FORCE-ACTIVATOR] ⚡ Forçando exibição final do modal (fallback seguro)");
+                    displayModalResults(normalizedResult);
+                }
+            }, 1000);
         }, 500);
+        
+        // 🏁 LOG FINAL DE CONCLUSÃO DO PIPELINE
+        console.log(`🏁 [PIPELINE COMPLETO] handleGenreAnalysisWithResult finalizada para ${fileName}:
+- ✅ Resultado normalizado
+- ✅ Sugestões: ${normalizedResult.suggestions?.length || 0}
+- ✅ Interface IA: configurada  
+- ✅ Modal: programado para exibição
+- ✅ Flag _suggestionsGenerated: ${normalizedResult._suggestionsGenerated ? 'true' : 'false'}
+🚀 Pipeline completo - modal deve aparecer em instantes`);
         
     } catch (error) {
         console.error('❌ Erro ao processar análise por gênero:', error);
@@ -2630,6 +2647,14 @@ async function handleGenreFileSelection(file) {
             console.log("[FORCE-ACTIVATOR] 🔒 Ignorando renderização redundante - análise já processada ou sem sugestões");
         }
         
+        // ⚡ Fallback: se IA exibiu sugestões mas o modal principal não abriu, forçar exibição final
+        setTimeout(() => {
+            if (analysis?.suggestions?.length && !document.querySelector('.modal-result-container')) {
+                console.warn("[FORCE-ACTIVATOR] ⚡ Forçando exibição final do modal (fallback seguro)");
+                displayModalResults(analysis);
+            }
+        }, 1000);
+        
         // 🔧 CORREÇÃO: Limpar flag de análise em progresso após sucesso
         if (typeof window !== 'undefined') {
             delete window.__MODAL_ANALYSIS_IN_PROGRESS__;
@@ -2988,6 +3013,15 @@ async function performReferenceComparison() {
             } else {
                 console.log("[FORCE-ACTIVATOR] 🔒 Ignorando renderização redundante - análise combinada já processada ou sem sugestões");
             }
+            
+            // ⚡ Fallback: se IA exibiu sugestões mas o modal principal não abriu, forçar exibição final
+            setTimeout(() => {
+                if (combinedAnalysis?.suggestions?.length && !document.querySelector('.modal-result-container')) {
+                    console.warn("[FORCE-ACTIVATOR] ⚡ Forçando exibição final do modal combinado (fallback seguro)");
+                    displayModalResults(combinedAnalysis);
+                }
+            }, 1000);
+            
             window.logReferenceEvent('reference_comparison_completed');
         }, 800);
         
@@ -3437,11 +3471,13 @@ function displayModalResults(analysis) {
         return;
     }
     
-    // 🏷️ [SAFEGUARD] Marcar esta análise como processada
-    if (analysis) {
-        analysis._suggestionsGenerated = true;
-        console.log("[SAFEGUARD] ✅ Análise marcada como processada:", analysisRunId);
-    }
+    // 🕓 [SAFEGUARD] Marcar como processada APÓS renderização (evita bloqueio prematuro)
+    setTimeout(() => {
+        if (analysis) {
+            analysis._suggestionsGenerated = true;
+            console.log("[SAFEGUARD] ✅ Flag _suggestionsGenerated marcada após renderização:", analysisRunId);
+        }
+    }, 500);
     
     const uploadArea = document.getElementById('audioUploadArea');
     const loading = document.getElementById('audioAnalysisLoading');
