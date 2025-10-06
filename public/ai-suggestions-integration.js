@@ -1222,7 +1222,8 @@ class AISuggestionsIntegration {
                     hasAnalysis: !!analysis,
                     hasSuggestions: !!(analysis && analysis.suggestions),
                     suggestionsCount: analysis?.suggestions?.length || 0,
-                    analysisKeys: analysis ? Object.keys(analysis) : null
+                    analysisKeys: analysis ? Object.keys(analysis) : null,
+                    alreadyProcessed: analysis?._suggestionsGenerated
                 });
                 
                 if (analysis && analysis.suggestions) {
@@ -1236,15 +1237,24 @@ class AISuggestionsIntegration {
                 }
                 console.groupEnd();
                 
+                // 🛡️ [SAFEGUARD] Verificar se já foi processado antes de chamar original
+                if (analysis && analysis._suggestionsGenerated) {
+                    console.warn('[SAFEGUARD] 🔒 AI-Integration: Ignorando interceptação - análise já processada');
+                    return;
+                }
+                
                 // Call original function first
                 const result = originalDisplayModalResults.call(this, analysis);
                 
                 // Extract suggestions and trigger AI processing
-                if (analysis && analysis.suggestions) {
+                if (analysis && analysis.suggestions && !analysis._aiProcessingScheduled) {
                     const genre = analysis.metadata?.genre || analysis.genre || window.PROD_AI_REF_GENRE;
                     const metrics = analysis.technicalData || {};
                     
                     console.log('🔗 [AI-INTEGRATION] Interceptando sugestões para processamento IA');
+                    
+                    // 🚨 Marcar como agendado para processamento para evitar duplicação
+                    analysis._aiProcessingScheduled = true;
                     
                     // Delay slightly to ensure modal is rendered
                     setTimeout(() => {
