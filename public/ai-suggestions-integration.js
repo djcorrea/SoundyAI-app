@@ -1058,6 +1058,15 @@ class AISuggestionsIntegration {
         console.log('   • A redução pode ocorrer em qualquer passo');
         console.log('   • Logs mostram entrada/saída de cada função');
         console.groupEnd();
+        
+        // 🚨 DEBUG: Verificar se priority-banners foram renderizados
+        setTimeout(() => {
+            console.log('[DEBUG] Banners renderizados:', document.querySelectorAll('.priority-banner').length);
+            const banners = document.querySelectorAll('.priority-banner');
+            banners.forEach((banner, idx) => {
+                console.log(`[DEBUG] Banner ${idx + 1}:`, banner.textContent);
+            });
+        }, 1500);
     }
     
     /**
@@ -1068,7 +1077,22 @@ class AISuggestionsIntegration {
         card.className = `ai-suggestion-card ${source === 'fallback' ? 'ai-base-suggestion' : ''}`;
         card.style.animationDelay = `${index * 0.1}s`;
         
-        // 🔹 BLOCO INTELIGENTE DA IA: Exibir campos diretos da IA antes dos blocos tradicionais
+        // � PRIORITY BANNER: Renderização dinâmica para priorityWarning
+        if (suggestion.priorityWarning) {
+            console.log('[UI] priorityWarning detectado:', suggestion.priorityWarning);
+            
+            const priorityBanner = document.createElement('div');
+            priorityBanner.className = 'priority-banner';
+            priorityBanner.innerHTML = `
+                <div class="priority-icon">⚡</div>
+                <div class="priority-text">${suggestion.priorityWarning}</div>
+            `;
+            
+            // Insere no topo do card antes dos outros blocos
+            card.appendChild(priorityBanner);
+        }
+        
+        // �🔹 BLOCO INTELIGENTE DA IA: Exibir campos diretos da IA antes dos blocos tradicionais
         let aiSummaryHTML = '';
         if (suggestion.message && !suggestion.problema) {
             const summaryParts = [];
