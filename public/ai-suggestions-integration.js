@@ -247,23 +247,27 @@ class AISuggestionsIntegration {
                 const original = validSuggestions[i] || {};
                 const meta = s.metadata || {};
                 const content = meta.content || {};
-                const originalLayer = content.original || {};
-                const enrichedLayer = content.enriched || {};
-
-                // Busca recursiva em múltiplos níveis
+                
+                // Busca mensagens em múltiplas camadas
                 const originalMsg =
                     s.message ||
                     meta.message ||
-                    enrichedLayer.message ||
-                    originalLayer.message ||
-                    (original.message && typeof original.message === "string" ? original.message : null);
+                    (meta.original && meta.original.message) ||
+                    (meta.enriched && meta.enriched.message) ||
+                    (content.original && content.original.message) ||
+                    (content.enriched && content.enriched.message) ||
+                    original.message ||
+                    (original.original && typeof original.original === "string" ? original.original : null);
 
                 const originalAction =
                     s.action ||
                     meta.action ||
-                    enrichedLayer.action ||
-                    originalLayer.action ||
-                    (original.action && typeof original.action === "string" ? original.action : null);
+                    (meta.original && meta.original.action) ||
+                    (meta.enriched && meta.enriched.action) ||
+                    (content.original && content.original.action) ||
+                    (content.enriched && content.enriched.action) ||
+                    original.action ||
+                    (original.originalAction && typeof original.originalAction === "string" ? original.originalAction : null);
 
                 return {
                     ai_enhanced: true,
@@ -285,12 +289,21 @@ class AISuggestionsIntegration {
                 return (a.priority || 1) - (b.priority || 1);
             });
 
-            console.group('🔍 [AUDITORIA] PASSO 4: MERGE AVANÇADO COM BUSCA EM METADATA.CONTENT');
-            console.log('✅ Merge realizado com busca recursiva em metadata.content.original/enriched.message:', {
+            console.group('🔍 [AUDITORIA] PASSO 4: MERGE AVANÇADO COM BUSCA EM MÚLTIPLAS CAMADAS');
+            console.log('✅ Merge realizado com busca recursiva em todas as camadas de metadata:', {
                 enhancedCount: finalSuggestions.length,
                 originalCount: validSuggestions.length,
                 processingTime: `${processingTime}ms`,
-                searchLayers: ['s.message', 'meta.message', 'enrichedLayer.message', 'originalLayer.message', 'original.message']
+                searchLayers: [
+                    's.message', 
+                    'meta.message', 
+                    'meta.original.message', 
+                    'meta.enriched.message',
+                    'content.original.message', 
+                    'content.enriched.message',
+                    'original.message',
+                    'original.original'
+                ]
             });
             finalSuggestions.forEach((sug, index) => {
                 console.log(`📋 Merged Sugestão ${index + 1}:`, {
