@@ -242,6 +242,10 @@ class AISuggestionsIntegration {
                 this.updateStatus('error', 'IA não respondeu corretamente');
             }
             
+            // 🔍 AUDITORIA PRÉ-MERGE: Ver exatamente o que veio da API
+            console.log('[AUDIT-PRE-MERGE] data.enhancedSuggestions da API:', JSON.stringify(data.enhancedSuggestions, null, 2));
+            console.log('[AUDIT-PRE-MERGE] validSuggestions para merge:', JSON.stringify(validSuggestions, null, 2));
+            
             // 🎯 PASSO 4: MERGE AVANÇADO COM BUSCA EM METADATA
             const merged = data.enhancedSuggestions.map((s, i) => {
                 const original = validSuggestions[i] || {};
@@ -397,6 +401,8 @@ class AISuggestionsIntegration {
      * Validar e normalizar sugestões antes de enviar para IA
      */
     validateAndNormalizeSuggestions(suggestions) {
+        console.log('[AUDIT-PRE] validateAndNormalizeSuggestions - ENTRADA:', JSON.stringify(suggestions, null, 2));
+        
         if (!Array.isArray(suggestions)) {
             console.warn('⚠️ [AI-INTEGRATION] Sugestões não são array:', typeof suggestions);
             return [];
@@ -413,20 +419,36 @@ class AISuggestionsIntegration {
 
             return true;
         }).map(suggestion => {
-            // Normalizar estrutura para o formato esperado pelo backend
+            // 🔧 PRESERVAR TODOS OS CAMPOS ORIGINAIS + Normalizar estrutura para backend
             return {
+                // 🎯 CAMPOS ORIGINAIS PRESERVADOS (CRÍTICO!)
+                ...suggestion,
+                
+                // 📋 CAMPOS NORMALIZADOS PARA BACKEND (sem sobrescrever originais)
                 metric: suggestion.metric || suggestion.type || 'geral',
                 issue: suggestion.issue || suggestion.message || suggestion.title || 'Problema detectado',
                 solution: suggestion.solution || suggestion.action || suggestion.description || 'Ajuste recomendado',
                 priority: suggestion.priority || 5,
-                confidence: suggestion.confidence || 0.7
+                confidence: suggestion.confidence || 0.7,
+                
+                // 🛡️ GARANTIR QUE CAMPOS CRÍTICOS NUNCA SEJAM UNDEFINED
+                message: suggestion.message || suggestion.issue || suggestion.title,
+                action: suggestion.action || suggestion.solution || suggestion.description,
+                title: suggestion.title || suggestion.message || suggestion.issue
             };
         });
 
-        console.log('✅ [AI-INTEGRATION] Sugestões validadas:', {
+        console.log('[AUDIT-POST] validateAndNormalizeSuggestions - SAÍDA:', JSON.stringify(validSuggestions, null, 2));
+        console.log('✅ [AI-INTEGRATION] Sugestões validadas E PRESERVADAS:', {
             original: suggestions.length,
             valid: validSuggestions.length,
-            filtered: suggestions.length - validSuggestions.length
+            filtered: suggestions.length - validSuggestions.length,
+            preservedFields: validSuggestions.map(s => ({ 
+                hasMessage: !!s.message, 
+                hasAction: !!s.action,
+                hasTitle: !!s.title,
+                messagePreview: s.message?.substring(0, 50) + '...' 
+            }))
         });
 
         return validSuggestions;
@@ -436,11 +458,13 @@ class AISuggestionsIntegration {
      * Construir payload válido para o backend - FOCADO EM PROBLEMAS DETECTADOS
      */
     buildValidPayload(suggestions, metrics, genre) {
+        console.log('[AUDIT-PRE] buildValidPayload - ENTRADA:', JSON.stringify(suggestions, null, 2));
+        
         // 🎯 FORMATO CORRETO: Montar array de sugestões detalhadas
         const formattedSuggestions = suggestions.map((suggestion, index) => {
-            // Extrair dados da sugestão normalizada
-            const problemText = suggestion.issue || suggestion.message || suggestion.title || 'Problema detectado';
-            const actionText = suggestion.solution || suggestion.action || suggestion.description || 'Ajuste recomendado';
+            // Extrair dados da sugestão normalizada (PRESERVANDO CAMPOS ORIGINAIS)
+            const problemText = suggestion.message || suggestion.issue || suggestion.title || 'Problema detectado';
+            const actionText = suggestion.action || suggestion.solution || suggestion.description || 'Ajuste recomendado';
             
             // Determinar prioridade (1=alta, 2=média, 3=baixa)
             let priority = suggestion.priority || 2;
@@ -455,10 +479,16 @@ class AISuggestionsIntegration {
             priority = Math.max(1, Math.min(3, Math.floor(priority)));
             
             return {
+                // 🔧 USAR CAMPOS ORIGINAIS COMO PRIORIDADE
                 message: problemText,
                 action: actionText, 
                 priority: priority,
-                confidence: suggestion.confidence || 0.8
+                confidence: suggestion.confidence || 0.8,
+                
+                // 🛡️ PRESERVAR CAMPOS ORIGINAIS PARA RETORNO
+                originalMessage: suggestion.message,
+                originalAction: suggestion.action,
+                originalTitle: suggestion.title
             };
         });
         
@@ -471,11 +501,17 @@ class AISuggestionsIntegration {
             genre: genre || window.__activeRefGenre || 'geral'
         };
 
-        console.log('📦 [AI-INTEGRATION] Payload para backend construído:', {
+        console.log('[AUDIT-POST] buildValidPayload - SAÍDA:', JSON.stringify(payload, null, 2));
+        console.log('📦 [AI-INTEGRATION] Payload para backend construído COM PRESERVAÇÃO:', {
             suggestionsCount: payload.suggestions.length,
             genre: payload.genre,
             hasMetrics: !!payload.metrics,
-            firstSuggestion: payload.suggestions[0] || null
+            firstSuggestion: payload.suggestions[0] || null,
+            preservedMessages: payload.suggestions.map(s => ({ 
+                message: s.message, 
+                originalMessage: s.originalMessage,
+                hasOriginal: !!s.originalMessage 
+            }))
         });
 
         return payload;
