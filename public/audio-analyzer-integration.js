@@ -1599,10 +1599,33 @@ function initializeAudioAnalyzerIntegration() {
     
     __dbg('🎵 Audio Analyzer Integration carregada com sucesso!');
     
-    // Dispara evento global para liberar ForceActivator
-    const evt = new Event("analysisReady");
-    document.dispatchEvent(evt);
-    console.log("🚀 [GLOBAL] analysisReady disparado - sistema pronto para ForceActivator");
+    // 🧠 Aguarda refs e cache ficarem prontos antes de liberar o ForceActivator
+    function waitForRefsAndCacheBeforeReady() {
+        const checkReady = () => {
+            const ready = !!(window.audioAnalyzer && window.CACHE_CTX_AWARE_V1_API && window.refsReady);
+            console.log("⏳ [READY-CHECK] Estado atual:", {
+                audioAnalyzer: !!window.audioAnalyzer,
+                CACHE_CTX_AWARE_V1_API: !!window.CACHE_CTX_AWARE_V1_API,
+                refsReady: !!window.refsReady
+            });
+            if (ready) {
+                console.log("✅ [GLOBAL] Todos os sistemas prontos. Disparando analysisReady...");
+                const evt = new Event("analysisReady");
+                document.dispatchEvent(evt);
+                return true;
+            }
+            return false;
+        };
+
+        if (!checkReady()) {
+            const interval = setInterval(() => {
+                if (checkReady()) clearInterval(interval);
+            }, 300);
+        }
+    }
+
+    // 🔥 Chamar a função de espera no ponto onde estava o dispatch antigo:
+    waitForRefsAndCacheBeforeReady();
 
     // Aplicar estilos aprimorados ao seletor de gênero
     try { injectRefGenreStyles(); } catch(e) { /* silencioso */ }
