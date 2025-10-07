@@ -24,7 +24,7 @@
                 // Re-executa a IIFE completa quando o sistema estiver pronto
                 if (!window.FORCE_ACTIVATOR_ALREADY_RUN) {
                     window.STATUS_SUGGESTION_UNIFIED_V1 = true;
-                    forceUnifiedSystemApplication();
+                    safeForceActivator();
                 }
             } catch (err) {
                 console.error("❌ Erro ao aplicar ForceActivator pós-ready:", err);
@@ -38,6 +38,33 @@
     
     // Força ativação imediata
     window.STATUS_SUGGESTION_UNIFIED_V1 = true;
+    
+    // 🎯 CONTADOR DE TENTATIVAS E FUNÇÃO SEGURA PARA METRICS CORE
+    let forceCheckAttempts = 0;
+    
+    function safeForceActivator() {
+        const ready =
+            window.audioAnalyzer &&
+            window.audioAnalyzer.metrics &&
+            window.audioAnalyzer.metrics.truePeak &&
+            window.audioAnalyzer.metrics.dynamicRange &&
+            window.CACHE_CTX_AWARE_V1_API &&
+            window.refsReady === true;
+
+        if (!ready) {
+            if (forceCheckAttempts < 10) {
+                console.log("⏳ ForceActivator aguardando métricas core...");
+                forceCheckAttempts++;
+                setTimeout(safeForceActivator, 300);
+            } else {
+                console.warn("⚠️ ForceActivator cancelado após 10 tentativas.");
+            }
+            return;
+        }
+
+        console.log("✅ ForceActivator executado após sistema pronto (metrics core detectadas)");
+        forceUnifiedSystemApplication();
+    }
     
     // Intercepta e substitui qualquer tentativa de usar sistema legacy
     function forceUnifiedSystemApplication() {
@@ -172,22 +199,22 @@
     }
     window.FORCE_ACTIVATOR_ALREADY_RUN = true;
     
-    forceUnifiedSystemApplication();
+    safeForceActivator();
     
     // Reforçar após carregamento de outros scripts (com proteção anti-duplicação)
     setTimeout(() => {
         if (!window.FORCE_ACTIVATOR_ALREADY_RUN) {
-            forceUnifiedSystemApplication();
+            safeForceActivator();
         }
     }, 100);
     setTimeout(() => {
         if (!window.FORCE_ACTIVATOR_ALREADY_RUN) {
-            forceUnifiedSystemApplication();
+            safeForceActivator();
         }
     }, 500);
     setTimeout(() => {
         if (!window.FORCE_ACTIVATOR_ALREADY_RUN) {
-            forceUnifiedSystemApplication();
+            safeForceActivator();
         }
     }, 1000);
     
@@ -195,7 +222,7 @@
     if (window.MutationObserver) {
         const observer = new MutationObserver(() => {
             if (!window.FORCE_ACTIVATOR_ALREADY_RUN) {
-                forceUnifiedSystemApplication();
+                safeForceActivator();
             }
         });
         
@@ -210,6 +237,7 @@
     
     // Expor função para reforço manual
     window.forceUnifiedSystem = forceUnifiedSystemApplication;
+    window.safeForceActivator = safeForceActivator;
     
     console.log('🚀 [FORCE-ACTIVATOR] Forçador de ativação carregado');
     
