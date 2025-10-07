@@ -242,26 +242,28 @@ class AISuggestionsIntegration {
                 this.updateStatus('error', 'IA não respondeu corretamente');
             }
             
-            // 🎯 PASSO 4: MERGE SEGURO DAS SUGESTÕES ENRIQUECIDAS
+            // 🎯 PASSO 4: MERGE AVANÇADO COM BUSCA EM METADATA
             const merged = data.enhancedSuggestions.map((s, i) => {
                 const original = validSuggestions[i] || {};
                 const meta = s.metadata || {};
+                const content = meta.content || {};
+                const originalLayer = content.original || {};
+                const enrichedLayer = content.enriched || {};
 
-                // Busca mensagem original em múltiplos níveis
+                // Busca recursiva em múltiplos níveis
                 const originalMsg =
                     s.message ||
                     meta.message ||
-                    (meta.original && meta.original.message) ||
-                    original.message ||
-                    (original.original && typeof original.original === "string" ? original.original : null);
+                    enrichedLayer.message ||
+                    originalLayer.message ||
+                    (original.message && typeof original.message === "string" ? original.message : null);
 
-                // Busca ação original
                 const originalAction =
                     s.action ||
                     meta.action ||
-                    (meta.original && meta.original.action) ||
-                    original.action ||
-                    (original.originalAction && typeof original.originalAction === "string" ? original.originalAction : null);
+                    enrichedLayer.action ||
+                    originalLayer.action ||
+                    (original.action && typeof original.action === "string" ? original.action : null);
 
                 return {
                     ai_enhanced: true,
@@ -275,13 +277,20 @@ class AISuggestionsIntegration {
                     confidence: s.confidence || original.confidence || 0.9,
                 };
             });
-            const finalSuggestions = merged;
+            
+            // 🎯 ORDENAÇÃO: True Peak sempre no topo
+            const finalSuggestions = merged.sort((a, b) => {
+                if (a.message?.includes("True Peak") && !b.message?.includes("True Peak")) return -1;
+                if (!a.message?.includes("True Peak") && b.message?.includes("True Peak")) return 1;
+                return (a.priority || 1) - (b.priority || 1);
+            });
 
-            console.group('🔍 [AUDITORIA] PASSO 4: MERGE AVANÇADO COM BUSCA EM METADATA');
-            console.log('✅ Merge realizado com busca em metadata.original.message e múltiplos níveis:', {
+            console.group('🔍 [AUDITORIA] PASSO 4: MERGE AVANÇADO COM BUSCA EM METADATA.CONTENT');
+            console.log('✅ Merge realizado com busca recursiva em metadata.content.original/enriched.message:', {
                 enhancedCount: finalSuggestions.length,
                 originalCount: validSuggestions.length,
-                processingTime: `${processingTime}ms`
+                processingTime: `${processingTime}ms`,
+                searchLayers: ['s.message', 'meta.message', 'enrichedLayer.message', 'originalLayer.message', 'original.message']
             });
             finalSuggestions.forEach((sug, index) => {
                 console.log(`📋 Merged Sugestão ${index + 1}:`, {
