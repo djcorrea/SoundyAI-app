@@ -1598,6 +1598,11 @@ function initializeAudioAnalyzerIntegration() {
     setupAudioModal();
     
     __dbg('🎵 Audio Analyzer Integration carregada com sucesso!');
+    
+    // Dispara evento global para liberar ForceActivator
+    const evt = new Event("analysisReady");
+    document.dispatchEvent(evt);
+    console.log("🚀 [GLOBAL] analysisReady disparado - sistema pronto para ForceActivator");
 
     // Aplicar estilos aprimorados ao seletor de gênero
     try { injectRefGenreStyles(); } catch(e) { /* silencioso */ }

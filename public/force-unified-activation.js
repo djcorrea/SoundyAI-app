@@ -8,6 +8,34 @@
 (function() {
     'use strict';
     
+    // === [SAFE-GUARD BOOT] ====================================
+    if (!window.audioAnalyzer || !window.CACHE_CTX_AWARE_V1_API || !window.refsReady) {
+        console.warn("⏳ ForceActivator adiado: sistema ainda não está pronto.");
+        console.log("Estado atual:", {
+            audioAnalyzer: !!window.audioAnalyzer,
+            CACHE_CTX_AWARE_V1_API: !!window.CACHE_CTX_AWARE_V1_API,
+            refsReady: !!window.refsReady
+        });
+
+        // Escuta o evento que marca a inicialização real do sistema de áudio
+        document.addEventListener("analysisReady", () => {
+            console.log("✅ ForceActivator executado após sistema pronto (analysisReady).");
+            try {
+                // Re-executa a IIFE completa quando o sistema estiver pronto
+                if (!window.FORCE_ACTIVATOR_ALREADY_RUN) {
+                    window.STATUS_SUGGESTION_UNIFIED_V1 = true;
+                    forceUnifiedSystemApplication();
+                }
+            } catch (err) {
+                console.error("❌ Erro ao aplicar ForceActivator pós-ready:", err);
+            }
+        }, { once: true });
+
+        // Não continua agora — aguarda o evento
+        return;
+    }
+    // ===========================================================
+    
     // Força ativação imediata
     window.STATUS_SUGGESTION_UNIFIED_V1 = true;
     
@@ -113,21 +141,62 @@
             return { total: problems, details: [] };
         };
         
+        // 🔍 AUDITORIA: Registrar estado do sistema no momento da ativação
+        const timestamp = new Date().toISOString();
+        const auditData = {
+            timestamp,
+            audioAnalyzer: typeof window.audioAnalyzer !== 'undefined' ? 'defined' : 'undefined',
+            cacheCtxAware: typeof window.CACHE_CTX_AWARE_V1_API !== 'undefined' ? 'defined' : 'undefined',
+            refsReady: typeof window.refsReady !== 'undefined' ? window.refsReady : 'undefined',
+            genre: typeof window.currentGenre !== 'undefined' ? window.currentGenre : 'undefined',
+            audioLoaded: typeof window.audioLoaded !== 'undefined' ? window.audioLoaded : 'undefined',
+            stackTrace: new Error().stack
+        };
+        
         console.log('🎯 [FORCE-ACTIVATOR] Sistema unificado aplicado agressivamente');
+        console.log('--- FORCE-ACTIVATOR AUDIT ---');
+        console.log('Timestamp:', auditData.timestamp);
+        console.log('audioAnalyzer:', auditData.audioAnalyzer);
+        console.log('CACHE_CTX_AWARE_V1_API:', auditData.cacheCtxAware);
+        console.log('refsReady:', auditData.refsReady);
+        console.log('genre:', auditData.genre);
+        console.log('audioLoaded:', auditData.audioLoaded);
+        console.log('Stack trace:', auditData.stackTrace);
+        console.log('-------------------------------');
     }
     
     // Aplicar imediatamente e reforçar periodicamente
+    if (window.FORCE_ACTIVATOR_ALREADY_RUN) {
+        console.warn("⏩ ForceActivator já foi executado, ignorando chamada duplicada.");
+        return;
+    }
+    window.FORCE_ACTIVATOR_ALREADY_RUN = true;
+    
     forceUnifiedSystemApplication();
     
-    // Reforçar após carregamento de outros scripts
-    setTimeout(forceUnifiedSystemApplication, 100);
-    setTimeout(forceUnifiedSystemApplication, 500);
-    setTimeout(forceUnifiedSystemApplication, 1000);
+    // Reforçar após carregamento de outros scripts (com proteção anti-duplicação)
+    setTimeout(() => {
+        if (!window.FORCE_ACTIVATOR_ALREADY_RUN) {
+            forceUnifiedSystemApplication();
+        }
+    }, 100);
+    setTimeout(() => {
+        if (!window.FORCE_ACTIVATOR_ALREADY_RUN) {
+            forceUnifiedSystemApplication();
+        }
+    }, 500);
+    setTimeout(() => {
+        if (!window.FORCE_ACTIVATOR_ALREADY_RUN) {
+            forceUnifiedSystemApplication();
+        }
+    }, 1000);
     
     // Observar mudanças no DOM que possam recriar elementos
     if (window.MutationObserver) {
         const observer = new MutationObserver(() => {
-            forceUnifiedSystemApplication();
+            if (!window.FORCE_ACTIVATOR_ALREADY_RUN) {
+                forceUnifiedSystemApplication();
+            }
         });
         
         if (document.body) {
@@ -143,5 +212,17 @@
     window.forceUnifiedSystem = forceUnifiedSystemApplication;
     
     console.log('🚀 [FORCE-ACTIVATOR] Forçador de ativação carregado');
+    
+    // 🔍 AUDITORIA INICIAL: Estado no momento do carregamento do script
+    console.log('--- FORCE-ACTIVATOR INITIAL STATE ---');
+    console.log('DOMContentLoaded fired:', document.readyState !== 'loading');
+    console.log('document.readyState:', document.readyState);
+    console.log('window.audioAnalyzer:', typeof window.audioAnalyzer);
+    console.log('window.CACHE_CTX_AWARE_V1_API:', typeof window.CACHE_CTX_AWARE_V1_API);
+    console.log('window.refsReady:', window.refsReady);
+    console.log('window.currentGenre:', window.currentGenre);
+    console.log('window.audioLoaded:', window.audioLoaded);
+    console.log('Loaded via script tag in index.html (no defer)');
+    console.log('------------------------------------');
     
 })();
