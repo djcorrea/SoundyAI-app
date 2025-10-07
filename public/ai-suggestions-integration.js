@@ -245,14 +245,21 @@ class AISuggestionsIntegration {
             // 🎯 PASSO 4: MERGE SEGURO DAS SUGESTÕES ENRIQUECIDAS
             const merged = data.enhancedSuggestions.map((s, i) => {
                 const original = validSuggestions[i] || {};
+                const meta = s.metadata || {};
+
+                // Busca mensagem original em múltiplos níveis
                 const originalMsg =
                     s.message ||
-                    s.original ||
+                    meta.message ||
+                    (meta.original && meta.original.message) ||
                     original.message ||
                     (original.original && typeof original.original === "string" ? original.original : null);
 
+                // Busca ação original
                 const originalAction =
                     s.action ||
+                    meta.action ||
+                    (meta.original && meta.original.action) ||
                     original.action ||
                     (original.originalAction && typeof original.originalAction === "string" ? original.originalAction : null);
 
@@ -261,6 +268,7 @@ class AISuggestionsIntegration {
                     ...original,
                     ...s,
                     hasOriginalMessage: !!originalMsg,
+                    messageSource: originalMsg ? "restored" : "fallback",
                     message: originalMsg || "⚠️ Mensagem perdida na integração.",
                     action: originalAction,
                     priority: s.priority || original.priority || 1,
@@ -269,8 +277,8 @@ class AISuggestionsIntegration {
             });
             const finalSuggestions = merged;
 
-            console.group('🔍 [AUDITORIA] PASSO 4: MERGE AVANÇADO COM BUSCA EM MÚLTIPLOS CAMPOS');
-            console.log('✅ Merge realizado com busca em s.original, original.original, etc.:', {
+            console.group('🔍 [AUDITORIA] PASSO 4: MERGE AVANÇADO COM BUSCA EM METADATA');
+            console.log('✅ Merge realizado com busca em metadata.original.message e múltiplos níveis:', {
                 enhancedCount: finalSuggestions.length,
                 originalCount: validSuggestions.length,
                 processingTime: `${processingTime}ms`
@@ -279,8 +287,9 @@ class AISuggestionsIntegration {
                 console.log(`📋 Merged Sugestão ${index + 1}:`, {
                     ai_enhanced: sug.ai_enhanced,
                     hasOriginalMessage: sug.hasOriginalMessage,
-                    messageSource: sug.hasOriginalMessage ? 'preserved' : 'fallback',
+                    messageSource: sug.messageSource,
                     messagePreview: sug.message?.substring(0, 50) + '...',
+                    hasMetadata: !!(sug.metadata),
                     keys: Object.keys(sug)
                 });
             });

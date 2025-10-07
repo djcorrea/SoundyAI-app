@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - Busca em Metadata True Peak</title>
+</head>
+<body>
+    <h1>🔍 Teste - Busca em Metadata para True Peak</h1>
+    <p>Abra o console (F12) e observe os logs:</p>
+    
+    <div id="log-container">
+        <h3>Nova Ordem de Busca em Metadata:</h3>
+        <ol>
+            <li>🎯 <code>s.message</code> (resposta direta da IA)</li>
+            <li>🔍 <code>meta.message</code> (metadata.message)</li>
+            <li>⚡ <code>meta.original.message</code> (metadata.original.message)</li>
+            <li>📋 <code>original.message</code> (sugestão original)</li>
+            <li>🔄 <code>original.original</code> (campo aninhado)</li>
+        </ol>
+    </div>
+
+    <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+        <h4>🧪 Cenários de Teste:</h4>
+        <button onclick="testMetadataMessage()">🔍 meta.message presente</button>
+        <button onclick="testMetadataOriginal()">⚡ meta.original.message</button>
+        <button onclick="testMetadataAction()">🎬 meta.original.action</button>
+        <button onclick="testTruePeakFromBackend()">📡 True Peak do Backend</button>
+        <button onclick="testCompleteMetadataFlow()">🔄 Fluxo Completo Metadata</button>
+        <button onclick="console.clear()">🧹 Limpar Console</button>
+    </div>
+
+    <div id="result-display" style="margin: 20px 0; padding: 15px; background: #e7f3ff; border-radius: 5px;">
+        <h4>📊 Resultado do Último Teste:</h4>
+        <div id="result-content">Nenhum teste executado ainda.</div>
+    </div>
+
+    <script>
+        // Função de merge implementada (cópia da correção com metadata)
+        function testMergeWithMetadata(validSuggestions, enhancedSuggestions) {
+            return enhancedSuggestions.map((s, i) => {
+                const original = validSuggestions[i] || {};
+                const meta = s.metadata || {};
+
+                // Busca mensagem original em múltiplos níveis
+                const originalMsg =
+                    s.message ||
+                    meta.message ||
+                    (meta.original && meta.original.message) ||
+                    original.message ||
+                    (original.original && typeof original.original === "string" ? original.original : null);
+
+                // Busca ação original
+                const originalAction =
+                    s.action ||
+                    meta.action ||
+                    (meta.original && meta.original.action) ||
+                    original.action ||
+                    (original.originalAction && typeof original.originalAction === "string" ? original.originalAction : null);
+
+                return {
+                    ai_enhanced: true,
+                    ...original,
+                    ...s,
+                    hasOriginalMessage: !!originalMsg,
+                    messageSource: originalMsg ? "restored" : "fallback",
+                    message: originalMsg || "⚠️ Mensagem perdida na integração.",
+                    action: originalAction,
+                    priority: s.priority || original.priority || 1,
+                    confidence: s.confidence || original.confidence || 0.9,
+                };
+            });
+        }
+
+        function displayResult(scenarioName, result, expected, metadata) {
+            const div = document.getElementById('result-content');
+            const success = result.message === expected;
+            
+            div.innerHTML = `
+                <div><strong>Cenário:</strong> ${scenarioName}</div>
+                <div><strong>Resultado:</strong> ${success ? '✅ SUCESSO' : '❌ FALHA'}</div>
+                <div><strong>Mensagem obtida:</strong> "${result.message}"</div>
+                <div><strong>Mensagem esperada:</strong> "${expected}"</div>
+                <div><strong>Message Source:</strong> ${result.messageSource}</div>
+                <div><strong>hasOriginalMessage:</strong> ${result.hasOriginalMessage}</div>
+                <div><strong>Metadata presente:</strong> ${!!metadata}</div>
+                <div style="margin-top: 10px;"><strong>Dados completos:</strong> ${JSON.stringify(result, null, 2)}</div>
+            `;
+            
+            console.log(`🧪 ${scenarioName}:`, {
+                success,
+                message: result.message,
+                messageSource: result.messageSource,
+                hasOriginalMessage: result.hasOriginalMessage,
+                metadata: metadata,
+                fullResult: result
+            });
+        }
+
+        function testMetadataMessage() {
+            console.log('🔍 Cenário: meta.message presente');
+            const validSuggestions = [{message: "Original message"}];
+            const enhancedSuggestions = [{
+                message: null,
+                metadata: {
+                    message: "⚡ True Peak from metadata.message"
+                }
+            }];
+            
+            const result = testMergeWithMetadata(validSuggestions, enhancedSuggestions)[0];
+            const expected = "⚡ True Peak from metadata.message";
+            
+            displayResult("meta.message presente", result, expected, enhancedSuggestions[0].metadata);
+        }
+
+        function testMetadataOriginal() {
+            console.log('⚡ Cenário: meta.original.message presente');
+            const validSuggestions = [{message: "Fallback message"}];
+            const enhancedSuggestions = [{
+                message: null,
+                metadata: {
+                    message: null,
+                    original: {
+                        message: "⚡ True Peak requer correção PRIORITÁRIA. Reduza o limitador ou use compressão suave para evitar clipping digital."
+                    }
+                }
+            }];
+            
+            const result = testMergeWithMetadata(validSuggestions, enhancedSuggestions)[0];
+            const expected = "⚡ True Peak requer correção PRIORITÁRIA. Reduza o limitador ou use compressão suave para evitar clipping digital.";
+            
+            displayResult("meta.original.message", result, expected, enhancedSuggestions[0].metadata);
+        }
+
+        function testMetadataAction() {
+            console.log('🎬 Cenário: meta.original.action presente');
+            const validSuggestions = [{action: "Fallback action"}];
+            const enhancedSuggestions = [{
+                action: null,
+                metadata: {
+                    action: null,
+                    original: {
+                        action: "Ajustar limitador para -1.0 dB",
+                        message: "True Peak message"
+                    }
+                }
+            }];
+            
+            const result = testMergeWithMetadata(validSuggestions, enhancedSuggestions)[0];
+            
+            console.log('📊 Action test result:', {
+                action: result.action,
+                expected: "Ajustar limitador para -1.0 dB",
+                success: result.action === "Ajustar limitador para -1.0 dB"
+            });
+
+            displayResult("meta.original.action", result, result.message, enhancedSuggestions[0].metadata);
+        }
+
+        function testTruePeakFromBackend() {
+            console.log('📡 Cenário: True Peak completo do Backend');
+            
+            // Simular sugestão original
+            const validSuggestions = [{
+                message: "⚡ True Peak requer correção PRIORITÁRIA. Reduza o limitador ou use compressão suave para evitar clipping digital.",
+                action: "Ajustar limitador para -1.0 dB",
+                priority: 1,
+                type: "truePeak",
+                metric: "true_peak",
+                value: 0.5,
+                target: -1.0
+            }];
+            
+            // Simular resposta do backend que preservou em metadata
+            const enhancedSuggestions = [{
+                message: null, // IA não retornou mensagem direta
+                action: "Apply gentle limiting to reduce peaks",
+                metadata: {
+                    processing_type: "mastering",
+                    priority: "high",
+                    original: {
+                        message: "⚡ True Peak requer correção PRIORITÁRIA. Reduza o limitador ou use compressão suave para evitar clipping digital.",
+                        action: "Ajustar limitador para -1.0 dB",
+                        metric: "true_peak",
+                        value: 0.5,
+                        target: -1.0
+                    }
+                },
+                blocks: {
+                    problem: "True peak elevation detected",
+                    solution: "Apply gentle limiting",
+                    education: "Digital clipping prevention"
+                }
+            }];
+            
+            const result = testMergeWithMetadata(validSuggestions, enhancedSuggestions)[0];
+            const expected = "⚡ True Peak requer correção PRIORITÁRIA. Reduza o limitador ou use compressão suave para evitar clipping digital.";
+            
+            console.log('🎯 True Peak Backend test:', {
+                originalMessage: validSuggestions[0].message,
+                backendMetadata: enhancedSuggestions[0].metadata,
+                finalMessage: result.message,
+                preserved: result.message === expected,
+                messageSource: result.messageSource
+            });
+            
+            displayResult("True Peak do Backend", result, expected, enhancedSuggestions[0].metadata);
+        }
+
+        function testCompleteMetadataFlow() {
+            console.log('🔄 Cenário: Fluxo Completo com Metadata');
+            
+            // Testar múltiplas sugestões com diferentes localizações de dados
+            const validSuggestions = [
+                {message: "Original True Peak", priority: 1},
+                {message: "Original LUFS", priority: 2},
+                {message: "Original DR", priority: 3}
+            ];
+            
+            const enhancedSuggestions = [
+                {
+                    message: null,
+                    metadata: {
+                        original: {
+                            message: "⚡ True Peak (metadata.original.message)"
+                        }
+                    }
+                },
+                {
+                    message: null,
+                    metadata: {
+                        message: "📊 LUFS (metadata.message)"
+                    }
+                },
+                {
+                    message: "🎵 DR (s.message direct)",
+                    metadata: {
+                        message: "Should not be used"
+                    }
+                }
+            ];
+            
+            const results = testMergeWithMetadata(validSuggestions, enhancedSuggestions);
+            
+            console.log('🔄 Complete flow results:', results.map((r, i) => ({
+                index: i + 1,
+                message: r.message,
+                messageSource: r.messageSource,
+                hasOriginalMessage: r.hasOriginalMessage
+            })));
+            
+            const allPreserved = results.every(r => r.hasOriginalMessage);
+            
+            displayResult("Fluxo Completo Metadata", {
+                message: `${results.length} sugestões processadas`,
+                messageSource: allPreserved ? "restored" : "mixed",
+                hasOriginalMessage: allPreserved
+            }, `${results.length} sugestões processadas`, {complete: true});
+        }
+
+        // Log inicial
+        console.log("🚀 [TEST] Teste de busca em metadata iniciado");
+        console.log("🔍 Nova ordem: s.message → meta.message → meta.original.message → original.message → original.original");
+    </script>
+</body>
+</html>
