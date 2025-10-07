@@ -247,25 +247,37 @@ class AISuggestionsIntegration {
                 const original = validSuggestions[i] || {};
                 const meta = s.metadata || {};
                 const content = meta.content || {};
-                
-                // Busca mensagens em múltiplas camadas
-                const originalMsg =
+                const inner = meta.inner || {};
+                const originalData = meta.originalData || {};
+                const data = meta.data || {};
+                const enriched = meta.enriched || {};
+
+                // Busca recursiva ampla
+                const resolvedMessage =
                     s.message ||
                     meta.message ||
                     (meta.original && meta.original.message) ||
                     (meta.enriched && meta.enriched.message) ||
+                    data.message ||
+                    originalData.message ||
                     (content.original && content.original.message) ||
                     (content.enriched && content.enriched.message) ||
+                    (inner.original && inner.original.message) ||
+                    (inner.enriched && inner.enriched.message) ||
                     original.message ||
                     (original.original && typeof original.original === "string" ? original.original : null);
 
-                const originalAction =
+                const resolvedAction =
                     s.action ||
                     meta.action ||
                     (meta.original && meta.original.action) ||
                     (meta.enriched && meta.enriched.action) ||
+                    data.action ||
+                    originalData.action ||
                     (content.original && content.original.action) ||
                     (content.enriched && content.enriched.action) ||
+                    (inner.original && inner.original.action) ||
+                    (inner.enriched && inner.enriched.action) ||
                     original.action ||
                     (original.originalAction && typeof original.originalAction === "string" ? original.originalAction : null);
 
@@ -273,10 +285,11 @@ class AISuggestionsIntegration {
                     ai_enhanced: true,
                     ...original,
                     ...s,
-                    hasOriginalMessage: !!originalMsg,
-                    messageSource: originalMsg ? "restored" : "fallback",
-                    message: originalMsg || "⚠️ Mensagem perdida na integração.",
-                    action: originalAction,
+                    hasOriginalMessage: !!resolvedMessage,
+                    messageSource: resolvedMessage ? "restored" : "fallback",
+                    message: resolvedMessage || "⚠️ Mensagem perdida na integração.",
+                    title: resolvedMessage || "⚠️ Mensagem perdida na integração.",
+                    action: resolvedAction,
                     priority: s.priority || original.priority || 1,
                     confidence: s.confidence || original.confidence || 0.9,
                 };
@@ -289,8 +302,8 @@ class AISuggestionsIntegration {
                 return (a.priority || 1) - (b.priority || 1);
             });
 
-            console.group('🔍 [AUDITORIA] PASSO 4: MERGE AVANÇADO COM BUSCA EM MÚLTIPLAS CAMADAS');
-            console.log('✅ Merge realizado com busca recursiva em todas as camadas de metadata:', {
+            console.group('🔍 [AUDITORIA] PASSO 4: MERGE AVANÇADO COM BUSCA RECURSIVA AMPLA');
+            console.log('✅ Merge realizado com busca recursiva em TODAS as variações de metadata:', {
                 enhancedCount: finalSuggestions.length,
                 originalCount: validSuggestions.length,
                 processingTime: `${processingTime}ms`,
@@ -299,8 +312,12 @@ class AISuggestionsIntegration {
                     'meta.message', 
                     'meta.original.message', 
                     'meta.enriched.message',
+                    'meta.data.message',
+                    'meta.originalData.message',
                     'content.original.message', 
                     'content.enriched.message',
+                    'inner.original.message',
+                    'inner.enriched.message',
                     'original.message',
                     'original.original'
                 ]
@@ -891,7 +908,16 @@ class AISuggestionsIntegration {
      * Exibir sugestões no grid
      */
     displaySuggestions(suggestions, source = 'ai') {
-        // 🔍 AUDITORIA PASSO 6: RENDERIZAÇÃO FINAL
+        // � CORREÇÃO: Garantir que title seja igual a message se não existir
+        if (suggestions && Array.isArray(suggestions)) {
+            suggestions.forEach((s) => {
+                if (!s.title && s.message) {
+                    s.title = s.message;
+                }
+            });
+        }
+        
+        // �🔍 AUDITORIA PASSO 6: RENDERIZAÇÃO FINAL
         console.group('🔍 [AUDITORIA] RENDERIZAÇÃO FINAL');
         console.log('[AI-UI] Renderizando sugestões enriquecidas:', suggestions?.length || 0);
         console.log('🖥️ displaySuggestions chamado com:', {

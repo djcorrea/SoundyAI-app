@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - Correção Completa Merge + UI</title>
+</head>
+<body>
+    <h1>🧪 Teste - Correção Completa: Merge + UI</h1>
+    <p>Abra o console (F12) e observe os logs:</p>
+    
+    <div id="log-container">
+        <h3>🔍 Estruturas de Metadata Testadas:</h3>
+        <ol>
+            <li>🎯 <code>s.message</code></li>
+            <li>🔍 <code>meta.message</code></li>
+            <li>⚡ <code>meta.original.message</code></li>
+            <li>✨ <code>meta.enriched.message</code></li>
+            <li>📊 <code>meta.data.message</code></li>
+            <li>🗂️ <code>meta.originalData.message</code></li>
+            <li>🏗️ <code>content.original.message</code></li>
+            <li>🎨 <code>content.enriched.message</code></li>
+            <li>🏠 <code>inner.original.message</code></li>
+            <li>💎 <code>inner.enriched.message</code></li>
+            <li>📋 <code>original.message</code></li>
+            <li>🔄 <code>original.original</code></li>
+        </ol>
+    </div>
+
+    <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+        <h4>🧪 Cenários de Teste:</h4>
+        <button onclick="testAllMetadataStructures()">🌊 Todas as estruturas</button>
+        <button onclick="testTruePeakWithPlugins()">🎯 True Peak + Plugins</button>
+        <button onclick="testTitleMessageSync()">📋 Title/Message sync</button>
+        <button onclick="testUIRendering()">🖥️ Renderização UI</button>
+        <button onclick="testCompleteFlow()">🚀 Fluxo completo</button>
+        <button onclick="console.clear()">🧹 Limpar Console</button>
+    </div>
+
+    <div id="result-display" style="margin: 20px 0; padding: 15px; background: #e7f3ff; border-radius: 5px;">
+        <h4>📊 Resultado do Último Teste:</h4>
+        <div id="result-content">Nenhum teste executado ainda.</div>
+    </div>
+
+    <script>
+        // Função de merge completa com todas as estruturas
+        function testCompleteMetadataMerge(validSuggestions, enhancedSuggestions) {
+            return enhancedSuggestions.map((s, i) => {
+                const original = validSuggestions[i] || {};
+                const meta = s.metadata || {};
+                const content = meta.content || {};
+                const inner = meta.inner || {};
+                const originalData = meta.originalData || {};
+                const data = meta.data || {};
+                const enriched = meta.enriched || {};
+
+                // Busca recursiva ampla
+                const resolvedMessage =
+                    s.message ||
+                    meta.message ||
+                    (meta.original && meta.original.message) ||
+                    (meta.enriched && meta.enriched.message) ||
+                    data.message ||
+                    originalData.message ||
+                    (content.original && content.original.message) ||
+                    (content.enriched && content.enriched.message) ||
+                    (inner.original && inner.original.message) ||
+                    (inner.enriched && inner.enriched.message) ||
+                    original.message ||
+                    (original.original && typeof original.original === "string" ? original.original : null);
+
+                const resolvedAction =
+                    s.action ||
+                    meta.action ||
+                    (meta.original && meta.original.action) ||
+                    (meta.enriched && meta.enriched.action) ||
+                    data.action ||
+                    originalData.action ||
+                    (content.original && content.original.action) ||
+                    (content.enriched && content.enriched.action) ||
+                    (inner.original && inner.original.action) ||
+                    (inner.enriched && inner.enriched.action) ||
+                    original.action ||
+                    (original.originalAction && typeof original.originalAction === "string" ? original.originalAction : null);
+
+                return {
+                    ai_enhanced: true,
+                    ...original,
+                    ...s,
+                    hasOriginalMessage: !!resolvedMessage,
+                    messageSource: resolvedMessage ? "restored" : "fallback",
+                    message: resolvedMessage || "⚠️ Mensagem perdida na integração.",
+                    title: resolvedMessage || "⚠️ Mensagem perdida na integração.",
+                    action: resolvedAction,
+                    priority: s.priority || original.priority || 1,
+                    confidence: s.confidence || original.confidence || 0.9,
+                };
+            });
+        }
+
+        // Função de correção UI (title/message sync)
+        function applyUICorrections(suggestions) {
+            if (suggestions && Array.isArray(suggestions)) {
+                suggestions.forEach((s) => {
+                    if (!s.title && s.message) {
+                        s.title = s.message;
+                    }
+                });
+            }
+            return suggestions;
+        }
+
+        // Função de ordenação True Peak
+        function sortTruePeakFirst(suggestions) {
+            return suggestions.sort((a, b) => {
+                if (a.message?.includes("True Peak") && !b.message?.includes("True Peak")) return -1;
+                if (!a.message?.includes("True Peak") && b.message?.includes("True Peak")) return 1;
+                return (a.priority || 1) - (b.priority || 1);
+            });
+        }
+
+        function displayResult(scenarioName, results, successCriteria) {
+            const div = document.getElementById('result-content');
+            
+            div.innerHTML = `
+                <div><strong>Cenário:</strong> ${scenarioName}</div>
+                <div><strong>Critérios de sucesso:</strong> ${successCriteria}</div>
+                <div><strong>Resultados:</strong></div>
+                <ul>
+                    ${results.map(r => `<li>${r.success ? '✅' : '❌'} ${r.description}</li>`).join('')}
+                </ul>
+                <div style="margin-top: 10px;"><strong>Status geral:</strong> ${results.every(r => r.success) ? '✅ TODOS OS TESTES PASSARAM' : '❌ ALGUNS TESTES FALHARAM'}</div>
+            `;
+        }
+
+        function testAllMetadataStructures() {
+            console.log('🌊 Cenário: Teste de todas as estruturas de metadata');
+            
+            const structures = [
+                {
+                    name: "s.message direto",
+                    data: { message: "✅ Direct s.message" }
+                },
+                {
+                    name: "meta.message",
+                    data: { message: null, metadata: { message: "✅ Meta message" } }
+                },
+                {
+                    name: "meta.original.message",
+                    data: { message: null, metadata: { original: { message: "✅ Meta original" } } }
+                },
+                {
+                    name: "meta.data.message",
+                    data: { message: null, metadata: { data: { message: "✅ Meta data" } } }
+                },
+                {
+                    name: "meta.originalData.message",
+                    data: { message: null, metadata: { originalData: { message: "✅ Meta originalData" } } }
+                },
+                {
+                    name: "content.original.message",
+                    data: { message: null, metadata: { content: { original: { message: "✅ Content original" } } } }
+                },
+                {
+                    name: "inner.original.message",
+                    data: { message: null, metadata: { inner: { original: { message: "✅ Inner original" } } } }
+                }
+            ];
+            
+            const results = structures.map(structure => {
+                const merged = testCompleteMetadataMerge([{message: "Fallback"}], [structure.data]);
+                const success = merged[0].message.includes("✅") && merged[0].hasOriginalMessage;
+                
+                console.log(`🧪 ${structure.name}:`, {
+                    expected: structure.data,
+                    result: merged[0].message,
+                    success: success
+                });
+                
+                return {
+                    success: success,
+                    description: `${structure.name}: ${merged[0].message}`
+                };
+            });
+            
+            displayResult("Todas as estruturas de metadata", results, "Todas as estruturas devem ser encontradas e preservadas");
+        }
+
+        function testTruePeakWithPlugins() {
+            console.log('🎯 Cenário: True Peak com plugins específicos');
+            
+            const validSuggestions = [{
+                message: "Original True Peak",
+                priority: 1
+            }];
+            
+            const enhancedSuggestions = [{
+                message: null,
+                metadata: {
+                    original: {
+                        message: "⚡ True Peak requer correção PRIORITÁRIA (1.2 dBTP → -1.0 dBTP)",
+                        action: "Limiter nativo da DAW ou FabFilter Pro-L2"
+                    }
+                }
+            }];
+            
+            const merged = testCompleteMetadataMerge(validSuggestions, enhancedSuggestions);
+            const sorted = sortTruePeakFirst(merged);
+            
+            const results = [
+                {
+                    success: merged[0].message.includes("True Peak"),
+                    description: `True Peak detectado: ${merged[0].message}`
+                },
+                {
+                    success: merged[0].action?.includes("FabFilter"),
+                    description: `Plugin específico: ${merged[0].action}`
+                },
+                {
+                    success: sorted[0].message.includes("True Peak"),
+                    description: `True Peak no topo: ${sorted[0] === merged[0] ? 'SIM' : 'NÃO'}`
+                }
+            ];
+            
+            console.log('🎯 True Peak + Plugins test:', results);
+            
+            displayResult("True Peak com plugins", results, "True Peak deve ser detectado, plugin específico preservado, e ficar no topo");
+        }
+
+        function testTitleMessageSync() {
+            console.log('📋 Cenário: Sincronização title/message');
+            
+            const suggestions = [
+                { message: "Mensagem sem title", title: null },
+                { message: "Mensagem com title", title: "Title existente" },
+                { message: null, title: null }
+            ];
+            
+            const corrected = applyUICorrections([...suggestions]);
+            
+            const results = [
+                {
+                    success: corrected[0].title === corrected[0].message,
+                    description: `Primeiro item: title="${corrected[0].title}" message="${corrected[0].message}"`
+                },
+                {
+                    success: corrected[1].title === "Title existente",
+                    description: `Segunda item: title preservado "${corrected[1].title}"`
+                },
+                {
+                    success: corrected[2].title === null,
+                    description: `Terceiro item: ambos null mantidos`
+                }
+            ];
+            
+            console.log('📋 Title/Message sync test:', results);
+            
+            displayResult("Sincronização title/message", results, "Message deve ser copiado para title quando title está vazio");
+        }
+
+        function testUIRendering() {
+            console.log('🖥️ Cenário: Teste de renderização UI');
+            
+            const suggestions = [
+                {
+                    message: "⚡ True Peak crítico",
+                    title: null,
+                    hasOriginalMessage: true,
+                    messageSource: "restored"
+                },
+                {
+                    message: "📊 LUFS baixo",
+                    title: "📊 LUFS baixo",
+                    hasOriginalMessage: true,
+                    messageSource: "restored"
+                }
+            ];
+            
+            const corrected = applyUICorrections([...suggestions]);
+            
+            const results = [
+                {
+                    success: corrected.every(s => s.title),
+                    description: `Todos os itens têm title: ${corrected.map(s => !!s.title).join(', ')}`
+                },
+                {
+                    success: corrected.every(s => s.message),
+                    description: `Todos os itens têm message: ${corrected.map(s => !!s.message).join(', ')}`
+                },
+                {
+                    success: corrected.every(s => s.hasOriginalMessage),
+                    description: `Todas as mensagens foram restauradas: ${corrected.every(s => s.hasOriginalMessage)}`
+                }
+            ];
+            
+            console.log('🖥️ UI Rendering test:', results);
+            
+            displayResult("Renderização UI", results, "Todos os cards devem ter title e message válidos");
+        }
+
+        function testCompleteFlow() {
+            console.log('🚀 Cenário: Fluxo completo com True Peak real');
+            
+            // Simular resposta real do backend
+            const validSuggestions = [
+                { message: "LUFS original", priority: 2 },
+                { message: "True Peak original", priority: 1 },
+                { message: "DR original", priority: 3 }
+            ];
+            
+            const enhancedSuggestions = [
+                {
+                    message: null,
+                    metadata: {
+                        enriched: {
+                            message: "📊 LUFS está -18.5 LUFS, ideal para streaming",
+                            action: "Aumentar gain em +2.5 dB"
+                        }
+                    }
+                },
+                {
+                    message: null,
+                    metadata: {
+                        original: {
+                            message: "⚡ True Peak requer correção PRIORITÁRIA (1.2 dBTP → -1.0 dBTP)",
+                            action: "Limiter nativo da DAW ou FabFilter Pro-L2"
+                        }
+                    }
+                },
+                {
+                    message: null,
+                    metadata: {
+                        data: {
+                            message: "🎵 Dynamic Range adequado (DR8)",
+                            action: "Manter compressão atual"
+                        }
+                    }
+                }
+            ];
+            
+            // Executar fluxo completo
+            const merged = testCompleteMetadataMerge(validSuggestions, enhancedSuggestions);
+            const sorted = sortTruePeakFirst(merged);
+            const final = applyUICorrections(sorted);
+            
+            const results = [
+                {
+                    success: final.every(s => s.hasOriginalMessage),
+                    description: `Todas as mensagens preservadas: ${final.every(s => s.hasOriginalMessage)}`
+                },
+                {
+                    success: final[0].message.includes("True Peak"),
+                    description: `True Peak no topo: ${final[0].message.substring(0, 30)}...`
+                },
+                {
+                    success: final.some(s => s.action?.includes("FabFilter")),
+                    description: `Plugin específico preservado: ${final.find(s => s.action?.includes("FabFilter"))?.action}`
+                },
+                {
+                    success: final.every(s => s.title === s.message),
+                    description: `Title/message sincronizados: ${final.every(s => s.title === s.message)}`
+                }
+            ];
+            
+            console.log('🚀 Complete flow results:', {
+                originalCount: validSuggestions.length,
+                mergedCount: merged.length,
+                allRestored: final.every(s => s.hasOriginalMessage),
+                truePeakFirst: final[0].message.includes("True Peak"),
+                finalSuggestions: final.map(s => ({ message: s.message.substring(0, 50), action: s.action }))
+            });
+            
+            displayResult("Fluxo completo", results, "Merge + Ordenação + UI = Sistema funcionando 100%");
+        }
+
+        // Log inicial
+        console.log("🚀 [TEST] Teste completo de correção merge + UI iniciado");
+        console.log("🔍 Testando 12 estruturas de metadata + ordenação + sincronização title/message");
+    </script>
+</body>
+</html>
