@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste AI Summary Block</title>
+    <style>
+        body {
+            background: #0f172a;
+            color: #e2e8f0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 12px;
+            border: 1px solid rgba(51, 65, 85, 0.3);
+        }
+        .test-title {
+            color: #3b82f6;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+    </style>
+    <link rel="stylesheet" href="public/ai-suggestion-styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste AI Summary Block</h1>
+        <p>Validação da implementação do bloco inteligente da IA para mensagens completas</p>
+
+        <div class="test-section">
+            <div class="test-title">📋 Teste 1: Sugestão com Mensagem IA Completa</div>
+            <div id="test-ai-suggestion"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">⚙️ Teste 2: Sugestão Base (Sem IA)</div>
+            <div id="test-base-suggestion"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">⚡ Teste 3: True Peak com Priority (Real Case)</div>
+            <div id="test-truepeak-suggestion"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">📊 Log de Testes</div>
+            <div id="test-log" style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; font-family: monospace; font-size: 13px;"></div>
+        </div>
+    </div>
+
+    <script>
+        // Mock do sistema
+        window.refs = { audioAnalyzer: { isReady: true } };
+        
+        // Log de teste
+        function logTest(message) {
+            const log = document.getElementById('test-log');
+            log.innerHTML += `[${new Date().toLocaleTimeString()}] ${message}<br>`;
+        }
+
+        // Sugestão com IA completa
+        const aiSuggestion = {
+            message: "Análise completa detectou True Peak alto que requer correção imediata para evitar distorção audível",
+            why: "O áudio apresenta picos acima de -1.0 dBFS que causarão clipping digital em sistemas de reprodução",
+            context: "Detectado em faixas de alta energia durante análise espectral",
+            priorityWarning: "CRÍTICO: Correção necessária antes da masterização final",
+            action: "Aplicar limitador com lookahead ou reduzir gain geral",
+            plugin: "FabFilter Pro-L 2, Waves L2, ou Ozone Maximizer",
+            priority: "Alta",
+            confidence: 0.95,
+            suggestion_id: "truepeak_001"
+        };
+
+        // Sugestão base
+        const baseSuggestion = {
+            problema: "True Peak detectado acima do limite",
+            causa: "Processamento digital inadequado",
+            solucao: "Aplicar limitador",
+            priority: "Alta",
+            suggestion_id: "base_001"
+        };
+
+        // Sugestão True Peak real
+        const truePeakSuggestion = {
+            message: "⚡ True Peak requer correção PRIORITÁRIA",
+            why: "Valor detectado: +2.1 dBFS excede limite recomendado",
+            context: "Análise ITU-R BS.1770-4 com oversampling 4x",
+            priorityWarning: "URGENTE: Evitar clipping em conversores D/A",
+            action: "Reduzir gain ou aplicar limiting",
+            plugin: "FabFilter Pro-L 2 (transparent mode)",
+            priority: "Alta",
+            confidence: 0.98,
+            truePeakValue: 2.1,
+            suggestion_id: "truepeak_priority_001"
+        };
+
+        logTest("Iniciando testes do AI Summary Block...");
+    </script>
+    <script src="public/ai-suggestions-integration.js"></script>
+    <script>
+        // Executar testes
+        setTimeout(() => {
+            try {
+                // Teste 1: IA completa
+                logTest("Teste 1: Renderizando sugestão com IA completa");
+                const aiCard = AISuggestionsIntegration.createSuggestionCard(aiSuggestion, 1);
+                document.getElementById('test-ai-suggestion').appendChild(aiCard);
+                logTest("✅ Teste 1 concluído");
+
+                // Teste 2: Base
+                logTest("Teste 2: Renderizando sugestão base");
+                const baseCard = AISuggestionsIntegration.createSuggestionCard(baseSuggestion, 2);
+                document.getElementById('test-base-suggestion').appendChild(baseCard);
+                logTest("✅ Teste 2 concluído");
+
+                // Teste 3: True Peak
+                logTest("Teste 3: Renderizando True Peak priority");
+                const truePeakCard = AISuggestionsIntegration.createSuggestionCard(truePeakSuggestion, 3);
+                document.getElementById('test-truepeak-suggestion').appendChild(truePeakCard);
+                logTest("✅ Teste 3 concluído");
+
+                logTest("🎉 Todos os testes executados com sucesso!");
+                
+            } catch (error) {
+                logTest(`❌ Erro nos testes: ${error.message}`);
+                console.error('Erro detalhado:', error);
+            }
+        }, 500);
+    </script>
+</body>
+</html>

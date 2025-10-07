@@ -1068,6 +1068,49 @@ class AISuggestionsIntegration {
         card.className = `ai-suggestion-card ${source === 'fallback' ? 'ai-base-suggestion' : ''}`;
         card.style.animationDelay = `${index * 0.1}s`;
         
+        // 🔹 BLOCO INTELIGENTE DA IA: Exibir campos diretos da IA antes dos blocos tradicionais
+        let aiSummaryHTML = '';
+        if (suggestion.message && !suggestion.problema) {
+            const summaryParts = [];
+            
+            // Título principal (message ou title)
+            if (suggestion.title || suggestion.message) {
+                summaryParts.push(`<h4>${suggestion.title || suggestion.message}</h4>`);
+            }
+            
+            // Contexto e explicação
+            if (suggestion.why) {
+                summaryParts.push(`<p class="why"><strong>Por quê:</strong> ${suggestion.why}</p>`);
+            }
+            
+            if (suggestion.context) {
+                summaryParts.push(`<p class="context"><strong>Contexto:</strong> ${suggestion.context}</p>`);
+            }
+            
+            // Aviso prioritário
+            if (suggestion.priorityWarning) {
+                summaryParts.push(`<p class="priority"><strong>⚠️ Aviso:</strong> ${suggestion.priorityWarning}</p>`);
+            }
+            
+            // Ação sugerida
+            if (suggestion.action) {
+                summaryParts.push(`<p class="action"><strong>🎯 Ação:</strong> ${suggestion.action}</p>`);
+            }
+            
+            // Plugin recomendado
+            if (suggestion.plugin && !suggestion.blocks?.plugin) {
+                summaryParts.push(`<p class="plugin"><strong>🧩 Plugin:</strong> ${suggestion.plugin}</p>`);
+            }
+            
+            if (summaryParts.length > 0) {
+                aiSummaryHTML = `
+                    <div class="ai-summary-block">
+                        ${summaryParts.join('')}
+                    </div>
+                `;
+            }
+        }
+        
         // Extract data (campos enriquecidos diretos + fallback para suggestion.message)
         const blocks = {
             problem: suggestion.problema || suggestion.blocks?.problem || (suggestion.message && suggestion.message.includes("True Peak") ? suggestion.message : null),
@@ -1090,6 +1133,7 @@ class AISuggestionsIntegration {
         const isAIEnhanced = true;
         
         card.innerHTML = `
+            ${aiSummaryHTML}
             <div class="ai-suggestion-blocks">
                 ${blocks.problem ? this.createBlock('problema', blocks.problem) : ''}
                 ${blocks.cause ? this.createBlock('causa', blocks.cause) : ''}
