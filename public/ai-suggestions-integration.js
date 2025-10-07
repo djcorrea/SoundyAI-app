@@ -242,18 +242,32 @@ class AISuggestionsIntegration {
                 this.updateStatus('error', 'IA não respondeu corretamente');
             }
             
-            // 🎯 PASSO 4: USO EXCLUSIVO DAS SUGESTÕES ENRIQUECIDAS
-            const finalSuggestions = (Array.isArray(data.enhancedSuggestions) ? data.enhancedSuggestions : [])
-                .map(s => ({ ...s, ai_enhanced: true }));
+            // 🎯 PASSO 4: MERGE SEGURO DAS SUGESTÕES ENRIQUECIDAS
+            const enhanced = data.enhancedSuggestions.map((s, i) => {
+                const original = validSuggestions[i] || {};
+                return {
+                    ...original,             // preserva mensagem e ação originais
+                    ...s,                    // mescla enriquecimentos e metadados
+                    ai_enhanced: true,
+                    message: s.message || original.message || '⚠️ Sem mensagem original detectada.',
+                    action: s.action || original.action || null,
+                    priority: s.priority || original.priority || 1,
+                    confidence: s.confidence || original.confidence || 0.9,
+                };
+            });
+            const finalSuggestions = enhanced;
 
-            console.group('🔍 [AUDITORIA] PASSO 4: SUGESTÕES ENRIQUECIDAS (SEM MERGE)');
-            console.log('✅ Usando apenas enhancedSuggestions do backend:', {
+            console.group('🔍 [AUDITORIA] PASSO 4: MERGE SEGURO DE SUGESTÕES ENRIQUECIDAS');
+            console.log('✅ Merge realizado preservando mensagens originais:', {
                 enhancedCount: finalSuggestions.length,
+                originalCount: validSuggestions.length,
                 processingTime: `${processingTime}ms`
             });
             finalSuggestions.forEach((sug, index) => {
-                console.log(`📋 Enhanced Sugestão ${index + 1}:`, {
-                    ai_enhanced: true,
+                console.log(`📋 Merged Sugestão ${index + 1}:`, {
+                    ai_enhanced: sug.ai_enhanced,
+                    hasOriginalMessage: !!sug.message,
+                    message: sug.message?.substring(0, 50) + '...',
                     keys: Object.keys(sug)
                 });
             });
