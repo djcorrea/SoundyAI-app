@@ -252,33 +252,33 @@ class AISuggestionsIntegration {
                 const data = meta.data || {};
                 const enriched = meta.enriched || {};
 
-                // Busca recursiva ampla
+                // Busca recursiva ampla - PRIORIDADE CORRETA
                 const resolvedMessage =
-                    s.message ||
-                    meta.message ||
-                    (meta.original && meta.original.message) ||
-                    (meta.enriched && meta.enriched.message) ||
-                    data.message ||
-                    originalData.message ||
-                    (content.original && content.original.message) ||
-                    (content.enriched && content.enriched.message) ||
-                    (inner.original && inner.original.message) ||
-                    (inner.enriched && inner.enriched.message) ||
-                    original.message ||
+                    s.message ||                           // 🎯 PRIORIDADE 1: Resposta direta da IA
+                    original.message ||                    // 📋 PRIORIDADE 2: Sugestão original  
+                    meta.message ||                        // 🔍 metadata.message
+                    (meta.original && meta.original.message) || // ⚡ metadata.original.message
+                    (meta.enriched && meta.enriched.message) || // ✨ metadata.enriched.message
+                    data.message ||                        // 📊 metadata.data.message
+                    originalData.message ||                // 🗂️ metadata.originalData.message
+                    (content.original && content.original.message) || // 🏗️ metadata.content.original.message
+                    (content.enriched && content.enriched.message) || // 🎨 metadata.content.enriched.message
+                    (inner.original && inner.original.message) ||     // 🏠 metadata.inner.original.message
+                    (inner.enriched && inner.enriched.message) ||     // 💎 metadata.inner.enriched.message
                     (original.original && typeof original.original === "string" ? original.original : null);
 
                 const resolvedAction =
-                    s.action ||
-                    meta.action ||
-                    (meta.original && meta.original.action) ||
-                    (meta.enriched && meta.enriched.action) ||
-                    data.action ||
-                    originalData.action ||
-                    (content.original && content.original.action) ||
-                    (content.enriched && content.enriched.action) ||
-                    (inner.original && inner.original.action) ||
-                    (inner.enriched && inner.enriched.action) ||
-                    original.action ||
+                    s.action ||                           // 🎯 PRIORIDADE 1: Action direta da IA
+                    original.action ||                    // 📋 PRIORIDADE 2: Action original
+                    meta.action ||                        // 🔍 metadata.action
+                    (meta.original && meta.original.action) || // ⚡ metadata.original.action
+                    (meta.enriched && meta.enriched.action) || // ✨ metadata.enriched.action
+                    data.action ||                        // 📊 metadata.data.action
+                    originalData.action ||                // 🗂️ metadata.originalData.action
+                    (content.original && content.original.action) || // 🏗️ metadata.content.original.action
+                    (content.enriched && content.enriched.action) || // 🎨 metadata.content.enriched.action
+                    (inner.original && inner.original.action) ||     // 🏠 metadata.inner.original.action
+                    (inner.enriched && inner.enriched.action) ||     // 💎 metadata.inner.enriched.action
                     (original.originalAction && typeof original.originalAction === "string" ? original.originalAction : null);
 
                 return {
@@ -302,34 +302,38 @@ class AISuggestionsIntegration {
                 return (a.priority || 1) - (b.priority || 1);
             });
 
-            console.group('🔍 [AUDITORIA] PASSO 4: MERGE AVANÇADO COM BUSCA RECURSIVA AMPLA');
-            console.log('✅ Merge realizado com busca recursiva em TODAS as variações de metadata:', {
+            console.group('🔍 [AUDITORIA] PASSO 4: MERGE ROBUSTO COM PRIORIDADE CORRETA');
+            console.log('✅ Merge realizado com PRIORIDADE CORRETA (s.message primeiro):', {
                 enhancedCount: finalSuggestions.length,
                 originalCount: validSuggestions.length,
                 processingTime: `${processingTime}ms`,
-                searchLayers: [
-                    's.message', 
-                    'meta.message', 
-                    'meta.original.message', 
-                    'meta.enriched.message',
-                    'meta.data.message',
-                    'meta.originalData.message',
-                    'content.original.message', 
-                    'content.enriched.message',
-                    'inner.original.message',
-                    'inner.enriched.message',
-                    'original.message',
-                    'original.original'
+                searchPriority: [
+                    '🎯 s.message (IA direta)', 
+                    '📋 original.message (sugestão base)', 
+                    '🔍 meta.message', 
+                    '⚡ meta.original.message', 
+                    '✨ meta.enriched.message',
+                    '📊 data.message',
+                    '🗂️ originalData.message',
+                    '🏗️ content.original.message', 
+                    '🎨 content.enriched.message',
+                    '🏠 inner.original.message',
+                    '💎 inner.enriched.message',
+                    '🔄 original.original'
                 ]
             });
             finalSuggestions.forEach((sug, index) => {
-                console.log(`📋 Merged Sugestão ${index + 1}:`, {
+                const isTruePeak = sug.message?.includes("True Peak");
+                console.log(`📋 Merged Sugestão ${index + 1}${isTruePeak ? ' ⚡ TRUE PEAK' : ''}:`, {
                     ai_enhanced: sug.ai_enhanced,
                     hasOriginalMessage: sug.hasOriginalMessage,
                     messageSource: sug.messageSource,
-                    messagePreview: sug.message?.substring(0, 50) + '...',
-                    hasMetadata: !!(sug.metadata),
-                    keys: Object.keys(sug)
+                    messagePreview: sug.message?.substring(0, 60) + '...',
+                    actionPreview: sug.action?.substring(0, 40) + '...' || 'N/A',
+                    priority: sug.priority,
+                    isTruePeak: isTruePeak,
+                    hasTitle: !!sug.title,
+                    titleMatchesMessage: sug.title === sug.message
                 });
             });
             console.groupEnd();
@@ -929,10 +933,16 @@ class AISuggestionsIntegration {
         
         if (suggestions && Array.isArray(suggestions)) {
             suggestions.forEach((sug, index) => {
-                console.log(`🖥️ Renderizando Sugestão ${index + 1}:`, {
-                    ai_enhanced: true,
-                    title: sug.title || sug.message || 'N/A',
-                    hasAiBlocks: !!sug.ai_blocks,
+                const isTruePeak = sug.message?.includes("True Peak");
+                console.log(`🖥️ Renderizando Sugestão ${index + 1}${isTruePeak ? ' ⚡ TRUE PEAK' : ''}:`, {
+                    ai_enhanced: sug.ai_enhanced,
+                    hasOriginalMessage: sug.hasOriginalMessage,
+                    messageSource: sug.messageSource,
+                    title: sug.title || 'N/A',
+                    message: sug.message || 'N/A',
+                    action: sug.action || 'N/A',
+                    titleEqualsMessage: sug.title === sug.message,
+                    willUseMessageAsFallback: !sug.problema && !sug.blocks?.problem && !!sug.message,
                     willRenderAsCard: true
                 });
             });
@@ -1022,15 +1032,24 @@ class AISuggestionsIntegration {
         card.className = `ai-suggestion-card ${source === 'fallback' ? 'ai-base-suggestion' : ''}`;
         card.style.animationDelay = `${index * 0.1}s`;
         
-        // Extract data (campos enriquecidos diretos)
+        // Extract data (campos enriquecidos diretos + fallback para suggestion.message)
         const blocks = {
-            problem: suggestion.problema || suggestion.blocks?.problem,
+            problem: suggestion.problema || suggestion.blocks?.problem || (suggestion.message && suggestion.message.includes("True Peak") ? suggestion.message : null),
             cause: suggestion.causa || suggestion.blocks?.cause,
-            solution: suggestion.solucao || suggestion.blocks?.solution,
+            solution: suggestion.solucao || suggestion.blocks?.solution || suggestion.action,
             tip: suggestion.dica_extra || suggestion.blocks?.tip,
             plugin: suggestion.plugin || suggestion.blocks?.plugin,
             result: suggestion.resultado || suggestion.blocks?.result
         };
+        
+        // 🔧 FALLBACK CRÍTICO: Se não há blocos específicos, usar message/title como problema principal
+        if (!blocks.problem && !blocks.solution && !blocks.cause) {
+            blocks.problem = suggestion.message || suggestion.title || "⚠️ Conteúdo não disponível";
+            if (suggestion.action) {
+                blocks.solution = suggestion.action;
+            }
+        }
+        
         const metadata = suggestion.metadata || { priority: 'média', difficulty: 'intermediário' };
         const isAIEnhanced = true;
         
