@@ -614,3 +614,10 @@ window.__DEBUG_REFS = function() {
         totalTracks: Object.values(window.PROD_AI_REF_DATA).reduce((sum, ref) => sum + (ref.num_tracks || 0), 0)
     };
 };
+
+// 🔥 MARCAR REFS INTERNAS COMO CARREGADAS
+window.embeddedRefsLoaded = true;
+if (!window.refsReady) {
+    window.refsReady = true;
+    console.log("✅ [refs] refsReady marcado como true (refs internas carregadas)");
+}
