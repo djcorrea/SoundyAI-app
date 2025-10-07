@@ -1314,6 +1314,12 @@ async function loadReferenceData(genre) {
         } catch (netError) {
             console.log('❌ External refs failed:', netError.message);
             console.log('🔄 Fallback para embedded refs...');
+            
+            // 🔥 CORREÇÃO LOOP INFINITO: Forçar refsReady se refs internas já carregaram
+            if (!window.refsReady && window.embeddedRefsLoaded) {
+                window.refsReady = true;
+                console.log("⚠️ [refs] refsReady forçado como true após fallback com erro de fetch externo");
+            }
         }
         
         // 2) Fallback para referências embutidas (embedded)

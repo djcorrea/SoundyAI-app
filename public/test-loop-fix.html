@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - Loop Infinito READY-CHECK Resolvido</title>
+</head>
+<body>
+    <h1>🔄 Teste - Correção Loop Infinito READY-CHECK</h1>
+    <p>Abra o console (F12) e observe os logs:</p>
+    
+    <div id="log-container">
+        <h3>Sequência esperada (sem loop infinito):</h3>
+        <ol>
+            <li>🎵 Referências musicais carregadas: [...] (embedded-refs-new.js)</li>
+            <li>✅ [refs] refsReady marcado como true (refs internas carregadas)</li>
+            <li>🎵 Audio Analyzer Integration carregada com sucesso!</li>
+            <li>⏳ [READY-CHECK] Estado atual: {audioAnalyzer: true, CACHE_CTX_AWARE_V1_API: true, refsReady: true}</li>
+            <li>✅ [GLOBAL] Todos os sistemas prontos. Disparando analysisReady...</li>
+            <li>✅ ForceActivator executado após sistema pronto (analysisReady).</li>
+            <li><strong>🎯 NÃO DEVE HAVER MAIS [READY-CHECK] APÓS ESTE PONTO</strong></li>
+        </ol>
+    </div>
+
+    <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+        <h4>🧪 Ferramentas de Teste:</h4>
+        <button onclick="checkSystemStatus()">📊 Verificar Status dos Sistemas</button>
+        <button onclick="simulateNetworkError()">🌐 Simular Erro de Rede (Refs Externas)</button>
+        <button onclick="console.clear()">🧹 Limpar Console</button>
+        <button onclick="monitorReadyChecks()">🔍 Monitorar READY-CHECK</button>
+    </div>
+
+    <div id="status-display" style="margin: 20px 0; padding: 15px; background: #e7f3ff; border-radius: 5px;">
+        <h4>📊 Status Atual:</h4>
+        <div id="status-content">Carregando...</div>
+    </div>
+
+    <script>
+        let readyCheckCount = 0;
+        let lastReadyCheck = null;
+
+        // Interceptar logs para contar READY-CHECK
+        const originalLog = console.log;
+        console.log = function(...args) {
+            const message = args.join(' ');
+            if (message.includes('[READY-CHECK]')) {
+                readyCheckCount++;
+                lastReadyCheck = new Date().toLocaleTimeString();
+                updateStatusDisplay();
+                
+                // Alerta se houver muitos READY-CHECK (possível loop)
+                if (readyCheckCount > 5) {
+                    console.error('🚨 ALERTA: Possível loop infinito detectado!', readyCheckCount, 'verificações');
+                }
+            }
+            originalLog.apply(console, args);
+        };
+
+        function updateStatusDisplay() {
+            const statusDiv = document.getElementById('status-content');
+            statusDiv.innerHTML = `
+                <div><strong>audioAnalyzer:</strong> ${!!window.audioAnalyzer}</div>
+                <div><strong>CACHE_CTX_AWARE_V1_API:</strong> ${!!window.CACHE_CTX_AWARE_V1_API}</div>
+                <div><strong>refsReady:</strong> ${!!window.refsReady}</div>
+                <div><strong>embeddedRefsLoaded:</strong> ${!!window.embeddedRefsLoaded}</div>
+                <div><strong>FORCE_ACTIVATOR_ALREADY_RUN:</strong> ${!!window.FORCE_ACTIVATOR_ALREADY_RUN}</div>
+                <div style="margin-top: 10px;"><strong>READY-CHECK Count:</strong> ${readyCheckCount}</div>
+                <div><strong>Último READY-CHECK:</strong> ${lastReadyCheck || 'Nenhum'}</div>
+            `;
+        }
+
+        function checkSystemStatus() {
+            console.log('🧪 [TEST] Status atual dos sistemas:');
+            console.log({
+                audioAnalyzer: !!window.audioAnalyzer,
+                CACHE_CTX_AWARE_V1_API: !!window.CACHE_CTX_AWARE_V1_API,
+                refsReady: !!window.refsReady,
+                embeddedRefsLoaded: !!window.embeddedRefsLoaded,
+                FORCE_ACTIVATOR_ALREADY_RUN: !!window.FORCE_ACTIVATOR_ALREADY_RUN,
+                readyCheckCount: readyCheckCount
+            });
+            updateStatusDisplay();
+        }
+
+        function simulateNetworkError() {
+            console.log('🧪 [TEST] Simulando erro de rede para testar fallback...');
+            if (!window.refsReady && window.embeddedRefsLoaded) {
+                window.refsReady = true;
+                console.log("⚠️ [TEST] refsReady forçado como true após simulação de erro de fetch externo");
+                updateStatusDisplay();
+            }
+        }
+
+        function monitorReadyChecks() {
+            console.log('🔍 [TEST] Monitorando READY-CHECK por 10 segundos...');
+            const startCount = readyCheckCount;
+            setTimeout(() => {
+                const endCount = readyCheckCount;
+                const diff = endCount - startCount;
+                if (diff === 0) {
+                    console.log('✅ [TEST] Nenhum READY-CHECK adicional detectado - Loop resolvido!');
+                } else {
+                    console.warn(`⚠️ [TEST] ${diff} READY-CHECK(s) detectado(s) - Possível loop ainda ativo`);
+                }
+            }, 10000);
+        }
+
+        // Simular sistemas básicos
+        setTimeout(() => {
+            window.audioAnalyzer = { ready: true };
+            window.CACHE_CTX_AWARE_V1_API = { ready: true };
+            updateStatusDisplay();
+        }, 500);
+
+        // Atualizar status a cada segundo
+        setInterval(updateStatusDisplay, 1000);
+
+        // Log inicial
+        console.log("🚀 [TEST] Teste de correção do loop infinito iniciado");
+        updateStatusDisplay();
+    </script>
+
+    <!-- Carregar refs internas primeiro -->
+    <script src="/refs/embedded-refs-new.js"></script>
+    
+    <!-- Carregar sistema principal -->
+    <script src="/audio-analyzer-integration.js"></script>
+    
+    <!-- Carregar Force Activator com defer -->
+    <script src="/force-unified-activation.js" defer></script>
+</body>
+</html>
