@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚨 Teste Priority Banner</title>
+    <style>
+        body {
+            background: #0f172a;
+            color: #e2e8f0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            margin: 0;
+        }
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 12px;
+            border: 1px solid rgba(51, 65, 85, 0.3);
+        }
+        .test-title {
+            color: #3b82f6;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        .test-log {
+            background: rgba(0,0,0,0.4);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid rgba(100,116,139,0.2);
+        }
+    </style>
+    <link rel="stylesheet" href="public/ai-suggestion-styles.css">
+</head>
+<body>
+    <div class="test-container">
+        <h1>🚨 Teste Priority Banner Implementation</h1>
+        <p>Validação da correção para exibir <strong>priorityWarning</strong> com banner destacado</p>
+
+        <div class="test-section">
+            <div class="test-title">📋 Teste 1: Sugestão com priorityWarning</div>
+            <div id="test-priority-suggestion"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">⚙️ Teste 2: Sugestão sem priorityWarning</div>
+            <div id="test-normal-suggestion"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">⚡ Teste 3: True Peak com priorityWarning</div>
+            <div id="test-truepeak-suggestion"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">📊 Log de Teste</div>
+            <div id="test-log" class="test-log"></div>
+        </div>
+    </div>
+
+    <script>
+        // Mock do sistema
+        window.refs = { audioAnalyzer: { isReady: true } };
+        
+        // Log de teste
+        function logTest(message) {
+            const log = document.getElementById('test-log');
+            log.innerHTML += `[${new Date().toLocaleTimeString()}] ${message}<br>`;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // Sugestões de teste
+        const prioritySuggestion = {
+            message: "Análise detectou problemas críticos de masterização",
+            priorityWarning: "⚡ Correção Prioritária: True Peak excede -1.0 dBFS",
+            why: "O áudio apresenta picos digitais que causarão distorção",
+            action: "Aplicar limitador imediatamente",
+            priority: "Alta",
+            confidence: 0.98,
+            suggestion_id: "priority_001"
+        };
+
+        const normalSuggestion = {
+            message: "Pequeno ajuste recomendado nas médias frequências",
+            action: "Aplicar EQ suave na região de 2-4kHz",
+            priority: "Baixa",
+            confidence: 0.75,
+            suggestion_id: "normal_001"
+        };
+
+        const truePeakSuggestion = {
+            message: "⚡ True Peak requer correção PRIORITÁRIA",
+            priorityWarning: "URGENTE: True Peak detectado em +2.1 dBFS - Risco de clipping digital",
+            why: "Análise ITU-R BS.1770-4 detectou picos acima do limite",
+            context: "Oversampling 4x confirmou excesso em conversores D/A",
+            action: "Reduzir gain geral ou aplicar limiting transparente",
+            plugin: "FabFilter Pro-L 2 (transparent mode)",
+            priority: "Crítica",
+            confidence: 0.99,
+            truePeakValue: 2.1,
+            suggestion_id: "truepeak_critical_001"
+        };
+
+        logTest("Iniciando testes do Priority Banner...");
+    </script>
+    <script src="public/ai-suggestions-integration.js"></script>
+    <script>
+        // Executar testes
+        setTimeout(() => {
+            try {
+                logTest("🧪 Teste 1: Renderizando sugestão COM priorityWarning");
+                const priorityCard = AISuggestionsIntegration.createSuggestionCard(prioritySuggestion, 1);
+                document.getElementById('test-priority-suggestion').appendChild(priorityCard);
+                
+                const hasPriorityBanner1 = priorityCard.querySelector('.priority-banner');
+                logTest(hasPriorityBanner1 ? "✅ Priority banner encontrado no teste 1" : "❌ Priority banner NÃO encontrado no teste 1");
+
+                logTest("🧪 Teste 2: Renderizando sugestão SEM priorityWarning");
+                const normalCard = AISuggestionsIntegration.createSuggestionCard(normalSuggestion, 2);
+                document.getElementById('test-normal-suggestion').appendChild(normalCard);
+                
+                const hasPriorityBanner2 = normalCard.querySelector('.priority-banner');
+                logTest(hasPriorityBanner2 ? "⚠️ Priority banner encontrado no teste 2 (não deveria)" : "✅ Priority banner NÃO encontrado no teste 2 (correto)");
+
+                logTest("🧪 Teste 3: Renderizando True Peak COM priorityWarning");
+                const truePeakCard = AISuggestionsIntegration.createSuggestionCard(truePeakSuggestion, 3);
+                document.getElementById('test-truepeak-suggestion').appendChild(truePeakCard);
+                
+                const hasPriorityBanner3 = truePeakCard.querySelector('.priority-banner');
+                logTest(hasPriorityBanner3 ? "✅ Priority banner encontrado no teste 3" : "❌ Priority banner NÃO encontrado no teste 3");
+
+                // Aguardar e verificar renderização
+                setTimeout(() => {
+                    const totalBanners = document.querySelectorAll('.priority-banner').length;
+                    logTest(`📊 Total de banners renderizados: ${totalBanners}`);
+                    
+                    document.querySelectorAll('.priority-banner').forEach((banner, idx) => {
+                        logTest(`🚨 Banner ${idx + 1}: ${banner.textContent.trim()}`);
+                    });
+
+                    if (totalBanners >= 2) {
+                        logTest("🎉 TESTE APROVADO - Priority banners funcionando!");
+                    } else {
+                        logTest("❌ TESTE REPROVADO - Priority banners não funcionando adequadamente");
+                    }
+                }, 1000);
+
+            } catch (error) {
+                logTest(`❌ Erro nos testes: ${error.message}`);
+                console.error('Erro detalhado:', error);
+            }
+        }, 500);
+    </script>
+</body>
+</html>
