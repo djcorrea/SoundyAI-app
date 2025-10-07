@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - Merge Avançado True Peak</title>
+</head>
+<body>
+    <h1>⚡ Teste - Merge Avançado com Busca em Múltiplos Campos</h1>
+    <p>Abra o console (F12) e observe os logs:</p>
+    
+    <div id="log-container">
+        <h3>Validação da Busca em Múltiplos Campos:</h3>
+        <ol>
+            <li>✅ Prioridade: s.message → s.original → original.message → original.original</li>
+            <li>✅ True Peak preservado mesmo se vier em campo alternativo</li>
+            <li>✅ Campo hasOriginalMessage indica se mensagem foi encontrada</li>
+            <li>✅ Fallback seguro apenas se todos campos estão vazios</li>
+        </ol>
+    </div>
+
+    <div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+        <h4>🧪 Cenários de Teste:</h4>
+        <button onclick="testScenario1()">1️⃣ s.message presente</button>
+        <button onclick="testScenario2()">2️⃣ s.original presente</button>
+        <button onclick="testScenario3()">3️⃣ original.message presente</button>
+        <button onclick="testScenario4()">4️⃣ original.original presente</button>
+        <button onclick="testScenario5()">5️⃣ Todos campos vazios</button>
+        <button onclick="testTruePeakSpecific()">⚡ True Peak específico</button>
+        <button onclick="console.clear()">🧹 Limpar Console</button>
+    </div>
+
+    <div id="result-display" style="margin: 20px 0; padding: 15px; background: #e7f3ff; border-radius: 5px;">
+        <h4>📊 Resultado do Último Teste:</h4>
+        <div id="result-content">Nenhum teste executado ainda.</div>
+    </div>
+
+    <script>
+        // Função de merge implementada (cópia da correção)
+        function testMergeLogic(validSuggestions, enhancedSuggestions) {
+            return enhancedSuggestions.map((s, i) => {
+                const original = validSuggestions[i] || {};
+                const originalMsg =
+                    s.message ||
+                    s.original ||
+                    original.message ||
+                    (original.original && typeof original.original === "string" ? original.original : null);
+
+                const originalAction =
+                    s.action ||
+                    original.action ||
+                    (original.originalAction && typeof original.originalAction === "string" ? original.originalAction : null);
+
+                return {
+                    ai_enhanced: true,
+                    ...original,
+                    ...s,
+                    hasOriginalMessage: !!originalMsg,
+                    message: originalMsg || "⚠️ Mensagem perdida na integração.",
+                    action: originalAction,
+                    priority: s.priority || original.priority || 1,
+                    confidence: s.confidence || original.confidence || 0.9,
+                };
+            });
+        }
+
+        function displayResult(scenarioName, result, expected) {
+            const div = document.getElementById('result-content');
+            const success = result.message === expected;
+            
+            div.innerHTML = `
+                <div><strong>Cenário:</strong> ${scenarioName}</div>
+                <div><strong>Resultado:</strong> ${success ? '✅ SUCESSO' : '❌ FALHA'}</div>
+                <div><strong>Mensagem obtida:</strong> "${result.message}"</div>
+                <div><strong>Mensagem esperada:</strong> "${expected}"</div>
+                <div><strong>hasOriginalMessage:</strong> ${result.hasOriginalMessage}</div>
+                <div><strong>Dados completos:</strong> ${JSON.stringify(result, null, 2)}</div>
+            `;
+            
+            console.log(`🧪 ${scenarioName}:`, {
+                success,
+                message: result.message,
+                hasOriginalMessage: result.hasOriginalMessage,
+                fullResult: result
+            });
+        }
+
+        function testScenario1() {
+            console.log('🧪 Cenário 1: s.message presente');
+            const validSuggestions = [{message: "Original message"}];
+            const enhancedSuggestions = [{message: "AI message", original: "Alternative message"}];
+            
+            const result = testMergeLogic(validSuggestions, enhancedSuggestions)[0];
+            const expected = "AI message";
+            
+            displayResult("s.message presente", result, expected);
+        }
+
+        function testScenario2() {
+            console.log('🧪 Cenário 2: s.original presente (s.message vazio)');
+            const validSuggestions = [{message: "Original message"}];
+            const enhancedSuggestions = [{message: null, original: "⚡ True Peak requer correção PRIORITÁRIA..."}];
+            
+            const result = testMergeLogic(validSuggestions, enhancedSuggestions)[0];
+            const expected = "⚡ True Peak requer correção PRIORITÁRIA...";
+            
+            displayResult("s.original presente", result, expected);
+        }
+
+        function testScenario3() {
+            console.log('🧪 Cenário 3: original.message presente (s.message e s.original vazios)');
+            const validSuggestions = [{message: "⚡ True Peak requer correção PRIORITÁRIA..."}];
+            const enhancedSuggestions = [{message: null, original: null}];
+            
+            const result = testMergeLogic(validSuggestions, enhancedSuggestions)[0];
+            const expected = "⚡ True Peak requer correção PRIORITÁRIA...";
+            
+            displayResult("original.message presente", result, expected);
+        }
+
+        function testScenario4() {
+            console.log('🧪 Cenário 4: original.original presente (outros vazios)');
+            const validSuggestions = [{
+                message: null, 
+                original: "⚡ True Peak requer correção PRIORITÁRIA..."
+            }];
+            const enhancedSuggestions = [{message: null, original: null}];
+            
+            const result = testMergeLogic(validSuggestions, enhancedSuggestions)[0];
+            const expected = "⚡ True Peak requer correção PRIORITÁRIA...";
+            
+            displayResult("original.original presente", result, expected);
+        }
+
+        function testScenario5() {
+            console.log('🧪 Cenário 5: Todos campos vazios (fallback)');
+            const validSuggestions = [{message: null}];
+            const enhancedSuggestions = [{message: null, original: null}];
+            
+            const result = testMergeLogic(validSuggestions, enhancedSuggestions)[0];
+            const expected = "⚠️ Mensagem perdida na integração.";
+            
+            displayResult("Todos campos vazios", result, expected);
+        }
+
+        function testTruePeakSpecific() {
+            console.log('⚡ Teste específico True Peak com dados reais');
+            
+            // Simular dados como podem vir do backend
+            const validSuggestions = [{
+                message: "⚡ True Peak requer correção PRIORITÁRIA. Reduza o limitador ou use compressão suave para evitar clipping digital.",
+                action: "Ajustar limitador para -1.0 dB",
+                priority: 1,
+                type: "truePeak",
+                metric: "true_peak",
+                value: -0.3,
+                target: -1.0
+            }];
+            
+            // Resposta da IA que pode ter sobrescrito a mensagem
+            const enhancedSuggestions = [{
+                message: null,  // AI não retornou mensagem
+                original: null, // AI não preservou em original
+                action: "Apply limiter at -1.0 dB peak",
+                ai_category: "mastering",
+                blocks: {
+                    problem: "True peak elevation detected",
+                    solution: "Apply gentle limiting"
+                }
+            }];
+            
+            const result = testMergeLogic(validSuggestions, enhancedSuggestions)[0];
+            const expected = "⚡ True Peak requer correção PRIORITÁRIA. Reduza o limitador ou use compressão suave para evitar clipping digital.";
+            
+            console.log('🎯 True Peak preservation test:', {
+                originalMessage: validSuggestions[0].message,
+                aiResponse: enhancedSuggestions[0],
+                finalMessage: result.message,
+                preserved: result.message === expected
+            });
+            
+            displayResult("True Peak com dados reais", result, expected);
+        }
+
+        // Log inicial
+        console.log("🚀 [TEST] Teste de merge avançado com busca em múltiplos campos iniciado");
+        console.log("🔍 Testando ordem de prioridade: s.message → s.original → original.message → original.original");
+    </script>
+</body>
+</html>

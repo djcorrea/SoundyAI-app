@@ -243,22 +243,34 @@ class AISuggestionsIntegration {
             }
             
             // 🎯 PASSO 4: MERGE SEGURO DAS SUGESTÕES ENRIQUECIDAS
-            const enhanced = data.enhancedSuggestions.map((s, i) => {
+            const merged = data.enhancedSuggestions.map((s, i) => {
                 const original = validSuggestions[i] || {};
+                const originalMsg =
+                    s.message ||
+                    s.original ||
+                    original.message ||
+                    (original.original && typeof original.original === "string" ? original.original : null);
+
+                const originalAction =
+                    s.action ||
+                    original.action ||
+                    (original.originalAction && typeof original.originalAction === "string" ? original.originalAction : null);
+
                 return {
-                    ...original,             // preserva mensagem e ação originais
-                    ...s,                    // mescla enriquecimentos e metadados
                     ai_enhanced: true,
-                    message: s.message || original.message || '⚠️ Sem mensagem original detectada.',
-                    action: s.action || original.action || null,
+                    ...original,
+                    ...s,
+                    hasOriginalMessage: !!originalMsg,
+                    message: originalMsg || "⚠️ Mensagem perdida na integração.",
+                    action: originalAction,
                     priority: s.priority || original.priority || 1,
                     confidence: s.confidence || original.confidence || 0.9,
                 };
             });
-            const finalSuggestions = enhanced;
+            const finalSuggestions = merged;
 
-            console.group('🔍 [AUDITORIA] PASSO 4: MERGE SEGURO DE SUGESTÕES ENRIQUECIDAS');
-            console.log('✅ Merge realizado preservando mensagens originais:', {
+            console.group('🔍 [AUDITORIA] PASSO 4: MERGE AVANÇADO COM BUSCA EM MÚLTIPLOS CAMPOS');
+            console.log('✅ Merge realizado com busca em s.original, original.original, etc.:', {
                 enhancedCount: finalSuggestions.length,
                 originalCount: validSuggestions.length,
                 processingTime: `${processingTime}ms`
@@ -266,8 +278,9 @@ class AISuggestionsIntegration {
             finalSuggestions.forEach((sug, index) => {
                 console.log(`📋 Merged Sugestão ${index + 1}:`, {
                     ai_enhanced: sug.ai_enhanced,
-                    hasOriginalMessage: !!sug.message,
-                    message: sug.message?.substring(0, 50) + '...',
+                    hasOriginalMessage: sug.hasOriginalMessage,
+                    messageSource: sug.hasOriginalMessage ? 'preserved' : 'fallback',
+                    messagePreview: sug.message?.substring(0, 50) + '...',
                     keys: Object.keys(sug)
                 });
             });
