@@ -4802,10 +4802,13 @@ function displayModalResults(analysis) {
                             <div class="card-title">📊 Métricas Avançadas (Technical)</div>
                             ${advancedMetricsCard()}
                         </div>
+                        <!-- Card "Problemas Técnicos" removido conforme solicitado -->
+                        <!-- 
                         <div class="card card-span-2">
                             <div class="card-title">⚠️ Problemas Técnicos</div>
                             ${techProblems()}
                         </div>
+                        -->
                         <!-- Card "Diagnóstico & Sugestões" removido conforme solicitado -->
                         <!-- 
                         <div class="card card-span-2">
