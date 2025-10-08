@@ -3583,7 +3583,7 @@ function displayModalResults(analysis) {
         const col2 = [
             row('Correlação Estéreo (largura)', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 3) : '—', 'stereoCorrelation'),
             row('Largura Estéreo', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? safeFixed(getMetric('stereo_width', 'stereoWidth'), 2) : '—', 'stereoWidth'),
-            row('Balanço Esquerdo/Direito', Number.isFinite(getMetric('balance_lr', 'balanceLR')) ? safePct(getMetric('balance_lr', 'balanceLR')) : '—', 'balanceLR'),
+            // REMOVED: Balanço Esquerdo/Direito - ocultado da interface conforme solicitado
             row('Frequência Central (brilho)', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroidHz')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroidHz')) : '—', 'spectralCentroidHz')
             // REMOVED: Limite de Agudos (85%) - feeds score but inconsistent calculation
             // REMOVED: Largura Espectral (Hz) - moved to technical section (not core, doesn't feed score)
@@ -3599,9 +3599,8 @@ function displayModalResults(analysis) {
             const col3 = [
                 // REMOVED: Dominant Frequencies UI (mantendo cálculo interno para suggestions)
                 
-                // Métricas avançadas baseadas nas imagens
-                (Number.isFinite(getMetric('clipping_pct', 'clippingPct')) ? row('clipping (%)', `${safeFixed(getMetric('clipping_pct', 'clippingPct'), 2)}%`, 'clippingPct') : ''),
-                (analysis.technicalData?.dcOffset?.detailed ? row('dc offset', `L: ${safeFixed(analysis.technicalData.dcOffset.detailed.L, 4)} / R: ${safeFixed(analysis.technicalData.dcOffset.detailed.R, 4)} (${analysis.technicalData.dcOffset.detailed.severity || 'Low'})`) : ''),
+                // REMOVED: clipping (%) - ocultado da interface conforme solicitado
+                // REMOVED: dc offset - ocultado da interface conforme solicitado
                 (Number.isFinite(getMetric('thd', 'thd')) ? row('thd', `${safeFixed(getMetric('thd', 'thd'), 2)}%`, 'thd') : ''),
                 
                 // REMOVED: Dinâmica e Fator de Crista duplicados - já exibidos em col1
@@ -3613,7 +3612,7 @@ function displayModalResults(analysis) {
                 // row('crest consist', 'Δ=4.43 check', 'crestConsist'),
                 // row('Variação de Volume (consistência)', 'ok', 'volumeConsistency'),
                 
-                row('Problemas', (analysis.problems?.length || 0) > 0 ? `<span class="tag tag-danger">${analysis.problems.length} detectado(s)</span>` : '—'),
+                // REMOVED: Problemas - ocultado da interface conforme solicitado
                 row('Sugestões', (analysis.suggestions?.length || 0) > 0 ? `<span class="tag tag-success">${analysis.suggestions.length} disponível(s)</span>` : '—')
                 // REMOVED: col3Extras (dominant frequencies UI)
             ].join('');
@@ -3638,20 +3637,11 @@ function displayModalResults(analysis) {
                     rows.push(row('Pico R (dBFS)', `${safeFixed(analysis.technicalData.samplePeakRightDb, 1)} dBFS`, 'samplePeakRightDb'));
                 }
                 
-                // Clipping (%)
-                if (Number.isFinite(analysis.technicalData?.clippingPct)) {
-                    rows.push(row('clipping (%)', `${safeFixed(analysis.technicalData.clippingPct, 3)}%`, 'clippingPct'));
-                }
+                // REMOVED: Clipping (%) - ocultado da interface conforme solicitado
                 
-                // Clipping samples
-                if (Number.isFinite(analysis.technicalData?.clippingSamples)) {
-                    rows.push(row('samples clipped', `${analysis.technicalData.clippingSamples}`, 'clippingSamples'));
-                }
+                // REMOVED: Clipping samples - ocultado da interface conforme solicitado
                 
-                // === DC OFFSET ===
-                if (analysis.dcOffset && Number.isFinite(analysis.dcOffset.maxAbsDC)) {
-                    rows.push(row('dc offset', `${safeFixed(analysis.dcOffset.maxAbsDC, 5)}`, 'dcOffset'));
-                }
+                // REMOVED: DC OFFSET - ocultado da interface conforme solicitado
                 
                 // === THD (Total Harmonic Distortion) ===
                 if (Number.isFinite(analysis.technicalData?.thd)) {
