@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧠 Teste Priority Banner Modal Fix</title>
+    <style>
+        body {
+            background: #0f172a;
+            color: #e2e8f0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            margin: 0;
+        }
+        .test-container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .test-section {
+            margin-bottom: 40px;
+            padding: 20px;
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 12px;
+            border: 1px solid rgba(51, 65, 85, 0.3);
+        }
+        .test-title {
+            color: #3b82f6;
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        .test-log {
+            background: rgba(0,0,0,0.4);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid rgba(100,116,139,0.2);
+        }
+        
+        /* Mock modal styles */
+        .suggestion-card {
+            background: rgba(30, 41, 59, 0.8);
+            border: 1px solid rgba(51, 65, 85, 0.5);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            position: relative;
+        }
+        
+        .card-title {
+            font-weight: 600;
+            color: #e2e8f0;
+            margin-bottom: 10px;
+        }
+        
+        .card-description {
+            color: #cbd5e1;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🧠 Teste Priority Banner Modal Fix</h1>
+        <p>Validação da correção para exibir banner "⚡ Correção Prioritária" após renderização do modal</p>
+
+        <div class="test-section">
+            <div class="test-title">📋 Teste 1: Mock de Cards de Sugestão</div>
+            <div id="mock-modal-container">
+                <!-- Cards simulando o modal -->
+                <div class="suggestion-card" id="card-1">
+                    <div class="card-title">⚡ True Peak detectado acima do limite</div>
+                    <div class="card-description">O True Peak está em +1.2 dBFS, causando clipping digital...</div>
+                </div>
+                
+                <div class="suggestion-card" id="card-2">
+                    <div class="card-title">🎛️ Ajuste de EQ recomendado</div>
+                    <div class="card-description">Pequeno ajuste nas frequências médias...</div>
+                </div>
+                
+                <div class="suggestion-card" id="card-3">
+                    <div class="card-title">⚡ True-Peak: Correção Urgente</div>
+                    <div class="card-description">Valor crítico detectado que requer atenção imediata...</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">📊 Log de Teste</div>
+            <div id="test-log" class="test-log"></div>
+        </div>
+
+        <div class="test-section">
+            <div class="test-title">🧪 Controles de Teste</div>
+            <button onclick="runPatch()" style="background: #3b82f6; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; margin: 5px;">
+                Executar Patch Manual
+            </button>
+            <button onclick="clearBanners()" style="background: #ef4444; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; margin: 5px;">
+                Limpar Banners
+            </button>
+            <button onclick="runModalSimulation()" style="background: #10b981; color: white; padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; margin: 5px;">
+                Simular displayModalResults()
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Mock do sistema
+        window.__CURRENT_ANALYSIS_RUN_ID__ = 'test_001';
+        
+        // Log de teste
+        function logTest(message) {
+            const log = document.getElementById('test-log');
+            log.innerHTML += `[${new Date().toLocaleTimeString()}] ${message}<br>`;
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // Função do patch extraída do displayModalResults
+        function runPatch() {
+            logTest("🧠 Executando patch de correção prioritária...");
+            
+            document.querySelectorAll('.suggestion-card').forEach(card => {
+                const hasTP = card.innerText.includes('True Peak') || card.innerText.includes('True-Peak');
+                const alreadyHasBanner = card.querySelector('.priority-banner');
+                
+                logTest(`📋 Card verificado: hasTP=${hasTP}, alreadyHasBanner=${!!alreadyHasBanner}`);
+                
+                if (hasTP && !alreadyHasBanner) {
+                    const banner = document.createElement('div');
+                    banner.className = 'priority-banner';
+                    banner.innerHTML = `
+                        <div class="priority-icon">⚡</div>
+                        <div class="priority-text">
+                            Correção Prioritária: reduza o True Peak antes de outros ajustes
+                        </div>
+                    `;
+                    card.prepend(banner);
+                    logTest(`✅ Banner adicionado ao card: ${card.querySelector('.card-title').textContent}`);
+                }
+            });
+            
+            logTest('✅ [PATCH] Banners de correção prioritária aplicados com sucesso.');
+            logTest('[SoundyAI] Correção Prioritária renderizada com sucesso ✅');
+            
+            // Contar banners
+            const totalBanners = document.querySelectorAll('.priority-banner').length;
+            logTest(`📊 Total de banners ativos: ${totalBanners}`);
+        }
+
+        // Função para limpar banners
+        function clearBanners() {
+            document.querySelectorAll('.priority-banner').forEach(banner => banner.remove());
+            logTest("🧹 Todos os banners foram removidos");
+        }
+
+        // Simular o fluxo completo do displayModalResults
+        function runModalSimulation() {
+            logTest("🎭 Simulando fluxo completo do displayModalResults...");
+            
+            // Simular innerHTML (limpeza do modal)
+            clearBanners();
+            logTest("📺 Modal 'renderizado' - conteúdo resetado");
+            
+            // Simular o setTimeout do patch
+            setTimeout(() => {
+                logTest("⏰ Timeout executado - aplicando patch...");
+                runPatch();
+            }, 400);
+        }
+
+        // CSS do priority-banner já incluído no modal
+        function ensurePriorityBannerStyles() {
+            if (!document.getElementById('priorityBannerStyles')) {
+                const priorityStyle = document.createElement('style');
+                priorityStyle.id = 'priorityBannerStyles';
+                priorityStyle.textContent = `
+                .priority-banner {
+                    display: flex !important;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 10px 12px;
+                    border-radius: 8px;
+                    font-weight: 700;
+                    background: linear-gradient(90deg, #ff006a, #ff9800) !important;
+                    color: #fff !important;
+                    margin-bottom: 10px;
+                    box-shadow: 0 0 15px rgba(255, 0, 106, 0.3);
+                    animation: pulsePriority 1.5s infinite alternate;
+                    position: relative;
+                    z-index: 10;
+                }
+                
+                .priority-icon {
+                    font-size: 20px;
+                    line-height: 1;
+                }
+                
+                @keyframes pulsePriority {
+                    from { opacity: 0.8; transform: scale(0.98); }
+                    to { opacity: 1; transform: scale(1.02); }
+                }
+                `;
+                document.head.appendChild(priorityStyle);
+                logTest("🎨 CSS do priority-banner injetado");
+            }
+        }
+
+        // Inicialização
+        logTest("🚀 Sistema de teste inicializado");
+        ensurePriorityBannerStyles();
+        logTest("📝 Execute os botões acima para testar o patch");
+        logTest("🎯 Objetivo: Banners devem aparecer apenas em cards com 'True Peak'");
+    </script>
+</body>
+</html>
