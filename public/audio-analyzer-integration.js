@@ -3,6 +3,9 @@
 // ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
 // ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
 
+// SOUNDYAI-ADAPTIVE-SCORE
+import { parseSuggestedDb, calculateAdaptiveScoreFromTickets } from '../work/core/adaptive-score.js';
+
 // 📝 Carregar gerador de texto didático
 if (typeof window !== 'undefined' && !window.SuggestionTextGenerator) {
     const script = document.createElement('script');
@@ -21,10 +24,6 @@ if (typeof window !== 'undefined' && !window.SuggestionTextGenerator) {
 const __DEBUG_ANALYZER__ = true; // 🔧 TEMPORÁRIO: Ativado para debug do problema
 const __dbg = (...a) => { if (__DEBUG_ANALYZER__) console.log('[AUDIO-DEBUG]', ...a); };
 const __dwrn = (...a) => { if (__DEBUG_ANALYZER__) console.warn('[AUDIO-WARN]', ...a); };
-
-// 🎯 FLAG GLOBAL: Modo Técnico Absoluto
-// false = normalizado (educativo), true = absoluto (técnico)
-window.__SOUNDAI_ABSOLUTE_MODE__ = false;
 
 // 🆔 SISTEMA runId - Função utilitária centralizada
 function generateAnalysisRunId(context = 'ui') {
@@ -849,36 +848,6 @@ window.diagnosRefSources = function(genre = null) {
     return { targetGenre, currentData, cached };
 };
 
-// 🎯 Função de Controle do Modo Técnico Absoluto (console)
-window.toggleAbsoluteMode = function(forceMode = null) {
-    if (forceMode !== null) {
-        window.__SOUNDAI_ABSOLUTE_MODE__ = Boolean(forceMode);
-    } else {
-        window.__SOUNDAI_ABSOLUTE_MODE__ = !window.__SOUNDAI_ABSOLUTE_MODE__;
-    }
-    
-    const isAbsolute = window.__SOUNDAI_ABSOLUTE_MODE__;
-    
-    console.log(`🎯 [MODE_SWITCH] Modo alterado para: ${isAbsolute ? 'TÉCNICO (ABSOLUTO)' : 'EDUCATIVO (NORMALIZADO)'}`);
-    
-    if (isAbsolute) {
-        console.warn('⚙️ [ABSOLUTE_MODE] Valores de bandas espectrais agora são exibidos em dB RMS absolutos');
-        console.log('📊 EQ boosts agora serão detectados corretamente nos gráficos');
-    } else {
-        console.log('📚 [EDUCATIVO_MODE] Valores normalizados para visualização educativa');
-    }
-    
-    // Atualizar botão da UI se existir
-    const btn = document.getElementById('toggleAbsoluteModeBtn');
-    if (btn) {
-        btn.textContent = isAbsolute ? 'Modo: Técnico' : 'Modo: Educativo';
-        btn.style.background = isAbsolute ? '#ff6b6b' : '#7e57c2';
-        btn.style.borderColor = isAbsolute ? '#ff7979' : '#9575cd';
-    }
-    
-    return isAbsolute;
-};
-
 // =============== ETAPA 2: Robustez & Completeness Helpers ===============
 // Central logging para métricas ausentes / NaN (evita console spam e facilita auditoria)
 function __logMetricAnomaly(kind, key, context={}) {
@@ -1480,6 +1449,19 @@ function applyGenreSelection(genre) {
                         console.log('✅ Score recalculado para novo gênero:', currentModalAnalysis.qualityOverall);
                     }
                 } catch(e) { console.warn('❌ Falha ao recalcular score:', e); }
+
+                // SOUNDYAI-ADAPTIVE-SCORE — Calcular score adaptativo
+                try {
+                  const tickets = loadSuggestionTickets();
+                  if (tickets) {
+                    currentModalAnalysis.adaptiveScore = calculateAdaptiveScoreFromTickets(currentModalAnalysis, tickets);
+                  } else {
+                    currentModalAnalysis.adaptiveScore = { score: 50, method: 'suggestion_based_adaptive', breakdown: {} };
+                  }
+                } catch (err) {
+                  console.warn('[SoundyAI Adaptive Score Error]', err);
+                  currentModalAnalysis.adaptiveScore = { score: 50, method: 'fallback' };
+                }
                 
                 // Recalcular sugestões reference_* com as novas tolerâncias
                 try { updateReferenceSuggestions(currentModalAnalysis); } catch(e) { console.warn('updateReferenceSuggestions falhou', e); }
@@ -2177,6 +2159,15 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
                 updateReferenceSuggestions(normalizedResult, __activeRefData);
                 normalizedResult._suggestionsGenerated = true;
                 console.log(`🎯 [SUGGESTIONS] ${normalizedResult.suggestions?.length || 0} sugestões geradas no primeiro load`);
+                
+                // SOUNDYAI-ADAPTIVE-SCORE — Salvar tickets após gerar sugestões
+                try {
+                  const tickets = buildSuggestionTickets(normalizedResult.suggestions || []);
+                  saveSuggestionTickets(tickets);
+                  console.log('✅ [SoundyAI Adaptive Score] Tickets salvos:', tickets.items.length);
+                } catch (err) {
+                  console.warn('[SoundyAI Adaptive Score] Erro ao salvar tickets:', err);
+                }
             } catch (error) {
                 console.error('❌ [SUGGESTIONS] Erro ao gerar sugestões no primeiro load:', error);
             }
@@ -2946,6 +2937,15 @@ async function performReferenceComparison() {
         // Gerar sugestões baseadas na comparação
         const suggestions = generateReferenceSuggestions(comparison);
         
+        // SOUNDYAI-ADAPTIVE-SCORE — Salvar tickets após gerar sugestões
+        try {
+          const tickets = buildSuggestionTickets(suggestions);
+          saveSuggestionTickets(tickets);
+          console.log('✅ [SoundyAI Adaptive Score] Tickets salvos:', tickets.items.length);
+        } catch (err) {
+          console.warn('[SoundyAI Adaptive Score] Erro ao salvar tickets:', err);
+        }
+        
         // 🐛 DIAGNÓSTICO: Verificar se sugestões são baseadas apenas na comparison
         console.log('🔍 [DIAGNÓSTICO] Sugestões geradas (count):', suggestions.length);
         console.log('🔍 [DIAGNÓSTICO] Primeiro tipo de sugestão:', suggestions[0]?.type);
@@ -3534,6 +3534,12 @@ function displayModalResults(analysis) {
             </div>`;
 
         const scoreKpi = Number.isFinite(analysis.qualityOverall) ? kpi(Number(analysis.qualityOverall.toFixed(1)), 'SCORE GERAL', 'kpi-score') : '';
+        
+        // SOUNDYAI-ADAPTIVE-SCORE — Exibir Score Adaptativo se disponível
+        const adaptiveScoreKpi = (analysis.adaptiveScore && Number.isFinite(analysis.adaptiveScore.score)) 
+            ? kpi(Number(analysis.adaptiveScore.score.toFixed(1)), 'SCORE ADAPTATIVO', 'kpi-adaptive-score') 
+            : '';
+        
         const timeKpi = Number.isFinite(analysis.processingMs) ? kpi(analysis.processingMs, 'TEMPO (MS)', 'kpi-time') : '';
 
         const src = (k) => (analysis.technicalData?._sources && analysis.technicalData._sources[k]) ? ` data-src="${analysis.technicalData._sources[k]}" title="origem: ${analysis.technicalData._sources[k]}"` : '';
@@ -4082,6 +4088,15 @@ function displayModalResults(analysis) {
                 
                 // Atualizar analysis.suggestions com as sugestões enriched
                 analysis.suggestions = enrichedSuggestions;
+                
+                // SOUNDYAI-ADAPTIVE-SCORE — Salvar tickets após enriquecer sugestões
+                try {
+                  const tickets = buildSuggestionTickets(enrichedSuggestions);
+                  saveSuggestionTickets(tickets);
+                  console.log('✅ [SoundyAI Adaptive Score] Tickets salvos (enriched):', tickets.items.length);
+                } catch (err) {
+                  console.warn('[SoundyAI Adaptive Score] Erro ao salvar tickets (enriched):', err);
+                }
 
                 // Helpers para embelezar as sugestões sem mudar layout/IDs
                 const formatNumbers = (text, decimals = 2) => {
@@ -4804,7 +4819,7 @@ function displayModalResults(analysis) {
         const scoreRows = renderNewScores();
 
         technicalData.innerHTML = `
-            <div class="kpi-row">${scoreKpi}${timeKpi}</div>
+            <div class="kpi-row">${scoreKpi}${adaptiveScoreKpi}${timeKpi}</div>
                 ${renderSmartSummary(analysis) }
                     <div class="cards-grid">
                         <div class="card">
@@ -4861,7 +4876,6 @@ function displayModalResults(analysis) {
             <button id="runValidationSuiteBtn" style="background:#10365a;color:#fff;border:1px solid #1e4d7a;padding:6px 10px;font-size:12px;border-radius:6px;cursor:pointer;">Rodar Suite (10)</button>
             <button id="openSubjectiveFormBtn" style="background:#1c2c44;color:#d6e7ff;border:1px solid #284362;padding:6px 10px;font-size:12px;border-radius:6px;cursor:pointer;" disabled>Subjetivo 1–5</button>
             <button id="downloadValidationReportBtn" style="background:#224d37;color:#c5ffe9;border:1px solid #2f6e4e;padding:6px 10px;font-size:12px;border-radius:6px;cursor:pointer;" disabled>Baixar Relatório</button>
-            <button id="toggleAbsoluteModeBtn" style="background:#7e57c2;color:#fff;border:1px solid #9575cd;padding:6px 10px;font-size:12px;border-radius:6px;cursor:pointer;margin-left:8px;" title="Alternar entre modo educativo (normalizado) e técnico (absoluto)">Modo: Educativo</button>
             <span id="validationStatusMsg" style="margin-left:auto;font-size:11px;opacity:.75;">Pronto</span>
         `;
         host.prepend(bar);
@@ -4869,28 +4883,7 @@ function displayModalResults(analysis) {
         const btnRun = bar.querySelector('#runValidationSuiteBtn');
         const btnForm = bar.querySelector('#openSubjectiveFormBtn');
         const btnDownload = bar.querySelector('#downloadValidationReportBtn');
-        const btnToggleAbsolute = bar.querySelector('#toggleAbsoluteModeBtn');
         const statusEl = bar.querySelector('#validationStatusMsg');
-        
-        // 🎯 HANDLER: Botão de Modo Técnico Absoluto
-        btnToggleAbsolute.onclick = () => {
-            window.__SOUNDAI_ABSOLUTE_MODE__ = !window.__SOUNDAI_ABSOLUTE_MODE__;
-            const isAbsolute = window.__SOUNDAI_ABSOLUTE_MODE__;
-            
-            // Atualizar visual do botão
-            btnToggleAbsolute.textContent = isAbsolute ? 'Modo: Técnico' : 'Modo: Educativo';
-            btnToggleAbsolute.style.background = isAbsolute ? '#ff6b6b' : '#7e57c2';
-            btnToggleAbsolute.style.borderColor = isAbsolute ? '#ff7979' : '#9575cd';
-            
-            // Log de mudança
-            console.log(`🎯 [MODE_SWITCH] Modo alterado para: ${isAbsolute ? 'TÉCNICO (ABSOLUTO)' : 'EDUCATIVO (NORMALIZADO)'}`);
-            
-            // Notificação visual
-            statusEl.textContent = isAbsolute ? 'Modo Técnico Ativo' : 'Modo Educativo Ativo';
-            setTimeout(() => {
-                statusEl.textContent = 'Pronto';
-            }, 3000);
-        };
         btnRun.onclick = async ()=>{
             btnRun.disabled = true; btnRun.textContent = 'Rodando...'; statusEl.textContent = 'Executando suite...';
             try {
@@ -5882,27 +5875,17 @@ function calculateStereoScore(analysis, refData) {
 }
 
 // 6. CALCULAR SCORE DE FREQUÊNCIA (BANDAS ESPECTRAIS)
-function calculateFrequencyScore(analysis, refData, isAbsoluteMode = false) {
+function calculateFrequencyScore(analysis, refData) {
     if (!analysis || !refData || !refData.bands) return null;
     
-    // 🎯 MODO ABSOLUTO: Se isAbsoluteMode = true, usar dados diretos sem normalização
-    let bandsToUse;
-    if (isAbsoluteMode && typeof analysis === 'object' && analysis.rms_db) {
-        // analysis é rawBandEnergies direto
-        bandsToUse = analysis;
-        console.log('🔥 [ABSOLUTE_CALC] Usando dados brutos para cálculo de score:', Object.keys(analysis));
-    } else {
-        // Modo normal: usar dados processados
-        const centralizedBands = analysis.metrics?.bands;
-        const legacyBandEnergies = analysis.technicalData?.bandEnergies;
-        bandsToUse = centralizedBands && Object.keys(centralizedBands).length > 0 ? centralizedBands : legacyBandEnergies;
-    }
+    const centralizedBands = analysis.metrics?.bands;
+    const legacyBandEnergies = analysis.technicalData?.bandEnergies;
+    const bandsToUse = centralizedBands && Object.keys(centralizedBands).length > 0 ? centralizedBands : legacyBandEnergies;
     
     if (!bandsToUse) return null;
     
     const scores = [];
-    const modeLabel = isAbsoluteMode ? '[ABSOLUTE_CALC]' : '[NORMAL_CALC]';
-    console.log(`🎵 ${modeLabel} Calculando Score de Frequência...`);
+    console.log('🎵 Calculando Score de Frequência...');
     
     // Mapeamento das bandas calculadas para referência (exatamente as 7 bandas da tabela UI)
     const bandMapping = {
@@ -5942,7 +5925,7 @@ function calculateFrequencyScore(analysis, refData, isAbsoluteMode = false) {
                     scores.push(score);
                     const delta = Math.abs(energyDb - refBandData.target_db);
                     const status = delta <= refBandData.tol_db ? '✅' : '❌';
-                    console.log(`🎵 ${modeLabel} ${calcBand.toUpperCase()}: ${energyDb}dB vs ${refBandData.target_db}dB (±${refBandData.tol_db}dB) = ${score}% ${status}`);
+                    console.log(`🎵 ${calcBand.toUpperCase()}: ${energyDb}dB vs ${refBandData.target_db}dB (±${refBandData.tol_db}dB) = ${score}% ${status}`);
                 }
             }
         }
@@ -5955,8 +5938,8 @@ function calculateFrequencyScore(analysis, refData, isAbsoluteMode = false) {
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
     const result = Math.round(average);
     
-    console.log(`🎵 ${modeLabel} Score Frequência Final: ${result}% (média de ${scores.length} bandas)`);
-    console.log(`🎵 ${modeLabel} Scores individuais: [${scores.join(', ')}]`);
+    console.log(`🎵 Score Frequência Final: ${result}% (média de ${scores.length} bandas)`);
+    console.log(`🎵 Scores individuais: [${scores.join(', ')}]`);
     
     return result;
 }
@@ -6320,6 +6303,15 @@ function updateReferenceSuggestions(analysis) {
             // Combinar sugestões melhoradas com existentes preservadas
             analysis.suggestions = [...enhancedAnalysis.suggestions, ...nonRefSuggestions];
             
+            // SOUNDYAI-ADAPTIVE-SCORE — Salvar tickets após combinar sugestões
+            try {
+              const tickets = buildSuggestionTickets(analysis.suggestions);
+              saveSuggestionTickets(tickets);
+              console.log('✅ [SoundyAI Adaptive Score] Tickets salvos (combinadas):', tickets.items.length);
+            } catch (err) {
+              console.warn('[SoundyAI Adaptive Score] Erro ao salvar tickets (combinadas):', err);
+            }
+            
             // Adicionar métricas melhoradas à análise
             if (enhancedAnalysis.enhancedMetrics) {
                 analysis.enhancedMetrics = enhancedAnalysis.enhancedMetrics;
@@ -6360,6 +6352,15 @@ function updateReferenceSuggestions(analysis) {
                                 analysis._aiEnhanced = true;
                                 analysis._aiTimestamp = new Date().toISOString();
                                 analysis._aiSource = 'enhanced_engine';
+                                
+                                // SOUNDYAI-ADAPTIVE-SCORE — Salvar tickets após AI enhancement
+                                try {
+                                  const tickets = buildSuggestionTickets(enhancedSuggestions);
+                                  saveSuggestionTickets(tickets);
+                                  console.log('✅ [SoundyAI Adaptive Score] Tickets salvos (AI enhanced):', tickets.items.length);
+                                } catch (err) {
+                                  console.warn('[SoundyAI Adaptive Score] Erro ao salvar tickets (AI enhanced):', err);
+                                }
                                 
                                 console.log(`🤖 [AI-LAYER] ✅ Enhanced Engine + IA: ${enhancedSuggestions.length} sugestões`);
                                 
@@ -6443,6 +6444,15 @@ function updateReferenceSuggestions(analysis) {
 
                         analysis.suggestions = enhancedSuggestions;
                         console.log(`🤖 [AI-LAYER] ✅ ${enhancedSuggestions.length} sugestões enriquecidas com IA`);
+                        
+                        // SOUNDYAI-ADAPTIVE-SCORE — Salvar tickets após AI enrichment
+                        try {
+                          const tickets = buildSuggestionTickets(enhancedSuggestions);
+                          saveSuggestionTickets(tickets);
+                          console.log('✅ [SoundyAI Adaptive Score] Tickets salvos (AI enriched):', tickets.items.length);
+                        } catch (err) {
+                          console.warn('[SoundyAI Adaptive Score] Erro ao salvar tickets (AI enriched):', err);
+                        }
                         
                         // Marcar que IA foi aplicada
                         analysis._aiEnhanced = true;
@@ -7107,18 +7117,15 @@ function normalizeBackendAnalysisData(backendData) {
             return null;
         };
         
-        // 📡 SNAPSHOT DOS DADOS BRUTOS ANTES DA NORMALIZAÇÃO
-        const rawSpectralData = {
+        tech.spectral_balance = {
             sub: getSpectralValue('sub', 'subBass', 'sub_bass'),
-            bass: getSpectralValue('bass', 'low_bass', 'lowBass'),
+            bass: getSpectralValue('bass', 'low_bass', 'lowBass'),  // Normalizar para 'bass'
             lowMid: getSpectralValue('lowMid', 'low_mid', 'lowmid'),
             mid: getSpectralValue('mid', 'mids', 'middle'),
             highMid: getSpectralValue('highMid', 'high_mid', 'highmid'),
             presence: getSpectralValue('presence', 'presenca'),
             air: getSpectralValue('air', 'brilho', 'treble', 'high')
         };
-        
-        tech.spectral_balance = rawSpectralData;
         console.log('📊 [NORMALIZE] Spectral balance mapeado:', tech.spectral_balance);
         
         // 🎯 LOG ESPECÍFICO PARA AUDITORIA: BANDAS ESPECTRAIS
@@ -7141,9 +7148,6 @@ function normalizeBackendAnalysisData(backendData) {
     if (source.bandEnergies || source.band_energies || source.bands) {
         const bandsSource = source.bandEnergies || source.band_energies || source.bands || {};
         tech.bandEnergies = {};
-        
-        // 🎯 MODO TÉCNICO ABSOLUTO: Capturar valores brutos antes da normalização
-        const rawBandEnergies = {};
         
         // Mapear bandas conhecidas - APENAS VALORES REAIS
         const bandMapping = {
@@ -7188,93 +7192,14 @@ function normalizeBackendAnalysisData(backendData) {
                 
                 // Só adicionar se tiver pelo menos um valor real
                 if (rms_db !== null || peak_db !== null) {
-                    const bandObject = {
+                    tech.bandEnergies[targetKey] = {
                         rms_db: rms_db,
                         peak_db: peak_db,
                         frequency_range: frequency_range
                     };
-                    
-                    // 🎯 SALVAR VALORES BRUTOS (antes de qualquer normalização)
-                    rawBandEnergies[targetKey] = { ...bandObject };
-                    
-                    tech.bandEnergies[targetKey] = bandObject;
                 }
             }
         });
-        
-        // 🔍 DETECÇÃO AUTOMÁTICA DE VARIAÇÕES ESPECTRAIS SIGNIFICATIVAS
-        let isAutoAbsolute = false;
-        let avgVariation = 0;
-        
-        // Calcular desvio padrão das bandas para detectar EQ extremo
-        const validRMSValues = Object.values(rawBandEnergies)
-            .map(band => band?.rms_db)
-            .filter(value => Number.isFinite(value));
-            
-        if (validRMSValues.length >= 3) {
-            const mean = validRMSValues.reduce((sum, val) => sum + val, 0) / validRMSValues.length;
-            const variance = validRMSValues.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / validRMSValues.length;
-            const stdDev = Math.sqrt(variance);
-            
-            // Detectar variação extrema entre bandas (threshold: 1.5 dB)
-            avgVariation = stdDev;
-            const VARIATION_THRESHOLD = 1.5; // dB
-            
-            if (avgVariation > VARIATION_THRESHOLD) {
-                isAutoAbsolute = true;
-                console.warn(`�️ [AUTO-DETECT] Variação espectral significativa detectada: ${avgVariation.toFixed(2)} dB > ${VARIATION_THRESHOLD} dB`);
-                console.warn('🔄 [AUTO-DETECT] Ativando MODO ABSOLUTO automaticamente para exibir EQ real');
-            } else {
-                console.log(`📊 [AUTO-DETECT] Variação espectral normal: ${avgVariation.toFixed(2)} dB ≤ ${VARIATION_THRESHOLD} dB - mantendo modo educacional`);
-            }
-        }
-        
-        // �🎯 IMPLEMENTAR MODO TÉCNICO ABSOLUTO (manual ou automático)
-        const shouldUseAbsolute = window.__SOUNDAI_ABSOLUTE_MODE__ || isAutoAbsolute;
-        
-        if (shouldUseAbsolute) {
-            const activationReason = window.__SOUNDAI_ABSOLUTE_MODE__ ? 'MANUAL' : `AUTO (${avgVariation.toFixed(2)} dB)`;
-            console.warn(`⚙️ [ABSOLUTE_MODE] Normalização desativada — exibindo valores reais em dB RMS [${activationReason}]`);
-            
-            // Usar valores brutos sem nenhuma normalização
-            tech.bandEnergies = rawBandEnergies;
-            
-            // 📊 LOG COMPARATIVO PARA DEBUG
-            console.table({
-                modo: 'ABSOLUTO',
-                ativacao: activationReason,
-                variacao_detectada: `${avgVariation.toFixed(2)} dB`,
-                bandas_exibidas: Object.keys(rawBandEnergies),
-                exemplo_sub: rawBandEnergies.sub?.rms_db || 'N/A',
-                exemplo_bass: rawBandEnergies.bass?.rms_db || 'N/A',
-                exemplo_mid: rawBandEnergies.mid?.rms_db || 'N/A'
-            });
-            
-            console.log('📊 [ABSOLUTE_MODE] Exibindo valores reais — aumentos de EQ agora serão visíveis nos gráficos.');
-            
-            // 🔄 FORÇAR RECÁLCULO DO SCORE DE FREQUÊNCIA COM VALORES ABSOLUTOS
-            if (isAutoAbsolute && window.calculateFrequencyScore) {
-                console.log('🔢 [AUTO-ABSOLUTE] Recalculando frequency score com valores absolutos...');
-                const newFreqScore = window.calculateFrequencyScore(rawBandEnergies, true); // true = modo absoluto
-                if (Number.isFinite(newFreqScore)) {
-                    tech.frequency_score = newFreqScore;
-                    console.log(`✨ [AUTO-ABSOLUTE] Frequency score recalculado: ${newFreqScore}`);
-                }
-            }
-        } else {
-            console.log('[NORMALIZE] Aplicando normalização educacional');
-            
-            // 📊 LOG COMPARATIVO PARA DEBUG
-            console.table({
-                modo: 'NORMALIZADO',
-                variacao_detectada: `${avgVariation.toFixed(2)} dB`,
-                raw_bands: Object.keys(rawBandEnergies),
-                final_bands: Object.keys(tech.bandEnergies)
-            });
-        }
-        
-        // 🎯 SEMPRE SALVAR DADOS ABSOLUTOS PARA COMPARAÇÃO
-        normalized.absoluteBands = rawBandEnergies;
         
         console.log('📊 [NORMALIZE] Band energies mapeadas (apenas reais):', tech.bandEnergies);
         
@@ -7589,12 +7514,6 @@ function normalizeBackendAnalysisData(backendData) {
         qualityScore: normalized.qualityOverall
     });
     
-    // 🎯 AVISO MODO TÉCNICO ABSOLUTO
-    if (window.__SOUNDAI_ABSOLUTE_MODE__) {
-        console.log('📊 [ABSOLUTE_MODE] Exibindo valores reais — aumentos de EQ agora serão visíveis nos gráficos.');
-        console.warn('⚙️ [ABSOLUTE_MODE] Modo Técnico Absoluto ativo — valores de bandas não normalizados');
-    }
-    
     // 🎯 LOG DE RESUMO: Métricas normalizadas com sucesso
     const normalizedMetrics = Object.keys(normalized.technicalData).filter(key => 
         Number.isFinite(normalized.technicalData[key])
@@ -7749,11 +7668,41 @@ if (document.readyState === 'loading') {
     injectTruePeakStatusStyles();
 }
 
-// � DISPONIBILIZAR FUNÇÃO GLOBALMENTE PARA SISTEMA DE DETECÇÃO AUTOMÁTICA
-window.calculateFrequencyScore = calculateFrequencyScore;
-console.log('🌍 [GLOBAL] calculateFrequencyScore disponibilizada globalmente para detecção automática');
+// SOUNDYAI-ADAPTIVE-SCORE UTILITIES
+function buildSuggestionTickets(suggestions) {
+  const items = suggestions
+    .filter(s => s.category === 'spectral' && s.technical?.metric && s.technical?.currentValue != null)
+    .map(s => {
+      const stepDb = parseSuggestedDb(s.technical.suggestedChange);
+      const dir = (s.type === 'cut' || stepDb < 0) ? 'cut' : 'boost';
+      return {
+        band: s.band || s.technical.metric,
+        metric: s.technical.metric,
+        currentValueAtSuggestion: s.technical.currentValue,
+        targetValue: s.technical.targetValue,
+        stepDb: Math.abs(stepDb),
+        direction: dir
+      };
+    });
+  return { version: "1", createdAt: Date.now(), items };
+}
 
-// �🎯 PATCH DEFINITIVO: Carregar correção da tabela de referência
+function saveSuggestionTickets(tickets) {
+  try { localStorage.setItem('soundyai:last_suggestions', JSON.stringify(tickets)); } catch {}
+}
+
+function loadSuggestionTickets(maxAgeMs = 2 * 60 * 60 * 1000) {
+  try {
+    const raw = localStorage.getItem('soundyai:last_suggestions');
+    if (!raw) return null;
+    const obj = JSON.parse(raw);
+    if (!obj?.createdAt) return null;
+    if (Date.now() - obj.createdAt > maxAgeMs) return null;
+    return obj;
+  } catch { return null; }
+}
+
+// 🎯 PATCH DEFINITIVO: Carregar correção da tabela de referência
 (function loadReferenceTablePatch() {
     console.log('📦 [INTEGRATION] Carregando patch definitivo da tabela de referência...');
     
