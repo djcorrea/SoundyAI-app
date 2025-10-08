@@ -5882,17 +5882,27 @@ function calculateStereoScore(analysis, refData) {
 }
 
 // 6. CALCULAR SCORE DE FREQUÊNCIA (BANDAS ESPECTRAIS)
-function calculateFrequencyScore(analysis, refData) {
+function calculateFrequencyScore(analysis, refData, isAbsoluteMode = false) {
     if (!analysis || !refData || !refData.bands) return null;
     
-    const centralizedBands = analysis.metrics?.bands;
-    const legacyBandEnergies = analysis.technicalData?.bandEnergies;
-    const bandsToUse = centralizedBands && Object.keys(centralizedBands).length > 0 ? centralizedBands : legacyBandEnergies;
+    // 🎯 MODO ABSOLUTO: Se isAbsoluteMode = true, usar dados diretos sem normalização
+    let bandsToUse;
+    if (isAbsoluteMode && typeof analysis === 'object' && analysis.rms_db) {
+        // analysis é rawBandEnergies direto
+        bandsToUse = analysis;
+        console.log('🔥 [ABSOLUTE_CALC] Usando dados brutos para cálculo de score:', Object.keys(analysis));
+    } else {
+        // Modo normal: usar dados processados
+        const centralizedBands = analysis.metrics?.bands;
+        const legacyBandEnergies = analysis.technicalData?.bandEnergies;
+        bandsToUse = centralizedBands && Object.keys(centralizedBands).length > 0 ? centralizedBands : legacyBandEnergies;
+    }
     
     if (!bandsToUse) return null;
     
     const scores = [];
-    console.log('🎵 Calculando Score de Frequência...');
+    const modeLabel = isAbsoluteMode ? '[ABSOLUTE_CALC]' : '[NORMAL_CALC]';
+    console.log(`🎵 ${modeLabel} Calculando Score de Frequência...`);
     
     // Mapeamento das bandas calculadas para referência (exatamente as 7 bandas da tabela UI)
     const bandMapping = {
@@ -5932,7 +5942,7 @@ function calculateFrequencyScore(analysis, refData) {
                     scores.push(score);
                     const delta = Math.abs(energyDb - refBandData.target_db);
                     const status = delta <= refBandData.tol_db ? '✅' : '❌';
-                    console.log(`🎵 ${calcBand.toUpperCase()}: ${energyDb}dB vs ${refBandData.target_db}dB (±${refBandData.tol_db}dB) = ${score}% ${status}`);
+                    console.log(`🎵 ${modeLabel} ${calcBand.toUpperCase()}: ${energyDb}dB vs ${refBandData.target_db}dB (±${refBandData.tol_db}dB) = ${score}% ${status}`);
                 }
             }
         }
@@ -5945,8 +5955,8 @@ function calculateFrequencyScore(analysis, refData) {
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
     const result = Math.round(average);
     
-    console.log(`🎵 Score Frequência Final: ${result}% (média de ${scores.length} bandas)`);
-    console.log(`🎵 Scores individuais: [${scores.join(', ')}]`);
+    console.log(`🎵 ${modeLabel} Score Frequência Final: ${result}% (média de ${scores.length} bandas)`);
+    console.log(`🎵 ${modeLabel} Scores individuais: [${scores.join(', ')}]`);
     
     return result;
 }
@@ -7097,15 +7107,18 @@ function normalizeBackendAnalysisData(backendData) {
             return null;
         };
         
-        tech.spectral_balance = {
+        // 📡 SNAPSHOT DOS DADOS BRUTOS ANTES DA NORMALIZAÇÃO
+        const rawSpectralData = {
             sub: getSpectralValue('sub', 'subBass', 'sub_bass'),
-            bass: getSpectralValue('bass', 'low_bass', 'lowBass'),  // Normalizar para 'bass'
+            bass: getSpectralValue('bass', 'low_bass', 'lowBass'),
             lowMid: getSpectralValue('lowMid', 'low_mid', 'lowmid'),
             mid: getSpectralValue('mid', 'mids', 'middle'),
             highMid: getSpectralValue('highMid', 'high_mid', 'highmid'),
             presence: getSpectralValue('presence', 'presenca'),
             air: getSpectralValue('air', 'brilho', 'treble', 'high')
         };
+        
+        tech.spectral_balance = rawSpectralData;
         console.log('📊 [NORMALIZE] Spectral balance mapeado:', tech.spectral_balance);
         
         // 🎯 LOG ESPECÍFICO PARA AUDITORIA: BANDAS ESPECTRAIS
@@ -7189,15 +7202,48 @@ function normalizeBackendAnalysisData(backendData) {
             }
         });
         
-        // 🎯 IMPLEMENTAR MODO TÉCNICO ABSOLUTO
-        if (window.__SOUNDAI_ABSOLUTE_MODE__) {
-            console.warn('⚙️ [ABSOLUTE_MODE] Normalização desativada — exibindo valores reais em dB RMS');
+        // 🔍 DETECÇÃO AUTOMÁTICA DE VARIAÇÕES ESPECTRAIS SIGNIFICATIVAS
+        let isAutoAbsolute = false;
+        let avgVariation = 0;
+        
+        // Calcular desvio padrão das bandas para detectar EQ extremo
+        const validRMSValues = Object.values(rawBandEnergies)
+            .map(band => band?.rms_db)
+            .filter(value => Number.isFinite(value));
+            
+        if (validRMSValues.length >= 3) {
+            const mean = validRMSValues.reduce((sum, val) => sum + val, 0) / validRMSValues.length;
+            const variance = validRMSValues.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / validRMSValues.length;
+            const stdDev = Math.sqrt(variance);
+            
+            // Detectar variação extrema entre bandas (threshold: 1.5 dB)
+            avgVariation = stdDev;
+            const VARIATION_THRESHOLD = 1.5; // dB
+            
+            if (avgVariation > VARIATION_THRESHOLD) {
+                isAutoAbsolute = true;
+                console.warn(`�️ [AUTO-DETECT] Variação espectral significativa detectada: ${avgVariation.toFixed(2)} dB > ${VARIATION_THRESHOLD} dB`);
+                console.warn('🔄 [AUTO-DETECT] Ativando MODO ABSOLUTO automaticamente para exibir EQ real');
+            } else {
+                console.log(`📊 [AUTO-DETECT] Variação espectral normal: ${avgVariation.toFixed(2)} dB ≤ ${VARIATION_THRESHOLD} dB - mantendo modo educacional`);
+            }
+        }
+        
+        // �🎯 IMPLEMENTAR MODO TÉCNICO ABSOLUTO (manual ou automático)
+        const shouldUseAbsolute = window.__SOUNDAI_ABSOLUTE_MODE__ || isAutoAbsolute;
+        
+        if (shouldUseAbsolute) {
+            const activationReason = window.__SOUNDAI_ABSOLUTE_MODE__ ? 'MANUAL' : `AUTO (${avgVariation.toFixed(2)} dB)`;
+            console.warn(`⚙️ [ABSOLUTE_MODE] Normalização desativada — exibindo valores reais em dB RMS [${activationReason}]`);
+            
             // Usar valores brutos sem nenhuma normalização
             tech.bandEnergies = rawBandEnergies;
             
             // 📊 LOG COMPARATIVO PARA DEBUG
             console.table({
                 modo: 'ABSOLUTO',
+                ativacao: activationReason,
+                variacao_detectada: `${avgVariation.toFixed(2)} dB`,
                 bandas_exibidas: Object.keys(rawBandEnergies),
                 exemplo_sub: rawBandEnergies.sub?.rms_db || 'N/A',
                 exemplo_bass: rawBandEnergies.bass?.rms_db || 'N/A',
@@ -7205,12 +7251,23 @@ function normalizeBackendAnalysisData(backendData) {
             });
             
             console.log('📊 [ABSOLUTE_MODE] Exibindo valores reais — aumentos de EQ agora serão visíveis nos gráficos.');
+            
+            // 🔄 FORÇAR RECÁLCULO DO SCORE DE FREQUÊNCIA COM VALORES ABSOLUTOS
+            if (isAutoAbsolute && window.calculateFrequencyScore) {
+                console.log('🔢 [AUTO-ABSOLUTE] Recalculando frequency score com valores absolutos...');
+                const newFreqScore = window.calculateFrequencyScore(rawBandEnergies, true); // true = modo absoluto
+                if (Number.isFinite(newFreqScore)) {
+                    tech.frequency_score = newFreqScore;
+                    console.log(`✨ [AUTO-ABSOLUTE] Frequency score recalculado: ${newFreqScore}`);
+                }
+            }
         } else {
             console.log('[NORMALIZE] Aplicando normalização educacional');
             
             // 📊 LOG COMPARATIVO PARA DEBUG
             console.table({
                 modo: 'NORMALIZADO',
+                variacao_detectada: `${avgVariation.toFixed(2)} dB`,
                 raw_bands: Object.keys(rawBandEnergies),
                 final_bands: Object.keys(tech.bandEnergies)
             });
@@ -7692,7 +7749,11 @@ if (document.readyState === 'loading') {
     injectTruePeakStatusStyles();
 }
 
-// 🎯 PATCH DEFINITIVO: Carregar correção da tabela de referência
+// � DISPONIBILIZAR FUNÇÃO GLOBALMENTE PARA SISTEMA DE DETECÇÃO AUTOMÁTICA
+window.calculateFrequencyScore = calculateFrequencyScore;
+console.log('🌍 [GLOBAL] calculateFrequencyScore disponibilizada globalmente para detecção automática');
+
+// �🎯 PATCH DEFINITIVO: Carregar correção da tabela de referência
 (function loadReferenceTablePatch() {
     console.log('📦 [INTEGRATION] Carregando patch definitivo da tabela de referência...');
     
