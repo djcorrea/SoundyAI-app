@@ -83,7 +83,17 @@
                     <div class="card-description">Pequeno ajuste nas frequências médias...</div>
                 </div>
                 
-                <div class="suggestion-card" id="card-3">
+                <div class="suggestion-card" id="card-3" data-type="true_peak">
+                    <div class="card-title">Correção de picos digitais necessária</div>
+                    <div class="card-description">Detectado através de atributo dataset...</div>
+                </div>
+                
+                <div class="suggestion-card" id="true_peak_card_4">
+                    <div class="card-title">Problema de masterização</div>
+                    <div class="card-description">Detectado através do ID do card...</div>
+                </div>
+                
+                <div class="suggestion-card" id="card-5">
                     <div class="card-title">⚡ True-Peak: Correção Urgente</div>
                     <div class="card-description">Valor crítico detectado que requer atenção imediata...</div>
                 </div>
@@ -120,36 +130,40 @@
             log.scrollTop = log.scrollHeight;
         }
 
-        // Função do patch extraída do displayModalResults
+        // Função do patch extraída do displayModalResults (VERSÃO MELHORADA)
         function runPatch() {
-            logTest("🧠 Executando patch de correção prioritária...");
+            logTest("🧠 Executando patch de correção prioritária melhorado...");
             
-            document.querySelectorAll('.suggestion-card').forEach(card => {
-                const hasTP = card.innerText.includes('True Peak') || card.innerText.includes('True-Peak');
-                const alreadyHasBanner = card.querySelector('.priority-banner');
-                
-                logTest(`📋 Card verificado: hasTP=${hasTP}, alreadyHasBanner=${!!alreadyHasBanner}`);
-                
-                if (hasTP && !alreadyHasBanner) {
-                    const banner = document.createElement('div');
-                    banner.className = 'priority-banner';
-                    banner.innerHTML = `
-                        <div class="priority-icon">⚡</div>
-                        <div class="priority-text">
-                            Correção Prioritária: reduza o True Peak antes de outros ajustes
-                        </div>
-                    `;
-                    card.prepend(banner);
-                    logTest(`✅ Banner adicionado ao card: ${card.querySelector('.card-title').textContent}`);
+            const cards = document.querySelectorAll('.suggestion-card');
+            let total = 0;
+
+            cards.forEach(card => {
+                const text = card.innerText || '';
+                const hasTP = /true[- ]?peak/i.test(text);
+
+                // Nova checagem: procurar atributos internos ou dados da sugestão
+                const datasetMatch = JSON.stringify(card.dataset || {}).toLowerCase().includes('true_peak');
+                const idMatch = (card.id || '').toLowerCase().includes('true_peak');
+
+                logTest(`📋 Card verificado: hasTP=${hasTP}, datasetMatch=${datasetMatch}, idMatch=${idMatch}`);
+
+                if (hasTP || datasetMatch || idMatch) {
+                    if (!card.querySelector('.priority-banner')) {
+                        const banner = document.createElement('div');
+                        banner.className = 'priority-banner';
+                        banner.innerHTML = `
+                            <div class="priority-icon">⚡</div>
+                            <div class="priority-text">Correção Prioritária: reduza o True Peak antes de outros ajustes</div>
+                        `;
+                        card.prepend(banner);
+                        total++;
+                        logTest(`✅ Banner adicionado ao card: ${card.querySelector('.card-title').textContent}`);
+                    }
                 }
             });
-            
-            logTest('✅ [PATCH] Banners de correção prioritária aplicados com sucesso.');
+
+            logTest(`✅ [PATCH] Banners de correção prioritária aplicados: ${total}`);
             logTest('[SoundyAI] Correção Prioritária renderizada com sucesso ✅');
-            
-            // Contar banners
-            const totalBanners = document.querySelectorAll('.priority-banner').length;
-            logTest(`📊 Total de banners ativos: ${totalBanners}`);
         }
 
         // Função para limpar banners
@@ -166,11 +180,11 @@
             clearBanners();
             logTest("📺 Modal 'renderizado' - conteúdo resetado");
             
-            // Simular o setTimeout do patch
+            // Simular o setTimeout do patch com delay atualizado
             setTimeout(() => {
-                logTest("⏰ Timeout executado - aplicando patch...");
+                logTest("⏰ Timeout executado (800ms) - aplicando patch...");
                 runPatch();
-            }, 400);
+            }, 800);
         }
 
         // CSS do priority-banner já incluído no modal
