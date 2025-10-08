@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Score Adaptativo - SoundyAI</title>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #16213e 100%);
+            color: #ffffff;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 20px 0;
+            backdrop-filter: blur(10px);
+        }
+        .test-result {
+            background: rgba(0, 255, 0, 0.1);
+            border: 1px solid rgba(0, 255, 0, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .test-error {
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid rgba(255, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 10px 0;
+            color: #ff6b6b;
+        }
+        .test-info {
+            background: rgba(25, 118, 210, 0.1);
+            border: 1px solid rgba(25, 118, 210, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin: 10px 0;
+            color: #90caf9;
+        }
+        button {
+            background: linear-gradient(135deg, #1976d2, #1565c0);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(25, 118, 210, 0.3);
+        }
+        .score-display {
+            font-size: 24px;
+            font-weight: bold;
+            color: #1976d2;
+            text-align: center;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Teste Score Adaptativo - SoundyAI</h1>
+        
+        <div class="test-section">
+            <h2>📊 Status do Sistema</h2>
+            <div id="status-display"></div>
+            <button onclick="checkSystemStatus()">Verificar Status</button>
+        </div>
+
+        <div class="test-section">
+            <h2>🔄 Teste de Cenários</h2>
+            <div class="test-info">
+                <strong>Cenários de Teste:</strong><br>
+                • Primeira análise: Score = 50<br>
+                • Aplicação correta de sugestões: Score = 70-90<br>
+                • Aplicação perfeita: Score = 100<br>
+                • Aplicação excessiva (overshoot): Score com penalidade<br>
+                • Aplicação incorreta: Score = 30<br>
+            </div>
+            
+            <button onclick="testScenario('first_analysis')">Testar Primeira Análise</button>
+            <button onclick="testScenario('perfect_application')">Testar Aplicação Perfeita</button>
+            <button onclick="testScenario('overshoot')">Testar Overshoot</button>
+            <button onclick="testScenario('wrong_direction')">Testar Direção Errada</button>
+            
+            <div id="scenario-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>🎛️ Simulador de Tickets</h2>
+            <button onclick="createMockTickets()">Criar Tickets de Teste</button>
+            <button onclick="simulateUserApplication()">Simular Aplicação do Usuário</button>
+            <button onclick="calculateScore()">Calcular Score</button>
+            
+            <div id="ticket-display"></div>
+            <div class="score-display" id="score-result"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>💾 Teste de Persistência</h2>
+            <button onclick="testTicketSaving()">Testar Salvamento de Tickets</button>
+            <button onclick="testTicketLoading()">Testar Carregamento de Tickets</button>
+            <button onclick="clearAllTickets()">Limpar Todos os Tickets</button>
+            
+            <div id="persistence-results"></div>
+        </div>
+    </div>
+
+    <!-- Importar módulo do Score Adaptativo -->
+    <script type="module">
+        import * as AdaptiveScore from './work/core/adaptive-score.js';
+        window.AdaptiveScore = AdaptiveScore;
+        
+        // Status do sistema
+        window.checkSystemStatus = function() {
+            const statusDiv = document.getElementById('status-display');
+            try {
+                if (window.AdaptiveScore) {
+                    statusDiv.innerHTML = `
+                        <div class="test-result">
+                            ✅ Módulo adaptive-score.js carregado com sucesso<br>
+                            📋 Funções disponíveis: ${Object.keys(window.AdaptiveScore).join(', ')}
+                        </div>
+                    `;
+                } else {
+                    statusDiv.innerHTML = `<div class="test-error">❌ Módulo adaptive-score.js não foi carregado</div>`;
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<div class="test-error">❌ Erro ao verificar status: ${error.message}</div>`;
+            }
+        };
+
+        // Teste de cenários
+        window.testScenario = function(scenario) {
+            const resultsDiv = document.getElementById('scenario-results');
+            
+            try {
+                let mockTickets, userAnalysis, score;
+                
+                switch(scenario) {
+                    case 'first_analysis':
+                        score = window.AdaptiveScore.calculateAdaptiveScoreFromTickets({ items: [], createdAt: Date.now() });
+                        resultsDiv.innerHTML += `
+                            <div class="test-result">
+                                🎯 Primeira Análise: Score = ${score.score} (Esperado: 50)
+                                ${score.score === 50 ? '✅ PASSOU' : '❌ FALHOU'}
+                            </div>
+                        `;
+                        break;
+                        
+                    case 'perfect_application':
+                        mockTickets = createPerfectApplicationTickets();
+                        score = window.AdaptiveScore.calculateAdaptiveScoreFromTickets(mockTickets);
+                        resultsDiv.innerHTML += `
+                            <div class="test-result">
+                                🎯 Aplicação Perfeita: Score = ${score.score} (Esperado: ~100)
+                                ${score.score >= 95 ? '✅ PASSOU' : '❌ FALHOU'}
+                            </div>
+                        `;
+                        break;
+                        
+                    case 'overshoot':
+                        mockTickets = createOvershootTickets();
+                        score = window.AdaptiveScore.calculateAdaptiveScoreFromTickets(mockTickets);
+                        resultsDiv.innerHTML += `
+                            <div class="test-result">
+                                🎯 Overshoot: Score = ${score.score} (Esperado: <70 com penalidade)
+                                ${score.score < 70 ? '✅ PASSOU' : '❌ FALHOU'}
+                            </div>
+                        `;
+                        break;
+                        
+                    case 'wrong_direction':
+                        mockTickets = createWrongDirectionTickets();
+                        score = window.AdaptiveScore.calculateAdaptiveScoreFromTickets(mockTickets);
+                        resultsDiv.innerHTML += `
+                            <div class="test-result">
+                                🎯 Direção Errada: Score = ${score.score} (Esperado: ~30)
+                                ${score.score <= 35 ? '✅ PASSOU' : '❌ FALHOU'}
+                            </div>
+                        `;
+                        break;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML += `<div class="test-error">❌ Erro no cenário ${scenario}: ${error.message}</div>`;
+            }
+        };
+
+        // Criar tickets de teste
+        function createPerfectApplicationTickets() {
+            return {
+                items: [
+                    {
+                        id: 'bass_adjust_test',
+                        type: 'bass_adjust',
+                        suggested: { delta: 2.0, unit: 'dB' },
+                        applied: { delta: 2.0, unit: 'dB' },
+                        createdAt: Date.now() - 60000
+                    },
+                    {
+                        id: 'mid_adjust_test',
+                        type: 'mid_adjust',
+                        suggested: { delta: -1.5, unit: 'dB' },
+                        applied: { delta: -1.5, unit: 'dB' },
+                        createdAt: Date.now() - 60000
+                    }
+                ],
+                createdAt: Date.now() - 60000
+            };
+        }
+
+        function createOvershootTickets() {
+            return {
+                items: [
+                    {
+                        id: 'bass_overshoot_test',
+                        type: 'bass_adjust',
+                        suggested: { delta: 2.0, unit: 'dB' },
+                        applied: { delta: 5.0, unit: 'dB' }, // Overshoot
+                        createdAt: Date.now() - 60000
+                    }
+                ],
+                createdAt: Date.now() - 60000
+            };
+        }
+
+        function createWrongDirectionTickets() {
+            return {
+                items: [
+                    {
+                        id: 'bass_wrong_test',
+                        type: 'bass_adjust',
+                        suggested: { delta: 2.0, unit: 'dB' },
+                        applied: { delta: -2.0, unit: 'dB' }, // Direção errada
+                        createdAt: Date.now() - 60000
+                    }
+                ],
+                createdAt: Date.now() - 60000
+            };
+        }
+
+        // Simulador de tickets
+        window.createMockTickets = function() {
+            const tickets = {
+                items: [
+                    {
+                        id: 'bass_test_1',
+                        type: 'bass_adjust',
+                        suggested: { delta: 2.5, unit: 'dB' },
+                        applied: null,
+                        createdAt: Date.now()
+                    },
+                    {
+                        id: 'mid_test_1',
+                        type: 'mid_adjust',
+                        suggested: { delta: -1.0, unit: 'dB' },
+                        applied: null,
+                        createdAt: Date.now()
+                    }
+                ],
+                createdAt: Date.now()
+            };
+            
+            localStorage.setItem('soundyai_suggestion_tickets', JSON.stringify(tickets));
+            document.getElementById('ticket-display').innerHTML = `
+                <div class="test-result">
+                    ✅ Tickets criados: ${tickets.items.length} sugestões salvas
+                </div>
+            `;
+        };
+
+        window.simulateUserApplication = function() {
+            const ticketsJson = localStorage.getItem('soundyai_suggestion_tickets');
+            if (!ticketsJson) {
+                document.getElementById('ticket-display').innerHTML = `
+                    <div class="test-error">❌ Nenhum ticket encontrado. Crie tickets primeiro.</div>
+                `;
+                return;
+            }
+            
+            const tickets = JSON.parse(ticketsJson);
+            tickets.items.forEach(ticket => {
+                if (ticket.type === 'bass_adjust') {
+                    ticket.applied = { delta: 2.0, unit: 'dB' }; // Aplicação próxima
+                } else if (ticket.type === 'mid_adjust') {
+                    ticket.applied = { delta: -0.8, unit: 'dB' }; // Aplicação próxima
+                }
+            });
+            
+            localStorage.setItem('soundyai_suggestion_tickets', JSON.stringify(tickets));
+            document.getElementById('ticket-display').innerHTML = `
+                <div class="test-result">
+                    ✅ Aplicação simulada nos ${tickets.items.length} tickets
+                </div>
+            `;
+        };
+
+        window.calculateScore = function() {
+            const ticketsJson = localStorage.getItem('soundyai_suggestion_tickets');
+            if (!ticketsJson) {
+                document.getElementById('score-result').innerHTML = 'Nenhum ticket encontrado';
+                return;
+            }
+            
+            try {
+                const tickets = JSON.parse(ticketsJson);
+                const score = window.AdaptiveScore.calculateAdaptiveScoreFromTickets(tickets);
+                document.getElementById('score-result').innerHTML = `Score: ${score.score}`;
+                
+                document.getElementById('ticket-display').innerHTML += `
+                    <div class="test-result">
+                        📊 Score calculado: ${score.score}<br>
+                        🔄 Método: ${score.method}<br>
+                        📈 Breakdown: ${JSON.stringify(score.breakdown, null, 2)}
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('score-result').innerHTML = `Erro: ${error.message}`;
+            }
+        };
+
+        // Testes de persistência
+        window.testTicketSaving = function() {
+            const testTickets = {
+                items: [
+                    { id: 'test_1', type: 'bass_adjust', suggested: { delta: 1.0, unit: 'dB' }, applied: null, createdAt: Date.now() }
+                ],
+                createdAt: Date.now()
+            };
+            
+            try {
+                localStorage.setItem('soundyai_suggestion_tickets', JSON.stringify(testTickets));
+                const retrieved = JSON.parse(localStorage.getItem('soundyai_suggestion_tickets'));
+                
+                document.getElementById('persistence-results').innerHTML = `
+                    <div class="test-result">
+                        ✅ Teste de salvamento: ${retrieved.items.length} ticket(s) salvos e recuperados
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('persistence-results').innerHTML = `
+                    <div class="test-error">❌ Erro no teste de salvamento: ${error.message}</div>
+                `;
+            }
+        };
+
+        window.testTicketLoading = function() {
+            try {
+                const tickets = localStorage.getItem('soundyai_suggestion_tickets');
+                if (tickets) {
+                    const parsed = JSON.parse(tickets);
+                    document.getElementById('persistence-results').innerHTML += `
+                        <div class="test-result">
+                            ✅ Teste de carregamento: ${parsed.items.length} ticket(s) carregados
+                        </div>
+                    `;
+                } else {
+                    document.getElementById('persistence-results').innerHTML += `
+                        <div class="test-info">ℹ️ Nenhum ticket encontrado no localStorage</div>
+                    `;
+                }
+            } catch (error) {
+                document.getElementById('persistence-results').innerHTML += `
+                    <div class="test-error">❌ Erro no teste de carregamento: ${error.message}</div>
+                `;
+            }
+        };
+
+        window.clearAllTickets = function() {
+            localStorage.removeItem('soundyai_suggestion_tickets');
+            document.getElementById('persistence-results').innerHTML += `
+                <div class="test-result">✅ Todos os tickets foram limpos do localStorage</div>
+            `;
+        };
+
+        // Verificar status automaticamente ao carregar
+        setTimeout(() => {
+            checkSystemStatus();
+        }, 500);
+        
+    </script>
+</body>
+</html>
