@@ -22,6 +22,10 @@ const __DEBUG_ANALYZER__ = true; // 🔧 TEMPORÁRIO: Ativado para debug do prob
 const __dbg = (...a) => { if (__DEBUG_ANALYZER__) console.log('[AUDIO-DEBUG]', ...a); };
 const __dwrn = (...a) => { if (__DEBUG_ANALYZER__) console.warn('[AUDIO-WARN]', ...a); };
 
+// 🎯 FLAG GLOBAL: Modo Técnico Absoluto
+// false = normalizado (educativo), true = absoluto (técnico)
+window.__SOUNDAI_ABSOLUTE_MODE__ = false;
+
 // 🆔 SISTEMA runId - Função utilitária centralizada
 function generateAnalysisRunId(context = 'ui') {
     const timestamp = Date.now();
@@ -843,6 +847,36 @@ window.diagnosRefSources = function(genre = null) {
     }).catch(e => console.log('❌ EXTERNAL JSON FAILED:', testUrl, e.message));
     
     return { targetGenre, currentData, cached };
+};
+
+// 🎯 Função de Controle do Modo Técnico Absoluto (console)
+window.toggleAbsoluteMode = function(forceMode = null) {
+    if (forceMode !== null) {
+        window.__SOUNDAI_ABSOLUTE_MODE__ = Boolean(forceMode);
+    } else {
+        window.__SOUNDAI_ABSOLUTE_MODE__ = !window.__SOUNDAI_ABSOLUTE_MODE__;
+    }
+    
+    const isAbsolute = window.__SOUNDAI_ABSOLUTE_MODE__;
+    
+    console.log(`🎯 [MODE_SWITCH] Modo alterado para: ${isAbsolute ? 'TÉCNICO (ABSOLUTO)' : 'EDUCATIVO (NORMALIZADO)'}`);
+    
+    if (isAbsolute) {
+        console.warn('⚙️ [ABSOLUTE_MODE] Valores de bandas espectrais agora são exibidos em dB RMS absolutos');
+        console.log('📊 EQ boosts agora serão detectados corretamente nos gráficos');
+    } else {
+        console.log('📚 [EDUCATIVO_MODE] Valores normalizados para visualização educativa');
+    }
+    
+    // Atualizar botão da UI se existir
+    const btn = document.getElementById('toggleAbsoluteModeBtn');
+    if (btn) {
+        btn.textContent = isAbsolute ? 'Modo: Técnico' : 'Modo: Educativo';
+        btn.style.background = isAbsolute ? '#ff6b6b' : '#7e57c2';
+        btn.style.borderColor = isAbsolute ? '#ff7979' : '#9575cd';
+    }
+    
+    return isAbsolute;
 };
 
 // =============== ETAPA 2: Robustez & Completeness Helpers ===============
@@ -4827,6 +4861,7 @@ function displayModalResults(analysis) {
             <button id="runValidationSuiteBtn" style="background:#10365a;color:#fff;border:1px solid #1e4d7a;padding:6px 10px;font-size:12px;border-radius:6px;cursor:pointer;">Rodar Suite (10)</button>
             <button id="openSubjectiveFormBtn" style="background:#1c2c44;color:#d6e7ff;border:1px solid #284362;padding:6px 10px;font-size:12px;border-radius:6px;cursor:pointer;" disabled>Subjetivo 1–5</button>
             <button id="downloadValidationReportBtn" style="background:#224d37;color:#c5ffe9;border:1px solid #2f6e4e;padding:6px 10px;font-size:12px;border-radius:6px;cursor:pointer;" disabled>Baixar Relatório</button>
+            <button id="toggleAbsoluteModeBtn" style="background:#7e57c2;color:#fff;border:1px solid #9575cd;padding:6px 10px;font-size:12px;border-radius:6px;cursor:pointer;margin-left:8px;" title="Alternar entre modo educativo (normalizado) e técnico (absoluto)">Modo: Educativo</button>
             <span id="validationStatusMsg" style="margin-left:auto;font-size:11px;opacity:.75;">Pronto</span>
         `;
         host.prepend(bar);
@@ -4834,7 +4869,28 @@ function displayModalResults(analysis) {
         const btnRun = bar.querySelector('#runValidationSuiteBtn');
         const btnForm = bar.querySelector('#openSubjectiveFormBtn');
         const btnDownload = bar.querySelector('#downloadValidationReportBtn');
+        const btnToggleAbsolute = bar.querySelector('#toggleAbsoluteModeBtn');
         const statusEl = bar.querySelector('#validationStatusMsg');
+        
+        // 🎯 HANDLER: Botão de Modo Técnico Absoluto
+        btnToggleAbsolute.onclick = () => {
+            window.__SOUNDAI_ABSOLUTE_MODE__ = !window.__SOUNDAI_ABSOLUTE_MODE__;
+            const isAbsolute = window.__SOUNDAI_ABSOLUTE_MODE__;
+            
+            // Atualizar visual do botão
+            btnToggleAbsolute.textContent = isAbsolute ? 'Modo: Técnico' : 'Modo: Educativo';
+            btnToggleAbsolute.style.background = isAbsolute ? '#ff6b6b' : '#7e57c2';
+            btnToggleAbsolute.style.borderColor = isAbsolute ? '#ff7979' : '#9575cd';
+            
+            // Log de mudança
+            console.log(`🎯 [MODE_SWITCH] Modo alterado para: ${isAbsolute ? 'TÉCNICO (ABSOLUTO)' : 'EDUCATIVO (NORMALIZADO)'}`);
+            
+            // Notificação visual
+            statusEl.textContent = isAbsolute ? 'Modo Técnico Ativo' : 'Modo Educativo Ativo';
+            setTimeout(() => {
+                statusEl.textContent = 'Pronto';
+            }, 3000);
+        };
         btnRun.onclick = async ()=>{
             btnRun.disabled = true; btnRun.textContent = 'Rodando...'; statusEl.textContent = 'Executando suite...';
             try {
@@ -7073,6 +7129,9 @@ function normalizeBackendAnalysisData(backendData) {
         const bandsSource = source.bandEnergies || source.band_energies || source.bands || {};
         tech.bandEnergies = {};
         
+        // 🎯 MODO TÉCNICO ABSOLUTO: Capturar valores brutos antes da normalização
+        const rawBandEnergies = {};
+        
         // Mapear bandas conhecidas - APENAS VALORES REAIS
         const bandMapping = {
             'sub': 'sub',
@@ -7116,14 +7175,49 @@ function normalizeBackendAnalysisData(backendData) {
                 
                 // Só adicionar se tiver pelo menos um valor real
                 if (rms_db !== null || peak_db !== null) {
-                    tech.bandEnergies[targetKey] = {
+                    const bandObject = {
                         rms_db: rms_db,
                         peak_db: peak_db,
                         frequency_range: frequency_range
                     };
+                    
+                    // 🎯 SALVAR VALORES BRUTOS (antes de qualquer normalização)
+                    rawBandEnergies[targetKey] = { ...bandObject };
+                    
+                    tech.bandEnergies[targetKey] = bandObject;
                 }
             }
         });
+        
+        // 🎯 IMPLEMENTAR MODO TÉCNICO ABSOLUTO
+        if (window.__SOUNDAI_ABSOLUTE_MODE__) {
+            console.warn('⚙️ [ABSOLUTE_MODE] Normalização desativada — exibindo valores reais em dB RMS');
+            // Usar valores brutos sem nenhuma normalização
+            tech.bandEnergies = rawBandEnergies;
+            
+            // 📊 LOG COMPARATIVO PARA DEBUG
+            console.table({
+                modo: 'ABSOLUTO',
+                bandas_exibidas: Object.keys(rawBandEnergies),
+                exemplo_sub: rawBandEnergies.sub?.rms_db || 'N/A',
+                exemplo_bass: rawBandEnergies.bass?.rms_db || 'N/A',
+                exemplo_mid: rawBandEnergies.mid?.rms_db || 'N/A'
+            });
+            
+            console.log('📊 [ABSOLUTE_MODE] Exibindo valores reais — aumentos de EQ agora serão visíveis nos gráficos.');
+        } else {
+            console.log('[NORMALIZE] Aplicando normalização educacional');
+            
+            // 📊 LOG COMPARATIVO PARA DEBUG
+            console.table({
+                modo: 'NORMALIZADO',
+                raw_bands: Object.keys(rawBandEnergies),
+                final_bands: Object.keys(tech.bandEnergies)
+            });
+        }
+        
+        // 🎯 SEMPRE SALVAR DADOS ABSOLUTOS PARA COMPARAÇÃO
+        normalized.absoluteBands = rawBandEnergies;
         
         console.log('📊 [NORMALIZE] Band energies mapeadas (apenas reais):', tech.bandEnergies);
         
@@ -7437,6 +7531,12 @@ function normalizeBackendAnalysisData(backendData) {
         suggestionsCount: normalized.suggestions.length,
         qualityScore: normalized.qualityOverall
     });
+    
+    // 🎯 AVISO MODO TÉCNICO ABSOLUTO
+    if (window.__SOUNDAI_ABSOLUTE_MODE__) {
+        console.log('📊 [ABSOLUTE_MODE] Exibindo valores reais — aumentos de EQ agora serão visíveis nos gráficos.');
+        console.warn('⚙️ [ABSOLUTE_MODE] Modo Técnico Absoluto ativo — valores de bandas não normalizados');
+    }
     
     // 🎯 LOG DE RESUMO: Métricas normalizadas com sucesso
     const normalizedMetrics = Object.keys(normalized.technicalData).filter(key => 
