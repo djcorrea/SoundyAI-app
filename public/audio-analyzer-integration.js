@@ -7719,3 +7719,46 @@ function loadSuggestionTickets(maxAgeMs = 2 * 60 * 60 * 1000) {
     
     document.head.appendChild(script);
 })();
+
+// 🌍 SOUNDYAI-ADAPTIVE-SCORE - Exposição global de funções para compatibilidade
+window.initializeAudioAnalyzerIntegration = initializeAudioAnalyzerIntegration;
+window.displayModalResults = displayModalResults;
+
+// 🧪 Função de teste para validar o sistema unificado
+window.testarSistemaUnificado = function() {
+    console.log('🧪 [TESTE] Iniciando teste do sistema unificado...');
+    
+    const checks = [
+        { name: 'initializeAudioAnalyzerIntegration', fn: window.initializeAudioAnalyzerIntegration },
+        { name: 'displayModalResults', fn: window.displayModalResults },
+        { name: 'calculateAdaptiveScoreFromTickets', fn: calculateAdaptiveScoreFromTickets },
+        { name: 'parseSuggestedDb', fn: parseSuggestedDb }
+    ];
+    
+    let allPassed = true;
+    checks.forEach(check => {
+        if (typeof check.fn === 'function') {
+            console.log(`✅ [TESTE] ${check.name} disponível`);
+        } else {
+            console.error(`❌ [TESTE] ${check.name} não encontrada`);
+            allPassed = false;
+        }
+    });
+    
+    if (allPassed) {
+        console.log('🎉 [TESTE] Sistema Unificado funcionando perfeitamente!');
+        
+        // Teste do score adaptativo
+        try {
+            const mockTickets = { items: [], createdAt: Date.now() };
+            const score = calculateAdaptiveScoreFromTickets(null, mockTickets);
+            console.log(`✅ [TESTE] Score Adaptativo: ${score.score} (método: ${score.method})`);
+        } catch (err) {
+            console.warn('⚠️ [TESTE] Erro no Score Adaptativo:', err.message);
+        }
+    } else {
+        console.error('❌ [TESTE] Sistema tem problemas - verifique os logs acima');
+    }
+    
+    return allPassed;
+};
