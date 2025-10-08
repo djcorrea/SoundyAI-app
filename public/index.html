@@ -576,7 +576,7 @@
             forceActivate();
         });
     </script>
-    <script src="audio-analyzer-integration.js?v=20250823k&final_fix=1724440500" defer></script>
+    <script type="module" src="audio-analyzer-integration.js?v=20250823k&final_fix=1724440500" defer></script>
     
     <!-- Inicializar Audio Analyzer -->
     <script>
@@ -588,15 +588,19 @@
             
             console.log('🔧 INIT: Forçando carregamento de refs externas');
             
-            // Aguardar um pouco para garantir que todos os scripts carregaram
-            setTimeout(() => {
+            // 🎯 SOUNDYAI-ADAPTIVE-SCORE - Aguardar carregamento do módulo ES6
+            function waitForModuleLoad() {
                 if (typeof initializeAudioAnalyzerIntegration === 'function') {
                     initializeAudioAnalyzerIntegration();
                     console.log('🎵 Audio Analyzer Integration inicializado');
                 } else {
-                    console.warn('⚠️ initializeAudioAnalyzerIntegration não encontrada');
+                    console.log('⏳ Aguardando módulo ES6 carregar...');
+                    setTimeout(waitForModuleLoad, 250);
                 }
-            }, 1000);
+            }
+            
+            // Iniciar aguardo após um pequeno delay para carregamento inicial
+            setTimeout(waitForModuleLoad, 500);
 
             // Patch para botões "+" - setup do menu popover CORRIGIDO E OTIMIZADO
             (function setupPlusPopovers() {
