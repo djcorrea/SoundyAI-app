@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 AUDITORIA COMPLETA - Pipeline de Análise de Áudio</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 8px;
+        }
+        .section {
+            margin: 30px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #007bff;
+            background-color: #f0f8ff;
+        }
+        .btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .btn:hover {
+            background: #0056b3;
+        }
+        .btn-danger {
+            background: #dc3545;
+        }
+        .btn-danger:hover {
+            background: #c82333;
+        }
+        .btn-success {
+            background: #28a745;
+        }
+        .btn-success:hover {
+            background: #218838;
+        }
+        .console-output {
+            background: #1e1e1e;
+            color: #fff;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .metric-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #dee2e6;
+        }
+        .metric-title {
+            font-weight: bold;
+            color: #495057;
+            margin-bottom: 5px;
+        }
+        .metric-value {
+            font-size: 18px;
+            color: #007bff;
+        }
+        #fileInput {
+            display: none;
+        }
+        .progress {
+            width: 100%;
+            height: 20px;
+            background-color: #e9ecef;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #007bff, #6610f2);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔍 AUDITORIA COMPLETA DO PIPELINE</h1>
+            <p>Sistema de diagnóstico para detectar normalizações automáticas e perdas de ganho</p>
+        </div>
+
+        <div class="section">
+            <h2>📁 Upload de Áudio</h2>
+            <div class="upload-area" id="uploadArea">
+                <p>🎵 Arraste um arquivo de áudio aqui ou clique para selecionar</p>
+                <p><small>Formatos: WAV, MP3, FLAC (máx. 50MB)</small></p>
+            </div>
+            <input type="file" id="fileInput" accept=".wav,.mp3,.flac" />
+            <div class="progress" id="progressContainer" style="display: none;">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>⚙️ Controles da Auditoria</h2>
+            <button class="btn" id="enableAudit">🔍 Ativar Auditoria</button>
+            <button class="btn btn-danger" id="disableAudit">⏹️ Desativar Auditoria</button>
+            <button class="btn btn-success" id="clearData">🧹 Limpar Dados</button>
+            <button class="btn" id="exportReport">📥 Exportar Relatório</button>
+            <button class="btn" id="testPipeline">🧪 Teste Pipeline</button>
+        </div>
+
+        <div class="section">
+            <h2>📊 Status da Auditoria</h2>
+            <div id="auditStatus" class="status info">
+                🔧 Sistema inicializando...
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🎯 Métricas Monitoradas</h2>
+            <div class="metrics-grid" id="metricsGrid">
+                <div class="metric-card">
+                    <div class="metric-title">Estágios Processados</div>
+                    <div class="metric-value" id="stagesCount">0</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">Transformações Detectadas</div>
+                    <div class="metric-value" id="transformsCount">0</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">Snapshots de AudioBuffer</div>
+                    <div class="metric-value" id="snapshotsCount">0</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-title">Mudanças de Ganho</div>
+                    <div class="metric-value" id="gainChangesCount">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>📋 Log da Auditoria</h2>
+            <div class="console-output" id="auditLog">
+                Aguardando início da análise...<br>
+            </div>
+            <button class="btn" id="clearLog">🧹 Limpar Log</button>
+        </div>
+
+        <div class="section">
+            <h2>📊 Relatório de Análise</h2>
+            <div id="analysisReport">
+                <p><em>Nenhuma análise realizada ainda.</em></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Carregar dependências -->
+    <script src="/public/audio-analyzer-v2.js"></script>
+    <script src="/AUDITORIA_PIPELINE_COMPLETA.js"></script>
+
+    <script>
+        // 🔧 CONFIGURAÇÃO INICIAL
+        let auditEnabled = false;
+        let analysisInProgress = false;
+
+        // 📊 ELEMENTOS DOM
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const auditStatus = document.getElementById('auditStatus');
+        const auditLog = document.getElementById('auditLog');
+        const analysisReport = document.getElementById('analysisReport');
+
+        // Contadores de métricas
+        const stagesCount = document.getElementById('stagesCount');
+        const transformsCount = document.getElementById('transformsCount');
+        const snapshotsCount = document.getElementById('snapshotsCount');
+        const gainChangesCount = document.getElementById('gainChangesCount');
+
+        // 🎯 INTERCEPTAR CONSOLE PARA CAPTURAR LOGS DA AUDITORIA
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+
+        function logToUI(type, ...args) {
+            const message = args.join(' ');
+            
+            // Filtrar apenas logs da auditoria
+            if (message.includes('[AUDITORIA]') || message.includes('🔍 AUDITORIA') || 
+                message.includes('PIPELINE_AUDIT') || message.includes('ANALYSIS_')) {
+                
+                const timestamp = new Date().toLocaleTimeString();
+                const color = type === 'error' ? '#ff6b6b' : 
+                            type === 'warn' ? '#feca57' : 
+                            type === 'info' ? '#48dbfb' : '#fff';
+                
+                auditLog.innerHTML += `<span style="color: ${color}">[${timestamp}] ${message}</span><br>`;
+                auditLog.scrollTop = auditLog.scrollHeight;
+            }
+            
+            // Manter log original
+            if (type === 'error') originalError(...args);
+            else if (type === 'warn') originalWarn(...args);
+            else originalLog(...args);
+        }
+
+        console.log = (...args) => logToUI('log', ...args);
+        console.error = (...args) => logToUI('error', ...args);
+        console.warn = (...args) => logToUI('warn', ...args);
+
+        // 🔧 INICIALIZAÇÃO
+        document.addEventListener('DOMContentLoaded', function() {
+            updateStatus('info', '🔧 Sistema carregado - aguardando AudioAnalyzer...');
+            
+            // Verificar se AudioAnalyzer está disponível
+            checkAudioAnalyzer();
+        });
+
+        function checkAudioAnalyzer() {
+            if (typeof AudioAnalyzer !== 'undefined' && window.audioAnalyzer) {
+                updateStatus('success', '✅ AudioAnalyzer detectado - sistema pronto');
+                
+                // Ativar auditoria automaticamente
+                enableAudit();
+            } else {
+                updateStatus('warning', '⏳ Aguardando AudioAnalyzer...');
+                setTimeout(checkAudioAnalyzer, 1000);
+            }
+        }
+
+        // 🎯 CONTROLES DA AUDITORIA
+        document.getElementById('enableAudit').addEventListener('click', enableAudit);
+        document.getElementById('disableAudit').addEventListener('click', disableAudit);
+        document.getElementById('clearData').addEventListener('click', clearAuditData);
+        document.getElementById('exportReport').addEventListener('click', exportReport);
+        document.getElementById('clearLog').addEventListener('click', clearLog);
+        document.getElementById('testPipeline').addEventListener('click', testPipeline);
+
+        function enableAudit() {
+            if (typeof window.togglePipelineAudit === 'function') {
+                window.togglePipelineAudit(true);
+                auditEnabled = true;
+                updateStatus('success', '🔍 Auditoria ativada - próxima análise será monitorada');
+                
+                // Iniciar monitoramento de dados
+                startMetricsMonitoring();
+            } else {
+                updateStatus('error', '❌ Sistema de auditoria não carregado');
+            }
+        }
+
+        function disableAudit() {
+            if (typeof window.togglePipelineAudit === 'function') {
+                window.togglePipelineAudit(false);
+                auditEnabled = false;
+                updateStatus('warning', '⏹️ Auditoria desativada');
+            }
+        }
+
+        function clearAuditData() {
+            if (typeof window.clearPipelineAuditData === 'function') {
+                window.clearPipelineAuditData();
+                updateStatus('info', '🧹 Dados de auditoria limpos');
+                updateMetrics();
+            }
+        }
+
+        function exportReport() {
+            if (typeof window.exportPipelineAuditReport === 'function') {
+                window.exportPipelineAuditReport();
+                updateStatus('success', '📥 Relatório exportado');
+            }
+        }
+
+        function clearLog() {
+            auditLog.innerHTML = 'Log limpo.<br>';
+        }
+
+        function testPipeline() {
+            updateStatus('info', '🧪 Iniciando teste do pipeline...');
+            
+            // Simular carregamento de um arquivo de teste
+            const testFile = new File([new ArrayBuffer(1024)], 'test.wav', { type: 'audio/wav' });
+            
+            logToUI('info', '🧪 [TESTE] Simulando análise com arquivo de teste');
+            
+            // TODO: Implementar teste sintético se necessário
+        }
+
+        // 📊 MONITORAMENTO DE MÉTRICAS
+        function startMetricsMonitoring() {
+            setInterval(updateMetrics, 1000);
+        }
+
+        function updateMetrics() {
+            if (window.__PIPELINE_AUDIT_DATA__) {
+                const data = window.__PIPELINE_AUDIT_DATA__;
+                
+                stagesCount.textContent = data.stages?.length || 0;
+                transformsCount.textContent = data.transformations?.length || 0;
+                snapshotsCount.textContent = data.audioBufferSnapshots?.length || 0;
+                gainChangesCount.textContent = data.gainChanges?.length || 0;
+                
+                // Atualizar relatório se houver dados
+                if (data.stages?.length > 0) {
+                    updateAnalysisReport(data);
+                }
+            }
+        }
+
+        function updateAnalysisReport(data) {
+            const hasNormalization = data.gainChanges?.some(change => 
+                change.normalizedDetected || (change.peakGainDb && change.peakGainDb < -3.0)
+            );
+            
+            let reportHtml = '<h3>📊 Resumo da Última Análise</h3>';
+            
+            if (data.stages?.length > 0) {
+                const startTime = data.stages[0]?.timestamp || 0;
+                const endTime = data.stages[data.stages.length - 1]?.timestamp || 0;
+                const totalTime = endTime - startTime;
+                
+                reportHtml += `
+                    <div class="metrics-grid">
+                        <div class="metric-card">
+                            <div class="metric-title">Tempo Total</div>
+                            <div class="metric-value">${totalTime.toFixed(2)}ms</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-title">Estágios</div>
+                            <div class="metric-value">${data.stages.length}</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-title">Snapshots</div>
+                            <div class="metric-value">${data.audioBufferSnapshots?.length || 0}</div>
+                        </div>
+                    </div>
+                `;
+                
+                if (hasNormalization) {
+                    reportHtml += `
+                        <div class="status warning">
+                            ⚠️ <strong>POSSÍVEL NORMALIZAÇÃO AUTOMÁTICA DETECTADA!</strong><br>
+                            Isso pode explicar por que aumentos de EQ não aparecem nas métricas.
+                        </div>
+                    `;
+                } else {
+                    reportHtml += `
+                        <div class="status success">
+                            ✅ Nenhuma normalização automática detectada no pipeline.
+                        </div>
+                    `;
+                }
+                
+                // Mostrar estágios do pipeline
+                reportHtml += '<h4>🔍 Estágios do Pipeline:</h4><ul>';
+                data.stages.forEach((stage, index) => {
+                    reportHtml += `<li>[${stage.timestamp?.toFixed(2)}ms] ${stage.stage}</li>`;
+                });
+                reportHtml += '</ul>';
+                
+                // Mostrar snapshots do AudioBuffer se disponível
+                if (data.audioBufferSnapshots?.length > 0) {
+                    reportHtml += '<h4>📸 Snapshots do AudioBuffer:</h4><ul>';
+                    data.audioBufferSnapshots.forEach((snapshot, index) => {
+                        const rms = snapshot.state?.leftRMSdB?.toFixed(2) || 'N/A';
+                        const peak = snapshot.state?.leftPeakdB?.toFixed(2) || 'N/A';
+                        reportHtml += `<li>[${snapshot.stage}] RMS: ${rms} dB, Peak: ${peak} dB</li>`;
+                    });
+                    reportHtml += '</ul>';
+                }
+            } else {
+                reportHtml += '<p><em>Nenhuma análise realizada ainda.</em></p>';
+            }
+            
+            analysisReport.innerHTML = reportHtml;
+        }
+
+        // 📁 UPLOAD DE ARQUIVO
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFileUpload(files[0]);
+            }
+        });
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileUpload(e.target.files[0]);
+            }
+        });
+
+        // 🎵 PROCESSAR ARQUIVO
+        async function handleFileUpload(file) {
+            if (analysisInProgress) {
+                updateStatus('warning', '⚠️ Análise em progresso - aguarde');
+                return;
+            }
+            
+            // Validar arquivo
+            const validTypes = ['audio/wav', 'audio/mpeg', 'audio/flac'];
+            if (!validTypes.includes(file.type) && !file.name.match(/\.(wav|mp3|flac)$/i)) {
+                updateStatus('error', '❌ Tipo de arquivo inválido');
+                return;
+            }
+            
+            if (file.size > 50 * 1024 * 1024) { // 50MB
+                updateStatus('error', '❌ Arquivo muito grande (máx. 50MB)');
+                return;
+            }
+            
+            analysisInProgress = true;
+            updateStatus('info', `🎵 Analisando: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
+            
+            // Mostrar barra de progresso
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '10%';
+            
+            try {
+                // Verificar se o audioAnalyzer existe
+                if (!window.audioAnalyzer) {
+                    // Criar instância do AudioAnalyzer
+                    window.audioAnalyzer = new AudioAnalyzer();
+                    await window.audioAnalyzer.initializeAnalyzer();
+                }
+                
+                progressBar.style.width = '30%';
+                
+                // Executar análise
+                logToUI('info', `🔍 [AUDITORIA] Iniciando análise de ${file.name}`);
+                
+                const result = await window.audioAnalyzer.analyzeAudioFile(file, { 
+                    mode: 'genre',
+                    debugModeReference: true,
+                    runId: `audit_${Date.now()}`
+                });
+                
+                progressBar.style.width = '100%';
+                
+                updateStatus('success', '✅ Análise concluída - verifique o relatório abaixo');
+                
+                logToUI('info', '🔍 [AUDITORIA] Análise concluída com sucesso');
+                
+                // Aguardar um pouco para capturar todos os logs
+                setTimeout(() => {
+                    updateMetrics();
+                    progressContainer.style.display = 'none';
+                }, 2000);
+                
+            } catch (error) {
+                updateStatus('error', `❌ Erro na análise: ${error.message}`);
+                logToUI('error', `🔍 [AUDITORIA] Erro: ${error.message}`);
+                progressContainer.style.display = 'none';
+            } finally {
+                analysisInProgress = false;
+            }
+        }
+
+        // 🔧 UTILITY FUNCTIONS
+        function updateStatus(type, message) {
+            auditStatus.className = `status ${type}`;
+            auditStatus.textContent = message;
+        }
+
+        // 🎯 MONITOR INICIAL
+        updateStatus('info', '🔧 Sistema inicializando...');
+    </script>
+</body>
+</html>
