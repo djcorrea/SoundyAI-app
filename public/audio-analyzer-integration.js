@@ -4816,6 +4816,27 @@ function displayModalResults(analysis) {
             </div>
         `;
     
+        // 🧠 PATCH: exibir banner de correção prioritária após renderização final
+        setTimeout(() => {
+            document.querySelectorAll('.suggestion-card').forEach(card => {
+                const hasTP = card.innerText.includes('True Peak') || card.innerText.includes('True-Peak');
+                const alreadyHasBanner = card.querySelector('.priority-banner');
+                if (hasTP && !alreadyHasBanner) {
+                    const banner = document.createElement('div');
+                    banner.className = 'priority-banner';
+                    banner.innerHTML = `
+                        <div class="priority-icon">⚡</div>
+                        <div class="priority-text">
+                            Correção Prioritária: reduza o True Peak antes de outros ajustes
+                        </div>
+                    `;
+                    card.prepend(banner);
+                }
+            });
+            console.log('✅ [PATCH] Banners de correção prioritária aplicados com sucesso.');
+            console.log('[SoundyAI] Correção Prioritária renderizada com sucesso ✅');
+        }, 400);
+    
     try { renderReferenceComparisons(analysis); } catch(e){ console.warn('ref compare fail', e);}    
         try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ console.warn('validation controls fail', e); }
     __dbg('📊 Resultados exibidos no modal');
@@ -5512,6 +5533,40 @@ function renderReferenceComparisons(analysis) {
         .ref-compare-table tbody tr:hover td{background:rgba(255,255,255,.04);} 
         `;
         document.head.appendChild(style);
+    }
+    
+    // Garantir que o CSS do priority-banner esteja disponível no modal
+    if (!document.getElementById('priorityBannerStyles')) {
+        const priorityStyle = document.createElement('style');
+        priorityStyle.id = 'priorityBannerStyles';
+        priorityStyle.textContent = `
+        .priority-banner {
+            display: flex !important;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-weight: 700;
+            background: linear-gradient(90deg, #ff006a, #ff9800) !important;
+            color: #fff !important;
+            margin-bottom: 10px;
+            box-shadow: 0 0 15px rgba(255, 0, 106, 0.3);
+            animation: pulsePriority 1.5s infinite alternate;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .priority-icon {
+            font-size: 20px;
+            line-height: 1;
+        }
+        
+        @keyframes pulsePriority {
+            from { opacity: 0.8; transform: scale(0.98); }
+            to { opacity: 1; transform: scale(1.02); }
+        }
+        `;
+        document.head.appendChild(priorityStyle);
     }
 }
 
