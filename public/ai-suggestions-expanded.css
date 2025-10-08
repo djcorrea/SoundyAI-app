@@ -420,12 +420,7 @@
 
 /* === FOOTER === */
 .ai-expanded-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 20px 24px;
-    background: rgba(0, 0, 0, 0.2);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    display: none; /* Ocultado pois não há conteúdo interno no modal */
 }
 
 .ai-footer-stats {
@@ -501,9 +496,12 @@
 
 @media (max-width: 768px) {
     .ai-expanded-header,
-    .ai-expanded-content,
-    .ai-expanded-footer {
+    .ai-expanded-content {
         padding: 16px 20px;
+    }
+    
+    .ai-expanded-footer {
+        display: none; /* Mantém oculto no mobile também */
     }
     
     .ai-header-left h3 {
@@ -598,9 +596,12 @@
         box-shadow: none !important;
     }
     
-    .ai-expanded-header,
-    .ai-expanded-footer {
+    .ai-expanded-header {
         background: #f5f5f5 !important;
+    }
+    
+    .ai-expanded-footer {
+        display: none !important; /* Oculto na impressão também */
     }
     
     .ai-suggestion-card {
