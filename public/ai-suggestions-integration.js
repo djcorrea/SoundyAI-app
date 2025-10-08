@@ -1067,6 +1067,36 @@ class AISuggestionsIntegration {
                 console.log(`[DEBUG] Banner ${idx + 1}:`, banner.textContent);
             });
         }, 1500);
+        
+        // 🧠 PATCH: Exibir banner de correção prioritária no card do True Peak
+        setTimeout(() => {
+            const cards = document.querySelectorAll('.ai-suggestion-card');
+            let count = 0;
+
+            cards.forEach(card => {
+                const cardText = card.innerText.toLowerCase();
+                const hasTruePeak =
+                    cardText.includes('true peak') ||
+                    cardText.includes('true-peak') ||
+                    cardText.includes('truepeak') ||
+                    cardText.includes('correção prioritária');
+
+                if (hasTruePeak && !card.querySelector('.priority-banner')) {
+                    const banner = document.createElement('div');
+                    banner.className = 'priority-banner';
+                    banner.innerHTML = `
+                        <div class="priority-icon">⚡</div>
+                        <div class="priority-text">
+                            Correção Prioritária: reduza o True Peak antes de outros ajustes
+                        </div>
+                    `;
+                    card.prepend(banner);
+                    count++;
+                }
+            });
+
+            console.log(`✅ [PATCH_UI] Banners de correção prioritária aplicados: ${count}`);
+        }, 700);
     }
     
     /**

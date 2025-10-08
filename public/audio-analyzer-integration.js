@@ -4816,37 +4816,6 @@ function displayModalResults(analysis) {
             </div>
         `;
     
-        // 🧠 PATCH: exibir banner de correção prioritária após renderização final
-        setTimeout(() => {
-            const cards = document.querySelectorAll('.suggestion-card');
-            let total = 0;
-
-            cards.forEach(card => {
-                const text = card.innerText || '';
-                const hasTP = /true[- ]?peak/i.test(text);
-
-                // Nova checagem: procurar atributos internos ou dados da sugestão
-                const datasetMatch = JSON.stringify(card.dataset || {}).toLowerCase().includes('true_peak');
-                const idMatch = (card.id || '').toLowerCase().includes('true_peak');
-
-                if (hasTP || datasetMatch || idMatch) {
-                    if (!card.querySelector('.priority-banner')) {
-                        const banner = document.createElement('div');
-                        banner.className = 'priority-banner';
-                        banner.innerHTML = `
-                            <div class="priority-icon">⚡</div>
-                            <div class="priority-text">Correção Prioritária: reduza o True Peak antes de outros ajustes</div>
-                        `;
-                        card.prepend(banner);
-                        total++;
-                    }
-                }
-            });
-
-            console.log(`✅ [PATCH] Banners de correção prioritária aplicados: ${total}`);
-            console.log('[SoundyAI] Correção Prioritária renderizada com sucesso ✅');
-        }, 800);
-    
     try { renderReferenceComparisons(analysis); } catch(e){ console.warn('ref compare fail', e);}    
         try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ console.warn('validation controls fail', e); }
     __dbg('📊 Resultados exibidos no modal');
