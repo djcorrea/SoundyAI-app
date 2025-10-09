@@ -24,7 +24,8 @@
             <button class="button" onclick="enableDebug()">🔍 Ativar Debug Híbrido</button>
             <button class="button" onclick="resetBaseline()">🗑️ Reset Baseline</button>
             <button class="button" onclick="showBaseline()">📋 Mostrar Baseline</button>
-            <button class="button" onclick="simulateAnalysis()">🎵 Simular Análise</button>
+            <button class="button" onclick="simulateAnalysis()">🎵 Simular Análise #1 (Baseline)</button>
+            <button class="button" onclick="simulateImprovement()">🎯 Simular Análise #2 (+3dB Melhoria)</button>
         </div>
 
         <div class="section">
@@ -38,11 +39,14 @@
         </div>
 
         <div class="section">
-            <h2>ℹ️ Como Funciona</h2>
+            <h2>ℹ️ Como Funciona - VERSÃO APRIMORADA</h2>
             <div class="baseline">
-                <strong>Pista A (Proximidade):</strong> Score baseado na distância ao target ideal<br>
+                <strong>Pista A (Proximidade):</strong> Score baseado na distância ao target ideal (sistema original)<br>
                 <strong>Pista B (Melhoria):</strong> Score baseado na melhoria vs estado inicial<br>
-                <strong>Score Final:</strong> Math.max(scoreA, scoreB) - o melhor dos dois sistemas
+                <strong>STEP_MAX:</strong> 4dB = melhoria que dá 100% de score (boost 1.2x)<br>
+                <strong>Cap de Sanidade:</strong> Máx 80% se banda continua muito longe (>2×tolerância)<br>
+                <strong>Score Final:</strong> Math.max(scoreA, scoreB) - o melhor dos dois sistemas<br>
+                <strong>Persistência:</strong> Baseline salva no localStorage por trackId
             </div>
         </div>
     </div>
@@ -122,6 +126,59 @@
                 if (typeof computeMixScore === 'function') {
                     const result = computeMixScore(mockMetrics, mockReference);
                     console.log('✅ Análise concluída:', result);
+                    updateStatus();
+                } else {
+                    console.log('❌ Função computeMixScore não encontrada');
+                }
+            } catch (error) {
+                console.log('❌ Erro na análise:', error.message);
+            }
+        }
+
+        function simulateImprovement() {
+            // Simular melhoria de +3dB em sub/bass/mid (ficam mais próximos do target)
+            const improvedMetrics = {
+                bandEnergies: {
+                    sub: { rms_db: -15.5 },    // foi -18.5, melhorou +3dB (target: -14.0)
+                    bass: { rms_db: -9.3 },    // foi -12.3, melhorou +3dB (target: -10.0) 
+                    low_mid: { rms_db: -7.1 }, // foi -10.1, melhorou +3dB (target: -8.0)
+                    mid: { rms_db: -8.7 },     // mantido igual
+                    high_mid: { rms_db: -11.2 }, // mantido igual
+                    presence: { rms_db: -15.8 }, // mantido igual
+                    air: { rms_db: -20.1 }       // mantido igual
+                },
+                lufsIntegrated: -23.0
+            };
+
+            const mockReference = {
+                bands: {
+                    sub: { target_db: -14.0, tol_db: 6.0 },
+                    bass: { target_db: -10.0, tol_db: 6.0 },
+                    low_mid: { target_db: -8.0, tol_db: 6.0 },
+                    mid: { target_db: -6.0, tol_db: 6.0 },
+                    high_mid: { target_db: -8.0, tol_db: 6.0 },
+                    presence: { target_db: -12.0, tol_db: 6.0 },
+                    air: { target_db: -18.0, tol_db: 6.0 }
+                }
+            };
+
+            console.log('🎯 Simulando melhoria de +3dB em sub/bass/low_mid...');
+            
+            try {
+                if (typeof computeMixScore === 'function') {
+                    const result = computeMixScore(improvedMetrics, mockReference);
+                    console.log('✅ Análise pós-melhoria concluída:', result);
+                    
+                    // Verificar se scoreB ficou entre 0.75-1.00 para as bandas melhoradas
+                    const bandScores = result.perMetric?.filter(m => m.key.startsWith('band_'));
+                    if (bandScores) {
+                        console.log('📊 Scores das bandas:');
+                        bandScores.forEach(band => {
+                            const score = (band.score * 100).toFixed(1);
+                            console.log(`  ${band.key}: ${score}%`);
+                        });
+                    }
+                    
                     updateStatus();
                 } else {
                     console.log('❌ Função computeMixScore não encontrada');
