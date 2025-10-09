@@ -7721,8 +7721,12 @@ function loadSuggestionTickets(maxAgeMs = 2 * 60 * 60 * 1000) {
 })();
 
 // 🌍 SOUNDYAI-ADAPTIVE-SCORE - Exposição global de funções para compatibilidade
-window.initializeAudioAnalyzerIntegration = initializeAudioAnalyzerIntegration;
-window.displayModalResults = displayModalResults;
+// === GLOBAL EXPORT HOOKS PARA MODAL DO SOUNDYAI ===
+if (typeof window !== "undefined") {
+    window.displayModalResults = displayModalResults;
+    window.initializeAudioAnalyzerIntegration = initializeAudioAnalyzerIntegration;
+    console.log("✅ [UI-INTEGRATION] Funções globais do modal registradas com sucesso");
+}
 
 // 🧪 Função de teste para validar o sistema unificado
 window.testarSistemaUnificado = function() {
