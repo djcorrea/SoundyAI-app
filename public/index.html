@@ -521,7 +521,7 @@
     <script src="ai-suggestion-layer.js?v=20250922-ai-layer" defer></script>
     <script src="ai-configuration-manager.js?v=20250922-config" defer></script>
     <script src="ai-suggestion-ui-controller.js?v=20250922-ui" defer></script>
-    <script src="ai-suggestions-integration.js?v=20250922-integration" defer></script>
+    <!-- MOVIDO: ai-suggestions-integration.js será carregado após audio-analyzer-integration.js -->
     <script src="ai-suggestion-system-tester.js?v=20250922-test" defer></script>
     <script src="ai-force-test.js?v=20250922-force" defer></script>
     <script src="ai-auto-config.js?v=20250922-autoconfig" defer></script>
@@ -577,6 +577,9 @@
         });
     </script>
     <script type="module" src="audio-analyzer-integration.js?v=20250823k&final_fix=1724440500" defer></script>
+    
+    <!-- 🤖 AI INTEGRATION - Carregado após audio-analyzer para acessar displayModalResults -->
+    <script src="ai-suggestions-integration.js?v=20250922-integration" defer></script>
     
     <!-- Inicializar Audio Analyzer -->
     <script>
