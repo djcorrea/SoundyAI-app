@@ -1114,7 +1114,12 @@ function applyGenreSelection(genre) {
                 // 🎯 NOVO: Recalcular score com nova referência
                 try {
                     if (typeof window !== 'undefined' && window.computeMixScore && __refData) {
-                        currentModalAnalysis.qualityOverall = window.computeMixScore(currentModalAnalysis.technicalData, __refData);
+                        // 🔹 [SoundyAI] Passar sugestões para o scoring
+                        const technicalDataWithSuggestions = {
+                            ...currentModalAnalysis.technicalData,
+                            suggestions: currentModalAnalysis.suggestions || []
+                        };
+                        currentModalAnalysis.qualityOverall = window.computeMixScore(technicalDataWithSuggestions, __refData);
                         console.log('✅ Score recalculado para novo gênero:', currentModalAnalysis.qualityOverall);
                     }
                 } catch(e) { console.warn('❌ Falha ao recalcular score:', e); }

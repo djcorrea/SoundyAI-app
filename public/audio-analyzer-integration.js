@@ -3,9 +3,6 @@
 // ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
 // ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
 
-// 🎯 FEATURE FLAGS
-window.FEATURE_ADAPTIVE_SCORE = true; // Score Adaptativo baseado em sugestões
-
 // 📝 Carregar gerador de texto didático
 if (typeof window !== 'undefined' && !window.SuggestionTextGenerator) {
     const script = document.createElement('script');
@@ -1445,7 +1442,12 @@ function applyGenreSelection(genre) {
                 // 🎯 NOVO: Recalcular score com nova referência
                 try {
                     if (typeof window !== 'undefined' && window.computeMixScore && __refData) {
-                        currentModalAnalysis.qualityOverall = window.computeMixScore(currentModalAnalysis.technicalData, __refData);
+                        // 🔹 [SoundyAI] Passar sugestões para o scoring
+                        const technicalDataWithSuggestions = {
+                            ...currentModalAnalysis.technicalData,
+                            suggestions: currentModalAnalysis.suggestions || []
+                        };
+                        currentModalAnalysis.qualityOverall = window.computeMixScore(technicalDataWithSuggestions, __refData);
                         console.log('✅ Score recalculado para novo gênero:', currentModalAnalysis.qualityOverall);
                     }
                 } catch(e) { console.warn('❌ Falha ao recalcular score:', e); }
@@ -3419,16 +3421,6 @@ function displayModalResults(analysis) {
         return;
     }
     
-    // 🎯 [ADAPTIVE-SCORE] Log de validação na UI
-    if (window.FEATURE_ADAPTIVE_SCORE) {
-        console.log('🎯 [ADAPTIVE-SCORE] Validação na UI:', {
-            hasAdaptiveScore: !!analysis.adaptiveScore,
-            score: analysis.adaptiveScore?.score,
-            classification: analysis.adaptiveScore?.classification,
-            breakdown: analysis.adaptiveScore?.breakdown
-        });
-    }
-    
     const uploadArea = document.getElementById('audioUploadArea');
     const loading = document.getElementById('audioAnalysisLoading');
     const results = document.getElementById('audioAnalysisResults');
@@ -3514,11 +3506,6 @@ function displayModalResults(analysis) {
 
         const scoreKpi = Number.isFinite(analysis.qualityOverall) ? kpi(Number(analysis.qualityOverall.toFixed(1)), 'SCORE GERAL', 'kpi-score') : '';
         const timeKpi = Number.isFinite(analysis.processingMs) ? kpi(analysis.processingMs, 'TEMPO (MS)', 'kpi-time') : '';
-        
-        // === SOUNDYAI-ADAPTIVE-SCORE: EXIBIÇÃO ===
-        const adaptiveKpi = (window.FEATURE_ADAPTIVE_SCORE && analysis.adaptiveScore?.score != null) 
-            ? kpi(analysis.adaptiveScore.score, 'SCORE ADAPTATIVO', 'kpi-adaptive') 
-            : '';
 
         const src = (k) => (analysis.technicalData?._sources && analysis.technicalData._sources[k]) ? ` data-src="${analysis.technicalData._sources[k]}" title="origem: ${analysis.technicalData._sources[k]}"` : '';
         const row = (label, valHtml, keyForSource=null) => {
@@ -4788,7 +4775,7 @@ function displayModalResults(analysis) {
         const scoreRows = renderNewScores();
 
         technicalData.innerHTML = `
-            <div class="kpi-row">${scoreKpi}${timeKpi}${adaptiveKpi}</div>
+            <div class="kpi-row">${scoreKpi}${timeKpi}</div>
                 ${renderSmartSummary(analysis) }
                     <div class="cards-grid">
                         <div class="card">
