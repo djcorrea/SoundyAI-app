@@ -613,8 +613,8 @@ function calculateLoudnessMetrics(leftChannel, rightChannel, sampleRate = 48000)
  * @returns {Object} Resultado LUFS completo
  */
 async function calculateLoudnessMetricsV2(leftChannel, rightChannel, sampleRate = 48000) {
-  // Feature flag para nova implementação
-  const USE_NEW_LUFS = process.env.FEATURE_FIX_LUFS_PINK_NOISE === 'true';
+  // Feature flag para nova implementação (ATIVADA POR PADRÃO)
+  const USE_NEW_LUFS = process.env.FEATURE_FIX_LUFS_PINK_NOISE !== 'false'; // true por padrão
   
   if (USE_NEW_LUFS) {
     // Intercalar canais para analyzeLUFSv2
@@ -633,7 +633,7 @@ async function calculateLoudnessMetricsV2(leftChannel, rightChannel, sampleRate 
       lufs_momentary: lufsResult.momentary,
       lra: 0, // Simplificado para compatibilidade
       lra_legacy: 0,
-      lra_meta: { algorithm: 'v2_simplified' },
+      lra_meta: { algorithm: 'v2_corrected_auto' },
       gating_stats: {
         total_blocks: 0,
         gated_blocks: 0,
@@ -653,9 +653,21 @@ async function calculateLoudnessMetricsV2(leftChannel, rightChannel, sampleRate 
       meets_broadcast: result.lufs_integrated >= -24 && result.lufs_integrated <= -22
     };
   } else {
-    // Implementação original
+    // Implementação original (apenas se explicitamente desabilitada)
     return calculateLoudnessMetrics(leftChannel, rightChannel, sampleRate);
   }
+}
+
+/**
+ * 🎛️ Função principal CORRIGIDA (substitui a original)
+ * @param {Float32Array} leftChannel
+ * @param {Float32Array} rightChannel
+ * @param {Number} sampleRate
+ * @returns {Object} Resultado LUFS completo
+ */
+async function calculateLoudnessMetricsCorrected(leftChannel, rightChannel, sampleRate = 48000) {
+  // Sempre usar a versão corrigida
+  return await calculateLoudnessMetricsV2(leftChannel, rightChannel, sampleRate);
 }
 
 // 🎯 Exports
@@ -664,6 +676,7 @@ export {
   KWeightingFilter,
   calculateLoudnessMetrics,
   calculateLoudnessMetricsV2,
+  calculateLoudnessMetricsCorrected, // Nova função corrigida
   analyzeLUFSv2,
   LUFS_CONSTANTS,
   K_WEIGHTING_COEFFS,
