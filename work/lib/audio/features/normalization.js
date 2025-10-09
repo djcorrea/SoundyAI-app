@@ -2,7 +2,7 @@
 // Normalização automática para -23 LUFS antes de toda análise
 // Preserva LUFS original como offset para relatório final
 
-import { calculateLoudnessMetrics } from '../features/loudness.js';
+import { calculateLoudnessMetricsCorrected as calculateLoudnessMetrics } from '../features/loudness.js';
 import { logAudio, makeErr } from '../error-handling.js';
 
 /**

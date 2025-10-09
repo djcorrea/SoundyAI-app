@@ -3,7 +3,7 @@
 // Migração equivalente das métricas do Web Audio API para Node.js com fail-fast
 
 import { FastFFT } from "../../lib/audio/fft.js";
-import { calculateLoudnessMetrics } from "../../lib/audio/features/loudness.js";
+import { calculateLoudnessMetricsCorrected as calculateLoudnessMetrics } from "../../lib/audio/features/loudness.js";
 import { analyzeTruePeaksFFmpeg } from "../../lib/audio/features/truepeak-ffmpeg.js";
 import { normalizeAudioToTargetLUFS, validateNormalization } from "../../lib/audio/features/normalization.js";
 import { auditMetricsCorrections, auditMetricsValidation } from "../../lib/audio/features/audit-logging.js";
