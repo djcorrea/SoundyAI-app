@@ -66,11 +66,11 @@
       "note": "Métricas originais + bandas normalizadas para comparação justa"
     },
     "legacy_compatibility": {
-      "lufs_target": -7.8,
+      "lufs_target": -8,
       "true_peak_target": -1,
-      "dr_target": 7.8,
+      "dr_target": -9,
       "stereo_target": 0.85,
-      "tol_lufs": 2.5,
+      "tol_lufs": 3.0,
       "tol_true_peak": 1,
       "tol_dr": 6.5,
       "lra_target": 2.5,
