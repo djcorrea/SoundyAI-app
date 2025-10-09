@@ -1,5 +1,28 @@
 // 🧮 MIX SCORING ENGINE
 // Calcula porcentagem de conformidade e classificação qualitativa baseada nas métricas técnicas e referências por gênero
+// 
+// SISTEMA DE SCORING HÍBRIDO (Range-based + Fixed-target):
+// ═══════════════════════════════════════════════════════════════════
+// 
+// 1. RANGE-BASED SCORING (NOVO - Implementado para bandas espectrais):
+//    - Usa objetos target_range: {"min": -34, "max": -22}
+//    - Score MÁXIMO (1.0) para qualquer valor dentro do intervalo [min, max]
+//    - Penalização PROPORCIONAL fora do intervalo baseada na distância
+//    - Ideal para perfis "batida forte sem distorcer" onde há faixa aceitável
+//    - Aplicado via scoreToleranceRange(value, min, max)
+//
+// 2. FIXED-TARGET SCORING (LEGADO - Mantido para compatibilidade):
+//    - Usa valores target_db: -26.5 (número fixo)
+//    - Score baseado na distância até o alvo específico
+//    - Mantido para gêneros que não especificam ranges
+//    - Aplicado via scoreTolerance(value, target, tolerance)
+//
+// 3. RETROCOMPATIBILIDADE:
+//    - addMetric() detecta automaticamente se tem target_range ou target_db
+//    - Prioriza target_range quando disponível
+//    - Fallback para target_db se range não existir
+//    - Gêneros antigos continuam funcionando sem modificação
+//
 // Design principles:
 // - Não falha se métricas ausentes; ignora e ajusta pesos dinamicamente
 // - Usa tolerâncias da referência sempre que disponível; senão aplica fallbacks sensatos
@@ -53,6 +76,79 @@ function scoreTolerance(metricValue, target, tol, invert = false, tolMin = null,
   if (adiff <= sideTol) return 1;
   if (adiff >= 2 * sideTol) return 0;
   return 1 - (adiff - sideTol) / sideTol;
+}
+
+/**
+ * 🎯 FUNÇÃO DE SCORING HÍBRIDA (Range-based + Fixed-target)
+ * ═══════════════════════════════════════════════════════════
+ * 
+ * NOVO SISTEMA: Score baseado em intervalos (ranges) para bandas espectrais
+ * Substitui target fixo por range {min, max} onde qualquer valor dentro = score máximo
+ * 
+ * @param {number} metricValue - Valor medido da métrica (ex: -26.5 dB)
+ * @param {object|number} targetRange - Range {min, max} OU valor fixo para compatibilidade
+ * @param {number} fallbackTarget - Target fixo se range não disponível
+ * @param {number} tol - Tolerância personalizada (opcional)
+ * @returns {number|null} Score de 0.1 a 1.0, ou null se valor inválido
+ * 
+ * COMPORTAMENTO:
+ * 1. Se targetRange = {min: -34, max: -22} → usa sistema de ranges
+ * 2. Se targetRange = número → fallback para sistema antigo  
+ * 3. DENTRO DO RANGE [min, max] = Score 1.0 (verde)
+ * 4. FORA DO RANGE = Penalização suave baseada na distância
+ * 
+ * EXEMPLOS:
+ * - scoreToleranceRange(-26, {min:-34, max:-22}) = 1.0 (dentro do range)
+ * - scoreToleranceRange(-20, {min:-34, max:-22}) = 0.7 (fora, penalizado)
+ * - scoreToleranceRange(-26.5, -26.5, null, 3.0) = 1.0 (target fixo antigo)
+ */
+function scoreToleranceRange(metricValue, targetRange, fallbackTarget = null, tol = null) {
+  if (!Number.isFinite(metricValue)) return null;
+  
+  // 🔧 SUPORTE A RANGE: Se target_range definido, usar sistema de intervalo
+  if (targetRange && typeof targetRange === 'object' && 
+      Number.isFinite(targetRange.min) && Number.isFinite(targetRange.max)) {
+    
+    const { min, max } = targetRange;
+    
+    // ✅ DENTRO DO RANGE: Score máximo (verde)
+    if (metricValue >= min && metricValue <= max) {
+      return 1.0; // Score perfeito
+    }
+    
+    // ❌ FORA DO RANGE: Penalização proporcional baseada na distância
+    let distance;
+    if (metricValue < min) {
+      distance = min - metricValue; // Distância abaixo do mínimo
+    } else {
+      distance = metricValue - max; // Distância acima do máximo
+    }
+    
+    // 📉 CURVA DE PENALIZAÇÃO SUAVE
+    // Tolerância padrão = 1/4 da largura do range, ou usar tol fornecida
+    const rangeWidth = max - min;
+    const defaultTolerance = rangeWidth * 0.25;
+    const tolerance = Number.isFinite(tol) && tol > 0 ? tol : defaultTolerance;
+    
+    if (distance <= tolerance) {
+      // Dentro da tolerância: score 0.5-1.0 (amarelo/verde)
+      return 1.0 - (distance / tolerance) * 0.5;
+    } else if (distance <= tolerance * 2) {
+      // Fora da tolerância mas não crítico: score 0.2-0.5 (amarelo/vermelho)
+      return 0.5 - (distance - tolerance) / tolerance * 0.3;
+    } else {
+      // Muito fora: score mínimo 0.1-0.2 (vermelho)
+      return Math.max(0.1, 0.2 - (distance - tolerance * 2) / (tolerance * 3) * 0.1);
+    }
+  }
+  
+  // 🔄 FALLBACK: Se não tem range, usar sistema antigo com target fixo
+  if (Number.isFinite(fallbackTarget)) {
+    return scoreTolerance(metricValue, fallbackTarget, tol || 1);
+  }
+  
+  // 🚫 SEM DADOS VÁLIDOS
+  return null;
 }
 function clamp01(x) { return Math.max(0, Math.min(1, x)); }
 
@@ -312,31 +408,105 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
     if (!Number.isFinite(value) || value === -Infinity) return;
     if (!Number.isFinite(target)) return;
     if (!Number.isFinite(tol) || tol <= 0) tol = DEFAULT_TARGETS[key]?.tol || 1;
-    // Suporte opcional a tolMin / tolMax em opts
-    const tolMin = Number.isFinite(opts.tolMin) && opts.tolMin > 0 ? opts.tolMin : null;
-    const tolMax = Number.isFinite(opts.tolMax) && opts.tolMax > 0 ? opts.tolMax : null;
-    const s = scoreTolerance(value, target, tol, !!opts.invert, tolMin, tolMax);
+    
+    // 🎯 NOVA LÓGICA: Suporte a target_range nas opções
+    // Se opts.target_range existe, usar sistema de intervalos em vez de target fixo
+    let s;
+    if (opts.target_range && typeof opts.target_range === 'object') {
+      // Sistema de intervalos: qualquer valor dentro do range = score máximo
+      s = scoreToleranceRange(value, opts.target_range, target, tol);
+      console.log(`[SCORING_RANGE] ${key}: valor=${value}, range=[${opts.target_range.min}, ${opts.target_range.max}], score=${s?.toFixed(3)}`);
+    } else {
+      // Sistema antigo: target fixo + tolerância
+      const tolMin = Number.isFinite(opts.tolMin) && opts.tolMin > 0 ? opts.tolMin : null;
+      const tolMax = Number.isFinite(opts.tolMax) && opts.tolMax > 0 ? opts.tolMax : null;
+      s = scoreTolerance(value, target, tol, !!opts.invert, tolMin, tolMax);
+    }
+    
     if (s == null) return;
+    
     // Determinar status (OK / BAIXO / ALTO) e severidade
     let status = 'OK';
     let severity = null;
-    const diff = value - target;
-    const effTolMin = tolMin || tol; const effTolMax = tolMax || tol;
-    if (!opts.invert) {
-      if (diff < -effTolMin) status = 'BAIXO'; else if (diff > effTolMax) status = 'ALTO';
+    let n = 0; // ratio de desvio
+    
+    if (opts.target_range) {
+      // 🎯 LÓGICA DE STATUS PARA RANGES
+      const { min, max } = opts.target_range;
+      if (value >= min && value <= max) {
+        status = 'OK';
+        n = 0;
+      } else {
+        const rangeWidth = max - min;
+        const tolerance = Number.isFinite(tol) ? tol : rangeWidth * 0.25;
+        
+        if (value < min) {
+          status = 'BAIXO';
+          n = (min - value) / tolerance;
+        } else {
+          status = 'ALTO';
+          n = (value - max) / tolerance;
+        }
+        
+        // Classificar severidade baseada na distância do range
+        if (n <= 1) severity = 'leve';
+        else if (n <= 2) severity = 'media';
+        else severity = 'alta';
+      }
     } else {
-      // invert: só faz sentido 'ALTO' se acima do target mais tolMax
-      if (diff > effTolMax) status = 'ALTO';
+      // 🔄 LÓGICA ANTIGA PARA TARGET FIXO
+      const diff = value - target;
+      const effTolMin = opts.tolMin || tol; 
+      const effTolMax = opts.tolMax || tol;
+      
+      if (!opts.invert) {
+        if (diff < -effTolMin) status = 'BAIXO'; 
+        else if (diff > effTolMax) status = 'ALTO';
+      } else {
+        if (diff > effTolMax) status = 'ALTO';
+      }
+      
+      if (status !== 'OK') {
+        const sideTol = diff > 0 ? effTolMax : effTolMin;
+        n = Math.abs(diff) / sideTol;
+        severity = n <= 1 ? 'leve' : (n <= 2 ? 'media' : 'alta');
+      }
     }
-    if (status !== 'OK') {
-      const sideTol = diff > 0 ? effTolMax : effTolMin;
-      const n = Math.abs(diff) / sideTol;
-      severity = n <= 1 ? 'leve' : (n <= 2 ? 'media' : 'alta');
-    }
-  const sideTol = diff > 0 ? effTolMax : effTolMin;
-  const n = status === 'OK' ? 0 : (sideTol>0 ? Math.abs(diff)/sideTol : Infinity);
-  perMetric.push({ category, key, value, target, tol, tol_min: effTolMin, tol_max: effTolMax, score: clamp01(s), status, severity, n: Number.isFinite(n)?parseFloat(n.toFixed(3)):null, diff: parseFloat((value-target).toFixed(3)) });
-  try { __caiarLog && __caiarLog('SCORING_METRIC', 'Metric avaliada', { key, value, target, tolMin: effTolMin, tolMax: effTolMax, status, severity, n }); } catch {}
+    
+    const effTolMin = opts.tolMin || tol; 
+    const effTolMax = opts.tolMax || tol;
+    const diff = parseFloat((value-target).toFixed(3));
+    
+    perMetric.push({ 
+      category, 
+      key, 
+      value, 
+      target, 
+      tol, 
+      tol_min: effTolMin, 
+      tol_max: effTolMax, 
+      score: clamp01(s), 
+      status, 
+      severity, 
+      n: Number.isFinite(n) ? parseFloat(n.toFixed(3)) : null, 
+      diff,
+      // 🆕 ADICIONAR INFORMAÇÃO DE RANGE PARA DEBUG
+      target_range: opts.target_range || null,
+      scoring_method: opts.target_range ? 'range' : 'fixed_target'
+    });
+    
+    try { __caiarLog && __caiarLog('SCORING_METRIC', 'Metric avaliada', { 
+      key, 
+      value, 
+      target, 
+      target_range: opts.target_range,
+      tolMin: effTolMin, 
+      tolMax: effTolMax, 
+      status, 
+      severity, 
+      n,
+      scoring_method: opts.target_range ? 'range' : 'fixed_target'
+    }); } catch {}
   }
   const lufsTarget = ref?.lufs_target ?? DEFAULT_TARGETS.lufsIntegrated.target;
   const lufsTol = ref?.tol_lufs ?? DEFAULT_TARGETS.lufsIntegrated.tol;
@@ -376,11 +546,34 @@ function _computeMixScoreInternal(technicalData = {}, reference = null, force = 
       if (!mBand) continue;
       const val = Number.isFinite(mBand.rms_db) ? mBand.rms_db : null;
       if (val == null) continue;
-      if (Number.isFinite(refBand?.target_db) && (Number.isFinite(refBand?.tol_db) || (Number.isFinite(refBand?.tol_min) && Number.isFinite(refBand?.tol_max))) && refBand.target_db != null) {
+      
+      // 🎯 NOVA LÓGICA: Suporte a target_range para bandas espectrais
+      // Prioridade: target_range > target_db (fallback)
+      if (refBand.target_range && typeof refBand.target_range === 'object' && 
+          Number.isFinite(refBand.target_range.min) && Number.isFinite(refBand.target_range.max)) {
+        
+        // ✅ Sistema de intervalos: Score verde se dentro do range
+        const target = (refBand.target_range.min + refBand.target_range.max) / 2; // Centro do range para compatibilidade
+        const tol = Number.isFinite(refBand.tol_db) ? refBand.tol_db : Math.abs(refBand.target_range.max - refBand.target_range.min) * 0.25;
+        
+        addMetric('tonal', `band_${band}`, val, target, tol, { 
+          target_range: refBand.target_range,
+          tolMin: null, 
+          tolMax: null 
+        });
+        
+        console.log(`[SCORING_BAND_RANGE] ${band}: valor=${val}, range=[${refBand.target_range.min}, ${refBand.target_range.max}], target_fallback=${target}, tol=${tol}`);
+        
+      } else if (Number.isFinite(refBand?.target_db) && (Number.isFinite(refBand?.tol_db) || (Number.isFinite(refBand?.tol_min) && Number.isFinite(refBand?.tol_max))) && refBand.target_db != null) {
+        
+        // 🔄 Sistema antigo: target_db fixo + tolerâncias
         const tolMin = Number.isFinite(refBand.tol_min) ? refBand.tol_min : (Number.isFinite(refBand.tol_db) ? refBand.tol_db : null);
         const tolMax = Number.isFinite(refBand.tol_max) ? refBand.tol_max : (Number.isFinite(refBand.tol_db) ? refBand.tol_db : null);
         const tolAvg = ((tolMin||0)+(tolMax||0))/2 || refBand.tol_db || 1;
+        
         addMetric('tonal', `band_${band}`, val, refBand.target_db, tolAvg, { tolMin, tolMax });
+        
+        console.log(`[SCORING_BAND_FIXED] ${band}: valor=${val}, target=${refBand.target_db}, tol=${tolAvg}`);
       }
     }
   } else if (metrics.tonalBalance) {
