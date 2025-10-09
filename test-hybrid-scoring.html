@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎯 Teste Sistema Híbrido Pista A + Pista B</title>
+    <style>
+        body { font-family: 'Consolas', monospace; margin: 20px; background: #0a0a0a; color: #00ff88; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .section { background: #111; border: 1px solid #333; border-radius: 8px; padding: 20px; margin: 15px 0; }
+        .button { background: #007acc; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+        .button:hover { background: #005a9e; }
+        .result { background: #001a0a; border-left: 4px solid #00ff88; padding: 15px; margin: 10px 0; font-family: monospace; }
+        .baseline { background: #1a1a00; border-left: 4px solid #ffaa00; padding: 15px; margin: 10px 0; }
+        .log { background: #0a0a1a; border: 1px solid #333; padding: 10px; margin: 10px 0; height: 200px; overflow-y: auto; font-size: 12px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 Sistema Híbrido de Scoring - Pista A + Pista B</h1>
+        
+        <div class="section">
+            <h2>📊 Controles de Teste</h2>
+            <button class="button" onclick="enableDebug()">🔍 Ativar Debug Híbrido</button>
+            <button class="button" onclick="resetBaseline()">🗑️ Reset Baseline</button>
+            <button class="button" onclick="showBaseline()">📋 Mostrar Baseline</button>
+            <button class="button" onclick="simulateAnalysis()">🎵 Simular Análise</button>
+        </div>
+
+        <div class="section">
+            <h2>🎯 Status do Sistema</h2>
+            <div id="status" class="result">Aguardando primeira análise...</div>
+        </div>
+
+        <div class="section">
+            <h2>📝 Log de Debug</h2>
+            <div id="debugLog" class="log"></div>
+        </div>
+
+        <div class="section">
+            <h2>ℹ️ Como Funciona</h2>
+            <div class="baseline">
+                <strong>Pista A (Proximidade):</strong> Score baseado na distância ao target ideal<br>
+                <strong>Pista B (Melhoria):</strong> Score baseado na melhoria vs estado inicial<br>
+                <strong>Score Final:</strong> Math.max(scoreA, scoreB) - o melhor dos dois sistemas
+            </div>
+        </div>
+    </div>
+
+    <script src="lib/audio/features/scoring.js"></script>
+    <script>
+        let logCount = 0;
+        
+        // Capturar logs do console
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            
+            const logDiv = document.getElementById('debugLog');
+            const logEntry = document.createElement('div');
+            logEntry.innerHTML = `[${++logCount}] ${args.join(' ')}`;
+            logDiv.appendChild(logEntry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        };
+
+        function enableDebug() {
+            if (typeof window.enableHybridDebug === 'function') {
+                window.enableHybridDebug();
+                updateStatus();
+            } else {
+                console.log('❌ Função enableHybridDebug não encontrada - verifique se scoring.js está carregado');
+            }
+        }
+
+        function resetBaseline() {
+            if (typeof window.resetBaseline === 'function') {
+                window.resetBaseline();
+                updateStatus();
+            } else {
+                console.log('❌ Função resetBaseline não encontrada');
+            }
+        }
+
+        function showBaseline() {
+            if (typeof window.showBaseline === 'function') {
+                window.showBaseline();
+            } else {
+                console.log('❌ Função showBaseline não encontrada');
+            }
+        }
+
+        function simulateAnalysis() {
+            // Simular dados de bandas espectrais
+            const mockMetrics = {
+                bandEnergies: {
+                    sub: { rms_db: -18.5 },
+                    bass: { rms_db: -12.3 },
+                    low_mid: { rms_db: -10.1 },
+                    mid: { rms_db: -8.7 },
+                    high_mid: { rms_db: -11.2 },
+                    presence: { rms_db: -15.8 },
+                    air: { rms_db: -20.1 }
+                },
+                lufsIntegrated: -23.0
+            };
+
+            const mockReference = {
+                bands: {
+                    sub: { target_db: -14.0, tol_db: 6.0 },
+                    bass: { target_db: -10.0, tol_db: 6.0 },
+                    low_mid: { target_db: -8.0, tol_db: 6.0 },
+                    mid: { target_db: -6.0, tol_db: 6.0 },
+                    high_mid: { target_db: -8.0, tol_db: 6.0 },
+                    presence: { target_db: -12.0, tol_db: 6.0 },
+                    air: { target_db: -18.0, tol_db: 6.0 }
+                }
+            };
+
+            console.log('🎵 Executando análise simulada...');
+            
+            try {
+                if (typeof computeMixScore === 'function') {
+                    const result = computeMixScore(mockMetrics, mockReference);
+                    console.log('✅ Análise concluída:', result);
+                    updateStatus();
+                } else {
+                    console.log('❌ Função computeMixScore não encontrada');
+                }
+            } catch (error) {
+                console.log('❌ Erro na análise:', error.message);
+            }
+        }
+
+        function updateStatus() {
+            const statusDiv = document.getElementById('status');
+            const hasBaseline = typeof window !== 'undefined' && window.__BASELINE_BAND_ENERGIES;
+            const debugEnabled = typeof window !== 'undefined' && window.DEBUG_HYBRID_SCORE;
+            
+            statusDiv.innerHTML = `
+                <strong>Baseline:</strong> ${hasBaseline ? '✅ Armazenado' : '❌ Não definido'}<br>
+                <strong>Debug Híbrido:</strong> ${debugEnabled ? '✅ Ativo' : '❌ Inativo'}<br>
+                <strong>Sistema:</strong> ${hasBaseline ? 'Pronto para scoring híbrido' : 'Aguardando primeira análise'}
+            `;
+        }
+
+        // Atualizar status inicial
+        updateStatus();
+        console.log('🎯 Sistema de teste híbrido carregado');
+    </script>
+</body>
+</html>
