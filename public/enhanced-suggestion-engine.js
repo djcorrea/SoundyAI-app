@@ -709,6 +709,49 @@ class EnhancedSuggestionEngine {
         return bands;
     }
 
+    // === SOUNDYAI-ADAPTIVE-SCORE: UTILITÁRIOS ===
+    
+    /**
+     * 🎯 Extrai valor numérico de uma sugestão de ajuste (ex: "+2dB" → 2, "-1.5dB" → -1.5)
+     */
+    parseSuggestedDb(s) {
+        if (typeof s === 'number') return s;
+        if (!s) return 0;
+        const num = parseFloat(String(s).replace('dB', '').replace('+', '').trim());
+        if (isNaN(num)) return 0;
+        return String(s).trim().startsWith('-') ? -Math.abs(num) : Math.abs(num);
+    }
+
+    /**
+     * 🎯 Calcula score de uma banda baseado no aplicado vs esperado (0-100)
+     */
+    calcBandScore(appliedDb, expectedDb) {
+        if (expectedDb === 0) return 50; // neutro se não há sugestão
+        const ratio = appliedDb / expectedDb;
+        if (ratio < 0) return 30; // direção errada
+        if (ratio <= 1) return Math.round(50 + ratio * 50); // 50-100 para aplicação parcial/completa
+        const overshoot = ratio - 1;
+        const penalty = Math.min(overshoot * 100, 50);
+        return Math.round(100 - penalty); // penaliza overshoot
+    }
+
+    /**
+     * 🎯 Calcula score ponderado baseado nas bandas espectrais
+     */
+    weightedScore(bandScores) {
+        const WEIGHTS = { 
+            sub: 0.25, bass: 0.25, lowMid: 0.15, 
+            mid: 0.15, highMid: 0.1, air: 0.1 
+        };
+        let sum = 0, total = 0;
+        for (const band in bandScores) {
+            const w = WEIGHTS[band] || 0.1;
+            sum += bandScores[band] * w;
+            total += w;
+        }
+        return Math.round(sum / (total || 1));
+    }
+
     /**
      * 🎯 Processar análise completa e gerar sugestões melhoradas
      * @param {Object} analysis - Análise de áudio existente
@@ -802,6 +845,47 @@ class EnhancedSuggestionEngine {
             allSuggestions = this.enforceOrderedSuggestions(allSuggestions);
             
             allSuggestions = this.filterAndSort(allSuggestions);
+            
+            // === SOUNDYAI-ADAPTIVE-SCORE: CÁLCULO ===
+            try {
+                const bandScores = {};
+                for (const s of allSuggestions) {
+                    if (s.category !== 'spectral' || !s.technical?.metric) continue;
+                    const { currentValue, targetValue, suggestedChange } = s.technical;
+                    const step = this.parseSuggestedDb(suggestedChange);
+                    const measuredNow = analysis.technicalData.bandEnergies?.[s.technical.metric]?.rms_db;
+                    if (typeof measuredNow !== 'number' || typeof currentValue !== 'number') continue;
+                    const applied = measuredNow - currentValue;
+                    const expected = step;
+                    const score = this.calcBandScore(applied, expected);
+                    bandScores[s.technical.metric] = score;
+                }
+
+                const adaptiveScoreValue = this.weightedScore(bandScores);
+
+                analysis.adaptiveScore = {
+                    score: adaptiveScoreValue,
+                    classification:
+                        adaptiveScoreValue >= 90 ? 'Excelente' :
+                        adaptiveScoreValue >= 75 ? 'Bom' :
+                        adaptiveScoreValue >= 60 ? 'Regular' :
+                        'Precisa Melhorar',
+                    method: 'suggestion_based',
+                    breakdown: bandScores
+                };
+
+                // 🎯 Log de validação
+                console.log('🎯 [ADAPTIVE-SCORE] Calculado:', {
+                    score: adaptiveScoreValue,
+                    classification: analysis.adaptiveScore.classification,
+                    bandsProcessed: Object.keys(bandScores).length,
+                    breakdown: bandScores
+                });
+
+            } catch (adaptiveError) {
+                console.warn('⚠️ [ADAPTIVE-SCORE] Erro no cálculo:', adaptiveError.message);
+                // Continua sem quebrar - análise permanece funcional
+            }
             
             // 🎓 Aplicar enriquecimento educativo universal a TODAS as sugestões
             allSuggestions = this.applyUniversalEducationalEnrichment(allSuggestions);
