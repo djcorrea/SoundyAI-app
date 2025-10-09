@@ -3,8 +3,8 @@
 // ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
 // ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
 
-// SOUNDYAI-ADAPTIVE-SCORE
-import { parseSuggestedDb, calculateAdaptiveScoreFromTickets } from '../work/core/adaptive-score.js';
+// 🎯 FEATURE FLAGS
+window.FEATURE_ADAPTIVE_SCORE = true; // Score Adaptativo baseado em sugestões
 
 // 📝 Carregar gerador de texto didático
 if (typeof window !== 'undefined' && !window.SuggestionTextGenerator) {
@@ -70,6 +70,26 @@ let currentJobId = null;
 let jobPollingInterval = null;
 
 // 🎯 Funções de Acessibilidade e Gestão de Modais
+
+function openModeSelectionModal() {
+    const modal = document.getElementById('analysisModeModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.setAttribute('aria-hidden', 'false');
+        
+        // Foco no primeiro botão
+        const firstButton = modal.querySelector('.mode-card button');
+        if (firstButton) {
+            firstButton.focus();
+        }
+        
+        // Adicionar listener para ESC
+        document.addEventListener('keydown', handleModalEscapeKey);
+        
+        // Trap focus no modal
+        trapFocus(modal);
+    }
+}
 
 function closeModeSelectionModal() {
     const modal = document.getElementById('analysisModeModal');
@@ -1429,19 +1449,6 @@ function applyGenreSelection(genre) {
                         console.log('✅ Score recalculado para novo gênero:', currentModalAnalysis.qualityOverall);
                     }
                 } catch(e) { console.warn('❌ Falha ao recalcular score:', e); }
-
-                // SOUNDYAI-ADAPTIVE-SCORE — Calcular score adaptativo
-                try {
-                  const tickets = loadSuggestionTickets();
-                  if (tickets) {
-                    currentModalAnalysis.adaptiveScore = calculateAdaptiveScoreFromTickets(currentModalAnalysis, tickets);
-                  } else {
-                    currentModalAnalysis.adaptiveScore = { score: 50, method: 'suggestion_based_adaptive', breakdown: {} };
-                  }
-                } catch (err) {
-                  console.warn('[SoundyAI Adaptive Score Error]', err);
-                  currentModalAnalysis.adaptiveScore = { score: 50, method: 'fallback' };
-                }
                 
                 // Recalcular sugestões reference_* com as novas tolerâncias
                 try { updateReferenceSuggestions(currentModalAnalysis); } catch(e) { console.warn('updateReferenceSuggestions falhou', e); }
@@ -2139,15 +2146,6 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
                 updateReferenceSuggestions(normalizedResult, __activeRefData);
                 normalizedResult._suggestionsGenerated = true;
                 console.log(`🎯 [SUGGESTIONS] ${normalizedResult.suggestions?.length || 0} sugestões geradas no primeiro load`);
-                
-                // SOUNDYAI-ADAPTIVE-SCORE — Salvar tickets após gerar sugestões
-                try {
-                  const tickets = buildSuggestionTickets(normalizedResult.suggestions || []);
-                  saveSuggestionTickets(tickets);
-                  console.log('✅ [SoundyAI Adaptive Score] Tickets salvos:', tickets.items.length);
-                } catch (err) {
-                  console.warn('[SoundyAI Adaptive Score] Erro ao salvar tickets:', err);
-                }
             } catch (error) {
                 console.error('❌ [SUGGESTIONS] Erro ao gerar sugestões no primeiro load:', error);
             }
@@ -2917,15 +2915,6 @@ async function performReferenceComparison() {
         // Gerar sugestões baseadas na comparação
         const suggestions = generateReferenceSuggestions(comparison);
         
-        // SOUNDYAI-ADAPTIVE-SCORE — Salvar tickets após gerar sugestões
-        try {
-          const tickets = buildSuggestionTickets(suggestions);
-          saveSuggestionTickets(tickets);
-          console.log('✅ [SoundyAI Adaptive Score] Tickets salvos:', tickets.items.length);
-        } catch (err) {
-          console.warn('[SoundyAI Adaptive Score] Erro ao salvar tickets:', err);
-        }
-        
         // 🐛 DIAGNÓSTICO: Verificar se sugestões são baseadas apenas na comparison
         console.log('🔍 [DIAGNÓSTICO] Sugestões geradas (count):', suggestions.length);
         console.log('🔍 [DIAGNÓSTICO] Primeiro tipo de sugestão:', suggestions[0]?.type);
@@ -3430,6 +3419,16 @@ function displayModalResults(analysis) {
         return;
     }
     
+    // 🎯 [ADAPTIVE-SCORE] Log de validação na UI
+    if (window.FEATURE_ADAPTIVE_SCORE) {
+        console.log('🎯 [ADAPTIVE-SCORE] Validação na UI:', {
+            hasAdaptiveScore: !!analysis.adaptiveScore,
+            score: analysis.adaptiveScore?.score,
+            classification: analysis.adaptiveScore?.classification,
+            breakdown: analysis.adaptiveScore?.breakdown
+        });
+    }
+    
     const uploadArea = document.getElementById('audioUploadArea');
     const loading = document.getElementById('audioAnalysisLoading');
     const results = document.getElementById('audioAnalysisResults');
@@ -3514,13 +3513,12 @@ function displayModalResults(analysis) {
             </div>`;
 
         const scoreKpi = Number.isFinite(analysis.qualityOverall) ? kpi(Number(analysis.qualityOverall.toFixed(1)), 'SCORE GERAL', 'kpi-score') : '';
-        
-        // SOUNDYAI-ADAPTIVE-SCORE — Exibir Score Adaptativo se disponível
-        const adaptiveScoreKpi = (analysis.adaptiveScore && Number.isFinite(analysis.adaptiveScore.score)) 
-            ? kpi(Number(analysis.adaptiveScore.score.toFixed(1)), 'SCORE ADAPTATIVO', 'kpi-adaptive-score') 
-            : '';
-        
         const timeKpi = Number.isFinite(analysis.processingMs) ? kpi(analysis.processingMs, 'TEMPO (MS)', 'kpi-time') : '';
+        
+        // === SOUNDYAI-ADAPTIVE-SCORE: EXIBIÇÃO ===
+        const adaptiveKpi = (window.FEATURE_ADAPTIVE_SCORE && analysis.adaptiveScore?.score != null) 
+            ? kpi(analysis.adaptiveScore.score, 'SCORE ADAPTATIVO', 'kpi-adaptive') 
+            : '';
 
         const src = (k) => (analysis.technicalData?._sources && analysis.technicalData._sources[k]) ? ` data-src="${analysis.technicalData._sources[k]}" title="origem: ${analysis.technicalData._sources[k]}"` : '';
         const row = (label, valHtml, keyForSource=null) => {
@@ -4068,15 +4066,6 @@ function displayModalResults(analysis) {
                 
                 // Atualizar analysis.suggestions com as sugestões enriched
                 analysis.suggestions = enrichedSuggestions;
-                
-                // SOUNDYAI-ADAPTIVE-SCORE — Salvar tickets após enriquecer sugestões
-                try {
-                  const tickets = buildSuggestionTickets(enrichedSuggestions);
-                  saveSuggestionTickets(tickets);
-                  console.log('✅ [SoundyAI Adaptive Score] Tickets salvos (enriched):', tickets.items.length);
-                } catch (err) {
-                  console.warn('[SoundyAI Adaptive Score] Erro ao salvar tickets (enriched):', err);
-                }
 
                 // Helpers para embelezar as sugestões sem mudar layout/IDs
                 const formatNumbers = (text, decimals = 2) => {
@@ -4799,7 +4788,7 @@ function displayModalResults(analysis) {
         const scoreRows = renderNewScores();
 
         technicalData.innerHTML = `
-            <div class="kpi-row">${scoreKpi}${adaptiveScoreKpi}${timeKpi}</div>
+            <div class="kpi-row">${scoreKpi}${timeKpi}${adaptiveKpi}</div>
                 ${renderSmartSummary(analysis) }
                     <div class="cards-grid">
                         <div class="card">
@@ -6283,15 +6272,6 @@ function updateReferenceSuggestions(analysis) {
             // Combinar sugestões melhoradas com existentes preservadas
             analysis.suggestions = [...enhancedAnalysis.suggestions, ...nonRefSuggestions];
             
-            // SOUNDYAI-ADAPTIVE-SCORE — Salvar tickets após combinar sugestões
-            try {
-              const tickets = buildSuggestionTickets(analysis.suggestions);
-              saveSuggestionTickets(tickets);
-              console.log('✅ [SoundyAI Adaptive Score] Tickets salvos (combinadas):', tickets.items.length);
-            } catch (err) {
-              console.warn('[SoundyAI Adaptive Score] Erro ao salvar tickets (combinadas):', err);
-            }
-            
             // Adicionar métricas melhoradas à análise
             if (enhancedAnalysis.enhancedMetrics) {
                 analysis.enhancedMetrics = enhancedAnalysis.enhancedMetrics;
@@ -6332,15 +6312,6 @@ function updateReferenceSuggestions(analysis) {
                                 analysis._aiEnhanced = true;
                                 analysis._aiTimestamp = new Date().toISOString();
                                 analysis._aiSource = 'enhanced_engine';
-                                
-                                // SOUNDYAI-ADAPTIVE-SCORE — Salvar tickets após AI enhancement
-                                try {
-                                  const tickets = buildSuggestionTickets(enhancedSuggestions);
-                                  saveSuggestionTickets(tickets);
-                                  console.log('✅ [SoundyAI Adaptive Score] Tickets salvos (AI enhanced):', tickets.items.length);
-                                } catch (err) {
-                                  console.warn('[SoundyAI Adaptive Score] Erro ao salvar tickets (AI enhanced):', err);
-                                }
                                 
                                 console.log(`🤖 [AI-LAYER] ✅ Enhanced Engine + IA: ${enhancedSuggestions.length} sugestões`);
                                 
@@ -6424,15 +6395,6 @@ function updateReferenceSuggestions(analysis) {
 
                         analysis.suggestions = enhancedSuggestions;
                         console.log(`🤖 [AI-LAYER] ✅ ${enhancedSuggestions.length} sugestões enriquecidas com IA`);
-                        
-                        // SOUNDYAI-ADAPTIVE-SCORE — Salvar tickets após AI enrichment
-                        try {
-                          const tickets = buildSuggestionTickets(enhancedSuggestions);
-                          saveSuggestionTickets(tickets);
-                          console.log('✅ [SoundyAI Adaptive Score] Tickets salvos (AI enriched):', tickets.items.length);
-                        } catch (err) {
-                          console.warn('[SoundyAI Adaptive Score] Erro ao salvar tickets (AI enriched):', err);
-                        }
                         
                         // Marcar que IA foi aplicada
                         analysis._aiEnhanced = true;
@@ -7648,40 +7610,6 @@ if (document.readyState === 'loading') {
     injectTruePeakStatusStyles();
 }
 
-// SOUNDYAI-ADAPTIVE-SCORE UTILITIES
-function buildSuggestionTickets(suggestions) {
-  const items = suggestions
-    .filter(s => s.category === 'spectral' && s.technical?.metric && s.technical?.currentValue != null)
-    .map(s => {
-      const stepDb = parseSuggestedDb(s.technical.suggestedChange);
-      const dir = (s.type === 'cut' || stepDb < 0) ? 'cut' : 'boost';
-      return {
-        band: s.band || s.technical.metric,
-        metric: s.technical.metric,
-        currentValueAtSuggestion: s.technical.currentValue,
-        targetValue: s.technical.targetValue,
-        stepDb: Math.abs(stepDb),
-        direction: dir
-      };
-    });
-  return { version: "1", createdAt: Date.now(), items };
-}
-
-function saveSuggestionTickets(tickets) {
-  try { localStorage.setItem('soundyai:last_suggestions', JSON.stringify(tickets)); } catch {}
-}
-
-function loadSuggestionTickets(maxAgeMs = 2 * 60 * 60 * 1000) {
-  try {
-    const raw = localStorage.getItem('soundyai:last_suggestions');
-    if (!raw) return null;
-    const obj = JSON.parse(raw);
-    if (!obj?.createdAt) return null;
-    if (Date.now() - obj.createdAt > maxAgeMs) return null;
-    return obj;
-  } catch { return null; }
-}
-
 // 🎯 PATCH DEFINITIVO: Carregar correção da tabela de referência
 (function loadReferenceTablePatch() {
     console.log('📦 [INTEGRATION] Carregando patch definitivo da tabela de referência...');
@@ -7699,62 +7627,3 @@ function loadSuggestionTickets(maxAgeMs = 2 * 60 * 60 * 1000) {
     
     document.head.appendChild(script);
 })();
-
-// 🌍 SOUNDYAI-ADAPTIVE-SCORE - Exposição global de funções para compatibilidade
-// === GLOBAL EXPORT HOOKS PARA MODAL DO SOUNDYAI ===
-if (typeof window !== "undefined") {
-    window.displayModalResults = displayModalResults;
-    window.initializeAudioAnalyzerIntegration = initializeAudioAnalyzerIntegration;
-    console.log("✅ [UI-INTEGRATION] Funções globais do modal registradas com sucesso");
-    console.log("🔗 [UI-INTEGRATION] typeof displayModalResults:", typeof window.displayModalResults);
-    console.log("🔗 [UI-INTEGRATION] typeof initializeAudioAnalyzerIntegration:", typeof window.initializeAudioAnalyzerIntegration);
-    
-    // Notificar outros módulos que as funções estão disponíveis
-    if (window.CustomEvent) {
-        window.dispatchEvent(new CustomEvent('audioAnalyzerReady', {
-            detail: {
-                displayModalResults: !!window.displayModalResults,
-                initializeAudioAnalyzerIntegration: !!window.initializeAudioAnalyzerIntegration
-            }
-        }));
-    }
-}
-
-// 🧪 Função de teste para validar o sistema unificado
-window.testarSistemaUnificado = function() {
-    console.log('🧪 [TESTE] Iniciando teste do sistema unificado...');
-    
-    const checks = [
-        { name: 'initializeAudioAnalyzerIntegration', fn: window.initializeAudioAnalyzerIntegration },
-        { name: 'displayModalResults', fn: window.displayModalResults },
-        { name: 'calculateAdaptiveScoreFromTickets', fn: calculateAdaptiveScoreFromTickets },
-        { name: 'parseSuggestedDb', fn: parseSuggestedDb }
-    ];
-    
-    let allPassed = true;
-    checks.forEach(check => {
-        if (typeof check.fn === 'function') {
-            console.log(`✅ [TESTE] ${check.name} disponível`);
-        } else {
-            console.error(`❌ [TESTE] ${check.name} não encontrada`);
-            allPassed = false;
-        }
-    });
-    
-    if (allPassed) {
-        console.log('🎉 [TESTE] Sistema Unificado funcionando perfeitamente!');
-        
-        // Teste do score adaptativo
-        try {
-            const mockTickets = { items: [], createdAt: Date.now() };
-            const score = calculateAdaptiveScoreFromTickets(null, mockTickets);
-            console.log(`✅ [TESTE] Score Adaptativo: ${score.score} (método: ${score.method})`);
-        } catch (err) {
-            console.warn('⚠️ [TESTE] Erro no Score Adaptativo:', err.message);
-        }
-    } else {
-        console.error('❌ [TESTE] Sistema tem problemas - verifique os logs acima');
-    }
-    
-    return allPassed;
-};

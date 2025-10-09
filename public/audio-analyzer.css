@@ -882,36 +882,6 @@ details[open] summary {
     z-index: 1;
 }
 
-/* SOUNDYAI-ADAPTIVE-SCORE - Estilos específicos para Score Adaptativo */
-.kpi-adaptive-score {
-    background: linear-gradient(135deg, 
-        rgba(25, 118, 210, 0.15) 0%, 
-        rgba(25, 118, 210, 0.25) 50%, 
-        rgba(25, 118, 210, 0.15) 100%);
-    border: 1px solid rgba(25, 118, 210, 0.3);
-    box-shadow: 0 4px 12px rgba(25, 118, 210, 0.2);
-}
-
-.kpi-adaptive-score::before {
-    background: linear-gradient(135deg, 
-        rgba(25, 118, 210, 0.1) 0%, 
-        rgba(25, 118, 210, 0.2) 100%);
-}
-
-.kpi-adaptive-score:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(25, 118, 210, 0.3);
-}
-
-.kpi-adaptive-score .kpi-value {
-    color: #1976d2;
-    text-shadow: 0 0 15px rgba(25, 118, 210, 0.6);
-}
-
-.kpi-adaptive-score .kpi-label {
-    color: #90caf9;
-}
-
 .cards-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -2832,5 +2802,27 @@ details[open] summary {
         font-size: 10px;
         padding: 3px 8px;
     }
+}
+
+/* === SOUNDYAI-ADAPTIVE-SCORE: ESTILOS === */
+.kpi-adaptive {
+    background: linear-gradient(135deg, rgba(0, 255, 146, 0.03), rgba(0, 255, 146, 0.08), rgba(0, 255, 146, 0.03));
+    box-shadow: 
+        0 0 50px rgba(0, 255, 146, 0.15),
+        0 0 100px rgba(0, 255, 146, 0.1),
+        inset 0 0 0 1px rgba(0, 255, 146, 0.05);
+    border: 2px solid rgba(0, 255, 146, 0.1);
+}
+
+.kpi-adaptive::before {
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 146, 0.08), transparent);
+}
+
+.kpi-adaptive:hover {
+    transform: translateY(-5px);
+    box-shadow: 
+        0 0 60px rgba(0, 255, 146, 0.2),
+        0 0 120px rgba(0, 255, 146, 0.15),
+        inset 0 0 0 1px rgba(0, 255, 146, 0.1);
 }
 

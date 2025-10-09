@@ -17,7 +17,6 @@ class AISuggestionsIntegration {
         this.isExpanded = false;
         this.retryAttempts = 0;
         this.maxRetries = 3;
-        this.isIntegrated = false; // Flag para evitar múltiplas integrações
         
         console.log(`🚀 [AI-INTEGRATION] Sistema inicializado - Ambiente: ${isLocalDevelopment ? 'desenvolvimento' : 'produção'}`);
         console.log(`🔗 [AI-INTEGRATION] API URL: ${this.apiEndpoint}`);
@@ -1397,19 +1396,8 @@ class AISuggestionsIntegration {
      * Integração com sistema existente
      */
     integrateWithExistingSystem() {
-        if (this.isIntegrated) {
-            console.log('🔄 [AI-INTEGRATION] Integração já realizada, ignorando...');
-            return;
-        }
-        
         // Hook into displayModalResults to trigger AI processing
         const originalDisplayModalResults = window.displayModalResults;
-        
-        console.log('🔗 [AI-INTEGRATION] Tentando integrar com displayModalResults...', {
-            typeofDisplayModalResults: typeof originalDisplayModalResults,
-            windowKeys: Object.keys(window).filter(k => k.includes('display')),
-            hasInitialize: typeof window.initializeAudioAnalyzerIntegration === 'function'
-        });
         
         if (typeof originalDisplayModalResults === 'function') {
             window.displayModalResults = (analysis) => {
@@ -1452,16 +1440,11 @@ class AISuggestionsIntegration {
                 return result;
             };
             
-            this.isIntegrated = true;
             console.log('✅ [AI-INTEGRATION] Integração com displayModalResults configurada');
         } else {
-            console.warn('⚠️ [AI-INTEGRATION] displayModalResults não encontrada - aguardando...', {
-                retryIn: '1 segundo',
-                currentType: typeof originalDisplayModalResults,
-                windowDisplayModalResults: typeof window.displayModalResults
-            });
+            console.warn('⚠️ [AI-INTEGRATION] displayModalResults não encontrada - aguardando...');
             
-            // Retry in 1 second with exponential backoff
+            // Retry in 1 second
             setTimeout(() => {
                 this.integrateWithExistingSystem();
             }, 1000);
@@ -1480,30 +1463,11 @@ if (document.readyState === 'loading') {
 }
 
 function initializeAISuggestions() {
-    console.log('🚀 [AI-INTEGRATION] Iniciando sistema de IA...');
-    
     try {
         aiSuggestionsSystem = new AISuggestionsIntegration();
         
-        // Listen for audio analyzer ready event
-        window.addEventListener('audioAnalyzerReady', (event) => {
-            console.log('🎉 [AI-INTEGRATION] Recebido evento audioAnalyzerReady:', event.detail);
-            aiSuggestionsSystem.integrateWithExistingSystem();
-        });
-        
-        // Fallback: Wait for audio-analyzer-integration to be fully loaded
-        function waitForAudioAnalyzer() {
-            if (typeof window.displayModalResults === 'function') {
-                console.log('✅ [AI-INTEGRATION] displayModalResults detectada via polling, integrando...');
-                aiSuggestionsSystem.integrateWithExistingSystem();
-            } else {
-                console.log('⏳ [AI-INTEGRATION] Aguardando audio-analyzer-integration carregar... (polling)');
-                setTimeout(waitForAudioAnalyzer, 250);
-            }
-        }
-        
-        // Start waiting with a small initial delay (fallback)
-        setTimeout(waitForAudioAnalyzer, 500);
+        // Integrate with existing system
+        aiSuggestionsSystem.integrateWithExistingSystem();
         
         // Expose globally for manual testing
         window.aiSuggestionsSystem = aiSuggestionsSystem;
