@@ -1662,7 +1662,7 @@ function openAudioModal() {
     
     if (isReferenceEnabled) {
         // Abrir modal de seleção de modo primeiro
-        
+        openModeSelectionModal();
     } else {
         // Comportamento original: modo gênero direto
         selectAnalysisMode('genre');
@@ -7726,6 +7726,18 @@ if (typeof window !== "undefined") {
     window.displayModalResults = displayModalResults;
     window.initializeAudioAnalyzerIntegration = initializeAudioAnalyzerIntegration;
     console.log("✅ [UI-INTEGRATION] Funções globais do modal registradas com sucesso");
+    console.log("🔗 [UI-INTEGRATION] typeof displayModalResults:", typeof window.displayModalResults);
+    console.log("🔗 [UI-INTEGRATION] typeof initializeAudioAnalyzerIntegration:", typeof window.initializeAudioAnalyzerIntegration);
+    
+    // Notificar outros módulos que as funções estão disponíveis
+    if (window.CustomEvent) {
+        window.dispatchEvent(new CustomEvent('audioAnalyzerReady', {
+            detail: {
+                displayModalResults: !!window.displayModalResults,
+                initializeAudioAnalyzerIntegration: !!window.initializeAudioAnalyzerIntegration
+            }
+        }));
+    }
 }
 
 // 🧪 Função de teste para validar o sistema unificado
