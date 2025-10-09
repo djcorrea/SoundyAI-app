@@ -1662,7 +1662,7 @@ function openAudioModal() {
     
     if (isReferenceEnabled) {
         // Abrir modal de seleção de modo primeiro
-        openModeSelectionModal();
+        
     } else {
         // Comportamento original: modo gênero direto
         selectAnalysisMode('genre');
