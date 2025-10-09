@@ -4,9 +4,37 @@
 import { logAudio } from '../error-handling.js';
 
 /**
- * 🎨 Sistema de Criticidade com Cores
+ * 🎨 Sistema de Criticidade com Cores - AUDITORIA ESPECÍFICA PARA DINÂMICA (LU RANGE)
  */
 const SEVERITY_SYSTEM = {
+  IDEAL: {
+    level: 'ideal',
+    priority: 1,
+    color: '#00ff88',        // 🟢 Verde
+    colorHex: 'green',
+    icon: '🟢',
+    label: 'IDEAL',
+    description: 'Dinâmica perfeita para o gênero'
+  },
+  AJUSTE_LEVE: {
+    level: 'ajuste_leve', 
+    priority: 2,
+    color: '#ffcc00',        // 🟡 Amarelo
+    colorHex: 'yellow',
+    icon: '🟡',
+    label: 'AJUSTE LEVE',
+    description: 'Pequenos ajustes recomendados'
+  },
+  CORRIGIR: {
+    level: 'corrigir',
+    priority: 3,
+    color: '#ff4444',        // 🔴 Vermelho
+    colorHex: 'red',
+    icon: '🔴',
+    label: 'CORRIGIR',
+    description: 'Requer correção para o gênero'
+  },
+  // Manter compatibilidade com sistema antigo
   CRITICAL: {
     level: 'critical',
     priority: 4,
@@ -49,11 +77,11 @@ const SEVERITY_SYSTEM = {
  * 🎵 Thresholds por Gênero Musical
  */
 const GENRE_THRESHOLDS = {
-  // 🚗 Funk Automotivo - Mais agressivo
+  // 🚗 Funk Automotivo - Mais agressivo (≤14 LU aceitável)
   'funk_automotivo': {
     lufs: { target: -6.2, tolerance: 2.0, critical: 3.0 },
     truePeak: { target: -1.0, tolerance: 0.5, critical: 1.0 },
-    dr: { target: 6.8, tolerance: 2.0, critical: 3.0 },
+    dr: { target: 8.0, tolerance: 6.0, critical: 8.0 }, // ✅ CORRIGIDO: até 14 LU aceitável
     stereo: { target: 0.85, tolerance: 0.2, critical: 0.3 },
     // 🎵 Bandas espectrais completas
     sub: { target: -17.3, tolerance: 3.0, critical: 5.0 },
@@ -65,11 +93,11 @@ const GENRE_THRESHOLDS = {
     brilho: { target: -26.3, tolerance: 5.0, critical: 7.0 }
   },
   
-  // 🎭 Funk Mandela - Mais dinâmico
+  // 🎭 Funk Mandela - Mais dinâmico (8 LU target, ≤15 LU aceitável)
   'funk_mandela': {
     lufs: { target: -8.0, tolerance: 2.5, critical: 4.0 },
     truePeak: { target: -0.8, tolerance: 0.7, critical: 1.2 },
-    dr: { target: 7.3, tolerance: 2.5, critical: 4.0 },
+    dr: { target: 8.0, tolerance: 7.0, critical: 7.0 }, // ✅ CORRIGIDO: 8 LU target, +7 LU tolerance
     stereo: { target: 0.85, tolerance: 0.25, critical: 0.35 },
     // 🎵 Bandas espectrais completas
     sub: { target: -17.3, tolerance: 3.0, critical: 5.0 },
@@ -81,11 +109,11 @@ const GENRE_THRESHOLDS = {
     brilho: { target: -27.1, tolerance: 5.0, critical: 7.0 }
   },
   
-  // 🎶 Trance - Muito dinâmico
+  // 🎶 Trance - Muito dinâmico (≤10 LU aceitável)
   'trance': {
     lufs: { target: -11.5, tolerance: 2.5, critical: 4.0 },
     truePeak: { target: -1.0, tolerance: 1.0, critical: 2.0 },
-    dr: { target: 8.8, tolerance: 3.0, critical: 5.0 },
+    dr: { target: 7.0, tolerance: 3.0, critical: 3.0 }, // ✅ CORRIGIDO: até 10 LU aceitável
     stereo: { target: 0.72, tolerance: 0.25, critical: 0.35 },
     // 🎵 Bandas espectrais completas
     sub: { target: -16.0, tolerance: 2.5, critical: 4.0 },
@@ -97,11 +125,11 @@ const GENRE_THRESHOLDS = {
     brilho: { target: -24.2, tolerance: 4.5, critical: 6.0 }
   },
   
-  // 🎹 Eletrônico - Equilibrado
+  // 🎹 Eletrônico - Equilibrado (6 LU target, ≤9 LU aceitável)
   'eletronico': {
     lufs: { target: -12.8, tolerance: 2.0, critical: 3.5 },
     truePeak: { target: -1.0, tolerance: 0.8, critical: 1.5 },
-    dr: { target: 7.2, tolerance: 2.8, critical: 4.5 },
+    dr: { target: 6.0, tolerance: 3.0, critical: 3.0 }, // ✅ CORRIGIDO: 6 LU target, +3 LU tolerance
     stereo: { target: 0.75, tolerance: 0.25, critical: 0.35 },
     // 🎵 Bandas espectrais completas
     sub: { target: -18.0, tolerance: 3.0, critical: 5.0 },
@@ -313,42 +341,42 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   }
   
   /**
-   * 📈 Análise Dynamic Range com Sugestões Educativas
+   * 📈 Análise Dynamic Range com Sugestões Educativas - SISTEMA 3 NÍVEIS POR GÊNERO
    */
   analyzeDynamicRange(metrics, suggestions, problems) {
     const dr = metrics.dynamics?.dynamicRange;
     if (!Number.isFinite(dr)) return;
     
     const threshold = this.thresholds.dr;
-    const diff = Math.abs(dr - threshold.target);
-    const severity = this.calculateSeverity(diff, threshold.tolerance, threshold.critical);
+    // 🎯 USAR SISTEMA ESPECÍFICO PARA DYNAMIC RANGE
+    const severity = this.calculateDynamicRangeSeverity(dr, threshold);
     
     let message, explanation, action;
     
-    if (severity.level === 'critical') {
-      if (dr < threshold.target - threshold.critical) {
-        message = `🔴 Sobre-compressão crítica: ${dr.toFixed(1)} dB DR`;
-        explanation = `Dynamic Range muito baixo indica compressão excessiva. O som fica "achatado" e sem vida.`;
-        action = `Refaça o mastering com menos compressão. Aumente attack time dos compressors e reduza ratio para 3:1 ou menos.`;
+    if (severity.level === 'corrigir') {
+      if (dr < threshold.target - threshold.tolerance) {
+        message = `🔴 Sobre-compressão para ${this.genre}: ${dr.toFixed(1)} dB DR`;
+        explanation = `Dynamic Range muito baixo para ${this.genre}. Target: ${threshold.target} LU, aceitável até ${threshold.target + threshold.tolerance} LU.`;
+        action = `Refaça o mastering com menos compressão. Para ${this.genre}, procure manter pelo menos ${threshold.target} LU de dinâmica.`;
       } else {
-        message = `🔴 Falta de controle dinâmico: ${dr.toFixed(1)} dB DR`;
-        explanation = `Dynamic Range muito alto pode indicar falta de processamento ou inconsistência de volume.`;
-        action = `Aplique compressão suave (ratio 2:1, attack médio) para controlar melhor a dinâmica.`;
+        message = `🔴 Range dinâmico excessivo para ${this.genre}: ${dr.toFixed(1)} dB DR`;
+        explanation = `Dynamic Range muito alto para ${this.genre}. Pode prejudicar a competitividade sonora.`;
+        action = `Aplique compressão suave para controlar a dinâmica dentro de ${threshold.target}±${threshold.tolerance} LU.`;
       }
-    } else if (severity.level === 'warning') {
+    } else if (severity.level === 'ajuste_leve') {
       if (dr < threshold.target) {
-        message = `🟠 Levemente comprimido: ${dr.toFixed(1)} dB DR`;
-        explanation = `Um pouco comprimido demais, mas ainda musical para ${this.genre}.`;
-        action = `Considere reduzir ratio dos compressors para 2:1 ou aumentar threshold.`;
+        message = `� Levemente comprimido para ${this.genre}: ${dr.toFixed(1)} dB DR`;
+        explanation = `Um pouco abaixo do ideal para ${this.genre}, mas ainda aceitável (target: ${threshold.target} LU).`;
+        action = `Considere reduzir ratio dos compressors para aumentar a dinâmica em 1-2 LU.`;
       } else {
-        message = `🟠 Dinâmica ampla: ${dr.toFixed(1)} dB DR`;
-        explanation = `Dinâmica mais ampla que o usual para ${this.genre}, mas pode funcionar.`;
-        action = `Monitore o volume das partes mais baixas para garantir que não se percam.`;
+        message = `� Dinâmica levemente ampla para ${this.genre}: ${dr.toFixed(1)} dB DR`;
+        explanation = `Um pouco acima do ideal para ${this.genre}, mas dentro do aceitável.`;
+        action = `Monitore as partes mais baixas para garantir consistência no gênero ${this.genre}.`;
       }
     } else {
-      message = `🟢 Dynamic Range ideal: ${dr.toFixed(1)} dB DR`;
-      explanation = `Perfeito equilíbrio entre controle dinâmico e musicalidade para ${this.genre}.`;
-      action = `Excelente! Sua compressão está no ponto ideal.`;
+      message = `🟢 Dynamic Range ideal para ${this.genre}: ${dr.toFixed(1)} dB DR`;
+      explanation = `Perfeito para ${this.genre}! Dinâmica balanceada dentro do range ideal (${threshold.target}±${Math.round(threshold.tolerance * 0.3)} LU).`;
+      action = `Excelente! Sua compressão está perfeita para ${this.genre}.`;
     }
     
     suggestions.push({
@@ -358,9 +386,10 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       explanation,
       action,
       currentValue: `${dr.toFixed(1)} dB DR`,
-      targetValue: `${threshold.target} dB DR`,
+      targetValue: `${threshold.target} dB DR (±${threshold.tolerance} LU aceitável)`,
       delta: `${(dr - threshold.target).toFixed(1)} dB`,
-      priority: severity.priority
+      priority: severity.priority,
+      genre: this.genre // 🎯 ADICIONAR CONTEXTO DE GÊNERO
     });
   }
   
@@ -539,6 +568,22 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   }
   
   /**
+   * 📈 Calcular Severidade Específica para Dynamic Range (Sistema de 3 Níveis)
+   */
+  calculateDynamicRangeSeverity(drValue, threshold) {
+    const diff = Math.abs(drValue - threshold.target);
+    
+    // 🎯 SISTEMA ESPECÍFICO PARA DINÂMICA POR GÊNERO
+    if (diff <= threshold.tolerance * 0.3) {
+      return this.severity.IDEAL; // Dentro de 30% da tolerância = ideal
+    } else if (diff <= threshold.tolerance) {
+      return this.severity.AJUSTE_LEVE; // Dentro da tolerância = ajuste leve
+    } else {
+      return this.severity.CORRIGIR; // Fora da tolerância = corrigir
+    }
+  }
+  
+  /**
    * 🎯 Calcular Severidade Específica para True Peak
    */
   calculateSeverityForTruePeak(diff, tolerance, critical) {
@@ -552,9 +597,14 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   }
   
   /**
-   * 📊 Gerar Resumo Final
+   * 📊 Gerar Resumo Final - AUDITORIA DYNAMIC RANGE POR GÊNERO
    */
   generateSummary(suggestions, problems) {
+    const corrigir = suggestions.filter(s => s.severity.level === 'corrigir').length;
+    const ajusteLeve = suggestions.filter(s => s.severity.level === 'ajuste_leve').length;
+    const ideal = suggestions.filter(s => s.severity.level === 'ideal').length;
+    
+    // Compatibilidade com sistema antigo
     const critical = suggestions.filter(s => s.severity.level === 'critical').length;
     const warning = suggestions.filter(s => s.severity.level === 'warning').length;
     const ok = suggestions.filter(s => s.severity.level === 'ok').length;
@@ -562,28 +612,39 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     let overallRating;
     let readyForRelease;
     
-    if (critical > 0) {
-      overallRating = 'Precisa correção urgente';
+    // 🎯 LÓGICA ESPECÍFICA PARA DYNAMIC RANGE POR GÊNERO
+    const totalCorrigir = corrigir + critical;
+    const totalAjuste = ajusteLeve + warning;
+    const totalIdeal = ideal + ok;
+    
+    if (totalCorrigir > 0) {
+      overallRating = `Dinâmica precisa correção para ${this.genre}`;
       readyForRelease = false;
-    } else if (warning > 2) {
-      overallRating = 'Precisa melhorias';
+    } else if (totalAjuste > 2) {
+      overallRating = `Dinâmica precisa ajustes para ${this.genre}`;
       readyForRelease = false;
-    } else if (warning > 0) {
-      overallRating = 'Bom com ajustes';
+    } else if (totalAjuste > 0) {
+      overallRating = `Dinâmica boa para ${this.genre} com pequenos ajustes`;
       readyForRelease = true;
     } else {
-      overallRating = 'Excelente qualidade';
+      overallRating = `Dinâmica excelente para ${this.genre}`;
       readyForRelease = true;
     }
     
     return {
       overallRating,
       readyForRelease,
+      genre: this.genre,
+      // Novos campos específicos para dinâmica
+      corrigirIssues: totalCorrigir,
+      ajusteLeveIssues: totalAjuste,
+      idealMetrics: totalIdeal,
+      // Campos legados para compatibilidade
       criticalIssues: critical,
       warningIssues: warning,
       okMetrics: ok,
       totalAnalyzed: suggestions.length,
-      score: Math.max(0, 10 - (critical * 3) - (warning * 1))
+      score: Math.max(0, 10 - (totalCorrigir * 4) - (totalAjuste * 1))
     };
   }
   
