@@ -71,26 +71,6 @@ let jobPollingInterval = null;
 
 // 🎯 Funções de Acessibilidade e Gestão de Modais
 
-function openModeSelectionModal() {
-    const modal = document.getElementById('analysisModeModal');
-    if (modal) {
-        modal.style.display = 'flex';
-        modal.setAttribute('aria-hidden', 'false');
-        
-        // Foco no primeiro botão
-        const firstButton = modal.querySelector('.mode-card button');
-        if (firstButton) {
-            firstButton.focus();
-        }
-        
-        // Adicionar listener para ESC
-        document.addEventListener('keydown', handleModalEscapeKey);
-        
-        // Trap focus no modal
-        trapFocus(modal);
-    }
-}
-
 function closeModeSelectionModal() {
     const modal = document.getElementById('analysisModeModal');
     if (modal) {
