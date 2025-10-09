@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste - Scoring Baseado em Sugestões</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; }
+        .test-case { border: 1px solid #ddd; margin: 10px 0; padding: 15px; border-radius: 5px; }
+        .test-result { font-weight: bold; margin: 10px 0; }
+        .score-high { color: #28a745; }
+        .score-medium { color: #ffc107; }
+        .score-low { color: #dc3545; }
+        .log { background: #f8f9fa; padding: 10px; margin: 10px 0; border-radius: 4px; font-family: monospace; font-size: 12px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        .toggle { background: #6c757d; }
+        .toggle.active { background: #28a745; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎚️ Teste - Scoring Baseado em Sugestões</h1>
+        
+        <div style="margin: 20px 0;">
+            <button id="toggleScoring" class="toggle active">✅ Scoring por Sugestões: ATIVO</button>
+            <button onclick="runAllTests()">🧪 Executar Todos os Testes</button>
+        </div>
+        
+        <div id="results"></div>
+        
+        <div class="log" id="console-log"></div>
+    </div>
+
+    <!-- Carregar módulos necessários -->
+    <script src="lib/audio/features/scoring.js"></script>
+    
+    <script>
+        // Interceptar console.log para mostrar na página
+        const originalLog = console.log;
+        const logDiv = document.getElementById('console-log');
+        
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            const logEntry = args.join(' ') + '\n';
+            logDiv.textContent += logEntry;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        };
+        
+        // Toggle do sistema de scoring
+        const toggleBtn = document.getElementById('toggleScoring');
+        toggleBtn.onclick = function() {
+            window.USE_SUGGESTION_SCORING = !window.USE_SUGGESTION_SCORING;
+            if (window.USE_SUGGESTION_SCORING) {
+                toggleBtn.textContent = '✅ Scoring por Sugestões: ATIVO';
+                toggleBtn.classList.add('active');
+            } else {
+                toggleBtn.textContent = '❌ Scoring por Sugestões: INATIVO';
+                toggleBtn.classList.remove('active');
+            }
+            console.log('[TOGGLE] USE_SUGGESTION_SCORING:', window.USE_SUGGESTION_SCORING);
+        };
+        
+        // Dados de teste
+        const testCases = [
+            {
+                name: "Mix Quase Perfeita (ajustes mínimos)",
+                technicalData: {
+                    lufsIntegrated: -14,
+                    truePeakDbtp: -1.0,
+                    bandEnergies: {
+                        bass: { rms_db: -18.0 },
+                        mid: { rms_db: -12.0 },
+                        highMid: { rms_db: -8.0 }
+                    },
+                    suggestions: [
+                        {
+                            type: 'band_adjust',
+                            subtype: 'bass',
+                            technical: { delta: 0.5 } // Pequeno ajuste
+                        },
+                        {
+                            type: 'band_adjust',
+                            subtype: 'mid',
+                            technical: { delta: -0.8 } // Pequeno ajuste
+                        }
+                    ]
+                },
+                expectedScore: "Alto (85-95%)"
+            },
+            {
+                name: "Mix Mediana (ajustes moderados)",
+                technicalData: {
+                    lufsIntegrated: -14,
+                    truePeakDbtp: -1.0,
+                    bandEnergies: {
+                        bass: { rms_db: -18.0 },
+                        mid: { rms_db: -12.0 },
+                        highMid: { rms_db: -8.0 }
+                    },
+                    suggestions: [
+                        {
+                            type: 'band_adjust',
+                            subtype: 'bass',
+                            technical: { delta: 3.2 } // Ajuste moderado
+                        },
+                        {
+                            type: 'band_adjust',
+                            subtype: 'mid',
+                            technical: { delta: -2.8 } // Ajuste moderado
+                        }
+                    ]
+                },
+                expectedScore: "Médio (60-80%)"
+            },
+            {
+                name: "Mix Problemática (ajustes grandes)",
+                technicalData: {
+                    lufsIntegrated: -14,
+                    truePeakDbtp: -1.0,
+                    bandEnergies: {
+                        bass: { rms_db: -18.0 },
+                        mid: { rms_db: -12.0 },
+                        highMid: { rms_db: -8.0 }
+                    },
+                    suggestions: [
+                        {
+                            type: 'band_adjust',
+                            subtype: 'bass',
+                            technical: { delta: 5.8 } // Ajuste grande
+                        },
+                        {
+                            type: 'band_adjust',
+                            subtype: 'mid',
+                            technical: { delta: -4.5 } // Ajuste grande
+                        }
+                    ]
+                },
+                expectedScore: "Baixo (30-50%)"
+            },
+            {
+                name: "Sem Sugestões (fallback)",
+                technicalData: {
+                    lufsIntegrated: -14,
+                    truePeakDbtp: -1.0,
+                    bandEnergies: {
+                        bass: { rms_db: -18.0 },
+                        mid: { rms_db: -12.0 },
+                        highMid: { rms_db: -8.0 }
+                    },
+                    suggestions: [] // Sem sugestões
+                },
+                expectedScore: "Sistema antigo ativo"
+            }
+        ];
+        
+        const mockReference = {
+            lufs_target: -14,
+            tol_lufs: 3.0,
+            true_peak_target: -1,
+            tol_true_peak: 2.0
+        };
+        
+        function runTest(testCase, index) {
+            console.log(`\n🧪 === TESTE ${index + 1}: ${testCase.name} ===`);
+            
+            try {
+                const result = window.computeMixScore(testCase.technicalData, mockReference);
+                
+                let scoreClass = 'score-medium';
+                if (result.scorePct >= 80) scoreClass = 'score-high';
+                else if (result.scorePct <= 50) scoreClass = 'score-low';
+                
+                const resultHtml = `
+                    <div class="test-case">
+                        <h3>Teste ${index + 1}: ${testCase.name}</h3>
+                        <div class="test-result">
+                            Score: <span class="${scoreClass}">${result.scorePct}%</span> 
+                            | Método: ${result.method}
+                            | Classificação: ${result.classification}
+                        </div>
+                        <div><strong>Esperado:</strong> ${testCase.expectedScore}</div>
+                        <div><strong>Sugestões:</strong> ${testCase.technicalData.suggestions.length} bandas</div>
+                        ${testCase.technicalData.suggestions.length > 0 ? 
+                            `<div><strong>Deltas:</strong> ${testCase.technicalData.suggestions.map(s => `${s.subtype}: ${s.technical.delta}dB`).join(', ')}</div>` 
+                            : ''
+                        }
+                    </div>
+                `;
+                
+                document.getElementById('results').innerHTML += resultHtml;
+                
+                console.log(`✅ Score: ${result.scorePct}% | Método: ${result.method} | Classificação: ${result.classification}`);
+                
+            } catch (error) {
+                console.error(`❌ Erro no teste ${index + 1}:`, error);
+                document.getElementById('results').innerHTML += `
+                    <div class="test-case">
+                        <h3>Teste ${index + 1}: ${testCase.name}</h3>
+                        <div class="test-result" style="color: red;">❌ ERRO: ${error.message}</div>
+                    </div>
+                `;
+            }
+        }
+        
+        function runAllTests() {
+            document.getElementById('results').innerHTML = '';
+            logDiv.textContent = '';
+            
+            console.log('🎚️ Iniciando testes do sistema de scoring baseado em sugestões...');
+            console.log('Flag USE_SUGGESTION_SCORING:', window.USE_SUGGESTION_SCORING);
+            
+            testCases.forEach(runTest);
+            
+            console.log('\n✅ Todos os testes concluídos!');
+        }
+        
+        // Executar testes ao carregar a página
+        window.onload = function() {
+            setTimeout(runAllTests, 500);
+        };
+    </script>
+</body>
+</html>
