@@ -2278,13 +2278,7 @@ class AudioAnalyzer {
             } else {
               // Implementação original (fallback)
               console.log('[PIPELINE-CORRECTION] ⚠️ Usando implementação original - correção desabilitada');
-              
-              // 🔹 [SoundyAI] Passar sugestões para o scoring
-              const tdWithSuggestions = {
-                ...tdFinal,
-                suggestions: baseAnalysis.suggestions || []
-              };
-              finalScore = scorerMod.computeMixScore(tdWithSuggestions, genreSpecificRef);
+              finalScore = scorerMod.computeMixScore(tdFinal, genreSpecificRef);
             }
             
             if (finalScore) {
