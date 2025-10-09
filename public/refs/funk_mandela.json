@@ -15,51 +15,59 @@
       },
       "spectral_bands": {
         "sub": {
-          "target_db": -26,
+          "target_range": {"min": -34, "max": -22},
+          "target_db": -28,
           "energy_pct": 29.5,
-          "tol_db": 4,
+          "tol_db": 6,
           "severity": "soft"
         },
         "low_bass": {
-          "target_db": -21,
+          "target_range": {"min": -32, "max": -21},
+          "target_db": -26.5,
           "energy_pct": 26.8,
-          "tol_db": 3,
+          "tol_db": 5.5,
           "severity": "soft"
         },
         "upper_bass": {
-          "target_db": -21.5,
+          "target_range": {"min": -33, "max": -26},
+          "target_db": -29.5,
           "energy_pct": 9,
-          "tol_db": 3,
+          "tol_db": 3.5,
           "severity": "soft"
         },
         "low_mid": {
-          "target_db": -24,
+          "target_range": {"min": -34, "max": -28},
+          "target_db": -31,
           "energy_pct": 12.4,
-          "tol_db": 2.5,
+          "tol_db": 3,
           "severity": "soft"
         },
         "mid": {
-          "target_db": -26,
+          "target_range": {"min": -40, "max": -28},
+          "target_db": -34,
           "energy_pct": 15.4,
-          "tol_db": 2.5,
+          "tol_db": 6,
           "severity": "soft"
         },
         "high_mid": {
-          "target_db": -30,
+          "target_range": {"min": -45, "max": -33},
+          "target_db": -39,
           "energy_pct": 5.3,
-          "tol_db": 2.5,
+          "tol_db": 6,
           "severity": "soft"
         },
         "brilho": {
-          "target_db": -34,
+          "target_range": {"min": -44, "max": -38},
+          "target_db": -41,
           "energy_pct": 1.4,
-          "tol_db": 3.0,
+          "tol_db": 3,
           "severity": "soft"
         },
         "presenca": {
-          "target_db": -38,
+          "target_range": {"min": -44, "max": -38},
+          "target_db": -41,
           "energy_pct": 0.16,
-          "tol_db": 3.0,
+          "tol_db": 3,
           "severity": "soft"
         }
       },
@@ -78,51 +86,59 @@
       "tol_stereo": 0.25,
       "bands": {
         "sub": {
-          "target_db": -26,
+          "target_range": {"min": -34, "max": -22},
+          "target_db": -28,
           "energy_pct": 29.5,
-          "tol_db": 4,
+          "tol_db": 6,
           "severity": "soft"
         },
         "low_bass": {
-          "target_db": -21,
+          "target_range": {"min": -32, "max": -21},
+          "target_db": -26.5,
           "energy_pct": 26.8,
-          "tol_db": 3,
+          "tol_db": 5.5,
           "severity": "soft"
         },
         "upper_bass": {
-          "target_db": -24.2,
+          "target_range": {"min": -33, "max": -26},
+          "target_db": -29.5,
           "energy_pct": 9,
-          "tol_db": 3,
+          "tol_db": 3.5,
           "severity": "soft"
         },
         "low_mid": {
-          "target_db": -24.5,
+          "target_range": {"min": -34, "max": -28},
+          "target_db": -31,
           "energy_pct": 12.4,
-          "tol_db": 2.5,
+          "tol_db": 3,
           "severity": "soft"
         },
         "mid": {
-          "target_db": -26.8,
+          "target_range": {"min": -40, "max": -28},
+          "target_db": -34,
           "energy_pct": 15.4,
-          "tol_db": 3.0,
+          "tol_db": 6,
           "severity": "soft"
         },
         "high_mid": {
-          "target_db": -30,
+          "target_range": {"min": -45, "max": -33},
+          "target_db": -39,
           "energy_pct": 5.3,
-          "tol_db": 4.0,
+          "tol_db": 6,
           "severity": "soft"
         },
         "brilho": {
-          "target_db": -33,
+          "target_range": {"min": -44, "max": -38},
+          "target_db": -41,
           "energy_pct": 1.4,
-          "tol_db": 4.0,
+          "tol_db": 3,
           "severity": "soft"
         },
         "presenca": {
-          "target_db": -38,
+          "target_range": {"min": -44, "max": -38},
+          "target_db": -41,
           "energy_pct": 0.16,
-          "tol_db": 5.0,
+          "tol_db": 3,
           "severity": "soft"
         }
       }
