@@ -739,17 +739,38 @@ class EnhancedSuggestionEngine {
      * 🎯 Calcula score ponderado baseado nas bandas espectrais
      */
     weightedScore(bandScores) {
+        console.log('🔍 [ADAPTIVE-AUDIT] weightedScore entrada:', bandScores);
+        
         const WEIGHTS = { 
             sub: 0.25, bass: 0.25, lowMid: 0.15, 
             mid: 0.15, highMid: 0.1, air: 0.1 
         };
         let sum = 0, total = 0;
+        
         for (const band in bandScores) {
             const w = WEIGHTS[band] || 0.1;
-            sum += bandScores[band] * w;
+            const score = bandScores[band];
+            sum += score * w;
             total += w;
+            console.log('🔍 [ADAPTIVE-AUDIT] weightedScore processando:', {
+                band: band,
+                score: score,
+                weight: w,
+                contribution: score * w,
+                runningSum: sum,
+                runningTotal: total
+            });
         }
-        return Math.round(sum / (total || 1));
+        
+        const result = Math.round(sum / (total || 1));
+        console.log('🔍 [ADAPTIVE-AUDIT] weightedScore resultado:', {
+            finalSum: sum,
+            finalTotal: total,
+            beforeRound: sum / (total || 1),
+            result: result
+        });
+        
+        return result;
     }
 
     /**
@@ -848,20 +869,117 @@ class EnhancedSuggestionEngine {
             
             // === SOUNDYAI-ADAPTIVE-SCORE: CÁLCULO ===
             try {
+                // 🎯 Função utilitária para normalizar nomes de bandas
+                function normalizeMetricName(name) {
+                    return String(name || '')
+                        .toLowerCase()
+                        .replace('-', '')
+                        .replace('_', '')
+                        .replace('s', '') // remove plural
+                        .replace('presenca', 'presence')
+                        .replace('brilho', 'air')
+                        .replace('subbass', 'sub')
+                        .trim();
+                }
+                
+                // 🔍 AUDITORIA DETALHADA - Log inicial
+                console.log('🔍 [ADAPTIVE-AUDIT] Iniciando cálculo adaptiveScore');
+                console.log('🔍 [ADAPTIVE-AUDIT] Número de sugestões:', allSuggestions.length);
+                console.log('🔍 [ADAPTIVE-AUDIT] Tipos de sugestões:', allSuggestions.map(s => s.type || s.category));
+                
                 const bandScores = {};
+                let processedSuggestions = 0;
+                let spectralSuggestions = 0;
+                
                 for (const s of allSuggestions) {
-                    if (s.category !== 'spectral' || !s.technical?.metric) continue;
-                    const { currentValue, targetValue, suggestedChange } = s.technical;
-                    const step = this.parseSuggestedDb(suggestedChange);
-                    const measuredNow = analysis.technicalData.bandEnergies?.[s.technical.metric]?.rms_db;
-                    if (typeof measuredNow !== 'number' || typeof currentValue !== 'number') continue;
+                    console.log('🔍 [ADAPTIVE-AUDIT] Processando sugestão:', {
+                        type: s.type,
+                        category: s.category,
+                        subtype: s.subtype,
+                        hasTechnical: !!s.technical,
+                        technicalKeys: s.technical ? Object.keys(s.technical) : null
+                    });
+                    
+                    if (s.type !== 'band_adjust' || !s.technical?.metric) {
+                        console.log('🔍 [ADAPTIVE-AUDIT] Sugestão ignorada - não é band_adjust ou sem technical.metric');
+                        continue;
+                    }
+                    
+                    spectralSuggestions++;
+                    
+                    const { currentValue, targetValue, delta } = s.technical;
+                    console.log('🔍 [ADAPTIVE-AUDIT] Dados técnicos extraídos:', {
+                        metric: s.technical.metric,
+                        currentValue,
+                        targetValue,
+                        delta: delta,
+                        value: s.technical.value,
+                        target: s.technical.target
+                    });
+                    
+                    const targetChange = delta || 0;
+                    console.log('🔍 [ADAPTIVE-AUDIT] targetChange definido:', targetChange);
+                    
+                    // 🎯 Normalizar nome da métrica e buscar na bandEnergies
+                    const metricKey = normalizeMetricName(s.technical.metric);
+                    const bandData = Object.entries(analysis.technicalData.bandEnergies || {})
+                        .find(([key]) => normalizeMetricName(key) === metricKey)?.[1];
+                    const measuredNow = bandData?.rms_db || bandData; // Tentar .rms_db primeiro, senão usar valor direto
+                    
+                    console.log('🔍 [ADAPTIVE-AUDIT] bandEnergies lookup:', {
+                        originalMetric: s.technical.metric,
+                        normalizedMetric: metricKey,
+                        hasBandEnergies: !!analysis.technicalData.bandEnergies,
+                        bandEnergiesKeys: analysis.technicalData.bandEnergies ? Object.keys(analysis.technicalData.bandEnergies) : null,
+                        foundBandData: bandData,
+                        measuredNow
+                    });
+                    
+                    if (typeof measuredNow !== 'number' || typeof currentValue !== 'number') {
+                        console.log('🔍 [ADAPTIVE-AUDIT] Continuando devido a valores inválidos:', {
+                            measuredNowType: typeof measuredNow,
+                            currentValueType: typeof currentValue,
+                            measuredNow,
+                            currentValue
+                        });
+                        continue;
+                    }
+                    
                     const applied = measuredNow - currentValue;
-                    const expected = step;
+                    const expected = targetChange;
                     const score = this.calcBandScore(applied, expected);
                     bandScores[s.technical.metric] = score;
+                    processedSuggestions++;
+                    
+                    console.log('🔍 [ADAPTIVE-AUDIT] Banda processada:', {
+                        metric: s.technical.metric,
+                        normalizedMetric: metricKey,
+                        currentValue: currentValue,
+                        measuredNow: measuredNow,
+                        targetChange: targetChange,
+                        applied: applied,
+                        expected: expected,
+                        score: score,
+                        scoringFormula: `calcBandScore(${applied}, ${expected})`
+                    });
                 }
 
+                console.log('🔍 [ADAPTIVE-AUDIT] Antes do cálculo final:', {
+                    bandScores: bandScores,
+                    hasValidScores: Object.keys(bandScores).length > 0,
+                    scoresValues: Object.values(bandScores),
+                    weightedScoreInput: bandScores
+                });
+
                 const adaptiveScoreValue = this.weightedScore(bandScores);
+
+                console.log('🔍 [ADAPTIVE-AUDIT] Resultado final:', {
+                    totalSuggestions: allSuggestions.length,
+                    spectralSuggestions,
+                    processedSuggestions,
+                    bandScores,
+                    adaptiveScoreValue
+                });
 
                 analysis.adaptiveScore = {
                     score: adaptiveScoreValue,
@@ -1646,6 +1764,7 @@ class EnhancedSuggestionEngine {
                             suggestion.technical.delta = delta;
                             suggestion.technical.currentValue = value;
                             suggestion.technical.targetValue = target;
+                            suggestion.technical.metric = band; // ✅ ADICIONAR metric para adaptiveScore
                         }
                     } else {
                         suggestion.action = `Ajustar banda ${band}`;
