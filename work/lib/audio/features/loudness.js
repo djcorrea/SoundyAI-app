@@ -2,8 +2,8 @@
 // Implementação completa do padrão LUFS com K-weighting e gating
 
 /**
- * 📊 K-weighting Filter Coefficients (48kHz)
- * Pre-filter + RLB filter conforme ITU-R BS.1770-4
+ * 📊 K-weighting Filter Coefficients (ITU-R BS.1770-4)
+ * H_pre (high-pass 60Hz) + H_shelf (shelving +4dB acima 4kHz)
  */
 const K_WEIGHTING_COEFFS = {
   // Pre-filter (shelving filter ~1.5kHz)
@@ -13,6 +13,23 @@ const K_WEIGHTING_COEFFS = {
   },
   // RLB filter (high-pass ~38Hz) 
   RLB_FILTER: {
+    b: [1.0, -2.0, 1.0],
+    a: [1.0, -1.99004745483398, 0.99007225036621]
+  }
+};
+
+/**
+ * 🔧 ITU-R BS.1770-4 K-weighting Coefficients (CORRECTED)
+ * H_shelf (shelving +4 dB acima de 4 kHz) → H_pre (high-pass em 60 Hz)
+ */
+const K_WEIGHTING_COEFFS_V2 = {
+  // H_shelf (shelving +4 dB acima de 4 kHz)
+  H_SHELF: {
+    b: [1.53512485958697, -2.69169618940638, 1.19839281085285],
+    a: [1.0, -1.69065929318241, 0.73248077421585]
+  },
+  // H_pre (high-pass em 60 Hz)
+  H_PRE: {
     b: [1.0, -2.0, 1.0],
     a: [1.0, -1.99004745483398, 0.99007225036621]
   }
@@ -29,6 +46,173 @@ const LUFS_CONSTANTS = {
   INTEGRATED_OVERLAP: 0.75,     // 75% overlap entre blocks
   REFERENCE_LEVEL: -23.0        // EBU R128 reference
 };
+
+/**
+ * 🔧 IIR Filter Implementation (Manual Node.js)
+ * Aplica filtro IIR biquad de forma manual sem dependências
+ */
+function applyIIRFilter(samples, b, a) {
+  const out = new Float32Array(samples.length);
+  let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+  
+  for (let i = 0; i < samples.length; i++) {
+    const x0 = samples[i];
+    const y0 = b[0]*x0 + b[1]*x1 + b[2]*x2 - a[1]*y1 - a[2]*y2;
+    out[i] = y0;
+    x2 = x1;
+    x1 = x0;
+    y2 = y1;
+    y1 = y0;
+  }
+  return out;
+}
+
+/**
+ * 🎯 ITU-R BS.1770-4 LUFS Implementation V2 (CORRIGIDA)
+ * @param {Float32Array} float32Samples - PCM samples (mono ou estéreo intercalado)
+ * @param {number} sampleRate - Hz
+ * @param {object} opts - Opções
+ * @returns {Promise<object>} Resultado LUFS corrigido
+ */
+async function analyzeLUFSv2(float32Samples, sampleRate, opts = {}) {
+  const debug = process.env.DEBUG_LUFS === 'true';
+  
+  if (debug) console.log('🔧 analyzeLUFSv2: Iniciando análise LUFS ITU-R BS.1770-4');
+  
+  // Determinar número de canais
+  const channels = opts.channels || 2; // Assume estéreo por padrão
+  const samplesPerChannel = Math.floor(float32Samples.length / channels);
+  
+  // Separar canais
+  let leftChannel, rightChannel;
+  
+  if (channels === 1) {
+    // Mono: duplicar para estéreo
+    leftChannel = float32Samples;
+    rightChannel = float32Samples;
+  } else {
+    // Estéreo: desintercalar
+    leftChannel = new Float32Array(samplesPerChannel);
+    rightChannel = new Float32Array(samplesPerChannel);
+    
+    for (let i = 0; i < samplesPerChannel; i++) {
+      leftChannel[i] = float32Samples[i * 2];
+      rightChannel[i] = float32Samples[i * 2 + 1];
+    }
+  }
+  
+  if (debug) console.log(`🔍 Canais separados: L=${leftChannel.length}, R=${rightChannel.length}`);
+  
+  // Aplicar K-weighting na ordem correta: H_pre → H_shelf
+  const leftPreFiltered = applyIIRFilter(leftChannel, K_WEIGHTING_COEFFS_V2.H_PRE.b, K_WEIGHTING_COEFFS_V2.H_PRE.a);
+  const rightPreFiltered = applyIIRFilter(rightChannel, K_WEIGHTING_COEFFS_V2.H_PRE.b, K_WEIGHTING_COEFFS_V2.H_PRE.a);
+  
+  const leftFiltered = applyIIRFilter(leftPreFiltered, K_WEIGHTING_COEFFS_V2.H_SHELF.b, K_WEIGHTING_COEFFS_V2.H_SHELF.a);
+  const rightFiltered = applyIIRFilter(rightPreFiltered, K_WEIGHTING_COEFFS_V2.H_SHELF.b, K_WEIGHTING_COEFFS_V2.H_SHELF.a);
+  
+  if (debug) console.log('🔍 K-weighting aplicado (H_pre → H_shelf)');
+  
+  // Parâmetros de janelamento
+  const blockSize = Math.floor(0.4 * sampleRate); // 400ms
+  const hopSize = Math.floor(blockSize * 0.25); // 75% overlap
+  
+  if (debug) console.log(`🔍 Janelamento: blockSize=${blockSize}, hopSize=${hopSize}`);
+  
+  // Calcular energia por bloco
+  const blocks = [];
+  const numBlocks = Math.floor((leftFiltered.length - blockSize) / hopSize) + 1;
+  
+  for (let blockIdx = 0; blockIdx < numBlocks; blockIdx++) {
+    const startSample = blockIdx * hopSize;
+    const endSample = Math.min(startSample + blockSize, leftFiltered.length);
+    
+    let sumL = 0;
+    let sumR = 0;
+    const blockLength = endSample - startSample;
+    
+    for (let i = startSample; i < endSample; i++) {
+      sumL += leftFiltered[i] * leftFiltered[i];
+      sumR += rightFiltered[i] * rightFiltered[i];
+    }
+    
+    // Mean square com channel weighting (L=1.0, R=1.0)
+    const meanSquareL = sumL / blockLength;
+    const meanSquareR = sumR / blockLength;
+    const totalMeanSquare = meanSquareL + meanSquareR;
+    
+    // Converter para LUFS com offset ITU-R BS.1770-4
+    const loudness = totalMeanSquare > 0 ? 
+      -0.691 + 10 * Math.log10(totalMeanSquare) : 
+      -Infinity;
+    
+    blocks.push({
+      loudness,
+      meanSquare: totalMeanSquare,
+      timestamp: startSample / sampleRate
+    });
+    
+    if (debug && blockIdx < 3) {
+      console.log(`🔍 Block ${blockIdx}: meanSq=${totalMeanSquare.toExponential(2)}, loudness=${loudness.toFixed(1)} LUFS`);
+    }
+  }
+  
+  if (debug) console.log(`🔍 ${blocks.length} blocos processados`);
+  
+  // Gating absoluto (-70 LUFS)
+  const absoluteGated = blocks.filter(block => block.loudness >= -70.0);
+  
+  if (absoluteGated.length === 0) {
+    return {
+      integrated: -Infinity,
+      shortTerm: -Infinity,
+      momentary: -Infinity
+    };
+  }
+  
+  // Calcular integrated loudness preliminar
+  let totalMeanSquare = 0;
+  for (const block of absoluteGated) {
+    totalMeanSquare += block.meanSquare;
+  }
+  const preliminaryLoudness = -0.691 + 10 * Math.log10(totalMeanSquare / absoluteGated.length);
+  
+  // Gating relativo (preliminary - 10 LU)
+  const relativeThreshold = preliminaryLoudness - 10.0;
+  const relativeGated = absoluteGated.filter(block => block.loudness >= relativeThreshold);
+  
+  if (relativeGated.length === 0) {
+    const integrated = preliminaryLoudness;
+    return {
+      integrated,
+      shortTerm: integrated,
+      momentary: integrated
+    };
+  }
+  
+  // LUFS integrado final
+  let finalMeanSquare = 0;
+  for (const block of relativeGated) {
+    finalMeanSquare += block.meanSquare;
+  }
+  const integrated = -0.691 + 10 * Math.log10(finalMeanSquare / relativeGated.length);
+  
+  // Short-term e momentary (usar blocos válidos)
+  const validLoudness = relativeGated.map(b => b.loudness);
+  const shortTerm = validLoudness.length > 0 ? 
+    validLoudness[validLoudness.length - 1] : integrated;
+  const momentary = validLoudness.length > 0 ? 
+    Math.max(...validLoudness) : integrated;
+  
+  if (debug) {
+    console.log(`✅ analyzeLUFSv2 result: integrated=${integrated.toFixed(1)}, gated=${relativeGated.length}/${blocks.length}`);
+  }
+  
+  return {
+    integrated,
+    shortTerm,
+    momentary
+  };
+}
 
 /**
  * 🔧 Biquad Filter Implementation
@@ -421,11 +605,67 @@ function calculateLoudnessMetrics(leftChannel, rightChannel, sampleRate = 48000)
   };
 }
 
+/**
+ * 🎛️ Função principal com Feature Flag para LUFS corrigido
+ * @param {Float32Array} leftChannel
+ * @param {Float32Array} rightChannel
+ * @param {Number} sampleRate
+ * @returns {Object} Resultado LUFS completo
+ */
+async function calculateLoudnessMetricsV2(leftChannel, rightChannel, sampleRate = 48000) {
+  // Feature flag para nova implementação
+  const USE_NEW_LUFS = process.env.FEATURE_FIX_LUFS_PINK_NOISE === 'true';
+  
+  if (USE_NEW_LUFS) {
+    // Intercalar canais para analyzeLUFSv2
+    const intercalatedSamples = new Float32Array(leftChannel.length + rightChannel.length);
+    for (let i = 0; i < leftChannel.length; i++) {
+      intercalatedSamples[i * 2] = leftChannel[i];
+      intercalatedSamples[i * 2 + 1] = rightChannel[i];
+    }
+    
+    const lufsResult = await analyzeLUFSv2(intercalatedSamples, sampleRate, { channels: 2 });
+    
+    // Converter para formato compatível
+    const result = {
+      lufs_integrated: lufsResult.integrated,
+      lufs_short_term: lufsResult.shortTerm,
+      lufs_momentary: lufsResult.momentary,
+      lra: 0, // Simplificado para compatibilidade
+      lra_legacy: 0,
+      lra_meta: { algorithm: 'v2_simplified' },
+      gating_stats: {
+        total_blocks: 0,
+        gated_blocks: 0,
+        gating_efficiency: 0
+      },
+      processing_time: 0
+    };
+    
+    const loudnessOffset = result.lufs_integrated > -Infinity ?
+      (LUFS_CONSTANTS.REFERENCE_LEVEL - result.lufs_integrated) : null;
+
+    return {
+      ...result,
+      headroom_db: loudnessOffset,
+      loudness_offset_db: loudnessOffset,
+      reference_level: LUFS_CONSTANTS.REFERENCE_LEVEL,
+      meets_broadcast: result.lufs_integrated >= -24 && result.lufs_integrated <= -22
+    };
+  } else {
+    // Implementação original
+    return calculateLoudnessMetrics(leftChannel, rightChannel, sampleRate);
+  }
+}
+
 // 🎯 Exports
 export {
   LUFSMeter,
   KWeightingFilter,
   calculateLoudnessMetrics,
+  calculateLoudnessMetricsV2,
+  analyzeLUFSv2,
   LUFS_CONSTANTS,
-  K_WEIGHTING_COEFFS
+  K_WEIGHTING_COEFFS,
+  K_WEIGHTING_COEFFS_V2
 };

@@ -16,6 +16,12 @@
     "audit:one": "AUDIT_MODE=1 node tools/audit-one.js",
     "audit:batch": "AUDIT_MODE=1 node tools/audit-batch.js",
     "audit:report": "AUDIT_MODE=1 node tools/audit-report.js",
+    "audit:lufs": "node scripts/manual-audit-lufs.js",
+    "audit:truepeak": "node scripts/manual-audit-truepeak.js",
+    "audit:spectral": "node scripts/manual-audit-spectral.js",
+    "audit:scoring": "node scripts/manual-audit-scoring.js",
+    "audit:audio": "node scripts/manual-audit-lufs.js && node scripts/manual-audit-truepeak.js && node scripts/manual-audit-spectral.js && node scripts/manual-audit-scoring.js",
+    "audit:serve": "python -m http.server 3000",
     "postinstall": "npm run copy:refs"
   },
   "dependencies": {
