@@ -5068,7 +5068,26 @@ function renderReferenceComparisons(analysis) {
             </tr>`);
             return;
         }
-        const diff = Number.isFinite(val) && Number.isFinite(target) ? (val - target) : null;
+        // 🎯 NOVO: Cálculo de diferença híbrido para targets fixos e ranges
+        let diff = null;
+        
+        if (typeof target === 'object' && target !== null && 
+            Number.isFinite(target.min) && Number.isFinite(target.max) && Number.isFinite(val)) {
+            // Target é um range: calcular distância do range
+            if (val >= target.min && val <= target.max) {
+                // Dentro do range: diferença zero (ideal)
+                diff = 0;
+            } else if (val < target.min) {
+                // Abaixo do range: diferença negativa
+                diff = val - target.min;
+            } else {
+                // Acima do range: diferença positiva
+                diff = val - target.max;
+            }
+        } else if (Number.isFinite(val) && Number.isFinite(target)) {
+            // Target fixo: diferença tradicional
+            diff = val - target;
+        }
         
         // 🎯 CORREÇÃO: Mostrar apenas status visual (não valores numéricos)
         let diffCell;
@@ -5104,10 +5123,29 @@ function renderReferenceComparisons(analysis) {
             </td>`;
         }
         
+        // 🎯 NOVO: Renderização híbrida para targets fixos e ranges
+        let targetDisplay;
+        
+        if (typeof target === 'object' && target !== null && 
+            Number.isFinite(target.min) && Number.isFinite(target.max)) {
+            // Target é um range: exibir "min dB a max dB"
+            targetDisplay = `${nf(target.min)}${unit} a ${nf(target.max)}${unit}`;
+        } else if (Number.isFinite(target)) {
+            // Target é um valor fixo: exibir "valor dB"
+            targetDisplay = `${nf(target)}${unit}`;
+        } else {
+            // Target não definido
+            targetDisplay = 'N/A';
+        }
+        
+        // Adicionar tolerância se disponível (apenas para targets fixos)
+        const tolDisplay = (typeof target !== 'object' && tol != null) ? 
+            `<span class="tol">±${nf(tol,2)}</span>` : '';
+        
         rows.push(`<tr>
             <td>${enhancedLabel}</td>
             <td>${Number.isFinite(val)?nf(val)+unit:'—'}</td>
-            <td>${Number.isFinite(target)?nf(target)+unit:'N/A'}${tol!=null?`<span class="tol">±${nf(tol,2)}</span>`:''}</td>
+            <td>${targetDisplay}${tolDisplay}</td>
             ${diffCell}
         </tr>`);
     };
@@ -5287,10 +5325,26 @@ function renderReferenceComparisons(analysis) {
                 }
             }
             
-            // Determinar target
+            // 🎯 NOVO: Determinar target com suporte a ranges
             let tgt = null;
-            if (!refBand._target_na && Number.isFinite(refBand.target_db)) tgt = refBand.target_db;
-            if (showNorm && normMap && Number.isFinite(normMap[refBandKey])) tgt = normMap[refBandKey];
+            
+            // Prioridade 1: target_range (novo sistema)
+            if (refBand.target_range && typeof refBand.target_range === 'object' &&
+                Number.isFinite(refBand.target_range.min) && Number.isFinite(refBand.target_range.max)) {
+                tgt = refBand.target_range;
+                console.log(`🎯 [BANDS] Usando target_range para ${refBandKey}: [${tgt.min}, ${tgt.max}]`);
+            }
+            // Prioridade 2: target_db fixo (sistema legado)
+            else if (!refBand._target_na && Number.isFinite(refBand.target_db)) {
+                tgt = refBand.target_db;
+                console.log(`🎯 [BANDS] Usando target_db fixo para ${refBandKey}: ${tgt}`);
+            }
+            
+            // Prioridade 3: Targets normalizados (se habilitado)
+            if (showNorm && normMap && Number.isFinite(normMap[refBandKey])) {
+                tgt = normMap[refBandKey];
+                console.log(`🎯 [BANDS] Sobrescrevendo com target normalizado para ${refBandKey}: ${tgt}`);
+            }
             
             // Nome para exibição
             const displayName = bandDisplayNames[calcBandKey] || bandDisplayNames[refBandKey] || refBandKey;
