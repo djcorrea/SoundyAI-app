@@ -339,9 +339,9 @@ body {
 /* ============ CHATBOT - CONTAINER PRINCIPAL ============ */
 .chatbot-container {
     position: fixed;
-    top: 50%;
+    top: 4%;
     left: 50%;
-    transform: translate(-50%, -50%);
+    transform: translateX(-50%);
     z-index: 1000;
     width: 800px !important;
     height: 600px !important;
@@ -360,21 +360,6 @@ body {
     overflow: hidden;
     opacity: 0;
     will-change: transform, opacity;
-}
-
-/* ============ GARANTIA DE DIMENSÕES FIXAS EM QUALQUER TELA ============ */
-@media (max-width: 800px), (max-height: 600px) {
-    .chatbot-container {
-        width: 800px !important;
-        height: 600px !important;
-        min-width: 800px !important;
-        min-height: 600px !important;
-        max-width: 800px !important;
-        max-height: 600px !important;
-        top: 50% !important;
-        left: 50% !important;
-        transform: translate(-50%, -50%) !important;
-    }
 }
 
 /* ============ CHATBOT - ESTADO WELCOME ============ */
@@ -900,10 +885,13 @@ body {
     display: flex;
     flex-direction: column;
     gap: 12px;
-    z-index: 999;
+    z-index: 1001;
     transform: rotate(-0deg);
     opacity: 0;
     animation: chatbotButtonsAppearOptimized 1s ease-out 1.2s forwards;
+    width: 160px;
+    min-width: 160px;
+    max-width: 160px;
 }
 
 .chatbot-action-btn {
@@ -1028,18 +1016,18 @@ body {
         overflow-x: hidden;
     }
 
-    /* Ajustar container do chatbot para mobile - DIMENSÕES TRAVADAS */
+    /* Ajustar container do chatbot para mobile */
     .chatbot-container {
         position: fixed;
-        top: 50%;
+        top: 44%;
         left: 50%;
         transform: translate(-50%, -50%);
-        width: 800px !important;
-        height: 600px !important;
-        min-width: 800px !important;
-        min-height: 600px !important;
-        max-width: 800px !important;
-        max-height: 600px !important;
+        width: calc(100vw - 30px) !important;
+        max-width: 400px !important;
+        min-width: auto !important;
+        height: 75vh !important;
+        max-height: 75vh !important;
+        min-height: 65vh !important;
         margin-bottom: 0;
         overflow: hidden !important;
     }
@@ -1345,5 +1333,32 @@ body {
     to { 
         opacity: 0.85; 
         transform: translateY(0); 
+    }
+}
+
+/* ============ GARANTIA DE DIMENSÕES FIXAS ============ */
+@media screen {
+    .chatbot-container {
+        width: 800px !important;
+        height: 600px !important;
+        min-width: 800px !important;
+        min-height: 600px !important;
+        max-width: 800px !important;
+        max-height: 600px !important;
+        top: 4% !important;
+        left: 50% !important;
+        transform: translateX(-50%) !important;
+        position: fixed !important;
+        z-index: 1000 !important;
+    }
+    
+    .chatbot-action-buttons {
+        position: fixed !important;
+        bottom: 13px !important;
+        right: 130px !important;
+        z-index: 1001 !important;
+        width: 160px !important;
+        min-width: 160px !important;
+        max-width: 160px !important;
     }
 }
