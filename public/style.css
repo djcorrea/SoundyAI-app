@@ -5,10 +5,28 @@
     box-sizing: border-box;
 }
 
+/* ============ FALLBACKS DE COMPATIBILIDADE ============ */
+:root {
+    /* Detecta altura real do viewport (importante para mobile) */
+    --vh: 1vh;
+    --vw: 1vw;
+}
+
+/* Fallback para navegadores antigos */
+@supports not (min: 1px) {
+    :root {
+        --vh: 1%;
+        --vw: 1%;
+    }
+}
+
 body {
     overflow: hidden;
     font-family: Arial, sans-serif;
     background: #0a0a1a;
+    /* Fix para iOS Safari viewport height */
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
 }
 
 /* ============ ANIMAÇÃO FADE-IN INICIAL SUAVE ============ */
@@ -362,6 +380,8 @@ body {
     overflow: hidden;
     opacity: 0;
     will-change: transform, opacity;
+    /* Fallback para dispositivos problemáticos */
+    min-height: -webkit-fill-available;
 }
 
 /* ============ CHATBOT - ESTADO WELCOME ============ */
@@ -1002,7 +1022,7 @@ body {
 }
 
 /* ============ RESPONSIVIDADE PARA TELAS GRANDES ============ */
-@media (min-width: 1200px) {
+@media (min-width: 1400px) {
     .chatbot-container {
         width: 800px !important;
         height: 600px !important;
@@ -1045,20 +1065,37 @@ body {
     }
 }
 
-/* ============ RESPONSIVIDADE PARA TELAS MÉDIAS ============ */
-@media (min-width: 768px) and (max-width: 1199px) {
+/* ============ RESPONSIVIDADE PARA TELAS DESKTOP PADRÃO ============ */
+@media (min-width: 1024px) and (max-width: 1399px) {
     .chatbot-container {
-        width: 70vw !important;
-        height: 60vh !important;
-        min-width: 70vw !important;
-        min-height: 60vh !important;
-        max-width: 70vw !important;
-        max-height: 60vh !important;
+        width: min(60vw, 700px) !important;
+        height: min(50vh, 550px) !important;
+        min-width: min(60vw, 700px) !important;
+        min-height: min(50vh, 550px) !important;
+        max-width: min(60vw, 700px) !important;
+        max-height: min(50vh, 550px) !important;
     }
     
     .chatbot-action-buttons {
-        right: 8vw;
-        bottom: 20px;
+        right: clamp(50px, 8vw, 120px);
+        bottom: clamp(15px, 3vh, 25px);
+    }
+}
+
+/* ============ RESPONSIVIDADE PARA TELAS MÉDIAS ============ */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .chatbot-container {
+        width: min(75vw, 600px) !important;
+        height: min(65vh, 500px) !important;
+        min-width: min(75vw, 600px) !important;
+        min-height: min(65vh, 500px) !important;
+        max-width: min(75vw, 600px) !important;
+        max-height: min(65vh, 500px) !important;
+    }
+    
+    .chatbot-action-buttons {
+        right: clamp(30px, 6vw, 80px);
+        bottom: clamp(15px, 3vh, 25px);
     }
 }
 
@@ -1080,16 +1117,17 @@ body {
     /* Ajustar container do chatbot para mobile */
     .chatbot-container {
         position: fixed;
-        top: 44%;
+        /* CORRIGIDO: Posição mais consistente entre dispositivos */
+        top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        width: calc(100vw - 30px) !important;
-        max-width: 400px !important;
-        min-width: auto !important;
-        height: 75vh !important;
-        max-height: 75vh !important;
-        min-height: 65vh !important;
-        margin-bottom: 0;
+        width: min(calc(100vw - 20px), 380px) !important;
+        max-width: min(calc(100vw - 20px), 380px) !important;
+        min-width: min(calc(100vw - 20px), 300px) !important;
+        height: min(80vh, 600px) !important;
+        max-height: min(80vh, 600px) !important;
+        min-height: min(70vh, 500px) !important;
+        margin: 0;
         overflow: hidden !important;
     }
 
@@ -1230,7 +1268,8 @@ body {
     /* Reposicionar botões de ação para mobile */
     .chatbot-action-buttons {
         position: fixed;
-        bottom: 30px;
+        /* CORRIGIDO: Posição mais consistente */
+        bottom: max(20px, 5vh);
         left: 50%;
         transform: translateX(-50%);
         right: auto;
@@ -1238,8 +1277,8 @@ body {
         flex-wrap: wrap;
         justify-content: center;
         gap: 10px;
-        width: calc(100vw - 30px);
-        max-width: 400px;
+        width: min(calc(100vw - 20px), 380px);
+        max-width: min(calc(100vw - 20px), 380px);
         z-index: 1001;
         opacity: 1;
         animation: none;
