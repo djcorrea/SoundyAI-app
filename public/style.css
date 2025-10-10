@@ -1,3 +1,8 @@
+/* ============================================
+   SOUNDYAI - CSS PROFISSIONAL RESPONSIVO
+   Mantém o visual original com estrutura moderna
+============================================ */
+
 /* ============ RESET E BASE ============ */
 * {
     margin: 0;
@@ -5,19 +10,61 @@
     box-sizing: border-box;
 }
 
+:root {
+    /* Cores principais */
+    --color-primary: rgba(0, 150, 255, 1);
+    --color-secondary: rgba(138, 43, 226, 1);
+    --color-bg-dark: #0a0a1a;
+    --color-bg-gradient-1: rgba(10, 15, 35, 0.95);
+    --color-bg-gradient-2: rgba(15, 25, 55, 0.95);
+    --color-bg-gradient-3: rgba(20, 10, 45, 0.95);
+    
+    /* Transparências */
+    --alpha-primary-light: rgba(0, 150, 255, 0.1);
+    --alpha-primary-medium: rgba(0, 150, 255, 0.3);
+    --alpha-primary-strong: rgba(0, 150, 255, 0.6);
+    --alpha-secondary-light: rgba(138, 43, 226, 0.1);
+    --alpha-secondary-medium: rgba(138, 43, 226, 0.3);
+    
+    /* Textos */
+    --text-primary: rgba(255, 255, 255, 0.9);
+    --text-secondary: rgba(255, 255, 255, 0.7);
+    --text-tertiary: rgba(255, 255, 255, 0.5);
+    --text-quaternary: rgba(255, 255, 255, 0.4);
+    
+    /* Dimensões do chatbot - Desktop */
+    --chatbot-width: 800px;
+    --chatbot-height: 600px;
+    --chatbot-top: 4%;
+    
+    /* Espaçamentos */
+    --spacing-xs: 8px;
+    --spacing-sm: 12px;
+    --spacing-md: 20px;
+    --spacing-lg: 30px;
+    --spacing-xl: 50px;
+    
+    /* Bordas */
+    --radius-sm: 16px;
+    --radius-md: 20px;
+    --radius-lg: 24px;
+    --radius-full: 50px;
+    
+    /* Transições */
+    --transition-fast: 0.15s ease;
+    --transition-medium: 0.3s ease;
+    --transition-slow: 0.6s ease;
+}
+
 body {
     overflow: hidden;
-    font-family: Arial, sans-serif;
-    background: #0a0a1a;
+    font-family: 'Poppins', 'Inter', Arial, sans-serif;
+    background: var(--color-bg-dark);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
-/* ============ ANIMAÇÃO FADE-IN INICIAL SUAVE ============ */
-.fade-in-start {
-    opacity: 0;
-    transform: translateY(20px);
-    animation: fadeInPush 0.6s ease-out forwards;
-}
-
+/* ============ ANIMAÇÕES GLOBAIS ============ */
 @keyframes fadeInPush {
     0% {
         opacity: 0;
@@ -29,22 +76,25 @@ body {
     }
 }
 
-/* ============ ANIMAÇÃO LEGADA PRESERVADA ============ */
-@keyframes fadeInSuave {
-    0% {
+@keyframes fadeInUp {
+    from {
         opacity: 0;
-        transform: translateY(40px) scale(0.9);
-        filter: blur(2px);
+        transform: translateY(50px) scale(0.9);
     }
-    60% {
-        opacity: 0.8;
-        transform: translateY(10px) scale(0.98);
-        filter: blur(0.5px);
-    }
-    100% {
+    to {
         opacity: 1;
         transform: translateY(0) scale(1);
-        filter: blur(0);
+    }
+}
+
+@keyframes fadeInInfo {
+    from { 
+        opacity: 0; 
+        transform: translateY(6px); 
+    }
+    to { 
+        opacity: 0.85; 
+        transform: translateY(0); 
     }
 }
 
@@ -54,21 +104,33 @@ body {
     width: 100vw;
     height: 100vh;
     overflow: hidden;
-    background: linear-gradient(135deg, #0a0a1a 0%, #1a0a2e 50%, #16213e 100%);
+    background: linear-gradient(135deg, 
+        #0a0a1a 0%, 
+        #1a0a2e 50%, 
+        #16213e 100%
+    );
 }
 
-/* ============ ELEMENTOS BASE DO CENÁRIO ============ */
+/* ============ ELEMENTOS DO CENÁRIO - BASE ============ */
 .cenario img {
     position: absolute;
     object-fit: contain;
     image-rendering: auto;
     opacity: 0;
-    transform: translateY(20px); /* Estado inicial para fadeInPush */
-    transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.2s ease;
+    transform: translateY(20px);
+    transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), 
+                opacity 0.2s ease;
     will-change: transform;
 }
 
-/* ============ FUNDOS E BACKGROUNDS ============ */
+/* Estado visível */
+.fade-in-start {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeInPush var(--transition-slow) ease-out forwards;
+}
+
+/* ============ BACKGROUNDS E OVERLAYS ============ */
 .vanta-background {
     position: absolute;
     top: 0;
@@ -80,28 +142,43 @@ body {
 }
 
 .fundo {
-    top: -450px;
+    top: min(-450px, -25vh);
     left: 0;
     width: 200vw;
-    height: 1500px;
+    height: clamp(1200px, 150vh, 1500px);
     z-index: 1;
     object-fit: cover;
     opacity: 0.3;
     filter: blur(1px);
 }
 
-/* ============ ELEMENTOS DO CENÁRIO ============ */
+.particles-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 4;
+    pointer-events: none;
+    background: radial-gradient(circle at 50% 50%, 
+        var(--alpha-secondary-light) 0%, 
+        transparent 70%
+    );
+    animation: fadeInPush var(--transition-slow) ease-out forwards, 
+               particleFloatOptimized 10s ease-in-out infinite 0.6s;
+    will-change: transform;
+}
+
+/* ============ ELEMENTOS DO CENÁRIO - DESKTOP ============ */
 .robo {
     top: 3%;
     right: -10%;
     height: auto;
     max-height: 86.1vh;
     z-index: 3;
-    /* Otimizado: Blur balanceado - visual preservado + performance */
-    filter: drop-shadow(0 0 12px rgba(138, 43, 226, 0.3));
-    /* Otimizado: Aumentamos duração para reduzir frequência de repaint */
-    animation: fadeInPush 0.6s ease-out forwards, robotBreathingOptimized 4s ease-in-out infinite 0.6s;
-    /* Fade MUITO mais pronunciado - inicia mais cedo e é mais intenso */
+    filter: drop-shadow(0 0 12px var(--alpha-secondary-medium));
+    animation: fadeInPush var(--transition-slow) ease-out forwards, 
+               robotBreathingOptimized 4s ease-in-out infinite 0.6s;
     mask-image: linear-gradient(
         to bottom, 
         rgba(0,0,0,1) 0%, 
@@ -126,14 +203,13 @@ body {
     );
 }
 
-/* Fade suave entre robô e mesa - elimina corte visual seco */
 .robo::after {
     content: '';
     position: absolute;
     bottom: 0;
     left: 0;
     right: 0;
-    height: 60%; /* Aumentado para 60% - fade MUITO mais pronunciado */
+    height: 60%;
     background: linear-gradient(
         to bottom, 
         transparent 0%, 
@@ -145,8 +221,8 @@ body {
         rgba(10, 10, 15, 0.95) 85%,
         rgba(10, 10, 15, 1) 100%
     );
-    pointer-events: none; /* Não interfere na interação */
-    z-index: 4; /* Acima do robô para aplicar o fade */
+    pointer-events: none;
+    z-index: 4;
 }
 
 .mesa {
@@ -154,11 +230,10 @@ body {
     left: -320px;
     width: 145%;
     height: auto;
-    max-height: 1500px;
+    max-height: clamp(1200px, 150vh, 1500px);
     z-index: 1;
     filter: drop-shadow(0 0 12px rgba(0, 150, 255, 0.2));
-    /* CRÍTICO: Mesa precisa de animação para aparecer */
-    animation: fadeInPush 0.6s ease-out forwards;
+    animation: fadeInPush var(--transition-slow) ease-out forwards;
 }
 
 .notebook {
@@ -167,10 +242,9 @@ body {
     height: auto;
     max-height: 120vh;
     z-index: 2;
-    /* Otimizado: Blur balanceado - visual preservado + performance */
-    filter: drop-shadow(0 0 10px rgba(0, 150, 255, 0.3));
-    /* Otimizado: Duração aumentada de 3s para 5s */
-    animation: fadeInPush 0.6s ease-out forwards, subtleGlowOptimized 5s ease-in-out infinite 0.6s;
+    filter: drop-shadow(0 0 10px var(--alpha-primary-medium));
+    animation: fadeInPush var(--transition-slow) ease-out forwards, 
+               subtleGlowOptimized 5s ease-in-out infinite 0.6s;
 }
 
 .teclado {
@@ -179,24 +253,9 @@ body {
     height: auto;
     max-height: 150vh;
     z-index: 2;
-    /* Otimizado: Blur reduzido de 12px para 10px */
     filter: drop-shadow(0 0 8px rgba(0, 150, 255, 0.25));
-    /* Otimizado: Duração aumentada de 2.5s para 4s */
-    animation: fadeInPush 0.6s ease-out forwards, subtleGlowOptimized 4s ease-in-out infinite 0.6s;
-}
-
-/* ============ GARANTIR ESTADO INICIAL CORRETO ============ */
-.notebook, .teclado, .mesa, .robo, .caixas {
-    opacity: 0;
-    transform: translateY(20px);
-}
-
-/* ============ ANIMAÇÃO DE ENTRADA PARA DESKTOP ============ */
-@media (min-width: 768px) {
-    .notebook, .teclado {
-        animation-delay: 0.8s;
-        animation-fill-mode: forwards;
-    }
+    animation: fadeInPush var(--transition-slow) ease-out forwards, 
+               subtleGlowOptimized 4s ease-in-out infinite 0.6s;
 }
 
 .caixas {
@@ -206,78 +265,17 @@ body {
     max-height: 115vh;
     z-index: 2;
     filter: drop-shadow(0 0 15px rgba(138, 43, 226, 0.4));
-    animation: fadeInPush 0.6s ease-out forwards, subtleGlowOptimized 3.5s ease-in-out infinite 0.6s;
+    animation: fadeInPush var(--transition-slow) ease-out forwards, 
+               subtleGlowOptimized 3.5s ease-in-out infinite 0.6s;
 }
 
-/* ============ OVERLAY DE PARTÍCULAS ============ */
-.particles-overlay {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 4;
-    pointer-events: none;
-    background: radial-gradient(circle at 50% 50%, rgba(138, 43, 226, 0.08) 0%, transparent 70%);
-    animation: fadeInPush 0.6s ease-out forwards, particleFloatOptimized 10s ease-in-out infinite 0.6s;
-    will-change: transform;
+/* Estado inicial garantido */
+.notebook, .teclado, .mesa, .robo, .caixas {
+    opacity: 0;
+    transform: translateY(20px);
 }
 
-/* ============ EFEITOS HOVER DO CENÁRIO ============ */
-.robo:hover {
-    transform: scale(1.03) rotate(1deg);
-}
-
-.notebook:hover {
-    transform: scale(1.06) translateY(-5px);
-}
-
-.teclado:hover {
-    transform: scale(1.05) translateY(-3px);
-}
-
-.mesa:hover {
-    opacity: 0.9;
-}
-
-.caixas:hover {
-    transform: scale(1.04) translateY(-8px);
-}
 /* ============ ANIMAÇÕES DO CENÁRIO ============ */
-@keyframes fundoEntrance {
-    0% {
-        opacity: 0;
-        transform: translateY(30px);
-    }
-    100% {
-        opacity: 0.3;
-        transform: translateY(0);
-    }
-}
-
-@keyframes robotEntranceAndBreathing {
-    0% {
-        opacity: 0;
-        transform: translateY(40px) scale(0.95);
-    }
-    100% {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-}
-
-@keyframes notebookEntranceAndGlow {
-    0% {
-        opacity: 0;
-        transform: translateY(35px) scale(0.9);
-    }
-    100% {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-}
-
-/* OTIMIZADO: Apenas transform e opacity */
 @keyframes robotBreathingOptimized {
     0%, 100% {
         transform: scale(1);
@@ -289,7 +287,6 @@ body {
     }
 }
 
-/* OTIMIZADO: Apenas transform */
 @keyframes subtleGlowOptimized {
     0%, 100% {
         transform: scale(1);
@@ -312,51 +309,50 @@ body {
     }
 }
 
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(50px) scale(0.9);
+/* ============ EFEITOS HOVER - DESKTOP ============ */
+@media (hover: hover) and (pointer: fine) {
+    .robo:hover {
+        transform: scale(1.03) rotate(1deg);
     }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
+
+    .notebook:hover {
+        transform: scale(1.06) translateY(-5px);
+    }
+
+    .teclado:hover {
+        transform: scale(1.05) translateY(-3px);
+    }
+
+    .mesa:hover {
+        opacity: 0.9;
+    }
+
+    .caixas:hover {
+        transform: scale(1.04) translateY(-8px);
     }
 }
-
-/* ============ ANIMAÇÕES DE CARREGAMENTO ============ */
-.fallback-animation .cenario img {
-    animation: fadeInUp 0.6s ease-out forwards;
-    will-change: transform, opacity;
-}
-
-.fallback-animation .fundo { animation-delay: 0s; }
-.fallback-animation .mesa { animation-delay: 0.05s; }
-.fallback-animation .caixas { animation-delay: 0.1s; }
-.fallback-animation .notebook { animation-delay: 0.15s; }
-.fallback-animation .teclado { animation-delay: 0.2s; }
-.fallback-animation .robo { animation-delay: 0.25s; }
 
 /* ============ CHATBOT - CONTAINER PRINCIPAL ============ */
 .chatbot-container {
     position: fixed;
-    top: 4%;
+    top: var(--chatbot-top);
     left: 50%;
     transform: translateX(-50%);
     z-index: 1000;
-    width: 800px !important;
-    height: 600px !important;
-    min-width: 800px !important;
-    min-height: 600px !important;
-    max-width: 800px !important;
-    max-height: 600px !important;
+    width: var(--chatbot-width);
+    height: var(--chatbot-height);
+    min-width: var(--chatbot-width);
+    min-height: var(--chatbot-height);
+    max-width: var(--chatbot-width);
+    max-height: var(--chatbot-height);
     background: linear-gradient(145deg, 
-        rgba(10, 15, 35, 0.95), 
-        rgba(15, 25, 55, 0.95), 
-        rgba(20, 10, 45, 0.95)
+        var(--color-bg-gradient-1), 
+        var(--color-bg-gradient-2), 
+        var(--color-bg-gradient-3)
     );
-    border: 2px solid rgba(0, 150, 255, 0.3);
-    border-radius: 24px;
-    box-shadow: 0 0 60px rgba(0, 150, 255, 0.3);
+    border: 2px solid var(--alpha-primary-medium);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 0 60px var(--alpha-primary-medium);
     overflow: hidden;
     opacity: 0;
     will-change: transform, opacity;
@@ -369,7 +365,7 @@ body {
     align-items: center;
     justify-content: space-between;
     height: 100%;
-    padding: 60px 50px 40px;
+    padding: 60px var(--spacing-xl) 40px;
     opacity: 1;
     transition: opacity 0.4s ease, transform 0.4s ease;
 }
@@ -389,7 +385,7 @@ body {
     height: 180px;
     object-fit: contain;
     filter: 
-        drop-shadow(0 0 18px rgba(0, 150, 255, 0.6))
+        drop-shadow(0 0 18px var(--alpha-primary-strong))
         drop-shadow(0 0 35px rgba(138, 43, 226, 0.4));
     animation: chatbotMainRobotFloatOptimized 1.6s ease-in-out infinite;
     will-change: transform;
@@ -398,13 +394,13 @@ body {
 /* ============ CHATBOT - BRANDING ============ */
 .chatbot-branding {
     text-align: center;
-    margin: 0px 0;
+    margin: 0;
 }
 
 .chatbot-main-title {
     position: relative;
     font-family: 'Orbitron', monospace;
-    font-size: 3.5rem;
+    font-size: clamp(2rem, 3.5vw, 3.5rem);
     font-weight: 900;
     background: linear-gradient(45deg, 
         #00bfff, 
@@ -418,7 +414,7 @@ body {
     background-clip: text;
     background-size: 300% 300%;
     margin-bottom: 2px;
-    text-shadow: 0 0 40px rgba(0, 150, 255, 0.5);
+    text-shadow: 0 0 40px var(--alpha-primary-medium);
     animation: chatbotTitleGradientOptimized 1.2s ease-in-out infinite alternate;
     letter-spacing: 2px;
     will-change: background-position;
@@ -426,36 +422,40 @@ body {
 
 .chatbot-main-subtitle {
     font-family: 'Poppins', sans-serif;
-    font-size: 1.4rem;
-    color: rgba(255, 255, 255, 0.8);
+    font-size: clamp(1rem, 1.4vw, 1.4rem);
+    color: var(--text-secondary);
     font-weight: 300;
     margin: 0;
-    text-shadow: 0 0 20px rgba(0, 150, 255, 0.3);
+    text-shadow: 0 0 20px var(--alpha-primary-medium);
 }
 
-/* ============ CHATBOT - INPUT SECTION CORRIGIDO ============ */
+/* ============ CHATBOT - INPUT SECTION ============ */
 .chatbot-input-section {
     width: 100%;
     margin-top: auto;
 }
 
-.chatbot-input-field {
+.chatbot-input-field,
+.chatbot-active-input-field {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: var(--spacing-sm);
     background: linear-gradient(135deg, 
-        rgba(0, 150, 255, 0.1), 
-        rgba(138, 43, 226, 0.1)
+        var(--alpha-primary-light), 
+        var(--alpha-secondary-light)
     );
-    border: 2px solid rgba(0, 150, 255, 0.3);
-    border-radius: 50px;
-    padding: 0.6px 12px 0.6px 0.6px;
-    transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    border: 2px solid var(--alpha-primary-medium);
+    border-radius: var(--radius-full);
+    padding: 0.6px var(--spacing-sm) 0.6px 0.6px;
+    transition: border-color var(--transition-fast), 
+                background var(--transition-fast), 
+                box-shadow var(--transition-fast);
 }
 
-.chatbot-input-field:focus-within {
-    border-color: rgba(0, 150, 255, 0.6);
+.chatbot-input-field:focus-within,
+.chatbot-active-input-field:focus-within {
+    border-color: var(--alpha-primary-strong);
     box-shadow: 0 0 25px rgba(0, 150, 255, 0.4);
     background: linear-gradient(135deg, 
         rgba(0, 150, 255, 0.15), 
@@ -463,57 +463,55 @@ body {
     );
 }
 
-/* Botão + sempre à esquerda */
+/* Ordem dos elementos do input */
 .chatbot-add-btn {
     order: -2;
     flex-shrink: 0;
 }
 
-/* Input sempre no meio */
-.chatbot-main-input {
+.chatbot-main-input,
+.chatbot-active-input {
     flex: 1;
+    order: 0;
     padding: 14px 24px;
     background: transparent;
     border: none;
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--text-primary);
     font-family: 'Poppins', sans-serif;
-    font-size: 1.15rem;
+    font-size: clamp(0.95rem, 1.05vw, 1.15rem);
     outline: none;
-    transition: color 0.15s ease;
-    order: 0;
+    transition: color var(--transition-fast);
 }
 
-/* Microfone sempre à direita do input, antes do botão de envio */
-.chatbot-mic-icon {
+.chatbot-main-input::placeholder,
+.chatbot-active-input::placeholder {
+    color: var(--text-tertiary);
+    font-style: italic;
+    font-size: 0.95rem;
+}
+
+.chatbot-mic-icon,
+.chatbot-active-input-field .chatbot-mic-icon {
     order: 1;
-    margin-left: 8px;
-    margin-right: 8px;
+    margin-left: var(--spacing-xs);
+    margin-right: var(--spacing-xs);
     font-size: 1.3rem;
     color: rgba(0, 150, 255, 0.7);
-    transition: color 0.15s ease, transform 0.15s ease;
+    transition: color var(--transition-fast), 
+                transform var(--transition-fast);
     cursor: pointer;
     flex-shrink: 0;
 }
 
 .chatbot-mic-icon:hover {
-    color: rgba(0, 150, 255, 1);
+    color: var(--color-primary);
     transform: scale(1.1);
 }
 
-/* Botão de envio sempre no final */
-.chatbot-send-button {
-    order: 2;
-    flex-shrink: 0;
-}
-
-.chatbot-main-input::placeholder {
-    color: rgba(255, 255, 255, 0.5);
-    font-style: italic;
-    font-size: 0.95rem;
-}
-
 /* ============ CHATBOT - BOTÕES ============ */
-.chatbot-send-button, .chatbot-active-send-btn {
+.chatbot-send-button, 
+.chatbot-active-send-btn {
+    order: 2;
     border: none;
     background: #2563eb;
     color: white;
@@ -523,7 +521,7 @@ body {
     justify-content: center;
     border-radius: 50%;
     flex-shrink: 0;
-    transition: all 0.3s ease;
+    transition: all var(--transition-medium);
 }
 
 .chatbot-send-button {
@@ -540,26 +538,30 @@ body {
     box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
 }
 
-.chatbot-send-button:hover, .chatbot-active-send-btn:hover {
+.chatbot-send-button:hover, 
+.chatbot-active-send-btn:hover {
     transform: scale(1.05);
     box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
     background: #1d4ed8;
 }
 
-.chatbot-send-button:active, .chatbot-active-send-btn:active {
+.chatbot-send-button:active, 
+.chatbot-active-send-btn:active {
     transform: scale(0.95);
 }
 
-/* ============ CHATBOT - SVG AVIÃOZINHO ============ */
-.chatbot-send-button svg, .chatbot-active-send-btn svg {
+.chatbot-send-button svg, 
+.chatbot-active-send-btn svg {
     transition: transform 0.2s ease;
 }
 
-.chatbot-send-button:hover svg, .chatbot-active-send-btn:hover svg {
+.chatbot-send-button:hover svg, 
+.chatbot-active-send-btn:hover svg {
     transform: translateX(2px);
 }
 
-.chatbot-send-button:active svg, .chatbot-active-send-btn:active svg {
+.chatbot-send-button:active svg, 
+.chatbot-active-send-btn:active svg {
     transform: scale(0.9);
 }
 
@@ -577,12 +579,12 @@ body {
 }
 
 .chatbot-header-bar {
-    padding: 25px 30px;
+    padding: 25px var(--spacing-lg);
     background: linear-gradient(135deg, 
         rgba(0, 150, 255, 0.15), 
         rgba(138, 43, 226, 0.15)
     );
-    border-bottom: 1px solid rgba(0, 150, 255, 0.3);
+    border-bottom: 1px solid var(--alpha-primary-medium);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -603,7 +605,7 @@ body {
 
 .chatbot-header-name {
     font-family: 'Orbitron', monospace;
-    font-size: 1.6rem;
+    font-size: clamp(1.2rem, 1.6vw, 1.6rem);
     font-weight: 700;
     background: linear-gradient(45deg, #00bfff, #8a2be2);
     -webkit-background-clip: text;
@@ -613,18 +615,18 @@ body {
 
 .chatbot-header-desc {
     font-family: 'Poppins', sans-serif;
-    font-size: 1rem;
-    color: rgba(255, 255, 255, 0.7);
+    font-size: clamp(0.85rem, 1vw, 1rem);
+    color: var(--text-secondary);
     margin-top: 3px;
 }
 
 /* ============ CHATBOT - ÁREA DE CONVERSA ============ */
 .chatbot-conversation-area {
     flex: 1;
-    padding: 30px;
+    padding: var(--spacing-lg);
     overflow-y: auto;
     scrollbar-width: thin;
-    scrollbar-color: rgba(0, 150, 255, 0.5) transparent;
+    scrollbar-color: var(--alpha-primary-medium) transparent;
 }
 
 .chatbot-conversation-area::-webkit-scrollbar {
@@ -636,14 +638,14 @@ body {
 }
 
 .chatbot-conversation-area::-webkit-scrollbar-thumb {
-    background: rgba(0, 150, 255, 0.5);
+    background: var(--alpha-primary-medium);
     border-radius: 3px;
 }
 
 /* ============ CHATBOT - MENSAGENS ============ */
 .chatbot-message {
     display: flex;
-    gap: 0px;
+    gap: 0;
     margin-bottom: 25px;
     animation: chatbotMessageAppearOptimized 0.25s ease-out;
 }
@@ -656,28 +658,20 @@ body {
     display: none !important;
 }
 
-.chatbot-message-assistant .chatbot-message-avatar {
-    display: none !important;
-}
-
-.chatbot-message-user .chatbot-message-avatar {
-    display: none !important;
-}
-
 .chatbot-message-content {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--spacing-xs);
     width: 100%;
     max-width: 100%;
 }
 
 .chatbot-message-bubble {
-    padding: 16px 20px;
-    border-radius: 20px;
+    padding: 16px var(--spacing-md);
+    border-radius: var(--radius-md);
     font-family: 'Poppins', sans-serif;
-    font-size: 1rem;
+    font-size: clamp(0.9rem, 1vw, 1rem);
     line-height: 1.5;
     max-width: 100%;
     word-wrap: break-word;
@@ -689,9 +683,9 @@ body {
         rgba(0, 150, 255, 0.15), 
         rgba(138, 43, 226, 0.1)
     );
-    color: rgba(255, 255, 255, 0.9);
-    border: 1px solid rgba(0, 150, 255, 0.3);
-    border-radius: 20px 20px 20px 5px;
+    color: var(--text-primary);
+    border: 1px solid var(--alpha-primary-medium);
+    border-radius: var(--radius-md) var(--radius-md) var(--radius-md) 5px;
 }
 
 .chatbot-message-user .chatbot-message-bubble {
@@ -699,26 +693,20 @@ body {
         rgba(138, 43, 226, 0.15), 
         rgba(0, 150, 255, 0.1)
     );
-    color: rgba(255, 255, 255, 0.9);
-    border: 1px solid rgba(138, 43, 226, 0.3);
-    border-radius: 20px 20px 5px 20px;
+    color: var(--text-primary);
+    border: 1px solid var(--alpha-secondary-medium);
+    border-radius: var(--radius-md) var(--radius-md) 5px var(--radius-md);
     margin-left: auto;
 }
 
 .chatbot-message-timestamp {
     font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.4);
+    color: var(--text-quaternary);
     font-family: 'Poppins', sans-serif;
 }
 
 .chatbot-message-user .chatbot-message-timestamp {
     text-align: right;
-}
-
-/* ============ MENSAGENS SEM AVATAR - LARGURA MÁXIMA ============ */
-.chatbot-message-bubble {
-    max-width: 100%;
-    width: 100%;
 }
 
 .chatbot-message-user .chatbot-message-content {
@@ -731,214 +719,27 @@ body {
     width: 100%;
 }
 
-/* ============ CHATBOT - INPUT ATIVO CORRIGIDO ============ */
+/* ============ CHATBOT - INPUT ATIVO ============ */
 .chatbot-input-area {
-    padding: 15px 30px;
-    border-top: 1px solid rgba(0, 150, 255, 0.3);
-    background: linear-gradient(135deg, 
-        rgba(10, 15, 35, 0.8), 
-        rgba(20, 10, 45, 0.8)
-    );
+    padding: 15px var(--spacing-lg);
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.02);
+    backdrop-filter: blur(6px);
+    box-shadow: 0 0 8px rgba(144, 63, 255, 0.15);
+    animation: fadeInInfo 0.8s ease forwards;
 }
 
-.chatbot-active-input-field {
-    position: relative;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    background: linear-gradient(135deg, 
-        rgba(0, 150, 255, 0.1), 
-        rgba(138, 43, 226, 0.1)
-    );
-    border: 2px solid rgba(0, 150, 255, 0.3);
-    border-radius: 50px;
-    padding: 0.6px 12px 0.6px 0.6px;
-    transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
-}
-
-.chatbot-active-input-field:focus-within {
-    border-color: rgba(0, 150, 255, 0.6);
-    box-shadow: 0 0 25px rgba(0, 150, 255, 0.4);
-    background: linear-gradient(135deg, 
-        rgba(0, 150, 255, 0.15), 
-        rgba(138, 43, 226, 0.15)
-    );
-}
-
-/* Botão + sempre à esquerda no estado ativo */
-.chatbot-active-input-field .chatbot-add-btn {
-    order: -2;
-    flex-shrink: 0;
-}
-
-/* Input sempre no meio no estado ativo */
-.chatbot-active-input {
-    flex: 1;
-    padding: 14px 24px;
-    background: transparent;
-    border: none;
-    color: rgba(255, 255, 255, 0.9);
-    font-family: 'Poppins', sans-serif;
-    font-size: 1.05rem;
-    outline: none;
-    transition: color 0.15s ease;
-    order: 0;
-}
-
-/* Microfone sempre à direita do input no estado ativo */
-.chatbot-active-input-field .chatbot-mic-icon {
-    order: 1;
-    width: 24px !important;
-    height: 24px !important;
-    margin-left: 8px !important;
-    margin-right: 8px !important;
-    font-size: 1.3rem !important;
-    color: rgba(0, 150, 255, 0.7) !important;
-    transition: color 0.15s ease, transform 0.15s ease !important;
-    cursor: pointer !important;
-    flex-shrink: 0;
-}
-
-.chatbot-active-input-field .chatbot-mic-icon:hover {
-    color: rgba(0, 150, 255, 1);
-    transform: scale(1.1);
-}
-
-/* Botão de envio sempre no final no estado ativo */
-.chatbot-active-send-btn {
-    order: 2;
-    flex-shrink: 0;
-}
-
-.chatbot-active-input::placeholder {
-    color: rgba(255, 255, 255, 0.5);
-    font-style: italic;
-    font-size: 0.95rem;
-}
-
-/* ============ CHATBOT - INDICADOR DE DIGITAÇÃO ============ */
-.chatbot-typing-indicator {
-    display: none !important; /* Removido da área do input */
-}
-
-/* Novo indicador de digitação na área de conversação */
-.chatbot-conversation-typing {
-    display: none;
-    align-items: center;
-    justify-content: flex-start;
-    margin: 15px 25px;
-    padding: 15px 20px;
-    background: linear-gradient(135deg, 
-        rgba(0, 150, 255, 0.08), 
-        rgba(138, 43, 226, 0.08)
-    );
-    border-radius: 20px 20px 20px 8px;
-    border-left: 3px solid rgba(0, 150, 255, 0.3);
-    max-width: 80%;
-}
-
-.chatbot-conversation-typing.active {
-    display: flex;
-    animation: fadeInUp 0.3s ease;
-}
-
-.chatbot-conversation-typing .typing-text {
-    color: rgba(255, 255, 255, 0.6);
-    font-size: 0.9rem;
-    margin-right: 10px;
-}
-
-.chatbot-conversation-typing .typing-dots {
-    display: flex;
-    gap: 4px;
-}
-
-.chatbot-conversation-typing .typing-dots span {
-    width: 6px;
-    height: 6px;
-    background: rgba(0, 150, 255, 0.7);
-    border-radius: 50%;
-    animation: chatbotTypingAnimationOptimized 1s ease-in-out infinite;
-}
-
-.chatbot-conversation-typing .typing-dots span:nth-child(2) {
-    animation-delay: 0.2s;
-}
-
-.chatbot-conversation-typing .typing-dots span:nth-child(3) {
-    animation-delay: 0.4s;
-}
-
-.chatbot-typing-indicator span:nth-child(2) {
-    animation-delay: 0.15s;
-}
-
-.chatbot-typing-indicator span:nth-child(3) {
-    animation-delay: 0.3s;
-}
-
-/* ============ BOTÕES DE AÇÃO DO CHATBOT ============ */
-.chatbot-action-buttons {
-    position: fixed;
-    bottom: 13px;
-    right: 130px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    z-index: 1001;
-    transform: rotate(-0deg);
-    opacity: 0;
-    animation: chatbotButtonsAppearOptimized 1s ease-out 1.2s forwards;
-    width: 160px;
-    min-width: 160px;
-    max-width: 160px;
-}
-
-.chatbot-action-btn {
-    background: rgba(0, 150, 255, 0.08);
-    border: 1px solid rgba(0, 150, 255, 0.4);
-    border-radius: 25px;
-    padding: 8px 20px;
-    color: rgba(255, 255, 255, 0.9);
-    font-family: 'Poppins', sans-serif;
-    font-size: 0.85rem;
-    font-weight: 400;
-    cursor: pointer;
-    transition: transform 0.3s ease, background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
-    backdrop-filter: blur(15px);
-    min-width: 160px;
-    text-align: center;
-    position: relative;
-    overflow: hidden;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
-    opacity: 0;
-}
-
-.chatbot-action-btn:nth-child(1) {
-    animation: chatbotButtonSlideInOptimized 0.5s ease-out 1.4s forwards;
-}
-
-.chatbot-action-btn:nth-child(2) {
-    animation: chatbotButtonSlideInOptimized 0.5s ease-out 1.6s forwards;
-}
-
-.chatbot-action-btn:nth-child(3) {
-    animation: chatbotButtonSlideInOptimized 0.5s ease-out 1.8s forwards;
-}
-
-.chatbot-action-btn:hover {
-    transform: scale(1.02);
-    background: rgba(0, 150, 255, 0.12);
-    border-color: rgba(0, 150, 255, 0.5);
-}
-
-/* ============ TRANSIÇÕES E ANIMAÇÕES DO CHATBOT ============ */
+/* ============ TRANSIÇÕES DO CHATBOT ============ */
 .chatbot-welcome-state.fade-out {
     opacity: 0;
     transform: translateY(-30px);
-    transition: opacity 0.3s ease, transform 0.3s ease;
+    transition: opacity var(--transition-medium) ease, 
+                transform var(--transition-medium) ease;
 }
 
+/* ============ ANIMAÇÕES DO CHATBOT ============ */
 @keyframes chatbotMainRobotFloatOptimized {
     0%, 100% { 
         transform: translateY(0px) scale(1);
@@ -982,11 +783,11 @@ body {
 @keyframes chatbotButtonsAppearOptimized {
     0% {
         opacity: 0;
-        transform: rotate(-0deg) translateY(30px) scale(0.9);
+        transform: rotate(0deg) translateY(30px) scale(0.9);
     }
     100% {
         opacity: 1;
-        transform: rotate(-0deg) translateY(0px) scale(1);
+        transform: rotate(0deg) translateY(0px) scale(1);
     }
 }
 
@@ -1001,64 +802,181 @@ body {
     }
 }
 
-/* ============ RESPONSIVIDADE MOBILE ============ */
-@media (max-width: 767px) {
-    /* Ocultar elementos do cenário no mobile */
-    .robo, .mesa, .caixas, .fundo, .notebook, .teclado {
-        opacity: 0 !important;
-        pointer-events: none;
-        visibility: hidden;
-    }
+/* ============ FALLBACK ANIMATION ============ */
+.fallback-animation .cenario img {
+    animation: fadeInUp 0.6s ease-out forwards;
+    will-change: transform, opacity;
+}
 
-    /* Permitir scroll vertical no mobile */
+.fallback-animation .fundo { animation-delay: 0s; }
+.fallback-animation .mesa { animation-delay: 0.05s; }
+.fallback-animation .caixas { animation-delay: 0.1s; }
+.fallback-animation .notebook { animation-delay: 0.15s; }
+.fallback-animation .teclado { animation-delay: 0.2s; }
+.fallback-animation .robo { animation-delay: 0.25s; }
+
+/* ============================================
+   RESPONSIVIDADE TABLET (768px - 1023px)
+============================================ */
+@media (min-width: 768px) and (max-width: 1023px) {
+    :root {
+        --chatbot-width: 90vw;
+        --chatbot-height: 80vh;
+        --chatbot-top: 10%;
+    }
+    
+    .chatbot-container {
+        width: var(--chatbot-width);
+        height: var(--chatbot-height);
+        min-width: auto;
+        max-width: 700px;
+    }
+    
+    /* Ajustar elementos do cenário */
+    .robo {
+        right: -15%;
+        max-height: 75vh;
+    }
+    
+    .mesa {
+        left: -25%;
+        width: 130%;
+    }
+    
+    .notebook {
+        left: -15%;
+        max-height: 100vh;
+    }
+    
+    .teclado {
+        left: 18%;
+        max-height: 120vh;
+    }
+    
+    .caixas {
+        left: -5%;
+        max-height: 100vh;
+    }
+    
+    /* Ajustar botões de ação */
+    .chatbot-action-buttons {
+        right: 80px;
+        bottom: 20px;
+    }
+    
+    .chatbot-action-btn {
+        min-width: 140px;
+        font-size: 0.8rem;
+        padding: 8px 16px;
+    }
+}
+
+/* ============================================
+   RESPONSIVIDADE MOBILE (< 768px)
+============================================ */
+@media (max-width: 767px) {
+    :root {
+        --spacing-xs: 6px;
+        --spacing-sm: 10px;
+        --spacing-md: 15px;
+        --spacing-lg: 20px;
+        --spacing-xl: 25px;
+    }
+    
+    /* Permitir scroll e ajustar body */
     body {
         overflow: auto;
         overflow-x: hidden;
     }
-
-    /* Ajustar container do chatbot para mobile */
+    
+    /* Ocultar elementos do cenário no mobile */
+    .robo, 
+    .mesa, 
+    .caixas, 
+    .fundo, 
+    .notebook, 
+    .teclado {
+        opacity: 0 !important;
+        pointer-events: none;
+        visibility: hidden;
+        display: none;
+    }
+    
+    /* Ajustar container do chatbot */
     .chatbot-container {
         position: fixed;
-        top: 44%;
+        top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
         width: calc(100vw - 30px) !important;
-        max-width: 400px !important;
+        max-width: 420px !important;
         min-width: auto !important;
         height: 75vh !important;
         max-height: 75vh !important;
-        min-height: 65vh !important;
-        margin-bottom: 0;
-        overflow: hidden !important;
-    }
-
-    /* Ajustar estado welcome no mobile */
-    .chatbot-welcome-state {
-        padding: 25px 20px 15px;
+        min-height: 500px !important;
+        margin: 0;
         overflow: hidden;
     }
-
-    /* Corrigir input field para mobile com ordem */
+    
+    /* Ajustar estado welcome */
+    .chatbot-welcome-state {
+        padding: 25px var(--spacing-md) 15px;
+        overflow: hidden;
+    }
+    
+    /* Ajustar robô principal */
+    .chatbot-robot-wrapper {
+        margin-top: 30px;
+    }
+    
+    .chatbot-main-robot {
+        width: 160px;
+        height: 115px;
+        top: 10px;
+    }
+    
+    /* Ajustar branding */
+    .chatbot-branding {
+        margin: 10px 0;
+    }
+    
+    .chatbot-main-title {
+        font-size: 1.9rem !important;
+        margin-bottom: 5px;
+        letter-spacing: 1px;
+    }
+    
+    .chatbot-main-subtitle {
+        font-size: 0.9rem !important;
+        margin-top: 5px;
+    }
+    
+    /* Ajustar input section */
+    .chatbot-input-section {
+        margin-top: 10px;
+        width: 100%;
+        max-width: 100%;
+        padding: 0 10px;
+    }
+    
     .chatbot-input-field,
     .chatbot-active-input-field {
         gap: 8px !important;
         padding: 4px 8px 4px 4px !important;
         max-width: 100%;
-        box-sizing: border-box;
         overflow: hidden;
     }
-
-    /* Botão + sempre à esquerda no mobile */
+    
+    /* Manter ordem correta dos elementos */
     .chatbot-input-field .chatbot-add-btn,
     .chatbot-active-input-field .chatbot-add-btn {
         order: -2 !important;
-        flex-shrink: 0 !important;
         width: 44px !important;
         height: 44px !important;
         margin: 0 !important;
+        flex-shrink: 0;
     }
-
-    /* Input sempre no meio no mobile */
+    
     .chatbot-main-input,
     .chatbot-active-input {
         order: 0 !important;
@@ -1067,8 +985,7 @@ body {
         min-width: 0 !important;
         flex: 1 !important;
     }
-
-    /* Microfone sempre à direita do input no mobile */
+    
     .chatbot-mic-icon,
     .chatbot-active-input-field .chatbot-mic-icon {
         order: 1 !important;
@@ -1078,98 +995,87 @@ body {
         width: auto !important;
         height: auto !important;
     }
-
-    /* Botão de envio sempre no final no mobile */
+    
     .chatbot-send-button,
     .chatbot-active-send-btn {
         order: 2 !important;
         width: 44px !important;
         height: 44px !important;
-        font-size: 1rem !important;
-        flex-shrink: 0 !important;
         min-width: 44px !important;
         max-width: 44px !important;
-    }
-
-    /* Ajustar input section no mobile */
-    .chatbot-input-section {
-        margin-top: 10px;
-        width: 100%;
-        max-width: 100%;
-        padding: 0 10px;
-        box-sizing: border-box;
-    }
-
-    /* Corrigir botão de envio no mobile */
-    .chatbot-send-button {
-        width: 44px !important;
-        height: 44px !important;
         font-size: 1rem !important;
         flex-shrink: 0 !important;
-        min-width: 44px !important;
-        max-width: 44px !important;
     }
-
-    /* Ajustar robô principal no mobile */
-    .chatbot-main-robot {
-        width: 160px;
-        height: 115px;
-        top: 95px;
+    
+    /* Ajustar estado ativo */
+    .chatbot-active-state {
+        height: 100%;
+        overflow: hidden;
     }
-
-    /* Ajustar branding no mobile */
-    .chatbot-branding {
-        margin: 10px 0;
-        margin-top: -50px;
+    
+    .chatbot-header-bar {
+        padding: 10px 15px;
     }
-
-    /* Ajustar título no mobile */
-    .chatbot-main-title {
-        top: 5px;
-        font-size: 1.9rem;
-        margin-bottom: 5px;
-        margin-top: 2px;
+    
+    .chatbot-header-name {
+        font-size: 1.1rem !important;
     }
-
-    /* Ajustar subtítulo no mobile */
-    .chatbot-main-subtitle {
-        font-size: 0.9rem;
-        margin-top: 5px;
+    
+    .chatbot-header-desc {
+        font-size: 0.8rem !important;
     }
-
-    /* Ajustar input no mobile */
-    .chatbot-main-input {
-        padding: 12px 16px !important;
-        font-size: 0.95rem;
-        min-width: 0;
+    
+    /* Ajustar área de conversa */
+    .chatbot-conversation-area {
+        padding: 15px;
         flex: 1;
+        min-height: 300px;
+        max-height: calc(75vh - 180px);
+        overflow-y: auto;
+        overflow-x: hidden;
     }
-
-    /* Ajustar mic icon no mobile */
-    .chatbot-mic-icon {
-        margin-left: 12px;
-        font-size: 1.2rem;
-        flex-shrink: 0;
+    
+    /* Ajustar mensagens */
+    .chatbot-message {
+        margin-bottom: 20px;
+        gap: 0;
     }
-
-    /* Botão ativo também ajustado */
-    .chatbot-active-send-btn {
-        width: 40px !important;
-        height: 40px !important;
+    
+    .chatbot-message-bubble {
+        padding: 12px 16px;
         font-size: 0.95rem !important;
-        flex-shrink: 0 !important;
+        border-radius: var(--radius-sm);
     }
-
-    /* Hover effects reduzidos no mobile */
-    .chatbot-send-button:hover,
-    .chatbot-active-send-btn:hover {
-        transform: scale(1.02) !important;
+    
+    .chatbot-message-assistant .chatbot-message-bubble {
+        border-radius: var(--radius-sm) var(--radius-sm) var(--radius-sm) 4px;
     }
-
-    /* Reposicionar botões de ação para mobile */
+    
+    .chatbot-message-user .chatbot-message-bubble {
+        border-radius: var(--radius-sm) var(--radius-sm) 4px var(--radius-sm);
+    }
+    
+    /* Ajustar input ativo */
+    .chatbot-input-area {
+        padding: 8px 15px;
+        overflow: hidden;
+    }
+    
+    /* Ajustar indicador de digitação */
+    .chatbot-conversation-typing {
+        margin: 10px 15px;
+        padding: 12px 16px;
+        max-width: 90%;
+    }
+    
+    .chatbot-conversation-typing .typing-text {
+        font-size: 0.85rem;
+    }
+    
+    /* Reposicionar botões de ação */
     .chatbot-action-buttons {
         position: fixed;
-        bottom: 30px;
+        bottom: 20px;
         left: 50%;
         transform: translateX(-50%);
         right: auto;
@@ -1178,18 +1084,18 @@ body {
         justify-content: center;
         gap: 10px;
         width: calc(100vw - 30px);
-        max-width: 400px;
+        max-width: 420px;
         z-index: 1001;
         opacity: 1;
         animation: none;
         margin-top: 10px;
+        padding: 0 10px;
     }
-
-    /* Ajustar botões individuais no mobile */
+    
     .chatbot-action-btn {
         min-width: 120px;
-        max-width: 130px;
-        flex: 1;
+        max-width: 140px;
+        flex: 1 1 calc(50% - 5px);
         padding: 10px 14px;
         font-size: 0.8rem;
         border-radius: 20px;
@@ -1197,118 +1103,312 @@ body {
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
-        opacity: 1;
-        animation: none;
+        opacity: 1 !important;
+        animation: none !important;
         margin: 0;
         backdrop-filter: blur(10px);
     }
-
-    /* Organizar botões */
-    .chatbot-action-btn:nth-child(1),
-    .chatbot-action-btn:nth-child(2) {
-        animation: none;
-        opacity: 1;
-    }
-
+    
     .chatbot-action-btn:nth-child(3) {
-        animation: none;
-        opacity: 1;
-        width: 100%;
-        max-width: 270px;
+        flex: 1 1 100%;
+        max-width: 100%;
         margin-top: 5px;
     }
-
-    /* Ajustar estado ativo do chatbot no mobile */
-    .chatbot-active-state {
-        height: 100%;
-        overflow: hidden;
-    }
-
-    /* Ajustar header do chatbot no mobile */
-    .chatbot-header-bar {
-        padding: 10px 15px;
-    }
-
-    .chatbot-header-name {
-        font-size: 1.1rem;
-    }
-
-    .chatbot-header-desc {
-        font-size: 0.8rem;
-    }
-
-    /* Ajustar área de conversa no mobile */
-    .chatbot-conversation-area {
-        padding: 15px 20px;
-        flex: 1;
-        min-height: 320px;
-        max-height: 75vh;
-        overflow: hidden auto;
-    }
-
-    /* Ajustar mensagens no mobile */
-    .chatbot-message {
-        margin-bottom: 20px;
-        gap: 0px;
-    }
-
-    .chatbot-message-avatar {
-        display: none !important;
-    }
-
-    .chatbot-message-bubble {
-        padding: 12px 16px;
-        font-size: 0.95rem;
-        border-radius: 16px;
-    }
-
-    .chatbot-message-assistant .chatbot-message-bubble {
-        border-radius: 16px 16px 16px 4px;
-    }
-
-    .chatbot-message-user .chatbot-message-bubble {
-        border-radius: 16px 16px 4px 16px;
-    }
-
-    /* Ajustar input ativo no mobile */
-    .chatbot-input-area {
+    
+    /* Ajustar análise info text */
+    .analysis-info-text {
         padding: 8px 15px;
-        overflow: hidden;
+        font-size: 0.85rem;
+        margin-top: 10px;
+        margin-bottom: 8px;
     }
-
-    .chatbot-active-input-field {
-        gap: 10px !important;
-        max-width: 100%;
-        overflow: hidden;
+    
+    /* Otimizar animações para mobile */
+    * {
+        animation-duration: 0.3s !important;
     }
-
-    .chatbot-active-input {
-        padding: 10px 14px;
-        font-size: 0.9rem;
-        border-radius: 22px;
-        min-width: 0;
-        flex: 1;
-    }
-
-    /* Ajustar indicador de digitação no mobile */
-    .chatbot-typing-indicator {
-        padding-left: 15px;
-        margin-bottom: 15px;
-    }
-
-    /* Ajustar hover effects para touch no mobile */
+    
+    /* Reduzir efeitos hover no mobile */
+    .chatbot-send-button:hover,
+    .chatbot-active-send-btn:hover,
     .chatbot-action-btn:hover {
-        transform: scale(1.02);
-        background: rgba(0, 150, 255, 0.12);
-        border-color: rgba(0, 150, 255, 0.5);
+        transform: scale(1.02) !important;
     }
 }
 
-/* ============ TEXTO INFORMATIVO DA ANÁLISE COMPLETA ============ */
+/* ============================================
+   RESPONSIVIDADE MOBILE PEQUENO (< 375px)
+============================================ */
+@media (max-width: 374px) {
+    .chatbot-container {
+        width: calc(100vw - 20px) !important;
+        min-height: 480px !important;
+    }
+    
+    .chatbot-main-title {
+        font-size: 1.6rem !important;
+    }
+    
+    .chatbot-main-subtitle {
+        font-size: 0.85rem !important;
+    }
+    
+    .chatbot-main-robot {
+        width: 140px;
+        height: 100px;
+    }
+    
+    .chatbot-action-buttons {
+        width: calc(100vw - 20px);
+        gap: 8px;
+    }
+    
+    .chatbot-action-btn {
+        min-width: 110px;
+        max-width: 130px;
+        font-size: 0.75rem;
+        padding: 8px 12px;
+    }
+}
+
+/* ============================================
+   RESPONSIVIDADE MOBILE GRANDE (375px - 767px)
+============================================ */
+@media (min-width: 375px) and (max-width: 767px) {
+    .chatbot-container {
+        max-width: 400px !important;
+    }
+    
+    .chatbot-action-buttons {
+        max-width: 400px;
+    }
+}
+
+/* ============================================
+   DESKTOP GRANDE (> 1440px)
+============================================ */
+@media (min-width: 1440px) {
+    /* Escalar elementos proporcionalmente */
+    .robo {
+        max-height: 90vh;
+    }
+    
+    .mesa {
+        max-height: 160vh;
+    }
+    
+    .notebook {
+        max-height: 130vh;
+    }
+    
+    .teclado {
+        max-height: 160vh;
+    }
+    
+    .caixas {
+        max-height: 125vh;
+    }
+}
+
+/* ============================================
+   MODO PAISAGEM MOBILE
+============================================ */
+@media (max-width: 767px) and (orientation: landscape) {
+    .chatbot-container {
+        height: 85vh !important;
+        max-height: 85vh !important;
+    }
+    
+    .chatbot-welcome-state {
+        padding: 15px var(--spacing-md) 10px;
+    }
+    
+    .chatbot-robot-wrapper {
+        margin-top: 10px;
+    }
+    
+    .chatbot-main-robot {
+        width: 120px;
+        height: 85px;
+    }
+    
+    .chatbot-branding {
+        margin: 5px 0;
+    }
+    
+    .chatbot-conversation-area {
+        max-height: calc(85vh - 160px);
+    }
+    
+    .chatbot-action-buttons {
+        bottom: 10px;
+    }
+}
+
+/* ============================================
+   PREFERS REDUCED MOTION
+============================================ */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* ============================================
+   OTIMIZAÇÕES DE PERFORMANCE
+============================================ */
+@media (hover: none) and (pointer: coarse) {
+    /* Remover animações complexas em dispositivos touch */
+    .robo,
+    .notebook,
+    .teclado,
+    .caixas,
+    .particles-overlay {
+        animation: fadeInPush var(--transition-slow) ease-out forwards !important;
+    }
+}
+
+/* ============================================
+   IMPRESSÃO
+============================================ */
+@media print {
+    .chatbot-action-buttons,
+    .vanta-background,
+    .particles-overlay {
+        display: none !important;
+    }
+    
+    .chatbot-container {
+        box-shadow: none;
+        border: 1px solid #000;
+    }
+    
+    .cenario {
+        background: white;
+    }
+}: 1px solid var(--alpha-primary-medium);
+    background: linear-gradient(135deg, 
+        rgba(10, 15, 35, 0.8), 
+        rgba(20, 10, 45, 0.8)
+    );
+}
+
+/* ============ CHATBOT - INDICADOR DE DIGITAÇÃO ============ */
+.chatbot-typing-indicator {
+    display: none !important;
+}
+
+.chatbot-conversation-typing {
+    display: none;
+    align-items: center;
+    justify-content: flex-start;
+    margin: 15px 25px;
+    padding: 15px var(--spacing-md);
+    background: linear-gradient(135deg, 
+        rgba(0, 150, 255, 0.08), 
+        rgba(138, 43, 226, 0.08)
+    );
+    border-radius: var(--radius-md) var(--radius-md) var(--radius-md) 8px;
+    border-left: 3px solid var(--alpha-primary-medium);
+    max-width: 80%;
+}
+
+.chatbot-conversation-typing.active {
+    display: flex;
+    animation: fadeInUp var(--transition-medium) ease;
+}
+
+.chatbot-conversation-typing .typing-text {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    margin-right: 10px;
+}
+
+.chatbot-conversation-typing .typing-dots {
+    display: flex;
+    gap: 4px;
+}
+
+.chatbot-conversation-typing .typing-dots span {
+    width: 6px;
+    height: 6px;
+    background: rgba(0, 150, 255, 0.7);
+    border-radius: 50%;
+    animation: chatbotTypingAnimationOptimized 1s ease-in-out infinite;
+}
+
+.chatbot-conversation-typing .typing-dots span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.chatbot-conversation-typing .typing-dots span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+/* ============ BOTÕES DE AÇÃO DO CHATBOT ============ */
+.chatbot-action-buttons {
+    position: fixed;
+    bottom: 13px;
+    right: 130px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    z-index: 999;
+    transform: rotate(0deg);
+    opacity: 0;
+    animation: chatbotButtonsAppearOptimized 1s ease-out 1.2s forwards;
+}
+
+.chatbot-action-btn {
+    background: rgba(0, 150, 255, 0.08);
+    border: 1px solid rgba(0, 150, 255, 0.4);
+    border-radius: 25px;
+    padding: var(--spacing-xs) var(--spacing-md);
+    color: var(--text-primary);
+    font-family: 'Poppins', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 400;
+    cursor: pointer;
+    transition: transform var(--transition-medium), 
+                background var(--transition-medium), 
+                border-color var(--transition-medium), 
+                box-shadow var(--transition-medium);
+    backdrop-filter: blur(15px);
+    min-width: 160px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+}
+
+.chatbot-action-btn:nth-child(1) {
+    animation: chatbotButtonSlideInOptimized 0.5s ease-out 1.4s forwards;
+}
+
+.chatbot-action-btn:nth-child(2) {
+    animation: chatbotButtonSlideInOptimized 0.5s ease-out 1.6s forwards;
+}
+
+.chatbot-action-btn:nth-child(3) {
+    animation: chatbotButtonSlideInOptimized 0.5s ease-out 1.8s forwards;
+}
+
+.chatbot-action-btn:hover {
+    transform: scale(1.02);
+    background: rgba(0, 150, 255, 0.12);
+    border-color: rgba(0, 150, 255, 0.5);
+}
+
+/* ============ TEXTO INFORMATIVO ============ */
 .analysis-info-text {
     margin-top: 14px;
     margin-bottom: 10px;
-    padding: 10px 20px;
+    padding: 10px var(--spacing-md);
     text-align: center;
     font-size: 0.95rem;
     line-height: 1.5;
@@ -1316,50 +1416,4 @@ body {
     opacity: 0.85;
     font-weight: 400;
     font-family: "Inter", "Montserrat", "Noto Sans", sans-serif;
-    border-top: 1px solid rgba(255, 255, 255, 0.08);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.02);
-    backdrop-filter: blur(6px);
-    box-shadow: 0 0 8px rgba(144, 63, 255, 0.15);
-    animation: fadeInInfo 0.8s ease forwards;
-}
-
-@keyframes fadeInInfo {
-    from { 
-        opacity: 0; 
-        transform: translateY(6px); 
-    }
-    to { 
-        opacity: 0.85; 
-        transform: translateY(0); 
-    }
-}
-
-/* ============ GARANTIA DE DIMENSÕES FIXAS ============ */
-@media screen {
-    .chatbot-container {
-        width: 800px !important;
-        height: 600px !important;
-        min-width: 800px !important;
-        min-height: 600px !important;
-        max-width: 800px !important;
-        max-height: 600px !important;
-        top: 4% !important;
-        left: 50% !important;
-        transform: translateX(-50%) !important;
-        position: fixed !important;
-        z-index: 1000 !important;
-    }
-    
-    .chatbot-action-buttons {
-        position: fixed !important;
-        bottom: 13px !important;
-        right: 130px !important;
-        z-index: 1001 !important;
-        width: 160px !important;
-        min-width: 160px !important;
-        max-width: 160px !important;
-    }
-    
-}
+    border-top
