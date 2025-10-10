@@ -92,10 +92,11 @@ body {
 
 /* ============ ELEMENTOS DO CENÁRIO ============ */
 .robo {
-    top: 3%;
-    right: -10%;
+    /* RESPONSIVO: Adapta a qualquer tela */
+    top: clamp(20px, 3vh, 50px);
+    right: clamp(-150px, -10vw, -10px);
     height: auto;
-    max-height: 86.1vh;
+    max-height: clamp(400px, 86vh, 1000px);
     z-index: 3;
     /* Otimizado: Blur balanceado - visual preservado + performance */
     filter: drop-shadow(0 0 12px rgba(138, 43, 226, 0.3));
@@ -150,11 +151,11 @@ body {
 }
 
 .mesa {
-    bottom: -75%;
-    left: -320px;
-    width: 145%;
+    bottom: clamp(-75%, -70vh, -60%);
+    left: clamp(-400px, -25vw, -200px);
+    width: clamp(120%, 145vw, 170%);
     height: auto;
-    max-height: 1500px;
+    max-height: clamp(800px, 100vh, 1500px);
     z-index: 1;
     filter: drop-shadow(0 0 12px rgba(0, 150, 255, 0.2));
     /* CRÍTICO: Mesa precisa de animação para aparecer */
@@ -162,10 +163,10 @@ body {
 }
 
 .notebook {
-    bottom: -48%;
-    left: -20%;
+    bottom: clamp(-55%, -48vh, -40%);
+    left: clamp(-25%, -20vw, -15%);
     height: auto;
-    max-height: 120vh;
+    max-height: clamp(80vh, 120vh, 140vh);
     z-index: 2;
     /* Otimizado: Blur balanceado - visual preservado + performance */
     filter: drop-shadow(0 0 10px rgba(0, 150, 255, 0.3));
@@ -174,10 +175,10 @@ body {
 }
 
 .teclado {
-    bottom: -48%;
-    left: 22%;
+    bottom: clamp(-55%, -48vh, -40%);
+    left: clamp(18%, 22vw, 26%);
     height: auto;
-    max-height: 150vh;
+    max-height: clamp(100vh, 150vh, 180vh);
     z-index: 2;
     /* Otimizado: Blur reduzido de 12px para 10px */
     filter: drop-shadow(0 0 8px rgba(0, 150, 255, 0.25));
@@ -200,10 +201,10 @@ body {
 }
 
 .caixas {
-    bottom: 3%;
-    left: -7%;
+    bottom: clamp(1%, 3vh, 5%);
+    left: clamp(-10%, -7vw, -4%);
     height: auto;
-    max-height: 115vh;
+    max-height: clamp(80vh, 115vh, 140vh);
     z-index: 2;
     filter: drop-shadow(0 0 15px rgba(138, 43, 226, 0.4));
     animation: fadeInPush 0.6s ease-out forwards, subtleGlowOptimized 3.5s ease-in-out infinite 0.6s;
@@ -343,12 +344,13 @@ body {
     left: 50%;
     transform: translateX(-50%);
     z-index: 1000;
-    width: 800px !important;
-    height: 600px !important;
-    min-width: 800px !important;
-    min-height: 650px !important;
-    max-width: 800px !important;
-    max-height: 600px !important;
+    /* RESPONSIVO: Adapta a qualquer tela mantendo proporções */
+    width: clamp(350px, 50vw, 800px) !important;
+    height: clamp(400px, 45vh, 600px) !important;
+    min-width: clamp(350px, 50vw, 800px) !important;
+    min-height: clamp(400px, 45vh, 600px) !important;
+    max-width: clamp(350px, 50vw, 800px) !important;
+    max-height: clamp(400px, 45vh, 600px) !important;
     background: linear-gradient(145deg, 
         rgba(10, 15, 35, 0.95), 
         rgba(15, 25, 55, 0.95), 
@@ -880,8 +882,9 @@ body {
 /* ============ BOTÕES DE AÇÃO DO CHATBOT ============ */
 .chatbot-action-buttons {
     position: fixed;
-    bottom: 13px;
-    right: 130px;
+    /* RESPONSIVO: Sempre à direita do chatbot */
+    bottom: max(20px, 4vh);
+    right: clamp(20px, 10vw, 130px);
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -995,6 +998,67 @@ body {
     100% {
         opacity: 1;
         transform: translateX(0px) scale(1);
+    }
+}
+
+/* ============ RESPONSIVIDADE PARA TELAS GRANDES ============ */
+@media (min-width: 1200px) {
+    .chatbot-container {
+        width: 800px !important;
+        height: 600px !important;
+        min-width: 800px !important;
+        min-height: 600px !important;
+        max-width: 800px !important;
+        max-height: 600px !important;
+    }
+    
+    .chatbot-action-buttons {
+        right: 130px;
+        bottom: 13px;
+    }
+    
+    .robo {
+        top: 3%;
+        right: -10%;
+        max-height: 86.1vh;
+    }
+    
+    .mesa {
+        bottom: -75%;
+        left: -320px;
+        width: 145%;
+    }
+    
+    .notebook {
+        bottom: -48%;
+        left: -20%;
+    }
+    
+    .teclado {
+        bottom: -48%;
+        left: 22%;
+    }
+    
+    .caixas {
+        bottom: 3%;
+        left: -7%;
+    }
+}
+
+/* ============ RESPONSIVIDADE PARA TELAS MÉDIAS ============ */
+@media (min-width: 768px) and (max-width: 1199px) {
+    .chatbot-container {
+        width: 70vw !important;
+        height: 60vh !important;
+        min-width: 70vw !important;
+        min-height: 60vh !important;
+        max-width: 70vw !important;
+        max-height: 60vh !important;
+    }
+    
+    .chatbot-action-buttons {
+        right: 8vw;
+        bottom: 20px;
     }
 }
 
