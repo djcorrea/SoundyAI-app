@@ -1302,28 +1302,70 @@ class EnhancedSuggestionEngine {
                 let suggestionMessage = '';
                 let suggestionAction = '';
                 
-                // Se não tem target ou tolerance, criar sugestão genérica mas obrigatória
-                if (!Number.isFinite(target) || !Number.isFinite(tolerance)) {
+                // 🎯 CORREÇÃO CRÍTICA: Validação de dados físicos para DR
+                const isValidDRTarget = metric.key !== 'dr' || (Number.isFinite(target) && target > 0);
+                const hasValidData = Number.isFinite(target) && Number.isFinite(tolerance) && isValidDRTarget;
+                
+                // Se não tem target/tolerance válidos, ou DR com target negativo, usar fallback
+                if (!hasValidData) {
                     shouldCreateSuggestion = true;
                     usedTarget = this.getDefaultTarget(metric.key);
                     usedTolerance = this.getDefaultTolerance(metric.key);
-                    suggestionMessage = `⚠️ ${metric.label} requer verificação - tolerância não encontrada`;
+                    
+                    if (metric.key === 'dr' && Number.isFinite(target) && target < 0) {
+                        suggestionMessage = `⚠️ ${metric.label} com target inválido (${target}${metric.unit}) - usando fallback`;
+                        this.logAudit('INVALID_DR_TARGET', `DR com target negativo detectado: ${target}`, {
+                            originalTarget: target,
+                            originalTolerance: tolerance,
+                            fallbackTarget: usedTarget,
+                            fallbackTolerance: usedTolerance
+                        });
+                    } else {
+                        suggestionMessage = `⚠️ ${metric.label} requer verificação - tolerância não encontrada`;
+                    }
                     suggestionAction = this.getGenericAction(metric.key, value);
                     
-                    this.logAudit('CRITICAL_METRIC_FALLBACK', `Métrica crítica ${metric.key} com dados faltando - criando sugestão genérica`, {
+                    this.logAudit('CRITICAL_METRIC_FALLBACK', `Métrica crítica ${metric.key} com dados faltando/inválidos - criando sugestão genérica`, {
                         metric: metric.key,
                         hasTarget: Number.isFinite(target),
                         hasTolerance: Number.isFinite(tolerance),
+                        isValidDRTarget: isValidDRTarget,
                         fallbackTarget: usedTarget,
                         fallbackTolerance: usedTolerance
                     });
                 } else {
-                    // Tem todos os dados - verificar se está fora da tolerância
-                    const delta = Math.abs(value - target);
-                    if (delta > tolerance) {
+                    // 🎯 CORREÇÃO CRÍTICA: Lógica de tolerância baseada em range (min/max)
+                    // Para DR: target ± tolerance define o range aceitável
+                    // Ex: target=-9±8.5 seria INVÁLIDO, mas target=8±2 com value=11.56 seria:
+                    // minRange = 8-2 = 6, maxRange = 8+2 = 10 → value=11.56 está FORA (deve sugerir)
+                    const minRange = target - tolerance;
+                    const maxRange = target + tolerance;
+                    const isWithinRange = (value >= minRange && value <= maxRange);
+                    
+                    if (!isWithinRange) {
                         shouldCreateSuggestion = true;
-                        suggestionMessage = `${metric.label} fora da tolerância (${delta.toFixed(2)}${metric.unit} de diferença)`;
-                        suggestionAction = `Ajustar ${metric.label} para aproximar do alvo de ${target}${metric.unit}`;
+                        const delta = Math.abs(value - target);
+                        const distanceFromRange = value < minRange ? (minRange - value) : (value - maxRange);
+                        suggestionMessage = `${metric.label} fora da tolerância (${delta.toFixed(2)}${metric.unit} de diferença, ${distanceFromRange.toFixed(2)}${metric.unit} fora do range ${minRange.toFixed(1)}-${maxRange.toFixed(1)})`;
+                        suggestionAction = `Ajustar ${metric.label} para ficar entre ${minRange.toFixed(1)}${metric.unit} e ${maxRange.toFixed(1)}${metric.unit}`;
+                        
+                        this.logAudit('METRIC_OUT_OF_RANGE', `${metric.key} fora do range aceitável`, {
+                            value: value,
+                            target: target,
+                            tolerance: tolerance,
+                            minRange: minRange,
+                            maxRange: maxRange,
+                            delta: delta,
+                            distanceFromRange: distanceFromRange
+                        });
+                    } else {
+                        this.logAudit('METRIC_WITHIN_RANGE', `${metric.key} dentro do range aceitável`, {
+                            value: value,
+                            target: target,
+                            tolerance: tolerance,
+                            minRange: minRange,
+                            maxRange: maxRange
+                        });
                     }
                 }
                 
