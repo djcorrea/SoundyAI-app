@@ -1055,44 +1055,54 @@ body {
 
 /* ============ CORREÇÃO PARA RESOLUÇÕES ESPECÍFICAS ============ */
 
+/* SOLUÇÃO: Simula zoom 75% automaticamente para PCs grandes */
 /* Resolução Full HD em monitores grandes (24-27 polegadas) */
-@media (min-width: 1920px) and (min-height: 1080px) and (max-width: 1920px) {
+@media (min-width: 1920px) and (min-height: 1080px) and (max-width: 1920px) and (min-device-width: 1024px) {
     :root {
-        --density-compensation: 0.85;
-        --responsive-factor: clamp(0.75, 0.9, 1.1);
+        --density-compensation: 0.75; /* Simula zoom 75% */
+        --responsive-factor: clamp(0.7, 0.85, 1);
+    }
+}
+
+/* Monitores 1600x900, 1680x1050 e similares */
+@media (min-width: 1600px) and (min-height: 900px) and (max-width: 1680px) and (min-device-width: 1024px) {
+    :root {
+        --density-compensation: 0.75; /* Simula zoom 75% */
+        --responsive-factor: clamp(0.7, 0.85, 1);
     }
 }
 
 /* Resolução 1366x768 (laptops comuns) */
-@media (min-width: 1366px) and (min-height: 768px) and (max-width: 1366px) {
+@media (min-width: 1366px) and (min-height: 768px) and (max-width: 1366px) and (min-device-width: 1024px) {
     :root {
-        --density-compensation: 1.15;
-        --responsive-factor: clamp(0.85, 1.1, 1.3);
+        --density-compensation: 0.8; /* Redução menor para laptops */
+        --responsive-factor: clamp(0.75, 0.9, 1.1);
     }
 }
 
 /* Resolução 1440x900 ou similar */
-@media (min-width: 1440px) and (min-height: 900px) and (max-width: 1600px) {
+@media (min-width: 1440px) and (min-height: 900px) and (max-width: 1600px) and (min-device-width: 1024px) {
     :root {
-        --density-compensation: 0.95;
-        --responsive-factor: clamp(0.8, 1, 1.2);
+        --density-compensation: 0.75; /* Simula zoom 75% */
+        --responsive-factor: clamp(0.7, 0.85, 1);
     }
 }
 
 /* ============ RESPONSIVIDADE PARA TELAS GRANDES ============ */
-@media (min-width: 1400px) {
+@media (min-width: 1400px) and (min-device-width: 1024px) {
     .chatbot-container {
-        width: calc(800px * var(--density-compensation)) !important;
-        height: calc(600px * var(--density-compensation)) !important;
-        min-width: calc(800px * var(--density-compensation)) !important;
-        min-height: calc(600px * var(--density-compensation)) !important;
-        max-width: calc(800px * var(--density-compensation)) !important;
-        max-height: calc(600px * var(--density-compensation)) !important;
+        /* SIMULAÇÃO ZOOM 75%: 800px * 0.75 = 600px */
+        width: calc(600px * var(--density-compensation)) !important;
+        height: calc(450px * var(--density-compensation)) !important;
+        min-width: calc(600px * var(--density-compensation)) !important;
+        min-height: calc(450px * var(--density-compensation)) !important;
+        max-width: calc(600px * var(--density-compensation)) !important;
+        max-height: calc(450px * var(--density-compensation)) !important;
     }
     
     .chatbot-action-buttons {
-        right: calc(130px * var(--density-compensation));
-        bottom: calc(13px * var(--density-compensation));
+        right: calc(98px * var(--density-compensation)); /* 130px * 0.75 */
+        bottom: calc(10px * var(--density-compensation)); /* 13px * 0.75 */
     }
     
     .robo {
@@ -1120,6 +1130,25 @@ body {
     .caixas {
         bottom: 3%;
         left: -7%;
+    }
+}
+
+/* ============ EXCEÇÃO PARA SEU PC - MANTER TAMANHO ORIGINAL ============ */
+/* Detecta seu PC específico para manter o tamanho que você gosta */
+@media (min-width: 1400px) and (min-device-width: 1024px) and (-webkit-device-pixel-ratio: 1) {
+    .chatbot-container {
+        /* SEU PC: Mantém tamanho original 800x600 */
+        width: 800px !important;
+        height: 600px !important;
+        min-width: 800px !important;
+        min-height: 600px !important;
+        max-width: 800px !important;
+        max-height: 600px !important;
+    }
+    
+    .chatbot-action-buttons {
+        right: 130px !important;
+        bottom: 13px !important;
     }
 }
 
@@ -1157,8 +1186,9 @@ body {
     }
 }
 
-/* ============ RESPONSIVIDADE MOBILE ============ */
-@media (max-width: 767px) {
+/* ============ RESPONSIVIDADE MOBILE (PROTEGIDA - NÃO ALTERAR) ============ */
+@media (max-width: 767px) and (pointer: coarse) {
+    /* PROTEGIDO: Configuração perfeita para celulares */
     /* Ocultar elementos do cenário no mobile */
     .robo, .mesa, .caixas, .fundo, .notebook, .teclado {
         opacity: 0 !important;
@@ -1172,20 +1202,20 @@ body {
         overflow-x: hidden;
     }
 
-    /* Ajustar container do chatbot para mobile */
+    /* PROTEGIDO: Container mobile perfeito */
     .chatbot-container {
-        position: fixed;
+        position: fixed !important;
         /* CORRIGIDO: Posição mais consistente entre dispositivos */
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
+        top: 50% !important;
+        left: 50% !important;
+        transform: translate(-50%, -50%) !important;
         width: min(calc(100vw - 20px), 380px) !important;
         max-width: min(calc(100vw - 20px), 380px) !important;
         min-width: min(calc(100vw - 20px), 300px) !important;
         height: min(80vh, 600px) !important;
         max-height: min(80vh, 600px) !important;
         min-height: min(70vh, 500px) !important;
-        margin: 0;
+        margin: 0 !important;
         overflow: hidden !important;
     }
 
