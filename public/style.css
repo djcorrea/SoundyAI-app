@@ -336,19 +336,21 @@ body {
 .fallback-animation .teclado { animation-delay: 0.2s; }
 .fallback-animation .robo { animation-delay: 0.25s; }
 
-/* ============ CHATBOT - CONTAINER PRINCIPAL ============ */
+/* ============ CHATBOT - CONTAINER PRINCIPAL RESPONSIVO ============ */
 .chatbot-container {
     position: fixed;
-    top: 4%;
+    /* CENTRALIZAÇÃO PERFEITA: Posiciona o modal no centro exato da tela */
+    top: 50%;
     left: 50%;
-    transform: translateX(-50%);
+    transform: translate(-50%, -50%);
     z-index: 1000;
-    width: 800px !important;
-    height: 600px !important;
-    min-width: 800px !important;
-    min-height: 650px !important;
-    max-width: 800px !important;
-    max-height: 600px !important;
+    /* RESPONSIVIDADE: Largura fluida com máximo controlado para desktop */
+    width: 95%;
+    max-width: 500px; /* Máximo de 500px para desktop conforme solicitado */
+    height: auto;
+    min-height: 70vh;
+    max-height: 85vh;
+    /* Gradiente de fundo preservado */
     background: linear-gradient(145deg, 
         rgba(10, 15, 35, 0.95), 
         rgba(15, 25, 55, 0.95), 
@@ -360,16 +362,20 @@ body {
     overflow: hidden;
     opacity: 0;
     will-change: transform, opacity;
+    /* FLEXBOX: Centralização fluida com estrutura em coluna */
+    display: flex;
+    flex-direction: column;
 }
 
-/* ============ CHATBOT - ESTADO WELCOME ============ */
+/* ============ CHATBOT - ESTADO WELCOME RESPONSIVO ============ */
 .chatbot-welcome-state {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: space-between;
     height: 100%;
-    padding: 60px 50px 40px;
+    flex: 1;
+    padding: 3rem 2.5rem 2rem; /* Usando rem para escalabilidade */
     opacity: 1;
     transition: opacity 0.4s ease, transform 0.4s ease;
 }
@@ -379,14 +385,15 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-top: 55px;
+    margin: 1rem 0;
+    flex-shrink: 0;
 }
 
 .chatbot-main-robot {
     position: relative;
-    top: 20px;
-    width: 250px;
-    height: 180px;
+    /* Tamanho responsivo baseado no viewport */
+    width: clamp(120px, 25vw, 250px);
+    height: clamp(90px, 18vw, 180px);
     object-fit: contain;
     filter: 
         drop-shadow(0 0 18px rgba(0, 150, 255, 0.6))
@@ -395,16 +402,17 @@ body {
     will-change: transform;
 }
 
-/* ============ CHATBOT - BRANDING ============ */
+/* ============ CHATBOT - BRANDING RESPONSIVO ============ */
 .chatbot-branding {
     text-align: center;
-    margin: 0px 0;
+    margin: 0;
+    flex-shrink: 0;
 }
 
 .chatbot-main-title {
     position: relative;
     font-family: 'Orbitron', monospace;
-    font-size: 3.5rem;
+    font-size: clamp(2.2rem, 5vw, 3.5rem); /* Título responsivo */
     font-weight: 900;
     background: linear-gradient(45deg, 
         #00bfff, 
@@ -417,7 +425,7 @@ body {
     -webkit-text-fill-color: transparent;
     background-clip: text;
     background-size: 300% 300%;
-    margin-bottom: 2px;
+    margin-bottom: 0.125rem;
     text-shadow: 0 0 40px rgba(0, 150, 255, 0.5);
     animation: chatbotTitleGradientOptimized 1.2s ease-in-out infinite alternate;
     letter-spacing: 2px;
@@ -426,31 +434,33 @@ body {
 
 .chatbot-main-subtitle {
     font-family: 'Poppins', sans-serif;
-    font-size: 1.4rem;
+    font-size: clamp(0.9rem, 2.5vw, 1.4rem); /* Subtítulo responsivo */
     color: rgba(255, 255, 255, 0.8);
     font-weight: 300;
     margin: 0;
     text-shadow: 0 0 20px rgba(0, 150, 255, 0.3);
 }
 
-/* ============ CHATBOT - INPUT SECTION CORRIGIDO ============ */
+/* ============ CHATBOT - INPUT SECTION RESPONSIVO ============ */
 .chatbot-input-section {
     width: 100%;
     margin-top: auto;
+    flex-shrink: 0;
+    padding: 0 0.5rem; /* Padding responsivo */
 }
 
 .chatbot-input-field {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 0.75rem; /* Gap responsivo */
     background: linear-gradient(135deg, 
         rgba(0, 150, 255, 0.1), 
         rgba(138, 43, 226, 0.1)
     );
     border: 2px solid rgba(0, 150, 255, 0.3);
     border-radius: 50px;
-    padding: 0.6px 12px 0.6px 0.6px;
+    padding: 0.4rem 0.75rem 0.4rem 0.4rem;
     transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
@@ -877,25 +887,32 @@ body {
     animation-delay: 0.3s;
 }
 
-/* ============ BOTÕES DE AÇÃO DO CHATBOT ============ */
+/* ============ BOTÕES DE AÇÃO DO CHATBOT RESPONSIVOS ============ */
 .chatbot-action-buttons {
     position: fixed;
-    bottom: 13px;
-    right: 130px;
+    /* POSICIONAMENTO INTELIGENTE: Abaixo do modal com espaçamento proporcional */
+    left: 50%;
+    top: calc(50% + min(42.5vh, 320px) + 1rem);
+    transform: translateX(-50%);
     display: flex;
-    flex-direction: column;
-    gap: 12px;
+    flex-direction: row;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 0.75rem;
     z-index: 999;
-    transform: rotate(-0deg);
     opacity: 0;
     animation: chatbotButtonsAppearOptimized 1s ease-out 1.2s forwards;
+    /* LARGURA RESPONSIVA: Acompanha a largura do modal */
+    width: min(95%, 500px);
+    max-width: 500px;
 }
 
 .chatbot-action-btn {
     background: rgba(0, 150, 255, 0.08);
     border: 1px solid rgba(0, 150, 255, 0.4);
     border-radius: 25px;
-    padding: 8px 20px;
+    padding: 0.5rem 1.25rem;
     color: rgba(255, 255, 255, 0.9);
     font-family: 'Poppins', sans-serif;
     font-size: 0.85rem;
@@ -903,12 +920,15 @@ body {
     cursor: pointer;
     transition: transform 0.3s ease, background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
     backdrop-filter: blur(15px);
-    min-width: 160px;
+    /* Responsive sizing */
+    min-width: clamp(120px, 30%, 160px);
+    flex: 1;
     text-align: center;
     position: relative;
     overflow: hidden;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
     opacity: 0;
+    white-space: nowrap;
 }
 
 .chatbot-action-btn:nth-child(1) {
@@ -998,8 +1018,80 @@ body {
     }
 }
 
-/* ============ RESPONSIVIDADE MOBILE ============ */
-@media (max-width: 767px) {
+/* ============================================================================
+   REFATORAÇÃO RESPONSIVA COMPLETA - MOBILE/DESKTOP
+   ============================================================================
+   
+   OBJETIVO: Layout perfeitamente padronizado entre mobile e desktop
+   
+   PRINCIPAIS ALTERAÇÕES IMPLEMENTADAS:
+   
+   1. CONTAINER PRINCIPAL (.chatbot-container):
+      - Centralização perfeita com translate(-50%, -50%)
+      - Largura responsiva: 95% com max-width: 500px
+      - Flexbox para estrutura fluida
+   
+   2. ELEMENTOS INTERNOS:
+      - Título/subtítulo com clamp() para escalabilidade
+      - Robô com tamanhos responsivos baseados em viewport
+      - Input com padding/gap em rem para melhor escalabilidade
+   
+   3. BOTÕES DE AÇÃO:
+      - Posicionamento inteligente abaixo do modal
+      - Flexbox para organização horizontal/wrap
+      - Largura acompanha o modal (500px máximo)
+   
+   4. MEDIA QUERIES ESPECÍFICAS:
+      - max-width: 600px → Layout mobile idêntico aos prints
+      - min-width: 601px → Layout desktop centralizado com max-width controlada
+   
+   5. RESPONSIVIDADE:
+      - Substituição de px fixos por rem/%, clamp(), viewport units
+      - Flexbox para centralização fluida
+      - Preservação de todas as animações e funcionalidades
+   
+   RESULTADO: Layout visualmente idêntico aos prints de referência
+   ============================================================================ */
+
+/* ============ RESPONSIVIDADE UNIFICADA ============ */
+
+/* === DESKTOP E TABLETS (601px+) - Centralização perfeita === */
+@media (min-width: 601px) {
+    .chatbot-container {
+        /* Centralização vertical e horizontal perfeita no desktop */
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 90%;
+        max-width: 500px; /* Máximo de 500px conforme solicitado */
+        height: auto;
+        min-height: 65vh;
+        max-height: 80vh;
+    }
+    
+    .chatbot-action-buttons {
+        /* Botões centralizados abaixo do modal no desktop */
+        top: calc(50% + min(40vh, 300px) + 2rem);
+        flex-direction: row;
+        width: min(90%, 500px);
+        gap: 1rem;
+    }
+    
+    .chatbot-action-btn {
+        flex: 1;
+        max-width: 150px;
+    }
+    
+    /* Terceiro botão em linha separada no desktop se necessário */
+    .chatbot-action-btn:nth-child(3) {
+        flex-basis: 100%;
+        max-width: 200px;
+        margin-top: 0.5rem;
+    }
+}
+
+/* === MOBILE (max-width: 600px) - Layout idêntico aos prints === */
+@media (max-width: 600px) {
     /* Ocultar elementos do cenário no mobile */
     .robo, .mesa, .caixas, .fundo, .notebook, .teclado {
         opacity: 0 !important;
@@ -1013,249 +1105,147 @@ body {
         overflow-x: hidden;
     }
 
-    /* Ajustar container do chatbot para mobile */
+    /* Modal centralizado conforme print mobile */
     .chatbot-container {
-        position: fixed;
-        top: 44%;
+        top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
-        width: calc(100vw - 30px) !important;
+        width: calc(100vw - 2rem) !important;
         max-width: 400px !important;
         min-width: auto !important;
-        height: 75vh !important;
-        max-height: 75vh !important;
+        height: auto !important;
         min-height: 65vh !important;
-        margin-bottom: 0;
-        overflow: hidden !important;
+        max-height: 80vh !important;
+        margin: 0;
     }
 
-    /* Ajustar estado welcome no mobile */
+    /* Welcome state ajustado para mobile */
     .chatbot-welcome-state {
-        padding: 25px 20px 15px;
-        overflow: hidden;
+        padding: 1.5rem 1.25rem 1rem;
+        gap: 1rem;
     }
 
-    /* Corrigir input field para mobile com ordem */
+    /* Robô ajustado para mobile */
+    .chatbot-main-robot {
+        width: clamp(100px, 20vw, 140px);
+        height: clamp(75px, 15vw, 105px);
+    }
+
+    /* Branding ajustado para mobile */
+    .chatbot-main-title {
+        font-size: clamp(1.6rem, 6vw, 2.2rem);
+        margin-bottom: 0.25rem;
+    }
+
+    .chatbot-main-subtitle {
+        font-size: clamp(0.8rem, 3vw, 1rem);
+    }
+
+    /* Input section mobile conforme prints */
+    .chatbot-input-section {
+        padding: 0;
+        margin-top: 1rem;
+    }
+
     .chatbot-input-field,
     .chatbot-active-input-field {
-        gap: 8px !important;
-        padding: 4px 8px 4px 4px !important;
-        max-width: 100%;
-        box-sizing: border-box;
-        overflow: hidden;
+        gap: 0.5rem !important;
+        padding: 0.25rem 0.5rem 0.25rem 0.25rem !important;
     }
 
-    /* Botão + sempre à esquerda no mobile */
+    /* Ordem dos elementos preservada no mobile */
     .chatbot-input-field .chatbot-add-btn,
     .chatbot-active-input-field .chatbot-add-btn {
         order: -2 !important;
+        width: 38px !important;
+        height: 38px !important;
         flex-shrink: 0 !important;
-        width: 44px !important;
-        height: 44px !important;
-        margin: 0 !important;
     }
 
-    /* Input sempre no meio no mobile */
     .chatbot-main-input,
     .chatbot-active-input {
         order: 0 !important;
-        padding: 12px 16px !important;
-        font-size: 0.95rem !important;
-        min-width: 0 !important;
+        padding: 0.75rem 1rem !important;
+        font-size: 0.9rem !important;
         flex: 1 !important;
     }
 
-    /* Microfone sempre à direita do input no mobile */
     .chatbot-mic-icon,
     .chatbot-active-input-field .chatbot-mic-icon {
         order: 1 !important;
-        margin: 0 8px !important;
-        font-size: 1.2rem !important;
+        margin: 0 0.5rem !important;
+        width: 20px !important;
+        height: 20px !important;
         flex-shrink: 0 !important;
-        width: auto !important;
-        height: auto !important;
     }
 
-    /* Botão de envio sempre no final no mobile */
     .chatbot-send-button,
     .chatbot-active-send-btn {
         order: 2 !important;
-        width: 44px !important;
-        height: 44px !important;
-        font-size: 1rem !important;
-        flex-shrink: 0 !important;
-        min-width: 44px !important;
-        max-width: 44px !important;
-    }
-
-    /* Ajustar input section no mobile */
-    .chatbot-input-section {
-        margin-top: 10px;
-        width: 100%;
-        max-width: 100%;
-        padding: 0 10px;
-        box-sizing: border-box;
-    }
-
-    /* Corrigir botão de envio no mobile */
-    .chatbot-send-button {
-        width: 44px !important;
-        height: 44px !important;
-        font-size: 1rem !important;
-        flex-shrink: 0 !important;
-        min-width: 44px !important;
-        max-width: 44px !important;
-    }
-
-    /* Ajustar robô principal no mobile */
-    .chatbot-main-robot {
-        width: 160px;
-        height: 115px;
-        top: 95px;
-    }
-
-    /* Ajustar branding no mobile */
-    .chatbot-branding {
-        margin: 10px 0;
-        margin-top: -50px;
-    }
-
-    /* Ajustar título no mobile */
-    .chatbot-main-title {
-        top: 5px;
-        font-size: 1.9rem;
-        margin-bottom: 5px;
-        margin-top: 2px;
-    }
-
-    /* Ajustar subtítulo no mobile */
-    .chatbot-main-subtitle {
-        font-size: 0.9rem;
-        margin-top: 5px;
-    }
-
-    /* Ajustar input no mobile */
-    .chatbot-main-input {
-        padding: 12px 16px !important;
-        font-size: 0.95rem;
-        min-width: 0;
-        flex: 1;
-    }
-
-    /* Ajustar mic icon no mobile */
-    .chatbot-mic-icon {
-        margin-left: 12px;
-        font-size: 1.2rem;
-        flex-shrink: 0;
-    }
-
-    /* Botão ativo também ajustado */
-    .chatbot-active-send-btn {
-        width: 40px !important;
-        height: 40px !important;
-        font-size: 0.95rem !important;
+        width: 38px !important;
+        height: 38px !important;
         flex-shrink: 0 !important;
     }
 
-    /* Hover effects reduzidos no mobile */
-    .chatbot-send-button:hover,
-    .chatbot-active-send-btn:hover {
-        transform: scale(1.02) !important;
-    }
-
-    /* Reposicionar botões de ação para mobile */
+    /* Botões de ação centralizados abaixo do modal conforme prints */
     .chatbot-action-buttons {
         position: fixed;
-        bottom: 30px;
+        top: calc(50% + min(40vh, 300px) + 1.5rem);
         left: 50%;
         transform: translateX(-50%);
-        right: auto;
+        width: calc(100vw - 2rem);
+        max-width: 400px;
         flex-direction: row;
         flex-wrap: wrap;
+        gap: 0.75rem;
         justify-content: center;
-        gap: 10px;
-        width: calc(100vw - 30px);
-        max-width: 400px;
-        z-index: 1001;
-        opacity: 1;
-        animation: none;
-        margin-top: 10px;
     }
 
-    /* Ajustar botões individuais no mobile */
+    /* Botões individuais no mobile */
     .chatbot-action-btn {
-        min-width: 120px;
-        max-width: 130px;
         flex: 1;
-        padding: 10px 14px;
-        font-size: 0.8rem;
-        border-radius: 20px;
-        text-align: center;
+        min-width: 110px;
+        max-width: 130px;
+        padding: 0.6rem 0.8rem;
+        font-size: 0.75rem;
         white-space: nowrap;
-        overflow: hidden;
         text-overflow: ellipsis;
-        opacity: 1;
-        animation: none;
-        margin: 0;
-        backdrop-filter: blur(10px);
-    }
-
-    /* Organizar botões */
-    .chatbot-action-btn:nth-child(1),
-    .chatbot-action-btn:nth-child(2) {
-        animation: none;
-        opacity: 1;
-    }
-
-    .chatbot-action-btn:nth-child(3) {
-        animation: none;
-        opacity: 1;
-        width: 100%;
-        max-width: 270px;
-        margin-top: 5px;
-    }
-
-    /* Ajustar estado ativo do chatbot no mobile */
-    .chatbot-active-state {
-        height: 100%;
         overflow: hidden;
     }
 
-    /* Ajustar header do chatbot no mobile */
+    /* Terceiro botão em linha separada conforme print */
+    .chatbot-action-btn:nth-child(3) {
+        flex-basis: 100%;
+        max-width: 200px;
+        margin-top: 0.5rem;
+    }
+
+    /* Estado ativo ajustado para mobile */
     .chatbot-header-bar {
-        padding: 10px 15px;
+        padding: 0.75rem 1rem;
     }
 
     .chatbot-header-name {
-        font-size: 1.1rem;
+        font-size: 1rem;
     }
 
     .chatbot-header-desc {
-        font-size: 0.8rem;
+        font-size: 0.75rem;
     }
 
-    /* Ajustar área de conversa no mobile */
     .chatbot-conversation-area {
-        padding: 15px 20px;
-        flex: 1;
-        min-height: 320px;
-        max-height: 75vh;
-        overflow: hidden auto;
+        padding: 1rem;
+        min-height: 250px;
     }
 
-    /* Ajustar mensagens no mobile */
-    .chatbot-message {
-        margin-bottom: 20px;
-        gap: 0px;
+    .chatbot-input-area {
+        padding: 0.75rem 1rem;
     }
 
-    .chatbot-message-avatar {
-        display: none !important;
-    }
-
+    /* Mensagens ajustadas para mobile */
     .chatbot-message-bubble {
-        padding: 12px 16px;
-        font-size: 0.95rem;
+        padding: 0.75rem 1rem;
+        font-size: 0.9rem;
         border-radius: 16px;
     }
 
@@ -1265,39 +1255,6 @@ body {
 
     .chatbot-message-user .chatbot-message-bubble {
         border-radius: 16px 16px 4px 16px;
-    }
-
-    /* Ajustar input ativo no mobile */
-    .chatbot-input-area {
-        padding: 8px 15px;
-        overflow: hidden;
-    }
-
-    .chatbot-active-input-field {
-        gap: 10px !important;
-        max-width: 100%;
-        overflow: hidden;
-    }
-
-    .chatbot-active-input {
-        padding: 10px 14px;
-        font-size: 0.9rem;
-        border-radius: 22px;
-        min-width: 0;
-        flex: 1;
-    }
-
-    /* Ajustar indicador de digitação no mobile */
-    .chatbot-typing-indicator {
-        padding-left: 15px;
-        margin-bottom: 15px;
-    }
-
-    /* Ajustar hover effects para touch no mobile */
-    .chatbot-action-btn:hover {
-        transform: scale(1.02);
-        background: rgba(0, 150, 255, 0.12);
-        border-color: rgba(0, 150, 255, 0.5);
     }
 }
 
