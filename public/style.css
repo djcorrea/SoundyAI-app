@@ -10,6 +10,11 @@
     /* Detecta altura real do viewport (importante para mobile) */
     --vh: 1vh;
     --vw: 1vw;
+    
+    /* Variáveis para densidade de pixels e escala */
+    --base-scale: 1;
+    --density-compensation: 1;
+    --responsive-factor: clamp(0.7, 1, 1.3);
 }
 
 /* Fallback para navegadores antigos */
@@ -17,6 +22,7 @@
     :root {
         --vh: 1%;
         --vw: 1%;
+        --base-scale: 1;
     }
 }
 
@@ -1021,20 +1027,72 @@ body {
     }
 }
 
+/* ============ CORREÇÃO PARA DIFERENTES DENSIDADES DE PIXELS ============ */
+
+/* Monitores com alta densidade (como o seu PC) */
+@media (-webkit-device-pixel-ratio: 1.25), (device-pixel-ratio: 1.25) {
+    :root {
+        --density-compensation: 0.8;
+        --responsive-factor: clamp(0.75, 0.95, 1.1);
+    }
+}
+
+/* Monitores com densidade muito alta (4K, Retina) */
+@media (-webkit-device-pixel-ratio: 1.5), (device-pixel-ratio: 1.5) {
+    :root {
+        --density-compensation: 0.75;
+        --responsive-factor: clamp(0.7, 0.9, 1.05);
+    }
+}
+
+/* Monitores com densidade baixa (monitores antigos) */
+@media (-webkit-device-pixel-ratio: 1), (device-pixel-ratio: 1) {
+    :root {
+        --density-compensation: 1.1;
+        --responsive-factor: clamp(0.8, 1.05, 1.25);
+    }
+}
+
+/* ============ CORREÇÃO PARA RESOLUÇÕES ESPECÍFICAS ============ */
+
+/* Resolução Full HD em monitores grandes (24-27 polegadas) */
+@media (min-width: 1920px) and (min-height: 1080px) and (max-width: 1920px) {
+    :root {
+        --density-compensation: 0.85;
+        --responsive-factor: clamp(0.75, 0.9, 1.1);
+    }
+}
+
+/* Resolução 1366x768 (laptops comuns) */
+@media (min-width: 1366px) and (min-height: 768px) and (max-width: 1366px) {
+    :root {
+        --density-compensation: 1.15;
+        --responsive-factor: clamp(0.85, 1.1, 1.3);
+    }
+}
+
+/* Resolução 1440x900 ou similar */
+@media (min-width: 1440px) and (min-height: 900px) and (max-width: 1600px) {
+    :root {
+        --density-compensation: 0.95;
+        --responsive-factor: clamp(0.8, 1, 1.2);
+    }
+}
+
 /* ============ RESPONSIVIDADE PARA TELAS GRANDES ============ */
 @media (min-width: 1400px) {
     .chatbot-container {
-        width: 800px !important;
-        height: 600px !important;
-        min-width: 800px !important;
-        min-height: 600px !important;
-        max-width: 800px !important;
-        max-height: 600px !important;
+        width: calc(800px * var(--density-compensation)) !important;
+        height: calc(600px * var(--density-compensation)) !important;
+        min-width: calc(800px * var(--density-compensation)) !important;
+        min-height: calc(600px * var(--density-compensation)) !important;
+        max-width: calc(800px * var(--density-compensation)) !important;
+        max-height: calc(600px * var(--density-compensation)) !important;
     }
     
     .chatbot-action-buttons {
-        right: 130px;
-        bottom: 13px;
+        right: calc(130px * var(--density-compensation));
+        bottom: calc(13px * var(--density-compensation));
     }
     
     .robo {
@@ -1068,17 +1126,17 @@ body {
 /* ============ RESPONSIVIDADE PARA TELAS DESKTOP PADRÃO ============ */
 @media (min-width: 1024px) and (max-width: 1399px) {
     .chatbot-container {
-        width: min(60vw, 700px) !important;
-        height: min(50vh, 550px) !important;
-        min-width: min(60vw, 700px) !important;
-        min-height: min(50vh, 550px) !important;
-        max-width: min(60vw, 700px) !important;
-        max-height: min(50vh, 550px) !important;
+        width: calc(min(60vw, 700px) * var(--responsive-factor)) !important;
+        height: calc(min(50vh, 550px) * var(--responsive-factor)) !important;
+        min-width: calc(min(60vw, 700px) * var(--responsive-factor)) !important;
+        min-height: calc(min(50vh, 550px) * var(--responsive-factor)) !important;
+        max-width: calc(min(60vw, 700px) * var(--responsive-factor)) !important;
+        max-height: calc(min(50vh, 550px) * var(--responsive-factor)) !important;
     }
     
     .chatbot-action-buttons {
-        right: clamp(50px, 8vw, 120px);
-        bottom: clamp(15px, 3vh, 25px);
+        right: calc(clamp(50px, 8vw, 120px) * var(--responsive-factor));
+        bottom: calc(clamp(15px, 3vh, 25px) * var(--responsive-factor));
     }
 }
 
