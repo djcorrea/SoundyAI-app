@@ -1090,22 +1090,22 @@ body {
     }
 }
 
-/* ============ TAMANHO ORIGINAL PARA A MAIORIA DOS PCs ============ */
-/* PADRÃO: Tamanho original 800x600px (como estava no seu PC) */
+/* ============ TAMANHO ZOOM 75% PARA A MAIORIA DOS PCs ============ */
+/* PADRÃO: Zoom 75% para garantir compatibilidade universal */
 @media (min-width: 1024px) and (pointer: fine) {
     .chatbot-container {
-        /* ORIGINAL: Volta ao tamanho que estava perfeito no seu PC */
-        width: 800px !important;
-        height: 600px !important;
-        min-width: 800px !important;
-        min-height: 600px !important;
-        max-width: 800px !important;
-        max-height: 600px !important;
+        /* PADRÃO: Zoom 75% (600x450px) para compatibilidade universal */
+        width: 600px !important;   /* 800px * 0.75 */
+        height: 450px !important;  /* 600px * 0.75 */
+        min-width: 600px !important;
+        min-height: 450px !important;
+        max-width: 600px !important;
+        max-height: 450px !important;
     }
     
     .chatbot-action-buttons {
-        right: 130px !important;
-        bottom: 13px !important;
+        right: 98px !important;   /* 130px * 0.75 */
+        bottom: 10px !important;  /* 13px * 0.75 */
     }
     
     /* Elementos do cenário no tamanho original */
@@ -1151,43 +1151,41 @@ body {
     }
 }
 
-/* ============ EXCEÇÃO ESPECÍFICA PARA PC COM TELA PROBLEMÁTICA ============ */
-/* Apenas para o outro PC que estava grande demais */
-@media (min-width: 1366px) and (max-width: 1366px) and (min-height: 768px) and (max-height: 768px) {
+/* ============ EXCEÇÃO PARA SEU PC - TAMANHO ORIGINAL ============ */
+/* Baseado em resolução alta ou características específicas do seu PC */
+@media (min-width: 1920px) and (min-height: 1080px) and (pointer: fine) {
     .chatbot-container {
-        /* ESPECÍFICO: Tamanho reduzido apenas para este PC */
-        width: 480px !important;  /* 800px * 0.6 */
-        height: 360px !important; /* 600px * 0.6 */
-        min-width: 480px !important;
-        min-height: 360px !important;
-        max-width: 480px !important;
-        max-height: 360px !important;
+        /* SEU PC: Mantém tamanho original 800x600px */
+        width: 800px !important;
+        height: 600px !important;
+        min-width: 800px !important;
+        min-height: 600px !important;
+        max-width: 800px !important;
+        max-height: 600px !important;
     }
     
     .chatbot-action-buttons {
-        right: 78px !important;  /* 130px * 0.6 */
-        bottom: 8px !important;  /* 13px * 0.6 */
+        right: 130px !important;
+        bottom: 13px !important;
+    }
+}
+
+/* ============ ALTERNATIVA: EXCEÇÃO POR DPI ALTO ============ */
+/* Se seu PC tem alta densidade de pixels */
+@media (min-width: 1024px) and (pointer: fine) and (-webkit-device-pixel-ratio: 1.25) {
+    .chatbot-container {
+        /* SEU PC: Mantém tamanho original 800x600px */
+        width: 800px !important;
+        height: 600px !important;
+        min-width: 800px !important;
+        min-height: 600px !important;
+        max-width: 800px !important;
+        max-height: 600px !important;
     }
     
-    /* Elementos do cenário reduzidos apenas neste PC */
-    .robo {
-        transform: scale(0.8);
-        max-height: clamp(320px, 70vh, 800px);
-    }
-    
-    .mesa {
-        transform: scale(0.85);
-        max-height: clamp(650px, 85vh, 1200px);
-    }
-    
-    .notebook, .teclado {
-        transform: scale(0.8);
-        max-height: clamp(65vh, 100vh, 120vh);
-    }
-    
-    .caixas {
-        transform: scale(0.85);
-        max-height: clamp(65vh, 95vh, 120vh);
+    .chatbot-action-buttons {
+        right: 130px !important;
+        bottom: 13px !important;
     }
 }
 
