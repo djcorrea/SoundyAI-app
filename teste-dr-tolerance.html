@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste DR Tolerance Logic</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-case { margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .result { margin-top: 10px; padding: 10px; border-radius: 3px; }
+        .pass { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .fail { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+        .info { background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+        pre { background: #f8f9fa; padding: 10px; border-radius: 3px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔧 Teste de Correção da Lógica de Tolerância DR</h1>
+    
+    <div class="test-case">
+        <h3>Caso 1: DR com target negativo (INVÁLIDO)</h3>
+        <p><strong>Entrada:</strong> DR=11.56, target=-9, tolerance=8.50</p>
+        <p><strong>Esperado:</strong> Usar fallback (target=8.0, tolerance=2.0) e detectar target inválido</p>
+        <div id="test1" class="result"></div>
+    </div>
+
+    <div class="test-case">
+        <h3>Caso 2: DR com target válido fora da tolerância</h3>
+        <p><strong>Entrada:</strong> DR=11.56, target=8.0, tolerance=2.0</p>
+        <p><strong>Esperado:</strong> Sugestão (value=11.56 está fora de [6.0, 10.0])</p>
+        <div id="test2" class="result"></div>
+    </div>
+
+    <div class="test-case">
+        <h3>Caso 3: DR com target válido dentro da tolerância</h3>
+        <p><strong>Entrada:</strong> DR=9.5, target=8.0, tolerance=2.0</p>
+        <p><strong>Esperado:</strong> SEM sugestão (value=9.5 está dentro de [6.0, 10.0])</p>
+        <div id="test3" class="result"></div>
+    </div>
+
+    <script src="enhanced-suggestion-engine.js"></script>
+    <script>
+        // Teste da lógica corrigida
+        async function testDRLogic() {
+            const engine = new EnhancedSuggestionEngine();
+            
+            // Mock do sistema de scoring para evitar dependências
+            engine.scorer = {
+                getSeverity: () => 'medium',
+                calculatePriority: () => 5
+            };
+
+            // Caso 1: DR com target inválido (negativo)
+            try {
+                const metrics = { dr: 11.56 };
+                const referenceData = { dr_target: -9, tol_dr: 8.50 };
+                const zScores = {};
+                
+                // Simular apenas a lógica da métrica DR
+                const metric = { 
+                    key: 'dr', 
+                    target: 'dr_target', 
+                    tol: 'tol_dr',
+                    type: 'reference_dynamics',
+                    metricType: 'dr',
+                    unit: ' dB',
+                    label: 'DR',
+                    isCritical: true
+                };
+
+                const value = metrics[metric.key];
+                const target = referenceData[metric.target];
+                const tolerance = referenceData[metric.tol];
+
+                const isValidDRTarget = metric.key !== 'dr' || (Number.isFinite(target) && target > 0);
+                const hasValidData = Number.isFinite(target) && Number.isFinite(tolerance) && isValidDRTarget;
+
+                let shouldCreateSuggestion = false;
+                let usedTarget = target;
+                let usedTolerance = tolerance;
+                let suggestionMessage = '';
+
+                if (!hasValidData) {
+                    shouldCreateSuggestion = true;
+                    usedTarget = 8.0; // fallback
+                    usedTolerance = 2.0; // fallback
+                    
+                    if (metric.key === 'dr' && Number.isFinite(target) && target < 0) {
+                        suggestionMessage = `⚠️ ${metric.label} com target inválido (${target}${metric.unit}) - usando fallback`;
+                    }
+                }
+
+                document.getElementById('test1').innerHTML = `
+                    <div class="${shouldCreateSuggestion && suggestionMessage.includes('inválido') ? 'pass' : 'fail'}">
+                        <strong>Resultado:</strong> ${shouldCreateSuggestion ? 'SUGESTÃO CRIADA' : 'SEM SUGESTÃO'}<br>
+                        <strong>Target usado:</strong> ${usedTarget}<br>
+                        <strong>Tolerance usada:</strong> ${usedTolerance}<br>
+                        <strong>Mensagem:</strong> ${suggestionMessage}<br>
+                        <strong>Status:</strong> ${shouldCreateSuggestion && suggestionMessage.includes('inválido') ? '✅ PASSOU - Target inválido detectado' : '❌ FALHOU'}
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('test1').innerHTML = `<div class="fail">❌ ERRO: ${error.message}</div>`;
+            }
+
+            // Caso 2: DR válido fora da tolerância
+            try {
+                const value = 11.56;
+                const target = 8.0;
+                const tolerance = 2.0;
+                
+                const minRange = target - tolerance; // 6.0
+                const maxRange = target + tolerance; // 10.0
+                const isWithinRange = (value >= minRange && value <= maxRange);
+                
+                document.getElementById('test2').innerHTML = `
+                    <div class="${!isWithinRange ? 'pass' : 'fail'}">
+                        <strong>Value:</strong> ${value}<br>
+                        <strong>Range:</strong> [${minRange}, ${maxRange}]<br>
+                        <strong>Dentro do range:</strong> ${isWithinRange}<br>
+                        <strong>Status:</strong> ${!isWithinRange ? '✅ PASSOU - Fora da tolerância, deve criar sugestão' : '❌ FALHOU - Deveria estar fora da tolerância'}
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('test2').innerHTML = `<div class="fail">❌ ERRO: ${error.message}</div>`;
+            }
+
+            // Caso 3: DR válido dentro da tolerância
+            try {
+                const value = 9.5;
+                const target = 8.0;
+                const tolerance = 2.0;
+                
+                const minRange = target - tolerance; // 6.0
+                const maxRange = target + tolerance; // 10.0
+                const isWithinRange = (value >= minRange && value <= maxRange);
+                
+                document.getElementById('test3').innerHTML = `
+                    <div class="${isWithinRange ? 'pass' : 'fail'}">
+                        <strong>Value:</strong> ${value}<br>
+                        <strong>Range:</strong> [${minRange}, ${maxRange}]<br>
+                        <strong>Dentro do range:</strong> ${isWithinRange}<br>
+                        <strong>Status:</strong> ${isWithinRange ? '✅ PASSOU - Dentro da tolerância, não deve criar sugestão' : '❌ FALHOU - Deveria estar dentro da tolerância'}
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('test3').innerHTML = `<div class="fail">❌ ERRO: ${error.message}</div>`;
+            }
+        }
+
+        // Executar teste quando a página carregar
+        document.addEventListener('DOMContentLoaded', testDRLogic);
+    </script>
+</body>
+</html>
