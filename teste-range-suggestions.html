@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧪 Teste: Sistema Range-Based Suggestions</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; }
+        .test-section { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 8px; }
+        .success { color: #28a745; font-weight: bold; }
+        .warning { color: #fd7e14; font-weight: bold; }
+        .error { color: #dc3545; font-weight: bold; }
+        .result { background: #ffffff; padding: 10px; margin: 5px 0; border-left: 4px solid #007bff; }
+        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        th, td { padding: 8px; text-align: left; border: 1px solid #dee2e6; }
+        th { background-color: #e9ecef; }
+        .range-test { max-width: 800px; margin: 20px 0; }
+        .dentro-range { background-color: #d4edda; color: #155724; }
+        .fora-leve { background-color: #fff3cd; color: #856404; }
+        .fora-forte { background-color: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Teste: Sistema Range-Based Suggestions</h1>
+    <p><strong>Objetivo:</strong> Verificar se o sistema de sugestões está usando ranges dinâmicos corretamente.</p>
+
+    <div class="test-section">
+        <h2>📊 Simulação da Lógica Range-Based</h2>
+        <p>Testando a nova lógica que compara valores medidos com ranges ao invés de targets fixos:</p>
+        
+        <table class="range-test">
+            <thead>
+                <tr>
+                    <th>Banda</th>
+                    <th>Valor Medido</th>
+                    <th>Range Ideal</th>
+                    <th>Status</th>
+                    <th>Sugestão</th>
+                    <th>Delta</th>
+                </tr>
+            </thead>
+            <tbody id="rangeTestTable">
+                <!-- Será preenchido pelo JavaScript -->
+            </tbody>
+        </table>
+    </div>
+
+    <div class="test-section">
+        <h2>🔍 Comparação: Range vs Fixed Target</h2>
+        <div id="comparisonResults"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>💾 Exemplo de Dados JSON</h2>
+        <div id="jsonExample"></div>
+    </div>
+
+    <script>
+        // Simular a nova lógica range-based
+        function testRangeBasedLogic(value, targetRange) {
+            const min = targetRange.min;
+            const max = targetRange.max;
+            let severityLevel, shouldInclude, calculatedDelta, suggestion;
+            
+            if (value >= min && value <= max) {
+                // Dentro do range → sem sugestão
+                severityLevel = 'green';
+                shouldInclude = false;
+                calculatedDelta = 0;
+                suggestion = 'Nenhuma - valor ideal';
+                
+            } else {
+                // Fora do range → calcular distância
+                if (value < min) {
+                    calculatedDelta = value - min; // negativo = abaixo
+                } else {
+                    calculatedDelta = value - max; // positivo = acima
+                }
+                
+                const distance = Math.abs(calculatedDelta);
+                
+                if (distance <= 2.0) {
+                    // Até ±2 dB dos limites → sugestão leve (amarelo)
+                    severityLevel = 'yellow';
+                    shouldInclude = true;
+                    const direction = calculatedDelta > 0 ? "Reduzir" : "Aumentar";
+                    const amount = distance.toFixed(1);
+                    suggestion = `${direction} cerca de ${amount} dB para aproximar do range ${min} a ${max} dB`;
+                    
+                } else {
+                    // Fora de ±2 dB → sugestão forte (vermelho)
+                    severityLevel = 'red';
+                    shouldInclude = true;
+                    const direction = calculatedDelta > 0 ? "Reduzir" : "Aumentar";
+                    const amount = distance.toFixed(1);
+                    suggestion = `${direction} cerca de ${amount} dB para aproximar do range ${min} a ${max} dB`;
+                }
+            }
+            
+            return {
+                severityLevel,
+                shouldInclude,
+                calculatedDelta,
+                suggestion,
+                distance: Math.abs(calculatedDelta)
+            };
+        }
+
+        // Casos de teste baseados nos ranges do Funk Mandela
+        const testCases = [
+            // Casos DENTRO do range (sem sugestão)
+            { banda: 'Sub (20-60Hz)', valor: -28, range: {min: -34, max: -22}, description: 'Dentro do range' },
+            { banda: 'Bass (60-150Hz)', valor: -25, range: {min: -32, max: -21}, description: 'Dentro do range' },
+            { banda: 'Low-mid (150-500Hz)', valor: -30, range: {min: -33, max: -26}, description: 'Dentro do range' },
+            
+            // Casos FORA LEVE (±2 dB) - sugestão amarela
+            { banda: 'Mid (500-2kHz)', valor: -26, range: {min: -34, max: -28}, description: 'Fora leve (+2 dB)' },
+            { banda: 'High-mid (2-5kHz)', valor: -42, range: {min: -40, max: -28}, description: 'Fora leve (-2 dB)' },
+            
+            // Casos FORA FORTE (>2 dB) - sugestão vermelha
+            { banda: 'Presence (5-10kHz)', valor: -30, range: {min: -45, max: -33}, description: 'Fora forte (+3 dB)' },
+            { banda: 'Air (10-20kHz)', valor: -48, range: {min: -44, max: -38}, description: 'Fora forte (-4 dB)' },
+            
+            // Casos extremos
+            { banda: 'Sub Extremo', valor: -15, range: {min: -34, max: -22}, description: 'Muito acima' },
+            { banda: 'Bass Extremo', valor: -40, range: {min: -32, max: -21}, description: 'Muito abaixo' }
+        ];
+
+        // Preencher tabela de testes
+        function populateRangeTestTable() {
+            const tbody = document.getElementById('rangeTestTable');
+            let html = '';
+            
+            testCases.forEach(testCase => {
+                const result = testRangeBasedLogic(testCase.valor, testCase.range);
+                
+                let rowClass = 'dentro-range';
+                if (result.severityLevel === 'yellow') rowClass = 'fora-leve';
+                if (result.severityLevel === 'red') rowClass = 'fora-forte';
+                
+                const rangeText = `[${testCase.range.min}, ${testCase.range.max}] dB`;
+                
+                html += `
+                    <tr class="${rowClass}">
+                        <td><strong>${testCase.banda}</strong></td>
+                        <td>${testCase.valor} dB</td>
+                        <td>${rangeText}</td>
+                        <td>${result.severityLevel.toUpperCase()}</td>
+                        <td>${result.suggestion}</td>
+                        <td>${result.calculatedDelta.toFixed(1)} dB</td>
+                    </tr>
+                `;
+            });
+            
+            tbody.innerHTML = html;
+        }
+
+        // Comparar sistema antigo vs novo
+        function generateComparison() {
+            const output = document.getElementById('comparisonResults');
+            
+            const comparisonCase = {
+                banda: 'Sub (20-60Hz)',
+                valor: -18,  // Muito acima do range
+                targetFixo: -28,
+                targetRange: {min: -34, max: -22}
+            };
+            
+            // Sistema antigo (target fixo)
+            const deltaFixo = comparisonCase.valor - comparisonCase.targetFixo;
+            const sistemaAntigo = `Reduzir ${Math.abs(deltaFixo).toFixed(1)} dB para atingir ${comparisonCase.targetFixo} dB`;
+            
+            // Sistema novo (range)
+            const resultRange = testRangeBasedLogic(comparisonCase.valor, comparisonCase.targetRange);
+            const sistemaNovo = resultRange.suggestion;
+            
+            output.innerHTML = `
+                <div class="result">
+                    <h3>📊 Exemplo: ${comparisonCase.banda} = ${comparisonCase.valor} dB</h3>
+                    
+                    <p><strong>SISTEMA ANTIGO (Target Fixo):</strong><br>
+                    Target: ${comparisonCase.targetFixo} dB<br>
+                    Sugestão: "${sistemaAntigo}"</p>
+                    
+                    <p><strong>SISTEMA NOVO (Range):</strong><br>
+                    Range: [${comparisonCase.targetRange.min}, ${comparisonCase.targetRange.max}] dB<br>
+                    Sugestão: "${sistemaNovo}"</p>
+                    
+                    <p><strong>💡 Benefício:</strong> O sistema novo reconhece que há uma faixa aceitável, 
+                    dando sugestões mais flexíveis e realistas para o perfil "batida forte sem distorcer".</p>
+                </div>
+            `;
+        }
+
+        // Mostrar exemplo de JSON
+        function showJSONExample() {
+            const output = document.getElementById('jsonExample');
+            
+            const examples = {
+                "ANTES (Sistema Fixo)": {
+                    "bands": {
+                        "sub": {
+                            "target_db": -28,
+                            "tol_db": 3.0
+                        }
+                    }
+                },
+                "DEPOIS (Sistema Híbrido)": {
+                    "bands": {
+                        "sub": {
+                            "target_db": -28,
+                            "target_range": {
+                                "min": -34,
+                                "max": -22
+                            },
+                            "tol_db": 3.0
+                        }
+                    }
+                },
+                "COMPORTAMENTO": {
+                    "prioridade": "target_range tem prioridade sobre target_db",
+                    "fallback": "se target_range não existe, usa target_db",
+                    "compatibilidade": "gêneros antigos continuam funcionando",
+                    "sugestões": {
+                        "dentro_do_range": "nenhuma sugestão gerada",
+                        "fora_até_2db": "sugestão leve (amarelo)",
+                        "fora_mais_2db": "sugestão forte (vermelho)"
+                    }
+                }
+            };
+            
+            let html = '<h3>Estrutura JSON do Sistema Híbrido:</h3>';
+            
+            Object.entries(examples).forEach(([title, data]) => {
+                html += `
+                    <div class="result">
+                        <strong>${title}:</strong>
+                        <pre style="background: #f8f9fa; padding: 10px; border-radius: 4px; margin: 5px 0; overflow-x: auto;">${JSON.stringify(data, null, 2)}</pre>
+                    </div>
+                `;
+            });
+            
+            output.innerHTML = html;
+        }
+
+        // Executar todos os testes
+        document.addEventListener('DOMContentLoaded', function() {
+            populateRangeTestTable();
+            generateComparison();
+            showJSONExample();
+        });
+    </script>
+</body>
+</html>

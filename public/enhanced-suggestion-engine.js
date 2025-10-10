@@ -672,17 +672,22 @@ class EnhancedSuggestionEngine {
             // Encontrar nome padronizado
             const standardName = bandMappings[sourceBandName] || sourceBandName;
 
-            // Extrair target_db e tol_db
+            // 🎯 NOVO: Extrair target_range, target_db e tol_db
             const target_db = Number.isFinite(bandData.target_db) ? bandData.target_db : null;
+            const target_range = (bandData.target_range && typeof bandData.target_range === 'object' &&
+                                Number.isFinite(bandData.target_range.min) && Number.isFinite(bandData.target_range.max)) 
+                                ? bandData.target_range : null;
             const tol_db = Number.isFinite(bandData.tol_db) ? bandData.tol_db : 
                           Number.isFinite(bandData.tolerance) ? bandData.tolerance :
                           Number.isFinite(bandData.toleranceDb) ? bandData.toleranceDb : 3.0; // Default
 
-            if (target_db !== null) {
+            // Aceitar banda se tem target_range OU target_db
+            if (target_range !== null || target_db !== null) {
                 // Se a banda já existe, manter a primeira encontrada (prioridade por ordem)
                 if (!bands[standardName]) {
                     bands[standardName] = {
                         target_db,
+                        target_range,
                         tol_db
                     };
 
@@ -690,18 +695,21 @@ class EnhancedSuggestionEngine {
                         sourceName: sourceBandName,
                         standardName,
                         target_db,
-                        tol_db
+                        target_range,
+                        tol_db,
+                        hasRange: !!target_range,
+                        hasFixed: !!target_db
                     });
                 } else {
                     this.logAudit('BAND_SKIPPED', `Banda duplicada ignorada: ${sourceBandName} → ${standardName}`, {
                         sourceName: sourceBandName,
                         standardName,
                         existing: bands[standardName],
-                        skipped: { target_db, tol_db }
+                        skipped: { target_db, target_range, tol_db }
                     });
                 }
             } else {
-                console.warn(`⚠️ Banda sem target_db válido: ${sourceBandName}`);
+                console.warn(`⚠️ Banda sem target_db nem target_range válidos: ${sourceBandName}`);
                 this.logAudit('BAND_INVALID', `Banda inválida: ${sourceBandName}`, { bandData });
             }
         }
@@ -1468,74 +1476,226 @@ class EnhancedSuggestionEngine {
 
             for (const [band, refData] of Object.entries(referenceData.bands)) {
                 const value = metrics[band];
-                const target = refData.target_db;
-                const tolerance = refData.tol_db;
+                
+                // 🎯 NOVO: Suporte híbrido para target_range (prioridade) e target_db (fallback)
+                let target, targetRange, tolerance, effectiveTolerance;
+                let rangeBasedLogic = false;
+                
+                // Prioridade 1: target_range (novo sistema)
+                if (refData.target_range && typeof refData.target_range === 'object' &&
+                    Number.isFinite(refData.target_range.min) && Number.isFinite(refData.target_range.max)) {
+                    
+                    targetRange = refData.target_range;
+                    rangeBasedLogic = true;
+                    
+                    // Para ranges, usar diferente lógica de tolerância
+                    const rangeSize = targetRange.max - targetRange.min;
+                    effectiveTolerance = rangeSize * 0.25; // 25% do range como tolerância leve
+                    
+                    console.log(`🎯 [RANGE-LOGIC] Banda ${band}: range [${targetRange.min}, ${targetRange.max}], tolerância: ${effectiveTolerance.toFixed(1)} dB`);
+                    
+                } else if (Number.isFinite(refData.target_db)) {
+                    // Prioridade 2: target_db fixo (sistema legado)
+                    target = refData.target_db;
+                    tolerance = refData.tol_db;
+                    effectiveTolerance = tolerance;
+                    
+                    console.log(`🎯 [FIXED-LOGIC] Banda ${band}: target fixo ${target} dB, tolerância: ${effectiveTolerance} dB`);
+                }
+                
                 const zScore = zScores[band + '_z'];
                 
                 this.logAudit('BAND_SUGGESTION_CHECK', `Verificando banda: ${band}`, {
                     band,
                     hasValue: Number.isFinite(value),
                     value,
+                    rangeBasedLogic,
+                    hasTargetRange: !!targetRange,
+                    targetRange,
                     hasTarget: Number.isFinite(target), 
                     target,
-                    hasTolerance: Number.isFinite(tolerance),
-                    tolerance,
+                    hasTolerance: Number.isFinite(effectiveTolerance),
+                    tolerance: effectiveTolerance,
                     hasZScore: Number.isFinite(zScore),
                     zScore
                 });
                 
-                if (!Number.isFinite(value) || !Number.isFinite(target) || !Number.isFinite(tolerance)) {
+                // Validação de dados básicos
+                if (!Number.isFinite(value) || !Number.isFinite(effectiveTolerance)) {
                     this.logAudit('BAND_SUGGESTION_SKIPPED', `Banda ignorada por valores inválidos: ${band}`, {
                         band,
                         value,
                         target,
-                        tolerance,
-                        reason: !Number.isFinite(value) ? 'value_invalid' : 
-                               !Number.isFinite(target) ? 'target_invalid' : 'tolerance_invalid'
+                        targetRange,
+                        tolerance: effectiveTolerance,
+                        reason: !Number.isFinite(value) ? 'value_invalid' : 'tolerance_invalid'
                     });
                     continue;
                 }
                 
-                const severity = this.scorer.getSeverity(zScore);
+                // Validação específica do sistema escolhido
+                if (!rangeBasedLogic && !Number.isFinite(target)) {
+                    this.logAudit('BAND_SUGGESTION_SKIPPED', `Banda ignorada por target fixo inválido: ${band}`, {
+                        band, value, target, reason: 'target_invalid'
+                    });
+                    continue;
+                }
                 
-                const shouldInclude = severity.level !== 'green' || 
-                    (severity.level === 'yellow' && this.config.includeYellowSeverity);
+                // 🎯 NOVA LÓGICA: Calcular severity baseado no sistema (range vs fixed)
+                let severityLevel, shouldInclude, calculatedDelta;
+                
+                if (rangeBasedLogic) {
+                    // === LÓGICA RANGE-BASED ===
+                    if (value >= targetRange.min && value <= targetRange.max) {
+                        // Dentro do range → sem sugestão
+                        severityLevel = 'green';
+                        shouldInclude = false;
+                        calculatedDelta = 0;
+                        
+                        console.log(`✅ [RANGE] ${band}: ${value.toFixed(1)} dB dentro do range [${targetRange.min}, ${targetRange.max}] - sem sugestão`);
+                        
+                    } else {
+                        // Fora do range → calcular distância
+                        if (value < targetRange.min) {
+                            calculatedDelta = value - targetRange.min; // negativo = abaixo
+                        } else {
+                            calculatedDelta = value - targetRange.max; // positivo = acima
+                        }
+                        
+                        const distance = Math.abs(calculatedDelta);
+                        
+                        if (distance <= 2.0) {
+                            // Até ±2 dB dos limites → sugestão leve (amarelo)
+                            severityLevel = 'yellow';
+                            shouldInclude = this.config.includeYellowSeverity;
+                            
+                            console.log(`⚠️ [RANGE] ${band}: ${value.toFixed(1)} dB a ${distance.toFixed(1)} dB do range - sugestão leve`);
+                            
+                        } else {
+                            // Fora de ±2 dB → sugestão forte (vermelho)
+                            severityLevel = 'red';
+                            shouldInclude = true;
+                            
+                            console.log(`❌ [RANGE] ${band}: ${value.toFixed(1)} dB muito fora do range - sugestão forte`);
+                        }
+                    }
+                } else {
+                    // === LÓGICA FIXED-TARGET (legado) ===
+                    calculatedDelta = value - target;
+                    const severity = this.scorer.getSeverity(zScore);
+                    severityLevel = severity.level;
+                    shouldInclude = severityLevel !== 'green' || 
+                        (severityLevel === 'yellow' && this.config.includeYellowSeverity);
+                        
+                    console.log(`📊 [FIXED] ${band}: usando lógica legada, severity: ${severityLevel}`);
+                }
                 
                 this.logAudit('BAND_SEVERITY_CHECK', `Severidade da banda: ${band}`, {
                     band,
-                    severity: severity.level,
+                    severityLevel,
                     shouldInclude,
                     includeYellow: this.config.includeYellowSeverity,
-                    zScore
+                    rangeBasedLogic,
+                    calculatedDelta
                 });
                 
                 if (shouldInclude) {
                     const dependencyBonus = dependencyBonuses[band] || 0;
+                    
+                    // Criar objeto severity simulado para compatibilidade
+                    const severityObj = { level: severityLevel };
+                    
                     const priority = this.scorer.calculatePriority({
                         metricType: 'band',
-                        severity,
+                        severity: severityObj,
                         confidence,
                         dependencyBonus
                     });
                     
-                    const suggestion = this.scorer.generateSuggestion({
-                        type: 'band_adjust',
-                        subtype: band,
-                        value,
-                        target,
-                        tolerance,
-                        zScore,
-                        severity,
-                        priority,
-                        confidence,
-                        genre: window.PROD_AI_REF_GENRE || 'unknown',
-                        metricType: 'band',
-                        band
-                    });
+                    // 🎯 NOVA GERAÇÃO DE SUGESTÃO HÍBRIDA
+                    let suggestion;
                     
-                    // 🎯 GARANTIR CAMPOS OBRIGATÓRIOS PARA SUGESTÕES DE BANDA
+                    if (rangeBasedLogic) {
+                        // === SUGESTÃO BASEADA EM RANGE ===
+                        suggestion = this.scorer.generateSuggestion({
+                            type: 'band_adjust',
+                            subtype: band,
+                            value,
+                            target: null, // Para ranges, não há target fixo
+                            targetRange,
+                            tolerance: effectiveTolerance,
+                            zScore,
+                            severity: severityObj,
+                            priority,
+                            confidence,
+                            genre: window.PROD_AI_REF_GENRE || 'unknown',
+                            metricType: 'band',
+                            band,
+                            rangeBasedLogic: true
+                        });
+                        
+                        // 🎯 MENSAGENS CUSTOMIZADAS PARA RANGES
+                        const direction = calculatedDelta > 0 ? "Reduzir" : "Aumentar";
+                        const amount = Math.abs(calculatedDelta).toFixed(1);
+                        const rangeText = `${targetRange.min.toFixed(1)} a ${targetRange.max.toFixed(1)} dB`;
+                        
+                        suggestion.action = `${direction} cerca de ${amount} dB para aproximar do range ${rangeText}`;
+                        suggestion.diagnosis = `Atual: ${value.toFixed(1)} dB, Range ideal: ${rangeText}`;
+                        suggestion.message = `Ajustar ${band} para ficar dentro do range ${rangeText}`;
+                        suggestion.why = `Banda ${band} fora da faixa ideal ${rangeText} para o gênero`;
+                        
+                        // Dados técnicos específicos para ranges
+                        suggestion.technical = {
+                            delta: calculatedDelta,
+                            currentValue: value,
+                            targetRange: targetRange,
+                            distanceFromRange: Math.abs(calculatedDelta),
+                            withinRange: false,
+                            rangeSize: targetRange.max - targetRange.min
+                        };
+                        
+                        console.log(`🎯 [RANGE-SUGGESTION] ${band}: ${direction} ${amount} dB para range ${rangeText}`);
+                        
+                    } else {
+                        // === SUGESTÃO BASEADA EM TARGET FIXO (legado) ===
+                        suggestion = this.scorer.generateSuggestion({
+                            type: 'band_adjust',
+                            subtype: band,
+                            value,
+                            target,
+                            tolerance: effectiveTolerance,
+                            zScore,
+                            severity: severityObj,
+                            priority,
+                            confidence,
+                            genre: window.PROD_AI_REF_GENRE || 'unknown',
+                            metricType: 'band',
+                            band,
+                            rangeBasedLogic: false
+                        });
+                        
+                        // Mensagens tradicionais para targets fixos
+                        const direction = calculatedDelta > 0 ? "Reduzir" : "Aumentar";
+                        const amount = Math.abs(calculatedDelta).toFixed(1);
+                        
+                        suggestion.action = `${direction} ${band} em ${amount} dB`;
+                        suggestion.diagnosis = `Atual: ${value.toFixed(1)} dB, Alvo: ${target.toFixed(1)} dB, Diferença: ${amount} dB`;
+                        suggestion.message = `Ajustar ${band} para alinhamento com referência`;
+                        suggestion.why = `Banda ${band} fora da faixa ideal para o gênero`;
+                        
+                        // Dados técnicos tradicionais
+                        suggestion.technical = {
+                            delta: calculatedDelta,
+                            currentValue: value,
+                            targetValue: target,
+                            tolerance: effectiveTolerance
+                        };
+                        
+                        console.log(`📊 [FIXED-SUGGESTION] ${band}: ${direction} ${amount} dB para target ${target.toFixed(1)} dB`);
+                    }
+                    
+                    // 🎯 CAMPOS OBRIGATÓRIOS COMUNS
                     suggestion.icon = '🎵';  // Ícone obrigatório para bandas
-                    suggestion.targetValue = target;
                     suggestion.currentValue = value;
                     
                     // Garantir campos de texto obrigatórios
@@ -1546,37 +1706,16 @@ class EnhancedSuggestionEngine {
                         suggestion.why = `Banda ${band} fora da faixa ideal para o gênero`;
                     }
                     
-                    // 🎯 APLICAR LÓGICA SEGURA PARA ACTION E DIAGNOSIS
-                    // Delta = current - target (positivo = atual maior que alvo = reduzir)
-                    const calculatedDelta = value - target;
-                    const delta = suggestion.technical?.delta || calculatedDelta;
-                    
-                    if (typeof delta === "number" && !isNaN(delta)) {
-                        const direction = delta > 0 ? "Reduzir" : "Aumentar";
-                        const amount = Math.abs(delta).toFixed(1);
-                        suggestion.action = `${direction} ${band} em ${amount} dB`;
-                        suggestion.diagnosis = `Atual: ${value.toFixed(1)} dB, Alvo: ${target.toFixed(1)} dB, Diferença: ${amount} dB`;
-                        
-                        // Garantir que delta está salvo corretamente
-                        if (suggestion.technical) {
-                            suggestion.technical.delta = delta;
-                            suggestion.technical.currentValue = value;
-                            suggestion.technical.targetValue = target;
-                        }
-                    } else {
-                        suggestion.action = `Ajustar banda ${band}`;
-                        suggestion.diagnosis = `Verificar níveis da banda ${band}`;
-                    }
-                    
                     suggestions.push(suggestion);
                     
                     this.logAudit('BAND_SUGGESTION', `Sugestão de banda: ${band}`, {
                         value: +value.toFixed(2),
-                        target: +target.toFixed(2),
-                        delta: +(value - target).toFixed(2),
-                        zScore: +zScore.toFixed(2),
-                        severity: severity.level,
-                        priority: +priority.toFixed(3)
+                        target: rangeBasedLogic ? 'range' : +target.toFixed(2),
+                        targetRange: rangeBasedLogic ? targetRange : null,
+                        delta: +calculatedDelta.toFixed(2),
+                        severity: severityLevel,
+                        priority: +priority.toFixed(3),
+                        rangeBasedLogic
                     });
                 }
             }
