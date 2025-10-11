@@ -56,6 +56,10 @@ html {
     /* Limites proporcionais para displays 4K+ (evita crescimento excessivo) */
     --max-container-width: min(41.67vw, 800px);   /* Não cresce além do tamanho original */
     --max-container-height: min(55.55vh, 600px);  /* Mantém proporcionalidade */
+    
+    /* Limites para imagens do cenário (notebook, etc.) */
+    --max-scene-width: min(41.67vw, 800px);      /* Mesma base do container */
+    --max-scene-height: min(55.55vh, 600px);     /* Consistência visual */
 }
 
 body {
@@ -219,15 +223,30 @@ body {
 }
 
 .notebook {
-    bottom: clamp(-55%, -48vh, -40%);
-    left: clamp(-25%, -20vw, -15%);
+    /* POSICIONAMENTO PROPORCIONAL: Baseado em 1920x1080 */
+    bottom: clamp(-50.93vh, -48vh, -37.04vh); /* -550px, -48vh, -400px → vh */
+    left: clamp(-20.83vw, -20vw, -15.625vw); /* -400px, -20vw, -300px → vw */
+    
+    /* DIMENSÕES PROPORCIONAIS: Tamanho exato do seu notebook */
+    width: auto;
     height: auto;
-    max-height: clamp(80vh, 120vh, 140vh);
+    max-width: var(--max-scene-width); /* Usa variável proporcional */
+    max-height: var(--max-scene-height); /* Mantém consistência com container */
+    min-width: 20.83vw; /* 400px → vw - tamanho mínimo */
+    min-height: 27.78vh; /* 300px → vh - altura mínima */
+    
+    /* ASPECT RATIO: Mantém proporção da imagem */
+    aspect-ratio: 16/10; /* Proporção típica de notebook */
+    object-fit: contain;
+    
+    /* VISUAL: Preserva efeitos originais */
     z-index: 2;
-    /* Otimizado: Blur balanceado - visual preservado + performance */
     filter: drop-shadow(0 0 0.521vw rgba(0, 150, 255, 0.3)); /* 10px → 0.521vw */
-    /* Otimizado: Duração aumentada de 3s para 5s */
     animation: fadeInPush 0.6s ease-out forwards, subtleGlowOptimized 5s ease-in-out infinite 0.6s;
+    
+    /* RESPONSIVIDADE: Escala proporcionalmente */
+    transform-origin: center center;
+    will-change: transform;
 }
 
 .teclado {
@@ -253,6 +272,18 @@ body {
     .notebook, .teclado {
         animation-delay: 0.8s;
         animation-fill-mode: forwards;
+    }
+}
+
+/* ============ OTIMIZAÇÃO PARA DISPLAYS 4K+ ============ */
+@media (min-width: 2560px) {
+    .notebook {
+        /* Em displays muito grandes, força tamanhos máximos absolutos */
+        max-width: 800px !important;
+        max-height: 600px !important;
+        /* Mantém posicionamento proporcional mas com limites */
+        bottom: max(clamp(-50.93vh, -48vh, -37.04vh), -550px);
+        left: max(clamp(-20.83vw, -20vw, -15.625vw), -400px);
     }
 }
 
@@ -287,6 +318,8 @@ body {
 
 .notebook:hover {
     transform: scale(1.06) translateY(-0.463vh); /* -5px → -0.463vh */
+    filter: drop-shadow(0 0 0.625vw rgba(0, 150, 255, 0.4)); /* Intensifica o glow */
+    transition: transform 0.3s ease, filter 0.3s ease;
 }
 
 .teclado:hover {
