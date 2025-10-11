@@ -1169,21 +1169,30 @@ body {
         overflow: hidden;
     }
     
-    /* ✅ CORREÇÃO #6: Robô perfeitamente posicionado (igual à referência) */
+    /* ✅ CORREÇÃO #6: Robô perfeitamente posicionado (logo acima do título) */
     .chatbot-robot-wrapper {
-        margin-top: 20px !important;
-    }
+    position: relative !important; /* vira o “container” do robô */
+    width: 100% !important;
+    height: 140px !important; /* altura reservada pro robô */
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+}
+
+.chatbot-main-robot { 
+    position: absolute !important;
+    top: 120px !important;  /* ⬅️ ajuste aqui para descer só a imagem */
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    width: 140px !important; 
+    height: 100px !important;
+    margin: 0 !important;
+}
     
-    .chatbot-main-robot { 
-        width: 140px !important; 
-        height: 100px !important; 
-        top: 0 !important;
-        margin-bottom: 10px !important;
-    }
-    
-    /* ✅ CORREÇÃO #7: Branding com espaçamento correto */
+    /* ✅ CORREÇÃO #7: Branding com espaçamento correto (logo abaixo do robô) */
     .chatbot-branding {
-        margin: 10px 0 !important;
+        margin: 110px !important;
+        margin-top: 5px !important;
     }
     
     .chatbot-main-title { 
