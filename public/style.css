@@ -206,17 +206,22 @@ body {
     pointer-events: none; /* Não interfere na interação */
     z-index: 4; /* Acima do robô para aplicar o fade */
 }
-
 .mesa {
-    bottom: clamp(-75%, -70vh, -60%);
-    left: clamp(-20.83vw, -25vw, -10.42vw); /* -400px, -25vw, -200px → vw */
-    width: clamp(120%, 145vw, 170%);
+    position: absolute;
+    bottom: -77vh;                  /* posição vertical da referência */
+    left: -6%;                      /* centraliza horizontalmente */
+    transform: translateX(-50%);    /* garante alinhamento no centro */
+    
+    display: block;
+    width: 120vw;                   /* largura proporcional à tela */
+    max-width: 2400px;              /* trava tamanho máximo */
     height: auto;
-    max-height: clamp(41.67vw, 100vh, 78.125vw); /* 800px, 100vh, 1500px → vw/vh */
+    object-fit: contain;
+
     z-index: 1;
-    filter: drop-shadow(0 0 0.625vw rgba(0, 150, 255, 0.2)); /* 12px → 0.625vw */
-    /* CRÍTICO: Mesa precisa de animação para aparecer */
+    filter: drop-shadow(0 0 0.625vw rgba(0, 150, 255, 0.2));
     animation: fadeInPush 0.6s ease-out forwards;
+    transition: width 0.2s ease-out, transform 0.2s ease-out;
 }
 
 .notebook {
