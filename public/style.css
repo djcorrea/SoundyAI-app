@@ -5,15 +5,57 @@
     box-sizing: border-box;
 }
 
+/* ============ SISTEMA DE FONT-SIZE PROPORCIONAL ============ */
+html {
+    /* Font-size base proporcional para 1920x1080 */
+    font-size: clamp(0.8vw, 1vw, 1.2vw); /* Base: 16px em 1920px = 0.833vw */
+    
+    /* Fallback para navegadores que não suportam clamp */
+    font-size: 1vw;
+    
+    /* Garante altura mínima */
+    min-height: 100vh;
+    min-height: -webkit-fill-available;
+}
+
+/* ============ SISTEMA DE RESPONSIVIDADE PROPORCIONAL COMPLETO ============ */
+/* 
+   OBJETIVO: Layout idêntico em todas as telas, baseado em 1920x1080
+   ESTRATÉGIA: Unidades proporcionais (vw/vh/rem) + CSS Custom Properties
+   RESULTADO: Elimina necessidade de zoom manual e garante consistência visual
+   
+   CONVERSÕES BASE:
+   - 1px horizontal = 0.0520833333vw (1920px base)
+   - 1px vertical = 0.0925925926vh (1080px base)
+   - Font-size: HTML base (clamp 0.8vw-1.2vw) + CSS Custom Properties
+   - Limites: max() para evitar crescimento excessivo em 4K+
+*/
+
 /* ============ VARIÁVEIS PROPORCIONAIS BASEADAS EM 1920x1080 ============ */
 :root {
     /* Sistema proporcional: 1px = 0.0520833333vw (1920px) e 0.0925925926vh (1080px) */
     --base-unit-vw: 0.0520833333vw; /* 1px horizontal */
     --base-unit-vh: 0.0925925926vh; /* 1px vertical */
     
+    /* Font-sizes padronizados em rem (escalam com html) */
+    --font-xs: 0.7rem;    /* ~11px */
+    --font-sm: 0.875rem;  /* ~14px */
+    --font-base: 1rem;    /* ~16px */
+    --font-lg: 1.125rem;  /* ~18px */
+    --font-xl: 1.25rem;   /* ~20px */
+    --font-2xl: 1.5rem;   /* ~24px */
+    --font-3xl: 1.875rem; /* ~30px */
+    --font-4xl: 2.25rem;  /* ~36px */
+    --font-5xl: 3rem;     /* ~48px */
+    --font-6xl: 3.75rem;  /* ~60px */
+    
     /* Fallbacks de compatibilidade */
     --vh: 1vh;
     --vw: 1vw;
+
+    /* Limites proporcionais para displays 4K+ (evita crescimento excessivo) */
+    --max-container-width: min(41.67vw, 800px);   /* Não cresce além do tamanho original */
+    --max-container-height: min(55.55vh, 600px);  /* Mantém proporcionalidade */
 }
 
 body {
@@ -28,14 +70,14 @@ body {
 /* ============ ANIMAÇÃO FADE-IN INICIAL SUAVE ============ */
 .fade-in-start {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(1.85vh); /* 20px → 1.85vh */
     animation: fadeInPush 0.6s ease-out forwards;
 }
 
 @keyframes fadeInPush {
     0% {
         opacity: 0;
-        transform: translateY(20px);
+        transform: translateY(1.85vh); /* 20px → 1.85vh */
     }
     100% {
         opacity: 1;
@@ -47,13 +89,13 @@ body {
 @keyframes fadeInSuave {
     0% {
         opacity: 0;
-        transform: translateY(40px) scale(0.9);
-        filter: blur(2px);
+        transform: translateY(3.7vh) scale(0.9); /* 40px → 3.7vh */
+        filter: blur(0.104vw); /* 2px → 0.104vw */
     }
     60% {
         opacity: 0.8;
-        transform: translateY(10px) scale(0.98);
-        filter: blur(0.5px);
+        transform: translateY(0.926vh) scale(0.98); /* 10px → 0.926vh */
+        filter: blur(0.026vw); /* 0.5px → 0.026vw */
     }
     100% {
         opacity: 1;
@@ -359,13 +401,13 @@ body {
     transform: translateX(-50%);
     z-index: 1000;
     
-    /* TAMANHO PROPORCIONAL: Baseado em 1920x1080 */
-    width: 41.67vw; /* 800px → 41.67vw */
-    height: 55.55vh; /* 600px → 55.55vh */
-    min-width: 41.67vw;
-    min-height: 55.55vh;
-    max-width: 41.67vw;
-    max-height: 55.55vh;
+    /* TAMANHO PROPORCIONAL: Baseado em 1920x1080 com limites para 4K+ */
+    width: var(--max-container-width); /* 41.67vw com limite de 800px */
+    height: var(--max-container-height); /* 55.55vh com limite de 600px */
+    min-width: var(--max-container-width);
+    min-height: var(--max-container-height);
+    max-width: var(--max-container-width);
+    max-height: var(--max-container-height);
     
     /* VISUAL: Mantém exato do seu notebook */
     background: linear-gradient(145deg, 
@@ -426,7 +468,7 @@ body {
 .chatbot-main-title {
     position: relative;
     font-family: 'Orbitron', monospace;
-    font-size: 3.5rem;
+    font-size: var(--font-6xl); /* 3.5rem → proporcional */
     font-weight: 900;
     background: linear-gradient(45deg, 
         #00bfff, 
@@ -439,20 +481,20 @@ body {
     -webkit-text-fill-color: transparent;
     background-clip: text;
     background-size: 300% 300%;
-    margin-bottom: 2px;
-    text-shadow: 0 0 40px rgba(0, 150, 255, 0.5);
+    margin-bottom: 0.185vh; /* 2px → 0.185vh */
+    text-shadow: 0 0 2.083vw rgba(0, 150, 255, 0.5); /* 40px → 2.083vw */
     animation: chatbotTitleGradientOptimized 1.2s ease-in-out infinite alternate;
-    letter-spacing: 2px;
+    letter-spacing: 0.104vw; /* 2px → 0.104vw */
     will-change: background-position;
 }
 
 .chatbot-main-subtitle {
     font-family: 'Poppins', sans-serif;
-    font-size: 1.4rem;
+    font-size: var(--font-xl); /* 1.4rem → proporcional */
     color: rgba(255, 255, 255, 0.8);
     font-weight: 300;
     margin: 0;
-    text-shadow: 0 0 20px rgba(0, 150, 255, 0.3);
+    text-shadow: 0 0 1.042vw rgba(0, 150, 255, 0.3); /* 20px → 1.042vw */
 }
 
 /* ============ CHATBOT - INPUT SECTION CORRIGIDO ============ */
@@ -499,7 +541,7 @@ body {
     border: none;
     color: rgba(255, 255, 255, 0.9);
     font-family: 'Poppins', sans-serif;
-    font-size: 1.15rem;
+    font-size: var(--font-lg); /* 1.15rem → proporcional */
     outline: none;
     transition: color 0.15s ease;
     order: 0;
@@ -510,7 +552,7 @@ body {
     order: 1;
     margin-left: 0.417vw; /* 8px → 0.417vw */
     margin-right: 0.417vw; /* 8px → 0.417vw */
-    font-size: 1.3rem;
+    font-size: var(--font-xl); /* 1.3rem → proporcional */
     color: rgba(0, 150, 255, 0.7);
     transition: color 0.15s ease, transform 0.15s ease;
     cursor: pointer;
@@ -531,7 +573,7 @@ body {
 .chatbot-main-input::placeholder {
     color: rgba(255, 255, 255, 0.5);
     font-style: italic;
-    font-size: 0.95rem;
+    font-size: var(--font-sm); /* 0.95rem → proporcional */
 }
 
 /* ============ CHATBOT - BOTÕES ============ */
@@ -551,14 +593,14 @@ body {
 .chatbot-send-button {
     width: 2.1875vw; /* 42px → 2.1875vw */
     height: 3.889vh; /* 42px → 3.889vh */
-    font-size: 1rem;
+    font-size: var(--font-base); /* 1rem → proporcional */
     box-shadow: 0 0.185vh 0.556vh rgba(37, 99, 235, 0.3); /* 2px 6px → vh */
 }
 
 .chatbot-active-send-btn {
     width: 1.979vw; /* 38px → 1.979vw */
     height: 3.519vh; /* 38px → 3.519vh */
-    font-size: 0.9rem;
+    font-size: var(--font-sm); /* 0.9rem → proporcional */
     box-shadow: 0 0.185vh 0.370vh rgba(37, 99, 235, 0.3); /* 2px 4px → vh */
 }
 
@@ -572,13 +614,13 @@ body {
     transform: scale(0.95);
 }
 
-/* ============ CHATBOT - SVG AVIÃOZINHO ============ */
+/* Botão de envio sempre no final no mobile */
 .chatbot-send-button svg, .chatbot-active-send-btn svg {
     transition: transform 0.2s ease;
 }
 
 .chatbot-send-button:hover svg, .chatbot-active-send-btn:hover svg {
-    transform: translateX(2px);
+    transform: translateX(0.104vw); /* 2px → 0.104vw */
 }
 
 .chatbot-send-button:active svg, .chatbot-active-send-btn:active svg {
@@ -625,7 +667,7 @@ body {
 
 .chatbot-header-name {
     font-family: 'Orbitron', monospace;
-    font-size: 1.6rem;
+    font-size: var(--font-2xl); /* 1.6rem → proporcional */
     font-weight: 700;
     background: linear-gradient(45deg, #00bfff, #8a2be2);
     -webkit-background-clip: text;
@@ -635,9 +677,9 @@ body {
 
 .chatbot-header-desc {
     font-family: 'Poppins', sans-serif;
-    font-size: 1rem;
+    font-size: var(--font-base); /* 1rem → proporcional */
     color: rgba(255, 255, 255, 0.7);
-    margin-top: 3px;
+    margin-top: 0.278vh; /* 3px → 0.278vh */
 }
 
 /* ============ CHATBOT - ÁREA DE CONVERSA ============ */
@@ -699,7 +741,7 @@ body {
     padding: 1.481vh 1.042vw; /* 16px 20px → vh/vw */
     border-radius: 1.042vw; /* 20px → 1.042vw */
     font-family: 'Poppins', sans-serif;
-    font-size: 1rem;
+    font-size: var(--font-base); /* 1rem → proporcional */
     line-height: 1.5;
     max-width: 100%;
     word-wrap: break-word;
@@ -728,7 +770,7 @@ body {
 }
 
 .chatbot-message-timestamp {
-    font-size: 0.8rem;
+    font-size: var(--font-xs); /* 0.8rem → proporcional */
     color: rgba(255, 255, 255, 0.4);
     font-family: 'Poppins', sans-serif;
 }
@@ -801,7 +843,7 @@ body {
     border: none;
     color: rgba(255, 255, 255, 0.9);
     font-family: 'Poppins', sans-serif;
-    font-size: 1.05rem;
+    font-size: var(--font-lg); /* 1.05rem → proporcional */
     outline: none;
     transition: color 0.15s ease;
     order: 0;
@@ -814,7 +856,7 @@ body {
     height: 2.222vh !important; /* 24px → 2.222vh */
     margin-left: 0.417vw !important; /* 8px → 0.417vw */
     margin-right: 0.417vw !important; /* 8px → 0.417vw */
-    font-size: 1.3rem !important;
+    font-size: var(--font-xl) !important; /* 1.3rem → proporcional */
     color: rgba(0, 150, 255, 0.7) !important;
     transition: color 0.15s ease, transform 0.15s ease !important;
     cursor: pointer !important;
@@ -835,7 +877,7 @@ body {
 .chatbot-active-input::placeholder {
     color: rgba(255, 255, 255, 0.5);
     font-style: italic;
-    font-size: 0.95rem;
+    font-size: var(--font-sm); /* 0.95rem → proporcional */
 }
 
 /* ============ CHATBOT - INDICADOR DE DIGITAÇÃO ============ */
@@ -866,7 +908,7 @@ body {
 
 .chatbot-conversation-typing .typing-text {
     color: rgba(255, 255, 255, 0.6);
-    font-size: 0.9rem;
+    font-size: var(--font-sm); /* 0.9rem → proporcional */
     margin-right: 0.521vw; /* 10px → 0.521vw */
 }
 
@@ -921,7 +963,7 @@ body {
     padding: 0.741vh 1.042vw; /* 8px 20px → vh/vw */
     color: rgba(255, 255, 255, 0.9);
     font-family: 'Poppins', sans-serif;
-    font-size: 0.85rem;
+    font-size: var(--font-xs); /* 0.85rem → proporcional */
     font-weight: 400;
     cursor: pointer;
     transition: transform 0.3s ease, background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
@@ -955,16 +997,16 @@ body {
 /* ============ TRANSIÇÕES E ANIMAÇÕES DO CHATBOT ============ */
 .chatbot-welcome-state.fade-out {
     opacity: 0;
-    transform: translateY(-30px);
+    transform: translateY(-2.78vh); /* -30px → -2.78vh */
     transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
 @keyframes chatbotMainRobotFloatOptimized {
     0%, 100% { 
-        transform: translateY(0px) scale(1);
+        transform: translateY(0) scale(1);
     }
     50% { 
-        transform: translateY(-5px) scale(1.02);
+        transform: translateY(-0.463vh) scale(1.02); /* -5px → -0.463vh */
     }
 }
 
@@ -1116,10 +1158,10 @@ body {
 
     /* Ajustar input section no mobile */
     .chatbot-input-section {
-        margin-top: 10px;
+        margin-top: 0.625rem; /* 10px → rem */
         width: 100%;
         max-width: 100%;
-        padding: 0 10px;
+        padding: 0 0.625rem; /* 10px → rem */
         box-sizing: border-box;
     }
 
@@ -1135,29 +1177,29 @@ body {
 
     /* Ajustar robô principal no mobile */
     .chatbot-main-robot {
-        width: 160px;
-        height: 115px;
-        top: 95px;
+        width: 8.33vw; /* 160px → vw (160/1920) */
+        height: 10.65vh; /* 115px → vh (115/1080) */
+        top: 8.8vh; /* 95px → vh (95/1080) */
     }
 
     /* Ajustar branding no mobile */
     .chatbot-branding {
-        margin: 10px 0;
-        margin-top: -50px;
+        margin: 0.625rem 0; /* 10px → rem */
+        margin-top: -3.125rem; /* -50px → rem */
     }
 
     /* Ajustar título no mobile */
     .chatbot-main-title {
-        top: 5px;
+        top: 0.31rem; /* 5px → rem */
         font-size: 1.9rem;
-        margin-bottom: 5px;
-        margin-top: 2px;
+        margin-bottom: 0.31rem; /* 5px → rem */
+        margin-top: 0.125rem; /* 2px → rem */
     }
 
     /* Ajustar subtítulo no mobile */
     .chatbot-main-subtitle {
         font-size: 0.9rem;
-        margin-top: 5px;
+        margin-top: 0.31rem; /* 5px → rem */
     }
 
     /* Ajustar input no mobile */
@@ -1170,7 +1212,7 @@ body {
 
     /* Ajustar mic icon no mobile */
     .chatbot-mic-icon {
-        margin-left: 12px;
+        margin-left: 0.75rem; /* 12px → rem */
         font-size: 1.2rem;
         flex-shrink: 0;
     }
@@ -1200,23 +1242,23 @@ body {
         flex-direction: row;
         flex-wrap: wrap;
         justify-content: center;
-        gap: 10px;
+        gap: 0.625rem; /* 10px → rem */
         width: min(calc(100vw - 20px), 380px);
         max-width: min(calc(100vw - 20px), 380px);
         z-index: 1001;
         opacity: 1;
         animation: none;
-        margin-top: 10px;
+        margin-top: 0.625rem; /* 10px → rem */
     }
 
     /* Ajustar botões individuais no mobile */
     .chatbot-action-btn {
-        min-width: 120px;
-        max-width: 130px;
+        min-width: 6.25vw; /* 120px → vw (120/1920) */
+        max-width: 6.77vw; /* 130px → vw (130/1920) */
         flex: 1;
-        padding: 10px 14px;
+        padding: 0.625rem 0.875rem; /* 10px 14px → rem */
         font-size: 0.8rem;
-        border-radius: 20px;
+        border-radius: 1.25rem; /* 20px → rem */
         text-align: center;
         white-space: nowrap;
         overflow: hidden;
@@ -1238,8 +1280,8 @@ body {
         animation: none;
         opacity: 1;
         width: 100%;
-        max-width: 270px;
-        margin-top: 5px;
+        max-width: 14.06vw; /* 270px → vw (270/1920) */
+        margin-top: 0.31rem; /* 5px → rem */
     }
 
     /* Ajustar estado ativo do chatbot no mobile */
@@ -1250,7 +1292,7 @@ body {
 
     /* Ajustar header do chatbot no mobile */
     .chatbot-header-bar {
-        padding: 10px 15px;
+        padding: 0.625rem 0.9375rem; /* 10px 15px → rem */
     }
 
     .chatbot-header-name {
@@ -1263,17 +1305,17 @@ body {
 
     /* Ajustar área de conversa no mobile */
     .chatbot-conversation-area {
-        padding: 15px 20px;
+        padding: 0.9375rem 1.25rem; /* 15px 20px → rem */
         flex: 1;
-        min-height: 320px;
+        min-height: 20rem; /* 320px → rem */
         max-height: 75vh;
         overflow: hidden auto;
     }
 
     /* Ajustar mensagens no mobile */
     .chatbot-message {
-        margin-bottom: 20px;
-        gap: 0px;
+        margin-bottom: 1.25rem; /* 20px → rem */
+        gap: 0;
     }
 
     .chatbot-message-avatar {
@@ -1281,43 +1323,43 @@ body {
     }
 
     .chatbot-message-bubble {
-        padding: 12px 16px;
+        padding: 0.75rem 1rem; /* 12px 16px → rem */
         font-size: 0.95rem;
-        border-radius: 16px;
+        border-radius: 1rem; /* 16px → rem */
     }
 
     .chatbot-message-assistant .chatbot-message-bubble {
-        border-radius: 16px 16px 16px 4px;
+        border-radius: 1rem 1rem 1rem 0.25rem; /* 16px 16px 16px 4px → rem */
     }
 
     .chatbot-message-user .chatbot-message-bubble {
-        border-radius: 16px 16px 4px 16px;
+        border-radius: 1rem 1rem 0.25rem 1rem; /* 16px 16px 4px 16px → rem */
     }
 
     /* Ajustar input ativo no mobile */
     .chatbot-input-area {
-        padding: 8px 15px;
+        padding: 0.5rem 0.9375rem; /* 8px 15px → rem */
         overflow: hidden;
     }
 
     .chatbot-active-input-field {
-        gap: 10px !important;
+        gap: 0.625rem !important; /* 10px → rem */
         max-width: 100%;
         overflow: hidden;
     }
 
     .chatbot-active-input {
-        padding: 10px 14px;
+        padding: 0.625rem 0.875rem; /* 10px 14px → rem */
         font-size: 0.9rem;
-        border-radius: 22px;
+        border-radius: 1.375rem; /* 22px → rem */
         min-width: 0;
         flex: 1;
     }
 
     /* Ajustar indicador de digitação no mobile */
     .chatbot-typing-indicator {
-        padding-left: 15px;
-        margin-bottom: 15px;
+        padding-left: 0.9375rem; /* 15px → rem */
+        margin-bottom: 0.9375rem; /* 15px → rem */
     }
 
     /* Ajustar hover effects para touch no mobile */
@@ -1330,9 +1372,9 @@ body {
 
 /* ============ TEXTO INFORMATIVO DA ANÁLISE COMPLETA ============ */
 .analysis-info-text {
-    margin-top: 14px;
-    margin-bottom: 10px;
-    padding: 10px 20px;
+    margin-top: 0.875rem; /* 14px → rem */
+    margin-bottom: 0.625rem; /* 10px → rem */
+    padding: 0.625rem 1.25rem; /* 10px 20px → rem */
     text-align: center;
     font-size: 0.95rem;
     line-height: 1.5;
@@ -1342,7 +1384,7 @@ body {
     font-family: "Inter", "Montserrat", "Noto Sans", sans-serif;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 8px;
+    border-radius: 0.5rem; /* 8px → rem */
     background: rgba(255, 255, 255, 0.02);
     backdrop-filter: blur(6px);
     box-shadow: 0 0 8px rgba(144, 63, 255, 0.15);
@@ -1352,7 +1394,7 @@ body {
 @keyframes fadeInInfo {
     from { 
         opacity: 0; 
-        transform: translateY(6px); 
+        transform: translateY(0.556vh); /* 6px → 0.556vh */
     }
     to { 
         opacity: 0.85; 
