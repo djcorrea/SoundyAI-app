@@ -368,13 +368,16 @@ body {
     left: 50%;
     transform: translateX(-50%);
     z-index: 1000;
-    /* RESPONSIVO: Adapta a qualquer tela mantendo proporções */
-    width: clamp(350px, 50vw, 800px) !important;
-    height: clamp(400px, 45vh, 600px) !important;
-    min-width: clamp(350px, 50vw, 800px) !important;
-    min-height: clamp(400px, 45vh, 600px) !important;
-    max-width: clamp(350px, 50vw, 800px) !important;
-    max-height: clamp(400px, 45vh, 600px) !important;
+    
+    /* TAMANHO FIXO: Baseado no seu notebook (NÃO ALTERAR) */
+    width: 800px !important;
+    height: 600px !important;
+    min-width: 800px !important;
+    min-height: 600px !important;
+    max-width: 800px !important;
+    max-height: 600px !important;
+    
+    /* VISUAL: Mantém exato do seu notebook */
     background: linear-gradient(145deg, 
         rgba(10, 15, 35, 0.95), 
         rgba(15, 25, 55, 0.95), 
@@ -386,12 +389,14 @@ body {
     overflow: hidden;
     opacity: 0;
     will-change: transform, opacity;
-    /* Fallback para dispositivos problemáticos */
-    min-height: -webkit-fill-available;
-    /* CRÍTICO: Garantir que escala não cause overflow */
-    transform-origin: center top;
-    /* CRÍTICO: Espaço seguro para escalas menores */
-    margin: 20px auto;
+    
+    /* SISTEMA DE ESCALA: Aplicado automaticamente */
+    transform-origin: top center;
+    transition: transform 0.15s ease-out;
+    
+    /* CENTRALIZAÇÃO: Garantia de alinhamento */
+    margin-left: 0;
+    margin-right: 0;
 }
 
 /* ============ CHATBOT - ESTADO WELCOME ============ */
@@ -1092,43 +1097,70 @@ body {
     }
 }
 
-/* ============ SISTEMA DE ESCALA AUTOMÁTICA PARA MONITORES ============ */
-/* Tamanho base original para telas grandes */
+/* ============ SISTEMA DE ESCALA BASEADO NA RESOLUÇÃO DE REFERÊNCIA ============ */
+/* Configuração base: seu notebook como referência (tamanho perfeito) */
+
+/* Variáveis CSS para sistema de escala inteligente */
+:root {
+    /* Resolução de referência: seu notebook onde está perfeito */
+    --reference-width: 1920; /* Ajuste para resolução do seu notebook */
+    --reference-height: 1080; /* Ajuste para resolução do seu notebook */
+    --reference-dpr: 1; /* Device pixel ratio de referência */
+    
+    /* Fatores de escala calculados automaticamente */
+    --scale-factor: 1;
+    --viewport-scale: 1;
+}
+
+/* Tamanho base original - mantém exatamente como no seu notebook */
 @media (min-width: 1024px) and (pointer: fine) {
     .chatbot-container {
-        /* TAMANHO BASE: Original 800x600px sempre */
+        /* TAMANHO BASE: Exato do seu notebook (NÃO MUDA) */
         width: 800px !important;
         height: 600px !important;
         min-width: 800px !important;
         min-height: 600px !important;
         max-width: 800px !important;
         max-height: 600px !important;
-        /* ESCALA: Aplicada via transform para manter qualidade */
-        transform: translateX(-50%) scale(1);
-        transform-origin: center top;
-        transition: transform 0.3s ease;
+        
+        /* SISTEMA INTELIGENTE: Escala automática baseada na tela */
+        transform: translateX(-50%) scale(var(--scale-factor));
+        transform-origin: top center;
+        transition: transform 0.15s ease-out;
+        
+        /* POSICIONAMENTO: Centralizado e fixo */
+        position: fixed;
+        top: 4%;
+        left: 50%;
+        z-index: 1000;
     }
     
     .chatbot-action-buttons {
-        right: 130px !important;
-        bottom: 13px !important;
-        /* ESCALA: Sincronizada com container */
-        transform: scale(1);
-        transform-origin: center;
-        transition: transform 0.3s ease;
+        /* BOTÕES: Escalam junto com container */
+        position: fixed;
+        right: 130px;
+        bottom: 13px;
+        transform: scale(var(--scale-factor));
+        transform-origin: bottom right;
+        transition: transform 0.15s ease-out;
+        z-index: 999;
     }
     
-    /* Elementos do cenário mantêm tamanho original */
+    /* Elementos do cenário: escalam junto automaticamente */
+    .robo, .mesa, .notebook, .teclado, .caixas {
+        transform: scale(var(--scale-factor));
+        transform-origin: center;
+        transition: transform 0.15s ease-out;
+        position: relative;
+    }
+    
+    /* Posicionamento mantido do seu notebook */
     .robo {
         top: clamp(20px, 3vh, 50px);
         right: clamp(-150px, -10vw, -10px);
         height: auto;
         max-height: clamp(400px, 86vh, 1000px);
         z-index: 3;
-        /* ESCALA: Sincronizada com sistema */
-        transform: scale(1);
-        transform-origin: center;
-        transition: transform 0.3s ease;
     }
     
     .mesa {
@@ -1138,9 +1170,6 @@ body {
         height: auto;
         max-height: clamp(800px, 100vh, 1500px);
         z-index: 1;
-        transform: scale(1);
-        transform-origin: center;
-        transition: transform 0.3s ease;
     }
     
     .notebook {
@@ -1149,9 +1178,6 @@ body {
         height: auto;
         max-height: clamp(80vh, 120vh, 140vh);
         z-index: 2;
-        transform: scale(1);
-        transform-origin: center;
-        transition: transform 0.3s ease;
     }
     
     .teclado {
@@ -1160,9 +1186,6 @@ body {
         height: auto;
         max-height: clamp(100vh, 150vh, 180vh);
         z-index: 2;
-        transform: scale(1);
-        transform-origin: center;
-        transition: transform 0.3s ease;
     }
     
     .caixas {
@@ -1171,71 +1194,84 @@ body {
         height: auto;
         max-height: clamp(80vh, 115vh, 140vh);
         z-index: 2;
-        transform: scale(1);
-        transform-origin: center;
-        transition: transform 0.3s ease;
     }
 }
 
-/* ============ ESCALA PARA MONITORES 1366x768 (Laptops comuns) ============ */
-@media (min-width: 1366px) and (max-width: 1440px) and (min-height: 768px) and (max-height: 900px) and (pointer: fine) {
-    .chatbot-container {
-        transform: translateX(-50%) scale(0.75) !important; /* 75% = zoom que funciona */
-    }
-    
-    .chatbot-action-buttons {
-        transform: scale(0.75) !important;
-        right: calc(130px * 0.75) !important; /* Ajusta posição para escala */
-        bottom: calc(13px * 0.75) !important;
-    }
-    
-    .robo, .mesa, .notebook, .teclado, .caixas {
-        transform: scale(0.75) !important;
+/* ============ COMPENSAÇÃO AUTOMÁTICA DE ESCALA POR RESOLUÇÃO ============ */
+
+/* Resolução Full HD e superiores: mantém escala 1 (referência) */
+@media (min-width: 1920px) and (min-height: 1080px) and (pointer: fine) {
+    :root {
+        --scale-factor: 1; /* Tamanho perfeito - não muda */
     }
 }
 
-/* ============ ESCALA PARA MONITORES 1440x900 e 1600x900 ============ */
-@media (min-width: 1440px) and (max-width: 1680px) and (min-height: 900px) and (max-height: 1050px) and (pointer: fine) {
-    .chatbot-container {
-        transform: translateX(-50%) scale(0.8) !important; /* 80% para telas médias */
-    }
-    
-    .chatbot-action-buttons {
-        transform: scale(0.8) !important;
-        right: calc(130px * 0.8) !important;
-        bottom: calc(13px * 0.8) !important;
-    }
-    
-    .robo, .mesa, .notebook, .teclado, .caixas {
-        transform: scale(0.8) !important;
+/* Resoluções 1600-1919px: escala ligeiramente menor */
+@media (min-width: 1600px) and (max-width: 1919px) and (pointer: fine) {
+    :root {
+        --scale-factor: 0.9; /* 90% - ajuste suave */
     }
 }
 
-/* ============ ESCALA PARA MONITORES MUITO PEQUENOS ============ */
-@media (min-width: 1024px) and (max-width: 1365px) and (pointer: fine) {
-    .chatbot-container {
-        transform: translateX(-50%) scale(0.7) !important; /* 70% para telas pequenas */
+/* Resoluções 1440-1599px: escala média */
+@media (min-width: 1440px) and (max-width: 1599px) and (pointer: fine) {
+    :root {
+        --scale-factor: 0.85; /* 85% - ajuste médio */
     }
-    
-    .chatbot-action-buttons {
-        transform: scale(0.7) !important;
-        right: calc(130px * 0.7) !important;
-        bottom: calc(13px * 0.7) !important;
+}
+
+/* Resoluções 1366-1439px: escala como zoom 75% */
+@media (min-width: 1366px) and (max-width: 1439px) and (pointer: fine) {
+    :root {
+        --scale-factor: 0.75; /* 75% - o que funcionou no teste */
     }
-    
-    .robo, .mesa, .notebook, .teclado, .caixas {
-        transform: scale(0.7) !important;
+}
+
+/* Resoluções 1280-1365px: escala menor */
+@media (min-width: 1280px) and (max-width: 1365px) and (pointer: fine) {
+    :root {
+        --scale-factor: 0.7; /* 70% - telas menores */
+    }
+}
+
+/* Resoluções 1024-1279px: escala mínima */
+@media (min-width: 1024px) and (max-width: 1279px) and (pointer: fine) {
+    :root {
+        --scale-factor: 0.65; /* 65% - telas muito pequenas */
+    }
+}
+
+/* ============ COMPENSAÇÃO POR DENSIDADE DE PIXELS ============ */
+
+/* Alta densidade (Retina, 4K): ajuste fino */
+@media (min-width: 1024px) and (pointer: fine) and (-webkit-device-pixel-ratio: 2) {
+    :root {
+        --scale-factor: calc(var(--scale-factor) * 0.95); /* Reduz 5% adicional */
+    }
+}
+
+/* Densidade muito alta: ajuste maior */
+@media (min-width: 1024px) and (pointer: fine) and (-webkit-device-pixel-ratio: 3) {
+    :root {
+        --scale-factor: calc(var(--scale-factor) * 0.9); /* Reduz 10% adicional */
     }
 }
 
 /* ============ RESPONSIVIDADE MOBILE (PROTEGIDA - NÃO ALTERAR) ============ */
+/* CRÍTICO: Mobile não usa sistema de escala - layout específico mantido */
 @media (max-width: 767px) and (pointer: coarse) {
-    /* PROTEGIDO: Configuração perfeita para celulares */
+    /* OVERRIDE: Remove escala para mobile */
+    :root {
+        --scale-factor: 1 !important; /* Força escala 1 no mobile */
+    }
+    
+    /* PROTEGIDO: Configuração mobile perfeita */
     /* Ocultar elementos do cenário no mobile */
     .robo, .mesa, .caixas, .fundo, .notebook, .teclado {
         opacity: 0 !important;
         pointer-events: none;
         visibility: hidden;
+        transform: none !important; /* Remove escala no mobile */
     }
 
     /* Permitir scroll vertical no mobile */
@@ -1247,10 +1283,9 @@ body {
     /* PROTEGIDO: Container mobile perfeito */
     .chatbot-container {
         position: fixed !important;
-        /* CORRIGIDO: Posição mais consistente entre dispositivos */
         top: 50% !important;
         left: 50% !important;
-        transform: translate(-50%, -50%) !important;
+        transform: translate(-50%, -50%) !important; /* Override sistema de escala */
         width: min(calc(100vw - 20px), 380px) !important;
         max-width: min(calc(100vw - 20px), 380px) !important;
         min-width: min(calc(100vw - 20px), 300px) !important;
