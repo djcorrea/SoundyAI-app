@@ -388,8 +388,10 @@ body {
     will-change: transform, opacity;
     /* Fallback para dispositivos problemáticos */
     min-height: -webkit-fill-available;
-    /* Escala global para PCs problemáticos */
+    /* CRÍTICO: Garantir que escala não cause overflow */
     transform-origin: center top;
+    /* CRÍTICO: Espaço seguro para escalas menores */
+    margin: 20px auto;
 }
 
 /* ============ CHATBOT - ESTADO WELCOME ============ */
@@ -1090,31 +1092,43 @@ body {
     }
 }
 
-/* ============ TAMANHO ZOOM 75% PARA A MAIORIA DOS PCs ============ */
-/* PADRÃO: Zoom 75% para garantir compatibilidade universal */
+/* ============ SISTEMA DE ESCALA AUTOMÁTICA PARA MONITORES ============ */
+/* Tamanho base original para telas grandes */
 @media (min-width: 1024px) and (pointer: fine) {
     .chatbot-container {
-        /* PADRÃO: Zoom 75% (600x450px) para compatibilidade universal */
-        width: 600px !important;   /* 800px * 0.75 */
-        height: 450px !important;  /* 600px * 0.75 */
-        min-width: 600px !important;
-        min-height: 450px !important;
-        max-width: 600px !important;
-        max-height: 450px !important;
+        /* TAMANHO BASE: Original 800x600px sempre */
+        width: 800px !important;
+        height: 600px !important;
+        min-width: 800px !important;
+        min-height: 600px !important;
+        max-width: 800px !important;
+        max-height: 600px !important;
+        /* ESCALA: Aplicada via transform para manter qualidade */
+        transform: translateX(-50%) scale(1);
+        transform-origin: center top;
+        transition: transform 0.3s ease;
     }
     
     .chatbot-action-buttons {
-        right: 98px !important;   /* 130px * 0.75 */
-        bottom: 10px !important;  /* 13px * 0.75 */
+        right: 130px !important;
+        bottom: 13px !important;
+        /* ESCALA: Sincronizada com container */
+        transform: scale(1);
+        transform-origin: center;
+        transition: transform 0.3s ease;
     }
     
-    /* Elementos do cenário no tamanho original */
+    /* Elementos do cenário mantêm tamanho original */
     .robo {
         top: clamp(20px, 3vh, 50px);
         right: clamp(-150px, -10vw, -10px);
         height: auto;
         max-height: clamp(400px, 86vh, 1000px);
         z-index: 3;
+        /* ESCALA: Sincronizada com sistema */
+        transform: scale(1);
+        transform-origin: center;
+        transition: transform 0.3s ease;
     }
     
     .mesa {
@@ -1124,6 +1138,9 @@ body {
         height: auto;
         max-height: clamp(800px, 100vh, 1500px);
         z-index: 1;
+        transform: scale(1);
+        transform-origin: center;
+        transition: transform 0.3s ease;
     }
     
     .notebook {
@@ -1132,6 +1149,9 @@ body {
         height: auto;
         max-height: clamp(80vh, 120vh, 140vh);
         z-index: 2;
+        transform: scale(1);
+        transform-origin: center;
+        transition: transform 0.3s ease;
     }
     
     .teclado {
@@ -1140,6 +1160,9 @@ body {
         height: auto;
         max-height: clamp(100vh, 150vh, 180vh);
         z-index: 2;
+        transform: scale(1);
+        transform-origin: center;
+        transition: transform 0.3s ease;
     }
     
     .caixas {
@@ -1148,44 +1171,60 @@ body {
         height: auto;
         max-height: clamp(80vh, 115vh, 140vh);
         z-index: 2;
+        transform: scale(1);
+        transform-origin: center;
+        transition: transform 0.3s ease;
     }
 }
 
-/* ============ EXCEÇÃO PARA SEU PC - TAMANHO ORIGINAL ============ */
-/* Baseado em resolução alta ou características específicas do seu PC */
-@media (min-width: 1920px) and (min-height: 1080px) and (pointer: fine) {
+/* ============ ESCALA PARA MONITORES 1366x768 (Laptops comuns) ============ */
+@media (min-width: 1366px) and (max-width: 1440px) and (min-height: 768px) and (max-height: 900px) and (pointer: fine) {
     .chatbot-container {
-        /* SEU PC: Mantém tamanho original 800x600px */
-        width: 800px !important;
-        height: 600px !important;
-        min-width: 800px !important;
-        min-height: 600px !important;
-        max-width: 800px !important;
-        max-height: 600px !important;
+        transform: translateX(-50%) scale(0.75) !important; /* 75% = zoom que funciona */
     }
     
     .chatbot-action-buttons {
-        right: 130px !important;
-        bottom: 13px !important;
+        transform: scale(0.75) !important;
+        right: calc(130px * 0.75) !important; /* Ajusta posição para escala */
+        bottom: calc(13px * 0.75) !important;
+    }
+    
+    .robo, .mesa, .notebook, .teclado, .caixas {
+        transform: scale(0.75) !important;
     }
 }
 
-/* ============ ALTERNATIVA: EXCEÇÃO POR DPI ALTO ============ */
-/* Se seu PC tem alta densidade de pixels */
-@media (min-width: 1024px) and (pointer: fine) and (-webkit-device-pixel-ratio: 1.25) {
+/* ============ ESCALA PARA MONITORES 1440x900 e 1600x900 ============ */
+@media (min-width: 1440px) and (max-width: 1680px) and (min-height: 900px) and (max-height: 1050px) and (pointer: fine) {
     .chatbot-container {
-        /* SEU PC: Mantém tamanho original 800x600px */
-        width: 800px !important;
-        height: 600px !important;
-        min-width: 800px !important;
-        min-height: 600px !important;
-        max-width: 800px !important;
-        max-height: 600px !important;
+        transform: translateX(-50%) scale(0.8) !important; /* 80% para telas médias */
     }
     
     .chatbot-action-buttons {
-        right: 130px !important;
-        bottom: 13px !important;
+        transform: scale(0.8) !important;
+        right: calc(130px * 0.8) !important;
+        bottom: calc(13px * 0.8) !important;
+    }
+    
+    .robo, .mesa, .notebook, .teclado, .caixas {
+        transform: scale(0.8) !important;
+    }
+}
+
+/* ============ ESCALA PARA MONITORES MUITO PEQUENOS ============ */
+@media (min-width: 1024px) and (max-width: 1365px) and (pointer: fine) {
+    .chatbot-container {
+        transform: translateX(-50%) scale(0.7) !important; /* 70% para telas pequenas */
+    }
+    
+    .chatbot-action-buttons {
+        transform: scale(0.7) !important;
+        right: calc(130px * 0.7) !important;
+        bottom: calc(13px * 0.7) !important;
+    }
+    
+    .robo, .mesa, .notebook, .teclado, .caixas {
+        transform: scale(0.7) !important;
     }
 }
 
