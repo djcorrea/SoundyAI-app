@@ -241,15 +241,23 @@ body {
 }
 
 .teclado {
-    bottom: clamp(-55%, -48vh, -40%);
-    left: clamp(18%, 22vw, 26%);
-    height: auto;
-    max-height: clamp(100vh, 150vh, 180vh);
+    position: absolute;
+    bottom: clamp(-30vh, -25vh, -20vh);
+    left: clamp(18vw, 22vw, 26vw);
+
+    /* Mantém a imagem sempre visível e proporcional */
+    display: block;
+    width: 36vw;            /* largura proporcional à tela */
+    max-width: 700px;       /* trava o tamanho máximo */
+    height: auto;           /* mantém a proporção */
+    object-fit: contain;    /* evita distorção */
+    
     z-index: 2;
-    /* Otimizado: Blur reduzido de 12px para 10px */
-    filter: drop-shadow(0 0 0.417vw rgba(0, 150, 255, 0.25)); /* 8px → 0.417vw */
-    /* Otimizado: Duração aumentada de 2.5s para 4s */
+    filter: drop-shadow(0 0 0.417vw rgba(0, 150, 255, 0.25));
     animation: fadeInPush 0.6s ease-out forwards, subtleGlowOptimized 4s ease-in-out infinite 0.6s;
+
+    transform-origin: center;
+    transition: transform 0.2s ease-out, width 0.2s ease-out;
 }
 
 /* ============ GARANTIR ESTADO INICIAL CORRETO ============ */
