@@ -5,34 +5,15 @@
     box-sizing: border-box;
 }
 
-/* ============ FALLBACKS DE COMPATIBILIDADE ============ */
+/* ============ VARIÁVEIS PROPORCIONAIS BASEADAS EM 1920x1080 ============ */
 :root {
-    /* Detecta altura real do viewport (importante para mobile) */
+    /* Sistema proporcional: 1px = 0.0520833333vw (1920px) e 0.0925925926vh (1080px) */
+    --base-unit-vw: 0.0520833333vw; /* 1px horizontal */
+    --base-unit-vh: 0.0925925926vh; /* 1px vertical */
+    
+    /* Fallbacks de compatibilidade */
     --vh: 1vh;
     --vw: 1vw;
-    
-    /* SISTEMA DE COMPENSAÇÃO DPI/RESOLUÇÃO */
-    /* Configuração base: notebook do usuário (onde layout está perfeito) */
-    --base-width: 1920; /* Resolução base de referência */
-    --base-height: 1080; /* Altura base de referência */
-    --base-dpr: 1; /* Device pixel ratio base */
-    
-    /* Fator de escala calculado automaticamente */
-    --auto-scale: 1;
-    --dpi-compensation: 1;
-    
-    /* Sistema de detecção de tela */
-    --screen-type: desktop; /* desktop, laptop, monitor */
-    --scale-applied: false;
-}
-
-/* Fallback para navegadores antigos */
-@supports not (min: 1px) {
-    :root {
-        --vh: 1%;
-        --vw: 1%;
-        --auto-scale: 1;
-    }
 }
 
 body {
@@ -96,7 +77,7 @@ body {
     object-fit: contain;
     image-rendering: auto;
     opacity: 0;
-    transform: translateY(20px); /* Estado inicial para fadeInPush */
+    transform: translateY(1.85vh); /* 20px → 1.85vh */
     transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), opacity 0.2s ease;
     will-change: transform;
 }
@@ -113,26 +94,26 @@ body {
 }
 
 .fundo {
-    top: -450px;
+    top: -41.67vh; /* -450px → -41.67vh */
     left: 0;
     width: 200vw;
-    height: 1500px;
+    height: 138.89vh; /* 1500px → 138.89vh */
     z-index: 1;
     object-fit: cover;
     opacity: 0.3;
-    filter: blur(1px);
+    filter: blur(0.052vw); /* 1px → 0.052vw */
 }
 
 /* ============ ELEMENTOS DO CENÁRIO ============ */
 .robo {
     /* RESPONSIVO: Adapta a qualquer tela */
-    top: clamp(20px, 3vh, 50px);
-    right: clamp(-150px, -10vw, -10px);
+    top: clamp(1.04vw, 3vh, 2.604vw); /* 20px, 3vh, 50px → vw/vh */
+    right: clamp(-7.81vw, -10vw, -0.521vw); /* -150px, -10vw, -10px → vw */
     height: auto;
-    max-height: clamp(400px, 86vh, 1000px);
+    max-height: clamp(20.83vw, 86vh, 52.08vw); /* 400px, 86vh, 1000px → vw/vh */
     z-index: 3;
     /* Otimizado: Blur balanceado - visual preservado + performance */
-    filter: drop-shadow(0 0 12px rgba(138, 43, 226, 0.3));
+    filter: drop-shadow(0 0 0.625vw rgba(138, 43, 226, 0.3)); /* 12px → 0.625vw */
     /* Otimizado: Aumentamos duração para reduzir frequência de repaint */
     animation: fadeInPush 0.6s ease-out forwards, robotBreathingOptimized 4s ease-in-out infinite 0.6s;
     /* Fade MUITO mais pronunciado - inicia mais cedo e é mais intenso */
@@ -185,12 +166,12 @@ body {
 
 .mesa {
     bottom: clamp(-75%, -70vh, -60%);
-    left: clamp(-400px, -25vw, -200px);
+    left: clamp(-20.83vw, -25vw, -10.42vw); /* -400px, -25vw, -200px → vw */
     width: clamp(120%, 145vw, 170%);
     height: auto;
-    max-height: clamp(800px, 100vh, 1500px);
+    max-height: clamp(41.67vw, 100vh, 78.125vw); /* 800px, 100vh, 1500px → vw/vh */
     z-index: 1;
-    filter: drop-shadow(0 0 12px rgba(0, 150, 255, 0.2));
+    filter: drop-shadow(0 0 0.625vw rgba(0, 150, 255, 0.2)); /* 12px → 0.625vw */
     /* CRÍTICO: Mesa precisa de animação para aparecer */
     animation: fadeInPush 0.6s ease-out forwards;
 }
@@ -202,7 +183,7 @@ body {
     max-height: clamp(80vh, 120vh, 140vh);
     z-index: 2;
     /* Otimizado: Blur balanceado - visual preservado + performance */
-    filter: drop-shadow(0 0 10px rgba(0, 150, 255, 0.3));
+    filter: drop-shadow(0 0 0.521vw rgba(0, 150, 255, 0.3)); /* 10px → 0.521vw */
     /* Otimizado: Duração aumentada de 3s para 5s */
     animation: fadeInPush 0.6s ease-out forwards, subtleGlowOptimized 5s ease-in-out infinite 0.6s;
 }
@@ -214,7 +195,7 @@ body {
     max-height: clamp(100vh, 150vh, 180vh);
     z-index: 2;
     /* Otimizado: Blur reduzido de 12px para 10px */
-    filter: drop-shadow(0 0 8px rgba(0, 150, 255, 0.25));
+    filter: drop-shadow(0 0 0.417vw rgba(0, 150, 255, 0.25)); /* 8px → 0.417vw */
     /* Otimizado: Duração aumentada de 2.5s para 4s */
     animation: fadeInPush 0.6s ease-out forwards, subtleGlowOptimized 4s ease-in-out infinite 0.6s;
 }
@@ -222,7 +203,7 @@ body {
 /* ============ GARANTIR ESTADO INICIAL CORRETO ============ */
 .notebook, .teclado, .mesa, .robo, .caixas {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(1.85vh); /* 20px → 1.85vh */
 }
 
 /* ============ ANIMAÇÃO DE ENTRADA PARA DESKTOP ============ */
@@ -239,7 +220,7 @@ body {
     height: auto;
     max-height: clamp(80vh, 115vh, 140vh);
     z-index: 2;
-    filter: drop-shadow(0 0 15px rgba(138, 43, 226, 0.4));
+    filter: drop-shadow(0 0 0.781vw rgba(138, 43, 226, 0.4)); /* 15px → 0.781vw */
     animation: fadeInPush 0.6s ease-out forwards, subtleGlowOptimized 3.5s ease-in-out infinite 0.6s;
 }
 
@@ -263,11 +244,11 @@ body {
 }
 
 .notebook:hover {
-    transform: scale(1.06) translateY(-5px);
+    transform: scale(1.06) translateY(-0.463vh); /* -5px → -0.463vh */
 }
 
 .teclado:hover {
-    transform: scale(1.05) translateY(-3px);
+    transform: scale(1.05) translateY(-0.278vh); /* -3px → -0.278vh */
 }
 
 .mesa:hover {
@@ -275,13 +256,13 @@ body {
 }
 
 .caixas:hover {
-    transform: scale(1.04) translateY(-8px);
+    transform: scale(1.04) translateY(-0.741vh); /* -8px → -0.741vh */
 }
 /* ============ ANIMAÇÕES DO CENÁRIO ============ */
 @keyframes fundoEntrance {
     0% {
         opacity: 0;
-        transform: translateY(30px);
+        transform: translateY(2.78vh); /* 30px → 2.78vh */
     }
     100% {
         opacity: 0.3;
@@ -292,7 +273,7 @@ body {
 @keyframes robotEntranceAndBreathing {
     0% {
         opacity: 0;
-        transform: translateY(40px) scale(0.95);
+        transform: translateY(3.70vh) scale(0.95); /* 40px → 3.70vh */
     }
     100% {
         opacity: 1;
@@ -303,7 +284,7 @@ body {
 @keyframes notebookEntranceAndGlow {
     0% {
         opacity: 0;
-        transform: translateY(35px) scale(0.9);
+        transform: translateY(3.24vh) scale(0.9); /* 35px → 3.24vh */
     }
     100% {
         opacity: 1;
@@ -338,18 +319,18 @@ body {
 @keyframes particleFloatOptimized {
     0%, 100% {
         opacity: 0.3;
-        transform: translateY(0px);
+        transform: translateY(0);
     }
     50% {
         opacity: 0.6;
-        transform: translateY(-10px);
+        transform: translateY(-0.926vh); /* -10px → -0.926vh */
     }
 }
 
 @keyframes fadeInUp {
     from {
         opacity: 0;
-        transform: translateY(50px) scale(0.9);
+        transform: translateY(4.63vh) scale(0.9); /* 50px → 4.63vh */
     }
     to {
         opacity: 1;
@@ -373,18 +354,18 @@ body {
 /* ============ CHATBOT - CONTAINER PRINCIPAL ============ */
 .chatbot-container {
     position: fixed;
-    top: 4%;
+    top: 3.7vh; /* 4% convertido para vh */
     left: 50%;
     transform: translateX(-50%);
     z-index: 1000;
     
-    /* TAMANHO FIXO: Baseado no seu notebook (NÃO ALTERAR) */
-    width: 800px !important;
-    height: 600px !important;
-    min-width: 800px !important;
-    min-height: 600px !important;
-    max-width: 800px !important;
-    max-height: 600px !important;
+    /* TAMANHO PROPORCIONAL: Baseado em 1920x1080 */
+    width: 41.67vw; /* 800px → 41.67vw */
+    height: 55.55vh; /* 600px → 55.55vh */
+    min-width: 41.67vw;
+    min-height: 55.55vh;
+    max-width: 41.67vw;
+    max-height: 55.55vh;
     
     /* VISUAL: Mantém exato do seu notebook */
     background: linear-gradient(145deg, 
@@ -392,20 +373,15 @@ body {
         rgba(15, 25, 55, 0.95), 
         rgba(20, 10, 45, 0.95)
     );
-    border: 2px solid rgba(0, 150, 255, 0.3);
-    border-radius: 24px;
-    box-shadow: 0 0 60px rgba(0, 150, 255, 0.3);
+    border: 0.104vw solid rgba(0, 150, 255, 0.3); /* 2px → 0.104vw */
+    border-radius: 1.25vw; /* 24px → 1.25vw */
+    box-shadow: 0 0 3.125vw rgba(0, 150, 255, 0.3); /* 60px → 3.125vw */
     overflow: hidden;
     opacity: 0;
     will-change: transform, opacity;
     
-    /* SISTEMA DE ESCALA: Aplicado automaticamente */
-    transform-origin: top center;
+    /* TRANSIÇÕES PROPORCIONAIS */
     transition: transform 0.15s ease-out;
-    
-    /* CENTRALIZAÇÃO: Garantia de alinhamento */
-    margin-left: 0;
-    margin-right: 0;
 }
 
 /* ============ CHATBOT - ESTADO WELCOME ============ */
@@ -415,7 +391,7 @@ body {
     align-items: center;
     justify-content: space-between;
     height: 100%;
-    padding: 60px 50px 40px;
+    padding: 5.56vh 2.6vw 3.7vh; /* 60px 50px 40px → vh/vw */
     opacity: 1;
     transition: opacity 0.4s ease, transform 0.4s ease;
 }
@@ -425,18 +401,18 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-top: 55px;
+    margin-top: 5.09vh; /* 55px → 5.09vh */
 }
 
 .chatbot-main-robot {
     position: relative;
-    top: 20px;
-    width: 250px;
-    height: 180px;
+    top: 1.85vh; /* 20px → 1.85vh */
+    width: 13.02vw; /* 250px → 13.02vw */
+    height: 16.67vh; /* 180px → 16.67vh */
     object-fit: contain;
     filter: 
-        drop-shadow(0 0 18px rgba(0, 150, 255, 0.6))
-        drop-shadow(0 0 35px rgba(138, 43, 226, 0.4));
+        drop-shadow(0 0 0.9375vw rgba(0, 150, 255, 0.6)) /* 18px → 0.9375vw */
+        drop-shadow(0 0 1.8229vw rgba(138, 43, 226, 0.4)); /* 35px → 1.8229vw */
     animation: chatbotMainRobotFloatOptimized 1.6s ease-in-out infinite;
     will-change: transform;
 }
@@ -489,20 +465,20 @@ body {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 0.625vw; /* 12px → 0.625vw */
     background: linear-gradient(135deg, 
         rgba(0, 150, 255, 0.1), 
         rgba(138, 43, 226, 0.1)
     );
-    border: 2px solid rgba(0, 150, 255, 0.3);
-    border-radius: 50px;
-    padding: 0.6px 12px 0.6px 0.6px;
+    border: 0.104vw solid rgba(0, 150, 255, 0.3); /* 2px → 0.104vw */
+    border-radius: 2.604vw; /* 50px → 2.604vw */
+    padding: 0.055vh 0.625vw 0.055vh 0.055vh; /* 0.6px 12px 0.6px 0.6px → vh/vw */
     transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .chatbot-input-field:focus-within {
     border-color: rgba(0, 150, 255, 0.6);
-    box-shadow: 0 0 25px rgba(0, 150, 255, 0.4);
+    box-shadow: 0 0 1.302vw rgba(0, 150, 255, 0.4); /* 25px → 1.302vw */
     background: linear-gradient(135deg, 
         rgba(0, 150, 255, 0.15), 
         rgba(138, 43, 226, 0.15)
@@ -518,7 +494,7 @@ body {
 /* Input sempre no meio */
 .chatbot-main-input {
     flex: 1;
-    padding: 14px 24px;
+    padding: 1.296vh 1.25vw; /* 14px 24px → vh/vw */
     background: transparent;
     border: none;
     color: rgba(255, 255, 255, 0.9);
@@ -532,8 +508,8 @@ body {
 /* Microfone sempre à direita do input, antes do botão de envio */
 .chatbot-mic-icon {
     order: 1;
-    margin-left: 8px;
-    margin-right: 8px;
+    margin-left: 0.417vw; /* 8px → 0.417vw */
+    margin-right: 0.417vw; /* 8px → 0.417vw */
     font-size: 1.3rem;
     color: rgba(0, 150, 255, 0.7);
     transition: color 0.15s ease, transform 0.15s ease;
@@ -573,22 +549,22 @@ body {
 }
 
 .chatbot-send-button {
-    width: 42px;
-    height: 42px;
+    width: 2.1875vw; /* 42px → 2.1875vw */
+    height: 3.889vh; /* 42px → 3.889vh */
     font-size: 1rem;
-    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.3);
+    box-shadow: 0 0.185vh 0.556vh rgba(37, 99, 235, 0.3); /* 2px 6px → vh */
 }
 
 .chatbot-active-send-btn {
-    width: 38px;
-    height: 38px;
+    width: 1.979vw; /* 38px → 1.979vw */
+    height: 3.519vh; /* 38px → 3.519vh */
     font-size: 0.9rem;
-    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.3);
+    box-shadow: 0 0.185vh 0.370vh rgba(37, 99, 235, 0.3); /* 2px 4px → vh */
 }
 
 .chatbot-send-button:hover, .chatbot-active-send-btn:hover {
     transform: scale(1.05);
-    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4);
+    box-shadow: 0 0.370vh 1.111vh rgba(37, 99, 235, 0.4); /* 4px 12px → vh */
     background: #1d4ed8;
 }
 
@@ -623,12 +599,12 @@ body {
 }
 
 .chatbot-header-bar {
-    padding: 25px 30px;
+    padding: 2.315vh 1.5625vw; /* 25px 30px → vh/vw */
     background: linear-gradient(135deg, 
         rgba(0, 150, 255, 0.15), 
         rgba(138, 43, 226, 0.15)
     );
-    border-bottom: 1px solid rgba(0, 150, 255, 0.3);
+    border-bottom: 0.052vw solid rgba(0, 150, 255, 0.3); /* 1px → 0.052vw */
     display: flex;
     justify-content: center;
     align-items: center;
@@ -667,14 +643,14 @@ body {
 /* ============ CHATBOT - ÁREA DE CONVERSA ============ */
 .chatbot-conversation-area {
     flex: 1;
-    padding: 30px;
+    padding: 2.778vh; /* 30px → 2.778vh */
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: rgba(0, 150, 255, 0.5) transparent;
 }
 
 .chatbot-conversation-area::-webkit-scrollbar {
-    width: 6px;
+    width: 0.3125vw; /* 6px → 0.3125vw */
 }
 
 .chatbot-conversation-area::-webkit-scrollbar-track {
@@ -683,14 +659,14 @@ body {
 
 .chatbot-conversation-area::-webkit-scrollbar-thumb {
     background: rgba(0, 150, 255, 0.5);
-    border-radius: 3px;
+    border-radius: 0.156vw; /* 3px → 0.156vw */
 }
 
 /* ============ CHATBOT - MENSAGENS ============ */
 .chatbot-message {
     display: flex;
-    gap: 0px;
-    margin-bottom: 25px;
+    gap: 0;
+    margin-bottom: 2.315vh; /* 25px → 2.315vh */
     animation: chatbotMessageAppearOptimized 0.25s ease-out;
 }
 
@@ -714,14 +690,14 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 0.741vh; /* 8px → 0.741vh */
     width: 100%;
     max-width: 100%;
 }
 
 .chatbot-message-bubble {
-    padding: 16px 20px;
-    border-radius: 20px;
+    padding: 1.481vh 1.042vw; /* 16px 20px → vh/vw */
+    border-radius: 1.042vw; /* 20px → 1.042vw */
     font-family: 'Poppins', sans-serif;
     font-size: 1rem;
     line-height: 1.5;
@@ -736,8 +712,8 @@ body {
         rgba(138, 43, 226, 0.1)
     );
     color: rgba(255, 255, 255, 0.9);
-    border: 1px solid rgba(0, 150, 255, 0.3);
-    border-radius: 20px 20px 20px 5px;
+    border: 0.052vw solid rgba(0, 150, 255, 0.3); /* 1px → 0.052vw */
+    border-radius: 1.042vw 1.042vw 1.042vw 0.260vw; /* 20px 20px 20px 5px → vw */
 }
 
 .chatbot-message-user .chatbot-message-bubble {
@@ -746,8 +722,8 @@ body {
         rgba(0, 150, 255, 0.1)
     );
     color: rgba(255, 255, 255, 0.9);
-    border: 1px solid rgba(138, 43, 226, 0.3);
-    border-radius: 20px 20px 5px 20px;
+    border: 0.052vw solid rgba(138, 43, 226, 0.3); /* 1px → 0.052vw */
+    border-radius: 1.042vw 1.042vw 0.260vw 1.042vw; /* 20px 20px 5px 20px → vw */
     margin-left: auto;
 }
 
@@ -779,8 +755,8 @@ body {
 
 /* ============ CHATBOT - INPUT ATIVO CORRIGIDO ============ */
 .chatbot-input-area {
-    padding: 15px 30px;
-    border-top: 1px solid rgba(0, 150, 255, 0.3);
+    padding: 1.389vh 1.5625vw; /* 15px 30px → vh/vw */
+    border-top: 0.052vw solid rgba(0, 150, 255, 0.3); /* 1px → 0.052vw */
     background: linear-gradient(135deg, 
         rgba(10, 15, 35, 0.8), 
         rgba(20, 10, 45, 0.8)
@@ -791,20 +767,20 @@ body {
     position: relative;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 0.625vw; /* 12px → 0.625vw */
     background: linear-gradient(135deg, 
         rgba(0, 150, 255, 0.1), 
         rgba(138, 43, 226, 0.1)
     );
-    border: 2px solid rgba(0, 150, 255, 0.3);
-    border-radius: 50px;
-    padding: 0.6px 12px 0.6px 0.6px;
+    border: 0.104vw solid rgba(0, 150, 255, 0.3); /* 2px → 0.104vw */
+    border-radius: 2.604vw; /* 50px → 2.604vw */
+    padding: 0.055vh 0.625vw 0.055vh 0.055vh; /* 0.6px 12px 0.6px 0.6px → vh/vw */
     transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
 }
 
 .chatbot-active-input-field:focus-within {
     border-color: rgba(0, 150, 255, 0.6);
-    box-shadow: 0 0 25px rgba(0, 150, 255, 0.4);
+    box-shadow: 0 0 1.302vw rgba(0, 150, 255, 0.4); /* 25px → 1.302vw */
     background: linear-gradient(135deg, 
         rgba(0, 150, 255, 0.15), 
         rgba(138, 43, 226, 0.15)
@@ -820,7 +796,7 @@ body {
 /* Input sempre no meio no estado ativo */
 .chatbot-active-input {
     flex: 1;
-    padding: 14px 24px;
+    padding: 1.296vh 1.25vw; /* 14px 24px → vh/vw */
     background: transparent;
     border: none;
     color: rgba(255, 255, 255, 0.9);
@@ -834,10 +810,10 @@ body {
 /* Microfone sempre à direita do input no estado ativo */
 .chatbot-active-input-field .chatbot-mic-icon {
     order: 1;
-    width: 24px !important;
-    height: 24px !important;
-    margin-left: 8px !important;
-    margin-right: 8px !important;
+    width: 1.25vw !important; /* 24px → 1.25vw */
+    height: 2.222vh !important; /* 24px → 2.222vh */
+    margin-left: 0.417vw !important; /* 8px → 0.417vw */
+    margin-right: 0.417vw !important; /* 8px → 0.417vw */
     font-size: 1.3rem !important;
     color: rgba(0, 150, 255, 0.7) !important;
     transition: color 0.15s ease, transform 0.15s ease !important;
@@ -872,14 +848,14 @@ body {
     display: none;
     align-items: center;
     justify-content: flex-start;
-    margin: 15px 25px;
-    padding: 15px 20px;
+    margin: 1.389vh 1.302vw; /* 15px 25px → vh/vw */
+    padding: 1.389vh 1.042vw; /* 15px 20px → vh/vw */
     background: linear-gradient(135deg, 
         rgba(0, 150, 255, 0.08), 
         rgba(138, 43, 226, 0.08)
     );
-    border-radius: 20px 20px 20px 8px;
-    border-left: 3px solid rgba(0, 150, 255, 0.3);
+    border-radius: 1.042vw 1.042vw 1.042vw 0.417vw; /* 20px 20px 20px 8px → vw */
+    border-left: 0.156vw solid rgba(0, 150, 255, 0.3); /* 3px → 0.156vw */
     max-width: 80%;
 }
 
@@ -891,17 +867,17 @@ body {
 .chatbot-conversation-typing .typing-text {
     color: rgba(255, 255, 255, 0.6);
     font-size: 0.9rem;
-    margin-right: 10px;
+    margin-right: 0.521vw; /* 10px → 0.521vw */
 }
 
 .chatbot-conversation-typing .typing-dots {
     display: flex;
-    gap: 4px;
+    gap: 0.208vw; /* 4px → 0.208vw */
 }
 
 .chatbot-conversation-typing .typing-dots span {
-    width: 6px;
-    height: 6px;
+    width: 0.3125vw; /* 6px → 0.3125vw */
+    height: 0.556vh; /* 6px → 0.556vh */
     background: rgba(0, 150, 255, 0.7);
     border-radius: 50%;
     animation: chatbotTypingAnimationOptimized 1s ease-in-out infinite;
@@ -926,12 +902,12 @@ body {
 /* ============ BOTÕES DE AÇÃO DO CHATBOT ============ */
 .chatbot-action-buttons {
     position: fixed;
-    /* RESPONSIVO: Sempre à direita do chatbot */
-    bottom: max(20px, 4vh);
-    right: clamp(20px, 10vw, 130px);
+    /* POSICIONAMENTO PROPORCIONAL: Sempre à direita do chatbot */
+    bottom: 1.85vh; /* 20px → 1.85vh */
+    right: 6.77vw; /* 130px → 6.77vw */
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 1.111vh; /* 12px → 1.111vh */
     z-index: 999;
     transform: rotate(-0deg);
     opacity: 0;
@@ -940,21 +916,21 @@ body {
 
 .chatbot-action-btn {
     background: rgba(0, 150, 255, 0.08);
-    border: 1px solid rgba(0, 150, 255, 0.4);
-    border-radius: 25px;
-    padding: 8px 20px;
+    border: 0.052vw solid rgba(0, 150, 255, 0.4); /* 1px → 0.052vw */
+    border-radius: 1.302vw; /* 25px → 1.302vw */
+    padding: 0.741vh 1.042vw; /* 8px 20px → vh/vw */
     color: rgba(255, 255, 255, 0.9);
     font-family: 'Poppins', sans-serif;
     font-size: 0.85rem;
     font-weight: 400;
     cursor: pointer;
     transition: transform 0.3s ease, background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
-    backdrop-filter: blur(15px);
-    min-width: 160px;
+    backdrop-filter: blur(0.781vw); /* 15px → 0.781vw */
+    min-width: 8.33vw; /* 160px → 8.33vw */
     text-align: center;
     position: relative;
     overflow: hidden;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0.370vh 1.389vh rgba(0, 0, 0, 0.3); /* 4px 15px → vh */
     opacity: 0;
 }
 
@@ -1004,7 +980,7 @@ body {
 @keyframes chatbotMessageAppearOptimized {
     0% {
         opacity: 0;
-        transform: translateY(25px);
+        transform: translateY(2.315vh); /* 25px → 2.315vh */
     }
     100% {
         opacity: 1;
@@ -1018,7 +994,7 @@ body {
         opacity: 0.4;
     }
     30% {
-        transform: translateY(-8px);
+        transform: translateY(-0.741vh); /* -8px → -0.741vh */
         opacity: 1;
     }
 }
@@ -1026,304 +1002,29 @@ body {
 @keyframes chatbotButtonsAppearOptimized {
     0% {
         opacity: 0;
-        transform: rotate(-0deg) translateY(30px) scale(0.9);
+        transform: rotate(-0deg) translateY(2.78vh) scale(0.9); /* 30px → 2.78vh */
     }
     100% {
         opacity: 1;
-        transform: rotate(-0deg) translateY(0px) scale(1);
+        transform: rotate(-0deg) translateY(0) scale(1);
     }
 }
 
 @keyframes chatbotButtonSlideInOptimized {
     0% {
         opacity: 0;
-        transform: translateX(50px) scale(0.8);
+        transform: translateX(2.604vw) scale(0.8); /* 50px → 2.604vw */
     }
     100% {
         opacity: 1;
-        transform: translateX(0px) scale(1);
-    }
-}
-
-/* ============ SISTEMA DE COMPENSAÇÃO AUTOMÁTICA DE DPI E RESOLUÇÃO ============ */
-/* Detecta diferenças de DPI/resolução e aplica escala compensatória */
-
-/* TELA BASE: Notebook do usuário (layout perfeito) - NÃO ALTERA */
-@media (min-width: 1920px) and (min-height: 1080px) and (pointer: fine) and (-webkit-device-pixel-ratio: 1) {
-    :root {
-        --auto-scale: 1; /* Escala 1 = tamanho original perfeito */
-        --screen-type: reference-desktop;
-    }
-}
-
-/* MONITORES EXTERNOS COMUNS: Compensação para DPI diferentes */
-
-/* Monitor Full HD com DPI diferente do notebook */
-@media (min-width: 1920px) and (min-height: 1080px) and (pointer: fine) and (-webkit-device-pixel-ratio: 1.25) {
-    :root {
-        --auto-scale: 0.8; /* Compensa DPI mais alto */
-        --screen-type: external-monitor;
-    }
-}
-
-/* Monitores 1440p (2560x1440) */
-@media (min-width: 2560px) and (min-height: 1440px) and (pointer: fine) {
-    :root {
-        --auto-scale: 0.75; /* Escala para 1440p */
-        --screen-type: large-monitor;
-    }
-}
-
-/* Laptops com tela menor (1366x768 - onde precisa zoom 75%) */
-@media (min-width: 1366px) and (max-width: 1600px) and (min-height: 768px) and (max-height: 1000px) and (pointer: fine) {
-    :root {
-        --auto-scale: 0.75; /* EXATO: simula zoom 75% que funcionou */
-        --screen-type: small-laptop;
-    }
-}
-
-/* Laptops médios (1440x900, 1600x900) */
-@media (min-width: 1440px) and (max-width: 1680px) and (min-height: 900px) and (max-height: 1050px) and (pointer: fine) {
-    :root {
-        --auto-scale: 0.8; /* Compensação média */
-        --screen-type: medium-laptop;
-    }
-}
-
-/* Monitores pequenos ou antigos */
-@media (min-width: 1024px) and (max-width: 1365px) and (pointer: fine) {
-    :root {
-        --auto-scale: 0.7; /* Compensação para telas pequenas */
-        --screen-type: small-monitor;
-    }
-}
-
-/* COMPENSAÇÃO ADICIONAL POR DPI ALTO (Retina, 4K, etc.) */
-@media (min-width: 1024px) and (pointer: fine) and (-webkit-device-pixel-ratio: 2) {
-    :root {
-        --dpi-compensation: 0.9; /* Reduz 10% adicional para DPI alto */
-        --auto-scale: calc(var(--auto-scale) * var(--dpi-compensation));
-    }
-}
-
-@media (min-width: 1024px) and (pointer: fine) and (-webkit-device-pixel-ratio: 3) {
-    :root {
-        --dpi-compensation: 0.8; /* Reduz 20% adicional para DPI muito alto */
-        --auto-scale: calc(var(--auto-scale) * var(--dpi-compensation));
-    }
-}
-
-/* ============ CORREÇÃO PARA RESOLUÇÕES ESPECÍFICAS ============ */
-
-/* SOLUÇÃO: Simula zoom 75% automaticamente para PCs grandes */
-/* Resolução Full HD em monitores grandes (24-27 polegadas) */
-@media (min-width: 1920px) and (min-height: 1080px) and (max-width: 1920px) and (min-device-width: 1024px) {
-    :root {
-        --density-compensation: 0.75; /* Simula zoom 75% */
-        --responsive-factor: clamp(0.7, 0.85, 1);
-    }
-}
-
-/* Monitores 1600x900, 1680x1050 e similares */
-@media (min-width: 1600px) and (min-height: 900px) and (max-width: 1680px) and (min-device-width: 1024px) {
-    :root {
-        --density-compensation: 0.75; /* Simula zoom 75% */
-        --responsive-factor: clamp(0.7, 0.85, 1);
-    }
-}
-
-/* Resolução 1366x768 (laptops comuns) */
-@media (min-width: 1366px) and (min-height: 768px) and (max-width: 1366px) and (min-device-width: 1024px) {
-    :root {
-        --density-compensation: 0.8; /* Redução menor para laptops */
-        --responsive-factor: clamp(0.75, 0.9, 1.1);
-    }
-}
-
-/* Resolução 1440x900 ou similar */
-@media (min-width: 1440px) and (min-height: 900px) and (max-width: 1600px) and (min-device-width: 1024px) {
-    :root {
-        --density-compensation: 0.75; /* Simula zoom 75% */
-        --responsive-factor: clamp(0.7, 0.85, 1);
-    }
-}
-
-/* ============ SISTEMA DE ESCALA BASEADO NA RESOLUÇÃO DE REFERÊNCIA ============ */
-/* Layout base: exatamente como no notebook do usuário (referência perfeita) */
-
-@media (min-width: 1024px) and (pointer: fine) {
-    .chatbot-container {
-        /* TAMANHO FIXO: Baseado no notebook de referência */
-        width: 800px !important;
-        height: 600px !important;
-        min-width: 800px !important;
-        min-height: 600px !important;
-        max-width: 800px !important;
-        max-height: 600px !important;
-        
-        /* POSICIONAMENTO: Centralizado e fixo */
-        position: fixed;
-        top: 4%;
-        left: 50%;
-        z-index: 1000;
-        
-        /* SISTEMA DE ESCALA AUTOMÁTICA */
-        transform: translateX(-50%) scale(var(--auto-scale));
-        transform-origin: top center; /* Centraliza a escala */
-        transition: transform 0.2s ease-out;
-        
-        /* VISUAL: Mantém exato do notebook */
-        background: linear-gradient(145deg, 
-            rgba(10, 15, 35, 0.95), 
-            rgba(15, 25, 55, 0.95), 
-            rgba(20, 10, 45, 0.95)
-        );
-        border: 2px solid rgba(0, 150, 255, 0.3);
-        border-radius: 24px;
-        box-shadow: 0 0 60px rgba(0, 150, 255, 0.3);
-        overflow: hidden;
-        opacity: 0;
-        will-change: transform, opacity;
-    }
-    
-    .chatbot-action-buttons {
-        /* BOTÕES: Posição fixa com escala sincronizada */
-        position: fixed;
-        right: 130px;
-        bottom: 13px;
-        z-index: 999;
-        
-        /* ESCALA: Aplica mesma compensação do container */
-        transform: scale(var(--auto-scale));
-        transform-origin: bottom right;
-        transition: transform 0.2s ease-out;
-        
-        /* AJUSTE: Posição compensada pela escala */
-        margin-right: calc((1 - var(--auto-scale)) * 65px);
-        margin-bottom: calc((1 - var(--auto-scale)) * 6.5px);
-    }
-    
-    /* ELEMENTOS DO CENÁRIO: Escalam automaticamente com sistema */
-    .robo, .mesa, .notebook, .teclado, .caixas {
-        /* ESCALA: Sincronizada com sistema automático */
-        transform: scale(var(--auto-scale));
-        transform-origin: center;
-        transition: transform 0.2s ease-out;
-        position: relative;
-    }
-    
-    /* POSICIONAMENTO: Mantido exato do notebook de referência */
-    .robo {
-        top: clamp(20px, 3vh, 50px);
-        right: clamp(-150px, -10vw, -10px);
-        height: auto;
-        max-height: clamp(400px, 86vh, 1000px);
-        z-index: 3;
-    }
-    
-    .mesa {
-        bottom: clamp(-75%, -70vh, -60%);
-        left: clamp(-400px, -25vw, -200px);
-        width: clamp(120%, 145vw, 170%);
-        height: auto;
-        max-height: clamp(800px, 100vh, 1500px);
-        z-index: 1;
-    }
-    
-    .notebook {
-        bottom: clamp(-55%, -48vh, -40%);
-        left: clamp(-25%, -20vw, -15%);
-        height: auto;
-        max-height: clamp(80vh, 120vh, 140vh);
-        z-index: 2;
-    }
-    
-    .teclado {
-        bottom: clamp(-55%, -48vh, -40%);
-        left: clamp(18%, 22vw, 26%);
-        height: auto;
-        max-height: clamp(100vh, 150vh, 180vh);
-        z-index: 2;
-    }
-    
-    .caixas {
-        bottom: clamp(1%, 3vh, 5%);
-        left: clamp(-10%, -7vw, -4%);
-        height: auto;
-        max-height: clamp(80vh, 115vh, 140vh);
-        z-index: 2;
-    }
-}
-
-/* ============ COMPENSAÇÃO AUTOMÁTICA DE ESCALA POR RESOLUÇÃO ============ */
-
-/* Resolução Full HD e superiores: mantém escala 1 (referência) */
-@media (min-width: 1920px) and (min-height: 1080px) and (pointer: fine) {
-    :root {
-        --scale-factor: 1; /* Tamanho perfeito - não muda */
-    }
-}
-
-/* Resoluções 1600-1919px: escala ligeiramente menor */
-@media (min-width: 1600px) and (max-width: 1919px) and (pointer: fine) {
-    :root {
-        --scale-factor: 0.9; /* 90% - ajuste suave */
-    }
-}
-
-/* Resoluções 1440-1599px: escala média */
-@media (min-width: 1440px) and (max-width: 1599px) and (pointer: fine) {
-    :root {
-        --scale-factor: 0.85; /* 85% - ajuste médio */
-    }
-}
-
-/* Resoluções 1366-1439px: escala como zoom 75% */
-@media (min-width: 1366px) and (max-width: 1439px) and (pointer: fine) {
-    :root {
-        --scale-factor: 0.75; /* 75% - o que funcionou no teste */
-    }
-}
-
-/* Resoluções 1280-1365px: escala menor */
-@media (min-width: 1280px) and (max-width: 1365px) and (pointer: fine) {
-    :root {
-        --scale-factor: 0.7; /* 70% - telas menores */
-    }
-}
-
-/* Resoluções 1024-1279px: escala mínima */
-@media (min-width: 1024px) and (max-width: 1279px) and (pointer: fine) {
-    :root {
-        --scale-factor: 0.65; /* 65% - telas muito pequenas */
-    }
-}
-
-/* ============ COMPENSAÇÃO POR DENSIDADE DE PIXELS ============ */
-
-/* Alta densidade (Retina, 4K): ajuste fino */
-@media (min-width: 1024px) and (pointer: fine) and (-webkit-device-pixel-ratio: 2) {
-    :root {
-        --scale-factor: calc(var(--scale-factor) * 0.95); /* Reduz 5% adicional */
-    }
-}
-
-/* Densidade muito alta: ajuste maior */
-@media (min-width: 1024px) and (pointer: fine) and (-webkit-device-pixel-ratio: 3) {
-    :root {
-        --scale-factor: calc(var(--scale-factor) * 0.9); /* Reduz 10% adicional */
+        transform: translateX(0) scale(1);
     }
 }
 
 /* ============ RESPONSIVIDADE MOBILE (PROTEGIDA - NÃO ALTERAR) ============ */
 /* CRÍTICO: Mobile não usa sistema de escala - layout específico mantido */
 @media (max-width: 767px) and (pointer: coarse) {
-    /* OVERRIDE: Remove escala para mobile */
-    :root {
-        --scale-factor: 1 !important; /* Força escala 1 no mobile */
-    }
     
-    /* PROTEGIDO: Configuração mobile perfeita */
     /* Ocultar elementos do cenário no mobile */
     .robo, .mesa, .caixas, .fundo, .notebook, .teclado {
         opacity: 0 !important;
@@ -1344,27 +1045,27 @@ body {
         top: 50% !important;
         left: 50% !important;
         transform: translate(-50%, -50%) !important; /* Override sistema de escala */
-        width: min(calc(100vw - 20px), 380px) !important;
-        max-width: min(calc(100vw - 20px), 380px) !important;
-        min-width: min(calc(100vw - 20px), 300px) !important;
-        height: min(80vh, 600px) !important;
-        max-height: min(80vh, 600px) !important;
-        min-height: min(70vh, 500px) !important;
+        width: min(calc(100vw - 1.042vw), 19.79vw) !important; /* 20px, 380px → vw */
+        max-width: min(calc(100vw - 1.042vw), 19.79vw) !important;
+        min-width: min(calc(100vw - 1.042vw), 15.625vw) !important; /* 300px → 15.625vw */
+        height: min(80vh, 55.55vh) !important; /* 600px → 55.55vh */
+        max-height: min(80vh, 55.55vh) !important;
+        min-height: min(70vh, 46.3vh) !important; /* 500px → 46.3vh */
         margin: 0 !important;
         overflow: hidden !important;
     }
 
     /* Ajustar estado welcome no mobile */
     .chatbot-welcome-state {
-        padding: 25px 20px 15px;
+        padding: 2.315vh 1.042vw 1.389vh; /* 25px 20px 15px → vh/vw */
         overflow: hidden;
     }
 
     /* Corrigir input field para mobile com ordem */
     .chatbot-input-field,
     .chatbot-active-input-field {
-        gap: 8px !important;
-        padding: 4px 8px 4px 4px !important;
+        gap: 0.417vw !important; /* 8px → 0.417vw */
+        padding: 0.370vh 0.417vw 0.370vh 0.208vw !important; /* 4px 8px 4px 4px → vh/vw */
         max-width: 100%;
         box-sizing: border-box;
         overflow: hidden;
@@ -1375,8 +1076,8 @@ body {
     .chatbot-active-input-field .chatbot-add-btn {
         order: -2 !important;
         flex-shrink: 0 !important;
-        width: 44px !important;
-        height: 44px !important;
+        width: 2.292vw !important; /* 44px → 2.292vw */
+        height: 4.074vh !important; /* 44px → 4.074vh */
         margin: 0 !important;
     }
 
@@ -1384,7 +1085,7 @@ body {
     .chatbot-main-input,
     .chatbot-active-input {
         order: 0 !important;
-        padding: 12px 16px !important;
+        padding: 1.111vh 0.833vw !important; /* 12px 16px → vh/vw */
         font-size: 0.95rem !important;
         min-width: 0 !important;
         flex: 1 !important;
@@ -1394,7 +1095,7 @@ body {
     .chatbot-mic-icon,
     .chatbot-active-input-field .chatbot-mic-icon {
         order: 1 !important;
-        margin: 0 8px !important;
+        margin: 0 0.417vw !important; /* 8px → 0.417vw */
         font-size: 1.2rem !important;
         flex-shrink: 0 !important;
         width: auto !important;
@@ -1405,12 +1106,12 @@ body {
     .chatbot-send-button,
     .chatbot-active-send-btn {
         order: 2 !important;
-        width: 44px !important;
-        height: 44px !important;
+        width: 2.292vw !important; /* 44px → 2.292vw */
+        height: 4.074vh !important; /* 44px → 4.074vh */
         font-size: 1rem !important;
         flex-shrink: 0 !important;
-        min-width: 44px !important;
-        max-width: 44px !important;
+        min-width: 2.292vw !important;
+        max-width: 2.292vw !important;
     }
 
     /* Ajustar input section no mobile */
