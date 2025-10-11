@@ -420,15 +420,13 @@ body {
     transform: translateX(-50%);
     z-index: 1000;
 
-    /* TAMANHO FLEXÍVEL */
-    width: var(--max-container-width);       /* mantém largura atual */
-    max-width: 800px;                        /* limite seguro */
-    
-    height: 70vh;                            /* altura ampliada */
-    max-height: 750px;                       /* trava em telas grandes */
-    min-height: 450px;                       /* não fica pequeno demais */
+    width: var(--max-container-width);
+    max-width: 800px;
 
-    /* VISUAL */
+    height: 75vh;              /* altura inicial */
+    max-height: 70vh;          /* ❗ impede crescimento além disso */
+    min-height: 450px;
+
     background: linear-gradient(145deg, 
         rgba(10, 15, 35, 0.95), 
         rgba(15, 25, 55, 0.95), 
@@ -440,7 +438,7 @@ body {
     overflow: hidden;
     opacity: 0;
     will-change: transform, opacity;
-    transition: transform 0.15s ease-out;
+    transition: transform 0.3s ease, height 0.3s ease; /* animação suave */
 }
 
 
@@ -756,16 +754,18 @@ body {
 }
 
 .chatbot-message-bubble {
-    padding: 1.481vh 1.042vw; /* 16px 20px → vh/vw */
-    border-radius: 1.042vw; /* 20px → 1.042vw */
+    padding: 1.2vh 0.8vw; /* leve redução no padding */
+    border-radius: 1.042vw;
     font-family: 'Poppins', sans-serif;
-    font-size: var(--font-base); /* 1rem → proporcional */
-    line-height: 1.5;
+
+    /* ✅ Reduzi o tamanho do texto com clamp mais apertado */
+    font-size: clamp(0.7rem, 0.8vw, 1rem);
+
+    line-height: 1.4;
     max-width: 100%;
     word-wrap: break-word;
     position: relative;
 }
-
 .chatbot-message-assistant .chatbot-message-bubble {
     background: linear-gradient(135deg, 
         rgba(0, 150, 255, 0.15), 
@@ -1146,7 +1146,7 @@ body {
     .chatbot-active-input {
         order: 0 !important;
         padding: 1.111vh 0.833vw !important; /* 12px 16px → vh/vw */
-        font-size: 0.95rem !important;
+        font-size: 0.65rem !important;
         min-width: 0 !important;
         flex: 1 !important;
     }
@@ -1366,13 +1366,13 @@ body {
         overflow: hidden;
     }
 
-    .chatbot-active-input {
-        padding: 0.625rem 0.875rem; /* 10px 14px → rem */
-        font-size: 0.9rem;
-        border-radius: 1.375rem; /* 22px → rem */
-        min-width: 0;
-        flex: 1;
-    }
+   .chatbot-active-input {
+    padding: 0.5rem 0.75rem;   /* levemente menor */
+    font-size: 0.8rem;         /* ✅ menor e mais discreto */
+    border-radius: 1.375rem;
+    min-width: 0;
+    flex: 1;
+}
 
     /* Ajustar indicador de digitação no mobile */
     .chatbot-typing-indicator {
@@ -1418,4 +1418,31 @@ body {
         opacity: 0.85; 
         transform: translateY(0); 
     }
+}
+
+/* Força os dois estados a terem o mesmo visual */
+.chatbot-welcome-state input[type="text"],
+#chatbotActiveInput.chatbot-active-input.chat-text-input {
+  font-size: 0.8rem !important;
+  line-height: 1.2 !important;
+  padding: 0.6rem 0.8rem !important;
+  height: auto !important;
+  box-sizing: border-box !important;
+  border-radius: 22px !important;
+  width: 100% !important;
+}
+
+/* Placeholder igual */
+.chatbot-welcome-state input[type="text"]::placeholder,
+#chatbotActiveInput.chatbot-active-input.chat-text-input::placeholder {
+  font-size: 0.8rem !important;
+  opacity: 0.6;
+}
+
+/* Botão de enviar — nos dois estados */
+.chatbot-welcome-state .chatbot-send-btn,
+.chatbot-active-send-btn {
+  width: 34px !important;
+  height: 34px !important;
+  font-size: 0.85rem !important;
 }
