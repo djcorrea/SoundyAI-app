@@ -225,38 +225,34 @@ body {
 }
 
 .notebook {
-    /* TAMANHO PROPORCIONAL: Baseado em 1920x1080 com limites inteligentes */
-    width: var(--max-notebook-width); /* ~400px em 1920px → proporcional com limite */
-    height: auto; /* Mantém aspect-ratio natural */
-    aspect-ratio: 16/10; /* Força proporção típica de notebook */
-    
-    /* POSICIONAMENTO PROPORCIONAL */
-    bottom: clamp(-55%, -48vh, -40%);
-    left: clamp(-25%, -20vw, -15%);
-    max-height: clamp(80vh, 120vh, 140vh);
+    position: absolute;
+    bottom: -45vh;
+    left: -37vw;
+
+    display: block;
+    width: 94vw !important;    /* aumentei de 28vw para 34vw */
+    max-width: 1950px !important; /* aumentei limite máximo */
+    height: auto;
+    aspect-ratio: 16/10;
+    object-fit: contain;
+
     z-index: 2;
-    
-    /* EFEITOS VISUAIS PROPORCIONAIS */
-    filter: drop-shadow(0 0 0.521vw rgba(0, 150, 255, 0.3)); /* 10px → 0.521vw */
+    filter: drop-shadow(0 0 0.521vw rgba(0, 150, 255, 0.3));
     animation: fadeInPush 0.6s ease-out forwards, subtleGlowOptimized 5s ease-in-out infinite 0.6s;
-    
-    /* OTIMIZAÇÃO PARA DIFERENTES DISPOSITIVOS */
-    object-fit: contain; /* Preserva proporção da imagem */
-    image-rendering: crisp-edges; /* Melhora nitidez em escalas */
+    transition: width 0.2s ease-out, transform 0.2s ease-out;
 }
 
 .teclado {
     position: absolute;
-    bottom: clamp(-30vh, -25vh, -20vh);
-    left: clamp(18vw, 22vw, 26vw);
-
-    /* Mantém a imagem sempre visível e proporcional */
-    display: block;
-    width: 36vw;            /* largura proporcional à tela */
-    max-width: 700px;       /* trava o tamanho máximo */
-    height: auto;           /* mantém a proporção */
-    object-fit: contain;    /* evita distorção */
+    bottom: -30vh;              /* distância do chão — ajuste fino aqui */
+    left: 29vw;                /* distância da lateral esquerda */
     
+    display: block;
+    width: 45vw;               /* proporcional à tela */
+    max-width: 800px;          /* limite para telas grandes */
+    height: auto;
+    object-fit: contain;
+
     z-index: 2;
     filter: drop-shadow(0 0 0.417vw rgba(0, 150, 255, 0.25));
     animation: fadeInPush 0.6s ease-out forwards, subtleGlowOptimized 4s ease-in-out infinite 0.6s;
@@ -265,10 +261,10 @@ body {
     transition: transform 0.2s ease-out, width 0.2s ease-out;
 }
 
-/* ============ GARANTIR ESTADO INICIAL CORRETO ============ */
+/* Garantir estado inicial */
 .notebook, .teclado, .mesa, .robo, .caixas {
     opacity: 0;
-    transform: translateY(1.85vh); /* 20px → 1.85vh */
+    transform: translateY(1.85vh);
 }
 
 /* ============ ANIMAÇÃO DE ENTRADA PARA DESKTOP ============ */
