@@ -415,35 +415,34 @@ body {
 /* ============ CHATBOT - CONTAINER PRINCIPAL ============ */
 .chatbot-container {
     position: fixed;
-    top: 3.7vh; /* 4% convertido para vh */
+    top: 3.7vh;
     left: 50%;
     transform: translateX(-50%);
     z-index: 1000;
+
+    /* TAMANHO FLEXÍVEL */
+    width: var(--max-container-width);       /* mantém largura atual */
+    max-width: 800px;                        /* limite seguro */
     
-    /* TAMANHO PROPORCIONAL: Baseado em 1920x1080 com limites para 4K+ */
-    width: var(--max-container-width); /* 41.67vw com limite de 800px */
-    height: var(--max-container-height); /* 55.55vh com limite de 600px */
-    min-width: var(--max-container-width);
-    min-height: var(--max-container-height);
-    max-width: var(--max-container-width);
-    max-height: var(--max-container-height);
-    
-    /* VISUAL: Mantém exato do seu notebook */
+    height: 70vh;                            /* altura ampliada */
+    max-height: 750px;                       /* trava em telas grandes */
+    min-height: 450px;                       /* não fica pequeno demais */
+
+    /* VISUAL */
     background: linear-gradient(145deg, 
         rgba(10, 15, 35, 0.95), 
         rgba(15, 25, 55, 0.95), 
         rgba(20, 10, 45, 0.95)
     );
-    border: 0.104vw solid rgba(0, 150, 255, 0.3); /* 2px → 0.104vw */
-    border-radius: 1.25vw; /* 24px → 1.25vw */
-    box-shadow: 0 0 3.125vw rgba(0, 150, 255, 0.3); /* 60px → 3.125vw */
+    border: 0.104vw solid rgba(0, 150, 255, 0.3);
+    border-radius: 1.25vw;
+    box-shadow: 0 0 3.125vw rgba(0, 150, 255, 0.3);
     overflow: hidden;
     opacity: 0;
     will-change: transform, opacity;
-    
-    /* TRANSIÇÕES PROPORCIONAIS */
     transition: transform 0.15s ease-out;
 }
+
 
 /* ============ CHATBOT - ESTADO WELCOME ============ */
 .chatbot-welcome-state {
