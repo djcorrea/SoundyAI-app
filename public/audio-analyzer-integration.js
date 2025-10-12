@@ -1730,20 +1730,26 @@ function openGenreModal() {
     // Injetar estilos se ainda não foi feito
     injectGenreModalStyles();
     
-    // Mostrar modal
+    // 🔧 CORREÇÃO FLASH BRANCO: Prepaint para evitar primeiro frame errado
+    modal.classList.add('prepaint');  // Cards invisíveis enquanto CSS aplica
     modal.classList.remove('hidden');
     modal.setAttribute('aria-hidden', 'false');
     
-    // Foco no primeiro botão de gênero
-    const firstGenreCard = modal.querySelector('.genre-card');
-    if (firstGenreCard) {
-        firstGenreCard.focus();
-    }
+    // Libera a transição só de opacity no próximo frame
+    requestAnimationFrame(() => {
+        modal.classList.remove('prepaint');
+        
+        // Foco no primeiro botão de gênero
+        const firstGenreCard = modal.querySelector('.genre-card');
+        if (firstGenreCard) {
+            firstGenreCard.focus();
+        }
+    });
     
     // Adicionar listeners de teclado
     modal.addEventListener('keydown', handleGenreModalKeydown);
     
-    __dbg('[GENRE_MODAL] Modal aberto com sucesso');
+    __dbg('[GENRE_MODAL] Modal aberto com sucesso (sem flash branco)');
 }
 
 function closeGenreModal() {
@@ -6822,24 +6828,44 @@ box-shadow: 0 0 30px rgba(93, 21, 134, 0.4),
         margin-bottom: 32px;
     }
 
+    /* 🔧 CORREÇÃO FLASH BRANCO: Estado inicial explícito */
     .genre-card {
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 12px;
         padding: 20px 16px;
+        
+        /* Estado base: exatamente o visual glass atual */
         background: rgba(255, 255, 255, 0.05);
+        background-color: transparent; /* Evita herdar branco do user-agent */
         border: 1px solid rgba(255, 255, 255, 0.15);
         border-radius: 16px;
         color: #ffffff;
         font-weight: 600;
         font-size: 0.95rem;
         cursor: pointer;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        
+        /* ❌ NÃO animar background - só transform, box-shadow, border-color, opacity */
+        transition: 
+            transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+            box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+            border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+            opacity 0.25s ease;
+        
         position: relative;
         overflow: hidden;
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
+        
+        /* Zera estilos nativos se for <button> */
+        -webkit-appearance: none;
+        appearance: none;
+    }
+
+    /* Prepaint: cards invisíveis enquanto CSS assenta */
+    .genre-modal.prepaint .genre-card {
+        opacity: 0;
     }
 
     .genre-card::before {
@@ -6887,14 +6913,21 @@ box-shadow: 0 0 30px rgba(93, 21, 134, 0.4),
     /* Botão fechar */
     .genre-modal-close {
         background: rgba(255, 255, 255, 0.08);
+        background-color: transparent;
         border: 1px solid rgba(255, 255, 255, 0.2);
         color: rgba(255, 255, 255, 0.8);
         padding: 12px 24px;
         border-radius: 12px;
         font-size: 0.9rem;
         cursor: pointer;
-        transition: all 0.2s ease;
+        /* ❌ NÃO animar background */
+        transition: 
+            border-color 0.2s ease,
+            color 0.2s ease,
+            opacity 0.2s ease;
         font-weight: 500;
+        -webkit-appearance: none;
+        appearance: none;
     }
 
     .genre-modal-close:hover {
