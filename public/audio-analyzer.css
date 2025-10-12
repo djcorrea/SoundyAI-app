@@ -644,24 +644,16 @@ details[open] summary {
     }
 }
 
-/* Loading no modal */
+/* Loading no modal - Futurista */
 .audio-loading {
-    padding: 60px 40px;
+    padding: 50px 40px;
     text-align: center;
     color: #fff;
-    background: linear-gradient(135deg, 
-        rgba(15, 12, 30, 0.9) 0%, 
-        rgba(25, 20, 40, 0.8) 50%, 
-        rgba(15, 12, 30, 0.9) 100%);
-    backdrop-filter: blur(20px);
-    border-radius: 20px;
-    margin: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
     position: relative;
-    overflow: hidden;
-    box-shadow: 
-        0 0 50px rgba(0, 255, 255, 0.1),
-        0 20px 60px rgba(0, 0, 0, 0.4),
-        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .audio-loading::before {
@@ -671,66 +663,125 @@ details[open] summary {
     left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.05), transparent);
+    background: linear-gradient(90deg, transparent, rgba(0, 255, 255, 0.08), transparent);
     animation: shimmer 3s infinite;
+    pointer-events: none;
 }
 
-.loading-spinner {
-    width: 60px;
-    height: 60px;
-    border: 4px solid rgba(255, 255, 255, 0.1);
-    border-top: 4px solid #00ffff;
-    border-right: 4px solid #7c4dff;
-    border-bottom: 4px solid #ff00ff;
+/* Novo loader futurista com anel duplo */
+.futuristic-loader {
+    position: relative;
+    width: 100px;
+    height: 100px;
+    margin-bottom: 10px;
+}
+
+.loader-ring {
+    width: 100px;
+    height: 100px;
+    border: 5px solid transparent;
+    border-top: 5px solid #00ffff;
+    border-right: 5px solid #7c4dff;
     border-radius: 50%;
     animation: spin-glow 1.5s linear infinite;
-    margin: 0 auto 30px auto;
-    position: relative;
+    position: absolute;
+    top: 0;
+    left: 0;
     box-shadow: 
-        0 0 30px rgba(0, 255, 255, 0.3),
-        0 0 60px rgba(124, 77, 255, 0.2),
-        inset 0 0 30px rgba(255, 255, 255, 0.1);
+        0 0 30px rgba(0, 255, 255, 0.4),
+        0 0 60px rgba(124, 77, 255, 0.3),
+        inset 0 0 20px rgba(255, 255, 255, 0.1);
 }
 
-.loading-spinner::after {
-    content: '';
+.loader-ring-inner {
+    width: 60px;
+    height: 60px;
+    border: 4px solid transparent;
+    border-top: 4px solid rgba(0, 255, 255, 0.8);
+    border-left: 4px solid rgba(124, 77, 255, 0.8);
+    border-radius: 50%;
+    animation: spin-reverse 1.2s linear infinite;
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 30px;
-    height: 30px;
-    border: 2px solid transparent;
-    border-top: 2px solid rgba(0, 255, 255, 0.8);
-    border-radius: 50%;
     transform: translate(-50%, -50%);
-    animation: spin-reverse 1s linear infinite;
+    box-shadow: 
+        0 0 20px rgba(0, 255, 255, 0.3),
+        inset 0 0 15px rgba(255, 255, 255, 0.05);
+}
+
+@keyframes spin-glow {
+    0% { 
+        transform: rotate(0deg);
+        filter: brightness(1);
+    }
+    50% { 
+        filter: brightness(1.3);
+    }
+    100% { 
+        transform: rotate(360deg);
+        filter: brightness(1);
+    }
+}
+
+@keyframes spin-reverse {
+    from { transform: translate(-50%, -50%) rotate(360deg); }
+    to { transform: translate(-50%, -50%) rotate(0deg); }
+}
+
+/* Texto de progresso */
+.loading-progress-text {
+    font-size: 18px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.95);
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+    margin: 0;
+    letter-spacing: 0.5px;
+}
+
+/* Container da barra de progresso */
+.progress-bar-container {
+    width: 100%;
+    max-width: 400px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: center;
 }
 
 .progress-bar {
     width: 100%;
-    height: 12px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 6px;
+    height: 10px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
     overflow: hidden;
-    margin-top: 24px;
     position: relative;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 
+        inset 0 2px 8px rgba(0, 0, 0, 0.4),
+        0 0 15px rgba(0, 255, 255, 0.1);
 }
 
 .progress-fill {
     height: 100%;
     background: linear-gradient(90deg, 
-        #00ffff 0%, 
-        #7c4dff 50%, 
-        #ff00ff 100%);
+        #7c4dff 0%, 
+        #00ffff 100%);
     width: 0%;
     transition: width 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    border-radius: 6px;
+    border-radius: 10px;
     position: relative;
     box-shadow: 
-        0 0 20px rgba(0, 255, 255, 0.4),
-        inset 0 0 10px rgba(255, 255, 255, 0.2);
+        0 0 25px rgba(0, 255, 255, 0.5),
+        inset 0 0 12px rgba(255, 255, 255, 0.3);
+}
+
+.progress-percentage {
+    font-size: 16px;
+    font-weight: 700;
+    color: #00ffff;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+    letter-spacing: 1px;
 }
 
 .progress-fill::after {
@@ -740,30 +791,18 @@ details[open] summary {
     left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-    animation: shimmer 2s infinite;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+    animation: progress-shimmer 2s infinite;
 }
 
-/* Texto de progresso futurístico */
-#audioProgressText {
-    color: #ffffff;
-    font-weight: 700;
-    font-size: 18px;
-    text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
-    margin: 20px 0;
-    letter-spacing: 0.5px;
-    animation: text-glow 2s ease-in-out infinite;
+@keyframes progress-shimmer {
+    from { left: -100%; }
+    to { left: 100%; }
 }
 
-@keyframes text-glow {
-    0%, 100% { 
-        text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
-        color: #ffffff;
-    }
-    50% { 
-        text-shadow: 0 0 30px rgba(0, 255, 255, 0.8);
-        color: #00ffff;
-    }
+@keyframes shimmer {
+    from { left: -100%; }
+    to { left: 100%; }
 }
 
 /* Resultados no modal */
@@ -1251,18 +1290,44 @@ details[open] summary {
     min-height: 80vh;
 }
 
-/* Estado de upload - modal compacto */
+/* Estado de upload - modal expansivo com glassmorphism */
 .audio-modal .audio-modal-content:has(.audio-upload-area:not([style*="display: none"])) {
-    max-width: 580px;
-    max-height: 60vh;
+    max-width: 700px;
+    max-height: 75vh;
     min-height: auto;
+    background: radial-gradient(
+        circle at 20% 20%, 
+        rgba(93, 21, 134, 0.85) 0%,
+        rgba(0, 0, 0, 0.95) 60%,
+        rgba(0, 102, 255, 0.4) 100%
+    );
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 
+        0 20px 40px rgba(91, 11, 156, 0.49),
+        0 0 30px rgba(0, 255, 255, 0.2),
+        0 0 0 1px rgba(255, 255, 255, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-/* Estado de loading - modal médio */
+/* Estado de loading - modal expansivo futurista */
 .audio-modal .audio-modal-content:has(.audio-loading:not([style*="display: none"])) {
-    max-width: 520px;
-    max-height: 40vh;
+    max-width: 600px;
+    max-height: 55vh;
     min-height: auto;
+    background: radial-gradient(
+        circle at 20% 20%, 
+        rgba(93, 21, 134, 0.85) 0%,
+        rgba(0, 0, 0, 0.95) 60%,
+        rgba(0, 102, 255, 0.4) 100%
+    );
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: 
+        0 20px 40px rgba(91, 11, 156, 0.49),
+        0 0 30px rgba(0, 255, 255, 0.2);
 }
 
 /* ===============================
@@ -1270,90 +1335,172 @@ details[open] summary {
    =============================== */
 
 .audio-modal .audio-upload-area {
-    padding: 32px 24px;
+    padding: 48px 32px;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 300px;
+    min-height: auto;
 }
 
 .audio-modal .upload-content {
     text-align: center;
-    padding: 40px 32px;
-    border: 2px dashed rgba(124, 77, 255, 0.4);
-    border-radius: 16px;
-    background: linear-gradient(135deg, 
-        rgba(124, 77, 255, 0.05) 0%, 
-        rgba(156, 39, 176, 0.03) 50%, 
-        rgba(124, 77, 255, 0.05) 100%);
-    backdrop-filter: blur(8px);
-    transition: all 180ms ease;
+    padding: 50px 40px;
+    border: 2px dashed rgba(0, 255, 255, 0.3);
+    border-radius: 20px;
+    background: rgba(255, 255, 255, 0.03);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     width: 100%;
-    max-width: 420px;
+    max-width: 520px;
     margin: 0 auto;
+    position: relative;
+    overflow: hidden;
+}
+
+.audio-modal .upload-content::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, 
+        rgba(0, 255, 255, 0.3) 0%,
+        rgba(124, 77, 255, 0.3) 50%,
+        rgba(0, 255, 255, 0.3) 100%);
+    border-radius: 22px;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    z-index: -1;
 }
 
 .audio-modal .upload-content:hover {
-    border-color: rgba(124, 77, 255, 0.6);
-    background: linear-gradient(135deg, 
-        rgba(124, 77, 255, 0.08) 0%, 
-        rgba(156, 39, 176, 0.05) 50%, 
-        rgba(124, 77, 255, 0.08) 100%);
-    transform: translateY(-2px);
+    border-color: rgba(0, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateY(-4px);
+    box-shadow: 
+        0 0 40px rgba(0, 255, 255, 0.2),
+        0 10px 30px rgba(0, 0, 0, 0.4);
+}
+
+.audio-modal .upload-content:hover::before {
+    opacity: 1;
 }
 
 .audio-modal .upload-icon {
-    font-size: 56px;
-    margin-bottom: 16px;
-    background: linear-gradient(135deg, #7c4dff, #9c27b0);
+    font-size: 72px;
+    margin-bottom: 24px;
+    color: #00ffff;
+    text-shadow: 
+        0 0 20px rgba(0, 255, 255, 0.6),
+        0 0 40px rgba(124, 77, 255, 0.4);
+    filter: drop-shadow(0 0 15px rgba(0, 255, 255, 0.5));
+    animation: icon-pulse-futuristic 3s ease-in-out infinite;
+}
+
+@keyframes icon-pulse-futuristic {
+    0%, 100% { 
+        transform: scale(1);
+        filter: drop-shadow(0 0 15px rgba(0, 255, 255, 0.5));
+    }
+    50% { 
+        transform: scale(1.05);
+        filter: drop-shadow(0 0 25px rgba(0, 255, 255, 0.8));
+    }
+}
+
+.audio-modal .upload-modal-title {
+    font-family: 'Orbitron', 'Rajdhani', 'Montserrat Alternates', sans-serif;
+    font-size: 2rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: #ffffff;
+    margin: 0 0 16px 0;
+    line-height: 1.2;
+    letter-spacing: 2px;
+    background: linear-gradient(135deg, #7c4dff 0%, #00ffff 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    text-shadow: 
+        0 0 15px rgba(0, 255, 255, 0.3),
+        0 0 30px rgba(124, 77, 255, 0.2);
 }
 
-.audio-modal .upload-content h4 {
-    color: #ffffff;
-    font-size: 24px;
-    font-weight: 700;
-    margin: 0 0 12px 0;
-    text-shadow: 0 0 20px rgba(124, 77, 255, 0.3);
-}
-
-.audio-modal .upload-content p {
-    color: rgba(255, 255, 255, 0.85);
+.audio-modal .upload-description {
+    color: rgba(255, 255, 255, 0.9);
     font-size: 16px;
-    margin: 8px 0;
-    line-height: 1.4;
+    margin: 0 0 20px 0;
+    line-height: 1.5;
+    font-weight: 400;
 }
 
 .audio-modal .supported-formats {
-    font-size: 13px;
-    color: rgba(255, 255, 255, 0.6);
-    margin-top: 16px;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.65);
+    margin: 12px 0 8px 0;
+    font-weight: 500;
 }
 
 .audio-modal .format-recommendation {
     color: #4CAF50 !important;
-    font-size: 12px !important;
+    font-size: 13px !important;
     font-weight: 500;
-    background: rgba(76, 175, 80, 0.1);
-    padding: 6px 10px;
-    border-radius: 6px;
-    border: 1px solid rgba(76, 175, 80, 0.2);
-    margin: 10px 0 !important;
+    background: rgba(76, 175, 80, 0.15);
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+    margin: 12px 0 24px 0 !important;
+    display: inline-block;
 }
 
 .audio-modal .upload-btn {
-    height: 52px;
-    min-width: 200px;
-    margin-top: 24px;
-    background: linear-gradient(135deg, #7c4dff, #9c27b0);
+    height: 54px;
+    min-width: 220px;
+    padding: 0 32px;
+    margin-top: 8px;
+    background: linear-gradient(135deg, #7c4dff 0%, #00ffff 100%);
+    font-family: 'Rajdhani', 'Montserrat', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
     border: none;
     border-radius: 12px;
     color: white;
-    font-weight: 600;
-    font-size: 16px;
     cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.audio-modal .upload-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    transition: left 0.5s ease;
+}
+
+.audio-modal .upload-btn:hover::before {
+    left: 100%;
+}
+
+.audio-modal .upload-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 
+        0 0 40px rgba(0, 255, 255, 0.6),
+        0 10px 30px rgba(124, 77, 255, 0.3);
+}
+
+.audio-modal .upload-btn:active {
+    transform: translateY(0px);
+    box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
     transition: all 180ms ease;
     box-shadow: 0 4px 20px rgba(124, 77, 255, 0.3);
     display: inline-flex;
