@@ -1,21 +1,18 @@
-// 🎵 AUDIO ANALYZER INTEGRATION
-// Conecta o sistema de análise de áudio com o chat existente
+// 🎵 AUDIO ANALYZER INTEGRATION - VERSÃO REFATORADA
+// Sistema de análise 100% baseado em processamento no back-end (Railway + Bucket)
+// ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
+// ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
 
-// 🎯 CARREGAR SISTEMA UNIFICADO CORRIGIDO - Versão com todas as correções
-if (typeof window !== 'undefined' && !window.suggestionSystem) {
+// 📝 Carregar gerador de texto didático
+if (typeof window !== 'undefined' && !window.SuggestionTextGenerator) {
     const script = document.createElement('script');
-    script.src = 'suggestion-system-unified.js';
+    script.src = 'suggestion-text-generator.js';
     script.async = true;
     script.onload = () => {
-        console.log('🎯 [AudioIntegration] Sistema Unificado CORRIGIDO carregado');
-        console.log('✅ Correções implementadas: delta correto, direção correta, z-score, cobertura total, textos educativos');
-        console.log('📋 Acesso via: window.suggestionSystem');
-        // Ativar sistema unificado por padrão
-        window.USE_UNIFIED_SUGGESTIONS = true;
+        console.log('[AudioIntegration] Gerador de texto didático carregado');
     };
     script.onerror = () => {
-        console.warn('[AudioIntegration] Falha ao carregar sistema unificado - usando fallback');
-        window.USE_UNIFIED_SUGGESTIONS = false;
+        console.warn('[AudioIntegration] Falha ao carregar gerador de texto didático');
     };
     document.head.appendChild(script);
 }
@@ -64,6 +61,10 @@ let referenceStepState = {
     userAnalysis: null,
     referenceAnalysis: null
 };
+
+// 🎯 JOBS - Sistema de acompanhamento de jobs remotos
+let currentJobId = null;
+let jobPollingInterval = null;
 
 // 🎯 Funções de Acessibilidade e Gestão de Modais
 
@@ -205,48 +206,331 @@ function updateProgressStep(step) {
     });
 }
 
-// 🎯 Seleção de Arquivos para Modo Referência
+// � SISTEMA DE UPLOAD E ANÁLISE REMOTA
+// ✅ FLUXO OFICIAL: Presigned URL → Upload → Job Creation → Status Polling
+
+// �🎯 Seleção de Arquivos para Modo Referência (fileKeys apenas)
 let uploadedFiles = {
     original: null,
     reference: null
 };
 
+/**
+ * ✅ OBTER URL PRÉ-ASSINADA DO BACKEND
+/**
+ * Obter URL pré-assinada do backend
+/**
+ * 🚀 OBTER URL PRÉ-ASSINADA DO BACKEND
+ * @param {File} file - Arquivo para upload
+ * @returns {Promise<{uploadUrl: string, fileKey: string}>}
+ */
+async function getPresignedUrl(file) {
+  try {
+    // Extrair extensão do arquivo
+    const ext = file.name.split('.').pop().toLowerCase();
+
+    __dbg('🌐 Solicitando URL pré-assinada...', {
+      filename: file.name,
+      ext,
+           size: `${(file.size / 1024 / 1024).toFixed(2)}MB`
+    });
+
+    // ✅ Agora manda "ext" 
+    const response = await fetch(`/api/presign?ext=${encodeURIComponent(ext)}`, {
+  method: "GET",
+  headers: {
+    "Accept": "application/json",
+    "X-Requested-With": "XMLHttpRequest"
+  }
+});
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Erro ao obter URL de upload: ${response.status} - ${errorText}`);
+    }
+
+    const data = await response.json();
+
+    if (!data.uploadUrl || !data.fileKey) {
+      throw new Error('Resposta inválida do servidor: uploadUrl ou fileKey ausente');
+    }
+
+    return {
+      uploadUrl: data.uploadUrl,
+      fileKey: data.fileKey
+    };
+  } catch (error) {
+    console.error('❌ Erro ao obter URL pré-assinada:', error);
+    throw new Error(`Falha ao gerar URL de upload: ${error.message}`);
+  }
+}
+
+
+
+/**
+ * ✅ UPLOAD DIRETO PARA BUCKET VIA URL PRÉ-ASSINADA
+ * @param {string} uploadUrl - URL pré-assinada para upload
+ * @param {File} file - Arquivo para upload
+ * @returns {Promise<void>}
+ */
+async function uploadToBucket(uploadUrl, file) {
+  try {
+    __dbg('📤 Iniciando upload para bucket...', { 
+      filename: file.name,
+      size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+      url: uploadUrl.substring(0, 50) + '...'
+    });
+
+    showUploadProgress(`Enviando ${file.name} para análise...`);
+
+    // 👇 sem headers, só body = file
+   const response = await fetch(uploadUrl, {
+  method: "PUT",
+  body: file
+});
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Erro no upload: ${response.status} - ${errorText}`);
+    }
+
+    __dbg('✅ Upload para bucket concluído com sucesso');
+    showUploadProgress(`Upload concluído! Processando ${file.name}...`);
+
+  } catch (error) {
+    console.error('❌ Erro no upload para bucket:', error);
+    throw new Error(`Falha ao enviar arquivo para análise: ${error.message}`);
+  }
+}
+
+
+/**
+ * ✅ CRIAR JOB DE ANÁLISE NO BACKEND
+ * @param {string} fileKey - Chave do arquivo no bucket
+ * @param {string} mode - Modo de análise ('genre' ou 'reference')
+ * @param {string} fileName - Nome original do arquivo
+ * @returns {Promise<{jobId: string, success: boolean}>}
+ */
+async function createAnalysisJob(fileKey, mode, fileName) {
+    try {
+        __dbg('🔧 Criando job de análise...', { fileKey, mode, fileName });
+
+        const response = await fetch('/api/audio/analyze', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            body: JSON.stringify({
+                fileKey: fileKey,
+                mode: mode,
+                fileName: fileName
+            })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Erro ao criar job: ${response.status} - ${errorText}`);
+        }
+
+        const data = await response.json();
+
+        if (!data.success || !data.jobId) {
+            throw new Error('Resposta inválida do servidor: jobId ausente');
+        }
+
+        __dbg('✅ Job de análise criado:', { 
+            jobId: data.jobId,
+            mode: data.mode,
+            fileKey: data.fileKey
+        });
+
+        return {
+            jobId: data.jobId,
+            success: true
+        };
+
+    } catch (error) {
+        console.error('❌ Erro ao criar job de análise:', error);
+        throw new Error(`Falha ao criar job de análise: ${error.message}`);
+    }
+}
+
+/**
+ * ✅ ACOMPANHAR STATUS DO JOB DE ANÁLISE
+ * @param {string} jobId - ID do job
+ * @returns {Promise<Object>} - Resultado da análise quando completa
+ */
+async function pollJobStatus(jobId) {
+    return new Promise((resolve, reject) => {
+        let attempts = 0;
+        const maxAttempts = 60; // 5 minutos máximo (5s * 60 = 300s)
+        
+        const poll = async () => {
+            try {
+                attempts++;
+                __dbg(`🔄 Verificando status do job (tentativa ${attempts}/${maxAttempts})...`);
+
+                const response = await fetch(`/api/jobs/${jobId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Erro ao verificar status: ${response.status}`);
+                }
+
+                const jobData = await response.json();
+                
+                __dbg(`📊 Status do job:`, { 
+                    status: jobData.status, 
+                    progress: jobData.progress || 'N/A' 
+                });
+
+                // Atualizar progresso na UI se disponível
+                if (jobData.progress) {
+                    updateModalProgress(jobData.progress, `Processando análise... ${jobData.progress}%`);
+                }
+
+                if (jobData.status === 'completed' || jobData.status === 'done') {
+                    __dbg('✅ Job concluído com sucesso');
+                    resolve(jobData.result || jobData);
+                    return;
+                }
+
+                if (jobData.status === 'failed' || jobData.status === 'error') {
+                    const errorMsg = jobData.error || 'Erro desconhecido no processamento';
+                    reject(new Error(`Falha na análise: ${errorMsg}`));
+                    return;
+                }
+
+                // Status 'queued', 'processing', etc. - continuar polling
+                if (attempts >= maxAttempts) {
+                    reject(new Error('Timeout: Análise demorou mais que o esperado'));
+                    return;
+                }
+
+                // Aguardar 5 segundos antes da próxima verificação
+                setTimeout(poll, 5000);
+
+            } catch (error) {
+                console.error('❌ Erro no polling:', error);
+                reject(error);
+            }
+        };
+
+        // Iniciar polling
+        poll();
+    });
+}
+
+/**
+ * Mostrar progresso de upload na UI
+ * @param {string} message - Mensagem de progresso
+ */
+function showUploadProgress(message) {
+    const progressText = document.getElementById('audioProgressText');
+    if (progressText) {
+        progressText.innerHTML = `🌐 ${message}`;
+    }
+}
+
+/**
+ * Atualizar progresso do modal de análise
+ * @param {number} percentage - Porcentagem (0-100)
+ * @param {string} message - Mensagem de status
+ */
+function updateModalProgress(percentage, message) {
+    const progressText = document.getElementById('audioProgressText');
+    const progressBar = document.querySelector('.progress-fill');
+    
+    if (progressText) {
+        progressText.innerHTML = `${message}`;
+    }
+    
+    if (progressBar) {
+        progressBar.style.width = `${percentage}%`;
+    }
+}
+
+/**
+ * ✅ NOVA IMPLEMENTAÇÃO: Seleção de arquivo de referência com presigned URL
+ * @param {string} type - Tipo do arquivo ('original' ou 'reference')
+ */
 function handleReferenceFileSelection(type) {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.wav,.flac,.mp3';
+    input.accept = '.wav,.flac,.mp3,.m4a';
     input.style.display = 'none';
-    
-    input.onchange = function(e) {
+
+    input.onchange = async function (e) {
         const file = e.target.files[0];
         if (file) {
-            // Validar arquivo
-            if (file.size > 60 * 1024 * 1024) { // 60MB
-                alert('❌ Arquivo muito grande. Limite: 60MB');
-                return;
-            }
-            
-            uploadedFiles[type] = file;
-            console.log(`✅ Arquivo ${type} selecionado:`, file.name);
-            
-            // Atualizar interface
-            updateFileStatus(type, file.name);
-            
-            // Avançar para próximo passo
-            if (type === 'original') {
-                updateProgressStep(2);
-                promptReferenceFile();
-            } else if (type === 'reference') {
-                updateProgressStep(3);
-                enableAnalysisButton();
+            try {
+                // Validar arquivo
+                if (file.size > 120 * 1024 * 1024) {
+                    alert('❌ Arquivo muito grande. Limite: 120MB');
+                    return;
+                }
+
+                __dbg(`🎯 Processando arquivo ${type} com presigned URL:`, file.name);
+
+                // 🌐 NOVO FLUXO: Presigned URL → Upload → Job Creation → Polling
+                
+                // 1. Obter URL pré-assinada
+                const { uploadUrl, fileKey } = await getPresignedUrl(file);
+                
+                // 2. Upload direto para bucket
+                await uploadToBucket(uploadUrl, file);
+                
+                // 3. Criar job de análise
+                const { jobId } = await createAnalysisJob(fileKey, 'reference', file.name);
+                
+                // 4. Aguardar resultado da análise
+                const analysisResult = await pollJobStatus(jobId);
+                
+                // Mostrar resultados no modal
+displayModalResults(analysisResult);
+
+                // 5. Armazenar resultado
+                uploadedFiles[type] = {
+                    fileKey: fileKey,
+                    fileName: file.name,
+                    analysisResult: analysisResult
+                };
+
+                console.log(`✅ Arquivo ${type} processado com sucesso:`, file.name, "fileKey:", fileKey);
+
+                // Atualizar interface
+                updateFileStatus(type, file.name);
+
+                // Avançar fluxo
+                if (type === "original") {
+                    updateProgressStep(2);
+                    promptReferenceFile();
+                } else if (type === "reference") {
+                    updateProgressStep(3);
+                    enableAnalysisButton();
+                }
+
+            } catch (error) {
+                console.error(`❌ Erro no processamento do arquivo ${type}:`, error);
+                alert(`❌ Erro ao processar arquivo: ${error.message}`);
+
+                // Abrir modal de análise em caso de erro
+                abrirModalDeAnalise("Erro ao processar arquivo para análise.");
             }
         }
     };
-    
+
     document.body.appendChild(input);
     input.click();
     document.body.removeChild(input);
 }
+
 
 function updateFileStatus(type, filename) {
     const statusContainer = document.getElementById('fileUploadStatus');
@@ -307,39 +591,37 @@ async function startReferenceAnalysis() {
         alert('❌ Por favor, faça upload de ambos os arquivos');
         return;
     }
-    
+
     updateProgressStep(4);
-    
+
     try {
-        // Preparar FormData
-        const formData = new FormData();
-        formData.append('originalFile', uploadedFiles.original);
-        formData.append('referenceFile', uploadedFiles.reference);
-        formData.append('mode', 'reference');
-        
-        // Mostrar loading
         showAnalysisProgress();
-        
-        // Enviar para API
+
         const response = await fetch('/api/audio/analyze', {
             method: 'POST',
-            body: formData
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                originalKey: uploadedFiles.original,
+                referenceKey: uploadedFiles.reference,
+                mode: 'reference'
+            })
         });
-        
+
         if (!response.ok) {
             throw new Error(`Erro na análise: ${response.status}`);
         }
-        
-        displayReferenceComparison(result.result);
-        
-        // Exibir resultados
+
+        const result = await response.json();
         displayReferenceComparison(result);
-        
+
     } catch (error) {
         console.error('❌ Erro na análise:', error);
         alert('❌ Erro durante a análise. Tente novamente.');
     }
 }
+
 
 function showAnalysisProgress() {
     const modal = document.getElementById('audioAnalysisModal');
@@ -449,15 +731,8 @@ function generateAudioAnalysisCard(analysis) {
             </div>
         </div>
         
-        <div class="frequency-bands">
-            <h5>Bandas de Frequência</h5>
-            ${analysis.frequencyBands.map(band => `
-                <div class="band-item">
-                    <span class="band-name">${band.name}</span>
-                    <span class="band-level">${band.level} dB</span>
-                </div>
-            `).join('')}
-        </div>
+        <!-- REMOVED: Bandas de Frequência duplicada - consolidada nas métricas avançadas -->
+        <!-- frequency-bands section removed to avoid duplication -->
     `;
 }
 
@@ -588,6 +863,53 @@ function __logMetricAnomaly(kind, key, context={}) {
 function safeDisplayNumber(val, key, decimals=2) {
     if (!Number.isFinite(val)) { __logMetricAnomaly('non_finite', key); return '—'; }
     return val.toFixed(decimals);
+}
+
+// 🆕 Função para exibir estruturas complexas das novas métricas
+function safeDisplayComplexMetric(metric, type = 'generic') {
+    if (!metric || typeof metric !== 'object') return '—';
+    
+    switch (type) {
+        case 'frequency':
+            // Para dominantFrequencies
+            if (metric.value !== undefined) {
+                const unit = metric.unit || 'Hz';
+                const value = Number.isFinite(metric.value) ? metric.value.toFixed(1) : '—';
+                return `${value} ${unit}`;
+            }
+            return '—';
+            
+        case 'dcOffset':
+            // Para dcOffset com canais L/R
+            if (metric.detailed && (metric.detailed.L !== undefined || metric.detailed.R !== undefined)) {
+                const L = Number.isFinite(metric.detailed.L) ? metric.detailed.L.toFixed(4) : '—';
+                const R = Number.isFinite(metric.detailed.R) ? metric.detailed.R.toFixed(4) : '—';
+                return `L: ${L}, R: ${R}`;
+            } else if (metric.value !== undefined) {
+                const value = Number.isFinite(metric.value) ? metric.value.toFixed(4) : '—';
+                const unit = metric.unit || '';
+                return `${value} ${unit}`;
+            }
+            return '—';
+            
+        case 'spectral':
+            // Para spectralUniformity
+            if (metric.value !== undefined) {
+                const value = Number.isFinite(metric.value) ? metric.value.toFixed(3) : '—';
+                const unit = metric.unit || '';
+                return `${value} ${unit}`;
+            }
+            return '—';
+            
+        default:
+            // Generic: tentar exibir value ou primeiro campo numérico
+            if (metric.value !== undefined) {
+                const value = Number.isFinite(metric.value) ? metric.value.toFixed(2) : '—';
+                const unit = metric.unit || '';
+                return `${value} ${unit}`;
+            }
+            return '—';
+    }
 }
 
 // Invalidação ampla de caches derivados quando gênero mudar
@@ -992,6 +1314,12 @@ async function loadReferenceData(genre) {
         } catch (netError) {
             console.log('❌ External refs failed:', netError.message);
             console.log('🔄 Fallback para embedded refs...');
+            
+            // 🔥 CORREÇÃO LOOP INFINITO: Forçar refsReady se refs internas já carregaram
+            if (!window.refsReady && window.embeddedRefsLoaded) {
+                window.refsReady = true;
+                console.log("⚠️ [refs] refsReady forçado como true após fallback com erro de fetch externo");
+            }
         }
         
         // 2) Fallback para referências embutidas (embedded)
@@ -1178,75 +1506,16 @@ if (typeof window !== 'undefined' && !window.__audioHealthCheck) {
 }
 
 // ================== ACCEPTANCE TEST HARNESS (Etapa 3) ==================
+// ⚠️ REMOVIDO: Testes que dependem de Web Audio API
+// TODO: Implementar testes baseados em análise remota se necessário
+
 if (typeof window !== 'undefined' && !window.__runAcceptanceAudioTests) {
     window.__runAcceptanceAudioTests = async function(opts = {}) {
-        if (window.ACCEPTANCE_TEST_MODE !== true) {
-            console.warn('Acceptance test mode desativado. Defina window.ACCEPTANCE_TEST_MODE = true antes de chamar.');
-            return { skipped: true };
-        }
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const sr = ctx.sampleRate;
-        const makeBuffer = (seconds, channels=2) => ctx.createBuffer(channels, Math.max(1, Math.floor(sr*seconds)), sr);
-        const toDb = v => v>0?20*Math.log10(v):-Infinity;
-        const results = [];
-        // 1. Silêncio 5s
-        const bufSilence = makeBuffer(5,2); // já zero
-        results.push({ name:'silence', analysis: await window.audioAnalyzer.analyzeAudioBufferDirect(bufSilence,'silence') });
-        // 2. Seno 1kHz -12dBFS 10s
-        const bufSine = makeBuffer(10,2); (['L','R']).forEach((_,ch)=>{ const chData = bufSine.getChannelData(ch); for(let i=0;i<chData.length;i++){ chData[i] = Math.sin(2*Math.PI*1000*i/sr)*Math.pow(10,-12/20); } });
-        results.push({ name:'sine_1k_-12dBFS', analysis: await window.audioAnalyzer.analyzeAudioBufferDirect(bufSine,'sine') });
-        // 3. Ruído rosa approx -14 LUFS (gerar ruído branco filtrado + normalizar)
-        const bufPink = makeBuffer(10,2); for (let ch=0; ch<2; ch++){ const d=bufPink.getChannelData(ch); let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0; for(let i=0;i<d.length;i++){ const white=Math.random()*2-1; b0=0.99886*b0+white*0.0555179; b1=0.99332*b1+white*0.0750759; b2=0.96900*b2+white*0.1538520; b3=0.86650*b3+white*0.3104856; b4=0.55000*b4+white*0.5329522; b5=-0.7616*b5-white*0.0168980; const pink = b0+b1+b2+b3+b4+b5+b6+white*0.5362; b6=white*0.115926; d[i]=pink*0.11; } }
-        // leve normalização amplitude
-        results.push({ name:'pink_noise_target', analysis: await window.audioAnalyzer.analyzeAudioBufferDirect(bufPink,'pink') });
-        // 4. Quase clipado (TP ≈ -0.1dB) -> seno 60Hz amplo -0.1
-        const bufAlmost = makeBuffer(5,2); const ampAlmost = Math.pow(10, -0.1/20); for (let ch=0; ch<2; ch++){ const d=bufAlmost.getChannelData(ch); for(let i=0;i<d.length;i++){ d[i]= Math.sin(2*Math.PI*60*i/sr)*ampAlmost; } }
-        results.push({ name:'almost_clipped', analysis: await window.audioAnalyzer.analyzeAudioBufferDirect(bufAlmost,'almostClip') });
-        // 5. Clipado (samples >= 1.0)
-        const bufClipped = makeBuffer(2,2); for (let ch=0; ch<2; ch++){ const d=bufClipped.getChannelData(ch); for(let i=0;i<d.length;i++){ const v=Math.sin(2*Math.PI*80*i/sr)*1.2; d[i]= Math.max(-1, Math.min(1, v)); } }
-        results.push({ name:'clipped', analysis: await window.audioAnalyzer.analyzeAudioBufferDirect(bufClipped,'clipped') });
-        // 6. Estéreo desequilibrado (L -3 dB, R 0 dB)
-        const bufImbalance = makeBuffer(5,2); const gainL = Math.pow(10,-3/20), gainR = 1; for(let i=0;i<bufImbalance.length;i++){ const t=i/sr; const s=Math.sin(2*Math.PI*440*t); bufImbalance.getChannelData(0)[i]=s*gainL; bufImbalance.getChannelData(1)[i]=s*gainR; }
-        results.push({ name:'stereo_imbalance', analysis: await window.audioAnalyzer.analyzeAudioBufferDirect(bufImbalance,'stereoImbalance') });
-        // === Avaliação de critérios ===
-        const evals = [];
-        const approx = (val, target, tol) => Number.isFinite(val) && Math.abs(val - target) <= tol;
-        for (const r of results) {
-            const td = r.analysis?.technicalData || {};
-            if (r.name==='silence') {
-                evals.push({ case:'silence_lufs', pass: !Number.isFinite(td.lufsIntegrated) || td.lufsIntegrated < -100, observed: td.lufsIntegrated });
-                evals.push({ case:'silence_tp', pass: !Number.isFinite(td.truePeakDbtp) || td.truePeakDbtp <= -90, observed: td.truePeakDbtp });
-                evals.push({ case:'silence_lra', pass: !Number.isFinite(td.lra) || td.lra <= 0.1, observed: td.lra });
-            }
-            if (r.name==='sine_1k_-12dBFS') {
-                evals.push({ case:'sine_peak', pass: approx(td.truePeakDbtp ?? td.peak, -12, 0.6), observed: td.truePeakDbtp ?? td.peak });
-                if (Number.isFinite(td.truePeakDbtp) && Number.isFinite(td.headroomTruePeakDb)) {
-                    evals.push({ case:'sine_headroom_match', pass: approx(td.headroomTruePeakDb, -td.truePeakDbtp, 0.11), observed: td.headroomTruePeakDb });
-                }
-                if (Number.isFinite(td.lufsIntegrated)) evals.push({ case:'sine_lufs', pass: approx(td.lufsIntegrated, -12, 0.7), observed: td.lufsIntegrated });
-                evals.push({ case:'sine_lra', pass: (td.lra??0) <= 0.6, observed: td.lra });
-            }
-            if (r.name==='pink_noise_target') {
-                if (Number.isFinite(td.lufsIntegrated)) evals.push({ case:'pink_lufs', pass: Math.abs(td.lufsIntegrated + 14) <= 1.0, observed: td.lufsIntegrated });
-                if (Number.isFinite(td.lufsShortTerm) && Number.isFinite(td.lufsIntegrated)) evals.push({ case:'pink_st_integrated_gap', pass: Math.abs(td.lufsShortTerm - td.lufsIntegrated) <= 0.5, observed: td.lufsShortTerm - td.lufsIntegrated });
-            }
-            if (r.name==='almost_clipped') {
-                if (Number.isFinite(td.truePeakDbtp)) evals.push({ case:'almost_headroom', pass: approx(td.headroomTruePeakDb, -td.truePeakDbtp, 0.11), observed: td.headroomTruePeakDb });
-                const hasClipProb = (r.analysis.problems||[]).some(p=>p.type==='clipping');
-                evals.push({ case:'almost_no_clip_problem', pass: !hasClipProb, observed: hasClipProb });
-            }
-            if (r.name==='clipped') {
-                const hasClipProb = (r.analysis.problems||[]).some(p=>p.type==='clipping');
-                evals.push({ case:'clipped_problem_present', pass: hasClipProb, observed: hasClipProb });
-                if (Number.isFinite(td.truePeakDbtp)) evals.push({ case:'clipped_tp_non_negative', pass: td.truePeakDbtp >= -0.05, observed: td.truePeakDbtp });
-            }
-            if (r.name==='stereo_imbalance') {
-                if (Number.isFinite(td.balanceLR)) evals.push({ case:'stereo_balance_sign', pass: td.balanceLR < 0, observed: td.balanceLR });
-            }
-        }
-        const summary = { results: results.map(r=>({ name:r.name, tp:r.analysis?.technicalData?.truePeakDbtp, lufs:r.analysis?.technicalData?.lufsIntegrated, headroom:r.analysis?.technicalData?.headroomTruePeakDb, lra:r.analysis?.technicalData?.lra, balance:r.analysis?.technicalData?.balanceLR })), evals, pass: evals.every(e=>e.pass) };
-        if (window.DEBUG_ANALYZER) console.log('ACCEPTANCE TEST SUMMARY', summary);
-        return summary;
+        console.warn('⚠️ Testes de aceitação de áudio foram removidos devido à migração para análise remota');
+        return { 
+            skipped: true, 
+            reason: 'Web Audio API removida - usar testes de backend' 
+        };
     };
 }
 
@@ -1335,6 +1604,34 @@ function initializeAudioAnalyzerIntegration() {
     setupAudioModal();
     
     __dbg('🎵 Audio Analyzer Integration carregada com sucesso!');
+    
+    // 🧠 Aguarda refs e cache ficarem prontos antes de liberar o ForceActivator
+    function waitForRefsAndCacheBeforeReady() {
+        const checkReady = () => {
+            const ready = !!(window.audioAnalyzer && window.CACHE_CTX_AWARE_V1_API && window.refsReady);
+            console.log("⏳ [READY-CHECK] Estado atual:", {
+                audioAnalyzer: !!window.audioAnalyzer,
+                CACHE_CTX_AWARE_V1_API: !!window.CACHE_CTX_AWARE_V1_API,
+                refsReady: !!window.refsReady
+            });
+            if (ready) {
+                console.log("✅ [GLOBAL] Todos os sistemas prontos. Disparando analysisReady...");
+                const evt = new Event("analysisReady");
+                document.dispatchEvent(evt);
+                return true;
+            }
+            return false;
+        };
+
+        if (!checkReady()) {
+            const interval = setInterval(() => {
+                if (checkReady()) clearInterval(interval);
+            }, 300);
+        }
+    }
+
+    // 🔥 Chamar a função de espera no ponto onde estava o dispatch antigo:
+    waitForRefsAndCacheBeforeReady();
 
     // Aplicar estilos aprimorados ao seletor de gênero
     try { injectRefGenreStyles(); } catch(e) { /* silencioso */ }
@@ -1674,13 +1971,34 @@ async function handleModalFileSelection(file) {
             return; // validateAudioFile já mostra erro
         }
         
-        // Processar baseado no modo de análise
-        if (currentAnalysisMode === 'reference') {
-            await handleReferenceFileSelection(file);
-        } else {
-            await handleGenreFileSelection(file);
-        }
+        // 🌐 NOVO FLUXO COMPLETO: Presigned URL → Upload → Job Creation → Polling
+        __dbg('🌐 Iniciando fluxo de análise remota completo...');
         
+        // Mostrar loading
+        hideUploadArea();
+        showAnalysisLoading();
+        showUploadProgress(`Preparando upload de ${file.name}...`);
+        
+        // 🌐 ETAPA 1: Obter URL pré-assinada
+        const { uploadUrl, fileKey } = await getPresignedUrl(file);
+        
+        // 🌐 ETAPA 2: Upload direto para bucket
+        await uploadToBucket(uploadUrl, file);
+        
+        // 🌐 ETAPA 3: Criar job de análise no backend
+        const { jobId } = await createAnalysisJob(fileKey, currentAnalysisMode, file.name);
+        
+        // 🌐 ETAPA 4: Acompanhar progresso e aguardar resultado
+        showUploadProgress(`Analisando ${file.name}... Aguarde.`);
+        const analysisResult = await pollJobStatus(jobId);
+        
+        // 🌐 ETAPA 5: Processar resultado baseado no modo
+        if (currentAnalysisMode === "reference") {
+            await handleReferenceAnalysisWithResult(analysisResult, fileKey, file.name);
+        } else {
+            await handleGenreAnalysisWithResult(analysisResult, file.name);
+        }
+
     } catch (error) {
         console.error('❌ Erro na análise do modal:', error);
         
@@ -1696,10 +2014,17 @@ async function handleModalFileSelection(file) {
             setTimeout(() => {
                 currentAnalysisMode = 'genre';
                 configureModalForMode('genre');
-                handleGenreFileSelection(file);
             }, 2000);
         } else {
-            showModalError(`Erro ao analisar arquivo: ${error.message}`);
+            // Determinar tipo de erro para mensagem mais específica
+            let errorMessage = error.message;
+            if (error.message.includes('Falha ao gerar URL de upload')) {
+                errorMessage = 'Falha ao gerar URL de upload. Verifique sua conexão e tente novamente.';
+            } else if (error.message.includes('Falha ao enviar arquivo para análise')) {
+                errorMessage = 'Falha ao enviar arquivo para análise. Verifique sua conexão e tente novamente.';
+            }
+            
+            showModalError(`Erro ao processar arquivo: ${errorMessage}`);
         }
     } finally {
         // 🎵 WAV CLEANUP: Limpar otimizações WAV em caso de erro
@@ -1719,7 +2044,265 @@ async function handleModalFileSelection(file) {
     }
 }
 
-// 🎯 NOVO: Validação comum de arquivo
+// � NOVAS FUNÇÕES: Análise baseada em fileKey (pós-upload remoto)
+
+/**
+ * Processar análise por referência usando fileKey
+ * @param {string} fileKey - Chave do arquivo no bucket
+ * @param {string} fileName - Nome original do arquivo
+ */
+// 🌐 NOVAS FUNÇÕES: Análise baseada em resultado remoto
+
+/**
+ * Processar análise por referência usando resultado remoto
+ * @param {Object} analysisResult - Resultado da análise remota
+ * @param {string} fileKey - Chave do arquivo no bucket
+ * @param {string} fileName - Nome original do arquivo
+ */
+async function handleReferenceAnalysisWithResult(analysisResult, fileKey, fileName) {
+    __dbg('🎯 Processando análise por referência com resultado remoto:', { fileKey, fileName });
+    
+    window.logReferenceEvent('reference_analysis_with_result_started', { 
+        fileKey,
+        fileName 
+    });
+    
+    try {
+        // Verificar estrutura do resultado
+        if (!analysisResult || typeof analysisResult !== 'object') {
+            throw new Error('Resultado de análise inválido recebido do servidor');
+        }
+        
+        updateModalProgress(90, '🎯 Aplicando resultado da análise...');
+        
+        // Determinar se é arquivo original ou de referência
+        const isReference = currentAnalysisMode === 'reference' && uploadedFiles.original;
+        const fileType = isReference ? 'reference' : 'original';
+        
+        // Armazenar resultado
+        uploadedFiles[fileType] = {
+            fileKey: fileKey,
+            fileName: fileName,
+            analysisResult: analysisResult
+        };
+        
+        __dbg(`✅ Arquivo ${fileType} armazenado:`, uploadedFiles[fileType]);
+        
+        // Atualizar display na interface
+        updateReferenceFileDisplay(fileType, fileName);
+        
+        // Log do evento
+        window.logReferenceEvent('reference_file_processed', {
+            fileType,
+            fileName,
+            hasResult: !!analysisResult
+        });
+        
+        // Verificar se ambos os arquivos estão prontos para comparação
+        if (uploadedFiles.original && uploadedFiles.reference) {
+            enableReferenceComparison();
+            updateModalProgress(100, '✅ Ambos os arquivos analisados! Comparação disponível.');
+            
+        
+        }
+        
+    } catch (error) {
+        console.error('❌ Erro ao processar análise por referência:', error);
+        window.logReferenceEvent('reference_analysis_error', { 
+            error: error.message,
+            fileKey,
+            fileName 
+        });
+        throw error;
+    }
+}
+
+/**
+ * Processar análise por gênero usando resultado remoto
+ * @param {Object} analysisResult - Resultado da análise remota
+ * @param {string} fileName - Nome original do arquivo
+ */
+async function handleGenreAnalysisWithResult(analysisResult, fileName) {
+    __dbg('🎵 Processando análise por gênero com resultado remoto:', { fileName });
+    
+    try {
+        // Verificar estrutura do resultado
+        if (!analysisResult || typeof analysisResult !== 'object') {
+            throw new Error('Resultado de análise inválido recebido do servidor');
+        }
+        
+        updateModalProgress(90, '🎵 Aplicando resultado da análise...');
+        
+        // 🔧 CORREÇÃO: Normalizar dados do backend antes de usar
+        const normalizedResult = normalizeBackendAnalysisData(analysisResult);
+        
+        // 🎯 CORREÇÃO CRÍTICA: Gerar sugestões no primeiro load
+        if (__activeRefData && !normalizedResult._suggestionsGenerated) {
+            console.log('🎯 [SUGGESTIONS] Engine chamado no primeiro load');
+            try {
+                updateReferenceSuggestions(normalizedResult, __activeRefData);
+                normalizedResult._suggestionsGenerated = true;
+                console.log(`🎯 [SUGGESTIONS] ${normalizedResult.suggestions?.length || 0} sugestões geradas no primeiro load`);
+            } catch (error) {
+                console.error('❌ [SUGGESTIONS] Erro ao gerar sugestões no primeiro load:', error);
+            }
+        } else if (!__activeRefData) {
+            console.log('🎯 [SUGGESTIONS] Dados de referência não disponíveis para gerar sugestões');
+        } else {
+            console.log('🎯 [SUGGESTIONS] Sugestões já foram geradas anteriormente');
+        }
+
+        // 🚀 FORÇA EXIBIÇÃO: Sempre mostrar interface IA após sugestões serem processadas
+        if (normalizedResult.suggestions && normalizedResult.suggestions.length > 0) {
+            setTimeout(() => {
+                console.log(`🚀 [AI-UI-FORCE] Tentando forçar interface IA aparecer com ${normalizedResult.suggestions.length} sugestões`);
+                
+                // Verificar múltiplas formas de chamar a interface IA
+                if (window.aiUIController) {
+                    console.log(`🚀 [AI-UI-FORCE] Usando aiUIController existente`);
+                    window.aiUIController.checkForAISuggestions(normalizedResult, true);
+                } else if (window.forceShowAISuggestions) {
+                    console.log(`🚀 [AI-UI-FORCE] Usando forceShowAISuggestions como fallback`);
+                    window.forceShowAISuggestions(normalizedResult);
+                } else {
+                    console.warn('⚠️ [AI-UI-FORCE] Nenhum método de interface IA encontrado, criando interface básica...');
+                    
+                    // Criar interface básica na hora
+                    const aiSection = document.createElement('div');
+                    aiSection.id = 'ai-suggestions-section';
+                    aiSection.style.cssText = `
+                        margin: 20px 0; padding: 20px; border: 2px solid #4CAF50;
+                        border-radius: 10px; background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+                        color: white; font-family: Arial, sans-serif;
+                    `;
+                    aiSection.innerHTML = `
+                        <h3 style="color: #4CAF50; margin: 0 0 15px 0;">🤖 Sugestões Inteligentes</h3>
+                        <div style="background: rgba(76, 175, 80, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid #4CAF50;">
+                            <p style="margin: 0 0 10px 0; color: #A5D6A7;">
+                                💡 Interface IA carregada com ${normalizedResult.suggestions.length} sugestões
+                            </p>
+                            <p style="margin: 0; font-size: 14px; color: #81C784;">
+                                Configure uma API Key da OpenAI para sugestões inteligentes personalizadas.
+                            </p>
+                            <button onclick="if(window.promptForAPIKey) window.promptForAPIKey(); else alert('Configure API Key da OpenAI para ativar IA')" 
+                                    style="margin-top: 10px; padding: 8px 16px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                                ⚙️ Configurar IA
+                            </button>
+                        </div>
+                    `;
+                    
+                    // Inserir na interface
+                    const modal = document.getElementById('audioAnalysisModal');
+                    const content = modal?.querySelector('.modal-content');
+                    if (content) {
+                        // Remover seção anterior se existir
+                        const existing = content.querySelector('#ai-suggestions-section');
+                        if (existing) existing.remove();
+                        
+                        // Adicionar nova seção
+                        content.appendChild(aiSection);
+                        console.log('✅ [AI-UI-FORCE] Interface IA básica criada e inserida');
+                    } else {
+                        console.error('❌ [AI-UI-FORCE] Modal não encontrado para inserir interface');
+                    }
+                }
+            }, 500); // Delay para garantir que o DOM esteja renderizado
+        }
+        
+        // Definir como análise atual do modal
+        currentModalAnalysis = normalizedResult;
+        
+        // Armazenar resultado globalmente para uso posterior
+        if (typeof window !== 'undefined') {
+            window.__LAST_ANALYSIS_RESULT__ = normalizedResult;
+        }
+        
+        updateModalProgress(100, `✅ Análise de ${fileName} concluída!`);
+        
+        // Exibir resultados diretamente no modal
+        setTimeout(() => {
+            displayModalResults(normalizedResult);
+        }, 500);
+        
+    } catch (error) {
+        console.error('❌ Erro ao processar análise por gênero:', error);
+        throw error;
+    }
+}
+
+/**
+ * Atualizar display de arquivo de referência na interface
+ * @param {string} fileType - Tipo do arquivo ('original' ou 'reference')
+ * @param {string} fileName - Nome do arquivo
+ */
+function updateReferenceFileDisplay(fileType, fileName) {
+    const displayElement = document.getElementById(`${fileType}FileDisplay`);
+    if (displayElement) {
+        displayElement.textContent = fileName;
+        displayElement.style.display = 'block';
+    }
+    
+    // Atualizar também elementos relacionados
+    const labelElement = document.querySelector(`label[for="${fileType}FileInput"]`);
+    if (labelElement) {
+        labelElement.style.opacity = '0.7';
+    }
+}
+
+/**
+ * Habilitar botão de comparação de referência
+ */
+function enableReferenceComparison() {
+    const compareButton = document.getElementById('compareButton');
+    if (compareButton) {
+        compareButton.disabled = false;
+        compareButton.style.opacity = '1';
+        compareButton.style.cursor = 'pointer';
+    }
+    
+    // Atualizar indicador visual
+    const indicator = document.querySelector('.reference-ready-indicator');
+    if (indicator) {
+        indicator.style.display = 'block';
+    }
+}
+
+
+/**
+ * Mostrar mensagem do próximo passo
+ * @param {string} message - Mensagem a ser exibida
+ */
+function showNextStepMessage(message) {
+    console.log(`➡️ ${message}`);
+    
+    // Implementar notificação visual se necessário
+    const notification = document.createElement('div');
+    notification.className = 'next-step-notification';
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: #28a745;
+        color: white;
+        padding: 12px 20px;
+        border-radius: 8px;
+        z-index: 10000;
+        font-size: 14px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Remover após 5 segundos
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
+    }, 5000);
+}
+
+// �🎯 NOVO: Validação comum de arquivo
 function validateAudioFile(file) {
     const MAX_UPLOAD_MB = 60;
     const MAX_UPLOAD_SIZE = MAX_UPLOAD_MB * 1024 * 1024;
@@ -2819,314 +3402,6 @@ function showModalLoading() {
 }
 
 // 📈 Simular progresso
-// ===== HELPER FUNCTIONS PARA CYBERPUNK UI =====
-
-// 🎯 Renderizar scores cyberpunk
-function renderCyberpunkScores() {
-    if (!window.__LAST_ANALYSIS_SCORES__) {
-        return '<div class="subscore-item">📊 Calculando scores...</div>';
-    }
-    
-    const scores = window.__LAST_ANALYSIS_SCORES__;
-    const scoreItems = [];
-    
-    if (Number.isFinite(scores.loudnessScore)) {
-        scoreItems.push(`<div class="subscore-item">
-            <div class="subscore-label">🎧 Loudness</div>
-            <div class="subscore-value ${getStatusClass(scores.loudnessScore)}">${scores.loudnessScore.toFixed(1)}</div>
-        </div>`);
-    }
-    
-    if (Number.isFinite(scores.dynamicScore)) {
-        scoreItems.push(`<div class="subscore-item">
-            <div class="subscore-label">📈 Dinâmica</div>
-            <div class="subscore-value ${getStatusClass(scores.dynamicScore)}">${scores.dynamicScore.toFixed(1)}</div>
-        </div>`);
-    }
-    
-    if (Number.isFinite(scores.frequencyScore)) {
-        scoreItems.push(`<div class="subscore-item">
-            <div class="subscore-label">🌊 Frequências</div>
-            <div class="subscore-value ${getStatusClass(scores.frequencyScore)}">${scores.frequencyScore.toFixed(1)}</div>
-        </div>`);
-    }
-    
-    if (Number.isFinite(scores.technicalScore)) {
-        scoreItems.push(`<div class="subscore-item">
-            <div class="subscore-label">🧪 Técnica</div>
-            <div class="subscore-value ${getStatusClass(scores.technicalScore)}">${scores.technicalScore.toFixed(1)}</div>
-        </div>`);
-    }
-    
-    return scoreItems.join('');
-}
-
-// 🎧 Gerar cards de Loudness
-function generateLoudnessCards(analysis) {
-    const cards = [];
-    
-    // Helper para métricas centralizadas
-    const getMetric = (metricPath, fallbackPath = null) => {
-        const centralizedValue = analysis.metrics && getNestedValue(analysis.metrics, metricPath);
-        if (Number.isFinite(centralizedValue)) return centralizedValue;
-        const legacyValue = fallbackPath ? getNestedValue(analysis.technicalData, fallbackPath) : getNestedValue(analysis.technicalData, metricPath);
-        return Number.isFinite(legacyValue) ? legacyValue : null;
-    };
-    
-    const getNestedValue = (obj, path) => {
-        return path.split('.').reduce((current, key) => current?.[key], obj);
-    };
-    
-    // True Peak
-    const truePeak = getMetric('truePeakDbtp', 'truePeakDbtp');
-    if (Number.isFinite(truePeak)) {
-        const status = getTruePeakStatus(truePeak);
-        cards.push(`
-            <div class="cyberpunk-card">
-                <div class="card-header">
-                    <div class="card-icon">🔊</div>
-                    <div class="card-title">Pico Real</div>
-                </div>
-                <div class="card-value">${truePeak.toFixed(2)} dBTP</div>
-                <div class="card-status ${status.class}">${status.status}</div>
-            </div>
-        `);
-    }
-    
-    // LUFS Integrado
-    const lufs = getMetric('lufs_integrated', 'lufsIntegrated');
-    if (Number.isFinite(lufs)) {
-        cards.push(`
-            <div class="cyberpunk-card">
-                <div class="card-header">
-                    <div class="card-icon">📢</div>
-                    <div class="card-title">LUFS Integrado</div>
-                </div>
-                <div class="card-value">${lufs.toFixed(1)} LUFS</div>
-                <div class="card-status">EBU R128</div>
-            </div>
-        `);
-    }
-    
-    // RMS Level
-    const rms = getMetric('rms_level', 'avgLoudness');
-    if (Number.isFinite(rms)) {
-        cards.push(`
-            <div class="cyberpunk-card">
-                <div class="card-header">
-                    <div class="card-icon">📊</div>
-                    <div class="card-title">Volume RMS</div>
-                </div>
-                <div class="card-value">${rms.toFixed(1)} dBFS</div>
-                <div class="card-status">Média</div>
-            </div>
-        `);
-    }
-    
-    return cards.join('');
-}
-
-// 📈 Gerar cards de Dinâmica
-function generateDynamicsCards(analysis) {
-    const cards = [];
-    
-    const getMetric = (metricPath, fallbackPath = null) => {
-        const centralizedValue = analysis.metrics && getNestedValue(analysis.metrics, metricPath);
-        if (Number.isFinite(centralizedValue)) return centralizedValue;
-        const legacyValue = fallbackPath ? getNestedValue(analysis.technicalData, fallbackPath) : getNestedValue(analysis.technicalData, metricPath);
-        return Number.isFinite(legacyValue) ? legacyValue : null;
-    };
-    
-    const getNestedValue = (obj, path) => {
-        return path.split('.').reduce((current, key) => current?.[key], obj);
-    };
-    
-    // Dynamic Range
-    const dr = getMetric('dynamic_range', 'dynamicRange');
-    if (Number.isFinite(dr)) {
-        cards.push(`
-            <div class="cyberpunk-card">
-                <div class="card-header">
-                    <div class="card-icon">📈</div>
-                    <div class="card-title">Dynamic Range</div>
-                </div>
-                <div class="card-value">${dr.toFixed(1)} dB</div>
-                <div class="card-status">DR${Math.round(dr)}</div>
-            </div>
-        `);
-    }
-    
-    // LRA
-    const lra = getMetric('lra', 'lra');
-    if (Number.isFinite(lra)) {
-        cards.push(`
-            <div class="cyberpunk-card">
-                <div class="card-header">
-                    <div class="card-icon">📊</div>
-                    <div class="card-title">Loudness Range</div>
-                </div>
-                <div class="card-value">${lra.toFixed(1)} LU</div>
-                <div class="card-status">LRA</div>
-            </div>
-        `);
-    }
-    
-    // Crest Factor
-    const crest = getMetric('crest_factor', 'crestFactor');
-    if (Number.isFinite(crest)) {
-        cards.push(`
-            <div class="cyberpunk-card">
-                <div class="card-header">
-                    <div class="card-icon">⚡</div>
-                    <div class="card-title">Fator de Crista</div>
-                </div>
-                <div class="card-value">${crest.toFixed(1)} dB</div>
-                <div class="card-status">Punch</div>
-            </div>
-        `);
-    }
-    
-    return cards.join('');
-}
-
-// 🌊 Gerar bandas de frequência
-function generateFrequencyBands(analysis) {
-    const bands = [];
-    const tonalBalance = analysis.technicalData?.tonalBalance || analysis.tonalBalance;
-    
-    if (!tonalBalance) {
-        return '<div class="frequency-band"><div class="band-name">Sem dados espectrais</div></div>';
-    }
-    
-    const bandData = [
-        { key: 'sub', name: 'Sub (20-60 Hz)', icon: '🎯', color: 'sub' },
-        { key: 'low', name: 'Graves (60-150 Hz)', icon: '🔈', color: 'low' },
-        { key: 'lowMid', name: 'Low-Mid (150-500 Hz)', icon: '🔉', color: 'lowmid' },
-        { key: 'mid', name: 'Médios (500 Hz-2 kHz)', icon: '🔊', color: 'mid' },
-        { key: 'highMid', name: 'High-Mid (2-5 kHz)', icon: '📢', color: 'highmid' },
-        { key: 'presence', name: 'Presença (5-10 kHz)', icon: '✨', color: 'presence' },
-        { key: 'air', name: 'Air (10-20 kHz)', icon: '💨', color: 'air' }
-    ];
-    
-    bandData.forEach(band => {
-        const bandInfo = tonalBalance[band.key];
-        if (bandInfo && Number.isFinite(bandInfo.rms_db)) {
-            bands.push(`
-                <div class="frequency-band band-${band.color}">
-                    <div class="band-header">
-                        <div class="band-icon">${band.icon}</div>
-                        <div class="band-name">${band.name}</div>
-                    </div>
-                    <div class="band-value">${bandInfo.rms_db.toFixed(1)} dB</div>
-                    <div class="band-meter">
-                        <div class="band-fill" style="width: ${Math.max(0, Math.min(100, (bandInfo.rms_db + 60) * 1.67))}%"></div>
-                    </div>
-                </div>
-            `);
-        }
-    });
-    
-    return bands.join('');
-}
-
-// 🧪 Gerar cards técnicos
-function generateTechnicalCards(analysis) {
-    const cards = [];
-    
-    const getMetric = (metricPath, fallbackPath = null) => {
-        const centralizedValue = analysis.metrics && getNestedValue(analysis.metrics, metricPath);
-        if (Number.isFinite(centralizedValue)) return centralizedValue;
-        const legacyValue = fallbackPath ? getNestedValue(analysis.technicalData, fallbackPath) : getNestedValue(analysis.technicalData, metricPath);
-        return Number.isFinite(legacyValue) ? legacyValue : null;
-    };
-    
-    const getNestedValue = (obj, path) => {
-        return path.split('.').reduce((current, key) => current?.[key], obj);
-    };
-    
-    // Correlação Estéreo
-    const stereoCorr = getMetric('stereo_correlation', 'stereoCorrelation');
-    if (Number.isFinite(stereoCorr)) {
-        cards.push(`
-            <div class="cyberpunk-card">
-                <div class="card-header">
-                    <div class="card-icon">🎭</div>
-                    <div class="card-title">Correlação Estéreo</div>
-                </div>
-                <div class="card-value">${stereoCorr.toFixed(3)}</div>
-                <div class="card-status">${stereoCorr > 0.95 ? 'Mono' : stereoCorr > 0.7 ? 'Estreito' : 'Largo'}</div>
-            </div>
-        `);
-    }
-    
-    // Largura Estéreo
-    const stereoWidth = getMetric('stereo_width', 'stereoWidth');
-    if (Number.isFinite(stereoWidth)) {
-        cards.push(`
-            <div class="cyberpunk-card">
-                <div class="card-header">
-                    <div class="card-icon">🌐</div>
-                    <div class="card-title">Largura Estéreo</div>
-                </div>
-                <div class="card-value">${stereoWidth.toFixed(2)}</div>
-                <div class="card-status">Width</div>
-            </div>
-        `);
-    }
-    
-    // Centroide Espectral
-    const centroid = getMetric('spectral_centroid', 'spectralCentroidHz');
-    if (Number.isFinite(centroid)) {
-        cards.push(`
-            <div class="cyberpunk-card">
-                <div class="card-header">
-                    <div class="card-icon">✨</div>
-                    <div class="card-title">Brilho</div>
-                </div>
-                <div class="card-value">${Math.round(centroid)} Hz</div>
-                <div class="card-status">Centroide</div>
-            </div>
-        `);
-    }
-    
-    // BPM
-    const bpm = getMetric('bpm', 'bpm');
-    if (Number.isFinite(bpm)) {
-        cards.push(`
-            <div class="cyberpunk-card">
-                <div class="card-header">
-                    <div class="card-icon">🥁</div>
-                    <div class="card-title">Tempo</div>
-                </div>
-                <div class="card-value">${Math.round(bpm)}</div>
-                <div class="card-status">BPM</div>
-            </div>
-        `);
-    }
-    
-    return cards.join('');
-}
-
-// 🏆 Helper para classes de status
-function getStatusClass(score) {
-    if (!Number.isFinite(score)) return 'status-unknown';
-    if (score >= 90) return 'status-excellent';
-    if (score >= 75) return 'status-good';
-    if (score >= 60) return 'status-warning';
-    return 'status-critical';
-}
-
-// 🎯 Helper para status do True Peak (já existia, mantendo para compatibilidade)
-function getTruePeakStatus(value) {
-    if (!Number.isFinite(value)) return { status: '—', class: '' };
-    
-    if (value <= -1.5) return { status: 'EXCELENTE', class: 'status-excellent' };
-    if (value <= -1.0) return { status: 'IDEAL', class: 'status-ideal' };
-    if (value <= -0.5) return { status: 'BOM', class: 'status-good' };
-    if (value <= 0.0) return { status: 'ACEITÁVEL', class: 'status-warning' };
-    return { status: 'ESTOURADO', class: 'status-critical' };
-}
-
 // (função de simulação de progresso removida — não utilizada)
 
 // 📊 Mostrar resultados no modal
@@ -3151,6 +3426,39 @@ function displayModalResults(analysis) {
         return;
     }
     
+    // 🔧 CORREÇÃO CRÍTICA: Normalizar dados do backend para compatibilidade com front-end
+    if (analysis && typeof analysis === 'object') {
+        analysis = normalizeBackendAnalysisData(analysis);
+        console.log('📊 [DEBUG] Dados normalizados para exibição:', analysis);
+    }
+    
+    // 🎯 CALCULAR SCORES DA ANÁLISE
+    if (__activeRefData && analysis) {
+        const detectedGenre = analysis.metadata?.genre || analysis.genre || __activeRefGenre;
+        console.log('🎯 Calculando scores para gênero:', detectedGenre);
+        
+        try {
+            const analysisScores = calculateAnalysisScores(analysis, __activeRefData, detectedGenre);
+            
+            if (analysisScores) {
+                // Adicionar scores à análise
+                analysis.scores = analysisScores;
+                console.log('✅ Scores calculados e adicionados à análise:', analysisScores);
+                
+                // Também armazenar globalmente
+                if (typeof window !== 'undefined') {
+                    window.__LAST_ANALYSIS_SCORES__ = analysisScores;
+                }
+            } else {
+                console.warn('⚠️ Não foi possível calcular scores (dados insuficientes)');
+            }
+        } catch (error) {
+            console.error('❌ Erro ao calcular scores:', error);
+        }
+    } else {
+        console.warn('⚠️ Scores não calculados - dados de referência não disponíveis');
+    }
+    
     // Ocultar outras seções
     if (uploadArea) uploadArea.style.display = 'none';
     if (loading) loading.style.display = 'none';
@@ -3165,7 +3473,7 @@ function displayModalResults(analysis) {
     
     // Marcar se pacote avançado chegou (LUFS integrado + Pico Real + LRA)
     const advancedReady = (
-        Number.isFinite(analysis?.technicalData?.lufsIntegrated) &&
+        Number.isFinite(analysis?.technicalData?.lufs_integrated) &&
         Number.isFinite(analysis?.technicalData?.truePeakDbtp)
     );
     if (typeof window !== 'undefined') window.__AUDIO_ADVANCED_READY__ = advancedReady;
@@ -3240,87 +3548,251 @@ function displayModalResults(analysis) {
             return getMetric('lufs_integrated', 'lufsIntegrated');
         };
 
+        // 🎯 FUNÇÃO DE STATUS DO TRUE PEAK (CORREÇÃO CRÍTICA)
+        const getTruePeakStatus = (value) => {
+            if (!Number.isFinite(value)) return { status: '—', class: '' };
+            
+            if (value <= -1.5) return { status: 'EXCELENTE', class: 'status-excellent' };
+            if (value <= -1.0) return { status: 'IDEAL', class: 'status-ideal' };
+            if (value <= -0.5) return { status: 'BOM', class: 'status-good' };
+            if (value <= 0.0) return { status: 'ACEITÁVEL', class: 'status-warning' };
+            return { status: 'ESTOURADO', class: 'status-critical' };
+        };
+
         const col1 = [
-            row('Peak (máximo)', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak'),
-            row('RMS', `${safeFixed(getMetric('rms_db', 'rms'))} dB`, 'rms'),
-            row('DR', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
+            // CONDITIONAL: Pico de Amostra - só exibir se não for placeholder 0.000
+            (Number.isFinite(getMetric('peak_db', 'peak')) && getMetric('peak_db', 'peak') !== 0 ? row('Pico de Amostra', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak') : ''),
+            row('Volume Médio (RMS)', `${safeFixed(getMetric('rms_level', 'avgLoudness'))} dBFS`, 'avgLoudness'),
+            row('Dynamic Range (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
+            row('Loudness Range (LRA)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra'),
+            // 🥁 BPM – exibir como métrica principal, null-safe (mostra — quando ausente)
+            row('BPM', `${Number.isFinite(getMetric('bpm', 'bpm')) ? safeFixed(getMetric('bpm', 'bpm'), 0) : '—'}`, 'bpm'),
             row('Fator de Crista', `${safeFixed(getMetric('crest_factor', 'crestFactor'))} dB`, 'crestFactor'),
-            row('Pico Real (dBTP)', (advancedReady && Number.isFinite(getMetric('true_peak_dbtp', 'truePeakDbtp'))) ? `${safeFixed(getMetric('true_peak_dbtp', 'truePeakDbtp'))} dBTP` : (advancedReady? '—':'⏳'), 'truePeakDbtp'),
-            row('Loudness Integrado (LUFS)', (advancedReady && Number.isFinite(getLufsIntegratedValue())) ? `${safeFixed(getLufsIntegratedValue())} LUFS` : (advancedReady? '—':'⏳'), 'lufsIntegrated'),
-            row('Faixa de Loudness – LRA (LU)', (advancedReady && Number.isFinite(getMetric('lra'))) ? `${safeFixed(getMetric('lra'))} LU` : (advancedReady? '—':'⏳'), 'lra')
+            // REMOVED: True Peak placeholder/ampulheta - só exibir quando há valor válido
+            (advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp')) ? (() => {
+                const tpValue = getMetric('truePeakDbtp', 'truePeakDbtp');
+                const tpStatus = getTruePeakStatus(tpValue);
+                return row('Pico Real (dBTP)', `${safeFixed(tpValue)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp');
+            })() : ''),
+            // REMOVED: LUFS placeholder/ampulheta - só exibir quando há valor válido  
+            (advancedReady && Number.isFinite(getLufsIntegratedValue()) ? row('LUFS Integrado (EBU R128)', `${safeFixed(getLufsIntegratedValue())} LUFS`, 'lufsIntegrated') : ''),
+            (advancedReady && Number.isFinite(getMetric('lufs_short_term', 'lufsShortTerm')) ? row('LUFS Curto Prazo', `${safeFixed(getMetric('lufs_short_term', 'lufsShortTerm'))} LUFS`, 'lufsShortTerm') : ''),
+            (advancedReady && Number.isFinite(getMetric('lufs_momentary', 'lufsMomentary')) ? row('LUFS Momentâneo', `${safeFixed(getMetric('lufs_momentary', 'lufsMomentary'))} LUFS`, 'lufsMomentary') : '')
             ].join('');
 
         const col2 = [
-            row('Correlação', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 2) : '—', 'stereoCorrelation'),
-            row('Largura', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? safeFixed(getMetric('stereo_width', 'stereoWidth'), 2) : '—', 'stereoWidth'),
-            row('Balance', Number.isFinite(getMetric('balance_lr', 'balanceLR')) ? safePct(getMetric('balance_lr', 'balanceLR')) : '—', 'balanceLR'),
-            row('Mono Compat.', monoCompat(getMetric('mono_compatibility', 'monoCompatibility')), 'monoCompatibility'),
-            row('Centroide', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroid')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroid')) : '—', 'spectralCentroid'),
-            row('Rolloff (85%)', Number.isFinite(getMetric('spectral_rolloff_85', 'spectralRolloff85')) ? safeHz(getMetric('spectral_rolloff_85', 'spectralRolloff85')) : '—', 'spectralRolloff85'),
-            row('Flux', Number.isFinite(getMetric('spectral_flux', 'spectralFlux')) ? safeFixed(getMetric('spectral_flux', 'spectralFlux'), 3) : '—', 'spectralFlux'),
-            row('Flatness', Number.isFinite(getMetric('spectral_flatness', 'spectralFlatness')) ? safeFixed(getMetric('spectral_flatness', 'spectralFlatness'), 3) : '—', 'spectralFlatness')
+            row('Correlação Estéreo (largura)', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 3) : '—', 'stereoCorrelation'),
+            row('Largura Estéreo', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? safeFixed(getMetric('stereo_width', 'stereoWidth'), 2) : '—', 'stereoWidth'),
+            // REMOVED: Balanço Esquerdo/Direito - ocultado da interface conforme solicitado
+            row('Frequência Central (brilho)', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroidHz')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroidHz')) : '—', 'spectralCentroidHz')
+            // REMOVED: Limite de Agudos (85%) - feeds score but inconsistent calculation
+            // REMOVED: Largura Espectral (Hz) - moved to technical section (not core, doesn't feed score)
+            // REMOVED: zero crossing rate - not used in scoring, placeholder only
+            // REMOVED: Mudança Espectral - not used in scoring, placeholder only
+            // REMOVED: Uniformidade (linear vs peaks) - feeds score but buggy, hide UI
         ].join('');
 
-            const col3Extras = (()=>{
-                let extra='';
-                try {
-                    const list = Array.isArray(analysis.technicalData.dominantFrequencies) ? analysis.technicalData.dominantFrequencies.slice() : [];
-                    if (list.length>1) {
-                        list.sort((a,b)=> (b.occurrences||0)-(a.occurrences||0) || a.frequency - b.frequency);
-                        const filtered=[];
-                        for (const f of list) {
-                            if (!Number.isFinite(f.frequency)) continue;
-                            if (filtered.some(x=> Math.abs(x.frequency - f.frequency) < 40)) continue;
-                            filtered.push(f); if (filtered.length>=5) break;
-                        }
-                        extra = filtered.slice(1,4).map(f=>`${Math.round(f.frequency)}Hz`).join(', ');
-                    }
-                } catch {}
-                return extra ? row('Top Freq. adicionais', `<span style="opacity:.9">${extra}</span>`) : '';
-            })();
+            // REMOVED: col3Extras (Dominant Frequencies)  
+            // Reason: REMOVAL_SKIPPED_USED_BY_SCORE:dominantFrequencies - usado por enhanced-suggestion-engine.js
+            console.warn('REMOVAL_SKIPPED_USED_BY_SCORE:dominantFrequencies - mantendo cálculo interno, ocultando UI');
+            
             const col3 = [
-                row('Tonal Balance', analysis.technicalData?.tonalBalance ? tonalSummary(analysis.technicalData.tonalBalance) : '—', 'tonalBalance'),
-                (analysis.technicalData?.dominantFrequencies?.length > 0 ? row('Freq. Dominante', `${Math.round(analysis.technicalData.dominantFrequencies[0].frequency)} Hz`) : ''),
-                row('Problemas', analysis.problems.length > 0 ? `<span class="tag tag-danger">${analysis.problems.length} detectado(s)</span>` : '—'),
-                row('Sugestões', analysis.suggestions.length > 0 ? `<span class="tag tag-success">${analysis.suggestions.length} disponível(s)</span>` : '—'),
-                col3Extras
+                // REMOVED: Dominant Frequencies UI (mantendo cálculo interno para suggestions)
+                
+                // REMOVED: clipping (%) - ocultado da interface conforme solicitado
+                // REMOVED: dc offset - ocultado da interface conforme solicitado
+                (Number.isFinite(getMetric('thd', 'thd')) ? row('thd', `${safeFixed(getMetric('thd', 'thd'), 2)}%`, 'thd') : ''),
+                
+                // REMOVED: Dinâmica e Fator de Crista duplicados - já exibidos em col1
+                // REMOVED: row('Correlação Estéreo (largura)') - duplicado de col2
+                // REMOVED: row('fator de crista') - duplicado de col1
+                // REMOVED: row('Dinâmica (diferença entre alto/baixo)') - duplicado de col1 com DR e LRA
+                
+                // REMOVED: Placeholders hardcoded - substituir por valores reais quando disponíveis
+                // row('crest consist', 'Δ=4.43 check', 'crestConsist'),
+                // row('Variação de Volume (consistência)', 'ok', 'volumeConsistency'),
+                
+                // REMOVED: Problemas - ocultado da interface conforme solicitado
+                row('Sugestões', (analysis.suggestions?.length || 0) > 0 ? `<span class="tag tag-success">${analysis.suggestions.length} disponível(s)</span>` : '—')
+                // REMOVED: col3Extras (dominant frequencies UI)
             ].join('');
 
-            // Card extra: Métricas Avançadas (novo card)
+            // Card extra: Métricas Avançadas (expandido para Web Audio API compatibility)
             const advancedMetricsCard = () => {
                 const rows = [];
-                // Removido LUFS ST/M conforme solicitado - manter apenas integrado
                 
-                // Headroom
-                if (Number.isFinite(analysis.technicalData?.headroomDb)) {
-                    // Mostrar headroom real se calculado a partir do pico, senão offset de loudness
-                    const hrReal = Number.isFinite(analysis.technicalData.headroomTruePeakDb) ? analysis.technicalData.headroomTruePeakDb : null;
-                    if (hrReal != null) {
-                        rows.push(row('Headroom (Pico)', `${safeFixed(hrReal, 1)} dB`, 'headroomTruePeakDb'));
-                    }
-                    rows.push(row('Offset Loudness', `${safeFixed(analysis.technicalData.headroomDb, 1)} dB`, 'headroomDb'));
+                // === MÉTRICAS DE PICO E CLIPPING (seção principal) ===
+                
+                // True Peak (dBTP)
+                if (Number.isFinite(analysis.technicalData?.truePeakDbtp)) {
+                    const tpStatus = getTruePeakStatus(analysis.technicalData.truePeakDbtp);
+                    rows.push(row('True Peak (dBTP)', `${safeFixed(analysis.technicalData.truePeakDbtp, 2)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp'));
                 }
-                // Picos por canal
+                
+                // Picos por canal separados
                 if (Number.isFinite(analysis.technicalData?.samplePeakLeftDb)) {
-                    rows.push(row('Pico de Amostra L (dBFS)', `${safeFixed(analysis.technicalData.samplePeakLeftDb, 1)} dBFS`, 'samplePeakLeftDb'));
+                    rows.push(row('Pico L (dBFS)', `${safeFixed(analysis.technicalData.samplePeakLeftDb, 1)} dBFS`, 'samplePeakLeftDb'));
                 }
                 if (Number.isFinite(analysis.technicalData?.samplePeakRightDb)) {
-                    rows.push(row('Pico de Amostra R (dBFS)', `${safeFixed(analysis.technicalData.samplePeakRightDb, 1)} dBFS`, 'samplePeakRightDb'));
+                    rows.push(row('Pico R (dBFS)', `${safeFixed(analysis.technicalData.samplePeakRightDb, 1)} dBFS`, 'samplePeakRightDb'));
                 }
-                // Clipping (%)
-                if (Number.isFinite(analysis.technicalData?.clippingPct)) {
-                    rows.push(row('Clipping (%)', `${safeFixed(analysis.technicalData.clippingPct, 2)}%`, 'clippingPct'));
+                
+                // REMOVED: Clipping (%) - ocultado da interface conforme solicitado
+                
+                // REMOVED: Clipping samples - ocultado da interface conforme solicitado
+                
+                // REMOVED: DC OFFSET - ocultado da interface conforme solicitado
+                
+                // === THD (Total Harmonic Distortion) ===
+                if (Number.isFinite(analysis.technicalData?.thd)) {
+                    rows.push(row('thd', `${safeFixed(analysis.technicalData.thd, 4)}%`, 'thd'));
+                } else if (Number.isFinite(analysis.technicalData?.thdPercent)) {
+                    rows.push(row('thd', `${safeFixed(analysis.technicalData.thdPercent, 4)}%`, 'thdPercent'));
                 }
-                if (Number.isFinite(analysis.technicalData?.clippingSamplesTruePeak)) {
-                    rows.push(row('Clipping (TP)', `${analysis.technicalData.clippingSamplesTruePeak} samples`, 'clippingSamplesTruePeak'));
+                
+                // === HEADROOM ===
+                if (Number.isFinite(analysis.technicalData?.headroomDb)) {
+                    rows.push(row('headroom (dB)', `${safeFixed(analysis.technicalData.headroomDb, 1)} dB`, 'headroomDb'));
                 }
-                // Frequências dominantes extras
-                if (Array.isArray(analysis.technicalData?.dominantFrequencies) && analysis.technicalData.dominantFrequencies.length > 1) {
-                    const extra = analysis.technicalData.dominantFrequencies.slice(1, 4)
-                        .map((f, idx) => `${idx+2}. ${Math.round(f.frequency)} Hz (${f.occurrences || 1}x)`).join('<br>');
-                    if (extra) rows.push(row('Top Freq. adicionais', `<span style="opacity:.9">${extra}</span>`));
+                
+                // === BANDAS ESPECTRAIS DETALHADAS (DINÂMICAS) ===
+                // Buscar bandas em múltiplas localizações do JSON
+                const spectralBands = analysis.technicalData?.spectral_balance || 
+                                    analysis.technicalData?.spectralBands || 
+                                    analysis.metrics?.bands || {};
+                
+                if (Object.keys(spectralBands).length > 0) {
+                    // Mapeamento das bandas do novo sistema
+                    const bandMap = {
+                        sub: { name: 'Sub (20-60Hz)', range: '20-60Hz' },
+                        bass: { name: 'Bass (60-150Hz)', range: '60-150Hz' },
+                        lowMid: { name: 'Low-Mid (150-500Hz)', range: '150-500Hz' },
+                        mid: { name: 'Mid (500-2kHz)', range: '500-2000Hz' },
+                        highMid: { name: 'High-Mid (2-5kHz)', range: '2000-5000Hz' },
+                        presence: { name: 'Presence (5-10kHz)', range: '5000-10000Hz' },
+                        air: { name: 'Air (10-20kHz)', range: '10000-20000Hz' }
+                    };
+                    
+                    // Percorrer dinamicamente todas as bandas disponíveis
+                    Object.keys(bandMap).forEach(bandKey => {
+                        const bandData = spectralBands[bandKey];
+                        if (bandData && typeof bandData === 'object') {
+                            // Verificar se tem energy_db e percentage (novo formato)
+                            const energyDb = bandData.energy_db;
+                            const percentage = bandData.percentage;
+                            const status = bandData.status;
+                            
+                            if (status && status !== 'not_calculated') {
+                                let displayValue = '';
+                                
+                                if (Number.isFinite(energyDb) && Number.isFinite(percentage)) {
+                                    displayValue = `${safeFixed(energyDb, 1)} dB (${safeFixed(percentage, 1)}%)`;
+                                } else if (Number.isFinite(energyDb)) {
+                                    displayValue = `${safeFixed(energyDb, 1)} dB`;
+                                } else if (Number.isFinite(percentage)) {
+                                    displayValue = `${safeFixed(percentage, 1)}%`;
+                                } else {
+                                    displayValue = 'não calculado';
+                                }
+                                
+                                rows.push(row(bandMap[bandKey].name, displayValue, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
+                            }
+                        } else if (Number.isFinite(bandData)) {
+                            // Formato legado (apenas valor numérico)
+                            rows.push(row(bandMap[bandKey].name, `${safeFixed(bandData, 1)} dB`, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
+                        }
+                    });
+                    
+                    // Se não encontrou nenhuma banda nas chaves esperadas, tentar buscar qualquer banda disponível
+                    if (rows.filter(r => r.includes('spectral')).length === 0) {
+                        Object.keys(spectralBands).forEach(bandKey => {
+                            if (bandKey === '_status' || bandKey === 'totalPercentage') return; // Pular metadados
+                            
+                            const bandData = spectralBands[bandKey];
+                            if (bandData && typeof bandData === 'object') {
+                                const energyDb = bandData.energy_db;
+                                const percentage = bandData.percentage;
+                                const range = bandData.range || bandData.frequencyRange || 'N/A';
+                                const status = bandData.status;
+                                
+                                if (status && status !== 'not_calculated') {
+                                    let displayValue = '';
+                                    if (Number.isFinite(energyDb) && Number.isFinite(percentage)) {
+                                        displayValue = `${safeFixed(energyDb, 1)} dB (${safeFixed(percentage, 1)}%)`;
+                                    } else if (Number.isFinite(energyDb)) {
+                                        displayValue = `${safeFixed(energyDb, 1)} dB`;
+                                    } else if (Number.isFinite(percentage)) {
+                                        displayValue = `${safeFixed(percentage, 1)}%`;
+                                    } else {
+                                        displayValue = 'não calculado';
+                                    }
+                                    
+                                    const displayName = `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)} (${range})`;
+                                    rows.push(row(displayName, displayValue, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
+                                }
+                            } else if (Number.isFinite(bandData)) {
+                                const displayName = `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`;
+                                rows.push(row(displayName, `${safeFixed(bandData, 1)} dB`, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
+                            }
+                        });
+                    }
                 }
-                return rows.join('') || row('Status', 'Sem métricas adicionais');
+                
+                // === MÉTRICAS ESPECTRAIS AVANÇADAS ===
+                
+                // Spectral Centroid
+                if (Number.isFinite(analysis.technicalData?.spectralCentroid)) {
+                    rows.push(row('spectral centroid', `${Math.round(analysis.technicalData.spectralCentroid)} Hz`, 'spectralCentroid'));
+                }
+                
+                // Spectral Rolloff
+                if (Number.isFinite(analysis.technicalData?.spectralRolloff)) {
+                    rows.push(row('spectral rolloff', `${Math.round(analysis.technicalData.spectralRolloff)} Hz`, 'spectralRolloff'));
+                }
+                
+                // Spectral Flatness
+                if (Number.isFinite(analysis.technicalData?.spectralFlatness)) {
+                    rows.push(row('spectral flatness', `${safeFixed(analysis.technicalData.spectralFlatness, 4)}`, 'spectralFlatness'));
+                }
+                
+                // Spectral Bandwidth (moved from main UI - not core metric)
+                if (Number.isFinite(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))) {
+                    rows.push(row('spectral bandwidth', `${safeHz(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))}`, 'spectralBandwidthHz'));
+                }
+                
+                // Spectral Kurtosis
+                if (Number.isFinite(analysis.technicalData?.spectralKurtosis)) {
+                    rows.push(row('spectral kurtosis', `${safeFixed(analysis.technicalData.spectralKurtosis, 3)}`, 'spectralKurtosis'));
+                }
+                
+                // Spectral Skewness
+                if (Number.isFinite(analysis.technicalData?.spectralSkewness)) {
+                    rows.push(row('spectral skewness', `${safeFixed(analysis.technicalData.spectralSkewness, 3)}`, 'spectralSkewness'));
+                }
+                
+                // === FREQUÊNCIAS DOMINANTES ===
+                // REMOVED: Dominant Frequencies display (mantendo cálculo interno para enhanced-suggestion-engine.js)
+                console.warn('REMOVAL_SKIPPED_USED_BY_SCORE:dominantFrequencies - ocultando UI, mantendo cálculo');
+                
+                // === MÉTRICAS DE UNIFORMIDADE ===  
+                // REMOVED: Spectral Uniformity display (mantendo cálculo interno para problems-suggestions.js)
+                console.warn('REMOVAL_SKIPPED_USED_BY_SCORE:spectralUniformity - ocultando UI, mantendo cálculo');
+                
+                // === ZEROS CROSSING RATE ===
+                if (Number.isFinite(analysis.technicalData?.zcr)) {
+                    rows.push(row('zero crossings', `${Math.round(analysis.technicalData.zcr)}`, 'zeroCrossings'));
+                }
+                
+                // === MFCC (primeiros coeficientes) ===
+                if (Array.isArray(analysis.technicalData?.mfcc) && analysis.technicalData.mfcc.length > 0) {
+                    analysis.technicalData.mfcc.slice(0, 3).forEach((coeff, idx) => {
+                        if (Number.isFinite(coeff)) {
+                            rows.push(row(`mfcc ${idx + 1}`, `${safeFixed(coeff, 3)}`, `mfcc${idx + 1}`));
+                        }
+                    });
+                }
+                
+                return rows.join('') || row('Status', 'Sem métricas avançadas disponíveis');
             };
 
             // Card extra: Problemas Técnicos detalhados
@@ -3406,12 +3878,24 @@ function displayModalResults(analysis) {
                 }
                 rows.push(row('Clipping', `<span class="${clipClass}">${clipText}</span>`, 'clippingSamples'));
                 
-                // 2. DC Offset - SEMPRE mostrar
-                const dcVal = Number.isFinite(analysis.technicalData?.dcOffset) ? analysis.technicalData.dcOffset : 0;
-                const hasDcProblem = Math.abs(dcVal) > 0.01;
-                if (hasDcProblem) hasActualProblems = true;
-                const dcClass = hasDcProblem ? 'warn' : '';
-                rows.push(row('DC Offset', `<span class="${dcClass}">${safeFixed(dcVal, 4)}</span>`, 'dcOffset'));
+                // 2. DC Offset - SEMPRE mostrar (usando nova estrutura)
+                let dcVal, hasDcProblem, dcClass;
+                if (analysis.dcOffset && Number.isFinite(analysis.dcOffset.maxAbsDC)) {
+                    // Usar nova estrutura detalhada
+                    dcVal = analysis.dcOffset.maxAbsDC;
+                    hasDcProblem = analysis.dcOffset.needsCorrection || analysis.dcOffset.severity !== 'none';
+                    dcClass = hasDcProblem ? (analysis.dcOffset.isCritical ? 'error' : 'warn') : '';
+                    if (hasDcProblem) hasActualProblems = true;
+                    const dcDetails = `Max: ${safeFixed(dcVal, 4)} | L: ${safeFixed(analysis.dcOffset.leftDC, 4)} | R: ${safeFixed(analysis.dcOffset.rightDC, 4)} | ${analysis.dcOffset.severity}`;
+                    rows.push(row('DC Offset (Detalhado)', `<span class="${dcClass}">${dcDetails}</span>`, 'dcOffset'));
+                } else {
+                    // Fallback para estrutura legada
+                    dcVal = Number.isFinite(analysis.technicalData?.dcOffset) ? analysis.technicalData.dcOffset : 0;
+                    hasDcProblem = Math.abs(dcVal) > 0.01;
+                    if (hasDcProblem) hasActualProblems = true;
+                    dcClass = hasDcProblem ? 'warn' : '';
+                    rows.push(row('DC Offset', `<span class="${dcClass}">${safeFixed(dcVal, 4)}</span>`, 'dcOffset'));
+                }
                 
                 // 3. THD - SEMPRE mostrar
                 const thdVal = Number.isFinite(analysis.technicalData?.thdPercent) ? analysis.technicalData.thdPercent : 0;
@@ -3478,6 +3962,92 @@ function displayModalResults(analysis) {
             // Card extra: Diagnóstico & Sugestões listados
             const diagCard = () => {
                 const blocks = [];
+                
+                // 🔍 DEBUG: Verificar estado das sugestões
+                console.log('🔍 [DEBUG_SUGGESTIONS] analysis.suggestions:', analysis.suggestions);
+                console.log('🔍 [DEBUG_SUGGESTIONS] análise completa de sugestões:', {
+                    hasAnalysis: !!analysis,
+                    hasSuggestions: !!analysis.suggestions,
+                    suggestionsType: typeof analysis.suggestions,
+                    suggestionsLength: analysis.suggestions?.length || 0,
+                    suggestionsArray: analysis.suggestions
+                });
+
+                // 🚀 INTEGRAÇÃO SISTEMA ULTRA-AVANÇADO V2: Enriquecimento direto das sugestões existentes
+                let enrichedSuggestions = analysis.suggestions || [];
+                
+                if (typeof window.UltraAdvancedSuggestionEnhancer !== 'undefined' && enrichedSuggestions.length > 0) {
+                    try {
+                        console.log('🚀 [ULTRA_V2] Iniciando sistema ultra-avançado V2...');
+                        console.log('📊 [ULTRA_V2] Sugestões para enriquecer:', enrichedSuggestions.length);
+                        
+                        const ultraEnhancer = new window.UltraAdvancedSuggestionEnhancer();
+                        
+                        // Preparar contexto de análise
+                        const analysisContext = {
+                            detectedGenre: analysis.detectedGenre || 'general',
+                            lufs: analysis.lufs,
+                            truePeak: analysis.truePeak,
+                            lra: analysis.lra,
+                            fileName: analysis.fileName,
+                            duration: analysis.duration,
+                            sampleRate: analysis.sampleRate
+                        };
+                        
+                        // 🚀 Enriquecer sugestões existentes
+                        const ultraResults = ultraEnhancer.enhanceExistingSuggestions(enrichedSuggestions, analysisContext);
+                        
+                        if (ultraResults && ultraResults.enhancedSuggestions && ultraResults.enhancedSuggestions.length > 0) {
+                            enrichedSuggestions = ultraResults.enhancedSuggestions;
+                            
+                            console.log('✨ [ULTRA_V2] Sistema ultra-avançado V2 aplicado com sucesso!', {
+                                originalCount: analysis.suggestions?.length || 0,
+                                enhancedCount: enrichedSuggestions.length,
+                                processingTime: ultraResults.metadata?.processingTimeMs,
+                                educationalLevel: ultraResults.metadata?.educationalLevel
+                            });
+                            
+                            // Adicionar métricas do sistema ultra-avançado à análise
+                            if (!analysis.enhancedMetrics) analysis.enhancedMetrics = {};
+                            analysis.enhancedMetrics.ultraAdvancedSystem = {
+                                applied: true,
+                                version: ultraResults.metadata?.version,
+                                processingTimeMs: ultraResults.metadata?.processingTimeMs,
+                                enhancedCount: enrichedSuggestions.length,
+                                educationalLevel: ultraResults.metadata?.educationalLevel,
+                                originalCount: ultraResults.metadata?.originalCount
+                            };
+                            
+                            // Log da primeira sugestão enriquecida para debug
+                            if (enrichedSuggestions.length > 0) {
+                                const firstEnhanced = enrichedSuggestions[0];
+                                console.log('🎓 [ULTRA_V2] Exemplo de sugestão enriquecida:', {
+                                    original: firstEnhanced.message,
+                                    educationalTitle: firstEnhanced.educationalContent?.title,
+                                    hasDAWExamples: !!(firstEnhanced.educationalContent?.dawExamples),
+                                    severity: firstEnhanced.severity?.label,
+                                    priority: firstEnhanced.priority
+                                });
+                            }
+                            
+                        } else {
+                            console.warn('⚠️ [ULTRA_V2] Sistema não retornou sugestões válidas:', ultraResults);
+                        }
+                        
+                    } catch (error) {
+                        console.error('❌ [ULTRA_V2] Erro no sistema ultra-avançado V2:', error);
+                        // Manter sugestões originais em caso de erro
+                    }
+                } else {
+                    if (typeof window.UltraAdvancedSuggestionEnhancer === 'undefined') {
+                        console.log('⚠️ [ULTRA_V2] Sistema ultra-avançado V2 não está disponível');
+                    } else {
+                        console.log('⚠️ [ULTRA_V2] Nenhuma sugestão para processar');
+                    }
+                }
+                
+                // Atualizar analysis.suggestions com as sugestões enriched
+                analysis.suggestions = enrichedSuggestions;
 
                 // Helpers para embelezar as sugestões sem mudar layout/IDs
                 const formatNumbers = (text, decimals = 2) => {
@@ -3488,7 +4058,72 @@ function displayModalResults(analysis) {
                     });
                 };
                 const renderSuggestionItem = (sug) => {
-                    // 🎯 Verificar se o gerador de texto didático está disponível
+                    // 🚀 PRIORIDADE: Verificar se tem conteúdo educacional do Sistema Ultra-Avançado V2
+                    const hasUltraV2Content = sug.educationalContent && sug.educationalContent.title;
+                    
+                    if (hasUltraV2Content) {
+                        // � SISTEMA ULTRA-AVANÇADO V2: Renderizar com conteúdo educacional completo
+                        const edu = sug.educationalContent;
+                        const severity = sug.severity || { level: 'medium', color: '#FF9800', label: 'Moderada' };
+                        
+                        // Extrair frequência se disponível
+                        const freqMatch = (edu.action || sug.action || '').match(/(\d+(?:\.\d+)?)\s*(?:Hz|hz|khz|kHz)/i);
+                        const frequency = freqMatch ? freqMatch[1] : null;
+                        
+                        return `
+                            <div class="enhanced-card ultra-advanced-v2">
+                                <div class="card-header">
+                                    <h4 class="card-title">${edu.title}</h4>
+                                    <div class="card-badges">
+                                        ${frequency ? `<span class="frequency-badge">${frequency}${frequency > 1000 ? 'Hz' : 'kHz'}</span>` : ''}
+                                        <span class="severity-badge ${severity.level}" style="background-color: ${severity.color};">${severity.label}</span>
+                                        <span class="priority-badge">P${sug.priority || 5}</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="card-description" style="border-left-color: ${severity.color};">
+                                    <strong>📚 Explicação:</strong> ${edu.explanation}
+                                </div>
+                                
+                                <div class="card-action" style="background: rgba(76, 175, 80, 0.1); border-color: #4CAF50;">
+                                    <div class="card-action-title">🔧 Ação Recomendada</div>
+                                    <div class="card-action-content">${edu.action}</div>
+                                </div>
+                                
+                                ${edu.dawExamples ? `
+                                    <div class="card-daw-examples" style="background: rgba(33, 150, 243, 0.1); border-color: #2196F3; margin: 12px 0; padding: 12px; border-radius: 6px; border-left: 3px solid #2196F3;">
+                                        <div class="card-daw-title" style="font-weight: bold; margin-bottom: 8px; color: #2196F3;">🎛️ Exemplos por DAW</div>
+                                        ${Object.entries(edu.dawExamples).map(([daw, instruction]) => 
+                                            `<div style="margin-bottom: 6px;"><strong>${daw}:</strong> ${instruction}</div>`
+                                        ).join('')}
+                                    </div>
+                                ` : ''}
+                                
+                                ${edu.expectedResult ? `
+                                    <div class="card-result" style="background: rgba(76, 175, 80, 0.1); border-color: #4CAF50; margin: 12px 0; padding: 12px; border-radius: 6px; border-left: 3px solid #4CAF50;">
+                                        <div class="card-result-title" style="font-weight: bold; margin-bottom: 8px; color: #4CAF50;">✨ Resultado Esperado</div>
+                                        <div class="card-result-content">${edu.expectedResult}</div>
+                                    </div>
+                                ` : ''}
+                                
+                                ${edu.technicalDetails ? `
+                                    <details style="margin-top: 12px;">
+                                        <summary style="cursor: pointer; font-size: 12px; color: #aaa; font-weight: bold;">📋 Detalhes Técnicos</summary>
+                                        <div style="font-size: 11px; color: #ccc; margin-top: 8px; font-family: monospace; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 4px;">${edu.technicalDetails}</div>
+                                    </details>
+                                ` : ''}
+                                
+                                ${sug.educationalMetadata ? `
+                                    <div class="educational-metadata" style="margin-top: 12px; padding: 8px; background: rgba(255,255,255,0.03); border-radius: 4px; font-size: 11px; color: #888;">
+                                        📖 Tempo de leitura: ${sug.educationalMetadata.estimatedReadTime} | 
+                                        🎯 Dificuldade: ${sug.educationalMetadata.practicalDifficulty} | 
+                                        🧠 Conceitos: ${sug.educationalMetadata.concepts?.join(', ') || 'N/A'}
+                                    </div>
+                                ` : ''}
+                            </div>`;
+                    }
+                    
+                    // 🔄 FALLBACK: Sistema anterior se não tiver conteúdo Ultra-Avançado V2
                     const hasTextGenerator = typeof window.SuggestionTextGenerator !== 'undefined';
                     let didacticText = null;
                     
@@ -3699,6 +4334,58 @@ function displayModalResults(analysis) {
                     }
                     
                     else {
+                        // 🚨 VERIFICAR SE É TRUE PEAK COM MENSAGEM ESPECIAL
+                        const isTruePeak = sug.type === 'reference_true_peak' || sug.metricType === 'true_peak' || 
+                                         title.toLowerCase().includes('true peak') || title.toLowerCase().includes('tp');
+                        const hasSpecialAlert = sug.specialAlert || sug.priorityWarning;
+                        
+                        if (isTruePeak && hasSpecialAlert) {
+                            // Card especial para True Peak com mensagem de prioridade
+                            return `
+                                <div class="${cardClass} true-peak-priority">
+                                    <div class="card-header">
+                                        <h4 class="card-title">⚡ ${title}</h4>
+                                        <div class="card-badges">
+                                            <span class="priority-badge primeiro">PRIMEIRO</span>
+                                            <span class="severity-badge critica">CRÍTICO</span>
+                                        </div>
+                                    </div>
+                                    
+                                    ${sug.priorityWarning ? `
+                                        <div class="priority-warning" style="background: rgba(255, 193, 7, 0.2); border: 1px solid #FFC107; border-radius: 6px; padding: 12px; margin: 12px 0; color: #856404;">
+                                            ${sug.priorityWarning}
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${explanation ? `
+                                        <div class="card-description" style="border-left-color: #FF5722;">
+                                            <strong>⚠️ Por que é prioritário:</strong> ${explanation}
+                                        </div>
+                                    ` : ''}
+                                    
+                                    <div class="card-action" style="background: rgba(255, 87, 34, 0.1); border-color: #FF5722;">
+                                        <div class="card-action-title" style="color: #FF5722;">
+                                            🚨 Correção Prioritária
+                                        </div>
+                                        <div class="card-action-content">${action}</div>
+                                    </div>
+                                    
+                                    ${sug.why ? `
+                                        <div class="card-impact" style="background: rgba(255, 87, 34, 0.05); border-color: #FF5722;">
+                                            <div class="card-impact-title" style="color: #FF5722;">🔴 Motivo da Prioridade</div>
+                                            <div class="card-impact-content">${sug.why}</div>
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${technical ? `
+                                        <details style="margin-top: 12px;">
+                                            <summary style="cursor: pointer; font-size: 12px; color: #aaa;">Detalhes Técnicos</summary>
+                                            <div style="font-size: 11px; color: #ccc; margin-top: 8px; font-family: monospace;">${technical}</div>
+                                        </details>
+                                    ` : ''}
+                                </div>`;
+                        }
+                        
                         // Card genérico melhorado
                         return `
                             <div class="${cardClass}">
@@ -3739,7 +4426,7 @@ function displayModalResults(analysis) {
                             </div>`;
                     }
                 };
-                if (analysis.problems.length > 0) {
+                if ((analysis.problems?.length || 0) > 0) {
                     // 🎯 Função local para deduplicar problemas por tipo
                     const deduplicateByType = (items) => {
                         const seen = new Map();
@@ -3936,76 +4623,14 @@ function displayModalResults(analysis) {
                     }).join('');
                     blocks.push(`<div class="diag-section"><div class="diag-heading">⚠️ Problemas Detectados:</div>${list}</div>`);
                 }
-                if (analysis.suggestions.length > 0) {
-                    // 🎯 Função local para deduplicar sugestões por tipo
-                    const deduplicateByType = (items) => {
-                        const seen = new Map();
-                        const deduplicated = [];
-                        for (const item of items) {
-                            if (!item || !item.type) continue;
-                            
-                            // 🎯 CORREÇÃO: Para band_adjust, usar type + subtype como chave única
-                            let uniqueKey = item.type;
-                            if (item.type === 'band_adjust' && item.subtype) {
-                                uniqueKey = `${item.type}:${item.subtype}`;
-                            }
-                            
-                            const existing = seen.get(uniqueKey);
-                            if (!existing) {
-                                seen.set(uniqueKey, item);
-                                deduplicated.push(item);
-                            } else {
-                                // Manter o mais detalhado (com mais propriedades)
-                                const currentScore = Object.keys(item).length + (item.explanation ? 10 : 0) + (item.impact ? 5 : 0);
-                                const existingScore = Object.keys(existing).length + (existing.explanation ? 10 : 0) + (existing.impact ? 5 : 0);
-                                if (currentScore > existingScore) {
-                                    seen.set(uniqueKey, item);
-                                    const index = deduplicated.findIndex(d => {
-                                        if (d.type === 'band_adjust' && item.type === 'band_adjust') {
-                                            return d.type === item.type && d.subtype === item.subtype;
-                                        }
-                                        return d.type === item.type;
-                                    });
-                                    if (index >= 0) deduplicated[index] = item;
-                                }
-                            }
-                        }
-                        return deduplicated;
-                    };
-                    
-                    // Aplicar deduplicação das sugestões na UI para evitar duplicatas
-                    const deduplicatedSuggestions = deduplicateByType(analysis.suggestions);
-                    const list = deduplicatedSuggestions.map(s => renderSuggestionItem(s)).join('');
-                    
-                    // 🎯 Rodapé melhorado com informações do Enhanced System
-                    try {
-                        const count = (t) => deduplicatedSuggestions.filter(s => s && s.type === t).length;
-                        const cBand = count('band_adjust');
-                        const cGroup = count('band_group_adjust');
-                        const cSurg = count('surgical_eq');
-                        const cRef = count('reference_loudness') + count('reference_dynamics') + count('reference_lra') + count('reference_stereo') + count('reference_true_peak');
-                        const cHeuristic = deduplicatedSuggestions.filter(s => s && s.type && s.type.startsWith('heuristic_')).length;
-                        
-                        // Estatísticas do Enhanced System (se disponível)
-                        let enhancedStats = '';
-                        if (analysis.enhancedMetrics) {
-                            const em = analysis.enhancedMetrics;
-                            const avgPriority = deduplicatedSuggestions.length > 0 ? 
-                                (deduplicatedSuggestions.reduce((sum, s) => sum + (s.priority || 0), 0) / deduplicatedSuggestions.length) : 0;
-                            
-                            enhancedStats = ` • 🎯 Enhanced System: conf=${(em.confidence || 1).toFixed(2)} avgP=${avgPriority.toFixed(2)}`;
-                            
-                            if (em.processingTimeMs) {
-                                enhancedStats += ` (${em.processingTimeMs}ms)`;
-                            }
-                        }
-                        
-                        // Footer removido - sem estatísticas desnecessárias
-                        blocks.push(`<div class="diag-section"><div class="diag-heading">🩺 Sugestões Priorizadas</div>${list}</div>`);
-                    } catch {
-                        blocks.push(`<div class="diag-section"><div class="diag-heading">🩺 Sugestões</div>${list}</div>`);
-                    }
+                // 🛑 CARD DE SUGESTÕES ANTIGAS DESATIVADO - Removido conforme solicitado
+                // O card "SUGESTÕES EDUCACIONAIS ULTRA-AVANÇADAS" foi desativado para limpar a UI
+                // Apenas o novo sistema de sugestões (que aparece no final do modal) deve ser usado
+                /*
+                if ((analysis.suggestions?.length || 0) > 0) {
+                    // [CÓDIGO COMENTADO - Card de sugestões antigas removido]
                 }
+                */
                 // Subbloco opcional com diagnósticos do V2 PRO (quando disponíveis)
                 const v2Pro = analysis.v2Pro || analysis.v2Diagnostics; // Compatibilidade
                 if (v2Pro && (typeof window === 'undefined' || window.SUGESTOES_AVANCADAS !== false)) {
@@ -4019,7 +4644,8 @@ function displayModalResults(analysis) {
                 return blocks.join('') || '<div class="diag-empty">Sem diagnósticos</div>';
             };
 
-        const breakdown = analysis.qualityBreakdown || {};
+        // 🎯 SUBSCORES: Corrigir mapeamento para backend Node.js
+        const breakdown = analysis.scores || analysis.qualityBreakdown || {};
         
         // 🎯 APLICAR CAPS EM ESTADO CLIPPED
         const precedenceData = analysis.technicalData?._singleStage;
@@ -4078,84 +4704,109 @@ function displayModalResults(analysis) {
             </div>`;
         };
         
-        const scoreRows = finalBreakdown ? `
-            ${renderScoreWithProgress('Faixa Dinâmica', finalBreakdown.dynamics, '#ffd700')}
-            ${renderScoreWithProgress('Técnico', finalBreakdown.technical, '#00ff92')}
-            ${renderScoreWithProgress('Stereo', finalBreakdown.stereo, '#ff6b6b')}
-            ${renderScoreWithProgress('Loudness', finalBreakdown.loudness, '#ff3366')}
-            ${renderScoreWithProgress('Frequência', finalBreakdown.frequency, '#00ffff')}
-        ` : '';
+        // 🎯 RENDERIZAR SCORES DO NOVO SISTEMA
+        const renderNewScores = () => {
+            // Verificar se temos scores calculados
+            const scores = analysis.scores;
+            
+            if (!scores) {
+                return `<div class="data-row">
+                    <span class="label">Sistema de Scoring:</span>
+                    <span class="value">Não disponível</span>
+                </div>`;
+            }
+            
+            const renderScoreProgressBar = (label, value, color = '#00ffff', emoji = '🎯') => {
+                const numValue = Number.isFinite(value) ? value : 0;
+                const displayValue = Number.isFinite(value) ? Math.round(value) : '—';
+                
+                // Cor baseada no score
+                let scoreColor = color;
+                if (Number.isFinite(value)) {
+                    if (value >= 80) scoreColor = '#00ff92'; // Verde para scores altos
+                    else if (value >= 60) scoreColor = '#ffd700'; // Amarelo para scores médios
+                    else if (value >= 40) scoreColor = '#ff9500'; // Laranja para scores baixos
+                    else scoreColor = '#ff3366'; // Vermelho para scores muito baixos
+                }
+                
+                return `<div class="data-row metric-with-progress">
+                    <span class="label">${emoji} ${label}:</span>
+                    <div class="metric-value-progress">
+                        <span class="value" style="color: ${scoreColor}; font-weight: bold;">${displayValue}</span>
+                        <div class="progress-bar-mini">
+                            <div class="progress-fill-mini" style="width: ${Math.min(Math.max(numValue, 0), 100)}%; background: ${scoreColor};"></div>
+                        </div>
+                    </div>
+                </div>`;
+            };
+            
+            // Score final com destaque
+            const finalScoreHtml = Number.isFinite(scores.final) ? `
+                <div class="data-row" style="border: 2px solid rgba(0, 255, 255, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 10px; background: rgba(0, 255, 255, 0.05);">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span class="label" style="font-size: 16px; font-weight: bold;">🏆 SCORE FINAL</span>
+                        <span style="font-size: 24px; font-weight: bold; color: ${scores.final >= 80 ? '#00ff92' : scores.final >= 60 ? '#ffd700' : scores.final >= 40 ? '#ff9500' : '#ff3366'};">
+                            ${Math.round(scores.final)}
+                        </span>
+                    </div>
+                    <div style="font-size: 12px; opacity: 0.7; margin-top: 4px;">
+                        Gênero: ${scores.genre || 'padrão'} • Ponderação adaptativa
+                    </div>
+                </div>
+            ` : '';
+            
+            // Sub-scores
+            const subScoresHtml = `
+                ${renderScoreProgressBar('Loudness', scores.loudness, '#ff3366', '🔊')}
+                ${renderScoreProgressBar('Frequência', scores.frequencia, '#00ffff', '🎵')}
+                ${renderScoreProgressBar('Estéreo', scores.estereo, '#ff6b6b', '🎧')}
+                ${renderScoreProgressBar('Dinâmica', scores.dinamica, '#ffd700', '📊')}
+                ${renderScoreProgressBar('Técnico', scores.tecnico, '#00ff92', '🔧')}
+            `;
+            
+            return finalScoreHtml + subScoresHtml;
+        };
+        
+        const scoreRows = renderNewScores();
 
         technicalData.innerHTML = `
-            <!-- 🏆 SCORE PRINCIPAL DESTACADO -->
-            <div class="cyberpunk-score-hero">
-                <div class="score-display">
-                    <div class="score-number">${Number.isFinite(analysis.qualityOverall) ? Number(analysis.qualityOverall.toFixed(1)) : '—'}</div>
-                    <div class="score-label">QUALIDADE GERAL</div>
+            <div class="kpi-row">${scoreKpi}${timeKpi}</div>
+                ${renderSmartSummary(analysis) }
+                    <div class="cards-grid">
+                        <div class="card">
+                    <div class="card-title">🎛️ Métricas Principais</div>
+                    ${col1}
                 </div>
-                <div class="score-info">
-                    <div class="genre-tag">� ${analysis.metadata?.genre || __activeRefGenre || 'padrão'}</div>
-                    ${analysis.metadata?.genre ? '<div class="refs-tag">✅ Referências Aplicadas</div>' : ''}
+                        <div class="card">
+                    <div class="card-title">🎧 Análise Estéreo & Espectral</div>
+                    ${col2}
                 </div>
+                        <!-- REMOVED: 🔊 Bandas Espectrais (Consolidado) - duplicação removida, mantida apenas em Métricas Avançadas -->
+                        
+                        <div class="card">
+                    <div class="card-title">�🏆 Scores & Diagnóstico</div>
+                    ${scoreRows}
+                    ${col3}
+                </div>
+                        <div class="card">
+                            <div class="card-title">📊 Métricas Avançadas (Technical)</div>
+                            ${advancedMetricsCard()}
+                        </div>
+                        <!-- Card "Problemas Técnicos" removido conforme solicitado -->
+                        <!-- 
+                        <div class="card card-span-2">
+                            <div class="card-title">⚠️ Problemas Técnicos</div>
+                            ${techProblems()}
+                        </div>
+                        -->
+                        <!-- Card "Diagnóstico & Sugestões" removido conforme solicitado -->
+                        <!-- 
+                        <div class="card card-span-2">
+                            <div class="card-title">🩺 Diagnóstico & Sugestões</div>
+                            ${diagCard()}
+                        </div>
+                        -->
             </div>
-
-            <!-- 📊 SUB-SCORES EM GRID -->
-            <div class="cyberpunk-subscores">
-                <div class="subscore-title">� ANÁLISE DETALHADA</div>
-                <div class="subscores-grid">
-                    ${renderCyberpunkScores()}
-                </div>
-            </div>
-
-            <!-- 🎧 LOUDNESS SECTION -->
-            <div class="cyberpunk-section">
-                <div class="section-header">
-                    <div class="section-icon">🎧</div>
-                    <div class="section-title">LOUDNESS & VOLUME</div>
-                    <div class="section-desc">Níveis de volume e potência do áudio</div>
-                </div>
-                <div class="metrics-grid">
-                    ${generateLoudnessCards(analysis)}
-                </div>
-            </div>
-
-            <!-- 📈 DINÂMICA SECTION -->
-            <div class="cyberpunk-section">
-                <div class="section-header">
-                    <div class="section-icon">📈</div>
-                    <div class="section-title">DINÂMICA & RANGE</div>
-                    <div class="section-desc">Variação e resposta dinâmica da música</div>
-                </div>
-                <div class="metrics-grid">
-                    ${generateDynamicsCards(analysis)}
-                </div>
-            </div>
-
-            <!-- 🌊 FREQUÊNCIA SECTION -->
-            <div class="cyberpunk-section">
-                <div class="section-header">
-                    <div class="section-icon">🌊</div>
-                    <div class="section-title">ANÁLISE ESPECTRAL</div>
-                    <div class="section-desc">Distribuição de frequências por banda</div>
-                </div>
-                <div class="frequency-bands">
-                    ${generateFrequencyBands(analysis)}
-                </div>
-            </div>
-
-            <!-- 🧪 TÉCNICA SECTION -->
-            <div class="cyberpunk-section">
-                <div class="section-header">
-                    <div class="section-icon">🧪</div>
-                    <div class="section-title">MÉTRICAS TÉCNICAS</div>
-                    <div class="section-desc">Análise técnica avançada e distorções</div>
-                </div>
-                <div class="metrics-grid">
-                    ${generateTechnicalCards(analysis)}
-                </div>
-            </div>
-
-            ${renderSmartSummary(analysis)}
         `;
     
     try { renderReferenceComparisons(analysis); } catch(e){ console.warn('ref compare fail', e);}    
@@ -4389,10 +5040,18 @@ function renderReferenceComparisons(analysis) {
     }
     
     const tech = analysis.technicalData || {};
-    // Mapeamento de métricas
+    
+    // Mapeamento de métricas - RESTAURAR TABELA COMPLETA
     const rows = [];
+    const addedLabels = new Set(); // 🎯 Controle de duplicação por nome
     const nf = (n, d=2) => Number.isFinite(n) ? n.toFixed(d) : '—';
     const pushRow = (label, val, target, tol, unit='') => {
+        // 🎯 PREVENÇÃO DE DUPLICATAS: evitar bandas com mesmo nome
+        if (addedLabels.has(label)) {
+            console.warn(`⚠️ Duplicata evitada: ${label}`);
+            return;
+        }
+        addedLabels.add(label);
         // Usar sistema de enhancement se disponível
         const enhancedLabel = (typeof window !== 'undefined' && window.enhanceRowLabel) 
             ? window.enhanceRowLabel(label, label.toLowerCase().replace(/[^a-z]/g, '')) 
@@ -4409,38 +5068,84 @@ function renderReferenceComparisons(analysis) {
             </tr>`);
             return;
         }
-        const diff = Number.isFinite(val) && Number.isFinite(target) ? (val - target) : null;
+        // 🎯 NOVO: Cálculo de diferença híbrido para targets fixos e ranges
+        let diff = null;
         
-        // Usar nova função de célula melhorada se disponível
+        if (typeof target === 'object' && target !== null && 
+            Number.isFinite(target.min) && Number.isFinite(target.max) && Number.isFinite(val)) {
+            // Target é um range: calcular distância do range
+            if (val >= target.min && val <= target.max) {
+                // Dentro do range: diferença zero (ideal)
+                diff = 0;
+            } else if (val < target.min) {
+                // Abaixo do range: diferença negativa
+                diff = val - target.min;
+            } else {
+                // Acima do range: diferença positiva
+                diff = val - target.max;
+            }
+        } else if (Number.isFinite(val) && Number.isFinite(target)) {
+            // Target fixo: diferença tradicional
+            diff = val - target;
+        }
+        
+        // 🎯 CORREÇÃO: Mostrar apenas status visual (não valores numéricos)
         let diffCell;
-        if (typeof window !== 'undefined' && window.createEnhancedDiffCell) {
-            diffCell = window.createEnhancedDiffCell(diff, unit, tol);
+        if (!Number.isFinite(diff) || !Number.isFinite(tol) || tol <= 0) {
+            diffCell = '<td class="na" style="text-align: center;"><span style="opacity: 0.6;">—</span></td>';
         } else {
-            // Fallback para sistema antigo
-            let cssClass = 'na';
-            if (Number.isFinite(diff) && Number.isFinite(tol) && tol > 0) {
-                const adiff = Math.abs(diff);
-                if (adiff <= tol) {
-                    cssClass = 'ok';
+            const absDiff = Math.abs(diff);
+            let cssClass, statusIcon, statusText;
+            
+            // Mesma lógica de limites do sistema unificado
+            if (absDiff <= tol) {
+                // ✅ ZONA IDEAL
+                cssClass = 'ok';
+                statusIcon = '✅';
+                statusText = 'Ideal';
+            } else {
+                const multiplicador = absDiff / tol;
+                if (multiplicador <= 2) {
+                    // ⚠️ ZONA AJUSTAR
+                    cssClass = 'yellow';
+                    statusIcon = '⚠️';
+                    statusText = 'Ajuste leve';
                 } else {
-                    const n = adiff / tol;
-                    if (n <= 2) {
-                        cssClass = 'yellow';
-                    } else {
-                        cssClass = 'warn';
-                    }
+                    // ❌ ZONA CORRIGIR
+                    cssClass = 'warn';
+                    statusIcon = '❌';
+                    statusText = 'Corrigir';
                 }
             }
             
-            diffCell = Number.isFinite(diff)
-                ? `<td class="${cssClass}">${diff>0?'+':''}${nf(diff)}${unit}</td>`
-                : '<td class="na" style="opacity:.55">—</td>';
+            diffCell = `<td class="${cssClass}" style="text-align: center; padding: 8px;">
+                <div style="font-size: 12px; font-weight: 600;">${statusText}</div>
+            </td>`;
         }
+        
+        // 🎯 NOVO: Renderização híbrida para targets fixos e ranges
+        let targetDisplay;
+        
+        if (typeof target === 'object' && target !== null && 
+            Number.isFinite(target.min) && Number.isFinite(target.max)) {
+            // Target é um range: exibir "min dB a max dB"
+            targetDisplay = `${nf(target.min)}${unit} a ${nf(target.max)}${unit}`;
+        } else if (Number.isFinite(target)) {
+            // Target é um valor fixo: exibir "valor dB"
+            targetDisplay = `${nf(target)}${unit}`;
+        } else {
+            // Target não definido
+            targetDisplay = 'N/A';
+        }
+        
+        // Adicionar tolerância se disponível (apenas para targets fixos)
+        const tolDisplay = (typeof target !== 'object' && tol != null) ? 
+            `<span class="tol">±${nf(tol,2)}</span>` : '';
         
         rows.push(`<tr>
             <td>${enhancedLabel}</td>
             <td>${Number.isFinite(val)?nf(val)+unit:'—'}</td>
-            <td>${Number.isFinite(target)?nf(target)+unit:'N/A'}${tol!=null?`<span class="tol">±${nf(tol,2)}</span>`:''}</td>
+            <td>${targetDisplay}${tolDisplay}</td>
             ${diffCell}
         </tr>`);
     };
@@ -4468,12 +5173,14 @@ function renderReferenceComparisons(analysis) {
         return path.split('.').reduce((current, key) => current?.[key], obj);
     };
     
+    // 🎯 CENTRALIZAÇÃO DAS MÉTRICAS - Função de acesso para comparação por referência
     // Usar somente métricas reais (sem fallback para RMS/Peak, que têm unidades e conceitos distintos)
     // Função para obter o valor LUFS integrado usando métricas centralizadas
     const getLufsIntegratedValue = () => {
         return getMetricForRef('lufs_integrated', 'lufsIntegrated');
     };
     
+    // ADICIONAR TODAS AS MÉTRICAS PRINCIPAIS
     pushRow('Loudness Integrado (LUFS)', getLufsIntegratedValue(), ref.lufs_target, ref.tol_lufs, ' LUFS');
     pushRow('Pico Real (dBTP)', getMetricForRef('true_peak_dbtp', 'truePeakDbtp'), ref.true_peak_target, ref.tol_true_peak, ' dBTP');
     pushRow('DR', getMetricForRef('dynamic_range', 'dynamicRange'), ref.dr_target, ref.tol_dr, '');
@@ -4484,6 +5191,55 @@ function renderReferenceComparisons(analysis) {
     const centralizedBands = analysis.metrics?.bands;
     const legacyBandEnergies = tech.bandEnergies || null;
     
+    // 🔍 DEBUG: Verificar estado das bandas e mapeamento
+    console.log('🔍 [DEBUG_BANDS] Verificando bandas espectrais:', {
+        hasCentralizedBands: !!centralizedBands,
+        centralizedBandsKeys: centralizedBands ? Object.keys(centralizedBands) : [],
+        hasLegacyBands: !!legacyBandEnergies,
+        legacyBandsKeys: legacyBandEnergies ? Object.keys(legacyBandEnergies) : [],
+        hasRefBands: !!ref.bands,
+        refBandsKeys: ref.bands ? Object.keys(ref.bands) : []
+    });
+    
+    // 🎯 MAPEAMENTO CORRIGIDO: Bandas Calculadas → Bandas de Referência
+    const bandMappingCalcToRef = {
+        // Banda calculada: chave na referência
+        'sub': 'sub',
+        'bass': 'low_bass',
+        'lowMid': 'low_mid', 
+        'mid': 'mid',
+        'highMid': 'high_mid',
+        'presence': 'presenca',
+        'air': 'brilho',
+        // Variações adicionais
+        'low_bass': 'low_bass',
+        'low_mid': 'low_mid',
+        'high_mid': 'high_mid',
+        'presenca': 'presenca',
+        'brilho': 'brilho'
+    };
+    
+    // 🎯 MAPEAMENTO REVERSO: Bandas de Referência → Bandas Calculadas
+    const bandMappingRefToCalc = {
+        'sub': 'sub',
+        'low_bass': 'bass',
+        'upper_bass': 'bass', // 🎯 NOVO: upper_bass → bass
+        'low_mid': 'lowMid',
+        'mid': 'mid',
+        'high_mid': 'highMid',
+        'presenca': 'presence',
+        'brilho': 'air'
+    };
+    
+    // 🎯 ALIAS DE BANDAS: Nomes alternativos para busca
+    const bandAliases = {
+        'bass': ['low_bass', 'upper_bass'],
+        'lowMid': ['low_mid'],
+        'highMid': ['high_mid'],
+        'presence': ['presenca'],
+        'air': ['brilho']
+    };
+    
     // Priorizar bandas centralizadas se disponíveis
     const bandsToUse = centralizedBands && Object.keys(centralizedBands).length > 0 ? centralizedBands : legacyBandEnergies;
     
@@ -4491,43 +5247,290 @@ function renderReferenceComparisons(analysis) {
         const normMap = (analysis?.technicalData?.refBandTargetsNormalized?.mapping) || null;
         const showNorm = (typeof window !== 'undefined' && window.SHOW_NORMALIZED_REF_TARGETS === true && normMap);
         
-        for (const [band, refBand] of Object.entries(ref.bands)) {
-            let bLocal;
+        // Mapeamento de nomes amigáveis para as bandas com ranges de frequência
+        const bandDisplayNames = {
+            sub: 'Sub (20–60Hz)',
+            bass: 'Bass (60–150Hz)', 
+            lowMid: 'Low-Mid (150–500Hz)',
+            mid: 'Mid (500–2kHz)',
+            highMid: 'High-Mid (2–5kHz)',
+            presence: 'Presence (5–10kHz)',
+            air: 'Air (10–20kHz)',
+            brilho: 'Air (10–20kHz)'
+        };
+        
+        // 🎯 PROCESSAMENTO CORRIGIDO: Iterar por bandas de referência e mapear para dados calculados
+        console.log('🔄 Processando bandas com mapeamento corrigido...');
+        
+        for (const [refBandKey, refBand] of Object.entries(ref.bands)) {
+            // Encontrar a banda calculada correspondente
+            const calcBandKey = bandMappingRefToCalc[refBandKey] || refBandKey;
+            let bLocal = null;
             
-            // Acessar dados da banda (centralizadas vs legado)
-            if (centralizedBands && centralizedBands[band]) {
-                bLocal = { rms_db: centralizedBands[band].energy_db };
+            console.log(`🔍 [BANDS] Processando: ${refBandKey} → ${calcBandKey}`);
+            
+            // 🎯 NOVO: Busca melhorada com sistema de alias
+            const searchBandData = (bandKey) => {
+                // Buscar diretamente
+                if (centralizedBands && centralizedBands[bandKey]) {
+                    return { rms_db: centralizedBands[bandKey].energy_db, source: 'centralized' };
+                }
+                if (legacyBandEnergies && legacyBandEnergies[bandKey]) {
+                    return { ...legacyBandEnergies[bandKey], source: 'legacy' };
+                }
                 
-                // Log temporário para validação
-                if (typeof window !== 'undefined' && window.METRICS_BANDS_VALIDATION !== false && legacyBandEnergies?.[band]) {
-                    const legacyValue = legacyBandEnergies[band].rms_db;
-                    if (Number.isFinite(legacyValue) && Math.abs(centralizedBands[band].energy_db - legacyValue) > 0.01) {
-                        console.warn(`🎯 BAND_DIFF: ${band} centralized=${centralizedBands[band].energy_db} vs legacy=${legacyValue}`);
+                // Buscar por alias
+                if (bandAliases[bandKey]) {
+                    for (const alias of bandAliases[bandKey]) {
+                        if (centralizedBands && centralizedBands[alias]) {
+                            console.log(`🔄 [ALIAS] ${bandKey} → ${alias} (centralized)`);
+                            return { rms_db: centralizedBands[alias].energy_db, source: 'centralized-alias' };
+                        }
+                        if (legacyBandEnergies && legacyBandEnergies[alias]) {
+                            console.log(`🔄 [ALIAS] ${bandKey} → ${alias} (legacy)`);
+                            return { ...legacyBandEnergies[alias], source: 'legacy-alias' };
+                        }
                     }
                 }
-            } else {
-                bLocal = legacyBandEnergies?.[band];
+                
+                return null;
+            };
+            
+            // Buscar dados da banda
+            bLocal = searchBandData(calcBandKey);
+            
+            // Se não encontrou, tentar busca direta pela chave de referência
+            if (!bLocal) {
+                bLocal = searchBandData(refBandKey);
+                if (bLocal) {
+                    console.log(`⚠️ [BANDS] Fallback para chave de referência: ${refBandKey}`);
+                }
             }
             
-            if (bLocal && Number.isFinite(bLocal.rms_db)) {
-                let tgt = null;
-                if (!refBand._target_na && Number.isFinite(refBand.target_db)) tgt = refBand.target_db;
-                if (showNorm && normMap && Number.isFinite(normMap[band])) tgt = normMap[band];
-                pushRow(band, bLocal.rms_db, tgt, refBand.tol_db);
+            // 🎯 TRATAMENTO SILENCIOSO: Ignorar bandas não encontradas sem erro
+            if (!bLocal || !Number.isFinite(bLocal.rms_db)) {
+                console.log(`🔇 [BANDS] Ignorando banda inexistente: ${refBandKey} / ${calcBandKey}`);
+                continue; // Pular silenciosamente
             }
+            
+            // Banda encontrada - processar normalmente
+            console.log(`✅ [BANDS] Encontrado ${refBandKey}: ${bLocal.rms_db}dB (${bLocal.source})`);
+            
+            // Log de validação entre sistemas
+            if (typeof window !== 'undefined' && window.METRICS_BANDS_VALIDATION !== false && 
+                bLocal.source === 'centralized' && legacyBandEnergies?.[calcBandKey]) {
+                const legacyValue = legacyBandEnergies[calcBandKey].rms_db;
+                if (Number.isFinite(legacyValue) && Math.abs(bLocal.rms_db - legacyValue) > 0.01) {
+                    console.warn(`🎯 BAND_DIFF: ${calcBandKey} centralized=${bLocal.rms_db} vs legacy=${legacyValue}`);
+                }
+            }
+            
+            // 🎯 NOVO: Determinar target com suporte a ranges
+            let tgt = null;
+            
+            // Prioridade 1: target_range (novo sistema)
+            if (refBand.target_range && typeof refBand.target_range === 'object' &&
+                Number.isFinite(refBand.target_range.min) && Number.isFinite(refBand.target_range.max)) {
+                tgt = refBand.target_range;
+                console.log(`🎯 [BANDS] Usando target_range para ${refBandKey}: [${tgt.min}, ${tgt.max}]`);
+            }
+            // Prioridade 2: target_db fixo (sistema legado)
+            else if (!refBand._target_na && Number.isFinite(refBand.target_db)) {
+                tgt = refBand.target_db;
+                console.log(`🎯 [BANDS] Usando target_db fixo para ${refBandKey}: ${tgt}`);
+            }
+            
+            // Prioridade 3: Targets normalizados (se habilitado)
+            if (showNorm && normMap && Number.isFinite(normMap[refBandKey])) {
+                tgt = normMap[refBandKey];
+                console.log(`🎯 [BANDS] Sobrescrevendo com target normalizado para ${refBandKey}: ${tgt}`);
+            }
+            
+            // Nome para exibição
+            const displayName = bandDisplayNames[calcBandKey] || bandDisplayNames[refBandKey] || refBandKey;
+            
+            console.log(`📊 [BANDS] Adicionando: ${displayName}, valor: ${bLocal.rms_db}dB, target: ${tgt}dB`);
+            pushRow(displayName, bLocal.rms_db, tgt, refBand.tol_db, ' dB');
+        }
+        
+        // 🎯 PROCESSAMENTO DE BANDAS EXTRAS: Bandas calculadas que não estão na referência
+        console.log('🔄 Verificando bandas extras não mapeadas...');
+        
+        if (bandsToUse) {
+            Object.keys(bandsToUse).forEach(calcBandKey => {
+                // Filtrar chaves inválidas (totais, metadados etc.)
+                if (calcBandKey === '_status' || 
+                    calcBandKey === 'totalPercentage' || 
+                    calcBandKey === 'totalpercentage' ||
+                    calcBandKey === 'metadata' ||
+                    calcBandKey === 'total' ||
+                    calcBandKey.toLowerCase().includes('total')) {
+                    return; // Pular esta banda
+                }
+                
+                // Verificar se esta banda já foi processada
+                const refBandKey = bandMappingCalcToRef[calcBandKey];
+                const alreadyProcessed = refBandKey && ref.bands[refBandKey];
+                
+                if (!alreadyProcessed) {
+                    console.log(`🔍 Processando banda extra: ${calcBandKey}`);
+                    
+                    const bandData = bandsToUse[calcBandKey];
+                    let energyDb = null;
+                    
+                    if (typeof bandData === 'object' && Number.isFinite(bandData.energy_db)) {
+                        energyDb = bandData.energy_db;
+                    } else if (typeof bandData === 'object' && Number.isFinite(bandData.rms_db)) {
+                        energyDb = bandData.rms_db;
+                    } else if (Number.isFinite(bandData)) {
+                        energyDb = bandData;
+                    }
+                    
+                    if (Number.isFinite(energyDb)) {
+                        const displayName = bandDisplayNames[calcBandKey] || 
+                                          `${calcBandKey.charAt(0).toUpperCase() + calcBandKey.slice(1)} (Nova Banda)`;
+                        
+                        // Tentar buscar referência direta por chave
+                        const directRefData = ref.bands?.[calcBandKey];
+                        const target = directRefData?.target_db || null;
+                        const tolerance = directRefData?.tol_db || null;
+                        
+                        console.log(`📊 Adicionando banda extra: ${displayName}, valor: ${energyDb}dB, target: ${target || 'N/A'}`);
+                        pushRow(displayName, energyDb, target, tolerance, ' dB');
+                        
+                        if (!target) {
+                            console.warn(`⚠️ Banda sem referência: ${calcBandKey} (valor: ${energyDb}dB)`);
+                        }
+                    }
+                }
+            });
         }
     } else {
-        // Fallback antigo: tonalBalance simplificado
-        const tb = tech.tonalBalance || {};
-        const bandMap = { sub:'sub', low:'low_bass', mid:'mid', high:'brilho' };
-        Object.entries(bandMap).forEach(([tbKey, refBand]) => {
-            const bData = tb[tbKey];
-            const refBandData = ref.bands?.[refBand];
-            if (bData && refBandData && Number.isFinite(bData.rms_db)) {
-                pushRow(`${tbKey.toUpperCase()}`, bData.rms_db, refBandData.target_db, refBandData.tol_db);
-            }
-        });
+        // Fallback melhorado: buscar todas as bandas espectrais disponíveis
+        const spectralBands = tech.spectral_balance || 
+                            tech.spectralBands || 
+                            analysis.metrics?.bands || {};
+        
+        // 🎯 MAPEAMENTO COMPLETO com correção de nomes
+        const bandMap = {
+            sub: { refKey: 'sub', name: 'Sub (20–60Hz)', range: '20–60Hz' },
+            bass: { refKey: 'low_bass', name: 'Bass (60–150Hz)', range: '60–150Hz' },
+            lowMid: { refKey: 'low_mid', name: 'Low-Mid (150–500Hz)', range: '150–500Hz' },
+            mid: { refKey: 'mid', name: 'Mid (500–2kHz)', range: '500–2000Hz' },
+            highMid: { refKey: 'high_mid', name: 'High-Mid (2–5kHz)', range: '2000–5000Hz' },
+            presence: { refKey: 'presenca', name: 'Presence (5–10kHz)', range: '5000–10000Hz' },
+            air: { refKey: 'brilho', name: 'Air (10–20kHz)', range: '10000–20000Hz' }
+        };
+        
+        // 🎯 PROCESSAMENTO CORRIGIDO para fallback: usar mapeamento bidirecional
+        console.log('🔄 Processando bandas espectrais (modo fallback)...');
+        
+        if (spectralBands && Object.keys(spectralBands).length > 0) {
+            // Conjunto para rastrear bandas já processadas
+            const processedBandKeys = new Set();
+            
+            // Primeiro: processar bandas que têm referência (usando mapeamento)
+            Object.entries(bandMap).forEach(([calcBandKey, bandInfo]) => {
+                const bandData = spectralBands[calcBandKey];
+                const refBandData = ref.bands?.[bandInfo.refKey];
+                
+                if (bandData && !processedBandKeys.has(calcBandKey)) {
+                    let energyDb = null;
+                    
+                    // Verificar formato dos dados da banda
+                    if (typeof bandData === 'object' && bandData.energy_db !== undefined) {
+                        energyDb = bandData.energy_db;
+                    } else if (typeof bandData === 'object' && bandData.rms_db !== undefined) {
+                        energyDb = bandData.rms_db;
+                    } else if (Number.isFinite(bandData)) {
+                        energyDb = bandData;
+                    }
+                    
+                    if (Number.isFinite(energyDb)) {
+                        // Se tem referência, usar target, senão N/A
+                        const target = refBandData?.target_db || null;
+                        const tolerance = refBandData?.tol_db || null;
+                        
+                        console.log(`📊 Banda (fallback): ${bandInfo.name}, valor: ${energyDb}dB, target: ${target || 'N/A'}`);
+                        pushRow(bandInfo.name, energyDb, target, tolerance, ' dB');
+                        processedBandKeys.add(calcBandKey);
+                        
+                        if (!target) {
+                            console.warn(`⚠️ Banda sem target: ${calcBandKey} → ${bandInfo.refKey}`);
+                        }
+                    }
+                }
+            });
+            
+            // Segundo: processar bandas restantes que não foram mapeadas
+            Object.keys(spectralBands).forEach(bandKey => {
+                if (!processedBandKeys.has(bandKey) && 
+                    bandKey !== '_status' && 
+                    bandKey !== 'totalPercentage' &&
+                    bandKey !== 'totalpercentage' &&
+                    bandKey !== 'metadata' &&
+                    bandKey !== 'total' &&
+                    !bandKey.toLowerCase().includes('total')) {
+                    
+                    const bandData = spectralBands[bandKey];
+                    let energyDb = null;
+                    
+                    if (typeof bandData === 'object' && Number.isFinite(bandData.energy_db)) {
+                        energyDb = bandData.energy_db;
+                    } else if (typeof bandData === 'object' && Number.isFinite(bandData.rms_db)) {
+                        energyDb = bandData.rms_db;
+                    } else if (Number.isFinite(bandData)) {
+                        energyDb = bandData;
+                    }
+                    
+                    if (Number.isFinite(energyDb)) {
+                        // Buscar nome formatado ou criar um
+                        const displayName = bandMap[bandKey]?.name || 
+                                          `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)} (Detectada)`;
+                        
+                        // Tentar encontrar referência por chave direta
+                        const directRefData = ref.bands?.[bandKey];
+                        const target = directRefData?.target_db || null;
+                        const tolerance = directRefData?.tol_db || null;
+                        
+                        console.log(`📊 Banda não mapeada: ${displayName}, valor: ${energyDb}dB, target: ${target || 'N/A'}`);
+                        pushRow(displayName, energyDb, target, tolerance, ' dB');
+                        
+                        if (!target) {
+                            console.warn(`⚠️ Banda não mapeada sem target: ${bandKey}`);
+                        }
+                    }
+                }
+            });
+        } else {
+            // Fallback para tonalBalance simplificado (mantido para compatibilidade)
+            const tb = tech.tonalBalance || {};
+            const legacyBandMap = { sub:'sub', low:'low_bass', mid:'mid', high:'brilho' };
+            Object.entries(legacyBandMap).forEach(([tbKey, refBand]) => {
+                const bData = tb[tbKey];
+                const refBandData = ref.bands?.[refBand];
+                if (bData && refBandData && Number.isFinite(bData.rms_db)) {
+                    console.log(`📊 Banda legacy: ${tbKey.toUpperCase()}, valor: ${bData.rms_db}dB, target: ${refBandData.target_db}dB`);
+                    pushRow(`${tbKey.toUpperCase()}`, bData.rms_db, refBandData.target_db, refBandData.tol_db, ' dB');
+                }
+            });
+        }
     }
+    
+    // 🎯 LOG DE RESUMO: Bandas processadas com sucesso
+    const bandasDisponiveis = ref.bands ? Object.keys(ref.bands).length : 0;
+    const bandasProcessadas = rows.length - 5; // Subtrair métricas básicas (LUFS, Peak, DR, LRA, Stereo)
+    
+    console.log('📊 [BANDS] Resumo do processamento de bandas:', {
+        bandas_na_referencia: bandasDisponiveis,
+        bandas_processadas: Math.max(0, bandasProcessadas),
+        metricas_totais: rows.length,
+        centralized_bands_ok: !!centralizedBands,
+        legacy_bands_ok: !!legacyBandEnergies,
+        modo_referencia: isReferenceMode
+    });
+    
+    // MOSTRAR TABELA COMPLETA
     container.innerHTML = `<div class="card" style="margin-top:12px;">
         <div class="card-title">📌 Comparação de Referência (${titleText})</div>
         <table class="ref-compare-table">
@@ -4537,110 +5540,975 @@ function renderReferenceComparisons(analysis) {
             <tbody>${rows.join('') || '<tr><td colspan="4" style="opacity:.6">Sem métricas disponíveis</td></tr>'}</tbody>
         </table>
     </div>`;
-    // Estilos injetados uma vez
+    // Estilos injetados uma vez com indicadores visuais melhorados
     if (!document.getElementById('refCompareStyles')) {
         const style = document.createElement('style');
         style.id = 'refCompareStyles';
         style.textContent = `
         .ref-compare-table{width:100%;border-collapse:collapse;font-size:11px;}
-    .ref-compare-table th{font-weight:500;text-align:left;padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.12);font-size:11px;color:#fff;letter-spacing:.3px;}
-    .ref-compare-table td{padding:5px 6px;border-bottom:1px solid rgba(255,255,255,.06);color:#f5f7fa;} 
+        .ref-compare-table th{font-weight:500;text-align:left;padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.12);font-size:11px;color:#fff;letter-spacing:.3px;}
+        .ref-compare-table td{padding:5px 6px;border-bottom:1px solid rgba(255,255,255,.06);color:#f5f7fa;} 
         .ref-compare-table tr:last-child td{border-bottom:0;} 
-    .ref-compare-table td.ok{color:#52f7ad;font-weight:600;} 
-    .ref-compare-table td.yellow{color:#ffce4d;font-weight:600;} 
-    .ref-compare-table td.warn{color:#ff7b7b;font-weight:600;} 
-    .ref-compare-table .tol{opacity:.7;margin-left:4px;font-size:10px;color:#b8c2d6;} 
-    .ref-compare-table tbody tr:hover td{background:rgba(255,255,255,.04);} 
+        .ref-compare-table td.ok{color:#52f7ad;font-weight:600;} 
+        .ref-compare-table td.ok::before{content:'✅ ';margin-right:2px;}
+        .ref-compare-table td.yellow{color:#ffce4d;font-weight:600;} 
+        .ref-compare-table td.yellow::before{content:'⚠️ ';margin-right:2px;}
+        .ref-compare-table td.warn{color:#ff7b7b;font-weight:600;} 
+        .ref-compare-table td.warn::before{content:'❌ ';margin-right:2px;}
+        .ref-compare-table .tol{opacity:.7;margin-left:4px;font-size:10px;color:#b8c2d6;} 
+        .ref-compare-table tbody tr:hover td{background:rgba(255,255,255,.04);} 
         `;
         document.head.appendChild(style);
     }
+    
+    // Garantir que o CSS do priority-banner esteja disponível no modal
+    if (!document.getElementById('priorityBannerStyles')) {
+        const priorityStyle = document.createElement('style');
+        priorityStyle.id = 'priorityBannerStyles';
+        priorityStyle.textContent = `
+        .priority-banner {
+            display: flex !important;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            font-weight: 700;
+            background: linear-gradient(90deg, #ff006a, #ff9800) !important;
+            color: #fff !important;
+            margin-bottom: 10px;
+            box-shadow: 0 0 15px rgba(255, 0, 106, 0.3);
+            animation: pulsePriority 1.5s infinite alternate;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .priority-icon {
+            font-size: 20px;
+            line-height: 1;
+        }
+        
+        @keyframes pulsePriority {
+            from { opacity: 0.8; transform: scale(0.98); }
+            to { opacity: 1; transform: scale(1.02); }
+        }
+        `;
+        document.head.appendChild(priorityStyle);
+    }
+}
+
+// 🎯 ===== SISTEMA DE SCORING AVANÇADO =====
+// Sistema completo de pontuação por categorias com adaptação por gênero
+
+// 1. PESOS POR GÊNERO (ATUALIZADOS CONFORME ESPECIFICAÇÃO)
+const GENRE_SCORING_WEIGHTS = {
+    // Funk Mandela - Foco em Loudness e Dinâmica
+    'funk_mandela': {
+        loudness: 0.32,    // Loudness crítico no funk
+        dinamica: 0.23,    // Dinâmica importante
+        frequencia: 0.20,  // Frequência equilibrada
+        estereo: 0.15,     // Estéreo moderado
+        tecnico: 0.10      // Técnico básico
+    },
+    
+    // Funk Automotivo (similar ao Mandela)
+    'funk_automotivo': {
+        loudness: 0.32,
+        dinamica: 0.23,
+        frequencia: 0.20,
+        estereo: 0.15,
+        tecnico: 0.10
+    },
+    
+    // Trap/Trance - Foco em Loudness e Frequência
+    'trap': {
+        loudness: 0.25,    // Loudness importante
+        frequencia: 0.30,  // Frequência crítica
+        estereo: 0.20,     // Estéreo importante
+        dinamica: 0.15,    // Dinâmica moderada
+        tecnico: 0.10      // Técnico básico
+    },
+    
+    'trance': {
+        loudness: 0.25,    // Loudness importante
+        frequencia: 0.30,  // Frequência crítica
+        estereo: 0.20,     // Estéreo importante
+        dinamica: 0.15,    // Dinâmica moderada
+        tecnico: 0.10      // Técnico básico
+    },
+    
+    // Eletrônico - Foco em Frequência e Estéreo
+    'eletronico': {
+        frequencia: 0.30,  // Frequência crítica
+        estereo: 0.25,     // Estéreo importante
+        loudness: 0.20,    // Loudness moderado
+        dinamica: 0.15,    // Dinâmica moderada
+        tecnico: 0.10      // Técnico básico
+    },
+    
+    // Funk Bruxaria - Similar ao Eletrônico
+    'funk_bruxaria': {
+        frequencia: 0.30,  // Frequência crítica
+        estereo: 0.25,     // Estéreo importante
+        loudness: 0.20,    // Loudness moderado
+        dinamica: 0.15,    // Dinâmica moderada
+        tecnico: 0.10      // Técnico básico
+    },
+    
+    // Hip Hop - Balanceado entre Frequência e Dinâmica
+    'hip_hop': {
+        frequencia: 0.30,
+        dinamica: 0.25,
+        loudness: 0.20,
+        estereo: 0.15,
+        tecnico: 0.10
+    },
+    
+    // Pesos padrão (fallback) - Distribuição equilibrada
+    'default': {
+        loudness: 0.25,
+        frequencia: 0.25,
+        dinamica: 0.20,
+        estereo: 0.15,
+        tecnico: 0.15
+    }
+};
+
+// 2. FUNÇÃO PARA CALCULAR SCORE DE UMA MÉTRICA (VERSÃO MENOS PUNITIVA)
+function calculateMetricScore(actualValue, targetValue, tolerance) {
+    // Verificar se temos valores válidos
+    if (!Number.isFinite(actualValue) || !Number.isFinite(targetValue) || !Number.isFinite(tolerance) || tolerance <= 0) {
+        return null; // Métrica inválida
+    }
+    
+    const diff = Math.abs(actualValue - targetValue);
+    
+    // 🎯 DENTRO DA TOLERÂNCIA = 100 pontos
+    if (diff <= tolerance) {
+        return 100;
+    }
+    
+    // 🎯 CURVA DE PENALIZAÇÃO MAIS JUSTA - GRADUAL E MENOS PUNITIVA
+    // Δ até 1.5x tolerância → ~80
+    // Δ até 2x tolerância → ~60  
+    // Δ até 3x tolerância → ~40
+    // Δ acima de 3x tolerância → ~20 (nunca zerar)
+    
+    const ratio = diff / tolerance;
+    
+    if (ratio <= 1.5) {
+        // Entre 1x e 1.5x tolerância: decaimento suave de 100 para 80
+        return Math.round(100 - ((ratio - 1) * 40)); // 100 - (0.5 * 40) = 80 no máximo
+    } else if (ratio <= 2.0) {
+        // Entre 1.5x e 2x tolerância: de 80 para 60
+        return Math.round(80 - ((ratio - 1.5) * 40)); // 80 - (0.5 * 40) = 60 no máximo
+    } else if (ratio <= 3.0) {
+        // Entre 2x e 3x tolerância: de 60 para 40
+        return Math.round(60 - ((ratio - 2) * 20)); // 60 - (1 * 20) = 40 no máximo
+    } else {
+        // Acima de 3x tolerância: 20 (nunca zerar totalmente)
+        return 20;
+    }
+}
+
+// 3. CALCULAR SCORE DE LOUDNESS (LUFS, True Peak, Crest Factor)
+function calculateLoudnessScore(analysis, refData) {
+    if (!analysis || !refData) return null;
+    
+    const tech = analysis.technicalData || {};
+    const metrics = analysis.metrics || {};
+    const scores = [];
+    
+    // LUFS Integrado (métrica principal de loudness)
+    const lufsValue = metrics.lufs_integrated || tech.lufsIntegrated;
+    if (Number.isFinite(lufsValue) && Number.isFinite(refData.lufs_target) && Number.isFinite(refData.tol_lufs)) {
+        const score = calculateMetricScore(lufsValue, refData.lufs_target, refData.tol_lufs);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 LUFS: ${lufsValue} vs ${refData.lufs_target} (±${refData.tol_lufs}) = ${score}%`);
+        }
+    }
+    
+    // True Peak (importante para evitar clipping digital)
+    const truePeakValue = metrics.true_peak_dbtp || tech.truePeakDbtp;
+    if (Number.isFinite(truePeakValue) && Number.isFinite(refData.true_peak_target) && Number.isFinite(refData.tol_true_peak)) {
+        const score = calculateMetricScore(truePeakValue, refData.true_peak_target, refData.tol_true_peak);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 True Peak: ${truePeakValue} vs ${refData.true_peak_target} (±${refData.tol_true_peak}) = ${score}%`);
+        }
+    }
+    
+    // Crest Factor (dinâmica de picos)
+    const crestValue = tech.crestFactor || metrics.crest_factor;
+    if (Number.isFinite(crestValue) && refData.crest_target && Number.isFinite(refData.crest_target)) {
+        const tolerance = refData.tol_crest || 2.0;
+        const score = calculateMetricScore(crestValue, refData.crest_target, tolerance);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 Crest Factor: ${crestValue} vs ${refData.crest_target} (±${tolerance}) = ${score}%`);
+        }
+    }
+    
+    // Retornar média dos scores válidos
+    if (scores.length === 0) return null;
+    
+    const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    const result = Math.round(average);
+    console.log(`🔊 Score Loudness Final: ${result}% (média de ${scores.length} métricas)`);
+    return result;
+}
+
+// 4. CALCULAR SCORE DE DINÂMICA (LRA, DR, Crest Consistency, Fator de Crista)
+function calculateDynamicsScore(analysis, refData) {
+    if (!analysis || !refData) return null;
+    
+    const tech = analysis.technicalData || {};
+    const metrics = analysis.metrics || {};
+    const scores = [];
+    
+    // Dynamic Range (DR) - métrica principal de dinâmica
+    const drValue = metrics.dynamic_range || tech.dynamicRange;
+    if (Number.isFinite(drValue) && Number.isFinite(refData.dr_target) && Number.isFinite(refData.tol_dr)) {
+        const score = calculateMetricScore(drValue, refData.dr_target, refData.tol_dr);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 Dynamic Range: ${drValue} vs ${refData.dr_target} (±${refData.tol_dr}) = ${score}%`);
+        }
+    }
+    
+    // LRA (Loudness Range) - variação de loudness
+    const lraValue = metrics.lra || tech.lra;
+    if (Number.isFinite(lraValue) && Number.isFinite(refData.lra_target) && Number.isFinite(refData.tol_lra)) {
+        const score = calculateMetricScore(lraValue, refData.lra_target, refData.tol_lra);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 LRA: ${lraValue} vs ${refData.lra_target} (±${refData.tol_lra}) = ${score}%`);
+        }
+    }
+    
+    // Crest Factor (já incluído em Loudness, mas importante para dinâmica também)
+    const crestValue = tech.crestFactor || metrics.crest_factor;
+    if (Number.isFinite(crestValue) && refData.crest_target && Number.isFinite(refData.crest_target)) {
+        const tolerance = refData.tol_crest || 2.0;
+        const score = calculateMetricScore(crestValue, refData.crest_target, tolerance);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 Crest Factor (Dinâmica): ${crestValue} vs ${refData.crest_target} (±${tolerance}) = ${score}%`);
+        }
+    }
+    
+    // Compressão detectada (se disponível)
+    const compressionRatio = tech.compressionRatio;
+    if (Number.isFinite(compressionRatio) && refData.compression_target && Number.isFinite(refData.compression_target)) {
+        const tolerance = refData.tol_compression || 1.0;
+        const score = calculateMetricScore(compressionRatio, refData.compression_target, tolerance);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 Compressão: ${compressionRatio} vs ${refData.compression_target} (±${tolerance}) = ${score}%`);
+        }
+    }
+    
+    // Retornar média dos scores válidos
+    if (scores.length === 0) return null;
+    
+    const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    const result = Math.round(average);
+    console.log(`📊 Score Dinâmica Final: ${result}% (média de ${scores.length} métricas)`);
+    return result;
+}
+
+// 5. CALCULAR SCORE DE ESTÉREO (Largura, Correlação, Balanço L/R)
+function calculateStereoScore(analysis, refData) {
+    if (!analysis || !refData) return null;
+    
+    const tech = analysis.technicalData || {};
+    const metrics = analysis.metrics || {};
+    const scores = [];
+    
+    // Correlação Estéreo (principal métrica de estéreo)
+    const stereoValue = metrics.stereo_correlation || tech.stereoCorrelation;
+    if (Number.isFinite(stereoValue) && Number.isFinite(refData.stereo_target) && Number.isFinite(refData.tol_stereo)) {
+        const score = calculateMetricScore(stereoValue, refData.stereo_target, refData.tol_stereo);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 Correlação Estéreo: ${stereoValue} vs ${refData.stereo_target} (±${refData.tol_stereo}) = ${score}%`);
+        }
+    }
+    
+    // Largura Estéreo (Width)
+    const widthValue = tech.stereoWidth || metrics.stereo_width;
+    if (Number.isFinite(widthValue) && refData.width_target && Number.isFinite(refData.width_target)) {
+        const tolerance = refData.tol_width || 0.2;
+        const score = calculateMetricScore(widthValue, refData.width_target, tolerance);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 Largura Estéreo: ${widthValue} vs ${refData.width_target} (±${tolerance}) = ${score}%`);
+        }
+    }
+    
+    // Balanço L/R (se disponível)
+    const balanceValue = tech.stereoBalance || metrics.stereo_balance;
+    if (Number.isFinite(balanceValue)) {
+        // Balanço ideal é 0 (perfeitamente centrado)
+        const balanceTarget = refData.balance_target || 0.0;
+        const balanceTolerance = refData.tol_balance || 0.1; // 10% de tolerância
+        const score = calculateMetricScore(balanceValue, balanceTarget, balanceTolerance);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 Balanço L/R: ${balanceValue} vs ${balanceTarget} (±${balanceTolerance}) = ${score}%`);
+        }
+    }
+    
+    // Separação de canais (se disponível)
+    const separationValue = tech.channelSeparation || metrics.channel_separation;
+    if (Number.isFinite(separationValue) && refData.separation_target && Number.isFinite(refData.separation_target)) {
+        const tolerance = refData.tol_separation || 5.0;
+        const score = calculateMetricScore(separationValue, refData.separation_target, tolerance);
+        if (score !== null) {
+            scores.push(score);
+            console.log(`📊 Separação de Canais: ${separationValue} vs ${refData.separation_target} (±${tolerance}) = ${score}%`);
+        }
+    }
+    
+    // Retornar média dos scores válidos
+    if (scores.length === 0) return null;
+    
+    const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    const result = Math.round(average);
+    console.log(`🎧 Score Estéreo Final: ${result}% (média de ${scores.length} métricas)`);
+    return result;
+}
+
+// 6. CALCULAR SCORE DE FREQUÊNCIA (BANDAS ESPECTRAIS)
+function calculateFrequencyScore(analysis, refData) {
+    if (!analysis || !refData || !refData.bands) return null;
+    
+    const centralizedBands = analysis.metrics?.bands;
+    const legacyBandEnergies = analysis.technicalData?.bandEnergies;
+    const bandsToUse = centralizedBands && Object.keys(centralizedBands).length > 0 ? centralizedBands : legacyBandEnergies;
+    
+    if (!bandsToUse) return null;
+    
+    const scores = [];
+    console.log('🎵 Calculando Score de Frequência...');
+    
+    // Mapeamento das bandas calculadas para referência (exatamente as 7 bandas da tabela UI)
+    const bandMapping = {
+        'sub': 'sub',
+        'bass': 'low_bass',
+        'lowMid': 'low_mid',
+        'mid': 'mid',
+        'highMid': 'high_mid',
+        'presence': 'presenca',
+        'air': 'brilho'
+    };
+    
+    // Processar cada banda individualmente
+    Object.entries(bandMapping).forEach(([calcBand, refBand]) => {
+        const bandData = bandsToUse[calcBand];
+        const refBandData = refData.bands[refBand];
+        
+        if (bandData && refBandData) {
+            let energyDb = null;
+            
+            // Extrair valor em dB da banda
+            if (typeof bandData === 'object' && Number.isFinite(bandData.energy_db)) {
+                energyDb = bandData.energy_db;
+            } else if (typeof bandData === 'object' && Number.isFinite(bandData.rms_db)) {
+                energyDb = bandData.rms_db;
+            } else if (Number.isFinite(bandData)) {
+                energyDb = bandData;
+            }
+            
+            // Calcular score individual da banda usando valor, alvo e tolerância
+            if (Number.isFinite(energyDb) && 
+                Number.isFinite(refBandData.target_db) && 
+                Number.isFinite(refBandData.tol_db)) {
+                
+                const score = calculateMetricScore(energyDb, refBandData.target_db, refBandData.tol_db);
+                if (score !== null) {
+                    scores.push(score);
+                    const delta = Math.abs(energyDb - refBandData.target_db);
+                    const status = delta <= refBandData.tol_db ? '✅' : '❌';
+                    console.log(`🎵 ${calcBand.toUpperCase()}: ${energyDb}dB vs ${refBandData.target_db}dB (±${refBandData.tol_db}dB) = ${score}% ${status}`);
+                }
+            }
+        }
+    });
+    
+    // Se não encontrou scores válidos, retornar null
+    if (scores.length === 0) return null;
+    
+    // Média aritmética simples das bandas válidas
+    const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    const result = Math.round(average);
+    
+    console.log(`🎵 Score Frequência Final: ${result}% (média de ${scores.length} bandas)`);
+    console.log(`🎵 Scores individuais: [${scores.join(', ')}]`);
+    
+    return result;
+}
+
+// 7. CALCULAR SCORE TÉCNICO
+// 7. CALCULAR SCORE TÉCNICO (Clipping, DC Offset, THD)
+function calculateTechnicalScore(analysis, refData) {
+    if (!analysis) return null;
+    
+    const tech = analysis.technicalData || {};
+    const metrics = analysis.metrics || {};
+    const scores = [];
+    
+    console.log('🔧 Calculando Score Técnico...');
+    
+    // 1. CLIPPING - Deve ser próximo de 0% (PENALIZAÇÃO FORTE PARA PROBLEMAS CRÍTICOS)
+    const clippingValue = tech.clipping || metrics.clipping || 0;
+    if (Number.isFinite(clippingValue)) {
+        let clippingScore = 100;
+        
+        if (clippingValue <= 0.001) { // ≤ 0.1% = perfeito
+            clippingScore = 100;
+        } else if (clippingValue <= 0.005) { // ≤ 0.5% = bom
+            clippingScore = 80;
+        } else if (clippingValue <= 0.01) { // ≤ 1% = aceitável
+            clippingScore = 60;
+        } else if (clippingValue <= 0.02) { // ≤ 2% = problemático
+            clippingScore = 40;
+        } else { // > 2% = crítico
+            clippingScore = 20;
+        }
+        
+        scores.push(clippingScore);
+        console.log(`🔧 Clipping: ${(clippingValue * 100).toFixed(3)}% = ${clippingScore}%`);
+    }
+    
+    // 2. DC OFFSET - Deve ser próximo de 0
+    const dcOffsetValue = Math.abs(tech.dcOffset || metrics.dc_offset || 0);
+    if (Number.isFinite(dcOffsetValue)) {
+        let dcScore = 100;
+        
+        if (dcOffsetValue <= 0.001) { // ≤ 0.1% = perfeito
+            dcScore = 100;
+        } else if (dcOffsetValue <= 0.005) { // ≤ 0.5% = bom
+            dcScore = 80;
+        } else if (dcOffsetValue <= 0.01) { // ≤ 1% = aceitável
+            dcScore = 60;
+        } else if (dcOffsetValue <= 0.02) { // ≤ 2% = problemático
+            dcScore = 40;
+        } else { // > 2% = crítico
+            dcScore = 20;
+        }
+        
+        scores.push(dcScore);
+        console.log(`🔧 DC Offset: ${dcOffsetValue.toFixed(4)} = ${dcScore}%`);
+    }
+    
+    // 3. THD (Total Harmonic Distortion) - Deve ser baixo
+    const thdValue = tech.thd || metrics.thd || 0;
+    if (Number.isFinite(thdValue)) {
+        let thdScore = 100;
+        
+        if (thdValue <= 0.001) { // ≤ 0.1% = perfeito
+            thdScore = 100;
+        } else if (thdValue <= 0.005) { // ≤ 0.5% = bom
+            thdScore = 80;
+        } else if (thdValue <= 0.01) { // ≤ 1% = aceitável
+            thdScore = 60;
+        } else if (thdValue <= 0.02) { // ≤ 2% = problemático
+            thdScore = 40;
+        } else { // > 2% = crítico
+            thdScore = 20;
+        }
+        
+        scores.push(thdScore);
+        console.log(`🔧 THD: ${(thdValue * 100).toFixed(3)}% = ${thdScore}%`);
+    }
+    
+    // 4. PROBLEMAS DETECTADOS (Issues) - PENALIZAÇÃO GRADUAL
+    const issues = analysis.issues || [];
+    let issuesScore = 100;
+    
+    issues.forEach(issue => {
+        switch (issue.severity) {
+            case 'critical':
+                issuesScore = Math.max(20, issuesScore - 30); // Não zerar, mínimo 20
+                console.log(`🔧 Issue CRÍTICO: ${issue.description} (-30%)`);
+                break;
+            case 'high':
+                issuesScore = Math.max(40, issuesScore - 20); // Mínimo 40
+                console.log(`🔧 Issue ALTO: ${issue.description} (-20%)`);
+                break;
+            case 'medium':
+                issuesScore = Math.max(60, issuesScore - 10); // Mínimo 60
+                console.log(`🔧 Issue MÉDIO: ${issue.description} (-10%)`);
+                break;
+            case 'low':
+                issuesScore = Math.max(80, issuesScore - 5); // Mínimo 80
+                console.log(`🔧 Issue BAIXO: ${issue.description} (-5%)`);
+                break;
+        }
+    });
+    
+    if (issues.length > 0) {
+        scores.push(issuesScore);
+        console.log(`🔧 Issues Gerais: ${issuesScore}% (${issues.length} problemas)`);
+    }
+    
+    // 🎯 NOVA VALIDAÇÃO TRUE PEAK (CORREÇÃO CRÍTICA)
+    const truePeak = tech.truePeakDbtp || metrics.truePeakDbtp;
+    let truePeakScore = 100; // Score padrão se não houver dados
+    let hasTruePeakData = false;
+    
+    if (Number.isFinite(truePeak)) {
+        hasTruePeakData = true;
+        console.log(`🔧 True Peak: ${truePeak.toFixed(2)} dBTP`);
+        
+        if (truePeak <= -1.5) { // Excelente
+            truePeakScore = 100;
+            console.log(`🔧 True Peak EXCELENTE: ${truePeakScore}%`);
+        } else if (truePeak <= -1.0) { // Ideal
+            truePeakScore = 90;
+            console.log(`🔧 True Peak IDEAL: ${truePeakScore}%`);
+        } else if (truePeak <= -0.5) { // Bom
+            truePeakScore = 80;
+            console.log(`🔧 True Peak BOM: ${truePeakScore}%`);
+        } else if (truePeak <= 0.0) { // Aceitável
+            truePeakScore = 70;
+            console.log(`🔧 True Peak ACEITÁVEL: ${truePeakScore}%`);
+        } else if (truePeak <= 0.5) { // Problemático
+            truePeakScore = 40;
+            console.log(`🔧 True Peak PROBLEMÁTICO: ${truePeakScore}%`);
+        } else { // Crítico
+            truePeakScore = 20;
+            console.log(`🔧 True Peak CRÍTICO: ${truePeakScore}%`);
+        }
+        
+        scores.push(truePeakScore);
+    }
+    
+    // Se não temos métricas técnicas específicas, usar apenas issues
+    if (scores.length === 0) {
+        const result = Math.max(20, Math.round(issuesScore)); // Nunca zerar
+        console.log(`🔧 Score Técnico Final (apenas issues): ${result}%`);
+        return result;
+    }
+    
+    // Média normalizada de todas as métricas técnicas (0-100)
+    let average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+    let result = Math.max(20, Math.round(average)); // Nunca zerar completamente
+    
+    // 🚨 HARD CAP: True Peak ESTOURADO (> 0.0 dBTP) limita score a 60%
+    if (hasTruePeakData && truePeak > 0.0) {
+        const maxScoreWithClipping = 60;
+        const originalResult = result;
+        result = Math.min(result, maxScoreWithClipping);
+        
+        console.log(`🚨 HARD CAP APLICADO: True Peak estourado (${truePeak.toFixed(2)} dBTP)`);
+        console.log(`🚨 Score limitado de ${originalResult}% para ${result}% (máx: ${maxScoreWithClipping}%)`);
+    }
+    
+    console.log(`🔧 Score Técnico Final: ${result}% (média de ${scores.length} métricas${hasTruePeakData ? ', True Peak incluído' : ''})`);
+    return result;
+}
+
+// 8. FUNÇÃO PRINCIPAL: CALCULAR TODOS OS SCORES
+function calculateAnalysisScores(analysis, refData, genre = null) {
+    console.log('🎯 Calculando scores da análise...', { genre });
+    
+    if (!analysis || !refData) {
+        console.warn('⚠️ Dados insuficientes para calcular scores');
+        return null;
+    }
+    
+    // Calcular sub-scores
+    const loudnessScore = calculateLoudnessScore(analysis, refData);
+    const dynamicsScore = calculateDynamicsScore(analysis, refData);
+    const stereoScore = calculateStereoScore(analysis, refData);
+    const frequencyScore = calculateFrequencyScore(analysis, refData);
+    const technicalScore = calculateTechnicalScore(analysis, refData);
+    
+    console.log('📊 Sub-scores calculados:', {
+        loudness: loudnessScore,
+        dinamica: dynamicsScore,
+        estereo: stereoScore,
+        frequencia: frequencyScore,
+        tecnico: technicalScore
+    });
+    
+    // Determinar pesos por gênero
+    const genreKey = genre ? genre.toLowerCase().replace(/\s+/g, '_') : 'default';
+    const weights = GENRE_SCORING_WEIGHTS[genreKey] || GENRE_SCORING_WEIGHTS['default'];
+    
+    console.log('⚖️ Pesos aplicados:', weights);
+    
+    // CORREÇÃO: Calcular score final com valores contínuos
+    let weightedSum = 0;
+    let totalWeight = 0;
+    
+    // Somar apenas os scores que existem, ajustando os pesos dinamicamente
+    if (loudnessScore !== null) {
+        weightedSum += loudnessScore * weights.loudness;
+        totalWeight += weights.loudness;
+    }
+    
+    if (dynamicsScore !== null) {
+        weightedSum += dynamicsScore * weights.dinamica;
+        totalWeight += weights.dinamica;
+    }
+    
+    if (stereoScore !== null) {
+        weightedSum += stereoScore * weights.estereo;
+        totalWeight += weights.estereo;
+    }
+    
+    if (frequencyScore !== null) {
+        weightedSum += frequencyScore * weights.frequencia;
+        totalWeight += weights.frequencia;
+    }
+    
+    if (technicalScore !== null) {
+        weightedSum += technicalScore * weights.tecnico;
+        totalWeight += weights.tecnico;
+    }
+    
+    // Calcular score final normalizado (permite valores contínuos como 67.3, depois arredonda)
+    let finalScore = null;
+    if (totalWeight > 0) {
+        const rawFinalScore = weightedSum / totalWeight;
+        finalScore = Math.round(rawFinalScore); // Só arredondar no final
+    }
+    
+    const result = {
+        final: finalScore,
+        loudness: loudnessScore,
+        dinamica: dynamicsScore,
+        frequencia: frequencyScore,
+        estereo: stereoScore,
+        tecnico: technicalScore,
+        weights: weights,
+        genre: genreKey
+    };
+    
+    console.log('🎯 Score final calculado:', result);
+    
+    return result;
 }
 
 // Recalcular apenas as sugestões baseadas em referência (sem reprocessar o áudio)
 function updateReferenceSuggestions(analysis) {
-    if (!analysis || !analysis.technicalData || !__activeRefData) return;
+    console.log('🔍 [DEBUG-REF] updateReferenceSuggestions chamado:', {
+        hasAnalysis: !!analysis,
+        hasTechnicalData: !!analysis?.technicalData,
+        hasActiveRefData: !!__activeRefData,
+        activeRefGenre: __activeRefGenre,
+        activeRefDataKeys: __activeRefData ? Object.keys(__activeRefData) : null,
+        currentGenre: window.PROD_AI_REF_GENRE
+    });
     
-    // 🎯 SISTEMA UNIFICADO: Usar novo sistema de sugestões quando disponível
-    if (typeof window !== 'undefined' && window.suggestionSystem && window.USE_UNIFIED_SUGGESTIONS !== false) {
-        try {
-            console.log('🎯 Usando Sistema Unificado de Sugestões...');
+    if (!analysis || !analysis.technicalData) {
+        console.warn('🚨 [DEBUG-REF] analysis ou technicalData ausentes');
+        return;
+    }
+    
+    if (!__activeRefData) {
+        console.warn('🚨 [DEBUG-REF] __activeRefData está null - tentando carregar gênero atual');
+        
+        // Tentar carregar dados de referência do gênero atual
+        if (window.PROD_AI_REF_GENRE) {
+            console.log('🔄 [DEBUG-REF] Tentando carregar dados para gênero:', window.PROD_AI_REF_GENRE);
+            loadReferenceData(window.PROD_AI_REF_GENRE).then(() => {
+                console.log('✅ [DEBUG-REF] Dados carregados, reprocessando sugestões');
+                updateReferenceSuggestions(analysis);
+            }).catch(err => {
+                console.error('❌ [DEBUG-REF] Erro ao carregar dados:', err);
+            });
+        } else {
+            // Tentar com dados de referência padrão embutidos
+            console.log('🔄 [DEBUG-REF] Usando dados de referência embutidos');
             
-            // Processar análise com sistema unificado
-            const enhancedAnalysis = window.suggestionSystem.process(analysis, __activeRefData);
+            // Verificar se existem dados embutidos para o gênero detectado nos scores
+            if (analysis.scores && analysis.scores.genre) {
+                const detectedGenre = analysis.scores.genre;
+                console.log('🎯 [DEBUG-REF] Gênero detectado nos scores:', detectedGenre);
+                
+                // Usar dados embutidos se disponíveis
+                const embeddedRefs = {
+                    eletrofunk: {
+                        lufs_target: -8.3,
+                        true_peak_target: -1,
+                        dr_target: 10.1,
+                        lra_target: 8.4,
+                        stereo_target: 0.12,
+                        bands: {
+                            low_bass: { target_db: 13.3, tol_db: 2.36 },
+                            low_mid: { target_db: 8.8, tol_db: 2.07 },
+                            mid: { target_db: 2.5, tol_db: 1.81 },
+                            high_mid: { target_db: -6.7, tol_db: 1.52 },
+                            presenca: { target_db: -22.7, tol_db: 3.47 },
+                            brilho: { target_db: -13.1, tol_db: 2.38 }
+                        }
+                    }
+                };
+                
+                if (embeddedRefs[detectedGenre]) {
+                    console.log('✅ [DEBUG-REF] Usando dados embutidos para', detectedGenre);
+                    __activeRefData = embeddedRefs[detectedGenre];
+                    __activeRefGenre = detectedGenre;
+                    // Continuar com o processamento
+                } else {
+                    console.warn('❌ [DEBUG-REF] Gênero não suportado nos dados embutidos:', detectedGenre);
+                    return;
+                }
+            } else {
+                console.warn('❌ [DEBUG-REF] Nenhuma estratégia de recuperação disponível');
+                return;
+            }
+        }
+        
+        // Se chegou até aqui sem return, __activeRefData foi definido pelos dados embutidos
+        if (!__activeRefData) {
+            return;
+        }
+    }
+    
+    // 🛡️ PROTEÇÃO: Evitar duplicação - resetar flag se chamado via applyGenreSelection
+    if (analysis._suggestionsGenerated) {
+        console.log('🎯 [SUGGESTIONS] Recalculando sugestões para novo gênero (resetando flag)');
+        analysis._suggestionsGenerated = false;
+    }
+    
+    // 🎯 SISTEMA MELHORADO: Usar Enhanced Suggestion Engine quando disponível
+    if (typeof window !== 'undefined' && window.enhancedSuggestionEngine && window.USE_ENHANCED_SUGGESTIONS !== false) {
+        try {
+            console.log('🎯 Usando Enhanced Suggestion Engine...');
+            console.log('🔍 [DEBUG-ENGINE] Dados sendo passados para Enhanced Engine:', {
+                analysis: {
+                    hasTechnicalData: !!analysis.technicalData,
+                    technicalDataKeys: analysis.technicalData ? Object.keys(analysis.technicalData) : null,
+                    hasSuggestions: !!analysis.suggestions,
+                    suggestionsCount: analysis.suggestions?.length || 0
+                },
+                activeRefData: {
+                    isNull: __activeRefData === null,
+                    isUndefined: __activeRefData === undefined,
+                    type: typeof __activeRefData,
+                    keys: __activeRefData ? Object.keys(__activeRefData) : null,
+                    structure: __activeRefData ? 'present' : 'missing'
+                }
+            });
+            
+            const enhancedAnalysis = window.enhancedSuggestionEngine.processAnalysis(analysis, __activeRefData);
             
             // Preservar sugestões não-referência existentes se necessário
             const existingSuggestions = Array.isArray(analysis.suggestions) ? analysis.suggestions : [];
             const nonRefSuggestions = existingSuggestions.filter(s => {
                 const type = s?.type || '';
-                return !type.includes('loudness') && !type.includes('true_peak') && 
-                       !type.includes('dynamics') && !type.includes('stereo') && 
-                       !type.includes('band') && !type.includes('lra');
+                return !type.startsWith('reference_') && !type.startsWith('band_adjust') && !type.startsWith('heuristic_');
             });
             
-            // Combinar sugestões unificadas com existentes preservadas
+            // Combinar sugestões melhoradas com existentes preservadas
             analysis.suggestions = [...enhancedAnalysis.suggestions, ...nonRefSuggestions];
             
-            // Adicionar metadata do sistema unificado
-            if (enhancedAnalysis._suggestionMetadata) {
-                analysis._suggestionMetadata = enhancedAnalysis._suggestionMetadata;
-                
-                console.log('🎯 Sistema Unificado - Metadata:', {
-                    suggestions: enhancedAnalysis.suggestions.length,
-                    processingTime: enhancedAnalysis._suggestionMetadata.processingTimeMs + 'ms',
-                    severityDistribution: enhancedAnalysis._suggestionMetadata.auditLog
-                        .filter(log => log.type === 'PROCESS_COMPLETE')[0]?.data?.severityDistribution || {}
-                });
+            // Adicionar métricas melhoradas à análise
+            if (enhancedAnalysis.enhancedMetrics) {
+                analysis.enhancedMetrics = enhancedAnalysis.enhancedMetrics;
             }
             
-            console.log(`🎯 Sistema Unificado: ${enhancedAnalysis.suggestions.length} sugestões educativas geradas`);
+            // Adicionar log de auditoria
+            if (enhancedAnalysis.auditLog) {
+                analysis.auditLog = enhancedAnalysis.auditLog;
+            }
+            
+            console.log(`🎯 [SUGGESTIONS] Enhanced Engine: ${enhancedAnalysis.suggestions.length} sugestões geradas`);
+            console.log(`🎯 [SUGGESTIONS] Sugestões preservadas: ${nonRefSuggestions.length}`);
+            console.log(`🎯 [SUGGESTIONS] Total final: ${analysis.suggestions.length} sugestões`);
+            
+            // 🤖 NOVA CAMADA DE IA: Pós-processamento inteligente de sugestões (Enhanced Engine)
+            if (typeof window !== 'undefined' && window.AI_SUGGESTION_LAYER_ENABLED && window.aiSuggestionLayer) {
+                try {
+                    console.log('🤖 [AI-LAYER] Enriquecendo sugestões do Enhanced Engine...');
+                    
+                    // Preparar contexto para IA
+                    const aiContext = {
+                        technicalData: analysis.technicalData,
+                        genre: __activeRefGenre || analysis.genre,
+                        referenceData: __activeRefData,
+                        problems: analysis.problems,
+                        enhancedMetrics: enhancedAnalysis.enhancedMetrics
+                    };
+                    
+                    // Chamar IA de forma assíncrona
+                    window.aiSuggestionLayer.process(analysis.suggestions, aiContext)
+                        .then(enhancedSuggestions => {
+                            if (enhancedSuggestions && enhancedSuggestions.length > 0) {
+                                // ✅ aplicar ordem garantida após IA
+                                enhancedSuggestions = window.enhancedSuggestionEngine
+                                    .enforceOrderedSuggestions(enhancedSuggestions);
+
+                                analysis.suggestions = enhancedSuggestions;
+                                analysis._aiEnhanced = true;
+                                analysis._aiTimestamp = new Date().toISOString();
+                                analysis._aiSource = 'enhanced_engine';
+                                
+                                console.log(`🤖 [AI-LAYER] ✅ Enhanced Engine + IA: ${enhancedSuggestions.length} sugestões`);
+                                
+                                // 🚀 FORÇA EXIBIÇÃO: Sempre mostrar interface IA
+                                if (window.aiUIController) {
+                                    console.log(`🚀 [FORCE-AI-UI] Forçando exibição da interface IA com ${enhancedSuggestions.length} sugestões`);
+                                    window.aiUIController.checkForAISuggestions(analysis);
+                                }
+                                
+                                // Re-renderizar se modal visível
+                                if (document.getElementById('audioAnalysisModal')?.style.display !== 'none') {
+                                    displayModalResults(analysis);
+                                }
+                            }
+                        })
+                        .catch(error => {
+                            console.warn('🤖 [AI-LAYER] ❌ Erro na IA do Enhanced Engine:', error);
+                            
+                            // 🚀 FORÇA EXIBIÇÃO: Mostrar interface IA mesmo em caso de erro
+                            setTimeout(() => {
+                                if (window.aiUIController && analysis.suggestions) {
+                                    console.log(`🚀 [AI-UI-FORCE-ERROR] Forçando interface IA aparecer após erro com ${analysis.suggestions.length} sugestões`);
+                                    window.aiUIController.checkForAISuggestions(analysis, true); // force = true
+                                } else {
+                                    console.warn('⚠️ [AI-UI-FORCE-ERROR] aiUIController não encontrado ou sem sugestões');
+                                }
+                            }, 100);
+                        });
+                } catch (error) {
+                    console.warn('🤖 [AI-LAYER] ❌ Erro na integração IA Enhanced Engine:', error);
+                }
+            }
+            
             return;
             
         } catch (error) {
-            console.warn('🚨 Erro no Sistema Unificado, usando fallback:', error);
+            console.warn('🚨 Erro no Enhanced Suggestion Engine, usando fallback:', error);
             // Continuar com sistema legado em caso de erro
         }
     }
     
-    // 🔄 SISTEMA LEGADO (fallback) - mantido para compatibilidade
-    console.log('⚠️ Usando sistema legado de sugestões (fallback)');
-    const ref = __activeRefData;
-    const tech = analysis.technicalData;
+    // 🔄 SISTEMA LEGADO (fallback) - APENAS PARA SCORES, NÃO DEVE ALTERAR SUGESTÕES
+    console.log('🔄 [FALLBACK] Sistema legado ativado - usando apenas para calcular scores');
     
-    // Garantir lista de sugestões
-    const sug = Array.isArray(analysis.suggestions) ? analysis.suggestions : (analysis.suggestions = []);
-    
-    // Remover sugestões antigas de referência
-    const refTypes = new Set(['reference_loudness','reference_dynamics','reference_lra','reference_stereo','reference_true_peak']);
-    for (let i = sug.length - 1; i >= 0; i--) {
-        const t = sug[i] && sug[i].type;
-        if (t && refTypes.has(t)) sug.splice(i, 1);
+    // IMPORTANTE: NÃO modificar analysis.suggestions aqui para não interferir com Enhanced Engine
+    // Apenas calcular scores se necessário
+    if (!analysis.scores && __activeRefData && analysis.technicalData) {
+        try {
+            analysis.scores = this.calculateFallbackScores(analysis.technicalData, __activeRefData);
+            console.log('✅ [FALLBACK] Scores calculados pelo sistema legado');
+        } catch (error) {
+            console.warn('⚠️ [FALLBACK] Erro ao calcular scores legados:', error);
+        }
     }
     
-    // Helper para criar sugestão legada
-    const addRefSug = (val, target, tol, type, label, unit='') => {
-        if (!Number.isFinite(val) || !Number.isFinite(target) || !Number.isFinite(tol)) return;
-        const diff = val - target;
-        if (Math.abs(diff) <= tol) return; // dentro da tolerância
-        const direction = diff > 0 ? 'acima' : 'abaixo';
-        sug.push({
-            type,
-            message: `${label} ${direction} do alvo (${target}${unit})`,
-            action: `Ajustar ${label} ${direction==='acima'?'para baixo':'para cima'} ~${target}${unit}`,
-            details: `Diferença: ${diff.toFixed(2)}${unit} • tolerância ±${tol}${unit} • gênero: ${window.PROD_AI_REF_GENRE}`,
-            severity: { level: 'yellow', color: '#ffd93d', label: 'ajustar' }, // severidade padrão legacy
-            priority: 0.5 // prioridade padrão legacy
-        });
-    };
+    console.log('🎯 [FALLBACK] Sistema legado concluído sem alterar sugestões');
     
-    // Aplicar checks principais usando caminhos robustos
-    const refTarget = ref.legacy_compatibility || ref;
-    const lufsVal = Number.isFinite(tech.lufsIntegrated) ? tech.lufsIntegrated : null;
-    addRefSug(lufsVal, refTarget.lufs_target, refTarget.tol_lufs, 'reference_loudness', 'LUFS', '');
-    const tpVal = Number.isFinite(tech.truePeakDbtp) ? tech.truePeakDbtp : null;
-    addRefSug(tpVal, refTarget.true_peak_target, refTarget.tol_true_peak, 'reference_true_peak', 'Pico Real', ' dBTP');
-    addRefSug(tech.dynamicRange, refTarget.dr_target, refTarget.tol_dr, 'reference_dynamics', 'DR', ' dB');
-    if (Number.isFinite(tech.lra)) addRefSug(tech.lra, refTarget.lra_target, refTarget.tol_lra, 'reference_lra', 'LRA', ' LU');
-    if (Number.isFinite(tech.stereoCorrelation)) addRefSug(tech.stereoCorrelation, refTarget.stereo_target, refTarget.tol_stereo, 'reference_stereo', 'Stereo Corr', '');
+    return; // ❌ SISTEMA LEGADO DESATIVADO - Enhanced Engine deve ser usado para sugestões
+    
+    // 🤖 NOVA CAMADA DE IA: Pós-processamento inteligente de sugestões
+    // PONTO DE INTEGRAÇÃO SEGURO: Após geração de todas as sugestões
+    if (typeof window !== 'undefined' && window.AI_SUGGESTION_LAYER_ENABLED && window.aiSuggestionLayer) {
+        try {
+            console.log('🤖 [AI-LAYER] Iniciando enriquecimento inteligente das sugestões...');
+            
+            // Preparar contexto para IA
+            const aiContext = {
+                technicalData: analysis.technicalData,
+                genre: __activeRefGenre || analysis.genre,
+                referenceData: __activeRefData,
+                problems: analysis.problems
+            };
+            
+            // Chamar IA de forma assíncrona com fallback
+            window.aiSuggestionLayer.process(analysis.suggestions, aiContext)
+                .then(enhancedSuggestions => {
+                    if (enhancedSuggestions && enhancedSuggestions.length > 0) {
+                        // ✅ aplicar ordem garantida após IA
+                        enhancedSuggestions = window.enhancedSuggestionEngine
+                            .enforceOrderedSuggestions(enhancedSuggestions);
+
+                        analysis.suggestions = enhancedSuggestions;
+                        console.log(`🤖 [AI-LAYER] ✅ ${enhancedSuggestions.length} sugestões enriquecidas com IA`);
+                        
+                        // Marcar que IA foi aplicada
+                        analysis._aiEnhanced = true;
+                        analysis._aiTimestamp = new Date().toISOString();
+                        
+                        // Re-renderizar modal se estiver visível
+                        if (document.getElementById('audioAnalysisModal')?.style.display !== 'none') {
+                            console.log('🎨 [AI-LAYER] Re-renderizando modal com sugestões IA');
+                            displayModalResults(analysis);
+                        }
+                    } else {
+                        console.warn('🤖 [AI-LAYER] ⚠️ IA retornou resultado vazio, mantendo sugestões originais');
+                    }
+                })
+                .catch(error => {
+                    console.warn('🤖 [AI-LAYER] ❌ Erro na camada de IA, mantendo sugestões originais:', error);
+                    // Sistema continua funcionando normalmente com sugestões originais
+                });
+                
+        } catch (error) {
+            console.warn('🤖 [AI-LAYER] ❌ Erro na inicialização da IA, sistema continua normal:', error);
+        }
+    } else {
+        console.log('🤖 [AI-LAYER] Sistema de IA desabilitado ou não disponível');
+    }
+    
+    // 🛡️ Marcar que sugestões foram geradas (proteção contra duplicação)
+    analysis._suggestionsGenerated = true;
+}
+
+/**
+ * 🔢 Calcular scores básicos quando Enhanced Engine não está disponível
+ * @param {Object} technicalData - Dados técnicos da análise
+ * @param {Object} referenceData - Dados de referência
+ * @returns {Object} Scores calculados
+ */
+function calculateFallbackScores(technicalData, referenceData) {
+    const scores = {};
+    
+    try {
+        // Score LUFS
+        if (Number.isFinite(technicalData.lufsIntegrated) && Number.isFinite(referenceData.lufs_target)) {
+            const delta = Math.abs(technicalData.lufsIntegrated - referenceData.lufs_target);
+            const tolerance = referenceData.tol_lufs || 2.0;
+            scores.lufs = Math.max(0, Math.min(10, 10 - (delta / tolerance) * 2));
+        }
+        
+        // Score True Peak
+        if (Number.isFinite(technicalData.truePeakDbtp)) {
+            if (technicalData.truePeakDbtp > 0) {
+                scores.truePeak = 0; // Crítico
+            } else if (technicalData.truePeakDbtp > -1.0) {
+                scores.truePeak = 5; // Aceitável mas não ideal
+            } else {
+                scores.truePeak = 10; // Ideal
+            }
+        }
+        
+        // Score DR
+        if (Number.isFinite(technicalData.dynamicRange) && Number.isFinite(referenceData.dr_target)) {
+            const delta = Math.abs(technicalData.dynamicRange - referenceData.dr_target);
+            const tolerance = referenceData.tol_dr || 2.0;
+            scores.dr = Math.max(0, Math.min(10, 10 - (delta / tolerance) * 2));
+        }
+        
+        // Score geral (média dos scores disponíveis)
+        const availableScores = Object.values(scores).filter(s => Number.isFinite(s));
+        if (availableScores.length > 0) {
+            scores.overall = availableScores.reduce((sum, score) => sum + score, 0) / availableScores.length;
+        }
+        
+        console.log('📊 [FALLBACK] Scores calculados:', scores);
+        return scores;
+        
+    } catch (error) {
+        console.error('❌ [FALLBACK] Erro ao calcular scores:', error);
+        return {};
+    }
 }
 
 // 🎨 Estilos do seletor de gênero (injeção única, não quebra CSS existente)
@@ -5034,3 +6902,764 @@ window.displayReferenceResults = function(referenceResults) {
         }
     }
 };
+
+// =============== FUNÇÕES DE NORMALIZAÇÃO DE DADOS ===============
+
+/**
+ * 🔧 NOVA FUNÇÃO: Normalizar dados do backend para compatibilidade com front-end
+ * Mapeia a resposta do backend Railway para o formato que o front-end espera
+ */
+function normalizeBackendAnalysisData(backendData) {
+    console.log('🔧 [NORMALIZE] Iniciando normalização dos dados do backend:', backendData);
+    
+    // Se já está no formato correto, retornar como está
+    if (backendData.technicalData && backendData.technicalData.peak !== undefined) {
+        console.log('📊 [NORMALIZE] Dados já estão normalizados');
+        return backendData;
+    }
+    
+    // Criar estrutura normalizada - SEM FALLBACKS FICTÍCIOS
+    const normalized = {
+        ...backendData,
+        technicalData: backendData.technicalData || {},
+        problems: backendData.problems || [],
+        suggestions: backendData.suggestions || [],
+        duration: backendData.duration || null,
+        sampleRate: backendData.sampleRate || null,
+        channels: backendData.channels || null
+    };
+    
+    // 🎯 MAPEAR MÉTRICAS BÁSICAS - SEM FALLBACKS FICTÍCIOS
+    const tech = normalized.technicalData;
+    const source = backendData.technicalData || backendData.metrics || backendData;
+    
+    console.log('🔍 [NORMALIZE] Dados de origem recebidos:', source);
+    console.log('🔍 [NORMALIZE] Estrutura completa do backend:', backendData);
+    
+    // 🎯 ALIAS MAP - Mapeamento de nomes divergentes de métricas
+    const aliasMap = {
+        // Métricas principais
+        'dr': ['dynamic_range', 'dynamicRange'],
+        'lra': ['loudness.lra', 'loudnessRange', 'lra_tolerance', 'loudness_range'],
+        'crestFactor': ['dynamics.crest', 'crest_factor'],
+        'truePeakDbtp': ['truePeak.maxDbtp', 'true_peak_dbtp', 'truePeak'],
+        'lufsIntegrated': ['loudness.integrated', 'lufs_integrated', 'lufs'],
+        
+        // Bandas espectrais - normalização de nomes
+        'low_mid': ['lowMid', 'low_mid', 'lowmid'],
+        'high_mid': ['highMid', 'high_mid', 'highmid'],
+        'presenca': ['presence', 'presenca'],
+        'brilho': ['air', 'brilho', 'treble', 'high'],
+        'low_bass': ['bass', 'low_bass', 'lowBass'],
+        'upper_bass': ['bass', 'low_bass', 'upper_bass', 'upperBass'], // upper_bass → bass como fallback
+        'sub': ['sub', 'subBass', 'sub_bass'],
+        'mid': ['mid', 'mids', 'middle']
+    };
+    
+    // Função para pegar valor real ou null (sem fallbacks fictícios) + suporte a alias
+    const getRealValue = (...paths) => {
+        for (const path of paths) {
+            const value = path.split('.').reduce((obj, key) => obj?.[key], source);
+            if (Number.isFinite(value)) {
+                return value;
+            }
+            // NOVO: Também verificar na estrutura raiz do backendData
+            const rootValue = path.split('.').reduce((obj, key) => obj?.[key], backendData);
+            if (Number.isFinite(rootValue)) {
+                return rootValue;
+            }
+            
+            // 🎯 NOVO: Verificar alias se não encontrou valor direto
+            if (aliasMap[path]) {
+                for (const aliasPath of aliasMap[path]) {
+                    const aliasValue = aliasPath.split('.').reduce((obj, key) => obj?.[key], source);
+                    if (Number.isFinite(aliasValue)) {
+                        console.log(`🔄 [ALIAS] ${path} → ${aliasPath}: ${aliasValue}`);
+                        return aliasValue;
+                    }
+                    // Verificar alias na estrutura raiz também
+                    const rootAliasValue = aliasPath.split('.').reduce((obj, key) => obj?.[key], backendData);
+                    if (Number.isFinite(rootAliasValue)) {
+                        console.log(`🔄 [ALIAS] ${path} → ${aliasPath}: ${rootAliasValue}`);
+                        return rootAliasValue;
+                    }
+                }
+            }
+        }
+        return null; // Retorna null se não há valor real
+    };
+    
+    // Peak e RMS - APENAS VALORES REAIS
+    tech.peak = getRealValue('peak', 'peak_db', 'peakLevel');
+    tech.rms = getRealValue('rms', 'rms_db', 'rmsLevel');
+    tech.rmsLevel = tech.rms;
+    
+    // Dynamic Range - APENAS VALORES REAIS
+    tech.dynamicRange = getRealValue('dynamicRange', 'dynamic_range', 'dr');
+    
+    // Crest Factor - APENAS VALORES REAIS
+    tech.crestFactor = getRealValue('crestFactor', 'crest_factor');
+    
+    // True Peak - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA
+    tech.truePeakDbtp = getRealValue('truePeakDbtp', 'true_peak_dbtp', 'truePeak') || 
+                       (backendData.truePeak?.maxDbtp && Number.isFinite(backendData.truePeak.maxDbtp) ? backendData.truePeak.maxDbtp : null);
+    
+    // LUFS - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA
+    tech.lufsIntegrated = getRealValue('lufsIntegrated', 'lufs_integrated', 'lufs') ||
+                         (backendData.loudness?.integrated && Number.isFinite(backendData.loudness.integrated) ? backendData.loudness.integrated : null);
+    
+    tech.lufsShortTerm = getRealValue('lufsShortTerm', 'lufs_short_term') ||
+                        (backendData.loudness?.shortTerm && Number.isFinite(backendData.loudness.shortTerm) ? backendData.loudness.shortTerm : null);
+    
+    tech.lufsMomentary = getRealValue('lufsMomentary', 'lufs_momentary') ||
+                        (backendData.loudness?.momentary && Number.isFinite(backendData.loudness.momentary) ? backendData.loudness.momentary : null);
+    
+    // LRA - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA + MÚLTIPLOS ALIASES
+    tech.lra = getRealValue('lra', 'loudnessRange', 'lra_tolerance', 'loudness_range') ||
+              (backendData.loudness?.lra && Number.isFinite(backendData.loudness.lra) ? backendData.loudness.lra : null) ||
+              (backendData.lra && Number.isFinite(backendData.lra) ? backendData.lra : null);
+    
+    console.log('📊 [NORMALIZE] Métricas mapeadas (apenas reais):', {
+        peak: tech.peak,
+        rms: tech.rms,
+        dynamicRange: tech.dynamicRange,
+        crestFactor: tech.crestFactor,
+        truePeakDbtp: tech.truePeakDbtp,
+        lufsIntegrated: tech.lufsIntegrated,
+        lufsShortTerm: tech.lufsShortTerm,
+        lufsMomentary: tech.lufsMomentary,
+        lra: tech.lra
+    });
+    
+    // 🎯 LOG ESPECÍFICO PARA AUDITORIA: LRA
+    if (tech.lra !== null) {
+        console.log('✅ [LRA] SUCESSO: LRA mapeado corretamente =', tech.lra);
+    } else {
+        console.warn('❌ [LRA] PROBLEMA: LRA não foi encontrado no backend data');
+        console.log('🔍 [LRA] Debug - backend data:', backendData);
+    }
+    
+    // Headroom - APENAS VALORES REAIS
+    tech.headroomDb = getRealValue('headroomDb', 'headroom_db');
+    tech.headroomTruePeakDb = getRealValue('headroomTruePeakDb');
+    
+    // Stereo - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA
+    tech.stereoCorrelation = getRealValue('stereoCorrelation', 'stereo_correlation') ||
+                            (backendData.stereo?.correlation && Number.isFinite(backendData.stereo.correlation) ? backendData.stereo.correlation : null);
+    
+    tech.stereoWidth = getRealValue('stereoWidth', 'stereo_width') ||
+                      (backendData.stereo?.width && Number.isFinite(backendData.stereo.width) ? backendData.stereo.width : null);
+    
+    tech.balanceLR = getRealValue('balanceLR', 'balance_lr') ||
+                    (backendData.stereo?.balance && Number.isFinite(backendData.stereo.balance) ? backendData.stereo.balance : null);
+    
+    // Spectral - APENAS VALORES REAIS
+    tech.spectralCentroid = getRealValue('spectralCentroid', 'spectral_centroid');
+    tech.spectralRolloff = getRealValue('spectralRolloff', 'spectral_rolloff');
+    tech.zeroCrossingRate = getRealValue('zeroCrossingRate', 'zero_crossing_rate');
+    tech.spectralFlux = getRealValue('spectralFlux', 'spectral_flux');
+    tech.spectralFlatness = getRealValue('spectralFlatness', 'spectral_flatness');
+    
+    // Problemas técnicos - APENAS VALORES REAIS
+    tech.clippingSamples = getRealValue('clippingSamples', 'clipping_samples');
+    tech.clippingPct = getRealValue('clippingPct', 'clipping_pct');
+    tech.dcOffset = getRealValue('dcOffset', 'dc_offset');
+    tech.thdPercent = getRealValue('thdPercent', 'thd_percent');
+    
+    // Sample peaks por canal - APENAS VALORES REAIS
+    tech.samplePeakLeftDb = getRealValue('samplePeakLeftDb', 'sample_peak_left_db');
+    tech.samplePeakRightDb = getRealValue('samplePeakRightDb', 'sample_peak_right_db');
+    
+    // ===== NOVAS MÉTRICAS IMPLEMENTADAS =====
+    
+    // Spectral Bandwidth e outras métricas espectrais
+    tech.spectralBandwidth = getRealValue('spectralBandwidth', 'spectral_bandwidth');
+    tech.spectralBandwidthHz = tech.spectralBandwidth; // Alias
+    tech.spectralSpread = getRealValue('spectralSpread', 'spectral_spread');
+    tech.spectralCrest = getRealValue('spectralCrest', 'spectral_crest');
+    tech.spectralSkewness = getRealValue('spectralSkewness', 'spectral_skewness');
+    tech.spectralKurtosis = getRealValue('spectralKurtosis', 'spectral_kurtosis');
+    
+    // 🎵 SPECTRAL BALANCE - Mapear dados espectrais REAIS
+    if (source.spectral_balance || source.spectralBalance || source.bands) {
+        const spectralSource = source.spectral_balance || source.spectralBalance || source.bands || {};
+        
+        // Função específica para dados espectrais
+        const getSpectralValue = (...paths) => {
+            for (const path of paths) {
+                const value = path.split('.').reduce((obj, key) => obj?.[key], spectralSource);
+                if (Number.isFinite(value)) {
+                    return value;
+                }
+            }
+            return null;
+        };
+        
+        tech.spectral_balance = {
+            sub: getSpectralValue('sub', 'subBass', 'sub_bass'),
+            bass: getSpectralValue('bass', 'low_bass', 'lowBass'),  // Normalizar para 'bass'
+            lowMid: getSpectralValue('lowMid', 'low_mid', 'lowmid'),
+            mid: getSpectralValue('mid', 'mids', 'middle'),
+            highMid: getSpectralValue('highMid', 'high_mid', 'highmid'),
+            presence: getSpectralValue('presence', 'presenca'),
+            air: getSpectralValue('air', 'brilho', 'treble', 'high')
+        };
+        console.log('📊 [NORMALIZE] Spectral balance mapeado:', tech.spectral_balance);
+        
+        // 🎯 LOG ESPECÍFICO PARA AUDITORIA: BANDAS ESPECTRAIS
+        const bandasDetectadas = Object.entries(tech.spectral_balance)
+            .filter(([key, value]) => value !== null)
+            .map(([key, value]) => `${key}: ${value}`);
+        
+        if (bandasDetectadas.length > 0) {
+            console.log(`✅ [BANDAS] SUCESSO: ${bandasDetectadas.length} bandas mapeadas:`, bandasDetectadas.join(', '));
+        } else {
+            console.warn('❌ [BANDAS] PROBLEMA: Nenhuma banda espectral foi mapeada');
+        }
+    } else {
+        // Não definir se não há dados reais
+        tech.spectral_balance = null;
+        console.log('⚠️ [NORMALIZE] Nenhum dado espectral real encontrado - spectral_balance = null');
+    }
+    
+    // 🎶 BAND ENERGIES - Mapear energias das bandas de frequência REAIS
+    if (source.bandEnergies || source.band_energies || source.bands) {
+        const bandsSource = source.bandEnergies || source.band_energies || source.bands || {};
+        tech.bandEnergies = {};
+        
+        // Mapear bandas conhecidas - APENAS VALORES REAIS
+        const bandMapping = {
+            'sub': 'sub',
+            'subBass': 'sub', 
+            'sub_bass': 'sub',
+            'low_bass': 'bass',  // Normalizar para 'bass'
+            'lowBass': 'bass',
+            'bass': 'bass',
+            'upper_bass': 'bass',
+            'upperBass': 'bass',
+            'low_mid': 'lowMid',  // Normalizar para 'lowMid'
+            'lowMid': 'lowMid',
+            'lowmid': 'lowMid',
+            'mid': 'mid',
+            'mids': 'mid',
+            'middle': 'mid',
+            'high_mid': 'highMid',  // Normalizar para 'highMid'
+            'highMid': 'highMid',
+            'highmid': 'highMid',
+            'upper_mid': 'highMid',
+            'upperMid': 'highMid',
+            'brilho': 'air',  // Normalizar para 'air'
+            'brilliance': 'air',
+            'air': 'air',
+            'treble': 'air',
+            'high': 'air',
+            'presenca': 'presence',  // Normalizar para 'presence'
+            'presence': 'presence'
+        };
+        
+        Object.entries(bandMapping).forEach(([sourceKey, targetKey]) => {
+            const bandData = bandsSource[sourceKey];
+            if (bandData && typeof bandData === 'object') {
+                // Pegar apenas valores reais, sem fallbacks
+                const rms_db = Number.isFinite(bandData.rms_db) ? bandData.rms_db : 
+                              Number.isFinite(bandData.energy_db) ? bandData.energy_db :
+                              Number.isFinite(bandData.level) ? bandData.level : null;
+                              
+                const peak_db = Number.isFinite(bandData.peak_db) ? bandData.peak_db : null;
+                const frequency_range = bandData.frequency_range || bandData.range || null;
+                
+                // Só adicionar se tiver pelo menos um valor real
+                if (rms_db !== null || peak_db !== null) {
+                    tech.bandEnergies[targetKey] = {
+                        rms_db: rms_db,
+                        peak_db: peak_db,
+                        frequency_range: frequency_range
+                    };
+                }
+            }
+        });
+        
+        console.log('📊 [NORMALIZE] Band energies mapeadas (apenas reais):', tech.bandEnergies);
+        
+        // Se não conseguiu mapear nenhuma banda real, deixar null
+        if (Object.keys(tech.bandEnergies).length === 0) {
+            tech.bandEnergies = null;
+            console.log('⚠️ [NORMALIZE] Nenhuma banda real encontrada - bandEnergies = null');
+        }
+    } else {
+        tech.bandEnergies = null;
+        console.log('⚠️ [NORMALIZE] Dados de bandas não encontrados - bandEnergies = null');
+    }
+    
+    // 🎼 TONAL BALANCE - Estrutura simplificada para compatibilidade APENAS COM VALORES REAIS
+    if (tech.bandEnergies && Object.keys(tech.bandEnergies).length > 0) {
+        tech.tonalBalance = {
+            sub: tech.bandEnergies.sub || null,
+            low: tech.bandEnergies.low_bass || null,
+            mid: tech.bandEnergies.mid || null,
+            high: tech.bandEnergies.brilho || null
+        };
+        console.log('📊 [NORMALIZE] Tonal balance baseado em bandEnergies reais:', tech.tonalBalance);
+    } else {
+        tech.tonalBalance = null;
+        console.log('⚠️ [NORMALIZE] Nenhuma banda real para tonal balance - tonalBalance = null');
+    }
+    
+    // 🎯 FREQUÊNCIAS DOMINANTES - Estrutura completa com detailed
+    if (source.dominantFrequencies || source.dominant_frequencies) {
+        const rawData = source.dominantFrequencies || source.dominant_frequencies;
+        
+        // Se for string/número simples, converter para structured format
+        if (typeof rawData === 'string' || typeof rawData === 'number') {
+            tech.dominantFrequencies = {
+                value: rawData,
+                unit: 'Hz'
+            };
+        } else if (rawData && typeof rawData === 'object') {
+            // Se for object com detailed
+            tech.dominantFrequencies = {
+                value: rawData.value || rawData.primary || null,
+                unit: rawData.unit || 'Hz',
+                detailed: rawData.detailed || {
+                    primary: rawData.primary || rawData.value || null,
+                    secondary: rawData.secondary || null,
+                    peaks: rawData.peaks || []
+                }
+            };
+        } else {
+            tech.dominantFrequencies = null;
+        }
+        console.log('📊 [NORMALIZE] Frequências dominantes estruturadas:', tech.dominantFrequencies);
+    } else {
+        tech.dominantFrequencies = null;
+        console.log('⚠️ [NORMALIZE] Frequências dominantes não encontradas - dominantFrequencies = null');
+    }
+    
+    // 🔄 DC OFFSET - Estrutura completa com canais L/R
+    if (source.dcOffset || source.dc_offset) {
+        const rawDcData = source.dcOffset || source.dc_offset;
+        
+        // Se for número simples, converter para structured format
+        if (typeof rawDcData === 'number') {
+            tech.dcOffset = {
+                value: rawDcData,
+                unit: 'dB',
+                detailed: {
+                    L: rawDcData,
+                    R: rawDcData,
+                    severity: Math.abs(rawDcData) > 0.1 ? 'High' : Math.abs(rawDcData) > 0.01 ? 'Medium' : 'Low'
+                }
+            };
+        } else if (rawDcData && typeof rawDcData === 'object') {
+            // Se for object com detailed
+            tech.dcOffset = {
+                value: rawDcData.value || (rawDcData.detailed ? Math.max(Math.abs(rawDcData.detailed.L || 0), Math.abs(rawDcData.detailed.R || 0)) : null),
+                unit: rawDcData.unit || 'dB',
+                detailed: rawDcData.detailed || {
+                    L: rawDcData.L || rawDcData.left || rawDcData.value || 0,
+                    R: rawDcData.R || rawDcData.right || rawDcData.value || 0,
+                    severity: rawDcData.severity || 'Low'
+                }
+            };
+        } else {
+            tech.dcOffset = null;
+        }
+        console.log('📊 [NORMALIZE] DC Offset estruturado:', tech.dcOffset);
+    } else {
+        tech.dcOffset = null;
+        console.log('⚠️ [NORMALIZE] DC Offset não encontrado - dcOffset = null');
+    }
+    
+    // 📊 SPECTRAL UNIFORMITY - Estrutura detalhada
+    if (source.spectralUniformity || source.spectral_uniformity) {
+        const rawSpectralData = source.spectralUniformity || source.spectral_uniformity;
+        
+        // Se for número simples, converter para structured format
+        if (typeof rawSpectralData === 'number') {
+            tech.spectralUniformity = {
+                value: rawSpectralData,
+                unit: 'ratio',
+                detailed: {
+                    variance: rawSpectralData,
+                    distribution: rawSpectralData > 0.8 ? 'Uniform' : rawSpectralData > 0.5 ? 'Moderate' : 'Irregular',
+                    analysis: rawSpectralData > 0.7 ? 'Well-balanced frequency distribution' : 'Uneven spectral content'
+                }
+            };
+        } else if (rawSpectralData && typeof rawSpectralData === 'object') {
+            // Se for object com detailed
+            tech.spectralUniformity = {
+                value: rawSpectralData.value || rawSpectralData.variance || null,
+                unit: rawSpectralData.unit || 'ratio',
+                detailed: rawSpectralData.detailed || {
+                    variance: rawSpectralData.variance || rawSpectralData.value || null,
+                    distribution: rawSpectralData.distribution || 'Unknown',
+                    analysis: rawSpectralData.analysis || 'Spectral analysis pending'
+                }
+            };
+        } else {
+            tech.spectralUniformity = null;
+        }
+        console.log('📊 [NORMALIZE] Spectral Uniformity estruturado:', tech.spectralUniformity);
+    } else {
+        tech.spectralUniformity = null;
+        console.log('⚠️ [NORMALIZE] Spectral Uniformity não encontrado - spectralUniformity = null');
+    }
+    
+    // 🔢 SCORES E QUALIDADE - MAPEAMENTO CORRETO PARA NOVA ESTRUTURA
+    normalized.qualityOverall = backendData.score && Number.isFinite(backendData.score) ? backendData.score : null;
+    
+    if (backendData.qualityBreakdown && typeof backendData.qualityBreakdown === 'object') {
+        normalized.qualityBreakdown = backendData.qualityBreakdown;
+        console.log('📊 [NORMALIZE] Quality breakdown real encontrado:', normalized.qualityBreakdown);
+    } else {
+        normalized.qualityBreakdown = null;
+        console.log('⚠️ [NORMALIZE] Quality breakdown não encontrado - qualityBreakdown = null');
+    }
+    
+    // 📊 DADOS AUXILIARES DO NOVO FORMATO
+    if (backendData.metadata) {
+        normalized.processingMs = backendData.metadata.processingTime || backendData.performance?.workerTotalTimeMs || null;
+        normalized.fileName = backendData.metadata.fileName || null;
+        normalized.fileSize = backendData.metadata.fileSize || null;
+        normalized.buildVersion = backendData.metadata.buildVersion || null;
+        normalized.pipelineVersion = backendData.metadata.pipelineVersion || null;
+    }
+    
+    if (backendData.classification) {
+        normalized.classification = backendData.classification;
+    }
+    
+    // 🎯 DADOS DE SCORING DETALHADOS
+    if (backendData.scoring) {
+        normalized.scoring = backendData.scoring;
+        console.log('📊 [NORMALIZE] Dados de scoring encontrados:', backendData.scoring);
+    }
+    
+    // 🚨 PROBLEMAS/SUGESTÕES DO NOVO ANALYZER - Integrar com structure completa
+    if (source.problemsAnalysis || source.problems_analysis) {
+        const problemsData = source.problemsAnalysis || source.problems_analysis;
+        
+        // Adicionar problemas do analyzer
+        if (problemsData.problems && Array.isArray(problemsData.problems)) {
+            problemsData.problems.forEach(problem => {
+                normalized.problems.push({
+                    type: problem.type || 'analysis',
+                    message: problem.message || problem.description || 'Problema detectado',
+                    solution: problem.solution || problem.recommendation || 'Verificar configurações',
+                    severity: problem.severity || 'medium',
+                    source: 'problems_analyzer'
+                });
+            });
+        }
+        
+        // Adicionar sugestões do analyzer
+        if (problemsData.suggestions && Array.isArray(problemsData.suggestions)) {
+            problemsData.suggestions.forEach(suggestion => {
+                normalized.suggestions.push({
+                    type: suggestion.type || 'optimization',
+                    message: suggestion.message || suggestion.description || 'Sugestão de melhoria',
+                    action: suggestion.action || suggestion.recommendation || 'Aplicar otimização',
+                    details: suggestion.details || suggestion.context || 'Detalhes não disponíveis',
+                    source: 'problems_analyzer'
+                });
+            });
+        }
+        
+        console.log('📊 [NORMALIZE] Problems/Suggestions do analyzer integrados:', {
+            problemsAdded: problemsData.problems?.length || 0,
+            suggestionsAdded: problemsData.suggestions?.length || 0
+        });
+    }
+    
+    // 🚨 PROBLEMAS - Garantir que existam alguns problemas/sugestões para exibir
+    if (normalized.problems.length === 0) {
+        // Detectar problemas básicos baseados nas métricas - APENAS SE VALORES EXISTEM
+        if (Number.isFinite(tech.clippingSamples) && tech.clippingSamples > 0) {
+            normalized.problems.push({
+                type: 'clipping',
+                message: `Clipping detectado (${tech.clippingSamples} samples)`,
+                solution: 'Reduzir o ganho geral ou usar limitador',
+                severity: 'high'
+            });
+        }
+        
+        if (tech.dcOffset && tech.dcOffset.detailed) {
+            const maxDcOffset = Math.max(Math.abs(tech.dcOffset.detailed.L || 0), Math.abs(tech.dcOffset.detailed.R || 0));
+            if (maxDcOffset > 0.01) {
+                normalized.problems.push({
+                    type: 'dc_offset', 
+                    message: `DC Offset detectado (L: ${tech.dcOffset.detailed.L?.toFixed(4) || 'N/A'}, R: ${tech.dcOffset.detailed.R?.toFixed(4) || 'N/A'})`,
+                    solution: 'Aplicar filtro DC remove',
+                    severity: tech.dcOffset.detailed.severity === 'High' ? 'high' : 'medium'
+                });
+            }
+        } else if (Number.isFinite(tech.dcOffset) && Math.abs(tech.dcOffset) > 0.01) {
+            normalized.problems.push({
+                type: 'dc_offset', 
+                message: `DC Offset detectado (${tech.dcOffset.toFixed(4)})`,
+                solution: 'Aplicar filtro DC remove',
+                severity: 'medium'
+            });
+        }
+        
+        if (Number.isFinite(tech.thdPercent) && tech.thdPercent > 1) {
+            normalized.problems.push({
+                type: 'thd',
+                message: `THD elevado (${tech.thdPercent.toFixed(2)}%)`,
+                solution: 'Verificar saturação e distorção',
+                severity: 'medium'
+            });
+        }
+    }
+    
+    // 💡 SUGESTÕES - Garantir algumas sugestões básicas - APENAS SE VALORES EXISTEM
+    if (normalized.suggestions.length === 0) {
+        if (Number.isFinite(tech.dynamicRange) && tech.dynamicRange < 8) {
+            normalized.suggestions.push({
+                type: 'dynamics',
+                message: 'Faixa dinâmica baixa detectada',
+                action: 'Considerar reduzir compressão/limitação',
+                details: `DR atual: ${tech.dynamicRange.toFixed(1)}dB`
+            });
+        }
+        
+        if (Number.isFinite(tech.stereoCorrelation) && tech.stereoCorrelation > 0.9) {
+            normalized.suggestions.push({
+                type: 'stereo',
+                message: 'Imagem estéreo muito estreita',
+                action: 'Aumentar espacialização estéreo',
+                details: `Correlação: ${tech.stereoCorrelation.toFixed(3)}`
+            });
+        }
+        
+        if (Number.isFinite(tech.lufsIntegrated) && tech.lufsIntegrated < -30) {
+            normalized.suggestions.push({
+                type: 'loudness',
+                message: 'Loudness muito baixo',
+                action: 'Aumentar volume geral',
+                details: `LUFS atual: ${tech.lufsIntegrated.toFixed(1)}`
+            });
+        }
+        
+        // Sugestões baseadas nas novas métricas
+        if (tech.spectralUniformity && tech.spectralUniformity.detailed) {
+            const uniformity = tech.spectralUniformity.value || tech.spectralUniformity.detailed.variance;
+            if (Number.isFinite(uniformity) && uniformity < 0.5) {
+                normalized.suggestions.push({
+                    type: 'spectral_balance',
+                    message: 'Distribuição espectral irregular detectada',
+                    action: 'Considerar equalização para melhor balanceamento',
+                    details: `Uniformidade: ${uniformity.toFixed(3)}, ${tech.spectralUniformity.detailed.distribution || 'Análise pendente'}`
+                });
+            }
+        }
+        
+        if (tech.dominantFrequencies && tech.dominantFrequencies.detailed) {
+            const primary = tech.dominantFrequencies.detailed.primary;
+            if (Number.isFinite(primary)) {
+                if (primary < 80) {
+                    normalized.suggestions.push({
+                        type: 'frequency_focus',
+                        message: 'Frequência dominante muito baixa',
+                        action: 'Verificar filtro high-pass ou conteúdo sub-bass excessivo',
+                        details: `Freq. primária: ${primary.toFixed(1)} Hz`
+                    });
+                } else if (primary > 8000) {
+                    normalized.suggestions.push({
+                        type: 'frequency_focus',
+                        message: 'Frequência dominante muito alta',
+                        action: 'Verificar conteúdo excessivo de agudos',
+                        details: `Freq. primária: ${primary.toFixed(1)} Hz`
+                    });
+                }
+            }
+        }
+    }
+    
+    console.log('✅ [NORMALIZE] Normalização concluída:', {
+        hasTechnicalData: !!normalized.technicalData,
+        hasSpectralBalance: !!normalized.technicalData.spectral_balance,
+        hasBandEnergies: !!normalized.technicalData.bandEnergies,
+        // Novas métricas detalhadas
+        hasDominantFreqs: !!normalized.technicalData.dominantFrequencies,
+        hasDcOffset: !!normalized.technicalData.dcOffset,
+        hasSpectralUniformity: !!normalized.technicalData.spectralUniformity,
+        dominantFreqsStructure: normalized.technicalData.dominantFrequencies ? 'structured' : 'missing',
+        dcOffsetStructure: normalized.technicalData.dcOffset ? 'structured' : 'missing',
+        spectralUniformityStructure: normalized.technicalData.spectralUniformity ? 'structured' : 'missing',
+        problemsCount: normalized.problems.length,
+        suggestionsCount: normalized.suggestions.length,
+        qualityScore: normalized.qualityOverall
+    });
+    
+    // 🎯 LOG DE RESUMO: Métricas normalizadas com sucesso
+    const normalizedMetrics = Object.keys(normalized.technicalData).filter(key => 
+        Number.isFinite(normalized.technicalData[key])
+    );
+    
+    console.log('📊 [NORMALIZE] Resumo da normalização:', {
+        metricas_normalizadas: normalizedMetrics.length,
+        metricas_disponiveis: normalizedMetrics,
+        spectral_balance_ok: !!normalized.technicalData.spectral_balance,
+        bandas_disponiveis: normalized.technicalData.bandEnergies ? 
+            Object.keys(normalized.technicalData.bandEnergies).length : 0,
+        problemas_detectados: normalized.problems.length,
+        sugestoes_iniciais: normalized.suggestions.length
+    });
+    
+    return normalized;
+}
+
+// =============== FUNÇÕES UTILITÁRIAS DO MODAL ===============
+
+// 📁 Ocultar área de upload do modal
+function hideUploadArea() {
+    __dbg('📁 Ocultando área de upload...');
+    const uploadArea = document.getElementById('audioUploadArea');
+    if (uploadArea) {
+        uploadArea.style.display = 'none';
+        __dbg('✅ Upload area ocultada');
+    } else {
+        __dbg('❌ Elemento audioUploadArea não encontrado!');
+    }
+}
+
+// 🔄 Mostrar loading de análise
+function showAnalysisLoading() {
+    __dbg('🔄 Exibindo loading de análise...');
+    const loading = document.getElementById('audioAnalysisLoading');
+    const results = document.getElementById('audioAnalysisResults');
+    
+    if (results) {
+        results.style.display = 'none';
+        __dbg('✅ Results area ocultada');
+    }
+    
+    if (loading) {
+        loading.style.display = 'block';
+        __dbg('✅ Loading area exibida');
+    } else {
+        __dbg('❌ Elemento audioAnalysisLoading não encontrado!');
+    }
+}
+
+// ⏹️ Ocultar loading de análise
+function hideAnalysisLoading() {
+    __dbg('⏹️ Ocultando loading de análise...');
+    const loading = document.getElementById('audioAnalysisLoading');
+    if (loading) {
+        loading.style.display = 'none';
+        __dbg('✅ Loading area ocultada');
+    } else {
+        __dbg('❌ Elemento audioAnalysisLoading não encontrado!');
+    }
+}
+
+// 📊 Mostrar resultados da análise
+function showAnalysisResults() {
+    __dbg('📊 Exibindo resultados da análise...');
+    const uploadArea = document.getElementById('audioUploadArea');
+    const loading = document.getElementById('audioAnalysisLoading');
+    const results = document.getElementById('audioAnalysisResults');
+    
+    if (uploadArea) {
+        uploadArea.style.display = 'none';
+        __dbg('✅ Upload area ocultada');
+    }
+    
+    if (loading) {
+        loading.style.display = 'none';
+        __dbg('✅ Loading area ocultada');
+    }
+    
+    if (results) {
+        results.style.display = 'block';
+        __dbg('✅ Results area exibida');
+    } else {
+        __dbg('❌ Elemento audioAnalysisResults não encontrado!');
+    }
+}
+
+// 🎨 INJETAR ESTILOS CSS PARA STATUS DE TRUE PEAK
+function injectTruePeakStatusStyles() {
+    if (document.getElementById('truePeakStatusStyles')) return; // já injetado
+    
+    const style = document.createElement('style');
+    style.id = 'truePeakStatusStyles';
+    style.textContent = `
+        /* Status do True Peak */
+        .status-excellent {
+            color: #00ff88 !important;
+            font-weight: 600;
+            text-shadow: 0 0 2px rgba(0, 255, 136, 0.3);
+        }
+        
+        .status-ideal {
+            color: #28a745 !important;
+            font-weight: 600;
+        }
+        
+        .status-good {
+            color: #17a2b8 !important;
+            font-weight: 600;
+        }
+        
+        .status-warning {
+            color: #ffc107 !important;
+            font-weight: 600;
+            text-shadow: 0 0 2px rgba(255, 193, 7, 0.3);
+        }
+        
+        .status-critical {
+            color: #dc3545 !important;
+            font-weight: 700;
+            text-shadow: 0 0 3px rgba(220, 53, 69, 0.4);
+            animation: criticalPulse 2s infinite;
+        }
+        
+        @keyframes criticalPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        /* Responsive para mobile */
+        @media (max-width: 600px) {
+            .status-excellent,
+            .status-ideal,
+            .status-good,
+            .status-warning,
+            .status-critical {
+                font-size: 11px;
+                font-weight: 600;
+            }
+        }
+    `;
+    
+    document.head.appendChild(style);
+    console.log('🎨 Estilos CSS do True Peak injetados');
+}
+
+// Injetar estilos automaticamente quando o DOM carregar
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', injectTruePeakStatusStyles);
+} else {
+    injectTruePeakStatusStyles();
+}
+
+// 🎯 PATCH DEFINITIVO: Carregar correção da tabela de referência
+(function loadReferenceTablePatch() {
+    console.log('📦 [INTEGRATION] Carregando patch definitivo da tabela de referência...');
+    
+    // Tentar carregar o patch definitivo
+    const script = document.createElement('script');
+    script.src = 'patch-tabela-referencia-final.js';
+    script.onload = function() {
+        console.log('✅ [INTEGRATION] Patch definitivo carregado com sucesso');
+    };
+    script.onerror = function() {
+        console.warn('⚠️ [INTEGRATION] Não foi possível carregar patch-tabela-referencia-final.js');
+        console.log('💡 [INTEGRATION] A correção já foi aplicada diretamente no código');
+    };
+    
+    document.head.appendChild(script);
+})();
