@@ -938,234 +938,200 @@
     
     <!-- 🎨 AI MODAL SYSTEM - ATIVAÇÃO AUTOMÁTICA DEFINITIVA -->
     <script>
-        // 🎨 SISTEMA AI MODAL - ATIVAÇÃO AUTOMÁTICA E DEFINITIVA
-        console.log('🎨 Iniciando AI Modal System - Ativação Automática...');
+        // 🎨 SISTEMA AI MODAL - ATIVAÇÃO IMEDIATA E FORÇADA
+        console.log('🎨 Iniciando AI Modal System - Ativação FORÇADA...');
         
-        class AIModalActivator {
-            constructor() {
-                this.isInitialized = false;
-                this.modalSelector = '#audioAnalysisModal';
-                this.beginnerMode = localStorage.getItem('ai-modal-beginner-mode') !== 'false'; // Padrão: true
-                this.init();
-            }
+        // ⚡ ATIVAÇÃO IMEDIATA - Executa assim que o script carrega
+        function forceActivateAIModal() {
+            const modal = document.querySelector('#audioAnalysisModal');
             
-            init() {
-                if (document.readyState === 'loading') {
-                    document.addEventListener('DOMContentLoaded', () => this.activate());
-                } else {
-                    this.activate();
-                }
-            }
-            
-            activate() {
-                const modal = document.querySelector(this.modalSelector);
+            if (modal) {
+                console.log('🎨 Modal encontrado! Aplicando transformação...');
                 
-                if (!modal) {
-                    console.warn('🎨 AI Modal: Modal não encontrado, tentando novamente...');
-                    setTimeout(() => this.activate(), 1000);
-                    return;
-                }
-                
-                // ✅ ATIVAÇÃO PRINCIPAL
+                // ✅ FORÇA A ATIVAÇÃO IMEDIATA
                 modal.classList.add('analysis-modal');
-                
-                // Estado inicial
-                if (this.beginnerMode) {
-                    modal.classList.add('ai-beginner-mode');
-                }
-                
-                // Detecta preferências do sistema
-                this.applySystemPreferences(modal);
-                
-                // Observa mudanças no modal
-                this.observeModalChanges(modal);
-                
-                // Adiciona controles de modo
-                this.addModeControls(modal);
-                
-                // Marca como pronto
                 modal.classList.add('ai-system-ready');
-                this.isInitialized = true;
+                modal.classList.add('ai-beginner-mode'); // Padrão iniciante
                 
-                console.log('🎨 AI Modal System: ✅ ATIVADO COM SUCESSO!');
+                // Adiciona atributos para garantir que funcione
+                modal.setAttribute('data-ai-active', 'true');
+                modal.style.setProperty('--ai-activated', '1');
                 
-                // Aplica labels amigáveis
-                this.applyFriendlyLabels(modal);
-            }
-            
-            applySystemPreferences(modal) {
-                // Alto contraste
-                if (window.matchMedia('(prefers-contrast: high)').matches) {
-                    modal.classList.add('ai-force-high-contrast');
-                }
+                console.log('🎨 ✅ MODAL TRANSFORMADO COM SUCESSO!');
+                console.log('Classes aplicadas:', modal.classList.toString());
                 
-                // Tema escuro (padrão já é escuro)
-                if (window.matchMedia('(prefers-color-scheme: light)').matches) {
-                    modal.classList.add('ai-theme-light');
-                }
+                // Adiciona controles imediatamente se ainda não existem
+                addModeControlsImmediate(modal);
                 
-                // Movimento reduzido
-                if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-                    modal.classList.add('ai-reduced-motion');
-                }
-            }
-            
-            observeModalChanges(modal) {
-                const observer = new MutationObserver((mutations) => {
-                    mutations.forEach((mutation) => {
-                        if (mutation.type === 'attributes' && mutation.attributeName === 'style') {
-                            const isVisible = modal.style.display !== 'none' && 
-                                            getComputedStyle(modal).display !== 'none';
-                            
-                            if (isVisible && !modal.classList.contains('ai-entering')) {
-                                modal.classList.add('ai-entering');
-                                setTimeout(() => modal.classList.remove('ai-entering'), 600);
-                                
-                                // Reaplica labels quando modal abre
-                                setTimeout(() => this.applyFriendlyLabels(modal), 100);
-                            }
-                        }
-                    });
-                });
-                
-                observer.observe(modal, {
-                    attributes: true,
-                    attributeFilter: ['style', 'class']
-                });
-            }
-            
-            addModeControls(modal) {
-                const modalHeader = modal.querySelector('.modal-header') || 
-                                   modal.querySelector('h4') ||
-                                   modal.querySelector('.modal-title');
-                
-                if (!modalHeader) return;
-                
-                let controlsContainer = modal.querySelector('.ai-mode-controls');
-                
-                if (!controlsContainer) {
-                    controlsContainer = document.createElement('div');
-                    controlsContainer.className = 'ai-mode-controls';
-                    controlsContainer.innerHTML = `
-                        <div class="ai-mode-toggle" role="group" aria-label="Controles de Modo">
-                            <button class="ai-mode-toggle-btn ${this.beginnerMode ? 'ai-active' : ''}" 
-                                    data-mode="beginner" 
-                                    aria-pressed="${this.beginnerMode}"
-                                    title="Modo Iniciante - Interface simplificada">
-                                <span>🎯</span>
-                                Iniciante
-                            </button>
-                            <button class="ai-mode-toggle-btn ${!this.beginnerMode ? 'ai-active' : ''}" 
-                                    data-mode="advanced" 
-                                    aria-pressed="${!this.beginnerMode}"
-                                    title="Modo Avançado - Informações técnicas completas">
-                                <span>🔧</span>
-                                Avançado
-                            </button>
-                        </div>
-                    `;
-                    
-                    modalHeader.parentNode.insertBefore(controlsContainer, modalHeader.nextSibling);
-                    
-                    controlsContainer.addEventListener('click', (e) => {
-                        if (e.target.matches('.ai-mode-toggle-btn')) {
-                            this.toggleMode(e.target, modal);
-                        }
-                    });
-                }
-            }
-            
-            toggleMode(button, modal) {
-                const mode = button.dataset.mode;
-                const isBeginnerMode = mode === 'beginner';
-                
-                // Atualiza botões
-                const buttons = button.parentNode.querySelectorAll('.ai-mode-toggle-btn');
-                buttons.forEach(btn => {
-                    btn.classList.remove('ai-active');
-                    btn.setAttribute('aria-pressed', 'false');
-                });
-                
-                button.classList.add('ai-active');
-                button.setAttribute('aria-pressed', 'true');
-                
-                // Atualiza modal
-                modal.classList.toggle('ai-beginner-mode', isBeginnerMode);
-                
-                // Salva preferência
-                localStorage.setItem('ai-modal-beginner-mode', isBeginnerMode.toString());
-                this.beginnerMode = isBeginnerMode;
-                
-                // Reaplica labels
-                setTimeout(() => this.applyFriendlyLabels(modal), 100);
-                
-                console.log(`🎨 AI Modal: Modo ${mode} ativado`);
-            }
-            
-            applyFriendlyLabels(modal) {
-                if (!this.beginnerMode) return;
-                
-                // Mapeamento de termos técnicos para linguagem amigável
-                const friendlyLabels = {
-                    'LUFS': 'Volume Percebido',
-                    'RMS': 'Volume Médio',
-                    'Peak': 'Pico de Volume',
-                    'True Peak': 'Pico Real',
-                    'DR': 'Dinâmica',
-                    'Dynamic Range': 'Faixa Dinâmica',
-                    'Stereo Width': 'Largura Estéreo',
-                    'Low': 'Graves',
-                    'Mid': 'Médios', 
-                    'High': 'Agudos',
-                    'Sub': 'Sub-graves',
-                    'Hz': 'Frequência',
-                    'dB': 'Decibéis',
-                    'kHz': 'Kilohertz',
-                    'Frequency Response': 'Resposta de Frequência',
-                    'Tonal Balance': 'Equilíbrio Tonal',
-                    'Spectral': 'Espectral'
-                };
-                
-                // Aplica labels em elementos de texto
-                modal.querySelectorAll('*').forEach(el => {
-                    if (el.children.length === 0 && el.textContent.trim()) {
-                        let text = el.textContent;
-                        let changed = false;
-                        
-                        Object.entries(friendlyLabels).forEach(([tech, friendly]) => {
-                            if (text.includes(tech)) {
-                                text = text.replace(new RegExp(tech, 'g'), friendly);
-                                changed = true;
-                            }
-                        });
-                        
-                        if (changed && !el.dataset.originalText) {
-                            el.dataset.originalText = el.textContent;
-                            el.textContent = text;
-                        }
-                    }
-                });
+                return true;
+            } else {
+                console.log('🎨 Modal não encontrado ainda, tentando novamente...');
+                return false;
             }
         }
         
-        // 🚀 INICIALIZAÇÃO AUTOMÁTICA
-        const aiModalSystem = new AIModalActivator();
+        function addModeControlsImmediate(modal) {
+            // Procura por header do modal
+            const modalHeader = modal.querySelector('.modal-header') || 
+                               modal.querySelector('h4') ||
+                               modal.querySelector('.modal-title') ||
+                               modal.querySelector('.modal-content > div:first-child');
+            
+            if (!modalHeader || modal.querySelector('.ai-mode-controls')) {
+                return; // Já existe ou não há onde colocar
+            }
+            
+            const controlsContainer = document.createElement('div');
+            controlsContainer.className = 'ai-mode-controls';
+            controlsContainer.innerHTML = `
+                <div class="ai-mode-toggle" role="group" aria-label="Controles de Modo" style="
+                    display: flex;
+                    justify-content: center;
+                    margin: 15px 0;
+                ">
+                    <button class="ai-mode-toggle-btn ai-active" 
+                            data-mode="beginner" 
+                            style="
+                                padding: 8px 16px;
+                                background: linear-gradient(135deg, #7c4dff 0%, #b794f6 100%);
+                                color: white;
+                                border: none;
+                                border-radius: 20px 0 0 20px;
+                                cursor: pointer;
+                                font-weight: 600;
+                            ">
+                        🎯 Iniciante
+                    </button>
+                    <button class="ai-mode-toggle-btn" 
+                            data-mode="advanced"
+                            style="
+                                padding: 8px 16px;
+                                background: rgba(255,255,255,0.1);
+                                color: #a0aec0;
+                                border: none;
+                                border-radius: 0 20px 20px 0;
+                                cursor: pointer;
+                                font-weight: 600;
+                            ">
+                        🔧 Avançado
+                    </button>
+                </div>
+            `;
+            
+            // Insere após o header
+            modalHeader.parentNode.insertBefore(controlsContainer, modalHeader.nextSibling);
+            
+            // Adiciona event listeners
+            controlsContainer.addEventListener('click', (e) => {
+                if (e.target.matches('.ai-mode-toggle-btn')) {
+                    toggleModeImmediate(e.target, modal);
+                }
+            });
+            
+            console.log('🎮 Controles de modo adicionados!');
+        }
         
-        // Exporta para uso global
-        window.AIModalActivator = AIModalActivator;
-        window.aiModalSystem = aiModalSystem;
+        function toggleModeImmediate(button, modal) {
+            const mode = button.dataset.mode;
+            const isBeginnerMode = mode === 'beginner';
+            
+            // Atualiza botões
+            const buttons = button.parentNode.querySelectorAll('.ai-mode-toggle-btn');
+            buttons.forEach(btn => {
+                btn.classList.remove('ai-active');
+                btn.style.background = 'rgba(255,255,255,0.1)';
+                btn.style.color = '#a0aec0';
+            });
+            
+            button.classList.add('ai-active');
+            button.style.background = 'linear-gradient(135deg, #7c4dff 0%, #b794f6 100%)';
+            button.style.color = 'white';
+            
+            // Atualiza modal
+            modal.classList.toggle('ai-beginner-mode', isBeginnerMode);
+            
+            // Salva preferência
+            localStorage.setItem('ai-modal-beginner-mode', isBeginnerMode.toString());
+            
+            console.log(`🎮 Modo ${mode} ativado!`);
+        }
         
-        // Função de teste rápido
+        // ⚡ EXECUÇÃO IMEDIATA E REPETIDA
+        let attempts = 0;
+        const maxAttempts = 10;
+        
+        function tryActivate() {
+            attempts++;
+            console.log(`🎨 Tentativa ${attempts} de ativação...`);
+            
+            if (forceActivateAIModal()) {
+                console.log('🎨 ✅ SUCESSO! AI Modal System ativado!');
+                
+                // Força uma nova aplicação a cada 2 segundos para garantir
+                setInterval(() => {
+                    const modal = document.querySelector('#audioAnalysisModal');
+                    if (modal && !modal.classList.contains('analysis-modal')) {
+                        console.log('🔄 Reaplicando AI Modal...');
+                        forceActivateAIModal();
+                    }
+                }, 2000);
+                
+            } else if (attempts < maxAttempts) {
+                setTimeout(tryActivate, 500);
+            } else {
+                console.warn('❌ Não foi possível ativar o AI Modal após', maxAttempts, 'tentativas');
+            }
+        }
+        
+        // 🚀 INICIA IMEDIATAMENTE
+        tryActivate();
+        
+        // 🚀 FORÇA ATIVAÇÃO QUANDO DOM CARREGA
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', tryActivate);
+        }
+        
+        // 🚀 FORÇA ATIVAÇÃO QUANDO WINDOW CARREGA
+        window.addEventListener('load', tryActivate);
+        
+        // 🎯 OBSERVA MUDANÇAS NO MODAL
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList') {
+                    // Se novos elementos foram adicionados, verifica se precisa ativar
+                    const modal = document.querySelector('#audioAnalysisModal');
+                    if (modal && !modal.classList.contains('analysis-modal')) {
+                        console.log('🔄 Detectada mudança no DOM, reaplicando AI Modal...');
+                        forceActivateAIModal();
+                    }
+                }
+            });
+        });
+        
+        // Observa o body inteiro para capturar mudanças
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+        
+        // 🎮 FUNÇÃO DE TESTE GLOBAL
+        window.forceActivateAIModal = forceActivateAIModal;
         window.testarAIModal = function() {
-            console.group('🧪 TESTE AI MODAL SYSTEM');
-            console.log('Sistema inicializado:', aiModalSystem.isInitialized ? '✅' : '❌');
-            console.log('Modal encontrado:', document.querySelector('#audioAnalysisModal') ? '✅' : '❌');
-            console.log('Classes aplicadas:', document.querySelector('#audioAnalysisModal')?.classList.toString() || 'N/A');
-            console.log('Modo iniciante:', aiModalSystem.beginnerMode ? '✅ ATIVO' : '❌ INATIVO');
+            console.group('🧪 TESTE FORÇADO AI MODAL');
+            const modal = document.querySelector('#audioAnalysisModal');
+            console.log('Modal encontrado:', modal ? '✅' : '❌');
+            if (modal) {
+                console.log('Classes atuais:', modal.classList.toString());
+                console.log('Atributo data-ai-active:', modal.getAttribute('data-ai-active'));
+                console.log('Propriedade CSS --ai-activated:', modal.style.getPropertyValue('--ai-activated'));
+            }
+            console.log('Forçando ativação agora...');
+            const resultado = forceActivateAIModal();
+            console.log('Resultado:', resultado ? '✅ SUCESSO' : '❌ FALHOU');
             console.groupEnd();
         };
         
-        console.log('🎨 AI Modal System carregado! Execute testarAIModal() para verificar.');
+        console.log('🎨 AI Modal System carregado! Execute testarAIModal() no console se necessário.');
     </script>
 </body>
 </html>
