@@ -3406,6 +3406,9 @@ function showModalLoading() {
 
 // 📊 Mostrar resultados no modal
 // 📊 Mostrar resultados no modal
+// [AI-UI] Refactor visual e de UX aplicado IN-PLACE neste arquivo.
+// Não criar arquivos paralelos. Seletores críticos preservados.
+
 function displayModalResults(analysis) {
     // 🔒 UI GATE: Verificação final antes de renderizar
     const analysisRunId = analysis?.runId || analysis?.metadata?.runId;
@@ -3416,6 +3419,39 @@ function displayModalResults(analysis) {
         return;
     }
     
+    // [AI-UI] Labels amigáveis — NÃO alterar keys da API
+    const ANALYSIS_LABELS = {
+        true_peak: { label: "Pico Máximo", unit: "dBTP", hint: "Maior pico do áudio. Reduza para evitar distorção." },
+        integrated_lufs: { label: "Volume Médio", unit: "LUFS", hint: "Loudness integrado. Meta típica do gênero." },
+        crest_factor: { label: "Fator de Impacto (Crest)", unit: "dB", hint: "Diferença entre pico e volume médio (punch)." },
+        stereo_correlation: { label: "Correlação Estéreo", unit: "", hint: "0=oposto, 1=mono. Próximo de 1 = mais mono." },
+        stereo_width: { label: "Largura Estéreo", unit: "", hint: "Abertura do campo estéreo." },
+        spectral_centroid_hz: { label: "Brilho Médio", unit: "Hz", hint: "Centro de massa espectral." },
+        loudness_range_lra: { label: "Variação de Volume", unit: "LU", hint: "Consistência do loudness ao longo da faixa." },
+        dynamic_range_db: { label: "Dinâmica", unit: "dB", hint: "Diferença entre trechos baixos e altos." },
+        bpm: { label: "BPM", unit: "", hint: "Batidas por minuto." },
+        sub_db: { label: "Sub (20–60 Hz)", unit: "dB", hint: "Fundação do peso (kick/sub)." },
+        bass_db: { label: "Bass (60–150 Hz)", unit: "dB", hint: "Graves que dão corpo/balanço." },
+        lowmid_db: { label: "Low-Mid (150–500 Hz)", unit: "dB", hint: "Região de lama/caixa torácica." },
+        mid_db: { label: "Mid (500 Hz–2 kHz)", unit: "dB", hint: "Clareza de elementos médios." },
+        highmid_db: { label: "High-Mid (2–5 kHz)", unit: "dB", hint: "Presença/ataque." },
+        presence_db: { label: "Presence (5–10 kHz)", unit: "dB", hint: "Definição de vocais/percussão." },
+        air_db: { label: "Air (10–20 kHz)", unit: "dB", hint: "Ar/brilho superior." }
+    };
+
+    // [AI-UI] Helper para criar tooltips acessíveis
+    const createTooltip = (content, hint) => {
+        if (!hint) return content;
+        const tooltipId = `tooltip_${Math.random().toString(36).substr(2, 9)}`;
+        return `
+            ${content}
+            <span class="ai-tooltip-trigger" aria-describedby="${tooltipId}">
+                🛈
+                <div id="${tooltipId}" class="ai-tooltip" role="tooltip">${hint}</div>
+            </span>
+        `;
+    };
+
     const uploadArea = document.getElementById('audioUploadArea');
     const loading = document.getElementById('audioAnalysisLoading');
     const results = document.getElementById('audioAnalysisResults');
@@ -3502,17 +3538,17 @@ function displayModalResults(analysis) {
         const scoreKpi = Number.isFinite(analysis.qualityOverall) ? kpi(Number(analysis.qualityOverall.toFixed(1)), 'SCORE GERAL', 'kpi-score') : '';
         const timeKpi = Number.isFinite(analysis.processingMs) ? kpi(analysis.processingMs, 'TEMPO (MS)', 'kpi-time') : '';
 
-        const src = (k) => (analysis.technicalData?._sources && analysis.technicalData._sources[k]) ? ` data-src="${analysis.technicalData._sources[k]}" title="origem: ${analysis.technicalData._sources[k]}"` : '';
+        // [AI-UI] Helper para criar rows com labels amigáveis e tooltips
         const row = (label, valHtml, keyForSource=null) => {
-            // Usar sistema de enhancement se disponível
-            const enhancedLabel = (typeof window !== 'undefined' && window.enhanceRowLabel) 
-                ? window.enhanceRowLabel(label, keyForSource) 
-                : label;
+            // Buscar label amigável
+            const labelInfo = ANALYSIS_LABELS[keyForSource] || { label, unit: '', hint: '' };
+            const friendlyLabel = labelInfo.label || label;
+            const hint = labelInfo.hint;
             
             return `
                 <div class="data-row"${keyForSource?src(keyForSource):''}>
-                    <span class="label">${enhancedLabel}</span>
-                    <span class="value">${valHtml}</span>
+                    <span class="label">${createTooltip(friendlyLabel, hint)}</span>
+                    <span class="value">${valHtml}${labelInfo.unit ? ` ${labelInfo.unit}` : ''}</span>
                 </div>`;
         };
 
@@ -4770,44 +4806,96 @@ function displayModalResults(analysis) {
         const scoreRows = renderNewScores();
 
         technicalData.innerHTML = `
-            <div class="kpi-row">${scoreKpi}${timeKpi}</div>
-                ${renderSmartSummary(analysis) }
+            <!-- [AI-UI] Header com Score e Gênero -->
+            <div class="ai-score-card">
+                <div class="ai-score-number">${Number.isFinite(analysis.qualityOverall) ? Number(analysis.qualityOverall.toFixed(1)) : '—'}</div>
+                <div class="ai-score-legend">
+                    Gênero: ${analysis.metadata?.genre || __activeRefGenre || 'padrão'} • Ponderação adaptativa
+                    ${analysis.metadata?.genre ? '<span style="margin-left: 8px; padding: 2px 6px; background: rgba(45, 214, 135, 0.2); color: var(--ai-success); border-radius: 4px; font-size: 11px;">referências aplicadas</span>' : ''}
+                </div>
+            </div>
+
+            <!-- [AI-UI] Score Card com barras por dimensão -->
+            <div class="ai-section-title">🏆 Análise por Dimensão</div>
+            <div class="ai-scores-breakdown">
+                ${scoreRows}
+            </div>
+
+            <!-- [AI-UI] Loudness & Dinâmica -->
+            <div class="ai-loudness">
+                <div class="ai-section-title">🔊 Loudness & Dinâmica</div>
+                <div class="cards-grid">
+                    <div class="card">
+                        <div class="card-title">Volume & Dinâmica</div>
+                        ${col1}
+                    </div>
+                </div>
+            </div>
+
+            <!-- [AI-UI] Frequências -->
+            <div class="ai-freq">
+                <div class="ai-section-title">� Análise Espectral</div>
+                <div class="cards-grid">
+                    <div class="card">
+                        <div class="card-title">Características Espectrais</div>
+                        ${col2}
+                    </div>
+                </div>
+            </div>
+
+            <!-- [AI-UI] Detalhes Técnicos -->
+            <div class="ai-tech">
+                <details class="ai-tech-details">
+                    <summary class="ai-section-title" style="cursor: pointer;">🔧 Detalhes Técnicos</summary>
                     <div class="cards-grid">
                         <div class="card">
-                    <div class="card-title">🎛️ Métricas Principais</div>
-                    ${col1}
-                </div>
-                        <div class="card">
-                    <div class="card-title">🎧 Análise Estéreo & Espectral</div>
-                    ${col2}
-                </div>
-                        <!-- REMOVED: 🔊 Bandas Espectrais (Consolidado) - duplicação removida, mantida apenas em Métricas Avançadas -->
-                        
-                        <div class="card">
-                    <div class="card-title">�🏆 Scores & Diagnóstico</div>
-                    ${scoreRows}
-                    ${col3}
-                </div>
-                        <div class="card">
-                            <div class="card-title">📊 Métricas Avançadas (Technical)</div>
+                            <div class="card-title">Métricas Avançadas</div>
                             ${advancedMetricsCard()}
                         </div>
-                        <!-- Card "Problemas Técnicos" removido conforme solicitado -->
-                        <!-- 
-                        <div class="card card-span-2">
-                            <div class="card-title">⚠️ Problemas Técnicos</div>
-                            ${techProblems()}
+                        <div class="card">
+                            <div class="card-title">Outras Métricas</div>
+                            ${col3}
                         </div>
-                        -->
-                        <!-- Card "Diagnóstico & Sugestões" removido conforme solicitado -->
-                        <!-- 
-                        <div class="card card-span-2">
-                            <div class="card-title">🩺 Diagnóstico & Sugestões</div>
-                            ${diagCard()}
-                        </div>
-                        -->
+                    </div>
+                </details>
             </div>
+
+            ${renderSmartSummary(analysis)}
         `;
+
+        // [AI-UI] Renderizar sugestões no final (seção 8)
+        if (analysis.suggestions && analysis.suggestions.length > 0) {
+            const suggestionsHtml = `
+                <div class="ai-suggestions">
+                    <div class="ai-section-title">🚀 Sugestões Inteligentes</div>
+                    <div class="ai-cards-grid">
+                        ${analysis.suggestions.map(sug => {
+                            const priority = sug.priority || 'fine';
+                            const priorityClass = `priority-${priority === 'high' ? 'critical' : priority === 'medium' ? 'important' : 'fine'}`;
+                            const priorityLabel = priority === 'high' ? 'Prioritária' : priority === 'medium' ? 'Importante' : 'Ajuste fino';
+                            
+                            return `
+                                <div class="ai-suggestion-card ${priorityClass}">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                        <strong>${sug.message || sug.title || 'Sugestão'}</strong>
+                                        <span class="ai-freq-status ${priority === 'high' ? 'error' : priority === 'medium' ? 'warning' : 'ok'}">${priorityLabel}</span>
+                                    </div>
+                                    <div style="margin-bottom: 8px; color: var(--ai-muted);">
+                                        <strong>Problema:</strong> ${sug.explanation || sug.cause || '—'}
+                                    </div>
+                                    <div style="color: var(--ai-text);">
+                                        <strong>Solução:</strong> ${sug.action || sug.solution || '—'}
+                                    </div>
+                                    ${sug.frequency_range ? `<div style="margin-top: 8px; font-size: 11px; color: var(--ai-cyan);">📊 Faixa: ${sug.frequency_range}</div>` : ''}
+                                    ${sug.adjustment_db ? `<div style="margin-top: 4px; font-size: 11px; color: var(--ai-cyan);">🎛️ Ajuste: ${sug.adjustment_db} dB</div>` : ''}
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+            technicalData.insertAdjacentHTML('beforeend', suggestionsHtml);
+        }
     
     try { renderReferenceComparisons(analysis); } catch(e){ console.warn('ref compare fail', e);}    
         try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ console.warn('validation controls fail', e); }
