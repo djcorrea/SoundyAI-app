@@ -6730,7 +6730,15 @@ function injectGenreModalStyles() {
         max-width: 720px;
         width: 90%;
         max-height: 90vh;
-        background: rgba(13, 20, 33, 0.85);
+        background: radial-gradient(
+    circle at 20% 20%, 
+    rgba(93, 21, 134, 0.85) 0%,       /* Roxo vibrante no canto */
+    rgba(0, 0, 0, 0.95) 60%,          /* Preto no centro */
+    rgba(0, 102, 255, 0.4) 100%       /* Azul elétrico nas bordas */
+);
+backdrop-filter: blur(8px);
+box-shadow: 0 0 30px rgba(93, 21, 134, 0.4),
+            0 0 60px rgba(0, 102, 255, 0.2);
         border: 1px solid rgba(255, 255, 255, 0.15);
         border-radius: 20px;
         padding: 40px 32px 32px 32px;
@@ -6739,14 +6747,14 @@ function injectGenreModalStyles() {
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
         box-shadow: 
-            0 20px 40px rgba(0, 0, 0, 0.6),
+            0 20px 40px rgba(91, 11, 156, 0.49),
             0 0 0 1px rgba(255, 255, 255, 0.05),
             inset 0 1px 0 rgba(255, 255, 255, 0.1);
         transform: scale(1);
-        transition: transform 0.2s ease;
+        transition: transform 0.2s edase;
     }
 
-    /* Título com efeito glitch sutil */
+    /* Título com efeito glitch - Paleta roxo escuro + azul ciano */
     .genre-modal-title {
         font-family: 'Orbitron', 'Rajdhani', 'Montserrat Alternates', sans-serif;
         font-size: 2.2rem;
@@ -6756,7 +6764,11 @@ function injectGenreModalStyles() {
         margin-bottom: 12px;
         position: relative;
         letter-spacing: 2px;
-        text-shadow: 0 0 20px rgba(36, 157, 255, 0.3);
+        text-align: center;
+        text-shadow: 
+            0 0 12px rgba(0, 212, 255, 0.4),
+            0 0 24px rgba(108, 0, 162, 0.2),
+            0 0 40px rgba(0, 212, 255, 0.15);
     }
 
     .genre-modal-title.glitch::before,
@@ -6767,18 +6779,20 @@ function injectGenreModalStyles() {
         left: 0;
         width: 100%;
         height: 100%;
-        opacity: 0.8;
+        opacity: 0.85;
         pointer-events: none;
     }
 
+    /* PARTE SUPERIOR — Roxo escuro */
     .genre-modal-title.glitch::before {
-        color: #ff3366;
+        color: #6c00a2;
         animation: glitch-1 2s infinite alternate-reverse;
         clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%);
     }
 
+    /* PARTE INFERIOR — Azul ciano */
     .genre-modal-title.glitch::after {
-        color: #33ccff;
+        color: #00d4ff;
         animation: glitch-2 3s infinite alternate-reverse;
         clip-path: polygon(0 55%, 100% 55%, 100% 100%, 0 100%);
     }

@@ -238,7 +238,9 @@
     <div id="analysisModeModal" class="audio-modal" style="display: none;">
         <div class="audio-modal-content mode-selection-modal">
             <div class="audio-modal-header">
-                <h3>🎵 Como deseja analisar sua música?</h3>
+                <h2 class="analysis-modal-title glitch" data-text="COMO DESEJA ANALISAR SUA MÚSICA?">
+                    COMO DESEJA ANALISAR SUA MÚSICA?
+                </h2>
                 <button class="audio-modal-close" onclick="closeModeSelectionModal()">&times;</button>
             </div>
             
@@ -250,25 +252,31 @@
                 <div class="mode-selection-options">
                     <!-- Opção: Análise por Gênero (atual) -->
                     <button class="mode-option-btn" id="genreModeBtn" onclick="selectAnalysisMode('genre')">
-                        <div class="mode-option-icon">🎼</div>
-                        <div class="mode-option-content">
-                            <h4>Por Gênero Musical</h4>
-                            <p>Compare sua música com padrões profissionais do gênero selecionado</p>
-                            <span class="mode-option-badge">Recomendado</span>
+                        <div class="mode-option-left">
+                            <svg class="icon-phones" width="28" height="28" viewBox="0 0 24 24" aria-hidden="true">
+                                <path fill="currentColor" d="M12 3a7 7 0 0 0-7 7v6a3 3 0 0 0 3 3h1a1 1 0 0 0 1-1v-6a1 1 0 0 0-1-1H6v-1a6 6 0 1 1 12 0v1h-3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h1a3 3 0 0 0 3-3V10a7 7 0 0 0-7-7Z"/>
+                            </svg>
+                            <div class="mode-option-content">
+                                <h4>Por Gênero Musical</h4>
+                                <p>Compare sua música com padrões profissionais do gênero selecionado</p>
+                                <span class="mode-option-badge">Recomendado</span>
+                            </div>
                         </div>
-                        <div class="mode-option-arrow">→</div>
+                        <div class="mode-option-right">→</div>
                     </button>
                     
                     <!-- Opção: Análise por Referência (novo) -->
                     <button class="mode-option-btn" id="referenceModeBtn" onclick="selectAnalysisMode('reference')" 
                             style="display: none;">
-                        <div class="mode-option-icon">🎯</div>
-                        <div class="mode-option-content">
-                            <h4>Por Música de Referência</h4>
-                            <p>Compare sua música diretamente com uma faixa de referência específica</p>
-                            <span class="mode-option-badge new">Novo</span>
+                        <div class="mode-option-left">
+                            <div class="mode-option-icon">🎯</div>
+                            <div class="mode-option-content">
+                                <h4>Por Música de Referência</h4>
+                                <p>Compare sua música diretamente com uma faixa de referência específica</p>
+                                <span class="mode-option-badge new">Novo</span>
+                            </div>
                         </div>
-                        <div class="mode-option-arrow">→</div>
+                        <div class="mode-option-right">→</div>
                     </button>
                 </div>
             </div>

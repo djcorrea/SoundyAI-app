@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Modal Modernizado - Seleção de Modo</title>
+    <link rel="stylesheet" href="audio-analyzer.css">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #0c111b 0%, #1a1f2e 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        .test-btn {
+            background: linear-gradient(135deg, #249dff, #1976d2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 18px;
+            cursor: pointer;
+            margin: 10px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .test-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(36, 157, 255, 0.3);
+        }
+        
+        .test-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 8px;
+            margin: 5px;
+            font-weight: bold;
+        }
+        
+        .status.success { background: rgba(0, 255, 0, 0.2); color: #00ff00; }
+        .status.error { background: rgba(255, 0, 0, 0.2); color: #ff6b6b; }
+        .status.info { background: rgba(0, 150, 255, 0.2); color: #4fc3f7; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎨 Teste do Modal Modernizado</h1>
+        <p>Esta página testa o modal de seleção de modo com o novo visual futurista.</p>
+        
+        <div class="test-section">
+            <h2>🧪 Teste Visual</h2>
+            
+            <button class="test-btn" onclick="openTestModal()">
+                🚀 Abrir Modal Modernizado
+            </button>
+            
+            <button class="test-btn" onclick="toggleReferenceMode()">
+                🔄 Mostrar/Ocultar Modo Referência
+            </button>
+        </div>
+        
+        <div class="test-section">
+            <h2>✅ Checklist Visual</h2>
+            <ul style="text-align: left;">
+                <li><strong>Fundo Futurista:</strong> Gradiente radial roxo → preto → azul</li>
+                <li><strong>Título:</strong> Fonte Orbitron, glow sutil, centralizado</li>
+                <li><strong>Botões:</strong> Cards translúcidos com hover azul elétrico</li>
+                <li><strong>Animações:</strong> Scale + translateY no hover</li>
+                <li><strong>Responsividade:</strong> Funciona em mobile e desktop</li>
+                <li><strong>Acessibilidade:</strong> Foco com teclado, ESC para fechar</li>
+                <li><strong>Funcionalidade:</strong> Todos os handlers mantidos</li>
+            </ul>
+        </div>
+        
+        <div class="test-section">
+            <h2>🎯 Comparação Visual</h2>
+            <p><strong>ANTES:</strong> Visual tradicional com gradiente linear simples</p>
+            <p><strong>DEPOIS:</strong> Visual futurista com gradiente radial, glassmorphism e efeitos modernos</p>
+            <p><strong>PALETA:</strong> Mesma identidade visual do modal de gênero</p>
+        </div>
+    </div>
+
+    <!-- Modal de teste -->
+    <div id="analysisModeModal" class="audio-modal" style="display: none;">
+        <div class="audio-modal-content mode-selection-modal">
+            <div class="audio-modal-header">
+                <h3 data-text="Como deseja analisar sua música?">🎵 Como deseja analisar sua música?</h3>
+                <button class="audio-modal-close" onclick="closeTestModal()">&times;</button>
+            </div>
+            
+            <div class="mode-selection-container">
+                <div class="mode-selection-description">
+                    <p>Escolha o tipo de análise que melhor se adequa às suas necessidades:</p>
+                </div>
+                
+                <div class="mode-selection-options">
+                    <!-- Opção: Análise por Gênero (atual) -->
+                    <button class="mode-option-btn" id="genreModeBtn" onclick="testGenreMode()">
+                        <div class="mode-option-left">
+                            <div class="mode-option-icon">🎧</div>
+                            <div class="mode-option-content">
+                                <h4>Por Gênero Musical</h4>
+                                <p>Compare sua música com padrões profissionais do gênero selecionado</p>
+                                <span class="mode-option-badge">Recomendado</span>
+                            </div>
+                        </div>
+                        <div class="mode-option-right">→</div>
+                    </button>
+                    
+                    <!-- Opção: Análise por Referência (novo) -->
+                    <button class="mode-option-btn" id="referenceModeBtn" onclick="testReferenceMode()" 
+                            style="display: none;">
+                        <div class="mode-option-left">
+                            <div class="mode-option-icon">🎯</div>
+                            <div class="mode-option-content">
+                                <h4>Por Música de Referência</h4>
+                                <p>Compare sua música diretamente com uma faixa de referência específica</p>
+                                <span class="mode-option-badge new">Novo</span>
+                            </div>
+                        </div>
+                        <div class="mode-option-right">→</div>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function openTestModal() {
+            const modal = document.getElementById('analysisModeModal');
+            modal.style.display = 'flex';
+            console.log('✅ Modal aberto para teste visual');
+        }
+
+        function closeTestModal() {
+            const modal = document.getElementById('analysisModeModal');
+            modal.style.display = 'none';
+            console.log('❌ Modal fechado');
+        }
+
+        function toggleReferenceMode() {
+            const referenceBtn = document.getElementById('referenceModeBtn');
+            if (referenceBtn.style.display === 'none') {
+                referenceBtn.style.display = 'block';
+                console.log('👁️ Modo Referência visível');
+            } else {
+                referenceBtn.style.display = 'none';
+                console.log('🙈 Modo Referência oculto');
+            }
+        }
+
+        function testGenreMode() {
+            alert('🎧 Modo Gênero Musical selecionado!\n\nEste botão funcionaria normalmente no sistema real.');
+            closeTestModal();
+        }
+
+        function testReferenceMode() {
+            alert('🎯 Modo Referência selecionado!\n\nEste botão funcionaria normalmente no sistema real.');
+            closeTestModal();
+        }
+
+        // Fechar modal com ESC
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeTestModal();
+            }
+        });
+
+        // Fechar modal clicando fora
+        document.getElementById('analysisModeModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeTestModal();
+            }
+        });
+
+        console.log('🧪 Página de teste carregada. Pronta para verificar o modal modernizado!');
+    </script>
+</body>
+</html>

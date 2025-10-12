@@ -2081,14 +2081,121 @@ details[open] summary {
 }
 
 /* ======================================================================
-   🎯 MODAL DE SELEÇÃO DE MODO - ANÁLISE POR REFERÊNCIA
+   🎯 MODAL DE SELEÇÃO DE MODO - VISUAL FUTURISTA MODERNIZADO
    ====================================================================== */
 
-/* Modal de seleção de modo */
+/* Modal de seleção de modo - Container principal */
 .mode-selection-modal {
-    max-width: 620px !important;
-    min-height: auto !important;
-    max-height: 70vh !important;
+    max-width: 720px !important;
+    max-height: 90vh !important;
+    min-height: 420px !important;
+    width: 90% !important;
+    overflow-y: hidden !important;
+    padding: 40px 32px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    background: radial-gradient( 
+        circle at 20% 20%, 
+        rgba(93, 21, 134, 0.85) 0%,       /* Roxo vibrante no canto */
+        rgba(0, 0, 0, 0.95) 60%,          /* Preto no centro */
+        rgba(0, 102, 255, 0.4) 100%       /* Azul elétrico nas bordas */
+    ) !important;
+    backdrop-filter: blur(8px) !important;
+    box-shadow: 0 0 30px rgba(93, 21, 134, 0.4),
+                0 0 60px rgba(0, 102, 255, 0.2) !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Título com efeito glitch - Paleta roxo escuro + azul ciano */
+.analysis-modal-title,
+.genre-modal-title {
+    font-family: 'Orbitron', 'Rajdhani', 'Montserrat Alternates', sans-serif !important;
+    font-size: 2.2rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    color: #ffffff !important;
+    margin-bottom: 12px !important;
+    position: relative !important;
+    letter-spacing: 2px !important;
+    text-align: center !important;
+    text-shadow: 
+        0 0 12px rgba(0, 212, 255, 0.4),
+        0 0 24px rgba(108, 0, 162, 0.2),
+        0 0 40px rgba(0, 212, 255, 0.15) !important;
+}
+
+.analysis-modal-title.glitch::before,
+.analysis-modal-title.glitch::after,
+.genre-modal-title.glitch::before,
+.genre-modal-title.glitch::after {
+    content: attr(data-text) !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    opacity: 0.85 !important;
+    pointer-events: none !important;
+}
+
+/* PARTE SUPERIOR — Roxo escuro */
+.analysis-modal-title.glitch::before,
+.genre-modal-title.glitch::before {
+    color: #6c00a2 !important;
+    animation: glitch-1 2s infinite alternate-reverse !important;
+    clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%) !important;
+}
+
+/* PARTE INFERIOR — Azul ciano */
+.analysis-modal-title.glitch::after,
+.genre-modal-title.glitch::after {
+    color: #00d4ff !important;
+    animation: glitch-2 3s infinite alternate-reverse !important;
+    clip-path: polygon(0 55%, 100% 55%, 100% 100%, 0 100%) !important;
+}
+
+@keyframes glitch-1 {
+    0% { transform: translateX(-2px); }
+    100% { transform: translateX(2px); }
+}
+
+@keyframes glitch-2 {
+    0% { transform: translateX(2px); }
+    100% { transform: translateX(-2px); }
+}
+
+/* Header do modal - centralizado */
+.mode-selection-modal .audio-modal-header {
+    text-align: center !important;
+    margin-bottom: 8px !important;
+    position: relative !important;
+}
+
+/* Botão de fechar - estilo moderno */
+.mode-selection-modal .audio-modal-close {
+    position: absolute !important;
+    top: -10px !important;
+    right: -10px !important;
+    background: rgba(255, 255, 255, 0.1) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: rgba(255, 255, 255, 0.8) !important;
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 50% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 18px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+}
+
+.mode-selection-modal .audio-modal-close:hover {
+    background: rgba(255, 255, 255, 0.2) !important;
+    color: #ffffff !important;
+    transform: scale(1.1) !important;
 }
 
 .mode-selection-container {
@@ -2097,107 +2204,158 @@ details[open] summary {
 
 .mode-selection-description {
     text-align: center;
-    margin-bottom: 24px;
+    margin-bottom: 32px;
 }
 
 .mode-selection-description p {
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 14px;
+    color: rgba(255, 255, 255, 0.8) !important;
+    font-size: 1rem !important;
     line-height: 1.5;
     margin: 0;
+    font-weight: 400 !important;
 }
 
 .mode-selection-options {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 20px;
+    align-items: center;
 }
 
-/* Botões de opção de modo */
+/* Botões de opção de modo - Estilo futurista moderno */
 .mode-option-btn {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     width: 100%;
-    padding: 20px;
-    background: linear-gradient(135deg, 
-        rgba(124, 77, 255, 0.08) 0%, 
-        rgba(156, 39, 176, 0.05) 50%, 
-        rgba(124, 77, 255, 0.08) 100%);
-    border: 2px solid rgba(124, 77, 255, 0.3);
-    border-radius: 16px;
-    color: white;
+    max-width: 500px;
+    padding: 20px 24px;
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: 16px !important;
+    color: white !important;
     cursor: pointer;
-    transition: all 280ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    backdrop-filter: blur(8px);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    backdrop-filter: blur(10px) !important;
     text-align: left;
     position: relative;
     overflow: hidden;
+    font-weight: 600 !important;
+}
+
+.mode-option-btn::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(255, 255, 255, 0.1), 
+        transparent);
+    transition: left 0.6s ease;
 }
 
 .mode-option-btn:hover {
-    border-color: rgba(124, 77, 255, 0.6);
-    background: linear-gradient(135deg, 
-        rgba(124, 77, 255, 0.15) 0%, 
-        rgba(156, 39, 176, 0.08) 50%, 
-        rgba(124, 77, 255, 0.15) 100%);
-    transform: translateY(-2px);
+    background: rgba(0, 102, 255, 0.15) !important;
+    border-color: rgba(36, 157, 255, 0.4) !important;
+    transform: scale(1.03) translateY(-2px) !important;
     box-shadow: 
-        0 8px 32px rgba(124, 77, 255, 0.25),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        0 10px 25px rgba(0, 0, 0, 0.4),
+        0 0 15px rgba(0, 102, 255, 0.5),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+}
+
+.mode-option-btn:hover::before {
+    left: 100%;
 }
 
 .mode-option-btn:active {
-    transform: translateY(0);
-    transition: transform 120ms ease;
+    transform: scale(0.98) translateY(1px) !important;
+    transition: transform 120ms ease !important;
 }
 
-.mode-option-icon {
-    font-size: 32px;
-    margin-right: 16px;
+/* Layout dos botões - esquerda e direita */
+.mode-option-btn .mode-option-icon {
+    font-size: 2rem !important;
+    margin-right: 16px !important;
     flex-shrink: 0;
-    filter: drop-shadow(0 2px 8px rgba(124, 77, 255, 0.3));
+    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.3)) !important;
+}
+
+/* Estilo para o ícone SVG de fones de ouvido */
+.icon-phones {
+    color: #e6f7ff !important;
+    filter: drop-shadow(0 0 8px rgba(0,170,255,.45)) !important;
+    margin-right: 16px !important;
+    flex-shrink: 0 !important;
+}
+
+.mode-option-left {
+    display: flex;
+    align-items: center;
+    flex: 1;
 }
 
 .mode-option-content {
     flex: 1;
+    margin-left: 4px;
 }
 
 .mode-option-content h4 {
-    margin: 0 0 4px 0;
-    font-size: 18px;
-    font-weight: 600;
-    color: white;
-    font-family: 'Orbitron', monospace;
+    margin: 0 0 4px 0 !important;
+    font-size: 1.1rem !important;
+    font-weight: 700 !important;
+    color: white !important;
+    font-family: 'Orbitron', 'Rajdhani', sans-serif !important;
+    letter-spacing: 0.5px !important;
 }
 
 .mode-option-content p {
-    margin: 0 0 8px 0;
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.7);
-    line-height: 1.4;
+    margin: 0 0 8px 0 !important;
+    font-size: 0.9rem !important;
+    color: rgba(255, 255, 255, 0.7) !important;
+    line-height: 1.4 !important;
+    font-weight: 400 !important;
+}
+
+.mode-option-right {
+    font-size: 1.5rem !important;
+    opacity: 0.6 !important;
+    margin-left: 16px !important;
+    transition: all 0.3s ease !important;
+    transform: translateX(0);
+}
+
+.mode-option-btn:hover .mode-option-right {
+    opacity: 1 !important;
+    transform: translateX(4px) !important;
 }
 
 .mode-option-badge {
     display: inline-block;
-    padding: 4px 8px;
-    font-size: 11px;
-    font-weight: 600;
-    border-radius: 6px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    padding: 4px 12px !important;
+    font-size: 0.75rem !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    margin-top: 4px !important;
 }
 
 .mode-option-badge:not(.new) {
-    background: rgba(76, 175, 80, 0.2);
-    color: #81C784;
-    border: 1px solid rgba(76, 175, 80, 0.3);
+    background: rgba(76, 175, 80, 0.2) !important;
+    color: #4caf50 !important;
+    border: 1px solid rgba(76, 175, 80, 0.4) !important;
+    box-shadow: 0 0 8px rgba(76, 175, 80, 0.2) !important;
 }
 
 .mode-option-badge.new {
-    background: rgba(255, 193, 7, 0.2);
-    color: #FFD54F;
-    border: 1px solid rgba(255, 193, 7, 0.3);
-    animation: new-badge-glow 2s infinite alternate;
+    background: rgba(255, 193, 7, 0.2) !important;
+    color: #ffc107 !important;
+    border: 1px solid rgba(255, 193, 7, 0.4) !important;
+    animation: new-badge-glow 2s infinite alternate !important;
 }
 
 @keyframes new-badge-glow {
@@ -2205,67 +2363,151 @@ details[open] summary {
         box-shadow: 0 0 8px rgba(255, 193, 7, 0.3);
     }
     100% {
-        box-shadow: 0 0 16px rgba(255, 193, 7, 0.5);
+        box-shadow: 0 0 16px rgba(255, 193, 7, 0.6);
     }
 }
 
 .mode-option-arrow {
     font-size: 24px;
-    color: rgba(124, 77, 255, 0.7);
+    color: rgba(0, 102, 255, 0.7);
     margin-left: 16px;
     transition: all 280ms ease;
     transform: translateX(0);
 }
 
 .mode-option-btn:hover .mode-option-arrow {
-    color: rgba(124, 77, 255, 1);
+    color: rgba(0, 102, 255, 1);
     transform: translateX(4px);
 }
 
 /* Estado quando modo referência está desabilitado */
 .mode-option-btn[disabled] {
-    opacity: 0.4;
-    cursor: not-allowed;
-    pointer-events: none;
+    opacity: 0.4 !important;
+    cursor: not-allowed !important;
+    pointer-events: none !important;
 }
 
 /* Responsividade para mobile */
 @media (max-width: 768px) {
     .mode-selection-modal {
         max-width: 95vw !important;
+        width: 95% !important;
         margin: 20px auto !important;
+        padding: 32px 24px !important;
+        min-height: 380px !important;
+    }
+    
+    .mode-selection-modal .audio-modal-header h3 {
+        font-size: 2rem !important;
+        letter-spacing: 1px !important;
+        gap: 8px !important;
+    }
+    
+    .mode-selection-modal .audio-modal-header h3 .icon {
+        font-size: 1.8rem !important;
+    }
+    
+    .mode-selection-description p {
+        font-size: 0.9rem !important;
     }
     
     .mode-option-btn {
-        padding: 16px;
+        padding: 18px 20px !important;
+        max-width: 100% !important;
     }
     
-    .mode-option-icon {
-        font-size: 28px;
-        margin-right: 12px;
+    .mode-option-btn .mode-option-icon {
+        font-size: 1.8rem !important;
+        margin-right: 14px !important;
     }
     
     .mode-option-content h4 {
-        font-size: 16px;
+        font-size: 1rem !important;
     }
     
     .mode-option-content p {
-        font-size: 13px;
+        font-size: 0.85rem !important;
     }
     
-    .mode-option-arrow {
-        font-size: 20px;
-        margin-left: 12px;
+    .mode-option-right {
+        font-size: 1.3rem !important;
+        margin-left: 12px !important;
+    }
+    
+    .mode-option-badge {
+        font-size: 0.7rem !important;
+        padding: 3px 10px !important;
+    }
+}
+
+@media (max-width: 600px) {
+    .mode-selection-modal {
+        max-width: 90% !important;
+        padding: 30px 20px !important;
+        min-height: 360px !important;
+    }
+    
+    .analysis-modal-title,
+    .genre-modal-title {
+        font-size: 1.8rem !important;
+        letter-spacing: 1px !important;
+    }
+    
+    .icon-phones {
+        width: 22px !important;
+        height: 22px !important;
+        margin-right: 12px !important;
+    }
+    
+    .mode-option-btn {
+        padding: 16px 18px !important;
+    }
+    
+    .mode-option-content h4 {
+        font-size: 0.95rem !important;
+    }
+    
+    .mode-option-content p {
+        font-size: 0.8rem !important;
+    }
+}
+
+@media (max-width: 480px) {
+    .mode-selection-modal {
+        padding: 28px 20px !important;
+        min-height: 340px !important;
+    }
+    
+    .analysis-modal-title,
+    .genre-modal-title {
+        font-size: 1.6rem !important;
+        letter-spacing: 1px !important;
+    }
+    
+    .mode-option-btn {
+        padding: 16px 18px !important;
+    }
+    
+    .mode-option-btn .mode-option-icon {
+        font-size: 1.5rem !important;
+        margin-right: 12px !important;
     }
 }
 
 /* Acessibilidade - foco via teclado */
 .mode-option-btn:focus {
-    outline: none;
-    border-color: rgba(124, 77, 255, 0.8);
+    outline: none !important;
+    border-color: rgba(36, 157, 255, 0.8) !important;
     box-shadow: 
-        0 0 0 3px rgba(124, 77, 255, 0.3),
-        0 8px 32px rgba(124, 77, 255, 0.25);
+        0 0 0 3px rgba(36, 157, 255, 0.3),
+        0 10px 25px rgba(0, 0, 0, 0.4),
+        0 0 15px rgba(36, 157, 255, 0.5) !important;
+}
+
+.mode-selection-modal .audio-modal-close:focus {
+    outline: none !important;
+    border-color: rgba(255, 255, 255, 0.6) !important;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3) !important;
 }
 
 /* ======================================================================
