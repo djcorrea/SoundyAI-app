@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Teste Logs Auditoria Modal Gênero</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .log-box { background: #1a1a1a; color: #00ff00; padding: 15px; border-radius: 5px; font-family: monospace; font-size: 12px; margin: 10px 0; max-height: 300px; overflow-y: auto; }
+        .btn { background: #007bff; color: white; border: none; padding: 10px 20px; margin: 5px; border-radius: 5px; cursor: pointer; }
+        .btn:hover { background: #0056b3; }
+        .warning { background: #fff3cd; border: 1px solid #ffeaa7; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; padding: 10px; border-radius: 5px; margin: 10px 0; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Teste de Logs da Auditoria - Modal Gênero</h1>
+        
+        <div class="warning">
+            ⚠️ <strong>Objetivo:</strong> Validar que os logs de auditoria foram implementados corretamente no fluxo de seleção de gênero.
+        </div>
+
+        <h2>🎯 Testes Disponíveis</h2>
+        
+        <button class="btn" onclick="testarAberturaModal()">
+            🎼 Testar Abertura Modal Gênero
+        </button>
+        
+        <button class="btn" onclick="testarSelecaoGenero()">
+            🎵 Testar Seleção de Gênero
+        </button>
+        
+        <button class="btn" onclick="testarEstadoGlobal()">
+            🗂️ Verificar Estado Global
+        </button>
+        
+        <button class="btn" onclick="limparLogs()">
+            🧹 Limpar Logs
+        </button>
+
+        <h2>📋 Console de Logs</h2>
+        <div id="logBox" class="log-box">
+            [AGUARDANDO TESTES...]
+        </div>
+
+        <h2>📊 Status dos Logs de Auditoria</h2>
+        <div id="statusBox">
+            <div class="warning">Aguardando execução dos testes...</div>
+        </div>
+    </div>
+
+    <script>
+        let logs = [];
+        
+        // Interceptar console.log para capturar logs de auditoria
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            
+            const message = args.join(' ');
+            if (message.includes('[AUDITORIA_MODAL_GENERO]')) {
+                logs.push(`${new Date().toLocaleTimeString()} - ${message}`);
+                updateLogBox();
+            }
+        };
+
+        function updateLogBox() {
+            const logBox = document.getElementById('logBox');
+            if (logs.length === 0) {
+                logBox.textContent = '[NENHUM LOG DE AUDITORIA CAPTURADO]';
+            } else {
+                logBox.innerHTML = logs.map(log => `<div>${log}</div>`).join('');
+                logBox.scrollTop = logBox.scrollHeight;
+            }
+        }
+
+        function updateStatus() {
+            const statusBox = document.getElementById('statusBox');
+            const auditLogs = logs.filter(log => log.includes('[AUDITORIA_MODAL_GENERO]'));
+            
+            if (auditLogs.length === 0) {
+                statusBox.innerHTML = '<div class="error">❌ Nenhum log de auditoria encontrado. Verifique se os logs foram implementados.</div>';
+            } else {
+                const entryLogs = auditLogs.filter(log => log.includes('ENTRY'));
+                const genreLogs = auditLogs.filter(log => log.includes('GENRE_VALUE'));
+                const uploadLogs = auditLogs.filter(log => log.includes('UPLOAD'));
+                const webAudioLogs = auditLogs.filter(log => log.includes('WEB_AUDIO_REFERENCE'));
+                const backendLogs = auditLogs.filter(log => log.includes('BACKEND_CALL'));
+
+                statusBox.innerHTML = `
+                    <div class="success">✅ Logs de auditoria funcionando!</div>
+                    <ul>
+                        <li>📥 ENTRY logs: ${entryLogs.length}</li>
+                        <li>🎵 GENRE_VALUE logs: ${genreLogs.length}</li>
+                        <li>📁 UPLOAD logs: ${uploadLogs.length}</li>
+                        <li>🔊 WEB_AUDIO_REFERENCE logs: ${webAudioLogs.length}</li>
+                        <li>🌐 BACKEND_CALL logs: ${backendLogs.length}</li>
+                    </ul>
+                `;
+            }
+        }
+
+        function testarAberturaModal() {
+            console.log('🧪 [TESTE] Simulando abertura do modal de gênero...');
+            
+            // Simular chamada da função
+            if (typeof window.openGenreSelectionModal === 'function') {
+                try {
+                    window.openGenreSelectionModal();
+                    console.log('✅ [TESTE] Modal aberto com sucesso');
+                } catch (e) {
+                    console.log('❌ [TESTE] Erro ao abrir modal:', e.message);
+                }
+            } else {
+                console.log('⚠️ [TESTE] Função openGenreSelectionModal não encontrada');
+            }
+            
+            setTimeout(updateStatus, 1000);
+        }
+
+        function testarSelecaoGenero() {
+            console.log('🧪 [TESTE] Simulando seleção de gênero...');
+            
+            // Simular seleção de diferentes gêneros
+            const generos = ['funk_mandela', 'trance', 'eletronico'];
+            
+            generos.forEach((genre, index) => {
+                setTimeout(() => {
+                    if (typeof window.selectGenre === 'function') {
+                        try {
+                            window.selectGenre(genre);
+                            console.log(`✅ [TESTE] Gênero ${genre} selecionado`);
+                        } catch (e) {
+                            console.log(`❌ [TESTE] Erro ao selecionar ${genre}:`, e.message);
+                        }
+                    } else if (typeof window.applyGenreSelection === 'function') {
+                        try {
+                            window.applyGenreSelection(genre);
+                            console.log(`✅ [TESTE] Gênero ${genre} aplicado via applyGenreSelection`);
+                        } catch (e) {
+                            console.log(`❌ [TESTE] Erro ao aplicar ${genre}:`, e.message);
+                        }
+                    } else {
+                        console.log('⚠️ [TESTE] Funções de seleção de gênero não encontradas');
+                    }
+                }, index * 500);
+            });
+            
+            setTimeout(updateStatus, 2000);
+        }
+
+        function testarEstadoGlobal() {
+            console.log('🧪 [TESTE] Verificando estado global...');
+            
+            const estado = {
+                prodAiRefGenre: window.PROD_AI_REF_GENRE,
+                localStorage: localStorage.getItem('prodai_ref_genre'),
+                currentAnalysisMode: window.currentAnalysisMode,
+                featureFlags: window.FEATURE_FLAGS
+            };
+            
+            console.log('📊 [TESTE] Estado atual:', estado);
+            
+            // Simular mudança de estado
+            console.log('[AUDITORIA_MODAL_GENERO] GENRE_VALUE - Estado global verificado:', estado);
+            
+            setTimeout(updateStatus, 500);
+        }
+
+        function limparLogs() {
+            logs = [];
+            updateLogBox();
+            document.getElementById('statusBox').innerHTML = '<div class="warning">Logs limpos. Execute os testes novamente.</div>';
+        }
+
+        // Teste inicial
+        setTimeout(() => {
+            console.log('🔍 [AUDITORIA] Sistema de logs de auditoria carregado');
+            console.log('💡 [AUDITORIA] Execute os testes para verificar se os logs estão funcionando');
+        }, 1000);
+    </script>
+</body>
+</html>
