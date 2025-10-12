@@ -1,0 +1,370 @@
+/* 🎨 AI MODAL TOKENS - Sistema de Design Futurista
+   Data: 11 de outubro de 2025
+   Escopo: .analysis-modal (não vaza para outros componentes)
+   Tema: Roxo/Azul/Ciano ultra-futurista com glassmorphism
+   
+   REGRAS:
+   - Todos os tokens com prefixo --ai-
+   - Escopo .analysis-modal para evitar conflitos
+   - Mobile-first com GPU-friendly animations
+   - WCAG AA compliance garantido
+*/
+
+.analysis-modal {
+  /* ============================================
+     🎨 PALETA DE CORES FUTURISTA
+     ============================================ */
+  
+  /* Base Escura */
+  --ai-bg: #0d0b1a;
+  --ai-bg-light: #151128;
+  --ai-bg-lighter: #1d1635;
+  
+  /* Painéis */
+  --ai-panel: #181434;
+  --ai-panel-light: #221a3f;
+  --ai-panel-lighter: #2d2050;
+  
+  /* Cores Primárias */
+  --ai-primary: #7c4dff;
+  --ai-primary-light: #8c5aff;
+  --ai-primary-dark: #6b42e0;
+  
+  /* Secundária (Roxo) */
+  --ai-secondary: #9c27b0;
+  --ai-secondary-light: #ab47bc;
+  --ai-secondary-dark: #8e24aa;
+  
+  /* Accent (Ciano) */
+  --ai-accent: #20e3ff;
+  --ai-accent-light: #4decff;
+  --ai-accent-dark: #00d4ff;
+  
+  /* Status Colors */
+  --ai-success: #2bd687;
+  --ai-success-light: #4caf50;
+  --ai-success-dark: #00c853;
+  
+  --ai-warning: #ffcc00;
+  --ai-warning-light: #fdd835;
+  --ai-warning-dark: #ff8f00;
+  
+  --ai-error: #ff4d6d;
+  --ai-error-light: #f48fb1;
+  --ai-error-dark: #e91e63;
+  
+  --ai-critical: #ff1744;
+  --ai-critical-light: #ff5722;
+  --ai-critical-dark: #d50000;
+  
+  /* Texto */
+  --ai-text: #eef1ff;
+  --ai-text-light: #ffffff;
+  --ai-text-muted: #a7a9be;
+  --ai-text-dark: #6b6d7d;
+  --ai-text-disabled: #4a4d5f;
+  
+  /* ============================================
+     🌟 GLASSMORPHISM & TRANSPARÊNCIAS  
+     ============================================ */
+  
+  /* Glass Backgrounds */
+  --ai-glass: rgba(255, 255, 255, 0.08);
+  --ai-glass-light: rgba(255, 255, 255, 0.12);
+  --ai-glass-strong: rgba(255, 255, 255, 0.15);
+  
+  /* Colored Glass */
+  --ai-glass-primary: rgba(124, 77, 255, 0.12);
+  --ai-glass-accent: rgba(32, 227, 255, 0.08);
+  --ai-glass-success: rgba(43, 214, 135, 0.08);
+  --ai-glass-warning: rgba(255, 204, 0, 0.08);
+  --ai-glass-error: rgba(255, 77, 109, 0.08);
+  
+  /* Borders */
+  --ai-border: rgba(124, 77, 255, 0.2);
+  --ai-border-light: rgba(255, 255, 255, 0.1);
+  --ai-border-strong: rgba(124, 77, 255, 0.4);
+  --ai-border-accent: rgba(32, 227, 255, 0.3);
+  
+  /* ============================================
+     ✨ EFEITOS DE GLOW E SOMBRAS
+     ============================================ */
+  
+  /* Shadows */
+  --ai-shadow: 0 8px 40px rgba(32, 227, 255, 0.12);
+  --ai-shadow-lg: 0 12px 60px rgba(0, 0, 0, 0.4);
+  --ai-shadow-xl: 0 20px 80px rgba(0, 0, 0, 0.6);
+  
+  /* Glows */
+  --ai-glow-primary: 0 0 20px rgba(124, 77, 255, 0.4);
+  --ai-glow-accent: 0 0 20px rgba(32, 227, 255, 0.4);
+  --ai-glow-success: 0 0 16px rgba(43, 214, 135, 0.4);
+  --ai-glow-warning: 0 0 16px rgba(255, 204, 0, 0.4);
+  --ai-glow-error: 0 0 16px rgba(255, 77, 109, 0.4);
+  
+  /* Text Glows */
+  --ai-text-glow: 0 0 10px rgba(124, 77, 255, 0.3);
+  --ai-text-glow-accent: 0 0 10px rgba(32, 227, 255, 0.4);
+  
+  /* ============================================
+     📐 GEOMETRIA E ESPAÇAMENTO
+     ============================================ */
+  
+  /* Border Radius */
+  --ai-radius-sm: 8px;
+  --ai-radius: 14px;
+  --ai-radius-md: 16px;
+  --ai-radius-lg: 20px;
+  --ai-radius-xl: 24px;
+  --ai-radius-full: 9999px;
+  
+  /* Spacing Scale (baseado em 8px) */
+  --ai-space-xs: 4px;
+  --ai-space-sm: 8px;
+  --ai-space-md: 12px;
+  --ai-space-lg: 16px;
+  --ai-space-xl: 20px;
+  --ai-space-2xl: 24px;
+  --ai-space-3xl: 32px;
+  --ai-space-4xl: 40px;
+  --ai-space-5xl: 48px;
+  --ai-space-6xl: 64px;
+  
+  /* ============================================
+     📝 TIPOGRAFIA RESPONSIVA
+     ============================================ */
+  
+  /* Font Families */
+  --ai-font-primary: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --ai-font-mono: 'Fira Code', 'Monaco', 'Menlo', monospace;
+  --ai-font-display: 'Orbitron', 'Segoe UI', sans-serif;
+  
+  /* Font Sizes (Mobile-first, rem-based) */
+  --ai-text-xs: 0.75rem;   /* 12px */
+  --ai-text-sm: 0.875rem;  /* 14px */
+  --ai-text-base: 1rem;    /* 16px */
+  --ai-text-lg: 1.125rem;  /* 18px */
+  --ai-text-xl: 1.25rem;   /* 20px */
+  --ai-text-2xl: 1.5rem;   /* 24px */
+  --ai-text-3xl: 1.875rem; /* 30px */
+  --ai-text-4xl: 2.25rem;  /* 36px */
+  
+  /* Font Weights */
+  --ai-font-light: 300;
+  --ai-font-normal: 400;
+  --ai-font-medium: 500;
+  --ai-font-semibold: 600;
+  --ai-font-bold: 700;
+  --ai-font-extrabold: 800;
+  --ai-font-black: 900;
+  
+  /* Line Heights */
+  --ai-leading-tight: 1.25;
+  --ai-leading-snug: 1.375;
+  --ai-leading-normal: 1.5;
+  --ai-leading-relaxed: 1.625;
+  --ai-leading-loose: 2;
+  
+  /* ============================================
+     🎬 ANIMAÇÕES GPU-FRIENDLY
+     ============================================ */
+  
+  /* Durações */
+  --ai-duration-fast: 150ms;
+  --ai-duration-normal: 280ms;
+  --ai-duration-slow: 400ms;
+  --ai-duration-slower: 600ms;
+  
+  /* Easing Functions */
+  --ai-ease-out: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ai-ease-in: cubic-bezier(0.55, 0.055, 0.675, 0.19);
+  --ai-ease-in-out: cubic-bezier(0.645, 0.045, 0.355, 1);
+  --ai-ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+  
+  /* ============================================
+     📱 BREAKPOINTS RESPONSIVOS
+     ============================================ */
+  
+  --ai-screen-sm: 480px;
+  --ai-screen-md: 768px;
+  --ai-screen-lg: 1024px;
+  --ai-screen-xl: 1280px;
+  --ai-screen-2xl: 1536px;
+  
+  /* ============================================
+     🎯 TAMANHOS DE COMPONENTES
+     ============================================ */
+  
+  /* Buttons */
+  --ai-btn-height-sm: 32px;
+  --ai-btn-height: 44px;
+  --ai-btn-height-lg: 52px;
+  
+  /* Touch Targets (mínimo 44px) */
+  --ai-touch-target: 44px;
+  
+  /* Modal Sizes */
+  --ai-modal-width-sm: 400px;
+  --ai-modal-width: 600px;
+  --ai-modal-width-lg: 900px;
+  --ai-modal-width-xl: 1200px;
+  --ai-modal-width-full: 1400px;
+  
+  /* Card Heights */
+  --ai-card-height-sm: 120px;
+  --ai-card-height: 180px;
+  --ai-card-height-lg: 240px;
+  
+  /* ============================================
+     🌈 GRADIENTES FUTURISTAS
+     ============================================ */
+  
+  /* Primary Gradients */
+  --ai-gradient-primary: linear-gradient(135deg, var(--ai-primary), var(--ai-secondary));
+  --ai-gradient-accent: linear-gradient(135deg, var(--ai-accent), var(--ai-primary));
+  --ai-gradient-glass: linear-gradient(135deg, var(--ai-glass), var(--ai-glass-light));
+  
+  /* Status Gradients */
+  --ai-gradient-success: linear-gradient(135deg, var(--ai-success), var(--ai-success-light));
+  --ai-gradient-warning: linear-gradient(135deg, var(--ai-warning), var(--ai-warning-light));
+  --ai-gradient-error: linear-gradient(135deg, var(--ai-error), var(--ai-error-light));
+  
+  /* Animated Gradients */
+  --ai-gradient-shimmer: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+  --ai-gradient-loading: linear-gradient(90deg, var(--ai-primary), var(--ai-accent), var(--ai-primary));
+  
+  /* ============================================
+     🔍 Z-INDEX LAYERS
+     ============================================ */
+  
+  --ai-z-base: 1;
+  --ai-z-tooltip: 10;
+  --ai-z-dropdown: 20;
+  --ai-z-modal-backdrop: 100;
+  --ai-z-modal-content: 101;
+  --ai-z-toast: 200;
+  
+  /* ============================================
+     ♿ ACESSIBILIDADE
+     ============================================ */
+  
+  /* Focus Styles */
+  --ai-focus-ring: 0 0 0 3px rgba(124, 77, 255, 0.3);
+  --ai-focus-ring-accent: 0 0 0 3px rgba(32, 227, 255, 0.3);
+  
+  /* High Contrast Mode (prefers-contrast: high) */
+  --ai-high-contrast-border: 2px solid;
+  --ai-high-contrast-bg: #000000;
+  --ai-high-contrast-text: #ffffff;
+}
+
+/* ============================================
+   📱 RESPONSIVE ADAPTATIONS
+   ============================================ */
+
+/* Mobile Portrait (320-479px) */
+@media (max-width: 479px) {
+  .analysis-modal {
+    --ai-space-lg: 12px;
+    --ai-space-xl: 16px;
+    --ai-space-2xl: 20px;
+    --ai-space-3xl: 24px;
+    
+    --ai-text-lg: 1rem;
+    --ai-text-xl: 1.125rem;
+    --ai-text-2xl: 1.25rem;
+    --ai-text-3xl: 1.5rem;
+    
+    --ai-radius: 12px;
+    --ai-radius-lg: 16px;
+    --ai-radius-xl: 20px;
+  }
+}
+
+/* Tablet (768-1023px) */
+@media (min-width: 768px) {
+  .analysis-modal {
+    --ai-text-lg: 1.25rem;
+    --ai-text-xl: 1.375rem;
+    --ai-text-2xl: 1.625rem;
+    --ai-text-3xl: 2rem;
+    --ai-text-4xl: 2.5rem;
+  }
+}
+
+/* Desktop (1024px+) */
+@media (min-width: 1024px) {
+  .analysis-modal {
+    --ai-space-3xl: 40px;
+    --ai-space-4xl: 48px;
+    --ai-space-5xl: 56px;
+    --ai-space-6xl: 72px;
+  }
+}
+
+/* ============================================
+   🌙 DARK MODE ENHANCEMENTS
+   ============================================ */
+
+@media (prefers-color-scheme: dark) {
+  .analysis-modal {
+    /* Aumentar contraste no modo escuro */
+    --ai-text: #f5f7ff;
+    --ai-text-muted: #b4b6c8;
+    --ai-border-light: rgba(255, 255, 255, 0.15);
+    --ai-glass: rgba(255, 255, 255, 0.12);
+  }
+}
+
+/* ============================================
+   ♿ HIGH CONTRAST MODE
+   ============================================ */
+
+@media (prefers-contrast: high) {
+  .analysis-modal {
+    --ai-bg: #000000;
+    --ai-panel: #1a1a1a;
+    --ai-text: #ffffff;
+    --ai-text-muted: #cccccc;
+    --ai-border: #ffffff;
+    --ai-border-light: #cccccc;
+    
+    /* Remover efeitos de blur em modo alto contraste */
+    --ai-glass: rgba(255, 255, 255, 0.1);
+    --ai-glass-light: rgba(255, 255, 255, 0.15);
+  }
+}
+
+/* ============================================
+   🔄 REDUCED MOTION
+   ============================================ */
+
+@media (prefers-reduced-motion: reduce) {
+  .analysis-modal {
+    --ai-duration-fast: 0ms;
+    --ai-duration-normal: 0ms;
+    --ai-duration-slow: 0ms;
+    --ai-duration-slower: 0ms;
+  }
+}
+
+/* ============================================
+   🖨️ PRINT STYLES
+   ============================================ */
+
+@media print {
+  .analysis-modal {
+    --ai-bg: #ffffff;
+    --ai-panel: #f8f9fa;
+    --ai-text: #000000;
+    --ai-text-muted: #666666;
+    --ai-border: #cccccc;
+    
+    /* Remover sombras e efeitos em impressão */
+    --ai-shadow: none;
+    --ai-shadow-lg: none;
+    --ai-shadow-xl: none;
+    --ai-glow-primary: none;
+    --ai-glow-accent: none;
+  }
+}

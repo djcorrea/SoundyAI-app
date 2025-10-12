@@ -1,0 +1,564 @@
+/* ♿ AI MODAL ACCESSIBILITY - Sistema de Acessibilidade CSS Válido
+   Data: 11 de outubro de 2025
+   Foco: WCAG AA compliance, navegação por teclado, screen readers
+   Apenas propriedades CSS válidas
+*/
+
+/* ============================================
+   🎯 FOCUS MANAGEMENT - Gerenciamento de Foco
+   ============================================ */
+
+/* Reset do outline padrão */
+.analysis-modal *:focus {
+  outline: none;
+}
+
+/* Foco visível customizado */
+.analysis-modal *:focus-visible {
+  outline: 2px solid var(--ai-primary);
+  outline-offset: 2px;
+  border-radius: var(--ai-radius-sm);
+  box-shadow: 
+    0 0 0 4px rgba(124, 77, 255, 0.2),
+    var(--ai-glow-primary);
+  transition: all var(--ai-duration-fast) var(--ai-ease-out);
+}
+
+/* Foco para elementos interativos */
+.analysis-modal button:focus-visible,
+.analysis-modal input:focus-visible,
+.analysis-modal select:focus-visible,
+.analysis-modal textarea:focus-visible,
+.analysis-modal [tabindex]:focus-visible {
+  outline: 2px solid var(--ai-primary);
+  outline-offset: 2px;
+  box-shadow: 
+    0 0 0 4px rgba(124, 77, 255, 0.2),
+    var(--ai-glow-primary);
+}
+
+/* Foco para cards e containers clicáveis */
+.analysis-modal .ai-suggestion-card:focus-visible,
+.analysis-modal .ai-metric-card:focus-visible,
+.analysis-modal .ai-frequency-band:focus-visible {
+  outline: 2px solid var(--ai-primary);
+  outline-offset: 2px;
+  transform: translateY(-4px);
+  box-shadow: 
+    0 0 0 4px rgba(124, 77, 255, 0.2),
+    var(--ai-shadow);
+}
+
+/* Foco para botões toggle */
+.analysis-modal .ai-mode-toggle-btn:focus-visible,
+.analysis-modal .ai-priority-filter:focus-visible {
+  outline: 2px solid var(--ai-primary);
+  outline-offset: 2px;
+  box-shadow: 
+    0 0 0 4px rgba(124, 77, 255, 0.2),
+    var(--ai-glow-primary);
+}
+
+/* Área de foco expandida para elementos pequenos */
+.analysis-modal .ai-btn-close:focus-visible,
+.analysis-modal .ai-step-number:focus-visible {
+  outline: 3px solid var(--ai-primary);
+  outline-offset: 3px;
+}
+
+/* ============================================
+   ⌨️ KEYBOARD NAVIGATION - Navegação por Teclado
+   ============================================ */
+
+/* Torna todos os cards focáveis */
+.analysis-modal .ai-suggestion-card,
+.analysis-modal .ai-metric-card,
+.analysis-modal .ai-frequency-band,
+.analysis-modal .ai-health-indicator {
+  cursor: pointer;
+}
+
+/* Torna toggles acessíveis */
+.analysis-modal .ai-mode-toggle-btn,
+.analysis-modal .ai-priority-filter {
+  cursor: pointer;
+}
+
+/* Skip links para navegação rápida */
+.analysis-modal .ai-skip-link {
+  position: absolute;
+  top: -40px;
+  left: var(--ai-space-lg);
+  background: var(--ai-primary);
+  color: var(--ai-text);
+  padding: var(--ai-space-sm) var(--ai-space-lg);
+  border-radius: var(--ai-radius);
+  text-decoration: none;
+  font-weight: var(--ai-font-semibold);
+  z-index: var(--ai-z-toast);
+  transition: top var(--ai-duration-fast) var(--ai-ease-out);
+}
+
+.analysis-modal .ai-skip-link:focus {
+  top: var(--ai-space-lg);
+}
+
+/* Navegação por setas para grids */
+.analysis-modal .ai-grid {
+  /* Grid navigation handled by JavaScript */
+  position: relative;
+}
+
+/* Indicadores visuais para estado de navegação */
+.analysis-modal .ai-keyboard-user .ai-suggestion-card:hover,
+.analysis-modal .ai-keyboard-user .ai-metric-card:hover {
+  /* Remove hover effects for keyboard users */
+  transform: none;
+}
+
+/* ============================================
+   🔊 SCREEN READER SUPPORT - Suporte a Leitores de Tela
+   ============================================ */
+
+/* Texto apenas para screen readers */
+.analysis-modal .ai-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Texto que aparece apenas no foco */
+.analysis-modal .ai-sr-only-focusable:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: inherit;
+  margin: inherit;
+  overflow: visible;
+  clip: auto;
+  white-space: normal;
+}
+
+/* Anúncios dinâmicos */
+.analysis-modal .ai-live-region {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/* Descrições expandidas */
+.analysis-modal .ai-expandable-description {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height var(--ai-duration-normal) var(--ai-ease-out);
+}
+
+.analysis-modal .ai-expandable-description.ai-expanded {
+  max-height: 500px; /* Adjust based on content */
+}
+
+/* ============================================
+   📱 TOUCH ACCESSIBILITY - Acessibilidade Touch
+   ============================================ */
+
+/* Áreas de toque mínimas (44px WCAG) */
+.analysis-modal button,
+.analysis-modal .ai-mode-toggle-btn,
+.analysis-modal .ai-priority-filter,
+.analysis-modal [role="button"] {
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+}
+
+/* Espaçamento entre elementos tocáveis */
+.analysis-modal .ai-touch-list > * + * {
+  margin-top: var(--ai-space-sm);
+}
+
+/* Feedback tátil visual */
+.analysis-modal button:active,
+.analysis-modal [role="button"]:active {
+  transform: scale(0.98);
+  transition: transform var(--ai-duration-fast) var(--ai-ease-out);
+}
+
+/* ============================================
+   🎨 HIGH CONTRAST MODE - Modo Alto Contraste
+   ============================================ */
+
+/* Detecção de modo alto contraste */
+@media (prefers-contrast: high) {
+  .analysis-modal {
+    --ai-bg: #000000;
+    --ai-panel: #111111;
+    --ai-text: #ffffff;
+    --ai-text-muted: #cccccc;
+    --ai-border: #ffffff;
+    --ai-border-light: #666666;
+    --ai-primary: #00ffff;
+    --ai-accent: #ffff00;
+    --ai-success: #00ff00;
+    --ai-warning: #ffaa00;
+    --ai-error: #ff0000;
+  }
+  
+  .analysis-modal .ai-glass,
+  .analysis-modal .ai-glass-light {
+    background: rgba(255, 255, 255, 0.05);
+    backdrop-filter: none;
+  }
+  
+  .analysis-modal *:focus-visible {
+    outline: 3px solid #00ffff;
+    outline-offset: 2px;
+    box-shadow: none;
+  }
+  
+  .analysis-modal button,
+  .analysis-modal [role="button"] {
+    border: 2px solid currentColor;
+  }
+}
+
+/* ============================================
+   🎭 REDUCED MOTION - Movimento Reduzido
+   ============================================ */
+
+/* Respeitando preferência de movimento reduzido */
+@media (prefers-reduced-motion: reduce) {
+  .analysis-modal *,
+  .analysis-modal *::before,
+  .analysis-modal *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  
+  .analysis-modal .ai-suggestion-card {
+    transform: none;
+    opacity: 1;
+  }
+  
+  .analysis-modal .ai-suggestion-card:hover,
+  .analysis-modal .ai-metric-card:hover {
+    transform: none;
+  }
+  
+  .analysis-modal .ai-shimmer,
+  .analysis-modal .ai-critical-pulse {
+    animation: none;
+  }
+}
+
+/* ============================================
+   🌓 DARK MODE PREFERENCES - Preferências de Tema
+   ============================================ */
+
+/* Ajustes para usuários que preferem tema claro */
+@media (prefers-color-scheme: light) {
+  .analysis-modal.ai-respect-system-theme {
+    --ai-bg: #ffffff;
+    --ai-panel: #f8fafc;
+    --ai-text: #1a202c;
+    --ai-text-muted: #718096;
+    --ai-border: #e2e8f0;
+    --ai-border-light: #f7fafc;
+  }
+}
+
+/* ============================================
+   📏 FONT SIZE SCALING - Escalonamento de Fonte
+   ============================================ */
+
+/* Tamanhos de fonte escaláveis */
+.analysis-modal {
+  font-size: max(16px, 1rem); /* Mínimo 16px para legibilidade */
+}
+
+.analysis-modal .ai-text-xs {
+  font-size: max(12px, 0.75rem);
+}
+
+.analysis-modal .ai-text-sm {
+  font-size: max(14px, 0.875rem);
+}
+
+.analysis-modal .ai-text-base {
+  font-size: max(16px, 1rem);
+}
+
+/* ============================================
+   🧱 BREADCRUMBS - Navegação por seções
+   ============================================ */
+
+/* Breadcrumbs para navegação */
+.analysis-modal .ai-breadcrumb {
+  margin-bottom: var(--ai-space-lg);
+}
+
+.analysis-modal .ai-breadcrumb-list {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  gap: var(--ai-space-sm);
+}
+
+.analysis-modal .ai-breadcrumb-item {
+  color: var(--ai-text-muted);
+  font-size: var(--ai-text-sm);
+}
+
+.analysis-modal .ai-breadcrumb-item:not(:last-child)::after {
+  content: "›";
+  margin-left: var(--ai-space-sm);
+  color: var(--ai-border);
+}
+
+.analysis-modal .ai-breadcrumb-item.ai-current {
+  color: var(--ai-text);
+  font-weight: var(--ai-font-semibold);
+}
+
+/* ============================================
+   📊 DATA TABLES - Tabelas de Dados
+   ============================================ */
+
+/* Acessibilidade para dados tabulares */
+.analysis-modal .ai-data-table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.analysis-modal .ai-data-table caption {
+  caption-side: top;
+  padding: var(--ai-space-md);
+  font-weight: var(--ai-font-semibold);
+  color: var(--ai-text);
+}
+
+.analysis-modal .ai-data-table th {
+  background: var(--ai-glass);
+  font-weight: var(--ai-font-semibold);
+  padding: var(--ai-space-md);
+  border: 1px solid var(--ai-border);
+}
+
+.analysis-modal .ai-data-table td {
+  padding: var(--ai-space-md);
+  border: 1px solid var(--ai-border-light);
+}
+
+/* ============================================
+   🎮 CUSTOM CONTROLS - Controles Personalizados
+   ============================================ */
+
+/* Toggle switches acessíveis */
+.analysis-modal .ai-toggle {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.analysis-modal .ai-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.analysis-modal .ai-toggle .ai-slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--ai-glass);
+  transition: var(--ai-duration-fast);
+  border-radius: 24px;
+  border: 1px solid var(--ai-border);
+}
+
+.analysis-modal .ai-toggle .ai-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 2px;
+  bottom: 2px;
+  background: var(--ai-text-muted);
+  transition: var(--ai-duration-fast);
+  border-radius: 50%;
+}
+
+.analysis-modal .ai-toggle input:checked + .ai-slider {
+  background: var(--ai-primary);
+}
+
+.analysis-modal .ai-toggle input:checked + .ai-slider:before {
+  transform: translateX(24px);
+  background: var(--ai-text);
+}
+
+.analysis-modal .ai-toggle:focus-visible .ai-slider {
+  outline: 2px solid var(--ai-primary);
+  outline-offset: 2px;
+}
+
+/* ============================================
+   🚨 ERROR HANDLING - Tratamento de Erros
+   ============================================ */
+
+/* Mensagens de erro acessíveis */
+.analysis-modal .ai-error-message {
+  background: var(--ai-glass-error);
+  border: 1px solid var(--ai-error);
+  border-radius: var(--ai-radius);
+  padding: var(--ai-space-lg);
+  margin: var(--ai-space-md) 0;
+  color: var(--ai-error);
+}
+
+.analysis-modal .ai-error-message::before {
+  content: "⚠️ ";
+  font-size: var(--ai-text-lg);
+  margin-right: var(--ai-space-sm);
+}
+
+/* Status messages */
+.analysis-modal .ai-status-message {
+  padding: var(--ai-space-md) var(--ai-space-lg);
+  border-radius: var(--ai-radius);
+  margin: var(--ai-space-md) 0;
+  border-left: 4px solid;
+}
+
+.analysis-modal .ai-status-message.ai-info {
+  background: var(--ai-glass-accent);
+  border-color: var(--ai-accent);
+  color: var(--ai-accent);
+}
+
+.analysis-modal .ai-status-message.ai-success {
+  background: var(--ai-glass-success);
+  border-color: var(--ai-success);
+  color: var(--ai-success);
+}
+
+.analysis-modal .ai-status-message.ai-warning {
+  background: var(--ai-glass-warning);
+  border-color: var(--ai-warning);
+  color: var(--ai-warning);
+}
+
+/* ============================================
+   📱 MOBILE ACCESSIBILITY - Acessibilidade Mobile
+   ============================================ */
+
+/* Ajustes para dispositivos móveis */
+@media (max-width: 767px) {
+  /* Aumenta áreas de toque */
+  .analysis-modal button,
+  .analysis-modal [role="button"] {
+    min-height: 48px;
+    min-width: 48px;
+    padding: var(--ai-space-md) var(--ai-space-lg);
+  }
+  
+  /* Espaçamento maior entre elementos */
+  .analysis-modal .ai-suggestion-card + .ai-suggestion-card,
+  .analysis-modal .ai-metric-card + .ai-metric-card {
+    margin-top: var(--ai-space-xl);
+  }
+  
+  /* Texto maior para legibilidade */
+  .analysis-modal {
+    font-size: max(18px, 1.125rem);
+  }
+}
+
+/* ============================================
+   🔧 UTILITIES & HELPERS - Utilitários e Auxiliares
+   ============================================ */
+
+/* Classes auxiliares para desenvolvedores */
+.analysis-modal .ai-focusable {
+  cursor: pointer;
+}
+
+.analysis-modal .ai-not-focusable {
+  pointer-events: none;
+}
+
+/* Teste de acessibilidade (remover em produção) */
+.analysis-modal.ai-accessibility-test * {
+  outline: 1px dashed rgba(255, 0, 0, 0.3);
+}
+
+.analysis-modal.ai-accessibility-test *:focus {
+  outline: 2px solid red;
+}
+
+/* ============================================
+   📋 TOOLTIPS - Dicas de Conteúdo
+   ============================================ */
+
+/* Tooltips acessíveis */
+.analysis-modal .ai-tooltip {
+  position: relative;
+  cursor: help;
+}
+
+.analysis-modal .ai-tooltip-content {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ai-panel);
+  color: var(--ai-text);
+  padding: var(--ai-space-sm) var(--ai-space-md);
+  border-radius: var(--ai-radius);
+  font-size: var(--ai-text-sm);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--ai-duration-fast) var(--ai-ease-out);
+  z-index: var(--ai-z-tooltip);
+  border: 1px solid var(--ai-border);
+  box-shadow: var(--ai-shadow);
+  margin-bottom: var(--ai-space-xs);
+}
+
+.analysis-modal .ai-tooltip:hover .ai-tooltip-content,
+.analysis-modal .ai-tooltip:focus-within .ai-tooltip-content {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ============================================
+   🎯 LANDMARKS - Marcos Visuais
+   ============================================ */
+
+/* Styles for semantic landmark elements */
+.analysis-modal .ai-main-content {
+  /* Main content area */
+  position: relative;
+}
+
+.analysis-modal .ai-suggestions-section,
+.analysis-modal .ai-metrics-section,
+.analysis-modal .ai-diagnostic-section {
+  /* Section styling */
+  position: relative;
+}
