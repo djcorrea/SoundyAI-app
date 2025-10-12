@@ -13,6 +13,20 @@
     --ai-muted: #a7a9be;
     --ai-radius: 16px;
     --ai-shadow: 0 10px 44px rgba(32, 227, 255, .12);
+    
+    /* 🚀 Cyberpunk Color Palette */
+    --cyberpunk-bg: #0a0e27;
+    --cyberpunk-primary: #ff006e;
+    --cyberpunk-secondary: #8338ec;
+    --cyberpunk-accent: #00f5ff;
+    --cyberpunk-neon: #ffbe0b;
+    --cyberpunk-success: #06ffa5;
+    --cyberpunk-warning: #ff9f1c;
+    --cyberpunk-error: #fb5607;
+    --cyberpunk-card: rgba(255, 255, 255, 0.02);
+    --cyberpunk-border: rgba(255, 255, 255, 0.1);
+    --cyberpunk-glow: 0 0 20px rgba(0, 245, 255, 0.3);
+    --cyberpunk-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
 }
 
 /* Botão de análise de áudio no input */
@@ -3126,4 +3140,409 @@ details[open] summary {
         padding: 3px 8px;
     }
 }
+
+/* ===== 🚀 CYBERPUNK UI STYLES ===== */
+
+/* 🏆 Score Hero Section */
+.cyberpunk-score-hero {
+    background: linear-gradient(135deg, var(--cyberpunk-bg), var(--cyberpunk-primary));
+    border: 1px solid var(--cyberpunk-border);
+    border-radius: 20px;
+    padding: 24px;
+    margin-bottom: 24px;
+    backdrop-filter: blur(10px);
+    box-shadow: var(--cyberpunk-glow);
+    position: relative;
+    overflow: hidden;
+}
+
+.cyberpunk-score-hero::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(45deg, transparent, rgba(0, 245, 255, 0.1), transparent);
+    animation: cyberScan 3s linear infinite;
+    pointer-events: none;
+}
+
+@keyframes cyberScan {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+.score-display {
+    text-align: center;
+    margin-bottom: 16px;
+}
+
+.score-number {
+    font-size: 4rem;
+    font-weight: 900;
+    background: linear-gradient(45deg, var(--cyberpunk-accent), var(--cyberpunk-neon));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 0 30px rgba(0, 245, 255, 0.5);
+    animation: pulseGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes pulseGlow {
+    0% { text-shadow: 0 0 30px rgba(0, 245, 255, 0.5); }
+    100% { text-shadow: 0 0 50px rgba(0, 245, 255, 0.8); }
+}
+
+.score-label {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--ai-text);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    opacity: 0.9;
+}
+
+.score-info {
+    display: flex;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.genre-tag, .refs-tag {
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    backdrop-filter: blur(5px);
+}
+
+.genre-tag {
+    background: rgba(255, 190, 11, 0.2);
+    border: 1px solid var(--cyberpunk-neon);
+    color: var(--cyberpunk-neon);
+}
+
+.refs-tag {
+    background: rgba(6, 255, 165, 0.2);
+    border: 1px solid var(--cyberpunk-success);
+    color: var(--cyberpunk-success);
+}
+
+/* 📊 Sub-scores Section */
+.cyberpunk-subscores {
+    margin-bottom: 32px;
+}
+
+.subscore-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--ai-text);
+    margin-bottom: 16px;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.subscores-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+.subscore-item {
+    background: var(--cyberpunk-card);
+    border: 1px solid var(--cyberpunk-border);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    backdrop-filter: blur(10px);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.subscore-item:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--cyberpunk-glow);
+    border-color: var(--cyberpunk-accent);
+}
+
+.subscore-label {
+    font-size: 0.9rem;
+    color: var(--ai-muted);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.subscore-value {
+    font-size: 2rem;
+    font-weight: 800;
+    margin-bottom: 4px;
+}
+
+/* 🎧 Section Styling */
+.cyberpunk-section {
+    background: var(--cyberpunk-card);
+    border: 1px solid var(--cyberpunk-border);
+    border-radius: 16px;
+    margin-bottom: 24px;
+    backdrop-filter: blur(10px);
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.cyberpunk-section:hover {
+    border-color: var(--cyberpunk-accent);
+    box-shadow: var(--cyberpunk-glow);
+}
+
+.section-header {
+    padding: 20px 24px;
+    background: linear-gradient(135deg, var(--cyberpunk-secondary), var(--cyberpunk-primary));
+    border-bottom: 1px solid var(--cyberpunk-border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.section-icon {
+    font-size: 1.8rem;
+    filter: drop-shadow(0 0 10px rgba(0, 245, 255, 0.6));
+}
+
+.section-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--ai-text);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.section-desc {
+    font-size: 0.9rem;
+    color: var(--ai-muted);
+    margin-top: 4px;
+}
+
+/* 🃏 Cyberpunk Cards */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    padding: 24px;
+}
+
+.cyberpunk-card {
+    background: var(--cyberpunk-card);
+    border: 1px solid var(--cyberpunk-border);
+    border-radius: 12px;
+    padding: 20px;
+    backdrop-filter: blur(5px);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.cyberpunk-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--cyberpunk-accent), var(--cyberpunk-neon));
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+}
+
+.cyberpunk-card:hover::before {
+    transform: scaleX(1);
+}
+
+.cyberpunk-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--cyberpunk-accent);
+    box-shadow: var(--cyberpunk-shadow);
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
+.card-icon {
+    font-size: 1.5rem;
+    filter: drop-shadow(0 0 8px rgba(0, 245, 255, 0.4));
+}
+
+.card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--ai-text);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.card-value {
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: var(--cyberpunk-accent);
+    margin-bottom: 8px;
+    text-shadow: 0 0 20px rgba(0, 245, 255, 0.3);
+}
+
+.card-status {
+    font-size: 0.8rem;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--ai-muted);
+    display: inline-block;
+}
+
+/* 🌊 Frequency Bands */
+.frequency-bands {
+    padding: 24px;
+    display: grid;
+    gap: 12px;
+}
+
+.frequency-band {
+    background: var(--cyberpunk-card);
+    border: 1px solid var(--cyberpunk-border);
+    border-radius: 10px;
+    padding: 16px;
+    backdrop-filter: blur(5px);
+    transition: all 0.3s ease;
+}
+
+.frequency-band:hover {
+    border-color: var(--cyberpunk-accent);
+    transform: translateX(4px);
+}
+
+.band-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.band-icon {
+    font-size: 1.2rem;
+    filter: drop-shadow(0 0 6px rgba(0, 245, 255, 0.4));
+}
+
+.band-name {
+    font-weight: 600;
+    color: var(--ai-text);
+    flex: 1;
+}
+
+.band-value {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--cyberpunk-neon);
+    margin-bottom: 8px;
+}
+
+.band-meter {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 3px;
+    overflow: hidden;
+    position: relative;
+}
+
+.band-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--cyberpunk-primary), var(--cyberpunk-accent));
+    transition: width 0.3s ease;
+    box-shadow: 0 0 10px rgba(0, 245, 255, 0.5);
+}
+
+/* 🏆 Status Classes */
+.status-excellent {
+    background: var(--cyberpunk-success) !important;
+    color: #000 !important;
+    box-shadow: 0 0 10px rgba(6, 255, 165, 0.5);
+}
+
+.status-ideal {
+    background: var(--cyberpunk-neon) !important;
+    color: #000 !important;
+    box-shadow: 0 0 10px rgba(255, 190, 11, 0.5);
+}
+
+.status-good {
+    background: var(--cyberpunk-accent) !important;
+    color: #000 !important;
+    box-shadow: 0 0 10px rgba(0, 245, 255, 0.5);
+}
+
+.status-warning {
+    background: var(--cyberpunk-warning) !important;
+    color: #000 !important;
+    box-shadow: 0 0 10px rgba(255, 159, 28, 0.5);
+}
+
+.status-critical {
+    background: var(--cyberpunk-error) !important;
+    color: #fff !important;
+    box-shadow: 0 0 10px rgba(251, 86, 7, 0.5);
+}
+
+.status-unknown {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: var(--ai-muted) !important;
+}
+
+/* 📱 Responsive Design */
+@media (max-width: 768px) {
+    .score-number {
+        font-size: 3rem;
+    }
+    
+    .metrics-grid {
+        grid-template-columns: 1fr;
+        padding: 16px;
+    }
+    
+    .cyberpunk-card {
+        padding: 16px;
+    }
+    
+    .section-header {
+        padding: 16px;
+        flex-direction: column;
+        text-align: center;
+        gap: 8px;
+    }
+    
+    .score-info {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .subscores-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* 🎨 Color Band Variations */
+.band-sub .band-fill { background: linear-gradient(90deg, #8B0000, #FF6B6B); }
+.band-low .band-fill { background: linear-gradient(90deg, #FF4500, #FFA500); }
+.band-lowmid .band-fill { background: linear-gradient(90deg, #FFD700, #FFFF99); }
+.band-mid .band-fill { background: linear-gradient(90deg, #32CD32, #98FB98); }
+.band-highmid .band-fill { background: linear-gradient(90deg, #00CED1, #87CEEB); }
+.band-presence .band-fill { background: linear-gradient(90deg, #4169E1, #9370DB); }
+.band-air .band-fill { background: linear-gradient(90deg, #8A2BE2, #DA70D6); }
 

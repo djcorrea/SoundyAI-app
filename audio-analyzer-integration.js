@@ -2819,6 +2819,314 @@ function showModalLoading() {
 }
 
 // 📈 Simular progresso
+// ===== HELPER FUNCTIONS PARA CYBERPUNK UI =====
+
+// 🎯 Renderizar scores cyberpunk
+function renderCyberpunkScores() {
+    if (!window.__LAST_ANALYSIS_SCORES__) {
+        return '<div class="subscore-item">📊 Calculando scores...</div>';
+    }
+    
+    const scores = window.__LAST_ANALYSIS_SCORES__;
+    const scoreItems = [];
+    
+    if (Number.isFinite(scores.loudnessScore)) {
+        scoreItems.push(`<div class="subscore-item">
+            <div class="subscore-label">🎧 Loudness</div>
+            <div class="subscore-value ${getStatusClass(scores.loudnessScore)}">${scores.loudnessScore.toFixed(1)}</div>
+        </div>`);
+    }
+    
+    if (Number.isFinite(scores.dynamicScore)) {
+        scoreItems.push(`<div class="subscore-item">
+            <div class="subscore-label">📈 Dinâmica</div>
+            <div class="subscore-value ${getStatusClass(scores.dynamicScore)}">${scores.dynamicScore.toFixed(1)}</div>
+        </div>`);
+    }
+    
+    if (Number.isFinite(scores.frequencyScore)) {
+        scoreItems.push(`<div class="subscore-item">
+            <div class="subscore-label">🌊 Frequências</div>
+            <div class="subscore-value ${getStatusClass(scores.frequencyScore)}">${scores.frequencyScore.toFixed(1)}</div>
+        </div>`);
+    }
+    
+    if (Number.isFinite(scores.technicalScore)) {
+        scoreItems.push(`<div class="subscore-item">
+            <div class="subscore-label">🧪 Técnica</div>
+            <div class="subscore-value ${getStatusClass(scores.technicalScore)}">${scores.technicalScore.toFixed(1)}</div>
+        </div>`);
+    }
+    
+    return scoreItems.join('');
+}
+
+// 🎧 Gerar cards de Loudness
+function generateLoudnessCards(analysis) {
+    const cards = [];
+    
+    // Helper para métricas centralizadas
+    const getMetric = (metricPath, fallbackPath = null) => {
+        const centralizedValue = analysis.metrics && getNestedValue(analysis.metrics, metricPath);
+        if (Number.isFinite(centralizedValue)) return centralizedValue;
+        const legacyValue = fallbackPath ? getNestedValue(analysis.technicalData, fallbackPath) : getNestedValue(analysis.technicalData, metricPath);
+        return Number.isFinite(legacyValue) ? legacyValue : null;
+    };
+    
+    const getNestedValue = (obj, path) => {
+        return path.split('.').reduce((current, key) => current?.[key], obj);
+    };
+    
+    // True Peak
+    const truePeak = getMetric('truePeakDbtp', 'truePeakDbtp');
+    if (Number.isFinite(truePeak)) {
+        const status = getTruePeakStatus(truePeak);
+        cards.push(`
+            <div class="cyberpunk-card">
+                <div class="card-header">
+                    <div class="card-icon">🔊</div>
+                    <div class="card-title">Pico Real</div>
+                </div>
+                <div class="card-value">${truePeak.toFixed(2)} dBTP</div>
+                <div class="card-status ${status.class}">${status.status}</div>
+            </div>
+        `);
+    }
+    
+    // LUFS Integrado
+    const lufs = getMetric('lufs_integrated', 'lufsIntegrated');
+    if (Number.isFinite(lufs)) {
+        cards.push(`
+            <div class="cyberpunk-card">
+                <div class="card-header">
+                    <div class="card-icon">📢</div>
+                    <div class="card-title">LUFS Integrado</div>
+                </div>
+                <div class="card-value">${lufs.toFixed(1)} LUFS</div>
+                <div class="card-status">EBU R128</div>
+            </div>
+        `);
+    }
+    
+    // RMS Level
+    const rms = getMetric('rms_level', 'avgLoudness');
+    if (Number.isFinite(rms)) {
+        cards.push(`
+            <div class="cyberpunk-card">
+                <div class="card-header">
+                    <div class="card-icon">📊</div>
+                    <div class="card-title">Volume RMS</div>
+                </div>
+                <div class="card-value">${rms.toFixed(1)} dBFS</div>
+                <div class="card-status">Média</div>
+            </div>
+        `);
+    }
+    
+    return cards.join('');
+}
+
+// 📈 Gerar cards de Dinâmica
+function generateDynamicsCards(analysis) {
+    const cards = [];
+    
+    const getMetric = (metricPath, fallbackPath = null) => {
+        const centralizedValue = analysis.metrics && getNestedValue(analysis.metrics, metricPath);
+        if (Number.isFinite(centralizedValue)) return centralizedValue;
+        const legacyValue = fallbackPath ? getNestedValue(analysis.technicalData, fallbackPath) : getNestedValue(analysis.technicalData, metricPath);
+        return Number.isFinite(legacyValue) ? legacyValue : null;
+    };
+    
+    const getNestedValue = (obj, path) => {
+        return path.split('.').reduce((current, key) => current?.[key], obj);
+    };
+    
+    // Dynamic Range
+    const dr = getMetric('dynamic_range', 'dynamicRange');
+    if (Number.isFinite(dr)) {
+        cards.push(`
+            <div class="cyberpunk-card">
+                <div class="card-header">
+                    <div class="card-icon">📈</div>
+                    <div class="card-title">Dynamic Range</div>
+                </div>
+                <div class="card-value">${dr.toFixed(1)} dB</div>
+                <div class="card-status">DR${Math.round(dr)}</div>
+            </div>
+        `);
+    }
+    
+    // LRA
+    const lra = getMetric('lra', 'lra');
+    if (Number.isFinite(lra)) {
+        cards.push(`
+            <div class="cyberpunk-card">
+                <div class="card-header">
+                    <div class="card-icon">📊</div>
+                    <div class="card-title">Loudness Range</div>
+                </div>
+                <div class="card-value">${lra.toFixed(1)} LU</div>
+                <div class="card-status">LRA</div>
+            </div>
+        `);
+    }
+    
+    // Crest Factor
+    const crest = getMetric('crest_factor', 'crestFactor');
+    if (Number.isFinite(crest)) {
+        cards.push(`
+            <div class="cyberpunk-card">
+                <div class="card-header">
+                    <div class="card-icon">⚡</div>
+                    <div class="card-title">Fator de Crista</div>
+                </div>
+                <div class="card-value">${crest.toFixed(1)} dB</div>
+                <div class="card-status">Punch</div>
+            </div>
+        `);
+    }
+    
+    return cards.join('');
+}
+
+// 🌊 Gerar bandas de frequência
+function generateFrequencyBands(analysis) {
+    const bands = [];
+    const tonalBalance = analysis.technicalData?.tonalBalance || analysis.tonalBalance;
+    
+    if (!tonalBalance) {
+        return '<div class="frequency-band"><div class="band-name">Sem dados espectrais</div></div>';
+    }
+    
+    const bandData = [
+        { key: 'sub', name: 'Sub (20-60 Hz)', icon: '🎯', color: 'sub' },
+        { key: 'low', name: 'Graves (60-150 Hz)', icon: '🔈', color: 'low' },
+        { key: 'lowMid', name: 'Low-Mid (150-500 Hz)', icon: '🔉', color: 'lowmid' },
+        { key: 'mid', name: 'Médios (500 Hz-2 kHz)', icon: '🔊', color: 'mid' },
+        { key: 'highMid', name: 'High-Mid (2-5 kHz)', icon: '📢', color: 'highmid' },
+        { key: 'presence', name: 'Presença (5-10 kHz)', icon: '✨', color: 'presence' },
+        { key: 'air', name: 'Air (10-20 kHz)', icon: '💨', color: 'air' }
+    ];
+    
+    bandData.forEach(band => {
+        const bandInfo = tonalBalance[band.key];
+        if (bandInfo && Number.isFinite(bandInfo.rms_db)) {
+            bands.push(`
+                <div class="frequency-band band-${band.color}">
+                    <div class="band-header">
+                        <div class="band-icon">${band.icon}</div>
+                        <div class="band-name">${band.name}</div>
+                    </div>
+                    <div class="band-value">${bandInfo.rms_db.toFixed(1)} dB</div>
+                    <div class="band-meter">
+                        <div class="band-fill" style="width: ${Math.max(0, Math.min(100, (bandInfo.rms_db + 60) * 1.67))}%"></div>
+                    </div>
+                </div>
+            `);
+        }
+    });
+    
+    return bands.join('');
+}
+
+// 🧪 Gerar cards técnicos
+function generateTechnicalCards(analysis) {
+    const cards = [];
+    
+    const getMetric = (metricPath, fallbackPath = null) => {
+        const centralizedValue = analysis.metrics && getNestedValue(analysis.metrics, metricPath);
+        if (Number.isFinite(centralizedValue)) return centralizedValue;
+        const legacyValue = fallbackPath ? getNestedValue(analysis.technicalData, fallbackPath) : getNestedValue(analysis.technicalData, metricPath);
+        return Number.isFinite(legacyValue) ? legacyValue : null;
+    };
+    
+    const getNestedValue = (obj, path) => {
+        return path.split('.').reduce((current, key) => current?.[key], obj);
+    };
+    
+    // Correlação Estéreo
+    const stereoCorr = getMetric('stereo_correlation', 'stereoCorrelation');
+    if (Number.isFinite(stereoCorr)) {
+        cards.push(`
+            <div class="cyberpunk-card">
+                <div class="card-header">
+                    <div class="card-icon">🎭</div>
+                    <div class="card-title">Correlação Estéreo</div>
+                </div>
+                <div class="card-value">${stereoCorr.toFixed(3)}</div>
+                <div class="card-status">${stereoCorr > 0.95 ? 'Mono' : stereoCorr > 0.7 ? 'Estreito' : 'Largo'}</div>
+            </div>
+        `);
+    }
+    
+    // Largura Estéreo
+    const stereoWidth = getMetric('stereo_width', 'stereoWidth');
+    if (Number.isFinite(stereoWidth)) {
+        cards.push(`
+            <div class="cyberpunk-card">
+                <div class="card-header">
+                    <div class="card-icon">🌐</div>
+                    <div class="card-title">Largura Estéreo</div>
+                </div>
+                <div class="card-value">${stereoWidth.toFixed(2)}</div>
+                <div class="card-status">Width</div>
+            </div>
+        `);
+    }
+    
+    // Centroide Espectral
+    const centroid = getMetric('spectral_centroid', 'spectralCentroidHz');
+    if (Number.isFinite(centroid)) {
+        cards.push(`
+            <div class="cyberpunk-card">
+                <div class="card-header">
+                    <div class="card-icon">✨</div>
+                    <div class="card-title">Brilho</div>
+                </div>
+                <div class="card-value">${Math.round(centroid)} Hz</div>
+                <div class="card-status">Centroide</div>
+            </div>
+        `);
+    }
+    
+    // BPM
+    const bpm = getMetric('bpm', 'bpm');
+    if (Number.isFinite(bpm)) {
+        cards.push(`
+            <div class="cyberpunk-card">
+                <div class="card-header">
+                    <div class="card-icon">🥁</div>
+                    <div class="card-title">Tempo</div>
+                </div>
+                <div class="card-value">${Math.round(bpm)}</div>
+                <div class="card-status">BPM</div>
+            </div>
+        `);
+    }
+    
+    return cards.join('');
+}
+
+// 🏆 Helper para classes de status
+function getStatusClass(score) {
+    if (!Number.isFinite(score)) return 'status-unknown';
+    if (score >= 90) return 'status-excellent';
+    if (score >= 75) return 'status-good';
+    if (score >= 60) return 'status-warning';
+    return 'status-critical';
+}
+
+// 🎯 Helper para status do True Peak (já existia, mantendo para compatibilidade)
+function getTruePeakStatus(value) {
+    if (!Number.isFinite(value)) return { status: '—', class: '' };
+    
+    if (value <= -1.5) return { status: 'EXCELENTE', class: 'status-excellent' };
+    if (value <= -1.0) return { status: 'IDEAL', class: 'status-ideal' };
+    if (value <= -0.5) return { status: 'BOM', class: 'status-good' };
+    if (value <= 0.0) return { status: 'ACEITÁVEL', class: 'status-warning' };
+    return { status: 'ESTOURADO', class: 'status-critical' };
+}
+
 // (função de simulação de progresso removida — não utilizada)
 
 // 📊 Mostrar resultados no modal
