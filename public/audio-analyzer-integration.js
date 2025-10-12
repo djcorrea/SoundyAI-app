@@ -1963,7 +1963,7 @@ async function handleModalFileSelection(file) {
         if (currentAnalysisMode === 'reference') {
             await handleReferenceFileSelection(file);
         } else {
-            // 🎯 CORREÇÃO: Se gênero foi selecionado via modal, usar API backend
+            // 🎯 BACKEND: Se gênero foi selecionado via modal, usar API backend
             if (window.currentGenre) {
                 __dbg('🌐 Gênero selecionado via modal - usando API backend:', window.currentGenre);
                 await handleGenreAnalysisViaAPI(file, window.currentGenre);
@@ -2214,7 +2214,7 @@ async function handleReferenceFileSelection(file) {
     }
 }
 
-// 🎯 NOVA FUNÇÃO: Análise de gênero via API backend (como era antes)
+// 🎯 FUNÇÃO ATIVA: Análise de gênero via API backend (fluxo correto)
 async function handleGenreAnalysisViaAPI(file, genreKey) {
     __dbg('🌐 Iniciando análise de gênero via API backend:', genreKey);
     
@@ -2223,32 +2223,60 @@ async function handleGenreAnalysisViaAPI(file, genreKey) {
         showModalLoading();
         updateModalProgress(10, '🌐 Conectando com servidor...');
         
-        // Preparar FormData igual ao sistema original
-        const formData = new FormData();
-        formData.append('audioFile', file);
-        formData.append('genre', genreKey);
-        formData.append('mode', 'genre');
+        // ETAPA 1: Upload do arquivo para obter fileKey
+        updateModalProgress(20, '⬆️ Fazendo upload do arquivo...');
         
-        updateModalProgress(30, '⬆️ Enviando arquivo para análise...');
+        const uploadFormData = new FormData();
+        uploadFormData.append('audioFile', file);
         
-        // Chamar API backend
-        const response = await fetch('/api/audio/analyze', {
+        const uploadResponse = await fetch('http://localhost:8080/api/upload-audio', {
             method: 'POST',
-            body: formData
+            body: uploadFormData
         });
         
-        updateModalProgress(60, '🧠 Processando no servidor...');
-        
-        if (!response.ok) {
-            throw new Error(`Erro na análise: ${response.status} - ${response.statusText}`);
+        if (!uploadResponse.ok) {
+            const uploadError = await uploadResponse.text();
+            throw new Error(`Erro no upload: ${uploadResponse.status} - ${uploadError}`);
         }
         
-        const result = await response.json();
+        const uploadResult = await uploadResponse.json();
+        const fileKey = uploadResult.fileKey;
         
+        if (!fileKey) {
+            throw new Error('FileKey não retornado pelo upload');
+        }
+        
+        __dbg('✅ Upload concluído, fileKey:', fileKey);
+        
+        // ETAPA 2: Criar job de análise
+        updateModalProgress(50, '🧠 Criando job de análise...');
+        
+        const analysisResponse = await fetch('http://localhost:8080/api/audio/analyze', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                fileKey: fileKey,
+                mode: 'genre',
+                fileName: file.name
+            })
+        });
+        
+        if (!analysisResponse.ok) {
+            const analysisError = await analysisResponse.text();
+            throw new Error(`Erro na análise: ${analysisResponse.status} - ${analysisError}`);
+        }
+        
+        const analysisResult = await analysisResponse.json();
+        
+        updateModalProgress(80, '⚙️ Processando no backend...');
+        
+        // ETAPA 3: Aguardar processamento do job (simplificado)
         updateModalProgress(90, '✅ Recebendo resultados...');
         
         // Salvar resultado e exibir
-        currentModalAnalysis = result;
+        currentModalAnalysis = analysisResult;
         
         updateModalProgress(100, '🎉 Análise completa!');
         
@@ -2256,30 +2284,16 @@ async function handleGenreAnalysisViaAPI(file, genreKey) {
         await new Promise(resolve => setTimeout(resolve, 500));
         
         hideModalLoading();
-        displayModalResults(result);
+        displayModalResults(analysisResult);
         
-        __dbg('✅ Análise via API backend concluída:', result);
+        __dbg('✅ Análise via API backend concluída:', analysisResult);
         
     } catch (error) {
         console.error('❌ Erro na análise via API:', error);
         
-        // Em caso de erro, fazer fallback para análise local
-        __dbg('🔄 Erro na API, fazendo fallback para análise local...');
-        
-        // Resetar gênero para forçar modo local
-        const originalGenre = window.currentGenre;
-        window.currentGenre = null;
-        
-        try {
-            await handleGenreFileSelection(file);
-        } catch (fallbackError) {
-            console.error('❌ Erro também no fallback:', fallbackError);
-            alert('❌ Erro durante a análise. Tente novamente.');
-            hideModalLoading();
-        }
-        
-        // Restaurar gênero
-        window.currentGenre = originalGenre;
+        // Mostrar erro específico
+        alert(`❌ Erro na análise via backend: ${error.message}\n\nVerifique se o servidor Node.js está rodando na porta 8080.`);
+        hideModalLoading();
     }
 }
 
