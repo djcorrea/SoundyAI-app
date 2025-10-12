@@ -1963,7 +1963,14 @@ async function handleModalFileSelection(file) {
         if (currentAnalysisMode === 'reference') {
             await handleReferenceFileSelection(file);
         } else {
-            await handleGenreFileSelection(file);
+            // 🎯 CORREÇÃO: Se gênero foi selecionado via modal, usar API backend
+            if (window.currentGenre) {
+                __dbg('🌐 Gênero selecionado via modal - usando API backend:', window.currentGenre);
+                await handleGenreAnalysisViaAPI(file, window.currentGenre);
+            } else {
+                __dbg('💻 Nenhum gênero selecionado - usando análise local');
+                await handleGenreFileSelection(file);
+            }
         }
         
     } catch (error) {
@@ -2204,6 +2211,75 @@ async function handleReferenceFileSelection(file) {
             fileName: file.name,
             hasAnalysis: !!analysis 
         });
+    }
+}
+
+// 🎯 NOVA FUNÇÃO: Análise de gênero via API backend (como era antes)
+async function handleGenreAnalysisViaAPI(file, genreKey) {
+    __dbg('🌐 Iniciando análise de gênero via API backend:', genreKey);
+    
+    try {
+        // Mostrar loading
+        showModalLoading();
+        updateModalProgress(10, '🌐 Conectando com servidor...');
+        
+        // Preparar FormData igual ao sistema original
+        const formData = new FormData();
+        formData.append('audioFile', file);
+        formData.append('genre', genreKey);
+        formData.append('mode', 'genre');
+        
+        updateModalProgress(30, '⬆️ Enviando arquivo para análise...');
+        
+        // Chamar API backend
+        const response = await fetch('/api/audio/analyze', {
+            method: 'POST',
+            body: formData
+        });
+        
+        updateModalProgress(60, '🧠 Processando no servidor...');
+        
+        if (!response.ok) {
+            throw new Error(`Erro na análise: ${response.status} - ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        updateModalProgress(90, '✅ Recebendo resultados...');
+        
+        // Salvar resultado e exibir
+        currentModalAnalysis = result;
+        
+        updateModalProgress(100, '🎉 Análise completa!');
+        
+        // Aguardar um pouco para UX
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        hideModalLoading();
+        displayModalResults(result);
+        
+        __dbg('✅ Análise via API backend concluída:', result);
+        
+    } catch (error) {
+        console.error('❌ Erro na análise via API:', error);
+        
+        // Em caso de erro, fazer fallback para análise local
+        __dbg('🔄 Erro na API, fazendo fallback para análise local...');
+        
+        // Resetar gênero para forçar modo local
+        const originalGenre = window.currentGenre;
+        window.currentGenre = null;
+        
+        try {
+            await handleGenreFileSelection(file);
+        } catch (fallbackError) {
+            console.error('❌ Erro também no fallback:', fallbackError);
+            alert('❌ Erro durante a análise. Tente novamente.');
+            hideModalLoading();
+        }
+        
+        // Restaurar gênero
+        window.currentGenre = originalGenre;
     }
 }
 
