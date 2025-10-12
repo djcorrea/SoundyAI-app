@@ -2878,29 +2878,25 @@ function displayModalResults(analysis) {
 
         // Layout com cards e KPIs, mantendo o container #modalTechnicalData
         const kpi = (value, label, cls='') => `
-            <div class="kpi enhanced-kpi ${cls}">
-                <div class="kpi-value enhanced-kpi-value">${value}</div>
-                <div class="kpi-label enhanced-kpi-label">${label}</div>
-                <div class="kpi-glow"></div>
+            <div class="kpi ${cls}">
+                <div class="kpi-value">${value}</div>
+                <div class="kpi-label">${label}</div>
             </div>`;
 
-        const scoreKpi = Number.isFinite(analysis.qualityOverall) ? kpi(Number(analysis.qualityOverall.toFixed(1)), 'SCORE GERAL', 'kpi-score enhanced-score') : '';
-        const timeKpi = Number.isFinite(analysis.processingMs) ? kpi(analysis.processingMs, 'TEMPO (MS)', 'kpi-time enhanced-time') : '';
+        const scoreKpi = Number.isFinite(analysis.qualityOverall) ? kpi(Number(analysis.qualityOverall.toFixed(1)), 'SCORE GERAL', 'kpi-score') : '';
+        const timeKpi = Number.isFinite(analysis.processingMs) ? kpi(analysis.processingMs, 'TEMPO (MS)', 'kpi-time') : '';
 
         const src = (k) => (analysis.technicalData?._sources && analysis.technicalData._sources[k]) ? ` data-src="${analysis.technicalData._sources[k]}" title="origem: ${analysis.technicalData._sources[k]}"` : '';
         const row = (label, valHtml, keyForSource=null) => {
             // Usar sistema de enhancement se disponível
-            const enhanced = ENHANCED_LABELS[label];
-            const enhancedLabel = enhanced ? 
-                `<span class="enhanced-label-main">${enhanced.label}</span>
-                 <span class="enhanced-label-tooltip" title="${enhanced.tooltip}">
-                     <span class="tooltip-icon">💡</span>
-                 </span>` : label;
+            const enhancedLabel = (typeof window !== 'undefined' && window.enhanceRowLabel) 
+                ? window.enhanceRowLabel(label, keyForSource) 
+                : label;
             
             return `
-                <div class="data-row enhanced-data-row"${keyForSource?src(keyForSource):''}>
-                    <span class="label enhanced-label">${enhancedLabel}</span>
-                    <span class="value enhanced-value">${valHtml}</span>
+                <div class="data-row"${keyForSource?src(keyForSource):''}>
+                    <span class="label">${enhancedLabel}</span>
+                    <span class="value">${valHtml}</span>
                 </div>`;
         };
 
@@ -3783,32 +3779,32 @@ function displayModalResults(analysis) {
         ` : '';
 
         technicalData.innerHTML = `
-            <div class="kpi-row enhanced-kpi-row">${scoreKpi}${timeKpi}</div>
+            <div class="kpi-row">${scoreKpi}${timeKpi}</div>
                 ${renderSmartSummary(analysis) }
-                    <div class="cards-grid enhanced-cards-grid">
-                        <div class="card enhanced-card">
-                    <div class="card-title enhanced-card-title">🎛️ Métricas Principais</div>
+                    <div class="cards-grid">
+                        <div class="card">
+                    <div class="card-title">🎛️ Métricas Principais</div>
                     ${col1}
                 </div>
-                        <div class="card enhanced-card">
-                    <div class="card-title enhanced-card-title">🎧 Análise Estéreo & Espectral</div>
+                        <div class="card">
+                    <div class="card-title">🎧 Análise Estéreo & Espectral</div>
                     ${col2}
                 </div>
-                        <div class="card enhanced-card">
-                    <div class="card-title enhanced-card-title">🏆 Scores & Diagnóstico</div>
+                        <div class="card">
+                    <div class="card-title">🏆 Scores & Diagnóstico</div>
                     ${scoreRows}
                     ${col3}
                 </div>
-                        <div class="card enhanced-card">
-                            <div class="card-title enhanced-card-title">🧠 Métricas Avançadas</div>
+                        <div class="card">
+                            <div class="card-title">🧠 Métricas Avançadas</div>
                             ${advancedMetricsCard()}
                         </div>
-                        <div class="card enhanced-card card-span-2">
-                            <div class="card-title enhanced-card-title">⚠️ Problemas Técnicos</div>
+                        <div class="card card-span-2">
+                            <div class="card-title">⚠️ Problemas Técnicos</div>
                             ${techProblems()}
                         </div>
-                        <div class="card enhanced-card card-span-2">
-                            <div class="card-title enhanced-card-title">🩺 Diagnóstico & Sugestões</div>
+                        <div class="card card-span-2">
+                            <div class="card-title">🩺 Diagnóstico & Sugestões</div>
                             ${diagCard()}
                         </div>
             </div>
@@ -3816,14 +3812,6 @@ function displayModalResults(analysis) {
     
     try { renderReferenceComparisons(analysis); } catch(e){ console.warn('ref compare fail', e);}    
         try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ console.warn('validation controls fail', e); }
-    
-    // 🎨 APLICAR MELHORIAS VISUAIS APÓS RENDERIZAÇÃO
-    setTimeout(() => {
-        enhanceExistingLabels();
-        injectEnhancedStyles();
-        addModalAnimations();
-    }, 100);
-    
     __dbg('📊 Resultados exibidos no modal');
 }
 
@@ -4341,118 +4329,6 @@ function injectRefGenreStyles() {
     document.head.appendChild(style);
 }
 
-// 🎨 SISTEMA DE LABELS MELHORADAS
-const ENHANCED_LABELS = {
-    'Peak (máximo)': {
-        label: '🎯 Pico Máximo',
-        description: 'O valor mais alto encontrado no áudio',
-        tooltip: 'Pico de amplitude - indica se há risco de distorção'
-    },
-    'RMS': {
-        label: '📊 Volume RMS',
-        description: 'Volume médio percebido',
-        tooltip: 'Root Mean Square - representa o volume médio da música'
-    },
-    'DR': {
-        label: '🎭 Faixa Dinâmica',
-        description: 'Variação entre alto e baixo',
-        tooltip: 'Dynamic Range - diferença entre partes altas e baixas'
-    },
-    'Fator de Crista': {
-        label: '⚡ Fator de Impacto (Crest)',
-        description: 'Relaciona pico com volume médio',
-        tooltip: 'Indica o quanto o áudio tem "pegada" e impacto'
-    },
-    'Pico Real (dBTP)': {
-        label: '🔥 Pico Máximo (dBTP)',
-        description: 'Pico real considerando interpolação',
-        tooltip: 'True Peak - medição mais precisa para evitar clipping digital'
-    },
-    'Loudness Integrado (LUFS)': {
-        label: '🔊 Volume Médio (LUFS)',
-        description: 'Volume percebido pelo ouvido humano',
-        tooltip: 'Loudness Unit Full Scale - padrão para streaming'
-    },
-    'Faixa de Loudness – LRA (LU)': {
-        label: '🌊 Variação de Volume',
-        description: 'Quanto o volume varia na música',
-        tooltip: 'Loudness Range - indica dinâmica de volume'
-    },
-    'Correlação': {
-        label: '🎧 Correlação Estéreo',
-        description: 'Relação entre canais L/R',
-        tooltip: 'Valores negativos indicam problemas de fase'
-    },
-    'Largura': {
-        label: '📐 Largura Estéreo',
-        description: 'Amplitude da imagem estéreo',
-        tooltip: 'Stereo Width - indica o quão "largo" soa o áudio'
-    },
-    'Balance': {
-        label: '⚖️ Balanço L/R',
-        description: 'Equilíbrio entre esquerda/direita',
-        tooltip: 'Balance Left/Right - deve estar próximo de zero'
-    },
-    'Mono Compat.': {
-        label: '📻 Compatibilidade Mono',
-        description: 'Como soa em sistemas mono',
-        tooltip: 'Compatibility - importante para rádios e celulares'
-    },
-    'Centroide': {
-        label: '🎼 Centro Tonal',
-        description: 'Frequência central do timbre',
-        tooltip: 'Spectral Centroid - indica se o som é mais grave ou agudo'
-    },
-    'Rolloff (85%)': {
-        label: '📈 Limite de Agudos',
-        description: 'Onde os agudos começam a diminuir',
-        tooltip: 'Spectral Rolloff - frequência onde 85% da energia se concentra'
-    },
-    'Flux': {
-        label: '🌊 Variação Timbral',
-        description: 'Mudanças no timbre ao longo do tempo',
-        tooltip: 'Spectral Flux - indica o quanto o timbre varia'
-    },
-    'Flatness': {
-        label: '📏 Uniformidade Espectral',
-        description: 'Distribuição uniforme de frequências',
-        tooltip: 'Spectral Flatness - 0=tonal, 1=ruído branco'
-    }
-};
-
-// 🎨 SISTEMA DE TOOLTIPS MELHORADOS
-function createEnhancedTooltip(text, description = '', icon = '💡') {
-    return `<div class="enhanced-tooltip-container">
-        <span class="enhanced-label-text">${text}</span>
-        <div class="enhanced-tooltip">
-            <span class="tooltip-icon">${icon}</span>
-            <div class="tooltip-content">
-                <div class="tooltip-description">${description}</div>
-            </div>
-        </div>
-    </div>`;
-}
-
-// 🎨 FUNÇÃO PARA MELHORAR LABELS EXISTENTES
-function enhanceExistingLabels() {
-    // Aplicar melhorias aos labels existentes sem quebrar funcionalidade
-    const dataRows = document.querySelectorAll('.data-row .label');
-    dataRows.forEach(labelEl => {
-        const originalText = labelEl.textContent.trim();
-        const enhanced = ENHANCED_LABELS[originalText];
-        
-        if (enhanced) {
-            labelEl.innerHTML = `
-                <span class="enhanced-label-main">${enhanced.label}</span>
-                <span class="enhanced-label-tooltip" title="${enhanced.tooltip}">
-                    <span class="tooltip-icon">💡</span>
-                </span>
-            `;
-            labelEl.classList.add('enhanced-label');
-        }
-    });
-}
-
 // 🤖 Enviar análise para chat
 window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
     __dbg('🎯 BOTÃO CLICADO: Pedir Ajuda à IA');
@@ -4690,319 +4566,7 @@ function showTemporaryFeedback(message) {
     }, 3000);
 }
 
-// 🎨 SISTEMA DE ESTILOS MELHORADOS
-function injectEnhancedStyles() {
-    if (document.getElementById('enhancedModalStyles')) return; // Já injetado
-    
-    const style = document.createElement('style');
-    style.id = 'enhancedModalStyles';
-    style.textContent = `
-    /* ====== ENHANCED MODAL VISUAL IMPROVEMENTS ====== */
-    
-    /* KPI Melhorados */
-    .enhanced-kpi {
-        position: relative;
-        background: linear-gradient(135deg, 
-            rgba(0, 212, 255, 0.08) 0%, 
-            rgba(124, 77, 255, 0.12) 50%, 
-            rgba(255, 0, 255, 0.08) 100%);
-        backdrop-filter: blur(25px);
-        border: 1px solid rgba(0, 212, 255, 0.2);
-        border-radius: 20px;
-        box-shadow: 
-            0 8px 32px rgba(0, 212, 255, 0.1),
-            0 0 0 1px rgba(255, 255, 255, 0.05),
-            inset 0 1px 0 rgba(255, 255, 255, 0.1);
-        overflow: hidden;
-        transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-    }
-    
-    .enhanced-kpi::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 3px;
-        background: linear-gradient(90deg, #00d4ff, #7c4dff, #ff00ff);
-        opacity: 0.8;
-    }
-    
-    .enhanced-kpi:hover {
-        transform: translateY(-8px) scale(1.02);
-        border-color: rgba(0, 212, 255, 0.4);
-        box-shadow: 
-            0 20px 60px rgba(0, 212, 255, 0.15),
-            0 0 80px rgba(124, 77, 255, 0.1),
-            0 0 0 1px rgba(255, 255, 255, 0.1);
-    }
-    
-    .enhanced-kpi-value {
-        background: linear-gradient(135deg, #00d4ff, #7c4dff);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        filter: drop-shadow(0 0 20px rgba(0, 212, 255, 0.3));
-        font-weight: 900;
-        letter-spacing: -1px;
-    }
-    
-    .enhanced-kpi-label {
-        color: rgba(255, 255, 255, 0.9);
-        font-weight: 600;
-        text-shadow: 0 0 10px rgba(0, 212, 255, 0.2);
-    }
-    
-    /* Cards Melhorados */
-    .enhanced-card {
-        background: linear-gradient(135deg, 
-            rgba(15, 12, 30, 0.9) 0%, 
-            rgba(25, 20, 40, 0.8) 50%, 
-            rgba(15, 12, 30, 0.9) 100%);
-        backdrop-filter: blur(30px);
-        border: 1px solid rgba(0, 212, 255, 0.15);
-        border-radius: 24px;
-        box-shadow: 
-            0 12px 40px rgba(0, 0, 0, 0.4),
-            0 0 0 1px rgba(255, 255, 255, 0.03),
-            inset 0 1px 0 rgba(255, 255, 255, 0.08);
-        transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .enhanced-card::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, 
-            transparent, 
-            rgba(0, 212, 255, 0.03), 
-            transparent);
-        animation: cardShimmer 4s infinite;
-    }
-    
-    .enhanced-card:hover {
-        transform: translateY(-6px);
-        border-color: rgba(0, 212, 255, 0.3);
-        box-shadow: 
-            0 20px 60px rgba(0, 0, 0, 0.6),
-            0 0 80px rgba(0, 212, 255, 0.1),
-            0 0 0 1px rgba(255, 255, 255, 0.08);
-    }
-    
-    .enhanced-card-title {
-        background: linear-gradient(135deg, #00d4ff, #7c4dff);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        filter: drop-shadow(0 0 15px rgba(0, 212, 255, 0.2));
-        font-weight: 800;
-        position: relative;
-    }
-    
-    /* Data Rows Melhoradas */
-    .enhanced-data-row {
-        background: rgba(0, 212, 255, 0.02);
-        border-radius: 12px;
-        margin: 8px 0;
-        padding: 16px 18px;
-        border: 1px solid rgba(0, 212, 255, 0.08);
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .enhanced-data-row::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        height: 2px;
-        background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.4), transparent);
-        opacity: 0;
-        transition: opacity 0.3s ease;
-    }
-    
-    .enhanced-data-row:hover {
-        background: rgba(0, 212, 255, 0.05);
-        border-color: rgba(0, 212, 255, 0.2);
-        transform: translateX(8px);
-    }
-    
-    .enhanced-data-row:hover::before {
-        opacity: 1;
-    }
-    
-    /* Labels Melhoradas */
-    .enhanced-label {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-    
-    .enhanced-label-main {
-        color: rgba(255, 255, 255, 0.95);
-        font-weight: 600;
-        font-size: 15px;
-    }
-    
-    .enhanced-label-tooltip {
-        opacity: 0.7;
-        cursor: help;
-        transition: all 0.3s ease;
-        font-size: 12px;
-    }
-    
-    .enhanced-label-tooltip:hover {
-        opacity: 1;
-        transform: scale(1.2);
-    }
-    
-    .tooltip-icon {
-        filter: drop-shadow(0 0 8px rgba(255, 215, 0, 0.3));
-    }
-    
-    /* Values Melhoradas */
-    .enhanced-value {
-        background: linear-gradient(135deg, #00d4ff, #00ff92);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        font-weight: 700;
-        font-size: 16px;
-        filter: drop-shadow(0 0 10px rgba(0, 212, 255, 0.2));
-    }
-    
-    /* Animações */
-    @keyframes cardShimmer {
-        0% { left: -100%; }
-        50% { left: 100%; }
-        100% { left: 100%; }
-    }
-    
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(30px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    /* Cards Grid Melhorada */
-    .enhanced-cards-grid {
-        gap: 24px;
-        margin-top: 32px;
-    }
-    
-    .enhanced-cards-grid .enhanced-card {
-        animation: fadeInUp 0.6s ease forwards;
-    }
-    
-    .enhanced-cards-grid .enhanced-card:nth-child(1) { animation-delay: 0.1s; }
-    .enhanced-cards-grid .enhanced-card:nth-child(2) { animation-delay: 0.2s; }
-    .enhanced-cards-grid .enhanced-card:nth-child(3) { animation-delay: 0.3s; }
-    .enhanced-cards-grid .enhanced-card:nth-child(4) { animation-delay: 0.4s; }
-    .enhanced-cards-grid .enhanced-card:nth-child(5) { animation-delay: 0.5s; }
-    .enhanced-cards-grid .enhanced-card:nth-child(6) { animation-delay: 0.6s; }
-    
-    /* Score específico */
-    .enhanced-score {
-        background: linear-gradient(135deg, 
-            rgba(255, 215, 0, 0.1) 0%, 
-            rgba(255, 193, 7, 0.15) 50%, 
-            rgba(255, 215, 0, 0.1) 100%);
-        border-color: rgba(255, 215, 0, 0.3);
-    }
-    
-    .enhanced-score .enhanced-kpi-value {
-        background: linear-gradient(135deg, #ffd700, #ffb300);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        filter: drop-shadow(0 0 20px rgba(255, 215, 0, 0.4));
-    }
-    
-    /* Time específico */
-    .enhanced-time {
-        background: linear-gradient(135deg, 
-            rgba(76, 175, 80, 0.1) 0%, 
-            rgba(104, 159, 56, 0.15) 50%, 
-            rgba(76, 175, 80, 0.1) 100%);
-        border-color: rgba(76, 175, 80, 0.3);
-    }
-    
-    .enhanced-time .enhanced-kpi-value {
-        background: linear-gradient(135deg, #4caf50, #689f38);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-        filter: drop-shadow(0 0 20px rgba(76, 175, 80, 0.4));
-    }
-    
-    /* Responsivo */
-    @media (max-width: 768px) {
-        .enhanced-kpi {
-            padding: 20px 16px;
-        }
-        
-        .enhanced-card {
-            padding: 20px 16px;
-            border-radius: 16px;
-        }
-        
-        .enhanced-data-row {
-            padding: 12px 14px;
-            margin: 6px 0;
-        }
-        
-        .enhanced-label-main {
-            font-size: 14px;
-        }
-        
-        .enhanced-value {
-            font-size: 15px;
-        }
-    }
-    `;
-    
-    document.head.appendChild(style);
-}
-
-// 🎨 ADICIONAR ANIMAÇÕES AO MODAL
-function addModalAnimations() {
-    // Adicionar fade-in suave aos cards
-    const cards = document.querySelectorAll('.enhanced-card');
-    cards.forEach((card, index) => {
-        card.style.opacity = '0';
-        card.style.transform = 'translateY(20px)';
-        
-        setTimeout(() => {
-            card.style.transition = 'all 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-            card.style.opacity = '1';
-            card.style.transform = 'translateY(0)';
-        }, 100 + (index * 100));
-    });
-    
-    // Adicionar efeito hover melhorado aos KPIs
-    const kpis = document.querySelectorAll('.enhanced-kpi');
-    kpis.forEach(kpi => {
-        kpi.addEventListener('mouseenter', function() {
-            this.style.transform = 'translateY(-8px) scale(1.02)';
-        });
-        
-        kpi.addEventListener('mouseleave', function() {
-            this.style.transform = 'translateY(0) scale(1)';
-        });
-    });
-}
+__dbg('🎵 Audio Analyzer Integration Script carregado!');
 
 // Inicializar quando a página carregar
 document.addEventListener('DOMContentLoaded', function() {
