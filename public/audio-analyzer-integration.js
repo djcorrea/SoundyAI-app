@@ -1622,6 +1622,10 @@ function selectGenre(genreKey) {
         return;
     }
     
+    // 🎯 SIMPLE: Salvar gênero selecionado globalmente
+    window.currentGenre = genreKey;
+    __dbg(`✅ Gênero salvo globalmente: ${genreKey}`);
+    
     // Fechar modal de seleção de gênero
     closeGenreSelectionModal();
     
@@ -1634,7 +1638,7 @@ function selectGenre(genreKey) {
         currentAnalysisMode = 'genre';
         openAnalysisModalForMode('genre');
         
-        __dbg(`✅ Gênero ${genreKey} aplicado e modal de análise aberto`);
+        __dbg(`✅ Gênero ${genreKey} aplicado e modal de análise aberto - pronto para upload`);
     }).catch(error => {
         console.error('Erro ao aplicar seleção de gênero:', error);
         alert('Erro ao carregar dados do gênero selecionado. Tente novamente.');
@@ -1889,7 +1893,37 @@ function setupAudioModal() {
         });
     }
     
-    // File input change event
+    // 🎯 SOLUÇÃO SIMPLES: Interceptar clique no botão de upload para mostrar modal de gênero PRIMEIRO
+    const uploadButton = document.querySelector('label[for="modalAudioFileInput"]');
+    if (uploadButton) {
+        uploadButton.addEventListener('click', (e) => {
+            // Se ainda não selecionou um gênero, mostrar o modal primeiro
+            if (!window.currentGenre) {
+                e.preventDefault(); // Impedir abertura do seletor de arquivo
+                e.stopPropagation();
+                __dbg('🎯 Abrindo modal de gênero antes do upload...');
+                
+                // Abrir modal de gênero
+                if (typeof window.openGenreSelectionModal === 'function') {
+                    window.openGenreSelectionModal();
+                } else if (typeof window.emergencyOpenGenreModal === 'function') {
+                    window.emergencyOpenGenreModal();
+                } else {
+                    // Fallback manual
+                    const modal = document.getElementById('genreSelectionModal');
+                    if (modal) {
+                        modal.style.display = 'flex';
+                        modal.setAttribute('aria-hidden', 'false');
+                    }
+                }
+                return false;
+            }
+            // Se já selecionou gênero, deixar o upload acontecer normalmente
+            __dbg('✅ Gênero já selecionado:', window.currentGenre, '- permitindo upload');
+        });
+    }
+    
+    // File input change event (só executa quando arquivo é realmente selecionado)
     fileInput.addEventListener('change', (e) => {
         __dbg('📁 File input change triggered');
         if (e.target.files.length > 0) {
