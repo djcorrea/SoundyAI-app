@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <title>SoundyAI - Mentor Virtual</title>
     <link rel="stylesheet" href="style.css?v=20250810">
-    <link rel="stylesheet" href="audio-analyzer.css?v=20250810">
+    <link rel="stylesheet" href="audio-analyzer.css?v=20251012&fix=1">
     <link rel="stylesheet" href="music-button-below-chat.css?v=20250810">
     <link rel="stylesheet" href="friendly-labels.css?v=20250817">
     <link rel="stylesheet" href="image-upload-styles.css?v=20241219">
@@ -249,7 +249,7 @@
                 
                 <div class="mode-selection-options">
                     <!-- Opção: Análise por Gênero (atual) -->
-                    <button class="mode-option-btn" id="genreModeBtn" onclick="window.openGenreSelectionModal ? window.openGenreSelectionModal() : console.error('Função não carregada ainda')">
+                    <button class="mode-option-btn" id="genreModeBtn">
                         <div class="mode-option-icon">🎼</div>
                         <div class="mode-option-content">
                             <h4>Por Gênero Musical</h4>
@@ -364,7 +364,7 @@
                 <span style="font-size:12px;opacity:.8;">Gênero:</span>
                 <span id="selectedGenreLabel" style="font-size:12px;padding:4px 8px;border-radius:6px;background:#1f2b40;color:#fff;">-</span>
                 <span id="audioRefStatus" style="font-size:11px;padding:2px 6px;border-radius:4px;background:#1f2b40;opacity:.9;">Carregando referências...</span>
-                <button onclick="window.openGenreSelectionModal ? window.openGenreSelectionModal() : console.error('Função não carregada')" style="font-size:11px;padding:2px 8px;border-radius:4px;background:#0d6efd;color:#fff;border:none;cursor:pointer;">Alterar</button>
+                <button id="changeGenreBtn" style="font-size:11px;padding:2px 8px;border-radius:4px;background:#0d6efd;color:#fff;border:none;cursor:pointer;">Alterar</button>
             </div>
             
             <!-- Progress Steps para Modo Referência -->
@@ -629,7 +629,7 @@
             forceActivate();
         });
     </script>
-    <script src="audio-analyzer-integration.js?v=20250823k&final_fix=1724440500" defer></script>
+    <script src="audio-analyzer-integration.js?v=20251012&emergency_fix=2" defer></script>
     
     <!-- Inicializar Audio Analyzer -->
     <script>

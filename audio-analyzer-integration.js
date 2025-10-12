@@ -1,6 +1,68 @@
 // 🎵 AUDIO ANALYZER INTEGRATION
 // Conecta o sistema de análise de áudio com o chat existente
 
+// 🔧 FUNÇÃO EMERGENCIAL PARA MODAL DE GÊNERO - SEMPRE DISPONÍVEL
+window.emergencyOpenGenreModal = function() {
+    console.log('🚨 FUNÇÃO EMERGENCIAL: Tentando abrir modal de gênero...');
+    const modal = document.getElementById('genreSelectionModal');
+    if (modal) {
+        modal.style.display = 'flex';
+        modal.setAttribute('aria-hidden', 'false');
+        console.log('✅ Modal aberto via função emergencial');
+    } else {
+        console.error('❌ Modal de gênero não encontrado!');
+    }
+};
+
+// 🧪 FUNÇÃO DE TESTE PARA MODAL
+window.testGenreModal = function() {
+    console.log('🧪 TESTE: Verificando sistema de modal de gênero...');
+    console.log('Modal existe:', !!document.getElementById('genreSelectionModal'));
+    console.log('Botão existe:', !!document.getElementById('genreModeBtn'));
+    console.log('Função openGenreSelectionModal existe:', typeof window.openGenreSelectionModal);
+    console.log('Função emergencial existe:', typeof window.emergencyOpenGenreModal);
+    
+    // Tentar abrir o modal
+    try {
+        window.emergencyOpenGenreModal();
+    } catch (e) {
+        console.error('Erro no teste:', e);
+    }
+};
+
+// 🎵 CONFIGURAÇÃO EMERGENCIAL DE EVENTOS - EXECUTAR IMEDIATAMENTE
+(function() {
+    const setupEmergencyEvents = function() {
+        const btn = document.getElementById('genreModeBtn');
+        if (btn && !btn.hasAttribute('data-emergency-setup')) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('🚨 CLIQUE EMERGENCIAL detectado!');
+                window.emergencyOpenGenreModal();
+            });
+            btn.setAttribute('data-emergency-setup', 'true');
+            console.log('🚨 Listener emergencial configurado!');
+        }
+    };
+    
+    // Tentar configurar imediatamente
+    setupEmergencyEvents();
+    
+    // Tentar novamente quando DOM carregar
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', setupEmergencyEvents);
+    }
+    
+    // Fallback com intervalos
+    let attempts = 0;
+    const interval = setInterval(() => {
+        setupEmergencyEvents();
+        attempts++;
+        if (attempts > 10) clearInterval(interval);
+    }, 500);
+})();
+
 // 🎯 CARREGAR SISTEMA UNIFICADO CORRIGIDO - Versão com todas as correções
 if (typeof window !== 'undefined' && !window.suggestionSystem) {
     const script = document.createElement('script');
@@ -1255,6 +1317,35 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeAudioAnalyzerIntegration();
 });
 
+// Expor funções críticas imediatamente para evitar timing issues
+if (typeof window !== 'undefined') {
+    // Funções expostas com fallback seguro
+    window.openGenreSelectionModal = function() {
+        if (typeof openGenreSelectionModal === 'function') {
+            openGenreSelectionModal();
+        } else {
+            console.warn('openGenreSelectionModal not yet loaded, retrying...');
+            setTimeout(() => window.openGenreSelectionModal(), 100);
+        }
+    };
+    
+    window.closeGenreSelectionModal = function() {
+        if (typeof closeGenreSelectionModal === 'function') {
+            closeGenreSelectionModal();
+        } else {
+            console.warn('closeGenreSelectionModal not yet loaded');
+        }
+    };
+    
+    window.selectGenre = function(genre) {
+        if (typeof selectGenre === 'function') {
+            selectGenre(genre);
+        } else {
+            console.warn('selectGenre not yet loaded');
+        }
+    };
+}
+
 
 function initializeAudioAnalyzerIntegration() {
     if (__audioIntegrationInitialized) {
@@ -1311,18 +1402,16 @@ function initializeAudioAnalyzerIntegration() {
         if (!window.PROD_AI_REF_GENRE && saved) window.PROD_AI_REF_GENRE = saved;
     } catch {}
 
-    const genreSelect = document.getElementById('audioRefGenreSelect');
-    if (genreSelect) {
-        // Popular dinamicamente a partir do manifesto, mantendo fallback
-        loadGenreManifest().then(() => {
-            populateGenreSelect(__genreManifest);
-            // Listener de mudança (garantir apenas um)
-            genreSelect.onchange = () => applyGenreSelection(genreSelect.value);
-            // Aplicar seleção atual
-            const selected = genreSelect.value || window.PROD_AI_REF_GENRE;
-            applyGenreSelection(selected);
-        });
-    }
+    // Carregar manifesto de gêneros para uso interno (sem select)
+    loadGenreManifest().then(() => {
+        __dbg('✅ Manifesto de gêneros carregado');
+        // Se há gênero pré-selecionado via URL/localStorage, aplicar
+        const preselectedGenre = window.PROD_AI_REF_GENRE;
+        if (preselectedGenre) {
+            applyGenreSelection(preselectedGenre);
+            updateSelectedGenreDisplay(preselectedGenre);
+        }
+    });
 
     // Botão de análise de música (novo design)
     const musicAnalysisBtn = document.getElementById('musicAnalysisBtn');
@@ -1338,6 +1427,79 @@ function initializeAudioAnalyzerIntegration() {
 
     // Aplicar estilos aprimorados ao seletor de gênero
     try { injectRefGenreStyles(); } catch(e) { /* silencioso */ }
+    
+    // Tornar as funções novas acessíveis globalmente (substituindo wrappers)
+    window.openGenreSelectionModal = openGenreSelectionModal;
+    window.closeGenreSelectionModal = closeGenreSelectionModal;
+    window.selectGenre = selectGenre;
+    window.updateSelectedGenreDisplay = updateSelectedGenreDisplay;
+    
+// 🎵 Event listeners para botões de gênero - VERSÃO ULTRA ROBUSTA
+function setupGenreButtonListeners() {
+    __dbg('� Configurando listeners de gênero...');
+    
+    // Botão principal "Por Gênero Musical"
+    const genreModeBtn = document.getElementById('genreModeBtn');
+    if (genreModeBtn) {
+        // Remover listeners antigos se existirem
+        genreModeBtn.replaceWith(genreModeBtn.cloneNode(true));
+        const newGenreModeBtn = document.getElementById('genreModeBtn');
+        
+        newGenreModeBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            __dbg('🎼 CLIQUE DETECTADO no botão de gênero principal!');
+            try {
+                openGenreSelectionModal();
+                __dbg('✅ Modal de gênero aberto com sucesso');
+            } catch (error) {
+                console.error('❌ Erro ao abrir modal de gênero:', error);
+            }
+        });
+        __dbg('✅ Listener configurado para botão principal de gênero');
+    } else {
+        __dbg('⚠️ Botão principal de gênero não encontrado');
+    }
+    
+    // Botão "Alterar" 
+    const changeGenreBtn = document.getElementById('changeGenreBtn');
+    if (changeGenreBtn) {
+        // Remover listeners antigos se existirem
+        changeGenreBtn.replaceWith(changeGenreBtn.cloneNode(true));
+        const newChangeGenreBtn = document.getElementById('changeGenreBtn');
+        
+        newChangeGenreBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            __dbg('🔄 CLIQUE DETECTADO no botão alterar gênero!');
+            try {
+                openGenreSelectionModal();
+                __dbg('✅ Modal de gênero aberto com sucesso (via alterar)');
+            } catch (error) {
+                console.error('❌ Erro ao abrir modal de gênero via alterar:', error);
+            }
+        });
+        __dbg('✅ Listener configurado para botão alterar gênero');
+    } else {
+        __dbg('⚠️ Botão alterar gênero não encontrado');
+    }
+}
+    
+    __dbg('✅ Funções de modal de gênero expostas globalmente');
+    
+    // Configurar listeners de gênero com múltiplas tentativas
+    setupGenreButtonListeners();
+    
+    // Fallback 1: DOM Content Loaded
+    document.addEventListener('DOMContentLoaded', setupGenreButtonListeners);
+    
+    // Fallback 2: Window Load
+    window.addEventListener('load', setupGenreButtonListeners);
+    
+    // Fallback 3: Timeout
+    setTimeout(setupGenreButtonListeners, 500);
+    setTimeout(setupGenreButtonListeners, 1000);
+    setTimeout(setupGenreButtonListeners, 2000);
 }
 
 // 🎵 Abrir modal de análise de áudio
@@ -1351,8 +1513,8 @@ function openAudioModal() {
         // Abrir modal de seleção de modo primeiro
         openModeSelectionModal();
     } else {
-        // Comportamento original: modo gênero direto
-        selectAnalysisMode('genre');
+        // Comportamento novo: sempre abrir seleção de gênero para modo gênero
+        openGenreSelectionModal();
     }
 }
 
@@ -1409,8 +1571,123 @@ function selectAnalysisMode(mode) {
     // Fechar modal de seleção de modo
     closeModeSelectionModal();
     
-    // Abrir modal de análise configurado para o modo selecionado
-    openAnalysisModalForMode(mode);
+    if (mode === 'genre') {
+        // Para modo gênero, abrir modal de seleção de gênero primeiro
+        openGenreSelectionModal();
+    } else {
+        // Para outros modos, abrir modal de análise diretamente
+        openAnalysisModalForMode(mode);
+    }
+}
+
+// 🎼 NOVAS FUNÇÕES PARA MODAL DE SELEÇÃO DE GÊNERO
+
+function openGenreSelectionModal() {
+    __dbg('🎼 Abrindo modal de seleção de gênero...');
+    
+    const modal = document.getElementById('genreSelectionModal');
+    if (!modal) {
+        console.error('Modal de seleção de gênero não encontrado!');
+        return;
+    }
+    
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    
+    // Foco no primeiro card de gênero
+    const firstGenreCard = modal.querySelector('.genre-card');
+    if (firstGenreCard) {
+        firstGenreCard.focus();
+    }
+    
+    // Adicionar listener para ESC
+    document.addEventListener('keydown', handleGenreModalEscapeKey);
+    
+    // Trap focus no modal
+    trapFocus(modal);
+    
+    window.logReferenceEvent('genre_selection_modal_opened');
+}
+
+function closeGenreSelectionModal() {
+    __dbg('❌ Fechando modal de seleção de gênero...');
+    
+    const modal = document.getElementById('genreSelectionModal');
+    if (modal) {
+        modal.style.display = 'none';
+        modal.setAttribute('aria-hidden', 'true');
+        
+        // Remover listeners
+        document.removeEventListener('keydown', handleGenreModalEscapeKey);
+        
+        // Retornar foco para o botão que abriu o modal de modo
+        const genreModeBtn = document.getElementById('genreModeBtn');
+        if (genreModeBtn) {
+            genreModeBtn.focus();
+        }
+    }
+    
+    window.logReferenceEvent('genre_selection_modal_closed');
+}
+
+function handleGenreModalEscapeKey(event) {
+    if (event.key === 'Escape') {
+        closeGenreSelectionModal();
+    }
+}
+
+function selectGenre(genreKey) {
+    __dbg(`🎼 Gênero selecionado: ${genreKey}`);
+    
+    // Validar se o gênero existe
+    const validGenres = ['trance', 'eletronico', 'funk_mandela', 'funk_automotivo', 
+                        'funk_bruxaria', 'trap', 'eletrofunk', 'funk_consciente'];
+    
+    if (!validGenres.includes(genreKey)) {
+        console.error(`Gênero inválido: ${genreKey}`);
+        return;
+    }
+    
+    // Fechar modal de seleção de gênero
+    closeGenreSelectionModal();
+    
+    // Aplicar seleção de gênero (função existente)
+    applyGenreSelection(genreKey).then(() => {
+        // Atualizar display do gênero selecionado
+        updateSelectedGenreDisplay(genreKey);
+        
+        // Abrir modal de análise no modo gênero
+        currentAnalysisMode = 'genre';
+        openAnalysisModalForMode('genre');
+        
+        __dbg(`✅ Gênero ${genreKey} aplicado e modal de análise aberto`);
+    }).catch(error => {
+        console.error('Erro ao aplicar seleção de gênero:', error);
+        alert('Erro ao carregar dados do gênero selecionado. Tente novamente.');
+    });
+    
+    window.logReferenceEvent('genre_selected', { genre: genreKey });
+}
+
+function updateSelectedGenreDisplay(genreKey) {
+    const labelEl = document.getElementById('selectedGenreLabel');
+    if (labelEl) {
+        // Mapear chaves para labels amigáveis
+        const genreLabels = {
+            'trance': 'Trance',
+            'eletronico': 'Eletrônico',
+            'funk_mandela': 'Funk Mandela',
+            'funk_automotivo': 'Funk Automotivo',
+            'funk_bruxaria': 'Funk Bruxaria',
+            'trap': 'Trap',
+            'eletrofunk': 'Eletrofunk',
+            'funk_consciente': 'Funk Consciente'
+        };
+        
+        labelEl.textContent = genreLabels[genreKey] || genreKey;
+        labelEl.style.background = '#0d6efd';
+        labelEl.style.color = '#fff';
+    }
 }
 
 // 🎯 NOVO: Abrir modal de análise configurado para o modo
@@ -1447,14 +1724,14 @@ function configureModalForMode(mode) {
     const title = document.getElementById('audioModalTitle');
     const subtitle = document.getElementById('audioModalSubtitle');
     const modeIndicator = document.getElementById('audioModeIndicator');
-    const genreContainer = document.getElementById('audioRefGenreContainer');
+    const genreDisplay = document.getElementById('audioSelectedGenreDisplay');
     const progressSteps = document.getElementById('referenceProgressSteps');
     
     if (mode === 'genre') {
-        // Modo Gênero: comportamento original
+        // Modo Gênero: mostrar gênero selecionado
         if (title) title.textContent = '🎵 Análise de Áudio';
         if (subtitle) subtitle.style.display = 'none';
-        if (genreContainer) genreContainer.style.display = 'flex';
+        if (genreDisplay) genreDisplay.style.display = 'flex';
         if (progressSteps) progressSteps.style.display = 'none';
         
     } else if (mode === 'reference') {
@@ -1466,7 +1743,7 @@ function configureModalForMode(mode) {
                 modeIndicator.textContent = 'Comparação direta entre suas músicas';
             }
         }
-        if (genreContainer) genreContainer.style.display = 'none';
+        if (genreDisplay) genreDisplay.style.display = 'none';
         if (progressSteps) progressSteps.style.display = 'flex';
         
         // Configurar steps iniciais
