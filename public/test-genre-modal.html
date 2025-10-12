@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Modal de Gênero Musical</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #0c111b 0%, #1a1f2e 100%);
+            color: white;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            text-align: center;
+            padding: 40px 20px;
+        }
+        
+        .test-btn {
+            background: linear-gradient(135deg, #249dff, #1976d2);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 12px;
+            font-size: 18px;
+            cursor: pointer;
+            margin: 10px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .test-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(36, 157, 255, 0.3);
+        }
+        
+        .test-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 8px;
+            margin: 5px;
+            font-weight: bold;
+        }
+        
+        .status.success { background: rgba(0, 255, 0, 0.2); color: #00ff00; }
+        .status.error { background: rgba(255, 0, 0, 0.2); color: #ff6b6b; }
+        .status.info { background: rgba(0, 150, 255, 0.2); color: #4fc3f7; }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>🎵 Teste do Modal de Gênero Musical</h1>
+        <p>Esta página testa especificamente o novo modal de seleção de gênero implementado.</p>
+        
+        <div class="test-section">
+            <h2>🧪 Testes de Funcionalidade</h2>
+            
+            <button class="test-btn" onclick="testOpenGenreModal()">
+                🎨 Abrir Modal de Gênero
+            </button>
+            
+            <button class="test-btn" onclick="testFeatureFlag(false)">
+                🔧 Desativar Feature Flag
+            </button>
+            
+            <button class="test-btn" onclick="testFeatureFlag(true)">
+                ✅ Ativar Feature Flag
+            </button>
+            
+            <button class="test-btn" onclick="testApplyGenreSelection('funk_mandela')">
+                🔥 Testar Funk Mandela
+            </button>
+        </div>
+        
+        <div class="test-section">
+            <h2>📊 Status dos Componentes</h2>
+            <div id="statusContainer">
+                <span class="status info">Carregando...</span>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>📝 Log de Eventos</h2>
+            <div id="logContainer" style="text-align: left; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto;">
+                <div>Iniciando testes...</div>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h2>🎯 Instruções de Teste</h2>
+            <ol style="text-align: left;">
+                <li><strong>Teste Básico:</strong> Clique em "Abrir Modal de Gênero" e verifique se o modal aparece corretamente</li>
+                <li><strong>Teste de Gênero:</strong> No modal, clique em qualquer gênero e verifique se:
+                    <ul>
+                        <li>O modal fecha automaticamente</li>
+                        <li>A função applyGenreSelection é chamada</li>
+                        <li>O modal de upload se abre em seguida</li>
+                    </ul>
+                </li>
+                <li><strong>Teste de Feature Flag:</strong> Desative a feature flag e verifique se o sistema volta ao seletor antigo</li>
+                <li><strong>Teste de Teclado:</strong> Use ESC para fechar o modal</li>
+                <li><strong>Teste Responsivo:</strong> Redimensione a janela para testar a responsividade</li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- Carregar scripts principais -->
+    <script src="suggestion-text-generator.js" defer></script>
+    <script src="audio-analyzer-integration.js"></script>
+
+    <script>
+        // Função para adicionar logs
+        function addLog(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.style.color = type === 'error' ? '#ff6b6b' : 
+                                  type === 'success' ? '#4caf50' : 
+                                  type === 'warn' ? '#ffa726' : '#81c784';
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        // Função para atualizar status
+        function updateStatus() {
+            const statusContainer = document.getElementById('statusContainer');
+            const statuses = [];
+
+            // Verificar se as funções existem
+            if (typeof openGenreModal === 'function') {
+                statuses.push('<span class="status success">openGenreModal ✓</span>');
+            } else {
+                statuses.push('<span class="status error">openGenreModal ✗</span>');
+            }
+
+            if (typeof applyGenreSelection === 'function') {
+                statuses.push('<span class="status success">applyGenreSelection ✓</span>');
+            } else {
+                statuses.push('<span class="status error">applyGenreSelection ✗</span>');
+            }
+
+            if (document.getElementById('newGenreModal')) {
+                statuses.push('<span class="status success">Modal HTML ✓</span>');
+            } else {
+                statuses.push('<span class="status error">Modal HTML ✗</span>');
+            }
+
+            if (window.FEATURE_NEW_GENRE_MODAL) {
+                statuses.push('<span class="status success">Feature Flag ON ✓</span>');
+            } else {
+                statuses.push('<span class="status info">Feature Flag OFF</span>');
+            }
+
+            statusContainer.innerHTML = statuses.join(' ');
+        }
+
+        // Funções de teste
+        function testOpenGenreModal() {
+            addLog('Testando abertura do modal de gênero...');
+            try {
+                if (typeof openGenreModal === 'function') {
+                    openGenreModal();
+                    addLog('Modal aberto com sucesso!', 'success');
+                } else {
+                    addLog('Função openGenreModal não encontrada!', 'error');
+                }
+            } catch (error) {
+                addLog(`Erro ao abrir modal: ${error.message}`, 'error');
+            }
+        }
+
+        function testFeatureFlag(enable) {
+            addLog(`${enable ? 'Ativando' : 'Desativando'} feature flag...`);
+            window.FEATURE_NEW_GENRE_MODAL = enable;
+            updateStatus();
+            addLog(`Feature flag ${enable ? 'ativada' : 'desativada'}!`, 'success');
+        }
+
+        function testApplyGenreSelection(genre) {
+            addLog(`Testando seleção do gênero: ${genre}`);
+            try {
+                if (typeof applyGenreSelection === 'function') {
+                    applyGenreSelection(genre);
+                    addLog(`Gênero ${genre} aplicado com sucesso!`, 'success');
+                } else {
+                    addLog('Função applyGenreSelection não encontrada!', 'error');
+                }
+            } catch (error) {
+                addLog(`Erro ao aplicar gênero: ${error.message}`, 'error');
+            }
+        }
+
+        // Interceptar logs do console para mostrar na página
+        const originalLog = console.log;
+        const originalWarn = console.warn;
+        const originalError = console.error;
+
+        console.log = function(...args) {
+            if (args[0] && args[0].includes && args[0].includes('[GENRE_MODAL]')) {
+                addLog(args.join(' '), 'info');
+            }
+            originalLog.apply(console, args);
+        };
+
+        console.warn = function(...args) {
+            if (args[0] && args[0].includes && args[0].includes('[GENRE_MODAL]')) {
+                addLog(args.join(' '), 'warn');
+            }
+            originalWarn.apply(console, args);
+        };
+
+        console.error = function(...args) {
+            if (args[0] && args[0].includes && args[0].includes('[GENRE_MODAL]')) {
+                addLog(args.join(' '), 'error');
+            }
+            originalError.apply(console, args);
+        };
+
+        // Atualizar status quando a página carregar
+        document.addEventListener('DOMContentLoaded', function() {
+            addLog('Página de teste carregada');
+            updateStatus();
+        });
+
+        // Verificar periodicamente se os scripts carregaram
+        let checkInterval = setInterval(function() {
+            updateStatus();
+            if (typeof openGenreModal === 'function' && typeof applyGenreSelection === 'function') {
+                addLog('Todos os scripts principais carregados!', 'success');
+                clearInterval(checkInterval);
+            }
+        }, 500);
+
+        // Limitar verificações a 10 segundos
+        setTimeout(() => {
+            clearInterval(checkInterval);
+            addLog('Timeout de verificação dos scripts', 'warn');
+        }, 10000);
+    </script>
+</body>
+</html>

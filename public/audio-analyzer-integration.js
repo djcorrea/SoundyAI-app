@@ -1635,6 +1635,9 @@ function initializeAudioAnalyzerIntegration() {
 
     // Aplicar estilos aprimorados ao seletor de gênero
     try { injectRefGenreStyles(); } catch(e) { /* silencioso */ }
+    
+    // 🆕 Inicializar Modal de Gênero Musical
+    try { initGenreModal(); } catch(e) { console.warn('Falha ao inicializar modal de gênero:', e); }
 }
 
 // 🎵 Abrir modal de análise de áudio
@@ -1710,9 +1713,158 @@ function selectAnalysisMode(mode) {
     openAnalysisModalForMode(mode);
 }
 
-// 🎯 NOVO: Abrir modal de análise configurado para o modo
+// � NOVO MODAL DE GÊNERO MUSICAL - Sistema completo
+// Feature flag para controlar ativação
+window.FEATURE_NEW_GENRE_MODAL = true; // Definir como false para usar seletor antigo
+
+// 🎵 Funções do Modal de Gênero Musical
+function openGenreModal() {
+    __dbg('[GENRE_MODAL] Abrindo modal de seleção de gênero...');
+    
+    const modal = document.getElementById('newGenreModal');
+    if (!modal) {
+        console.error('[GENRE_MODAL] Modal não encontrado no DOM');
+        return;
+    }
+    
+    // Injetar estilos se ainda não foi feito
+    injectGenreModalStyles();
+    
+    // Mostrar modal
+    modal.classList.remove('hidden');
+    modal.setAttribute('aria-hidden', 'false');
+    
+    // Foco no primeiro botão de gênero
+    const firstGenreCard = modal.querySelector('.genre-card');
+    if (firstGenreCard) {
+        firstGenreCard.focus();
+    }
+    
+    // Adicionar listeners de teclado
+    modal.addEventListener('keydown', handleGenreModalKeydown);
+    
+    __dbg('[GENRE_MODAL] Modal aberto com sucesso');
+}
+
+function closeGenreModal() {
+    __dbg('[GENRE_MODAL] Fechando modal de seleção de gênero...');
+    
+    const modal = document.getElementById('newGenreModal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.setAttribute('aria-hidden', 'true');
+        
+        // Remover listeners
+        modal.removeEventListener('keydown', handleGenreModalKeydown);
+    }
+    
+    __dbg('[GENRE_MODAL] Modal fechado');
+}
+
+function handleGenreModalKeydown(e) {
+    if (e.key === 'Escape') {
+        closeGenreModal();
+    }
+}
+
+// 🎯 Inicialização do Modal de Gênero
+function initGenreModal() {
+    __dbg('[GENRE_MODAL] Inicializando sistema do modal...');
+    
+    const modal = document.getElementById('newGenreModal');
+    if (!modal) {
+        console.warn('[GENRE_MODAL] Modal não encontrado, inicialização cancelada');
+        return;
+    }
+    
+    const genreCards = modal.querySelectorAll('.genre-card');
+    const closeBtn = modal.querySelector('[data-close]');
+    
+    // 🎯 Handler de clique nos gêneros
+    genreCards.forEach(card => {
+        card.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const genre = card.dataset.genre;
+            if (!genre) {
+                console.error('[GENRE_MODAL] Gênero não definido no card');
+                return;
+            }
+            
+            __dbg('[GENRE_MODAL] Gênero selecionado:', genre);
+            
+            // 🔥 REUTILIZAR EXATAMENTE: Chamar applyGenreSelection como especificado
+            if (typeof applyGenreSelection === 'function') {
+                applyGenreSelection(genre);
+            } else {
+                console.error('[GENRE_MODAL] applyGenreSelection não está disponível');
+                return;
+            }
+            
+            // 🔥 Fechar modal conforme especificação
+            closeGenreModal();
+            
+            // 🔥 CONTINUAR FLUXO: Abrir modal de upload automaticamente
+            setTimeout(() => {
+                openAnalysisModalForGenre();
+            }, 200); // Pequeno delay para suavizar transição
+        });
+    });
+    
+    // Handler do botão fechar
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeGenreModal);
+    }
+    
+    // Fechar clicando no fundo
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeGenreModal();
+        }
+    });
+    
+    __dbg('[GENRE_MODAL] Sistema inicializado com sucesso');
+}
+
+// 🎯 Abrir modal de análise após seleção de gênero
+function openAnalysisModalForGenre() {
+    __dbg('[GENRE_MODAL] Abrindo modal de análise para gênero selecionado...');
+    
+    // Usar o fluxo normal do modal de análise
+    window.currentAnalysisMode = 'genre';
+    
+    const modal = document.getElementById('audioAnalysisModal');
+    if (!modal) {
+        console.error('[GENRE_MODAL] Modal de análise não encontrado');
+        return;
+    }
+    
+    // Configurar modal para modo gênero
+    configureModalForMode('genre');
+    
+    modal.style.display = 'flex';
+    resetModalState();
+    modal.setAttribute('tabindex', '-1');
+    modal.focus();
+    
+    __dbg('[GENRE_MODAL] Modal de análise aberto');
+}
+
+// Expor funções globalmente
+window.openGenreModal = openGenreModal;
+window.closeGenreModal = closeGenreModal;
+
+// �🎯 NOVO: Abrir modal de análise configurado para o modo
 function openAnalysisModalForMode(mode) {
     __dbg(`🎵 Abrindo modal de análise para modo: ${mode}`);
+    
+    // 🆕 FEATURE FLAG: Verificar se deve usar novo modal de gênero
+    if (mode === 'genre' && window.FEATURE_NEW_GENRE_MODAL === true) {
+        __dbg('🎨 Usando novo modal de gênero musical');
+        openGenreModal();
+        return;
+    }
     
     // CORREÇÃO CRÍTICA: Definir window.currentAnalysisMode sempre que o modal for aberto
     window.currentAnalysisMode = mode;
@@ -6542,6 +6694,241 @@ function injectRefGenreStyles() {
         select.parentNode.insertBefore(wrap, select);
         wrap.appendChild(select);
     }
+    document.head.appendChild(style);
+}
+
+// 🎨 Estilos do Modal de Gênero Musical - Glassmorphism + Glitch
+function injectGenreModalStyles() {
+    if (document.getElementById('genreModalStyles')) return; // já injetado
+    const style = document.createElement('style');
+    style.id = 'genreModalStyles';
+    style.textContent = `
+    /* 🎵 Novo Modal de Gênero Musical - Glassmorphism */
+    .genre-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        z-index: 10000;
+        opacity: 1;
+        transition: opacity 0.3s ease;
+    }
+
+    .genre-modal.hidden {
+        display: none;
+        opacity: 0;
+    }
+
+    .genre-modal-container {
+        max-width: 720px;
+        width: 90%;
+        max-height: 90vh;
+        background: rgba(13, 20, 33, 0.85);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 20px;
+        padding: 40px 32px 32px 32px;
+        text-align: center;
+        position: relative;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        box-shadow: 
+            0 20px 40px rgba(0, 0, 0, 0.6),
+            0 0 0 1px rgba(255, 255, 255, 0.05),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        transform: scale(1);
+        transition: transform 0.2s ease;
+    }
+
+    /* Título com efeito glitch sutil */
+    .genre-modal-title {
+        font-family: 'Orbitron', 'Rajdhani', 'Montserrat Alternates', sans-serif;
+        font-size: 2.2rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        color: #ffffff;
+        margin-bottom: 12px;
+        position: relative;
+        letter-spacing: 2px;
+        text-shadow: 0 0 20px rgba(36, 157, 255, 0.3);
+    }
+
+    .genre-modal-title.glitch::before,
+    .genre-modal-title.glitch::after {
+        content: attr(data-text);
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        opacity: 0.8;
+        pointer-events: none;
+    }
+
+    .genre-modal-title.glitch::before {
+        color: #ff3366;
+        animation: glitch-1 2s infinite alternate-reverse;
+        clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%);
+    }
+
+    .genre-modal-title.glitch::after {
+        color: #33ccff;
+        animation: glitch-2 3s infinite alternate-reverse;
+        clip-path: polygon(0 55%, 100% 55%, 100% 100%, 0 100%);
+    }
+
+    @keyframes glitch-1 {
+        0% { transform: translateX(-2px); }
+        100% { transform: translateX(2px); }
+    }
+
+    @keyframes glitch-2 {
+        0% { transform: translateX(2px); }
+        100% { transform: translateX(-2px); }
+    }
+
+    .genre-modal-subtitle {
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 1rem;
+        margin-bottom: 32px;
+        font-weight: 400;
+    }
+
+    /* Grid de gêneros */
+    .genre-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 16px;
+        margin-bottom: 32px;
+    }
+
+    .genre-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        padding: 20px 16px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 16px;
+        color: #ffffff;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+    }
+
+    .genre-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, 
+            transparent, 
+            rgba(255, 255, 255, 0.1), 
+            transparent);
+        transition: left 0.6s ease;
+    }
+
+    .genre-card:hover {
+        background: rgba(255, 255, 255, 0.12);
+        border-color: rgba(36, 157, 255, 0.4);
+        transform: scale(1.05) translateY(-2px);
+        box-shadow: 
+            0 10px 25px rgba(0, 0, 0, 0.4),
+            0 0 0 1px rgba(36, 157, 255, 0.2),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    .genre-card:hover::before {
+        left: 100%;
+    }
+
+    .genre-card:active {
+        transform: scale(0.98) translateY(1px);
+    }
+
+    .genre-icon {
+        font-size: 2rem;
+        filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.3));
+    }
+
+    .genre-name {
+        font-weight: 700;
+        letter-spacing: 0.5px;
+    }
+
+    /* Botão fechar */
+    .genre-modal-close {
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: rgba(255, 255, 255, 0.8);
+        padding: 12px 24px;
+        border-radius: 12px;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-weight: 500;
+    }
+
+    .genre-modal-close:hover {
+        background: rgba(255, 255, 255, 0.15);
+        color: #ffffff;
+        border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    /* Responsividade */
+    @media (max-width: 768px) {
+        .genre-modal-container {
+            width: 95%;
+            padding: 32px 20px 24px 20px;
+        }
+
+        .genre-modal-title {
+            font-size: 1.8rem;
+        }
+
+        .genre-grid {
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+        }
+
+        .genre-card {
+            padding: 16px 12px;
+            gap: 8px;
+        }
+
+        .genre-icon {
+            font-size: 1.5rem;
+        }
+
+        .genre-name {
+            font-size: 0.85rem;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .genre-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
+        .genre-card {
+            padding: 14px 10px;
+        }
+    }
+    `;
     document.head.appendChild(style);
 }
 
