@@ -1,0 +1,662 @@
+/* 🎯 AI MODAL COMPONENTS - Componentes para Resultados de Análise
+   Data: 11 de outubro de 2025
+   Foco: Cards, KPIs, Barras, Diagnósticos e Sugestões
+   Mantém compatibilidade com seletores existentes
+*/
+
+/* ============================================
+   📊 CONTAINER DE RESULTADOS
+   ============================================ */
+
+.analysis-modal .ai-results,
+.analysis-modal .audio-results {
+  padding: var(--ai-space-xl) var(--ai-space-3xl) var(--ai-space-3xl);
+  max-height: calc(95vh - 80px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ai-primary) transparent;
+}
+
+.analysis-modal .ai-results::-webkit-scrollbar {
+  width: 6px;
+}
+
+.analysis-modal .ai-results::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.analysis-modal .ai-results::-webkit-scrollbar-thumb {
+  background: var(--ai-primary);
+  border-radius: 3px;
+}
+
+.analysis-modal .ai-results-header,
+.analysis-modal .results-header {
+  text-align: center;
+  margin-bottom: var(--ai-space-3xl);
+}
+
+.analysis-modal .ai-results-title,
+.analysis-modal .results-header h4 {
+  color: var(--ai-text);
+  font-family: var(--ai-font-display);
+  font-size: var(--ai-text-3xl);
+  font-weight: var(--ai-font-bold);
+  margin-bottom: var(--ai-space-lg);
+  text-shadow: var(--ai-text-glow);
+}
+
+/* Toggle Modo Iniciante/Avançado */
+.analysis-modal .ai-mode-toggle {
+  display: inline-flex;
+  background: var(--ai-glass);
+  border: 1px solid var(--ai-border);
+  border-radius: var(--ai-radius-full);
+  padding: var(--ai-space-xs);
+  margin: var(--ai-space-lg) 0;
+}
+
+.analysis-modal .ai-mode-toggle-btn {
+  padding: var(--ai-space-sm) var(--ai-space-lg);
+  border: none;
+  background: transparent;
+  color: var(--ai-text-muted);
+  font-size: var(--ai-text-sm);
+  font-weight: var(--ai-font-medium);
+  border-radius: var(--ai-radius-full);
+  cursor: pointer;
+  transition: all var(--ai-duration-fast) var(--ai-ease-out);
+  min-height: var(--ai-btn-height-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--ai-space-sm);
+}
+
+.analysis-modal .ai-mode-toggle-btn.ai-active {
+  background: var(--ai-gradient-primary);
+  color: var(--ai-text);
+  box-shadow: var(--ai-glow-primary);
+}
+
+.analysis-modal .ai-mode-toggle-btn:hover:not(.ai-active) {
+  color: var(--ai-text);
+  background: var(--ai-glass-light);
+}
+
+/* ============================================
+   🏆 SCORE CARD PRINCIPAL
+   ============================================ */
+
+.analysis-modal .ai-score-card {
+  background: var(--ai-gradient-glass);
+  border: 2px solid var(--ai-border);
+  border-radius: var(--ai-radius-xl);
+  padding: var(--ai-space-3xl);
+  margin-bottom: var(--ai-space-3xl);
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  backdrop-filter: blur(12px);
+  box-shadow: var(--ai-shadow-lg);
+}
+
+.analysis-modal .ai-score-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--ai-gradient-primary);
+  border-radius: var(--ai-radius-xl) var(--ai-radius-xl) 0 0;
+}
+
+.analysis-modal .ai-score-value {
+  font-family: var(--ai-font-display);
+  font-size: clamp(3rem, 8vw, 4.5rem);
+  font-weight: var(--ai-font-black);
+  color: var(--ai-primary);
+  text-shadow: var(--ai-glow-primary);
+  margin-bottom: var(--ai-space-sm);
+  line-height: 1;
+}
+
+.analysis-modal .ai-score-label {
+  color: var(--ai-text-muted);
+  font-size: var(--ai-text-lg);
+  font-weight: var(--ai-font-medium);
+  margin-bottom: var(--ai-space-lg);
+}
+
+.analysis-modal .ai-score-context {
+  color: var(--ai-text);
+  font-size: var(--ai-text-base);
+  font-weight: var(--ai-font-medium);
+}
+
+/* ============================================
+   📊 BARRAS DE DIMENSÕES
+   ============================================ */
+
+.analysis-modal .ai-dimensions-panel {
+  background: var(--ai-glass);
+  border: 1px solid var(--ai-border-light);
+  border-radius: var(--ai-radius-lg);
+  padding: var(--ai-space-xl);
+  margin-bottom: var(--ai-space-xl);
+  backdrop-filter: blur(8px);
+}
+
+.analysis-modal .ai-dimensions-title {
+  color: var(--ai-text);
+  font-family: var(--ai-font-display);
+  font-size: var(--ai-text-xl);
+  font-weight: var(--ai-font-semibold);
+  margin-bottom: var(--ai-space-lg);
+  text-align: center;
+}
+
+.analysis-modal .ai-dimension-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ai-space-lg);
+  margin-bottom: var(--ai-space-lg);
+  padding: var(--ai-space-md);
+  border-radius: var(--ai-radius);
+  transition: all var(--ai-duration-fast) var(--ai-ease-out);
+}
+
+.analysis-modal .ai-dimension-bar:hover {
+  background: var(--ai-glass-light);
+}
+
+.analysis-modal .ai-dimension-icon {
+  font-size: var(--ai-text-2xl);
+  width: 40px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.analysis-modal .ai-dimension-info {
+  flex: 1;
+  min-width: 120px;
+}
+
+.analysis-modal .ai-dimension-label {
+  color: var(--ai-text);
+  font-weight: var(--ai-font-medium);
+  font-size: var(--ai-text-base);
+  margin-bottom: var(--ai-space-xs);
+}
+
+.analysis-modal .ai-dimension-value {
+  color: var(--ai-text-muted);
+  font-size: var(--ai-text-sm);
+  font-family: var(--ai-font-mono);
+}
+
+.analysis-modal .ai-dimension-progress {
+  flex: 2;
+  height: 12px;
+  background: var(--ai-glass);
+  border-radius: var(--ai-radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--ai-border-light);
+  position: relative;
+}
+
+.analysis-modal .ai-dimension-fill {
+  height: 100%;
+  border-radius: var(--ai-radius-sm);
+  transition: width var(--ai-duration-slow) var(--ai-ease-out);
+  position: relative;
+}
+
+.analysis-modal .ai-dimension-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: var(--ai-gradient-shimmer);
+  animation: ai-shimmer 2s infinite;
+}
+
+.analysis-modal .ai-dimension-status {
+  font-size: var(--ai-text-sm);
+  font-weight: var(--ai-font-semibold);
+  padding: var(--ai-space-xs) var(--ai-space-sm);
+  border-radius: var(--ai-radius);
+  min-width: 70px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/* Status colors para dimensões */
+.analysis-modal .ai-dimension-fill.ai-ideal {
+  background: var(--ai-gradient-success);
+  box-shadow: var(--ai-glow-success);
+}
+
+.analysis-modal .ai-dimension-status.ai-ideal {
+  background: var(--ai-glass-success);
+  color: var(--ai-success);
+  border: 1px solid rgba(43, 214, 135, 0.3);
+}
+
+.analysis-modal .ai-dimension-fill.ai-adjust {
+  background: var(--ai-gradient-warning);
+  box-shadow: var(--ai-glow-warning);
+}
+
+.analysis-modal .ai-dimension-status.ai-adjust {
+  background: var(--ai-glass-warning);
+  color: var(--ai-warning);
+  border: 1px solid rgba(255, 204, 0, 0.3);
+}
+
+.analysis-modal .ai-dimension-fill.ai-fix {
+  background: var(--ai-gradient-error);
+  box-shadow: var(--ai-glow-error);
+}
+
+.analysis-modal .ai-dimension-status.ai-fix {
+  background: var(--ai-glass-error);
+  color: var(--ai-error);
+  border: 1px solid rgba(255, 77, 109, 0.3);
+}
+
+/* ============================================
+   📈 GRID DE MÉTRICAS PRINCIPAIS
+   ============================================ */
+
+.analysis-modal .ai-metrics-grid {
+  display: grid;
+  gap: var(--ai-space-xl);
+  margin-bottom: var(--ai-space-3xl);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.analysis-modal .ai-metric-card {
+  background: var(--ai-glass);
+  border: 1px solid var(--ai-border-light);
+  border-radius: var(--ai-radius-lg);
+  padding: var(--ai-space-xl);
+  backdrop-filter: blur(8px);
+  transition: all var(--ai-duration-normal) var(--ai-ease-out);
+  position: relative;
+  overflow: hidden;
+}
+
+.analysis-modal .ai-metric-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--card-accent, var(--ai-primary));
+  border-radius: var(--ai-radius-lg) var(--ai-radius-lg) 0 0;
+}
+
+.analysis-modal .ai-metric-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--ai-border);
+  box-shadow: var(--ai-shadow);
+}
+
+.analysis-modal .ai-metric-title {
+  color: var(--ai-text);
+  font-family: var(--ai-font-display);
+  font-size: var(--ai-text-lg);
+  font-weight: var(--ai-font-semibold);
+  margin-bottom: var(--ai-space-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--ai-space-sm);
+}
+
+.analysis-modal .ai-metric-icon {
+  font-size: var(--ai-text-xl);
+}
+
+/* Cards específicos com cores */
+.analysis-modal .ai-metric-card.ai-loudness {
+  --card-accent: var(--ai-primary);
+}
+
+.analysis-modal .ai-metric-card.ai-frequency {
+  --card-accent: var(--ai-accent);
+}
+
+.analysis-modal .ai-metric-card.ai-stereo {
+  --card-accent: var(--ai-secondary);
+}
+
+.analysis-modal .ai-metric-card.ai-dynamics {
+  --card-accent: var(--ai-warning);
+}
+
+/* ============================================
+   📊 DATA ROWS (Linhas de dados)
+   ============================================ */
+
+.analysis-modal .ai-data-row,
+.analysis-modal .data-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--ai-space-md) 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all var(--ai-duration-fast) var(--ai-ease-out);
+  font-size: var(--ai-text-sm);
+}
+
+.analysis-modal .ai-data-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.analysis-modal .ai-data-row:hover {
+  background: var(--ai-glass-light);
+  border-radius: var(--ai-radius-sm);
+  padding-left: var(--ai-space-md);
+  padding-right: var(--ai-space-md);
+}
+
+.analysis-modal .ai-data-label,
+.analysis-modal .data-row .label {
+  color: var(--ai-text-muted);
+  font-weight: var(--ai-font-medium);
+  display: flex;
+  align-items: center;
+  gap: var(--ai-space-sm);
+}
+
+.analysis-modal .ai-data-value,
+.analysis-modal .data-row .value {
+  color: var(--ai-text);
+  font-weight: var(--ai-font-semibold);
+  font-family: var(--ai-font-mono);
+  letter-spacing: 0.5px;
+}
+
+/* Tooltips para data rows */
+.analysis-modal .ai-data-tooltip {
+  position: relative;
+  cursor: help;
+}
+
+.analysis-modal .ai-data-tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--ai-panel);
+  color: var(--ai-text);
+  padding: var(--ai-space-sm) var(--ai-space-md);
+  border-radius: var(--ai-radius);
+  font-size: var(--ai-text-xs);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--ai-duration-fast) var(--ai-ease-out);
+  z-index: var(--ai-z-tooltip);
+  border: 1px solid var(--ai-border);
+  box-shadow: var(--ai-shadow);
+  margin-bottom: var(--ai-space-xs);
+}
+
+.analysis-modal .ai-data-tooltip:hover::after {
+  opacity: 1;
+}
+
+/* ============================================
+   🎨 FREQUENCY BANDS (Bandas espectrais)
+   ============================================ */
+
+.analysis-modal .ai-frequency-panel {
+  background: var(--ai-glass);
+  border: 1px solid var(--ai-border-light);
+  border-radius: var(--ai-radius-lg);
+  padding: var(--ai-space-xl);
+  margin-bottom: var(--ai-space-xl);
+  backdrop-filter: blur(8px);
+}
+
+.analysis-modal .ai-frequency-title {
+  color: var(--ai-text);
+  font-family: var(--ai-font-display);
+  font-size: var(--ai-text-xl);
+  font-weight: var(--ai-font-semibold);
+  margin-bottom: var(--ai-space-lg);
+  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ai-space-sm);
+}
+
+.analysis-modal .ai-frequency-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--ai-space-md);
+}
+
+.analysis-modal .ai-frequency-band {
+  background: var(--ai-glass-light);
+  border: 1px solid var(--ai-border-light);
+  border-radius: var(--ai-radius);
+  padding: var(--ai-space-md);
+  text-align: center;
+  transition: all var(--ai-duration-normal) var(--ai-ease-out);
+  position: relative;
+  overflow: hidden;
+}
+
+.analysis-modal .ai-frequency-band:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--ai-shadow);
+}
+
+.analysis-modal .ai-frequency-name {
+  color: var(--ai-text-muted);
+  font-size: var(--ai-text-xs);
+  font-weight: var(--ai-font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: var(--ai-space-xs);
+}
+
+.analysis-modal .ai-frequency-range {
+  color: var(--ai-text-dark);
+  font-size: var(--ai-text-xs);
+  margin-bottom: var(--ai-space-sm);
+}
+
+.analysis-modal .ai-frequency-value {
+  color: var(--ai-text);
+  font-family: var(--ai-font-mono);
+  font-size: var(--ai-text-sm);
+  font-weight: var(--ai-font-bold);
+  margin-bottom: var(--ai-space-sm);
+}
+
+.analysis-modal .ai-frequency-status {
+  font-size: var(--ai-text-xs);
+  font-weight: var(--ai-font-semibold);
+  padding: var(--ai-space-xs) var(--ai-space-sm);
+  border-radius: var(--ai-radius-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* Status específicos para bandas */
+.analysis-modal .ai-frequency-band.ai-ideal {
+  border-color: var(--ai-success);
+  background: var(--ai-glass-success);
+}
+
+.analysis-modal .ai-frequency-band.ai-ideal .ai-frequency-status {
+  background: var(--ai-success);
+  color: var(--ai-bg);
+}
+
+.analysis-modal .ai-frequency-band.ai-adjust {
+  border-color: var(--ai-warning);
+  background: var(--ai-glass-warning);
+}
+
+.analysis-modal .ai-frequency-band.ai-adjust .ai-frequency-status {
+  background: var(--ai-warning);
+  color: var(--ai-bg);
+}
+
+.analysis-modal .ai-frequency-band.ai-fix {
+  border-color: var(--ai-error);
+  background: var(--ai-glass-error);
+}
+
+.analysis-modal .ai-frequency-band.ai-fix .ai-frequency-status {
+  background: var(--ai-error);
+  color: var(--ai-text);
+}
+
+/* ============================================
+   📱 RESPONSIVIDADE MOBILE-FIRST
+   ============================================ */
+
+/* Mobile Portrait (320-479px) */
+@media (max-width: 479px) {
+  .analysis-modal .ai-results,
+  .analysis-modal .audio-results {
+    padding: var(--ai-space-lg) var(--ai-space-md) var(--ai-space-xl);
+  }
+  
+  .analysis-modal .ai-results-title,
+  .analysis-modal .results-header h4 {
+    font-size: var(--ai-text-2xl);
+  }
+  
+  .analysis-modal .ai-score-card {
+    padding: var(--ai-space-xl) var(--ai-space-lg);
+    margin-bottom: var(--ai-space-xl);
+  }
+  
+  .analysis-modal .ai-score-value {
+    font-size: clamp(2.5rem, 12vw, 3.5rem);
+  }
+  
+  .analysis-modal .ai-metrics-grid {
+    grid-template-columns: 1fr;
+    gap: var(--ai-space-lg);
+  }
+  
+  .analysis-modal .ai-metric-card {
+    padding: var(--ai-space-lg);
+  }
+  
+  .analysis-modal .ai-dimension-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--ai-space-md);
+  }
+  
+  .analysis-modal .ai-dimension-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-width: auto;
+  }
+  
+  .analysis-modal .ai-frequency-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--ai-space-sm);
+  }
+  
+  .analysis-modal .ai-frequency-band {
+    padding: var(--ai-space-sm);
+  }
+  
+  .analysis-modal .ai-mode-toggle {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .analysis-modal .ai-mode-toggle-btn {
+    flex: 1;
+    justify-content: center;
+  }
+}
+
+/* Mobile Landscape (480-767px) */
+@media (min-width: 480px) and (max-width: 767px) {
+  .analysis-modal .ai-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .analysis-modal .ai-frequency-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Tablet (768px+) */
+@media (min-width: 768px) {
+  .analysis-modal .ai-frequency-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Desktop (1024px+) */
+@media (min-width: 1024px) {
+  .analysis-modal .ai-frequency-grid {
+    grid-template-columns: repeat(7, 1fr);
+  }
+}
+
+/* ============================================
+   ⚠️ ESTADOS ESPECIAIS
+   ============================================ */
+
+/* Modo iniciante (oculta detalhes técnicos) */
+.analysis-modal.ai-beginner-mode .ai-technical-details {
+  display: none;
+}
+
+.analysis-modal.ai-beginner-mode .ai-data-value {
+  font-family: var(--ai-font-primary);
+  letter-spacing: normal;
+}
+
+/* Modo loading para cards */
+.analysis-modal .ai-metric-card.ai-loading {
+  position: relative;
+  overflow: hidden;
+}
+
+.analysis-modal .ai-metric-card.ai-loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  right: 0;
+  bottom: 0;
+  background: var(--ai-gradient-shimmer);
+  animation: ai-shimmer 1.5s infinite;
+}
+
+/* Pulsação para elementos críticos */
+.analysis-modal .ai-critical-metric {
+  animation: ai-critical-pulse 2s infinite;
+}
+
+@keyframes ai-critical-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 23, 68, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(255, 23, 68, 0.1);
+  }
+}

@@ -1,0 +1,659 @@
+/* 🎨 AI MODAL CORE - Estilos Futuristas para Modal de Análise
+   Data: 11 de outubro de 2025
+   Compatibilidade: Mantém seletores existentes + adiciona novos
+   Escopo: .analysis-modal para evitar vazamentos
+   
+   IMPORTANTE: 
+   - NÃO remove seletores existentes
+   - Adiciona classes com prefixo .ai-
+   - Mantém IDs críticos intactos
+   - 100% compatível com JS existente
+*/
+
+/* ============================================
+   🌟 MODAL CONTAINER & OVERLAY
+   ============================================ */
+
+/* Overlay do modal (compatível com .audio-modal existente) */
+.analysis-modal.audio-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, 
+    rgba(13, 11, 26, 0.95) 0%,
+    rgba(24, 20, 52, 0.9) 50%,
+    rgba(13, 11, 26, 0.95) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: var(--ai-z-modal-backdrop);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--ai-space-lg);
+  animation: ai-modal-fade-in var(--ai-duration-normal) var(--ai-ease-out);
+}
+
+/* Container principal do modal */
+.analysis-modal .ai-modal-content,
+.analysis-modal .audio-modal-content {
+  background: linear-gradient(135deg, 
+    var(--ai-bg) 0%, 
+    var(--ai-panel) 40%, 
+    var(--ai-bg-light) 100%);
+  border: 2px solid var(--ai-border);
+  border-radius: var(--ai-radius-xl);
+  box-shadow: 
+    var(--ai-shadow-xl),
+    var(--ai-glow-primary),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  width: 100%;
+  max-width: var(--ai-modal-width);
+  max-height: 90vh;
+  overflow: hidden;
+  position: relative;
+  animation: ai-modal-scale-in var(--ai-duration-normal) var(--ai-ease-out);
+}
+
+/* Estados adaptativos do modal */
+.analysis-modal .ai-modal-content.ai-state-upload {
+  max-width: var(--ai-modal-width-sm);
+  max-height: 60vh;
+}
+
+.analysis-modal .ai-modal-content.ai-state-loading {
+  max-width: var(--ai-modal-width-sm);
+  max-height: 40vh;
+}
+
+.analysis-modal .ai-modal-content.ai-state-results {
+  max-width: var(--ai-modal-width-full);
+  max-height: 95vh;
+}
+
+/* ============================================
+   📝 HEADER DO MODAL
+   ============================================ */
+
+.analysis-modal .ai-modal-header,
+.analysis-modal .audio-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--ai-space-xl) var(--ai-space-3xl) var(--ai-space-lg);
+  border-bottom: 1px solid var(--ai-border-light);
+  background: linear-gradient(135deg, 
+    var(--ai-glass-primary) 0%,
+    var(--ai-glass) 100%);
+  backdrop-filter: blur(8px);
+  position: relative;
+}
+
+.analysis-modal .ai-modal-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--ai-gradient-primary);
+  border-radius: var(--ai-radius-xl) var(--ai-radius-xl) 0 0;
+}
+
+.analysis-modal .ai-modal-title,
+.analysis-modal .audio-modal-header h3 {
+  color: var(--ai-text);
+  font-family: var(--ai-font-display);
+  font-size: var(--ai-text-2xl);
+  font-weight: var(--ai-font-bold);
+  margin: 0;
+  text-shadow: var(--ai-text-glow);
+  display: flex;
+  align-items: center;
+  gap: var(--ai-space-md);
+}
+
+.analysis-modal .ai-modal-subtitle,
+.analysis-modal .audio-modal-subtitle {
+  color: var(--ai-text-muted);
+  font-size: var(--ai-text-sm);
+  margin-top: var(--ai-space-xs);
+  font-weight: var(--ai-font-medium);
+}
+
+.analysis-modal .ai-modal-close,
+.analysis-modal .audio-modal-close {
+  background: transparent;
+  border: 2px solid transparent;
+  color: var(--ai-text-muted);
+  font-size: var(--ai-text-2xl);
+  width: var(--ai-touch-target);
+  height: var(--ai-touch-target);
+  border-radius: var(--ai-radius);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--ai-duration-fast) var(--ai-ease-out);
+  position: relative;
+  overflow: hidden;
+}
+
+.analysis-modal .ai-modal-close::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--ai-glass);
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity var(--ai-duration-fast) var(--ai-ease-out);
+}
+
+.analysis-modal .ai-modal-close:hover {
+  color: var(--ai-text);
+  border-color: var(--ai-border);
+  transform: scale(1.05);
+}
+
+.analysis-modal .ai-modal-close:hover::before {
+  opacity: 1;
+}
+
+.analysis-modal .ai-modal-close:focus-visible {
+  outline: none;
+  box-shadow: var(--ai-focus-ring);
+}
+
+/* ============================================
+   📤 ÁREA DE UPLOAD
+   ============================================ */
+
+.analysis-modal .ai-upload-area,
+.analysis-modal .audio-upload-area {
+  padding: var(--ai-space-5xl) var(--ai-space-3xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.analysis-modal .ai-upload-content,
+.analysis-modal .upload-content {
+  text-align: center;
+  padding: var(--ai-space-5xl) var(--ai-space-3xl);
+  border: 2px dashed var(--ai-border);
+  border-radius: var(--ai-radius-lg);
+  background: var(--ai-glass);
+  backdrop-filter: blur(8px);
+  width: 100%;
+  max-width: 480px;
+  cursor: pointer;
+  transition: all var(--ai-duration-normal) var(--ai-ease-out);
+  position: relative;
+  overflow: hidden;
+}
+
+.analysis-modal .ai-upload-content::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  right: -2px;
+  bottom: -2px;
+  background: var(--ai-gradient-primary);
+  border-radius: var(--ai-radius-lg);
+  opacity: 0;
+  transition: opacity var(--ai-duration-normal) var(--ai-ease-out);
+  z-index: -1;
+}
+
+.analysis-modal .ai-upload-content:hover,
+.analysis-modal .ai-upload-content.ai-dragover {
+  border-color: var(--ai-primary);
+  background: var(--ai-glass-primary);
+  transform: translateY(-4px);
+  box-shadow: var(--ai-glow-primary);
+}
+
+.analysis-modal .ai-upload-content:hover::before,
+.analysis-modal .ai-upload-content.ai-dragover::before {
+  opacity: 1;
+  animation: ai-border-glow 2s infinite;
+}
+
+.analysis-modal .ai-upload-icon,
+.analysis-modal .upload-icon {
+  font-size: 4rem;
+  background: var(--ai-gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: var(--ai-space-xl);
+  display: block;
+  animation: ai-icon-pulse 3s ease-in-out infinite;
+}
+
+.analysis-modal .ai-upload-title,
+.analysis-modal .upload-content h4 {
+  color: var(--ai-text);
+  font-size: var(--ai-text-2xl);
+  font-weight: var(--ai-font-bold);
+  margin: 0 0 var(--ai-space-md) 0;
+  text-shadow: var(--ai-text-glow);
+}
+
+.analysis-modal .ai-upload-description,
+.analysis-modal .upload-content p {
+  color: var(--ai-text-muted);
+  font-size: var(--ai-text-base);
+  margin: var(--ai-space-md) 0;
+  line-height: var(--ai-leading-relaxed);
+}
+
+.analysis-modal .ai-upload-formats,
+.analysis-modal .supported-formats {
+  color: var(--ai-text-dark);
+  font-size: var(--ai-text-sm);
+  margin-top: var(--ai-space-lg);
+}
+
+.analysis-modal .ai-format-recommendation,
+.analysis-modal .format-recommendation {
+  color: var(--ai-success) !important;
+  font-size: var(--ai-text-sm) !important;
+  font-weight: var(--ai-font-medium);
+  background: var(--ai-glass-success);
+  padding: var(--ai-space-sm) var(--ai-space-md);
+  border-radius: var(--ai-radius);
+  border: 1px solid rgba(43, 214, 135, 0.2);
+  margin: var(--ai-space-md) 0 !important;
+  display: inline-block;
+}
+
+.analysis-modal .ai-upload-btn,
+.analysis-modal .upload-btn {
+  background: var(--ai-gradient-primary);
+  color: var(--ai-text);
+  border: none;
+  padding: var(--ai-space-lg) var(--ai-space-3xl);
+  border-radius: var(--ai-radius-full);
+  font-weight: var(--ai-font-bold);
+  font-size: var(--ai-text-lg);
+  cursor: pointer;
+  margin-top: var(--ai-space-xl);
+  min-height: var(--ai-btn-height-lg);
+  min-width: 200px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  transition: all var(--ai-duration-normal) var(--ai-ease-out);
+  box-shadow: var(--ai-glow-primary);
+  position: relative;
+  overflow: hidden;
+}
+
+.analysis-modal .ai-upload-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: var(--ai-gradient-shimmer);
+  transition: left 0.6s ease;
+}
+
+.analysis-modal .ai-upload-btn:hover {
+  background: var(--ai-gradient-accent);
+  transform: translateY(-2px);
+  box-shadow: var(--ai-glow-accent);
+}
+
+.analysis-modal .ai-upload-btn:hover::before {
+  left: 100%;
+}
+
+.analysis-modal .ai-upload-btn:active {
+  transform: translateY(0);
+}
+
+.analysis-modal .ai-upload-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--ai-focus-ring-accent);
+}
+
+/* ============================================
+   ⏳ LOADING STATE
+   ============================================ */
+
+.analysis-modal .ai-loading,
+.analysis-modal .audio-loading {
+  padding: var(--ai-space-5xl) var(--ai-space-3xl);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ai-space-xl);
+  min-height: 280px;
+  justify-content: center;
+  background: var(--ai-glass);
+  backdrop-filter: blur(12px);
+  border-radius: var(--ai-radius-lg);
+  margin: var(--ai-space-xl);
+}
+
+.analysis-modal .ai-loading-spinner,
+.analysis-modal .loading-spinner {
+  width: 60px;
+  height: 60px;
+  border: 4px solid var(--ai-glass);
+  border-top: 4px solid var(--ai-primary);
+  border-right: 4px solid var(--ai-accent);
+  border-bottom: 4px solid var(--ai-secondary);
+  border-radius: 50%;
+  animation: ai-spin 1.5s linear infinite;
+  position: relative;
+  box-shadow: var(--ai-glow-primary);
+}
+
+.analysis-modal .ai-loading-spinner::after,
+.analysis-modal .loading-spinner::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 30px;
+  height: 30px;
+  border: 2px solid transparent;
+  border-top: 2px solid var(--ai-accent);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: ai-spin-reverse 1s linear infinite;
+}
+
+.analysis-modal .ai-progress-text,
+.analysis-modal #audioProgressText {
+  color: var(--ai-text);
+  font-size: var(--ai-text-lg);
+  font-weight: var(--ai-font-semibold);
+  margin: 0;
+  text-shadow: var(--ai-text-glow);
+  animation: ai-text-glow 2s ease-in-out infinite;
+}
+
+.analysis-modal .ai-progress-bar,
+.analysis-modal .progress-bar {
+  width: 100%;
+  max-width: 400px;
+  height: 8px;
+  background: var(--ai-glass);
+  border-radius: var(--ai-radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--ai-border-light);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.analysis-modal .ai-progress-fill,
+.analysis-modal .progress-fill {
+  height: 100%;
+  background: var(--ai-gradient-loading);
+  border-radius: var(--ai-radius-sm);
+  transition: width var(--ai-duration-slow) var(--ai-ease-out);
+  position: relative;
+  box-shadow: var(--ai-glow-accent);
+  animation: ai-loading-gradient 2s linear infinite;
+}
+
+.analysis-modal .ai-progress-fill::after,
+.analysis-modal .progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: var(--ai-gradient-shimmer);
+  animation: ai-shimmer 2s infinite;
+}
+
+/* ============================================
+   🎬 ANIMAÇÕES
+   ============================================ */
+
+@keyframes ai-modal-fade-in {
+  from { 
+    opacity: 0;
+  }
+  to { 
+    opacity: 1;
+  }
+}
+
+@keyframes ai-modal-scale-in {
+  from { 
+    opacity: 0;
+    transform: scale(0.95) translateY(20px);
+  }
+  to { 
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes ai-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes ai-spin-reverse {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(-360deg); }
+}
+
+@keyframes ai-shimmer {
+  from { left: -100%; }
+  to { left: 100%; }
+}
+
+@keyframes ai-border-glow {
+  0%, 100% { 
+    background-position: 0% 50%;
+  }
+  50% { 
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes ai-icon-pulse {
+  0%, 100% { 
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  50% { 
+    transform: scale(1.05);
+    filter: brightness(1.2);
+  }
+}
+
+@keyframes ai-text-glow {
+  0%, 100% { 
+    text-shadow: var(--ai-text-glow);
+    color: var(--ai-text);
+  }
+  50% { 
+    text-shadow: var(--ai-text-glow-accent);
+    color: var(--ai-accent);
+  }
+}
+
+@keyframes ai-loading-gradient {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ============================================
+   📱 RESPONSIVIDADE MOBILE-FIRST
+   ============================================ */
+
+/* Mobile Portrait (320-479px) */
+@media (max-width: 479px) {
+  .analysis-modal.audio-modal {
+    padding: var(--ai-space-sm);
+    align-items: flex-start;
+    padding-top: 5vh;
+  }
+  
+  .analysis-modal .ai-modal-content,
+  .analysis-modal .audio-modal-content {
+    width: 100vw;
+    height: 100vh;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+    margin: 0;
+  }
+  
+  .analysis-modal .ai-modal-header,
+  .analysis-modal .audio-modal-header {
+    padding: var(--ai-space-lg) var(--ai-space-lg) var(--ai-space-md);
+  }
+  
+  .analysis-modal .ai-modal-title,
+  .analysis-modal .audio-modal-header h3 {
+    font-size: var(--ai-text-xl);
+  }
+  
+  .analysis-modal .ai-upload-area,
+  .analysis-modal .audio-upload-area {
+    padding: var(--ai-space-3xl) var(--ai-space-lg);
+    min-height: 240px;
+  }
+  
+  .analysis-modal .ai-upload-content,
+  .analysis-modal .upload-content {
+    padding: var(--ai-space-3xl) var(--ai-space-lg);
+  }
+  
+  .analysis-modal .ai-upload-icon,
+  .analysis-modal .upload-icon {
+    font-size: 3rem;
+    margin-bottom: var(--ai-space-lg);
+  }
+  
+  .analysis-modal .ai-upload-title,
+  .analysis-modal .upload-content h4 {
+    font-size: var(--ai-text-xl);
+  }
+  
+  .analysis-modal .ai-upload-btn,
+  .analysis-modal .upload-btn {
+    width: 100%;
+    max-width: 280px;
+    padding: var(--ai-space-md) var(--ai-space-xl);
+    font-size: var(--ai-text-base);
+  }
+  
+  .analysis-modal .ai-loading,
+  .analysis-modal .audio-loading {
+    padding: var(--ai-space-3xl) var(--ai-space-lg);
+    margin: var(--ai-space-lg);
+    min-height: 220px;
+  }
+  
+  .analysis-modal .ai-loading-spinner,
+  .analysis-modal .loading-spinner {
+    width: 48px;
+    height: 48px;
+    border-width: 3px;
+  }
+  
+  .analysis-modal .ai-progress-text,
+  .analysis-modal #audioProgressText {
+    font-size: var(--ai-text-base);
+  }
+}
+
+/* Mobile Landscape (480-767px) */
+@media (min-width: 480px) and (max-width: 767px) {
+  .analysis-modal.audio-modal {
+    padding: var(--ai-space-lg);
+  }
+  
+  .analysis-modal .ai-modal-content,
+  .analysis-modal .audio-modal-content {
+    max-width: 95vw;
+    max-height: 90vh;
+    border-radius: var(--ai-radius-lg);
+  }
+  
+  .analysis-modal .ai-modal-content.ai-state-upload {
+    max-width: 500px;
+  }
+  
+  .analysis-modal .ai-modal-content.ai-state-loading {
+    max-width: 480px;
+  }
+}
+
+/* Tablet (768px+) */
+@media (min-width: 768px) {
+  .analysis-modal .ai-modal-content.ai-state-results {
+    max-width: 900px;
+  }
+}
+
+/* Desktop (1024px+) */
+@media (min-width: 1024px) {
+  .analysis-modal .ai-modal-content.ai-state-results {
+    max-width: var(--ai-modal-width-full);
+  }
+}
+
+/* ============================================
+   🎯 ESTADOS ESPECIAIS
+   ============================================ */
+
+/* Estado de erro */
+.analysis-modal .ai-state-error .ai-upload-content {
+  border-color: var(--ai-error);
+  background: var(--ai-glass-error);
+}
+
+.analysis-modal .ai-state-error .ai-upload-icon {
+  background: linear-gradient(135deg, var(--ai-error), var(--ai-error-light));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Estado de sucesso */
+.analysis-modal .ai-state-success .ai-upload-content {
+  border-color: var(--ai-success);
+  background: var(--ai-glass-success);
+}
+
+/* Modo de alto contraste */
+@media (prefers-contrast: high) {
+  .analysis-modal .ai-modal-content,
+  .analysis-modal .audio-modal-content {
+    border: var(--ai-high-contrast-border);
+    background: var(--ai-high-contrast-bg);
+  }
+  
+  .analysis-modal .ai-modal-title,
+  .analysis-modal .ai-upload-title,
+  .analysis-modal .ai-progress-text {
+    color: var(--ai-high-contrast-text);
+    text-shadow: none;
+  }
+  
+  .analysis-modal .ai-upload-content {
+    border: var(--ai-high-contrast-border);
+    background: transparent;
+  }
+}

@@ -1,0 +1,685 @@
+/* 💡 AI MODAL SUGGESTIONS - Sistema de Sugestões e Diagnósticos
+   Data: 11 de outubro de 2025
+   Foco: Sugestões ordenadas, diagnósticos visuais e recomendações
+   Design ultra-futurista com máxima clareza para iniciantes
+*/
+
+/* ============================================
+   💡 PAINEL DE SUGESTÕES PRINCIPAL
+   ============================================ */
+
+.analysis-modal .ai-suggestions-panel {
+  background: var(--ai-glass);
+  border: 1px solid var(--ai-border-light);
+  border-radius: var(--ai-radius-xl);
+  padding: var(--ai-space-3xl);
+  margin-bottom: var(--ai-space-3xl);
+  backdrop-filter: blur(12px);
+  position: relative;
+  overflow: hidden;
+}
+
+.analysis-modal .ai-suggestions-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--ai-gradient-primary);
+  border-radius: var(--ai-radius-xl) var(--ai-radius-xl) 0 0;
+}
+
+.analysis-modal .ai-suggestions-header {
+  text-align: center;
+  margin-bottom: var(--ai-space-3xl);
+}
+
+.analysis-modal .ai-suggestions-title {
+  color: var(--ai-text);
+  font-family: var(--ai-font-display);
+  font-size: var(--ai-text-3xl);
+  font-weight: var(--ai-font-bold);
+  margin-bottom: var(--ai-space-lg);
+  text-shadow: var(--ai-text-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ai-space-md);
+}
+
+.analysis-modal .ai-suggestions-subtitle {
+  color: var(--ai-text-muted);
+  font-size: var(--ai-text-lg);
+  font-weight: var(--ai-font-medium);
+  max-width: 600px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+/* Filtros de prioridade */
+.analysis-modal .ai-priority-filters {
+  display: flex;
+  justify-content: center;
+  gap: var(--ai-space-sm);
+  margin-bottom: var(--ai-space-3xl);
+  flex-wrap: wrap;
+}
+
+.analysis-modal .ai-priority-filter {
+  padding: var(--ai-space-sm) var(--ai-space-lg);
+  border: 1px solid var(--ai-border-light);
+  background: var(--ai-glass-light);
+  color: var(--ai-text-muted);
+  border-radius: var(--ai-radius-full);
+  font-size: var(--ai-text-sm);
+  font-weight: var(--ai-font-medium);
+  cursor: pointer;
+  transition: all var(--ai-duration-fast) var(--ai-ease-out);
+  min-height: var(--ai-btn-height-sm);
+  display: flex;
+  align-items: center;
+  gap: var(--ai-space-sm);
+}
+
+.analysis-modal .ai-priority-filter:hover {
+  background: var(--ai-glass);
+  border-color: var(--ai-border);
+  color: var(--ai-text);
+}
+
+.analysis-modal .ai-priority-filter.ai-active {
+  background: var(--ai-gradient-primary);
+  border-color: var(--ai-primary);
+  color: var(--ai-text);
+  box-shadow: var(--ai-glow-primary);
+}
+
+.analysis-modal .ai-priority-badge {
+  padding: var(--ai-space-xs) var(--ai-space-sm);
+  border-radius: var(--ai-radius);
+  font-size: var(--ai-text-xs);
+  font-weight: var(--ai-font-bold);
+  min-width: 20px;
+  text-align: center;
+}
+
+.analysis-modal .ai-priority-filter.ai-critical .ai-priority-badge {
+  background: var(--ai-error);
+  color: var(--ai-text);
+}
+
+.analysis-modal .ai-priority-filter.ai-important .ai-priority-badge {
+  background: var(--ai-warning);
+  color: var(--ai-bg);
+}
+
+.analysis-modal .ai-priority-filter.ai-recommended .ai-priority-badge {
+  background: var(--ai-accent);
+  color: var(--ai-bg);
+}
+
+.analysis-modal .ai-priority-filter.ai-optional .ai-priority-badge {
+  background: var(--ai-text-muted);
+  color: var(--ai-bg);
+}
+
+/* ============================================
+   📋 LISTA DE SUGESTÕES
+   ============================================ */
+
+.analysis-modal .ai-suggestions-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ai-space-xl);
+}
+
+.analysis-modal .ai-suggestion-card {
+  background: var(--ai-glass);
+  border: 1px solid var(--ai-border-light);
+  border-radius: var(--ai-radius-lg);
+  padding: var(--ai-space-xl);
+  position: relative;
+  transition: all var(--ai-duration-normal) var(--ai-ease-out);
+  backdrop-filter: blur(8px);
+  overflow: hidden;
+}
+
+.analysis-modal .ai-suggestion-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--ai-border);
+  box-shadow: var(--ai-shadow);
+}
+
+/* Borda lateral colorida por prioridade */
+.analysis-modal .ai-suggestion-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 5px;
+  background: var(--suggestion-color, var(--ai-primary));
+  border-radius: var(--ai-radius-lg) 0 0 var(--ai-radius-lg);
+}
+
+.analysis-modal .ai-suggestion-card.ai-critical {
+  --suggestion-color: var(--ai-error);
+  border-color: rgba(255, 77, 109, 0.3);
+}
+
+.analysis-modal .ai-suggestion-card.ai-important {
+  --suggestion-color: var(--ai-warning);
+  border-color: rgba(255, 204, 0, 0.3);
+}
+
+.analysis-modal .ai-suggestion-card.ai-recommended {
+  --suggestion-color: var(--ai-accent);
+  border-color: rgba(32, 227, 255, 0.3);
+}
+
+.analysis-modal .ai-suggestion-card.ai-optional {
+  --suggestion-color: var(--ai-text-muted);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* Header da sugestão */
+.analysis-modal .ai-suggestion-header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ai-space-lg);
+  margin-bottom: var(--ai-space-lg);
+}
+
+.analysis-modal .ai-suggestion-icon {
+  font-size: var(--ai-text-2xl);
+  color: var(--suggestion-color, var(--ai-primary));
+  flex-shrink: 0;
+  margin-top: var(--ai-space-xs);
+}
+
+.analysis-modal .ai-suggestion-content {
+  flex: 1;
+}
+
+.analysis-modal .ai-suggestion-title {
+  color: var(--ai-text);
+  font-family: var(--ai-font-display);
+  font-size: var(--ai-text-xl);
+  font-weight: var(--ai-font-semibold);
+  margin-bottom: var(--ai-space-sm);
+  line-height: 1.4;
+}
+
+.analysis-modal .ai-suggestion-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--ai-space-md);
+  margin-bottom: var(--ai-space-lg);
+  flex-wrap: wrap;
+}
+
+.analysis-modal .ai-suggestion-priority {
+  padding: var(--ai-space-xs) var(--ai-space-sm);
+  border-radius: var(--ai-radius);
+  font-size: var(--ai-text-xs);
+  font-weight: var(--ai-font-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.analysis-modal .ai-suggestion-priority.ai-critical {
+  background: var(--ai-glass-error);
+  color: var(--ai-error);
+  border: 1px solid rgba(255, 77, 109, 0.3);
+}
+
+.analysis-modal .ai-suggestion-priority.ai-important {
+  background: var(--ai-glass-warning);
+  color: var(--ai-warning);
+  border: 1px solid rgba(255, 204, 0, 0.3);
+}
+
+.analysis-modal .ai-suggestion-priority.ai-recommended {
+  background: var(--ai-glass-accent);
+  color: var(--ai-accent);
+  border: 1px solid rgba(32, 227, 255, 0.3);
+}
+
+.analysis-modal .ai-suggestion-priority.ai-optional {
+  background: var(--ai-glass-light);
+  color: var(--ai-text-muted);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.analysis-modal .ai-suggestion-category {
+  color: var(--ai-text-muted);
+  font-size: var(--ai-text-sm);
+  font-weight: var(--ai-font-medium);
+  display: flex;
+  align-items: center;
+  gap: var(--ai-space-xs);
+}
+
+.analysis-modal .ai-suggestion-difficulty {
+  padding: var(--ai-space-xs) var(--ai-space-sm);
+  border-radius: var(--ai-radius-full);
+  font-size: var(--ai-text-xs);
+  font-weight: var(--ai-font-medium);
+  background: var(--ai-glass-light);
+  color: var(--ai-text-muted);
+  border: 1px solid var(--ai-border-light);
+}
+
+/* Descrição da sugestão */
+.analysis-modal .ai-suggestion-description {
+  color: var(--ai-text);
+  font-size: var(--ai-text-base);
+  line-height: 1.7;
+  margin-bottom: var(--ai-space-lg);
+}
+
+.analysis-modal .ai-suggestion-description strong {
+  color: var(--ai-text);
+  font-weight: var(--ai-font-semibold);
+}
+
+.analysis-modal .ai-suggestion-description code {
+  background: var(--ai-glass-light);
+  color: var(--ai-accent);
+  padding: var(--ai-space-xs) var(--ai-space-sm);
+  border-radius: var(--ai-radius-sm);
+  font-family: var(--ai-font-mono);
+  font-size: 0.9em;
+}
+
+/* ============================================
+   🎯 SEÇÃO DE IMPACTO ESPERADO
+   ============================================ */
+
+.analysis-modal .ai-suggestion-impact {
+  background: var(--ai-glass-light);
+  border: 1px solid var(--ai-border-light);
+  border-radius: var(--ai-radius);
+  padding: var(--ai-space-lg);
+  margin-bottom: var(--ai-space-lg);
+}
+
+.analysis-modal .ai-impact-title {
+  color: var(--ai-text);
+  font-weight: var(--ai-font-semibold);
+  font-size: var(--ai-text-sm);
+  margin-bottom: var(--ai-space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--ai-space-sm);
+}
+
+.analysis-modal .ai-impact-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: var(--ai-space-md);
+}
+
+.analysis-modal .ai-impact-metric {
+  text-align: center;
+}
+
+.analysis-modal .ai-impact-value {
+  color: var(--suggestion-color, var(--ai-primary));
+  font-family: var(--ai-font-display);
+  font-size: var(--ai-text-xl);
+  font-weight: var(--ai-font-bold);
+  line-height: 1;
+  margin-bottom: var(--ai-space-xs);
+}
+
+.analysis-modal .ai-impact-label {
+  color: var(--ai-text-muted);
+  font-size: var(--ai-text-xs);
+  font-weight: var(--ai-font-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* ============================================
+   🔧 INSTRUÇÕES TÉCNICAS
+   ============================================ */
+
+.analysis-modal .ai-suggestion-instructions {
+  background: var(--ai-panel);
+  border: 1px solid var(--ai-border);
+  border-radius: var(--ai-radius);
+  padding: var(--ai-space-lg);
+  margin-bottom: var(--ai-space-lg);
+}
+
+.analysis-modal .ai-instructions-title {
+  color: var(--ai-text);
+  font-weight: var(--ai-font-semibold);
+  font-size: var(--ai-text-sm);
+  margin-bottom: var(--ai-space-md);
+  display: flex;
+  align-items: center;
+  gap: var(--ai-space-sm);
+}
+
+.analysis-modal .ai-instructions-steps {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.analysis-modal .ai-instruction-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ai-space-md);
+  margin-bottom: var(--ai-space-md);
+  padding: var(--ai-space-md);
+  background: var(--ai-glass-light);
+  border-radius: var(--ai-radius-sm);
+  transition: all var(--ai-duration-fast) var(--ai-ease-out);
+}
+
+.analysis-modal .ai-instruction-step:hover {
+  background: var(--ai-glass);
+}
+
+.analysis-modal .ai-instruction-step:last-child {
+  margin-bottom: 0;
+}
+
+.analysis-modal .ai-step-number {
+  background: var(--suggestion-color, var(--ai-primary));
+  color: var(--ai-text);
+  font-weight: var(--ai-font-bold);
+  font-size: var(--ai-text-xs);
+  min-width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: var(--ai-glow-soft);
+}
+
+.analysis-modal .ai-step-content {
+  flex: 1;
+  color: var(--ai-text);
+  font-size: var(--ai-text-sm);
+  line-height: 1.6;
+}
+
+.analysis-modal .ai-step-content strong {
+  color: var(--ai-text);
+  font-weight: var(--ai-font-semibold);
+}
+
+/* ============================================
+   📊 DIAGNÓSTICO VISUAL
+   ============================================ */
+
+.analysis-modal .ai-diagnostic-section {
+  background: var(--ai-glass);
+  border: 1px solid var(--ai-border-light);
+  border-radius: var(--ai-radius-xl);
+  padding: var(--ai-space-3xl);
+  margin-bottom: var(--ai-space-3xl);
+  backdrop-filter: blur(12px);
+}
+
+.analysis-modal .ai-diagnostic-header {
+  text-align: center;
+  margin-bottom: var(--ai-space-3xl);
+}
+
+.analysis-modal .ai-diagnostic-title {
+  color: var(--ai-text);
+  font-family: var(--ai-font-display);
+  font-size: var(--ai-text-3xl);
+  font-weight: var(--ai-font-bold);
+  margin-bottom: var(--ai-space-lg);
+  text-shadow: var(--ai-text-glow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ai-space-md);
+}
+
+.analysis-modal .ai-health-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--ai-space-xl);
+  margin-bottom: var(--ai-space-3xl);
+}
+
+.analysis-modal .ai-health-indicator {
+  background: var(--ai-glass-light);
+  border: 1px solid var(--ai-border-light);
+  border-radius: var(--ai-radius-lg);
+  padding: var(--ai-space-xl);
+  text-align: center;
+  transition: all var(--ai-duration-normal) var(--ai-ease-out);
+  position: relative;
+  overflow: hidden;
+}
+
+.analysis-modal .ai-health-indicator::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--health-color, var(--ai-primary));
+  border-radius: var(--ai-radius-lg) var(--ai-radius-lg) 0 0;
+}
+
+.analysis-modal .ai-health-indicator:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--ai-shadow);
+}
+
+.analysis-modal .ai-health-icon {
+  font-size: var(--ai-text-4xl);
+  color: var(--health-color, var(--ai-primary));
+  margin-bottom: var(--ai-space-lg);
+  text-shadow: var(--ai-glow-soft);
+}
+
+.analysis-modal .ai-health-label {
+  color: var(--ai-text);
+  font-weight: var(--ai-font-semibold);
+  font-size: var(--ai-text-base);
+  margin-bottom: var(--ai-space-sm);
+}
+
+.analysis-modal .ai-health-status {
+  color: var(--health-color, var(--ai-primary));
+  font-weight: var(--ai-font-bold);
+  font-size: var(--ai-text-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Status específicos */
+.analysis-modal .ai-health-indicator.ai-excellent {
+  --health-color: var(--ai-success);
+}
+
+.analysis-modal .ai-health-indicator.ai-good {
+  --health-color: var(--ai-accent);
+}
+
+.analysis-modal .ai-health-indicator.ai-needs-attention {
+  --health-color: var(--ai-warning);
+}
+
+.analysis-modal .ai-health-indicator.ai-critical {
+  --health-color: var(--ai-error);
+}
+
+/* ============================================
+   📱 RESPONSIVIDADE MOBILE-FIRST
+   ============================================ */
+
+/* Mobile Portrait (320-479px) */
+@media (max-width: 479px) {
+  .analysis-modal .ai-suggestions-panel {
+    padding: var(--ai-space-xl) var(--ai-space-lg);
+    margin-bottom: var(--ai-space-xl);
+  }
+  
+  .analysis-modal .ai-suggestions-title,
+  .analysis-modal .ai-diagnostic-title {
+    font-size: var(--ai-text-2xl);
+    flex-direction: column;
+    gap: var(--ai-space-sm);
+  }
+  
+  .analysis-modal .ai-priority-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .analysis-modal .ai-priority-filter {
+    justify-content: space-between;
+  }
+  
+  .analysis-modal .ai-suggestion-card {
+    padding: var(--ai-space-lg);
+  }
+  
+  .analysis-modal .ai-suggestion-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--ai-space-md);
+  }
+  
+  .analysis-modal .ai-suggestion-icon {
+    align-self: center;
+    margin-top: 0;
+  }
+  
+  .analysis-modal .ai-suggestion-meta {
+    justify-content: center;
+    text-align: center;
+  }
+  
+  .analysis-modal .ai-impact-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .analysis-modal .ai-instruction-step {
+    flex-direction: column;
+    text-align: center;
+  }
+  
+  .analysis-modal .ai-step-number {
+    align-self: center;
+  }
+  
+  .analysis-modal .ai-health-overview {
+    grid-template-columns: 1fr;
+  }
+  
+  .analysis-modal .ai-diagnostic-section {
+    padding: var(--ai-space-xl) var(--ai-space-lg);
+  }
+}
+
+/* Mobile Landscape (480-767px) */
+@media (min-width: 480px) and (max-width: 767px) {
+  .analysis-modal .ai-priority-filters {
+    justify-content: flex-start;
+  }
+  
+  .analysis-modal .ai-impact-metrics {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .analysis-modal .ai-health-overview {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Tablet (768px+) */
+@media (min-width: 768px) {
+  .analysis-modal .ai-health-overview {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ============================================
+   ⚡ ANIMAÇÕES E INTERAÇÕES
+   ============================================ */
+
+/* Entrada suave das sugestões */
+.analysis-modal .ai-suggestion-card {
+  opacity: 0;
+  transform: translateY(20px);
+  animation: ai-suggestion-enter var(--ai-duration-slow) var(--ai-ease-out) forwards;
+}
+
+.analysis-modal .ai-suggestion-card:nth-child(1) { animation-delay: 0.1s; }
+.analysis-modal .ai-suggestion-card:nth-child(2) { animation-delay: 0.2s; }
+.analysis-modal .ai-suggestion-card:nth-child(3) { animation-delay: 0.3s; }
+.analysis-modal .ai-suggestion-card:nth-child(4) { animation-delay: 0.4s; }
+.analysis-modal .ai-suggestion-card:nth-child(5) { animation-delay: 0.5s; }
+
+@keyframes ai-suggestion-enter {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Brilho para itens críticos */
+.analysis-modal .ai-suggestion-card.ai-critical {
+  animation: ai-critical-glow 3s infinite;
+}
+
+@keyframes ai-critical-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(255, 77, 109, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(255, 77, 109, 0.1);
+  }
+}
+
+/* Estados de interação */
+.analysis-modal .ai-suggestion-card:focus {
+  outline: 2px solid var(--ai-primary);
+  outline-offset: 2px;
+}
+
+.analysis-modal .ai-priority-filter:focus {
+  outline: 2px solid var(--ai-primary);
+  outline-offset: 2px;
+}
+
+/* ============================================
+   🔧 MODO INICIANTE
+   ============================================ */
+
+/* Oculta detalhes técnicos em modo iniciante */
+.analysis-modal.ai-beginner-mode .ai-suggestion-instructions {
+  display: none;
+}
+
+.analysis-modal.ai-beginner-mode .ai-suggestion-category {
+  display: none;
+}
+
+.analysis-modal.ai-beginner-mode .ai-suggestion-difficulty {
+  display: none;
+}
+
+/* Simplifica linguagem em modo iniciante */
+.analysis-modal.ai-beginner-mode .ai-suggestion-description code {
+  background: var(--ai-glass-accent);
+  color: var(--ai-text);
+  font-family: inherit;
+}

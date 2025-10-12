@@ -1,0 +1,714 @@
+/* 📐 AI MODAL GRID - Sistema de Grade Responsivo Ultra-Flexível
+   Data: 11 de outubro de 2025
+   Foco: Mobile-first, flexível, sem quebrar layouts existentes
+   Compatível com tokens do sistema de design AI
+*/
+
+/* ============================================
+   🏗️ GRID FOUNDATION - BASE RESPONSIVA
+   ============================================ */
+
+.analysis-modal .ai-grid {
+  display: grid;
+  gap: var(--ai-space-xl);
+  width: 100%;
+  position: relative;
+}
+
+.analysis-modal .ai-grid-item {
+  min-width: 0; /* Previne overflow */
+  word-wrap: break-word;
+}
+
+/* ============================================
+   📱 BREAKPOINTS MOBILE-FIRST
+   ============================================ */
+
+/* Mobile Portrait (320-479px) - BASE */
+.analysis-modal .ai-grid {
+  grid-template-columns: 1fr;
+  gap: var(--ai-space-lg);
+}
+
+.analysis-modal .ai-grid-dense {
+  gap: var(--ai-space-md);
+}
+
+/* Mobile Landscape (480-767px) */
+@media (min-width: 480px) {
+  .analysis-modal .ai-grid {
+    gap: var(--ai-space-xl);
+  }
+  
+  .analysis-modal .ai-grid-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .analysis-modal .ai-grid-auto {
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  }
+}
+
+/* Tablet Portrait (768-1023px) */
+@media (min-width: 768px) {
+  .analysis-modal .ai-grid {
+    gap: var(--ai-space-2xl);
+  }
+  
+  .analysis-modal .ai-grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .analysis-modal .ai-grid-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  
+  .analysis-modal .ai-grid-auto {
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  }
+  
+  .analysis-modal .ai-grid-sidebar {
+    grid-template-columns: 300px 1fr;
+  }
+  
+  .analysis-modal .ai-grid-sidebar-right {
+    grid-template-columns: 1fr 300px;
+  }
+}
+
+/* Desktop (1024-1439px) */
+@media (min-width: 1024px) {
+  .analysis-modal .ai-grid {
+    gap: var(--ai-space-3xl);
+  }
+  
+  .analysis-modal .ai-grid-5 {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  
+  .analysis-modal .ai-grid-6 {
+    grid-template-columns: repeat(6, 1fr);
+  }
+  
+  .analysis-modal .ai-grid-auto {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
+  
+  .analysis-modal .ai-grid-sidebar {
+    grid-template-columns: 350px 1fr;
+  }
+  
+  .analysis-modal .ai-grid-sidebar-right {
+    grid-template-columns: 1fr 350px;
+  }
+}
+
+/* Large Desktop (1440px+) */
+@media (min-width: 1440px) {
+  .analysis-modal .ai-grid-7 {
+    grid-template-columns: repeat(7, 1fr);
+  }
+  
+  .analysis-modal .ai-grid-8 {
+    grid-template-columns: repeat(8, 1fr);
+  }
+  
+  .analysis-modal .ai-grid-auto {
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  }
+}
+
+/* ============================================
+   🎯 SPANS ESPECÍFICOS POR BREAKPOINT
+   ============================================ */
+
+/* Mobile spans */
+.analysis-modal .ai-span-full {
+  grid-column: 1 / -1;
+}
+
+/* Tablet spans */
+@media (min-width: 768px) {
+  .analysis-modal .ai-span-2 {
+    grid-column: span 2;
+  }
+  
+  .analysis-modal .ai-span-3 {
+    grid-column: span 3;
+  }
+  
+  .analysis-modal .ai-span-half {
+    grid-column: span 2;
+  }
+}
+
+/* Desktop spans */
+@media (min-width: 1024px) {
+  .analysis-modal .ai-span-4 {
+    grid-column: span 4;
+  }
+  
+  .analysis-modal .ai-span-5 {
+    grid-column: span 5;
+  }
+  
+  .analysis-modal .ai-span-6 {
+    grid-column: span 6;
+  }
+  
+  .analysis-modal .ai-span-half {
+    grid-column: span 3;
+  }
+  
+  .analysis-modal .ai-span-third {
+    grid-column: span 2;
+  }
+}
+
+/* ============================================
+   📐 ASPECTOS E DIMENSÕES ESPECIAIS
+   ============================================ */
+
+/* Aspect ratios responsivos */
+.analysis-modal .ai-aspect-square {
+  aspect-ratio: 1 / 1;
+}
+
+.analysis-modal .ai-aspect-video {
+  aspect-ratio: 16 / 9;
+}
+
+.analysis-modal .ai-aspect-photo {
+  aspect-ratio: 4 / 3;
+}
+
+.analysis-modal .ai-aspect-wide {
+  aspect-ratio: 21 / 9;
+}
+
+/* Alturas específicas */
+.analysis-modal .ai-height-auto {
+  height: auto;
+}
+
+.analysis-modal .ai-height-screen {
+  height: 100vh;
+}
+
+.analysis-modal .ai-height-fit {
+  height: fit-content;
+}
+
+/* ============================================
+   🏭 LAYOUTS ESPECIALIZADOS
+   ============================================ */
+
+/* Layout Hero (Score + Overview) */
+.analysis-modal .ai-layout-hero {
+  display: grid;
+  gap: var(--ai-space-2xl);
+  grid-template-areas: 
+    "score"
+    "overview";
+}
+
+@media (min-width: 768px) {
+  .analysis-modal .ai-layout-hero {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: 
+      "score overview";
+  }
+}
+
+@media (min-width: 1024px) {
+  .analysis-modal .ai-layout-hero {
+    grid-template-columns: 2fr 3fr;
+  }
+}
+
+.analysis-modal .ai-hero-score {
+  grid-area: score;
+}
+
+.analysis-modal .ai-hero-overview {
+  grid-area: overview;
+}
+
+/* Layout Dashboard */
+.analysis-modal .ai-layout-dashboard {
+  display: grid;
+  gap: var(--ai-space-xl);
+  grid-template-areas:
+    "header"
+    "metrics"
+    "details"
+    "suggestions";
+}
+
+@media (min-width: 768px) {
+  .analysis-modal .ai-layout-dashboard {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "header header"
+      "metrics metrics"
+      "details suggestions";
+  }
+}
+
+@media (min-width: 1024px) {
+  .analysis-modal .ai-layout-dashboard {
+    grid-template-columns: 2fr 1fr;
+    grid-template-areas:
+      "header header"
+      "metrics suggestions"
+      "details suggestions";
+  }
+}
+
+.analysis-modal .ai-dashboard-header {
+  grid-area: header;
+}
+
+.analysis-modal .ai-dashboard-metrics {
+  grid-area: metrics;
+}
+
+.analysis-modal .ai-dashboard-details {
+  grid-area: details;
+}
+
+.analysis-modal .ai-dashboard-suggestions {
+  grid-area: suggestions;
+}
+
+/* Layout Split (50/50) */
+.analysis-modal .ai-layout-split {
+  display: grid;
+  gap: var(--ai-space-xl);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .analysis-modal .ai-layout-split {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Layout Masonry (Para cards de alturas variáveis) */
+.analysis-modal .ai-layout-masonry {
+  display: grid;
+  gap: var(--ai-space-xl);
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-auto-rows: max-content;
+}
+
+@media (max-width: 767px) {
+  .analysis-modal .ai-layout-masonry {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================
+   🧱 CONTAINERS FLEXÍVEIS
+   ============================================ */
+
+/* Container com largura máxima */
+.analysis-modal .ai-container {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+  padding: 0 var(--ai-space-lg);
+}
+
+@media (min-width: 768px) {
+  .analysis-modal .ai-container {
+    padding: 0 var(--ai-space-xl);
+  }
+}
+
+@media (min-width: 1024px) {
+  .analysis-modal .ai-container {
+    padding: 0 var(--ai-space-2xl);
+  }
+}
+
+/* Container estreito para leitura */
+.analysis-modal .ai-container-narrow {
+  max-width: 800px;
+}
+
+/* Container largo para dashboards */
+.analysis-modal .ai-container-wide {
+  max-width: 1400px;
+}
+
+/* Container sem padding */
+.analysis-modal .ai-container-flush {
+  padding: 0;
+}
+
+/* ============================================
+   🌊 FLEXBOX UTILITIES
+   ============================================ */
+
+.analysis-modal .ai-flex {
+  display: flex;
+  gap: var(--ai-space-md);
+}
+
+.analysis-modal .ai-flex-col {
+  flex-direction: column;
+}
+
+.analysis-modal .ai-flex-row {
+  flex-direction: row;
+}
+
+.analysis-modal .ai-flex-wrap {
+  flex-wrap: wrap;
+}
+
+.analysis-modal .ai-flex-nowrap {
+  flex-wrap: nowrap;
+}
+
+/* Justify content */
+.analysis-modal .ai-justify-start {
+  justify-content: flex-start;
+}
+
+.analysis-modal .ai-justify-center {
+  justify-content: center;
+}
+
+.analysis-modal .ai-justify-end {
+  justify-content: flex-end;
+}
+
+.analysis-modal .ai-justify-between {
+  justify-content: space-between;
+}
+
+.analysis-modal .ai-justify-around {
+  justify-content: space-around;
+}
+
+.analysis-modal .ai-justify-evenly {
+  justify-content: space-evenly;
+}
+
+/* Align items */
+.analysis-modal .ai-items-start {
+  align-items: flex-start;
+}
+
+.analysis-modal .ai-items-center {
+  align-items: center;
+}
+
+.analysis-modal .ai-items-end {
+  align-items: flex-end;
+}
+
+.analysis-modal .ai-items-stretch {
+  align-items: stretch;
+}
+
+.analysis-modal .ai-items-baseline {
+  align-items: baseline;
+}
+
+/* Gaps específicos */
+.analysis-modal .ai-gap-none {
+  gap: 0;
+}
+
+.analysis-modal .ai-gap-xs {
+  gap: var(--ai-space-xs);
+}
+
+.analysis-modal .ai-gap-sm {
+  gap: var(--ai-space-sm);
+}
+
+.analysis-modal .ai-gap-md {
+  gap: var(--ai-space-md);
+}
+
+.analysis-modal .ai-gap-lg {
+  gap: var(--ai-space-lg);
+}
+
+.analysis-modal .ai-gap-xl {
+  gap: var(--ai-space-xl);
+}
+
+.analysis-modal .ai-gap-2xl {
+  gap: var(--ai-space-2xl);
+}
+
+.analysis-modal .ai-gap-3xl {
+  gap: var(--ai-space-3xl);
+}
+
+/* ============================================
+   🎨 SPACING UTILITIES
+   ============================================ */
+
+/* Margins */
+.analysis-modal .ai-m-0 { margin: 0; }
+.analysis-modal .ai-m-auto { margin: auto; }
+.analysis-modal .ai-mt-0 { margin-top: 0; }
+.analysis-modal .ai-mb-0 { margin-bottom: 0; }
+.analysis-modal .ai-ml-0 { margin-left: 0; }
+.analysis-modal .ai-mr-0 { margin-right: 0; }
+
+.analysis-modal .ai-mt-sm { margin-top: var(--ai-space-sm); }
+.analysis-modal .ai-mb-sm { margin-bottom: var(--ai-space-sm); }
+.analysis-modal .ai-ml-sm { margin-left: var(--ai-space-sm); }
+.analysis-modal .ai-mr-sm { margin-right: var(--ai-space-sm); }
+
+.analysis-modal .ai-mt-md { margin-top: var(--ai-space-md); }
+.analysis-modal .ai-mb-md { margin-bottom: var(--ai-space-md); }
+.analysis-modal .ai-ml-md { margin-left: var(--ai-space-md); }
+.analysis-modal .ai-mr-md { margin-right: var(--ai-space-md); }
+
+.analysis-modal .ai-mt-lg { margin-top: var(--ai-space-lg); }
+.analysis-modal .ai-mb-lg { margin-bottom: var(--ai-space-lg); }
+.analysis-modal .ai-ml-lg { margin-left: var(--ai-space-lg); }
+.analysis-modal .ai-mr-lg { margin-right: var(--ai-space-lg); }
+
+.analysis-modal .ai-mt-xl { margin-top: var(--ai-space-xl); }
+.analysis-modal .ai-mb-xl { margin-bottom: var(--ai-space-xl); }
+.analysis-modal .ai-ml-xl { margin-left: var(--ai-space-xl); }
+.analysis-modal .ai-mr-xl { margin-right: var(--ai-space-xl); }
+
+.analysis-modal .ai-mt-2xl { margin-top: var(--ai-space-2xl); }
+.analysis-modal .ai-mb-2xl { margin-bottom: var(--ai-space-2xl); }
+
+.analysis-modal .ai-mt-3xl { margin-top: var(--ai-space-3xl); }
+.analysis-modal .ai-mb-3xl { margin-bottom: var(--ai-space-3xl); }
+
+/* Paddings */
+.analysis-modal .ai-p-0 { padding: 0; }
+.analysis-modal .ai-pt-0 { padding-top: 0; }
+.analysis-modal .ai-pb-0 { padding-bottom: 0; }
+.analysis-modal .ai-pl-0 { padding-left: 0; }
+.analysis-modal .ai-pr-0 { padding-right: 0; }
+
+.analysis-modal .ai-p-sm { padding: var(--ai-space-sm); }
+.analysis-modal .ai-p-md { padding: var(--ai-space-md); }
+.analysis-modal .ai-p-lg { padding: var(--ai-space-lg); }
+.analysis-modal .ai-p-xl { padding: var(--ai-space-xl); }
+
+.analysis-modal .ai-px-sm { 
+  padding-left: var(--ai-space-sm); 
+  padding-right: var(--ai-space-sm); 
+}
+
+.analysis-modal .ai-py-sm { 
+  padding-top: var(--ai-space-sm); 
+  padding-bottom: var(--ai-space-sm); 
+}
+
+.analysis-modal .ai-px-md { 
+  padding-left: var(--ai-space-md); 
+  padding-right: var(--ai-space-md); 
+}
+
+.analysis-modal .ai-py-md { 
+  padding-top: var(--ai-space-md); 
+  padding-bottom: var(--ai-space-md); 
+}
+
+.analysis-modal .ai-px-lg { 
+  padding-left: var(--ai-space-lg); 
+  padding-right: var(--ai-space-lg); 
+}
+
+.analysis-modal .ai-py-lg { 
+  padding-top: var(--ai-space-lg); 
+  padding-bottom: var(--ai-space-lg); 
+}
+
+.analysis-modal .ai-px-xl { 
+  padding-left: var(--ai-space-xl); 
+  padding-right: var(--ai-space-xl); 
+}
+
+.analysis-modal .ai-py-xl { 
+  padding-top: var(--ai-space-xl); 
+  padding-bottom: var(--ai-space-xl); 
+}
+
+/* ============================================
+   🔧 VISIBILITY & DISPLAY
+   ============================================ */
+
+/* Show/Hide por breakpoint */
+.analysis-modal .ai-show-mobile {
+  display: block;
+}
+
+@media (min-width: 768px) {
+  .analysis-modal .ai-show-mobile {
+    display: none;
+  }
+}
+
+.analysis-modal .ai-hide-mobile {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .analysis-modal .ai-hide-mobile {
+    display: block;
+  }
+}
+
+.analysis-modal .ai-show-tablet {
+  display: none;
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .analysis-modal .ai-show-tablet {
+    display: block;
+  }
+}
+
+.analysis-modal .ai-hide-tablet {
+  display: block;
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  .analysis-modal .ai-hide-tablet {
+    display: none;
+  }
+}
+
+.analysis-modal .ai-show-desktop {
+  display: none;
+}
+
+@media (min-width: 1024px) {
+  .analysis-modal .ai-show-desktop {
+    display: block;
+  }
+}
+
+.analysis-modal .ai-hide-desktop {
+  display: block;
+}
+
+@media (min-width: 1024px) {
+  .analysis-modal .ai-hide-desktop {
+    display: none;
+  }
+}
+
+/* Display utilities */
+.analysis-modal .ai-block {
+  display: block;
+}
+
+.analysis-modal .ai-inline {
+  display: inline;
+}
+
+.analysis-modal .ai-inline-block {
+  display: inline-block;
+}
+
+.analysis-modal .ai-hidden {
+  display: none;
+}
+
+/* ============================================
+   📏 OVERFLOW & SCROLL
+   ============================================ */
+
+.analysis-modal .ai-overflow-hidden {
+  overflow: hidden;
+}
+
+.analysis-modal .ai-overflow-auto {
+  overflow: auto;
+}
+
+.analysis-modal .ai-overflow-scroll {
+  overflow: scroll;
+}
+
+.analysis-modal .ai-overflow-x-auto {
+  overflow-x: auto;
+}
+
+.analysis-modal .ai-overflow-y-auto {
+  overflow-y: auto;
+}
+
+/* Scrollbar styling */
+.analysis-modal .ai-scroll-styled {
+  scrollbar-width: thin;
+  scrollbar-color: var(--ai-primary) transparent;
+}
+
+.analysis-modal .ai-scroll-styled::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.analysis-modal .ai-scroll-styled::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.analysis-modal .ai-scroll-styled::-webkit-scrollbar-thumb {
+  background: var(--ai-primary);
+  border-radius: 3px;
+}
+
+.analysis-modal .ai-scroll-styled::-webkit-scrollbar-thumb:hover {
+  background: var(--ai-accent);
+}
+
+/* ============================================
+   🎭 POSICIONAMENTO
+   ============================================ */
+
+.analysis-modal .ai-relative {
+  position: relative;
+}
+
+.analysis-modal .ai-absolute {
+  position: absolute;
+}
+
+.analysis-modal .ai-fixed {
+  position: fixed;
+}
+
+.analysis-modal .ai-sticky {
+  position: sticky;
+}
+
+/* Z-index */
+.analysis-modal .ai-z-0 { z-index: 0; }
+.analysis-modal .ai-z-10 { z-index: 10; }
+.analysis-modal .ai-z-20 { z-index: 20; }
+.analysis-modal .ai-z-30 { z-index: 30; }
+.analysis-modal .ai-z-40 { z-index: 40; }
+.analysis-modal .ai-z-50 { z-index: 50; }
+
+/* ============================================
+   🎯 DEBUGGING (Remove em produção)
+   ============================================ */
+
+.analysis-modal .ai-debug {
+  outline: 2px dashed rgba(255, 0, 255, 0.5);
+  background: rgba(255, 0, 255, 0.05);
+}
+
+.analysis-modal .ai-debug-grid .ai-grid-item {
+  outline: 1px solid rgba(0, 255, 255, 0.3);
+  background: rgba(0, 255, 255, 0.02);
+}
