@@ -418,7 +418,48 @@
         </div>
     </div>
 
-    <!-- 🌟 MODAL GLASSMORPHISM EXPANDIDO - Sugestões IA em Tela Cheia -->
+    <!-- � NOVO MODAL DE SELEÇÃO DE GÊNERO MUSICAL -->
+    <div id="newGenreModal" class="genre-modal hidden" aria-modal="true" role="dialog">
+        <div class="genre-modal-container">
+            <h2 class="genre-modal-title glitch" data-text="Escolha o gênero">Escolha o gênero</h2>
+            <p class="genre-modal-subtitle">Selecione um gênero para continuar</p>
+
+            <div class="genre-grid">
+                <button class="genre-card" data-genre="funk_mandela">
+                    <span class="genre-icon">🔥</span>
+                    <span class="genre-name">Funk Mandela</span>
+                </button>
+                <button class="genre-card" data-genre="funk_automotivo">
+                    <span class="genre-icon">🚗</span>
+                    <span class="genre-name">Funk Automotivo</span>
+                </button>
+                <button class="genre-card" data-genre="eletronico">
+                    <span class="genre-icon">⚡</span>
+                    <span class="genre-name">Eletrônico</span>
+                </button>
+                <button class="genre-card" data-genre="trance">
+                    <span class="genre-icon">🌊</span>
+                    <span class="genre-name">Trance</span>
+                </button>
+                <button class="genre-card" data-genre="funk_bruxaria">
+                    <span class="genre-icon">🔮</span>
+                    <span class="genre-name">Funk Bruxaria</span>
+                </button>
+                <button class="genre-card" data-genre="trap">
+                    <span class="genre-icon">💎</span>
+                    <span class="genre-name">Trap</span>
+                </button>
+                <button class="genre-card" data-genre="eletrofunk">
+                    <span class="genre-icon">🎛️</span>
+                    <span class="genre-name">Eletrofunk</span>
+                </button>
+            </div>
+
+            <button class="genre-modal-close" data-close>Fechar</button>
+        </div>
+    </div>
+
+    <!-- �🌟 MODAL GLASSMORPHISM EXPANDIDO - Sugestões IA em Tela Cheia -->
     <div id="aiSuggestionsFullModal" class="ai-full-modal glassmorphism" style="display: none;">
         <div class="ai-full-modal-backdrop" onclick="closeAIFullModal()"></div>
         <div class="ai-full-modal-container">
@@ -935,5 +976,8 @@
     
     <!-- 🎯 BAND WEIGHTED SCORE V2 - Correção Inteligente de Score -->
     <script src="band-weighted-score-v2.js?v=20250131" defer></script>
+    
+    <!-- 🧪 VERIFICAÇÃO: Modal de Gênero Musical -->
+    <script src="verify-genre-modal.js" defer></script>
 </body>
 </html>
