@@ -1,5 +1,20 @@
 /* ============ 🎵 AUDIO ANALYZER STYLES ============ */
 
+/* [AI-UI] Tokens de design futurista */
+:root {
+    --ai-bg: #0c0a1a;
+    --ai-panel: #151233;
+    --ai-primary: #7c4dff;
+    --ai-cyan: #20e3ff;
+    --ai-success: #2bd687;
+    --ai-warn: #ffcc00;
+    --ai-error: #ff4d6d;
+    --ai-text: #eef1ff;
+    --ai-muted: #a7a9be;
+    --ai-radius: 16px;
+    --ai-shadow: 0 10px 44px rgba(32, 227, 255, .12);
+}
+
 /* Botão de análise de áudio no input */
 .chatbot-audio-analyze-btn {
     width: 32px;
@@ -33,6 +48,315 @@
     top: 0;
     left: 0;
     width: 100%;
+
+/* [AI-UI] Componentes futuristas */
+
+/* Score Card com glow */
+.ai-score-card {
+    background: linear-gradient(135deg, var(--ai-panel), rgba(124, 77, 255, 0.1));
+    border: 1px solid rgba(124, 77, 255, 0.3);
+    border-radius: var(--ai-radius);
+    padding: 24px;
+    text-align: center;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+.ai-score-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--ai-primary), var(--ai-cyan));
+}
+
+.ai-score-number {
+    font-size: 48px;
+    font-weight: 900;
+    color: var(--ai-text);
+    text-shadow: 0 0 20px rgba(124, 77, 255, 0.5);
+    line-height: 1;
+    margin-bottom: 8px;
+}
+
+.ai-score-legend {
+    font-size: 14px;
+    color: var(--ai-muted);
+    font-weight: 500;
+}
+
+/* Barras com zona ideal */
+.ai-metric-bar {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    height: 24px;
+    position: relative;
+    margin: 8px 0;
+    overflow: hidden;
+}
+
+.ai-metric-fill {
+    height: 100%;
+    border-radius: 8px;
+    background: linear-gradient(90deg, var(--ai-primary), var(--ai-cyan));
+    transition: width 0.8s ease;
+    position: relative;
+}
+
+.ai-ideal-zone {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background: rgba(45, 214, 135, 0.2);
+    border: 1px solid rgba(45, 214, 135, 0.4);
+    pointer-events: none;
+}
+
+/* Tooltips acessíveis */
+.ai-tooltip-trigger {
+    display: inline-block;
+    margin-left: 6px;
+    color: var(--ai-cyan);
+    cursor: help;
+    position: relative;
+    font-size: 12px;
+}
+
+.ai-tooltip {
+    position: absolute;
+    bottom: 120%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ai-bg);
+    color: var(--ai-text);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 11px;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s, visibility 0.2s;
+    z-index: 1000;
+    box-shadow: var(--ai-shadow);
+    border: 1px solid rgba(124, 77, 255, 0.3);
+}
+
+.ai-tooltip-trigger:hover .ai-tooltip {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Cards de frequência */
+.ai-freq-card {
+    background: linear-gradient(135deg, var(--ai-panel), rgba(32, 227, 255, 0.05));
+    border: 1px solid rgba(32, 227, 255, 0.2);
+    border-radius: var(--ai-radius);
+    padding: 16px;
+    margin-bottom: 12px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.ai-freq-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--ai-shadow);
+}
+
+.ai-freq-status {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-left: 8px;
+}
+
+.ai-freq-status.ok { background: rgba(45, 214, 135, 0.2); color: var(--ai-success); }
+.ai-freq-status.warning { background: rgba(255, 204, 0, 0.2); color: var(--ai-warn); }
+.ai-freq-status.error { background: rgba(255, 77, 109, 0.2); color: var(--ai-error); }
+
+/* Sugestões com prioridade */
+.ai-suggestion-card {
+    background: var(--ai-panel);
+    border-radius: var(--ai-radius);
+    padding: 20px;
+    margin-bottom: 16px;
+    border-left: 4px solid var(--priority-color, var(--ai-primary));
+    transition: transform 0.2s, opacity 0.2s;
+}
+
+.ai-suggestion-card.priority-critical {
+    --priority-color: var(--ai-error);
+    background: linear-gradient(135deg, var(--ai-panel), rgba(255, 77, 109, 0.05));
+}
+
+.ai-suggestion-card.priority-important {
+    --priority-color: var(--ai-warn);
+    background: linear-gradient(135deg, var(--ai-panel), rgba(255, 204, 0, 0.05));
+}
+
+.ai-suggestion-card.priority-fine {
+    --priority-color: var(--ai-success);
+    background: linear-gradient(135deg, var(--ai-panel), rgba(45, 214, 135, 0.05));
+}
+
+/* Containers de seção */
+.ai-loudness, .ai-freq, .ai-stereo, .ai-tech, .ai-suggestions {
+    margin-bottom: 24px;
+}
+
+.ai-section-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--ai-text);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Responsividade mobile-first */
+@media (max-width: 400px) {
+    .ai-tooltip {
+        display: none;
+    }
+    
+    .ai-score-number {
+        font-size: 36px;
+    }
+    
+    .ai-suggestion-card {
+        padding: 16px;
+    }
+}
+
+@media (min-width: 768px) {
+    .ai-cards-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+    }
+}
+
+@media (min-width: 1200px) {
+    .ai-cards-grid {
+        grid-template-columns: 1fr 1fr 1fr;
+    }
+}
+
+/* [AI-UI] Acessibilidade e responsividade */
+
+/* Accordion acessível */
+.ai-tech-details {
+    border: 1px solid rgba(124, 77, 255, 0.2);
+    border-radius: var(--ai-radius);
+    padding: 16px;
+    margin: 16px 0;
+    background: rgba(21, 18, 51, 0.3);
+}
+
+.ai-tech-details[open] summary {
+    margin-bottom: 16px;
+    border-bottom: 1px solid rgba(124, 77, 255, 0.1);
+    padding-bottom: 8px;
+}
+
+.ai-tech-details summary {
+    font-weight: 600;
+    outline: none;
+    transition: color 0.2s;
+}
+
+.ai-tech-details summary:hover {
+    color: var(--ai-cyan);
+}
+
+.ai-tech-details summary:focus {
+    color: var(--ai-cyan);
+    text-shadow: 0 0 8px rgba(32, 227, 255, 0.3);
+}
+
+/* Touch targets ≥ 44px */
+.ai-tooltip-trigger,
+.ai-tech-details summary,
+.ai-suggestion-card {
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+}
+
+/* Focus states */
+.ai-suggestion-card:focus-within {
+    outline: 2px solid var(--ai-cyan);
+    outline-offset: 2px;
+}
+
+/* Smooth scrolling */
+.audio-modal-content {
+    scroll-behavior: smooth;
+}
+
+/* Modal accessibility */
+.audio-modal[role="dialog"] {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(12, 10, 26, 0.8);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+/* Animações suaves */
+@keyframes ai-fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.ai-score-card,
+.ai-suggestion-card,
+.ai-freq-card {
+    animation: ai-fadeIn 0.3s ease-out;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    :root {
+        --ai-bg: #000000;
+        --ai-panel: #1a1a1a;
+        --ai-text: #ffffff;
+        --ai-muted: #cccccc;
+    }
+    
+    .ai-tooltip {
+        border: 2px solid var(--ai-cyan);
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
 
 /* ============ 🎨 ENHANCED CARDS DESIGN ============ */
 
@@ -386,21 +710,20 @@ details[open] summary {
 }
 
 .audio-modal-content {
-    /* Tema roxo da Fase 1 */
-    background: linear-gradient(135deg, #121122, #1b1230 40%, #0e0a1a 100%);
-    border-radius: 20px;
+    /* [AI-UI] Glassmorphism futurista */
+    background: linear-gradient(180deg, rgba(24, 20, 52, 0.65), rgba(13, 11, 26, 0.8));
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(124, 77, 255, 0.25);
+    box-shadow: var(--ai-shadow);
+    border-radius: var(--ai-radius);
     width: 95%;
     max-width: 1400px;
     max-height: 95vh;
     min-height: 85vh;
     overflow-y: auto;
     overflow-x: hidden;
-    box-shadow: 
-        0 30px 100px rgba(0, 0, 0, 0.8),
-        0 0 50px rgba(124, 77, 255, 0.1);
-    border: 2px solid rgba(0, 255, 255, 0.2);
     position: relative;
-    backdrop-filter: blur(10px);
+    transition: transform 0.2s, opacity 0.2s;
 }
 
 /* Mobile optimizations */
