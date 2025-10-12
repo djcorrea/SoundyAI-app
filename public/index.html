@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <title>SoundyAI - Mentor Virtual</title>
-    <link rel="stylesheet" href="style.css?v=20250810">
+    <link rel="stylesheet" href="style.css?v=20251011-ai-modal">
     <link rel="stylesheet" href="audio-analyzer.css?v=20250810">
     <link rel="stylesheet" href="music-button-below-chat.css?v=20250810">
     <link rel="stylesheet" href="friendly-labels.css?v=20250817">
@@ -15,6 +15,133 @@
     
     <!-- Fontes otimizadas -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- 🎨 AI MODAL CSS INLINE - FORÇA APLICAÇÃO IMEDIATA -->
+    <style>
+        /* 🎨 AI MODAL SYSTEM - CSS CRÍTICO INLINE */
+        #audioAnalysisModal.analysis-modal {
+            background: linear-gradient(135deg, rgba(26, 22, 37, 0.95) 0%, rgba(13, 11, 26, 0.9) 100%) !important;
+            backdrop-filter: blur(16px) !important;
+            border: 2px solid rgba(124, 77, 255, 0.3) !important;
+            border-radius: 20px !important;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 30px rgba(124, 77, 255, 0.2) !important;
+        }
+        
+        #audioAnalysisModal.analysis-modal .modal-content {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
+        
+        #audioAnalysisModal.analysis-modal .modal-header {
+            background: rgba(26, 22, 37, 0.8) !important;
+            border-bottom: 1px solid rgba(124, 77, 255, 0.3) !important;
+            border-radius: 20px 20px 0 0 !important;
+        }
+        
+        #audioAnalysisModal.analysis-modal .modal-title {
+            color: #f7fafc !important;
+            font-family: 'Orbitron', monospace !important;
+            font-weight: 700 !important;
+            text-shadow: 0 0 10px rgba(124, 77, 255, 0.5) !important;
+            text-align: center !important;
+            width: 100% !important;
+        }
+        
+        #audioAnalysisModal.analysis-modal .modal-body {
+            background: rgba(13, 11, 26, 0.7) !important;
+            color: #f7fafc !important;
+            border-radius: 0 0 20px 20px !important;
+        }
+        
+        /* Controles de modo */
+        .ai-mode-controls {
+            display: flex !important;
+            justify-content: center !important;
+            margin: 15px 0 !important;
+            z-index: 9999 !important;
+        }
+        
+        .ai-mode-toggle {
+            display: flex !important;
+            background: rgba(26, 22, 37, 0.8) !important;
+            border: 1px solid rgba(124, 77, 255, 0.3) !important;
+            border-radius: 25px !important;
+            overflow: hidden !important;
+        }
+        
+        .ai-mode-toggle-btn {
+            padding: 10px 20px !important;
+            border: none !important;
+            cursor: pointer !important;
+            font-weight: 600 !important;
+            font-size: 14px !important;
+            transition: all 0.3s ease !important;
+        }
+        
+        .ai-mode-toggle-btn.ai-active {
+            background: linear-gradient(135deg, #7c4dff 0%, #b794f6 100%) !important;
+            color: white !important;
+            box-shadow: 0 0 15px rgba(124, 77, 255, 0.4) !important;
+        }
+        
+        /* Efeitos visuais futuristas */
+        #audioAnalysisModal.analysis-modal::before {
+            content: '' !important;
+            position: absolute !important;
+            top: -2px !important;
+            left: -2px !important;
+            right: -2px !important;
+            bottom: -2px !important;
+            background: linear-gradient(45deg, #7c4dff, #20e3ff, #7c4dff) !important;
+            z-index: -1 !important;
+            border-radius: 22px !important;
+            opacity: 0.5 !important;
+            animation: ai-glow 3s ease-in-out infinite alternate !important;
+        }
+        
+        @keyframes ai-glow {
+            0% { opacity: 0.3; }
+            100% { opacity: 0.7; }
+        }
+        
+        /* Indicador visual de ativação */
+        #audioAnalysisModal.analysis-modal::after {
+            content: '🎨 AI MODAL ATIVO' !important;
+            position: absolute !important;
+            top: 10px !important;
+            right: 10px !important;
+            background: linear-gradient(135deg, #7c4dff 0%, #20e3ff 100%) !important;
+            color: white !important;
+            padding: 5px 12px !important;
+            border-radius: 15px !important;
+            font-size: 11px !important;
+            font-weight: bold !important;
+            z-index: 10000 !important;
+            animation: ai-pulse 2s infinite !important;
+        }
+        
+        @keyframes ai-pulse {
+            0%, 100% { transform: scale(1); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 1; }
+        }
+        
+        /* Força aplicação em elementos específicos */
+        #audioAnalysisModal.analysis-modal .enhanced-card,
+        #audioAnalysisModal.analysis-modal .technical-data,
+        #audioAnalysisModal.analysis-modal .diag-item {
+            background: rgba(26, 22, 37, 0.6) !important;
+            border: 1px solid rgba(124, 77, 255, 0.2) !important;
+            border-radius: 10px !important;
+            backdrop-filter: blur(8px) !important;
+            transition: all 0.3s ease !important;
+        }
+        
+        #audioAnalysisModal.analysis-modal .enhanced-card:hover {
+            transform: translateY(-3px) !important;
+            box-shadow: 0 10px 25px rgba(124, 77, 255, 0.3) !important;
+        }
+    </style>
     
     <!-- Bibliotecas para efeitos visuais -->
     <!-- Otimizado: Adicionado defer para não bloquear parsing -->
