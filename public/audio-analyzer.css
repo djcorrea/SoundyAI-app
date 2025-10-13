@@ -3869,3 +3869,29 @@ details[open] summary {
     }
 }
 
+/* ============================================================
+   🎯 COMPENSAÇÃO DPI PARA TODOS OS MODAIS DE AUDIO ANALYZER
+   Aplica escala de 75% em telas ≤1366px para melhorar a 
+   experiência em notebooks com DPI não-standard
+   ============================================================ */
+
+@media (max-width: 1366px) {
+    /* Modal principal de análise */
+    #audioAnalysisModal {
+        transform: scale(0.75);
+        transform-origin: top center;
+    }
+    
+    /* Modais genéricos (upload, loading, results) */
+    .audio-modal {
+        transform: scale(0.75);
+        transform-origin: top center;
+    }
+    
+    /* Modal de seleção de modo */
+    .mode-selection-modal {
+        transform: scale(0.75);
+        transform-origin: top center;
+    }
+}
+
