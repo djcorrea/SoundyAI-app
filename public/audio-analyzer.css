@@ -80,41 +80,9 @@
     transition: transform 0.2s ease;
 }
 
-/* TÍTULO PRINCIPAL - ESTILO COPIADO DE .genre-modal-title */
+/* OCULTAR HEADER DO TOPO */
 #audioAnalysisModal .audio-modal-header {
-    width: 100%;
-    margin-bottom: 0;
-    text-align: center;
-}
-
-#audioAnalysisModal #audioModalTitle,
-#audioAnalysisModal .genre-modal-title {
-    /* CSS EXATO DE .genre-modal-title */
-    font-family: 'Orbitron', 'Rajdhani', 'Montserrat Alternates', sans-serif !important;
-    font-size: 2.2rem !important;
-    font-weight: 700 !important;
-    text-transform: uppercase !important;
-    color: #ffffff !important;
-    margin: 0 0 12px 0 !important;
-    position: relative !important;
-    letter-spacing: 2px !important;
-    text-align: center !important;
-    line-height: 1.1 !important;
-    /* Text-shadow idêntico ao modal de gênero */
-    text-shadow: 
-        0 0 12px rgba(0, 212, 255, 0.4),
-        0 0 24px rgba(108, 0, 162, 0.2),
-        0 0 40px rgba(0, 212, 255, 0.15) !important;
-    display: block !important;
-}
-
-/* SUBTÍTULO - COPIADO DE .genre-modal-subtitle */
-#audioAnalysisModal .genre-modal-subtitle {
-    color: rgba(255, 255, 255, 0.7) !important;
-    font-size: 1rem !important;
-    margin-bottom: 32px !important;
-    font-weight: 400 !important;
-    display: block !important;
+    display: none !important;
 }
 
 /* Ocultar seletor de gênero visualmente */
@@ -159,13 +127,17 @@
 }
 
 #audioAnalysisModal .audio-close-bottom:hover {
-    background: rgba(255, 255, 255, 0.15);
-    color: #ffffff;
-    border-color: rgba(255, 255, 255, 0.4);
+    background: rgba(50, 25, 75, 0.65);
+    color: rgba(220, 220, 240, 0.95);
+    border-color: rgba(106, 154, 255, 0.5);
+    box-shadow: 
+        0 6px 20px rgba(0, 0, 0, 0.75),
+        0 0 25px rgba(106, 0, 255, 0.3);
 }
 
 #audioAnalysisModal .audio-close-bottom:active {
     opacity: 0.8;
+    background: rgba(45, 25, 70, 0.65);
 }
 
 /* ===============================
@@ -180,26 +152,26 @@
     justify-content: center;
 }
 
-/* ÁREA DE UPLOAD - ESTILO COPIADO DE .genre-card */
+/* ÁREA DE UPLOAD - COM ANIMAÇÃO DARK */
 #audioAnalysisModal .upload-content {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 12px;
     padding: 40px 32px;
-    /* BACKGROUND IDÊNTICO AO .genre-card */
-    background: rgba(255, 255, 255, 0.05);
+    /* BACKGROUND DARK - SEM BRANCO */
+    background: rgba(30, 15, 45, 0.4);
     background-color: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(106, 154, 255, 0.25);
     border-radius: 16px;
     color: #ffffff;
     cursor: pointer;
-    /* TRANSIÇÕES IGUAIS AO .genre-card */
+    /* TRANSIÇÕES DARK */
     transition: 
-        transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-        box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-        border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-        opacity 0.25s ease;
+        transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+        background 0.4s ease,
+        box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+        border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
     backdrop-filter: blur(10px);
@@ -209,38 +181,29 @@
     text-align: center;
 }
 
-/* EFEITO SHINE COPIADO DO .genre-card::before */
+/* SEM EFEITO BEFORE */
 #audioAnalysisModal .upload-content::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg, 
-        transparent, 
-        rgba(255, 255, 255, 0.1), 
-        transparent);
-    transition: left 0.6s ease;
+    display: none;
 }
 
-/* HOVER IDÊNTICO AO .genre-card:hover */
+/* HOVER - APENAS PULSE NO BRILHO, SEM MUDANÇAS VISUAIS */
 #audioAnalysisModal .upload-content:hover {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(36, 157, 255, 0.4);
-    transform: scale(1.05) translateY(-2px);
-    box-shadow: 
-        0 10px 25px rgba(0, 0, 0, 0.4),
-        0 0 0 1px rgba(36, 157, 255, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    /* Background e border NÃO MUDAM */
+    animation: dark-glow-pulse 2.5s ease-in-out infinite;
 }
 
-#audioAnalysisModal .upload-content:hover::before {
-    left: 100%;
-}
-
-#audioAnalysisModal .upload-content:active {
-    transform: scale(0.98) translateY(1px);
+/* ANIMAÇÃO - APENAS PULSA O BRILHO ESCURO */
+@keyframes dark-glow-pulse {
+    0%, 100% { 
+        box-shadow: 
+            0 0 20px rgba(106, 0, 255, 0.15),
+            0 0 40px rgba(0, 102, 255, 0.1);
+    }
+    50% { 
+        box-shadow: 
+            0 0 30px rgba(106, 0, 255, 0.25),
+            0 0 50px rgba(0, 102, 255, 0.15);
+    }
 }
 
 /* ÍCONE COPIADO DE .genre-icon */
@@ -262,51 +225,101 @@
 }
 
 #audioAnalysisModal .upload-content h4 {
-    /* Título secundário dentro do card */
-    font-family: 'Segoe UI', sans-serif;
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: #ffffff;
-    margin: 0 0 8px 0;
-    letter-spacing: 0.5px;
+    /* TÍTULO PRINCIPAL DO MODAL - ESTILO DO MODAL DE GÊNERO */
+    font-family: 'Orbitron', 'Rajdhani', 'Montserrat Alternates', sans-serif !important;
+    font-size: 1.8rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    color: #ffffff !important;
+    margin: 0 0 16px 0 !important;
+    position: relative !important;
+    letter-spacing: 2px !important;
+    text-align: center !important;
+    line-height: 1.2 !important;
+    /* GLOW AZUL/ROXO/CIANO - ÉPICO */
+    text-shadow: 
+        0 0 15px rgba(0, 212, 255, 0.6),
+        0 0 30px rgba(108, 0, 162, 0.4),
+        0 0 50px rgba(0, 212, 255, 0.25),
+        0 0 70px rgba(106, 0, 255, 0.2) !important;
+    /* GRADIENTE DE TEXTO */
+    background: linear-gradient(135deg, 
+        #6a9aff 0%,      /* Azul */
+        #00d4ff 50%,     /* Ciano */
+        #8b5cf6 100%     /* Roxo */
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0 0 25px rgba(106, 154, 255, 0.5));
+    animation: title-glow 3s ease-in-out infinite;
 }
 
-/* SUBTÍTULO COPIADO DE .genre-modal-subtitle */
+/* ANIMAÇÃO DE GLOW NO TÍTULO */
+@keyframes title-glow {
+    0%, 100% {
+        text-shadow: 
+            0 0 15px rgba(0, 212, 255, 0.6),
+            0 0 30px rgba(108, 0, 162, 0.4),
+            0 0 50px rgba(0, 212, 255, 0.25);
+        filter: drop-shadow(0 0 25px rgba(106, 154, 255, 0.5));
+    }
+    50% {
+        text-shadow: 
+            0 0 20px rgba(0, 212, 255, 0.8),
+            0 0 40px rgba(108, 0, 162, 0.6),
+            0 0 60px rgba(0, 212, 255, 0.35),
+            0 0 80px rgba(106, 0, 255, 0.3);
+        filter: drop-shadow(0 0 35px rgba(106, 154, 255, 0.7));
+    }
+}
+
+/* TEXTOS/DESCRIÇÕES DO CARD - ESTILO DARK COM EFEITOS */
 #audioAnalysisModal .upload-content p {
-    color: rgba(255, 255, 255, 0.7);
-    font-size: 1rem;
+    color: rgba(200, 220, 255, 0.85);
+    font-size: 0.95rem;
     margin: 10px 0;
     line-height: 1.6;
     font-weight: 400;
 }
 
 #audioAnalysisModal .supported-formats {
-    font-size: 14px !important;
-    color: rgba(180, 180, 200, 0.7) !important;
-    margin-top: 16px !important;
+    font-size: 0.8rem !important;
+    color: rgba(180, 180, 200, 0.6) !important;
+    margin-top: 10px !important;
     font-style: italic;
 }
 
 #audioAnalysisModal .format-recommendation {
-    display: none !important;
+    font-size: 0.85rem !important;
+    /* GRADIENTE AZUL/CIANO COM GLOW */
+    background: linear-gradient(90deg, #6a9aff, #00d4ff) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    margin-top: 8px !important;
+    font-weight: 600 !important;
+    filter: drop-shadow(0 0 8px rgba(106, 154, 255, 0.4)) !important;
+    display: block !important;
 }
 
 #audioAnalysisModal .upload-btn {
-    /* BOTÃO COPIADO DO ESTILO .genre-card */
-    background: rgba(255, 255, 255, 0.05);
+    /* BOTÃO DARK - SEM BRANCO */
+    background: rgba(40, 20, 60, 0.5);
     background-color: transparent;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(106, 154, 255, 0.3);
     border-radius: 16px;
     padding: 20px 32px;
     color: #ffffff;
     font-weight: 600;
     font-size: 0.95rem;
     cursor: pointer;
+    pointer-events: auto;
     transition: 
         transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+        background 0.3s ease,
         box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-        border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-        opacity 0.25s ease;
+        border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     margin-top: 16px;
     display: inline-block;
     letter-spacing: 0.5px;
@@ -322,28 +335,31 @@
     content: '';
     position: absolute;
     top: 0;
-    left: -100%;
+    left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, 
-        transparent, 
-        rgba(255, 255, 255, 0.1), 
-        transparent);
-    transition: left 0.6s ease;
+    background: radial-gradient(
+        circle at center,
+        rgba(106, 0, 255, 0.2) 0%,
+        transparent 60%
+    );
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
 }
 
 #audioAnalysisModal .upload-btn:hover {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(36, 157, 255, 0.4);
-    transform: scale(1.05) translateY(-2px);
+    background: rgba(50, 25, 75, 0.75);
+    border-color: rgba(106, 154, 255, 0.5);
+    transform: scale(1.03) translateY(-2px);
     box-shadow: 
-        0 10px 25px rgba(0, 0, 0, 0.4),
-        0 0 0 1px rgba(36, 157, 255, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        0 8px 22px rgba(0, 0, 0, 0.85),
+        0 0 30px rgba(106, 0, 255, 0.4),
+        0 0 45px rgba(0, 102, 255, 0.25);
 }
 
 #audioAnalysisModal .upload-btn:hover::before {
-    left: 100%;
+    opacity: 1;
 }
 
 #audioAnalysisModal .upload-btn:active {
@@ -615,18 +631,10 @@
         padding: 32px 20px 24px 20px;
     }
     
-    /* Título principal responsivo */
-    #audioAnalysisModal #audioModalTitle,
-    #audioAnalysisModal .genre-modal-title {
-        font-size: 1.8rem !important;
-    }
-    
-    #audioAnalysisModal .genre-modal-subtitle {
-        font-size: 0.9rem !important;
-    }
-    
+    /* Título principal do card - responsivo */
     #audioAnalysisModal .upload-content h4 {
-        font-size: 1rem;
+        font-size: 1.5rem !important;
+        letter-spacing: 1.5px !important;
     }
     
     #audioAnalysisModal .upload-content {
@@ -664,23 +672,26 @@
 }
 
 @media (max-width: 480px) {
-    /* Título principal mobile */
-    #audioAnalysisModal #audioModalTitle,
-    #audioAnalysisModal .genre-modal-title {
-        font-size: 1.5rem !important;
-    }
-    
-    #audioAnalysisModal .genre-modal-subtitle {
-        font-size: 0.85rem !important;
-        margin-bottom: 24px !important;
-    }
-    
     #audioAnalysisModal .upload-content {
         padding: 28px 20px;
     }
     
+    /* Título principal do card - mobile */
     #audioAnalysisModal .upload-content h4 {
-        font-size: 0.95rem;
+        font-size: 1.3rem !important;
+        letter-spacing: 1px !important;
+    }
+    
+    #audioAnalysisModal .upload-content p {
+        font-size: 0.85rem !important;
+    }
+    
+    #audioAnalysisModal .supported-formats {
+        font-size: 0.75rem !important;
+    }
+    
+    #audioAnalysisModal .format-recommendation {
+        font-size: 0.8rem !important;
     }
     
     #audioAnalysisModal .upload-btn {
