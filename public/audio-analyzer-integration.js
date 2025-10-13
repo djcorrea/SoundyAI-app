@@ -6762,21 +6762,22 @@ function injectGenreModalStyles() {
     const style = document.createElement('style');
     style.id = 'genreModalStyles';
     style.textContent = `
-    /* 🎵 Novo Modal de Gênero Musical - Glassmorphism */
+    /* 🎵 Novo Modal de Gênero Musical - RESPONSIVO */
     .genre-modal {
         position: fixed;
-        top: 0;
-        left: 0;
+        inset: 0;
         width: 100vw;
         height: 100vh;
         display: flex;
         align-items: center;
         justify-content: center;
+        padding: min(5vh, 2.5rem) 1.25rem;
         background: rgba(0, 0, 0, 0.7);
-        backdrop-filter: blur(12px);
-        -webkit-backdrop-filter: blur(12px);
+        backdrop-filter: blur(0.75rem);
+        -webkit-backdrop-filter: blur(0.75rem);
         z-index: 10000;
         opacity: 1;
+        overflow-y: auto;
         transition: opacity 0.3s ease;
     }
 
@@ -6786,8 +6787,8 @@ function injectGenreModalStyles() {
     }
 
     .genre-modal-container {
-        max-width: 720px;
-        width: 90%;
+        width: 100%;
+        max-width: min(90%, 650px);
         max-height: 90vh;
         background: radial-gradient(
     circle at 20% 20%, 
@@ -6795,23 +6796,23 @@ function injectGenreModalStyles() {
     rgba(0, 0, 0, 0.95) 60%,          /* Preto no centro */
     rgba(0, 102, 255, 0.4) 100%       /* Azul elétrico nas bordas */
 );
-backdrop-filter: blur(8px);
-box-shadow: 0 0 30px rgba(93, 21, 134, 0.4),
-            0 0 60px rgba(0, 102, 255, 0.2);
+        backdrop-filter: blur(1.25rem);
+        -webkit-backdrop-filter: blur(1.25rem);
         border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 20px;
-        padding: 40px 32px 32px 32px;
+        border-radius: clamp(1rem, 2vw, 1.25rem);
+        padding: clamp(1.5rem, 4vh, 2.5rem) clamp(1.25rem, 3vw, 2rem) clamp(1.25rem, 3vh, 2rem) clamp(1.25rem, 3vw, 2rem);
         text-align: center;
         position: relative;
-        backdrop-filter: blur(20px);
-        -webkit-backdrop-filter: blur(20px);
         box-shadow: 
-            0 20px 40px rgba(91, 11, 156, 0.49),
+            0 1.25rem 2.5rem rgba(91, 11, 156, 0.49),
+            0 0 1.875rem rgba(93, 21, 134, 0.4),
+            0 0 3.75rem rgba(0, 102, 255, 0.2),
             0 0 0 1px rgba(255, 255, 255, 0.05),
             inset 0 1px 0 rgba(255, 255, 255, 0.1);
         transform: scale(1);
         transition: transform 0.2s ease;
-        overflow: hidden;
+        overflow-y: auto;
+        overflow-x: hidden;
     }
 
     /* LINHAS NEURAIS VANTA - FUNDO TECH */
@@ -6897,21 +6898,21 @@ box-shadow: 0 0 30px rgba(93, 21, 134, 0.4),
         z-index: 5;
     }
 
-    /* Título com efeito glitch - Paleta roxo escuro + azul ciano */
+    /* Título RESPONSIVO com efeito glitch */
     .genre-modal-title {
         font-family: 'Orbitron', 'Rajdhani', 'Montserrat Alternates', sans-serif;
-        font-size: 2.2rem;
+        font-size: clamp(1.5rem, 4vw, 2.2rem);
         font-weight: 700;
         text-transform: uppercase;
         color: #ffffff;
-        margin-bottom: 12px;
+        margin-bottom: clamp(0.625rem, 2vh, 0.75rem);
         position: relative;
-        letter-spacing: 2px;
+        letter-spacing: clamp(1px, 0.3vw, 2px);
         text-align: center;
         text-shadow: 
-            0 0 12px rgba(0, 212, 255, 0.4),
-            0 0 24px rgba(108, 0, 162, 0.2),
-            0 0 40px rgba(0, 212, 255, 0.15);
+            0 0 0.75rem rgba(0, 212, 255, 0.4),
+            0 0 1.5rem rgba(108, 0, 162, 0.2),
+            0 0 2.5rem rgba(0, 212, 255, 0.15);
     }
 
     .genre-modal-title.glitch::before,
@@ -6952,17 +6953,19 @@ box-shadow: 0 0 30px rgba(93, 21, 134, 0.4),
 
     .genre-modal-subtitle {
         color: rgba(255, 255, 255, 0.7);
-        font-size: 1rem;
-        margin-bottom: 32px;
+        font-size: clamp(0.875rem, 2vw, 1rem);
+        margin-bottom: clamp(1.5rem, 4vh, 2rem);
         font-weight: 400;
+        padding: 0 1rem;
     }
 
-    /* Grid de gêneros */
+    /* Grid de gêneros RESPONSIVO */
     .genre-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 16px;
-        margin-bottom: 32px;
+        grid-template-columns: repeat(auto-fit, minmax(clamp(150px, 25vw, 200px), 1fr));
+        gap: clamp(0.75rem, 2vw, 1rem);
+        margin-bottom: clamp(1.5rem, 4vh, 2rem);
+        padding: 0 clamp(0.5rem, 1vw, 1rem);
     }
 
     /* 🔧 CORREÇÃO FLASH BRANCO: Estado inicial explícito */
