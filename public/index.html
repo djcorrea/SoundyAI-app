@@ -284,10 +284,10 @@
         </div>
     </div>
 
-    <!-- 🎵 MODAL DE ANÁLISE DE ÁUDIO -->
+    <!-- �🎵 MODAL DE ANÁLISE DE ÁUDIO -->
     <div id="audioAnalysisModal" class="audio-modal" style="display: none;">
         <div class="audio-modal-content">
-            <div class="audio-modal-header" style="display:none;">
+            <div class="audio-modal-header">
                 <h3 id="audioModalTitle">🎵 Análise de Áudio</h3>
                 <div id="audioModalSubtitle" class="audio-modal-subtitle" style="display: none;">
                     <span id="audioModeIndicator"></span>
@@ -296,7 +296,7 @@
             </div>
             
             <!-- Seleção de Gênero de Referência (apenas para modo gênero) -->
-            <div id="audioRefGenreContainer" style="display:none;">
+            <div id="audioRefGenreContainer" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:4px 4px 10px 4px;">
                 <label for="audioRefGenreSelect" style="font-size:12px;opacity:.8;">Gênero de Referência:</label>
                 <select id="audioRefGenreSelect" style="background:#0e1422;color:#fff;border:1px solid #1f2b40;padding:4px 8px;border-radius:6px;font-size:12px;outline:none;">
                     <option value="trance">Trance</option>
@@ -327,14 +327,17 @@
             <!-- Upload Area -->
             <div class="audio-upload-area" id="audioUploadArea">
                 <div class="upload-content">
-                    <div class="upload-icon">�</div>
-                    <h4>ANALISAR SEU ÁUDIO</h4>
-                    <p>Arraste ou clique para selecionar</p>
-                    <p class="supported-formats">WAV, FLAC, MP3 (máx. 60MB)</p>
+                    <div class="upload-icon">🎵</div>
+                    <h4>Analisar seu áudio</h4>
+                    <p>Arraste seu arquivo aqui ou clique para selecionar</p>
+                    <p class="supported-formats">Suporta: WAV, FLAC, MP3 (máx. 60MB)</p>
+                    <p class="format-recommendation">💡 Prefira WAV ou FLAC para maior precisão na análise</p>
                     <input type="file" id="modalAudioFileInput" 
                            accept="audio/wav,audio/flac,audio/mp3,audio/mpeg,.wav,.flac,.mp3" 
                            style="position:absolute;left:-9999px;opacity:0;width:1px;height:1px;" tabindex="-1">
-                    <label for="modalAudioFileInput" class="upload-btn">
+                    <label for="modalAudioFileInput"
+                        class="upload-btn"
+                        style="touch-action: manipulation; -webkit-tap-highlight-color: rgba(0, 150, 255, 0.3); width:100%; pointer-events:auto; display:inline-block; text-align:center; cursor:pointer;">
                         Escolher Arquivo
                     </label>
                 </div>
@@ -342,12 +345,10 @@
 
             <!-- Loading -->
             <div id="audioAnalysisLoading" class="audio-loading" style="display: none;">
-                <div class="loading-core">
-                    <div class="loading-spinner"></div>
-                    <p id="audioProgressText">🚀 Inicializando Sistema de Análise...</p>
-                    <div class="progress-bar">
-                        <div class="progress-fill" id="audioProgressFill"></div>
-                    </div>
+                <div class="loading-spinner"></div>
+                <p id="audioProgressText">🚀 Inicializando Sistema de Análise...</p>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="audioProgressFill"></div>
                 </div>
             </div>
 

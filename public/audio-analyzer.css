@@ -1,4 +1,4 @@
-/* ============ 🎵 AUDIO ANALYZER STYLES - CYBERPUNK REDESIGN ============ */
+/* ============ 🎵 AUDIO ANALYZER STYLES ============ */
 
 /* Botão de análise de áudio no input */
 .chatbot-audio-analyze-btn {
@@ -27,8 +27,6 @@
     transform: scale(0.95);
 }
 
-/* ============ MODAL CYBERPUNK - BASE ============ */
-
 /* Modal de análise de áudio */
 .audio-modal {
     position: fixed;
@@ -37,8 +35,7 @@
     width: 100%;
     height: 100%;
     background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(8px);
     z-index: 10000;
     display: flex;
     align-items: center;
@@ -46,25 +43,31 @@
     animation: fadeIn 0.3s ease;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-}
+/* ============================================
+   🎨 MODAL CYBERPUNK - #audioAnalysisModal
+   ============================================ */
 
-/* Container do Modal - Visual Cyberpunk */
-.audio-modal .audio-modal-content {
-    max-width: 600px;
-    width: 90%;
-    max-height: 80vh;
-    background: radial-gradient(circle at 20% 20%, #2a0040 0%, #05000c 60%, #001b3b 100%);
-    backdrop-filter: blur(25px);
-    -webkit-backdrop-filter: blur(25px);
-    border: 1px solid rgba(0, 255, 255, 0.2);
+/* Container principal do modal - IGUAL AO MODAL DE GÊNERO */
+#audioAnalysisModal .audio-modal-content {
+    max-width: 720px;
+    max-height: 88vh;
+    min-height: auto;
+    /* FUNDO EXATAMENTE IGUAL AO MODAL DE GÊNERO DA IMAGEM */
+    background: radial-gradient(
+        circle at 20% 20%, 
+        rgba(93, 21, 134, 0.9) 0%,       /* Roxo vibrante no canto igual na imagem */
+        rgba(20, 10, 40, 0.98) 40%,       /* Roxo escuro no meio */
+        rgba(0, 0, 0, 0.95) 100%          /* Preto nas bordas */
+    );
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    /* Borda sutil ciano igual ao da imagem */
+    border: 1px solid rgba(100, 150, 255, 0.15);
     box-shadow: 
-        0 0 40px rgba(0, 255, 255, 0.25),
-        0 0 80px rgba(124, 77, 255, 0.2),
-        inset 0 0 100px rgba(124, 77, 255, 0.05);
-    border-radius: 24px;
+        0 0 60px rgba(93, 21, 134, 0.4),
+        0 0 100px rgba(0, 102, 255, 0.2),
+        0 30px 100px rgba(0, 0, 0, 0.9);
+    border-radius: 20px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -72,204 +75,339 @@
     overflow: hidden;
     padding: 50px 40px;
     position: relative;
-    animation: modalSlideIn 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
 }
 
-@keyframes modalSlideIn {
-    from {
-        opacity: 0;
-        transform: translateY(30px) scale(0.95);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
+/* Remover título superior do modal */
+#audioAnalysisModal .audio-modal-header h3 {
+    display: none !important;
 }
 
-/* Efeito de brilho nas bordas */
-.audio-modal .audio-modal-content::before {
-    content: '';
+/* Ocultar seletor de gênero visualmente */
+#audioAnalysisModal #audioRefGenreContainer {
+    display: none !important;
+    visibility: hidden !important;
+    position: absolute !important;
+    pointer-events: none !important;
+}
+
+/* Ocultar progresso de steps */
+#audioAnalysisModal #referenceProgressSteps {
+    display: none !important;
+}
+
+/* BOTÃO DE FECHAR IGUAL AO MODAL DE GÊNERO */
+#audioAnalysisModal .audio-modal-close {
     position: absolute;
-    top: -2px;
-    left: -2px;
-    right: -2px;
-    bottom: -2px;
-    background: linear-gradient(45deg, 
-        rgba(0, 255, 255, 0.3) 0%,
-        rgba(124, 77, 255, 0.3) 25%,
-        rgba(255, 0, 255, 0.3) 50%,
-        rgba(124, 77, 255, 0.3) 75%,
-        rgba(0, 255, 255, 0.3) 100%);
-    border-radius: 24px;
-    opacity: 0;
-    z-index: -1;
-    animation: borderGlow 3s ease-in-out infinite;
+    top: 20px;
+    right: 20px;
+    background: rgba(80, 40, 120, 0.3);
+    border: 2px solid rgba(150, 100, 200, 0.4);
+    color: rgba(200, 200, 220, 0.9);
+    font-size: 28px;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    z-index: 100;
+    padding: 0;
+    line-height: 1;
+    font-weight: 300;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 15px rgba(93, 21, 134, 0.3);
 }
 
-@keyframes borderGlow {
-    0%, 100% { opacity: 0; }
-    50% { opacity: 0.5; }
+#audioAnalysisModal .audio-modal-close:hover {
+    background: rgba(100, 60, 150, 0.5);
+    border-color: rgba(180, 140, 255, 0.6);
+    color: #ffffff;
+    box-shadow: 
+        0 0 30px rgba(106, 154, 255, 0.4),
+        0 6px 20px rgba(93, 21, 134, 0.5);
+    transform: scale(1.1) rotate(90deg);
 }
 
-/* ============ UPLOAD SECTION - CYBERPUNK ============ */
+#audioAnalysisModal .audio-modal-close:active {
+    transform: scale(0.95) rotate(90deg);
+}
 
-.audio-upload-area {
+/* ===============================
+   UPLOAD SECTION - Cyberpunk Style
+   =============================== */
+
+#audioAnalysisModal .audio-upload-area {
+    padding: 0;
     width: 100%;
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
 }
 
-.upload-content {
+/* ÁREA DE UPLOAD IGUAL AO ESTILO DOS CARDS DE GÊNERO */
+#audioAnalysisModal .upload-content {
     text-align: center;
+    border: 2px solid rgba(150, 100, 200, 0.3);
+    border-radius: 18px;
+    padding: 55px 45px;
+    background: rgba(80, 40, 120, 0.15);
+    backdrop-filter: blur(15px);
+    transition: all 0.3s ease;
     width: 100%;
+    max-width: 520px;
+    box-shadow: 
+        0 4px 20px rgba(93, 21, 134, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    position: relative;
+    overflow: hidden;
 }
 
-.upload-icon {
+/* Efeito de brilho no hover igual aos cards */
+#audioAnalysisModal .upload-content::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(106, 154, 255, 0.1) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+#audioAnalysisModal .upload-content:hover {
+    border-color: rgba(180, 140, 255, 0.5);
+    background: rgba(100, 60, 150, 0.25);
+    transform: translateY(-4px);
+    box-shadow: 
+        0 8px 30px rgba(93, 21, 134, 0.4),
+        0 0 50px rgba(106, 154, 255, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+#audioAnalysisModal .upload-content:hover::before {
+    opacity: 1;
+}
+
+/* ÍCONE IGUAL AOS DO MODAL DE GÊNERO */
+#audioAnalysisModal .upload-icon {
     font-size: 4rem;
     margin-bottom: 20px;
-    display: block;
-    background: linear-gradient(135deg, #00ffff, #7c4dff, #ff00ff);
+    /* Gradiente igual aos ícones de gênero */
+    background: linear-gradient(135deg, #6a9aff, #00d4ff);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
-    animation: iconPulse 3s ease-in-out infinite;
-    text-shadow: 0 0 40px rgba(0, 255, 255, 0.5);
+    display: block;
+    filter: drop-shadow(0 0 20px rgba(106, 154, 255, 0.5));
+    animation: icon-float 3s ease-in-out infinite;
 }
 
-@keyframes iconPulse {
-    0%, 100% {
-        transform: scale(1);
-        filter: drop-shadow(0 0 20px rgba(0, 255, 255, 0.5));
+@keyframes icon-float {
+    0%, 100% { 
+        transform: translateY(0px);
+        filter: drop-shadow(0 0 20px rgba(106, 154, 255, 0.5));
     }
-    50% {
-        transform: scale(1.1);
-        filter: drop-shadow(0 0 40px rgba(124, 77, 255, 0.7));
+    50% { 
+        transform: translateY(-10px);
+        filter: drop-shadow(0 0 30px rgba(106, 154, 255, 0.7));
     }
 }
 
-.upload-content h4 {
-    font-family: 'Orbitron', 'Poppins', sans-serif;
-    font-size: 1.8rem;
-    font-weight: 700;
+#audioAnalysisModal .upload-content h4 {
     color: #ffffff;
-    margin: 0 0 15px 0;
-    letter-spacing: 2px;
+    font-size: 32px;
+    font-weight: 800;
+    margin: 0 0 16px 0;
+    /* FONTE ORBITRON IGUAL AO MODAL DE GÊNERO */
+    font-family: 'Orbitron', sans-serif;
+    /* GRADIENTE AZUL IGUAL NA IMAGEM */
+    background: linear-gradient(90deg, #6a9aff, #00d4ff);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 30px rgba(106, 154, 255, 0.4);
     text-transform: uppercase;
-    text-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+    letter-spacing: 2px;
+    line-height: 1.2;
 }
 
-.upload-content p {
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 1rem;
+/* TEXTOS IGUAL AO MODAL DE GÊNERO */
+#audioAnalysisModal .upload-content p {
+    color: rgba(200, 200, 220, 0.9);
+    font-size: 16px;
     margin: 10px 0;
+    line-height: 1.6;
     font-weight: 400;
 }
 
-.upload-content .supported-formats {
-    color: rgba(124, 77, 255, 0.9);
-    font-size: 0.9rem;
-    margin-top: 15px;
-    margin-bottom: 25px;
+#audioAnalysisModal .supported-formats {
+    font-size: 14px !important;
+    color: rgba(180, 180, 200, 0.7) !important;
+    margin-top: 16px !important;
+    font-style: italic;
 }
 
-.upload-content .format-recommendation {
-    display: none;
+#audioAnalysisModal .format-recommendation {
+    display: none !important;
 }
 
-/* Botão de Upload - Gradiente Neon */
-.upload-btn {
-    display: inline-block;
-    background: linear-gradient(90deg, #7c4dff, #00ffff);
-    border-radius: 12px;
-    padding: 16px 40px;
+#audioAnalysisModal .upload-btn {
+    /* ESTILO DE CARD IGUAL AO MODAL DE GÊNERO */
+    background: rgba(80, 40, 120, 0.3);
+    border: 2px solid rgba(150, 100, 200, 0.4);
+    border-radius: 16px;
+    padding: 18px 36px;
     color: white;
     font-weight: 700;
-    font-size: 1rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    font-size: 17px;
+    font-family: 'Orbitron', sans-serif;
     cursor: pointer;
-    border: none;
     transition: all 0.3s ease;
-    box-shadow: 0 0 25px rgba(0, 255, 255, 0.4);
+    margin-top: 24px;
+    display: inline-block;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    box-shadow: 
+        0 4px 20px rgba(93, 21, 134, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
     position: relative;
     overflow: hidden;
-    margin-top: 10px;
 }
 
-.upload-btn::before {
+#audioAnalysisModal .upload-btn::before {
     content: '';
     position: absolute;
     top: 0;
     left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent);
     transition: left 0.5s ease;
 }
 
-.upload-btn:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 40px rgba(0, 255, 255, 0.6);
+#audioAnalysisModal .upload-btn:hover {
+    background: rgba(100, 60, 150, 0.5);
+    border-color: rgba(180, 140, 255, 0.6);
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 
+        0 8px 30px rgba(93, 21, 134, 0.5),
+        0 0 40px rgba(106, 154, 255, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
-.upload-btn:hover::before {
+#audioAnalysisModal .upload-btn:hover::before {
     left: 100%;
 }
 
-.upload-btn:active {
-    transform: scale(0.98);
+#audioAnalysisModal .upload-btn:active {
+    transform: translateY(-1px) scale(0.98);
 }
 
-/* ============ LOADING SECTION - HUB IA ============ */
+/* ===============================
+   LOADING SECTION - Cyberpunk Style
+   =============================== */
 
-.audio-loading {
+#audioAnalysisModal .audio-loading {
+    padding: 40px 30px;
     width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
+    text-align: center;
+    background: transparent;
+    backdrop-filter: none;
+    border-radius: 0;
+    margin: 0;
+    box-shadow: none;
+    gap: 20px;
 }
 
-.loading-core {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-}
-
-/* Spinner Cyberpunk - Círculo Neon Triplo */
-.loading-spinner {
-    width: 90px;
-    height: 90px;
-    border: 4px solid rgba(255, 255, 255, 0.1);
-    border-top: 4px solid #00ffff;
-    border-right: 4px solid #7c4dff;
-    border-bottom: 4px solid #ff00ff;
+/* SPINNER ÉPICO IGUAL AO MODAL DE GÊNERO */
+#audioAnalysisModal .loading-spinner {
+    width: 100px;
+    height: 100px;
+    border: 5px solid rgba(20, 10, 40, 0.3);
+    border-top: 5px solid #6a00ff;      /* Roxo vibrante */
+    border-right: 5px solid #6a9aff;    /* Azul */
+    border-bottom: 5px solid #00d4ff;   /* Ciano */
+    border-left: 5px solid transparent;
     border-radius: 50%;
-    animation: spin 1.8s linear infinite;
+    animation: spin-epic 1.5s cubic-bezier(0.68, -0.55, 0.265, 1.55) infinite;
     box-shadow:
-        0 0 40px rgba(0, 255, 255, 0.3),
-        0 0 60px rgba(124, 77, 255, 0.2),
-        inset 0 0 30px rgba(255, 255, 255, 0.1);
+        0 0 60px rgba(106, 0, 255, 0.4),
+        0 0 100px rgba(106, 154, 255, 0.3),
+        inset 0 0 40px rgba(255, 255, 255, 0.1);
     position: relative;
-    margin-bottom: 25px;
 }
 
-.loading-spinner::after {
+/* Anel interno do spinner */
+#audioAnalysisModal .loading-spinner::before {
     content: '';
     position: absolute;
     top: 50%;
     left: 50%;
-    width: 60px;
-    height: 60px;
+    width: 60%;
+    height: 60%;
     border: 3px solid transparent;
-    border-top: 3px solid rgba(255, 0, 255, 0.8);
+    border-top: 3px solid rgba(106, 154, 255, 0.8);
     border-radius: 50%;
     transform: translate(-50%, -50%);
-    animation: spin-reverse 1.2s linear infinite;
+    animation: spin-reverse 1s linear infinite;
+}
+
+/* Ponto central brilhante */
+#audioAnalysisModal .loading-spinner::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20%;
+    height: 20%;
+    background: radial-gradient(circle, #00d4ff 0%, transparent 70%);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    animation: pulse-center 1.5s ease-in-out infinite;
+}
+
+@keyframes spin-epic {
+    0% { 
+        transform: rotate(0deg);
+        box-shadow:
+            0 0 60px rgba(106, 0, 255, 0.4),
+            0 0 100px rgba(106, 154, 255, 0.3);
+    }
+    50% {
+        box-shadow:
+            0 0 80px rgba(106, 0, 255, 0.6),
+            0 0 120px rgba(106, 154, 255, 0.5);
+    }
+    100% { 
+        transform: rotate(360deg);
+        box-shadow:
+            0 0 60px rgba(106, 0, 255, 0.4),
+            0 0 100px rgba(106, 154, 255, 0.3);
+    }
+}
+
+@keyframes spin-reverse {
+    0% { transform: translate(-50%, -50%) rotate(0deg); }
+    100% { transform: translate(-50%, -50%) rotate(-360deg); }
+}
+
+@keyframes pulse-center {
+    0%, 100% { 
+        opacity: 0.6;
+        transform: translate(-50%, -50%) scale(1);
+    }
+    50% { 
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.3);
+    }
 }
 
 @keyframes spin {
@@ -277,143 +415,242 @@
     to { transform: rotate(360deg); }
 }
 
-@keyframes spin-reverse {
-    from { transform: translate(-50%, -50%) rotate(0deg); }
-    to { transform: translate(-50%, -50%) rotate(-360deg); }
-}
-
-/* Texto de Progresso */
-#audioProgressText {
+#audioAnalysisModal #audioProgressText {
     color: #ffffff;
-    font-weight: 600;
-    font-size: 1.1rem;
-    text-align: center;
-    margin: 15px 0;
-    text-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
-    letter-spacing: 0.5px;
+    font-weight: 700;
+    font-size: 18px;
+    font-family: 'Orbitron', sans-serif;
+    /* Gradiente igual ao título */
+    background: linear-gradient(90deg, #6a9aff, #00d4ff);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 25px rgba(106, 154, 255, 0.5);
+    margin: 0;
+    letter-spacing: 1px;
+    animation: text-pulse 2s ease-in-out infinite;
 }
 
-/* Barra de Progresso - Estilo Neon */
-.progress-bar {
+@keyframes text-pulse {
+    0%, 100% { 
+        filter: brightness(1);
+        text-shadow: 0 0 25px rgba(106, 154, 255, 0.5);
+    }
+    50% { 
+        filter: brightness(1.2);
+        text-shadow: 0 0 35px rgba(106, 154, 255, 0.8);
+    }
+}
+
+/* BARRA DE PROGRESSO ÉPICA IGUAL AO MODAL DE GÊNERO */
+#audioAnalysisModal .progress-bar {
     width: 100%;
-    max-width: 500px;
-    height: 12px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 8px;
-    margin-top: 20px;
+    max-width: 550px;
+    height: 16px;
+    background: rgba(20, 10, 40, 0.6);
+    border-radius: 12px;
     overflow: hidden;
     position: relative;
-    border: 1px solid rgba(0, 255, 255, 0.2);
+    border: 2px solid rgba(100, 150, 255, 0.3);
     box-shadow: 
-        inset 0 0 10px rgba(0, 0, 0, 0.5),
-        0 0 10px rgba(0, 255, 255, 0.2);
+        inset 0 2px 8px rgba(0, 0, 0, 0.5),
+        0 0 20px rgba(93, 21, 134, 0.3);
 }
 
-.progress-fill {
+#audioAnalysisModal .progress-fill {
     height: 100%;
     width: 0%;
-    background: linear-gradient(90deg, #00ffff, #7c4dff);
-    box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
-    transition: width 0.2s linear;
+    /* Gradiente roxo-azul igual ao modal de gênero */
+    background: linear-gradient(90deg, 
+        #6a00ff 0%,           /* Roxo vibrante */
+        #8b5cf6 25%,          /* Roxo médio */
+        #6a9aff 50%,          /* Azul */
+        #00d4ff 100%          /* Ciano */
+    );
+    box-shadow: 
+        0 0 30px rgba(106, 0, 255, 0.6),
+        0 0 50px rgba(106, 154, 255, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-radius: 10px;
     position: relative;
-    border-radius: 8px;
 }
 
-.progress-fill::after {
+/* Efeito de brilho animado na barra */
+#audioAnalysisModal .progress-fill::before {
     content: '';
     position: absolute;
     top: 0;
     left: 0;
+    right: 0;
+    height: 50%;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), transparent);
+    border-radius: 10px 10px 0 0;
+}
+
+/* Shimmer effect épico */
+#audioAnalysisModal .progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
-    animation: shimmer 2s infinite;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(255, 255, 255, 0.6), 
+        transparent
+    );
+    animation: progress-shimmer 1.5s infinite;
 }
 
-@keyframes shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
+@keyframes progress-shimmer {
+    0% { left: -100%; }
+    100% { left: 200%; }
 }
 
-/* ============ RESPONSIVIDADE ============ */
+/* ===============================
+   RESULTS SECTION - Expansão MAIOR
+   =============================== */
 
+#audioAnalysisModal .audio-modal-content:has(.audio-results:not([style*="display: none"])) {
+    max-width: 1500px;
+    max-height: 92vh;
+    min-height: 82vh;
+    padding: 40px 50px;
+}
+
+#audioAnalysisModal .audio-results {
+    padding: 20px 0;
+    width: 100%;
+    max-height: calc(92vh - 100px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 255, 255, 0.4) transparent;
+}
+
+#audioAnalysisModal .audio-results::-webkit-scrollbar {
+    width: 6px;
+}
+
+#audioAnalysisModal .audio-results::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#audioAnalysisModal .audio-results::-webkit-scrollbar-thumb {
+    background: rgba(0, 255, 255, 0.4);
+    border-radius: 3px;
+}
+
+#audioAnalysisModal .results-header h4 {
+    color: #ffffff;
+    font-size: 28px;
+    font-weight: 800;
+    text-align: center;
+    font-family: 'Orbitron', sans-serif;
+    /* Mesmo gradiente do modal de gênero */
+    background: linear-gradient(90deg, #6a9aff, #00d4ff);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 30px rgba(106, 154, 255, 0.5);
+    margin-bottom: 32px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+/* ===============================
+   RESPONSIVIDADE
+   =============================== */
+
+/* RESPONSIVIDADE MOBILE - Mantendo estilo do modal de gênero */
 @media (max-width: 768px) {
-    .audio-modal .audio-modal-content {
-        width: 95%;
-        max-height: 85vh;
-        padding: 40px 30px;
+    #audioAnalysisModal .audio-modal-content {
+        width: 92vw;
+        max-width: 680px;
+        max-height: 88vh;
+        padding: 35px 25px;
     }
     
-    .upload-icon {
+    #audioAnalysisModal .upload-content {
+        padding: 45px 30px;
+        max-width: 100%;
+    }
+    
+    #audioAnalysisModal .upload-content h4 {
+        font-size: 26px;
+        letter-spacing: 1.5px;
+    }
+    
+    #audioAnalysisModal .upload-icon {
         font-size: 3.5rem;
     }
     
-    .upload-content h4 {
-        font-size: 1.5rem;
+    #audioAnalysisModal .loading-spinner {
+        width: 85px;
+        height: 85px;
     }
     
-    .upload-btn {
-        padding: 14px 30px;
-        font-size: 0.9rem;
+    #audioAnalysisModal .progress-bar {
+        max-width: 100%;
+        height: 14px;
     }
     
-    .loading-spinner {
-        width: 80px;
-        height: 80px;
+    #audioAnalysisModal #audioProgressText {
+        font-size: 16px;
     }
     
-    .loading-spinner::after {
-        width: 55px;
-        height: 55px;
+    #audioAnalysisModal .audio-modal-content:has(.audio-results:not([style*="display: none"])) {
+        width: 96vw;
+        max-height: 94vh;
+        padding: 30px 25px;
     }
 }
 
 @media (max-width: 480px) {
-    .audio-modal .audio-modal-content {
-        width: 98%;
-        max-height: 90vh;
-        padding: 35px 25px;
+    #audioAnalysisModal .audio-modal-content {
+        padding: 30px 20px;
+        max-width: 95vw;
     }
     
-    .upload-icon {
+    #audioAnalysisModal .upload-content {
+        padding: 40px 25px;
+        border-radius: 16px;
+    }
+    
+    #audioAnalysisModal .upload-icon {
         font-size: 3rem;
     }
     
-    .upload-content h4 {
-        font-size: 1.3rem;
+    #audioAnalysisModal .upload-content h4 {
+        font-size: 22px;
+        letter-spacing: 1px;
     }
     
-    .upload-content p {
-        font-size: 0.9rem;
+    #audioAnalysisModal .upload-btn {
+        padding: 16px 30px;
+        font-size: 15px;
     }
     
-    .upload-btn {
-        padding: 12px 25px;
-        font-size: 0.85rem;
+    #audioAnalysisModal .loading-spinner {
+        width: 75px;
+        height: 75px;
     }
     
-    .loading-spinner {
-        width: 70px;
-        height: 70px;
+    #audioAnalysisModal .progress-bar {
+        height: 12px;
     }
     
-    .loading-spinner::after {
-        width: 48px;
-        height: 48px;
+    #audioAnalysisModal #audioProgressText {
+        font-size: 15px;
     }
     
-    .progress-bar {
-        height: 10px;
+    #audioAnalysisModal .audio-modal-close {
+        width: 38px;
+        height: 38px;
+        font-size: 24px;
     }
 }
-
-/* ============ ESTILOS ANTIGOS PARA RESULTS (PRESERVADOS) ============ */
-
-.audio-modal-OLD {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
 
 /* ============ 🎨 ENHANCED CARDS DESIGN ============ */
 
@@ -756,16 +993,8 @@ details[open] summary {
     opacity: 0.9;
     margin-top: 4px;
 }
-    height: 100%;
-    background: rgba(0, 0, 0, 0.8);
-    backdrop-filter: blur(5px);
-    z-index: 10000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    animation: fadeIn 0.3s ease;
-}
 
+/* === Estilos genéricos do modal de áudio (outros modais usam) === */
 .audio-modal-content {
     /* Tema roxo da Fase 1 */
     background: linear-gradient(135deg, #121122, #1b1230 40%, #0e0a1a 100%);
@@ -784,15 +1013,15 @@ details[open] summary {
     backdrop-filter: blur(10px);
 }
 
-/* Mobile optimizations */
+/* Mobile optimizations para modais genéricos */
 @media (max-width: 768px) {
-    .audio-modal {
+    .audio-modal:not(#audioAnalysisModal) {
         padding: 5px;
         align-items: flex-start;
         padding-top: 2vh;
     }
     
-    .audio-modal-content {
+    .audio-modal:not(#audioAnalysisModal) .audio-modal-content {
         width: 98%;
         max-height: 98vh;
         min-height: 90vh;
@@ -801,12 +1030,12 @@ details[open] summary {
 }
 
 @media (max-width: 480px) {
-    .audio-modal {
+    .audio-modal:not(#audioAnalysisModal) {
         padding: 3px;
         padding-top: 1vh;
     }
     
-    .audio-modal-content {
+    .audio-modal:not(#audioAnalysisModal) .audio-modal-content {
         width: 99%;
         max-height: 99vh;
         min-height: 95vh;
@@ -814,8 +1043,8 @@ details[open] summary {
     }
 }
 
-
-.audio-modal-header {
+/* Estilos genéricos para outros modais (não #audioAnalysisModal) */
+.audio-modal:not(#audioAnalysisModal) .audio-modal-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -823,13 +1052,13 @@ details[open] summary {
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.audio-modal-header h3 {
+.audio-modal:not(#audioAnalysisModal) .audio-modal-header h3 {
     color: #b388ff; /* Roxo vivo */
     font-size: 1.4rem;
     margin: 0;
 }
 
-.audio-modal-close {
+.audio-modal:not(#audioAnalysisModal) .audio-modal-close {
     background: none;
     border: none;
     color: #fff;
@@ -840,17 +1069,17 @@ details[open] summary {
     transition: all 0.3s ease;
 }
 
-.audio-modal-close:hover {
+.audio-modal:not(#audioAnalysisModal) .audio-modal-close:hover {
     background: rgba(255, 255, 255, 0.1);
 }
 
-/* Upload area no modal */
-.audio-upload-area {
+/* Upload area no modal - genérico para outros modais */
+.audio-modal:not(#audioAnalysisModal) .audio-upload-area {
     padding: 40px 24px;
     position: relative;
 }
 
-.upload-content {
+.audio-modal:not(#audioAnalysisModal) .upload-content {
     border: 2px dashed rgba(0, 255, 255, 0.3);
     border-radius: 24px;
     padding: 60px 30px;
@@ -871,7 +1100,7 @@ details[open] summary {
         inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
-.upload-content::before {
+.audio-modal:not(#audioAnalysisModal) .upload-content::before {
     content: '';
     position: absolute;
     top: -2px;
@@ -890,14 +1119,14 @@ details[open] summary {
     z-index: -1;
 }
 
-.upload-content:hover::before,
-.upload-content.dragover::before {
+.audio-modal:not(#audioAnalysisModal) .upload-content:hover::before,
+.audio-modal:not(#audioAnalysisModal) .upload-content.dragover::before {
     opacity: 1;
     animation: border-glow 2s infinite;
 }
 
-.upload-content:hover,
-.upload-content.dragover {
+.audio-modal:not(#audioAnalysisModal) .upload-content:hover,
+.audio-modal:not(#audioAnalysisModal) .upload-content.dragover {
     border-color: rgba(0, 255, 255, 0.6);
     background: linear-gradient(135deg, 
         rgba(25, 20, 40, 0.9) 0%, 
@@ -910,7 +1139,7 @@ details[open] summary {
         inset 0 0 0 2px rgba(255, 255, 255, 0.1);
 }
 
-.upload-icon {
+.audio-modal:not(#audioAnalysisModal) .upload-icon {
     font-size: 64px;
     background: linear-gradient(135deg, #00ffff, #7c4dff, #ff00ff);
     -webkit-background-clip: text;
@@ -921,7 +1150,7 @@ details[open] summary {
     animation: icon-pulse 3s ease-in-out infinite;
 }
 
-.upload-content h4 {
+.audio-modal:not(#audioAnalysisModal) .upload-content h4 {
     color: #ffffff;
     margin: 20px 0 12px 0;
     font-size: 24px;
@@ -930,7 +1159,7 @@ details[open] summary {
     letter-spacing: 0.5px;
 }
 
-.upload-content p {
+.audio-modal:not(#audioAnalysisModal) .upload-content p {
     color: #b388ff;
     margin: 12px 0;
     font-size: 16px;
@@ -938,12 +1167,12 @@ details[open] summary {
     line-height: 1.4;
 }
 
-.supported-formats {
+.audio-modal:not(#audioAnalysisModal) .supported-formats {
     font-size: 12px;
     color: #666;
 }
 
-.upload-btn {
+.audio-modal:not(#audioAnalysisModal) .upload-btn {
     background: linear-gradient(135deg, #00ffff, #7c4dff, #ff00ff);
     color: #fff;
     border: none;
@@ -968,7 +1197,7 @@ details[open] summary {
         0 8px 25px rgba(0, 0, 0, 0.3);
 }
 
-.upload-btn::before {
+.audio-modal:not(#audioAnalysisModal) .upload-btn::before {
     content: '';
     position: absolute;
     top: 0;
@@ -979,11 +1208,11 @@ details[open] summary {
     transition: left 0.6s ease;
 }
 
-.upload-btn:hover::before {
+.audio-modal:not(#audioAnalysisModal) .upload-btn:hover::before {
     left: 100%;
 }
 
-.upload-btn:hover {
+.audio-modal:not(#audioAnalysisModal) .upload-btn:hover {
     background: linear-gradient(135deg, #00d4ff, #5e35b1, #e91e63);
     transform: translateY(-3px);
     box-shadow: 
@@ -991,25 +1220,25 @@ details[open] summary {
         0 12px 30px rgba(0, 0, 0, 0.4);
 }
 
-.upload-btn:active {
+.audio-modal:not(#audioAnalysisModal) .upload-btn:active {
     transform: translateY(-1px);
     background: linear-gradient(135deg, #5e35b1, #4527a0, #c2185b);
 }
 
-/* Mobile-specific touch optimizations */
+/* Mobile-specific touch optimizations para outros modais */
 @media (hover: none) and (pointer: coarse) {
-    .upload-btn:hover {
+    .audio-modal:not(#audioAnalysisModal) .upload-btn:hover {
         transform: none;
         box-shadow: none;
         background: linear-gradient(135deg, #7c4dff, #651fff);
     }
     
-    .upload-btn:active {
+    .audio-modal:not(#audioAnalysisModal) .upload-btn:active {
         background: linear-gradient(135deg, #5e35b1, #4527a0);
         transform: scale(0.98);
     }
     
-    .upload-content {
+    .audio-modal:not(#audioAnalysisModal) .upload-content {
         cursor: default;
         -webkit-user-select: none;
         user-select: none;
@@ -1017,7 +1246,7 @@ details[open] summary {
 }
 
 @media (max-width: 480px) {
-    .upload-btn {
+    .audio-modal:not(#audioAnalysisModal) .upload-btn {
         padding: 14px 20px;
         width: 80%;
         max-width: 200px;
@@ -1025,8 +1254,8 @@ details[open] summary {
     }
 }
 
-/* Loading no modal */
-.audio-loading {
+/* Loading no modal - genérico para outros modais */
+.audio-modal:not(#audioAnalysisModal) .audio-loading {
     padding: 60px 40px;
     text-align: center;
     color: #fff;
@@ -1045,7 +1274,7 @@ details[open] summary {
         inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
-.audio-loading::before {
+.audio-modal:not(#audioAnalysisModal) .audio-loading::before {
     content: '';
     position: absolute;
     top: 0;
@@ -1056,7 +1285,7 @@ details[open] summary {
     animation: shimmer 3s infinite;
 }
 
-.loading-spinner {
+.audio-modal:not(#audioAnalysisModal) .loading-spinner {
     width: 60px;
     height: 60px;
     border: 4px solid rgba(255, 255, 255, 0.1);
@@ -1073,7 +1302,7 @@ details[open] summary {
         inset 0 0 30px rgba(255, 255, 255, 0.1);
 }
 
-.loading-spinner::after {
+.audio-modal:not(#audioAnalysisModal) .loading-spinner::after {
     content: '';
     position: absolute;
     top: 50%;
@@ -1087,7 +1316,7 @@ details[open] summary {
     animation: spin-reverse 1s linear infinite;
 }
 
-.progress-bar {
+.audio-modal:not(#audioAnalysisModal) .progress-bar {
     width: 100%;
     height: 12px;
     background: rgba(255, 255, 255, 0.05);
@@ -1099,7 +1328,7 @@ details[open] summary {
     box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
 }
 
-.progress-fill {
+.audio-modal:not(#audioAnalysisModal) .progress-fill {
     height: 100%;
     background: linear-gradient(90deg, 
         #00ffff 0%, 
@@ -1114,7 +1343,7 @@ details[open] summary {
         inset 0 0 10px rgba(255, 255, 255, 0.2);
 }
 
-.progress-fill::after {
+.audio-modal:not(#audioAnalysisModal) .progress-fill::after {
     content: '';
     position: absolute;
     top: 0;
@@ -1125,8 +1354,8 @@ details[open] summary {
     animation: shimmer 2s infinite;
 }
 
-/* Texto de progresso futurístico */
-#audioProgressText {
+/* Texto de progresso futurístico - genérico outros modais */
+.audio-modal:not(#audioAnalysisModal) #audioProgressText {
     color: #ffffff;
     font-weight: 700;
     font-size: 18px;
@@ -1147,12 +1376,12 @@ details[open] summary {
     }
 }
 
-/* Resultados no modal */
-.audio-results {
+/* Resultados no modal - genérico outros modais */
+.audio-modal:not(#audioAnalysisModal) .audio-results {
     padding: 40px 50px;
 }
 
-.results-header h4 {
+.audio-modal:not(#audioAnalysisModal) .results-header h4 {
     color: #b388ff;
     margin-bottom: 30px;
     font-size: 1.4rem;
