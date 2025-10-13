@@ -44,45 +44,77 @@
 }
 
 /* ============================================
-   🎨 MODAL CYBERPUNK - #audioAnalysisModal
-   ESTILO IDÊNTICO AO MODAL DE GÊNERO
+   🎨 MODAL DE UPLOAD - COPIADO DO MODAL DE GÊNERO
+   CSS EXATO DA FUNÇÃO injectGenreModalStyles()
    ============================================ */
 
-/* Container principal do modal - IGUAL MODAL DE GÊNERO */
+/* Container principal - EXATAMENTE IGUAL .genre-modal-container */
 #audioAnalysisModal .audio-modal-content {
-    max-width: 760px;
-    width: 92%;
+    max-width: 720px;
+    width: 90%;
     max-height: 90vh;
-    min-height: auto;
-    /* FUNDO EXATAMENTE IGUAL AO MODAL DE GÊNERO */
-    background: linear-gradient(
-        135deg,
-        rgba(50, 20, 80, 0.98) 0%,       /* Roxo escuro top-left */
-        rgba(25, 15, 45, 0.98) 35%,      /* Roxo/azul escuro meio */
-        rgba(15, 25, 40, 0.98) 70%,      /* Azul escuro meio-right */
-        rgba(5, 10, 20, 0.98) 100%       /* Preto/azul escuro bottom-right */
+    /* BACKGROUND IDÊNTICO AO MODAL DE GÊNERO */
+    background: radial-gradient(
+        circle at 20% 20%, 
+        rgba(93, 21, 134, 0.85) 0%,       /* Roxo vibrante no canto */
+        rgba(0, 0, 0, 0.95) 60%,          /* Preto no centro */
+        rgba(0, 102, 255, 0.4) 100%       /* Azul elétrico nas bordas */
     );
-    backdrop-filter: blur(25px);
-    -webkit-backdrop-filter: blur(25px);
-    /* Borda igual modal de gênero */
-    border: 1.5px solid rgba(106, 154, 255, 0.15);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    /* BORDAS E SHADOWS IDÊNTICAS */
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
     box-shadow: 
-        0 8px 32px rgba(0, 0, 0, 0.85),
-        0 0 60px rgba(50, 20, 80, 0.4),
-        inset 0 1px 0 rgba(255, 255, 255, 0.05);
-    border-radius: 24px;
+        0 20px 40px rgba(91, 11, 156, 0.49),
+        0 0 0 1px rgba(255, 255, 255, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    padding: 40px 32px 32px 32px;
+    text-align: center;
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
-    padding: 55px 45px 45px 45px;
-    position: relative;
+    transform: scale(1);
+    transition: transform 0.2s ease;
 }
 
-/* Remover título superior do modal */
-#audioAnalysisModal .audio-modal-header h3 {
-    display: none !important;
+/* TÍTULO PRINCIPAL - ESTILO COPIADO DE .genre-modal-title */
+#audioAnalysisModal .audio-modal-header {
+    width: 100%;
+    margin-bottom: 0;
+    text-align: center;
+}
+
+#audioAnalysisModal #audioModalTitle,
+#audioAnalysisModal .genre-modal-title {
+    /* CSS EXATO DE .genre-modal-title */
+    font-family: 'Orbitron', 'Rajdhani', 'Montserrat Alternates', sans-serif !important;
+    font-size: 2.2rem !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    color: #ffffff !important;
+    margin: 0 0 12px 0 !important;
+    position: relative !important;
+    letter-spacing: 2px !important;
+    text-align: center !important;
+    line-height: 1.1 !important;
+    /* Text-shadow idêntico ao modal de gênero */
+    text-shadow: 
+        0 0 12px rgba(0, 212, 255, 0.4),
+        0 0 24px rgba(108, 0, 162, 0.2),
+        0 0 40px rgba(0, 212, 255, 0.15) !important;
+    display: block !important;
+}
+
+/* SUBTÍTULO - COPIADO DE .genre-modal-subtitle */
+#audioAnalysisModal .genre-modal-subtitle {
+    color: rgba(255, 255, 255, 0.7) !important;
+    font-size: 1rem !important;
+    margin-bottom: 32px !important;
+    font-weight: 400 !important;
+    display: block !important;
 }
 
 /* Ocultar seletor de gênero visualmente */
@@ -103,45 +135,37 @@
     display: none !important;
 }
 
-/* BOTÃO FECHAR EMBAIXO - EXATAMENTE IGUAL MODAL DE GÊNERO */
+/* BOTÃO FECHAR - CSS COPIADO DE .genre-modal-close */
 #audioAnalysisModal .audio-close-bottom {
-    width: 100%;
-    max-width: 180px;
-    margin: 32px auto 0 auto;
-    padding: 13px 28px;
-    background: rgba(40, 25, 60, 0.55);
-    border: 1.5px solid rgba(100, 70, 140, 0.3);
-    border-radius: 14px;
-    color: rgba(180, 180, 200, 0.75);
-    font-size: 14px;
-    font-weight: 500;
-    font-family: 'Inter', 'Segoe UI', sans-serif;
-    text-transform: capitalize;
-    letter-spacing: 0.5px;
+    background: rgba(255, 255, 255, 0.08);
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.8);
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-size: 0.9rem;
     cursor: pointer;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    backdrop-filter: blur(10px);
-    box-shadow: 
-        0 4px 12px rgba(0, 0, 0, 0.5),
-        inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    transition: 
+        border-color 0.2s ease,
+        color 0.2s ease,
+        opacity 0.2s ease;
+    font-weight: 500;
+    -webkit-appearance: none;
+    appearance: none;
+    margin: 32px auto 0 auto;
     display: block;
-    text-align: center;
+    width: auto;
+    max-width: 200px;
 }
 
 #audioAnalysisModal .audio-close-bottom:hover {
-    background: rgba(55, 35, 75, 0.7);
-    border-color: rgba(120, 90, 160, 0.45);
-    color: rgba(220, 220, 240, 0.95);
-    box-shadow: 
-        0 6px 18px rgba(0, 0, 0, 0.6),
-        0 0 25px rgba(80, 50, 120, 0.25),
-        inset 0 1px 0 rgba(255, 255, 255, 0.06);
-    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.15);
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.4);
 }
 
 #audioAnalysisModal .audio-close-bottom:active {
-    transform: translateY(0px);
-    background: rgba(35, 20, 55, 0.75);
+    opacity: 0.8;
 }
 
 /* ===============================
@@ -156,65 +180,74 @@
     justify-content: center;
 }
 
-/* ÁREA DE UPLOAD - ESTILO IDÊNTICO AO CARD DE GÊNERO */
+/* ÁREA DE UPLOAD - ESTILO COPIADO DE .genre-card */
 #audioAnalysisModal .upload-content {
-    text-align: center;
-    border: 1.5px solid rgba(80, 60, 120, 0.25);
-    border-radius: 20px;
-    padding: 60px 50px;
-    background: rgba(30, 20, 45, 0.35);
-    backdrop-filter: blur(15px);
-    -webkit-backdrop-filter: blur(15px);
-    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-    width: 100%;
-    max-width: 580px;
-    box-shadow: 
-        0 6px 20px rgba(0, 0, 0, 0.6),
-        0 0 1px rgba(106, 154, 255, 0.1),
-        inset 0 1px 0 rgba(255, 255, 255, 0.025);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 40px 32px;
+    /* BACKGROUND IDÊNTICO AO .genre-card */
+    background: rgba(255, 255, 255, 0.05);
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    color: #ffffff;
+    cursor: pointer;
+    /* TRANSIÇÕES IGUAIS AO .genre-card */
+    transition: 
+        transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+        box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+        border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.25s ease;
     position: relative;
     overflow: hidden;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    width: 100%;
+    max-width: 100%;
+    text-align: center;
 }
 
-/* Efeito de brilho no hover - sutil e dark */
+/* EFEITO SHINE COPIADO DO .genre-card::before */
 #audioAnalysisModal .upload-content::before {
     content: '';
     position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: radial-gradient(circle, rgba(70, 100, 180, 0.05) 0%, transparent 65%);
-    opacity: 0;
-    transition: opacity 0.5s ease;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(255, 255, 255, 0.1), 
+        transparent);
+    transition: left 0.6s ease;
 }
 
+/* HOVER IDÊNTICO AO .genre-card:hover */
 #audioAnalysisModal .upload-content:hover {
-    border-color: rgba(106, 154, 255, 0.35);
-    background: rgba(40, 30, 60, 0.45);
-    transform: translateY(-4px) scale(1.01);
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(36, 157, 255, 0.4);
+    transform: scale(1.05) translateY(-2px);
     box-shadow: 
-        0 10px 30px rgba(0, 0, 0, 0.75),
-        0 0 35px rgba(80, 60, 140, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.04);
+        0 10px 25px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(36, 157, 255, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 #audioAnalysisModal .upload-content:hover::before {
-    opacity: 1;
+    left: 100%;
 }
 
-/* ÍCONE IGUAL AOS DO MODAL DE GÊNERO */
+#audioAnalysisModal .upload-content:active {
+    transform: scale(0.98) translateY(1px);
+}
+
+/* ÍCONE COPIADO DE .genre-icon */
 #audioAnalysisModal .upload-icon {
-    font-size: 4rem;
-    margin-bottom: 20px;
-    /* Gradiente igual aos ícones de gênero */
-    background: linear-gradient(135deg, #6a9aff, #00d4ff);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    display: block;
-    filter: drop-shadow(0 0 20px rgba(106, 154, 255, 0.5));
-    animation: icon-float 3s ease-in-out infinite;
+    font-size: 2rem;
+    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 0.3));
+    margin-bottom: 0;
 }
 
 @keyframes icon-float {
@@ -229,27 +262,19 @@
 }
 
 #audioAnalysisModal .upload-content h4 {
+    /* Título secundário dentro do card */
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 600;
     color: #ffffff;
-    font-size: 32px;
-    font-weight: 800;
-    margin: 0 0 16px 0;
-    /* FONTE ORBITRON IGUAL AO MODAL DE GÊNERO */
-    font-family: 'Orbitron', sans-serif;
-    /* GRADIENTE AZUL IGUAL NA IMAGEM */
-    background: linear-gradient(90deg, #6a9aff, #00d4ff);
-    background-clip: text;
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    text-shadow: 0 0 30px rgba(106, 154, 255, 0.4);
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    line-height: 1.2;
+    margin: 0 0 8px 0;
+    letter-spacing: 0.5px;
 }
 
-/* TEXTOS IGUAL AO MODAL DE GÊNERO */
+/* SUBTÍTULO COPIADO DE .genre-modal-subtitle */
 #audioAnalysisModal .upload-content p {
-    color: rgba(200, 200, 220, 0.9);
-    font-size: 16px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1rem;
     margin: 10px 0;
     line-height: 1.6;
     font-weight: 400;
@@ -267,29 +292,30 @@
 }
 
 #audioAnalysisModal .upload-btn {
-    /* BOTÃO IDÊNTICO AOS CARDS DE GÊNERO */
-    background: rgba(60, 35, 90, 0.4);
-    border: 1.5px solid rgba(100, 70, 140, 0.35);
-    border-radius: 18px;
-    padding: 20px 42px;
-    color: rgba(255, 255, 255, 0.95);
+    /* BOTÃO COPIADO DO ESTILO .genre-card */
+    background: rgba(255, 255, 255, 0.05);
+    background-color: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    padding: 20px 32px;
+    color: #ffffff;
     font-weight: 600;
-    font-size: 16px;
-    font-family: 'Inter', 'Segoe UI', sans-serif;
+    font-size: 0.95rem;
     cursor: pointer;
-    transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-    margin-top: 28px;
+    transition: 
+        transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+        box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+        border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+        opacity 0.25s ease;
+    margin-top: 16px;
     display: inline-block;
-    text-transform: none;
     letter-spacing: 0.5px;
-    box-shadow: 
-        0 6px 18px rgba(0, 0, 0, 0.5),
-        0 0 1px rgba(106, 154, 255, 0.15),
-        inset 0 1px 0 rgba(255, 255, 255, 0.04);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
     position: relative;
     overflow: hidden;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    -webkit-appearance: none;
+    appearance: none;
 }
 
 #audioAnalysisModal .upload-btn::before {
@@ -299,19 +325,21 @@
     left: -100%;
     width: 100%;
     height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(106, 154, 255, 0.08), transparent);
+    background: linear-gradient(90deg, 
+        transparent, 
+        rgba(255, 255, 255, 0.1), 
+        transparent);
     transition: left 0.6s ease;
 }
 
 #audioAnalysisModal .upload-btn:hover {
-    background: rgba(75, 50, 110, 0.55);
-    border-color: rgba(120, 90, 160, 0.5);
-    color: #ffffff;
-    transform: translateY(-3px) scale(1.02);
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(36, 157, 255, 0.4);
+    transform: scale(1.05) translateY(-2px);
     box-shadow: 
-        0 10px 28px rgba(0, 0, 0, 0.65),
-        0 0 30px rgba(80, 60, 140, 0.25),
-        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        0 10px 25px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(36, 157, 255, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 #audioAnalysisModal .upload-btn:hover::before {
@@ -319,8 +347,7 @@
 }
 
 #audioAnalysisModal .upload-btn:active {
-    transform: translateY(-1px) scale(0.98);
-    background: rgba(50, 30, 80, 0.65);
+    transform: scale(0.98) translateY(1px);
 }
 
 /* ===============================
@@ -581,26 +608,38 @@
    =============================== */
 
 /* RESPONSIVIDADE MOBILE - Mantendo estilo do modal de gênero */
+/* RESPONSIVIDADE COPIADA DO MODAL DE GÊNERO */
 @media (max-width: 768px) {
     #audioAnalysisModal .audio-modal-content {
-        width: 92vw;
-        max-width: 680px;
-        max-height: 88vh;
-        padding: 35px 25px;
+        width: 95%;
+        padding: 32px 20px 24px 20px;
     }
     
-    #audioAnalysisModal .upload-content {
-        padding: 45px 30px;
-        max-width: 100%;
+    /* Título principal responsivo */
+    #audioAnalysisModal #audioModalTitle,
+    #audioAnalysisModal .genre-modal-title {
+        font-size: 1.8rem !important;
+    }
+    
+    #audioAnalysisModal .genre-modal-subtitle {
+        font-size: 0.9rem !important;
     }
     
     #audioAnalysisModal .upload-content h4 {
-        font-size: 26px;
-        letter-spacing: 1.5px;
+        font-size: 1rem;
+    }
+    
+    #audioAnalysisModal .upload-content {
+        padding: 32px 24px;
+        gap: 10px;
     }
     
     #audioAnalysisModal .upload-icon {
-        font-size: 3.5rem;
+        font-size: 1.5rem;
+    }
+    
+    #audioAnalysisModal .upload-content p {
+        font-size: 0.85rem;
     }
     
     #audioAnalysisModal .loading-spinner {
@@ -625,28 +664,28 @@
 }
 
 @media (max-width: 480px) {
-    #audioAnalysisModal .audio-modal-content {
-        padding: 30px 20px;
-        max-width: 95vw;
+    /* Título principal mobile */
+    #audioAnalysisModal #audioModalTitle,
+    #audioAnalysisModal .genre-modal-title {
+        font-size: 1.5rem !important;
+    }
+    
+    #audioAnalysisModal .genre-modal-subtitle {
+        font-size: 0.85rem !important;
+        margin-bottom: 24px !important;
     }
     
     #audioAnalysisModal .upload-content {
-        padding: 40px 25px;
-        border-radius: 16px;
-    }
-    
-    #audioAnalysisModal .upload-icon {
-        font-size: 3rem;
+        padding: 28px 20px;
     }
     
     #audioAnalysisModal .upload-content h4 {
-        font-size: 22px;
-        letter-spacing: 1px;
+        font-size: 0.95rem;
     }
     
     #audioAnalysisModal .upload-btn {
-        padding: 16px 30px;
-        font-size: 15px;
+        padding: 16px 24px;
+        font-size: 0.85rem;
     }
     
     #audioAnalysisModal .loading-spinner {
@@ -660,20 +699,6 @@
     
     #audioAnalysisModal #audioProgressText {
         font-size: 15px;
-    }
-    
-    /* Botão Fechar responsivo */
-    #audioAnalysisModal .audio-close-bottom {
-        max-width: 160px;
-        padding: 12px 24px;
-        font-size: 13px;
-        margin-top: 25px;
-    }
-    
-    #audioAnalysisModal .audio-modal-close {
-        width: 38px;
-        height: 38px;
-        font-size: 24px;
     }
 }
 
