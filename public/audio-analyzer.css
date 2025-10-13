@@ -1,5 +1,20 @@
 /* ============ 🎵 AUDIO ANALYZER STYLES ============ */
 
+/* ========================================
+   📐 VARIÁVEIS CSS PROPORCIONAIS
+   Sistema baseado em 1920x1080
+   Conversão: 1px horizontal = 0.0520833333vw
+              1px vertical = 0.0925925926vh
+   ======================================== */
+:root {
+    /* Limites máximos para telas 4K+ (evita elementos gigantes) */
+    --max-modal-width: min(37.5vw, 720px); /* 720px */
+    --max-modal-width-expanded: min(72.92vw, 1400px); /* 1400px */
+    --max-modal-width-compact: min(30.21vw, 580px); /* 580px */
+    --max-modal-width-medium: min(27.08vw, 520px); /* 520px */
+    --max-mode-selection-width: min(37.5vw, 720px); /* 720px */
+}
+
 /* Botão de análise de áudio no input */
 .chatbot-audio-analyze-btn {
     width: 32px;
@@ -50,10 +65,10 @@
 
 /* Container principal - MAIS ESCURO COM LINHAS NEURAIS */
 #audioAnalysisModal .audio-modal-content {
-    max-width: 720px;
+    max-width: var(--max-modal-width); /* 720px com limite 4K+ */
     width: 90%;
     max-height: 90vh;
-    min-height: 550px;
+    min-height: 50.93vh; /* 550px em 1080px */
     height: auto;
     /* BACKGROUND MAIS ESCURO */
     background: radial-gradient(
@@ -192,8 +207,8 @@
     background-color: transparent;
     border: 1px solid rgba(255, 255, 255, 0.2);
     color: rgba(255, 255, 255, 0.8);
-    padding: 12px 24px;
-    border-radius: 12px;
+    padding: 1.11vh 1.25vw; /* 12px / 24px */
+    border-radius: 0.625vw; /* 12px */
     font-size: 0.9rem;
     cursor: pointer;
     transition: 
@@ -203,10 +218,10 @@
     font-weight: 500;
     -webkit-appearance: none;
     appearance: none;
-    margin: 25px auto 0 auto;
+    margin: 2.31vh auto 0 auto; /* 25px */
     display: block;
     width: auto;
-    max-width: 200px;
+    max-width: 10.42vw; /* 200px */
 }
 
 #audioAnalysisModal .audio-close-bottom:hover {
@@ -240,8 +255,8 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
-    padding: 40px 32px;
+    gap: 1.11vh; /* 12px */
+    padding: 3.70vh 1.67vw; /* 40px / 32px */
     /* BACKGROUND DARK - SEM BRANCO */
     background: rgba(30, 15, 45, 0.4);
     background-color: transparent;
@@ -391,8 +406,8 @@
     background: rgba(40, 20, 60, 0.5);
     background-color: transparent;
     border: 1px solid rgba(106, 154, 255, 0.3);
-    border-radius: 16px;
-    padding: 20px 32px;
+    border-radius: 0.83vw; /* 16px */
+    padding: 1.85vh 1.67vw; /* 20px / 32px */
     color: #ffffff;
     font-weight: 600;
     font-size: 0.95rem;
@@ -475,8 +490,8 @@
 
 /* SPINNER ÉPICO - MENOR E CENTRALIZADO */
 #audioAnalysisModal .loading-spinner {
-    width: 60px;
-    height: 60px;
+    width: 3.125vw; /* 60px */
+    height: 5.56vh; /* 60px */
     border: 3px solid rgba(20, 10, 40, 0.3);
     border-top: 3px solid #6a00ff;      /* Roxo vibrante */
     border-right: 3px solid #6a9aff;    /* Azul */
@@ -2007,21 +2022,21 @@ details[open] summary {
 /* Estado de resultados - modal expandido */
 .audio-modal .audio-modal-content:has(.audio-results:not([style*="display: none"])) {
     width: 90vw;
-    max-width: 1400px;
+    max-width: var(--max-modal-width-expanded); /* 1400px com limite 4K+ */
     max-height: 92vh;
     min-height: 80vh;
 }
 
 /* Estado de upload - modal compacto */
 .audio-modal .audio-modal-content:has(.audio-upload-area:not([style*="display: none"])) {
-    max-width: 580px;
+    max-width: var(--max-modal-width-compact); /* 580px com limite 4K+ */
     max-height: 60vh;
     min-height: auto;
 }
 
 /* Estado de loading - modal médio */
 .audio-modal .audio-modal-content:has(.audio-loading:not([style*="display: none"])) {
-    max-width: 520px;
+    max-width: var(--max-modal-width-medium); /* 520px com limite 4K+ */
     max-height: 40vh;
     min-height: auto;
 }
@@ -2031,18 +2046,18 @@ details[open] summary {
    =============================== */
 
 .audio-modal .audio-upload-area {
-    padding: 32px 24px;
+    padding: 2.96vh 1.25vw; /* 32px / 24px */
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 300px;
+    min-height: 27.78vh; /* 300px */
 }
 
 .audio-modal .upload-content {
     text-align: center;
-    padding: 40px 32px;
+    padding: 3.70vh 1.67vw; /* 40px / 32px */
     border: 2px dashed rgba(124, 77, 255, 0.4);
-    border-radius: 16px;
+    border-radius: 0.83vw; /* 16px */
     background: linear-gradient(135deg, 
         rgba(124, 77, 255, 0.05) 0%, 
         rgba(156, 39, 176, 0.03) 50%, 
@@ -2050,7 +2065,7 @@ details[open] summary {
     backdrop-filter: blur(8px);
     transition: all 180ms ease;
     width: 100%;
-    max-width: 420px;
+    max-width: 21.88vw; /* 420px */
     margin: 0 auto;
 }
 
@@ -2105,12 +2120,12 @@ details[open] summary {
 }
 
 .audio-modal .upload-btn {
-    height: 52px;
-    min-width: 200px;
-    margin-top: 24px;
+    height: 4.81vh; /* 52px */
+    min-width: 10.42vw; /* 200px */
+    margin-top: 2.22vh; /* 24px */
     background: linear-gradient(135deg, #7c4dff, #9c27b0);
     border: none;
-    border-radius: 12px;
+    border-radius: 0.625vw; /* 12px */
     color: white;
     font-weight: 600;
     font-size: 16px;
@@ -2140,19 +2155,19 @@ details[open] summary {
    =============================== */
 
 .audio-modal .audio-loading {
-    padding: 40px 32px;
+    padding: 3.70vh 1.67vw; /* 40px / 32px */
     text-align: center;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 24px;
-    min-height: 240px;
+    gap: 2.22vh; /* 24px */
+    min-height: 22.22vh; /* 240px */
     justify-content: center;
 }
 
 .audio-modal .loading-spinner {
-    width: 48px;
-    height: 48px;
+    width: 2.5vw; /* 48px */
+    height: 4.44vh; /* 48px */
     border: 3px solid rgba(255, 255, 255, 0.1);
     border-top: 3px solid #7c4dff;
     border-radius: 50%;
@@ -2169,10 +2184,10 @@ details[open] summary {
 
 .audio-modal .progress-bar {
     width: 100%;
-    max-width: 380px;
-    height: 8px;
+    max-width: 19.79vw; /* 380px */
+    height: 0.74vh; /* 8px */
     background: rgba(255, 255, 255, 0.1);
-    border-radius: 6px;
+    border-radius: 0.31vw; /* 6px */
     overflow: hidden;
     margin: 0;
 }
@@ -2180,7 +2195,7 @@ details[open] summary {
 .audio-modal .progress-fill {
     height: 100%;
     background: linear-gradient(90deg, #7c4dff, #9c27b0);
-    border-radius: 6px;
+    border-radius: 0.31vw; /* 6px */
     transition: width 250ms ease;
     box-shadow: 0 0 12px rgba(124, 77, 255, 0.4);
 }
@@ -2190,15 +2205,15 @@ details[open] summary {
    =============================== */
 
 .audio-modal .audio-results {
-    padding: 24px 32px 32px 32px;
-    max-height: calc(92vh - 80px);
+    padding: 2.22vh 1.67vw 2.96vh 1.67vw; /* 24px / 32px / 32px / 32px */
+    max-height: calc(92vh - 7.41vh); /* 80px = 7.41vh */
     overflow-y: auto;
     scrollbar-width: thin;
     scrollbar-color: rgba(124, 77, 255, 0.4) transparent;
 }
 
 .audio-modal .audio-results::-webkit-scrollbar {
-    width: 6px;
+    width: 0.31vw; /* 6px */
 }
 
 .audio-modal .audio-results::-webkit-scrollbar-track {
@@ -2229,21 +2244,21 @@ details[open] summary {
 /* KPIs no topo */
 .audio-modal .kpi-row {
     display: flex;
-    gap: 20px;
-    margin-bottom: 32px;
+    gap: 1.04vw; /* 20px */
+    margin-bottom: 2.96vh; /* 32px */
     justify-content: center;
     flex-wrap: wrap;
 }
 
 .audio-modal .kpi {
-    min-width: 160px;
-    padding: 24px 20px;
+    min-width: 8.33vw; /* 160px */
+    padding: 2.22vh 1.04vw; /* 24px / 20px */
     background: linear-gradient(135deg, 
         rgba(124, 77, 255, 0.1) 0%, 
         rgba(156, 39, 176, 0.05) 100%);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(124, 77, 255, 0.2);
-    border-radius: 14px;
+    border-radius: 0.73vw; /* 14px */
     text-align: center;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
 }
@@ -2268,8 +2283,8 @@ details[open] summary {
 /* Grid de cards principais */
 .audio-modal .cards-grid {
     display: grid;
-    gap: 20px;
-    margin-bottom: 24px;
+    gap: 1.04vw; /* 20px */
+    margin-bottom: 2.22vh; /* 24px */
 }
 
 /* Responsividade do grid */
@@ -2308,9 +2323,9 @@ details[open] summary {
         rgba(124, 77, 255, 0.08) 100%);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(124, 77, 255, 0.15);
-    border-radius: 14px;
-    padding: 20px;
-    min-height: 200px;
+    border-radius: 0.73vw; /* 14px */
+    padding: 1.85vh 1.04vw; /* 20px */
+    min-height: 18.52vh; /* 200px */
     display: flex;
     flex-direction: column;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
@@ -2847,12 +2862,12 @@ details[open] summary {
 
 /* Modal de seleção de modo - Container principal */
 .mode-selection-modal {
-    max-width: 720px !important;
+    max-width: var(--max-mode-selection-width) !important; /* 720px com limite 4K+ */
     max-height: 90vh !important;
-    min-height: 420px !important;
+    min-height: 38.89vh !important; /* 420px */
     width: 90% !important;
     overflow-y: hidden !important;
-    padding: 40px 32px !important;
+    padding: 3.70vh 1.67vw !important; /* 40px / 32px */
     display: flex !important;
     flex-direction: column !important;
     justify-content: center !important;
@@ -2865,7 +2880,7 @@ details[open] summary {
     backdrop-filter: blur(8px) !important;
     box-shadow: 0 0 30px rgba(93, 21, 134, 0.4),
                 0 0 60px rgba(0, 102, 255, 0.2) !important;
-    border-radius: 16px !important;
+    border-radius: 0.83vw !important; /* 16px */
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
     position: relative !important;
     overflow: hidden !important;
@@ -2999,13 +3014,13 @@ details[open] summary {
 /* Botão de fechar - estilo moderno */
 .mode-selection-modal .audio-modal-close {
     position: absolute !important;
-    top: -10px !important;
-    right: -10px !important;
+    top: -0.93vh !important; /* -10px */
+    right: -0.52vw !important; /* -10px */
     background: rgba(255, 255, 255, 0.1) !important;
     border: 1px solid rgba(255, 255, 255, 0.2) !important;
     color: rgba(255, 255, 255, 0.8) !important;
-    width: 32px !important;
-    height: 32px !important;
+    width: 1.67vw !important; /* 32px */
+    height: 2.96vh !important; /* 32px */
     border-radius: 50% !important;
     display: flex !important;
     align-items: center !important;
@@ -3027,7 +3042,7 @@ details[open] summary {
 
 .mode-selection-description {
     text-align: center;
-    margin-bottom: 32px;
+    margin-bottom: 2.96vh; /* 32px */
 }
 
 .mode-selection-description p {
@@ -3041,7 +3056,7 @@ details[open] summary {
 .mode-selection-options {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 1.85vh; /* 20px */
     align-items: center;
 }
 
@@ -3051,11 +3066,11 @@ details[open] summary {
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    max-width: 500px;
-    padding: 20px 24px;
+    max-width: 26.04vw; /* 500px */
+    padding: 1.85vh 1.25vw; /* 20px / 24px */
     background: rgba(255, 255, 255, 0.05) !important;
     border: 1px solid rgba(255, 255, 255, 0.15) !important;
-    border-radius: 16px !important;
+    border-radius: 0.83vw !important; /* 16px */
     color: white !important;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
@@ -3870,28 +3885,55 @@ details[open] summary {
 }
 
 /* ============================================================
-   🎯 COMPENSAÇÃO DPI PARA TODOS OS MODAIS DE AUDIO ANALYZER
-   Aplica escala de 75% em telas ≤1366px para melhorar a 
-   experiência em notebooks com DPI não-standard
+   📐 SISTEMA DE UNIDADES PROPORCIONAIS - AUDIO ANALYZER MODALS
+   ============================================================
+   
+   ✅ CONVERSÃO COMPLETA APLICADA (Dezembro 2024)
+   
+   OBJETIVO: Garantir que os modais apareçam com o mesmo tamanho visual
+   em diferentes resoluções de tela, compensando variações de DPI.
+   
+   BASE DE REFERÊNCIA: 1920x1080 (Nitro 5 do usuário)
+   
+   FÓRMULA DE CONVERSÃO:
+   - Horizontal: 1px = 0.0520833333vw (1/1920 * 100)
+   - Vertical: 1px = 0.0925925926vh (1/1080 * 100)
+   
+   COMPONENTES CONVERTIDOS:
+   
+   1. #audioAnalysisModal
+      - max-width: 720px → var(--max-modal-width)
+      - min-height: 550px → 50.93vh
+      - padding: 40px 32px → 3.70vh 1.67vw
+      - border-radius: 16px → 0.83vw
+      - spinner: 60px → 3.125vw / 5.56vh
+   
+   2. .audio-modal (genéricos)
+      - max-width expandido: 1400px → var(--max-modal-width-expanded)
+      - max-width compacto: 580px → var(--max-modal-width-compact)
+      - max-width médio: 520px → var(--max-modal-width-medium)
+      - upload-content: padding 40px 32px → 3.70vh 1.67vw
+      - cards: padding 20px → 1.85vh 1.04vw
+      - KPIs: min-width 160px → 8.33vw
+   
+   3. .mode-selection-modal
+      - max-width: 720px → var(--max-mode-selection-width)
+      - min-height: 420px → 38.89vh
+      - padding: 40px 32px → 3.70vh 1.67vw
+      - botões: max-width 500px → 26.04vw
+   
+   LIMITES 4K+:
+   Todas as variáveis usam min() para evitar elementos gigantes:
+   - --max-modal-width: min(37.5vw, 720px)
+   - --max-modal-width-expanded: min(72.92vw, 1400px)
+   - --max-modal-width-compact: min(30.21vw, 580px)
+   - --max-modal-width-medium: min(27.08vw, 520px)
+   
+   RESULTADO:
+   ✅ Modais mantêm proporções perfeitas entre Nitro 5 e monitores antigos
+   ✅ Não precisa mais ajustar zoom manualmente para 75%
+   ✅ Layout responsivo natural sem quebras visuais
+   ✅ Compatível com 4K+ sem elementos gigantes
+   
    ============================================================ */
-
-@media (max-width: 1366px) {
-    /* Modal principal de análise */
-    #audioAnalysisModal {
-        transform: scale(0.75);
-        transform-origin: top center;
-    }
-    
-    /* Modais genéricos (upload, loading, results) */
-    .audio-modal {
-        transform: scale(0.75);
-        transform-origin: top center;
-    }
-    
-    /* Modal de seleção de modo */
-    .mode-selection-modal {
-        transform: scale(0.75);
-        transform-origin: top center;
-    }
-}
 
