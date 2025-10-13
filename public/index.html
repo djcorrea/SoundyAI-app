@@ -284,15 +284,28 @@
         </div>
     </div>
 
-    <!-- �🎵 MODAL DE ANÁLISE DE ÁUDIO -->
+    <!-- 🎵 MODAL DE ANÁLISE DE ÁUDIO -->
     <div id="audioAnalysisModal" class="audio-modal" style="display: none;">
         <div class="audio-modal-content">
-            <div class="audio-modal-header">
+            <div class="audio-modal-header" style="display:none;">
                 <h3 id="audioModalTitle">🎵 Análise de Áudio</h3>
                 <div id="audioModalSubtitle" class="audio-modal-subtitle" style="display: none;">
                     <span id="audioModeIndicator"></span>
                 </div>
                 <button class="audio-modal-close" onclick="closeAudioModal()">&times;</button>
+            </div>
+            
+            <!-- Seleção de Gênero de Referência (apenas para modo gênero) -->
+            <div id="audioRefGenreContainer" style="display:none;">
+                <label for="audioRefGenreSelect" style="font-size:12px;opacity:.8;">Gênero de Referência:</label>
+                <select id="audioRefGenreSelect" style="background:#0e1422;color:#fff;border:1px solid #1f2b40;padding:4px 8px;border-radius:6px;font-size:12px;outline:none;">
+                    <option value="trance">Trance</option>
+                    <option value="funk_mandela">Funk Mandela</option>
+                    <option value="funk_bruxaria">Funk Bruxaria</option>
+                    <option value="funk_automotivo">Funk Automotivo</option>
+                    <option value="eletronico">Eletrônico</option>
+                </select>
+                <span id="audioRefStatus" style="font-size:11px;padding:2px 6px;border-radius:4px;background:#1f2b40;opacity:.9;">Carregando referências...</span>
             </div>
             
             <!-- Progress Steps para Modo Referência -->
@@ -314,17 +327,14 @@
             <!-- Upload Area -->
             <div class="audio-upload-area" id="audioUploadArea">
                 <div class="upload-content">
-                    <div class="upload-icon">🎵</div>
-                    <h2 class="upload-modal-title">ANALISAR<br>SEU ÁUDIO</h2>
-                    <p class="upload-description">Arraste seu arquivo ou clique abaixo</p>
+                    <div class="upload-icon">�</div>
+                    <h4>ANALISAR SEU ÁUDIO</h4>
+                    <p>Arraste ou clique para selecionar</p>
                     <p class="supported-formats">WAV, FLAC, MP3 (máx. 60MB)</p>
-                    <p class="format-recommendation">💡 Prefira WAV ou FLAC para maior precisão</p>
                     <input type="file" id="modalAudioFileInput" 
                            accept="audio/wav,audio/flac,audio/mp3,audio/mpeg,.wav,.flac,.mp3" 
                            style="position:absolute;left:-9999px;opacity:0;width:1px;height:1px;" tabindex="-1">
-                    <label for="modalAudioFileInput"
-                        class="upload-btn"
-                        style="touch-action: manipulation; -webkit-tap-highlight-color: rgba(0, 150, 255, 0.3); pointer-events:auto; display:inline-block; text-align:center; cursor:pointer;">
+                    <label for="modalAudioFileInput" class="upload-btn">
                         Escolher Arquivo
                     </label>
                 </div>
@@ -332,16 +342,12 @@
 
             <!-- Loading -->
             <div id="audioAnalysisLoading" class="audio-loading" style="display: none;">
-                <div class="futuristic-loader">
-                    <div class="loader-ring"></div>
-                    <div class="loader-ring-inner"></div>
-                </div>
-                <p id="audioProgressText" class="loading-progress-text">🚀 Inicializando Sistema de Análise...</p>
-                <div class="progress-bar-container">
+                <div class="loading-core">
+                    <div class="loading-spinner"></div>
+                    <p id="audioProgressText">🚀 Inicializando Sistema de Análise...</p>
                     <div class="progress-bar">
-                        <div class="progress-fill" id="audioProgressFill" style="width: 0%;"></div>
+                        <div class="progress-fill" id="audioProgressFill"></div>
                     </div>
-                    <span class="progress-percentage" id="audioProgressPercentage">0%</span>
                 </div>
             </div>
 
