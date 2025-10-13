@@ -47,26 +47,26 @@
    🎨 MODAL CYBERPUNK - #audioAnalysisModal
    ============================================ */
 
-/* Container principal do modal - IGUAL AO MODAL DE GÊNERO */
+/* Container principal do modal - DARK MODE REDUZIDO */
 #audioAnalysisModal .audio-modal-content {
     max-width: 720px;
     max-height: 88vh;
     min-height: auto;
-    /* FUNDO EXATAMENTE IGUAL AO MODAL DE GÊNERO DA IMAGEM */
+    /* FUNDO MAIS ESCURO - Dark Mode */
     background: radial-gradient(
         circle at 20% 20%, 
-        rgba(93, 21, 134, 0.9) 0%,       /* Roxo vibrante no canto igual na imagem */
-        rgba(20, 10, 40, 0.98) 40%,       /* Roxo escuro no meio */
-        rgba(0, 0, 0, 0.95) 100%          /* Preto nas bordas */
+        rgba(70, 15, 100, 0.75) 0%,      /* Roxo mais escuro e menos intenso */
+        rgba(15, 8, 30, 0.95) 40%,        /* Roxo bem escuro no meio */
+        rgba(0, 0, 0, 0.98) 100%          /* Preto mais intenso nas bordas */
     );
     backdrop-filter: blur(20px);
     -webkit-backdrop-filter: blur(20px);
-    /* Borda sutil ciano igual ao da imagem */
-    border: 1px solid rgba(100, 150, 255, 0.15);
+    /* Borda mais sutil */
+    border: 1px solid rgba(80, 120, 200, 0.1);
     box-shadow: 
-        0 0 60px rgba(93, 21, 134, 0.4),
-        0 0 100px rgba(0, 102, 255, 0.2),
-        0 30px 100px rgba(0, 0, 0, 0.9);
+        0 0 40px rgba(70, 15, 100, 0.3),
+        0 0 80px rgba(0, 80, 200, 0.15),
+        0 30px 100px rgba(0, 0, 0, 0.95);
     border-radius: 20px;
     display: flex;
     flex-direction: column;
@@ -95,43 +95,44 @@
     display: none !important;
 }
 
-/* BOTÃO DE FECHAR IGUAL AO MODAL DE GÊNERO */
+/* OCULTAR BOTÃO X SUPERIOR */
 #audioAnalysisModal .audio-modal-close {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    background: rgba(80, 40, 120, 0.3);
-    border: 2px solid rgba(150, 100, 200, 0.4);
-    color: rgba(200, 200, 220, 0.9);
-    font-size: 28px;
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
+    display: none !important;
+}
+
+/* BOTÃO FECHAR EMBAIXO - IGUAL MODAL DE GÊNERO */
+#audioAnalysisModal .audio-close-bottom {
+    width: 100%;
+    max-width: 200px;
+    margin: 30px auto 0 auto;
+    padding: 14px 32px;
+    background: rgba(60, 30, 90, 0.4);
+    border: 2px solid rgba(120, 80, 160, 0.35);
+    border-radius: 12px;
+    color: rgba(200, 200, 220, 0.85);
+    font-size: 15px;
+    font-weight: 600;
+    font-family: 'Orbitron', sans-serif;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     transition: all 0.3s ease;
-    z-index: 100;
-    padding: 0;
-    line-height: 1;
-    font-weight: 300;
-    backdrop-filter: blur(10px);
-    box-shadow: 0 4px 15px rgba(93, 21, 134, 0.3);
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 12px rgba(93, 21, 134, 0.25);
+    display: block;
+    text-align: center;
 }
 
-#audioAnalysisModal .audio-modal-close:hover {
-    background: rgba(100, 60, 150, 0.5);
-    border-color: rgba(180, 140, 255, 0.6);
+#audioAnalysisModal .audio-close-bottom:hover {
+    background: rgba(80, 50, 110, 0.55);
+    border-color: rgba(150, 110, 200, 0.5);
     color: #ffffff;
-    box-shadow: 
-        0 0 30px rgba(106, 154, 255, 0.4),
-        0 6px 20px rgba(93, 21, 134, 0.5);
-    transform: scale(1.1) rotate(90deg);
+    box-shadow: 0 6px 20px rgba(106, 154, 255, 0.35);
+    transform: translateY(-2px);
 }
 
-#audioAnalysisModal .audio-modal-close:active {
-    transform: scale(0.95) rotate(90deg);
+#audioAnalysisModal .audio-close-bottom:active {
+    transform: translateY(0px);
 }
 
 /* ===============================
@@ -146,25 +147,25 @@
     justify-content: center;
 }
 
-/* ÁREA DE UPLOAD IGUAL AO ESTILO DOS CARDS DE GÊNERO */
+/* ÁREA DE UPLOAD - DARK MODE REDUZIDO */
 #audioAnalysisModal .upload-content {
     text-align: center;
-    border: 2px solid rgba(150, 100, 200, 0.3);
+    border: 2px solid rgba(120, 80, 160, 0.2);
     border-radius: 18px;
     padding: 55px 45px;
-    background: rgba(80, 40, 120, 0.15);
-    backdrop-filter: blur(15px);
+    background: rgba(50, 25, 80, 0.12);
+    backdrop-filter: blur(12px);
     transition: all 0.3s ease;
     width: 100%;
     max-width: 520px;
     box-shadow: 
-        0 4px 20px rgba(93, 21, 134, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        0 4px 15px rgba(70, 15, 100, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.03);
     position: relative;
     overflow: hidden;
 }
 
-/* Efeito de brilho no hover igual aos cards */
+/* Efeito de brilho no hover mais sutil */
 #audioAnalysisModal .upload-content::before {
     content: '';
     position: absolute;
@@ -172,19 +173,19 @@
     left: -50%;
     width: 200%;
     height: 200%;
-    background: radial-gradient(circle, rgba(106, 154, 255, 0.1) 0%, transparent 70%);
+    background: radial-gradient(circle, rgba(90, 130, 220, 0.08) 0%, transparent 70%);
     opacity: 0;
     transition: opacity 0.5s ease;
 }
 
 #audioAnalysisModal .upload-content:hover {
-    border-color: rgba(180, 140, 255, 0.5);
-    background: rgba(100, 60, 150, 0.25);
+    border-color: rgba(150, 110, 200, 0.35);
+    background: rgba(70, 40, 110, 0.2);
     transform: translateY(-4px);
     box-shadow: 
-        0 8px 30px rgba(93, 21, 134, 0.4),
-        0 0 50px rgba(106, 154, 255, 0.2),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        0 8px 25px rgba(70, 15, 100, 0.3),
+        0 0 40px rgba(90, 130, 220, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 #audioAnalysisModal .upload-content:hover::before {
@@ -308,11 +309,11 @@
 }
 
 /* ===============================
-   LOADING SECTION - Cyberpunk Style
+   LOADING SECTION - Centralizado
    =============================== */
 
 #audioAnalysisModal .audio-loading {
-    padding: 40px 30px;
+    padding: 50px 40px;
     width: 100%;
     display: flex;
     flex-direction: column;
@@ -322,9 +323,10 @@
     background: transparent;
     backdrop-filter: none;
     border-radius: 0;
-    margin: 0;
+    margin: 0 auto;
     box-shadow: none;
-    gap: 20px;
+    gap: 28px;
+    max-width: 600px;
 }
 
 /* SPINNER ÉPICO IGUAL AO MODAL DE GÊNERO */

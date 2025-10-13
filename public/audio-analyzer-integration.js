@@ -365,6 +365,7 @@ async function pollJobStatus(jobId) {
     return new Promise((resolve, reject) => {
         let attempts = 0;
         const maxAttempts = 60; // 5 minutos máximo (5s * 60 = 300s)
+        let initialQueuePosition = null;
         
         const poll = async () => {
             try {
@@ -390,10 +391,58 @@ async function pollJobStatus(jobId) {
                     progress: jobData.progress || 'N/A' 
                 });
 
-                // Atualizar progresso na UI se disponível
-                if (jobData.progress) {
-                    updateModalProgress(jobData.progress, `Processando análise... ${jobData.progress}%`);
+                // Calcular progresso baseado na posição da fila
+                let calculatedProgress = 0;
+                let progressMessage = '🚀 Inicializando...';
+                
+                // Obter status da fila se disponível
+                const queueStatus = window.getAudioQueueStatus ? window.getAudioQueueStatus() : null;
+                
+                if (jobData.status === 'queued') {
+                    // Job na fila - calcular posição
+                    if (queueStatus && queueStatus.queue) {
+                        const totalInQueue = queueStatus.queue.total || 0;
+                        
+                        // Armazenar posição inicial na primeira tentativa
+                        if (initialQueuePosition === null) {
+                            initialQueuePosition = totalInQueue;
+                        }
+                        
+                        // Calcular progresso: quanto mais próximo de 0, mais perto de processar
+                        if (initialQueuePosition > 0) {
+                            calculatedProgress = Math.min(
+                                Math.max(
+                                    ((initialQueuePosition - totalInQueue) / initialQueuePosition) * 50, // 0-50% enquanto na fila
+                                    5 // Mínimo 5%
+                                ),
+                                50
+                            );
+                        } else {
+                            calculatedProgress = 10;
+                        }
+                        
+                        progressMessage = `⏳ Na fila... Posição: ${totalInQueue + 1} | Processando: ${queueStatus.running || 0}`;
+                    } else {
+                        calculatedProgress = 10;
+                        progressMessage = '⏳ Aguardando processamento...';
+                    }
+                } else if (jobData.status === 'processing') {
+                    // Job processando - 50% a 95%
+                    if (jobData.progress) {
+                        // Se o backend enviar progresso específico, usar e mapear para 50-95%
+                        calculatedProgress = 50 + (jobData.progress * 0.45);
+                    } else {
+                        // Progresso incremental baseado em tentativas
+                        calculatedProgress = 50 + Math.min((attempts - (initialQueuePosition || 0)) * 5, 45);
+                    }
+                    progressMessage = '🔄 Analisando áudio...';
+                } else if (jobData.status === 'completed' || jobData.status === 'done') {
+                    calculatedProgress = 100;
+                    progressMessage = '✅ Análise concluída!';
                 }
+
+                // Atualizar progresso na UI
+                updateModalProgress(calculatedProgress, progressMessage);
 
                 if (jobData.status === 'completed' || jobData.status === 'done') {
                     __dbg('✅ Job concluído com sucesso');
@@ -445,14 +494,18 @@ function showUploadProgress(message) {
  */
 function updateModalProgress(percentage, message) {
     const progressText = document.getElementById('audioProgressText');
-    const progressBar = document.querySelector('.progress-fill');
+    const progressBar = document.getElementById('audioProgressFill') || document.querySelector('.progress-fill');
     
     if (progressText) {
         progressText.innerHTML = `${message}`;
     }
     
     if (progressBar) {
-        progressBar.style.width = `${percentage}%`;
+        // Garantir que a porcentagem está entre 0 e 100
+        const clampedPercentage = Math.min(Math.max(percentage, 0), 100);
+        progressBar.style.width = `${clampedPercentage}%`;
+        
+        __dbg(`📊 Progresso atualizado: ${clampedPercentage.toFixed(1)}%`);
     }
 }
 
