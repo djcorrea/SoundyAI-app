@@ -455,7 +455,7 @@
 #audioAnalysisModal .audio-loading {
     padding: 0;
     width: 100%;
-    min-height: 400px;
+    min-height: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -464,11 +464,14 @@
     background: transparent;
     backdrop-filter: none;
     border-radius: 0;
-    margin: 0 auto;
+    margin: auto;
     box-shadow: none;
     gap: 25px;
     max-width: 580px;
-    position: relative;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     z-index: 5;
 }
 
@@ -2866,6 +2869,91 @@ details[open] summary {
                 0 0 60px rgba(0, 102, 255, 0.2) !important;
     border-radius: 16px !important;
     border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    position: relative !important;
+    overflow: hidden !important;
+}
+
+/* LINHAS NEURAIS VANTA - MODAL DE SELEÇÃO */
+.mode-selection-modal::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 40px,
+            rgba(106, 154, 255, 0.03) 40px,
+            rgba(106, 154, 255, 0.03) 41px
+        ),
+        repeating-linear-gradient(
+            90deg,
+            transparent,
+            transparent 40px,
+            rgba(106, 0, 255, 0.03) 40px,
+            rgba(106, 0, 255, 0.03) 41px
+        ),
+        repeating-linear-gradient(
+            45deg,
+            transparent,
+            transparent 60px,
+            rgba(0, 212, 255, 0.02) 60px,
+            rgba(0, 212, 255, 0.02) 61px
+        );
+    opacity: 0.6;
+    animation: neural-grid-mode 15s linear infinite;
+    pointer-events: none;
+    z-index: 1;
+}
+
+/* Partículas flutuantes - Modal seleção */
+.mode-selection-modal::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background-image: 
+        radial-gradient(circle, rgba(106, 0, 255, 0.15) 1px, transparent 1px),
+        radial-gradient(circle, rgba(0, 212, 255, 0.1) 1px, transparent 1px);
+    background-size: 50px 50px, 80px 80px;
+    background-position: 0 0, 25px 25px;
+    animation: particles-float-mode 20s linear infinite;
+    pointer-events: none;
+    z-index: 1;
+}
+
+@keyframes neural-grid-mode {
+    0% {
+        transform: translate(0, 0);
+        opacity: 0.6;
+    }
+    50% {
+        opacity: 0.4;
+    }
+    100% {
+        transform: translate(40px, 40px);
+        opacity: 0.6;
+    }
+}
+
+@keyframes particles-float-mode {
+    0% {
+        transform: translate(0, 0) rotate(0deg);
+    }
+    100% {
+        transform: translate(50px, 50px) rotate(360deg);
+    }
+}
+
+/* Garante que conteúdo fica acima */
+.mode-selection-modal > * {
+    position: relative;
+    z-index: 5;
 }
 
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap');

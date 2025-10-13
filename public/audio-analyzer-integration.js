@@ -6810,7 +6810,91 @@ box-shadow: 0 0 30px rgba(93, 21, 134, 0.4),
             0 0 0 1px rgba(255, 255, 255, 0.05),
             inset 0 1px 0 rgba(255, 255, 255, 0.1);
         transform: scale(1);
-        transition: transform 0.2s edase;
+        transition: transform 0.2s ease;
+        overflow: hidden;
+    }
+
+    /* LINHAS NEURAIS VANTA - FUNDO TECH */
+    .genre-modal-container::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: 
+            repeating-linear-gradient(
+                0deg,
+                transparent,
+                transparent 40px,
+                rgba(106, 154, 255, 0.03) 40px,
+                rgba(106, 154, 255, 0.03) 41px
+            ),
+            repeating-linear-gradient(
+                90deg,
+                transparent,
+                transparent 40px,
+                rgba(106, 0, 255, 0.03) 40px,
+                rgba(106, 0, 255, 0.03) 41px
+            ),
+            repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 60px,
+                rgba(0, 212, 255, 0.02) 60px,
+                rgba(0, 212, 255, 0.02) 61px
+            );
+        opacity: 0.6;
+        animation: neural-grid-genre 15s linear infinite;
+        pointer-events: none;
+        z-index: 1;
+    }
+
+    /* Partículas flutuantes */
+    .genre-modal-container::after {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background-image: 
+            radial-gradient(circle, rgba(106, 0, 255, 0.15) 1px, transparent 1px),
+            radial-gradient(circle, rgba(0, 212, 255, 0.1) 1px, transparent 1px);
+        background-size: 50px 50px, 80px 80px;
+        background-position: 0 0, 25px 25px;
+        animation: particles-float-genre 20s linear infinite;
+        pointer-events: none;
+        z-index: 1;
+    }
+
+    @keyframes neural-grid-genre {
+        0% {
+            transform: translate(0, 0);
+            opacity: 0.6;
+        }
+        50% {
+            opacity: 0.4;
+        }
+        100% {
+            transform: translate(40px, 40px);
+            opacity: 0.6;
+        }
+    }
+
+    @keyframes particles-float-genre {
+        0% {
+            transform: translate(0, 0) rotate(0deg);
+        }
+        100% {
+            transform: translate(50px, 50px) rotate(360deg);
+        }
+    }
+
+    /* Garante que conteúdo fica acima do fundo neural */
+    .genre-modal-container > * {
+        position: relative;
+        z-index: 5;
     }
 
     /* Título com efeito glitch - Paleta roxo escuro + azul ciano */
