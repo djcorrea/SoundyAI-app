@@ -287,12 +287,11 @@
     <!-- �🎵 MODAL DE ANÁLISE DE ÁUDIO -->
     <div id="audioAnalysisModal" class="audio-modal" style="display: none;">
         <div class="audio-modal-content">
-            <div class="audio-modal-header">
-                <h2 id="audioModalTitle" class="genre-modal-title">
-                    <span>ANÁLISE</span><br>
-                    <span>DE ÁUDIO</span>
-                </h2>
-                <p class="genre-modal-subtitle">Envie seu arquivo para análise profissional</p>
+            <div class="audio-modal-header" style="display: none;">
+                <h3 id="audioModalTitle">🎵 Análise de Áudio</h3>
+                <div id="audioModalSubtitle" class="audio-modal-subtitle" style="display: none;">
+                    <span id="audioModeIndicator"></span>
+                </div>
                 <button class="audio-modal-close" onclick="closeAudioModal()">&times;</button>
             </div>
             
