@@ -79,7 +79,7 @@
       "dr_target": 8.0,
       "stereo_target": 0.75,
       "tol_lufs": 1.5,
-      "tol_true_peak": 1,
+      "tol_true_peak": 0.8,
       "tol_dr": 2,
       "lra_target": 6.0,
       "tol_lra": 2.5,
