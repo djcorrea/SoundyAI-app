@@ -284,6 +284,51 @@
         </div>
     </div>
 
+    <!-- 🌟 MODAL DE BOAS-VINDAS À ANÁLISE -->
+    <div id="welcomeAnalysisModal" class="audio-modal" style="display: none;">
+        <div class="audio-modal-content welcome-modal-content">
+            <div class="audio-modal-header">
+                <h2 class="analysis-modal-title">
+                    <span>BEM-VINDO À</span><br>
+                    <span>ANÁLISE DE MÚSICA</span>
+                </h2>
+                <button class="audio-modal-close" onclick="closeWelcomeModal()">&times;</button>
+            </div>
+            
+            <div class="welcome-modal-body">
+                <p class="welcome-subtitle">
+                    Envie seu áudio e receba métricas técnicas claras para melhorar sua mix/master.
+                </p>
+                
+                <div class="welcome-description">
+                    <p>
+                        <strong>Análise completa de True Peak, LUFS, Dinâmica, Frequências e muito mais.</strong>
+                    </p>
+                    <p>
+                        Nosso sistema compara seu áudio com referências do gênero escolhido e fornece 
+                        sugestões personalizadas para você alcançar o padrão profissional.
+                    </p>
+                </div>
+                
+                <div class="welcome-tip">
+                    <span class="tip-icon">💡</span>
+                    <p>
+                        Para tirar o máximo da análise, <strong>siga um passo a passo antes e depois de enviar.</strong> A ordem certa das correções evita retrabalho e acelera sua evolução
+                    </p>
+                </div>
+                
+                <div class="welcome-actions">
+                    <button class="welcome-btn primary" onclick="openTechnicalGuide()">
+                        📖 Abrir Guia Técnico
+                    </button>
+                    <button class="welcome-btn secondary" onclick="proceedToAnalysis()">
+                        ▶️ Continuar para Análise
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- �🎵 MODAL DE ANÁLISE DE ÁUDIO -->
     <div id="audioAnalysisModal" class="audio-modal" style="display: none;">
         <div class="audio-modal-content">
