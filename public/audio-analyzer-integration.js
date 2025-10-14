@@ -1693,20 +1693,151 @@ function initializeAudioAnalyzerIntegration() {
     try { initGenreModal(); } catch(e) { console.warn('Falha ao inicializar modal de gênero:', e); }
 }
 
-// 🎵 Abrir modal de análise de áudio
-function openAudioModal() {
-    window.logReferenceEvent('open_modal_requested');
+// ============================================================================
+// � MODAL DE BOAS-VINDAS À ANÁLISE - NOVO SISTEMA
+// ============================================================================
+
+/**
+ * 🌟 Abrir modal de boas-vindas
+ * Modal inicial que apresenta o sistema e direciona para o guia técnico
+ */
+function openWelcomeModal() {
+    __dbg('🎉 Abrindo modal de boas-vindas à análise...');
     
-    // Verificar se modo referência está habilitado
+    const modal = document.getElementById('welcomeAnalysisModal');
+    if (!modal) {
+        console.error('❌ Modal de boas-vindas não encontrado no DOM');
+        return;
+    }
+    
+    // Abrir modal com animação
+    modal.style.display = 'flex';
+    modal.setAttribute('tabindex', '-1');
+    
+    // Foco no modal para acessibilidade
+    requestAnimationFrame(() => {
+        modal.focus();
+        
+        // Foco no primeiro botão
+        const firstBtn = modal.querySelector('.welcome-btn.primary');
+        if (firstBtn) {
+            firstBtn.focus();
+        }
+    });
+    
+    __dbg('✅ Modal de boas-vindas aberto com sucesso');
+}
+
+/**
+ * ❌ Fechar modal de boas-vindas
+ */
+function closeWelcomeModal() {
+    __dbg('❌ Fechando modal de boas-vindas...');
+    
+    const modal = document.getElementById('welcomeAnalysisModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    
+    __dbg('✅ Modal de boas-vindas fechado');
+}
+
+/**
+ * 📖 Abrir guia técnico em nova aba
+ */
+function openTechnicalGuide() {
+    __dbg('📖 Abrindo guia técnico de análise...');
+    
+    // Abrir guia na mesma pasta (public/)
+    window.open('guia-tecnico-analise.html', '_blank', 'noopener,noreferrer');
+    
+    // Não fecha o modal - usuário pode ler o guia e voltar
+    __dbg('✅ Guia técnico aberto em nova aba');
+}
+
+/**
+ * ▶️ Prosseguir para análise (fechar modal de boas-vindas e continuar fluxo)
+ */
+function proceedToAnalysis() {
+    __dbg('▶️ Prosseguindo para análise...');
+    
+    // Fechar modal de boas-vindas
+    closeWelcomeModal();
+    
+    // Continuar com o fluxo original
     const isReferenceEnabled = window.FEATURE_FLAGS?.REFERENCE_MODE_ENABLED;
     
     if (isReferenceEnabled) {
-        // Abrir modal de seleção de modo primeiro
+        // Abrir modal de seleção de modo
         openModeSelectionModal();
     } else {
-        // Comportamento original: modo gênero direto
+        // Ir direto para modo gênero
         selectAnalysisMode('genre');
     }
+    
+    __dbg('✅ Fluxo de análise continuado');
+}
+
+// Expor funções globalmente para uso nos onclick do HTML
+window.openWelcomeModal = openWelcomeModal;
+window.closeWelcomeModal = closeWelcomeModal;
+window.openTechnicalGuide = openTechnicalGuide;
+window.proceedToAnalysis = proceedToAnalysis;
+
+/**
+ * ⌨️ Configurar acessibilidade do modal de boas-vindas
+ */
+function setupWelcomeModalAccessibility() {
+    const modal = document.getElementById('welcomeAnalysisModal');
+    if (!modal) return;
+    
+    // ESC para fechar
+    document.addEventListener('keydown', function handleWelcomeEscape(e) {
+        if (e.key === 'Escape' && modal.style.display === 'flex') {
+            closeWelcomeModal();
+        }
+    });
+    
+    // Tab navigation (trap focus)
+    modal.addEventListener('keydown', function handleWelcomeTabNav(e) {
+        if (e.key !== 'Tab') return;
+        
+        const focusableElements = modal.querySelectorAll(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        );
+        
+        if (focusableElements.length === 0) return;
+        
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+        
+        if (e.shiftKey && document.activeElement === firstElement) {
+            e.preventDefault();
+            lastElement.focus();
+        } else if (!e.shiftKey && document.activeElement === lastElement) {
+            e.preventDefault();
+            firstElement.focus();
+        }
+    });
+    
+    __dbg('⌨️ Acessibilidade do modal de boas-vindas configurada');
+}
+
+// Inicializar acessibilidade quando DOM carregar
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupWelcomeModalAccessibility);
+} else {
+    setupWelcomeModalAccessibility();
+}
+
+// ============================================================================
+
+// 🎵 Abrir modal de análise de áudio (MODIFICADO para usar novo fluxo)
+function openAudioModal() {
+    window.logReferenceEvent('open_modal_requested');
+    
+    // 🌟 NOVO: Abrir modal de boas-vindas PRIMEIRO
+    openWelcomeModal();
 }
 
 // 🎯 NOVO: Modal de Seleção de Modo
