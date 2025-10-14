@@ -1,56 +1,161 @@
 {
   "trap": {
-    "version": "1.0",
-    "generated_at": "2025-08-11T00:00:00.000Z",
+    "version": "v2_hybrid_safe",
+    "generated_at": "2025-10-14T00:00:00.000Z",
     "num_tracks": 10,
-    "lufs_target": -14,
-    "tol_lufs": 0.5,
-    "true_peak_target": -1,
-    "tol_true_peak": 1.6,
-    "dr_target": 9,
-    "tol_dr": 1.5,
-    "lra_target": 6,
-    "tol_lra": 3.5,
-    "stereo_target": 0.17,
-    "tol_stereo": 0.08,
-    "calor_target": -12.8,
-    "brilho_target": -21.5,
-    "clareza_target": -6.2,
-    "bands": {
-      "sub": {
-        "target_db": -13,
-        "tol_db": 3
+    "processing_mode": "fallback_safe",
+    "hybrid_processing": {
+      "original_metrics": {
+        "lufs_integrated": -14,
+        "true_peak_dbtp": -1,
+        "dynamic_range": 9,
+        "rms_db": -16.5,
+        "stereo_correlation": 0.17,
+        "lra": 6
       },
-      "low_bass": {
-        "target_db": -11,
-        "tol_db": 3
+      "spectral_bands": {
+        "sub": {
+          "target_range": {"min": -16, "max": -10},
+          "target_db": -13,
+          "energy_pct": 30.5,
+          "tol_db": 3,
+          "severity": "soft"
+        },
+        "low_bass": {
+          "target_range": {"min": -14, "max": -8},
+          "target_db": -11,
+          "energy_pct": 28.8,
+          "tol_db": 3,
+          "severity": "soft"
+        },
+        "upper_bass": {
+          "target_range": {"min": -16, "max": -12},
+          "target_db": -14,
+          "energy_pct": 12.2,
+          "tol_db": 2,
+          "severity": "soft"
+        },
+        "low_mid": {
+          "target_range": {"min": -15, "max": -11},
+          "target_db": -12.8,
+          "energy_pct": 11.5,
+          "tol_db": 2,
+          "severity": "soft"
+        },
+        "mid": {
+          "target_range": {"min": -15, "max": -10},
+          "target_db": -12.4,
+          "energy_pct": 13.2,
+          "tol_db": 2.5,
+          "severity": "soft"
+        },
+        "high_mid": {
+          "target_range": {"min": -21, "max": -19},
+          "target_db": -20,
+          "energy_pct": 2.8,
+          "tol_db": 1,
+          "severity": "soft"
+        },
+        "brilho": {
+          "target_range": {"min": -24, "max": -20},
+          "target_db": -22,
+          "energy_pct": 0.8,
+          "tol_db": 2,
+          "severity": "soft"
+        },
+        "presenca": {
+          "target_range": {"min": -29, "max": -25},
+          "target_db": -27,
+          "energy_pct": 0.15,
+          "tol_db": 2,
+          "severity": "soft"
+        }
       },
-      "upper_bass": {
-        "target_db": -14,
-        "tol_db": 1.6
-      },
-      "low_mid": {
-        "target_db": -12.8,
-        "tol_db": 2.2
-      },
-      "mid": {
-        "target_db": -12.4,
-        "tol_db": 2.4
-      },
-      "high_mid": {
-        "target_db": -20,
-        "tol_db": 1.2
-      },
-      "brilho": {
-        "target_db": -22,
-        "tol_db": 1.8
-      },
-      "presenca": {
-        "target_db": -27,
-        "tol_db": 1.6
+      "note": "Métricas originais + bandas normalizadas para comparação justa"
+    },
+    "legacy_compatibility": {
+      "lufs_target": -14,
+      "true_peak_target": -1,
+      "dr_target": 9,
+      "stereo_target": 0.17,
+      "tol_lufs": 1.5,
+      "tol_true_peak": 1,
+      "tol_dr": 2,
+      "lra_target": 6,
+      "tol_lra": 2.5,
+      "tol_stereo": 0.08,
+      "bands": {
+        "sub": {
+          "target_range": {"min": -16, "max": -10},
+          "target_db": -13,
+          "energy_pct": 30.5,
+          "tol_db": 3,
+          "severity": "soft"
+        },
+        "low_bass": {
+          "target_range": {"min": -14, "max": -8},
+          "target_db": -11,
+          "energy_pct": 28.8,
+          "tol_db": 3,
+          "severity": "soft"
+        },
+        "upper_bass": {
+          "target_range": {"min": -16, "max": -12},
+          "target_db": -14,
+          "energy_pct": 12.2,
+          "tol_db": 2,
+          "severity": "soft"
+        },
+        "low_mid": {
+          "target_range": {"min": -15, "max": -11},
+          "target_db": -12.8,
+          "energy_pct": 11.5,
+          "tol_db": 2,
+          "severity": "soft"
+        },
+        "mid": {
+          "target_range": {"min": -15, "max": -10},
+          "target_db": -12.4,
+          "energy_pct": 13.2,
+          "tol_db": 2.5,
+          "severity": "soft"
+        },
+        "high_mid": {
+          "target_range": {"min": -21, "max": -19},
+          "target_db": -20,
+          "energy_pct": 2.8,
+          "tol_db": 1,
+          "severity": "soft"
+        },
+        "brilho": {
+          "target_range": {"min": -24, "max": -20},
+          "target_db": -22,
+          "energy_pct": 0.8,
+          "tol_db": 2,
+          "severity": "soft"
+        },
+        "presenca": {
+          "target_range": {"min": -29, "max": -25},
+          "target_db": -27,
+          "energy_pct": 0.15,
+          "tol_db": 2,
+          "severity": "soft"
+        }
       }
     },
-    "last_updated": "2025-08-30T22:40:34.485Z",
-    "cache_bust": 1756593634485
+    "last_updated": "2025-10-14T00:00:00.000Z",
+    "cache_bust": 1728864000000,
+    "processing_info": {
+      "hybrid_mode": true,
+      "safe_mode": true,
+      "ios_compatible": true,
+      "fallback_enabled": true
+    },
+    "correction_info": {
+      "correction_date": "2025-10-14T00:00:00.000Z",
+      "correction_type": "standardization_v2_hybrid",
+      "source": "system_update",
+      "note": "Atualizado para v2_hybrid_safe com tolerâncias padronizadas"
+    }
   }
 }

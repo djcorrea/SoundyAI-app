@@ -17,10 +17,6 @@
       "label": "Funk Automotivo"
     },
     {
-      "key": "eletronico",
-      "label": "Eletrônico"
-    },
-    {
       "key": "eletrofunk",
       "label": "Eletrofunk"
     },
@@ -31,6 +27,26 @@
     {
       "key": "trap",
       "label": "Trap"
+    },
+    {
+      "key": "tech_house",
+      "label": "Tech House"
+    },
+    {
+      "key": "techno",
+      "label": "Techno"
+    },
+    {
+      "key": "house",
+      "label": "House"
+    },
+    {
+      "key": "brazilian_phonk",
+      "label": "Brazilian Phonk"
+    },
+    {
+      "key": "phonk",
+      "label": "Phonk"
     }
   ]
 }
