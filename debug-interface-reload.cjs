@@ -11,7 +11,7 @@ const path = require('path');
 console.log('🔧 DEBUG INTERFACE RELOAD - Verificando arquivos JSON...\n');
 
 // Verificar se todos os arquivos JSON têm valores corretos
-const generos = ['funk_mandela', 'eletronico', 'funk_bruxaria', 'trance'];
+const generos = ['funk_mandela', 'funk_bruxaria', 'trance', 'trap', 'eletrofunk', 'funk_automotivo', 'tech_house', 'techno', 'house', 'brazilian_phonk', 'phonk'];
 const jsonDir = path.join(__dirname, 'public', 'refs', 'out');
 
 console.log('📁 Diretório JSON:', jsonDir);

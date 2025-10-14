@@ -69,9 +69,9 @@
       "true_peak_target": -0.9,
       "dr_target": 6.8,
       "stereo_target": 0.72,
-      "tol_lufs": 2.5,
-      "tol_true_peak": 3,
-      "tol_dr": 3,
+      "tol_lufs": 1.5,
+      "tol_true_peak": 1,
+      "tol_dr": 2,
       "tol_stereo": 0.25,
       "bands": {
         "sub": {

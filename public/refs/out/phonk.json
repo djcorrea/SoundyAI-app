@@ -1,43 +1,43 @@
 {
-  "eletrofunk": {
+  "phonk": {
     "version": "v2_hybrid_safe",
     "generated_at": "2025-10-14T00:00:00.000Z",
-    "num_tracks": 148,
+    "num_tracks": 10,
     "processing_mode": "fallback_safe",
     "hybrid_processing": {
       "original_metrics": {
-        "lufs_integrated": -8.3,
-        "true_peak_dbtp": -1,
-        "dynamic_range": 10.1,
-        "rms_db": -10.8,
-        "stereo_correlation": 0.85,
-        "lra": 8.4
+        "lufs_integrated": -8.0,
+        "true_peak_dbtp": -0.5,
+        "dynamic_range": 8.0,
+        "rms_db": -10.5,
+        "stereo_correlation": 0.80,
+        "lra": 6.5
       },
       "spectral_bands": {
         "sub": {
-          "target_range": {"min": -30, "max": -24},
-          "target_db": -27,
+          "target_range": {"min": -14, "max": -8},
+          "target_db": -11,
           "energy_pct": 31.2,
           "tol_db": 3,
           "severity": "soft"
         },
         "low_bass": {
-          "target_range": {"min": -9, "max": -3},
-          "target_db": -6,
+          "target_range": {"min": -13, "max": -7},
+          "target_db": -10,
           "energy_pct": 27.5,
           "tol_db": 3,
           "severity": "soft"
         },
         "upper_bass": {
-          "target_range": {"min": -10, "max": -4},
-          "target_db": -7,
-          "energy_pct": 10.8,
+          "target_range": {"min": -16, "max": -10},
+          "target_db": -13,
+          "energy_pct": 13.8,
           "tol_db": 3,
           "severity": "soft"
         },
         "low_mid": {
-          "target_range": {"min": -11, "max": -5},
-          "target_db": -8,
+          "target_range": {"min": -15, "max": -9},
+          "target_db": -12,
           "energy_pct": 11.2,
           "tol_db": 3,
           "severity": "soft"
@@ -45,70 +45,70 @@
         "mid": {
           "target_range": {"min": -14, "max": -8},
           "target_db": -11,
-          "energy_pct": 13.8,
+          "energy_pct": 12.5,
           "tol_db": 3,
           "severity": "soft"
         },
         "high_mid": {
-          "target_range": {"min": -20, "max": -13},
-          "target_db": -16.5,
-          "energy_pct": 4.2,
-          "tol_db": 3.5,
+          "target_range": {"min": -20, "max": -14},
+          "target_db": -17,
+          "energy_pct": 3.2,
+          "tol_db": 3,
           "severity": "soft"
         },
         "brilho": {
-          "target_range": {"min": -24, "max": -17},
-          "target_db": -20.5,
-          "energy_pct": 1.1,
-          "tol_db": 3.5,
+          "target_range": {"min": -25, "max": -19},
+          "target_db": -22,
+          "energy_pct": 0.5,
+          "tol_db": 3,
           "severity": "soft"
         },
         "presenca": {
-          "target_range": {"min": -33, "max": -26},
-          "target_db": -29.5,
-          "energy_pct": 0.18,
-          "tol_db": 3.5,
+          "target_range": {"min": -32, "max": -26},
+          "target_db": -29,
+          "energy_pct": 0.08,
+          "tol_db": 3,
           "severity": "soft"
         }
       },
       "note": "Métricas originais + bandas normalizadas para comparação justa"
     },
     "legacy_compatibility": {
-      "lufs_target": -8.3,
-      "true_peak_target": -1,
-      "dr_target": 10.1,
-      "stereo_target": 0.85,
+      "lufs_target": -8.0,
+      "true_peak_target": -0.5,
+      "dr_target": 8.0,
+      "stereo_target": 0.80,
       "tol_lufs": 1.5,
       "tol_true_peak": 1,
       "tol_dr": 2,
-      "lra_target": 8.4,
+      "lra_target": 6.5,
       "tol_lra": 2.5,
       "tol_stereo": 0.15,
       "bands": {
         "sub": {
-          "target_range": {"min": -30, "max": -24},
-          "target_db": -27,
+          "target_range": {"min": -14, "max": -8},
+          "target_db": -11,
           "energy_pct": 31.2,
           "tol_db": 3,
           "severity": "soft"
         },
         "low_bass": {
-          "target_range": {"min": -9, "max": -3},
-          "target_db": -6,
+          "target_range": {"min": -13, "max": -7},
+          "target_db": -10,
           "energy_pct": 27.5,
           "tol_db": 3,
           "severity": "soft"
         },
         "upper_bass": {
-          "target_range": {"min": -10, "max": -4},
-          "target_db": -7,
-          "energy_pct": 10.8,
+          "target_range": {"min": -16, "max": -10},
+          "target_db": -13,
+          "energy_pct": 13.8,
           "tol_db": 3,
           "severity": "soft"
         },
         "low_mid": {
-          "target_range": {"min": -11, "max": -5},
-          "target_db": -8,
+          "target_range": {"min": -15, "max": -9},
+          "target_db": -12,
           "energy_pct": 11.2,
           "tol_db": 3,
           "severity": "soft"
@@ -116,35 +116,35 @@
         "mid": {
           "target_range": {"min": -14, "max": -8},
           "target_db": -11,
-          "energy_pct": 13.8,
+          "energy_pct": 12.5,
           "tol_db": 3,
           "severity": "soft"
         },
         "high_mid": {
-          "target_range": {"min": -20, "max": -13},
-          "target_db": -16.5,
-          "energy_pct": 4.2,
-          "tol_db": 3.5,
+          "target_range": {"min": -20, "max": -14},
+          "target_db": -17,
+          "energy_pct": 3.2,
+          "tol_db": 3,
           "severity": "soft"
         },
         "brilho": {
-          "target_range": {"min": -24, "max": -17},
-          "target_db": -20.5,
-          "energy_pct": 1.1,
-          "tol_db": 3.5,
+          "target_range": {"min": -25, "max": -19},
+          "target_db": -22,
+          "energy_pct": 0.5,
+          "tol_db": 3,
           "severity": "soft"
         },
         "presenca": {
-          "target_range": {"min": -33, "max": -26},
-          "target_db": -29.5,
-          "energy_pct": 0.18,
-          "tol_db": 3.5,
+          "target_range": {"min": -32, "max": -26},
+          "target_db": -29,
+          "energy_pct": 0.08,
+          "tol_db": 3,
           "severity": "soft"
         }
       }
     },
     "last_updated": "2025-10-14T00:00:00.000Z",
-    "cache_bust": 1728864000000,
+    "cache_bust": 1728864000004,
     "processing_info": {
       "hybrid_mode": true,
       "safe_mode": true,
@@ -153,9 +153,9 @@
     },
     "correction_info": {
       "correction_date": "2025-10-14T00:00:00.000Z",
-      "correction_type": "standardization_v2_hybrid",
+      "correction_type": "new_genre_creation",
       "source": "system_update",
-      "note": "Atualizado para v2_hybrid_safe com tolerâncias padronizadas e valores corrigidos"
+      "note": "Novo gênero Phonk criado com padrão v2_hybrid_safe"
     }
   }
 }
