@@ -5669,17 +5669,21 @@ function renderReferenceComparisons(analysis) {
             
             // 🎯 NOVO: Determinar target com suporte a ranges
             let tgt = null;
+            let tolerance = null;
             
             // Prioridade 1: target_range (novo sistema)
             if (refBand.target_range && typeof refBand.target_range === 'object' &&
                 Number.isFinite(refBand.target_range.min) && Number.isFinite(refBand.target_range.max)) {
                 tgt = refBand.target_range;
-                console.log(`🎯 [BANDS] Usando target_range para ${refBandKey}: [${tgt.min}, ${tgt.max}]`);
+                // Calcular tolerância como metade do range (usado para coloração)
+                tolerance = (tgt.max - tgt.min) / 2;
+                console.log(`🎯 [BANDS] Usando target_range para ${refBandKey}: [${tgt.min}, ${tgt.max}], tol: ${tolerance}`);
             }
             // Prioridade 2: target_db fixo (sistema legado)
             else if (!refBand._target_na && Number.isFinite(refBand.target_db)) {
                 tgt = refBand.target_db;
-                console.log(`🎯 [BANDS] Usando target_db fixo para ${refBandKey}: ${tgt}`);
+                tolerance = refBand.tol_db;
+                console.log(`🎯 [BANDS] Usando target_db fixo para ${refBandKey}: ${tgt}, tol: ${tolerance}`);
             }
             
             // Prioridade 3: Targets normalizados (se habilitado)
@@ -5692,7 +5696,7 @@ function renderReferenceComparisons(analysis) {
             const displayName = bandDisplayNames[calcBandKey] || bandDisplayNames[refBandKey] || refBandKey;
             
             console.log(`📊 [BANDS] Adicionando: ${displayName}, valor: ${bLocal.rms_db}dB, target: ${tgt}dB`);
-            pushRow(displayName, bLocal.rms_db, tgt, refBand.tol_db, ' dB');
+            pushRow(displayName, bLocal.rms_db, tgt, tolerance, ' dB');
         }
         
         // 🎯 PROCESSAMENTO DE BANDAS EXTRAS: Bandas calculadas que não estão na referência
@@ -5734,8 +5738,18 @@ function renderReferenceComparisons(analysis) {
                         
                         // Tentar buscar referência direta por chave
                         const directRefData = ref.bands?.[calcBandKey];
-                        const target = directRefData?.target_db || null;
-                        const tolerance = directRefData?.tol_db || null;
+                        let target = null;
+                        let tolerance = null;
+                        
+                        // Suporte híbrido: target_range ou target_db
+                        if (directRefData?.target_range && typeof directRefData.target_range === 'object' &&
+                            Number.isFinite(directRefData.target_range.min) && Number.isFinite(directRefData.target_range.max)) {
+                            target = directRefData.target_range;
+                            tolerance = (target.max - target.min) / 2;
+                        } else if (Number.isFinite(directRefData?.target_db)) {
+                            target = directRefData.target_db;
+                            tolerance = directRefData.tol_db;
+                        }
                         
                         console.log(`📊 Adicionando banda extra: ${displayName}, valor: ${energyDb}dB, target: ${target || 'N/A'}`);
                         pushRow(displayName, energyDb, target, tolerance, ' dB');
@@ -5789,9 +5803,18 @@ function renderReferenceComparisons(analysis) {
                     }
                     
                     if (Number.isFinite(energyDb)) {
-                        // Se tem referência, usar target, senão N/A
-                        const target = refBandData?.target_db || null;
-                        const tolerance = refBandData?.tol_db || null;
+                        // Suporte híbrido: target_range ou target_db
+                        let target = null;
+                        let tolerance = null;
+                        
+                        if (refBandData?.target_range && typeof refBandData.target_range === 'object' &&
+                            Number.isFinite(refBandData.target_range.min) && Number.isFinite(refBandData.target_range.max)) {
+                            target = refBandData.target_range;
+                            tolerance = (target.max - target.min) / 2;
+                        } else if (Number.isFinite(refBandData?.target_db)) {
+                            target = refBandData.target_db;
+                            tolerance = refBandData.tol_db;
+                        }
                         
                         console.log(`📊 Banda (fallback): ${bandInfo.name}, valor: ${energyDb}dB, target: ${target || 'N/A'}`);
                         pushRow(bandInfo.name, energyDb, target, tolerance, ' dB');
@@ -5830,10 +5853,19 @@ function renderReferenceComparisons(analysis) {
                         const displayName = bandMap[bandKey]?.name || 
                                           `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)} (Detectada)`;
                         
-                        // Tentar encontrar referência por chave direta
+                        // Suporte híbrido: target_range ou target_db
                         const directRefData = ref.bands?.[bandKey];
-                        const target = directRefData?.target_db || null;
-                        const tolerance = directRefData?.tol_db || null;
+                        let target = null;
+                        let tolerance = null;
+                        
+                        if (directRefData?.target_range && typeof directRefData.target_range === 'object' &&
+                            Number.isFinite(directRefData.target_range.min) && Number.isFinite(directRefData.target_range.max)) {
+                            target = directRefData.target_range;
+                            tolerance = (target.max - target.min) / 2;
+                        } else if (Number.isFinite(directRefData?.target_db)) {
+                            target = directRefData.target_db;
+                            tolerance = directRefData.tol_db;
+                        }
                         
                         console.log(`📊 Banda não mapeada: ${displayName}, valor: ${energyDb}dB, target: ${target || 'N/A'}`);
                         pushRow(displayName, energyDb, target, tolerance, ' dB');
