@@ -2,16 +2,69 @@
 // Integra scoring, heurísticas e referências em um sistema unificado
 
 const SUG_PRIORITY = {
+  // 🔴 CRÍTICOS (aparecem primeiro com banner PRIORITÁRIO)
   'reference_true_peak': 1,
+  'true_peak': 1,
+  'dbtp': 1,
+  'tp': 1,
+  
+  // 🟠 PRINCIPAIS (métricas de referência)
   'reference_loudness': 2,
-  'reference_dynamics': 3
+  'lufs': 2,
+  'loudness': 2,
+  
+  'reference_dynamics': 3,
+  'dr': 3,
+  'dynamics': 3,
+  'dynamic_range': 3,
+  
+  'reference_lra': 4,
+  'lra': 4,
+  'loudness_range': 4,
+  
+  'reference_stereo': 5,
+  'stereo': 5,
+  'stereo_width': 5,
+  'stereo_correlation': 5,
+  
+  // 🟡 BANDAS ESPECTRAIS (frequências)
+  'band_adjust': 6,
+  'frequency': 6,
+  'spectral': 6,
+  
+  // 🟢 HEURÍSTICAS (últimas)
+  'heuristic_low_end': 7,
+  'heuristic_high_end': 7,
+  'heuristic_mid_clarity': 7,
+  'heuristic_punch': 7,
+  'heuristic_air': 7,
+  'heuristic': 7
 };
 
 function normalizeKey(k) {
   const s = k.toLowerCase().replace(/[_-]/g, '');
-  if (['tp','truepeak','dbtp'].includes(s)) return 'reference_true_peak';
-  if (['lufs','lufus','loudness','integratedlufs'].includes(s)) return 'reference_loudness';
-  if (['dr','dynamics','dynamicrange'].includes(s)) return 'reference_dynamics';
+  
+  // True Peak (PRIORITÁRIO)
+  if (['tp','truepeak','dbtp','referencetruepeak'].includes(s)) return 'reference_true_peak';
+  
+  // Loudness (LUFS)
+  if (['lufs','lufus','loudness','integratedlufs','referenceloudness'].includes(s)) return 'reference_loudness';
+  
+  // Dynamics (DR)
+  if (['dr','dynamics','dynamicrange','referencedynamics'].includes(s)) return 'reference_dynamics';
+  
+  // LRA
+  if (['lra','loudnessrange','referencelra'].includes(s)) return 'reference_lra';
+  
+  // Stereo
+  if (['stereo','stereowidth','stereocorrelation','referencestereo'].includes(s)) return 'reference_stereo';
+  
+  // Bandas espectrais
+  if (['bandadjust','band','frequency','spectral'].includes(s)) return 'band_adjust';
+  
+  // Heurísticas
+  if (s.startsWith('heuristic')) return 'heuristic';
+  
   return k;
 }
 
@@ -1207,6 +1260,14 @@ class EnhancedSuggestionEngine {
      */
     generateReferenceSuggestions(metrics, referenceData, zScores, confidence, dependencyBonuses) {
         // 🔍 AUDITORIA: Log das métricas recebidas para geração de sugestões
+        console.log('🎯 [TRUE-PEAK-CHECK] Métricas recebidas:', {
+            hasTrue_peak: 'true_peak' in metrics,
+            truePeakValue: metrics.true_peak,
+            hasTruePeak: 'truePeak' in metrics,
+            truePeakValue2: metrics.truePeak,
+            allKeys: Object.keys(metrics)
+        });
+        
         this.logAudit('GENERATE_SUGGESTIONS_INPUT', 'Métricas recebidas para geração de sugestões', {
             metricsCount: Object.keys(metrics).length,
             metricsKeys: Object.keys(metrics),
@@ -1347,14 +1408,10 @@ class EnhancedSuggestionEngine {
                         const delta = Math.abs(value - target);
                         const distanceFromRange = value < minRange ? (minRange - value) : (value - maxRange);
                         
-                        // 🎯 MENSAGENS SIMPLIFICADAS (sem expor ranges/targets)
-                        if (value < target) {
-                            suggestionMessage = `${metric.label} abaixo do ideal`;
-                            suggestionAction = `Aumentar ${metric.label}`;
-                        } else {
-                            suggestionMessage = `${metric.label} acima do ideal`;
-                            suggestionAction = `Reduzir ${metric.label}`;
-                        }
+                        // 🎯 MENSAGENS COMPLETAS ORIGINAIS
+                        const direction = value < target ? "Aumentar" : "Reduzir";
+                        suggestionMessage = `${metric.label} fora do ideal`;
+                        suggestionAction = `${direction} entre ${Math.abs(distanceFromRange).toFixed(1)} e ${(Math.abs(distanceFromRange) + 1).toFixed(1)}${metric.unit}`;
                         
                         this.logAudit('METRIC_OUT_OF_RANGE', `${metric.key} fora do range aceitável`, {
                             value: value,
@@ -1685,23 +1742,15 @@ class EnhancedSuggestionEngine {
                             rangeBasedLogic: true
                         });
                         
-                        // 🎯 MENSAGENS SIMPLIFICADAS (sem expor ranges)
+                        // 🎯 MENSAGENS COMPLETAS ORIGINAIS COM VALORES
                         const direction = calculatedDelta > 0 ? "Reduzir" : "Aumentar";
-                        const bandNameMap = {
-                            'sub': 'sub-graves',
-                            'bass': 'graves',
-                            'lowMid': 'médios-baixos',
-                            'mid': 'médios',
-                            'highMid': 'médios-altos',
-                            'presenca': 'presença',
-                            'brilho': 'brilho'
-                        };
-                        const friendlyBandName = bandNameMap[band] || band;
+                        const amount = Math.abs(calculatedDelta).toFixed(1);
+                        const rangeText = `${targetRange.min.toFixed(1)} a ${targetRange.max.toFixed(1)} dB`;
                         
-                        suggestion.action = `${direction} ${friendlyBandName}`;
-                        suggestion.diagnosis = `${friendlyBandName} precisa de ajuste`;
-                        suggestion.message = `${direction} ${friendlyBandName} para melhorar o equilíbrio`;
-                        suggestion.why = `Banda ${friendlyBandName} fora do ideal para o gênero`;
+                        suggestion.action = `${direction} entre ${amount} e ${(parseFloat(amount) + 1).toFixed(1)} dB`;
+                        suggestion.diagnosis = `Atual: ${value.toFixed(1)} dB, Range ideal: ${rangeText}`;
+                        suggestion.message = `${direction} ${band}`;
+                        suggestion.why = `Banda ${band} fora da faixa ideal para o gênero`;
                         
                         // Dados técnicos específicos para ranges
                         suggestion.technical = {
@@ -1732,23 +1781,14 @@ class EnhancedSuggestionEngine {
                             rangeBasedLogic: false
                         });
                         
-                        // Mensagens simplificadas para targets fixos
+                        // Mensagens completas originais
                         const direction = calculatedDelta > 0 ? "Reduzir" : "Aumentar";
-                        const bandNameMap = {
-                            'sub': 'sub-graves',
-                            'bass': 'graves',
-                            'lowMid': 'médios-baixos',
-                            'mid': 'médios',
-                            'highMid': 'médios-altos',
-                            'presenca': 'presença',
-                            'brilho': 'brilho'
-                        };
-                        const friendlyBandName = bandNameMap[band] || band;
+                        const amount = Math.abs(calculatedDelta).toFixed(1);
                         
-                        suggestion.action = `${direction} ${friendlyBandName}`;
-                        suggestion.diagnosis = `${friendlyBandName} precisa de ajuste`;
-                        suggestion.message = `${direction} ${friendlyBandName} para melhorar o equilíbrio`;
-                        suggestion.why = `Banda ${friendlyBandName} fora do ideal para o gênero`;
+                        suggestion.action = `${direction} entre ${amount} e ${(parseFloat(amount) + 1).toFixed(1)} dB`;
+                        suggestion.diagnosis = `Atual: ${value.toFixed(1)} dB, Alvo: ${target.toFixed(1)} dB`;
+                        suggestion.message = `${direction} ${band}`;
+                        suggestion.why = `Banda ${band} fora da faixa ideal para o gênero`;
                         
                         // Dados técnicos tradicionais
                         suggestion.technical = {
