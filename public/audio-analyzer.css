@@ -192,9 +192,9 @@
     background-color: transparent;
     border: 1px solid rgba(255, 255, 255, 0.2);
     color: rgba(255, 255, 255, 0.8);
-    padding: 12px 24px;
-    border-radius: 12px;
-    font-size: 0.9rem;
+    padding: 6px 20px;
+    border-radius: 10px;
+    font-size: 0.85rem;
     cursor: pointer;
     transition: 
         border-color 0.2s ease,
@@ -203,10 +203,15 @@
     font-weight: 500;
     -webkit-appearance: none;
     appearance: none;
-    margin: 32px auto 0 auto;
-    display: block;
+    margin: 32px auto 0 auto !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     width: auto;
-    max-width: 200px;
+    max-width: 180px;
+    height: 34px;
+    line-height: 1 !important;
+    vertical-align: middle;
 }
 
 #audioAnalysisModal .audio-close-bottom:hover {
@@ -228,37 +233,28 @@
    =============================== */
 
 #audioAnalysisModal .audio-upload-area {
-    padding: 0;
+    padding: 0 0 40px 0;
     width: 100%;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 0;
 }
 
-/* ÁREA DE UPLOAD - COM ANIMAÇÃO DARK */
+/* ÁREA DE UPLOAD - SEM MOLDURA/BORDA */
 #audioAnalysisModal .upload-content {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 12px;
     padding: 40px 32px;
-    /* BACKGROUND DARK - SEM BRANCO */
-    background: rgba(30, 15, 45, 0.4);
-    background-color: transparent;
-    border: 1px solid rgba(106, 154, 255, 0.25);
-    border-radius: 16px;
+    /* SEM BACKGROUND E SEM BORDA */
+    background: transparent;
+    border: none;
     color: #ffffff;
     cursor: pointer;
-    /* TRANSIÇÕES DARK */
-    transition: 
-        transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-        background 0.4s ease,
-        box-shadow 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-        border-color 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
-    overflow: hidden;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
     width: 100%;
     max-width: 100%;
     text-align: center;
@@ -267,26 +263,6 @@
 /* SEM EFEITO BEFORE */
 #audioAnalysisModal .upload-content::before {
     display: none;
-}
-
-/* HOVER - APENAS PULSE NO BRILHO, SEM MUDANÇAS VISUAIS */
-#audioAnalysisModal .upload-content:hover {
-    /* Background e border NÃO MUDAM */
-    animation: dark-glow-pulse 2.5s ease-in-out infinite;
-}
-
-/* ANIMAÇÃO - APENAS PULSA O BRILHO ESCURO */
-@keyframes dark-glow-pulse {
-    0%, 100% { 
-        box-shadow: 
-            0 0 20px rgba(106, 0, 255, 0.15),
-            0 0 40px rgba(0, 102, 255, 0.1);
-    }
-    50% { 
-        box-shadow: 
-            0 0 30px rgba(106, 0, 255, 0.25),
-            0 0 50px rgba(0, 102, 255, 0.15);
-    }
 }
 
 /* ÍCONE COPIADO DE .genre-icon */
@@ -392,7 +368,7 @@
     background-color: transparent;
     border: 1px solid rgba(106, 154, 255, 0.3);
     border-radius: 16px;
-    padding: 20px 32px;
+    padding: 14px 40px;
     color: #ffffff;
     font-weight: 600;
     font-size: 0.95rem;
@@ -403,10 +379,10 @@
         background 0.3s ease,
         box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
         border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    margin-top: 16px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    margin-top: 20px;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     letter-spacing: 0.5px;
     position: relative;
     overflow: hidden;
@@ -414,7 +390,12 @@
     -webkit-backdrop-filter: blur(10px);
     -webkit-appearance: none;
     appearance: none;
-    line-height: 1;
+    line-height: 1 !important;
+    width: auto !important;
+    min-width: 200px;
+    text-align: center;
+    height: 48px;
+    vertical-align: middle;
 }
 
 #audioAnalysisModal .upload-btn::before {
@@ -457,7 +438,7 @@
    =============================== */
 
 #audioAnalysisModal .audio-loading {
-    padding: 0;
+    padding: 0 0 40px 0;
     width: 100%;
     height: 100%;
     display: flex;
@@ -4351,10 +4332,10 @@ details[open] summary {
     background: linear-gradient(135deg, rgba(14, 20, 34, 0.95), rgba(31, 43, 64, 0.95));
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 24px;
-    padding: 32px 24px 24px 24px;
+    padding: 28px 24px 50px 24px;
     max-width: 750px;
     width: 90%;
-    max-height: 85vh;
+    max-height: 80vh;
     overflow-y: auto;
     box-shadow: 
         0 25px 50px rgba(0, 0, 0, 0.5),
@@ -4393,8 +4374,8 @@ details[open] summary {
 .genre-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-    margin-bottom: 20px;
+    gap: 10px;
+    margin-bottom: 14px;
 }
 
 /* Cards de gênero */
@@ -4402,11 +4383,11 @@ details[open] summary {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 12px;
-    padding: 14px 10px;
+    padding: 12px 8px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     backdrop-filter: blur(10px);
@@ -4472,16 +4453,18 @@ details[open] summary {
 .genre-modal-close {
     display: block;
     margin: 24px auto 0;
-    padding: 12px 32px;
+    padding: 10px 28px;
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 12px;
     color: rgba(255, 255, 255, 0.8);
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
     font-family: 'Orbitron', sans-serif;
+    position: relative;
+    bottom: 0;
 }
 
 .genre-modal-close:hover {
@@ -4517,9 +4500,9 @@ details[open] summary {
 /* Tablets e telas médias */
 @media (max-width: 768px) {
     .genre-modal-container {
-        padding: 24px 20px 20px 20px;
+        padding: 24px 20px 50px 20px;
         max-width: 95%;
-        max-height: 90vh;
+        max-height: 80vh;
     }
 
     .genre-modal-title {
@@ -4555,9 +4538,9 @@ details[open] summary {
 /* Smartphones */
 @media (max-width: 480px) {
     .genre-modal-container {
-        padding: 20px 16px 16px 16px;
+        padding: 20px 16px 50px 16px;
         max-width: 95%;
-        max-height: 92vh;
+        max-height: 80vh;
     }
 
     .genre-modal-title {
@@ -4637,8 +4620,9 @@ details[open] summary {
 /* Tablets e dispositivos médios */
 @media (max-width: 768px) {
     .genre-modal-container {
-        padding: 32px 24px;
+        padding: 32px 24px 50px 24px;
         max-width: 95%;
+        max-height: 80vh;
     }
     
     .genre-modal-title {
@@ -4672,8 +4656,9 @@ details[open] summary {
 /* Smartphones pequenos */
 @media (max-width: 480px) {
     .genre-modal-container {
-        padding: 24px 16px;
+        padding: 24px 16px 50px 16px;
         border-radius: 20px;
+        max-height: 80vh;
     }
     
     .genre-modal-title {
