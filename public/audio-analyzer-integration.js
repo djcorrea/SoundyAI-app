@@ -5431,31 +5431,57 @@ function renderReferenceComparisons(analysis) {
             diff = val - target;
         }
         
-        // 🎯 CORREÇÃO: Mostrar apenas status visual (não valores numéricos)
+        // [BANDS-TOL-0] NOVO: Coloração com suporte a comparação binária para bandas (tol=0)
         let diffCell;
-        if (!Number.isFinite(diff) || !Number.isFinite(tol) || tol <= 0) {
+        if (!Number.isFinite(diff)) {
+            diffCell = '<td class="na" style="text-align: center;"><span style="opacity: 0.6;">—</span></td>';
+        } else if (tol === 0) {
+            // [BANDS-TOL-0] LÓGICA BINÁRIA PARA BANDAS (tol=0)
+            // Verde SOMENTE se dentro do range (diff === 0)
+            const absDiff = Math.abs(diff);
+            let cssClass, statusText;
+            
+            if (absDiff === 0) {
+                // ✅ DENTRO DO RANGE → Verde
+                cssClass = 'ok';
+                statusText = 'Ideal';
+            } else if (absDiff <= 1.0) {
+                // ⚠️ Fora por até 1dB → Amarelo
+                cssClass = 'yellow';
+                statusText = 'Ajuste leve';
+            } else if (absDiff <= 3.0) {
+                // 🟠 Fora por até 3dB → Laranja
+                cssClass = 'orange';
+                statusText = 'Ajustar';
+            } else {
+                // ❌ Fora por >3dB → Vermelho
+                cssClass = 'warn';
+                statusText = 'Corrigir';
+            }
+            
+            diffCell = `<td class="${cssClass}" style="text-align: center; padding: 8px;">
+                <div style="font-size: 12px; font-weight: 600;">${statusText}</div>
+            </td>`;
+        } else if (!Number.isFinite(tol) || tol < 0) {
             diffCell = '<td class="na" style="text-align: center;"><span style="opacity: 0.6;">—</span></td>';
         } else {
+            // LÓGICA PADRÃO PARA MÉTRICAS PRINCIPAIS (LUFS, TP, DR, etc. com tol>0)
             const absDiff = Math.abs(diff);
-            let cssClass, statusIcon, statusText;
+            let cssClass, statusText;
             
-            // Mesma lógica de limites do sistema unificado
             if (absDiff <= tol) {
                 // ✅ ZONA IDEAL
                 cssClass = 'ok';
-                statusIcon = '✅';
                 statusText = 'Ideal';
             } else {
                 const multiplicador = absDiff / tol;
                 if (multiplicador <= 2) {
                     // ⚠️ ZONA AJUSTAR
                     cssClass = 'yellow';
-                    statusIcon = '⚠️';
                     statusText = 'Ajuste leve';
                 } else {
                     // ❌ ZONA CORRIGIR
                     cssClass = 'warn';
-                    statusIcon = '❌';
                     statusText = 'Corrigir';
                 }
             }
@@ -5667,23 +5693,24 @@ function renderReferenceComparisons(analysis) {
                 }
             }
             
-            // 🎯 NOVO: Determinar target com suporte a ranges
+            // [BANDS-TOL-0] NOVO: Determinar target com suporte a ranges (SEM TOLERÂNCIA AUTOMÁTICA)
             let tgt = null;
             let tolerance = null;
             
-            // Prioridade 1: target_range (novo sistema)
+            // Prioridade 1: target_range (sistema sem tolerância)
             if (refBand.target_range && typeof refBand.target_range === 'object' &&
                 Number.isFinite(refBand.target_range.min) && Number.isFinite(refBand.target_range.max)) {
                 tgt = refBand.target_range;
-                // Calcular tolerância como metade do range (usado para coloração)
-                tolerance = (tgt.max - tgt.min) / 2;
-                console.log(`🎯 [BANDS] Usando target_range para ${refBandKey}: [${tgt.min}, ${tgt.max}], tol: ${tolerance}`);
+                // [BANDS-TOL-0] NÃO calcular tolerância automática para bandas
+                tolerance = 0; // Sempre 0 para bandas (comparação binária)
+                console.log(`🎯 [BANDS-TOL-0] Usando target_range para ${refBandKey}: [${tgt.min}, ${tgt.max}], tol: 0 (comparação binária)`);
             }
-            // Prioridade 2: target_db fixo (sistema legado)
+            // Prioridade 2: target_db fixo (tratar como min=max=target)
             else if (!refBand._target_na && Number.isFinite(refBand.target_db)) {
-                tgt = refBand.target_db;
-                tolerance = refBand.tol_db;
-                console.log(`🎯 [BANDS] Usando target_db fixo para ${refBandKey}: ${tgt}, tol: ${tolerance}`);
+                tgt = { min: refBand.target_db, max: refBand.target_db };
+                // [BANDS-TOL-0] NÃO usar tol_db para bandas
+                tolerance = 0; // Sempre 0 para bandas (match exato)
+                console.log(`🎯 [BANDS-TOL-0] Usando target_db fixo para ${refBandKey}: ${refBand.target_db} (min=max, tol: 0)`);
             }
             
             // Prioridade 3: Targets normalizados (se habilitado)
@@ -5741,14 +5768,14 @@ function renderReferenceComparisons(analysis) {
                         let target = null;
                         let tolerance = null;
                         
-                        // Suporte híbrido: target_range ou target_db
+                        // [BANDS-TOL-0] Suporte híbrido: target_range ou target_db (SEM TOLERÂNCIA)
                         if (directRefData?.target_range && typeof directRefData.target_range === 'object' &&
                             Number.isFinite(directRefData.target_range.min) && Number.isFinite(directRefData.target_range.max)) {
                             target = directRefData.target_range;
-                            tolerance = (target.max - target.min) / 2;
+                            tolerance = 0; // [BANDS-TOL-0] Sempre 0 para bandas
                         } else if (Number.isFinite(directRefData?.target_db)) {
-                            target = directRefData.target_db;
-                            tolerance = directRefData.tol_db;
+                            target = { min: directRefData.target_db, max: directRefData.target_db };
+                            tolerance = 0; // [BANDS-TOL-0] Sempre 0 para bandas
                         }
                         
                         console.log(`📊 Adicionando banda extra: ${displayName}, valor: ${energyDb}dB, target: ${target || 'N/A'}`);
@@ -5803,20 +5830,20 @@ function renderReferenceComparisons(analysis) {
                     }
                     
                     if (Number.isFinite(energyDb)) {
-                        // Suporte híbrido: target_range ou target_db
+                        // [BANDS-TOL-0] Suporte híbrido: target_range ou target_db (SEM TOLERÂNCIA)
                         let target = null;
                         let tolerance = null;
                         
                         if (refBandData?.target_range && typeof refBandData.target_range === 'object' &&
                             Number.isFinite(refBandData.target_range.min) && Number.isFinite(refBandData.target_range.max)) {
                             target = refBandData.target_range;
-                            tolerance = (target.max - target.min) / 2;
+                            tolerance = 0; // [BANDS-TOL-0] Sempre 0 para bandas
                         } else if (Number.isFinite(refBandData?.target_db)) {
-                            target = refBandData.target_db;
-                            tolerance = refBandData.tol_db;
+                            target = { min: refBandData.target_db, max: refBandData.target_db };
+                            tolerance = 0; // [BANDS-TOL-0] Sempre 0 para bandas
                         }
                         
-                        console.log(`📊 Banda (fallback): ${bandInfo.name}, valor: ${energyDb}dB, target: ${target || 'N/A'}`);
+                        console.log(`📊 [BANDS-TOL-0] Banda (fallback): ${bandInfo.name}, valor: ${energyDb}dB, target: ${target || 'N/A'}, tol: 0`);
                         pushRow(bandInfo.name, energyDb, target, tolerance, ' dB');
                         processedBandKeys.add(calcBandKey);
                         
@@ -5853,7 +5880,7 @@ function renderReferenceComparisons(analysis) {
                         const displayName = bandMap[bandKey]?.name || 
                                           `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)} (Detectada)`;
                         
-                        // Suporte híbrido: target_range ou target_db
+                        // [BANDS-TOL-0] Suporte híbrido: target_range ou target_db (SEM TOLERÂNCIA)
                         const directRefData = ref.bands?.[bandKey];
                         let target = null;
                         let tolerance = null;
@@ -5861,13 +5888,13 @@ function renderReferenceComparisons(analysis) {
                         if (directRefData?.target_range && typeof directRefData.target_range === 'object' &&
                             Number.isFinite(directRefData.target_range.min) && Number.isFinite(directRefData.target_range.max)) {
                             target = directRefData.target_range;
-                            tolerance = (target.max - target.min) / 2;
+                            tolerance = 0; // [BANDS-TOL-0] Sempre 0 para bandas
                         } else if (Number.isFinite(directRefData?.target_db)) {
-                            target = directRefData.target_db;
-                            tolerance = directRefData.tol_db;
+                            target = { min: directRefData.target_db, max: directRefData.target_db };
+                            tolerance = 0; // [BANDS-TOL-0] Sempre 0 para bandas
                         }
                         
-                        console.log(`📊 Banda não mapeada: ${displayName}, valor: ${energyDb}dB, target: ${target || 'N/A'}`);
+                        console.log(`📊 [BANDS-TOL-0] Banda não mapeada: ${displayName}, valor: ${energyDb}dB, target: ${target || 'N/A'}, tol: 0`);
                         pushRow(displayName, energyDb, target, tolerance, ' dB');
                         
                         if (!target) {
