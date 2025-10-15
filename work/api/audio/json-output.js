@@ -1017,18 +1017,14 @@ function generateGenreReference(technicalData, genre) {
       const target = targets[targetKey];
       
       if (target && band && typeof band === 'object') {
-        // Usar energy_db se disponível, senão usar percentage
-        const bandValue = band.energy_db !== null ? band.energy_db : band.percentage;
+        // SEMPRE usar percentage (não energy_db) para comparação com targets
+        const bandValue = band.percentage;
         
         if (typeof bandValue === 'number' && !isNaN(bandValue) && bandValue !== null) {
-          // Para energy_db, usar comparação diferente do que para percentage
-          const isEnergyDb = band.energy_db !== null;
-          const displayValue = isEnergyDb ? bandValue : Math.round(bandValue * 10) / 10;
-          const compareValue = isEnergyDb ? bandValue : bandValue; // Energy vs percentage
-          
-          // Tolerância baseada no tipo de valor
-          const tolerance = isEnergyDb ? target.tolerance * 2 : target.tolerance; // dB tem maior variação
-          const targetValue = isEnergyDb ? target.target : target.target; // Usar mesmo target
+          const displayValue = Math.round(bandValue * 10) / 10;
+          const compareValue = bandValue;
+          const tolerance = target.tolerance;
+          const targetValue = target.target;
           
           const delta = Math.abs(compareValue - targetValue);
           const isWithinTolerance = delta <= tolerance;
@@ -1037,7 +1033,7 @@ function generateGenreReference(technicalData, genre) {
             metric: target.name,
             value: displayValue,
             ideal: targetValue,
-            unit: isEnergyDb ? "dB" : "%",
+            unit: "%",
             status: isWithinTolerance ? "✅ IDEAL" : (delta > tolerance * 1.5 ? "❌ CORRIGIR" : "⚠️ AJUSTAR"),
             category: "spectral_bands"
           });
