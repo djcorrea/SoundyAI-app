@@ -794,12 +794,17 @@
     background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
     border: 1px solid rgba(255,255,255,0.12);
     border-radius: 16px;
-    padding: 20px;
-    margin-bottom: 16px;
+    padding: 22px;
+    margin-bottom: 20px;
     position: relative;
     backdrop-filter: blur(10px);
     transition: all 0.3s ease;
     overflow: hidden;
+}
+
+/* Espaçamento entre elementos dentro do card */
+.enhanced-card > * + * {
+    margin-top: 16px;
 }
 
 .enhanced-card::before {
@@ -833,7 +838,11 @@
     font-weight: 700;
     color: #ffffff;
     margin: 0;
-    line-height: 1.3;
+    line-height: 1.5;
+    letter-spacing: 0.3px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
 }
 
 .card-badges {
@@ -900,13 +909,17 @@
 /* Problem Description */
 .card-description {
     font-size: 14px;
-    line-height: 1.6;
+    line-height: 1.8;
     color: #e0e0e0;
     margin-bottom: 16px;
-    padding: 12px 16px;
+    padding: 14px 18px;
     background: rgba(255,255,255,0.04);
     border-radius: 10px;
     border-left: 3px solid var(--card-accent-color, #00d4ff);
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    letter-spacing: 0.3px;
 }
 
 /* Action Section */
@@ -931,7 +944,11 @@
 .card-action-content {
     font-size: 14px;
     color: #ffffff;
-    line-height: 1.5;
+    line-height: 1.8;
+    letter-spacing: 0.3px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
 }
 
 /* Technical Details */
@@ -4332,10 +4349,10 @@ details[open] summary {
     background: linear-gradient(135deg, rgba(14, 20, 34, 0.95), rgba(31, 43, 64, 0.95));
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 24px;
-    padding: 28px 24px 50px 24px;
+    padding: 32px 24px 24px 24px;
     max-width: 750px;
     width: 90%;
-    max-height: 80vh;
+    max-height: 85vh;
     overflow-y: auto;
     box-shadow: 
         0 25px 50px rgba(0, 0, 0, 0.5),
@@ -4374,8 +4391,8 @@ details[open] summary {
 .genre-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    margin-bottom: 14px;
+    gap: 12px;
+    margin-bottom: 20px;
 }
 
 /* Cards de gênero */
@@ -4383,11 +4400,11 @@ details[open] summary {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 12px;
-    padding: 12px 8px;
+    padding: 14px 10px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     backdrop-filter: blur(10px);
@@ -4453,18 +4470,16 @@ details[open] summary {
 .genre-modal-close {
     display: block;
     margin: 24px auto 0;
-    padding: 10px 28px;
+    padding: 12px 32px;
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 12px;
     color: rgba(255, 255, 255, 0.8);
-    font-size: 0.95rem;
+    font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
     font-family: 'Orbitron', sans-serif;
-    position: relative;
-    bottom: 0;
 }
 
 .genre-modal-close:hover {
@@ -4500,9 +4515,9 @@ details[open] summary {
 /* Tablets e telas médias */
 @media (max-width: 768px) {
     .genre-modal-container {
-        padding: 24px 20px 50px 20px;
+        padding: 24px 20px 20px 20px;
         max-width: 95%;
-        max-height: 80vh;
+        max-height: 90vh;
     }
 
     .genre-modal-title {
@@ -4538,9 +4553,9 @@ details[open] summary {
 /* Smartphones */
 @media (max-width: 480px) {
     .genre-modal-container {
-        padding: 20px 16px 50px 16px;
+        padding: 20px 16px 16px 16px;
         max-width: 95%;
-        max-height: 80vh;
+        max-height: 92vh;
     }
 
     .genre-modal-title {
@@ -4620,9 +4635,8 @@ details[open] summary {
 /* Tablets e dispositivos médios */
 @media (max-width: 768px) {
     .genre-modal-container {
-        padding: 32px 24px 50px 24px;
+        padding: 32px 24px;
         max-width: 95%;
-        max-height: 80vh;
     }
     
     .genre-modal-title {
@@ -4656,9 +4670,8 @@ details[open] summary {
 /* Smartphones pequenos */
 @media (max-width: 480px) {
     .genre-modal-container {
-        padding: 24px 16px 50px 16px;
+        padding: 24px 16px;
         border-radius: 20px;
-        max-height: 80vh;
     }
     
     .genre-modal-title {

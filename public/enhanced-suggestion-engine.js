@@ -981,9 +981,21 @@ class EnhancedSuggestionEngine {
 
         // True Peak
         const truePeakValue = tech.truePeakDbtp || tech.true_peak_dbtp || tech.truePeak || tech.true_peak;
+        console.log('🔍 [TRUE-PEAK-EXTRACT] Tentando extrair True Peak:', {
+            truePeakDbtp: tech.truePeakDbtp,
+            true_peak_dbtp: tech.true_peak_dbtp,
+            truePeak: tech.truePeak,
+            true_peak: tech.true_peak,
+            resultValue: truePeakValue,
+            isFinite: Number.isFinite(truePeakValue)
+        });
+        
         if (Number.isFinite(truePeakValue)) {
             metrics.true_peak = truePeakValue;
+            console.log('✅ [TRUE-PEAK-EXTRACTED] True Peak extraído com sucesso:', truePeakValue);
             this.logAudit('METRIC_EXTRACTED', 'True Peak extraído', { value: truePeakValue, source: 'truePeakDbtp' });
+        } else {
+            console.warn('❌ [TRUE-PEAK-MISSING] True Peak NÃO extraído - valor inválido ou ausente');
         }
 
         // Dynamic Range
@@ -1342,6 +1354,19 @@ class EnhancedSuggestionEngine {
             const value = metrics[metric.key];
             const target = referenceData[metric.target];
             const tolerance = referenceData[metric.tol];
+            
+            // 🔍 LOG CRÍTICO para True Peak
+            if (metric.key === 'true_peak') {
+                console.log('🎯 [TRUE-PEAK-LOOP] Processando True Peak:', {
+                    hasValue: value !== undefined,
+                    value: value,
+                    hasTarget: target !== undefined,
+                    target: target,
+                    hasTolerance: tolerance !== undefined,
+                    tolerance: tolerance,
+                    willProcess: Number.isFinite(value)
+                });
+            }
             
             this.logAudit('METRIC_VALIDATION', `Validando métrica: ${metric.key}`, {
                 metricKey: metric.key,
