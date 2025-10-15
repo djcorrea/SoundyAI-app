@@ -537,6 +537,112 @@
         "quality_gate": "soft"
       }
     },
+    "funk_bh": {
+      "lufs": {
+        "target": -9.0,
+        "unit": "LUFS",
+        "tol_inner": 1.0,
+        "tol_outer": 2.0,
+        "method": "legacy_value",
+        "quality_gate": "hard"
+      },
+      "truePeak": {
+        "target": -0.25,
+        "unit": "dBTP",
+        "tol_inner": 0.25,
+        "tol_outer": 0.5,
+        "method": "legacy_value",
+        "quality_gate": "critical"
+      },
+      "dr": {
+        "target": 7.0,
+        "unit": "dB",
+        "tol_inner": 1.0,
+        "tol_outer": 2.0,
+        "method": "legacy_value",
+        "quality_gate": "soft"
+      },
+      "lra": {
+        "target": 4.0,
+        "unit": "LU",
+        "tol_inner": 1.5,
+        "tol_outer": 3.0,
+        "method": "legacy_value",
+        "quality_gate": "soft"
+      },
+      "band_sub": {
+        "target": -26,
+        "unit": "dB",
+        "tol_inner": 3,
+        "tol_outer": 6,
+        "frequency_range": "20-60 Hz",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_low_bass": {
+        "target": -27,
+        "unit": "dB",
+        "tol_inner": 3,
+        "tol_outer": 6,
+        "frequency_range": "60-120 Hz",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_upper_bass": {
+        "target": -30.5,
+        "unit": "dB",
+        "tol_inner": 3.5,
+        "tol_outer": 7,
+        "frequency_range": "120-250 Hz",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_low_mid": {
+        "target": -30.5,
+        "unit": "dB",
+        "tol_inner": 3.5,
+        "tol_outer": 7,
+        "frequency_range": "250-500 Hz",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_mid": {
+        "target": -33,
+        "unit": "dB",
+        "tol_inner": 4,
+        "tol_outer": 8,
+        "frequency_range": "500-2k Hz",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_high_mid": {
+        "target": -38,
+        "unit": "dB",
+        "tol_inner": 4,
+        "tol_outer": 8,
+        "frequency_range": "2k-4k Hz",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_brilho": {
+        "target": -43,
+        "unit": "dB",
+        "tol_inner": 3,
+        "tol_outer": 6,
+        "frequency_range": "6k-20k Hz",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      },
+      "band_presenca": {
+        "target": -41,
+        "unit": "dB",
+        "tol_inner": 3,
+        "tol_outer": 6,
+        "frequency_range": "4k-6k Hz",
+        "method": "spectral_analysis",
+        "quality_gate": "soft"
+      }
+    },
     "funk_bruxaria": {
       "lufs": {
         "target": -14,
