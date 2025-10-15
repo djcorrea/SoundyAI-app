@@ -6294,17 +6294,33 @@ function calculateFrequencyScore(analysis, refData) {
                 energyDb = bandData;
             }
             
-            // Calcular score individual da banda usando valor, alvo e tolerância
-            if (Number.isFinite(energyDb) && 
-                Number.isFinite(refBandData.target_db) && 
-                Number.isFinite(refBandData.tol_db)) {
-                
-                const score = calculateMetricScore(energyDb, refBandData.target_db, refBandData.tol_db);
+            if (!Number.isFinite(energyDb)) return;
+            
+            // Suporte híbrido: target_range (novo) ou target_db + tol_db (legado)
+            let targetDb = null;
+            let tolDb = null;
+            
+            if (refBandData.target_range && typeof refBandData.target_range === 'object' &&
+                Number.isFinite(refBandData.target_range.min) && Number.isFinite(refBandData.target_range.max)) {
+                // Novo sistema: calcular alvo e tolerância a partir do range
+                targetDb = (refBandData.target_range.min + refBandData.target_range.max) / 2;
+                tolDb = (refBandData.target_range.max - refBandData.target_range.min) / 2;
+                console.log(`🎯 [SCORE-FREQ] ${calcBand}: usando target_range [${refBandData.target_range.min}, ${refBandData.target_range.max}] → target=${targetDb.toFixed(1)}dB, tol=${tolDb.toFixed(1)}dB`);
+            } else if (Number.isFinite(refBandData.target_db) && Number.isFinite(refBandData.tol_db)) {
+                // Sistema legado
+                targetDb = refBandData.target_db;
+                tolDb = refBandData.tol_db;
+                console.log(`🎯 [SCORE-FREQ] ${calcBand}: usando target_db=${targetDb}dB, tol_db=${tolDb}dB`);
+            }
+            
+            // Calcular score individual da banda
+            if (Number.isFinite(targetDb) && Number.isFinite(tolDb)) {
+                const score = calculateMetricScore(energyDb, targetDb, tolDb);
                 if (score !== null) {
                     scores.push(score);
-                    const delta = Math.abs(energyDb - refBandData.target_db);
-                    const status = delta <= refBandData.tol_db ? '✅' : '❌';
-                    console.log(`🎵 ${calcBand.toUpperCase()}: ${energyDb}dB vs ${refBandData.target_db}dB (±${refBandData.tol_db}dB) = ${score}% ${status}`);
+                    const delta = Math.abs(energyDb - targetDb);
+                    const status = delta <= tolDb ? '✅' : '❌';
+                    console.log(`🎵 ${calcBand.toUpperCase()}: ${energyDb.toFixed(1)}dB vs ${targetDb.toFixed(1)}dB (±${tolDb.toFixed(1)}dB) = ${score}% ${status}`);
                 }
             }
         }

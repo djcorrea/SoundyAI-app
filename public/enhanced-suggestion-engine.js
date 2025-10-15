@@ -27,8 +27,8 @@ class EnhancedSuggestionEngine {
         
         // 🎛️ Configurações
         this.config = {
-            maxSuggestions: 12,        // Máximo de sugestões por análise
-            minPriority: 0.1,          // Prioridade mínima para incluir sugestão
+            maxSuggestions: 20,        // Máximo de sugestões por análise (aumentado para incluir bandas espectrais)
+            minPriority: 0.05,         // Prioridade mínima para incluir sugestão (reduzida para aceitar bandas)
             groupByTheme: true,        // Agrupar sugestões por tema
             includeYellowSeverity: true, // Incluir severidade "amarela" (monitorar)
             enableHeuristics: true,    // Habilitar análise heurística
@@ -1653,6 +1653,8 @@ class EnhancedSuggestionEngine {
                         confidence,
                         dependencyBonus
                     });
+                    
+                    console.log(`🎯 [BAND-PRIORITY] ${band}: prioridade=${priority.toFixed(3)}, severity=${severityLevel}, incluir=${shouldInclude}`);
                     
                     // 🎯 NOVA GERAÇÃO DE SUGESTÃO HÍBRIDA
                     let suggestion;
