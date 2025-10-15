@@ -278,7 +278,6 @@ class SuggestionScorer {
                 'red': 2.0
             };
             severityScore = levelToScore[severity.level] || 1.0;
-            console.log(`🎯 [PRIORITY-FIX] Severity score calculado a partir do level: ${severity.level} → ${severityScore}`);
         }
         
         const priority = baseWeight * severityScore * confidence * (1 + dependencyBonus);
