@@ -203,7 +203,7 @@
     font-weight: 500;
     -webkit-appearance: none;
     appearance: none;
-    margin: 25px auto 0 auto;
+    margin: 32px auto 0 auto;
     display: block;
     width: auto;
     max-width: 200px;
@@ -404,7 +404,9 @@
         box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1),
         border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     margin-top: 16px;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     letter-spacing: 0.5px;
     position: relative;
     overflow: hidden;
@@ -412,6 +414,7 @@
     -webkit-backdrop-filter: blur(10px);
     -webkit-appearance: none;
     appearance: none;
+    line-height: 1;
 }
 
 #audioAnalysisModal .upload-btn::before {
@@ -4348,10 +4351,10 @@ details[open] summary {
     background: linear-gradient(135deg, rgba(14, 20, 34, 0.95), rgba(31, 43, 64, 0.95));
     border: 1px solid rgba(255, 255, 255, 0.15);
     border-radius: 24px;
-    padding: 40px 32px;
-    max-width: 800px;
+    padding: 32px 24px 24px 24px;
+    max-width: 750px;
     width: 90%;
-    max-height: 90vh;
+    max-height: 85vh;
     overflow-y: auto;
     box-shadow: 
         0 25px 50px rgba(0, 0, 0, 0.5),
@@ -4362,11 +4365,11 @@ details[open] summary {
 /* Título do modal */
 .genre-modal-title {
     font-family: 'Orbitron', sans-serif;
-    font-size: 2.5rem;
+    font-size: 2rem;
     line-height: 1.1;
     text-align: center;
     text-transform: uppercase;
-    letter-spacing: 3px;
+    letter-spacing: 2px;
     background: linear-gradient(90deg, #6a00ff, #00f0ff);
     background-clip: text;
     -webkit-background-clip: text;
@@ -4374,36 +4377,36 @@ details[open] summary {
     text-shadow:
         0 0 8px rgba(106, 0, 255, 0.4),
         0 0 16px rgba(0, 240, 255, 0.3);
-    margin: 0 0 12px 0;
+    margin: 0 0 8px 0;
 }
 
 /* Subtítulo */
 .genre-modal-subtitle {
     text-align: center;
     color: rgba(255, 255, 255, 0.7);
-    font-size: 1rem;
-    margin: 0 0 32px 0;
+    font-size: 0.9rem;
+    margin: 0 0 24px 0;
     font-weight: 400;
 }
 
-/* Grid de gêneros - agora com 11 cards */
+/* Grid de gêneros - agora com 12 cards */
 .genre-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 16px;
-    margin-bottom: 24px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
 }
 
 /* Cards de gênero */
 .genre-card {
     background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 16px;
-    padding: 20px 16px;
+    border-radius: 12px;
+    padding: 14px 10px;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     cursor: pointer;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     backdrop-filter: blur(10px);
@@ -4445,7 +4448,7 @@ details[open] summary {
 
 /* Ícone do gênero */
 .genre-icon {
-    font-size: 2.5rem;
+    font-size: 2rem;
     filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.3));
     transition: transform 0.3s ease;
 }
@@ -4457,12 +4460,12 @@ details[open] summary {
 /* Nome do gênero */
 .genre-name {
     color: white;
-    font-size: 0.95rem;
+    font-size: 0.8rem;
     font-weight: 600;
     text-align: center;
     font-family: 'Orbitron', sans-serif;
-    letter-spacing: 0.5px;
-    line-height: 1.3;
+    letter-spacing: 0.3px;
+    line-height: 1.2;
 }
 
 /* Botão de fechar */
@@ -4505,6 +4508,126 @@ details[open] summary {
 
 .genre-modal-container::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.3);
+}
+
+/* ========================================
+   RESPONSIVIDADE DO MODAL DE GÊNEROS
+   ======================================== */
+
+/* Tablets e telas médias */
+@media (max-width: 768px) {
+    .genre-modal-container {
+        padding: 24px 20px 20px 20px;
+        max-width: 95%;
+        max-height: 90vh;
+    }
+
+    .genre-modal-title {
+        font-size: 1.6rem;
+        margin-bottom: 6px;
+    }
+
+    .genre-modal-subtitle {
+        font-size: 0.85rem;
+        margin-bottom: 20px;
+    }
+
+    .genre-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-bottom: 16px;
+    }
+
+    .genre-card {
+        padding: 12px 8px;
+        gap: 6px;
+    }
+
+    .genre-icon {
+        font-size: 1.8rem;
+    }
+
+    .genre-name {
+        font-size: 0.75rem;
+    }
+}
+
+/* Smartphones */
+@media (max-width: 480px) {
+    .genre-modal-container {
+        padding: 20px 16px 16px 16px;
+        max-width: 95%;
+        max-height: 92vh;
+    }
+
+    .genre-modal-title {
+        font-size: 1.4rem;
+        letter-spacing: 1px;
+        margin-bottom: 4px;
+    }
+
+    .genre-modal-subtitle {
+        font-size: 0.8rem;
+        margin-bottom: 16px;
+    }
+
+    .genre-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .genre-card {
+        padding: 10px 6px;
+        gap: 5px;
+        border-radius: 10px;
+    }
+
+    .genre-icon {
+        font-size: 1.6rem;
+    }
+
+    .genre-name {
+        font-size: 0.7rem;
+        letter-spacing: 0.2px;
+    }
+
+    .genre-modal-close {
+        padding: 10px 24px;
+        font-size: 0.9rem;
+        margin-top: 12px;
+    }
+}
+
+/* Telas muito pequenas */
+@media (max-width: 360px) {
+    .genre-modal-container {
+        padding: 16px 12px 12px 12px;
+    }
+
+    .genre-modal-title {
+        font-size: 1.2rem;
+    }
+
+    .genre-modal-subtitle {
+        font-size: 0.75rem;
+    }
+
+    .genre-grid {
+        gap: 6px;
+    }
+
+    .genre-card {
+        padding: 8px 4px;
+    }
+
+    .genre-icon {
+        font-size: 1.4rem;
+    }
+
+    .genre-name {
+        font-size: 0.65rem;
+    }
 }
 
 /* ========================================
