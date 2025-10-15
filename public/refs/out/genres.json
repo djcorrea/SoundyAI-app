@@ -17,6 +17,10 @@
       "label": "Funk Automotivo"
     },
     {
+      "key": "funk_bh",
+      "label": "Funk BH"
+    },
+    {
       "key": "eletrofunk",
       "label": "Eletrofunk"
     },
