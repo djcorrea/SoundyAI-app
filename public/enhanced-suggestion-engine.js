@@ -1282,19 +1282,6 @@ class EnhancedSuggestionEngine {
             const target = referenceData[metric.target];
             const tolerance = referenceData[metric.tol];
             
-            // 🎯 LOG FORÇADO PARA TRUE PEAK
-            if (metric.key === 'true_peak') {
-                console.log(`🎯 [TRUE-PEAK-DEBUG] Validando True Peak:`, {
-                    value,
-                    target,
-                    tolerance,
-                    hasValue: Number.isFinite(value),
-                    hasTarget: Number.isFinite(target),
-                    hasTolerance: Number.isFinite(tolerance),
-                    isCritical: metric.isCritical
-                });
-            }
-            
             this.logAudit('METRIC_VALIDATION', `Validando métrica: ${metric.key}`, {
                 metricKey: metric.key,
                 hasValue: value !== undefined,
@@ -1359,8 +1346,15 @@ class EnhancedSuggestionEngine {
                         shouldCreateSuggestion = true;
                         const delta = Math.abs(value - target);
                         const distanceFromRange = value < minRange ? (minRange - value) : (value - maxRange);
-                        suggestionMessage = `${metric.label} fora da tolerância (${delta.toFixed(2)}${metric.unit} de diferença, ${distanceFromRange.toFixed(2)}${metric.unit} fora do range ${minRange.toFixed(1)}-${maxRange.toFixed(1)})`;
-                        suggestionAction = `Ajustar ${metric.label} para ficar entre ${minRange.toFixed(1)}${metric.unit} e ${maxRange.toFixed(1)}${metric.unit}`;
+                        
+                        // 🎯 MENSAGENS SIMPLIFICADAS (sem expor ranges/targets)
+                        if (value < target) {
+                            suggestionMessage = `${metric.label} abaixo do ideal`;
+                            suggestionAction = `Aumentar ${metric.label}`;
+                        } else {
+                            suggestionMessage = `${metric.label} acima do ideal`;
+                            suggestionAction = `Reduzir ${metric.label}`;
+                        }
                         
                         this.logAudit('METRIC_OUT_OF_RANGE', `${metric.key} fora do range aceitável`, {
                             value: value,
@@ -1427,16 +1421,9 @@ class EnhancedSuggestionEngine {
                         suggestion.why = `${truePeakTemplate.priority}`;
                         suggestion.specialAlert = true;
                         suggestion.alertType = "priority_first";
-                        
-                        console.log(`⚡ [TRUE-PEAK-SUGGESTION] Sugestão criada com priority=${priority}:`, suggestion);
                     }
                     
                     suggestions.push(suggestion);
-                    
-                    // 🎯 LOG FORÇADO APÓS PUSH
-                    if (metric.metricType === 'true_peak') {
-                        console.log(`⚡ [TRUE-PEAK-PUSHED] Sugestão adicionada ao array. Total suggestions: ${suggestions.length}`);
-                    }
                     
                     this.logAudit('CRITICAL_METRIC_SUGGESTION', `Sugestão crítica gerada: ${metric.label}`, {
                         value: +value.toFixed(2),
@@ -1698,15 +1685,23 @@ class EnhancedSuggestionEngine {
                             rangeBasedLogic: true
                         });
                         
-                        // 🎯 MENSAGENS CUSTOMIZADAS PARA RANGES
+                        // 🎯 MENSAGENS SIMPLIFICADAS (sem expor ranges)
                         const direction = calculatedDelta > 0 ? "Reduzir" : "Aumentar";
-                        const amount = Math.abs(calculatedDelta).toFixed(1);
-                        const rangeText = `${targetRange.min.toFixed(1)} a ${targetRange.max.toFixed(1)} dB`;
+                        const bandNameMap = {
+                            'sub': 'sub-graves',
+                            'bass': 'graves',
+                            'lowMid': 'médios-baixos',
+                            'mid': 'médios',
+                            'highMid': 'médios-altos',
+                            'presenca': 'presença',
+                            'brilho': 'brilho'
+                        };
+                        const friendlyBandName = bandNameMap[band] || band;
                         
-                        suggestion.action = `${direction} cerca de ${amount} dB para aproximar do range ${rangeText}`;
-                        suggestion.diagnosis = `Atual: ${value.toFixed(1)} dB, Range ideal: ${rangeText}`;
-                        suggestion.message = `Ajustar ${band} para ficar dentro do range ${rangeText}`;
-                        suggestion.why = `Banda ${band} fora da faixa ideal ${rangeText} para o gênero`;
+                        suggestion.action = `${direction} ${friendlyBandName}`;
+                        suggestion.diagnosis = `${friendlyBandName} precisa de ajuste`;
+                        suggestion.message = `${direction} ${friendlyBandName} para melhorar o equilíbrio`;
+                        suggestion.why = `Banda ${friendlyBandName} fora do ideal para o gênero`;
                         
                         // Dados técnicos específicos para ranges
                         suggestion.technical = {
@@ -1717,8 +1712,7 @@ class EnhancedSuggestionEngine {
                             withinRange: false,
                             rangeSize: targetRange.max - targetRange.min
                         };
-                        
-                        console.log(`🎯 [RANGE-SUGGESTION] ${band}: ${direction} ${amount} dB para range ${rangeText}`);
+
                         
                     } else {
                         // === SUGESTÃO BASEADA EM TARGET FIXO (legado) ===
@@ -1738,14 +1732,23 @@ class EnhancedSuggestionEngine {
                             rangeBasedLogic: false
                         });
                         
-                        // Mensagens tradicionais para targets fixos
+                        // Mensagens simplificadas para targets fixos
                         const direction = calculatedDelta > 0 ? "Reduzir" : "Aumentar";
-                        const amount = Math.abs(calculatedDelta).toFixed(1);
+                        const bandNameMap = {
+                            'sub': 'sub-graves',
+                            'bass': 'graves',
+                            'lowMid': 'médios-baixos',
+                            'mid': 'médios',
+                            'highMid': 'médios-altos',
+                            'presenca': 'presença',
+                            'brilho': 'brilho'
+                        };
+                        const friendlyBandName = bandNameMap[band] || band;
                         
-                        suggestion.action = `${direction} ${band} em ${amount} dB`;
-                        suggestion.diagnosis = `Atual: ${value.toFixed(1)} dB, Alvo: ${target.toFixed(1)} dB, Diferença: ${amount} dB`;
-                        suggestion.message = `Ajustar ${band} para alinhamento com referência`;
-                        suggestion.why = `Banda ${band} fora da faixa ideal para o gênero`;
+                        suggestion.action = `${direction} ${friendlyBandName}`;
+                        suggestion.diagnosis = `${friendlyBandName} precisa de ajuste`;
+                        suggestion.message = `${direction} ${friendlyBandName} para melhorar o equilíbrio`;
+                        suggestion.why = `Banda ${friendlyBandName} fora do ideal para o gênero`;
                         
                         // Dados técnicos tradicionais
                         suggestion.technical = {
@@ -1754,8 +1757,6 @@ class EnhancedSuggestionEngine {
                             targetValue: target,
                             tolerance: effectiveTolerance
                         };
-                        
-                        console.log(`📊 [FIXED-SUGGESTION] ${band}: ${direction} ${amount} dB para target ${target.toFixed(1)} dB`);
                     }
                     
                     // 🎯 CAMPOS OBRIGATÓRIOS COMUNS
@@ -1932,12 +1933,6 @@ class EnhancedSuggestionEngine {
         
         // 🎯 PÓS-PROCESSAMENTO: Corrigir actions de todas as sugestões de banda que ainda usam valores incorretos
         suggestions = this.postProcessBandSuggestions(suggestions);
-        
-        // 🎯 LOG FINAL DE REFERÊNCIA
-        console.log(`🎯 [REFERENCE-SUGGESTIONS-FINAL] Retornando ${suggestions.length} sugestões de referência:`, {
-            types: suggestions.map(s => s.type),
-            priorities: suggestions.map(s => ({ type: s.type, priority: s.priority }))
-        });
         
         return suggestions;
     }
