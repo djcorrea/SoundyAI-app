@@ -896,6 +896,96 @@ function generateGenreReference(technicalData, genre) {
         presence: { target: 6.0, tolerance: 2.5, name: "Presence (5-10kHz)" },
         air: { target: 4.0, tolerance: 3.0, name: "Air (10-20kHz)" }
       },
+      funk_bh: {
+        sub: { target: 27.0, tolerance: 3.0, name: "Sub (20-60Hz)" },
+        bass: { target: 25.0, tolerance: 3.0, name: "Bass (60-150Hz)" },
+        lowMid: { target: 16.0, tolerance: 2.5, name: "Low-Mid (150-500Hz)" },
+        mid: { target: 14.0, tolerance: 2.5, name: "Mid (500-2kHz)" },
+        highMid: { target: 11.0, tolerance: 2.5, name: "High-Mid (2-5kHz)" },
+        presence: { target: 9.0, tolerance: 2.5, name: "Presence (5-10kHz)" },
+        air: { target: 6.0, tolerance: 3.0, name: "Air (10-20kHz)" }
+      },
+      funk_bruxaria: {
+        sub: { target: 28.0, tolerance: 3.0, name: "Sub (20-60Hz)" },
+        bass: { target: 26.0, tolerance: 3.0, name: "Bass (60-150Hz)" },
+        lowMid: { target: 14.0, tolerance: 2.5, name: "Low-Mid (150-500Hz)" },
+        mid: { target: 12.0, tolerance: 2.5, name: "Mid (500-2kHz)" },
+        highMid: { target: 10.0, tolerance: 2.5, name: "High-Mid (2-5kHz)" },
+        presence: { target: 8.0, tolerance: 2.5, name: "Presence (5-10kHz)" },
+        air: { target: 5.0, tolerance: 3.0, name: "Air (10-20kHz)" }
+      },
+      funk_automotivo: {
+        sub: { target: 30.0, tolerance: 3.0, name: "Sub (20-60Hz)" },
+        bass: { target: 27.0, tolerance: 3.0, name: "Bass (60-150Hz)" },
+        lowMid: { target: 15.0, tolerance: 2.5, name: "Low-Mid (150-500Hz)" },
+        mid: { target: 12.0, tolerance: 2.5, name: "Mid (500-2kHz)" },
+        highMid: { target: 9.0, tolerance: 2.5, name: "High-Mid (2-5kHz)" },
+        presence: { target: 7.0, tolerance: 2.5, name: "Presence (5-10kHz)" },
+        air: { target: 4.0, tolerance: 3.0, name: "Air (10-20kHz)" }
+      },
+      eletrofunk: {
+        sub: { target: 22.0, tolerance: 2.5, name: "Sub (20-60Hz)" },
+        bass: { target: 23.0, tolerance: 2.5, name: "Bass (60-150Hz)" },
+        lowMid: { target: 17.0, tolerance: 2.5, name: "Low-Mid (150-500Hz)" },
+        mid: { target: 15.0, tolerance: 2.5, name: "Mid (500-2kHz)" },
+        highMid: { target: 13.0, tolerance: 2.5, name: "High-Mid (2-5kHz)" },
+        presence: { target: 11.0, tolerance: 2.5, name: "Presence (5-10kHz)" },
+        air: { target: 7.0, tolerance: 3.0, name: "Air (10-20kHz)" }
+      },
+      trap: {
+        sub: { target: 26.0, tolerance: 3.0, name: "Sub (20-60Hz)" },
+        bass: { target: 24.0, tolerance: 3.0, name: "Bass (60-150Hz)" },
+        lowMid: { target: 16.0, tolerance: 2.5, name: "Low-Mid (150-500Hz)" },
+        mid: { target: 14.0, tolerance: 2.5, name: "Mid (500-2kHz)" },
+        highMid: { target: 12.0, tolerance: 2.5, name: "High-Mid (2-5kHz)" },
+        presence: { target: 10.0, tolerance: 2.5, name: "Presence (5-10kHz)" },
+        air: { target: 6.0, tolerance: 3.0, name: "Air (10-20kHz)" }
+      },
+      tech_house: {
+        sub: { target: 20.0, tolerance: 2.5, name: "Sub (20-60Hz)" },
+        bass: { target: 22.0, tolerance: 2.5, name: "Bass (60-150Hz)" },
+        lowMid: { target: 17.0, tolerance: 2.5, name: "Low-Mid (150-500Hz)" },
+        mid: { target: 16.0, tolerance: 2.5, name: "Mid (500-2kHz)" },
+        highMid: { target: 13.0, tolerance: 2.5, name: "High-Mid (2-5kHz)" },
+        presence: { target: 11.0, tolerance: 2.5, name: "Presence (5-10kHz)" },
+        air: { target: 7.0, tolerance: 3.0, name: "Air (10-20kHz)" }
+      },
+      techno: {
+        sub: { target: 19.0, tolerance: 2.5, name: "Sub (20-60Hz)" },
+        bass: { target: 21.0, tolerance: 2.5, name: "Bass (60-150Hz)" },
+        lowMid: { target: 17.0, tolerance: 2.5, name: "Low-Mid (150-500Hz)" },
+        mid: { target: 16.0, tolerance: 2.5, name: "Mid (500-2kHz)" },
+        highMid: { target: 14.0, tolerance: 2.5, name: "High-Mid (2-5kHz)" },
+        presence: { target: 12.0, tolerance: 2.5, name: "Presence (5-10kHz)" },
+        air: { target: 8.0, tolerance: 3.0, name: "Air (10-20kHz)" }
+      },
+      house: {
+        sub: { target: 21.0, tolerance: 2.5, name: "Sub (20-60Hz)" },
+        bass: { target: 22.0, tolerance: 2.5, name: "Bass (60-150Hz)" },
+        lowMid: { target: 17.0, tolerance: 2.5, name: "Low-Mid (150-500Hz)" },
+        mid: { target: 16.0, tolerance: 2.5, name: "Mid (500-2kHz)" },
+        highMid: { target: 13.0, tolerance: 2.5, name: "High-Mid (2-5kHz)" },
+        presence: { target: 11.0, tolerance: 2.5, name: "Presence (5-10kHz)" },
+        air: { target: 7.0, tolerance: 3.0, name: "Air (10-20kHz)" }
+      },
+      brazilian_phonk: {
+        sub: { target: 28.0, tolerance: 3.0, name: "Sub (20-60Hz)" },
+        bass: { target: 26.0, tolerance: 3.0, name: "Bass (60-150Hz)" },
+        lowMid: { target: 14.0, tolerance: 2.5, name: "Low-Mid (150-500Hz)" },
+        mid: { target: 12.0, tolerance: 2.5, name: "Mid (500-2kHz)" },
+        highMid: { target: 10.0, tolerance: 2.5, name: "High-Mid (2-5kHz)" },
+        presence: { target: 8.0, tolerance: 2.5, name: "Presence (5-10kHz)" },
+        air: { target: 5.0, tolerance: 3.0, name: "Air (10-20kHz)" }
+      },
+      phonk: {
+        sub: { target: 27.0, tolerance: 3.0, name: "Sub (20-60Hz)" },
+        bass: { target: 25.0, tolerance: 3.0, name: "Bass (60-150Hz)" },
+        lowMid: { target: 15.0, tolerance: 2.5, name: "Low-Mid (150-500Hz)" },
+        mid: { target: 13.0, tolerance: 2.5, name: "Mid (500-2kHz)" },
+        highMid: { target: 11.0, tolerance: 2.5, name: "High-Mid (2-5kHz)" },
+        presence: { target: 9.0, tolerance: 2.5, name: "Presence (5-10kHz)" },
+        air: { target: 6.0, tolerance: 3.0, name: "Air (10-20kHz)" }
+      },
       funk: {
         sub: { target: 25.0, tolerance: 3.0, name: "Sub (20-60Hz)" },
         bass: { target: 24.0, tolerance: 3.0, name: "Bass (60-150Hz)" },
