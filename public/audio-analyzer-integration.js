@@ -5240,8 +5240,8 @@ function renderSmartSummary(analysis){
         let steps = (analysis.caiarExplainPlan && Array.isArray(analysis.caiarExplainPlan.passos)) ? analysis.caiarExplainPlan.passos.slice(0,6) : [];
         if (steps.length === 0) {
             const sugg = Array.isArray(analysis.suggestions) ? analysis.suggestions.slice() : [];
-            // Ordenar por prioridade se houver
-            sugg.sort((a,b)=> (a.priority||999)-(b.priority||999));
+            // Ordenar por prioridade DECRESCENTE (maior prioridade = menor valor numérico = vem primeiro)
+            sugg.sort((a,b)=> (b.priority||999)-(a.priority||999));
             steps = sugg.slice(0,6).map((s,i)=>({
                 ordem:i+1,
                 titulo:s.message||'Ação',
