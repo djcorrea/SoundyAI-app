@@ -266,9 +266,23 @@ class SuggestionScorer {
      */
     calculatePriority({ metricType, severity, confidence, dependencyBonus = 0 }) {
         const baseWeight = this.weights[metricType] || 0.5;
-        const severityScore = severity.score;
         
-        return baseWeight * severityScore * confidence * (1 + dependencyBonus);
+        // 🎯 CORREÇÃO: Calcular severityScore a partir do nível se score não existir
+        let severityScore = severity.score;
+        if (severityScore === undefined || severityScore === null || isNaN(severityScore)) {
+            // Mapear level para score se score não estiver disponível
+            const levelToScore = {
+                'green': 0.0,
+                'yellow': 1.0,
+                'orange': 1.5,
+                'red': 2.0
+            };
+            severityScore = levelToScore[severity.level] || 1.0;
+            console.log(`🎯 [PRIORITY-FIX] Severity score calculado a partir do level: ${severity.level} → ${severityScore}`);
+        }
+        
+        const priority = baseWeight * severityScore * confidence * (1 + dependencyBonus);
+        return priority;
     }
 
     /**

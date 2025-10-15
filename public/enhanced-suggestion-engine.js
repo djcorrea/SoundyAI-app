@@ -1282,6 +1282,19 @@ class EnhancedSuggestionEngine {
             const target = referenceData[metric.target];
             const tolerance = referenceData[metric.tol];
             
+            // 🎯 LOG FORÇADO PARA TRUE PEAK
+            if (metric.key === 'true_peak') {
+                console.log(`🎯 [TRUE-PEAK-DEBUG] Validando True Peak:`, {
+                    value,
+                    target,
+                    tolerance,
+                    hasValue: Number.isFinite(value),
+                    hasTarget: Number.isFinite(target),
+                    hasTolerance: Number.isFinite(tolerance),
+                    isCritical: metric.isCritical
+                });
+            }
+            
             this.logAudit('METRIC_VALIDATION', `Validando métrica: ${metric.key}`, {
                 metricKey: metric.key,
                 hasValue: value !== undefined,
@@ -1414,9 +1427,16 @@ class EnhancedSuggestionEngine {
                         suggestion.why = `${truePeakTemplate.priority}`;
                         suggestion.specialAlert = true;
                         suggestion.alertType = "priority_first";
+                        
+                        console.log(`⚡ [TRUE-PEAK-SUGGESTION] Sugestão criada com priority=${priority}:`, suggestion);
                     }
                     
                     suggestions.push(suggestion);
+                    
+                    // 🎯 LOG FORÇADO APÓS PUSH
+                    if (metric.metricType === 'true_peak') {
+                        console.log(`⚡ [TRUE-PEAK-PUSHED] Sugestão adicionada ao array. Total suggestions: ${suggestions.length}`);
+                    }
                     
                     this.logAudit('CRITICAL_METRIC_SUGGESTION', `Sugestão crítica gerada: ${metric.label}`, {
                         value: +value.toFixed(2),
@@ -1912,6 +1932,12 @@ class EnhancedSuggestionEngine {
         
         // 🎯 PÓS-PROCESSAMENTO: Corrigir actions de todas as sugestões de banda que ainda usam valores incorretos
         suggestions = this.postProcessBandSuggestions(suggestions);
+        
+        // 🎯 LOG FINAL DE REFERÊNCIA
+        console.log(`🎯 [REFERENCE-SUGGESTIONS-FINAL] Retornando ${suggestions.length} sugestões de referência:`, {
+            types: suggestions.map(s => s.type),
+            priorities: suggestions.map(s => ({ type: s.type, priority: s.priority }))
+        });
         
         return suggestions;
     }
