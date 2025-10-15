@@ -937,7 +937,9 @@ function generateGenreReference(technicalData, genre) {
           const compareValue = isEnergyDb ? bandValue : bandValue; // Energy vs percentage
           
           // Tolerância baseada no tipo de valor
-          const tolerance = isEnergyDb ? target.tolerance * 2 : target.tolerance; // dB tem maior variação
+          // GARANTIR tolerância mínima para evitar status incorretos
+          const baseTolerance = target.tolerance || 0;
+          const tolerance = Math.max(isEnergyDb ? baseTolerance * 2 : baseTolerance, isEnergyDb ? 1.5 : 0.5);
           const targetValue = isEnergyDb ? target.target : target.target; // Usar mesmo target
           
           const delta = Math.abs(compareValue - targetValue);
