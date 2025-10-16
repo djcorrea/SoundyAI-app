@@ -36,19 +36,33 @@ class AISuggestionLayer {
      * Prioridade: 1) Backend (Railway) > 2) Variável global > 3) localStorage
      */
     async autoConfigureApiKey() {
+        console.log('🔍 [AI-LAYER] Iniciando auto-configuração da API Key...');
+        
         // 🎯 PRIORIDADE 1: Buscar do backend (Railway OPENAI_API_KEY)
         try {
+            console.log('🌐 [AI-LAYER] Tentando buscar do backend /api/config...');
             const response = await fetch('/api/config');
+            console.log(`📡 [AI-LAYER] Response status: ${response.status}`);
+            
             if (response.ok) {
                 const config = await response.json();
+                console.log('📦 [AI-LAYER] Config recebida:', { 
+                    configured: config.configured, 
+                    hasKey: !!config.openaiApiKey,
+                    keyPreview: config.openaiApiKey ? config.openaiApiKey.substring(0, 10) + '...' : 'N/A'
+                });
+                
                 if (config.openaiApiKey && config.openaiApiKey !== 'not-configured') {
                     this.apiKey = config.openaiApiKey;
                     console.log('🔑 [AI-LAYER] ✅ API Key carregada do backend (Railway)');
                     return;
+                } else {
+                    console.warn('⚠️ [AI-LAYER] Backend retornou "not-configured"');
                 }
             }
         } catch (error) {
-            console.log('⚠️ [AI-LAYER] Backend não respondeu, tentando fallbacks...');
+            console.error('❌ [AI-LAYER] Erro ao buscar do backend:', error.message);
+            console.log('⚠️ [AI-LAYER] Tentando fallbacks...');
         }
         
         // 🎯 PRIORIDADE 2: Variável global window.OPENAI_API_KEY
@@ -106,6 +120,12 @@ class AISuggestionLayer {
         const startTime = performance.now();
         
         try {
+            // 🔑 GARANTIR que a API Key foi carregada (aguardar se necessário)
+            if (!this.apiKey || this.apiKey === 'demo-mode') {
+                console.log('🔄 [AI-LAYER] Tentando carregar API Key...');
+                await this.autoConfigureApiKey();
+            }
+            
             // Validações iniciais
             if (!this.apiKey || this.apiKey === 'demo-mode') {
                 console.warn('⚠️ [AI-LAYER] API Key não configurada - usando sugestões originais');
