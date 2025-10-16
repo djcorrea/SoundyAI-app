@@ -143,6 +143,34 @@ const mockFrames = generateMockFFTFrames(100, 4096);
     assert(result.framesProcessed === 100, 'Frames processados = 100');
     assert(result.aggregationMethod === 'median', 'Método de agregação = median');
     
+    // ✅ NOVO: Validar campo .bands (compatibilidade legacy)
+    assert(result.bands, 'Resultado tem campo bands');
+    assert(typeof result.bands === 'object', 'Bands é um objeto');
+    assert(Object.keys(result.bands).length === 7, 'Bands tem 7 chaves');
+    
+    // Validar estrutura de banda legada
+    const bandKeys = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
+    for (const key of bandKeys) {
+      assert(key in result.bands, `Banda ${key} existe`);
+      const band = result.bands[key];
+      assert('energy_db' in band, `${key} tem energy_db`);
+      assert('percentage' in band, `${key} tem percentage`);
+      assert('range' in band, `${key} tem range`);
+      assert('name' in band, `${key} tem name`);
+      assert('status' in band, `${key} tem status`);
+      
+      // Validar tipos
+      assert(band.energy_db === null || typeof band.energy_db === 'number', `${key}.energy_db é null ou number`);
+      assert(typeof band.percentage === 'number', `${key}.percentage é number`);
+      assert(typeof band.range === 'string', `${key}.range é string`);
+      assert(typeof band.name === 'string', `${key}.name é string`);
+      assert(typeof band.status === 'string', `${key}.status é string`);
+    }
+    
+    console.log(`\n✅ Validação de .bands:`);
+    console.log(`   - Sub: energy_db=${result.bands.sub.energy_db}, percentage=${result.bands.sub.percentage}%`);
+    console.log(`   - Bass: energy_db=${result.bands.bass.energy_db}, percentage=${result.bands.bass.percentage}%`);
+    
     // Verificar estrutura de sub-banda
     const firstSubBand = result.granular[0];
     assert('id' in firstSubBand, 'Sub-banda tem campo id');

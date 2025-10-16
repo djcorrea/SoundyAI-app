@@ -181,7 +181,7 @@ async function analyzeGranularSpectralBands(framesFFT, reference = null) {
   }
 
   // Carregar configuração da referência ou usar padrões
-  const bands = reference?.bands || DEFAULT_GRANULAR_BANDS;
+  const subBandsConfig = reference?.bands || DEFAULT_GRANULAR_BANDS;
   const grouping = reference?.grouping || DEFAULT_GROUPING;
   const severity = reference?.severity || DEFAULT_SEVERITY;
   const suggestionsConfig = reference?.suggestions || DEFAULT_SUGGESTIONS_CONFIG;
@@ -190,7 +190,7 @@ async function analyzeGranularSpectralBands(framesFFT, reference = null) {
   const subBandResults = [];
 
   // Para cada sub-banda definida
-  for (const band of bands) {
+  for (const band of subBandsConfig) {
     const [freqStart, freqEnd] = band.range;
     const binStart = freqToBin(freqStart);
     const binEnd = freqToBin(freqEnd);
@@ -237,6 +237,9 @@ async function analyzeGranularSpectralBands(framesFFT, reference = null) {
   // Gerar sugestões inteligentes
   const suggestions = buildSuggestions(subBandResults, grouping, suggestionsConfig);
 
+  // ✅ CORREÇÃO: Gerar estrutura .bands para compatibilidade com frontend/scoring
+  const bands = buildLegacyBandsFromGroups(groups, subBandResults, grouping);
+
   // Retornar resultado completo
   return {
     algorithm: 'granular_v1',
@@ -245,6 +248,7 @@ async function analyzeGranularSpectralBands(framesFFT, reference = null) {
     lufsNormalization: true, // LUFS já normalizado no pipeline
     framesProcessed: framesFFT.length,
     aggregationMethod: 'median',
+    bands: bands, // ✅ ESSENCIAL: Compatibilidade com legacy/frontend/scoring
     groups: groups,
     granular: subBandResults,
     suggestions: suggestions,
@@ -310,6 +314,101 @@ function aggregateSubBandsIntoGroups(subBandResults, grouping, severity) {
   }
 
   return groups;
+}
+
+// ============================================================================
+// CONSTRUÇÃO DE BANDAS LEGADAS (COMPATIBILIDADE)
+// ============================================================================
+
+/**
+ * Converte grupos agregados para formato de bandas legado (compatibilidade frontend/scoring)
+ * 
+ * @param {Object} groups - Grupos agregados com status e score
+ * @param {Array} subBandResults - Resultados das sub-bandas originais
+ * @param {Object} grouping - Mapeamento de grupos para sub-bandas
+ * @returns {Object} Bandas no formato legado { sub, bass, lowMid, ... }
+ */
+function buildLegacyBandsFromGroups(groups, subBandResults, grouping) {
+  // Mapeamento de nomes de grupos para nomes legados
+  const nameMap = {
+    sub: 'Sub',
+    bass: 'Bass',
+    low_mid: 'Low-Mid',
+    mid: 'Mid',
+    high_mid: 'High-Mid',
+    presence: 'Presence',
+    air: 'Air'
+  };
+
+  // Mapeamento de ranges de frequência por grupo
+  const rangeMap = {
+    sub: '20-60Hz',
+    bass: '60-150Hz',
+    low_mid: '150-500Hz',
+    mid: '500-2000Hz',
+    high_mid: '2000-5000Hz',
+    presence: '5000-10000Hz',
+    air: '10000-20000Hz'
+  };
+
+  const bands = {};
+  
+  // Calcular energia total para percentagens
+  let totalEnergy = 0;
+  const groupEnergies = {};
+  
+  for (const [groupName, subBandIds] of Object.entries(grouping)) {
+    const subBands = subBandResults.filter(s => subBandIds.includes(s.id));
+    
+    if (subBands.length > 0) {
+      // Calcular energia linear média das sub-bandas
+      const avgEnergyDb = subBands.reduce((sum, s) => sum + s.energyDb, 0) / subBands.length;
+      
+      // Converter dB para linear para soma correta
+      const linearEnergy = Math.pow(10, avgEnergyDb / 10);
+      groupEnergies[groupName] = { linearEnergy, avgEnergyDb };
+      totalEnergy += linearEnergy;
+    } else {
+      groupEnergies[groupName] = { linearEnergy: 0, avgEnergyDb: null };
+    }
+  }
+
+  // Construir bandas legadas
+  for (const [groupName, subBandIds] of Object.entries(grouping)) {
+    const group = groups[groupName];
+    const energyData = groupEnergies[groupName];
+    
+    // Calcular percentage baseado em energia linear
+    const percentage = totalEnergy > 0 
+      ? (energyData.linearEnergy / totalEnergy) * 100 
+      : 0;
+
+    // Mapear status do grupo para status legado
+    let legacyStatus = 'calculated';
+    if (group && group.status) {
+      if (group.status === 'green') legacyStatus = 'calculated';
+      else if (group.status === 'yellow') legacyStatus = 'adjust';
+      else if (group.status === 'red') legacyStatus = 'fix';
+    }
+
+    // Nome da chave no formato camelCase para compatibilidade
+    const bandKey = groupName === 'low_mid' ? 'lowMid' : 
+                    groupName === 'high_mid' ? 'highMid' : 
+                    groupName;
+
+    bands[bandKey] = {
+      energy_db: energyData.avgEnergyDb !== null 
+        ? parseFloat(energyData.avgEnergyDb.toFixed(1)) 
+        : null,
+      percentage: parseFloat(percentage.toFixed(2)),
+      range: rangeMap[groupName] || 'Unknown',
+      name: nameMap[groupName] || groupName,
+      status: legacyStatus,
+      frequencyRange: rangeMap[groupName] || 'Unknown' // Alias para compatibilidade
+    };
+  }
+
+  return bands;
 }
 
 // ============================================================================
