@@ -75,6 +75,30 @@ app.use("/api", presignRoute);
 app.use("/api/audio", analyzeRoute);
 app.use("/api/jobs", jobsRoute); // ✅ rota de jobs conectada ao banco
 
+// ---------- ROTA DE CONFIGURAÇÃO DA API KEY (RAILWAY) ----------
+app.get("/api/config", (req, res) => {
+  const openaiApiKey = process.env.OPENAI_API_KEY;
+  
+  // Nunca expor a chave completa, apenas confirmar que existe
+  if (openaiApiKey && openaiApiKey !== 'your_openai_api_key_here') {
+    // Retornar apenas os primeiros 10 caracteres + hash para validação
+    const masked = openaiApiKey.substring(0, 10) + '...';
+    console.log('🔑 [CONFIG-API] API Key disponível:', masked);
+    
+    res.json({
+      openaiApiKey: openaiApiKey, // 🚨 FRONTEND PRECISA DA CHAVE COMPLETA PARA CHAMAR OPENAI
+      aiModel: process.env.AI_MODEL || 'gpt-3.5-turbo',
+      configured: true
+    });
+  } else {
+    console.warn('⚠️ [CONFIG-API] API Key NÃO configurada no Railway');
+    res.json({
+      openaiApiKey: 'not-configured',
+      configured: false
+    });
+  }
+});
+
 // ---------- ROTA REVOLUCIONÁRIA DE SUGESTÕES IA ----------
 app.post("/api/suggestions", async (req, res) => {
   try {

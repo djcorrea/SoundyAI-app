@@ -33,27 +33,42 @@ class AISuggestionLayer {
     
     /**
      * 🔑 Auto-configuração da API Key
-     * Procura por chave em variáveis globais, process.env ou localStorage
+     * Prioridade: 1) Backend (Railway) > 2) Variável global > 3) localStorage
      */
-    autoConfigureApiKey() {
-        // Prioridade: process.env > variável global > localStorage
-        const envKey = (typeof process !== 'undefined' && process.env && process.env.OPENAI_API_KEY) || null;
-        const globalKey = (typeof window !== 'undefined' && (window.OPENAI_API_KEY || window.AI_API_KEY)) || null;
-        const storedKey = (typeof localStorage !== 'undefined' && localStorage.getItem('soundyai_openai_key')) || null;
+    async autoConfigureApiKey() {
+        // 🎯 PRIORIDADE 1: Buscar do backend (Railway OPENAI_API_KEY)
+        try {
+            const response = await fetch('/api/config');
+            if (response.ok) {
+                const config = await response.json();
+                if (config.openaiApiKey && config.openaiApiKey !== 'not-configured') {
+                    this.apiKey = config.openaiApiKey;
+                    console.log('🔑 [AI-LAYER] ✅ API Key carregada do backend (Railway)');
+                    return;
+                }
+            }
+        } catch (error) {
+            console.log('⚠️ [AI-LAYER] Backend não respondeu, tentando fallbacks...');
+        }
         
-        if (envKey) {
-            this.apiKey = envKey;
-            console.log('🔑 [AI-LAYER] API Key encontrada em process.env.OPENAI_API_KEY');
-        } else if (globalKey) {
+        // 🎯 PRIORIDADE 2: Variável global window.OPENAI_API_KEY
+        const globalKey = (typeof window !== 'undefined' && (window.OPENAI_API_KEY || window.AI_API_KEY)) || null;
+        if (globalKey) {
             this.apiKey = globalKey;
-            console.log('🔑 [AI-LAYER] API Key encontrada em variáveis globais');
-        } else if (storedKey) {
+            console.log('🔑 [AI-LAYER] API Key encontrada em window.OPENAI_API_KEY');
+            return;
+        }
+        
+        // 🎯 PRIORIDADE 3: localStorage (persistente)
+        const storedKey = (typeof localStorage !== 'undefined' && localStorage.getItem('soundyai_openai_key')) || null;
+        if (storedKey) {
             this.apiKey = storedKey;
             console.log('🔑 [AI-LAYER] API Key encontrada no localStorage');
-        } else {
-            console.warn('⚠️ [AI-LAYER] API Key não encontrada. Use setApiKey() ou configure manualmente.');
-            console.log('💡 [AI-LAYER] Configure via: configureAI("sua-api-key") ou defina process.env.OPENAI_API_KEY');
+            return;
         }
+        
+        console.warn('⚠️ [AI-LAYER] API Key NÃO configurada');
+        console.log('💡 [AI-LAYER] Configure via: configureAI("sua-api-key") ou OPENAI_API_KEY no Railway');
     }
     
     /**
