@@ -1,0 +1,220 @@
+{
+  "engineVersion": "granular_v1",
+  "score": 74,
+  "classification": "Bom",
+  "scoringMethod": "equal_weight_v3",
+  "bands": {
+    "sub": {
+      "status": "yellow",
+      "score": 1.0,
+      "description": "Sub-bass com desvio moderado"
+    },
+    "bass": {
+      "status": "green",
+      "score": 0.0,
+      "description": "Bass ideal"
+    },
+    "low_mid": {
+      "status": "green",
+      "score": 0.0,
+      "description": "Low-mid ideal"
+    },
+    "mid": {
+      "status": "red",
+      "score": 2.6,
+      "description": "Mid com excesso significativo"
+    },
+    "high_mid": {
+      "status": "green",
+      "score": 0.0,
+      "description": "High-mid ideal"
+    },
+    "presence": {
+      "status": "yellow",
+      "score": 1.2,
+      "description": "Presença com desvio moderado"
+    },
+    "air": {
+      "status": "green",
+      "score": 0.0,
+      "description": "Air ideal"
+    }
+  },
+  "technicalData": {
+    "lufsIntegrated": -10.2,
+    "lufsShortTerm": -9.8,
+    "lufsMomentary": -9.5,
+    "lra": 6.8,
+    "truePeakDbtp": -1.3,
+    "truePeakLinear": 0.862,
+    "dynamicRange": 12.4,
+    "crestFactor": 14.7,
+    "stereoCorrelation": 0.88,
+    "stereoWidth": 0.65,
+    "spectralCentroidHz": 2456.3,
+    "spectralRolloffHz": 8234.1,
+    "spectralFlatness": 0.23,
+    "originalLUFS": -10.2,
+    "normalizedTo": -23.0,
+    "gainAppliedDB": -12.8
+  },
+  "suggestions": [
+    {
+      "freq_range": [40, 60],
+      "type": "boost",
+      "amount": 2.5,
+      "message": "Falta energia em 40–60 Hz — reforçar ~2.5 dB (harmônicos do kick).",
+      "deviation": -3.1,
+      "metric": "frequency_balance",
+      "priority": "high"
+    },
+    {
+      "freq_range": [1000, 2000],
+      "type": "cut",
+      "amount": 3.0,
+      "message": "Excesso em 1–2 kHz — reduzir ~3 dB (presença vocal pode estar mascarando outros elementos).",
+      "deviation": 3.5,
+      "metric": "frequency_balance",
+      "priority": "high"
+    },
+    {
+      "freq_range": [5000, 10000],
+      "type": "boost",
+      "amount": 1.8,
+      "message": "Falta energia em 5–10 kHz — reforçar ~1.8 dB (brilho/crash/hats).",
+      "deviation": -2.2,
+      "metric": "frequency_balance",
+      "priority": "medium"
+    }
+  ],
+  "granular": [
+    {
+      "id": "sub_low",
+      "range": [20, 40],
+      "energyDb": -28.3,
+      "target": -28.0,
+      "deviation": -0.3,
+      "status": "ideal"
+    },
+    {
+      "id": "sub_high",
+      "range": [40, 60],
+      "energyDb": -32.1,
+      "target": -29.0,
+      "deviation": -3.1,
+      "status": "adjust"
+    },
+    {
+      "id": "bass_low",
+      "range": [60, 90],
+      "energyDb": -28.7,
+      "target": -28.5,
+      "deviation": -0.2,
+      "status": "ideal"
+    },
+    {
+      "id": "bass_mid",
+      "range": [90, 120],
+      "energyDb": -29.3,
+      "target": -29.5,
+      "deviation": 0.2,
+      "status": "ideal"
+    },
+    {
+      "id": "bass_high",
+      "range": [120, 150],
+      "energyDb": -30.1,
+      "target": -30.0,
+      "deviation": -0.1,
+      "status": "ideal"
+    },
+    {
+      "id": "lowmid_low",
+      "range": [150, 300],
+      "energyDb": -31.4,
+      "target": -31.0,
+      "deviation": -0.4,
+      "status": "ideal"
+    },
+    {
+      "id": "lowmid_high",
+      "range": [300, 500],
+      "energyDb": -33.2,
+      "target": -33.0,
+      "deviation": -0.2,
+      "status": "ideal"
+    },
+    {
+      "id": "mid_low",
+      "range": [500, 1000],
+      "energyDb": -30.8,
+      "target": -31.0,
+      "deviation": 0.2,
+      "status": "ideal"
+    },
+    {
+      "id": "mid_high",
+      "range": [1000, 2000],
+      "energyDb": -29.5,
+      "target": -33.0,
+      "deviation": 3.5,
+      "status": "fix"
+    },
+    {
+      "id": "highmid_low",
+      "range": [2000, 3500],
+      "energyDb": -34.3,
+      "target": -34.0,
+      "deviation": -0.3,
+      "status": "ideal"
+    },
+    {
+      "id": "highmid_high",
+      "range": [3500, 5000],
+      "energyDb": -36.2,
+      "target": -36.0,
+      "deviation": -0.2,
+      "status": "ideal"
+    },
+    {
+      "id": "presence",
+      "range": [5000, 10000],
+      "energyDb": -42.2,
+      "target": -40.0,
+      "deviation": -2.2,
+      "status": "adjust"
+    },
+    {
+      "id": "air",
+      "range": [10000, 20000],
+      "energyDb": -42.5,
+      "target": -42.0,
+      "deviation": -0.5,
+      "status": "ideal"
+    }
+  ],
+  "metadata": {
+    "fileName": "techno-club-001.wav",
+    "duration": 214.3,
+    "sampleRate": 48000,
+    "channels": 2,
+    "fileSize": 20643840,
+    "processedAt": "2025-10-16T12:34:56.789Z",
+    "pipelinePhase": "5.4_json_output",
+    "workerTotalTimeMs": 8234,
+    "buildVersion": "5.4.1"
+  },
+  "performance": {
+    "decodeMs": 1234,
+    "segmentMs": 567,
+    "coreMetricsMs": 4321,
+    "scoringMs": 123,
+    "totalMs": 8234
+  },
+  "warnings": [],
+  "frontendCompatible": true,
+  "_worker": {
+    "source": "pipeline_complete",
+    "jobId": "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+  }
+}

@@ -771,7 +771,35 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       stage: 'output_scoring_completed',
       jobId: jobId,
       timestamp: new Date().toISOString()
-    }
+    },
+
+    // ============================================================================
+    // 🚀 GRANULAR V1: Campos aditivos (não quebram compatibilidade legacy)
+    // ============================================================================
+    
+    // Adicionar campos do engine granular_v1 (se presente em coreMetrics)
+    ...(coreMetrics.spectralBands?.algorithm === 'granular_v1' && {
+      engineVersion: coreMetrics.spectralBands.algorithm,
+      
+      // Sub-bandas granulares (array detalhado)
+      granular: coreMetrics.spectralBands.granular || [],
+      
+      // Sugestões inteligentes baseadas em sub-bandas
+      suggestions: coreMetrics.spectralBands.suggestions || [],
+      
+      // Metadados granulares
+      granularMetadata: {
+        referenceGenre: coreMetrics.spectralBands.referenceGenre,
+        schemaVersion: coreMetrics.spectralBands.schemaVersion,
+        lufsNormalization: coreMetrics.spectralBands.lufsNormalization,
+        framesProcessed: coreMetrics.spectralBands.framesProcessed,
+        aggregationMethod: coreMetrics.spectralBands.aggregationMethod,
+        subBandsTotal: coreMetrics.spectralBands.subBandsTotal,
+        subBandsIdeal: coreMetrics.spectralBands.subBandsIdeal,
+        subBandsAdjust: coreMetrics.spectralBands.subBandsAdjust,
+        subBandsFix: coreMetrics.spectralBands.subBandsFix
+      }
+    })
   };
 }
 

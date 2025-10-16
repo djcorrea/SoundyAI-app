@@ -848,6 +848,17 @@ class CoreMetricsProcessor {
   async calculateSpectralBandsMetrics(framesFFT, options = {}) {
     const { jobId } = options;
     
+    // 🎯 FEATURE FLAG: Roteador condicional (legacy vs granular_v1)
+    const engine = process.env.ANALYZER_ENGINE || 'legacy';
+    
+    if (engine === 'granular_v1') {
+      console.log('🚀 [SPECTRAL_BANDS] Engine granular_v1 ativado');
+      return await this.calculateGranularSubBands(framesFFT, options);
+    }
+    
+    // Legacy: Comportamento original inalterado
+    console.log('🔄 [SPECTRAL_BANDS] Engine legacy ativado');
+    
     try {
       // 🎯 DEBUG CRÍTICO: Rastrear por que bandas não são calculadas
       console.log('🔍 [SPECTRAL_BANDS_CRITICAL] Início do cálculo:', {
@@ -1891,6 +1902,128 @@ class CoreMetricsProcessor {
     if (!array || array.length === 0) return 0;
     const sum = array.reduce((acc, val) => acc + val, 0);
     return sum / array.length;
+  }
+
+  // ============================================================================
+  // 🚀 GRANULAR V1: Análise espectral por sub-bandas
+  // ============================================================================
+
+  /**
+   * Calcula análise espectral granular (sub-bandas com σ tolerances)
+   * 
+   * @param {Object} framesFFT - Frames FFT do pipeline (fase 5.2)
+   * @param {Object} options - Opções (jobId, reference, etc)
+   * @returns {Object} Resultado granular com grupos, sub-bandas e sugestões
+   */
+  async calculateGranularSubBands(framesFFT, options = {}) {
+    const { jobId } = options;
+
+    try {
+      console.log('🔍 [GRANULAR_V1] Início da análise granular:', {
+        hasFramesFFT: !!framesFFT,
+        hasFrames: !!(framesFFT && framesFFT.frames),
+        frameCount: framesFFT?.frames?.length || 0,
+        jobId
+      });
+
+      // Validação de entrada
+      if (!framesFFT || !framesFFT.frames || framesFFT.frames.length === 0) {
+        console.error('❌ [GRANULAR_V1] SEM FRAMES FFT:', {
+          reason: !framesFFT ? 'no_framesFFT' : !framesFFT.frames ? 'no_frames_array' : 'empty_frames_array',
+          jobId
+        });
+        
+        // Retornar estrutura vazia mas válida
+        return {
+          algorithm: 'granular_v1',
+          groups: this.spectralBandsCalculator.getNullBands(),
+          granular: [],
+          suggestions: [],
+          valid: false,
+          error: 'No FFT frames available'
+        };
+      }
+
+      // Converter estrutura de framesFFT para formato esperado pelo módulo granular
+      // Estrutura atual: framesFFT.frames[i].{leftFFT, rightFFT}.{magnitude, phase}
+      // Formato esperado: Array de {left: {magnitude}, right: {magnitude}}
+      const convertedFrames = [];
+      
+      for (let i = 0; i < framesFFT.frames.length; i++) {
+        const frame = framesFFT.frames[i];
+        
+        if (frame.leftFFT?.magnitude && frame.rightFFT?.magnitude) {
+          convertedFrames.push({
+            left: { magnitude: frame.leftFFT.magnitude },
+            right: { magnitude: frame.rightFFT.magnitude }
+          });
+        }
+      }
+
+      console.log('🔍 [GRANULAR_V1] Frames convertidos:', {
+        originalCount: framesFFT.frames.length,
+        convertedCount: convertedFrames.length,
+        jobId
+      });
+
+      if (convertedFrames.length === 0) {
+        console.error('❌ [GRANULAR_V1] Nenhum frame válido após conversão');
+        return {
+          algorithm: 'granular_v1',
+          groups: this.spectralBandsCalculator.getNullBands(),
+          granular: [],
+          suggestions: [],
+          valid: false,
+          error: 'No valid FFT data in frames'
+        };
+      }
+
+      // Importar módulo granular dinamicamente
+      const { analyzeGranularSpectralBands } = await import('../../lib/audio/features/spectral-bands-granular.js');
+
+      // Carregar referência (se especificada em options.reference)
+      // Por padrão, usa a referência hardcoded no módulo granular
+      const reference = options.reference || null;
+
+      console.log('🚀 [GRANULAR_V1] Iniciando análise com', convertedFrames.length, 'frames');
+
+      // Executar análise granular
+      const granularResult = await analyzeGranularSpectralBands(convertedFrames, reference);
+
+      console.log('✅ [GRANULAR_V1] Análise concluída:', {
+        algorithm: granularResult.algorithm,
+        groupsCount: Object.keys(granularResult.groups).length,
+        granularCount: granularResult.granular?.length || 0,
+        suggestionsCount: granularResult.suggestions?.length || 0,
+        subBandsIdeal: granularResult.subBandsIdeal,
+        subBandsAdjust: granularResult.subBandsAdjust,
+        subBandsFix: granularResult.subBandsFix,
+        jobId
+      });
+
+      // Retornar resultado completo
+      return {
+        ...granularResult,
+        valid: true
+      };
+
+    } catch (error) {
+      console.error('❌ [GRANULAR_V1] Erro na análise granular:', {
+        error: error.message,
+        stack: error.stack,
+        jobId
+      });
+
+      // Fallback para estrutura vazia em caso de erro
+      return {
+        algorithm: 'granular_v1',
+        groups: this.spectralBandsCalculator.getNullBands(),
+        granular: [],
+        suggestions: [],
+        valid: false,
+        error: error.message
+      };
+    }
   }
 }
 
