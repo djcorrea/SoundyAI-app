@@ -648,10 +648,45 @@
    =============================== */
 
 #audioAnalysisModal .audio-modal-content:has(.audio-results:not([style*="display: none"])) {
-    max-width: 1500px;
-    max-height: 92vh;
-    min-height: 82vh;
+    max-width: 1800px;
+    max-height: 95vh;
+    min-height: 85vh;
     padding: 40px 50px;
+    
+    /* Glassmorphism + Neon Gradient Upgrade */
+    background: radial-gradient(
+        circle at 25% 25%, 
+        rgba(106, 0, 255, 0.12) 0%,        /* Roxo neon */
+        rgba(0, 20, 40, 0.95) 40%,         /* Preto translúcido */
+        rgba(0, 150, 200, 0.08) 100%       /* Ciano neon */
+    );
+    backdrop-filter: blur(25px);
+    -webkit-backdrop-filter: blur(25px);
+    
+    /* Bordas neon animadas */
+    border: 2px solid rgba(106, 154, 255, 0.3);
+    box-shadow: 
+        0 25px 50px rgba(106, 0, 255, 0.4),
+        0 0 80px rgba(0, 212, 255, 0.2),
+        inset 0 0 100px rgba(106, 154, 255, 0.05);
+    
+    /* Animação suave de pulso */
+    animation: modal-pulse 4s ease-in-out infinite;
+}
+
+@keyframes modal-pulse {
+    0%, 100% {
+        box-shadow: 
+            0 25px 50px rgba(106, 0, 255, 0.4),
+            0 0 80px rgba(0, 212, 255, 0.2),
+            inset 0 0 100px rgba(106, 154, 255, 0.05);
+    }
+    50% {
+        box-shadow: 
+            0 30px 60px rgba(106, 0, 255, 0.5),
+            0 0 100px rgba(0, 212, 255, 0.3),
+            inset 0 0 120px rgba(106, 154, 255, 0.08);
+    }
 }
 
 #audioAnalysisModal .audio-results {
@@ -789,67 +824,137 @@
 
 /* ============ 🎨 ENHANCED CARDS DESIGN ============ */
 
-/* Enhanced Card Container */
+/* ============ 🎨 ENHANCED CARDS - ULTRA MODERN REDESIGN ============ */
+
+/* Enhanced Card Container - Glassmorphism + Neon */
 .enhanced-card {
-    background: linear-gradient(135deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04));
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 16px;
-    padding: 22px;
-    margin-bottom: 20px;
+    /* Fundo glass blur com gradiente sutil */
+    background: linear-gradient(
+        135deg, 
+        rgba(106, 0, 255, 0.08) 0%, 
+        rgba(20, 20, 45, 0.85) 50%, 
+        rgba(0, 150, 200, 0.06) 100%
+    );
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+    
+    /* Borda neon animada */
+    border: 2px solid rgba(106, 154, 255, 0.25);
+    border-radius: 20px;
+    padding: 24px 28px;
+    margin-bottom: 22px;
     position: relative;
-    backdrop-filter: blur(10px);
-    transition: all 0.3s ease;
     overflow: hidden;
+    
+    /* Transições suaves */
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    
+    /* Shadow suave */
+    box-shadow: 
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 0 60px rgba(106, 0, 255, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
-/* Espaçamento entre elementos dentro do card */
+/* Espaçamento entre elementos dentro do card - OTIMIZADO */
 .enhanced-card > * + * {
-    margin-top: 16px;
+    margin-top: 14px;
 }
 
+/* Barra de acento neon no topo - MAIS SUTIL */
 .enhanced-card::before {
     content: '';
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    height: 4px;
-    background: var(--card-accent-color, linear-gradient(90deg, #00d4ff, #0096cc));
-    border-radius: 16px 16px 0 0;
+    height: 3px;
+    background: var(--card-accent-color, linear-gradient(90deg, #6a00ff, #00d4ff, #6a9aff));
+    border-radius: 20px 20px 0 0;
+    opacity: 0.8;
+    animation: neon-flow 3s linear infinite;
 }
 
+@keyframes neon-flow {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
+/* Hover effect - SUAVE E FLUIDO */
 .enhanced-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 212, 255, 0.15);
-    border-color: rgba(255,255,255,0.2);
+    transform: translateY(-4px) scale(1.01);
+    border-color: rgba(106, 154, 255, 0.5);
+    box-shadow: 
+        0 12px 48px rgba(0, 0, 0, 0.5),
+        0 0 80px rgba(106, 0, 255, 0.2),
+        0 0 120px rgba(0, 212, 255, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-/* Card Header */
+/* Glow interno animado no hover */
+.enhanced-card::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(
+        circle at center,
+        rgba(106, 154, 255, 0.1) 0%,
+        transparent 60%
+    );
+    opacity: 0;
+    transition: opacity 0.6s ease;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.enhanced-card:hover::after {
+    opacity: 1;
+}
+
+/* Card Header - OTIMIZADO PARA EVITAR SCROLL */
 .card-header {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 16px;
-    gap: 12px;
+    margin-bottom: 18px;
+    gap: 14px;
+    position: relative;
+    z-index: 1;
 }
 
 .card-title {
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 700;
     color: #ffffff;
     margin: 0;
-    line-height: 1.5;
-    letter-spacing: 0.3px;
+    line-height: 1.4;
+    letter-spacing: 0.4px;
     word-wrap: break-word;
     overflow-wrap: break-word;
     white-space: normal;
+    flex: 1;
+    
+    /* Gradiente de texto sutil */
+    background: linear-gradient(135deg, #ffffff 0%, #e0e8ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    
+    /* Shadow sutil para legibilidade */
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
 .card-badges {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
-    align-items: center;
+    align-items: flex-start;
     flex-shrink: 0;
+    max-width: 200px;
 }
 
 /* Frequency Badge */
@@ -906,49 +1011,97 @@
     50% { opacity: 0.7; }
 }
 
-/* Problem Description */
-.card-description {
+/* ========== BLOCOS EDUCACIONAIS - LAYOUT OTIMIZADO ========== */
+
+/* Bloco: Explicação/Problema */
+.card-description,
+.card-explanation-block {
     font-size: 14px;
-    line-height: 1.8;
-    color: #e0e0e0;
-    margin-bottom: 16px;
-    padding: 14px 18px;
-    background: rgba(255,255,255,0.04);
-    border-radius: 10px;
-    border-left: 3px solid var(--card-accent-color, #00d4ff);
+    line-height: 1.7;
+    color: #e0e8ff;
+    margin-bottom: 14px;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, rgba(106, 0, 255, 0.06), rgba(20, 20, 45, 0.4));
+    border-radius: 12px;
+    border-left: 3px solid var(--card-accent-color, linear-gradient(180deg, #6a00ff, #00d4ff));
     word-wrap: break-word;
     overflow-wrap: break-word;
     white-space: normal;
     letter-spacing: 0.3px;
+    position: relative;
+    z-index: 1;
+    
+    backdrop-filter: blur(8px);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
-/* Action Section */
-.card-action {
-    background: linear-gradient(135deg, rgba(0, 212, 255, 0.1), rgba(0, 150, 204, 0.05));
-    border: 1px solid rgba(0, 212, 255, 0.3);
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 16px;
+.card-explanation-block strong {
+    color: #ffffff;
+    font-weight: 600;
+}
+
+/* Bloco: Ação/Solução - DESTAQUE NEON */
+.card-action,
+.card-action-block {
+    background: linear-gradient(135deg, rgba(0, 212, 255, 0.12), rgba(0, 100, 150, 0.08));
+    border: 2px solid rgba(0, 212, 255, 0.35);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    position: relative;
+    backdrop-filter: blur(10px);
+    overflow: hidden;
+    
+    box-shadow: 
+        0 4px 16px rgba(0, 212, 255, 0.15),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* Glow animado no bloco de ação */
+.card-action::before,
+.card-action-block::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(0, 212, 255, 0.1), transparent);
+    animation: action-shimmer 3s infinite;
+}
+
+@keyframes action-shimmer {
+    0% { left: -100%; }
+    100% { left: 200%; }
 }
 
 .card-action-title {
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 700;
     color: #00d4ff;
-    margin-bottom: 8px;
+    margin-bottom: 10px;
     display: flex;
     align-items: center;
     gap: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    position: relative;
+    z-index: 1;
+    
+    /* Glow sutil */
+    text-shadow: 0 0 10px rgba(0, 212, 255, 0.4);
 }
 
 .card-action-content {
     font-size: 14px;
     color: #ffffff;
-    line-height: 1.8;
+    line-height: 1.7;
     letter-spacing: 0.3px;
     word-wrap: break-word;
     overflow-wrap: break-word;
     white-space: normal;
+    position: relative;
+    z-index: 1;
 }
 
 /* Technical Details */
@@ -981,29 +1134,99 @@
     color: #ffffff;
 }
 
-/* Impact Section */
+/* Bloco: Resultado Esperado - VERDE SUAVE */
+.card-result-block,
+.card-expected-result {
+    padding: 16px 20px;
+    background: linear-gradient(135deg, rgba(0, 255, 146, 0.08), rgba(0, 150, 100, 0.05));
+    border: 2px solid rgba(0, 255, 146, 0.25);
+    border-radius: 14px;
+    margin-bottom: 14px;
+    position: relative;
+    backdrop-filter: blur(8px);
+    
+    box-shadow: 
+        0 4px 16px rgba(0, 255, 146, 0.1),
+        inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.card-result-title,
+.card-expected-result-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #00ff92;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    text-shadow: 0 0 10px rgba(0, 255, 146, 0.3);
+}
+
+.card-result-content,
+.card-expected-result-content {
+    font-size: 13px;
+    color: #e0ffe8;
+    line-height: 1.6;
+}
+
+/* Bloco: Exemplos/DAW - AMARELO EDUCATIVO */
+.card-examples-block,
+.card-daw-examples {
+    padding: 14px 18px;
+    background: rgba(255, 193, 7, 0.08);
+    border: 2px solid rgba(255, 193, 7, 0.25);
+    border-radius: 12px;
+    margin-bottom: 14px;
+    backdrop-filter: blur(8px);
+}
+
+.card-examples-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: #ffc107;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.card-examples-content {
+    font-size: 13px;
+    color: #fff3c4;
+    line-height: 1.5;
+}
+
+/* ⚠️ Bloco: Impacto/Alerta - MAIS SUAVE */
 .card-impact {
-    padding: 12px 16px;
-    background: rgba(255, 193, 7, 0.1);
-    border: 1px solid rgba(255, 193, 7, 0.3);
-    border-radius: 10px;
-    margin-bottom: 12px;
+    padding: 14px 18px;
+    background: linear-gradient(135deg, rgba(255, 152, 0, 0.1), rgba(255, 100, 0, 0.05));
+    border: 2px solid rgba(255, 152, 0, 0.3);
+    border-radius: 12px;
+    margin-bottom: 14px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 16px rgba(255, 152, 0, 0.1);
 }
 
 .card-impact-title {
     font-size: 12px;
     font-weight: 600;
-    color: #ffc107;
-    margin-bottom: 6px;
+    color: #ff9800;
+    margin-bottom: 8px;
     display: flex;
     align-items: center;
     gap: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .card-impact-content {
     font-size: 13px;
-    color: #fff3c4;
-    line-height: 1.4;
+    color: #ffe0b3;
+    line-height: 1.5;
 }
 
 /* Card Type Variations */
@@ -1045,30 +1268,77 @@
     }
 }
 
-/* Responsive Design */
+/* ========== RESPONSIVIDADE - MOBILE OTIMIZADO ========== */
 @media (max-width: 768px) {
+    #audioAnalysisModal .audio-modal-content:has(.audio-results:not([style*="display: none"])) {
+        max-width: 96vw;
+        padding: 30px 20px;
+    }
+    
     .enhanced-card {
-        padding: 16px;
-        margin-bottom: 12px;
+        padding: 18px 20px;
+        margin-bottom: 16px;
+        border-radius: 16px;
     }
     
     .card-header {
         flex-direction: column;
         align-items: flex-start;
-        gap: 8px;
+        gap: 10px;
+        margin-bottom: 14px;
+    }
+    
+    .card-title {
+        font-size: 15px;
+        line-height: 1.4;
+    }
+    
+    .card-badges {
+        max-width: 100%;
+        justify-content: flex-start;
+    }
+    
+    .card-technical {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+    
+    .frequency-badge {
+        font-size: 12px;
+        padding: 5px 10px;
+    }
+    
+    .card-description,
+    .card-explanation-block {
+        padding: 14px 16px;
+        font-size: 13px;
+    }
+    
+    .card-action,
+    .card-action-block {
+        padding: 14px 16px;
+    }
+}
+
+@media (max-width: 480px) {
+    #audioAnalysisModal .audio-modal-content:has(.audio-results:not([style*="display: none"])) {
+        max-width: 98vw;
+        padding: 25px 15px;
+    }
+    
+    .enhanced-card {
+        padding: 16px 18px;
+        margin-bottom: 14px;
     }
     
     .card-title {
         font-size: 14px;
     }
     
-    .card-technical {
-        grid-template-columns: 1fr;
-    }
-    
-    .frequency-badge {
+    .card-action-title,
+    .card-result-title,
+    .card-examples-title {
         font-size: 12px;
-        padding: 4px 8px;
     }
 }
 
