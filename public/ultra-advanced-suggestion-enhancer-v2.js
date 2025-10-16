@@ -130,7 +130,13 @@ class UltraAdvancedSuggestionEnhancer {
             dawExamples: dawInstructions,
             expectedResult: this.generateExpectedResult(suggestion, problemType),
             technicalDetails: this.generateTechnicalDetails(suggestion, problemType),
-            relatedConcepts: this.getRelatedConcepts(problemType)
+            relatedConcepts: this.getRelatedConcepts(problemType),
+            
+            // 🚀 NOVOS CAMPOS OPCIONAIS - Ultra-Avançado V2
+            videoTutorials: this.generateVideoTutorials(problemType),
+            pluginRecommendations: this.generatePluginRecommendations(problemType),
+            commonMistakes: this.generateCommonMistakes(problemType),
+            proTips: this.generateProTips(problemType, suggestion)
         };
         
         // Adicionar classificação de severidade
@@ -433,6 +439,136 @@ class UltraAdvancedSuggestionEnhancer {
         };
         
         return related[problemType] || ['Mixing Fundamentals', 'Critical Listening'];
+    }
+    
+    /**
+     * 🎥 Gerar links de tutoriais em vídeo (opcional)
+     */
+    generateVideoTutorials(problemType) {
+        const tutorials = {
+            'sibilance': [
+                { title: 'Como usar De-esser profissionalmente', platform: 'YouTube', topic: 'Vocal Processing' },
+                { title: 'Técnicas avançadas de controle de sibilância', platform: 'YouTube', topic: 'Mixing' }
+            ],
+            'harshness': [
+                { title: 'EQ para remover harshness', platform: 'YouTube', topic: 'EQ Techniques' },
+                { title: 'Dynamic EQ vs Static EQ', platform: 'YouTube', topic: 'Advanced EQ' }
+            ],
+            'loudness_issues': [
+                { title: 'Masterização para Spotify e streaming', platform: 'YouTube', topic: 'Mastering' },
+                { title: 'LUFS e True Peak explicados', platform: 'YouTube', topic: 'Loudness' }
+            ],
+            'dynamics': [
+                { title: 'Compressão paralela na prática', platform: 'YouTube', topic: 'Compression' },
+                { title: 'Preservando dinâmica no master', platform: 'YouTube', topic: 'Mastering' }
+            ]
+        };
+        
+        return tutorials[problemType] || [];
+    }
+    
+    /**
+     * 🔌 Gerar recomendações de plugins (opcional)
+     */
+    generatePluginRecommendations(problemType) {
+        const plugins = {
+            'sibilance': [
+                { name: 'FabFilter Pro-DS', type: 'De-esser', price: 'Pago' },
+                { name: 'Waves Renaissance DeEsser', type: 'De-esser', price: 'Pago' },
+                { name: 'TDR Nova (Free)', type: 'Dynamic EQ', price: 'Grátis' }
+            ],
+            'harshness': [
+                { name: 'FabFilter Pro-Q3', type: 'Dynamic EQ', price: 'Pago' },
+                { name: 'Izotope Neutron', type: 'Channel Strip', price: 'Pago' },
+                { name: 'MEqualizer (Free)', type: 'EQ', price: 'Grátis' }
+            ],
+            'loudness_issues': [
+                { name: 'FabFilter Pro-L2', type: 'Limiter', price: 'Pago' },
+                { name: 'Waves L2', type: 'Limiter', price: 'Pago' },
+                { name: 'Youlean Loudness Meter', type: 'Metering', price: 'Grátis' }
+            ],
+            'dynamics': [
+                { name: 'FabFilter Pro-C2', type: 'Compressor', price: 'Pago' },
+                { name: 'SSL G-Master Buss Compressor', type: 'Compressor', price: 'Pago' },
+                { name: 'OTT (Free)', type: 'Multiband Compressor', price: 'Grátis' }
+            ]
+        };
+        
+        return plugins[problemType] || [];
+    }
+    
+    /**
+     * ⚠️ Gerar erros comuns (opcional)
+     */
+    generateCommonMistakes(problemType) {
+        const mistakes = {
+            'sibilance': [
+                'Usar de-esser com threshold muito baixo, removendo toda a clareza',
+                'Aplicar de-essing antes da compressão (ordem errada na cadeia)',
+                'Não ouvir o sinal "sidechain" do de-esser para validar frequência correta'
+            ],
+            'harshness': [
+                'Fazer cortes muito largos (Q baixo) em vez de cirúrgicos',
+                'Não usar análise espectral para identificar frequências exatas',
+                'Tentar resolver harshness apenas com EQ, ignorando fonte do problema'
+            ],
+            'loudness_issues': [
+                'Comparar LUFS sem considerar o gênero musical',
+                'Ignorar True Peak e focar só em LUFS',
+                'Adicionar limitador sem resolver problemas de mix primeiro'
+            ],
+            'dynamics': [
+                'Comprimir demais para "parecer mais alto"',
+                'Usar ratio muito alto sem entender o resultado',
+                'Não compensar o ganho após compressão (gain makeup)'
+            ]
+        };
+        
+        return mistakes[problemType] || [];
+    }
+    
+    /**
+     * 💎 Gerar dicas profissionais avançadas (opcional)
+     */
+    generateProTips(problemType, suggestion) {
+        const tips = {
+            'sibilance': [
+                'Use split-band de-essing para maior controle',
+                'Combine de-esser com EQ dinâmico na mesma faixa',
+                'Automatize o threshold do de-esser em partes mais sibilantes',
+                'Grave com microfone fora do eixo para reduzir sibilância na fonte'
+            ],
+            'harshness': [
+                'Use EQ dinâmico em vez de EQ estático para transparência',
+                'Tente saturação suave antes do corte de EQ',
+                'A/B com análise de espectro para validar resultado',
+                'Considere o contexto do mix - harshness pode ser mascaramento'
+            ],
+            'loudness_issues': [
+                'Mix para -16 LUFS e ajuste no master para target final',
+                'Use metering de múltiplas plataformas (Spotify, YouTube, Apple)',
+                'Preserve pelo menos 1dB de True Peak headroom',
+                'Compare com 3-5 referências do mesmo gênero'
+            ],
+            'dynamics': [
+                'Use compressão serial (múltiplos compressores suaves)',
+                'Experimente diferentes tipos de compressor (VCA, Opto, FET)',
+                'Paralel compression mantém punch preservando dinâmica',
+                'Automatize volume antes de comprimir excessivamente'
+            ]
+        };
+        
+        const tipsList = tips[problemType] || ['Use referências de qualidade para guiar suas decisões'];
+        
+        // Adicionar dica contextual baseada na sugestão específica
+        const action = (suggestion.action || '').toLowerCase();
+        if (action.includes('cirúrgic') || action.includes('surgical')) {
+            tipsList.push('🎯 Dica contextual: EQ cirúrgico exige Q alto (5-10) para precisão');
+        } else if (action.includes('compr')) {
+            tipsList.push('🎯 Dica contextual: Attack rápido pega transientes, Release auto se adapta ao material');
+        }
+        
+        return tipsList;
     }
 }
 
