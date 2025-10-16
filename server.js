@@ -142,7 +142,7 @@ app.post("/api/suggestions", async (req, res) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: process.env.AI_MODEL || 'gpt-3.5-turbo',
+        model: 'gpt-4o-mini', // 🚀 UPGRADE: Modelo mais inteligente e barato,
         messages: [
           {
             role: 'system',
@@ -178,10 +178,10 @@ Sua missão é gerar sugestões **educativas, detalhadas e práticas**, com base
             content: prompt
           }
         ],
-        temperature: 0.3,
-        max_tokens: 3500,
-        top_p: 0.9,
-        frequency_penalty: 0.1,
+        temperature: 0.4,
+        max_tokens: 4500, // 🚀 Mais tokens para respostas detalhadas
+        top_p: 0.95,
+        frequency_penalty: 0.2,
         presence_penalty: 0.1
       })
     });
