@@ -648,10 +648,11 @@
    =============================== */
 
 #audioAnalysisModal .audio-modal-content:has(.audio-results:not([style*="display: none"])) {
-    max-width: 1800px;
+    max-width: 1600px;
+    width: 96%;
     max-height: 95vh;
     min-height: 85vh;
-    padding: 40px 50px;
+    padding: 35px 40px;
     
     /* 🔧 GLASSMORPHISM DESABILITADO - Causava conflito com cards de métricas
        Background mais suave e compatível com design existente */
