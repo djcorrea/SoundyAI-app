@@ -763,23 +763,6 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       dr: technicalData.dynamicRange
     },
 
-    // 🌈 GRANULAR V1: Campos aditivos (apenas se granular_v1 ativo)
-    ...(coreMetrics.spectralBands?.algorithm === 'granular_v1' && (() => {
-      console.log('🌈 [JSON_OUTPUT] Incluindo campos granular_v1:', {
-        algorithm: coreMetrics.spectralBands.algorithm,
-        granularCount: coreMetrics.spectralBands.granular?.length || 0,
-        suggestionsCount: coreMetrics.spectralBands.suggestions?.length || 0,
-        hasMetadata: !!coreMetrics.spectralBands.metadata
-      });
-      
-      return {
-        engineVersion: coreMetrics.spectralBands.algorithm,
-        granular: coreMetrics.spectralBands.granular || [],
-        suggestions: FORCE_TYPE_FIELD(coreMetrics.spectralBands.suggestions || []),
-        granularMetadata: coreMetrics.spectralBands.metadata || null
-      };
-    })()),
-
     metadata: {
       fileName: metadata.fileName || 'unknown',
       duration: metadata.duration || 0,
