@@ -409,7 +409,8 @@ async function processJobs() {
       `SELECT 
         id, 
         status, 
-        file_path, 
+        file_key, 
+        file_name,
         created_at, 
         updated_at, 
         result, 
