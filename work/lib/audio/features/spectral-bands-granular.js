@@ -1,581 +1,424 @@
-/**
- * 🎯 MÓDULO: Análise Espectral Granular V1
- * 
- * Implementa análise de sub-bandas com tolerâncias baseadas em sigma (σ),
- * agregação em grupos principais e geração inteligente de sugestões.
- * 
- * 🛡️ REGRAS:
- * - Reutiliza bins FFT existentes (NÃO recalcula FFT)
- * - LUFS já normalizado no pipeline anterior
- * - Mantém compatibilidade total com pipeline legado
- * - Adiciona campos novos sem quebrar contratos
- * 
- * @module spectral-bands-granular
- */
+// 🌈 SPECTRAL BANDS GRANULAR V1 - Sub-bandas com análise estatística (σ)
+// Análise espectral por sub-bandas de 20 Hz com comparação target ± σ
+// 100% compatível com pipeline legado - modo aditivo via feature flag
 
-// ============================================================================
-// CONSTANTES E CONFIGURAÇÃO
-// ============================================================================
-
-const SAMPLE_RATE = 48000;
-const FFT_SIZE = 4096;
-const DEFAULT_STEP_HZ = 20;
+import { logAudio, makeErr, assertFinite } from '../error-handling.js';
 
 /**
- * Definição de bandas granulares padrão (Techno/Electronic)
- * Cada sub-banda tem ~20-30 Hz de largura para alta resolução
+ * 🎯 Configurações padrão do sistema granular
  */
-const DEFAULT_GRANULAR_BANDS = [
-  { id: 'sub_low', range: [20, 40], target: -28.0, toleranceSigma: 1.5, description: 'Sub-bass profundo (fundamental kick)' },
-  { id: 'sub_high', range: [40, 60], target: -29.0, toleranceSigma: 1.5, description: 'Sub-bass alto (harmônicos kick)' },
-  { id: 'bass_low', range: [60, 90], target: -28.5, toleranceSigma: 1.5, description: 'Bass baixo (corpo do kick)' },
-  { id: 'bass_mid', range: [90, 120], target: -29.5, toleranceSigma: 1.5, description: 'Bass médio (punch)' },
-  { id: 'bass_high', range: [120, 150], target: -30.0, toleranceSigma: 1.5, description: 'Bass alto (transiente)' },
-  { id: 'lowmid_low', range: [150, 300], target: -31.0, toleranceSigma: 1.5, description: 'Low-mid baixo (corpo toms/synths)' },
-  { id: 'lowmid_high', range: [300, 500], target: -33.0, toleranceSigma: 1.5, description: 'Low-mid alto (warmth)' },
-  { id: 'mid_low', range: [500, 1000], target: -31.0, toleranceSigma: 1.5, description: 'Mid baixo (clareza vocal/lead)' },
-  { id: 'mid_high', range: [1000, 2000], target: -33.0, toleranceSigma: 1.5, description: 'Mid alto (presença vocal)' },
-  { id: 'highmid_low', range: [2000, 3500], target: -34.0, toleranceSigma: 1.5, description: 'High-mid baixo (articulação)' },
-  { id: 'highmid_high', range: [3500, 5000], target: -36.0, toleranceSigma: 1.5, description: 'High-mid alto (definição)' },
-  { id: 'presence', range: [5000, 10000], target: -40.0, toleranceSigma: 2.0, description: 'Presença (brilho/crash/hats)' },
-  { id: 'air', range: [10000, 20000], target: -42.0, toleranceSigma: 2.0, description: 'Air (espaço/abertura/detalhes)' }
-];
-
-/**
- * Agrupamento de sub-bandas em 7 bandas principais (compatível com legacy)
- */
-const DEFAULT_GROUPING = {
-  sub: ['sub_low', 'sub_high'],
-  bass: ['bass_low', 'bass_mid', 'bass_high'],
-  low_mid: ['lowmid_low', 'lowmid_high'],
-  mid: ['mid_low', 'mid_high'],
-  high_mid: ['highmid_low', 'highmid_high'],
-  presence: ['presence'],
-  air: ['air']
+const GRANULAR_CONFIG = {
+  SAMPLE_RATE: 48000,
+  FFT_SIZE: 4096,
+  STEP_HZ: 20, // Resolução das sub-bandas
+  MIN_ENERGY_THRESHOLD: 1e-12,
+  MAX_SUGGESTIONS_PER_GROUP: 3,
+  MIN_RELEVANCE_DB: 1.0, // Mínimo desvio para gerar sugestão
+  DEFAULT_SIGMA: 1.5
 };
 
 /**
- * Pesos de severidade e thresholds para classificação
+ * 🎨 Mapeamento de grupos para bandas legadas (compatibilidade frontend)
  */
-const DEFAULT_SEVERITY = {
-  weights: {
-    ideal: 0,
-    adjust: 1,
-    fix: 3
-  },
-  thresholds: {
-    greenMax: 0,
-    yellowMax: 1.5
-  }
+const GROUP_TO_LEGACY_BAND = {
+  sub: 'sub',
+  bass: 'bass',
+  low_mid: 'lowMid',
+  mid: 'mid',
+  high_mid: 'highMid',
+  presence: 'presence',
+  air: 'air'
 };
 
 /**
- * Configurações para geração de sugestões
+ * 📊 Status baseado em desvio sigma
  */
-const DEFAULT_SUGGESTIONS_CONFIG = {
-  minDbStep: 1.0,
-  maxDbStep: 4.0,
-  maxPerGroup: 3,
-  minRelevanceDb: 1.0,
-  language: 'pt-BR'
-};
-
-// ============================================================================
-// FUNÇÕES AUXILIARES
-// ============================================================================
-
-/**
- * Converte frequência (Hz) para índice de bin FFT
- * @param {number} freqHz - Frequência em Hz
- * @param {number} sampleRate - Taxa de amostragem
- * @param {number} fftSize - Tamanho da FFT
- * @returns {number} Índice do bin
- */
-function freqToBin(freqHz, sampleRate = SAMPLE_RATE, fftSize = FFT_SIZE) {
-  return Math.round((freqHz * fftSize) / sampleRate);
-}
-
-/**
- * Calcula energia RMS de um range de bins FFT (mono ou stereo)
- * @param {Object} frameFFT - Frame FFT com {magnitude, phase} ou {left, right}
- * @param {number} binStart - Bin inicial
- * @param {number} binEnd - Bin final
- * @returns {number} Energia RMS linear
- */
-function calculateBinRangeEnergy(frameFFT, binStart, binEnd) {
-  let sumSquares = 0;
-  let count = 0;
-
-  // Detectar se é stereo (tem left/right) ou mono (magnitude direto)
-  const hasStereo = frameFFT.left && frameFFT.right;
-
-  for (let bin = binStart; bin <= binEnd; bin++) {
-    if (hasStereo) {
-      const magL = frameFFT.left.magnitude?.[bin] || 0;
-      const magR = frameFFT.right.magnitude?.[bin] || 0;
-      // RMS stereo: sqrt((L² + R²) / 2)
-      sumSquares += (magL * magL + magR * magR) / 2;
-    } else {
-      const mag = frameFFT.magnitude?.[bin] || 0;
-      sumSquares += mag * mag;
-    }
-    count++;
-  }
-
-  if (count === 0) return 0;
-  return Math.sqrt(sumSquares / count);
-}
-
-/**
- * Converte energia linear para dB
- * @param {number} linear - Valor linear
- * @returns {number} Valor em dB
- */
-function linearToDb(linear) {
-  if (linear <= 0) return -Infinity;
-  return 20 * Math.log10(linear);
-}
-
-/**
- * Calcula mediana de array
- * @param {number[]} arr - Array de números
- * @returns {number} Mediana
- */
-function median(arr) {
-  if (arr.length === 0) return 0;
-  const sorted = [...arr].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0
-    ? (sorted[mid - 1] + sorted[mid]) / 2
-    : sorted[mid];
-}
-
-/**
- * Determina status baseado em desvio vs sigma
- * @param {number} deviation - Desvio em dB
- * @param {number} sigma - Tolerância sigma
- * @returns {string} 'ideal' | 'adjust' | 'fix'
- */
-function statusFromDeviation(deviation, sigma = 1.5) {
-  const abs = Math.abs(deviation);
-  if (abs <= sigma) return 'ideal';
-  if (abs <= sigma * 2) return 'adjust';
+function statusFromDeviation(deviation, sigma) {
+  const absDeviation = Math.abs(deviation);
+  if (absDeviation <= sigma) return 'ideal';
+  if (absDeviation <= sigma * 2) return 'adjust';
   return 'fix';
 }
 
-// ============================================================================
-// FUNÇÃO PRINCIPAL: ANÁLISE GRANULAR
-// ============================================================================
+/**
+ * 🎨 Status por grupo baseado em score médio
+ */
+function statusColorFromScore(avgScore, thresholds) {
+  if (avgScore <= thresholds.greenMax) return 'green';
+  if (avgScore <= thresholds.yellowMax) return 'yellow';
+  return 'red';
+}
 
 /**
- * Analisa espectro em sub-bandas granulares
- * 
- * @param {Array} framesFFT - Array de frames FFT do pipeline
- * @param {Object} reference - Referência de gênero (opcional)
- * @returns {Object} Resultado com sub-bandas analisadas
+ * 🌈 ANALISADOR GRANULAR DE BANDAS ESPECTRAIS
  */
-async function analyzeGranularSpectralBands(framesFFT, reference = null) {
-  // Validação
-  if (!framesFFT || !Array.isArray(framesFFT) || framesFFT.length === 0) {
-    throw new Error('framesFFT inválido ou vazio');
-  }
-
-  // Carregar configuração da referência ou usar padrões
-  const subBandsConfig = reference?.bands || DEFAULT_GRANULAR_BANDS;
-  const grouping = reference?.grouping || DEFAULT_GROUPING;
-  const severity = reference?.severity || DEFAULT_SEVERITY;
-  const suggestionsConfig = reference?.suggestions || DEFAULT_SUGGESTIONS_CONFIG;
-
-  // Array para armazenar resultados por sub-banda
-  const subBandResults = [];
-
-  // Para cada sub-banda definida
-  for (const band of subBandsConfig) {
-    const [freqStart, freqEnd] = band.range;
-    const binStart = freqToBin(freqStart);
-    const binEnd = freqToBin(freqEnd);
-
-    // Coletar energia de todos os frames (para calcular mediana)
-    const energiesDb = [];
-
-    for (const frame of framesFFT) {
-      const energyLinear = calculateBinRangeEnergy(frame, binStart, binEnd);
-      const energyDb = linearToDb(energyLinear);
-      
-      // Ignorar -Infinity
-      if (isFinite(energyDb)) {
-        energiesDb.push(energyDb);
-      }
-    }
-
-    // Calcular mediana (mais robusto que média)
-    const medianEnergyDb = median(energiesDb);
-
-    // Calcular desvio vs target
-    const target = band.target;
-    const deviation = medianEnergyDb - target;
-    const toleranceSigma = band.toleranceSigma || 1.5;
-    const status = statusFromDeviation(deviation, toleranceSigma);
-
-    // Armazenar resultado
-    subBandResults.push({
-      id: band.id,
-      range: band.range,
-      energyDb: parseFloat(medianEnergyDb.toFixed(2)),
-      target: target,
-      toleranceSigma: toleranceSigma,
-      deviation: parseFloat(deviation.toFixed(2)),
-      deviationSigmas: parseFloat((deviation / toleranceSigma).toFixed(2)),
-      status: status,
-      description: band.description || ''
+export class GranularSpectralAnalyzer {
+  
+  constructor(sampleRate = 48000, fftSize = 4096) {
+    this.sampleRate = sampleRate;
+    this.fftSize = fftSize;
+    this.frequencyResolution = sampleRate / fftSize;
+    
+    logAudio('granular_spectral', 'init', {
+      sampleRate,
+      fftSize,
+      frequencyResolution: this.frequencyResolution.toFixed(2),
+      stepHz: GRANULAR_CONFIG.STEP_HZ
     });
   }
-
-  // Agregar sub-bandas em grupos principais
-  const groups = aggregateSubBandsIntoGroups(subBandResults, grouping, severity);
-
-  // Gerar sugestões inteligentes
-  const suggestions = buildSuggestions(subBandResults, grouping, suggestionsConfig);
-
-  // ✅ CORREÇÃO: Gerar estrutura .bands para compatibilidade com frontend/scoring
-  const bands = buildLegacyBandsFromGroups(groups, subBandResults, grouping);
-
-  // Retornar resultado completo
-  return {
-    algorithm: 'granular_v1',
-    referenceGenre: reference?.genre || 'techno',
-    schemaVersion: reference?.schemaVersion || 1,
-    lufsNormalization: true, // LUFS já normalizado no pipeline
-    framesProcessed: framesFFT.length,
-    aggregationMethod: 'median',
-    bands: bands, // ✅ ESSENCIAL: Compatibilidade com legacy/frontend/scoring
-    groups: groups,
-    granular: subBandResults,
-    suggestions: suggestions,
-    subBandsTotal: subBandResults.length,
-    subBandsIdeal: subBandResults.filter(s => s.status === 'ideal').length,
-    subBandsAdjust: subBandResults.filter(s => s.status === 'adjust').length,
-    subBandsFix: subBandResults.filter(s => s.status === 'fix').length
-  };
-}
-
-// ============================================================================
-// AGREGAÇÃO EM GRUPOS PRINCIPAIS
-// ============================================================================
-
-/**
- * Agrupa sub-bandas em 7 bandas principais (compatível com legacy)
- * 
- * @param {Array} subBandResults - Resultados das sub-bandas
- * @param {Object} grouping - Mapeamento de grupos
- * @param {Object} severity - Pesos e thresholds
- * @returns {Object} Grupos com status e score
- */
-function aggregateSubBandsIntoGroups(subBandResults, grouping, severity) {
-  const groups = {};
-  const weights = severity.weights;
-  const thresholds = severity.thresholds;
-
-  for (const [groupName, subBandIds] of Object.entries(grouping)) {
-    // Filtrar sub-bandas deste grupo
-    const subBands = subBandResults.filter(s => subBandIds.includes(s.id));
-
-    if (subBands.length === 0) {
-      groups[groupName] = {
-        status: 'green',
-        score: 0.0,
-        subBandsCount: 0
-      };
-      continue;
-    }
-
-    // Calcular score médio baseado nos pesos
-    const totalPoints = subBands.reduce((acc, s) => acc + weights[s.status], 0);
-    const avgScore = totalPoints / subBands.length;
-
-    // Determinar cor (green/yellow/red)
-    let color = 'green';
-    if (avgScore > thresholds.yellowMax) {
-      color = 'red';
-    } else if (avgScore > thresholds.greenMax) {
-      color = 'yellow';
-    }
-
-    groups[groupName] = {
-      status: color,
-      score: parseFloat(avgScore.toFixed(2)),
-      subBandsCount: subBands.length,
-      description: color === 'green' 
-        ? `${groupName.replace('_', '-')} ideal`
-        : color === 'yellow'
-        ? `${groupName.replace('_', '-')} com desvio moderado`
-        : `${groupName.replace('_', '-')} com excesso/falta significativo`
-    };
-  }
-
-  return groups;
-}
-
-// ============================================================================
-// CONSTRUÇÃO DE BANDAS LEGADAS (COMPATIBILIDADE)
-// ============================================================================
-
-/**
- * Função auxiliar para merge seguro de valores (usada para agregação robusta)
- * @param {number|null} a - Primeiro valor
- * @param {number|null} b - Segundo valor
- * @returns {number} Média ou valor único ou 0
- */
-function mergeBands(a, b) {
-  if (a == null && b == null) return 0;
-  if (a == null) return b;
-  if (b == null) return a;
-  return (a + b) / 2; // média simples
-}
-
-/**
- * ✅ PATCH CRÍTICO: Converte grupos agregados para formato de bandas legado
- * 
- * **Problema detectado**: Frontend espera exatamente estas 7 chaves em camelCase:
- * ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air']
- * 
- * **Mapeamento**:
- * - sub ← groups.sub
- * - bass ← groups.bass (3 sub-bandas agregadas: bass_low, bass_mid, bass_high)
- * - lowMid ← groups.low_mid
- * - mid ← groups.mid
- * - highMid ← groups.high_mid
- * - presence ← groups.presence
- * - air ← groups.air
- * 
- * **Garantias**:
- * - Se qualquer banda não existir, preencher com 0 para evitar crash
- * - hasBands: true será detectado automaticamente pelo pipeline
- * - groups e granular permanecem intactos (somente adiciona bands)
- * 
- * @param {Object} groups - Grupos agregados com status e score
- * @param {Array} subBandResults - Resultados das sub-bandas originais
- * @param {Object} grouping - Mapeamento de grupos para sub-bandas
- * @returns {Object} Bandas no formato legado { sub, bass, lowMid, ... }
- */
-function buildLegacyBandsFromGroups(groups, subBandResults, grouping) {
-  // Mapeamento de nomes de grupos para nomes legados
-  const nameMap = {
-    sub: 'Sub',
-    bass: 'Bass',
-    low_mid: 'Low-Mid',
-    mid: 'Mid',
-    high_mid: 'High-Mid',
-    presence: 'Presence',
-    air: 'Air'
-  };
-
-  // Mapeamento de ranges de frequência por grupo
-  const rangeMap = {
-    sub: '20-60Hz',
-    bass: '60-150Hz',
-    low_mid: '150-500Hz',
-    mid: '500-2000Hz',
-    high_mid: '2000-5000Hz',
-    presence: '5000-10000Hz',
-    air: '10000-20000Hz'
-  };
-
-  const bands = {};
   
-  // Calcular energia total para percentagens
-  let totalEnergy = 0;
-  const groupEnergies = {};
-  
-  for (const [groupName, subBandIds] of Object.entries(grouping)) {
-    const subBands = subBandResults.filter(s => subBandIds.includes(s.id));
+  /**
+   * 🎯 ENTRADA PRINCIPAL: Analisar frames FFT com referência granular
+   */
+  async analyzeGranularSpectralBands(framesFFT, reference) {
+    const startTime = Date.now();
     
-    if (subBands.length > 0) {
-      // Calcular energia linear média das sub-bandas
-      const avgEnergyDb = subBands.reduce((sum, s) => sum + s.energyDb, 0) / subBands.length;
+    try {
+      // Validar entrada
+      if (!framesFFT || !framesFFT.frames || framesFFT.frames.length === 0) {
+        throw makeErr('granular_spectral', 'No FFT frames available', 'no_fft_frames');
+      }
       
-      // Converter dB para linear para soma correta
-      const linearEnergy = Math.pow(10, avgEnergyDb / 10);
-      groupEnergies[groupName] = { linearEnergy, avgEnergyDb };
-      totalEnergy += linearEnergy;
-    } else {
-      // ✅ FALLBACK SEGURO: Preencher com 0 para evitar crash
-      groupEnergies[groupName] = { linearEnergy: 0, avgEnergyDb: null };
+      if (!reference || !reference.bands || !Array.isArray(reference.bands)) {
+        throw makeErr('granular_spectral', 'Invalid reference structure', 'invalid_reference');
+      }
+      
+      logAudio('granular_spectral', 'analysis_start', {
+        frameCount: framesFFT.frames.length,
+        referenceBands: reference.bands.length,
+        genre: reference.genre || 'unknown'
+      });
+      
+      // Processar todos os frames e calcular mediana por sub-banda
+      const subBandsResults = this.processAllFrames(framesFFT.frames, reference);
+      
+      // Agregar sub-bandas em grupos
+      const groupsResults = this.aggregateSubBandsIntoGroups(
+        subBandsResults, 
+        reference.grouping,
+        reference.severity
+      );
+      
+      // Gerar sugestões inteligentes
+      const suggestions = this.buildSuggestions(
+        subBandsResults,
+        reference.suggestions || {}
+      );
+      
+      // Mapear grupos para bandas legadas (compatibilidade frontend)
+      const legacyBands = this.mapGroupsToBands(groupsResults);
+      
+      const totalTime = Date.now() - startTime;
+      
+      logAudio('granular_spectral', 'analysis_complete', {
+        ms: totalTime,
+        subBandsCount: subBandsResults.length,
+        groupsCount: Object.keys(groupsResults).length,
+        suggestionsCount: suggestions.length,
+        legacyBandsCount: Object.keys(legacyBands).length
+      });
+      
+      return {
+        algorithm: 'granular_v1',
+        bands: legacyBands, // ✅ Compatibilidade frontend (7 bandas)
+        groups: groupsResults, // Grupos agregados
+        granular: subBandsResults, // Sub-bandas detalhadas
+        suggestions: suggestions, // Sugestões inteligentes
+        metadata: {
+          genre: reference.genre || 'unknown',
+          schemaVersion: reference.schemaVersion || 1,
+          stepHz: GRANULAR_CONFIG.STEP_HZ,
+          framesProcessed: framesFFT.frames.length,
+          processingTimeMs: totalTime
+        }
+      };
+      
+    } catch (error) {
+      const totalTime = Date.now() - startTime;
+      logAudio('granular_spectral', 'error', {
+        message: error.message,
+        code: error.code || 'unknown',
+        ms: totalTime
+      });
+      throw error;
     }
   }
-
-  // Construir bandas legadas com fallback para cada grupo
-  for (const [groupName, subBandIds] of Object.entries(grouping)) {
-    const group = groups[groupName];
-    const energyData = groupEnergies[groupName] || { linearEnergy: 0, avgEnergyDb: null };
+  
+  /**
+   * 📊 Processar todos os frames FFT e calcular mediana por sub-banda
+   */
+  processAllFrames(frames, reference) {
+    const subBandsData = {};
     
-    // Calcular percentage baseado em energia linear
-    const percentage = totalEnergy > 0 
-      ? (energyData.linearEnergy / totalEnergy) * 100 
-      : 0;
-
-    // Mapear status do grupo para status legado
-    let legacyStatus = 'calculated';
-    if (group && group.status) {
-      if (group.status === 'green') legacyStatus = 'calculated';
-      else if (group.status === 'yellow') legacyStatus = 'adjust';
-      else if (group.status === 'red') legacyStatus = 'fix';
-    }
-
-    // ✅ Nome da chave no formato camelCase para compatibilidade com frontend
-    const bandKey = groupName === 'low_mid' ? 'lowMid' : 
-                    groupName === 'high_mid' ? 'highMid' : 
-                    groupName;
-
-    // ✅ GARANTIA: Sempre retornar valores válidos (nunca undefined)
-    bands[bandKey] = {
-      energy_db: energyData.avgEnergyDb !== null 
-        ? parseFloat(energyData.avgEnergyDb.toFixed(1)) 
-        : 0, // ✅ Fallback para 0 em vez de null (frontend espera number)
-      percentage: parseFloat(percentage.toFixed(2)),
-      range: rangeMap[groupName] || 'Unknown',
-      name: nameMap[groupName] || groupName,
-      status: legacyStatus,
-      frequencyRange: rangeMap[groupName] || 'Unknown' // Alias para compatibilidade
-    };
-  }
-
-  // ✅ VALIDAÇÃO FINAL: Garantir que todas as 7 chaves esperadas pelo frontend existam
-  const requiredKeys = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
-  for (const key of requiredKeys) {
-    if (!bands[key]) {
-      // Criar banda vazia segura se não existir
-      bands[key] = {
-        energy_db: 0,
-        percentage: 0,
-        range: 'Unknown',
-        name: key.charAt(0).toUpperCase() + key.slice(1),
-        status: 'calculated',
-        frequencyRange: 'Unknown'
+    // Inicializar estrutura de dados para cada sub-banda da referência
+    for (const band of reference.bands) {
+      subBandsData[band.id] = {
+        id: band.id,
+        range: band.range,
+        target: band.target,
+        toleranceSigma: band.toleranceSigma || GRANULAR_CONFIG.DEFAULT_SIGMA,
+        description: band.description || '',
+        energiesDb: [] // Array de energias de todos os frames
       };
     }
+    
+    // Processar cada frame
+    for (let frameIndex = 0; frameIndex < frames.length; frameIndex++) {
+      const frame = frames[frameIndex];
+      
+      if (!frame.leftFFT?.magnitude || !frame.rightFFT?.magnitude) {
+        continue;
+      }
+      
+      // Calcular magnitude RMS estéreo
+      const rmsSpectrum = this.calculateMagnitudeRMS(
+        frame.leftFFT.magnitude,
+        frame.rightFFT.magnitude
+      );
+      
+      // Calcular energia para cada sub-banda
+      for (const band of reference.bands) {
+        const energyDb = this.calculateBandEnergyDb(
+          rmsSpectrum,
+          band.range[0],
+          band.range[1]
+        );
+        
+        if (isFinite(energyDb)) {
+          subBandsData[band.id].energiesDb.push(energyDb);
+        }
+      }
+    }
+    
+    // Calcular mediana e status para cada sub-banda
+    const results = [];
+    for (const bandData of Object.values(subBandsData)) {
+      if (bandData.energiesDb.length === 0) {
+        continue;
+      }
+      
+      const medianEnergyDb = this.calculateMedian(bandData.energiesDb);
+      const deviation = medianEnergyDb - bandData.target;
+      const deviationSigmas = Math.abs(deviation) / bandData.toleranceSigma;
+      const status = statusFromDeviation(deviation, bandData.toleranceSigma);
+      
+      results.push({
+        id: bandData.id,
+        range: bandData.range,
+        energyDb: parseFloat(medianEnergyDb.toFixed(2)),
+        target: bandData.target,
+        toleranceSigma: bandData.toleranceSigma,
+        deviation: parseFloat(deviation.toFixed(2)),
+        deviationSigmas: parseFloat(deviationSigmas.toFixed(2)),
+        status: status,
+        description: bandData.description
+      });
+    }
+    
+    return results;
   }
-
-  return bands;
+  
+  /**
+   * 🎵 Calcular magnitude RMS estéreo
+   */
+  calculateMagnitudeRMS(leftMagnitude, rightMagnitude) {
+    const length = Math.min(leftMagnitude.length, rightMagnitude.length);
+    const rmsSpectrum = new Float32Array(length);
+    
+    for (let i = 0; i < length; i++) {
+      const leftEnergy = leftMagnitude[i] * leftMagnitude[i];
+      const rightEnergy = rightMagnitude[i] * rightMagnitude[i];
+      rmsSpectrum[i] = Math.sqrt((leftEnergy + rightEnergy) / 2);
+    }
+    
+    return rmsSpectrum;
+  }
+  
+  /**
+   * 📊 Calcular energia de uma banda em dB
+   */
+  calculateBandEnergyDb(spectrum, minHz, maxHz) {
+    const minBin = Math.max(0, Math.floor(minHz / this.frequencyResolution));
+    const maxBin = Math.min(
+      Math.floor(this.fftSize / 2),
+      Math.ceil(maxHz / this.frequencyResolution)
+    );
+    
+    let totalEnergy = 0;
+    let binCount = 0;
+    
+    for (let bin = minBin; bin <= maxBin; bin++) {
+      if (bin < spectrum.length) {
+        totalEnergy += spectrum[bin] * spectrum[bin];
+        binCount++;
+      }
+    }
+    
+    if (binCount === 0 || totalEnergy < GRANULAR_CONFIG.MIN_ENERGY_THRESHOLD) {
+      return -100; // Silêncio
+    }
+    
+    // Converter para dB
+    const avgEnergy = totalEnergy / binCount;
+    return 10 * Math.log10(avgEnergy + 1e-12);
+  }
+  
+  /**
+   * 📈 Calcular mediana de um array
+   */
+  calculateMedian(arr) {
+    if (arr.length === 0) return 0;
+    
+    const sorted = arr.slice().sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    
+    if (sorted.length % 2 === 0) {
+      return (sorted[mid - 1] + sorted[mid]) / 2;
+    }
+    return sorted[mid];
+  }
+  
+  /**
+   * 🎨 Agregar sub-bandas em grupos
+   */
+  aggregateSubBandsIntoGroups(subBands, grouping, severity) {
+    const weights = severity?.weights || { ideal: 0, adjust: 1, fix: 3 };
+    const thresholds = severity?.thresholds || { greenMax: 0, yellowMax: 1.5 };
+    
+    const groupsResults = {};
+    
+    for (const [groupName, bandIds] of Object.entries(grouping)) {
+      const groupBands = subBands.filter(sb => bandIds.includes(sb.id));
+      
+      if (groupBands.length === 0) {
+        continue;
+      }
+      
+      // Calcular score médio do grupo
+      const totalScore = groupBands.reduce((sum, band) => {
+        return sum + weights[band.status];
+      }, 0);
+      
+      const avgScore = totalScore / groupBands.length;
+      const statusColor = statusColorFromScore(avgScore, thresholds);
+      
+      groupsResults[groupName] = {
+        status: statusColor,
+        score: parseFloat(avgScore.toFixed(2)),
+        subBandsCount: groupBands.length,
+        description: this.getGroupDescription(groupName, groupBands)
+      };
+    }
+    
+    return groupsResults;
+  }
+  
+  /**
+   * 📝 Gerar descrição do grupo
+   */
+  getGroupDescription(groupName, bands) {
+    const statusCounts = { ideal: 0, adjust: 0, fix: 0 };
+    bands.forEach(b => statusCounts[b.status]++);
+    
+    if (statusCounts.fix > 0) {
+      return `${groupName} com ${statusCounts.fix} sub-banda(s) precisando correção`;
+    } else if (statusCounts.adjust > 0) {
+      return `${groupName} com ${statusCounts.adjust} sub-banda(s) com desvio moderado`;
+    }
+    return `${groupName} ideal`;
+  }
+  
+  /**
+   * 💡 Construir sugestões inteligentes
+   */
+  buildSuggestions(subBands, suggestionsConfig) {
+    const minDbStep = suggestionsConfig.minDbStep || 1.0;
+    const maxDbStep = suggestionsConfig.maxDbStep || 4.0;
+    const maxPerGroup = suggestionsConfig.maxPerGroup || GRANULAR_CONFIG.MAX_SUGGESTIONS_PER_GROUP;
+    const minRelevanceDb = suggestionsConfig.minRelevanceDb || GRANULAR_CONFIG.MIN_RELEVANCE_DB;
+    
+    const suggestions = [];
+    
+    // Filtrar bandas que precisam ajuste ou correção
+    const problematicBands = subBands
+      .filter(band => band.status === 'adjust' || band.status === 'fix')
+      .filter(band => Math.abs(band.deviation) >= minRelevanceDb)
+      .sort((a, b) => Math.abs(b.deviation) - Math.abs(a.deviation)); // Ordenar por desvio (maior primeiro)
+    
+    // Limitar ao máximo de sugestões
+    const selectedBands = problematicBands.slice(0, maxPerGroup * 2);
+    
+    for (const band of selectedBands) {
+      const isDeficit = band.deviation < 0; // Falta energia
+      const type = isDeficit ? 'boost' : 'cut';
+      
+      // Calcular quantidade de ajuste (limitada ao range)
+      let amount = Math.abs(band.deviation);
+      amount = Math.max(minDbStep, Math.min(maxDbStep, amount));
+      amount = parseFloat(amount.toFixed(1));
+      
+      // Construir mensagem
+      const freqRange = `${band.range[0]}–${band.range[1]} Hz`;
+      const action = isDeficit ? 'reforçar' : 'reduzir';
+      const message = `${isDeficit ? 'Falta' : 'Excesso de'} energia em ${freqRange} — ${action} ~${amount} dB${band.description ? ` (${band.description})` : ''}.`;
+      
+      suggestions.push({
+        freq_range: band.range,
+        type: type,
+        amount: amount,
+        message: message,
+        deviation: band.deviation,
+        metric: 'frequency_balance',
+        priority: band.status === 'fix' ? 'high' : 'medium'
+      });
+    }
+    
+    return suggestions;
+  }
+  
+  /**
+   * 🔄 Mapear grupos para bandas legadas (compatibilidade frontend)
+   */
+  mapGroupsToBands(groups) {
+    const bands = {};
+    
+    for (const [groupName, groupData] of Object.entries(groups)) {
+      const legacyKey = GROUP_TO_LEGACY_BAND[groupName];
+      if (legacyKey) {
+        bands[legacyKey] = {
+          status: groupData.status,
+          score: groupData.score,
+          description: groupData.description
+        };
+      }
+    }
+    
+    // Garantir que todas as 7 bandas existam (preencher com neutro se necessário)
+    const allBands = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
+    for (const bandKey of allBands) {
+      if (!bands[bandKey]) {
+        bands[bandKey] = {
+          status: 'green',
+          score: 0,
+          description: `${bandKey} sem dados`
+        };
+      }
+    }
+    
+    return bands;
+  }
 }
-
-// ============================================================================
-// GERAÇÃO DE SUGESTÕES INTELIGENTES
-// ============================================================================
 
 /**
- * Gera sugestões inteligentes baseadas em sub-bandas com problemas
- * 
- * @param {Array} subBandResults - Resultados das sub-bandas
- * @param {Object} grouping - Mapeamento de grupos
- * @param {Object} config - Configurações de sugestões
- * @returns {Array} Lista de sugestões ordenadas por prioridade
+ * 🚀 FUNÇÃO PÚBLICA: Análise granular de bandas espectrais
  */
-function buildSuggestions(subBandResults, grouping, config) {
-  const suggestions = [];
-  const minRelevance = config.minRelevanceDb || 1.0;
-  const maxPerGroup = config.maxPerGroup || 3;
-  const minDbStep = config.minDbStep || 1.0;
-  const maxDbStep = config.maxDbStep || 4.0;
-
-  // Filtrar apenas sub-bandas com problemas (adjust ou fix)
-  const problematicBands = subBandResults.filter(
-    s => s.status === 'adjust' || s.status === 'fix'
+export async function analyzeGranularSpectralBands(framesFFT, reference) {
+  const analyzer = new GranularSpectralAnalyzer(
+    GRANULAR_CONFIG.SAMPLE_RATE,
+    GRANULAR_CONFIG.FFT_SIZE
   );
-
-  // Ordenar por magnitude do desvio (maiores primeiro)
-  const sorted = [...problematicBands].sort(
-    (a, b) => Math.abs(b.deviation) - Math.abs(a.deviation)
-  );
-
-  // Contar sugestões por grupo
-  const countByGroup = {};
-
-  for (const band of sorted) {
-    // Verificar relevância mínima
-    if (Math.abs(band.deviation) < minRelevance) continue;
-
-    // Encontrar grupo desta sub-banda
-    let groupName = null;
-    for (const [gname, ids] of Object.entries(grouping)) {
-      if (ids.includes(band.id)) {
-        groupName = gname;
-        break;
-      }
-    }
-
-    if (!groupName) continue;
-
-    // Limitar sugestões por grupo
-    countByGroup[groupName] = (countByGroup[groupName] || 0);
-    if (countByGroup[groupName] >= maxPerGroup) continue;
-
-    // Determinar tipo (boost/cut) e quantidade
-    const type = band.deviation < 0 ? 'boost' : 'cut';
-    const absDeviation = Math.abs(band.deviation);
-    
-    // Limitar quantidade entre minDbStep e maxDbStep
-    let amount = Math.min(Math.max(absDeviation, minDbStep), maxDbStep);
-    amount = parseFloat(amount.toFixed(1));
-
-    // Determinar prioridade
-    const priority = band.status === 'fix' ? 'high' : 'medium';
-
-    // Mensagem em português
-    const [freqStart, freqEnd] = band.range;
-    let message = '';
-    
-    if (type === 'boost') {
-      message = `Falta energia em ${freqStart}–${freqEnd} Hz — reforçar ~${amount} dB`;
-      if (band.description) {
-        message += ` (${band.description.split('(')[1]?.replace(')', '') || band.description})`;
-      }
-      message += '.';
-    } else {
-      message = `Excesso em ${freqStart}–${freqEnd} Hz — reduzir ~${amount} dB`;
-      if (band.description) {
-        message += ` (${band.description.split('(')[1]?.replace(')', '') || band.description})`;
-      }
-      message += '.';
-    }
-
-    suggestions.push({
-      priority: priority,
-      freq_range: band.range,
-      type: type,
-      amount: amount,
-      metric: 'frequency_balance',
-      deviation: band.deviation,
-      message: message
-    });
-
-    countByGroup[groupName]++;
-  }
-
-  // Ordenar: high priority primeiro, depois por magnitude de desvio
-  suggestions.sort((a, b) => {
-    if (a.priority === 'high' && b.priority !== 'high') return -1;
-    if (a.priority !== 'high' && b.priority === 'high') return 1;
-    return Math.abs(b.deviation) - Math.abs(a.deviation);
-  });
-
-  return suggestions;
+  
+  return await analyzer.analyzeGranularSpectralBands(framesFFT, reference);
 }
 
-// ============================================================================
-// EXPORTS
-// ============================================================================
-
-module.exports = {
-  analyzeGranularSpectralBands,
-  aggregateSubBandsIntoGroups,
-  buildSuggestions,
-  // Exportar também constantes e utilitários para testes
-  DEFAULT_GRANULAR_BANDS,
-  DEFAULT_GROUPING,
-  DEFAULT_SEVERITY,
-  DEFAULT_SUGGESTIONS_CONFIG,
-  freqToBin,
-  linearToDb,
-  statusFromDeviation
-};
+console.log('🌈 Spectral Bands Granular V1 carregado - Sub-bandas com análise σ');
