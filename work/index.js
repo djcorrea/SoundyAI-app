@@ -403,12 +403,51 @@ async function processJobs() {
     
     updateWorkerHealth(); // Update health check
     console.log("🔄 Worker verificando jobs...");
+    
+    // 🔥 CRÍTICO: Buscar com coluna reference explícita (pode ser JSONB)
     const res = await client.query(
-      "SELECT * FROM jobs WHERE status = 'queued' ORDER BY created_at ASC LIMIT 1"
+      `SELECT 
+        id, 
+        status, 
+        file_path, 
+        created_at, 
+        updated_at, 
+        result, 
+        reference,
+        genre
+      FROM jobs 
+      WHERE status = 'queued' 
+      ORDER BY created_at ASC 
+      LIMIT 1`
     );
 
     if (res.rows.length > 0) {
-      await processJob(res.rows[0]);
+      const job = res.rows[0];
+      
+      // � PARSE: Se reference vier como string JSON, fazer parse
+      if (job.reference && typeof job.reference === 'string') {
+        try {
+          job.reference = JSON.parse(job.reference);
+          console.log('✅ [WORKER] Reference parseada de string JSON');
+        } catch (e) {
+          console.warn('⚠️ [WORKER] Falha ao parsear reference:', e.message);
+          job.reference = null;
+        }
+      }
+      
+      // �🔍 DEBUG: Log completo do job buscado
+      console.log('🔍 [WORKER] Job buscado do banco:', {
+        id: job.id,
+        hasReference: !!job.reference,
+        referenceType: typeof job.reference,
+        referenceKeys: job.reference ? Object.keys(job.reference) : [],
+        referenceGenre: job.reference?.genre || 'N/A',
+        hasGenre: !!job.genre,
+        genre: job.genre,
+        allKeys: Object.keys(job)
+      });
+      
+      await processJob(job);
     } else {
       console.log("📭 Nenhum job novo.");
     }
