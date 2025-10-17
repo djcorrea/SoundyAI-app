@@ -145,6 +145,13 @@ async function analyzeAudioWithPipeline(localFilePath, job) {
     const fileBuffer = await fs.promises.readFile(localFilePath);
     console.log(`📊 Arquivo lido: ${fileBuffer.length} bytes`);
 
+    // 🔍 DEBUG CRÍTICO: Verificar se referência está presente no job
+    console.log('🔍 [DEBUG] Job reference:', {
+      hasReference: !!job?.reference,
+      reference: job?.reference,
+      jobKeys: Object.keys(job || {})
+    });
+
     const t0 = Date.now();
     
     // 🔥 TIMEOUT DE 3 MINUTOS PARA EVITAR TRAVAMENTO
