@@ -1587,126 +1587,6 @@ function resetModalState() {
     __dbg('✅ Estado do modal resetado completamente');
 }
 
-// 🎯 FUNÇÃO DE VALIDAÇÃO DE GÊNERO - Para testes e diagnóstico
-// Verifica se o gênero está sendo preservado corretamente ao longo do fluxo
-window.validateGenreFlow = function() {
-    console.log('\n🔍 ===== VALIDAÇÃO DE FLUXO DE GÊNERO =====\n');
-    
-    const validation = {
-        timestamp: new Date().toISOString(),
-        currentModalAnalysis: null,
-        activeRefGenre: __activeRefGenre || null,
-        prodAiRefGenre: window.PROD_AI_REF_GENRE || null,
-        tests: [],
-        passed: 0,
-        failed: 0,
-        warnings: 0
-    };
-    
-    // Teste 1: Verificar se currentModalAnalysis existe e tem gênero
-    if (currentModalAnalysis) {
-        validation.currentModalAnalysis = {
-            exists: true,
-            genre: currentModalAnalysis.genre || null,
-            hasGenre: !!currentModalAnalysis.genre
-        };
-        
-        if (currentModalAnalysis.genre) {
-            validation.tests.push({
-                name: 'currentModalAnalysis.genre existe',
-                passed: true,
-                value: currentModalAnalysis.genre
-            });
-            validation.passed++;
-        } else {
-            validation.tests.push({
-                name: 'currentModalAnalysis.genre existe',
-                passed: false,
-                message: 'Gênero não definido na análise atual'
-            });
-            validation.failed++;
-        }
-        
-        // Teste 2: Verificar se não é 'techno' por fallback indevido
-        if (currentModalAnalysis.genre === 'techno') {
-            validation.tests.push({
-                name: 'Gênero não é techno por fallback',
-                passed: false,
-                message: '⚠️ AVISO: Gênero é techno - verificar se não é fallback indevido',
-                recommendation: 'Verificar se backend retornou outro gênero'
-            });
-            validation.warnings++;
-        } else {
-            validation.tests.push({
-                name: 'Gênero não é techno por fallback',
-                passed: true
-            });
-            validation.passed++;
-        }
-        
-        // Teste 3: Consistência entre analysis.genre e window.PROD_AI_REF_GENRE
-        if (window.PROD_AI_REF_GENRE && currentModalAnalysis.genre !== window.PROD_AI_REF_GENRE) {
-            validation.tests.push({
-                name: 'Consistência genre vs PROD_AI_REF_GENRE',
-                passed: false,
-                message: `Inconsistência: analysis.genre='${currentModalAnalysis.genre}' vs window='${window.PROD_AI_REF_GENRE}'`,
-                recommendation: 'analysis.genre deve ter prioridade sobre window'
-            });
-            validation.warnings++;
-        } else {
-            validation.tests.push({
-                name: 'Consistência genre vs PROD_AI_REF_GENRE',
-                passed: true
-            });
-            validation.passed++;
-        }
-        
-    } else {
-        validation.currentModalAnalysis = { exists: false };
-        validation.tests.push({
-            name: 'currentModalAnalysis existe',
-            passed: false,
-            message: 'Nenhuma análise ativa no momento'
-        });
-        validation.failed++;
-    }
-    
-    // Resultado final
-    const totalTests = validation.passed + validation.failed + validation.warnings;
-    validation.summary = {
-        total: totalTests,
-        passed: validation.passed,
-        failed: validation.failed,
-        warnings: validation.warnings,
-        successRate: totalTests > 0 ? ((validation.passed / totalTests) * 100).toFixed(1) + '%' : 'N/A'
-    };
-    
-    // Logs formatados
-    console.log('📊 Resumo da Validação:');
-    console.log('  ✅ Passou:', validation.passed);
-    console.log('  ❌ Falhou:', validation.failed);
-    console.log('  ⚠️  Avisos:', validation.warnings);
-    console.log('  📈 Taxa de Sucesso:', validation.summary.successRate);
-    console.log('\n📋 Detalhes dos Testes:');
-    
-    validation.tests.forEach((test, index) => {
-        const icon = test.passed ? '✅' : '❌';
-        console.log(`  ${icon} ${index + 1}. ${test.name}`);
-        if (test.value) console.log(`     → Valor: ${test.value}`);
-        if (test.message) console.log(`     → ${test.message}`);
-        if (test.recommendation) console.log(`     💡 ${test.recommendation}`);
-    });
-    
-    console.log('\n🔍 Estado Atual:');
-    console.log('  - currentModalAnalysis.genre:', currentModalAnalysis?.genre || 'N/A');
-    console.log('  - window.PROD_AI_REF_GENRE:', window.PROD_AI_REF_GENRE || 'N/A');
-    console.log('  - __activeRefGenre:', __activeRefGenre || 'N/A');
-    
-    console.log('\n🔍 ===== FIM DA VALIDAÇÃO =====\n');
-    
-    return validation;
-};
-
 // ⚙️ Configurar modal de áudio
 function setupAudioModal() {
     const modal = document.getElementById('audioAnalysisModal');
@@ -2124,29 +2004,6 @@ async function handleGenreFileSelection(file) {
     // 🆔 CORREÇÃO: Preparar options com runId para análise principal
     const optionsWithRunId = prepareAnalysisOptions(analysisOptions, 'main');
     const analysis = await window.audioAnalyzer.analyzeAudioFile(file, optionsWithRunId);
-    
-    // 🎯 CORREÇÃO CRÍTICA: TRAVAR GÊNERO NO INÍCIO DO FLUXO
-    // Garantir que o gênero detectado pelo backend seja sempre utilizado
-    // Prioridade: backendData.genre > analysis.genre > window.PROD_AI_REF_GENRE > fallback 'techno'
-    const backendData = analysis; // O resultado da análise É o backendData
-    
-    const detectedGenre = 
-        backendData?.genre && backendData.genre !== 'undefined'
-            ? backendData.genre
-            : (analysis?.genre && analysis.genre !== 'undefined'
-                ? analysis.genre
-                : (window.PROD_AI_REF_GENRE || 'techno'));
-    
-    // 🔒 TRAVAR gênero final na análise
-    analysis.genre = detectedGenre;
-    console.log('🎯 GÊNERO FINAL DETECTADO:', analysis.genre);
-    
-    // 🧭 GUARD DE SEGURANÇA: Detectar sobrescritas indevidas
-    if (analysis.genre === 'techno' && backendData?.genre && backendData.genre !== 'techno') {
-        console.warn('⚠️ Atenção: gênero foi sobrescrito para techno — verifique fluxo.');
-        console.warn('⚠️ Backend retornou:', backendData.genre, '| Mas ficou:', analysis.genre);
-    }
-    
     currentModalAnalysis = analysis;
     
     // 🎵 WAV CLEANUP: Limpar otimizações WAV após conclusão
@@ -2966,13 +2823,7 @@ function showModalLoading() {
 
 // 📊 Mostrar resultados no modal
 // 📊 Mostrar resultados no modal
-// ✅ AUDITADO: Esta função NÃO sobrescreve analysis.genre
-// Ela apenas exibe os resultados sem modificar o objeto de análise
 function displayModalResults(analysis) {
-    // 🎯 LOG DE AUDITORIA: Verificar gênero no início da renderização
-    const genreBefore = analysis.genre;
-    console.log('🔍 [displayModalResults] Gênero NO INÍCIO:', genreBefore);
-    
     // 🔒 UI GATE: Verificação final antes de renderizar
     const analysisRunId = analysis?.runId || analysis?.metadata?.runId;
     const currentRunId = window.__CURRENT_ANALYSIS_RUN_ID__;
@@ -4358,14 +4209,8 @@ function renderReferenceComparisons(analysis) {
 }
 
 // Recalcular apenas as sugestões baseadas em referência (sem reprocessar o áudio)
-// ✅ AUDITADO: Esta função NÃO sobrescreve analysis.genre
-// Ela apenas recalcula sugestões baseadas nas referências do gênero ativo
 function updateReferenceSuggestions(analysis) {
     if (!analysis || !analysis.technicalData || !__activeRefData) return;
-    
-    // 🎯 LOG DE AUDITORIA: Verificar se gênero está sendo preservado
-    const genreBefore = analysis.genre;
-    console.log('🔍 [updateReferenceSuggestions] Gênero ANTES:', genreBefore);
     
     // 🎯 SISTEMA UNIFICADO: Usar novo sistema de sugestões quando disponível
     if (typeof window !== 'undefined' && window.suggestionSystem && window.USE_UNIFIED_SUGGESTIONS !== false) {
@@ -4448,17 +4293,6 @@ function updateReferenceSuggestions(analysis) {
     addRefSug(tech.dynamicRange, refTarget.dr_target, refTarget.tol_dr, 'reference_dynamics', 'DR', ' dB');
     if (Number.isFinite(tech.lra)) addRefSug(tech.lra, refTarget.lra_target, refTarget.tol_lra, 'reference_lra', 'LRA', ' LU');
     if (Number.isFinite(tech.stereoCorrelation)) addRefSug(tech.stereoCorrelation, refTarget.stereo_target, refTarget.tol_stereo, 'reference_stereo', 'Stereo Corr', '');
-    
-    // 🎯 LOG DE AUDITORIA: Verificar se gênero foi preservado
-    const genreAfter = analysis.genre;
-    console.log('🔍 [updateReferenceSuggestions] Gênero DEPOIS:', genreAfter);
-    
-    if (genreBefore !== genreAfter) {
-        console.error('🚨 ERRO CRÍTICO: updateReferenceSuggestions SOBRESCREVEU O GÊNERO!');
-        console.error('🚨 Era:', genreBefore, '→ Ficou:', genreAfter);
-    } else {
-        console.log('✅ [updateReferenceSuggestions] Gênero preservado corretamente');
-    }
 }
 
 // 🎨 Estilos do seletor de gênero (injeção única, não quebra CSS existente)

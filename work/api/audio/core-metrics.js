@@ -17,9 +17,6 @@ import { calculateDCOffset } from "../../lib/audio/features/dc-offset.js";
 import { calculateSpectralUniformity } from "../../lib/audio/features/spectral-uniformity.js";
 import { analyzeProblemsAndSuggestionsV2 } from "../../lib/audio/features/problems-suggestions-v2.js";
 
-// 🌈 GRANULAR V1: Sistema de análise espectral por sub-bandas (feature flag)
-import { analyzeGranularSpectralBands } from "../../lib/audio/features/spectral-bands-granular.js";
-
 // Sistema de tratamento de erros padronizado
 import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../lib/audio/error-handling.js';
 
@@ -125,10 +122,7 @@ class CoreMetricsProcessor {
         hasFramesFFT: !!segmentedAudio.framesFFT,
         frameCount: segmentedAudio.framesFFT?.frames?.length || 0
       });
-      const spectralBandsResults = await this.calculateSpectralBandsMetrics(segmentedAudio.framesFFT, { 
-        jobId,
-        reference: options.reference // 🆕 GRANULAR V1: Passar referência para feature flag
-      });
+      const spectralBandsResults = await this.calculateSpectralBandsMetrics(segmentedAudio.framesFFT, { jobId });
       
       // ========= SPECTRAL CENTROID CORRIGIDO (Hz) =========
       logAudio('core_metrics', 'spectral_centroid_start', {
@@ -850,119 +844,8 @@ class CoreMetricsProcessor {
 
   /**
    * 🌈 Calcular bandas espectrais corrigidas (7 bandas profissionais)
-   * 🆕 GRANULAR V1: Suporte a feature flag ANALYZER_ENGINE
    */
   async calculateSpectralBandsMetrics(framesFFT, options = {}) {
-    const { jobId, reference } = options;
-    
-    // 🚀 FEATURE FLAG: Roteador condicional legacy vs granular_v1
-    const engine = process.env.ANALYZER_ENGINE || 'legacy';
-    
-    console.log('🔍 [SPECTRAL_BANDS] Roteador de engine:', {
-      engine,
-      envValue: process.env.ANALYZER_ENGINE,
-      hasReference: !!reference,
-      referenceGenre: reference?.genre || 'N/A',
-      willUseGranular: engine === 'granular_v1' && !!reference
-    });
-    
-    // ✅ VALIDAÇÃO: Verificar se granular_v1 pode ser ativado
-    if (engine === 'granular_v1') {
-      if (!reference) {
-        console.warn('⚠️ [SPECTRAL_BANDS] Engine granular_v1 configurado mas reference ausente. Usando legacy.');
-        logAudio('spectral_bands', 'granular_requires_reference', { jobId });
-        return await this.calculateSpectralBandsLegacy(framesFFT, { jobId });
-      }
-      
-      console.log('✅ [SPECTRAL_BANDS] Engine granular_v1 ativado');
-      logAudio('spectral_bands', 'routing_to_granular_v1', { 
-        jobId, 
-        referenceGenre: reference.genre || 'unknown' 
-      });
-      
-      const result = await this.calculateGranularSubBands(framesFFT, reference, { jobId });
-      
-      console.log('🌈 [GRANULAR_V1] Análise concluída:', {
-        subBandsCount: result?.granular?.length || 0,
-        hasBands: !!result?.bands,
-        hasSuggestions: !!result?.suggestions
-      });
-      
-      return result;
-    }
-    
-    // ✅ LEGACY: Comportamento original (inalterado)
-    console.log('📌 [SPECTRAL_BANDS] Engine legacy ativado (engine:', engine, ')');
-    logAudio('spectral_bands', 'routing_to_legacy', { jobId, engine });
-    return await this.calculateSpectralBandsLegacy(framesFFT, { jobId });
-  }
-  
-  /**
-   * 🌈 GRANULAR V1: Análise espectral por sub-bandas com σ
-   */
-  async calculateGranularSubBands(framesFFT, reference, options = {}) {
-    const { jobId } = options;
-    
-    try {
-      console.log('🌈 [GRANULAR_V1] Iniciando análise granular:', {
-        jobId,
-        referenceGenre: reference?.genre || 'unknown',
-        frameCount: framesFFT?.frames?.length || 0,
-        hasReference: !!reference,
-        referenceKeys: reference ? Object.keys(reference) : []
-      });
-      
-      logAudio('granular_bands', 'start', { 
-        jobId, 
-        referenceGenre: reference?.genre || 'unknown',
-        hasReference: !!reference
-      });
-      
-      // 🎯 CHAMADA CRÍTICA: Passar reference para analyzeGranularSpectralBands
-      const granularResult = await analyzeGranularSpectralBands(framesFFT, reference);
-      
-      console.log('✅ [GRANULAR_V1] Análise concluída:', {
-        jobId,
-        subBandsCount: granularResult?.granular?.length || 0,
-        suggestionsCount: granularResult?.suggestions?.length || 0,
-        algorithm: granularResult?.algorithm || 'N/A',
-        hasBands: !!granularResult?.bands,
-        hasGranular: !!granularResult?.granular,
-        engineVersion: granularResult?.engineVersion || 'N/A'
-      });
-      
-      logAudio('granular_bands', 'completed', {
-        jobId,
-        subBandsCount: granularResult?.granular?.length || 0,
-        suggestionsCount: granularResult?.suggestions?.length || 0,
-        algorithm: granularResult?.algorithm || 'N/A'
-      });
-      
-      return granularResult;
-      
-    } catch (error) {
-      console.error('💥 [GRANULAR_V1] ERRO CRÍTICO:', { 
-        error: error.message, 
-        stack: error.stack,
-        jobId,
-        referenceProvided: !!reference
-      });
-      logAudio('granular_bands', 'error', { 
-        error: error.message, 
-        stack: error.stack?.split('\n').slice(0, 3).join(' | '),
-        jobId 
-      });
-      
-      // Fallback para legacy em caso de erro
-      console.warn('⚠️ [GRANULAR_V1] Fallback para legacy devido a erro');
-      return await this.calculateSpectralBandsLegacy(framesFFT, { jobId });
-    }
-  }
-  
-  /**
-   * 🌈 LEGACY: Calcular bandas espectrais (7 bandas profissionais) - PRESERVADO
-   */
-  async calculateSpectralBandsLegacy(framesFFT, options = {}) {
     const { jobId } = options;
     
     try {
