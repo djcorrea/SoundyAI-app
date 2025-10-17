@@ -860,22 +860,39 @@ class CoreMetricsProcessor {
     
     console.log('🔍 [SPECTRAL_BANDS] Roteador de engine:', {
       engine,
+      envValue: process.env.ANALYZER_ENGINE,
       hasReference: !!reference,
       referenceGenre: reference?.genre || 'N/A',
       willUseGranular: engine === 'granular_v1' && !!reference
     });
     
-    if (engine === 'granular_v1' && reference) {
+    // ✅ VALIDAÇÃO: Verificar se granular_v1 pode ser ativado
+    if (engine === 'granular_v1') {
+      if (!reference) {
+        console.warn('⚠️ [SPECTRAL_BANDS] Engine granular_v1 configurado mas reference ausente. Usando legacy.');
+        logAudio('spectral_bands', 'granular_requires_reference', { jobId });
+        return await this.calculateSpectralBandsLegacy(framesFFT, { jobId });
+      }
+      
       console.log('✅ [SPECTRAL_BANDS] Engine granular_v1 ativado');
       logAudio('spectral_bands', 'routing_to_granular_v1', { 
         jobId, 
         referenceGenre: reference.genre || 'unknown' 
       });
-      return await this.calculateGranularSubBands(framesFFT, reference, { jobId });
+      
+      const result = await this.calculateGranularSubBands(framesFFT, reference, { jobId });
+      
+      console.log('🌈 [GRANULAR_V1] Análise concluída:', {
+        subBandsCount: result?.granular?.length || 0,
+        hasBands: !!result?.bands,
+        hasSuggestions: !!result?.suggestions
+      });
+      
+      return result;
     }
     
     // ✅ LEGACY: Comportamento original (inalterado)
-    console.log('📌 [SPECTRAL_BANDS] Engine legacy ativado (engine:', engine, ', hasReference:', !!reference, ')');
+    console.log('📌 [SPECTRAL_BANDS] Engine legacy ativado (engine:', engine, ')');
     logAudio('spectral_bands', 'routing_to_legacy', { jobId, engine });
     return await this.calculateSpectralBandsLegacy(framesFFT, { jobId });
   }
@@ -889,40 +906,52 @@ class CoreMetricsProcessor {
     try {
       console.log('🌈 [GRANULAR_V1] Iniciando análise granular:', {
         jobId,
-        referenceGenre: reference.genre || 'unknown',
-        frameCount: framesFFT?.frames?.length || 0
+        referenceGenre: reference?.genre || 'unknown',
+        frameCount: framesFFT?.frames?.length || 0,
+        hasReference: !!reference,
+        referenceKeys: reference ? Object.keys(reference) : []
       });
       
       logAudio('granular_bands', 'start', { 
         jobId, 
-        referenceGenre: reference.genre || 'unknown' 
+        referenceGenre: reference?.genre || 'unknown',
+        hasReference: !!reference
       });
       
+      // 🎯 CHAMADA CRÍTICA: Passar reference para analyzeGranularSpectralBands
       const granularResult = await analyzeGranularSpectralBands(framesFFT, reference);
       
       console.log('✅ [GRANULAR_V1] Análise concluída:', {
-        subBandsCount: granularResult.granular?.length || 0,
-        suggestionsCount: granularResult.suggestions?.length || 0,
-        algorithm: granularResult.algorithm,
-        hasBands: !!granularResult.bands
+        jobId,
+        subBandsCount: granularResult?.granular?.length || 0,
+        suggestionsCount: granularResult?.suggestions?.length || 0,
+        algorithm: granularResult?.algorithm || 'N/A',
+        hasBands: !!granularResult?.bands,
+        hasGranular: !!granularResult?.granular,
+        engineVersion: granularResult?.engineVersion || 'N/A'
       });
       
       logAudio('granular_bands', 'completed', {
         jobId,
-        subBandsCount: granularResult.granular?.length || 0,
-        suggestionsCount: granularResult.suggestions?.length || 0,
-        algorithm: granularResult.algorithm
+        subBandsCount: granularResult?.granular?.length || 0,
+        suggestionsCount: granularResult?.suggestions?.length || 0,
+        algorithm: granularResult?.algorithm || 'N/A'
       });
       
       return granularResult;
       
     } catch (error) {
-      console.error('💥 [GRANULAR_V1] ERRO:', { 
+      console.error('💥 [GRANULAR_V1] ERRO CRÍTICO:', { 
         error: error.message, 
-        stack: error.stack, 
+        stack: error.stack,
+        jobId,
+        referenceProvided: !!reference
+      });
+      logAudio('granular_bands', 'error', { 
+        error: error.message, 
+        stack: error.stack?.split('\n').slice(0, 3).join(' | '),
         jobId 
       });
-      logAudio('granular_bands', 'error', { error: error.message, jobId });
       
       // Fallback para legacy em caso de erro
       console.warn('⚠️ [GRANULAR_V1] Fallback para legacy devido a erro');
