@@ -126,7 +126,7 @@ class CoreMetricsProcessor {
         frameCount: segmentedAudio.framesFFT?.frames?.length || 0
       });
       const spectralBandsResults = await this.calculateSpectralBandsMetrics(segmentedAudio.framesFFT, { 
-        jobId, 
+        jobId,
         reference: options.reference // 🆕 GRANULAR V1: Passar referência para feature flag
       });
       
@@ -859,7 +859,10 @@ class CoreMetricsProcessor {
     const engine = process.env.ANALYZER_ENGINE || 'legacy';
     
     if (engine === 'granular_v1' && reference) {
-      logAudio('spectral_bands', 'routing_to_granular_v1', { jobId, referenceGenre: reference.genre });
+      logAudio('spectral_bands', 'routing_to_granular_v1', { 
+        jobId, 
+        referenceGenre: reference.genre || 'unknown' 
+      });
       return await this.calculateGranularSubBands(framesFFT, reference, { jobId });
     }
     
@@ -869,13 +872,16 @@ class CoreMetricsProcessor {
   }
   
   /**
-   * 🌈 GRANULAR V1: Análise espectral por sub-bandas
+   * 🌈 GRANULAR V1: Análise espectral por sub-bandas com σ
    */
   async calculateGranularSubBands(framesFFT, reference, options = {}) {
     const { jobId } = options;
     
     try {
-      logAudio('granular_bands', 'start', { jobId, referenceGenre: reference.genre || 'unknown' });
+      logAudio('granular_bands', 'start', { 
+        jobId, 
+        referenceGenre: reference.genre || 'unknown' 
+      });
       
       const granularResult = await analyzeGranularSpectralBands(framesFFT, reference);
       
@@ -889,7 +895,11 @@ class CoreMetricsProcessor {
       return granularResult;
       
     } catch (error) {
-      console.error('💥 [GRANULAR_BANDS] ERRO:', { error: error.message, stack: error.stack, jobId });
+      console.error('💥 [GRANULAR_BANDS] ERRO:', { 
+        error: error.message, 
+        stack: error.stack, 
+        jobId 
+      });
       logAudio('granular_bands', 'error', { error: error.message, jobId });
       
       // Fallback para legacy em caso de erro

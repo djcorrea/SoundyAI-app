@@ -1,11 +1,11 @@
-// 🌈 SPECTRAL BANDS GRANULAR V1 - Sub-bandas com análise estatística (σ)
-// Análise espectral por sub-bandas de 20 Hz com comparação target ± σ
-// 100% compatível com pipeline legado - modo aditivo via feature flag
+// 🌈 SPECTRAL BANDS GRANULAR V1 - Análise por Sub-bandas com Tolerância Sigma
+// Análise espectral de alta resolução (20 Hz step) com comparação estatística (target ± σ)
+// 100% compatível com pipeline legado - modo aditivo via feature flag ANALYZER_ENGINE
 
 import { logAudio, makeErr, assertFinite } from '../error-handling.js';
 
 /**
- * 🎯 Configurações padrão do sistema granular
+ * 🎯 Configurações do Sistema Granular
  */
 const GRANULAR_CONFIG = {
   SAMPLE_RATE: 48000,
@@ -31,9 +31,9 @@ const GROUP_TO_LEGACY_BAND = {
 };
 
 /**
- * 📊 Status baseado em desvio sigma
+ * 📊 Calcular status baseado em desvio sigma
  */
-function statusFromDeviation(deviation, sigma) {
+function statusFromDeviation(deviation, sigma = 1.5) {
   const absDeviation = Math.abs(deviation);
   if (absDeviation <= sigma) return 'ideal';
   if (absDeviation <= sigma * 2) return 'adjust';
@@ -41,7 +41,7 @@ function statusFromDeviation(deviation, sigma) {
 }
 
 /**
- * 🎨 Status por grupo baseado em score médio
+ * 🎨 Calcular cor do status baseado no score médio do grupo
  */
 function statusColorFromScore(avgScore, thresholds) {
   if (avgScore <= thresholds.greenMax) return 'green';
@@ -68,7 +68,10 @@ export class GranularSpectralAnalyzer {
   }
   
   /**
-   * 🎯 ENTRADA PRINCIPAL: Analisar frames FFT com referência granular
+   * 🎯 FUNÇÃO PRINCIPAL: Analisar frames FFT com referência granular
+   * @param {Object} framesFFT - Frames FFT do pipeline (Phase 5.2)
+   * @param {Object} reference - Arquivo de referência (JSON com targets e σ)
+   * @returns {Object} Resultado granular com bands, granular, suggestions
    */
   async analyzeGranularSpectralBands(framesFFT, reference) {
     const startTime = Date.now();
@@ -92,7 +95,7 @@ export class GranularSpectralAnalyzer {
       // Processar todos os frames e calcular mediana por sub-banda
       const subBandsResults = this.processAllFrames(framesFFT.frames, reference);
       
-      // Agregar sub-bandas em grupos
+      // Agregar sub-bandas em 7 grupos principais
       const groupsResults = this.aggregateSubBandsIntoGroups(
         subBandsResults, 
         reference.grouping,
@@ -105,7 +108,7 @@ export class GranularSpectralAnalyzer {
         reference.suggestions || {}
       );
       
-      // Mapear grupos para bandas legadas (compatibilidade frontend)
+      // ✅ CRÍTICO: Mapear grupos para bandas legadas (compatibilidade frontend)
       const legacyBands = this.mapGroupsToBands(groupsResults);
       
       const totalTime = Date.now() - startTime;
@@ -118,10 +121,11 @@ export class GranularSpectralAnalyzer {
         legacyBandsCount: Object.keys(legacyBands).length
       });
       
+      // ✅ RETORNO COM BANDAS LEGADAS PARA COMPATIBILIDADE
       return {
         algorithm: 'granular_v1',
-        bands: legacyBands, // ✅ Compatibilidade frontend (7 bandas)
-        groups: groupsResults, // Grupos agregados
+        bands: legacyBands, // ✅ 7 bandas principais (hasBands = true)
+        groups: groupsResults, // Agregação de sub-bandas
         granular: subBandsResults, // Sub-bandas detalhadas
         suggestions: suggestions, // Sugestões inteligentes
         metadata: {
@@ -150,7 +154,7 @@ export class GranularSpectralAnalyzer {
   processAllFrames(frames, reference) {
     const subBandsData = {};
     
-    // Inicializar estrutura de dados para cada sub-banda da referência
+    // Inicializar estrutura para cada sub-banda da referência
     for (const band of reference.bands) {
       subBandsData[band.id] = {
         id: band.id,
@@ -170,7 +174,7 @@ export class GranularSpectralAnalyzer {
         continue;
       }
       
-      // Calcular magnitude RMS estéreo
+      // Calcular magnitude RMS estéreo (reutiliza bins FFT existentes)
       const rmsSpectrum = this.calculateMagnitudeRMS(
         frame.leftFFT.magnitude,
         frame.rightFFT.magnitude
@@ -219,13 +223,14 @@ export class GranularSpectralAnalyzer {
   }
   
   /**
-   * 🎵 Calcular magnitude RMS estéreo
+   * 🎵 Calcular magnitude RMS estéreo (reuso de bins FFT)
    */
   calculateMagnitudeRMS(leftMagnitude, rightMagnitude) {
     const length = Math.min(leftMagnitude.length, rightMagnitude.length);
     const rmsSpectrum = new Float32Array(length);
     
     for (let i = 0; i < length; i++) {
+      // RMS estéreo: sqrt((L² + R²) / 2)
       const leftEnergy = leftMagnitude[i] * leftMagnitude[i];
       const rightEnergy = rightMagnitude[i] * rightMagnitude[i];
       rmsSpectrum[i] = Math.sqrt((leftEnergy + rightEnergy) / 2);
@@ -279,7 +284,7 @@ export class GranularSpectralAnalyzer {
   }
   
   /**
-   * 🎨 Agregar sub-bandas em grupos
+   * 🎨 Agregar sub-bandas em 7 grupos principais
    */
   aggregateSubBandsIntoGroups(subBands, grouping, severity) {
     const weights = severity?.weights || { ideal: 0, adjust: 1, fix: 3 };
@@ -294,7 +299,7 @@ export class GranularSpectralAnalyzer {
         continue;
       }
       
-      // Calcular score médio do grupo
+      // Calcular score médio do grupo baseado nos pesos
       const totalScore = groupBands.reduce((sum, band) => {
         return sum + weights[band.status];
       }, 0);
@@ -314,7 +319,7 @@ export class GranularSpectralAnalyzer {
   }
   
   /**
-   * 📝 Gerar descrição do grupo
+   * 📝 Gerar descrição do grupo baseada nos status das sub-bandas
    */
   getGroupDescription(groupName, bands) {
     const statusCounts = { ideal: 0, adjust: 0, fix: 0 };
@@ -329,7 +334,7 @@ export class GranularSpectralAnalyzer {
   }
   
   /**
-   * 💡 Construir sugestões inteligentes
+   * 💡 Construir sugestões inteligentes baseadas nas sub-bandas
    */
   buildSuggestions(subBands, suggestionsConfig) {
     const minDbStep = suggestionsConfig.minDbStep || 1.0;
@@ -343,7 +348,7 @@ export class GranularSpectralAnalyzer {
     const problematicBands = subBands
       .filter(band => band.status === 'adjust' || band.status === 'fix')
       .filter(band => Math.abs(band.deviation) >= minRelevanceDb)
-      .sort((a, b) => Math.abs(b.deviation) - Math.abs(a.deviation)); // Ordenar por desvio (maior primeiro)
+      .sort((a, b) => Math.abs(b.deviation) - Math.abs(a.deviation)); // Ordenar por desvio
     
     // Limitar ao máximo de sugestões
     const selectedBands = problematicBands.slice(0, maxPerGroup * 2);
@@ -357,7 +362,7 @@ export class GranularSpectralAnalyzer {
       amount = Math.max(minDbStep, Math.min(maxDbStep, amount));
       amount = parseFloat(amount.toFixed(1));
       
-      // Construir mensagem
+      // Construir mensagem em português
       const freqRange = `${band.range[0]}–${band.range[1]} Hz`;
       const action = isDeficit ? 'reforçar' : 'reduzir';
       const message = `${isDeficit ? 'Falta' : 'Excesso de'} energia em ${freqRange} — ${action} ~${amount} dB${band.description ? ` (${band.description})` : ''}.`;
@@ -377,11 +382,13 @@ export class GranularSpectralAnalyzer {
   }
   
   /**
-   * 🔄 Mapear grupos para bandas legadas (compatibilidade frontend)
+   * 🔄 ✅ CRÍTICO: Mapear grupos para bandas legadas (compatibilidade frontend)
+   * Garante que hasBands = true e que computeMixScore() seja executado
    */
   mapGroupsToBands(groups) {
     const bands = {};
     
+    // Mapear grupos existentes para nomes legados
     for (const [groupName, groupData] of Object.entries(groups)) {
       const legacyKey = GROUP_TO_LEGACY_BAND[groupName];
       if (legacyKey) {
@@ -393,9 +400,9 @@ export class GranularSpectralAnalyzer {
       }
     }
     
-    // Garantir que todas as 7 bandas existam (preencher com neutro se necessário)
-    const allBands = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
-    for (const bandKey of allBands) {
+    // ✅ Garantir que TODAS as 7 bandas existam (preencher com neutro se necessário)
+    const allRequiredBands = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
+    for (const bandKey of allRequiredBands) {
       if (!bands[bandKey]) {
         bands[bandKey] = {
           status: 'green',
@@ -411,6 +418,9 @@ export class GranularSpectralAnalyzer {
 
 /**
  * 🚀 FUNÇÃO PÚBLICA: Análise granular de bandas espectrais
+ * @param {Object} framesFFT - Frames FFT do pipeline
+ * @param {Object} reference - Arquivo de referência JSON
+ * @returns {Object} Resultado granular
  */
 export async function analyzeGranularSpectralBands(framesFFT, reference) {
   const analyzer = new GranularSpectralAnalyzer(
@@ -421,4 +431,4 @@ export async function analyzeGranularSpectralBands(framesFFT, reference) {
   return await analyzer.analyzeGranularSpectralBands(framesFFT, reference);
 }
 
-console.log('🌈 Spectral Bands Granular V1 carregado - Sub-bandas com análise σ');
+console.log('🌈 Spectral Bands Granular V1 carregado - Análise por sub-bandas com σ');
