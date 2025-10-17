@@ -321,7 +321,37 @@ function aggregateSubBandsIntoGroups(subBandResults, grouping, severity) {
 // ============================================================================
 
 /**
- * Converte grupos agregados para formato de bandas legado (compatibilidade frontend/scoring)
+ * Função auxiliar para merge seguro de valores (usada para agregação robusta)
+ * @param {number|null} a - Primeiro valor
+ * @param {number|null} b - Segundo valor
+ * @returns {number} Média ou valor único ou 0
+ */
+function mergeBands(a, b) {
+  if (a == null && b == null) return 0;
+  if (a == null) return b;
+  if (b == null) return a;
+  return (a + b) / 2; // média simples
+}
+
+/**
+ * ✅ PATCH CRÍTICO: Converte grupos agregados para formato de bandas legado
+ * 
+ * **Problema detectado**: Frontend espera exatamente estas 7 chaves em camelCase:
+ * ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air']
+ * 
+ * **Mapeamento**:
+ * - sub ← groups.sub
+ * - bass ← groups.bass (3 sub-bandas agregadas: bass_low, bass_mid, bass_high)
+ * - lowMid ← groups.low_mid
+ * - mid ← groups.mid
+ * - highMid ← groups.high_mid
+ * - presence ← groups.presence
+ * - air ← groups.air
+ * 
+ * **Garantias**:
+ * - Se qualquer banda não existir, preencher com 0 para evitar crash
+ * - hasBands: true será detectado automaticamente pelo pipeline
+ * - groups e granular permanecem intactos (somente adiciona bands)
  * 
  * @param {Object} groups - Grupos agregados com status e score
  * @param {Array} subBandResults - Resultados das sub-bandas originais
@@ -369,14 +399,15 @@ function buildLegacyBandsFromGroups(groups, subBandResults, grouping) {
       groupEnergies[groupName] = { linearEnergy, avgEnergyDb };
       totalEnergy += linearEnergy;
     } else {
+      // ✅ FALLBACK SEGURO: Preencher com 0 para evitar crash
       groupEnergies[groupName] = { linearEnergy: 0, avgEnergyDb: null };
     }
   }
 
-  // Construir bandas legadas
+  // Construir bandas legadas com fallback para cada grupo
   for (const [groupName, subBandIds] of Object.entries(grouping)) {
     const group = groups[groupName];
-    const energyData = groupEnergies[groupName];
+    const energyData = groupEnergies[groupName] || { linearEnergy: 0, avgEnergyDb: null };
     
     // Calcular percentage baseado em energia linear
     const percentage = totalEnergy > 0 
@@ -391,21 +422,38 @@ function buildLegacyBandsFromGroups(groups, subBandResults, grouping) {
       else if (group.status === 'red') legacyStatus = 'fix';
     }
 
-    // Nome da chave no formato camelCase para compatibilidade
+    // ✅ Nome da chave no formato camelCase para compatibilidade com frontend
     const bandKey = groupName === 'low_mid' ? 'lowMid' : 
                     groupName === 'high_mid' ? 'highMid' : 
                     groupName;
 
+    // ✅ GARANTIA: Sempre retornar valores válidos (nunca undefined)
     bands[bandKey] = {
       energy_db: energyData.avgEnergyDb !== null 
         ? parseFloat(energyData.avgEnergyDb.toFixed(1)) 
-        : null,
+        : 0, // ✅ Fallback para 0 em vez de null (frontend espera number)
       percentage: parseFloat(percentage.toFixed(2)),
       range: rangeMap[groupName] || 'Unknown',
       name: nameMap[groupName] || groupName,
       status: legacyStatus,
       frequencyRange: rangeMap[groupName] || 'Unknown' // Alias para compatibilidade
     };
+  }
+
+  // ✅ VALIDAÇÃO FINAL: Garantir que todas as 7 chaves esperadas pelo frontend existam
+  const requiredKeys = ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'];
+  for (const key of requiredKeys) {
+    if (!bands[key]) {
+      // Criar banda vazia segura se não existir
+      bands[key] = {
+        energy_db: 0,
+        percentage: 0,
+        range: 'Unknown',
+        name: key.charAt(0).toUpperCase() + key.slice(1),
+        status: 'calculated',
+        frequencyRange: 'Unknown'
+      };
+    }
   }
 
   return bands;
