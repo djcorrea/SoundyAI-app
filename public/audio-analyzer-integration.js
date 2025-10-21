@@ -44,31 +44,6 @@ function prepareAnalysisOptions(baseOptions = {}, context = 'analysis') {
     return { ...baseOptions };
 }
 
-// 🚀 NOVO: Importar componente de Score & Diagnóstico
-// Carregamento dinâmico do componente isolado
-let ScoreDiagnosticCardModule = null;
-
-// Carregar módulo do componente
-(async function loadScoreDiagnosticCard() {
-    try {
-        const module = await import('./components/ScoreDiagnosticCard.js');
-        ScoreDiagnosticCardModule = module;
-        console.log('[AudioIntegration] ScoreDiagnosticCard carregado com sucesso');
-        
-        // Carregar CSS do componente
-        if (!document.getElementById('score-diagnostic-styles')) {
-            const link = document.createElement('link');
-            link.id = 'score-diagnostic-styles';
-            link.rel = 'stylesheet';
-            link.href = './components/ScoreDiagnosticCard.css?v=20250131';
-            document.head.appendChild(link);
-            console.log('[AudioIntegration] ScoreDiagnosticCard.css carregado');
-        }
-    } catch (error) {
-        console.error('[AudioIntegration] Erro ao carregar ScoreDiagnosticCard:', error);
-    }
-})();
-
 let currentModalAnalysis = null;
 let __audioIntegrationInitialized = false; // evita listeners duplicados
 let __refDataCache = {}; // cache por gênero
@@ -5136,50 +5111,9 @@ function displayModalResults(analysis) {
         
         const scoreRows = renderNewScores();
 
-        // === NOVO: Preparar dados para ScoreDiagnosticCard isolado ===
-        let scoreCardHtml = '';
-        if (ScoreDiagnosticCardModule && typeof ScoreDiagnosticCardModule.renderScoreDiagnosticCard === 'function') {
-            try {
-                const scoreCardProps = {
-                    totalScore: scores.final || 0,
-                    categories: [
-                        { name: 'Loudness', score: scores.loudness || 0, color: '#ff3366', emoji: '🔊' },
-                        { name: 'Frequência', score: scores.frequencia || 0, color: '#00ffff', emoji: '🎵' },
-                        { name: 'Estéreo', score: scores.estereo || 0, color: '#ff6b6b', emoji: '🎧' },
-                        { name: 'Dinâmica', score: scores.dinamica || 0, color: '#ffd700', emoji: '📊' },
-                        { name: 'Técnico', score: scores.tecnico || 0, color: '#00ff92', emoji: '🔧' }
-                    ],
-                    genre: scores.genre || 'padrão',
-                    isLoading: false,
-                    error: null
-                };
-                scoreCardHtml = ScoreDiagnosticCardModule.renderScoreDiagnosticCard(scoreCardProps);
-            } catch (err) {
-                console.warn('⚠️ Erro ao renderizar ScoreDiagnosticCard:', err);
-                // Fallback: usar card antigo inline
-                scoreCardHtml = `
-                    <div class="card" style="grid-column: 1 / -1;">
-                        <div class="card-title">🏆 Scores & Diagnóstico</div>
-                        ${scoreRows}
-                        ${col3}
-                    </div>
-                `;
-            }
-        } else {
-            // Fallback: módulo não carregado ainda
-            scoreCardHtml = `
-                <div class="card" style="grid-column: 1 / -1;">
-                    <div class="card-title">🏆 Scores & Diagnóstico</div>
-                    ${scoreRows}
-                    ${col3}
-                </div>
-            `;
-        }
-
         technicalData.innerHTML = `
             <div class="kpi-row">${scoreKpi}${timeKpi}</div>
                 ${renderSmartSummary(analysis) }
-                ${scoreCardHtml}
                     <div class="cards-grid">
                         <div class="card">
                     <div class="card-title">🎛️ Métricas Principais</div>
@@ -5191,6 +5125,11 @@ function displayModalResults(analysis) {
                 </div>
                         <!-- REMOVED: 🔊 Bandas Espectrais (Consolidado) - duplicação removida, mantida apenas em Métricas Avançadas -->
                         
+                        <div class="card">
+                    <div class="card-title">�🏆 Scores & Diagnóstico</div>
+                    ${scoreRows}
+                    ${col3}
+                </div>
                         <div class="card">
                             <div class="card-title">📊 Métricas Avançadas (Technical)</div>
                             ${advancedMetricsCard()}
