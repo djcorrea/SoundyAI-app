@@ -1819,11 +1819,10 @@ details[open] summary {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 8px 0;
+    padding: 12px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.03);
     position: relative;
     transition: all 0.3s ease;
-    min-height: 32px;
 }
 .data-row:hover {
     background: rgba(0, 255, 255, 0.02);
@@ -1915,7 +1914,7 @@ details[open] summary {
 .cards-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 20px;
+    gap: 28px;
     margin-top: 20px;
 }
 .card {
@@ -1928,7 +1927,7 @@ details[open] summary {
     border: 2px solid transparent;
     background-clip: padding-box;
     border-radius: 24px;
-    padding: 20px 24px;
+    padding: 24px;
     box-shadow: 
         0 0 50px rgba(124, 77, 255, 0.08),
         0 20px 60px rgba(0, 0, 0, 0.6),
@@ -1969,7 +1968,7 @@ details[open] summary {
     color: #00ffff;
     font-weight: 800;
     font-size: 16px;
-    margin-bottom: 16px;
+    margin-bottom: 20px;
     text-transform: uppercase;
     letter-spacing: 1px;
     text-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
@@ -2863,7 +2862,7 @@ details[open] summary {
 .metric-with-progress {
     flex-direction: column !important;
     align-items: flex-start !important;
-    gap: 6px;
+    gap: 8px;
 }
 
 .metric-value-progress {
