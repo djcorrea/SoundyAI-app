@@ -111,7 +111,8 @@ export function renderScoreDiagnosticCard(props) {
         <section class="score-diagnostic-card" 
                  aria-labelledby="score-diagnostic-heading"
                  aria-live="polite"
-                 data-testid="score-card-success">
+                 data-testid="score-card-success"
+                 data-score="${Math.round(totalScore)}">
             <h2 id="score-diagnostic-heading" class="card-title">
                 Score & Diagnóstico
             </h2>
@@ -121,8 +122,9 @@ export function renderScoreDiagnosticCard(props) {
                 <div class="score-final-value" 
                      style="color: ${scoreColor};" 
                      aria-label="Score final ${Math.round(totalScore)} de 100"
-                     data-testid="score-final-value">
-                    ${Math.round(totalScore)}
+                     data-testid="score-final-value"
+                     data-target-score="${Math.round(totalScore)}">
+                    0
                 </div>
                 <div class="score-final-meta">
                     Gênero: ${genre} • Ponderação adaptativa
@@ -136,6 +138,80 @@ export function renderScoreDiagnosticCard(props) {
             </div>
         </section>
     `;
+}
+
+/**
+ * Animação de contagem do score (counter animation)
+ * Chamada automaticamente quando o card é inserido no DOM
+ * @param {HTMLElement} element - Elemento .score-final-value
+ * @param {number} targetScore - Score final a ser exibido
+ */
+function animateScoreNumber(element, targetScore) {
+    if (!element || !Number.isFinite(targetScore)) return;
+    
+    let start = 0;
+    const end = Math.round(targetScore);
+    const duration = 1500; // 1.5 segundos
+    const frameRate = 1000 / 60; // 60 FPS
+    const increment = (end - start) / (duration / frameRate);
+    
+    const timer = setInterval(() => {
+        start += increment;
+        
+        if (start >= end) {
+            start = end;
+            clearInterval(timer);
+            element.classList.add('animate-in');
+        }
+        
+        element.textContent = Math.floor(start);
+    }, frameRate);
+}
+
+/**
+ * Observer para detectar quando o card é inserido e iniciar animação
+ */
+if (typeof window !== 'undefined' && typeof MutationObserver !== 'undefined') {
+    const observer = new MutationObserver((mutations) => {
+        mutations.forEach((mutation) => {
+            mutation.addedNodes.forEach((node) => {
+                if (node.nodeType === 1) { // Element node
+                    // Verificar se é o card ou se contém o card
+                    const card = node.classList?.contains('score-diagnostic-card') 
+                        ? node 
+                        : node.querySelector?.('.score-diagnostic-card');
+                    
+                    if (card) {
+                        const scoreElement = card.querySelector('.score-final-value');
+                        const targetScore = scoreElement?.dataset?.targetScore;
+                        
+                        if (scoreElement && targetScore) {
+                            // Delay de 200ms para garantir que o DOM esteja estável
+                            setTimeout(() => {
+                                animateScoreNumber(scoreElement, parseFloat(targetScore));
+                            }, 200);
+                        }
+                    }
+                }
+            });
+        });
+    });
+    
+    // Observar todo o documento (otimizar para container específico se possível)
+    if (document.body) {
+        observer.observe(document.body, { 
+            childList: true, 
+            subtree: true 
+        });
+    } else {
+        // Se o body ainda não existe, aguardar DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', () => {
+            observer.observe(document.body, { 
+                childList: true, 
+                subtree: true 
+            });
+        });
+    }
 }
 
 /**
