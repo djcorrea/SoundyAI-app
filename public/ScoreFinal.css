@@ -21,6 +21,10 @@
   position: relative;
   overflow: hidden;
   margin-bottom: 24px;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -85,6 +89,12 @@
   font-family: 'Rajdhani', 'Arial Narrow', 'Arial', sans-serif;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  cursor: default;
+  pointer-events: none;
 }
 
 /* Animação de entrada suave */
@@ -122,6 +132,10 @@
   position: relative;
   z-index: 1;
   font-family: 'Poppins', sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -204,6 +218,10 @@
   opacity: 0.85;
   font-family: 'Poppins', sans-serif;
   animation: fadeIn 1s ease 0.5s both;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 @keyframes fadeIn {
