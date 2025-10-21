@@ -5093,17 +5093,19 @@ function displayModalResults(analysis) {
             // Renderizar HTML do score final
             container.innerHTML = `
                 <div class="score-final-label">🏆 SCORE FINAL</div>
-                <div class="score-final-value">${finalScore}</div>
+                <div class="score-final-value">0</div>
                 <div class="score-final-bar-container">
                     <div class="score-final-bar">
-                        <div class="score-final-bar-fill" style="width: ${percent}%"></div>
+                        <div class="score-final-bar-fill" style="width: 0%"></div>
                     </div>
                 </div>
                 <div class="score-final-status ${statusClass}">${statusMessage}</div>
             `;
             
-            // Animar contagem do score (impacto visual)
-            animateFinalScore(finalScore);
+            // Animar contagem do score (impacto visual) - inicia após pequeno delay
+            setTimeout(() => {
+                animateFinalScore(finalScore);
+            }, 100);
         }
         
         /**
@@ -5112,27 +5114,38 @@ function displayModalResults(analysis) {
          */
         function animateFinalScore(targetScore) {
             const el = document.querySelector('.score-final-value');
+            const barFill = document.querySelector('.score-final-bar-fill');
             if (!el) return;
             
             let currentScore = 0;
-            const duration = 1200; // 1.2 segundos
-            const increment = targetScore / (duration / 16); // 60 FPS
+            const duration = 2500; // 2.5 segundos (mais lento e dramático)
             const startTime = performance.now();
             
             function animate(currentTime) {
                 const elapsed = currentTime - startTime;
                 const progress = Math.min(elapsed / duration, 1);
                 
-                // Easing function (ease-out cubic)
+                // Easing function (ease-out cubic - mais suave)
                 const eased = 1 - Math.pow(1 - progress, 3);
                 currentScore = targetScore * eased;
                 
+                // Atualizar número
                 el.textContent = Math.floor(currentScore);
+                
+                // Animar barra junto (se existir)
+                if (barFill) {
+                    const currentPercent = Math.min(Math.max(currentScore, 0), 100);
+                    barFill.style.width = `${currentPercent}%`;
+                }
                 
                 if (progress < 1) {
                     requestAnimationFrame(animate);
                 } else {
                     el.textContent = targetScore; // Garantir valor final exato
+                    if (barFill) {
+                        const finalPercent = Math.min(Math.max(targetScore, 0), 100);
+                        barFill.style.width = `${finalPercent}%`;
+                    }
                 }
             }
             

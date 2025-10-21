@@ -165,9 +165,9 @@
   background-size: 200% 100%;
   animation: barGlow 4s linear infinite;
   border-radius: 10px;
-  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
+  width: 0%; /* Inicia em 0% para animação JavaScript */
 }
 
 /* Brilho interno da barra */
