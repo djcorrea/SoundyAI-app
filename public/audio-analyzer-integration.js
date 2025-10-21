@@ -3916,7 +3916,7 @@ function displayModalResults(analysis) {
             (advancedReady && Number.isFinite(getLufsIntegratedValue()) ? row('LUFS Integrado (EBU R128)', `${safeFixed(getLufsIntegratedValue())} LUFS`, 'lufsIntegrated') : ''),
             (advancedReady && Number.isFinite(getMetric('lufs_short_term', 'lufsShortTerm')) ? row('LUFS Curto Prazo', `${safeFixed(getMetric('lufs_short_term', 'lufsShortTerm'))} LUFS`, 'lufsShortTerm') : ''),
             (advancedReady && Number.isFinite(getMetric('lufs_momentary', 'lufsMomentary')) ? row('LUFS Momentâneo', `${safeFixed(getMetric('lufs_momentary', 'lufsMomentary'))} LUFS`, 'lufsMomentary') : '')
-            ].join('');
+            ].filter(Boolean).join('');
 
         const col2 = [
             row('Correlação Estéreo (largura)', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 3) : '—', 'stereoCorrelation'),
@@ -3928,7 +3928,7 @@ function displayModalResults(analysis) {
             // REMOVED: zero crossing rate - not used in scoring, placeholder only
             // REMOVED: Mudança Espectral - not used in scoring, placeholder only
             // REMOVED: Uniformidade (linear vs peaks) - feeds score but buggy, hide UI
-        ].join('');
+        ].filter(Boolean).join('');
 
             // REMOVED: col3Extras (Dominant Frequencies)  
             // Reason: REMOVAL_SKIPPED_USED_BY_SCORE:dominantFrequencies - usado por enhanced-suggestion-engine.js
@@ -3953,7 +3953,7 @@ function displayModalResults(analysis) {
                 // REMOVED: Problemas - ocultado da interface conforme solicitado
                 row('Sugestões', (analysis.suggestions?.length || 0) > 0 ? `<span class="tag tag-success">${analysis.suggestions.length} disponível(s)</span>` : '—')
                 // REMOVED: col3Extras (dominant frequencies UI)
-            ].join('');
+            ].filter(Boolean).join('');
 
             // Card extra: Métricas Avançadas (expandido para Web Audio API compatibility)
             const advancedMetricsCard = () => {
