@@ -3851,11 +3851,7 @@ function displayModalResults(analysis) {
                 ? window.enhanceRowLabel(label, keyForSource) 
                 : label;
             
-            return `
-                <div class="data-row"${keyForSource?src(keyForSource):''}>
-                    <span class="label">${enhancedLabel}</span>
-                    <span class="value">${valHtml}</span>
-                </div>`;
+            return `<div class="data-row"${keyForSource?src(keyForSource):''}><span class="label">${enhancedLabel}</span><span class="value">${valHtml}</span></div>`;
         };
 
         // 🎯 CENTRALIZAÇÃO DAS MÉTRICAS - Funções de acesso unificado
