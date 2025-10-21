@@ -20,25 +20,29 @@
                             0 0 0 1px rgba(255,255,255,0.03);
 }
 
-/* Container Principal */
+/* Container Principal - FUTURISTIC CYBERPUNK DESIGN */
 .score-diagnostic-card {
     /* Layout responsivo */
+    grid-column: 1 / -1;
     max-width: 1200px;
     margin: var(--score-space-lg) auto;
-    padding: var(--score-space-lg);
+    padding: 24px 32px;
     
-    /* Visual premium com blur effect */
-    background: var(--score-surface-elevated);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: var(--score-radius-lg);
-    box-shadow: var(--score-shadow-elevated);
+    /* Visual premium com blur holográfico */
+    background: rgba(10, 10, 20, 0.6);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(127, 0, 255, 0.4);
+    border-radius: 20px;
+    box-shadow:
+        0 0 20px rgba(127, 0, 255, 0.3),
+        0 0 40px rgba(0, 255, 255, 0.15),
+        inset 0 0 1px rgba(255, 255, 255, 0.05);
     
-    /* Backdrop blur para efeito glassmorphism */
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    
-    /* Animação de entrada suave */
-    animation: scoreCardFadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    /* Animação de entrada futurista */
+    opacity: 0;
+    transform: translateY(20px) scale(0.98);
+    animation: cardIn 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     
     /* CLS Prevention - altura mínima garante espaço reservado */
     min-height: 350px;
@@ -46,38 +50,103 @@
     /* Isolamento de stacking context */
     position: relative;
     z-index: 10;
+    overflow: hidden;
+    text-align: center;
 }
 
-@keyframes scoreCardFadeIn {
-    from {
-        opacity: 0;
-        transform: scale(0.98) translateY(-10px);
-    }
+/* Linhas de luz em movimento no fundo */
+.score-diagnostic-card::before,
+.score-diagnostic-card::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(
+        120deg,
+        transparent,
+        rgba(127, 0, 255, 0.25),
+        transparent
+    );
+    animation: lightSweep 6s linear infinite;
+    pointer-events: none;
+    z-index: -1;
+}
+
+.score-diagnostic-card::after {
+    animation-delay: 3s;
+    background: linear-gradient(
+        240deg,
+        transparent,
+        rgba(0, 255, 255, 0.2),
+        transparent
+    );
+}
+
+/* Hover sutil para desktop */
+.score-diagnostic-card:hover {
+    box-shadow:
+        0 0 25px rgba(127, 0, 255, 0.4),
+        0 0 50px rgba(0, 255, 255, 0.25),
+        inset 0 0 1px rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+    transition: all 0.3s ease;
+}
+
+@keyframes cardIn {
     to {
         opacity: 1;
-        transform: scale(1) translateY(0);
+        transform: translateY(0) scale(1);
     }
 }
 
-/* Título do Card */
+@keyframes lightSweep {
+    0% { transform: rotate(0deg) translateX(-50%); }
+    100% { transform: rotate(360deg) translateX(-50%); }
+}
+
+/* Título do Card - Efeito Neon com Glitch */
 .score-diagnostic-card .card-title {
     /* Hierarquia semântica */
-    margin: 0 0 var(--score-space-md) 0;
-    padding-bottom: var(--score-space-sm);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    margin: 0 0 24px 0;
+    padding: 0;
+    border: none;
     
-    /* Typography */
-    font-size: 1.25rem;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    color: #e5f1ff;
-    line-height: 1.4;
+    /* Typography futurista */
+    font-size: 2rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    line-height: 1.2;
     
-    /* WCAG AA Contrast: 7.2:1 (background #0f1623) */
+    /* Gradiente neon */
+    background: linear-gradient(90deg, #7F00FF, #00FFFF);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    
+    /* Glow neon */
+    text-shadow: 0 0 8px #7F00FF, 0 0 16px #00FFFF;
+    position: relative;
+    
+    /* Animação de flicker sutil */
+    animation: flicker 3s infinite alternate;
+}
+
+@keyframes flicker {
+    0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+        opacity: 1;
+        text-shadow: 0 0 8px #7F00FF, 0 0 16px #00FFFF;
+    }
+    20%, 24%, 55% {
+        opacity: 0.8;
+        text-shadow: 0 0 4px #7F00FF, 0 0 8px #00FFFF;
+    }
 }
 
 /* =========================
-   SCORE FINAL DESTACADO
+   SCORE FINAL DESTACADO - CYBERPUNK
    ========================= */
 
 .score-final-container {
@@ -104,15 +173,23 @@
 }
 
 .score-final-value {
-    font-size: 3rem;
-    font-weight: 700;
+    font-size: 4rem;
+    font-weight: 800;
     line-height: 1;
     margin: var(--score-space-sm) 0;
     font-variant-numeric: tabular-nums;
     
     /* Cor dinâmica via inline style (verde/amarelo/laranja/vermelho) */
-    /* Transição suave de cor */
-    transition: color 0.3s ease;
+    color: #00ffff;
+    text-shadow: 0 0 20px currentColor;
+    
+    /* Transição suave de cor e animação */
+    transition: transform 0.5s ease, opacity 0.5s ease, color 0.3s ease;
+}
+
+.score-final-value.animate-in {
+    transform: scale(1.1);
+    opacity: 1;
 }
 
 .score-final-meta {
@@ -170,20 +247,36 @@
 
 .progress-bar-mini {
     flex: 1;
-    height: 8px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
+    height: 12px;
+    background: rgba(20, 20, 40, 0.6);
+    border: 1px solid rgba(127, 0, 255, 0.3);
+    border-radius: 8px;
     overflow: hidden;
     position: relative;
 }
 
 .progress-fill-mini {
     height: 100%;
-    border-radius: 4px;
+    border-radius: 8px;
+    
+    /* Gradiente animado cyberpunk */
+    background: linear-gradient(90deg, #7F00FF, #00FFFF, #7F00FF);
+    background-size: 200% 100%;
+    animation: barGlow 4s linear infinite;
+    
+    /* Transição suave da largura */
     transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
     
-    /* Sutil glow effect na barra */
-    box-shadow: 0 0 8px currentColor;
+    /* Glow effect intenso */
+    box-shadow: 
+        0 0 8px currentColor,
+        0 0 16px currentColor,
+        inset 0 0 4px rgba(255, 255, 255, 0.3);
+}
+
+@keyframes barGlow {
+    0% { background-position: 0% 50%; }
+    100% { background-position: 200% 50%; }
 }
 
 /* =========================
@@ -201,21 +294,18 @@
     height: 24px;
     background: linear-gradient(
         90deg,
-        rgba(255, 255, 255, 0.05) 0%,
-        rgba(255, 255, 255, 0.1) 50%,
-        rgba(255, 255, 255, 0.05) 100%
+        rgba(127, 0, 255, 0.1),
+        rgba(0, 255, 255, 0.2),
+        rgba(127, 0, 255, 0.1)
     );
-    border-radius: var(--score-radius-lg);
-    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    background-size: 200% 100%;
+    border-radius: 8px;
+    animation: shimmer 2s linear infinite;
 }
 
-@keyframes skeleton-pulse {
-    0%, 100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.4;
-    }
+@keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
 }
 
 /* =========================
@@ -307,12 +397,17 @@
 /* Mobile (até 768px) */
 @media (max-width: 768px) {
     .score-diagnostic-card {
-        padding: var(--score-space-md);
+        padding: 20px 16px;
         min-height: 320px;
     }
     
+    .score-diagnostic-card .card-title {
+        font-size: 1.5rem;
+        margin-bottom: 16px;
+    }
+    
     .score-final-value {
-        font-size: 2.5rem;
+        font-size: 3rem;
     }
     
     .category-label {
@@ -324,21 +419,21 @@
         min-width: 35px;
         font-size: 0.9375rem;
     }
-    
-    .score-diagnostic-card .card-title {
-        font-size: 1.125rem;
-    }
 }
 
 /* Mobile Small (até 375px) */
 @media (max-width: 375px) {
     .score-diagnostic-card {
-        padding: var(--score-space-sm);
+        padding: 16px 12px;
         min-height: 300px;
     }
     
+    .score-diagnostic-card .card-title {
+        font-size: 1.25rem;
+    }
+    
     .score-final-value {
-        font-size: 2rem;
+        font-size: 2.5rem;
     }
     
     .category-label {
@@ -348,6 +443,26 @@
     
     .category-progress-container {
         gap: var(--score-space-xs);
+    }
+    
+    .progress-bar-mini {
+        height: 10px;
+    }
+}
+
+/* Desktop 4K (1920px+) */
+@media (min-width: 1920px) {
+    .score-diagnostic-card {
+        max-width: 1600px;
+        padding: 32px 48px;
+    }
+    
+    .score-diagnostic-card .card-title {
+        font-size: 2.5rem;
+    }
+    
+    .score-final-value {
+        font-size: 5rem;
     }
 }
 
@@ -367,8 +482,19 @@
         animation: none;
     }
     
+    .score-diagnostic-card::before,
+    .score-diagnostic-card::after {
+        animation: none;
+        display: none;
+    }
+    
+    .score-diagnostic-card .card-title {
+        animation: none;
+    }
+    
     .progress-fill-mini {
         transition: none;
+        animation: none;
     }
     
     .skeleton-bar {
