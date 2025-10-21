@@ -5046,6 +5046,101 @@ function displayModalResults(analysis) {
             </div>`;
         };
         
+        // ═══════════════════════════════════════════════════════════════
+        // 🎯 RENDERIZAR SCORE FINAL NO TOPO - VISUAL FUTURISTA
+        // ═══════════════════════════════════════════════════════════════
+        
+        /**
+         * Renderiza o score final no container dedicado no topo da análise
+         * @param {Object} scores - Objeto contendo todos os scores
+         */
+        function renderFinalScoreAtTop(scores) {
+            if (!scores || !Number.isFinite(scores.final)) {
+                console.warn('🎯 Score final não disponível para renderização');
+                return;
+            }
+            
+            const container = document.getElementById('final-score-display');
+            if (!container) {
+                console.error('🎯 Container #final-score-display não encontrado');
+                return;
+            }
+            
+            const finalScore = Math.round(scores.final);
+            const percent = Math.min(Math.max(finalScore, 0), 100);
+            
+            // Determinar mensagem de status baseada no score
+            let statusMessage = '';
+            let statusClass = '';
+            
+            if (finalScore >= 90) {
+                statusMessage = '✨ Excelente! Pronto para lançamento';
+                statusClass = 'status-excellent';
+            } else if (finalScore >= 75) {
+                statusMessage = '✅ Ótimo! Qualidade profissional';
+                statusClass = 'status-good';
+            } else if (finalScore >= 60) {
+                statusMessage = '⚠️ Bom, mas pode melhorar';
+                statusClass = 'status-warning';
+            } else if (finalScore >= 40) {
+                statusMessage = '🔧 Precisa de ajustes';
+                statusClass = 'status-warning';
+            } else {
+                statusMessage = '🚨 Necessita correções importantes';
+                statusClass = 'status-poor';
+            }
+            
+            // Renderizar HTML do score final
+            container.innerHTML = `
+                <div class="score-final-label">🏆 SCORE FINAL</div>
+                <div class="score-final-value">${finalScore}</div>
+                <div class="score-final-bar-container">
+                    <div class="score-final-bar">
+                        <div class="score-final-bar-fill" style="width: ${percent}%"></div>
+                    </div>
+                </div>
+                <div class="score-final-status ${statusClass}">${statusMessage}</div>
+            `;
+            
+            // Animar contagem do score (impacto visual)
+            animateFinalScore(finalScore);
+        }
+        
+        /**
+         * Anima a contagem do score final de 0 até o valor final
+         * @param {number} targetScore - Score final a ser exibido
+         */
+        function animateFinalScore(targetScore) {
+            const el = document.querySelector('.score-final-value');
+            if (!el) return;
+            
+            let currentScore = 0;
+            const duration = 1200; // 1.2 segundos
+            const increment = targetScore / (duration / 16); // 60 FPS
+            const startTime = performance.now();
+            
+            function animate(currentTime) {
+                const elapsed = currentTime - startTime;
+                const progress = Math.min(elapsed / duration, 1);
+                
+                // Easing function (ease-out cubic)
+                const eased = 1 - Math.pow(1 - progress, 3);
+                currentScore = targetScore * eased;
+                
+                el.textContent = Math.floor(currentScore);
+                
+                if (progress < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    el.textContent = targetScore; // Garantir valor final exato
+                }
+            }
+            
+            requestAnimationFrame(animate);
+        }
+        
+        // ═══════════════════════════════════════════════════════════════
+        
         // 🎯 RENDERIZAR SCORES DO NOVO SISTEMA
         const renderNewScores = () => {
             // Verificar se temos scores calculados
@@ -5082,22 +5177,10 @@ function displayModalResults(analysis) {
                 </div>`;
             };
             
-            // Score final com destaque
-            const finalScoreHtml = Number.isFinite(scores.final) ? `
-                <div class="data-row" style="border: 2px solid rgba(0, 255, 255, 0.3); border-radius: 8px; padding: 12px; margin-bottom: 10px; background: rgba(0, 255, 255, 0.05);">
-                    <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <span class="label" style="font-size: 16px; font-weight: bold;">🏆 SCORE FINAL</span>
-                        <span style="font-size: 24px; font-weight: bold; color: ${scores.final >= 80 ? '#00ff92' : scores.final >= 60 ? '#ffd700' : scores.final >= 40 ? '#ff9500' : '#ff3366'};">
-                            ${Math.round(scores.final)}
-                        </span>
-                    </div>
-                    <div style="font-size: 12px; opacity: 0.7; margin-top: 4px;">
-                        Gênero: ${scores.genre || 'padrão'} • Ponderação adaptativa
-                    </div>
-                </div>
-            ` : '';
+            // 🎯 Score final REMOVIDO daqui - será renderizado no topo
+            // ❌ NÃO INCLUIR O SCORE FINAL AQUI - ele tem seu próprio container no topo
             
-            // Sub-scores
+            // ✅ Sub-scores permanecem no mesmo lugar (dentro do card Scores & Diagnóstico)
             const subScoresHtml = `
                 ${renderScoreProgressBar('Loudness', scores.loudness, '#ff3366', '🔊')}
                 ${renderScoreProgressBar('Frequência', scores.frequencia, '#00ffff', '🎵')}
@@ -5106,10 +5189,13 @@ function displayModalResults(analysis) {
                 ${renderScoreProgressBar('Técnico', scores.tecnico, '#00ff92', '🔧')}
             `;
             
-            return finalScoreHtml + subScoresHtml;
+            return subScoresHtml;
         };
         
         const scoreRows = renderNewScores();
+
+        // 🎯 RENDERIZAR SCORE FINAL NO TOPO (ISOLADO)
+        renderFinalScoreAtTop(analysis.scores);
 
         technicalData.innerHTML = `
             <div class="kpi-row">${scoreKpi}${timeKpi}</div>

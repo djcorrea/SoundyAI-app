@@ -1,0 +1,371 @@
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * 🎯 SCORE FINAL - DISPLAY FUTURISTA NO TOPO DA ANÁLISE
+ * ═══════════════════════════════════════════════════════════════
+ * Sistema visual tecnológico e responsivo para o score principal
+ * Mantém sub-scores inalterados na posição original
+ */
+
+/* ═══════════════════════════════════════════════════════════════
+   📦 CONTAINER PRINCIPAL
+   ═══════════════════════════════════════════════════════════════ */
+#final-score-display {
+  width: 100%;
+  text-align: center;
+  padding: 28px 20px;
+  background: rgba(10, 10, 20, 0.4);
+  backdrop-filter: blur(15px) saturate(180%);
+  -webkit-backdrop-filter: blur(15px) saturate(180%);
+  border-bottom: 1px solid rgba(127, 0, 255, 0.3);
+  box-shadow: 0 2px 18px rgba(127, 0, 255, 0.2);
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 24px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ✨ EFEITO DE VARREDURA ANIMADO (Background Sweep)
+   ═══════════════════════════════════════════════════════════════ */
+#final-score-display::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    120deg,
+    transparent,
+    rgba(127, 0, 255, 0.25),
+    transparent
+  );
+  animation: scoreSweep 8s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+@keyframes scoreSweep {
+  0% { 
+    transform: rotate(0deg) translateX(-50%); 
+  }
+  100% { 
+    transform: rotate(360deg) translateX(-50%); 
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   🔢 VALOR DO SCORE - Número Grande e Impactante
+   ═══════════════════════════════════════════════════════════════ */
+.score-final-value {
+  font-size: 5rem;
+  font-weight: 900;
+  letter-spacing: 3px;
+  background: linear-gradient(90deg, #7F00FF, #00FFFF, #7F00FF);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 0 25px rgba(0, 255, 255, 0.5), 
+               0 0 15px rgba(127, 0, 255, 0.5);
+  margin-bottom: 18px;
+  animation: fadeInScale 0.8s ease, gradientShift 4s linear infinite;
+  position: relative;
+  z-index: 1;
+  font-family: 'Orbitron', monospace, sans-serif;
+  line-height: 1;
+}
+
+/* Animação de entrada suave */
+@keyframes fadeInScale {
+  from { 
+    opacity: 0; 
+    transform: scale(0.85); 
+  }
+  to { 
+    opacity: 1; 
+    transform: scale(1); 
+  }
+}
+
+/* Animação de gradiente dinâmico */
+@keyframes gradientShift {
+  0% { 
+    background-position: 0% 50%; 
+  }
+  100% { 
+    background-position: 200% 50%; 
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   📝 LABEL DO SCORE
+   ═══════════════════════════════════════════════════════════════ */
+.score-final-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 12px;
+  position: relative;
+  z-index: 1;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   📊 BARRA DE PROGRESSO HORIZONTAL
+   ═══════════════════════════════════════════════════════════════ */
+.score-final-bar-container {
+  width: 100%;
+  max-width: 550px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.score-final-bar {
+  width: 100%;
+  height: 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  position: relative;
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.score-final-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #7F00FF, #00FFFF, #7F00FF);
+  background-size: 200% 100%;
+  animation: barGlow 4s linear infinite;
+  border-radius: 10px;
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Brilho interno da barra */
+.score-final-bar-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent
+  );
+  animation: barShine 2s ease-in-out infinite;
+}
+
+@keyframes barGlow {
+  0% { 
+    background-position: 0% 50%; 
+  }
+  100% { 
+    background-position: 200% 50%; 
+  }
+}
+
+@keyframes barShine {
+  0% { 
+    left: -100%; 
+  }
+  100% { 
+    left: 200%; 
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   💡 MENSAGEM DE STATUS (OPCIONAL)
+   ═══════════════════════════════════════════════════════════════ */
+.score-final-status {
+  margin-top: 14px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  letter-spacing: 1px;
+  position: relative;
+  z-index: 1;
+  opacity: 0.85;
+  font-family: 'Poppins', sans-serif;
+  animation: fadeIn 1s ease 0.5s both;
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(5px); 
+  }
+  to { 
+    opacity: 0.85; 
+    transform: translateY(0); 
+  }
+}
+
+/* Cores de status baseadas no score */
+.score-final-status.status-excellent {
+  color: #00ff92;
+}
+
+.score-final-status.status-good {
+  color: #ffd700;
+}
+
+.score-final-status.status-warning {
+  color: #ff9500;
+}
+
+.score-final-status.status-poor {
+  color: #ff3366;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   📱 RESPONSIVIDADE
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Tablets */
+@media (max-width: 768px) {
+  #final-score-display {
+    padding: 24px 16px;
+  }
+  
+  .score-final-value {
+    font-size: 4rem;
+    letter-spacing: 2px;
+  }
+  
+  .score-final-bar-container {
+    max-width: 90%;
+  }
+  
+  .score-final-bar {
+    height: 14px;
+  }
+}
+
+/* Mobile */
+@media (max-width: 480px) {
+  #final-score-display {
+    padding: 20px 12px;
+    margin-bottom: 16px;
+  }
+  
+  .score-final-value {
+    font-size: 3.5rem;
+    letter-spacing: 1.5px;
+    margin-bottom: 14px;
+  }
+  
+  .score-final-label {
+    font-size: 0.8rem;
+    letter-spacing: 1.5px;
+  }
+  
+  .score-final-bar-container {
+    max-width: 95%;
+  }
+  
+  .score-final-bar {
+    height: 12px;
+  }
+  
+  .score-final-status {
+    font-size: 0.75rem;
+    margin-top: 12px;
+  }
+}
+
+/* Mobile Small */
+@media (max-width: 360px) {
+  .score-final-value {
+    font-size: 3rem;
+  }
+  
+  .score-final-label {
+    font-size: 0.75rem;
+  }
+  
+  .score-final-bar {
+    height: 10px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ♿ ACESSIBILIDADE
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Reduzir animações para usuários com preferência de movimento reduzido */
+@media (prefers-reduced-motion: reduce) {
+  #final-score-display::before,
+  .score-final-value,
+  .score-final-bar-fill,
+  .score-final-bar-fill::after,
+  .score-final-status {
+    animation: none !important;
+  }
+  
+  .score-final-bar-fill {
+    transition: width 0.3s ease;
+  }
+}
+
+/* Alto contraste para acessibilidade */
+@media (prefers-contrast: high) {
+  #final-score-display {
+    border: 2px solid rgba(127, 0, 255, 0.8);
+    background: rgba(10, 10, 20, 0.9);
+  }
+  
+  .score-final-value {
+    text-shadow: none;
+    filter: contrast(1.5);
+  }
+  
+  .score-final-bar {
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   🎨 TEMA ESCURO (JÁ É PADRÃO, MAS GARANTINDO CONSISTÊNCIA)
+   ═══════════════════════════════════════════════════════════════ */
+@media (prefers-color-scheme: dark) {
+  #final-score-display {
+    background: rgba(10, 10, 20, 0.5);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   🖥️ IMPRESSÃO (OPCIONAL - CASO O USUÁRIO IMPRIMA O RELATÓRIO)
+   ═══════════════════════════════════════════════════════════════ */
+@media print {
+  #final-score-display {
+    background: white;
+    color: black;
+    border: 2px solid #333;
+    box-shadow: none;
+  }
+  
+  #final-score-display::before {
+    display: none;
+  }
+  
+  .score-final-value {
+    background: none;
+    -webkit-text-fill-color: black;
+    text-shadow: none;
+  }
+  
+  .score-final-bar {
+    background: #f0f0f0;
+    border: 1px solid #ccc;
+  }
+  
+  .score-final-bar-fill {
+    background: #7F00FF !important;
+    animation: none !important;
+  }
+}
