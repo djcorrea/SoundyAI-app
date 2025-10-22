@@ -5064,3 +5064,51 @@ details[open] summary {
     box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.3);
 }
 
+/* ========================================================================
+   PATCH DESKTOP: Remove espaço branco no topo dos cards (≥1024px)
+   Blindagem CSS + Grid alignment para eliminar whitespace phantom
+   ======================================================================== */
+@media (min-width: 1024px) {
+  /* Força os itens do grid a encostarem no topo em desktops */
+  .cards-grid {
+    align-items: start !important;
+    align-content: start !important;
+  }
+
+  /* Cada card vira um mini-grid que "cola" o primeiro filho no topo */
+  .cards-grid .card {
+    display: grid !important;
+    align-content: start !important;    /* conteúdo colado no topo */
+    justify-items: stretch !important;
+    /* Blindagem contra alturas geradas por linha base / whitespace em desktop */
+    line-height: 0 !important;
+    padding-top: 24px !important;       /* mantém o padding superior padrão */
+  }
+
+  /* Restaura a tipografia apenas para elementos reais, não para nós de texto */
+  .cards-grid .card > * {
+    line-height: normal !important;
+    font-size: inherit !important;
+  }
+
+  /* O primeiro elemento visível do card NUNCA pode ter margem superior */
+  .cards-grid .card > *:first-child {
+    margin-top: 0 !important;
+  }
+
+  /* Garante que o título comporta-se como bloco real e sem deslocamento */
+  .cards-grid .card > .card-title {
+    display: block !important;
+    margin-top: 0 !important;
+    margin-bottom: 20px !important;
+  }
+
+  /* Se houver qualquer wrapper antes do título, zera margens e colas no topo */
+  .cards-grid .card > .header,
+  .cards-grid .card > .card-header,
+  .cards-grid .card > .kpi,
+  .cards-grid .card > .summary {
+    margin-top: 0 !important;
+  }
+}
+
