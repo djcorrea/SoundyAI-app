@@ -3851,7 +3851,11 @@ function displayModalResults(analysis) {
                 ? window.enhanceRowLabel(label, keyForSource) 
                 : label;
             
-            return `<div class="data-row"${keyForSource?src(keyForSource):''}><span class="label">${enhancedLabel}</span><span class="value">${valHtml}</span></div>`;
+            return `
+                <div class="data-row"${keyForSource?src(keyForSource):''}>
+                    <span class="label">${enhancedLabel}</span>
+                    <span class="value">${valHtml}</span>
+                </div>`;
         };
 
         // 🎯 CENTRALIZAÇÃO DAS MÉTRICAS - Funções de acesso unificado
@@ -3916,7 +3920,7 @@ function displayModalResults(analysis) {
             (advancedReady && Number.isFinite(getLufsIntegratedValue()) ? row('LUFS Integrado (EBU R128)', `${safeFixed(getLufsIntegratedValue())} LUFS`, 'lufsIntegrated') : ''),
             (advancedReady && Number.isFinite(getMetric('lufs_short_term', 'lufsShortTerm')) ? row('LUFS Curto Prazo', `${safeFixed(getMetric('lufs_short_term', 'lufsShortTerm'))} LUFS`, 'lufsShortTerm') : ''),
             (advancedReady && Number.isFinite(getMetric('lufs_momentary', 'lufsMomentary')) ? row('LUFS Momentâneo', `${safeFixed(getMetric('lufs_momentary', 'lufsMomentary'))} LUFS`, 'lufsMomentary') : '')
-            ].filter(Boolean).join('');
+            ].join('');
 
         const col2 = [
             row('Correlação Estéreo (largura)', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 3) : '—', 'stereoCorrelation'),
@@ -3928,7 +3932,7 @@ function displayModalResults(analysis) {
             // REMOVED: zero crossing rate - not used in scoring, placeholder only
             // REMOVED: Mudança Espectral - not used in scoring, placeholder only
             // REMOVED: Uniformidade (linear vs peaks) - feeds score but buggy, hide UI
-        ].filter(Boolean).join('');
+        ].join('');
 
             // REMOVED: col3Extras (Dominant Frequencies)  
             // Reason: REMOVAL_SKIPPED_USED_BY_SCORE:dominantFrequencies - usado por enhanced-suggestion-engine.js
@@ -3953,7 +3957,7 @@ function displayModalResults(analysis) {
                 // REMOVED: Problemas - ocultado da interface conforme solicitado
                 row('Sugestões', (analysis.suggestions?.length || 0) > 0 ? `<span class="tag tag-success">${analysis.suggestions.length} disponível(s)</span>` : '—')
                 // REMOVED: col3Extras (dominant frequencies UI)
-            ].filter(Boolean).join('');
+            ].join('');
 
             // Card extra: Métricas Avançadas (expandido para Web Audio API compatibility)
             const advancedMetricsCard = () => {
@@ -5208,41 +5212,40 @@ function displayModalResults(analysis) {
 
         technicalData.innerHTML = `
             <div class="kpi-row">${scoreKpi}${timeKpi}</div>
-                ${renderSmartSummary(analysis) }
-                    <div class="cards-grid">
-                        <div class="card">
+            ${renderSmartSummary(analysis)}
+            <div class="cards-grid">
+                <div class="card">
                     <div class="card-title">🎛️ Métricas Principais</div>
                     ${col1}
                 </div>
-                        <div class="card">
+                <div class="card">
                     <div class="card-title">🎧 Análise Estéreo & Espectral</div>
                     ${col2}
                 </div>
-                        <!-- REMOVED: 🔊 Bandas Espectrais (Consolidado) - duplicação removida, mantida apenas em Métricas Avançadas -->
-                        
-                        <div class="card">
-                    <div class="card-title">�🏆 Scores & Diagnóstico</div>
+                <!-- REMOVED: 🔊 Bandas Espectrais (Consolidado) - duplicação removida, mantida apenas em Métricas Avançadas -->
+                <div class="card">
+                    <div class="card-title">🏆 Scores & Diagnóstico</div>
                     ${scoreRows}
                     ${col3}
                 </div>
-                        <div class="card">
-                            <div class="card-title">📊 Métricas Avançadas (Technical)</div>
-                            ${advancedMetricsCard()}
-                        </div>
-                        <!-- Card "Problemas Técnicos" removido conforme solicitado -->
-                        <!-- 
-                        <div class="card card-span-2">
-                            <div class="card-title">⚠️ Problemas Técnicos</div>
-                            ${techProblems()}
-                        </div>
-                        -->
-                        <!-- Card "Diagnóstico & Sugestões" removido conforme solicitado -->
-                        <!-- 
-                        <div class="card card-span-2">
-                            <div class="card-title">🩺 Diagnóstico & Sugestões</div>
-                            ${diagCard()}
-                        </div>
-                        -->
+                <div class="card">
+                    <div class="card-title">📊 Métricas Avançadas (Technical)</div>
+                    ${advancedMetricsCard()}
+                </div>
+                <!-- Card "Problemas Técnicos" removido conforme solicitado -->
+                <!-- 
+                <div class="card card-span-2">
+                    <div class="card-title">⚠️ Problemas Técnicos</div>
+                    ${techProblems()}
+                </div>
+                -->
+                <!-- Card "Diagnóstico & Sugestões" removido conforme solicitado -->
+                <!-- 
+                <div class="card card-span-2">
+                    <div class="card-title">🩺 Diagnóstico & Sugestões</div>
+                    ${diagCard()}
+                </div>
+                -->
             </div>
         `;
     
