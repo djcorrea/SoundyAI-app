@@ -1,10 +1,33 @@
 // 🚨 FORCE CACHE BUST - 1692582547
 // ✅ CORREÇÃO CRÍTICA: decoded is not defined fixed!
+// 🎯 SISTEMA AVANÇADO: Intent detection + Token management + Context injection
 import { auth, db } from './firebaseAdmin.js';
 import { FieldValue, Timestamp } from 'firebase-admin/firestore';
 import cors from 'cors';
 import formidable from 'formidable';
 import fs from 'fs';
+
+// 🎯 IMPORTAR HELPERS AVANÇADOS (com fallback para compatibilidade)
+import { 
+  prepareAnalysisForPrompt, 
+  formatAnalysisAsText 
+} from './helpers/analysis-prompt-filter.js';
+
+import { 
+  classifyIntent, 
+  isMixAnalysisMessage 
+} from './helpers/intent-classifier.js';
+
+import { 
+  prepareMessagesWithBudget,
+  validateTokenBudget 
+} from './helpers/token-budget-validator.js';
+
+import { 
+  getSystemPromptForIntent,
+  getPromptConfigForIntent,
+  injectUserContext 
+} from './helpers/advanced-system-prompts.js';
 
 // ✅ CORREÇÃO: Configuração para suporte a multipart
 export const config = {
@@ -200,6 +223,10 @@ const MAX_IMAGE_MB = 10;
 const MAX_IMAGE_SIZE = MAX_IMAGE_MB * 1024 * 1024;
 const MAX_TOTAL_PAYLOAD_SIZE = MAX_TOTAL_PAYLOAD_MB * 1024 * 1024;
 const MAX_IMAGE_ANALYSIS_TOKENS = 1500;
+
+// 🎯 NOVO: Configurações para seleção de modelo
+const MAX_TEXT_RESPONSE_TOKENS = 1500; // Máximo para respostas texto
+const GPT4_COMPLEXITY_THRESHOLD = 7; // Score mínimo para usar GPT-4o
 
 // ✅ CRÍTICO: Validação robusta de magic bytes
 function validateImageMagicBytes(buffer) {
@@ -978,31 +1005,85 @@ export default async function handler(req, res) {
       }
     }
 
-    // Preparar mensagens para a IA
-    const messages = [];
+    // 🎯 SISTEMA AVANÇADO: Intent Detection + Context Injection + Token Management
+    let detectedIntent = null;
+    let intentInfo = null;
     
-    // System prompt baseado no tipo de análise
-    if (hasImages) {
-      messages.push({
-        role: 'system',
-        content: SYSTEM_PROMPTS.imageAnalysis
+    try {
+      // 🎯 PASSO 1: Detectar intent da mensagem
+      intentInfo = classifyIntent(message, conversationHistory);
+      detectedIntent = intentInfo.intent;
+      
+      console.log(`🎯 Intent detectado: ${detectedIntent}`, {
+        confidence: intentInfo.confidence,
+        reasoning: intentInfo.reasoning
       });
-    } else {
-      messages.push({
-        role: 'system', 
-        content: SYSTEM_PROMPTS.default
-      });
+    } catch (intentError) {
+      console.warn('⚠️ Erro ao classificar intent, usando fallback:', intentError.message);
+      detectedIntent = 'GENERAL';
     }
 
-    // Adicionar histórico de conversa
-    for (const msg of conversationHistory) {
+    // 🎯 PASSO 2: Preparar contexto do usuário (DAW, gênero, nível)
+    const userContext = {
+      daw: userData.perfil?.daw || null,
+      genre: userData.perfil?.generoPreferido || null,
+      level: userData.perfil?.nivelExperiencia || null
+    };
+    
+    console.log('📋 Contexto do usuário:', userContext);
+
+    // 🎯 PASSO 3: Selecionar system prompt baseado no intent
+    let baseSystemPrompt;
+    let promptConfig;
+    
+    try {
+      baseSystemPrompt = getSystemPromptForIntent(detectedIntent, hasImages);
+      promptConfig = getPromptConfigForIntent(detectedIntent, hasImages);
+      
+      // Injetar contexto do usuário no system prompt
+      const systemPromptWithContext = injectUserContext(baseSystemPrompt, userContext);
+      
+      console.log(`🎯 System prompt selecionado para intent: ${detectedIntent}`, {
+        temperature: promptConfig.temperature,
+        maxTokens: promptConfig.maxTokens,
+        preferredModel: promptConfig.preferredModel,
+        hasContext: !!(userContext.daw || userContext.genre || userContext.level)
+      });
+      
+      baseSystemPrompt = systemPromptWithContext;
+      
+    } catch (promptError) {
+      console.warn('⚠️ Erro ao selecionar prompt, usando fallback:', promptError.message);
+      // Fallback para prompts antigos (compatibilidade)
+      baseSystemPrompt = hasImages ? SYSTEM_PROMPTS.imageAnalysis : SYSTEM_PROMPTS.default;
+      promptConfig = {
+        temperature: 0.7,
+        maxTokens: hasImages ? 1500 : 1000,
+        preferredModel: hasImages ? 'gpt-4o' : 'gpt-3.5-turbo'
+      };
+    }
+
+    // 🎯 PASSO 4: Preparar mensagens para a IA
+    const messages = [];
+    
+    // System prompt (já com contexto injetado)
+    messages.push({
+      role: 'system',
+      content: baseSystemPrompt
+    });
+
+    // 🎯 PASSO 5: Adicionar histórico (expandido de 5 para 10 mensagens)
+    const historyLimit = 10; // Melhorado de 5 para 10
+    const recentHistory = conversationHistory.slice(-historyLimit);
+    
+    for (const msg of recentHistory) {
       messages.push({
         role: msg.role,
         content: msg.content
       });
     }
 
-    // Preparar mensagem do usuário
+    // 🎯 PASSO 6: Preparar mensagem do usuário
     const userMessage = {
       role: 'user',
       content: hasImages ? [
@@ -1019,8 +1100,24 @@ export default async function handler(req, res) {
 
     messages.push(userMessage);
 
-    // ✅ OTIMIZAÇÃO: Seleção inteligente de modelo para reduzir gastos de tokens
-    modelSelection = selectOptimalModel(hasImages, conversationHistory, message);
+    // 🎯 PASSO 7: Seleção inteligente de modelo (usa intent detectado)
+    modelSelection = selectOptimalModel(hasImages, conversationHistory, message, detectedIntent);
+    
+    // 🎯 PASSO 8: Sobrescrever com preferência do intent se aplicável
+    if (promptConfig && promptConfig.preferredModel) {
+      const intentPreferredModel = promptConfig.preferredModel;
+      
+      // Apenas sobrescrever se for upgrade (nunca downgrade de gpt-4o para gpt-3.5)
+      if (intentPreferredModel === 'gpt-4o' && modelSelection.model === 'gpt-3.5-turbo') {
+        console.log(`🎯 Upgrade de modelo: ${modelSelection.model} → ${intentPreferredModel} (intent: ${detectedIntent})`);
+        modelSelection = {
+          model: intentPreferredModel,
+          reason: `INTENT_PREFERENCE_${detectedIntent}`,
+          maxTokens: promptConfig.maxTokens,
+          temperature: promptConfig.temperature
+        };
+      }
+    }
     
     // ✅ SEGURANÇA CRÍTICA: Garantir GPT-4o para imagens (double-check)
     if (hasImages && modelSelection.model !== 'gpt-4o') {
@@ -1032,11 +1129,47 @@ export default async function handler(req, res) {
         temperature: 0.7
       };
     }
+
+    // 🎯 PASSO 9: Validar e otimizar orçamento de tokens
+    let finalMessages = messages;
+    let tokenBudgetInfo = null;
+    
+    try {
+      const budgetResult = prepareMessagesWithBudget(
+        messages, 
+        modelSelection.model, 
+        modelSelection.maxTokens
+      );
+      
+      finalMessages = budgetResult.messages;
+      tokenBudgetInfo = budgetResult.budget;
+      
+      if (budgetResult.trimmed) {
+        console.log(`⚠️ Histórico reduzido: ${budgetResult.removedCount} mensagens removidas para caber no orçamento`);
+      }
+      
+      console.log(`📊 Token Budget:`, {
+        input: tokenBudgetInfo.usage.inputTokens,
+        maxOutput: tokenBudgetInfo.usage.maxOutputTokens,
+        total: tokenBudgetInfo.usage.totalEstimated,
+        limit: tokenBudgetInfo.usage.limit,
+        margin: tokenBudgetInfo.usage.margin,
+        valid: tokenBudgetInfo.valid
+      });
+      
+    } catch (budgetError) {
+      console.warn('⚠️ Erro ao validar token budget, usando mensagens sem trimming:', budgetError.message);
+      // Continuar com mensagens originais em caso de erro
+      finalMessages = messages;
+    }
     
     console.log(`🤖 Usando modelo: ${modelSelection.model}`, {
       reason: modelSelection.reason,
       maxTokens: modelSelection.maxTokens,
-      hasImages: hasImages
+      temperature: modelSelection.temperature,
+      hasImages: hasImages,
+      intent: detectedIntent,
+      messageCount: finalMessages.length
     });
 
     // ✅ TIMEOUT CONFIGURÁVEL baseado na complexidade
@@ -1054,7 +1187,7 @@ export default async function handler(req, res) {
       signal: controller.signal,
       body: JSON.stringify({
         model: modelSelection.model,
-        messages: messages,
+        messages: finalMessages, // 🎯 Usando mensagens otimizadas
         max_tokens: modelSelection.maxTokens,
         temperature: modelSelection.temperature,
       }),
