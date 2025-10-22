@@ -5207,6 +5207,21 @@ function displayModalResults(analysis) {
         
         const scoreRows = renderNewScores();
 
+        // 🔹 Função utilitária: Remove nós de texto vazios (whitespace) dentro dos cards
+        function normalizeCardWhitespace(root = document) {
+            const cards = root.querySelectorAll('.cards-grid .card');
+            cards.forEach((card) => {
+                // Remove nós de texto que sejam apenas whitespace (espaços/linhas)
+                const toRemove = [];
+                card.childNodes.forEach((n) => {
+                    if (n.nodeType === Node.TEXT_NODE && !/\S/.test(n.nodeValue || '')) {
+                        toRemove.push(n);
+                    }
+                });
+                toRemove.forEach((n) => n.parentNode.removeChild(n));
+            });
+        }
+
         // 🎯 RENDERIZAR SCORE FINAL NO TOPO (ISOLADO)
         renderFinalScoreAtTop(analysis.scores);
 
@@ -5249,10 +5264,22 @@ function displayModalResults(analysis) {
             </div>
         `;
     
-    try { renderReferenceComparisons(analysis); } catch(e){ console.warn('ref compare fail', e);}    
+        // 🔹 Sanitizar DOM: Remove nós de texto vazios que criam espaço extra
+        normalizeCardWhitespace(technicalData);
+    
+        try { renderReferenceComparisons(analysis); } catch(e){ console.warn('ref compare fail', e);}    
         try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ console.warn('validation controls fail', e); }
-    __dbg('📊 Resultados exibidos no modal');
-}
+        
+        // 🔍 Verificação de debug: Detecta whitespace restante
+        if (window.DEBUG_ANALYZER) {
+            document.querySelectorAll('.cards-grid .card').forEach((card, i) => {
+                const ghosts = [...card.childNodes].filter(n => n.nodeType === 3 && !/\S/.test(n.nodeValue || ''));
+                if (ghosts.length) console.warn(`Card #${i+1}: whitespace nodes restantes`, ghosts);
+            });
+        }
+        
+        __dbg('📊 Resultados exibidos no modal');
+    }
 
     // === Controles de Validação (Suite Objetiva + Subjetiva) ===
     function injectValidationControls(){
