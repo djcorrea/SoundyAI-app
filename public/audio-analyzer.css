@@ -1936,7 +1936,26 @@ details[open] summary {
     position: relative;
     overflow: hidden;
     transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
+    
+    /* 🛡️ Normalização: Remove altura de nós de texto vazios (whitespace invisível) */
+    font-size: 0;
 }
+
+/* Restaura tamanho de fonte para elementos reais dentro do card */
+.card > * {
+    font-size: 16px;
+}
+
+/* Garante que o título sempre comece no topo do card */
+.card > .card-title:first-child {
+    margin-top: 0 !important;
+}
+
+/* Remove margin-top de qualquer primeiro elemento do card (prevenção adicional) */
+.card > *:first-child {
+    margin-top: 0 !important;
+}
+
 .card::before {
     content: '';
     position: absolute;
@@ -1968,6 +1987,7 @@ details[open] summary {
     color: #00ffff;
     font-weight: 800;
     font-size: 16px;
+    margin-top: 0;
     margin-bottom: 20px;
     text-transform: uppercase;
     letter-spacing: 1px;
