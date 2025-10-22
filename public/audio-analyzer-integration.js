@@ -5222,6 +5222,19 @@ function displayModalResults(analysis) {
             });
         }
 
+        // 🔹 Alias para compatibilidade com nomenclatura alternativa
+        function stripEmptyTextNodesInCards(root = document) {
+            root.querySelectorAll('.cards-grid .card').forEach((card) => {
+                const garbage = [];
+                card.childNodes.forEach((n) => {
+                    if (n.nodeType === Node.TEXT_NODE && !/\S/.test(n.nodeValue || '')) {
+                        garbage.push(n);
+                    }
+                });
+                garbage.forEach((n) => n.remove());
+            });
+        }
+
         // 🎯 RENDERIZAR SCORE FINAL NO TOPO (ISOLADO)
         renderFinalScoreAtTop(analysis.scores);
 
@@ -5266,6 +5279,7 @@ function displayModalResults(analysis) {
     
         // 🔹 Sanitizar DOM: Remove nós de texto vazios que criam espaço extra
         normalizeCardWhitespace(technicalData);
+        stripEmptyTextNodesInCards(technicalData);
     
         try { renderReferenceComparisons(analysis); } catch(e){ console.warn('ref compare fail', e);}    
         try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ console.warn('validation controls fail', e); }
