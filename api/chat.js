@@ -1083,11 +1083,46 @@ export default async function handler(req, res) {
       });
     }
 
-    // 🎯 PASSO 6: Preparar mensagem do usuário
+    // 🎯 PASSO 6: Filtrar e otimizar mensagem (se for análise de mix)
+    let optimizedMessage = message;
+    
+    if (detectedIntent === 'MIX_ANALYZER_HELP' && !hasImages) {
+      try {
+        // Tentar extrair JSON da mensagem
+        const jsonMatch = message.match(/### JSON_DATA\s*\n([\s\S]*?)\n### END_JSON/);
+        
+        if (jsonMatch) {
+          const jsonData = JSON.parse(jsonMatch[1]);
+          
+          // Usar helper para criar versão otimizada
+          const filteredAnalysis = prepareAnalysisForPrompt(jsonData);
+          const optimizedText = formatAnalysisAsText(filteredAnalysis);
+          
+          // Extrair cabeçalho original (antes do JSON)
+          const headerMatch = message.match(/^(.*?)(?=### JSON_DATA)/s);
+          const header = headerMatch ? headerMatch[1].trim() : '🎵 Análise de áudio para consultoria';
+          
+          optimizedMessage = `${header}\n\n${optimizedText}`;
+          
+          console.log(`🎯 Mensagem de análise otimizada:`, {
+            originalLength: message.length,
+            optimizedLength: optimizedMessage.length,
+            reduction: `${Math.round((1 - optimizedMessage.length / message.length) * 100)}%`
+          });
+        } else {
+          console.log('⚠️ JSON_DATA não encontrado, usando mensagem original');
+        }
+      } catch (filterError) {
+        console.warn('⚠️ Erro ao filtrar análise, usando mensagem original:', filterError.message);
+        // Continuar com mensagem original
+      }
+    }
+    
+    // Preparar mensagem do usuário (otimizada se aplicável)
     const userMessage = {
       role: 'user',
       content: hasImages ? [
-        { type: 'text', text: message },
+        { type: 'text', text: optimizedMessage },
         ...images.map(img => ({
           type: 'image_url',
           image_url: {
@@ -1095,7 +1130,7 @@ export default async function handler(req, res) {
             detail: 'high'
           }
         }))
-      ] : message
+      ] : optimizedMessage
     };
 
     messages.push(userMessage);
