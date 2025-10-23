@@ -2690,59 +2690,60 @@ class EnhancedSuggestionEngine {
                 return suggestion;
             }
             
-            // 🎯 CORREÇÃO: Calcular delta de forma consistente
+            // 🎯 CORREÇÃO: Calcular delta real para referência técnica
             // Delta = current - target (positivo = atual maior que alvo = reduzir)
-            const delta = currentValue - targetValue;
+            const realDelta = currentValue - targetValue;
             
-            // 🎯 LÓGICA SEGURA: Aplicar critério solicitado
-            if (typeof delta === "number" && !isNaN(delta)) {
-                // Atualizar dados técnicos com valores corretos
-                const updatedTechnical = {
-                    ...technical,
-                    value: currentValue,
-                    target: targetValue,
-                    delta: delta,
-                    currentValue: currentValue,
-                    targetValue: targetValue
-                };
-                
-                // Verificar se o action contém valores fixos problemáticos
+            // 🎯 APLICAR MAPEAMENTO PROGRESSIVO (não recalcular com valor bruto!)
+            if (typeof realDelta === "number" && !isNaN(realDelta)) {
+                // Verificar se action já foi mapeado corretamente
                 const currentAction = suggestion.action || '';
-                const hasFixedValues = /\b(?:6\.0|4\.0)\s*dB\b/.test(currentAction);
                 
-                if (!hasFixedValues && currentAction.includes(Math.abs(delta).toFixed(1))) {
-                    // Action já correto com valor real, apenas garantir que technical está atualizado
-                    this.logAudit('POST_PROCESS_KEEP', `Action já correto para banda ${suggestion.subtype}`, {
+                // Verificar se o action contém um valor mapeado válido (1-6 dB)
+                const actionMatch = currentAction.match(/(\d+\.?\d*)\s*dB/);
+                const actionValue = actionMatch ? parseFloat(actionMatch[1]) : null;
+                
+                // Se o action já tem valor mapeado (≤6 dB), manter
+                if (actionValue && actionValue <= 6.0) {
+                    this.logAudit('POST_PROCESS_KEEP', `Action já mapeado corretamente: ${suggestion.subtype}`, {
                         band: suggestion.subtype,
                         action: currentAction,
-                        delta: delta,
+                        mappedValue: actionValue,
+                        realDelta: realDelta,
                         source: 'postProcessBandSuggestions'
                     });
                     
+                    // Atualizar apenas dados técnicos
                     return { 
                         ...suggestion, 
-                        technical: updatedTechnical,
+                        technical: {
+                            ...technical,
+                            value: currentValue,
+                            target: targetValue,
+                            delta: realDelta,
+                            currentValue: currentValue,
+                            targetValue: targetValue
+                        },
                         currentValue: currentValue,
                         targetValue: targetValue
                     };
                 }
                 
-                // 🎯 APLICAR LÓGICA SEGURA SOLICITADA
-                const direction = delta > 0 ? "Reduzir" : "Aumentar";
-                const amount = Math.abs(delta).toFixed(1);
+                // Se chegou aqui, o action tem valor bruto - aplicar mapeamento
+                const mappedDelta = this.scorer.mapBoostToPracticalRange(Math.abs(realDelta));
+                const direction = realDelta > 0 ? "Reduzir" : "Aumentar";
                 const bandName = this.getBandDisplayName(suggestion.subtype || suggestion.band);
                 
-                // Atualizar action e diagnosis
-                const newAction = `${direction} ${bandName} em ${amount} dB`;
-                const newDiagnosis = `Atual: ${currentValue.toFixed(1)} dB, Alvo: ${targetValue.toFixed(1)} dB, Diferença: ${amount} dB`;
+                // Gerar action com valor mapeado e diagnosis com diferença real
+                const newAction = `${direction} ${bandName} em ${mappedDelta.toFixed(1)} dB`;
+                const newDiagnosis = `Atual: ${currentValue.toFixed(1)} dB, Alvo: ${targetValue.toFixed(1)} dB, Diferença real: ${Math.abs(realDelta).toFixed(1)} dB → Sugestão: ${mappedDelta.toFixed(1)} dB`;
                 
-                this.logAudit('ACTION_CORRECTED', `Action corrigido para banda ${suggestion.subtype}`, {
+                this.logAudit('ACTION_MAPPED', `Action mapeado para banda ${suggestion.subtype}`, {
                     band: suggestion.subtype,
                     oldAction: currentAction,
                     newAction: newAction,
-                    currentValue: currentValue,
-                    targetValue: targetValue,
-                    delta: delta,
+                    realDelta: realDelta,
+                    mappedDelta: mappedDelta,
                     source: 'postProcessBandSuggestions'
                 });
                 
@@ -2750,7 +2751,15 @@ class EnhancedSuggestionEngine {
                     ...suggestion,
                     action: newAction,
                     diagnosis: newDiagnosis,
-                    technical: updatedTechnical,
+                    technical: {
+                        ...technical,
+                        value: currentValue,
+                        target: targetValue,
+                        delta: realDelta,
+                        mappedDelta: mappedDelta,
+                        currentValue: currentValue,
+                        targetValue: targetValue
+                    },
                     currentValue: currentValue,
                     targetValue: targetValue
                 };
@@ -2760,8 +2769,8 @@ class EnhancedSuggestionEngine {
                     band: suggestion.subtype,
                     currentValue,
                     targetValue,
-                    delta,
-                    deltaType: typeof delta
+                    realDelta,
+                    deltaType: typeof realDelta
                 });
                 
                 return {

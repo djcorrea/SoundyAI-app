@@ -3,7 +3,34 @@
 
 class SuggestionScorer {
     constructor() {
-        // 🎨 Configuração de pesos por tipo de métrica
+        // � FUNÇÃO DE MAPEAMENTO PROGRESSIVO DE BOOST
+        // Mapeia diferenças reais para sugestões pedagógicas e realistas
+        this.mapBoostToPracticalRange = function(realDelta) {
+            const absDelta = Math.abs(realDelta);
+            
+            // Faixa 1: 0-3 dB → +1 a +2 dB (ajuste fino)
+            if (absDelta <= 3) {
+                return Math.max(1, Math.min(2, absDelta));
+            }
+            
+            // Faixa 2: 4-8 dB → +2 a +4 dB (ajuste moderado)
+            if (absDelta <= 8) {
+                const normalized = (absDelta - 3) / 5; // 0→1
+                return 2 + (normalized * 2);            // 2→4 dB
+            }
+            
+            // Faixa 3: 9-14 dB → +4 a +5 dB (ajuste significativo)
+            if (absDelta <= 14) {
+                const normalized = (absDelta - 8) / 6; // 0→1
+                return 4 + normalized;                  // 4→5 dB
+            }
+            
+            // Faixa 4: ≥15 dB → +5 a +6 dB (ajuste máximo assintótico)
+            const normalized = Math.min(1, (absDelta - 14) / 10); // 0→1 (gradual)
+            return 5 + normalized;                                 // 5→6 dB (máximo)
+        };
+        
+        // �🎨 Configuração de pesos por tipo de métrica
         this.weights = {
             // Métricas principais
             lufs: 1.0,          // LUFS - crítico para streaming
@@ -301,7 +328,7 @@ class SuggestionScorer {
         // 🎯 LIMITAÇÃO INTELIGENTE DO DELTA PARA SUGESTÕES REALISTAS
         let limitedDelta = delta;
         
-        // Limitar delta baseado no tipo de métrica
+        // 🎯 CORREÇÃO: Aplicar mapeamento progressivo para todas as métricas
         if (metricType === 'lufs') {
             limitedDelta = Math.min(delta, 6.0); // Máximo 6dB para LUFS
         } else if (metricType === 'true_peak') {
@@ -309,27 +336,26 @@ class SuggestionScorer {
         } else if (metricType === 'dr') {
             limitedDelta = Math.min(delta, 4.0); // Máximo 4dB para DR
         } else if (metricType === 'band') {
-            // 🎯 CORREÇÃO: Usar delta real para bandas de referenceComparison
-            if (type === 'reference_band_comparison') {
-                limitedDelta = delta; // Sem limitação para dados reais de referência
-            } else {
-                limitedDelta = Math.min(delta, 6.0); // Máximo 6dB para bandas genéricas
-            }
+            // 🎯 APLICAR MAPEAMENTO PROGRESSIVO PARA TODAS AS BANDAS
+            limitedDelta = this.mapBoostToPracticalRange(delta);
         } else {
             limitedDelta = Math.min(delta, 8.0); // Máximo geral 8dB
         }
         
-        // Arredondar para valores práticos
-        if (limitedDelta > 3) {
-            limitedDelta = Math.round(limitedDelta); // Números inteiros para valores altos
-        } else {
-            limitedDelta = Math.round(limitedDelta * 2) / 2; // Múltiplos de 0.5 para valores baixos
+        // Arredondar para valores práticos (apenas para não-bandas)
+        if (metricType !== 'band') {
+            if (limitedDelta > 3) {
+                limitedDelta = Math.round(limitedDelta); // Números inteiros para valores altos
+            } else {
+                limitedDelta = Math.round(limitedDelta * 2) / 2; // Múltiplos de 0.5 para valores baixos
+            }
         }
         
         this.logAudit && this.logAudit('DELTA_LIMITED', 'Delta limitado para sugestão realista', {
             originalDelta: delta.toFixed(2),
             limitedDelta: limitedDelta.toFixed(1),
-            metricType
+            metricType,
+            mappingApplied: metricType === 'band'
         });
         
         // Selecionar template
@@ -352,21 +378,25 @@ class SuggestionScorer {
             .replace('{freq}', freq || '')
             .replace('{delta}', limitedDelta.toFixed(1));
             
-        // 🎯 CORREÇÃO: Gerar action com delta real para bandas de referenceComparison e band_adjust
+        // 🎯 CORREÇÃO: Gerar action com limitedDelta (valor mapeado) para todas as bandas
         let action, diagnosis;
         if ((type === 'reference_band_comparison' || type === 'band_adjust') && Number.isFinite(value) && Number.isFinite(target)) {
-            // Usar delta real sem limitação para dados de referência e band_adjust
+            // Calcular delta real para referência técnica
             const realDelta = target - value;
             const direction = realDelta > 0 ? "Aumentar" : "Reduzir";
-            const amount = Math.abs(realDelta).toFixed(1);
+            
+            // 🎯 USAR VALOR MAPEADO (limitedDelta) no action
+            const amount = limitedDelta.toFixed(1);
             const bandRange = this.bandRanges[band] || '';
             
             action = `${direction} ${band || metricType} em ${amount} dB${bandRange ? ` (${bandRange})` : ''}`;
-            diagnosis = `Atual: ${value.toFixed(1)} dB, Alvo: ${target.toFixed(1)} dB, Diferença: ${realDelta.toFixed(1)} dB`;
             
-            // Log de verificação solicitado
+            // Diagnosis mostra diferença real como dado técnico
+            diagnosis = `Atual: ${value.toFixed(1)} dB, Alvo: ${target.toFixed(1)} dB, Diferença real: ${Math.abs(realDelta).toFixed(1)} dB → Sugestão: ${amount} dB`;
+            
+            // Log de verificação
             if (typeof console !== 'undefined') {
-                console.log(`🎯 [SUGGESTION_FINAL] ${band || metricType}: value=${value.toFixed(1)}, ideal=${target.toFixed(1)}, delta=${realDelta.toFixed(1)}`);
+                console.log(`🎯 [SUGGESTION_MAPPED] ${band || metricType}: value=${value.toFixed(1)}, target=${target.toFixed(1)}, realDelta=${realDelta.toFixed(1)}, mappedDelta=${amount}`);
             }
         } else {
             // Usar template padrão com limitedDelta
@@ -415,22 +445,8 @@ class SuggestionScorer {
             details: `Δ=${delta.toFixed(2)} • z=${zScore.toFixed(2)} • ${severity.label} • conf=${confidence.toFixed(2)} • prior=${priority.toFixed(3)}`
         };
         
-        // 🎯 VERIFICAÇÃO ADICIONAL: Se a sugestão já tem technical.delta, corrigir a action
-        if (returnedSuggestion.technical.delta !== null && 
-            (type === 'band_adjust' || metricType === 'band') && 
-            !action.includes(Math.abs(returnedSuggestion.technical.delta).toFixed(1))) {
-            
-            const technicalDelta = returnedSuggestion.technical.delta;
-            const direction = technicalDelta > 0 ? "Aumentar" : "Reduzir";
-            const amount = Math.abs(technicalDelta).toFixed(1);
-            const bandRange = this.bandRanges[band] || '';
-            
-            returnedSuggestion.action = `${direction} ${band || metricType} em ${amount} dB${bandRange ? ` (${bandRange})` : ''}`;
-            
-            if (typeof console !== 'undefined') {
-                console.log(`🎯 [SUGGESTION_FINAL_CORRECTED] ${band || metricType}: technical.delta=${technicalDelta.toFixed(1)}, action corrected`);
-            }
-        }
+        // 🎯 REMOVIDO: Verificação redundante que recalculava delta bruto
+        // O action já foi gerado corretamente com limitedDelta acima
         
         return returnedSuggestion;
     }
