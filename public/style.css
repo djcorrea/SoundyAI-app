@@ -1424,4 +1424,272 @@ body {
     }
 }
 
+/* ════════════════════════════════════════════════════════════
+   🎴 SISTEMA DE CARDS EDUCACIONAIS - GLASS EFFECT
+   ════════════════════════════════════════════════════════════ */
+
+/* Container principal de cards */
+.ai-cards-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+}
+
+/* Card principal - Glass effect transparente */
+.ai-card {
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: linear-gradient(135deg, 
+        rgba(255, 255, 255, 0.08) 0%, 
+        rgba(255, 255, 255, 0.04) 100%
+    );
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3),
+                0 2px 8px rgba(0, 150, 255, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+}
+
+.ai-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, 
+        rgba(0, 150, 255, 0.6) 0%, 
+        rgba(138, 43, 226, 0.6) 100%
+    );
+    opacity: 0.8;
+}
+
+.ai-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4),
+                0 4px 12px rgba(0, 150, 255, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.15);
+    border-color: rgba(0, 150, 255, 0.3);
+}
+
+/* Título do card */
+.ai-card-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.95);
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Corpo do card */
+.ai-card-body {
+    color: rgba(255, 255, 255, 0.85);
+    line-height: 1.7;
+    font-size: 0.95rem;
+}
+
+.ai-card-body p {
+    margin: 12px 0;
+}
+
+.ai-card-body strong {
+    color: rgba(255, 255, 255, 0.95);
+    font-weight: 600;
+}
+
+.ai-card-body code {
+    background: rgba(0, 150, 255, 0.15);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.9em;
+    color: rgba(0, 200, 255, 0.95);
+    border: 1px solid rgba(0, 150, 255, 0.3);
+}
+
+.ai-card-body ul, .ai-card-body ol {
+    list-style: none;
+    padding: 0;
+    margin: 12px 0;
+}
+
+.ai-card-body li {
+    padding: 8px 0 8px 24px;
+    position: relative;
+    line-height: 1.6;
+}
+
+.ai-card-body li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: rgba(0, 150, 255, 0.8);
+    font-weight: bold;
+}
+
+/* Container de subcards */
+.ai-subcards-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-top: 20px;
+}
+
+/* Subcard - Mais sutil que o card principal */
+.ai-subcard {
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: linear-gradient(135deg,
+        rgba(255, 255, 255, 0.05) 0%,
+        rgba(255, 255, 255, 0.02) 100%
+    );
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.ai-subcard::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 3px;
+    background: linear-gradient(180deg,
+        rgba(138, 43, 226, 0.6) 0%,
+        rgba(0, 150, 255, 0.6) 100%
+    );
+    border-radius: 12px 0 0 12px;
+}
+
+.ai-subcard:hover {
+    transform: translateX(4px);
+    background: linear-gradient(135deg,
+        rgba(255, 255, 255, 0.08) 0%,
+        rgba(255, 255, 255, 0.04) 100%
+    );
+    border-color: rgba(138, 43, 226, 0.3);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Título do subcard */
+.ai-subcard-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Corpo do subcard */
+.ai-subcard-body {
+    color: rgba(255, 255, 255, 0.8);
+    line-height: 1.6;
+    font-size: 0.9rem;
+}
+
+.ai-subcard-body p {
+    margin: 10px 0;
+}
+
+.ai-subcard-body strong {
+    color: rgba(255, 255, 255, 0.95);
+    font-weight: 600;
+}
+
+.ai-subcard-body code {
+    background: rgba(138, 43, 226, 0.15);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.85em;
+    color: rgba(200, 100, 255, 0.95);
+    border: 1px solid rgba(138, 43, 226, 0.3);
+}
+
+.ai-subcard-body ul, .ai-subcard-body ol {
+    list-style: none;
+    padding: 0;
+    margin: 10px 0;
+}
+
+.ai-subcard-body li {
+    padding: 6px 0 6px 20px;
+    position: relative;
+    line-height: 1.5;
+}
+
+.ai-subcard-body li::before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: rgba(138, 43, 226, 0.8);
+    font-weight: bold;
+    font-size: 1.2em;
+}
+
+/* Checkboxes em listas */
+.ai-card-body li input[type="checkbox"],
+.ai-subcard-body li input[type="checkbox"] {
+    margin-right: 8px;
+    cursor: not-allowed;
+    accent-color: rgba(0, 150, 255, 0.8);
+}
+
+/* Responsividade mobile para cards */
+@media (max-width: 767px) {
+    .ai-card {
+        padding: 16px;
+        border-radius: 12px;
+    }
+    
+    .ai-card-title {
+        font-size: 1rem;
+        margin-bottom: 12px;
+    }
+    
+    .ai-card-body {
+        font-size: 0.9rem;
+    }
+    
+    .ai-subcard {
+        padding: 12px;
+        border-radius: 10px;
+    }
+    
+    .ai-subcard-title {
+        font-size: 0.95rem;
+    }
+    
+    .ai-subcard-body {
+        font-size: 0.85rem;
+    }
+    
+    .ai-subcards-container {
+        gap: 12px;
+        margin-top: 16px;
+    }
+}
+
+/* ════════════════════════════════════════════════════════════
+   FIM DO SISTEMA DE CARDS
+   ════════════════════════════════════════════════════════════ */
+
 /* ============ FIM DA RESPONSIVIDADE MOBILE ============ */
