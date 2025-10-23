@@ -1389,7 +1389,7 @@ export default async function handler(req, res) {
     messages.push(userMessage);
 
     // 🎯 PASSO 7: Seleção inteligente de modelo (usa intent detectado)
-    modelSelection = selectOptimalModel(hasImages, conversationHistory, message, detectedIntent);
+    modelSelection = selectOptimalModel(hasImages, conversationHistory, message);
     
     // 🎯 PASSO 8: FORÇAR CONFIGURAÇÃO EDUCACIONAL para análise de mix
     if ((detectedIntent === 'MIX_ANALYZER_HELP' || detectedIntent === 'mix_analyzer_help') && !hasImages && promptConfig) {
