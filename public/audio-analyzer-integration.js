@@ -5602,7 +5602,34 @@ function renderReferenceComparisons(analysis) {
                 <div style="font-size: 12px; font-weight: 600;">${statusText}</div>
             </td>`;
         } else if (!Number.isFinite(tol) || tol < 0) {
-            diffCell = '<td class="na" style="text-align: center;"><span style="opacity: 0.6;">—</span></td>';
+            // 🎯 CORREÇÃO: Aplicar tolerância padrão em vez de retornar N/A
+            // Isso garante que TODAS as métricas tenham cor, mesmo sem tolerância definida
+            const defaultTol = 1.0; // Tolerância padrão genérica
+            const absDiff = Math.abs(diff);
+            let cssClass, statusText;
+            
+            console.warn(`⚠️ [TOLERANCE_FALLBACK] Métrica "${label}" sem tolerância válida (tol=${tol}). Usando tolerância padrão: ${defaultTol}`);
+            
+            if (absDiff <= defaultTol) {
+                // ✅ ZONA IDEAL
+                cssClass = 'ok';
+                statusText = 'Ideal';
+            } else {
+                const multiplicador = absDiff / defaultTol;
+                if (multiplicador <= 2) {
+                    // ⚠️ ZONA AJUSTAR
+                    cssClass = 'yellow';
+                    statusText = 'Ajuste leve';
+                } else {
+                    // ❌ ZONA CORRIGIR
+                    cssClass = 'warn';
+                    statusText = 'Corrigir';
+                }
+            }
+            
+            diffCell = `<td class="${cssClass}" style="text-align: center; padding: 8px;">
+                <div style="font-size: 12px; font-weight: 600;">${statusText}</div>
+            </td>`;
         } else {
             // LÓGICA PADRÃO PARA MÉTRICAS PRINCIPAIS (LUFS, TP, DR, etc. com tol>0)
             const absDiff = Math.abs(diff);
