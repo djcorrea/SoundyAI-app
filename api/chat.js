@@ -1138,8 +1138,19 @@ export default async function handler(req, res) {
     // 🎯 PASSO 7: Seleção inteligente de modelo (usa intent detectado)
     modelSelection = selectOptimalModel(hasImages, conversationHistory, message, detectedIntent);
     
-    // 🎯 PASSO 8: Sobrescrever com preferência do intent se aplicável
-    if (promptConfig && promptConfig.preferredModel) {
+    // 🎯 PASSO 8: FORÇAR CONFIGURAÇÃO EDUCACIONAL para análise de mix
+    if (detectedIntent === 'MIX_ANALYZER_HELP' && !hasImages && promptConfig) {
+      console.log(`🎓 Modo Educacional Ativado: MIX_ANALYZER_HELP`);
+      modelSelection = {
+        model: 'gpt-3.5-turbo',  // SEMPRE 3.5-turbo para eficiência
+        reason: 'EDUCATIONAL_MODE_MIX_ANALYZER',
+        maxTokens: 1200,         // Resposta educacional completa
+        temperature: 0.3,        // Máxima precisão
+        top_p: 1                 // Determinístico
+      };
+    }
+    // Sobrescrever com preferência do intent se aplicável (outros casos)
+    else if (promptConfig && promptConfig.preferredModel) {
       const intentPreferredModel = promptConfig.preferredModel;
       
       // Apenas sobrescrever se for upgrade (nunca downgrade de gpt-4o para gpt-3.5)
