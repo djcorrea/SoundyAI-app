@@ -693,6 +693,220 @@ async function consumeImageAnalysisQuota(db, uid, email, userData) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════
+// 🎯 HELPERS PARA INTENT MIX_ANALYZER_HELP - TUTORIAL HARDCORE
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * Intent Classifier - Detecta se mensagem é de análise de mixagem
+ * @param {string} message - Mensagem do usuário
+ * @returns {string} "mix_analyzer_help" ou "default"
+ */
+function intentClassifier(message) {
+  if (!message || typeof message !== 'string') {
+    return 'default';
+  }
+  
+  const lowerMessage = message.toLowerCase();
+  
+  // Indicadores fortes de análise de mixagem
+  const analysisIndicators = [
+    '### json_data',
+    'análise de áudio',
+    'lufs',
+    'true peak',
+    'dbtp',
+    'loudness',
+    'dynamic range',
+    'crest factor',
+    'lra',
+    'problemas detectados',
+    'severidade',
+    'freq_excess',
+    'freq_lack',
+    'turbidez',
+    'sibilância',
+    'ressonância',
+    'stereo_phase',
+    'mix analyzer',
+    'analisar mixagem'
+  ];
+  
+  // Verificar se contém algum indicador
+  const hasIndicator = analysisIndicators.some(indicator => 
+    lowerMessage.includes(indicator)
+  );
+  
+  if (hasIndicator) {
+    console.log('🎯 Intent detectado: mix_analyzer_help');
+    return 'mix_analyzer_help';
+  }
+  
+  console.log('🎯 Intent detectado: default');
+  return 'default';
+}
+
+/**
+ * Prepare Analysis for Prompt - Extrai e organiza dados de análise
+ * @param {Object} analysis - Objeto de análise bruto
+ * @returns {Object} Análise otimizada para prompt
+ */
+function prepareAnalysisForPromptV2(analysis) {
+  if (!analysis || typeof analysis !== 'object') {
+    return null;
+  }
+  
+  // Extrair métricas principais
+  const result = {
+    genre: analysis.genre || 'Não informado',
+    bpm: analysis.bpm || null,
+    lufsIntegrated: analysis.lufsIntegrated ?? null,
+    truePeakDbtp: analysis.truePeakDbtp ?? null,
+    dynamicRange: analysis.dynamicRange ?? null,
+    lra: analysis.lra ?? null,
+    crestFactor: analysis.crestFactor ?? null,
+    problems: []
+  };
+  
+  // Se já tem problems array, usar
+  if (Array.isArray(analysis.problems) && analysis.problems.length > 0) {
+    result.problems = analysis.problems
+      .map(p => ({
+        type: p.id || p.type || 'unknown',
+        shortName: p.title || p.shortName || formatProblemName(p.id || p.type),
+        severity: p.severity || 'média',
+        evidence: p.evidence || formatEvidence(p, analysis),
+        rangeHz: p.rangeHz || extractFreqRange(p),
+        targets: p.targets || [],
+        channelHint: p.channelHint || 'master'
+      }))
+      .sort((a, b) => {
+        // Ordenar por severidade: alta > média > baixa
+        const severityOrder = { alta: 3, média: 2, media: 2, baixa: 1 };
+        return (severityOrder[b.severity] || 0) - (severityOrder[a.severity] || 0);
+      });
+  } else {
+    // Deduzir problemas a partir de métricas
+    result.problems = deduceProblemsFromMetrics(analysis);
+  }
+  
+  return result;
+}
+
+/**
+ * Formata nome do problema de forma legível
+ */
+function formatProblemName(id) {
+  const names = {
+    'true_peak_high': 'True Peak Alto',
+    'true_peak': 'True Peak Alto',
+    'lufs_low': 'LUFS Baixo',
+    'lufs_high': 'LUFS Alto',
+    'lufs': 'LUFS Fora do Alvo',
+    'dynamic_range_low': 'Dynamic Range Baixo',
+    'turbidez_200_400': 'Turbidez 200-400 Hz',
+    'sibilancia': 'Sibilância Excessiva',
+    'ressonancia_3k2': 'Ressonância 3.2 kHz',
+    'stereo_phase': 'Problemas de Fase Estéreo',
+    'freq_excess': 'Excesso de Frequência',
+    'freq_lack': 'Falta de Frequência'
+  };
+  return names[id] || id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+}
+
+/**
+ * Formata evidência do problema
+ */
+function formatEvidence(problem, analysis) {
+  if (problem.evidence) return problem.evidence;
+  
+  const id = problem.id || problem.type;
+  if (id?.includes('true_peak') && analysis.truePeakDbtp != null) {
+    return `TP = ${analysis.truePeakDbtp.toFixed(2)} dBTP`;
+  }
+  if (id?.includes('lufs') && analysis.lufsIntegrated != null) {
+    return `LUFS = ${analysis.lufsIntegrated.toFixed(1)}`;
+  }
+  if (id?.includes('dynamic_range') && analysis.dynamicRange != null) {
+    return `DR = ${analysis.dynamicRange.toFixed(1)} dB`;
+  }
+  
+  return 'Detectado na análise';
+}
+
+/**
+ * Extrai range de frequência do problema
+ */
+function extractFreqRange(problem) {
+  const id = problem.id || problem.type || '';
+  
+  if (id.includes('200_400') || id.includes('turbidez')) {
+    return [200, 400];
+  }
+  if (id.includes('sibilancia')) {
+    return [6000, 10000];
+  }
+  if (id.includes('3k2') || id.includes('3.2')) {
+    return [3000, 3500];
+  }
+  if (problem.rangeHz) {
+    return problem.rangeHz;
+  }
+  
+  return null;
+}
+
+/**
+ * Deduz problemas a partir de métricas quando não há array de problems
+ */
+function deduceProblemsFromMetrics(analysis) {
+  const problems = [];
+  
+  // True Peak alto
+  if (analysis.truePeakDbtp != null && analysis.truePeakDbtp > -1.0) {
+    problems.push({
+      type: 'true_peak_high',
+      shortName: 'True Peak Alto',
+      severity: analysis.truePeakDbtp > 0 ? 'alta' : 'média',
+      evidence: `TP = ${analysis.truePeakDbtp.toFixed(2)} dBTP`,
+      rangeHz: null,
+      targets: [],
+      channelHint: 'master'
+    });
+  }
+  
+  // LUFS fora do alvo (assumindo -14 como referência streaming)
+  if (analysis.lufsIntegrated != null) {
+    const diff = Math.abs(analysis.lufsIntegrated - (-14));
+    if (diff > 3) {
+      problems.push({
+        type: analysis.lufsIntegrated < -14 ? 'lufs_low' : 'lufs_high',
+        shortName: analysis.lufsIntegrated < -14 ? 'LUFS Baixo' : 'LUFS Alto',
+        severity: diff > 6 ? 'alta' : 'média',
+        evidence: `LUFS = ${analysis.lufsIntegrated.toFixed(1)}`,
+        rangeHz: null,
+        targets: [],
+        channelHint: 'master'
+      });
+    }
+  }
+  
+  // Dynamic Range muito baixo (sobre-compressão)
+  if (analysis.dynamicRange != null && analysis.dynamicRange < 6) {
+    problems.push({
+      type: 'dynamic_range_low',
+      shortName: 'Dynamic Range Baixo',
+      severity: analysis.dynamicRange < 4 ? 'alta' : 'média',
+      evidence: `DR = ${analysis.dynamicRange.toFixed(1)} dB`,
+      rangeHz: null,
+      targets: [],
+      channelHint: 'mixbus'
+    });
+  }
+  
+  return problems;
+}
+
 // ✅ OTIMIZAÇÃO: Seleção inteligente de modelo para economizar tokens
 function selectOptimalModel(hasImages, conversationHistory, currentMessage) {
   try {
@@ -1010,17 +1224,40 @@ export default async function handler(req, res) {
     let intentInfo = null;
     
     try {
-      // 🎯 PASSO 1: Detectar intent da mensagem
-      intentInfo = classifyIntent(message, conversationHistory);
-      detectedIntent = intentInfo.intent;
+      // 🎯 PASSO 1: Detectar intent da mensagem (usar classifier simples)
+      detectedIntent = intentClassifier(message);
       
-      console.log(`🎯 Intent detectado: ${detectedIntent}`, {
-        confidence: intentInfo.confidence,
-        reasoning: intentInfo.reasoning
-      });
+      // Se detectou mix_analyzer_help, usar classifier avançado para mais detalhes
+      if (detectedIntent === 'mix_analyzer_help') {
+        try {
+          intentInfo = classifyIntent(message, conversationHistory);
+          detectedIntent = intentInfo.intent;
+          console.log(`🎯 Intent AVANÇADO detectado: ${detectedIntent}`, {
+            confidence: intentInfo.confidence,
+            reasoning: intentInfo.reasoning
+          });
+        } catch (e) {
+          console.log('🎯 Intent SIMPLES detectado: mix_analyzer_help');
+          intentInfo = { intent: 'mix_analyzer_help', confidence: 0.9, reasoning: 'Indicadores de análise detectados' };
+        }
+      } else {
+        // Para outros intents, tentar classifier avançado
+        try {
+          intentInfo = classifyIntent(message, conversationHistory);
+          detectedIntent = intentInfo.intent;
+          console.log(`🎯 Intent detectado: ${detectedIntent}`, {
+            confidence: intentInfo.confidence,
+            reasoning: intentInfo.reasoning
+          });
+        } catch (e) {
+          console.log(`🎯 Intent fallback: ${detectedIntent}`);
+          intentInfo = { intent: detectedIntent, confidence: 0.5, reasoning: 'Fallback do classifier simples' };
+        }
+      }
     } catch (intentError) {
       console.warn('⚠️ Erro ao classificar intent, usando fallback:', intentError.message);
-      detectedIntent = 'GENERAL';
+      detectedIntent = 'default';
+      intentInfo = { intent: 'default', confidence: 0.5, reasoning: 'Erro no classifier' };
     }
 
     // 🎯 PASSO 2: Preparar contexto do usuário (DAW, gênero, nível)
@@ -1085,8 +1322,9 @@ export default async function handler(req, res) {
 
     // 🎯 PASSO 6: Filtrar e otimizar mensagem (se for análise de mix)
     let optimizedMessage = message;
+    let analysisData = null;
     
-    if (detectedIntent === 'MIX_ANALYZER_HELP' && !hasImages) {
+    if ((detectedIntent === 'MIX_ANALYZER_HELP' || detectedIntent === 'mix_analyzer_help') && !hasImages) {
       try {
         // Tentar extrair JSON da mensagem
         const jsonMatch = message.match(/### JSON_DATA\s*\n([\s\S]*?)\n### END_JSON/);
@@ -1094,21 +1332,36 @@ export default async function handler(req, res) {
         if (jsonMatch) {
           const jsonData = JSON.parse(jsonMatch[1]);
           
-          // Usar helper para criar versão otimizada
-          const filteredAnalysis = prepareAnalysisForPrompt(jsonData);
-          const optimizedText = formatAnalysisAsText(filteredAnalysis);
+          // 🎯 NOVO: Usar prepareAnalysisForPromptV2 para tutorial hardcore
+          analysisData = prepareAnalysisForPromptV2(jsonData);
           
-          // Extrair cabeçalho original (antes do JSON)
-          const headerMatch = message.match(/^(.*?)(?=### JSON_DATA)/s);
-          const header = headerMatch ? headerMatch[1].trim() : '🎵 Análise de áudio para consultoria';
-          
-          optimizedMessage = `${header}\n\n${optimizedText}`;
-          
-          console.log(`🎯 Mensagem de análise otimizada:`, {
-            originalLength: message.length,
-            optimizedLength: optimizedMessage.length,
-            reduction: `${Math.round((1 - optimizedMessage.length / message.length) * 100)}%`
-          });
+          if (analysisData && analysisData.problems && analysisData.problems.length > 0) {
+            // Montar mensagem otimizada com formato JSON limpo
+            optimizedMessage = JSON.stringify(analysisData, null, 2) + 
+                              '\n\nGere a resposta seguindo ESTRITAMENTE o CONTRATO e o UI CONTRACT.';
+            
+            console.log(`🎯 Análise preparada para tutorial hardcore:`, {
+              problems: analysisData.problems.length,
+              lufs: analysisData.lufsIntegrated,
+              truePeak: analysisData.truePeakDbtp,
+              genre: analysisData.genre
+            });
+          } else {
+            // Fallback: usar helper antigo
+            const filteredAnalysis = prepareAnalysisForPrompt(jsonData);
+            const optimizedText = formatAnalysisAsText(filteredAnalysis);
+            
+            const headerMatch = message.match(/^(.*?)(?=### JSON_DATA)/s);
+            const header = headerMatch ? headerMatch[1].trim() : '🎵 Análise de áudio para consultoria';
+            
+            optimizedMessage = `${header}\n\n${optimizedText}`;
+            
+            console.log(`🎯 Mensagem de análise otimizada (fallback):`, {
+              originalLength: message.length,
+              optimizedLength: optimizedMessage.length,
+              reduction: `${Math.round((1 - optimizedMessage.length / message.length) * 100)}%`
+            });
+          }
         } else {
           console.log('⚠️ JSON_DATA não encontrado, usando mensagem original');
         }
@@ -1139,8 +1392,8 @@ export default async function handler(req, res) {
     modelSelection = selectOptimalModel(hasImages, conversationHistory, message, detectedIntent);
     
     // 🎯 PASSO 8: FORÇAR CONFIGURAÇÃO EDUCACIONAL para análise de mix
-    if (detectedIntent === 'MIX_ANALYZER_HELP' && !hasImages && promptConfig) {
-      console.log(`🎓 Modo Educacional Ativado: MIX_ANALYZER_HELP`);
+    if ((detectedIntent === 'MIX_ANALYZER_HELP' || detectedIntent === 'mix_analyzer_help') && !hasImages && promptConfig) {
+      console.log(`🎓 Modo Educacional TUTORIAL HARDCORE Ativado: ${detectedIntent}`);
       modelSelection = {
         model: 'gpt-3.5-turbo',  // SEMPRE 3.5-turbo para eficiência
         reason: 'EDUCATIONAL_MODE_MIX_ANALYZER',
