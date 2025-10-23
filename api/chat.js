@@ -1144,7 +1144,7 @@ export default async function handler(req, res) {
       modelSelection = {
         model: 'gpt-3.5-turbo',  // SEMPRE 3.5-turbo para eficiência
         reason: 'EDUCATIONAL_MODE_MIX_ANALYZER',
-        maxTokens: 1200,         // Resposta educacional completa
+        maxTokens: 1300,         // Resposta educacional completa com cards
         temperature: 0.3,        // Máxima precisão
         top_p: 1                 // Determinístico
       };

@@ -727,6 +727,184 @@ async function animateToChat() {
   }, 500);
 }
 
+// ═══════════════════════════════════════════════════════════
+// 🎴 SISTEMA DE RENDERIZAÇÃO DE CARDS EDUCACIONAIS
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * Parse texto markdown simples para HTML
+ * @param {string} text - Texto com markdown básico
+ * @returns {string} HTML formatado
+ */
+function parseMarkdownToHTML(text) {
+  if (!text) return '';
+  
+  return text
+    // Bold
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    // Listas
+    .replace(/^• (.+)$/gm, '<li>$1</li>')
+    .replace(/^(\d+)\) (.+)$/gm, '<li><strong>$1)</strong> $2</li>')
+    // Checkboxes
+    .replace(/^(\d+)\. ☐ (.+)$/gm, '<li><input type="checkbox" disabled> $2</li>')
+    // Code inline
+    .replace(/`(.+?)`/g, '<code>$1</code>')
+    // Quebras de linha duplas → parágrafos
+    .replace(/\n\n/g, '</p><p>')
+    // Quebras de linha simples → <br>
+    .replace(/\n/g, '<br>');
+}
+
+/**
+ * Parse cards e subcards do texto da IA
+ * @param {string} text - Texto com sintaxe [CARD] e [SUBCARD]
+ * @returns {Array} Array de objetos card { type, title, content, subcards }
+ */
+function parseCards(text) {
+  if (!text || typeof text !== 'string') return null;
+  
+  // Detectar se há sintaxe de CARD
+  if (!text.includes('[CARD')) {
+    return null; // Fallback para texto normal
+  }
+  
+  const cards = [];
+  
+  // Regex para capturar CARDS principais
+  const cardRegex = /\[CARD title="([^"]+)"\]([\s\S]*?)\[\/CARD\]/g;
+  let cardMatch;
+  
+  while ((cardMatch = cardRegex.exec(text)) !== null) {
+    const title = cardMatch[1];
+    const cardContent = cardMatch[2].trim();
+    
+    // Parse subcards dentro deste card
+    const subcards = [];
+    const subcardRegex = /\[SUBCARD title="([^"]+)"\]([\s\S]*?)\[\/SUBCARD\]/g;
+    let subcardMatch;
+    
+    let contentWithoutSubcards = cardContent;
+    
+    while ((subcardMatch = subcardRegex.exec(cardContent)) !== null) {
+      subcards.push({
+        title: subcardMatch[1],
+        content: subcardMatch[2].trim()
+      });
+      // Remover subcard do conteúdo principal
+      contentWithoutSubcards = contentWithoutSubcards.replace(subcardMatch[0], '');
+    }
+    
+    cards.push({
+      type: 'CARD',
+      title: title,
+      content: contentWithoutSubcards.trim(),
+      subcards: subcards.length > 0 ? subcards : null
+    });
+  }
+  
+  return cards.length > 0 ? cards : null;
+}
+
+/**
+ * Renderiza cards educacionais com glass effect
+ * @param {HTMLElement} container - Elemento onde renderizar
+ * @param {string} text - Texto com sintaxe de cards
+ */
+function renderAssistantCards(container, text) {
+  const cards = parseCards(text);
+  
+  // Se não há cards, usar renderização normal
+  if (!cards) {
+    container.innerHTML = parseMarkdownToHTML(text);
+    return;
+  }
+  
+  // Container principal de cards
+  const cardsWrapper = document.createElement('div');
+  cardsWrapper.className = 'ai-cards-container';
+  
+  cards.forEach((card, cardIndex) => {
+    // Card principal
+    const cardEl = document.createElement('div');
+    cardEl.className = 'ai-card';
+    
+    // Título do card
+    const cardTitle = document.createElement('div');
+    cardTitle.className = 'ai-card-title';
+    cardTitle.innerHTML = card.title;
+    cardEl.appendChild(cardTitle);
+    
+    // Conteúdo do card (antes dos subcards)
+    if (card.content) {
+      const cardBody = document.createElement('div');
+      cardBody.className = 'ai-card-body';
+      cardBody.innerHTML = parseMarkdownToHTML(card.content);
+      cardEl.appendChild(cardBody);
+    }
+    
+    // Subcards (se houver)
+    if (card.subcards && card.subcards.length > 0) {
+      const subcardsContainer = document.createElement('div');
+      subcardsContainer.className = 'ai-subcards-container';
+      
+      card.subcards.forEach((subcard, subcardIndex) => {
+        const subcardEl = document.createElement('div');
+        subcardEl.className = 'ai-subcard';
+        
+        // Título do subcard
+        const subcardTitle = document.createElement('div');
+        subcardTitle.className = 'ai-subcard-title';
+        subcardTitle.innerHTML = subcard.title;
+        subcardEl.appendChild(subcardTitle);
+        
+        // Conteúdo do subcard
+        const subcardBody = document.createElement('div');
+        subcardBody.className = 'ai-subcard-body';
+        subcardBody.innerHTML = parseMarkdownToHTML(subcard.content);
+        subcardEl.appendChild(subcardBody);
+        
+        subcardsContainer.appendChild(subcardEl);
+        
+        // Animação GSAP se disponível
+        if (typeof gsap !== 'undefined') {
+          gsap.fromTo(subcardEl,
+            { opacity: 0, y: 20, scale: 0.95 },
+            { 
+              opacity: 1, 
+              y: 0, 
+              scale: 1, 
+              duration: 0.4,
+              delay: cardIndex * 0.1 + subcardIndex * 0.05,
+              ease: "back.out(1.2)"
+            }
+          );
+        }
+      });
+      
+      cardEl.appendChild(subcardsContainer);
+    }
+    
+    cardsWrapper.appendChild(cardEl);
+    
+    // Animação GSAP para card principal
+    if (typeof gsap !== 'undefined') {
+      gsap.fromTo(cardEl,
+        { opacity: 0, y: 30, scale: 0.95 },
+        { 
+          opacity: 1, 
+          y: 0, 
+          scale: 1, 
+          duration: 0.5,
+          delay: cardIndex * 0.15,
+          ease: "back.out(1.5)"
+        }
+      );
+    }
+  });
+  
+  container.appendChild(cardsWrapper);
+}
+
 function appendMessage(content, className) {
   // Usar a área de conversa do novo layout
   const chatboxEl = document.getElementById('chatbotConversationArea');
@@ -755,7 +933,8 @@ function appendMessage(content, className) {
   if (className === 'user') {
     bubble.innerHTML = content.replace(/\n/g, '<br>');
   } else {
-    // Para mensagens do bot, iniciar vazio para efeito de digitação
+    // Para mensagens do bot, verificar se há cards
+    // Iniciar vazio para permitir renderização de cards ou efeito de digitação
     bubble.innerHTML = '';
   }
   
@@ -792,9 +971,18 @@ function appendMessage(content, className) {
     );
   }
 
-  // Se for mensagem do bot, aplicar efeito de digitação
+  // Se for mensagem do bot, verificar se há cards ou usar texto normal
   if (className === 'bot') {
-    startTypingEffect(bubble, content, messageDiv);
+    // Tentar renderizar como cards
+    const hasCards = content.includes('[CARD');
+    
+    if (hasCards) {
+      // Renderizar cards imediatamente (sem efeito de digitação)
+      renderAssistantCards(bubble, content);
+    } else {
+      // Fallback: efeito de digitação para texto normal
+      startTypingEffect(bubble, content, messageDiv);
+    }
   }
 }
 
