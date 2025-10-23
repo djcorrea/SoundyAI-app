@@ -10,10 +10,12 @@
  */
 
 import { parentPort, workerData } from 'worker_threads';
+import { performance } from 'perf_hooks';
 import { analyzeTruePeaksFFmpeg } from '../lib/audio/features/truepeak-ffmpeg.js';
 import { assertFinite } from '../lib/audio/error-handling.js';
 
 async function calculateTruePeakMetrics() {
+  const startWorker = performance.now();
   console.time('⚡ [Worker TruePeak] Total');
   
   try {
@@ -66,14 +68,20 @@ async function calculateTruePeakMetrics() {
       error: truePeakMetrics.error
     };
     
+    const endWorker = performance.now();
+    const timeMs = (endWorker - startWorker).toFixed(2);
     console.timeEnd('⚡ [Worker TruePeak] Total');
+    console.log(`⏱️ [Worker TruePeak] levou ${timeMs} ms (${(timeMs / 1000).toFixed(2)} s)`);
     console.log(`[Worker TruePeak] ✅ True Peak: ${result.maxDbtp?.toFixed(2) || 'null'} dBTP`);
     
     parentPort.postMessage({ success: true, data: result });
     
   } catch (error) {
+    const endWorker = performance.now();
+    const timeMs = (endWorker - startWorker).toFixed(2);
     console.error('[Worker TruePeak] ❌ Erro:', error.message);
     console.timeEnd('⚡ [Worker TruePeak] Total');
+    console.log(`⏱️ [Worker TruePeak] falhou após ${timeMs} ms (${(timeMs / 1000).toFixed(2)} s)`);
     parentPort.postMessage({ success: false, error: error.message });
   }
 }

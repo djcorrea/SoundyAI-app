@@ -11,10 +11,12 @@
  */
 
 import { parentPort, workerData } from 'worker_threads';
+import { performance } from 'perf_hooks';
 import { calculateLoudnessMetrics } from '../lib/audio/features/loudness.js';
 import { assertFinite } from '../lib/audio/error-handling.js';
 
 async function calculateLUFSMetrics() {
+  const startWorker = performance.now();
   console.time('⚡ [Worker LUFS] Total');
   
   try {
@@ -51,14 +53,20 @@ async function calculateLUFSMetrics() {
       throw new Error('LUFS Worker: integrated LUFS é null');
     }
     
+    const endWorker = performance.now();
+    const timeMs = (endWorker - startWorker).toFixed(2);
     console.timeEnd('⚡ [Worker LUFS] Total');
+    console.log(`⏱️ [Worker LUFS] levou ${timeMs} ms (${(timeMs / 1000).toFixed(2)} s)`);
     console.log(`[Worker LUFS] ✅ LUFS Integrated: ${lufsMetrics.integrated.toFixed(2)} dB`);
     
     parentPort.postMessage({ success: true, data: lufsMetrics });
     
   } catch (error) {
+    const endWorker = performance.now();
+    const timeMs = (endWorker - startWorker).toFixed(2);
     console.error('[Worker LUFS] ❌ Erro:', error.message);
     console.timeEnd('⚡ [Worker LUFS] Total');
+    console.log(`⏱️ [Worker LUFS] falhou após ${timeMs} ms (${(timeMs / 1000).toFixed(2)} s)`);
     parentPort.postMessage({ success: false, error: error.message });
   }
 }

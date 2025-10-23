@@ -23,6 +23,7 @@ import { calculateBpm } from "./bpm-analyzer.js";
 import { runWorkersParallel } from "../../lib/audio/worker-manager.js";
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { performance } from 'perf_hooks';
 
 // Sistema de tratamento de erros padronizado
 import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../lib/audio/error-handling.js';
@@ -50,6 +51,16 @@ const CORE_METRICS_CONFIG = {
   // True Peak
   TRUE_PEAK_OVERSAMPLING: 4,
 };
+
+/**
+ * 🎯 AUDITORIA DE PERFORMANCE - Log de Tempo por Etapa
+ */
+function logStep(label, start) {
+  const end = performance.now();
+  const time = (end - start).toFixed(2);
+  console.log(`⏱️  [${label}] levou ${time} ms (${(time / 1000).toFixed(2)} s)`);
+  return end;
+}
 
 /**
  * 🧮 Instâncias dos processadores de áudio
@@ -92,6 +103,9 @@ class CoreMetricsProcessor {
    * PROCESSAMENTO PRINCIPAL COM FAIL-FAST
    */
   async processMetrics(segmentedAudio, options = {}) {
+    console.log('\n\n🚀 ===== AUDITORIA DE TEMPO INICIADA =====');
+    const globalStart = performance.now();
+    
     const jobId = options.jobId || 'unknown';
     const fileName = options.fileName || 'unknown';
     
@@ -104,6 +118,7 @@ class CoreMetricsProcessor {
       const { leftChannel, rightChannel } = this.ensureOriginalChannels(segmentedAudio);
 
       // ========= NORMALIZAÇÃO PRÉ-ANÁLISE A -23 LUFS =========
+      const t1 = performance.now();
       logAudio('core_metrics', 'normalization_start', { targetLUFS: -23.0 });
       const normalizationResult = await normalizeAudioToTargetLUFS(
         { leftChannel, rightChannel },
@@ -120,8 +135,10 @@ class CoreMetricsProcessor {
         originalLUFS: normalizationResult.originalLUFS,
         gainDB: normalizationResult.gainAppliedDB 
       });
+      const t2 = logStep('Normalização', t1);
 
       // ========= 🚀 PARALELIZAÇÃO: FFT, LUFS, TRUE PEAK E BPM EM PARALELO =========
+      const t3 = performance.now();
       console.log('\n🚀 [PARALELIZAÇÃO] Iniciando análises em Worker Threads...');
       console.time('⏱️  Tempo Total Paralelo');
       
@@ -169,6 +186,7 @@ class CoreMetricsProcessor {
       
       console.timeEnd('⏱️  Tempo Total Paralelo');
       console.log('✅ [PARALELIZAÇÃO] Todas as análises concluídas simultaneamente!\n');
+      const t4 = logStep('Workers Paralelos (FFT+LUFS+BPM+TP)', t3);
       
       // Validar resultados dos workers
       assertFinite(fftResults, 'core_metrics');
@@ -183,11 +201,14 @@ class CoreMetricsProcessor {
       };
 
       // ========= ANÁLISE ESTÉREO CORRIGIDA =========
+      const t5 = performance.now();
       logAudio('core_metrics', 'stereo_start', { length: normalizedLeft.length });
       const stereoMetrics = await this.calculateStereoMetricsCorrect(normalizedLeft, normalizedRight, { jobId });
       assertFinite(stereoMetrics, 'core_metrics');
+      const t6 = logStep('Stereo Metrics', t5);
 
       // ========= MÉTRICAS DE DINÂMICA CORRIGIDAS =========
+      const t7 = performance.now();
       logAudio('core_metrics', 'dynamics_start', { length: normalizedLeft.length });
       const dynamicsMetrics = calculateDynamicsMetrics(
         normalizedLeft, 
@@ -203,6 +224,7 @@ class CoreMetricsProcessor {
           lra: dynamicsMetrics.lra?.toFixed(2) || 'null'
         });
       }
+      const t8 = logStep('Dynamics Metrics', t7);
 
       // ========= ANÁLISE AUXILIAR - VERSÃO SIMPLIFICADA SEM CLASSES =========
       // 🚨 IMPORTANTE: Usando apenas funções standalone para evitar erros de classe
@@ -343,6 +365,7 @@ class CoreMetricsProcessor {
 
       // ========= ANÁLISE DE PROBLEMAS E SUGESTÕES =========
       // Usando função standalone
+      const t9 = performance.now();
       let problemsAnalysis = {
         problems: [],
         suggestions: [],
@@ -363,6 +386,7 @@ class CoreMetricsProcessor {
       coreMetrics.suggestions = problemsAnalysis.suggestions;
       coreMetrics.qualityAssessment = problemsAnalysis.quality;
       coreMetrics.priorityRecommendations = problemsAnalysis.priorityRecommendations;
+      const t10 = logStep('Problems & Suggestions Analysis', t9);
 
       // ========= VALIDAÇÃO FINAL =========
       try {
@@ -389,6 +413,9 @@ class CoreMetricsProcessor {
         peak: truePeakMetrics.maxDbtp,
         correlation: stereoMetrics.correlation
       });
+
+      logStep('⏳ TOTAL PIPELINE', globalStart);
+      console.log('🏁 ===== AUDITORIA FINALIZADA =====\n\n');
 
       return coreMetrics;
 
