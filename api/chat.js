@@ -1390,16 +1390,7 @@ export default async function handler(req, res) {
 
     // 🎯 PASSO 7: Seleção inteligente de modelo (usa intent detectado)
     modelSelection = selectOptimalModel(hasImages, conversationHistory, message, detectedIntent);
-    // 🚀 Forçar GPT-4o quando for pedido de ajuda
-if (message.includes('#HELP_REQUEST')) {
-  console.log('🆘 Forçando GPT-4o para Pedir Ajuda');
-  modelSelection = {
-    model: 'gpt-4o',
-    reason: 'FORCED_HELP_REQUEST',
-    maxTokens: 1500,
-    temperature: 0.7
-  };
-}
+    
     // 🎯 PASSO 8: FORÇAR CONFIGURAÇÃO EDUCACIONAL para análise de mix
     if ((detectedIntent === 'MIX_ANALYZER_HELP' || detectedIntent === 'mix_analyzer_help') && !hasImages && promptConfig) {
       console.log(`🎓 Modo Educacional TUTORIAL HARDCORE Ativado: ${detectedIntent}`);
