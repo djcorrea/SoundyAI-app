@@ -7464,7 +7464,7 @@ box-shadow: 0 0 30px rgba(93, 21, 134, 0.4),
 // 🤖 Enviar análise para chat
 window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
     __dbg('🎯 BOTÃO CLICADO: Pedir Ajuda à IA');
-};
+
     if (!currentModalAnalysis) {
         alert('Nenhuma análise disponível');
         __dbg('❌ Erro: currentModalAnalysis não existe');
