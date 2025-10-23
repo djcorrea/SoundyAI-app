@@ -1,4 +1,3 @@
-Vê se é aqui // 🚨 FORCE CACHE BUST - 1692582547
 // ✅ CORREÇÃO CRÍTICA: decoded is not defined fixed!
 // 🎯 SISTEMA AVANÇADO: Intent detection + Token management + Context injection
 import { auth, db } from './firebaseAdmin.js';
