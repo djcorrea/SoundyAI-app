@@ -19,8 +19,18 @@ import { calculateSpectralUniformity } from "../../lib/audio/features/spectral-u
 import { analyzeProblemsAndSuggestionsV2 } from "../../lib/audio/features/problems-suggestions-v2.js";
 import { calculateBpm } from "./bpm-analyzer.js";
 
+// 🚀 OTIMIZAÇÃO #5: Paralelização com Worker Threads (ganho: 60-100s → 20-40s)
+import { runWorkersParallel } from "../../lib/audio/worker-manager.js";
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
 // Sistema de tratamento de erros padronizado
 import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../lib/audio/error-handling.js';
+
+// Caminho base para workers
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const WORKERS_DIR = join(__dirname, '../../workers');
 
 /**
  * 🎯 CONFIGURAÇÕES DA FASE 5.3 (AUDITORIA)
@@ -111,37 +121,66 @@ class CoreMetricsProcessor {
         gainDB: normalizationResult.gainAppliedDB 
       });
 
-      // ========= CÁLCULO DE MÉTRICAS FFT CORRIGIDAS =========
-      logAudio('core_metrics', 'fft_start', { frames: segmentedAudio.framesFFT?.count });
-      const fftResults = await this.calculateFFTMetrics(segmentedAudio.framesFFT, { jobId });
-      assertFinite(fftResults, 'core_metrics');
-
-      // ========= BANDAS ESPECTRAIS CORRIGIDAS (7 BANDAS) =========
-      logAudio('core_metrics', 'spectral_bands_start', { 
-        hasFramesFFT: !!segmentedAudio.framesFFT,
-        frameCount: segmentedAudio.framesFFT?.frames?.length || 0
-      });
-      const spectralBandsResults = await this.calculateSpectralBandsMetrics(segmentedAudio.framesFFT, { jobId });
+      // ========= 🚀 PARALELIZAÇÃO: FFT, LUFS, TRUE PEAK E BPM EM PARALELO =========
+      console.log('\n🚀 [PARALELIZAÇÃO] Iniciando análises em Worker Threads...');
+      console.time('⏱️  Tempo Total Paralelo');
       
-      // ========= SPECTRAL CENTROID CORRIGIDO (Hz) =========
-      logAudio('core_metrics', 'spectral_centroid_start', {
-        hasFramesFFT: !!segmentedAudio.framesFFT,
-        frameCount: segmentedAudio.framesFFT?.frames?.length || 0
-      });
-      const spectralCentroidResults = await this.calculateSpectralCentroidMetrics(segmentedAudio.framesFFT, { jobId });
-
-      // ========= CÁLCULO LUFS ITU-R BS.1770-4 =========
-      logAudio('core_metrics', 'lufs_start', { frames: segmentedAudio.framesRMS?.count });
-      const lufsMetrics = await this.calculateLUFSMetrics(normalizedLeft, normalizedRight, { jobId });
+      const [fftResults, lufsMetrics, truePeakMetrics, bpmResult] = await runWorkersParallel([
+        {
+          name: 'FFT + Spectral Analysis',
+          path: join(WORKERS_DIR, 'fft-worker.js'),
+          data: {
+            framesFFT: segmentedAudio.framesFFT,
+            jobId
+          }
+        },
+        {
+          name: 'LUFS ITU-R BS.1770-4',
+          path: join(WORKERS_DIR, 'lufs-worker.js'),
+          data: {
+            leftChannel: normalizedLeft,
+            rightChannel: normalizedRight,
+            sampleRate: CORE_METRICS_CONFIG.SAMPLE_RATE,
+            jobId
+          }
+        },
+        {
+          name: 'True Peak 4x Oversampling',
+          path: join(WORKERS_DIR, 'truepeak-worker.js'),
+          data: {
+            leftChannel: normalizedLeft,
+            rightChannel: normalizedRight,
+            sampleRate: CORE_METRICS_CONFIG.SAMPLE_RATE,
+            tempFilePath: options.tempFilePath,
+            jobId
+          }
+        },
+        {
+          name: 'BPM Detection (30s limit)',
+          path: join(WORKERS_DIR, 'bpm-worker.js'),
+          data: {
+            leftChannel: normalizedLeft,
+            rightChannel: normalizedRight,
+            sampleRate: CORE_METRICS_CONFIG.SAMPLE_RATE,
+            jobId
+          }
+        }
+      ], { timeout: 120000 }); // 2 minutos timeout
+      
+      console.timeEnd('⏱️  Tempo Total Paralelo');
+      console.log('✅ [PARALELIZAÇÃO] Todas as análises concluídas simultaneamente!\n');
+      
+      // Validar resultados dos workers
+      assertFinite(fftResults, 'core_metrics');
       assertFinite(lufsMetrics, 'core_metrics');
-
-      // ========= TRUE PEAK 4X OVERSAMPLING =========
-      logAudio('core_metrics', 'truepeak_start', { channels: 2 });
-      const truePeakMetrics = await this.calculateTruePeakMetrics(normalizedLeft, normalizedRight, { 
-        jobId, 
-        tempFilePath: options.tempFilePath 
-      });
       assertFinite(truePeakMetrics, 'core_metrics');
+      
+      // Extrair spectralBands e spectralCentroid do fftResults (agora retornados pelo worker)
+      const spectralBandsResults = fftResults.spectralBands;
+      const spectralCentroidResults = {
+        centroidHz: fftResults.spectralCentroidHz,
+        centroidNormalized: fftResults.spectralCentroidNormalized
+      };
 
       // ========= ANÁLISE ESTÉREO CORRIGIDA =========
       logAudio('core_metrics', 'stereo_start', { length: normalizedLeft.length });
@@ -287,28 +326,19 @@ class CoreMetricsProcessor {
         }
       };
 
-      // ========= CÁLCULO DE BPM =========
-      try {
-        console.log('[BPM] Iniciando cálculo de BPM...');
-        
-        // Extrair frames de áudio dos canais normalizados para análise de BPM
-        const audioFrames = [normalizedLeft, normalizedRight];
-        const bpmResult = calculateBpm(audioFrames, CORE_METRICS_CONFIG.SAMPLE_RATE);
-        
-        // Adicionar resultado ao coreMetrics (campos diretos)
-        coreMetrics.bpm = bpmResult.bpm;
-        coreMetrics.bpmConfidence = bpmResult.confidence;
-        
-        // Log padronizado para auditoria
+      // ========= BPM JÁ CALCULADO NO WORKER PARALELO =========
+      // BPM foi calculado junto com FFT, LUFS e TruePeak via Worker Thread
+      coreMetrics.bpm = bpmResult?.bpm || null;
+      coreMetrics.bpmConfidence = bpmResult?.confidence || null;
+      
+      if (bpmResult?.bpm) {
         console.log("[AUDIO] bpm_calculated stage=core_metrics", {
           bpm: bpmResult.bpm,
-          confidence: bpmResult.confidence
+          confidence: bpmResult.confidence,
+          source: 'worker_thread_parallel'
         });
-      } catch (bpmError) {
-        console.warn('[BPM] Erro no cálculo de BPM (não crítico):', bpmError.message);
-        // Garantir que os campos existam mesmo em caso de erro
-        coreMetrics.bpm = null;
-        coreMetrics.bpmConfidence = null;
+      } else {
+        console.warn('[BPM] Não detectado (worker retornou null)');
       }
 
       // ========= ANÁLISE DE PROBLEMAS E SUGESTÕES =========

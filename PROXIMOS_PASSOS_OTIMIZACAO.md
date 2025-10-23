@@ -28,6 +28,12 @@
 - **Ganho esperado:** 70-80% (5-8s → 1-2s)
 - **Status:** ✅ Implementado + Documentado
 
+### 5️⃣ Paralelização com Worker Threads
+- **Arquivos:** `/workers/*.js` + `worker-manager.js`
+- **Mudança:** FFT, LUFS, TruePeak e BPM rodam simultaneamente
+- **Ganho esperado:** 60-100s (execução paralela ao invés de sequencial)
+- **Status:** ✅ Implementado + Documentado
+
 ---
 
 ## 🧪 Testes Criados
@@ -258,4 +264,4 @@ Antes de considerar completo:
 
 ---
 
-**Próxima ação imediata:** Executar `node test-fft-optimized.js` para validar primeira otimização.
+**Próxima ação imediata:** Executar `node test-paralelizacao.js <arquivo.wav>` para validar paralelização com workers.
