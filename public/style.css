@@ -1440,19 +1440,17 @@ body {
 .ai-card {
     border-radius: 16px;
     padding: 20px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: linear-gradient(135deg, 
-        rgba(255, 255, 255, 0.08) 0%, 
-        rgba(255, 255, 255, 0.04) 100%
-    );
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3),
                 0 2px 8px rgba(0, 150, 255, 0.1),
                 inset 0 1px 0 rgba(255, 255, 255, 0.1);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
+    color: #ffffff;
 }
 
 .ai-card::before {
@@ -1658,6 +1656,11 @@ body {
     .ai-card {
         padding: 16px;
         border-radius: 12px;
+        /* 🎯 Ajuste de transparência para mobile: fundo escuro translúcido */
+        background: rgba(20, 20, 20, 0.35);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        color: #ffffff;
     }
     
     .ai-card-title {
