@@ -1390,17 +1390,59 @@ export default async function handler(req, res) {
     // 🎯 PASSO 7: Seleção inteligente de modelo (usa intent detectado)
     modelSelection = selectOptimalModel(hasImages, conversationHistory, message);
     
-    // 🎯 PASSO 8: FORÇAR CONFIGURAÇÃO EDUCACIONAL para análise de mix
+    // 🚀 PASSO 8: LÓGICA HÍBRIDA - GPT-4o-mini primeira resposta + GPT-3.5 follow-ups
     if ((detectedIntent === 'MIX_ANALYZER_HELP' || detectedIntent === 'mix_analyzer_help') && !hasImages && promptConfig) {
-      console.log(`🎓 Modo Educacional TUTORIAL HARDCORE Ativado: ${detectedIntent}`);
-      modelSelection = {
-        model: 'gpt-3.5-turbo',  // SEMPRE 3.5-turbo para eficiência
-        reason: 'EDUCATIONAL_MODE_MIX_ANALYZER',
-        maxTokens: 1300,         // Resposta educacional completa com cards
-        temperature: 0.3,        // Máxima precisão
-        top_p: 1                 // Determinístico
-      };
+      try {
+        // 🧠 DETECÇÃO DE PRIMEIRA RESPOSTA: Se nunca houve mensagem do assistente, é a primeira
+        const lastAssistantMessage = conversationHistory.find(msg => msg.role === 'assistant' && msg.content);
+        const isFirstResponse = !lastAssistantMessage;
+        
+        if (isFirstResponse) {
+          console.log(`🚀 PRIMEIRA RESPOSTA: Usando GPT-4o-mini para máxima qualidade (intent: ${detectedIntent})`);
+          modelSelection = {
+            model: 'gpt-4o-mini',
+            reason: 'FIRST_RESPONSE_AFTER_ANALYSIS',
+            maxTokens: 1800,       // Mais espaço para resposta detalhada
+            temperature: 0.3,      // Máxima precisão técnica
+            top_p: 1               // Determinístico
+          };
+        } else {
+          console.log(`📚 FOLLOW-UP: Usando GPT-3.5-turbo para eficiência (intent: ${detectedIntent})`);
+          modelSelection = {
+            model: 'gpt-3.5-turbo',
+            reason: 'FOLLOWUP_MODE_MIX_ANALYZER',
+            maxTokens: 1300,       // Eficiente para follow-ups
+            temperature: 0.3,      // Máxima precisão
+            top_p: 1               // Determinístico
+          };
+        }
+      } catch (error) {
+        console.error('❌ Erro na seleção híbrida de modelo:', error);
+        // Fallback seguro para gpt-3.5-turbo
+        modelSelection = {
+          model: 'gpt-3.5-turbo',
+          reason: 'FALLBACK_ERROR',
+          maxTokens: 1300,
+          temperature: 0.3,
+          top_p: 1
+        };
+      }
     }
+    
+    // 📊 AUDIT LOG: Registrar decisão de modelo para análise de custo/qualidade
+    if (detectedIntent === 'MIX_ANALYZER_HELP' || detectedIntent === 'mix_analyzer_help') {
+      const lastAssistantMessage = conversationHistory.find(msg => msg.role === 'assistant' && msg.content);
+      const isFirstResponse = !lastAssistantMessage;
+      console.log(`📊 AUDIT MODEL SELECTION:
+  intent=${detectedIntent}
+  firstResponse=${isFirstResponse}
+  model=${modelSelection.model}
+  reason=${modelSelection.reason}
+  maxTokens=${modelSelection.maxTokens}
+  temperature=${modelSelection.temperature}
+  conversationHistoryLength=${conversationHistory.length}`);
+    }
+    
     // Sobrescrever com preferência do intent se aplicável (outros casos)
     else if (promptConfig && promptConfig.preferredModel) {
       const intentPreferredModel = promptConfig.preferredModel;
