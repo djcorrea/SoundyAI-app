@@ -7464,7 +7464,16 @@ box-shadow: 0 0 30px rgba(93, 21, 134, 0.4),
 // 🤖 Enviar análise para chat
 window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
     __dbg('🎯 BOTÃO CLICADO: Pedir Ajuda à IA');
-    
+
+    // 📝 1. Pegar o texto da análise ou input
+    const userInput = document.getElementById('userInput').value;
+
+    // 🚀 2. Adicionar a flag para forçar GPT-4o
+    const message = userInput + ' #HELP_REQUEST';
+
+    // 📡 3. Enviar para a API
+    sendMessageToAPI({ message });
+};
     if (!currentModalAnalysis) {
         alert('Nenhuma análise disponível');
         __dbg('❌ Erro: currentModalAnalysis não existe');
