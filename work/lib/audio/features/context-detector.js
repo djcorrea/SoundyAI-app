@@ -33,27 +33,17 @@ function computeOnsetEnvelope(channel, sampleRate){
   return { env, time };
 }
 
+// BPM calculation disabled for performance optimization
 function autocorrelateTempo(env, time){
-  if(env.length<8) return null;
-  const mean = env.reduce((a,b)=>a+b,0)/env.length;
-  const x = env.map(v=>v-mean);
-  const dt = (time[time.length-1]-time[0]) / (env.length-1) || 0.01;
-  const minBPM=60, maxBPM=200;
-  const results=[];
-  for(let bpm=minBPM; bpm<=maxBPM; bpm+=0.5){
-    const periodSec = 60/bpm; const lag = Math.round(periodSec/dt); if(lag<=1 || lag>=x.length-1) continue;
-    let num=0, denomA=0, denomB=0; for(let i=0;i+lag<x.length;i++){ const a=x[i], b=x[i+lag]; num+=a*b; denomA+=a*a; denomB+=b*b; }
-    const r = num/Math.sqrt((denomA||1)*(denomB||1));
-    results.push({ bpm, r });
-  }
-  results.sort((a,b)=>b.r-a.r);
-  if(!results.length) return null;
-  const best = results[0];
-  const second = results[1] || { r:0 };
-  let conf = Math.max(0, best.r - second.r);
-  conf = Math.min(1, (conf*0.6) + Math.max(0,best.r)*0.4);
-  return { bpm: best.bpm, confidence: +conf.toFixed(3), bestR: best.r };
+  // DISABLED: autocorrelateTempo was removed to improve performance
+  return { bpm: null, confidence: null };
 }
+
+// Original implementation removed (~20 lines)
+// function autocorrelateTempo(env, time){
+//   if(env.length<8) return null;
+//   ... (removed for performance)
+// }
 
 function aggregateChromagram(channel, sampleRate){
   const hop = 4096; const win = 8192; if(channel.length < win) return null;

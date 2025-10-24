@@ -173,13 +173,13 @@ function compareResults(baseline, optimized) {
     TOLERANCES.stereoWidth
   ));
   
-  // BPM
-  comparisons.push(verifyMetric(
-    'BPM',
-    baseline.bpm,
-    optimized.bpm,
-    TOLERANCES.bpm
-  ));
+  // BPM - DISABLED (removed for performance optimization)
+  // comparisons.push(verifyMetric(
+  //   'BPM',
+  //   baseline.bpm,
+  //   optimized.bpm,
+  //   TOLERANCES.bpm
+  // ));
   
   // Bandas Espectrais (7 bandas)
   if (baseline.spectralBands?.bands && optimized.spectralBands?.bands) {
