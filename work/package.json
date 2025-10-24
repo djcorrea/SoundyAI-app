@@ -2,7 +2,11 @@
   "name": "worker",
   "version": "1.0.0",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "perf:baseline": "node --expose-gc tools/perf/runner.js --config tools/perf/bench.config.json --label baseline",
+    "perf:exp": "node --expose-gc tools/perf/runner.js --config tools/perf/bench.config.json",
+    "perf:parity": "node tools/perf/verify-parity.js",
+    "perf:stress": "node --expose-gc tools/perf/runner.js --config tools/perf/bench.config.json --label baseline"
   },
   "dependencies": {
     "aws-sdk": "^2.1692.0",
