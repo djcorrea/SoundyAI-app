@@ -395,6 +395,8 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
 
   // ===== RMS =====
   if (coreMetrics.rms) {
+    console.log(`[DEBUG JSON RMS] coreMetrics.rms.average=${coreMetrics.rms.average}, left=${coreMetrics.rms.left}, right=${coreMetrics.rms.right}, peak=${coreMetrics.rms.peak}`);
+    
     technicalData.rmsLevels = {
       left: safeSanitize(coreMetrics.rms.left),
       right: safeSanitize(coreMetrics.rms.right),
@@ -405,6 +407,10 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.peak = technicalData.rmsLevels.peak;
     technicalData.rms = technicalData.rmsLevels.average;
     technicalData.avgLoudness = technicalData.rmsLevels.average; // alias para Volume Médio
+    
+    console.log(`[DEBUG JSON FINAL] technicalData.avgLoudness=${technicalData.avgLoudness}, technicalData.rms=${technicalData.rms}`);
+  } else {
+    console.error(`[DEBUG JSON ERROR] coreMetrics.rms é ${typeof coreMetrics.rms} (${coreMetrics.rms})`);
   }
 
   // ===== DC Offset =====
