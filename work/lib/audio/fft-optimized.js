@@ -22,7 +22,7 @@
  * const result = fft.fft(signal); // {real, imag, magnitude, phase}
  */
 
-import FFT from 'fft-js';
+import * as fftJs from 'fft-js';
 
 /**
  * 🧮 Classe OptimizedFFT - Wrapper compatível com FastFFT
@@ -36,8 +36,8 @@ class OptimizedFFT {
     this.size = size;
     this.halfSize = size / 2;
     
-    // Instância fft-js otimizada
-    this.fft = new FFT(size);
+    // Guardar referência à biblioteca fft-js
+    this.fftLib = fftJs;
     
     // Buffers reutilizáveis para reduzir GC overhead
     this.magnitudeBuffer = new Float32Array(this.halfSize);
@@ -63,20 +63,14 @@ class OptimizedFFT {
       );
     }
     
-    // Lazy init do buffer complexo (evita alocação desnecessária no construtor)
-    if (!this.complexBuffer) {
-      this.complexBuffer = this.fft.createComplexArray();
-    }
+    // Converter Float32Array para array normal (fft-js espera array)
+    const signalArray = Array.from(signal);
     
-    // Converter Float32Array para formato complexo [r0, i0, r1, i1, ...]
-    // Parte imaginária inicializada como 0 (sinal real)
-    for (let i = 0; i < this.size; i++) {
-      this.complexBuffer[i * 2] = signal[i];       // Real
-      this.complexBuffer[i * 2 + 1] = 0;           // Imaginary
-    }
+    // Computar FFT usando fft-js
+    const phasors = this.fftLib.fft(signalArray);
     
-    // FFT otimizada (in-place quando possível)
-    const fftResult = this.fft.fft(this.complexBuffer);
+    // fft-js retorna array de phasors [real, imag, real, imag, ...]
+    const fftResult = phasors;
     
     // Extrair apenas metade positiva do espectro (simetria Hermitiana)
     const real = new Float32Array(this.halfSize);
