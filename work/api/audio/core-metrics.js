@@ -137,12 +137,12 @@ class CoreMetricsProcessor {
       });
       const t2 = logStep('Normalização', t1);
 
-      // ========= 🚀 PARALELIZAÇÃO: FFT, LUFS, TRUE PEAK E BPM EM PARALELO =========
+      // ========= 🚀 PARALELIZAÇÃO: FFT, LUFS, TRUE PEAK (BPM TEMPORARIAMENTE DESABILITADO) =========
       const t3 = performance.now();
       console.log('\n🚀 [PARALELIZAÇÃO] Iniciando análises em Worker Threads...');
       console.time('⏱️  Tempo Total Paralelo');
       
-      const [fftResults, lufsMetrics, truePeakMetrics, bpmResult] = await runWorkersParallel([
+      const [fftResults, lufsMetrics, truePeakMetrics] = await runWorkersParallel([
         {
           name: 'FFT + Spectral Analysis',
           path: join(WORKERS_DIR, 'fft-worker.js'),
@@ -171,22 +171,26 @@ class CoreMetricsProcessor {
             tempFilePath: options.tempFilePath,
             jobId
           }
-        },
-        {
-          name: 'BPM Detection (30s limit)',
-          path: join(WORKERS_DIR, 'bpm-worker.js'),
-          data: {
-            leftChannel: normalizedLeft,
-            rightChannel: normalizedRight,
-            sampleRate: CORE_METRICS_CONFIG.SAMPLE_RATE,
-            jobId
-          }
         }
+        // ⚠️ BPM TEMPORARIAMENTE DESABILITADO (problema com music-tempo no Railway)
+        // {
+        //   name: 'BPM Detection (30s limit)',
+        //   path: join(WORKERS_DIR, 'bpm-worker.js'),
+        //   data: {
+        //     leftChannel: normalizedLeft,
+        //     rightChannel: normalizedRight,
+        //     sampleRate: CORE_METRICS_CONFIG.SAMPLE_RATE,
+        //     jobId
+        //   }
+        // }
       ], { timeout: 120000 }); // 2 minutos timeout
       
       console.timeEnd('⏱️  Tempo Total Paralelo');
       console.log('✅ [PARALELIZAÇÃO] Todas as análises concluídas simultaneamente!\n');
-      const t4 = logStep('Workers Paralelos (FFT+LUFS+BPM+TP)', t3);
+      const t4 = logStep('Workers Paralelos (FFT+LUFS+TP)', t3);
+      
+      // BPM desabilitado temporariamente
+      const bpmResult = null;
       
       // Validar resultados dos workers
       assertFinite(fftResults, 'core_metrics');
