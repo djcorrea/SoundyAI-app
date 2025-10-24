@@ -247,13 +247,13 @@ class CoreMetricsProcessor {
       }
 
       // ========= CÁLCULO DE BPM =========
-      let bmpMetrics = { bpm: null, bpmConfidence: null }; // ✅ CORREÇÃO: bmpConfidence → bpmConfidence
+      let bpmMetrics = { bpm: null, bpmConfidence: null }; // ✅ CORREÇÃO: bmpMetrics → bpmMetrics
       try {
-        bmpMetrics = this.calculateBpmMetrics(normalizedLeft, normalizedRight, { jobId });
+        bpmMetrics = this.calculateBpmMetrics(normalizedLeft, normalizedRight, { jobId });
         console.log('[SUCCESS] BPM calculado via método da classe');
       } catch (error) {
         console.log('[SKIP_METRIC] BPM: erro no método da classe -', error.message);
-        bmpMetrics = { bpm: null, bpmConfidence: null, bpmSource: 'ERROR' }; // ✅ CORREÇÃO: incluir bpmSource
+        bpmMetrics = { bpm: null, bpmConfidence: null, bpmSource: 'ERROR' }; // ✅ CORREÇÃO: incluir bpmSource
       }
 
       // ========= MONTAGEM DE RESULTADO CORRIGIDO =========
@@ -277,9 +277,9 @@ class CoreMetricsProcessor {
         dcOffset: dcOffsetMetrics, // ✅ NOVO: DC Offset analysis
         dominantFrequencies: dominantFreqMetrics, // ✅ NOVO: Dominant frequencies
         spectralUniformity: spectralUniformityMetrics, // ✅ NOVO: Spectral uniformity
-        bpm: bmpMetrics.bpm, // ✅ NOVO: Beats Per Minute
-        bpmConfidence: bmpMetrics.bpmConfidence, // ✅ CORREÇÃO: BPM Confidence (corrigido bmpConfidence → bpmConfidence)
-        bpmSource: bmpMetrics.bpmSource, // ✅ NOVO: Fonte do cálculo BPM (NORMAL, FALLBACK_STRICT, etc)
+        bpm: bpmMetrics.bpm, // ✅ NOVO: Beats Per Minute
+        bpmConfidence: bpmMetrics.bpmConfidence, // ✅ CORREÇÃO: BPM Confidence (corrigido bmpConfidence → bpmConfidence)
+        bpmSource: bpmMetrics.bpmSource, // ✅ NOVO: Fonte do cálculo BPM (NORMAL, FALLBACK_STRICT, etc)
         
         normalization: {
           applied: normalizationResult.normalizationApplied,
@@ -1767,8 +1767,8 @@ class CoreMetricsProcessor {
   }
 
   // ========= CORREÇÃO HARMÔNICA E VALIDAÇÃO =========
-  checkAndCorrectHarmonics(bmp, confidence, minBpm, maxBpm) {
-    if (!bmp) return { bpm: null, confidence: 0, wasHarmonicCorrected: false };
+  checkAndCorrectHarmonics(bpm, confidence, minBpm, maxBpm) {
+    if (!bpm) return { bpm: null, confidence: 0, wasHarmonicCorrected: false };
 
     let correctedBpm = bpm;
     let correctedConfidence = confidence;

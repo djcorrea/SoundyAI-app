@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "description": "Configuração de benchmarks para auditoria de performance do pipeline de áudio",
+  
+  "testFiles": {
+    "short": {
+      "path": "./audio-samples/short-30s.wav",
+      "description": "Áudio curto (30s) - EDM/Dance",
+      "duration": 30,
+      "genre": "electronic"
+    },
+    "medium": {
+      "path": "./audio-samples/medium-3min.wav",
+      "description": "Áudio médio (3min) - Pop/Rock",
+      "duration": 180,
+      "genre": "pop"
+    },
+    "long": {
+      "path": "./audio-samples/long-5min.wav",
+      "description": "Áudio longo (5min) - Ambient",
+      "duration": 300,
+      "genre": "ambient"
+    }
+  },
+  
+  "benchmarkConfig": {
+    "repetitions": 3,
+    "repetitionsStress": 10,
+    "warmupRuns": 1,
+    "enableWarmup": true,
+    "gcBetweenRuns": true,
+    "timeoutMs": 600000,
+    "collectMemoryStats": true,
+    "collectCPUStats": true
+  },
+  
+  "pipelineFlags": {
+    "enableBPM": true,
+    "bpmMethodA": true,
+    "bpmMethodB": true,
+    "enableSpectralBands": true,
+    "enableLUFS": true,
+    "enableTruePeak": true,
+    "enableNormalization": true,
+    "fftSize": 4096,
+    "hopSize": 1024,
+    "workerPool": 0,
+    "decodeCache": false,
+    "useTransferable": false,
+    "useSharedArrayBuffer": false
+  },
+  
+  "experiments": {
+    "baseline": {
+      "label": "Baseline (tudo ativo)",
+      "description": "Configuração atual com todos os processamentos ativos",
+      "flags": {}
+    },
+    "no-bpm": {
+      "label": "Sem BPM",
+      "description": "Desativar completamente análise de BPM",
+      "flags": {
+        "enableBPM": false
+      }
+    },
+    "bpm-a-only": {
+      "label": "BPM Método A apenas",
+      "description": "Usar apenas método A (music-tempo / advanced onset)",
+      "flags": {
+        "bpmMethodA": true,
+        "bpmMethodB": false
+      }
+    },
+    "bpm-b-only": {
+      "label": "BPM Método B apenas",
+      "description": "Usar apenas método B (autocorrelação)",
+      "flags": {
+        "bpmMethodA": false,
+        "bpmMethodB": true
+      }
+    },
+    "bpm-conditional": {
+      "label": "BPM Condicional",
+      "description": "Método B só roda se confiança do A < 0.5",
+      "flags": {
+        "bpmMethodA": true,
+        "bpmMethodB": "conditional"
+      }
+    },
+    "bands-impl-opt": {
+      "label": "Bandas Otimizadas (impl)",
+      "description": "Vetorização, reuso de buffers, pré-cálculo",
+      "flags": {
+        "enableSpectralBands": true
+      },
+      "note": "Requer código otimizado em spectral-bands.js"
+    },
+    "fft-opt": {
+      "label": "FFT Otimizado",
+      "description": "Reuso de planos, minimizar alocações",
+      "flags": {
+        "fftSize": 4096,
+        "hopSize": 1024
+      },
+      "note": "Requer código otimizado em fft.js"
+    },
+    "decode-cache": {
+      "label": "Decode Cache",
+      "description": "Cache de decodificação + broadcast via SAB",
+      "flags": {
+        "decodeCache": true,
+        "useSharedArrayBuffer": true
+      },
+      "note": "Requer implementação de cache"
+    },
+    "parallel": {
+      "label": "Paralelização",
+      "description": "Worker pool + LUFS/TP/Bandas em paralelo",
+      "flags": {
+        "workerPool": -1
+      },
+      "note": "workerPool=-1 usa CPUs físicas - 1"
+    }
+  },
+  
+  "parityThresholds": {
+    "lufsIntegrated": 0.10,
+    "truePeakDbtp": 0.10,
+    "rms": 0.20,
+    "dynamicRange": 0.20,
+    "crestFactor": 0.20,
+    "lra": 0.20,
+    "spectralBandsPp": 0.5,
+    "bpm": 0.5
+  },
+  
+  "outputConfig": {
+    "resultsDir": "./results",
+    "generateMarkdown": true,
+    "generateJSON": true,
+    "generateCSV": true,
+    "generateCharts": false,
+    "keepRawData": true,
+    "timestampFormat": "YYYY-MM-DD_HH-mm-ss"
+  },
+  
+  "notesAndTips": {
+    "audioSamples": "Adicione seus arquivos de teste na pasta ./audio-samples/",
+    "cpuAffinity": "Em Windows, use PowerShell: $Process = Get-Process -Id $PID; $Process.ProcessorAffinity = 0x0F",
+    "gcControl": "Node flag: --expose-gc para forçar GC entre runs",
+    "workerPool": "0 = sem pool (inline), -1 = auto (CPUs-1), N = fixo"
+  }
+}
