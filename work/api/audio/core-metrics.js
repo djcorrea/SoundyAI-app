@@ -2,8 +2,8 @@
 // FFT, LUFS ITU-R BS.1770-4, True Peak 4x Oversampling, Stereo Analysis
 // Migração equivalente das métricas do Web Audio API para Node.js com fail-fast
 
-// 🚀 OTIMIZAÇÃO #3: FFT otimizada com fft-js (ganho: 60-90s → 5-10s)
-import { FastFFT } from "../../lib/audio/fft-optimized.js";
+// 🚀 OTIMIZAÇÃO #3: FFT - FALLBACK para JavaScript puro (temporário até resolver fft-js)
+import { FastFFT } from "../../lib/audio/fft-engine.js";
 import { calculateLoudnessMetrics } from "../../lib/audio/features/loudness.js";
 import { analyzeTruePeaksFFmpeg } from "../../lib/audio/features/truepeak-ffmpeg.js";
 import { normalizeAudioToTargetLUFS, validateNormalization } from "../../lib/audio/features/normalization.js";
