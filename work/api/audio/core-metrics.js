@@ -266,7 +266,19 @@ class CoreMetricsProcessor {
         truePeak: truePeakMetrics,
         stereo: stereoMetrics, // ✅ CORRIGIDO: Correlação (-1 a +1) e Width (0 a 1)
         dynamics: dynamicsMetrics, // ✅ CORRIGIDO: DR, Crest Factor, LRA
-        rms: this.processRMSMetrics(segmentedAudio.framesRMS), // ✅ NOVO: Processar métricas RMS
+        rms: (() => {
+          console.log(`[DEBUG CORE] Chamando processRMSMetrics com segmentedAudio.framesRMS:`, {
+            hasFramesRMS: !!segmentedAudio.framesRMS,
+            hasLeft: !!segmentedAudio.framesRMS?.left,
+            hasRight: !!segmentedAudio.framesRMS?.right,
+            leftLength: segmentedAudio.framesRMS?.left?.length,
+            rightLength: segmentedAudio.framesRMS?.right?.length,
+            count: segmentedAudio.framesRMS?.count
+          });
+          const result = this.processRMSMetrics(segmentedAudio.framesRMS);
+          console.log(`[DEBUG CORE] processRMSMetrics retornou:`, result);
+          return result;
+        })(), // ✅ NOVO: Processar métricas RMS
         
         // ========= NOVOS ANALISADORES =========
         dcOffset: dcOffsetMetrics, // ✅ NOVO: DC Offset analysis
@@ -1216,6 +1228,20 @@ class CoreMetricsProcessor {
   }
 
   /**
+   * 📊 Calcular média aritmética de um array
+   * 🔧 CORREÇÃO: Função removida acidentalmente durante refatoração de BPM
+   * @param {number[]} arr - Array de números
+   * @returns {number} - Média aritmética
+   */
+  calculateArrayAverage(arr) {
+    if (!arr || arr.length === 0) {
+      return 0;
+    }
+    const sum = arr.reduce((acc, val) => acc + val, 0);
+    return sum / arr.length;
+  }
+
+  /**
    * 📊 Processar métricas RMS dos frames para métricas agregadas
    */
   processRMSMetrics(framesRMS) {
@@ -1240,6 +1266,11 @@ class CoreMetricsProcessor {
       const validRightFrames = rightFrames.filter(val => val > 0 && isFinite(val));
       
       if (validLeftFrames.length === 0 || validRightFrames.length === 0) {
+        // ✅ LOG DETALHADO: Por que todos os frames foram filtrados?
+        console.warn(`[RMS FILTER] Todos os frames filtrados! leftTotal=${leftFrames.length}, rightTotal=${rightFrames.length}, validLeft=${validLeftFrames.length}, validRight=${validRightFrames.length}`);
+        console.warn(`[RMS FILTER] Primeiros 5 valores L:`, leftFrames.slice(0, 5));
+        console.warn(`[RMS FILTER] Primeiros 5 valores R:`, rightFrames.slice(0, 5));
+        
         logAudio('core_metrics', 'rms_no_valid_frames', { 
           leftValid: validLeftFrames.length, 
           rightValid: validRightFrames.length,
@@ -1282,6 +1313,9 @@ class CoreMetricsProcessor {
         frameCount: framesRMS.count,
         validFrames: Math.min(validLeftFrames.length, validRightFrames.length)
       });
+      
+      // ✅ DEBUG RMS: Log crítico antes do return
+      console.log(`[DEBUG RMS RETURN] average=${averageRMSDb.toFixed(2)} dB, peak=${peakRMSDb.toFixed(2)} dB, validFrames L/R=${validLeftFrames.length}/${validRightFrames.length}`);
 
       return {
         left: leftRMSDb,

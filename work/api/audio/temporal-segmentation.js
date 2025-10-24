@@ -173,18 +173,27 @@ function segmentChannelForRMS(audioData, channelName) {
     }
     const rmsValue = Math.sqrt(sumSquares / block.length);
     
-    // Validar RMS finito e não-zero
-    if (isFinite(rmsValue) && rmsValue > 0) {
-      rmsValues.push(rmsValue);
+    // ✅ DEBUG RMS: Log valores calculados
+    if (blockIndex === 0) {
+      console.log(`[DEBUG RMS CALC] Canal ${channelName}, Bloco 0: rmsValue=${rmsValue}, isFinite=${isFinite(rmsValue)}, block.length=${block.length}`);
+    }
+    
+    // ✅ CORREÇÃO: Aceitar valores RMS reais (incluindo zero para silêncio)
+    // REMOVIDO: lógica de 1e-8 artificial que causava -160 dB
+    if (isFinite(rmsValue)) {
+      rmsValues.push(rmsValue);  // Aceita 0, 0.001, 0.05, etc
     } else {
-      // Para blocos de silêncio, adicionar valor muito pequeno mas válido
-      rmsValues.push(1e-8);
+      // Apenas para NaN/Infinity (erro de cálculo), usar zero
+      rmsValues.push(0);
     }
   }
   
   if (frames.length === 0) {
     throw makeErr('segmentation', `Nenhum frame RMS gerado para canal ${channelName}`, 'no_rms_frames');
   }
+  
+  // ✅ DEBUG RMS: Log valores finais
+  console.log(`[DEBUG RMS FINAL] Canal ${channelName}: frames=${frames.length}, rmsValues=${rmsValues.length}, primeiro RMS=${rmsValues[0]?.toFixed(6)}, último RMS=${rmsValues[rmsValues.length-1]?.toFixed(6)}`);
   
   return { frames, rmsValues }; // ⚡ RETORNAR AMBOS: frames brutos e valores RMS
 }
