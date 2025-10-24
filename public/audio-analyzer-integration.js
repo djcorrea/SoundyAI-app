@@ -3904,7 +3904,15 @@ function displayModalResults(analysis) {
         const col1 = [
             // CONDITIONAL: Pico de Amostra - só exibir se não for placeholder 0.000
             (Number.isFinite(getMetric('peak_db', 'peak')) && getMetric('peak_db', 'peak') !== 0 ? row('Pico de Amostra', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak') : ''),
-            row('Volume Médio (RMS)', `${safeFixed(getMetric('rms_level', 'avgLoudness'))} dBFS`, 'avgLoudness'),
+            // Volume Médio (RMS) - múltiplos fallbacks para garantir exibição
+            (() => {
+                const avgLoudness = getMetric('rms_level', 'avgLoudness') ?? 
+                                   analysis.technicalData?.avgLoudness ?? 
+                                   analysis.technicalData?.averageRmsDb ?? 
+                                   analysis.technicalData?.rmsLevels?.average ?? 
+                                   null;
+                return row('Volume Médio (RMS)', `${safeFixed(avgLoudness)} dBFS`, 'avgLoudness');
+            })(),
             row('Dynamic Range (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
             row('Loudness Range (LRA)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra'),
             // 🥁 BPM – exibir como métrica principal, null-safe (mostra — quando ausente)
