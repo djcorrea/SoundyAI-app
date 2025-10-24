@@ -11,7 +11,7 @@
 
 import { parentPort, workerData } from 'worker_threads';
 import { performance } from 'perf_hooks';
-import { FastFFT } from '../lib/audio/fft-engine.js';
+import { FastFFT } from '../lib/audio/fft.js';
 import { SpectralMetricsCalculator, SpectralMetricsAggregator } from '../lib/audio/features/spectral-metrics.js';
 import { SpectralBandsCalculator, SpectralBandsAggregator } from '../lib/audio/features/spectral-bands.js';
 import { SpectralCentroidCalculator, SpectralCentroidAggregator } from '../lib/audio/features/spectral-centroid.js';

@@ -3,7 +3,7 @@
 // Migração equivalente das métricas do Web Audio API para Node.js com fail-fast
 
 // 🚀 OTIMIZAÇÃO #3: FFT - FALLBACK para JavaScript puro (temporário até resolver fft-js)
-import { FastFFT } from "../../lib/audio/fft-engine.js";
+import { FastFFT } from "../../lib/audio/fft.js";
 import { calculateLoudnessMetrics } from "../../lib/audio/features/loudness.js";
 import { analyzeTruePeaksFFmpeg } from "../../lib/audio/features/truepeak-ffmpeg.js";
 import { normalizeAudioToTargetLUFS, validateNormalization } from "../../lib/audio/features/normalization.js";
