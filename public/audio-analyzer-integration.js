@@ -545,8 +545,18 @@ function handleReferenceFileSelection(type) {
                 // 4. Aguardar resultado da análise
                 const analysisResult = await pollJobStatus(jobId);
                 
-                // Mostrar resultados no modal
-displayModalResults(analysisResult);
+                // 🔍 LOG DE DEBUG: Verificar se análise está completa
+                console.log('🔍 [DEBUG] Análise retornada do polling:', {
+                    hasResult: !!analysisResult,
+                    hasTechnicalData: !!analysisResult?.technicalData,
+                    avgLoudness: analysisResult?.technicalData?.avgLoudness,
+                    lufsIntegrated: analysisResult?.technicalData?.lufsIntegrated,
+                    truePeakDbtp: analysisResult?.technicalData?.truePeakDbtp,
+                    dynamicRange: analysisResult?.technicalData?.dynamicRange
+                });
+                
+                // Mostrar resultados no modal (com validação interna de métricas)
+                displayModalResults(analysisResult);
 
                 // 5. Armazenar resultado
                 uploadedFiles[type] = {
@@ -3749,6 +3759,26 @@ function showModalLoading() {
 // 📊 Mostrar resultados no modal
 // 📊 Mostrar resultados no modal
 function displayModalResults(analysis) {
+    // 🔒 VALIDAÇÃO CRÍTICA: Garantir que métricas essenciais estão presentes
+    const hasEssentialMetrics = (
+        analysis?.technicalData && 
+        (
+            Number.isFinite(analysis.technicalData.lufsIntegrated) ||
+            Number.isFinite(analysis.technicalData.lufs_integrated) ||
+            Number.isFinite(analysis.technicalData.avgLoudness) ||
+            Number.isFinite(analysis.technicalData.dynamicRange)
+        )
+    );
+    
+    if (!hasEssentialMetrics) {
+        console.warn('⚠️ [UI_GATE] Aguardando métricas essenciais... análise incompleta:', analysis);
+        // Tentar novamente em 2 segundos
+        setTimeout(() => displayModalResults(analysis), 2000);
+        return;
+    }
+    
+    console.log('✅ [UI_GATE] Métricas essenciais presentes, exibindo resultados');
+    
     // 🔒 UI GATE: Verificação final antes de renderizar
     const analysisRunId = analysis?.runId || analysis?.metadata?.runId;
     const currentRunId = window.__CURRENT_ANALYSIS_RUN_ID__;
