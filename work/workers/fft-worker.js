@@ -58,8 +58,8 @@ async function calculateFFTMetrics() {
       magnitudeSpectrum.push(fftResult.magnitude);
       phaseSpectrum.push(fftResult.phase);
       
-      // Métricas espectrais por frame
-      const spectralMetrics = spectralCalculator.calculateFrameMetrics(fftResult.magnitude);
+      // Métricas espectrais por frame (método correto: calculateAllMetrics)
+      const spectralMetrics = spectralCalculator.calculateAllMetrics(fftResult.magnitude, i);
       spectralAggregator.addFrame(spectralMetrics);
       
       // Bandas espectrais por frame

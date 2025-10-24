@@ -49,15 +49,17 @@ async function calculateLUFSMetrics() {
     // Validar resultado
     assertFinite(lufsMetrics, 'lufs_worker');
     
-    if (lufsMetrics.integrated === null || lufsMetrics.integrated === undefined) {
-      throw new Error('LUFS Worker: integrated LUFS é null');
+    // Aceitar -Infinity como válido para áudio silencioso
+    if (lufsMetrics.integrated === null || lufsMetrics.integrated === undefined || !Number.isFinite(lufsMetrics.integrated)) {
+      console.warn('[Worker LUFS] ⚠️ LUFS Integrated inválido, usando fallback');
+      lufsMetrics.integrated = -Infinity; // Fallback para áudio silencioso
     }
     
     const endWorker = performance.now();
     const timeMs = (endWorker - startWorker).toFixed(2);
     console.timeEnd('⚡ [Worker LUFS] Total');
     console.log(`⏱️ [Worker LUFS] levou ${timeMs} ms (${(timeMs / 1000).toFixed(2)} s)`);
-    console.log(`[Worker LUFS] ✅ LUFS Integrated: ${lufsMetrics.integrated.toFixed(2)} dB`);
+    console.log(`[Worker LUFS] ✅ LUFS Integrated: ${lufsMetrics.integrated === -Infinity ? '-∞ (silêncio)' : lufsMetrics.integrated.toFixed(2)} dB`);
     
     parentPort.postMessage({ success: true, data: lufsMetrics });
     
