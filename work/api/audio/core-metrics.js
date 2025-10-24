@@ -17,7 +17,8 @@ import { calculateDominantFrequencies } from "../../lib/audio/features/dominant-
 import { calculateDCOffset } from "../../lib/audio/features/dc-offset.js";
 import { calculateSpectralUniformity } from "../../lib/audio/features/spectral-uniformity.js";
 import { analyzeProblemsAndSuggestionsV2 } from "../../lib/audio/features/problems-suggestions-v2.js";
-import { calculateBpm } from "./bpm-analyzer.js";
+// ⚠️ BPM TEMPORARIAMENTE DESABILITADO - import causa crash com music-tempo
+// import { calculateBpm } from "./bpm-analyzer.js";
 
 // 🚀 OTIMIZAÇÃO #5: Paralelização com Worker Threads (ganho: 60-100s → 20-40s)
 import { runWorkersParallel } from "../../lib/audio/worker-manager.js";
