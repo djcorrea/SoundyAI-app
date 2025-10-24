@@ -33,11 +33,12 @@ function cosineDistance(a,b){ if(!a||!b||a.length!==b.length) return 1; let dot=
 
 function computeDistance(sample, ref, weights) {
   let d = 0; let wSum=0;
-  if (Number.isFinite(sample.bpm) && Number.isFinite(ref.bpm)) {
-    const diff = Math.abs(sample.bpm - ref.bpm);
-    d += weights.bpm * Math.min(1, diff / 20); wSum += weights.bpm;
-    if (diff > 40) d += 0.5;
-  }
+  // BPM comparison disabled (BPM removed for performance optimization)
+  // if (Number.isFinite(sample.bpm) && Number.isFinite(ref.bpm)) {
+  //   const diff = Math.abs(sample.bpm - ref.bpm);
+  //   d += weights.bpm * Math.min(1, diff / 20); wSum += weights.bpm;
+  //   if (diff > 40) d += 0.5;
+  // }
   if (Number.isFinite(sample.onsetRate) && Number.isFinite(ref.onsetRate)) {
     const rd = Math.abs(sample.onsetRate - ref.onsetRate)/Math.max(0.001, sample.onsetRate+ref.onsetRate);
     d += weights.density * Math.min(1, rd); wSum += weights.density;
