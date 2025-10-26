@@ -137,6 +137,13 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.originalLUFS = safeSanitize(coreMetrics.lufs.originalLUFS);
     technicalData.normalizedTo = safeSanitize(coreMetrics.lufs.normalizedTo);
     technicalData.gainAppliedDB = safeSanitize(coreMetrics.lufs.gainAppliedDB);
+    
+    // 🚀 FASE 2.2: Enhanced LUFS metadata
+    if (coreMetrics.lufs.enhanced) {
+      technicalData.lufsEnhanced = true;
+      technicalData.lufsMethod = safeSanitize(coreMetrics.lufs.enhancedMethod, 'itu_r_bs_1770_4');
+      technicalData.lufsValid = safeSanitize(coreMetrics.lufs.enhancedValid, false);
+    }
   }
 
   // ===== True Peak =====
@@ -147,6 +154,59 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
     technicalData.samplePeakRightDb = safeSanitize(coreMetrics.truePeak.samplePeakRightDb);
     technicalData.clippingSamples = safeSanitize(coreMetrics.truePeak.clippingSamples, 0);
     technicalData.clippingPct = safeSanitize(coreMetrics.truePeak.clippingPct, 0);
+    
+    // 🚀 FASE 2.2: Enhanced True Peak metadata
+    if (coreMetrics.truePeak.enhanced) {
+      technicalData.truePeakEnhanced = true;
+      technicalData.truePeakMethod = safeSanitize(coreMetrics.truePeak.method, 'ffmpeg_ebur128');
+      technicalData.truePeakOversampling = safeSanitize(coreMetrics.truePeak.oversampling, 4);
+      technicalData.truePeakHasClipping = safeSanitize(coreMetrics.truePeak.hasClipping, false);
+    }
+  }
+
+  // 🚀 FASE 2.2: Enhanced RMS (sempre presente)
+  if (coreMetrics.rms) {
+    if (coreMetrics.rms.enhanced) {
+      // Usar métricas enhanced com prioridade
+      technicalData.rmsAverage = safeSanitize(coreMetrics.rms.average);
+      technicalData.rmsPeak = safeSanitize(coreMetrics.rms.peak);
+      technicalData.rmsLeft = safeSanitize(coreMetrics.rms.left);
+      technicalData.rmsRight = safeSanitize(coreMetrics.rms.right);
+      technicalData.rmsEnhanced = true;
+      technicalData.rmsMethod = safeSanitize(coreMetrics.rms.method, 'windowed_broadcast');
+      technicalData.rmsValidWindows = safeSanitize(coreMetrics.rms.validWindows, 0);
+      technicalData.rmsTotalWindows = safeSanitize(coreMetrics.rms.totalWindows, 0);
+      technicalData.rmsWindowDurationMs = safeSanitize(coreMetrics.rms.windowDurationMs, 300);
+      
+      // Fallback para legacy se enhanced não estiver disponível
+      if (coreMetrics.rms.legacy && coreMetrics.rms.legacy.average !== null) {
+        technicalData.rmsLegacyAverage = safeSanitize(coreMetrics.rms.legacy.average);
+        technicalData.rmsLegacyPeak = safeSanitize(coreMetrics.rms.legacy.peak);
+      }
+    } else {
+      // Usar métricas legacy
+      technicalData.rmsAverage = safeSanitize(coreMetrics.rms.average);
+      technicalData.rmsPeak = safeSanitize(coreMetrics.rms.peak);
+      technicalData.rmsLeft = safeSanitize(coreMetrics.rms.left);
+      technicalData.rmsRight = safeSanitize(coreMetrics.rms.right);
+      technicalData.rmsCount = safeSanitize(coreMetrics.rms.count, 0);
+      technicalData.rmsEnhanced = false;
+    }
+  }
+
+  // 🚀 FASE 2.2: Enhanced LRA (sempre presente)
+  if (coreMetrics.lra !== undefined && coreMetrics.lra !== null) {
+    technicalData.lra = safeSanitize(coreMetrics.lra);
+    technicalData.lraEnhanced = false;
+  }
+  
+  if (coreMetrics.lraEnhanced) {
+    technicalData.lra = safeSanitize(coreMetrics.lraEnhanced.value);
+    technicalData.lraPercentile10 = safeSanitize(coreMetrics.lraEnhanced.percentile10);
+    technicalData.lraPercentile95 = safeSanitize(coreMetrics.lraEnhanced.percentile95);
+    technicalData.lraMethod = safeSanitize(coreMetrics.lraEnhanced.method, 'ebu_r128');
+    technicalData.lraUnit = safeSanitize(coreMetrics.lraEnhanced.unit, 'LU');
+    technicalData.lraEnhanced = safeSanitize(coreMetrics.lraEnhanced.valid, false);
   }
 
   // ===== Dynamics =====
