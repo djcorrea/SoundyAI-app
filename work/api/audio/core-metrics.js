@@ -17,9 +17,6 @@ import { calculateDCOffset } from "../../lib/audio/features/dc-offset.js";
 import { calculateSpectralUniformity } from "../../lib/audio/features/spectral-uniformity.js";
 import { analyzeProblemsAndSuggestionsV2 } from "../../lib/audio/features/problems-suggestions-v2.js";
 
-// 🚀 FASE 2.2: Enhanced Core Metrics Integration
-import { calculateEnhancedCoreMetrics } from "../../lib/audio/features/core-metrics-enhanced.js";
-
 // Sistema de tratamento de erros padronizado
 import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../lib/audio/error-handling.js';
 
@@ -154,50 +151,6 @@ class CoreMetricsProcessor {
       });
       assertFinite(truePeakMetrics, 'core_metrics');
 
-      // 🚀 FASE 2.2: ENHANCED CORE METRICS INTEGRATION
-      // Calculando True Peak, RMS, LUFS e LRA com precisão profissional
-      logAudio('core_metrics', 'enhanced_core_start', { phase: '2.2', precision: 'broadcast' });
-      const enhancedCoreMetrics = await calculateEnhancedCoreMetrics({
-        leftChannel: normalizedLeft,
-        rightChannel: normalizedRight,
-        sampleRate: CORE_METRICS_CONFIG.SAMPLE_RATE
-      }, {
-        jobId,
-        fileName,
-        tempFilePath: options.tempFilePath
-      });
-
-      // Mesclar métricas enhanced com as existentes (enhanced tem prioridade)
-      const mergedLufsMetrics = {
-        ...lufsMetrics,
-        ...(enhancedCoreMetrics.lufs.valid ? {
-          integrated: enhancedCoreMetrics.lufs.integrated,
-          shortTerm: enhancedCoreMetrics.lufs.shortTerm,
-          momentary: enhancedCoreMetrics.lufs.momentary,
-          enhanced: true,
-          method: enhancedCoreMetrics.lufs.method
-        } : {})
-      };
-
-      const mergedTruePeakMetrics = {
-        ...truePeakMetrics,
-        ...(enhancedCoreMetrics.truePeak.valid ? {
-          maxDbtp: enhancedCoreMetrics.truePeak.maxDbtp,
-          maxLinear: enhancedCoreMetrics.truePeak.maxLinear,
-          enhanced: true,
-          method: enhancedCoreMetrics.truePeak.method,
-          hasClipping: enhancedCoreMetrics.truePeak.hasClipping
-        } : {})
-      };
-
-      logAudio('core_metrics', 'enhanced_core_completed', {
-        truePeakValid: enhancedCoreMetrics.truePeak.valid,
-        lufsValid: enhancedCoreMetrics.lufs.valid,
-        rmsValid: enhancedCoreMetrics.rms.valid,
-        lraValid: enhancedCoreMetrics.lra.valid,
-        processingTime: enhancedCoreMetrics.metadata.processingTime
-      });
-
       // ========= ANÁLISE ESTÉREO CORRIGIDA =========
       logAudio('core_metrics', 'stereo_start', { length: normalizedLeft.length });
       const stereoMetrics = await this.calculateStereoMetricsCorrect(normalizedLeft, normalizedRight, { jobId });
@@ -310,46 +263,29 @@ class CoreMetricsProcessor {
         fft: fftResults,
         spectralBands: spectralBandsResults, // ✅ NOVO: 7 bandas profissionais
         spectralCentroid: spectralCentroidResults, // ✅ NOVO: Centro de brilho em Hz
-        
-        // 🚀 FASE 2.2: Enhanced Core Metrics (prioridade sobre legacy)
-        lufs: enhancedCoreMetrics.lufs.valid ? {
-          ...mergedLufsMetrics,
-          // Adicionar dados de normalização
-          originalLUFS: normalizationResult.originalLUFS,
-          normalizedTo: -23.0,
-          gainAppliedDB: normalizationResult.gainAppliedDB,
-          enhanced: true,
-          enhancedMethod: enhancedCoreMetrics.lufs.method,
-          enhancedValid: enhancedCoreMetrics.lufs.valid
-        } : {
-          ...mergedLufsMetrics,
+        lufs: {
+          ...lufsMetrics,
+          // Adicionar dados de normalização aos LUFS
           originalLUFS: normalizationResult.originalLUFS,
           normalizedTo: -23.0,
           gainAppliedDB: normalizationResult.gainAppliedDB
         },
-        
-        truePeak: mergedTruePeakMetrics,
-        
-        // 🚀 FASE 2.2: Enhanced RMS (broadcast standard)
-        rms: enhancedCoreMetrics.rms.valid ? {
-          ...enhancedCoreMetrics.rms,
-          enhanced: true,
-          // Manter compatibilidade com método legacy
-          count: segmentedAudio.framesRMS?.count || 0,
-          legacy: this.processRMSMetrics(segmentedAudio.framesRMS)
-        } : this.processRMSMetrics(segmentedAudio.framesRMS),
-        
-        // 🚀 FASE 2.2: Enhanced LRA (EBU R128)
-        lra: enhancedCoreMetrics.lra.valid ? enhancedCoreMetrics.lra.value : null,
-        lraEnhanced: enhancedCoreMetrics.lra, // Dados completos de LRA
-        
+        truePeak: truePeakMetrics,
         stereo: stereoMetrics, // ✅ CORRIGIDO: Correlação (-1 a +1) e Width (0 a 1)
-        dynamics: calculateDynamicsMetrics(
-          normalizedLeft, 
-          normalizedRight, 
-          CORE_METRICS_CONFIG.SAMPLE_RATE,
-          enhancedCoreMetrics.lra.valid ? enhancedCoreMetrics.lra.value : null // Usar LRA enhanced
-        ),
+        dynamics: dynamicsMetrics, // ✅ CORRIGIDO: DR, Crest Factor, LRA
+        rms: (() => {
+          console.log(`[DEBUG CORE] Chamando processRMSMetrics com segmentedAudio.framesRMS:`, {
+            hasFramesRMS: !!segmentedAudio.framesRMS,
+            hasLeft: !!segmentedAudio.framesRMS?.left,
+            hasRight: !!segmentedAudio.framesRMS?.right,
+            leftLength: segmentedAudio.framesRMS?.left?.length,
+            rightLength: segmentedAudio.framesRMS?.right?.length,
+            count: segmentedAudio.framesRMS?.count
+          });
+          const result = this.processRMSMetrics(segmentedAudio.framesRMS);
+          console.log(`[DEBUG CORE] processRMSMetrics retornou:`, result);
+          return result;
+        })(), // ✅ NOVO: Processar métricas RMS
         
         // ========= NOVOS ANALISADORES =========
         dcOffset: dcOffsetMetrics, // ✅ NOVO: DC Offset analysis
@@ -375,17 +311,7 @@ class CoreMetricsProcessor {
           fftSize: CORE_METRICS_CONFIG.FFT_SIZE,
           stage: 'core_metrics_completed',
           normalizationEnabled: true,
-          jobId,
-          // 🚀 FASE 2.2: Enhanced Core Metrics metadata
-          enhancedCoreMetrics: {
-            truePeakValid: enhancedCoreMetrics.truePeak.valid,
-            lufsValid: enhancedCoreMetrics.lufs.valid,
-            rmsValid: enhancedCoreMetrics.rms.valid,
-            lraValid: enhancedCoreMetrics.lra.valid,
-            processingTime: enhancedCoreMetrics.metadata.processingTime,
-            phase: enhancedCoreMetrics.metadata.phase,
-            allCalculated: enhancedCoreMetrics.metadata.allMetricsCalculated
-          }
+          jobId
         }
       };
 
