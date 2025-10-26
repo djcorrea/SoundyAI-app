@@ -75,6 +75,13 @@ app.use("/api", presignRoute);
 app.use("/api/audio", analyzeRoute);
 app.use("/api/jobs", jobsRoute); // ✅ rota de jobs conectada ao banco
 
+// 🚀 FASE 1 - ROTAS DO SISTEMA DE FILAS BULLMQ
+import analyzeController from "./api/analyze.controller.js";
+import analyzeStatus from "./api/analyze.status.js";
+
+app.use("/api/analyze", analyzeController); // Nova rota: criar jobs via fila
+app.use("/api/analyze", analyzeStatus);     // Nova rota: consultar status dos jobs
+
 // ---------- ROTA DE CONFIGURAÇÃO DA API KEY (RAILWAY) ----------
 app.get("/api/config", (req, res) => {
   const openaiApiKey = process.env.OPENAI_API_KEY;

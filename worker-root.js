@@ -7,6 +7,29 @@ import path from "path";
 import { fileURLToPath } from "url";
 import * as mm from "music-metadata"; // fallback de metadata
 
+// 🚨 LEGACY POLLING DISABLED - FASE 1 BULLMQ ATIVA
+// Este worker foi substituído pelo sistema de filas BullMQ (workers/worker.bull.js)
+// Para reverter: descomente as linhas marcadas com "LEGACY_POLLING_DISABLED"
+// Documente em: docs/FASE1-BULLMQ-IMPLEMENTATION.md
+
+const LEGACY_POLLING_DISABLED = true;
+
+if (LEGACY_POLLING_DISABLED) {
+  console.log(`
+🚨 ===== WORKER LEGACY DESABILITADO =====
+
+🔄 Este worker PostgreSQL foi SUBSTITUÍDO pelo sistema BullMQ (Fase 1)
+📝 Para reativar: altere LEGACY_POLLING_DISABLED = false
+📊 Novo worker ativo: workers/worker.bull.js
+📖 Documentação: docs/FASE1-BULLMQ-IMPLEMENTATION.md
+
+============================================
+  `);
+  process.exit(0);
+}
+
+// LEGACY_POLLING_DISABLED: As linhas abaixo só executam se LEGACY_POLLING_DISABLED = false
+
 // ---------- Resolver __dirname ----------
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -189,7 +212,7 @@ async function processJob(job) {
   }
 }
 
-// ---------- Loop de jobs ----------
+// ---------- Loop de jobs (LEGACY_POLLING_DISABLED) ----------
 let isRunning = false;
 async function processJobs() {
   if (isRunning) return;
@@ -213,7 +236,8 @@ async function processJobs() {
   }
 }
 
-// ---------- Iniciar worker ----------
-console.log("🚀 Worker iniciado (versão root)");
-setInterval(processJobs, 5000); // Check a cada 5 segundos
-processJobs(); // Primeira execução imediata
+// ---------- Iniciar worker (LEGACY_POLLING_DISABLED) ----------
+// LEGACY_POLLING_DISABLED: Descomente as linhas abaixo para reativar sistema antigo
+// console.log("🚀 Worker iniciado (versão root)");
+// setInterval(processJobs, 5000); // Check a cada 5 segundos
+// processJobs(); // Primeira execução imediata

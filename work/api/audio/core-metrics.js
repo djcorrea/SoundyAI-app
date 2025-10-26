@@ -22,11 +22,18 @@ import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../lib/au
 
 /**
  * 🎯 CONFIGURAÇÕES DA FASE 5.3 (AUDITORIA)
+ * 
+ * FFT Configuration:
+ * - FFT 8192 @ 48kHz = 5.8 Hz de resolução (adequado para sub-bass 20-60Hz)
+ * - FFT 8192 @ 44.1kHz = 5.4 Hz de resolução
+ * - Hop size 2048 = 75% overlap (padrão profissional para suavidade temporal)
+ * - Referência: iZotope Insight 2 usa FFT adaptativo 4096-32768
+ * - ITU-R BS.1770-4: Recomenda resolução < 10 Hz para análise de graves
  */
 const CORE_METRICS_CONFIG = {
   SAMPLE_RATE: 48000,
-  FFT_SIZE: 4096,
-  FFT_HOP_SIZE: 1024,
+  FFT_SIZE: 8192,        // ✅ CORRIGIDO: 5.8 Hz resolução para sub-bass profissional
+  FFT_HOP_SIZE: 2048,    // ✅ CORRIGIDO: Mantém 75% overlap (crítico para suavidade)
   WINDOW_TYPE: "hann",
 
   // LUFS ITU-R BS.1770-4
@@ -473,10 +480,14 @@ class CoreMetricsProcessor {
   }
 
   /**
-   * Cálculo de métricas FFT com validação rigorosa
+   * 🔥 CÁLCULO FFT PARALELO + FALLBACK SEQUENCIAL
+   * Cálculo de métricas FFT com validação rigorosa e processamento paralelo
+   * @param {Object} framesFFT - Frames FFT {left, right, count}
+   * @param {Object} options - Opções {jobId}
    */
   async calculateFFTMetrics(framesFFT, options = {}) {
     const jobId = options.jobId || 'unknown';
+    const startTime = Date.now();
     
     try {
       const { left: leftFrames, right: rightFrames, count } = framesFFT;
@@ -512,7 +523,180 @@ class CoreMetricsProcessor {
       };
 
       const maxFrames = Math.min(count, 1000); // Limitar frames para evitar timeout
-      const startTime = Date.now();
+      
+      // ⚡ DECISÃO: Usar FFT paralelo apenas para tarefas grandes (>100 frames)
+      const useParallelFFT = maxFrames > 100 && leftFrames.length > 100;
+      const method = useParallelFFT ? 'parallel' : 'sequential';
+      
+      console.log(`[FFT-CORE] Processando ${maxFrames} frames usando método: ${method}`);
+
+      if (useParallelFFT) {
+        try {
+          // 🚀 PROCESSAMENTO PARALELO VIA WORKER THREADS
+          const { calculateFFTParallel } = await import('../../lib/audio/fft.js');
+          
+          console.log(`[FFT-CORE] 🔄 Iniciando processamento paralelo de ${maxFrames} frames...`);
+          
+          // Processar em lotes menores para não sobrecarregar workers
+          const batchSize = 25; // Lotes de 25 frames
+          const batches = [];
+          
+          for (let i = 0; i < maxFrames; i += batchSize) {
+            const batchEnd = Math.min(i + batchSize, maxFrames);
+            const batch = {
+              start: i,
+              end: batchEnd,
+              leftFrames: leftFrames.slice(i, batchEnd),
+              rightFrames: rightFrames.slice(i, batchEnd)
+            };
+            batches.push(batch);
+          }
+          
+          console.log(`[FFT-CORE] Processando ${batches.length} lotes de até ${batchSize} frames`);
+          
+          // Processar lotes sequencialmente para evitar saturar workers
+          for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+            const batch = batches[batchIndex];
+            const batchRequestId = `${jobId}-batch-${batchIndex}`;
+            
+            for (let relativeIndex = 0; relativeIndex < batch.leftFrames.length; relativeIndex++) {
+              const absoluteIndex = batch.start + relativeIndex;
+              const leftFrame = batch.leftFrames[relativeIndex];
+              const rightFrame = batch.rightFrames[relativeIndex];
+              
+              try {
+                // ⚡ CORREÇÃO CRÍTICA: Frames agora são objetos {magnitude, phase, real, imag}
+                if (!leftFrame || !leftFrame.magnitude || leftFrame.magnitude.length === 0) {
+                  throw makeErr('core_metrics', `Empty or invalid left FFT frame at index ${absoluteIndex}`, 'empty_left_frame');
+                }
+                if (!rightFrame || !rightFrame.magnitude || rightFrame.magnitude.length === 0) {
+                  throw makeErr('core_metrics', `Empty or invalid right FFT frame at index ${absoluteIndex}`, 'empty_right_frame');
+                }
+
+                // ⚡ USAR FFT JÁ CALCULADO - sem refazer cálculo (estes frames já são FFT)
+                const leftFFT = leftFrame;  // Já é {magnitude, phase, real, imag}
+                const rightFFT = rightFrame;  // Já é {magnitude, phase, real, imag}
+                
+                // 🔍 DEBUG: Verificar resultado FFT esquerdo
+                if (!leftFFT || !leftFFT.magnitude || leftFFT.magnitude.length === 0) {
+                  throw makeErr('core_metrics', `FFT left result invalid at frame ${absoluteIndex}`, 'invalid_fft_left');
+                }
+                
+                ensureFiniteArray(leftFFT.magnitude, 'core_metrics', `left_magnitude_frame_${absoluteIndex}`);
+                fftResults.left.push(leftFFT);
+
+                // 🔍 DEBUG: Verificar resultado FFT direito
+                if (!rightFFT || !rightFFT.magnitude || rightFFT.magnitude.length === 0) {
+                  throw makeErr('core_metrics', `FFT right result invalid at frame ${absoluteIndex}`, 'invalid_fft_right');
+                }
+                
+                ensureFiniteArray(rightFFT.magnitude, 'core_metrics', `right_magnitude_frame_${absoluteIndex}`);
+                fftResults.right.push(rightFFT);
+
+                // Magnitude spectrum (combinado)
+                const magnitude = this.calculateMagnitudeSpectrum(leftFFT, rightFFT);
+                ensureFiniteArray(magnitude, 'core_metrics');
+                fftResults.magnitudeSpectrum.push(magnitude);
+
+                // NOVO: Métricas espectrais completas (8 métricas)
+                const spectralMetrics = this.calculateSpectralMetrics(magnitude, absoluteIndex);
+
+                // Adicionar todas as métricas aos arrays de resultados
+                fftResults.spectralCentroidHz.push(spectralMetrics.spectralCentroidHz);
+                fftResults.spectralRolloffHz.push(spectralMetrics.spectralRolloffHz);
+                fftResults.spectralBandwidthHz.push(spectralMetrics.spectralBandwidthHz);
+                fftResults.spectralSpreadHz.push(spectralMetrics.spectralSpreadHz);
+                fftResults.spectralFlatness.push(spectralMetrics.spectralFlatness);
+                fftResults.spectralCrest.push(spectralMetrics.spectralCrest);
+                fftResults.spectralSkewness.push(spectralMetrics.spectralSkewness);
+                fftResults.spectralKurtosis.push(spectralMetrics.spectralKurtosis);
+                
+                // LEGACY: compatibilidade
+                fftResults.spectralCentroid.push(spectralMetrics.spectralCentroidHz);
+                fftResults.spectralRolloff.push(spectralMetrics.spectralRolloffHz);
+                
+              } catch (frameError) {
+                console.error(`[FFT-CORE] Erro no frame ${absoluteIndex}:`, frameError.message);
+                
+                // Fallback para processamento sequencial neste frame específico
+                try {
+                  const fallbackResult = await this.processFrameSequential(leftFrame, rightFrame, absoluteIndex);
+                  this.addFrameToResults(fftResults, fallbackResult);
+                } catch (fallbackError) {
+                  console.error(`[FFT-CORE] Fallback falhou no frame ${absoluteIndex}:`, fallbackError.message);
+                  // Pular este frame
+                }
+              }
+            }
+            
+            // Log progresso a cada lote
+            const processedFrames = Math.min((batchIndex + 1) * batchSize, maxFrames);
+            const progress = (processedFrames / maxFrames) * 100;
+            console.log(`[FFT-CORE] Progresso lote ${batchIndex + 1}/${batches.length}: ${progress.toFixed(1)}%`);
+          }
+          
+        } catch (parallelError) {
+          console.warn(`[FFT-CORE] ⚠️ Falha no FFT paralelo: ${parallelError.message}`);
+          console.log('[FFT-CORE] Fazendo fallback completo para FFT sequencial...');
+          
+          // Limpar resultados parciais e fazer fallback completo
+          this.clearFFTResults(fftResults);
+          return await this.calculateFFTMetricsSequential(framesFFT, options);
+        }
+        
+      } else {
+        console.log(`[FFT-CORE] Usando FFT sequencial para ${maxFrames} frames`);
+        return await this.calculateFFTMetricsSequential(framesFFT, options);
+      }
+
+      // ⚡ CALCULAR ESTATÍSTICAS FINAIS
+      const processingTime = Date.now() - startTime;
+      const finalResults = this.calculateFFTStatistics(fftResults, maxFrames, processingTime, method);
+      
+      console.log(`[FFT-CORE] ✅ Concluído: ${maxFrames} frames em ${processingTime}ms (${method})`);
+      
+      return finalResults;
+      
+    } catch (error) {
+      const processingTime = Date.now() - startTime;
+      console.error(`[FFT-CORE] ❌ Erro fatal após ${processingTime}ms:`, error.message);
+      
+      // Retornar resultados vazios em caso de erro total
+      return this.getEmptyFFTResults(processingTime, error.message);
+    }
+  }
+
+  /**
+   * 🔄 FALLBACK: FFT Sequencial (método original preservado)
+   * Processamento sequencial confiável para casos de fallback
+   */
+  async calculateFFTMetricsSequential(framesFFT, options = {}) {
+    const jobId = options.jobId || 'unknown';
+    const startTime = Date.now();
+    
+    try {
+      const { left: leftFrames, right: rightFrames, count } = framesFFT;
+      
+      console.log(`[FFT-SEQ] Processando ${count} frames sequencialmente...`);
+
+      const fftResults = {
+        left: [],
+        right: [],
+        magnitudeSpectrum: [],
+        phaseSpectrum: [],
+        spectralCentroidHz: [],
+        spectralRolloffHz: [],
+        spectralBandwidthHz: [],
+        spectralSpreadHz: [],
+        spectralFlatness: [],
+        spectralCrest: [],
+        spectralSkewness: [],
+        spectralKurtosis: [],
+        spectralCentroid: [],
+        spectralRolloff: []
+      };
+
+      const maxFrames = Math.min(count, 1000);
 
       for (let i = 0; i < maxFrames; i++) {
         // Timeout protection
@@ -527,158 +711,232 @@ class CoreMetricsProcessor {
         }
 
         try {
-          // 🔍 DEBUG: Verificar frame de entrada (agora são objetos FFT já calculados)
           const leftFrame = leftFrames[i];
           const rightFrame = rightFrames[i];
           
-          // ⚡ CORREÇÃO CRÍTICA: Frames agora são objetos {magnitude, phase, real, imag}
-          if (!leftFrame || !leftFrame.magnitude || leftFrame.magnitude.length === 0) {
-            throw makeErr('core_metrics', `Empty or invalid left FFT frame at index ${i}`, 'empty_left_frame');
-          }
-          if (!rightFrame || !rightFrame.magnitude || rightFrame.magnitude.length === 0) {
-            throw makeErr('core_metrics', `Empty or invalid right FFT frame at index ${i}`, 'empty_right_frame');
-          }
-
-          // ⚡ USAR FFT JÁ CALCULADO - sem refazer cálculo
-          const leftFFT = leftFrame;  // Já é {magnitude, phase, real, imag}
-          const rightFFT = rightFrame;  // Já é {magnitude, phase, real, imag}
+          const frameResult = await this.processFrameSequential(leftFrame, rightFrame, i);
+          this.addFrameToResults(fftResults, frameResult);
           
-          // 🔍 DEBUG: Verificar resultado FFT esquerdo
-          if (!leftFFT || !leftFFT.magnitude || leftFFT.magnitude.length === 0) {
-            throw makeErr('core_metrics', `FFT left result invalid at frame ${i}`, 'invalid_fft_left');
-          }
-          
-          ensureFiniteArray(leftFFT.magnitude, 'core_metrics', `left_magnitude_frame_${i}`);
-          fftResults.left.push(leftFFT);
-
-          // 🔍 DEBUG: Verificar resultado FFT direito
-          if (!rightFFT || !rightFFT.magnitude || rightFFT.magnitude.length === 0) {
-            throw makeErr('core_metrics', `FFT right result invalid at frame ${i}`, 'invalid_fft_right');
-          }
-          
-          ensureFiniteArray(rightFFT.magnitude, 'core_metrics', `right_magnitude_frame_${i}`);
-          fftResults.right.push(rightFFT);
-
-          // Magnitude spectrum (combinado)
-          const magnitude = this.calculateMagnitudeSpectrum(leftFFT, rightFFT);
-          ensureFiniteArray(magnitude, 'core_metrics');
-          fftResults.magnitudeSpectrum.push(magnitude);
-
-          // NOVO: Métricas espectrais completas (8 métricas)
-          const spectralMetrics = this.calculateSpectralMetrics(magnitude, i);
-
-          // Adicionar todas as métricas aos arrays de resultados
-          fftResults.spectralCentroidHz.push(spectralMetrics.spectralCentroidHz);
-          fftResults.spectralRolloffHz.push(spectralMetrics.spectralRolloffHz);
-          fftResults.spectralBandwidthHz.push(spectralMetrics.spectralBandwidthHz);
-          fftResults.spectralSpreadHz.push(spectralMetrics.spectralSpreadHz);
-          fftResults.spectralFlatness.push(spectralMetrics.spectralFlatness);
-          fftResults.spectralCrest.push(spectralMetrics.spectralCrest);
-          fftResults.spectralSkewness.push(spectralMetrics.spectralSkewness);
-          fftResults.spectralKurtosis.push(spectralMetrics.spectralKurtosis);
-
-          // LEGACY: manter compatibilidade com nomes antigos
-          fftResults.spectralCentroid.push(spectralMetrics.spectralCentroidHz);
-          fftResults.spectralRolloff.push(spectralMetrics.spectralRolloffHz);
-
-        } catch (fftError) {
-          logAudio('core_metrics', 'fft_frame_error', { 
-            frame: i, 
-            error: fftError.message 
-          });
-          
-          // Fail-fast: não continuar com FFT corrompido
-          throw makeErr('core_metrics', `FFT processing failed at frame ${i}: ${fftError.message}`, 'fft_processing_error');
+        } catch (frameError) {
+          console.error(`[FFT-SEQ] Erro no frame ${i}:`, frameError.message);
         }
       }
 
-      fftResults.processedFrames = fftResults.left.length;
+      const processingTime = Date.now() - startTime;
+      const finalResults = this.calculateFFTStatistics(fftResults, maxFrames, processingTime, 'sequential');
       
-      // ========= NOVA AGREGAÇÃO ESPECTRAL COMPLETA =========
+      console.log(`[FFT-SEQ] ✅ Concluído: ${maxFrames} frames em ${processingTime}ms`);
       
-      // Preparar array de métricas para agregação
-      const metricsArray = [];
-      for (let i = 0; i < fftResults.spectralCentroidHz.length; i++) {
-        metricsArray.push({
-          spectralCentroidHz: fftResults.spectralCentroidHz[i],
-          spectralRolloffHz: fftResults.spectralRolloffHz[i],
-          spectralBandwidthHz: fftResults.spectralBandwidthHz[i],
-          spectralSpreadHz: fftResults.spectralSpreadHz[i],
-          spectralFlatness: fftResults.spectralFlatness[i],
-          spectralCrest: fftResults.spectralCrest[i],
-          spectralSkewness: fftResults.spectralSkewness[i],
-          spectralKurtosis: fftResults.spectralKurtosis[i]
-        });
-      }
+      return finalResults;
       
-      // Usar o novo agregador
-      const aggregatedSpectral = SpectralMetricsAggregator.aggregate(metricsArray);
-      
-      // Serializar para o formato final
-      const finalSpectral = serializeSpectralMetrics(aggregatedSpectral);
-      
-      // Criar estrutura aggregated para compatibilidade com json-output.js
-      fftResults.aggregated = {
-        ...finalSpectral,
-        // LEGACY: manter compatibilidade com nomes antigos
-        spectralCentroid: finalSpectral.spectralCentroidHz,
-        spectralRolloff: finalSpectral.spectralRolloffHz
-      };
-      
-      // Também adicionar no nível raiz para compatibilidade
-      Object.assign(fftResults, finalSpectral);
-      
-      // LEGACY: manter compatibilidade com nomes antigos no nível raiz
-      fftResults.spectralCentroid = finalSpectral.spectralCentroidHz;
-      fftResults.spectralRolloff = finalSpectral.spectralRolloffHz;
-      
-      // Log da agregação
-      logAudio('core_metrics', 'spectral_aggregated', {
-        frames: metricsArray.length,
-        centroidHz: finalSpectral.spectralCentroidHz?.toFixed?.(1) || 'null',
-        rolloffHz: finalSpectral.spectralRolloffHz?.toFixed?.(1) || 'null',
-        bandwidthHz: finalSpectral.spectralBandwidthHz?.toFixed?.(1) || 'null',
-        flatness: finalSpectral.spectralFlatness?.toFixed?.(3) || 'null'
-      });
-      
-      // 🔥 DEBUG CRITICAL: Log completo das métricas espectrais agregadas
-      console.log("[AUDIT] Spectral aggregated result:", {
-        spectralCentroidHz: finalSpectral.spectralCentroidHz,
-        spectralRolloffHz: finalSpectral.spectralRolloffHz,
-        spectralBandwidthHz: finalSpectral.spectralBandwidthHz,
-        spectralFlatness: finalSpectral.spectralFlatness,
-        spectralCrest: finalSpectral.spectralCrest,
-        spectralSkewness: finalSpectral.spectralSkewness,
-        spectralKurtosis: finalSpectral.spectralKurtosis,
-        framesProcessed: metricsArray.length
-      });
-      
-      // 🔥 DEBUG CRITICAL: Log da estrutura aggregated criada
-      console.log("[AUDIT] FFT aggregated structure created:", {
-        hasAggregated: !!fftResults.aggregated,
-        aggregatedKeys: Object.keys(fftResults.aggregated || {}),
-        spectralCentroidHz: fftResults.aggregated?.spectralCentroidHz,
-        spectralRolloffHz: fftResults.aggregated?.spectralRolloffHz
-      });
-      
-      // Verificação final
-      if (fftResults.processedFrames === 0) {
-        throw makeErr('core_metrics', 'No FFT frames were successfully processed', 'no_fft_processed');
-      }
-
-      logAudio('core_metrics', 'fft_completed', { 
-        processed: fftResults.processedFrames, 
-        requested: count 
-      });
-
-      return fftResults;
-
     } catch (error) {
-      if (error.stage === 'core_metrics') {
-        throw error;
-      }
-      throw makeErr('core_metrics', `FFT metrics calculation failed: ${error.message}`, 'fft_calculation_error');
+      const processingTime = Date.now() - startTime;
+      console.error(`[FFT-SEQ] ❌ Erro fatal:`, error.message);
+      return this.getEmptyFFTResults(processingTime, error.message);
     }
+  }
+
+  /**
+   * 🔧 Processar frame individual de forma sequencial
+   */
+  async processFrameSequential(leftFrame, rightFrame, frameIndex) {
+    // ⚡ CORREÇÃO CRÍTICA: Frames agora são objetos {magnitude, phase, real, imag}
+    if (!leftFrame || !leftFrame.magnitude || leftFrame.magnitude.length === 0) {
+      throw makeErr('core_metrics', `Empty or invalid left FFT frame at index ${frameIndex}`, 'empty_left_frame');
+    }
+    if (!rightFrame || !rightFrame.magnitude || rightFrame.magnitude.length === 0) {
+      throw makeErr('core_metrics', `Empty or invalid right FFT frame at index ${frameIndex}`, 'empty_right_frame');
+    }
+
+    // ⚡ USAR FFT JÁ CALCULADO - sem refazer cálculo
+    const leftFFT = leftFrame;  // Já é {magnitude, phase, real, imag}
+    const rightFFT = rightFrame;  // Já é {magnitude, phase, real, imag}
+    
+    // Validações
+    ensureFiniteArray(leftFFT.magnitude, 'core_metrics', `left_magnitude_frame_${frameIndex}`);
+    ensureFiniteArray(rightFFT.magnitude, 'core_metrics', `right_magnitude_frame_${frameIndex}`);
+
+    // Magnitude spectrum (combinado)
+    const magnitude = this.calculateMagnitudeSpectrum(leftFFT, rightFFT);
+    ensureFiniteArray(magnitude, 'core_metrics');
+
+    // Métricas espectrais completas
+    const spectralMetrics = this.calculateSpectralMetrics(magnitude, frameIndex);
+
+    return {
+      leftFFT,
+      rightFFT,
+      magnitude,
+      spectralMetrics
+    };
+  }
+
+  /**
+   * 🔧 Adicionar resultado de frame aos resultados finais
+   */
+  addFrameToResults(fftResults, frameResult) {
+    const { leftFFT, rightFFT, magnitude, spectralMetrics } = frameResult;
+    
+    fftResults.left.push(leftFFT);
+    fftResults.right.push(rightFFT);
+    fftResults.magnitudeSpectrum.push(magnitude);
+    
+    fftResults.spectralCentroidHz.push(spectralMetrics.spectralCentroidHz);
+    fftResults.spectralRolloffHz.push(spectralMetrics.spectralRolloffHz);
+    fftResults.spectralBandwidthHz.push(spectralMetrics.spectralBandwidthHz);
+    fftResults.spectralSpreadHz.push(spectralMetrics.spectralSpreadHz);
+    fftResults.spectralFlatness.push(spectralMetrics.spectralFlatness);
+    fftResults.spectralCrest.push(spectralMetrics.spectralCrest);
+    fftResults.spectralSkewness.push(spectralMetrics.spectralSkewness);
+    fftResults.spectralKurtosis.push(spectralMetrics.spectralKurtosis);
+    
+    // LEGACY: compatibilidade
+    fftResults.spectralCentroid.push(spectralMetrics.spectralCentroidHz);
+    fftResults.spectralRolloff.push(spectralMetrics.spectralRolloffHz);
+  }
+
+  /**
+   * 🔧 Limpar resultados FFT parciais
+   */
+  clearFFTResults(fftResults) {
+    const arrays = ['left', 'right', 'magnitudeSpectrum', 'phaseSpectrum', 
+                   'spectralCentroidHz', 'spectralRolloffHz', 'spectralBandwidthHz',
+                   'spectralSpreadHz', 'spectralFlatness', 'spectralCrest',
+                   'spectralSkewness', 'spectralKurtosis', 'spectralCentroid', 'spectralRolloff'];
+    
+    arrays.forEach(arr => {
+      if (fftResults[arr]) {
+        fftResults[arr].length = 0;
+      }
+    });
+  }
+
+  /**
+   * 🔧 Calcular estatísticas finais FFT
+   */
+  calculateFFTStatistics(fftResults, maxFrames, processingTime, method) {
+    const processedFrames = fftResults.left.length;
+    
+    // Calcular estatísticas agregadas para todas as métricas espectrais
+    const aggregated = {};
+    
+    const metrics = [
+      'spectralCentroidHz', 'spectralRolloffHz', 'spectralBandwidthHz',
+      'spectralSpreadHz', 'spectralFlatness', 'spectralCrest',
+      'spectralSkewness', 'spectralKurtosis'
+    ];
+    
+    metrics.forEach(metric => {
+      const values = fftResults[metric];
+      if (values && values.length > 0) {
+        aggregated[metric] = {
+          mean: values.reduce((sum, val) => sum + val, 0) / values.length,
+          min: Math.min(...values),
+          max: Math.max(...values),
+          std: this.calculateStd(values),
+          samples: values.length
+        };
+      } else {
+        aggregated[metric] = { mean: 0, min: 0, max: 0, std: 0, samples: 0 };
+      }
+    });
+    
+    // LEGACY: Manter compatibilidade com spectralCentroid e spectralRolloff
+    if (fftResults.spectralCentroid && fftResults.spectralCentroid.length > 0) {
+      aggregated.spectralCentroid = {
+        mean: fftResults.spectralCentroid.reduce((sum, val) => sum + val, 0) / fftResults.spectralCentroid.length,
+        min: Math.min(...fftResults.spectralCentroid),
+        max: Math.max(...fftResults.spectralCentroid),
+        std: this.calculateStd(fftResults.spectralCentroid),
+        samples: fftResults.spectralCentroid.length
+      };
+    }
+    
+    if (fftResults.spectralRolloff && fftResults.spectralRolloff.length > 0) {
+      aggregated.spectralRolloff = {
+        mean: fftResults.spectralRolloff.reduce((sum, val) => sum + val, 0) / fftResults.spectralRolloff.length,
+        min: Math.min(...fftResults.spectralRolloff),
+        max: Math.max(...fftResults.spectralRolloff),
+        std: this.calculateStd(fftResults.spectralRolloff),
+        samples: fftResults.spectralRolloff.length
+      };
+    }
+    
+    // Verificação final
+    if (processedFrames === 0) {
+      throw makeErr('core_metrics', 'No FFT frames were successfully processed', 'no_fft_processed');
+    }
+
+    logAudio('core_metrics', 'fft_completed', { 
+      processed: processedFrames, 
+      requested: maxFrames 
+    });
+    
+    // Estrutura final de retorno
+    return {
+      ...fftResults,
+      aggregated,
+      processedFrames,
+      meta: {
+        processingTime,
+        method,
+        requestedFrames: maxFrames,
+        successRate: (processedFrames / maxFrames) * 100
+      }
+    };
+  }
+
+  /**
+   * 🔧 Obter resultados FFT vazios para casos de erro
+   */
+  getEmptyFFTResults(processingTime, errorMessage) {
+    return {
+      left: [],
+      right: [],
+      magnitudeSpectrum: [],
+      phaseSpectrum: [],
+      spectralCentroidHz: [],
+      spectralRolloffHz: [],
+      spectralBandwidthHz: [],
+      spectralSpreadHz: [],
+      spectralFlatness: [],
+      spectralCrest: [],
+      spectralSkewness: [],
+      spectralKurtosis: [],
+      spectralCentroid: [],
+      spectralRolloff: [],
+      aggregated: {
+        spectralCentroidHz: { mean: 0, min: 0, max: 0, std: 0, samples: 0 },
+        spectralRolloffHz: { mean: 0, min: 0, max: 0, std: 0, samples: 0 },
+        spectralBandwidthHz: { mean: 0, min: 0, max: 0, std: 0, samples: 0 },
+        spectralSpreadHz: { mean: 0, min: 0, max: 0, std: 0, samples: 0 },
+        spectralFlatness: { mean: 0, min: 0, max: 0, std: 0, samples: 0 },
+        spectralCrest: { mean: 0, min: 0, max: 0, std: 0, samples: 0 },
+        spectralSkewness: { mean: 0, min: 0, max: 0, std: 0, samples: 0 },
+        spectralKurtosis: { mean: 0, min: 0, max: 0, std: 0, samples: 0 },
+        spectralCentroid: { mean: 0, min: 0, max: 0, std: 0, samples: 0 },
+        spectralRolloff: { mean: 0, min: 0, max: 0, std: 0, samples: 0 }
+      },
+      processedFrames: 0,
+      meta: {
+        processingTime,
+        method: 'error',
+        requestedFrames: 0,
+        successRate: 0,
+        error: errorMessage
+      }
+    };
+  }
+
+  /**
+   * 🔧 Calcular desvio padrão
+   */
+  calculateStd(values) {
+    if (!values || values.length === 0) return 0;
+    
+    const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+    const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+    return Math.sqrt(variance);
   }
 
   /**

@@ -5281,21 +5281,21 @@ function displayModalResults(analysis) {
             ${renderSmartSummary(analysis)}
             <div class="cards-grid">
                 <div class="card">
-                    <div class="card-title">🎛️ Métricas Principais</div>
+                    <div class="card-title">MÉTRICAS PRINCIPAIS</div>
                     ${col1}
                 </div>
                 <div class="card">
-                    <div class="card-title">🎧 Análise Estéreo & Espectral</div>
+                    <div class="card-title">MÉTRICAS AVANÇADAS</div>
                     ${col2}
                 </div>
                 <!-- REMOVED: 🔊 Bandas Espectrais (Consolidado) - duplicação removida, mantida apenas em Métricas Avançadas -->
                 <div class="card">
-                    <div class="card-title">🏆 Scores & Diagnóstico</div>
+                    <div class="card-title">SUB SCORES</div>
                     ${scoreRows}
                     ${col3}
                 </div>
                 <div class="card">
-                    <div class="card-title">📊 Métricas Avançadas (Technical)</div>
+                    <div class="card-title">BANDAS ESPECTRAIS</div>
                     ${advancedMetricsCard()}
                 </div>
                 <!-- Card "Problemas Técnicos" removido conforme solicitado -->

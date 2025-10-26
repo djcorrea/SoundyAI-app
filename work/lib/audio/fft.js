@@ -297,10 +297,195 @@ function nextPowerOfTwo(n) {
   return Math.pow(2, Math.ceil(Math.log2(n)));
 }
 
-// 🎯 Exportar classes e utilitários
+// 🎯 Exportar classes e utilitários básicos
 export {
   FastFFT,
   WindowFunctions,
   STFTEngine,
   nextPowerOfTwo
 };
+
+/**
+ * 🚀 FUNÇÃO FFT PARALELA VIA WORKER THREADS
+ * Executa FFT em Worker Thread dedicado para não bloquear main thread
+ * Mantém compatibilidade total com pipeline existente
+ */
+import { Worker } from 'worker_threads';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Pool de workers FFT para reutilização
+let workerPool = [];
+const MAX_FFT_WORKERS = 2; // Máximo 2 workers FFT por processo
+let nextTaskId = 1;
+
+/**
+ * 🔧 Obter worker FFT disponível do pool
+ */
+function getFFTWorker() {
+  // Procurar worker livre
+  for (const worker of workerPool) {
+    if (!worker.busy) {
+      worker.busy = true;
+      return worker;
+    }
+  }
+  
+  // Criar novo worker se há espaço no pool
+  if (workerPool.length < MAX_FFT_WORKERS) {
+    try {
+      // Caminho relativo para fft-worker.js
+      const workerPath = path.resolve(__dirname, '../../../workers/fft-worker.js');
+      const worker = new Worker(workerPath, {
+        workerData: { threadId: workerPool.length + 1 }
+      });
+      
+      worker.busy = false;
+      worker.id = Date.now() + Math.random();
+      workerPool.push(worker);
+      
+      // Event listeners para debug
+      worker.on('error', (error) => {
+        console.error(`[FFT-POOL] Worker ${worker.id} erro:`, error.message);
+      });
+      
+      worker.on('exit', (code) => {
+        // Remover worker do pool quando sair
+        const index = workerPool.findIndex(w => w.id === worker.id);
+        if (index >= 0) {
+          workerPool.splice(index, 1);
+        }
+        console.log(`[FFT-POOL] Worker ${worker.id} encerrado com código ${code}`);
+      });
+      
+      worker.busy = true;
+      return worker;
+      
+    } catch (error) {
+      console.error('[FFT-POOL] Erro ao criar worker:', error.message);
+      return null;
+    }
+  }
+  
+  return null; // Pool cheio
+}
+
+/**
+ * 🔄 Liberar worker para o pool
+ */
+function releaseFFTWorker(worker) {
+  if (worker) {
+    worker.busy = false;
+  }
+}
+
+/**
+ * 🌊 CALCULAR FFT EM WORKER THREAD PARALELO
+ * @param {Float32Array|Array} signal - Sinal de entrada
+ * @param {Object} options - Opções de processamento
+ * @returns {Promise<Object>} Resultado FFT {real, imag, magnitude, phase}
+ */
+export async function calculateFFTParallel(signal, options = {}) {
+  const startTime = Date.now();
+  const requestId = options.requestId || `fft-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const timeout = options.timeout || 30000; // 30s timeout padrão
+  
+  console.log(`[FFT-PARALLEL] Iniciando processamento: ${requestId.substring(0, 12)}`);
+  
+  return new Promise((resolve, reject) => {
+    // Obter worker disponível
+    const worker = getFFTWorker();
+    
+    if (!worker) {
+      console.warn('[FFT-PARALLEL] No workers available, fallback to sync FFT');
+      // Fallback para FFT síncrona
+      try {
+        const fastFFT = new FastFFT();
+        const result = fastFFT.fft(signal);
+        resolve(result);
+      } catch (error) {
+        reject(new Error(`FFT fallback failed: ${error.message}`));
+      }
+      return;
+    }
+    
+    const taskId = nextTaskId++;
+    
+    // Timeout handler
+    const timeoutHandle = setTimeout(() => {
+      worker.removeAllListeners('message');
+      releaseFFTWorker(worker);
+      reject(new Error(`FFT timeout after ${timeout}ms`));
+    }, timeout);
+    
+    // Success/Error handler
+    const messageHandler = (response) => {
+      clearTimeout(timeoutHandle);
+      worker.removeAllListeners('message');
+      releaseFFTWorker(worker);
+      
+      if (response.success && response.taskId === taskId) {
+        const totalTime = Date.now() - startTime;
+        console.log(`[FFT-PARALLEL] ✅ Concluído: ${requestId.substring(0, 12)} em ${totalTime}ms`);
+        
+        // Converter arrays de volta para Float32Array
+        const result = {
+          real: new Float32Array(response.result.real),
+          imag: new Float32Array(response.result.imag), 
+          magnitude: new Float32Array(response.result.magnitude),
+          phase: new Float32Array(response.result.phase)
+        };
+        
+        resolve(result);
+      } else {
+        const error = response.error || { message: 'Unknown FFT worker error' };
+        console.error(`[FFT-PARALLEL] ❌ Erro: ${requestId.substring(0, 12)} - ${error.message}`);
+        reject(new Error(`FFT worker failed: ${error.message}`));
+      }
+    };
+    
+    // Registrar handler
+    worker.on('message', messageHandler);
+    
+    // Enviar tarefa para worker
+    try {
+      worker.postMessage({
+        taskId,
+        requestId,
+        signal: signal instanceof Float32Array ? Array.from(signal) : signal
+      });
+      
+      console.log(`[FFT-PARALLEL] Tarefa enviada: ${taskId} (${requestId.substring(0, 12)})`);
+      
+    } catch (error) {
+      clearTimeout(timeoutHandle);
+      worker.removeAllListeners('message');
+      releaseFFTWorker(worker);
+      reject(new Error(`Failed to send FFT task: ${error.message}`));
+    }
+  });
+}
+
+/**
+ * 🧹 Limpar pool de workers (para shutdown graceful)
+ */
+export function cleanupFFTWorkers() {
+  console.log(`[FFT-POOL] Limpando ${workerPool.length} workers...`);
+  
+  workerPool.forEach(worker => {
+    if (worker && typeof worker.terminate === 'function') {
+      worker.terminate();
+    }
+  });
+  
+  workerPool = [];
+  console.log('[FFT-POOL] Workers limpos');
+}
+
+// Cleanup automático no shutdown do processo
+process.on('exit', cleanupFFTWorkers);
+process.on('SIGINT', cleanupFFTWorkers);
+process.on('SIGTERM', cleanupFFTWorkers);

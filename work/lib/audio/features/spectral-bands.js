@@ -197,36 +197,47 @@ export class SpectralBandsCalculator {
       // Calcular percentuais normalizados (relativos ao totalEnergy - CORRETO)
       const percentages = this.calculateBandPercentages(bandEnergies, totalEnergy);
       
-      // ✅ CORREÇÃO: dBFS ABSOLUTO - Full Scale Reference
-      // Precisamos determinar o valor máximo teórico possível após FFT
-      // Para garantir que energy_db seja sempre ≤ 0 dBFS
-      const maxPossibleMagnitude = Math.max(...magnitude, 1e-12);
-      const FULL_SCALE = Math.max(maxPossibleMagnitude, 1.0); // Referência dinâmica dBFS
-      
       // Preparar resultado final
       const result = {};
       for (const [key, band] of Object.entries(SPECTRAL_BANDS)) {
         const energyLinear = bandEnergies[key];
         const binInfo = this.bandBins[key];
         
-        // ✅ Calcular RMS médio da banda: sqrt(energy / Nbins)
+        // Calcular RMS médio da banda: sqrt(energy / Nbins)
         const bandRMS = energyLinear > 0 ? 
           Math.sqrt(energyLinear / binInfo.binCount) : 
           1e-12;
         
-        // ✅ CORREÇÃO CRÍTICA: energy_db em dBFS ABSOLUTO
-        // Usar valor FIXO negativo baseado no RMS da banda vs total
-        // Garantido: SEMPRE negativo
-        let energyDb = -40 + 10 * Math.log10(Math.max(bandRMS, 1e-12));
+        // ============================================================
+        // dBFS Calculation (ITU-R BS.1770 compliant)
+        // ============================================================
+        // 0 dBFS = máximo absoluto do sistema digital (1.0 em float)
+        // Valores sempre ≤ 0 dBFS (negativo ou zero)
+        // Clamp em -100 dBFS para evitar -Infinity em silêncio
+        // Referência: AES17-2015 - Digital Audio Measurement
+        // ============================================================
         
-        // ✅ CLAMP FORÇADO: garantir que NUNCA passe de 0 dBFS
+        // CORREÇÃO CRÍTICA: Usar FULL_SCALE fixo (0 dBFS absoluto)
+        // 0 dBFS = 1.0 em float normalizado
+        const FULL_SCALE = 1.0;
+        
+        // Converter para dBFS (sempre negativo ou zero)
+        let energyDb = 20 * Math.log10(bandRMS / FULL_SCALE);
+        
+        // Garantir que NUNCA ultrapasse 0 dBFS (limite físico)
         energyDb = Math.min(energyDb, 0);
         
-        console.log(`🔧 [FORÇA_CLAMP] ${band.name}: energyDb=${energyDb.toFixed(1)}dB (sempre ≤ 0)`);        
+        // Clamp inferior para evitar -Infinity
+        energyDb = Math.max(energyDb, -100);
+        
+        // Validação adicional
+        if (!isFinite(energyDb)) {
+          energyDb = -100; // Silêncio
+        }
         
         result[key] = {
           energy: energyLinear,
-          energy_db: Number(Math.min(energyDb, 0).toFixed(1)), // ✅ FORÇA CLAMP INLINE
+          energy_db: Number(energyDb.toFixed(1)),
           percentage: Number(percentages[key].toFixed(SPECTRAL_CONFIG.PERCENTAGE_PRECISION)),
           frequencyRange: `${band.min}-${band.max}Hz`,
           name: band.name,

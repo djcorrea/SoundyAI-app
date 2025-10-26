@@ -923,27 +923,7 @@
     z-index: 1;
 }
 
-.card-title {
-    font-size: 17px;
-    font-weight: 700;
-    color: #ffffff;
-    margin: 0;
-    line-height: 1.4;
-    letter-spacing: 0.4px;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    white-space: normal;
-    flex: 1;
-    
-    /* Gradiente de texto sutil */
-    background: linear-gradient(135deg, #ffffff 0%, #e0e8ff 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    
-    /* Shadow sutil para legibilidade */
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-}
+/* REMOVED: .card-title antiga - consolidada na linha ~1990 com estilo futurista */
 
 .card-badges {
     display: flex;
@@ -1286,8 +1266,9 @@
     }
     
     .card-title {
-        font-size: 15px;
+        font-size: 1rem; /* Reduzido mas mantendo legibilidade */
         line-height: 1.4;
+        letter-spacing: 1.5px; /* Ajustado para mobile */
     }
     
     .card-badges {
@@ -1329,7 +1310,8 @@
     }
     
     .card-title {
-        font-size: 14px;
+        font-size: 0.9rem; /* Menor em telas pequenas mas mantendo proporcionalidade */
+        letter-spacing: 1.2px; /* Ajustado para telas menores */
     }
     
     .card-action-title,
@@ -1986,16 +1968,27 @@ details[open] summary {
         inset 0 0 0 2px rgba(255, 255, 255, 0.08);
 }
 .card-title {
-    color: #00ffff;
-    font-weight: 800;
-    font-size: 16px;
-    margin-top: 0;
-    margin-bottom: 20px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    text-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+    /* 🎯 Estilo futurista centralizado com gradiente */
+    font-family: 'Orbitron', 'Montserrat', sans-serif !important;
+    font-size: 1.2rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 2px !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    color: #00FFFF !important;
+    background: linear-gradient(90deg, #7F00FF 0%, #00FFFF 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    margin-top: 0 !important;
+    margin-bottom: 10px !important;
+    padding-bottom: 5px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
     position: relative;
     z-index: 2;
+    text-shadow: none !important;
+    display: block !important;
+    width: 100% !important;
 }
 
 /* 🔒 Blindagem adicional: Garante alinhamento no contexto do grid */
@@ -2629,13 +2622,24 @@ details[open] summary {
 }
 
 .audio-modal .card-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: #7c4dff;
-    text-shadow: 0 0 10px rgba(124, 77, 255, 0.3);
-    margin-bottom: 16px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
+    /* 🎯 Estilo futurista centralizado com gradiente (consistente com cards principais) */
+    font-family: 'Orbitron', 'Montserrat', sans-serif !important;
+    font-size: 1.2rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 2px !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    color: #00FFFF !important;
+    background: linear-gradient(90deg, #7F00FF 0%, #00FFFF 100%) !important;
+    -webkit-background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    background-clip: text !important;
+    margin-bottom: 10px !important;
+    padding-bottom: 5px !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    text-shadow: none !important;
+    display: block !important;
+    width: 100% !important;
 }
 
 /* Cards com scroll interno para seções longas */

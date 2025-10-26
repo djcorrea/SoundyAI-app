@@ -94,12 +94,25 @@ export class DynamicRangeCalculator {
       const averageRMS = rmsValues.reduce((sum, val) => sum + val, 0) / rmsValues.length;
       const dynamicRange = peakRMS - averageRMS;
       
-      // Validar resultado
+      // ============================================================
+      // Dynamic Range Validation (EBU Tech 3341)
+      // ============================================================
+      // DR = Peak RMS - Average RMS deve SEMPRE ser ≥ 0
+      // Se negativo, indica:
+      //   1. Erro no cálculo de RMS
+      //   2. Gating incorreto (average > peak impossível)
+      //   3. Dados corrompidos
+      // Retorna null para forçar investigação ao invés de valor impossível
+      // Referência: EBU Tech 3341 - Dynamic Range Measurement
+      // ============================================================
+      
+      // VALIDAÇÃO CRÍTICA: DR nunca pode ser negativo
       if (!isFinite(dynamicRange) || dynamicRange < 0) {
         logAudio('dynamics', 'invalid_dr', { 
           peakRMS: peakRMS.toFixed(2), 
           averageRMS: averageRMS.toFixed(2), 
-          dr: dynamicRange.toFixed(2) 
+          dr: dynamicRange.toFixed(2),
+          issue: dynamicRange < 0 ? 'negative_dr' : 'non_finite'
         });
         return null;
       }
