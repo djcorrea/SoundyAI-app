@@ -803,6 +803,7 @@ if (missingCritical > 0) {
 const server = app.listen(PORT, HOST, () => {
   console.log(`\n🎉 [SUCCESS] ════════════════════════════════════════`);
   console.log(`✅ [SUCCESS] SoundyAI Server ONLINE!`);
+  console.log(`🚀 Servidor SoundyAI rodando em http://${HOST}:${PORT}`);
   console.log(`🌐 [SERVER] Listening on ${HOST}:${PORT}`);
   console.log(`🔗 [SERVER] Health check: http://${HOST}:${PORT}/`);
   console.log(`📊 [SERVER] Status: READY para receber requests`);
