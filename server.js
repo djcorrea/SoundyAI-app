@@ -47,14 +47,16 @@ app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// � RAILWAY FIX: Rota de health check principal (deve retornar 200)
+// 🚀 RAILWAY FIX: Rota de health check principal (deve retornar 200)
 app.get("/", (req, res) => {
-  console.log(`📍 [HEALTH] Health check request from ${req.ip}`);
+  console.log(`📍 [HEALTH] Health check request from ${req.ip || 'unknown'}`);
   res.status(200).json({ 
     status: "✅ SoundyAI API Online", 
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV || 'development',
-    version: "1.0.0"
+    version: "1.0.0",
+    port: process.env.PORT || 8080,
+    uptime: Math.floor(process.uptime())
   });
 });
 
@@ -735,6 +737,31 @@ app.get("*", (req, res, next) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
+// 🚨 MIDDLEWARE DE ERROR HANDLING GLOBAL
+app.use((err, req, res, next) => {
+  console.error('💥 [ERROR] Erro não tratado:', err.message);
+  console.error('🔍 [ERROR] Stack:', err.stack);
+  console.error('📍 [ERROR] URL:', req.url);
+  
+  res.status(err.status || 500).json({
+    error: 'Erro interno do servidor',
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Algo deu errado',
+    timestamp: new Date().toISOString(),
+    path: req.path
+  });
+});
+
+// 🚨 MIDDLEWARE 404 - DEVE VIR POR ÚLTIMO
+app.use((req, res) => {
+  console.log(`⚠️ [404] Rota não encontrada: ${req.method} ${req.path}`);
+  res.status(404).json({
+    error: 'Rota não encontrada',
+    method: req.method,
+    path: req.path,
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Start server
 const PORT = process.env.PORT || 8080;
 const HOST = '0.0.0.0'; // 🚀 RAILWAY FIX: Bind em todas as interfaces
@@ -743,27 +770,75 @@ console.log(`🚀 [BOOT] Iniciando servidor na porta ${PORT}...`);
 console.log(`🌐 [BOOT] Host: ${HOST}`);
 console.log(`📦 [BOOT] Ambiente: ${process.env.NODE_ENV || 'development'}`);
 
+// 🔍 [RAILWAY] Verificação crítica de variáveis de ambiente
+console.log('\n🔧 [ENV-CHECK] Verificando variáveis críticas para Railway:');
+const criticalChecks = [
+  { name: 'PORT', value: process.env.PORT, required: false },
+  { name: 'REDIS_HOST', value: process.env.REDIS_HOST, required: true },
+  { name: 'REDIS_PORT', value: process.env.REDIS_PORT, required: true },
+  { name: 'MP_ACCESS_TOKEN', value: process.env.MP_ACCESS_TOKEN, required: true },
+  { name: 'DATABASE_URL', value: process.env.DATABASE_URL, required: true },
+  { name: 'OPENAI_API_KEY', value: process.env.OPENAI_API_KEY, required: true }
+];
+
+let missingCritical = 0;
+criticalChecks.forEach(check => {
+  const exists = check.value && check.value !== '';
+  const status = exists ? '✅' : (check.required ? '❌' : '⚠️');
+  const display = exists ? 'configurada' : 'NÃO CONFIGURADA';
+  
+  console.log(`   ${status} ${check.name}: ${display}`);
+  
+  if (check.required && !exists) {
+    missingCritical++;
+  }
+});
+
+if (missingCritical > 0) {
+  console.error(`\n🚨 [BOOT] ATENÇÃO: ${missingCritical} variáveis críticas não configuradas!`);
+} else {
+  console.log('\n✅ [BOOT] Todas as variáveis críticas estão configuradas!');
+}
+
 const server = app.listen(PORT, HOST, () => {
+  console.log(`\n🎉 [SUCCESS] ════════════════════════════════════════`);
   console.log(`✅ [SUCCESS] SoundyAI Server ONLINE!`);
   console.log(`🌐 [SERVER] Listening on ${HOST}:${PORT}`);
   console.log(`🔗 [SERVER] Health check: http://${HOST}:${PORT}/`);
   console.log(`📊 [SERVER] Status: READY para receber requests`);
+  console.log(`🕐 [SERVER] Tempo de boot: ${Math.floor(process.uptime())}s`);
+  console.log(`🎯 [RAILWAY] Servidor pronto para deploy!`);
+  console.log(`════════════════════════════════════════════════════\n`);
   
-  // 🧪 DESENVOLVIMENTO: Executar testes apenas após server online
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('\n🔧 [DEV] Executando testes de validação...');
-    testRealisticSuggestions();
-  }
-  
-  // 🔍 Log final de status
-  console.log('\n📋 [STATUS] Configurações aplicadas:');
-  console.log(`   ✅ Express server running`);
-  console.log(`   ✅ CORS enabled`);
-  console.log(`   ✅ JSON parser (50MB limit)`);
-  console.log(`   ✅ Static files serving`);
-  console.log(`   ✅ API routes mounted`);
-  console.log(`   ✅ Health check route active`);
-  console.log('\n🎯 [RAILWAY] Servidor pronto para deploy!');
+  // 🚀 FASE 2: Inicialização assíncrona de componentes pesados
+  // Movido para DEPOIS do listen() para garantir boot rápido
+  setTimeout(() => {
+    console.log('🔧 [ASYNC-INIT] Iniciando componentes assíncronos...');
+    
+    // 🧪 DESENVOLVIMENTO: Executar testes apenas após server online
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('🔧 [DEV] Executando testes de validação...');
+      try {
+        testRealisticSuggestions();
+        console.log('✅ [DEV] Testes concluídos com sucesso');
+      } catch (error) {
+        console.error('❌ [DEV] Erro nos testes:', error.message);
+      }
+    }
+    
+    // 🔍 Log final de status
+    console.log('\n📋 [STATUS] Configurações aplicadas:');
+    console.log(`   ✅ Express server running`);
+    console.log(`   ✅ CORS enabled`);
+    console.log(`   ✅ JSON parser (50MB limit)`);
+    console.log(`   ✅ Static files serving`);
+    console.log(`   ✅ API routes mounted`);
+    console.log(`   ✅ Health check route active`);
+    console.log(`   ✅ Error handling middleware`);
+    console.log(`   ✅ 404 fallback route`);
+    console.log('\n🎯 [READY] Sistema totalmente operacional!');
+    
+  }, 100); // Pequeno delay para não bloquear o boot
 });
 
 // 🛡️ RAILWAY: Graceful shutdown handling
