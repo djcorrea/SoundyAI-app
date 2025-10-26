@@ -22,8 +22,18 @@ app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// 🎯 RAILWAY FIX: INSTANT Health Check (HIGHEST PRIORITY)
+// 🎯 RAILWAY FIX: INSTANT Health Check + Browser Redirect (HIGHEST PRIORITY)
 app.get('/', (req, res) => {
+  const userAgent = req.get('User-Agent') || '';
+  
+  // 🌐 Se for navegador (contém Mozilla), redirecionar para landing
+  if (userAgent.includes('Mozilla')) {
+    console.log('🌐 [BROWSER] Redirecting to /landing for User-Agent:', userAgent.substring(0, 50) + '...');
+    return res.redirect('/landing');
+  }
+  
+  // 🤖 Se for health check (Railway, bots, etc.), retornar JSON
+  console.log('🤖 [HEALTH] JSON response for User-Agent:', userAgent.substring(0, 50) + '...');
   res.status(200).json({
     status: "✅ SoundyAI API Online",
     timestamp: new Date().toISOString(),
@@ -32,6 +42,12 @@ app.get('/', (req, res) => {
     port: process.env.PORT || 8080,
     uptime: Math.floor(process.uptime())
   });
+});
+
+// 🏠 Landing page route (disponível imediatamente)
+app.get("/landing", (req, res) => {
+  console.log('🏠 [LANDING] Serving landing.html');
+  res.sendFile(path.join(__dirname, "public", "landing.html"));
 });
 
 // 🚀 RAILWAY: Start server IMMEDIATELY
@@ -68,10 +84,6 @@ async function initializeHeavyComponents() {
     });
 
     // 📁 Static files and basic routes
-    app.get("/landing", (req, res) => {
-      res.sendFile(path.join(__dirname, "public", "landing.html"));
-    });
-
     app.get(["/index", "/index.html", "/app", "/home"], (req, res) => {
       res.sendFile(path.join(__dirname, "public", "index.html"));
     });

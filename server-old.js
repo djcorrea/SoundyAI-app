@@ -538,7 +538,7 @@ function safeParseAIResponse(raw, fallback, context = 'AI-PROCESSING') {
     console.error(`❌ [${context}] Erro crítico durante parse ultra-seguro:`, criticalError.message);
     return createFullFallback(originalSuggestions, context);
   }
-}
+
 
 // 🔧 Função para corrigir JSON truncado de forma mais inteligente
 function fixTruncatedJSON(jsonString, context = 'JSON-FIX') {
@@ -752,7 +752,7 @@ function createFallbackSuggestion(originalSuggestion, index, context = 'FALLBACK
     console.log(`🛡️ [AI-PROCESSING] Fallback aplicado: ${fallbackSuggestions.length} sugestões estruturadas`);
     return fallbackSuggestions;
   }
-}
+
 
 // Função INTEGRADA já na função utilitária safeParseAIResponse acima
 
