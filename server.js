@@ -13,12 +13,30 @@ dotenv.config();
 import analyzeRoute from "./api/audio/analyze.js";
 import jobsRoute from "./api/jobs/[id].js"; // 👈 rota de jobs conectada ao Postgres
 
-console.log("📂 Arquivo .env carregado");
-console.log("B2_KEY_ID:", process.env.B2_KEY_ID);
-console.log("B2_APP_KEY:", process.env.B2_APP_KEY);
-console.log("B2_BUCKET_NAME:", process.env.B2_BUCKET_NAME);
-console.log("B2_ENDPOINT:", process.env.B2_ENDPOINT);
-console.log("🗄️ DATABASE_URL:", process.env.DATABASE_URL ? "✅ Configurada" : "❌ Não configurada");
+// 🚀 RAILWAY HEALTH CHECK: Log de variáveis críticas na inicialização
+console.log("🏗️ [RAILWAY] Iniciando SoundyAI Server...");
+console.log("📂 [ENV] Arquivo .env carregado");
+console.log("🔧 [ENV] NODE_ENV:", process.env.NODE_ENV || 'development');
+console.log("🌐 [ENV] PORT:", process.env.PORT || 'not-set');
+
+// Validações críticas para Railway
+const criticalEnvs = {
+  'B2_KEY_ID': process.env.B2_KEY_ID,
+  'B2_APP_KEY': process.env.B2_APP_KEY,
+  'B2_BUCKET_NAME': process.env.B2_BUCKET_NAME,
+  'B2_ENDPOINT': process.env.B2_ENDPOINT,
+  'DATABASE_URL': process.env.DATABASE_URL,
+  'REDIS_HOST': process.env.REDIS_HOST,
+  'REDIS_PORT': process.env.REDIS_PORT,
+  'REDIS_PASSWORD': process.env.REDIS_PASSWORD
+};
+
+console.log("🔍 [VALIDATION] Verificando variáveis críticas:");
+Object.entries(criticalEnvs).forEach(([key, value]) => {
+  const status = value ? "✅" : "❌";
+  const display = value ? (key.includes('PASSWORD') || key.includes('KEY') ? `${value.substring(0, 8)}...` : "configurada") : "NÃO CONFIGURADA";
+  console.log(`   ${status} ${key}: ${display}`);
+});
 
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
@@ -29,8 +47,19 @@ app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
-// 👉 ROTA RAIZ PRIMEIRO: abre a landing
+// � RAILWAY FIX: Rota de health check principal (deve retornar 200)
 app.get("/", (req, res) => {
+  console.log(`📍 [HEALTH] Health check request from ${req.ip}`);
+  res.status(200).json({ 
+    status: "✅ SoundyAI API Online", 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+    version: "1.0.0"
+  });
+});
+
+// 👉 Rota para landing page específica
+app.get("/landing", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "landing.html"));
 });
 
@@ -706,16 +735,64 @@ app.get("*", (req, res, next) => {
   res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
-// Start
+// Start server
 const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor SoundyAI rodando na porta ${PORT}`);
+const HOST = '0.0.0.0'; // 🚀 RAILWAY FIX: Bind em todas as interfaces
+
+console.log(`🚀 [BOOT] Iniciando servidor na porta ${PORT}...`);
+console.log(`🌐 [BOOT] Host: ${HOST}`);
+console.log(`📦 [BOOT] Ambiente: ${process.env.NODE_ENV || 'development'}`);
+
+const server = app.listen(PORT, HOST, () => {
+  console.log(`✅ [SUCCESS] SoundyAI Server ONLINE!`);
+  console.log(`🌐 [SERVER] Listening on ${HOST}:${PORT}`);
+  console.log(`🔗 [SERVER] Health check: http://${HOST}:${PORT}/`);
+  console.log(`📊 [SERVER] Status: READY para receber requests`);
   
-  // 🧪 Executar testes de validação na inicialização (apenas em desenvolvimento)
+  // 🧪 DESENVOLVIMENTO: Executar testes apenas após server online
   if (process.env.NODE_ENV !== 'production') {
     console.log('\n🔧 [DEV] Executando testes de validação...');
     testRealisticSuggestions();
   }
+  
+  // 🔍 Log final de status
+  console.log('\n📋 [STATUS] Configurações aplicadas:');
+  console.log(`   ✅ Express server running`);
+  console.log(`   ✅ CORS enabled`);
+  console.log(`   ✅ JSON parser (50MB limit)`);
+  console.log(`   ✅ Static files serving`);
+  console.log(`   ✅ API routes mounted`);
+  console.log(`   ✅ Health check route active`);
+  console.log('\n🎯 [RAILWAY] Servidor pronto para deploy!');
+});
+
+// 🛡️ RAILWAY: Graceful shutdown handling
+process.on('SIGTERM', () => {
+  console.log('📡 [SHUTDOWN] SIGTERM recebido, encerrando servidor...');
+  server.close(() => {
+    console.log('✅ [SHUTDOWN] Servidor encerrado gracefully');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('📡 [SHUTDOWN] SIGINT recebido, encerrando servidor...');
+  server.close(() => {
+    console.log('✅ [SHUTDOWN] Servidor encerrado gracefully');
+    process.exit(0);
+  });
+});
+
+// 🚨 RAILWAY: Error handling para crashes
+process.on('uncaughtException', (error) => {
+  console.error('💥 [CRASH] Uncaught Exception:', error);
+  console.error('🔍 [CRASH] Stack:', error.stack);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('💥 [CRASH] Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
 });
 
 export default app;
