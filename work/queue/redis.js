@@ -60,6 +60,23 @@ export const audioQueue = new Queue('audio-analyzer', {
   }
 });
 
+// 🔍 Event listeners para debug
+audioQueue.on('waiting', (job) => {
+  console.log(`⌛ [QUEUE] Job waiting: ${job.id} | Nome: ${job.name} | JobID: ${job.data?.jobId}`);
+});
+
+audioQueue.on('active', (job) => {
+  console.log(`⚡ [QUEUE] Job active: ${job.id} | Nome: ${job.name} | JobID: ${job.data?.jobId}`);
+});
+
+audioQueue.on('completed', (job, result) => {
+  console.log(`✅ [QUEUE] Job completed: ${job.id} | Nome: ${job.name} | JobID: ${job.data?.jobId}`);
+});
+
+audioQueue.on('failed', (job, err) => {
+  console.log(`❌ [QUEUE] Job failed: ${job.id} | Nome: ${job.name} | JobID: ${job.data?.jobId} | Erro: ${err.message}`);
+});
+
 // 🏭 Factory para criar workers com configuração ULTRA-OTIMIZADA para Redis
 export const createWorker = (
   queueName, 

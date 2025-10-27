@@ -64,6 +64,8 @@ async function createJobInDatabase(fileKey, mode, fileName) {
       
       // Enfileirar no Redis mesmo em modo mock
       try {
+        console.log(`📥 [ANALYZE] Adicionando job '${jobId}' na fila Redis...`);
+        
         await audioQueue.add('analyze', {
           jobId,
           fileKey,
@@ -101,6 +103,8 @@ async function createJobInDatabase(fileKey, mode, fileName) {
     console.log(`[ANALYZE] Job criado com sucesso no PostgreSQL:`, result.rows[0]);
 
     // 🚀 ENFILEIRAR NO REDIS após criar no banco
+    console.log(`📥 [ANALYZE] Adicionando job '${jobId}' na fila Redis...`);
+    
     await audioQueue.add('analyze', {
       jobId,
       fileKey,

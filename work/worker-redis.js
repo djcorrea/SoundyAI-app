@@ -77,7 +77,12 @@ async function downloadFileFromBucket(key) {
     read.on("error", (err) => {
       clearTimeout(timeout);
       console.error(`❌ [WORKER-REDIS] Erro no stream de leitura para ${key}:`, err.message);
-      reject(err);
+      // 🔍 LOGS DETALHADOS PARA DEBUG
+      if (err.code === 'NoSuchKey') {
+        console.error(`🚨 [WORKER-REDIS] ARQUIVO NÃO ENCONTRADO: ${key}`);
+        console.error(`📁 [WORKER-REDIS] Verifique se o arquivo existe no bucket: ${BUCKET_NAME}`);
+      }
+      reject(new Error(`Arquivo não encontrado no Backblaze: ${key}`));
     });
     write.on("error", (err) => {
       clearTimeout(timeout);
@@ -276,15 +281,17 @@ async function updateJobStatus(jobId, status, data = null, error = null) {
 // ---------- Processor do BullMQ ----------
 async function audioProcessor(job) {
   const { jobId, fileKey, mode, fileName } = job.data;
-  console.log(`🚀 [WORKER-REDIS] Processando job ${job.id} (${jobId}) - ${fileKey}`);
+  console.log(`🚀 [WORKER-REDIS] INICIANDO processamento job ${job.id} (${jobId}) - ${fileKey}`);
 
   let localFilePath = null;
 
   try {
     // Atualizar status para processing
+    console.log(`📝 [WORKER-REDIS] Atualizando status para processing...`);
     await updateJobStatus(jobId, 'processing');
 
     // Download do arquivo
+    console.log(`⬇️ [WORKER-REDIS] Iniciando download do arquivo: ${fileKey}`);
     localFilePath = await downloadFileFromBucket(fileKey);
     console.log(`🎵 [WORKER-REDIS] Arquivo pronto para análise: ${localFilePath}`);
 
@@ -318,13 +325,15 @@ async function audioProcessor(job) {
     };
 
     // Atualizar status para done
+    console.log(`💾 [WORKER-REDIS] Salvando resultado no banco...`);
     await updateJobStatus(jobId, 'done', result);
 
     console.log(`✅ [WORKER-REDIS] Job ${job.id} (${jobId}) concluído com sucesso`);
     return result;
 
   } catch (error) {
-    console.error(`❌ [WORKER-REDIS] Erro no job ${job.id} (${jobId}):`, error.message);
+    console.error(`❌ [WORKER-REDIS] ERRO CRÍTICO no job ${job.id} (${jobId}):`, error.message);
+    console.error(`📍 [WORKER-REDIS] Stack trace:`, error.stack);
     
     // Atualizar status para failed
     await updateJobStatus(jobId, 'failed', null, error.message);
@@ -429,7 +438,7 @@ console.log(`⚡ [WORKER-REDIS] Pronto para processar ${concurrency} jobs simult
 // ---------- Health Check Server para Railway ----------
 import express from 'express';
 const healthApp = express();
-const HEALTH_PORT = process.env.HEALTH_PORT || 8080;
+const HEALTH_PORT = process.env.HEALTH_PORT || 8081; // Mudado para 8081
 
 healthApp.get('/', (req, res) => {
   res.json({ 
