@@ -56,17 +56,24 @@ async function createJobInDatabase(fileKey, mode, fileName) {
     const jobId = randomUUID();
     const now = new Date().toISOString();
 
-    console.log(`[ANALYZE] Criando job: ${jobId} para fileKey: ${fileKey}, modo: ${mode}`);
+    console.log(`[BACKEND][${new Date().toISOString()}] -> 📋 Criando job: ${jobId} para fileKey: ${fileKey}, modo: ${mode}`);
 
     // 🧪 MODO DEBUG: Forçar modo mock se pool não estiver funcionando
     if (!pool || true) { // TEMPORÁRIO: forçar modo mock para teste
-      console.log(`[ANALYZE] 🧪 MODO MOCK/DEBUG - Job simulado criado com sucesso`);
+      console.log(`[BACKEND][${new Date().toISOString()}] -> 🧪 MODO MOCK/DEBUG - Job simulado criado com sucesso`);
       
       // Enfileirar no Redis mesmo em modo mock
       try {
-        console.log(`📥 [ANALYZE] Adicionando job '${jobId}' na fila Redis...`);
+        console.log(`[BACKEND][${new Date().toISOString()}] -> 📥 Tentando adicionar job '${jobId}' na fila Redis...`);
+        console.log(`[BACKEND][${new Date().toISOString()}] -> 🎯 Fila de destino: '${audioQueue.name}' | Job type: 'analyze'`);
+        console.log(`[BACKEND][${new Date().toISOString()}] -> 📦 Dados do job:`, {
+          jobId: jobId.substring(0, 8),
+          fileKey,
+          mode,
+          fileName: fileName || null
+        });
         
-        await audioQueue.add('analyze', {
+        const addedJob = await audioQueue.add('analyze', {
           jobId,
           fileKey,
           mode,
@@ -78,9 +85,11 @@ async function createJobInDatabase(fileKey, mode, fileName) {
           removeOnFail: 100
         });
         
-        console.log(`[ANALYZE] 📋 Job ${jobId} enfileirado no Redis (modo mock/debug)`);
+        console.log(`[BACKEND][${new Date().toISOString()}] -> ✅ Job ${jobId} enfileirado com sucesso! | BullMQ ID: ${addedJob.id}`);
+        console.log(`[BACKEND][${new Date().toISOString()}] -> 📊 Job adicionado à fila '${audioQueue.name}' com nome 'analyze'`);
       } catch (redisError) {
-        console.error(`[ANALYZE] ❌ Erro ao enfileirar no Redis:`, redisError.message);
+        console.error(`[BACKEND][${new Date().toISOString()}] -> ❌ ERRO CRÍTICO ao enfileirar no Redis:`, redisError.message);
+        console.error(`[BACKEND][${new Date().toISOString()}] -> Stack trace:`, redisError.stack);
         throw new Error(`Erro ao enfileirar job no Redis: ${redisError.message}`);
       }
       
@@ -100,12 +109,13 @@ async function createJobInDatabase(fileKey, mode, fileName) {
       [jobId, fileKey, mode, "queued", fileName || null]
     );
 
-    console.log(`[ANALYZE] Job criado com sucesso no PostgreSQL:`, result.rows[0]);
+    console.log(`[BACKEND][${new Date().toISOString()}] -> ✅ Job criado com sucesso no PostgreSQL:`, result.rows[0]);
 
     // 🚀 ENFILEIRAR NO REDIS após criar no banco
-    console.log(`📥 [ANALYZE] Adicionando job '${jobId}' na fila Redis...`);
+    console.log(`[BACKEND][${new Date().toISOString()}] -> 📥 Tentando adicionar job '${jobId}' na fila Redis...`);
+    console.log(`[BACKEND][${new Date().toISOString()}] -> 🎯 Fila de destino: '${audioQueue.name}' | Job type: 'analyze'`);
     
-    await audioQueue.add('analyze', {
+    const addedJob = await audioQueue.add('analyze', {
       jobId,
       fileKey,
       mode,
@@ -117,11 +127,12 @@ async function createJobInDatabase(fileKey, mode, fileName) {
       removeOnFail: 100
     });
 
-    console.log(`[ANALYZE] 📋 Job ${jobId} enfileirado no Redis com sucesso`);
+    console.log(`[BACKEND][${new Date().toISOString()}] -> ✅ Job ${jobId} enfileirado no Redis com sucesso! | BullMQ ID: ${addedJob.id}`);
 
     return result.rows[0];
   } catch (error) {
-    console.error("[ANALYZE] Erro ao criar job no banco:", error);
+    console.error(`[BACKEND][${new Date().toISOString()}] -> ❌ ERRO CRÍTICO ao criar job no banco:`, error.message);
+    console.error(`[BACKEND][${new Date().toISOString()}] -> Stack trace:`, error.stack);
     throw new Error(`Erro ao criar job de análise: ${error.message}`);
   }
 }
@@ -205,32 +216,41 @@ router.post("/analyze", async (req, res) => {
 
   try {
 
-    console.log(`[ANALYZE] Nova requisição de criação de job iniciada`);
+    console.log(`[BACKEND][${new Date().toISOString()}] -> 🚀 Nova requisição de criação de job iniciada`);
+    console.log(`[BACKEND][${new Date().toISOString()}] -> 📥 Request body:`, req.body);
 
     const flags = validateFeatureFlags();
-    console.log(`[ANALYZE] Feature flags:`, flags);
+    console.log(`[BACKEND][${new Date().toISOString()}] -> 🚩 Feature flags:`, flags);
 
     const { fileKey, mode = "genre", fileName } = req.body;
-    console.log(`[ANALYZE] Dados recebidos:`, { fileKey, mode, fileName });
+    console.log(`[BACKEND][${new Date().toISOString()}] -> 📋 Dados extraídos: fileKey=${fileKey}, mode=${mode}, fileName=${fileName}`);
 
-    if (!fileKey) throw new Error("fileKey é obrigatório");
+    if (!fileKey) {
+      console.error(`[BACKEND][${new Date().toISOString()}] -> ❌ ERRO: fileKey é obrigatório`);
+      throw new Error("fileKey é obrigatório");
+    }
 
     if (!validateFileType(fileKey)) {
+      console.error(`[BACKEND][${new Date().toISOString()}] -> ❌ ERRO: Extensão não suportada para ${fileKey}`);
       throw new Error("Extensão não suportada. Apenas WAV, FLAC e MP3 são aceitos.");
     }
 
     if (!["genre", "reference"].includes(mode)) {
+      console.error(`[BACKEND][${new Date().toISOString()}] -> ❌ ERRO: Modo inválido '${mode}'`);
       throw new Error('Modo de análise inválido. Use "genre" ou "reference".');
     }
 
     if (mode === "reference" && !flags.REFERENCE_MODE_ENABLED) {
+      console.error(`[BACKEND][${new Date().toISOString()}] -> ❌ ERRO: Modo reference desabilitado`);
       throw new Error("Modo de análise por referência não está disponível no momento");
     }
+
+    console.log(`[BACKEND][${new Date().toISOString()}] -> ✅ Validações passaram, criando job...`);
 
     const jobRecord = await createJobInDatabase(fileKey, mode, fileName);
     const processingTime = Date.now() - startTime;
 
-    console.log(`[ANALYZE] Job criado em ${processingTime}ms - jobId: ${jobRecord.id}, modo: ${mode}`);
+    console.log(`[BACKEND][${new Date().toISOString()}] -> 🎉 Job criado com sucesso em ${processingTime}ms - jobId: ${jobRecord.id}, modo: ${mode}`);
 
     // 🔑 Alinhado com o frontend
     res.status(200).json({
@@ -249,7 +269,8 @@ router.post("/analyze", async (req, res) => {
   } catch (error) {
     const processingTime = Date.now() - startTime;
     
-    console.error("[ANALYZE] Erro na criação do job:", error);
+    console.error(`[BACKEND][${new Date().toISOString()}] -> ❌ ERRO CRÍTICO na criação do job:`, error.message);
+    console.error(`[BACKEND][${new Date().toISOString()}] -> Stack trace:`, error.stack);
 
     const errorResponse = getErrorMessage(error);
     const statusCode =

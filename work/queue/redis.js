@@ -29,17 +29,30 @@ const connection = new IORedis('rediss://guided-snapper-23234.upstash.io:6379', 
   enableOfflineQueue: true     // ✅ REATIVADO: Necessário para evitar erros de stream
 });
 
-// 🔥 Eventos de conexão para debugging
+// 🔥 Eventos de conexão para debugging ULTRA-DETALHADO
 connection.on('connect', () => {
-  console.log('🟢 [REDIS] Conectado ao Upstash Redis');
+  console.log(`[REDIS][${new Date().toISOString()}] -> 🟢 Conectado ao Upstash Redis (Host: ${connection.options.host}:${connection.options.port})`);
 });
 
 connection.on('error', (err) => {
-  console.error('🔴 [REDIS] Erro de conexão:', err.message);
+  console.error(`[REDIS][${new Date().toISOString()}] -> 🔴 ERRO DE CONEXÃO: ${err.message}`);
+  console.error(`[REDIS][${new Date().toISOString()}] -> Stack trace:`, err.stack);
 });
 
 connection.on('ready', () => {
-  console.log('✅ [REDIS] Conexão pronta para uso');
+  console.log(`[REDIS][${new Date().toISOString()}] -> ✅ Conexão pronta para uso (Status: READY)`);
+});
+
+connection.on('reconnecting', (delay) => {
+  console.log(`[REDIS][${new Date().toISOString()}] -> 🔄 Reconectando em ${delay}ms...`);
+});
+
+connection.on('end', () => {
+  console.log(`[REDIS][${new Date().toISOString()}] -> 🔌 Conexão encerrada`);
+});
+
+connection.on('close', () => {
+  console.log(`[REDIS][${new Date().toISOString()}] -> 🚪 Conexão fechada`);
 });
 
 // 📋 Fila principal para análises de áudio - OTIMIZADA PARA REDUZIR REQUESTS REDIS
@@ -60,21 +73,58 @@ export const audioQueue = new Queue('audio-analyzer', {
   }
 });
 
-// 🔍 Event listeners para debug
+// 🔥 LOGS DE DIAGNÓSTICO ULTRA-DETALHADOS - Queue Events
+console.log(`[QUEUE][${new Date().toISOString()}] -> 📋 Fila '${audioQueue.name}' criada com sucesso`);
+
+audioQueue.on('error', (err) => {
+  console.error(`[QUEUE][${new Date().toISOString()}] -> 🚨 ERRO NA FILA: ${err.message}`);
+  console.error(`[QUEUE][${new Date().toISOString()}] -> Stack trace:`, err.stack);
+});
+
+audioQueue.on('ready', () => {
+  console.log(`[QUEUE][${new Date().toISOString()}] -> 🟢 Fila '${audioQueue.name}' pronta para uso`);
+});
+
+audioQueue.on('paused', () => {
+  console.log(`[QUEUE][${new Date().toISOString()}] -> ⏸️ Fila '${audioQueue.name}' pausada`);
+});
+
+audioQueue.on('resumed', () => {
+  console.log(`[QUEUE][${new Date().toISOString()}] -> ▶️ Fila '${audioQueue.name}' retomada`);
+});
+
+audioQueue.on('cleaned', (jobs, type) => {
+  console.log(`[QUEUE][${new Date().toISOString()}] -> 🧹 Limpeza: ${jobs.length} jobs '${type}' removidos`);
+});
+
+// 🔍 Event listeners para debug ULTRA-DETALHADOS
 audioQueue.on('waiting', (job) => {
-  console.log(`⌛ [QUEUE] Job waiting: ${job.id} | Nome: ${job.name} | JobID: ${job.data?.jobId}`);
+  console.log(`[QUEUE][${new Date().toISOString()}] -> ⌛ Job ${job.id} WAITING | Nome: '${job.name}' | JobID: ${job.data?.jobId} | FileKey: ${job.data?.fileKey}`);
 });
 
 audioQueue.on('active', (job) => {
-  console.log(`⚡ [QUEUE] Job active: ${job.id} | Nome: ${job.name} | JobID: ${job.data?.jobId}`);
+  console.log(`[QUEUE][${new Date().toISOString()}] -> ⚡ Job ${job.id} ACTIVE | Nome: '${job.name}' | JobID: ${job.data?.jobId} | FileKey: ${job.data?.fileKey}`);
 });
 
 audioQueue.on('completed', (job, result) => {
-  console.log(`✅ [QUEUE] Job completed: ${job.id} | Nome: ${job.name} | JobID: ${job.data?.jobId}`);
+  console.log(`[QUEUE][${new Date().toISOString()}] -> ✅ Job ${job.id} COMPLETED | Nome: '${job.name}' | JobID: ${job.data?.jobId} | Tempo: ${Date.now() - job.timestamp}ms`);
 });
 
 audioQueue.on('failed', (job, err) => {
-  console.log(`❌ [QUEUE] Job failed: ${job.id} | Nome: ${job.name} | JobID: ${job.data?.jobId} | Erro: ${err.message}`);
+  console.error(`[QUEUE][${new Date().toISOString()}] -> ❌ Job ${job.id} FAILED | Nome: '${job.name}' | JobID: ${job.data?.jobId} | Erro: ${err.message}`);
+  console.error(`[QUEUE][${new Date().toISOString()}] -> Stack do erro:`, err.stack);
+});
+
+audioQueue.on('stalled', (job) => {
+  console.warn(`[QUEUE][${new Date().toISOString()}] -> 🐌 Job ${job.id} STALLED | Nome: '${job.name}' | JobID: ${job.data?.jobId}`);
+});
+
+audioQueue.on('progress', (job, progress) => {
+  console.log(`[QUEUE][${new Date().toISOString()}] -> 📈 Job ${job.id} PROGRESS: ${progress}% | JobID: ${job.data?.jobId}`);
+});
+
+audioQueue.on('removed', (job) => {
+  console.log(`[QUEUE][${new Date().toISOString()}] -> 🗑️ Job ${job.id} REMOVED | Nome: '${job.name}' | JobID: ${job.data?.jobId}`);
 });
 
 // 🏭 Factory para criar workers com configuração ULTRA-OTIMIZADA para Redis
@@ -83,9 +133,9 @@ export const createWorker = (
   processor, 
   concurrency = Number(process.env.WORKER_CONCURRENCY) || 5
 ) => {
-  console.log(`🚀 [WORKER] Criando worker '${queueName}' com concorrência: ${concurrency}`);
+  console.log(`[WORKER-FACTORY][${new Date().toISOString()}] -> 🚀 Criando worker para fila '${queueName}' com concorrência: ${concurrency}`);
   
-  return new Worker(queueName, processor, { 
+  const worker = new Worker(queueName, processor, { 
     connection, 
     concurrency,
     settings: {
@@ -112,6 +162,55 @@ export const createWorker = (
       lazyConnect: true          // Conecta apenas quando necessário
     }
   });
+
+  // 🔥 LOGS DE DIAGNÓSTICO ULTRA-DETALHADOS - Worker Events
+  worker.on('ready', () => {
+    console.log(`[WORKER][${new Date().toISOString()}] -> 🟢 Worker para fila '${queueName}' PRONTO (Concorrência: ${concurrency})`);
+  });
+
+  worker.on('error', (err) => {
+    console.error(`[WORKER][${new Date().toISOString()}] -> 🚨 ERRO NO WORKER: ${err.message}`);
+    console.error(`[WORKER][${new Date().toISOString()}] -> Stack trace:`, err.stack);
+  });
+
+  worker.on('active', (job) => {
+    console.log(`[WORKER][${new Date().toISOString()}] -> ⚡ PROCESSANDO Job ${job.id} | Nome: '${job.name}' | JobID: ${job.data?.jobId} | FileKey: ${job.data?.fileKey}`);
+  });
+
+  worker.on('completed', (job, result) => {
+    console.log(`[WORKER][${new Date().toISOString()}] -> ✅ COMPLETADO Job ${job.id} | JobID: ${job.data?.jobId} | Tempo: ${Date.now() - job.timestamp}ms`);
+  });
+
+  worker.on('failed', (job, err) => {
+    console.error(`[WORKER][${new Date().toISOString()}] -> ❌ FALHOU Job ${job.id} | JobID: ${job.data?.jobId} | Erro: ${err.message}`);
+    console.error(`[WORKER][${new Date().toISOString()}] -> Stack do erro:`, err.stack);
+  });
+
+  worker.on('progress', (job, progress) => {
+    console.log(`[WORKER][${new Date().toISOString()}] -> 📈 PROGRESSO Job ${job.id} | JobID: ${job.data?.jobId} | ${progress}%`);
+  });
+
+  worker.on('stalled', (job) => {
+    console.warn(`[WORKER][${new Date().toISOString()}] -> 🐌 TRAVADO Job ${job.id} | JobID: ${job.data?.jobId}`);
+  });
+
+  worker.on('paused', () => {
+    console.log(`[WORKER][${new Date().toISOString()}] -> ⏸️ Worker pausado`);
+  });
+
+  worker.on('resumed', () => {
+    console.log(`[WORKER][${new Date().toISOString()}] -> ▶️ Worker retomado`);
+  });
+
+  worker.on('closing', () => {
+    console.log(`[WORKER][${new Date().toISOString()}] -> 🚪 Worker fechando...`);
+  });
+
+  worker.on('closed', () => {
+    console.log(`[WORKER][${new Date().toISOString()}] -> 🔒 Worker fechado`);
+  });
+
+  return worker;
 };
 
 // 📊 Função OTIMIZADA para monitorar status da fila - MÍNIMO requests Redis
