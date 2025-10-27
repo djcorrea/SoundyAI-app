@@ -425,3 +425,31 @@ process.on('unhandledRejection', (reason, promise) => {
 console.log(`🚀 [WORKER-REDIS] 🎯 Worker Redis EXCLUSIVO iniciado! PID: ${process.pid}`);
 console.log(`🏗️ [WORKER-REDIS] Arquitetura: Redis Workers Only - Legacy worker desabilitado`);
 console.log(`⚡ [WORKER-REDIS] Pronto para processar ${concurrency} jobs simultâneos por worker`);
+
+// ---------- Health Check Server para Railway ----------
+import express from 'express';
+const healthApp = express();
+const HEALTH_PORT = process.env.HEALTH_PORT || 8080;
+
+healthApp.get('/', (req, res) => {
+  res.json({ 
+    status: 'Worker Redis ativo', 
+    timestamp: new Date().toISOString(),
+    pid: process.pid,
+    concurrency: concurrency,
+    architecture: 'redis-workers-only'
+  });
+});
+
+healthApp.get('/health', (req, res) => {
+  res.json({ 
+    status: 'healthy', 
+    worker: 'redis-active',
+    timestamp: new Date().toISOString(),
+    pid: process.pid
+  });
+});
+
+healthApp.listen(HEALTH_PORT, () => {
+  console.log(`🏥 [WORKER-REDIS] Health check server rodando na porta ${HEALTH_PORT}`);
+});
