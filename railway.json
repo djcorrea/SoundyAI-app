@@ -18,7 +18,7 @@
         "builder": "NIXPACKS"
       },
       "deploy": {
-        "startCommand": "node work/index.js",
+        "startCommand": "node work/worker-redis.js",
         "healthcheckPath": "/health",
         "healthcheckTimeout": 60,
         "restartPolicyType": "ON_FAILURE",

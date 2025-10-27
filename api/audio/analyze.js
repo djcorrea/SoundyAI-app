@@ -77,8 +77,7 @@ async function createJobInDatabase(fileKey, mode, fileName) {
 
     const dbPool = getPool();
 
-    // Se não há pool de conexão, simular criação do job
-
+    // Se não há pool de conexão, simular criação do job (modo desenvolvimento/teste)
     if (!dbPool) {
       console.log(`[ANALYZE] 🧪 MODO MOCK - Job simulado criado com sucesso`);
       return {
