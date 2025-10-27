@@ -64,14 +64,15 @@ async function createJobInDatabase(fileKey, mode, fileName) {
       
       // Enfileirar no Redis mesmo em modo mock
       try {
-        console.log(`[BACKEND][${new Date().toISOString()}] -> 📥 Tentando adicionar job '${jobId}' na fila Redis...`);
+        console.log(`[BACKEND][${new Date().toISOString()}] -> 📥 INICIANDO enfileiramento no Redis...`);
         console.log(`[BACKEND][${new Date().toISOString()}] -> 🎯 Fila de destino: '${audioQueue.name}' | Job type: 'analyze'`);
-        console.log(`[BACKEND][${new Date().toISOString()}] -> 📦 Dados do job:`, {
-          jobId: jobId.substring(0, 8),
+        console.log(`[BACKEND][${new Date().toISOString()}] -> 📦 Dados completos do job:`, JSON.stringify({
+          jobId,
           fileKey,
           mode,
           fileName: fileName || null
-        });
+        }, null, 2));
+        console.log(`[BACKEND][${new Date().toISOString()}] -> ⚙️ Opções do job: attempts=3, backoff=exponential(5s), removeOnComplete=50`);
         
         const addedJob = await audioQueue.add('analyze', {
           jobId,
@@ -87,9 +88,16 @@ async function createJobInDatabase(fileKey, mode, fileName) {
         
         console.log(`[BACKEND][${new Date().toISOString()}] -> ✅ Job ${jobId} enfileirado com sucesso! | BullMQ ID: ${addedJob.id}`);
         console.log(`[BACKEND][${new Date().toISOString()}] -> 📊 Job adicionado à fila '${audioQueue.name}' com nome 'analyze'`);
+        console.log(`[BACKEND][${new Date().toISOString()}] -> 🔍 Status do job adicionado:`, {
+          id: addedJob.id,
+          name: addedJob.name,
+          queueName: addedJob.queueName,
+          timestamp: addedJob.timestamp
+        });
       } catch (redisError) {
         console.error(`[BACKEND][${new Date().toISOString()}] -> ❌ ERRO CRÍTICO ao enfileirar no Redis:`, redisError.message);
-        console.error(`[BACKEND][${new Date().toISOString()}] -> Stack trace:`, redisError.stack);
+        console.error(`[BACKEND][${new Date().toISOString()}] -> Stack trace completo:`, redisError.stack);
+        console.error(`[BACKEND][${new Date().toISOString()}] -> ❌ CONTEXTO DO ERRO: fila='${audioQueue.name}', jobType='analyze', jobId='${jobId}'`);
         throw new Error(`Erro ao enfileirar job no Redis: ${redisError.message}`);
       }
       
@@ -112,8 +120,14 @@ async function createJobInDatabase(fileKey, mode, fileName) {
     console.log(`[BACKEND][${new Date().toISOString()}] -> ✅ Job criado com sucesso no PostgreSQL:`, result.rows[0]);
 
     // 🚀 ENFILEIRAR NO REDIS após criar no banco
-    console.log(`[BACKEND][${new Date().toISOString()}] -> 📥 Tentando adicionar job '${jobId}' na fila Redis...`);
+    console.log(`[BACKEND][${new Date().toISOString()}] -> 📥 INICIANDO enfileiramento no Redis...`);
     console.log(`[BACKEND][${new Date().toISOString()}] -> 🎯 Fila de destino: '${audioQueue.name}' | Job type: 'analyze'`);
+    console.log(`[BACKEND][${new Date().toISOString()}] -> 📦 Dados completos do job:`, JSON.stringify({
+      jobId,
+      fileKey,
+      mode,
+      fileName: fileName || null
+    }, null, 2));
     
     const addedJob = await audioQueue.add('analyze', {
       jobId,
@@ -128,6 +142,12 @@ async function createJobInDatabase(fileKey, mode, fileName) {
     });
 
     console.log(`[BACKEND][${new Date().toISOString()}] -> ✅ Job ${jobId} enfileirado no Redis com sucesso! | BullMQ ID: ${addedJob.id}`);
+    console.log(`[BACKEND][${new Date().toISOString()}] -> 🔍 Status do job adicionado:`, {
+      id: addedJob.id,
+      name: addedJob.name,
+      queueName: addedJob.queueName,
+      timestamp: addedJob.timestamp
+    });
 
     return result.rows[0];
   } catch (error) {

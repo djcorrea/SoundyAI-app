@@ -4,6 +4,11 @@ import IORedis from 'ioredis';
 
 const { Queue, Worker } = BullMQ;
 
+// 🔗 DIAGNÓSTICO: Configuração Redis Upstash
+console.log(`[CONFIG][${new Date().toISOString()}] -> 🔧 Iniciando conexão Redis`);
+console.log(`[CONFIG][${new Date().toISOString()}] -> 📍 Host: guided-snapper-23234.upstash.io:6379`);
+console.log(`[CONFIG][${new Date().toISOString()}] -> 🔒 TLS: Habilitado`);
+
 // 🔗 Conexão ULTRA-OTIMIZADA com Redis Upstash para MÍNIMO consumo de requests
 const connection = new IORedis('rediss://guided-snapper-23234.upstash.io:6379', {
   password: 'AVrCAAIncDJhMDljZDE5MjM5Njk0OGQyYWI2ZTMyNDkwMjVkNmNiMHAyMjMyMzQ',
@@ -28,6 +33,8 @@ const connection = new IORedis('rediss://guided-snapper-23234.upstash.io:6379', 
   autoResubmit: false,         // Não resubmete commands falhados automaticamente
   enableOfflineQueue: true     // ✅ REATIVADO: Necessário para evitar erros de stream
 });
+
+console.log(`[CONFIG][${new Date().toISOString()}] -> ⚙️ Configurações aplicadas: maxRetries=null, keepAlive=120s, connectTimeout=45s`);
 
 // 🔥 Eventos de conexão para debugging ULTRA-DETALHADO
 connection.on('connect', () => {
@@ -55,6 +62,10 @@ connection.on('close', () => {
   console.log(`[REDIS][${new Date().toISOString()}] -> 🚪 Conexão fechada`);
 });
 
+// 📋 DIAGNÓSTICO: Criação da fila principal
+console.log(`[CONFIG][${new Date().toISOString()}] -> 📋 Criando fila 'audio-analyzer'`);
+console.log(`[CONFIG][${new Date().toISOString()}] -> 🔧 removeOnComplete=5, removeOnFail=10, attempts=2`);
+
 // 📋 Fila principal para análises de áudio - OTIMIZADA PARA REDUZIR REQUESTS REDIS
 export const audioQueue = new Queue('audio-analyzer', { 
   connection,
@@ -75,6 +86,7 @@ export const audioQueue = new Queue('audio-analyzer', {
 
 // 🔥 LOGS DE DIAGNÓSTICO ULTRA-DETALHADOS - Queue Events
 console.log(`[QUEUE][${new Date().toISOString()}] -> 📋 Fila '${audioQueue.name}' criada com sucesso`);
+console.log(`[QUEUE][${new Date().toISOString()}] -> 🎯 Fila utilizada: '${audioQueue.name}' | Host Redis: guided-snapper-23234.upstash.io`);
 
 audioQueue.on('error', (err) => {
   console.error(`[QUEUE][${new Date().toISOString()}] -> 🚨 ERRO NA FILA: ${err.message}`);
