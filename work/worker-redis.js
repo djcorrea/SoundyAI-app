@@ -14,27 +14,27 @@ console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📋 PID: ${process.
 
 // ---------- Global Error Handlers ----------
 process.on('uncaughtException', (err) => {
-  console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> 🚨 UNCAUGHT EXCEPTION: ${err.message}`);
-  console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> Stack trace:`, err.stack);
+  console.error(`[FATAL][${new Date().toISOString()}] -> 🚨 UNCAUGHT EXCEPTION: ${err.message}`);
+  console.error(`[FATAL][${new Date().toISOString()}] -> Stack trace:`, err.stack);
   
   try {
     // Tentar fechar conexões graciosamente
-    console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🔌 Tentando fechar conexões...`);
+    console.log(`[FATAL][${new Date().toISOString()}] -> 🔌 Tentando fechar conexões...`);
     process.exit(1);
   } catch (closeErr) {
-    console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> ❌ Erro ao fechar conexões:`, closeErr);
+    console.error(`[FATAL][${new Date().toISOString()}] -> ❌ Erro ao fechar conexões:`, closeErr);
     process.exit(1);
   }
 });
 
 process.on('unhandledRejection', (reason, promise) => {
-  console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> 🚨 UNHANDLED REJECTION: ${reason}`);
-  console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> Promise:`, promise);
-  console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> Stack trace:`, reason.stack);
+  console.error(`[FATAL][${new Date().toISOString()}] -> 🚨 UNHANDLED REJECTION: ${reason}`);
+  console.error(`[FATAL][${new Date().toISOString()}] -> Promise:`, promise);
+  console.error(`[FATAL][${new Date().toISOString()}] -> Stack trace:`, reason.stack);
 });
 
 process.on('warning', (warning) => {
-  console.warn(`[WORKER-REDIS][${new Date().toISOString()}] -> ⚠️ WARNING: ${warning.name}: ${warning.message}`);
+  console.warn(`[FATAL][${new Date().toISOString()}] -> ⚠️ WARNING: ${warning.name}: ${warning.message}`);
 });
 
 // ---------- Importar pipeline completo ----------
@@ -324,30 +324,35 @@ async function updateJobStatus(jobId, status, data = null, error = null) {
 // ---------- Processor do BullMQ ----------
 async function audioProcessor(job) {
   const { jobId, fileKey, mode, fileName } = job.data;
-  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🚀 PROCESSANDO Job ${job.id} (JobID: ${jobId})`);
-  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📋 Job data: fileKey=${fileKey}, mode=${mode}, fileName=${fileName}`);
-  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> ⏰ Job criado em: ${new Date(job.timestamp).toISOString()}`);
+  console.log(`[PROCESS][${new Date().toISOString()}] -> � INICIANDO job ${job.id}`, {
+    jobId,
+    fileKey,
+    mode,
+    fileName,
+    timestamp: new Date(job.timestamp).toISOString(),
+    attempts: job.attemptsMade + 1
+  });
 
   let localFilePath = null;
 
   try {
     // Atualizar status para processing
-    console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📝 Atualizando status para processing...`);
+    console.log(`[PROCESS][${new Date().toISOString()}] -> 📝 Atualizando status para processing no PostgreSQL...`);
     await updateJobStatus(jobId, 'processing');
 
     // Download do arquivo
-    console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> ⬇️ Iniciando download do arquivo: ${fileKey}`);
+    console.log(`[PROCESS][${new Date().toISOString()}] -> ⬇️ Iniciando download do arquivo: ${fileKey}`);
     const downloadStartTime = Date.now();
     localFilePath = await downloadFileFromBucket(fileKey);
     const downloadTime = Date.now() - downloadStartTime;
-    console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🎵 Arquivo baixado em ${downloadTime}ms: ${localFilePath}`);
+    console.log(`[PROCESS][${new Date().toISOString()}] -> 🎵 Arquivo baixado em ${downloadTime}ms: ${localFilePath}`);
 
     // 🔍 VALIDAÇÃO BÁSICA DE ARQUIVO
-    console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🔍 Validando arquivo antes do pipeline...`);
+    console.log(`[PROCESS][${new Date().toISOString()}] -> 🔍 Validando arquivo antes do pipeline...`);
     const stats = await fs.promises.stat(localFilePath);
     const fileSizeMB = stats.size / (1024 * 1024);
     
-    console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📏 Tamanho do arquivo: ${stats.size} bytes (${fileSizeMB.toFixed(2)} MB)`);
+    console.log(`[PROCESS][${new Date().toISOString()}] -> 📏 Tamanho do arquivo: ${stats.size} bytes (${fileSizeMB.toFixed(2)} MB)`);
     
     if (stats.size < 1000) {
       throw new Error(`File too small: ${stats.size} bytes (minimum 1KB required)`);
@@ -357,14 +362,14 @@ async function audioProcessor(job) {
       throw new Error(`File too large: ${fileSizeMB.toFixed(2)} MB (maximum 100MB allowed)`);
     }
     
-    console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> ✅ Arquivo validado (${fileSizeMB.toFixed(2)} MB)`);
+    console.log(`[PROCESS][${new Date().toISOString()}] -> ✅ Arquivo validado (${fileSizeMB.toFixed(2)} MB)`);
 
     // Executar pipeline
-    console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🚀 Iniciando pipeline completo...`);
+    console.log(`[PROCESS][${new Date().toISOString()}] -> 🚀 Iniciando pipeline completo...`);
     const pipelineStartTime = Date.now();
     const analysisResult = await analyzeAudioWithPipeline(localFilePath, job.data);
     const pipelineTime = Date.now() - pipelineStartTime;
-    console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> ⚡ Pipeline concluído em ${pipelineTime}ms`);
+    console.log(`[PROCESS][${new Date().toISOString()}] -> ⚡ Pipeline concluído em ${pipelineTime}ms`);
 
     const result = {
       ok: true,
@@ -382,18 +387,23 @@ async function audioProcessor(job) {
     };
 
     // Atualizar status para done
-    console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 💾 Salvando resultado no banco...`);
+    console.log(`[PROCESS][${new Date().toISOString()}] -> 💾 Salvando resultado no banco...`);
     await updateJobStatus(jobId, 'done', result);
 
-    console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> ✅ Job ${job.id} (${jobId}) concluído com sucesso em ${Date.now() - job.timestamp}ms`);
+    console.log(`[PROCESS][${new Date().toISOString()}] -> ✅ Job ${job.id} finalizado com sucesso | JobID: ${jobId} | Tempo total: ${Date.now() - job.timestamp}ms`);
     return result;
 
   } catch (error) {
-    console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> ❌ ERRO CRÍTICO no job ${job.id} (${jobId}):`, error.message);
-    console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> 📍 Stack trace:`, error.stack);
+    console.error(`[PROCESS][${new Date().toISOString()}] -> ❌ ERRO no job ${job.id}:`, {
+      jobId,
+      fileKey,
+      error: error.message,
+      stack: error.stack,
+      duration: Date.now() - job.timestamp
+    });
     
     // Atualizar status para failed
-    console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 💔 Marcando job como failed no banco...`);
+    console.log(`[PROCESS][${new Date().toISOString()}] -> 💔 Marcando job como failed no banco...`);
     await updateJobStatus(jobId, 'failed', null, error.message);
     
     throw error; // BullMQ vai marcar como failed automaticamente
@@ -402,9 +412,9 @@ async function audioProcessor(job) {
     if (localFilePath) {
       try {
         await fs.promises.unlink(localFilePath);
-        console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🗑️ Arquivo temporário removido: ${path.basename(localFilePath)}`);
+        console.log(`[PROCESS][${new Date().toISOString()}] -> 🗑️ Arquivo temporário removido: ${path.basename(localFilePath)}`);
       } catch (e) {
-        console.warn(`[WORKER-REDIS][${new Date().toISOString()}] -> ⚠️ Não foi possível remover arquivo temporário: ${e?.message}`);
+        console.warn(`[PROCESS][${new Date().toISOString()}] -> ⚠️ Não foi possível remover arquivo temporário: ${e?.message}`);
       }
     }
   }
@@ -492,28 +502,6 @@ process.on('SIGTERM', async () => {
     console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> ❌ Erro ao fechar worker:`, err);
   }
   process.exit(0);
-});
-
-// Tratamento de exceções não capturadas
-process.on('uncaughtException', async (err) => {
-  console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> 🚨 UNCAUGHT EXCEPTION: ${err.message}`);
-  console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> 📜 Stack: ${err.stack}`);
-  
-  try {
-    console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🔌 Tentando fechar worker graciosamente...`);
-    await worker.close();
-    console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> ✅ Worker fechado`);
-  } catch (closeErr) {
-    console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> ❌ Erro ao fechar conexões: ${closeErr}`);
-  }
-  
-  process.exit(1);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> 🚨 UNHANDLED REJECTION: ${reason}`);
-  console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> 📍 Promise: ${promise}`);
-  console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> 📜 Stack: ${reason.stack}`);
 });
 
 console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🚀 Worker Redis EXCLUSIVO iniciado! PID: ${process.pid}`);
