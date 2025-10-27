@@ -58,24 +58,29 @@ async function createJobInDatabase(fileKey, mode, fileName) {
 
     console.log(`[ANALYZE] Criando job: ${jobId} para fileKey: ${fileKey}, modo: ${mode}`);
 
-    // Usando o Singleton do PostgreSQL
-    if (!pool) {
-      console.log(`[ANALYZE] 🧪 MODO MOCK - Job simulado criado com sucesso`);
+    // 🧪 MODO DEBUG: Forçar modo mock se pool não estiver funcionando
+    if (!pool || true) { // TEMPORÁRIO: forçar modo mock para teste
+      console.log(`[ANALYZE] 🧪 MODO MOCK/DEBUG - Job simulado criado com sucesso`);
       
       // Enfileirar no Redis mesmo em modo mock
-      await audioQueue.add('analyze', {
-        jobId,
-        fileKey,
-        mode,
-        fileName: fileName || null
-      }, {
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 5000 },
-        removeOnComplete: 50,
-        removeOnFail: 100
-      });
-      
-      console.log(`[ANALYZE] 📋 Job ${jobId} enfileirado no Redis (modo mock)`);
+      try {
+        await audioQueue.add('analyze', {
+          jobId,
+          fileKey,
+          mode,
+          fileName: fileName || null
+        }, {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 5000 },
+          removeOnComplete: 50,
+          removeOnFail: 100
+        });
+        
+        console.log(`[ANALYZE] 📋 Job ${jobId} enfileirado no Redis (modo mock/debug)`);
+      } catch (redisError) {
+        console.error(`[ANALYZE] ❌ Erro ao enfileirar no Redis:`, redisError.message);
+        throw new Error(`Erro ao enfileirar job no Redis: ${redisError.message}`);
+      }
       
       return {
         id: jobId,
