@@ -1,4 +1,6 @@
-// worker-redis.js
+// worker-redis.js - WORKER REDIS EXCLUSIVO (ARQUITETURA REFATORADA)
+// 🚀 ÚNICO RESPONSÁVEL POR PROCESSAMENTO - Legacy workers removidos
+
 import "dotenv/config";
 import { createWorker, getQueueStats } from './queue/redis.js';
 import pool from './db.js';
@@ -174,7 +176,74 @@ async function analyzeAudioWithPipeline(localFilePath, jobData) {
   }
 }
 
-// ---------- Atualizar status no Postgres (se disponível) ----------
+// ---------- Recovery de jobs órfãos (movido do index.js) ----------
+async function recoverOrphanedJobs() {
+  if (!pgConnected) {
+    console.log(`🧪 [WORKER-REDIS] Postgres não disponível - pulando recovery`);
+    return;
+  }
+
+  try {
+    console.log("🔄 [WORKER-REDIS] Verificando jobs órfãos...");
+    
+    // 🚫 PRIMEIRO: Blacklist jobs problemáticos
+    console.log("🚫 [WORKER-REDIS] Verificando jobs problemáticos para blacklist...");
+    const problematicJobs = await pool.query(`
+      SELECT file_key, COUNT(*) as failure_count, 
+             ARRAY_AGG(id ORDER BY created_at DESC) as job_ids
+      FROM jobs 
+      WHERE error LIKE '%Recovered from orphaned state%' 
+      OR error LIKE '%Pipeline timeout%'
+      OR error LIKE '%FFmpeg%'
+      OR error LIKE '%Memory%'
+      GROUP BY file_key 
+      HAVING COUNT(*) >= 3
+    `);
+
+    if (problematicJobs.rows.length > 0) {
+      for (const row of problematicJobs.rows) {
+        console.log(`🚫 [WORKER-REDIS] Blacklisting file: ${row.file_key} (${row.failure_count} failures)`);
+        
+        // Marcar todos os jobs relacionados como failed permanentemente
+        await pool.query(`
+          UPDATE jobs 
+          SET status = 'failed', 
+              error = $1, 
+              updated_at = NOW()
+          WHERE file_key = $2 
+          AND status IN ('queued', 'processing')
+        `, [
+          `BLACKLISTED: File failed ${row.failure_count} times - likely corrupted/problematic`,
+          row.file_key
+        ]);
+      }
+      
+      console.log(`🚫 [WORKER-REDIS] Blacklisted ${problematicJobs.rows.length} problematic files`);
+    } else {
+      console.log("✅ [WORKER-REDIS] Nenhum job problemático encontrado para blacklist");
+    }
+    
+    // 🔄 DEPOIS: Recuperar jobs órfãos restantes (mas não blacklisted)
+    const result = await pool.query(`
+      UPDATE jobs 
+      SET status = 'queued', updated_at = NOW(), error = 'Recovered from orphaned state by Redis worker'
+      WHERE status = 'processing' 
+      AND updated_at < NOW() - INTERVAL '10 minutes'
+      AND error NOT LIKE '%BLACKLISTED%'
+      RETURNING id, file_key
+    `);
+
+    if (result.rows.length > 0) {
+      console.log(`🔄 [WORKER-REDIS] Recuperados ${result.rows.length} jobs órfãos:`, result.rows.map(r => r.id.substring(0,8)));
+    }
+  } catch (err) {
+    console.error("❌ [WORKER-REDIS] Erro ao recuperar jobs órfãos:", err);
+  }
+}
+
+// 🔥 RECOVERY A CADA 5 MINUTOS - Movido do index.js
+setInterval(recoverOrphanedJobs, 300000);
+recoverOrphanedJobs(); // Executa na inicialização
 async function updateJobStatus(jobId, status, data = null, error = null) {
   if (!pgConnected) {
     console.log(`🧪 [WORKER-REDIS] Mock update: ${jobId} -> ${status}`);
@@ -276,44 +345,44 @@ async function audioProcessor(job) {
 
 // ---------- Criar Worker BullMQ ----------
 const concurrency = Number(process.env.WORKER_CONCURRENCY) || 5;
-console.log(`🏭 [WORKER-REDIS] Iniciando worker com concorrência: ${concurrency}`);
+console.log(`🏭 [WORKER-REDIS] 🚀 ÚNICO WORKER RESPONSÁVEL - Concorrência: ${concurrency}`);
+console.log(`🏗️ [WORKER-REDIS] Arquitetura: Redis Workers Only (Legacy worker desabilitado)`);
 
 const worker = createWorker('audio-analyzer', audioProcessor, concurrency);
 
-// ---------- Event Listeners OTIMIZADOS - Logs mínimos ----------
+// ---------- Event Listeners OTIMIZADOS - Logs estruturados ----------
 worker.on('ready', () => {
-  console.log(`🟢 [WORKER-REDIS] Worker pronto! PID: ${process.pid}, Concorrência: ${concurrency}`);
+  console.log(`🟢 [WORKER-REDIS] 🚀 WORKER ÚNICO PRONTO! PID: ${process.pid}, Concorrência: ${concurrency}`);
+  console.log(`✅ [WORKER-REDIS] Arquitetura: Redis-only (sem conflitos legacy)`);
 });
 
-// 🚀 OTIMIZAÇÃO: Combinar logs de active/completed para reduzir output
+// 🚀 OTIMIZAÇÃO: Logs mais informativos para debugging
 worker.on('active', (job) => {
-  // Log simplificado - apenas info essencial
-  const { jobId } = job.data;
-  console.log(`🎯 [WORKER-REDIS] Processando: ${job.id} (${jobId})`);
+  const { jobId, fileKey } = job.data;
+  console.log(`🎯 [WORKER-REDIS] 🧠 PROCESSANDO: ${job.id} | JobID: ${jobId?.substring(0,8)} | File: ${fileKey?.split('/').pop()}`);
 });
 
 worker.on('completed', (job, result) => {
-  // Log simplificado - apenas info essencial
-  const { jobId } = job.data;
-  console.log(`✅ [WORKER-REDIS] Concluído: ${job.id} (${jobId})`);
+  const { jobId, fileKey } = job.data;
+  const duration = Date.now() - job.timestamp;
+  console.log(`✅ [WORKER-REDIS] 🎉 CONCLUÍDO: ${job.id} | JobID: ${jobId?.substring(0,8)} | Tempo: ${duration}ms | File: ${fileKey?.split('/').pop()}`);
 });
 
 worker.on('failed', (job, err) => {
-  // Manter log de erro completo para debugging
-  const { jobId } = job.data;
-  console.error(`❌ [WORKER-REDIS] Falhado: ${job.id} (${jobId}) - ${err.message}`);
+  const { jobId, fileKey } = job.data;
+  console.error(`❌ [WORKER-REDIS] 💥 FALHADO: ${job.id} | JobID: ${jobId?.substring(0,8)} | File: ${fileKey?.split('/').pop()} | Erro: ${err.message}`);
 });
 
 worker.on('error', (err) => {
   console.error(`🚨 [WORKER-REDIS] Erro no worker:`, err.message);
 });
 
-// ---------- Monitoramento de performance OTIMIZADO - REDUZ REQUESTS REDIS ----------
+// ---------- Monitoramento de performance OTIMIZADO - Stats da fila ----------
 setInterval(async () => {
   try {
     // 🔥 STATS SIMPLIFICADAS - Apenas contadores essenciais para reduzir requests
     const stats = await getQueueStats();
-    console.log(`📊 [WORKER-REDIS] Fila: ${stats.waiting} aguardando, ${stats.active} ativas, ${stats.completed} completas, ${stats.failed} falhadas`);
+    console.log(`📊 [WORKER-REDIS] 📈 FILA: ${stats.waiting} aguardando | ${stats.active} ativas | ${stats.completed} completas | ${stats.failed} falhadas | PID: ${process.pid}`);
   } catch (err) {
     console.warn('⚠️ [WORKER-REDIS] Erro ao obter stats da fila:', err.message);
   }
@@ -353,4 +422,6 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('📍 Promise:', promise);
 });
 
-console.log(`🚀 [WORKER-REDIS] Worker Redis iniciado! PID: ${process.pid}`);
+console.log(`🚀 [WORKER-REDIS] 🎯 Worker Redis EXCLUSIVO iniciado! PID: ${process.pid}`);
+console.log(`🏗️ [WORKER-REDIS] Arquitetura: Redis Workers Only - Legacy worker desabilitado`);
+console.log(`⚡ [WORKER-REDIS] Pronto para processar ${concurrency} jobs simultâneos por worker`);
