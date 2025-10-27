@@ -6,11 +6,10 @@
  */
 
 import express from "express";
-import pkg from "pg";
 import { randomUUID } from "crypto";
 import { audioQueue } from "../../queue/redis.js";
+import pool from "../../db.js";
 
-const { Pool } = pkg;
 const router = express.Router();
 
 // Configuração via variável de ambiente
@@ -18,22 +17,6 @@ const MAX_UPLOAD_MB = parseInt(process.env.MAX_UPLOAD_MB || "60");
 
 // Extensões aceitas (verificação por fileKey)
 const ALLOWED_EXTENSIONS = [".wav", ".flac", ".mp3"];
-
-// Conexão com Postgres (lazy loading)
-let pool = null;
-
-function getPool() {
-  if (!pool && process.env.DATABASE_URL) {
-    pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: process.env.PGSSL === "disable" ? false : { rejectUnauthorized: false },
-    });
-    console.log("[ANALYZE] ✅ Pool PostgreSQL inicializado com sucesso");
-  } else if (!pool && !process.env.DATABASE_URL) {
-    console.warn("[ANALYZE] ⚠️ DATABASE_URL não configurada - modo mock ativo");
-  }
-  return pool;
-}
 
 /**
  * Validar feature flags
@@ -75,10 +58,8 @@ async function createJobInDatabase(fileKey, mode, fileName) {
 
     console.log(`[ANALYZE] Criando job: ${jobId} para fileKey: ${fileKey}, modo: ${mode}`);
 
-    const dbPool = getPool();
-
-    // Se não há pool de conexão, simular criação do job
-    if (!dbPool) {
+    // Usando o Singleton do PostgreSQL
+    if (!pool) {
       console.log(`[ANALYZE] 🧪 MODO MOCK - Job simulado criado com sucesso`);
       
       // Enfileirar no Redis mesmo em modo mock
@@ -106,7 +87,7 @@ async function createJobInDatabase(fileKey, mode, fileName) {
       };
     }
 
-    const result = await dbPool.query(
+    const result = await pool.query(
       `INSERT INTO jobs (id, file_key, mode, status, file_name, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING *`,
       [jobId, fileKey, mode, "queued", fileName || null]

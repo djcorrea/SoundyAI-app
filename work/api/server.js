@@ -1,10 +1,9 @@
 import express from "express";
-import pkg from "pg";
 import multer from "multer";
 import AWS from "aws-sdk";
 import cors from "cors";
+import pool from "../db.js";
 
-const { Pool } = pkg;
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -17,12 +16,6 @@ app.use(
     ],
   })
 );
-
-// ---------- Conexão com Postgres ----------
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }, // Railway/Postgres
-});
 
 // ---------- Configuração Backblaze ----------
 const s3 = new AWS.S3({
