@@ -1,7 +1,7 @@
 // worker-redis.js
 import "dotenv/config";
 import { createWorker, getQueueStats } from './queue/redis.js';
-import pkg from "pg";
+import pool from './db.js';
 import AWS from "aws-sdk";
 import fs from "fs";
 import path from "path";
@@ -23,18 +23,13 @@ try {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ---------- Conectar ao Postgres ----------
-const { Client } = pkg;
-const client = new Client({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.PGSSL === "disable" ? false : { rejectUnauthorized: false },
-});
-
+// ---------- Verificar conexão Postgres via Singleton ----------
 let pgConnected = false;
 try {
-  await client.connect();
+  // Testar conexão com o pool Singleton
+  const testResult = await pool.query('SELECT NOW()');
   pgConnected = true;
-  console.log("✅ [WORKER-REDIS] Conectado ao Postgres");
+  console.log("✅ [WORKER-REDIS] Conectado ao Postgres via Singleton Pool");
 } catch (err) {
   console.warn("⚠️ [WORKER-REDIS] Postgres não disponível:", err.message);
   console.log("🧪 [WORKER-REDIS] Continuando em modo mock sem Postgres");
@@ -188,17 +183,17 @@ async function updateJobStatus(jobId, status, data = null, error = null) {
 
   try {
     if (status === 'processing') {
-      await client.query(
+      await pool.query(
         "UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2",
         [status, jobId]
       );
     } else if (status === 'done') {
-      await client.query(
+      await pool.query(
         "UPDATE jobs SET status = $1, result = $2::jsonb, completed_at = NOW(), updated_at = NOW() WHERE id = $3",
         [status, JSON.stringify(data), jobId]
       );
     } else if (status === 'failed') {
-      await client.query(
+      await pool.query(
         "UPDATE jobs SET status = $1, error = $2, updated_at = NOW() WHERE id = $3",
         [status, error, jobId]
       );
@@ -285,56 +280,57 @@ console.log(`🏭 [WORKER-REDIS] Iniciando worker com concorrência: ${concurren
 
 const worker = createWorker('audio-analyzer', audioProcessor, concurrency);
 
-// ---------- Event Listeners ----------
+// ---------- Event Listeners OTIMIZADOS - Logs mínimos ----------
 worker.on('ready', () => {
   console.log(`🟢 [WORKER-REDIS] Worker pronto! PID: ${process.pid}, Concorrência: ${concurrency}`);
 });
 
+// 🚀 OTIMIZAÇÃO: Combinar logs de active/completed para reduzir output
 worker.on('active', (job) => {
-  const { jobId, fileKey } = job.data;
-  console.log(`🎯 [WORKER-REDIS] Job ativo: ${job.id} (${jobId}) - ${fileKey}`);
+  // Log simplificado - apenas info essencial
+  const { jobId } = job.data;
+  console.log(`🎯 [WORKER-REDIS] Processando: ${job.id} (${jobId})`);
 });
 
 worker.on('completed', (job, result) => {
+  // Log simplificado - apenas info essencial
   const { jobId } = job.data;
-  console.log(`✅ [WORKER-REDIS] Job completado: ${job.id} (${jobId})`);
+  console.log(`✅ [WORKER-REDIS] Concluído: ${job.id} (${jobId})`);
 });
 
 worker.on('failed', (job, err) => {
+  // Manter log de erro completo para debugging
   const { jobId } = job.data;
-  console.error(`❌ [WORKER-REDIS] Job falhado: ${job.id} (${jobId}) - ${err.message}`);
+  console.error(`❌ [WORKER-REDIS] Falhado: ${job.id} (${jobId}) - ${err.message}`);
 });
 
 worker.on('error', (err) => {
   console.error(`🚨 [WORKER-REDIS] Erro no worker:`, err.message);
 });
 
-// ---------- Monitoramento de performance ----------
+// ---------- Monitoramento de performance OTIMIZADO - REDUZ REQUESTS REDIS ----------
 setInterval(async () => {
   try {
+    // 🔥 STATS SIMPLIFICADAS - Apenas contadores essenciais para reduzir requests
     const stats = await getQueueStats();
     console.log(`📊 [WORKER-REDIS] Fila: ${stats.waiting} aguardando, ${stats.active} ativas, ${stats.completed} completas, ${stats.failed} falhadas`);
   } catch (err) {
     console.warn('⚠️ [WORKER-REDIS] Erro ao obter stats da fila:', err.message);
   }
-}, 30000); // A cada 30 segundos
+}, 180000); // 🚀 OTIMIZADO: A cada 3 minutos (era 30s) - 6x MENOS requests Redis
 
 // ---------- Graceful Shutdown ----------
 process.on('SIGINT', async () => {
   console.log('📥 [WORKER-REDIS] Recebido SIGINT, encerrando worker...');
   await worker.close();
-  if (pgConnected) {
-    await client.end();
-  }
+  // O pool Singleton será fechado quando todos os workers terminarem
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   console.log('📥 [WORKER-REDIS] Recebido SIGTERM, encerrando worker...');
   await worker.close();
-  if (pgConnected) {
-    await client.end();
-  }
+  // O pool Singleton será fechado quando todos os workers terminarem
   process.exit(0);
 });
 
@@ -345,9 +341,6 @@ process.on('uncaughtException', async (err) => {
   
   try {
     await worker.close();
-    if (pgConnected) {
-      await client.end();
-    }
   } catch (closeErr) {
     console.error('❌ [WORKER-REDIS] Erro ao fechar conexões:', closeErr);
   }

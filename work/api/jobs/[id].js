@@ -1,15 +1,8 @@
 // api/jobs/[id].js
 import express from "express";
-import pkg from "pg";
+import pool from "../../db.js";
 
-const { Pool } = pkg;
 const router = express.Router();
-
-// 🔑 Conexão com Postgres (Railway usa DATABASE_URL)
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.PGSSL === "disable" ? false : { rejectUnauthorized: false },
-});
 
 // rota GET /api/jobs/:id
 router.get("/:id", async (req, res) => {
