@@ -260,3 +260,11 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     throw makeErr('pipeline', `Pipeline failed: ${error.message}`, 'pipeline_error');
   }
 }
+
+/**
+ * 🚀 Wrapper para compatibilidade com BullMQ
+ * Alias para processAudioComplete mantendo compatibilidade
+ */
+export async function processAudio(file, options = {}) {
+  return processAudioComplete(file.buffer || file, file.fileName || file.name || 'unknown', options);
+}

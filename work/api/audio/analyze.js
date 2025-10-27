@@ -7,8 +7,8 @@
 
 import express from "express";
 import pkg from "pg";
-
 import { randomUUID } from "crypto";
+import { audioQueue } from "../../queue/redis.js";
 
 const { Pool } = pkg;
 const router = express.Router();
@@ -66,7 +66,7 @@ function validateFileType(fileKey) {
 }
 
 /**
- * Criar job no banco de dados
+ * Criar job no banco de dados E enfileirar no Redis
  */
 async function createJobInDatabase(fileKey, mode, fileName) {
   try {
@@ -78,9 +78,24 @@ async function createJobInDatabase(fileKey, mode, fileName) {
     const dbPool = getPool();
 
     // Se não há pool de conexão, simular criação do job
-
     if (!dbPool) {
       console.log(`[ANALYZE] 🧪 MODO MOCK - Job simulado criado com sucesso`);
+      
+      // Enfileirar no Redis mesmo em modo mock
+      await audioQueue.add('analyze', {
+        jobId,
+        fileKey,
+        mode,
+        fileName: fileName || null
+      }, {
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 5000 },
+        removeOnComplete: 50,
+        removeOnFail: 100
+      });
+      
+      console.log(`[ANALYZE] 📋 Job ${jobId} enfileirado no Redis (modo mock)`);
+      
       return {
         id: jobId,
         file_key: fileKey,
@@ -92,14 +107,27 @@ async function createJobInDatabase(fileKey, mode, fileName) {
     }
 
     const result = await dbPool.query(
-
-
       `INSERT INTO jobs (id, file_key, mode, status, file_name, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING *`,
       [jobId, fileKey, mode, "queued", fileName || null]
     );
 
     console.log(`[ANALYZE] Job criado com sucesso no PostgreSQL:`, result.rows[0]);
+
+    // 🚀 ENFILEIRAR NO REDIS após criar no banco
+    await audioQueue.add('analyze', {
+      jobId,
+      fileKey,
+      mode,
+      fileName: fileName || null
+    }, {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 5000 },
+      removeOnComplete: 50,
+      removeOnFail: 100
+    });
+
+    console.log(`[ANALYZE] 📋 Job ${jobId} enfileirado no Redis com sucesso`);
 
     return result.rows[0];
   } catch (error) {
