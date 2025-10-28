@@ -4,14 +4,14 @@ import IORedis from 'ioredis';
 
 const { Queue, Worker } = BullMQ;
 
-// 🔗 DIAGNÓSTICO: Configuração Redis Upstash
+// 🔗 DIAGNÓSTICO: Configuração Redis Padronizada
 console.log(`[CONFIG][${new Date().toISOString()}] -> 🔧 Iniciando conexão Redis`);
-console.log(`[CONFIG][${new Date().toISOString()}] -> 📍 Host: guided-snapper-23234.upstash.io:6379`);
+console.log(`[CONFIG][${new Date().toISOString()}] -> 📍 URL: ${process.env.REDIS_URL}`);
 console.log(`[CONFIG][${new Date().toISOString()}] -> 🔒 TLS: Habilitado`);
 
-// 🔗 Conexão ULTRA-OTIMIZADA com Redis Upstash para MÍNIMO consumo de requests
-const connection = new IORedis('rediss://guided-snapper-23234.upstash.io:6379', {
-  password: 'AVrCAAIncDJhMDljZDE5MjM5Njk0OGQyYWI2ZTMyNDkwMjVkNmNiMHAyMjMyMzQ',
+// 🔗 Conexão ULTRA-OTIMIZADA com Redis Upstash usando REDIS_URL padronizada
+const connection = new IORedis(process.env.REDIS_URL, {
+  password: process.env.REDIS_PASSWORD,
   tls: {},
   maxRetriesPerRequest: null,  // ✅ Obrigatório para BullMQ
   retryDelayOnFailover: 2000,  // Aumentado para 2s (era 500ms) - menos retries
