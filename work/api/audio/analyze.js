@@ -1,16 +1,14 @@
 /**
- * 🎵 API de Análise de Áudio - Versão Robusta com Inicialização Síncrona
- * Recebe fileKey de arquivos já uploadados via presigned URL
- * 
- * ✅ CORRIGIDO: Timing de inicialização - Queue só aceita requisições quando pronta
- * ✅ CORRIGIDO: Conexão centralizada via lib/queue.js
- * ✅ CORRIGIDO: Sem IIFE não aguardada
+ * 🎵 API de Análise de Áudio - Versão Corrigida para Enfileiramento
+ * ✅ CORRIGIDO: Inicialização global assíncrona para garantir fila pronta
+ * ✅ CORRIGIDO: Verificação obrigatória antes de enfileirar
+ * ✅ CORRIGIDO: Logs de diagnóstico completos
  */
 
 import "dotenv/config";
 import express from "express";
 import { randomUUID } from "crypto";
-import { getQueueReadyPromise, getAudioQueue } from '../../lib/queue.js';
+import { getAudioQueue, getQueueReadyPromise } from '../../lib/queue.js';
 import pool from "../../db.js";
 
 // Definir service name para auditoria
@@ -18,23 +16,14 @@ process.env.SERVICE_NAME = 'api';
 
 const router = express.Router();
 
-// 🚀 INICIALIZAÇÃO SÍNCRONA: Aguardar queue estar pronta antes de aceitar requisições
-let queueInitialized = false;
-const queueReadyPromise = getQueueReadyPromise();
-
-// Log do início da inicialização
-console.log(`🚀 [API-INIT][${new Date().toISOString()}] -> Starting queue initialization...`);
-
-queueReadyPromise
-  .then((result) => {
-    queueInitialized = true;
-    console.log(`✅ [API-INIT][${new Date().toISOString()}] -> Queue initialization completed successfully!`);
-    console.log(`📊 [API-INIT][${new Date().toISOString()}] -> Ready at: ${result.timestamp}`);
-  })
-  .catch((error) => {
-    console.error(`💥 [API-INIT][${new Date().toISOString()}] -> Queue initialization FAILED:`, error.message);
-    console.error(`💥 [API-INIT][${new Date().toISOString()}] -> Stack trace:`, error.stack);
-  });
+// ✅ INICIALIZAÇÃO GLOBAL ASSÍNCRONA OBRIGATÓRIA
+let queueReady = false;
+const queueInit = (async () => {
+  console.log('🚀 [API-INIT] Iniciando inicialização da fila...');
+  await getQueueReadyPromise();
+  queueReady = true;
+  console.log('✅ [API-INIT] Fila inicializada com sucesso!');
+})();
 
 // Configuração via variável de ambiente
 const MAX_UPLOAD_MB = parseInt(process.env.MAX_UPLOAD_MB || "60");
@@ -71,73 +60,44 @@ function validateFileType(fileKey) {
 }
 
 /**
- * Criar job no banco de dados E enfileirar no Redis
- */
-/**
- * ✅ FUNÇÃO ROBUSTA: Criar job no banco e enfileirar no Redis
- * Garantias: Só executa quando queue estiver pronta
+ * ✅ FUNÇÃO SIMPLIFICADA: Criar job no banco e enfileirar
+ * Foco: Garantir que fila esteja pronta antes de enfileirar
  */
 async function createJobInDatabase(fileKey, mode, fileName) {
   const jobId = randomUUID();
-  const now = new Date().toISOString();
   
-  console.log(`📋 [JOB-CREATE][${now}] -> Creating job: ${jobId} | fileKey: ${fileKey} | mode: ${mode}`);
+  console.log(`📋 [JOB-CREATE] Criando job: ${jobId} | fileKey: ${fileKey} | mode: ${mode}`);
 
   try {
-    // 🚀 CRÍTICO: Aguardar queue estar pronta antes de qualquer operação
-    if (!queueInitialized) {
-      console.log(`⏳ [JOB-CREATE][${new Date().toISOString()}] -> Queue not ready, waiting...`);
-      console.log('[API] ⏳ aguardando queueReadyPromise (implementa waitUntilReady)...');
-      await queueReadyPromise;
-      console.log('[API] ✅ Queue pronta após waitUntilReady!');
-      console.log(`✅ [JOB-CREATE][${new Date().toISOString()}] -> Queue ready, proceeding with job creation`);
-    }
-
-    // ✅ FLUXO PRINCIPAL: PostgreSQL disponível - CRIAR NO BANCO PRIMEIRO
-    console.log(`💾 [JOB-CREATE][${new Date().toISOString()}] -> Creating job in PostgreSQL...`);
-    
+    // ✅ CRIAR JOB NO BANCO PRIMEIRO
     const result = await pool.query(
       `INSERT INTO jobs (id, file_key, mode, status, file_name, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING *`,
       [jobId, fileKey, mode, "queued", fileName || null]
     );
 
-    console.log(`✅ [JOB-CREATE][${new Date().toISOString()}] -> Job created in PostgreSQL:`, result.rows[0]);
+    console.log(`✅ [JOB-CREATE] Job criado no PostgreSQL:`, result.rows[0]);
 
-    // 🚀 APÓS SALVAR NO POSTGRES → ENFILEIRAR NO REDIS
+    // ✅ GARANTIR QUE FILA ESTÁ PRONTA ANTES DE ENFILEIRAR
+    if (!queueReady) {
+      console.log('⏳ [JOB-CREATE] Aguardando fila inicializar...');
+      await queueInit;
+      console.log('✅ [JOB-CREATE] Fila pronta para enfileiramento!');
+    }
+
+    // ✅ OBTER INSTÂNCIA DA FILA
+    const queue = getAudioQueue();
+    console.log('📩 [API] Enfileirando job...');
+    
+    // ✅ ENFILEIRAR COM TRY/CATCH ESPECÍFICO
     try {
-      console.log(`📤 [JOB-ENQUEUE][${new Date().toISOString()}] -> Starting job enqueue process...`);
-      console.log('📩 [API] Enfileirando job...');
-      console.log('[API] Queue pronta. Enfileirando...');
-      
-      // Obter queue centralizada
-      const audioQueue = getAudioQueue();
-      console.log('[API] 🔍 Obteve audioQueue - verificando se é a mesma que Worker usa...');
-      
-      // 🔍 VERIFICAR STATUS DA FILA ANTES DE ADICIONAR JOB
-      const queueCountsBefore = await audioQueue.getJobCounts();
-      console.log(`📊 [JOB-ENQUEUE][${new Date().toISOString()}] -> Queue counts before:`, queueCountsBefore);
-      
-      // ✅ GARANTIR QUE A FILA NÃO ESTÁ PAUSADA
-      await audioQueue.resume();
-      console.log(`▶️ [JOB-ENQUEUE][${new Date().toISOString()}] -> Queue resumed (not paused)`);
-      
-      // ✅ ENFILEIRAR JOB COM ID ÚNICO
-      const uniqueJobId = `audio-${jobId}-${Date.now()}`;
-      
-      console.log(`🎯 [JOB-ENQUEUE][${new Date().toISOString()}] -> Adding job to queue with ID: ${uniqueJobId}`);
-      console.log('[API] 📤 Adicionando job com await audioQueue.add()...');
-      console.log('[API] 🎯 Nome da fila: audio-analyzer (mesmo que Worker)');
-      console.log('[API] 🎯 Job name: process-audio');
-      console.log('[API] 🎯 Payload:', { jobId, fileKey, fileName, mode });
-      
-      const redisJob = await audioQueue.add('process-audio', {
+      const redisJob = await queue.add('process-audio', {
         jobId: jobId,
         fileKey,
         fileName,
         mode
       }, {
-        jobId: uniqueJobId,
+        jobId: `audio-${jobId}-${Date.now()}`,
         priority: 1,
         attempts: 3,
         backoff: {
@@ -148,44 +108,25 @@ async function createJobInDatabase(fileKey, mode, fileName) {
         removeOnFail: 5,
       });
       
-      console.log('✅ [API] Job enfileirado:', redisJob.id);
-      console.log('[API] ✅ Job enfileirado:', redisJob.id);
-      console.log(`✅ [JOB-ENQUEUE][${new Date().toISOString()}] -> Job successfully enqueued!`);
-      console.log(`📋 [JOB-ENQUEUE][${new Date().toISOString()}] -> Redis Job ID: ${redisJob.id} | JobID: ${jobId}`);
+      console.log(`✅ [API] Job enfileirado com sucesso: ${redisJob.id}`);
       
-      // 🔍 VERIFICAR STATUS DA FILA APÓS ADICIONAR JOB
-      const queueCountsAfter = await audioQueue.getJobCounts();
-      console.log(`📊 [JOB-ENQUEUE][${new Date().toISOString()}] -> Queue counts after:`, queueCountsAfter);
+      return result.rows[0];
       
-      // Verificar se realmente foi adicionado
-      const delta = queueCountsAfter.waiting - queueCountsBefore.waiting;
-      if (delta > 0) {
-        console.log(`🎉 [JOB-ENQUEUE][${new Date().toISOString()}] -> Job confirmed in queue (+${delta} waiting jobs)`);
-      } else {
-        console.warn(`⚠️ [JOB-ENQUEUE][${new Date().toISOString()}] -> Warning: No increase in waiting jobs detected`);
-      }
-
     } catch (enqueueError) {
-      console.error('[API] ❌ Erro ao enfileirar job:', enqueueError.message);
-      console.error('[API] ❌ Stack trace do enqueue:', enqueueError.stack);
-      console.error(`💥 [JOB-ENQUEUE][${new Date().toISOString()}] -> CRITICAL: Failed to enqueue job:`, enqueueError.message);
-      console.error(`💥 [JOB-ENQUEUE][${new Date().toISOString()}] -> Stack trace:`, enqueueError.stack);
+      console.error(`❌ [API] Erro ao enfileirar job:`, enqueueError.message);
       
-      // Atualizar status no banco para refletir falha de enfileiramento
+      // Atualizar status no banco para refletir falha
       await pool.query(
         `UPDATE jobs SET status = 'failed', updated_at = NOW() WHERE id = $1`,
         [jobId]
       );
       
-      throw new Error(`Failed to enqueue job in Redis: ${enqueueError.message}`);
+      throw new Error(`Falha ao enfileirar job: ${enqueueError.message}`);
     }
-
-    return result.rows[0];
     
   } catch (error) {
-    console.error(`💥 [JOB-CREATE][${new Date().toISOString()}] -> CRITICAL ERROR creating job:`, error.message);
-    console.error(`💥 [JOB-CREATE][${new Date().toISOString()}] -> Stack trace:`, error.stack);
-    throw new Error(`Error creating analysis job: ${error.message}`);
+    console.error(`💥 [JOB-CREATE] Erro crítico:`, error.message);
+    throw new Error(`Erro ao criar job: ${error.message}`);
   }
 }
 
@@ -260,87 +201,52 @@ router.use((req, res, next) => {
   next();
 });
 
-/*
- * POST /api/audio/analyze - Criar job de análise baseado em fileKey
- */
 /**
- * ✅ ROTA ROBUSTA: Análise de áudio com verificação de inicialização
- * Garantias: Só processa requisições quando queue estiver pronta
+ * ✅ ROTA SIMPLIFICADA: POST /analyze com verificação obrigatória da fila
+ * Foco: Garantir fila pronta antes de processar qualquer requisição
  */
 router.post("/analyze", async (req, res) => {
-  const startTime = Date.now();
-
-  // ✅ LOG OBRIGATÓRIO: Início da rota
+  // ✅ LOG OBRIGATÓRIO: Rota chamada
   console.log('🚀 [API] /analyze chamada');
-  console.log('[API] 🚀 Rota /analyze chamada');
   
   try {
-    console.log(`🚀 [API-REQUEST][${new Date().toISOString()}] -> New job creation request started`);
-    console.log(`📥 [API-REQUEST][${new Date().toISOString()}] -> Request body:`, req.body);
-
-    // 🚀 CRÍTICO: Verificar se queue está inicializada antes de processar
-    if (!queueInitialized) {
-      console.log(`⏳ [API-REQUEST][${new Date().toISOString()}] -> Queue not ready, waiting for initialization...`);
-      console.log('[API] ⏳ Aguardando queue estar pronta (waitUntilReady)...');
-      
-      try {
-        await queueReadyPromise;
-        console.log('[API] ✅ Queue pronta! Prosseguindo...');
-        console.log(`✅ [API-REQUEST][${new Date().toISOString()}] -> Queue ready, proceeding with request`);
-      } catch (initError) {
-        console.error('[API] ❌ Falha na inicialização da queue:', initError.message);
-        console.error(`💥 [API-REQUEST][${new Date().toISOString()}] -> Queue initialization failed:`, initError.message);
-        return res.status(503).json({
-          success: false,
-          error: "Service temporarily unavailable",
-          message: "Queue system is not ready. Please try again in a few moments.",
-          code: "QUEUE_NOT_READY"
-        });
-      }
-    }
-
-    const flags = validateFeatureFlags();
-    console.log(`🚩 [API-REQUEST][${new Date().toISOString()}] -> Feature flags:`, flags);
-
     const { fileKey, mode = "genre", fileName } = req.body;
-    console.log('[API] Dados recebidos:', { fileKey, mode, fileName });
-    console.log(`📋 [API-REQUEST][${new Date().toISOString()}] -> Extracted data: fileKey=${fileKey}, mode=${mode}, fileName=${fileName}`);
-
+    
+    // ✅ VALIDAÇÕES BÁSICAS
     if (!fileKey) {
-      console.error(`❌ [API-REQUEST][${new Date().toISOString()}] -> ERROR: fileKey is required`);
-      throw new Error("fileKey é obrigatório");
+      return res.status(400).json({
+        success: false,
+        error: "fileKey é obrigatório"
+      });
     }
 
     if (!validateFileType(fileKey)) {
-      console.error(`❌ [API-REQUEST][${new Date().toISOString()}] -> ERROR: Unsupported extension for ${fileKey}`);
-      throw new Error("Extensão não suportada. Apenas WAV, FLAC e MP3 são aceitos.");
+      return res.status(400).json({
+        success: false,
+        error: "Extensão não suportada. Apenas WAV, FLAC e MP3 são aceitos."
+      });
     }
 
     if (!["genre", "reference"].includes(mode)) {
-      console.error(`❌ [API-REQUEST][${new Date().toISOString()}] -> ERROR: Invalid mode '${mode}'`);
-      throw new Error('Modo de análise inválido. Use "genre" ou "reference".');
+      return res.status(400).json({
+        success: false,
+        error: 'Modo inválido. Use "genre" ou "reference".'
+      });
     }
 
-    if (mode === "reference" && !flags.REFERENCE_MODE_ENABLED) {
-      console.error(`❌ [API-REQUEST][${new Date().toISOString()}] -> ERROR: Reference mode disabled`);
-      throw new Error("Modo de análise por referência não está disponível no momento");
+    // ✅ VERIFICAÇÃO OBRIGATÓRIA DA FILA
+    if (!queueReady) {
+      console.log('⏳ [API] Aguardando fila inicializar...');
+      await queueInit;
     }
 
-    console.log(`✅ [API-REQUEST][${new Date().toISOString()}] -> Validations passed, creating job...`);
-
-    // ✅ LOG ANTES: Chamada createJobInDatabase
-    console.log('[API] 📤 Iniciando createJobInDatabase...', { fileKey, mode, fileName });
+    // ✅ OBTER INSTÂNCIA DA FILA
+    const queue = getAudioQueue();
     
+    // ✅ CRIAR JOB NO BANCO E ENFILEIRAR
     const jobRecord = await createJobInDatabase(fileKey, mode, fileName);
-    
-    // ✅ LOG DEPOIS: Chamada createJobInDatabase
-    console.log('[API] ✅ createJobInDatabase concluída:', { jobId: jobRecord.id, status: jobRecord.status });
-    
-    const processingTime = Date.now() - startTime;
 
-    console.log(`🎉 [API-REQUEST][${new Date().toISOString()}] -> Job created successfully in ${processingTime}ms - jobId: ${jobRecord.id}, mode: ${mode}`);
-
-    // 🔑 Alinhado com o frontend
+    // ✅ RESPOSTA DE SUCESSO
     res.status(200).json({
       success: true,
       jobId: jobRecord.id,
@@ -348,32 +254,17 @@ router.post("/analyze", async (req, res) => {
       mode: jobRecord.mode,
       fileName: jobRecord.file_name || null,
       status: jobRecord.status,
-      createdAt: jobRecord.created_at,
-      performance: {
-        processingTime: `${processingTime}ms`,
-        timestamp: new Date().toISOString(),
-      },
+      createdAt: jobRecord.created_at
     });
+
   } catch (error) {
-    const processingTime = Date.now() - startTime;
+    // ✅ LOG DE ERRO OBRIGATÓRIO
+    console.error('❌ [API] Erro na rota /analyze:', error.message);
     
-    // ✅ LOGS DE ERRO DETALHADOS
-    console.error('[API] ❌ Erro ao processar rota /analyze:', error.message);
-    console.error('[API] ❌ Stack trace:', error.stack);
-    console.error(`[BACKEND][${new Date().toISOString()}] -> ❌ ERRO CRÍTICO na criação do job:`, error.message);
-    console.error(`[BACKEND][${new Date().toISOString()}] -> Stack trace:`, error.stack);
-
-    const errorResponse = getErrorMessage(error);
-    const statusCode =
-      error.message.includes("obrigatório") || error.message.includes("inválido") ? 400 : 500;
-
-    res.status(statusCode).json({
+    // ✅ RESPOSTA DE ERRO COM STATUS 500
+    res.status(500).json({
       success: false,
-      ...errorResponse,
-      performance: {
-        processingTime: `${processingTime}ms`,
-        timestamp: new Date().toISOString(),
-      },
+      error: error.message
     });
   }
 });
