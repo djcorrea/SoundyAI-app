@@ -79,6 +79,24 @@ redisConnection.on('close', () => {
 
 console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📋 Fila 'audio-analyzer' criada`);
 
+// 🔍 VERIFICAÇÃO INICIAL: Garantir que a fila não está pausada e mostrar status
+(async () => {
+  try {
+    await audioQueue.resume();
+    const isActive = await audioQueue.isReady();
+    console.log(`[WORKER-INIT][${new Date().toISOString()}] -> ▶️ Queue resumed na inicialização | Active: ${isActive}`);
+    
+    const queueCounts = await audioQueue.getJobCounts();
+    console.log(`[WORKER-INIT][${new Date().toISOString()}] -> 📊 Queue state inicial:`, queueCounts);
+    
+    if (queueCounts.waiting > 0) {
+      console.log(`[WORKER-INIT][${new Date().toISOString()}] -> 🎯 ${queueCounts.waiting} jobs esperando processamento!`);
+    }
+  } catch (err) {
+    console.error(`[WORKER-INIT][${new Date().toISOString()}] -> 🚨 Erro ao verificar queue:`, err.message);
+  }
+})();
+
 // ---------- Global Error Handlers ----------
 process.on('uncaughtException', (err) => {
   console.error(`[FATAL][${new Date().toISOString()}] -> 🚨 UNCAUGHT EXCEPTION: ${err.message}`);
@@ -494,14 +512,30 @@ const getQueueStats = async () => {
   }
 };
 
+// ❤️ HEARTBEAT MELHORADO - A CADA 15s conforme solicitado
 setInterval(async () => {
   try {
     const stats = await getQueueStats();
-    console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📊 FILA: ${stats.waiting} aguardando | ${stats.active} ativas | ${stats.completed} completas | ${stats.failed} falhadas | PID: ${process.pid}`);
+    
+    // 🔍 DEBUGGING: Verificar se há jobs esperando mas Worker não processando
+    if (stats.waiting > 0 && stats.active === 0) {
+      console.log(`[WORKER-HEARTBEAT][${new Date().toISOString()}] -> ⚠️  ALERTA: ${stats.waiting} jobs ESPERANDO mas nenhum ATIVO!`);
+      
+      // Forçar resume da fila
+      await audioQueue.resume();
+      console.log(`[WORKER-HEARTBEAT][${new Date().toISOString()}] -> ▶️ Queue resumed forçado`);
+    }
+    
+    console.log(`[WORKER-HEARTBEAT][${new Date().toISOString()}] -> 📊 FILA: ${stats.waiting} aguardando | ${stats.active} ativas | ${stats.completed} completas | ${stats.failed} falhadas | PID: ${process.pid}`);
+    
+    // 🔍 CONNECTION AUDIT
+    const connMeta = await testRedisConnection();
+    console.log(`[WORKER-HEARTBEAT][${new Date().toISOString()}] -> 🔗 Redis: ${connMeta.status} | Client: ${connMeta.clientId}`);
+    
   } catch (err) {
-    console.warn(`[WORKER-REDIS][${new Date().toISOString()}] -> ⚠️ Erro ao obter stats da fila: ${err.message}`);
+    console.warn(`[WORKER-HEARTBEAT][${new Date().toISOString()}] -> ⚠️ Erro no heartbeat: ${err.message}`);
   }
-}, 180000);
+}, 15000); // ✅ 15 segundos conforme solicitado
 
 // ---------- Recovery de jobs órfãos ----------
 async function recoverOrphanedJobs() {
