@@ -136,23 +136,26 @@ function setupWorkerEventListeners() {
 
   worker.on('active', (job) => {
     console.log(`🔵 [WORKER-EVENT][${new Date().toISOString()}] -> Job ATIVO: ${job.id} | Nome: ${job.name}`);
-    const { jobId, fileKey, mode } = job.data;
-    console.log(`🎯 [WORKER-PROCESSING][${new Date().toISOString()}] -> PROCESSANDO: ${job.id} | JobID: ${jobId?.substring(0,8)} | Arquivo: ${fileKey?.split('/').pop()} | Modo: ${mode}`);
+    const { jobId, externalId, fileKey, mode } = job.data;
+    const displayId = externalId || jobId?.substring(0,8) || 'unknown';
+    console.log(`🎯 [WORKER-PROCESSING][${new Date().toISOString()}] -> PROCESSANDO: ${job.id} | Display: ${displayId} | Arquivo: ${fileKey?.split('/').pop()} | Modo: ${mode}`);
   });
 
   worker.on('completed', (job, result) => {
     // ✅ REGRA 7: Log obrigatório de job concluído
     console.log(`✅ Job ${job.id} concluído`);
-    const { jobId, fileKey } = job.data;
-    console.log(`✅ [WORKER-SUCCESS][${new Date().toISOString()}] -> SUCESSO: ${job.id} | JobID: ${jobId?.substring(0,8)} | Arquivo: ${fileKey?.split('/').pop()} | Duração: ${result?.processingTime || 'desconhecido'}`);
+    const { jobId, externalId, fileKey } = job.data;
+    const displayId = externalId || jobId?.substring(0,8) || 'unknown';
+    console.log(`✅ [WORKER-SUCCESS][${new Date().toISOString()}] -> SUCESSO: ${job.id} | Display: ${displayId} | Arquivo: ${fileKey?.split('/').pop()} | Duração: ${result?.processingTime || 'desconhecido'}`);
   });
 
   worker.on('failed', (job, err) => {
     // ✅ REGRA 7: Log obrigatório de job falhado
     console.error(`❌ Job ${job?.id} falhou`, err);
     if (job) {
-      const { jobId, fileKey } = job.data;
-      console.error(`💥 [WORKER-FAILED][${new Date().toISOString()}] -> FALHOU: ${job.id} | JobID: ${jobId?.substring(0,8)} | Arquivo: ${fileKey?.split('/').pop()} | Erro: ${err.message}`);
+      const { jobId, externalId, fileKey } = job.data;
+      const displayId = externalId || jobId?.substring(0,8) || 'unknown';
+      console.error(`💥 [WORKER-FAILED][${new Date().toISOString()}] -> FALHOU: ${job.id} | Display: ${displayId} | Arquivo: ${fileKey?.split('/').pop()} | Erro: ${err.message}`);
     }
   });
 
@@ -164,8 +167,9 @@ function setupWorkerEventListeners() {
 
   worker.on('stalled', (job) => {
     console.warn(`🐌 [WORKER-EVENT][${new Date().toISOString()}] -> Job TRAVADO: ${job.id}`);
-    const { jobId, fileKey } = job.data;
-    console.warn(`🐌 [WORKER-STALLED][${new Date().toISOString()}] -> JOB TRAVADO: ${job.id} | JobID: ${jobId?.substring(0,8)} | Arquivo: ${fileKey?.split('/').pop()}`);
+    const { jobId, externalId, fileKey } = job.data;
+    const displayId = externalId || jobId?.substring(0,8) || 'unknown';
+    console.warn(`🐌 [WORKER-STALLED][${new Date().toISOString()}] -> JOB TRAVADO: ${job.id} | Display: ${displayId} | Arquivo: ${fileKey?.split('/').pop()}`);
   });
 
   worker.on('progress', (job, progress) => {
@@ -232,6 +236,14 @@ const __dirname = path.dirname(__filename);
  */
 async function updateJobStatus(jobId, status, results = null) {
   try {
+    // 🔒 VALIDAÇÃO CRÍTICA: Verificar UUID antes de executar query
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(jobId)) {
+      console.error(`💥 [DB-UPDATE] ERRO: jobId inválido para PostgreSQL: '${jobId}'`);
+      console.error(`💥 [DB-UPDATE] IGNORANDO atualização - UUID inválido não pode ser usado no banco`);
+      return null; // Retorna null mas não quebra o processamento
+    }
+
     let query;
     let params;
 
@@ -248,6 +260,12 @@ async function updateJobStatus(jobId, status, results = null) {
     return result.rows[0];
   } catch (error) {
     console.error(`💥 [DB-ERROR][${new Date().toISOString()}] -> Failed to update job ${jobId}:`, error.message);
+    
+    // 🔍 DIAGNÓSTICO ESPECÍFICO para erros UUID
+    if (error.message.includes('invalid input syntax for type uuid')) {
+      console.error(`🔍 [DB-ERROR] DIAGNÓSTICO: jobId '${jobId}' não é UUID válido para PostgreSQL`);
+      console.error(`💡 [DB-ERROR] SOLUÇÃO: Verificar se API está gerando UUIDs corretos`);
+    }
     throw error;
   }
 }
@@ -295,11 +313,14 @@ async function downloadFileFromBucket(fileKey) {
 
 // ✅ REGRA 1: audioProcessor corretamente definido e tratado
 async function audioProcessor(job) {
-  const { jobId, fileKey, mode, fileName } = job.data;
+  // 🔑 ESTRUTURA ATUALIZADA: suporte para jobId UUID + externalId para logs
+  const { jobId, externalId, fileKey, mode, fileName } = job.data;
   
   // ✅ REGRA 4: LOG OBRIGATÓRIO - Worker recebendo job
   console.log('🎧 [WORKER] Recebendo job', job.id, job.data);
   console.log(`🎧 [WORKER-DEBUG] Job name: '${job.name}' | Esperado: 'process-audio'`);
+  console.log(`🔑 [WORKER-DEBUG] UUID (Banco): ${jobId}`);
+  console.log(`📋 [WORKER-DEBUG] External ID: ${externalId || 'não definido'}`);
   
   // ✅ VERIFICAÇÃO CRÍTICA: Confirmar se é o job correto
   if (job.name !== 'process-audio') {
@@ -308,6 +329,7 @@ async function audioProcessor(job) {
   
   console.log(`🎵 [PROCESS][${new Date().toISOString()}] -> INICIANDO job ${job.id}`, {
     jobId,
+    externalId: externalId || 'legacy',
     fileKey,
     mode,
     fileName,
@@ -324,6 +346,25 @@ async function audioProcessor(job) {
       console.error('💥 [PROCESSOR] ERRO: Dados do job inválidos:', job.data);
       throw new Error(`Dados do job inválidos: ${JSON.stringify(job.data)}`);
     }
+
+    // 🔒 VALIDAÇÃO CRÍTICA: Verificar se jobId é UUID válido
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(jobId)) {
+      console.error(`💥 [PROCESSOR] ERRO: jobId não é UUID válido: '${jobId}'`);
+      console.error(`💥 [PROCESSOR] SOLUÇÃO: Job será processado mas não atualizado no PostgreSQL`);
+      console.error(`💥 [PROCESSOR] UUID esperado: formato '12345678-1234-1234-1234-123456789abc'`);
+      throw new Error(`jobId inválido: '${jobId}' não é um UUID válido. Formato esperado: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`);
+    }
+
+    console.log(`✅ [PROCESSOR] jobId UUID válido: ${jobId}`);
+    
+    // ✅ VALIDAÇÃO DE S3: Verificar se fileKey tem formato válido
+    if (!fileKey || typeof fileKey !== 'string' || fileKey.length < 3) {
+      console.error(`💥 [PROCESSOR] ERRO: fileKey inválido: '${fileKey}'`);
+      throw new Error(`fileKey inválido: '${fileKey}'`);
+    }
+
+    console.log(`✅ [PROCESSOR] fileKey válido: ${fileKey}`);
 
     console.log(`📝 [PROCESS][${new Date().toISOString()}] -> Atualizando status para processing no PostgreSQL...`);
     await updateJobStatus(jobId, 'processing');

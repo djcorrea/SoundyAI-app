@@ -3,6 +3,19 @@
  * ✅ CORRIGIDO: Inicialização global assíncrona para garantir fila pronta
  * ✅ CORRIGIDO: Verificação obrigatória antes de enfileirar
  * ✅ CORRIGIDO: Logs de diagnóstico completos
+ * 
+ * 🔑 IMPORTANTE - POLÍTICA DE UUID:
+ * ═══════════════════════════════════════════════════════════════
+ * ▶ jobId: SEMPRE deve ser randomUUID() válido para PostgreSQL
+ * ▶ externalId: Campo separado para IDs customizados/logs
+ * ▶ PostgreSQL: Coluna 'id' é tipo 'uuid' - aceita apenas UUIDs
+ * ▶ Redis: BullMQ aceita qualquer string como jobId
+ * 
+ * 🚨 ERRO 22P02 (invalid input syntax for type uuid):
+ * ═══════════════════════════════════════════════════════════════
+ * ▶ CAUSA: String não-UUID enviada para coluna PostgreSQL tipo 'uuid'
+ * ▶ SOLUÇÃO: Sempre usar randomUUID() para jobId principal
+ * ▶ LOGS: externalId pode usar formato personalizado para debug
  */
 
 import "dotenv/config";
@@ -61,12 +74,21 @@ function validateFileType(fileKey) {
 
 /**
  * ✅ FUNÇÃO CORRIGIDA: Enfileirar PRIMEIRO, PostgreSQL DEPOIS
+ * 🔑 IMPORTANTE: jobId DEVE SEMPRE SER UUID VÁLIDO para PostgreSQL
  * Ordem obrigatória: Redis → PostgreSQL (previne jobs órfãos)
  */
 async function createJobInDatabase(fileKey, mode, fileName) {
+  // 🔑 CRÍTICO: jobId DEVE ser UUID válido para tabela PostgreSQL (coluna tipo 'uuid')
   const jobId = randomUUID();
   
-  console.log(`📋 [JOB-CREATE] Iniciando job: ${jobId} | fileKey: ${fileKey} | mode: ${mode}`);
+  // 📋 externalId para logs e identificação externa (pode ser personalizado)
+  const externalId = `audio-${Date.now()}-${jobId.substring(0, 8)}`;
+  
+  console.log(`📋 [JOB-CREATE] Iniciando job:`);
+  console.log(`   🔑 UUID (Banco): ${jobId}`);
+  console.log(`   📋 ID Externo: ${externalId}`);
+  console.log(`   📁 Arquivo: ${fileKey}`);
+  console.log(`   ⚙️ Modo: ${mode}`);
 
   try {
     // ✅ ETAPA 1: GARANTIR QUE FILA ESTÁ PRONTA
@@ -78,15 +100,16 @@ async function createJobInDatabase(fileKey, mode, fileName) {
 
     // ✅ ETAPA 2: ENFILEIRAR PRIMEIRO (REDIS)
     const queue = getAudioQueue();
-    console.log('📩 [API] Enfileirando job...');
+    console.log('📩 [API] Enfileirando job no Redis...');
     
     const redisJob = await queue.add('process-audio', {
-      jobId: jobId,
+      jobId: jobId,        // 🔑 UUID para PostgreSQL
+      externalId: externalId, // 📋 ID customizado para logs
       fileKey,
       fileName,
       mode
     }, {
-      jobId: `audio-${jobId}-${Date.now()}`,
+      jobId: externalId,   // 📋 BullMQ job ID (pode ser customizado)
       priority: 1,
       attempts: 3,
       backoff: {
@@ -97,19 +120,28 @@ async function createJobInDatabase(fileKey, mode, fileName) {
       removeOnFail: 5,
     });
     
-    console.log(`✅ [API] Job enfileirado com sucesso: ${redisJob.id}`);
+    console.log(`✅ [API] Job enfileirado com sucesso:`);
+    console.log(`   🔑 UUID (Banco): ${jobId}`);
+    console.log(`   📋 Redis Job ID: ${redisJob.id}`);
+    console.log(`   📋 ID Externo: ${externalId}`);
 
     // ✅ ETAPA 3: GRAVAR NO POSTGRESQL DEPOIS
-    console.log('📝 [API] Gravando no Postgres...');
+    console.log('📝 [API] Gravando no PostgreSQL com UUID...');
     
+    // 🔑 CRÍTICO: Usar jobId (UUID) na coluna 'id' do PostgreSQL
     const result = await pool.query(
       `INSERT INTO jobs (id, file_key, mode, status, file_name, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING *`,
       [jobId, fileKey, mode, "queued", fileName || null]
     );
 
-    console.log(`✅ [API] Gravado no PostgreSQL:`, result.rows[0]);
-    console.log('🎯 [API] Tudo pronto - Job enfileirado e registrado!');
+    console.log(`✅ [API] Gravado no PostgreSQL:`, {
+      id: result.rows[0].id,
+      fileKey: result.rows[0].file_key,
+      status: result.rows[0].status,
+      mode: result.rows[0].mode
+    });
+    console.log('🎯 [API] Fluxo completo - Redis ➜ PostgreSQL concluído!');
 
     return result.rows[0];
       
