@@ -87,7 +87,9 @@ async function createJobInDatabase(fileKey, mode, fileName) {
     // 🚀 CRÍTICO: Aguardar queue estar pronta antes de qualquer operação
     if (!queueInitialized) {
       console.log(`⏳ [JOB-CREATE][${new Date().toISOString()}] -> Queue not ready, waiting...`);
+      console.log('[API] ⏳ aguardando queueReadyPromise (implementa waitUntilReady)...');
       await queueReadyPromise;
+      console.log('[API] ✅ Queue pronta após waitUntilReady!');
       console.log(`✅ [JOB-CREATE][${new Date().toISOString()}] -> Queue ready, proceeding with job creation`);
     }
 
@@ -105,6 +107,7 @@ async function createJobInDatabase(fileKey, mode, fileName) {
     // 🚀 APÓS SALVAR NO POSTGRES → ENFILEIRAR NO REDIS
     try {
       console.log(`📤 [JOB-ENQUEUE][${new Date().toISOString()}] -> Starting job enqueue process...`);
+      console.log('[API] Queue pronta. Enfileirando...');
       
       // Obter queue centralizada
       const audioQueue = getAudioQueue();
@@ -121,6 +124,7 @@ async function createJobInDatabase(fileKey, mode, fileName) {
       const uniqueJobId = `audio-${jobId}-${Date.now()}`;
       
       console.log(`🎯 [JOB-ENQUEUE][${new Date().toISOString()}] -> Adding job to queue with ID: ${uniqueJobId}`);
+      console.log('[API] 📤 Adicionando job com await audioQueue.add()...');
       
       const redisJob = await audioQueue.add('process-audio', {
         jobId: jobId,
@@ -139,6 +143,7 @@ async function createJobInDatabase(fileKey, mode, fileName) {
         removeOnFail: 5,
       });
       
+      console.log('[API] ✅ Job enfileirado:', redisJob.id);
       console.log(`✅ [JOB-ENQUEUE][${new Date().toISOString()}] -> Job successfully enqueued!`);
       console.log(`📋 [JOB-ENQUEUE][${new Date().toISOString()}] -> Redis Job ID: ${redisJob.id} | JobID: ${jobId}`);
       
@@ -155,6 +160,8 @@ async function createJobInDatabase(fileKey, mode, fileName) {
       }
 
     } catch (enqueueError) {
+      console.error('[API] ❌ Erro ao enfileirar job:', enqueueError.message);
+      console.error('[API] ❌ Stack trace do enqueue:', enqueueError.stack);
       console.error(`💥 [JOB-ENQUEUE][${new Date().toISOString()}] -> CRITICAL: Failed to enqueue job:`, enqueueError.message);
       console.error(`💥 [JOB-ENQUEUE][${new Date().toISOString()}] -> Stack trace:`, enqueueError.stack);
       
@@ -257,6 +264,9 @@ router.use((req, res, next) => {
 router.post("/analyze", async (req, res) => {
   const startTime = Date.now();
 
+  // ✅ LOG OBRIGATÓRIO: Início da rota
+  console.log('[API] 🚀 Rota /analyze chamada');
+  
   try {
     console.log(`🚀 [API-REQUEST][${new Date().toISOString()}] -> New job creation request started`);
     console.log(`📥 [API-REQUEST][${new Date().toISOString()}] -> Request body:`, req.body);
@@ -264,11 +274,14 @@ router.post("/analyze", async (req, res) => {
     // 🚀 CRÍTICO: Verificar se queue está inicializada antes de processar
     if (!queueInitialized) {
       console.log(`⏳ [API-REQUEST][${new Date().toISOString()}] -> Queue not ready, waiting for initialization...`);
+      console.log('[API] ⏳ Aguardando queue estar pronta (waitUntilReady)...');
       
       try {
         await queueReadyPromise;
+        console.log('[API] ✅ Queue pronta! Prosseguindo...');
         console.log(`✅ [API-REQUEST][${new Date().toISOString()}] -> Queue ready, proceeding with request`);
       } catch (initError) {
+        console.error('[API] ❌ Falha na inicialização da queue:', initError.message);
         console.error(`💥 [API-REQUEST][${new Date().toISOString()}] -> Queue initialization failed:`, initError.message);
         return res.status(503).json({
           success: false,
@@ -283,6 +296,7 @@ router.post("/analyze", async (req, res) => {
     console.log(`🚩 [API-REQUEST][${new Date().toISOString()}] -> Feature flags:`, flags);
 
     const { fileKey, mode = "genre", fileName } = req.body;
+    console.log('[API] Dados recebidos:', { fileKey, mode, fileName });
     console.log(`📋 [API-REQUEST][${new Date().toISOString()}] -> Extracted data: fileKey=${fileKey}, mode=${mode}, fileName=${fileName}`);
 
     if (!fileKey) {
@@ -307,7 +321,14 @@ router.post("/analyze", async (req, res) => {
 
     console.log(`✅ [API-REQUEST][${new Date().toISOString()}] -> Validations passed, creating job...`);
 
+    // ✅ LOG ANTES: Chamada createJobInDatabase
+    console.log('[API] 📤 Iniciando createJobInDatabase...', { fileKey, mode, fileName });
+    
     const jobRecord = await createJobInDatabase(fileKey, mode, fileName);
+    
+    // ✅ LOG DEPOIS: Chamada createJobInDatabase
+    console.log('[API] ✅ createJobInDatabase concluída:', { jobId: jobRecord.id, status: jobRecord.status });
+    
     const processingTime = Date.now() - startTime;
 
     console.log(`🎉 [API-REQUEST][${new Date().toISOString()}] -> Job created successfully in ${processingTime}ms - jobId: ${jobRecord.id}, mode: ${mode}`);
@@ -329,6 +350,9 @@ router.post("/analyze", async (req, res) => {
   } catch (error) {
     const processingTime = Date.now() - startTime;
     
+    // ✅ LOGS DE ERRO DETALHADOS
+    console.error('[API] ❌ Erro ao processar rota /analyze:', error.message);
+    console.error('[API] ❌ Stack trace:', error.stack);
     console.error(`[BACKEND][${new Date().toISOString()}] -> ❌ ERRO CRÍTICO na criação do job:`, error.message);
     console.error(`[BACKEND][${new Date().toISOString()}] -> Stack trace:`, error.stack);
 
