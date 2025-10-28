@@ -1,115 +1,134 @@
-// worker-redis.js - WORKER REDIS COM CONEXÃO CENTRALIZADA
-// 🚀 Usa módulo redis-connection.js para garantir mesma conexão que a API
+/**
+ * 🔥 WORKER REDIS ROBUSTO - Versão com Inicialização Síncrona
+ * Usa módulo centralizado lib/queue.js para garantir sincronização
+ * 
+ * ✅ CORRIGIDO: Worker só inicia após queue estar pronta
+ * ✅ CORRIGIDO: Conexão centralizada singleton
+ * ✅ CORRIGIDO: Event listeners completos
+ */
 
 import "dotenv/config";
-import { Worker, Queue } from 'bullmq';
-import { getRedisConnection, testRedisConnection } from './lib/redis-connection.js';
+import { Worker } from 'bullmq';
+import { getQueueReadyPromise, getRedisConnection, getAudioQueue } from './lib/queue.js';
 import pool from './db.js';
 import AWS from "aws-sdk";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import express from 'express';
 
 // Definir service name para auditoria
 process.env.SERVICE_NAME = 'worker';
 
-console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🚀 INICIANDO Worker Redis com Conexão Centralizada...`);
-console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📋 PID: ${process.pid}`);
-console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🌍 ENV: ${process.env.NODE_ENV || 'development'}`);
-console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🏗️ Platform: ${process.platform}`);
-console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🧠 Memory: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`);
+console.log(`🚀 [WORKER-INIT][${new Date().toISOString()}] -> Starting Redis Worker with Centralized Connection...`);
+console.log(`📋 [WORKER-INIT][${new Date().toISOString()}] -> PID: ${process.pid}`);
+console.log(`🌍 [WORKER-INIT][${new Date().toISOString()}] -> ENV: ${process.env.NODE_ENV || 'development'}`);
+console.log(`🏗️ [WORKER-INIT][${new Date().toISOString()}] -> Platform: ${process.platform}`);
+console.log(`🧠 [WORKER-INIT][${new Date().toISOString()}] -> Memory: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`);
 
 if (process.env.NODE_ENV === 'production') {
-  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🚀 MODO PRODUÇÃO ATIVADO`);
-  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🔧 Redis: ${process.env.REDIS_URL ? 'CONFIGURADO' : 'NÃO CONFIGURADO'}`);
-  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🗃️ Postgres: ${process.env.DATABASE_URL ? 'CONFIGURADO' : 'NÃO CONFIGURADO'}`);
+  console.log(`🚀 [WORKER-INIT][${new Date().toISOString()}] -> PRODUCTION MODE ACTIVATED`);
+  console.log(`🔧 [WORKER-INIT][${new Date().toISOString()}] -> Redis: ${process.env.REDIS_URL ? 'CONFIGURED' : 'NOT CONFIGURED'}`);
+  console.log(`🗃️ [WORKER-INIT][${new Date().toISOString()}] -> Postgres: ${process.env.DATABASE_URL ? 'CONFIGURED' : 'NOT CONFIGURED'}`);
 }
 
-// ✅ CONEXÃO REDIS CENTRALIZADA - MESMA INSTÂNCIA QUE A API
-console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🔗 Obtendo conexão Redis centralizada...`);
-
-const redisConnection = getRedisConnection();
-
-// Teste inicial de conectividade
-const connectionTest = await testRedisConnection();
-console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🔍 Connection Test:`, connectionTest);
-
-// 📋 Criar fila BullMQ com conexão centralizada
-console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📋 Criando fila audio-analyzer...`);
-const audioQueue = new Queue('audio-analyzer', { 
-  connection: redisConnection,
-  defaultJobOptions: {
-    removeOnComplete: 5,
-    removeOnFail: 10,
-    attempts: 2,
-    backoff: {
-      type: 'fixed',
-      delay: 10000
-    },
-    ttl: 300000,
-    delay: 0
-  }
-});
-
-// 🔥 Event Listeners para monitoramento da conexão Redis
-redisConnection.on('connect', () => {
-  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> ✅ Conectado ao Redis`);
-});
-
-redisConnection.on('ready', () => {
-  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> ✅ Redis pronto para uso`);
-});
-
-redisConnection.on('error', (err) => {
-  console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> 🚨 Erro ao conectar ao Redis: ${err.message}`);
-});
-
-redisConnection.on('reconnecting', (delay) => {
-  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🔄 Tentando reconectar... (delay: ${delay}ms)`);
-});
-
-redisConnection.on('end', () => {
-  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🔌 Conexão Redis encerrada`);
-});
-
-redisConnection.on('close', () => {
-  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🚪 Conexão Redis fechada`);
-});
-
-console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📋 Fila 'audio-analyzer' criada`);
-
-// 🔍 VERIFICAÇÃO INICIAL: Aguardar queue ficar pronta e verificar status
-(async () => {
+// 🚀 INICIALIZAÇÃO SÍNCRONA: Aguardar queue estar pronta antes de criar Worker
+async function initializeWorker() {
   try {
-    console.log(`[WORKER-INIT][${new Date().toISOString()}] -> ⏳ Aguardando queue ficar pronta...`);
+    console.log(`⏳ [WORKER-INIT][${new Date().toISOString()}] -> Waiting for queue to be ready...`);
     
-    // ✅ CORRIGIDO: waitUntilReady() em vez de isReady()
-    await audioQueue.waitUntilReady();
-    console.log(`[WORKER-INIT][${new Date().toISOString()}] -> ✅ Queue está pronta!`);
+    // Aguardar inicialização completa da queue
+    const queueResult = await getQueueReadyPromise();
+    console.log(`✅ [WORKER-INIT][${new Date().toISOString()}] -> Queue ready! Timestamp: ${queueResult.timestamp}`);
     
-    // Garantir que não está pausada
-    await audioQueue.resume();
-    console.log(`[WORKER-INIT][${new Date().toISOString()}] -> ▶️ Queue resumed na inicialização`);
+    // Obter conexão e queue centralizadas
+    const redisConnection = getRedisConnection();
+    const audioQueue = getAudioQueue();
     
-    const queueCounts = await audioQueue.getJobCounts();
-    console.log(`[WORKER-INIT][${new Date().toISOString()}] -> 📊 Queue state inicial:`, queueCounts);
+    // Configuração de concorrência
+    const concurrency = Number(process.env.WORKER_CONCURRENCY) || 5;
+    console.log(`⚙️ [WORKER-INIT][${new Date().toISOString()}] -> Creating BullMQ Worker with concurrency: ${concurrency}`);
+
+    // 🔧 CRIAR WORKER COM CONFIGURAÇÃO ROBUSTA
+    const worker = new Worker('audio-analyzer', audioProcessor, { 
+      connection: redisConnection, 
+      concurrency,
+      settings: {
+        stalledInterval: 120000,
+        maxStalledCount: 2,
+        lockDuration: 180000,
+        keepAlive: 60000,
+        batchSize: 1,
+        delayedDebounce: 10000,
+      }
+    });
+
+    console.log(`🎯 [WORKER-INIT][${new Date().toISOString()}] -> Worker created for queue: 'audio-analyzer'`);
+    console.log(`📋 [WORKER-INIT][${new Date().toISOString()}] -> PID: ${process.pid}`);
+
+    // 📊 EVENT LISTENERS COMPLETOS
+    worker.on('ready', () => {
+      console.log(`🟢 [WORKER-READY][${new Date().toISOString()}] -> WORKER READY! PID: ${process.pid}, Concurrency: ${concurrency}`);
+      console.log(`🎯 [WORKER-READY][${new Date().toISOString()}] -> Waiting for jobs in queue 'audio-analyzer'...`);
+    });
+
+    worker.on('active', (job) => {
+      console.log(`🔵 [WORKER-EVENT][${new Date().toISOString()}] -> Job ACTIVE: ${job.id} | Name: ${job.name}`);
+      const { jobId, fileKey, mode } = job.data;
+      console.log(`🎯 [WORKER-PROCESSING][${new Date().toISOString()}] -> PROCESSING: ${job.id} | JobID: ${jobId?.substring(0,8)} | File: ${fileKey?.split('/').pop()} | Mode: ${mode}`);
+    });
+
+    worker.on('completed', (job, result) => {
+      console.log(`🟢 [WORKER-EVENT][${new Date().toISOString()}] -> Job COMPLETED: ${job.id}`);
+      const { jobId, fileKey } = job.data;
+      console.log(`✅ [WORKER-SUCCESS][${new Date().toISOString()}] -> SUCCESS: ${job.id} | JobID: ${jobId?.substring(0,8)} | File: ${fileKey?.split('/').pop()} | Duration: ${result?.processingTime || 'unknown'}`);
+    });
+
+    worker.on('failed', (job, err) => {
+      console.error(`🔴 [WORKER-EVENT][${new Date().toISOString()}] -> Job FAILED: ${job?.id} | Error: ${err.message}`);
+      if (job) {
+        const { jobId, fileKey } = job.data;
+        console.error(`💥 [WORKER-FAILED][${new Date().toISOString()}] -> FAILED: ${job.id} | JobID: ${jobId?.substring(0,8)} | File: ${fileKey?.split('/').pop()} | Error: ${err.message}`);
+      }
+    });
+
+    worker.on('error', (err) => {
+      console.error(`🚨 [WORKER-EVENT][${new Date().toISOString()}] -> Worker Error: ${err.message}`);
+      console.error(`🚨 [WORKER-ERROR][${new Date().toISOString()}] -> WORKER ERROR: ${err.message}`);
+      console.error(`🚨 [WORKER-ERROR][${new Date().toISOString()}] -> Stack trace:`, err.stack);
+    });
+
+    worker.on('stalled', (job) => {
+      console.warn(`🐌 [WORKER-EVENT][${new Date().toISOString()}] -> Job STALLED: ${job.id}`);
+      const { jobId, fileKey } = job.data;
+      console.warn(`🐌 [WORKER-STALLED][${new Date().toISOString()}] -> JOB STALLED: ${job.id} | JobID: ${jobId?.substring(0,8)} | File: ${fileKey?.split('/').pop()}`);
+    });
+
+    worker.on('progress', (job, progress) => {
+      console.log(`📊 [WORKER-EVENT][${new Date().toISOString()}] -> Job PROGRESS: ${job.id} | Progress: ${progress}%`);
+    });
+
+    // ✅ VERIFICAR STATUS INICIAL DA FILA
+    const initialCounts = await audioQueue.getJobCounts();
+    console.log(`📊 [WORKER-INIT][${new Date().toISOString()}] -> Initial queue status:`, initialCounts);
     
-    if (queueCounts.waiting > 0) {
-      console.log(`[WORKER-INIT][${new Date().toISOString()}] -> 🎯 ${queueCounts.waiting} jobs esperando processamento!`);
-    } else {
-      console.log(`[WORKER-INIT][${new Date().toISOString()}] -> 📭 Nenhum job waiting - Worker pronto para receber jobs`);
+    if (initialCounts.waiting > 0) {
+      console.log(`🎯 [WORKER-INIT][${new Date().toISOString()}] -> ${initialCounts.waiting} jobs waiting for processing!`);
     }
-    
-    // 🔍 Mostrar workers conectados
-    const workers = await audioQueue.getWorkers();
-    console.log(`[WORKER-INIT][${new Date().toISOString()}] -> 👷 Workers conectados: ${workers.length}`);
-    
-  } catch (err) {
-    console.error(`[WORKER-INIT][${new Date().toISOString()}] -> 🚨 Erro na inicialização da queue:`, err.message);
-    console.error(`[WORKER-INIT][${new Date().toISOString()}] -> Stack:`, err.stack);
+
+    console.log(`✅ [WORKER-INIT][${new Date().toISOString()}] -> Worker initialization completed successfully!`);
+    console.log(`🎯 [WORKER-INIT][${new Date().toISOString()}] -> Waiting for jobs in queue 'audio-analyzer'...`);
+
+    return worker;
+
+  } catch (error) {
+    console.error(`💥 [WORKER-INIT][${new Date().toISOString()}] -> CRITICAL: Worker initialization failed:`, error.message);
+    console.error(`💥 [WORKER-INIT][${new Date().toISOString()}] -> Stack trace:`, error.stack);
+    process.exit(1);
   }
-})();
+}
+
+// 🚀 INICIAR WORKER DE FORMA SÍNCRONA
+initializeWorker();
 
 // ---------- Global Error Handlers ----------
 process.on('uncaughtException', (err) => {
