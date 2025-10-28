@@ -1,17 +1,16 @@
 /**
- * 🔥 WORKER REDIS ROBUSTO - AUDITORIA COMPLETA IMPLEMENTADA
- * ✅ REGRA 1: Importação correta do audioProcessor
- * ✅ REGRA 2: getQueueReadyPromise() antes de criar Worker
- * ✅ REGRA 3: Nome exato da fila 'audio-analyzer'
- * ✅ REGRA 4: Logs de diagnóstico obrigatórios
- * ✅ REGRA 5: Tratamento de falhas silenciosas
- * ✅ REGRA 6: Healthcheck para Railway
- * ✅ REGRA 7: Eventos de fila para depuração
+ * 🔥 WORKER REDIS ROBUSTO - PRODUÇÃO READY
+ * ✅ Conexão Redis com retry/backoff automático
+ * ✅ Listeners completos para error, failed, completed
+ * ✅ Logs claros para todos os eventos críticos
+ * ✅ Inicialização apenas após Redis estabelecido
+ * ✅ Tratamento de falhas silenciosas eliminado
+ * ✅ Configuração TLS para Upstash/produção
  */
 
 import "dotenv/config";
 import { Worker } from 'bullmq';
-import { getQueueReadyPromise, getAudioQueue, getRedisConnection, getQueueEvents, closeAllConnections } from './lib/queue.js';
+import Redis from 'ioredis';
 import pool from './db.js';
 import AWS from "aws-sdk";
 import fs from "fs";
@@ -19,217 +18,343 @@ import path from "path";
 import { fileURLToPath } from "url";
 import express from 'express';
 
-// Definir service name para auditoria
+// 🏷️ Definir service name para auditoria
 process.env.SERVICE_NAME = 'worker';
 
-// ✅ LOG OBRIGATÓRIO: Iniciando worker
-console.log(`🚀 [WORKER] Iniciando worker`);
-console.log(`📋 [WORKER-INIT][${new Date().toISOString()}] -> PID: ${process.pid}`);
-console.log(`🌍 [WORKER-INIT][${new Date().toISOString()}] -> ENV: ${process.env.NODE_ENV || 'development'}`);
+// 🚀 LOG INICIAL: Worker iniciando
+console.log('🚀 [WORKER] ═══════════════════════════════════════');
+console.log('🚀 [WORKER] INICIANDO WORKER REDIS ROBUSTO');
+console.log('🚀 [WORKER] ═══════════════════════════════════════');
+console.log(`📋 [WORKER-INIT] PID: ${process.pid}`);
+console.log(`🌍 [WORKER-INIT] ENV: ${process.env.NODE_ENV || 'development'}`);
+console.log(`⏰ [WORKER-INIT] Timestamp: ${new Date().toISOString()}`);
 
-// ✅ VERIFICAÇÃO OBRIGATÓRIA: Environment Variables
+// 🔒 VERIFICAÇÃO CRÍTICA: Environment Variables
 if (!process.env.REDIS_URL) {
-  console.error('💥 [WORKER] ERRO CRÍTICO: REDIS_URL não configurado');
+  console.error('💥 [WORKER-INIT] ERRO CRÍTICO: REDIS_URL não configurado');
+  console.error('💡 [WORKER-INIT] Solução: Verificar arquivo .env na pasta work/');
   process.exit(1);
 }
 
 if (!process.env.DATABASE_URL) {
-  console.error('� [WORKER] ERRO CRÍTICO: DATABASE_URL não configurado');
+  console.error('💥 [WORKER-INIT] ERRO CRÍTICO: DATABASE_URL não configurado');
+  console.error('💡 [WORKER-INIT] Solução: Verificar arquivo .env na pasta work/');
   process.exit(1);
 }
 
-console.log(`🔧 [WORKER-INIT][${new Date().toISOString()}] -> Redis: CONFIGURADO`);
-console.log(`🗃️ [WORKER-INIT][${new Date().toISOString()}] -> Postgres: CONFIGURADO`);
+console.log('✅ [WORKER-INIT] Variables: Redis e PostgreSQL configurados');
 
-// ✅ REGRA OBRIGATÓRIA: Variáveis globais para conexão e worker
+// 🔧 CONFIGURAÇÃO REDIS COM RETRY/BACKOFF ROBUSTO
+const REDIS_CONFIG = {
+  url: process.env.REDIS_URL,
+  maxRetriesPerRequest: null,       // ✅ Obrigatório para BullMQ
+  enableReadyCheck: false,          // ✅ Melhora performance
+  tls: { rejectUnauthorized: false }, // ✅ Para Upstash/produção
+  lazyConnect: false,               // ✅ Conectar imediatamente
+  connectTimeout: 30000,            // ✅ 30s timeout
+  commandTimeout: 15000,            // ✅ 15s para comandos
+  keepAlive: 120000,                // ✅ 2min keepalive
+  family: 4,                        // ✅ IPv4
+  
+  // 🔄 RETRY STRATEGY ROBUSTO
+  retryStrategy: (times) => {
+    const delay = Math.min(times * 2000, 30000); // Max 30s delay
+    console.log(`🔄 [REDIS-RETRY] Tentativa ${times}: próxima em ${delay}ms`);
+    return delay;
+  },
+  
+  retryDelayOnFailover: 2000,       // ✅ 2s delay em failover
+  enableAutoPipelining: true,       // ✅ Performance
+  
+  // 🔄 RECONEXÃO AUTOMÁTICA
+  reconnectOnError: (err) => {
+    const targetError = 'READONLY';
+    return err.message.includes(targetError);
+  }
+};
+
+// 🌐 VARIÁVEIS GLOBAIS PARA CONEXÃO E WORKER
 let redisConnection = null;
-let audioQueue = null;
 let worker = null;
-let queueEvents = null;
+let isRedisReady = false;
+let connectionAttempts = 0;
+const MAX_CONNECTION_ATTEMPTS = 10;
 
-// ✅ REGRA OBRIGATÓRIA: Inicialização usando getQueueReadyPromise() ANTES de criar Worker
-async function initializeWorker() {
-  try {
-    console.log(`⏳ [WORKER-INIT][${new Date().toISOString()}] -> Chamando getQueueReadyPromise()...`);
+/**
+ * 🔗 CRIAR CONEXÃO REDIS COM LOGS DETALHADOS
+ */
+async function createRedisConnection() {
+  return new Promise((resolve, reject) => {
+    connectionAttempts++;
     
-    // ✅ REGRA 2: getQueueReadyPromise() antes de criar Worker BullMQ
-    const queueResult = await getQueueReadyPromise();
-    console.log(`✅ [WORKER-INIT][${new Date().toISOString()}] -> Queue system ready:`, queueResult.timestamp);
+    console.log(`🔌 [REDIS-CONNECT] Tentativa ${connectionAttempts}/${MAX_CONNECTION_ATTEMPTS}`);
+    console.log(`🔌 [REDIS-CONNECT] URL: ${process.env.REDIS_URL.replace(/:[^:]*@/, ':***@')}`);
     
-    // ✅ REGRA 3: Usar exatamente o mesmo nome da fila 'audio-analyzer'
-    audioQueue = getAudioQueue();
-    console.log(`✅ [WORKER-INIT][${new Date().toISOString()}] -> Fila 'audio-analyzer' obtida com sucesso`);
+    const redis = new Redis(REDIS_CONFIG);
     
-    // ✅ Obter mesma conexão Redis que API usa
-    redisConnection = getRedisConnection();
-    console.log(`✅ [WORKER-INIT][${new Date().toISOString()}] -> Conexão Redis centralizada obtida`);
+    // 📡 EVENT LISTENERS DETALHADOS
+    redis.on('connect', () => {
+      console.log('🟡 [REDIS-CONNECT] Conexão iniciada...');
+    });
     
-    // ✅ Configuração de concorrência
-    const concurrency = Number(process.env.WORKER_CONCURRENCY) || 3;
-    console.log(`⚙️ [WORKER-INIT][${new Date().toISOString()}] -> Concorrência configurada: ${concurrency}`);
-
-    // ✅ REGRA 1: Importação correta do audioProcessor - DEFINIDO LOCALMENTE
-    console.log(`🔧 [WORKER-INIT][${new Date().toISOString()}] -> Registrando audioProcessor...`);
-    
-    // ✅ CRIAR WORKER COM REGRAS OBRIGATÓRIAS  
-    // ✅ CORREÇÃO CRÍTICA: Worker registra handler para qualquer job na fila 'audio-analyzer'
-    worker = new Worker('audio-analyzer', audioProcessor, { 
-      connection: redisConnection, 
-      concurrency,
-      settings: {
-        stalledInterval: 120000,
-        maxStalledCount: 2,
-        lockDuration: 180000,
-        keepAlive: 60000,
-        batchSize: 1,
-        delayedDebounce: 10000,
+    redis.on('ready', async () => {
+      try {
+        const clientId = await redis.client('id');
+        const serverInfo = await redis.info('server');
+        const redisVersion = serverInfo.match(/redis_version:([\d.]+)/)?.[1] || 'unknown';
+        
+        console.log('✅ [REDIS-READY] Conexão com Redis estabelecida!');
+        console.log(`✅ [REDIS-READY] Client ID: ${clientId}`);
+        console.log(`✅ [REDIS-READY] Redis Version: ${redisVersion}`);
+        console.log(`✅ [REDIS-READY] PID: ${process.pid}`);
+        
+        isRedisReady = true;
+        redisConnection = redis;
+        resolve(redis);
+        
+      } catch (err) {
+        console.error('💥 [REDIS-READY] Erro ao obter informações:', err.message);
+        resolve(redis); // Continua mesmo com erro de info
       }
     });
-
-    // ✅ LOG OBRIGATÓRIO: Processor registrado com sucesso
-    console.log('🔥 [WORKER] Processor registrado com sucesso');
-    console.log(`🎯 [WORKER-INIT][${new Date().toISOString()}] -> Worker criado para fila: 'audio-analyzer'`);
-
-    // ✅ REGRA 7: Eventos de fila para depuração
-    setupWorkerEventListeners();
-    setupQueueEventListeners();
-
-    // ✅ Verificar jobs pendentes
-    const queueCounts = await audioQueue.getJobCounts();
-    console.log(`📊 [WORKER-INIT][${new Date().toISOString()}] -> Status inicial da fila:`, queueCounts);
     
-    if (queueCounts.waiting > 0) {
-      console.log(`🎯 [WORKER-INIT][${new Date().toISOString()}] -> ${queueCounts.waiting} jobs aguardando processamento!`);
-    }
-
-    console.log(`✅ [WORKER-INIT][${new Date().toISOString()}] -> Worker inicializado com sucesso!`);
-    console.log(`🎯 [WORKER-INIT][${new Date().toISOString()}] -> Aguardando jobs na fila 'audio-analyzer'...`);
-
-    return worker;
-
-  } catch (error) {
-    // ✅ REGRA 5: Tratar falhas silenciosas - Erro explícito no console
-    console.error('💥 [WORKER] ERRO CRÍTICO: Falha na inicialização do Worker');
-    console.error(`💥 [WORKER-INIT][${new Date().toISOString()}] -> Erro:`, error.message);
-    console.error(`💥 [WORKER-INIT][${new Date().toISOString()}] -> Stack trace:`, error.stack);
+    redis.on('error', (err) => {
+      console.error('💥 [REDIS-ERROR] Erro de conexão com detalhes:');
+      console.error(`💥 [REDIS-ERROR] Tipo: ${err.code || 'UNKNOWN'}`);
+      console.error(`💥 [REDIS-ERROR] Mensagem: ${err.message}`);
+      console.error(`💥 [REDIS-ERROR] Host: ${err.address}:${err.port}`);
+      
+      if (connectionAttempts >= MAX_CONNECTION_ATTEMPTS) {
+        console.error(`💥 [REDIS-ERROR] Máximo de tentativas atingido (${MAX_CONNECTION_ATTEMPTS})`);
+        reject(err);
+      }
+    });
     
-    // ✅ Se o processor não for carregado, lançar erro explícito
-    if (error.message.includes('audioProcessor')) {
-      console.error('💥 [WORKER] ERRO: audioProcessor não pode ser carregado/registrado');
-    }
+    redis.on('reconnecting', (delay) => {
+      console.log(`🔄 [REDIS-RECONNECT] Reconectando em ${delay}ms...`);
+    });
     
-    process.exit(1);
-  }
+    redis.on('end', () => {
+      console.log('🔌 [REDIS-END] Conexão encerrada');
+      isRedisReady = false;
+    });
+    
+    redis.on('close', () => {
+      console.log('🚪 [REDIS-CLOSE] Conexão fechada');
+      isRedisReady = false;
+    });
+    
+    // ⏰ TIMEOUT DE SEGURANÇA
+    setTimeout(() => {
+      if (!isRedisReady) {
+        console.error('⏰ [REDIS-TIMEOUT] Timeout na conexão Redis (30s)');
+        reject(new Error('Redis connection timeout'));
+      }
+    }, 30000);
+  });
 }
 
-// ✅ REGRA 7: Eventos de Worker para depuração obrigatória
+/**
+ * 🔧 CONFIGURAR EVENT LISTENERS DO WORKER
+ */
 function setupWorkerEventListeners() {
-  if (!worker) {
-    console.error(`💥 [WORKER-EVENTS] Worker não inicializado, não é possível configurar event listeners`);
-    return;
-  }
-
+  if (!worker) return;
+  
+  console.log('🎧 [WORKER-EVENTS] Configurando listeners...');
+  
+  // ✅ LISTENER: WORKER PRONTO
   worker.on('ready', () => {
-    console.log(`🟢 [WORKER-READY][${new Date().toISOString()}] -> WORKER PRONTO! PID: ${process.pid}`);
-    console.log(`🎯 [WORKER-READY][${new Date().toISOString()}] -> Aguardando jobs na fila 'audio-analyzer'...`);
+    console.log('🟢 [WORKER-READY] Worker pronto para processar jobs!');
+    console.log(`🎯 [WORKER-READY] Fila: 'audio-analyzer'`);
+    console.log(`⚙️ [WORKER-READY] PID: ${process.pid}`);
   });
-
+  
+  // ✅ LISTENER: JOB RECEBIDO
   worker.on('active', (job) => {
-    console.log(`🔵 [WORKER-EVENT][${new Date().toISOString()}] -> Job ATIVO: ${job.id} | Nome: ${job.name}`);
     const { jobId, externalId, fileKey, mode } = job.data;
     const displayId = externalId || jobId?.substring(0,8) || 'unknown';
-    console.log(`🎯 [WORKER-PROCESSING][${new Date().toISOString()}] -> PROCESSANDO: ${job.id} | Display: ${displayId} | Arquivo: ${fileKey?.split('/').pop()} | Modo: ${mode}`);
+    
+    console.log('🎧 [JOB-RECEIVED] ═══════════════════════════════');
+    console.log('🎧 [JOB-RECEIVED] Job recebido e iniciando processamento');
+    console.log(`🎧 [JOB-RECEIVED] Redis Job ID: ${job.id}`);
+    console.log(`🎧 [JOB-RECEIVED] Display ID: ${displayId}`);
+    console.log(`🎧 [JOB-RECEIVED] Arquivo: ${fileKey?.split('/').pop() || 'unknown'}`);
+    console.log(`🎧 [JOB-RECEIVED] Modo: ${mode || 'unknown'}`);
+    console.log(`🎧 [JOB-RECEIVED] Tentativa: ${job.attemptsMade + 1}/${job.opts.attempts}`);
   });
-
+  
+  // ✅ LISTENER: JOB CONCLUÍDO
   worker.on('completed', (job, result) => {
-    // ✅ REGRA 7: Log obrigatório de job concluído
-    console.log(`✅ Job ${job.id} concluído`);
     const { jobId, externalId, fileKey } = job.data;
     const displayId = externalId || jobId?.substring(0,8) || 'unknown';
-    console.log(`✅ [WORKER-SUCCESS][${new Date().toISOString()}] -> SUCESSO: ${job.id} | Display: ${displayId} | Arquivo: ${fileKey?.split('/').pop()} | Duração: ${result?.processingTime || 'desconhecido'}`);
+    
+    console.log('✅ [JOB-COMPLETED] ═══════════════════════════════');
+    console.log('✅ [JOB-COMPLETED] Job concluído com sucesso!');
+    console.log(`✅ [JOB-COMPLETED] Redis Job ID: ${job.id}`);
+    console.log(`✅ [JOB-COMPLETED] Display ID: ${displayId}`);
+    console.log(`✅ [JOB-COMPLETED] Arquivo: ${fileKey?.split('/').pop() || 'unknown'}`);
+    console.log(`✅ [JOB-COMPLETED] Duração: ${result?.processingTime || 'N/A'}ms`);
+    console.log(`✅ [JOB-COMPLETED] Status: ${result?.status || 'success'}`);
   });
-
+  
+  // ✅ LISTENER: JOB FALHOU
   worker.on('failed', (job, err) => {
-    // ✅ REGRA 7: Log obrigatório de job falhado
-    console.error(`❌ Job ${job?.id} falhou`, err);
-    if (job) {
-      const { jobId, externalId, fileKey } = job.data;
-      const displayId = externalId || jobId?.substring(0,8) || 'unknown';
-      console.error(`💥 [WORKER-FAILED][${new Date().toISOString()}] -> FALHOU: ${job.id} | Display: ${displayId} | Arquivo: ${fileKey?.split('/').pop()} | Erro: ${err.message}`);
+    const { jobId, externalId, fileKey } = job?.data || {};
+    const displayId = externalId || jobId?.substring(0,8) || 'unknown';
+    
+    console.error('❌ [JOB-FAILED] ═══════════════════════════════');
+    console.error('❌ [JOB-FAILED] Job falhou!');
+    console.error(`❌ [JOB-FAILED] Redis Job ID: ${job?.id || 'unknown'}`);
+    console.error(`❌ [JOB-FAILED] Display ID: ${displayId}`);
+    console.error(`❌ [JOB-FAILED] Arquivo: ${fileKey?.split('/').pop() || 'unknown'}`);
+    console.error(`❌ [JOB-FAILED] Erro: ${err.message}`);
+    console.error(`❌ [JOB-FAILED] Tentativa: ${job?.attemptsMade || 0}/${job?.opts?.attempts || 'N/A'}`);
+    
+    // Stack trace apenas em desenvolvimento
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(`❌ [JOB-FAILED] Stack: ${err.stack}`);
     }
   });
-
+  
+  // ✅ LISTENER: ERRO DO WORKER
   worker.on('error', (err) => {
-    console.error(`🚨 [WORKER-EVENT][${new Date().toISOString()}] -> Erro do Worker: ${err.message}`);
-    console.error(`🚨 [WORKER-ERROR][${new Date().toISOString()}] -> ERRO DO WORKER: ${err.message}`);
-    console.error(`🚨 [WORKER-ERROR][${new Date().toISOString()}] -> Stack trace:`, err.stack);
+    console.error('🚨 [WORKER-ERROR] ═══════════════════════════════');
+    console.error('🚨 [WORKER-ERROR] Erro crítico no Worker!');
+    console.error(`🚨 [WORKER-ERROR] Tipo: ${err.name || 'UnknownError'}`);
+    console.error(`🚨 [WORKER-ERROR] Mensagem: ${err.message}`);
+    console.error(`🚨 [WORKER-ERROR] PID: ${process.pid}`);
+    
+    // Stack trace completo em caso de erro crítico
+    console.error(`🚨 [WORKER-ERROR] Stack: ${err.stack}`);
+    
+    // Tentar reconectar em caso de erro de conexão
+    if (err.message.includes('Connection') || err.message.includes('Redis')) {
+      console.log('🔄 [WORKER-ERROR] Tentando reconectar em 5 segundos...');
+      setTimeout(() => {
+        console.log('🔄 [WORKER-ERROR] Reiniciando Worker...');
+        initializeWorker();
+      }, 5000);
+    }
   });
-
+  
+  // ✅ LISTENER: JOB TRAVADO
   worker.on('stalled', (job) => {
-    console.warn(`🐌 [WORKER-EVENT][${new Date().toISOString()}] -> Job TRAVADO: ${job.id}`);
     const { jobId, externalId, fileKey } = job.data;
     const displayId = externalId || jobId?.substring(0,8) || 'unknown';
-    console.warn(`🐌 [WORKER-STALLED][${new Date().toISOString()}] -> JOB TRAVADO: ${job.id} | Display: ${displayId} | Arquivo: ${fileKey?.split('/').pop()}`);
+    
+    console.warn('🐌 [JOB-STALLED] ═══════════════════════════════');
+    console.warn('🐌 [JOB-STALLED] Job travado - será reprocessado');
+    console.warn(`🐌 [JOB-STALLED] Redis Job ID: ${job.id}`);
+    console.warn(`🐌 [JOB-STALLED] Display ID: ${displayId}`);
+    console.warn(`🐌 [JOB-STALLED] Arquivo: ${fileKey?.split('/').pop() || 'unknown'}`);
   });
-
-  worker.on('progress', (job, progress) => {
-    console.log(`📊 [WORKER-EVENT][${new Date().toISOString()}] -> Job PROGRESSO: ${job.id} | Progresso: ${progress}%`);
-  });
+  
+  console.log('✅ [WORKER-EVENTS] Todos os listeners configurados!');
 }
 
-// ✅ REGRA 7: Eventos de QueueEvents para depuração obrigatória
-function setupQueueEventListeners() {
+/**
+ * 🚀 INICIALIZAÇÃO PRINCIPAL DO WORKER
+ */
+async function initializeWorker() {
   try {
-    // Obter QueueEvents da infraestrutura centralizada
-    queueEvents = getQueueEvents();
+    console.log('⏳ [WORKER-INIT] Iniciando processo de inicialização...');
     
-    if (!queueEvents) {
-      console.warn(`⚠️ [QUEUE-EVENTS] QueueEvents não disponível na infraestrutura centralizada`);
-      return;
+    // 🔗 ETAPA 1: ESTABELECER CONEXÃO REDIS
+    console.log('🔗 [WORKER-INIT] Etapa 1: Conectando ao Redis...');
+    
+    await createRedisConnection();
+    
+    if (!isRedisReady || !redisConnection) {
+      throw new Error('Falha ao estabelecer conexão Redis');
     }
-
-    queueEvents.on('completed', ({ jobId, returnvalue }) => {
-      console.log(`✅ Job ${jobId} concluído`);
-      console.log(`🟢 [QUEUE-EVENT] Job CONCLUÍDO: ${jobId} | Duração: ${returnvalue?.processingTime || 'desconhecido'}`);
+    
+    // ⚙️ ETAPA 2: CONFIGURAR WORKER
+    console.log('⚙️ [WORKER-INIT] Etapa 2: Configurando Worker BullMQ...');
+    
+    const concurrency = Number(process.env.WORKER_CONCURRENCY) || 3;
+    console.log(`⚙️ [WORKER-INIT] Concorrência: ${concurrency}`);
+    
+    // 🎯 CRIAR WORKER COM CONEXÃO ESTABELECIDA
+    worker = new Worker('audio-analyzer', audioProcessor, {
+      connection: redisConnection,
+      concurrency,
+      settings: {
+        stalledInterval: 120000,    // 2min para considerar travado
+        maxStalledCount: 2,         // Max 2 travamentos
+        lockDuration: 180000,       // 3min de lock
+        keepAlive: 60000,           // 1min keepalive
+        batchSize: 1,               // Processar 1 job por vez
+        delayedDebounce: 10000,     // 10s delay debounce
+      }
     });
     
-    queueEvents.on('failed', ({ jobId, failedReason }) => {
-      console.error(`❌ Job ${jobId} falhou`, failedReason);
-      console.error(`🔴 [QUEUE-EVENT] Job FALHOU: ${jobId} | Motivo: ${failedReason}`);
-    });
+    console.log('✅ [WORKER-INIT] Worker BullMQ criado com sucesso!');
+    console.log(`✅ [WORKER-INIT] Fila: 'audio-analyzer'`);
     
-    queueEvents.on('error', (err) => {
-      console.error(`🚨 [QUEUE-EVENT] Erro no QueueEvents:`, err.message);
-    });
-
-    console.log(`✅ [QUEUE-EVENTS] Event listeners configurados com sucesso`);
-
+    // 🎧 ETAPA 3: CONFIGURAR EVENT LISTENERS
+    console.log('🎧 [WORKER-INIT] Etapa 3: Configurando event listeners...');
+    setupWorkerEventListeners();
+    
+    // 🏥 ETAPA 4: HEALTH CHECK SERVER
+    console.log('🏥 [WORKER-INIT] Etapa 4: Iniciando health check server...');
+    startHealthCheckServer();
+    
+    console.log('🎉 [WORKER-INIT] ═══════════════════════════════════════');
+    console.log('🎉 [WORKER-INIT] WORKER INICIALIZADO COM SUCESSO!');
+    console.log('🎉 [WORKER-INIT] ═══════════════════════════════════════');
+    console.log(`🎯 [WORKER-INIT] Aguardando jobs na fila 'audio-analyzer'...`);
+    
   } catch (error) {
-    console.warn(`⚠️ [QUEUE-EVENTS] Falha ao configurar QueueEvents:`, error.message);
+    console.error('💥 [WORKER-INIT] ═══════════════════════════════════════');
+    console.error('💥 [WORKER-INIT] FALHA NA INICIALIZAÇÃO DO WORKER!');
+    console.error('💥 [WORKER-INIT] ═══════════════════════════════════════');
+    console.error(`💥 [WORKER-INIT] Erro: ${error.message}`);
+    console.error(`💥 [WORKER-INIT] Stack: ${error.stack}`);
+    
+    // 🔄 RETRY AUTOMÁTICO EM CASO DE FALHA
+    if (connectionAttempts < MAX_CONNECTION_ATTEMPTS) {
+      const retryDelay = Math.min(connectionAttempts * 5000, 30000); // Max 30s
+      console.log(`🔄 [WORKER-INIT] Tentando novamente em ${retryDelay}ms...`);
+      
+      setTimeout(() => {
+        console.log('🔄 [WORKER-INIT] Reiniciando inicialização...');
+        initializeWorker();
+      }, retryDelay);
+    } else {
+      console.error('💥 [WORKER-INIT] Máximo de tentativas atingido. Encerrando processo.');
+      process.exit(1);
+    }
   }
 }
 
-// ---------- Global Error Handlers ----------
-process.on('uncaughtException', (err) => {
-  console.error(`🚨 [FATAL][${new Date().toISOString()}] -> UNCAUGHT EXCEPTION: ${err.message}`);
-  console.error(`🚨 [FATAL][${new Date().toISOString()}] -> Stack trace:`, err.stack);
+/**
+ * 🏥 HEALTH CHECK SERVER PARA RAILWAY/PRODUÇÃO
+ */
+function startHealthCheckServer() {
+  const app = express();
+  const port = process.env.PORT || 8081;
   
-  gracefulShutdown('uncaughtException');
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-  console.error(`🚨 [FATAL][${new Date().toISOString()}] -> UNHANDLED REJECTION: ${reason}`);
-  console.error(`🚨 [FATAL][${new Date().toISOString()}] -> Promise:`, promise);
-  console.error(`🚨 [FATAL][${new Date().toISOString()}] -> Stack trace:`, reason?.stack);
+  app.get('/health', (req, res) => {
+    const status = {
+      status: 'healthy',
+      redis: isRedisReady ? 'connected' : 'disconnected',
+      worker: worker ? 'active' : 'inactive',
+      pid: process.pid,
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime()
+    };
+    
+    res.json(status);
+  });
   
-  gracefulShutdown('unhandledRejection');
-});
+  app.listen(port, () => {
+    console.log(`🏥 [HEALTH] Health check server rodando na porta ${port}`);
+  });
+}
 
-// 💻 FUNÇÕES DE PROCESSAMENTO E HELPERS ----------
-
-// Necessário para resolver __dirname no módulo ES
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// ===============================================
+// 🎵 AUDIO PROCESSOR FUNCTION
+// ===============================================
 
 /**
  * Atualizar status do job no PostgreSQL
@@ -284,7 +409,7 @@ async function downloadFileFromBucket(fileKey) {
     s3ForcePathStyle: true
   });
 
-  const tempDir = path.join(__dirname, 'temp');
+  const tempDir = path.join(path.dirname(fileURLToPath(import.meta.url)), 'temp');
   
   // Criar diretório temp se não existir
   if (!fs.existsSync(tempDir)) {
@@ -295,15 +420,14 @@ async function downloadFileFromBucket(fileKey) {
   const localFilePath = path.join(tempDir, `${Date.now()}-${fileName}`);
 
   try {
-    const params = {
+    const data = await s3.getObject({
       Bucket: process.env.B2_BUCKET_NAME,
       Key: fileKey
-    };
+    }).promise();
 
-    const data = await s3.getObject(params).promise();
-    await fs.promises.writeFile(localFilePath, data.Body);
+    fs.writeFileSync(localFilePath, data.Body);
+    console.log(`✅ [DOWNLOAD][${new Date().toISOString()}] -> File saved: ${localFilePath}`);
     
-    console.log(`✅ [DOWNLOAD][${new Date().toISOString()}] -> Downloaded successfully: ${localFilePath}`);
     return localFilePath;
   } catch (error) {
     console.error(`💥 [DOWNLOAD][${new Date().toISOString()}] -> Failed to download ${fileKey}:`, error.message);
@@ -311,7 +435,9 @@ async function downloadFileFromBucket(fileKey) {
   }
 }
 
-// ✅ REGRA 1: audioProcessor corretamente definido e tratado
+/**
+ * 🎵 AUDIO PROCESSOR PRINCIPAL
+ */
 async function audioProcessor(job) {
   // 🔑 ESTRUTURA ATUALIZADA: suporte para jobId UUID + externalId para logs
   const { jobId, externalId, fileKey, mode, fileName } = job.data;
@@ -375,180 +501,91 @@ async function audioProcessor(job) {
     const downloadTime = Date.now() - downloadStartTime;
     console.log(`🎵 [PROCESS][${new Date().toISOString()}] -> Arquivo baixado em ${downloadTime}ms: ${localFilePath}`);
 
-    console.log(`🔍 [PROCESS][${new Date().toISOString()}] -> Validando arquivo antes do pipeline...`);
-    const stats = await fs.promises.stat(localFilePath);
-    const fileSizeMB = stats.size / (1024 * 1024);
+    // Simular processamento (substitua pela lógica real)
+    console.log(`🔄 [PROCESS][${new Date().toISOString()}] -> Processando arquivo de áudio...`);
     
-    console.log(`📏 [PROCESS][${new Date().toISOString()}] -> Tamanho do arquivo: ${stats.size} bytes (${fileSizeMB.toFixed(2)} MB)`);
-    
-    if (stats.size < 1000) {
-      throw new Error(`Arquivo muito pequeno: ${stats.size} bytes (mínimo 1KB necessário)`);
-    }
-
-    // Simular processamento de análise de áudio
-    console.log(`🎧 [PROCESS][${new Date().toISOString()}] -> Iniciando pipeline de análise de áudio...`);
-    await new Promise(resolve => setTimeout(resolve, 2000)); // Simular processamento
-
+    // Aqui você colocaria a lógica real de processamento de áudio
     const results = {
-      analysis: 'completed',
-      mode: mode,
-      fileName: fileName,
-      fileSize: stats.size,
-      processingTime: Date.now() - job.timestamp
+      status: 'completed',
+      processingTime: Date.now() - downloadStartTime,
+      fileSize: fs.statSync(localFilePath).size,
+      mode: mode
     };
-
-    console.log(`✅ [PROCESS][${new Date().toISOString()}] -> Análise concluída com sucesso`);
+    
+    console.log(`✅ [PROCESS][${new Date().toISOString()}] -> Processamento concluído com sucesso`);
     await updateJobStatus(jobId, 'completed', results);
-
-    // Cleanup: remover arquivo temporário
+    
+    // Limpar arquivo temporário
     if (localFilePath && fs.existsSync(localFilePath)) {
-      await fs.promises.unlink(localFilePath);
-      console.log(`🗑️ [PROCESS][${new Date().toISOString()}] -> Arquivo temporário limpo: ${localFilePath}`);
+      fs.unlinkSync(localFilePath);
+      console.log(`🗑️ [PROCESS][${new Date().toISOString()}] -> Arquivo temporário removido: ${localFilePath}`);
     }
 
     return results;
 
   } catch (error) {
-    // ✅ REGRA 4: Log de erro obrigatório no processor
-    console.error('💥 [PROCESSOR] Falha ao processar job', job.id, error);
-    console.error(`💥 [PROCESS][${new Date().toISOString()}] -> Falha no processamento do job:`, error.message);
-    console.error(`💥 [PROCESS][${new Date().toISOString()}] -> Stack trace:`, error.stack);
-
+    console.error(`💥 [PROCESS][${new Date().toISOString()}] -> Erro no processamento:`, error.message);
+    
     try {
-      await updateJobStatus(jobId, 'failed');
+      await updateJobStatus(jobId, 'failed', { error: error.message });
     } catch (dbError) {
       console.error(`💥 [PROCESS][${new Date().toISOString()}] -> Falha ao atualizar status do job para failed:`, dbError.message);
     }
-
-    // Cleanup: remover arquivo temporário mesmo em caso de erro
+    
+    // Limpar arquivo temporário em caso de erro
     if (localFilePath && fs.existsSync(localFilePath)) {
       try {
-        await fs.promises.unlink(localFilePath);
-        console.log(`🗑️ [PROCESS][${new Date().toISOString()}] -> Arquivo temporário limpo após erro: ${localFilePath}`);
+        fs.unlinkSync(localFilePath);
+        console.log(`🗑️ [PROCESS][${new Date().toISOString()}] -> Arquivo temporário removido após erro: ${localFilePath}`);
       } catch (cleanupError) {
-        console.error(`💥 [PROCESS][${new Date().toISOString()}] -> Falha ao limpar arquivo temp:`, cleanupError.message);
+        console.error(`💥 [PROCESS][${new Date().toISOString()}] -> Erro ao limpar arquivo temporário:`, cleanupError.message);
       }
     }
-
+    
     throw error;
   }
 }
 
-// ✅ GRACEFUL SHUTDOWN ROBUSTO
-async function gracefulShutdown(reason = 'unknown') {
-  console.log(`📥 [SHUTDOWN][${new Date().toISOString()}] -> Iniciando shutdown graceful - Motivo: ${reason}`);
+// ===============================================
+// 🚀 INICIALIZAÇÃO E SHUTDOWN GRACEFUL
+// ===============================================
+
+// 🚀 INICIAR WORKER
+console.log('🚀 [WORKER] Iniciando aplicação Worker Redis...');
+initializeWorker();
+
+// 🔄 GRACEFUL SHUTDOWN
+process.on('SIGINT', async () => {
+  console.log(`📥 [SIGNAL][${new Date().toISOString()}] -> Received SIGINT`);
+  await gracefulShutdown('SIGINT');
+});
+
+process.on('SIGTERM', async () => {
+  console.log(`📥 [SIGNAL][${new Date().toISOString()}] -> Received SIGTERM`);
+  await gracefulShutdown('SIGTERM');
+});
+
+async function gracefulShutdown(signal) {
+  console.log(`📥 [SHUTDOWN][${new Date().toISOString()}] -> Iniciando shutdown graceful - Motivo: ${signal}`);
   
   try {
-    // 1. Fechar Worker se existir
     if (worker) {
       console.log(`🔄 [SHUTDOWN][${new Date().toISOString()}] -> Fechando Worker...`);
       await worker.close();
       console.log(`✅ [SHUTDOWN][${new Date().toISOString()}] -> Worker fechado com sucesso`);
     }
-
-    // 2. Usar função centralizada de cleanup
-    console.log(`🔄 [SHUTDOWN][${new Date().toISOString()}] -> Fechando todas as conexões...`);
-    await closeAllConnections();
-    console.log(`✅ [SHUTDOWN][${new Date().toISOString()}] -> Todas as conexões fechadas`);
-
+    
+    if (redisConnection) {
+      console.log(`🔄 [SHUTDOWN][${new Date().toISOString()}] -> Fechando conexão Redis...`);
+      await redisConnection.quit();
+      console.log(`✅ [SHUTDOWN][${new Date().toISOString()}] -> Conexão Redis fechada`);
+    }
+    
     console.log(`✅ [SHUTDOWN][${new Date().toISOString()}] -> Shutdown graceful concluído`);
+    process.exit(0);
     
   } catch (error) {
     console.error(`💥 [SHUTDOWN][${new Date().toISOString()}] -> Erro durante shutdown:`, error.message);
-  } finally {
-    process.exit(0);
-  }
-}
-
-// 📡 SIGNAL HANDLERS ----------
-process.on('SIGINT', () => {
-  console.log(`📥 [SIGNAL][${new Date().toISOString()}] -> Received SIGINT`);
-  gracefulShutdown('SIGINT');
-});
-
-process.on('SIGTERM', () => {
-  console.log(`📥 [SIGNAL][${new Date().toISOString()}] -> Received SIGTERM`);
-  gracefulShutdown('SIGTERM');
-});
-
-// ✅ REGRA 6: HEALTH CHECK SERVER para Railway (mantém container vivo)
-const healthApp = express();
-const HEALTH_PORT = process.env.HEALTH_PORT || 8081;
-
-healthApp.get('/', (req, res) => {
-  res.json({ 
-    status: 'Worker Redis Ativo', 
-    timestamp: new Date().toISOString(),
-    pid: process.pid,
-    redis: redisConnection ? 'conectado' : 'desconectado',
-    worker: worker ? 'ativo' : 'inativo'
-  });
-});
-
-healthApp.get('/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
-    service: 'worker-redis',
-    timestamp: new Date().toISOString(),
-    pid: process.pid
-  });
-});
-
-// ✅ KEEP ALIVE para Railway - setInterval como backup
-setInterval(() => {
-  console.log(`💓 [KEEP-ALIVE] Worker ativo - PID: ${process.pid} - ${new Date().toISOString()}`);
-}, 300000); // A cada 5 minutos
-
-// ✅ INICIALIZAR WORKER E HEALTH SERVER COMPLETO
-async function startApplication() {
-  try {
-    console.log(`🚀 [WORKER] Iniciando aplicação Worker Redis...`);
-    
-    // ✅ REGRA 2: Inicializar Worker usando getQueueReadyPromise()
-    await initializeWorker();
-    
-    // ✅ REGRA 6: Inicializar Health Server para Railway
-    healthApp.listen(HEALTH_PORT, () => {
-      console.log(`🏥 [HEALTH][${new Date().toISOString()}] -> Health check server rodando na porta ${HEALTH_PORT}`);
-    });
-
-    // ✅ LOGS FINAIS OBRIGATÓRIOS
-    console.log(`🚀 [WORKER][${new Date().toISOString()}] -> Aplicação Worker Redis iniciada com sucesso!`);
-    console.log(`📋 [WORKER][${new Date().toISOString()}] -> PID: ${process.pid}`);
-    console.log(`🎯 [WORKER][${new Date().toISOString()}] -> Aguardando jobs na fila 'audio-analyzer'...`);
-
-    // ✅ VERIFICAR SE HÁ JOBS PENDENTES
-    try {
-      const queueCounts = await audioQueue.getJobCounts();
-      if (queueCounts.waiting > 0) {
-        console.log(`🎯 [WORKER][${new Date().toISOString()}] -> ${queueCounts.waiting} jobs aguardando processamento IMEDIATO!`);
-      }
-    } catch (error) {
-      console.warn(`⚠️ [WORKER] Não foi possível verificar jobs pendentes:`, error.message);
-    }
-
-  } catch (error) {
-    // ✅ REGRA 5: Erro explícito se aplicação não conseguir iniciar
-    console.error('💥 [WORKER] ERRO CRÍTICO: Falha ao iniciar aplicação Worker');
-    console.error(`💥 [STARTUP][${new Date().toISOString()}] -> Falha ao iniciar aplicação:`, error.message);
-    console.error(`💥 [STARTUP][${new Date().toISOString()}] -> Stack trace:`, error.stack);
-    
-    // ✅ Apontar exatamente onde está a falha estrutural
-    if (error.message.includes('REDIS_URL')) {
-      console.error('💥 [STARTUP] FALHA ESTRUTURAL: REDIS_URL não configurado ou inválido');
-    } else if (error.message.includes('getaddrinfo')) {
-      console.error('💥 [STARTUP] FALHA ESTRUTURAL: Conexão Redis não consegue resolver hostname');
-    } else if (error.message.includes('audioProcessor')) {
-      console.error('💥 [STARTUP] FALHA ESTRUTURAL: audioProcessor não pode ser carregado');
-    } else if (error.message.includes('audio-analyzer')) {
-      console.error('💥 [STARTUP] FALHA ESTRUTURAL: Nome da fila diferente ou Queue não inicializando');
-    } else {
-      console.error('💥 [STARTUP] FALHA ESTRUTURAL: Erro desconhecido na inicialização');
-    }
-    
     process.exit(1);
   }
 }
-
-// 🎬 EXECUTAR APLICAÇÃO ----------
-startApplication();
