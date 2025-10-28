@@ -438,24 +438,30 @@ worker.on('ready', () => {
   console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> ✅ Arquitetura: Redis-only (sem conflitos legacy)`);
 });
 
-// 🚀 OTIMIZAÇÃO: Logs mais informativos para debugging
+// � EVENTOS DE AUDITORIA EXATOS CONFORME SOLICITADO
+worker.on('waiting', (jobId) => console.log('[EVENT] 🟡 Job WAITING:', jobId));
+
 worker.on('active', (job) => {
+  console.log('[EVENT] 🟢 Job ACTIVE:', job.id);
   const { jobId, fileKey } = job.data;
   console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🎯 PROCESSANDO: ${job.id} | JobID: ${jobId?.substring(0,8)} | File: ${fileKey?.split('/').pop()}`);
 });
 
 worker.on('completed', (job, result) => {
+  console.log('[EVENT] ✅ Job COMPLETED:', job.id);
   const { jobId, fileKey } = job.data;
   const duration = Date.now() - job.timestamp;
   console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🎉 CONCLUÍDO: ${job.id} | JobID: ${jobId?.substring(0,8)} | Tempo: ${duration}ms | File: ${fileKey?.split('/').pop()}`);
 });
 
 worker.on('failed', (job, err) => {
+  console.error('[EVENT] 🔴 Job FAILED:', job.id, err);
   const { jobId, fileKey } = job.data;
   console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> 💥 FALHADO: ${job.id} | JobID: ${jobId?.substring(0,8)} | File: ${fileKey?.split('/').pop()} | Erro: ${err.message}`);
 });
 
 worker.on('error', (err) => {
+  console.error('[EVENT] 🚨 Worker Error:', err);
   console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> 🚨 ERRO NO WORKER: ${err.message}`);
   console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> Stack trace:`, err.stack);
 });

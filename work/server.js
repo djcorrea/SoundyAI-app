@@ -1,6 +1,7 @@
 // server.js - API PRINCIPAL DO SOUNDYAI (REDIS WORKERS ONLY)
 // 🚀 ARQUITETURA REFATORADA: Apenas API - Workers Redis responsáveis por processamento
 
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 
