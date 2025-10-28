@@ -60,72 +60,68 @@ function validateFileType(fileKey) {
 }
 
 /**
- * ✅ FUNÇÃO SIMPLIFICADA: Criar job no banco e enfileirar
- * Foco: Garantir que fila esteja pronta antes de enfileirar
+ * ✅ FUNÇÃO CORRIGIDA: Enfileirar PRIMEIRO, PostgreSQL DEPOIS
+ * Ordem obrigatória: Redis → PostgreSQL (previne jobs órfãos)
  */
 async function createJobInDatabase(fileKey, mode, fileName) {
   const jobId = randomUUID();
   
-  console.log(`📋 [JOB-CREATE] Criando job: ${jobId} | fileKey: ${fileKey} | mode: ${mode}`);
+  console.log(`📋 [JOB-CREATE] Iniciando job: ${jobId} | fileKey: ${fileKey} | mode: ${mode}`);
 
   try {
-    // ✅ CRIAR JOB NO BANCO PRIMEIRO
-    const result = await pool.query(
-      `INSERT INTO jobs (id, file_key, mode, status, file_name, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING *`,
-      [jobId, fileKey, mode, "queued", fileName || null]
-    );
-
-    console.log(`✅ [JOB-CREATE] Job criado no PostgreSQL:`, result.rows[0]);
-
-    // ✅ GARANTIR QUE FILA ESTÁ PRONTA ANTES DE ENFILEIRAR
+    // ✅ ETAPA 1: GARANTIR QUE FILA ESTÁ PRONTA
     if (!queueReady) {
       console.log('⏳ [JOB-CREATE] Aguardando fila inicializar...');
       await queueInit;
       console.log('✅ [JOB-CREATE] Fila pronta para enfileiramento!');
     }
 
-    // ✅ OBTER INSTÂNCIA DA FILA
+    // ✅ ETAPA 2: ENFILEIRAR PRIMEIRO (REDIS)
     const queue = getAudioQueue();
     console.log('📩 [API] Enfileirando job...');
     
-    // ✅ ENFILEIRAR COM TRY/CATCH ESPECÍFICO
-    try {
-      const redisJob = await queue.add('process-audio', {
-        jobId: jobId,
-        fileKey,
-        fileName,
-        mode
-      }, {
-        jobId: `audio-${jobId}-${Date.now()}`,
-        priority: 1,
-        attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 2000,
-        },
-        removeOnComplete: 10,
-        removeOnFail: 5,
-      });
-      
-      console.log(`✅ [API] Job enfileirado com sucesso: ${redisJob.id}`);
-      
-      return result.rows[0];
-      
-    } catch (enqueueError) {
-      console.error(`❌ [API] Erro ao enfileirar job:`, enqueueError.message);
-      
-      // Atualizar status no banco para refletir falha
-      await pool.query(
-        `UPDATE jobs SET status = 'failed', updated_at = NOW() WHERE id = $1`,
-        [jobId]
-      );
-      
-      throw new Error(`Falha ao enfileirar job: ${enqueueError.message}`);
-    }
+    const redisJob = await queue.add('process-audio', {
+      jobId: jobId,
+      fileKey,
+      fileName,
+      mode
+    }, {
+      jobId: `audio-${jobId}-${Date.now()}`,
+      priority: 1,
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 2000,
+      },
+      removeOnComplete: 10,
+      removeOnFail: 5,
+    });
     
+    console.log(`✅ [API] Job enfileirado com sucesso: ${redisJob.id}`);
+
+    // ✅ ETAPA 3: GRAVAR NO POSTGRESQL DEPOIS
+    console.log('📝 [API] Gravando no Postgres...');
+    
+    const result = await pool.query(
+      `INSERT INTO jobs (id, file_key, mode, status, file_name, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING *`,
+      [jobId, fileKey, mode, "queued", fileName || null]
+    );
+
+    console.log(`✅ [API] Gravado no PostgreSQL:`, result.rows[0]);
+    console.log('🎯 [API] Tudo pronto - Job enfileirado e registrado!');
+
+    return result.rows[0];
+      
   } catch (error) {
     console.error(`💥 [JOB-CREATE] Erro crítico:`, error.message);
+    
+    // Se erro foi no PostgreSQL, job já está no Redis (o que é seguro)
+    // Worker pode processar e atualizar status depois
+    if (error.message.includes('PostgreSQL') || error.code?.startsWith('2')) {
+      console.warn(`⚠️ [JOB-CREATE] Job ${jobId} enfileirado mas falha no PostgreSQL - Worker pode recuperar`);
+    }
+    
     throw new Error(`Erro ao criar job: ${error.message}`);
   }
 }
