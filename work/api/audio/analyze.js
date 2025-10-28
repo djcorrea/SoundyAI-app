@@ -107,10 +107,12 @@ async function createJobInDatabase(fileKey, mode, fileName) {
     // 🚀 APÓS SALVAR NO POSTGRES → ENFILEIRAR NO REDIS
     try {
       console.log(`📤 [JOB-ENQUEUE][${new Date().toISOString()}] -> Starting job enqueue process...`);
+      console.log('📩 [API] Enfileirando job...');
       console.log('[API] Queue pronta. Enfileirando...');
       
       // Obter queue centralizada
       const audioQueue = getAudioQueue();
+      console.log('[API] 🔍 Obteve audioQueue - verificando se é a mesma que Worker usa...');
       
       // 🔍 VERIFICAR STATUS DA FILA ANTES DE ADICIONAR JOB
       const queueCountsBefore = await audioQueue.getJobCounts();
@@ -125,6 +127,9 @@ async function createJobInDatabase(fileKey, mode, fileName) {
       
       console.log(`🎯 [JOB-ENQUEUE][${new Date().toISOString()}] -> Adding job to queue with ID: ${uniqueJobId}`);
       console.log('[API] 📤 Adicionando job com await audioQueue.add()...');
+      console.log('[API] 🎯 Nome da fila: audio-analyzer (mesmo que Worker)');
+      console.log('[API] 🎯 Job name: process-audio');
+      console.log('[API] 🎯 Payload:', { jobId, fileKey, fileName, mode });
       
       const redisJob = await audioQueue.add('process-audio', {
         jobId: jobId,
@@ -143,6 +148,7 @@ async function createJobInDatabase(fileKey, mode, fileName) {
         removeOnFail: 5,
       });
       
+      console.log('✅ [API] Job enfileirado:', redisJob.id);
       console.log('[API] ✅ Job enfileirado:', redisJob.id);
       console.log(`✅ [JOB-ENQUEUE][${new Date().toISOString()}] -> Job successfully enqueued!`);
       console.log(`📋 [JOB-ENQUEUE][${new Date().toISOString()}] -> Redis Job ID: ${redisJob.id} | JobID: ${jobId}`);
@@ -265,6 +271,7 @@ router.post("/analyze", async (req, res) => {
   const startTime = Date.now();
 
   // ✅ LOG OBRIGATÓRIO: Início da rota
+  console.log('🚀 [API] /analyze chamada');
   console.log('[API] 🚀 Rota /analyze chamada');
   
   try {
