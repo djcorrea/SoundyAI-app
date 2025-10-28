@@ -248,7 +248,8 @@ export function getAudioQueue() {
 export function getQueueEvents() {
   const events = globalThis[EVENTS_KEY];
   if (!events) {
-    throw new Error('🚨 Queue events not initialized. Call getQueueReadyPromise() first.');
+    console.warn('🚨 Queue events not initialized. Call getQueueReadyPromise() first.');
+    return null; // Retorna null em vez de lançar erro para não quebrar o Worker
   }
   return events;
 }
