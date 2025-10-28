@@ -71,7 +71,8 @@ async function initializeWorker() {
     // ✅ REGRA 1: Importação correta do audioProcessor - DEFINIDO LOCALMENTE
     console.log(`🔧 [WORKER-INIT][${new Date().toISOString()}] -> Registrando audioProcessor...`);
     
-    // ✅ CRIAR WORKER COM REGRAS OBRIGATÓRIAS
+    // ✅ CRIAR WORKER COM REGRAS OBRIGATÓRIAS  
+    // ✅ CORREÇÃO CRÍTICA: Worker registra handler para qualquer job na fila 'audio-analyzer'
     worker = new Worker('audio-analyzer', audioProcessor, { 
       connection: redisConnection, 
       concurrency,
@@ -298,12 +299,19 @@ async function audioProcessor(job) {
   
   // ✅ REGRA 4: LOG OBRIGATÓRIO - Worker recebendo job
   console.log('🎧 [WORKER] Recebendo job', job.id, job.data);
+  console.log(`🎧 [WORKER-DEBUG] Job name: '${job.name}' | Esperado: 'process-audio'`);
+  
+  // ✅ VERIFICAÇÃO CRÍTICA: Confirmar se é o job correto
+  if (job.name !== 'process-audio') {
+    console.warn(`⚠️ [WORKER] Job com nome inesperado: '${job.name}' (esperado: 'process-audio')`);
+  }
   
   console.log(`🎵 [PROCESS][${new Date().toISOString()}] -> INICIANDO job ${job.id}`, {
     jobId,
     fileKey,
     mode,
     fileName,
+    jobName: job.name,
     timestamp: new Date(job.timestamp).toISOString(),
     attempts: job.attemptsMade + 1
   });
