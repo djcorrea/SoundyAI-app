@@ -51,6 +51,56 @@ app.get('/health', (req, res) => {
   });
 });
 
+// 📊 ENDPOINT DE MONITORAMENTO DA FILA - ADICIONADO CONFORME SOLICITADO
+app.get('/health/queue', async (req, res) => {
+  try {
+    // Importar módulos necessários
+    const { Queue } = await import('bullmq');
+    const { getRedisConnection, testRedisConnection, getConnectionMetadata } = await import('./lib/redis-connection.js');
+    
+    // Teste de conexão
+    const connectionTest = await testRedisConnection();
+    const metadata = getConnectionMetadata();
+    
+    // Criar queue para monitoramento
+    const redis = getRedisConnection();
+    const audioQueue = new Queue('audio-analyzer', { connection: redis });
+    
+    // Obter estatísticas da fila
+    const jobCounts = await audioQueue.getJobCounts();
+    const isPaused = await audioQueue.isPaused();
+    const isReady = await audioQueue.isReady();
+    const workers = await audioQueue.getWorkers();
+    
+    // Status de saúde
+    const isHealthy = connectionTest.status === 'healthy' && isReady && !isPaused;
+    
+    res.status(isHealthy ? 200 : 503).json({
+      status: isHealthy ? 'healthy' : 'unhealthy',
+      timestamp: new Date().toISOString(),
+      queue: {
+        name: 'audio-analyzer',
+        isPaused,
+        isReady,
+        jobCounts,
+        workers: workers.length
+      },
+      redis: {
+        connection: connectionTest,
+        metadata
+      }
+    });
+    
+  } catch (error) {
+    console.error(`[HEALTH-QUEUE][${new Date().toISOString()}] -> 🚨 Erro no health check:`, error);
+    res.status(500).json({
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      error: error.message
+    });
+  }
+});
+
 // ---------- Root endpoint ----------
 app.get('/', (req, res) => {
   res.json({

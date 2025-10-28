@@ -26,6 +26,20 @@ console.log(`[API-REDIS][${new Date().toISOString()}] -> � Connection Test:`, 
 
 const audioQueue = new Queue('audio-analyzer', { connection: redisConnection });
 
+// 🔍 VERIFICAÇÃO INICIAL: Garantir que a fila não está pausada
+(async () => {
+  try {
+    await audioQueue.resume();
+    const isActive = await audioQueue.isReady();
+    console.log(`[API-INIT][${new Date().toISOString()}] -> ▶️ Queue resumed na inicialização | Active: ${isActive}`);
+    
+    const queueCounts = await audioQueue.getJobCounts();
+    console.log(`[API-INIT][${new Date().toISOString()}] -> 📊 Queue state inicial:`, queueCounts);
+  } catch (err) {
+    console.error(`[API-INIT][${new Date().toISOString()}] -> 🚨 Erro ao verificar queue:`, err.message);
+  }
+})();
+
 const router = express.Router();
 
 // 🔍 INSTRUMENTAÇÃO: Verificar configuração Redis na inicialização
@@ -83,14 +97,40 @@ async function createJobInDatabase(fileKey, mode, fileName) {
       // Enfileirar no Redis mesmo em modo mock - IMPLEMENTAÇÃO EXATA CONFORME SOLICITADO
       try {
         console.log('[DEBUG] Chegou no ponto antes do queue.add()');
-        const redisJob = await audioQueue.add('audio-analyzer', {
+        
+        // 🔍 VERIFICAR STATUS DA FILA ANTES DE ADICIONAR JOB
+        const queueCounts = await audioQueue.getJobCounts();
+        console.log(`[API-QUEUE][${new Date().toISOString()}] -> 📊 Queue counts antes:`, queueCounts);
+        
+        // ✅ GARANTIR QUE A FILA NÃO ESTÁ PAUSADA
+        await audioQueue.resume();
+        console.log(`[API-QUEUE][${new Date().toISOString()}] -> ▶️ Queue resumed (não pausada)`);
+        
+        // ✅ CORRIGIDO: Job name genérico, queue name específico
+        const redisJob = await audioQueue.add('process-audio', {
           jobId: jobId,
           fileKey,
           fileName,
           mode
+        }, {
+          removeOnComplete: 10,
+          removeOnFail: 5,
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 2000,
+          },
+          // 🔍 JOB OPTIONS PARA DEBUG
+          priority: 1,
+          jobId: `audio-${jobId}-${Date.now()}` // Job ID único para tracking
         });
+        
         console.log('[DEBUG] Passou do queue.add()');
-        console.log(`[BACKEND] ✅ Job adicionado à fila Redis com ID: ${redisJob.id}`);
+        console.log(`[API-QUEUE][${new Date().toISOString()}] -> ✅ Job criado: ${redisJob.id} | JobID: ${jobId}`);
+        
+        // 🔍 VERIFICAR STATUS DA FILA APÓS ADICIONAR JOB
+        const queueCountsAfter = await audioQueue.getJobCounts();
+        console.log(`[API-QUEUE][${new Date().toISOString()}] -> 📊 Queue counts depois:`, queueCountsAfter);
         
       } catch (err) {
         console.error('[ERROR][QUEUE.ADD]', err);
@@ -121,14 +161,40 @@ async function createJobInDatabase(fileKey, mode, fileName) {
     // 🚀 APÓS SALVAR NO POSTGRES → ENFILEIRAR NO REDIS - IMPLEMENTAÇÃO EXATA CONFORME SOLICITADO
     try {
       console.log('[DEBUG] Chegou no ponto antes do queue.add()');
-      const redisJob = await audioQueue.add('audio-analyzer', {
+      
+      // 🔍 VERIFICAR STATUS DA FILA ANTES DE ADICIONAR JOB
+      const queueCounts = await audioQueue.getJobCounts();
+      console.log(`[API-QUEUE][${new Date().toISOString()}] -> 📊 Queue counts antes:`, queueCounts);
+      
+      // ✅ GARANTIR QUE A FILA NÃO ESTÁ PAUSADA
+      await audioQueue.resume();
+      console.log(`[API-QUEUE][${new Date().toISOString()}] -> ▶️ Queue resumed (não pausada)`);
+      
+      // ✅ CORRIGIDO: Job name genérico, queue name específico
+      const redisJob = await audioQueue.add('process-audio', {
         jobId: jobId,
         fileKey,
         fileName,
         mode
+      }, {
+        removeOnComplete: 10,
+        removeOnFail: 5,
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 2000,
+        },
+        // 🔍 JOB OPTIONS PARA DEBUG
+        priority: 1,
+        jobId: `audio-${jobId}-${Date.now()}` // Job ID único para tracking
       });
+      
       console.log('[DEBUG] Passou do queue.add()');
-      console.log(`[BACKEND] ✅ Job adicionado à fila Redis com ID: ${redisJob.id}`);
+      console.log(`[API-QUEUE][${new Date().toISOString()}] -> ✅ Job criado: ${redisJob.id} | JobID: ${jobId}`);
+      
+      // 🔍 VERIFICAR STATUS DA FILA APÓS ADICIONAR JOB
+      const queueCountsAfter = await audioQueue.getJobCounts();
+      console.log(`[API-QUEUE][${new Date().toISOString()}] -> 📊 Queue counts depois:`, queueCountsAfter);
 
     } catch (err) {
       console.error('[ERROR][QUEUE.ADD]', err);
