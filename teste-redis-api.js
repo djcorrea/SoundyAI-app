@@ -4,7 +4,7 @@
 
 import "dotenv/config";
 import { Queue } from 'bullmq';
-import IORedis from 'ioredis';
+import Redis from 'ioredis';
 
 console.log('🔍 TESTE DE CONEXÃO REDIS API');
 console.log('============================');
@@ -17,9 +17,7 @@ console.log('');
 try {
   console.log('🚀 Criando conexão Redis...');
   
-  const redisConnection = new IORedis(process.env.REDIS_URL, {
-    password: process.env.REDIS_PASSWORD,
-    tls: {},
+  const redisConnection = new Redis(process.env.REDIS_URL, {
     maxRetriesPerRequest: null,
     enableAutoPipelining: true,
     connectTimeout: 10000,

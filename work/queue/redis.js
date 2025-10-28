@@ -165,7 +165,6 @@ export const createWorker = (
     },
     // 🛡️ CONNECTION OPTIMIZATION 
     opts: {
-      maxRetriesPerRequest: 2,   // Menos retries = menos requests
       retryDelayOnFailover: 1000, // 1s delay em failover
       lazyConnect: true          // Conecta apenas quando necessário
     }

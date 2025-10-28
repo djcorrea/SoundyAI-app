@@ -3,7 +3,7 @@
 
 import "dotenv/config";
 import BullMQ from 'bullmq';
-import IORedis from 'ioredis';
+import Redis from 'ioredis';
 import pool from './db.js';
 import AWS from "aws-sdk";
 import fs from "fs";
@@ -34,7 +34,6 @@ if (!process.env.REDIS_URL) {
 console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🔗 Conectando ao Redis...`);
 
 // 🔗 Conexão Redis otimizada para Railway - USA APENAS REDIS_URL
-import Redis from 'ioredis';
 const redisConnection = new Redis(process.env.REDIS_URL, {
   maxRetriesPerRequest: null,  // ✅ Obrigatório para BullMQ
   lazyConnect: true,
@@ -52,7 +51,6 @@ const redisConnection = new Redis(process.env.REDIS_URL, {
     return delay;
   },
   
-  maxRetriesPerRequest: 3,
   retryDelayOnFailover: 2000,
 });
 
