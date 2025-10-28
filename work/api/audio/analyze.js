@@ -26,17 +26,25 @@ console.log(`[API-REDIS][${new Date().toISOString()}] -> � Connection Test:`, 
 
 const audioQueue = new Queue('audio-analyzer', { connection: redisConnection });
 
-// 🔍 VERIFICAÇÃO INICIAL: Garantir que a fila não está pausada
+// 🔍 VERIFICAÇÃO INICIAL: Aguardar queue ficar pronta
 (async () => {
   try {
+    console.log(`[API-INIT][${new Date().toISOString()}] -> ⏳ Aguardando queue ficar pronta...`);
+    
+    // ✅ CORRIGIDO: waitUntilReady() em vez de isReady()
+    await audioQueue.waitUntilReady();
+    console.log(`[API-INIT][${new Date().toISOString()}] -> ✅ Queue está pronta!`);
+    
+    // Garantir que não está pausada
     await audioQueue.resume();
-    const isActive = await audioQueue.isReady();
-    console.log(`[API-INIT][${new Date().toISOString()}] -> ▶️ Queue resumed na inicialização | Active: ${isActive}`);
+    console.log(`[API-INIT][${new Date().toISOString()}] -> ▶️ Queue resumed na inicialização`);
     
     const queueCounts = await audioQueue.getJobCounts();
     console.log(`[API-INIT][${new Date().toISOString()}] -> 📊 Queue state inicial:`, queueCounts);
+    
   } catch (err) {
-    console.error(`[API-INIT][${new Date().toISOString()}] -> 🚨 Erro ao verificar queue:`, err.message);
+    console.error(`[API-INIT][${new Date().toISOString()}] -> 🚨 Erro na inicialização da queue:`, err.message);
+    console.error(`[API-INIT][${new Date().toISOString()}] -> Stack:`, err.stack);
   }
 })();
 

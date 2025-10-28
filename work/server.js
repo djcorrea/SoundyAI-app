@@ -66,14 +66,16 @@ app.get('/health/queue', async (req, res) => {
     const redis = getRedisConnection();
     const audioQueue = new Queue('audio-analyzer', { connection: redis });
     
+    // ✅ CORRIGIDO: Aguardar queue ficar pronta
+    await audioQueue.waitUntilReady();
+    
     // Obter estatísticas da fila
     const jobCounts = await audioQueue.getJobCounts();
     const isPaused = await audioQueue.isPaused();
-    const isReady = await audioQueue.isReady();
     const workers = await audioQueue.getWorkers();
     
-    // Status de saúde
-    const isHealthy = connectionTest.status === 'healthy' && isReady && !isPaused;
+    // Status de saúde (queue ready implícito já que waitUntilReady passou)
+    const isHealthy = connectionTest.status === 'healthy' && !isPaused;
     
     res.status(isHealthy ? 200 : 503).json({
       status: isHealthy ? 'healthy' : 'unhealthy',
