@@ -1,16 +1,14 @@
 /**
  * 🔥 WORKER REDIS ROBUSTO - Versão Centralizada e Estável
- * Conexão Redis centralizada com lib/redis-connection.js
- * 
- * ✅ CORRIGIDO: Sem variáveis redisConnection indefinidas
- * ✅ CORRIGIDO: Conexão centralizada e reutilizável
+ * ✅ CORRIGIDO: Usa mesma infraestrutura centralizada que API (lib/queue.js)
+ * ✅ CORRIGIDO: Mesma conexão Redis e nome de fila que API
  * ✅ CORRIGIDO: Worker inicia após conexão estar pronta
  * ✅ CORRIGIDO: Encerramento seguro protegido
  */
 
 import "dotenv/config";
-import { Worker, Queue } from 'bullmq';
-import { getRedisConnection, testRedisConnection, closeRedisConnection } from './lib/redis-connection.js';
+import { Worker } from 'bullmq';
+import { getQueueReadyPromise, getAudioQueue, getRedisConnection } from './lib/queue.js';
 import pool from './db.js';
 import AWS from "aws-sdk";
 import fs from "fs";
@@ -38,54 +36,40 @@ let redisConnection = null;
 let audioQueue = null;
 let worker = null;
 
-// 🚀 INICIALIZAÇÃO CENTRALIZADA E ROBUSTA
+// 🚀 INICIALIZAÇÃO CENTRALIZADA E ROBUSTA - USA MESMA INFRAESTRUTURA QUE API
 async function initializeWorker() {
   try {
-    console.log(`⏳ [WORKER-INIT][${new Date().toISOString()}] -> Initializing Redis connection...`);
+    console.log(`⏳ [WORKER-INIT][${new Date().toISOString()}] -> Initializing using centralized queue system (SAME AS API)...`);
     
-    // 1. Obter conexão Redis centralizada
+    // ✅ USAR MESMA INFRAESTRUTURA QUE API (lib/queue.js)
+    console.log(`📋 [WORKER-INIT][${new Date().toISOString()}] -> Getting queue ready promise (same as API)...`);
+    const queueResult = await getQueueReadyPromise();
+    console.log(`✅ [WORKER-INIT][${new Date().toISOString()}] -> Queue centralized system ready:`, queueResult.timestamp);
+    
+    // ✅ OBTER MESMA INSTÂNCIA DE QUEUE QUE API USA
+    audioQueue = getAudioQueue();
+    console.log(`✅ [WORKER-INIT][${new Date().toISOString()}] -> Using SAME audioQueue instance as API`);
+    
+    // ✅ OBTER MESMA CONEXÃO REDIS QUE API USA
     redisConnection = getRedisConnection();
-    console.log(`✅ [WORKER-INIT][${new Date().toISOString()}] -> Redis connection obtained`);
+    console.log(`✅ [WORKER-INIT][${new Date().toISOString()}] -> Using SAME Redis connection as API`);
     
-    // 2. Testar conectividade
-    const connectionTest = await testRedisConnection();
-    console.log(`🔍 [WORKER-INIT][${new Date().toISOString()}] -> Connection test:`, connectionTest);
+    // ✅ VERIFICAR SE É EXATAMENTE A MESMA FILA
+    console.log(`🔍 [WORKER-INIT][${new Date().toISOString()}] -> Verifying queue name is 'audio-analyzer'...`);
     
-    if (connectionTest.status !== 'healthy') {
-      throw new Error(`Redis connection unhealthy: ${connectionTest.error}`);
-    }
-    
-    // 3. Criar Queue BullMQ
-    console.log(`📋 [WORKER-INIT][${new Date().toISOString()}] -> Creating audio-analyzer queue...`);
-    audioQueue = new Queue('audio-analyzer', { 
-      connection: redisConnection,
-      defaultJobOptions: {
-        removeOnComplete: 5,
-        removeOnFail: 10,
-        attempts: 2,
-        backoff: {
-          type: 'fixed',
-          delay: 10000
-        },
-        ttl: 300000,
-        delay: 0
-      }
-    });
-    
-    // 4. Aguardar queue estar pronta
-    console.log(`⏳ [WORKER-INIT][${new Date().toISOString()}] -> Waiting for queue to be ready...`);
-    await audioQueue.waitUntilReady();
-    console.log(`✅ [WORKER-INIT][${new Date().toISOString()}] -> Queue is ready!`);
+    // ✅ VERIFICAR SE É EXATAMENTE A MESMA FILA
+    console.log(`🔍 [WORKER-INIT][${new Date().toISOString()}] -> Verifying queue name is 'audio-analyzer'...`);
     
     // 5. Verificar status inicial da queue
     const queueCounts = await audioQueue.getJobCounts();
     console.log(`📊 [WORKER-INIT][${new Date().toISOString()}] -> Initial queue status:`, queueCounts);
+    console.log(`🎯 [WORKER-INIT][${new Date().toISOString()}] -> CONFIRMED: Same 'audio-analyzer' queue as API`);
     
     // 6. Configuração de concorrência
     const concurrency = Number(process.env.WORKER_CONCURRENCY) || 5;
     console.log(`⚙️ [WORKER-INIT][${new Date().toISOString()}] -> Creating Worker with concurrency: ${concurrency}`);
 
-    // 7. Criar Worker BullMQ
+    // 7. Criar Worker BullMQ usando MESMA conexão que API
     worker = new Worker('audio-analyzer', audioProcessor, { 
       connection: redisConnection, 
       concurrency,
@@ -262,6 +246,11 @@ async function downloadFileFromBucket(fileKey) {
 // 🎵 PROCESSOR PRINCIPAL DO AUDIO ----------
 async function audioProcessor(job) {
   const { jobId, fileKey, mode, fileName } = job.data;
+  
+  // ✅ LOG OBRIGATÓRIO: Worker recebendo job
+  console.log('🎧 [WORKER] Recebendo job process-audio', job.id);
+  console.log(`🎧 [WORKER] Recebendo job process-audio ${job.id}`);
+  
   console.log(`🎵 [PROCESS][${new Date().toISOString()}] -> STARTING job ${job.id}`, {
     jobId,
     fileKey,
