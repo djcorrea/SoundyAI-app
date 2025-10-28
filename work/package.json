@@ -2,7 +2,10 @@
   "name": "worker",
   "version": "1.0.0",
   "scripts": {
-    "start": "node index.js",
+    "start": "node server.js",
+    "worker": "node worker-redis.js",
+    "start:web": "node server.js",
+    "start:worker": "node worker-redis.js",
     "perf:baseline": "node --expose-gc tools/perf/runner.js --config tools/perf/bench.config.json --label baseline",
     "perf:exp": "node --expose-gc tools/perf/runner.js --config tools/perf/bench.config.json",
     "perf:parity": "node tools/perf/verify-parity.js",
