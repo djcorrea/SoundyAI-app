@@ -31,7 +31,8 @@ console.log(`⏰ [WORKER-INIT] Timestamp: ${new Date().toISOString()}`);
 
 // 🔒 VERIFICAÇÃO CRÍTICA: Environment Variables
 if (!process.env.REDIS_URL) {
-  throw new Error('❌ REDIS_URL não está definida no ambiente.');
+  console.error('❌ REDIS_URL não está definida. Abortando inicialização do worker.');
+  process.exit(1);
 }
 
 if (!process.env.DATABASE_URL) {
@@ -40,13 +41,15 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
-// 🚀 LOG DA URL REDIS PARA DEBUG
-console.log('🚀 REDIS_URL atual:', process.env.REDIS_URL);
-console.log('✅ [WORKER-INIT] Variables: Redis e PostgreSQL configurados');
+// 🚀 LOG DA URL REDIS PARA DEBUG (com senha mascarada)
+const maskedRedisUrl = process.env.REDIS_URL.replace(/:[^:]*@/, ':***@');
+console.log('🚀 REDIS_URL atual:', maskedRedisUrl);
 
 // 🔧 DETECÇÃO AUTOMÁTICA DE TLS BASEADA NA URL
 const isTLS = process.env.REDIS_URL.startsWith('rediss://');
-console.log(`🔐 [REDIS-CONFIG] TLS detectado: ${isTLS ? 'SIM (rediss://)' : 'NÃO (redis://)'}`);
+console.log(`🔐 TLS detectado: ${isTLS ? 'SIM' : 'NÃO'}`);
+
+console.log('✅ [WORKER-INIT] Variables: Redis e PostgreSQL configurados');
 
 // 🔧 CONFIGURAÇÃO REDIS COM RETRY/BACKOFF ROBUSTO
 const REDIS_CONFIG = {
@@ -93,7 +96,7 @@ async function createRedisConnection() {
     connectionAttempts++;
     
     console.log(`🔌 [REDIS-CONNECT] Tentativa ${connectionAttempts}/${MAX_CONNECTION_ATTEMPTS}`);
-    console.log(`🔌 [REDIS-CONNECT] URL: ${process.env.REDIS_URL.replace(/:[^:]*@/, ':***@')}`);
+    console.log(`🔌 [REDIS-CONNECT] URL: ${maskedRedisUrl}`);
     
     const redis = new Redis(process.env.REDIS_URL, REDIS_CONFIG);
     
@@ -108,7 +111,7 @@ async function createRedisConnection() {
         const serverInfo = await redis.info('server');
         const redisVersion = serverInfo.match(/redis_version:([\d.]+)/)?.[1] || 'unknown';
         
-        console.log('✅ [REDIS-READY] Conexão com Redis estabelecida!');
+        console.log('✅ [REDIS-CONNECT] Conexão bem-sucedida');
         console.log(`✅ [REDIS-READY] Client ID: ${clientId}`);
         console.log(`✅ [REDIS-READY] Redis Version: ${redisVersion}`);
         console.log(`✅ [REDIS-READY] PID: ${process.pid}`);
@@ -119,15 +122,17 @@ async function createRedisConnection() {
         
       } catch (err) {
         console.error('💥 [REDIS-READY] Erro ao obter informações:', err.message);
+        console.log('✅ [REDIS-CONNECT] Conexão bem-sucedida');
+        isRedisReady = true;
+        redisConnection = redis;
         resolve(redis); // Continua mesmo com erro de info
       }
     });
     
     redis.on('error', (err) => {
-      console.error('💥 [REDIS-ERROR] Erro de conexão com detalhes:');
-      console.error(`💥 [REDIS-ERROR] Tipo: ${err.code || 'UNKNOWN'}`);
-      console.error(`💥 [REDIS-ERROR] Mensagem: ${err.message}`);
-      console.error(`💥 [REDIS-ERROR] Host: ${err.address}:${err.port}`);
+      console.error('💥 [REDIS-ERROR] Tipo:', err.code || 'UNKNOWN');
+      console.error('💥 [REDIS-ERROR] Mensagem:', err.message);
+      console.error('💥 [REDIS-ERROR] Host:', err.address || 'unknown');
       
       if (connectionAttempts >= MAX_CONNECTION_ATTEMPTS) {
         console.error(`💥 [REDIS-ERROR] Máximo de tentativas atingido (${MAX_CONNECTION_ATTEMPTS})`);
