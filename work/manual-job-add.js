@@ -23,6 +23,11 @@ async function addTestJob() {
     const redis = getRedisConnection();
     const audioQueue = new Queue('audio-analyzer', { connection: redis });
     
+    // ✅ CORRIGIDO: Aguardar queue ficar pronta
+    console.log(`[MANUAL-JOB][${new Date().toISOString()}] -> ⏳ Aguardando queue ficar pronta...`);
+    await audioQueue.waitUntilReady();
+    console.log(`[MANUAL-JOB][${new Date().toISOString()}] -> ✅ Queue está pronta!`);
+    
     // ▶️ Garantir que não está pausada
     await audioQueue.resume();
     console.log(`[MANUAL-JOB][${new Date().toISOString()}] -> ▶️ Queue resumed`);

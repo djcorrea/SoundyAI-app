@@ -70,9 +70,13 @@ async function debugQueue() {
     
     // 🔍 Verificar se a fila está pausada
     console.log(`[QUEUE-DEBUG][${new Date().toISOString()}] -> 📋 PASSO 7: Verificando status da fila...`);
+    
+    // ✅ CORRIGIDO: Aguardar queue ficar pronta
+    await audioQueue.waitUntilReady();
+    console.log(`[QUEUE-DEBUG][${new Date().toISOString()}] -> ✅ Queue está pronta`);
+    
     const isPaused = await audioQueue.isPaused();
-    const isReady = await audioQueue.isReady();
-    console.log(`[QUEUE-DEBUG][${new Date().toISOString()}] -> 🔍 Queue Status - Pausada: ${isPaused} | Pronta: ${isReady}`);
+    console.log(`[QUEUE-DEBUG][${new Date().toISOString()}] -> 🔍 Queue Status - Pausada: ${isPaused}`);
     
     if (isPaused) {
       console.log(`[QUEUE-DEBUG][${new Date().toISOString()}] -> ⚠️ FILA ESTÁ PAUSADA! Executando resume...`);

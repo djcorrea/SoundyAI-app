@@ -79,21 +79,35 @@ redisConnection.on('close', () => {
 
 console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📋 Fila 'audio-analyzer' criada`);
 
-// 🔍 VERIFICAÇÃO INICIAL: Garantir que a fila não está pausada e mostrar status
+// 🔍 VERIFICAÇÃO INICIAL: Aguardar queue ficar pronta e verificar status
 (async () => {
   try {
+    console.log(`[WORKER-INIT][${new Date().toISOString()}] -> ⏳ Aguardando queue ficar pronta...`);
+    
+    // ✅ CORRIGIDO: waitUntilReady() em vez de isReady()
+    await audioQueue.waitUntilReady();
+    console.log(`[WORKER-INIT][${new Date().toISOString()}] -> ✅ Queue está pronta!`);
+    
+    // Garantir que não está pausada
     await audioQueue.resume();
-    const isActive = await audioQueue.isReady();
-    console.log(`[WORKER-INIT][${new Date().toISOString()}] -> ▶️ Queue resumed na inicialização | Active: ${isActive}`);
+    console.log(`[WORKER-INIT][${new Date().toISOString()}] -> ▶️ Queue resumed na inicialização`);
     
     const queueCounts = await audioQueue.getJobCounts();
     console.log(`[WORKER-INIT][${new Date().toISOString()}] -> 📊 Queue state inicial:`, queueCounts);
     
     if (queueCounts.waiting > 0) {
       console.log(`[WORKER-INIT][${new Date().toISOString()}] -> 🎯 ${queueCounts.waiting} jobs esperando processamento!`);
+    } else {
+      console.log(`[WORKER-INIT][${new Date().toISOString()}] -> 📭 Nenhum job waiting - Worker pronto para receber jobs`);
     }
+    
+    // 🔍 Mostrar workers conectados
+    const workers = await audioQueue.getWorkers();
+    console.log(`[WORKER-INIT][${new Date().toISOString()}] -> 👷 Workers conectados: ${workers.length}`);
+    
   } catch (err) {
-    console.error(`[WORKER-INIT][${new Date().toISOString()}] -> 🚨 Erro ao verificar queue:`, err.message);
+    console.error(`[WORKER-INIT][${new Date().toISOString()}] -> 🚨 Erro na inicialização da queue:`, err.message);
+    console.error(`[WORKER-INIT][${new Date().toISOString()}] -> Stack:`, err.stack);
   }
 })();
 
@@ -446,40 +460,45 @@ const worker = new Worker('audio-analyzer', audioProcessor, {
 console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🎯 Worker criado para fila: 'audio-analyzer'`);
 console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📋 PID: ${process.pid}`);
 
-// ---------- Event Listeners do Worker ----------
+// ---------- Event Listeners do Worker - LOGS ROBUSTOS ----------
 worker.on('ready', () => {
   console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🟢 WORKER PRONTO! PID: ${process.pid}, Concorrência: ${concurrency}`);
+  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🎯 Aguardando jobs na fila 'audio-analyzer'...`);
 });
 
-// 🔥 EVENTOS EXATOS CONFORME SOLICITADO
-worker.on('waiting', (jobId) => console.log('[EVENT] 🟡 Job WAITING:', jobId));
+// 🔥 EVENTOS DETALHADOS CONFORME SOLICITADO
+worker.on('waiting', (jobId) => {
+  console.log(`[EVENT][${new Date().toISOString()}] -> 🟡 Job WAITING: ${jobId}`);
+});
 
 worker.on('active', (job) => {
-  console.log('[EVENT] 🔵 Job ACTIVE:', job.id);
-  const { jobId, fileKey } = job.data;
-  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🎯 PROCESSANDO: ${job.id} | JobID: ${jobId?.substring(0,8)} | File: ${fileKey?.split('/').pop()}`);
+  console.log(`[EVENT][${new Date().toISOString()}] -> 🔵 Job ACTIVE: ${job.id} | Name: ${job.name}`);
+  const { jobId, fileKey, mode } = job.data;
+  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🎯 PROCESSANDO: ${job.id} | JobID: ${jobId?.substring(0,8)} | File: ${fileKey?.split('/').pop()} | Mode: ${mode}`);
 });
 
 worker.on('completed', (job, result) => {
-  console.log('[EVENT] ✅ Job COMPLETED:', job.id);
+  console.log(`[EVENT][${new Date().toISOString()}] -> ✅ Job COMPLETED: ${job.id} | Duration: ${Date.now() - job.timestamp}ms`);
   const { jobId, fileKey } = job.data;
-  const duration = Date.now() - job.timestamp;
-  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🎉 CONCLUÍDO: ${job.id} | JobID: ${jobId?.substring(0,8)} | Tempo: ${duration}ms | File: ${fileKey?.split('/').pop()}`);
+  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🎉 CONCLUÍDO: ${job.id} | JobID: ${jobId?.substring(0,8)} | File: ${fileKey?.split('/').pop()}`);
 });
 
 worker.on('failed', (job, err) => {
-  console.error('[EVENT] 🔴 Job FAILED:', job.id, err);
-  const { jobId, fileKey } = job.data;
-  console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> 💥 FALHADO: ${job.id} | JobID: ${jobId?.substring(0,8)} | File: ${fileKey?.split('/').pop()} | Erro: ${err.message}`);
+  console.error(`[EVENT][${new Date().toISOString()}] -> 🔴 Job FAILED: ${job?.id} | Error: ${err.message}`);
+  if (job) {
+    const { jobId, fileKey } = job.data;
+    console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> 💥 FALHADO: ${job.id} | JobID: ${jobId?.substring(0,8)} | File: ${fileKey?.split('/').pop()} | Erro: ${err.message}`);
+  }
 });
 
 worker.on('error', (err) => {
-  console.error('[EVENT] 🚨 Worker Error:', err);
+  console.error(`[EVENT][${new Date().toISOString()}] -> 🚨 Worker Error: ${err.message}`);
   console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> 🚨 ERRO NO WORKER: ${err.message}`);
   console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> Stack trace:`, err.stack);
 });
 
 worker.on('stalled', (job) => {
+  console.warn(`[EVENT][${new Date().toISOString()}] -> 🐌 Job STALLED: ${job.id}`);
   const { jobId, fileKey } = job.data;
   console.warn(`[WORKER-REDIS][${new Date().toISOString()}] -> 🐌 JOB TRAVADO: ${job.id} | JobID: ${jobId?.substring(0,8)} | File: ${fileKey?.split('/').pop()}`);
 });
