@@ -24,11 +24,13 @@
     "audit:scoring": "node scripts/manual-audit-scoring.js",
     "audit:audio": "node scripts/manual-audit-lufs.js && node scripts/manual-audit-truepeak.js && node scripts/manual-audit-spectral.js && node scripts/manual-audit-scoring.js",
     "audit:serve": "python -m http.server 3000",
+    "test-job": "curl -X POST http://localhost:3000/api/audio/analyze -H 'Content-Type: application/json' -d '{\"fileKey\":\"uploads/test.wav\",\"mode\":\"genre\"}'",
     "postinstall": "npm run copy:refs"
   },
   "dependencies": {
     "audio-decode": "^2.2.3",
     "aws-sdk": "^2.1692.0",
+    "bullmq": "^5.61.2",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.18.2",
@@ -38,6 +40,7 @@
     "firebase-functions": "^4.4.1",
     "fluent-ffmpeg": "^2.1.3",
     "formidable": "^3.5.4",
+    "ioredis": "^5.8.2",
     "mercadopago": "^2.8.0",
     "multer": "^2.0.2",
     "music-metadata": "^11.8.3",
@@ -45,7 +48,7 @@
     "node-fetch": "^2.7.0",
     "pg": "^8.16.3"
   },
-  "main": "server.js",
+  "main": "work/server.js",
   "keywords": [],
   "author": "",
   "license": "ISC",
