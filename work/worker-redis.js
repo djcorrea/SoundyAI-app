@@ -31,9 +31,7 @@ console.log(`⏰ [WORKER-INIT] Timestamp: ${new Date().toISOString()}`);
 
 // 🔒 VERIFICAÇÃO CRÍTICA: Environment Variables
 if (!process.env.REDIS_URL) {
-  console.error('💥 [WORKER-INIT] ERRO CRÍTICO: REDIS_URL não configurado');
-  console.error('💡 [WORKER-INIT] Solução: Verificar arquivo .env na pasta work/');
-  process.exit(1);
+  throw new Error('❌ REDIS_URL não está definida no ambiente.');
 }
 
 if (!process.env.DATABASE_URL) {
@@ -42,19 +40,26 @@ if (!process.env.DATABASE_URL) {
   process.exit(1);
 }
 
+// 🚀 LOG DA URL REDIS PARA DEBUG
+console.log('🚀 REDIS_URL atual:', process.env.REDIS_URL);
 console.log('✅ [WORKER-INIT] Variables: Redis e PostgreSQL configurados');
+
+// 🔧 DETECÇÃO AUTOMÁTICA DE TLS BASEADA NA URL
+const isTLS = process.env.REDIS_URL.startsWith('rediss://');
+console.log(`🔐 [REDIS-CONFIG] TLS detectado: ${isTLS ? 'SIM (rediss://)' : 'NÃO (redis://)'}`);
 
 // 🔧 CONFIGURAÇÃO REDIS COM RETRY/BACKOFF ROBUSTO
 const REDIS_CONFIG = {
-  url: process.env.REDIS_URL,
   maxRetriesPerRequest: null,       // ✅ Obrigatório para BullMQ
   enableReadyCheck: false,          // ✅ Melhora performance
-  tls: { rejectUnauthorized: false }, // ✅ Para Upstash/produção
   lazyConnect: false,               // ✅ Conectar imediatamente
   connectTimeout: 30000,            // ✅ 30s timeout
   commandTimeout: 15000,            // ✅ 15s para comandos
   keepAlive: 120000,                // ✅ 2min keepalive
   family: 4,                        // ✅ IPv4
+  
+  // 🔐 TLS SOMENTE SE A URL FOR rediss://
+  ...(isTLS && { tls: { rejectUnauthorized: false } }),
   
   // 🔄 RETRY STRATEGY ROBUSTO
   retryStrategy: (times) => {
@@ -90,7 +95,7 @@ async function createRedisConnection() {
     console.log(`🔌 [REDIS-CONNECT] Tentativa ${connectionAttempts}/${MAX_CONNECTION_ATTEMPTS}`);
     console.log(`🔌 [REDIS-CONNECT] URL: ${process.env.REDIS_URL.replace(/:[^:]*@/, ':***@')}`);
     
-    const redis = new Redis(REDIS_CONFIG);
+    const redis = new Redis(process.env.REDIS_URL, REDIS_CONFIG);
     
     // 📡 EVENT LISTENERS DETALHADOS
     redis.on('connect', () => {
