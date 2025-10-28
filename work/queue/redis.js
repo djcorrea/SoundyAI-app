@@ -1,49 +1,47 @@
 // queue/redis.js
 import BullMQ from 'bullmq';
-import IORedis from 'ioredis';
+import Redis from 'ioredis';
 
 const { Queue, Worker } = BullMQ;
 
 // 🔗 DIAGNÓSTICO: Configuração Redis Padronizada
 console.log(`[CONFIG][${new Date().toISOString()}] -> 🔧 Iniciando conexão Redis`);
-console.log(`[CONFIG][${new Date().toISOString()}] -> 📍 URL: ${process.env.REDIS_URL}`);
-console.log(`[CONFIG][${new Date().toISOString()}] -> 🔒 TLS: Habilitado`);
 
-// 🔗 Conexão ULTRA-OTIMIZADA com Redis Upstash usando REDIS_URL padronizada
-const connection = new IORedis(process.env.REDIS_URL, {
-  password: process.env.REDIS_PASSWORD,
-  tls: {},
+if (!process.env.REDIS_URL) {
+  console.error(`[CONFIG][${new Date().toISOString()}] -> � ERRO: REDIS_URL não configurado!`);
+  process.exit(1);
+}
+
+// 🔗 Conexão OTIMIZADA usando APENAS REDIS_URL
+const connection = new Redis(process.env.REDIS_URL, {
   maxRetriesPerRequest: null,  // ✅ Obrigatório para BullMQ
-  retryDelayOnFailover: 2000,  // Aumentado para 2s (era 500ms) - menos retries
   lazyConnect: true,
-  connectTimeout: 45000,       // Aumentado para 45s - evita reconexões desnecessárias
-  commandTimeout: 15000,       // Aumentado para 15s - evita timeouts prematuros
+  connectTimeout: 45000,
+  commandTimeout: 15000,
+  keepAlive: 120000,
+  enableReadyCheck: false,
+  enableAutoPipelining: true,
+  family: 4,
   
-  // 🚀 OPTIMIZE CONNECTION POOLING AND REDUCE REQUESTS
-  keepAlive: 120000,           // 2 minutos keep-alive - menos pings
-  enableReadyCheck: false,     // Desativa ready-check automático
-  maxLoadingTimeout: 10000,    // 10s loading timeout
-  enableAutoPipelining: true,  // Agrupa commands automaticamente - CRITICAL FOR REDIS OPTIMIZATION
+  // � RETRY STRATEGY ROBUSTO
+  retryStrategy: (times) => {
+    const delay = Math.min(times * 2000, 30000); // Máximo 30s
+    console.log(`[REDIS][${new Date().toISOString()}] -> 🔄 Tentando reconectar... (tentativa ${times})`);
+    return delay;
+  },
   
-  // 🔧 REDUCE CONNECTION OVERHEAD  
-  family: 4,                   // Force IPv4 - mais rápido
-  dropBufferSupport: true,     // Remove buffer support - menos overhead
-  
-  // ⏰ BATCH COMMANDS TO REDUCE REQUEST COUNT
-  autoResubmit: false,         // Não resubmete commands falhados automaticamente
-  enableOfflineQueue: true     // ✅ REATIVADO: Necessário para evitar erros de stream
+  retryDelayOnFailover: 2000,
 });
 
-console.log(`[CONFIG][${new Date().toISOString()}] -> ⚙️ Configurações aplicadas: maxRetries=null, keepAlive=120s, connectTimeout=45s`);
+console.log(`[CONFIG][${new Date().toISOString()}] -> ⚙️ Configurações aplicadas: usando REDIS_URL exclusivamente`);
 
-// 🔥 Eventos de conexão para debugging ULTRA-DETALHADO
+// 🔥 Eventos de conexão para debugging
 connection.on('connect', () => {
-  console.log(`[REDIS][${new Date().toISOString()}] -> 🟢 Conectado ao Upstash Redis (Host: ${connection.options.host}:${connection.options.port})`);
+  console.log(`[REDIS][${new Date().toISOString()}] -> ✅ Conectado ao Redis`);
 });
 
 connection.on('error', (err) => {
-  console.error(`[REDIS][${new Date().toISOString()}] -> 🔴 ERRO DE CONEXÃO: ${err.message}`);
-  console.error(`[REDIS][${new Date().toISOString()}] -> Stack trace:`, err.stack);
+  console.error(`[REDIS][${new Date().toISOString()}] -> � Erro ao conectar ao Redis: ${err.message}`);
 });
 
 connection.on('ready', () => {
@@ -51,7 +49,7 @@ connection.on('ready', () => {
 });
 
 connection.on('reconnecting', (delay) => {
-  console.log(`[REDIS][${new Date().toISOString()}] -> 🔄 Reconectando em ${delay}ms...`);
+  console.log(`[REDIS][${new Date().toISOString()}] -> 🔄 Tentando reconectar... (delay: ${delay}ms)`);
 });
 
 connection.on('end', () => {
@@ -70,23 +68,21 @@ console.log(`[CONFIG][${new Date().toISOString()}] -> 🔧 removeOnComplete=5, r
 export const audioQueue = new Queue('audio-analyzer', { 
   connection,
   defaultJobOptions: {
-    // 🧼 LIMPEZA AGRESSIVA: Remove jobs assim que processados para economizar Redis
-    removeOnComplete: 5,   // Manter apenas 5 jobs concluídos (reduzido de 50)
-    removeOnFail: 10,      // Manter apenas 10 jobs falhados (reduzido de 100)
-    attempts: 2,           // Reduzido para 2 tentativas (de 3) - menos retries = menos requests
+    removeOnComplete: 5,
+    removeOnFail: 10,
+    attempts: 2,
     backoff: {
-      type: 'fixed',       // Mudado para 'fixed' - mais previsível que exponential
-      delay: 10000         // 10s fixo entre tentativas (era 5s exponential)
+      type: 'fixed',
+      delay: 10000
     },
-    // 🕒 TIMEOUTS OTIMIZADOS
-    ttl: 300000,          // TTL de 5 minutos - auto-expire jobs antigos
-    delay: 0              // Sem delay - processa imediatamente
+    ttl: 300000,
+    delay: 0
   }
 });
 
-// 🔥 LOGS DE DIAGNÓSTICO ULTRA-DETALHADOS - Queue Events
+// 🔥 LOGS DE DIAGNÓSTICO - Queue Events
 console.log(`[QUEUE][${new Date().toISOString()}] -> 📋 Fila '${audioQueue.name}' criada com sucesso`);
-console.log(`[QUEUE][${new Date().toISOString()}] -> 🎯 Fila utilizada: '${audioQueue.name}' | Host Redis: guided-snapper-23234.upstash.io`);
+console.log(`[QUEUE][${new Date().toISOString()}] -> 🎯 Fila utilizada: '${audioQueue.name}'`);
 
 audioQueue.on('error', (err) => {
   console.error(`[QUEUE][${new Date().toISOString()}] -> 🚨 ERRO NA FILA: ${err.message}`);
