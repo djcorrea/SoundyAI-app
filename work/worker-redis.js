@@ -1,9 +1,9 @@
-// worker-redis.js - WORKER REDIS EXCLUSIVO PARA RAILWAY
-// 🚀 Conexão Redis robusta com REDIS_URL e reconexão automática
+// worker-redis.js - WORKER REDIS COM CONEXÃO CENTRALIZADA
+// 🚀 Usa módulo redis-connection.js para garantir mesma conexão que a API
 
 import "dotenv/config";
-import BullMQ from 'bullmq';
-import Redis from 'ioredis';
+import { Worker, Queue } from 'bullmq';
+import { getRedisConnection, testRedisConnection } from './lib/redis-connection.js';
 import pool from './db.js';
 import AWS from "aws-sdk";
 import fs from "fs";
@@ -11,7 +11,10 @@ import path from "path";
 import { fileURLToPath } from "url";
 import express from 'express';
 
-console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🚀 INICIANDO Worker Redis Exclusivo...`);
+// Definir service name para auditoria
+process.env.SERVICE_NAME = 'worker';
+
+console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🚀 INICIANDO Worker Redis com Conexão Centralizada...`);
 console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📋 PID: ${process.pid}`);
 console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🌍 ENV: ${process.env.NODE_ENV || 'development'}`);
 console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🏗️ Platform: ${process.platform}`);
@@ -23,38 +26,33 @@ if (process.env.NODE_ENV === 'production') {
   console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🗃️ Postgres: ${process.env.DATABASE_URL ? 'CONFIGURADO' : 'NÃO CONFIGURADO'}`);
 }
 
-// ---------- CONFIGURAÇÃO REDIS ROBUSTA PARA RAILWAY ----------
-const { Queue, Worker } = BullMQ;
+// ✅ CONEXÃO REDIS CENTRALIZADA - MESMA INSTÂNCIA QUE A API
+console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🔗 Obtendo conexão Redis centralizada...`);
 
-if (!process.env.REDIS_URL) {
-  console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> 🚨 ERRO CRÍTICO: REDIS_URL não configurado!`);
-  process.exit(1);
-}
+const redisConnection = getRedisConnection();
 
-console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🔗 Conectando ao Redis...`);
+// Teste inicial de conectividade
+const connectionTest = await testRedisConnection();
+console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🔍 Connection Test:`, connectionTest);
 
-// 🔗 Conexão Redis otimizada para Railway - USA APENAS REDIS_URL
-const redisConnection = new Redis(process.env.REDIS_URL, {
-  maxRetriesPerRequest: null,  // ✅ Obrigatório para BullMQ
-  lazyConnect: true,
-  connectTimeout: 45000,
-  commandTimeout: 15000,
-  keepAlive: 120000,
-  enableReadyCheck: false,
-  enableAutoPipelining: true,
-  family: 4,
-  
-  // 🔄 RETRY STRATEGY ROBUSTO - Reconexão automática
-  retryStrategy: (times) => {
-    const delay = Math.min(times * 2000, 30000); // Máximo 30s
-    console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🔄 Tentando reconectar... (tentativa ${times}, delay: ${delay}ms)`);
-    return delay;
-  },
-  
-  retryDelayOnFailover: 2000,
+// 📋 Criar fila BullMQ com conexão centralizada
+console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📋 Criando fila audio-analyzer...`);
+const audioQueue = new Queue('audio-analyzer', { 
+  connection: redisConnection,
+  defaultJobOptions: {
+    removeOnComplete: 5,
+    removeOnFail: 10,
+    attempts: 2,
+    backoff: {
+      type: 'fixed',
+      delay: 10000
+    },
+    ttl: 300000,
+    delay: 0
+  }
 });
 
-// 🔥 Event Listeners CORRETOS para conexão Redis
+// 🔥 Event Listeners para monitoramento da conexão Redis
 redisConnection.on('connect', () => {
   console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> ✅ Conectado ao Redis`);
 });
@@ -77,22 +75,6 @@ redisConnection.on('end', () => {
 
 redisConnection.on('close', () => {
   console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🚪 Conexão Redis fechada`);
-});
-
-// 📋 Criar fila BullMQ
-const audioQueue = new Queue('audio-analyzer', { 
-  connection: redisConnection,
-  defaultJobOptions: {
-    removeOnComplete: 5,
-    removeOnFail: 10,
-    attempts: 2,
-    backoff: {
-      type: 'fixed',
-      delay: 10000
-    },
-    ttl: 300000,
-    delay: 0
-  }
 });
 
 console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📋 Fila 'audio-analyzer' criada`);

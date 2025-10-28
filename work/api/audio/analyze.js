@@ -3,44 +3,33 @@
  * Recebe fileKey de arquivos já uploadados via presigned URL
  * 
  * Corrigido: 9 de setembro de 2025 - Express Router
+ * Atualizado: CONEXÃO REDIS CENTRALIZADA
  */
 
 import "dotenv/config";
 import express from "express";
 import { randomUUID } from "crypto";
 import { Queue } from 'bullmq';
-import Redis from 'ioredis';
+import { getRedisConnection, testRedisConnection } from '../../lib/redis-connection.js';
 import pool from "../../db.js";
 
-// 🎯 CONFIGURAÇÃO REDIS PADRONIZADA - USA APENAS REDIS_URL
-const redisConnection = new Redis(process.env.REDIS_URL, {
-  maxRetriesPerRequest: null,
-  enableAutoPipelining: true,
-  lazyConnect: true,
-  
-  // 🔄 RETRY STRATEGY ROBUSTO
-  retryStrategy: (times) => {
-    const delay = Math.min(times * 2000, 30000);
-    console.log(`[API-REDIS][${new Date().toISOString()}] -> 🔄 Tentando reconectar... (tentativa ${times})`);
-    return delay;
-  },
-});
+// Definir service name para auditoria
+process.env.SERVICE_NAME = 'api';
 
-// Event listeners para API Redis
-redisConnection.on('connect', () => {
-  console.log(`[API-REDIS][${new Date().toISOString()}] -> ✅ Conectado ao Redis`);
-});
+// ✅ CONEXÃO REDIS CENTRALIZADA - MESMA INSTÂNCIA QUE O WORKER
+console.log(`[API-REDIS][${new Date().toISOString()}] -> � Obtendo conexão Redis centralizada...`);
+const redisConnection = getRedisConnection();
 
-redisConnection.on('error', (err) => {
-  console.error(`[API-REDIS][${new Date().toISOString()}] -> 🚨 Erro ao conectar ao Redis: ${err.message}`);
-});
+// Teste inicial de conectividade
+const connectionTest = await testRedisConnection();
+console.log(`[API-REDIS][${new Date().toISOString()}] -> � Connection Test:`, connectionTest);
 
 const audioQueue = new Queue('audio-analyzer', { connection: redisConnection });
 
 const router = express.Router();
 
 // 🔍 INSTRUMENTAÇÃO: Verificar configuração Redis na inicialização
-console.log(`[BACKEND-INIT][${new Date().toISOString()}] -> 🔧 Configuração Redis carregada diretamente`);
+console.log(`[BACKEND-INIT][${new Date().toISOString()}] -> 🔧 Configuração Redis centralizada carregada`);
 console.log(`[BACKEND-INIT][${new Date().toISOString()}] -> 🎯 Fila criada: '${audioQueue.name}'`);
 
 // Configuração via variável de ambiente

@@ -8,6 +8,7 @@ import cors from "cors";
 // Importar rotas da API
 import analyzeRouter from "./api/audio/analyze.js";
 import jobsRouter from "./api/jobs/[id].js";
+import healthRouter from "./api/health/redis.js";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -37,6 +38,7 @@ app.use((req, res, next) => {
 // ---------- Rotas principais da API ----------
 app.use('/api/audio', analyzeRouter);
 app.use('/api/jobs', jobsRouter);
+app.use('/health', healthRouter);
 
 // ---------- Health check endpoint ----------
 app.get('/health', (req, res) => {
