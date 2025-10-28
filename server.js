@@ -19,6 +19,8 @@ console.log("B2_APP_KEY:", process.env.B2_APP_KEY);
 console.log("B2_BUCKET_NAME:", process.env.B2_BUCKET_NAME);
 console.log("B2_ENDPOINT:", process.env.B2_ENDPOINT);
 console.log("🗄️ DATABASE_URL:", process.env.DATABASE_URL ? "✅ Configurada" : "❌ Não configurada");
+console.log("🔗 REDIS_URL:", process.env.REDIS_URL ? "✅ Configurada" : "❌ Não configurada");
+console.log("🎯 FILA BULLMQ: 'audio-analyzer' (API com BullMQ ativada)");
 
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
