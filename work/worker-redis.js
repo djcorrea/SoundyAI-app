@@ -32,33 +32,31 @@ if (!process.env.REDIS_URL) {
 }
 
 console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🔗 Conectando ao Redis...`);
-console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📍 URL: ${process.env.REDIS_URL.substring(0, 30)}...`);
 
-// 🔗 Conexão Redis otimizada para Railway
-const redisConnection = new IORedis(process.env.REDIS_URL, {
+// 🔗 Conexão Redis otimizada para Railway - USA APENAS REDIS_URL
+import Redis from 'ioredis';
+const redisConnection = new Redis(process.env.REDIS_URL, {
   maxRetriesPerRequest: null,  // ✅ Obrigatório para BullMQ
-  retryDelayOnFailover: 2000,
   lazyConnect: true,
   connectTimeout: 45000,
   commandTimeout: 15000,
   keepAlive: 120000,
   enableReadyCheck: false,
-  maxLoadingTimeout: 10000,
   enableAutoPipelining: true,
   family: 4,
-  dropBufferSupport: true,
-  autoResubmit: false,
-  enableOfflineQueue: true,
   
-  // 🔄 Configurações de retry automático
-  retryPolicy: {
-    maxRetriesPerRequest: 3,
-    retryDelayOnFailover: 100,
-    maxRetriesPerCommand: 3
-  }
+  // 🔄 RETRY STRATEGY ROBUSTO - Reconexão automática
+  retryStrategy: (times) => {
+    const delay = Math.min(times * 2000, 30000); // Máximo 30s
+    console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🔄 Tentando reconectar... (tentativa ${times}, delay: ${delay}ms)`);
+    return delay;
+  },
+  
+  maxRetriesPerRequest: 3,
+  retryDelayOnFailover: 2000,
 });
 
-// 🔥 Event Listeners para conexão Redis
+// 🔥 Event Listeners CORRETOS para conexão Redis
 redisConnection.on('connect', () => {
   console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> ✅ Conectado ao Redis`);
 });
@@ -69,11 +67,10 @@ redisConnection.on('ready', () => {
 
 redisConnection.on('error', (err) => {
   console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> 🚨 Erro ao conectar ao Redis: ${err.message}`);
-  console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> Stack trace:`, err.stack);
 });
 
 redisConnection.on('reconnecting', (delay) => {
-  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🔄 Reconectando ao Redis em ${delay}ms...`);
+  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🔄 Tentando reconectar... (delay: ${delay}ms)`);
 });
 
 redisConnection.on('end', () => {

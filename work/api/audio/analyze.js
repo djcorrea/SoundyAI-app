@@ -9,15 +9,30 @@ import "dotenv/config";
 import express from "express";
 import { randomUUID } from "crypto";
 import { Queue } from 'bullmq';
-import IORedis from 'ioredis';
+import Redis from 'ioredis';
 import pool from "../../db.js";
 
-// 🎯 CONFIGURAÇÃO REDIS PADRONIZADA (MESMA URL QUE O WORKER)
-const redisConnection = new IORedis(process.env.REDIS_URL, {
-  password: process.env.REDIS_PASSWORD,
-  tls: {},
+// 🎯 CONFIGURAÇÃO REDIS PADRONIZADA - USA APENAS REDIS_URL
+const redisConnection = new Redis(process.env.REDIS_URL, {
   maxRetriesPerRequest: null,
   enableAutoPipelining: true,
+  lazyConnect: true,
+  
+  // 🔄 RETRY STRATEGY ROBUSTO
+  retryStrategy: (times) => {
+    const delay = Math.min(times * 2000, 30000);
+    console.log(`[API-REDIS][${new Date().toISOString()}] -> 🔄 Tentando reconectar... (tentativa ${times})`);
+    return delay;
+  },
+});
+
+// Event listeners para API Redis
+redisConnection.on('connect', () => {
+  console.log(`[API-REDIS][${new Date().toISOString()}] -> ✅ Conectado ao Redis`);
+});
+
+redisConnection.on('error', (err) => {
+  console.error(`[API-REDIS][${new Date().toISOString()}] -> 🚨 Erro ao conectar ao Redis: ${err.message}`);
 });
 
 const audioQueue = new Queue('audio-analyzer', { connection: redisConnection });
@@ -27,7 +42,6 @@ const router = express.Router();
 // 🔍 INSTRUMENTAÇÃO: Verificar configuração Redis na inicialização
 console.log(`[BACKEND-INIT][${new Date().toISOString()}] -> 🔧 Configuração Redis carregada diretamente`);
 console.log(`[BACKEND-INIT][${new Date().toISOString()}] -> 🎯 Fila criada: '${audioQueue.name}'`);
-console.log(`[BACKEND-INIT][${new Date().toISOString()}] -> 🔗 Host: guided-snapper-23234.upstash.io:6379 (mesmo do worker)`);
 
 // Configuração via variável de ambiente
 const MAX_UPLOAD_MB = parseInt(process.env.MAX_UPLOAD_MB || "60");
