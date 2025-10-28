@@ -1,5 +1,5 @@
-// worker-redis.js - WORKER REDIS EXCLUSIVO PARA RAILWAY
-// 🚀 Conexão Redis robusta com REDIS_URL e reconexão automática
+// worker-redis.js - WORKER REDIS EXCLUSIVO (ARQUITETURA REFATORADA)
+// 🚀 ÚNICO RESPONSÁVEL POR PROCESSAMENTO - Legacy workers removidos
 
 import "dotenv/config";
 import BullMQ from 'bullmq';
@@ -9,7 +9,6 @@ import AWS from "aws-sdk";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import express from 'express';
 
 console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🚀 INICIANDO Worker Redis Exclusivo...`);
 console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📋 PID: ${process.pid}`);
@@ -108,6 +107,7 @@ process.on('uncaughtException', (err) => {
   console.error(`[FATAL][${new Date().toISOString()}] -> Stack trace:`, err.stack);
   
   try {
+    // Tentar fechar conexões graciosamente
     console.log(`[FATAL][${new Date().toISOString()}] -> 🔌 Tentando fechar conexões...`);
     process.exit(1);
   } catch (closeErr) {
@@ -148,6 +148,7 @@ const __dirname = path.dirname(__filename);
 let pgConnected = false;
 try {
   console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🗃️ Testando conexão PostgreSQL...`);
+  // Testar conexão com o pool Singleton
   const testResult = await pool.query('SELECT NOW()');
   pgConnected = true;
   console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> ✅ Conectado ao Postgres via Singleton Pool`);
@@ -190,6 +191,7 @@ async function downloadFileFromBucket(key) {
 
     console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> ⏰ Iniciando download com timeout de 2 minutos...`);
 
+    // 🔥 TIMEOUT DE 2 MINUTOS - EVITA DOWNLOAD INFINITO
     const timeout = setTimeout(() => {
       console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> ⏰ TIMEOUT: Download excedeu 2 minutos para: ${key}`);
       write.destroy();
@@ -200,6 +202,7 @@ async function downloadFileFromBucket(key) {
     read.on("error", (err) => {
       clearTimeout(timeout);
       console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> ❌ Erro no stream de leitura para ${key}:`, err.message);
+      // 🔍 LOGS DETALHADOS PARA DEBUG
       if (err.code === 'NoSuchKey') {
         console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> 🚨 ARQUIVO NÃO ENCONTRADO: ${key}`);
         console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> 📁 Verifique se o arquivo existe no bucket: ${BUCKET_NAME}`);
@@ -233,6 +236,7 @@ async function analyzeAudioWithPipeline(localFilePath, jobData) {
 
     const t0 = Date.now();
     
+    // 🔥 TIMEOUT DE 3 MINUTOS PARA EVITAR TRAVAMENTO
     const pipelinePromise = processAudioComplete(fileBuffer, filename, {
       jobId: jobData.jobId,
       reference: jobData?.reference || null
@@ -268,6 +272,7 @@ async function analyzeAudioWithPipeline(localFilePath, jobData) {
   } catch (error) {
     console.error(`❌ [WORKER-REDIS] Erro crítico no pipeline para ${filename}:`, error.message);
     
+    // 🔥 RETORNO DE SEGURANÇA
     return {
       status: 'error',
       error: {
@@ -303,7 +308,74 @@ async function analyzeAudioWithPipeline(localFilePath, jobData) {
   }
 }
 
-// ---------- Atualizar status do job no Postgres ----------
+// ---------- Recovery de jobs órfãos (movido do index.js) ----------
+async function recoverOrphanedJobs() {
+  if (!pgConnected) {
+    console.log(`🧪 [WORKER-REDIS] Postgres não disponível - pulando recovery`);
+    return;
+  }
+
+  try {
+    console.log("🔄 [WORKER-REDIS] Verificando jobs órfãos...");
+    
+    // 🚫 PRIMEIRO: Blacklist jobs problemáticos
+    console.log("🚫 [WORKER-REDIS] Verificando jobs problemáticos para blacklist...");
+    const problematicJobs = await pool.query(`
+      SELECT file_key, COUNT(*) as failure_count, 
+             ARRAY_AGG(id ORDER BY created_at DESC) as job_ids
+      FROM jobs 
+      WHERE error LIKE '%Recovered from orphaned state%' 
+      OR error LIKE '%Pipeline timeout%'
+      OR error LIKE '%FFmpeg%'
+      OR error LIKE '%Memory%'
+      GROUP BY file_key 
+      HAVING COUNT(*) >= 3
+    `);
+
+    if (problematicJobs.rows.length > 0) {
+      for (const row of problematicJobs.rows) {
+        console.log(`🚫 [WORKER-REDIS] Blacklisting file: ${row.file_key} (${row.failure_count} failures)`);
+        
+        // Marcar todos os jobs relacionados como failed permanentemente
+        await pool.query(`
+          UPDATE jobs 
+          SET status = 'failed', 
+              error = $1, 
+              updated_at = NOW()
+          WHERE file_key = $2 
+          AND status IN ('queued', 'processing')
+        `, [
+          `BLACKLISTED: File failed ${row.failure_count} times - likely corrupted/problematic`,
+          row.file_key
+        ]);
+      }
+      
+      console.log(`🚫 [WORKER-REDIS] Blacklisted ${problematicJobs.rows.length} problematic files`);
+    } else {
+      console.log("✅ [WORKER-REDIS] Nenhum job problemático encontrado para blacklist");
+    }
+    
+    // 🔄 DEPOIS: Recuperar jobs órfãos restantes (mas não blacklisted)
+    const result = await pool.query(`
+      UPDATE jobs 
+      SET status = 'queued', updated_at = NOW(), error = 'Recovered from orphaned state by Redis worker'
+      WHERE status = 'processing' 
+      AND updated_at < NOW() - INTERVAL '10 minutes'
+      AND error NOT LIKE '%BLACKLISTED%'
+      RETURNING id, file_key
+    `);
+
+    if (result.rows.length > 0) {
+      console.log(`🔄 [WORKER-REDIS] Recuperados ${result.rows.length} jobs órfãos:`, result.rows.map(r => r.id.substring(0,8)));
+    }
+  } catch (err) {
+    console.error("❌ [WORKER-REDIS] Erro ao recuperar jobs órfãos:", err);
+  }
+}
+
+// 🔥 RECOVERY A CADA 5 MINUTOS - Movido do index.js
+setInterval(recoverOrphanedJobs, 300000);
+recoverOrphanedJobs(); // Executa na inicialização
 async function updateJobStatus(jobId, status, data = null, error = null) {
   if (!pgConnected) {
     console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🧪 Mock update: ${jobId} -> ${status} (Postgres não disponível)`);
@@ -341,7 +413,7 @@ async function updateJobStatus(jobId, status, data = null, error = null) {
 // ---------- Processor do BullMQ ----------
 async function audioProcessor(job) {
   const { jobId, fileKey, mode, fileName } = job.data;
-  console.log(`[PROCESS][${new Date().toISOString()}] -> 🎵 INICIANDO job ${job.id}`, {
+  console.log(`[PROCESS][${new Date().toISOString()}] -> � INICIANDO job ${job.id}`, {
     jobId,
     fileKey,
     mode,
@@ -353,15 +425,18 @@ async function audioProcessor(job) {
   let localFilePath = null;
 
   try {
+    // Atualizar status para processing
     console.log(`[PROCESS][${new Date().toISOString()}] -> 📝 Atualizando status para processing no PostgreSQL...`);
     await updateJobStatus(jobId, 'processing');
 
+    // Download do arquivo
     console.log(`[PROCESS][${new Date().toISOString()}] -> ⬇️ Iniciando download do arquivo: ${fileKey}`);
     const downloadStartTime = Date.now();
     localFilePath = await downloadFileFromBucket(fileKey);
     const downloadTime = Date.now() - downloadStartTime;
     console.log(`[PROCESS][${new Date().toISOString()}] -> 🎵 Arquivo baixado em ${downloadTime}ms: ${localFilePath}`);
 
+    // 🔍 VALIDAÇÃO BÁSICA DE ARQUIVO
     console.log(`[PROCESS][${new Date().toISOString()}] -> 🔍 Validando arquivo antes do pipeline...`);
     const stats = await fs.promises.stat(localFilePath);
     const fileSizeMB = stats.size / (1024 * 1024);
@@ -378,6 +453,7 @@ async function audioProcessor(job) {
     
     console.log(`[PROCESS][${new Date().toISOString()}] -> ✅ Arquivo validado (${fileSizeMB.toFixed(2)} MB)`);
 
+    // Executar pipeline
     console.log(`[PROCESS][${new Date().toISOString()}] -> 🚀 Iniciando pipeline completo...`);
     const pipelineStartTime = Date.now();
     const analysisResult = await analyzeAudioWithPipeline(localFilePath, job.data);
@@ -399,6 +475,7 @@ async function audioProcessor(job) {
       ...analysisResult,
     };
 
+    // Atualizar status para done
     console.log(`[PROCESS][${new Date().toISOString()}] -> 💾 Salvando resultado no banco...`);
     await updateJobStatus(jobId, 'done', result);
 
@@ -414,11 +491,13 @@ async function audioProcessor(job) {
       duration: Date.now() - job.timestamp
     });
     
+    // Atualizar status para failed
     console.log(`[PROCESS][${new Date().toISOString()}] -> 💔 Marcando job como failed no banco...`);
     await updateJobStatus(jobId, 'failed', null, error.message);
     
-    throw error;
+    throw error; // BullMQ vai marcar como failed automaticamente
   } finally {
+    // Limpar arquivo temporário
     if (localFilePath) {
       try {
         await fs.promises.unlink(localFilePath);
@@ -430,37 +509,29 @@ async function audioProcessor(job) {
   }
 }
 
-// ---------- Criar Worker BullMQ com configuração robusta ----------
+// ---------- Criar Worker BullMQ ----------
 const concurrency = Number(process.env.WORKER_CONCURRENCY) || 5;
-console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🏭 Criando Worker BullMQ`);
+console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🏭 Criando Worker BullMQ ÚNICO RESPONSÁVEL`);
 console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> ⚙️ Concorrência: ${concurrency}`);
+console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🏗️ Arquitetura: Redis Workers Only (Legacy worker desabilitado)`);
 
-const worker = new Worker('audio-analyzer', audioProcessor, { 
-  connection: redisConnection, 
-  concurrency,
-  settings: {
-    stalledInterval: 120000,
-    maxStalledCount: 2,
-    lockDuration: 180000,
-    keepAlive: 60000,
-    batchSize: 1,
-    delayedDebounce: 10000,
-  }
-});
+const worker = createWorker('audio-analyzer', audioProcessor, concurrency);
 
 console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🎯 Worker criado para fila: 'audio-analyzer'`);
+console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🔧 Processador: audioProcessor function`);
 console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📋 PID: ${process.pid}`);
 
-// ---------- Event Listeners do Worker ----------
+// ---------- Event Listeners OTIMIZADOS - Logs estruturados ----------
 worker.on('ready', () => {
-  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🟢 WORKER PRONTO! PID: ${process.pid}, Concorrência: ${concurrency}`);
+  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> � WORKER ÚNICO PRONTO! PID: ${process.pid}, Concorrência: ${concurrency}`);
+  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> ✅ Arquitetura: Redis-only (sem conflitos legacy)`);
 });
 
-// 🔥 EVENTOS EXATOS CONFORME SOLICITADO
+// � EVENTOS DE AUDITORIA EXATOS CONFORME SOLICITADO
 worker.on('waiting', (jobId) => console.log('[EVENT] 🟡 Job WAITING:', jobId));
 
 worker.on('active', (job) => {
-  console.log('[EVENT] 🔵 Job ACTIVE:', job.id);
+  console.log('[EVENT] 🟢 Job ACTIVE:', job.id);
   const { jobId, fileKey } = job.data;
   console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🎯 PROCESSANDO: ${job.id} | JobID: ${jobId?.substring(0,8)} | File: ${fileKey?.split('/').pop()}`);
 });
@@ -494,101 +565,16 @@ worker.on('progress', (job, progress) => {
   console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📈 PROGRESSO: ${job.id} | JobID: ${jobId?.substring(0,8)} | ${progress}%`);
 });
 
-// ---------- Monitoramento de performance ----------
-const getQueueStats = async () => {
-  try {
-    const [waitingCount, activeCount, completedCount, failedCount] = await Promise.all([
-      audioQueue.getWaitingCount(),
-      audioQueue.getActiveCount(),
-      audioQueue.getCompletedCount(),
-      audioQueue.getFailedCount()
-    ]);
-
-    return {
-      waiting: waitingCount,
-      active: activeCount,
-      completed: completedCount,
-      failed: failedCount,
-      total: waitingCount + activeCount + completedCount + failedCount
-    };
-  } catch (error) {
-    console.error('❌ [WORKER-REDIS] Erro ao obter estatísticas:', error);
-    return { error: error.message };
-  }
-};
-
+// ---------- Monitoramento de performance OTIMIZADO - Stats da fila ----------
 setInterval(async () => {
   try {
+    // 🔥 STATS SIMPLIFICADAS - Apenas contadores essenciais para reduzir requests
     const stats = await getQueueStats();
-    console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📊 FILA: ${stats.waiting} aguardando | ${stats.active} ativas | ${stats.completed} completas | ${stats.failed} falhadas | PID: ${process.pid}`);
+    console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> � FILA: ${stats.waiting} aguardando | ${stats.active} ativas | ${stats.completed} completas | ${stats.failed} falhadas | PID: ${process.pid}`);
   } catch (err) {
     console.warn(`[WORKER-REDIS][${new Date().toISOString()}] -> ⚠️ Erro ao obter stats da fila: ${err.message}`);
   }
-}, 180000);
-
-// ---------- Recovery de jobs órfãos ----------
-async function recoverOrphanedJobs() {
-  if (!pgConnected) {
-    console.log(`🧪 [WORKER-REDIS] Postgres não disponível - pulando recovery`);
-    return;
-  }
-
-  try {
-    console.log("🔄 [WORKER-REDIS] Verificando jobs órfãos...");
-    
-    const problematicJobs = await pool.query(`
-      SELECT file_key, COUNT(*) as failure_count, 
-             ARRAY_AGG(id ORDER BY created_at DESC) as job_ids
-      FROM jobs 
-      WHERE error LIKE '%Recovered from orphaned state%' 
-      OR error LIKE '%Pipeline timeout%'
-      OR error LIKE '%FFmpeg%'
-      OR error LIKE '%Memory%'
-      GROUP BY file_key 
-      HAVING COUNT(*) >= 3
-    `);
-
-    if (problematicJobs.rows.length > 0) {
-      for (const row of problematicJobs.rows) {
-        console.log(`🚫 [WORKER-REDIS] Blacklisting file: ${row.file_key} (${row.failure_count} failures)`);
-        
-        await pool.query(`
-          UPDATE jobs 
-          SET status = 'failed', 
-              error = $1, 
-              updated_at = NOW()
-          WHERE file_key = $2 
-          AND status IN ('queued', 'processing')
-        `, [
-          `BLACKLISTED: File failed ${row.failure_count} times - likely corrupted/problematic`,
-          row.file_key
-        ]);
-      }
-      
-      console.log(`🚫 [WORKER-REDIS] Blacklisted ${problematicJobs.rows.length} problematic files`);
-    } else {
-      console.log("✅ [WORKER-REDIS] Nenhum job problemático encontrado para blacklist");
-    }
-    
-    const result = await pool.query(`
-      UPDATE jobs 
-      SET status = 'queued', updated_at = NOW(), error = 'Recovered from orphaned state by Redis worker'
-      WHERE status = 'processing' 
-      AND updated_at < NOW() - INTERVAL '10 minutes'
-      AND error NOT LIKE '%BLACKLISTED%'
-      RETURNING id, file_key
-    `);
-
-    if (result.rows.length > 0) {
-      console.log(`🔄 [WORKER-REDIS] Recuperados ${result.rows.length} jobs órfãos:`, result.rows.map(r => r.id.substring(0,8)));
-    }
-  } catch (err) {
-    console.error("❌ [WORKER-REDIS] Erro ao recuperar jobs órfãos:", err);
-  }
-}
-
-setInterval(recoverOrphanedJobs, 300000);
-recoverOrphanedJobs();
+}, 180000); // 🚀 OTIMIZADO: A cada 3 minutos (era 30s) - 6x MENOS requests Redis
 
 // ---------- Graceful Shutdown ----------
 process.on('SIGINT', async () => {
@@ -614,12 +600,14 @@ process.on('SIGTERM', async () => {
 });
 
 console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🚀 Worker Redis EXCLUSIVO iniciado! PID: ${process.pid}`);
-console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> ⚡ Pronto para processar ${concurrency} jobs simultâneos`);
+console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🏗️ Arquitetura: Redis Workers Only - Legacy worker desabilitado`);
+console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> ⚡ Pronto para processar ${concurrency} jobs simultâneos por worker`);
 console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 🎯 Aguardando jobs na fila 'audio-analyzer'...`);
 
 // ---------- Health Check Server para Railway ----------
+import express from 'express';
 const healthApp = express();
-const HEALTH_PORT = process.env.HEALTH_PORT || 8081;
+const HEALTH_PORT = process.env.HEALTH_PORT || 8081; // Mudado para 8081
 
 healthApp.get('/', (req, res) => {
   res.json({ 
@@ -627,7 +615,7 @@ healthApp.get('/', (req, res) => {
     timestamp: new Date().toISOString(),
     pid: process.pid,
     concurrency: concurrency,
-    redis: process.env.REDIS_URL ? 'connected' : 'disconnected'
+    architecture: 'redis-workers-only'
   });
 });
 
