@@ -4233,7 +4233,8 @@ function displayModalResults(analysis) {
                 // row('Variação de Volume (consistência)', 'ok', 'volumeConsistency'),
                 
                 // REMOVED: Problemas - ocultado da interface conforme solicitado
-                row('Sugestões', (analysis.suggestions?.length || 0) > 0 ? `<span class="tag tag-success">${analysis.suggestions.length} disponível(s)</span>` : '—')
+                // REMOVED: Sugestões - movido para o final do card MÉTRICAS AVANÇADAS
+                // row('Sugestões', (analysis.suggestions?.length || 0) > 0 ? `<span class="tag tag-success">${analysis.suggestions.length} disponível(s)</span>` : '—')
                 // REMOVED: col3Extras (dominant frequencies UI)
             ].join('');
 
@@ -4350,6 +4351,14 @@ function displayModalResults(analysis) {
                             rows.push(row(`mfcc ${idx + 1}`, `${safeFixed(coeff, 3)}`, `mfcc${idx + 1}`));
                         }
                     });
+                }
+                
+                // === SUGESTÕES DISPONÍVEIS (movido de SCORES & DIAGNÓSTICO) ===
+                const suggestionsCount = analysis.suggestions?.length || 0;
+                console.log('[AUDITORIA-SUGESTOES] Sugestões detectadas:', suggestionsCount);
+                
+                if (suggestionsCount > 0) {
+                    rows.push(row('Sugestões', `<span class="tag tag-success">${suggestionsCount} DISPONÍVEL${suggestionsCount > 1 ? 'S' : ''}</span>`, 'suggestions'));
                 }
                 
                 return rows.join('') || row('Status', 'Sem métricas avançadas disponíveis');
