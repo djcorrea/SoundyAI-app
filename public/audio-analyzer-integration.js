@@ -3,18 +3,51 @@
 // ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
 // ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
 
-// 📝 Carregar gerador de texto didático
-if (typeof window !== 'undefined' && !window.SuggestionTextGenerator) {
-    const script = document.createElement('script');
-    script.src = 'suggestion-text-generator.js';
-    script.async = true;
-    script.onload = () => {
-        console.log('[AudioIntegration] Gerador de texto didático carregado');
-    };
-    script.onerror = () => {
-        console.warn('[AudioIntegration] Falha ao carregar gerador de texto didático');
-    };
-    document.head.appendChild(script);
+// 📝 Carregar utilitários necessários
+if (typeof window !== 'undefined') {
+    // Carregar gerador de texto didático
+    if (!window.SuggestionTextGenerator) {
+        const script = document.createElement('script');
+        script.src = 'suggestion-text-generator.js';
+        script.async = true;
+        script.onload = () => {
+            console.log('[AudioIntegration] Gerador de texto didático carregado');
+        };
+        script.onerror = () => {
+            console.warn('[AudioIntegration] Falha ao carregar gerador de texto didático');
+        };
+        document.head.appendChild(script);
+    }
+    
+    // Carregar sistema de cores centralizado
+    if (!window.RefColors) {
+        const colorsScript = document.createElement('script');
+        colorsScript.src = 'util/colors.js';
+        colorsScript.type = 'module';
+        colorsScript.async = false; // Carregar síncronamente para garantir disponibilidade
+        colorsScript.onload = () => {
+            console.log('[AudioIntegration] Sistema de cores centralizado carregado');
+        };
+        colorsScript.onerror = () => {
+            console.warn('[AudioIntegration] Falha ao carregar sistema de cores');
+        };
+        document.head.appendChild(colorsScript);
+    }
+    
+    // Carregar helpers de referência
+    if (!window.RefHelpers) {
+        const refScript = document.createElement('script');
+        refScript.src = 'util/ref.js';
+        refScript.type = 'module';
+        refScript.async = false;
+        refScript.onload = () => {
+            console.log('[AudioIntegration] Helpers de referência carregados');
+        };
+        refScript.onerror = () => {
+            console.warn('[AudioIntegration] Falha ao carregar helpers de referência');
+        };
+        document.head.appendChild(refScript);
+    }
 }
 
 // Debug flag (silencia logs em produção; defina window.DEBUG_ANALYZER = true para habilitar)
@@ -5856,92 +5889,41 @@ function renderReferenceComparisons(analysis) {
             diff = val - target;
         }
         
-        // [BANDS-TOL-0] NOVO: Coloração com suporte a comparação binária para bandas (tol=0)
-        let diffCell;
-        if (!Number.isFinite(diff)) {
-            diffCell = '<td class="na" style="text-align: center;"><span style="opacity: 0.6;">—</span></td>';
-        } else if (tol === 0) {
-            // [BANDS-TOL-0] LÓGICA BINÁRIA PARA BANDAS (tol=0)
-            // Verde SOMENTE se dentro do range (diff === 0)
-            const absDiff = Math.abs(diff);
-            let cssClass, statusText;
-            
-            if (absDiff === 0) {
-                // ✅ DENTRO DO RANGE → Verde
-                cssClass = 'ok';
-                statusText = 'Ideal';
-            } else if (absDiff <= 1.0) {
-                // ⚠️ Fora por até 1dB → Amarelo
-                cssClass = 'yellow';
-                statusText = 'Ajuste leve';
-            } else if (absDiff <= 3.0) {
-                // 🟠 Fora por até 3dB → Laranja
-                cssClass = 'orange';
-                statusText = 'Ajustar';
-            } else {
-                // ❌ Fora por >3dB → Vermelho
-                cssClass = 'warn';
-                statusText = 'Corrigir';
-            }
-            
-            diffCell = `<td class="${cssClass}" style="text-align: center; padding: 8px;">
-                <div style="font-size: 12px; font-weight: 600;">${statusText}</div>
-            </td>`;
-        } else if (!Number.isFinite(tol) || tol < 0) {
-            // 🎯 CORREÇÃO: Aplicar tolerância padrão em vez de retornar N/A
-            // Isso garante que TODAS as métricas tenham cor, mesmo sem tolerância definida
-            const defaultTol = 1.0; // Tolerância padrão genérica
-            const absDiff = Math.abs(diff);
-            let cssClass, statusText;
-            
-            console.warn(`⚠️ [TOLERANCE_FALLBACK] Métrica "${label}" sem tolerância válida (tol=${tol}). Usando tolerância padrão: ${defaultTol}`);
-            
-            if (absDiff <= defaultTol) {
-                // ✅ ZONA IDEAL
-                cssClass = 'ok';
-                statusText = 'Ideal';
-            } else {
-                const multiplicador = absDiff / defaultTol;
-                if (multiplicador <= 2) {
-                    // ⚠️ ZONA AJUSTAR
-                    cssClass = 'yellow';
-                    statusText = 'Ajuste leve';
-                } else {
-                    // ❌ ZONA CORRIGIR
-                    cssClass = 'warn';
-                    statusText = 'Corrigir';
-                }
-            }
-            
-            diffCell = `<td class="${cssClass}" style="text-align: center; padding: 8px;">
-                <div style="font-size: 12px; font-weight: 600;">${statusText}</div>
-            </td>`;
-        } else {
-            // LÓGICA PADRÃO PARA MÉTRICAS PRINCIPAIS (LUFS, TP, DR, etc. com tol>0)
-            const absDiff = Math.abs(diff);
-            let cssClass, statusText;
-            
-            if (absDiff <= tol) {
-                // ✅ ZONA IDEAL
-                cssClass = 'ok';
-                statusText = 'Ideal';
-            } else {
-                const multiplicador = absDiff / tol;
-                if (multiplicador <= 2) {
-                    // ⚠️ ZONA AJUSTAR
-                    cssClass = 'yellow';
-                    statusText = 'Ajuste leve';
-                } else {
-                    // ❌ ZONA CORRIGIR
-                    cssClass = 'warn';
-                    statusText = 'Corrigir';
-                }
-            }
-            
-            diffCell = `<td class="${cssClass}" style="text-align: center; padding: 8px;">
-                <div style="font-size: 12px; font-weight: 600;">${statusText}</div>
-            </td>`;
+        // 🎯 NOVO SISTEMA CENTRALIZADO: Usar função pura de coloração
+        // Determinar se é modo banda (tol === 0 ou target é range)
+        const isBandMode = (tol === 0) || (typeof target === 'object' && target !== null);
+        
+        // Calcular effectiveTarget para targets tipo range
+        let effectiveTarget = target;
+        if (typeof target === 'object' && target !== null && 
+            Number.isFinite(target.min) && Number.isFinite(target.max)) {
+            effectiveTarget = (target.min + target.max) / 2;
         }
+        
+        // Usar função centralizada de coloração
+        const statusClass = window.RefColors?.getStatusClass({
+            value: val,
+            target: effectiveTarget,
+            tol: tol,
+            bandMode: isBandMode
+        }) || 'no-data';
+        
+        const statusText = window.RefColors?.getStatusText(statusClass) || 'Sem dados';
+        
+        // Log de debug para células sem cor
+        if (statusClass === 'no-data' && typeof window !== 'undefined' && window.DEBUG_ANALYZER) {
+            console.warn('[RefColors] no-data:', { 
+                label, 
+                value: val, 
+                target: effectiveTarget, 
+                tol 
+            });
+        }
+        
+        // Renderizar célula com classe
+        const diffCell = `<td class="ref-cell ${statusClass}" style="text-align: center; padding: 8px;">
+            <div style="font-size: 12px; font-weight: 600;">${statusText}</div>
+        </td>`;
         
         // 🎯 NOVO: Renderização híbrida para targets fixos e ranges
         let targetDisplay;
@@ -6412,6 +6394,10 @@ function renderReferenceComparisons(analysis) {
         .ref-compare-table td.yellow::before{content:'⚠️ ';margin-right:2px;}
         .ref-compare-table td.warn{color:#ff7b7b;font-weight:600;} 
         .ref-compare-table td.warn::before{content:'❌ ';margin-right:2px;}
+        .ref-compare-table td.orange{color:orange;font-weight:600;} 
+        .ref-compare-table td.orange::before{content:'🟠 ';margin-right:2px;}
+        .ref-compare-table td.no-data{background:rgba(128,128,128,.15);color:#8b8b8b;opacity:.7;font-style:italic;} 
+        .ref-compare-table td.no-data::before{content:'— ';margin-right:2px;}
         .ref-compare-table .tol{opacity:.7;margin-left:4px;font-size:10px;color:#b8c2d6;} 
         .ref-compare-table tbody tr:hover td{background:rgba(255,255,255,.04);} 
         `;
