@@ -3868,24 +3868,29 @@ function displayModalResults(analysis) {
     
     // 🔧 CORREÇÃO CRÍTICA: Normalizar dados do backend para compatibilidade com front-end
     if (analysis && typeof analysis === 'object') {
-        console.log('[METRICS-FIX] ANTES de normalizar:', {
+        console.log('[AUDITORIA-RMS-LUFS] ANTES de normalizar:', {
+            'technicalData.avgLoudness (RMS)': analysis?.technicalData?.avgLoudness,
+            'technicalData.rms': analysis?.technicalData?.rms,
+            'energy.rms': analysis?.energy?.rms,
             'technicalData.lufsIntegrated': analysis?.technicalData?.lufsIntegrated,
+            'loudness.integrated': analysis?.loudness?.integrated,
             'technicalData.crestFactor': analysis?.technicalData?.crestFactor,
             'technicalData.truePeakDbtp': analysis?.technicalData?.truePeakDbtp,
-            'loudness.integrated': analysis?.loudness?.integrated,
             'dynamics.crest': analysis?.dynamics?.crest,
             'truePeak.maxDbtp': analysis?.truePeak?.maxDbtp
         });
         
         analysis = normalizeBackendAnalysisData(analysis);
         
-        console.log('[METRICS-FIX] DEPOIS de normalizar:', {
+        console.log('[AUDITORIA-RMS-LUFS] DEPOIS de normalizar:', {
+            'technicalData.avgLoudness (RMS)': analysis?.technicalData?.avgLoudness,
             'technicalData.lufsIntegrated': analysis?.technicalData?.lufsIntegrated,
             'technicalData.crestFactor': analysis?.technicalData?.crestFactor,
             'technicalData.truePeakDbtp': analysis?.technicalData?.truePeakDbtp,
             'loudness.integrated': analysis?.loudness?.integrated,
             'dynamics.crest': analysis?.dynamics?.crest,
-            'truePeak.maxDbtp': analysis?.truePeak?.maxDbtp
+            'truePeak.maxDbtp': analysis?.truePeak?.maxDbtp,
+            'energy.rms': analysis?.energy?.rms
         });
         console.log('📊 [DEBUG] Dados normalizados para exibição:', analysis);
     }
@@ -4094,7 +4099,31 @@ function displayModalResults(analysis) {
                 return row('Pico Real (dBTP)', `${safeFixed(tpValue, 2)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp');
             })(),
             
-            // 🎯 Volume Médio (dBFS) - com fallbacks robustos ['loudness','integrated'] > technicalData.lufsIntegrated
+            // 🎯 Volume Médio (RMS) - energia real em dBFS
+            (() => {
+                const rmsValue = getMetricWithFallback([
+                    ['energy', 'rms'],
+                    'avgLoudness',
+                    'rms',
+                    'technicalData.avgLoudness',
+                    'technicalData.rms'
+                ]);
+                console.log('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) - advancedReady:', advancedReady, 'rmsValue:', rmsValue);
+                
+                // 🎯 Exibir sempre, mesmo se 0 (valor técnico válido)
+                if (rmsValue === null || rmsValue === undefined) {
+                    console.warn('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) NÃO ENCONTRADO - exibindo 0');
+                    return row('Volume Médio (RMS)', `0.0 dBFS`, 'avgLoudness');
+                }
+                if (!Number.isFinite(rmsValue)) {
+                    console.warn('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) valor inválido:', rmsValue);
+                    return row('Volume Médio (RMS)', `0.0 dBFS`, 'avgLoudness');
+                }
+                console.log('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) RENDERIZADO:', rmsValue, 'dBFS');
+                return row('Volume Médio (RMS)', `${safeFixed(rmsValue, 1)} dBFS`, 'avgLoudness');
+            })(),
+            
+            // 🎯 LUFS Integrado (Streaming) - loudness perceptiva em LUFS
             (() => {
                 const lufsValue = getMetricWithFallback([
                     ['loudness', 'integrated'],
@@ -4102,22 +4131,23 @@ function displayModalResults(analysis) {
                     'lufsIntegrated',
                     'technicalData.lufsIntegrated'
                 ]);
-                console.log('[METRICS-FIX] col1 > Volume Médio (dBFS) - advancedReady:', advancedReady, 'lufsValue:', lufsValue);
+                console.log('[AUDITORIA-RMS-LUFS] col1 > LUFS Integrado (Streaming) - advancedReady:', advancedReady, 'lufsValue:', lufsValue);
+                
                 if (!advancedReady) {
-                    console.warn('[METRICS-FIX] col1 > Volume Médio BLOQUEADO por advancedReady=false');
+                    console.warn('[AUDITORIA-RMS-LUFS] col1 > LUFS BLOQUEADO por advancedReady=false');
                     return '';
                 }
-                // 🎯 Exibir mesmo se valor for 0 ou -0
+                // 🎯 Exibir sempre, mesmo se 0
                 if (lufsValue === null || lufsValue === undefined) {
-                    console.warn('[METRICS-FIX] col1 > Volume Médio NÃO ENCONTRADO em nenhum caminho');
-                    return '';
+                    console.warn('[AUDITORIA-RMS-LUFS] col1 > LUFS NÃO ENCONTRADO - exibindo 0');
+                    return row('Volume Médio (LUFS - Streaming)', `0.0 LUFS`, 'lufsIntegrated');
                 }
                 if (!Number.isFinite(lufsValue)) {
-                    console.warn('[METRICS-FIX] col1 > Volume Médio valor inválido:', lufsValue);
-                    return '';
+                    console.warn('[AUDITORIA-RMS-LUFS] col1 > LUFS valor inválido:', lufsValue);
+                    return row('Volume Médio (LUFS - Streaming)', `0.0 LUFS`, 'lufsIntegrated');
                 }
-                console.log('[METRICS-FIX] col1 > Volume Médio RENDERIZADO:', lufsValue, 'dBFS');
-                return row('Volume Médio (dBFS)', `${safeFixed(lufsValue, 1)} dBFS`, 'lufsIntegrated');
+                console.log('[AUDITORIA-RMS-LUFS] col1 > LUFS Integrado RENDERIZADO:', lufsValue, 'LUFS');
+                return row('Volume Médio (LUFS - Streaming)', `${safeFixed(lufsValue, 1)} LUFS`, 'lufsIntegrated');
             })(),
             
             row('Dynamic Range (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
@@ -8059,13 +8089,22 @@ function normalizeBackendAnalysisData(result) {
     const loudness = src.loudness || data.loudness || data.technicalData?.loudness || {};
     const dynamics = src.dynamics || data.dynamics || data.technicalData?.dynamics || {};
     const truePeak = src.truePeak || data.truePeak || data.technicalData?.truePeak || {};
+    const energy = src.energy || data.energy || data.technicalData?.energy || {};
     const bands = src.bands || src.spectralBands || data.technicalData?.bands || data.technicalData?.spectralBands || data.spectralBands || {};
 
     const normalized = {
         // Preservar estrutura original
         ...data,
         
-        // Métricas normalizadas
+        // 🎯 Métricas normalizadas (RMS e LUFS separados)
+        avgLoudness: energy.rms ?? 
+                    src.avgLoudness ?? 
+                    src.rms ??
+                    data.technicalData?.avgLoudness ?? 
+                    data.technicalData?.rms ??
+                    data.energy?.rms ??
+                    null,
+        
         lufsIntegrated: loudness.integratedLUFS ?? 
                        loudness.integrated ?? 
                        src.lufsIntegrated ?? 
@@ -8101,6 +8140,7 @@ function normalizeBackendAnalysisData(result) {
         loudness: data.loudness || loudness,
         dynamics: data.dynamics || dynamics,
         truePeak: data.truePeak || truePeak,
+        energy: data.energy || energy,
         
         // Estruturas técnicas
         technicalData: {
@@ -8108,6 +8148,14 @@ function normalizeBackendAnalysisData(result) {
             ...(data.technicalData || src),
             
             // 🎯 Garantir métricas essenciais (MÉTRICAS PRINCIPAIS)
+            avgLoudness: energy.rms ?? 
+                        src.avgLoudness ?? 
+                        src.rms ??
+                        data.technicalData?.avgLoudness ?? 
+                        data.technicalData?.rms ??
+                        data.energy?.rms ??
+                        null,
+            
             lufsIntegrated: loudness.integratedLUFS ?? 
                            loudness.integrated ?? 
                            src.lufsIntegrated ?? 
@@ -8155,6 +8203,7 @@ function normalizeBackendAnalysisData(result) {
 
     console.log("✅ [NORMALIZE] Parsed data:", normalized);
     console.log("✅ [NORMALIZE] Normalized metrics:", {
+        avgLoudness: normalized.technicalData.avgLoudness,
         lufsIntegrated: normalized.technicalData.lufsIntegrated,
         lra: normalized.technicalData.lra,
         truePeakDbtp: normalized.technicalData.truePeakDbtp,
@@ -8163,14 +8212,24 @@ function normalizeBackendAnalysisData(result) {
         bands: normalized.technicalData.bandEnergies || normalized.technicalData.spectral_balance
     });
     
-    // 🎯 LOGS ESPECÍFICOS DAS MÉTRICAS PRINCIPAIS (AUDITORIA)
-    console.log('[METRICS-FIX] LUFS:', normalized.technicalData.lufsIntegrated, 'CREST:', normalized.technicalData.crestFactor);
-    console.log('[METRICS-FIX] normalizeBackendAnalysisData > LUFS=', normalized.technicalData.lufsIntegrated, {
+    // 🎯 LOGS ESPECÍFICOS DAS MÉTRICAS PRINCIPAIS (AUDITORIA COMPLETA RMS + LUFS)
+    console.log('[AUDITORIA-RMS-LUFS] RMS:', normalized.technicalData.avgLoudness, 'LUFS:', normalized.technicalData.lufsIntegrated);
+    
+    console.log('[AUDITORIA-RMS-LUFS] normalizeBackendAnalysisData > RMS=', normalized.technicalData.avgLoudness, {
+        'energy.rms': energy.rms,
+        'src.avgLoudness': src.avgLoudness,
+        'src.rms': src.rms,
+        'technicalData.avgLoudness': data.technicalData?.avgLoudness,
+        'technicalData.rms': data.technicalData?.rms
+    });
+    
+    console.log('[AUDITORIA-RMS-LUFS] normalizeBackendAnalysisData > LUFS=', normalized.technicalData.lufsIntegrated, {
         'loudness.integrated': loudness.integrated,
         'loudness.integratedLUFS': loudness.integratedLUFS,
         'src.lufsIntegrated': src.lufsIntegrated,
         'technicalData.lufsIntegrated': data.technicalData?.lufsIntegrated
     });
+    
     console.log('[METRICS-FIX] normalizeBackendAnalysisData > CREST=', normalized.technicalData.crestFactor, {
         'dynamics.crest': dynamics.crest,
         'src.crestFactor': src.crestFactor,
