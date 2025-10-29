@@ -3868,7 +3868,25 @@ function displayModalResults(analysis) {
     
     // 🔧 CORREÇÃO CRÍTICA: Normalizar dados do backend para compatibilidade com front-end
     if (analysis && typeof analysis === 'object') {
+        console.log('[METRICS-FIX] ANTES de normalizar:', {
+            'technicalData.lufsIntegrated': analysis?.technicalData?.lufsIntegrated,
+            'technicalData.crestFactor': analysis?.technicalData?.crestFactor,
+            'technicalData.truePeakDbtp': analysis?.technicalData?.truePeakDbtp,
+            'loudness.integrated': analysis?.loudness?.integrated,
+            'dynamics.crest': analysis?.dynamics?.crest,
+            'truePeak.maxDbtp': analysis?.truePeak?.maxDbtp
+        });
+        
         analysis = normalizeBackendAnalysisData(analysis);
+        
+        console.log('[METRICS-FIX] DEPOIS de normalizar:', {
+            'technicalData.lufsIntegrated': analysis?.technicalData?.lufsIntegrated,
+            'technicalData.crestFactor': analysis?.technicalData?.crestFactor,
+            'technicalData.truePeakDbtp': analysis?.technicalData?.truePeakDbtp,
+            'loudness.integrated': analysis?.loudness?.integrated,
+            'dynamics.crest': analysis?.dynamics?.crest,
+            'truePeak.maxDbtp': analysis?.truePeak?.maxDbtp
+        });
         console.log('📊 [DEBUG] Dados normalizados para exibição:', analysis);
     }
     
@@ -3912,10 +3930,32 @@ function displayModalResults(analysis) {
     }
     
     // Marcar se pacote avançado chegou (LUFS integrado + Pico Real + LRA)
+    // 🔍 AUDITORIA: Verificar múltiplos caminhos para lufsIntegrated e truePeakDbtp
+    const lufsValue = analysis?.technicalData?.lufs_integrated ?? 
+                     analysis?.technicalData?.lufsIntegrated ??
+                     analysis?.metrics?.loudness?.integrated ??
+                     analysis?.loudness?.integrated;
+    
+    const truePeakValue = analysis?.technicalData?.truePeakDbtp ??
+                         analysis?.truePeak?.maxDbtp;
+    
     const advancedReady = (
-        Number.isFinite(analysis?.technicalData?.lufs_integrated) &&
-        Number.isFinite(analysis?.technicalData?.truePeakDbtp)
+        Number.isFinite(lufsValue) && Number.isFinite(truePeakValue)
     );
+    
+    // 🎯 LOGS DE DIAGNÓSTICO - MÉTRICAS PRINCIPAIS
+    console.log('[METRICS-FIX] advancedReady:', advancedReady);
+    console.log('[METRICS-FIX] LUFS=', lufsValue, {
+        'technicalData.lufs_integrated': analysis?.technicalData?.lufs_integrated,
+        'technicalData.lufsIntegrated': analysis?.technicalData?.lufsIntegrated,
+        'metrics.loudness.integrated': analysis?.metrics?.loudness?.integrated,
+        'loudness.integrated': analysis?.loudness?.integrated
+    });
+    console.log('[METRICS-FIX] TRUEPEAK=', truePeakValue, {
+        'technicalData.truePeakDbtp': analysis?.technicalData?.truePeakDbtp,
+        'truePeak.maxDbtp': analysis?.truePeak?.maxDbtp
+    });
+    
     if (typeof window !== 'undefined') window.__AUDIO_ADVANCED_READY__ = advancedReady;
 
     // Helpers seguros com bloqueio de fallback se advanced não pronto
@@ -4030,40 +4070,79 @@ function displayModalResults(analysis) {
             (Number.isFinite(getMetric('peak_db', 'peak')) && getMetric('peak_db', 'peak') !== 0 ? row('Pico de Amostra', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak') : ''),
             
             // 🎯 Pico Real (dBTP) - com fallbacks robustos ['truePeak','maxDbtp'] > technicalData.truePeakDbtp
-            (advancedReady ? (() => {
+            (() => {
                 const tpValue = getMetricWithFallback([
                     ['truePeak', 'maxDbtp'],
                     'truePeakDbtp',
                     'technicalData.truePeakDbtp'
                 ]);
-                if (!Number.isFinite(tpValue)) return '';
+                console.log('[METRICS-FIX] col1 > Pico Real - advancedReady:', advancedReady, 'tpValue:', tpValue);
+                if (!advancedReady) {
+                    console.warn('[METRICS-FIX] col1 > Pico Real BLOQUEADO por advancedReady=false');
+                    return '';
+                }
+                if (tpValue === null || tpValue === undefined) {
+                    console.warn('[METRICS-FIX] col1 > Pico Real NÃO ENCONTRADO em nenhum caminho');
+                    return '';
+                }
+                if (!Number.isFinite(tpValue)) {
+                    console.warn('[METRICS-FIX] col1 > Pico Real valor inválido:', tpValue);
+                    return '';
+                }
                 const tpStatus = getTruePeakStatus(tpValue);
+                console.log('[METRICS-FIX] col1 > Pico Real RENDERIZADO:', tpValue, 'dBTP status:', tpStatus.status);
                 return row('Pico Real (dBTP)', `${safeFixed(tpValue, 2)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp');
-            })() : ''),
+            })(),
             
             // 🎯 Volume médio (LUFS) - com fallbacks robustos ['loudness','integrated'] > technicalData.lufsIntegrated
-            (advancedReady ? (() => {
+            (() => {
                 const lufsValue = getMetricWithFallback([
                     ['loudness', 'integrated'],
                     'lufs_integrated',
                     'lufsIntegrated',
                     'technicalData.lufsIntegrated'
                 ]);
-                if (!Number.isFinite(lufsValue)) return '';
+                console.log('[METRICS-FIX] col1 > Volume médio (LUFS) - advancedReady:', advancedReady, 'lufsValue:', lufsValue);
+                if (!advancedReady) {
+                    console.warn('[METRICS-FIX] col1 > Volume médio BLOQUEADO por advancedReady=false');
+                    return '';
+                }
+                if (lufsValue === null || lufsValue === undefined) {
+                    console.warn('[METRICS-FIX] col1 > Volume médio NÃO ENCONTRADO em nenhum caminho');
+                    return '';
+                }
+                if (!Number.isFinite(lufsValue)) {
+                    console.warn('[METRICS-FIX] col1 > Volume médio valor inválido:', lufsValue);
+                    return '';
+                }
+                console.log('[METRICS-FIX] col1 > Volume médio RENDERIZADO:', lufsValue, 'LUFS');
                 return row('Volume médio (LUFS)', `${safeFixed(lufsValue, 1)} LUFS`, 'lufsIntegrated');
-            })() : ''),
+            })(),
             
             // 🎯 Fator de crista - com fallbacks robustos ['dynamics','crest'] > technicalData.crestFactor
-            (advancedReady ? (() => {
+            (() => {
                 const crestValue = getMetricWithFallback([
                     ['dynamics', 'crest'],
                     'crest_factor',
                     'crestFactor',
                     'technicalData.crestFactor'
                 ]);
-                if (!Number.isFinite(crestValue)) return '';
+                console.log('[METRICS-FIX] col1 > Fator de crista - advancedReady:', advancedReady, 'crestValue:', crestValue);
+                if (!advancedReady) {
+                    console.warn('[METRICS-FIX] col1 > Fator de crista BLOQUEADO por advancedReady=false');
+                    return '';
+                }
+                if (crestValue === null || crestValue === undefined) {
+                    console.warn('[METRICS-FIX] col1 > Fator de crista NÃO ENCONTRADO em nenhum caminho');
+                    return '';
+                }
+                if (!Number.isFinite(crestValue)) {
+                    console.warn('[METRICS-FIX] col1 > Fator de crista valor inválido:', crestValue);
+                    return '';
+                }
+                console.log('[METRICS-FIX] col1 > Fator de crista RENDERIZADO:', crestValue, 'dB');
                 return row('Fator de crista', `${safeFixed(crestValue, 2)} dB`, 'crestFactor');
-            })() : ''),
+            })(),
             
             row('Dynamic Range (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
             row('Loudness Range (LRA)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra'),
@@ -7988,6 +8067,8 @@ function normalizeBackendAnalysisData(result) {
     console.log("[NORMALIZE] Full data structure:", data);
 
     const loudness = src.loudness || data.loudness || data.technicalData?.loudness || {};
+    const dynamics = src.dynamics || data.dynamics || data.technicalData?.dynamics || {};
+    const truePeak = src.truePeak || data.truePeak || data.technicalData?.truePeak || {};
     const bands = src.bands || src.spectralBands || data.technicalData?.bands || data.technicalData?.spectralBands || data.spectralBands || {};
 
     const normalized = {
@@ -8008,24 +8089,35 @@ function normalizeBackendAnalysisData(result) {
              data.loudness?.lra ?? 
              null,
              
-        truePeakDbtp: src.truePeakDbtp ?? 
-                     data.truePeak?.maxDbtp ?? 
+        truePeakDbtp: truePeak.maxDbtp ?? 
+                     src.truePeakDbtp ?? 
                      data.technicalData?.truePeakDbtp ?? 
                      null,
                      
-        dynamicRange: src.dynamicRange ?? 
-                     data.dynamics?.range ?? 
+        dynamicRange: dynamics.range ?? 
+                     src.dynamicRange ?? 
                      data.technicalData?.dynamicRange ?? 
                      null,
                      
+        crestFactor: dynamics.crest ?? 
+                    src.crestFactor ?? 
+                    src.crest_factor ??
+                    data.technicalData?.crestFactor ?? 
+                    null,
+                     
         bands: bands,
+        
+        // 🎯 Preservar estruturas aninhadas originais para fallback
+        loudness: data.loudness || loudness,
+        dynamics: data.dynamics || dynamics,
+        truePeak: data.truePeak || truePeak,
         
         // Estruturas técnicas
         technicalData: {
             // Copiar dados existentes
             ...(data.technicalData || src),
             
-            // Garantir métricas essenciais
+            // 🎯 Garantir métricas essenciais (MÉTRICAS PRINCIPAIS)
             lufsIntegrated: loudness.integratedLUFS ?? 
                            loudness.integrated ?? 
                            src.lufsIntegrated ?? 
@@ -8039,15 +8131,21 @@ function normalizeBackendAnalysisData(result) {
                  data.loudness?.lra ?? 
                  null,
                  
-            truePeakDbtp: src.truePeakDbtp ?? 
-                         data.truePeak?.maxDbtp ?? 
+            truePeakDbtp: truePeak.maxDbtp ?? 
+                         src.truePeakDbtp ?? 
                          data.technicalData?.truePeakDbtp ?? 
                          null,
                          
-            dynamicRange: src.dynamicRange ?? 
-                         data.dynamics?.range ?? 
+            dynamicRange: dynamics.range ?? 
+                         src.dynamicRange ?? 
                          data.technicalData?.dynamicRange ?? 
                          null,
+                         
+            crestFactor: dynamics.crest ?? 
+                        src.crestFactor ?? 
+                        src.crest_factor ??
+                        data.technicalData?.crestFactor ?? 
+                        null,
                          
             bandEnergies: bands,
             spectral_balance: bands
@@ -8071,7 +8169,16 @@ function normalizeBackendAnalysisData(result) {
         lra: normalized.technicalData.lra,
         truePeakDbtp: normalized.technicalData.truePeakDbtp,
         dynamicRange: normalized.technicalData.dynamicRange,
+        crestFactor: normalized.technicalData.crestFactor,
         bands: normalized.technicalData.bandEnergies || normalized.technicalData.spectral_balance
+    });
+    
+    // 🎯 LOGS ESPECÍFICOS DAS TRÊS MÉTRICAS PRINCIPAIS
+    console.log('[METRICS-FIX] normalizeBackendAnalysisData > CREST=', normalized.technicalData.crestFactor, {
+        'dynamics.crest': dynamics.crest,
+        'src.crestFactor': src.crestFactor,
+        'src.crest_factor': src.crest_factor,
+        'technicalData.crestFactor': data.technicalData?.crestFactor
     });
 
     return normalized;
