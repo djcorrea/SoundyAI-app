@@ -7955,10 +7955,12 @@ function normalizeBackendAnalysisData(backendData) {
     
     // 🎯 MAPEAR MÉTRICAS BÁSICAS - SEM FALLBACKS FICTÍCIOS
     const tech = normalized.technicalData;
-    const source = backendData.technicalData || backendData.metrics || backendData;
+    // CORRIGIDO: Incluir estrutura metrics.* na busca
+    const source = backendData.technicalData || backendData.metrics?.technicalData || backendData.metrics || backendData;
     
     console.log('🔍 [NORMALIZE] Dados de origem recebidos:', source);
     console.log('🔍 [NORMALIZE] Estrutura completa do backend:', backendData);
+    console.log('🔍 [NORMALIZE] Estrutura metrics do backend:', backendData.metrics);
     
     // 🎯 ALIAS MAP - Mapeamento de nomes divergentes de métricas
     const aliasMap = {
@@ -7967,7 +7969,7 @@ function normalizeBackendAnalysisData(backendData) {
         'lra': ['loudness.lra', 'loudnessRange', 'lra_tolerance', 'loudness_range'],
         'crestFactor': ['dynamics.crest', 'crest_factor'],
         'truePeakDbtp': ['truePeak.maxDbtp', 'true_peak_dbtp', 'truePeak'],
-        'lufsIntegrated': ['loudness.integrated', 'lufs_integrated', 'lufs'],
+        'lufsIntegrated': ['loudness.integrated', 'lufs_integrated', 'lufs', 'loudness.integratedLUFS', 'integratedLUFS'],
         
         // Bandas espectrais - normalização de nomes
         'low_mid': ['lowMid', 'low_mid', 'lowmid'],
@@ -7980,32 +7982,50 @@ function normalizeBackendAnalysisData(backendData) {
         'mid': ['mid', 'mids', 'middle']
     };
     
-    // Função para pegar valor real ou null (sem fallbacks fictícios) + suporte a alias
+    // Função para pegar valor real ou null (sem fallbacks fictícios) + suporte a alias + metrics.*
     const getRealValue = (...paths) => {
         for (const path of paths) {
+            // 1. Verificar em source (technicalData ou metrics)
             const value = path.split('.').reduce((obj, key) => obj?.[key], source);
             if (Number.isFinite(value)) {
                 return value;
             }
-            // NOVO: Também verificar na estrutura raiz do backendData
+            
+            // 2. Verificar na estrutura raiz do backendData
             const rootValue = path.split('.').reduce((obj, key) => obj?.[key], backendData);
             if (Number.isFinite(rootValue)) {
                 return rootValue;
             }
             
-            // 🎯 NOVO: Verificar alias se não encontrou valor direto
+            // 3. NOVO: Verificar em backendData.metrics.*
+            const metricsValue = path.split('.').reduce((obj, key) => obj?.[key], backendData.metrics);
+            if (Number.isFinite(metricsValue)) {
+                console.log(`🔄 [METRICS] ${path} encontrado em metrics: ${metricsValue}`);
+                return metricsValue;
+            }
+            
+            // 4. Verificar alias se não encontrou valor direto
             if (aliasMap[path]) {
                 for (const aliasPath of aliasMap[path]) {
+                    // 4a. Alias em source
                     const aliasValue = aliasPath.split('.').reduce((obj, key) => obj?.[key], source);
                     if (Number.isFinite(aliasValue)) {
                         console.log(`🔄 [ALIAS] ${path} → ${aliasPath}: ${aliasValue}`);
                         return aliasValue;
                     }
-                    // Verificar alias na estrutura raiz também
+                    
+                    // 4b. Alias na estrutura raiz
                     const rootAliasValue = aliasPath.split('.').reduce((obj, key) => obj?.[key], backendData);
                     if (Number.isFinite(rootAliasValue)) {
                         console.log(`🔄 [ALIAS] ${path} → ${aliasPath}: ${rootAliasValue}`);
                         return rootAliasValue;
+                    }
+                    
+                    // 4c. NOVO: Alias em metrics.*
+                    const metricsAliasValue = aliasPath.split('.').reduce((obj, key) => obj?.[key], backendData.metrics);
+                    if (Number.isFinite(metricsAliasValue)) {
+                        console.log(`🔄 [ALIAS METRICS] ${path} → ${aliasPath}: ${metricsAliasValue}`);
+                        return metricsAliasValue;
                     }
                 }
             }
@@ -8018,32 +8038,39 @@ function normalizeBackendAnalysisData(backendData) {
     tech.rms = getRealValue('rms', 'rms_db', 'rmsLevel');
     tech.rmsLevel = tech.rms;
     
-    // Dynamic Range - APENAS VALORES REAIS
-    tech.dynamicRange = getRealValue('dynamicRange', 'dynamic_range', 'dr');
+    // Dynamic Range - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA + METRICS
+    tech.dynamicRange = getRealValue('dynamicRange', 'dynamic_range', 'dr') ||
+                       (backendData.metrics?.technicalData?.dynamicRange && Number.isFinite(backendData.metrics.technicalData.dynamicRange) ? backendData.metrics.technicalData.dynamicRange : null);
     
     // Crest Factor - APENAS VALORES REAIS
     tech.crestFactor = getRealValue('crestFactor', 'crest_factor');
     
-    // True Peak - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA
+    // True Peak - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA + METRICS
     tech.truePeakDbtp = getRealValue('truePeakDbtp', 'true_peak_dbtp', 'truePeak') || 
-                       (backendData.truePeak?.maxDbtp && Number.isFinite(backendData.truePeak.maxDbtp) ? backendData.truePeak.maxDbtp : null);
+                       (backendData.truePeak?.maxDbtp && Number.isFinite(backendData.truePeak.maxDbtp) ? backendData.truePeak.maxDbtp : null) ||
+                       (backendData.metrics?.technicalData?.truePeakDbtp && Number.isFinite(backendData.metrics.technicalData.truePeakDbtp) ? backendData.metrics.technicalData.truePeakDbtp : null);
     
-    // LUFS - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA
-    tech.lufsIntegrated = getRealValue('lufsIntegrated', 'lufs_integrated', 'lufs') ||
-                         (backendData.loudness?.integrated && Number.isFinite(backendData.loudness.integrated) ? backendData.loudness.integrated : null);
+    // LUFS - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA + METRICS
+    tech.lufsIntegrated = getRealValue('lufsIntegrated', 'lufs_integrated', 'lufs', 'integratedLUFS') ||
+                         (backendData.loudness?.integrated && Number.isFinite(backendData.loudness.integrated) ? backendData.loudness.integrated : null) ||
+                         (backendData.metrics?.loudness?.integrated && Number.isFinite(backendData.metrics.loudness.integrated) ? backendData.metrics.loudness.integrated : null) ||
+                         (backendData.metrics?.loudness?.integratedLUFS && Number.isFinite(backendData.metrics.loudness.integratedLUFS) ? backendData.metrics.loudness.integratedLUFS : null);
     
     tech.lufsShortTerm = getRealValue('lufsShortTerm', 'lufs_short_term') ||
-                        (backendData.loudness?.shortTerm && Number.isFinite(backendData.loudness.shortTerm) ? backendData.loudness.shortTerm : null);
+                        (backendData.loudness?.shortTerm && Number.isFinite(backendData.loudness.shortTerm) ? backendData.loudness.shortTerm : null) ||
+                        (backendData.metrics?.loudness?.shortTerm && Number.isFinite(backendData.metrics.loudness.shortTerm) ? backendData.metrics.loudness.shortTerm : null);
     
     tech.lufsMomentary = getRealValue('lufsMomentary', 'lufs_momentary') ||
-                        (backendData.loudness?.momentary && Number.isFinite(backendData.loudness.momentary) ? backendData.loudness.momentary : null);
+                        (backendData.loudness?.momentary && Number.isFinite(backendData.loudness.momentary) ? backendData.loudness.momentary : null) ||
+                        (backendData.metrics?.loudness?.momentary && Number.isFinite(backendData.metrics.loudness.momentary) ? backendData.metrics.loudness.momentary : null);
     
-    // LRA - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA + MÚLTIPLOS ALIASES
+    // LRA - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA + METRICS + MÚLTIPLOS ALIASES
     tech.lra = getRealValue('lra', 'loudnessRange', 'lra_tolerance', 'loudness_range') ||
               (backendData.loudness?.lra && Number.isFinite(backendData.loudness.lra) ? backendData.loudness.lra : null) ||
               (backendData.lra && Number.isFinite(backendData.lra) ? backendData.lra : null) ||
-              // NOVO: Verificar em metrics.lra também
-              (backendData.metrics?.lra && Number.isFinite(backendData.metrics.lra) ? backendData.metrics.lra : null);
+              // NOVO: Verificar em metrics.lra e metrics.loudness.lra também
+              (backendData.metrics?.lra && Number.isFinite(backendData.metrics.lra) ? backendData.metrics.lra : null) ||
+              (backendData.metrics?.loudness?.lra && Number.isFinite(backendData.metrics.loudness.lra) ? backendData.metrics.loudness.lra : null);
     
     console.log('📊 [NORMALIZE] Métricas mapeadas (apenas reais):', {
         peak: tech.peak,
@@ -8066,6 +8093,7 @@ function normalizeBackendAnalysisData(backendData) {
             'backendData.loudness.lra': backendData.loudness?.lra,
             'backendData.lra': backendData.lra,
             'backendData.metrics.lra': backendData.metrics?.lra,
+            'backendData.metrics.loudness.lra': backendData.metrics?.loudness?.lra,
             'source (technicalData)': source
         });
     }
@@ -8111,9 +8139,14 @@ function normalizeBackendAnalysisData(backendData) {
     tech.spectralSkewness = getRealValue('spectralSkewness', 'spectral_skewness');
     tech.spectralKurtosis = getRealValue('spectralKurtosis', 'spectral_kurtosis');
     
-    // 🎵 SPECTRAL BALANCE - Mapear dados espectrais REAIS
-    if (source.spectral_balance || source.spectralBalance || source.bands || backendData.metrics?.bands) {
-        const spectralSource = source.spectral_balance || source.spectralBalance || source.bands || backendData.metrics?.bands || {};
+    // 🎵 SPECTRAL BALANCE - Mapear dados espectrais REAIS + METRICS
+    if (source.spectral_balance || source.spectralBalance || source.bands || 
+        backendData.metrics?.bands || backendData.metrics?.technicalData?.spectral_balance) {
+        
+        const spectralSource = source.spectral_balance || source.spectralBalance || source.bands || 
+                              backendData.metrics?.bands || backendData.metrics?.technicalData?.spectral_balance || {};
+        
+        console.log('🔍 [SPECTRAL] Fonte espectral detectada:', spectralSource);
         
         // Função específica para dados espectrais
         const getSpectralValue = (...paths) => {
@@ -8126,21 +8159,32 @@ function normalizeBackendAnalysisData(backendData) {
             return null;
         };
         
-        tech.spectral_balance = {
-            sub: getSpectralValue('sub', 'subBass', 'sub_bass'),
-            bass: getSpectralValue('bass', 'low_bass', 'lowBass'),  // Normalizar para 'bass'
-            lowMid: getSpectralValue('lowMid', 'low_mid', 'lowmid'),
-            mid: getSpectralValue('mid', 'mids', 'middle'),
-            highMid: getSpectralValue('highMid', 'high_mid', 'highmid'),
-            presence: getSpectralValue('presence', 'presenca'),
-            air: getSpectralValue('air', 'brilho', 'treble', 'high')
-        };
-        console.log('📊 [NORMALIZE] Spectral balance mapeado:', tech.spectral_balance);
+        // Se spectral_balance é string (ex: "balanced"), mapear para objeto
+        if (typeof spectralSource === 'string') {
+            tech.spectral_balance = {
+                description: spectralSource,
+                status: spectralSource
+            };
+            console.log('📊 [NORMALIZE] Spectral balance (string):', tech.spectral_balance);
+        } else {
+            tech.spectral_balance = {
+                sub: getSpectralValue('sub', 'subBass', 'sub_bass'),
+                bass: getSpectralValue('bass', 'low_bass', 'lowBass'),  // Normalizar para 'bass'
+                lowMid: getSpectralValue('lowMid', 'low_mid', 'lowmid'),
+                mid: getSpectralValue('mid', 'mids', 'middle'),
+                highMid: getSpectralValue('highMid', 'high_mid', 'highmid'),
+                presence: getSpectralValue('presence', 'presenca'),
+                air: getSpectralValue('air', 'brilho', 'treble', 'high')
+            };
+            console.log('📊 [NORMALIZE] Spectral balance mapeado:', tech.spectral_balance);
+        }
         
         // 🎯 LOG ESPECÍFICO PARA AUDITORIA: BANDAS ESPECTRAIS
-        const bandasDetectadas = Object.entries(tech.spectral_balance)
-            .filter(([key, value]) => value !== null)
-            .map(([key, value]) => `${key}: ${value}`);
+        const bandasDetectadas = typeof tech.spectral_balance === 'object' && tech.spectral_balance.description ? 
+            [`description: ${tech.spectral_balance.description}`] :
+            Object.entries(tech.spectral_balance)
+                .filter(([key, value]) => value !== null && key !== 'description' && key !== 'status')
+                .map(([key, value]) => `${key}: ${value}`);
         
         if (bandasDetectadas.length > 0) {
             console.log(`✅ [BANDAS] SUCESSO: ${bandasDetectadas.length} bandas mapeadas:`, bandasDetectadas.join(', '));
@@ -8151,6 +8195,7 @@ function normalizeBackendAnalysisData(backendData) {
                 'source.spectralBalance': source.spectralBalance, 
                 'source.bands': source.bands,
                 'backendData.metrics.bands': backendData.metrics?.bands,
+                'backendData.metrics.technicalData.spectral_balance': backendData.metrics?.technicalData?.spectral_balance,
                 'spectralSource': spectralSource
             });
         }
@@ -8162,7 +8207,8 @@ function normalizeBackendAnalysisData(backendData) {
             'source.spectral_balance': source.spectral_balance,
             'source.spectralBalance': source.spectralBalance,
             'source.bands': source.bands,
-            'backendData.metrics.bands': backendData.metrics?.bands
+            'backendData.metrics.bands': backendData.metrics?.bands,
+            'backendData.metrics.technicalData.spectral_balance': backendData.metrics?.technicalData?.spectral_balance
         });
     }
     
@@ -8549,6 +8595,16 @@ function normalizeBackendAnalysisData(backendData) {
             Object.keys(normalized.technicalData.bandEnergies).length : 0,
         problemas_detectados: normalized.problems.length,
         sugestoes_iniciais: normalized.suggestions.length
+    });
+    
+    // 🎯 LOG FINAL PARA DEBUG UI
+    console.log("✅ [UI_FIX] Normalized metrics:", {
+        lufsIntegrated: normalized.technicalData.lufsIntegrated,
+        lra: normalized.technicalData.lra,
+        truePeakDbtp: normalized.technicalData.truePeakDbtp,
+        dynamicRange: normalized.technicalData.dynamicRange,
+        spectral_balance: normalized.technicalData.spectral_balance,
+        bandEnergies: normalized.technicalData.bandEnergies ? Object.keys(normalized.technicalData.bandEnergies) : null
     });
     
     return normalized;
