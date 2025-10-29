@@ -954,17 +954,18 @@ class EnhancedSuggestionEngine {
     }
 
     /**
-     * 📊 Extrair métricas relevantes da análise
+     * 📊 Extrair métricas relevantes da análise - VERSÃO CORRIGIDA PARA ESTRUTURA REAL
      * @param {Object} analysis - Análise de áudio
      * @param {Object} referenceData - Dados de referência
      * @returns {Object} Métricas extraídas
      */
     extractMetrics(analysis, referenceData) {
-        // CORRIGIDO: Suporte para nova estrutura metrics.*
-        const src = analysis.metrics || analysis;
-        const tech = src.technicalData || analysis.technicalData || {};
-        const loudness = src.loudness || analysis.loudness || {};
-        const bands = src.bands || analysis.bands || {};
+        // CORRIGIDO: Usar estrutura REAL do backend
+        const tech = analysis.technicalData || {};
+        const loudness = analysis.loudness || {};
+        const truePeak = analysis.truePeak || {};
+        const dynamics = analysis.dynamics || {};
+        const bands = analysis.technicalData?.spectralBands || analysis.technicalData?.bands || {};
         
         const metrics = {};
         
@@ -974,30 +975,29 @@ class EnhancedSuggestionEngine {
             technicalDataKeys: Object.keys(tech),
             hasLoudness: !!loudness,
             loudnessKeys: Object.keys(loudness),
+            hasTruePeak: !!truePeak,
+            truePeakKeys: Object.keys(truePeak),
+            hasDynamics: !!dynamics,
+            dynamicsKeys: Object.keys(dynamics),
             hasBands: !!bands,
-            bandKeys: Object.keys(bands),
-            hasMetrics: !!analysis.metrics,
-            metricsKeys: analysis.metrics ? Object.keys(analysis.metrics) : []
+            bandKeys: Object.keys(bands)
         });
 
-        // Métricas principais com múltiplos aliases para compatibilidade + METRICS
-        // LUFS
-        const lufsValue = tech.lufsIntegrated || tech.lufs_integrated || tech.lufs || tech.loudness ||
-                         loudness.integrated || loudness.integratedLUFS || loudness.lufs;
+        // Métricas principais com estrutura real do backend
+        // LUFS - priorizar loudness.integrated
+        const lufsValue = loudness.integrated || tech.lufsIntegrated || tech.lufs_integrated || tech.lufs;
         if (Number.isFinite(lufsValue)) {
             metrics.lufs = lufsValue;
-            this.logAudit('METRIC_EXTRACTED', 'LUFS extraído', { value: lufsValue, source: 'lufsIntegrated' });
+            this.logAudit('METRIC_EXTRACTED', 'LUFS extraído', { value: lufsValue, source: 'loudness.integrated' });
         }
 
-        // True Peak - CORRIGIDO: incluir caminhos metrics.*
-        const truePeakValue = tech.truePeakDbtp || tech.true_peak_dbtp || tech.truePeak || tech.true_peak ||
-                             analysis.metrics?.technicalData?.truePeakDbtp;
+        // True Peak - priorizar truePeak.maxDbtp
+        const truePeakValue = truePeak.maxDbtp || tech.truePeakDbtp || tech.true_peak_dbtp || tech.truePeak;
         console.log('🔍 [TRUE-PEAK-EXTRACT] Tentando extrair True Peak:', {
+            'truePeak.maxDbtp': truePeak.maxDbtp,
             'tech.truePeakDbtp': tech.truePeakDbtp,
             'tech.true_peak_dbtp': tech.true_peak_dbtp,
             'tech.truePeak': tech.truePeak,
-            'tech.true_peak': tech.true_peak,
-            'metrics.technicalData.truePeakDbtp': analysis.metrics?.technicalData?.truePeakDbtp,
             resultValue: truePeakValue,
             isFinite: Number.isFinite(truePeakValue)
         });
@@ -1005,106 +1005,67 @@ class EnhancedSuggestionEngine {
         if (Number.isFinite(truePeakValue)) {
             metrics.true_peak = truePeakValue;
             console.log('✅ [TRUE-PEAK-EXTRACTED] True Peak extraído com sucesso:', truePeakValue);
-            this.logAudit('METRIC_EXTRACTED', 'True Peak extraído', { value: truePeakValue, source: 'truePeakDbtp' });
+            this.logAudit('METRIC_EXTRACTED', 'True Peak extraído', { value: truePeakValue, source: 'truePeak.maxDbtp' });
         } else {
             console.warn('❌ [TRUE-PEAK-MISSING] True Peak NÃO extraído - valor inválido ou ausente');
         }
 
-        // Dynamic Range - CORRIGIDO: incluir caminhos metrics.*
-        const drValue = tech.dynamicRange || tech.dynamic_range || tech.dr ||
-                       analysis.metrics?.technicalData?.dynamicRange;
+        // Dynamic Range - priorizar dynamics.range
+        const drValue = dynamics.range || tech.dynamicRange || tech.dynamic_range || tech.dr;
         if (Number.isFinite(drValue)) {
             metrics.dr = drValue;
-            this.logAudit('METRIC_EXTRACTED', 'DR extraído', { value: drValue, source: 'dynamicRange' });
+            this.logAudit('METRIC_EXTRACTED', 'DR extraído', { value: drValue, source: 'dynamics.range' });
         }
 
-        // LRA - BUSCAR EM MÚLTIPLOS ALIASES E ESTRUTURAS + METRICS
-        let lraValue = null;
+        // LRA - priorizar loudness.lra
+        const lraValue = loudness.lra || tech.lra || tech.loudnessRange || tech.loudness_range;
+        console.log('🔍 [LRA-EXTRACT] Tentando extrair LRA:', {
+            'loudness.lra': loudness.lra,
+            'tech.lra': tech.lra,
+            'tech.loudnessRange': tech.loudnessRange,
+            'tech.loudness_range': tech.loudness_range,
+            resultValue: lraValue,
+            isFinite: Number.isFinite(lraValue)
+        });
         
-        // 1. Buscar diretamente em technicalData
-        const lraSources = ['lra', 'loudness_range', 'loudnessRange', 'lra_tolerance'];
-        for (const source of lraSources) {
-            if (Number.isFinite(tech[source])) {
-                lraValue = tech[source];
-                this.logAudit('METRIC_EXTRACTED', `LRA extraído via technicalData.${source}`, { value: lraValue, source });
-                break;
-            }
-        }
-        
-        // 2. Buscar em analysis.metrics se disponível
-        if (!lraValue && analysis.metrics) {
-            for (const source of lraSources) {
-                if (Number.isFinite(analysis.metrics[source])) {
-                    lraValue = analysis.metrics[source];
-                    this.logAudit('METRIC_EXTRACTED', `LRA extraído via analysis.metrics.${source}`, { value: lraValue, source });
-                    break;
-                }
-            }
-            
-            // 2b. Buscar em analysis.metrics.loudness.lra
-            if (!lraValue && Number.isFinite(analysis.metrics?.loudness?.lra)) {
-                lraValue = analysis.metrics.loudness.lra;
-                this.logAudit('METRIC_EXTRACTED', 'LRA extraído via analysis.metrics.loudness.lra', { value: lraValue, source: 'metrics.loudness.lra' });
-            }
-        }
-        
-        // 3. Buscar em estruturas aninhadas (loudness.lra)
-        if (!lraValue && loudness && Number.isFinite(loudness.lra)) {
-            lraValue = loudness.lra;
-            this.logAudit('METRIC_EXTRACTED', 'LRA extraído via loudness.lra', { value: lraValue, source: 'loudness.lra' });
-        }
-        
-        if (lraValue !== null) {
+        if (Number.isFinite(lraValue)) {
             metrics.lra = lraValue;
             console.log('✅ [LRA-EXTRACTED] LRA extraído com sucesso:', lraValue);
             this.logAudit('METRIC_EXTRACTED', 'LRA extraído com sucesso', { value: lraValue });
         } else {
             console.warn('❌ [LRA-MISSING] LRA NÃO extraído - valor inválido ou ausente');
             this.logAudit('METRIC_MISSING', 'LRA não encontrado em nenhuma estrutura', { 
-                checked: [...lraSources, 'analysis.metrics.*', 'analysis.metrics.loudness.lra', 'loudness.lra'],
+                checked: ['loudness.lra', 'tech.lra', 'tech.loudnessRange', 'tech.loudness_range'],
                 availableKeys: Object.keys(tech),
-                hasAnalysisMetrics: !!analysis.metrics,
                 hasLoudnessData: !!loudness
             });
         }
 
-        // Stereo Correlation
+        // Stereo Correlation - buscar em technicalData
         const stereoValue = tech.stereoCorrelation || tech.stereo_correlation || tech.stereo;
         if (Number.isFinite(stereoValue)) {
             metrics.stereo = stereoValue;
             this.logAudit('METRIC_EXTRACTED', 'Stereo extraído', { value: stereoValue, source: 'stereoCorrelation' });
         }
         
-        // Bandas espectrais - normalização completa com múltiplas fontes + METRICS
+        // Bandas espectrais - priorizar technicalData.spectralBands
         let bandEnergies = {};
         
-        // 1. Buscar em technicalData com múltiplos aliases
+        // 1. Buscar em technicalData com múltiplos aliases para estrutura real
         const bandSources = [
             tech.bandEnergies, 
             tech.band_energies, 
             tech.spectralBands, 
             tech.spectral_bands, 
-            tech.spectral_balance
+            tech.spectral_balance,
+            bands  // bands já extraído de technicalData
         ];
         
-        // 2. Buscar também em analysis.metrics se disponível (CORRIGIDO)
-        if (analysis.metrics) {
-            bandSources.push(
-                analysis.metrics.bandEnergies,
-                analysis.metrics.band_energies,
-                analysis.metrics.spectral_balance,
-                analysis.metrics.bands,
-                // NOVO: Verificar metrics.technicalData.spectral_balance
-                analysis.metrics.technicalData?.spectral_balance
-            );
-        }
-        
-        // 3. Buscar diretamente em analysis e bands extraídos
+        // 3. Buscar diretamente em analysis
         bandSources.push(
             analysis.bandEnergies,
             analysis.spectral_balance,
-            analysis.bands,
-            bands  // NOVO: usar bands extraído no início
+            analysis.bands
         );
         
         // Encontrar primeira fonte válida
