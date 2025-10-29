@@ -1819,7 +1819,8 @@ details[open] summary {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 12px 0;
+    padding: 10px 0;
+    margin-bottom: 4px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.03);
     position: relative;
     transition: all 0.3s ease;
@@ -1832,6 +1833,7 @@ details[open] summary {
 }
 .data-row:last-child {
     border-bottom: none;
+    margin-bottom: 0;
 }
 .data-row .label {
     color: #c1b5e8;
@@ -1839,6 +1841,7 @@ details[open] summary {
     font-size: 14px;
     position: relative;
     z-index: 2;
+    padding-left: 0;
 }
 .data-row .value {
     color: #00ffff;
@@ -1847,6 +1850,45 @@ details[open] summary {
     text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
     position: relative;
     z-index: 2;
+    min-width: 120px;
+    text-align: right;
+}
+
+/* 🎓 Tooltips Educativos para Métricas */
+.metric-label[data-tooltip] {
+    cursor: help;
+    border-bottom: 1px dotted rgba(193, 181, 232, 0.4);
+    transition: border-color 0.2s ease;
+}
+.metric-label[data-tooltip]:hover {
+    border-bottom-color: rgba(0, 255, 255, 0.6);
+}
+.metric-label[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: absolute;
+    background: rgba(0, 0, 0, 0.95);
+    color: #fff;
+    font-size: 0.8rem;
+    font-weight: 400;
+    padding: 8px 12px;
+    border-radius: 8px;
+    top: -45px;
+    left: 0;
+    white-space: nowrap;
+    z-index: 1000;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 255, 255, 0.3);
+    animation: tooltipFadeIn 0.2s ease;
+    pointer-events: none;
+}
+@keyframes tooltipFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* KPIs futuristas com glassmorphism e neon */
