@@ -3,51 +3,18 @@
 // ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
 // ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
 
-// 📝 Carregar utilitários necessários
-if (typeof window !== 'undefined') {
-    // Carregar gerador de texto didático
-    if (!window.SuggestionTextGenerator) {
-        const script = document.createElement('script');
-        script.src = 'suggestion-text-generator.js';
-        script.async = true;
-        script.onload = () => {
-            console.log('[AudioIntegration] Gerador de texto didático carregado');
-        };
-        script.onerror = () => {
-            console.warn('[AudioIntegration] Falha ao carregar gerador de texto didático');
-        };
-        document.head.appendChild(script);
-    }
-    
-    // Carregar sistema de cores centralizado
-    if (!window.RefColors) {
-        const colorsScript = document.createElement('script');
-        colorsScript.src = 'util/colors.js';
-        colorsScript.type = 'module';
-        colorsScript.async = false; // Carregar síncronamente para garantir disponibilidade
-        colorsScript.onload = () => {
-            console.log('[AudioIntegration] Sistema de cores centralizado carregado');
-        };
-        colorsScript.onerror = () => {
-            console.warn('[AudioIntegration] Falha ao carregar sistema de cores');
-        };
-        document.head.appendChild(colorsScript);
-    }
-    
-    // Carregar helpers de referência
-    if (!window.RefHelpers) {
-        const refScript = document.createElement('script');
-        refScript.src = 'util/ref.js';
-        refScript.type = 'module';
-        refScript.async = false;
-        refScript.onload = () => {
-            console.log('[AudioIntegration] Helpers de referência carregados');
-        };
-        refScript.onerror = () => {
-            console.warn('[AudioIntegration] Falha ao carregar helpers de referência');
-        };
-        document.head.appendChild(refScript);
-    }
+// 📝 Carregar gerador de texto didático
+if (typeof window !== 'undefined' && !window.SuggestionTextGenerator) {
+    const script = document.createElement('script');
+    script.src = 'suggestion-text-generator.js';
+    script.async = true;
+    script.onload = () => {
+        console.log('[AudioIntegration] Gerador de texto didático carregado');
+    };
+    script.onerror = () => {
+        console.warn('[AudioIntegration] Falha ao carregar gerador de texto didático');
+    };
+    document.head.appendChild(script);
 }
 
 // Debug flag (silencia logs em produção; defina window.DEBUG_ANALYZER = true para habilitar)
@@ -5889,41 +5856,58 @@ function renderReferenceComparisons(analysis) {
             diff = val - target;
         }
         
-        // 🎯 NOVO SISTEMA CENTRALIZADO: Usar função pura de coloração
-        // Determinar se é modo banda (tol === 0 ou target é range)
-        const isBandMode = (tol === 0) || (typeof target === 'object' && target !== null);
+        // 🎯 SISTEMA SIMPLES DE 3 CORES (ok/yellow/warn)
+        const EPS = 1e-6;
+        const v = Number(val);
+        const t = Number(target);
         
-        // Calcular effectiveTarget para targets tipo range
-        let effectiveTarget = target;
-        if (typeof target === 'object' && target !== null && 
-            Number.isFinite(target.min) && Number.isFinite(target.max)) {
-            effectiveTarget = (target.min + target.max) / 2;
+        // Função de cálculo de cor simplificada
+        const getColorClass = (value, targetValue, tolerance) => {
+            const numVal = Number(value);
+            const numTarget = Number(targetValue);
+            
+            // Sem dado válido = vermelho
+            if (!Number.isFinite(numVal) || !Number.isFinite(numTarget)) {
+                return 'warn';
+            }
+            
+            // Tolerância padrão se ausente/inválida
+            let tol = Number(tolerance);
+            if (!Number.isFinite(tol) || tol <= 0) {
+                tol = 1;
+            }
+            
+            const absDiff = Math.abs(numVal - numTarget);
+            
+            // Verde: dentro da tolerância
+            if (absDiff <= tol + EPS) {
+                return 'ok';
+            }
+            
+            // Amarelo: fora um pouco (até 2x a tolerância)
+            if (absDiff <= 2 * tol + EPS) {
+                return 'yellow';
+            }
+            
+            // Vermelho: fora muito
+            return 'warn';
+        };
+        
+        let diffCell;
+        if (!Number.isFinite(diff)) {
+            // Sem diferença calculável → vermelho
+            diffCell = '<td class="warn" style="text-align: center; padding: 8px;"><div style="font-size: 12px; font-weight: 600;">Corrigir</div></td>';
+        } else {
+            // Calcular cor com base na diferença e tolerância
+            const cssClass = getColorClass(val, target, tol);
+            const statusText = cssClass === 'ok' ? 'Ideal' : 
+                              cssClass === 'yellow' ? 'Ajuste leve' : 
+                              'Corrigir';
+            
+            diffCell = `<td class="${cssClass}" style="text-align: center; padding: 8px;">
+                <div style="font-size: 12px; font-weight: 600;">${statusText}</div>
+            </td>`;
         }
-        
-        // Usar função centralizada de coloração
-        const statusClass = window.RefColors?.getStatusClass({
-            value: val,
-            target: effectiveTarget,
-            tol: tol,
-            bandMode: isBandMode
-        }) || 'no-data';
-        
-        const statusText = window.RefColors?.getStatusText(statusClass) || 'Sem dados';
-        
-        // Log de debug para células sem cor
-        if (statusClass === 'no-data' && typeof window !== 'undefined' && window.DEBUG_ANALYZER) {
-            console.warn('[RefColors] no-data:', { 
-                label, 
-                value: val, 
-                target: effectiveTarget, 
-                tol 
-            });
-        }
-        
-        // Renderizar célula com classe
-        const diffCell = `<td class="ref-cell ${statusClass}" style="text-align: center; padding: 8px;">
-            <div style="font-size: 12px; font-weight: 600;">${statusText}</div>
-        </td>`;
         
         // 🎯 NOVO: Renderização híbrida para targets fixos e ranges
         let targetDisplay;
@@ -6394,10 +6378,6 @@ function renderReferenceComparisons(analysis) {
         .ref-compare-table td.yellow::before{content:'⚠️ ';margin-right:2px;}
         .ref-compare-table td.warn{color:#ff7b7b;font-weight:600;} 
         .ref-compare-table td.warn::before{content:'❌ ';margin-right:2px;}
-        .ref-compare-table td.orange{color:orange;font-weight:600;} 
-        .ref-compare-table td.orange::before{content:'🟠 ';margin-right:2px;}
-        .ref-compare-table td.no-data{background:rgba(128,128,128,.15);color:#8b8b8b;opacity:.7;font-style:italic;} 
-        .ref-compare-table td.no-data::before{content:'— ';margin-right:2px;}
         .ref-compare-table .tol{opacity:.7;margin-left:4px;font-size:10px;color:#b8c2d6;} 
         .ref-compare-table tbody tr:hover td{background:rgba(255,255,255,.04);} 
         `;
