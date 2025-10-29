@@ -1855,11 +1855,13 @@ details[open] summary {
 }
 
 /* 🎓 Tooltips Educativos para Métricas */
+.data-row .label[data-tooltip],
 .metric-label[data-tooltip] {
     cursor: help;
     border-bottom: 1px dotted rgba(193, 181, 232, 0.4);
     transition: border-color 0.2s ease;
 }
+.data-row .label[data-tooltip]:hover,
 .metric-label[data-tooltip]:hover {
     border-bottom-color: rgba(0, 255, 255, 0.6);
 }
@@ -1970,7 +1972,7 @@ details[open] summary {
     border: 2px solid transparent;
     background-clip: padding-box;
     border-radius: 24px;
-    padding: 24px;
+    padding: 18px;
     box-shadow: 
         0 0 50px rgba(124, 77, 255, 0.08),
         0 20px 60px rgba(0, 0, 0, 0.6),
@@ -2155,6 +2157,8 @@ details[open] summary {
     position: relative;
     overflow: hidden;
     transition: all 0.3s ease;
+    display: inline-block;
+    margin: 0;
 }
 .tag::before {
     content: '';
@@ -2962,17 +2966,19 @@ details[open] summary {
 
 /* Barras de progresso para métricas */
 .metric-with-progress {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
 }
 
 .metric-value-progress {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
-    width: 100%;
+    flex: 1;
     gap: 12px;
+    min-width: 0;
 }
 
 .progress-bar-mini {

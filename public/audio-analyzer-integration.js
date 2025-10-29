@@ -3999,7 +3999,7 @@ function displayModalResults(analysis) {
             
             return `
                 <div class="data-row"${keyForSource?src(keyForSource):''}>
-                    <span class="label metric-label"${tooltipAttr}>${enhancedLabel}</span>
+                    <span class="label"${tooltipAttr}>${enhancedLabel}</span>
                     <span class="value">${valHtml}</span>
                 </div>`;
         };
@@ -5471,6 +5471,9 @@ function displayModalResults(analysis) {
         // 🎓 Log de auditoria para nomenclatura padronizada
         console.log('[AUDITORIA-NOMES] Métricas renomeadas e alinhadas com sucesso - SoundyAI Pro');
         console.log('[AUDITORIA-NOMES] Tooltips educativos habilitados para métricas principais e avançadas');
+        console.log('[AUDITORIA-LAYOUT] Layout de scores restaurado - barras horizontais ativas');
+        console.log('[AUDITORIA-LAYOUT] Alinhamento de métricas principais corrigido - esquerda/direita padronizado');
+        console.log('[AUDITORIA-LAYOUT] Padding dos cards uniformizado em 18px');
 
         technicalData.innerHTML = `
             <div class="kpi-row">${scoreKpi}${timeKpi}</div>
