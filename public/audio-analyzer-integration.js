@@ -3988,8 +3988,8 @@ function displayModalResults(analysis) {
         const timeKpi = Number.isFinite(analysis.processingMs) ? kpi(analysis.processingMs, 'TEMPO (MS)', 'kpi-time') : '';
 
         const src = (k) => (analysis.technicalData?._sources && analysis.technicalData._sources[k]) ? ` data-src="${analysis.technicalData._sources[k]}" title="origem: ${analysis.technicalData._sources[k]}"` : '';
-        // 📖 Dicionário de tooltips para métricas
-        const tooltips = {
+        // 📖 Mapa de tooltips para cada métrica
+        const tooltipMap = {
             'Volume Médio (RMS)': 'Mostra o volume real percebido ao longo da faixa. Ajuda a saber se a música está "forte" sem clipar.',
             'Loudness (LUFS)': 'Média geral de volume no padrão das plataformas de streaming. Ideal: –14 LUFS.',
             'Pico Máximo (dBFS)': 'O ponto mais alto da onda sonora, útil pra evitar distorção.',
@@ -4016,21 +4016,26 @@ function displayModalResults(analysis) {
         };
 
         const row = (label, valHtml, keyForSource=null) => {
-            // Limpar espaços extras do label
+            // Limpar espaços extras e aplicar trim
             const cleanLabel = label.trim();
+            
+            // Capitalizar primeira letra de cada palavra
+            const capitalizedLabel = cleanLabel.replace(/\b\w/g, char => char.toUpperCase());
             
             // Usar sistema de enhancement se disponível
             const enhancedLabel = (typeof window !== 'undefined' && window.enhanceRowLabel) 
-                ? window.enhanceRowLabel(cleanLabel, keyForSource) 
-                : cleanLabel;
+                ? window.enhanceRowLabel(capitalizedLabel, keyForSource) 
+                : capitalizedLabel;
             
-            // Buscar tooltip correspondente
-            const tooltip = tooltips[cleanLabel] || '';
-            const tooltipHtml = tooltip ? `<span class="info-icon" data-tooltip="${tooltip}">ℹ️</span>` : '';
+            // Buscar tooltip para este label
+            const tooltip = tooltipMap[capitalizedLabel] || tooltipMap[cleanLabel] || '';
             
             return `
                 <div class="data-row"${keyForSource?src(keyForSource):''}>
-                    <span class="label">${enhancedLabel}${tooltipHtml}</span>
+                    <span class="label-with-tooltip">
+                        <span class="label">${enhancedLabel}</span>
+                        ${tooltip ? `<span class="info-icon" data-tooltip="${tooltip.replace(/"/g, '&quot;')}">ℹ️</span>` : ''}
+                    </span>
                     <span class="value">${valHtml}</span>
                 </div>`;
         };
@@ -4308,7 +4313,7 @@ function displayModalResults(analysis) {
                     rows.push(row('headroom (dB)', `${safeFixed(analysis.technicalData.headroomDb, 1)} dB`, 'headroomDb'));
                 }
                 
-                // === FATOR DE CRISTA (Crest Factor) ===
+                // === FATOR DE CRISTA (movido de MÉTRICAS PRINCIPAIS) ===
                 const crestValue = getMetricWithFallback([
                     ['dynamics', 'crest'],
                     'crest_factor',
@@ -4316,10 +4321,10 @@ function displayModalResults(analysis) {
                     'technicalData.crestFactor'
                 ]);
                 if (Number.isFinite(crestValue)) {
-                    console.log('[METRICS-FIX] advancedMetricsCard > Fator de Crista (Crest Factor) RENDERIZADO:', crestValue, 'dB');
+                    console.log('[METRICS-FIX] advancedMetricsCard > Fator de Crista RENDERIZADO:', crestValue, 'dB');
                     rows.push(row('Fator de Crista (Crest Factor)', `${safeFixed(crestValue, 2)} dB`, 'crestFactor'));
                 } else {
-                    console.warn('[METRICS-FIX] advancedMetricsCard > Fator de Crista (Crest Factor) NÃO ENCONTRADO ou inválido:', crestValue);
+                    console.warn('[METRICS-FIX] advancedMetricsCard > Fator de Crista NÃO ENCONTRADO ou inválido:', crestValue);
                 }
                 
                 // 🟢 CARD 3: MÉTRICAS AVANÇADAS - Sub-bandas espectrais REMOVIDAS (movidas para col2)
