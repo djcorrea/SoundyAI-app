@@ -1937,15 +1937,15 @@ details[open] summary {
     overflow: hidden;
     transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
     
-    /* � Blindagem contra "linha fantasma" criada por whitespace */
-    font-size: 0;           /* Remove altura de nós de texto vazios */
-    line-height: 0;         /* Impede que text nodes gerem altura de linha */
+    /* 🔧 OTIMIZAÇÃO: Mantém font-size normal para evitar colapso de títulos
+       A remoção de whitespace agora é feita via JavaScript (normalizeCardWhitespace) */
+    font-size: 16px;        /* Tamanho normal para elementos visíveis */
 }
 
-/* Restaura tamanho de fonte e linha normal para os elementos reais */
+/* Garante que todos os elementos filhos herdem corretamente */
 .card > * {
-    font-size: 16px;
-    line-height: normal;    /* Volta ao padrão para elementos reais */
+    font-size: inherit;     /* Herda do pai */
+    line-height: normal;    /* Altura de linha padrão */
 }
 
 /* Garante que o título sempre comece no topo do card */
@@ -1988,7 +1988,8 @@ details[open] summary {
 .card-title {
     color: #00ffff;
     font-weight: 800;
-    font-size: 16px;
+    font-size: 16px !important;         /* 🔧 Força tamanho visível */
+    line-height: 1.4 !important;        /* 🔧 Garante altura de linha */
     margin-top: 0;
     margin-bottom: 20px;
     text-transform: uppercase;
@@ -1996,16 +1997,24 @@ details[open] summary {
     text-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
     position: relative;
     z-index: 2;
+    display: block;                     /* 🔧 Força display block */
+    opacity: 1;                         /* 🔧 Garante opacidade total */
+    visibility: visible;                /* 🔧 Garante visibilidade */
+    height: auto;                       /* 🔧 Altura automática */
+    overflow: visible;                  /* 🔧 Sem overflow oculto */
 }
 
-/* 🔒 Blindagem adicional: Garante alinhamento no contexto do grid */
+/* 🔒 Garantia de alinhamento no contexto do grid - SEM afetar visibilidade */
 .cards-grid .card {
-    line-height: 0;              /* Impede que text nodes gerem altura */
+    /* 🔧 REMOVIDO line-height: 0 - causava colapso dos títulos */
+    display: flex;
+    flex-direction: column;
 }
 
-/* Restaura a linha normal para os elementos reais dentro do grid */
+/* Garante que todos os elementos dentro do card sejam visíveis */
 .cards-grid .card > * {
-    line-height: normal;         /* Volta ao padrão */
+    line-height: normal;         /* Altura de linha normal */
+    font-size: inherit;          /* Herda tamanho de fonte do pai */
 }
 
 /* Garante que o primeiro elemento visível não tenha margem superior no grid */
@@ -2629,13 +2638,19 @@ details[open] summary {
 }
 
 .audio-modal .card-title {
-    font-size: 14px;
+    font-size: 14px !important;         /* 🔧 Mantém tamanho compacto no modal */
+    line-height: 1.4 !important;        /* 🔧 Garante altura de linha visível */
     font-weight: 700;
     color: #7c4dff;
     text-shadow: 0 0 10px rgba(124, 77, 255, 0.3);
     margin-bottom: 16px;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    display: block !important;          /* 🔧 Força display block */
+    opacity: 1 !important;              /* 🔧 Garante opacidade */
+    visibility: visible !important;     /* 🔧 Garante visibilidade */
+    height: auto !important;            /* 🔧 Altura automática */
+    overflow: visible !important;       /* 🔧 Sem overflow oculto */
 }
 
 /* Cards com scroll interno para seções longas */
@@ -5080,15 +5095,14 @@ details[open] summary {
     display: grid !important;
     align-content: start !important;    /* conteúdo colado no topo */
     justify-items: stretch !important;
-    /* Blindagem contra alturas geradas por linha base / whitespace em desktop */
-    line-height: 0 !important;
+    /* 🔧 REMOVIDO line-height: 0 - causava colapso dos títulos */
     padding-top: 24px !important;       /* mantém o padding superior padrão */
   }
 
   /* Restaura a tipografia apenas para elementos reais, não para nós de texto */
   .cards-grid .card > * {
     line-height: normal !important;
-    font-size: inherit !important;
+    font-size: 16px !important;         /* 🔧 Força font-size explícito */
   }
 
   /* O primeiro elemento visível do card NUNCA pode ter margem superior */
@@ -5096,11 +5110,17 @@ details[open] summary {
     margin-top: 0 !important;
   }
 
-  /* Garante que o título comporta-se como bloco real e sem deslocamento */
+  /* 🔧 CRÍTICO: Garante visibilidade dos títulos com reset completo */
   .cards-grid .card > .card-title {
     display: block !important;
     margin-top: 0 !important;
     margin-bottom: 20px !important;
+    font-size: 16px !important;         /* Força tamanho da fonte */
+    line-height: 1.4 !important;        /* Restaura altura de linha visível */
+    opacity: 1 !important;              /* Garante opacidade total */
+    visibility: visible !important;     /* Garante visibilidade */
+    height: auto !important;            /* Remove qualquer altura fixa */
+    overflow: visible !important;       /* Remove qualquer overflow oculto */
   }
 
   /* Se houver qualquer wrapper antes do título, zera margens e colas no topo */
