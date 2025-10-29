@@ -3988,54 +3988,75 @@ function displayModalResults(analysis) {
         const timeKpi = Number.isFinite(analysis.processingMs) ? kpi(analysis.processingMs, 'TEMPO (MS)', 'kpi-time') : '';
 
         const src = (k) => (analysis.technicalData?._sources && analysis.technicalData._sources[k]) ? ` data-src="${analysis.technicalData._sources[k]}" title="origem: ${analysis.technicalData._sources[k]}"` : '';
-        // 📖 Mapa de tooltips para cada métrica
-        const tooltipMap = {
-            'Volume Médio (RMS)': 'Mostra o volume real percebido ao longo da faixa. Ajuda a saber se a música está "forte" sem clipar.',
-            'Loudness (LUFS)': 'Média geral de volume no padrão das plataformas de streaming. Ideal: –14 LUFS.',
-            'Pico Máximo (dBFS)': 'O ponto mais alto da onda sonora, útil pra evitar distorção.',
-            'Pico Real (dBTP)': 'Pico real detectado após conversão digital. Deve ficar abaixo de –1 dBTP pra evitar clipagem.',
-            'Dinâmica (DR)': 'Diferença entre os sons mais baixos e mais altos. Mais DR = mais respiro e punch.',
-            'Consistência de Volume (LU)': 'Mede o quanto o volume se mantém constante. 0 LU é estabilidade perfeita.',
-            'Imagem Estéreo': 'Representa a largura e equilíbrio do estéreo. 1 = mono, 0.9 = estéreo amplo.',
-            'Abertura Estéreo (%)': 'O quanto a faixa "abre" nos lados. Sons amplos soam mais envolventes.',
-            'Subgrave (20–60 Hz)': 'Região das batidas mais profundas, sentida mais do que ouvida.',
-            'Graves (60–150 Hz)': 'Corpo do kick e do baixo. Cuidado pra não embolar.',
-            'Médios-Graves (150–500 Hz)': 'Base harmônica. Excesso aqui soa abafado.',
-            'Médios (500 Hz–2 kHz)': 'Clareza e presença de vocais e instrumentos.',
-            'Médios-Agudos (2–5 kHz)': 'Ataque e definição. Muito = som agressivo.',
-            'Presença (5–10 kHz)': 'Brilho, clareza e detalhe.',
-            'Ar (10–20 kHz)': 'Sensação de espaço e abertura.',
-            'Frequência Central (Hz)': 'Mostra onde está o "centro tonal" da faixa.',
-            'Fator de Crista (Crest Factor)': 'Diferença entre pico e volume médio. Mostra o punch e headroom.',
-            'Centro Espectral (Hz)': 'Frequência onde está concentrada a energia da música.',
-            'Extensão de Agudos (Hz)': 'Indica até onde chegam as altas frequências.',
-            'Uniformidade Espectral (%)': 'Mede se o som está equilibrado entre graves, médios e agudos.',
-            'Bandas Espectrais (n)': 'Quantidade de faixas de frequência analisadas.',
-            'Kurtosis Espectral': 'Mede picos anormais no espectro (distorção, harshness).',
-            'Assimetria Espectral': 'Mostra se o espectro está mais "pendendo" pros graves ou pros agudos.'
+        
+        // 🎯 MAPEAMENTO DE MÉTRICAS COM TOOLTIPS
+        const metricsTooltips = {
+            // Métricas Principais
+            'Volume médio (rms)': 'Mostra o volume real percebido ao longo da faixa. Ajuda a saber se a música está "forte" sem clipar.',
+            'Loudness (lufs)': 'Média geral de volume no padrão das plataformas de streaming. Ideal: –14 LUFS.',
+            'Pico máximo (dbfs)': 'O ponto mais alto da onda sonora, útil pra evitar distorção.',
+            'Pico real (dbtp)': 'Pico real detectado após conversão digital. Deve ficar abaixo de –1 dBTP pra evitar clipagem.',
+            'Dinâmica (dr)': 'Diferença entre os sons mais baixos e mais altos. Mais DR = mais respiro e punch.',
+            'Consistência de volume (lu)': 'Mede o quanto o volume se mantém constante. 0 LU é estabilidade perfeita.',
+            'Imagem estéreo': 'Representa a largura e equilíbrio do estéreo. 1 = mono, 0.9 = estéreo amplo.',
+            'Abertura estéreo (%)': 'O quanto a faixa "abre" nos lados. Sons amplos soam mais envolventes.',
+            
+            // Análise de Frequências
+            'Subgrave (20–60 hz)': 'Região das batidas mais profundas, sentida mais do que ouvida.',
+            'Graves (60–150 hz)': 'Corpo do kick e do baixo. Cuidado pra não embolar.',
+            'Médios-graves (150–500 hz)': 'Base harmônica. Excesso aqui soa abafado.',
+            'Médios (500 hz–2 khz)': 'Clareza e presença de vocais e instrumentos.',
+            'Médios-agudos (2–5 khz)': 'Ataque e definição. Muito = som agressivo.',
+            'Presença (5–10 khz)': 'Brilho, clareza e detalhe.',
+            'Ar (10–20 khz)': 'Sensação de espaço e abertura.',
+            'Frequência central (hz)': 'Mostra onde está o "centro tonal" da faixa.',
+            
+            // Métricas Avançadas
+            'Fator de crista (crest factor)': 'Diferença entre pico e volume médio. Mostra o punch e headroom.',
+            'Centro espectral (hz)': 'Frequência onde está concentrada a energia da música.',
+            'Extensão de agudos (hz)': 'Indica até onde chegam as altas frequências.',
+            'Uniformidade espectral (%)': 'Mede se o som está equilibrado entre graves, médios e agudos.',
+            'Bandas espectrais (n)': 'Quantidade de faixas de frequência analisadas.',
+            'Kurtosis espectral': 'Mede picos anormais no espectro (distorção, harshness).',
+            'Assimetria espectral': 'Mostra se o espectro está mais "pendendo" pros graves ou pros agudos.'
         };
-
+        
         const row = (label, valHtml, keyForSource=null) => {
-            // Limpar espaços extras e aplicar trim
-            const cleanLabel = label.trim();
-            
-            // Capitalizar primeira letra de cada palavra
-            const capitalizedLabel = cleanLabel.replace(/\b\w/g, char => char.toUpperCase());
-            
             // Usar sistema de enhancement se disponível
             const enhancedLabel = (typeof window !== 'undefined' && window.enhanceRowLabel) 
-                ? window.enhanceRowLabel(capitalizedLabel, keyForSource) 
-                : capitalizedLabel;
+                ? window.enhanceRowLabel(label, keyForSource) 
+                : label;
             
-            // Buscar tooltip para este label
-            const tooltip = tooltipMap[capitalizedLabel] || tooltipMap[cleanLabel] || '';
+            // Limpar label (trim) e capitalizar primeira letra
+            const cleanLabel = enhancedLabel.trim();
+            const capitalizedLabel = cleanLabel.charAt(0).toUpperCase() + cleanLabel.slice(1);
+            
+            // Verificar se existe tooltip para essa métrica (case-insensitive)
+            const labelLowerCase = capitalizedLabel.toLowerCase();
+            let tooltip = null;
+            
+            // Buscar tooltip comparando case-insensitive
+            for (const [key, value] of Object.entries(metricsTooltips)) {
+                if (key.toLowerCase() === labelLowerCase) {
+                    tooltip = value;
+                    break;
+                }
+            }
+            
+            // Gerar HTML do label com ícone de info e tooltip
+            const labelHtml = tooltip 
+                ? `<div class="metric-label-container">
+                     <span style="flex: 1;">${capitalizedLabel}</span>
+                     <span class="metric-info-icon" 
+                           data-tooltip="${tooltip.replace(/"/g, '&quot;')}"
+                           onmouseenter="showMetricTooltip(this, event)"
+                           onmouseleave="hideMetricTooltip()">ℹ️</span>
+                   </div>`
+                : capitalizedLabel;
             
             return `
                 <div class="data-row"${keyForSource?src(keyForSource):''}>
-                    <span class="label-with-tooltip">
-                        <span class="label">${enhancedLabel}</span>
-                        ${tooltip ? `<span class="info-icon" data-tooltip="${tooltip.replace(/"/g, '&quot;')}">ℹ️</span>` : ''}
-                    </span>
+                    <span class="label">${labelHtml}</span>
                     <span class="value">${valHtml}</span>
                 </div>`;
         };
@@ -4110,7 +4131,7 @@ function displayModalResults(analysis) {
 
         const col1 = [
             // 🟣 CARD 1: MÉTRICAS PRINCIPAIS - Reorganizado com fallbacks robustos
-            // CONDITIONAL: Pico Máximo (dBFS) - só exibir se não for placeholder 0.000
+            // CONDITIONAL: Pico Máximo - só exibir se não for placeholder 0.000
             (Number.isFinite(getMetric('peak_db', 'peak')) && getMetric('peak_db', 'peak') !== 0 ? row('Pico Máximo (dBFS)', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak') : ''),
             
             // 🎯 Pico Real (dBTP) - com fallbacks robustos ['truePeak','maxDbtp'] > technicalData.truePeakDbtp
@@ -4193,8 +4214,8 @@ function displayModalResults(analysis) {
             row('Consistência de Volume (LU)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra'),
             // Imagem Estéreo (movido de col2)
             row('Imagem Estéreo', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 3) : '—', 'stereoCorrelation'),
-            // Abertura Estéreo (%) (movido de col2)
-            row('Abertura Estéreo (%)', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? safeFixed(getMetric('stereo_width', 'stereoWidth'), 2) + '%' : '—', 'stereoWidth')
+            // Abertura Estéreo (movido de col2)
+            row('Abertura Estéreo (%)', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? `${safeFixed(getMetric('stereo_width', 'stereoWidth') * 100, 0)}%` : '—', 'stereoWidth')
             ].join('');
 
         const col2 = (() => {
@@ -4243,7 +4264,7 @@ function displayModalResults(analysis) {
                 });
             }
             
-            // Frequência Central (Hz) (mantém aqui)
+            // Frequência Central (mantém aqui)
             rows.push(row('Frequência Central (Hz)', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroidHz')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroidHz')) : '—', 'spectralCentroidHz'));
             
             return rows.join('');
@@ -4330,32 +4351,32 @@ function displayModalResults(analysis) {
                 // 🟢 CARD 3: MÉTRICAS AVANÇADAS - Sub-bandas espectrais REMOVIDAS (movidas para col2)
                 // === MÉTRICAS ESPECTRAIS AVANÇADAS ===
                 
-                // Centro Espectral (Hz)
+                // Centro Espectral
                 if (Number.isFinite(analysis.technicalData?.spectralCentroid)) {
                     rows.push(row('Centro Espectral (Hz)', `${Math.round(analysis.technicalData.spectralCentroid)} Hz`, 'spectralCentroid'));
                 }
                 
-                // Spectral Rolloff (Extensão de Agudos)
+                // Spectral Rolloff (Extensão de agudos)
                 if (Number.isFinite(analysis.technicalData?.spectralRolloff)) {
                     rows.push(row('Extensão de Agudos (Hz)', `${Math.round(analysis.technicalData.spectralRolloff)} Hz`, 'spectralRolloff'));
                 }
                 
-                // Spectral Flatness (Uniformidade Espectral)
+                // Spectral Flatness (Uniformidade espectral)
                 if (Number.isFinite(analysis.technicalData?.spectralFlatness)) {
-                    rows.push(row('Uniformidade Espectral (%)', `${safeFixed(analysis.technicalData.spectralFlatness * 100, 2)}%`, 'spectralFlatness'));
+                    rows.push(row('Uniformidade Espectral (%)', `${safeFixed(analysis.technicalData.spectralFlatness * 100, 1)}%`, 'spectralFlatness'));
                 }
                 
-                // Spectral Bandwidth (Bandas Espectrais)
+                // Spectral Bandwidth (Bandas espectrais)
                 if (Number.isFinite(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))) {
                     rows.push(row('Bandas Espectrais (n)', `${safeHz(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))}`, 'spectralBandwidthHz'));
                 }
                 
-                // Kurtosis Espectral
+                // Spectral Kurtosis
                 if (Number.isFinite(analysis.technicalData?.spectralKurtosis)) {
                     rows.push(row('Kurtosis Espectral', `${safeFixed(analysis.technicalData.spectralKurtosis, 3)}`, 'spectralKurtosis'));
                 }
                 
-                // Assimetria Espectral
+                // Spectral Skewness
                 if (Number.isFinite(analysis.technicalData?.spectralSkewness)) {
                     rows.push(row('Assimetria Espectral', `${safeFixed(analysis.technicalData.spectralSkewness, 3)}`, 'spectralSkewness'));
                 }
@@ -9079,6 +9100,66 @@ if (document.readyState === 'loading') {
 } else {
     injectTruePeakStatusStyles();
 }
+
+// 🎯 SISTEMA DE TOOLTIPS PARA MÉTRICAS
+let currentTooltip = null;
+
+window.showMetricTooltip = function(iconElement, event) {
+    // Remover tooltip anterior se existir
+    hideMetricTooltip();
+    
+    const tooltipText = iconElement.getAttribute('data-tooltip');
+    if (!tooltipText) return;
+    
+    // Criar tooltip
+    const tooltip = document.createElement('div');
+    tooltip.className = 'metric-tooltip active';
+    tooltip.textContent = tooltipText;
+    document.body.appendChild(tooltip);
+    
+    currentTooltip = tooltip;
+    
+    // Posicionar tooltip
+    const rect = iconElement.getBoundingClientRect();
+    const tooltipRect = tooltip.getBoundingClientRect();
+    
+    // Posicionar abaixo do ícone, centralizado
+    let left = rect.left + (rect.width / 2) - (tooltipRect.width / 2);
+    let top = rect.bottom + 10;
+    
+    // Ajustar se sair da tela
+    const padding = 10;
+    if (left < padding) left = padding;
+    if (left + tooltipRect.width > window.innerWidth - padding) {
+        left = window.innerWidth - tooltipRect.width - padding;
+    }
+    if (top + tooltipRect.height > window.innerHeight - padding) {
+        // Mostrar acima do ícone se não couber embaixo
+        top = rect.top - tooltipRect.height - 10;
+    }
+    
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+    
+    // Ativar animação
+    setTimeout(() => tooltip.classList.add('active'), 10);
+};
+
+window.hideMetricTooltip = function() {
+    if (currentTooltip) {
+        currentTooltip.classList.remove('active');
+        setTimeout(() => {
+            if (currentTooltip && currentTooltip.parentNode) {
+                currentTooltip.parentNode.removeChild(currentTooltip);
+            }
+            currentTooltip = null;
+        }, 300);
+    }
+};
+
+// Fechar tooltip ao rolar a página
+window.addEventListener('scroll', hideMetricTooltip);
+window.addEventListener('resize', hideMetricTooltip);
 
 // 🎯 PATCH DEFINITIVO: Carregar correção da tabela de referência
 (function loadReferenceTablePatch() {
