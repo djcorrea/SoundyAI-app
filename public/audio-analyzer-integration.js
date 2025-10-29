@@ -5477,15 +5477,14 @@ function displayModalResults(analysis) {
                     <div class="card-title">ANÁLISE DE FREQUÊNCIAS</div>
                     ${col2}
                 </div>
-                <!-- REMOVED: 🔊 Bandas Espectrais (Consolidado) - duplicação removida, mantida apenas em Métricas Avançadas -->
+                <div class="card">
+                    <div class="card-title">MÉTRICAS AVANÇADAS</div>
+                    ${advancedMetricsCard()}
+                </div>
                 <div class="card">
                     <div class="card-title">SCORES & DIAGNÓSTICO</div>
                     ${scoreRows}
                     ${col3}
-                </div>
-                <div class="card">
-                    <div class="card-title">MÉTRICAS AVANÇADAS</div>
-                    ${advancedMetricsCard()}
                 </div>
                 <!-- Card "Problemas Técnicos" removido conforme solicitado -->
                 <!-- 

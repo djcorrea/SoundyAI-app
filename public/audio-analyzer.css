@@ -1914,8 +1914,9 @@ details[open] summary {
 .cards-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 28px;
+    gap: 20px;
     margin-top: 20px;
+    align-items: start;
 }
 .card {
     background: linear-gradient(135deg, 
@@ -1936,6 +1937,12 @@ details[open] summary {
     position: relative;
     overflow: hidden;
     transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
+    
+    /* 🎯 AUDITORIA: Garantir mesma altura para todos os cards */
+    min-height: 400px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
     
     /* 🔧 OTIMIZAÇÃO: Mantém font-size normal para evitar colapso de títulos
        A remoção de whitespace agora é feita via JavaScript (normalizeCardWhitespace) */
