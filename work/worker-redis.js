@@ -18,6 +18,20 @@ import path from "path";
 import { fileURLToPath } from "url";
 import express from 'express';
 
+// ---------- Importar pipeline completo para análise REAL ----------
+let processAudioComplete = null;
+
+try {
+  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> 📦 Carregando pipeline completo...`);
+  const imported = await import("./api/audio/pipeline-complete.js");
+  processAudioComplete = imported.processAudioComplete;
+  console.log(`[WORKER-REDIS][${new Date().toISOString()}] -> ✅ Pipeline completo carregado com sucesso!`);
+} catch (err) {
+  console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> ❌ CRÍTICO: Falha ao carregar pipeline:`, err.message);
+  console.error(`[WORKER-REDIS][${new Date().toISOString()}] -> Stack trace:`, err.stack);
+  process.exit(1);
+}
+
 // 🏷️ Definir service name para auditoria
 process.env.SERVICE_NAME = 'worker';
 
@@ -446,7 +460,7 @@ async function downloadFileFromBucket(fileKey) {
 }
 
 /**
- * 🎵 AUDIO PROCESSOR PRINCIPAL
+ * 🎵 AUDIO PROCESSOR PRINCIPAL - ANÁLISE REAL
  */
 async function audioProcessor(job) {
   // 🔑 ESTRUTURA ATUALIZADA: suporte para jobId UUID + externalId para logs
@@ -511,19 +525,53 @@ async function audioProcessor(job) {
     const downloadTime = Date.now() - downloadStartTime;
     console.log(`🎵 [PROCESS][${new Date().toISOString()}] -> Arquivo baixado em ${downloadTime}ms: ${localFilePath}`);
 
-    // Simular processamento (substitua pela lógica real)
-    console.log(`🔄 [PROCESS][${new Date().toISOString()}] -> Processando arquivo de áudio...`);
+    // 🎵 PROCESSAMENTO REAL VIA PIPELINE COMPLETO
+    console.log(`🔄 [PROCESS][${new Date().toISOString()}] -> Iniciando análise de áudio REAL via pipeline...`);
     
-    // Aqui você colocaria a lógica real de processamento de áudio
-    const results = {
-      status: 'completed',
-      processingTime: Date.now() - downloadStartTime,
-      fileSize: fs.statSync(localFilePath).size,
-      mode: mode
+    // Ler arquivo para buffer
+    const fileBuffer = await fs.promises.readFile(localFilePath);
+    console.log(`📊 [WORKER-REDIS] Arquivo lido: ${fileBuffer.length} bytes`);
+
+    const t0 = Date.now();
+    
+    // 🔥 TIMEOUT DE 3 MINUTOS PARA EVITAR TRAVAMENTO
+    const pipelinePromise = processAudioComplete(fileBuffer, fileName || 'unknown.wav', {
+      jobId: jobId,
+      reference: job.data?.reference || null
+    });
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => {
+        reject(new Error(`Pipeline timeout após 3 minutos para: ${fileName}`));
+      }, 180000);
+    });
+
+    console.log(`⚡ [WORKER-REDIS] Iniciando processamento de ${fileName}...`);
+    const finalJSON = await Promise.race([pipelinePromise, timeoutPromise]);
+    const totalMs = Date.now() - t0;
+    
+    console.log(`✅ [WORKER-REDIS] Pipeline concluído em ${totalMs}ms`);
+
+    // Enriquecer resultado com informações do worker
+    finalJSON.performance = {
+      ...(finalJSON.performance || {}),
+      workerTotalTimeMs: totalMs,
+      workerTimestamp: new Date().toISOString(),
+      backendPhase: "5.1-5.4-redis",
+      workerId: process.pid,
+      downloadTimeMs: downloadTime
+    };
+
+    finalJSON._worker = { 
+      source: "pipeline_complete", 
+      redis: true,
+      pid: process.pid,
+      jobId: jobId
     };
     
-    console.log(`✅ [PROCESS][${new Date().toISOString()}] -> Processamento concluído com sucesso`);
-    await updateJobStatus(jobId, 'completed', results);
+    console.log(`✅ [PROCESS][${new Date().toISOString()}] -> Processamento REAL concluído com sucesso`);
+    console.log(`📊 [PROCESS] LUFS: ${finalJSON.technicalData?.lufsIntegrated || 'N/A'} | Peak: ${finalJSON.technicalData?.truePeakDbtp || 'N/A'}dBTP | Score: ${finalJSON.score || 0}`);
+    
+    await updateJobStatus(jobId, 'completed', finalJSON);
     
     // Limpar arquivo temporário
     if (localFilePath && fs.existsSync(localFilePath)) {
@@ -531,13 +579,48 @@ async function audioProcessor(job) {
       console.log(`🗑️ [PROCESS][${new Date().toISOString()}] -> Arquivo temporário removido: ${localFilePath}`);
     }
 
-    return results;
+    return finalJSON;
 
   } catch (error) {
     console.error(`💥 [PROCESS][${new Date().toISOString()}] -> Erro no processamento:`, error.message);
     
+    // 🔥 RETORNO DE SEGURANÇA em caso de erro no pipeline
+    const errorResult = {
+      status: 'error',
+      error: {
+        message: error.message,
+        type: 'worker_pipeline_error',
+        phase: 'worker_redis_processing',
+        timestamp: new Date().toISOString()
+      },
+      score: 0,
+      classification: 'Erro Crítico',
+      scoringMethod: 'worker_redis_error_fallback',
+      metadata: {
+        fileName: fileName || 'unknown',
+        fileSize: 0,
+        sampleRate: 48000,
+        channels: 2,
+        duration: 0,
+        processedAt: new Date().toISOString(),
+        engineVersion: 'worker-redis-error',
+        pipelinePhase: 'error'
+      },
+      technicalData: {},
+      warnings: [`Worker Redis error: ${error.message}`],
+      buildVersion: 'worker-redis-error',
+      frontendCompatible: false,
+      _worker: { 
+        source: "pipeline_error", 
+        error: true, 
+        redis: true,
+        pid: process.pid,
+        jobId: jobId
+      }
+    };
+    
     try {
-      await updateJobStatus(jobId, 'failed', { error: error.message });
+      await updateJobStatus(jobId, 'failed', errorResult);
     } catch (dbError) {
       console.error(`💥 [PROCESS][${new Date().toISOString()}] -> Falha ao atualizar status do job para failed:`, dbError.message);
     }
