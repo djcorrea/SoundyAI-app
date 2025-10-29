@@ -5856,53 +5856,87 @@ function renderReferenceComparisons(analysis) {
             diff = val - target;
         }
         
-        // 🎯 SISTEMA SIMPLES DE 3 CORES (ok/yellow/warn)
-        const EPS = 1e-6;
-        const v = Number(val);
-        const t = Number(target);
-        
-        // Função de cálculo de cor simplificada
-        const getColorClass = (value, targetValue, tolerance) => {
-            const numVal = Number(value);
-            const numTarget = Number(targetValue);
-            
-            // Sem dado válido = vermelho
-            if (!Number.isFinite(numVal) || !Number.isFinite(numTarget)) {
-                return 'warn';
-            }
-            
-            // Tolerância padrão se ausente/inválida
-            let tol = Number(tolerance);
-            if (!Number.isFinite(tol) || tol <= 0) {
-                tol = 1;
-            }
-            
-            const absDiff = Math.abs(numVal - numTarget);
-            
-            // Verde: dentro da tolerância
-            if (absDiff <= tol + EPS) {
-                return 'ok';
-            }
-            
-            // Amarelo: fora um pouco (até 2x a tolerância)
-            if (absDiff <= 2 * tol + EPS) {
-                return 'yellow';
-            }
-            
-            // Vermelho: fora muito
-            return 'warn';
-        };
-        
+        // [BANDS-TOL-0] NOVO: Coloração com suporte a comparação binária para bandas (tol=0)
         let diffCell;
         if (!Number.isFinite(diff)) {
-            // Sem diferença calculável → vermelho
-            diffCell = '<td class="warn" style="text-align: center; padding: 8px;"><div style="font-size: 12px; font-weight: 600;">Corrigir</div></td>';
+            diffCell = '<td class="na" style="text-align: center;"><span style="opacity: 0.6;">—</span></td>';
+        } else if (tol === 0) {
+            // [BANDS-TOL-0] LÓGICA BINÁRIA PARA BANDAS (tol=0)
+            // Verde SOMENTE se dentro do range (diff === 0)
+            const absDiff = Math.abs(diff);
+            let cssClass, statusText;
+            
+            if (absDiff === 0) {
+                // ✅ DENTRO DO RANGE → Verde
+                cssClass = 'ok';
+                statusText = 'Ideal';
+            } else if (absDiff <= 1.0) {
+                // ⚠️ Fora por até 1dB → Amarelo
+                cssClass = 'yellow';
+                statusText = 'Ajuste leve';
+            } else if (absDiff <= 3.0) {
+                // 🟠 Fora por até 3dB → Laranja
+                cssClass = 'orange';
+                statusText = 'Ajustar';
+            } else {
+                // ❌ Fora por >3dB → Vermelho
+                cssClass = 'warn';
+                statusText = 'Corrigir';
+            }
+            
+            diffCell = `<td class="${cssClass}" style="text-align: center; padding: 8px;">
+                <div style="font-size: 12px; font-weight: 600;">${statusText}</div>
+            </td>`;
+        } else if (!Number.isFinite(tol) || tol < 0) {
+            // 🎯 CORREÇÃO: Aplicar tolerância padrão em vez de retornar N/A
+            // Isso garante que TODAS as métricas tenham cor, mesmo sem tolerância definida
+            const defaultTol = 1.0; // Tolerância padrão genérica
+            const absDiff = Math.abs(diff);
+            let cssClass, statusText;
+            
+            console.warn(`⚠️ [TOLERANCE_FALLBACK] Métrica "${label}" sem tolerância válida (tol=${tol}). Usando tolerância padrão: ${defaultTol}`);
+            
+            if (absDiff <= defaultTol) {
+                // ✅ ZONA IDEAL
+                cssClass = 'ok';
+                statusText = 'Ideal';
+            } else {
+                const multiplicador = absDiff / defaultTol;
+                if (multiplicador <= 2) {
+                    // ⚠️ ZONA AJUSTAR
+                    cssClass = 'yellow';
+                    statusText = 'Ajuste leve';
+                } else {
+                    // ❌ ZONA CORRIGIR
+                    cssClass = 'warn';
+                    statusText = 'Corrigir';
+                }
+            }
+            
+            diffCell = `<td class="${cssClass}" style="text-align: center; padding: 8px;">
+                <div style="font-size: 12px; font-weight: 600;">${statusText}</div>
+            </td>`;
         } else {
-            // Calcular cor com base na diferença e tolerância
-            const cssClass = getColorClass(val, target, tol);
-            const statusText = cssClass === 'ok' ? 'Ideal' : 
-                              cssClass === 'yellow' ? 'Ajuste leve' : 
-                              'Corrigir';
+            // LÓGICA PADRÃO PARA MÉTRICAS PRINCIPAIS (LUFS, TP, DR, etc. com tol>0)
+            const absDiff = Math.abs(diff);
+            let cssClass, statusText;
+            
+            if (absDiff <= tol) {
+                // ✅ ZONA IDEAL
+                cssClass = 'ok';
+                statusText = 'Ideal';
+            } else {
+                const multiplicador = absDiff / tol;
+                if (multiplicador <= 2) {
+                    // ⚠️ ZONA AJUSTAR
+                    cssClass = 'yellow';
+                    statusText = 'Ajuste leve';
+                } else {
+                    // ❌ ZONA CORRIGIR
+                    cssClass = 'warn';
+                    statusText = 'Corrigir';
+                }
+            }
             
             diffCell = `<td class="${cssClass}" style="text-align: center; padding: 8px;">
                 <div style="font-size: 12px; font-weight: 600;">${statusText}</div>
