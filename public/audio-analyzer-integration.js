@@ -8038,39 +8038,35 @@ function normalizeBackendAnalysisData(backendData) {
     tech.rms = getRealValue('rms', 'rms_db', 'rmsLevel');
     tech.rmsLevel = tech.rms;
     
-    // Dynamic Range - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA + METRICS
+    // Dynamic Range - CORRIGIR MAPEAMENTO PARA ESTRUTURA REAL DO BACKEND
     tech.dynamicRange = getRealValue('dynamicRange', 'dynamic_range', 'dr') ||
-                       (backendData.metrics?.technicalData?.dynamicRange && Number.isFinite(backendData.metrics.technicalData.dynamicRange) ? backendData.metrics.technicalData.dynamicRange : null);
+                       (backendData.dynamics?.range && Number.isFinite(backendData.dynamics.range) ? backendData.dynamics.range : null) ||
+                       (backendData.technicalData?.dynamicRange && Number.isFinite(backendData.technicalData.dynamicRange) ? backendData.technicalData.dynamicRange : null);
     
-    // Crest Factor - APENAS VALORES REAIS
-    tech.crestFactor = getRealValue('crestFactor', 'crest_factor');
+    // Crest Factor - MAPEAR PARA ESTRUTURA REAL: dynamics.crest
+    tech.crestFactor = getRealValue('crestFactor', 'crest_factor') ||
+                      (backendData.dynamics?.crest && Number.isFinite(backendData.dynamics.crest) ? backendData.dynamics.crest : null);
     
-    // True Peak - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA + METRICS
+    // True Peak - CORRIGIR MAPEAMENTO PARA ESTRUTURA REAL: truePeak.maxDbtp
     tech.truePeakDbtp = getRealValue('truePeakDbtp', 'true_peak_dbtp', 'truePeak') || 
                        (backendData.truePeak?.maxDbtp && Number.isFinite(backendData.truePeak.maxDbtp) ? backendData.truePeak.maxDbtp : null) ||
-                       (backendData.metrics?.technicalData?.truePeakDbtp && Number.isFinite(backendData.metrics.technicalData.truePeakDbtp) ? backendData.metrics.technicalData.truePeakDbtp : null);
+                       (backendData.technicalData?.truePeakDbtp && Number.isFinite(backendData.technicalData.truePeakDbtp) ? backendData.technicalData.truePeakDbtp : null);
     
-    // LUFS - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA + METRICS
+    // LUFS - CORRIGIR MAPEAMENTO PARA ESTRUTURA REAL: loudness.integrated
     tech.lufsIntegrated = getRealValue('lufsIntegrated', 'lufs_integrated', 'lufs', 'integratedLUFS') ||
                          (backendData.loudness?.integrated && Number.isFinite(backendData.loudness.integrated) ? backendData.loudness.integrated : null) ||
-                         (backendData.metrics?.loudness?.integrated && Number.isFinite(backendData.metrics.loudness.integrated) ? backendData.metrics.loudness.integrated : null) ||
-                         (backendData.metrics?.loudness?.integratedLUFS && Number.isFinite(backendData.metrics.loudness.integratedLUFS) ? backendData.metrics.loudness.integratedLUFS : null);
+                         (backendData.technicalData?.lufsIntegrated && Number.isFinite(backendData.technicalData.lufsIntegrated) ? backendData.technicalData.lufsIntegrated : null);
     
     tech.lufsShortTerm = getRealValue('lufsShortTerm', 'lufs_short_term') ||
-                        (backendData.loudness?.shortTerm && Number.isFinite(backendData.loudness.shortTerm) ? backendData.loudness.shortTerm : null) ||
-                        (backendData.metrics?.loudness?.shortTerm && Number.isFinite(backendData.metrics.loudness.shortTerm) ? backendData.metrics.loudness.shortTerm : null);
+                        (backendData.loudness?.shortTerm && Number.isFinite(backendData.loudness.shortTerm) ? backendData.loudness.shortTerm : null);
     
     tech.lufsMomentary = getRealValue('lufsMomentary', 'lufs_momentary') ||
-                        (backendData.loudness?.momentary && Number.isFinite(backendData.loudness.momentary) ? backendData.loudness.momentary : null) ||
-                        (backendData.metrics?.loudness?.momentary && Number.isFinite(backendData.metrics.loudness.momentary) ? backendData.metrics.loudness.momentary : null);
+                        (backendData.loudness?.momentary && Number.isFinite(backendData.loudness.momentary) ? backendData.loudness.momentary : null);
     
-    // LRA - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA + METRICS + MÚLTIPLOS ALIASES
+    // LRA - CORRIGIR MAPEAMENTO PARA ESTRUTURA REAL: loudness.lra + technicalData.lra
     tech.lra = getRealValue('lra', 'loudnessRange', 'lra_tolerance', 'loudness_range') ||
               (backendData.loudness?.lra && Number.isFinite(backendData.loudness.lra) ? backendData.loudness.lra : null) ||
-              (backendData.lra && Number.isFinite(backendData.lra) ? backendData.lra : null) ||
-              // NOVO: Verificar em metrics.lra e metrics.loudness.lra também
-              (backendData.metrics?.lra && Number.isFinite(backendData.metrics.lra) ? backendData.metrics.lra : null) ||
-              (backendData.metrics?.loudness?.lra && Number.isFinite(backendData.metrics.loudness.lra) ? backendData.metrics.loudness.lra : null);
+              (backendData.technicalData?.lra && Number.isFinite(backendData.technicalData.lra) ? backendData.technicalData.lra : null);
     
     console.log('📊 [NORMALIZE] Métricas mapeadas (apenas reais):', {
         peak: tech.peak,
@@ -8084,17 +8080,17 @@ function normalizeBackendAnalysisData(backendData) {
         lra: tech.lra
     });
     
-    // 🎯 LOG ESPECÍFICO PARA AUDITORIA: LRA
+    // 🎯 LOG ESPECÍFICO PARA AUDITORIA: LRA com estrutura real
     if (tech.lra !== null) {
         console.log('✅ [LRA] SUCESSO: LRA mapeado corretamente =', tech.lra);
     } else {
         console.warn('❌ [LRA] PROBLEMA: LRA não foi encontrado no backend data');
         console.log('🔍 [LRA] Debug - possíveis caminhos verificados:', {
             'backendData.loudness.lra': backendData.loudness?.lra,
-            'backendData.lra': backendData.lra,
-            'backendData.metrics.lra': backendData.metrics?.lra,
-            'backendData.metrics.loudness.lra': backendData.metrics?.loudness?.lra,
-            'source (technicalData)': source
+            'backendData.technicalData.lra': backendData.technicalData?.lra,
+            'source (technicalData)': source.lra || source.loudnessRange,
+            'loudnessObject': backendData.loudness,
+            'technicalDataObject': backendData.technicalData
         });
     }
     
@@ -8139,12 +8135,12 @@ function normalizeBackendAnalysisData(backendData) {
     tech.spectralSkewness = getRealValue('spectralSkewness', 'spectral_skewness');
     tech.spectralKurtosis = getRealValue('spectralKurtosis', 'spectral_kurtosis');
     
-    // 🎵 SPECTRAL BALANCE - Mapear dados espectrais REAIS + METRICS
+    // 🎵 SPECTRAL BALANCE - Mapear dados espectrais REAIS do backend
     if (source.spectral_balance || source.spectralBalance || source.bands || 
-        backendData.metrics?.bands || backendData.metrics?.technicalData?.spectral_balance) {
+        backendData.technicalData?.spectralBands || backendData.technicalData?.bands) {
         
         const spectralSource = source.spectral_balance || source.spectralBalance || source.bands || 
-                              backendData.metrics?.bands || backendData.metrics?.technicalData?.spectral_balance || {};
+                              backendData.technicalData?.spectralBands || backendData.technicalData?.bands || {};
         
         console.log('🔍 [SPECTRAL] Fonte espectral detectada:', spectralSource);
         
@@ -8194,8 +8190,8 @@ function normalizeBackendAnalysisData(backendData) {
                 'source.spectral_balance': source.spectral_balance,
                 'source.spectralBalance': source.spectralBalance, 
                 'source.bands': source.bands,
-                'backendData.metrics.bands': backendData.metrics?.bands,
-                'backendData.metrics.technicalData.spectral_balance': backendData.metrics?.technicalData?.spectral_balance,
+                'backendData.technicalData.spectralBands': backendData.technicalData?.spectralBands,
+                'backendData.technicalData.bands': backendData.technicalData?.bands,
                 'spectralSource': spectralSource
             });
         }
@@ -8207,14 +8203,16 @@ function normalizeBackendAnalysisData(backendData) {
             'source.spectral_balance': source.spectral_balance,
             'source.spectralBalance': source.spectralBalance,
             'source.bands': source.bands,
-            'backendData.metrics.bands': backendData.metrics?.bands,
-            'backendData.metrics.technicalData.spectral_balance': backendData.metrics?.technicalData?.spectral_balance
+            'backendData.technicalData.spectralBands': backendData.technicalData?.spectralBands,
+            'backendData.technicalData.bands': backendData.technicalData?.bands
         });
     }
     
-    // 🎶 BAND ENERGIES - Mapear energias das bandas de frequência REAIS
-    if (source.bandEnergies || source.band_energies || source.bands) {
-        const bandsSource = source.bandEnergies || source.band_energies || source.bands || {};
+    // 🎶 BAND ENERGIES - Mapear energias das bandas de frequência REAIS do backend
+    if (source.bandEnergies || source.band_energies || source.bands || 
+        backendData.technicalData?.spectralBands || backendData.technicalData?.bands) {
+        const bandsSource = source.bandEnergies || source.band_energies || source.bands || 
+                          backendData.technicalData?.spectralBands || backendData.technicalData?.bands || {};
         tech.bandEnergies = {};
         
         // Mapear bandas conhecidas - APENAS VALORES REAIS
