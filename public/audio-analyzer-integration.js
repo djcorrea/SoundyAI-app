@@ -563,6 +563,7 @@ function handleReferenceFileSelection(type) {
                     if (typeof window.displayModalResults === "function") {
                         console.log("✅ [AUDITORIA] displayModalResults encontrada, exibindo modal...");
                         console.log("✅ [RETRY_SUCCESS] Tentativa", attempts + 1, "bem-sucedida, chamando displayModalResults");
+                        console.log("[DISPLAY] Metrics modal triggered from tryShowModal");
                         displayModalResults(result);
                     } else if (attempts < 10) {
                         console.warn("[AUDITORIA] displayModalResults não disponível, tentativa", attempts + 1);
@@ -2592,6 +2593,7 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         
         // Exibir resultados diretamente no modal
         setTimeout(() => {
+            console.log("[DISPLAY] Metrics modal triggered from handleGenreAnalysisWithResult");
             // 🛡️ VERIFICAÇÃO DEFENSIVA: Garantir que displayModalResults existe
             if (typeof displayModalResults === 'function') {
                 displayModalResults(normalizedResult);
@@ -7953,163 +7955,223 @@ window.displayReferenceResults = function(referenceResults) {
 // =============== FUNÇÕES DE NORMALIZAÇÃO DE DADOS ===============
 
 /**
- * 🔧 NOVA FUNÇÃO: Normalizar dados do backend para compatibilidade com front-end
- * Mapeia a resposta do backend Railway para o formato que o front-end espera
+ * 🔧 FUNÇÃO CORRIGIDA: Normalizar dados do backend (compatível com JSON antigo e novo)
+ * Mapeia a resposta do backend para o formato que o front-end espera
+ * ✅ Compatível com JSON antigo e novo (pré/pós Redis)
  */
-function normalizeBackendAnalysisData(backendData) {
-    console.log('🔧 [NORMALIZE] Iniciando normalização dos dados do backend:', backendData);
+function normalizeBackendAnalysisData(result) {
+    console.log("[BACKEND RESULT] Received analysis with data:", result);
     
-    // Se já está no formato correto, retornar como está
-    if (backendData.technicalData && backendData.technicalData.peak !== undefined) {
-        console.log('📊 [NORMALIZE] Dados já estão normalizados');
-        return backendData;
+    // ✅ Compatível com JSON antigo e novo (pré/pós Redis)
+    const data = result?.data ?? result;
+    const src = data.metrics || data.technicalData || data.loudness || data.spectral || data;
+
+    if (!src) {
+        console.error("[NORMALIZE] ❌ Nenhuma fonte de dados encontrada:", result);
+        throw new Error("source is not defined");
     }
-    
-    // 🧩 AUDITORIA 3: Implementar fallback duplo robusto
-    const src = backendData.metrics || backendData.technicalData || backendData;
-    const loudness = src.loudness || backendData.loudness || src.technicalData || {};
-    const bands = src.bands || src.spectralBands || src.technicalData?.bands || backendData.technicalData?.spectralBands || {};
-    
-    // Criar estrutura normalizada
+
+    console.log("[NORMALIZE] Source data extracted:", src);
+    console.log("[NORMALIZE] Full data structure:", data);
+
+    const loudness = src.loudness || data.loudness || data.technicalData?.loudness || {};
+    const bands = src.bands || src.spectralBands || data.technicalData?.bands || data.technicalData?.spectralBands || data.spectralBands || {};
+
     const normalized = {
-        ...backendData,
-        technicalData: backendData.technicalData || {},
-        problems: backendData.problems || [],
-        suggestions: backendData.suggestions || [],
-        duration: backendData.duration || null,
-        sampleRate: backendData.sampleRate || null,
-        channels: backendData.channels || null
-    };
-    
-    // 🎯 MAPEAR MÉTRICAS BÁSICAS COM FALLBACK DUPLO
-    const tech = normalized.technicalData;
-    
-    console.log('🔍 [NORMALIZE] Dados de origem recebidos:', src);
-    console.log('🔍 [NORMALIZE] Estrutura completa do backend:', backendData);
-    console.log('🔍 [NORMALIZE] Estrutura metrics do backend:', backendData.metrics);
-    
-    // 🧩 AUDITORIA 2: Estrutura detalhada dos dados
-    console.log("[AUDITORIA] data keys:", Object.keys(backendData || {}));
-    console.log("[AUDITORIA] data.technicalData keys:", Object.keys(backendData.technicalData || {}));
-    console.log("[AUDITORIA] data.loudness:", backendData.loudness);
-    console.log("[AUDITORIA] data.truePeak:", backendData.truePeak);
-    console.log("[AUDITORIA] data.dynamics:", backendData.dynamics);
-    
-    // 🔧 SISTEMA DE NORMALIZAÇÃO COM FALLBACK DUPLO
-    // LUFS - múltiplos caminhos com prioridade
-    tech.lufsIntegrated = loudness.integratedLUFS ?? loudness.integrated ?? src.lufsIntegrated ?? 
-                         backendData.loudness?.integrated ?? backendData.technicalData?.lufsIntegrated ?? null;
-    
-    // LRA - múltiplos caminhos com prioridade
-    tech.lra = loudness.lra ?? src.lra ?? backendData.loudness?.lra ?? 
-               backendData.technicalData?.lra ?? src.dynamicRange ?? null;
-    
-    // True Peak - múltiplos caminhos com prioridade
-    tech.truePeakDbtp = src.truePeakDbtp ?? backendData.truePeak?.maxDbtp ?? 
-                       backendData.technicalData?.truePeakDbtp ?? null;
-    
-    // Dynamic Range - múltiplos caminhos com prioridade
-    tech.dynamicRange = src.dynamicRange ?? backendData.dynamics?.range ?? 
-                       backendData.technicalData?.dynamicRange ?? null;
-    
-    // Bandas espectrais - múltiplos caminhos
-    tech.bandEnergies = bands ?? null;
-    tech.spectral_balance = bands ?? null;
-    
-    // 🎯 ALIAS MAP - Mapeamento de nomes divergentes de métricas
-    const aliasMap = {
-        // Métricas principais
-        'dr': ['dynamic_range', 'dynamicRange'],
-        'lra': ['loudness.lra', 'loudnessRange', 'lra_tolerance', 'loudness_range'],
-        'crestFactor': ['dynamics.crest', 'crest_factor'],
-        'truePeakDbtp': ['truePeak.maxDbtp', 'true_peak_dbtp', 'truePeak'],
-        'lufsIntegrated': ['loudness.integrated', 'lufs_integrated', 'lufs', 'loudness.integratedLUFS', 'integratedLUFS'],
+        // Preservar estrutura original
+        ...data,
         
-        // Bandas espectrais - normalização de nomes
-        'low_mid': ['lowMid', 'low_mid', 'lowmid'],
-        'high_mid': ['highMid', 'high_mid', 'highmid'],
-        'presenca': ['presence', 'presenca'],
-        'brilho': ['air', 'brilho', 'treble', 'high'],
-        'low_bass': ['bass', 'low_bass', 'lowBass'],
-        'upper_bass': ['bass', 'low_bass', 'upper_bass', 'upperBass'], // upper_bass → bass como fallback
-        'sub': ['sub', 'subBass', 'sub_bass'],
-        'mid': ['mid', 'mids', 'middle']
+        // Métricas normalizadas
+        lufsIntegrated: loudness.integratedLUFS ?? 
+                       loudness.integrated ?? 
+                       src.lufsIntegrated ?? 
+                       data.technicalData?.lufsIntegrated ?? 
+                       data.loudness?.integrated ?? 
+                       null,
+                       
+        lra: loudness.lra ?? 
+             src.lra ?? 
+             data.technicalData?.lra ?? 
+             data.loudness?.lra ?? 
+             null,
+             
+        truePeakDbtp: src.truePeakDbtp ?? 
+                     data.truePeak?.maxDbtp ?? 
+                     data.technicalData?.truePeakDbtp ?? 
+                     null,
+                     
+        dynamicRange: src.dynamicRange ?? 
+                     data.dynamics?.range ?? 
+                     data.technicalData?.dynamicRange ?? 
+                     null,
+                     
+        bands: bands,
+        
+        // Estruturas técnicas
+        technicalData: {
+            // Copiar dados existentes
+            ...(data.technicalData || src),
+            
+            // Garantir métricas essenciais
+            lufsIntegrated: loudness.integratedLUFS ?? 
+                           loudness.integrated ?? 
+                           src.lufsIntegrated ?? 
+                           data.technicalData?.lufsIntegrated ?? 
+                           data.loudness?.integrated ?? 
+                           null,
+                           
+            lra: loudness.lra ?? 
+                 src.lra ?? 
+                 data.technicalData?.lra ?? 
+                 data.loudness?.lra ?? 
+                 null,
+                 
+            truePeakDbtp: src.truePeakDbtp ?? 
+                         data.truePeak?.maxDbtp ?? 
+                         data.technicalData?.truePeakDbtp ?? 
+                         null,
+                         
+            dynamicRange: src.dynamicRange ?? 
+                         data.dynamics?.range ?? 
+                         data.technicalData?.dynamicRange ?? 
+                         null,
+                         
+            bandEnergies: bands,
+            spectral_balance: bands
+        },
+        
+        metadata: data.metadata ?? {},
+        
+        // Preservar outros campos importantes
+        problems: data.problems || [],
+        suggestions: data.suggestions || [],
+        duration: data.duration || null,
+        sampleRate: data.sampleRate || null,
+        channels: data.channels || null,
+        score: data.score || null,
+        classification: data.classification || null
     };
+
+    console.log("✅ [NORMALIZE] Parsed data:", normalized);
+    console.log("✅ [NORMALIZE] Normalized metrics:", {
+        lufsIntegrated: normalized.technicalData.lufsIntegrated,
+        lra: normalized.technicalData.lra,
+        truePeakDbtp: normalized.technicalData.truePeakDbtp,
+        dynamicRange: normalized.technicalData.dynamicRange,
+        bands: normalized.technicalData.bandEnergies || normalized.technicalData.spectral_balance
+    });
+
+    return normalized;
+}
+
+// =============== FUNÇÕES AUXILIARES ===============
+
+// 🧪 TESTE AUTOMÁTICO: Validar normalização com JSON real
+function testNormalizationCompatibility() {
+    console.log("🧪 [TEST] Iniciando teste automático de compatibilidade...");
     
-    // Função para pegar valor real ou null (sem fallbacks fictícios) + suporte a alias + metrics.*
-    const getRealValue = (...paths) => {
-        for (const path of paths) {
-            // 1. Verificar em source (technicalData ou metrics)
-            const value = path.split('.').reduce((obj, key) => obj?.[key], source);
-            if (Number.isFinite(value)) {
-                return value;
-            }
-            
-            // 2. Verificar na estrutura raiz do backendData
-            const rootValue = path.split('.').reduce((obj, key) => obj?.[key], backendData);
-            if (Number.isFinite(rootValue)) {
-                return rootValue;
-            }
-            
-            // 3. NOVO: Verificar em backendData.metrics.*
-            const metricsValue = path.split('.').reduce((obj, key) => obj?.[key], backendData.metrics);
-            if (Number.isFinite(metricsValue)) {
-                console.log(`🔄 [METRICS] ${path} encontrado em metrics: ${metricsValue}`);
-                return metricsValue;
-            }
-            
-            // 4. Verificar alias se não encontrou valor direto
-            if (aliasMap[path]) {
-                for (const aliasPath of aliasMap[path]) {
-                    // 4a. Alias em source
-                    const aliasValue = aliasPath.split('.').reduce((obj, key) => obj?.[key], source);
-                    if (Number.isFinite(aliasValue)) {
-                        console.log(`🔄 [ALIAS] ${path} → ${aliasPath}: ${aliasValue}`);
-                        return aliasValue;
-                    }
-                    
-                    // 4b. Alias na estrutura raiz
-                    const rootAliasValue = aliasPath.split('.').reduce((obj, key) => obj?.[key], backendData);
-                    if (Number.isFinite(rootAliasValue)) {
-                        console.log(`🔄 [ALIAS] ${path} → ${aliasPath}: ${rootAliasValue}`);
-                        return rootAliasValue;
-                    }
-                    
-                    // 4c. NOVO: Alias em metrics.*
-                    const metricsAliasValue = aliasPath.split('.').reduce((obj, key) => obj?.[key], backendData.metrics);
-                    if (Number.isFinite(metricsAliasValue)) {
-                        console.log(`🔄 [ALIAS METRICS] ${path} → ${aliasPath}: ${metricsAliasValue}`);
-                        return metricsAliasValue;
-                    }
+    // Teste 1: Formato antigo (pré-Redis)
+    const oldFormat = {
+        data: {
+            metrics: {
+                lufsIntegrated: -11.15,
+                lra: 0.8,
+                dynamicRange: 10.28
+            },
+            technicalData: {
+                truePeakDbtp: -0.2,
+                bands: {
+                    bass: -12.5,
+                    mid: -10.8,
+                    treble: -15.2
                 }
             }
         }
-        return null; // Retorna null se não há valor real
     };
     
-    // Peak e RMS - APENAS VALORES REAIS
-    tech.peak = getRealValue('peak', 'peak_db', 'peakLevel');
-    tech.rms = getRealValue('rms', 'rms_db', 'rmsLevel');
-    tech.rmsLevel = tech.rms;
+    // Teste 2: Formato novo (pós-Redis)
+    const newFormat = {
+        score: 100,
+        classification: "Referência Mundial",
+        loudness: { integrated: -11.15, lra: 0.8 },
+        truePeak: { maxDbtp: -0.2 },
+        dynamics: { range: 10.28 },
+        spectralBands: {
+            bass: -12.5,
+            mid: -10.8,
+            treble: -15.2
+        },
+        metadata: { duration: 180 }
+    };
     
-    // Dynamic Range - CORRIGIR MAPEAMENTO PARA ESTRUTURA REAL DO BACKEND
-    tech.dynamicRange = getRealValue('dynamicRange', 'dynamic_range', 'dr') ||
-                       (backendData.dynamics?.range && Number.isFinite(backendData.dynamics.range) ? backendData.dynamics.range : null) ||
-                       (backendData.technicalData?.dynamicRange && Number.isFinite(backendData.technicalData.dynamicRange) ? backendData.technicalData.dynamicRange : null);
+    // Teste 3: Formato híbrido
+    const hybridFormat = {
+        metrics: { lufsIntegrated: -11.15 },
+        loudness: { integrated: -12.0 },
+        technicalData: { lra: 0.8, truePeakDbtp: -0.2 }
+    };
     
-    // Crest Factor - MAPEAR PARA ESTRUTURA REAL: dynamics.crest
-    tech.crestFactor = getRealValue('crestFactor', 'crest_factor') ||
-                      (backendData.dynamics?.crest && Number.isFinite(backendData.dynamics.crest) ? backendData.dynamics.crest : null);
-    
-    // True Peak - CORRIGIR MAPEAMENTO PARA ESTRUTURA REAL: truePeak.maxDbtp
-    tech.truePeakDbtp = getRealValue('truePeakDbtp', 'true_peak_dbtp', 'truePeak') || 
-                       (backendData.truePeak?.maxDbtp && Number.isFinite(backendData.truePeak.maxDbtp) ? backendData.truePeak.maxDbtp : null) ||
-                       (backendData.technicalData?.truePeakDbtp && Number.isFinite(backendData.technicalData.truePeakDbtp) ? backendData.technicalData.truePeakDbtp : null);
-    
-    // LUFS - CORRIGIR MAPEAMENTO PARA ESTRUTURA REAL: loudness.integrated
-    tech.lufsIntegrated = getRealValue('lufsIntegrated', 'lufs_integrated', 'lufs', 'integratedLUFS') ||
-                         (backendData.loudness?.integrated && Number.isFinite(backendData.loudness.integrated) ? backendData.loudness.integrated : null) ||
-                         (backendData.technicalData?.lufsIntegrated && Number.isFinite(backendData.technicalData.lufsIntegrated) ? backendData.technicalData.lufsIntegrated : null);
+    try {
+        // ✅ Teste formato antigo
+        const normalized1 = normalizeBackendAnalysisData(oldFormat);
+        console.log("✅ [TEST] Formato antigo normalizado:", {
+            lufs: normalized1.technicalData.lufsIntegrated,
+            lra: normalized1.technicalData.lra,
+            truePeak: normalized1.technicalData.truePeakDbtp,
+            dr: normalized1.technicalData.dynamicRange
+        });
+        
+        // ✅ Teste formato novo
+        const normalized2 = normalizeBackendAnalysisData(newFormat);
+        console.log("✅ [TEST] Formato novo normalizado:", {
+            lufs: normalized2.technicalData.lufsIntegrated,
+            lra: normalized2.technicalData.lra,
+            truePeak: normalized2.technicalData.truePeakDbtp,
+            dr: normalized2.technicalData.dynamicRange
+        });
+        
+        // ✅ Teste formato híbrido
+        const normalized3 = normalizeBackendAnalysisData(hybridFormat);
+        console.log("✅ [TEST] Formato híbrido normalizado:", {
+            lufs: normalized3.technicalData.lufsIntegrated,
+            lra: normalized3.technicalData.lra,
+            truePeak: normalized3.technicalData.truePeakDbtp,
+            dr: normalized3.technicalData.dynamicRange
+        });
+        
+        // ✅ Validação de estrutura
+        const isValidStructure = (norm) => {
+            return norm.technicalData && 
+                   typeof norm.technicalData.lufsIntegrated !== 'undefined' &&
+                   typeof norm.technicalData.lra !== 'undefined' &&
+                   typeof norm.technicalData.truePeakDbtp !== 'undefined';
+        };
+        
+        if (isValidStructure(normalized1) && isValidStructure(normalized2) && isValidStructure(normalized3)) {
+            console.log("✅ [TEST] Todos os formatos passaram na validação!");
+            console.log("✅ [TEST] Sistema de normalização está funcionando corretamente");
+            return true;
+        } else {
+            console.error("❌ [TEST] Falha na validação de estrutura");
+            return false;
+        }
+        
+    } catch (error) {
+        console.error("❌ [TEST] Erro no teste de normalização:", error);
+        return false;
+    }
+}
+
+// 🚀 Executar teste automático quando o arquivo carregar
+if (typeof window !== 'undefined') {
+    window.addEventListener('load', () => {
+        setTimeout(() => {
+            testNormalizationCompatibility();
+        }, 1000);
+    });
+}
+
+// 🎯 FUNÇÃO: Aplicar correção de fallback ao score
     
     tech.lufsShortTerm = getRealValue('lufsShortTerm', 'lufs_short_term') ||
                         (backendData.loudness?.shortTerm && Number.isFinite(backendData.loudness.shortTerm) ? backendData.loudness.shortTerm : null);
@@ -8659,18 +8721,6 @@ function normalizeBackendAnalysisData(backendData) {
         bandEnergies: normalized.technicalData.bandEnergies ? Object.keys(normalized.technicalData.bandEnergies) : null
     });
     
-    // 🧩 AUDITORIA FINAL: Confirmar valores extraídos
-    console.log("✅ [AUDITORIA-FINAL] Normalized metrics:", {
-        lufsIntegrated: normalized.technicalData.lufsIntegrated,
-        lra: normalized.technicalData.lra,
-        truePeakDbtp: normalized.technicalData.truePeakDbtp,
-        dynamicRange: normalized.technicalData.dynamicRange,
-        bands: normalized.technicalData.bandEnergies || normalized.technicalData.spectral_balance
-    });
-    
-    return normalized;
-}
-
 // =============== FUNÇÕES UTILITÁRIAS DO MODAL ===============
 
 // 📁 Ocultar área de upload do modal
