@@ -1839,6 +1839,12 @@ details[open] summary {
     font-size: 14px;
     position: relative;
     z-index: 2;
+    padding-left: 0;
+    margin-left: 0;
+    text-indent: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 .data-row .value {
     color: #00ffff;
@@ -1847,6 +1853,65 @@ details[open] summary {
     text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
     position: relative;
     z-index: 2;
+    min-width: 120px;
+    text-align: right;
+}
+
+/* ℹ️ Ícone de informação com tooltip */
+.info-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    font-size: 11px;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: help;
+    transition: all 0.2s ease;
+    position: relative;
+}
+
+.info-icon:hover {
+    color: rgba(0, 255, 255, 1);
+    transform: scale(1.15);
+}
+
+/* Tooltip transparente fora do card */
+.info-icon[data-tooltip]:hover::after {
+    content: attr(data-tooltip);
+    position: fixed;
+    background: rgba(20, 20, 30, 0.95);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 400;
+    line-height: 1.5;
+    padding: 10px 14px;
+    border-radius: 8px;
+    max-width: 300px;
+    width: max-content;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), 
+                0 0 0 1px rgba(0, 255, 255, 0.2);
+    z-index: 9999;
+    pointer-events: none;
+    white-space: normal;
+    word-wrap: break-word;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    animation: tooltipFadeIn 0.2s ease;
+}
+
+@keyframes tooltipFadeIn {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -50%) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1);
+    }
 }
 
 /* KPIs futuristas com glassmorphism e neon */
@@ -1935,7 +2000,7 @@ details[open] summary {
         inset 0 0 0 1px rgba(255, 255, 255, 0.03),
         inset 0 0 100px rgba(0, 255, 255, 0.02);
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     transition: all 0.5s cubic-bezier(0.165, 0.84, 0.44, 1);
     
     /* 🎯 AUDITORIA: Garantir mesma altura para todos os cards */
