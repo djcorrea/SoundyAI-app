@@ -3956,7 +3956,36 @@ function displayModalResults(analysis) {
                 </div>`;
         };
 
-        // 🎯 CENTRALIZAÇÃO DAS MÉTRICAS - Funções de acesso unificado
+        // 🎯 CENTRALIZAÇÃO DAS MÉTRICAS - Funções de acesso unificado com fallbacks robustos
+        const getNestedValue = (obj, path) => {
+            if (!obj || !path) return null;
+            return path.split('.').reduce((current, key) => current?.[key], obj);
+        };
+
+        // 🔧 getMetricWithFallback: Suporta múltiplos caminhos de fallback em ordem de prioridade
+        const getMetricWithFallback = (paths, defaultValue = null) => {
+            if (!Array.isArray(paths)) paths = [paths];
+            
+            for (const pathConfig of paths) {
+                let value = null;
+                
+                if (typeof pathConfig === 'string') {
+                    // Caminho simples: tenta metrics > technicalData
+                    value = getNestedValue(analysis.metrics, pathConfig) ?? 
+                           getNestedValue(analysis.technicalData, pathConfig);
+                } else if (Array.isArray(pathConfig)) {
+                    // Array de caminhos aninhados: ['loudness', 'integrated']
+                    value = getNestedValue(analysis, pathConfig.join('.'));
+                }
+                
+                if (Number.isFinite(value)) {
+                    return value;
+                }
+            }
+            
+            return defaultValue;
+        };
+
         const getMetric = (metricPath, fallbackPath = null) => {
             // Prioridade: metrics centralizadas > technicalData legado > fallback
             const centralizedValue = analysis.metrics && getNestedValue(analysis.metrics, metricPath);
@@ -3974,10 +4003,6 @@ function displayModalResults(analysis) {
             // Fallback para technicalData legado
             const legacyValue = fallbackPath ? getNestedValue(analysis.technicalData, fallbackPath) : getNestedValue(analysis.technicalData, metricPath);
             return Number.isFinite(legacyValue) ? legacyValue : null;
-        };
-        
-        const getNestedValue = (obj, path) => {
-            return path.split('.').reduce((current, key) => current?.[key], obj);
         };
 
         const safePct = (v) => (Number.isFinite(v) ? `${(v*100).toFixed(0)}%` : '—');
@@ -4000,27 +4025,52 @@ function displayModalResults(analysis) {
         };
 
         const col1 = [
-            // 🟣 CARD 1: MÉTRICAS PRINCIPAIS - Reorganizado conforme solicitação
+            // 🟣 CARD 1: MÉTRICAS PRINCIPAIS - Reorganizado com fallbacks robustos
             // CONDITIONAL: Pico de Amostra - só exibir se não for placeholder 0.000
             (Number.isFinite(getMetric('peak_db', 'peak')) && getMetric('peak_db', 'peak') !== 0 ? row('Pico de Amostra', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak') : ''),
-            // Pico Real (movido de advancedMetricsCard)
-            (advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp')) ? (() => {
-                const tpValue = getMetric('truePeakDbtp', 'truePeakDbtp');
+            
+            // 🎯 Pico Real (dBTP) - com fallbacks robustos ['truePeak','maxDbtp'] > technicalData.truePeakDbtp
+            (advancedReady ? (() => {
+                const tpValue = getMetricWithFallback([
+                    ['truePeak', 'maxDbtp'],
+                    'truePeakDbtp',
+                    'technicalData.truePeakDbtp'
+                ]);
+                if (!Number.isFinite(tpValue)) return '';
                 const tpStatus = getTruePeakStatus(tpValue);
-                return row('Pico Real (dBTP)', `${safeFixed(tpValue)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp');
+                return row('Pico Real (dBTP)', `${safeFixed(tpValue, 2)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp');
             })() : ''),
-            // LUFS - renomeado de "LUFS Integrado" para "Loudness (LUFS)"
-            (advancedReady && Number.isFinite(getLufsIntegratedValue()) ? row('Loudness (LUFS)', `${safeFixed(getLufsIntegratedValue())} LUFS`, 'lufsIntegrated') : ''),
+            
+            // 🎯 Volume médio (LUFS) - com fallbacks robustos ['loudness','integrated'] > technicalData.lufsIntegrated
+            (advancedReady ? (() => {
+                const lufsValue = getMetricWithFallback([
+                    ['loudness', 'integrated'],
+                    'lufs_integrated',
+                    'lufsIntegrated',
+                    'technicalData.lufsIntegrated'
+                ]);
+                if (!Number.isFinite(lufsValue)) return '';
+                return row('Volume médio (LUFS)', `${safeFixed(lufsValue, 1)} LUFS`, 'lufsIntegrated');
+            })() : ''),
+            
+            // 🎯 Fator de crista - com fallbacks robustos ['dynamics','crest'] > technicalData.crestFactor
+            (advancedReady ? (() => {
+                const crestValue = getMetricWithFallback([
+                    ['dynamics', 'crest'],
+                    'crest_factor',
+                    'crestFactor',
+                    'technicalData.crestFactor'
+                ]);
+                if (!Number.isFinite(crestValue)) return '';
+                return row('Fator de crista', `${safeFixed(crestValue, 2)} dB`, 'crestFactor');
+            })() : ''),
+            
             row('Dynamic Range (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
             row('Loudness Range (LRA)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra'),
             // Correlação Estéreo (movido de col2)
             row('Correlação Estéreo', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 3) : '—', 'stereoCorrelation'),
             // Largura Estéreo (movido de col2)
             row('Largura Estéreo', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? safeFixed(getMetric('stereo_width', 'stereoWidth'), 2) : '—', 'stereoWidth')
-            // REMOVED: BPM - não deve aparecer mais conforme solicitação
-            // REMOVED: Volume Médio (RMS) - métrica secundária, não essencial
-            // REMOVED: Fator de Crista - métrica secundária
-            // REMOVED: LUFS Curto Prazo e Momentâneo - métricas muito específicas
             ].join('');
 
         const col2 = (() => {
@@ -4108,11 +4158,9 @@ function displayModalResults(analysis) {
                 
                 // === MÉTRICAS DE PICO E CLIPPING (seção principal) ===
                 
-                // True Peak (dBTP)
-                if (Number.isFinite(analysis.technicalData?.truePeakDbtp)) {
-                    const tpStatus = getTruePeakStatus(analysis.technicalData.truePeakDbtp);
-                    rows.push(row('True Peak (dBTP)', `${safeFixed(analysis.technicalData.truePeakDbtp, 2)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp'));
-                }
+                // REMOVED: True Peak (dBTP) - agora exclusivo do card MÉTRICAS PRINCIPAIS
+                // Se truePeakDbtp estiver mapeado no card de avançadas, remova de lá. 
+                // True Peak deve existir apenas em Métricas Principais para evitar duplicação
                 
                 // Picos por canal separados
                 if (Number.isFinite(analysis.technicalData?.samplePeakLeftDb)) {
