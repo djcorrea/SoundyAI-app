@@ -1819,8 +1819,7 @@ details[open] summary {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 0;
-    margin-bottom: 4px;
+    padding: 12px 0;
     border-bottom: 1px solid rgba(255, 255, 255, 0.03);
     position: relative;
     transition: all 0.3s ease;
@@ -1833,7 +1832,6 @@ details[open] summary {
 }
 .data-row:last-child {
     border-bottom: none;
-    margin-bottom: 0;
 }
 .data-row .label {
     color: #c1b5e8;
@@ -1841,7 +1839,6 @@ details[open] summary {
     font-size: 14px;
     position: relative;
     z-index: 2;
-    padding-left: 0;
 }
 .data-row .value {
     color: #00ffff;
@@ -1850,45 +1847,6 @@ details[open] summary {
     text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
     position: relative;
     z-index: 2;
-    min-width: 120px;
-    text-align: right;
-}
-
-/* 🎓 Tooltips Educativos para Métricas */
-.metric-label[data-tooltip] {
-    cursor: help;
-    border-bottom: 1px dotted rgba(193, 181, 232, 0.4);
-    transition: border-color 0.2s ease;
-}
-.metric-label[data-tooltip]:hover {
-    border-bottom-color: rgba(0, 255, 255, 0.6);
-}
-.metric-label[data-tooltip]:hover::after {
-    content: attr(data-tooltip);
-    position: absolute;
-    background: rgba(0, 0, 0, 0.95);
-    color: #fff;
-    font-size: 0.8rem;
-    font-weight: 400;
-    padding: 8px 12px;
-    border-radius: 8px;
-    top: -45px;
-    left: 0;
-    white-space: nowrap;
-    z-index: 1000;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(0, 255, 255, 0.3);
-    animation: tooltipFadeIn 0.2s ease;
-    pointer-events: none;
-}
-@keyframes tooltipFadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(5px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
 }
 
 /* KPIs futuristas com glassmorphism e neon */
@@ -1970,7 +1928,7 @@ details[open] summary {
     border: 2px solid transparent;
     background-clip: padding-box;
     border-radius: 24px;
-    padding: 20px 22px;
+    padding: 24px;
     box-shadow: 
         0 0 50px rgba(124, 77, 255, 0.08),
         0 20px 60px rgba(0, 0, 0, 0.6),
@@ -2040,9 +1998,7 @@ details[open] summary {
     font-size: 16px !important;         /* 🔧 Força tamanho visível */
     line-height: 1.4 !important;        /* 🔧 Garante altura de linha */
     margin-top: 0;
-    margin-bottom: 16px;
-    padding-bottom: 12px;
-    border-bottom: 1px solid rgba(0, 255, 255, 0.1);
+    margin-bottom: 20px;
     text-transform: uppercase;
     letter-spacing: 1px;
     text-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
@@ -2745,62 +2701,34 @@ details[open] summary {
     letter-spacing: 0.3px;
 }
 
-/* Barras de progresso para scores - LAYOUT RESTAURADO EM LINHA */
+/* Barras de progresso para scores */
 .audio-modal .metric-with-progress {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    flex-direction: row !important;
-    padding: 10px 0;
-    margin-bottom: 4px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-}
-
-.audio-modal .metric-with-progress:last-child {
-    border-bottom: none;
-    margin-bottom: 0;
-}
-
-.audio-modal .metric-with-progress .label {
-    color: #c1b5e8;
-    font-weight: 600;
-    font-size: 14px;
-    flex-shrink: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
 }
 
 .audio-modal .metric-value-progress {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
     align-items: center;
     gap: 12px;
-    min-width: 120px;
-}
-
-.audio-modal .metric-value-progress .value {
-    color: #00ffff;
-    font-weight: 800;
-    font-size: 15px;
-    text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
-    min-width: 35px;
-    text-align: right;
 }
 
 .audio-modal .progress-bar-mini {
-    width: 80px;
+    flex: 1;
     height: 6px;
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.1);
     border-radius: 3px;
     overflow: hidden;
-    position: relative;
-    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .audio-modal .progress-fill-mini {
     height: 100%;
     border-radius: 3px;
     transition: width 300ms ease;
-    background: linear-gradient(90deg, transparent, currentColor, transparent);
-    box-shadow: 0 0 10px currentColor;
+    background: linear-gradient(90deg, #7c4dff, #9c27b0);
+    box-shadow: 0 0 8px currentColor;
 }
 
 /* Diagnósticos e problemas */
@@ -2992,46 +2920,21 @@ details[open] summary {
 
 /* Barras de progresso para métricas */
 .metric-with-progress {
-    display: flex !important;
-    justify-content: space-between !important;
-    align-items: center !important;
-    flex-direction: row !important;
-    padding: 10px 0;
-    margin-bottom: 4px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-}
-
-.metric-with-progress:last-child {
-    border-bottom: none;
-    margin-bottom: 0;
-}
-
-.metric-with-progress .label {
-    color: #c1b5e8;
-    font-weight: 600;
-    font-size: 14px;
-    flex-shrink: 0;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px;
 }
 
 .metric-value-progress {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
     align-items: center;
+    width: 100%;
     gap: 12px;
-    min-width: 120px;
-}
-
-.metric-value-progress .value {
-    color: #00ffff;
-    font-weight: 800;
-    font-size: 15px;
-    text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
-    min-width: 35px;
-    text-align: right;
 }
 
 .progress-bar-mini {
-    width: 80px;
+    flex: 1;
     height: 6px;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 3px;
