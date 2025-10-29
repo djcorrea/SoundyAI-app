@@ -1970,7 +1970,7 @@ details[open] summary {
     border: 2px solid transparent;
     background-clip: padding-box;
     border-radius: 24px;
-    padding: 20px;
+    padding: 20px 22px;
     box-shadow: 
         0 0 50px rgba(124, 77, 255, 0.08),
         0 20px 60px rgba(0, 0, 0, 0.6),
@@ -1985,7 +1985,6 @@ details[open] summary {
     height: 100%;
     display: flex;
     flex-direction: column;
-    align-items: stretch;
     
     /* 🔧 OTIMIZAÇÃO: Mantém font-size normal para evitar colapso de títulos
        A remoção de whitespace agora é feita via JavaScript (normalizeCardWhitespace) */
@@ -2041,7 +2040,9 @@ details[open] summary {
     font-size: 16px !important;         /* 🔧 Força tamanho visível */
     line-height: 1.4 !important;        /* 🔧 Garante altura de linha */
     margin-top: 0;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(0, 255, 255, 0.1);
     text-transform: uppercase;
     letter-spacing: 1px;
     text-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
@@ -2744,13 +2745,12 @@ details[open] summary {
     letter-spacing: 0.3px;
 }
 
-/* Barras de progresso para scores - layout horizontal restaurado */
+/* Barras de progresso para scores - LAYOUT RESTAURADO EM LINHA */
 .audio-modal .metric-with-progress {
-    display: flex;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
     flex-direction: row !important;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
     padding: 10px 0;
     margin-bottom: 4px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.03);
@@ -2765,7 +2765,6 @@ details[open] summary {
     color: #c1b5e8;
     font-weight: 600;
     font-size: 14px;
-    white-space: nowrap;
     flex-shrink: 0;
 }
 
@@ -2773,34 +2772,35 @@ details[open] summary {
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    flex: 1;
     gap: 12px;
-    min-width: 0;
+    min-width: 120px;
 }
 
 .audio-modal .metric-value-progress .value {
+    color: #00ffff;
     font-weight: 800;
     font-size: 15px;
     text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
-    flex-shrink: 0;
-    min-width: 40px;
+    min-width: 35px;
     text-align: right;
 }
 
 .audio-modal .progress-bar-mini {
-    flex: 1;
+    width: 80px;
     height: 6px;
-    background: rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.05);
     border-radius: 3px;
     overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .audio-modal .progress-fill-mini {
     height: 100%;
     border-radius: 3px;
     transition: width 300ms ease;
-    background: linear-gradient(90deg, #7c4dff, #9c27b0);
-    box-shadow: 0 0 8px currentColor;
+    background: linear-gradient(90deg, transparent, currentColor, transparent);
+    box-shadow: 0 0 10px currentColor;
 }
 
 /* Diagnósticos e problemas */
@@ -2992,11 +2992,10 @@ details[open] summary {
 
 /* Barras de progresso para métricas */
 .metric-with-progress {
-    display: flex;
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
     flex-direction: row !important;
-    justify-content: space-between;
-    align-items: center;
-    gap: 12px;
     padding: 10px 0;
     margin-bottom: 4px;
     border-bottom: 1px solid rgba(255, 255, 255, 0.03);
@@ -3011,7 +3010,6 @@ details[open] summary {
     color: #c1b5e8;
     font-weight: 600;
     font-size: 14px;
-    white-space: nowrap;
     flex-shrink: 0;
 }
 
@@ -3019,22 +3017,21 @@ details[open] summary {
     display: flex;
     justify-content: flex-end;
     align-items: center;
-    flex: 1;
     gap: 12px;
-    min-width: 0;
+    min-width: 120px;
 }
 
 .metric-value-progress .value {
+    color: #00ffff;
     font-weight: 800;
     font-size: 15px;
     text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
-    flex-shrink: 0;
-    min-width: 40px;
+    min-width: 35px;
     text-align: right;
 }
 
 .progress-bar-mini {
-    flex: 1;
+    width: 80px;
     height: 6px;
     background: rgba(255, 255, 255, 0.05);
     border-radius: 3px;
