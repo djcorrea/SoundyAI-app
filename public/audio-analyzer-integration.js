@@ -3988,15 +3988,18 @@ function displayModalResults(analysis) {
         const timeKpi = Number.isFinite(analysis.processingMs) ? kpi(analysis.processingMs, 'TEMPO (MS)', 'kpi-time') : '';
 
         const src = (k) => (analysis.technicalData?._sources && analysis.technicalData._sources[k]) ? ` data-src="${analysis.technicalData._sources[k]}" title="origem: ${analysis.technicalData._sources[k]}"` : '';
-        const row = (label, valHtml, keyForSource=null) => {
+        const row = (label, valHtml, keyForSource=null, tooltip=null) => {
             // Usar sistema de enhancement se disponível
             const enhancedLabel = (typeof window !== 'undefined' && window.enhanceRowLabel) 
                 ? window.enhanceRowLabel(label, keyForSource) 
                 : label;
             
+            // Adicionar data-tooltip se fornecido
+            const tooltipAttr = tooltip ? ` data-tooltip="${tooltip}"` : '';
+            
             return `
                 <div class="data-row"${keyForSource?src(keyForSource):''}>
-                    <span class="label">${enhancedLabel}</span>
+                    <span class="label metric-label"${tooltipAttr}>${enhancedLabel}</span>
                     <span class="value">${valHtml}</span>
                 </div>`;
         };
@@ -4071,35 +4074,35 @@ function displayModalResults(analysis) {
 
         const col1 = [
             // 🟣 CARD 1: MÉTRICAS PRINCIPAIS - Reorganizado com fallbacks robustos
-            // CONDITIONAL: Pico de Amostra - só exibir se não for placeholder 0.000
-            (Number.isFinite(getMetric('peak_db', 'peak')) && getMetric('peak_db', 'peak') !== 0 ? row('Pico de Amostra', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak') : ''),
+            // CONDITIONAL: Pico Instantâneo (dBFS) - só exibir se não for placeholder 0.000
+            (Number.isFinite(getMetric('peak_db', 'peak')) && getMetric('peak_db', 'peak') !== 0 ? row('Pico Instantâneo (dBFS)', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak', 'Maior amplitude absoluta detectada no áudio digital') : ''),
             
-            // 🎯 Pico Real (dBTP) - com fallbacks robustos ['truePeak','maxDbtp'] > technicalData.truePeakDbtp
+            // 🎯 True Peak (dBTP) - com fallbacks robustos ['truePeak','maxDbtp'] > technicalData.truePeakDbtp
             (() => {
                 const tpValue = getMetricWithFallback([
                     ['truePeak', 'maxDbtp'],
                     'truePeakDbtp',
                     'technicalData.truePeakDbtp'
                 ]);
-                console.log('[METRICS-FIX] col1 > Pico Real - advancedReady:', advancedReady, 'tpValue:', tpValue);
+                console.log('[METRICS-FIX] col1 > True Peak - advancedReady:', advancedReady, 'tpValue:', tpValue);
                 if (!advancedReady) {
-                    console.warn('[METRICS-FIX] col1 > Pico Real BLOQUEADO por advancedReady=false');
+                    console.warn('[METRICS-FIX] col1 > True Peak BLOQUEADO por advancedReady=false');
                     return '';
                 }
                 if (tpValue === null || tpValue === undefined) {
-                    console.warn('[METRICS-FIX] col1 > Pico Real NÃO ENCONTRADO em nenhum caminho');
+                    console.warn('[METRICS-FIX] col1 > True Peak NÃO ENCONTRADO em nenhum caminho');
                     return '';
                 }
                 if (!Number.isFinite(tpValue)) {
-                    console.warn('[METRICS-FIX] col1 > Pico Real valor inválido:', tpValue);
+                    console.warn('[METRICS-FIX] col1 > True Peak valor inválido:', tpValue);
                     return '';
                 }
                 const tpStatus = getTruePeakStatus(tpValue);
-                console.log('[METRICS-FIX] col1 > Pico Real RENDERIZADO:', tpValue, 'dBTP status:', tpStatus.status);
-                return row('Pico Real (dBTP)', `${safeFixed(tpValue, 2)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp');
+                console.log('[METRICS-FIX] col1 > True Peak RENDERIZADO:', tpValue, 'dBTP status:', tpStatus.status);
+                return row('True Peak (dBTP)', `${safeFixed(tpValue, 2)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp', 'Pico real após conversão D/A — padrão EBU R128 para streaming');
             })(),
             
-            // 🎯 Volume Médio (RMS) - energia real em dBFS
+            // 🎯 Volume Médio RMS - energia real em dBFS
             (() => {
                 const rmsValue = getMetricWithFallback([
                     ['energy', 'rms'],
@@ -4108,22 +4111,22 @@ function displayModalResults(analysis) {
                     'technicalData.avgLoudness',
                     'technicalData.rms'
                 ]);
-                console.log('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) - advancedReady:', advancedReady, 'rmsValue:', rmsValue);
+                console.log('[AUDITORIA-RMS-LUFS] col1 > Volume Médio RMS - advancedReady:', advancedReady, 'rmsValue:', rmsValue);
                 
                 // 🎯 Exibir sempre, mesmo se 0 (valor técnico válido)
                 if (rmsValue === null || rmsValue === undefined) {
-                    console.warn('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) NÃO ENCONTRADO - exibindo 0');
-                    return row('Volume Médio (RMS)', `0.0 dBFS`, 'avgLoudness');
+                    console.warn('[AUDITORIA-RMS-LUFS] col1 > Volume Médio RMS NÃO ENCONTRADO - exibindo 0');
+                    return row('Volume Médio RMS', `0.0 dBFS`, 'avgLoudness');
                 }
                 if (!Number.isFinite(rmsValue)) {
-                    console.warn('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) valor inválido:', rmsValue);
-                    return row('Volume Médio (RMS)', `0.0 dBFS`, 'avgLoudness');
+                    console.warn('[AUDITORIA-RMS-LUFS] col1 > Volume Médio RMS valor inválido:', rmsValue);
+                    return row('Volume Médio RMS', `0.0 dBFS`, 'avgLoudness');
                 }
-                console.log('[AUDITORIA-RMS-LUFS] col1 > Volume Médio (RMS) RENDERIZADO:', rmsValue, 'dBFS');
-                return row('Volume Médio (RMS)', `${safeFixed(rmsValue, 1)} dBFS`, 'avgLoudness');
+                console.log('[AUDITORIA-RMS-LUFS] col1 > Volume Médio RMS RENDERIZADO:', rmsValue, 'dBFS');
+                return row('Volume Médio RMS', `${safeFixed(rmsValue, 1)} dBFS`, 'avgLoudness', 'Energia média do sinal em dBFS — medição técnica de amplitude');
             })(),
             
-            // 🎯 LUFS Integrado (Streaming) - loudness perceptiva em LUFS
+            // 🎯 Loudness Integrado (LUFS) - loudness perceptiva em LUFS
             (() => {
                 const lufsValue = getMetricWithFallback([
                     ['loudness', 'integrated'],
@@ -4131,7 +4134,7 @@ function displayModalResults(analysis) {
                     'lufsIntegrated',
                     'technicalData.lufsIntegrated'
                 ]);
-                console.log('[AUDITORIA-RMS-LUFS] col1 > LUFS Integrado (Streaming) - advancedReady:', advancedReady, 'lufsValue:', lufsValue);
+                console.log('[AUDITORIA-RMS-LUFS] col1 > Loudness Integrado (LUFS) - advancedReady:', advancedReady, 'lufsValue:', lufsValue);
                 
                 if (!advancedReady) {
                     console.warn('[AUDITORIA-RMS-LUFS] col1 > LUFS BLOQUEADO por advancedReady=false');
@@ -4140,22 +4143,22 @@ function displayModalResults(analysis) {
                 // 🎯 Exibir sempre, mesmo se 0
                 if (lufsValue === null || lufsValue === undefined) {
                     console.warn('[AUDITORIA-RMS-LUFS] col1 > LUFS NÃO ENCONTRADO - exibindo 0');
-                    return row('Volume Médio (LUFS - Streaming)', `0.0 LUFS`, 'lufsIntegrated');
+                    return row('Loudness Integrado (LUFS)', `0.0 LUFS`, 'lufsIntegrated');
                 }
                 if (!Number.isFinite(lufsValue)) {
                     console.warn('[AUDITORIA-RMS-LUFS] col1 > LUFS valor inválido:', lufsValue);
-                    return row('Volume Médio (LUFS - Streaming)', `0.0 LUFS`, 'lufsIntegrated');
+                    return row('Loudness Integrado (LUFS)', `0.0 LUFS`, 'lufsIntegrated');
                 }
-                console.log('[AUDITORIA-RMS-LUFS] col1 > LUFS Integrado RENDERIZADO:', lufsValue, 'LUFS');
-                return row('Volume Médio (LUFS - Streaming)', `${safeFixed(lufsValue, 1)} LUFS`, 'lufsIntegrated');
+                console.log('[AUDITORIA-RMS-LUFS] col1 > Loudness Integrado RENDERIZADO:', lufsValue, 'LUFS');
+                return row('Loudness Integrado (LUFS)', `${safeFixed(lufsValue, 1)} LUFS`, 'lufsIntegrated', 'Volume percebido pelo ouvido humano — padrão Spotify/YouTube/Apple Music');
             })(),
             
-            row('Dynamic Range (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
-            row('Loudness Range (LRA)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra'),
-            // Correlação Estéreo (movido de col2)
-            row('Correlação Estéreo', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 3) : '—', 'stereoCorrelation'),
-            // Largura Estéreo (movido de col2)
-            row('Largura Estéreo', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? safeFixed(getMetric('stereo_width', 'stereoWidth'), 2) : '—', 'stereoWidth')
+            row('Faixa Dinâmica (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange', 'Diferença entre partes altas e baixas — mostra punch e headroom'),
+            row('Consistência de Loudness (LU)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra', 'Variação de volume ao longo do tempo — mede consistência energética'),
+            // Correlação Estéreo (±1) (movido de col2)
+            row('Correlação Estéreo (±1)', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 3) : '—', 'stereoCorrelation', 'Relação entre canais L/R — +1 (mono) a -1 (fase invertida)'),
+            // Abertura Estéreo (%) (movido de col2)
+            row('Abertura Estéreo (%)', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? safeFixed(getMetric('stereo_width', 'stereoWidth'), 2) : '—', 'stereoWidth', 'Largura da imagem estéreo em porcentagem — 0% (mono) a 100% (wide)')
             ].join('');
 
         const col2 = (() => {
@@ -4169,13 +4172,13 @@ function displayModalResults(analysis) {
             
             if (Object.keys(spectralBands).length > 0) {
                 const bandMap = {
-                    sub: { name: 'Sub (20-60Hz)', range: '20-60Hz' },
-                    bass: { name: 'Bass (60-150Hz)', range: '60-150Hz' },
-                    lowMid: { name: 'Low-Mid (150-500Hz)', range: '150-500Hz' },
-                    mid: { name: 'Mid (500-2kHz)', range: '500-2000Hz' },
-                    highMid: { name: 'High-Mid (2-5kHz)', range: '2000-5000Hz' },
-                    presence: { name: 'Presence (5-10kHz)', range: '5000-10000Hz' },
-                    air: { name: 'Air (10-20kHz)', range: '10000-20000Hz' }
+                    sub: { name: 'Subgrave (20–60 Hz)', range: '20-60Hz' },
+                    bass: { name: 'Graves (60–150 Hz)', range: '60-150Hz' },
+                    lowMid: { name: 'Médios-Graves (150–500 Hz)', range: '150-500Hz' },
+                    mid: { name: 'Médios (500 Hz–2 kHz)', range: '500-2000Hz' },
+                    highMid: { name: 'Médios-Agudos (2–5 kHz)', range: '2000-5000Hz' },
+                    presence: { name: 'Presença (5–10 kHz)', range: '5000-10000Hz' },
+                    air: { name: 'Ar / Abertura (10–20 kHz)', range: '10000-20000Hz' }
                 };
                 
                 Object.keys(bandMap).forEach(bandKey => {
@@ -4204,8 +4207,8 @@ function displayModalResults(analysis) {
                 });
             }
             
-            // Frequência Central (mantém aqui)
-            rows.push(row('Frequência Média Central', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroidHz')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroidHz')) : '—', 'spectralCentroidHz'));
+            // Frequência Central (Hz) (mantém aqui)
+            rows.push(row('Frequência Central (Hz)', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroidHz')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroidHz')) : '—', 'spectralCentroidHz'));
             
             return rows.join('');
             // REMOVED: Correlação Estéreo - movido para col1
@@ -4274,7 +4277,7 @@ function displayModalResults(analysis) {
                     rows.push(row('headroom (dB)', `${safeFixed(analysis.technicalData.headroomDb, 1)} dB`, 'headroomDb'));
                 }
                 
-                // === FATOR DE CRISTA (movido de MÉTRICAS PRINCIPAIS) ===
+                // === CREST FACTOR (movido de MÉTRICAS PRINCIPAIS) ===
                 const crestValue = getMetricWithFallback([
                     ['dynamics', 'crest'],
                     'crest_factor',
@@ -4282,43 +4285,43 @@ function displayModalResults(analysis) {
                     'technicalData.crestFactor'
                 ]);
                 if (Number.isFinite(crestValue)) {
-                    console.log('[METRICS-FIX] advancedMetricsCard > Fator de Crista RENDERIZADO:', crestValue, 'dB');
-                    rows.push(row('Fator de Crista', `${safeFixed(crestValue, 2)} dB`, 'crestFactor'));
+                    console.log('[METRICS-FIX] advancedMetricsCard > Crest Factor RENDERIZADO:', crestValue, 'dB');
+                    rows.push(row('Crest Factor (dB)', `${safeFixed(crestValue, 2)} dB`, 'crestFactor', 'Diferença entre pico e volume médio — indica punch e dinâmica transiente'));
                 } else {
-                    console.warn('[METRICS-FIX] advancedMetricsCard > Fator de Crista NÃO ENCONTRADO ou inválido:', crestValue);
+                    console.warn('[METRICS-FIX] advancedMetricsCard > Crest Factor NÃO ENCONTRADO ou inválido:', crestValue);
                 }
                 
                 // 🟢 CARD 3: MÉTRICAS AVANÇADAS - Sub-bandas espectrais REMOVIDAS (movidas para col2)
                 // === MÉTRICAS ESPECTRAIS AVANÇADAS ===
                 
-                // Frequência Central
+                // Centro Espectral (Hz)
                 if (Number.isFinite(analysis.technicalData?.spectralCentroid)) {
-                    rows.push(row('Frequência Central', `${Math.round(analysis.technicalData.spectralCentroid)} Hz`, 'spectralCentroid'));
+                    rows.push(row('Centro Espectral (Hz)', `${Math.round(analysis.technicalData.spectralCentroid)} Hz`, 'spectralCentroid', 'Frequência média ponderada do espectro — indica balanço tonal geral'));
                 }
                 
-                // Spectral Rolloff (Limites de agudo)
+                // Spectral Rolloff (Extensão de Agudos)
                 if (Number.isFinite(analysis.technicalData?.spectralRolloff)) {
-                    rows.push(row('Limites de Agudo', `${Math.round(analysis.technicalData.spectralRolloff)} Hz`, 'spectralRolloff'));
+                    rows.push(row('Extensão de Agudos (Hz)', `${Math.round(analysis.technicalData.spectralRolloff)} Hz`, 'spectralRolloff', 'Frequência onde 85% da energia espectral está contida — limite de brilho'));
                 }
                 
-                // Spectral Flatness (Uniformidade espectral)
+                // Spectral Flatness (Uniformidade Espectral)
                 if (Number.isFinite(analysis.technicalData?.spectralFlatness)) {
-                    rows.push(row('Uniformidade Espectral', `${safeFixed(analysis.technicalData.spectralFlatness, 4)}`, 'spectralFlatness'));
+                    rows.push(row('Uniformidade Espectral (%)', `${safeFixed(analysis.technicalData.spectralFlatness * 100, 2)}%`, 'spectralFlatness', 'Quão uniforme é a distribuição de energia no espectro — 0% (tonal) a 100% (ruído)'));
                 }
                 
-                // Spectral Bandwidth
+                // Spectral Bandwidth (Bandas Espectrais)
                 if (Number.isFinite(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))) {
-                    rows.push(row('Spectral Bands', `${safeHz(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))}`, 'spectralBandwidthHz'));
+                    rows.push(row('Bandas Espectrais (n)', `${safeHz(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))}`, 'spectralBandwidthHz'));
                 }
                 
-                // Spectral Kurtosis
+                // Kurtosis Espectral
                 if (Number.isFinite(analysis.technicalData?.spectralKurtosis)) {
-                    rows.push(row('Spectral Kurtosis', `${safeFixed(analysis.technicalData.spectralKurtosis, 3)}`, 'spectralKurtosis'));
+                    rows.push(row('Kurtosis Espectral', `${safeFixed(analysis.technicalData.spectralKurtosis, 3)}`, 'spectralKurtosis'));
                 }
                 
-                // Spectral Skewness
+                // Assimetria Espectral
                 if (Number.isFinite(analysis.technicalData?.spectralSkewness)) {
-                    rows.push(row('Spectral Skewness', `${safeFixed(analysis.technicalData.spectralSkewness, 3)}`, 'spectralSkewness'));
+                    rows.push(row('Assimetria Espectral', `${safeFixed(analysis.technicalData.spectralSkewness, 3)}`, 'spectralSkewness'));
                 }
                 
                 // === REMOVIDO: BANDAS ESPECTRAIS DETALHADAS (Sub, Bass, Low-Mid, etc.) ===
@@ -5422,11 +5425,11 @@ function displayModalResults(analysis) {
             
             // ✅ Sub-scores permanecem no mesmo lugar (dentro do card Scores & Diagnóstico)
             const subScoresHtml = `
-                ${renderScoreProgressBar('Loudness', scores.loudness, '#ff3366', '🔊')}
-                ${renderScoreProgressBar('Frequência', scores.frequencia, '#00ffff', '🎵')}
-                ${renderScoreProgressBar('Estéreo', scores.estereo, '#ff6b6b', '🎧')}
-                ${renderScoreProgressBar('Dinâmica', scores.dinamica, '#ffd700', '📊')}
-                ${renderScoreProgressBar('Técnico', scores.tecnico, '#00ff92', '🔧')}
+                ${renderScoreProgressBar('Potência Geral (Loudness)', scores.loudness, '#ff3366', '🔊')}
+                ${renderScoreProgressBar('Equilíbrio de Frequências', scores.frequencia, '#00ffff', '🎵')}
+                ${renderScoreProgressBar('Imagem Estéreo', scores.estereo, '#ff6b6b', '🎧')}
+                ${renderScoreProgressBar('Respiração Dinâmica', scores.dinamica, '#ffd700', '📊')}
+                ${renderScoreProgressBar('Precisão Técnica', scores.tecnico, '#00ff92', '🔧')}
             `;
             
             return subScoresHtml;
@@ -5464,6 +5467,10 @@ function displayModalResults(analysis) {
 
         // 🎯 RENDERIZAR SCORE FINAL NO TOPO (ISOLADO)
         renderFinalScoreAtTop(analysis.scores);
+
+        // 🎓 Log de auditoria para nomenclatura padronizada
+        console.log('[AUDITORIA-NOMES] Métricas renomeadas e alinhadas com sucesso - SoundyAI Pro');
+        console.log('[AUDITORIA-NOMES] Tooltips educativos habilitados para métricas principais e avançadas');
 
         technicalData.innerHTML = `
             <div class="kpi-row">${scoreKpi}${timeKpi}</div>
