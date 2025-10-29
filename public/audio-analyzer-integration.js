@@ -5349,21 +5349,21 @@ function displayModalResults(analysis) {
             ${renderSmartSummary(analysis)}
             <div class="cards-grid">
                 <div class="card">
-                    <div class="card-title">🎛️ Métricas Principais</div>
+                    <div class="card-title">MÉTRICAS PRINCIPAIS</div>
                     ${col1}
                 </div>
                 <div class="card">
-                    <div class="card-title">🎧 Análise Estéreo & Espectral</div>
+                    <div class="card-title">ANÁLISE DE FREQUÊNCIAS</div>
                     ${col2}
                 </div>
                 <!-- REMOVED: 🔊 Bandas Espectrais (Consolidado) - duplicação removida, mantida apenas em Métricas Avançadas -->
                 <div class="card">
-                    <div class="card-title">🏆 Scores & Diagnóstico</div>
+                    <div class="card-title">SCORES & DIAGNÓSTICO</div>
                     ${scoreRows}
                     ${col3}
                 </div>
                 <div class="card">
-                    <div class="card-title">📊 Métricas Avançadas (Technical)</div>
+                    <div class="card-title">MÉTRICAS AVANÇADAS</div>
                     ${advancedMetricsCard()}
                 </div>
                 <!-- Card "Problemas Técnicos" removido conforme solicitado -->
@@ -6205,7 +6205,7 @@ function renderReferenceComparisons(analysis) {
     
     // MOSTRAR TABELA COMPLETA
     container.innerHTML = `<div class="card" style="margin-top:12px;">
-        <div class="card-title">📌 Comparação de Referência (${titleText})</div>
+        <div class="card-title">COMPARAÇÃO DE REFERÊNCIA (${titleText})</div>
         <table class="ref-compare-table">
             <thead><tr>
                 <th>Métrica</th><th>Valor</th><th>Alvo</th><th>Δ</th>
