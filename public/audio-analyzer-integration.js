@@ -6399,7 +6399,9 @@ function renderReferenceComparisons(analysis) {
         style.id = 'refCompareStyles';
         style.textContent = `
         .ref-compare-table{width:100%;border-collapse:collapse;font-size:11px;}
-        .ref-compare-table th{font-weight:500;text-align:left;padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.12);font-size:11px;color:#fff;letter-spacing:.3px;}
+        .ref-compare-table th{font-weight:500;padding:4px 6px;border-bottom:1px solid rgba(255,255,255,.12);font-size:11px;color:#fff;letter-spacing:.3px;}
+        .ref-compare-table th:first-child{text-align:left;}
+        .ref-compare-table th:not(:first-child){text-align:center;}
         .ref-compare-table td{padding:5px 6px;border-bottom:1px solid rgba(255,255,255,.06);color:#f5f7fa;} 
         .ref-compare-table tr:last-child td{border-bottom:0;} 
         .ref-compare-table td.ok{color:#52f7ad;font-weight:600;} 
