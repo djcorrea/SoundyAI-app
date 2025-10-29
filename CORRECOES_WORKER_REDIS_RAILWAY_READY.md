@@ -50,8 +50,7 @@ console.log('🚀 REDIS_URL atual:', process.env.REDIS_URL);
 
 **EVIDÊNCIA FUNCIONANDO:**
 ```
-🚀 REDIS_URL atual: rediss://default:AVrC...@guided-snapper-23234.upstash.io:6379
-🔌 [REDIS-CONNECT] URL: rediss://default:***@guided-snapper-23234.upstash.io:6379
+
 ```
 
 ### ✅ 4. ERRO CLARO SE REDIS_URL NÃO ESTIVER DEFINIDA
