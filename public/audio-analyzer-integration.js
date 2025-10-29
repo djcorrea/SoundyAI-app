@@ -555,8 +555,27 @@ function handleReferenceFileSelection(type) {
                     dynamicRange: analysisResult?.technicalData?.dynamicRange
                 });
                 
+                // 🧩 AUDITORIA 1: Verificar se displayModalResults está disponível
+                console.log("[AUDITORIA] displayModalResults:", typeof window.displayModalResults);
+                
                 // Mostrar resultados no modal (com validação interna de métricas)
-                displayModalResults(analysisResult);
+                const tryShowModal = (result, attempts = 0) => {
+                    if (typeof window.displayModalResults === "function") {
+                        console.log("✅ [AUDITORIA] displayModalResults encontrada, exibindo modal...");
+                        console.log("✅ [RETRY_SUCCESS] Tentativa", attempts + 1, "bem-sucedida, chamando displayModalResults");
+                        displayModalResults(result);
+                    } else if (attempts < 10) {
+                        console.warn("[AUDITORIA] displayModalResults não disponível, tentativa", attempts + 1);
+                        setTimeout(() => tryShowModal(result, attempts + 1), 500);
+                    } else {
+                        console.error("[AUDITORIA] Falha ao exibir modal após múltiplas tentativas");
+                        // Fallback: tentar exibir em modal simples
+                        alert("Análise concluída, mas modal não pôde ser exibido. Verifique o console para dados.");
+                        console.log("[AUDITORIA] Dados da análise:", result);
+                    }
+                };
+                
+                tryShowModal(analysisResult);
 
                 // 5. Armazenar resultado
                 uploadedFiles[type] = {
@@ -3784,6 +3803,10 @@ function showModalLoading() {
 // 📊 Mostrar resultados no modal
 // 📊 Mostrar resultados no modal
 function displayModalResults(analysis) {
+    // 🎯 LOG INICIAL PARA CONFIRMAR CHAMADA DA FUNÇÃO APÓS CORREÇÕES
+    console.log("✅ [DISPLAY_MODAL] Função displayModalResults chamada com dados:", analysis);
+    console.log("✅ [DISPLAY_MODAL] Estrutura dos dados recebidos:", Object.keys(analysis || {}));
+    
     // 🔒 VALIDAÇÃO CRÍTICA: Garantir que métricas essenciais estão presentes
     // CORRIGIDO: Verificar novos caminhos do backend Redis
     const hasEssentialMetrics = (
@@ -7942,7 +7965,12 @@ function normalizeBackendAnalysisData(backendData) {
         return backendData;
     }
     
-    // Criar estrutura normalizada - SEM FALLBACKS FICTÍCIOS
+    // 🧩 AUDITORIA 3: Implementar fallback duplo robusto
+    const src = backendData.metrics || backendData.technicalData || backendData;
+    const loudness = src.loudness || backendData.loudness || src.technicalData || {};
+    const bands = src.bands || src.spectralBands || src.technicalData?.bands || backendData.technicalData?.spectralBands || {};
+    
+    // Criar estrutura normalizada
     const normalized = {
         ...backendData,
         technicalData: backendData.technicalData || {},
@@ -7953,14 +7981,40 @@ function normalizeBackendAnalysisData(backendData) {
         channels: backendData.channels || null
     };
     
-    // 🎯 MAPEAR MÉTRICAS BÁSICAS - SEM FALLBACKS FICTÍCIOS
+    // 🎯 MAPEAR MÉTRICAS BÁSICAS COM FALLBACK DUPLO
     const tech = normalized.technicalData;
-    // CORRIGIDO: Incluir estrutura metrics.* na busca
-    const source = backendData.technicalData || backendData.metrics?.technicalData || backendData.metrics || backendData;
     
-    console.log('🔍 [NORMALIZE] Dados de origem recebidos:', source);
+    console.log('🔍 [NORMALIZE] Dados de origem recebidos:', src);
     console.log('🔍 [NORMALIZE] Estrutura completa do backend:', backendData);
     console.log('🔍 [NORMALIZE] Estrutura metrics do backend:', backendData.metrics);
+    
+    // 🧩 AUDITORIA 2: Estrutura detalhada dos dados
+    console.log("[AUDITORIA] data keys:", Object.keys(backendData || {}));
+    console.log("[AUDITORIA] data.technicalData keys:", Object.keys(backendData.technicalData || {}));
+    console.log("[AUDITORIA] data.loudness:", backendData.loudness);
+    console.log("[AUDITORIA] data.truePeak:", backendData.truePeak);
+    console.log("[AUDITORIA] data.dynamics:", backendData.dynamics);
+    
+    // 🔧 SISTEMA DE NORMALIZAÇÃO COM FALLBACK DUPLO
+    // LUFS - múltiplos caminhos com prioridade
+    tech.lufsIntegrated = loudness.integratedLUFS ?? loudness.integrated ?? src.lufsIntegrated ?? 
+                         backendData.loudness?.integrated ?? backendData.technicalData?.lufsIntegrated ?? null;
+    
+    // LRA - múltiplos caminhos com prioridade
+    tech.lra = loudness.lra ?? src.lra ?? backendData.loudness?.lra ?? 
+               backendData.technicalData?.lra ?? src.dynamicRange ?? null;
+    
+    // True Peak - múltiplos caminhos com prioridade
+    tech.truePeakDbtp = src.truePeakDbtp ?? backendData.truePeak?.maxDbtp ?? 
+                       backendData.technicalData?.truePeakDbtp ?? null;
+    
+    // Dynamic Range - múltiplos caminhos com prioridade
+    tech.dynamicRange = src.dynamicRange ?? backendData.dynamics?.range ?? 
+                       backendData.technicalData?.dynamicRange ?? null;
+    
+    // Bandas espectrais - múltiplos caminhos
+    tech.bandEnergies = bands ?? null;
+    tech.spectral_balance = bands ?? null;
     
     // 🎯 ALIAS MAP - Mapeamento de nomes divergentes de métricas
     const aliasMap = {
@@ -8603,6 +8657,15 @@ function normalizeBackendAnalysisData(backendData) {
         dynamicRange: normalized.technicalData.dynamicRange,
         spectral_balance: normalized.technicalData.spectral_balance,
         bandEnergies: normalized.technicalData.bandEnergies ? Object.keys(normalized.technicalData.bandEnergies) : null
+    });
+    
+    // 🧩 AUDITORIA FINAL: Confirmar valores extraídos
+    console.log("✅ [AUDITORIA-FINAL] Normalized metrics:", {
+        lufsIntegrated: normalized.technicalData.lufsIntegrated,
+        lra: normalized.technicalData.lra,
+        truePeakDbtp: normalized.technicalData.truePeakDbtp,
+        dynamicRange: normalized.technicalData.dynamicRange,
+        bands: normalized.technicalData.bandEnergies || normalized.technicalData.spectral_balance
     });
     
     return normalized;
