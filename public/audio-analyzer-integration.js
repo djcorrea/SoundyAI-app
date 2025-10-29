@@ -5813,6 +5813,9 @@ function renderReferenceComparisons(analysis) {
     const addedLabels = new Set(); // 🎯 Controle de duplicação por nome
     const nf = (n, d=2) => Number.isFinite(n) ? n.toFixed(d) : '—';
     const pushRow = (label, val, target, tol, unit='') => {
+        // ✅ Epsilon para comparações float precisas
+        const EPS = 1e-6;
+        
         // 🎯 PREVENÇÃO DE DUPLICATAS: evitar bandas com mesmo nome
         if (addedLabels.has(label)) {
             console.warn(`⚠️ Duplicata evitada: ${label}`);
@@ -5840,43 +5843,46 @@ function renderReferenceComparisons(analysis) {
         
         if (typeof target === 'object' && target !== null && 
             Number.isFinite(target.min) && Number.isFinite(target.max) && Number.isFinite(val)) {
-            // Target é um range: calcular distância do range
-            if (val >= target.min && val <= target.max) {
+            // Target é um range: normalizar e calcular distância
+            const minNorm = Math.min(target.min, target.max);
+            const maxNorm = Math.max(target.min, target.max);
+            
+            if (val >= minNorm - EPS && val <= maxNorm + EPS) {
                 // Dentro do range: diferença zero (ideal)
                 diff = 0;
-            } else if (val < target.min) {
+            } else if (val < minNorm) {
                 // Abaixo do range: diferença negativa
-                diff = val - target.min;
+                diff = val - minNorm;
             } else {
                 // Acima do range: diferença positiva
-                diff = val - target.max;
+                diff = val - maxNorm;
             }
         } else if (Number.isFinite(val) && Number.isFinite(target)) {
             // Target fixo: diferença tradicional
             diff = val - target;
         }
         
-        // [BANDS-TOL-0] NOVO: Coloração com suporte a comparação binária para bandas (tol=0)
+        // ✅ Sistema de 3 cores com epsilon
         let diffCell;
         if (!Number.isFinite(diff)) {
-            diffCell = '<td class="na" style="text-align: center;"><span style="opacity: 0.6;">—</span></td>';
+            // Sem dados válidos → vermelho
+            diffCell = '<td class="warn" style="text-align: center; padding: 8px;"><div style="font-size: 12px; font-weight: 600;">Corrigir</div></td>';
         } else if (tol === 0) {
-            // [BANDS-TOL-0] LÓGICA BINÁRIA PARA BANDAS (tol=0)
-            // Verde SOMENTE se dentro do range (diff === 0)
+            // Lógica para bandas espectrais (tol=0)
             const absDiff = Math.abs(diff);
             let cssClass, statusText;
             
-            if (absDiff === 0) {
+            if (absDiff <= EPS) {
                 // ✅ DENTRO DO RANGE → Verde
                 cssClass = 'ok';
                 statusText = 'Ideal';
-            } else if (absDiff <= 1.0) {
+            } else if (absDiff <= 1.0 + EPS) {
                 // ⚠️ Fora por até 1dB → Amarelo
                 cssClass = 'yellow';
                 statusText = 'Ajuste leve';
-            } else if (absDiff <= 3.0) {
-                // 🟠 Fora por até 3dB → Laranja
-                cssClass = 'orange';
+            } else if (absDiff <= 3.0 + EPS) {
+                // ⚠️ Fora por até 3dB → Amarelo (era laranja)
+                cssClass = 'yellow';
                 statusText = 'Ajustar';
             } else {
                 // ❌ Fora por >3dB → Vermelho
@@ -5888,21 +5894,20 @@ function renderReferenceComparisons(analysis) {
                 <div style="font-size: 12px; font-weight: 600;">${statusText}</div>
             </td>`;
         } else if (!Number.isFinite(tol) || tol < 0) {
-            // 🎯 CORREÇÃO: Aplicar tolerância padrão em vez de retornar N/A
-            // Isso garante que TODAS as métricas tenham cor, mesmo sem tolerância definida
-            const defaultTol = 1.0; // Tolerância padrão genérica
+            // Fallback: tolerância padrão com epsilon
+            const defaultTol = 1.0;
             const absDiff = Math.abs(diff);
             let cssClass, statusText;
             
             console.warn(`⚠️ [TOLERANCE_FALLBACK] Métrica "${label}" sem tolerância válida (tol=${tol}). Usando tolerância padrão: ${defaultTol}`);
             
-            if (absDiff <= defaultTol) {
+            if (absDiff <= defaultTol + EPS) {
                 // ✅ ZONA IDEAL
                 cssClass = 'ok';
                 statusText = 'Ideal';
             } else {
                 const multiplicador = absDiff / defaultTol;
-                if (multiplicador <= 2) {
+                if (multiplicador <= 2 + EPS) {
                     // ⚠️ ZONA AJUSTAR
                     cssClass = 'yellow';
                     statusText = 'Ajuste leve';
@@ -5917,17 +5922,17 @@ function renderReferenceComparisons(analysis) {
                 <div style="font-size: 12px; font-weight: 600;">${statusText}</div>
             </td>`;
         } else {
-            // LÓGICA PADRÃO PARA MÉTRICAS PRINCIPAIS (LUFS, TP, DR, etc. com tol>0)
+            // Lógica padrão com epsilon (LUFS, TP, DR, etc.)
             const absDiff = Math.abs(diff);
             let cssClass, statusText;
             
-            if (absDiff <= tol) {
+            if (absDiff <= tol + EPS) {
                 // ✅ ZONA IDEAL
                 cssClass = 'ok';
                 statusText = 'Ideal';
             } else {
                 const multiplicador = absDiff / tol;
-                if (multiplicador <= 2) {
+                if (multiplicador <= 2 + EPS) {
                     // ⚠️ ZONA AJUSTAR
                     cssClass = 'yellow';
                     statusText = 'Ajuste leve';
