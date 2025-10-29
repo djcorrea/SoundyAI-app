@@ -6403,6 +6403,8 @@ function renderReferenceComparisons(analysis) {
         .ref-compare-table th:first-child{text-align:left;}
         .ref-compare-table th:not(:first-child){text-align:center;}
         .ref-compare-table td{padding:5px 6px;border-bottom:1px solid rgba(255,255,255,.06);color:#f5f7fa;} 
+        .ref-compare-table td:first-child{text-align:left;}
+        .ref-compare-table td:not(:first-child){text-align:center;}
         .ref-compare-table tr:last-child td{border-bottom:0;} 
         .ref-compare-table td.ok{color:#52f7ad;font-weight:600;} 
         .ref-compare-table td.ok::before{content:'✅ ';margin-right:2px;}
