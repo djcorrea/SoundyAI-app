@@ -960,32 +960,44 @@ class EnhancedSuggestionEngine {
      * @returns {Object} Métricas extraídas
      */
     extractMetrics(analysis, referenceData) {
-        const tech = analysis.technicalData || {};
+        // CORRIGIDO: Suporte para nova estrutura metrics.*
+        const src = analysis.metrics || analysis;
+        const tech = src.technicalData || analysis.technicalData || {};
+        const loudness = src.loudness || analysis.loudness || {};
+        const bands = src.bands || analysis.bands || {};
+        
         const metrics = {};
         
         // 🔍 AUDITORIA: Log da estrutura de entrada para debugging
         this.logAudit('EXTRACT_METRICS_INPUT', 'Estrutura de análise recebida', {
             hasTechnicalData: !!tech,
             technicalDataKeys: Object.keys(tech),
-            hasBandEnergies: !!tech.bandEnergies,
-            bandKeys: Object.keys(tech.bandEnergies || {})
+            hasLoudness: !!loudness,
+            loudnessKeys: Object.keys(loudness),
+            hasBands: !!bands,
+            bandKeys: Object.keys(bands),
+            hasMetrics: !!analysis.metrics,
+            metricsKeys: analysis.metrics ? Object.keys(analysis.metrics) : []
         });
 
-        // Métricas principais com múltiplos aliases para compatibilidade
+        // Métricas principais com múltiplos aliases para compatibilidade + METRICS
         // LUFS
-        const lufsValue = tech.lufsIntegrated || tech.lufs_integrated || tech.lufs || tech.loudness;
+        const lufsValue = tech.lufsIntegrated || tech.lufs_integrated || tech.lufs || tech.loudness ||
+                         loudness.integrated || loudness.integratedLUFS || loudness.lufs;
         if (Number.isFinite(lufsValue)) {
             metrics.lufs = lufsValue;
             this.logAudit('METRIC_EXTRACTED', 'LUFS extraído', { value: lufsValue, source: 'lufsIntegrated' });
         }
 
-        // True Peak
-        const truePeakValue = tech.truePeakDbtp || tech.true_peak_dbtp || tech.truePeak || tech.true_peak;
+        // True Peak - CORRIGIDO: incluir caminhos metrics.*
+        const truePeakValue = tech.truePeakDbtp || tech.true_peak_dbtp || tech.truePeak || tech.true_peak ||
+                             analysis.metrics?.technicalData?.truePeakDbtp;
         console.log('🔍 [TRUE-PEAK-EXTRACT] Tentando extrair True Peak:', {
-            truePeakDbtp: tech.truePeakDbtp,
-            true_peak_dbtp: tech.true_peak_dbtp,
-            truePeak: tech.truePeak,
-            true_peak: tech.true_peak,
+            'tech.truePeakDbtp': tech.truePeakDbtp,
+            'tech.true_peak_dbtp': tech.true_peak_dbtp,
+            'tech.truePeak': tech.truePeak,
+            'tech.true_peak': tech.true_peak,
+            'metrics.technicalData.truePeakDbtp': analysis.metrics?.technicalData?.truePeakDbtp,
             resultValue: truePeakValue,
             isFinite: Number.isFinite(truePeakValue)
         });
@@ -998,14 +1010,15 @@ class EnhancedSuggestionEngine {
             console.warn('❌ [TRUE-PEAK-MISSING] True Peak NÃO extraído - valor inválido ou ausente');
         }
 
-        // Dynamic Range
-        const drValue = tech.dynamicRange || tech.dynamic_range || tech.dr;
+        // Dynamic Range - CORRIGIDO: incluir caminhos metrics.*
+        const drValue = tech.dynamicRange || tech.dynamic_range || tech.dr ||
+                       analysis.metrics?.technicalData?.dynamicRange;
         if (Number.isFinite(drValue)) {
             metrics.dr = drValue;
             this.logAudit('METRIC_EXTRACTED', 'DR extraído', { value: drValue, source: 'dynamicRange' });
         }
 
-        // LRA - BUSCAR EM MÚLTIPLOS ALIASES E ESTRUTURAS
+        // LRA - BUSCAR EM MÚLTIPLOS ALIASES E ESTRUTURAS + METRICS
         let lraValue = null;
         
         // 1. Buscar diretamente em technicalData
@@ -1027,23 +1040,31 @@ class EnhancedSuggestionEngine {
                     break;
                 }
             }
+            
+            // 2b. Buscar em analysis.metrics.loudness.lra
+            if (!lraValue && Number.isFinite(analysis.metrics?.loudness?.lra)) {
+                lraValue = analysis.metrics.loudness.lra;
+                this.logAudit('METRIC_EXTRACTED', 'LRA extraído via analysis.metrics.loudness.lra', { value: lraValue, source: 'metrics.loudness.lra' });
+            }
         }
         
         // 3. Buscar em estruturas aninhadas (loudness.lra)
-        if (!lraValue && analysis.loudness && Number.isFinite(analysis.loudness.lra)) {
-            lraValue = analysis.loudness.lra;
-            this.logAudit('METRIC_EXTRACTED', 'LRA extraído via analysis.loudness.lra', { value: lraValue, source: 'loudness.lra' });
+        if (!lraValue && loudness && Number.isFinite(loudness.lra)) {
+            lraValue = loudness.lra;
+            this.logAudit('METRIC_EXTRACTED', 'LRA extraído via loudness.lra', { value: lraValue, source: 'loudness.lra' });
         }
         
         if (lraValue !== null) {
             metrics.lra = lraValue;
+            console.log('✅ [LRA-EXTRACTED] LRA extraído com sucesso:', lraValue);
             this.logAudit('METRIC_EXTRACTED', 'LRA extraído com sucesso', { value: lraValue });
         } else {
+            console.warn('❌ [LRA-MISSING] LRA NÃO extraído - valor inválido ou ausente');
             this.logAudit('METRIC_MISSING', 'LRA não encontrado em nenhuma estrutura', { 
-                checked: [...lraSources, 'analysis.metrics.*', 'analysis.loudness.lra'],
+                checked: [...lraSources, 'analysis.metrics.*', 'analysis.metrics.loudness.lra', 'loudness.lra'],
                 availableKeys: Object.keys(tech),
                 hasAnalysisMetrics: !!analysis.metrics,
-                hasLoudnessData: !!analysis.loudness
+                hasLoudnessData: !!loudness
             });
         }
 
@@ -1054,7 +1075,7 @@ class EnhancedSuggestionEngine {
             this.logAudit('METRIC_EXTRACTED', 'Stereo extraído', { value: stereoValue, source: 'stereoCorrelation' });
         }
         
-        // Bandas espectrais - normalização completa com múltiplas fontes
+        // Bandas espectrais - normalização completa com múltiplas fontes + METRICS
         let bandEnergies = {};
         
         // 1. Buscar em technicalData com múltiplos aliases
@@ -1066,21 +1087,24 @@ class EnhancedSuggestionEngine {
             tech.spectral_balance
         ];
         
-        // 2. Buscar também em analysis.metrics se disponível
+        // 2. Buscar também em analysis.metrics se disponível (CORRIGIDO)
         if (analysis.metrics) {
             bandSources.push(
                 analysis.metrics.bandEnergies,
                 analysis.metrics.band_energies,
                 analysis.metrics.spectral_balance,
-                analysis.metrics.bands
+                analysis.metrics.bands,
+                // NOVO: Verificar metrics.technicalData.spectral_balance
+                analysis.metrics.technicalData?.spectral_balance
             );
         }
         
-        // 3. Buscar diretamente em analysis
+        // 3. Buscar diretamente em analysis e bands extraídos
         bandSources.push(
             analysis.bandEnergies,
             analysis.spectral_balance,
-            analysis.bands
+            analysis.bands,
+            bands  // NOVO: usar bands extraído no início
         );
         
         // Encontrar primeira fonte válida
