@@ -4000,45 +4000,82 @@ function displayModalResults(analysis) {
         };
 
         const col1 = [
+            // 🟣 CARD 1: MÉTRICAS PRINCIPAIS - Reorganizado conforme solicitação
             // CONDITIONAL: Pico de Amostra - só exibir se não for placeholder 0.000
             (Number.isFinite(getMetric('peak_db', 'peak')) && getMetric('peak_db', 'peak') !== 0 ? row('Pico de Amostra', `${safeFixed(getMetric('peak_db', 'peak'))} dB`, 'peak') : ''),
-            // Volume Médio (RMS) - múltiplos fallbacks para garantir exibição
-            (() => {
-                const avgLoudness = getMetric('rms_level', 'avgLoudness') ?? 
-                                   analysis.technicalData?.avgLoudness ?? 
-                                   analysis.technicalData?.averageRmsDb ?? 
-                                   analysis.technicalData?.rmsLevels?.average ?? 
-                                   null;
-                return row('Volume Médio (RMS)', `${safeFixed(avgLoudness)} dBFS`, 'avgLoudness');
-            })(),
-            row('Dynamic Range (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
-            row('Loudness Range (LRA)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra'),
-            // 🥁 BPM – exibir como métrica principal, null-safe (mostra — quando ausente)
-            row('BPM', `${Number.isFinite(getMetric('bpm', 'bpm')) ? safeFixed(getMetric('bpm', 'bpm'), 0) : '—'}`, 'bpm'),
-            row('Fator de Crista', `${safeFixed(getMetric('crest_factor', 'crestFactor'))} dB`, 'crestFactor'),
-            // REMOVED: True Peak placeholder/ampulheta - só exibir quando há valor válido
+            // Pico Real (movido de advancedMetricsCard)
             (advancedReady && Number.isFinite(getMetric('truePeakDbtp', 'truePeakDbtp')) ? (() => {
                 const tpValue = getMetric('truePeakDbtp', 'truePeakDbtp');
                 const tpStatus = getTruePeakStatus(tpValue);
                 return row('Pico Real (dBTP)', `${safeFixed(tpValue)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp');
             })() : ''),
-            // REMOVED: LUFS placeholder/ampulheta - só exibir quando há valor válido  
-            (advancedReady && Number.isFinite(getLufsIntegratedValue()) ? row('LUFS Integrado (EBU R128)', `${safeFixed(getLufsIntegratedValue())} LUFS`, 'lufsIntegrated') : ''),
-            (advancedReady && Number.isFinite(getMetric('lufs_short_term', 'lufsShortTerm')) ? row('LUFS Curto Prazo', `${safeFixed(getMetric('lufs_short_term', 'lufsShortTerm'))} LUFS`, 'lufsShortTerm') : ''),
-            (advancedReady && Number.isFinite(getMetric('lufs_momentary', 'lufsMomentary')) ? row('LUFS Momentâneo', `${safeFixed(getMetric('lufs_momentary', 'lufsMomentary'))} LUFS`, 'lufsMomentary') : '')
+            // LUFS - renomeado de "LUFS Integrado" para "Loudness (LUFS)"
+            (advancedReady && Number.isFinite(getLufsIntegratedValue()) ? row('Loudness (LUFS)', `${safeFixed(getLufsIntegratedValue())} LUFS`, 'lufsIntegrated') : ''),
+            row('Dynamic Range (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
+            row('Loudness Range (LRA)', `${safeFixed(getMetric('lra', 'lra'))} LU`, 'lra'),
+            // Correlação Estéreo (movido de col2)
+            row('Correlação Estéreo', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 3) : '—', 'stereoCorrelation'),
+            // Largura Estéreo (movido de col2)
+            row('Largura Estéreo', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? safeFixed(getMetric('stereo_width', 'stereoWidth'), 2) : '—', 'stereoWidth')
+            // REMOVED: BPM - não deve aparecer mais conforme solicitação
+            // REMOVED: Volume Médio (RMS) - métrica secundária, não essencial
+            // REMOVED: Fator de Crista - métrica secundária
+            // REMOVED: LUFS Curto Prazo e Momentâneo - métricas muito específicas
             ].join('');
 
-        const col2 = [
-            row('Correlação Estéreo (largura)', Number.isFinite(getMetric('stereo_correlation', 'stereoCorrelation')) ? safeFixed(getMetric('stereo_correlation', 'stereoCorrelation'), 3) : '—', 'stereoCorrelation'),
-            row('Largura Estéreo', Number.isFinite(getMetric('stereo_width', 'stereoWidth')) ? safeFixed(getMetric('stereo_width', 'stereoWidth'), 2) : '—', 'stereoWidth'),
-            // REMOVED: Balanço Esquerdo/Direito - ocultado da interface conforme solicitado
-            row('Frequência Central (brilho)', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroidHz')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroidHz')) : '—', 'spectralCentroidHz')
-            // REMOVED: Limite de Agudos (85%) - feeds score but inconsistent calculation
-            // REMOVED: Largura Espectral (Hz) - moved to technical section (not core, doesn't feed score)
-            // REMOVED: zero crossing rate - not used in scoring, placeholder only
-            // REMOVED: Mudança Espectral - not used in scoring, placeholder only
-            // REMOVED: Uniformidade (linear vs peaks) - feeds score but buggy, hide UI
-        ].join('');
+        const col2 = (() => {
+            // 🔵 CARD 2: ANÁLISE DE FREQUÊNCIAS - Reorganizado com sub-bandas espectrais
+            const rows = [];
+            
+            // Sub-bandas espectrais (movidas de advancedMetricsCard)
+            const spectralBands = analysis.technicalData?.spectral_balance || 
+                                analysis.technicalData?.spectralBands || 
+                                analysis.metrics?.bands || {};
+            
+            if (Object.keys(spectralBands).length > 0) {
+                const bandMap = {
+                    sub: { name: 'Sub (20-60Hz)', range: '20-60Hz' },
+                    bass: { name: 'Bass (60-150Hz)', range: '60-150Hz' },
+                    lowMid: { name: 'Low-Mid (150-500Hz)', range: '150-500Hz' },
+                    mid: { name: 'Mid (500-2kHz)', range: '500-2000Hz' },
+                    highMid: { name: 'High-Mid (2-5kHz)', range: '2000-5000Hz' },
+                    presence: { name: 'Presence (5-10kHz)', range: '5000-10000Hz' },
+                    air: { name: 'Air (10-20kHz)', range: '10000-20000Hz' }
+                };
+                
+                Object.keys(bandMap).forEach(bandKey => {
+                    const bandData = spectralBands[bandKey];
+                    if (bandData && typeof bandData === 'object') {
+                        const energyDb = bandData.energy_db;
+                        const percentage = bandData.percentage;
+                        const status = bandData.status;
+                        
+                        if (status && status !== 'not_calculated') {
+                            let displayValue = '';
+                            if (Number.isFinite(energyDb) && Number.isFinite(percentage)) {
+                                displayValue = `${safeFixed(energyDb, 1)} dB (${safeFixed(percentage, 1)}%)`;
+                            } else if (Number.isFinite(energyDb)) {
+                                displayValue = `${safeFixed(energyDb, 1)} dB`;
+                            } else if (Number.isFinite(percentage)) {
+                                displayValue = `${safeFixed(percentage, 1)}%`;
+                            } else {
+                                displayValue = 'não calculado';
+                            }
+                            rows.push(row(bandMap[bandKey].name, displayValue, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
+                        }
+                    } else if (Number.isFinite(bandData)) {
+                        rows.push(row(bandMap[bandKey].name, `${safeFixed(bandData, 1)} dB`, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
+                    }
+                });
+            }
+            
+            // Frequência Central (mantém aqui)
+            rows.push(row('Frequência Média Central', Number.isFinite(getMetric('spectral_centroid', 'spectralCentroidHz')) ? safeHz(getMetric('spectral_centroid', 'spectralCentroidHz')) : '—', 'spectralCentroidHz'));
+            
+            return rows.join('');
+            // REMOVED: Correlação Estéreo - movido para col1
+            // REMOVED: Largura Estéreo - movido para col1
+        })();
 
             // REMOVED: col3Extras (Dominant Frequencies)  
             // Reason: REMOVAL_SKIPPED_USED_BY_SCORE:dominantFrequencies - usado por enhanced-suggestion-engine.js
@@ -4103,119 +4140,47 @@ function displayModalResults(analysis) {
                     rows.push(row('headroom (dB)', `${safeFixed(analysis.technicalData.headroomDb, 1)} dB`, 'headroomDb'));
                 }
                 
-                // === BANDAS ESPECTRAIS DETALHADAS (DINÂMICAS) ===
-                // Buscar bandas em múltiplas localizações do JSON
-                const spectralBands = analysis.technicalData?.spectral_balance || 
-                                    analysis.technicalData?.spectralBands || 
-                                    analysis.metrics?.bands || {};
-                
-                if (Object.keys(spectralBands).length > 0) {
-                    // Mapeamento das bandas do novo sistema
-                    const bandMap = {
-                        sub: { name: 'Sub (20-60Hz)', range: '20-60Hz' },
-                        bass: { name: 'Bass (60-150Hz)', range: '60-150Hz' },
-                        lowMid: { name: 'Low-Mid (150-500Hz)', range: '150-500Hz' },
-                        mid: { name: 'Mid (500-2kHz)', range: '500-2000Hz' },
-                        highMid: { name: 'High-Mid (2-5kHz)', range: '2000-5000Hz' },
-                        presence: { name: 'Presence (5-10kHz)', range: '5000-10000Hz' },
-                        air: { name: 'Air (10-20kHz)', range: '10000-20000Hz' }
-                    };
-                    
-                    // Percorrer dinamicamente todas as bandas disponíveis
-                    Object.keys(bandMap).forEach(bandKey => {
-                        const bandData = spectralBands[bandKey];
-                        if (bandData && typeof bandData === 'object') {
-                            // Verificar se tem energy_db e percentage (novo formato)
-                            const energyDb = bandData.energy_db;
-                            const percentage = bandData.percentage;
-                            const status = bandData.status;
-                            
-                            if (status && status !== 'not_calculated') {
-                                let displayValue = '';
-                                
-                                if (Number.isFinite(energyDb) && Number.isFinite(percentage)) {
-                                    displayValue = `${safeFixed(energyDb, 1)} dB (${safeFixed(percentage, 1)}%)`;
-                                } else if (Number.isFinite(energyDb)) {
-                                    displayValue = `${safeFixed(energyDb, 1)} dB`;
-                                } else if (Number.isFinite(percentage)) {
-                                    displayValue = `${safeFixed(percentage, 1)}%`;
-                                } else {
-                                    displayValue = 'não calculado';
-                                }
-                                
-                                rows.push(row(bandMap[bandKey].name, displayValue, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
-                            }
-                        } else if (Number.isFinite(bandData)) {
-                            // Formato legado (apenas valor numérico)
-                            rows.push(row(bandMap[bandKey].name, `${safeFixed(bandData, 1)} dB`, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
-                        }
-                    });
-                    
-                    // Se não encontrou nenhuma banda nas chaves esperadas, tentar buscar qualquer banda disponível
-                    if (rows.filter(r => r.includes('spectral')).length === 0) {
-                        Object.keys(spectralBands).forEach(bandKey => {
-                            if (bandKey === '_status' || bandKey === 'totalPercentage') return; // Pular metadados
-                            
-                            const bandData = spectralBands[bandKey];
-                            if (bandData && typeof bandData === 'object') {
-                                const energyDb = bandData.energy_db;
-                                const percentage = bandData.percentage;
-                                const range = bandData.range || bandData.frequencyRange || 'N/A';
-                                const status = bandData.status;
-                                
-                                if (status && status !== 'not_calculated') {
-                                    let displayValue = '';
-                                    if (Number.isFinite(energyDb) && Number.isFinite(percentage)) {
-                                        displayValue = `${safeFixed(energyDb, 1)} dB (${safeFixed(percentage, 1)}%)`;
-                                    } else if (Number.isFinite(energyDb)) {
-                                        displayValue = `${safeFixed(energyDb, 1)} dB`;
-                                    } else if (Number.isFinite(percentage)) {
-                                        displayValue = `${safeFixed(percentage, 1)}%`;
-                                    } else {
-                                        displayValue = 'não calculado';
-                                    }
-                                    
-                                    const displayName = `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)} (${range})`;
-                                    rows.push(row(displayName, displayValue, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
-                                }
-                            } else if (Number.isFinite(bandData)) {
-                                const displayName = `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`;
-                                rows.push(row(displayName, `${safeFixed(bandData, 1)} dB`, `spectral${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)}`));
-                            }
-                        });
-                    }
-                }
-                
+                // 🟢 CARD 3: MÉTRICAS AVANÇADAS - Sub-bandas espectrais REMOVIDAS (movidas para col2)
                 // === MÉTRICAS ESPECTRAIS AVANÇADAS ===
                 
-                // Spectral Centroid
+                // Frequência Central
                 if (Number.isFinite(analysis.technicalData?.spectralCentroid)) {
-                    rows.push(row('spectral centroid', `${Math.round(analysis.technicalData.spectralCentroid)} Hz`, 'spectralCentroid'));
+                    rows.push(row('Frequência Central', `${Math.round(analysis.technicalData.spectralCentroid)} Hz`, 'spectralCentroid'));
                 }
                 
-                // Spectral Rolloff
+                // Spectral Rolloff (Limites de agudo)
                 if (Number.isFinite(analysis.technicalData?.spectralRolloff)) {
-                    rows.push(row('spectral rolloff', `${Math.round(analysis.technicalData.spectralRolloff)} Hz`, 'spectralRolloff'));
+                    rows.push(row('Limites de Agudo', `${Math.round(analysis.technicalData.spectralRolloff)} Hz`, 'spectralRolloff'));
                 }
                 
-                // Spectral Flatness
+                // Spectral Flatness (Uniformidade espectral)
                 if (Number.isFinite(analysis.technicalData?.spectralFlatness)) {
-                    rows.push(row('spectral flatness', `${safeFixed(analysis.technicalData.spectralFlatness, 4)}`, 'spectralFlatness'));
+                    rows.push(row('Uniformidade Espectral', `${safeFixed(analysis.technicalData.spectralFlatness, 4)}`, 'spectralFlatness'));
                 }
                 
-                // Spectral Bandwidth (moved from main UI - not core metric)
+                // Spectral Bandwidth
                 if (Number.isFinite(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))) {
-                    rows.push(row('spectral bandwidth', `${safeHz(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))}`, 'spectralBandwidthHz'));
+                    rows.push(row('Spectral Bands', `${safeHz(getMetric('spectral_bandwidth', 'spectralBandwidthHz'))}`, 'spectralBandwidthHz'));
                 }
                 
                 // Spectral Kurtosis
                 if (Number.isFinite(analysis.technicalData?.spectralKurtosis)) {
-                    rows.push(row('spectral kurtosis', `${safeFixed(analysis.technicalData.spectralKurtosis, 3)}`, 'spectralKurtosis'));
+                    rows.push(row('Spectral Kurtosis', `${safeFixed(analysis.technicalData.spectralKurtosis, 3)}`, 'spectralKurtosis'));
                 }
                 
                 // Spectral Skewness
                 if (Number.isFinite(analysis.technicalData?.spectralSkewness)) {
-                    rows.push(row('spectral skewness', `${safeFixed(analysis.technicalData.spectralSkewness, 3)}`, 'spectralSkewness'));
+                    rows.push(row('Spectral Skewness', `${safeFixed(analysis.technicalData.spectralSkewness, 3)}`, 'spectralSkewness'));
+                }
+                
+                // === REMOVIDO: BANDAS ESPECTRAIS DETALHADAS (Sub, Bass, Low-Mid, etc.) ===
+                // As sub-bandas espectrais foram movidas para o card "ANÁLISE DE FREQUÊNCIAS" (col2)
+                // Comentado para evitar duplicação
+                
+                if (false && Object.keys({}).length > 0) {
+                    // REMOVIDO: Código de bandas espectrais (sub, bass, lowMid, etc.)
+                    // As sub-bandas espectrais foram movidas para col2 (ANÁLISE DE FREQUÊNCIAS)
+                    // Este bloco foi comentado para evitar duplicação
                 }
                 
                 // === FREQUÊNCIAS DOMINANTES ===
