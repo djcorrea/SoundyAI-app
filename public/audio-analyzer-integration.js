@@ -2573,7 +2573,19 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         
         // Exibir resultados diretamente no modal
         setTimeout(() => {
-            displayModalResults(normalizedResult);
+            // 🛡️ VERIFICAÇÃO DEFENSIVA: Garantir que displayModalResults existe
+            if (typeof displayModalResults === 'function') {
+                displayModalResults(normalizedResult);
+            } else {
+                console.warn('⚠️ [MODAL_MONITOR] Função displayModalResults não encontrada na análise por gênero');
+                setTimeout(() => {
+                    if (typeof displayModalResults === 'function') {
+                        displayModalResults(normalizedResult);
+                    } else {
+                        console.error('❌ [MODAL_MONITOR] Análise por gênero - função displayModalResults não encontrada');
+                    }
+                }, 1000);
+            }
         }, 500);
         
     } catch (error) {
@@ -2985,7 +2997,20 @@ async function handleGenreFileSelection(file) {
             return;
         }
         
-        displayModalResults(analysis);
+        // 🛡️ VERIFICAÇÃO DEFENSIVA: Garantir que displayModalResults existe
+        if (typeof displayModalResults === 'function') {
+            displayModalResults(analysis);
+        } else {
+            console.warn('⚠️ [MODAL_MONITOR] Função displayModalResults não encontrada, aguardando carregamento...');
+            // Tentar novamente em 1 segundo
+            setTimeout(() => {
+                if (typeof displayModalResults === 'function') {
+                    displayModalResults(analysis);
+                } else {
+                    console.error('❌ [MODAL_MONITOR] Timeout - função displayModalResults não encontrada após espera');
+                }
+            }, 1000);
+        }
         
         // 🔧 CORREÇÃO: Limpar flag de análise em progresso após sucesso
         if (typeof window !== 'undefined') {
@@ -3760,21 +3785,39 @@ function showModalLoading() {
 // 📊 Mostrar resultados no modal
 function displayModalResults(analysis) {
     // 🔒 VALIDAÇÃO CRÍTICA: Garantir que métricas essenciais estão presentes
+    // CORRIGIDO: Verificar novos caminhos do backend Redis
     const hasEssentialMetrics = (
         analysis?.technicalData && 
         (
             Number.isFinite(analysis.technicalData.lufsIntegrated) ||
             Number.isFinite(analysis.technicalData.lufs_integrated) ||
             Number.isFinite(analysis.technicalData.avgLoudness) ||
-            Number.isFinite(analysis.technicalData.dynamicRange)
+            Number.isFinite(analysis.technicalData.dynamicRange) ||
+            // NOVOS CAMINHOS: Estrutura do backend Redis
+            Number.isFinite(analysis.loudness?.integrated) ||
+            Number.isFinite(analysis.technicalData?.dr) ||
+            // Fallback: Se tem score, provavelmente tem dados válidos
+            Number.isFinite(analysis.score)
         )
     );
     
     if (!hasEssentialMetrics) {
         console.warn('⚠️ [UI_GATE] Aguardando métricas essenciais... análise incompleta:', analysis);
-        // Tentar novamente em 2 segundos
-        setTimeout(() => displayModalResults(analysis), 2000);
-        return;
+        console.log('🔍 [UI_GATE] Debug - estrutura recebida:', {
+            technicalData: analysis?.technicalData,
+            loudness: analysis?.loudness,
+            score: analysis?.score,
+            hasScore: Number.isFinite(analysis?.score)
+        });
+        
+        // CORREÇÃO: Verificar se é estrutura nova mas válida
+        if (analysis?.loudness || analysis?.technicalData || Number.isFinite(analysis?.score)) {
+            console.warn("⚠️ [UI_GATE] Estrutura nova detectada, prosseguindo com dados disponíveis");
+        } else {
+            // Tentar novamente em 2 segundos apenas se realmente não há dados
+            setTimeout(() => displayModalResults(analysis), 2000);
+            return;
+        }
     }
     
     console.log('✅ [UI_GATE] Métricas essenciais presentes, exibindo resultados');
@@ -7998,7 +8041,9 @@ function normalizeBackendAnalysisData(backendData) {
     // LRA - CORRIGIR MAPEAMENTO PARA NOVA ESTRUTURA + MÚLTIPLOS ALIASES
     tech.lra = getRealValue('lra', 'loudnessRange', 'lra_tolerance', 'loudness_range') ||
               (backendData.loudness?.lra && Number.isFinite(backendData.loudness.lra) ? backendData.loudness.lra : null) ||
-              (backendData.lra && Number.isFinite(backendData.lra) ? backendData.lra : null);
+              (backendData.lra && Number.isFinite(backendData.lra) ? backendData.lra : null) ||
+              // NOVO: Verificar em metrics.lra também
+              (backendData.metrics?.lra && Number.isFinite(backendData.metrics.lra) ? backendData.metrics.lra : null);
     
     console.log('📊 [NORMALIZE] Métricas mapeadas (apenas reais):', {
         peak: tech.peak,
@@ -8017,7 +8062,12 @@ function normalizeBackendAnalysisData(backendData) {
         console.log('✅ [LRA] SUCESSO: LRA mapeado corretamente =', tech.lra);
     } else {
         console.warn('❌ [LRA] PROBLEMA: LRA não foi encontrado no backend data');
-        console.log('🔍 [LRA] Debug - backend data:', backendData);
+        console.log('🔍 [LRA] Debug - possíveis caminhos verificados:', {
+            'backendData.loudness.lra': backendData.loudness?.lra,
+            'backendData.lra': backendData.lra,
+            'backendData.metrics.lra': backendData.metrics?.lra,
+            'source (technicalData)': source
+        });
     }
     
     // Headroom - APENAS VALORES REAIS
@@ -8062,8 +8112,8 @@ function normalizeBackendAnalysisData(backendData) {
     tech.spectralKurtosis = getRealValue('spectralKurtosis', 'spectral_kurtosis');
     
     // 🎵 SPECTRAL BALANCE - Mapear dados espectrais REAIS
-    if (source.spectral_balance || source.spectralBalance || source.bands) {
-        const spectralSource = source.spectral_balance || source.spectralBalance || source.bands || {};
+    if (source.spectral_balance || source.spectralBalance || source.bands || backendData.metrics?.bands) {
+        const spectralSource = source.spectral_balance || source.spectralBalance || source.bands || backendData.metrics?.bands || {};
         
         // Função específica para dados espectrais
         const getSpectralValue = (...paths) => {
@@ -8096,11 +8146,24 @@ function normalizeBackendAnalysisData(backendData) {
             console.log(`✅ [BANDAS] SUCESSO: ${bandasDetectadas.length} bandas mapeadas:`, bandasDetectadas.join(', '));
         } else {
             console.warn('❌ [BANDAS] PROBLEMA: Nenhuma banda espectral foi mapeada');
+            console.log('🔍 [BANDAS] Debug - caminhos verificados:', {
+                'source.spectral_balance': source.spectral_balance,
+                'source.spectralBalance': source.spectralBalance, 
+                'source.bands': source.bands,
+                'backendData.metrics.bands': backendData.metrics?.bands,
+                'spectralSource': spectralSource
+            });
         }
     } else {
         // Não definir se não há dados reais
         tech.spectral_balance = null;
-        console.log('⚠️ [NORMALIZE] Nenhum dado espectral real encontrado - spectral_balance = null');
+        console.log('⚠️ [NORMALIZE] Nenhum dado espectral real encontrado');
+        console.log('🔍 [NORMALIZE] Debug espectral - caminhos verificados:', {
+            'source.spectral_balance': source.spectral_balance,
+            'source.spectralBalance': source.spectralBalance,
+            'source.bands': source.bands,
+            'backendData.metrics.bands': backendData.metrics?.bands
+        });
     }
     
     // 🎶 BAND ENERGIES - Mapear energias das bandas de frequência REAIS
