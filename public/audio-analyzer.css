@@ -1855,13 +1855,11 @@ details[open] summary {
 }
 
 /* 🎓 Tooltips Educativos para Métricas */
-.data-row .label[data-tooltip],
 .metric-label[data-tooltip] {
     cursor: help;
     border-bottom: 1px dotted rgba(193, 181, 232, 0.4);
     transition: border-color 0.2s ease;
 }
-.data-row .label[data-tooltip]:hover,
 .metric-label[data-tooltip]:hover {
     border-bottom-color: rgba(0, 255, 255, 0.6);
 }
@@ -1972,7 +1970,7 @@ details[open] summary {
     border: 2px solid transparent;
     background-clip: padding-box;
     border-radius: 24px;
-    padding: 18px;
+    padding: 20px;
     box-shadow: 
         0 0 50px rgba(124, 77, 255, 0.08),
         0 20px 60px rgba(0, 0, 0, 0.6),
@@ -1987,6 +1985,7 @@ details[open] summary {
     height: 100%;
     display: flex;
     flex-direction: column;
+    align-items: stretch;
     
     /* 🔧 OTIMIZAÇÃO: Mantém font-size normal para evitar colapso de títulos
        A remoção de whitespace agora é feita via JavaScript (normalizeCardWhitespace) */
@@ -2157,8 +2156,6 @@ details[open] summary {
     position: relative;
     overflow: hidden;
     transition: all 0.3s ease;
-    display: inline-block;
-    margin: 0;
 }
 .tag::before {
     content: '';
@@ -2747,18 +2744,47 @@ details[open] summary {
     letter-spacing: 0.3px;
 }
 
-/* Barras de progresso para scores */
+/* Barras de progresso para scores - layout horizontal restaurado */
 .audio-modal .metric-with-progress {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
+    display: flex;
+    flex-direction: row !important;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    margin-bottom: 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.audio-modal .metric-with-progress:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.audio-modal .metric-with-progress .label {
+    color: #c1b5e8;
+    font-weight: 600;
+    font-size: 14px;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .audio-modal .metric-value-progress {
     display: flex;
-    justify-content: space-between;
+    justify-content: flex-end;
     align-items: center;
+    flex: 1;
     gap: 12px;
+    min-width: 0;
+}
+
+.audio-modal .metric-value-progress .value {
+    font-weight: 800;
+    font-size: 15px;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+    flex-shrink: 0;
+    min-width: 40px;
+    text-align: right;
 }
 
 .audio-modal .progress-bar-mini {
@@ -2967,9 +2993,26 @@ details[open] summary {
 /* Barras de progresso para métricas */
 .metric-with-progress {
     display: flex;
+    flex-direction: row !important;
     justify-content: space-between;
     align-items: center;
     gap: 12px;
+    padding: 10px 0;
+    margin-bottom: 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.metric-with-progress:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.metric-with-progress .label {
+    color: #c1b5e8;
+    font-weight: 600;
+    font-size: 14px;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .metric-value-progress {
@@ -2979,6 +3022,15 @@ details[open] summary {
     flex: 1;
     gap: 12px;
     min-width: 0;
+}
+
+.metric-value-progress .value {
+    font-weight: 800;
+    font-size: 15px;
+    text-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+    flex-shrink: 0;
+    min-width: 40px;
+    text-align: right;
 }
 
 .progress-bar-mini {
