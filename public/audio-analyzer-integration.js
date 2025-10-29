@@ -4094,7 +4094,7 @@ function displayModalResults(analysis) {
                 return row('Pico Real (dBTP)', `${safeFixed(tpValue, 2)} dBTP <span class="${tpStatus.class}">${tpStatus.status}</span>`, 'truePeakDbtp');
             })(),
             
-            // 🎯 Volume médio (LUFS) - com fallbacks robustos ['loudness','integrated'] > technicalData.lufsIntegrated
+            // 🎯 Volume Médio (dBFS) - com fallbacks robustos ['loudness','integrated'] > technicalData.lufsIntegrated
             (() => {
                 const lufsValue = getMetricWithFallback([
                     ['loudness', 'integrated'],
@@ -4102,46 +4102,22 @@ function displayModalResults(analysis) {
                     'lufsIntegrated',
                     'technicalData.lufsIntegrated'
                 ]);
-                console.log('[METRICS-FIX] col1 > Volume médio (LUFS) - advancedReady:', advancedReady, 'lufsValue:', lufsValue);
+                console.log('[METRICS-FIX] col1 > Volume Médio (dBFS) - advancedReady:', advancedReady, 'lufsValue:', lufsValue);
                 if (!advancedReady) {
-                    console.warn('[METRICS-FIX] col1 > Volume médio BLOQUEADO por advancedReady=false');
+                    console.warn('[METRICS-FIX] col1 > Volume Médio BLOQUEADO por advancedReady=false');
                     return '';
                 }
+                // 🎯 Exibir mesmo se valor for 0 ou -0
                 if (lufsValue === null || lufsValue === undefined) {
-                    console.warn('[METRICS-FIX] col1 > Volume médio NÃO ENCONTRADO em nenhum caminho');
+                    console.warn('[METRICS-FIX] col1 > Volume Médio NÃO ENCONTRADO em nenhum caminho');
                     return '';
                 }
                 if (!Number.isFinite(lufsValue)) {
-                    console.warn('[METRICS-FIX] col1 > Volume médio valor inválido:', lufsValue);
+                    console.warn('[METRICS-FIX] col1 > Volume Médio valor inválido:', lufsValue);
                     return '';
                 }
-                console.log('[METRICS-FIX] col1 > Volume médio RENDERIZADO:', lufsValue, 'LUFS');
-                return row('Volume médio (LUFS)', `${safeFixed(lufsValue, 1)} LUFS`, 'lufsIntegrated');
-            })(),
-            
-            // 🎯 Fator de crista - com fallbacks robustos ['dynamics','crest'] > technicalData.crestFactor
-            (() => {
-                const crestValue = getMetricWithFallback([
-                    ['dynamics', 'crest'],
-                    'crest_factor',
-                    'crestFactor',
-                    'technicalData.crestFactor'
-                ]);
-                console.log('[METRICS-FIX] col1 > Fator de crista - advancedReady:', advancedReady, 'crestValue:', crestValue);
-                if (!advancedReady) {
-                    console.warn('[METRICS-FIX] col1 > Fator de crista BLOQUEADO por advancedReady=false');
-                    return '';
-                }
-                if (crestValue === null || crestValue === undefined) {
-                    console.warn('[METRICS-FIX] col1 > Fator de crista NÃO ENCONTRADO em nenhum caminho');
-                    return '';
-                }
-                if (!Number.isFinite(crestValue)) {
-                    console.warn('[METRICS-FIX] col1 > Fator de crista valor inválido:', crestValue);
-                    return '';
-                }
-                console.log('[METRICS-FIX] col1 > Fator de crista RENDERIZADO:', crestValue, 'dB');
-                return row('Fator de crista', `${safeFixed(crestValue, 2)} dB`, 'crestFactor');
+                console.log('[METRICS-FIX] col1 > Volume Médio RENDERIZADO:', lufsValue, 'dBFS');
+                return row('Volume Médio (dBFS)', `${safeFixed(lufsValue, 1)} dBFS`, 'lufsIntegrated');
             })(),
             
             row('Dynamic Range (DR)', `${safeFixed(getMetric('dynamic_range', 'dynamicRange'))} dB`, 'dynamicRange'),
@@ -4265,6 +4241,20 @@ function displayModalResults(analysis) {
                 // === HEADROOM ===
                 if (Number.isFinite(analysis.technicalData?.headroomDb)) {
                     rows.push(row('headroom (dB)', `${safeFixed(analysis.technicalData.headroomDb, 1)} dB`, 'headroomDb'));
+                }
+                
+                // === FATOR DE CRISTA (movido de MÉTRICAS PRINCIPAIS) ===
+                const crestValue = getMetricWithFallback([
+                    ['dynamics', 'crest'],
+                    'crest_factor',
+                    'crestFactor',
+                    'technicalData.crestFactor'
+                ]);
+                if (Number.isFinite(crestValue)) {
+                    console.log('[METRICS-FIX] advancedMetricsCard > Fator de Crista RENDERIZADO:', crestValue, 'dB');
+                    rows.push(row('Fator de Crista', `${safeFixed(crestValue, 2)} dB`, 'crestFactor'));
+                } else {
+                    console.warn('[METRICS-FIX] advancedMetricsCard > Fator de Crista NÃO ENCONTRADO ou inválido:', crestValue);
                 }
                 
                 // 🟢 CARD 3: MÉTRICAS AVANÇADAS - Sub-bandas espectrais REMOVIDAS (movidas para col2)
@@ -8173,7 +8163,14 @@ function normalizeBackendAnalysisData(result) {
         bands: normalized.technicalData.bandEnergies || normalized.technicalData.spectral_balance
     });
     
-    // 🎯 LOGS ESPECÍFICOS DAS TRÊS MÉTRICAS PRINCIPAIS
+    // 🎯 LOGS ESPECÍFICOS DAS MÉTRICAS PRINCIPAIS (AUDITORIA)
+    console.log('[METRICS-FIX] LUFS:', normalized.technicalData.lufsIntegrated, 'CREST:', normalized.technicalData.crestFactor);
+    console.log('[METRICS-FIX] normalizeBackendAnalysisData > LUFS=', normalized.technicalData.lufsIntegrated, {
+        'loudness.integrated': loudness.integrated,
+        'loudness.integratedLUFS': loudness.integratedLUFS,
+        'src.lufsIntegrated': src.lufsIntegrated,
+        'technicalData.lufsIntegrated': data.technicalData?.lufsIntegrated
+    });
     console.log('[METRICS-FIX] normalizeBackendAnalysisData > CREST=', normalized.technicalData.crestFactor, {
         'dynamics.crest': dynamics.crest,
         'src.crestFactor': src.crestFactor,
