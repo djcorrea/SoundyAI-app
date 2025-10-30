@@ -7916,6 +7916,35 @@ async function downloadModalAnalysis() {
         return;
     }
     
+    // 🔍 AUDITORIA: Mapear estrutura completa do objeto analysis
+    console.log('🔍 [AUDIT-PDF] ============ INÍCIO DA AUDITORIA ============');
+    console.log('🔍 [AUDIT-PDF] Analysis root keys:', Object.keys(analysis));
+    console.log('🔍 [AUDIT-PDF] Fontes detectadas:', {
+        bands: analysis.bands,
+        spectralBands: analysis.spectralBands,
+        spectral: analysis.spectral,
+        userBands: analysis.user?.bands,
+        diagnostics: analysis.diagnostics,
+        problems: analysis.problems,
+        _diagnostic: analysis._diagnostic,
+        suggestions: analysis.suggestions,
+        suggestionsAdvanced: analysis.suggestionsAdvanced,
+        aiSuggestions: analysis.ai?.suggestions,
+        aiSuggestionsEnriched: analysis.ai?.suggestions?.enriched,
+        _suggestionsGenerated: analysis._suggestionsGenerated,
+        score: analysis.score,
+        userScore: analysis.user?.score
+    });
+    
+    // 🔍 AUDITORIA: Comparar com valores da UI (modal Paperline)
+    console.log('🔍 [AUDIT-UI] Valores exibidos na UI:', {
+        score: document.querySelector('.score-final-value')?.dataset?.value || document.querySelector('.score-final-value')?.textContent,
+        bandSub: document.querySelector('[data-metric="band-sub"]')?.dataset?.value || document.querySelector('[data-metric="band-sub"]')?.textContent,
+        bandBass: document.querySelector('[data-metric="band-bass"]')?.dataset?.value || document.querySelector('[data-metric="band-bass"]')?.textContent,
+        bandMid: document.querySelector('[data-metric="band-mid"]')?.dataset?.value || document.querySelector('[data-metric="band-mid"]')?.textContent,
+        bandHigh: document.querySelector('[data-metric="band-high"]')?.dataset?.value || document.querySelector('[data-metric="band-high"]')?.textContent
+    });
+    
     console.log('📄 [PDF-START] Iniciando geração de relatório PDF...');
     console.log('📄 [PDF-SOURCE] Fonte de dados:', {
         usingGlobalAlias: !!window.__soundyAI?.analysis,
@@ -8177,6 +8206,17 @@ function normalizeAnalysisDataForPDF(analysis) {
     
     console.log('🎛️ [PDF-NORMALIZE] Stereo extraído:', { width: stereoWidth, correlation: stereoCorrelation, monoCompatibility });
     
+    // 🔍 AUDITORIA: Mapear todas as fontes possíveis de bandas espectrais
+    console.log('📈 [AUDIT-FREQ] Bandas disponíveis em analysis:', {
+        bands: analysis.bands,
+        spectralBands: analysis.spectralBands,
+        spectral: analysis.spectral,
+        spectralBands_nested: analysis.spectral?.bands,
+        userBands: analysis.user?.bands,
+        userSpectralBands: analysis.user?.spectralBands,
+        userSpectral: analysis.user?.spectral
+    });
+    
     // ✅ Correção para exibir bandas espectrais sempre
     let bandsSource = analysis.bands || analysis.spectralBands || analysis.spectral?.bands || analysis.user?.bands || null;
 
@@ -8232,8 +8272,33 @@ function normalizeAnalysisDataForPDF(analysis) {
     const sampleRate = extract(analysis.sampleRate, analysis.metadata?.sampleRate, 44100);
     const channels = extract(analysis.channels, analysis.metadata?.channels, 2);
     
+    // 🔍 AUDITORIA: Mapear todas as fontes possíveis de diagnósticos
+    console.log('🩺 [AUDIT-DIAG] Diagnóstico disponível em analysis:', {
+        problems: analysis.problems,
+        diagnostics: analysis.diagnostics,
+        _diagnostic: analysis._diagnostic,
+        userProblems: analysis.user?.problems,
+        userDiagnostics: analysis.user?.diagnostics,
+        problemsType: Array.isArray(analysis.problems) ? 'array' : typeof analysis.problems,
+        diagnosticsType: Array.isArray(analysis.diagnostics) ? 'array' : typeof analysis.diagnostics
+    });
+    
     const diagnostics = Array.isArray(analysis.problems) ? analysis.problems.map(p => p.message || p) :
                        Array.isArray(analysis.diagnostics) ? analysis.diagnostics : [];
+    
+    // 🔍 AUDITORIA: Mapear todas as fontes possíveis de sugestões
+    console.log('💡 [AUDIT-SUG] Sugestões detectadas em analysis:', {
+        suggestions: analysis.suggestions,
+        suggestionsAdvanced: analysis.suggestionsAdvanced,
+        recommendations: analysis.recommendations,
+        aiSuggestions: analysis.ai?.suggestions,
+        aiSuggestionsEnriched: analysis.ai?.suggestions?.enriched,
+        userSuggestions: analysis.user?.suggestions,
+        userSuggestionsAdvanced: analysis.user?.suggestionsAdvanced,
+        _suggestionsGenerated: analysis._suggestionsGenerated,
+        suggestionsType: Array.isArray(analysis.suggestions) ? `array[${analysis.suggestions?.length}]` : typeof analysis.suggestions,
+        advancedType: Array.isArray(analysis.suggestionsAdvanced) ? `array[${analysis.suggestionsAdvanced?.length}]` : typeof analysis.suggestionsAdvanced
+    });
     
     // ✅ Correção de Sugestões Enriquecidas
     let suggestions = analysis.suggestionsAdvanced 
@@ -8290,6 +8355,32 @@ function normalizeAnalysisDataForPDF(analysis) {
         diagnostics: diagnostics.length > 0 ? diagnostics : ['✅ Nenhum problema detectado'],
         recommendations: recommendations.length > 0 ? recommendations : ['✅ Análise completa']
     };
+    
+    // 🔍 AUDITORIA: Resumo final comparativo
+    console.log('📊 [AUDIT-PDF-SUMMARY] Resumo da Auditoria:', {
+        hasFrequencies: !!(spectral.sub !== '—' || spectral.bass !== '—' || spectral.mid !== '—' || spectral.high !== '—'),
+        frequenciesValues: spectral,
+        hasDiagnostics: diagnostics.length > 0 && diagnostics[0] !== '✅ Nenhum problema detectado',
+        diagnosticsCount: diagnostics.length,
+        hasSuggestions: recommendations.length > 0 && recommendations[0] !== '✅ Análise completa',
+        suggestionsCount: recommendations.length,
+        suggestionsEnriched: analysis._suggestionsGenerated === true,
+        score: score,
+        scoreSource: analysis.score ? 'analysis.score' : (analysis.user?.score ? 'analysis.user.score' : 'scoreUI')
+    });
+    
+    // 🔍 AUDITORIA: Comparar dados normalizados com valores da UI
+    const uiSub = document.querySelector('[data-metric="band-sub"]')?.dataset?.value || document.querySelector('[data-metric="band-sub"]')?.textContent?.replace(/[^0-9.-]/g, '');
+    const uiBass = document.querySelector('[data-metric="band-bass"]')?.dataset?.value || document.querySelector('[data-metric="band-bass"]')?.textContent?.replace(/[^0-9.-]/g, '');
+    const uiMid = document.querySelector('[data-metric="band-mid"]')?.dataset?.value || document.querySelector('[data-metric="band-mid"]')?.textContent?.replace(/[^0-9.-]/g, '');
+    const uiHigh = document.querySelector('[data-metric="band-high"]')?.dataset?.value || document.querySelector('[data-metric="band-high"]')?.textContent?.replace(/[^0-9.-]/g, '');
+    
+    console.log('🎚 [AUDIT-FREQ-COMPARE] Comparação UI vs PDF:', {
+        sub: { ui: uiSub, pdf: spectral.sub, match: parseFloat(uiSub) === parseFloat(spectral.sub) },
+        bass: { ui: uiBass, pdf: spectral.bass, match: parseFloat(uiBass) === parseFloat(spectral.bass) },
+        mid: { ui: uiMid, pdf: spectral.mid, match: parseFloat(uiMid) === parseFloat(spectral.mid) },
+        high: { ui: uiHigh, pdf: spectral.high, match: parseFloat(uiHigh) === parseFloat(spectral.high) }
+    });
     
     console.log('✅ [PDF-NORMALIZE] Resultado normalizado:', normalizedResult);
     console.log('📊 [PDF-NORMALIZE] ============ FIM DA NORMALIZAÇÃO ============');
@@ -8458,6 +8549,19 @@ function getClassificationFromScore(score) {
 
 // 🎨 Gerar HTML profissional do relatório para PDF
 function generateReportHTML(data) {
+    // 🔍 AUDITORIA: Verificar dados recebidos para geração do HTML
+    console.log('📝 [AUDIT-HTML] ============ INÍCIO DA GERAÇÃO DO HTML ============');
+    console.log('📝 [AUDIT-HTML] Dados recebidos:', {
+        score: data.score,
+        classification: data.classification,
+        spectral: data.spectral,
+        diagnostics: data.diagnostics,
+        recommendations: data.recommendations,
+        hasSpectralData: !!(data.spectral && (data.spectral.sub !== '—' || data.spectral.bass !== '—')),
+        hasDiagnostics: data.diagnostics?.length > 0,
+        hasRecommendations: data.recommendations?.length > 0
+    });
+    
     const date = new Date().toLocaleDateString('pt-BR');
     const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     
