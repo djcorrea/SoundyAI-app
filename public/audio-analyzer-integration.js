@@ -8217,51 +8217,33 @@ function normalizeAnalysisDataForPDF(analysis) {
         userSpectral: analysis.user?.spectral
     });
     
-    // ✅ Correção para exibir bandas espectrais sempre
-    let bandsSource = analysis.bands || analysis.spectralBands || analysis.spectral?.bands || analysis.user?.bands || null;
-
-    if (!bandsSource) {
-      console.warn('⚠️ [PDF-FIX] Nenhuma fonte de bandas encontrada, tentando UI...');
-      bandsSource = {};
-      const getFromUI = id => {
-        const el = document.querySelector(`[data-metric="band-${id}"]`);
-        if (!el) return null;
-        const val = parseFloat(el.dataset?.value || el.textContent.replace(/[^0-9.-]/g, ''));
-        return Number.isFinite(val) ? val : null;
-      };
-      bandsSource.sub  = getFromUI('sub');
-      bandsSource.bass = getFromUI('bass');
-      bandsSource.mid  = getFromUI('mid');
-      bandsSource.high = getFromUI('high');
-    }
-
-    const spectralSub = extract(bandsSource.sub?.rms_db, bandsSource.subBass?.rms_db, bandsSource.sub, bandsSource.subBass);
-    const spectralBass = extract(bandsSource.bass?.rms_db, bandsSource.low?.rms_db, bandsSource.bass, bandsSource.low);
-    const spectralMid = extract(bandsSource.mid?.rms_db, bandsSource.midrange?.rms_db, bandsSource.mid, bandsSource.midrange);
-    const spectralHigh = extract(bandsSource.high?.rms_db, bandsSource.presence?.rms_db, bandsSource.treble?.rms_db, bandsSource.high, bandsSource.presence, bandsSource.treble);
-    
-    // Formatador de valor seguro
-    const fmt = v => (Number.isFinite(v) ? v.toFixed(1) : '—');
-
-    const spectral = {
-      sub:  fmt(spectralSub),
-      bass: fmt(spectralBass),
-      mid:  fmt(spectralMid),
-      high: fmt(spectralHigh)
+    // ✅ FREQUÊNCIAS (corrige objeto aninhado)
+    const bandsSrc = analysis.bands || analysis.spectralBands || analysis.spectral?.bands || {};
+    const extractBand = (band) => {
+      if (!band) return '—';
+      if (typeof band === 'number') return band.toFixed(1);
+      if (typeof band.rms_db === 'number') return band.rms_db.toFixed(1);
+      if (typeof band.value === 'number') return band.value.toFixed(1);
+      return '—';
     };
 
-    console.log('📈 [PDF-FIX] Bandas finais:', spectral);
+    const spectral = {
+      sub:  extractBand(bandsSrc.sub),
+      bass: extractBand(bandsSrc.bass),
+      mid:  extractBand(bandsSrc.mid),
+      high: extractBand(bandsSrc.high)
+    };
+    console.log('📈 [PDF-FIX] Bandas resolvidas:', spectral);
     
-    // ✅ Correção do Score
-    let score = analysis.score 
-             ?? analysis.scoring?.final 
-             ?? analysis.user?.score 
-             ?? analysis.comparison?.score?.user 
+    // ✅ SCORE CORRIGIDO
+    let score = analysis.scoring?.final 
+             ?? analysis.user?.score
+             ?? analysis.score 
              ?? 0;
 
     const scoreUI = parseFloat(document.querySelector('.score-final-value')?.dataset?.value || '0');
-    if (Math.abs(score - scoreUI) > 1 && scoreUI > 0) {
-      console.warn('⚠️ [PDF-FIX] Ajustando score para bater com a UI:', { pdf: score, ui: scoreUI });
+    if (scoreUI > 0 && Math.abs(score - scoreUI) > 1) {
+      console.warn('⚠️ [PDF-FIX] Ajustando score com base na UI:', scoreUI);
       score = scoreUI;
     }
     
@@ -8283,8 +8265,22 @@ function normalizeAnalysisDataForPDF(analysis) {
         diagnosticsType: Array.isArray(analysis.diagnostics) ? 'array' : typeof analysis.diagnostics
     });
     
-    const diagnostics = Array.isArray(analysis.problems) ? analysis.problems.map(p => p.message || p) :
-                       Array.isArray(analysis.diagnostics) ? analysis.diagnostics : [];
+    // ✅ DIAGNÓSTICO AUTOMÁTICO
+    let diagnostics = [];
+
+    if (analysis.diagnostics?.problems?.length > 0) {
+      diagnostics = analysis.diagnostics.problems.map(p => p.message || p);
+    } 
+    else if (analysis.diagnostics?.suggestions?.length > 0) {
+      diagnostics = analysis.diagnostics.suggestions.map(s => 
+        `⚠️ ${s.message || s.type || 'Sugestão'} — ${s.why || s.action || ''}`
+      );
+    } 
+    else {
+      diagnostics = ['✅ Nenhum problema detectado'];
+    }
+
+    console.log('🩺 [PDF-FIX] Diagnóstico enriquecido:', diagnostics);
     
     // 🔍 AUDITORIA: Mapear todas as fontes possíveis de sugestões
     console.log('💡 [AUDIT-SUG] Sugestões detectadas em analysis:', {
@@ -8300,29 +8296,26 @@ function normalizeAnalysisDataForPDF(analysis) {
         advancedType: Array.isArray(analysis.suggestionsAdvanced) ? `array[${analysis.suggestionsAdvanced?.length}]` : typeof analysis.suggestionsAdvanced
     });
     
-    // ✅ Correção de Sugestões Enriquecidas
-    let suggestions = analysis.suggestionsAdvanced 
-                   || analysis.ai?.suggestions?.enriched
-                   || analysis.user?.suggestionsAdvanced
-                   || analysis.recommendations
-                   || analysis.suggestions
-                   || [];
+    // ✅ SUGESTÕES ENRIQUECIDAS
+    let suggestions = [];
 
-    if (suggestions.length === 0) {
-      console.warn('⚠️ [PDF-FIX] Nenhuma sugestão encontrada, usando fallback genérico.');
-      suggestions = ['✅ Nenhum problema detectado'];
+    if (analysis.diagnostics?.suggestions?.length > 0) {
+      suggestions = analysis.diagnostics.suggestions.map(s => {
+        const title = s.message || s.type || 'Ajuste recomendado';
+        const action = s.action ? ` → ${s.action}` : '';
+        const why = s.why ? ` (${s.why})` : '';
+        return `${title}${action}${why}`;
+      });
+    } else if (Array.isArray(analysis.suggestions)) {
+      suggestions = analysis.suggestions.map(s => 
+        typeof s === 'string' ? s : s.message || s.type || 'Sugestão'
+      );
     }
 
-    if (analysis._suggestionsGenerated === false) {
-      console.warn('⚠️ [PDF-FIX] Sugestões não enriquecidas — tentar usar versão avançada');
-    }
-
-    // Normalizar sugestões (converter objetos para strings)
-    const recommendations = Array.isArray(suggestions) 
-      ? suggestions.map(s => typeof s === 'string' ? s : (s.message || s.action || s.text || JSON.stringify(s)))
-      : [];
-
-    console.log('🧠 [PDF-FIX] Sugestões finais para PDF:', recommendations);
+    console.log('💡 [PDF-FIX] Sugestões enriquecidas:', suggestions);
+    
+    // Normalizar para 'recommendations' (compatibilidade com retorno)
+    const recommendations = suggestions.length > 0 ? suggestions : ['✅ Análise completa'];
     
     const normalizedResult = {
         score,
