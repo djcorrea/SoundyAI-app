@@ -8050,7 +8050,7 @@ function normalizeAnalysisData(analysis) {
     console.log('📊 [PDF-NORMALIZE] Análise completa recebida:', analysis);
     console.log('📊 [PDF-NORMALIZE] Chaves disponíveis:', Object.keys(analysis));
     
-    // Extrair métricas (formato centralizado ou legacy)
+    // 🔧 CORREÇÃO: Dados podem estar na raiz, em metrics, ou em tech
     const metrics = analysis.metrics || {};
     const tech = analysis.tech || analysis.technicalData || {};
     
@@ -8058,14 +8058,21 @@ function normalizeAnalysisData(analysis) {
         hasMetrics: !!analysis.metrics,
         hasTech: !!analysis.tech,
         hasTechnicalData: !!analysis.technicalData,
+        hasRootData: !!(analysis.loudness || analysis.truePeak || analysis.lufsIntegrated),
         metricsKeys: Object.keys(metrics),
         techKeys: Object.keys(tech)
     });
     
-    // Loudness
-    const loudness = metrics.loudness || tech.loudness || {};
+    // 🔧 CORREÇÃO: Loudness pode estar em múltiplos lugares
+    const loudness = metrics.loudness || tech.loudness || analysis.loudness || {
+        // Fallback para propriedades na raiz
+        integrated: analysis.lufsIntegrated,
+        shortTerm: analysis.avgLoudness,
+        momentary: analysis.avgLoudness,
+        lra: analysis.lra
+    };
     console.log('🎧 [PDF-NORMALIZE] Loudness extraído:', {
-        source: metrics.loudness ? 'metrics' : (tech.loudness ? 'tech' : 'vazio'),
+        source: metrics.loudness ? 'metrics' : (tech.loudness ? 'tech' : (analysis.loudness ? 'analysis.loudness' : 'raiz')),
         data: loudness,
         integrated: loudness.integrated,
         shortTerm: loudness.shortTerm,
@@ -8073,38 +8080,46 @@ function normalizeAnalysisData(analysis) {
         lra: loudness.lra
     });
     
-    // True Peak
-    const truePeak = metrics.truePeak || tech.truePeak || {};
+    // 🔧 CORREÇÃO: True Peak pode estar em múltiplos lugares
+    const truePeak = metrics.truePeak || tech.truePeak || analysis.truePeak || {
+        // Fallback para propriedades na raiz
+        maxDbtp: analysis.truePeakDbtp,
+        clipping: { samples: 0, percentage: 0 }
+    };
     console.log('⚙️ [PDF-NORMALIZE] True Peak extraído:', {
-        source: metrics.truePeak ? 'metrics' : (tech.truePeak ? 'tech' : 'vazio'),
+        source: metrics.truePeak ? 'metrics' : (tech.truePeak ? 'tech' : (analysis.truePeak ? 'analysis.truePeak' : 'raiz')),
         data: truePeak,
         maxDbtp: truePeak.maxDbtp,
         clipping: truePeak.clipping
     });
     
-    // Dinâmica
-    const dynamics = metrics.dynamics || tech.dynamics || {};
+    // 🔧 CORREÇÃO: Dinâmica pode estar em múltiplos lugares
+    const dynamics = metrics.dynamics || tech.dynamics || analysis.dynamics || {
+        // Fallback para propriedades na raiz
+        range: analysis.dynamicRange,
+        crest: analysis.crestFactor
+    };
     console.log('🎚️ [PDF-NORMALIZE] Dynamics extraído:', {
-        source: metrics.dynamics ? 'metrics' : (tech.dynamics ? 'tech' : 'vazio'),
+        source: metrics.dynamics ? 'metrics' : (tech.dynamics ? 'tech' : (analysis.dynamics ? 'analysis.dynamics' : 'raiz')),
         data: dynamics,
         range: dynamics.range,
         crest: dynamics.crest
     });
     
-    // Espectro
-    const spectral = metrics.spectral || tech.spectral || {};
-    const bands = spectral.bands || {};
+    // 🔧 CORREÇÃO: Espectro pode estar em múltiplos lugares
+    const spectral = metrics.spectral || tech.spectral || analysis.spectral || {};
+    const bands = spectral.bands || analysis.spectralBands || analysis.bands || {};
     console.log('📈 [PDF-NORMALIZE] Spectral extraído:', {
-        source: metrics.spectral ? 'metrics' : (tech.spectral ? 'tech' : 'vazio'),
+        source: metrics.spectral ? 'metrics' : (tech.spectral ? 'tech' : (analysis.spectral ? 'analysis.spectral' : (analysis.bands ? 'analysis.bands' : 'vazio'))),
         spectral: spectral,
         bands: bands,
         bandsKeys: Object.keys(bands)
     });
     
-    // Stereo
-    const stereo = metrics.stereo || tech.stereo || {};
+    // 🔧 CORREÇÃO: Stereo pode estar em múltiplos lugares
+    const stereo = metrics.stereo || tech.stereo || analysis.stereo || {};
     console.log('🎛️ [PDF-NORMALIZE] Stereo extraído:', {
-        source: metrics.stereo ? 'metrics' : (tech.stereo ? 'tech' : 'vazio'),
+        source: metrics.stereo ? 'metrics' : (tech.stereo ? 'tech' : (analysis.stereo ? 'analysis.stereo' : 'vazio')),
         data: stereo,
         width: stereo.width,
         correlation: stereo.correlation,
