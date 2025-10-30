@@ -8264,6 +8264,12 @@ function buildPdfData(analysis) {
     // Sugestões avançadas
     const adv = getAdvancedSuggestions(analysis);
     
+    // Helper: Formatar valores para exibição
+    const fmt = (val, decimals = 1, suffix = '') => {
+        if (val === null || val === undefined || !Number.isFinite(val)) return '—';
+        return `${Number(val).toFixed(decimals)}${suffix}`;
+    };
+    
     const pdfData = {
         file: {
             name:  analysis.fileName || analysis.file?.name || analysis.metadata?.fileName || 'audio',
@@ -8273,34 +8279,36 @@ function buildPdfData(analysis) {
             bitDepth: analysis.bitDepth || analysis.metadata?.bitDepth || 'N/A'
         },
         score: { 
-            value: score, 
-            classification 
+            value: score ?? 0, 
+            classification: classification ?? '—'
         },
         loudness: {
-            integrated: pickNum([analysis.lufsIntegrated, analysis.loudness?.integrated, analysis.technicalData?.lufsIntegrated]),
-            shortTerm:  pickNum([analysis.avgLoudness, analysis.loudness?.shortTerm, analysis.technicalData?.avgLoudness]),
-            momentary:  pickNum([analysis.loudness?.momentary, analysis.metrics?.loudness?.momentary, analysis.avgLoudness]),
-            lra:        pickNum([analysis.lra, analysis.loudness?.lra, analysis.technicalData?.lra])
+            integrated: fmt(pickNum([analysis.lufsIntegrated, analysis.loudness?.integrated, analysis.technicalData?.lufsIntegrated])),
+            shortTerm:  fmt(pickNum([analysis.avgLoudness, analysis.loudness?.shortTerm, analysis.technicalData?.avgLoudness])),
+            momentary:  fmt(pickNum([analysis.loudness?.momentary, analysis.metrics?.loudness?.momentary, analysis.avgLoudness])),
+            lra:        fmt(pickNum([analysis.lra, analysis.loudness?.lra, analysis.technicalData?.lra]))
         },
         truePeak: {
-            maxDbtp:    pickNum([analysis.truePeakDbtp, analysis.truePeak?.maxDbtp, analysis.technicalData?.truePeakDbtp]),
-            clippingSm: pickNum([analysis.truePeak?.clipping?.samples, analysis.clipping?.samples], 0),
-            clippingPc: pickNum([analysis.truePeak?.clipping?.percentage, analysis.clipping?.percentage], 0)
+            maxDbtp: fmt(pickNum([analysis.truePeakDbtp, analysis.truePeak?.maxDbtp, analysis.technicalData?.truePeakDbtp]), 2),
+            clipping: {
+                samples: pickNum([analysis.truePeak?.clipping?.samples, analysis.clipping?.samples], 0),
+                percentage: fmt(pickNum([analysis.truePeak?.clipping?.percentage, analysis.clipping?.percentage], 0), 2)
+            }
         },
         dynamics: {
-            range: pickNum([analysis.dynamicRange, analysis.dynamics?.range, analysis.technicalData?.dynamicRange]),
-            crest: pickNum([analysis.crestFactor, analysis.dynamics?.crest, analysis.technicalData?.crestFactor])
+            range: fmt(pickNum([analysis.dynamicRange, analysis.dynamics?.range, analysis.technicalData?.dynamicRange])),
+            crest: fmt(pickNum([analysis.crestFactor, analysis.dynamics?.crest, analysis.technicalData?.crestFactor]))
         },
         stereo: {
-            width:        pickNum([analysis.stereo?.width, analysis.stereoWidth], null),
-            correlation:  pickNum([analysis.stereoCorrelation, analysis.stereo?.correlation], null),
-            monoCompat:   pickNum([analysis.stereo?.monoCompatibility, analysis.monoCompatibility], null)
+            width:       fmt(pickNum([analysis.stereo?.width, analysis.stereoWidth]) * 100, 1) || '—',
+            correlation: fmt(pickNum([analysis.stereoCorrelation, analysis.stereo?.correlation]), 2),
+            monoCompat:  fmt(pickNum([analysis.stereo?.monoCompatibility, analysis.monoCompatibility]) * 100, 1) || '—'
         },
         spectral: {
-            sub:  pickNum([bands?.sub]),
-            bass: pickNum([bands?.bass]),
-            mid:  pickNum([bands?.mid]),
-            high: pickNum([bands?.high])
+            sub:  fmt(pickNum([bands?.sub])),
+            bass: fmt(pickNum([bands?.bass])),
+            mid:  fmt(pickNum([bands?.mid])),
+            high: fmt(pickNum([bands?.high]))
         },
         suggestionsAdvanced: adv
     };
