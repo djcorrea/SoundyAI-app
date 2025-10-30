@@ -8123,246 +8123,176 @@ function validateAnalysisDataAgainstUI(analysis) {
     }
 }
 
-// 🎯 VERSÃO FINAL E ESTÁVEL: Normalizar dados para PDF com fallbacks robustos
-async function normalizeAnalysisDataForPDF(analysis) {
-    console.log('📊 [PDF-FINAL] ============ INÍCIO DA NORMALIZAÇÃO FINAL ============');
+// 🎯 Normalizar dados da análise para formato compatível com PDF (NOVA VERSÃO ROBUSTA)
+function normalizeAnalysisDataForPDF(analysis) {
+    console.log('📊 [PDF-NORMALIZE] ============ INÍCIO DA NORMALIZAÇÃO ============');
+    console.log('📊 [PDF-NORMALIZE] Estrutura recebida:', {
+        keys: Object.keys(analysis),
+        fileName: analysis.fileName || analysis.metadata?.fileName,
+        score: analysis.score,
+        hasLufsRoot: !!analysis.lufsIntegrated,
+        hasTruePeakRoot: !!analysis.truePeakDbtp,
+        hasDRRoot: !!analysis.dynamicRange,
+        hasBands: !!(analysis.bands || analysis.spectralBands)
+    });
     
-    // ============================================================================
-    // 🔍 A) DETECTAR MODO (Gênero vs Referência)
-    // ============================================================================
-    const isReferenceMode = analysis.mode === 'reference' || (analysis.user && analysis.reference);
-    console.log(`🎯 [PDF-FINAL] Modo: ${isReferenceMode ? 'REFERÊNCIA' : 'GÊNERO'}`);
-    
-    // ============================================================================
-    // 🎯 B) SCORE - Correção CRÍTICA para modo referência
-    // ============================================================================
-    const score = Math.round(
-        isReferenceMode
-            ? (analysis.user?.score ?? analysis.comparison?.score?.user ?? analysis.score ?? 0)
-            : (analysis.score ?? analysis.scoring?.final ?? 0)
-    );
-    
-    const classification = analysis.classification ?? (
-        score >= 95 ? '🏆 Referência Mundial' :
-        score >= 85 ? '⭐ Profissional' :
-        score >= 70 ? '👍 Avançado' :
-        score >= 50 ? '📚 Intermediário' : '🔧 Iniciante'
-    );
-    
-    console.log(`🎯 [PDF-FINAL] Score: ${score} | Classificação: ${classification}`);
-    
-    // ============================================================================
-    // 📊 C) BANDAS ESPECTRAIS - Sistema de Fallbacks Progressivo
-    // ============================================================================
-    const resolveBands = (a) => a?.bands || a?.spectralBands || a?.spectral?.bands || null;
-    let bands = resolveBands(analysis) || resolveBands(analysis.user);
-    
-    console.log('📊 [PDF-FINAL] Bandas - Tentativa 1 (bands direto):', bands ? 'ENCONTRADO' : 'VAZIO');
-    
-    // FALLBACK 2: Computar de spectrum (FFT)
-    if (!bands) {
-        const spec = analysis.spectral || analysis.user?.spectral;
-        const freqs = spec?.freqs || spec?.frequencies;
-        const mags = spec?.rmsDb || spec?.magDb;
-        
-        if (Array.isArray(freqs) && Array.isArray(mags) && freqs.length === mags.length) {
-            console.log('📊 [PDF-FINAL] Bandas - Tentativa 2 (computar de spectrum): CALCULANDO...');
-            const ranges = {
-                sub: [20, 60],
-                bass: [60, 250],
-                mid: [250, 4000],
-                high: [4000, 20000]
-            };
-            
-            bands = Object.fromEntries(
-                Object.entries(ranges).map(([key, [min, max]]) => {
-                    const vals = freqs
-                        .map((f, i) => (f >= min && f < max ? mags[i] : null))
-                        .filter(v => Number.isFinite(v));
-                    const avg = vals.length > 0 ? vals.reduce((a, b) => a + b) / vals.length : null;
-                    return [key, avg];
-                })
-            );
-            console.log('📊 [PDF-FINAL] Bandas computadas de spectrum:', bands);
-        }
-    }
-    
-    // FALLBACK 3: Extrair da UI
-    if (!bands?.sub || !bands?.bass || !bands?.mid || !bands?.high) {
-        console.log('📊 [PDF-FINAL] Bandas - Tentativa 3 (extrair da UI)...');
-        bands = bands || {};
-        const getUIBand = (id) => {
-            const el = document.querySelector(`[data-metric="band-${id}"]`);
-            const val = parseFloat(el?.dataset?.value || el?.textContent);
-            return Number.isFinite(val) ? val : null;
-        };
-        
-        bands.sub  = bands.sub  || getUIBand('sub');
-        bands.bass = bands.bass || getUIBand('bass');
-        bands.mid  = bands.mid  || getUIBand('mid');
-        bands.high = bands.high || getUIBand('high');
-        
-        console.log('📊 [PDF-FINAL] Bandas da UI:', bands);
-    }
-    
-    // Garantir que bands nunca seja null
-    bands = bands || { sub: null, bass: null, mid: null, high: null };
-    
-    // ============================================================================
-    // 🧠 D) SUGESTÕES - Priorizar Enriched + Agrupar por Categoria
-    // ============================================================================
-    let suggestions = 
-        analysis.suggestionsAdvanced ||
-        analysis.ai?.suggestions?.enriched ||
-        analysis.user?.suggestionsAdvanced ||
-        analysis.recommendations ||
-        analysis.suggestions ||
-        [];
-    
-    console.log(`🧠 [PDF-FINAL] Sugestões - Fonte inicial: ${suggestions.length} itens`);
-    
-    // Enriquecer localmente se necessário
-    if ((!analysis._suggestionsGenerated || !Array.isArray(suggestions) || suggestions.length === 0) 
-        && typeof window !== 'undefined' 
-        && window.SuggestionTextGenerator) {
-        console.warn('⚠️ [PDF-FINAL] Enriquecendo sugestões localmente com SuggestionTextGenerator...');
-        const generator = new window.SuggestionTextGenerator();
-        suggestions = (suggestions || []).map(s => {
-            if (typeof generator.enrichSuggestionText === 'function') {
-                return generator.enrichSuggestionText(s, analysis) || s;
-            }
-            return s;
-        });
-        console.log(`✅ [PDF-FINAL] Sugestões enriquecidas: ${suggestions.length} itens`);
-    }
-    
-    // Agrupar por categoria
-    const grouped = {
-        'Loudness': [],
-        'True Peak': [],
-        'Dinâmica': [],
-        'Stereo': [],
-        'Espectral': [],
-        'Geral': []
+    const formatValue = (val, decimals = 1, unit = '') => {
+        if (val === null || val === undefined || isNaN(val)) return '—';
+        return `${Number(val).toFixed(decimals)}${unit}`;
     };
     
-    for (const s of suggestions) {
-        const msg = typeof s === 'string' ? s : (s.message || s.action || s.title || JSON.stringify(s));
-        const t = msg.toLowerCase();
-        
-        const category = 
-            (t.includes('lufs') || t.includes('loudness')) ? 'Loudness' :
-            (t.includes('true peak') || t.includes('dbtp') || t.includes('clip')) ? 'True Peak' :
-            (t.includes('dinâmic') || t.includes('dr') || t.includes('range')) ? 'Dinâmica' :
-            (t.includes('stereo') || t.includes('pan') || t.includes('width')) ? 'Stereo' :
-            (t.includes('hz') || t.includes('sub') || t.includes('grave') || t.includes('médio') || t.includes('agudo') || t.includes('freq')) ? 'Espectral' :
-            'Geral';
-        
-        grouped[category].push(msg);
-    }
-    
-    console.log('🧠 [PDF-FINAL] Sugestões agrupadas:', Object.fromEntries(
-        Object.entries(grouped).filter(([k, v]) => v.length > 0).map(([k, v]) => [k, v.length])
-    ));
-    
-    // ============================================================================
-    // 📈 E) MÉTRICAS TÉCNICAS - Extração com Fallbacks
-    // ============================================================================
     const extract = (...paths) => {
-        for (const val of paths) {
-            if (Number.isFinite(val)) return val;
+        for (const path of paths) {
+            if (typeof path === 'function') {
+                const val = path();
+                if (Number.isFinite(val)) return val;
+            } else if (Number.isFinite(path)) {
+                return path;
+            }
         }
         return null;
     };
     
-    const fmt = (val, decimals = 1) => {
-        if (val === null || val === undefined || !Number.isFinite(val)) return null;
-        return Number(val).toFixed(decimals);
+    const lufsIntegrated = extract(analysis.lufsIntegrated, analysis.loudness?.integrated, analysis.technicalData?.lufsIntegrated);
+    const lufsShortTerm = extract(analysis.avgLoudness, analysis.loudness?.shortTerm, analysis.technicalData?.avgLoudness);
+    const lufsMomentary = extract(lufsShortTerm, analysis.loudness?.momentary);
+    const lra = extract(analysis.lra, analysis.loudness?.lra, analysis.technicalData?.lra);
+    
+    console.log('🎧 [PDF-NORMALIZE] Loudness extraído:', { integrated: lufsIntegrated, shortTerm: lufsShortTerm, momentary: lufsMomentary, lra });
+    
+    const truePeakDbtp = extract(analysis.truePeakDbtp, analysis.truePeak?.maxDbtp, analysis.technicalData?.truePeakDbtp);
+    const clippingSamples = extract(analysis.truePeak?.clipping?.samples, analysis.clipping?.samples, 0);
+    const clippingPercentage = extract(analysis.truePeak?.clipping?.percentage, analysis.clipping?.percentage, 0);
+    
+    console.log('⚙️ [PDF-NORMALIZE] True Peak extraído:', { maxDbtp: truePeakDbtp, clipping: { samples: clippingSamples, percentage: clippingPercentage }});
+    
+    const dynamicRange = extract(analysis.dynamicRange, analysis.dynamics?.range, analysis.technicalData?.dynamicRange);
+    const crestFactor = extract(analysis.crestFactor, analysis.dynamics?.crest, analysis.technicalData?.crestFactor);
+    
+    console.log('🎚️ [PDF-NORMALIZE] Dinâmica extraída:', { range: dynamicRange, crest: crestFactor });
+    
+    const stereoWidth = extract(analysis.stereo?.width, analysis.stereoWidth, analysis.technicalData?.stereoWidth);
+    const stereoCorrelation = extract(analysis.stereoCorrelation, analysis.stereo?.correlation, analysis.technicalData?.stereoCorrelation);
+    const monoCompatibility = extract(analysis.stereo?.monoCompatibility, analysis.monoCompatibility);
+    
+    console.log('🎛️ [PDF-NORMALIZE] Stereo extraído:', { width: stereoWidth, correlation: stereoCorrelation, monoCompatibility });
+    
+    // ✅ Correção para exibir bandas espectrais sempre
+    let bandsSource = analysis.bands || analysis.spectralBands || analysis.spectral?.bands || analysis.user?.bands || null;
+
+    if (!bandsSource) {
+      console.warn('⚠️ [PDF-FIX] Nenhuma fonte de bandas encontrada, tentando UI...');
+      bandsSource = {};
+      const getFromUI = id => {
+        const el = document.querySelector(`[data-metric="band-${id}"]`);
+        if (!el) return null;
+        const val = parseFloat(el.dataset?.value || el.textContent.replace(/[^0-9.-]/g, ''));
+        return Number.isFinite(val) ? val : null;
+      };
+      bandsSource.sub  = getFromUI('sub');
+      bandsSource.bass = getFromUI('bass');
+      bandsSource.mid  = getFromUI('mid');
+      bandsSource.high = getFromUI('high');
+    }
+
+    const spectralSub = extract(bandsSource.sub?.rms_db, bandsSource.subBass?.rms_db, bandsSource.sub, bandsSource.subBass);
+    const spectralBass = extract(bandsSource.bass?.rms_db, bandsSource.low?.rms_db, bandsSource.bass, bandsSource.low);
+    const spectralMid = extract(bandsSource.mid?.rms_db, bandsSource.midrange?.rms_db, bandsSource.mid, bandsSource.midrange);
+    const spectralHigh = extract(bandsSource.high?.rms_db, bandsSource.presence?.rms_db, bandsSource.treble?.rms_db, bandsSource.high, bandsSource.presence, bandsSource.treble);
+    
+    // Formatador de valor seguro
+    const fmt = v => (Number.isFinite(v) ? v.toFixed(1) : '—');
+
+    const spectral = {
+      sub:  fmt(spectralSub),
+      bass: fmt(spectralBass),
+      mid:  fmt(spectralMid),
+      high: fmt(spectralHigh)
     };
+
+    console.log('📈 [PDF-FIX] Bandas finais:', spectral);
     
-    const lufsIntegrated = extract(
-        analysis.lufsIntegrated,
-        analysis.loudness?.integrated,
-        analysis.technicalData?.lufsIntegrated,
-        analysis.user?.lufsIntegrated
-    );
+    // ✅ Correção do Score
+    let score = analysis.score 
+             ?? analysis.scoring?.final 
+             ?? analysis.user?.score 
+             ?? analysis.comparison?.score?.user 
+             ?? 0;
+
+    const scoreUI = parseFloat(document.querySelector('.score-final-value')?.dataset?.value || '0');
+    if (Math.abs(score - scoreUI) > 1 && scoreUI > 0) {
+      console.warn('⚠️ [PDF-FIX] Ajustando score para bater com a UI:', { pdf: score, ui: scoreUI });
+      score = scoreUI;
+    }
     
-    const truePeakDbtp = extract(
-        analysis.truePeakDbtp,
-        analysis.truePeak?.maxDbtp,
-        analysis.technicalData?.truePeakDbtp,
-        analysis.user?.truePeakDbtp
-    );
+    score = Math.round(score);
+    const classification = analysis.classification || analysis.scoring?.classification || getClassificationFromScore(score);
+    const fileName = analysis.fileName || analysis.metadata?.fileName || analysis.fileKey?.split('/').pop() || 'audio_sem_nome.wav';
+    const duration = extract(analysis.duration, analysis.metadata?.duration, 0);
+    const sampleRate = extract(analysis.sampleRate, analysis.metadata?.sampleRate, 44100);
+    const channels = extract(analysis.channels, analysis.metadata?.channels, 2);
     
-    const dynamicRange = extract(
-        analysis.dynamicRange,
-        analysis.dynamics?.range,
-        analysis.technicalData?.dynamicRange,
-        analysis.user?.dynamicRange
-    );
+    const diagnostics = Array.isArray(analysis.problems) ? analysis.problems.map(p => p.message || p) :
+                       Array.isArray(analysis.diagnostics) ? analysis.diagnostics : [];
     
-    // ============================================================================
-    // 🎯 F) RETORNO FINAL - Formato Unificado
-    // ============================================================================
+    // ✅ Correção de Sugestões Enriquecidas
+    let suggestions = analysis.suggestionsAdvanced 
+                   || analysis.ai?.suggestions?.enriched
+                   || analysis.user?.suggestionsAdvanced
+                   || analysis.recommendations
+                   || analysis.suggestions
+                   || [];
+
+    if (suggestions.length === 0) {
+      console.warn('⚠️ [PDF-FIX] Nenhuma sugestão encontrada, usando fallback genérico.');
+      suggestions = ['✅ Nenhum problema detectado'];
+    }
+
+    if (analysis._suggestionsGenerated === false) {
+      console.warn('⚠️ [PDF-FIX] Sugestões não enriquecidas — tentar usar versão avançada');
+    }
+
+    // Normalizar sugestões (converter objetos para strings)
+    const recommendations = Array.isArray(suggestions) 
+      ? suggestions.map(s => typeof s === 'string' ? s : (s.message || s.action || s.text || JSON.stringify(s)))
+      : [];
+
+    console.log('🧠 [PDF-FIX] Sugestões finais para PDF:', recommendations);
+    
     const normalizedResult = {
-        mode: isReferenceMode ? 'reference' : 'genre',
-        file: analysis.fileName || analysis.userFile || analysis.metadata?.fileName || 'audio',
-        score: score,
-        classification: classification,
-        
+        score,
+        classification,
+        fileName,
+        duration,
+        sampleRate,
+        channels,
+        bitDepth: analysis.bitDepth || analysis.metadata?.bitDepth || 'N/A',
         loudness: {
-            integrated: fmt(lufsIntegrated, 1),
-            shortTerm: fmt(extract(analysis.avgLoudness, analysis.loudness?.shortTerm), 1),
-            momentary: fmt(extract(analysis.loudness?.momentary), 1),
-            lra: fmt(extract(analysis.lra, analysis.loudness?.lra), 1)
+            integrated: formatValue(lufsIntegrated, 1),
+            shortTerm: formatValue(lufsShortTerm, 1),
+            momentary: formatValue(lufsMomentary, 1),
+            lra: formatValue(lra, 1)
         },
-        
         truePeak: {
-            maxDbtp: fmt(truePeakDbtp, 2),
-            clipping: {
-                samples: extract(analysis.truePeak?.clipping?.samples, analysis.clipping?.samples, 0) || 0,
-                percentage: fmt(extract(analysis.truePeak?.clipping?.percentage, analysis.clipping?.percentage, 0), 2)
-            }
+            maxDbtp: formatValue(truePeakDbtp, 2),
+            clipping: { samples: clippingSamples || 0, percentage: formatValue(clippingPercentage, 2) }
         },
-        
         dynamics: {
-            range: fmt(dynamicRange, 1),
-            crest: fmt(extract(analysis.crestFactor, analysis.dynamics?.crest), 1)
+            range: formatValue(dynamicRange, 1),
+            crest: formatValue(crestFactor, 1)
         },
-        
+        spectral: spectral,
         stereo: {
-            width: fmt(extract(analysis.stereo?.width, analysis.stereoWidth) * 100, 1),
-            correlation: fmt(extract(analysis.stereoCorrelation, analysis.stereo?.correlation), 2),
-            monoCompatibility: fmt(extract(analysis.stereo?.monoCompatibility, analysis.monoCompatibility) * 100, 1)
+            width: formatValue(stereoWidth * 100, 1),
+            correlation: formatValue(stereoCorrelation, 2),
+            monoCompatibility: formatValue(monoCompatibility * 100, 1)
         },
-        
-        spectral: {
-            sub: fmt(bands.sub, 1),
-            bass: fmt(bands.bass, 1),
-            mid: fmt(bands.mid, 1),
-            high: fmt(bands.high, 1)
-        },
-        
-        suggestions: grouped,
-        enriched: analysis._suggestionsGenerated === true,
-        
-        // Metadata
-        duration: extract(analysis.duration, analysis.metadata?.duration, 0),
-        sampleRate: extract(analysis.sampleRate, analysis.metadata?.sampleRate, 44100),
-        channels: extract(analysis.channels, analysis.metadata?.channels, 2),
-        bitDepth: analysis.bitDepth || analysis.metadata?.bitDepth || 'N/A'
+        diagnostics: diagnostics.length > 0 ? diagnostics : ['✅ Nenhum problema detectado'],
+        recommendations: recommendations.length > 0 ? recommendations : ['✅ Análise completa']
     };
     
-    // ============================================================================
-    // 📊 G) LOGS FINAIS
-    // ============================================================================
-    console.log('📊 [PDF-FINAL] Dados Normalizados:', normalizedResult);
-    console.log('🎯 [PDF-FINAL] Score:', normalizedResult.score, '| Classificação:', normalizedResult.classification);
-    console.log('📈 [PDF-FINAL] Bandas:', normalizedResult.spectral);
-    console.log('🧠 [PDF-FINAL] Sugestões agrupadas:', Object.fromEntries(
-        Object.entries(normalizedResult.suggestions).filter(([k, v]) => v.length > 0).map(([k, v]) => [k, `${v.length} itens`])
-    ));
-    console.log('📊 [PDF-FINAL] ============ FIM DA NORMALIZAÇÃO FINAL ============');
+    console.log('✅ [PDF-NORMALIZE] Resultado normalizado:', normalizedResult);
+    console.log('📊 [PDF-NORMALIZE] ============ FIM DA NORMALIZAÇÃO ============');
     
     return normalizedResult;
 }
