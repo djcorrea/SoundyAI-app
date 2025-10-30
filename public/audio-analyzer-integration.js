@@ -8045,25 +8045,71 @@ async function downloadModalAnalysis() {
 
 // � Normalizar dados da análise para formato compatível com PDF
 function normalizeAnalysisData(analysis) {
+    // 🔍 DIAGNÓSTICO: Log completo da estrutura recebida
+    console.log('📊 [PDF-NORMALIZE] ============ INÍCIO DA NORMALIZAÇÃO ============');
+    console.log('📊 [PDF-NORMALIZE] Análise completa recebida:', analysis);
+    console.log('📊 [PDF-NORMALIZE] Chaves disponíveis:', Object.keys(analysis));
+    
     // Extrair métricas (formato centralizado ou legacy)
     const metrics = analysis.metrics || {};
     const tech = analysis.tech || analysis.technicalData || {};
     
+    console.log('🔍 [PDF-NORMALIZE] Origem dos dados:', {
+        hasMetrics: !!analysis.metrics,
+        hasTech: !!analysis.tech,
+        hasTechnicalData: !!analysis.technicalData,
+        metricsKeys: Object.keys(metrics),
+        techKeys: Object.keys(tech)
+    });
+    
     // Loudness
     const loudness = metrics.loudness || tech.loudness || {};
+    console.log('🎧 [PDF-NORMALIZE] Loudness extraído:', {
+        source: metrics.loudness ? 'metrics' : (tech.loudness ? 'tech' : 'vazio'),
+        data: loudness,
+        integrated: loudness.integrated,
+        shortTerm: loudness.shortTerm,
+        momentary: loudness.momentary,
+        lra: loudness.lra
+    });
     
     // True Peak
     const truePeak = metrics.truePeak || tech.truePeak || {};
+    console.log('⚙️ [PDF-NORMALIZE] True Peak extraído:', {
+        source: metrics.truePeak ? 'metrics' : (tech.truePeak ? 'tech' : 'vazio'),
+        data: truePeak,
+        maxDbtp: truePeak.maxDbtp,
+        clipping: truePeak.clipping
+    });
     
     // Dinâmica
     const dynamics = metrics.dynamics || tech.dynamics || {};
+    console.log('🎚️ [PDF-NORMALIZE] Dynamics extraído:', {
+        source: metrics.dynamics ? 'metrics' : (tech.dynamics ? 'tech' : 'vazio'),
+        data: dynamics,
+        range: dynamics.range,
+        crest: dynamics.crest
+    });
     
     // Espectro
     const spectral = metrics.spectral || tech.spectral || {};
     const bands = spectral.bands || {};
+    console.log('📈 [PDF-NORMALIZE] Spectral extraído:', {
+        source: metrics.spectral ? 'metrics' : (tech.spectral ? 'tech' : 'vazio'),
+        spectral: spectral,
+        bands: bands,
+        bandsKeys: Object.keys(bands)
+    });
     
     // Stereo
     const stereo = metrics.stereo || tech.stereo || {};
+    console.log('🎛️ [PDF-NORMALIZE] Stereo extraído:', {
+        source: metrics.stereo ? 'metrics' : (tech.stereo ? 'tech' : 'vazio'),
+        data: stereo,
+        width: stereo.width,
+        correlation: stereo.correlation,
+        monoCompatibility: stereo.monoCompatibility
+    });
     
     // Score e classificação
     const score = analysis.qualityOverall || analysis.score || 0;
@@ -8085,7 +8131,8 @@ function normalizeAnalysisData(analysis) {
         return `${Number(val).toFixed(decimals)}${unit}`;
     };
     
-    return {
+    // Log do resultado final normalizado
+    const normalizedResult = {
         score: Math.round(score),
         classification,
         fileName: analysis.fileName || 'audio_sem_nome.wav',
@@ -8124,6 +8171,11 @@ function normalizeAnalysisData(analysis) {
         diagnostics,
         recommendations
     };
+    
+    console.log('✅ [PDF-NORMALIZE] Resultado final normalizado:', normalizedResult);
+    console.log('📊 [PDF-NORMALIZE] ============ FIM DA NORMALIZAÇÃO ============');
+    
+    return normalizedResult;
 }
 
 // 🏆 Classificação baseada em score
