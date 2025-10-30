@@ -1,0 +1,364 @@
+{
+  "_metadata": {
+    "auditoria": "Pipeline Completo de Relatórios PDF",
+    "arquivo": "public/audio-analyzer-integration.js",
+    "data": "30/10/2025",
+    "linhasAnalisadas": 9875,
+    "funcoesAuditadas": [
+      "downloadModalAnalysis()",
+      "normalizeAnalysisDataForPDF()",
+      "validateAnalysisDataAgainstUI()",
+      "generateReportHTML()",
+      "normalizeBackendAnalysisData()",
+      "normalizeAnalysisData()"
+    ]
+  },
+
+  "fonteGlobal": {
+    "alias": "window.__soundyAI.analysis",
+    "fallback": "currentModalAnalysis",
+    "linha": 7911,
+    "populadoEm": {
+      "modoGenero": {
+        "linha": 2593,
+        "origem": "normalizeBackendAnalysisData(analysisResult)",
+        "estrutura": "análise única (single audio)"
+      },
+      "modoReferencia": {
+        "linha": 3389,
+        "origem": "combinedAnalysis (user + reference + comparison)",
+        "estrutura": "comparação (user vs reference)"
+      }
+    }
+  },
+
+  "score": {
+    "fonte": "analysis.score",
+    "linhaExtracao": 8189,
+    "ordemPrioridade": [
+      "analysis.score (raiz)",
+      "analysis.scoring.final",
+      "0 (default)"
+    ],
+    "validacao": {
+      "implementada": true,
+      "linha": 8120,
+      "seletorUI": ".score-final-value",
+      "tolerancia": 1
+    },
+    "problemas": [
+      {
+        "severidade": "CRÍTICO",
+        "descricao": "Modo referência pode não ter 'analysis.score' na raiz",
+        "solucao": "Usar 'analysis.user.score' ou 'analysis.comparison.score.user'",
+        "status": "CORRIGIDO (logs de auditoria adicionados linha ~8200)"
+      }
+    ],
+    "logAuditoria": "🔍 [AUDIT-SCORE] Modo: REFERÊNCIA/GÊNERO | scoreUsado: 95"
+  },
+
+  "bandasEspectrais": {
+    "fonte": "analysis.bands || analysis.spectralBands || analysis.spectral.bands",
+    "linhaExtracao": 8175,
+    "ordemPrioridade": [
+      "analysis.bands",
+      "analysis.spectralBands",
+      "analysis.spectral.bands",
+      "{} (objeto vazio)"
+    ],
+    "formatosSuportados": {
+      "detalhado": { "sub": { "rms_db": -20.1 } },
+      "direto": { "sub": -20.1 },
+      "aliases": {
+        "sub": ["sub", "subBass"],
+        "bass": ["bass", "low"],
+        "mid": ["mid", "midrange"],
+        "high": ["high", "presence", "treble"]
+      }
+    },
+    "validacao": {
+      "implementada": false,
+      "motivo": "Seletores UI não implementados",
+      "seletoresPropostos": [
+        "[data-metric=\"band-sub\"]",
+        "[data-metric=\"band-bass\"]",
+        "[data-metric=\"band-mid\"]",
+        "[data-metric=\"band-high\"]"
+      ]
+    },
+    "problemas": [
+      {
+        "severidade": "CRÍTICO",
+        "descricao": "Se backend não enviar 'bands', todas as bandas ficam NULL → PDF mostra '—'",
+        "impacto": "Relatório parece incompleto, usuário não vê análise espectral",
+        "causaRaiz": "bandsSource = {} quando nenhuma das 3 fontes existe",
+        "solucao": "Implementar 3 fallbacks: 1) bands direto, 2) computar de spectrum (FFT), 3) extrair da UI",
+        "status": "DETECTADO (logs de auditoria adicionados linha ~8177)"
+      }
+    ],
+    "logAuditoria": [
+      "🔍 [AUDIT-BANDS] Fonte: analysis.bands | VAZIO",
+      "🔍 [AUDIT-BANDS] Estrutura: {...}",
+      "🚨 [AUDIT-BANDS] ⚠️ PROBLEMA: Todas as bandas são NULL!"
+    ]
+  },
+
+  "sugestoes": {
+    "fonte": "analysis.suggestions",
+    "linhaExtracao": 8202,
+    "ordemPrioridade": [
+      "analysis.suggestions (após enriquecimento)",
+      "analysis.recommendations",
+      "['✅ Análise completa'] (default)"
+    ],
+    "enriquecimento": {
+      "engine": "SuggestionTextGenerator",
+      "linha": 4631,
+      "fluxo": [
+        "1. Backend retorna analysis.suggestions (genérico)",
+        "2. Frontend chama SuggestionTextGenerator.enrichSuggestionText()",
+        "3. analysis.suggestions = enrichedSuggestions (sobrescreve)",
+        "4. PDF usa analysis.suggestions (já enriquecido)"
+      ],
+      "flag": "analysis._suggestionsGenerated",
+      "problema": "Se SuggestionTextGenerator não carregar, PDF usa genéricas"
+    },
+    "validacao": {
+      "implementada": false,
+      "motivo": "Não há como comparar sugestões com UI (são geradas dinamicamente)"
+    },
+    "problemas": [
+      {
+        "severidade": "MÉDIO",
+        "descricao": "PDF não verifica se sugestões foram enriquecidas antes de usar",
+        "impacto": "Usuário pode ver recomendações genéricas em vez de contextualizadas",
+        "solucao": "Verificar flag '_suggestionsGenerated' antes de usar analysis.suggestions",
+        "status": "DETECTADO (logs de auditoria adicionados linha ~8215)"
+      }
+    ],
+    "logAuditoria": [
+      "🔍 [AUDIT-SUGGESTIONS] Recomendações - Fonte: analysis.suggestions, Count: 7",
+      "✅ [AUDIT-SUGGESTIONS] Sugestões foram ENRICHED (flag: _suggestionsGenerated=true)",
+      "⚠️ [AUDIT-SUGGESTIONS] Sugestões NÃO foram enriched | PDF usando GENÉRICAS!"
+    ]
+  },
+
+  "diagnosticos": {
+    "fonte": "analysis.problems",
+    "linhaExtracao": 8202,
+    "ordemPrioridade": [
+      "analysis.problems",
+      "analysis.diagnostics",
+      "['✅ Nenhum problema detectado'] (default)"
+    ],
+    "formato": "problems[i].message || problems[i]",
+    "validacao": {
+      "implementada": false,
+      "motivo": "Diagnósticos são gerados dinamicamente, não há referência na UI"
+    },
+    "logAuditoria": "🔍 [AUDIT-SUGGESTIONS] Diagnósticos - Fonte: analysis.problems, Count: 3"
+  },
+
+  "loudness": {
+    "integrated": {
+      "fonte": "analysis.lufsIntegrated",
+      "linhaExtracao": 8157,
+      "ordemPrioridade": [
+        "analysis.lufsIntegrated",
+        "analysis.loudness.integrated",
+        "analysis.technicalData.lufsIntegrated"
+      ],
+      "validacao": {
+        "implementada": true,
+        "linha": 8114,
+        "seletorUI": "[data-metric=\"lufs-integrated\"]",
+        "tolerancia": 0.1
+      }
+    },
+    "shortTerm": {
+      "fonte": "analysis.avgLoudness",
+      "fallback": ["analysis.loudness.shortTerm", "analysis.technicalData.avgLoudness"]
+    },
+    "lra": {
+      "fonte": "analysis.lra",
+      "fallback": ["analysis.loudness.lra", "analysis.technicalData.lra"]
+    }
+  },
+
+  "truePeak": {
+    "maxDbtp": {
+      "fonte": "analysis.truePeakDbtp",
+      "linhaExtracao": 8163,
+      "ordemPrioridade": [
+        "analysis.truePeakDbtp",
+        "analysis.truePeak.maxDbtp",
+        "analysis.technicalData.truePeakDbtp"
+      ],
+      "validacao": {
+        "implementada": true,
+        "linha": 8117,
+        "seletorUI": "[data-metric=\"true-peak\"]",
+        "tolerancia": 0.1
+      }
+    },
+    "clipping": {
+      "samples": {
+        "fonte": "analysis.truePeak.clipping.samples",
+        "fallback": ["analysis.clipping.samples", "0"]
+      },
+      "percentage": {
+        "fonte": "analysis.truePeak.clipping.percentage",
+        "fallback": ["analysis.clipping.percentage", "0"]
+      }
+    }
+  },
+
+  "dynamics": {
+    "range": {
+      "fonte": "analysis.dynamicRange",
+      "linhaExtracao": 8169,
+      "fallback": ["analysis.dynamics.range", "analysis.technicalData.dynamicRange"],
+      "validacao": {
+        "implementada": true,
+        "linha": 8120,
+        "seletorUI": "[data-metric=\"dynamic-range\"]",
+        "tolerancia": 0.5
+      }
+    },
+    "crest": {
+      "fonte": "analysis.crestFactor",
+      "fallback": ["analysis.dynamics.crest", "analysis.technicalData.crestFactor"]
+    }
+  },
+
+  "stereo": {
+    "width": {
+      "fonte": "analysis.stereo.width",
+      "linhaExtracao": 8173,
+      "fallback": ["analysis.stereoWidth", "analysis.technicalData.stereoWidth"]
+    },
+    "correlation": {
+      "fonte": "analysis.stereoCorrelation",
+      "fallback": ["analysis.stereo.correlation", "analysis.technicalData.stereoCorrelation"]
+    },
+    "monoCompatibility": {
+      "fonte": "analysis.stereo.monoCompatibility",
+      "fallback": ["analysis.monoCompatibility"]
+    }
+  },
+
+  "resumoAuditoria": {
+    "implementada": true,
+    "linha": "~8245",
+    "formato": {
+      "modo": "REFERÊNCIA | GÊNERO",
+      "arquivo": "audio.wav",
+      "scoreUsado": 95,
+      "bandasSource": "analysis.bands | VAZIO",
+      "bandasNull": false,
+      "suggestionsSource": "analysis.suggestions",
+      "suggestionsEnriched": true,
+      "diagnosticsSource": "analysis.problems"
+    },
+    "logConsole": "📊 [AUDIT-SUMMARY] ============ RESUMO DA AUDITORIA ============"
+  },
+
+  "problemasCriticos": [
+    {
+      "id": "BANDS-NULL",
+      "severidade": "CRÍTICO",
+      "componente": "Bandas Espectrais",
+      "descricao": "Se backend não enviar 'bands', todas as 4 bandas ficam NULL → PDF mostra '—'",
+      "impacto": "Relatório parece incompleto, análise espectral invisível",
+      "solucaoProxima": "Implementar 3 fallbacks: bands direto → computar de spectrum → extrair da UI",
+      "status": "DETECTADO (logs adicionados)",
+      "logDeteccao": "🚨 [AUDIT-BANDS] ⚠️ PROBLEMA: Todas as bandas são NULL!"
+    },
+    {
+      "id": "SUGGESTIONS-GENERIC",
+      "severidade": "MÉDIO",
+      "componente": "Sugestões",
+      "descricao": "PDF não verifica se sugestões foram enriquecidas (flag _suggestionsGenerated)",
+      "impacto": "Usuário pode ver recomendações genéricas em vez de contextualizadas",
+      "solucaoProxima": "Verificar flag antes de usar, tentar enriquecer se false",
+      "status": "DETECTADO (logs adicionados)",
+      "logDeteccao": "⚠️ [AUDIT-SUGGESTIONS] Sugestões NÃO foram enriched"
+    },
+    {
+      "id": "SCORE-REFERENCE-MODE",
+      "severidade": "MÉDIO",
+      "componente": "Score",
+      "descricao": "No modo referência, usa 'analysis.score' (raiz) em vez de 'analysis.user.score'",
+      "impacto": "PDF pode mostrar score incorreto (0 ou referência em vez do usuário)",
+      "solucaoProxima": "Detectar modo e usar analysis.user.score",
+      "status": "CORRIGIDO (logs adicionados)",
+      "logDeteccao": "🔍 [AUDIT-SCORE] Modo referência detectado! Usando user.score"
+    }
+  ],
+
+  "recomendacoes": {
+    "prioridadeAlta": [
+      "Implementar 3 fallbacks para bandas espectrais (bands → spectrum → UI)",
+      "Verificar flag _suggestionsGenerated antes de usar sugestões",
+      "Garantir uso correto de user.score no modo referência"
+    ],
+    "prioridadeMedia": [
+      "Adicionar validação de bandas contra UI (seletores [data-metric='band-*'])",
+      "Melhorar logs de diagnóstico (source de cada métrica)",
+      "Criar schema JSON para window.__soundyAI.analysis"
+    ],
+    "prioridadeBaixa": [
+      "Documentar estrutura completa do objeto global",
+      "Adicionar TypeScript/JSDoc para validação em tempo de desenvolvimento"
+    ]
+  },
+
+  "logsDisponiveis": {
+    "pdfPipeline": [
+      "📄 [PDF-START] Iniciando geração de relatório PDF...",
+      "📄 [PDF-SOURCE] Fonte de dados: {...}"
+    ],
+    "normalizacao": [
+      "📊 [PDF-NORMALIZE] ============ INÍCIO DA NORMALIZAÇÃO ============",
+      "📊 [PDF-NORMALIZE] Estrutura recebida: {...}",
+      "🎧 [PDF-NORMALIZE] Loudness extraído: {...}",
+      "⚙️ [PDF-NORMALIZE] True Peak extraído: {...}",
+      "📈 [PDF-NORMALIZE] Bandas espectrais extraídas: {...}",
+      "✅ [PDF-NORMALIZE] Resultado normalizado: {...}"
+    ],
+    "auditoria": [
+      "🔍 [AUDIT-SCORE] Modo: REFERÊNCIA | GÊNERO",
+      "🔍 [AUDIT-BANDS] Fonte: analysis.bands | VAZIO",
+      "🔍 [AUDIT-SUGGESTIONS] Recomendações - Fonte: analysis.suggestions",
+      "📊 [AUDIT-SUMMARY] ============ RESUMO DA AUDITORIA ============"
+    ],
+    "validacao": [
+      "🔍 [PDF-VALIDATE] Iniciando validação contra UI...",
+      "✅ [PDF-VALIDATE] LUFS Integrado: OK (diff=0.0045)",
+      "🚨 [PDF-VALIDATE] DIVERGÊNCIA em Score: {...}"
+    ],
+    "alertas": [
+      "🚨 [AUDIT-BANDS] ⚠️ PROBLEMA: Todas as bandas são NULL!",
+      "⚠️ [AUDIT-SUGGESTIONS] Sugestões NÃO foram enriched",
+      "⚠️ [PDF-VALIDATE] Valor PDF ausente para Dynamic Range"
+    ]
+  },
+
+  "proximosPassos": {
+    "investigacao": [
+      "Testar com áudio real e verificar logs no console",
+      "Confirmar se backend está enviando 'bands' ou 'spectralBands'",
+      "Verificar se SuggestionTextGenerator está carregando corretamente"
+    ],
+    "implementacao": [
+      "Criar função computeBandsFromSpectrum(analysis) para fallback 2",
+      "Criar função extractBandsFromUI() para fallback 3",
+      "Criar função ensureSuggestionsEnriched(analysis) para validar enriquecimento"
+    ],
+    "teste": [
+      "Testar modo gênero com bandas NULL",
+      "Testar modo referência com score",
+      "Testar com SuggestionTextGenerator desabilitado"
+    ]
+  }
+}
