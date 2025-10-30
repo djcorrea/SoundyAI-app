@@ -2584,9 +2584,20 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         // Definir como análise atual do modal
         currentModalAnalysis = normalizedResult;
         
-        // Armazenar resultado globalmente para uso posterior
+        // 🎯 ALIAS GLOBAL PARA RELATÓRIOS (Fonte de Verdade Única)
         if (typeof window !== 'undefined') {
             window.__LAST_ANALYSIS_RESULT__ = normalizedResult;
+            
+            // Criar namespace global unificado
+            window.__soundyAI = window.__soundyAI || {};
+            window.__soundyAI.analysis = normalizedResult;
+            
+            console.log('✅ [PDF-READY] Análise armazenada globalmente:', {
+                hasGlobalAlias: !!window.__soundyAI.analysis,
+                fileName: normalizedResult.metadata?.fileName || normalizedResult.fileName,
+                score: normalizedResult.score,
+                hasMetrics: !!(normalizedResult.loudness || normalizedResult.technicalData)
+            });
         }
         
         updateModalProgress(100, `✅ Análise de ${fileName} concluída!`);
@@ -3370,6 +3381,20 @@ async function performReferenceComparison() {
         console.log('🔍 [DIAGNÓSTICO] Combined analysis diagnostic:', combinedAnalysis._diagnostic);
         
         currentModalAnalysis = combinedAnalysis;
+        
+        // 🎯 ALIAS GLOBAL PARA RELATÓRIOS (Modo Referência)
+        if (typeof window !== 'undefined') {
+            window.__LAST_ANALYSIS_RESULT__ = combinedAnalysis;
+            window.__soundyAI = window.__soundyAI || {};
+            window.__soundyAI.analysis = combinedAnalysis;
+            
+            console.log('✅ [PDF-READY] Comparação armazenada globalmente:', {
+                mode: 'reference',
+                hasComparison: !!combinedAnalysis.comparison,
+                userFile: combinedAnalysis.userFile,
+                referenceFile: combinedAnalysis.referenceFile
+            });
+        }
         
         updateModalProgress(100, '✨ Comparação Completa!');
         
@@ -7880,48 +7905,61 @@ window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
 // � Mostrar feedback temporário
 // (definição duplicada de showTemporaryFeedback removida — mantida a versão consolidada abaixo)
 
-// 📄 Baixar relatório do modal (NOVA IMPLEMENTAÇÃO PDF PROFISSIONAL)
+// 📄 Baixar relatório do modal (IMPLEMENTAÇÃO ROBUSTA COM VALIDAÇÃO)
 async function downloadModalAnalysis() {
-    if (!currentModalAnalysis) {
-        alert('Nenhuma análise disponível');
+    // 1️⃣ VALIDAÇÃO: Verificar se análise está disponível no alias global
+    const analysis = window.__soundyAI?.analysis || currentModalAnalysis;
+    
+    if (!analysis) {
+        alert('❌ Nenhuma análise disponível.\n\nFaça uma análise antes de gerar o relatório.');
+        console.error('[PDF-ERROR] Análise não encontrada em window.__soundyAI.analysis ou currentModalAnalysis');
         return;
     }
     
-    console.log('📄 Gerando relatório PDF profissional...');
+    console.log('📄 [PDF-START] Iniciando geração de relatório PDF...');
+    console.log('📄 [PDF-SOURCE] Fonte de dados:', {
+        usingGlobalAlias: !!window.__soundyAI?.analysis,
+        usingCurrentModal: !!currentModalAnalysis,
+        fileName: analysis.fileName || analysis.metadata?.fileName,
+        hasLoudness: !!(analysis.loudness || analysis.lufsIntegrated),
+        hasTruePeak: !!(analysis.truePeak || analysis.truePeakDbtp)
+    });
     
-    // Verificar se dependências estão carregadas
+    // 2️⃣ VALIDAÇÃO: Verificar dependências
     if (typeof window.jspdf === 'undefined' || typeof html2canvas === 'undefined') {
-        alert('Aguarde o carregamento das bibliotecas necessárias...');
-        console.warn('⚠️ Dependências PDF não carregadas ainda');
+        showTemporaryFeedback('⚙️ Carregando bibliotecas...');
+        console.warn('⚠️ [PDF-WAIT] Aguardando carregamento de jsPDF/html2canvas...');
         
-        // Tentar novamente após delay
+        // Retry após 1s
         setTimeout(() => downloadModalAnalysis(), 1000);
         return;
     }
     
     try {
-        // Mostrar feedback de processamento
         showTemporaryFeedback('⚙️ Gerando relatório PDF...');
         
-        // Normalizar dados para compatibilidade
-        const normalizedData = normalizeAnalysisData(currentModalAnalysis);
+        // 3️⃣ VALIDAÇÃO CONTRA UI: Comparar dados do relatório com a UI
+        validateAnalysisDataAgainstUI(analysis);
         
-        // Criar template HTML
+        // 4️⃣ NORMALIZAR: Extrair e formatar dados
+        const normalizedData = normalizeAnalysisDataForPDF(analysis);
+        
+        // 5️⃣ GERAR HTML: Template profissional
         const reportHTML = generateReportHTML(normalizedData);
         
-        // Inserir no container invisível
+        // 6️⃣ PREPARAR CONTAINER: Inserir e tornar visível
         const container = document.getElementById('pdf-report-template');
         if (!container) {
-            throw new Error('Container do relatório não encontrado');
+            throw new Error('Container #pdf-report-template não encontrado no DOM');
         }
-        container.innerHTML = reportHTML;
         
+        container.innerHTML = reportHTML;
         const elemento = container.firstElementChild;
         if (!elemento) {
-            throw new Error('Elemento do relatório não foi criado corretamente');
+            throw new Error('Template HTML não foi renderizado corretamente');
         }
         
-        // 🔧 CORREÇÃO: Forçar elemento visível para html2canvas
+        // Salvar estilos originais
         const originalStyles = {
             display: container.style.display,
             visibility: container.style.visibility,
@@ -7931,6 +7969,7 @@ async function downloadModalAnalysis() {
             zIndex: container.style.zIndex
         };
         
+        // Forçar visibilidade temporária
         container.style.display = 'block';
         container.style.visibility = 'visible';
         container.style.position = 'fixed';
@@ -7940,72 +7979,60 @@ async function downloadModalAnalysis() {
         container.style.width = '794px';
         container.style.height = 'auto';
         
-        console.log('📊 Container preparado para captura:', {
+        console.log('📊 [PDF-RENDER] Container preparado:', {
             width: elemento.offsetWidth,
             height: elemento.offsetHeight,
-            display: window.getComputedStyle(elemento).display,
-            visibility: window.getComputedStyle(elemento).visibility
+            isVisible: elemento.offsetWidth > 0 && elemento.offsetHeight > 0
         });
         
-        // Aguardar renderização completa (aumentado para garantir fontes carregadas)
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Scroll into view para garantir renderização
+        // 7️⃣ AGUARDAR RENDERIZAÇÃO: 250ms base + scroll + 150ms
+        await new Promise(r => setTimeout(r, 250));
         elemento.scrollIntoView({ behavior: 'instant', block: 'start' });
+        await new Promise(r => setTimeout(r, 150));
         
-        // Aguardar mais um pouco após scroll
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
-        // Capturar como imagem de alta qualidade
-        console.log('📸 Iniciando captura com html2canvas...');
+        // 8️⃣ CAPTURAR: html2canvas com alta qualidade
+        console.log('📸 [PDF-CAPTURE] Iniciando captura...');
         const canvas = await html2canvas(elemento, {
             scale: 2,
             backgroundColor: '#0B0C14',
             useCORS: true,
             allowTaint: true,
             logging: false,
-            windowWidth: elemento.scrollWidth,
-            windowHeight: elemento.scrollHeight,
             width: 794,
-            height: elemento.scrollHeight,
-            x: 0,
-            y: 0
+            height: elemento.scrollHeight
         });
         
-        console.log('✅ Canvas gerado:', {
+        console.log('✅ [PDF-CANVAS] Canvas gerado:', {
             width: canvas.width,
-            height: canvas.height
+            height: canvas.height,
+            isEmpty: canvas.width === 0 || canvas.height === 0
         });
+        
+        if (canvas.width === 0 || canvas.height === 0) {
+            throw new Error('Canvas vazio - verifique se o elemento está visível');
+        }
         
         const imgData = canvas.toDataURL('image/png');
         
-        // Verificar se a imagem não está vazia (totalmente preta)
-        if (imgData === 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==') {
-            throw new Error('Canvas capturado está vazio. Verifique se o elemento está visível.');
-        }
-        
-        // Criar PDF com suporte a múltiplas páginas se necessário
+        // 9️⃣ GERAR PDF: Múltiplas páginas se necessário
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF('p', 'mm', 'a4');
         
-        const imgWidth = 190; // Largura da imagem no PDF (deixando margem de 10mm)
-        const pageHeight = 295; // Altura da página A4
+        const imgWidth = 190;
+        const pageHeight = 295;
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
         let heightLeft = imgHeight;
-        let position = 10; // Margem superior inicial
+        let position = 10;
         
-        console.log('📄 Adicionando imagem ao PDF:', {
+        console.log('📄 [PDF-BUILD] Construindo PDF:', {
             imgWidth,
             imgHeight,
-            pageHeight,
-            pages: Math.ceil(imgHeight / pageHeight)
+            totalPages: Math.ceil(imgHeight / pageHeight)
         });
         
-        // Adicionar primeira página
         pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
         heightLeft -= pageHeight;
         
-        // Adicionar páginas extras se necessário
         while (heightLeft >= 0) {
             position = heightLeft - imgHeight;
             pdf.addPage();
@@ -8013,33 +8040,27 @@ async function downloadModalAnalysis() {
             heightLeft -= pageHeight;
         }
         
-        // Download com nome descritivo
-        const cleanFileName = (normalizedData.fileName || 'audio').replace(/\.[^/.]+$/, '').replace(/[^a-z0-9_-]/gi, '_');
+        // 🔟 DOWNLOAD: Nome descritivo com data
+        const cleanFileName = (normalizedData.fileName || 'audio')
+            .replace(/\.[^/.]+$/, '')
+            .replace(/[^a-z0-9_-]/gi, '_');
         const dateStr = new Date().toISOString().split('T')[0];
         const fileName = `Relatorio_SoundyAI_${cleanFileName}_${dateStr}.pdf`;
         
         pdf.save(fileName);
         
-        console.log('✅ Relatório PDF gerado com sucesso:', fileName);
-        showTemporaryFeedback('📄 Relatório PDF baixado com sucesso!');
+        console.log('✅ [PDF-SUCCESS] Relatório gerado:', fileName);
+        showTemporaryFeedback('✅ Relatório PDF baixado com sucesso!');
         
-        // 🔧 CORREÇÃO: Restaurar estilos originais
-        container.style.display = originalStyles.display;
-        container.style.visibility = originalStyles.visibility;
-        container.style.position = originalStyles.position;
-        container.style.left = originalStyles.left;
-        container.style.top = originalStyles.top;
-        container.style.zIndex = originalStyles.zIndex;
-        
-        // Limpar container após restaurar estilos
-        setTimeout(() => {
-            container.innerHTML = '';
-        }, 100);
+        // RESTAURAR: Estilos originais
+        Object.assign(container.style, originalStyles);
+        setTimeout(() => container.innerHTML = '', 100);
         
     } catch (error) {
-        console.error('❌ Erro ao gerar relatório PDF:', error);
+        console.error('❌ [PDF-ERROR] Erro ao gerar relatório:', error);
+        console.error('❌ [PDF-ERROR] Stack:', error.stack);
         showTemporaryFeedback('❌ Erro ao gerar PDF');
-        alert(`Erro ao gerar relatório PDF: ${error.message}\n\nTente novamente ou contate o suporte.`);
+        alert(`Erro ao gerar relatório PDF:\n\n${error.message}\n\nVerifique o console para mais detalhes.`);
     }
 }
 
