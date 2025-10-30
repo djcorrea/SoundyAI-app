@@ -7916,30 +7916,102 @@ async function downloadModalAnalysis() {
         }
         container.innerHTML = reportHTML;
         
-        // Aguardar renderização completa
+        const elemento = container.firstElementChild;
+        if (!elemento) {
+            throw new Error('Elemento do relatório não foi criado corretamente');
+        }
+        
+        // 🔧 CORREÇÃO: Forçar elemento visível para html2canvas
+        const originalStyles = {
+            display: container.style.display,
+            visibility: container.style.visibility,
+            position: container.style.position,
+            left: container.style.left,
+            top: container.style.top,
+            zIndex: container.style.zIndex
+        };
+        
+        container.style.display = 'block';
+        container.style.visibility = 'visible';
+        container.style.position = 'fixed';
+        container.style.left = '0';
+        container.style.top = '0';
+        container.style.zIndex = '9999';
+        container.style.width = '794px';
+        container.style.height = 'auto';
+        
+        console.log('📊 Container preparado para captura:', {
+            width: elemento.offsetWidth,
+            height: elemento.offsetHeight,
+            display: window.getComputedStyle(elemento).display,
+            visibility: window.getComputedStyle(elemento).visibility
+        });
+        
+        // Aguardar renderização completa (aumentado para garantir fontes carregadas)
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // Scroll into view para garantir renderização
+        elemento.scrollIntoView({ behavior: 'instant', block: 'start' });
+        
+        // Aguardar mais um pouco após scroll
         await new Promise(resolve => setTimeout(resolve, 200));
         
         // Capturar como imagem de alta qualidade
-        const canvas = await html2canvas(container.firstElementChild, {
+        console.log('📸 Iniciando captura com html2canvas...');
+        const canvas = await html2canvas(elemento, {
             scale: 2,
+            backgroundColor: '#0B0C14',
             useCORS: true,
             allowTaint: true,
-            backgroundColor: '#0B0C14',
             logging: false,
+            windowWidth: elemento.scrollWidth,
+            windowHeight: elemento.scrollHeight,
             width: 794,
-            height: 1123
+            height: elemento.scrollHeight,
+            x: 0,
+            y: 0
+        });
+        
+        console.log('✅ Canvas gerado:', {
+            width: canvas.width,
+            height: canvas.height
         });
         
         const imgData = canvas.toDataURL('image/png');
         
-        // Criar PDF
+        // Verificar se a imagem não está vazia (totalmente preta)
+        if (imgData === 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==') {
+            throw new Error('Canvas capturado está vazio. Verifique se o elemento está visível.');
+        }
+        
+        // Criar PDF com suporte a múltiplas páginas se necessário
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF('p', 'mm', 'a4');
         
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const imgWidth = 190; // Largura da imagem no PDF (deixando margem de 10mm)
+        const pageHeight = 295; // Altura da página A4
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        let heightLeft = imgHeight;
+        let position = 10; // Margem superior inicial
         
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        console.log('📄 Adicionando imagem ao PDF:', {
+            imgWidth,
+            imgHeight,
+            pageHeight,
+            pages: Math.ceil(imgHeight / pageHeight)
+        });
+        
+        // Adicionar primeira página
+        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+        
+        // Adicionar páginas extras se necessário
+        while (heightLeft >= 0) {
+            position = heightLeft - imgHeight;
+            pdf.addPage();
+            pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
+            heightLeft -= pageHeight;
+        }
         
         // Download com nome descritivo
         const cleanFileName = (normalizedData.fileName || 'audio').replace(/\.[^/.]+$/, '').replace(/[^a-z0-9_-]/gi, '_');
@@ -7951,8 +8023,18 @@ async function downloadModalAnalysis() {
         console.log('✅ Relatório PDF gerado com sucesso:', fileName);
         showTemporaryFeedback('📄 Relatório PDF baixado com sucesso!');
         
-        // Limpar container
-        container.innerHTML = '';
+        // 🔧 CORREÇÃO: Restaurar estilos originais
+        container.style.display = originalStyles.display;
+        container.style.visibility = originalStyles.visibility;
+        container.style.position = originalStyles.position;
+        container.style.left = originalStyles.left;
+        container.style.top = originalStyles.top;
+        container.style.zIndex = originalStyles.zIndex;
+        
+        // Limpar container após restaurar estilos
+        setTimeout(() => {
+            container.innerHTML = '';
+        }, 100);
         
     } catch (error) {
         console.error('❌ Erro ao gerar relatório PDF:', error);
