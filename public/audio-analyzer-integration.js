@@ -8217,34 +8217,50 @@ function normalizeAnalysisDataForPDF(analysis) {
         userSpectral: analysis.user?.spectral
     });
     
-    // ✅ FREQUÊNCIAS (corrige objeto aninhado)
+    // ✅ FREQUÊNCIAS — corrigindo campos energy_db, percentage e range
     const bandsSrc = analysis.bands || analysis.spectralBands || analysis.spectral?.bands || {};
     const extractBand = (band) => {
-      if (!band) return '—';
-      if (typeof band === 'number') return band.toFixed(1);
-      if (typeof band.rms_db === 'number') return band.rms_db.toFixed(1);
-      if (typeof band.value === 'number') return band.value.toFixed(1);
-      return '—';
+      if (!band) return { db: '—', pct: '—', range: '' };
+      if (typeof band === 'number') return { db: band.toFixed(1), pct: '—', range: '' };
+      const db = band.energy_db ?? band.rms_db ?? band.value ?? null;
+      const pct = band.percentage ?? band.percent ?? null;
+      const range = band.range ?? '';
+      return {
+        db: db !== null ? db.toFixed(1) : '—',
+        pct: pct !== null ? pct.toFixed(1) + '%' : '—',
+        range
+      };
     };
 
+    // Formata todas as bandas principais
     const spectral = {
       sub:  extractBand(bandsSrc.sub),
       bass: extractBand(bandsSrc.bass),
+      lowMid: extractBand(bandsSrc.lowMid),
       mid:  extractBand(bandsSrc.mid),
-      high: extractBand(bandsSrc.high)
+      highMid: extractBand(bandsSrc.highMid),
+      presence: extractBand(bandsSrc.presence),
+      air: extractBand(bandsSrc.air)
     };
-    console.log('📈 [PDF-FIX] Bandas resolvidas:', spectral);
+
+    console.log('� [PDF-FIX] Bandas espectrais resolvidas:', spectral);
     
-    // ✅ SCORE CORRIGIDO
+    // ✅ SCORE SINCRONIZADO COM A UI
     let score = analysis.scoring?.final 
-             ?? analysis.user?.score
+             ?? analysis.user?.score 
+             ?? analysis.scores?.final 
              ?? analysis.score 
              ?? 0;
 
-    const scoreUI = parseFloat(document.querySelector('.score-final-value')?.dataset?.value || '0');
-    if (scoreUI > 0 && Math.abs(score - scoreUI) > 1) {
-      console.warn('⚠️ [PDF-FIX] Ajustando score com base na UI:', scoreUI);
-      score = scoreUI;
+    const uiScoreEl = document.querySelector('.score-final-value');
+    if (uiScoreEl) {
+      const scoreUI = parseFloat(uiScoreEl.dataset?.value || uiScoreEl.textContent || '0');
+      if (!isNaN(scoreUI) && scoreUI > 0 && Math.abs(score - scoreUI) > 1) {
+        console.warn('⚙️ [PDF-FIX] Score ajustado com base na UI:', { old: score, new: scoreUI });
+        score = scoreUI;
+      }
+    } else {
+      console.warn('⚠️ [PDF-FIX] Elemento de score na UI não encontrado, mantendo score:', score);
     }
     
     score = Math.round(score);
