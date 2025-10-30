@@ -8183,6 +8183,8 @@ function getAdvancedSuggestions(analysis) {
             
             // Normalizar itens
             const normalized = value.map(x => {
+                // ✅ PROTEÇÃO: Se x for null/undefined, retornar string vazia (será filtrada)
+                if (!x) return '';
                 if (typeof x === 'string') return x;
                 return x.detail || x.message || x.action || x.title || JSON.stringify(x);
             }).filter(Boolean);
@@ -8193,12 +8195,26 @@ function getAdvancedSuggestions(analysis) {
     }
     
     console.warn('⚠️ [PDF-SUGGESTIONS] Nenhuma sugestão encontrada');
+    // ✅ GARANTIA: Sempre retornar array (nunca undefined/null)
     return [];
 }
 
 // 📑 UTIL: Agrupar sugestões por categoria
 function groupSuggestions(sugs) {
     console.log('[PDF-SUGGESTIONS] Agrupando sugestões por categoria...');
+    
+    // ✅ PROTEÇÃO: Garantir que sugs é array válido
+    if (!Array.isArray(sugs)) {
+        console.warn('[PDF-SUGGESTIONS] ⚠️ sugs não é array, retornando vazio');
+        return {
+            Loudness: [],
+            'True Peak': [],
+            Dinâmica: [],
+            Stereo: [],
+            Espectral: [],
+            Geral: []
+        };
+    }
     
     const groups = {
         Loudness: [],
@@ -8212,6 +8228,9 @@ function groupSuggestions(sugs) {
     const push = (k, msg) => groups[k].push('• ' + msg);
     
     for (const s of sugs) {
+        // ✅ PROTEÇÃO: Ignorar itens não-string
+        if (typeof s !== 'string') continue;
+        
         const t = s.toLowerCase();
         if (t.includes('lufs') || t.includes('loudness')) {
             push('Loudness', s);
@@ -9016,7 +9035,8 @@ function generateReportHTML(data) {
         
         let html = '';
         for (const {key, icon} of categories) {
-            if (groups[key] && groups[key].length > 0) {
+            // ✅ PROTEÇÃO: Verificar se groups[key] existe e é array válido
+            if (groups[key] && Array.isArray(groups[key]) && groups[key].length > 0) {
                 html += `
                 <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; margin-bottom: 15px; border: 1px solid rgba(139, 92, 246, 0.2);">
                     <h3 style="color: #8B5CF6; margin: 0 0 15px 0; font-size: 16px; font-weight: 600; display: flex; align-items: center;">
