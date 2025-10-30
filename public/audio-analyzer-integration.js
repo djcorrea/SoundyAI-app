@@ -7905,6 +7905,419 @@ window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
 // � Mostrar feedback temporário
 // (definição duplicada de showTemporaryFeedback removida — mantida a versão consolidada abaixo)
 
+// ========================================
+// 🎯 SISTEMA DE EXTRAÇÃO DE DADOS PARA PDF
+// Fonte de Verdade: Mesma estrutura que a UI
+// ========================================
+
+// 🔍 AUDITORIA: Log completo da estrutura de análise
+function auditAnalysisStructure(analysis) {
+    console.log('🔍 [AUDIT] ============ AUDITORIA DE ESTRUTURA ============');
+    console.log('[AUDIT] analysis keys:', Object.keys(analysis || {}));
+    console.log('[AUDIT] analysis.raw:', analysis);
+    
+    // Modo comparação (DALL / Reference Mode)
+    const isComparison = !!(analysis?.user || analysis?.reference || analysis?.target || analysis?.primary);
+    console.log('[AUDIT] comparison?', {
+        hasUser: !!analysis?.user,
+        hasRef: !!analysis?.reference,
+        hasTarget: !!analysis?.target,
+        hasPrimary: !!analysis?.primary,
+        mode: isComparison ? 'COMPARISON' : 'SINGLE'
+    });
+    
+    // Score structure
+    console.log('[AUDIT] score sources:', {
+        root: analysis?.score,
+        scoring_final: analysis?.scoring?.final,
+        results_finalScore: analysis?.results?.finalScore,
+        final_score: analysis?.final?.score,
+        user_score: analysis?.user?.score,
+        hasSubscores: !!(analysis?.subscores || analysis?.components)
+    });
+    
+    // Bandas espectrais
+    console.log('[AUDIT] spectral bands sources:', {
+        bands: !!analysis?.bands,
+        spectralBands: !!analysis?.spectralBands,
+        spectral_bands: !!analysis?.spectral?.bands,
+        user_bands: !!analysis?.user?.bands,
+        metrics_bands: !!analysis?.metrics?.bands
+    });
+    
+    // Sugestões
+    console.log('[AUDIT] suggestions sources:', {
+        suggestions: Array.isArray(analysis?.suggestions) ? analysis.suggestions.length : 0,
+        suggestionsAdvanced: Array.isArray(analysis?.suggestionsAdvanced) ? analysis.suggestionsAdvanced.length : 0,
+        recommendations: Array.isArray(analysis?.recommendations) ? analysis.recommendations.length : 0,
+        recommendationsAdvanced: Array.isArray(analysis?.recommendationsAdvanced) ? analysis.recommendationsAdvanced.length : 0,
+        ai_suggestions: !!analysis?.ai?.suggestions,
+        user_suggestions: Array.isArray(analysis?.user?.suggestions) ? analysis.user.suggestions.length : 0
+    });
+    
+    console.log('🔍 [AUDIT] ============ FIM DA AUDITORIA ============');
+}
+
+// 🎯 UTIL: Extrair score final correto (NUNCA sub-scores)
+function getFinalScore(analysis) {
+    if (!analysis) {
+        console.warn('[PDF-SCORE] Análise ausente');
+        return null;
+    }
+    
+    // Caso COMPARAÇÃO (user vs reference)
+    if (analysis.user || analysis.reference || analysis.target || analysis.primary) {
+        console.log('[PDF-SCORE] Modo COMPARAÇÃO detectado');
+        const a = analysis.user || analysis.target || analysis.primary || {};
+        
+        // Fontes válidas para score final do USUÁRIO
+        const scoreUser =
+            a.score ??
+            a.scoring?.final ??
+            a.results?.finalScore ??
+            a.final?.score ??
+            null;
+        
+        if (Number.isFinite(scoreUser)) {
+            console.log('✅ [PDF-SCORE] Score do usuário extraído (comparação):', Math.round(scoreUser));
+            return Math.round(scoreUser);
+        }
+        
+        console.warn('⚠️ [PDF-SCORE] Score do usuário não encontrado em modo comparação');
+        return null;
+    }
+    
+    // Caso NORMAL (single)
+    const score =
+        analysis.score ??
+        analysis.scoring?.final ??
+        analysis.results?.finalScore ??
+        analysis.final?.score ??
+        null;
+    
+    // Bloquear sub-scores por nome
+    const rejectKeys = [
+        'subscores', 'components', 'breakdown', 'partial', 'weights',
+        'loudnessScore', 'spectralScore', 'dynamicsScore', 'stereoScore'
+    ];
+    
+    for (const k of rejectKeys) {
+        if (analysis[k]) {
+            console.log(`[PDF-SCORE] Sub-score detectado (${k}), ignorando para score final`);
+        }
+    }
+    
+    if (Number.isFinite(score)) {
+        console.log('✅ [PDF-SCORE] Score final extraído (single):', Math.round(score));
+        return Math.round(score);
+    }
+    
+    console.warn('⚠️ [PDF-SCORE] Score final não encontrado');
+    return null;
+}
+
+// 🏆 UTIL: Obter classificação do score
+function getClassification(analysis, score) {
+    const classification =
+        analysis.classification ??
+        analysis.scoring?.classification ??
+        (Number.isFinite(score)
+            ? score >= 95 ? 'Referência Mundial'
+            : score >= 85 ? 'Profissional'
+            : score >= 70 ? 'Avançado'
+            : score >= 50 ? 'Intermediário'
+            : 'Iniciante'
+            : '—'
+        );
+    
+    console.log('[PDF-CLASSIFICATION]', classification, '(score:', score, ')');
+    return classification;
+}
+
+// ✅ VALIDAÇÃO: Comparar score do PDF com UI
+function validateScoreAgainstUI(score) {
+    const el = document.querySelector('.score-final-value');
+    const uiScore = el?.dataset?.value ? Number(el.dataset.value) : NaN;
+    
+    if (Number.isFinite(score) && Number.isFinite(uiScore)) {
+        const diff = Math.abs(score - uiScore);
+        if (diff > 1) {
+            console.warn('🚨 [PDF-VALIDATE] DIVERGÊNCIA SCORE:', { pdf: score, ui: uiScore, diff });
+        } else {
+            console.log('✅ [PDF-VALIDATE] SCORE OK (diff:', diff, ')');
+        }
+    } else {
+        console.warn('[PDF-VALIDATE] Score não validável:', { pdf: score, ui: uiScore });
+    }
+}
+
+// 📈 UTIL: Extrair bandas espectrais (diretamente como na UI)
+function extractBands(analysis) {
+    console.log('[PDF-BANDS] Iniciando extração de bandas...');
+    
+    // Fontes preferenciais (mesma ordem da UI)
+    const b =
+        analysis.bands ||
+        analysis.spectralBands ||
+        analysis.spectral?.bands ||
+        analysis.user?.bands ||
+        analysis.metrics?.bands ||
+        null;
+    
+    if (b) {
+        console.log('[PDF-BANDS] Objeto bands encontrado:', Object.keys(b));
+        
+        const finite = (v) => Number.isFinite(v) ? Number(v) : null;
+        
+        const extracted = {
+            sub:  finite(b.sub?.rms_db)  ?? finite(b.subBass?.rms_db) ?? finite(b.sub) ?? finite(b.subBass),
+            bass: finite(b.bass?.rms_db) ?? finite(b.low?.rms_db)     ?? finite(b.bass) ?? finite(b.low),
+            mid:  finite(b.mid?.rms_db)  ?? finite(b.midrange?.rms_db)?? finite(b.mid) ?? finite(b.midrange),
+            high: finite(b.high?.rms_db) ?? finite(b.presence?.rms_db)?? finite(b.treble?.rms_db) ?? finite(b.high) ?? finite(b.presence) ?? finite(b.treble)
+        };
+        
+        console.log('✅ [PDF-BANDS] Bandas extraídas:', extracted);
+        return extracted;
+    }
+    
+    console.log('[PDF-BANDS] Objeto bands não encontrado, tentando fallback...');
+    return null;
+}
+
+// 📊 FALLBACK: Computar bandas do espectro (se não vier pronto)
+function computeBandsFromSpectrum(analysis) {
+    console.log('[PDF-BANDS] Tentando computar bandas do espectro...');
+    
+    const spec = analysis.spectral || analysis.user?.spectral || {};
+    const freqs = spec.freqs || spec.frequencies;
+    const magDb = spec.rmsDb || spec.magDb || spec.powerDb;
+    
+    if (!Array.isArray(freqs) || !Array.isArray(magDb) || freqs.length !== magDb.length) {
+        console.log('[PDF-BANDS] Espectro inválido ou ausente');
+        return null;
+    }
+    
+    console.log(`[PDF-BANDS] Computando bandas de ${freqs.length} pontos espectrais...`);
+    
+    const bins = {
+        sub:   {min:20,   max:60},
+        bass:  {min:60,   max:250},
+        mid:   {min:250,  max:4000},
+        high:  {min:4000, max:20000}
+    };
+    
+    const computed = Object.fromEntries(Object.entries(bins).map(([k, {min,max}]) => {
+        const vals = [];
+        for (let i=0; i<freqs.length; i++) {
+            const f = freqs[i];
+            if (f >= min && f < max && Number.isFinite(magDb[i])) {
+                vals.push(magDb[i]);
+            }
+        }
+        const avg = vals.length ? (vals.reduce((a,b) => a+b, 0) / vals.length) : null;
+        return [k, Number.isFinite(avg) ? Number(avg) : null];
+    }));
+    
+    console.log('✅ [PDF-BANDS] Bandas computadas:', computed);
+    return computed;
+}
+
+// 🎨 FALLBACK FINAL: Extrair bandas da UI (última linha de defesa)
+function extractBandsFromUI() {
+    console.log('[PDF-BANDS] Última tentativa: extrair bandas da UI...');
+    
+    const get = (sel) => {
+        const el = document.querySelector(sel);
+        const v = el?.dataset?.value ?? el?.textContent;
+        const n = parseFloat(String(v).replace(/[^0-9.-]/g,''));
+        return Number.isFinite(n) ? n : null;
+    };
+    
+    const uiBands = {
+        sub:  get('[data-metric="band-sub"]') ?? get('[data-band="sub"]'),
+        bass: get('[data-metric="band-bass"]') ?? get('[data-band="bass"]'),
+        mid:  get('[data-metric="band-mid"]') ?? get('[data-band="mid"]'),
+        high: get('[data-metric="band-high"]') ?? get('[data-band="high"]')
+    };
+    
+    console.log('✅ [PDF-BANDS] Bandas extraídas da UI:', uiBands);
+    return uiBands;
+}
+
+// 🎯 ENCADEAMENTO: Resolver bandas com múltiplos fallbacks
+function getBandsResolved(analysis) {
+    const result =
+        extractBands(analysis) ||
+        computeBandsFromSpectrum(analysis) ||
+        extractBandsFromUI();
+    
+    if (result) {
+        const source = extractBands(analysis) ? 'bands' : 
+                      computeBandsFromSpectrum(analysis) ? 'spectrum' : 'ui';
+        console.log(`✅ [PDF-BANDS] source: ${source}`);
+    } else {
+        console.warn('⚠️ [PDF-BANDS] Nenhuma fonte de bandas disponível!');
+    }
+    
+    return result;
+}
+
+// 💡 UTIL: Extrair sugestões avançadas/enriquecidas (NUNCA genérica)
+function getAdvancedSuggestions(analysis) {
+    console.log('[PDF-SUGGESTIONS] Buscando sugestões avançadas...');
+    
+    // Ordem de prioridade (ajustada ao projeto)
+    const candidates = [
+        { key: 'suggestionsAdvanced', value: analysis.suggestionsAdvanced },
+        { key: 'recommendationsAdvanced', value: analysis.recommendationsAdvanced },
+        { key: 'ai.suggestions.enriched', value: analysis.ai?.suggestions?.enriched },
+        { key: 'ai.recommendations.advanced', value: analysis.ai?.recommendations?.advanced },
+        { key: 'user.suggestionsAdvanced', value: analysis.user?.suggestionsAdvanced },
+        { key: 'suggestions (fallback)', value: analysis.suggestions },
+        { key: 'recommendations (fallback)', value: analysis.recommendations }
+    ];
+    
+    for (const {key, value} of candidates) {
+        if (Array.isArray(value) && value.length > 0) {
+            console.log(`✅ [PDF-SUGGESTIONS] Fonte: ${key} (${value.length} itens)`);
+            
+            // Normalizar itens
+            const normalized = value.map(x => {
+                if (typeof x === 'string') return x;
+                return x.detail || x.message || x.action || x.title || JSON.stringify(x);
+            }).filter(Boolean);
+            
+            console.log('[PDF-SUGGESTIONS] advanced:', normalized.length, 'itens');
+            return normalized;
+        }
+    }
+    
+    console.warn('⚠️ [PDF-SUGGESTIONS] Nenhuma sugestão encontrada');
+    return [];
+}
+
+// 📑 UTIL: Agrupar sugestões por categoria
+function groupSuggestions(sugs) {
+    console.log('[PDF-SUGGESTIONS] Agrupando sugestões por categoria...');
+    
+    const groups = {
+        Loudness: [],
+        'True Peak': [],
+        Dinâmica: [],
+        Stereo: [],
+        Espectral: [],
+        Geral: []
+    };
+    
+    const push = (k, msg) => groups[k].push('• ' + msg);
+    
+    for (const s of sugs) {
+        const t = s.toLowerCase();
+        if (t.includes('lufs') || t.includes('loudness')) {
+            push('Loudness', s);
+        } else if (t.includes('true peak') || t.includes('dbtp')) {
+            push('True Peak', s);
+        } else if (t.includes('dr') || t.includes('dinâmic')) {
+            push('Dinâmica', s);
+        } else if (t.includes('stereo') || t.includes('correla')) {
+            push('Stereo', s);
+        } else if (t.includes('sub') || t.includes('grave') || t.includes('médio') || t.includes('agudo') || t.includes('hz')) {
+            push('Espectral', s);
+        } else {
+            push('Geral', s);
+        }
+    }
+    
+    const summary = Object.entries(groups)
+        .filter(([k, v]) => v.length > 0)
+        .map(([k, v]) => `${k}:${v.length}`)
+        .join(', ');
+    
+    console.log('[PDF-SUGGESTIONS] grouped:', '{' + summary + '}');
+    
+    return groups;
+}
+
+// 🔧 UTIL: Escolher primeiro valor numérico válido
+function pickNum(arr, def = null) {
+    for (const v of arr) {
+        if (Number.isFinite(v)) return Number(v);
+    }
+    return def;
+}
+
+// 📋 PIPELINE: Construir dados completos para PDF
+function buildPdfData(analysis) {
+    console.log('📋 [PDF-BUILD] Construindo dados para PDF...');
+    
+    // Auditoria completa
+    auditAnalysisStructure(analysis);
+    
+    // Score final
+    const score = getFinalScore(analysis);
+    const classification = getClassification(analysis, score);
+    validateScoreAgainstUI(score);
+    
+    // Bandas espectrais
+    const bands = getBandsResolved(analysis);
+    
+    // Sugestões avançadas
+    const adv = getAdvancedSuggestions(analysis);
+    
+    const pdfData = {
+        file: {
+            name:  analysis.fileName || analysis.file?.name || analysis.metadata?.fileName || 'audio',
+            sr:    pickNum([analysis.sampleRate, analysis.metadata?.sampleRate], 44100),
+            ch:    pickNum([analysis.channels, analysis.metadata?.channels], 2),
+            dur:   pickNum([analysis.duration, analysis.metadata?.duration], 0),
+            bitDepth: analysis.bitDepth || analysis.metadata?.bitDepth || 'N/A'
+        },
+        score: { 
+            value: score, 
+            classification 
+        },
+        loudness: {
+            integrated: pickNum([analysis.lufsIntegrated, analysis.loudness?.integrated, analysis.technicalData?.lufsIntegrated]),
+            shortTerm:  pickNum([analysis.avgLoudness, analysis.loudness?.shortTerm, analysis.technicalData?.avgLoudness]),
+            momentary:  pickNum([analysis.loudness?.momentary, analysis.metrics?.loudness?.momentary, analysis.avgLoudness]),
+            lra:        pickNum([analysis.lra, analysis.loudness?.lra, analysis.technicalData?.lra])
+        },
+        truePeak: {
+            maxDbtp:    pickNum([analysis.truePeakDbtp, analysis.truePeak?.maxDbtp, analysis.technicalData?.truePeakDbtp]),
+            clippingSm: pickNum([analysis.truePeak?.clipping?.samples, analysis.clipping?.samples], 0),
+            clippingPc: pickNum([analysis.truePeak?.clipping?.percentage, analysis.clipping?.percentage], 0)
+        },
+        dynamics: {
+            range: pickNum([analysis.dynamicRange, analysis.dynamics?.range, analysis.technicalData?.dynamicRange]),
+            crest: pickNum([analysis.crestFactor, analysis.dynamics?.crest, analysis.technicalData?.crestFactor])
+        },
+        stereo: {
+            width:        pickNum([analysis.stereo?.width, analysis.stereoWidth], null),
+            correlation:  pickNum([analysis.stereoCorrelation, analysis.stereo?.correlation], null),
+            monoCompat:   pickNum([analysis.stereo?.monoCompatibility, analysis.monoCompatibility], null)
+        },
+        spectral: {
+            sub:  pickNum([bands?.sub]),
+            bass: pickNum([bands?.bass]),
+            mid:  pickNum([bands?.mid]),
+            high: pickNum([bands?.high])
+        },
+        suggestionsAdvanced: adv
+    };
+    
+    console.log('✅ [PDF-BUILD] Dados construídos com sucesso:', {
+        hasScore: Number.isFinite(pdfData.score.value),
+        hasBands: !!(pdfData.spectral.sub || pdfData.spectral.bass),
+        suggestionCount: pdfData.suggestionsAdvanced.length
+    });
+    
+    return pdfData;
+}
+
+// ========================================
+// FIM DO SISTEMA DE EXTRAÇÃO DE DADOS
+// ========================================
+
 // 📄 Baixar relatório do modal (IMPLEMENTAÇÃO ROBUSTA COM VALIDAÇÃO)
 async function downloadModalAnalysis() {
     // 1️⃣ VALIDAÇÃO: Verificar se análise está disponível no alias global
@@ -7938,14 +8351,11 @@ async function downloadModalAnalysis() {
     try {
         showTemporaryFeedback('⚙️ Gerando relatório PDF...');
         
-        // 3️⃣ VALIDAÇÃO CONTRA UI: Comparar dados do relatório com a UI
-        validateAnalysisDataAgainstUI(analysis);
+        // 3️⃣ CONSTRUIR DADOS: Usar novo sistema de extração robusta
+        const pdfData = buildPdfData(analysis);
         
-        // 4️⃣ NORMALIZAR: Extrair e formatar dados
-        const normalizedData = normalizeAnalysisDataForPDF(analysis);
-        
-        // 5️⃣ GERAR HTML: Template profissional
-        const reportHTML = generateReportHTML(normalizedData);
+        // 4️⃣ GERAR HTML: Template profissional
+        const reportHTML = generateReportHTML(pdfData);
         
         // 6️⃣ PREPARAR CONTAINER: Inserir e tornar visível
         const container = document.getElementById('pdf-report-template');
@@ -8404,9 +8814,23 @@ function generateReportHTML(data) {
     const date = new Date().toLocaleDateString('pt-BR');
     const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     
+    // Helper: Formatar valor com fallback
+    const fmt = (val, suffix = '') => {
+        if (val === null || val === undefined || val === '—') return '—';
+        return `${val}${suffix}`;
+    };
+    
+    // Extrair valores com segurança
+    const score = data.score?.value ?? data.score ?? 0;
+    const classification = data.score?.classification ?? data.classification ?? '—';
+    const fileName = data.file?.name ?? data.fileName ?? 'audio';
+    const sampleRate = data.file?.sr ?? data.sampleRate ?? 44100;
+    const channels = data.file?.ch ?? data.channels ?? 2;
+    const duration = data.file?.dur ?? data.duration ?? 0;
+    
     // Formatar duração
-    const minutes = Math.floor(data.duration / 60);
-    const seconds = Math.floor(data.duration % 60);
+    const minutes = Math.floor(duration / 60);
+    const seconds = Math.floor(duration % 60);
     const durationStr = `${minutes}:${String(seconds).padStart(2, '0')}`;
     
     return `
@@ -8428,8 +8852,8 @@ function generateReportHTML(data) {
     <div style="background: linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%); padding: 20px 30px; border-radius: 12px; color: white; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);">
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
-                <h1 style="margin: 0; font-size: 48px; font-weight: 700;">${data.score}<span style="font-size: 32px; opacity: 0.8;">/100</span></h1>
-                <p style="margin: 8px 0 0 0; font-size: 18px; opacity: 0.95; font-weight: 500;">${data.classification}</p>
+                <h1 style="margin: 0; font-size: 48px; font-weight: 700;">${score}<span style="font-size: 32px; opacity: 0.8;">/100</span></h1>
+                <p style="margin: 8px 0 0 0; font-size: 18px; opacity: 0.95; font-weight: 500;">${classification}</p>
             </div>
             <div style="font-size: 64px; opacity: 0.9;">🎵</div>
         </div>
@@ -8438,9 +8862,9 @@ function generateReportHTML(data) {
     <!-- Informações do Arquivo -->
     <div style="background: rgba(255,255,255,0.05); padding: 15px 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #8B5CF6;">
         <p style="margin: 0; font-size: 12px; color: #AAA; text-transform: uppercase; letter-spacing: 0.5px;">ARQUIVO ANALISADO</p>
-        <p style="margin: 8px 0 0 0; font-size: 16px; font-weight: 600; color: #FFF;">${data.fileName}</p>
+        <p style="margin: 8px 0 0 0; font-size: 16px; font-weight: 600; color: #FFF;">${fileName}</p>
         <p style="margin: 5px 0 0 0; font-size: 13px; color: #999;">
-            ⏱️ ${durationStr} min &nbsp;|&nbsp; 🎚️ ${data.sampleRate}Hz &nbsp;|&nbsp; 🔊 ${data.channels === 2 ? 'Stereo' : data.channels + ' canais'}
+            ⏱️ ${durationStr} min &nbsp;|&nbsp; 🎚️ ${sampleRate}Hz &nbsp;|&nbsp; 🔊 ${channels === 2 ? 'Stereo' : channels + ' canais'}
         </p>
     </div>
 
@@ -8570,17 +8994,54 @@ function generateReportHTML(data) {
         </ul>
     </div>
 
-    <!-- Recomendações -->
-    <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; margin-bottom: 50px; border: 1px solid rgba(139, 92, 246, 0.2);">
-        <h3 style="color: #8B5CF6; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center;">
-            <span style="margin-right: 10px; font-size: 22px;">💡</span> Recomendações da IA
-        </h3>
-        <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px; line-height: 1.9;">
-            ${data.recommendations.map(r => `<li style="margin-bottom: 8px; padding-left: 20px; position: relative; color: #DDD;">
-                <span style="position: absolute; left: 0; color: #8B5CF6;">•</span> ${r}
-            </li>`).join('')}
-        </ul>
-    </div>
+    <!-- Recomendações Avançadas (Agrupadas por Categoria) -->
+    ${(() => {
+        const groups = groupSuggestions(data.suggestionsAdvanced || []);
+        const categories = [
+            { key: 'Loudness', icon: '🎧' },
+            { key: 'True Peak', icon: '⚙️' },
+            { key: 'Dinâmica', icon: '🎚️' },
+            { key: 'Stereo', icon: '🎛️' },
+            { key: 'Espectral', icon: '📈' },
+            { key: 'Geral', icon: '💡' }
+        ];
+        
+        let html = '';
+        for (const {key, icon} of categories) {
+            if (groups[key] && groups[key].length > 0) {
+                html += `
+                <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; margin-bottom: 15px; border: 1px solid rgba(139, 92, 246, 0.2);">
+                    <h3 style="color: #8B5CF6; margin: 0 0 15px 0; font-size: 16px; font-weight: 600; display: flex; align-items: center;">
+                        <span style="margin-right: 10px; font-size: 20px;">${icon}</span> ${key}
+                    </h3>
+                    <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px; line-height: 1.9;">
+                        ${groups[key].map(r => `<li style="margin-bottom: 8px; padding-left: 20px; position: relative; color: #DDD;">
+                            <span style="position: absolute; left: 0; color: #8B5CF6;">•</span> ${r.replace('• ', '')}
+                        </li>`).join('')}
+                    </ul>
+                </div>
+                `;
+            }
+        }
+        
+        // Se não houver nenhuma sugestão, mostrar mensagem padrão
+        if (!html) {
+            html = `
+            <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; margin-bottom: 15px; border: 1px solid rgba(139, 92, 246, 0.2);">
+                <h3 style="color: #8B5CF6; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center;">
+                    <span style="margin-right: 10px; font-size: 22px;">💡</span> Recomendações da IA
+                </h3>
+                <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px; line-height: 1.9;">
+                    <li style="margin-bottom: 8px; padding-left: 20px; position: relative; color: #DDD;">
+                        <span style="position: absolute; left: 0; color: #52F7AD;">✅</span> Análise completa! Nenhum ajuste crítico necessário.
+                    </li>
+                </ul>
+            </div>
+            `;
+        }
+        
+        return html;
+    })()}
 
     <!-- Footer -->
     <div style="position: absolute; bottom: 30px; left: 40px; right: 40px; text-align: center; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
