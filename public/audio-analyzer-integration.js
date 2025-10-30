@@ -8708,23 +8708,36 @@ function generateReportHTML(data) {
         <h3 style="color: #8B5CF6; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center;">
             <span style="margin-right: 10px; font-size: 22px;">📈</span> Espectro de Frequências
         </h3>
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; font-size: 13px;">
-            <div style="text-align: center; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 6px;">
-                <p style="margin: 0; color: #AAA; font-size: 11px; text-transform: uppercase;">Sub (20-60Hz)</p>
-                <p style="margin: 8px 0 0 0; font-weight: 700; font-size: 18px; color: #FFF;">${data.spectral.sub} dB</p>
-            </div>
-            <div style="text-align: center; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 6px;">
-                <p style="margin: 0; color: #AAA; font-size: 11px; text-transform: uppercase;">Grave (60-250Hz)</p>
-                <p style="margin: 8px 0 0 0; font-weight: 700; font-size: 18px; color: #FFF;">${data.spectral.bass} dB</p>
-            </div>
-            <div style="text-align: center; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 6px;">
-                <p style="margin: 0; color: #AAA; font-size: 11px; text-transform: uppercase;">Médio (250-4kHz)</p>
-                <p style="margin: 8px 0 0 0; font-weight: 700; font-size: 18px; color: #FFF;">${data.spectral.mid} dB</p>
-            </div>
-            <div style="text-align: center; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 6px;">
-                <p style="margin: 0; color: #AAA; font-size: 11px; text-transform: uppercase;">Agudo (4k-20kHz)</p>
-                <p style="margin: 8px 0 0 0; font-weight: 700; font-size: 18px; color: #FFF;">${data.spectral.high} dB</p>
-            </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; font-size: 13px;">
+            ${(() => {
+                const renderBand = (label, band, range) => {
+                    if (!band || !band.db) return `
+                        <div style="text-align: center; padding: 12px; background: rgba(139, 92, 246, 0.1); border-radius: 8px;">
+                            <p style="margin: 0; color: #AAA; font-size: 10px; text-transform: uppercase; font-weight: 600;">${label}</p>
+                            <p style="margin: 0; color: #666; font-size: 9px;">${range}</p>
+                            <p style="margin: 8px 0 0 0; font-weight: 700; font-size: 18px; color: #FFF;">—</p>
+                        </div>
+                    `;
+                    return `
+                        <div style="text-align: center; padding: 12px; background: rgba(139, 92, 246, 0.1); border-radius: 8px;">
+                            <p style="margin: 0; color: #8B5CF6; font-size: 10px; text-transform: uppercase; font-weight: 600;">${label}</p>
+                            <p style="margin: 0; color: #666; font-size: 9px;">${range}</p>
+                            <p style="margin: 8px 0 0 0; font-weight: 700; font-size: 18px; color: #FFF;">${band.db} dB</p>
+                            <p style="margin: 4px 0 0 0; color: #AAA; font-size: 11px;">${band.pct || '—'}</p>
+                        </div>
+                    `;
+                };
+                
+                return [
+                    renderBand('SUB', data.spectral.sub, '20-60Hz'),
+                    renderBand('GRAVE', data.spectral.bass, '60-150Hz'),
+                    renderBand('LOW MID', data.spectral.lowMid, '150-500Hz'),
+                    renderBand('MÉDIO', data.spectral.mid, '500-2kHz'),
+                    renderBand('HIGH MID', data.spectral.highMid, '2-5kHz'),
+                    renderBand('PRESENCE', data.spectral.presence, '5-10kHz'),
+                    renderBand('AR', data.spectral.air, '10-20kHz')
+                ].join('');
+            })()}
         </div>
     </div>
 
