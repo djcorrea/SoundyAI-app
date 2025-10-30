@@ -23,6 +23,10 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/vanta/0.5.24/vanta.net.min.js" defer></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" defer></script>
+    
+    <!-- Dependências para geração de PDF profissional -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js" defer></script>
 
     <!-- Firebase e Scripts funcionais -->
     <script type="module" src="firebase.js?v=20250810"></script>
@@ -1062,5 +1066,8 @@
     
     <!-- 🧪 VERIFICAÇÃO: Modal de Gênero Musical -->
     <script src="verify-genre-modal.js" defer></script>
+    
+    <!-- Template invisível para geração de PDF -->
+    <div id="pdf-report-template" style="position: absolute; left: -9999px; top: 0; visibility: hidden;"></div>
 </body>
 </html>
