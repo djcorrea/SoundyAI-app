@@ -7880,38 +7880,377 @@ window.sendModalAnalysisToChat = async function sendModalAnalysisToChat() {
 // � Mostrar feedback temporário
 // (definição duplicada de showTemporaryFeedback removida — mantida a versão consolidada abaixo)
 
-// �📄 Baixar relatório do modal
-function downloadModalAnalysis() {
+// 📄 Baixar relatório do modal (NOVA IMPLEMENTAÇÃO PDF PROFISSIONAL)
+async function downloadModalAnalysis() {
     if (!currentModalAnalysis) {
         alert('Nenhuma análise disponível');
         return;
     }
     
-    console.log('📄 Baixando relatório...');
+    console.log('📄 Gerando relatório PDF profissional...');
+    
+    // Verificar se dependências estão carregadas
+    if (typeof window.jspdf === 'undefined' || typeof html2canvas === 'undefined') {
+        alert('Aguarde o carregamento das bibliotecas necessárias...');
+        console.warn('⚠️ Dependências PDF não carregadas ainda');
+        
+        // Tentar novamente após delay
+        setTimeout(() => downloadModalAnalysis(), 1000);
+        return;
+    }
     
     try {
-        const report = generateDetailedReport(currentModalAnalysis);
-        const blob = new Blob([report], { type: 'text/plain;charset=utf-8' });
-        const url = URL.createObjectURL(blob);
+        // Mostrar feedback de processamento
+        showTemporaryFeedback('⚙️ Gerando relatório PDF...');
         
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `prod_ai_audio_analysis_${Date.now()}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        // Normalizar dados para compatibilidade
+        const normalizedData = normalizeAnalysisData(currentModalAnalysis);
         
-        console.log('✅ Relatório baixado com sucesso');
-        showTemporaryFeedback('📄 Relatório baixado!');
+        // Criar template HTML
+        const reportHTML = generateReportHTML(normalizedData);
+        
+        // Inserir no container invisível
+        const container = document.getElementById('pdf-report-template');
+        if (!container) {
+            throw new Error('Container do relatório não encontrado');
+        }
+        container.innerHTML = reportHTML;
+        
+        // Aguardar renderização completa
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Capturar como imagem de alta qualidade
+        const canvas = await html2canvas(container.firstElementChild, {
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#0B0C14',
+            logging: false,
+            width: 794,
+            height: 1123
+        });
+        
+        const imgData = canvas.toDataURL('image/png');
+        
+        // Criar PDF
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        
+        // Download com nome descritivo
+        const cleanFileName = (normalizedData.fileName || 'audio').replace(/\.[^/.]+$/, '').replace(/[^a-z0-9_-]/gi, '_');
+        const dateStr = new Date().toISOString().split('T')[0];
+        const fileName = `Relatorio_SoundyAI_${cleanFileName}_${dateStr}.pdf`;
+        
+        pdf.save(fileName);
+        
+        console.log('✅ Relatório PDF gerado com sucesso:', fileName);
+        showTemporaryFeedback('📄 Relatório PDF baixado com sucesso!');
+        
+        // Limpar container
+        container.innerHTML = '';
         
     } catch (error) {
-        console.error('❌ Erro ao baixar relatório:', error);
-        alert('Erro ao gerar relatório');
+        console.error('❌ Erro ao gerar relatório PDF:', error);
+        showTemporaryFeedback('❌ Erro ao gerar PDF');
+        alert(`Erro ao gerar relatório PDF: ${error.message}\n\nTente novamente ou contate o suporte.`);
     }
 }
 
-// 📋 Gerar relatório detalhado
+// � Normalizar dados da análise para formato compatível com PDF
+function normalizeAnalysisData(analysis) {
+    // Extrair métricas (formato centralizado ou legacy)
+    const metrics = analysis.metrics || {};
+    const tech = analysis.tech || analysis.technicalData || {};
+    
+    // Loudness
+    const loudness = metrics.loudness || tech.loudness || {};
+    
+    // True Peak
+    const truePeak = metrics.truePeak || tech.truePeak || {};
+    
+    // Dinâmica
+    const dynamics = metrics.dynamics || tech.dynamics || {};
+    
+    // Espectro
+    const spectral = metrics.spectral || tech.spectral || {};
+    const bands = spectral.bands || {};
+    
+    // Stereo
+    const stereo = metrics.stereo || tech.stereo || {};
+    
+    // Score e classificação
+    const score = analysis.qualityOverall || analysis.score || 0;
+    const classification = analysis.classification || getClassificationFromScore(score);
+    
+    // Diagnósticos e recomendações
+    const problems = analysis.problems || [];
+    const suggestions = analysis.suggestions || [];
+    const diagnostics = problems.length > 0 
+        ? problems.map(p => p.message || p) 
+        : ['✅ Nenhum problema crítico detectado'];
+    const recommendations = suggestions.length > 0 
+        ? suggestions.map(s => s.message || s.action || s) 
+        : ['✅ Análise completa realizada com sucesso'];
+    
+    // Formatação segura de valores
+    const formatValue = (val, decimals = 1, unit = '') => {
+        if (val === null || val === undefined || isNaN(val)) return 'N/A';
+        return `${Number(val).toFixed(decimals)}${unit}`;
+    };
+    
+    return {
+        score: Math.round(score),
+        classification,
+        fileName: analysis.fileName || 'audio_sem_nome.wav',
+        duration: analysis.duration || 0,
+        sampleRate: analysis.sampleRate || 44100,
+        channels: analysis.channels || 2,
+        bitDepth: analysis.bitDepth || 'N/A',
+        loudness: {
+            integrated: formatValue(loudness.integrated, 1),
+            shortTerm: formatValue(loudness.shortTerm, 1),
+            momentary: formatValue(loudness.momentary, 1),
+            lra: formatValue(loudness.lra, 1)
+        },
+        truePeak: {
+            maxDbtp: formatValue(truePeak.maxDbtp, 2),
+            clipping: {
+                samples: truePeak.clipping?.samples || 0,
+                percentage: formatValue(truePeak.clipping?.percentage, 2)
+            }
+        },
+        dynamics: {
+            range: formatValue(dynamics.range, 1),
+            crest: formatValue(dynamics.crest, 1)
+        },
+        spectral: {
+            sub: formatValue(bands.sub || bands.subBass, 1),
+            bass: formatValue(bands.bass, 1),
+            mid: formatValue(bands.mid || bands.midrange, 1),
+            high: formatValue(bands.presence || bands.high || bands.treble, 1)
+        },
+        stereo: {
+            width: formatValue(stereo.width, 1),
+            correlation: formatValue(stereo.correlation, 2),
+            monoCompatibility: formatValue(stereo.monoCompatibility, 1)
+        },
+        diagnostics,
+        recommendations
+    };
+}
+
+// 🏆 Classificação baseada em score
+function getClassificationFromScore(score) {
+    if (score >= 90) return '🏆 Profissional';
+    if (score >= 75) return '⭐ Avançado';
+    if (score >= 60) return '👍 Intermediário';
+    if (score >= 40) return '📚 Básico';
+    return '🔧 Necessita Melhorias';
+}
+
+// 🎨 Gerar HTML profissional do relatório para PDF
+function generateReportHTML(data) {
+    const date = new Date().toLocaleDateString('pt-BR');
+    const time = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    
+    // Formatar duração
+    const minutes = Math.floor(data.duration / 60);
+    const seconds = Math.floor(data.duration % 60);
+    const durationStr = `${minutes}:${String(seconds).padStart(2, '0')}`;
+    
+    return `
+<div style="width: 794px; min-height: 1123px; background: #0B0C14; color: #EAEAEA; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 40px; box-sizing: border-box; position: relative;">
+
+    <!-- Header -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid rgba(139, 92, 246, 0.3); padding-bottom: 20px;">
+        <div>
+            <h1 style="color: #8B5CF6; margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">SoundyAI</h1>
+            <p style="margin: 5px 0 0 0; font-size: 14px; color: #AAA;">Inteligência Artificial para Produtores Musicais</p>
+        </div>
+        <div style="text-align: right;">
+            <h2 style="color: #8B5CF6; margin: 0; font-size: 24px; font-weight: 600;">Relatório de Análise</h2>
+            <p style="font-size: 12px; color: #AAA; margin: 5px 0 0 0;">${date} às ${time}</p>
+        </div>
+    </div>
+
+    <!-- Score Card -->
+    <div style="background: linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%); padding: 20px 30px; border-radius: 12px; color: white; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <h1 style="margin: 0; font-size: 48px; font-weight: 700;">${data.score}<span style="font-size: 32px; opacity: 0.8;">/100</span></h1>
+                <p style="margin: 8px 0 0 0; font-size: 18px; opacity: 0.95; font-weight: 500;">${data.classification}</p>
+            </div>
+            <div style="font-size: 64px; opacity: 0.9;">🎵</div>
+        </div>
+    </div>
+
+    <!-- Informações do Arquivo -->
+    <div style="background: rgba(255,255,255,0.05); padding: 15px 20px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #8B5CF6;">
+        <p style="margin: 0; font-size: 12px; color: #AAA; text-transform: uppercase; letter-spacing: 0.5px;">ARQUIVO ANALISADO</p>
+        <p style="margin: 8px 0 0 0; font-size: 16px; font-weight: 600; color: #FFF;">${data.fileName}</p>
+        <p style="margin: 5px 0 0 0; font-size: 13px; color: #999;">
+            ⏱️ ${durationStr} min &nbsp;|&nbsp; 🎚️ ${data.sampleRate}Hz &nbsp;|&nbsp; 🔊 ${data.channels === 2 ? 'Stereo' : data.channels + ' canais'}
+        </p>
+    </div>
+
+    <!-- Grid de Métricas -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px;">
+        
+        <!-- Loudness Card -->
+        <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; border: 1px solid rgba(139, 92, 246, 0.2);">
+            <h3 style="color: #8B5CF6; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center;">
+                <span style="margin-right: 10px; font-size: 22px;">🎧</span> Loudness
+            </h3>
+            <div style="font-size: 13px; line-height: 2;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                    <span style="color: #AAA;">Integrado:</span>
+                    <span style="font-weight: 600; color: #FFF;">${data.loudness.integrated} LUFS</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                    <span style="color: #AAA;">Curto Prazo:</span>
+                    <span style="font-weight: 600; color: #FFF;">${data.loudness.shortTerm} LUFS</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                    <span style="color: #AAA;">Momentâneo:</span>
+                    <span style="font-weight: 600; color: #FFF;">${data.loudness.momentary} LUFS</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: #AAA;">LRA:</span>
+                    <span style="font-weight: 600; color: #FFF;">${data.loudness.lra} LU</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- True Peak Card -->
+        <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; border: 1px solid rgba(139, 92, 246, 0.2);">
+            <h3 style="color: #8B5CF6; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center;">
+                <span style="margin-right: 10px; font-size: 22px;">⚙️</span> True Peak
+            </h3>
+            <div style="font-size: 13px; line-height: 2;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                    <span style="color: #AAA;">Pico Real:</span>
+                    <span style="font-weight: 600; color: #FFF;">${data.truePeak.maxDbtp} dBTP</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                    <span style="color: #AAA;">Clipping (samples):</span>
+                    <span style="font-weight: 600; color: ${data.truePeak.clipping.samples > 0 ? '#FF7B7B' : '#52F7AD'};">${data.truePeak.clipping.samples}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: #AAA;">Clipping (%):</span>
+                    <span style="font-weight: 600; color: ${parseFloat(data.truePeak.clipping.percentage) > 0 ? '#FF7B7B' : '#52F7AD'};">${data.truePeak.clipping.percentage}%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dinâmica Card -->
+        <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; border: 1px solid rgba(139, 92, 246, 0.2);">
+            <h3 style="color: #8B5CF6; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center;">
+                <span style="margin-right: 10px; font-size: 22px;">🎚️</span> Dinâmica
+            </h3>
+            <div style="font-size: 13px; line-height: 2;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                    <span style="color: #AAA;">Dynamic Range:</span>
+                    <span style="font-weight: 600; color: #FFF;">${data.dynamics.range} dB</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: #AAA;">Crest Factor:</span>
+                    <span style="font-weight: 600; color: #FFF;">${data.dynamics.crest}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stereo Card -->
+        <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; border: 1px solid rgba(139, 92, 246, 0.2);">
+            <h3 style="color: #8B5CF6; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center;">
+                <span style="margin-right: 10px; font-size: 22px;">🎛️</span> Stereo
+            </h3>
+            <div style="font-size: 13px; line-height: 2;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                    <span style="color: #AAA;">Largura Stereo:</span>
+                    <span style="font-weight: 600; color: #FFF;">${data.stereo.width}%</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+                    <span style="color: #AAA;">Correlação:</span>
+                    <span style="font-weight: 600; color: #FFF;">${data.stereo.correlation}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                    <span style="color: #AAA;">Compat. Mono:</span>
+                    <span style="font-weight: 600; color: #FFF;">${data.stereo.monoCompatibility}%</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Espectro de Frequências -->
+    <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; margin-bottom: 25px; border: 1px solid rgba(139, 92, 246, 0.2);">
+        <h3 style="color: #8B5CF6; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center;">
+            <span style="margin-right: 10px; font-size: 22px;">📈</span> Espectro de Frequências
+        </h3>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; font-size: 13px;">
+            <div style="text-align: center; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 6px;">
+                <p style="margin: 0; color: #AAA; font-size: 11px; text-transform: uppercase;">Sub (20-60Hz)</p>
+                <p style="margin: 8px 0 0 0; font-weight: 700; font-size: 18px; color: #FFF;">${data.spectral.sub} dB</p>
+            </div>
+            <div style="text-align: center; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 6px;">
+                <p style="margin: 0; color: #AAA; font-size: 11px; text-transform: uppercase;">Grave (60-250Hz)</p>
+                <p style="margin: 8px 0 0 0; font-weight: 700; font-size: 18px; color: #FFF;">${data.spectral.bass} dB</p>
+            </div>
+            <div style="text-align: center; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 6px;">
+                <p style="margin: 0; color: #AAA; font-size: 11px; text-transform: uppercase;">Médio (250-4kHz)</p>
+                <p style="margin: 8px 0 0 0; font-weight: 700; font-size: 18px; color: #FFF;">${data.spectral.mid} dB</p>
+            </div>
+            <div style="text-align: center; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 6px;">
+                <p style="margin: 0; color: #AAA; font-size: 11px; text-transform: uppercase;">Agudo (4k-20kHz)</p>
+                <p style="margin: 8px 0 0 0; font-weight: 700; font-size: 18px; color: #FFF;">${data.spectral.high} dB</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Diagnóstico -->
+    <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid rgba(139, 92, 246, 0.2);">
+        <h3 style="color: #8B5CF6; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center;">
+            <span style="margin-right: 10px; font-size: 22px;">🧠</span> Diagnóstico Automático
+        </h3>
+        <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px; line-height: 1.9;">
+            ${data.diagnostics.map(d => `<li style="margin-bottom: 8px; padding-left: 20px; position: relative; color: #DDD;">
+                <span style="position: absolute; left: 0; color: #8B5CF6;">•</span> ${d}
+            </li>`).join('')}
+        </ul>
+    </div>
+
+    <!-- Recomendações -->
+    <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; margin-bottom: 50px; border: 1px solid rgba(139, 92, 246, 0.2);">
+        <h3 style="color: #8B5CF6; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center;">
+            <span style="margin-right: 10px; font-size: 22px;">💡</span> Recomendações da IA
+        </h3>
+        <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px; line-height: 1.9;">
+            ${data.recommendations.map(r => `<li style="margin-bottom: 8px; padding-left: 20px; position: relative; color: #DDD;">
+                <span style="position: absolute; left: 0; color: #8B5CF6;">•</span> ${r}
+            </li>`).join('')}
+        </ul>
+    </div>
+
+    <!-- Footer -->
+    <div style="position: absolute; bottom: 30px; left: 40px; right: 40px; text-align: center; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+        <p style="margin: 0; font-size: 13px; color: #8B5CF6; font-weight: 600;">
+            SoundyAI © 2025
+        </p>
+        <p style="margin: 5px 0 0 0; font-size: 11px; color: #666;">
+            Inteligência Artificial para Produtores Musicais | Relatório gerado automaticamente
+        </p>
+    </div>
+
+</div>
+    `;
+}
+
+// �📋 Gerar relatório detalhado (LEGACY - mantido para compatibilidade)
 function generateDetailedReport(analysis) {
     const now = new Date();
     let report = `🎵 PROD.AI - RELATÓRIO DE ANÁLISE DE ÁUDIO\n`;
