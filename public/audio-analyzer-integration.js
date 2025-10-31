@@ -8722,8 +8722,45 @@ function generateReportHTML(data) {
     return `
 <div id="report-pdf-container" style="background: #0B0C14;">
     
+    <!-- Estilos para otimização desktop do PDF -->
+    <style>
+        /* Ajustes apenas para desktop (viewport >= 768px) */
+        @media (min-width: 768px) {
+            .frequency-spectrum-container {
+                margin-top: -10px !important;
+                margin-bottom: 20px !important;
+            }
+            
+            .frequency-spectrum-cards {
+                transform: scale(0.95);
+                transform-origin: top center;
+                margin-bottom: -10px;
+            }
+            
+            .freq-card {
+                height: 75px !important;
+                padding: 10px !important;
+            }
+        }
+        
+        /* Mobile mantém estilos originais (< 768px) */
+        @media (max-width: 767px) {
+            .frequency-spectrum-container {
+                margin-top: 0 !important;
+            }
+            
+            .frequency-spectrum-cards {
+                transform: none;
+            }
+            
+            .freq-card {
+                height: auto !important;
+            }
+        }
+    </style>
+    
     <!-- ✅ PÁGINA 1: MÉTRICAS PRINCIPAIS -->
-    <div class="pdf-section-metrics" style="width: 794px; height: 1123px; max-height: 1123px; overflow: hidden; background: #0B0C14; color: #EAEAEA; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 40px; box-sizing: border-box; position: relative;">
+    <div class="pdf-section-metrics" style="width: 794px; min-height: 1123px; background: #0B0C14; color: #EAEAEA; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 40px; box-sizing: border-box; position: relative;">
 
         <!-- Header -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid rgba(139, 92, 246, 0.3); padding-bottom: 20px;">
@@ -8847,26 +8884,31 @@ function generateReportHTML(data) {
     </div>
 
     <!-- Espectro de Frequências -->
-    <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; margin-bottom: 25px; border: 1px solid rgba(139, 92, 246, 0.2);">
+    <div class="frequency-spectrum-container" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; margin-bottom: 25px; border: 1px solid rgba(139, 92, 246, 0.2);">
         <h3 style="color: #8B5CF6; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center;">
             <span style="margin-right: 10px; font-size: 22px;">📈</span> Espectro de Frequências
         </h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; font-size: 13px;">
+        <div class="frequency-spectrum-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; font-size: 13px;">
             ${(() => {
+                const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
+                const cardPadding = isDesktop ? '10px' : '12px';
+                const fontSizeLarge = isDesktop ? '16px' : '18px';
+                const marginTop = isDesktop ? '6px' : '8px';
+                
                 const renderBand = (label, band, range) => {
                     if (!band || !band.db) return `
-                        <div style="text-align: center; padding: 12px; background: rgba(139, 92, 246, 0.1); border-radius: 8px;">
+                        <div class="freq-card" style="text-align: center; padding: ${cardPadding}; background: rgba(139, 92, 246, 0.1); border-radius: 8px; height: ${isDesktop ? '75px' : 'auto'};">
                             <p style="margin: 0; color: #AAA; font-size: 10px; text-transform: uppercase; font-weight: 600;">${label}</p>
                             <p style="margin: 0; color: #666; font-size: 9px;">${range}</p>
-                            <p style="margin: 8px 0 0 0; font-weight: 700; font-size: 18px; color: #FFF;">—</p>
+                            <p style="margin: ${marginTop} 0 0 0; font-weight: 700; font-size: ${fontSizeLarge}; color: #FFF;">—</p>
                         </div>
                     `;
                     return `
-                        <div style="text-align: center; padding: 12px; background: rgba(139, 92, 246, 0.1); border-radius: 8px;">
+                        <div class="freq-card" style="text-align: center; padding: ${cardPadding}; background: rgba(139, 92, 246, 0.1); border-radius: 8px; height: ${isDesktop ? '75px' : 'auto'};">
                             <p style="margin: 0; color: #8B5CF6; font-size: 10px; text-transform: uppercase; font-weight: 600;">${label}</p>
                             <p style="margin: 0; color: #666; font-size: 9px;">${range}</p>
-                            <p style="margin: 8px 0 0 0; font-weight: 700; font-size: 18px; color: #FFF;">${band.db} dB</p>
-                            <p style="margin: 4px 0 0 0; color: #AAA; font-size: 11px;">${band.pct || '—'}</p>
+                            <p style="margin: ${marginTop} 0 0 0; font-weight: 700; font-size: ${fontSizeLarge}; color: #FFF;">${band.db} dB</p>
+                            <p style="margin: 3px 0 0 0; color: #AAA; font-size: 11px;">${band.pct || '—'}</p>
                         </div>
                     `;
                 };
@@ -8894,7 +8936,7 @@ function generateReportHTML(data) {
     <!-- FIM DA PÁGINA 1 -->
 
     <!-- ✅ PÁGINA 2: DIAGNÓSTICO E RECOMENDAÇÕES -->
-    <div class="pdf-section-diagnostics" style="width: 794px; height: 1123px; max-height: 1123px; overflow: hidden; background: #0B0C14; color: #EAEAEA; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 40px; box-sizing: border-box; position: relative;">
+    <div class="pdf-section-diagnostics" style="width: 794px; min-height: 1123px; background: #0B0C14; color: #EAEAEA; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 40px; box-sizing: border-box; position: relative;">
 
         <!-- Header Simplificado (Página 2) -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid rgba(139, 92, 246, 0.3); padding-bottom: 20px;">
