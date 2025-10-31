@@ -7998,19 +7998,29 @@ async function downloadModalAnalysis() {
             zIndex: container.style.zIndex
         };
         
-        // Forçar visibilidade temporária
+        // ✅ PROPORÇÃO FIXA A4: 794x1123 px (resolução base vertical)
+        const A4_WIDTH = 794;
+        const A4_HEIGHT = 1123;
+        const A4_RATIO = A4_HEIGHT / A4_WIDTH; // 1.414 (proporção A4)
+        
+        // Forçar visibilidade temporária com proporção A4 fixa
         container.style.display = 'block';
         container.style.visibility = 'visible';
         container.style.position = 'fixed';
-        container.style.left = '0';
+        container.style.left = '50%';
         container.style.top = '0';
+        container.style.transform = 'translateX(-50%)'; // Centralizar horizontalmente
         container.style.zIndex = '9999';
-        container.style.width = '794px';
+        container.style.width = `${A4_WIDTH}px`; // Largura fixa A4
         container.style.height = 'auto';
+        container.style.margin = '0 auto';
         
-        console.log('📊 [PDF-RENDER] Container preparado:', {
-            width: elemento.offsetWidth,
-            height: elemento.offsetHeight,
+        console.log('📊 [PDF-RENDER] Container preparado com proporção A4:', {
+            baseWidth: A4_WIDTH,
+            baseHeight: A4_HEIGHT,
+            ratio: A4_RATIO,
+            containerWidth: elemento.offsetWidth,
+            containerHeight: elemento.offsetHeight,
             isVisible: elemento.offsetWidth > 0 && elemento.offsetHeight > 0
         });
         
@@ -8019,19 +8029,21 @@ async function downloadModalAnalysis() {
         elemento.scrollIntoView({ behavior: 'instant', block: 'start' });
         await new Promise(r => setTimeout(r, 150));
         
-        // ✅ 8️⃣ CAPTURAR PÁGINAS SEPARADAMENTE (paginação lógica) com detecção de viewport
-        console.log('📸 [PDF-CAPTURE] Iniciando captura em 2 páginas lógicas...');
+        // ✅ 8️⃣ CAPTURAR PÁGINAS SEPARADAMENTE com proporção fixa A4
+        console.log('📸 [PDF-CAPTURE] Iniciando captura em 2 páginas lógicas com proporção A4 fixa...');
         
-        // 🔍 Detecção de viewport para mobile (<768px)
-        const isMobile = window.innerWidth < 768;
-        const captureWidth = isMobile ? 560 : 794;
-        const captureScale = isMobile ? 1.6 : 2;
+        // ✅ PROPORÇÃO FIXA: Sempre usar 794px (A4) com scale 2 (alta qualidade)
+        // NÃO depende de viewport - garante consistência desktop/mobile
+        const CAPTURE_WIDTH = A4_WIDTH; // 794px
+        const CAPTURE_SCALE = 2; // Alta qualidade (1588px efetivos)
+        const CAPTURE_BG = '#0a0a0f'; // Fundo escuro profissional
         
-        console.log('📱 [PDF-VIEWPORT]', {
-            isMobile,
-            viewportWidth: window.innerWidth,
-            captureWidth,
-            captureScale
+        console.log('� [PDF-A4-FIXED]', {
+            captureWidth: CAPTURE_WIDTH,
+            captureScale: CAPTURE_SCALE,
+            backgroundColor: CAPTURE_BG,
+            effectiveWidth: CAPTURE_WIDTH * CAPTURE_SCALE,
+            note: 'Proporção A4 fixa (não depende de viewport)'
         });
         
         const section1 = elemento.querySelector('.pdf-section-metrics');
@@ -8043,26 +8055,26 @@ async function downloadModalAnalysis() {
         
         console.log('� [PDF-CAPTURE] Capturando Página 1 (Métricas)...');
         const canvas1 = await html2canvas(section1, {
-            scale: captureScale,
-            backgroundColor: '#0B0C14',
+            scale: CAPTURE_SCALE,
+            backgroundColor: CAPTURE_BG,
             useCORS: true,
             allowTaint: true,
             logging: false,
-            width: captureWidth
+            width: CAPTURE_WIDTH
         });
         
-        console.log('📄 [PDF-CAPTURE] Capturando Página 2 (Diagnóstico)...');
+        console.log('📄 [PDF-CAPTURE] Capturando Página 2 (Diagnóstico) - Proporção A4...');
         const section2Backup = section2.style.display;
         section2.style.display = 'block'; // Forçar visibilidade
         await new Promise(r => setTimeout(r, 100));
         
         const canvas2 = await html2canvas(section2, {
-            scale: captureScale,
-            backgroundColor: '#0B0C14',
+            scale: CAPTURE_SCALE,
+            backgroundColor: CAPTURE_BG,
             useCORS: true,
             allowTaint: true,
             logging: false,
-            width: captureWidth
+            width: CAPTURE_WIDTH
         });
         
         section2.style.display = section2Backup;
@@ -8079,47 +8091,61 @@ async function downloadModalAnalysis() {
         const imgData1 = canvas1.toDataURL('image/png');
         const imgData2 = canvas2.toDataURL('image/png');
         
-        // ✅ 9️⃣ GERAR PDF COM PAGINAÇÃO LÓGICA (2 páginas fixas)
+        // ✅ 9️⃣ GERAR PDF COM PROPORÇÃO A4 FIXA (2 páginas lógicas)
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF('p', 'mm', 'a4');
         
-        const pageWidth = pdf.internal.pageSize.getWidth();
-        const pageHeight = pdf.internal.pageSize.getHeight();
+        const pageWidth = pdf.internal.pageSize.getWidth(); // 210mm
+        const pageHeight = pdf.internal.pageSize.getHeight(); // 297mm
+        const BOTTOM_MARGIN = 10; // mm (margem inferior fixa)
         
-        // Página 1: Métricas
-        const imgWidth1 = pageWidth;
-        const imgHeight1 = (canvas1.height * imgWidth1) / canvas1.width;
-        
-        // ✅ Página 1: Métricas (offset inferior 0mm - máximo aproveitamento)
-        const bottomOffset1 = 0; // mm de margem inferior
-        const yOffset1 = 0;
-        const adjustedHeight1 = imgHeight1 > pageHeight ? pageHeight - bottomOffset1 : imgHeight1;
-        
-        console.log('📄 [PDF-BUILD] Adicionando Página 1:', {
-            width: imgWidth1,
-            height: imgHeight1,
-            adjustedHeight: adjustedHeight1,
-            bottomOffset: bottomOffset1
+        console.log('📐 [PDF-A4-FORMAT]', {
+            pageWidth,
+            pageHeight,
+            bottomMargin: BOTTOM_MARGIN,
+            format: 'A4 Portrait (210x297mm)'
         });
         
-        pdf.addImage(imgData1, 'PNG', 0, yOffset1, imgWidth1, adjustedHeight1);
+        // ✅ Página 1: Métricas com centralização horizontal
+        const imgWidth1 = pageWidth;
+        const imgHeight1 = (canvas1.height * imgWidth1) / canvas1.width;
+        const maxHeight1 = pageHeight - BOTTOM_MARGIN; // Respeitar margem inferior
+        const adjustedHeight1 = Math.min(imgHeight1, maxHeight1);
+        const xOffset1 = (pageWidth - imgWidth1) / 2; // Centralizar horizontalmente
+        const yOffset1 = 0;
         
-        // ✅ Página 2: Diagnóstico (offset inferior 4mm para rodapé visível)
+        console.log('📄 [PDF-BUILD] Adicionando Página 1 (Métricas):', {
+            canvasSize: { width: canvas1.width, height: canvas1.height },
+            imgWidth: imgWidth1,
+            imgHeight: imgHeight1,
+            adjustedHeight: adjustedHeight1,
+            xOffset: xOffset1,
+            yOffset: yOffset1,
+            bottomMargin: BOTTOM_MARGIN
+        });
+        
+        pdf.addImage(imgData1, 'PNG', xOffset1, yOffset1, imgWidth1, adjustedHeight1);
+        
+        // ✅ Página 2: Diagnóstico com centralização horizontal
         pdf.addPage();
         const imgWidth2 = pageWidth;
         const imgHeight2 = (canvas2.height * imgWidth2) / canvas2.width;
-        const bottomOffset2 = 4; // mm (rodapé fica 4mm acima do limite da página)
+        const maxHeight2 = pageHeight - BOTTOM_MARGIN; // Respeitar margem inferior
+        const adjustedHeight2 = Math.min(imgHeight2, maxHeight2);
+        const xOffset2 = (pageWidth - imgWidth2) / 2; // Centralizar horizontalmente
         const yOffset2 = 0;
-        const adjustedHeight2 = imgHeight2 > pageHeight ? pageHeight - bottomOffset2 : imgHeight2;
         
-        console.log('📄 [PDF-BUILD] Adicionando Página 2:', {
-            width: imgWidth2,
-            height: imgHeight2,
+        console.log('📄 [PDF-BUILD] Adicionando Página 2 (Diagnóstico):', {
+            canvasSize: { width: canvas2.width, height: canvas2.height },
+            imgWidth: imgWidth2,
+            imgHeight: imgHeight2,
             adjustedHeight: adjustedHeight2,
-            bottomOffset: bottomOffset2
+            xOffset: xOffset2,
+            yOffset: yOffset2,
+            bottomMargin: BOTTOM_MARGIN
         });
         
-        pdf.addImage(imgData2, 'PNG', 0, yOffset2, imgWidth2, adjustedHeight2);
+        pdf.addImage(imgData2, 'PNG', xOffset2, yOffset2, imgWidth2, adjustedHeight2);
         
         // 🔟 DOWNLOAD: Nome descritivo com data
         const cleanFileName = (normalizedData.fileName || 'audio')
