@@ -8019,8 +8019,20 @@ async function downloadModalAnalysis() {
         elemento.scrollIntoView({ behavior: 'instant', block: 'start' });
         await new Promise(r => setTimeout(r, 150));
         
-        // ✅ 8️⃣ CAPTURAR PÁGINAS SEPARADAMENTE (paginação lógica)
+        // ✅ 8️⃣ CAPTURAR PÁGINAS SEPARADAMENTE (paginação lógica) com detecção de viewport
         console.log('📸 [PDF-CAPTURE] Iniciando captura em 2 páginas lógicas...');
+        
+        // 🔍 Detecção de viewport para mobile (<768px)
+        const isMobile = window.innerWidth < 768;
+        const captureWidth = isMobile ? 560 : 794;
+        const captureScale = isMobile ? 1.6 : 2;
+        
+        console.log('📱 [PDF-VIEWPORT]', {
+            isMobile,
+            viewportWidth: window.innerWidth,
+            captureWidth,
+            captureScale
+        });
         
         const section1 = elemento.querySelector('.pdf-section-metrics');
         const section2 = elemento.querySelector('.pdf-section-diagnostics');
@@ -8031,12 +8043,12 @@ async function downloadModalAnalysis() {
         
         console.log('� [PDF-CAPTURE] Capturando Página 1 (Métricas)...');
         const canvas1 = await html2canvas(section1, {
-            scale: 2,
+            scale: captureScale,
             backgroundColor: '#0B0C14',
             useCORS: true,
             allowTaint: true,
             logging: false,
-            width: 794
+            width: captureWidth
         });
         
         console.log('📄 [PDF-CAPTURE] Capturando Página 2 (Diagnóstico)...');
@@ -8045,12 +8057,12 @@ async function downloadModalAnalysis() {
         await new Promise(r => setTimeout(r, 100));
         
         const canvas2 = await html2canvas(section2, {
-            scale: 2,
+            scale: captureScale,
             backgroundColor: '#0B0C14',
             useCORS: true,
             allowTaint: true,
             logging: false,
-            width: 794
+            width: captureWidth
         });
         
         section2.style.display = section2Backup;
