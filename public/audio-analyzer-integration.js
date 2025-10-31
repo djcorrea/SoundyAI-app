@@ -8071,9 +8071,9 @@ async function downloadModalAnalysis() {
             wrapper.style.zIndex = '-1';
             wrapper.style.overflow = 'hidden';
             
-            // Clona o conteúdo (sem padding - seção interna já tem padding:40px)
+            // Clona o conteúdo e aplica padding no clone (não no wrapper)
             const clone = element.cloneNode(true);
-            clone.style.padding = '0';  // ✅ Sem padding (seção tem 40px interno)
+            clone.style.padding = isMobile ? '10px' : '20px';  // ✅ Padding no conteúdo
             clone.style.boxSizing = 'border-box';
             clone.style.width = '100%';
             clone.style.height = '100%';
@@ -8096,8 +8096,8 @@ async function downloadModalAnalysis() {
                     height: wrapper.clientHeight,
                     lostHeight: 1123 - wrapper.clientHeight
                 },
-                padding: '0 (seção interna tem 40px)',
-                note: 'Sem padding no clone - área completa 794×1123px'
+                padding: isMobile ? '10px (clone)' : '20px (clone)',
+                note: 'Padding aplicado no clone, não no wrapper'
             });
             
             // Captura com parâmetros fixos A4
@@ -8723,7 +8723,7 @@ function generateReportHTML(data) {
 <div id="report-pdf-container" style="background: #0B0C14;">
     
     <!-- ✅ PÁGINA 1: MÉTRICAS PRINCIPAIS -->
-    <div class="pdf-section-metrics" style="width: 794px; min-height: 1123px; background: #0B0C14; color: #EAEAEA; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 40px; box-sizing: border-box; position: relative;">
+    <div class="pdf-section-metrics" style="width: 794px; height: 1123px; max-height: 1123px; overflow: hidden; background: #0B0C14; color: #EAEAEA; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 40px; box-sizing: border-box; position: relative;">
 
         <!-- Header -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid rgba(139, 92, 246, 0.3); padding-bottom: 20px;">
@@ -8894,7 +8894,7 @@ function generateReportHTML(data) {
     <!-- FIM DA PÁGINA 1 -->
 
     <!-- ✅ PÁGINA 2: DIAGNÓSTICO E RECOMENDAÇÕES -->
-    <div class="pdf-section-diagnostics" style="width: 794px; min-height: 1123px; background: #0B0C14; color: #EAEAEA; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 40px; box-sizing: border-box; position: relative;">
+    <div class="pdf-section-diagnostics" style="width: 794px; height: 1123px; max-height: 1123px; overflow: hidden; background: #0B0C14; color: #EAEAEA; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 40px; box-sizing: border-box; position: relative;">
 
         <!-- Header Simplificado (Página 2) -->
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid rgba(139, 92, 246, 0.3); padding-bottom: 20px;">
