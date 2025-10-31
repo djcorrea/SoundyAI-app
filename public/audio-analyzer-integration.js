@@ -8030,12 +8030,14 @@ async function downloadModalAnalysis() {
         await new Promise(r => setTimeout(r, 150));
         
         // ✅ 8️⃣ CAPTURAR PÁGINAS SEPARADAMENTE com proporção fixa A4
-        console.log('📸 [PDF-CAPTURE] Iniciando captura com renderização virtual A4...');
+        console.log('📸 [PDF-CAPTURE] Iniciando captura em 2 páginas lógicas com proporção A4 fixa...');
         
-        // ✅ Detecção de dispositivo móvel para ajuste de proporção
+        // ✅ PROPORÇÃO FIXA: Sempre usar 794px (A4) com scale 2 (alta qualidade)
+        // NÃO depende de viewport - garante consistência desktop/mobile
+        // ✅ Detecção de dispositivo móvel
         const isMobile = window.innerWidth < 768;
         const devicePixelRatio = window.devicePixelRatio || 2;
-        const mobileScaleAdjust = isMobile ? 1.1 : 1; // Compensação vertical mobile
+        const mobileScaleAdjust = isMobile ? 1.1 : 1;
         
         console.log('� [PDF-A4-FIXED]', {
             captureWidth: CAPTURE_WIDTH,
@@ -8053,7 +8055,7 @@ async function downloadModalAnalysis() {
         }
         
         console.log('� [PDF-CAPTURE] Capturando Página 1 (Métricas)...');
-        // ✅ FUNÇÃO APRIMORADA: Renderização proporcional com wrapper virtual A4
+        // ✅ FUNÇÃO: Renderização com wrapper virtual A4
         const renderSectionToPDF = async (element, sectionName) => {
             console.log(`📄 [PDF-WRAPPER] Preparando ${sectionName}...`);
             
@@ -8098,7 +8100,7 @@ async function downloadModalAnalysis() {
                 windowHeight: A4_HEIGHT
             });
             
-            console.log(`✅ [PDF-CANVAS] ${sectionName} capturado:`, {
+            console.log(`✅ [PDF-CANVAS] ${sectionName}:`, {
                 width: canvas.width,
                 height: canvas.height,
                 ratio: (canvas.height / canvas.width).toFixed(3)
@@ -8113,11 +8115,11 @@ async function downloadModalAnalysis() {
             return canvas;
         };
         
-        console.log('📄 [PDF-CAPTURE] Capturando Página 1 (Métricas)...');
-        const canvas1 = await renderSectionToPDF(section1, 'Página 1 - Métricas');
+        console.log('📄 [PDF-CAPTURE] Capturando Página 1...');
+        const canvas1 = await renderSectionToPDF(section1, 'Métricas');
         
-        console.log('📄 [PDF-CAPTURE] Capturando Página 2 (Diagnóstico)...');
-        const canvas2 = await renderSectionToPDF(section2, 'Página 2 - Diagnóstico');
+        console.log('📄 [PDF-CAPTURE] Capturando Página 2...');
+        const canvas2 = await renderSectionToPDF(section2, 'Diagnóstico');
         
         const imgData1 = canvas1.toDataURL('image/png');
         const imgData2 = canvas2.toDataURL('image/png');
