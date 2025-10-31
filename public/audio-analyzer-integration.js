@@ -8074,7 +8074,7 @@ async function downloadModalAnalysis() {
             // Detecta se está em mobile e aplica compensação
             const isMobile = window.innerWidth < 768;
             if (isMobile) {
-                wrapper.style.transform = 'scale(1.1)';
+                wrapper.style.transform = 'scale(1.1) translateY(35px)'; // 🔥 compensa o topo
                 wrapper.style.transformOrigin = 'top center';
             }
             
@@ -8089,7 +8089,7 @@ async function downloadModalAnalysis() {
             console.log(`📐 [PDF-WRAPPER] ${sectionName}:`, {
                 wrapperSize: { width: wrapper.offsetWidth, height: wrapper.offsetHeight },
                 isMobile,
-                transform: isMobile ? 'scale(1.1)' : 'none'
+                transform: isMobile ? 'scale(1.1) translateY(35px)' : 'none'
             });
             
             // Captura com parâmetros otimizados
