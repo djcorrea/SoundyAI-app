@@ -8078,24 +8078,36 @@ async function downloadModalAnalysis() {
         const imgWidth1 = pageWidth;
         const imgHeight1 = (canvas1.height * imgWidth1) / canvas1.width;
         
+        // ✅ Página 1: Métricas (offset inferior 6mm)
+        const bottomOffset1 = 6; // mm de margem inferior
+        const yOffset1 = 0;
+        const adjustedHeight1 = imgHeight1 > pageHeight ? pageHeight - bottomOffset1 : imgHeight1;
+        
         console.log('📄 [PDF-BUILD] Adicionando Página 1:', {
             width: imgWidth1,
-            height: imgHeight1
+            height: imgHeight1,
+            adjustedHeight: adjustedHeight1,
+            bottomOffset: bottomOffset1
         });
         
-        pdf.addImage(imgData1, 'PNG', 0, 0, imgWidth1, imgHeight1);
+        pdf.addImage(imgData1, 'PNG', 0, yOffset1, imgWidth1, adjustedHeight1);
         
-        // Página 2: Diagnóstico
+        // ✅ Página 2: Diagnóstico (offset inferior 10mm para rodapé visível)
         pdf.addPage();
         const imgWidth2 = pageWidth;
         const imgHeight2 = (canvas2.height * imgWidth2) / canvas2.width;
+        const bottomOffset2 = 10; // mm (rodapé fica 10mm acima do limite da página)
+        const yOffset2 = 0;
+        const adjustedHeight2 = imgHeight2 > pageHeight ? pageHeight - bottomOffset2 : imgHeight2;
         
         console.log('📄 [PDF-BUILD] Adicionando Página 2:', {
             width: imgWidth2,
-            height: imgHeight2
+            height: imgHeight2,
+            adjustedHeight: adjustedHeight2,
+            bottomOffset: bottomOffset2
         });
         
-        pdf.addImage(imgData2, 'PNG', 0, 0, imgWidth2, imgHeight2);
+        pdf.addImage(imgData2, 'PNG', 0, yOffset2, imgWidth2, adjustedHeight2);
         
         // 🔟 DOWNLOAD: Nome descritivo com data
         const cleanFileName = (normalizedData.fileName || 'audio')
