@@ -8019,55 +8019,83 @@ async function downloadModalAnalysis() {
         elemento.scrollIntoView({ behavior: 'instant', block: 'start' });
         await new Promise(r => setTimeout(r, 150));
         
-        // 8️⃣ CAPTURAR: html2canvas com alta qualidade
-        console.log('📸 [PDF-CAPTURE] Iniciando captura...');
-        const canvas = await html2canvas(elemento, {
+        // ✅ 8️⃣ CAPTURAR PÁGINAS SEPARADAMENTE (paginação lógica)
+        console.log('📸 [PDF-CAPTURE] Iniciando captura em 2 páginas lógicas...');
+        
+        const section1 = elemento.querySelector('.pdf-section-metrics');
+        const section2 = elemento.querySelector('.pdf-section-diagnostics');
+        
+        if (!section1 || !section2) {
+            throw new Error('❌ Seções PDF não encontradas. Verifique as classes .pdf-section-metrics e .pdf-section-diagnostics');
+        }
+        
+        console.log('� [PDF-CAPTURE] Capturando Página 1 (Métricas)...');
+        const canvas1 = await html2canvas(section1, {
             scale: 2,
             backgroundColor: '#0B0C14',
             useCORS: true,
             allowTaint: true,
             logging: false,
-            width: 794,
-            height: elemento.scrollHeight
+            width: 794
         });
         
-        console.log('✅ [PDF-CANVAS] Canvas gerado:', {
-            width: canvas.width,
-            height: canvas.height,
-            isEmpty: canvas.width === 0 || canvas.height === 0
+        console.log('📄 [PDF-CAPTURE] Capturando Página 2 (Diagnóstico)...');
+        const section2Backup = section2.style.display;
+        section2.style.display = 'block'; // Forçar visibilidade
+        await new Promise(r => setTimeout(r, 100));
+        
+        const canvas2 = await html2canvas(section2, {
+            scale: 2,
+            backgroundColor: '#0B0C14',
+            useCORS: true,
+            allowTaint: true,
+            logging: false,
+            width: 794
         });
         
-        if (canvas.width === 0 || canvas.height === 0) {
-            throw new Error('Canvas vazio - verifique se o elemento está visível');
+        section2.style.display = section2Backup;
+        
+        console.log('✅ [PDF-CANVAS] Páginas capturadas:', {
+            page1: { width: canvas1.width, height: canvas1.height },
+            page2: { width: canvas2.width, height: canvas2.height }
+        });
+        
+        if (canvas1.width === 0 || canvas1.height === 0 || canvas2.width === 0 || canvas2.height === 0) {
+            throw new Error('Canvas vazio - verifique se as seções estão visíveis');
         }
         
-        const imgData = canvas.toDataURL('image/png');
+        const imgData1 = canvas1.toDataURL('image/png');
+        const imgData2 = canvas2.toDataURL('image/png');
         
-        // 9️⃣ GERAR PDF: Múltiplas páginas se necessário
+        // ✅ 9️⃣ GERAR PDF COM PAGINAÇÃO LÓGICA (2 páginas fixas)
         const { jsPDF } = window.jspdf;
         const pdf = new jsPDF('p', 'mm', 'a4');
         
-        const imgWidth = 190;
-        const pageHeight = 295;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        let heightLeft = imgHeight;
-        let position = 10;
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
         
-        console.log('📄 [PDF-BUILD] Construindo PDF:', {
-            imgWidth,
-            imgHeight,
-            totalPages: Math.ceil(imgHeight / pageHeight)
+        // Página 1: Métricas
+        const imgWidth1 = pageWidth;
+        const imgHeight1 = (canvas1.height * imgWidth1) / canvas1.width;
+        
+        console.log('📄 [PDF-BUILD] Adicionando Página 1:', {
+            width: imgWidth1,
+            height: imgHeight1
         });
         
-        pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
+        pdf.addImage(imgData1, 'PNG', 0, 0, imgWidth1, imgHeight1);
         
-        while (heightLeft >= 0) {
-            position = heightLeft - imgHeight;
-            pdf.addPage();
-            pdf.addImage(imgData, 'PNG', 10, position, imgWidth, imgHeight);
-            heightLeft -= pageHeight;
-        }
+        // Página 2: Diagnóstico
+        pdf.addPage();
+        const imgWidth2 = pageWidth;
+        const imgHeight2 = (canvas2.height * imgWidth2) / canvas2.width;
+        
+        console.log('📄 [PDF-BUILD] Adicionando Página 2:', {
+            width: imgWidth2,
+            height: imgHeight2
+        });
+        
+        pdf.addImage(imgData2, 'PNG', 0, 0, imgWidth2, imgHeight2);
         
         // 🔟 DOWNLOAD: Nome descritivo com data
         const cleanFileName = (normalizedData.fileName || 'audio')
@@ -8580,21 +8608,24 @@ function generateReportHTML(data) {
     const durationStr = `${minutes}:${String(seconds).padStart(2, '0')}`;
     
     return `
-<div style="width: 794px; min-height: 1123px; background: #0B0C14; color: #EAEAEA; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 40px; box-sizing: border-box; position: relative;">
+<div id="report-pdf-container" style="background: #0B0C14;">
+    
+    <!-- ✅ PÁGINA 1: MÉTRICAS PRINCIPAIS -->
+    <div class="pdf-section-metrics" style="width: 794px; min-height: 1123px; background: #0B0C14; color: #EAEAEA; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 40px; box-sizing: border-box; position: relative;">
 
-    <!-- Header -->
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid rgba(139, 92, 246, 0.3); padding-bottom: 20px;">
-        <div>
-            <h1 style="color: #8B5CF6; margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">SoundyAI</h1>
-            <p style="margin: 5px 0 0 0; font-size: 14px; color: #AAA;">Inteligência Artificial para Produtores Musicais</p>
+        <!-- Header -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid rgba(139, 92, 246, 0.3); padding-bottom: 20px;">
+            <div>
+                <h1 style="color: #8B5CF6; margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.5px;">SoundyAI</h1>
+                <p style="margin: 5px 0 0 0; font-size: 14px; color: #AAA;">Inteligência Artificial para Produtores Musicais</p>
+            </div>
+            <div style="text-align: right;">
+                <h2 style="color: #8B5CF6; margin: 0; font-size: 24px; font-weight: 600;">Relatório de Análise</h2>
+                <p style="font-size: 12px; color: #AAA; margin: 5px 0 0 0;">${date} às ${time}</p>
+            </div>
         </div>
-        <div style="text-align: right;">
-            <h2 style="color: #8B5CF6; margin: 0; font-size: 24px; font-weight: 600;">Relatório de Análise</h2>
-            <p style="font-size: 12px; color: #AAA; margin: 5px 0 0 0;">${date} às ${time}</p>
-        </div>
-    </div>
 
-    <!-- Score Card -->
+        <!-- Score Card -->
     <div style="background: linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%); padding: 20px 30px; border-radius: 12px; color: white; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);">
         <div style="display: flex; justify-content: space-between; align-items: center;">
             <div>
@@ -8741,39 +8772,66 @@ function generateReportHTML(data) {
         </div>
     </div>
 
-    <!-- Diagnóstico -->
-    <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid rgba(139, 92, 246, 0.2);">
-        <h3 style="color: #8B5CF6; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center;">
-            <span style="margin-right: 10px; font-size: 22px;">🧠</span> Diagnóstico Automático
-        </h3>
-        <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px; line-height: 1.9;">
-            ${data.diagnostics.map(d => `<li style="margin-bottom: 8px; padding-left: 20px; position: relative; color: #DDD;">
-                <span style="position: absolute; left: 0; color: #8B5CF6;">•</span> ${d}
-            </li>`).join('')}
-        </ul>
+    <!-- Rodapé da Página 1 -->
+    <div style="text-align: center; padding-top: 40px; margin-top: 40px; border-top: 1px solid rgba(255,255,255,0.1);">
+        <p style="margin: 0; font-size: 13px; color: #8B5CF6; font-weight: 600;">SoundyAI © 2025</p>
+        <p style="margin: 5px 0 0 0; font-size: 11px; color: #666;">Página 1/2 | Métricas Principais</p>
     </div>
 
-    <!-- Recomendações -->
-    <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; margin-bottom: 50px; border: 1px solid rgba(139, 92, 246, 0.2);">
-        <h3 style="color: #8B5CF6; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center;">
-            <span style="margin-right: 10px; font-size: 22px;">💡</span> Recomendações da IA
-        </h3>
-        <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px; line-height: 1.9;">
-            ${data.recommendations.map(r => `<li style="margin-bottom: 8px; padding-left: 20px; position: relative; color: #DDD;">
-                <span style="position: absolute; left: 0; color: #8B5CF6;">•</span> ${r}
-            </li>`).join('')}
-        </ul>
     </div>
+    <!-- FIM DA PÁGINA 1 -->
 
-    <!-- Footer -->
-    <div style="position: absolute; bottom: 30px; left: 40px; right: 40px; text-align: center; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
-        <p style="margin: 0; font-size: 13px; color: #8B5CF6; font-weight: 600;">
-            SoundyAI © 2025
-        </p>
-        <p style="margin: 5px 0 0 0; font-size: 11px; color: #666;">
-            Inteligência Artificial para Produtores Musicais | Relatório gerado automaticamente
-        </p>
+    <!-- ✅ PÁGINA 2: DIAGNÓSTICO E RECOMENDAÇÕES -->
+    <div class="pdf-section-diagnostics" style="width: 794px; min-height: 1123px; background: #0B0C14; color: #EAEAEA; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 40px; box-sizing: border-box; position: relative;">
+
+        <!-- Header Simplificado (Página 2) -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; border-bottom: 2px solid rgba(139, 92, 246, 0.3); padding-bottom: 20px;">
+            <div>
+                <h1 style="color: #8B5CF6; margin: 0; font-size: 28px; font-weight: 700;">SoundyAI</h1>
+                <p style="margin: 5px 0 0 0; font-size: 13px; color: #AAA;">Diagnóstico e Recomendações da IA</p>
+            </div>
+            <div style="text-align: right;">
+                <p style="font-size: 14px; color: #AAA; margin: 0;">${data.fileName}</p>
+                <p style="font-size: 11px; color: #666; margin: 5px 0 0 0;">Página 2/2</p>
+            </div>
+        </div>
+
+        <!-- Diagnóstico -->
+        <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid rgba(139, 92, 246, 0.2);">
+            <h3 style="color: #8B5CF6; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center;">
+                <span style="margin-right: 10px; font-size: 22px;">🧠</span> Diagnóstico Automático
+            </h3>
+            <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px; line-height: 1.9;">
+                ${data.diagnostics.map(d => `<li style="margin-bottom: 8px; padding-left: 20px; position: relative; color: #DDD;">
+                    <span style="position: absolute; left: 0; color: #8B5CF6;">•</span> ${d}
+                </li>`).join('')}
+            </ul>
+        </div>
+
+        <!-- Recomendações -->
+        <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; margin-bottom: 50px; border: 1px solid rgba(139, 92, 246, 0.2);">
+            <h3 style="color: #8B5CF6; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center;">
+                <span style="margin-right: 10px; font-size: 22px;">💡</span> Recomendações da IA
+            </h3>
+            <ul style="list-style: none; padding: 0; margin: 0; font-size: 13px; line-height: 1.9;">
+                ${data.recommendations.map(r => `<li style="margin-bottom: 8px; padding-left: 20px; position: relative; color: #DDD;">
+                    <span style="position: absolute; left: 0; color: #8B5CF6;">•</span> ${r}
+                </li>`).join('')}
+            </ul>
+        </div>
+
+        <!-- Rodapé Final -->
+        <div style="position: absolute; bottom: 30px; left: 40px; right: 40px; text-align: center; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+            <p style="margin: 0; font-size: 13px; color: #8B5CF6; font-weight: 600;">
+                SoundyAI © 2025
+            </p>
+            <p style="margin: 5px 0 0 0; font-size: 11px; color: #666;">
+                Inteligência Artificial para Produtores Musicais | Relatório gerado automaticamente
+            </p>
+        </div>
+
     </div>
+    <!-- FIM DA PÁGINA 2 -->
 
 </div>
     `;
