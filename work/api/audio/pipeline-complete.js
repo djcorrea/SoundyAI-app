@@ -268,3 +268,85 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
 export async function processAudio(file, options = {}) {
   return processAudioComplete(file.buffer || file, file.fileName || file.name || 'unknown', options);
 }
+
+/**
+ * ⚖️ FUNÇÃO DE COMPARAÇÃO ENTRE MÉTRICAS
+ * Compara duas análises de áudio e gera sugestões automáticas
+ */
+export async function compareMetrics(userMetrics, refMetrics) {
+  console.log("🔍 [Compare] Calculando diferenças entre métricas...");
+
+  const diff = {};
+
+  const categories = ["loudness", "truePeak", "stereo", "dynamics", "spectralBands"];
+  for (const key of categories) {
+    if (!userMetrics[key] || !refMetrics[key]) continue;
+
+    diff[key] = {};
+
+    if (key === "spectralBands") {
+      // Estrutura especial para bandas espectrais
+      for (const band in userMetrics[key]) {
+        if (userMetrics[key][band] && refMetrics[key][band]) {
+          diff[key][band] = {};
+          if (typeof userMetrics[key][band].energy_db === "number" && typeof refMetrics[key][band].energy_db === "number") {
+            diff[key][band].energy_db = parseFloat((userMetrics[key][band].energy_db - refMetrics[key][band].energy_db).toFixed(2));
+          }
+          if (typeof userMetrics[key][band].percentage === "number" && typeof refMetrics[key][band].percentage === "number") {
+            diff[key][band].percentage = parseFloat((userMetrics[key][band].percentage - refMetrics[key][band].percentage).toFixed(2));
+          }
+        }
+      }
+    } else {
+      // Estrutura normal para outras métricas
+      for (const metric in userMetrics[key]) {
+        const userVal = userMetrics[key][metric];
+        const refVal = refMetrics[key][metric];
+
+        if (typeof userVal === "number" && typeof refVal === "number") {
+          diff[key][metric] = parseFloat((userVal - refVal).toFixed(2));
+        }
+      }
+    }
+  }
+
+  // 🎯 Gera sugestões automáticas
+  const suggestions = generateComparisonSuggestions(diff);
+
+  return {
+    ok: true,
+    mode: "comparison",
+    analyzedAt: new Date().toISOString(),
+    metricsUser: userMetrics,
+    metricsReference: refMetrics,
+    comparison: diff,
+    suggestions,
+  };
+}
+
+/**
+ * 💡 GERADOR DE SUGESTÕES COMPARATIVAS
+ * Analisa diferenças e sugere correções baseadas na referência
+ */
+function generateComparisonSuggestions(diff) {
+  const suggestions = [];
+
+  if (diff.loudness && diff.loudness.integrated) {
+    if (diff.loudness.integrated < -1) suggestions.push("Aumente o volume geral (LUFS abaixo da referência)");
+    if (diff.loudness.integrated > 1) suggestions.push("Reduza o volume geral (LUFS acima da referência)");
+  }
+
+  if (diff.truePeak && diff.truePeak.maxDbtp > 1)
+    suggestions.push("True Peak está mais alto que a referência — risco de clip digital.");
+
+  if (diff.dynamics && diff.dynamics.range < -2)
+    suggestions.push("Dinâmica mais comprimida que a faixa de referência.");
+
+  if (diff.spectralBands && diff.spectralBands.bass && diff.spectralBands.bass.energy_db)
+    suggestions.push("Verifique o balanceamento de graves e médios com EQ ou sidechain.");
+
+  if (diff.stereo && diff.stereo.width < -0.1)
+    suggestions.push("A faixa tem imagem estéreo mais estreita que a referência.");
+
+  return suggestions;
+}

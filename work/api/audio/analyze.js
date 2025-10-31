@@ -159,6 +159,96 @@ async function createJobInDatabase(fileKey, mode, fileName) {
 }
 
 /**
+ * ✅ FUNÇÃO PARA CRIAR JOB DE COMPARAÇÃO
+ * 🎯 Cria job de comparação entre duas músicas (user vs reference)
+ * Ordem obrigatória: Redis → PostgreSQL (previne jobs órfãos)
+ */
+async function createComparisonJobInDatabase(userFileKey, referenceFileKey, userFileName, refFileName) {
+  // 🔑 CRÍTICO: jobId DEVE ser UUID válido para tabela PostgreSQL (coluna tipo 'uuid')
+  const jobId = randomUUID();
+  
+  // 📋 externalId para logs e identificação externa (pode ser personalizado)
+  const externalId = `comparison-${Date.now()}-${jobId.substring(0, 8)}`;
+  
+  console.log(`🎧 [COMPARISON-CREATE] Iniciando job de comparação:`);
+  console.log(`   🔑 UUID (Banco): ${jobId}`);
+  console.log(`   📋 ID Externo: ${externalId}`);
+  console.log(`   📁 Arquivo Usuário: ${userFileKey}`);
+  console.log(`   📁 Arquivo Referência: ${referenceFileKey}`);
+  console.log(`   ⚙️ Modo: comparison`);
+
+  try {
+    // ✅ ETAPA 1: GARANTIR QUE FILA ESTÁ PRONTA
+    if (!queueReady) {
+      console.log('⏳ [COMPARISON-CREATE] Aguardando fila inicializar...');
+      await queueInit;
+      console.log('✅ [COMPARISON-CREATE] Fila pronta para enfileiramento!');
+    }
+
+    // ✅ ETAPA 2: ENFILEIRAR PRIMEIRO (REDIS)
+    const queue = getAudioQueue();
+    console.log('📩 [API] Enfileirando job de comparação no Redis...');
+    
+    const redisJob = await queue.add('process-audio', {
+      jobId: jobId,        // 🔑 UUID para PostgreSQL
+      externalId: externalId, // 📋 ID customizado para logs
+      fileKey: userFileKey,
+      referenceFileKey: referenceFileKey,
+      fileName: userFileName,
+      refFileName: refFileName,
+      mode: 'comparison'
+    }, {
+      jobId: externalId,   // 📋 BullMQ job ID (pode ser customizado)
+      priority: 1,
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 2000,
+      },
+      removeOnComplete: 10,
+      removeOnFail: 5,
+    });
+    
+    console.log(`✅ [API] Job de comparação enfileirado com sucesso:`);
+    console.log(`   🔑 UUID (Banco): ${jobId}`);
+    console.log(`   📋 Redis Job ID: ${redisJob.id}`);
+    console.log(`   📋 ID Externo: ${externalId}`);
+
+    // ✅ ETAPA 3: GRAVAR NO POSTGRESQL DEPOIS
+    console.log('📝 [API] Gravando job de comparação no PostgreSQL com UUID...');
+    
+    // 🔑 CRÍTICO: Usar jobId (UUID) na coluna 'id' do PostgreSQL
+    const result = await pool.query(
+      `INSERT INTO jobs (id, file_key, reference_file_key, mode, status, file_name, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *`,
+      [jobId, userFileKey, referenceFileKey, "comparison", "queued", userFileName || null]
+    );
+
+    console.log(`✅ [API] Job de comparação gravado no PostgreSQL:`, {
+      id: result.rows[0].id,
+      fileKey: result.rows[0].file_key,
+      referenceFileKey: result.rows[0].reference_file_key,
+      status: result.rows[0].status,
+      mode: result.rows[0].mode
+    });
+    console.log('🎯 [API] Fluxo completo comparação - Redis ➜ PostgreSQL concluído!');
+
+    return result.rows[0];
+      
+  } catch (error) {
+    console.error(`💥 [COMPARISON-CREATE] Erro crítico:`, error.message);
+    
+    // Se erro foi no PostgreSQL, job já está no Redis (o que é seguro)
+    // Worker pode processar e atualizar status depois
+    if (error.message.includes('PostgreSQL') || error.code?.startsWith('2')) {
+      console.warn(`⚠️ [COMPARISON-CREATE] Job ${jobId} enfileirado mas falha no PostgreSQL - Worker pode recuperar`);
+    }
+    
+    throw new Error(`Erro ao criar job de comparação: ${error.message}`);
+  }
+}
+
+/**
  * Obter mensagem de erro amigável
  */
 function getErrorMessage(error) {
@@ -288,6 +378,79 @@ router.post("/analyze", async (req, res) => {
   } catch (error) {
     // ✅ LOG DE ERRO OBRIGATÓRIO
     console.error('❌ [API] Erro na rota /analyze:', error.message);
+    
+    // ✅ RESPOSTA DE ERRO COM STATUS 500
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+/**
+ * ✅ NOVA ROTA: POST /compare para análise comparativa
+ * 🎯 Cria job de comparação entre duas músicas (user vs reference)
+ */
+router.post("/compare", async (req, res) => {
+  // ✅ LOG OBRIGATÓRIO: Rota chamada
+  console.log('🎧 [API] /compare chamada');
+  
+  try {
+    const { userFileKey, referenceFileKey, userFileName, refFileName } = req.body;
+    
+    // ✅ VALIDAÇÕES BÁSICAS
+    if (!userFileKey) {
+      return res.status(400).json({
+        success: false,
+        error: "userFileKey é obrigatório"
+      });
+    }
+
+    if (!referenceFileKey) {
+      return res.status(400).json({
+        success: false,
+        error: "referenceFileKey é obrigatório"
+      });
+    }
+
+    if (!validateFileType(userFileKey)) {
+      return res.status(400).json({
+        success: false,
+        error: "Extensão não suportada para arquivo do usuário. Apenas WAV, FLAC e MP3 são aceitos."
+      });
+    }
+
+    if (!validateFileType(referenceFileKey)) {
+      return res.status(400).json({
+        success: false,
+        error: "Extensão não suportada para arquivo de referência. Apenas WAV, FLAC e MP3 são aceitos."
+      });
+    }
+
+    // ✅ VERIFICAÇÃO OBRIGATÓRIA DA FILA
+    if (!queueReady) {
+      console.log('⏳ [API] Aguardando fila inicializar...');
+      await queueInit;
+    }
+
+    // ✅ OBTER INSTÂNCIA DA FILA
+    const queue = getAudioQueue();
+    
+    // ✅ CRIAR JOB DE COMPARAÇÃO NO BANCO E ENFILEIRAR
+    const jobRecord = await createComparisonJobInDatabase(userFileKey, referenceFileKey, userFileName, refFileName);
+
+    console.log("🎧 Novo job de comparação criado:", jobRecord.id);
+
+    // ✅ RESPOSTA DE SUCESSO
+    res.status(200).json({
+      success: true,
+      jobId: jobRecord.id,
+      mode: "comparison"
+    });
+
+  } catch (error) {
+    // ✅ LOG DE ERRO OBRIGATÓRIO
+    console.error('❌ [API] Erro na rota /compare:', error.message);
     
     // ✅ RESPOSTA DE ERRO COM STATUS 500
     res.status(500).json({

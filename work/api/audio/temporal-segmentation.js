@@ -376,7 +376,10 @@ export function segmentAudioTemporal(audioBufferLike, options = {}) {
           fftTimestamps: fftTimestamps.length,
           rmsTimestamps: rmsTimestamps.length
         }
-      }
+      },
+      
+      // 🔧 Campo obrigatório para fase 5.3 (core-metrics)
+      originalChannels: audioBuffer.numberOfChannels || 2
     };
 
     // ========= VALIDAÇÃO FINAL =========
@@ -400,6 +403,9 @@ export function segmentAudioTemporal(audioBufferLike, options = {}) {
         sampleRate: sampleRate
       }
     });
+
+    // 🔧 CORREÇÃO CRÍTICA: Garantir originalChannels no nível correto do resultado
+    result.originalChannels = audioBuffer.numberOfChannels || 2;
 
     return result;
 
