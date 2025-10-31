@@ -8071,9 +8071,9 @@ async function downloadModalAnalysis() {
             wrapper.style.zIndex = '-1';
             wrapper.style.overflow = 'hidden';
             
-            // Clona o conteúdo e aplica padding no clone (não no wrapper)
+            // Clona o conteúdo (sem padding - seção interna já tem padding:40px)
             const clone = element.cloneNode(true);
-            clone.style.padding = isMobile ? '10px' : '20px';  // ✅ Padding no conteúdo
+            clone.style.padding = '0';  // ✅ Sem padding (seção tem 40px interno)
             clone.style.boxSizing = 'border-box';
             clone.style.width = '100%';
             clone.style.height = '100%';
@@ -8096,8 +8096,8 @@ async function downloadModalAnalysis() {
                     height: wrapper.clientHeight,
                     lostHeight: 1123 - wrapper.clientHeight
                 },
-                padding: isMobile ? '10px (clone)' : '20px (clone)',
-                note: 'Padding aplicado no clone, não no wrapper'
+                padding: '0 (seção interna tem 40px)',
+                note: 'Sem padding no clone - área completa 794×1123px'
             });
             
             // Captura com parâmetros fixos A4
