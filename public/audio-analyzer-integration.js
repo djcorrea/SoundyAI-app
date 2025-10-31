@@ -8061,10 +8061,10 @@ async function downloadModalAnalysis() {
             wrapper.style.width = '794px';
             wrapper.style.height = '1123px';
             wrapper.style.display = 'flex';
-            wrapper.style.alignItems = 'center';
+            wrapper.style.alignItems = 'flex-start'; // ✅ Alinhar ao topo (não centralizar verticalmente)
             wrapper.style.justifyContent = 'center';
             wrapper.style.background = '#0a0a0f';
-            wrapper.style.padding = isMobile ? '10px' : '20px'; // Reduzir padding no mobile
+            wrapper.style.padding = isMobile ? '10px' : '20px';
             wrapper.style.boxSizing = 'border-box';
             wrapper.style.position = 'fixed';
             wrapper.style.left = '-9999px';
