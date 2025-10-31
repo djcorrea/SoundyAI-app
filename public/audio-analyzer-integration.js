@@ -8063,6 +8063,7 @@ async function downloadModalAnalysis() {
             wrapper.style.alignItems = 'center';
             wrapper.style.justifyContent = 'center';
             wrapper.style.background = '#0a0a0f';
+            wrapper.style.margin = '0 auto';
             wrapper.style.padding = '20px';
             wrapper.style.boxSizing = 'border-box';
             wrapper.style.position = 'fixed';
@@ -8071,11 +8072,12 @@ async function downloadModalAnalysis() {
             wrapper.style.zIndex = '-1';
             wrapper.style.overflow = 'hidden';
             
-            // Detecta se está em mobile e aplica compensação
+            // Detecta se está em mobile e aplica ajuste sem scale
             const isMobile = window.innerWidth < 768;
             if (isMobile) {
-                wrapper.style.transform = 'scale(1.1) translateY(35px)'; // 🔥 compensa o topo
-                wrapper.style.transformOrigin = 'top center';
+                wrapper.style.maxWidth = '760px';
+                wrapper.style.padding = '0 16px';
+                wrapper.style.transform = 'none'; // ✅ Remove scale para evitar zoom lateral
             }
             
             // Clona o conteúdo e insere no wrapper
@@ -8089,7 +8091,9 @@ async function downloadModalAnalysis() {
             console.log(`📐 [PDF-WRAPPER] ${sectionName}:`, {
                 wrapperSize: { width: wrapper.offsetWidth, height: wrapper.offsetHeight },
                 isMobile,
-                transform: isMobile ? 'scale(1.1) translateY(35px)' : 'none'
+                transform: 'none',
+                maxWidth: isMobile ? '760px' : '794px',
+                padding: isMobile ? '0 16px' : '20px'
             });
             
             // Captura com parâmetros otimizados
