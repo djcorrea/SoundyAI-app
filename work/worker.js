@@ -59,7 +59,7 @@ const __dirname = path.dirname(__filename);
 let processAudioComplete = null;
 
 try {
-  const imported = await import("./api/audio/pipeline-complete.js");
+  const imported = await import("../api/audio/pipeline-complete.js");
   processAudioComplete = imported.processAudioComplete;
   console.log("✅ Pipeline completo carregado com sucesso!");
 } catch (err) {
@@ -261,6 +261,47 @@ async function processJob(job) {
     console.log("🚀 Rodando pipeline completo...");
     // Update health before intensive processing
     updateWorkerHealth();
+
+    // ✅ DETECÇÃO DO MODO COMPARISON
+    if (job.mode === "comparison") {
+      console.log("🎧 [Worker] Iniciando análise comparativa entre faixas...");
+
+      // Baixar arquivo de referência
+      const refPath = await downloadFileFromBucket(job.reference_file_key);
+      console.log(`🎵 Arquivo de referência pronto: ${refPath}`);
+
+      // Analisar ambos os arquivos
+      const userMetrics = await analyzeAudioWithPipeline(localFilePath, job);
+      const refMetrics = await analyzeAudioWithPipeline(refPath, job);
+
+      // Importar função de comparação
+      const { compareMetrics } = await import("../api/audio/pipeline-complete.js");
+      const comparison = await compareMetrics(userMetrics, refMetrics);
+
+      // Salvar resultado comparativo
+      const finalUpdateResult = await client.query(
+        `UPDATE jobs SET result = $1, status = 'done', updated_at = NOW() WHERE id = $2`,
+        [JSON.stringify(comparison), job.id]
+      );
+
+      if (finalUpdateResult.rowCount === 0) {
+        throw new Error(`Falha ao atualizar job de comparação ${job.id} para status 'done'`);
+      }
+
+      console.log("✅ [Worker] Job de comparação concluído:", job.id);
+      
+      // Limpar arquivo de referência
+      try {
+        await fs.promises.unlink(refPath);
+      } catch (e) {
+        console.warn("⚠️ Não foi possível remover arquivo de referência temporário:", e?.message);
+      }
+      
+      updateWorkerHealth();
+      return;
+    }
+
+    // Fluxo normal para jobs de análise única
     const analysisResult = await analyzeAudioWithPipeline(localFilePath, job);
 
     const result = {
@@ -417,7 +458,7 @@ processJobs();
 
 // ---------- Servidor Express para Railway ----------
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.WORKER_PORT || 8081; // ✅ Usar porta diferente para o worker
 
 app.get('/', (req, res) => {
   res.json({ 

@@ -417,8 +417,24 @@ class CoreMetricsProcessor {
   validateInputFrom5_2(segmentedAudio) {
     const requiredFields = ['framesFFT', 'framesRMS', 'originalChannels', 'timestamps'];
 
+    // 🔍 DEBUG: Log do objeto recebido
+    console.log('🔍 [DEBUG VALIDATION] Objeto recebido na validação:', {
+      hasFramesFFT: !!segmentedAudio.framesFFT,
+      hasFramesRMS: !!segmentedAudio.framesRMS,
+      hasOriginalChannels: !!segmentedAudio.originalChannels,
+      hasTimestamps: !!segmentedAudio.timestamps,
+      originalChannelsValue: segmentedAudio.originalChannels,
+      allKeys: Object.keys(segmentedAudio),
+      typeof_originalChannels: typeof segmentedAudio.originalChannels
+    });
+
     for (const field of requiredFields) {
       if (!segmentedAudio[field]) {
+        console.error(`❌ [VALIDATION ERROR] Campo ausente: ${field}`, {
+          fieldValue: segmentedAudio[field],
+          fieldType: typeof segmentedAudio[field],
+          objectKeys: Object.keys(segmentedAudio)
+        });
         throw makeErr('core_metrics', `Invalid input from Phase 5.2: Missing ${field}`, 'invalid_input_5_2');
       }
     }
