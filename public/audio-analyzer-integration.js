@@ -8892,8 +8892,8 @@ function generateReportHTML(data) {
             ${(() => {
                 const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 768;
                 const cardPadding = isDesktop ? '10px' : '12px';
-                const fontSizeLarge = isDesktop ? '16px' : '18px';
-                const marginTop = isDesktop ? '6px' : '8px';
+                const fontSizeLarge = isDesktop ? '14px' : '18px';
+                const marginTop = isDesktop ? '5px' : '8px';
                 
                 const renderBand = (label, band, range) => {
                     if (!band || !band.db) return `
@@ -8975,7 +8975,7 @@ function generateReportHTML(data) {
         </div>
 
         <!-- Rodapé Final -->
-        <div style="position: absolute; bottom: 30px; left: 40px; right: 40px; text-align: center; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
+        <div style="position: absolute; bottom: 20px; left: 40px; right: 40px; text-align: center; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
             <p style="margin: 0; font-size: 13px; color: #8B5CF6; font-weight: 600;">
                 SoundyAI © 2025
             </p>
