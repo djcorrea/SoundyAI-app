@@ -8061,19 +8061,22 @@ async function downloadModalAnalysis() {
             wrapper.style.width = '794px';
             wrapper.style.height = '1123px';
             wrapper.style.display = 'flex';
-            wrapper.style.alignItems = 'flex-start'; // ✅ Alinhar ao topo (não centralizar verticalmente)
+            wrapper.style.alignItems = 'flex-start';
             wrapper.style.justifyContent = 'center';
             wrapper.style.background = '#0a0a0f';
-            wrapper.style.padding = isMobile ? '10px' : '20px';
-            wrapper.style.boxSizing = 'border-box';
+            wrapper.style.padding = '0';  // ✅ Zero padding no wrapper
             wrapper.style.position = 'fixed';
             wrapper.style.left = '-9999px';
             wrapper.style.top = '0';
             wrapper.style.zIndex = '-1';
             wrapper.style.overflow = 'hidden';
             
-            // Clona o conteúdo e insere no wrapper
+            // Clona o conteúdo e aplica padding no clone (não no wrapper)
             const clone = element.cloneNode(true);
+            clone.style.padding = isMobile ? '10px' : '20px';  // ✅ Padding no conteúdo
+            clone.style.boxSizing = 'border-box';
+            clone.style.width = '100%';
+            clone.style.height = '100%';
             wrapper.appendChild(clone);
             document.body.appendChild(wrapper);
             
@@ -8081,7 +8084,20 @@ async function downloadModalAnalysis() {
             await new Promise(r => setTimeout(r, 150));
             
             console.log(`📐 [PDF-WRAPPER] ${sectionName}:`, {
-                wrapperSize: { width: wrapper.offsetWidth, height: wrapper.offsetHeight }
+                declared: { width: '794px', height: '1123px' },
+                computed: {
+                    offsetWidth: wrapper.offsetWidth,
+                    offsetHeight: wrapper.offsetHeight,
+                    clientWidth: wrapper.clientWidth,
+                    clientHeight: wrapper.clientHeight
+                },
+                usableArea: {
+                    width: wrapper.clientWidth,
+                    height: wrapper.clientHeight,
+                    lostHeight: 1123 - wrapper.clientHeight
+                },
+                padding: isMobile ? '10px (clone)' : '20px (clone)',
+                note: 'Padding aplicado no clone, não no wrapper'
             });
             
             // Captura com parâmetros fixos A4
