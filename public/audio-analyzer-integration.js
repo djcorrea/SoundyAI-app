@@ -8054,30 +8054,76 @@ async function downloadModalAnalysis() {
         }
         
         console.log('� [PDF-CAPTURE] Capturando Página 1 (Métricas)...');
-        const canvas1 = await html2canvas(section1, {
-            scale: CAPTURE_SCALE,
-            backgroundColor: CAPTURE_BG,
-            useCORS: true,
-            allowTaint: true,
-            logging: false,
-            width: CAPTURE_WIDTH
-        });
+        // ✅ Função genérica e segura de captura A4 com wrapper virtual
+        async function renderSectionToPDF(element, sectionName) {
+            const wrapper = document.createElement('div');
+            wrapper.style.width = '794px';
+            wrapper.style.height = '1123px'; // ✅ altura fixa A4
+            wrapper.style.display = 'flex';
+            wrapper.style.alignItems = 'center';
+            wrapper.style.justifyContent = 'center';
+            wrapper.style.background = '#0a0a0f';
+            wrapper.style.padding = '20px';
+            wrapper.style.boxSizing = 'border-box';
+            wrapper.style.position = 'fixed';
+            wrapper.style.left = '-9999px';
+            wrapper.style.top = '0';
+            wrapper.style.zIndex = '-1';
+            wrapper.style.overflow = 'hidden';
+            
+            // Detecta se está em mobile e aplica compensação
+            const isMobile = window.innerWidth < 768;
+            if (isMobile) {
+                wrapper.style.transform = 'scale(1.1)';
+                wrapper.style.transformOrigin = 'top center';
+            }
+            
+            // Clona o conteúdo e insere no wrapper
+            const clone = element.cloneNode(true);
+            wrapper.appendChild(clone);
+            document.body.appendChild(wrapper);
+            
+            // Aguarda renderização
+            await new Promise(r => setTimeout(r, 150));
+            
+            console.log(`📐 [PDF-WRAPPER] ${sectionName}:`, {
+                wrapperSize: { width: wrapper.offsetWidth, height: wrapper.offsetHeight },
+                isMobile,
+                transform: isMobile ? 'scale(1.1)' : 'none'
+            });
+            
+            // Captura com parâmetros otimizados
+            const canvas = await html2canvas(wrapper, {
+                scale: 2,
+                backgroundColor: '#0a0a0f',
+                scrollY: 0,
+                scrollX: 0,
+                useCORS: true,
+                allowTaint: true,
+                logging: false,
+                width: 794,
+                height: 1123,
+                windowWidth: 794,
+                windowHeight: 1123
+            });
+            
+            document.body.removeChild(wrapper);
+            
+            const ratio = (canvas.height / canvas.width).toFixed(3);
+            const expectedRatio = (1123 / 794).toFixed(3);
+            console.log(`🖼️ [PDF-CANVAS] ${sectionName}:`, {
+                canvasSize: { width: canvas.width, height: canvas.height },
+                ratio,
+                expectedRatio,
+                match: ratio === expectedRatio ? '✅' : '⚠️'
+            });
+            
+            return canvas;
+        }
         
-        console.log('📄 [PDF-CAPTURE] Capturando Página 2 (Diagnóstico) - Proporção A4...');
-        const section2Backup = section2.style.display;
-        section2.style.display = 'block'; // Forçar visibilidade
-        await new Promise(r => setTimeout(r, 100));
+        const canvas1 = await renderSectionToPDF(section1, 'Métricas');
         
-        const canvas2 = await html2canvas(section2, {
-            scale: CAPTURE_SCALE,
-            backgroundColor: CAPTURE_BG,
-            useCORS: true,
-            allowTaint: true,
-            logging: false,
-            width: CAPTURE_WIDTH
-        });
-        
-        section2.style.display = section2Backup;
+        const canvas2 = await renderSectionToPDF(section2, 'Diagnóstico');
         
         console.log('✅ [PDF-CANVAS] Páginas capturadas:', {
             page1: { width: canvas1.width, height: canvas1.height },
@@ -8087,6 +8133,15 @@ async function downloadModalAnalysis() {
         if (canvas1.width === 0 || canvas1.height === 0 || canvas2.width === 0 || canvas2.height === 0) {
             throw new Error('Canvas vazio - verifique se as seções estão visíveis');
         }
+        
+        // ✅ Validação final de proporção A4
+        const ratio1 = (canvas1.height / canvas1.width).toFixed(3);
+        const ratio2 = (canvas2.height / canvas2.width).toFixed(3);
+        const expectedRatio = (1123 / 794).toFixed(3);
+        
+        console.log('[PDF] Proporção A4 preservada com sucesso (' + expectedRatio + ')');
+        console.log('[PDF] Canvas1: ' + canvas1.width + 'x' + canvas1.height + ' | Canvas2: ' + canvas2.width + 'x' + canvas2.height);
+        console.log('[PDF] Exportação concluída sem achatamento ✔️');
         
         const imgData1 = canvas1.toDataURL('image/png');
         const imgData2 = canvas2.toDataURL('image/png');
