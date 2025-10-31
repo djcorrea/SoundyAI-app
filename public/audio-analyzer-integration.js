@@ -8034,10 +8034,9 @@ async function downloadModalAnalysis() {
         
         // ✅ PROPORÇÃO FIXA: Sempre usar 794px (A4) com scale 2 (alta qualidade)
         // NÃO depende de viewport - garante consistência desktop/mobile
-        // ✅ Detecção de dispositivo móvel
-        const isMobile = window.innerWidth < 768;
-        const devicePixelRatio = window.devicePixelRatio || 2;
-        const mobileScaleAdjust = isMobile ? 1.1 : 1;
+        const CAPTURE_WIDTH = A4_WIDTH; // 794px
+        const CAPTURE_SCALE = 2; // Alta qualidade (1588px efetivos)
+        const CAPTURE_BG = '#0a0a0f'; // Fundo escuro profissional
         
         console.log('� [PDF-A4-FIXED]', {
             captureWidth: CAPTURE_WIDTH,
@@ -8055,71 +8054,39 @@ async function downloadModalAnalysis() {
         }
         
         console.log('� [PDF-CAPTURE] Capturando Página 1 (Métricas)...');
-        // ✅ FUNÇÃO: Renderização com wrapper virtual A4
-        const renderSectionToPDF = async (element, sectionName) => {
-            console.log(`📄 [PDF-WRAPPER] Preparando ${sectionName}...`);
-            
-            const wrapper = document.createElement('div');
-            wrapper.style.width = `${A4_WIDTH}px`;
-            wrapper.style.height = `${A4_HEIGHT}px`;
-            wrapper.style.display = 'flex';
-            wrapper.style.alignItems = 'center';
-            wrapper.style.justifyContent = 'center';
-            wrapper.style.background = '#0a0a0f';
-            wrapper.style.padding = '20px';
-            wrapper.style.boxSizing = 'border-box';
-            wrapper.style.transform = `scale(${mobileScaleAdjust})`;
-            wrapper.style.transformOrigin = 'top center';
-            wrapper.style.position = 'fixed';
-            wrapper.style.left = '-9999px';
-            wrapper.style.top = '0';
-            wrapper.style.zIndex = '-1';
-            wrapper.style.overflow = 'hidden';
-            
-            const clone = element.cloneNode(true);
-            clone.style.width = '100%';
-            clone.style.height = 'auto';
-            wrapper.appendChild(clone);
-            document.body.appendChild(wrapper);
-            
-            await new Promise(r => setTimeout(r, 150));
-            
-            console.log(`📸 [PDF-CAPTURE] Capturando ${sectionName}...`);
-            
-            const canvas = await html2canvas(wrapper, {
-                scale: 2,
-                backgroundColor: '#0a0a0f',
-                scrollY: 0,
-                scrollX: 0,
-                useCORS: true,
-                allowTaint: true,
-                logging: false,
-                width: A4_WIDTH,
-                height: A4_HEIGHT,
-                windowWidth: A4_WIDTH,
-                windowHeight: A4_HEIGHT
-            });
-            
-            console.log(`✅ [PDF-CANVAS] ${sectionName}:`, {
-                width: canvas.width,
-                height: canvas.height,
-                ratio: (canvas.height / canvas.width).toFixed(3)
-            });
-            
-            document.body.removeChild(wrapper);
-            
-            if (canvas.width === 0 || canvas.height === 0) {
-                throw new Error(`Canvas vazio para ${sectionName}`);
-            }
-            
-            return canvas;
-        };
+        const canvas1 = await html2canvas(section1, {
+            scale: CAPTURE_SCALE,
+            backgroundColor: CAPTURE_BG,
+            useCORS: true,
+            allowTaint: true,
+            logging: false,
+            width: CAPTURE_WIDTH
+        });
         
-        console.log('📄 [PDF-CAPTURE] Capturando Página 1...');
-        const canvas1 = await renderSectionToPDF(section1, 'Métricas');
+        console.log('📄 [PDF-CAPTURE] Capturando Página 2 (Diagnóstico) - Proporção A4...');
+        const section2Backup = section2.style.display;
+        section2.style.display = 'block'; // Forçar visibilidade
+        await new Promise(r => setTimeout(r, 100));
         
-        console.log('📄 [PDF-CAPTURE] Capturando Página 2...');
-        const canvas2 = await renderSectionToPDF(section2, 'Diagnóstico');
+        const canvas2 = await html2canvas(section2, {
+            scale: CAPTURE_SCALE,
+            backgroundColor: CAPTURE_BG,
+            useCORS: true,
+            allowTaint: true,
+            logging: false,
+            width: CAPTURE_WIDTH
+        });
+        
+        section2.style.display = section2Backup;
+        
+        console.log('✅ [PDF-CANVAS] Páginas capturadas:', {
+            page1: { width: canvas1.width, height: canvas1.height },
+            page2: { width: canvas2.width, height: canvas2.height }
+        });
+        
+        if (canvas1.width === 0 || canvas1.height === 0 || canvas2.width === 0 || canvas2.height === 0) {
+            throw new Error('Canvas vazio - verifique se as seções estão visíveis');
+        }
         
         const imgData1 = canvas1.toDataURL('image/png');
         const imgData2 = canvas2.toDataURL('image/png');
