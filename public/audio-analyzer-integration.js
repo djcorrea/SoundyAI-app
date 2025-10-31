@@ -8057,13 +8057,14 @@ async function downloadModalAnalysis() {
         // ✅ Função genérica e segura de captura A4 com wrapper virtual
         async function renderSectionToPDF(element, sectionName) {
             const wrapper = document.createElement('div');
+            const isMobile = window.innerWidth < 768;
             wrapper.style.width = '794px';
             wrapper.style.height = '1123px';
             wrapper.style.display = 'flex';
             wrapper.style.alignItems = 'center';
             wrapper.style.justifyContent = 'center';
             wrapper.style.background = '#0a0a0f';
-            wrapper.style.padding = '20px';
+            wrapper.style.padding = isMobile ? '10px' : '20px'; // Reduzir padding no mobile
             wrapper.style.boxSizing = 'border-box';
             wrapper.style.position = 'fixed';
             wrapper.style.left = '-9999px';
@@ -8141,11 +8142,11 @@ async function downloadModalAnalysis() {
         const pageWidth = pdf.internal.pageSize.getWidth(); // 210mm
         const pageHeight = pdf.internal.pageSize.getHeight(); // 297mm
         
-        // Margens adaptadas para mobile (mais generosas para evitar corte no iOS)
+        // Margens adaptadas para mobile (maximizar área útil)
         const isMobile = window.innerWidth < 768;
-        const SIDE_MARGIN_MM = isMobile ? 12 : 8;   // laterais
-        const TOP_MARGIN_MM = isMobile ? 10 : 8;    // topo
-        const BOTTOM_MARGIN_MM = isMobile ? 10 : 8; // rodapé
+        const SIDE_MARGIN_MM = isMobile ? 2 : 8;    // laterais (mínimo no mobile)
+        const TOP_MARGIN_MM = isMobile ? 0 : 8;     // topo (zero no mobile)
+        const BOTTOM_MARGIN_MM = isMobile ? 0 : 8;  // rodapé (zero no mobile)
         
         console.log('� [PDF-A4-FORMAT]', {
             pageWidth,
@@ -8163,33 +8164,50 @@ async function downloadModalAnalysis() {
         function addCanvasAsA4PageCentered(cnv, sectionName) {
             const contentWidth = pageWidth - (SIDE_MARGIN_MM * 2);
             
-            // Aumenta 10% no mobile para ocupar mais área útil
-            const scaleFactor = isMobile ? 1.1 : 1;
+            let imgWidth, imgHeight;
             
-            // Mantém proporção do canvas (A4 794x1123 @ scale 2 → 1588x2246)
-            const imgWidth = contentWidth * scaleFactor;
-            const imgHeight = (cnv.height * imgWidth) / cnv.width;
+            if (isMobile) {
+                // MOBILE: Escalonar para preencher 100% da altura A4
+                imgHeight = pageHeight; // 297mm - altura completa
+                imgWidth = (cnv.width * imgHeight) / cnv.height;
+                
+                // Se largura ultrapassar contentWidth, reajustar por largura
+                if (imgWidth > contentWidth) {
+                    imgWidth = contentWidth;
+                    imgHeight = (cnv.height * imgWidth) / cnv.width;
+                }
+            } else {
+                // DESKTOP: Manter lógica original com margens
+                imgWidth = contentWidth;
+                imgHeight = (cnv.height * imgWidth) / cnv.width;
+                
+                const maxHeight = pageHeight - TOP_MARGIN_MM - BOTTOM_MARGIN_MM;
+                imgHeight = Math.min(imgHeight, maxHeight);
+            }
             
-            const maxHeight = pageHeight - TOP_MARGIN_MM - BOTTOM_MARGIN_MM;
-            const finalHeight = Math.min(imgHeight, maxHeight);
-            
-            // Centraliza automaticamente quando scaleFactor > 1
+            // Centralizar horizontalmente
             const x = (pageWidth - imgWidth) / 2;
-            const y = TOP_MARGIN_MM;
+            
+            // Mobile: ancorar no topo absoluto (y=0)
+            // Desktop: respeitar margem superior
+            const y = isMobile ? 0 : TOP_MARGIN_MM;
+            
+            const fillPercentage = ((imgHeight / pageHeight) * 100).toFixed(1);
             
             console.log(`📄 [PDF-BUILD] ${sectionName}:`, {
+                device: isMobile ? 'MOBILE' : 'DESKTOP',
                 canvasSize: { width: cnv.width, height: cnv.height },
+                pageSize: { width: pageWidth, height: pageHeight },
                 contentWidth,
-                scaleFactor,
-                imgWidth,
-                imgHeight,
-                finalHeight,
-                position: { x, y },
+                imgWidth: imgWidth.toFixed(2),
+                imgHeight: imgHeight.toFixed(2),
+                position: { x: x.toFixed(2), y },
+                fillPercentage: `${fillPercentage}%`,
                 margins: { side: SIDE_MARGIN_MM, top: TOP_MARGIN_MM, bottom: BOTTOM_MARGIN_MM }
             });
             
             const imgData = cnv.toDataURL('image/png');
-            pdf.addImage(imgData, 'PNG', x, y, imgWidth, finalHeight);
+            pdf.addImage(imgData, 'PNG', x, y, imgWidth, imgHeight);
         }
         
         // Página 1 (Métricas)
