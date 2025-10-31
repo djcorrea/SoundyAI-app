@@ -8741,6 +8741,19 @@ function generateReportHTML(data) {
                 height: 75px !important;
                 padding: 10px !important;
             }
+            
+            /* Ajustes de rodapé e recomendações (página 2) */
+            .pdf-section-diagnostics .pdf-footer {
+                margin-top: 25px !important;
+                padding-bottom: 10px;
+                position: relative;
+                bottom: 0;
+            }
+            
+            .pdf-section-recommendations {
+                transform: scale(0.97);
+                transform-origin: top center;
+            }
         }
         
         /* Mobile mantém estilos originais (< 768px) */
@@ -8908,7 +8921,6 @@ function generateReportHTML(data) {
                             <p style="margin: 0; color: #8B5CF6; font-size: 10px; text-transform: uppercase; font-weight: 600;">${label}</p>
                             <p style="margin: 0; color: #666; font-size: 9px;">${range}</p>
                             <p style="margin: ${marginTop} 0 0 0; font-weight: 700; font-size: ${fontSizeLarge}; color: #FFF;">${band.db} dB</p>
-                            <p style="margin: 3px 0 0 0; color: #AAA; font-size: 11px;">${band.pct || '—'}</p>
                         </div>
                     `;
                 };
@@ -8963,7 +8975,7 @@ function generateReportHTML(data) {
         </div>
 
         <!-- Recomendações -->
-        <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; margin-bottom: 50px; border: 1px solid rgba(139, 92, 246, 0.2);">
+        <div class="pdf-section-recommendations" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px; margin-bottom: 50px; border: 1px solid rgba(139, 92, 246, 0.2);">
             <h3 style="color: #8B5CF6; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; display: flex; align-items: center;">
                 <span style="margin-right: 10px; font-size: 22px;">💡</span> Recomendações da IA
             </h3>
@@ -8975,7 +8987,7 @@ function generateReportHTML(data) {
         </div>
 
         <!-- Rodapé Final -->
-        <div style="position: absolute; bottom: 20px; left: 40px; right: 40px; text-align: center; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+        <div class="pdf-footer" style="position: absolute; bottom: 20px; left: 40px; right: 40px; text-align: center; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
             <p style="margin: 0; font-size: 13px; color: #8B5CF6; font-weight: 600;">
                 SoundyAI © 2025
             </p>
