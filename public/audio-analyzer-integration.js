@@ -8163,19 +8163,24 @@ async function downloadModalAnalysis() {
         function addCanvasAsA4PageCentered(cnv, sectionName) {
             const contentWidth = pageWidth - (SIDE_MARGIN_MM * 2);
             
+            // Aumenta 10% no mobile para ocupar mais área útil
+            const scaleFactor = isMobile ? 1.1 : 1;
+            
             // Mantém proporção do canvas (A4 794x1123 @ scale 2 → 1588x2246)
-            const imgWidth = contentWidth;
+            const imgWidth = contentWidth * scaleFactor;
             const imgHeight = (cnv.height * imgWidth) / cnv.width;
             
             const maxHeight = pageHeight - TOP_MARGIN_MM - BOTTOM_MARGIN_MM;
             const finalHeight = Math.min(imgHeight, maxHeight);
             
-            const x = SIDE_MARGIN_MM;
+            // Centraliza automaticamente quando scaleFactor > 1
+            const x = (pageWidth - imgWidth) / 2;
             const y = TOP_MARGIN_MM;
             
             console.log(`📄 [PDF-BUILD] ${sectionName}:`, {
                 canvasSize: { width: cnv.width, height: cnv.height },
                 contentWidth,
+                scaleFactor,
                 imgWidth,
                 imgHeight,
                 finalHeight,
