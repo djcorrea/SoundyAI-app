@@ -8078,8 +8078,8 @@ async function downloadModalAnalysis() {
         const imgWidth1 = pageWidth;
         const imgHeight1 = (canvas1.height * imgWidth1) / canvas1.width;
         
-        // ✅ Página 1: Métricas (offset inferior 6mm)
-        const bottomOffset1 = 6; // mm de margem inferior
+        // ✅ Página 1: Métricas (offset inferior 2mm)
+        const bottomOffset1 = 2; // mm de margem inferior
         const yOffset1 = 0;
         const adjustedHeight1 = imgHeight1 > pageHeight ? pageHeight - bottomOffset1 : imgHeight1;
         
