@@ -8058,12 +8058,11 @@ async function downloadModalAnalysis() {
         async function renderSectionToPDF(element, sectionName) {
             const wrapper = document.createElement('div');
             wrapper.style.width = '794px';
-            wrapper.style.height = '1123px'; // ✅ altura fixa A4
+            wrapper.style.height = '1123px';
             wrapper.style.display = 'flex';
             wrapper.style.alignItems = 'center';
             wrapper.style.justifyContent = 'center';
             wrapper.style.background = '#0a0a0f';
-            wrapper.style.margin = '0 auto';
             wrapper.style.padding = '20px';
             wrapper.style.boxSizing = 'border-box';
             wrapper.style.position = 'fixed';
@@ -8071,14 +8070,6 @@ async function downloadModalAnalysis() {
             wrapper.style.top = '0';
             wrapper.style.zIndex = '-1';
             wrapper.style.overflow = 'hidden';
-            
-            // Detecta se está em mobile e aplica ajuste sem scale
-            const isMobile = window.innerWidth < 768;
-            if (isMobile) {
-                wrapper.style.maxWidth = '760px';
-                wrapper.style.padding = '0 16px';
-                wrapper.style.transform = 'none'; // ✅ Remove scale para evitar zoom lateral
-            }
             
             // Clona o conteúdo e insere no wrapper
             const clone = element.cloneNode(true);
@@ -8089,26 +8080,22 @@ async function downloadModalAnalysis() {
             await new Promise(r => setTimeout(r, 150));
             
             console.log(`📐 [PDF-WRAPPER] ${sectionName}:`, {
-                wrapperSize: { width: wrapper.offsetWidth, height: wrapper.offsetHeight },
-                isMobile,
-                transform: 'none',
-                maxWidth: isMobile ? '760px' : '794px',
-                padding: isMobile ? '0 16px' : '20px'
+                wrapperSize: { width: wrapper.offsetWidth, height: wrapper.offsetHeight }
             });
             
-            // Captura com parâmetros otimizados
+            // Captura com parâmetros fixos A4
             const canvas = await html2canvas(wrapper, {
-                scale: 2,
-                backgroundColor: '#0a0a0f',
-                scrollY: 0,
-                scrollX: 0,
-                useCORS: true,
-                allowTaint: true,
-                logging: false,
                 width: 794,
                 height: 1123,
                 windowWidth: 794,
-                windowHeight: 1123
+                windowHeight: 1123,
+                scrollX: 0,
+                scrollY: 0,
+                backgroundColor: '#0a0a0f',
+                useCORS: true,
+                allowTaint: true,
+                logging: false,
+                scale: 2
             });
             
             document.body.removeChild(wrapper);
@@ -8147,64 +8134,65 @@ async function downloadModalAnalysis() {
         console.log('[PDF] Canvas1: ' + canvas1.width + 'x' + canvas1.height + ' | Canvas2: ' + canvas2.width + 'x' + canvas2.height);
         console.log('[PDF] Exportação concluída sem achatamento ✔️');
         
-        const imgData1 = canvas1.toDataURL('image/png');
-        const imgData2 = canvas2.toDataURL('image/png');
-        
-        // ✅ 9️⃣ GERAR PDF COM PROPORÇÃO A4 FIXA (2 páginas lógicas)
+        // ✅ 9️⃣ GERAR PDF COM PROPORÇÃO A4 E MARGENS (centralização perfeita mobile)
         const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF('p', 'mm', 'a4');
+        const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'p' });
         
         const pageWidth = pdf.internal.pageSize.getWidth(); // 210mm
         const pageHeight = pdf.internal.pageSize.getHeight(); // 297mm
-        const BOTTOM_MARGIN = 10; // mm (margem inferior fixa)
         
-        console.log('📐 [PDF-A4-FORMAT]', {
+        // Margens adaptadas para mobile (mais generosas para evitar corte no iOS)
+        const isMobile = window.innerWidth < 768;
+        const SIDE_MARGIN_MM = isMobile ? 12 : 8;   // laterais
+        const TOP_MARGIN_MM = isMobile ? 10 : 8;    // topo
+        const BOTTOM_MARGIN_MM = isMobile ? 10 : 8; // rodapé
+        
+        console.log('� [PDF-A4-FORMAT]', {
             pageWidth,
             pageHeight,
-            bottomMargin: BOTTOM_MARGIN,
+            isMobile,
+            margins: {
+                side: SIDE_MARGIN_MM,
+                top: TOP_MARGIN_MM,
+                bottom: BOTTOM_MARGIN_MM
+            },
             format: 'A4 Portrait (210x297mm)'
         });
         
-        // ✅ Página 1: Métricas com centralização horizontal
-        const imgWidth1 = pageWidth;
-        const imgHeight1 = (canvas1.height * imgWidth1) / canvas1.width;
-        const maxHeight1 = pageHeight - BOTTOM_MARGIN; // Respeitar margem inferior
-        const adjustedHeight1 = Math.min(imgHeight1, maxHeight1);
-        const xOffset1 = (pageWidth - imgWidth1) / 2; // Centralizar horizontalmente
-        const yOffset1 = 0;
+        // Função para adicionar canvas como página A4 centralizada com margens
+        function addCanvasAsA4PageCentered(cnv, sectionName) {
+            const contentWidth = pageWidth - (SIDE_MARGIN_MM * 2);
+            
+            // Mantém proporção do canvas (A4 794x1123 @ scale 2 → 1588x2246)
+            const imgWidth = contentWidth;
+            const imgHeight = (cnv.height * imgWidth) / cnv.width;
+            
+            const maxHeight = pageHeight - TOP_MARGIN_MM - BOTTOM_MARGIN_MM;
+            const finalHeight = Math.min(imgHeight, maxHeight);
+            
+            const x = SIDE_MARGIN_MM;
+            const y = TOP_MARGIN_MM;
+            
+            console.log(`📄 [PDF-BUILD] ${sectionName}:`, {
+                canvasSize: { width: cnv.width, height: cnv.height },
+                contentWidth,
+                imgWidth,
+                imgHeight,
+                finalHeight,
+                position: { x, y },
+                margins: { side: SIDE_MARGIN_MM, top: TOP_MARGIN_MM, bottom: BOTTOM_MARGIN_MM }
+            });
+            
+            const imgData = cnv.toDataURL('image/png');
+            pdf.addImage(imgData, 'PNG', x, y, imgWidth, finalHeight);
+        }
         
-        console.log('📄 [PDF-BUILD] Adicionando Página 1 (Métricas):', {
-            canvasSize: { width: canvas1.width, height: canvas1.height },
-            imgWidth: imgWidth1,
-            imgHeight: imgHeight1,
-            adjustedHeight: adjustedHeight1,
-            xOffset: xOffset1,
-            yOffset: yOffset1,
-            bottomMargin: BOTTOM_MARGIN
-        });
+        // Página 1 (Métricas)
+        addCanvasAsA4PageCentered(canvas1, 'Página 1 (Métricas)');
         
-        pdf.addImage(imgData1, 'PNG', xOffset1, yOffset1, imgWidth1, adjustedHeight1);
-        
-        // ✅ Página 2: Diagnóstico com centralização horizontal
+        // Página 2 (Diagnóstico/Recomendações)
         pdf.addPage();
-        const imgWidth2 = pageWidth;
-        const imgHeight2 = (canvas2.height * imgWidth2) / canvas2.width;
-        const maxHeight2 = pageHeight - BOTTOM_MARGIN; // Respeitar margem inferior
-        const adjustedHeight2 = Math.min(imgHeight2, maxHeight2);
-        const xOffset2 = (pageWidth - imgWidth2) / 2; // Centralizar horizontalmente
-        const yOffset2 = 0;
-        
-        console.log('📄 [PDF-BUILD] Adicionando Página 2 (Diagnóstico):', {
-            canvasSize: { width: canvas2.width, height: canvas2.height },
-            imgWidth: imgWidth2,
-            imgHeight: imgHeight2,
-            adjustedHeight: adjustedHeight2,
-            xOffset: xOffset2,
-            yOffset: yOffset2,
-            bottomMargin: BOTTOM_MARGIN
-        });
-        
-        pdf.addImage(imgData2, 'PNG', xOffset2, yOffset2, imgWidth2, adjustedHeight2);
+        addCanvasAsA4PageCentered(canvas2, 'Página 2 (Diagnóstico)');
         
         // 🔟 DOWNLOAD: Nome descritivo com data
         const cleanFileName = (normalizedData.fileName || 'audio')
