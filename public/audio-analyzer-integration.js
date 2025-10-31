@@ -8741,6 +8741,19 @@ function generateReportHTML(data) {
                 height: 75px !important;
                 padding: 10px !important;
             }
+            
+            /* Ajustes de rodapé e recomendações (página 2) */
+            .pdf-section-diagnostics .pdf-footer {
+                margin-top: 25px !important;
+                padding-bottom: 10px;
+                position: relative;
+                bottom: 0;
+            }
+            
+            .pdf-section-recommendations {
+                transform: scale(0.97);
+                transform-origin: top center;
+            }
         }
         
         /* Mobile mantém estilos originais (< 768px) */
@@ -8974,7 +8987,7 @@ function generateReportHTML(data) {
         </div>
 
         <!-- Rodapé Final -->
-        <div style="position: absolute; bottom: 20px; left: 40px; right: 40px; text-align: center; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1);">
+        <div style="position: absolute; bottom: 30px; left: 40px; right: 40px; text-align: center; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
             <p style="margin: 0; font-size: 13px; color: #8B5CF6; font-weight: 600;">
                 SoundyAI © 2025
             </p>
