@@ -8158,10 +8158,11 @@ async function downloadModalAnalysis() {
         const pageWidth = pdf.internal.pageSize.getWidth(); // 210mm
         const pageHeight = pdf.internal.pageSize.getHeight(); // 297mm
         
-        // Sem margens: preencher 100% da página A4 (desktop e mobile)
-        const SIDE_MARGIN_MM = 0;    // ✅ Zero para ambos
-        const TOP_MARGIN_MM = 0;     // ✅ Zero para ambos
-        const BOTTOM_MARGIN_MM = 0;  // ✅ Zero para ambos
+        // Margens adaptadas para mobile (maximizar área útil)
+        const isMobile = window.innerWidth < 768;
+        const SIDE_MARGIN_MM = isMobile ? 2 : 8;    // laterais (mínimo no mobile)
+        const TOP_MARGIN_MM = isMobile ? 0 : 8;     // topo (zero no mobile)
+        const BOTTOM_MARGIN_MM = isMobile ? 0 : 8;  // rodapé (zero no mobile)
         
         console.log('� [PDF-A4-FORMAT]', {
             pageWidth,
@@ -8175,32 +8176,50 @@ async function downloadModalAnalysis() {
             format: 'A4 Portrait (210x297mm)'
         });
         
-        // Função para adicionar canvas preenchendo 100% da página A4 (sem margens)
+        // Função para adicionar canvas como página A4 centralizada com margens
         function addCanvasAsA4PageCentered(cnv, sectionName) {
-            // Preencher 100% da altura A4
-            let imgHeight = pageHeight;  // 297mm
-            let imgWidth = (cnv.width * imgHeight) / cnv.height;
+            const contentWidth = pageWidth - (SIDE_MARGIN_MM * 2);
             
-            // Se largura calculada ultrapassar 210mm, ajustar por largura
-            if (imgWidth > pageWidth) {
-                imgWidth = pageWidth;  // 210mm
+            let imgWidth, imgHeight;
+            
+            if (isMobile) {
+                // MOBILE: Escalonar para preencher 100% da altura A4
+                imgHeight = pageHeight; // 297mm - altura completa
+                imgWidth = (cnv.width * imgHeight) / cnv.height;
+                
+                // Se largura ultrapassar contentWidth, reajustar por largura
+                if (imgWidth > contentWidth) {
+                    imgWidth = contentWidth;
+                    imgHeight = (cnv.height * imgWidth) / cnv.width;
+                }
+            } else {
+                // DESKTOP: Manter lógica original com margens
+                imgWidth = contentWidth;
                 imgHeight = (cnv.height * imgWidth) / cnv.width;
+                
+                const maxHeight = pageHeight - TOP_MARGIN_MM - BOTTOM_MARGIN_MM;
+                imgHeight = Math.min(imgHeight, maxHeight);
             }
             
-            // Posição absoluta no canto (sem margens)
-            const x = 0;
-            const y = 0;
+            // Centralizar horizontalmente
+            const x = (pageWidth - imgWidth) / 2;
+            
+            // Mobile: ancorar no topo absoluto (y=0)
+            // Desktop: respeitar margem superior
+            const y = isMobile ? 0 : TOP_MARGIN_MM;
             
             const fillPercentage = ((imgHeight / pageHeight) * 100).toFixed(1);
             
             console.log(`📄 [PDF-BUILD] ${sectionName}:`, {
+                device: isMobile ? 'MOBILE' : 'DESKTOP',
                 canvasSize: { width: cnv.width, height: cnv.height },
                 pageSize: { width: pageWidth, height: pageHeight },
+                contentWidth,
                 imgWidth: imgWidth.toFixed(2),
                 imgHeight: imgHeight.toFixed(2),
-                position: { x, y },
+                position: { x: x.toFixed(2), y },
                 fillPercentage: `${fillPercentage}%`,
-                margins: 'ZERO (100% fill)'
+                margins: { side: SIDE_MARGIN_MM, top: TOP_MARGIN_MM, bottom: BOTTOM_MARGIN_MM }
             });
             
             const imgData = cnv.toDataURL('image/png');
