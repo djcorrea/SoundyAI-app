@@ -182,7 +182,12 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         finalJSON.metadata.phaseBreakdown.phase4_json_output = timings.phase4_json_output;
       }
       
-      console.log(`✅ [${jobId.substring(0,8)}] Fase 5.4 concluída em ${timings.phase4_json_output}ms`);
+      logAudio('json_output', 'done', { 
+        ms: timings.phase4_json_output,
+        score: finalJSON.score,
+        classification: finalJSON.classification 
+      });
+      console.log(`✅ [${jobId.substring(0,8)}] Fase 5.4 (JSON Output) concluída em ${timings.phase4_json_output}ms`);
       
       // Log seguro do score
       const scoreStr = finalJSON.score !== undefined ? finalJSON.score : 'N/A';
@@ -215,6 +220,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     }
 
     console.log(`🏁 [${jobId.substring(0,8)}] Pipeline completo finalizado em ${totalTime}ms`);
+    console.log(`✅ [${jobId.substring(0,8)}] JSON final pronto para salvar no banco`);
     
     logAudio('pipeline', 'done', {
       ms: totalTime,
