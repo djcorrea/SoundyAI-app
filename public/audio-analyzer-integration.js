@@ -5896,28 +5896,34 @@ function renderReferenceComparisons(analysis) {
     if (!container) return;
     
     // 🎯 DETECÇÃO DE MODO REFERÊNCIA - Usar dados da referência em vez de gênero
-    const isReferenceMode = analysis.analysisMode === 'reference' || 
+    const isReferenceMode = (analysis.referenceComparison && analysis.referenceComparison.mode === 'reference') ||
+                           analysis.analysisMode === 'reference' || 
                            analysis.baseline_source === 'reference' ||
                            (analysis.comparison && analysis.comparison.baseline_source === 'reference');
     
     let ref, titleText;
     
-    if (isReferenceMode && analysis.referenceMetrics) {
+    if (isReferenceMode && analysis.referenceComparison && analysis.referenceComparison.referenceMetrics) {
         // Modo referência: usar métricas extraídas do áudio de referência
+        const refMetrics = analysis.referenceComparison.referenceMetrics;
         ref = {
-            lufs_target: analysis.referenceMetrics.lufs,
-            true_peak_target: analysis.referenceMetrics.truePeakDbtp,
-            dr_target: analysis.referenceMetrics.dynamicRange,
-            lra_target: analysis.referenceMetrics.lra,
-            stereo_target: analysis.referenceMetrics.stereoCorrelation,
-            tol_lufs: 0.2,
-            tol_true_peak: 0.2,
-            tol_dr: 0.5,
-            tol_lra: 0.5,
-            tol_stereo: 0.05,
-            bands: analysis.referenceMetrics.bands || null
+            lufs_target: refMetrics.lufsIntegrated,
+            true_peak_target: refMetrics.truePeakDbtp,
+            dr_target: refMetrics.dynamicRange,
+            lra_target: refMetrics.lra || 6, // Fallback se não disponível
+            stereo_target: refMetrics.stereoCorrelation,
+            spectral_centroid_target: refMetrics.spectralCentroidHz,
+            tol_lufs: 0.5, // Tolerância maior para comparação real
+            tol_true_peak: 0.3,
+            tol_dr: 1.0,
+            tol_lra: 1.0,
+            tol_stereo: 0.08,
+            tol_spectral: 300,
+            bands: null // Bandas virão de referenceComparison.comparison.spectralBands
         };
-        titleText = "Música de Referência";
+        titleText = "🎵 Faixa de Referência";
+        
+        console.log('🎯 [RENDER-REF] Usando métricas de referência real:', refMetrics);
     } else {
         // Modo gênero: usar targets de gênero como antes
         ref = __activeRefData;
@@ -6134,6 +6140,12 @@ function renderReferenceComparisons(analysis) {
     pushRow('Faixa de Loudness – LRA (LU)', getMetricForRef('lra'), ref.lra_target, ref.tol_lra, ' LU');
     pushRow('Stereo Corr.', getMetricForRef('stereo_correlation', 'stereoCorrelation'), ref.stereo_target, ref.tol_stereo, '');
     
+    // 🎯 ADICIONAR SPECTRAL CENTROID SE MODO REFERÊNCIA
+    if (isReferenceMode && ref.spectral_centroid_target) {
+        pushRow('Centro Espectral (Hz)', getMetricForRef('spectral_centroid', 'spectralCentroidHz'), 
+                ref.spectral_centroid_target, ref.tol_spectral, ' Hz');
+    }
+    
     // Bandas detalhadas Fase 2: usar métricas centralizadas para bandas
     const centralizedBands = analysis.metrics?.bands;
     const legacyBandEnergies = tech.bandEnergies || null;
@@ -6190,7 +6202,35 @@ function renderReferenceComparisons(analysis) {
     // Priorizar bandas centralizadas se disponíveis
     const bandsToUse = centralizedBands && Object.keys(centralizedBands).length > 0 ? centralizedBands : legacyBandEnergies;
     
-    if (bandsToUse && ref.bands) {
+    // 🎯 MODO REFERÊNCIA: Usar bandas de referenceComparison se disponível
+    const referenceBands = isReferenceMode && analysis.referenceComparison?.comparison?.spectralBands;
+    
+    if (referenceBands) {
+        console.log('🎯 [RENDER-REF-BANDS] Usando bandas de referenceComparison');
+        
+        const bandNames = {
+            sub: 'Sub (20–60Hz)',
+            bass: 'Bass (60–150Hz)',
+            lowMid: 'Low-Mid (150–500Hz)',
+            mid: 'Mid (500–2kHz)',
+            highMid: 'High-Mid (2–5kHz)',
+            presence: 'Presence (5–10kHz)',
+            air: 'Air (10–20kHz)'
+        };
+        
+        ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'].forEach(band => {
+            if (referenceBands[band]) {
+                const data = referenceBands[band];
+                pushRow(
+                    bandNames[band] || band,
+                    data.user,
+                    data.reference,
+                    3.0, // Tolerância de 3% para bandas
+                    data.unit
+                );
+            }
+        });
+    } else if (bandsToUse && ref.bands) {
         const normMap = (analysis?.technicalData?.refBandTargetsNormalized?.mapping) || null;
         const showNorm = (typeof window !== 'undefined' && window.SHOW_NORMALIZED_REF_TARGETS === true && normMap);
         
