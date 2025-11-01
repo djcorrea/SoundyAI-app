@@ -4102,18 +4102,26 @@ function displayModalResults(analysis) {
         };
         
         return; // Não executar renderização normal de gênero
-    } else {
-        // 🎯 MODO GENRE: Definir explicitamente e limpar referências
+    }
+    
+    // 🎯 CORREÇÃO: Definir modo baseado no contexto real da análise
+    // NÃO forçar genre se for primeira faixa de referência
+    if (mode === 'reference' && !isSecondTrack) {
+        // Primeira faixa em modo reference - manter modo reference mas não renderizar ainda
+        state.render.mode = 'reference';
+        console.log('✅ [REFERENCE-FIRST] Primeira faixa de referência - aguardando segunda');
+    } else if (mode !== 'reference' || (mode === 'reference' && !window.referenceAnalysisData)) {
+        // Modo genre genuíno
         state.render.mode = 'genre';
-        window.__soundyState = state;
         console.log('✅ [GENRE-MODE] Modo definido como GENRE no estado');
         
-        // Limpar dados de referência para evitar contaminação
+        // Limpar dados de referência para evitar contaminação APENAS em modo genre
         if (state.reference) {
             state.reference.isSecondTrack = false;
             state.reference.analysis = null;
         }
     }
+    window.__soundyState = state;
     
     // 🔒 UI GATE: Verificação final antes de renderizar
     const analysisRunId = analysis?.runId || analysis?.metadata?.runId;
@@ -4201,19 +4209,24 @@ function displayModalResults(analysis) {
     let referenceDataForScores = __activeRefData;
     const isReferenceMode = !!(referenceComparisonMetrics && referenceComparisonMetrics.reference);
     
-    // 🎯 CORREÇÃO: Limpar estado de referência se NÃO estiver em modo reference
-    if (!isReferenceMode) {
-        const state = window.__soundyState || {};
-        if (state.reference) {
-            console.log('🧹 [SCORES-GENRE] Limpando estado de referência anterior para evitar contaminação');
-            state.reference.isSecondTrack = false;
-            state.reference.analysis = null;
+    // 🎯 CORREÇÃO: Usar state.render.mode como fonte da verdade para decidir limpeza
+    const stateForScores = window.__soundyState || {};
+    const actualMode = stateForScores.render?.mode || (isReferenceMode ? 'reference' : 'genre');
+    
+    // Limpar estado APENAS se modo for explicitamente 'genre'
+    if (actualMode === 'genre' && !isReferenceMode) {
+        if (stateForScores.reference && stateForScores.reference.isSecondTrack) {
+            console.log('🧹 [GENRE-CLEANUP] Limpando referência antiga (modo genre confirmado)');
+            stateForScores.reference.isSecondTrack = false;
+            stateForScores.reference.analysis = null;
         }
         // Garantir que análise não tenha referenceAnalysis indevida
         if (analysis.referenceAnalysis) {
             console.warn('⚠️ [SCORES-GENRE] Removendo referenceAnalysis da análise de gênero (contaminação detectada)');
             delete analysis.referenceAnalysis;
         }
+    } else if (actualMode === 'reference' || isReferenceMode) {
+        console.log('✅ [REFERENCE-MODE] Mantendo referenceAnalysis ativo');
     }
     
     if (isReferenceMode) {
@@ -5942,11 +5955,23 @@ function displayModalResults(analysis) {
             const isSecondTrack = window.__REFERENCE_JOB_ID__ !== null;
             const mode = analysis?.mode || currentAnalysisMode;
             
+            const state = window.__soundyState || {};
+            
             console.log('🔍 [RENDER-FLOW] Verificando se deve chamar renderReferenceComparisons:', {
                 mode,
                 isSecondTrack,
                 hasReferenceAnalysisData: !!window.referenceAnalysisData,
-                shouldSkip: mode === 'reference' && isSecondTrack && window.referenceAnalysisData
+                shouldSkip: mode === 'reference' && isSecondTrack && window.referenceAnalysisData,
+                stateRenderMode: state.render?.mode
+            });
+            
+            // 🎯 LOG DE VERIFICAÇÃO DO MODO DE RENDERIZAÇÃO
+            console.log('[VERIFY_RENDER_MODE]', {
+                mode: state.render?.mode || 'undefined',
+                usingReferenceBands: !!(state.reference?.analysis?.bands || analysis?.referenceAnalysis?.bands),
+                usingGenreTargets: !!window.__activeRefData?.bands,
+                genreTargetsKeys: window.__activeRefData?.bands ? Object.keys(window.__activeRefData.bands) : [],
+                referenceBandsKeys: state.reference?.analysis?.bands ? Object.keys(state.reference.analysis.bands) : []
             });
             
             // Só chamar renderReferenceComparisons() em modo GÊNERO
@@ -6519,6 +6544,13 @@ function renderReferenceComparisons(opts = {}) {
         // ===== MODO GÊNERO =====
         // 🎯 SÓ LOGA "MODO GÊNERO" SE REALMENTE FOR GENRE
         console.log('🎵 [RENDER-REF] MODO GÊNERO');
+        
+        // 🎯 LOG DE VERIFICAÇÃO: Garantir que targets de gênero sejam usados
+        console.log('[TARGET-RESOLVE] Modo GENRE confirmado - buscando targets de gênero:', {
+            hasWindowActiveRefData: !!window.__activeRefData,
+            hasProdAiRefData: !!window.PROD_AI_REF_DATA,
+            genre: window.__activeRefGenre || window.PROD_AI_REF_GENRE
+        });
         
         // 🎯 CORREÇÃO: Fallback seguro para __activeRefData com múltiplas tentativas
         let __activeRefData = window.__activeRefData;
