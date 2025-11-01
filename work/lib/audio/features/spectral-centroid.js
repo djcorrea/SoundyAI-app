@@ -129,14 +129,17 @@ export class SpectralCentroidCalculator {
       
       const roundedCentroid = Number(centroidHz.toFixed(CENTROID_CONFIG.PRECISION_DIGITS));
       
-      // Log para auditoria
-      logAudio('spectral_centroid', 'calculated', {
-        frame: frameIndex,
-        centroidHz: roundedCentroid,
-        totalMagnitude: totalMagnitude.toExponential(3),
-        validBins,
-        brightnessCategory: this.categorizeBrightness(roundedCentroid)
-      });
+      // 🚨 LOG DESABILITADO: Gera milhares de logs por segundo causando timeout no Railway
+      // Log apenas a cada 500 frames (~10s de áudio) para evitar sobrecarga
+      if (frameIndex % 500 === 0) {
+        logAudio('spectral_centroid', 'calculated', {
+          frame: frameIndex,
+          centroidHz: roundedCentroid,
+          totalMagnitude: totalMagnitude.toExponential(3),
+          validBins,
+          brightnessCategory: this.categorizeBrightness(roundedCentroid)
+        });
+      }
       
       return {
         centroidHz: roundedCentroid,
