@@ -4078,17 +4078,23 @@ function displayModalResults(analysis) {
         
         // 🎯 CRIAR ESTRUTURA DE COMPARAÇÃO ENTRE FAIXAS
         // Normalizar ambas as análises
-        const refNormalized = normalizeBackendAnalysisData(window.referenceAnalysisData);
-        const currNormalized = normalizeBackendAnalysisData(analysis);
+        const refNormalized = normalizeBackendAnalysisData(window.referenceAnalysisData); // Primeira faixa (BASE)
+        const currNormalized = normalizeBackendAnalysisData(analysis); // Segunda faixa (ATUAL)
         
+        // 🎯 CORREÇÃO: Ordem correta - user é a faixa ATUAL (segunda), reference é o ALVO (primeira)
         referenceComparisonMetrics = {
-            user: refNormalized.technicalData || {},
-            reference: currNormalized.technicalData || {},
-            userFull: refNormalized,
-            referenceFull: currNormalized
+            user: currNormalized.technicalData || {}, // Segunda faixa (valores atuais)
+            reference: refNormalized.technicalData || {}, // Primeira faixa (referência/alvo)
+            userFull: currNormalized, // Segunda faixa completa
+            referenceFull: refNormalized // Primeira faixa completa
         };
         
-        console.log('✅ [COMPARE-MODE] Estrutura referenceComparisonMetrics criada:', referenceComparisonMetrics);
+        console.log('✅ [COMPARE-MODE] Estrutura referenceComparisonMetrics criada (ordem corrigida):', {
+            user: 'Segunda faixa (atual)',
+            reference: 'Primeira faixa (alvo)',
+            userFileName: currNormalized.metadata?.fileName,
+            refFileName: refNormalized.metadata?.fileName
+        });
         
         // Chamar função de renderização comparativa
         renderTrackComparisonTable(window.referenceAnalysisData, analysis);
@@ -4233,19 +4239,26 @@ function displayModalResults(analysis) {
         console.log('✅ [SCORES] Usando referenceComparisonMetrics para calcular scores (comparação entre faixas)');
         
         // Construir objeto no formato esperado por calculateAnalysisScores
-        const refMetrics = referenceComparisonMetrics.reference;
+        const refMetrics = referenceComparisonMetrics.reference; // Primeira faixa (alvo)
         
-        // 🎯 CORREÇÃO CRÍTICA: No modo reference, bands devem vir da análise de referência (primeira faixa)
-        // NÃO usar spectral_balance que tem target_range, mas sim os valores REAIS da faixa
-        const referenceBandsFromAnalysis = analysis?.referenceAnalysis?.technicalData?.spectral_balance 
-            || analysis?.referenceAnalysis?.metrics?.bands
+        // 🎯 CORREÇÃO CRÍTICA: Buscar bandas da primeira faixa (referência/alvo)
+        // Usar referenceFull que tem os dados completos da primeira faixa
+        const referenceBandsFromAnalysis = referenceComparisonMetrics.referenceFull?.technicalData?.spectral_balance 
+            || referenceComparisonMetrics.referenceFull?.metrics?.bands
             || window.__soundyState?.reference?.analysis?.bands
+            || window.referenceAnalysisData?.technicalData?.spectral_balance
+            || window.referenceAnalysisData?.metrics?.bands
             || null;
         
         if (!referenceBandsFromAnalysis) {
-            console.warn('⚠️ [SCORES-REF] Bandas da faixa de referência não encontradas, usando fallback de gênero');
+            console.warn('⚠️ [SCORES-REF] Bandas da primeira faixa (referência) não encontradas!');
+            console.error('❌ Debug:', {
+                hasReferenceFull: !!referenceComparisonMetrics.referenceFull,
+                referenceFull: referenceComparisonMetrics.referenceFull,
+                hasWindowRefData: !!window.referenceAnalysisData
+            });
         } else {
-            console.log('✅ [SCORES-REF] Usando bandas da faixa de referência (valores reais):', Object.keys(referenceBandsFromAnalysis));
+            console.log('✅ [SCORES-REF] Usando bandas da primeira faixa como alvo (valores reais):', Object.keys(referenceBandsFromAnalysis));
         }
         
         referenceDataForScores = {
@@ -4271,6 +4284,19 @@ function displayModalResults(analysis) {
         const state = window.__soundyState || {};
         
         console.log('🎯 Calculando scores para:', referenceComparisonMetrics ? 'comparação entre faixas' : `gênero ${detectedGenre}`);
+        
+        // 🎯 LOG DE VERIFICAÇÃO DA ORDEM A/B (conforme solicitado)
+        if (isReferenceMode) {
+            console.log('[VERIFY_AB_ORDER]', {
+                mode: state.render.mode,
+                userMetrics: 'Segunda faixa (atual)',
+                refMetrics: 'Primeira faixa (alvo)',
+                userFile: referenceComparisonMetrics?.userFull?.metadata?.fileName || 'Segunda faixa',
+                refFile: referenceComparisonMetrics?.referenceFull?.metadata?.fileName || 'Primeira faixa',
+                userLufs: referenceComparisonMetrics?.user?.lufsIntegrated,
+                refLufs: referenceComparisonMetrics?.reference?.lufsIntegrated
+            });
+        }
         
         // 🎯 LOG DE VERIFICAÇÃO DE MODO (conforme solicitado)
         console.log('[VERIFY_MODE]', {
@@ -7260,30 +7286,37 @@ function renderReferenceComparisons(opts = {}) {
                 let tolDisplay = null;
                 
                 // 🎯 MODE-AWARE TARGET RESOLUTION
+                let targetValue = null; // Valor numérico ou range object para pushRow
+                
                 if (isReferenceMode) {
-                    // 👉 REFERENCE: usa valor NUMÉRICO da 2ª faixa
+                    // 👉 REFERENCE: usa valor NUMÉRICO da primeira faixa (alvo)
                     const refVal = getReferenceBandValue(refBands, bandKey);
                     if (refVal !== null) {
-                        targetDisplay = formatDb(refVal);
-                        console.log(`✅ [REF-BAND] ${bandKey}: user=${formatDb(userVal)}, ref=${targetDisplay}`);
+                        targetValue = refVal; // Passa número direto para pushRow
+                        targetDisplay = formatDb(refVal); // Para logs
+                        tolDisplay = 0; // Sem tolerância em comparação direta
+                        console.log(`✅ [REF-BAND] ${bandKey}: user=${formatDb(userVal)}, ref=${targetDisplay} (valor único)`);
                     } else {
                         console.warn(`⚠️ [REF-WARNING] Banda sem referência: ${bandKey} (valor: ${formatDb(userVal)})`);
+                        targetDisplay = '—';
                     }
                 } else {
                     // 👉 GENRE: usa faixa alvo (range)
                     const r = getGenreTargetRange(genreTargets, bandKey);
                     if (r) {
+                        targetValue = { min: r.min, max: r.max }; // Passa range object para pushRow
                         targetDisplay = `${formatDb(r.min)} a ${formatDb(r.max)}`;
                         tolDisplay = r.tol;
-                        console.log(`✅ [GENRE-BAND] ${bandKey}: user=${formatDb(userVal)}, target=${targetDisplay}`);
+                        console.log(`✅ [GENRE-BAND] ${bandKey}: user=${formatDb(userVal)}, target=${targetDisplay} (range)`);
                     } else {
                         console.error(`❌ [GENRE-ERROR] Banda sem target de gênero: ${bandKey}`);
+                        targetDisplay = '—';
                     }
                 }
                 
                 // 🎯 Adicionar linha na tabela
                 const label = bandMap[bandKey]?.name || `${bandKey.toUpperCase()}`;
-                pushRow(label, userVal, targetDisplay === '—' ? null : targetDisplay, tolDisplay, ' dB');
+                pushRow(label, userVal, targetValue, tolDisplay, ' dB');
                 processedBandKeys.add(rawKey);
                 processedBandKeys.add(bandKey); // Adicionar também a versão normalizada
             } // Fim do for loop
