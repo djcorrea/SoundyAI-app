@@ -2166,6 +2166,16 @@ function openAnalysisModalForGenre() {
     // Usar o fluxo normal do modal de análise
     window.currentAnalysisMode = 'genre';
     
+    // 🎯 LIMPAR estado de referência ao entrar em modo genre (conforme solicitado)
+    const state = window.__soundyState || {};
+    if (state.reference) {
+        state.reference.analysis = null;
+        state.reference.isSecondTrack = false;
+        state.reference.jobId = null;
+        console.log('✅ [GENRE-CLEANUP] Estado de referência limpo ao iniciar modo genre');
+    }
+    window.__soundyState = state;
+    
     const modal = document.getElementById('audioAnalysisModal');
     if (!modal) {
         console.error('[GENRE_MODAL] Modal de análise não encontrado');
@@ -2527,6 +2537,14 @@ async function handleModalFileSelection(file) {
                     hasBands: !!state.reference.analysis?.bands,
                     isSecondTrack: state.reference.isSecondTrack,
                     jobId: state.reference.jobId
+                });
+                
+                // 🎯 LOG AUDIT-MODE-FLOW (conforme solicitado)
+                console.log('[AUDIT-MODE-FLOW]', {
+                    mode: state.render?.mode || 'reference',
+                    isSecondTrack: state.reference.isSecondTrack,
+                    refJobId: state.reference.jobId,
+                    hasRefAnalysis: !!state.reference.analysis
                 });
             } else if (window.__FIRST_ANALYSIS_RESULT__) {
                 // Fallback: usar __FIRST_ANALYSIS_RESULT__ se previousAnalysis não existir
@@ -4096,8 +4114,19 @@ function displayModalResults(analysis) {
             refFileName: refNormalized.metadata?.fileName
         });
         
-        // Chamar função de renderização comparativa
-        renderTrackComparisonTable(window.referenceAnalysisData, analysis);
+        // 🔥 CORREÇÃO CRÍTICA: Ordem correta dos parâmetros
+        // renderTrackComparisonTable(baseAnalysis, referenceAnalysis)
+        // Base = primeira faixa (alvo/referência)
+        // Reference = segunda faixa (atual/comparada)
+        console.log('[AUDIT-MODE-FLOW] Antes de renderizar tabela:', {
+            mode: state.render.mode,
+            isSecondTrack: state.reference?.isSecondTrack,
+            refJobId: state.reference?.jobId,
+            hasRefAnalysis: !!state.reference?.analysis,
+            firstTrackFile: refNormalized.metadata?.fileName,
+            secondTrackFile: currNormalized.metadata?.fileName
+        });
+        renderTrackComparisonTable(refNormalized, currNormalized);
         
         // Atualizar window.latestAnalysis para compatibilidade com IA e PDF
         window.latestAnalysis = {
@@ -4218,6 +4247,13 @@ function displayModalResults(analysis) {
     // 🎯 CORREÇÃO: Usar state.render.mode como fonte da verdade para decidir limpeza
     const stateForScores = window.__soundyState || {};
     const actualMode = stateForScores.render?.mode || (isReferenceMode ? 'reference' : 'genre');
+    
+    // 🎯 LOG FINAL-MODE (conforme solicitado)
+    console.log('[FINAL-MODE]', {
+        mode: actualMode,
+        isSecondTrack: stateForScores.reference?.isSecondTrack,
+        comparison: stateForScores.reference?.analysis ? 'A/B ativo' : 'single'
+    });
     
     // Limpar estado APENAS se modo for explicitamente 'genre'
     if (actualMode === 'genre' && !isReferenceMode) {
@@ -7482,16 +7518,28 @@ function renderReferenceComparisons(opts = {}) {
  * @param {Object} referenceAnalysis - Dados da primeira faixa (referência)
  * @param {Object} currentAnalysis - Dados da segunda faixa (usuário)
  */
-function renderTrackComparisonTable(referenceAnalysis, currentAnalysis) {
+function renderTrackComparisonTable(baseAnalysis, referenceAnalysis) {
+    // 🎯 PARÂMETROS CORRIGIDOS:
+    // baseAnalysis = primeira faixa (alvo/base da comparação)
+    // referenceAnalysis = segunda faixa (atual/sendo comparada)
+    
     console.log('🎯 [TRACK-COMPARE] Renderizando tabela comparativa entre faixas');
-    console.log('📊 [TRACK-COMPARE] Referência:', referenceAnalysis);
-    console.log('📊 [TRACK-COMPARE] Atual:', currentAnalysis);
+    console.log('📊 [TRACK-COMPARE] Base (1ª faixa - ALVO):', baseAnalysis);
+    console.log('📊 [TRACK-COMPARE] Atual (2ª faixa - COMPARADA):', referenceAnalysis);
     
     // 🎯 Definir modo reference no estado
     const state = window.__soundyState || {};
     state.render = state.render || {};
     state.render.mode = 'reference';
     console.log('✅ [TRACK-COMPARE] Modo definido como reference no estado');
+    
+    // 🎯 LOG AUDIT-MODE-FLOW (conforme solicitado)
+    console.log('[AUDIT-MODE-FLOW]', {
+        mode: state.render.mode,
+        isSecondTrack: state.reference?.isSecondTrack,
+        refJobId: state.reference?.jobId,
+        hasRefAnalysis: !!state.reference?.analysis
+    });
     
     const container = document.getElementById('referenceComparisons');
     if (!container) {
@@ -7500,8 +7548,10 @@ function renderTrackComparisonTable(referenceAnalysis, currentAnalysis) {
     }
     
     // Normalizar dados de ambas as faixas
-    const ref = normalizeBackendAnalysisData(referenceAnalysis);
-    const curr = normalizeBackendAnalysisData(currentAnalysis);
+    // ref = primeira faixa (BASE/ALVO)
+    // curr = segunda faixa (ATUAL/COMPARADA)
+    const ref = normalizeBackendAnalysisData(baseAnalysis);
+    const curr = normalizeBackendAnalysisData(referenceAnalysis);
     
     const refTech = ref.technicalData || {};
     const currTech = curr.technicalData || {};
@@ -7585,24 +7635,25 @@ function renderTrackComparisonTable(referenceAnalysis, currentAnalysis) {
     const scoreDiff = currScore - refScore;
     
     // Montar HTML da tabela
+    // 🎯 LABELS DINÂMICOS: Primeira faixa = BASE/ALVO, Segunda faixa = ATUAL
     container.innerHTML = `
         <div class="card" style="margin-top:12px;">
-            <div class="card-title">🎵 COMPARAÇÃO ENTRE FAIXAS</div>
+            <div class="card-title">🎵 COMPARAÇÃO ENTRE FAIXAS (Modo Reference)</div>
             <div style="padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 12px;">
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                     <div>
-                        <div style="font-size: 11px; opacity: 0.7; margin-bottom: 4px;">FAIXA DE REFERÊNCIA (1ª)</div>
+                        <div style="font-size: 11px; opacity: 0.7; margin-bottom: 4px;">FAIXA BASE (1ª - ALVO)</div>
                         <div style="font-weight: 600; font-size: 14px;">
-                            ${ref.metadata?.fileName || ref.fileName || 'Faixa 1'}
+                            ${ref.metadata?.fileName || ref.fileName || 'Primeira Faixa'}
                         </div>
                         <div style="font-size: 12px; margin-top: 4px;">
                             Score: <span style="color: #52f7ad;">${nf(refScore, 0)}</span>
                         </div>
                     </div>
                     <div>
-                        <div style="font-size: 11px; opacity: 0.7; margin-bottom: 4px;">FAIXA ATUAL (2ª)</div>
+                        <div style="font-size: 11px; opacity: 0.7; margin-bottom: 4px;">FAIXA DE REFERÊNCIA (2ª - ATUAL)</div>
                         <div style="font-weight: 600; font-size: 14px;">
-                            ${curr.metadata?.fileName || curr.fileName || 'Faixa 2'}
+                            ${curr.metadata?.fileName || curr.fileName || 'Segunda Faixa'}
                         </div>
                         <div style="font-size: 12px; margin-top: 4px;">
                             Score: <span style="color: ${scoreDiff >= 0 ? '#52f7ad' : '#ff7b7b'};">${nf(currScore, 0)}</span>
@@ -7614,9 +7665,9 @@ function renderTrackComparisonTable(referenceAnalysis, currentAnalysis) {
             <table class="ref-compare-table">
                 <thead><tr>
                     <th>Métrica</th>
-                    <th>Faixa 2 (Atual)</th>
-                    <th>Faixa 1 (Ref)</th>
-                    <th>Diferença</th>
+                    <th>Faixa 2 (Ref/Atual)</th>
+                    <th>Faixa 1 (Base/Alvo)</th>
+                    <th>Diferença (%)</th>
                     <th>Status</th>
                 </tr></thead>
                 <tbody>${rows.join('')}</tbody>
