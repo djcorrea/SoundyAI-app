@@ -6194,15 +6194,48 @@ function renderReferenceComparisons(analysis) {
     // 🎯 USAR renderMode PARA DECIDIR O FLUXO (não isReferenceMode)
     if (renderMode === 'reference') {
         console.log('[AUDITORIA_REF] Modo referência detectado – exibindo comparação A/B entre faixas');
+        console.log('[REF-COMP] Verificando fontes de dados disponíveis:', {
+            'analysis.referenceAnalysis': !!analysis.referenceAnalysis,
+            'analysis.referenceBands': !!analysis.referenceBands,
+            'analysis.referenceComparison': !!analysis.referenceComparison,
+            'window.referenceAnalysisData': !!window.referenceAnalysisData
+        });
         
-        // 🎯 VERIFICAR SE É COMPARAÇÃO ENTRE FAIXAS
-        if (window.referenceAnalysisData && analysis.mode === 'reference') {
-            console.log('🎯 [RENDER-REF] MODO REFERÊNCIA — COMPARAÇÃO ENTRE FAIXAS ATIVADA');
-            console.log('[AUDITORIA_REF] Dados usados na comparação:', analysis.referenceComparison || analysis.referenceBands || 'referenceComparisonMetrics');
-        } else {
-            console.log('🎯 [RENDER-REF] MODO REFERÊNCIA DETECTADO (estrutura backend)');
+        // 🎯 PRIORIDADE 0 (NOVA): analysis.referenceAnalysis (primeira faixa vinculada)
+        if (analysis.referenceAnalysis && analysis.referenceAnalysis.technicalData) {
+            console.log('✅ [REF-COMP] Usando real reference analysis as target (primeira faixa)');
+            
+            const refTech = analysis.referenceAnalysis.technicalData;
+            userMetrics = analysis.technicalData || {};
+            
+            ref = {
+                lufs_target: refTech.lufsIntegrated ?? refTech.lufs_integrated,
+                true_peak_target: refTech.truePeakDbtp ?? refTech.true_peak_dbtp,
+                dr_target: refTech.dynamicRange ?? refTech.dynamic_range,
+                lra_target: refTech.lra,
+                stereo_target: refTech.stereoCorrelation ?? refTech.stereo_correlation,
+                stereo_width_target: refTech.stereoWidth ?? refTech.stereo_width,
+                spectral_centroid_target: refTech.spectralCentroidHz ?? refTech.spectral_centroid,
+                tol_lufs: 0.5,
+                tol_true_peak: 0.3,
+                tol_dr: 1.0,
+                tol_lra: 1.0,
+                tol_stereo: 0.08,
+                tol_spectral: 300,
+                bands: refTech.bandEnergies ?? refTech.spectral_balance ?? refTech.bands ?? null
+            };
+            
+            titleText = `🎵 ${analysis.referenceAnalysis.fileName || analysis.referenceAnalysis.metadata?.fileName || 'Faixa Base'}`;
+            
+            console.log('📊 [REF-COMP] baseBands/refBands resolved from referenceAnalysis:', {
+                lufs: ref.lufs_target,
+                dr: ref.dr_target,
+                peak: ref.true_peak_target,
+                hasBands: !!ref.bands,
+                bandsKeys: ref.bands ? Object.keys(ref.bands) : []
+            });
+            console.log('✅ [REF-COMP] Using real reference analysis as target');
         }
-        
         // 🎯 PRIORIDADE 1: analysis.referenceBands (estrutura centralizada)
         if (analysis.referenceBands && analysis.mode === 'reference') {
             console.log('✅ [RENDER-REF] Usando analysis.referenceBands (estrutura centralizada)');
@@ -6734,6 +6767,12 @@ function renderReferenceComparisons(analysis) {
         // 🎯 PROCESSAMENTO CORRIGIDO: Iterar por bandas de referência e mapear para dados calculados
         console.log('🔄 Processando bandas com mapeamento corrigido...');
         
+        // 🛡️ FALLBACK: Verificar se ref.bands existe antes de iterar
+        if (!ref.bands || typeof ref.bands !== 'object') {
+            console.warn('⚠️ [REF-COMP] Fallback triggered (missing bands) - ref.bands não existe');
+            ref.bands = {}; // Criar objeto vazio para evitar erro
+        }
+        
         for (const [refBandKey, refBand] of Object.entries(ref.bands)) {
             // Encontrar a banda calculada correspondente
             const calcBandKey = bandMappingRefToCalc[refBandKey] || refBandKey;
@@ -7069,6 +7108,16 @@ function renderReferenceComparisons(analysis) {
         lra: lraTarget,
         stereo: stereoTarget,
         totalRows: rows.length
+    });
+    
+    // 🎯 LOG FINAL DE SUCESSO COMPLETO
+    console.log('✅ [REF-COMP] renderReferenceComparisons SUCCESS', {
+        mode: renderMode,
+        usedReferenceAnalysis: !!analysis.referenceAnalysis,
+        bandsResolved: ref.bands ? Object.keys(ref.bands).length : 0,
+        rowsGenerated: rows.length,
+        titleDisplayed: titleText,
+        tableVisible: renderMode === 'reference'
     });
     
     // Estilos injetados uma vez com indicadores visuais melhorados
