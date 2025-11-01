@@ -132,17 +132,19 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
     console.log('📝 [API] Gravando no PostgreSQL com UUID...');
     
     // 🔑 CRÍTICO: Usar jobId (UUID) na coluna 'id' do PostgreSQL
+    // 🎯 NOVO: Adicionar reference_for (referenceJobId) para modo reference
     const result = await pool.query(
-      `INSERT INTO jobs (id, file_key, mode, status, file_name, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, NOW(), NOW()) RETURNING *`,
-      [jobId, fileKey, mode, "queued", fileName || null]
+      `INSERT INTO jobs (id, file_key, mode, status, file_name, reference_for, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *`,
+      [jobId, fileKey, mode, "queued", fileName || null, referenceJobId || null]
     );
 
     console.log(`✅ [API] Gravado no PostgreSQL:`, {
       id: result.rows[0].id,
       fileKey: result.rows[0].file_key,
       status: result.rows[0].status,
-      mode: result.rows[0].mode
+      mode: result.rows[0].mode,
+      referenceFor: result.rows[0].reference_for
     });
     console.log('🎯 [API] Fluxo completo - Redis ➜ PostgreSQL concluído!');
 
