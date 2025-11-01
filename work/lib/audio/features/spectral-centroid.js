@@ -4,6 +4,12 @@
 import { logAudio, makeErr } from '../error-handling.js';
 
 /**
+ * 🎯 DEBUG THROTTLING GLOBAL
+ * Controla logging de dados frame-by-frame para evitar sobrecarga no Railway
+ */
+const shouldLogFrame = (frame) => process.env.SOUNDY_DEBUG === 'true' && frame % 200 === 0;
+
+/**
  * 🔧 Configurações do Spectral Centroid
  */
 const CENTROID_CONFIG = {
@@ -103,11 +109,13 @@ export class SpectralCentroidCalculator {
       
       // Validar energia total suficiente
       if (totalMagnitude < CENTROID_CONFIG.MIN_TOTAL_MAGNITUDE || validBins < 10) {
-        logAudio('spectral_centroid', 'insufficient_energy', {
-          frame: frameIndex,
-          totalMagnitude: totalMagnitude.toExponential(3),
-          validBins
-        });
+        if (shouldLogFrame(frameIndex)) {
+          logAudio('spectral_centroid', 'insufficient_energy', {
+            frame: frameIndex,
+            totalMagnitude: totalMagnitude.toExponential(3),
+            validBins
+          });
+        }
         return null;
       }
       
@@ -118,20 +126,21 @@ export class SpectralCentroidCalculator {
       if (!isFinite(centroidHz) || 
           centroidHz < CENTROID_CONFIG.FREQUENCY_MIN || 
           centroidHz > CENTROID_CONFIG.FREQUENCY_MAX) {
-        logAudio('spectral_centroid', 'invalid_result', {
-          frame: frameIndex,
-          centroidHz,
-          weightedSum,
-          totalMagnitude
-        });
+        if (shouldLogFrame(frameIndex)) {
+          logAudio('spectral_centroid', 'invalid_result', {
+            frame: frameIndex,
+            centroidHz,
+            weightedSum,
+            totalMagnitude
+          });
+        }
         return null;
       }
       
       const roundedCentroid = Number(centroidHz.toFixed(CENTROID_CONFIG.PRECISION_DIGITS));
       
-      // 🚨 LOG DESABILITADO: Gera milhares de logs por segundo causando timeout no Railway
-      // Log apenas a cada 500 frames (~10s de áudio) para evitar sobrecarga
-      if (frameIndex % 500 === 0) {
+      // 🎯 Log throttled: apenas quando SOUNDY_DEBUG=true e a cada 200 frames
+      if (shouldLogFrame(frameIndex)) {
         logAudio('spectral_centroid', 'calculated', {
           frame: frameIndex,
           centroidHz: roundedCentroid,
@@ -151,6 +160,7 @@ export class SpectralCentroidCalculator {
       };
       
     } catch (error) {
+      // ⚠️ Erros sempre logados (não throttle em erros críticos)
       logAudio('spectral_centroid', 'calculation_error', {
         frame: frameIndex,
         error: error.message
@@ -233,4 +243,7 @@ export function calculateSpectralCentroid(leftMagnitude, rightMagnitude, sampleR
   return calculator.calculateCentroidHz(leftMagnitude, rightMagnitude);
 }
 
-console.log('🎵 Spectral Centroid Calculator carregado - Centro de brilho em Hz');
+// 🎯 Log de inicialização (executado apenas 1x na importação do módulo)
+if (process.env.SOUNDY_DEBUG === 'true') {
+  console.log('🎵 Spectral Centroid Calculator carregado - Centro de brilho em Hz');
+}
