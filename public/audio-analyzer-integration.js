@@ -2511,14 +2511,35 @@ async function handleModalFileSelection(file) {
             const state = window.__soundyState || {};
             if (state.previousAnalysis) {
                 analysisResult.referenceAnalysis = state.previousAnalysis;
+                
+                // 🎯 PATCH 3: Persistir dados da referência no state
+                state.reference = state.reference || {};
+                state.reference.analysis = state.previousAnalysis;
+                state.reference.isSecondTrack = true;
+                state.reference.jobId = state.previousAnalysis.jobId || null;
+                
                 console.log('✅ [REFERENCE-A/B] Segunda faixa vinculada à primeira análise:', {
                     base: state.previousAnalysis.fileName || state.previousAnalysis.metadata?.fileName || 'Faixa 1',
                     reference: analysisResult.fileName || analysisResult.metadata?.fileName || file.name
                 });
+                console.log('✅ [PATCH-3] Dados de referência persistidos em state.reference:', {
+                    hasAnalysis: !!state.reference.analysis,
+                    hasBands: !!state.reference.analysis?.bands,
+                    isSecondTrack: state.reference.isSecondTrack,
+                    jobId: state.reference.jobId
+                });
             } else if (window.__FIRST_ANALYSIS_RESULT__) {
                 // Fallback: usar __FIRST_ANALYSIS_RESULT__ se previousAnalysis não existir
                 analysisResult.referenceAnalysis = window.__FIRST_ANALYSIS_RESULT__;
+                
+                // 🎯 PATCH 3: Persistir dados da referência no state (fallback)
+                state.reference = state.reference || {};
+                state.reference.analysis = window.__FIRST_ANALYSIS_RESULT__;
+                state.reference.isSecondTrack = true;
+                state.reference.jobId = window.__FIRST_ANALYSIS_RESULT__.jobId || null;
+                
                 console.log('✅ [REFERENCE-A/B] Segunda faixa vinculada (fallback __FIRST_ANALYSIS_RESULT__)');
+                console.log('✅ [PATCH-3] Dados de referência persistidos (fallback)');
             }
             
             await handleGenreAnalysisWithResult(analysisResult, file.name);
@@ -5861,7 +5882,7 @@ function displayModalResults(analysis) {
             // Só chamar renderReferenceComparisons() em modo GÊNERO
             if (!(mode === 'reference' && isSecondTrack && window.referenceAnalysisData)) {
                 console.log('📊 [RENDER-FLOW] Chamando renderReferenceComparisons() - modo gênero');
-                renderReferenceComparisons(analysis);
+                renderReferenceComparisons({ analysis, mode: 'genre' }); // 🎯 PATCH: modo explícito
             } else {
                 console.log('🎯 [RENDER-FLOW] PULANDO renderReferenceComparisons() - comparação de faixas já renderizada via renderTrackComparisonTable()');
             }
@@ -6114,6 +6135,78 @@ function computeHasReferenceComparisonMetrics(analysis) {
     return hasRefStruct || (hasBands && hasScores);
 }
 
+// --- BEGIN: band target resolver (mode-aware) ---
+const BAND_ALIASES = {
+    // normaliza chaves heterogêneas para um vocabulário comum
+    low_bass: 'bass',
+    upper_bass: 'bass',
+    low_mid: 'lowMid',
+    high_mid: 'highMid',
+    brilho: 'air',
+    presenca: 'presence',
+    // deixe iguais as que já batem:
+    sub: 'sub',
+    bass: 'bass',
+    lowMid: 'lowMid',
+    mid: 'mid',
+    highMid: 'highMid',
+    presence: 'presence',
+    air: 'air'
+};
+
+const IGNORE_BANDS = new Set(['totalPercentage', '_status', 'total', 'metadata']);
+
+// tenta extrair número: aceita { value }, { db }, { rms_db }, { energy_db }, número puro etc.
+function pickNumeric(val) {
+    if (val == null) return null;
+    if (typeof val === 'number' && Number.isFinite(val)) return val;
+    if (typeof val === 'object') {
+        if (typeof val.value === 'number' && Number.isFinite(val.value)) return val.value;
+        if (typeof val.db === 'number' && Number.isFinite(val.db)) return val.db;
+        if (typeof val.rms_db === 'number' && Number.isFinite(val.rms_db)) return val.rms_db;
+        if (typeof val.energy_db === 'number' && Number.isFinite(val.energy_db)) return val.energy_db;
+    }
+    return null;
+}
+
+function normalizeBandKey(k) {
+    return BAND_ALIASES[k] || k;
+}
+
+function getReferenceBandValue(refBands, bandKey) {
+    const k = normalizeBandKey(bandKey);
+    const v = refBands?.[k];
+    return pickNumeric(v);
+}
+
+function getGenreTargetRange(genreTargets, bandKey) {
+    const k = normalizeBandKey(bandKey);
+    // Suporta {min,max} ou [min,max], e fallback para target/±tol
+    const range = genreTargets?.[k];
+    if (!range) return null;
+
+    if (Array.isArray(range) && range.length === 2) {
+        return { min: range[0], max: range[1], tol: Math.abs(range[1] - range[0]) / 4 || null };
+    }
+    if (typeof range === 'object') {
+        if (typeof range.min === 'number' && typeof range.max === 'number') {
+            return { min: range.min, max: range.max, tol: (range.tol ?? (Math.abs(range.max - range.min) / 4)) || null };
+        }
+        if (typeof range.target_db === 'number' && typeof range.tol_db === 'number') {
+            return { min: range.target_db - range.tol_db, max: range.target_db + range.tol_db, tol: range.tol_db };
+        }
+        if (typeof range.target === 'number' && typeof range.tol === 'number') {
+            return { min: range.target - range.tol, max: range.target + range.tol, tol: range.tol };
+        }
+    }
+    return null;
+}
+
+function formatDb(n) {
+    return (typeof n === 'number' && Number.isFinite(n)) ? `${n.toFixed(1)}dB` : '—';
+}
+// --- END: band target resolver (mode-aware) ---
+
 // 🧠 NOVA PROTEÇÃO UNIVERSAL — Referência real > gênero
 function resolveTargetMetric(analysis, key, fallback) {
     // 1️⃣ Busca no objeto da análise de referência (segunda faixa)
@@ -6140,44 +6233,56 @@ function resolveTargetMetric(analysis, key, fallback) {
     return fallback ?? 0;
 }
 
-function renderReferenceComparisons(analysis) {
+// --- BEGIN: deterministic mode gate ---
+function renderReferenceComparisons(opts = {}) {
+    // Aceita opts ou analysis (backward compatibility)
+    const analysis = opts.analysis || opts;
+    
     const container = document.getElementById('referenceComparisons');
     if (!container) return;
     
-    // 🎯 DETECÇÃO ROBUSTA DE MODO REFERÊNCIA COM NOVA FUNÇÃO HELPER
+    // Fonte da verdade: o modo vem do caller. NÃO auto-alternar aqui.
     const state = window.__soundyState || {};
-    let renderMode = 'genre'; // Padrão
+    const explicitMode = (opts.mode || state?.render?.mode || 'genre');
+    const isReference = explicitMode === 'reference';
     
-    if (isReferenceCompareActive(analysis, state)) {
-        renderMode = 'reference';
+    // Salvar modo no estado
+    state.render = state.render || {};
+    state.render.mode = explicitMode;
+    window.__soundyState = state;
+    
+    // (Opcional) Log assertivo
+    console.log('[RENDER-REF] MODO SELECIONADO:', explicitMode.toUpperCase());
+    console.log('[ASSERT] mode=', explicitMode, 'isSecondTrack=', state?.reference?.isSecondTrack, 'refJobId=', state?.reference?.jobId);
+    console.log('[ASSERT] opts.mode=', opts.mode, 'state.render.mode=', state.render.mode);
+    
+    // 🚨 CRÍTICO: NÃO reavaliar "se tem ref" para mudar o modo
+    // O modo é determinístico e vem do caller
+    const renderMode = explicitMode;
+    
+    // 🎯 PATCH 5: Asserts de validação de modo
+    if (renderMode === 'reference') {
+        console.assert(!!(state?.reference?.analysis?.bands), '[ASSERT-MAIN] Modo reference sem state.reference.analysis.bands');
+        console.assert(!!(state?.reference?.isSecondTrack), '[ASSERT-MAIN] Modo reference sem flag isSecondTrack');
+        if (!state?.reference?.analysis) {
+            console.error('❌ [CRITICAL] Modo reference configurado mas sem dados de referência no state!');
+            console.error('❌ state.reference:', state?.reference);
+        }
+    } else if (renderMode === 'genre') {
+        console.assert(!!(window.__activeRefData?.bands), '[ASSERT-MAIN] Modo genre sem __activeRefData.bands');
+        if (!window.__activeRefData?.bands) {
+            console.error('❌ [CRITICAL] Modo genre configurado mas sem __activeRefData.bands!');
+            console.error('❌ __activeRefData:', window.__activeRefData);
+        }
     }
+    console.log('✅ [PATCH-5] Asserts de modo executados:', { renderMode, hasRefBands: !!(state?.reference?.analysis?.bands), hasGenreBands: !!(window.__activeRefData?.bands) });
     
-    console.log(`[RENDER-REF] MODO SELECIONADO: ${renderMode.toUpperCase()}`);
-    console.log('[ASSERT] mode=', analysis?.mode, 'isSecondTrack=', state?.isSecondTrack, 'refJobId=', state?.referenceJobId);
-    console.log('[ASSERT] renderMode=', renderMode);
-    console.log('[ASSERT] bands.centered=', !!analysis?.bands, 'scores.freq=', !!analysis?.scores?.frequency);
+    // 🚨 REMOVIDO: Detecção legacy automática (causava auto-switch indevido)
+    // O modo agora é determinístico e vem do caller via opts.mode
+    // NÃO tentar "adivinhar" o modo baseado em analysis.mode ou estruturas
     
-    // 🎯 DETECÇÃO LEGACY (mantida para compatibilidade)
-    // Prioridade 1: analysis.mode === 'reference' (direto do backend)
-    // Prioridade 2: Nova estrutura (userTrack/referenceTrack)
-    // Prioridade 3: Estrutura antiga (referenceMetrics)
-    
-    const hasNewStructure = analysis.referenceComparison && 
-                           analysis.referenceComparison.mode === 'reference' &&
-                           analysis.referenceComparison.userTrack &&
-                           analysis.referenceComparison.referenceTrack;
-    
-    const hasOldStructure = analysis.referenceComparison && 
-                           analysis.referenceComparison.mode === 'reference' &&
-                           analysis.referenceComparison.referenceMetrics;
-    
-    // ✅ CORRIGIDO: Priorizar analysis.mode === 'reference' PRIMEIRO
-    const isReferenceMode = analysis.mode === 'reference' ||  // ✅ PRIORIDADE 1
-                           hasNewStructure ||                 // PRIORIDADE 2
-                           hasOldStructure ||                 // PRIORIDADE 3
-                           analysis.analysisMode === 'reference' || 
-                           analysis.baseline_source === 'reference' ||
-                           (analysis.comparison && analysis.comparison.baseline_source === 'reference');
+    // Compatibilidade: isReferenceMode baseado no renderMode determinístico
+    const isReferenceMode = renderMode === 'reference';
     
     let ref, titleText, userMetrics;
     
@@ -6970,119 +7075,81 @@ function renderReferenceComparisons(analysis) {
             air: { refKey: 'brilho', name: 'Air (10–20kHz)', range: '10000–20000Hz' }
         };
         
-        // 🎯 PROCESSAMENTO CORRIGIDO para fallback: usar mapeamento bidirecional
-        console.log('🔄 Processando bandas espectrais (modo fallback)...', {
+        // 🎯 NOVO PROCESSAMENTO MODE-AWARE com resolver
+        console.log('🔄 Processando bandas espectrais (mode-aware resolver)...', {
             renderMode,
             hasRefBands: !!ref?.bands,
             refBandsKeys: ref?.bands ? Object.keys(ref.bands) : [],
-            spectralBandsKeys: Object.keys(spectralBands)
+            spectralBandsKeys: Object.keys(spectralBands),
+            stateRefAnalysis: !!state?.reference?.analysis?.bands
         });
         
         if (spectralBands && Object.keys(spectralBands).length > 0) {
+            // 🎯 PATCH 5: Asserts de segurança
+            const isReferenceMode = renderMode === 'reference';
+            const refBands = state?.reference?.analysis?.bands || analysis?.reference?.bands || null;
+            const genreTargets = ref?.bands || null;
+            
+            if (isReferenceMode) {
+                console.assert(!!(refBands), '[ASSERT-REF] Sem ref.bands no modo reference');
+                if (!refBands) {
+                    console.error('❌ [REF-ERROR] Modo reference sem refBands! Abortando processamento.');
+                    return;
+                }
+            } else {
+                console.assert(!!genreTargets, '[ASSERT-GENRE] Sem genreTargets no modo genre');
+                if (!genreTargets) {
+                    console.error('❌ [GENRE-ERROR] Modo genre sem genreTargets! Abortando processamento.');
+                    return;
+                }
+            }
+            
             // Conjunto para rastrear bandas já processadas
             const processedBandKeys = new Set();
             
-            // 🚨 VERIFICAÇÃO CRÍTICA: ref.bands deve existir no modo genre
-            if (!ref || !ref.bands) {
-                console.error('❌ [FALLBACK] ref.bands não existe! Mode:', renderMode);
-                console.error('❌ [FALLBACK] ref:', ref);
-                return; // Não processar bandas se não houver referência
-            }
-            
-            // Primeiro: processar bandas que têm referência (usando mapeamento)
-            Object.entries(bandMap).forEach(([calcBandKey, bandInfo]) => {
-                const bandData = spectralBands[calcBandKey];
-                const refBandData = ref.bands[bandInfo.refKey];
+            // 🎯 Iterar por todas as bandas do usuário
+            for (const rawKey of Object.keys(spectralBands)) {
+                if (IGNORE_BANDS.has(rawKey) || processedBandKeys.has(rawKey)) continue;
                 
-                if (bandData && !processedBandKeys.has(calcBandKey)) {
-                    let energyDb = null;
-                    
-                    // Verificar formato dos dados da banda
-                    if (typeof bandData === 'object' && bandData.energy_db !== undefined) {
-                        energyDb = bandData.energy_db;
-                    } else if (typeof bandData === 'object' && bandData.rms_db !== undefined) {
-                        energyDb = bandData.rms_db;
-                    } else if (Number.isFinite(bandData)) {
-                        energyDb = bandData;
+                const bandKey = normalizeBandKey(rawKey);
+                const userVal = pickNumeric(spectralBands[rawKey]);
+                
+                if (userVal === null) continue; // Sem valor do usuário
+                
+                let targetDisplay = '—';
+                let tolDisplay = null;
+                
+                // 🎯 MODE-AWARE TARGET RESOLUTION
+                if (isReferenceMode) {
+                    // 👉 REFERENCE: usa valor NUMÉRICO da 2ª faixa
+                    const refVal = getReferenceBandValue(refBands, bandKey);
+                    if (refVal !== null) {
+                        targetDisplay = formatDb(refVal);
+                        console.log(`✅ [REF-BAND] ${bandKey}: user=${formatDb(userVal)}, ref=${targetDisplay}`);
+                    } else {
+                        console.warn(`⚠️ [REF-WARNING] Banda sem referência: ${bandKey} (valor: ${formatDb(userVal)})`);
                     }
-                    
-                    if (Number.isFinite(energyDb)) {
-                        // [BANDS-TOL-0] Suporte híbrido: target_range ou target_db (SEM TOLERÂNCIA)
-                        let target = null;
-                        let tolerance = null;
-                        
-                        if (refBandData?.target_range && typeof refBandData.target_range === 'object' &&
-                            Number.isFinite(refBandData.target_range.min) && Number.isFinite(refBandData.target_range.max)) {
-                            target = refBandData.target_range;
-                            tolerance = 0; // [BANDS-TOL-0] Sempre 0 para bandas
-                        } else if (Number.isFinite(refBandData?.target_db)) {
-                            target = { min: refBandData.target_db, max: refBandData.target_db };
-                            tolerance = 0; // [BANDS-TOL-0] Sempre 0 para bandas
-                        }
-                        
-                        console.log(`📊 [BANDS-TOL-0] Banda (fallback): ${bandInfo.name}, valor: ${energyDb}dB, target: ${target ? JSON.stringify(target) : 'N/A'}, tol: 0, mode: ${renderMode}`);
-                        pushRow(bandInfo.name, energyDb, target, tolerance, ' dB');
-                        processedBandKeys.add(calcBandKey);
-                        
-                        if (!target && renderMode === 'genre') {
-                            console.error(`❌ [GENRE-ERROR] Banda de gênero sem target: ${calcBandKey} → ${bandInfo.refKey}. ref.bands deveria ter essa banda!`);
-                            console.error(`❌ [GENRE-ERROR] ref.bands disponíveis:`, ref.bands ? Object.keys(ref.bands) : 'UNDEFINED');
-                        } else if (!target && renderMode === 'reference') {
-                            console.warn(`⚠️ [REF-WARNING] Banda de referência sem target: ${calcBandKey} (pode ser normal se a faixa de referência não tem essa banda)`);
-                        }
+                } else {
+                    // 👉 GENRE: usa faixa alvo (range)
+                    const r = getGenreTargetRange(genreTargets, bandKey);
+                    if (r) {
+                        targetDisplay = `${formatDb(r.min)} a ${formatDb(r.max)}`;
+                        tolDisplay = r.tol;
+                        console.log(`✅ [GENRE-BAND] ${bandKey}: user=${formatDb(userVal)}, target=${targetDisplay}`);
+                    } else {
+                        console.error(`❌ [GENRE-ERROR] Banda sem target de gênero: ${bandKey}`);
                     }
                 }
-            });
+                
+                // 🎯 Adicionar linha na tabela
+                const label = bandMap[bandKey]?.name || `${bandKey.toUpperCase()}`;
+                pushRow(label, userVal, targetDisplay === '—' ? null : targetDisplay, tolDisplay, ' dB');
+                processedBandKeys.add(rawKey);
+                processedBandKeys.add(bandKey); // Adicionar também a versão normalizada
+            } // Fim do for loop
             
-            // Segundo: processar bandas restantes que não foram mapeadas
-            Object.keys(spectralBands).forEach(bandKey => {
-                if (!processedBandKeys.has(bandKey) && 
-                    bandKey !== '_status' && 
-                    bandKey !== 'totalPercentage' &&
-                    bandKey !== 'totalpercentage' &&
-                    bandKey !== 'metadata' &&
-                    bandKey !== 'total' &&
-                    !bandKey.toLowerCase().includes('total')) {
-                    
-                    const bandData = spectralBands[bandKey];
-                    let energyDb = null;
-                    
-                    if (typeof bandData === 'object' && Number.isFinite(bandData.energy_db)) {
-                        energyDb = bandData.energy_db;
-                    } else if (typeof bandData === 'object' && Number.isFinite(bandData.rms_db)) {
-                        energyDb = bandData.rms_db;
-                    } else if (Number.isFinite(bandData)) {
-                        energyDb = bandData;
-                    }
-                    
-                    if (Number.isFinite(energyDb)) {
-                        // Buscar nome formatado ou criar um
-                        const displayName = bandMap[bandKey]?.name || 
-                                          `${bandKey.charAt(0).toUpperCase() + bandKey.slice(1)} (Detectada)`;
-                        
-                        // [BANDS-TOL-0] Suporte híbrido: target_range ou target_db (SEM TOLERÂNCIA)
-                        const directRefData = ref.bands?.[bandKey];
-                        let target = null;
-                        let tolerance = null;
-                        
-                        if (directRefData?.target_range && typeof directRefData.target_range === 'object' &&
-                            Number.isFinite(directRefData.target_range.min) && Number.isFinite(directRefData.target_range.max)) {
-                            target = directRefData.target_range;
-                            tolerance = 0; // [BANDS-TOL-0] Sempre 0 para bandas
-                        } else if (Number.isFinite(directRefData?.target_db)) {
-                            target = { min: directRefData.target_db, max: directRefData.target_db };
-                            tolerance = 0; // [BANDS-TOL-0] Sempre 0 para bandas
-                        }
-                        
-                        console.log(`📊 [BANDS-TOL-0] Banda não mapeada: ${displayName}, valor: ${energyDb}dB, target: ${target || 'N/A'}, tol: 0`);
-                        pushRow(displayName, energyDb, target, tolerance, ' dB');
-                        
-                        if (!target) {
-                            console.warn(`⚠️ Banda não mapeada sem target: ${bandKey}`);
-                        }
-                    }
-                }
-            });
+            // Processamento concluído - bandas já foram tratadas no loop acima
+            console.log(`✅ [BANDS-PROCESSED] ${processedBandKeys.size} bandas processadas no modo ${renderMode}`);
         } else {
             // Fallback para tonalBalance simplificado (mantido para compatibilidade)
             const tb = tech.tonalBalance || {};
@@ -7223,6 +7290,12 @@ function renderTrackComparisonTable(referenceAnalysis, currentAnalysis) {
     console.log('🎯 [TRACK-COMPARE] Renderizando tabela comparativa entre faixas');
     console.log('📊 [TRACK-COMPARE] Referência:', referenceAnalysis);
     console.log('📊 [TRACK-COMPARE] Atual:', currentAnalysis);
+    
+    // 🎯 Definir modo reference no estado
+    const state = window.__soundyState || {};
+    state.render = state.render || {};
+    state.render.mode = 'reference';
+    console.log('✅ [TRACK-COMPARE] Modo definido como reference no estado');
     
     const container = document.getElementById('referenceComparisons');
     if (!container) {
