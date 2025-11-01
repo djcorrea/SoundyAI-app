@@ -66,6 +66,9 @@ let referenceStepState = {
 window.lastReferenceJobId = null;
 window.referenceAnalysisData = null;
 
+// 🎯 COMPARAÇÃO ENTRE FAIXAS - Métricas de comparação (substitui __activeRefData quando em modo reference)
+let referenceComparisonMetrics = null;
+
 // 🎯 JOBS - Sistema de acompanhamento de jobs remotos
 let currentJobId = null;
 let jobPollingInterval = null;
@@ -2478,6 +2481,8 @@ async function handleModalFileSelection(file) {
             delete window.__FIRST_ANALYSIS_RESULT__;
             window.lastReferenceJobId = null;
             window.referenceAnalysisData = null;
+            referenceComparisonMetrics = null; // Limpar métricas de comparação
+            console.log('🧹 [CLEANUP] referenceComparisonMetrics limpo');
         } else {
             // Modo genre: análise por gênero tradicional
             __dbg('🎯 Exibindo resultado por gênero');
@@ -3994,6 +3999,20 @@ function displayModalResults(analysis) {
         console.log('📊 [COMPARE-MODE] Primeira faixa:', window.referenceAnalysisData);
         console.log('📊 [COMPARE-MODE] Segunda faixa:', analysis);
         
+        // 🎯 CRIAR ESTRUTURA DE COMPARAÇÃO ENTRE FAIXAS
+        // Normalizar ambas as análises
+        const refNormalized = normalizeBackendAnalysisData(window.referenceAnalysisData);
+        const currNormalized = normalizeBackendAnalysisData(analysis);
+        
+        referenceComparisonMetrics = {
+            user: refNormalized.technicalData || {},
+            reference: currNormalized.technicalData || {},
+            userFull: refNormalized,
+            referenceFull: currNormalized
+        };
+        
+        console.log('✅ [COMPARE-MODE] Estrutura referenceComparisonMetrics criada:', referenceComparisonMetrics);
+        
         // Chamar função de renderização comparativa
         renderTrackComparisonTable(window.referenceAnalysisData, analysis);
         
@@ -4057,12 +4076,37 @@ function displayModalResults(analysis) {
     }
     
     // 🎯 CALCULAR SCORES DA ANÁLISE
-    if (__activeRefData && analysis) {
+    // Priorizar referenceComparisonMetrics se disponível (comparação entre faixas)
+    let referenceDataForScores = __activeRefData;
+    
+    if (referenceComparisonMetrics && referenceComparisonMetrics.reference) {
+        console.log('✅ [SCORES] Usando referenceComparisonMetrics para calcular scores (comparação entre faixas)');
+        
+        // Construir objeto no formato esperado por calculateAnalysisScores
+        const refMetrics = referenceComparisonMetrics.reference;
+        referenceDataForScores = {
+            lufs_target: refMetrics.lufsIntegrated || refMetrics.lufs_integrated,
+            true_peak_target: refMetrics.truePeakDbtp || refMetrics.true_peak_dbtp,
+            dr_target: refMetrics.dynamicRange || refMetrics.dynamic_range,
+            lra_target: refMetrics.lra,
+            stereo_target: refMetrics.stereoCorrelation || refMetrics.stereo_correlation,
+            spectral_centroid_target: refMetrics.spectralCentroidHz || refMetrics.spectral_centroid,
+            bands: refMetrics.spectral_balance || null,
+            tol_lufs: 0.5,
+            tol_true_peak: 0.3,
+            tol_dr: 1.0,
+            tol_lra: 1.0,
+            tol_stereo: 0.08,
+            tol_spectral: 300
+        };
+    }
+    
+    if (referenceDataForScores && analysis) {
         const detectedGenre = analysis.metadata?.genre || analysis.genre || __activeRefGenre;
-        console.log('🎯 Calculando scores para gênero:', detectedGenre);
+        console.log('🎯 Calculando scores para:', referenceComparisonMetrics ? 'comparação entre faixas' : `gênero ${detectedGenre}`);
         
         try {
-            const analysisScores = calculateAnalysisScores(analysis, __activeRefData, detectedGenre);
+            const analysisScores = calculateAnalysisScores(analysis, referenceDataForScores, detectedGenre);
             
             if (analysisScores) {
                 // Adicionar scores à análise
@@ -6033,6 +6077,33 @@ function renderReferenceComparisons(analysis) {
         }
     }
     
+    // 🎯 SOBRESCREVER com referenceComparisonMetrics se disponível (comparação entre faixas)
+    if (referenceComparisonMetrics && referenceComparisonMetrics.reference) {
+        console.log('✅ [RENDER-REF] Sobrescrevendo com referenceComparisonMetrics');
+        
+        const targetMetrics = referenceComparisonMetrics.reference;
+        userMetrics = referenceComparisonMetrics.user;
+        
+        ref = {
+            lufs_target: targetMetrics.lufsIntegrated || targetMetrics.lufs_integrated,
+            true_peak_target: targetMetrics.truePeakDbtp || targetMetrics.true_peak_dbtp,
+            dr_target: targetMetrics.dynamicRange || targetMetrics.dynamic_range,
+            lra_target: targetMetrics.lra,
+            stereo_target: targetMetrics.stereoCorrelation || targetMetrics.stereo_correlation,
+            stereo_width_target: targetMetrics.stereoWidth || targetMetrics.stereo_width,
+            spectral_centroid_target: targetMetrics.spectralCentroidHz || targetMetrics.spectral_centroid,
+            tol_lufs: 0.5,
+            tol_true_peak: 0.3,
+            tol_dr: 1.0,
+            tol_lra: 1.0,
+            tol_stereo: 0.08,
+            tol_spectral: 300,
+            bands: targetMetrics.spectral_balance || null
+        };
+        
+        titleText = `🎵 Comparação com ${referenceComparisonMetrics.referenceFull?.metadata?.fileName || 'Faixa de Referência (2ª música)'}`;
+    }
+    
     // 🎯 Priorizar userMetrics (nova estrutura) sobre technicalData (legado)
     const tech = userMetrics || analysis.technicalData || {};
     
@@ -7534,6 +7605,7 @@ function updateReferenceSuggestions(analysis) {
         hasAnalysis: !!analysis,
         hasTechnicalData: !!analysis?.technicalData,
         hasActiveRefData: !!__activeRefData,
+        hasReferenceComparisonMetrics: !!referenceComparisonMetrics,
         activeRefGenre: __activeRefGenre,
         activeRefDataKeys: __activeRefData ? Object.keys(__activeRefData) : null,
         currentGenre: window.PROD_AI_REF_GENRE
@@ -7542,6 +7614,40 @@ function updateReferenceSuggestions(analysis) {
     if (!analysis || !analysis.technicalData) {
         console.warn('🚨 [DEBUG-REF] analysis ou technicalData ausentes');
         return;
+    }
+    
+    // 🎯 PRIORIDADE: Se temos comparação entre faixas, usar referenceComparisonMetrics
+    let targetMetrics = null;
+    
+    if (referenceComparisonMetrics && referenceComparisonMetrics.reference) {
+        console.log('✅ [SUGGESTIONS] Usando referenceComparisonMetrics para sugestões (comparação entre faixas)');
+        
+        // Construir targetMetrics no formato esperado
+        const refMetrics = referenceComparisonMetrics.reference;
+        targetMetrics = {
+            lufs_target: refMetrics.lufsIntegrated || refMetrics.lufs_integrated,
+            true_peak_target: refMetrics.truePeakDbtp || refMetrics.true_peak_dbtp,
+            dr_target: refMetrics.dynamicRange || refMetrics.dynamic_range,
+            lra_target: refMetrics.lra,
+            stereo_target: refMetrics.stereoCorrelation || refMetrics.stereo_correlation,
+            spectral_centroid_target: refMetrics.spectralCentroidHz || refMetrics.spectral_centroid,
+            bands: refMetrics.spectral_balance || null,
+            tol_lufs: 0.5,
+            tol_true_peak: 0.3,
+            tol_dr: 1.0,
+            tol_lra: 1.0,
+            tol_stereo: 0.08,
+            tol_spectral: 300
+        };
+        
+        console.log('📊 [SUGGESTIONS] Target metrics (2ª faixa):', {
+            lufs: targetMetrics.lufs_target,
+            peak: targetMetrics.true_peak_target,
+            dr: targetMetrics.dr_target
+        });
+        
+        // Usar targetMetrics como __activeRefData temporariamente para compatibilidade
+        __activeRefData = targetMetrics;
     }
     
     if (!__activeRefData) {
