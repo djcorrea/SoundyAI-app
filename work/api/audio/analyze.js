@@ -3,6 +3,7 @@
  * ✅ CORRIGIDO: Inicialização global assíncrona para garantir fila pronta
  * ✅ CORRIGIDO: Verificação obrigatória antes de enfileirar
  * ✅ CORRIGIDO: Logs de diagnóstico completos
+ * ✅ CORRIGIDO: Modo "comparison" aceito (01/11/2025)
  * 
  * 🔑 IMPORTANTE - POLÍTICA DE UUID:
  * ═══════════════════════════════════════════════════════════════
