@@ -618,7 +618,16 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       // Se modo reference E temos métricas preloaded, fazer comparação real
       if (options.mode === 'reference' && options.preloadedReferenceMetrics) {
         console.log('🎯 [JSON-OUTPUT] Gerando comparação por REFERÊNCIA (faixa real)');
-        return generateReferenceComparison(technicalData, options.preloadedReferenceMetrics);
+        
+        // Passar opções completas para a função de comparação
+        const comparisonOptions = {
+          userJobId: options.jobId,
+          userFileName: options.fileName || 'UserTrack.wav',
+          referenceJobId: options.referenceJobId,
+          referenceFileName: options.preloadedReferenceMetrics.metadata?.fileName || 'ReferenceTrack.wav'
+        };
+        
+        return generateReferenceComparison(technicalData, options.preloadedReferenceMetrics, comparisonOptions);
       }
       
       // Caso contrário, usar comparação por gênero
@@ -860,8 +869,15 @@ function validateFinalJSON(finalJSON) {
  * @param {Object} referenceMetrics - Métricas da faixa de referência (preloaded)
  * @returns {Object} - Objeto de comparação com diferenças numéricas e sugestões
  */
-function generateReferenceComparison(userMetrics, referenceMetrics) {
-  console.log('🎯 [REFERENCE-COMPARISON] Gerando comparação entre faixas');
+/**
+ * 🎯 NOVA ESTRUTURA: Gera comparação completa UserTrack vs ReferenceTrack
+ * @param {Object} userMetrics - Métricas técnicas da música do usuário (2ª música)
+ * @param {Object} referenceMetrics - Objeto completo do resultado da 1ª música (referência)
+ * @param {Object} options - Opções adicionais (jobIds, fileNames)
+ * @returns {Object} - Estrutura completa com userTrack, referenceTrack, diff, suggestions
+ */
+function generateReferenceComparison(userMetrics, referenceMetrics, options = {}) {
+  console.log('🎯 [REFERENCE-COMPARISON] Gerando comparação UserTrack vs ReferenceTrack');
   
   if (!referenceMetrics || !referenceMetrics.technicalData) {
     console.warn('⚠️ [REFERENCE-COMPARISON] Métricas de referência inválidas');
@@ -956,10 +972,60 @@ function generateReferenceComparison(userMetrics, referenceMetrics) {
   
   console.log(`✅ [REFERENCE-COMPARISON] Comparação gerada: ${suggestions.length} sugestões`);
   
+  // 🎯 NOVA ESTRUTURA COMPLETA: userTrack vs referenceTrack
   return {
     mode: 'reference',
-    comparison,
+    
+    // ===== USER TRACK (2ª música - sendo analisada) =====
+    userTrack: {
+      jobId: options.userJobId || 'current',
+      fileName: options.userFileName || 'UserTrack.wav',
+      metrics: {
+        lufsIntegrated: userTech.lufsIntegrated,
+        truePeakDbtp: userTech.truePeakDbtp,
+        dynamicRange: userTech.dynamicRange,
+        lra: userTech.lra,
+        stereoCorrelation: userTech.stereoCorrelation,
+        stereoWidth: userTech.stereoWidth,
+        spectralCentroidHz: userTech.spectralCentroidHz,
+        spectral_balance: userTech.spectral_balance
+      }
+    },
+    
+    // ===== REFERENCE TRACK (1ª música - target para comparação) =====
+    referenceTrack: {
+      jobId: options.referenceJobId || 'reference',
+      fileName: options.referenceFileName || 'ReferenceTrack.wav',
+      metrics: {
+        score: referenceMetrics.score,
+        lufsIntegrated: refTech.lufsIntegrated,
+        truePeakDbtp: refTech.truePeakDbtp,
+        dynamicRange: refTech.dynamicRange,
+        lra: refTech.lra,
+        stereoCorrelation: refTech.stereoCorrelation,
+        stereoWidth: refTech.stereoWidth,
+        spectralCentroidHz: refTech.spectralCentroidHz,
+        spectral_balance: refTech.spectral_balance
+      }
+    },
+    
+    // ===== COMPARISON (diferenças calculadas) =====
+    referenceComparison: {
+      diff: comparison,
+      summary: {
+        totalDifferences: Object.keys(comparison).filter(k => typeof comparison[k] === 'object').length,
+        significantDifferences: Object.keys(comparison).filter(k => 
+          typeof comparison[k] === 'object' && Math.abs(comparison[k].diff) > 1
+        ).length
+      }
+    },
+    
+    // ===== SUGGESTIONS (baseadas nos deltas) =====
     suggestions,
+    
+    // ===== COMPATIBILIDADE RETROATIVA (para frontend antigo) =====
+    // TODO: Remover após migração completa do frontend
+    comparison,
     referenceMetrics: {
       score: referenceMetrics.score,
       lufsIntegrated: refTech.lufsIntegrated,

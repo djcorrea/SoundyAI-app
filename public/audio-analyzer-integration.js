@@ -5895,37 +5895,92 @@ function renderReferenceComparisons(analysis) {
     const container = document.getElementById('referenceComparisons');
     if (!container) return;
     
-    // 🎯 DETECÇÃO DE MODO REFERÊNCIA - Usar dados da referência em vez de gênero
-    const isReferenceMode = (analysis.referenceComparison && analysis.referenceComparison.mode === 'reference') ||
+    // 🎯 DETECÇÃO ROBUSTA DE MODO REFERÊNCIA
+    // Prioridade: Nova estrutura (userTrack/referenceTrack) > Estrutura antiga (referenceMetrics)
+    const hasNewStructure = analysis.referenceComparison && 
+                           analysis.referenceComparison.mode === 'reference' &&
+                           analysis.referenceComparison.userTrack &&
+                           analysis.referenceComparison.referenceTrack;
+    
+    const hasOldStructure = analysis.referenceComparison && 
+                           analysis.referenceComparison.mode === 'reference' &&
+                           analysis.referenceComparison.referenceMetrics;
+    
+    const isReferenceMode = hasNewStructure || hasOldStructure ||
                            analysis.analysisMode === 'reference' || 
                            analysis.baseline_source === 'reference' ||
                            (analysis.comparison && analysis.comparison.baseline_source === 'reference');
     
-    let ref, titleText;
+    let ref, titleText, userMetrics;
     
-    if (isReferenceMode && analysis.referenceComparison && analysis.referenceComparison.referenceMetrics) {
-        // Modo referência: usar métricas extraídas do áudio de referência
-        const refMetrics = analysis.referenceComparison.referenceMetrics;
-        ref = {
-            lufs_target: refMetrics.lufsIntegrated,
-            true_peak_target: refMetrics.truePeakDbtp,
-            dr_target: refMetrics.dynamicRange,
-            lra_target: refMetrics.lra || 6, // Fallback se não disponível
-            stereo_target: refMetrics.stereoCorrelation,
-            spectral_centroid_target: refMetrics.spectralCentroidHz,
-            tol_lufs: 0.5, // Tolerância maior para comparação real
-            tol_true_peak: 0.3,
-            tol_dr: 1.0,
-            tol_lra: 1.0,
-            tol_stereo: 0.08,
-            tol_spectral: 300,
-            bands: null // Bandas virão de referenceComparison.comparison.spectralBands
-        };
-        titleText = "🎵 Faixa de Referência";
+    if (isReferenceMode) {
+        console.log('🎯 [RENDER-REF] MODO REFERÊNCIA DETECTADO');
         
-        console.log('🎯 [RENDER-REF] Usando métricas de referência real:', refMetrics);
+        // ===== NOVA ESTRUTURA (userTrack/referenceTrack) =====
+        if (hasNewStructure) {
+            console.log('✅ [RENDER-REF] Usando NOVA estrutura (userTrack/referenceTrack)');
+            
+            const refTrack = analysis.referenceComparison.referenceTrack.metrics;
+            userMetrics = analysis.referenceComparison.userTrack.metrics;
+            
+            ref = {
+                lufs_target: refTrack.lufsIntegrated,
+                true_peak_target: refTrack.truePeakDbtp,
+                dr_target: refTrack.dynamicRange,
+                lra_target: refTrack.lra,
+                stereo_target: refTrack.stereoCorrelation,
+                stereo_width_target: refTrack.stereoWidth,
+                spectral_centroid_target: refTrack.spectralCentroidHz,
+                tol_lufs: 0.5,
+                tol_true_peak: 0.3,
+                tol_dr: 1.0,
+                tol_lra: 1.0,
+                tol_stereo: 0.08,
+                tol_spectral: 300,
+                bands: refTrack.spectral_balance // Bandas da referência
+            };
+            
+            titleText = `🎵 ${analysis.referenceComparison.referenceTrack.fileName || 'Faixa de Referência'}`;
+            
+            console.log('📊 [RENDER-REF] Referência:', {
+                fileName: analysis.referenceComparison.referenceTrack.fileName,
+                lufs: ref.lufs_target,
+                dr: ref.dr_target,
+                peak: ref.true_peak_target
+            });
+            console.log('📊 [RENDER-REF] Usuário:', {
+                fileName: analysis.referenceComparison.userTrack.fileName,
+                lufs: userMetrics.lufsIntegrated,
+                dr: userMetrics.dynamicRange
+            });
+        }
+        // ===== ESTRUTURA ANTIGA (retrocompatibilidade) =====
+        else if (hasOldStructure) {
+            console.log('⚠️ [RENDER-REF] Usando estrutura ANTIGA (referenceMetrics) - considerar migração');
+            
+            const refMetrics = analysis.referenceComparison.referenceMetrics;
+            ref = {
+                lufs_target: refMetrics.lufsIntegrated,
+                true_peak_target: refMetrics.truePeakDbtp,
+                dr_target: refMetrics.dynamicRange,
+                lra_target: refMetrics.lra || 6,
+                stereo_target: refMetrics.stereoCorrelation,
+                spectral_centroid_target: refMetrics.spectralCentroidHz,
+                tol_lufs: 0.5,
+                tol_true_peak: 0.3,
+                tol_dr: 1.0,
+                tol_lra: 1.0,
+                tol_stereo: 0.08,
+                tol_spectral: 300,
+                bands: null
+            };
+            titleText = "🎵 Faixa de Referência";
+            
+            console.log('🎯 [RENDER-REF] Usando métricas de referência real:', refMetrics);
+        }
     } else {
-        // Modo gênero: usar targets de gênero como antes
+        // ===== MODO GÊNERO =====
+        console.log('🎵 [RENDER-REF] MODO GÊNERO');
         ref = __activeRefData;
         titleText = window.PROD_AI_REF_GENRE;
         if (!ref) { 
@@ -5934,7 +5989,10 @@ function renderReferenceComparisons(analysis) {
         }
     }
     
-    const tech = analysis.technicalData || {};
+    // 🎯 Priorizar userMetrics (nova estrutura) sobre technicalData (legado)
+    const tech = userMetrics || analysis.technicalData || {};
+    
+    console.log('📊 [RENDER-REF] Fonte de métricas do usuário:', userMetrics ? 'userMetrics (nova estrutura)' : 'technicalData (legado)');
     
     // Mapeamento de métricas - RESTAURAR TABELA COMPLETA
     const rows = [];
@@ -6199,14 +6257,60 @@ function renderReferenceComparisons(analysis) {
         'air': ['brilho']
     };
     
-    // Priorizar bandas centralizadas se disponíveis
-    const bandsToUse = centralizedBands && Object.keys(centralizedBands).length > 0 ? centralizedBands : legacyBandEnergies;
+    // 🎯 NOVA LÓGICA: Priorizar bandas da nova estrutura em modo reference
+    let bandsToUse, referenceBands;
     
-    // 🎯 MODO REFERÊNCIA: Usar bandas de referenceComparison se disponível
-    const referenceBands = isReferenceMode && analysis.referenceComparison?.comparison?.spectralBands;
+    if (isReferenceMode && hasNewStructure && ref.bands) {
+        // Usar bandas da referenceTrack.metrics.spectral_balance
+        console.log('✅ [RENDER-BANDS] Usando bandas da NOVA estrutura (referenceTrack)');
+        referenceBands = ref.bands;
+        bandsToUse = tech.spectral_balance || centralizedBands || legacyBandEnergies;
+    } else {
+        // Modo legado ou gênero
+        bandsToUse = centralizedBands && Object.keys(centralizedBands).length > 0 ? centralizedBands : legacyBandEnergies;
+        referenceBands = isReferenceMode && analysis.referenceComparison?.comparison?.spectralBands;
+    }
     
-    if (referenceBands) {
-        console.log('🎯 [RENDER-REF-BANDS] Usando bandas de referenceComparison');
+    // 🎯 RENDERIZAÇÃO DE BANDAS EM MODO REFERENCE
+    if (isReferenceMode && hasNewStructure && ref.bands && bandsToUse) {
+        console.log('✅ [RENDER-REF-BANDS] Renderizando bandas com NOVA estrutura');
+        
+        const bandNames = {
+            sub: 'Sub (20–60Hz)',
+            bass: 'Bass (60–150Hz)',
+            lowMid: 'Low-Mid (150–500Hz)',
+            mid: 'Mid (500–2kHz)',
+            highMid: 'High-Mid (2–5kHz)',
+            presence: 'Presence (5–10kHz)',
+            air: 'Air (10–20kHz)'
+        };
+        
+        // Iterar pelas bandas padrão
+        ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'].forEach(band => {
+            // Pegar valores do usuário
+            const userBand = bandsToUse[band];
+            const userValue = userBand?.percentage || userBand?.energy_db;
+            
+            // Pegar valores da referência
+            const refBand = ref.bands[band];
+            const refValue = refBand?.percentage || refBand?.energy_db;
+            
+            if (Number.isFinite(userValue) && Number.isFinite(refValue)) {
+                pushRow(
+                    bandNames[band] || band,
+                    userValue,
+                    refValue,
+                    3.0, // Tolerância de 3% para bandas
+                    '%'
+                );
+                
+                console.log(`📊 [BAND-${band}] User: ${userValue.toFixed(1)}% | Ref: ${refValue.toFixed(1)}%`);
+            }
+        });
+    }
+    // 🎯 RENDERIZAÇÃO DE BANDAS COM ESTRUTURA ANTIGA (referenceComparison.comparison.spectralBands)
+    else if (referenceBands && typeof referenceBands === 'object') {
+        console.log('⚠️ [RENDER-REF-BANDS] Usando bandas de referenceComparison (estrutura antiga)');
         
         const bandNames = {
             sub: 'Sub (20–60Hz)',
@@ -6225,12 +6329,14 @@ function renderReferenceComparisons(analysis) {
                     bandNames[band] || band,
                     data.user,
                     data.reference,
-                    3.0, // Tolerância de 3% para bandas
+                    3.0,
                     data.unit
                 );
             }
         });
-    } else if (bandsToUse && ref.bands) {
+    } 
+    // 🎵 RENDERIZAÇÃO DE BANDAS EM MODO GÊNERO
+    else if (bandsToUse && ref.bands) {
         const normMap = (analysis?.technicalData?.refBandTargetsNormalized?.mapping) || null;
         const showNorm = (typeof window !== 'undefined' && window.SHOW_NORMALIZED_REF_TARGETS === true && normMap);
         
