@@ -315,17 +315,18 @@ async function createAnalysisJob(fileKey, mode, fileName) {
     try {
         __dbg('🔧 Criando job de análise...', { fileKey, mode, fileName });
 
-        // 🎯 NOVO: Preparar payload com referenceJobId se disponível
+        // 🎯 FLUXO CORRIGIDO: modo 'reference' para AMBAS as músicas
         const payload = {
             fileKey: fileKey,
             mode: mode,
             fileName: fileName
         };
         
-        // Se estiver no modo comparison e temos o referenceJobId, incluir
-        if (mode === 'comparison' && window.__REFERENCE_JOB_ID__) {
+        // 🔗 Se já temos um referenceJobId armazenado, incluir no payload
+        // Isso indica que é a SEGUNDA música (referência) sendo enviada
+        if (window.__REFERENCE_JOB_ID__) {
             payload.referenceJobId = window.__REFERENCE_JOB_ID__;
-            __dbg('🎯 Incluindo referenceJobId no payload:', window.__REFERENCE_JOB_ID__);
+            __dbg('🎯 Incluindo referenceJobId no payload (segunda música):', window.__REFERENCE_JOB_ID__);
         }
 
         const response = await fetch('/api/audio/analyze', {
@@ -1901,8 +1902,9 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
     // Resetar estado do modal
     resetModalState();
     
-    // Mudar modo para comparison
-    currentAnalysisMode = 'comparison';
+    // 🎯 CORREÇÃO: Manter modo 'reference' para segunda música também
+    // O backend identifica que é comparação pela presença do referenceJobId
+    currentAnalysisMode = 'reference';
     
     // Abrir modal novamente
     const modal = document.getElementById('audioAnalysisModal');
@@ -2439,20 +2441,27 @@ async function handleModalFileSelection(file) {
         showUploadProgress(`Analisando ${file.name}... Aguarde.`);
         const analysisResult = await pollJobStatus(jobId);
         
-        // 🌐 ETAPA 5: Processar resultado baseado no modo
-        // 🎯 NOVO FLUXO: Verificar modo do job para decidir ação
+        // 🌐 ETAPA 5: Processar resultado baseado no modo e contexto
+        // 🎯 FLUXO CORRIGIDO: Identificar se é primeira ou segunda música
         const jobMode = analysisResult.mode || currentAnalysisMode;
+        const isSecondTrack = window.__REFERENCE_JOB_ID__ !== null && window.__REFERENCE_JOB_ID__ !== undefined;
         
         __dbg('🎯 Modo do job:', jobMode);
+        __dbg('🎯 É segunda faixa?', isSecondTrack);
+        __dbg('🎯 Reference Job ID armazenado:', window.__REFERENCE_JOB_ID__);
         
-        if (jobMode === 'reference') {
-            // Modo reference: primeira música analisada, abrir modal para música de referência
-            __dbg('🎯 Abrindo modal secundário para música de referência');
+        if (jobMode === 'reference' && !isSecondTrack) {
+            // PRIMEIRA música em modo reference: abrir modal para música de referência
+            __dbg('🎯 Primeira música analisada - abrindo modal para segunda');
             openReferenceUploadModal(analysisResult.jobId, analysisResult);
-        } else if (jobMode === 'comparison') {
-            // Modo comparison: segunda música analisada, mostrar resultado final
-            __dbg('🎯 Exibindo resultado comparativo');
+        } else if (jobMode === 'reference' && isSecondTrack) {
+            // SEGUNDA música em modo reference: mostrar resultado comparativo
+            __dbg('🎯 Segunda música analisada - exibindo resultado comparativo');
             await handleGenreAnalysisWithResult(analysisResult, file.name);
+            
+            // Limpar referência após exibir resultado
+            delete window.__REFERENCE_JOB_ID__;
+            delete window.__FIRST_ANALYSIS_RESULT__;
         } else {
             // Modo genre: análise por gênero tradicional
             __dbg('🎯 Exibindo resultado por gênero');
