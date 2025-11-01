@@ -4062,10 +4062,19 @@ function displayModalResults(analysis) {
     const isSecondTrack = window.__REFERENCE_JOB_ID__ !== null && window.__REFERENCE_JOB_ID__ !== undefined;
     const mode = analysis?.mode || currentAnalysisMode;
     
+    // 🎯 DEFINIR MODO NO ESTADO ANTES DE QUALQUER CÁLCULO
+    const state = window.__soundyState || {};
+    state.render = state.render || {};
+    
     if (mode === 'reference' && isSecondTrack && window.referenceAnalysisData) {
         console.log('🎯 [COMPARE-MODE] Comparando segunda faixa com primeira faixa (não com gênero)');
         console.log('📊 [COMPARE-MODE] Primeira faixa:', window.referenceAnalysisData);
         console.log('📊 [COMPARE-MODE] Segunda faixa:', analysis);
+        
+        // 🎯 DEFINIR MODO REFERENCE NO ESTADO
+        state.render.mode = 'reference';
+        window.__soundyState = state;
+        console.log('✅ [COMPARE-MODE] Modo definido como REFERENCE no estado');
         
         // 🎯 CRIAR ESTRUTURA DE COMPARAÇÃO ENTRE FAIXAS
         // Normalizar ambas as análises
@@ -4093,6 +4102,17 @@ function displayModalResults(analysis) {
         };
         
         return; // Não executar renderização normal de gênero
+    } else {
+        // 🎯 MODO GENRE: Definir explicitamente e limpar referências
+        state.render.mode = 'genre';
+        window.__soundyState = state;
+        console.log('✅ [GENRE-MODE] Modo definido como GENRE no estado');
+        
+        // Limpar dados de referência para evitar contaminação
+        if (state.reference) {
+            state.reference.isSecondTrack = false;
+            state.reference.analysis = null;
+        }
     }
     
     // 🔒 UI GATE: Verificação final antes de renderizar
@@ -4179,12 +4199,42 @@ function displayModalResults(analysis) {
     // 🎯 CALCULAR SCORES DA ANÁLISE
     // Priorizar referenceComparisonMetrics se disponível (comparação entre faixas)
     let referenceDataForScores = __activeRefData;
+    const isReferenceMode = !!(referenceComparisonMetrics && referenceComparisonMetrics.reference);
     
-    if (referenceComparisonMetrics && referenceComparisonMetrics.reference) {
+    // 🎯 CORREÇÃO: Limpar estado de referência se NÃO estiver em modo reference
+    if (!isReferenceMode) {
+        const state = window.__soundyState || {};
+        if (state.reference) {
+            console.log('🧹 [SCORES-GENRE] Limpando estado de referência anterior para evitar contaminação');
+            state.reference.isSecondTrack = false;
+            state.reference.analysis = null;
+        }
+        // Garantir que análise não tenha referenceAnalysis indevida
+        if (analysis.referenceAnalysis) {
+            console.warn('⚠️ [SCORES-GENRE] Removendo referenceAnalysis da análise de gênero (contaminação detectada)');
+            delete analysis.referenceAnalysis;
+        }
+    }
+    
+    if (isReferenceMode) {
         console.log('✅ [SCORES] Usando referenceComparisonMetrics para calcular scores (comparação entre faixas)');
         
         // Construir objeto no formato esperado por calculateAnalysisScores
         const refMetrics = referenceComparisonMetrics.reference;
+        
+        // 🎯 CORREÇÃO CRÍTICA: No modo reference, bands devem vir da análise de referência (primeira faixa)
+        // NÃO usar spectral_balance que tem target_range, mas sim os valores REAIS da faixa
+        const referenceBandsFromAnalysis = analysis?.referenceAnalysis?.technicalData?.spectral_balance 
+            || analysis?.referenceAnalysis?.metrics?.bands
+            || window.__soundyState?.reference?.analysis?.bands
+            || null;
+        
+        if (!referenceBandsFromAnalysis) {
+            console.warn('⚠️ [SCORES-REF] Bandas da faixa de referência não encontradas, usando fallback de gênero');
+        } else {
+            console.log('✅ [SCORES-REF] Usando bandas da faixa de referência (valores reais):', Object.keys(referenceBandsFromAnalysis));
+        }
+        
         referenceDataForScores = {
             lufs_target: refMetrics.lufsIntegrated || refMetrics.lufs_integrated,
             true_peak_target: refMetrics.truePeakDbtp || refMetrics.true_peak_dbtp,
@@ -4192,19 +4242,32 @@ function displayModalResults(analysis) {
             lra_target: refMetrics.lra,
             stereo_target: refMetrics.stereoCorrelation || refMetrics.stereo_correlation,
             spectral_centroid_target: refMetrics.spectralCentroidHz || refMetrics.spectral_centroid,
-            bands: refMetrics.spectral_balance || null,
+            bands: referenceBandsFromAnalysis || refMetrics.spectral_balance, // Usar valores reais, não target_range
             tol_lufs: 0.5,
             tol_true_peak: 0.3,
             tol_dr: 1.0,
             tol_lra: 1.0,
             tol_stereo: 0.08,
-            tol_spectral: 300
+            tol_spectral: 300,
+            _isReferenceMode: true // Flag para indicar modo reference
         };
     }
     
     if (referenceDataForScores && analysis) {
         const detectedGenre = analysis.metadata?.genre || analysis.genre || __activeRefGenre;
+        const state = window.__soundyState || {};
+        
         console.log('🎯 Calculando scores para:', referenceComparisonMetrics ? 'comparação entre faixas' : `gênero ${detectedGenre}`);
+        
+        // 🎯 LOG DE VERIFICAÇÃO DE MODO (conforme solicitado)
+        console.log('[VERIFY_MODE]', {
+            mode: isReferenceMode ? 'reference' : 'genre',
+            comparingWith: isReferenceMode ? 'Reference Track' : 'Genre Targets',
+            refBands: isReferenceMode ? Object.keys(referenceDataForScores.bands || {}) : Object.keys(__activeRefData?.bands || {}),
+            hasReferenceAnalysis: !!analysis.referenceAnalysis,
+            isSecondTrack: state?.reference?.isSecondTrack,
+            genre: detectedGenre
+        });
         
         try {
             const analysisScores = calculateAnalysisScores(analysis, referenceDataForScores, detectedGenre);
@@ -7793,7 +7856,12 @@ function calculateFrequencyScore(analysis, refData) {
     if (!bandsToUse) return null;
     
     const scores = [];
-    console.log('🎵 Calculando Score de Frequência...');
+    const isReferenceMode = refData._isReferenceMode === true;
+    
+    console.log('🎵 Calculando Score de Frequência...', {
+        mode: isReferenceMode ? 'REFERENCE (valores diretos)' : 'GENRE (target_range)',
+        bandsAvailable: Object.keys(refData.bands)
+    });
     
     // Mapeamento das bandas calculadas para referência (exatamente as 7 bandas da tabela UI)
     const bandMapping = {
@@ -7825,21 +7893,40 @@ function calculateFrequencyScore(analysis, refData) {
             
             if (!Number.isFinite(energyDb)) return;
             
-            // Suporte híbrido: target_range (novo) ou target_db + tol_db (legado)
+            // 🎯 CORREÇÃO CRÍTICA: Detectar modo e usar valores apropriados
             let targetDb = null;
             let tolDb = null;
             
-            if (refBandData.target_range && typeof refBandData.target_range === 'object' &&
-                Number.isFinite(refBandData.target_range.min) && Number.isFinite(refBandData.target_range.max)) {
-                // Novo sistema: calcular alvo e tolerância a partir do range
-                targetDb = (refBandData.target_range.min + refBandData.target_range.max) / 2;
-                tolDb = (refBandData.target_range.max - refBandData.target_range.min) / 2;
-                console.log(`🎯 [SCORE-FREQ] ${calcBand}: usando target_range [${refBandData.target_range.min}, ${refBandData.target_range.max}] → target=${targetDb.toFixed(1)}dB, tol=${tolDb.toFixed(1)}dB`);
-            } else if (Number.isFinite(refBandData.target_db) && Number.isFinite(refBandData.tol_db)) {
-                // Sistema legado
-                targetDb = refBandData.target_db;
-                tolDb = refBandData.tol_db;
-                console.log(`🎯 [SCORE-FREQ] ${calcBand}: usando target_db=${targetDb}dB, tol_db=${tolDb}dB`);
+            if (isReferenceMode) {
+                // 👉 MODO REFERENCE: Usar valor DIRETO da faixa de referência (não target_range)
+                if (typeof refBandData === 'object' && Number.isFinite(refBandData.energy_db)) {
+                    targetDb = refBandData.energy_db;
+                } else if (typeof refBandData === 'object' && Number.isFinite(refBandData.rms_db)) {
+                    targetDb = refBandData.rms_db;
+                } else if (Number.isFinite(refBandData)) {
+                    targetDb = refBandData;
+                }
+                tolDb = 0; // Sem tolerância em comparação direta
+                
+                if (targetDb !== null) {
+                    console.log(`🎯 [SCORE-FREQ-REF] ${calcBand}: comparando com faixa de referência → target=${targetDb.toFixed(1)}dB (valor real), tol=0dB`);
+                } else {
+                    console.warn(`⚠️ [SCORE-FREQ-REF] ${calcBand}: sem valor na faixa de referência`);
+                }
+            } else {
+                // 👉 MODO GENRE: Usar target_range dos targets de gênero
+                if (refBandData.target_range && typeof refBandData.target_range === 'object' &&
+                    Number.isFinite(refBandData.target_range.min) && Number.isFinite(refBandData.target_range.max)) {
+                    // Novo sistema: calcular alvo e tolerância a partir do range
+                    targetDb = (refBandData.target_range.min + refBandData.target_range.max) / 2;
+                    tolDb = (refBandData.target_range.max - refBandData.target_range.min) / 2;
+                    console.log(`🎯 [SCORE-FREQ-GENRE] ${calcBand}: usando target_range [${refBandData.target_range.min}, ${refBandData.target_range.max}] → target=${targetDb.toFixed(1)}dB, tol=${tolDb.toFixed(1)}dB`);
+                } else if (Number.isFinite(refBandData.target_db) && Number.isFinite(refBandData.tol_db)) {
+                    // Sistema legado
+                    targetDb = refBandData.target_db;
+                    tolDb = refBandData.tol_db;
+                    console.log(`🎯 [SCORE-FREQ-GENRE] ${calcBand}: usando target_db=${targetDb}dB, tol_db=${tolDb}dB`);
+                }
             }
             
             // Calcular score individual da banda
