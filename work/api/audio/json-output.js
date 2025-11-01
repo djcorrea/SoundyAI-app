@@ -54,7 +54,13 @@ export function generateJSONOutput(coreMetrics, reference = null, metadata = {},
       throw makeErr('output_scoring', `Invalid scoring result: ${JSON.stringify(scoringResult)}`, 'invalid_scoring_result');
     }
 
-    const finalJSON = buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, { jobId });
+    // 🎯 Passar mode e preloadedReferenceMetrics para buildFinalJSON
+    const finalJSON = buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, { 
+      jobId,
+      mode: options.mode,
+      referenceJobId: options.referenceJobId,
+      preloadedReferenceMetrics: options.preloadedReferenceMetrics
+    });
 
     validateFinalJSON(finalJSON);
 
@@ -606,7 +612,22 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     },
 
     // ===== REFERENCE COMPARISON =====
-    referenceComparison: options.reference?.comparison || generateGenreReference(technicalData, options.genre || 'trance'),
+    // 🎯 MODO REFERENCE: Comparar com métricas preloaded da faixa de referência
+    // 🎵 MODO GENRE: Comparar com alvos de gênero
+    referenceComparison: (() => {
+      // Se modo reference E temos métricas preloaded, fazer comparação real
+      if (options.mode === 'reference' && options.preloadedReferenceMetrics) {
+        console.log('🎯 [JSON-OUTPUT] Gerando comparação por REFERÊNCIA (faixa real)');
+        return generateReferenceComparison(technicalData, options.preloadedReferenceMetrics);
+      }
+      
+      // Caso contrário, usar comparação por gênero
+      console.log('🎵 [JSON-OUTPUT] Gerando comparação por GÊNERO (alvos padrão)');
+      return {
+        mode: 'genre',
+        references: generateGenreReference(technicalData, options.genre || 'trance')
+      };
+    })(),
 
     // ===== METRICS (Structured for Frontend) =====
     metrics: {
@@ -831,6 +852,254 @@ function validateFinalJSON(finalJSON) {
       throw makeErr('output_scoring', `Missing field: ${f}`, 'missing_final_field');
     }
   }
+}
+
+/**
+ * 🎯 COMPARAÇÃO POR REFERÊNCIA: Gerar comparação baseada em métricas reais da faixa de referência
+ * @param {Object} userMetrics - Métricas da faixa analisada (atual)
+ * @param {Object} referenceMetrics - Métricas da faixa de referência (preloaded)
+ * @returns {Object} - Objeto de comparação com diferenças numéricas e sugestões
+ */
+function generateReferenceComparison(userMetrics, referenceMetrics) {
+  console.log('🎯 [REFERENCE-COMPARISON] Gerando comparação entre faixas');
+  
+  if (!referenceMetrics || !referenceMetrics.technicalData) {
+    console.warn('⚠️ [REFERENCE-COMPARISON] Métricas de referência inválidas');
+    return null;
+  }
+
+  const refTech = referenceMetrics.technicalData;
+  const userTech = userMetrics;
+
+  // Calcular diferenças numéricas
+  const comparison = {
+    // Loudness
+    lufsIntegrated: {
+      user: userTech.lufsIntegrated,
+      reference: refTech.lufsIntegrated,
+      diff: Number((userTech.lufsIntegrated - refTech.lufsIntegrated).toFixed(2)),
+      unit: 'LUFS'
+    },
+    
+    // True Peak
+    truePeakDbtp: {
+      user: userTech.truePeakDbtp,
+      reference: refTech.truePeakDbtp,
+      diff: Number((userTech.truePeakDbtp - refTech.truePeakDbtp).toFixed(2)),
+      unit: 'dBTP'
+    },
+    
+    // Dynamics
+    dynamicRange: {
+      user: userTech.dynamicRange,
+      reference: refTech.dynamicRange,
+      diff: Number((userTech.dynamicRange - refTech.dynamicRange).toFixed(2)),
+      unit: 'LU'
+    },
+    
+    lra: {
+      user: userTech.lra,
+      reference: refTech.lra,
+      diff: Number((userTech.lra - refTech.lra).toFixed(2)),
+      unit: 'LU'
+    },
+    
+    // Stereo
+    stereoCorrelation: {
+      user: userTech.stereoCorrelation,
+      reference: refTech.stereoCorrelation,
+      diff: Number((userTech.stereoCorrelation - refTech.stereoCorrelation).toFixed(3)),
+      unit: 'ratio'
+    },
+    
+    stereoWidth: {
+      user: userTech.stereoWidth,
+      reference: refTech.stereoWidth,
+      diff: Number((userTech.stereoWidth - refTech.stereoWidth).toFixed(3)),
+      unit: 'ratio'
+    },
+    
+    // Spectral
+    spectralCentroidHz: {
+      user: userTech.spectralCentroidHz,
+      reference: refTech.spectralCentroidHz,
+      diff: Number((userTech.spectralCentroidHz - refTech.spectralCentroidHz).toFixed(1)),
+      unit: 'Hz'
+    },
+    
+    // Spectral Bands (se disponíveis)
+    spectralBands: {}
+  };
+  
+  // Comparar bandas espectrais se ambas tiverem
+  if (userTech.spectral_balance?._status === 'calculated' && 
+      refTech.spectral_balance?._status === 'calculated') {
+    
+    const userBands = userTech.spectral_balance;
+    const refBands = refTech.spectral_balance;
+    
+    ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'].forEach(band => {
+      if (userBands[band] && refBands[band]) {
+        comparison.spectralBands[band] = {
+          user: userBands[band].percentage || userBands[band].energy_db,
+          reference: refBands[band].percentage || refBands[band].energy_db,
+          diff: Number(((userBands[band].percentage || userBands[band].energy_db) - 
+                       (refBands[band].percentage || refBands[band].energy_db)).toFixed(2)),
+          unit: '%'
+        };
+      }
+    });
+  }
+  
+  // Gerar sugestões baseadas nas diferenças
+  const suggestions = generateReferenceSuggestions(comparison);
+  
+  console.log(`✅ [REFERENCE-COMPARISON] Comparação gerada: ${suggestions.length} sugestões`);
+  
+  return {
+    mode: 'reference',
+    comparison,
+    suggestions,
+    referenceMetrics: {
+      score: referenceMetrics.score,
+      lufsIntegrated: refTech.lufsIntegrated,
+      truePeakDbtp: refTech.truePeakDbtp,
+      dynamicRange: refTech.dynamicRange,
+      stereoCorrelation: refTech.stereoCorrelation,
+      spectralCentroidHz: refTech.spectralCentroidHz
+    }
+  };
+}
+
+/**
+ * 💡 GERADOR DE SUGESTÕES BASEADAS EM REFERÊNCIA
+ * @param {Object} comparison - Objeto com diferenças calculadas
+ * @returns {Array} - Array de sugestões formatadas
+ */
+function generateReferenceSuggestions(comparison) {
+  const suggestions = [];
+  
+  // LOUDNESS
+  if (Math.abs(comparison.lufsIntegrated.diff) > 1) {
+    if (comparison.lufsIntegrated.diff < -1) {
+      suggestions.push({
+        type: 'loudness',
+        metric: 'lufsIntegrated',
+        severity: 'warning',
+        message: `Volume ${Math.abs(comparison.lufsIntegrated.diff).toFixed(1)} LUFS mais baixo que a referência. Aumente o volume geral.`,
+        diff: comparison.lufsIntegrated.diff
+      });
+    } else {
+      suggestions.push({
+        type: 'loudness',
+        metric: 'lufsIntegrated',
+        severity: 'warning',
+        message: `Volume ${comparison.lufsIntegrated.diff.toFixed(1)} LUFS mais alto que a referência. Reduza o volume geral.`,
+        diff: comparison.lufsIntegrated.diff
+      });
+    }
+  }
+  
+  // TRUE PEAK
+  if (comparison.truePeakDbtp.diff > 1) {
+    suggestions.push({
+      type: 'truePeak',
+      metric: 'truePeakDbtp',
+      severity: 'critical',
+      message: `True Peak ${comparison.truePeakDbtp.diff.toFixed(1)} dB mais alto que a referência. Risco de clipping digital.`,
+      diff: comparison.truePeakDbtp.diff
+    });
+  }
+  
+  // DYNAMIC RANGE
+  if (Math.abs(comparison.dynamicRange.diff) > 2) {
+    if (comparison.dynamicRange.diff < -2) {
+      suggestions.push({
+        type: 'dynamics',
+        metric: 'dynamicRange',
+        severity: 'warning',
+        message: `Dinâmica ${Math.abs(comparison.dynamicRange.diff).toFixed(1)} LU mais comprimida que a referência. Reduza compressão.`,
+        diff: comparison.dynamicRange.diff
+      });
+    } else {
+      suggestions.push({
+        type: 'dynamics',
+        metric: 'dynamicRange',
+        severity: 'info',
+        message: `Dinâmica ${comparison.dynamicRange.diff.toFixed(1)} LU mais aberta que a referência. Considere mais compressão.`,
+        diff: comparison.dynamicRange.diff
+      });
+    }
+  }
+  
+  // STEREO WIDTH
+  if (Math.abs(comparison.stereoWidth.diff) > 0.1) {
+    if (comparison.stereoWidth.diff < -0.1) {
+      suggestions.push({
+        type: 'stereo',
+        metric: 'stereoWidth',
+        severity: 'info',
+        message: `Imagem estéreo mais estreita que a referência. Use widening ou panning.`,
+        diff: comparison.stereoWidth.diff
+      });
+    } else {
+      suggestions.push({
+        type: 'stereo',
+        metric: 'stereoWidth',
+        severity: 'warning',
+        message: `Imagem estéreo mais larga que a referência. Verifique compatibilidade mono.`,
+        diff: comparison.stereoWidth.diff
+      });
+    }
+  }
+  
+  // SPECTRAL CENTROID
+  if (Math.abs(comparison.spectralCentroidHz.diff) > 500) {
+    if (comparison.spectralCentroidHz.diff < -500) {
+      suggestions.push({
+        type: 'spectral',
+        metric: 'spectralCentroid',
+        severity: 'info',
+        message: `Som ${Math.abs(comparison.spectralCentroidHz.diff).toFixed(0)} Hz mais escuro que a referência. Adicione brilho com EQ.`,
+        diff: comparison.spectralCentroidHz.diff
+      });
+    } else {
+      suggestions.push({
+        type: 'spectral',
+        metric: 'spectralCentroid',
+        severity: 'info',
+        message: `Som ${comparison.spectralCentroidHz.diff.toFixed(0)} Hz mais brilhante que a referência. Reduza altas com EQ.`,
+        diff: comparison.spectralCentroidHz.diff
+      });
+    }
+  }
+  
+  // SPECTRAL BANDS
+  if (comparison.spectralBands && Object.keys(comparison.spectralBands).length > 0) {
+    Object.entries(comparison.spectralBands).forEach(([band, data]) => {
+      if (Math.abs(data.diff) > 3) {
+        const bandNames = {
+          sub: 'Sub (20-60Hz)',
+          bass: 'Bass (60-150Hz)',
+          lowMid: 'Low-Mid (150-500Hz)',
+          mid: 'Mid (500-2kHz)',
+          highMid: 'High-Mid (2-5kHz)',
+          presence: 'Presence (5-10kHz)',
+          air: 'Air (10-20kHz)'
+        };
+        
+        suggestions.push({
+          type: 'spectral',
+          metric: `spectralBand_${band}`,
+          severity: 'info',
+          message: `${bandNames[band]}: ${data.diff > 0 ? '+' : ''}${data.diff.toFixed(1)}% vs referência. Ajuste EQ nesta faixa.`,
+          diff: data.diff
+        });
+      }
+    });
+  }
+  
+  return suggestions;
 }
 
 /**
