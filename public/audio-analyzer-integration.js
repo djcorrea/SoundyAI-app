@@ -1,4 +1,4 @@
-// 🎵 AUDIO ANALYZER INTEGRATION - VERSÃO REFATORADA
+﻿// 🎵 AUDIO ANALYZER INTEGRATION - VERSÃO REFATORADA
 // Sistema de análise 100% baseado em processamento no back-end (Railway + Bucket)
 // ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
 // ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
@@ -5999,9 +5999,9 @@ function renderReferenceComparisons(analysis) {
     if (isReferenceMode) {
         // 🎯 VERIFICAR SE É COMPARAÇÃO ENTRE FAIXAS
         if (window.referenceAnalysisData && analysis.mode === 'reference') {
-            console.log('� [RENDER-REF] MODO COMPARAÇÃO ENTRE FAIXAS');
+            console.log('🎯 [RENDER-REF] MODO REFERÊNCIA — COMPARAÇÃO ENTRE FAIXAS ATIVADA');
         } else {
-            console.log('�🎯 [RENDER-REF] MODO REFERÊNCIA DETECTADO');
+            console.log('🎯 [RENDER-REF] MODO REFERÊNCIA DETECTADO (estrutura backend)');
         }
         
         // ===== NOVA ESTRUTURA (userTrack/referenceTrack) =====
@@ -6079,6 +6079,7 @@ function renderReferenceComparisons(analysis) {
     
     // 🎯 SOBRESCREVER com referenceComparisonMetrics se disponível (comparação entre faixas)
     if (referenceComparisonMetrics && referenceComparisonMetrics.reference) {
+        console.log('🎯 [RENDER-REF] MODO REFERÊNCIA — COMPARAÇÃO ENTRE FAIXAS ATIVADA');
         console.log('✅ [RENDER-REF] Sobrescrevendo com referenceComparisonMetrics');
         
         const targetMetrics = referenceComparisonMetrics.reference;
