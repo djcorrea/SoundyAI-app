@@ -356,6 +356,11 @@ router.post("/analyze", async (req, res) => {
       });
     }
 
+    // 🧠 DEBUG: Verificar se modo comparison tem referenceJobId
+    if (mode === 'comparison' && !req.body.referenceJobId) {
+      console.warn('⚠️ [ANALYZE] Modo comparison recebido sem referenceJobId.');
+    }
+
     // ✅ VERIFICAÇÃO OBRIGATÓRIA DA FILA
     if (!queueReady) {
       console.log('⏳ [API] Aguardando fila inicializar...');
