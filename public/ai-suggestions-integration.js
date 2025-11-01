@@ -531,41 +531,63 @@ class AISuggestionsIntegration {
             stereoCorrelation: metrics.stereoCorrelation || metrics.stereo || null
         };
         
-        // Adicionar bandas se disponíveis
+        // 🎯 CORRIGIDO: Adicionar bandas apenas se houver valores REAIS (não zero)
         if (metrics.bandEnergies) {
             const bandEnergies = metrics.bandEnergies;
             const referenceTargets = window.__activeRefData?.bands || {};
             
-            normalized.bands = {
-                sub: {
-                    value: bandEnergies.sub?.rms_db || 0,
-                    ideal: referenceTargets.sub?.target || -16.0
-                },
-                bass: {
-                    value: bandEnergies.low_bass?.rms_db || 0,
-                    ideal: referenceTargets.bass?.target || -17.8
-                },
-                lowMid: {
-                    value: bandEnergies.upper_bass?.rms_db || 0,
-                    ideal: referenceTargets.lowMid?.target || -18.2
-                },
-                mid: {
-                    value: bandEnergies.mid?.rms_db || 0,
-                    ideal: referenceTargets.mid?.target || -17.1
-                },
-                highMid: {
-                    value: bandEnergies.high_mid?.rms_db || 0,
-                    ideal: referenceTargets.highMid?.target || -20.8
-                },
-                presence: {
-                    value: bandEnergies.presenca?.rms_db || 0,
-                    ideal: referenceTargets.presence?.target || -34.6
-                },
-                air: {
-                    value: bandEnergies.brilho?.rms_db || 0,
-                    ideal: referenceTargets.air?.target || -25.5
-                }
+            // 🔍 LOG AUDITORIA: Verificar bandEnergies disponíveis
+            console.log('🔍 [NORMALIZE-METRICS] bandEnergies recebidas:', {
+                keys: Object.keys(bandEnergies),
+                sub: bandEnergies.sub,
+                low_bass: bandEnergies.low_bass,
+                upper_bass: bandEnergies.upper_bass,
+                mid: bandEnergies.mid,
+                high_mid: bandEnergies.high_mid,
+                presenca: bandEnergies.presenca,
+                brilho: bandEnergies.brilho
+            });
+            
+            // Helper para extrair valor real de banda (null se não existir)
+            const getBandValue = (bandData) => {
+                if (!bandData || typeof bandData !== 'object') return null;
+                const value = bandData.rms_db;
+                return Number.isFinite(value) ? value : null;
             };
+            
+            // Montar objeto bands apenas com valores reais
+            const bands = {};
+            
+            const bandMapping = [
+                { key: 'sub', source: 'sub', ideal: -16.0 },
+                { key: 'bass', source: 'low_bass', ideal: -17.8 },
+                { key: 'lowMid', source: 'upper_bass', ideal: -18.2 },
+                { key: 'mid', source: 'mid', ideal: -17.1 },
+                { key: 'highMid', source: 'high_mid', ideal: -20.8 },
+                { key: 'presence', source: 'presenca', ideal: -34.6 },
+                { key: 'air', source: 'brilho', ideal: -25.5 }
+            ];
+            
+            bandMapping.forEach(({ key, source, ideal }) => {
+                const value = getBandValue(bandEnergies[source]);
+                if (value !== null) {
+                    bands[key] = {
+                        value: value,
+                        ideal: referenceTargets[key]?.target || ideal
+                    };
+                    console.log(`✅ [NORMALIZE-METRICS] Banda ${key} adicionada: ${value} dB (ideal: ${bands[key].ideal})`);
+                } else {
+                    console.warn(`⚠️ [NORMALIZE-METRICS] Banda ${key} (source: ${source}) não possui valor real - IGNORADA`);
+                }
+            });
+            
+            // Só adicionar bands se pelo menos uma banda tiver valor
+            if (Object.keys(bands).length > 0) {
+                normalized.bands = bands;
+                console.log(`✅ [NORMALIZE-METRICS] ${Object.keys(bands).length} bandas com valores reais incluídas no payload`);
+            } else {
+                console.warn('⚠️ [NORMALIZE-METRICS] Nenhuma banda com valor real detectada - bands não incluído no payload');
+            }
         }
         
         return normalized;

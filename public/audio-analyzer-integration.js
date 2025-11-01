@@ -1897,6 +1897,26 @@ function openAudioModal() {
 function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
     __dbg('🎯 Abrindo modal secundário para música de referência', { referenceJobId });
     
+    // 🎯 PROTEÇÃO: Garantir que primeira análise está completa
+    if (!firstAnalysisResult) {
+        console.error('❌ [PROTECTION] Primeira análise não está completa - abortando abertura do modal de referência');
+        alert('⚠️ A primeira análise ainda não foi concluída. Por favor, aguarde.');
+        return;
+    }
+    
+    // 🎯 PROTEÇÃO: Validar que há dados essenciais
+    if (!firstAnalysisResult.technicalData) {
+        console.error('❌ [PROTECTION] Primeira análise não contém technicalData - dados incompletos');
+        alert('⚠️ A primeira análise não foi concluída corretamente. Por favor, tente novamente.');
+        return;
+    }
+    
+    console.log('✅ [PROTECTION] Primeira análise validada com sucesso:', {
+        hasJobId: !!referenceJobId,
+        hasTechnicalData: !!firstAnalysisResult.technicalData,
+        hasScore: !!firstAnalysisResult.score
+    });
+    
     window.logReferenceEvent('reference_upload_modal_opened', { referenceJobId });
     
     // 🎯 PERSISTIR DADOS DA PRIMEIRA FAIXA
@@ -5772,7 +5792,20 @@ function displayModalResults(analysis) {
         normalizeCardWhitespace(technicalData);
         stripEmptyTextNodesInCards(technicalData);
     
-        try { renderReferenceComparisons(analysis); } catch(e){ console.warn('ref compare fail', e);}    
+        // 🎯 CORRIGIDO: Só renderizar referências se NÃO estiver em modo comparação de faixas
+        // O displayModalResults() já trata comparação via renderTrackComparisonTable()
+        try { 
+            const isSecondTrack = window.__REFERENCE_JOB_ID__ !== null;
+            const mode = analysis?.mode || currentAnalysisMode;
+            
+            // Só chamar renderReferenceComparisons() em modo GÊNERO
+            if (!(mode === 'reference' && isSecondTrack && window.referenceAnalysisData)) {
+                console.log('📊 [RENDER-FLOW] Chamando renderReferenceComparisons() - modo gênero');
+                renderReferenceComparisons(analysis);
+            } else {
+                console.log('🎯 [RENDER-FLOW] PULANDO renderReferenceComparisons() - comparação de faixas já renderizada via renderTrackComparisonTable()');
+            }
+        } catch(e){ console.warn('ref compare fail', e);}    
         try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ console.warn('validation controls fail', e); }
         
         // 🔍 Verificação de debug: Detecta whitespace restante
