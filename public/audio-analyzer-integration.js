@@ -4126,6 +4126,16 @@ function displayModalResults(analysis) {
             firstTrackFile: refNormalized.metadata?.fileName,
             secondTrackFile: currNormalized.metadata?.fileName
         });
+        
+        // 🎯 CHAMAR renderReferenceComparisons com modo explícito
+        renderReferenceComparisons({
+            mode: 'reference',
+            baseAnalysis: refNormalized,
+            referenceAnalysis: currNormalized,
+            analysis: currNormalized // Para compatibilidade
+        });
+        
+        // 🎯 TAMBÉM chamar renderTrackComparisonTable para exibir tabela A/B
         renderTrackComparisonTable(refNormalized, currNormalized);
         
         // Atualizar window.latestAnalysis para compatibilidade com IA e PDF
@@ -6401,14 +6411,35 @@ function renderReferenceComparisons(opts = {}) {
     const container = document.getElementById('referenceComparisons');
     if (!container) return;
     
-    // Fonte da verdade: o modo vem do caller. NÃO auto-alternar aqui.
+    // 🎯 CORREÇÃO CRÍTICA: Fonte da verdade vem do caller - NÃO usar fallback 'genre'
     const state = window.__soundyState || {};
-    const explicitMode = (opts.mode || state?.render?.mode || 'genre');
+    
+    // 🚨 PRIORIDADE DE DETECÇÃO DO MODO (sem fallback automático para genre):
+    // 1. opts.mode (passado explicitamente pelo caller)
+    // 2. state.render.mode (já configurado anteriormente)
+    // 3. state.reference.isSecondTrack = true → forçar 'reference'
+    // 4. Último recurso: 'genre'
+    let explicitMode = opts.mode || state?.render?.mode;
+    
+    // 🎯 Se segunda faixa está ativa, FORÇAR modo reference
+    if (state.reference?.isSecondTrack === true && !explicitMode) {
+        explicitMode = 'reference';
+        console.log('🔥 [MODE-OVERRIDE] Segunda faixa detectada - forçando modo reference');
+    }
+    
+    // Fallback final apenas se realmente necessário
+    if (!explicitMode) {
+        explicitMode = 'genre';
+        console.warn('⚠️ [MODE-FALLBACK] Nenhum modo detectado - usando genre como fallback');
+    }
+    
     const isReference = explicitMode === 'reference';
     
-    // Salvar modo no estado
+    // Salvar modo no estado (NÃO sobrescrever se já for reference)
     state.render = state.render || {};
-    state.render.mode = explicitMode;
+    if (state.render.mode !== 'reference' || explicitMode === 'reference') {
+        state.render.mode = explicitMode;
+    }
     window.__soundyState = state;
     
     // (Opcional) Log assertivo
@@ -6694,6 +6725,19 @@ function renderReferenceComparisons(opts = {}) {
         };
         
         titleText = `🎵 Comparação com ${referenceComparisonMetrics.referenceFull?.metadata?.fileName || 'Faixa de Referência (2ª música)'}`;
+        
+        // 🎯 ASSERT CRÍTICO: Verificar se bands estão disponíveis no modo reference
+        console.log('[ASSERT_REF_DATA]', ref.bands ? '✅ Reference bands loaded' : '❌ Missing bands');
+        if (!ref.bands) {
+            console.error('🚨 [CRITICAL] Modo reference sem bandas! Bloqueando fallback de gênero.');
+            console.error('🚨 Debug:', {
+                hasTargetMetrics: !!targetMetrics,
+                targetMetricsKeys: targetMetrics ? Object.keys(targetMetrics) : [],
+                hasSpectralBalance: !!targetMetrics?.spectral_balance,
+                hasReferenceComparisonMetrics: !!referenceComparisonMetrics,
+                referenceFullKeys: referenceComparisonMetrics.referenceFull ? Object.keys(referenceComparisonMetrics.referenceFull) : []
+            });
+        }
     } else if (renderMode === 'genre' && referenceComparisonMetrics) {
         // 🚨 LOG DE SEGURANÇA: Confirmar que modo genre NÃO usa referenceComparisonMetrics
         console.log('✅ [GENRE-MODE] referenceComparisonMetrics IGNORADO no modo gênero (correto)');
@@ -7291,19 +7335,40 @@ function renderReferenceComparisons(opts = {}) {
         });
         
         if (spectralBands && Object.keys(spectralBands).length > 0) {
-            // 🎯 PATCH 5: Asserts de segurança (NÃO ABORTAM, apenas logam)
+            // 🎯 CORREÇÃO CRÍTICA: Asserts de segurança com bloqueio de fallback
             const isReferenceMode = renderMode === 'reference';
-            const refBands = state?.reference?.analysis?.bands || analysis?.reference?.bands || null;
-            const genreTargets = ref?.bands || null;
             
+            // 🔥 PRIORIDADE: Buscar bands da REFERÊNCIA (primeira faixa) no modo reference
+            let refBands = null;
             if (isReferenceMode) {
+                // Tentar múltiplas fontes para bands de referência
+                refBands = state?.reference?.analysis?.technicalData?.spectral_balance
+                    || state?.reference?.analysis?.bands
+                    || referenceComparisonMetrics?.referenceFull?.technicalData?.spectral_balance
+                    || analysis?.referenceAnalysis?.technicalData?.spectral_balance
+                    || analysis?.reference?.bands
+                    || null;
+                
+                console.log('[REF-BANDS] Fontes verificadas:', {
+                    hasStateRefAnalysis: !!state?.reference?.analysis,
+                    hasReferenceComparisonMetrics: !!referenceComparisonMetrics?.referenceFull,
+                    hasAnalysisReferenceAnalysis: !!analysis?.referenceAnalysis,
+                    refBandsFound: !!refBands,
+                    refBandsKeys: refBands ? Object.keys(refBands) : []
+                });
+                
                 if (!refBands) {
-                    console.warn('⚠️ [REF-ERROR] Modo reference sem refBands! Continuando sem targets...');
+                    console.error('🚨 [CRITICAL] Modo reference SEM bandas de referência!');
+                    console.error('🚨 [REF-BANDS] Fallback de gênero BLOQUEADO no modo reference');
                 }
-            } else {
-                if (!genreTargets) {
-                    console.warn('⚠️ [GENRE-ERROR] Modo genre sem genreTargets! Continuando sem targets...');
-                }
+            }
+            
+            const genreTargets = !isReferenceMode ? (ref?.bands || null) : null;
+            
+            if (isReferenceMode && !refBands) {
+                console.warn('⚠️ [REF-ERROR] Modo reference sem refBands! Continuando sem targets...');
+            } else if (!isReferenceMode && !genreTargets) {
+                console.warn('⚠️ [GENRE-ERROR] Modo genre sem genreTargets! Continuando sem targets...');
             }
             
             // Conjunto para rastrear bandas já processadas
@@ -8437,23 +8502,52 @@ function updateReferenceSuggestions(analysis) {
     if (typeof window !== 'undefined' && window.enhancedSuggestionEngine && window.USE_ENHANCED_SUGGESTIONS !== false) {
         try {
             console.log('🎯 Usando Enhanced Suggestion Engine...');
-            console.log('🔍 [DEBUG-ENGINE] Dados sendo passados para Enhanced Engine:', {
+            
+            // 🎯 INTERCEPT CRÍTICO: Usar reference targets se modo for reference
+            const state = window.__soundyState || {};
+            let targetDataForEngine = __activeRefData;
+            
+            if (state.render?.mode === 'reference') {
+                // Buscar dados da primeira faixa (referência) para usar como target
+                const referenceBands = state.reference?.analysis?.technicalData?.spectral_balance
+                    || state.reference?.analysis?.bands
+                    || referenceComparisonMetrics?.referenceFull?.technicalData?.spectral_balance
+                    || null;
+                
+                if (referenceBands) {
+                    console.log('� [ENGINE-INTERCEPT] Modo reference detectado - usando bandas da primeira faixa como target');
+                    targetDataForEngine = {
+                        ...(__activeRefData || {}),
+                        bands: referenceBands,
+                        _isReferenceMode: true,
+                        _referenceSource: 'first_track'
+                    };
+                } else {
+                    console.warn('⚠️ [ENGINE-INTERCEPT] Modo reference mas sem bandas - usando genreTargets (fallback)');
+                }
+            }
+            
+            console.log('�🔍 [DEBUG-ENGINE] Dados sendo passados para Enhanced Engine:', {
+                mode: state.render?.mode,
+                isReferenceMode: state.render?.mode === 'reference',
                 analysis: {
                     hasTechnicalData: !!analysis.technicalData,
                     technicalDataKeys: analysis.technicalData ? Object.keys(analysis.technicalData) : null,
                     hasSuggestions: !!analysis.suggestions,
                     suggestionsCount: analysis.suggestions?.length || 0
                 },
-                activeRefData: {
-                    isNull: __activeRefData === null,
-                    isUndefined: __activeRefData === undefined,
-                    type: typeof __activeRefData,
-                    keys: __activeRefData ? Object.keys(__activeRefData) : null,
-                    structure: __activeRefData ? 'present' : 'missing'
+                targetDataForEngine: {
+                    isNull: targetDataForEngine === null,
+                    isUndefined: targetDataForEngine === undefined,
+                    type: typeof targetDataForEngine,
+                    keys: targetDataForEngine ? Object.keys(targetDataForEngine) : null,
+                    structure: targetDataForEngine ? 'present' : 'missing',
+                    hasBands: !!targetDataForEngine?.bands,
+                    isReferenceMode: targetDataForEngine?._isReferenceMode
                 }
             });
             
-            const enhancedAnalysis = window.enhancedSuggestionEngine.processAnalysis(analysis, __activeRefData);
+            const enhancedAnalysis = window.enhancedSuggestionEngine.processAnalysis(analysis, targetDataForEngine);
             
             // Preservar sugestões não-referência existentes se necessário
             const existingSuggestions = Array.isArray(analysis.suggestions) ? analysis.suggestions : [];
@@ -10496,6 +10590,15 @@ window.displayReferenceResults = function(referenceResults) {
  */
 function normalizeBackendAnalysisData(result) {
     console.log("[BACKEND RESULT] Received analysis with data:", result);
+    
+    // 🎯 PROTEÇÃO CRÍTICA: Preservar modo reference se segunda faixa está ativa
+    const state = window.__soundyState || {};
+    if (state.reference?.isSecondTrack && state.render?.mode !== 'reference') {
+        console.warn('[FIX] Corrigindo mode: reference forçado (segunda faixa ativa)');
+        state.render = state.render || {};
+        state.render.mode = 'reference';
+        window.__soundyState = state;
+    }
     
     // ✅ Compatível com JSON antigo e novo (pré/pós Redis)
     const data = result?.data ?? result;
