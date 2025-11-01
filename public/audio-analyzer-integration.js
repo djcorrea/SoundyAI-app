@@ -6011,8 +6011,11 @@ function renderReferenceComparisons(analysis) {
     const container = document.getElementById('referenceComparisons');
     if (!container) return;
     
-    // 🎯 DETECÇÃO ROBUSTA DE MODO REFERÊNCIA
-    // Prioridade: Nova estrutura (userTrack/referenceTrack) > Estrutura antiga (referenceMetrics)
+    // 🎯 DETECÇÃO ROBUSTA DE MODO REFERÊNCIA - PRIORIDADE: analysis.mode
+    // Prioridade 1: analysis.mode === 'reference' (direto do backend)
+    // Prioridade 2: Nova estrutura (userTrack/referenceTrack)
+    // Prioridade 3: Estrutura antiga (referenceMetrics)
+    
     const hasNewStructure = analysis.referenceComparison && 
                            analysis.referenceComparison.mode === 'reference' &&
                            analysis.referenceComparison.userTrack &&
@@ -6022,23 +6025,71 @@ function renderReferenceComparisons(analysis) {
                            analysis.referenceComparison.mode === 'reference' &&
                            analysis.referenceComparison.referenceMetrics;
     
-    const isReferenceMode = hasNewStructure || hasOldStructure ||
+    // ✅ CORRIGIDO: Priorizar analysis.mode === 'reference' PRIMEIRO
+    const isReferenceMode = analysis.mode === 'reference' ||  // ✅ PRIORIDADE 1
+                           hasNewStructure ||                 // PRIORIDADE 2
+                           hasOldStructure ||                 // PRIORIDADE 3
                            analysis.analysisMode === 'reference' || 
                            analysis.baseline_source === 'reference' ||
                            (analysis.comparison && analysis.comparison.baseline_source === 'reference');
     
     let ref, titleText, userMetrics;
     
+    // 🔍 [AUDITORIA_REF] Log de detecção crítica
+    console.log('[AUDITORIA_REF] Detecção de modo:', {
+        'analysis.mode': analysis.mode,
+        'isReferenceMode': isReferenceMode,
+        'hasNewStructure': hasNewStructure,
+        'hasOldStructure': hasOldStructure,
+        'window.__REFERENCE_JOB_ID__': window.__REFERENCE_JOB_ID__,
+        'referenceAnalysisData': !!window.referenceAnalysisData
+    });
+    
     if (isReferenceMode) {
+        console.log('[AUDITORIA_REF] Modo referência detectado – exibindo comparação A/B entre faixas');
+        
         // 🎯 VERIFICAR SE É COMPARAÇÃO ENTRE FAIXAS
         if (window.referenceAnalysisData && analysis.mode === 'reference') {
             console.log('🎯 [RENDER-REF] MODO REFERÊNCIA — COMPARAÇÃO ENTRE FAIXAS ATIVADA');
+            console.log('[AUDITORIA_REF] Dados usados na comparação:', analysis.referenceComparison || analysis.referenceBands || 'referenceComparisonMetrics');
         } else {
             console.log('🎯 [RENDER-REF] MODO REFERÊNCIA DETECTADO (estrutura backend)');
         }
         
-        // ===== NOVA ESTRUTURA (userTrack/referenceTrack) =====
-        if (hasNewStructure) {
+        // 🎯 PRIORIDADE 1: analysis.referenceBands (estrutura centralizada)
+        if (analysis.referenceBands && analysis.mode === 'reference') {
+            console.log('✅ [RENDER-REF] Usando analysis.referenceBands (estrutura centralizada)');
+            
+            userMetrics = analysis.technicalData || {};
+            
+            ref = {
+                lufs_target: analysis.referenceBands.lufsIntegrated || analysis.referenceBands.lufs_integrated,
+                true_peak_target: analysis.referenceBands.truePeakDbtp || analysis.referenceBands.true_peak_dbtp,
+                dr_target: analysis.referenceBands.dynamicRange || analysis.referenceBands.dynamic_range,
+                lra_target: analysis.referenceBands.lra,
+                stereo_target: analysis.referenceBands.stereoCorrelation || analysis.referenceBands.stereo_correlation,
+                stereo_width_target: analysis.referenceBands.stereoWidth || analysis.referenceBands.stereo_width,
+                spectral_centroid_target: analysis.referenceBands.spectralCentroidHz || analysis.referenceBands.spectral_centroid,
+                tol_lufs: 0.5,
+                tol_true_peak: 0.3,
+                tol_dr: 1.0,
+                tol_lra: 1.0,
+                tol_stereo: 0.08,
+                tol_spectral: 300,
+                bands: analysis.referenceBands.spectral_balance || analysis.referenceBands.bands || null
+            };
+            
+            titleText = `🎵 Faixa de Referência`;
+            
+            console.log('📊 [RENDER-REF] Referência (referenceBands):', {
+                lufs: ref.lufs_target,
+                dr: ref.dr_target,
+                peak: ref.true_peak_target,
+                bands: ref.bands
+            });
+        }
+        // ===== PRIORIDADE 2: NOVA ESTRUTURA (userTrack/referenceTrack) =====
+        else if (hasNewStructure) {
             console.log('✅ [RENDER-REF] Usando NOVA estrutura (userTrack/referenceTrack)');
             
             const refTrack = analysis.referenceComparison.referenceTrack.metrics;
