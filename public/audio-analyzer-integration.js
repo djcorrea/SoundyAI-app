@@ -2517,47 +2517,69 @@ async function handleModalFileSelection(file) {
             console.log('✅ [COMPARE-MODE] Tabela comparativa será exibida');
             __dbg('🎯 Segunda música analisada - exibindo resultado comparativo');
             
-            // ⚙️ BÔNUS: Vincular primeira análise à segunda
+            // 🔥 CORREÇÃO CRÍTICA: Primeira música é USUÁRIO, segunda é REFERÊNCIA
             const state = window.__soundyState || {};
             if (state.previousAnalysis) {
-                analysisResult.referenceAnalysis = state.previousAnalysis;
+                // Atribuir corretamente:
+                // - Primeira faixa (previousAnalysis) = userAnalysis (origem/usuário)
+                // - Segunda faixa (analysisResult) = referenceAnalysis (alvo/referência)
+                state.userAnalysis = state.previousAnalysis;
+                state.referenceAnalysis = analysisResult;
                 
-                // 🎯 PATCH 3: Persistir dados da referência no state
+                // Manter compatibilidade com código existente
+                analysisResult.referenceAnalysis = state.previousAnalysis; // DEPRECATED: invertido
+                
+                // 🎯 NOVO: Estrutura correta
                 state.reference = state.reference || {};
-                state.reference.analysis = state.previousAnalysis;
+                state.reference.userAnalysis = state.previousAnalysis; // Primeira faixa (usuário)
+                state.reference.referenceAnalysis = analysisResult; // Segunda faixa (referência)
                 state.reference.isSecondTrack = true;
-                state.reference.jobId = state.previousAnalysis.jobId || null;
+                state.reference.jobId = analysisResult.jobId || null;
                 
-                console.log('✅ [REFERENCE-A/B] Segunda faixa vinculada à primeira análise:', {
-                    base: state.previousAnalysis.fileName || state.previousAnalysis.metadata?.fileName || 'Faixa 1',
-                    reference: analysisResult.fileName || analysisResult.metadata?.fileName || file.name
-                });
-                console.log('✅ [PATCH-3] Dados de referência persistidos em state.reference:', {
-                    hasAnalysis: !!state.reference.analysis,
-                    hasBands: !!state.reference.analysis?.bands,
-                    isSecondTrack: state.reference.isSecondTrack,
-                    jobId: state.reference.jobId
+                console.log('✅ [REFERENCE-A/B-CORRECTED] Atribuição corrigida:', {
+                    userTrack: state.previousAnalysis.fileName || state.previousAnalysis.metadata?.fileName || 'Primeira Faixa (USUÁRIO)',
+                    referenceTrack: analysisResult.fileName || analysisResult.metadata?.fileName || 'Segunda Faixa (REFERÊNCIA)',
+                    userHasBands: !!state.userAnalysis?.technicalData?.spectral_balance,
+                    refHasBands: !!state.referenceAnalysis?.technicalData?.spectral_balance
                 });
                 
                 // 🎯 LOG AUDIT-MODE-FLOW (conforme solicitado)
                 console.log('[AUDIT-MODE-FLOW]', {
-                    mode: state.render?.mode || 'reference',
+                    mode: 'reference',
                     isSecondTrack: state.reference.isSecondTrack,
                     refJobId: state.reference.jobId,
-                    hasRefAnalysis: !!state.reference.analysis
+                    hasUserAnalysis: !!state.userAnalysis,
+                    hasReferenceAnalysis: !!state.referenceAnalysis
+                });
+                
+                // 🎯 LOG ASSERT_REF_FLOW
+                console.log("[ASSERT_REF_FLOW]", {
+                    mode: 'reference',
+                    userBands: Object.keys(state.userAnalysis?.technicalData?.spectral_balance || {}),
+                    refBands: Object.keys(state.referenceAnalysis?.technicalData?.spectral_balance || {})
                 });
             } else if (window.__FIRST_ANALYSIS_RESULT__) {
-                // Fallback: usar __FIRST_ANALYSIS_RESULT__ se previousAnalysis não existir
-                analysisResult.referenceAnalysis = window.__FIRST_ANALYSIS_RESULT__;
+                // 🔥 CORREÇÃO: Primeira música é USUÁRIO, segunda é REFERÊNCIA (fallback)
+                state.userAnalysis = window.__FIRST_ANALYSIS_RESULT__;
+                state.referenceAnalysis = analysisResult;
                 
-                // 🎯 PATCH 3: Persistir dados da referência no state (fallback)
+                analysisResult.referenceAnalysis = window.__FIRST_ANALYSIS_RESULT__; // DEPRECATED
+                
+                // 🎯 NOVO: Estrutura correta
                 state.reference = state.reference || {};
-                state.reference.analysis = window.__FIRST_ANALYSIS_RESULT__;
+                state.reference.userAnalysis = window.__FIRST_ANALYSIS_RESULT__; // Primeira faixa (usuário)
+                state.reference.referenceAnalysis = analysisResult; // Segunda faixa (referência)
                 state.reference.isSecondTrack = true;
-                state.reference.jobId = window.__FIRST_ANALYSIS_RESULT__.jobId || null;
+                state.reference.jobId = analysisResult.jobId || null;
                 
-                console.log('✅ [REFERENCE-A/B] Segunda faixa vinculada (fallback __FIRST_ANALYSIS_RESULT__)');
-                console.log('✅ [PATCH-3] Dados de referência persistidos (fallback)');
+                console.log('✅ [REFERENCE-A/B-CORRECTED] Fallback com atribuição corrigida');
+                
+                // 🎯 LOG ASSERT_REF_FLOW
+                console.log("[ASSERT_REF_FLOW]", {
+                    mode: 'reference',
+                    userBands: Object.keys(state.userAnalysis?.technicalData?.spectral_balance || {}),
+                    refBands: Object.keys(state.referenceAnalysis?.technicalData?.spectral_balance || {})
+                });
             }
             
             await handleGenreAnalysisWithResult(analysisResult, file.name);
@@ -2700,6 +2722,18 @@ async function handleReferenceAnalysisWithResult(analysisResult, fileKey, fileNa
  */
 async function handleGenreAnalysisWithResult(analysisResult, fileName) {
     __dbg('🎵 Processando análise por gênero com resultado remoto:', { fileName });
+    
+    // 🔥 CORREÇÃO CRÍTICA: Limpar referência ao entrar em modo gênero
+    const state = window.__soundyState || {};
+    if (state.reference) {
+        state.reference.analysis = null;
+        state.reference.isSecondTrack = false;
+        state.reference.jobId = null;
+        state.userAnalysis = null;
+        state.referenceAnalysis = null;
+        window.__soundyState = state;
+        console.log("[FIX] Limpando referência persistente (modo gênero)");
+    }
     
     try {
         // Verificar estrutura do resultado
@@ -4127,12 +4161,14 @@ function displayModalResults(analysis) {
             secondTrackFile: currNormalized.metadata?.fileName
         });
         
-        // 🎯 CHAMAR renderReferenceComparisons com modo explícito
+        // 🔥 CORREÇÃO DEFINITIVA: Usar estrutura corrigida
+        // userAnalysis = primeira faixa (usuário/origem)
+        // referenceAnalysis = segunda faixa (referência/alvo)
         renderReferenceComparisons({
             mode: 'reference',
-            baseAnalysis: refNormalized,
-            referenceAnalysis: currNormalized,
-            analysis: currNormalized // Para compatibilidade
+            userAnalysis: refNormalized,      // Primeira faixa (USUÁRIO/ORIGEM)
+            referenceAnalysis: currNormalized, // Segunda faixa (REFERÊNCIA/ALVO)
+            analysis: currNormalized // Para compatibilidade com código legado
         });
         
         // 🎯 TAMBÉM chamar renderTrackComparisonTable para exibir tabela A/B
@@ -6497,12 +6533,59 @@ function renderReferenceComparisons(opts = {}) {
     // 🎯 USAR renderMode PARA DECIDIR O FLUXO (não isReferenceMode)
     if (renderMode === 'reference') {
         console.log('[AUDITORIA_REF] Modo referência detectado – exibindo comparação A/B entre faixas');
-        console.log('[REF-COMP] Verificando fontes de dados disponíveis:', {
-            'analysis.referenceAnalysis': !!analysis.referenceAnalysis,
-            'analysis.referenceBands': !!analysis.referenceBands,
-            'analysis.referenceComparison': !!analysis.referenceComparison,
-            'window.referenceAnalysisData': !!window.referenceAnalysisData
-        });
+        
+        // 🔥 PRIORIDADE MÁXIMA: Usar nova estrutura corrigida (userAnalysis/referenceAnalysis)
+        if (opts.userAnalysis && opts.referenceAnalysis) {
+            console.log('🔥 [REF-CORRECTED] Usando estrutura corrigida: userAnalysis (1ª) vs referenceAnalysis (2ª)');
+            
+            const userTech = opts.userAnalysis.technicalData || {};
+            const refTech = opts.referenceAnalysis.technicalData || {};
+            
+            userMetrics = userTech;
+            ref = {
+                // Valores BRUTOS da segunda faixa (referência/alvo)
+                lufs_target: refTech.lufsIntegrated ?? refTech.lufs_integrated,
+                true_peak_target: refTech.truePeakDbtp ?? refTech.true_peak_dbtp,
+                dr_target: refTech.dynamicRange ?? refTech.dynamic_range,
+                lra_target: refTech.lra,
+                stereo_target: refTech.stereoCorrelation ?? refTech.stereo_correlation,
+                stereo_width_target: refTech.stereoWidth ?? refTech.stereo_width,
+                spectral_centroid_target: refTech.spectralCentroidHz ?? refTech.spectral_centroid,
+                tol_lufs: 0.5,
+                tol_true_peak: 0.3,
+                tol_dr: 1.0,
+                tol_lra: 1.0,
+                tol_stereo: 0.08,
+                tol_spectral: 300,
+                bands: refTech.spectral_balance ?? refTech.bandEnergies ?? refTech.bands ?? null
+            };
+            
+            titleText = `🎵 Comparação: ${opts.userAnalysis.fileName || opts.userAnalysis.metadata?.fileName || '1ª Faixa'} vs ${opts.referenceAnalysis.fileName || opts.referenceAnalysis.metadata?.fileName || '2ª Faixa'}`;
+            
+            console.log('✅ [REF-CORRECTED] Dados extraídos:', {
+                userFile: opts.userAnalysis.fileName || opts.userAnalysis.metadata?.fileName,
+                refFile: opts.referenceAnalysis.fileName || opts.referenceAnalysis.metadata?.fileName,
+                userBands: Object.keys(userMetrics.spectral_balance || {}),
+                refBands: Object.keys(ref.bands || {}),
+                userLufs: userMetrics.lufsIntegrated,
+                refLufs: ref.lufs_target
+            });
+            
+            // 🎯 LOG ASSERT_REF_FLOW
+            console.log("[ASSERT_REF_FLOW]", {
+                mode: 'reference',
+                userBands: Object.keys(userMetrics.spectral_balance || {}),
+                refBands: Object.keys(ref.bands || {})
+            });
+        } else {
+            // Fallback para estrutura antiga
+            console.log('[REF-COMP] Verificando fontes de dados disponíveis (fallback estrutura antiga):', {
+                'analysis.referenceAnalysis': !!analysis.referenceAnalysis,
+                'analysis.referenceBands': !!analysis.referenceBands,
+                'analysis.referenceComparison': !!analysis.referenceComparison,
+                'window.referenceAnalysisData': !!window.referenceAnalysisData
+            });
+        }
         
         // 🎯 PRIORIDADE 0 (NOVA): analysis.referenceAnalysis (primeira faixa vinculada)
         if (analysis.referenceAnalysis && analysis.referenceAnalysis.technicalData) {
@@ -7338,27 +7421,26 @@ function renderReferenceComparisons(opts = {}) {
             // 🎯 CORREÇÃO CRÍTICA: Asserts de segurança com bloqueio de fallback
             const isReferenceMode = renderMode === 'reference';
             
-            // 🔥 PRIORIDADE: Buscar bands da REFERÊNCIA (primeira faixa) no modo reference
+            // 🔥 PRIORIDADE: Buscar bands da REFERÊNCIA (segunda faixa/alvo) no modo reference
             let refBands = null;
             if (isReferenceMode) {
-                // Tentar múltiplas fontes para bands de referência
-                refBands = state?.reference?.analysis?.technicalData?.spectral_balance
-                    || state?.reference?.analysis?.bands
-                    || referenceComparisonMetrics?.referenceFull?.technicalData?.spectral_balance
-                    || analysis?.referenceAnalysis?.technicalData?.spectral_balance
-                    || analysis?.reference?.bands
+                // 🔥 CORREÇÃO: Buscar da segunda faixa (referenceAnalysis), não da primeira
+                refBands = state?.reference?.referenceAnalysis?.technicalData?.spectral_balance
+                    || state?.referenceAnalysis?.technicalData?.spectral_balance
+                    || referenceComparisonMetrics?.userFull?.technicalData?.spectral_balance // Segunda faixa
+                    || ref?.bands // Já extraído corretamente acima
                     || null;
                 
-                console.log('[REF-BANDS] Fontes verificadas:', {
-                    hasStateRefAnalysis: !!state?.reference?.analysis,
-                    hasReferenceComparisonMetrics: !!referenceComparisonMetrics?.referenceFull,
-                    hasAnalysisReferenceAnalysis: !!analysis?.referenceAnalysis,
+                console.log('[REF-BANDS-CORRECTED] Fontes verificadas (segunda faixa):', {
+                    hasStateReferenceAnalysis: !!state?.reference?.referenceAnalysis,
+                    hasReferenceComparisonMetricsUser: !!referenceComparisonMetrics?.userFull,
+                    hasRefBands: !!ref?.bands,
                     refBandsFound: !!refBands,
                     refBandsKeys: refBands ? Object.keys(refBands) : []
                 });
                 
                 if (!refBands) {
-                    console.error('🚨 [CRITICAL] Modo reference SEM bandas de referência!');
+                    console.error('🚨 [CRITICAL] Modo reference SEM bandas de referência (segunda faixa)!');
                     console.error('🚨 [REF-BANDS] Fallback de gênero BLOQUEADO no modo reference');
                 }
             }
