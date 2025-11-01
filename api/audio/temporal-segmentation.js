@@ -228,6 +228,9 @@ export function segmentAudioTemporal(audioBufferLike) {
           hopSamples: RMS_HOP_SAMPLES,
         },
       },
+      
+      // 🔧 Campo obrigatório para fase 5.3 (core-metrics)
+      originalChannels: audioBufferLike.numberOfChannels || 2,
     };
   } catch (error) {
     const processingTime = Date.now() - startTime;
