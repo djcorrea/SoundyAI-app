@@ -2327,6 +2327,12 @@ function closeAudioModal() {
             delete window.__MODAL_ANALYSIS_IN_PROGRESS__;
         }
         
+        // 🧹 CLEANUP: Limpar referenceComparisonMetrics AO FECHAR MODAL
+        window.referenceAnalysisData = null;
+        referenceComparisonMetrics = null;
+        window.lastReferenceJobId = null;
+        console.log('🧹 [CLEANUP] referenceComparisonMetrics limpo ao fechar modal');
+        
         __dbg('✅ Modal resetado e pronto para próxima análise');
     }
 }
@@ -2496,13 +2502,13 @@ async function handleModalFileSelection(file) {
             __dbg('🎯 Segunda música analisada - exibindo resultado comparativo');
             await handleGenreAnalysisWithResult(analysisResult, file.name);
             
-            // Limpar referência após exibir resultado
+            // 🎯 NÃO LIMPAR referenceComparisonMetrics AQUI
+            // A limpeza será feita ao fechar modal ou iniciar nova análise
+            // Limpar apenas os IDs de controle
             delete window.__REFERENCE_JOB_ID__;
             delete window.__FIRST_ANALYSIS_RESULT__;
-            window.lastReferenceJobId = null;
-            window.referenceAnalysisData = null;
-            referenceComparisonMetrics = null; // Limpar métricas de comparação
-            console.log('🧹 [CLEANUP] referenceComparisonMetrics limpo');
+            // 🔒 MANTÉM: window.referenceAnalysisData e referenceComparisonMetrics para renderização
+            console.log('✅ [CLEANUP] IDs de controle limpos - dados de comparação PRESERVADOS para renderização');
         } else {
             // Modo genre: análise por gênero tradicional
             __dbg('🎯 Exibindo resultado por gênero');
@@ -4093,6 +4099,12 @@ function displayModalResults(analysis) {
             'energy.rms': analysis?.energy?.rms
         });
         console.log('📊 [DEBUG] Dados normalizados para exibição:', analysis);
+        
+        // 🎯 RECALCULAR hasReferenceComparisonMetrics APÓS NORMALIZAÇÃO
+        const state = window.__soundyState || {};
+        state.hasReferenceComparisonMetrics = computeHasReferenceComparisonMetrics(analysis);
+        window.__soundyState = state;
+        console.log('[ASSERT] hasReferenceComparisonMetrics recalculado após normalização:', state.hasReferenceComparisonMetrics);
     }
     
     // 🎯 CALCULAR SCORES DA ANÁLISE
@@ -6007,11 +6019,71 @@ function renderSmartSummary(analysis){
     } catch (e) { console.warn('smart summary fail', e); return ''; }
 }
 
+// 🎯 HELPER: Detectar se modo reference está ativo (correção definitiva)
+function isReferenceCompareActive(analysis, state) {
+    const hasRefJob = !!(state?.referenceJobId || analysis?.referenceComparison?.baseJobId);
+    const hasRefBands = !!(
+        analysis?.referenceComparison ||
+        analysis?.spectralBands?.reference ||
+        analysis?.bands // já normalizado com centralização
+    );
+    const isSecondTrack = analysis?.mode === 'reference' && state?.isSecondTrack === true;
+
+    return (isSecondTrack && hasRefJob) || (analysis?.mode === 'reference' && hasRefBands);
+}
+
+// 🎯 HELPER: Calcular centro de um range {min, max}
+function centerOfRange(range) {
+    if (!range || typeof range.min !== 'number' || typeof range.max !== 'number') return null;
+    return (range.min + range.max) / 2;
+}
+
+// 🎯 HELPER: Formatar target (range ou valor) para exibição
+function formatTarget(rangeOrValue) {
+    if (typeof rangeOrValue === 'number') return `${rangeOrValue.toFixed(1)} dB`;
+    if (rangeOrValue && typeof rangeOrValue.min === 'number' && typeof rangeOrValue.max === 'number') {
+        return `${rangeOrValue.min.toFixed(1)} a ${rangeOrValue.max.toFixed(1)} dB`;
+    }
+    return '—';
+}
+
+// 🎯 HELPER: Derivar tolerância de um range ou valor
+function deriveTolerance(rangeOrValue, fallback = 2.0) {
+    if (typeof rangeOrValue === 'number') return fallback;
+    if (rangeOrValue && typeof rangeOrValue.min === 'number' && typeof rangeOrValue.max === 'number') {
+        // 1/4 da largura do range, limitado entre 0.8 e 4.5
+        const span = Math.abs(rangeOrValue.max - rangeOrValue.min);
+        return Math.max(0.8, Math.min(4.5, span * 0.25));
+    }
+    return fallback;
+}
+
+// 🎯 HELPER: Computar se tem dados necessários para referenceComparisonMetrics
+function computeHasReferenceComparisonMetrics(analysis) {
+    const hasBands = !!(analysis?.bands || analysis?.spectralBands?.centralized || analysis?.spectral?.bands);
+    const hasScores = !!(analysis?.scores?.frequency || analysis?.scoring?.frequency);
+    const hasRefStruct = !!analysis?.referenceComparison;
+    return hasRefStruct || (hasBands && hasScores);
+}
+
 function renderReferenceComparisons(analysis) {
     const container = document.getElementById('referenceComparisons');
     if (!container) return;
     
-    // 🎯 DETECÇÃO ROBUSTA DE MODO REFERÊNCIA - PRIORIDADE: analysis.mode
+    // 🎯 DETECÇÃO ROBUSTA DE MODO REFERÊNCIA COM NOVA FUNÇÃO HELPER
+    const state = window.__soundyState || {};
+    let renderMode = 'genre'; // Padrão
+    
+    if (isReferenceCompareActive(analysis, state)) {
+        renderMode = 'reference';
+    }
+    
+    console.log(`[RENDER-REF] MODO SELECIONADO: ${renderMode.toUpperCase()}`);
+    console.log('[ASSERT] mode=', analysis?.mode, 'isSecondTrack=', state?.isSecondTrack, 'refJobId=', state?.referenceJobId);
+    console.log('[ASSERT] renderMode=', renderMode);
+    console.log('[ASSERT] bands.centered=', !!analysis?.bands, 'scores.freq=', !!analysis?.scores?.frequency);
+    
+    // 🎯 DETECÇÃO LEGACY (mantida para compatibilidade)
     // Prioridade 1: analysis.mode === 'reference' (direto do backend)
     // Prioridade 2: Nova estrutura (userTrack/referenceTrack)
     // Prioridade 3: Estrutura antiga (referenceMetrics)
@@ -6045,7 +6117,8 @@ function renderReferenceComparisons(analysis) {
         'referenceAnalysisData': !!window.referenceAnalysisData
     });
     
-    if (isReferenceMode) {
+    // 🎯 USAR renderMode PARA DECIDIR O FLUXO (não isReferenceMode)
+    if (renderMode === 'reference') {
         console.log('[AUDITORIA_REF] Modo referência detectado – exibindo comparação A/B entre faixas');
         
         // 🎯 VERIFICAR SE É COMPARAÇÃO ENTRE FAIXAS
@@ -6150,8 +6223,9 @@ function renderReferenceComparisons(analysis) {
             
             console.log('🎯 [RENDER-REF] Usando métricas de referência real:', refMetrics);
         }
-    } else {
+    } else if (renderMode === 'genre') {
         // ===== MODO GÊNERO =====
+        // 🎯 SÓ LOGA "MODO GÊNERO" SE REALMENTE FOR GENRE
         console.log('🎵 [RENDER-REF] MODO GÊNERO');
         ref = __activeRefData;
         titleText = window.PROD_AI_REF_GENRE;
@@ -6159,6 +6233,11 @@ function renderReferenceComparisons(analysis) {
             container.innerHTML = '<div style="font-size:12px;opacity:.6">Referências não carregadas</div>'; 
             return; 
         }
+    } else {
+        // FALLBACK: Não deveria cair aqui
+        console.warn('⚠️ [RENDER-REF] MODO INDETERMINADO - renderMode:', renderMode);
+        container.innerHTML = '<div style="font-size:12px;opacity:.6">Modo de análise não identificado</div>'; 
+        return;
     }
     
     // 🎯 SOBRESCREVER com referenceComparisonMetrics se disponível (comparação entre faixas)
@@ -6224,28 +6303,34 @@ function renderReferenceComparisons(analysis) {
             </tr>`);
             return;
         }
-        // 🎯 NOVO: Cálculo de diferença híbrido para targets fixos e ranges
+        // 🎯 CORRIGIDO: Cálculo de diferença usando centerOfRange para ranges
         let diff = null;
         
         if (typeof target === 'object' && target !== null && 
             Number.isFinite(target.min) && Number.isFinite(target.max) && Number.isFinite(val)) {
-            // Target é um range: normalizar e calcular distância
-            const minNorm = Math.min(target.min, target.max);
-            const maxNorm = Math.max(target.min, target.max);
-            
-            if (val >= minNorm - EPS && val <= maxNorm + EPS) {
-                // Dentro do range: diferença zero (ideal)
-                diff = 0;
-            } else if (val < minNorm) {
-                // Abaixo do range: diferença negativa
-                diff = val - minNorm;
+            // Target é um range: usar centro do range para cálculo de delta
+            const targetForDelta = centerOfRange(target);
+            if (typeof targetForDelta === 'number' && Number.isFinite(targetForDelta)) {
+                diff = val - targetForDelta;
             } else {
-                // Acima do range: diferença positiva
-                diff = val - maxNorm;
+                // Fallback: distância para o range
+                const minNorm = Math.min(target.min, target.max);
+                const maxNorm = Math.max(target.min, target.max);
+                
+                if (val >= minNorm - EPS && val <= maxNorm + EPS) {
+                    diff = 0; // Dentro do range
+                } else if (val < minNorm) {
+                    diff = val - minNorm;
+                } else {
+                    diff = val - maxNorm;
+                }
             }
         } else if (Number.isFinite(val) && Number.isFinite(target)) {
             // Target fixo: diferença tradicional
             diff = val - target;
+        } else {
+            // 🎯 Sem crash se target não for válido
+            diff = null;
         }
         
         // ✅ Sistema de 3 cores com epsilon
@@ -6618,24 +6703,24 @@ function renderReferenceComparisons(analysis) {
                 }
             }
             
-            // [BANDS-TOL-0] NOVO: Determinar target com suporte a ranges (SEM TOLERÂNCIA AUTOMÁTICA)
+            // 🎯 NOVO: Determinar target e tolerância com helpers
             let tgt = null;
             let tolerance = null;
             
-            // Prioridade 1: target_range (sistema sem tolerância)
+            // Prioridade 1: target_range (usar helpers para formatação e tolerância)
             if (refBand.target_range && typeof refBand.target_range === 'object' &&
                 Number.isFinite(refBand.target_range.min) && Number.isFinite(refBand.target_range.max)) {
                 tgt = refBand.target_range;
-                // [BANDS-TOL-0] NÃO calcular tolerância automática para bandas
-                tolerance = 0; // Sempre 0 para bandas (comparação binária)
-                console.log(`🎯 [BANDS-TOL-0] Usando target_range para ${refBandKey}: [${tgt.min}, ${tgt.max}], tol: 0 (comparação binária)`);
+                // ✅ CORRIGIDO: Usar deriveTolerance() ao invés de 0
+                tolerance = deriveTolerance(tgt, 2.0);
+                console.log(`🎯 [BANDS-FORMAT] Usando target_range para ${refBandKey}: ${formatTarget(tgt)}, tol: ${tolerance.toFixed(2)}`);
             }
-            // Prioridade 2: target_db fixo (tratar como min=max=target)
+            // Prioridade 2: target_db fixo
             else if (!refBand._target_na && Number.isFinite(refBand.target_db)) {
-                tgt = { min: refBand.target_db, max: refBand.target_db };
-                // [BANDS-TOL-0] NÃO usar tol_db para bandas
-                tolerance = 0; // Sempre 0 para bandas (match exato)
-                console.log(`🎯 [BANDS-TOL-0] Usando target_db fixo para ${refBandKey}: ${refBand.target_db} (min=max, tol: 0)`);
+                tgt = refBand.target_db;
+                // ✅ CORRIGIDO: Usar deriveTolerance() com fallback
+                tolerance = deriveTolerance(tgt, 2.0);
+                console.log(`🎯 [BANDS-FORMAT] Usando target_db fixo para ${refBandKey}: ${formatTarget(tgt)}, tol: ${tolerance.toFixed(2)}`);
             }
             
             // Prioridade 3: Targets normalizados (se habilitado)
@@ -6647,7 +6732,11 @@ function renderReferenceComparisons(analysis) {
             // Nome para exibição
             const displayName = bandDisplayNames[calcBandKey] || bandDisplayNames[refBandKey] || refBandKey;
             
-            console.log(`📊 [BANDS] Adicionando: ${displayName}, valor: ${bLocal.rms_db}dB, target: ${tgt}dB`);
+            // ✅ CORRIGIDO: Usar centerOfRange para cálculo de delta
+            const targetCenter = centerOfRange(tgt) ?? tgt ?? null;
+            console.log(`📊 [BANDS] Adicionando: ${displayName}, valor: ${bLocal.rms_db}dB, target: ${formatTarget(tgt)}, tol: ${tolerance}`);
+            
+            // 🎯 Passar targetCenter (número) para cálculo correto de delta em pushRow
             pushRow(displayName, bLocal.rms_db, tgt, tolerance, ' dB');
         }
         
@@ -6866,6 +6955,17 @@ function renderReferenceComparisons(analysis) {
             <tbody>${rows.join('') || '<tr><td colspan="4" style="opacity:.6">Sem métricas disponíveis</td></tr>'}</tbody>
         </table>
     </div>`;
+    
+    // 🎯 FORÇAR VISIBILIDADE DA TABELA NO MODO REFERENCE
+    if (renderMode === 'reference') {
+        const tableEl = document.getElementById('referenceComparisons');
+        if (tableEl) {
+            tableEl.classList.remove('hidden');
+            tableEl.style.display = ''; // Limpa inline display:none
+            console.log('✅ [RENDER-REF] Tabela forçada para visível no modo reference');
+        }
+    }
+    
     // Estilos injetados uma vez com indicadores visuais melhorados
     if (!document.getElementById('refCompareStyles')) {
         const style = document.createElement('style');
