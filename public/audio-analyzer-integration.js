@@ -315,17 +315,26 @@ async function createAnalysisJob(fileKey, mode, fileName) {
     try {
         __dbg('🔧 Criando job de análise...', { fileKey, mode, fileName });
 
+        // 🎯 NOVO: Preparar payload com referenceJobId se disponível
+        const payload = {
+            fileKey: fileKey,
+            mode: mode,
+            fileName: fileName
+        };
+        
+        // Se estiver no modo comparison e temos o referenceJobId, incluir
+        if (mode === 'comparison' && window.__REFERENCE_JOB_ID__) {
+            payload.referenceJobId = window.__REFERENCE_JOB_ID__;
+            __dbg('🎯 Incluindo referenceJobId no payload:', window.__REFERENCE_JOB_ID__);
+        }
+
         const response = await fetch('/api/audio/analyze', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'X-Requested-With': 'XMLHttpRequest'
             },
-            body: JSON.stringify({
-                fileKey: fileKey,
-                mode: mode,
-                fileName: fileName
-            })
+            body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
@@ -446,7 +455,13 @@ async function pollJobStatus(jobId) {
 
                 if (jobData.status === 'completed' || jobData.status === 'done') {
                     __dbg('✅ Job concluído com sucesso');
-                    resolve(jobData.result || jobData);
+                    
+                    // 🎯 NOVO: Verificar modo e decidir fluxo
+                    const jobResult = jobData.result || jobData;
+                    jobResult.jobId = jobId; // Incluir jobId no resultado
+                    jobResult.mode = jobData.mode; // Incluir mode no resultado
+                    
+                    resolve(jobResult);
                     return;
                 }
 
@@ -1870,6 +1885,66 @@ function openAudioModal() {
     openWelcomeModal();
 }
 
+// 🎯 NOVO: Abrir modal secundário para upload da música de referência
+function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
+    __dbg('🎯 Abrindo modal secundário para música de referência', { referenceJobId });
+    
+    window.logReferenceEvent('reference_upload_modal_opened', { referenceJobId });
+    
+    // Armazenar jobId da primeira música em variável global
+    window.__REFERENCE_JOB_ID__ = referenceJobId;
+    window.__FIRST_ANALYSIS_RESULT__ = firstAnalysisResult;
+    
+    // Fechar modal atual (se estiver aberto)
+    closeAudioModal();
+    
+    // Resetar estado do modal
+    resetModalState();
+    
+    // Mudar modo para comparison
+    currentAnalysisMode = 'comparison';
+    
+    // Abrir modal novamente
+    const modal = document.getElementById('audioAnalysisModal');
+    if (!modal) {
+        console.error('❌ Modal de análise de áudio não encontrado');
+        return;
+    }
+    
+    // Atualizar título e instruções do modal
+    const modalTitle = document.getElementById('audioModalTitle');
+    const modalSubtitle = document.getElementById('audioModalSubtitle');
+    
+    if (modalTitle) {
+        modalTitle.innerHTML = '🎯 Upload da Música de Referência';
+    }
+    
+    if (modalSubtitle) {
+        modalSubtitle.innerHTML = '<span id="audioModeIndicator">Etapa 2/2: Envie a música de referência para comparação</span>';
+        modalSubtitle.style.display = 'block';
+    }
+    
+    // Atualizar mensagem na área de upload
+    const uploadArea = document.getElementById('audioUploadArea');
+    if (uploadArea) {
+        const uploadContent = uploadArea.querySelector('.upload-content h4');
+        if (uploadContent) {
+            uploadContent.textContent = 'Enviar música de referência';
+        }
+        
+        const uploadDescription = uploadArea.querySelector('.upload-content p');
+        if (uploadDescription) {
+            uploadDescription.textContent = 'Arraste a música de referência aqui ou clique para selecionar';
+        }
+    }
+    
+    // Mostrar modal
+    modal.style.display = 'flex';
+    modal.setAttribute('aria-hidden', 'false');
+    
+    __dbg('✅ Modal secundário de referência aberto');
+}
+
 // 🎯 NOVO: Modal de Seleção de Modo
 function openModeSelectionModal() {
     __dbg('� Abrindo modal de seleção de modo...');
@@ -2365,9 +2440,22 @@ async function handleModalFileSelection(file) {
         const analysisResult = await pollJobStatus(jobId);
         
         // 🌐 ETAPA 5: Processar resultado baseado no modo
-        if (currentAnalysisMode === "reference") {
-            await handleReferenceAnalysisWithResult(analysisResult, fileKey, file.name);
+        // 🎯 NOVO FLUXO: Verificar modo do job para decidir ação
+        const jobMode = analysisResult.mode || currentAnalysisMode;
+        
+        __dbg('🎯 Modo do job:', jobMode);
+        
+        if (jobMode === 'reference') {
+            // Modo reference: primeira música analisada, abrir modal para música de referência
+            __dbg('🎯 Abrindo modal secundário para música de referência');
+            openReferenceUploadModal(analysisResult.jobId, analysisResult);
+        } else if (jobMode === 'comparison') {
+            // Modo comparison: segunda música analisada, mostrar resultado final
+            __dbg('🎯 Exibindo resultado comparativo');
+            await handleGenreAnalysisWithResult(analysisResult, file.name);
         } else {
+            // Modo genre: análise por gênero tradicional
+            __dbg('🎯 Exibindo resultado por gênero');
             await handleGenreAnalysisWithResult(analysisResult, file.name);
         }
 
