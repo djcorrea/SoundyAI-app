@@ -184,9 +184,9 @@ router.post('/analyze', async (req, res) => {
       throw new Error('Extensão não suportada. Apenas WAV, FLAC e MP3 são aceitos.');
     }
     
-    // Validar modo
-    if (!['genre', 'reference'].includes(mode)) {
-      throw new Error('Modo de análise inválido. Use "genre" ou "reference".');
+    // Validar modo (ATUALIZADO: aceita comparison)
+    if (!['genre', 'reference', 'comparison'].includes(mode)) {
+      throw new Error('Modo de análise inválido. Use "genre", "reference" ou "comparison".');
     }
     
     // Verificar se modo referência está habilitado
