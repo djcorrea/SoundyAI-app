@@ -2494,12 +2494,33 @@ async function handleModalFileSelection(file) {
         if (jobMode === 'reference' && !isSecondTrack) {
             // PRIMEIRA música em modo reference: abrir modal para música de referência
             __dbg('🎯 Primeira música analisada - abrindo modal para segunda');
+            
+            // ⚙️ Salvar primeira análise no estado global
+            if (!window.__soundyState) window.__soundyState = {};
+            window.__soundyState.previousAnalysis = analysisResult;
+            console.log('✅ [REFERENCE-A/B] Primeira análise salva no estado global');
+            
             openReferenceUploadModal(analysisResult.jobId, analysisResult);
         } else if (jobMode === 'reference' && isSecondTrack) {
             // SEGUNDA música em modo reference: mostrar resultado comparativo
             console.log('🎯 [COMPARE-MODE] Segunda música analisada - exibindo comparação entre faixas');
             console.log('✅ [COMPARE-MODE] Tabela comparativa será exibida');
             __dbg('🎯 Segunda música analisada - exibindo resultado comparativo');
+            
+            // ⚙️ BÔNUS: Vincular primeira análise à segunda
+            const state = window.__soundyState || {};
+            if (state.previousAnalysis) {
+                analysisResult.referenceAnalysis = state.previousAnalysis;
+                console.log('✅ [REFERENCE-A/B] Segunda faixa vinculada à primeira análise:', {
+                    base: state.previousAnalysis.fileName || state.previousAnalysis.metadata?.fileName || 'Faixa 1',
+                    reference: analysisResult.fileName || analysisResult.metadata?.fileName || file.name
+                });
+            } else if (window.__FIRST_ANALYSIS_RESULT__) {
+                // Fallback: usar __FIRST_ANALYSIS_RESULT__ se previousAnalysis não existir
+                analysisResult.referenceAnalysis = window.__FIRST_ANALYSIS_RESULT__;
+                console.log('✅ [REFERENCE-A/B] Segunda faixa vinculada (fallback __FIRST_ANALYSIS_RESULT__)');
+            }
+            
             await handleGenreAnalysisWithResult(analysisResult, file.name);
             
             // 🎯 NÃO LIMPAR referenceComparisonMetrics AQUI
@@ -6093,6 +6114,32 @@ function computeHasReferenceComparisonMetrics(analysis) {
     return hasRefStruct || (hasBands && hasScores);
 }
 
+// 🧠 NOVA PROTEÇÃO UNIVERSAL — Referência real > gênero
+function resolveTargetMetric(analysis, key, fallback) {
+    // 1️⃣ Busca no objeto da análise de referência (segunda faixa)
+    if (analysis?.referenceAnalysis?.technicalData?.[key] !== undefined) {
+        console.log(`🎯 [RESOLVE] ${key} encontrado em referenceAnalysis:`, analysis.referenceAnalysis.technicalData[key]);
+        return analysis.referenceAnalysis.technicalData[key];
+    }
+    
+    // 2️⃣ Busca no objeto da própria análise (se comparando com si mesma)
+    if (analysis?.technicalData?.[key] !== undefined) {
+        console.log(`🎯 [RESOLVE] ${key} encontrado em technicalData:`, analysis.technicalData[key]);
+        return analysis.technicalData[key];
+    }
+    
+    // 3️⃣ Busca no gênero (estrutura antiga)
+    const targetKey = `${key}_target`;
+    if (analysis?.referenceComparison?.[targetKey] !== undefined) {
+        console.log(`🎯 [RESOLVE] ${key} encontrado em referenceComparison.${targetKey}:`, analysis.referenceComparison[targetKey]);
+        return analysis.referenceComparison[targetKey];
+    }
+    
+    // 4️⃣ Fallback seguro
+    console.log(`🛡️ [RESOLVE] ${key} usando fallback:`, fallback);
+    return fallback ?? 0;
+}
+
 function renderReferenceComparisons(analysis) {
     const container = document.getElementById('referenceComparisons');
     if (!container) return;
@@ -6503,21 +6550,25 @@ function renderReferenceComparisons(analysis) {
         return getMetricForRef('lufs_integrated', 'lufsIntegrated');
     };
     
-    // 🛡️ PASSO 1: FALLBACKS SEGUROS PARA TARGETS
-    // Proteção contra referenceComparison vazio ou undefined
-    const lufsTarget = (ref && ref.lufs_target !== undefined) ? ref.lufs_target : -14;
-    const tpTarget = (ref && ref.true_peak_target !== undefined) ? ref.true_peak_target : -1;
-    const drTarget = (ref && ref.dr_target !== undefined) ? ref.dr_target : 8;
-    const lraTarget = (ref && ref.lra_target !== undefined) ? ref.lra_target : 6;
-    const stereoTarget = (ref && ref.stereo_target !== undefined) ? ref.stereo_target : 0.1;
+    // 🧠 NOVA PROTEÇÃO UNIVERSAL — Usa resolveTargetMetric para buscar referência real > gênero
+    const lufsTarget = resolveTargetMetric(analysis, "lufsIntegrated", -14);
+    const tpTarget = resolveTargetMetric(analysis, "truePeakDbtp", -1);
+    const drTarget = resolveTargetMetric(analysis, "dynamicRange", 8);
+    const lraTarget = resolveTargetMetric(analysis, "lra", 6);
+    const stereoTarget = resolveTargetMetric(analysis, "stereoCorrelation", 0.1);
+    const spectralTarget = resolveTargetMetric(analysis, "spectralCentroidHz", null);
     
+    // Tolerâncias ainda vêm de ref (ou padrão)
     const tolLufs = (ref && ref.tol_lufs !== undefined) ? ref.tol_lufs : 0.5;
     const tolTp = (ref && ref.tol_true_peak !== undefined) ? ref.tol_true_peak : 0.3;
     const tolDr = (ref && ref.tol_dr !== undefined) ? ref.tol_dr : 1.0;
     const tolLra = (ref && ref.tol_lra !== undefined) ? ref.tol_lra : 1.0;
     const tolStereo = (ref && ref.tol_stereo !== undefined) ? ref.tol_stereo : 0.08;
+    const tolSpectral = (ref && ref.tol_spectral !== undefined) ? ref.tol_spectral : 300;
     
-    console.log('🛡️ [FALLBACK] Targets com proteção:', { lufsTarget, tpTarget, drTarget, lraTarget, stereoTarget });
+    console.log('🧠 [RESOLVE-TARGETS] Targets universais resolvidos:', { 
+        lufsTarget, tpTarget, drTarget, lraTarget, stereoTarget, spectralTarget 
+    });
     
     // ADICIONAR TODAS AS MÉTRICAS PRINCIPAIS
     pushRow('Loudness Integrado (LUFS)', getLufsIntegratedValue(), lufsTarget, tolLufs, ' LUFS');
@@ -6526,10 +6577,10 @@ function renderReferenceComparisons(analysis) {
     pushRow('Faixa de Loudness – LRA (LU)', getMetricForRef('lra'), lraTarget, tolLra, ' LU');
     pushRow('Stereo Corr.', getMetricForRef('stereo_correlation', 'stereoCorrelation'), stereoTarget, tolStereo, '');
     
-    // 🎯 ADICIONAR SPECTRAL CENTROID SE MODO REFERÊNCIA
-    if (isReferenceMode && ref.spectral_centroid_target) {
+    // 🎯 ADICIONAR SPECTRAL CENTROID SE MODO REFERÊNCIA (usa resolveTargetMetric)
+    if (isReferenceMode && spectralTarget !== null) {
         pushRow('Centro Espectral (Hz)', getMetricForRef('spectral_centroid', 'spectralCentroidHz'), 
-                ref.spectral_centroid_target, ref.tol_spectral, ' Hz');
+                spectralTarget, tolSpectral, ' Hz');
     }
     
     // Bandas detalhadas Fase 2: usar métricas centralizadas para bandas
