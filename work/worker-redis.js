@@ -520,7 +520,9 @@ async function audioProcessor(job) {
     console.log(`✅ [PROCESSOR] fileKey válido: ${fileKey}`);
 
     // 🎯 CARREGAR MÉTRICAS DE REFERÊNCIA ANTES DO PROCESSAMENTO PESADO
-    if (mode === 'comparison' && referenceJobId) {
+    // 🔗 Se referenceJobId está presente, significa que é a SEGUNDA música (comparação)
+    if (referenceJobId) {
+      console.log(`🔍 [REFERENCE-LOAD] Modo: ${mode} | Detectada segunda música`);
       console.log(`🔍 [REFERENCE-LOAD] Carregando métricas do job de referência: ${referenceJobId}`);
       
       try {
@@ -533,13 +535,17 @@ async function audioProcessor(job) {
           preloadedReferenceMetrics = refResult.rows[0].results;
           console.log(`✅ [REFERENCE-LOAD] Métricas de referência carregadas com sucesso`);
           console.log(`📊 [REFERENCE-LOAD] Score ref: ${preloadedReferenceMetrics.score || 'N/A'}`);
+          console.log(`📊 [REFERENCE-LOAD] LUFS ref: ${preloadedReferenceMetrics.technicalData?.lufsIntegrated || 'N/A'}`);
         } else {
           console.warn(`⚠️ [REFERENCE-LOAD] Job de referência não encontrado ou não concluído: ${referenceJobId}`);
+          console.warn(`⚠️ [REFERENCE-LOAD] Análise prosseguirá sem comparação`);
         }
       } catch (refError) {
         console.error(`💥 [REFERENCE-LOAD] Erro ao carregar métricas de referência:`, refError.message);
         // Não falhar o job principal, continuar sem comparação
       }
+    } else if (mode === 'reference') {
+      console.log(`🎯 [REFERENCE-LOAD] Modo: ${mode} | Primeira música - nenhuma comparação`);
     }
 
     console.log(`📝 [PROCESS][${new Date().toISOString()}] -> Atualizando status para processing no PostgreSQL...`);
@@ -562,6 +568,16 @@ async function audioProcessor(job) {
     
     // 🔥 TIMEOUT DE 3 MINUTOS PARA EVITAR TRAVAMENTO
     // 🎯 PASSAR MÉTRICAS DE REFERÊNCIA PRELOADED PARA EVITAR ASYNC MID-PIPELINE
+    
+    // 🔍 LOG DIAGNÓSTICO COMPLETO
+    const isComparison = referenceJobId && preloadedReferenceMetrics;
+    console.log(`🎯 [WORKER-ANALYSIS] ═══════════════════════════════`);
+    console.log(`🎯 [WORKER-ANALYSIS] Modo: ${mode}`);
+    console.log(`🎯 [WORKER-ANALYSIS] Reference Job ID: ${referenceJobId || 'nenhum'}`);
+    console.log(`🎯 [WORKER-ANALYSIS] Métricas preloaded: ${preloadedReferenceMetrics ? 'SIM ✅' : 'NÃO ❌'}`);
+    console.log(`🎯 [WORKER-ANALYSIS] Tipo de análise: ${isComparison ? 'COMPARAÇÃO (2ª música)' : 'SIMPLES (1ª música ou genre)'}`);
+    console.log(`🎯 [WORKER-ANALYSIS] ═══════════════════════════════`);
+    
     const pipelinePromise = processAudioComplete(fileBuffer, fileName || 'unknown.wav', {
       jobId: jobId,
       mode: mode,

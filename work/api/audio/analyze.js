@@ -351,18 +351,26 @@ router.post("/analyze", async (req, res) => {
       });
     }
 
-    // 🎯 ATUALIZADO: Aceita também modo "comparison"
-    if (!["genre", "reference", "comparison"].includes(mode)) {
+    // 🎯 VALIDAÇÃO DE MODO: Aceita 'genre' e 'reference'
+    // Nota: 'comparison' não é um modo válido - comparação é identificada por referenceJobId
+    if (!["genre", "reference"].includes(mode)) {
       return res.status(400).json({
         success: false,
-        error: 'Modo inválido. Use "genre", "reference" ou "comparison".'
+        error: 'Modo inválido. Use "genre" ou "reference".'
       });
     }
 
-    // 🧠 DEBUG: Verificar se modo comparison tem referenceJobId
+    // 🔗 Extrair referenceJobId do payload (indica segunda música em modo reference)
     const referenceJobId = req.body.referenceJobId || null;
-    if (mode === 'comparison' && !referenceJobId) {
-      console.warn('⚠️ [ANALYZE] Modo comparison recebido sem referenceJobId.');
+    
+    // 🧠 DEBUG: Log do modo e referenceJobId
+    console.log('🧠 [ANALYZE] Modo:', mode);
+    console.log('🔗 [ANALYZE] Reference Job ID:', referenceJobId || 'nenhum');
+    
+    if (mode === 'reference' && referenceJobId) {
+      console.log('🎯 [ANALYZE] Segunda música detectada - será comparada com job:', referenceJobId);
+    } else if (mode === 'reference' && !referenceJobId) {
+      console.log('🎯 [ANALYZE] Primeira música em modo reference - aguardará segunda');
     }
 
     // ✅ VERIFICAÇÃO OBRIGATÓRIA DA FILA
