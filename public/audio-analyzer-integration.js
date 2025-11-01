@@ -4105,6 +4105,33 @@ function displayModalResults(analysis) {
         state.hasReferenceComparisonMetrics = computeHasReferenceComparisonMetrics(analysis);
         window.__soundyState = state;
         console.log('[ASSERT] hasReferenceComparisonMetrics recalculado após normalização:', state.hasReferenceComparisonMetrics);
+        
+        // 🛡️ PASSO 2: GARANTIR analysis.referenceComparison EXISTE
+        if (!analysis.referenceComparison) {
+            analysis.referenceComparison = {};
+            console.log('🛡️ [PASSO 2] Criado analysis.referenceComparison vazio');
+        }
+        
+        // 🎯 Preencher targets a partir de referenceComparisonMetrics ou genreTargets
+        const genreTargets = __activeRefData || {};
+        
+        if (!analysis.referenceComparison.lufs_target) {
+            analysis.referenceComparison.lufs_target = genreTargets.lufs_target ?? -14;
+        }
+        if (!analysis.referenceComparison.tp_target) {
+            analysis.referenceComparison.tp_target = genreTargets.true_peak_target ?? -1;
+        }
+        if (!analysis.referenceComparison.dr_target) {
+            analysis.referenceComparison.dr_target = genreTargets.dr_target ?? 8;
+        }
+        if (!analysis.referenceComparison.lra_target) {
+            analysis.referenceComparison.lra_target = genreTargets.lra_target ?? 6;
+        }
+        if (!analysis.referenceComparison.stereo_target) {
+            analysis.referenceComparison.stereo_target = genreTargets.stereo_target ?? 0.1;
+        }
+        
+        console.log('✅ [PASSO 2] analysis.referenceComparison garantido:', analysis.referenceComparison);
     }
     
     // 🎯 CALCULAR SCORES DA ANÁLISE
@@ -6476,12 +6503,28 @@ function renderReferenceComparisons(analysis) {
         return getMetricForRef('lufs_integrated', 'lufsIntegrated');
     };
     
+    // 🛡️ PASSO 1: FALLBACKS SEGUROS PARA TARGETS
+    // Proteção contra referenceComparison vazio ou undefined
+    const lufsTarget = (ref && ref.lufs_target !== undefined) ? ref.lufs_target : -14;
+    const tpTarget = (ref && ref.true_peak_target !== undefined) ? ref.true_peak_target : -1;
+    const drTarget = (ref && ref.dr_target !== undefined) ? ref.dr_target : 8;
+    const lraTarget = (ref && ref.lra_target !== undefined) ? ref.lra_target : 6;
+    const stereoTarget = (ref && ref.stereo_target !== undefined) ? ref.stereo_target : 0.1;
+    
+    const tolLufs = (ref && ref.tol_lufs !== undefined) ? ref.tol_lufs : 0.5;
+    const tolTp = (ref && ref.tol_true_peak !== undefined) ? ref.tol_true_peak : 0.3;
+    const tolDr = (ref && ref.tol_dr !== undefined) ? ref.tol_dr : 1.0;
+    const tolLra = (ref && ref.tol_lra !== undefined) ? ref.tol_lra : 1.0;
+    const tolStereo = (ref && ref.tol_stereo !== undefined) ? ref.tol_stereo : 0.08;
+    
+    console.log('🛡️ [FALLBACK] Targets com proteção:', { lufsTarget, tpTarget, drTarget, lraTarget, stereoTarget });
+    
     // ADICIONAR TODAS AS MÉTRICAS PRINCIPAIS
-    pushRow('Loudness Integrado (LUFS)', getLufsIntegratedValue(), ref.lufs_target, ref.tol_lufs, ' LUFS');
-    pushRow('Pico Real (dBTP)', getMetricForRef('true_peak_dbtp', 'truePeakDbtp'), ref.true_peak_target, ref.tol_true_peak, ' dBTP');
-    pushRow('DR', getMetricForRef('dynamic_range', 'dynamicRange'), ref.dr_target, ref.tol_dr, '');
-    pushRow('Faixa de Loudness – LRA (LU)', getMetricForRef('lra'), ref.lra_target, ref.tol_lra, ' LU');
-    pushRow('Stereo Corr.', getMetricForRef('stereo_correlation', 'stereoCorrelation'), ref.stereo_target, ref.tol_stereo, '');
+    pushRow('Loudness Integrado (LUFS)', getLufsIntegratedValue(), lufsTarget, tolLufs, ' LUFS');
+    pushRow('Pico Real (dBTP)', getMetricForRef('true_peak_dbtp', 'truePeakDbtp'), tpTarget, tolTp, ' dBTP');
+    pushRow('DR', getMetricForRef('dynamic_range', 'dynamicRange'), drTarget, tolDr, '');
+    pushRow('Faixa de Loudness – LRA (LU)', getMetricForRef('lra'), lraTarget, tolLra, ' LU');
+    pushRow('Stereo Corr.', getMetricForRef('stereo_correlation', 'stereoCorrelation'), stereoTarget, tolStereo, '');
     
     // 🎯 ADICIONAR SPECTRAL CENTROID SE MODO REFERÊNCIA
     if (isReferenceMode && ref.spectral_centroid_target) {
@@ -6965,6 +7008,17 @@ function renderReferenceComparisons(analysis) {
             console.log('✅ [RENDER-REF] Tabela forçada para visível no modo reference');
         }
     }
+    
+    // 🛡️ PASSO 3: VERIFICAÇÃO FINAL
+    console.log('🎯 [AUDITORIA_REF] Comparação de referência renderizada com sucesso');
+    console.log('🎯 [AUDITORIA_REF] Targets usados:', {
+        lufs: lufsTarget,
+        truePeak: tpTarget,
+        dr: drTarget,
+        lra: lraTarget,
+        stereo: stereoTarget,
+        totalRows: rows.length
+    });
     
     // Estilos injetados uma vez com indicadores visuais melhorados
     if (!document.getElementById('refCompareStyles')) {
