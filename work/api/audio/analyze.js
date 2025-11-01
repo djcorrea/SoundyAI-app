@@ -274,9 +274,9 @@ function getErrorMessage(error) {
   if (message.includes("Modo de análise inválido")) {
     return {
       error: "Modo inválido",
-      message: 'Modo deve ser "genre" ou "reference"',
+      message: 'Modo deve ser "genre", "reference" ou "comparison"',
       code: "INVALID_MODE",
-      supportedModes: ["genre", "reference"],
+      supportedModes: ["genre", "reference", "comparison"],
     };
   }
 
@@ -330,6 +330,9 @@ router.post("/analyze", async (req, res) => {
   try {
     const { fileKey, mode = "genre", fileName } = req.body;
     
+    // 🧠 LOG DE DEBUG: Modo recebido
+    console.log('🧠 Modo de análise recebido:', mode);
+    
     // ✅ VALIDAÇÕES BÁSICAS
     if (!fileKey) {
       return res.status(400).json({
@@ -345,10 +348,11 @@ router.post("/analyze", async (req, res) => {
       });
     }
 
-    if (!["genre", "reference"].includes(mode)) {
+    // 🎯 ATUALIZADO: Aceita também modo "comparison"
+    if (!["genre", "reference", "comparison"].includes(mode)) {
       return res.status(400).json({
         success: false,
-        error: 'Modo inválido. Use "genre" ou "reference".'
+        error: 'Modo inválido. Use "genre", "reference" ou "comparison".'
       });
     }
 
