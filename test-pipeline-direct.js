@@ -3,7 +3,57 @@
  * Testa apenas: Upload → Processamento → Resultado
  */
 
-import { processAudioComplete } from './api/audio/pipeline-complete.js';
+/**
+ * 🧪 TESTE DIRETO DO PIPELINE - DIAGNÓSTICO ORIGINALCHANNELS
+ * Testa diretamente o pipeline sem worker
+ */
+
+import "dotenv/config";
+
+async function testPipelineDirect() {
+  console.log("🧪 TESTE DIRETO DO PIPELINE - DIAGNÓSTICO");
+  console.log("==========================================");
+
+  try {
+    console.log('📊 Importando pipeline...');
+    
+    const { processAudioComplete } = await import("./WORK/api/audio/pipeline-complete.js");
+    console.log('✅ Pipeline importado com sucesso');
+
+    // Criar um buffer de áudio de teste (10 segundos de silêncio estéreo)
+    const sampleRate = 48000;
+    const duration = 1; // 1 segundo para teste rápido
+    const samples = sampleRate * duration;
+    const channels = 2;
+    const audioBuffer = Buffer.alloc(samples * channels * 4); // float32
+
+    console.log('🎵 Testando pipeline com buffer de teste...');
+    
+    const result = await processAudioComplete(audioBuffer, "test.wav", {
+      jobId: "test-pipeline",
+      reference: null
+    });
+
+    console.log('✅ PIPELINE EXECUTADO COM SUCESSO!');
+    console.log('📋 Resultado:', {
+      ok: result.ok,
+      score: result.score,
+      hasMetrics: !!result.metrics,
+      hasLoudness: !!result.metrics?.loudness,
+      hasTruePeak: !!result.metrics?.truePeak
+    });
+
+  } catch (error) {
+    console.error('❌ ERRO NO PIPELINE:', error.message);
+    console.error('📜 Stack:', error.stack?.substring(0, 500));
+    
+    if (error.message.includes('originalChannels')) {
+      console.error('🎯 ERRO ESPECÍFICO: originalChannels detectado!');
+    }
+  }
+}
+
+testPipelineDirect().catch(console.error);
 import fs from 'fs';
 
 async function testPipelineDirectly() {
