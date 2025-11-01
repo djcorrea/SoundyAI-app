@@ -78,7 +78,7 @@ function validateFileType(fileKey) {
  * 🔑 IMPORTANTE: jobId DEVE SEMPRE SER UUID VÁLIDO para PostgreSQL
  * Ordem obrigatória: Redis → PostgreSQL (previne jobs órfãos)
  */
-async function createJobInDatabase(fileKey, mode, fileName) {
+async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = null) {
   // 🔑 CRÍTICO: jobId DEVE ser UUID válido para tabela PostgreSQL (coluna tipo 'uuid')
   const jobId = randomUUID();
   
@@ -90,6 +90,7 @@ async function createJobInDatabase(fileKey, mode, fileName) {
   console.log(`   📋 ID Externo: ${externalId}`);
   console.log(`   📁 Arquivo: ${fileKey}`);
   console.log(`   ⚙️ Modo: ${mode}`);
+  console.log(`   🔗 Reference Job ID: ${referenceJobId || 'nenhum'}`);
 
   try {
     // ✅ ETAPA 1: GARANTIR QUE FILA ESTÁ PRONTA
@@ -108,7 +109,8 @@ async function createJobInDatabase(fileKey, mode, fileName) {
       externalId: externalId, // 📋 ID customizado para logs
       fileKey,
       fileName,
-      mode
+      mode,
+      referenceJobId: referenceJobId // 🔗 ID do job de referência (se mode='comparison')
     }, {
       jobId: externalId,   // 📋 BullMQ job ID (pode ser customizado)
       priority: 1,
@@ -358,7 +360,8 @@ router.post("/analyze", async (req, res) => {
     }
 
     // 🧠 DEBUG: Verificar se modo comparison tem referenceJobId
-    if (mode === 'comparison' && !req.body.referenceJobId) {
+    const referenceJobId = req.body.referenceJobId || null;
+    if (mode === 'comparison' && !referenceJobId) {
       console.warn('⚠️ [ANALYZE] Modo comparison recebido sem referenceJobId.');
     }
 
@@ -371,8 +374,8 @@ router.post("/analyze", async (req, res) => {
     // ✅ OBTER INSTÂNCIA DA FILA
     const queue = getAudioQueue();
     
-    // ✅ CRIAR JOB NO BANCO E ENFILEIRAR
-    const jobRecord = await createJobInDatabase(fileKey, mode, fileName);
+    // ✅ CRIAR JOB NO BANCO E ENFILEIRAR (passar referenceJobId)
+    const jobRecord = await createJobInDatabase(fileKey, mode, fileName, referenceJobId);
 
     // ✅ RESPOSTA DE SUCESSO
     res.status(200).json({

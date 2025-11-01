@@ -463,14 +463,15 @@ async function downloadFileFromBucket(fileKey) {
  * 🎵 AUDIO PROCESSOR PRINCIPAL - ANÁLISE REAL
  */
 async function audioProcessor(job) {
-  // 🔑 ESTRUTURA ATUALIZADA: suporte para jobId UUID + externalId para logs
-  const { jobId, externalId, fileKey, mode, fileName } = job.data;
+  // 🔑 ESTRUTURA ATUALIZADA: suporte para jobId UUID + externalId para logs + referenceJobId
+  const { jobId, externalId, fileKey, mode, fileName, referenceJobId } = job.data;
   
   // ✅ REGRA 4: LOG OBRIGATÓRIO - Worker recebendo job
   console.log('🎧 [WORKER] Recebendo job', job.id, job.data);
   console.log(`🎧 [WORKER-DEBUG] Job name: '${job.name}' | Esperado: 'process-audio'`);
   console.log(`🔑 [WORKER-DEBUG] UUID (Banco): ${jobId}`);
   console.log(`📋 [WORKER-DEBUG] External ID: ${externalId || 'não definido'}`);
+  console.log(`🔗 [WORKER-DEBUG] Reference Job ID: ${referenceJobId || 'nenhum'}`);
   
   // ✅ VERIFICAÇÃO CRÍTICA: Confirmar se é o job correto
   if (job.name !== 'process-audio') {
@@ -483,12 +484,14 @@ async function audioProcessor(job) {
     fileKey,
     mode,
     fileName,
+    referenceJobId,
     jobName: job.name,
     timestamp: new Date(job.timestamp).toISOString(),
     attempts: job.attemptsMade + 1
   });
 
   let localFilePath = null;
+  let preloadedReferenceMetrics = null;
 
   try {
     // ✅ REGRA 5: Validação de dados obrigatória
@@ -516,6 +519,29 @@ async function audioProcessor(job) {
 
     console.log(`✅ [PROCESSOR] fileKey válido: ${fileKey}`);
 
+    // 🎯 CARREGAR MÉTRICAS DE REFERÊNCIA ANTES DO PROCESSAMENTO PESADO
+    if (mode === 'comparison' && referenceJobId) {
+      console.log(`🔍 [REFERENCE-LOAD] Carregando métricas do job de referência: ${referenceJobId}`);
+      
+      try {
+        const refResult = await pool.query(
+          `SELECT results FROM jobs WHERE id = $1 AND status = 'completed'`,
+          [referenceJobId]
+        );
+        
+        if (refResult.rows.length > 0 && refResult.rows[0].results) {
+          preloadedReferenceMetrics = refResult.rows[0].results;
+          console.log(`✅ [REFERENCE-LOAD] Métricas de referência carregadas com sucesso`);
+          console.log(`📊 [REFERENCE-LOAD] Score ref: ${preloadedReferenceMetrics.score || 'N/A'}`);
+        } else {
+          console.warn(`⚠️ [REFERENCE-LOAD] Job de referência não encontrado ou não concluído: ${referenceJobId}`);
+        }
+      } catch (refError) {
+        console.error(`💥 [REFERENCE-LOAD] Erro ao carregar métricas de referência:`, refError.message);
+        // Não falhar o job principal, continuar sem comparação
+      }
+    }
+
     console.log(`📝 [PROCESS][${new Date().toISOString()}] -> Atualizando status para processing no PostgreSQL...`);
     await updateJobStatus(jobId, 'processing');
 
@@ -535,9 +561,12 @@ async function audioProcessor(job) {
     const t0 = Date.now();
     
     // 🔥 TIMEOUT DE 3 MINUTOS PARA EVITAR TRAVAMENTO
+    // 🎯 PASSAR MÉTRICAS DE REFERÊNCIA PRELOADED PARA EVITAR ASYNC MID-PIPELINE
     const pipelinePromise = processAudioComplete(fileBuffer, fileName || 'unknown.wav', {
       jobId: jobId,
-      reference: job.data?.reference || null
+      mode: mode,
+      referenceJobId: referenceJobId,
+      preloadedReferenceMetrics: preloadedReferenceMetrics // ← MÉTRICAS CARREGADAS NO INÍCIO
     });
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {

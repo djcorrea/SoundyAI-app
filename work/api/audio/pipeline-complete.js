@@ -166,14 +166,21 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         jobId: jobId || 'unknown'
       };
       
-      const reference = options.reference || options.genre || null;
+      // 🎯 USAR MÉTRICAS PRELOADED SE DISPONÍVEIS (evita async mid-pipeline)
+      const reference = options.preloadedReferenceMetrics || options.reference || options.genre || null;
       
       // Validar coreMetrics antes de passar para generateJSONOutput
       if (!coreMetrics || typeof coreMetrics !== 'object') {
         throw makeErr('output_scoring', 'Core metrics is invalid or empty', 'invalid_core_metrics');
       }
       
-      finalJSON = generateJSONOutput(coreMetrics, reference, metadata, { jobId, fileName });
+      // 🎯 PASSAR MODE E REFERENCE JOB ID PARA JSON OUTPUT
+      finalJSON = generateJSONOutput(coreMetrics, reference, metadata, { 
+        jobId, 
+        fileName,
+        mode: options.mode,
+        referenceJobId: options.referenceJobId
+      });
       
       timings.phase4_json_output = Date.now() - phase4StartTime;
       
