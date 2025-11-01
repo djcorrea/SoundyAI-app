@@ -62,6 +62,10 @@ let referenceStepState = {
     referenceAnalysis: null
 };
 
+// 🎯 COMPARAÇÃO ENTRE FAIXAS - Armazenamento da primeira análise
+window.lastReferenceJobId = null;
+window.referenceAnalysisData = null;
+
 // 🎯 JOBS - Sistema de acompanhamento de jobs remotos
 let currentJobId = null;
 let jobPollingInterval = null;
@@ -1892,9 +1896,17 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
     
     window.logReferenceEvent('reference_upload_modal_opened', { referenceJobId });
     
-    // Armazenar jobId da primeira música em variável global
+    // 🎯 PERSISTIR DADOS DA PRIMEIRA FAIXA
     window.__REFERENCE_JOB_ID__ = referenceJobId;
     window.__FIRST_ANALYSIS_RESULT__ = firstAnalysisResult;
+    window.lastReferenceJobId = referenceJobId;
+    window.referenceAnalysisData = firstAnalysisResult;
+    
+    console.log('✅ [COMPARE-MODE] Primeira faixa salva:', {
+        jobId: referenceJobId,
+        score: firstAnalysisResult?.score,
+        lufs: firstAnalysisResult?.technicalData?.lufsIntegrated
+    });
     
     // Fechar modal atual (se estiver aberto)
     closeAudioModal();
@@ -2456,12 +2468,16 @@ async function handleModalFileSelection(file) {
             openReferenceUploadModal(analysisResult.jobId, analysisResult);
         } else if (jobMode === 'reference' && isSecondTrack) {
             // SEGUNDA música em modo reference: mostrar resultado comparativo
+            console.log('🎯 [COMPARE-MODE] Segunda música analisada - exibindo comparação entre faixas');
+            console.log('✅ [COMPARE-MODE] Tabela comparativa será exibida');
             __dbg('🎯 Segunda música analisada - exibindo resultado comparativo');
             await handleGenreAnalysisWithResult(analysisResult, file.name);
             
             // Limpar referência após exibir resultado
             delete window.__REFERENCE_JOB_ID__;
             delete window.__FIRST_ANALYSIS_RESULT__;
+            window.lastReferenceJobId = null;
+            window.referenceAnalysisData = null;
         } else {
             // Modo genre: análise por gênero tradicional
             __dbg('🎯 Exibindo resultado por gênero');
@@ -3968,6 +3984,29 @@ function displayModalResults(analysis) {
     }
     
     console.log('✅ [UI_GATE] Métricas essenciais presentes, exibindo resultados');
+    
+    // 🎯 DETECÇÃO DE MODO COMPARAÇÃO ENTRE FAIXAS
+    const isSecondTrack = window.__REFERENCE_JOB_ID__ !== null && window.__REFERENCE_JOB_ID__ !== undefined;
+    const mode = analysis?.mode || currentAnalysisMode;
+    
+    if (mode === 'reference' && isSecondTrack && window.referenceAnalysisData) {
+        console.log('🎯 [COMPARE-MODE] Comparando segunda faixa com primeira faixa (não com gênero)');
+        console.log('📊 [COMPARE-MODE] Primeira faixa:', window.referenceAnalysisData);
+        console.log('📊 [COMPARE-MODE] Segunda faixa:', analysis);
+        
+        // Chamar função de renderização comparativa
+        renderTrackComparisonTable(window.referenceAnalysisData, analysis);
+        
+        // Atualizar window.latestAnalysis para compatibilidade com IA e PDF
+        window.latestAnalysis = {
+            mode: "comparison",
+            reference: window.referenceAnalysisData,
+            current: analysis,
+            scores: analysis.scores || {}
+        };
+        
+        return; // Não executar renderização normal de gênero
+    }
     
     // 🔒 UI GATE: Verificação final antes de renderizar
     const analysisRunId = analysis?.runId || analysis?.metadata?.runId;
@@ -5914,7 +5953,12 @@ function renderReferenceComparisons(analysis) {
     let ref, titleText, userMetrics;
     
     if (isReferenceMode) {
-        console.log('🎯 [RENDER-REF] MODO REFERÊNCIA DETECTADO');
+        // 🎯 VERIFICAR SE É COMPARAÇÃO ENTRE FAIXAS
+        if (window.referenceAnalysisData && analysis.mode === 'reference') {
+            console.log('� [RENDER-REF] MODO COMPARAÇÃO ENTRE FAIXAS');
+        } else {
+            console.log('�🎯 [RENDER-REF] MODO REFERÊNCIA DETECTADO');
+        }
         
         // ===== NOVA ESTRUTURA (userTrack/referenceTrack) =====
         if (hasNewStructure) {
@@ -6724,6 +6768,151 @@ function renderReferenceComparisons(analysis) {
         `;
         document.head.appendChild(priorityStyle);
     }
+}
+
+/**
+ * 🎯 RENDERIZAÇÃO DE COMPARAÇÃO ENTRE DUAS FAIXAS
+ * Exibe tabela comparativa lado a lado: Faixa 1 (referência) vs Faixa 2 (usuário)
+ * @param {Object} referenceAnalysis - Dados da primeira faixa (referência)
+ * @param {Object} currentAnalysis - Dados da segunda faixa (usuário)
+ */
+function renderTrackComparisonTable(referenceAnalysis, currentAnalysis) {
+    console.log('🎯 [TRACK-COMPARE] Renderizando tabela comparativa entre faixas');
+    console.log('📊 [TRACK-COMPARE] Referência:', referenceAnalysis);
+    console.log('📊 [TRACK-COMPARE] Atual:', currentAnalysis);
+    
+    const container = document.getElementById('referenceComparisons');
+    if (!container) {
+        console.error('❌ Container referenceComparisons não encontrado');
+        return;
+    }
+    
+    // Normalizar dados de ambas as faixas
+    const ref = normalizeBackendAnalysisData(referenceAnalysis);
+    const curr = normalizeBackendAnalysisData(currentAnalysis);
+    
+    const refTech = ref.technicalData || {};
+    const currTech = curr.technicalData || {};
+    
+    // Helper para comparar valores e calcular status
+    const nf = (n, d=2) => Number.isFinite(n) ? n.toFixed(d) : '—';
+    const calcDiffPercent = (curr, ref) => {
+        if (!Number.isFinite(curr) || !Number.isFinite(ref) || ref === 0) return null;
+        return ((curr - ref) / Math.abs(ref)) * 100;
+    };
+    
+    const getStatus = (diffPercent, tolerance = 10) => {
+        if (diffPercent === null) return { class: '', text: 'N/A' };
+        const absDiff = Math.abs(diffPercent);
+        if (absDiff <= tolerance) return { class: 'ok', text: '✅ Ideal' };
+        if (absDiff <= tolerance * 2) return { class: 'yellow', text: '⚠️ Ajuste leve' };
+        return { class: 'warn', text: '❌ Corrigir' };
+    };
+    
+    // Construir linhas da tabela
+    const rows = [];
+    
+    // Função auxiliar para adicionar linha
+    const addRow = (label, currVal, refVal, unit = '', tolerance = 10) => {
+        const diffPercent = calcDiffPercent(currVal, refVal);
+        const status = getStatus(diffPercent, tolerance);
+        const diffText = diffPercent !== null ? `${diffPercent > 0 ? '+' : ''}${nf(diffPercent, 1)}%` : '—';
+        
+        rows.push(`<tr>
+            <td>${label}</td>
+            <td>${Number.isFinite(currVal) ? nf(currVal) + unit : '—'}</td>
+            <td>${Number.isFinite(refVal) ? nf(refVal) + unit : '—'}</td>
+            <td>${diffText}</td>
+            <td class="${status.class}">${status.text}</td>
+        </tr>`);
+    };
+    
+    // ===== MÉTRICAS PRINCIPAIS =====
+    addRow('Loudness (LUFS)', currTech.lufsIntegrated || currTech.lufs_integrated, 
+           refTech.lufsIntegrated || refTech.lufs_integrated, ' LUFS', 5);
+    
+    addRow('True Peak (dBTP)', currTech.truePeakDbtp || currTech.true_peak_dbtp,
+           refTech.truePeakDbtp || refTech.true_peak_dbtp, ' dBTP', 10);
+    
+    addRow('Dynamic Range (LU)', currTech.dynamicRange || currTech.dynamic_range,
+           refTech.dynamicRange || refTech.dynamic_range, ' LU', 15);
+    
+    addRow('LRA (LU)', currTech.lra, refTech.lra, ' LU', 15);
+    
+    addRow('Stereo Correlation', currTech.stereoCorrelation || currTech.stereo_correlation,
+           refTech.stereoCorrelation || refTech.stereo_correlation, '', 8);
+    
+    addRow('Spectral Centroid (Hz)', currTech.spectralCentroidHz || currTech.spectral_centroid,
+           refTech.spectralCentroidHz || refTech.spectral_centroid, ' Hz', 10);
+    
+    // ===== BANDAS ESPECTRAIS =====
+    const currBands = currTech.spectral_balance || {};
+    const refBands = refTech.spectral_balance || {};
+    
+    const bandNames = {
+        sub: 'Sub (20-60Hz)',
+        bass: 'Bass (60-150Hz)',
+        lowMid: 'Low-Mid (150-500Hz)',
+        mid: 'Mid (500-2kHz)',
+        highMid: 'High-Mid (2-5kHz)',
+        presence: 'Presence (5-10kHz)',
+        air: 'Air (10-20kHz)'
+    };
+    
+    Object.entries(bandNames).forEach(([key, name]) => {
+        const currVal = currBands[key]?.percentage;
+        const refVal = refBands[key]?.percentage;
+        if (Number.isFinite(currVal) && Number.isFinite(refVal)) {
+            addRow(name, currVal, refVal, '%', 10);
+        }
+    });
+    
+    // Calcular scores comparativos
+    const refScore = ref.score || 0;
+    const currScore = curr.score || 0;
+    const scoreDiff = currScore - refScore;
+    
+    // Montar HTML da tabela
+    container.innerHTML = `
+        <div class="card" style="margin-top:12px;">
+            <div class="card-title">🎵 COMPARAÇÃO ENTRE FAIXAS</div>
+            <div style="padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 12px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <div style="font-size: 11px; opacity: 0.7; margin-bottom: 4px;">FAIXA DE REFERÊNCIA (1ª)</div>
+                        <div style="font-weight: 600; font-size: 14px;">
+                            ${ref.metadata?.fileName || ref.fileName || 'Faixa 1'}
+                        </div>
+                        <div style="font-size: 12px; margin-top: 4px;">
+                            Score: <span style="color: #52f7ad;">${nf(refScore, 0)}</span>
+                        </div>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; opacity: 0.7; margin-bottom: 4px;">FAIXA ATUAL (2ª)</div>
+                        <div style="font-weight: 600; font-size: 14px;">
+                            ${curr.metadata?.fileName || curr.fileName || 'Faixa 2'}
+                        </div>
+                        <div style="font-size: 12px; margin-top: 4px;">
+                            Score: <span style="color: ${scoreDiff >= 0 ? '#52f7ad' : '#ff7b7b'};">${nf(currScore, 0)}</span>
+                            <span style="opacity: 0.7; margin-left: 4px;">(${scoreDiff > 0 ? '+' : ''}${nf(scoreDiff, 0)})</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <table class="ref-compare-table">
+                <thead><tr>
+                    <th>Métrica</th>
+                    <th>Faixa 2 (Atual)</th>
+                    <th>Faixa 1 (Ref)</th>
+                    <th>Diferença</th>
+                    <th>Status</th>
+                </tr></thead>
+                <tbody>${rows.join('')}</tbody>
+            </table>
+        </div>
+    `;
+    
+    console.log('✅ [TRACK-COMPARE] Tabela comparativa renderizada com sucesso');
 }
 
 // 🎯 ===== SISTEMA DE SCORING AVANÇADO =====
