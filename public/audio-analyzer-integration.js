@@ -5879,6 +5879,13 @@ function displayModalResults(analysis) {
             const isSecondTrack = window.__REFERENCE_JOB_ID__ !== null;
             const mode = analysis?.mode || currentAnalysisMode;
             
+            console.log('🔍 [RENDER-FLOW] Verificando se deve chamar renderReferenceComparisons:', {
+                mode,
+                isSecondTrack,
+                hasReferenceAnalysisData: !!window.referenceAnalysisData,
+                shouldSkip: mode === 'reference' && isSecondTrack && window.referenceAnalysisData
+            });
+            
             // Só chamar renderReferenceComparisons() em modo GÊNERO
             if (!(mode === 'reference' && isSecondTrack && window.referenceAnalysisData)) {
                 console.log('📊 [RENDER-FLOW] Chamando renderReferenceComparisons() - modo gênero');
@@ -5886,7 +5893,10 @@ function displayModalResults(analysis) {
             } else {
                 console.log('🎯 [RENDER-FLOW] PULANDO renderReferenceComparisons() - comparação de faixas já renderizada via renderTrackComparisonTable()');
             }
-        } catch(e){ console.warn('ref compare fail', e);}    
+        } catch(e){ 
+            console.error('❌ [RENDER-FLOW] ERRO em renderReferenceComparisons:', e);
+            console.error('❌ Stack trace:', e.stack);
+        }    
         try { if (window.CAIAR_ENABLED) injectValidationControls(); } catch(e){ console.warn('validation controls fail', e); }
         
         // 🔍 Verificação de debug: Detecta whitespace restante
@@ -6260,19 +6270,22 @@ function renderReferenceComparisons(opts = {}) {
     // O modo é determinístico e vem do caller
     const renderMode = explicitMode;
     
-    // 🎯 PATCH 5: Asserts de validação de modo
+    // 🎯 PATCH 5: Asserts de validação de modo (NÃO ABORTAM, apenas logam)
     if (renderMode === 'reference') {
-        console.assert(!!(state?.reference?.analysis?.bands), '[ASSERT-MAIN] Modo reference sem state.reference.analysis.bands');
-        console.assert(!!(state?.reference?.isSecondTrack), '[ASSERT-MAIN] Modo reference sem flag isSecondTrack');
+        if (!state?.reference?.analysis?.bands) {
+            console.warn('⚠️ [ASSERT-MAIN] Modo reference sem state.reference.analysis.bands - pode usar fallback');
+        }
+        if (!state?.reference?.isSecondTrack) {
+            console.warn('⚠️ [ASSERT-MAIN] Modo reference sem flag isSecondTrack');
+        }
         if (!state?.reference?.analysis) {
-            console.error('❌ [CRITICAL] Modo reference configurado mas sem dados de referência no state!');
-            console.error('❌ state.reference:', state?.reference);
+            console.warn('⚠️ [CRITICAL] Modo reference configurado mas sem dados de referência no state!');
+            console.warn('⚠️ state.reference:', state?.reference);
         }
     } else if (renderMode === 'genre') {
-        console.assert(!!(window.__activeRefData?.bands), '[ASSERT-MAIN] Modo genre sem __activeRefData.bands');
         if (!window.__activeRefData?.bands) {
-            console.error('❌ [CRITICAL] Modo genre configurado mas sem __activeRefData.bands!');
-            console.error('❌ __activeRefData:', window.__activeRefData);
+            console.warn('⚠️ [ASSERT-MAIN] Modo genre sem __activeRefData.bands - tentando fallback');
+            console.warn('⚠️ __activeRefData:', window.__activeRefData);
         }
     }
     console.log('✅ [PATCH-5] Asserts de modo executados:', { renderMode, hasRefBands: !!(state?.reference?.analysis?.bands), hasGenreBands: !!(window.__activeRefData?.bands) });
@@ -6283,6 +6296,10 @@ function renderReferenceComparisons(opts = {}) {
     
     // Compatibilidade: isReferenceMode baseado no renderMode determinístico
     const isReferenceMode = renderMode === 'reference';
+    
+    // 🎯 CORREÇÃO: Definir hasNewStructure e hasOldStructure ANTES de usar
+    const hasNewStructure = !!(analysis?.referenceAnalysis?.technicalData || analysis?.metrics);
+    const hasOldStructure = !!(analysis?.referenceComparison && !hasNewStructure);
     
     let ref, titleText, userMetrics;
     
@@ -6440,20 +6457,52 @@ function renderReferenceComparisons(opts = {}) {
         // 🎯 SÓ LOGA "MODO GÊNERO" SE REALMENTE FOR GENRE
         console.log('🎵 [RENDER-REF] MODO GÊNERO');
         
-        // 🚨 CORREÇÃO CRÍTICA: NÃO usar referenceComparisonMetrics no modo genre
-        // Apenas usar targets de gênero
-        ref = __activeRefData;
-        titleText = window.PROD_AI_REF_GENRE;
+        // 🎯 CORREÇÃO: Fallback seguro para __activeRefData com múltiplas tentativas
+        let __activeRefData = window.__activeRefData;
         
-        if (!ref) { 
-            container.innerHTML = '<div style="font-size:12px;opacity:.6">Referências não carregadas</div>'; 
+        // Tentativa 1: Usar dados globais
+        if (!__activeRefData || !__activeRefData.bands) {
+            console.warn('⚠️ [GENRE-MODE] __activeRefData não disponível, tentando PROD_AI_REF_DATA...');
+            __activeRefData = window.PROD_AI_REF_DATA;
+        }
+        
+        // Tentativa 2: Usar dados do analysis
+        if (!__activeRefData || !__activeRefData.bands) {
+            console.warn('⚠️ [GENRE-MODE] PROD_AI_REF_DATA não disponível, tentando analysis...');
+            __activeRefData = analysis?.referenceComparison 
+                || analysis?.genreTargets 
+                || state?.genreTargets;
+        }
+        
+        // Tentativa 3: Criar estrutura mínima
+        if (!__activeRefData || !__activeRefData.bands) {
+            console.error('❌ [GENRE-MODE] NENHUMA FONTE DE DADOS DE GÊNERO ENCONTRADA!');
+            console.error('❌ Debug:', {
+                hasWindowActiveRefData: !!window.__activeRefData,
+                hasProdAiRefData: !!window.PROD_AI_REF_DATA,
+                hasAnalysisRefComparison: !!analysis?.referenceComparison,
+                genre: window.__activeRefGenre || window.PROD_AI_REF_GENRE
+            });
+            
+            container.innerHTML = `<div class="card" style="margin-top:12px;padding:16px;text-align:center;opacity:.6">
+                <strong style="color:#ff6b6b;">⚠️ Referências de gênero não carregadas</strong><br>
+                <span style="font-size:11px;">Tente recarregar a página ou selecionar outro gênero</span>
+            </div>`; 
             return; 
         }
         
-        console.log('✅ [GENRE-MODE] Usando SOMENTE targets de gênero:', {
+        // 🚨 CORREÇÃO CRÍTICA: NÃO usar referenceComparisonMetrics no modo genre
+        // Apenas usar targets de gênero
+        ref = __activeRefData;
+        titleText = window.PROD_AI_REF_GENRE || window.__activeRefGenre || 'Gênero Musical';
+        userMetrics = analysis.technicalData || {};
+        
+        console.log('✅ [GENRE-MODE] Usando targets de gênero:', {
             genre: titleText,
             hasBands: !!ref.bands,
-            bandsCount: ref.bands ? Object.keys(ref.bands).length : 0
+            bandsCount: ref.bands ? Object.keys(ref.bands).length : 0,
+            bandsList: ref.bands ? Object.keys(ref.bands) : [],
+            source: window.__activeRefData ? 'window.__activeRefData' : (window.PROD_AI_REF_DATA ? 'PROD_AI_REF_DATA' : 'analysis')
         });
     } else {
         // FALLBACK: Não deveria cair aqui
@@ -7085,22 +7134,18 @@ function renderReferenceComparisons(opts = {}) {
         });
         
         if (spectralBands && Object.keys(spectralBands).length > 0) {
-            // 🎯 PATCH 5: Asserts de segurança
+            // 🎯 PATCH 5: Asserts de segurança (NÃO ABORTAM, apenas logam)
             const isReferenceMode = renderMode === 'reference';
             const refBands = state?.reference?.analysis?.bands || analysis?.reference?.bands || null;
             const genreTargets = ref?.bands || null;
             
             if (isReferenceMode) {
-                console.assert(!!(refBands), '[ASSERT-REF] Sem ref.bands no modo reference');
                 if (!refBands) {
-                    console.error('❌ [REF-ERROR] Modo reference sem refBands! Abortando processamento.');
-                    return;
+                    console.warn('⚠️ [REF-ERROR] Modo reference sem refBands! Continuando sem targets...');
                 }
             } else {
-                console.assert(!!genreTargets, '[ASSERT-GENRE] Sem genreTargets no modo genre');
                 if (!genreTargets) {
-                    console.error('❌ [GENRE-ERROR] Modo genre sem genreTargets! Abortando processamento.');
-                    return;
+                    console.warn('⚠️ [GENRE-ERROR] Modo genre sem genreTargets! Continuando sem targets...');
                 }
             }
             
@@ -7189,14 +7234,25 @@ function renderReferenceComparisons(opts = {}) {
         </table>
     </div>`;
     
-    // 🎯 FORÇAR VISIBILIDADE DA TABELA NO MODO REFERENCE
-    if (renderMode === 'reference') {
-        const tableEl = document.getElementById('referenceComparisons');
-        if (tableEl) {
-            tableEl.classList.remove('hidden');
-            tableEl.style.display = ''; // Limpa inline display:none
-            console.log('✅ [RENDER-REF] Tabela forçada para visível no modo reference');
-        }
+    // 🎯 FORÇAR VISIBILIDADE DA TABELA EM AMBOS OS MODOS
+    console.log('[UI_RENDER] Forçando renderização da tabela comparativa');
+    const tableEl = document.getElementById('referenceComparisons');
+    if (tableEl) {
+        tableEl.classList.remove('hidden');
+        tableEl.style.display = ''; // Limpa inline display:none
+        tableEl.style.visibility = 'visible';
+        tableEl.style.opacity = '1';
+        console.log('✅ [RENDER-REF] Tabela forçada para visível (mode:', renderMode, ')');
+    } else {
+        console.error('❌ [RENDER-REF] Elemento #referenceComparisons NÃO encontrado no DOM!');
+    }
+    
+    // 🎯 Verificar se wrapper/parent também está visível
+    const wrapper = tableEl?.parentElement;
+    if (wrapper) {
+        wrapper.classList.remove('hidden');
+        wrapper.classList.add('visible');
+        wrapper.style.display = '';
     }
     
     // 🛡️ PASSO 3: VERIFICAÇÃO FINAL
@@ -7218,6 +7274,18 @@ function renderReferenceComparisons(opts = {}) {
         rowsGenerated: rows.length,
         titleDisplayed: titleText,
         tableVisible: renderMode === 'reference'
+    });
+    
+    // 🎯 LOG FINAL DE VERIFICAÇÃO (conforme solicitado)
+    console.log('[FINAL-CHECK] renderReferenceComparisons concluído com', {
+        mode: renderMode,
+        bands: Object.keys(ref?.bands || {}),
+        bandsCount: Object.keys(ref?.bands || {}).length,
+        tableVisible: !!document.querySelector('#referenceComparisons'),
+        tableHasContent: rows.length > 0,
+        userMetricsLoaded: !!userMetrics,
+        refMetricsLoaded: !!ref,
+        titleText: titleText
     });
     
     // Estilos injetados uma vez com indicadores visuais melhorados
