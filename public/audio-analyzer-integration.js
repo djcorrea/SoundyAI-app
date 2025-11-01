@@ -6334,12 +6334,22 @@ function renderReferenceComparisons(analysis) {
         // ===== MODO GÊNERO =====
         // 🎯 SÓ LOGA "MODO GÊNERO" SE REALMENTE FOR GENRE
         console.log('🎵 [RENDER-REF] MODO GÊNERO');
+        
+        // 🚨 CORREÇÃO CRÍTICA: NÃO usar referenceComparisonMetrics no modo genre
+        // Apenas usar targets de gênero
         ref = __activeRefData;
         titleText = window.PROD_AI_REF_GENRE;
+        
         if (!ref) { 
             container.innerHTML = '<div style="font-size:12px;opacity:.6">Referências não carregadas</div>'; 
             return; 
         }
+        
+        console.log('✅ [GENRE-MODE] Usando SOMENTE targets de gênero:', {
+            genre: titleText,
+            hasBands: !!ref.bands,
+            bandsCount: ref.bands ? Object.keys(ref.bands).length : 0
+        });
     } else {
         // FALLBACK: Não deveria cair aqui
         console.warn('⚠️ [RENDER-REF] MODO INDETERMINADO - renderMode:', renderMode);
@@ -6347,8 +6357,8 @@ function renderReferenceComparisons(analysis) {
         return;
     }
     
-    // 🎯 SOBRESCREVER com referenceComparisonMetrics se disponível (comparação entre faixas)
-    if (referenceComparisonMetrics && referenceComparisonMetrics.reference) {
+    // 🎯 SOBRESCREVER com referenceComparisonMetrics APENAS se modo for 'reference'
+    if (renderMode === 'reference' && referenceComparisonMetrics && referenceComparisonMetrics.reference) {
         console.log('🎯 [RENDER-REF] MODO REFERÊNCIA — COMPARAÇÃO ENTRE FAIXAS ATIVADA');
         console.log('✅ [RENDER-REF] Sobrescrevendo com referenceComparisonMetrics');
         
@@ -6373,12 +6383,17 @@ function renderReferenceComparisons(analysis) {
         };
         
         titleText = `🎵 Comparação com ${referenceComparisonMetrics.referenceFull?.metadata?.fileName || 'Faixa de Referência (2ª música)'}`;
+    } else if (renderMode === 'genre' && referenceComparisonMetrics) {
+        // 🚨 LOG DE SEGURANÇA: Confirmar que modo genre NÃO usa referenceComparisonMetrics
+        console.log('✅ [GENRE-MODE] referenceComparisonMetrics IGNORADO no modo gênero (correto)');
     }
     
     // 🎯 Priorizar userMetrics (nova estrutura) sobre technicalData (legado)
     const tech = userMetrics || analysis.technicalData || {};
     
     console.log('📊 [RENDER-REF] Fonte de métricas do usuário:', userMetrics ? 'userMetrics (nova estrutura)' : 'technicalData (legado)');
+    console.log('📊 [RENDER-REF] Modo final confirmado:', renderMode);
+    console.log('📊 [RENDER-REF] ref.bands disponível:', !!ref?.bands, 'keys:', ref?.bands ? Object.keys(ref.bands).length : 0);
     
     // Mapeamento de métricas - RESTAURAR TABELA COMPLETA
     const rows = [];
@@ -6622,12 +6637,15 @@ function renderReferenceComparisons(analysis) {
     
     // 🔍 DEBUG: Verificar estado das bandas e mapeamento
     console.log('🔍 [DEBUG_BANDS] Verificando bandas espectrais:', {
+        MODE: renderMode.toUpperCase(),
+        MODE_SOURCE: renderMode === 'genre' ? 'GENRE TARGETS' : 'REFERENCE ANALYSIS',
         hasCentralizedBands: !!centralizedBands,
         centralizedBandsKeys: centralizedBands ? Object.keys(centralizedBands) : [],
         hasLegacyBands: !!legacyBandEnergies,
         legacyBandsKeys: legacyBandEnergies ? Object.keys(legacyBandEnergies) : [],
         hasRefBands: !!ref.bands,
-        refBandsKeys: ref.bands ? Object.keys(ref.bands) : []
+        refBandsKeys: ref.bands ? Object.keys(ref.bands) : [],
+        refBandsSource: renderMode === 'genre' ? 'FROM __activeRefData (genre)' : 'FROM referenceAnalysis or referenceComparisonMetrics'
     });
     
     // 🎯 MAPEAMENTO CORRIGIDO: Bandas Calculadas → Bandas de Referência
@@ -6953,16 +6971,28 @@ function renderReferenceComparisons(analysis) {
         };
         
         // 🎯 PROCESSAMENTO CORRIGIDO para fallback: usar mapeamento bidirecional
-        console.log('🔄 Processando bandas espectrais (modo fallback)...');
+        console.log('🔄 Processando bandas espectrais (modo fallback)...', {
+            renderMode,
+            hasRefBands: !!ref?.bands,
+            refBandsKeys: ref?.bands ? Object.keys(ref.bands) : [],
+            spectralBandsKeys: Object.keys(spectralBands)
+        });
         
         if (spectralBands && Object.keys(spectralBands).length > 0) {
             // Conjunto para rastrear bandas já processadas
             const processedBandKeys = new Set();
             
+            // 🚨 VERIFICAÇÃO CRÍTICA: ref.bands deve existir no modo genre
+            if (!ref || !ref.bands) {
+                console.error('❌ [FALLBACK] ref.bands não existe! Mode:', renderMode);
+                console.error('❌ [FALLBACK] ref:', ref);
+                return; // Não processar bandas se não houver referência
+            }
+            
             // Primeiro: processar bandas que têm referência (usando mapeamento)
             Object.entries(bandMap).forEach(([calcBandKey, bandInfo]) => {
                 const bandData = spectralBands[calcBandKey];
-                const refBandData = ref.bands?.[bandInfo.refKey];
+                const refBandData = ref.bands[bandInfo.refKey];
                 
                 if (bandData && !processedBandKeys.has(calcBandKey)) {
                     let energyDb = null;
@@ -6990,12 +7020,15 @@ function renderReferenceComparisons(analysis) {
                             tolerance = 0; // [BANDS-TOL-0] Sempre 0 para bandas
                         }
                         
-                        console.log(`📊 [BANDS-TOL-0] Banda (fallback): ${bandInfo.name}, valor: ${energyDb}dB, target: ${target || 'N/A'}, tol: 0`);
+                        console.log(`📊 [BANDS-TOL-0] Banda (fallback): ${bandInfo.name}, valor: ${energyDb}dB, target: ${target ? JSON.stringify(target) : 'N/A'}, tol: 0, mode: ${renderMode}`);
                         pushRow(bandInfo.name, energyDb, target, tolerance, ' dB');
                         processedBandKeys.add(calcBandKey);
                         
-                        if (!target) {
-                            console.warn(`⚠️ Banda sem target: ${calcBandKey} → ${bandInfo.refKey}`);
+                        if (!target && renderMode === 'genre') {
+                            console.error(`❌ [GENRE-ERROR] Banda de gênero sem target: ${calcBandKey} → ${bandInfo.refKey}. ref.bands deveria ter essa banda!`);
+                            console.error(`❌ [GENRE-ERROR] ref.bands disponíveis:`, ref.bands ? Object.keys(ref.bands) : 'UNDEFINED');
+                        } else if (!target && renderMode === 'reference') {
+                            console.warn(`⚠️ [REF-WARNING] Banda de referência sem target: ${calcBandKey} (pode ser normal se a faixa de referência não tem essa banda)`);
                         }
                     }
                 }
