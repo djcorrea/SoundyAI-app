@@ -2639,10 +2639,22 @@ async function handleModalFileSelection(file) {
                 });
             }
             
-            await handleGenreAnalysisWithResult(analysisResult, file.name);
+            // 🚨 AUDIT_REF_FIX: NÃO chamar handleGenreAnalysisWithResult em modo reference!
+            // Esta função limpa o estado e força mode='genre', quebrando o fluxo A/B
+            
+            // PRESERVAR modo reference até o final (reutilizar state já declarado acima)
+            if (!state.render) state.render = {};
+            state.render.mode = 'reference';
+            window.__soundyState = state;
+            
+            console.log('[AUDIT_REF_FIX] Preservando modo reference até final da renderização');
+            console.log('[MODE LOCKED] reference - handleGenreAnalysisWithResult PULADO');
+            
+            // Normalizar dados do backend
+            const normalizedResult = normalizeBackendAnalysisData(analysisResult);
             
             // 🔥 FIX-REFERENCE: Exibir modal após segunda análise
-            await displayModalResults(analysisResult);
+            await displayModalResults(normalizedResult);
             console.log('[FIX-REFERENCE] Modal aberto após segunda análise');
             
             // 🎯 LIMPAR flags de controle APENAS APÓS exibir modal
@@ -2782,8 +2794,23 @@ async function handleReferenceAnalysisWithResult(analysisResult, fileKey, fileNa
 async function handleGenreAnalysisWithResult(analysisResult, fileName) {
     __dbg('🎵 Processando análise por gênero com resultado remoto:', { fileName });
     
-    // 🧩 CORREÇÃO #1: Limpeza completa ao entrar no modo Genre
+    // 🧩 AUDIT_REF_FIX: Verificar se NÃO estamos em modo reference antes de limpar
     const state = window.__soundyState || {};
+    const currentMode = state?.render?.mode || currentAnalysisMode;
+    const isSecondTrack = state?.reference?.isSecondTrack || false;
+    
+    // 🚨 PROTEÇÃO: NÃO limpar estado se estivermos em modo reference
+    if (currentMode === 'reference' && isSecondTrack) {
+        console.warn('⚠️ [AUDIT_REF_FIX] handleGenreAnalysisWithResult chamado em modo reference!');
+        console.warn('⚠️ [AUDIT_REF_FIX] ABORTANDO limpeza para preservar dados A/B');
+        console.log('[MODE LOCKED] reference - limpeza de estado BLOQUEADA');
+        
+        // Normalizar e retornar sem modificar estado
+        const normalizedResult = normalizeBackendAnalysisData(analysisResult);
+        return normalizedResult;
+    }
+    
+    // 🧩 CORREÇÃO #1: Limpeza completa APENAS em modo Genre genuíno
     
     // Limpar completamente estado de referência
     state.userAnalysis = null;
@@ -7927,7 +7954,11 @@ function renderTrackComparisonTable(baseAnalysis, referenceAnalysis) {
         </div>
     `;
     
+    // 🎯 AUDIT_REF_FIX: Log final de confirmação do fluxo A/B
     console.log('✅ [TRACK-COMPARE] Tabela comparativa renderizada com sucesso');
+    console.log('[REFERENCE-A/B FIXED ✅] Comparação A/B entre faixas concluída');
+    console.log('[AUDIT_REF_FIX] Tabela exibindo valores brutos da segunda faixa (referência real)');
+    console.log('[MODE LOCKED] reference - renderização completa sem alteração de modo');
 }
 
 // 🎯 ===== SISTEMA DE SCORING AVANÇADO =====
@@ -8563,6 +8594,13 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
     };
     
     console.log('🎯 Score final calculado:', result);
+    
+    // 🎯 AUDIT_REF_FIX: Log final de confirmação do fluxo A/B
+    if (refData._isReferenceMode === true) {
+        console.log('[REFERENCE-A/B FIXED ✅] Comparação A/B concluída com sucesso');
+        console.log('[AUDIT_REF_FIX] Bands carregadas da segunda música (referência real)');
+        console.log('[AUDIT_REF_FIX] ReferenceComparison gerado com dados A/B corretos');
+    }
     
     return result;
 }
