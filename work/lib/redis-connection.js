@@ -9,12 +9,12 @@ import crypto from 'crypto';
 
 // Configuração padronizada para todos os serviços
 const REDIS_CONFIG = {
+  connectTimeout: 15000,           // ✅ PARTE 1: Reduzido de 45s para 15s
   maxRetriesPerRequest: null,      // ✅ Obrigatório para BullMQ
+  enableReadyCheck: false,         // ✅ PARTE 1: Desabilita ready check
+  keepAlive: 30000,                // ✅ PARTE 1: Reduzido de 120s para 30s
+  commandTimeout: 30000,           // ✅ PARTE 1: Aumentado de 15s para 30s
   lazyConnect: true,
-  connectTimeout: 45000,
-  commandTimeout: 15000,
-  keepAlive: 120000,
-  enableReadyCheck: false,
   enableAutoPipelining: true,
   family: 4,
   

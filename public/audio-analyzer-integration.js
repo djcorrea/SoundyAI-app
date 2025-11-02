@@ -2656,7 +2656,14 @@ async function handleModalFileSelection(file) {
             // Normalizar dados do backend
             const normalizedResult = normalizeBackendAnalysisData(analysisResult);
             
-            // 🔥 FIX-REFERENCE: Exibir modal após segunda análise
+            // � PARTE 3.4: Garantir atribuição correta ANTES de displayModalResults
+            state.reference.userAnalysis = normalizeReferenceShape(state.userAnalysis);
+            state.reference.referenceAnalysis = normalizeReferenceShape(state.referenceAnalysis);
+            state.render.mode = 'reference';
+            window.__soundyState = state;
+            console.log('✅ [PARTE 3.4] Estado normalizado antes de displayModalResults');
+            
+            // �🔥 FIX-REFERENCE: Exibir modal após segunda análise
             await displayModalResults(normalizedResult);
             console.log('[FIX-REFERENCE] Modal aberto após segunda análise');
             
@@ -4351,14 +4358,23 @@ function displayModalResults(analysis) {
         state.render.mode = 'reference';
         console.log('✅ [REFERENCE-FIRST] Primeira faixa de referência - aguardando segunda');
     } else if (mode !== 'reference' || (mode === 'reference' && !window.referenceAnalysisData)) {
-        // Modo genre genuíno
-        state.render.mode = 'genre';
-        console.log('✅ [GENRE-MODE] Modo definido como GENRE no estado');
-        
-        // Limpar dados de referência para evitar contaminação APENAS em modo genre
-        if (state.reference) {
-            state.reference.isSecondTrack = false;
-            state.reference.analysis = null;
+        // 🔐 PARTE 3.3: Trava do modo Reference — NÃO forçar genre se estamos em fluxo de referência
+        const isReferenceFlowLocked =
+            (state?.reference?.isSecondTrack === true) ||
+            (!!window.__REFERENCE_JOB_ID__ && state?.render?.mode === "reference");
+
+        if (!isReferenceFlowLocked) {
+            // Modo genre genuíno
+            state.render.mode = 'genre';
+            console.log('✅ [GENRE-MODE] Modo definido como GENRE no estado');
+            
+            // Limpar dados de referência para evitar contaminação APENAS em modo genre
+            if (state.reference) {
+                state.reference.isSecondTrack = false;
+                state.reference.analysis = null;
+            }
+        } else {
+            console.log('🔒 [REF-LOCK] Modo reference travado — genre forçado bloqueado');
         }
     }
     window.__soundyState = state;
@@ -6607,6 +6623,20 @@ function resolveTargetMetric(analysis, key, fallback) {
     return fallback ?? 0;
 }
 
+// 🧮 PARTE 3.1: Função de normalização para estrutura de referência
+function normalizeReferenceShape(a) {
+  if (!a) return {};
+  return {
+    fileName: a.fileName || a.metadata?.fileName || "Faixa desconhecida",
+    bands: a.bands || a.spectralBands,
+    lufsIntegrated: a.loudness?.integrated ?? a.lufsIntegrated,
+    truePeakDbtp: a.truePeak?.dbtp ?? a.truePeakDbtp,
+    dynamicRange: a.dynamics?.dr ?? a.dynamicRange,
+    lra: a.loudness?.range ?? a.lra,
+    crestFactor: a.dynamics?.crest ?? a.crestFactor
+  };
+}
+
 // --- BEGIN: deterministic mode gate ---
 function renderReferenceComparisons(opts = {}) {
     // 🎯 SAFE RENDER COM DEBOUNCE
@@ -6759,6 +6789,21 @@ function renderReferenceComparisons(opts = {}) {
         return;
     }
     console.groupEnd();
+    
+    // 🧮 PARTE 3.2: Validação e normalização de análises
+    const sRef = stateV3?.reference || {};
+    const userAnalysis = opts.userAnalysis ?? sRef.userAnalysis;
+    const referenceAnalysis = opts.referenceAnalysis ?? sRef.referenceAnalysis;
+
+    if (!userAnalysis || !referenceAnalysis) {
+        console.warn("[REF-COMP] Faltam análises; usando fallback controlado.");
+        window.__REF_RENDER_LOCK__ = false;
+        return renderGenreComparisonSafe?.();
+    }
+
+    const userTrackNormalized = userAnalysis.fileName || sRef.userTrack || "Sua faixa";
+    const refTrackNormalized = referenceAnalysis.fileName || sRef.referenceTrack || "Faixa de referência";
+    
     // Evita leitura em escopos errados - ABORT se referenceTrack undefined
     if (!referenceTrack) {
         console.error("🚨 [SAFE_REF_V3] referenceTrack ainda undefined! Abortando render seguro.");

@@ -66,13 +66,14 @@ console.log(`🔐 TLS detectado: ${isTLS ? 'SIM' : 'NÃO'}`);
 console.log('✅ [WORKER-INIT] Variables: Redis e PostgreSQL configurados');
 
 // 🔧 CONFIGURAÇÃO REDIS COM RETRY/BACKOFF ROBUSTO
+// ⚙️ PARTE 2: Configuração ajustada para evitar timeouts
 const REDIS_CONFIG = {
+  connectTimeout: 15000,            // ✅ PARTE 2: Reduzido para 15s
   maxRetriesPerRequest: null,       // ✅ Obrigatório para BullMQ
   enableReadyCheck: false,          // ✅ Melhora performance
+  keepAlive: 30000,                 // ✅ PARTE 2: Reduzido para 30s
+  commandTimeout: 30000,            // ✅ PARTE 2: Aumentado para 30s
   lazyConnect: false,               // ✅ Conectar imediatamente
-  connectTimeout: 30000,            // ✅ 30s timeout
-  commandTimeout: 15000,            // ✅ 15s para comandos
-  keepAlive: 120000,                // ✅ 2min keepalive
   family: 4,                        // ✅ IPv4
   
   // 🔐 TLS SOMENTE SE A URL FOR rediss://
@@ -299,13 +300,14 @@ async function initializeWorker() {
     console.log(`⚙️ [WORKER-INIT] Concorrência: ${concurrency}`);
     
     // 🎯 CRIAR WORKER COM CONEXÃO ESTABELECIDA
+    // ⚙️ PARTE 2: Worker com configuração otimizada e lockDuration aumentado
     worker = new Worker('audio-analyzer', audioProcessor, {
       connection: redisConnection,
       concurrency,
+      lockDuration: 60000,          // ✅ PARTE 2: 1min de lock (reduzido de 3min)
+      stalledInterval: 0,           // ✅ PARTE 2: Desabilitado (evita travamentos falso-positivos)
       settings: {
-        stalledInterval: 120000,    // 2min para considerar travado
         maxStalledCount: 2,         // Max 2 travamentos
-        lockDuration: 180000,       // 3min de lock
         keepAlive: 60000,           // 1min keepalive
         batchSize: 1,               // Processar 1 job por vez
         delayedDebounce: 10000,     // 10s delay debounce
