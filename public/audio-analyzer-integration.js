@@ -8701,6 +8701,28 @@ function renderReferenceComparisons(opts = {}) {
         titleText: titleText
     });
     
+    // ✅ DESBLOQUEIO DO MODAL - Finalizar loading e exibir resultados
+    const uploadArea = document.getElementById('audioUploadArea');
+    const loading = document.getElementById('audioAnalysisLoading');
+    const results = document.getElementById('audioAnalysisResults');
+    
+    if (loading) {
+        loading.style.display = 'none';
+        console.log('[MODAL-FIX] ✅ Loading ocultado');
+    }
+    
+    if (results) {
+        results.style.display = 'block';
+        console.log('[MODAL-FIX] ✅ Resultados exibidos');
+    }
+    
+    if (uploadArea) {
+        uploadArea.style.display = 'none';
+        console.log('[MODAL-FIX] ✅ Upload area ocultada');
+    }
+    
+    console.log('[MODAL-FIX] ✅ Loading encerrado com sucesso - modal desbloqueado');
+    
     // Estilos injetados uma vez com indicadores visuais melhorados
     if (!document.getElementById('refCompareStyles')) {
         const style = document.createElement('style');
