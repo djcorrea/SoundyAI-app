@@ -13,19 +13,34 @@ function interceptarDisplayModalResults() {
             // Fazer backup da função original
             const originalDisplayModalResults = window.displayModalResults;
             
-            // Substituir pela versão monitorada
-            window.displayModalResults = function(analysis) {
+            // Substituir pela versão monitorada com proteção A/B
+            window.displayModalResults = function(data) {
+                console.log("[SAFE_INTERCEPT] displayModalResults interceptado (monitor-modal)", data);
+
+                // 🔒 Garante preservação A/B
+                const merged = {
+                    ...data,
+                    userAnalysis: data.userAnalysis || data._userAnalysis || window.__soundyState?.previousAnalysis,
+                    referenceAnalysis: data.referenceAnalysis || data._referenceAnalysis || data.analysis,
+                };
+
+                if (!merged.userAnalysis || !merged.referenceAnalysis) {
+                    console.warn("[SAFE_INTERCEPT] Dados A/B incompletos - tentando reconstruir a partir do estado global");
+                }
+
                 console.log('🎯 [MODAL_MONITOR] Modal sendo exibido, dados recebidos:', {
-                    hasSuggestions: !!(analysis && analysis.suggestions),
-                    suggestionsCount: analysis?.suggestions?.length || 0,
-                    hasUltraSystem: typeof window.AdvancedEducationalSuggestionSystem !== 'undefined'
+                    hasSuggestions: !!(merged && merged.suggestions),
+                    suggestionsCount: merged?.suggestions?.length || 0,
+                    hasUltraSystem: typeof window.AdvancedEducationalSuggestionSystem !== 'undefined',
+                    hasUserAnalysis: !!merged.userAnalysis,
+                    hasReferenceAnalysis: !!merged.referenceAnalysis
                 });
                 
                 // Verificar se as sugestões foram enriquecidas pelo sistema ultra-avançado
-                if (analysis && analysis.suggestions && analysis.suggestions.length > 0) {
-                    const firstSuggestion = analysis.suggestions[0];
+                if (merged && merged.suggestions && merged.suggestions.length > 0) {
+                    const firstSuggestion = merged.suggestions[0];
                     const hasEducationalContent = !!(firstSuggestion.educationalContent);
-                    const hasEnhancedMetrics = !!(analysis.enhancedMetrics?.ultraAdvancedSystem);
+                    const hasEnhancedMetrics = !!(merged.enhancedMetrics?.ultraAdvancedSystem);
                     
                     console.log('🔍 [MODAL_MONITOR] Análise das sugestões:', {
                         firstSuggestion: firstSuggestion,
@@ -42,14 +57,14 @@ function interceptarDisplayModalResults() {
                     }
                     
                     if (hasEnhancedMetrics) {
-                        console.log('📊 [MODAL_MONITOR] Métricas do sistema ultra-avançado:', analysis.enhancedMetrics.ultraAdvancedSystem);
+                        console.log('📊 [MODAL_MONITOR] Métricas do sistema ultra-avançado:', merged.enhancedMetrics.ultraAdvancedSystem);
                     }
                 } else {
                     console.warn('⚠️ [MODAL_MONITOR] Nenhuma sugestão encontrada na análise');
                 }
                 
-                // Chamar a função original
-                return originalDisplayModalResults.call(this, analysis);
+                // Chamar a função original com dados protegidos
+                return originalDisplayModalResults.call(this, merged);
             };
             
             console.log('✅ [MODAL_MONITOR] Interceptação ativa - monitorando próximas análises');
