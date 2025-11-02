@@ -1481,58 +1481,63 @@ class AISuggestionsIntegration {
         // Hook into displayModalResults to trigger AI processing
         const originalDisplayModalResults = window.displayModalResults;
         
+        // ⚠️ VERIFICAÇÃO CRÍTICA: Não interceptar se já foi interceptado
+        if (typeof originalDisplayModalResults === 'function' && 
+            originalDisplayModalResults.toString().includes('[SAFE_INTERCEPT]')) {
+            console.warn('⚠️ [AI-INTEGRATION] Função já foi interceptada, pulando...');
+            return;
+        }
+        
         if (typeof originalDisplayModalResults === 'function') {
             window.displayModalResults = (analysis) => {
-                console.log('[SAFE_INTERCEPT] displayModalResults interceptado (ai-suggestions)');
+                console.log('[SAFE_INTERCEPT] displayModalResults interceptado (ai-suggestions)', analysis);
                 
-                // 🔒 PROTEÇÃO A/B - Apenas preserva se modo reference está ativo
-                const isReferenceMode = analysis?._isReferenceMode || analysis?.mode === 'reference';
-                let dataToProcess = analysis;
+                // 🔒 Garante preservação A/B
+                const merged = {
+                    ...analysis,
+                    userAnalysis: analysis.userAnalysis || analysis._userAnalysis || window.__soundyState?.previousAnalysis,
+                    referenceAnalysis: analysis.referenceAnalysis || analysis._referenceAnalysis || analysis.analysis,
+                };
                 
-                if (isReferenceMode) {
-                    // Garante preservação A/B apenas em modo reference
-                    dataToProcess = {
-                        ...analysis,
-                        userAnalysis: analysis.userAnalysis || analysis._userAnalysis || window.__soundyState?.previousAnalysis,
-                        referenceAnalysis: analysis.referenceAnalysis || analysis._referenceAnalysis || analysis,
-                    };
-                    console.log('[SAFE_INTERCEPT] Modo reference detectado - preservando dados A/B');
-                } else {
-                    console.log('[SAFE_INTERCEPT] Modo normal - processando sem modificação');
+                if (!merged.userAnalysis || !merged.referenceAnalysis) {
+                    console.warn('[SAFE_INTERCEPT] Dados A/B incompletos - tentando reconstruir a partir do estado global');
                 }
                 
                 // 🔍 AUDITORIA PASSO 0: INTERCEPTAÇÃO INICIAL
                 console.group('🔍 [AUDITORIA] INTERCEPTAÇÃO INICIAL');
                 console.log('🔗 [AI-INTEGRATION] displayModalResults interceptado:', {
-                    hasAnalysis: !!dataToProcess,
-                    hasSuggestions: !!(dataToProcess && dataToProcess.suggestions),
-                    suggestionsCount: dataToProcess?.suggestions?.length || 0,
-                    isReferenceMode: isReferenceMode
+                    hasAnalysis: !!merged,
+                    hasSuggestions: !!(merged && merged.suggestions),
+                    suggestionsCount: merged?.suggestions?.length || 0,
+                    analysisKeys: merged ? Object.keys(merged) : null,
+                    hasUserAnalysis: !!merged.userAnalysis,
+                    hasReferenceAnalysis: !!merged.referenceAnalysis
                 });
                 
-                if (dataToProcess && dataToProcess.suggestions) {
-                    dataToProcess.suggestions.forEach((sug, index) => {
+                if (merged && merged.suggestions) {
+                    merged.suggestions.forEach((sug, index) => {
                         console.log(`🔗 Intercepted Sugestão ${index + 1}:`, {
                             message: sug.message || sug.issue || sug.title || 'N/A',
-                            action: sug.action || sug.solution || sug.description || 'N/A'
+                            action: sug.action || sug.solution || sug.description || 'N/A',
+                            keys: Object.keys(sug)
                         });
                     });
                 }
                 console.groupEnd();
                 
-                // Call original function first
-                const result = originalDisplayModalResults.call(this, dataToProcess);
+                // Call original function first COM DADOS PRESERVADOS
+                const result = originalDisplayModalResults.call(this, merged);
                 
                 // Extract suggestions and trigger AI processing
-                if (dataToProcess && dataToProcess.suggestions) {
-                    const genre = dataToProcess.metadata?.genre || dataToProcess.genre || window.PROD_AI_REF_GENRE;
-                    const metrics = dataToProcess.technicalData || {};
+                if (merged && merged.suggestions) {
+                    const genre = merged.metadata?.genre || merged.genre || window.PROD_AI_REF_GENRE;
+                    const metrics = merged.technicalData || {};
                     
                     console.log('🔗 [AI-INTEGRATION] Interceptando sugestões para processamento IA');
                     
                     // Delay slightly to ensure modal is rendered
                     setTimeout(() => {
-                        this.processWithAI(dataToProcess.suggestions, metrics, genre);
+                        this.processWithAI(merged.suggestions, metrics, genre);
                     }, 100);
                 }
                 
@@ -1541,7 +1546,19 @@ class AISuggestionsIntegration {
             
             console.log('✅ [AI-INTEGRATION] Integração com displayModalResults configurada');
         } else {
-            console.warn('⚠️ [AI-INTEGRATION] displayModalResults não encontrada - aguardando...');
+            // Incrementar contador de tentativas
+            if (!this._retryCount) this._retryCount = 0;
+            this._retryCount++;
+            
+            const maxRetries = 20; // Máximo 20 segundos
+            
+            if (this._retryCount >= maxRetries) {
+                console.error('❌ [AI-INTEGRATION] displayModalResults não encontrada após', maxRetries, 'tentativas');
+                console.error('⚠️ [AI-INTEGRATION] Possível problema: audio-analyzer-integration.js não carregou');
+                return;
+            }
+            
+            console.warn('⚠️ [AI-INTEGRATION] displayModalResults não encontrada - tentativa', this._retryCount, '/', maxRetries);
             
             // Retry in 1 second
             setTimeout(() => {
