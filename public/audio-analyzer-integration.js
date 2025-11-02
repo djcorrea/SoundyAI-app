@@ -7284,62 +7284,85 @@ function renderReferenceComparisons(opts = {}) {
     // ✅ LOG PARA CONFIRMAÇÃO FINAL
     console.log("[REF-COMPARE ✅] Direção correta confirmada: PRIMEIRA = sua música (atual), SEGUNDA = referência (alvo)");
     
-    // ✅ CORREÇÃO: Extração unificada de bandas para todos os modos
-    const userBandsExtracted =
+    // ✅ CORREÇÃO V2: Extração unificada de bandas espectrais (modo reference/gênero)
+    let userBandsLocal =
+        analysis.userAnalysis?.bands ||
         opts.userAnalysis?.bands ||
         opts.userAnalysis?.technicalData?.spectral_balance ||
-        analysis.userAnalysis?.bands ||
         analysis.bands ||
         analysis.referenceComparison?.userBands ||
-        userBands ||
         [];
 
-    const refBandsExtracted =
+    let refBandsLocal =
+        analysis.referenceAnalysis?.bands ||
         opts.referenceAnalysis?.bands ||
         opts.referenceAnalysis?.technicalData?.spectral_balance ||
-        analysis.referenceAnalysis?.bands ||
         analysis.referenceComparison?.refBands ||
-        refBands ||
         [];
+
+    // 🚨 Proteção aprimorada com fallback global
+    if (!userBandsLocal?.length || !refBandsLocal?.length) {
+        console.warn("[REF-COMP] ⚠️ Bandas ausentes na estrutura principal - tentando fallback global");
+        
+        const globalUser = window.__soundyState?.previousAnalysis?.bands || 
+                          window.__soundyState?.userAnalysis?.bands || 
+                          [];
+        const globalRef = window.__soundyState?.referenceAnalysis?.bands || 
+                         window.__soundyState?.reference?.analysis?.bands || 
+                         [];
+        
+        console.log("[REF-COMP] 🔍 Fallback global:", {
+            globalUserLength: globalUser.length,
+            globalRefLength: globalRef.length,
+            hasPreviousAnalysis: !!window.__soundyState?.previousAnalysis,
+            hasReferenceAnalysis: !!window.__soundyState?.referenceAnalysis
+        });
+        
+        if (!globalUser.length || !globalRef.length) {
+            console.error("[REF-COMP] ❌ Nenhum dado válido encontrado - abortando render");
+            console.table({
+                userBandsLocal: userBandsLocal?.length || 0,
+                refBandsLocal: refBandsLocal?.length || 0,
+                globalUserLength: globalUser.length,
+                globalRefLength: globalRef.length,
+                hasUserAnalysis: !!analysis.userAnalysis,
+                hasReferenceAnalysis: !!analysis.referenceAnalysis,
+                soundyStateKeys: Object.keys(window.__soundyState || {})
+            });
+            window.__REF_RENDER_LOCK__ = false;
+            window.comparisonLock = false;
+            console.log("[LOCK] comparisonLock liberado (sem dados válidos)");
+            console.groupEnd();
+            return;
+        }
+        
+        // Usar splice para preservar referência de arrays existentes
+        if (Array.isArray(userBandsLocal)) {
+            userBandsLocal.splice(0, userBandsLocal.length, ...globalUser);
+        } else {
+            userBandsLocal = [...globalUser];
+        }
+        
+        if (Array.isArray(refBandsLocal)) {
+            refBandsLocal.splice(0, refBandsLocal.length, ...globalRef);
+        } else {
+            refBandsLocal = [...globalRef];
+        }
+        
+        console.log("[REF-COMP] ✅ Fallback global aplicado com sucesso");
+    }
+
+    // Atualizar variáveis globais
+    userBands = userBandsLocal;
+    refBands = refBandsLocal;
     
-    // Atualizar variáveis locais
-    userBands = userBandsExtracted;
-    refBands = refBandsExtracted;
+    console.log("[REF-COMP] ✅ Bandas detectadas:", {
+        userBands: Array.isArray(userBands) ? userBands.length : Object.keys(userBands).length,
+        refBands: Array.isArray(refBands) ? refBands.length : Object.keys(refBands).length,
+        source: userBandsLocal === globalUser ? 'fallback-global' : 'analysis-principal'
+    });
     
     console.log("✅ [SAFE_REF_V3] Tracks resolvidas:", { userTrack, referenceTrack, userBands: !!userBands, refBands: !!refBands });
-
-    // 🚨 Proteção aprimorada com logs
-    if (!userBands?.length && !Object.keys(userBands || {}).length) {
-        console.warn("[REF-COMP] ❌ userBands não encontradas - abortando render de cards/scores");
-        console.table({
-            userBands,
-            refBands,
-            source: Object.keys(analysis || opts),
-            hasUserAnalysis: !!opts.userAnalysis,
-            hasReferenceAnalysis: !!opts.referenceAnalysis,
-        });
-        window.__REF_RENDER_LOCK__ = false;
-        window.comparisonLock = false;
-        console.log("[LOCK] comparisonLock liberado (userBands ausentes)");
-        console.groupEnd();
-        return;
-    }
-
-    if (!refBands?.length && !Object.keys(refBands || {}).length) {
-        console.warn("[REF-COMP] ❌ refBands não encontradas - abortando render de cards/scores");
-        console.table({
-            userBands,
-            refBands,
-            source: Object.keys(analysis || opts),
-            hasUserAnalysis: !!opts.userAnalysis,
-            hasReferenceAnalysis: !!opts.referenceAnalysis,
-        });
-        window.__REF_RENDER_LOCK__ = false;
-        window.comparisonLock = false;
-        console.log("[LOCK] comparisonLock liberado (refBands ausentes)");
-        console.groupEnd();
-        return;
-    }
 
     console.log("[REF-COMP] ✅ Bandas detectadas:", {
         userBands: Array.isArray(userBands) ? userBands.length : Object.keys(userBands).length,
