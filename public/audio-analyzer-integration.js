@@ -2705,7 +2705,22 @@ async function handleModalFileSelection(file) {
                 console.log("[REF-FIX] Estrutura final corrigida", state.reference);
             }
             
-            // �🔥 FIX-REFERENCE: Exibir modal após segunda análise
+            // 🔥 CORREÇÃO: Preparar dados para comparação A/B correta
+            console.log('[REFERENCE-FLOW] Segunda música concluída');
+            console.log('[REFERENCE-FLOW ✅] Montando comparação entre faixas');
+            
+            // Usar PRIMEIRA música como base do modal
+            const userAnalysis = state.previousAnalysis || state.userAnalysis;
+            const referenceAnalysisData = normalizedResult || state.referenceAnalysis;
+            
+            console.log('[REFERENCE-COMPARE] Valor = 1ª faixa:', userAnalysis?.fileName || userAnalysis?.metadata?.fileName);
+            console.log('[REFERENCE-COMPARE] Alvo = 2ª faixa:', referenceAnalysisData?.fileName || referenceAnalysisData?.metadata?.fileName);
+            
+            // Marcar no normalizedResult que é modo referência com dados corretos
+            normalizedResult._isReferenceMode = true;
+            normalizedResult._userAnalysis = userAnalysis;
+            normalizedResult._referenceAnalysis = referenceAnalysisData;
+            
             await displayModalResults(normalizedResult);
             console.log('[FIX-REFERENCE] Modal aberto após segunda análise');
             
@@ -4264,6 +4279,35 @@ function displayModalResults(analysis) {
     }
     
     console.log('✅ [UI_GATE] Métricas essenciais presentes, exibindo resultados');
+    
+    // 🔥 CORREÇÃO COMPARAÇÃO A/B: Usar _userAnalysis (1ª faixa) para cards/métricas
+    if (analysis._isReferenceMode && analysis._userAnalysis && analysis._referenceAnalysis) {
+        console.log('[REFERENCE-DISPLAY] 🎯 Modo A/B detectado');
+        console.log('[REFERENCE-DISPLAY] Exibindo métricas da 1ª faixa:', analysis._userAnalysis?.fileName || analysis._userAnalysis?.metadata?.fileName);
+        console.log('[REFERENCE-DISPLAY] Comparando com 2ª faixa:', analysis._referenceAnalysis?.fileName || analysis._referenceAnalysis?.metadata?.fileName);
+        
+        // Salvar análise de referência antes de substituir
+        const originalReferenceAnalysis = analysis._referenceAnalysis;
+        
+        // SUBSTITUIR analysis pelos dados da PRIMEIRA faixa (para renderização dos cards)
+        const firstTrackAnalysis = analysis._userAnalysis;
+        
+        // Copiar propriedades importantes
+        analysis = {
+            ...firstTrackAnalysis,
+            _isReferenceMode: true,
+            _userAnalysis: firstTrackAnalysis,
+            _referenceAnalysis: originalReferenceAnalysis,
+            mode: 'reference' // Manter modo para lógica posterior
+        };
+        
+        console.log('[REFERENCE-DISPLAY ✅] analysis substituído por dados da 1ª faixa');
+        console.log('[REFERENCE-DISPLAY] Métricas a serem exibidas:', {
+            lufs: analysis.technicalData?.lufsIntegrated || analysis.loudness?.integrated,
+            dr: analysis.technicalData?.dynamicRange || analysis.technicalData?.dr,
+            tp: analysis.technicalData?.truePeakDbtp || analysis.truePeak?.maxDbtp
+        });
+    }
     
     // 🎯 DETECÇÃO DE MODO COMPARAÇÃO ENTRE FAIXAS
     const isSecondTrack = window.__REFERENCE_JOB_ID__ !== null && window.__REFERENCE_JOB_ID__ !== undefined;
