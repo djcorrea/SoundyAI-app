@@ -1483,54 +1483,56 @@ class AISuggestionsIntegration {
         
         if (typeof originalDisplayModalResults === 'function') {
             window.displayModalResults = (analysis) => {
-                console.log('[SAFE_INTERCEPT] displayModalResults interceptado (ai-suggestions)', analysis);
+                console.log('[SAFE_INTERCEPT] displayModalResults interceptado (ai-suggestions)');
                 
-                // 🔒 Garante preservação A/B
-                const merged = {
-                    ...analysis,
-                    userAnalysis: analysis.userAnalysis || analysis._userAnalysis || window.__soundyState?.previousAnalysis,
-                    referenceAnalysis: analysis.referenceAnalysis || analysis._referenceAnalysis || analysis.analysis,
-                };
+                // 🔒 PROTEÇÃO A/B - Apenas preserva se modo reference está ativo
+                const isReferenceMode = analysis?._isReferenceMode || analysis?.mode === 'reference';
+                let dataToProcess = analysis;
                 
-                if (!merged.userAnalysis || !merged.referenceAnalysis) {
-                    console.warn('[SAFE_INTERCEPT] Dados A/B incompletos - tentando reconstruir a partir do estado global');
+                if (isReferenceMode) {
+                    // Garante preservação A/B apenas em modo reference
+                    dataToProcess = {
+                        ...analysis,
+                        userAnalysis: analysis.userAnalysis || analysis._userAnalysis || window.__soundyState?.previousAnalysis,
+                        referenceAnalysis: analysis.referenceAnalysis || analysis._referenceAnalysis || analysis,
+                    };
+                    console.log('[SAFE_INTERCEPT] Modo reference detectado - preservando dados A/B');
+                } else {
+                    console.log('[SAFE_INTERCEPT] Modo normal - processando sem modificação');
                 }
                 
                 // 🔍 AUDITORIA PASSO 0: INTERCEPTAÇÃO INICIAL
                 console.group('🔍 [AUDITORIA] INTERCEPTAÇÃO INICIAL');
                 console.log('🔗 [AI-INTEGRATION] displayModalResults interceptado:', {
-                    hasAnalysis: !!merged,
-                    hasSuggestions: !!(merged && merged.suggestions),
-                    suggestionsCount: merged?.suggestions?.length || 0,
-                    analysisKeys: merged ? Object.keys(merged) : null,
-                    hasUserAnalysis: !!merged.userAnalysis,
-                    hasReferenceAnalysis: !!merged.referenceAnalysis
+                    hasAnalysis: !!dataToProcess,
+                    hasSuggestions: !!(dataToProcess && dataToProcess.suggestions),
+                    suggestionsCount: dataToProcess?.suggestions?.length || 0,
+                    isReferenceMode: isReferenceMode
                 });
                 
-                if (merged && merged.suggestions) {
-                    merged.suggestions.forEach((sug, index) => {
+                if (dataToProcess && dataToProcess.suggestions) {
+                    dataToProcess.suggestions.forEach((sug, index) => {
                         console.log(`🔗 Intercepted Sugestão ${index + 1}:`, {
                             message: sug.message || sug.issue || sug.title || 'N/A',
-                            action: sug.action || sug.solution || sug.description || 'N/A',
-                            keys: Object.keys(sug)
+                            action: sug.action || sug.solution || sug.description || 'N/A'
                         });
                     });
                 }
                 console.groupEnd();
                 
-                // Call original function first COM DADOS PRESERVADOS
-                const result = originalDisplayModalResults.call(this, merged);
+                // Call original function first
+                const result = originalDisplayModalResults.call(this, dataToProcess);
                 
                 // Extract suggestions and trigger AI processing
-                if (merged && merged.suggestions) {
-                    const genre = merged.metadata?.genre || merged.genre || window.PROD_AI_REF_GENRE;
-                    const metrics = merged.technicalData || {};
+                if (dataToProcess && dataToProcess.suggestions) {
+                    const genre = dataToProcess.metadata?.genre || dataToProcess.genre || window.PROD_AI_REF_GENRE;
+                    const metrics = dataToProcess.technicalData || {};
                     
                     console.log('🔗 [AI-INTEGRATION] Interceptando sugestões para processamento IA');
                     
                     // Delay slightly to ensure modal is rendered
                     setTimeout(() => {
-                        this.processWithAI(merged.suggestions, metrics, genre);
+                        this.processWithAI(dataToProcess.suggestions, metrics, genre);
                     }, 100);
                 }
                 
