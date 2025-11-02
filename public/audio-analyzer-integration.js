@@ -6725,6 +6725,25 @@ function displayModalResults(analysis) {
                 });
             }
             
+            // 🔍 [AUDIT-BANDS-BEFORE] Log ANTES da chamada de renderReferenceComparisons
+            try {
+                const refBands = renderOpts.referenceAnalysis?.bands || renderOpts.referenceAnalysis?.technicalData?.spectral_balance;
+                const userBands = renderOpts.userAnalysis?.bands || renderOpts.userAnalysis?.technicalData?.spectral_balance;
+                console.log('[AUDIT-BANDS-BEFORE]', {
+                    hasRefBands: !!refBands,
+                    hasUserBands: !!userBands,
+                    refBandsType: typeof refBands,
+                    userBandsType: typeof userBands,
+                    refBandsKeys: refBands ? Object.keys(refBands) : [],
+                    userBandsKeys: userBands ? Object.keys(userBands) : [],
+                    refBandsPreview: refBands ? Object.keys(refBands).slice(0, 3) : 'N/A',
+                    userBandsPreview: userBands ? Object.keys(userBands).slice(0, 3) : 'N/A',
+                    renderOptsKeys: Object.keys(renderOpts)
+                });
+            } catch (err) {
+                console.warn('[AUDIT-ERROR]', 'AUDIT-BANDS-BEFORE', err);
+            }
+            
             renderReferenceComparisons(renderOpts);
         } catch(e){ 
             console.error('❌ [RENDER-FLOW] ERRO em renderReferenceComparisons:', e);
@@ -7098,7 +7117,26 @@ if (typeof window.comparisonLock === "undefined") {
 
 // --- BEGIN: deterministic mode gate ---
 function renderReferenceComparisons(opts = {}) {
-    // 🔒 PROTEÇÃO ANTI-DUPLICAÇÃO: Detectar se faixas são idênticas
+    // � [AUDIT-BANDS-IN-RENDER] Log NO INÍCIO da função renderReferenceComparisons
+    try {
+        const refBandsInRender = opts.referenceAnalysis?.bands || opts.referenceAnalysis?.technicalData?.spectral_balance;
+        const userBandsInRender = opts.userAnalysis?.bands || opts.userAnalysis?.technicalData?.spectral_balance;
+        console.log('[AUDIT-BANDS-IN-RENDER]', {
+            receivedRefBands: refBandsInRender,
+            receivedUserBands: userBandsInRender,
+            typeofRefBands: typeof refBandsInRender,
+            typeofUserBands: typeof userBandsInRender,
+            refBandsKeys: refBandsInRender ? Object.keys(refBandsInRender) : [],
+            userBandsKeys: userBandsInRender ? Object.keys(userBandsInRender) : [],
+            optsKeys: Object.keys(opts),
+            hasUserAnalysis: !!opts.userAnalysis,
+            hasReferenceAnalysis: !!opts.referenceAnalysis
+        });
+    } catch (err) {
+        console.warn('[AUDIT-ERROR]', 'AUDIT-BANDS-IN-RENDER', err);
+    }
+    
+    // �🔒 PROTEÇÃO ANTI-DUPLICAÇÃO: Detectar se faixas são idênticas
     if (opts.userAnalysis?.fileName && opts.referenceAnalysis?.fileName &&
         opts.userAnalysis.fileName === opts.referenceAnalysis.fileName) {
         console.error("❌ [REF-DUPE] Detecção de duplicação — referência sobrescrita!");
@@ -7227,6 +7265,24 @@ function renderReferenceComparisons(opts = {}) {
                 {},
         };
         
+        // 🔍 [AUDIT-BANDS-SAFE-V3] Log APÓS construção de comparisonSafe
+        try {
+            console.log('[AUDIT-BANDS-SAFE-V3]', {
+                comparisonSafeUserBands: comparisonSafe.userBands,
+                comparisonSafeRefBands: comparisonSafe.refBands,
+                typeofUserBands: typeof comparisonSafe.userBands,
+                typeofRefBands: typeof comparisonSafe.refBands,
+                userBandsKeys: comparisonSafe.userBands ? Object.keys(comparisonSafe.userBands) : [],
+                refBandsKeys: comparisonSafe.refBands ? Object.keys(comparisonSafe.refBands) : [],
+                sourceUA: ua ? 'opts.userAnalysis ou state.reference.userAnalysis' : 'N/A',
+                sourceRA: ra ? 'opts.referenceAnalysis ou state.reference.referenceAnalysis' : 'N/A',
+                uaBands: ua?.technicalData?.spectral_balance || ua?.bands || ua?.spectralBands,
+                raBands: ra?.technicalData?.spectral_balance || ra?.bands || ra?.spectralBands
+            });
+        } catch (err) {
+            console.warn('[AUDIT-ERROR]', 'AUDIT-BANDS-SAFE-V3', err);
+        }
+        
         // Guardar globalmente (backup)
         window.lastComparisonData = comparisonSafe;
     }
@@ -7304,6 +7360,24 @@ function renderReferenceComparisons(opts = {}) {
         referenceTrack = comparisonData?.referenceTrack || "Faixa de Referência (Alvo)";
         userBands = comparisonData?.userBands || {};
         refBands = comparisonData?.refBands || {};
+
+        // 🔍 [AUDIT-REDECLARE] Log APÓS redeclaração de variáveis
+        try {
+            console.log('[AUDIT-REDECLARE]', {
+                refBandsCheck: refBands,
+                userBandsCheck: userBands,
+                typeofRefBands: typeof refBands,
+                typeofUserBands: typeof userBands,
+                refBandsKeys: refBands ? Object.keys(refBands) : [],
+                userBandsKeys: userBands ? Object.keys(userBands) : [],
+                refBandsIsEmpty: !refBands || Object.keys(refBands).length === 0,
+                userBandsIsEmpty: !userBands || Object.keys(userBands).length === 0,
+                comparisonDataRefBands: comparisonData?.refBands,
+                comparisonDataUserBands: comparisonData?.userBands
+            });
+        } catch (err) {
+            console.warn('[AUDIT-ERROR]', 'AUDIT-REDECLARE', err);
+        }
 
         console.log(" [REF_FIX_V5] Estrutura estabilizada:", {
             userTrack,
@@ -9918,6 +9992,26 @@ function calculateTechnicalScore(analysis, refData) {
 // 8. FUNÇÃO PRINCIPAL: CALCULAR TODOS OS SCORES
 function calculateAnalysisScores(analysis, refData, genre = null) {
     console.log('🎯 Calculando scores da análise...', { genre });
+    
+    // 🔍 [AUDIT-BANDS-IN-CALC] Log NO INÍCIO do cálculo de scores
+    try {
+        const refBandsInCalc = refData?.bands || refData?._referenceBands;
+        const userBandsInCalc = analysis?.bands || analysis?.technicalData?.spectral_balance || analysis?.metrics?.bands;
+        console.log('[AUDIT-BANDS-IN-CALC]', {
+            calcHasRefBands: !!refBandsInCalc,
+            calcHasUserBands: !!userBandsInCalc,
+            refBandsType: typeof refBandsInCalc,
+            userBandsType: typeof userBandsInCalc,
+            refBandsKeys: refBandsInCalc ? Object.keys(refBandsInCalc) : [],
+            userBandsKeys: userBandsInCalc ? Object.keys(userBandsInCalc) : [],
+            refBandsSample: refBandsInCalc ? Object.keys(refBandsInCalc).slice(0, 3) : 'undefined',
+            userBandsSample: userBandsInCalc ? Object.keys(userBandsInCalc).slice(0, 3) : 'undefined',
+            refDataKeys: refData ? Object.keys(refData) : [],
+            isReferenceMode: refData?._isReferenceMode
+        });
+    } catch (err) {
+        console.warn('[AUDIT-ERROR]', 'AUDIT-BANDS-IN-CALC', err);
+    }
     
     if (!analysis || !refData) {
         console.warn('⚠️ Dados insuficientes para calcular scores');
