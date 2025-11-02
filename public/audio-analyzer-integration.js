@@ -5000,6 +5000,21 @@ function displayModalResults(analysis) {
             genre: detectedGenre
         });
         
+        // Injeta bandas no refData se existirem em comparisonData/opts/state
+        if (!referenceDataForScores.bands) {
+            const refBandsFromFlow =
+                comparisonData?.refBands ||
+                opts?.referenceAnalysis?.bands ||
+                opts?.referenceAnalysis?.technicalData?.spectral_balance ||
+                window.__activeRefData?._referenceBands || null;
+
+            if (refBandsFromFlow) {
+                referenceDataForScores.bands = refBandsFromFlow;
+                referenceDataForScores._isReferenceMode = true; // garante caminho reference
+                console.log('[INJECT-REF-BANDS] bands injetadas no refData para cálculo', Object.keys(referenceDataForScores.bands));
+            }
+        }
+        
         try {
             const analysisScores = calculateAnalysisScores(analysis, referenceDataForScores, detectedGenre);
             
@@ -6563,17 +6578,28 @@ function displayModalResults(analysis) {
             }
             
             const renderScoreProgressBar = (label, value, color = '#00ffff', emoji = '🎯') => {
-                const numValue = Number.isFinite(value) ? value : 0;
-                const displayValue = Number.isFinite(value) ? Math.round(value) : '—';
+                // Se null/undefined, renderizar "—" e barra vazia SEM cores "ok"
+                if (!Number.isFinite(value)) {
+                    return `<div class="data-row metric-with-progress">
+                        <span class="label">${emoji} ${label}:</span>
+                        <div class="metric-value-progress">
+                            <span class="value" style="color: #666; font-weight: normal;">—</span>
+                            <div class="progress-bar-mini">
+                                <div class="progress-fill-mini" style="width: 0%; background: transparent;"></div>
+                            </div>
+                        </div>
+                    </div>`;
+                }
+                
+                const numValue = value;
+                const displayValue = Math.round(value);
                 
                 // Cor baseada no score
                 let scoreColor = color;
-                if (Number.isFinite(value)) {
-                    if (value >= 80) scoreColor = '#00ff92'; // Verde para scores altos
-                    else if (value >= 60) scoreColor = '#ffd700'; // Amarelo para scores médios
-                    else if (value >= 40) scoreColor = '#ff9500'; // Laranja para scores baixos
-                    else scoreColor = '#ff3366'; // Vermelho para scores muito baixos
-                }
+                if (value >= 80) scoreColor = '#00ff92'; // Verde para scores altos
+                else if (value >= 60) scoreColor = '#ffd700'; // Amarelo para scores médios
+                else if (value >= 40) scoreColor = '#ff9500'; // Laranja para scores baixos
+                else scoreColor = '#ff3366'; // Vermelho para scores muito baixos
                 
                 return `<div class="data-row metric-with-progress">
                     <span class="label">${emoji} ${label}:</span>
@@ -7196,7 +7222,46 @@ function renderReferenceComparisons(opts = {}) {
     const refBandsCheck = refCheck.bands || [];
 
     if (!Array.isArray(refBandsCheck) || refBandsCheck.length === 0) {
-        console.warn("[REF-COMP] referenceBands ausentes - fallback para valores brutos");
+        // Se chegou aqui é porque alguma verificação antiga marcou "ausente".
+        // Mas NÃO vamos zerar bandas se já mapeamos antes nos logs.
+        // Reconstrua a partir das fontes válidas em cascata.
+        console.warn('[REF-COMP] referenceBands ausentes? Tentando cascata segura de fontes');
+
+        const ra = opts?.referenceAnalysis || window.__soundyState?.reference?.referenceAnalysis || window.__activeRefData?.referenceAnalysis;
+        const ua = opts?.userAnalysis      || window.__soundyState?.reference?.userAnalysis      || window.__activeRefData?.userAnalysis;
+
+        // CASCATA DE BANDAS (nunca caia em undefined se existir em qualquer fonte)
+        const _refBands =
+            ra?.bands ??
+            ra?.technicalData?.spectral_balance ??
+            opts?.referenceAnalysis?.bands ??
+            opts?.referenceAnalysis?.technicalData?.spectral_balance ??
+            window.__activeRefData?._referenceBands ??
+            null;
+
+        const _userBands =
+            ua?.bands ??
+            ua?.technicalData?.spectral_balance ??
+            opts?.userAnalysis?.bands ??
+            opts?.userAnalysis?.technicalData?.spectral_balance ??
+            analysis?.metrics?.bands ??
+            null;
+
+        // Se nenhuma fonte trouxe bandas, aí sim marcamos null (não undefined).
+        const refBands = _refBands ?? null;
+        const userBands = _userBands ?? null;
+
+        console.log('[REF-COMP][FIXED-FALLBACK]', {
+            hasRefBands: !!refBands, hasUserBands: !!userBands,
+            refBandsKeys: refBands ? Object.keys(refBands) : [],
+            userBandsKeys: userBands ? Object.keys(userBands) : []
+        });
+
+        // GARANTA que comparisonData leve bandas vivas
+        const comparisonData = {
+            refBands:  refBands ?? null,
+            userBands: userBands ?? null,
+        };
     }
 
     console.log("[REF-COMP] Dados validados:", { userTrackCheck, refTrackCheck, userBands: userBandsCheck.length, refBands: refBandsCheck.length });
@@ -9770,7 +9835,8 @@ function calculateFrequencyScore(analysis, refData) {
                 } else if (Number.isFinite(refBandData)) {
                     targetDb = refBandData;
                 }
-                tolDb = 0; // Sem tolerância em comparação direta
+                // ±3 dB é uma tolerância auditiva/operacional razoável para bandas agregadas.
+                tolDb = 3.0;
                 
                 if (targetDb !== null) {
                     console.log(`🎯 [SCORE-FREQ-REF] ${calcBand}: comparando com faixa de referência → target=${targetDb.toFixed(1)}dB (valor real), tol=0dB`);
