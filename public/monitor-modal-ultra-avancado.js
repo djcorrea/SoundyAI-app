@@ -13,14 +13,32 @@ function interceptarDisplayModalResults() {
 
         console.log('🎯 [MODAL_MONITOR] displayModalResults encontrada, interceptando...');
         
-        const original = window.displayModalResults;
+        // 🔒 Usar cópia imutável se disponível
+        const original = window.__displayModalResultsOriginal || window.displayModalResults;
         window.displayModalResults = function(data) {
-            console.log("[SAFE_INTERCEPT] displayModalResults interceptado (monitor-modal)", data);
+            console.log("[SAFE_INTERCEPT-MONITOR] displayModalResults interceptado (monitor-modal)", data);
 
             // 🔒 NÃO sobrescreve userAnalysis nem referenceAnalysis
             if (data?.mode === "reference" && data.userAnalysis && data.referenceAnalysis) {
-                console.log("[SAFE_INTERCEPT] Preservando estrutura A/B");
-                return original.call(this, data);
+                console.log("[SAFE_INTERCEPT-MONITOR] Preservando estrutura A/B");
+                
+                // ✅ GARANTIR chamada da função original
+                const result = original.call(this, data);
+                
+                // ✅ Verificar DOM após renderização
+                setTimeout(() => {
+                    const technicalData = document.getElementById('modalTechnicalData');
+                    if (!technicalData || !technicalData.innerHTML.trim()) {
+                        console.warn('[FIX] ⚠️ DOM vazio após interceptação, forçando chamada original');
+                        if (window.__displayModalResultsOriginal) {
+                            window.__displayModalResultsOriginal.call(this, data);
+                        }
+                    } else {
+                        console.log('[SAFE_INTERCEPT-MONITOR] ✅ DOM renderizado corretamente');
+                    }
+                }, 100);
+                
+                return result;
             }
 
             const merged = {
@@ -63,8 +81,24 @@ function interceptarDisplayModalResults() {
                 console.warn('⚠️ [MODAL_MONITOR] Nenhuma sugestão encontrada na análise');
             }
             
-            // Chamar a função original com dados mesclados
-            return original.call(this, merged);
+            // ✅ Chamar a função original com dados mesclados
+            console.log('[SAFE_INTERCEPT-MONITOR] ✅ Chamando função original');
+            const result = original.call(this, merged);
+            
+            // ✅ Verificar DOM após renderização
+            setTimeout(() => {
+                const technicalData = document.getElementById('modalTechnicalData');
+                if (!technicalData || !technicalData.innerHTML.trim()) {
+                    console.warn('[FIX] ⚠️ DOM vazio após interceptação (modo não-reference), forçando chamada original');
+                    if (window.__displayModalResultsOriginal) {
+                        window.__displayModalResultsOriginal.call(this, merged);
+                    }
+                } else {
+                    console.log('[SAFE_INTERCEPT-MONITOR] ✅ DOM renderizado corretamente (modo não-reference)');
+                }
+            }, 100);
+            
+            return result;
         };
         
         console.log('✅ [MODAL_MONITOR] Interceptação ativa - monitorando próximas análises');

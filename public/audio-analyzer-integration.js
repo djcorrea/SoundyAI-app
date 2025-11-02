@@ -8878,6 +8878,15 @@ function renderReferenceComparisons(opts = {}) {
     }
 }
 
+// 🔒 CÓPIA IMUTÁVEL DA FUNÇÃO ORIGINAL displayModalResults
+// Esta cópia garante que interceptadores sempre tenham acesso à função original
+if (!window.__displayModalResultsOriginal) {
+    console.log('[FIX] 🔒 Criando cópia imutável de displayModalResults');
+    window.__displayModalResultsOriginal = displayModalResults;
+    Object.freeze(window.__displayModalResultsOriginal);
+    console.log('[FIX] ✅ Cópia imutável criada: window.__displayModalResultsOriginal');
+}
+
 /**
  * 🎯 RENDERIZAÇÃO DE COMPARAÇÃO ENTRE DUAS FAIXAS
  * Exibe tabela comparativa lado a lado: Faixa 1 (referência) vs Faixa 2 (usuário)

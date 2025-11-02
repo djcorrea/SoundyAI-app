@@ -1485,13 +1485,14 @@ class AISuggestionsIntegration {
                 return;
             }
 
-            const original = window.displayModalResults;
+            // 🔒 Usar cópia imutável se disponível
+            const original = window.__displayModalResultsOriginal || window.displayModalResults;
             window.displayModalResults = (data) => {
-                console.log("[SAFE_INTERCEPT] displayModalResults interceptado (ai-suggestions)", data);
+                console.log("[SAFE_INTERCEPT-AI] displayModalResults interceptado (ai-suggestions)", data);
 
                 // 🔒 NÃO sobrescreve userAnalysis nem referenceAnalysis
                 if (data?.mode === "reference" && data.userAnalysis && data.referenceAnalysis) {
-                    console.log("[SAFE_INTERCEPT] Preservando estrutura A/B");
+                    console.log("[SAFE_INTERCEPT-AI] Preservando estrutura A/B");
                     const result = original.call(this, data);
                     
                     // Processar sugestões mesmo em modo reference
@@ -1504,6 +1505,25 @@ class AISuggestionsIntegration {
                             this.processWithAI(data.suggestions, metrics, genre);
                         }, 100);
                     }
+                    
+                    // ✅ Verificar DOM após renderização
+                    setTimeout(() => {
+                        const technicalData = document.getElementById('modalTechnicalData');
+                        if (!technicalData || !technicalData.innerHTML.trim()) {
+                            console.warn('[FIX] ⚠️ DOM vazio após interceptação AI (reference), forçando chamada original');
+                            if (window.__displayModalResultsOriginal) {
+                                window.__displayModalResultsOriginal.call(this, data);
+                            }
+                        } else {
+                            console.log('[SAFE_INTERCEPT-AI] ✅ DOM renderizado corretamente (reference)');
+                            
+                            // ✅ Garantir que sugestões de IA sejam chamadas
+                            if (window.aiUIController) {
+                                console.log('[SAFE_INTERCEPT-AI] ✅ Chamando aiUIController.checkForAISuggestions');
+                                window.aiUIController.checkForAISuggestions(data, true);
+                            }
+                        }
+                    }, 200);
                     
                     return result;
                 }
@@ -1534,7 +1554,8 @@ class AISuggestionsIntegration {
                 }
                 console.groupEnd();
                 
-                // Call original function first
+                // ✅ Call original function first
+                console.log('[SAFE_INTERCEPT-AI] ✅ Chamando função original (modo não-reference)');
                 const result = original.call(this, merged);
                 
                 // Extract suggestions and trigger AI processing
@@ -1549,6 +1570,19 @@ class AISuggestionsIntegration {
                         this.processWithAI(merged.suggestions, metrics, genre);
                     }, 100);
                 }
+                
+                // ✅ Verificar DOM após renderização
+                setTimeout(() => {
+                    const technicalData = document.getElementById('modalTechnicalData');
+                    if (!technicalData || !technicalData.innerHTML.trim()) {
+                        console.warn('[FIX] ⚠️ DOM vazio após interceptação AI (não-reference), forçando chamada original');
+                        if (window.__displayModalResultsOriginal) {
+                            window.__displayModalResultsOriginal.call(this, merged);
+                        }
+                    } else {
+                        console.log('[SAFE_INTERCEPT-AI] ✅ DOM renderizado corretamente (não-reference)');
+                    }
+                }, 200);
                 
                 return result;
             };
