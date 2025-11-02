@@ -4745,7 +4745,31 @@ function displayModalResults(analysis) {
             scores: analysis.scores || {}
         };
         
-        return; // Não executar renderização normal de gênero
+        // ✅ CORREÇÃO CRÍTICA: NÃO retornar aqui!
+        // Continuar para renderizar cards, scores e sugestões
+        console.log('[AUDIT-FIX] ✅ Continuando renderização completa (cards, scores, sugestões)');
+        
+        // 🎯 GARANTIR que sugestões de IA sejam chamadas também no modo reference
+        console.log('[AUDIT-FIX] 🤖 Iniciando renderização de sugestões de IA no modo reference');
+        
+        // Usar dados da primeira faixa (userAnalysis) para sugestões
+        const analysisForSuggestions = refNormalized || analysis;
+        
+        // Chamar sugestões de IA após pequeno delay para garantir que DOM está pronto
+        setTimeout(() => {
+            if (window.aiUIController) {
+                console.log('[AUDIT-FIX] ✅ Chamando aiUIController.checkForAISuggestions');
+                window.aiUIController.checkForAISuggestions(analysisForSuggestions, true);
+            } else if (window.forceShowAISuggestions) {
+                console.log('[AUDIT-FIX] ✅ Chamando forceShowAISuggestions');
+                window.forceShowAISuggestions(analysisForSuggestions);
+            } else {
+                console.warn('[AUDIT-FIX] ⚠️ Nenhuma função de IA disponível');
+            }
+        }, 800);
+        
+        // ⚠️ IMPORTANTE: Não usar return aqui - continuar fluxo normal
+        // return; // ← REMOVIDO
     }
     
     // 🎯 CORREÇÃO: Definir modo baseado no contexto real da análise
