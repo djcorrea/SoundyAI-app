@@ -4640,37 +4640,11 @@ function displayModalResults(analysis) {
         // - userAnalysis = 1ª faixa (SUA MÚSICA - atual)
         // - referenceAnalysis = 2ª faixa (REFERÊNCIA - alvo)
         
-        console.log('[RENDER-CALL] ═══════════════════════════════════════');
-        console.log('[RENDER-CALL] Chamando renderReferenceComparisons com:');
-        console.log('[RENDER-CALL] opts.userAnalysis (1ª FAIXA):');
-        console.log('[RENDER-CALL]   Nome:', refNormalized?.fileName || refNormalized?.metadata?.fileName);
-        console.log('[RENDER-CALL]   technicalData:', !!refNormalized?.technicalData);
-        console.log('[RENDER-CALL]   spectral_balance:', refNormalized?.technicalData?.spectral_balance ? 'SIM' : 'NÃO');
-        console.log('[RENDER-CALL]   bandas:', refNormalized?.technicalData?.spectral_balance ? Object.keys(refNormalized.technicalData.spectral_balance) : 'NENHUMA');
-        console.log('[RENDER-CALL]   LUFS:', refNormalized?.technicalData?.lufsIntegrated);
-        console.log('[RENDER-CALL] opts.referenceAnalysis (2ª FAIXA):');
-        console.log('[RENDER-CALL]   Nome:', currNormalized?.fileName || currNormalized?.metadata?.fileName);
-        console.log('[RENDER-CALL]   technicalData:', !!currNormalized?.technicalData);
-        console.log('[RENDER-CALL]   spectral_balance:', currNormalized?.technicalData?.spectral_balance ? 'SIM' : 'NÃO');
-        console.log('[RENDER-CALL]   bandas:', currNormalized?.technicalData?.spectral_balance ? Object.keys(currNormalized.technicalData.spectral_balance) : 'NENHUMA');
-        console.log('[RENDER-CALL]   LUFS:', currNormalized?.technicalData?.lufsIntegrated);
-        console.log('[RENDER-CALL] ═══════════════════════════════════════');
-        
-        // 🔒 PROTEÇÃO FINAL A/B - Garantir dados corretos antes de renderizar
-        const payload = {
+        renderReferenceComparisons({
             mode: 'reference',
-            userAnalysis: window.__soundyState?.previousAnalysis || refNormalized,
-            referenceAnalysis: analysis || currNormalized
-        };
-        
-        console.log('[REFERENCE-FLOW ✅] Enviando A/B final:', {
-            user: payload.userAnalysis?.fileName || payload.userAnalysis?.metadata?.fileName,
-            ref: payload.referenceAnalysis?.fileName || payload.referenceAnalysis?.metadata?.fileName,
-            userLUFS: payload.userAnalysis?.technicalData?.lufsIntegrated,
-            refLUFS: payload.referenceAnalysis?.technicalData?.lufsIntegrated
+            userAnalysis: refNormalized,        // 1ª faixa (sua música)
+            referenceAnalysis: currNormalized   // 2ª faixa (referência)
         });
-        
-        renderReferenceComparisons(payload);
         
         // ❌ REMOVIDO: renderTrackComparisonTable() - causava duplicação
         // renderReferenceComparisons() já renderiza tudo
@@ -6994,27 +6968,6 @@ function renderReferenceComparisons(opts = {}) {
     const refStateCheck = globalState?.reference || {};
     const userCheck = refStateCheck.userAnalysis || opts.userAnalysis;
     const refCheck = refStateCheck.referenceAnalysis || opts.referenceAnalysis;
-    
-    // 🚨 PROTEÇÃO ANTI-DUPLICAÇÃO - Detectar se referência foi sobrescrita pela 1ª faixa
-    const userTrack = opts.userAnalysis || userCheck;
-    const referenceTrack = opts.referenceAnalysis || refCheck;
-    
-    if (userTrack?.fileName && referenceTrack?.fileName && userTrack.fileName === referenceTrack.fileName) {
-        console.error('[REF-CRITICAL] ❌ ═══════════════════════════════════════');
-        console.error('[REF-CRITICAL] ❌ DETECÇÃO DE DUPLICAÇÃO INDEVIDA!');
-        console.error('[REF-CRITICAL] ❌ Referência foi sobrescrita pela 1ª faixa!');
-        console.error('[REF-CRITICAL] ❌ userTrack (1ª):', userTrack.fileName);
-        console.error('[REF-CRITICAL] ❌ referenceTrack (2ª):', referenceTrack.fileName);
-        console.error('[REF-CRITICAL] ❌ window.__soundyState.previousAnalysis:', window.__soundyState?.previousAnalysis?.fileName);
-        console.error('[REF-CRITICAL] ❌ ═══════════════════════════════════════');
-        
-        // Tentar recuperar da previousAnalysis
-        if (window.__soundyState?.previousAnalysis?.fileName !== referenceTrack.fileName) {
-            console.warn('[REF-RECOVERY] Tentando recuperar referência de window.__soundyState.previousAnalysis');
-            opts.referenceAnalysis = referenceTrack; // 2ª faixa
-            opts.userAnalysis = window.__soundyState.previousAnalysis; // 1ª faixa
-        }
-    }
 
     if (!userCheck || !refCheck) {
         console.warn("[REF-COMP] Faltam dados de referência ou usuário, usando fallback seguro");
