@@ -4640,27 +4640,35 @@ function displayModalResults(analysis) {
         // - userAnalysis = 1ª faixa (SUA MÚSICA - atual)
         // - referenceAnalysis = 2ª faixa (REFERÊNCIA - alvo)
         
+        // 🔒 PASSO 2: Estrutura final protegida antes da renderização
+        const payload = {
+            mode: "reference",
+            userAnalysis: window.__soundyState.previousAnalysis || refNormalized,
+            referenceAnalysis: analysis || currNormalized,
+        };
+
+        console.log("[REFERENCE-FLOW ✅] Enviando A/B final:", {
+            user: payload.userAnalysis?.fileName || payload.userAnalysis?.metadata?.fileName,
+            ref: payload.referenceAnalysis?.fileName || payload.referenceAnalysis?.metadata?.fileName,
+        });
+        
         console.log('[RENDER-CALL] ═══════════════════════════════════════');
         console.log('[RENDER-CALL] Chamando renderReferenceComparisons com:');
         console.log('[RENDER-CALL] opts.userAnalysis (1ª FAIXA):');
-        console.log('[RENDER-CALL]   Nome:', refNormalized?.fileName || refNormalized?.metadata?.fileName);
-        console.log('[RENDER-CALL]   technicalData:', !!refNormalized?.technicalData);
-        console.log('[RENDER-CALL]   spectral_balance:', refNormalized?.technicalData?.spectral_balance ? 'SIM' : 'NÃO');
-        console.log('[RENDER-CALL]   bandas:', refNormalized?.technicalData?.spectral_balance ? Object.keys(refNormalized.technicalData.spectral_balance) : 'NENHUMA');
-        console.log('[RENDER-CALL]   LUFS:', refNormalized?.technicalData?.lufsIntegrated);
+        console.log('[RENDER-CALL]   Nome:', payload.userAnalysis?.fileName || payload.userAnalysis?.metadata?.fileName);
+        console.log('[RENDER-CALL]   technicalData:', !!payload.userAnalysis?.technicalData);
+        console.log('[RENDER-CALL]   spectral_balance:', payload.userAnalysis?.technicalData?.spectral_balance ? 'SIM' : 'NÃO');
+        console.log('[RENDER-CALL]   bandas:', payload.userAnalysis?.technicalData?.spectral_balance ? Object.keys(payload.userAnalysis.technicalData.spectral_balance) : 'NENHUMA');
+        console.log('[RENDER-CALL]   LUFS:', payload.userAnalysis?.technicalData?.lufsIntegrated);
         console.log('[RENDER-CALL] opts.referenceAnalysis (2ª FAIXA):');
-        console.log('[RENDER-CALL]   Nome:', currNormalized?.fileName || currNormalized?.metadata?.fileName);
-        console.log('[RENDER-CALL]   technicalData:', !!currNormalized?.technicalData);
-        console.log('[RENDER-CALL]   spectral_balance:', currNormalized?.technicalData?.spectral_balance ? 'SIM' : 'NÃO');
-        console.log('[RENDER-CALL]   bandas:', currNormalized?.technicalData?.spectral_balance ? Object.keys(currNormalized.technicalData.spectral_balance) : 'NENHUMA');
-        console.log('[RENDER-CALL]   LUFS:', currNormalized?.technicalData?.lufsIntegrated);
+        console.log('[RENDER-CALL]   Nome:', payload.referenceAnalysis?.fileName || payload.referenceAnalysis?.metadata?.fileName);
+        console.log('[RENDER-CALL]   technicalData:', !!payload.referenceAnalysis?.technicalData);
+        console.log('[RENDER-CALL]   spectral_balance:', payload.referenceAnalysis?.technicalData?.spectral_balance ? 'SIM' : 'NÃO');
+        console.log('[RENDER-CALL]   bandas:', payload.referenceAnalysis?.technicalData?.spectral_balance ? Object.keys(payload.referenceAnalysis.technicalData.spectral_balance) : 'NENHUMA');
+        console.log('[RENDER-CALL]   LUFS:', payload.referenceAnalysis?.technicalData?.lufsIntegrated);
         console.log('[RENDER-CALL] ═══════════════════════════════════════');
         
-        renderReferenceComparisons({
-            mode: 'reference',
-            userAnalysis: refNormalized,        // 1ª faixa (sua música)
-            referenceAnalysis: currNormalized   // 2ª faixa (referência)
-        });
+        renderReferenceComparisons(payload);
         
         // ❌ REMOVIDO: renderTrackComparisonTable() - causava duplicação
         // renderReferenceComparisons() já renderiza tudo
@@ -7019,6 +7027,22 @@ function renderReferenceComparisons(opts = {}) {
     
     // Aceita opts ou analysis (backward compatibility)
     const analysis = opts.analysis || opts;
+    
+    // 🔒 PASSO 3: Proteção anti-duplicação
+    const userTrack = opts.userAnalysis || opts.user || opts.userTrackFull;
+    const referenceTrack = opts.referenceAnalysis || opts.reference || opts.referenceTrackFull;
+    
+    if (userTrack?.fileName === referenceTrack?.fileName) {
+        console.error("[REF-CRITICAL] ❌❌❌ Detecção de duplicação indevida — referência foi sobrescrita!");
+        console.log("[REF-CRITICAL] userTrack (1ª):", userTrack?.fileName || userTrack?.metadata?.fileName);
+        console.log("[REF-CRITICAL] referenceTrack (2ª):", referenceTrack?.fileName || referenceTrack?.metadata?.fileName);
+        console.log("[REF-CRITICAL] window.__soundyState.previousAnalysis:", window.__soundyState?.previousAnalysis?.fileName);
+        console.log("[REF-CRITICAL] ❌ ABORTANDO RENDERIZAÇÃO - dados duplicados!");
+        window.__REF_RENDER_LOCK__ = false;
+        window.comparisonLock = false;
+        console.groupEnd();
+        return;
+    }
     
     const container = document.getElementById('referenceComparisons');
     if (!container) {
