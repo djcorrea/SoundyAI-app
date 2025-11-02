@@ -4308,6 +4308,19 @@ function displayModalResults(analysis) {
             referenceBands: Object.keys(currNormalized?.technicalData?.spectral_balance || {})
         });
         
+        // 🧩 PROTEÇÃO NO displayModalResults: Bloquear execução se referenceTrack ainda não existir
+        if (!currNormalized?.metadata?.fileName && !currNormalized?.fileName) {
+            console.warn("⚠️ [DISPLAY_MODAL_FIX] Reference track ainda não pronta — adiando render...");
+            setTimeout(() => {
+                renderReferenceComparisons({
+                    mode: 'reference',
+                    userAnalysis: refNormalized,
+                    referenceAnalysis: currNormalized
+                });
+            }, 300);
+            return;
+        }
+        
         // 🧩 CORREÇÃO #6: Chamada ÚNICA de renderização (remover duplicação)
         // Ordem correta: userAnalysis = 1ª faixa (base), referenceAnalysis = 2ª faixa (alvo)
         renderReferenceComparisons({
@@ -6596,15 +6609,35 @@ function resolveTargetMetric(analysis, key, fallback) {
 
 // --- BEGIN: deterministic mode gate ---
 function renderReferenceComparisons(opts = {}) {
-    // 🎯 LOG DE AUDITORIA INICIAL
-    console.groupCollapsed("[AUDITORIA_FINAL_RENDER_REF]");
-    console.log("📊 [INPUT_OPTS]", opts);
+    // 🎯 SAFE RENDER COM DEBOUNCE
+    console.groupCollapsed("[SAFE_RENDER_REF]");
+    console.log("🧩 Recebido opts:", opts);
+    
+    // � Se já estiver processando render, cancelar chamadas duplicadas
+    if (window.__REF_RENDER_LOCK__) {
+        console.warn("⚠️ [SAFE_RENDER_REF] Renderização ignorada — já em progresso.");
+        console.groupEnd();
+        return;
+    }
+    window.__REF_RENDER_LOCK__ = true;
     
     // Aceita opts ou analysis (backward compatibility)
     const analysis = opts.analysis || opts;
     
     const container = document.getElementById('referenceComparisons');
     if (!container) {
+        window.__REF_RENDER_LOCK__ = false;
+        console.groupEnd();
+        return;
+    }
+    
+    // 🕒 Aguardar brevemente até que o state/referenceAnalysis esteja pronto
+    if (!opts?.referenceAnalysis?.metadata?.fileName && !opts?.referenceAnalysis?.fileName) {
+        console.warn("⚠️ [SAFE_RENDER_REF] referenceTrack ainda não definido — reagendando render...");
+        window.__REF_RENDER_LOCK__ = false;
+        setTimeout(() => {
+            renderReferenceComparisons(opts);
+        }, 300);
         console.groupEnd();
         return;
     }
@@ -6638,26 +6671,27 @@ function renderReferenceComparisons(opts = {}) {
                     null;
     
     // ✅ LOG PARA CONFIRMAÇÃO
-    console.log("✅ [RENDER-SAFEGUARD] Tracks resolvidas:", { 
-        userTrack, 
-        referenceTrack, 
-        userBands: !!userBands, 
-        refBands: !!refBands 
-    });
+    console.log("✅ [SAFE_RENDER_REF] Tracks resolvidas:", { userTrack, referenceTrack, userBands: !!userBands, refBands: !!refBands });
     
-    // 🚨 ABORTAGEM SE BANDAS AUSENTES
+    // 🧩 Caso ainda falte alguma banda, abortar render com aviso amigável
     if (!userBands || !refBands) {
-        console.error("🚨 [CRITICAL-REF] Dados de bandas ausentes — abortando renderização segura.");
+        console.error("🚨 [SAFE_RENDER_REF] Dados de bandas ausentes, abortando renderização segura.");
         container.innerHTML = `
             <div style="color:red;text-align:center;padding:20px;border:1px solid #ff4444;border-radius:8px;background:#fff0f0;">
-                ❌ Erro: dados de bandas não disponíveis.<br>
+                ❌ Erro: bandas não carregadas completamente.<br>
                 <small style="opacity:0.7;margin-top:8px;display:block;">
-                    userBands: ${!!userBands ? '✅' : '❌'}, refBands: ${!!refBands ? '✅' : '❌'}
+                    userBands: ${!!userBands}, refBands: ${!!refBands}
                 </small>
             </div>`;
+        window.__REF_RENDER_LOCK__ = false;
         console.groupEnd();
         return;
     }
+    
+    // 🔓 Libera lock após iniciar renderização (será completado em 1.5s)
+    setTimeout(() => {
+        window.__REF_RENDER_LOCK__ = false;
+    }, 1500);
     
     // 🧠 SAFEGUARD FINAL: Verificação crítica antes de qualquer renderização
     if (opts?.mode === "reference") {
