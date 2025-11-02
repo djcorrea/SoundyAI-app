@@ -1478,22 +1478,53 @@ class AISuggestionsIntegration {
      * Integração com sistema existente
      */
     integrateWithExistingSystem() {
-        // Hook into displayModalResults to trigger AI processing
-        const originalDisplayModalResults = window.displayModalResults;
-        
-        if (typeof originalDisplayModalResults === 'function') {
-            window.displayModalResults = (analysis) => {
+        const safeAttachDisplayModal = () => {
+            if (typeof window.displayModalResults !== "function") {
+                console.warn("[SAFE_INTERCEPT_WAIT] Aguardando função displayModalResults...");
+                setTimeout(safeAttachDisplayModal, 300);
+                return;
+            }
+
+            const original = window.displayModalResults;
+            window.displayModalResults = (data) => {
+                console.log("[SAFE_INTERCEPT] displayModalResults interceptado (ai-suggestions)", data);
+
+                // 🔒 NÃO sobrescreve userAnalysis nem referenceAnalysis
+                if (data?.mode === "reference" && data.userAnalysis && data.referenceAnalysis) {
+                    console.log("[SAFE_INTERCEPT] Preservando estrutura A/B");
+                    const result = original.call(this, data);
+                    
+                    // Processar sugestões mesmo em modo reference
+                    if (data && data.suggestions) {
+                        const genre = data.metadata?.genre || data.genre || window.PROD_AI_REF_GENRE;
+                        const metrics = data.technicalData || {};
+                        
+                        console.log('🔗 [AI-INTEGRATION] Processando sugestões (modo reference)');
+                        setTimeout(() => {
+                            this.processWithAI(data.suggestions, metrics, genre);
+                        }, 100);
+                    }
+                    
+                    return result;
+                }
+
+                const merged = {
+                    ...data,
+                    userAnalysis: data.userAnalysis || window.__soundyState?.previousAnalysis,
+                    referenceAnalysis: data.referenceAnalysis || data.analysis,
+                };
+                
                 // 🔍 AUDITORIA PASSO 0: INTERCEPTAÇÃO INICIAL
                 console.group('🔍 [AUDITORIA] INTERCEPTAÇÃO INICIAL');
                 console.log('🔗 [AI-INTEGRATION] displayModalResults interceptado:', {
-                    hasAnalysis: !!analysis,
-                    hasSuggestions: !!(analysis && analysis.suggestions),
-                    suggestionsCount: analysis?.suggestions?.length || 0,
-                    analysisKeys: analysis ? Object.keys(analysis) : null
+                    hasAnalysis: !!merged,
+                    hasSuggestions: !!(merged && merged.suggestions),
+                    suggestionsCount: merged?.suggestions?.length || 0,
+                    analysisKeys: merged ? Object.keys(merged) : null
                 });
                 
-                if (analysis && analysis.suggestions) {
-                    analysis.suggestions.forEach((sug, index) => {
+                if (merged && merged.suggestions) {
+                    merged.suggestions.forEach((sug, index) => {
                         console.log(`🔗 Intercepted Sugestão ${index + 1}:`, {
                             message: sug.message || sug.issue || sug.title || 'N/A',
                             action: sug.action || sug.solution || sug.description || 'N/A',
@@ -1504,18 +1535,18 @@ class AISuggestionsIntegration {
                 console.groupEnd();
                 
                 // Call original function first
-                const result = originalDisplayModalResults.call(this, analysis);
+                const result = original.call(this, merged);
                 
                 // Extract suggestions and trigger AI processing
-                if (analysis && analysis.suggestions) {
-                    const genre = analysis.metadata?.genre || analysis.genre || window.PROD_AI_REF_GENRE;
-                    const metrics = analysis.technicalData || {};
+                if (merged && merged.suggestions) {
+                    const genre = merged.metadata?.genre || merged.genre || window.PROD_AI_REF_GENRE;
+                    const metrics = merged.technicalData || {};
                     
                     console.log('🔗 [AI-INTEGRATION] Interceptando sugestões para processamento IA');
                     
                     // Delay slightly to ensure modal is rendered
                     setTimeout(() => {
-                        this.processWithAI(analysis.suggestions, metrics, genre);
+                        this.processWithAI(merged.suggestions, metrics, genre);
                     }, 100);
                 }
                 
@@ -1523,14 +1554,9 @@ class AISuggestionsIntegration {
             };
             
             console.log('✅ [AI-INTEGRATION] Integração com displayModalResults configurada');
-        } else {
-            console.warn('⚠️ [AI-INTEGRATION] displayModalResults não encontrada - aguardando...');
-            
-            // Retry in 1 second
-            setTimeout(() => {
-                this.integrateWithExistingSystem();
-            }, 1000);
-        }
+        };
+        
+        safeAttachDisplayModal();
     }
 }
 
