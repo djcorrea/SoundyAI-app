@@ -329,12 +329,44 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             fileName: fileName
         };
         
-        // 🔗 Se já temos um referenceJobId armazenado, incluir no payload
-        // Isso indica que é a SEGUNDA música (referência) sendo enviada
-        if (window.__REFERENCE_JOB_ID__) {
-            payload.referenceJobId = window.__REFERENCE_JOB_ID__;
-            __dbg('🎯 Incluindo referenceJobId no payload (segunda música):', window.__REFERENCE_JOB_ID__);
+        // � FIX: Garantir envio correto de referenceJobId no modo referência
+        let referenceJobId = window.__REFERENCE_JOB_ID__;
+
+        if (mode === 'reference') {
+            // Se ainda não existir referenceJobId, tenta recuperar do estado global
+            if (!referenceJobId && window.__soundyState?.previousAnalysis?.jobId) {
+                referenceJobId = window.__soundyState.previousAnalysis.jobId;
+                console.log('[FIX_REFID] Recuperado jobId da primeira música do estado:', referenceJobId);
+            }
+
+            // Log de diagnóstico completo
+            if (referenceJobId) {
+                console.log('[FIX_REFID] ═══════════════════════════════════════');
+                console.log('[FIX_REFID] Modo REFERENCE detectado - Segunda música');
+                console.log(`[FIX_REFID] Reference Job ID: ${referenceJobId}`);
+                console.log(`[FIX_REFID] File Key: ${fileKey}`);
+                console.log(`[FIX_REFID] File Name: ${fileName}`);
+                console.log('[FIX_REFID] Payload será enviado COM referenceJobId ✅');
+                console.log('[FIX_REFID] ═══════════════════════════════════════');
+                
+                payload.referenceJobId = referenceJobId;
+            } else {
+                console.log('[FIX_REFID] ═══════════════════════════════════════');
+                console.log('[FIX_REFID] Modo REFERENCE detectado - Primeira música');
+                console.log('[FIX_REFID] Nenhum referenceJobId encontrado (esperado)');
+                console.log(`[FIX_REFID] File Key: ${fileKey}`);
+                console.log(`[FIX_REFID] File Name: ${fileName}`);
+                console.log('[FIX_REFID] Esta será a música BASE para comparação');
+                console.log('[FIX_REFID] Payload será enviado SEM referenceJobId ✅');
+                console.log('[FIX_REFID] ═══════════════════════════════════════');
+            }
         }
+
+        // 🔍 LOG FINAL: Mostrar payload completo antes do envio
+        console.log('[FIX_REFID_PAYLOAD] ═══════════════════════════════════════');
+        console.log('[FIX_REFID_PAYLOAD] Payload final sendo enviado para /api/audio/analyze:');
+        console.log('[FIX_REFID_PAYLOAD]', JSON.stringify(payload, null, 2));
+        console.log('[FIX_REFID_PAYLOAD] ═══════════════════════════════════════');
 
         const response = await fetch('/api/audio/analyze', {
             method: 'POST',
@@ -2416,24 +2448,32 @@ function resetModalState() {
     
     window.__soundyState = state;
     
-    // 🧼 LIMPEZA COMPLETA: Garantir que nenhum resíduo de referência persista
-    window.__REFERENCE_JOB_ID__ = null;
-    window.referenceAnalysisData = null;
-    window.referenceComparisonMetrics = null;
-    window.lastReferenceJobId = null;
-    
-    console.log('✅ [RESET] Estado limpo completamente - pronto para nova análise');
-
-    // 🔥 FIX-REFERENCE: Preservar flags se estamos em modo reference aguardando segunda música
+    // 🔥 FIX-REFERENCE: Verificar se estamos aguardando segunda música ANTES de limpar
     const isAwaitingSecondTrack = currentAnalysisMode === 'reference' && window.__REFERENCE_JOB_ID__;
+    
+    console.log('[FIX_REFID_RESET] ═══════════════════════════════════════');
+    console.log(`[FIX_REFID_RESET] Mode atual: ${currentAnalysisMode}`);
+    console.log(`[FIX_REFID_RESET] Reference Job ID existe: ${window.__REFERENCE_JOB_ID__ ? 'SIM' : 'NÃO'}`);
+    console.log(`[FIX_REFID_RESET] Aguardando segunda música: ${isAwaitingSecondTrack ? 'SIM' : 'NÃO'}`);
 
     if (!isAwaitingSecondTrack) {
+        // 🧼 LIMPEZA COMPLETA: Só limpar se NÃO estivermos aguardando segunda música
+        window.__REFERENCE_JOB_ID__ = null;
+        window.referenceAnalysisData = null;
+        window.referenceComparisonMetrics = null;
+        window.lastReferenceJobId = null;
         delete window.__REFERENCE_JOB_ID__;
         delete window.__FIRST_ANALYSIS_RESULT__;
-        console.log('[CLEANUP] Flags de referência limpas (modo não-reference)');
+        
+        console.log('[FIX_REFID_RESET] Estado limpo completamente ✅');
+        console.log('[FIX_REFID_RESET] Flags de referência LIMPAS (modo não-reference)');
     } else {
-        console.log('[FIX-REFERENCE] Preservando flags de referência para segunda música');
+        // Preservar IDs de referência para segunda música
+        console.log('[FIX_REFID_RESET] ⚠️ PRESERVANDO flags de referência!');
+        console.log(`[FIX_REFID_RESET] Reference Job ID mantido: ${window.__REFERENCE_JOB_ID__}`);
+        console.log('[FIX_REFID_RESET] Aguardando upload da segunda música...');
     }
+    console.log('[FIX_REFID_RESET] ═══════════════════════════════════════');
 
     // Flags internas
     delete window.__AUDIO_ADVANCED_READY__;
@@ -2575,8 +2615,17 @@ async function handleModalFileSelection(file) {
                 delete window.__soundyState.reference.analysis;
                 console.log('[PARTE 3] reference.analysis limpo para evitar contaminação');
             }
+            
+            // 🔧 FIX: Salvar jobId da primeira música com log detalhado
             window.__REFERENCE_JOB_ID__ = analysisResult.jobId;
-            console.log('[PARTE 3] __REFERENCE_JOB_ID__ definido:', analysisResult.jobId);
+            console.log('[FIX_REFID_SAVE] ═══════════════════════════════════════');
+            console.log('[FIX_REFID_SAVE] Primeira música processada com sucesso!');
+            console.log(`[FIX_REFID_SAVE] Job ID salvo como referência base: ${analysisResult.jobId}`);
+            console.log(`[FIX_REFID_SAVE] File Name: ${analysisResult.metadata?.fileName || analysisResult.fileName || 'unknown'}`);
+            console.log(`[FIX_REFID_SAVE] LUFS: ${analysisResult.technicalData?.lufsIntegrated || 'N/A'} LUFS`);
+            console.log(`[FIX_REFID_SAVE] DR: ${analysisResult.technicalData?.dynamicRange || 'N/A'} dB`);
+            console.log('[FIX_REFID_SAVE] Este ID será usado na segunda música');
+            console.log('[FIX_REFID_SAVE] ═══════════════════════════════════════');
             
             openReferenceUploadModal(analysisResult.jobId, analysisResult);
         } else if (jobMode === 'reference' && isSecondTrack) {
