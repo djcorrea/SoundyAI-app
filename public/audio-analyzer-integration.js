@@ -44,6 +44,49 @@ function prepareAnalysisOptions(baseOptions = {}, context = 'analysis') {
     return { ...baseOptions };
 }
 
+// 🔍 FUNÇÃO DE DIAGNÓSTICO DO FLUXO DE REFERÊNCIA
+window.diagnosticReferenceFlow = function() {
+    console.log('%c═══════════════════════════════════════════════', 'color:#00FFFF;font-weight:bold;');
+    console.log('%c🔍 DIAGNÓSTICO COMPLETO DO FLUXO DE REFERÊNCIA', 'color:#00FFFF;font-weight:bold;');
+    console.log('%c═══════════════════════════════════════════════', 'color:#00FFFF;font-weight:bold;');
+    
+    console.log('%c📊 Estado Atual:', 'color:#FFD700;font-weight:bold;');
+    console.log('  Mode:', currentAnalysisMode);
+    console.log('  window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__ || 'null');
+    console.log('  localStorage.referenceJobId:', localStorage.getItem('referenceJobId') || 'null');
+    
+    console.log('%c🗂️ Estado Global:', 'color:#FFD700;font-weight:bold;');
+    console.log('  window.__soundyState:', window.__soundyState);
+    console.log('  previousAnalysis:', window.__soundyState?.previousAnalysis?.jobId || 'null');
+    console.log('  userAnalysis:', window.__soundyState?.userAnalysis?.jobId || 'null');
+    console.log('  referenceAnalysis:', window.__soundyState?.referenceAnalysis?.jobId || 'null');
+    
+    console.log('%c💾 Dados de Referência:', 'color:#FFD700;font-weight:bold;');
+    console.log('  window.referenceAnalysisData:', window.referenceAnalysisData ? 'PRESENTE' : 'null');
+    console.log('  window.referenceComparisonMetrics:', window.referenceComparisonMetrics ? 'PRESENTE' : 'null');
+    
+    console.log('%c🎯 Diagnóstico:', 'color:#00FF00;font-weight:bold;');
+    const refId = window.__REFERENCE_JOB_ID__ || localStorage.getItem('referenceJobId');
+    if (currentAnalysisMode === 'reference') {
+        if (!refId) {
+            console.log('  ✅ Primeira música - pronto para receber segunda');
+        } else {
+            console.log('  ✅ Aguardando segunda música');
+            console.log(`  📌 Job ID da primeira: ${refId}`);
+        }
+    } else {
+        console.log('  ℹ️ Modo atual não é "reference"');
+    }
+    
+    console.log('%c═══════════════════════════════════════════════', 'color:#00FFFF;font-weight:bold;');
+    console.log('%c💡 Para testar:', 'color:#FFFF00;');
+    console.log('  1. Faça upload da primeira música');
+    console.log('  2. Verifique se [REF-SAVE ✅] aparece');
+    console.log('  3. Faça upload da segunda música');
+    console.log('  4. Verifique se [REF-LOAD ✅] e [REF-FIX-PAYLOAD] aparecem');
+    console.log('%c═══════════════════════════════════════════════', 'color:#00FFFF;font-weight:bold;');
+};
+
 let currentModalAnalysis = null;
 let __audioIntegrationInitialized = false; // evita listeners duplicados
 let __refDataCache = {}; // cache por gênero
@@ -333,6 +376,17 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         let referenceJobId = window.__REFERENCE_JOB_ID__;
 
         if (mode === 'reference') {
+            // Se ainda não existir referenceJobId, tenta recuperar do localStorage ou estado global
+            // 🔄 RECUPERAÇÃO MULTI-FONTE: window > localStorage > estado global
+            if (!referenceJobId) {
+                referenceJobId = localStorage.getItem('referenceJobId');
+                if (referenceJobId) {
+                    console.log('[REF-LOAD ✅] Reference Job ID restaurado do localStorage:', referenceJobId);
+                    // Sincronizar com window para manter consistência
+                    window.__REFERENCE_JOB_ID__ = referenceJobId;
+                }
+            }
+            
             // Se ainda não existir referenceJobId, tenta recuperar do estado global
             if (!referenceJobId && window.__soundyState?.previousAnalysis?.jobId) {
                 referenceJobId = window.__soundyState.previousAnalysis.jobId;
@@ -362,7 +416,10 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             }
         }
 
-        // 🔍 LOG FINAL: Mostrar payload completo antes do envio
+        // 🔍 LOG FINAL: Mostrar payload completo antes do envio com cores
+        console.log('%c[REF-FIX-VERIFY]', 'color:#00FFFF;font-weight:bold;', { mode, referenceJobId });
+        console.log('%c[REF-FIX-PAYLOAD]', 'color:#7A3FFF;font-weight:bold;', payload);
+        
         console.log('[FIX_REFID_PAYLOAD] ═══════════════════════════════════════');
         console.log('[FIX_REFID_PAYLOAD] Payload final sendo enviado para /api/audio/analyze:');
         console.log('[FIX_REFID_PAYLOAD]', JSON.stringify(payload, null, 2));
@@ -2464,13 +2521,16 @@ function resetModalState() {
         window.lastReferenceJobId = null;
         delete window.__REFERENCE_JOB_ID__;
         delete window.__FIRST_ANALYSIS_RESULT__;
+        localStorage.removeItem('referenceJobId');
         
         console.log('[FIX_REFID_RESET] Estado limpo completamente ✅');
+        console.log('[FIX_REFID_RESET] Limpeza incluiu: window, localStorage e estado global');
         console.log('[FIX_REFID_RESET] Flags de referência LIMPAS (modo não-reference)');
     } else {
         // Preservar IDs de referência para segunda música
         console.log('[FIX_REFID_RESET] ⚠️ PRESERVANDO flags de referência!');
         console.log(`[FIX_REFID_RESET] Reference Job ID mantido: ${window.__REFERENCE_JOB_ID__}`);
+        console.log(`[FIX_REFID_RESET] localStorage.referenceJobId: ${localStorage.getItem('referenceJobId')}`);
         console.log('[FIX_REFID_RESET] Aguardando upload da segunda música...');
     }
     console.log('[FIX_REFID_RESET] ═══════════════════════════════════════');
@@ -2618,14 +2678,20 @@ async function handleModalFileSelection(file) {
             
             // 🔧 FIX: Salvar jobId da primeira música com log detalhado
             window.__REFERENCE_JOB_ID__ = analysisResult.jobId;
-            console.log('[FIX_REFID_SAVE] ═══════════════════════════════════════');
-            console.log('[FIX_REFID_SAVE] Primeira música processada com sucesso!');
-            console.log(`[FIX_REFID_SAVE] Job ID salvo como referência base: ${analysisResult.jobId}`);
-            console.log(`[FIX_REFID_SAVE] File Name: ${analysisResult.metadata?.fileName || analysisResult.fileName || 'unknown'}`);
-            console.log(`[FIX_REFID_SAVE] LUFS: ${analysisResult.technicalData?.lufsIntegrated || 'N/A'} LUFS`);
-            console.log(`[FIX_REFID_SAVE] DR: ${analysisResult.technicalData?.dynamicRange || 'N/A'} dB`);
-            console.log('[FIX_REFID_SAVE] Este ID será usado na segunda música');
-            console.log('[FIX_REFID_SAVE] ═══════════════════════════════════════');
+            localStorage.setItem('referenceJobId', analysisResult.jobId);
+            
+            console.log('[REF-SAVE ✅] ═══════════════════════════════════════');
+            console.log('[REF-SAVE ✅] Primeira música processada com sucesso!');
+            console.log(`[REF-SAVE ✅] Job ID salvo globalmente: ${analysisResult.jobId}`);
+            console.log('[REF-SAVE ✅] Locais de salvamento:');
+            console.log('[REF-SAVE ✅]   - window.__REFERENCE_JOB_ID__');
+            console.log('[REF-SAVE ✅]   - localStorage.referenceJobId');
+            console.log('[REF-SAVE ✅]   - window.__soundyState.previousAnalysis');
+            console.log(`[REF-SAVE ✅] File Name: ${analysisResult.metadata?.fileName || analysisResult.fileName || 'unknown'}`);
+            console.log(`[REF-SAVE ✅] LUFS: ${analysisResult.technicalData?.lufsIntegrated || 'N/A'} LUFS`);
+            console.log(`[REF-SAVE ✅] DR: ${analysisResult.technicalData?.dynamicRange || 'N/A'} dB`);
+            console.log('[REF-SAVE ✅] Este ID será usado na segunda música');
+            console.log('[REF-SAVE ✅] ═══════════════════════════════════════');
             
             openReferenceUploadModal(analysisResult.jobId, analysisResult);
         } else if (jobMode === 'reference' && isSecondTrack) {
@@ -2776,8 +2842,16 @@ async function handleModalFileSelection(file) {
             // 🎯 LIMPAR flags de controle APENAS APÓS exibir modal
             delete window.__REFERENCE_JOB_ID__;
             delete window.__FIRST_ANALYSIS_RESULT__;
+            localStorage.removeItem('referenceJobId');
+            
             // 🔒 MANTÉM: window.referenceAnalysisData e referenceComparisonMetrics para renderização
-            console.log('✅ [CLEANUP] IDs de controle limpos - dados de comparação PRESERVADOS para renderização');
+            console.log('✅ [CLEANUP] ═══════════════════════════════════════');
+            console.log('✅ [CLEANUP] IDs de controle limpos após exibir modal');
+            console.log('✅ [CLEANUP] Limpeza incluiu:');
+            console.log('✅ [CLEANUP]   - window.__REFERENCE_JOB_ID__');
+            console.log('✅ [CLEANUP]   - localStorage.referenceJobId');
+            console.log('✅ [CLEANUP] Dados de comparação PRESERVADOS para renderização');
+            console.log('✅ [CLEANUP] ═══════════════════════════════════════');
         } else {
             // Modo genre: análise por gênero tradicional
             __dbg('🎯 Exibindo resultado por gênero');
