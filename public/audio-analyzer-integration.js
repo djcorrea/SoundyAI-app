@@ -365,55 +365,62 @@ async function createAnalysisJob(fileKey, mode, fileName) {
     try {
         __dbg('🔧 Criando job de análise...', { fileKey, mode, fileName });
 
-        // 🎯 FLUXO CORRIGIDO: modo 'reference' para AMBAS as músicas
+        // 🔧 FIX CRÍTICO: Detectar se é primeira ou segunda música no modo referência
+        let referenceJobId = window.__REFERENCE_JOB_ID__ || localStorage.getItem('referenceJobId');
+        let actualMode = mode;
+        
+        // 🎯 CORREÇÃO DO FLUXO: Primeira música como "genre", segunda como "reference"
+        if (mode === 'reference') {
+            // 🔄 RECUPERAÇÃO: Tentar restaurar referenceJobId de múltiplas fontes
+            if (!referenceJobId && window.__soundyState?.previousAnalysis?.jobId) {
+                referenceJobId = window.__soundyState.previousAnalysis.jobId;
+                console.log('[REF-LOAD ✅] Reference Job ID restaurado do estado:', referenceJobId);
+            }
+
+            if (referenceJobId) {
+                // TEM referenceJobId = É A SEGUNDA MÚSICA
+                actualMode = 'reference'; // Mantém "reference"
+                console.log('[MODE ✅] ═══════════════════════════════════════');
+                console.log('[MODE ✅] SEGUNDA música detectada');
+                console.log('[MODE ✅] Mode enviado: "reference"');
+                console.log(`[MODE ✅] Reference Job ID: ${referenceJobId}`);
+                console.log('[MODE ✅] Comparação A/B será realizada no backend');
+                console.log('[MODE ✅] ═══════════════════════════════════════');
+            } else {
+                // NÃO TEM referenceJobId = É A PRIMEIRA MÚSICA
+                actualMode = 'genre'; // Envia como "genre" para análise normal
+                console.log('[MODE ✅] ═══════════════════════════════════════');
+                console.log('[MODE ✅] PRIMEIRA música detectada');
+                console.log('[MODE ✅] Mode enviado: "genre" (base para comparação)');
+                console.log('[MODE ✅] Esta análise será salva como referência');
+                console.log('[MODE ✅] Próxima música será comparada com esta');
+                console.log('[MODE ✅] ═══════════════════════════════════════');
+            }
+        }
+        
+        // Montar payload com modo correto
         const payload = {
             fileKey: fileKey,
-            mode: mode,
+            mode: actualMode,
             fileName: fileName
         };
         
-        // � FIX: Garantir envio correto de referenceJobId no modo referência
-        let referenceJobId = window.__REFERENCE_JOB_ID__;
-
-        if (mode === 'reference') {
-            // Se ainda não existir referenceJobId, tenta recuperar do localStorage ou estado global
-            // 🔄 RECUPERAÇÃO MULTI-FONTE: window > localStorage > estado global
-            if (!referenceJobId) {
-                referenceJobId = localStorage.getItem('referenceJobId');
-                if (referenceJobId) {
-                    console.log('[REF-LOAD ✅] Reference Job ID restaurado do localStorage:', referenceJobId);
-                    // Sincronizar com window para manter consistência
-                    window.__REFERENCE_JOB_ID__ = referenceJobId;
-                }
-            }
+        // Adicionar referenceJobId apenas se existir
+        if (referenceJobId && actualMode === 'reference') {
+            payload.referenceJobId = referenceJobId;
             
-            // Se ainda não existir referenceJobId, tenta recuperar do estado global
-            if (!referenceJobId && window.__soundyState?.previousAnalysis?.jobId) {
-                referenceJobId = window.__soundyState.previousAnalysis.jobId;
-                console.log('[FIX_REFID] Recuperado jobId da primeira música do estado:', referenceJobId);
-            }
-
-            // Log de diagnóstico completo
-            if (referenceJobId) {
-                console.log('[FIX_REFID] ═══════════════════════════════════════');
-                console.log('[FIX_REFID] Modo REFERENCE detectado - Segunda música');
-                console.log(`[FIX_REFID] Reference Job ID: ${referenceJobId}`);
-                console.log(`[FIX_REFID] File Key: ${fileKey}`);
-                console.log(`[FIX_REFID] File Name: ${fileName}`);
-                console.log('[FIX_REFID] Payload será enviado COM referenceJobId ✅');
-                console.log('[FIX_REFID] ═══════════════════════════════════════');
-                
-                payload.referenceJobId = referenceJobId;
-            } else {
-                console.log('[FIX_REFID] ═══════════════════════════════════════');
-                console.log('[FIX_REFID] Modo REFERENCE detectado - Primeira música');
-                console.log('[FIX_REFID] Nenhum referenceJobId encontrado (esperado)');
-                console.log(`[FIX_REFID] File Key: ${fileKey}`);
-                console.log(`[FIX_REFID] File Name: ${fileName}`);
-                console.log('[FIX_REFID] Esta será a música BASE para comparação');
-                console.log('[FIX_REFID] Payload será enviado SEM referenceJobId ✅');
-                console.log('[FIX_REFID] ═══════════════════════════════════════');
-            }
+            console.log('[REF-PAYLOAD ✅] ═══════════════════════════════════════');
+            console.log('[REF-PAYLOAD ✅] Payload COM referenceJobId:');
+            console.log(`[REF-PAYLOAD ✅]   mode: "${actualMode}"`);
+            console.log(`[REF-PAYLOAD ✅]   referenceJobId: "${referenceJobId}"`);
+            console.log(`[REF-PAYLOAD ✅]   fileName: "${fileName}"`);
+            console.log('[REF-PAYLOAD ✅] ═══════════════════════════════════════');
+        } else if (mode === 'reference' && !referenceJobId) {
+            console.log('[REF-PAYLOAD ✅] ═══════════════════════════════════════');
+            console.log('[REF-PAYLOAD ✅] Payload SEM referenceJobId (primeira música):');
+            console.log(`[REF-PAYLOAD ✅]   mode: "${actualMode}" (análise base)`);
+            console.log(`[REF-PAYLOAD ✅]   fileName: "${fileName}"`);
+            console.log('[REF-PAYLOAD ✅] ═══════════════════════════════════════');
         }
 
         // 🔍 LOG FINAL: Mostrar payload completo antes do envio com cores
@@ -2695,7 +2702,10 @@ async function handleModalFileSelection(file) {
         console.log('[AUDIO-DEBUG] 🎯 First Analysis Result:', !!window.__FIRST_ANALYSIS_RESULT__);
         console.log('[AUDIO-DEBUG] 🎯 Current mode:', currentAnalysisMode);
         
-        if (jobMode === 'reference' && !isSecondTrack) {
+        // 🔧 FIX: Primeira música vem como "genre" (modo base), segunda como "reference"
+        const isFirstReferenceTrack = currentAnalysisMode === 'reference' && !isSecondTrack;
+        
+        if (isFirstReferenceTrack) {
             // PRIMEIRA música em modo reference: abrir modal para música de referência
             __dbg('🎯 Primeira música analisada - abrindo modal para segunda');
             
@@ -2728,10 +2738,11 @@ async function handleModalFileSelection(file) {
             console.log('[REF-SAVE ✅] ═══════════════════════════════════════');
             
             openReferenceUploadModal(analysisResult.jobId, analysisResult);
-        } else if (jobMode === 'reference' && isSecondTrack) {
+        } else if ((jobMode === 'reference' || currentAnalysisMode === 'reference') && isSecondTrack) {
             // SEGUNDA música em modo reference: mostrar resultado comparativo
             console.log('🎯 [COMPARE-MODE] Segunda música analisada - exibindo comparação entre faixas');
             console.log('✅ [COMPARE-MODE] Tabela comparativa será exibida');
+            console.log(`✅ [COMPARE-MODE] jobMode: ${jobMode}, currentMode: ${currentAnalysisMode}, isSecond: ${isSecondTrack}`);
             __dbg('🎯 Segunda música analisada - exibindo resultado comparativo');
             
             // 🔥 CORREÇÃO CRÍTICA: Primeira música é USUÁRIO, segunda é REFERÊNCIA
