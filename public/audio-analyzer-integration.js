@@ -4499,8 +4499,22 @@ function displayModalResults(analysis) {
         };
 
         renderReferenceComparisons(payload);
-        return;
+        
+        // ✅ CORREÇÃO CRÍTICA DA AUDITORIA (linha 4502)
+        // REMOVIDO return prematuro que bloqueava:
+        // - Normalização de dados (linha 4822)
+        // - Cálculo de scores (linha 4889)
+        // - Renderização de cards (linha 6623)
+        // - renderFinalScoreAtTop() (linha 6620)
+        // - advancedMetricsCard() (linha 6636)
+        // ❌ return; ← REMOVIDO
+        
+        console.log('[AUDIT-CORRECTION] ✅ Fluxo continuará para renderizar cards, scores e sugestões');
+        console.log('[AUDIT-CORRECTION] ✅ Return prematuro removido - pipeline completo ativado');
     }
+    
+    // [AUDIT-FLOW-CHECK] Verificar se chegou aqui (deveria chegar sempre, inclusive no modo reference)
+    console.log('[AUDIT-FLOW-CHECK] ✅ Fluxo continua após bloco reference - modo:', analysis?.mode);
     
     // 🔒 VALIDAÇÃO CRÍTICA: Garantir que métricas essenciais estão presentes
     // CORRIGIDO: Verificar novos caminhos do backend Redis
@@ -6617,6 +6631,9 @@ function displayModalResults(analysis) {
             });
         }
 
+        // [AUDIT-FLOW-CHECK] Confirmar que chegou na renderização de cards
+        console.log('[AUDIT-FLOW-CHECK] ✅ Renderizando cards - modo:', analysis?.mode);
+        
         // 🎯 RENDERIZAR SCORE FINAL NO TOPO (ISOLADO)
         renderFinalScoreAtTop(analysis.scores);
 
@@ -6690,6 +6707,7 @@ function displayModalResults(analysis) {
             // ✅ CORREÇÃO: SEMPRE chamar renderReferenceComparisons() - ela renderiza cards/scores/tabela
             const renderMode = (mode === 'reference' && isSecondTrack && window.referenceAnalysisData) ? 'reference' : 'genre';
             console.log(`📊 [RENDER-FLOW] Chamando renderReferenceComparisons() - modo: ${renderMode}`);
+            console.log('[AUDIT-FLOW-CHECK] ✅ Segunda chamada de renderReferenceComparisons (após cards)');
             
             // Preparar opts com análises corretas para modo reference
             const renderOpts = {
