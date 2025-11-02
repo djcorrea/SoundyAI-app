@@ -6690,75 +6690,13 @@ function renderReferenceComparisons(opts = {}) {
     console.log("✅ [SAFE_REF_V3] Estrutura final reconstruída:", comparisonSafe);
     console.groupEnd();
     
-
-    //  [PATCH V5] SCOPE GUARD DEFINITIVO - Sincronização final antes de usar dados
-    console.groupCollapsed(" [REF_FIX_V5]");
-    let userTrack, referenceTrack, userBands, refBands;
-    try {
-        //  Verifica e sincroniza escopo de comparisonData
-        let comparisonData =
-            opts?.comparisonData ||
-            window?.comparisonData ||
-            window?.lastComparisonData ||
-            stateV3?.reference?.comparisonData ||
-            comparisonSafe || // Usar comparisonSafe do Patch V3 como fallback
-            {
-                userTrack:
-                    opts?.userAnalysis?.metadata?.fileName ||
-                    stateV3?.reference?.userAnalysis?.metadata?.fileName ||
-                    "Faixa do Usuário",
-                referenceTrack:
-                    opts?.referenceAnalysis?.metadata?.fileName ||
-                    stateV3?.reference?.referenceAnalysis?.metadata?.fileName ||
-                    "Faixa de Referência",
-                userBands:
-                    opts?.userAnalysis?.bands ||
-                    stateV3?.reference?.userAnalysis?.bands ||
-                    {},
-                refBands:
-                    opts?.referenceAnalysis?.bands ||
-                    stateV3?.reference?.referenceAnalysis?.bands ||
-                    {},
-            };
-
-        //  Atualiza referências globais
-        window.comparisonData = comparisonData;
-        window.lastComparisonData = comparisonData;
-        opts.comparisonData = comparisonData;
-
-        //  Cria variáveis locais seguras
-        userTrack = comparisonData?.userTrack || "Faixa 1";
-        referenceTrack = comparisonData?.referenceTrack || "Faixa 2";
-        userBands = comparisonData?.userBands || {};
-        refBands = comparisonData?.refBands || {};
-
-        console.log(" [REF_FIX_V5] Estrutura estabilizada:", {
-            userTrack,
-            referenceTrack,
-            userBands: !!Object.keys(userBands).length,
-            refBands: !!Object.keys(refBands).length,
-        });
-
-        //  Abortagem segura se algo vier undefined
-        if (!referenceTrack || !userTrack) {
-            console.error(" [REF_FIX_V5] referenceTrack ou userTrack ausentes!");
-            window.__REF_RENDER_LOCK__ = false;
-            console.groupEnd();
-            return;
-        }
-
-        //  Reatribui localmente para garantir escopo
-        opts.referenceTrack = referenceTrack;
-        opts.userTrack = userTrack;
-        comparisonData.referenceTrack = referenceTrack;
-        comparisonData.userTrack = userTrack;
-    } catch (err) {
-        console.error(" [REF_FIX_V5] Erro crítico de escopo:", err);
-        window.__REF_RENDER_LOCK__ = false;
-        console.groupEnd();
-        return;
-    }
-    console.groupEnd();
+    // � GARANTIR QUE comparisonData EXISTA
+    // 🔥 Usar apenas variáveis locais de comparisonSafe — nunca opts direto
+    const userTrack = comparisonSafe.userTrack;
+    const referenceTrack = comparisonSafe.referenceTrack;
+    const userBands = comparisonSafe.userBands;
+    const refBands = comparisonSafe.refBands;
+    
     // Evita leitura em escopos errados - ABORT se referenceTrack undefined
     if (!referenceTrack) {
         console.error("🚨 [SAFE_REF_V3] referenceTrack ainda undefined! Abortando render seguro.");
