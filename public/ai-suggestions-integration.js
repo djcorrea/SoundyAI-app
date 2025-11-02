@@ -1511,7 +1511,7 @@ class AISuggestionsIntegration {
                 const merged = {
                     ...data,
                     userAnalysis: data.userAnalysis || window.__soundyState?.previousAnalysis,
-                    referenceAnalysis: data.referenceAnalysis || data.analysis,
+                    referenceAnalysis: data.referenceAnalysis || window.__soundyState?.referenceAnalysis || null,
                 };
                 
                 // 🔍 AUDITORIA PASSO 0: INTERCEPTAÇÃO INICIAL
