@@ -4640,33 +4640,35 @@ function displayModalResults(analysis) {
         // - userAnalysis = 1ª faixa (SUA MÚSICA - atual)
         // - referenceAnalysis = 2ª faixa (REFERÊNCIA - alvo)
         
-        // 🔒 PASSO 2: Estrutura final protegida antes da renderização
-        const payload = {
-            mode: "reference",
-            userAnalysis: window.__soundyState.previousAnalysis || refNormalized,
-            referenceAnalysis: analysis || currNormalized,
-        };
-
-        console.log("[REFERENCE-FLOW ✅] Enviando A/B final:", {
-            user: payload.userAnalysis?.fileName || payload.userAnalysis?.metadata?.fileName,
-            ref: payload.referenceAnalysis?.fileName || payload.referenceAnalysis?.metadata?.fileName,
-        });
-        
         console.log('[RENDER-CALL] ═══════════════════════════════════════');
         console.log('[RENDER-CALL] Chamando renderReferenceComparisons com:');
         console.log('[RENDER-CALL] opts.userAnalysis (1ª FAIXA):');
-        console.log('[RENDER-CALL]   Nome:', payload.userAnalysis?.fileName || payload.userAnalysis?.metadata?.fileName);
-        console.log('[RENDER-CALL]   technicalData:', !!payload.userAnalysis?.technicalData);
-        console.log('[RENDER-CALL]   spectral_balance:', payload.userAnalysis?.technicalData?.spectral_balance ? 'SIM' : 'NÃO');
-        console.log('[RENDER-CALL]   bandas:', payload.userAnalysis?.technicalData?.spectral_balance ? Object.keys(payload.userAnalysis.technicalData.spectral_balance) : 'NENHUMA');
-        console.log('[RENDER-CALL]   LUFS:', payload.userAnalysis?.technicalData?.lufsIntegrated);
+        console.log('[RENDER-CALL]   Nome:', refNormalized?.fileName || refNormalized?.metadata?.fileName);
+        console.log('[RENDER-CALL]   technicalData:', !!refNormalized?.technicalData);
+        console.log('[RENDER-CALL]   spectral_balance:', refNormalized?.technicalData?.spectral_balance ? 'SIM' : 'NÃO');
+        console.log('[RENDER-CALL]   bandas:', refNormalized?.technicalData?.spectral_balance ? Object.keys(refNormalized.technicalData.spectral_balance) : 'NENHUMA');
+        console.log('[RENDER-CALL]   LUFS:', refNormalized?.technicalData?.lufsIntegrated);
         console.log('[RENDER-CALL] opts.referenceAnalysis (2ª FAIXA):');
-        console.log('[RENDER-CALL]   Nome:', payload.referenceAnalysis?.fileName || payload.referenceAnalysis?.metadata?.fileName);
-        console.log('[RENDER-CALL]   technicalData:', !!payload.referenceAnalysis?.technicalData);
-        console.log('[RENDER-CALL]   spectral_balance:', payload.referenceAnalysis?.technicalData?.spectral_balance ? 'SIM' : 'NÃO');
-        console.log('[RENDER-CALL]   bandas:', payload.referenceAnalysis?.technicalData?.spectral_balance ? Object.keys(payload.referenceAnalysis.technicalData.spectral_balance) : 'NENHUMA');
-        console.log('[RENDER-CALL]   LUFS:', payload.referenceAnalysis?.technicalData?.lufsIntegrated);
+        console.log('[RENDER-CALL]   Nome:', currNormalized?.fileName || currNormalized?.metadata?.fileName);
+        console.log('[RENDER-CALL]   technicalData:', !!currNormalized?.technicalData);
+        console.log('[RENDER-CALL]   spectral_balance:', currNormalized?.technicalData?.spectral_balance ? 'SIM' : 'NÃO');
+        console.log('[RENDER-CALL]   bandas:', currNormalized?.technicalData?.spectral_balance ? Object.keys(currNormalized.technicalData.spectral_balance) : 'NENHUMA');
+        console.log('[RENDER-CALL]   LUFS:', currNormalized?.technicalData?.lufsIntegrated);
         console.log('[RENDER-CALL] ═══════════════════════════════════════');
+        
+        // 🔒 PROTEÇÃO FINAL A/B - Garantir dados corretos antes de renderizar
+        const payload = {
+            mode: 'reference',
+            userAnalysis: window.__soundyState?.previousAnalysis || refNormalized,
+            referenceAnalysis: analysis || currNormalized
+        };
+        
+        console.log('[REFERENCE-FLOW ✅] Enviando A/B final:', {
+            user: payload.userAnalysis?.fileName || payload.userAnalysis?.metadata?.fileName,
+            ref: payload.referenceAnalysis?.fileName || payload.referenceAnalysis?.metadata?.fileName,
+            userLUFS: payload.userAnalysis?.technicalData?.lufsIntegrated,
+            refLUFS: payload.referenceAnalysis?.technicalData?.lufsIntegrated
+        });
         
         renderReferenceComparisons(payload);
         
@@ -6957,10 +6959,6 @@ function resolveTargetMetric(analysis, key, fallback) {
     return fallback ?? 0;
 }
 
-// 🔒 PASSO 3: Expor displayModalResults ao window para interceptores
-window.displayModalResults = displayModalResults;
-console.log("[DISPLAY_MODAL_READY ✅] displayModalResults disponível para interceptores");
-
 // 🧮 PARTE 3.1: Função de normalização para estrutura de referência
 function normalizeReferenceShape(a) {
   if (!a) return {};
@@ -6996,6 +6994,27 @@ function renderReferenceComparisons(opts = {}) {
     const refStateCheck = globalState?.reference || {};
     const userCheck = refStateCheck.userAnalysis || opts.userAnalysis;
     const refCheck = refStateCheck.referenceAnalysis || opts.referenceAnalysis;
+    
+    // 🚨 PROTEÇÃO ANTI-DUPLICAÇÃO - Detectar se referência foi sobrescrita pela 1ª faixa
+    const userTrack = opts.userAnalysis || userCheck;
+    const referenceTrack = opts.referenceAnalysis || refCheck;
+    
+    if (userTrack?.fileName && referenceTrack?.fileName && userTrack.fileName === referenceTrack.fileName) {
+        console.error('[REF-CRITICAL] ❌ ═══════════════════════════════════════');
+        console.error('[REF-CRITICAL] ❌ DETECÇÃO DE DUPLICAÇÃO INDEVIDA!');
+        console.error('[REF-CRITICAL] ❌ Referência foi sobrescrita pela 1ª faixa!');
+        console.error('[REF-CRITICAL] ❌ userTrack (1ª):', userTrack.fileName);
+        console.error('[REF-CRITICAL] ❌ referenceTrack (2ª):', referenceTrack.fileName);
+        console.error('[REF-CRITICAL] ❌ window.__soundyState.previousAnalysis:', window.__soundyState?.previousAnalysis?.fileName);
+        console.error('[REF-CRITICAL] ❌ ═══════════════════════════════════════');
+        
+        // Tentar recuperar da previousAnalysis
+        if (window.__soundyState?.previousAnalysis?.fileName !== referenceTrack.fileName) {
+            console.warn('[REF-RECOVERY] Tentando recuperar referência de window.__soundyState.previousAnalysis');
+            opts.referenceAnalysis = referenceTrack; // 2ª faixa
+            opts.userAnalysis = window.__soundyState.previousAnalysis; // 1ª faixa
+        }
+    }
 
     if (!userCheck || !refCheck) {
         console.warn("[REF-COMP] Faltam dados de referência ou usuário, usando fallback seguro");
@@ -7031,22 +7050,6 @@ function renderReferenceComparisons(opts = {}) {
     
     // Aceita opts ou analysis (backward compatibility)
     const analysis = opts.analysis || opts;
-    
-    // 🔒 PASSO 3: Proteção anti-duplicação
-    const userTrack = opts.userAnalysis || opts.user || opts.userTrackFull;
-    const referenceTrack = opts.referenceAnalysis || opts.reference || opts.referenceTrackFull;
-    
-    if (userTrack?.fileName === referenceTrack?.fileName) {
-        console.error("[REF-CRITICAL] ❌❌❌ Detecção de duplicação indevida — referência foi sobrescrita!");
-        console.log("[REF-CRITICAL] userTrack (1ª):", userTrack?.fileName || userTrack?.metadata?.fileName);
-        console.log("[REF-CRITICAL] referenceTrack (2ª):", referenceTrack?.fileName || referenceTrack?.metadata?.fileName);
-        console.log("[REF-CRITICAL] window.__soundyState.previousAnalysis:", window.__soundyState?.previousAnalysis?.fileName);
-        console.log("[REF-CRITICAL] ❌ ABORTANDO RENDERIZAÇÃO - dados duplicados!");
-        window.__REF_RENDER_LOCK__ = false;
-        window.comparisonLock = false;
-        console.groupEnd();
-        return;
-    }
     
     const container = document.getElementById('referenceComparisons');
     if (!container) {
