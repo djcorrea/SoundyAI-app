@@ -2765,10 +2765,11 @@ async function handleModalFileSelection(file) {
                 state.reference.jobId = analysisResult.jobId || null;
                 
                 console.log('✅ [REFERENCE-A/B-CORRECTED] Atribuição corrigida:', {
-                    userTrack: state.previousAnalysis.fileName || state.previousAnalysis.metadata?.fileName || 'Primeira Faixa (USUÁRIO)',
-                    referenceTrack: analysisResult.fileName || analysisResult.metadata?.fileName || 'Segunda Faixa (REFERÊNCIA)',
-                    userHasBands: !!state.userAnalysis?.technicalData?.spectral_balance,
-                    refHasBands: !!state.referenceAnalysis?.technicalData?.spectral_balance
+                    firstTrack_BASE: state.previousAnalysis.fileName || state.previousAnalysis.metadata?.fileName || '1ª Faixa (BASE/REFERÊNCIA)',
+                    secondTrack_CURRENT: analysisResult.fileName || analysisResult.metadata?.fileName || '2ª Faixa (ANÁLISE ATUAL)',
+                    firstTrackHasBands: !!state.userAnalysis?.technicalData?.spectral_balance,
+                    secondTrackHasBands: !!state.referenceAnalysis?.technicalData?.spectral_balance,
+                    EXPLANATION: '1ª faixa = base/referência (o que alcançar), 2ª faixa = análise atual'
                 });
                 
                 // 🎯 LOG AUDIT-MODE-FLOW (conforme solicitado)
@@ -4467,8 +4468,10 @@ function displayModalResults(analysis) {
     // 🔥 CORREÇÃO COMPARAÇÃO A/B: Usar _userAnalysis (1ª faixa) para cards/métricas
     if (analysis._isReferenceMode && analysis._userAnalysis && analysis._referenceAnalysis) {
         console.log('[REFERENCE-DISPLAY] 🎯 Modo A/B detectado');
-        console.log('[REFERENCE-DISPLAY] Exibindo métricas da 1ª faixa:', analysis._userAnalysis?.fileName || analysis._userAnalysis?.metadata?.fileName);
-        console.log('[REFERENCE-DISPLAY] Comparando com 2ª faixa:', analysis._referenceAnalysis?.fileName || analysis._referenceAnalysis?.metadata?.fileName);
+        console.log('[REFERENCE-DISPLAY] ✅ 1ª faixa (BASE/REFERÊNCIA):', analysis._userAnalysis?.fileName || analysis._userAnalysis?.metadata?.fileName);
+        console.log('[REFERENCE-DISPLAY] ✅ 2ª faixa (ANÁLISE ATUAL):', analysis._referenceAnalysis?.fileName || analysis._referenceAnalysis?.metadata?.fileName);
+        console.log('[REFERENCE-DISPLAY] 📊 Cards mostrarão métricas da 1ª faixa (base)');
+        console.log('[REFERENCE-DISPLAY] 📊 Comparação será feita com 2ª faixa (atual)');
         
         // Salvar análise de referência antes de substituir
         const originalReferenceAnalysis = analysis._referenceAnalysis;
@@ -4485,7 +4488,7 @@ function displayModalResults(analysis) {
             mode: 'reference' // Manter modo para lógica posterior
         };
         
-        console.log('[REFERENCE-DISPLAY ✅] analysis substituído por dados da 1ª faixa');
+        console.log('[REFERENCE-DISPLAY ✅] analysis substituído por dados da 1ª faixa (base/referência)');
         console.log('[REFERENCE-DISPLAY] Métricas a serem exibidas:', {
             lufs: analysis.technicalData?.lufsIntegrated || analysis.loudness?.integrated,
             dr: analysis.technicalData?.dynamicRange || analysis.technicalData?.dr,
@@ -4516,27 +4519,30 @@ function displayModalResults(analysis) {
         const refNormalized = normalizeBackendAnalysisData(window.referenceAnalysisData); // Primeira faixa (BASE)
         const currNormalized = normalizeBackendAnalysisData(analysis); // Segunda faixa (ATUAL)
         
-        // [REF-FLOW] Construindo métricas A/B (1ª = analyzed/base | 2ª = target/reference)
+        // [REF-FLOW] Construindo métricas A/B
+        // SEMÂNTICA CORRETA:
+        // - refNormalized = 1ª faixa = BASE (o que o usuário quer alcançar) = userAnalysis
+        // - currNormalized = 2ª faixa = ATUAL (música sendo analisada) = referenceAnalysis
         referenceComparisonMetrics = {
-            // NOVO: nomes claros
-            analyzed: refNormalized?.technicalData || {},   // 1ª faixa (base/origem)
-            target:   currNormalized?.technicalData || {},  // 2ª faixa (alvo/referência)
+            // ESTRUTURA NOVA (CORRETA):
+            baseTrack: refNormalized?.technicalData || {},      // 1ª faixa (base/referência)
+            currentTrack: currNormalized?.technicalData || {},  // 2ª faixa (análise atual)
             
-            analyzedFull: refNormalized || null,
-            targetFull:   currNormalized || null,
+            baseTrackFull: refNormalized || null,
+            currentTrackFull: currNormalized || null,
             
-            // LEGADO: manter por compatibilidade com trechos antigos
-            user:       currNormalized?.technicalData || {},   // (LEGADO) permanecia confuso, manter como alias
-            reference:  refNormalized?.technicalData || {},    // (LEGADO)
-            userFull:   currNormalized || null,                // (LEGADO)
-            referenceFull: refNormalized || null               // (LEGADO)
+            // LEGADO: manter por compatibilidade (mapeamento correto)
+            user: refNormalized?.technicalData || {},       // 1ª = base (usuário quer alcançar)
+            reference: currNormalized?.technicalData || {}, // 2ª = atual (sendo analisada)
+            userFull: refNormalized || null,
+            referenceFull: currNormalized || null
         };
         
-        console.log('[REF-FLOW] metrics built', {
-            analyzedLUFS: referenceComparisonMetrics.analyzed?.lufsIntegrated,
-            targetLUFS: referenceComparisonMetrics.target?.lufsIntegrated,
-            analyzedFile: refNormalized.metadata?.fileName,
-            targetFile: currNormalized.metadata?.fileName
+        console.log('[REF-FLOW] ✅ Métricas construídas (CORRIGIDAS):', {
+            baseTrackLUFS: referenceComparisonMetrics.baseTrack?.lufsIntegrated,
+            currentTrackLUFS: referenceComparisonMetrics.currentTrack?.lufsIntegrated,
+            baseTrackFile: refNormalized.metadata?.fileName + ' (BASE/REFERÊNCIA)',
+            currentTrackFile: currNormalized.metadata?.fileName + ' (ANÁLISE ATUAL)'
         });
         
         console.log('[ASSERT] reference mode', {
@@ -4599,11 +4605,13 @@ function displayModalResults(analysis) {
         }
         
         // 🧩 CORREÇÃO #6: Chamada ÚNICA de renderização (remover duplicação)
-        // Ordem correta: userAnalysis = 1ª faixa (base), referenceAnalysis = 2ª faixa (alvo)
+        // SEMÂNTICA CORRETA:
+        // - userAnalysis = 1ª faixa (BASE/REFERÊNCIA - o que o usuário quer alcançar)
+        // - referenceAnalysis = 2ª faixa (ANÁLISE ATUAL - música sendo analisada)
         renderReferenceComparisons({
             mode: 'reference',
-            userAnalysis: refNormalized,        // 1ª faixa
-            referenceAnalysis: currNormalized   // 2ª faixa
+            userAnalysis: refNormalized,        // 1ª faixa (base/referência)
+            referenceAnalysis: currNormalized   // 2ª faixa (análise atual)
         });
         
         // ❌ REMOVIDO: renderTrackComparisonTable() - causava duplicação
@@ -6993,9 +7001,12 @@ function renderReferenceComparisons(opts = {}) {
         const ua = opts?.userAnalysis || stateV3?.reference?.userAnalysis;
         const ra = opts?.referenceAnalysis || stateV3?.reference?.referenceAnalysis;
         
+        // 🎯 SEMÂNTICA CORRETA:
+        // - userTrack = 1ª faixa (BASE/REFERÊNCIA) = userAnalysis
+        // - referenceTrack = 2ª faixa (ANÁLISE ATUAL) = referenceAnalysis
         comparisonSafe = {
-            userTrack: ua?.metadata?.fileName || "Faixa 1",
-            referenceTrack: ra?.metadata?.fileName || "Faixa 2",
+            userTrack: ua?.metadata?.fileName || ua?.fileName || "1ª Faixa (Base/Referência)",
+            referenceTrack: ra?.metadata?.fileName || ra?.fileName || "2ª Faixa (Análise Atual)",
             userBands: 
                 ua?.technicalData?.spectral_balance || 
                 ua?.bands || 
@@ -7019,14 +7030,16 @@ function renderReferenceComparisons(opts = {}) {
     if (!comparisonSafe.referenceTrack) {
         comparisonSafe.referenceTrack = 
             opts?.referenceAnalysis?.metadata?.fileName || 
+            opts?.referenceAnalysis?.fileName ||
             stateV3?.reference?.referenceAnalysis?.metadata?.fileName || 
-            "Faixa de Referência";
+            "2ª Faixa (Análise Atual)";
     }
     if (!comparisonSafe.userTrack) {
         comparisonSafe.userTrack = 
             opts?.userAnalysis?.metadata?.fileName || 
+            opts?.userAnalysis?.fileName ||
             stateV3?.reference?.userAnalysis?.metadata?.fileName || 
-            "Faixa do Usuário";
+            "1ª Faixa (Base/Referência)";
     }
     
     console.log("✅ [SAFE_REF_V3] Estrutura final reconstruída:", comparisonSafe);
@@ -7038,6 +7051,9 @@ function renderReferenceComparisons(opts = {}) {
     let userTrack, referenceTrack, userBands, refBands;
     try {
         //  Verifica e sincroniza escopo de comparisonData
+        // 🎯 SEMÂNTICA CORRETA:
+        // - userTrack = 1ª faixa (BASE/REFERÊNCIA) = userAnalysis
+        // - referenceTrack = 2ª faixa (ANÁLISE ATUAL) = referenceAnalysis
         let comparisonData =
             opts?.comparisonData ||
             window?.comparisonData ||
@@ -7047,18 +7063,24 @@ function renderReferenceComparisons(opts = {}) {
             {
                 userTrack:
                     opts?.userAnalysis?.metadata?.fileName ||
+                    opts?.userAnalysis?.fileName ||
                     stateV3?.reference?.userAnalysis?.metadata?.fileName ||
-                    "Faixa do Usuário",
+                    "1ª Faixa (Base/Referência)",
                 referenceTrack:
                     opts?.referenceAnalysis?.metadata?.fileName ||
+                    opts?.referenceAnalysis?.fileName ||
                     stateV3?.reference?.referenceAnalysis?.metadata?.fileName ||
-                    "Faixa de Referência",
+                    "2ª Faixa (Análise Atual)",
                 userBands:
+                    opts?.userAnalysis?.technicalData?.spectral_balance ||
                     opts?.userAnalysis?.bands ||
+                    stateV3?.reference?.userAnalysis?.technicalData?.spectral_balance ||
                     stateV3?.reference?.userAnalysis?.bands ||
                     {},
                 refBands:
+                    opts?.referenceAnalysis?.technicalData?.spectral_balance ||
                     opts?.referenceAnalysis?.bands ||
+                    stateV3?.reference?.referenceAnalysis?.technicalData?.spectral_balance ||
                     stateV3?.reference?.referenceAnalysis?.bands ||
                     {},
             };
@@ -7069,8 +7091,9 @@ function renderReferenceComparisons(opts = {}) {
         opts.comparisonData = comparisonData;
 
         //  Cria variáveis locais seguras
-        userTrack = comparisonData?.userTrack || "Faixa 1";
-        referenceTrack = comparisonData?.referenceTrack || "Faixa 2";
+        // 🎯 SEMÂNTICA CORRETA DOS NOMES:
+        userTrack = comparisonData?.userTrack || "1ª Faixa (Base/Referência)";
+        referenceTrack = comparisonData?.referenceTrack || "2ª Faixa (Análise Atual)";
         userBands = comparisonData?.userBands || {};
         refBands = comparisonData?.refBands || {};
 
@@ -7119,8 +7142,11 @@ function renderReferenceComparisons(opts = {}) {
         return renderGenreComparisonSafe?.();
     }
 
-    const userTrackNormalized = userAnalysis.fileName || sRef.userTrack || "Sua faixa";
-    const refTrackNormalized = referenceAnalysis.fileName || sRef.referenceTrack || "Faixa de referência";
+    // 🎯 SEMÂNTICA CORRETA DOS NOMES:
+    // - userAnalysis = 1ª faixa = BASE/REFERÊNCIA (o que o usuário quer alcançar)
+    // - referenceAnalysis = 2ª faixa = ANÁLISE ATUAL (música sendo analisada)
+    const userTrackNormalized = userAnalysis.fileName || userAnalysis.metadata?.fileName || sRef.userTrack || "1ª Faixa (Base/Referência)";
+    const refTrackNormalized = referenceAnalysis.fileName || referenceAnalysis.metadata?.fileName || sRef.referenceTrack || "2ª Faixa (Análise Atual)";
     
     // Evita leitura em escopos errados - ABORT se referenceTrack undefined
     if (!referenceTrack) {
@@ -7288,15 +7314,20 @@ function renderReferenceComparisons(opts = {}) {
                 bands: refTech.spectral_balance ?? refTech.bandEnergies ?? refTech.bands ?? null
             };
             
-            titleText = `🎵 Comparação: ${opts.userAnalysis.fileName || opts.userAnalysis.metadata?.fileName || '1ª Faixa'} vs ${opts.referenceAnalysis.fileName || opts.referenceAnalysis.metadata?.fileName || '2ª Faixa'}`;
+            // 🎯 SEMÂNTICA CORRETA NO TÍTULO:
+            // Mostrar claramente qual é a base (1ª) e qual é a análise (2ª)
+            const baseFileName = opts.userAnalysis.fileName || opts.userAnalysis.metadata?.fileName || '1ª Faixa';
+            const currentFileName = opts.referenceAnalysis.fileName || opts.referenceAnalysis.metadata?.fileName || '2ª Faixa';
+            titleText = `🎵 Análise: "${currentFileName}" comparada com "${baseFileName}" (referência)`;
             
             console.log('✅ [REF-CORRECTED] Dados extraídos:', {
-                userFile: opts.userAnalysis.fileName || opts.userAnalysis.metadata?.fileName,
-                refFile: opts.referenceAnalysis.fileName || opts.referenceAnalysis.metadata?.fileName,
-                userBands: Object.keys(userMetrics.spectral_balance || {}),
-                refBands: Object.keys(ref.bands || {}),
-                userLufs: userMetrics.lufsIntegrated,
-                refLufs: ref.lufs_target
+                baseFile_1st: opts.userAnalysis.fileName || opts.userAnalysis.metadata?.fileName,
+                currentFile_2nd: opts.referenceAnalysis.fileName || opts.referenceAnalysis.metadata?.fileName,
+                baseBands_1st: Object.keys(userMetrics.spectral_balance || {}),
+                currentBands_2nd: Object.keys(ref.bands || {}),
+                baseLufs_1st: userMetrics.lufsIntegrated,
+                currentLufs_2nd: ref.lufs_target,
+                EXPLANATION: '1ª = base/referência (cards), 2ª = análise atual (comparação)'
             });
             
             // 🎯 LOG ASSERT_REF_FLOW
@@ -7645,7 +7676,8 @@ function renderReferenceComparisons(opts = {}) {
             bands: targetMetrics.spectral_balance || null
         };
         
-        titleText = `🎵 Comparação com ${referenceComparisonMetrics.referenceFull?.metadata?.fileName || 'Faixa de Referência (2ª música)'}`;
+        // 🎯 SEMÂNTICA CORRETA: referenceFull = 2ª faixa (análise atual)
+        titleText = `🎵 Análise da 2ª música comparada com referência (1ª música: ${referenceComparisonMetrics.referenceFull?.metadata?.fileName || 'Base'})`;
         
         // 🎯 ASSERT CRÍTICO: Verificar se bands estão disponíveis no modo reference
         console.log('[ASSERT_REF_DATA]', ref.bands ? '✅ Reference bands loaded' : '❌ Missing bands');
