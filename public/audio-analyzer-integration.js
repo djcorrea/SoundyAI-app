@@ -6679,8 +6679,22 @@ function normalizeReferenceShape(a) {
   };
 }
 
+// 🔒 Global render lock para evitar ReferenceError
+if (typeof window.comparisonLock === "undefined") {
+    window.comparisonLock = false;
+    console.log("[LOCK-INIT] comparisonLock inicializado como false");
+}
+
 // --- BEGIN: deterministic mode gate ---
 function renderReferenceComparisons(opts = {}) {
+    // 🧩 Controle seguro de renderização
+    if (window.comparisonLock) {
+        console.warn("[LOCK] Renderização de comparação ignorada (lock ativo)");
+        return;
+    }
+    window.comparisonLock = true;
+    console.log("[LOCK] comparisonLock ativado");
+    
     // 🔧 PARTE 2: Proteção em renderReferenceComparisons
     const globalState = window.__soundyState || {};
     const refStateCheck = globalState?.reference || {};
@@ -6689,6 +6703,8 @@ function renderReferenceComparisons(opts = {}) {
 
     if (!userCheck || !refCheck) {
         console.warn("[REF-COMP] Faltam dados de referência ou usuário, usando fallback seguro");
+        window.comparisonLock = false;
+        console.log("[LOCK] comparisonLock liberado (fallback)");
         return renderGenreComparisonSafe?.();
     }
 
@@ -6710,6 +6726,8 @@ function renderReferenceComparisons(opts = {}) {
     // Se já estiver processando render, cancelar chamadas duplicadas
     if (window.__REF_RENDER_LOCK__) {
         console.warn("⚠️ [SAFE_RENDER_REF] Renderização ignorada — já em progresso.");
+        window.comparisonLock = false;
+        console.log("[LOCK] comparisonLock liberado (render duplicado)");
         console.groupEnd();
         return;
     }
@@ -6721,6 +6739,8 @@ function renderReferenceComparisons(opts = {}) {
     const container = document.getElementById('referenceComparisons');
     if (!container) {
         window.__REF_RENDER_LOCK__ = false;
+        window.comparisonLock = false;
+        console.log("[LOCK] comparisonLock liberado (container ausente)");
         console.groupEnd();
         return;
     }
@@ -6837,6 +6857,8 @@ function renderReferenceComparisons(opts = {}) {
         if (!referenceTrack || !userTrack) {
             console.error(" [REF_FIX_V5] referenceTrack ou userTrack ausentes!");
             window.__REF_RENDER_LOCK__ = false;
+            window.comparisonLock = false;
+            console.log("[LOCK] comparisonLock liberado (track ausente)");
             console.groupEnd();
             return;
         }
@@ -6849,6 +6871,8 @@ function renderReferenceComparisons(opts = {}) {
     } catch (err) {
         console.error(" [REF_FIX_V5] Erro crítico de escopo:", err);
         window.__REF_RENDER_LOCK__ = false;
+        window.comparisonLock = false;
+        console.log("[LOCK] comparisonLock liberado (erro crítico)");
         console.groupEnd();
         return;
     }
@@ -6862,6 +6886,8 @@ function renderReferenceComparisons(opts = {}) {
     if (!userAnalysis || !referenceAnalysis) {
         console.warn("[REF-COMP] Faltam análises; usando fallback controlado.");
         window.__REF_RENDER_LOCK__ = false;
+        window.comparisonLock = false;
+        console.log("[LOCK] comparisonLock liberado (análises ausentes)");
         return renderGenreComparisonSafe?.();
     }
 
@@ -6872,6 +6898,8 @@ function renderReferenceComparisons(opts = {}) {
     if (!referenceTrack) {
         console.error("🚨 [SAFE_REF_V3] referenceTrack ainda undefined! Abortando render seguro.");
         window.__REF_RENDER_LOCK__ = false;
+        window.comparisonLock = false;
+        console.log("[LOCK] comparisonLock liberado (referenceTrack undefined)");
         return;
     }
     
@@ -6889,6 +6917,8 @@ function renderReferenceComparisons(opts = {}) {
                 </small>
             </div>`;
         window.__REF_RENDER_LOCK__ = false;
+        window.comparisonLock = false;
+        console.log("[LOCK] comparisonLock liberado (bandas ausentes)");
         console.groupEnd();
         return;
     }
@@ -7187,6 +7217,8 @@ function renderReferenceComparisons(opts = {}) {
                         "🚨 [REF_SCOPE_LOCK] refBands ausente, abortando renderização segura."
                     );
                     window.__REF_RENDER_LOCK__ = false;
+                    window.comparisonLock = false;
+                    console.log("[LOCK] comparisonLock liberado (refBands ausente)");
                     return;
                 }
 
@@ -7196,6 +7228,8 @@ function renderReferenceComparisons(opts = {}) {
             } catch (err) {
                 console.error("💥 [REF_SCOPE_LOCK] Erro crítico ao reestabelecer escopo:", err);
                 window.__REF_RENDER_LOCK__ = false;
+                window.comparisonLock = false;
+                console.log("[LOCK] comparisonLock liberado (erro escopo)");
                 return;
             }
             
@@ -7228,6 +7262,8 @@ function renderReferenceComparisons(opts = {}) {
             if (!refAnalysis || !userAnalysisData) {
                 console.error("💥 [REF-FIX-FINAL] Análises não encontradas, abortando");
                 window.__REF_RENDER_LOCK__ = false;
+                window.comparisonLock = false;
+                console.log("[LOCK] comparisonLock liberado (análises não encontradas)");
                 return;
             }
             
@@ -8448,6 +8484,10 @@ function renderTrackComparisonTable(baseAnalysis, referenceAnalysis) {
     };
     
     console.log('✅ [VALIDAÇÃO-FINAL] Modal Reference OK:', validationData);
+    
+    // ✅ Libera lock após renderização
+    window.comparisonLock = false;
+    console.log("[LOCK] comparisonLock liberado");
     
     console.groupEnd();
 }
