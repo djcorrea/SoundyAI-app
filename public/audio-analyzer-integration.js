@@ -3123,6 +3123,29 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         // 🔧 CORREÇÃO: Normalizar dados do backend antes de usar
         const normalizedResult = normalizeBackendAnalysisData(analysisResult);
         
+        // ✅ CORREÇÃO: Carregar targets de gênero de /Refs/Out/ se não existirem
+        if (!normalizedResult.referenceComparison) {
+            const genreId = normalizedResult.genreId || normalizedResult.metadata?.genre || normalizedResult.genre || "default";
+            console.log(`[GENRE-TARGETS] Tentando carregar targets para gênero: ${genreId}`);
+            
+            try {
+                const response = await fetch(`/Refs/Out/${genreId}.json`);
+                if (response.ok) {
+                    const targets = await response.json();
+                    normalizedResult.referenceComparison = targets;
+                    console.log(`[GENRE-TARGETS] ✅ Targets carregados para ${genreId}:`, targets);
+                } else {
+                    console.warn(`[GENRE-TARGETS] ⚠️ Arquivo não encontrado: /Refs/Out/${genreId}.json (${response.status})`);
+                    console.warn(`[GENRE-TARGETS] Continuando sem targets específicos do gênero`);
+                }
+            } catch (err) {
+                console.error("[GENRE-TARGETS] ❌ Erro ao carregar targets de gênero:", err);
+                console.error("[GENRE-TARGETS] Continuando com targets padrão ou sem targets");
+            }
+        } else {
+            console.log("[GENRE-TARGETS] ✅ referenceComparison já existe, pulando carregamento");
+        }
+        
         // 🎯 CORREÇÃO CRÍTICA: Gerar sugestões no primeiro load
         if (__activeRefData && !normalizedResult._suggestionsGenerated) {
             console.log('🎯 [SUGGESTIONS] Engine chamado no primeiro load');
@@ -6601,13 +6624,27 @@ function displayModalResults(analysis) {
                 referenceBandsKeys: state.reference?.analysis?.bands ? Object.keys(state.reference.analysis.bands) : []
             });
             
-            // Só chamar renderReferenceComparisons() em modo GÊNERO
-            if (!(mode === 'reference' && isSecondTrack && window.referenceAnalysisData)) {
-                console.log('📊 [RENDER-FLOW] Chamando renderReferenceComparisons() - modo gênero');
-                renderReferenceComparisons({ analysis, mode: 'genre' }); // 🎯 PATCH: modo explícito
-            } else {
-                console.log('🎯 [RENDER-FLOW] PULANDO renderReferenceComparisons() - comparação de faixas já renderizada via renderTrackComparisonTable()');
+            // ✅ CORREÇÃO: SEMPRE chamar renderReferenceComparisons() - ela renderiza cards/scores/tabela
+            const renderMode = (mode === 'reference' && isSecondTrack && window.referenceAnalysisData) ? 'reference' : 'genre';
+            console.log(`📊 [RENDER-FLOW] Chamando renderReferenceComparisons() - modo: ${renderMode}`);
+            
+            // Preparar opts com análises corretas para modo reference
+            const renderOpts = {
+                analysis,
+                mode: renderMode
+            };
+            
+            if (renderMode === 'reference') {
+                // Adicionar userAnalysis e referenceAnalysis para o modo reference
+                renderOpts.userAnalysis = state.userAnalysis || state.reference?.userAnalysis;
+                renderOpts.referenceAnalysis = state.referenceAnalysis || state.reference?.referenceAnalysis;
+                console.log('[CARDS] ✅ Dados A/B preparados para renderReferenceComparisons:', {
+                    hasUserAnalysis: !!renderOpts.userAnalysis,
+                    hasReferenceAnalysis: !!renderOpts.referenceAnalysis
+                });
             }
+            
+            renderReferenceComparisons(renderOpts);
         } catch(e){ 
             console.error('❌ [RENDER-FLOW] ERRO em renderReferenceComparisons:', e);
             console.error('❌ Stack trace:', e.stack);
@@ -7246,24 +7283,68 @@ function renderReferenceComparisons(opts = {}) {
     
     // ✅ LOG PARA CONFIRMAÇÃO FINAL
     console.log("[REF-COMPARE ✅] Direção correta confirmada: PRIMEIRA = sua música (atual), SEGUNDA = referência (alvo)");
-    console.log("✅ [SAFE_REF_V3] Tracks resolvidas:", { userTrack, referenceTrack, userBands: !!userBands, refBands: !!refBands });
     
-    // 🧩 Caso ainda falte alguma banda, abortar render com aviso amigável
-    if (!userBands || !refBands) {
-        console.error("🚨 [SAFE_RENDER_REF] Dados de bandas ausentes, abortando renderização segura.");
-        container.innerHTML = `
-            <div style="color:red;text-align:center;padding:20px;border:1px solid #ff4444;border-radius:8px;background:#fff0f0;">
-                ❌ Erro: bandas não carregadas completamente.<br>
-                <small style="opacity:0.7;margin-top:8px;display:block;">
-                    userBands: ${!!userBands}, refBands: ${!!refBands}
-                </small>
-            </div>`;
+    // ✅ CORREÇÃO: Extração unificada de bandas para todos os modos
+    const userBandsExtracted =
+        opts.userAnalysis?.bands ||
+        opts.userAnalysis?.technicalData?.spectral_balance ||
+        analysis.userAnalysis?.bands ||
+        analysis.bands ||
+        analysis.referenceComparison?.userBands ||
+        userBands ||
+        [];
+
+    const refBandsExtracted =
+        opts.referenceAnalysis?.bands ||
+        opts.referenceAnalysis?.technicalData?.spectral_balance ||
+        analysis.referenceAnalysis?.bands ||
+        analysis.referenceComparison?.refBands ||
+        refBands ||
+        [];
+    
+    // Atualizar variáveis locais
+    userBands = userBandsExtracted;
+    refBands = refBandsExtracted;
+    
+    console.log("✅ [SAFE_REF_V3] Tracks resolvidas:", { userTrack, referenceTrack, userBands: !!userBands, refBands: !!refBands });
+
+    // 🚨 Proteção aprimorada com logs
+    if (!userBands?.length && !Object.keys(userBands || {}).length) {
+        console.warn("[REF-COMP] ❌ userBands não encontradas - abortando render de cards/scores");
+        console.table({
+            userBands,
+            refBands,
+            source: Object.keys(analysis || opts),
+            hasUserAnalysis: !!opts.userAnalysis,
+            hasReferenceAnalysis: !!opts.referenceAnalysis,
+        });
         window.__REF_RENDER_LOCK__ = false;
         window.comparisonLock = false;
-        console.log("[LOCK] comparisonLock liberado (bandas ausentes)");
+        console.log("[LOCK] comparisonLock liberado (userBands ausentes)");
         console.groupEnd();
         return;
     }
+
+    if (!refBands?.length && !Object.keys(refBands || {}).length) {
+        console.warn("[REF-COMP] ❌ refBands não encontradas - abortando render de cards/scores");
+        console.table({
+            userBands,
+            refBands,
+            source: Object.keys(analysis || opts),
+            hasUserAnalysis: !!opts.userAnalysis,
+            hasReferenceAnalysis: !!opts.referenceAnalysis,
+        });
+        window.__REF_RENDER_LOCK__ = false;
+        window.comparisonLock = false;
+        console.log("[LOCK] comparisonLock liberado (refBands ausentes)");
+        console.groupEnd();
+        return;
+    }
+
+    console.log("[REF-COMP] ✅ Bandas detectadas:", {
+        userBands: Array.isArray(userBands) ? userBands.length : Object.keys(userBands).length,
+        refBands: Array.isArray(refBands) ? refBands.length : Object.keys(refBands).length,
+    });
     
     // 🔓 Libera lock após iniciar renderização (será completado em 1.5s)
     setTimeout(() => {
