@@ -2401,26 +2401,22 @@ function resetModalState() {
     const fileInput = document.getElementById('modalAudioFileInput');
     if (fileInput) fileInput.value = '';
     
-    // 🔥 PATCH D: Reset avançado de estado de referência e render
+    // 🧩 CORREÇÃO #4: Reset completo de estado (limpeza total)
     const state = window.__soundyState || {};
-    if (state.reference) {
-        state.reference = {
-            analysis: null,
-            isSecondTrack: false,
-            jobId: null,
-            userAnalysis: null,
-            referenceAnalysis: null
-        };
-    }
+    
+    // Limpar completamente estado de referência
+    state.reference = null;
     state.userAnalysis = null;
     state.referenceAnalysis = null;
     state.previousAnalysis = null;
-    state.render = state.render || {};
+    
+    // Limpar modo de renderização
+    if (!state.render) state.render = {};
     state.render.mode = null;
     
     window.__soundyState = state;
     
-    // Globais
+    // Limpar variáveis globais
     window.referenceAnalysisData = null;
     window.referenceComparisonMetrics = null;
     window.lastReferenceJobId = null;
@@ -2786,8 +2782,14 @@ async function handleReferenceAnalysisWithResult(analysisResult, fileKey, fileNa
 async function handleGenreAnalysisWithResult(analysisResult, fileName) {
     __dbg('🎵 Processando análise por gênero com resultado remoto:', { fileName });
     
-    // 🔥 PATCH C: Limpeza total ao entrar no modo Genre
+    // 🧩 CORREÇÃO #1: Limpeza completa ao entrar no modo Genre
     const state = window.__soundyState || {};
+    
+    // Limpar completamente estado de referência
+    state.userAnalysis = null;
+    state.referenceAnalysis = null;
+    state.previousAnalysis = null;
+    
     if (state.reference) {
         state.reference.analysis = null;
         state.reference.isSecondTrack = false;
@@ -2795,21 +2797,19 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         state.reference.userAnalysis = null;
         state.reference.referenceAnalysis = null;
     }
-    state.userAnalysis = null;
-    state.referenceAnalysis = null;
     
-    // Forçar modo gênero
-    state.render = state.render || {};
+    // Forçar modo gênero explicitamente
+    if (!state.render) state.render = {};
     state.render.mode = 'genre';
     
     window.__soundyState = state;
     
-    // Limpar globais
+    // Limpar globais de referência
     window.referenceAnalysisData = null;
     window.referenceComparisonMetrics = null;
     window.lastReferenceJobId = null;
     
-    console.log('[GENRE-FLOW] Limpou completamente estado de referência e forçou mode=genre');
+    console.log('🎚️ [FIX-GENRE] Estado completamente limpo, modo forçado para "genre"');
     
     try {
         // Verificar estrutura do resultado
@@ -4237,7 +4237,7 @@ function displayModalResults(analysis) {
             refIsSecond: !!(state?.referenceAnalysis || currNormalized)
         });
         
-        // Chamada principal de render das bandas A/B.
+        // 🧩 CORREÇÃO #6: Chamada ÚNICA de renderização (remover duplicação)
         // Ordem correta: userAnalysis = 1ª faixa (base), referenceAnalysis = 2ª faixa (alvo)
         renderReferenceComparisons({
             mode: 'reference',
@@ -4245,11 +4245,9 @@ function displayModalResults(analysis) {
             referenceAnalysis: currNormalized   // 2ª faixa
         });
         
-        // Se a tabela A/B secundária for necessária, mantenha-a
-        // mas garantindo a mesma ordem sem inversões.
-        if (typeof renderTrackComparisonTable === 'function') {
-            renderTrackComparisonTable(refNormalized, currNormalized); // (base, alvo)
-        }
+        // ❌ REMOVIDO: renderTrackComparisonTable() - causava duplicação
+        // renderReferenceComparisons() já renderiza tudo
+        console.log('✅ [REFERENCE-RENDER] Renderização única completa (sem duplicação)');
         
         // Atualizar window.latestAnalysis para compatibilidade com IA e PDF
         window.latestAnalysis = {
@@ -4839,9 +4837,9 @@ function displayModalResults(analysis) {
             // REMOVED: Largura Estéreo - movido para col1
         })();
 
-            // REMOVED: col3Extras (Dominant Frequencies)  
-            // Reason: REMOVAL_SKIPPED_USED_BY_SCORE:dominantFrequencies - usado por enhanced-suggestion-engine.js
-            console.warn('REMOVAL_SKIPPED_USED_BY_SCORE:dominantFrequencies - mantendo cálculo interno, ocultando UI');
+            // 🧩 CORREÇÃO #5: Exibir frequências dominantes na UI (removido bloqueio)
+            // Frequências dominantes agora visíveis
+            console.log('🎛️ [DEBUG] Exibindo métricas de frequência na UI');
             
             const col3 = [
                 // REMOVED: Dominant Frequencies UI (mantendo cálculo interno para suggestions)
@@ -4958,13 +4956,22 @@ function displayModalResults(analysis) {
                     // Este bloco foi comentado para evitar duplicação
                 }
                 
+                // 🧩 CORREÇÃO #5: Exibir frequências dominantes e uniformidade espectral
                 // === FREQUÊNCIAS DOMINANTES ===
-                // REMOVED: Dominant Frequencies display (mantendo cálculo interno para enhanced-suggestion-engine.js)
-                console.warn('REMOVAL_SKIPPED_USED_BY_SCORE:dominantFrequencies - ocultando UI, mantendo cálculo');
+                if (Array.isArray(analysis.technicalData?.dominantFrequencies) && analysis.technicalData.dominantFrequencies.length > 0) {
+                    const freqList = analysis.technicalData.dominantFrequencies
+                        .slice(0, 5)
+                        .map(f => `${Math.round(f)}Hz`)
+                        .join(', ');
+                    rows.push(row('frequências dominantes', freqList, 'dominantFrequencies'));
+                    console.log('🎛️ [DEBUG] Frequências dominantes exibidas:', freqList);
+                }
                 
-                // === MÉTRICAS DE UNIFORMIDADE ===  
-                // REMOVED: Spectral Uniformity display (mantendo cálculo interno para problems-suggestions.js)
-                console.warn('REMOVAL_SKIPPED_USED_BY_SCORE:spectralUniformity - ocultando UI, mantendo cálculo');
+                // === UNIFORMIDADE ESPECTRAL ===
+                if (Number.isFinite(analysis.technicalData?.spectralUniformity)) {
+                    rows.push(row('uniformidade espectral', `${safeFixed(analysis.technicalData.spectralUniformity, 3)}`, 'spectralUniformity'));
+                    console.log('🎛️ [DEBUG] Uniformidade espectral exibida:', analysis.technicalData.spectralUniformity);
+                }
                 
                 // === ZEROS CROSSING RATE ===
                 if (Number.isFinite(analysis.technicalData?.zcr)) {
@@ -11798,6 +11805,13 @@ window.hideMetricTooltip = function() {
 // Fechar tooltip ao rolar a página
 window.addEventListener('scroll', hideMetricTooltip);
 window.addEventListener('resize', hideMetricTooltip);
+
+// 🧩 CORREÇÃO #7: Logs de debug automáticos para validação
+console.log("%c[SYSTEM CHECK] 🔍 Debug ativo para validação de fluxos genre/reference", "color:#7f00ff;font-weight:bold;");
+
+window.addEventListener("beforeunload", () => {
+    console.log("🧹 [CLEANUP] Encerrando sessão de análise e limpando estado.");
+});
 
 // 🎯 PATCH DEFINITIVO: Carregar correção da tabela de referência
 (function loadReferenceTablePatch() {
