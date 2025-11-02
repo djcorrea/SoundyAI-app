@@ -9238,6 +9238,23 @@ const GENRE_SCORING_WEIGHTS = {
 function calculateMetricScore(actualValue, targetValue, tolerance) {
     // Verificar se temos valores válidos
     if (!Number.isFinite(actualValue) || !Number.isFinite(targetValue) || !Number.isFinite(tolerance) || tolerance <= 0) {
+        try {
+            console.log('[AUDIT-SCORE]', {
+                func: 'calculateMetricScore',
+                value: actualValue,
+                target: targetValue,
+                diff: 'N/A (validação falhou)',
+                tolerance,
+                result: null,
+                condition: 'validação falhou',
+                reason: !Number.isFinite(actualValue) ? 'actualValue inválido' : 
+                        !Number.isFinite(targetValue) ? 'targetValue inválido' : 
+                        !Number.isFinite(tolerance) ? 'tolerance inválido' : 
+                        'tolerance <= 0'
+            });
+        } catch (err) {
+            console.warn('[AUDIT-ERROR]', 'calculateMetricScore (validação)', err);
+        }
         return null; // Métrica inválida
     }
     
@@ -9245,6 +9262,20 @@ function calculateMetricScore(actualValue, targetValue, tolerance) {
     
     // 🎯 DENTRO DA TOLERÂNCIA = 100 pontos
     if (diff <= tolerance) {
+        try {
+            console.log('[AUDIT-SCORE]', {
+                func: 'calculateMetricScore',
+                value: actualValue,
+                target: targetValue,
+                diff,
+                tolerance,
+                result: 100,
+                condition: 'diff <= tolerance',
+                ratio: diff / tolerance
+            });
+        } catch (err) {
+            console.warn('[AUDIT-ERROR]', 'calculateMetricScore (dentro tolerância)', err);
+        }
         return 100;
     }
     
@@ -9255,20 +9286,39 @@ function calculateMetricScore(actualValue, targetValue, tolerance) {
     // Δ acima de 3x tolerância → ~20 (nunca zerar)
     
     const ratio = diff / tolerance;
+    let result;
     
     if (ratio <= 1.5) {
         // Entre 1x e 1.5x tolerância: decaimento suave de 100 para 80
-        return Math.round(100 - ((ratio - 1) * 40)); // 100 - (0.5 * 40) = 80 no máximo
+        result = Math.round(100 - ((ratio - 1) * 40)); // 100 - (0.5 * 40) = 80 no máximo
     } else if (ratio <= 2.0) {
         // Entre 1.5x e 2x tolerância: de 80 para 60
-        return Math.round(80 - ((ratio - 1.5) * 40)); // 80 - (0.5 * 40) = 60 no máximo
+        result = Math.round(80 - ((ratio - 1.5) * 40)); // 80 - (0.5 * 40) = 60 no máximo
     } else if (ratio <= 3.0) {
         // Entre 2x e 3x tolerância: de 60 para 40
-        return Math.round(60 - ((ratio - 2) * 20)); // 60 - (1 * 20) = 40 no máximo
+        result = Math.round(60 - ((ratio - 2) * 20)); // 60 - (1 * 20) = 40 no máximo
     } else {
         // Acima de 3x tolerância: 20 (nunca zerar totalmente)
-        return 20;
+        result = 20;
     }
+    
+    try {
+        console.log('[AUDIT-SCORE]', {
+            func: 'calculateMetricScore',
+            value: actualValue,
+            target: targetValue,
+            diff,
+            tolerance,
+            result,
+            condition: 'diff > tolerance',
+            ratio,
+            penaltyLevel: ratio <= 1.5 ? '1-1.5x' : ratio <= 2.0 ? '1.5-2x' : ratio <= 3.0 ? '2-3x' : '>3x'
+        });
+    } catch (err) {
+        console.warn('[AUDIT-ERROR]', 'calculateMetricScore (penalização)', err);
+    }
+    
+    return result;
 }
 
 // 3. CALCULAR SCORE DE LOUDNESS (LUFS, True Peak, Crest Factor)
@@ -9311,11 +9361,44 @@ function calculateLoudnessScore(analysis, refData) {
     }
     
     // Retornar média dos scores válidos
-    if (scores.length === 0) return null;
+    if (scores.length === 0) {
+        try {
+            console.log('[AUDIT-SCORE]', {
+                func: 'calculateLoudnessScore',
+                value: 'N/A',
+                target: 'N/A',
+                diff: 'N/A',
+                tolerance: 'N/A',
+                result: null,
+                condition: 'no valid scores',
+                scoresCount: 0
+            });
+        } catch (err) {
+            console.warn('[AUDIT-ERROR]', 'calculateLoudnessScore (no scores)', err);
+        }
+        return null;
+    }
     
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
     const result = Math.round(average);
     console.log(`🔊 Score Loudness Final: ${result}% (média de ${scores.length} métricas)`);
+    
+    try {
+        console.log('[AUDIT-SCORE]', {
+            func: 'calculateLoudnessScore',
+            value: { lufs: metrics.lufs_integrated || tech.lufsIntegrated, truePeak: metrics.true_peak_dbtp || tech.truePeakDbtp, crest: tech.crestFactor || metrics.crest_factor },
+            target: { lufs: refData.lufs_target, truePeak: refData.true_peak_target, crest: refData.crest_target },
+            diff: 'ver logs individuais',
+            tolerance: { lufs: refData.tol_lufs, truePeak: refData.tol_true_peak, crest: refData.tol_crest },
+            result,
+            condition: 'average of ' + scores.length + ' metrics',
+            individualScores: scores,
+            average
+        });
+    } catch (err) {
+        console.warn('[AUDIT-ERROR]', 'calculateLoudnessScore (final)', err);
+    }
+    
     return result;
 }
 
@@ -9370,11 +9453,44 @@ function calculateDynamicsScore(analysis, refData) {
     }
     
     // Retornar média dos scores válidos
-    if (scores.length === 0) return null;
+    if (scores.length === 0) {
+        try {
+            console.log('[AUDIT-SCORE]', {
+                func: 'calculateDynamicsScore',
+                value: 'N/A',
+                target: 'N/A',
+                diff: 'N/A',
+                tolerance: 'N/A',
+                result: null,
+                condition: 'no valid scores',
+                scoresCount: 0
+            });
+        } catch (err) {
+            console.warn('[AUDIT-ERROR]', 'calculateDynamicsScore (no scores)', err);
+        }
+        return null;
+    }
     
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
     const result = Math.round(average);
     console.log(`📊 Score Dinâmica Final: ${result}% (média de ${scores.length} métricas)`);
+    
+    try {
+        console.log('[AUDIT-SCORE]', {
+            func: 'calculateDynamicsScore',
+            value: { dr: metrics.dynamic_range || tech.dynamicRange, lra: metrics.lra || tech.lra, crest: tech.crestFactor || metrics.crest_factor, compression: tech.compressionRatio },
+            target: { dr: refData.dr_target, lra: refData.lra_target, crest: refData.crest_target, compression: refData.compression_target },
+            diff: 'ver logs individuais',
+            tolerance: { dr: refData.tol_dr, lra: refData.tol_lra, crest: refData.tol_crest, compression: refData.tol_compression },
+            result,
+            condition: 'average of ' + scores.length + ' metrics',
+            individualScores: scores,
+            average
+        });
+    } catch (err) {
+        console.warn('[AUDIT-ERROR]', 'calculateDynamicsScore (final)', err);
+    }
+    
     return result;
 }
 
@@ -9432,11 +9548,44 @@ function calculateStereoScore(analysis, refData) {
     }
     
     // Retornar média dos scores válidos
-    if (scores.length === 0) return null;
+    if (scores.length === 0) {
+        try {
+            console.log('[AUDIT-SCORE]', {
+                func: 'calculateStereoScore',
+                value: 'N/A',
+                target: 'N/A',
+                diff: 'N/A',
+                tolerance: 'N/A',
+                result: null,
+                condition: 'no valid scores',
+                scoresCount: 0
+            });
+        } catch (err) {
+            console.warn('[AUDIT-ERROR]', 'calculateStereoScore (no scores)', err);
+        }
+        return null;
+    }
     
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
     const result = Math.round(average);
     console.log(`🎧 Score Estéreo Final: ${result}% (média de ${scores.length} métricas)`);
+    
+    try {
+        console.log('[AUDIT-SCORE]', {
+            func: 'calculateStereoScore',
+            value: { correlation: metrics.stereo_correlation || tech.stereoCorrelation, width: tech.stereoWidth || metrics.stereo_width, balance: tech.stereoBalance || metrics.stereo_balance, separation: tech.channelSeparation || metrics.channel_separation },
+            target: { correlation: refData.stereo_target, width: refData.width_target, balance: refData.balance_target, separation: refData.separation_target },
+            diff: 'ver logs individuais',
+            tolerance: { correlation: refData.tol_stereo, width: refData.tol_width, balance: refData.tol_balance, separation: refData.tol_separation },
+            result,
+            condition: 'average of ' + scores.length + ' metrics',
+            individualScores: scores,
+            average
+        });
+    } catch (err) {
+        console.warn('[AUDIT-ERROR]', 'calculateStereoScore (final)', err);
+    }
+    
     return result;
 }
 
@@ -9538,7 +9687,25 @@ function calculateFrequencyScore(analysis, refData) {
     });
     
     // Se não encontrou scores válidos, retornar null
-    if (scores.length === 0) return null;
+    if (scores.length === 0) {
+        try {
+            console.log('[AUDIT-SCORE]', {
+                func: 'calculateFrequencyScore',
+                value: 'N/A',
+                target: 'N/A',
+                diff: 'N/A',
+                tolerance: 'N/A',
+                result: null,
+                condition: 'no valid scores',
+                scoresCount: 0,
+                isReferenceMode,
+                bandsAvailable: refData.bands ? Object.keys(refData.bands) : []
+            });
+        } catch (err) {
+            console.warn('[AUDIT-ERROR]', 'calculateFrequencyScore (no scores)', err);
+        }
+        return null;
+    }
     
     // Média aritmética simples das bandas válidas
     const average = scores.reduce((sum, score) => sum + score, 0) / scores.length;
@@ -9546,6 +9713,24 @@ function calculateFrequencyScore(analysis, refData) {
     
     console.log(`🎵 Score Frequência Final: ${result}% (média de ${scores.length} bandas)`);
     console.log(`🎵 Scores individuais: [${scores.join(', ')}]`);
+    
+    try {
+        console.log('[AUDIT-SCORE]', {
+            func: 'calculateFrequencyScore',
+            value: 'bandas espectrais (ver logs individuais)',
+            target: 'bandas de referência',
+            diff: 'ver logs individuais por banda',
+            tolerance: isReferenceMode ? '0 (modo reference)' : 'target_range',
+            result,
+            condition: 'average of ' + scores.length + ' bands',
+            individualScores: scores,
+            average,
+            isReferenceMode,
+            bandsProcessed: scores.length
+        });
+    } catch (err) {
+        console.warn('[AUDIT-ERROR]', 'calculateFrequencyScore (final)', err);
+    }
     
     return result;
 }
@@ -9708,6 +9893,25 @@ function calculateTechnicalScore(analysis, refData) {
     }
     
     console.log(`🔧 Score Técnico Final: ${result}% (média de ${scores.length} métricas${hasTruePeakData ? ', True Peak incluído' : ''})`);
+    
+    try {
+        console.log('[AUDIT-SCORE]', {
+            func: 'calculateTechnicalScore',
+            value: { clipping: tech.clipping || metrics.clipping, dcOffset: tech.dcOffset || metrics.dc_offset, thd: tech.thd || metrics.thd, truePeak: truePeak, issues: issues.length },
+            target: 'valores ideais (0 para clipping/dc/thd, <0 para truePeak)',
+            diff: 'N/A (avaliação por faixas)',
+            tolerance: 'N/A',
+            result,
+            condition: 'average of ' + scores.length + ' metrics',
+            individualScores: scores,
+            average,
+            hasTruePeakData,
+            hardCapApplied: hasTruePeakData && truePeak > 0.0
+        });
+    } catch (err) {
+        console.warn('[AUDIT-ERROR]', 'calculateTechnicalScore (final)', err);
+    }
+    
     return result;
 }
 
@@ -9796,6 +10000,30 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
         console.log('[REFERENCE-A/B FIXED ✅] Comparação A/B concluída com sucesso');
         console.log('[AUDIT_REF_FIX] Bands carregadas da segunda música (referência real)');
         console.log('[AUDIT_REF_FIX] ReferenceComparison gerado com dados A/B corretos');
+    }
+    
+    // 🎯 AUDIT LOG FINAL
+    try {
+        console.log('[AUDIT-FINAL-SCORES]', {
+            loudness: result.loudness,
+            dinamica: result.dinamica,
+            frequencia: result.frequencia,
+            estereo: result.estereo,
+            tecnico: result.tecnico,
+            finalScore: result.final,
+            weights: result.weights,
+            genre: result.genre,
+            weightedCalculation: {
+                loudness: result.loudness !== null ? (result.loudness * result.weights.loudness) : 'N/A',
+                dinamica: result.dinamica !== null ? (result.dinamica * result.weights.dinamica) : 'N/A',
+                frequencia: result.frequencia !== null ? (result.frequencia * result.weights.frequencia) : 'N/A',
+                estereo: result.estereo !== null ? (result.estereo * result.weights.estereo) : 'N/A',
+                tecnico: result.tecnico !== null ? (result.tecnico * result.weights.tecnico) : 'N/A'
+            },
+            isReferenceMode: refData._isReferenceMode === true
+        });
+    } catch (err) {
+        console.warn('[AUDIT-ERROR]', 'calculateAnalysisScores (final)', err);
     }
     
     return result;
