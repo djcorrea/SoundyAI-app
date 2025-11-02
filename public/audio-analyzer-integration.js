@@ -2416,10 +2416,13 @@ function resetModalState() {
     
     window.__soundyState = state;
     
-    // Limpar variáveis globais
+    // 🧼 LIMPEZA COMPLETA: Garantir que nenhum resíduo de referência persista
+    window.__REFERENCE_JOB_ID__ = null;
     window.referenceAnalysisData = null;
     window.referenceComparisonMetrics = null;
     window.lastReferenceJobId = null;
+    
+    console.log('✅ [RESET] Estado limpo completamente - pronto para nova análise');
 
     // 🔥 FIX-REFERENCE: Preservar flags se estamos em modo reference aguardando segunda música
     const isAwaitingSecondTrack = currentAnalysisMode === 'reference' && window.__REFERENCE_JOB_ID__;
@@ -6558,6 +6561,21 @@ function renderReferenceComparisons(opts = {}) {
     const container = document.getElementById('referenceComparisons');
     if (!container) return;
     
+    // 🧠 SAFEGUARD: garantir que spectral_balance exista na referência
+    if (opts?.mode === "reference" && opts?.referenceAnalysis && !opts?.referenceAnalysis?.technicalData?.spectral_balance) {
+        console.warn("⚠️ [SAFEGUARD] spectral_balance ausente em referenceAnalysis — criando estrutura temporária vazia.");
+        if (!opts.referenceAnalysis.technicalData) opts.referenceAnalysis.technicalData = {};
+        opts.referenceAnalysis.technicalData.spectral_balance = {
+            sub: 0,
+            bass: 0,
+            low_mid: 0,
+            mid: 0,
+            high_mid: 0,
+            presence: 0,
+            air: 0
+        };
+    }
+    
     // 🎯 CORREÇÃO CRÍTICA: Fonte da verdade vem do caller - NÃO usar fallback 'genre'
     const state = window.__soundyState || {};
     
@@ -7555,7 +7573,14 @@ function renderReferenceComparisons(opts = {}) {
                               || referenceComparisonMetrics?.referenceFull?.technicalData /* legado confuso */
                               || null;
                 
-                refBands  = refTech?.spectral_balance || null;
+                // 🔍 EXTRAÇÃO DE refBands com fallback seguro (NUNCA usar ranges de gênero)
+                refBands = refTech?.spectral_balance ||
+                          opts?.referenceAnalysis?.bands ||
+                          opts?.referenceAnalysis?.frequencyBands ||
+                          state?.referenceAnalysis?.bands ||
+                          state?.referenceAnalysis?.frequencyBands ||
+                          null;
+                
                 userBands = userTech?.spectral_balance || null;
                 
                 console.log('[REF-FLOW] bands sources', {
@@ -7566,13 +7591,16 @@ function renderReferenceComparisons(opts = {}) {
                 });
                 
                 if (!refBands) {
+                    console.error("🚨 [REF-ERROR] Nenhum dado de bandas encontrado na referência.");
                     console.error('[CRITICAL] Reference mode sem bandas da 2ª faixa! Abortando render.');
                     console.error('[CRITICAL] Proibido fallback de gênero no reference mode');
                     if (container) {
-                        container.innerHTML = '<div style="color:#ff4d4f;padding:12px;border:1px solid #ff4d4f;border-radius:8px;">❌ Erro: análise de referência incompleta (sem bandas da 2ª faixa).</div>';
+                        container.innerHTML = '<div style="color:red;">❌ Erro: bandas de referência não disponíveis</div>';
                     }
                     return;
                 }
+                
+                console.log("✅ [AUDIT_REF_FIX] referenceAnalysis spectral_balance pronto:", refBands);
             } else {
                 // GENRE: aqui SIM usa ranges de __activeRefData
                 refBands  = (__activeRefData && __activeRefData.bands) || null;
@@ -10962,6 +10990,34 @@ function normalizeBackendAnalysisData(result) {
         crestFactor: normalized.technicalData.crestFactor,
         bands: normalized.technicalData.bandEnergies || normalized.technicalData.spectral_balance
     });
+    
+    // 🧩 AUTO-FIX: restaurar spectral_balance se estiver ausente
+    if (!normalized.technicalData.spectral_balance) {
+        if (result?.analysis?.bands) {
+            normalized.technicalData.spectral_balance = result.analysis.bands;
+            console.log("✅ [NORMALIZER] spectral_balance restaurado a partir de result.analysis.bands");
+        } else if (data?.bands) {
+            normalized.technicalData.spectral_balance = data.bands;
+            console.log("✅ [NORMALIZER] spectral_balance restaurado a partir de data.bands");
+        } else if (data?.frequencyBands) {
+            normalized.technicalData.spectral_balance = data.frequencyBands;
+            console.log("✅ [NORMALIZER] spectral_balance restaurado a partir de frequencyBands");
+        } else if (result?.bands) {
+            normalized.technicalData.spectral_balance = result.bands;
+            console.log("✅ [NORMALIZER] spectral_balance restaurado a partir de result.bands");
+        } else {
+            console.warn("⚠️ [NORMALIZER] Nenhum dado de bandas encontrado — criando estrutura vazia.");
+            normalized.technicalData.spectral_balance = {
+                sub: 0,
+                bass: 0,
+                low_mid: 0,
+                mid: 0,
+                high_mid: 0,
+                presence: 0,
+                air: 0
+            };
+        }
+    }
     
     // 🎯 LOGS ESPECÍFICOS DAS MÉTRICAS PRINCIPAIS (AUDITORIA COMPLETA RMS + LUFS)
     console.log('[AUDITORIA-RMS-LUFS] RMS:', normalized.technicalData.avgLoudness, 'LUFS:', normalized.technicalData.lufsIntegrated);
