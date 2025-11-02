@@ -1478,6 +1478,77 @@ class AISuggestionsIntegration {
      * Integração com sistema existente
      */
     integrateWithExistingSystem() {
+        // 🔒 Guard clause: Verificar se displayModalResults já está definida
+        if (typeof window.displayModalResults !== "function") {
+            console.warn("[SAFE_INTERCEPT_WAIT] Função displayModalResults ainda não carregada — aguardando...");
+            const waitInterval = setInterval(() => {
+                if (typeof window.displayModalResults === "function") {
+                    clearInterval(waitInterval);
+                    console.log("[SAFE_INTERCEPT_OK] displayModalResults agora disponível — interceptando com segurança");
+                    
+                    // Reaplica o interceptador corretamente
+                    const originalDisplayModalResults = window.displayModalResults;
+                    window.displayModalResults = (data) => {
+                        console.log("[SAFE_INTERCEPT] displayModalResults interceptado (ai-suggestions)", data);
+
+                        // 🔒 Garante preservação A/B
+                        const merged = {
+                            ...data,
+                            userAnalysis: data.userAnalysis || data._userAnalysis || window.__soundyState?.previousAnalysis,
+                            referenceAnalysis: data.referenceAnalysis || data._referenceAnalysis || data.analysis,
+                        };
+
+                        if (!merged.userAnalysis || !merged.referenceAnalysis) {
+                            console.warn("[SAFE_INTERCEPT] Dados A/B incompletos - tentando reconstruir a partir do estado global");
+                        }
+
+                        // 🔍 AUDITORIA PASSO 0: INTERCEPTAÇÃO INICIAL
+                        console.group('🔍 [AUDITORIA] INTERCEPTAÇÃO INICIAL');
+                        console.log('🔗 [AI-INTEGRATION] displayModalResults interceptado:', {
+                            hasAnalysis: !!merged,
+                            hasSuggestions: !!(merged && merged.suggestions),
+                            suggestionsCount: merged?.suggestions?.length || 0,
+                            analysisKeys: merged ? Object.keys(merged) : null,
+                            hasUserAnalysis: !!merged.userAnalysis,
+                            hasReferenceAnalysis: !!merged.referenceAnalysis
+                        });
+                        
+                        if (merged && merged.suggestions) {
+                            merged.suggestions.forEach((sug, index) => {
+                                console.log(`🔗 Intercepted Sugestão ${index + 1}:`, {
+                                    message: sug.message || sug.issue || sug.title || 'N/A',
+                                    action: sug.action || sug.solution || sug.description || 'N/A',
+                                    keys: Object.keys(sug)
+                                });
+                            });
+                        }
+                        console.groupEnd();
+                        
+                        // Call original function first with protected data
+                        const result = originalDisplayModalResults.call(this, merged);
+                        
+                        // Extract suggestions and trigger AI processing
+                        if (merged && merged.suggestions) {
+                            const genre = merged.metadata?.genre || merged.genre || window.PROD_AI_REF_GENRE;
+                            const metrics = merged.technicalData || {};
+                            
+                            console.log('🔗 [AI-INTEGRATION] Interceptando sugestões para processamento IA');
+                            
+                            // Delay slightly to ensure modal is rendered
+                            setTimeout(() => {
+                                this.processWithAI(merged.suggestions, metrics, genre);
+                            }, 100);
+                        }
+                        
+                        return result;
+                    };
+                    
+                    console.log('✅ [AI-INTEGRATION] Integração com displayModalResults configurada');
+                }
+            }, 300);
+            return;
+        }
+        
         // Hook into displayModalResults to trigger AI processing
         const originalDisplayModalResults = window.displayModalResults;
         

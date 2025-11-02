@@ -4,6 +4,75 @@ console.log('🎯 [MODAL_MONITOR] Monitor do modal carregado');
 
 // Função para interceptar e monitorar o displayModalResults
 function interceptarDisplayModalResults() {
+    // 🔒 Guard clause: Verificar se displayModalResults já está definida
+    if (typeof window.displayModalResults !== "function") {
+        console.warn("[SAFE_INTERCEPT_WAIT] Função displayModalResults ainda não carregada — aguardando...");
+        const waitInterval = setInterval(() => {
+            if (typeof window.displayModalResults === "function") {
+                clearInterval(waitInterval);
+                console.log("[SAFE_INTERCEPT_OK] displayModalResults agora disponível — interceptando com segurança");
+                
+                // Reaplica o interceptador corretamente
+                const originalDisplayModalResults = window.displayModalResults;
+                window.displayModalResults = function (data) {
+                    console.log("[SAFE_INTERCEPT] displayModalResults interceptado (monitor-modal)", data);
+
+                    // 🔒 Garante preservação A/B
+                    const merged = {
+                        ...data,
+                        userAnalysis: data.userAnalysis || data._userAnalysis || window.__soundyState?.previousAnalysis,
+                        referenceAnalysis: data.referenceAnalysis || data._referenceAnalysis || data.analysis,
+                    };
+
+                    if (!merged.userAnalysis || !merged.referenceAnalysis) {
+                        console.warn("[SAFE_INTERCEPT] Dados A/B incompletos - tentando reconstruir a partir do estado global");
+                    }
+
+                    console.log('🎯 [MODAL_MONITOR] Modal sendo exibido, dados recebidos:', {
+                        hasSuggestions: !!(merged && merged.suggestions),
+                        suggestionsCount: merged?.suggestions?.length || 0,
+                        hasUltraSystem: typeof window.AdvancedEducationalSuggestionSystem !== 'undefined',
+                        hasUserAnalysis: !!merged.userAnalysis,
+                        hasReferenceAnalysis: !!merged.referenceAnalysis
+                    });
+                    
+                    // Verificar se as sugestões foram enriquecidas pelo sistema ultra-avançado
+                    if (merged && merged.suggestions && merged.suggestions.length > 0) {
+                        const firstSuggestion = merged.suggestions[0];
+                        const hasEducationalContent = !!(firstSuggestion.educationalContent);
+                        const hasEnhancedMetrics = !!(merged.enhancedMetrics?.ultraAdvancedSystem);
+                        
+                        console.log('🔍 [MODAL_MONITOR] Análise das sugestões:', {
+                            firstSuggestion: firstSuggestion,
+                            hasEducationalContent: hasEducationalContent,
+                            hasEnhancedMetrics: hasEnhancedMetrics,
+                            ultraSystemApplied: hasEnhancedMetrics
+                        });
+                        
+                        if (hasEducationalContent) {
+                            console.log('🎉 [MODAL_MONITOR] ✅ SISTEMA ULTRA-AVANÇADO FUNCIONANDO!');
+                            console.log('📚 Conteúdo educacional detectado:', firstSuggestion.educationalContent);
+                        } else {
+                            console.warn('⚠️ [MODAL_MONITOR] Sistema ultra-avançado não aplicou conteúdo educacional');
+                        }
+                        
+                        if (hasEnhancedMetrics) {
+                            console.log('📊 [MODAL_MONITOR] Métricas do sistema ultra-avançado:', merged.enhancedMetrics.ultraAdvancedSystem);
+                        }
+                    } else {
+                        console.warn('⚠️ [MODAL_MONITOR] Nenhuma sugestão encontrada na análise');
+                    }
+                    
+                    // Chamar a função original com dados protegidos
+                    return originalDisplayModalResults.call(this, merged);
+                };
+                
+                console.log('✅ [MODAL_MONITOR] Interceptação ativa - monitorando próximas análises');
+            }
+        }, 300);
+        return;
+    }
+    
     // Aguardar o script de integração carregar
     const aguardarScript = setInterval(() => {
         if (typeof window.displayModalResults === 'function') {

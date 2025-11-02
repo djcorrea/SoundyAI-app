@@ -6957,6 +6957,10 @@ function resolveTargetMetric(analysis, key, fallback) {
     return fallback ?? 0;
 }
 
+// 🔒 PASSO 3: Expor displayModalResults ao window para interceptores
+window.displayModalResults = displayModalResults;
+console.log("[DISPLAY_MODAL_READY ✅] displayModalResults disponível para interceptores");
+
 // 🧮 PARTE 3.1: Função de normalização para estrutura de referência
 function normalizeReferenceShape(a) {
   if (!a) return {};
