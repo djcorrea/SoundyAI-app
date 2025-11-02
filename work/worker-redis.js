@@ -468,6 +468,49 @@ async function audioProcessor(job) {
   // 🔑 ESTRUTURA ATUALIZADA: suporte para jobId UUID + externalId para logs + referenceJobId
   const { jobId, externalId, fileKey, mode, fileName, referenceJobId } = job.data;
   
+  // 🎯 AUDIT: LOG INICIAL - Job consumido da fila
+  console.log('🔍 [AUDIT_CONSUME] ═══════════════════════════════════════');
+  console.log(`🔍 [AUDIT_CONSUME] Job consumido da fila Redis`);
+  console.log(`🔍 [AUDIT_CONSUME] Redis Job ID: ${job.id}`);
+  console.log(`🔍 [AUDIT_CONSUME] PostgreSQL UUID: ${jobId}`);
+  console.log(`🔍 [AUDIT_CONSUME] Mode: ${mode || 'undefined'}`);
+  console.log(`🔍 [AUDIT_CONSUME] Reference Job ID: ${referenceJobId || 'null'}`);
+  console.log(`🔍 [AUDIT_CONSUME] File Key: ${fileKey}`);
+  console.log(`🔍 [AUDIT_CONSUME] File Name: ${fileName || 'unknown'}`);
+  console.log(`🔍 [AUDIT_CONSUME] External ID: ${externalId || 'não definido'}`);
+  console.log(`🔍 [AUDIT_CONSUME] Job Name: ${job.name}`);
+  console.log(`🔍 [AUDIT_CONSUME] Timestamp: ${new Date().toISOString()}`);
+  console.log('🔍 [AUDIT_CONSUME] ═══════════════════════════════════════');
+  
+  // 🎯 AUDIT: Validação de modo reference
+  if (mode === 'reference') {
+    console.log('🎯 [AUDIT_MODE] Modo REFERENCE detectado');
+    
+    if (!referenceJobId) {
+      console.warn('⚠️ [AUDIT_BYPASS] ═══════════════════════════════════════');
+      console.warn('⚠️ [AUDIT_BYPASS] ALERTA: Job com mode=reference MAS sem referenceJobId!');
+      console.warn(`⚠️ [AUDIT_BYPASS] Job ID: ${job.id}`);
+      console.warn(`⚠️ [AUDIT_BYPASS] Modo: ${mode}`);
+      console.warn(`⚠️ [AUDIT_BYPASS] ReferenceJobId: ${referenceJobId}`);
+      console.warn('⚠️ [AUDIT_BYPASS] Este é provavelmente o PRIMEIRO job (música base)');
+      console.warn('⚠️ [AUDIT_BYPASS] Job SERÁ PROCESSADO normalmente');
+      console.warn('⚠️ [AUDIT_BYPASS] ═══════════════════════════════════════');
+    } else {
+      console.log('✅ [AUDIT_MODE] Job REFERENCE com referenceJobId presente');
+      console.log(`✅ [AUDIT_MODE] Este é o SEGUNDO job (comparação)`);
+      console.log(`✅ [AUDIT_MODE] Referenciando job: ${referenceJobId}`);
+    }
+  } else {
+    console.log(`🎯 [AUDIT_MODE] Modo: ${mode || 'genre (default)'}`);
+  }
+  
+  // 🎯 AUDIT: Validação CRÍTICA - job deve ser processado?
+  console.log('✅ [AUDIT_PROCESS] ═══════════════════════════════════════');
+  console.log('✅ [AUDIT_PROCESS] Job VÁLIDO para processamento');
+  console.log(`✅ [AUDIT_PROCESS] Redis Job ID: ${job.id}`);
+  console.log(`✅ [AUDIT_PROCESS] Iniciando pipeline de análise...`);
+  console.log('✅ [AUDIT_PROCESS] ═══════════════════════════════════════');
+  
   // ✅ REGRA 4: LOG OBRIGATÓRIO - Worker recebendo job
   console.log('🎧 [WORKER] Recebendo job', job.id, job.data);
   console.log(`🎧 [WORKER-DEBUG] Job name: '${job.name}' | Esperado: 'process-audio'`);
@@ -524,30 +567,66 @@ async function audioProcessor(job) {
     // 🎯 CARREGAR MÉTRICAS DE REFERÊNCIA ANTES DO PROCESSAMENTO PESADO
     // 🔗 Se referenceJobId está presente, significa que é a SEGUNDA música (comparação)
     if (referenceJobId) {
-      console.log(`🔍 [REFERENCE-LOAD] Modo: ${mode} | Detectada segunda música`);
-      console.log(`🔍 [REFERENCE-LOAD] Carregando métricas do job de referência: ${referenceJobId}`);
+      console.log('🔍 [AUDIT_REFERENCE] ═══════════════════════════════════════');
+      console.log(`🔍 [AUDIT_REFERENCE] Modo: ${mode} | Detectada SEGUNDA música`);
+      console.log(`🔍 [AUDIT_REFERENCE] Tentando carregar métricas do job: ${referenceJobId}`);
+      console.log('🔍 [AUDIT_REFERENCE] ═══════════════════════════════════════');
       
       try {
         const refResult = await pool.query(
-          `SELECT results FROM jobs WHERE id = $1 AND status = 'completed'`,
+          `SELECT id, status, results FROM jobs WHERE id = $1`,
           [referenceJobId]
         );
         
-        if (refResult.rows.length > 0 && refResult.rows[0].results) {
-          preloadedReferenceMetrics = refResult.rows[0].results;
-          console.log(`✅ [REFERENCE-LOAD] Métricas de referência carregadas com sucesso`);
-          console.log(`📊 [REFERENCE-LOAD] Score ref: ${preloadedReferenceMetrics.score || 'N/A'}`);
-          console.log(`📊 [REFERENCE-LOAD] LUFS ref: ${preloadedReferenceMetrics.technicalData?.lufsIntegrated || 'N/A'}`);
+        console.log(`🔍 [AUDIT_REFERENCE] Query executada - Linhas retornadas: ${refResult.rows.length}`);
+        
+        if (refResult.rows.length === 0) {
+          console.error('❌ [AUDIT_REFERENCE] ERRO: Job de referência NÃO ENCONTRADO no banco!');
+          console.error(`❌ [AUDIT_REFERENCE] Reference Job ID buscado: ${referenceJobId}`);
+          console.error('❌ [AUDIT_REFERENCE] Possível causa: UUID incorreto ou job não criado');
+          console.error('❌ [AUDIT_REFERENCE] Análise prosseguirá sem comparação');
         } else {
-          console.warn(`⚠️ [REFERENCE-LOAD] Job de referência não encontrado ou não concluído: ${referenceJobId}`);
-          console.warn(`⚠️ [REFERENCE-LOAD] Análise prosseguirá sem comparação`);
+          const refJob = refResult.rows[0];
+          console.log(`🔍 [AUDIT_REFERENCE] Job de referência encontrado!`);
+          console.log(`🔍 [AUDIT_REFERENCE] Status do job ref: ${refJob.status}`);
+          console.log(`🔍 [AUDIT_REFERENCE] Tem resultados: ${refJob.results ? 'SIM' : 'NÃO'}`);
+          
+          if (refJob.status !== 'completed') {
+            console.warn(`⚠️ [AUDIT_REFERENCE] ALERTA: Job ref com status '${refJob.status}' (esperado: 'completed')`);
+            console.warn(`⚠️ [AUDIT_REFERENCE] Job pode estar: pending, processing, ou failed`);
+            console.warn(`⚠️ [AUDIT_REFERENCE] Análise prosseguirá sem comparação`);
+          } else if (!refJob.results) {
+            console.warn(`⚠️ [AUDIT_REFERENCE] ALERTA: Job ref completed mas sem resultados!`);
+            console.warn(`⚠️ [AUDIT_REFERENCE] Análise prosseguirá sem comparação`);
+          } else {
+            preloadedReferenceMetrics = refJob.results;
+            console.log('✅ [AUDIT_REFERENCE] ═══════════════════════════════════════');
+            console.log('✅ [AUDIT_REFERENCE] Métricas de referência CARREGADAS com sucesso!');
+            console.log(`✅ [AUDIT_REFERENCE] Score ref: ${preloadedReferenceMetrics.score || 'N/A'}`);
+            console.log(`✅ [AUDIT_REFERENCE] LUFS ref: ${preloadedReferenceMetrics.technicalData?.lufsIntegrated || 'N/A'} LUFS`);
+            console.log(`✅ [AUDIT_REFERENCE] DR ref: ${preloadedReferenceMetrics.technicalData?.dynamicRange || 'N/A'} dB`);
+            console.log(`✅ [AUDIT_REFERENCE] TP ref: ${preloadedReferenceMetrics.technicalData?.truePeakDbtp || 'N/A'} dBTP`);
+            console.log(`✅ [AUDIT_REFERENCE] File ref: ${preloadedReferenceMetrics.metadata?.fileName || 'N/A'}`);
+            console.log('✅ [AUDIT_REFERENCE] ═══════════════════════════════════════');
+          }
         }
       } catch (refError) {
-        console.error(`💥 [REFERENCE-LOAD] Erro ao carregar métricas de referência:`, refError.message);
+        console.error('❌ [AUDIT_REFERENCE] ═══════════════════════════════════════');
+        console.error('❌ [AUDIT_REFERENCE] ERRO ao carregar métricas de referência!');
+        console.error(`❌ [AUDIT_REFERENCE] Reference Job ID: ${referenceJobId}`);
+        console.error(`❌ [AUDIT_REFERENCE] Error Type: ${refError.name}`);
+        console.error(`❌ [AUDIT_REFERENCE] Error Message: ${refError.message}`);
+        console.error('❌ [AUDIT_REFERENCE] Análise prosseguirá sem comparação');
+        console.error('❌ [AUDIT_REFERENCE] ═══════════════════════════════════════');
         // Não falhar o job principal, continuar sem comparação
       }
     } else if (mode === 'reference') {
-      console.log(`🎯 [REFERENCE-LOAD] Modo: ${mode} | Primeira música - nenhuma comparação`);
+      console.log('🎯 [AUDIT_REFERENCE] ═══════════════════════════════════════');
+      console.log(`🎯 [AUDIT_REFERENCE] Modo: ${mode} | PRIMEIRA música`);
+      console.log(`🎯 [AUDIT_REFERENCE] Reference Job ID: ${referenceJobId || 'null'}`);
+      console.log('🎯 [AUDIT_REFERENCE] Este job será a BASE para comparação futura');
+      console.log('🎯 [AUDIT_REFERENCE] Nenhuma métrica de referência necessária');
+      console.log('🎯 [AUDIT_REFERENCE] ═══════════════════════════════════════');
     }
 
     console.log(`📝 [PROCESS][${new Date().toISOString()}] -> Atualizando status para processing no PostgreSQL...`);
@@ -618,6 +697,22 @@ async function audioProcessor(job) {
     console.log(`✅ [PROCESS][${new Date().toISOString()}] -> Processamento REAL concluído com sucesso`);
     console.log(`📊 [PROCESS] LUFS: ${finalJSON.technicalData?.lufsIntegrated || 'N/A'} | Peak: ${finalJSON.technicalData?.truePeakDbtp || 'N/A'}dBTP | Score: ${finalJSON.score || 0}`);
     
+    // 🎯 AUDIT: LOG DE CONCLUSÃO
+    console.log('✅ [AUDIT_COMPLETE] ═══════════════════════════════════════');
+    console.log('✅ [AUDIT_COMPLETE] Job CONCLUÍDO com sucesso');
+    console.log(`✅ [AUDIT_COMPLETE] Redis Job ID: ${job.id}`);
+    console.log(`✅ [AUDIT_COMPLETE] PostgreSQL UUID: ${jobId}`);
+    console.log(`✅ [AUDIT_COMPLETE] Status: completed`);
+    console.log(`✅ [AUDIT_COMPLETE] Mode: ${mode}`);
+    console.log(`✅ [AUDIT_COMPLETE] Reference Job ID: ${referenceJobId || 'nenhum'}`);
+    console.log(`✅ [AUDIT_COMPLETE] Score: ${finalJSON.score || 0}`);
+    console.log(`✅ [AUDIT_COMPLETE] LUFS: ${finalJSON.technicalData?.lufsIntegrated || 'N/A'} LUFS`);
+    console.log(`✅ [AUDIT_COMPLETE] DR: ${finalJSON.technicalData?.dynamicRange || 'N/A'} dB`);
+    console.log(`✅ [AUDIT_COMPLETE] True Peak: ${finalJSON.technicalData?.truePeakDbtp || 'N/A'} dBTP`);
+    console.log(`✅ [AUDIT_COMPLETE] Processing Time: ${totalMs}ms`);
+    console.log(`✅ [AUDIT_COMPLETE] Timestamp: ${new Date().toISOString()}`);
+    console.log('✅ [AUDIT_COMPLETE] ═══════════════════════════════════════');
+    
     await updateJobStatus(jobId, 'completed', finalJSON);
     
     // Limpar arquivo temporário
@@ -630,6 +725,30 @@ async function audioProcessor(job) {
 
   } catch (error) {
     console.error(`💥 [PROCESS][${new Date().toISOString()}] -> Erro no processamento:`, error.message);
+    
+    // 🎯 AUDIT: LOG DE ERRO
+    console.error('❌ [AUDIT_ERROR] ═══════════════════════════════════════');
+    console.error('❌ [AUDIT_ERROR] Job FALHOU durante processamento');
+    console.error(`❌ [AUDIT_ERROR] Redis Job ID: ${job.id}`);
+    console.error(`❌ [AUDIT_ERROR] PostgreSQL UUID: ${jobId}`);
+    console.error(`❌ [AUDIT_ERROR] Mode: ${mode}`);
+    console.error(`❌ [AUDIT_ERROR] Reference Job ID: ${referenceJobId || 'nenhum'}`);
+    console.error(`❌ [AUDIT_ERROR] File Key: ${fileKey}`);
+    console.error(`❌ [AUDIT_ERROR] Error Type: ${error.name || 'UnknownError'}`);
+    console.error(`❌ [AUDIT_ERROR] Error Message: ${error.message}`);
+    console.error(`❌ [AUDIT_ERROR] Timestamp: ${new Date().toISOString()}`);
+    
+    // Stack trace completo para diagnóstico
+    if (error.stack) {
+      console.error(`❌ [AUDIT_ERROR] Stack Trace:`);
+      console.error(error.stack);
+    }
+    
+    // Informações adicionais sobre o estado do job
+    console.error(`❌ [AUDIT_ERROR] Job Attempt: ${job.attemptsMade + 1}/${job.opts?.attempts || 'N/A'}`);
+    console.error(`❌ [AUDIT_ERROR] Local File Path: ${localFilePath || 'não baixado'}`);
+    console.error(`❌ [AUDIT_ERROR] Reference Metrics Loaded: ${preloadedReferenceMetrics ? 'SIM' : 'NÃO'}`);
+    console.error('❌ [AUDIT_ERROR] ═══════════════════════════════════════');
     
     // 🔥 RETORNO DE SEGURANÇA em caso de erro no pipeline
     const errorResult = {
