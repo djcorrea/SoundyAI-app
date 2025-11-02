@@ -2761,9 +2761,6 @@ async function handleModalFileSelection(file) {
                 state.userAnalysis = state.previousAnalysis;      // 1ª = sua faixa (atual)
                 state.referenceAnalysis = analysisResult;         // 2ª = faixa de referência (alvo)
                 
-                // Manter compatibilidade com código existente
-                analysisResult.referenceAnalysis = state.previousAnalysis; // DEPRECATED: mantido por compatibilidade
-                
                 // 🎯 ESTRUTURA NOVA (CORRETA):
                 state.reference = state.reference || {};
                 state.reference.userAnalysis = state.previousAnalysis;    // 1ª faixa (sua música/atual)
@@ -2800,8 +2797,6 @@ async function handleModalFileSelection(file) {
                 // 🔥 FALLBACK: Primeira música é ATUAL (sua faixa), segunda é REFERÊNCIA (alvo)
                 state.userAnalysis = window.__FIRST_ANALYSIS_RESULT__;    // 1ª = sua faixa (atual)
                 state.referenceAnalysis = analysisResult;                 // 2ª = referência (alvo)
-                
-                analysisResult.referenceAnalysis = window.__FIRST_ANALYSIS_RESULT__; // DEPRECATED: mantido por compatibilidade
                 
                 // 🎯 ESTRUTURA NOVA (CORRETA):
                 state.reference = state.reference || {};
@@ -4458,7 +4453,10 @@ function displayModalResults(analysis) {
     if (analysis && analysis.mode === "reference") {
         const previous = window.__soundyState?.previousAnalysis;
         const user = analysis.userAnalysis || previous;
-        const ref = analysis.referenceAnalysis || analysis.analysis || analysis.reference;
+        const ref = analysis.referenceAnalysis || 
+                    window.__soundyState?.referenceAnalysis || 
+                    window.__soundyState?.reference?.referenceAnalysis || 
+                    null;
 
         console.log("[REFERENCE-FLOW ✅] Comparação direta A/B antes da renderização:", {
             userTrack: user?.fileName || user?.metadata?.fileName,

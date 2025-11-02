@@ -26,7 +26,7 @@ function interceptarDisplayModalResults() {
             const merged = {
                 ...data,
                 userAnalysis: data.userAnalysis || window.__soundyState?.previousAnalysis,
-                referenceAnalysis: data.referenceAnalysis || data.analysis,
+                referenceAnalysis: data.referenceAnalysis || window.__soundyState?.referenceAnalysis || null,
             };
 
             // Logs de monitoramento
