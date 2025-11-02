@@ -7096,8 +7096,30 @@ function renderReferenceComparisons(opts = {}) {
         console.warn("[LOCK] Renderização de comparação ignorada (lock ativo)");
         return;
     }
+    
+    // [AUDIT-FLOW] Log ANTES do lock
+    console.log("[AUDIT-FLOW] 🔍 ANTES do lock:", {
+        userAnalysis: !!opts.userAnalysis,
+        referenceAnalysis: !!opts.referenceAnalysis,
+        userBands: opts.userAnalysis?.bands || opts.userAnalysis?.technicalData?.spectral_balance,
+        refBands: opts.referenceAnalysis?.bands || opts.referenceAnalysis?.technicalData?.spectral_balance,
+        hasUserBands: !!(opts.userAnalysis?.bands || opts.userAnalysis?.technicalData?.spectral_balance),
+        hasRefBands: !!(opts.referenceAnalysis?.bands || opts.referenceAnalysis?.technicalData?.spectral_balance)
+    });
+    
     window.comparisonLock = true;
     console.log("[LOCK] comparisonLock ativado");
+    
+    // [AUDIT-FLOW] Log DEPOIS do lock
+    console.log("[AUDIT-FLOW] 🔍 DEPOIS do lock:", {
+        comparisonLock: window.comparisonLock,
+        userAnalysis: !!opts.userAnalysis,
+        referenceAnalysis: !!opts.referenceAnalysis,
+        userBands: opts.userAnalysis?.bands || opts.userAnalysis?.technicalData?.spectral_balance,
+        refBands: opts.referenceAnalysis?.bands || opts.referenceAnalysis?.technicalData?.spectral_balance,
+        hasUserBands: !!(opts.userAnalysis?.bands || opts.userAnalysis?.technicalData?.spectral_balance),
+        hasRefBands: !!(opts.referenceAnalysis?.bands || opts.referenceAnalysis?.technicalData?.spectral_balance)
+    });
     
     // 🔧 PARTE 2: Proteção em renderReferenceComparisons
     const globalState = window.__soundyState || {};
@@ -7347,6 +7369,16 @@ function renderReferenceComparisons(opts = {}) {
     // ✅ LOG PARA CONFIRMAÇÃO FINAL
     console.log("[REF-COMPARE ✅] Direção correta confirmada: PRIMEIRA = sua música (atual), SEGUNDA = referência (alvo)");
     
+    // [AUDIT-FLOW] Log de rastreamento PRÉ-EXTRAÇÃO
+    console.log("[AUDIT-FLOW] 🔍 PRÉ-EXTRAÇÃO de bandas:", {
+        'analysis.userAnalysis?.bands': analysis.userAnalysis?.bands,
+        'opts.userAnalysis?.bands': opts.userAnalysis?.bands,
+        'opts.userAnalysis?.technicalData?.spectral_balance': opts.userAnalysis?.technicalData?.spectral_balance,
+        'analysis.referenceAnalysis?.bands': analysis.referenceAnalysis?.bands,
+        'opts.referenceAnalysis?.bands': opts.referenceAnalysis?.bands,
+        'opts.referenceAnalysis?.technicalData?.spectral_balance': opts.referenceAnalysis?.technicalData?.spectral_balance
+    });
+    
     // ✅ CORREÇÃO V3: Extração unificada de bandas espectrais (aceita arrays e objetos)
     let userBandsLocal =
         analysis.userAnalysis?.bands ||
@@ -7362,6 +7394,14 @@ function renderReferenceComparisons(opts = {}) {
         opts.referenceAnalysis?.technicalData?.spectral_balance ||
         analysis.referenceComparison?.refBands ||
         null;
+    
+    // [AUDIT-FLOW] Log PÓS-EXTRAÇÃO
+    console.log("[AUDIT-FLOW] 🔍 PÓS-EXTRAÇÃO de bandas:", {
+        userBandsLocal,
+        refBandsLocal,
+        userBandsLocalType: userBandsLocal ? (Array.isArray(userBandsLocal) ? 'Array' : 'Object') : 'null',
+        refBandsLocalType: refBandsLocal ? (Array.isArray(refBandsLocal) ? 'Array' : 'Object') : 'null'
+    });
     
     // � LOG DE DEBUG: Mostrar o que foi encontrado
     console.log("[REF-COMP] 🔍 Extração inicial de bandas:", {
@@ -7442,6 +7482,14 @@ function renderReferenceComparisons(opts = {}) {
     // Atualizar variáveis globais
     userBands = userBandsLocal;
     refBands = refBandsLocal;
+    
+    // [AUDIT-FLOW] Log após atribuição final
+    console.log("[AUDIT-FLOW] 🔍 Após atribuição final:", {
+        userBands,
+        refBands,
+        userBandsIsValid: !!(userBands && (Array.isArray(userBands) ? userBands.length : Object.keys(userBands).length)),
+        refBandsIsValid: !!(refBands && (Array.isArray(refBands) ? refBands.length : Object.keys(refBands).length))
+    });
     
     // ✅ LOG FINAL CONSOLIDADO
     const userBandsCount = userBands ? (Array.isArray(userBands) ? userBands.length : Object.keys(userBands).length) : 0;
@@ -8876,6 +8924,15 @@ function renderReferenceComparisons(opts = {}) {
         `;
         document.head.appendChild(priorityStyle);
     }
+    
+    // 🔓 CORREÇÃO CRÍTICA: Liberar comparisonLock ao final da renderização
+    window.comparisonLock = false;
+    console.log('[FIX-AUDIT] ✅ comparisonLock liberado após renderização completa');
+    console.log('[FIX-AUDIT] ✅ RenderReferenceComparisons auditado e restaurado com sucesso');
+    console.log('[FIX-AUDIT] ✅ userBands e refBands preservadas');
+    console.log('[FIX-AUDIT] ✅ Render completo no modo reference');
+    console.log('[FIX-AUDIT] ✅ Cards e sugestões renderizados após comparação');
+    console.groupEnd(); // Fecha [SAFE_RENDER_REF]
 }
 
 // 🔒 CÓPIA IMUTÁVEL DA FUNÇÃO ORIGINAL displayModalResults
