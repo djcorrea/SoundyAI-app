@@ -6955,6 +6955,79 @@ function renderReferenceComparisons(opts = {}) {
         }
         // ===== PRIORIDADE 2: NOVA ESTRUTURA (userTrack/referenceTrack) =====
         else if (hasNewStructure) {
+            // 🧠 [PATCH V4] REFERENCE SCOPE LOCK FIX - Estabilizar escopo antes de render
+            try {
+                console.groupCollapsed("🧠 [REF_SCOPE_LOCK]");
+                console.log("📦 Contexto atual antes do render:", { opts, stateV3 });
+
+                // 🔒 Buscar dados de comparação em todos os escopos possíveis
+                let comparisonLock =
+                    opts?.comparisonData ||
+                    window?.lastComparisonData ||
+                    stateV3?.reference?.comparisonData ||
+                    {
+                        userTrack:
+                            opts?.userAnalysis?.metadata?.fileName ||
+                            stateV3?.reference?.userAnalysis?.metadata?.fileName ||
+                            "Faixa do Usuário",
+                        referenceTrack:
+                            opts?.referenceAnalysis?.metadata?.fileName ||
+                            stateV3?.reference?.referenceAnalysis?.metadata?.fileName ||
+                            "Faixa de Referência",
+                        userBands:
+                            opts?.userAnalysis?.bands ||
+                            stateV3?.reference?.userAnalysis?.bands ||
+                            {},
+                        refBands:
+                            opts?.referenceAnalysis?.bands ||
+                            stateV3?.reference?.referenceAnalysis?.bands ||
+                            {},
+                    };
+
+                // 🔐 Corrigir se ainda estiver faltando algo
+                if (!comparisonLock.referenceTrack) {
+                    comparisonLock.referenceTrack =
+                        opts?.referenceAnalysis?.metadata?.fileName ||
+                        stateV3?.reference?.referenceAnalysis?.metadata?.fileName ||
+                        "Faixa de Referência";
+                }
+                if (!comparisonLock.userTrack) {
+                    comparisonLock.userTrack =
+                        opts?.userAnalysis?.metadata?.fileName ||
+                        stateV3?.reference?.userAnalysis?.metadata?.fileName ||
+                        "Faixa do Usuário";
+                }
+
+                // 🔒 Salvar globalmente para persistir escopo
+                window.lastComparisonData = comparisonLock;
+
+                console.log("✅ [REF_SCOPE_LOCK] Estrutura estabilizada:", comparisonLock);
+                console.groupEnd();
+
+                // 🧩 Reatribuir variáveis seguras locais
+                const userTrackLock = comparisonLock.userTrack;
+                const referenceTrackLock = comparisonLock.referenceTrack;
+                const userBandsLock = comparisonLock.userBands;
+                const refBandsLock = comparisonLock.refBands;
+
+                // Se ainda não tiver bandas, abortar render seguro
+                if (!refBandsLock || Object.keys(refBandsLock).length === 0) {
+                    console.error(
+                        "🚨 [REF_SCOPE_LOCK] refBands ausente, abortando renderização segura."
+                    );
+                    window.__REF_RENDER_LOCK__ = false;
+                    return;
+                }
+
+                // ✅ Reaplicar no escopo principal
+                opts.comparisonData = comparisonLock;
+                window.comparisonData = comparisonLock;
+            } catch (err) {
+                console.error("💥 [REF_SCOPE_LOCK] Erro crítico ao reestabelecer escopo:", err);
+                window.__REF_RENDER_LOCK__ = false;
+                return;
+            }
+            
             console.log('✅ [RENDER-REF] Usando NOVA estrutura (userTrack/referenceTrack)');
             
             const refTrack = analysis.referenceComparison.referenceTrack.metrics;
