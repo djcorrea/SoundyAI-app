@@ -6596,29 +6596,82 @@ function resolveTargetMetric(analysis, key, fallback) {
 
 // --- BEGIN: deterministic mode gate ---
 function renderReferenceComparisons(opts = {}) {
+    // 🎯 LOG DE AUDITORIA INICIAL
+    console.groupCollapsed("[AUDITORIA_FINAL_RENDER_REF]");
+    console.log("📊 [INPUT_OPTS]", opts);
+    
     // Aceita opts ou analysis (backward compatibility)
     const analysis = opts.analysis || opts;
     
     const container = document.getElementById('referenceComparisons');
-    if (!container) return;
+    if (!container) {
+        console.groupEnd();
+        return;
+    }
+    
+    // � GARANTIR QUE comparisonData EXISTA
+    if (!opts?.comparisonData) {
+        console.warn("⚠️ [SAFEGUARD] comparisonData ausente — criando estrutura temporária.");
+        opts.comparisonData = {};
+    }
+    
+    // 🧩 EXTRAIR VARIÁVEIS COM FALLBACK SEGURO
+    const comparisonData = opts.comparisonData || {};
+    const userTrack = comparisonData.userTrack || 
+                     opts?.userAnalysis?.metadata?.fileName || 
+                     opts?.userAnalysis?.fileName ||
+                     "Faixa do Usuário";
+    
+    const referenceTrack = comparisonData.referenceTrack || 
+                          opts?.referenceAnalysis?.metadata?.fileName || 
+                          opts?.referenceAnalysis?.fileName ||
+                          "Faixa de Referência";
+    
+    const userBands = comparisonData.userBands ||
+                     opts?.userAnalysis?.technicalData?.spectral_balance ||
+                     opts?.userAnalysis?.bands ||
+                     null;
+    
+    const refBands = comparisonData.refBands ||
+                    opts?.referenceAnalysis?.technicalData?.spectral_balance ||
+                    opts?.referenceAnalysis?.bands ||
+                    null;
+    
+    // ✅ LOG PARA CONFIRMAÇÃO
+    console.log("✅ [RENDER-SAFEGUARD] Tracks resolvidas:", { 
+        userTrack, 
+        referenceTrack, 
+        userBands: !!userBands, 
+        refBands: !!refBands 
+    });
+    
+    // 🚨 ABORTAGEM SE BANDAS AUSENTES
+    if (!userBands || !refBands) {
+        console.error("🚨 [CRITICAL-REF] Dados de bandas ausentes — abortando renderização segura.");
+        container.innerHTML = `
+            <div style="color:red;text-align:center;padding:20px;border:1px solid #ff4444;border-radius:8px;background:#fff0f0;">
+                ❌ Erro: dados de bandas não disponíveis.<br>
+                <small style="opacity:0.7;margin-top:8px;display:block;">
+                    userBands: ${!!userBands ? '✅' : '❌'}, refBands: ${!!refBands ? '✅' : '❌'}
+                </small>
+            </div>`;
+        console.groupEnd();
+        return;
+    }
     
     // 🧠 SAFEGUARD FINAL: Verificação crítica antes de qualquer renderização
     if (opts?.mode === "reference") {
-        const refBands = opts?.referenceAnalysis?.technicalData?.spectral_balance ||
-                        opts?.referenceAnalysis?.bands ||
-                        null;
-        
-        if (!refBands) {
-            console.error("🚨 [CRITICAL] referenceAnalysis sem bandas! Abortando renderização segura.");
-            container.innerHTML = '<div style="color:red;padding:20px;border:1px solid #ff4444;border-radius:8px;background:#fff0f0;">❌ Erro: bandas ausentes na análise de referência. Por favor, tente fazer o upload novamente.</div>';
-            return;
-        }
-        
         // SAFEGUARD: garantir que spectral_balance exista na estrutura
         if (opts?.referenceAnalysis && !opts?.referenceAnalysis?.technicalData?.spectral_balance) {
-            console.warn("⚠️ [SAFEGUARD] spectral_balance ausente em referenceAnalysis — criando estrutura temporária.");
+            console.warn("⚠️ [SAFEGUARD] spectral_balance ausente em referenceAnalysis — aplicando patch.");
             if (!opts.referenceAnalysis.technicalData) opts.referenceAnalysis.technicalData = {};
             opts.referenceAnalysis.technicalData.spectral_balance = refBands;
+        }
+        
+        if (opts?.userAnalysis && !opts?.userAnalysis?.technicalData?.spectral_balance) {
+            console.warn("⚠️ [SAFEGUARD] spectral_balance ausente em userAnalysis — aplicando patch.");
+            if (!opts.userAnalysis.technicalData) opts.userAnalysis.technicalData = {};
+            opts.userAnalysis.technicalData.spectral_balance = userBands;
         }
     }
     
@@ -8036,6 +8089,8 @@ function renderTrackComparisonTable(baseAnalysis, referenceAnalysis) {
     
     // 🎉 LOG FINAL DE AUDITORIA
     console.log("✅ [REFERENCE-A/B FIXED] Comparação renderizada sem erros.");
+    console.log("✅ [AUDITORIA_FINAL_RENDER_REF] Render concluído com sucesso.");
+    console.groupEnd();
 }
 
 // 🎯 ===== SISTEMA DE SCORING AVANÇADO =====
