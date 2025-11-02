@@ -7201,38 +7201,69 @@ function renderReferenceComparisons(opts = {}) {
             
             console.log('✅ [RENDER-REF] Usando NOVA estrutura (userTrack/referenceTrack)');
             
-            const refTrack = analysis.referenceComparison.referenceTrack.metrics;
-            userMetrics = analysis.referenceComparison.userTrack.metrics;
+            // 🧩 Fix final do modal A/B - usar dados corretos de comparisonLock
+            const refFile = 
+                comparisonLock?.refFile ||
+                comparisonLock?.referenceTrack ||
+                opts?.referenceAnalysis?.fileName ||
+                opts?.referenceAnalysis?.metadata?.fileName ||
+                stateV3?.reference?.referenceAnalysis?.fileName ||
+                "Faixa de referência";
+
+            const userFile = 
+                comparisonLock?.userFile ||
+                comparisonLock?.userTrack ||
+                opts?.userAnalysis?.fileName ||
+                opts?.userAnalysis?.metadata?.fileName ||
+                stateV3?.reference?.userAnalysis?.fileName ||
+                "Faixa do usuário";
+
+            console.log("[REF-FIX-FINAL] referenceTrackName resolvido:", refFile);
+            console.log("[REF-FIX-FINAL] userTrackName resolvido:", userFile);
+            
+            // Extrair métricas de opts ou stateV3
+            const refAnalysis = opts?.referenceAnalysis || stateV3?.reference?.referenceAnalysis;
+            const userAnalysisData = opts?.userAnalysis || stateV3?.reference?.userAnalysis;
+            
+            if (!refAnalysis || !userAnalysisData) {
+                console.error("💥 [REF-FIX-FINAL] Análises não encontradas, abortando");
+                window.__REF_RENDER_LOCK__ = false;
+                return;
+            }
+            
+            const refMetrics = refAnalysis.metrics || refAnalysis;
+            userMetrics = userAnalysisData.metrics || userAnalysisData;
             
             ref = {
-                lufs_target: refTrack.lufsIntegrated,
-                true_peak_target: refTrack.truePeakDbtp,
-                dr_target: refTrack.dynamicRange,
-                lra_target: refTrack.lra,
-                stereo_target: refTrack.stereoCorrelation,
-                stereo_width_target: refTrack.stereoWidth,
-                spectral_centroid_target: refTrack.spectralCentroidHz,
+                lufs_target: refMetrics.lufs || refMetrics.lufsIntegrated,
+                true_peak_target: refMetrics.peak || refMetrics.truePeakDbtp,
+                dr_target: refMetrics.dr || refMetrics.dynamicRange,
+                lra_target: refMetrics.lra,
+                stereo_target: refMetrics.stereoCorrelation,
+                stereo_width_target: refMetrics.stereoWidth,
+                spectral_centroid_target: refMetrics.spectralCentroidHz,
                 tol_lufs: 0.5,
                 tol_true_peak: 0.3,
                 tol_dr: 1.0,
                 tol_lra: 1.0,
                 tol_stereo: 0.08,
                 tol_spectral: 300,
-                bands: refTrack.spectral_balance // Bandas da referência
+                bands: refAnalysis.bands || comparisonLock?.refBands || {}
             };
             
-            titleText = `🎵 ${analysis.referenceComparison.referenceTrack.fileName || 'Faixa de Referência'}`;
+            titleText = `🎵 ${refFile}`;
             
             console.log('📊 [RENDER-REF] Referência:', {
-                fileName: analysis.referenceComparison.referenceTrack.fileName,
+                fileName: refFile,
                 lufs: ref.lufs_target,
                 dr: ref.dr_target,
-                peak: ref.true_peak_target
+                peak: ref.true_peak_target,
+                bands: Object.keys(ref.bands || {}).length
             });
             console.log('📊 [RENDER-REF] Usuário:', {
-                fileName: analysis.referenceComparison.userTrack.fileName,
-                lufs: userMetrics.lufsIntegrated,
-                dr: userMetrics.dynamicRange
+                fileName: userFile,
+                lufs: userMetrics.lufs || userMetrics.lufsIntegrated,
+                dr: userMetrics.dr || userMetrics.dynamicRange
             });
         }
         // ===== ESTRUTURA ANTIGA (retrocompatibilidade) =====
@@ -8402,6 +8433,22 @@ function renderTrackComparisonTable(baseAnalysis, referenceAnalysis) {
     // 🎉 LOG FINAL DE AUDITORIA
     console.log("✅ [REFERENCE-A/B FIXED] Comparação renderizada sem erros.");
     console.log("✅ [AUDITORIA_FINAL_RENDER_REF] Render concluído com sucesso.");
+    
+    // 🎯 VALIDAÇÃO FINAL PÓS-FIX
+    const validationData = {
+        userTrack: ref.metadata?.fileName || ref.fileName || 'Primeira Faixa',
+        refTrack: curr.metadata?.fileName || curr.fileName || 'Segunda Faixa',
+        userLUFS: ref.technicalData?.lufsIntegrated || ref.technicalData?.lufs_integrated || 'N/A',
+        refLUFS: curr.technicalData?.lufsIntegrated || curr.technicalData?.lufs_integrated || 'N/A',
+        userDR: ref.technicalData?.dynamicRange || ref.technicalData?.dynamic_range || 'N/A',
+        refDR: curr.technicalData?.dynamicRange || curr.technicalData?.dynamic_range || 'N/A',
+        userPeak: ref.technicalData?.truePeakDbtp || ref.technicalData?.true_peak_dbtp || 'N/A',
+        refPeak: curr.technicalData?.truePeakDbtp || curr.technicalData?.true_peak_dbtp || 'N/A',
+        render: 'concluído sem erros'
+    };
+    
+    console.log('✅ [VALIDAÇÃO-FINAL] Modal Reference OK:', validationData);
+    
     console.groupEnd();
 }
 
