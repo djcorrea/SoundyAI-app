@@ -7349,17 +7349,63 @@ function renderReferenceComparisons(opts = {}) {
                     {},
             };
 
+        // 🧩 FIX: Preservar bandas válidas antes da redeclaração
+        if (comparisonData) {
+            // Se já houver bandas válidas em comparisonSafe, preservar
+            if (!comparisonData.refBands && comparisonSafe?.refBands) {
+                comparisonData.refBands = comparisonSafe.refBands;
+            }
+            if (!comparisonData.userBands && comparisonSafe?.userBands) {
+                comparisonData.userBands = comparisonSafe.userBands;
+            }
+            
+            // Fallback adicional para opts se comparisonData ainda vazio
+            if (!comparisonData.refBands && opts?.referenceAnalysis) {
+                comparisonData.refBands =
+                    opts.referenceAnalysis.bands ||
+                    opts.referenceAnalysis.technicalData?.spectral_balance ||
+                    ra?.technicalData?.spectral_balance ||
+                    ra?.bands ||
+                    {};
+            }
+            if (!comparisonData.userBands && opts?.userAnalysis) {
+                comparisonData.userBands =
+                    opts.userAnalysis.bands ||
+                    opts.userAnalysis.technicalData?.spectral_balance ||
+                    ua?.technicalData?.spectral_balance ||
+                    ua?.bands ||
+                    {};
+            }
+        }
+
         //  Atualiza referências globais
         window.comparisonData = comparisonData;
         window.lastComparisonData = comparisonData;
         opts.comparisonData = comparisonData;
 
-        //  Cria variáveis locais seguras
+        //  Cria variáveis locais seguras com fallback robusto
         // 🎯 SEMÂNTICA CORRETA DOS NOMES:
         userTrack = comparisonData?.userTrack || "Sua Música (Atual)";
         referenceTrack = comparisonData?.referenceTrack || "Faixa de Referência (Alvo)";
-        userBands = comparisonData?.userBands || {};
-        refBands = comparisonData?.refBands || {};
+        
+        // ⚡ Fallback em cascata para garantir bandas válidas
+        refBands =
+            comparisonData?.refBands ||
+            comparisonSafe?.refBands ||
+            opts?.referenceAnalysis?.bands ||
+            opts?.referenceAnalysis?.technicalData?.spectral_balance ||
+            ra?.bands ||
+            ra?.technicalData?.spectral_balance ||
+            {};
+        
+        userBands =
+            comparisonData?.userBands ||
+            comparisonSafe?.userBands ||
+            opts?.userAnalysis?.bands ||
+            opts?.userAnalysis?.technicalData?.spectral_balance ||
+            ua?.bands ||
+            ua?.technicalData?.spectral_balance ||
+            {};
 
         // 🔍 [AUDIT-REDECLARE] Log APÓS redeclaração de variáveis
         try {
