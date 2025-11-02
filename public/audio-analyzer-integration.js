@@ -6631,47 +6631,81 @@ function renderReferenceComparisons(opts = {}) {
         return;
     }
     
-    // 🕒 Aguardar brevemente até que o state/referenceAnalysis esteja pronto
-    if (!opts?.referenceAnalysis?.metadata?.fileName && !opts?.referenceAnalysis?.fileName) {
-        console.warn("⚠️ [SAFE_RENDER_REF] referenceTrack ainda não definido — reagendando render...");
+    // 🧠 [SAFE_REF_V3] PATCH DEFINITIVO - Construir estrutura segura ANTES de qualquer acesso
+    console.groupCollapsed("🧠 [SAFE_REF_V3]");
+    console.log("📦 opts recebido:", opts);
+    
+    // 🔐 Obter state global
+    const stateV3 = window.__soundyState || {};
+    
+    // 🔐 Construir comparação segura com múltiplas fontes
+    let comparisonSafe = 
+        opts?.comparisonData || 
+        window?.comparisonData || 
+        window?.lastComparisonData || 
+        {};
+    
+    if (!comparisonSafe.userTrack || !comparisonSafe.referenceTrack) {
+        console.warn("⚠️ [SAFE_REF_V3] comparisonData incompleto — tentando reconstruir via análises");
+        
+        const ua = opts?.userAnalysis || stateV3?.reference?.userAnalysis;
+        const ra = opts?.referenceAnalysis || stateV3?.reference?.referenceAnalysis;
+        
+        comparisonSafe = {
+            userTrack: ua?.metadata?.fileName || "Faixa 1",
+            referenceTrack: ra?.metadata?.fileName || "Faixa 2",
+            userBands: 
+                ua?.technicalData?.spectral_balance || 
+                ua?.bands || 
+                ua?.spectralBands || 
+                {},
+            refBands: 
+                ra?.technicalData?.spectral_balance || 
+                ra?.bands || 
+                ra?.spectralBands || 
+                {},
+        };
+        
+        // Guardar globalmente (backup)
+        window.lastComparisonData = comparisonSafe;
+    }
+    
+    // 🧩 Substituir opts.comparisonData quebrado
+    opts.comparisonData = comparisonSafe;
+    
+    // 🔒 Fallback hard caso ainda venha undefined
+    if (!comparisonSafe.referenceTrack) {
+        comparisonSafe.referenceTrack = 
+            opts?.referenceAnalysis?.metadata?.fileName || 
+            stateV3?.reference?.referenceAnalysis?.metadata?.fileName || 
+            "Faixa de Referência";
+    }
+    if (!comparisonSafe.userTrack) {
+        comparisonSafe.userTrack = 
+            opts?.userAnalysis?.metadata?.fileName || 
+            stateV3?.reference?.userAnalysis?.metadata?.fileName || 
+            "Faixa do Usuário";
+    }
+    
+    console.log("✅ [SAFE_REF_V3] Estrutura final reconstruída:", comparisonSafe);
+    console.groupEnd();
+    
+    // � GARANTIR QUE comparisonData EXISTA
+    // 🔥 Usar apenas variáveis locais de comparisonSafe — nunca opts direto
+    const userTrack = comparisonSafe.userTrack;
+    const referenceTrack = comparisonSafe.referenceTrack;
+    const userBands = comparisonSafe.userBands;
+    const refBands = comparisonSafe.refBands;
+    
+    // Evita leitura em escopos errados - ABORT se referenceTrack undefined
+    if (!referenceTrack) {
+        console.error("🚨 [SAFE_REF_V3] referenceTrack ainda undefined! Abortando render seguro.");
         window.__REF_RENDER_LOCK__ = false;
-        setTimeout(() => {
-            renderReferenceComparisons(opts);
-        }, 300);
-        console.groupEnd();
         return;
     }
     
-    // � GARANTIR QUE comparisonData EXISTA
-    if (!opts?.comparisonData) {
-        console.warn("⚠️ [SAFEGUARD] comparisonData ausente — criando estrutura temporária.");
-        opts.comparisonData = {};
-    }
-    
-    // 🧩 EXTRAIR VARIÁVEIS COM FALLBACK SEGURO
-    const comparisonData = opts.comparisonData || {};
-    const userTrack = comparisonData.userTrack || 
-                     opts?.userAnalysis?.metadata?.fileName || 
-                     opts?.userAnalysis?.fileName ||
-                     "Faixa do Usuário";
-    
-    const referenceTrack = comparisonData.referenceTrack || 
-                          opts?.referenceAnalysis?.metadata?.fileName || 
-                          opts?.referenceAnalysis?.fileName ||
-                          "Faixa de Referência";
-    
-    const userBands = comparisonData.userBands ||
-                     opts?.userAnalysis?.technicalData?.spectral_balance ||
-                     opts?.userAnalysis?.bands ||
-                     null;
-    
-    const refBands = comparisonData.refBands ||
-                    opts?.referenceAnalysis?.technicalData?.spectral_balance ||
-                    opts?.referenceAnalysis?.bands ||
-                    null;
-    
-    // ✅ LOG PARA CONFIRMAÇÃO
-    console.log("✅ [SAFE_RENDER_REF] Tracks resolvidas:", { userTrack, referenceTrack, userBands: !!userBands, refBands: !!refBands });
+    // ✅ LOG PARA CONFIRMAÇÃO FINAL
+    console.log("✅ [SAFE_REF_V3] Tracks resolvidas:", { userTrack, referenceTrack, userBands: !!userBands, refBands: !!refBands });
     
     // 🧩 Caso ainda falte alguma banda, abortar render com aviso amigável
     if (!userBands || !refBands) {
@@ -6710,17 +6744,17 @@ function renderReferenceComparisons(opts = {}) {
     }
     
     // 🎯 CORREÇÃO CRÍTICA: Fonte da verdade vem do caller - NÃO usar fallback 'genre'
-    const state = window.__soundyState || {};
+    // Reusar stateV3 já declarado no patch V3 acima
     
     // 🚨 PRIORIDADE DE DETECÇÃO DO MODO (sem fallback automático para genre):
     // 1. opts.mode (passado explicitamente pelo caller)
-    // 2. state.render.mode (já configurado anteriormente)
-    // 3. state.reference.isSecondTrack = true → forçar 'reference'
+    // 2. stateV3.render.mode (já configurado anteriormente)
+    // 3. stateV3.reference.isSecondTrack = true → forçar 'reference'
     // 4. Último recurso: 'genre'
-    let explicitMode = opts.mode || state?.render?.mode;
+    let explicitMode = opts.mode || stateV3?.render?.mode;
     
     // 🎯 Se segunda faixa está ativa, FORÇAR modo reference
-    if (state.reference?.isSecondTrack === true && !explicitMode) {
+    if (stateV3.reference?.isSecondTrack === true && !explicitMode) {
         explicitMode = 'reference';
         console.log('🔥 [MODE-OVERRIDE] Segunda faixa detectada - forçando modo reference');
     }
@@ -6732,24 +6766,24 @@ function renderReferenceComparisons(opts = {}) {
     }
     
     const isReferenceMode = (opts?.mode === 'reference') 
-        || (state?.render?.mode === 'reference') 
-        || (state?.reference?.isSecondTrack === true && !opts?.mode);
+        || (stateV3?.render?.mode === 'reference') 
+        || (stateV3?.reference?.isSecondTrack === true && !opts?.mode);
     
     if (isReferenceMode) console.log('[REF-FLOW] renderReferenceComparisons in reference mode');
     
     const isReference = explicitMode === 'reference';
     
     // Salvar modo no estado (NÃO sobrescrever se já for reference)
-    state.render = state.render || {};
-    if (state.render.mode !== 'reference' || explicitMode === 'reference') {
-        state.render.mode = explicitMode;
+    stateV3.render = stateV3.render || {};
+    if (stateV3.render.mode !== 'reference' || explicitMode === 'reference') {
+        stateV3.render.mode = explicitMode;
     }
-    window.__soundyState = state;
+    window.__soundyState = stateV3;
     
     // (Opcional) Log assertivo
     console.log('[RENDER-REF] MODO SELECIONADO:', explicitMode.toUpperCase());
-    console.log('[ASSERT] mode=', explicitMode, 'isSecondTrack=', state?.reference?.isSecondTrack, 'refJobId=', state?.reference?.jobId);
-    console.log('[ASSERT] opts.mode=', opts.mode, 'state.render.mode=', state.render.mode);
+    console.log('[ASSERT] mode=', explicitMode, 'isSecondTrack=', stateV3?.reference?.isSecondTrack, 'refJobId=', stateV3?.reference?.jobId);
+    console.log('[ASSERT] opts.mode=', opts.mode, 'stateV3.render.mode=', stateV3.render.mode);
     
     // 🚨 CRÍTICO: NÃO reavaliar "se tem ref" para mudar o modo
     // O modo é determinístico e vem do caller
@@ -6757,15 +6791,15 @@ function renderReferenceComparisons(opts = {}) {
     
     // 🎯 PATCH 5: Asserts de validação de modo (NÃO ABORTAM, apenas logam)
     if (renderMode === 'reference') {
-        if (!state?.reference?.analysis?.bands) {
-            console.warn('⚠️ [ASSERT-MAIN] Modo reference sem state.reference.analysis.bands - pode usar fallback');
+        if (!stateV3?.reference?.analysis?.bands) {
+            console.warn('⚠️ [ASSERT-MAIN] Modo reference sem stateV3.reference.analysis.bands - pode usar fallback');
         }
-        if (!state?.reference?.isSecondTrack) {
+        if (!stateV3?.reference?.isSecondTrack) {
             console.warn('⚠️ [ASSERT-MAIN] Modo reference sem flag isSecondTrack');
         }
-        if (!state?.reference?.analysis) {
-            console.warn('⚠️ [CRITICAL] Modo reference configurado mas sem dados de referência no state!');
-            console.warn('⚠️ state.reference:', state?.reference);
+        if (!stateV3?.reference?.analysis) {
+            console.warn('⚠️ [CRITICAL] Modo reference configurado mas sem dados de referência no stateV3!');
+            console.warn('⚠️ stateV3.reference:', stateV3?.reference);
         }
     } else if (renderMode === 'genre') {
         if (!window.__activeRefData?.bands) {
@@ -6773,7 +6807,7 @@ function renderReferenceComparisons(opts = {}) {
             console.warn('⚠️ __activeRefData:', window.__activeRefData);
         }
     }
-    console.log('✅ [PATCH-5] Asserts de modo executados:', { renderMode, hasRefBands: !!(state?.reference?.analysis?.bands), hasGenreBands: !!(window.__activeRefData?.bands) });
+    console.log('✅ [PATCH-5] Asserts de modo executados:', { renderMode, hasRefBands: !!(stateV3?.reference?.analysis?.bands), hasGenreBands: !!(window.__activeRefData?.bands) });
     
     // 🚨 REMOVIDO: Detecção legacy automática (causava auto-switch indevido)
     // O modo agora é determinístico e vem do caller via opts.mode
