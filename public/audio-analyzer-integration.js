@@ -1931,11 +1931,23 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
         lufs: firstAnalysisResult?.technicalData?.lufsIntegrated
     });
     
-    // Fechar modal atual (se estiver aberto)
-    closeAudioModal();
-    
-    // Resetar estado do modal
-    resetModalState();
+    // 🔥 FIX-REFERENCE: NÃO chamar reset completo - apenas limpar UI visualmente
+    // closeAudioModal();   // ❌ REMOVIDO - deletava __REFERENCE_JOB_ID__
+    // resetModalState();   // ❌ REMOVIDO - deletava __REFERENCE_JOB_ID__
+
+    // Resetar apenas UI (sem limpar flags globais)
+    const uploadAreaFirst = document.getElementById('audioUploadArea');
+    const loading = document.getElementById('audioAnalysisLoading');
+    const results = document.getElementById('audioAnalysisResults');
+
+    if (uploadAreaFirst) uploadAreaFirst.style.display = 'block';
+    if (loading) loading.style.display = 'none';
+    if (results) results.style.display = 'none';
+
+    const fileInput = document.getElementById('modalAudioFileInput');
+    if (fileInput) fileInput.value = '';
+
+    console.log('[FIX-REFERENCE] Modal reaberto SEM limpar flags de referência');
     
     // 🎯 CORREÇÃO: Manter modo 'reference' para segunda música também
     // O backend identifica que é comparação pela presença do referenceJobId
@@ -1962,14 +1974,14 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
     }
     
     // Atualizar mensagem na área de upload
-    const uploadArea = document.getElementById('audioUploadArea');
-    if (uploadArea) {
-        const uploadContent = uploadArea.querySelector('.upload-content h4');
+    const uploadAreaSecond = document.getElementById('audioUploadArea');
+    if (uploadAreaSecond) {
+        const uploadContent = uploadAreaSecond.querySelector('.upload-content h4');
         if (uploadContent) {
             uploadContent.textContent = 'Enviar música de referência';
         }
         
-        const uploadDescription = uploadArea.querySelector('.upload-content p');
+        const uploadDescription = uploadAreaSecond.querySelector('.upload-content p');
         if (uploadDescription) {
             uploadDescription.textContent = 'Arraste a música de referência aqui ou clique para selecionar';
         }
@@ -2412,14 +2424,21 @@ function resetModalState() {
     window.referenceAnalysisData = null;
     window.referenceComparisonMetrics = null;
     window.lastReferenceJobId = null;
-    
+
+    // 🔥 FIX-REFERENCE: Preservar flags se estamos em modo reference aguardando segunda música
+    const isAwaitingSecondTrack = currentAnalysisMode === 'reference' && window.__REFERENCE_JOB_ID__;
+
+    if (!isAwaitingSecondTrack) {
+        delete window.__REFERENCE_JOB_ID__;
+        delete window.__FIRST_ANALYSIS_RESULT__;
+        console.log('[CLEANUP] Flags de referência limpas (modo não-reference)');
+    } else {
+        console.log('[FIX-REFERENCE] Preservando flags de referência para segunda música');
+    }
+
     // Flags internas
-    delete window.__REFERENCE_JOB_ID__;
-    delete window.__FIRST_ANALYSIS_RESULT__;
     delete window.__AUDIO_ADVANCED_READY__;
-    delete window.__MODAL_ANALYSIS_IN_PROGRESS__;
-    
-    console.log('[CLEANUP] resetModalState: estado global/flags limpos');
+    delete window.__MODAL_ANALYSIS_IN_PROGRESS__;    console.log('[CLEANUP] resetModalState: estado global/flags limpos');
     
     __dbg('✅ Estado do modal resetado completamente');
 }
@@ -2537,9 +2556,11 @@ async function handleModalFileSelection(file) {
         const jobMode = analysisResult.mode || currentAnalysisMode;
         const isSecondTrack = window.__REFERENCE_JOB_ID__ !== null && window.__REFERENCE_JOB_ID__ !== undefined;
         
-        __dbg('🎯 Modo do job:', jobMode);
-        __dbg('🎯 É segunda faixa?', isSecondTrack);
-        __dbg('🎯 Reference Job ID armazenado:', window.__REFERENCE_JOB_ID__);
+        console.log('[AUDIO-DEBUG] 🎯 Modo do job:', jobMode);
+        console.log('[AUDIO-DEBUG] 🎯 É segunda faixa?', isSecondTrack);
+        console.log('[AUDIO-DEBUG] 🎯 Reference Job ID armazenado:', window.__REFERENCE_JOB_ID__);
+        console.log('[AUDIO-DEBUG] 🎯 First Analysis Result:', !!window.__FIRST_ANALYSIS_RESULT__);
+        console.log('[AUDIO-DEBUG] 🎯 Current mode:', currentAnalysisMode);
         
         if (jobMode === 'reference' && !isSecondTrack) {
             // PRIMEIRA música em modo reference: abrir modal para música de referência
@@ -2624,9 +2645,11 @@ async function handleModalFileSelection(file) {
             
             await handleGenreAnalysisWithResult(analysisResult, file.name);
             
-            // 🎯 NÃO LIMPAR referenceComparisonMetrics AQUI
-            // A limpeza será feita ao fechar modal ou iniciar nova análise
-            // Limpar apenas os IDs de controle
+            // 🔥 FIX-REFERENCE: Exibir modal após segunda análise
+            await displayModalResults(analysisResult);
+            console.log('[FIX-REFERENCE] Modal aberto após segunda análise');
+            
+            // 🎯 LIMPAR flags de controle APENAS APÓS exibir modal
             delete window.__REFERENCE_JOB_ID__;
             delete window.__FIRST_ANALYSIS_RESULT__;
             // 🔒 MANTÉM: window.referenceAnalysisData e referenceComparisonMetrics para renderização
