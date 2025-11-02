@@ -10,7 +10,8 @@ import fetch from "node-fetch";
 dotenv.config();
 
 // Rotas principais
-import analyzeRoute from "./api/audio/analyze.js";
+// 🔧 FIX: Usar arquivo correto que suporta referenceJobId e enfileira no Redis/BullMQ
+import analyzeRoute from "./work/api/audio/analyze.js";
 import jobsRoute from "./api/jobs/[id].js"; // 👈 rota de jobs conectada ao Postgres
 
 console.log("📂 Arquivo .env carregado");
