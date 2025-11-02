@@ -2337,11 +2337,29 @@ function closeAudioModal() {
             delete window.__MODAL_ANALYSIS_IN_PROGRESS__;
         }
         
-        // 🧹 CLEANUP: Limpar referenceComparisonMetrics AO FECHAR MODAL
+        // 🧹 PATCH D: Limpeza de referência
         window.referenceAnalysisData = null;
         referenceComparisonMetrics = null;
         window.lastReferenceJobId = null;
-        console.log('🧹 [CLEANUP] referenceComparisonMetrics limpo ao fechar modal');
+        
+        // Limpeza de state global
+        const state = window.__soundyState || {};
+        if (state.reference) {
+            state.reference.analysis = null;
+            state.reference.isSecondTrack = false;
+            state.reference.jobId = null;
+            state.reference.userAnalysis = null;
+            state.reference.referenceAnalysis = null;
+        }
+        state.userAnalysis = null;
+        state.referenceAnalysis = null;
+        state.previousAnalysis = null;
+        state.render = state.render || {};
+        state.render.mode = null;
+        
+        window.__soundyState = state;
+        
+        console.log('[CLEANUP] closeAudioModal: referência/metrics limpos e render.mode=null');
         
         __dbg('✅ Modal resetado e pronto para próxima análise');
     }
@@ -2366,20 +2384,42 @@ function resetModalState() {
     if (progressFill) progressFill.style.width = '0%';
     if (progressText) progressText.textContent = '';
     
-    // 🔧 CORREÇÃO: Limpar análise anterior e flags
     currentModalAnalysis = null;
     
-    // Limpar input de arquivo para permitir re-seleção
     const fileInput = document.getElementById('modalAudioFileInput');
-    if (fileInput) {
-        fileInput.value = '';
-    }
+    if (fileInput) fileInput.value = '';
     
-    // Limpar flags globais
-    if (typeof window !== 'undefined') {
-        delete window.__AUDIO_ADVANCED_READY__;
-        delete window.__MODAL_ANALYSIS_IN_PROGRESS__;
+    // 🔥 PATCH D: Reset avançado de estado de referência e render
+    const state = window.__soundyState || {};
+    if (state.reference) {
+        state.reference = {
+            analysis: null,
+            isSecondTrack: false,
+            jobId: null,
+            userAnalysis: null,
+            referenceAnalysis: null
+        };
     }
+    state.userAnalysis = null;
+    state.referenceAnalysis = null;
+    state.previousAnalysis = null;
+    state.render = state.render || {};
+    state.render.mode = null;
+    
+    window.__soundyState = state;
+    
+    // Globais
+    window.referenceAnalysisData = null;
+    window.referenceComparisonMetrics = null;
+    window.lastReferenceJobId = null;
+    
+    // Flags internas
+    delete window.__REFERENCE_JOB_ID__;
+    delete window.__FIRST_ANALYSIS_RESULT__;
+    delete window.__AUDIO_ADVANCED_READY__;
+    delete window.__MODAL_ANALYSIS_IN_PROGRESS__;
+    
+    console.log('[CLEANUP] resetModalState: estado global/flags limpos');
     
     __dbg('✅ Estado do modal resetado completamente');
 }
@@ -2723,17 +2763,30 @@ async function handleReferenceAnalysisWithResult(analysisResult, fileKey, fileNa
 async function handleGenreAnalysisWithResult(analysisResult, fileName) {
     __dbg('🎵 Processando análise por gênero com resultado remoto:', { fileName });
     
-    // 🔥 CORREÇÃO CRÍTICA: Limpar referência ao entrar em modo gênero
+    // 🔥 PATCH C: Limpeza total ao entrar no modo Genre
     const state = window.__soundyState || {};
     if (state.reference) {
         state.reference.analysis = null;
         state.reference.isSecondTrack = false;
         state.reference.jobId = null;
-        state.userAnalysis = null;
-        state.referenceAnalysis = null;
-        window.__soundyState = state;
-        console.log("[FIX] Limpando referência persistente (modo gênero)");
+        state.reference.userAnalysis = null;
+        state.reference.referenceAnalysis = null;
     }
+    state.userAnalysis = null;
+    state.referenceAnalysis = null;
+    
+    // Forçar modo gênero
+    state.render = state.render || {};
+    state.render.mode = 'genre';
+    
+    window.__soundyState = state;
+    
+    // Limpar globais
+    window.referenceAnalysisData = null;
+    window.referenceComparisonMetrics = null;
+    window.lastReferenceJobId = null;
+    
+    console.log('[GENRE-FLOW] Limpou completamente estado de referência e forçou mode=genre');
     
     try {
         // Verificar estrutura do resultado
@@ -4133,46 +4186,47 @@ function displayModalResults(analysis) {
         const refNormalized = normalizeBackendAnalysisData(window.referenceAnalysisData); // Primeira faixa (BASE)
         const currNormalized = normalizeBackendAnalysisData(analysis); // Segunda faixa (ATUAL)
         
-        // 🎯 CORREÇÃO: Ordem correta - user é a faixa ATUAL (segunda), reference é o ALVO (primeira)
+        // [REF-FLOW] Construindo métricas A/B (1ª = analyzed/base | 2ª = target/reference)
         referenceComparisonMetrics = {
-            user: currNormalized.technicalData || {}, // Segunda faixa (valores atuais)
-            reference: refNormalized.technicalData || {}, // Primeira faixa (referência/alvo)
-            userFull: currNormalized, // Segunda faixa completa
-            referenceFull: refNormalized // Primeira faixa completa
+            // NOVO: nomes claros
+            analyzed: refNormalized?.technicalData || {},   // 1ª faixa (base/origem)
+            target:   currNormalized?.technicalData || {},  // 2ª faixa (alvo/referência)
+            
+            analyzedFull: refNormalized || null,
+            targetFull:   currNormalized || null,
+            
+            // LEGADO: manter por compatibilidade com trechos antigos
+            user:       currNormalized?.technicalData || {},   // (LEGADO) permanecia confuso, manter como alias
+            reference:  refNormalized?.technicalData || {},    // (LEGADO)
+            userFull:   currNormalized || null,                // (LEGADO)
+            referenceFull: refNormalized || null               // (LEGADO)
         };
         
-        console.log('✅ [COMPARE-MODE] Estrutura referenceComparisonMetrics criada (ordem corrigida):', {
-            user: 'Segunda faixa (atual)',
-            reference: 'Primeira faixa (alvo)',
-            userFileName: currNormalized.metadata?.fileName,
-            refFileName: refNormalized.metadata?.fileName
+        console.log('[REF-FLOW] metrics built', {
+            analyzedLUFS: referenceComparisonMetrics.analyzed?.lufsIntegrated,
+            targetLUFS: referenceComparisonMetrics.target?.lufsIntegrated,
+            analyzedFile: refNormalized.metadata?.fileName,
+            targetFile: currNormalized.metadata?.fileName
         });
         
-        // 🔥 CORREÇÃO CRÍTICA: Ordem correta dos parâmetros
-        // renderTrackComparisonTable(baseAnalysis, referenceAnalysis)
-        // Base = primeira faixa (alvo/referência)
-        // Reference = segunda faixa (atual/comparada)
-        console.log('[AUDIT-MODE-FLOW] Antes de renderizar tabela:', {
-            mode: state.render.mode,
-            isSecondTrack: state.reference?.isSecondTrack,
-            refJobId: state.reference?.jobId,
-            hasRefAnalysis: !!state.reference?.analysis,
-            firstTrackFile: refNormalized.metadata?.fileName,
-            secondTrackFile: currNormalized.metadata?.fileName
+        console.log('[ASSERT] reference mode', {
+            userIsFirst: !!(state?.userAnalysis || refNormalized),
+            refIsSecond: !!(state?.referenceAnalysis || currNormalized)
         });
         
-        // 🔥 CORREÇÃO DEFINITIVA: Usar estrutura corrigida
-        // userAnalysis = primeira faixa (usuário/origem)
-        // referenceAnalysis = segunda faixa (referência/alvo)
+        // Chamada principal de render das bandas A/B.
+        // Ordem correta: userAnalysis = 1ª faixa (base), referenceAnalysis = 2ª faixa (alvo)
         renderReferenceComparisons({
             mode: 'reference',
-            userAnalysis: refNormalized,      // Primeira faixa (USUÁRIO/ORIGEM)
-            referenceAnalysis: currNormalized, // Segunda faixa (REFERÊNCIA/ALVO)
-            analysis: currNormalized // Para compatibilidade com código legado
+            userAnalysis: refNormalized,        // 1ª faixa
+            referenceAnalysis: currNormalized   // 2ª faixa
         });
         
-        // 🎯 TAMBÉM chamar renderTrackComparisonTable para exibir tabela A/B
-        renderTrackComparisonTable(refNormalized, currNormalized);
+        // Se a tabela A/B secundária for necessária, mantenha-a
+        // mas garantindo a mesma ordem sem inversões.
+        if (typeof renderTrackComparisonTable === 'function') {
+            renderTrackComparisonTable(refNormalized, currNormalized); // (base, alvo)
+        }
         
         // Atualizar window.latestAnalysis para compatibilidade com IA e PDF
         window.latestAnalysis = {
@@ -6469,6 +6523,12 @@ function renderReferenceComparisons(opts = {}) {
         console.warn('⚠️ [MODE-FALLBACK] Nenhum modo detectado - usando genre como fallback');
     }
     
+    const isReferenceMode = (opts?.mode === 'reference') 
+        || (state?.render?.mode === 'reference') 
+        || (state?.reference?.isSecondTrack === true && !opts?.mode);
+    
+    if (isReferenceMode) console.log('[REF-FLOW] renderReferenceComparisons in reference mode');
+    
     const isReference = explicitMode === 'reference';
     
     // Salvar modo no estado (NÃO sobrescrever se já for reference)
@@ -6510,9 +6570,6 @@ function renderReferenceComparisons(opts = {}) {
     // 🚨 REMOVIDO: Detecção legacy automática (causava auto-switch indevido)
     // O modo agora é determinístico e vem do caller via opts.mode
     // NÃO tentar "adivinhar" o modo baseado em analysis.mode ou estruturas
-    
-    // Compatibilidade: isReferenceMode baseado no renderMode determinístico
-    const isReferenceMode = renderMode === 'reference';
     
     // 🎯 CORREÇÃO: Definir hasNewStructure e hasOldStructure ANTES de usar
     const hasNewStructure = !!(analysis?.referenceAnalysis?.technicalData || analysis?.metrics);
@@ -7418,93 +7475,111 @@ function renderReferenceComparisons(opts = {}) {
         });
         
         if (spectralBands && Object.keys(spectralBands).length > 0) {
-            // 🎯 CORREÇÃO CRÍTICA: Asserts de segurança com bloqueio de fallback
-            const isReferenceMode = renderMode === 'reference';
+            // 🎯 PATCH B: Extração de bandas mode-aware com bloqueio de fallback
+            // isReferenceMode já definido no escopo superior
             
-            // 🔥 PRIORIDADE: Buscar bands da REFERÊNCIA (segunda faixa/alvo) no modo reference
             let refBands = null;
+            let userBands = null;
+            
             if (isReferenceMode) {
-                // 🔥 CORREÇÃO: Buscar da segunda faixa (referenceAnalysis), não da primeira
-                refBands = state?.reference?.referenceAnalysis?.technicalData?.spectral_balance
-                    || state?.referenceAnalysis?.technicalData?.spectral_balance
-                    || referenceComparisonMetrics?.userFull?.technicalData?.spectral_balance // Segunda faixa
-                    || ref?.bands // Já extraído corretamente acima
-                    || null;
+                // 2ª faixa: referência/alvo
+                const refTech = opts?.referenceAnalysis?.technicalData
+                             || state?.referenceAnalysis?.technicalData
+                             || state?.reference?.referenceAnalysis?.technicalData
+                             || referenceComparisonMetrics?.target
+                             || referenceComparisonMetrics?.userFull?.technicalData /* legado confuso */ 
+                             || null;
                 
-                console.log('[REF-BANDS-CORRECTED] Fontes verificadas (segunda faixa):', {
-                    hasStateReferenceAnalysis: !!state?.reference?.referenceAnalysis,
-                    hasReferenceComparisonMetricsUser: !!referenceComparisonMetrics?.userFull,
-                    hasRefBands: !!ref?.bands,
-                    refBandsFound: !!refBands,
-                    refBandsKeys: refBands ? Object.keys(refBands) : []
+                // 1ª faixa: base/origem
+                const userTech = opts?.userAnalysis?.technicalData
+                              || state?.userAnalysis?.technicalData
+                              || state?.reference?.userAnalysis?.technicalData
+                              || referenceComparisonMetrics?.analyzed
+                              || referenceComparisonMetrics?.referenceFull?.technicalData /* legado confuso */
+                              || null;
+                
+                refBands  = refTech?.spectral_balance || null;
+                userBands = userTech?.spectral_balance || null;
+                
+                console.log('[REF-FLOW] bands sources', {
+                    userBands: !!userBands, 
+                    refBands: !!refBands,
+                    userBandsKeys: userBands ? Object.keys(userBands).slice(0, 5) : [],
+                    refBandsKeys: refBands ? Object.keys(refBands).slice(0, 5) : []
                 });
                 
                 if (!refBands) {
-                    console.error('🚨 [CRITICAL] Modo reference SEM bandas de referência (segunda faixa)!');
-                    console.error('🚨 [REF-BANDS] Fallback de gênero BLOQUEADO no modo reference');
+                    console.error('[CRITICAL] Reference mode sem bandas da 2ª faixa! Abortando render.');
+                    console.error('[CRITICAL] Proibido fallback de gênero no reference mode');
+                    if (container) {
+                        container.innerHTML = '<div style="color:#ff4d4f;padding:12px;border:1px solid #ff4d4f;border-radius:8px;">❌ Erro: análise de referência incompleta (sem bandas da 2ª faixa).</div>';
+                    }
+                    return;
                 }
-            }
-            
-            const genreTargets = !isReferenceMode ? (ref?.bands || null) : null;
-            
-            if (isReferenceMode && !refBands) {
-                console.warn('⚠️ [REF-ERROR] Modo reference sem refBands! Continuando sem targets...');
-            } else if (!isReferenceMode && !genreTargets) {
-                console.warn('⚠️ [GENRE-ERROR] Modo genre sem genreTargets! Continuando sem targets...');
+            } else {
+                // GENRE: aqui SIM usa ranges de __activeRefData
+                refBands  = (__activeRefData && __activeRefData.bands) || null;
+                userBands = (analysis?.technicalData?.spectral_balance) || spectralBands || null;
             }
             
             // Conjunto para rastrear bandas já processadas
             const processedBandKeys = new Set();
             
             // 🎯 Iterar por todas as bandas do usuário
-            for (const rawKey of Object.keys(spectralBands)) {
+            const bandsToIterate = userBands || spectralBands;
+            for (const rawKey of Object.keys(bandsToIterate)) {
                 if (IGNORE_BANDS.has(rawKey) || processedBandKeys.has(rawKey)) continue;
                 
                 const bandKey = normalizeBandKey(rawKey);
-                const userVal = pickNumeric(spectralBands[rawKey]);
+                const userVal = pickNumeric(bandsToIterate[rawKey]);
                 
                 if (userVal === null) continue; // Sem valor do usuário
                 
                 let targetDisplay = '—';
+                let valueDisplay = '—';
+                let deltaDisplay = '—';
+                let targetValue = null;
                 let tolDisplay = null;
                 
-                // 🎯 MODE-AWARE TARGET RESOLUTION
-                let targetValue = null; // Valor numérico ou range object para pushRow
-                
                 if (isReferenceMode) {
-                    // 👉 REFERENCE: usa valor NUMÉRICO da primeira faixa (alvo)
-                    const refVal = getReferenceBandValue(refBands, bandKey);
-                    if (refVal !== null) {
-                        targetValue = refVal; // Passa número direto para pushRow
-                        targetDisplay = formatDb(refVal); // Para logs
-                        tolDisplay = 0; // Sem tolerância em comparação direta
-                        console.log(`✅ [REF-BAND] ${bandKey}: user=${formatDb(userVal)}, ref=${targetDisplay} (valor único)`);
-                    } else {
-                        console.warn(`⚠️ [REF-WARNING] Banda sem referência: ${bandKey} (valor: ${formatDb(userVal)})`);
+                    const refVal = getReferenceBandValue(refBands, bandKey); // retorna número (dB) ou null
+                    const userValCalc = getReferenceBandValue(userBands, bandKey);
+                    
+                    if (refVal == null) {
+                        console.warn('[REF-FLOW] Banda sem valor na 2ª faixa:', bandKey);
                         targetDisplay = '—';
+                        targetValue = null;
+                    } else {
+                        targetDisplay = formatDb(refVal);
+                        targetValue = refVal;
                     }
+                    
+                    valueDisplay = (userValCalc == null) ? '—' : formatDb(userValCalc);
+                    deltaDisplay = (userValCalc == null || refVal == null) ? '—' : formatDb(userValCalc - refVal);
+                    tolDisplay = 0; // Sem tolerância em comparação direta
+                    
                 } else {
-                    // 👉 GENRE: usa faixa alvo (range)
-                    const r = getGenreTargetRange(genreTargets, bandKey);
+                    // GENRE: range do JSON de gênero
+                    const r = getGenreTargetRange(refBands, bandKey);
                     if (r) {
-                        targetValue = { min: r.min, max: r.max }; // Passa range object para pushRow
                         targetDisplay = `${formatDb(r.min)} a ${formatDb(r.max)}`;
+                        targetValue = { min: r.min, max: r.max };
                         tolDisplay = r.tol;
-                        console.log(`✅ [GENRE-BAND] ${bandKey}: user=${formatDb(userVal)}, target=${targetDisplay} (range)`);
                     } else {
-                        console.error(`❌ [GENRE-ERROR] Banda sem target de gênero: ${bandKey}`);
                         targetDisplay = '—';
+                        targetValue = null;
                     }
+                    valueDisplay = formatDb(userVal);
+                    deltaDisplay = '—'; // (delta numérico não se aplica a range)
                 }
                 
                 // 🎯 Adicionar linha na tabela
                 const label = bandMap[bandKey]?.name || `${bandKey.toUpperCase()}`;
                 pushRow(label, userVal, targetValue, tolDisplay, ' dB');
                 processedBandKeys.add(rawKey);
-                processedBandKeys.add(bandKey); // Adicionar também a versão normalizada
-            } // Fim do for loop
+                processedBandKeys.add(bandKey);
+            }
             
-            // Processamento concluído - bandas já foram tratadas no loop acima
             console.log(`✅ [BANDS-PROCESSED] ${processedBandKeys.size} bandas processadas no modo ${renderMode}`);
         } else {
             // Fallback para tonalBalance simplificado (mantido para compatibilidade)
