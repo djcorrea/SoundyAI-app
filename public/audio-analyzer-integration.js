@@ -2570,6 +2570,14 @@ async function handleModalFileSelection(file) {
             window.__soundyState.previousAnalysis = analysisResult;
             console.log('✅ [REFERENCE-A/B] Primeira análise salva no estado global');
             
+            // 🔧 PARTE 3: Reset seguro antes da segunda análise
+            if (window.__soundyState.reference) {
+                delete window.__soundyState.reference.analysis;
+                console.log('[PARTE 3] reference.analysis limpo para evitar contaminação');
+            }
+            window.__REFERENCE_JOB_ID__ = analysisResult.jobId;
+            console.log('[PARTE 3] __REFERENCE_JOB_ID__ definido:', analysisResult.jobId);
+            
             openReferenceUploadModal(analysisResult.jobId, analysisResult);
         } else if (jobMode === 'reference' && isSecondTrack) {
             // SEGUNDA música em modo reference: mostrar resultado comparativo
@@ -2657,11 +2665,45 @@ async function handleModalFileSelection(file) {
             const normalizedResult = normalizeBackendAnalysisData(analysisResult);
             
             // � PARTE 3.4: Garantir atribuição correta ANTES de displayModalResults
-            state.reference.userAnalysis = normalizeReferenceShape(state.userAnalysis);
-            state.reference.referenceAnalysis = normalizeReferenceShape(state.referenceAnalysis);
-            state.render.mode = 'reference';
-            window.__soundyState = state;
-            console.log('✅ [PARTE 3.4] Estado normalizado antes de displayModalResults');
+            // 🔧 PARTE 1: Normalize reference comparison structure
+            if (state.render.mode === "reference" && analysisResult && state.previousAnalysis) {
+                const firstResult = state.previousAnalysis;
+                const secondResult = analysisResult;
+
+                const normalizedUser = {
+                    fileName: firstResult.fileName || firstResult.metadata?.fileName,
+                    bands: firstResult.spectralBands || firstResult.bands || firstResult.technicalData?.spectral_balance,
+                    metrics: {
+                        lufs: firstResult.loudness?.integrated ?? firstResult.lufsIntegrated,
+                        dr: firstResult.dynamics?.dr ?? firstResult.dynamicRange,
+                        peak: firstResult.truePeak?.dbtp ?? firstResult.truePeakDbtp
+                    }
+                };
+
+                const normalizedRef = {
+                    fileName: secondResult.fileName || secondResult.metadata?.fileName,
+                    bands: secondResult.spectralBands || secondResult.bands || secondResult.technicalData?.spectral_balance,
+                    metrics: {
+                        lufs: secondResult.loudness?.integrated ?? secondResult.lufsIntegrated,
+                        dr: secondResult.dynamics?.dr ?? secondResult.dynamicRange,
+                        peak: secondResult.truePeak?.dbtp ?? secondResult.truePeakDbtp
+                    }
+                };
+
+                state.reference = {
+                    mode: "reference",
+                    isSecondTrack: true,
+                    userAnalysis: normalizedUser,
+                    referenceAnalysis: normalizedRef,
+                    analysis: {
+                        bands: normalizedRef.bands
+                    }
+                };
+
+                state.render.mode = 'reference';
+                window.__soundyState = state;
+                console.log("[REF-FIX] Estrutura final corrigida", state.reference);
+            }
             
             // �🔥 FIX-REFERENCE: Exibir modal após segunda análise
             await displayModalResults(normalizedResult);
@@ -6639,11 +6681,33 @@ function normalizeReferenceShape(a) {
 
 // --- BEGIN: deterministic mode gate ---
 function renderReferenceComparisons(opts = {}) {
+    // 🔧 PARTE 2: Proteção em renderReferenceComparisons
+    const globalState = window.__soundyState || {};
+    const refStateCheck = globalState?.reference || {};
+    const userCheck = refStateCheck.userAnalysis || opts.userAnalysis;
+    const refCheck = refStateCheck.referenceAnalysis || opts.referenceAnalysis;
+
+    if (!userCheck || !refCheck) {
+        console.warn("[REF-COMP] Faltam dados de referência ou usuário, usando fallback seguro");
+        return renderGenreComparisonSafe?.();
+    }
+
+    const userTrackCheck = userCheck.fileName || "Faixa 1 (usuário)";
+    const refTrackCheck = refCheck.fileName || "Faixa 2 (referência)";
+    const userBandsCheck = userCheck.bands || [];
+    const refBandsCheck = refCheck.bands || [];
+
+    if (!Array.isArray(refBandsCheck) || refBandsCheck.length === 0) {
+        console.warn("[REF-COMP] referenceBands ausentes - fallback para valores brutos");
+    }
+
+    console.log("[REF-COMP] Dados validados:", { userTrackCheck, refTrackCheck, userBands: userBandsCheck.length, refBands: refBandsCheck.length });
+    
     // 🎯 SAFE RENDER COM DEBOUNCE
     console.groupCollapsed("[SAFE_RENDER_REF]");
     console.log("🧩 Recebido opts:", opts);
     
-    // � Se já estiver processando render, cancelar chamadas duplicadas
+    // Se já estiver processando render, cancelar chamadas duplicadas
     if (window.__REF_RENDER_LOCK__) {
         console.warn("⚠️ [SAFE_RENDER_REF] Renderização ignorada — já em progresso.");
         console.groupEnd();
