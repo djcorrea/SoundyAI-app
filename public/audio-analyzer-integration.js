@@ -4454,6 +4454,33 @@ function displayModalResults(analysis) {
     console.log("✅ [DISPLAY_MODAL] Função displayModalResults chamada com dados:", analysis);
     console.log("✅ [DISPLAY_MODAL] Estrutura dos dados recebidos:", Object.keys(analysis || {}));
     
+    // 🔒 PROTEÇÃO MODO REFERENCE: Evitar sobrescrita por interceptores
+    if (analysis && analysis.mode === "reference") {
+        const previous = window.__soundyState?.previousAnalysis;
+        const user = analysis.userAnalysis || previous;
+        const ref = analysis.referenceAnalysis || analysis.analysis || analysis.reference;
+
+        console.log("[REFERENCE-FLOW ✅] Comparação direta A/B antes da renderização:", {
+            userTrack: user?.fileName || user?.metadata?.fileName,
+            referenceTrack: ref?.fileName || ref?.metadata?.fileName,
+            hasUserBands: !!(user?.technicalData?.spectral_balance || user?.bands),
+            hasRefBands: !!(ref?.technicalData?.spectral_balance || ref?.bands),
+        });
+
+        // 🔒 Proteção contra sobrescrita por interceptores
+        if (user) Object.freeze(user);
+        if (ref) Object.freeze(ref);
+
+        const payload = {
+            mode: "reference",
+            userAnalysis: user,
+            referenceAnalysis: ref,
+        };
+
+        renderReferenceComparisons(payload);
+        return;
+    }
+    
     // 🔒 VALIDAÇÃO CRÍTICA: Garantir que métricas essenciais estão presentes
     // CORRIGIDO: Verificar novos caminhos do backend Redis
     const hasEssentialMetrics = (
@@ -6955,6 +6982,17 @@ if (typeof window.comparisonLock === "undefined") {
 
 // --- BEGIN: deterministic mode gate ---
 function renderReferenceComparisons(opts = {}) {
+    // 🔒 PROTEÇÃO ANTI-DUPLICAÇÃO: Detectar se faixas são idênticas
+    if (opts.userAnalysis?.fileName && opts.referenceAnalysis?.fileName &&
+        opts.userAnalysis.fileName === opts.referenceAnalysis.fileName) {
+        console.error("❌ [REF-DUPE] Detecção de duplicação — referência sobrescrita!");
+        console.table({
+            userTrack: opts.userAnalysis?.fileName,
+            refTrack: opts.referenceAnalysis?.fileName,
+        });
+        return; // aborta renderização duplicada
+    }
+    
     // 🧩 Controle seguro de renderização
     if (window.comparisonLock) {
         console.warn("[LOCK] Renderização de comparação ignorada (lock ativo)");
