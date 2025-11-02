@@ -2712,7 +2712,14 @@ async function handleModalFileSelection(file) {
             // ⚙️ Salvar primeira análise no estado global
             if (!window.__soundyState) window.__soundyState = {};
             window.__soundyState.previousAnalysis = analysisResult;
+            console.log('✅ [REFERENCE-A/B] ═══════════════════════════════════════');
             console.log('✅ [REFERENCE-A/B] Primeira análise salva no estado global');
+            console.log('✅ [REFERENCE-A/B] Verificação de dados salvos:');
+            console.log('✅ [REFERENCE-A/B]   fileName:', analysisResult.fileName || analysisResult.metadata?.fileName);
+            console.log('✅ [REFERENCE-A/B]   technicalData existe:', !!analysisResult.technicalData);
+            console.log('✅ [REFERENCE-A/B]   spectral_balance:', analysisResult.technicalData?.spectral_balance ? 'SIM' : 'NÃO');
+            console.log('✅ [REFERENCE-A/B]   bandas salvas:', analysisResult.technicalData?.spectral_balance ? Object.keys(analysisResult.technicalData.spectral_balance) : 'NENHUMA');
+            console.log('✅ [REFERENCE-A/B] ═══════════════════════════════════════');
             
             // 🔧 PARTE 3: Reset seguro antes da segunda análise
             if (window.__soundyState.reference) {
@@ -2875,15 +2882,27 @@ async function handleModalFileSelection(file) {
             }
             
             // 🔥 CORREÇÃO: Preparar dados para comparação A/B correta
-            console.log('[REFERENCE-FLOW] Segunda música concluída');
-            console.log('[REFERENCE-FLOW ✅] Montando comparação entre faixas');
+            console.log('[REFERENCE-FLOW] ═══════════════════════════════════════');
+            console.log('[REFERENCE-FLOW] Segunda música concluída - montando comparação A/B');
             
             // Usar PRIMEIRA música como base do modal
             const userAnalysis = state.previousAnalysis || state.userAnalysis;
             const referenceAnalysisData = normalizedResult || state.referenceAnalysis;
             
-            console.log('[REFERENCE-COMPARE] Valor = 1ª faixa:', userAnalysis?.fileName || userAnalysis?.metadata?.fileName);
-            console.log('[REFERENCE-COMPARE] Alvo = 2ª faixa:', referenceAnalysisData?.fileName || referenceAnalysisData?.metadata?.fileName);
+            console.log('[REFERENCE-COMPARE] ═══════════════════════════════════════');
+            console.log('[REFERENCE-COMPARE] 1ª FAIXA (SUA MÚSICA):');
+            console.log('[REFERENCE-COMPARE]   Nome:', userAnalysis?.fileName || userAnalysis?.metadata?.fileName);
+            console.log('[REFERENCE-COMPARE]   technicalData:', !!userAnalysis?.technicalData);
+            console.log('[REFERENCE-COMPARE]   spectral_balance:', userAnalysis?.technicalData?.spectral_balance ? 'SIM' : 'NÃO');
+            console.log('[REFERENCE-COMPARE]   bandas:', userAnalysis?.technicalData?.spectral_balance ? Object.keys(userAnalysis.technicalData.spectral_balance) : 'NENHUMA');
+            console.log('[REFERENCE-COMPARE]   LUFS:', userAnalysis?.technicalData?.lufsIntegrated);
+            console.log('[REFERENCE-COMPARE] 2ª FAIXA (REFERÊNCIA):');
+            console.log('[REFERENCE-COMPARE]   Nome:', referenceAnalysisData?.fileName || referenceAnalysisData?.metadata?.fileName);
+            console.log('[REFERENCE-COMPARE]   technicalData:', !!referenceAnalysisData?.technicalData);
+            console.log('[REFERENCE-COMPARE]   spectral_balance:', referenceAnalysisData?.technicalData?.spectral_balance ? 'SIM' : 'NÃO');
+            console.log('[REFERENCE-COMPARE]   bandas:', referenceAnalysisData?.technicalData?.spectral_balance ? Object.keys(referenceAnalysisData.technicalData.spectral_balance) : 'NENHUMA');
+            console.log('[REFERENCE-COMPARE]   LUFS:', referenceAnalysisData?.technicalData?.lufsIntegrated);
+            console.log('[REFERENCE-COMPARE] ═══════════════════════════════════════');
             
             // Marcar no normalizedResult que é modo referência com dados corretos
             normalizedResult._isReferenceMode = true;
@@ -4618,12 +4637,29 @@ function displayModalResults(analysis) {
         
         // 🧩 CORREÇÃO #6: Chamada ÚNICA de renderização (remover duplicação)
         // SEMÂNTICA CORRETA:
-        // - userAnalysis = 1ª faixa (BASE/REFERÊNCIA - o que o usuário quer alcançar)
-        // - referenceAnalysis = 2ª faixa (ANÁLISE ATUAL - música sendo analisada)
+        // - userAnalysis = 1ª faixa (SUA MÚSICA - atual)
+        // - referenceAnalysis = 2ª faixa (REFERÊNCIA - alvo)
+        
+        console.log('[RENDER-CALL] ═══════════════════════════════════════');
+        console.log('[RENDER-CALL] Chamando renderReferenceComparisons com:');
+        console.log('[RENDER-CALL] opts.userAnalysis (1ª FAIXA):');
+        console.log('[RENDER-CALL]   Nome:', refNormalized?.fileName || refNormalized?.metadata?.fileName);
+        console.log('[RENDER-CALL]   technicalData:', !!refNormalized?.technicalData);
+        console.log('[RENDER-CALL]   spectral_balance:', refNormalized?.technicalData?.spectral_balance ? 'SIM' : 'NÃO');
+        console.log('[RENDER-CALL]   bandas:', refNormalized?.technicalData?.spectral_balance ? Object.keys(refNormalized.technicalData.spectral_balance) : 'NENHUMA');
+        console.log('[RENDER-CALL]   LUFS:', refNormalized?.technicalData?.lufsIntegrated);
+        console.log('[RENDER-CALL] opts.referenceAnalysis (2ª FAIXA):');
+        console.log('[RENDER-CALL]   Nome:', currNormalized?.fileName || currNormalized?.metadata?.fileName);
+        console.log('[RENDER-CALL]   technicalData:', !!currNormalized?.technicalData);
+        console.log('[RENDER-CALL]   spectral_balance:', currNormalized?.technicalData?.spectral_balance ? 'SIM' : 'NÃO');
+        console.log('[RENDER-CALL]   bandas:', currNormalized?.technicalData?.spectral_balance ? Object.keys(currNormalized.technicalData.spectral_balance) : 'NENHUMA');
+        console.log('[RENDER-CALL]   LUFS:', currNormalized?.technicalData?.lufsIntegrated);
+        console.log('[RENDER-CALL] ═══════════════════════════════════════');
+        
         renderReferenceComparisons({
             mode: 'reference',
-            userAnalysis: refNormalized,        // 1ª faixa (base/referência)
-            referenceAnalysis: currNormalized   // 2ª faixa (análise atual)
+            userAnalysis: refNormalized,        // 1ª faixa (sua música)
+            referenceAnalysis: currNormalized   // 2ª faixa (referência)
         });
         
         // ❌ REMOVIDO: renderTrackComparisonTable() - causava duplicação
@@ -7322,10 +7358,24 @@ function renderReferenceComparisons(opts = {}) {
         
         // 🔥 PRIORIDADE MÁXIMA: Usar nova estrutura corrigida (userAnalysis/referenceAnalysis)
         if (opts.userAnalysis && opts.referenceAnalysis) {
-            console.log('🔥 [REF-CORRECTED] Usando estrutura corrigida: userAnalysis (1ª) vs referenceAnalysis (2ª)');
+            console.log('🔥 [REF-CORRECTED] ═══════════════════════════════════════');
+            console.log('🔥 [REF-CORRECTED] Usando estrutura corrigida: opts.userAnalysis + opts.referenceAnalysis');
+            console.log('🔥 [REF-CORRECTED] userAnalysis existe:', !!opts.userAnalysis);
+            console.log('🔥 [REF-CORRECTED] referenceAnalysis existe:', !!opts.referenceAnalysis);
+            console.log('🔥 [REF-CORRECTED] userAnalysis.technicalData:', !!opts.userAnalysis.technicalData);
+            console.log('🔥 [REF-CORRECTED] referenceAnalysis.technicalData:', !!opts.referenceAnalysis.technicalData);
+            console.log('🔥 [REF-CORRECTED] ═══════════════════════════════════════');
             
             const userTech = opts.userAnalysis.technicalData || {};
             const refTech = opts.referenceAnalysis.technicalData || {};
+            
+            // 🔍 DIAGNÓSTICO: Verificar estrutura das bandas
+            console.log('🔍 [DIAGNÓSTICO] userTech.spectral_balance:', userTech.spectral_balance);
+            console.log('🔍 [DIAGNÓSTICO] refTech.spectral_balance:', refTech.spectral_balance);
+            console.log('🔍 [DIAGNÓSTICO] userTech.bandEnergies:', userTech.bandEnergies);
+            console.log('🔍 [DIAGNÓSTICO] refTech.bandEnergies:', refTech.bandEnergies);
+            console.log('🔍 [DIAGNÓSTICO] userTech.bands:', userTech.bands);
+            console.log('🔍 [DIAGNÓSTICO] refTech.bands:', refTech.bands);
             
             userMetrics = userTech;
             ref = {
@@ -7364,23 +7414,18 @@ function renderReferenceComparisons(opts = {}) {
             console.log('✅ [REF-CORRECTED] ═══════════════════════════════════════');
             
             // 🎯 LOG ASSERT_REF_FLOW
-            console.log("[ASSERT_REF_FLOW]", {
+            console.log("[ASSERT_REF_FLOW ✅]", {
                 mode: 'reference',
+                userTrack: opts.userAnalysis?.fileName || opts.userAnalysis?.metadata?.fileName,
+                referenceTrack: opts.referenceAnalysis?.fileName || opts.referenceAnalysis?.metadata?.fileName,
                 userBands: Object.keys(userMetrics.spectral_balance || {}),
-                refBands: Object.keys(ref.bands || {})
-            });
-        } else {
-            // Fallback para estrutura antiga
-            console.log('[REF-COMP] Verificando fontes de dados disponíveis (fallback estrutura antiga):', {
-                'analysis.referenceAnalysis': !!analysis.referenceAnalysis,
-                'analysis.referenceBands': !!analysis.referenceBands,
-                'analysis.referenceComparison': !!analysis.referenceComparison,
-                'window.referenceAnalysisData': !!window.referenceAnalysisData
+                refBands: Object.keys(ref.bands || {}),
+                userLUFS: userMetrics.lufsIntegrated,
+                refLUFS: ref.lufs_target
             });
         }
-        
-        // 🎯 PRIORIDADE 0 (NOVA): analysis.referenceAnalysis (primeira faixa vinculada)
-        if (analysis.referenceAnalysis && analysis.referenceAnalysis.technicalData) {
+        // 🎯 PRIORIDADE 0 (FALLBACK): analysis.referenceAnalysis (estrutura antiga)
+        else if (analysis.referenceAnalysis && analysis.referenceAnalysis.technicalData) {
             console.log('✅ [REF-COMP] Usando real reference analysis as target (primeira faixa)');
             
             const refTech = analysis.referenceAnalysis.technicalData;
@@ -7414,8 +7459,8 @@ function renderReferenceComparisons(opts = {}) {
             });
             console.log('✅ [REF-COMP] Using real reference analysis as target');
         }
-        // 🎯 PRIORIDADE 1: analysis.referenceBands (estrutura centralizada)
-        if (analysis.referenceBands && analysis.mode === 'reference') {
+        // 🎯 PRIORIDADE 1 (FALLBACK): analysis.referenceBands (estrutura centralizada)
+        else if (analysis.referenceBands && analysis.mode === 'reference') {
             console.log('✅ [RENDER-REF] Usando analysis.referenceBands (estrutura centralizada)');
             
             userMetrics = analysis.technicalData || {};
