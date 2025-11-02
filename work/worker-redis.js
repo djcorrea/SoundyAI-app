@@ -305,7 +305,7 @@ async function initializeWorker() {
       connection: redisConnection,
       concurrency,
       lockDuration: 60000,          // ✅ PARTE 2: 1min de lock (reduzido de 3min)
-      stalledInterval: 0,           // ✅ PARTE 2: Desabilitado (evita travamentos falso-positivos)
+      stalledInterval: 15000,           // ✅ PARTE 2: Desabilitado (evita travamentos falso-positivos)
       settings: {
         maxStalledCount: 2,         // Max 2 travamentos
         keepAlive: 60000,           // 1min keepalive
