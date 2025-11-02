@@ -4688,10 +4688,49 @@ function displayModalResults(analysis) {
         // - userAnalysis = 1ª faixa (SUA MÚSICA - atual)
         // - referenceAnalysis = 2ª faixa (REFERÊNCIA - alvo)
         
+        // 🔍 [A/B-DEBUG] Dados ANTES de renderReferenceComparisons
+        console.log("[A/B-DEBUG] ═══════════════════════════════════════");
+        console.log("[A/B-DEBUG] Dados antes do SAFE_RENDER_REF:");
+        console.log("[A/B-DEBUG] refNormalized (1ª faixa - SUA MÚSICA):", {
+            fileName: refNormalized?.fileName || refNormalized?.metadata?.fileName,
+            hasBands: !!refNormalized?.bands,
+            hasSpectralBalance: !!refNormalized?.technicalData?.spectral_balance,
+            bandsKeys: refNormalized?.bands ? Object.keys(refNormalized.bands) : [],
+            spectralBalanceKeys: refNormalized?.technicalData?.spectral_balance ? Object.keys(refNormalized.technicalData.spectral_balance) : []
+        });
+        console.log("[A/B-DEBUG] currNormalized (2ª faixa - REFERÊNCIA):", {
+            fileName: currNormalized?.fileName || currNormalized?.metadata?.fileName,
+            hasBands: !!currNormalized?.bands,
+            hasSpectralBalance: !!currNormalized?.technicalData?.spectral_balance,
+            bandsKeys: currNormalized?.bands ? Object.keys(currNormalized.bands) : [],
+            spectralBalanceKeys: currNormalized?.technicalData?.spectral_balance ? Object.keys(currNormalized.technicalData.spectral_balance) : []
+        });
+        console.log("[A/B-DEBUG] ═══════════════════════════════════════");
+        
+        // ✅ GARANTIR que bands esteja no nível correto (userAnalysis.bands e referenceAnalysis.bands)
+        if (!refNormalized.bands && refNormalized?.technicalData?.spectral_balance) {
+            refNormalized.bands = refNormalized.technicalData.spectral_balance;
+            console.log("[A/B-FIX] ✅ Bandas copiadas de technicalData.spectral_balance para bands (userAnalysis)");
+        }
+        
+        if (!currNormalized.bands && currNormalized?.technicalData?.spectral_balance) {
+            currNormalized.bands = currNormalized.technicalData.spectral_balance;
+            console.log("[A/B-FIX] ✅ Bandas copiadas de technicalData.spectral_balance para bands (referenceAnalysis)");
+        }
+        
+        console.log("[A/B-DEBUG] ✅ Bandas finais:", {
+            userBandsLength: refNormalized?.bands ? Object.keys(refNormalized.bands).length : 0,
+            referenceBandsLength: currNormalized?.bands ? Object.keys(currNormalized.bands).length : 0
+        });
+        
         renderReferenceComparisons({
             mode: 'reference',
             userAnalysis: refNormalized,        // 1ª faixa (sua música)
-            referenceAnalysis: currNormalized   // 2ª faixa (referência)
+            referenceAnalysis: currNormalized,   // 2ª faixa (referência)
+            analysis: {
+                userAnalysis: refNormalized,
+                referenceAnalysis: currNormalized
+            }
         });
         
         // ❌ REMOVIDO: renderTrackComparisonTable() - causava duplicação
@@ -7284,47 +7323,80 @@ function renderReferenceComparisons(opts = {}) {
     // ✅ LOG PARA CONFIRMAÇÃO FINAL
     console.log("[REF-COMPARE ✅] Direção correta confirmada: PRIMEIRA = sua música (atual), SEGUNDA = referência (alvo)");
     
-    // ✅ CORREÇÃO V2: Extração unificada de bandas espectrais (modo reference/gênero)
+    // ✅ CORREÇÃO V3: Extração unificada de bandas espectrais (aceita arrays e objetos)
     let userBandsLocal =
         analysis.userAnalysis?.bands ||
         opts.userAnalysis?.bands ||
         opts.userAnalysis?.technicalData?.spectral_balance ||
         analysis.bands ||
         analysis.referenceComparison?.userBands ||
-        [];
+        null;
 
     let refBandsLocal =
         analysis.referenceAnalysis?.bands ||
         opts.referenceAnalysis?.bands ||
         opts.referenceAnalysis?.technicalData?.spectral_balance ||
         analysis.referenceComparison?.refBands ||
-        [];
+        null;
+    
+    // � LOG DE DEBUG: Mostrar o que foi encontrado
+    console.log("[REF-COMP] 🔍 Extração inicial de bandas:", {
+        userBandsLocal: userBandsLocal ? (Array.isArray(userBandsLocal) ? `Array(${userBandsLocal.length})` : `Object(${Object.keys(userBandsLocal).length})`) : 'null',
+        refBandsLocal: refBandsLocal ? (Array.isArray(refBandsLocal) ? `Array(${refBandsLocal.length})` : `Object(${Object.keys(refBandsLocal).length})`) : 'null',
+        sourceUser: userBandsLocal ? 'encontrado' : 'null',
+        sourceRef: refBandsLocal ? 'encontrado' : 'null'
+    });
+
+    // ✅ Validação: Aceitar tanto arrays quanto objetos
+    const hasUserBands = userBandsLocal && (
+        (Array.isArray(userBandsLocal) && userBandsLocal.length > 0) ||
+        (typeof userBandsLocal === 'object' && Object.keys(userBandsLocal).length > 0)
+    );
+    
+    const hasRefBands = refBandsLocal && (
+        (Array.isArray(refBandsLocal) && refBandsLocal.length > 0) ||
+        (typeof refBandsLocal === 'object' && Object.keys(refBandsLocal).length > 0)
+    );
 
     // 🚨 Proteção aprimorada com fallback global
-    if (!userBandsLocal?.length || !refBandsLocal?.length) {
+    if (!hasUserBands || !hasRefBands) {
         console.warn("[REF-COMP] ⚠️ Bandas ausentes na estrutura principal - tentando fallback global");
         
         const globalUser = window.__soundyState?.previousAnalysis?.bands || 
+                          window.__soundyState?.previousAnalysis?.technicalData?.spectral_balance ||
                           window.__soundyState?.userAnalysis?.bands || 
-                          [];
+                          null;
         const globalRef = window.__soundyState?.referenceAnalysis?.bands || 
+                         window.__soundyState?.referenceAnalysis?.technicalData?.spectral_balance ||
                          window.__soundyState?.reference?.analysis?.bands || 
-                         [];
+                         null;
+        
+        const hasGlobalUser = globalUser && (
+            (Array.isArray(globalUser) && globalUser.length > 0) ||
+            (typeof globalUser === 'object' && Object.keys(globalUser).length > 0)
+        );
+        
+        const hasGlobalRef = globalRef && (
+            (Array.isArray(globalRef) && globalRef.length > 0) ||
+            (typeof globalRef === 'object' && Object.keys(globalRef).length > 0)
+        );
         
         console.log("[REF-COMP] 🔍 Fallback global:", {
-            globalUserLength: globalUser.length,
-            globalRefLength: globalRef.length,
+            globalUser: globalUser ? (Array.isArray(globalUser) ? `Array(${globalUser.length})` : `Object(${Object.keys(globalUser).length})`) : 'null',
+            globalRef: globalRef ? (Array.isArray(globalRef) ? `Array(${globalRef.length})` : `Object(${Object.keys(globalRef).length})`) : 'null',
+            hasGlobalUser,
+            hasGlobalRef,
             hasPreviousAnalysis: !!window.__soundyState?.previousAnalysis,
             hasReferenceAnalysis: !!window.__soundyState?.referenceAnalysis
         });
         
-        if (!globalUser.length || !globalRef.length) {
+        if (!hasGlobalUser || !hasGlobalRef) {
             console.error("[REF-COMP] ❌ Nenhum dado válido encontrado - abortando render");
             console.table({
-                userBandsLocal: userBandsLocal?.length || 0,
-                refBandsLocal: refBandsLocal?.length || 0,
-                globalUserLength: globalUser.length,
-                globalRefLength: globalRef.length,
+                userBandsLocal: userBandsLocal ? (Array.isArray(userBandsLocal) ? userBandsLocal.length : Object.keys(userBandsLocal).length) : 0,
+                refBandsLocal: refBandsLocal ? (Array.isArray(refBandsLocal) ? refBandsLocal.length : Object.keys(refBandsLocal).length) : 0,
+                globalUser: globalUser ? (Array.isArray(globalUser) ? globalUser.length : Object.keys(globalUser).length) : 0,
+                globalRef: globalRef ? (Array.isArray(globalRef) ? globalRef.length : Object.keys(globalRef).length) : 0,
                 hasUserAnalysis: !!analysis.userAnalysis,
                 hasReferenceAnalysis: !!analysis.referenceAnalysis,
                 soundyStateKeys: Object.keys(window.__soundyState || {})
@@ -7336,18 +7408,9 @@ function renderReferenceComparisons(opts = {}) {
             return;
         }
         
-        // Usar splice para preservar referência de arrays existentes
-        if (Array.isArray(userBandsLocal)) {
-            userBandsLocal.splice(0, userBandsLocal.length, ...globalUser);
-        } else {
-            userBandsLocal = [...globalUser];
-        }
-        
-        if (Array.isArray(refBandsLocal)) {
-            refBandsLocal.splice(0, refBandsLocal.length, ...globalRef);
-        } else {
-            refBandsLocal = [...globalRef];
-        }
+        // Aplicar fallback
+        userBandsLocal = globalUser;
+        refBandsLocal = globalRef;
         
         console.log("[REF-COMP] ✅ Fallback global aplicado com sucesso");
     }
@@ -7356,17 +7419,25 @@ function renderReferenceComparisons(opts = {}) {
     userBands = userBandsLocal;
     refBands = refBandsLocal;
     
+    // ✅ LOG FINAL CONSOLIDADO
+    const userBandsCount = userBands ? (Array.isArray(userBands) ? userBands.length : Object.keys(userBands).length) : 0;
+    const refBandsCount = refBands ? (Array.isArray(refBands) ? refBands.length : Object.keys(refBands).length) : 0;
+    
     console.log("[REF-COMP] ✅ Bandas detectadas:", {
-        userBands: Array.isArray(userBands) ? userBands.length : Object.keys(userBands).length,
-        refBands: Array.isArray(refBands) ? refBands.length : Object.keys(refBands).length,
-        source: userBandsLocal === globalUser ? 'fallback-global' : 'analysis-principal'
+        userBands: userBandsCount,
+        refBands: refBandsCount,
+        userBandsType: userBands ? (Array.isArray(userBands) ? 'Array' : 'Object') : 'null',
+        refBandsType: refBands ? (Array.isArray(refBands) ? 'Array' : 'Object') : 'null',
+        source: hasUserBands && hasRefBands ? 'analysis-principal' : 'fallback-global'
     });
     
-    console.log("✅ [SAFE_REF_V3] Tracks resolvidas:", { userTrack, referenceTrack, userBands: !!userBands, refBands: !!refBands });
-
-    console.log("[REF-COMP] ✅ Bandas detectadas:", {
-        userBands: Array.isArray(userBands) ? userBands.length : Object.keys(userBands).length,
-        refBands: Array.isArray(refBands) ? refBands.length : Object.keys(refBands).length,
+    console.log("✅ [SAFE_REF_V3] Tracks resolvidas:", { 
+        userTrack, 
+        referenceTrack, 
+        userBands: !!userBands, 
+        refBands: !!refBands,
+        userBandsCount,
+        refBandsCount
     });
     
     // 🔓 Libera lock após iniciar renderização (será completado em 1.5s)
