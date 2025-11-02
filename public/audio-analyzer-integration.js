@@ -2349,6 +2349,17 @@ function configureModalForMode(mode) {
         if (genreContainer) genreContainer.style.display = 'flex';
         if (progressSteps) progressSteps.style.display = 'none';
         
+        // 🔧 FIX: Limpar dados de referência ao trocar para modo genre
+        if (window.__referenceComparisonActive) {
+            console.log('[MODE_CHANGE] Trocando de REFERENCE para GENRE - limpando dados');
+            delete window.__REFERENCE_JOB_ID__;
+            delete window.__FIRST_ANALYSIS_RESULT__;
+            localStorage.removeItem('referenceJobId');
+            window.__referenceComparisonActive = false;
+            
+            console.log('[MODE_CHANGE] ✅ Dados de referência limpos para modo GENRE');
+        }
+        
     } else if (mode === 'reference') {
         // Modo Referência: interface específica
         if (title) title.textContent = '🎯 Análise por Referência';
@@ -2438,29 +2449,52 @@ function closeAudioModal() {
             delete window.__MODAL_ANALYSIS_IN_PROGRESS__;
         }
         
-        // 🧹 PATCH D: Limpeza de referência
-        window.referenceAnalysisData = null;
-        referenceComparisonMetrics = null;
-        window.lastReferenceJobId = null;
+        // 🔧 FIX: Verificar se há comparação ativa antes de limpar
+        const hasActiveComparison = window.__referenceComparisonActive === true;
         
-        // Limpeza de state global
+        if (!hasActiveComparison) {
+            // 🧹 LIMPEZA COMPLETA: Apenas se não houver comparação ativa
+            window.referenceAnalysisData = null;
+            referenceComparisonMetrics = null;
+            window.lastReferenceJobId = null;
+            
+            // Limpar IDs de referência
+            delete window.__REFERENCE_JOB_ID__;
+            delete window.__FIRST_ANALYSIS_RESULT__;
+            localStorage.removeItem('referenceJobId');
+            
+            console.log('[CLEANUP] closeAudioModal: LIMPEZA TOTAL (sem comparação ativa)');
+        } else {
+            // Preservar dados de referência
+            console.log('[CLEANUP] closeAudioModal: PRESERVANDO referência (comparação ativa)');
+            console.log('[CLEANUP]   - window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
+            console.log('[CLEANUP]   - localStorage.referenceJobId:', localStorage.getItem('referenceJobId'));
+        }
+        
+        // Limpeza de state global (sempre limpar estado temporário de renderização)
         const state = window.__soundyState || {};
         if (state.reference) {
             state.reference.analysis = null;
             state.reference.isSecondTrack = false;
-            state.reference.jobId = null;
-            state.reference.userAnalysis = null;
-            state.reference.referenceAnalysis = null;
+            // NÃO limpar jobId se houver comparação ativa
+            if (!hasActiveComparison) {
+                state.reference.jobId = null;
+                state.reference.userAnalysis = null;
+                state.reference.referenceAnalysis = null;
+            }
         }
+        
+        // Limpar análises temporárias mas preservar previousAnalysis se necessário
         state.userAnalysis = null;
         state.referenceAnalysis = null;
-        state.previousAnalysis = null;
+        if (!hasActiveComparison) {
+            state.previousAnalysis = null;
+        }
+        
         state.render = state.render || {};
         state.render.mode = null;
         
         window.__soundyState = state;
-        
-        console.log('[CLEANUP] closeAudioModal: referência/metrics limpos e render.mode=null');
         
         __dbg('✅ Modal resetado e pronto para próxima análise');
     }
@@ -2839,19 +2873,35 @@ async function handleModalFileSelection(file) {
             await displayModalResults(normalizedResult);
             console.log('[FIX-REFERENCE] Modal aberto após segunda análise');
             
-            // 🎯 LIMPAR flags de controle APENAS APÓS exibir modal
-            delete window.__REFERENCE_JOB_ID__;
-            delete window.__FIRST_ANALYSIS_RESULT__;
-            localStorage.removeItem('referenceJobId');
+            // 🔧 FIX: NÃO LIMPAR referência durante modo REFERENCE ativo
+            // A limpeza só deve ocorrer quando o usuário fechar o modal ou trocar de modo
+            const usedReferenceAnalysis = normalizedResult._isReferenceMode || 
+                                          (normalizedResult._userAnalysis && normalizedResult._referenceAnalysis);
+            
+            if (jobMode !== 'reference' || !usedReferenceAnalysis) {
+                // Modo normal ou sem referência: limpar normalmente
+                delete window.__REFERENCE_JOB_ID__;
+                delete window.__FIRST_ANALYSIS_RESULT__;
+                localStorage.removeItem('referenceJobId');
+                
+                console.log('✅ [CLEANUP] ═══════════════════════════════════════');
+                console.log('✅ [CLEANUP] Referência removida (modo normal)');
+                console.log('✅ [CLEANUP] ═══════════════════════════════════════');
+            } else {
+                // Modo REFERENCE ativo: PRESERVAR referência para próximas comparações
+                console.log('✅ [CLEANUP] ═══════════════════════════════════════');
+                console.log('✅ [CLEANUP] Referência PRESERVADA (modo reference ativo)');
+                console.log('✅ [CLEANUP] Mantidos:');
+                console.log('✅ [CLEANUP]   - window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
+                console.log('✅ [CLEANUP]   - localStorage.referenceJobId:', localStorage.getItem('referenceJobId'));
+                console.log('✅ [CLEANUP] Dados disponíveis para novas comparações');
+                console.log('✅ [CLEANUP] ═══════════════════════════════════════');
+                
+                // Marcar que há uma comparação ativa
+                window.__referenceComparisonActive = true;
+            }
             
             // 🔒 MANTÉM: window.referenceAnalysisData e referenceComparisonMetrics para renderização
-            console.log('✅ [CLEANUP] ═══════════════════════════════════════');
-            console.log('✅ [CLEANUP] IDs de controle limpos após exibir modal');
-            console.log('✅ [CLEANUP] Limpeza incluiu:');
-            console.log('✅ [CLEANUP]   - window.__REFERENCE_JOB_ID__');
-            console.log('✅ [CLEANUP]   - localStorage.referenceJobId');
-            console.log('✅ [CLEANUP] Dados de comparação PRESERVADOS para renderização');
-            console.log('✅ [CLEANUP] ═══════════════════════════════════════');
         } else {
             // Modo genre: análise por gênero tradicional
             __dbg('🎯 Exibindo resultado por gênero');
