@@ -22,6 +22,38 @@ const __DEBUG_ANALYZER__ = true; // 🔧 TEMPORÁRIO: Ativado para debug do prob
 const __dbg = (...a) => { if (__DEBUG_ANALYZER__) console.log('[AUDIO-DEBUG]', ...a); };
 const __dwrn = (...a) => { if (__DEBUG_ANALYZER__) console.warn('[AUDIO-WARN]', ...a); };
 
+// 🔒 CLONE PROFUNDO SEGURO (sem loops circulares)
+// Substitui JSON.parse(JSON.stringify()) com proteção contra referências circulares
+function deepCloneSafe(obj, seen = new WeakMap()) {
+    // Primitivos e null retornam direto
+    if (obj === null || typeof obj !== 'object') return obj;
+    
+    // Se já visitamos este objeto, retornar clone existente (evita loop infinito)
+    if (seen.has(obj)) return seen.get(obj);
+    
+    // Criar estrutura base (array ou objeto)
+    const clone = Array.isArray(obj) ? [] : {};
+    
+    // Registrar no mapa ANTES de clonar propriedades (previne recursão infinita)
+    seen.set(obj, clone);
+    
+    // Clonar cada propriedade recursivamente
+    for (const key in obj) {
+        // Ignorar propriedades específicas que causam loops circulares
+        if (key === '_referenceAnalysis') {
+            console.log('[DEEP-CLONE] ⚠️ Propriedade circular ignorada:', key);
+            continue;
+        }
+        
+        // Verificar se propriedade é própria (não herdada)
+        if (Object.hasOwn(obj, key)) {
+            clone[key] = deepCloneSafe(obj[key], seen);
+        }
+    }
+    
+    return clone;
+}
+
 // 🆔 SISTEMA runId - Função utilitária centralizada
 function generateAnalysisRunId(context = 'ui') {
     const timestamp = Date.now();
@@ -2731,13 +2763,15 @@ async function handleModalFileSelection(file) {
             window.__REFERENCE_JOB_ID__ = analysisResult.jobId;
             localStorage.setItem('referenceJobId', analysisResult.jobId);
             
-            // ✅ PATCH: Criar cópia isolada para prevenir contaminação de referência
-            window.referenceAnalysisData = JSON.parse(JSON.stringify(analysisResult));
+            // ✅ PATCH V2: Usar deepCloneSafe() para prevenir referências circulares
+            console.log('[DEEP-CLONE] 🔒 Criando cópia segura da primeira análise...');
+            window.referenceAnalysisData = deepCloneSafe(analysisResult);
             
-            // ✅ PATCH: Congelar primeira análise para proteção contra mutações
+            // ✅ PATCH V2: Congelar primeira análise com clone seguro
             window.__FIRST_ANALYSIS_FROZEN__ = Object.freeze(
-                JSON.parse(JSON.stringify(analysisResult))
+                deepCloneSafe(analysisResult)
             );
+            console.log('[DEEP-CLONE] ✅ Primeira análise clonada e congelada com sucesso');
             
             console.log('[REF-SAVE ✅] ═══════════════════════════════════════');
             console.log('[REF-SAVE ✅] Primeira música processada com sucesso!');
@@ -4617,16 +4651,16 @@ function displayModalResults(analysis) {
         console.log('✅ [COMPARE-MODE] Modo definido como REFERENCE no estado');
         
         // 🎯 CRIAR ESTRUTURA DE COMPARAÇÃO ENTRE FAIXAS COM CÓPIA DEFENSIVA
-        // ✅ PATCH: Cópia profunda antes de normalizar (preserva original congelado)
-        console.log('[NORMALIZE-DEFENSIVE] ✅ Criando cópia profunda da 1ª faixa antes de normalizar');
+        // ✅ PATCH V2: Usar deepCloneSafe() em vez de JSON.parse/stringify
+        console.log('[NORMALIZE-DEFENSIVE] 🔒 Criando cópia segura da 1ª faixa antes de normalizar');
         const refNormalized = normalizeBackendAnalysisData(
-            JSON.parse(JSON.stringify(window.__FIRST_ANALYSIS_FROZEN__))
-        ); // Primeira faixa (BASE) - cópia isolada
+            deepCloneSafe(window.__FIRST_ANALYSIS_FROZEN__)
+        ); // Primeira faixa (BASE) - cópia isolada sem risco circular
         
-        console.log('[NORMALIZE-DEFENSIVE] ✅ Criando cópia profunda da 2ª faixa antes de normalizar');
+        console.log('[NORMALIZE-DEFENSIVE] 🔒 Criando cópia segura da 2ª faixa antes de normalizar');
         const currNormalized = normalizeBackendAnalysisData(
-            JSON.parse(JSON.stringify(analysis))
-        ); // Segunda faixa (ATUAL) - cópia isolada
+            deepCloneSafe(analysis)
+        ); // Segunda faixa (ATUAL) - cópia isolada sem risco circular
         
         // [REF-FLOW] Construindo métricas A/B
         // ✅ SEMÂNTICA CORRETA:
