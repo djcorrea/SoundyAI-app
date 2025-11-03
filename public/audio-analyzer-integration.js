@@ -5259,13 +5259,14 @@ function displayModalResults(analysis) {
     }
 
     /** 1) Extrai estruturas normalizadas que já existem nesse ponto do fluxo */
-    const userFull  = referenceComparisonMetrics?.userFull;       // 1ª faixa (sua música)
-    const refFull   = referenceComparisonMetrics?.referenceFull;  // 2ª faixa (referência)
+    // 🔧 FIX CRÍTICO: Mudado de const para let para permitir recuperação em caso de contaminação
+    let userFull  = referenceComparisonMetrics?.userFull;       // 1ª faixa (sua música)
+    let refFull   = referenceComparisonMetrics?.referenceFull;  // 2ª faixa (referência)
 
-    const userTd    = referenceComparisonMetrics?.userTrack   || {};
-    const refTd     = referenceComparisonMetrics?.referenceTrack || {};
-    const userMd    = userFull?.metadata || {};
-    const refMd     = refFull?.metadata  || {};
+    let userTd    = referenceComparisonMetrics?.userTrack   || {};
+    let refTd     = referenceComparisonMetrics?.referenceTrack || {};
+    let userMd    = userFull?.metadata || {};
+    let refMd     = refFull?.metadata  || {};
 
     // bandas A/B normalizadas + keys padronizadas
     let userBands = __normalizeBandKeys(__getBandsSafe(userFull));
@@ -5373,6 +5374,20 @@ function displayModalResults(analysis) {
     const refBandsOK  = __bandsAreMeaningful(refBands);
     const userBandsOK = __bandsAreMeaningful(userBands);
 
+    // 🧪 MODO VERIFICAÇÃO: Log estruturado com console.table
+    console.table({
+        'userFile': userMd?.fileName || 'N/A',
+        'refFile': refMd?.fileName || 'N/A',
+        'sameFile': userMd?.fileName === refMd?.fileName,
+        'userJobId': userFull?.jobId || 'N/A',
+        'refJobId': refFull?.jobId || 'N/A',
+        'sameJobId': userFull?.jobId === refFull?.jobId,
+        'userLUFS': userTd?.lufsIntegrated || 'N/A',
+        'refLUFS': refTd?.lufsIntegrated || 'N/A',
+        'userBandsOK': userBandsOK,
+        'refBandsOK': refBandsOK
+    });
+    
     console.log('[VERIFY_AB_ORDER]', {
       mode: state.render.mode,
       userFile: userMd.fileName, refFile: refMd.fileName,
@@ -12933,6 +12948,27 @@ window.displayReferenceResults = function(referenceResults) {
  * ✅ Compatível com JSON antigo e novo (pré/pós Redis)
  */
 function normalizeBackendAnalysisData(result) {
+    // �️ PROTEÇÃO: Detectar normalização duplicada
+    if (result?.__normalized === true) {
+        console.warn('[NORMALIZE] ⚠️ Objeto já foi normalizado anteriormente - retornando clone');
+        console.warn('[NORMALIZE] jobId:', result?.jobId, 'fileName:', result?.metadata?.fileName);
+        // Retornar clone profundo para evitar mutação
+        return deepCloneSafe(result);
+    }
+    
+    // �🔍 AUDITORIA: Capturar estado ANTES de normalização
+    console.groupCollapsed('[AUDITORIA_STATE_FLOW] ⚙️ normalizeBackendAnalysisData - ENTRADA');
+    console.log('📊 result (antes de normalizar):', {
+        jobId: result?.jobId,
+        fileName: result?.metadata?.fileName || result?.fileName,
+        lufs: result?.technicalData?.lufsIntegrated,
+        objectId: result,
+        hasMetadata: !!result?.metadata,
+        hasTechnicalData: !!result?.technicalData,
+        alreadyNormalized: result?.__normalized === true
+    });
+    console.groupEnd();
+    
     console.log("[BACKEND RESULT] Received analysis with data:", result);
     
     // 🎯 PROTEÇÃO CRÍTICA: Preservar modo reference se segunda faixa está ativa
@@ -13132,6 +13168,38 @@ function normalizeBackendAnalysisData(result) {
         'src.crest_factor': src.crest_factor,
         'technicalData.crestFactor': data.technicalData?.crestFactor
     });
+
+    // �️ MARCAR: Flag para prevenir normalização duplicada
+    normalized.__normalized = true;
+    normalized.__normalizedAt = Date.now();
+    console.log('[NORMALIZE] ✅ Objeto marcado como normalizado:', normalized.jobId);
+
+    // �🔍 AUDITORIA: Estado APÓS normalização
+    console.groupCollapsed('[AUDITORIA_STATE_FLOW] ✅ normalizeBackendAnalysisData - SAÍDA');
+    console.log('📊 normalized (resultado):', {
+        jobId: normalized?.jobId,
+        fileName: normalized?.metadata?.fileName || normalized?.fileName,
+        lufs: normalized?.technicalData?.lufsIntegrated,
+        objectId: normalized,
+        sameAsInput: normalized === result
+    });
+    console.log('📊 result (input original - VERIFICAR SE MUDOU):', {
+        jobId: result?.jobId,
+        fileName: result?.metadata?.fileName || result?.fileName,
+        lufs: result?.technicalData?.lufsIntegrated,
+        objectId: result
+    });
+    console.log('⚠️ VERIFICAÇÃO DE MUTAÇÃO:');
+    console.log('  normalized === result?', normalized === result);
+    console.log('  normalized.technicalData === result.technicalData?', normalized.technicalData === result.technicalData);
+    console.log('  normalized.metadata === result.metadata?', normalized.metadata === result.metadata);
+    if (normalized.technicalData === result.technicalData) {
+        console.warn('🚨 MUTAÇÃO DETECTADA: technicalData compartilha referência!');
+    }
+    if (normalized.metadata === result.metadata) {
+        console.warn('🚨 MUTAÇÃO DETECTADA: metadata compartilha referência!');
+    }
+    console.groupEnd();
 
     return normalized;
 }
