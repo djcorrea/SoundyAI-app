@@ -7236,73 +7236,10 @@ function renderReferenceComparisons(opts = {}) {
     const refBandsCheck = refCheck.bands || [];
 
     if (!Array.isArray(refBandsCheck) || refBandsCheck.length === 0) {
-        // Se chegou aqui é porque alguma verificação antiga marcou "ausente".
-        // Mas NÃO vamos zerar bandas se já mapeamos antes nos logs.
-        // Reconstrua a partir das fontes válidas em cascata.
-        console.warn('[REF-COMP] referenceBands ausentes? Tentando cascata segura de fontes');
-
-        const ra = opts?.referenceAnalysis || window.__soundyState?.reference?.referenceAnalysis || window.__activeRefData?.referenceAnalysis;
-        const ua = opts?.userAnalysis      || window.__soundyState?.reference?.userAnalysis      || window.__activeRefData?.userAnalysis;
-
-        // CASCATA DE BANDAS (nunca caia em undefined se existir em qualquer fonte)
-        const _refBands =
-            ra?.bands ??
-            ra?.technicalData?.spectral_balance ??
-            opts?.referenceAnalysis?.bands ??
-            opts?.referenceAnalysis?.technicalData?.spectral_balance ??
-            window.__activeRefData?._referenceBands ??
-            null;
-
-        const _userBands =
-            ua?.bands ??
-            ua?.technicalData?.spectral_balance ??
-            opts?.userAnalysis?.bands ??
-            opts?.userAnalysis?.technicalData?.spectral_balance ??
-            analysis?.metrics?.bands ??
-            null;
-
-        // Se nenhuma fonte trouxe bandas, aí sim marcamos null (não undefined).
-        const refBands = _refBands ?? null;
-        const userBands = _userBands ?? null;
-
-        console.log('[REF-COMP][FIXED-FALLBACK]', {
-            hasRefBands: !!refBands, hasUserBands: !!userBands,
-            refBandsKeys: refBands ? Object.keys(refBands) : [],
-            userBandsKeys: userBands ? Object.keys(userBands) : []
-        });
-
-        // GARANTA que comparisonData leve bandas vivas
-        const comparisonData = {
-            refBands:  refBands ?? null,
-            userBands: userBands ?? null,
-        };
-        
-        // [REF-COMP] ✅ Fix de passagem real de bandas - salvar globalmente
-        if (refBands) window.__lastRefBands = refBands;
-        if (userBands) window.__lastUserBands = userBands;
-        
-        if (refBands && userBands) {
-            console.log('[REF-COMP][BANDS-FINAL-FIX] Persistência garantida ✅', {
-                refKeys: Object.keys(refBands),
-                userKeys: Object.keys(userBands)
-            });
-        } else {
-            console.warn('[REF-COMP][BANDS-FINAL-FIX] ❌ Ainda sem bandas válidas após fallback', { refBands, userBands });
-        }
+        console.warn("[REF-COMP] referenceBands ausentes - fallback para valores brutos");
     }
 
-    // [REF-COMP] ✅ Garantir bandas disponíveis globalmente após validação
-    let refBands = window.__lastRefBands || null;
-    let userBands = window.__lastUserBands || null;
-    
-    console.log("[REF-COMP] Dados validados (pós-fix):", { 
-        userTrackCheck, 
-        refTrackCheck, 
-        userBandsCheck: userBandsCheck.length, 
-        refBandsCheck: refBandsCheck.length,
-        globalRefBands: refBands ? Object.keys(refBands).length : 0,
-        globalUserBands: userBands ? Object.keys(userBands).length : 0
-    });
+    console.log("[REF-COMP] Dados validados:", { userTrackCheck, refTrackCheck, userBands: userBandsCheck.length, refBands: refBandsCheck.length });
     
     // 🎯 SAFE RENDER COM DEBOUNCE
     console.groupCollapsed("[SAFE_RENDER_REF]");
@@ -7337,22 +7274,25 @@ function renderReferenceComparisons(opts = {}) {
     // 🔐 Obter state global
     const stateV3 = window.__soundyState || {};
     
+    // 🔐 Obter análises primeiro
+    const ua = opts?.userAnalysis || stateV3?.reference?.userAnalysis;
+    const ra = opts?.referenceAnalysis || stateV3?.reference?.referenceAnalysis;
+    
     // 🔐 Construir comparação segura com múltiplas fontes
-    let comparisonSafe = 
+    let comparisonBase = 
         opts?.comparisonData || 
         window?.comparisonData || 
         window?.lastComparisonData || 
         {};
     
-    if (!comparisonSafe.userTrack || !comparisonSafe.referenceTrack) {
+    // 🎯 SEMÂNTICA CORRETA:
+    // - userTrack = 1ª faixa (SUA MÚSICA/ATUAL) = userAnalysis
+    // - referenceTrack = 2ª faixa (REFERÊNCIA/ALVO) = referenceAnalysis
+    let comparisonSafe;
+    
+    if (!comparisonBase.userTrack || !comparisonBase.referenceTrack) {
         console.warn("⚠️ [SAFE_REF_V3] comparisonData incompleto — tentando reconstruir via análises");
         
-        const ua = opts?.userAnalysis || stateV3?.reference?.userAnalysis;
-        const ra = opts?.referenceAnalysis || stateV3?.reference?.referenceAnalysis;
-        
-        // 🎯 SEMÂNTICA CORRETA:
-        // - userTrack = 1ª faixa (SUA MÚSICA/ATUAL) = userAnalysis
-        // - referenceTrack = 2ª faixa (REFERÊNCIA/ALVO) = referenceAnalysis
         comparisonSafe = {
             userTrack: ua?.metadata?.fileName || ua?.fileName || "1ª Faixa (Sua Música/Atual)",
             referenceTrack: ra?.metadata?.fileName || ra?.fileName || "2ª Faixa (Referência/Alvo)",
@@ -7360,35 +7300,37 @@ function renderReferenceComparisons(opts = {}) {
                 ua?.technicalData?.spectral_balance || 
                 ua?.bands || 
                 ua?.spectralBands || 
-                {},
+                null,
             refBands: 
                 ra?.technicalData?.spectral_balance || 
                 ra?.bands || 
                 ra?.spectralBands || 
-                {},
+                null,
         };
-        
-        // 🔍 [AUDIT-BANDS-SAFE-V3] Log APÓS construção de comparisonSafe
-        try {
-            console.log('[AUDIT-BANDS-SAFE-V3]', {
-                comparisonSafeUserBands: comparisonSafe.userBands,
-                comparisonSafeRefBands: comparisonSafe.refBands,
-                typeofUserBands: typeof comparisonSafe.userBands,
-                typeofRefBands: typeof comparisonSafe.refBands,
-                userBandsKeys: comparisonSafe.userBands ? Object.keys(comparisonSafe.userBands) : [],
-                refBandsKeys: comparisonSafe.refBands ? Object.keys(comparisonSafe.refBands) : [],
-                sourceUA: ua ? 'opts.userAnalysis ou state.reference.userAnalysis' : 'N/A',
-                sourceRA: ra ? 'opts.referenceAnalysis ou state.reference.referenceAnalysis' : 'N/A',
-                uaBands: ua?.technicalData?.spectral_balance || ua?.bands || ua?.spectralBands,
-                raBands: ra?.technicalData?.spectral_balance || ra?.bands || ra?.spectralBands
-            });
-        } catch (err) {
-            console.warn('[AUDIT-ERROR]', 'AUDIT-BANDS-SAFE-V3', err);
-        }
-        
-        // Guardar globalmente (backup)
-        window.lastComparisonData = comparisonSafe;
+    } else {
+        comparisonSafe = comparisonBase;
     }
+    
+    // 🔍 [AUDIT-BANDS-SAFE-V3] Log APÓS construção de comparisonSafe
+    try {
+        console.log('[AUDIT-BANDS-SAFE-V3]', {
+            comparisonSafeUserBands: comparisonSafe.userBands,
+            comparisonSafeRefBands: comparisonSafe.refBands,
+            typeofUserBands: typeof comparisonSafe.userBands,
+            typeofRefBands: typeof comparisonSafe.refBands,
+            userBandsKeys: comparisonSafe.userBands ? Object.keys(comparisonSafe.userBands) : [],
+            refBandsKeys: comparisonSafe.refBands ? Object.keys(comparisonSafe.refBands) : [],
+            sourceUA: ua ? 'opts.userAnalysis ou state.reference.userAnalysis' : 'N/A',
+            sourceRA: ra ? 'opts.referenceAnalysis ou state.reference.referenceAnalysis' : 'N/A',
+            uaBands: ua?.technicalData?.spectral_balance || ua?.bands || ua?.spectralBands,
+            raBands: ra?.technicalData?.spectral_balance || ra?.bands || ra?.spectralBands
+        });
+    } catch (err) {
+        console.warn('[AUDIT-ERROR]', 'AUDIT-BANDS-SAFE-V3', err);
+    }
+    
+    // Guardar globalmente (backup)
+    window.lastComparisonData = comparisonSafe;
     
     // 🧩 Substituir opts.comparisonData quebrado
     opts.comparisonData = comparisonSafe;
@@ -7415,7 +7357,7 @@ function renderReferenceComparisons(opts = {}) {
 
     //  [PATCH V5] SCOPE GUARD DEFINITIVO - Sincronização final antes de usar dados
     console.groupCollapsed(" [REF_FIX_V5]");
-    let userTrack, referenceTrack, userBands, refBands;
+    let userTrack, referenceTrack;
     try {
         //  Verifica e sincroniza escopo de comparisonData
         // 🎯 SEMÂNTICA CORRETA:
@@ -7467,16 +7409,14 @@ function renderReferenceComparisons(opts = {}) {
                 comparisonData.refBands =
                     opts.referenceAnalysis.bands ||
                     opts.referenceAnalysis.technicalData?.spectral_balance ||
-                    ra?.technicalData?.spectral_balance ||
-                    ra?.bands ||
+                    window.__lastRefBands ||
                     {};
             }
             if (!comparisonData.userBands && opts?.userAnalysis) {
                 comparisonData.userBands =
                     opts.userAnalysis.bands ||
                     opts.userAnalysis.technicalData?.spectral_balance ||
-                    ua?.technicalData?.spectral_balance ||
-                    ua?.bands ||
+                    window.__lastUserBands ||
                     {};
             }
         }
@@ -7491,36 +7431,45 @@ function renderReferenceComparisons(opts = {}) {
         userTrack = comparisonData?.userTrack || "Sua Música (Atual)";
         referenceTrack = comparisonData?.referenceTrack || "Faixa de Referência (Alvo)";
         
-        // ⚡ Fallback em cascata para garantir bandas válidas
-        refBands =
+        // ⚡ Fallback em cascata para garantir bandas válidas (incluindo persistência global)
+        const localRefBands =
+            window.__lastRefBands ||
             comparisonData?.refBands ||
             comparisonSafe?.refBands ||
             opts?.referenceAnalysis?.bands ||
             opts?.referenceAnalysis?.technicalData?.spectral_balance ||
-            ra?.bands ||
-            ra?.technicalData?.spectral_balance ||
             {};
         
-        userBands =
+        const localUserBands =
+            window.__lastUserBands ||
             comparisonData?.userBands ||
             comparisonSafe?.userBands ||
             opts?.userAnalysis?.bands ||
             opts?.userAnalysis?.technicalData?.spectral_balance ||
-            ua?.bands ||
-            ua?.technicalData?.spectral_balance ||
             {};
+        
+        // [REF-COMP] ✅ Persistir bandas globalmente para uso posterior
+        if (localRefBands && Object.keys(localRefBands).length > 0) window.__lastRefBands = localRefBands;
+        if (localUserBands && Object.keys(localUserBands).length > 0) window.__lastUserBands = localUserBands;
+        
+        console.log('[REF-COMP][BANDS-FINAL-FIX] Estado de bandas após fallback:', {
+            hasRefBands: !!localRefBands && Object.keys(localRefBands).length > 0,
+            hasUserBands: !!localUserBands && Object.keys(localUserBands).length > 0,
+            refKeys: localRefBands ? Object.keys(localRefBands) : [],
+            userKeys: localUserBands ? Object.keys(localUserBands) : []
+        });
 
         // 🔍 [AUDIT-REDECLARE] Log APÓS redeclaração de variáveis
         try {
             console.log('[AUDIT-REDECLARE]', {
-                refBandsCheck: refBands,
-                userBandsCheck: userBands,
-                typeofRefBands: typeof refBands,
-                typeofUserBands: typeof userBands,
-                refBandsKeys: refBands ? Object.keys(refBands) : [],
-                userBandsKeys: userBands ? Object.keys(userBands) : [],
-                refBandsIsEmpty: !refBands || Object.keys(refBands).length === 0,
-                userBandsIsEmpty: !userBands || Object.keys(userBands).length === 0,
+                refBandsCheck: localRefBands,
+                userBandsCheck: localUserBands,
+                typeofRefBands: typeof localRefBands,
+                typeofUserBands: typeof localUserBands,
+                refBandsKeys: localRefBands ? Object.keys(localRefBands) : [],
+                userBandsKeys: localUserBands ? Object.keys(localUserBands) : [],
+                refBandsIsEmpty: !localRefBands || Object.keys(localRefBands).length === 0,
+                userBandsIsEmpty: !localUserBands || Object.keys(localUserBands).length === 0,
                 comparisonDataRefBands: comparisonData?.refBands,
                 comparisonDataUserBands: comparisonData?.userBands
             });
@@ -7531,8 +7480,8 @@ function renderReferenceComparisons(opts = {}) {
         console.log(" [REF_FIX_V5] Estrutura estabilizada:", {
             userTrack,
             referenceTrack,
-            userBands: !!Object.keys(userBands).length,
-            refBands: !!Object.keys(refBands).length,
+            userBands: !!Object.keys(localUserBands || {}).length,
+            refBands: !!Object.keys(localRefBands || {}).length,
         });
 
         //  Abortagem segura se algo vier undefined
@@ -7728,13 +7677,13 @@ function renderReferenceComparisons(opts = {}) {
     console.log("[AUDIT-FLOW] 🔍 Após atribuição final:", {
         userBands,
         refBands,
-        userBandsIsValid: !!(userBands && (Array.isArray(userBands) ? userBands.length : Object.keys(userBands).length)),
-        refBandsIsValid: !!(refBands && (Array.isArray(refBands) ? refBands.length : Object.keys(refBands).length))
+        userBandsIsValid: !!(localUserBands && (Array.isArray(localUserBands) ? localUserBands.length : Object.keys(localUserBands).length)),
+        refBandsIsValid: !!(localRefBands && (Array.isArray(localRefBands) ? localRefBands.length : Object.keys(localRefBands).length))
     });
     
     // ✅ LOG FINAL CONSOLIDADO
-    const userBandsCount = userBands ? (Array.isArray(userBands) ? userBands.length : Object.keys(userBands).length) : 0;
-    const refBandsCount = refBands ? (Array.isArray(refBands) ? refBands.length : Object.keys(refBands).length) : 0;
+    const userBandsCount = localUserBands ? (Array.isArray(localUserBands) ? localUserBands.length : Object.keys(localUserBands).length) : 0;
+    const refBandsCount = localRefBands ? (Array.isArray(localRefBands) ? localRefBands.length : Object.keys(localRefBands).length) : 0;
     
     console.log("[REF-COMP] ✅ Bandas detectadas:", {
         userBands: userBandsCount,
