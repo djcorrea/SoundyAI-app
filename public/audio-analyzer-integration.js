@@ -2731,6 +2731,14 @@ async function handleModalFileSelection(file) {
             window.__REFERENCE_JOB_ID__ = analysisResult.jobId;
             localStorage.setItem('referenceJobId', analysisResult.jobId);
             
+            // ✅ PATCH: Criar cópia isolada para prevenir contaminação de referência
+            window.referenceAnalysisData = JSON.parse(JSON.stringify(analysisResult));
+            
+            // ✅ PATCH: Congelar primeira análise para proteção contra mutações
+            window.__FIRST_ANALYSIS_FROZEN__ = Object.freeze(
+                JSON.parse(JSON.stringify(analysisResult))
+            );
+            
             console.log('[REF-SAVE ✅] ═══════════════════════════════════════');
             console.log('[REF-SAVE ✅] Primeira música processada com sucesso!');
             console.log(`[REF-SAVE ✅] Job ID salvo globalmente: ${analysisResult.jobId}`);
@@ -2738,10 +2746,13 @@ async function handleModalFileSelection(file) {
             console.log('[REF-SAVE ✅]   - window.__REFERENCE_JOB_ID__');
             console.log('[REF-SAVE ✅]   - localStorage.referenceJobId');
             console.log('[REF-SAVE ✅]   - window.__soundyState.previousAnalysis');
+            console.log('[REF-SAVE ✅]   - window.referenceAnalysisData (cópia isolada)');
+            console.log('[REF-SAVE ✅]   - window.__FIRST_ANALYSIS_FROZEN__ (imutável)');
             console.log(`[REF-SAVE ✅] File Name: ${analysisResult.metadata?.fileName || analysisResult.fileName || 'unknown'}`);
             console.log(`[REF-SAVE ✅] LUFS: ${analysisResult.technicalData?.lufsIntegrated || 'N/A'} LUFS`);
             console.log(`[REF-SAVE ✅] DR: ${analysisResult.technicalData?.dynamicRange || 'N/A'} dB`);
             console.log('[REF-SAVE ✅] Este ID será usado na segunda música');
+            console.log('[REF-SAVE ✅] Primeira análise salva e congelada.');
             console.log('[REF-SAVE ✅] ═══════════════════════════════════════');
             
             openReferenceUploadModal(analysisResult.jobId, analysisResult);
@@ -4595,9 +4606,9 @@ function displayModalResults(analysis) {
     const state = window.__soundyState || {};
     state.render = state.render || {};
     
-    if (mode === 'reference' && isSecondTrack && window.referenceAnalysisData) {
+    if (mode === 'reference' && isSecondTrack && window.__FIRST_ANALYSIS_FROZEN__) {
         console.log('🎯 [COMPARE-MODE] Comparando segunda faixa com primeira faixa (não com gênero)');
-        console.log('📊 [COMPARE-MODE] Primeira faixa:', window.referenceAnalysisData);
+        console.log('📊 [COMPARE-MODE] Primeira faixa (congelada):', window.__FIRST_ANALYSIS_FROZEN__);
         console.log('📊 [COMPARE-MODE] Segunda faixa:', analysis);
         
         // 🎯 DEFINIR MODO REFERENCE NO ESTADO
@@ -4605,10 +4616,17 @@ function displayModalResults(analysis) {
         window.__soundyState = state;
         console.log('✅ [COMPARE-MODE] Modo definido como REFERENCE no estado');
         
-        // 🎯 CRIAR ESTRUTURA DE COMPARAÇÃO ENTRE FAIXAS
-        // Normalizar ambas as análises
-        const refNormalized = normalizeBackendAnalysisData(window.referenceAnalysisData); // Primeira faixa (BASE)
-        const currNormalized = normalizeBackendAnalysisData(analysis); // Segunda faixa (ATUAL)
+        // 🎯 CRIAR ESTRUTURA DE COMPARAÇÃO ENTRE FAIXAS COM CÓPIA DEFENSIVA
+        // ✅ PATCH: Cópia profunda antes de normalizar (preserva original congelado)
+        console.log('[NORMALIZE-DEFENSIVE] ✅ Criando cópia profunda da 1ª faixa antes de normalizar');
+        const refNormalized = normalizeBackendAnalysisData(
+            JSON.parse(JSON.stringify(window.__FIRST_ANALYSIS_FROZEN__))
+        ); // Primeira faixa (BASE) - cópia isolada
+        
+        console.log('[NORMALIZE-DEFENSIVE] ✅ Criando cópia profunda da 2ª faixa antes de normalizar');
+        const currNormalized = normalizeBackendAnalysisData(
+            JSON.parse(JSON.stringify(analysis))
+        ); // Segunda faixa (ATUAL) - cópia isolada
         
         // [REF-FLOW] Construindo métricas A/B
         // ✅ SEMÂNTICA CORRETA:
@@ -4834,8 +4852,9 @@ function displayModalResults(analysis) {
     }
     
     // 🔧 CORREÇÃO CRÍTICA: Normalizar dados do backend para compatibilidade com front-end
+    // ✅ PATCH: Normalização redundante REMOVIDA - dados já normalizados em handleModalFileSelection
     if (analysis && typeof analysis === 'object') {
-        console.log('[AUDITORIA-RMS-LUFS] ANTES de normalizar:', {
+        console.log('[AUDITORIA-RMS-LUFS] Verificando estado dos dados (já normalizados):', {
             'technicalData.avgLoudness (RMS)': analysis?.technicalData?.avgLoudness,
             'technicalData.rms': analysis?.technicalData?.rms,
             'energy.rms': analysis?.energy?.rms,
@@ -4847,9 +4866,12 @@ function displayModalResults(analysis) {
             'truePeak.maxDbtp': analysis?.truePeak?.maxDbtp
         });
         
-        analysis = normalizeBackendAnalysisData(analysis);
+        // 🚫 PATCH: Normalização redundante REMOVIDA para evitar contaminação
+        // ❌ analysis = normalizeBackendAnalysisData(analysis);
+        console.log('[NORMALIZE-SKIP] ✅ Evitando re-normalização destrutiva - dados já normalizados em handleModalFileSelection');
+        console.log('[NORMALIZE-SKIP] ✅ Preservando integridade de referenceComparisonMetrics');
         
-        console.log('[AUDITORIA-RMS-LUFS] DEPOIS de normalizar:', {
+        console.log('[AUDITORIA-RMS-LUFS] Dados preservados:', {
             'technicalData.avgLoudness (RMS)': analysis?.technicalData?.avgLoudness,
             'technicalData.lufsIntegrated': analysis?.technicalData?.lufsIntegrated,
             'technicalData.crestFactor': analysis?.technicalData?.crestFactor,
@@ -4859,7 +4881,7 @@ function displayModalResults(analysis) {
             'truePeak.maxDbtp': analysis?.truePeak?.maxDbtp,
             'energy.rms': analysis?.energy?.rms
         });
-        console.log('📊 [DEBUG] Dados normalizados para exibição:', analysis);
+        console.log('📊 [DEBUG] Dados preservados para exibição:', analysis);
         
         // 🎯 RECALCULAR hasReferenceComparisonMetrics APÓS NORMALIZAÇÃO
         const state = window.__soundyState || {};
@@ -4991,6 +5013,45 @@ function displayModalResults(analysis) {
 
     /** 2) Hard-gates antes de montar o objeto de score */
     const isReferenceMode = !!(referenceComparisonMetrics && referenceComparisonMetrics.reference);
+    
+    // ✅ PATCH: Validação de integridade ANTES de calcular selfCompare
+    console.log('[INTEGRITY-CHECK] Validando dados antes de calcular score:', {
+        userFileName: userMd.fileName,
+        refFileName: refMd.fileName,
+        userLUFS: userTd.lufsIntegrated,
+        refLUFS: refTd.lufsIntegrated,
+        sameFile: userMd.fileName === refMd.fileName,
+        sameLUFS: userTd.lufsIntegrated && refTd.lufsIntegrated ? 
+            Math.abs(userTd.lufsIntegrated - refTd.lufsIntegrated) < 0.05 : false
+    });
+    
+    // 🚨 PATCH: Alerta crítico se arquivos são iguais (contaminação detectada)
+    if (userMd.fileName === refMd.fileName && state.previousAnalysis) {
+        console.error('[INTEGRITY-CHECK] ❌ FALHA CRÍTICA: userFile === refFile');
+        console.error('[INTEGRITY-CHECK] ❌ Provável contaminação de dados!');
+        console.error('[INTEGRITY-CHECK] ❌ Tentando recuperar de state.previousAnalysis...');
+        
+        // Tentar recuperar userFull de previousAnalysis
+        if (state.previousAnalysis.metadata?.fileName !== refMd.fileName) {
+            console.warn('[INTEGRITY-CHECK] ⚠️ Recuperando userFull de state.previousAnalysis');
+            const recoveredUserFull = state.previousAnalysis;
+            const recoveredUserMd = recoveredUserFull.metadata || {};
+            const recoveredUserTd = recoveredUserFull.technicalData || {};
+            const recoveredUserBands = __normalizeBandKeys(__getBandsSafe(recoveredUserFull));
+            
+            // Reatribuir variáveis recuperadas
+            userFull = recoveredUserFull;
+            userMd = recoveredUserMd;
+            userTd = recoveredUserTd;
+            userBands = recoveredUserBands;
+            
+            console.log('[INTEGRITY-CHECK] ✅ Dados recuperados de state.previousAnalysis:', {
+                fileName: recoveredUserMd.fileName,
+                lufs: recoveredUserTd.lufsIntegrated
+            });
+        }
+    }
+    
     const selfCompare = __tracksLookSame(userTd, refTd, userMd, refMd, userBands, refBands);
     const refBandsOK  = __bandsAreMeaningful(refBands);
     const userBandsOK = __bandsAreMeaningful(userBands);
