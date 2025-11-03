@@ -7735,14 +7735,9 @@ function renderReferenceComparisons(opts = {}) {
         return;
     }
     
-    // Se já estiver processando render, cancelar chamadas duplicadas
-    if (window.__REF_RENDER_LOCK__) {
-        console.warn("⚠️ [VALIDATION-FIX] Renderização ignorada — já em progresso.");
-        window.comparisonLock = false;
-        console.log("[LOCK] comparisonLock liberado (render duplicado)");
-        return;
-    }
-    window.__REF_RENDER_LOCK__ = true;
+    // 🔧 CORREÇÃO CRÍTICA: Removido __REF_RENDER_LOCK__ que bloqueava segunda chamada legítima
+    // A validação de dados abaixo é suficiente para prevenir renders incompletos
+    console.log("[LOCK-FIX] ✅ Permitindo render com validação de dados (lock duplicado removido)");
     
     // Aceita opts ou analysis (backward compatibility)
     const analysis = opts.analysis || opts;
@@ -7771,7 +7766,6 @@ function renderReferenceComparisons(opts = {}) {
         console.error('[VALIDATION-FIX] ❌ Falha crítica: bandas não detectadas no momento do render.');
         console.error('comparisonData:', comparisonData);
         console.error('window.__soundyState:', window.__soundyState);
-        window.__REF_RENDER_LOCK__ = false;
         window.comparisonLock = false;
         if (typeof displayModalResultsError === 'function') {
             return displayModalResultsError('Erro na análise por referência (bandas não detectadas).');
@@ -8004,7 +7998,6 @@ function renderReferenceComparisons(opts = {}) {
         //  Abortagem segura se algo vier undefined
         if (!referenceTrack || !userTrack) {
             console.error(" [REF_FIX_V5] referenceTrack ou userTrack ausentes!");
-            window.__REF_RENDER_LOCK__ = false;
             window.comparisonLock = false;
             console.log("[LOCK] comparisonLock liberado (track ausente)");
             console.groupEnd();
@@ -8018,7 +8011,6 @@ function renderReferenceComparisons(opts = {}) {
         comparisonData.userTrack = userTrack;
     } catch (err) {
         console.error(" [REF_FIX_V5] Erro crítico de escopo:", err);
-        window.__REF_RENDER_LOCK__ = false;
         window.comparisonLock = false;
         console.log("[LOCK] comparisonLock liberado (erro crítico)");
         console.groupEnd();
@@ -8033,7 +8025,6 @@ function renderReferenceComparisons(opts = {}) {
 
     if (!userAnalysis || !referenceAnalysis) {
         console.warn("[REF-COMP] Faltam análises; usando fallback controlado.");
-        window.__REF_RENDER_LOCK__ = false;
         window.comparisonLock = false;
         console.log("[LOCK] comparisonLock liberado (análises ausentes)");
         return renderGenreComparisonSafe?.();
@@ -8067,7 +8058,6 @@ function renderReferenceComparisons(opts = {}) {
     // Evita leitura em escopos errados - ABORT se referenceTrack undefined
     if (!referenceTrack) {
         console.error("🚨 [SAFE_REF_V3] referenceTrack ainda undefined! Abortando render seguro.");
-        window.__REF_RENDER_LOCK__ = false;
         window.comparisonLock = false;
         console.log("[LOCK] comparisonLock liberado (referenceTrack undefined)");
         return;
@@ -8172,7 +8162,6 @@ function renderReferenceComparisons(opts = {}) {
                 hasReferenceAnalysis: !!analysis.referenceAnalysis,
                 soundyStateKeys: Object.keys(window.__soundyState || {})
             });
-            window.__REF_RENDER_LOCK__ = false;
             window.comparisonLock = false;
             console.log("[LOCK] comparisonLock liberado (sem dados válidos)");
             console.groupEnd();
@@ -8218,11 +8207,6 @@ function renderReferenceComparisons(opts = {}) {
         userBandsCount,
         refBandsCount
     });
-    
-    // 🔓 Libera lock após iniciar renderização (será completado em 1.5s)
-    setTimeout(() => {
-        window.__REF_RENDER_LOCK__ = false;
-    }, 1500);
     
     // 🧠 SAFEGUARD FINAL: Verificação crítica antes de qualquer renderização
     if (opts?.mode === "reference") {
@@ -8538,7 +8522,6 @@ function renderReferenceComparisons(opts = {}) {
                 window.comparisonData = comparisonLock;
             } catch (err) {
                 console.error("💥 [REF_SCOPE_LOCK] Erro crítico ao reestabelecer escopo:", err);
-                window.__REF_RENDER_LOCK__ = false;
                 window.comparisonLock = false;
                 console.log("[LOCK] comparisonLock liberado (erro escopo)");
                 return;
@@ -8572,7 +8555,6 @@ function renderReferenceComparisons(opts = {}) {
             
             if (!refAnalysis || !userAnalysisData) {
                 console.error("💥 [REF-FIX-FINAL] Análises não encontradas, abortando");
-                window.__REF_RENDER_LOCK__ = false;
                 window.comparisonLock = false;
                 console.log("[LOCK] comparisonLock liberado (análises não encontradas)");
                 return;
