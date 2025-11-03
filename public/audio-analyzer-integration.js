@@ -4853,6 +4853,33 @@ function displayModalResults(analysis) {
         console.log('💡 Operação: deepCloneSafe() + normalizeBackendAnalysisData()');
         console.groupEnd();
         
+        // 🔴 AUDITORIA CRÍTICA: Verificar window.__FIRST_ANALYSIS_FROZEN__ ANTES de usar
+        console.log('🔴 [AUDIT-CRITICAL] ANTES de criar refNormalized/currNormalized:');
+        console.log('  window.__FIRST_ANALYSIS_FROZEN__ existe?', !!window.__FIRST_ANALYSIS_FROZEN__);
+        console.log('  window.__FIRST_ANALYSIS_FROZEN__.metadata?.fileName:', window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName);
+        console.log('  window.__FIRST_ANALYSIS_FROZEN__.jobId:', window.__FIRST_ANALYSIS_FROZEN__?.jobId);
+        console.log('  analysis.metadata?.fileName:', analysis?.metadata?.fileName);
+        console.log('  analysis.jobId:', analysis?.jobId);
+        console.log('  🚨 SÃO O MESMO ARQUIVO?', window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName === analysis?.metadata?.fileName);
+        console.log('  🚨 SÃO O MESMO JOBID?', window.__FIRST_ANALYSIS_FROZEN__?.jobId === analysis?.jobId);
+        
+        // 🚨 PROTEÇÃO: Se window.__FIRST_ANALYSIS_FROZEN__ não existe ou é o mesmo que analysis
+        if (!window.__FIRST_ANALYSIS_FROZEN__) {
+            console.error('🔴 [AUDIT-CRITICAL] ❌ window.__FIRST_ANALYSIS_FROZEN__ NÃO EXISTE!');
+            console.error('🔴 [AUDIT-CRITICAL] ❌ Tentando recuperar de window.referenceAnalysisData...');
+            if (window.referenceAnalysisData) {
+                window.__FIRST_ANALYSIS_FROZEN__ = Object.freeze(deepCloneSafe(window.referenceAnalysisData));
+                console.log('🔴 [AUDIT-CRITICAL] ✅ Recuperado de window.referenceAnalysisData');
+            } else {
+                console.error('🔴 [AUDIT-CRITICAL] ❌ FALHA TOTAL: Nenhuma primeira análise disponível!');
+            }
+        }
+        
+        if (window.__FIRST_ANALYSIS_FROZEN__?.jobId === analysis?.jobId) {
+            console.error('🔴 [AUDIT-CRITICAL] ❌ CONTAMINAÇÃO DETECTADA: window.__FIRST_ANALYSIS_FROZEN__ tem o mesmo jobId que analysis!');
+            console.error('🔴 [AUDIT-CRITICAL] ❌ Isso significa que a SEGUNDA análise sobrescreveu a PRIMEIRA!');
+        }
+        
         // ✅ PATCH V2: Usar deepCloneSafe() em vez de JSON.parse/stringify
         console.log('[NORMALIZE-DEFENSIVE] 🔒 Criando cópia segura da 1ª faixa antes de normalizar');
         const refNormalized = normalizeBackendAnalysisData(
@@ -4886,6 +4913,22 @@ function displayModalResults(analysis) {
         console.log('  refNormalized.metadata?.fileName:', refNormalized?.metadata?.fileName);
         console.log('  currNormalized.metadata?.fileName:', currNormalized?.metadata?.fileName);
         console.log('  🚨 SAME FILE?', refNormalized?.metadata?.fileName === currNormalized?.metadata?.fileName);
+        
+        // 🔴 VALIDAÇÃO CRÍTICA: Se os arquivos são iguais, ABORTAR imediatamente
+        if (refNormalized?.metadata?.fileName === currNormalized?.metadata?.fileName) {
+            console.error('🔴 [AUDITORIA_STATE_FLOW] ❌❌❌ CONTAMINAÇÃO CONFIRMADA ❌❌❌');
+            console.error('🔴 refNormalized e currNormalized têm O MESMO ARQUIVO!');
+            console.error('🔴 Isso significa que window.__FIRST_ANALYSIS_FROZEN__ foi contaminado!');
+            console.error('🔴 Sistema está comparando a música consigo mesma!');
+            console.table({
+                'refNormalized.fileName': refNormalized?.metadata?.fileName,
+                'refNormalized.jobId': refNormalized?.jobId,
+                'currNormalized.fileName': currNormalized?.metadata?.fileName,
+                'currNormalized.jobId': currNormalized?.jobId,
+                'sameFile': refNormalized?.metadata?.fileName === currNormalized?.metadata?.fileName,
+                'sameJobId': refNormalized?.jobId === currNormalized?.jobId
+            });
+        }
         console.groupEnd();
         
         // [REF-FLOW] Construindo métricas A/B
