@@ -199,13 +199,15 @@ window.testarSistemaUltraAvancadoManual = function() {
     }
 };
 
+// 🔴 INTERCEPTAÇÃO TEMPORARIAMENTE DESABILITADA PARA DEBUG DO MODO A/B
 // Aguardar carregamento e iniciar interceptação
-window.addEventListener('DOMContentLoaded', function() {
-    setTimeout(() => {
-        console.log('🎯 [MODAL_MONITOR] Iniciando interceptação...');
-        interceptarDisplayModalResults();
-    }, 3000);
-});
+// window.addEventListener('DOMContentLoaded', function() {
+//     setTimeout(() => {
+//         console.log('🎯 [MODAL_MONITOR] Iniciando interceptação...');
+//         interceptarDisplayModalResults();
+//     }, 3000);
+// });
+console.warn('🔴 [MODAL_MONITOR] ❌ INTERCEPTAÇÃO DESABILITADA TEMPORARIAMENTE (debug modo A/B)');
 
 // Disponibilizar teste no console para debug
 console.log('💡 [MODAL_MONITOR] Para testar manualmente, execute: testarSistemaUltraAvancadoManual()');
