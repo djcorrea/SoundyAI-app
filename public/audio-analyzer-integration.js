@@ -7741,13 +7741,13 @@ function renderReferenceComparisons(opts = {}) {
     console.log("[AUDIT-FLOW] 🔍 Após atribuição final:", {
         userBands,
         refBands,
-        userBandsIsValid: !!(localUserBands && (Array.isArray(localUserBands) ? localUserBands.length : Object.keys(localUserBands).length)),
-        refBandsIsValid: !!(localRefBands && (Array.isArray(localRefBands) ? localRefBands.length : Object.keys(localRefBands).length))
+        userBandsIsValid: !!(userBandsLocal && (Array.isArray(userBandsLocal) ? userBandsLocal.length : Object.keys(userBandsLocal).length)),
+        refBandsIsValid: !!(refBandsLocal && (Array.isArray(refBandsLocal) ? refBandsLocal.length : Object.keys(refBandsLocal).length))
     });
     
     // ✅ LOG FINAL CONSOLIDADO
-    const userBandsCount = localUserBands ? (Array.isArray(localUserBands) ? localUserBands.length : Object.keys(localUserBands).length) : 0;
-    const refBandsCount = localRefBands ? (Array.isArray(localRefBands) ? localRefBands.length : Object.keys(localRefBands).length) : 0;
+    const userBandsCount = userBandsLocal ? (Array.isArray(userBandsLocal) ? userBandsLocal.length : Object.keys(userBandsLocal).length) : 0;
+    const refBandsCount = refBandsLocal ? (Array.isArray(refBandsLocal) ? refBandsLocal.length : Object.keys(refBandsLocal).length) : 0;
     
     console.log("[REF-COMP] ✅ Bandas detectadas:", {
         userBands: userBandsCount,
