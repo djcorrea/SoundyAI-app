@@ -4895,161 +4895,208 @@ function displayModalResults(analysis) {
         console.log('✅ [PASSO 2] analysis.referenceComparison garantido:', analysis.referenceComparison);
     }
     
-    // 🎯 CALCULAR SCORES DA ANÁLISE
-    // Priorizar referenceComparisonMetrics se disponível (comparação entre faixas)
-    let referenceDataForScores = __activeRefData;
-    const isReferenceMode = !!(referenceComparisonMetrics && referenceComparisonMetrics.reference);
-    
-    // 🎯 CORREÇÃO: Usar state.render.mode como fonte da verdade para decidir limpeza
-    const stateForScores = window.__soundyState || {};
-    const actualMode = stateForScores.render?.mode || (isReferenceMode ? 'reference' : 'genre');
-    
-    // 🎯 LOG FINAL-MODE (conforme solicitado)
-    console.log('[FINAL-MODE]', {
-        mode: actualMode,
-        isSecondTrack: stateForScores.reference?.isSecondTrack,
-        comparison: stateForScores.reference?.analysis ? 'A/B ativo' : 'single'
-    });
-    
-    // Limpar estado APENAS se modo for explicitamente 'genre'
-    if (actualMode === 'genre' && !isReferenceMode) {
-        if (stateForScores.reference && stateForScores.reference.isSecondTrack) {
-            console.log('🧹 [GENRE-CLEANUP] Limpando referência antiga (modo genre confirmado)');
-            stateForScores.reference.isSecondTrack = false;
-            stateForScores.reference.analysis = null;
-        }
-        // Garantir que análise não tenha referenceAnalysis indevida
-        if (analysis.referenceAnalysis) {
-            console.warn('⚠️ [SCORES-GENRE] Removendo referenceAnalysis da análise de gênero (contaminação detectada)');
-            delete analysis.referenceAnalysis;
-        }
-    } else if (actualMode === 'reference' || isReferenceMode) {
-        console.log('✅ [REFERENCE-MODE] Mantendo referenceAnalysis ativo');
-    }
-    
-    if (isReferenceMode) {
-        console.log('✅ [SCORES] Usando referenceComparisonMetrics para calcular scores (comparação entre faixas)');
-        
-        // Construir objeto no formato esperado por calculateAnalysisScores
-        const refMetrics = referenceComparisonMetrics.reference; // Primeira faixa (alvo)
-        
-        // 🎯 CORREÇÃO CRÍTICA: Buscar bandas da primeira faixa (referência/alvo)
-        // Usar referenceFull que tem os dados completos da primeira faixa
-        const referenceBandsFromAnalysis = referenceComparisonMetrics.referenceFull?.technicalData?.spectral_balance 
-            || referenceComparisonMetrics.referenceFull?.metrics?.bands
-            || window.__soundyState?.reference?.analysis?.bands
-            || window.referenceAnalysisData?.technicalData?.spectral_balance
-            || window.referenceAnalysisData?.metrics?.bands
-            || null;
-        
-        if (!referenceBandsFromAnalysis) {
-            console.warn('⚠️ [SCORES-REF] Bandas da primeira faixa (referência) não encontradas!');
-            console.error('❌ Debug:', {
-                hasReferenceFull: !!referenceComparisonMetrics.referenceFull,
-                referenceFull: referenceComparisonMetrics.referenceFull,
-                hasWindowRefData: !!window.referenceAnalysisData
-            });
-        } else {
-            console.log('✅ [SCORES-REF] Usando bandas da primeira faixa como alvo (valores reais):', Object.keys(referenceBandsFromAnalysis));
-        }
-        
-        referenceDataForScores = {
-            lufs_target: refMetrics.lufsIntegrated || refMetrics.lufs_integrated,
-            true_peak_target: refMetrics.truePeakDbtp || refMetrics.true_peak_dbtp,
-            dr_target: refMetrics.dynamicRange || refMetrics.dynamic_range,
-            lra_target: refMetrics.lra,
-            stereo_target: refMetrics.stereoCorrelation || refMetrics.stereo_correlation,
-            spectral_centroid_target: refMetrics.spectralCentroidHz || refMetrics.spectral_centroid,
-            bands: referenceBandsFromAnalysis || refMetrics.spectral_balance, // Usar valores reais, não target_range
-            tol_lufs: 0.5,
-            tol_true_peak: 0.3,
-            tol_dr: 1.0,
-            tol_lra: 1.0,
-            tol_stereo: 0.08,
-            tol_spectral: 300,
-            _isReferenceMode: true // Flag para indicar modo reference
-        };
-    }
-    
-    if (referenceDataForScores && analysis) {
-        const detectedGenre = analysis.metadata?.genre || analysis.genre || __activeRefGenre;
-        const state = window.__soundyState || {};
-        
-        console.log('🎯 Calculando scores para:', referenceComparisonMetrics ? 'comparação entre faixas' : `gênero ${detectedGenre}`);
-        
-        // 🎯 LOG DE VERIFICAÇÃO DA ORDEM A/B (conforme solicitado)
-        if (isReferenceMode) {
-            console.log('[VERIFY_AB_ORDER]', {
-                mode: state.render.mode,
-                userMetrics: 'Segunda faixa (atual)',
-                refMetrics: 'Primeira faixa (alvo)',
-                userFile: referenceComparisonMetrics?.userFull?.metadata?.fileName || 'Segunda faixa',
-                refFile: referenceComparisonMetrics?.referenceFull?.metadata?.fileName || 'Primeira faixa',
-                userLufs: referenceComparisonMetrics?.user?.lufsIntegrated,
-                refLufs: referenceComparisonMetrics?.reference?.lufsIntegrated
-            });
-        }
-        
-        // 🎯 LOG DE VERIFICAÇÃO DE MODO (conforme solicitado)
-        console.log('[VERIFY_MODE]', {
-            mode: isReferenceMode ? 'reference' : 'genre',
-            comparingWith: isReferenceMode ? 'Reference Track' : 'Genre Targets',
-            refBands: isReferenceMode ? Object.keys(referenceDataForScores.bands || {}) : Object.keys(__activeRefData?.bands || {}),
-            hasReferenceAnalysis: !!analysis.referenceAnalysis,
-            isSecondTrack: state?.reference?.isSecondTrack,
-            genre: detectedGenre
-        });
-        
-        // Injeta bandas no refData se existirem em comparisonData/opts/state
-        if (!referenceDataForScores.bands) {
-            const refBandsFromFlow =
-                comparisonData?.refBands ||
-                window.__lastRefBands ||
-                opts?.referenceAnalysis?.bands ||
-                opts?.referenceAnalysis?.technicalData?.spectral_balance ||
-                window.__activeRefData?._referenceBands || null;
+    /* =========[ BLOCO: SCORES A/B – substitui 4888–5050 ]========= */
 
-            if (refBandsFromFlow) {
-                referenceDataForScores.bands = refBandsFromFlow;
-                referenceDataForScores._isReferenceMode = true; // garante caminho reference
-                console.log('[INJECT-REF-BANDS] bands injetadas no refData para cálculo', Object.keys(referenceDataForScores.bands));
-            }
-        }
+    /** Utilitários robustos (não colidem com nomes existentes) */
+    const __EPS = 1e-3;
+    const __DB_EPS = 0.5; // ~0.5 dB para "iguais"
+    const __MIN_BANDS = 7;
+
+    function __num(v){ return typeof v === 'number' && isFinite(v); }
+    function __ae(a,b,eps=__EPS){ return __num(a) && __num(b) && Math.abs(a-b) <= eps; }
+    function __keys(o){ return o ? Object.keys(o) : []; }
+
+    function __getBandsSafe(from) {
+      // aceita objetos tipo analysis, referenceFull, technicalData.spectral_balance etc.
+      if (!from) return null;
+
+      // 1) caminhos mais prováveis
+      const td = from.technicalData || from.technical_data || null;
+      if (td && td.spectral_balance) return td.spectral_balance;
+      if (from.metrics && from.metrics.bands) return from.metrics.bands;
+      if (from.bands) return from.bands;
+
+      // 2) objetos já no formato bandas
+      const maybeBands = (from.sub || from.lowMid || from.low_mid) ? from : null;
+      if (maybeBands) return maybeBands;
+
+      return null;
+    }
+
+    function __normalizeBandKeys(b) {
+      if (!b) return null;
+      // normaliza low_mid->lowMid, high_mid->highMid etc.
+      const map = {
+        sub: 'sub', bass: 'bass',
+        low_mid: 'lowMid', lowmid: 'lowMid', lowMid: 'lowMid',
+        mid: 'mid',
+        high_mid: 'highMid', highmid: 'highMid', highMid: 'highMid',
+        presence: 'presence', air: 'air',
+        total: 'totalPercentage', total_percentage: 'totalPercentage', totalPercentage: 'totalPercentage',
+        _status: '_status'
+      };
+      const out = {};
+      for (const k of Object.keys(b)) {
+        const nk = map[k] || k;
+        out[nk] = b[k];
+      }
+      return out;
+    }
+
+    function __bandsAreMeaningful(bands) {
+      if (!bands) return false;
+      const k = __keys(bands).filter(k => ['sub','bass','lowMid','mid','highMid','presence','air'].includes(k));
+      if (k.length < __MIN_BANDS) return false;
+      // precisa ter variação real (evita vetor todo zero)
+      const vals = k.map(k => bands[k]).filter(__num);
+      if (vals.length < __MIN_BANDS) return false;
+      const max = Math.max(...vals), min = Math.min(...vals);
+      return isFinite(max) && isFinite(min) && (Math.abs(max - min) > 0.2); // >0.2 dB de amplitude mínima
+    }
+
+    function __bandsSimilar(a, b, epsDb = __DB_EPS) {
+      if (!a || !b) return false;
+      const ak = __keys(a), bk = __keys(b);
+      const common = ak.filter(k => bk.includes(k) && ['sub','bass','lowMid','mid','highMid','presence','air'].includes(k));
+      if (common.length < __MIN_BANDS) return false;
+      let equal = 0;
+      for (const k of common) {
+        if (__num(a[k]) && __num(b[k]) && Math.abs(a[k] - b[k]) <= epsDb) equal++;
+      }
+      return equal >= __MIN_BANDS; // praticamente iguais
+    }
+
+    function __tracksLookSame(userTd, refTd, userMd, refMd, userBands, refBands) {
+      const sameName = !!userMd?.fileName && !!refMd?.fileName && (userMd.fileName === refMd.fileName);
+      const sameLufs = __ae(userTd?.lufsIntegrated, refTd?.lufsIntegrated, 0.05);
+      const sameTp   = __ae(userTd?.truePeakDbtp,  refTd?.truePeakDbtp,  0.05);
+      const sameDr   = __ae(userTd?.dynamicRange,  refTd?.dynamicRange,  0.1);
+      const sameCent = __ae(userTd?.spectralCentroidHz, refTd?.spectralCentroidHz, 5);
+      const sameBands = __bandsSimilar(userBands, refBands);
+      return sameName || (sameLufs && sameTp && sameDr && sameCent) || sameBands;
+    }
+
+    /** 1) Extrai estruturas normalizadas que já existem nesse ponto do fluxo */
+    const userFull  = referenceComparisonMetrics?.userFull;       // 1ª faixa (sua música)
+    const refFull   = referenceComparisonMetrics?.referenceFull;  // 2ª faixa (referência)
+
+    const userTd    = referenceComparisonMetrics?.userTrack   || {};
+    const refTd     = referenceComparisonMetrics?.referenceTrack || {};
+    const userMd    = userFull?.metadata || {};
+    const refMd     = refFull?.metadata  || {};
+
+    // bandas A/B normalizadas + keys padronizadas
+    let userBands = __normalizeBandKeys(__getBandsSafe(userFull));
+    let refBands  = __normalizeBandKeys(__getBandsSafe(refFull));
+
+    /** 2) Hard-gates antes de montar o objeto de score */
+    const isReferenceMode = !!(referenceComparisonMetrics && referenceComparisonMetrics.reference);
+    const selfCompare = __tracksLookSame(userTd, refTd, userMd, refMd, userBands, refBands);
+    const refBandsOK  = __bandsAreMeaningful(refBands);
+    const userBandsOK = __bandsAreMeaningful(userBands);
+
+    console.log('[VERIFY_AB_ORDER]', {
+      mode: state.render.mode,
+      userFile: userMd.fileName, refFile: refMd.fileName,
+      userLUFS: userTd.lufsIntegrated, refLUFS: refTd.lufsIntegrated,
+      userBands: userBandsOK ? __keys(userBands) : 'ausente',
+      refBands: refBandsOK  ? __keys(refBands)  : 'ausente',
+      selfCompare
+    });
+
+    /** 3) Se referência não é válida ou A==B, rebaixa o score de frequência via "disable" e re-normaliza pesos */
+    let disableFrequency = false;
+    let referenceDataForScores = null;
+
+    if (!refBandsOK || !userBandsOK || selfCompare) {
+      disableFrequency = true;
+      console.warn('⚠️ [SCORES-GUARD] Desativando score de Frequência:',
+        { refBandsOK, userBandsOK, selfCompare });
+
+      // monta alvo somente com métricas escalares (sem bandas)
+      referenceDataForScores = {
+        lufs_target:          refTd.lufsIntegrated ?? refTd.lufs_integrated,
+        true_peak_target:     refTd.truePeakDbtp   ?? refTd.true_peak_dbtp,
+        dr_target:            refTd.dynamicRange   ?? refTd.dynamic_range,
+        lra_target:           refTd.lra,
+        stereo_target:        refTd.stereoCorrelation ?? refTd.stereo_correlation,
+        spectral_centroid_target: refTd.spectralCentroidHz ?? refTd.spectral_centroid,
+        bands: null, // força desativado
+        tol_lufs: 0.5, tol_true_peak: 0.3, tol_dr: 1.0, tol_lra: 1.0, tol_stereo: 0.08, tol_spectral: 300,
+        _isReferenceMode: true,
+        _disabledBands: true
+      };
+    } else {
+      // fluxo normal (A/B saudável)
+      referenceDataForScores = {
+        lufs_target:          refTd.lufsIntegrated ?? refTd.lufs_integrated,
+        true_peak_target:     refTd.truePeakDbtp   ?? refTd.true_peak_dbtp,
+        dr_target:            refTd.dynamicRange   ?? refTd.dynamic_range,
+        lra_target:           refTd.lra,
+        stereo_target:        refTd.stereoCorrelation ?? refTd.stereo_correlation,
+        spectral_centroid_target: refTd.spectralCentroidHz ?? refTd.spectral_centroid,
+        bands: refBands, // <- bandas reais da referência
+        tol_lufs: 0.5, tol_true_peak: 0.3, tol_dr: 1.0, tol_lra: 1.0, tol_stereo: 0.08, tol_spectral: 300,
+        _isReferenceMode: true
+      };
+    }
+
+    console.log('[SCORE-FIX] Bandas preparadas p/ cálculo:', {
+      disableFrequency, refBands: referenceDataForScores.bands ? __keys(referenceDataForScores.bands) : 'desativado',
+      userBands: userBandsOK ? __keys(userBands) : 'ausente'
+    });
+
+    /** 4) Cálculo seguro com proteção de tolerância e re-balanceamento de pesos */
+    function __safeCalculateAnalysisScores(analysisObj, refData, genre) {
+      // Protege tolerâncias (evita tolDb=0)
+      if (!refData || typeof refData !== 'object') refData = {};
+      if (!__num(refData.tol_spectral) || refData.tol_spectral <= 0) refData.tol_spectral = 300;
+
+      // Chama o cálculo original
+      const out = calculateAnalysisScores(analysisObj, refData, genre) || {};
+
+      // Se frequência está desativada (sem bandas confiáveis), zera peso de frequência e re-normaliza
+      if (!refData.bands || refData._disabledBands) {
+        const subs = out.subscores || out; // compat: alguns retornam direto
+        const weights = {
+          loudness: 0.32, dinamica: 0.23, frequencia: 0.0, estereo: 0.15, tecnico: 0.30 // soma = 1.0
+        };
+        // recomputa final de forma defensiva
+        const lv = __num(subs.loudness)   ? subs.loudness   : 0;
+        const dv = __num(subs.dinamica)   ? subs.dinamica   : 0;
+        const ev = __num(subs.estereo)    ? subs.estereo    : 0;
+        const tv = __num(subs.tecnico)    ? subs.tecnico    : 0;
+        const final = Math.round(
+          lv*weights.loudness + dv*weights.dinamica + ev*weights.estereo + tv*weights.tecnico
+        );
+        out.final = final;
+        out._weightsApplied = weights;
+        out._freqDisabled = true;
+        console.warn('⚠️ [SCORES-GUARD] Frequência desativada ⇒ pesos re-normalizados', weights);
+      }
+
+      // Hard-cap de True Peak continua valendo (o seu já está aplicado antes)
+      return out;
+    }
+
+    /** 5) EXECUTA o cálculo com o objeto blindado */
+    const detectedGenre = analysis.metadata?.genre || analysis.genre || __activeRefGenre;
+    const analysisScores = __safeCalculateAnalysisScores(analysis, referenceDataForScores, detectedGenre);
+
+    if (analysisScores) {
+        // Adicionar scores à análise
+        analysis.scores = analysisScores;
+        console.log('✅ Scores calculados e adicionados à análise:', analysisScores);
         
-        // ✅ Forçar bandas ativas no refData e analysis antes de calcular
-        if (window.__lastRefBands && !referenceDataForScores.bands) {
-            referenceDataForScores.bands = window.__lastRefBands;
-        }
-        if (window.__lastUserBands && !analysis.bands) {
-            analysis.bands = window.__lastUserBands;
-        }
-        
-        console.log('[SCORE-FIX] Bandas injetadas antes do cálculo:', {
-            refBands: Object.keys(referenceDataForScores.bands || {}),
-            userBands: Object.keys(analysis.bands || {})
-        });
-        
-        try {
-            const analysisScores = calculateAnalysisScores(analysis, referenceDataForScores, detectedGenre);
-            
-            if (analysisScores) {
-                // Adicionar scores à análise
-                analysis.scores = analysisScores;
-                console.log('✅ Scores calculados e adicionados à análise:', analysisScores);
-                
-                // Também armazenar globalmente
-                if (typeof window !== 'undefined') {
-                    window.__LAST_ANALYSIS_SCORES__ = analysisScores;
-                }
-            } else {
-                console.warn('⚠️ Não foi possível calcular scores (dados insuficientes)');
-            }
-        } catch (error) {
-            console.error('❌ Erro ao calcular scores:', error);
+        // Também armazenar globalmente
+        if (typeof window !== 'undefined') {
+            window.__LAST_ANALYSIS_SCORES__ = analysisScores;
         }
     } else {
-        console.warn('⚠️ Scores não calculados - dados de referência não disponíveis');
+        console.warn('⚠️ Não foi possível calcular scores (dados insuficientes)');
     }
+
+    /* =========[ /BLOCO: SCORES A/B ]========= */
     
     // Ocultar outras seções
     if (uploadArea) uploadArea.style.display = 'none';
