@@ -2845,6 +2845,15 @@ async function handleModalFileSelection(file) {
             openReferenceUploadModal(analysisResult.jobId, analysisResult);
         } else if ((jobMode === 'reference' || currentAnalysisMode === 'reference') && isSecondTrack) {
             // SEGUNDA música em modo reference: mostrar resultado comparativo
+            console.log('🟢🟢🟢 [SEGUNDA-TRACK-DETECTADA] ════════════════════════════════════');
+            console.log('🟢 [SEGUNDA-TRACK] ✅ Sistema ENTROU no bloco de segunda track!');
+            console.log('🟢 [SEGUNDA-TRACK] jobMode:', jobMode);
+            console.log('🟢 [SEGUNDA-TRACK] currentAnalysisMode:', currentAnalysisMode);
+            console.log('🟢 [SEGUNDA-TRACK] isSecondTrack:', isSecondTrack);
+            console.log('🟢 [SEGUNDA-TRACK] window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
+            console.log('🟢 [SEGUNDA-TRACK] analysisResult.jobId:', analysisResult?.jobId);
+            console.log('🟢 [SEGUNDA-TRACK] Aguardando processamento... (se não aparecer erro abaixo, fluxo está correto)');
+            console.log('🟢🟢🟢 [SEGUNDA-TRACK-DETECTADA] ════════════════════════════════════');
             console.log('🎯 [COMPARE-MODE] Segunda música analisada - exibindo comparação entre faixas');
             console.log('✅ [COMPARE-MODE] Tabela comparativa será exibida');
             console.log(`✅ [COMPARE-MODE] jobMode: ${jobMode}, currentMode: ${currentAnalysisMode}, isSecond: ${isSecondTrack}`);
@@ -3133,10 +3142,24 @@ async function handleModalFileSelection(file) {
         }
 
     } catch (error) {
+        console.error('🔴🔴🔴 [ERRO-CRÍTICO-CAPTURADO] ════════════════════════════════════');
+        console.error('🔴 [ERRO-CRÍTICO] Erro capturado no handleModalFileSelection!');
+        console.error('🔴 [ERRO-CRÍTICO] Este erro está RESETANDO currentAnalysisMode para "genre"!');
+        console.error('🔴 [ERRO-CRÍTICO] Error message:', error.message);
+        console.error('🔴 [ERRO-CRÍTICO] Error stack:', error.stack);
+        console.error('🔴 [ERRO-CRÍTICO] currentAnalysisMode ANTES:', currentAnalysisMode);
+        console.error('🔴 [ERRO-CRÍTICO] window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
+        console.error('🔴 [ERRO-CRÍTICO] isSecondTrack:', window.__REFERENCE_JOB_ID__ !== null);
+        console.error('🔴 [ERRO-CRÍTICO] FEATURE_FLAGS?.FALLBACK_TO_GENRE:', window.FEATURE_FLAGS?.FALLBACK_TO_GENRE);
+        console.error('🔴🔴🔴 [ERRO-CRÍTICO-CAPTURADO] ════════════════════════════════════');
         console.error('❌ Erro na análise do modal:', error);
         
         // Verificar se é um erro de fallback para modo gênero
         if (window.FEATURE_FLAGS?.FALLBACK_TO_GENRE && currentAnalysisMode === 'reference') {
+            console.error('🔴 [ERRO-CRÍTICO] ❌❌❌ ENTRANDO NO FALLBACK PARA GENRE!');
+            console.error('🔴 [ERRO-CRÍTICO] currentAnalysisMode será RESETADO de "reference" para "genre"');
+            console.error('🔴 [ERRO-CRÍTICO] Isto causará falha na condicional do modo A/B!');
+            
             window.logReferenceEvent('error_fallback_to_genre', { 
                 error: error.message,
                 originalMode: currentAnalysisMode 
