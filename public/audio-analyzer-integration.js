@@ -7274,31 +7274,62 @@ function renderReferenceComparisons(opts = {}) {
         refBandsKeys: refBandsCheck ? Object.keys(refBandsCheck) : []
     });
     
-    // 🎯 SAFE RENDER COM DEBOUNCE
-    console.groupCollapsed("[SAFE_RENDER_REF]");
-    console.log("🧩 Recebido opts:", opts);
+    // 🧩 [FINAL-FIX] Validação real das bandas antes de renderizar
+    const container = document.getElementById('referenceComparisons');
+    if (!container) {
+        window.comparisonLock = false;
+        console.log("[LOCK] comparisonLock liberado (container ausente)");
+        return;
+    }
     
     // Se já estiver processando render, cancelar chamadas duplicadas
     if (window.__REF_RENDER_LOCK__) {
-        console.warn("⚠️ [SAFE_RENDER_REF] Renderização ignorada — já em progresso.");
+        console.warn("⚠️ [VALIDATION-FIX] Renderização ignorada — já em progresso.");
         window.comparisonLock = false;
         console.log("[LOCK] comparisonLock liberado (render duplicado)");
-        console.groupEnd();
         return;
     }
     window.__REF_RENDER_LOCK__ = true;
     
     // Aceita opts ou analysis (backward compatibility)
     const analysis = opts.analysis || opts;
+    let comparisonData = opts?.comparisonData || {};
     
-    const container = document.getElementById('referenceComparisons');
-    if (!container) {
+    const refBandsReal =
+        comparisonData?.refBands ||
+        comparisonData?.referenceAnalysis?.bands ||
+        comparisonData?.referenceAnalysis?.technicalData?.spectral_balance ||
+        window.__soundyState?.reference?.referenceAnalysis?.bands ||
+        window.__soundyState?.reference?.referenceAnalysis?.technicalData?.spectral_balance;
+
+    const userBandsReal =
+        comparisonData?.userBands ||
+        comparisonData?.userAnalysis?.bands ||
+        comparisonData?.userAnalysis?.technicalData?.spectral_balance ||
+        window.__soundyState?.reference?.userAnalysis?.bands ||
+        window.__soundyState?.reference?.userAnalysis?.technicalData?.spectral_balance;
+
+    console.log('[VALIDATION-FIX] Verificando bandas:', {
+        refBandsRealKeys: refBandsReal ? Object.keys(refBandsReal) : null,
+        userBandsRealKeys: userBandsReal ? Object.keys(userBandsReal) : null,
+    });
+
+    if (!refBandsReal || !userBandsReal) {
+        console.error('[VALIDATION-FIX] ❌ Falha crítica: bandas não detectadas no momento do render.');
+        console.error('comparisonData:', comparisonData);
+        console.error('window.__soundyState:', window.__soundyState);
         window.__REF_RENDER_LOCK__ = false;
         window.comparisonLock = false;
-        console.log("[LOCK] comparisonLock liberado (container ausente)");
-        console.groupEnd();
+        if (typeof displayModalResultsError === 'function') {
+            return displayModalResultsError('Erro na análise por referência (bandas não detectadas).');
+        }
         return;
     }
+
+    // ✅ Substitui o fallback antigo
+    comparisonData.refBands = refBandsReal;
+    comparisonData.userBands = userBandsReal;
+    console.log('[VALIDATION-FIX] ✅ Bandas restauradas para renderização A/B');
     
     // 🧠 [SAFE_REF_V3] PATCH DEFINITIVO - Construir estrutura segura ANTES de qualquer acesso
     console.groupCollapsed("🧠 [SAFE_REF_V3]");
