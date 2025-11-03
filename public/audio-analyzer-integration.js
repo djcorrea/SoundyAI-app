@@ -4823,9 +4823,11 @@ function displayModalResults(analysis) {
     const state = window.__soundyState || {};
     state.render = state.render || {};
     
-    if (mode === 'reference' && isSecondTrack && window.__FIRST_ANALYSIS_FROZEN__) {
-        console.log('🎯 [COMPARE-MODE] Comparando segunda faixa com primeira faixa (não com gênero)');
-        console.log('📊 [COMPARE-MODE] Primeira faixa (congelada):', window.__FIRST_ANALYSIS_FROZEN__);
+    // 🔴 FIX CRÍTICO: Remover verificação de window.__FIRST_ANALYSIS_FROZEN__ da condicional
+    // para permitir entrada no bloco e fazer recuperação automática
+    if (mode === 'reference' && isSecondTrack) {
+        console.log('🎯 [COMPARE-MODE] Modo reference detectado - Segunda faixa chegou');
+        console.log('📊 [COMPARE-MODE] window.__FIRST_ANALYSIS_FROZEN__ existe?', !!window.__FIRST_ANALYSIS_FROZEN__);
         console.log('📊 [COMPARE-MODE] Segunda faixa:', analysis);
         
         // 🎯 DEFINIR MODO REFERENCE NO ESTADO
@@ -4866,18 +4868,78 @@ function displayModalResults(analysis) {
         // 🚨 PROTEÇÃO: Se window.__FIRST_ANALYSIS_FROZEN__ não existe ou é o mesmo que analysis
         if (!window.__FIRST_ANALYSIS_FROZEN__) {
             console.error('🔴 [AUDIT-CRITICAL] ❌ window.__FIRST_ANALYSIS_FROZEN__ NÃO EXISTE!');
-            console.error('🔴 [AUDIT-CRITICAL] ❌ Tentando recuperar de window.referenceAnalysisData...');
+            console.error('🔴 [AUDIT-CRITICAL] ❌ Tentando recuperar de múltiplas fontes...');
+            
+            // Tentar 3 fontes de recuperação (ordem de prioridade):
+            // 1. window.referenceAnalysisData
             if (window.referenceAnalysisData) {
                 window.__FIRST_ANALYSIS_FROZEN__ = Object.freeze(deepCloneSafe(window.referenceAnalysisData));
                 console.log('🔴 [AUDIT-CRITICAL] ✅ Recuperado de window.referenceAnalysisData');
-            } else {
-                console.error('🔴 [AUDIT-CRITICAL] ❌ FALHA TOTAL: Nenhuma primeira análise disponível!');
+                console.log('   fileName:', window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName);
+                console.log('   jobId:', window.__FIRST_ANALYSIS_FROZEN__?.jobId);
+            }
+            // 2. state.previousAnalysis
+            else if (state.previousAnalysis) {
+                window.__FIRST_ANALYSIS_FROZEN__ = Object.freeze(deepCloneSafe(state.previousAnalysis));
+                console.log('🔴 [AUDIT-CRITICAL] ✅ Recuperado de state.previousAnalysis');
+                console.log('   fileName:', window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName);
+                console.log('   jobId:', window.__FIRST_ANALYSIS_FROZEN__?.jobId);
+            }
+            // 3. window.__soundyState.previousAnalysis
+            else if (window.__soundyState?.previousAnalysis) {
+                window.__FIRST_ANALYSIS_FROZEN__ = Object.freeze(deepCloneSafe(window.__soundyState.previousAnalysis));
+                console.log('🔴 [AUDIT-CRITICAL] ✅ Recuperado de window.__soundyState.previousAnalysis');
+                console.log('   fileName:', window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName);
+                console.log('   jobId:', window.__FIRST_ANALYSIS_FROZEN__?.jobId);
+            }
+            else {
+                console.error('🔴 [AUDIT-CRITICAL] ❌ FALHA TOTAL: Nenhuma primeira análise disponível em NENHUMA fonte!');
+                console.error('🔴 [AUDIT-CRITICAL] ❌ Fontes verificadas:');
+                console.error('   - window.referenceAnalysisData:', !!window.referenceAnalysisData);
+                console.error('   - state.previousAnalysis:', !!state.previousAnalysis);
+                console.error('   - window.__soundyState.previousAnalysis:', !!window.__soundyState?.previousAnalysis);
+                console.error('🔴 [AUDIT-CRITICAL] ❌ Sistema VAI COMPARAR A MESMA MÚSICA CONSIGO MESMA!');
             }
         }
         
         if (window.__FIRST_ANALYSIS_FROZEN__?.jobId === analysis?.jobId) {
             console.error('🔴 [AUDIT-CRITICAL] ❌ CONTAMINAÇÃO DETECTADA: window.__FIRST_ANALYSIS_FROZEN__ tem o mesmo jobId que analysis!');
             console.error('🔴 [AUDIT-CRITICAL] ❌ Isso significa que a SEGUNDA análise sobrescreveu a PRIMEIRA!');
+        }
+        
+        // 🚨 VALIDAÇÃO FINAL: Se mesmo após recuperação window.__FIRST_ANALYSIS_FROZEN__ não existe, ABORTAR
+        if (!window.__FIRST_ANALYSIS_FROZEN__) {
+            console.error('🔴 [AUDIT-CRITICAL] ❌❌❌ ABORT: window.__FIRST_ANALYSIS_FROZEN__ continua undefined após tentativas de recuperação!');
+            console.error('🔴 [AUDIT-CRITICAL] ❌ NÃO É POSSÍVEL FAZER COMPARAÇÃO A/B SEM A PRIMEIRA ANÁLISE!');
+            console.error('🔴 [AUDIT-CRITICAL] ❌ Sistema vai exibir apenas análise single-track da 2ª música');
+            
+            // Forçar modo non-reference para evitar comparação incorreta
+            state.render.mode = 'single';
+            window.__soundyState = state;
+            
+            // Pular todo o fluxo A/B e ir direto para renderização single-track
+            // (o código continuará naturalmente após o bloco if)
+            console.warn('⚠️ [FALLBACK] Pulando fluxo A/B - renderizando apenas segunda análise');
+        }
+        else if (window.__FIRST_ANALYSIS_FROZEN__.jobId === analysis.jobId) {
+            console.error('🔴 [AUDIT-CRITICAL] ❌❌❌ ABORT: window.__FIRST_ANALYSIS_FROZEN__.jobId === analysis.jobId!');
+            console.error('🔴 [AUDIT-CRITICAL] ❌ MESMO APÓS RECUPERAÇÃO, AS DUAS ANÁLISES TÊM O MESMO JOBID!');
+            console.error('🔴 [AUDIT-CRITICAL] ❌ Sistema está prestes a comparar música consigo mesma!');
+            console.table({
+                'FIRST_ANALYSIS.fileName': window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName,
+                'FIRST_ANALYSIS.jobId': window.__FIRST_ANALYSIS_FROZEN__?.jobId,
+                'analysis.fileName': analysis?.metadata?.fileName,
+                'analysis.jobId': analysis?.jobId,
+                'sameJobId': window.__FIRST_ANALYSIS_FROZEN__?.jobId === analysis?.jobId
+            });
+            
+            // Forçar modo non-reference
+            state.render.mode = 'single';
+            window.__soundyState = state;
+            console.warn('⚠️ [FALLBACK] Pulando fluxo A/B contaminado - renderizando apenas segunda análise');
+        }
+        else {
+            console.log('✅ [AUDIT-CRITICAL] Validação passou - window.__FIRST_ANALYSIS_FROZEN__ existe e é diferente de analysis');
         }
         
         // ✅ PATCH V2: Usar deepCloneSafe() em vez de JSON.parse/stringify
