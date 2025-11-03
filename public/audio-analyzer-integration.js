@@ -5004,6 +5004,7 @@ function displayModalResults(analysis) {
         if (!referenceDataForScores.bands) {
             const refBandsFromFlow =
                 comparisonData?.refBands ||
+                window.__lastRefBands ||
                 opts?.referenceAnalysis?.bands ||
                 opts?.referenceAnalysis?.technicalData?.spectral_balance ||
                 window.__activeRefData?._referenceBands || null;
@@ -5014,6 +5015,19 @@ function displayModalResults(analysis) {
                 console.log('[INJECT-REF-BANDS] bands injetadas no refData para cálculo', Object.keys(referenceDataForScores.bands));
             }
         }
+        
+        // ✅ Forçar bandas ativas no refData e analysis antes de calcular
+        if (window.__lastRefBands && !referenceDataForScores.bands) {
+            referenceDataForScores.bands = window.__lastRefBands;
+        }
+        if (window.__lastUserBands && !analysis.bands) {
+            analysis.bands = window.__lastUserBands;
+        }
+        
+        console.log('[SCORE-FIX] Bandas injetadas antes do cálculo:', {
+            refBands: Object.keys(referenceDataForScores.bands || {}),
+            userBands: Object.keys(analysis.bands || {})
+        });
         
         try {
             const analysisScores = calculateAnalysisScores(analysis, referenceDataForScores, detectedGenre);
@@ -7262,9 +7276,33 @@ function renderReferenceComparisons(opts = {}) {
             refBands:  refBands ?? null,
             userBands: userBands ?? null,
         };
+        
+        // [REF-COMP] ✅ Fix de passagem real de bandas - salvar globalmente
+        if (refBands) window.__lastRefBands = refBands;
+        if (userBands) window.__lastUserBands = userBands;
+        
+        if (refBands && userBands) {
+            console.log('[REF-COMP][BANDS-FINAL-FIX] Persistência garantida ✅', {
+                refKeys: Object.keys(refBands),
+                userKeys: Object.keys(userBands)
+            });
+        } else {
+            console.warn('[REF-COMP][BANDS-FINAL-FIX] ❌ Ainda sem bandas válidas após fallback', { refBands, userBands });
+        }
     }
 
-    console.log("[REF-COMP] Dados validados:", { userTrackCheck, refTrackCheck, userBands: userBandsCheck.length, refBands: refBandsCheck.length });
+    // [REF-COMP] ✅ Garantir bandas disponíveis globalmente após validação
+    let refBands = window.__lastRefBands || null;
+    let userBands = window.__lastUserBands || null;
+    
+    console.log("[REF-COMP] Dados validados (pós-fix):", { 
+        userTrackCheck, 
+        refTrackCheck, 
+        userBandsCheck: userBandsCheck.length, 
+        refBandsCheck: refBandsCheck.length,
+        globalRefBands: refBands ? Object.keys(refBands).length : 0,
+        globalUserBands: userBands ? Object.keys(userBands).length : 0
+    });
     
     // 🎯 SAFE RENDER COM DEBOUNCE
     console.groupCollapsed("[SAFE_RENDER_REF]");
