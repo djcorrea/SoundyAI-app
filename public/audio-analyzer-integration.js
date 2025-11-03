@@ -6784,7 +6784,30 @@ function displayModalResults(analysis) {
                 console.warn('[AUDIT-ERROR]', 'AUDIT-BANDS-BEFORE', err);
             }
             
-            renderReferenceComparisons(renderOpts);
+            // 🧠 [ASYNC-SYNC-FIX] Garante que renderReferenceComparisons só será chamado após as bandas existirem
+            const ensureBandsReady = async () => {
+                let tries = 0;
+                while (
+                    (!window.__soundyState?.reference?.referenceAnalysis?.bands ||
+                     !window.__soundyState?.reference?.userAnalysis?.bands) &&
+                    tries < 20
+                ) {
+                    console.warn(`[ASYNC-SYNC-FIX] Esperando bandas carregarem... tentativa ${tries + 1}`);
+                    await new Promise(r => setTimeout(r, 200)); // espera 200ms por tentativa
+                    tries++;
+                }
+
+                const refReady = !!window.__soundyState?.reference?.referenceAnalysis?.bands;
+                const userReady = !!window.__soundyState?.reference?.userAnalysis?.bands;
+
+                console.log('[ASYNC-SYNC-FIX] ✅ Bandas prontas para render:', { refReady, userReady, tries });
+
+                // Só depois disso chamamos o render
+                renderReferenceComparisons(renderOpts);
+            };
+
+            // Chama o fix antes do render
+            ensureBandsReady();
         } catch(e){ 
             console.error('❌ [RENDER-FLOW] ERRO em renderReferenceComparisons:', e);
             console.error('❌ Stack trace:', e.stack);
