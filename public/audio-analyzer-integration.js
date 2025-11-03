@@ -2728,6 +2728,30 @@ async function handleModalFileSelection(file) {
         const jobMode = analysisResult.mode || currentAnalysisMode;
         const isSecondTrack = window.__REFERENCE_JOB_ID__ !== null && window.__REFERENCE_JOB_ID__ !== undefined;
         
+        // 🔍 AUDITORIA: Estado ANTES de processar resultado
+        console.groupCollapsed('[AUDITORIA_STATE_FLOW] 📌 handleModalFileSelection - INÍCIO');
+        console.log('⚙️ Função: handleModalFileSelection');
+        console.log('📁 Arquivo:', file.name);
+        console.log('🎯 Modo atual:', currentAnalysisMode);
+        console.log('🔑 jobId retornado:', jobId);
+        console.log('📊 analysisResult recebido:', {
+            jobId: analysisResult?.jobId,
+            fileName: analysisResult?.fileName || analysisResult?.metadata?.fileName,
+            lufs: analysisResult?.technicalData?.lufsIntegrated,
+            mode: analysisResult?.mode
+        });
+        console.log('🌐 Estado global ANTES de processar:');
+        console.log('  window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
+        console.log('  window.referenceAnalysisData:', window.referenceAnalysisData ? {
+            fileName: window.referenceAnalysisData?.fileName || window.referenceAnalysisData?.metadata?.fileName,
+            jobId: window.referenceAnalysisData?.jobId
+        } : 'null');
+        console.log('  window.__soundyState.previousAnalysis:', window.__soundyState?.previousAnalysis ? {
+            fileName: window.__soundyState.previousAnalysis?.fileName || window.__soundyState.previousAnalysis?.metadata?.fileName,
+            jobId: window.__soundyState.previousAnalysis?.jobId
+        } : 'null');
+        console.groupEnd();
+        
         console.log('[AUDIO-DEBUG] 🎯 Modo do job:', jobMode);
         console.log('[AUDIO-DEBUG] 🎯 É segunda faixa?', isSecondTrack);
         console.log('[AUDIO-DEBUG] 🎯 Reference Job ID armazenado:', window.__REFERENCE_JOB_ID__);
@@ -2773,6 +2797,35 @@ async function handleModalFileSelection(file) {
             );
             console.log('[DEEP-CLONE] ✅ Primeira análise clonada e congelada com sucesso');
             
+            // 🔍 AUDITORIA: Estado APÓS salvar primeira análise
+            console.groupCollapsed('[AUDITORIA_STATE_FLOW] 💾 Primeira Análise SALVA');
+            console.log('⚙️ Contexto: Salvamento da primeira faixa');
+            console.log('📊 analysisResult (original):', {
+                jobId: analysisResult?.jobId,
+                fileName: analysisResult?.metadata?.fileName || analysisResult?.fileName,
+                lufs: analysisResult?.technicalData?.lufsIntegrated,
+                objectId: analysisResult
+            });
+            console.log('🔒 window.referenceAnalysisData (clone):', {
+                jobId: window.referenceAnalysisData?.jobId,
+                fileName: window.referenceAnalysisData?.metadata?.fileName || window.referenceAnalysisData?.fileName,
+                lufs: window.referenceAnalysisData?.technicalData?.lufsIntegrated,
+                objectId: window.referenceAnalysisData,
+                sameAsOriginal: window.referenceAnalysisData === analysisResult
+            });
+            console.log('🧊 window.__FIRST_ANALYSIS_FROZEN__ (frozen clone):', {
+                jobId: window.__FIRST_ANALYSIS_FROZEN__?.jobId,
+                fileName: window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName,
+                lufs: window.__FIRST_ANALYSIS_FROZEN__?.technicalData?.lufsIntegrated,
+                objectId: window.__FIRST_ANALYSIS_FROZEN__,
+                isFrozen: Object.isFrozen(window.__FIRST_ANALYSIS_FROZEN__)
+            });
+            console.log('💡 Verificação de isolamento:');
+            console.log('  referenceAnalysisData !== analysisResult?', window.referenceAnalysisData !== analysisResult);
+            console.log('  __FIRST_ANALYSIS_FROZEN__ !== analysisResult?', window.__FIRST_ANALYSIS_FROZEN__ !== analysisResult);
+            console.log('  referenceAnalysisData !== __FIRST_ANALYSIS_FROZEN__?', window.referenceAnalysisData !== window.__FIRST_ANALYSIS_FROZEN__);
+            console.groupEnd();
+            
             console.log('[REF-SAVE ✅] ═══════════════════════════════════════');
             console.log('[REF-SAVE ✅] Primeira música processada com sucesso!');
             console.log(`[REF-SAVE ✅] Job ID salvo globalmente: ${analysisResult.jobId}`);
@@ -2797,7 +2850,33 @@ async function handleModalFileSelection(file) {
             console.log(`✅ [COMPARE-MODE] jobMode: ${jobMode}, currentMode: ${currentAnalysisMode}, isSecond: ${isSecondTrack}`);
             __dbg('🎯 Segunda música analisada - exibindo resultado comparativo');
             
-            // 🔥 CORREÇÃO CRÍTICA: Primeira música é ATUAL (sua faixa), segunda é REFERÊNCIA (alvo)
+            // � AUDITORIA: Estado ANTES de construir estrutura A/B
+            console.groupCollapsed('[AUDITORIA_STATE_FLOW] 🎯 Segunda Análise RECEBIDA');
+            console.log('⚙️ Contexto: Recepção da segunda faixa');
+            console.log('📊 analysisResult (2ª faixa):', {
+                jobId: analysisResult?.jobId,
+                fileName: analysisResult?.metadata?.fileName || analysisResult?.fileName,
+                lufs: analysisResult?.technicalData?.lufsIntegrated,
+                objectId: analysisResult
+            });
+            console.log('🔒 window.__FIRST_ANALYSIS_FROZEN__ (1ª faixa congelada):', {
+                jobId: window.__FIRST_ANALYSIS_FROZEN__?.jobId,
+                fileName: window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName,
+                lufs: window.__FIRST_ANALYSIS_FROZEN__?.technicalData?.lufsIntegrated,
+                objectId: window.__FIRST_ANALYSIS_FROZEN__
+            });
+            console.log('💾 window.__soundyState.previousAnalysis (1ª faixa):', {
+                jobId: window.__soundyState?.previousAnalysis?.jobId,
+                fileName: window.__soundyState?.previousAnalysis?.metadata?.fileName,
+                lufs: window.__soundyState?.previousAnalysis?.technicalData?.lufsIntegrated,
+                objectId: window.__soundyState?.previousAnalysis
+            });
+            console.log('⚠️ CHECKPOINT CRÍTICO: Verificar se objetos são distintos');
+            console.log('  analysisResult !== previousAnalysis?', analysisResult !== window.__soundyState?.previousAnalysis);
+            console.log('  analysisResult !== __FIRST_ANALYSIS_FROZEN__?', analysisResult !== window.__FIRST_ANALYSIS_FROZEN__);
+            console.groupEnd();
+            
+            // �🔥 CORREÇÃO CRÍTICA: Primeira música é ATUAL (sua faixa), segunda é REFERÊNCIA (alvo)
             const state = window.__soundyState || {};
             if (state.previousAnalysis) {
                 // ✅ SEMÂNTICA CORRETA DO FLUXO A/B:
@@ -2822,6 +2901,29 @@ async function handleModalFileSelection(file) {
                 console.log('✅ [REFERENCE-A/B-CORRECTED]   1ª tem bandas:', !!state.userAnalysis?.technicalData?.spectral_balance);
                 console.log('✅ [REFERENCE-A/B-CORRECTED]   2ª tem bandas:', !!state.referenceAnalysis?.technicalData?.spectral_balance);
                 console.log('✅ [REFERENCE-A/B-CORRECTED] ═══════════════════════════════════════');
+                
+                // 🔍 AUDITORIA: Estado APÓS construir estrutura A/B
+                console.groupCollapsed('[AUDITORIA_STATE_FLOW] 🔧 Estrutura A/B CONSTRUÍDA');
+                console.log('⚙️ Contexto: Estrutura state.reference montada');
+                console.log('📊 state.userAnalysis (1ª faixa - SUA MÚSICA):', {
+                    jobId: state.userAnalysis?.jobId,
+                    fileName: state.userAnalysis?.metadata?.fileName || state.userAnalysis?.fileName,
+                    lufs: state.userAnalysis?.technicalData?.lufsIntegrated,
+                    objectId: state.userAnalysis
+                });
+                console.log('📊 state.referenceAnalysis (2ª faixa - REFERÊNCIA):', {
+                    jobId: state.referenceAnalysis?.jobId,
+                    fileName: state.referenceAnalysis?.metadata?.fileName || state.referenceAnalysis?.fileName,
+                    lufs: state.referenceAnalysis?.technicalData?.lufsIntegrated,
+                    objectId: state.referenceAnalysis
+                });
+                console.log('⚠️ VERIFICAÇÃO DE CONTAMINAÇÃO:');
+                console.log('  state.userAnalysis === state.referenceAnalysis?', state.userAnalysis === state.referenceAnalysis);
+                console.log('  state.userAnalysis === analysisResult?', state.userAnalysis === analysisResult);
+                console.log('  state.userAnalysis === state.previousAnalysis?', state.userAnalysis === state.previousAnalysis);
+                console.log('  state.referenceAnalysis === analysisResult?', state.referenceAnalysis === analysisResult);
+                console.log('💡 Próximo passo: Normalizar analysisResult antes de enviar para displayModalResults');
+                console.groupEnd();
                 
                 // 🎯 LOG AUDIT-MODE-FLOW (conforme solicitado)
                 console.log('[AUDIT-MODE-FLOW]', {
@@ -2877,8 +2979,51 @@ async function handleModalFileSelection(file) {
             console.log('[AUDIT_REF_FIX] Preservando modo reference até final da renderização');
             console.log('[MODE LOCKED] reference - handleGenreAnalysisWithResult PULADO');
             
+            // 🔍 AUDITORIA: Estado ANTES de normalizar analysisResult
+            console.groupCollapsed('[AUDITORIA_STATE_FLOW] ⚙️ ANTES de normalizeBackendAnalysisData');
+            console.log('⚙️ Contexto: Prestes a normalizar analysisResult (2ª faixa)');
+            console.log('📊 analysisResult (ANTES de normalizar):', {
+                jobId: analysisResult?.jobId,
+                fileName: analysisResult?.metadata?.fileName || analysisResult?.fileName,
+                lufs: analysisResult?.technicalData?.lufsIntegrated,
+                objectId: analysisResult
+            });
+            console.log('🔒 window.__FIRST_ANALYSIS_FROZEN__ (NÃO deve mudar):', {
+                jobId: window.__FIRST_ANALYSIS_FROZEN__?.jobId,
+                fileName: window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName,
+                lufs: window.__FIRST_ANALYSIS_FROZEN__?.technicalData?.lufsIntegrated,
+                isFrozen: Object.isFrozen(window.__FIRST_ANALYSIS_FROZEN__)
+            });
+            console.log('⚠️ PONTO CRÍTICO: normalizeBackendAnalysisData() vai modificar analysisResult?');
+            console.groupEnd();
+            
             // Normalizar dados do backend
             const normalizedResult = normalizeBackendAnalysisData(analysisResult);
+            
+            // 🔍 AUDITORIA: Estado APÓS normalizar analysisResult
+            console.groupCollapsed('[AUDITORIA_STATE_FLOW] ✅ DEPOIS de normalizeBackendAnalysisData');
+            console.log('⚙️ Contexto: Normalização concluída');
+            console.log('📊 normalizedResult (resultado da normalização):', {
+                jobId: normalizedResult?.jobId,
+                fileName: normalizedResult?.metadata?.fileName || normalizedResult?.fileName,
+                lufs: normalizedResult?.technicalData?.lufsIntegrated,
+                objectId: normalizedResult,
+                sameAsOriginal: normalizedResult === analysisResult
+            });
+            console.log('📊 analysisResult (APÓS normalização - pode ter mudado?):', {
+                jobId: analysisResult?.jobId,
+                fileName: analysisResult?.metadata?.fileName || analysisResult?.fileName,
+                lufs: analysisResult?.technicalData?.lufsIntegrated,
+                objectId: analysisResult
+            });
+            console.log('🔒 window.__FIRST_ANALYSIS_FROZEN__ (deve estar INTACTO):', {
+                jobId: window.__FIRST_ANALYSIS_FROZEN__?.jobId,
+                fileName: window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName,
+                lufs: window.__FIRST_ANALYSIS_FROZEN__?.technicalData?.lufsIntegrated,
+                isFrozen: Object.isFrozen(window.__FIRST_ANALYSIS_FROZEN__)
+            });
+            console.log('💡 Próximo: Enviar normalizedResult para displayModalResults()');
+            console.groupEnd();
             
             // � PARTE 3.4: Garantir atribuição correta ANTES de displayModalResults
             // 🔧 PARTE 1: Normalize reference comparison structure
@@ -4513,6 +4658,44 @@ function showModalLoading() {
 // 📊 Mostrar resultados no modal
 // 📊 Mostrar resultados no modal
 function displayModalResults(analysis) {
+    // 🔍 AUDITORIA: Estado AO ENTRAR em displayModalResults
+    console.groupCollapsed('[AUDITORIA_STATE_FLOW] 🚀 displayModalResults - ENTRADA');
+    console.log('⚙️ Função: displayModalResults');
+    console.log('📊 analysis (parâmetro recebido):', {
+        jobId: analysis?.jobId,
+        fileName: analysis?.metadata?.fileName || analysis?.fileName,
+        lufs: analysis?.technicalData?.lufsIntegrated,
+        mode: analysis?.mode,
+        objectId: analysis,
+        hasUserAnalysis: !!analysis?.userAnalysis,
+        hasReferenceAnalysis: !!analysis?.referenceAnalysis
+    });
+    console.log('🎧 analysis.userAnalysis:', analysis?.userAnalysis ? {
+        fileName: analysis.userAnalysis?.metadata?.fileName || analysis.userAnalysis?.fileName,
+        jobId: analysis.userAnalysis?.jobId,
+        lufs: analysis.userAnalysis?.technicalData?.lufsIntegrated,
+        objectId: analysis.userAnalysis
+    } : 'null');
+    console.log('🎧 analysis.referenceAnalysis:', analysis?.referenceAnalysis ? {
+        fileName: analysis.referenceAnalysis?.metadata?.fileName || analysis.referenceAnalysis?.fileName,
+        jobId: analysis.referenceAnalysis?.jobId,
+        lufs: analysis.referenceAnalysis?.technicalData?.lufsIntegrated,
+        objectId: analysis.referenceAnalysis
+    } : 'null');
+    console.log('🌐 Estado global atual:');
+    console.log('  window.__FIRST_ANALYSIS_FROZEN__:', window.__FIRST_ANALYSIS_FROZEN__ ? {
+        fileName: window.__FIRST_ANALYSIS_FROZEN__.metadata?.fileName,
+        jobId: window.__FIRST_ANALYSIS_FROZEN__.jobId,
+        lufs: window.__FIRST_ANALYSIS_FROZEN__.technicalData?.lufsIntegrated
+    } : 'null');
+    console.log('  window.__soundyState.previousAnalysis:', window.__soundyState?.previousAnalysis ? {
+        fileName: window.__soundyState.previousAnalysis?.metadata?.fileName || window.__soundyState.previousAnalysis?.fileName,
+        jobId: window.__soundyState.previousAnalysis?.jobId
+    } : 'null');
+    console.log('⚠️ VERIFICAÇÃO DE CONTAMINAÇÃO:');
+    console.log('  analysis.userAnalysis === analysis.referenceAnalysis?', analysis?.userAnalysis === analysis?.referenceAnalysis);
+    console.groupEnd();
+    
     // 🎯 LOG INICIAL PARA CONFIRMAR CHAMADA DA FUNÇÃO APÓS CORREÇÕES
     console.log("✅ [DISPLAY_MODAL] Função displayModalResults chamada com dados:", analysis);
     console.log("✅ [DISPLAY_MODAL] Estrutura dos dados recebidos:", Object.keys(analysis || {}));
@@ -4651,6 +4834,25 @@ function displayModalResults(analysis) {
         console.log('✅ [COMPARE-MODE] Modo definido como REFERENCE no estado');
         
         // 🎯 CRIAR ESTRUTURA DE COMPARAÇÃO ENTRE FAIXAS COM CÓPIA DEFENSIVA
+        
+        // 🔍 AUDITORIA: Estado ANTES de deepCloneSafe + normalizeBackendAnalysisData
+        console.groupCollapsed('[AUDITORIA_STATE_FLOW] 🔒 ANTES deepCloneSafe + normalize');
+        console.log('⚙️ Contexto: Prestes a criar refNormalized e currNormalized');
+        console.log('📊 window.__FIRST_ANALYSIS_FROZEN__ (1ª faixa):', {
+            fileName: window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName,
+            jobId: window.__FIRST_ANALYSIS_FROZEN__?.jobId,
+            lufs: window.__FIRST_ANALYSIS_FROZEN__?.technicalData?.lufsIntegrated,
+            objectId: window.__FIRST_ANALYSIS_FROZEN__
+        });
+        console.log('📊 analysis (2ª faixa):', {
+            fileName: analysis?.metadata?.fileName || analysis?.fileName,
+            jobId: analysis?.jobId,
+            lufs: analysis?.technicalData?.lufsIntegrated,
+            objectId: analysis
+        });
+        console.log('💡 Operação: deepCloneSafe() + normalizeBackendAnalysisData()');
+        console.groupEnd();
+        
         // ✅ PATCH V2: Usar deepCloneSafe() em vez de JSON.parse/stringify
         console.log('[NORMALIZE-DEFENSIVE] 🔒 Criando cópia segura da 1ª faixa antes de normalizar');
         const refNormalized = normalizeBackendAnalysisData(
@@ -4661,6 +4863,30 @@ function displayModalResults(analysis) {
         const currNormalized = normalizeBackendAnalysisData(
             deepCloneSafe(analysis)
         ); // Segunda faixa (ATUAL) - cópia isolada sem risco circular
+        
+        // 🔍 AUDITORIA: Estado APÓS criar refNormalized e currNormalized
+        console.groupCollapsed('[AUDITORIA_STATE_FLOW] ✅ DEPOIS refNormalized + currNormalized');
+        console.log('⚙️ Contexto: Clones normalizados criados');
+        console.log('📊 refNormalized (1ª faixa normalizada):', {
+            fileName: refNormalized?.metadata?.fileName,
+            jobId: refNormalized?.jobId,
+            lufs: refNormalized?.technicalData?.lufsIntegrated,
+            objectId: refNormalized
+        });
+        console.log('📊 currNormalized (2ª faixa normalizada):', {
+            fileName: currNormalized?.metadata?.fileName,
+            jobId: currNormalized?.jobId,
+            lufs: currNormalized?.technicalData?.lufsIntegrated,
+            objectId: currNormalized
+        });
+        console.log('⚠️ VERIFICAÇÃO DE ISOLAMENTO:');
+        console.log('  refNormalized !== currNormalized?', refNormalized !== currNormalized);
+        console.log('  refNormalized !== window.__FIRST_ANALYSIS_FROZEN__?', refNormalized !== window.__FIRST_ANALYSIS_FROZEN__);
+        console.log('  currNormalized !== analysis?', currNormalized !== analysis);
+        console.log('  refNormalized.metadata?.fileName:', refNormalized?.metadata?.fileName);
+        console.log('  currNormalized.metadata?.fileName:', currNormalized?.metadata?.fileName);
+        console.log('  🚨 SAME FILE?', refNormalized?.metadata?.fileName === currNormalized?.metadata?.fileName);
+        console.groupEnd();
         
         // [REF-FLOW] Construindo métricas A/B
         // ✅ SEMÂNTICA CORRETA:
@@ -5086,6 +5312,63 @@ function displayModalResults(analysis) {
         }
     }
     
+    // 🔍 AUDITORIA: Estado ANTES de calcular selfCompare
+    console.groupCollapsed('[AUDITORIA_STATE_FLOW] 🎯 ANTES de __tracksLookSame (selfCompare)');
+    console.log('⚙️ Contexto: Prestes a calcular selfCompare');
+    console.log('📊 userMd (1ª faixa metadata):', {
+        fileName: userMd?.fileName,
+        objectId: userMd
+    });
+    console.log('📊 refMd (2ª faixa metadata):', {
+        fileName: refMd?.fileName,
+        objectId: refMd
+    });
+    console.log('📊 userTd (1ª faixa technicalData):', {
+        lufs: userTd?.lufsIntegrated,
+        dr: userTd?.dynamicRange,
+        objectId: userTd
+    });
+    console.log('📊 refTd (2ª faixa technicalData):', {
+        lufs: refTd?.lufsIntegrated,
+        dr: refTd?.dynamicRange,
+        objectId: refTd
+    });
+    console.log('📊 userFull (origem):', {
+        fileName: userFull?.metadata?.fileName,
+        jobId: userFull?.jobId,
+        objectId: userFull
+    });
+    console.log('📊 refFull (origem):', {
+        fileName: refFull?.metadata?.fileName,
+        jobId: refFull?.jobId,
+        objectId: refFull
+    });
+    console.log('⚠️ PRÉ-VERIFICAÇÃO DE CONTAMINAÇÃO:');
+    console.log('  userMd.fileName === refMd.fileName?', userMd?.fileName === refMd?.fileName);
+    console.log('  userFull === refFull?', userFull === refFull);
+    console.log('  userTd === refTd?', userTd === refTd);
+    console.groupEnd();
+    
+    // 🛡️ PROTEÇÃO: Detectar e corrigir contaminação ANTES de __tracksLookSame
+    if (userMd.fileName === refMd.fileName && state.previousAnalysis) {
+        console.warn('[FIX] 🚨 Detecção de self-compare FALSO – isolando referenceAnalysis');
+        console.warn('[FIX] userFull foi contaminado com dados de refFull');
+        console.warn('[FIX] Tentando recuperar de window.referenceAnalysisData...');
+        
+        // Recuperar primeira análise de fonte confiável
+        const safeUserFull = deepCloneSafe(window.referenceAnalysisData || state.previousAnalysis);
+        userFull = safeUserFull;
+        userMd = safeUserFull.metadata || {};
+        userTd = safeUserFull.technicalData || {};
+        userBands = __normalizeBandKeys(__getBandsSafe(safeUserFull));
+        
+        console.log('[FIX] ✅ userFull recuperado:', {
+            fileName: userMd.fileName,
+            lufs: userTd.lufsIntegrated,
+            source: 'window.referenceAnalysisData'
+        });
+    }
+    
     const selfCompare = __tracksLookSame(userTd, refTd, userMd, refMd, userBands, refBands);
     const refBandsOK  = __bandsAreMeaningful(refBands);
     const userBandsOK = __bandsAreMeaningful(userBands);
@@ -5098,6 +5381,19 @@ function displayModalResults(analysis) {
       refBands: refBandsOK  ? __keys(refBands)  : 'ausente',
       selfCompare
     });
+    
+    // 🔍 AUDITORIA: Estado APÓS calcular selfCompare
+    console.groupCollapsed('[AUDITORIA_STATE_FLOW] ✅ DEPOIS de __tracksLookSame');
+    console.log('⚙️ Contexto: selfCompare calculado');
+    console.log('🎯 selfCompare:', selfCompare);
+    console.log('🎯 refBandsOK:', refBandsOK);
+    console.log('🎯 userBandsOK:', userBandsOK);
+    console.log('🎯 disableFrequency será:', !refBandsOK || !userBandsOK || selfCompare);
+    if (selfCompare) {
+        console.warn('⚠️ selfCompare TRUE detectado - score será 100%');
+        console.warn('⚠️ Verificar se é legítimo (mesma faixa 2x) ou contaminação');
+    }
+    console.groupEnd();
 
     /** 3) Se referência não é válida ou A==B, rebaixa o score de frequência via "disable" e re-normaliza pesos */
     let disableFrequency = false;
