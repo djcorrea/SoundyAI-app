@@ -7253,16 +7253,26 @@ function renderReferenceComparisons(opts = {}) {
         return renderGenreComparisonSafe?.();
     }
 
-    const userTrackCheck = userCheck.fileName || "Faixa 1 (usuário)";
-    const refTrackCheck = refCheck.fileName || "Faixa 2 (referência)";
-    const userBandsCheck = userCheck.bands || [];
-    const refBandsCheck = refCheck.bands || [];
+    const userTrackCheck = userCheck.fileName || userCheck.metadata?.fileName || "Faixa 1 (usuário)";
+    const refTrackCheck = refCheck.fileName || refCheck.metadata?.fileName || "Faixa 2 (referência)";
+    const userBandsCheck = userCheck.bands || userCheck.technicalData?.spectral_balance || {};
+    const refBandsCheck = refCheck.bands || refCheck.technicalData?.spectral_balance || {};
 
-    if (!Array.isArray(refBandsCheck) || refBandsCheck.length === 0) {
+    const userBandsCount = userBandsCheck ? Object.keys(userBandsCheck).length : 0;
+    const refBandsCount = refBandsCheck ? Object.keys(refBandsCheck).length : 0;
+    
+    if (refBandsCount === 0) {
         console.warn("[REF-COMP] referenceBands ausentes - fallback para valores brutos");
     }
 
-    console.log("[REF-COMP] Dados validados:", { userTrackCheck, refTrackCheck, userBands: userBandsCheck.length, refBands: refBandsCheck.length });
+    console.log("[REF-COMP] Dados validados:", { 
+        userTrackCheck, 
+        refTrackCheck, 
+        userBandsCount, 
+        refBandsCount,
+        userBandsKeys: userBandsCheck ? Object.keys(userBandsCheck) : [],
+        refBandsKeys: refBandsCheck ? Object.keys(refBandsCheck) : []
+    });
     
     // 🎯 SAFE RENDER COM DEBOUNCE
     console.groupCollapsed("[SAFE_RENDER_REF]");
