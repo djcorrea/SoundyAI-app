@@ -7258,18 +7258,18 @@ function renderReferenceComparisons(opts = {}) {
     const userBandsCheck = userCheck.bands || userCheck.technicalData?.spectral_balance || {};
     const refBandsCheck = refCheck.bands || refCheck.technicalData?.spectral_balance || {};
 
-    const userBandsCount = userBandsCheck ? Object.keys(userBandsCheck).length : 0;
-    const refBandsCount = refBandsCheck ? Object.keys(refBandsCheck).length : 0;
+    const userBandsCountCheck = userBandsCheck ? Object.keys(userBandsCheck).length : 0;
+    const refBandsCountCheck = refBandsCheck ? Object.keys(refBandsCheck).length : 0;
     
-    if (refBandsCount === 0) {
+    if (refBandsCountCheck === 0) {
         console.warn("[REF-COMP] referenceBands ausentes - fallback para valores brutos");
     }
 
     console.log("[REF-COMP] Dados validados:", { 
         userTrackCheck, 
         refTrackCheck, 
-        userBandsCount, 
-        refBandsCount,
+        userBandsCount: userBandsCountCheck, 
+        refBandsCount: refBandsCountCheck,
         userBandsKeys: userBandsCheck ? Object.keys(userBandsCheck) : [],
         refBandsKeys: refBandsCheck ? Object.keys(refBandsCheck) : []
     });
