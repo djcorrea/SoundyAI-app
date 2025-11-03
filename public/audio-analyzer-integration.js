@@ -4819,6 +4819,19 @@ function displayModalResults(analysis) {
     const isSecondTrack = window.__REFERENCE_JOB_ID__ !== null && window.__REFERENCE_JOB_ID__ !== undefined;
     const mode = analysis?.mode || currentAnalysisMode;
     
+    // 🔴🔴🔴 DIAGNÓSTICO CRÍTICO: Por que não está entrando no bloco A/B?
+    console.log('🔴🔴🔴 [DIAGNÓSTICO-AB] ════════════════════════════════════');
+    console.log('🔴 [DIAGNÓSTICO-AB] Valores das variáveis da condicional:');
+    console.log('🔴 [DIAGNÓSTICO-AB]   analysis?.mode:', analysis?.mode);
+    console.log('🔴 [DIAGNÓSTICO-AB]   currentAnalysisMode:', currentAnalysisMode);
+    console.log('🔴 [DIAGNÓSTICO-AB]   mode (final):', mode);
+    console.log('🔴 [DIAGNÓSTICO-AB]   window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
+    console.log('🔴 [DIAGNÓSTICO-AB]   isSecondTrack:', isSecondTrack);
+    console.log('🔴 [DIAGNÓSTICO-AB] Condicional será:', mode === 'reference' && isSecondTrack);
+    console.log('🔴 [DIAGNÓSTICO-AB]   mode === "reference"?', mode === 'reference');
+    console.log('🔴 [DIAGNÓSTICO-AB]   isSecondTrack?', isSecondTrack);
+    console.log('🔴🔴🔴 [DIAGNÓSTICO-AB] ════════════════════════════════════');
+    
     // 🎯 DEFINIR MODO NO ESTADO ANTES DE QUALQUER CÁLCULO
     const state = window.__soundyState || {};
     state.render = state.render || {};
@@ -5167,6 +5180,20 @@ function displayModalResults(analysis) {
         
         // ⚠️ IMPORTANTE: Não usar return aqui - continuar fluxo normal
         // return; // ← REMOVIDO
+    }
+    else {
+        // 🔴 DIAGNÓSTICO: Por que NÃO entrou no bloco A/B?
+        console.error('🔴🔴🔴 [DIAGNÓSTICO-AB] NÃO ENTROU NO BLOCO A/B!');
+        console.error('🔴 [DIAGNÓSTICO-AB] Motivo:');
+        if (mode !== 'reference') {
+            console.error('🔴 [DIAGNÓSTICO-AB]   ❌ mode !== "reference" (mode =', mode, ')');
+        }
+        if (!isSecondTrack) {
+            console.error('🔴 [DIAGNÓSTICO-AB]   ❌ isSecondTrack = false');
+            console.error('🔴 [DIAGNÓSTICO-AB]   window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
+        }
+        console.error('🔴 [DIAGNÓSTICO-AB] Sistema VAI RENDERIZAR EM MODO SINGLE-TRACK!');
+        console.error('🔴🔴🔴 [DIAGNÓSTICO-AB] ════════════════════════════════════');
     }
     
     // 🎯 CORREÇÃO: Definir modo baseado no contexto real da análise
