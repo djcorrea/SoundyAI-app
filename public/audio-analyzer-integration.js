@@ -5174,13 +5174,12 @@ function displayModalResults(analysis) {
                     renderScoresAndSubscores(safeCurrent);
                 }
 
-                // IA e sugestões (chamada defensiva)
-                if (window.aiUIController?.checkForAISuggestions) {
-                    aiUIController.checkForAISuggestions(safeCurrent);
+                // 🔥 Chama manualmente o displayModalResults para completar DOM e IA
+                if (typeof AISuggestionsIntegration?.displayModalResults === 'function') {
+                    AISuggestionsIntegration.displayModalResults(safeCurrent);
                 }
 
-                // Marcar render seguro
-                console.log('[REF-GUARD] ✅ Renderização isolada concluída (sem comparação).');
+                console.log('[REF-GUARD] ✅ Renderização completa (cards + AI) mesmo com self-compare.');
             } catch (err) {
                 console.error('[REF-GUARD] ❌ Falha ao renderizar métricas isoladas:', err);
             }
@@ -5395,6 +5394,11 @@ function displayModalResults(analysis) {
         
         // Usar dados da primeira faixa (userAnalysis) para sugestões
         const analysisForSuggestions = refNormalized || analysis;
+        
+        // 🔥 Chamada ao displayModalResults no fluxo normal (não self-compare)
+        if (typeof AISuggestionsIntegration?.displayModalResults === 'function') {
+            AISuggestionsIntegration.displayModalResults(currNormalized);
+        }
         
         // Chamar sugestões de IA após pequeno delay para garantir que DOM está pronto
         setTimeout(() => {
