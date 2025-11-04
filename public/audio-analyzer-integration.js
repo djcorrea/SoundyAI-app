@@ -7864,6 +7864,45 @@ if (typeof window.comparisonLock === "undefined") {
 
 // --- BEGIN: deterministic mode gate ---
 function renderReferenceComparisons(opts = {}) {
+    // ==== PATCH 2: REF-PATCH (parte 2) - Guardas no topo da função ====
+    (function refHardGuards(){
+        const s = window.__soundyState || {};
+        const globalRef = window.referenceAnalysisData || s.referenceAnalysis || null;
+
+        opts = opts || {};
+        if (!opts.userAnalysis && analysis?.userAnalysis) opts.userAnalysis = analysis.userAnalysis;
+        if (!opts.referenceAnalysis && analysis?.referenceAnalysis) opts.referenceAnalysis = analysis.referenceAnalysis;
+
+        if (!opts.referenceAnalysis && globalRef) {
+            console.warn("[REF-PATCH] Reinjetando referência a partir do global");
+            opts.referenceAnalysis = deepCloneSafe(globalRef);
+        }
+
+        if (!opts.userAnalysis || !opts.referenceAnalysis) {
+            console.error("[REF-PATCH] Faltam dados pra A/B");
+            throw new Error("Missing user/reference analysis for A/B");
+        }
+
+        const uName = opts.userAnalysis?.metadata?.fileName || opts.userAnalysis?.fileName;
+        const rName = opts.referenceAnalysis?.metadata?.fileName || opts.referenceAnalysis?.fileName;
+        if (uName && rName && uName === rName) {
+            if (globalRef && (globalRef?.metadata?.fileName || globalRef?.fileName) !== uName) {
+                console.warn("[REF-PATCH] Substituindo referência por global pra evitar self-compare");
+                opts.referenceAnalysis = deepCloneSafe(globalRef);
+            } else {
+                throw new Error("Self-compare detected");
+            }
+        }
+
+        opts.usedReferenceAnalysis = true;
+
+        if (window.__refRenderInProgress) {
+            console.warn("[REF-PATCH] Render A/B em progresso — ignorando duplicado");
+            return;
+        }
+        window.__refRenderInProgress = true;
+    })();
+    
     // � [AUDIT-BANDS-IN-RENDER] Log NO INÍCIO da função renderReferenceComparisons
     try {
         const refBandsInRender = opts.referenceAnalysis?.bands || opts.referenceAnalysis?.technicalData?.spectral_balance;
