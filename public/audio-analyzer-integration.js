@@ -4789,6 +4789,24 @@ function showModalLoading() {
 // 📊 Mostrar resultados no modal
 // 📊 Mostrar resultados no modal
 function displayModalResults(analysis) {
+    // =========================================================================
+    // 🚨 AUDITORIA COMPLETA EM TEMPO DE EXECUÇÃO - DESCOBRIR POR QUE NÃO RENDERIZA
+    // =========================================================================
+    console.groupCollapsed('[AUDITORIA_REFERENCE_MODE] 🔍 INVESTIGAÇÃO COMPLETA');
+    console.log('[STEP 1] 🔍 Modo recebido:', analysis?.mode);
+    console.log('[STEP 2] 🔍 Contém metrics?', !!analysis?.metrics);
+    console.log('[STEP 3] 🔍 Contém technicalData?', !!analysis?.technicalData);
+    console.log('[STEP 4] 🔍 Contém suggestions?', !!analysis?.suggestions);
+    console.log('[STEP 5] 🔍 Funções disponíveis:', {
+        renderMetricCards: typeof window.renderMetricCards,
+        renderScoreSection: typeof window.renderScoreSection,
+        renderSuggestions: typeof window.renderSuggestions,
+        renderFinalScoreAtTop: typeof window.renderFinalScoreAtTop,
+        renderAdvancedMetrics: typeof window.renderAdvancedMetrics,
+    });
+    console.log('[STEP 6] 🔍 analysis completo:', JSON.parse(JSON.stringify(analysis || {})));
+    console.groupEnd();
+    
     // 🔍 AUDITORIA: Estado AO ENTRAR em displayModalResults
     console.groupCollapsed('[AUDITORIA_STATE_FLOW] 🚀 displayModalResults - ENTRADA');
     console.log('⚙️ Função: displayModalResults');
@@ -4961,6 +4979,9 @@ function displayModalResults(analysis) {
         if (analysis?.loudness || analysis?.technicalData || Number.isFinite(analysis?.score)) {
             console.warn("⚠️ [UI_GATE] Estrutura nova detectada, prosseguindo com dados disponíveis");
         } else {
+            console.warn('[AUDITORIA_CONDICAO] ⚠️ Retorno antecipado em: hasEssentialMetrics falhou - mode:', analysis?.mode);
+            console.warn('[AUDITORIA_TIMING] normalizeBackendAnalysisData terminado?', !!window.currentAnalysisData);
+            console.warn('[AUDITORIA_TIMING] displayModalResults chamado?', performance.now());
             // Tentar novamente em 2 segundos apenas se realmente não há dados
             setTimeout(() => displayModalResults(analysis), 2000);
             return;
@@ -5464,6 +5485,7 @@ function displayModalResults(analysis) {
     const currentRunId = window.__CURRENT_ANALYSIS_RUN_ID__;
     
     if (analysisRunId && currentRunId && analysisRunId !== currentRunId) {
+        console.warn('[AUDITORIA_CONDICAO] ⚠️ Retorno antecipado: analysisRunId !== currentRunId', { analysisRunId, currentRunId, mode: analysis?.mode });
         console.warn(`🚫 [UI_GATE] displayModalResults cancelado - análise obsoleta (análise: ${analysisRunId}, atual: ${currentRunId})`);
         return;
     }
@@ -5474,9 +5496,12 @@ function displayModalResults(analysis) {
     const technicalData = document.getElementById('modalTechnicalData');
     
     if (!results || !technicalData) {
+        console.warn('[AUDITORIA_CONDICAO] ⚠️ Retorno antecipado: !results || !technicalData', { hasResults: !!results, hasTechnicalData: !!technicalData, mode: analysis?.mode });
         console.error('❌ Elementos de resultado não encontrados');
         return;
     }
+    
+    console.log('[AUDIT-FLOW-CHECK] ✅ Todos os gates passaram - continuando para renderização');
     
     // 🔧 CORREÇÃO CRÍTICA: Normalizar dados do backend para compatibilidade com front-end
     // ✅ PATCH: Normalização redundante REMOVIDA - dados já normalizados em handleModalFileSelection
@@ -6556,6 +6581,11 @@ function displayModalResults(analysis) {
 
             // Card extra: Diagnóstico & Sugestões listados
             const diagCard = () => {
+                // =========================================================================
+                // 🚨 AUDITORIA: RENDERIZAÇÃO DE SUGESTÕES
+                // =========================================================================
+                console.log('[RENDER_SUGGESTIONS] ✅ Iniciada');
+                
                 const blocks = [];
                 
                 // 🔍 DEBUG: Verificar estado das sugestões
@@ -7236,6 +7266,7 @@ function displayModalResults(analysis) {
                         </div>`).join('');
                     // V2 Pro removido - não mostrar diagnósticos duplicados
                 }
+                console.log('[RENDER_SUGGESTIONS] ✅ Finalizada - Total de sugestões:', enrichedSuggestions?.length || 0);
                 return blocks.join('') || '<div class="diag-empty">Sem diagnósticos</div>';
             };
 
@@ -7308,16 +7339,23 @@ function displayModalResults(analysis) {
          * @param {Object} scores - Objeto contendo todos os scores
          */
         function renderFinalScoreAtTop(scores) {
+            console.log('[RENDER_FINAL_SCORE] ✅ Iniciada');
+            console.log('[RENDER_FINAL_SCORE] scores:', scores);
+            
             if (!scores || !Number.isFinite(scores.final)) {
-                console.warn('🎯 Score final não disponível para renderização');
+                console.warn('[RENDER_FINAL_SCORE] ⚠️ Retorno antecipado - Score final não disponível');
+                console.warn('[AUDITORIA_CONDICAO] ⚠️ Retorno antecipado em: renderFinalScoreAtTop - !scores || !Number.isFinite(scores.final)');
                 return;
             }
             
             const container = document.getElementById('final-score-display');
             if (!container) {
-                console.error('🎯 Container #final-score-display não encontrado');
+                console.error('[RENDER_FINAL_SCORE] ⚠️ Retorno antecipado - Container #final-score-display não encontrado');
+                console.warn('[AUDITORIA_CONDICAO] ⚠️ Retorno antecipado em: renderFinalScoreAtTop - !container');
                 return;
             }
+            
+            console.log('[RENDER_FINAL_SCORE] ✅ Container encontrado, renderizando...');
             
             const finalScore = Math.round(scores.final);
             const percent = Math.min(Math.max(finalScore, 0), 100);
@@ -7359,6 +7397,8 @@ function displayModalResults(analysis) {
             setTimeout(() => {
                 animateFinalScore(finalScore);
             }, 100);
+            
+            console.log('[RENDER_FINAL_SCORE] ✅ Finalizada');
         }
         
         /**
@@ -7499,12 +7539,35 @@ function displayModalResults(analysis) {
             });
         }
 
+        // =========================================================================
+        // 🚨 AUDITORIA CRÍTICA: PONTO DE RENDERIZAÇÃO DE CARDS
+        // =========================================================================
+        console.groupCollapsed('[AUDITORIA_RENDERIZACAO] 🎨 RENDERIZAÇÃO DE CARDS');
+        console.log('[RENDER_CARDS] ✅ INÍCIO - Prestes a renderizar cards');
+        console.log('[RENDER_CARDS] Modo:', analysis?.mode);
+        console.log('[RENDER_CARDS] Contém analysis.scores?', !!analysis?.scores);
+        console.log('[RENDER_CARDS] Contém analysis.technicalData?', !!analysis?.technicalData);
+        console.log('[RENDER_CARDS] technicalData disponível no DOM?', !!document.getElementById('modalTechnicalData'));
+        console.log('[RENDER_CARDS] scoreKpi length:', scoreKpi?.length || 0);
+        console.log('[RENDER_CARDS] col1 length:', col1?.length || 0);
+        console.log('[RENDER_CARDS] col2 length:', col2?.length || 0);
+        console.groupEnd();
+        
         // [AUDIT-FLOW-CHECK] Confirmar que chegou na renderização de cards
         console.log('[AUDIT-FLOW-CHECK] ✅ Renderizando cards - modo:', analysis?.mode);
         
+        // =========================================================================
+        // 🚨 AUDITORIA: RENDERIZAR SCORE FINAL NO TOPO
+        // =========================================================================
+        console.log('[RENDER_SCORE_TOP] ✅ Chamando renderFinalScoreAtTop');
+        console.log('[RENDER_SCORE_TOP] analysis.scores:', analysis?.scores);
+        
         // 🎯 RENDERIZAR SCORE FINAL NO TOPO (ISOLADO)
         renderFinalScoreAtTop(analysis.scores);
+        
+        console.log('[RENDER_SCORE_TOP] ✅ renderFinalScoreAtTop FINALIZADO');
 
+        console.log('[RENDER_CARDS] ✅ Atribuindo HTML ao technicalData.innerHTML');
         technicalData.innerHTML = `
             <div class="kpi-row">${scoreKpi}${timeKpi}</div>
             ${renderSmartSummary(analysis)}
@@ -7542,10 +7605,29 @@ function displayModalResults(analysis) {
                 -->
             </div>
         `;
+        
+        // =========================================================================
+        // 🚨 AUDITORIA: CONFIRMAR RENDERIZAÇÃO NO DOM
+        // =========================================================================
+        console.log('[RENDER_CARDS] ✅ HTML atribuído ao technicalData.innerHTML');
+        console.log('[RENDER_CARDS] Tamanho do HTML:', technicalData.innerHTML.length);
+        console.log('[RENDER_CARDS] Primeiros 200 chars:', technicalData.innerHTML.substring(0, 200));
     
         // 🔹 Sanitizar DOM: Remove nós de texto vazios que criam espaço extra
         normalizeCardWhitespace(technicalData);
         stripEmptyTextNodesInCards(technicalData);
+        
+        // =========================================================================
+        // 🚨 AUDITORIA: VERIFICAR DOM APÓS SANITIZAÇÃO
+        // =========================================================================
+        setTimeout(() => {
+            console.groupCollapsed('[AUDITORIA_DOM] 🔍 VERIFICAÇÃO DO DOM');
+            console.log('[AUDITORIA_DOM] Cards:', document.querySelectorAll('.cards-grid .card').length);
+            console.log('[AUDITORIA_DOM] Sugestões:', document.querySelectorAll('.suggestion-card').length);
+            console.log('[AUDITORIA_DOM] Score containers:', document.querySelectorAll('.score-card, .final-score-display').length);
+            console.log('[AUDITORIA_DOM] technicalData.innerHTML length:', document.getElementById('modalTechnicalData')?.innerHTML?.length || 0);
+            console.groupEnd();
+        }, 1000);
     
         // 🎯 CORRIGIDO: Só renderizar referências se NÃO estiver em modo comparação de faixas
         // O displayModalResults() já trata comparação via renderTrackComparisonTable()
