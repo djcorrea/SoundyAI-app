@@ -4769,7 +4769,63 @@ function displayModalResults(analysis) {
             referenceAnalysis: ref,
         };
 
-        renderReferenceComparisons(payload);
+        // ==== PATCH 1: REF-PATCH: preparar comparação A/B com referência real ====
+        (function enforceABWiring() {
+          const s = window.__soundyState || {};
+          const globalRef = window.referenceAnalysisData || s.referenceAnalysis || null;
+          const firstFrozen = window.__FIRST_ANALYSIS_FROZEN__ || s.previousAnalysis || null;
+
+          // 1ª faixa (SUA música)
+          const userSrc =
+            analysis?.userAnalysis ||
+            analysis?._userAnalysis ||
+            firstFrozen;
+
+          // 2ª faixa (REFERÊNCIA)
+          const refSrc =
+            analysis?.referenceAnalysis ||
+            analysis?._referenceAnalysis ||
+            globalRef;
+
+          if (!userSrc || !refSrc) {
+            console.error("[REF-PATCH] Sem userSrc/refSrc para A/B", {
+              hasUser: !!userSrc, hasRef: !!refSrc, mode: analysis?.mode
+            });
+            return; // não renderiza A/B sem as duas
+          }
+
+          const uName = userSrc?.metadata?.fileName || userSrc?.fileName;
+          const rName = refSrc?.metadata?.fileName || refSrc?.fileName;
+
+          // Anti self-compare
+          if (uName && rName && uName === rName) {
+            if (globalRef && (globalRef?.metadata?.fileName || globalRef?.fileName) !== uName) {
+              console.warn("[REF-PATCH] Self-compare detectado — forçando referência do global");
+              analysis.referenceAnalysis = deepCloneSafe(globalRef);
+            } else {
+              console.error("[REF-PATCH] Abortando A/B: referência igual à sua faixa");
+              return;
+            }
+          } else {
+            analysis.referenceAnalysis = deepCloneSafe(refSrc);
+          }
+
+          analysis.userAnalysis = deepCloneSafe(userSrc);
+          analysis.usedReferenceAnalysis = true; // 🔒 trava sem fallback
+
+          // Evita mutação por funções posteriores
+          try {
+            Object.freeze(analysis.userAnalysis);
+            Object.freeze(analysis.referenceAnalysis);
+          } catch(_) {}
+        })();
+
+        renderReferenceComparisons(analysis, {
+          mode: 'reference',
+          userAnalysis: analysis.userAnalysis,
+          referenceAnalysis: analysis.referenceAnalysis,
+          usedReferenceAnalysis: true
+        });
         
         // ✅ CORREÇÃO CRÍTICA DA AUDITORIA (linha 4502)
         // REMOVIDO return prematuro que bloqueava:
