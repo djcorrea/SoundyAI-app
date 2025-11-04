@@ -43,9 +43,19 @@ app.get(["/index", "/index.html", "/app", "/home"], (req, res) => {
 });
 
 // 👉 Servir arquivos estáticos SEM index automático
+// 🔥 FORÇA NO-CACHE para arquivos .js (evitar cache no Railway CDN)
 app.use(
   express.static(path.join(__dirname, "public"), {
     index: false,
+    setHeaders: (res, filePath) => {
+      // Força no-cache apenas para arquivos JavaScript
+      if (filePath.endsWith('.js')) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        console.log('🔥 [NO-CACHE] Servindo:', path.basename(filePath));
+      }
+    }
   })
 );
 
