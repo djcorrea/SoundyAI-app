@@ -1478,43 +1478,71 @@ class AISuggestionsIntegration {
      * Integração com sistema existente
      */
     integrateWithExistingSystem() {
-        const safeAttachDisplayModal = () => {
-            if (typeof window.displayModalResults !== "function") {
-                console.warn("[SAFE_INTERCEPT_WAIT] Aguardando função displayModalResults...");
-                setTimeout(safeAttachDisplayModal, 300);
-                return;
-            }
+        // ✅ Correção definitiva — preserva dados completos da análise, inclusive no modo reference
+        if (!window.__AI_SUGGESTIONS_INTERCEPTOR__) {
+            window.__AI_SUGGESTIONS_INTERCEPTOR__ = true;
 
-            // 🔒 Usar cópia imutável se disponível
-            const original = window.__displayModalResultsOriginal || window.displayModalResults;
-            window.displayModalResults = (data) => {
-                // =========================================================================
-                // 🚨 CORREÇÃO CRÍTICA: Interceptador agora SEMPRE chama função original
-                // =========================================================================
-                console.log("[SAFE_INTERCEPT-AI] displayModalResults interceptado (ai-suggestions)", {
-                    mode: data?.mode,
-                    hasSuggestions: !!data?.suggestions,
-                    suggestionsCount: data?.suggestions?.length || 0,
-                    hasUserAnalysis: !!data?.userAnalysis,
-                    hasReferenceAnalysis: !!data?.referenceAnalysis
-                });
+            const originalDisplayModalResults = window.displayModalResults;
 
+            window.displayModalResults = function (analysis) {
                 try {
-                    // 🚀 GARANTIR que função original seja chamada para TODOS os modos
-                    if (typeof original === "function") {
-                        console.log("[SAFE_INTERCEPT-AI] ✅ Chamando função original (modo detectado):", data?.mode);
+                    console.groupCollapsed("[SAFE_INTERCEPT-AI] displayModalResults interceptado (ai-suggestions)");
+                    console.log("📊 Modo:", analysis?.mode);
+                    console.log("📈 hasUserAnalysis:", !!analysis?.userAnalysis);
+                    console.log("📉 hasReferenceAnalysis:", !!analysis?.referenceAnalysis);
+                    console.log("🎯 suggestionsCount:", analysis?.suggestions?.length || 0);
+                    console.log("🔧 hasTechnicalData:", !!analysis?.technicalData);
+                    console.log("📐 hasMetrics:", !!analysis?.metrics);
+                    console.log("🎼 hasScores:", !!analysis?.scores);
+
+                    // � Garante que o objeto completo seja preservado (sem sobrescrever)
+                    const fullAnalysis = { ...analysis };
+
+                    // 🔧 Garante modo reference intacto
+                    if (analysis?.mode === "reference") {
+                        console.log("🔒 [AI-FIX] Preservando modo reference e análises A/B");
                         
-                        // Chamar função original IMEDIATAMENTE sem manipular dados
-                        const result = original.call(this, data);
+                        if (window.referenceAnalysisData && !fullAnalysis.referenceAnalysis) {
+                            fullAnalysis.referenceAnalysis = window.referenceAnalysisData;
+                            console.log("🧩 [AI-FIX] referenceAnalysis restaurado a partir do estado global");
+                        }
+                        
+                        if (window.__FIRST_ANALYSIS_FROZEN__ && !fullAnalysis.userAnalysis) {
+                            fullAnalysis.userAnalysis = window.__FIRST_ANALYSIS_FROZEN__;
+                            console.log("🧩 [AI-FIX] userAnalysis restaurado a partir do cache da primeira faixa");
+                        }
+                        
+                        // Garantir que technicalData não seja perdido
+                        if (!fullAnalysis.technicalData && fullAnalysis.userAnalysis?.technicalData) {
+                            fullAnalysis.technicalData = fullAnalysis.userAnalysis.technicalData;
+                            console.log("🧩 [AI-FIX] technicalData restaurado de userAnalysis");
+                        }
+                        
+                        // Garantir que scores não sejam perdidos
+                        if (!fullAnalysis.scores && fullAnalysis.userAnalysis?.scores) {
+                            fullAnalysis.scores = fullAnalysis.userAnalysis.scores;
+                            console.log("🧩 [AI-FIX] scores restaurado de userAnalysis");
+                        }
+                    }
+
+                    // ✅ Chama função original SEM perder os dados técnicos
+                    if (typeof originalDisplayModalResults === "function") {
+                        console.log("[SAFE_INTERCEPT-AI] ✅ Chamando função original (modo detectado):", fullAnalysis.mode);
+                        
+                        // Chamar função original com dados completos
+                        const result = originalDisplayModalResults(fullAnalysis);
                         
                         // ✅ APÓS renderização, processar sugestões de IA (não bloqueia renderização)
-                        if (data && data.suggestions) {
-                            const genre = data.metadata?.genre || data.genre || window.PROD_AI_REF_GENRE;
-                            const metrics = data.technicalData || {};
+                        if (fullAnalysis && fullAnalysis.suggestions) {
+                            const genre = fullAnalysis.metadata?.genre || fullAnalysis.genre || window.PROD_AI_REF_GENRE;
+                            const metrics = fullAnalysis.technicalData || {};
                             
-                            console.log('🔗 [AI-INTEGRATION] Processando sugestões (modo:', data?.mode, ')');
+                            console.log('🔗 [AI-INTEGRATION] Processando sugestões (modo:', fullAnalysis.mode, ')');
                             setTimeout(() => {
-                                this.processWithAI(data.suggestions, metrics, genre);
+                                // Verificar se this.processWithAI existe (contexto pode estar perdido)
+                                if (window.aiSuggestionsSystem && typeof window.aiSuggestionsSystem.processWithAI === 'function') {
+                                    window.aiSuggestionsSystem.processWithAI(fullAnalysis.suggestions, metrics, genre);
+                                }
                             }, 100);
                         }
                         
@@ -1524,40 +1552,44 @@ class AISuggestionsIntegration {
                             if (!technicalData || !technicalData.innerHTML.trim()) {
                                 console.warn('[SAFE_INTERCEPT-AI] ⚠️ DOM vazio após renderização - possível problema');
                             } else {
-                                console.log('[SAFE_INTERCEPT-AI] ✅ DOM renderizado corretamente (modo:', data?.mode, ')');
+                                console.log('[SAFE_INTERCEPT-AI] ✅ DOM renderizado corretamente (modo:', fullAnalysis.mode, ')');
                                 
                                 // ✅ Chamar sugestões de IA se disponível
                                 if (window.aiUIController) {
                                     console.log('[SAFE_INTERCEPT-AI] ✅ Chamando aiUIController.checkForAISuggestions');
-                                    window.aiUIController.checkForAISuggestions(data, true);
+                                    window.aiUIController.checkForAISuggestions(fullAnalysis, true);
                                 }
                             }
                         }, 200);
                         
-                        console.log("[SAFE_INTERCEPT-AI] 🧠 Intercept finalizado. Modo atual:", data?.mode);
+                        console.log("[SAFE_INTERCEPT-AI] 🧠 Intercept finalizado. Modo atual:", fullAnalysis.mode);
+                        console.groupEnd();
+                        
                         return result;
                         
                     } else {
-                        console.warn("[SAFE_INTERCEPT-AI] ⚠️ Função original displayModalResults não encontrada!");
-                        console.warn("[SAFE_INTERCEPT-AI] ⚠️ Renderização pode não ocorrer!");
+                        console.warn("[SAFE_INTERCEPT-AI] ⚠️ Função original não encontrada!");
+                        console.groupEnd();
                         return null;
                     }
                 } catch (err) {
-                    console.error("[SAFE_INTERCEPT-AI] ❌ Erro ao chamar função original:", err);
+                    console.error("[SAFE_INTERCEPT-AI] ❌ Erro ao interceptar displayModalResults:", err);
                     console.error("[SAFE_INTERCEPT-AI] Stack trace:", err.stack);
+                    console.groupEnd();
+                    
                     // Tentar chamar backup se disponível
                     if (window.__displayModalResultsOriginal) {
                         console.warn("[SAFE_INTERCEPT-AI] Tentando backup __displayModalResultsOriginal");
-                        return window.__displayModalResultsOriginal.call(this, data);
+                        return window.__displayModalResultsOriginal(analysis);
                     }
                     throw err;
                 }
             };
             
-            console.log('✅ [AI-INTEGRATION] Integração com displayModalResults configurada');
-        };
-        
-        safeAttachDisplayModal();
+            console.log('✅ [AI-INTEGRATION] Integração com displayModalResults configurada (interceptador único)');
+        } else {
+            console.log('⚠️ [AI-INTEGRATION] Interceptador já configurado, ignorando duplicação');
+        }
     }
 }
 
