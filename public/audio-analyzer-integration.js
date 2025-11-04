@@ -3123,6 +3123,13 @@ async function handleModalFileSelection(file) {
             normalizedResult._userAnalysis = userAnalysis;
             normalizedResult._referenceAnalysis = referenceAnalysisData;
             
+            // ==== CHECKPOINT AUDITORIA REF-CONTAMINAÇÃO ====
+            console.group("[AUDITORIA REF-CONTAMINAÇÃO]");
+            console.log("🌐 window.referenceAnalysisData:", window.referenceAnalysisData?.metadata?.fileName || window.referenceAnalysisData?.fileName);
+            console.log("🧊 __FIRST_ANALYSIS_FROZEN__:", window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName || window.__FIRST_ANALYSIS_FROZEN__?.fileName);
+            console.log("📦 analysis.metadata.fileName:", normalizedResult?.metadata?.fileName);
+            console.groupEnd();
+            
             await displayModalResults(normalizedResult);
             console.log('[FIX-REFERENCE] Modal aberto após segunda análise');
             
