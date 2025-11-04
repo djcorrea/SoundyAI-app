@@ -2843,9 +2843,16 @@ async function handleModalFileSelection(file) {
             console.log('[REF-SAVE ✅] ═══════════════════════════════════════');
             
             openReferenceUploadModal(analysisResult.jobId, analysisResult);
-        } else if ((jobMode === 'reference' || currentAnalysisMode === 'reference') && isSecondTrack) {
+        } else if (isSecondTrack) {
+            // 🔥 FORÇAR: Se tem jobId de referência, SEMPRE tratar como segunda track
+            console.log('🟢🟢🟢 [SEGUNDA-TRACK-DETECTADA-FORCE] ════════════════════════════════════');
+            console.log('🟢 [FORCE] isSecondTrack TRUE - entrando em bloco A/B');
+            console.log('🟢 [FORCE] jobMode (pode ser null):', jobMode);
+            console.log('🟢 [FORCE] currentAnalysisMode (pode ser genre):', currentAnalysisMode);
+            console.log('🟢 [FORCE] window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
+            console.log('🟢 [FORCE] IGNORANDO jobMode - usando APENAS isSecondTrack como critério');
+            console.log('🟢🟢🟢 [SEGUNDA-TRACK-DETECTADA-FORCE] ════════════════════════════════════');
             // SEGUNDA música em modo reference: mostrar resultado comparativo
-            console.log('🟢🟢🟢 [SEGUNDA-TRACK-DETECTADA] ════════════════════════════════════');
             console.log('🟢 [SEGUNDA-TRACK] ✅ Sistema ENTROU no bloco de segunda track!');
             console.log('🟢 [SEGUNDA-TRACK] jobMode:', jobMode);
             console.log('🟢 [SEGUNDA-TRACK] currentAnalysisMode:', currentAnalysisMode);
@@ -3074,6 +3081,19 @@ async function handleModalFileSelection(file) {
                 window.__soundyState = state;
                 console.log("[REF-FIX] Estrutura final corrigida", state.reference);
             }
+            
+            // 🔥 FORCE MODE REFERENCE EXPLICITAMENTE ANTES DE displayModalResults
+            state.render = state.render || {};
+            state.render.mode = 'reference';
+            currentAnalysisMode = 'reference';
+            window.__soundyState = state;
+            
+            console.log('🔥🔥🔥 [MODE-FORCE] ════════════════════════════════════════════════════════════');
+            console.log('🔥 [MODE-FORCE] ✅ Modo FORÇADO para reference antes de displayModalResults');
+            console.log('🔥 [MODE-FORCE] state.render.mode:', state.render.mode);
+            console.log('🔥 [MODE-FORCE] currentAnalysisMode:', currentAnalysisMode);
+            console.log('🔥 [MODE-FORCE] window.__soundyState.render.mode:', window.__soundyState.render.mode);
+            console.log('🔥🔥🔥 [MODE-FORCE] ════════════════════════════════════════════════════════════');
             
             // 🔥 CORREÇÃO: Preparar dados para comparação A/B correta
             console.log('[REFERENCE-FLOW] ═══════════════════════════════════════');
