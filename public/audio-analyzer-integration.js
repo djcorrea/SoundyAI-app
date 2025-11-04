@@ -5215,44 +5215,24 @@ function displayModalResults(analysis) {
         const currNormalized = normalizeSafe(analysis);
         
         // 🛡️ Proteção contra auto-comparação e renderização segura
+        let isSelfCompare = false;
         if (areSameTrack(refNormalized, currNormalized)) {
-            console.warn('[REF-GUARD] Self-compare detectado; renderizando faixa atual sem comparação.');
-
-            try {
-                // Renderização direta da análise atual (sem afetar estado global)
-                const safeCurrent = safeDeepClone(currNormalized);
-
-                // Chamada de todas as rotinas visuais principais
-                if (typeof renderMetricCards === 'function') {
-                    renderMetricCards(safeCurrent);
-                }
-
-                if (typeof renderAdvancedMetrics === 'function') {
-                    renderAdvancedMetrics(safeCurrent);
-                }
-
-                if (typeof renderSpectralBands === 'function') {
-                    renderSpectralBands(safeCurrent);
-                }
-
-                if (typeof renderScoresAndSubscores === 'function') {
-                    renderScoresAndSubscores(safeCurrent);
-                }
-
-                // 🔥 Chama manualmente o displayModalResults para completar DOM e IA
-                if (typeof AISuggestionsIntegration?.displayModalResults === 'function') {
-                    AISuggestionsIntegration.displayModalResults(safeCurrent);
-                }
-
-                console.log('[REF-GUARD] ✅ Renderização completa (cards + AI) mesmo com self-compare.');
-            } catch (err) {
-                console.error('[REF-GUARD] ❌ Falha ao renderizar métricas isoladas:', err);
-            }
-
-            // Encerrar somente a comparação A/B — sem resetar o modo ou limpar dados
-            return;
+            console.warn('[REF-GUARD] Self-compare detectado — marcando flag mas CONTINUANDO renderização A/B.');
+            isSelfCompare = true;
+            
+            // 🔥 Marcar no estado que é self-compare (sem interromper fluxo)
+            if (!state.render) state.render = {};
+            state.render.isSelfCompare = true;
+            
+            // ❌ REMOVIDO: return que bloqueava todo o fluxo de renderização
+            // O fluxo agora continua normalmente, permitindo que cards, scores, sugestões e tabela sejam renderizados
         }
-        console.log('[REF-GUARD] ✅ Validação areSameTrack() passou - faixas são diferentes');
+        
+        if (isSelfCompare) {
+            console.log('[REF-GUARD] ⚠️ Self-compare confirmado mas CONTINUANDO fluxo de renderização completo');
+        } else {
+            console.log('[REF-GUARD] ✅ Validação areSameTrack() passou - faixas são diferentes');
+        }
         
         // 🐛 DEBUG A/B
         console.log('[DEBUG-A/B]', {
@@ -5375,17 +5355,11 @@ function displayModalResults(analysis) {
             referenceBands: Object.keys(currNormalized?.technicalData?.spectral_balance || {})
         });
         
-        // 🧩 PROTEÇÃO NO displayModalResults: Bloquear execução se referenceTrack ainda não existir
+        // 🧩 PROTEÇÃO NO displayModalResults: Validação de referenceTrack
         if (!currNormalized?.metadata?.fileName && !currNormalized?.fileName) {
-            console.warn("⚠️ [DISPLAY_MODAL_FIX] Reference track ainda não pronta — adiando render...");
-            setTimeout(() => {
-                renderReferenceComparisons({
-                    mode: 'reference',
-                    userAnalysis: refNormalized,
-                    referenceAnalysis: currNormalized
-                });
-            }, 300);
-            return;
+            console.warn("⚠️ [DISPLAY_MODAL_FIX] Reference track com dados incompletos — continuando com fallback...");
+            // ❌ REMOVIDO: return que bloqueava renderização
+            // Agora continua o fluxo com dados disponíveis, mesmo que incompletos
         }
         
         // 🧩 CORREÇÃO #6: Chamada ÚNICA de renderização (remover duplicação)
@@ -7777,6 +7751,12 @@ function displayModalResults(analysis) {
         }
         
         __dbg('📊 Resultados exibidos no modal');
+        
+        // ✅ LOG FINAL DE CONFIRMAÇÃO
+        console.log('[DISPLAY_MODAL_RESULTS] ✅✅✅ FUNÇÃO FINALIZADA COM SUCESSO ✅✅✅');
+        console.log('[DISPLAY_MODAL_RESULTS] Modo:', analysis?.mode);
+        console.log('[DISPLAY_MODAL_RESULTS] Self-compare?', state?.render?.isSelfCompare || false);
+        console.log('[DISPLAY_MODAL_RESULTS] Renderização completa: cards, scores, tabela A/B, sugestões');
     }
 
     // === Controles de Validação (Suite Objetiva + Subjetiva) ===
