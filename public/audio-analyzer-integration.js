@@ -80,6 +80,55 @@ function areSameTrack(a, b) {
     return false;
 }
 
+// =============== CLONE & SANITIZE (SEM CICLOS) ===============
+function safeDeepClone(obj, cache = new WeakMap()) {
+    if (obj === null || typeof obj !== 'object') return obj;
+    if (cache.has(obj)) return cache.get(obj);
+
+    if (Array.isArray(obj)) {
+        const arr = [];
+        cache.set(obj, arr);
+        obj.forEach(v => arr.push(safeDeepClone(v, cache)));
+        return arr;
+    }
+
+    const clone = {};
+    cache.set(obj, clone);
+
+    for (const key of Object.keys(obj)) {
+        // Remove referências internas e funções
+        if (key.startsWith('_') || typeof obj[key] === 'function' || typeof obj[key] === 'symbol') continue;
+        clone[key] = safeDeepClone(obj[key], cache);
+    }
+
+    return clone;
+}
+
+// Reduz o objeto de análise para apenas o necessário
+function pickAnalysisFields(a) {
+    if (!a) return a;
+    const s = safeDeepClone(a);
+    return {
+        id: s.id ?? s.jobId,
+        jobId: s.jobId ?? s.id,
+        fileKey: s.fileKey,
+        fileName: s.fileName,
+        loudness: s.loudness,
+        dynamics: s.dynamics,
+        spectral: s.spectral,
+        metrics: s.metrics,
+        technicalData: s.technicalData,
+        bands: s.bands,
+        spectralBands: s.spectralBands,
+        metadata: s.metadata,
+    };
+}
+
+// Normalização segura (copia antes de processar)
+function normalizeSafe(raw) {
+    return normalizeBackendAnalysisData(pickAnalysisFields(raw));
+}
+
 // 🆔 SISTEMA runId - Função utilitária centralizada
 function generateAnalysisRunId(context = 'ui') {
     const timestamp = Date.now();
@@ -3207,19 +3256,17 @@ async function handleModalFileSelection(file) {
         console.error('🔴🔴🔴 [ERRO-CRÍTICO-CAPTURADO] ════════════════════════════════════');
         console.error('❌ Erro na análise do modal:', error);
         
-        // ✅ STEP 4/6: Bloquear fallback para genre em caso de self-compare
-        const isSelfCompareError = String(error?.message || '').toLowerCase().includes('self-compare');
-        
-        if (isSelfCompareError) {
-            console.warn('[REF-FLOW] ⚠️ Erro de self-compare detectado — ignorando fallback para genre');
-            console.warn('[REF-FLOW] Mantendo modo reference para preservar estado A/B');
-            showModalError('Self-compare detectado. Aguardando nova análise...');
+        // ✅ STEP 4/6: Bloquear fallback para genre em caso de self-compare ou circular structure
+        const msg = String(error?.message || '');
+        if (msg.includes('Self-compare') || msg.includes('circular structure')) {
+            console.warn('[REF-FLOW] Erro de self-compare/circular structure — ignorando fallback pra genre.');
+            showModalError('Erro de comparação detectado. Aguardando nova análise...');
             return; // Aborta sem resetar modo
         }
         
         // Verificar se é um erro de fallback para modo gênero (apenas erros reais)
         if (window.FEATURE_FLAGS?.FALLBACK_TO_GENRE && currentAnalysisMode === 'reference') {
-            console.warn('[REF-FLOW] ⚠️ Erro real detectado — ativando fallback para genre');
+            console.warn('[REF-FLOW] Erro real — fallback ativado.');
             
             window.logReferenceEvent('error_fallback_to_genre', { 
                 error: error.message,
@@ -5095,25 +5142,26 @@ function displayModalResults(analysis) {
             console.log('✅ [AUDIT-CRITICAL] Validação passou - window.__FIRST_ANALYSIS_FROZEN__ existe e é diferente de analysis');
         }
         
-        // ✅ STEP 2/6: Isolar normalização com JSON clone + guard areSameTrack()
-        console.log('[NORMALIZE-DEFENSIVE] 🔒 Criando cópia isolada da 1ª faixa (JSON clone)');
-        const refNormalized = normalizeBackendAnalysisData(
-            JSON.parse(JSON.stringify(window.__FIRST_ANALYSIS_FROZEN__))
-        ); // Primeira faixa (BASE) - cópia JSON pura sem compartilhamento de memória
+        // ✅ STEP 2/6 REFATORADO: Normalização segura sem ciclos
+        console.log('[NORMALIZE-DEFENSIVE] 🔒 Criando cópia isolada da 1ª faixa (normalizeSafe)');
+        const refNormalized = normalizeSafe(window.__FIRST_ANALYSIS_FROZEN__);
         
-        console.log('[NORMALIZE-DEFENSIVE] 🔒 Criando cópia isolada da 2ª faixa (JSON clone)');
-        const currNormalized = normalizeBackendAnalysisData(
-            JSON.parse(JSON.stringify(analysis))
-        ); // Segunda faixa (ATUAL) - cópia JSON pura sem compartilhamento de memória
+        console.log('[NORMALIZE-DEFENSIVE] 🔒 Criando cópia isolada da 2ª faixa (normalizeSafe)');
+        const currNormalized = normalizeSafe(analysis);
         
-        // 🛡️ STEP 2/6: Proteção contra self-compare falso
+        // 🛡️ Proteção anti-auto-comparação
         if (areSameTrack(refNormalized, currNormalized)) {
-            console.warn('[REF-GUARD] Self-compare detectado após normalização. Abortando cálculo de score, mantendo modo reference.');
-            console.warn('[REF-GUARD] Isso indica contaminação prévia de window.__FIRST_ANALYSIS_FROZEN__ ou análise duplicada.');
-            // Aborta sem resetar modo - evita fallback indevido para genre
-            return;
+            console.warn('[REF-GUARD] Self-compare detectado; abortando cálculo sem resetar modo.');
+            return; // aborta comparação mas mantém modo reference
         }
         console.log('[REF-GUARD] ✅ Validação areSameTrack() passou - faixas são diferentes');
+        
+        // 🐛 DEBUG A/B
+        console.log('[DEBUG-A/B]', {
+            ref: refNormalized?.fileName || refNormalized?.metadata?.fileName,
+            curr: currNormalized?.fileName || currNormalized?.metadata?.fileName,
+            same: areSameTrack(refNormalized, currNormalized),
+        });
         
         // 🔍 AUDITORIA: Estado APÓS criar refNormalized e currNormalized
         console.groupCollapsed('[AUDITORIA_STATE_FLOW] ✅ DEPOIS refNormalized + currNormalized');
