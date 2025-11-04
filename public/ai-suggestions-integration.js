@@ -1488,103 +1488,70 @@ class AISuggestionsIntegration {
             // 🔒 Usar cópia imutável se disponível
             const original = window.__displayModalResultsOriginal || window.displayModalResults;
             window.displayModalResults = (data) => {
-                console.log("[SAFE_INTERCEPT-AI] displayModalResults interceptado (ai-suggestions)", data);
-
-                // 🔒 NÃO sobrescreve userAnalysis nem referenceAnalysis
-                if (data?.mode === "reference" && data.userAnalysis && data.referenceAnalysis) {
-                    console.log("[SAFE_INTERCEPT-AI] Preservando estrutura A/B");
-                    const result = original.call(this, data);
-                    
-                    // Processar sugestões mesmo em modo reference
-                    if (data && data.suggestions) {
-                        const genre = data.metadata?.genre || data.genre || window.PROD_AI_REF_GENRE;
-                        const metrics = data.technicalData || {};
-                        
-                        console.log('🔗 [AI-INTEGRATION] Processando sugestões (modo reference)');
-                        setTimeout(() => {
-                            this.processWithAI(data.suggestions, metrics, genre);
-                        }, 100);
-                    }
-                    
-                    // ✅ Verificar DOM após renderização
-                    setTimeout(() => {
-                        const technicalData = document.getElementById('modalTechnicalData');
-                        if (!technicalData || !technicalData.innerHTML.trim()) {
-                            console.warn('[FIX] ⚠️ DOM vazio após interceptação AI (reference), forçando chamada original');
-                            if (window.__displayModalResultsOriginal) {
-                                window.__displayModalResultsOriginal.call(this, data);
-                            }
-                        } else {
-                            console.log('[SAFE_INTERCEPT-AI] ✅ DOM renderizado corretamente (reference)');
-                            
-                            // ✅ Garantir que sugestões de IA sejam chamadas
-                            if (window.aiUIController) {
-                                console.log('[SAFE_INTERCEPT-AI] ✅ Chamando aiUIController.checkForAISuggestions');
-                                window.aiUIController.checkForAISuggestions(data, true);
-                            }
-                        }
-                    }, 200);
-                    
-                    return result;
-                }
-
-                const merged = {
-                    ...data,
-                    userAnalysis: data.userAnalysis || window.__soundyState?.previousAnalysis,
-                    referenceAnalysis: data.referenceAnalysis || window.__soundyState?.referenceAnalysis || null,
-                };
-                
-                // 🔍 AUDITORIA PASSO 0: INTERCEPTAÇÃO INICIAL
-                console.group('🔍 [AUDITORIA] INTERCEPTAÇÃO INICIAL');
-                console.log('🔗 [AI-INTEGRATION] displayModalResults interceptado:', {
-                    hasAnalysis: !!merged,
-                    hasSuggestions: !!(merged && merged.suggestions),
-                    suggestionsCount: merged?.suggestions?.length || 0,
-                    analysisKeys: merged ? Object.keys(merged) : null
+                // =========================================================================
+                // 🚨 CORREÇÃO CRÍTICA: Interceptador agora SEMPRE chama função original
+                // =========================================================================
+                console.log("[SAFE_INTERCEPT-AI] displayModalResults interceptado (ai-suggestions)", {
+                    mode: data?.mode,
+                    hasSuggestions: !!data?.suggestions,
+                    suggestionsCount: data?.suggestions?.length || 0,
+                    hasUserAnalysis: !!data?.userAnalysis,
+                    hasReferenceAnalysis: !!data?.referenceAnalysis
                 });
-                
-                if (merged && merged.suggestions) {
-                    merged.suggestions.forEach((sug, index) => {
-                        console.log(`🔗 Intercepted Sugestão ${index + 1}:`, {
-                            message: sug.message || sug.issue || sug.title || 'N/A',
-                            action: sug.action || sug.solution || sug.description || 'N/A',
-                            keys: Object.keys(sug)
-                        });
-                    });
-                }
-                console.groupEnd();
-                
-                // ✅ Call original function first
-                console.log('[SAFE_INTERCEPT-AI] ✅ Chamando função original (modo não-reference)');
-                const result = original.call(this, merged);
-                
-                // Extract suggestions and trigger AI processing
-                if (merged && merged.suggestions) {
-                    const genre = merged.metadata?.genre || merged.genre || window.PROD_AI_REF_GENRE;
-                    const metrics = merged.technicalData || {};
-                    
-                    console.log('🔗 [AI-INTEGRATION] Interceptando sugestões para processamento IA');
-                    
-                    // Delay slightly to ensure modal is rendered
-                    setTimeout(() => {
-                        this.processWithAI(merged.suggestions, metrics, genre);
-                    }, 100);
-                }
-                
-                // ✅ Verificar DOM após renderização
-                setTimeout(() => {
-                    const technicalData = document.getElementById('modalTechnicalData');
-                    if (!technicalData || !technicalData.innerHTML.trim()) {
-                        console.warn('[FIX] ⚠️ DOM vazio após interceptação AI (não-reference), forçando chamada original');
-                        if (window.__displayModalResultsOriginal) {
-                            window.__displayModalResultsOriginal.call(this, merged);
+
+                try {
+                    // 🚀 GARANTIR que função original seja chamada para TODOS os modos
+                    if (typeof original === "function") {
+                        console.log("[SAFE_INTERCEPT-AI] ✅ Chamando função original (modo detectado):", data?.mode);
+                        
+                        // Chamar função original IMEDIATAMENTE sem manipular dados
+                        const result = original.call(this, data);
+                        
+                        // ✅ APÓS renderização, processar sugestões de IA (não bloqueia renderização)
+                        if (data && data.suggestions) {
+                            const genre = data.metadata?.genre || data.genre || window.PROD_AI_REF_GENRE;
+                            const metrics = data.technicalData || {};
+                            
+                            console.log('🔗 [AI-INTEGRATION] Processando sugestões (modo:', data?.mode, ')');
+                            setTimeout(() => {
+                                this.processWithAI(data.suggestions, metrics, genre);
+                            }, 100);
                         }
+                        
+                        // ✅ Verificar DOM após renderização (não bloqueia)
+                        setTimeout(() => {
+                            const technicalData = document.getElementById('modalTechnicalData');
+                            if (!technicalData || !technicalData.innerHTML.trim()) {
+                                console.warn('[SAFE_INTERCEPT-AI] ⚠️ DOM vazio após renderização - possível problema');
+                            } else {
+                                console.log('[SAFE_INTERCEPT-AI] ✅ DOM renderizado corretamente (modo:', data?.mode, ')');
+                                
+                                // ✅ Chamar sugestões de IA se disponível
+                                if (window.aiUIController) {
+                                    console.log('[SAFE_INTERCEPT-AI] ✅ Chamando aiUIController.checkForAISuggestions');
+                                    window.aiUIController.checkForAISuggestions(data, true);
+                                }
+                            }
+                        }, 200);
+                        
+                        console.log("[SAFE_INTERCEPT-AI] 🧠 Intercept finalizado. Modo atual:", data?.mode);
+                        return result;
+                        
                     } else {
-                        console.log('[SAFE_INTERCEPT-AI] ✅ DOM renderizado corretamente (não-reference)');
+                        console.warn("[SAFE_INTERCEPT-AI] ⚠️ Função original displayModalResults não encontrada!");
+                        console.warn("[SAFE_INTERCEPT-AI] ⚠️ Renderização pode não ocorrer!");
+                        return null;
                     }
-                }, 200);
-                
-                return result;
+                } catch (err) {
+                    console.error("[SAFE_INTERCEPT-AI] ❌ Erro ao chamar função original:", err);
+                    console.error("[SAFE_INTERCEPT-AI] Stack trace:", err.stack);
+                    // Tentar chamar backup se disponível
+                    if (window.__displayModalResultsOriginal) {
+                        console.warn("[SAFE_INTERCEPT-AI] Tentando backup __displayModalResultsOriginal");
+                        return window.__displayModalResultsOriginal.call(this, data);
+                    }
+                    throw err;
+                }
             };
             
             console.log('✅ [AI-INTEGRATION] Integração com displayModalResults configurada');
