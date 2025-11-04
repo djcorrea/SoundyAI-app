@@ -4790,6 +4790,17 @@ function showModalLoading() {
 // 📊 Mostrar resultados no modal
 function displayModalResults(analysis) {
     // =========================================================================
+    // 🚨 DEBUG CRÍTICO: Timing e Estado dos Dados (detecta chamada prematura)
+    // =========================================================================
+    console.groupCollapsed("[DEBUG-DISPLAY] 🧠 Início displayModalResults()");
+    console.log("📦 analysis.metadata.fileName:", analysis?.metadata?.fileName);
+    console.log("🧊 __FIRST_ANALYSIS_FROZEN__:", window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName);
+    console.log("🌐 referenceAnalysisData:", window.referenceAnalysisData?.metadata?.fileName);
+    console.log("📊 analysis.metrics:", !!analysis?.metrics, "technicalData:", !!analysis?.technicalData);
+    console.log("📊 reference.metrics:", !!window.referenceAnalysisData?.metrics, "technicalData:", !!window.referenceAnalysisData?.technicalData);
+    console.groupEnd();
+    
+    // =========================================================================
     // 🚨 AUDITORIA COMPLETA EM TEMPO DE EXECUÇÃO - DESCOBRIR POR QUE NÃO RENDERIZA
     // =========================================================================
     console.groupCollapsed('[AUDITORIA_REFERENCE_MODE] 🔍 INVESTIGAÇÃO COMPLETA');
