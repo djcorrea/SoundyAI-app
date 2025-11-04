@@ -5149,10 +5149,44 @@ function displayModalResults(analysis) {
         console.log('[NORMALIZE-DEFENSIVE] 🔒 Criando cópia isolada da 2ª faixa (normalizeSafe)');
         const currNormalized = normalizeSafe(analysis);
         
-        // 🛡️ Proteção anti-auto-comparação
+        // 🛡️ Proteção contra auto-comparação e renderização segura
         if (areSameTrack(refNormalized, currNormalized)) {
-            console.warn('[REF-GUARD] Self-compare detectado; abortando cálculo sem resetar modo.');
-            return; // aborta comparação mas mantém modo reference
+            console.warn('[REF-GUARD] Self-compare detectado; renderizando faixa atual sem comparação.');
+
+            try {
+                // Renderização direta da análise atual (sem afetar estado global)
+                const safeCurrent = safeDeepClone(currNormalized);
+
+                // Chamada de todas as rotinas visuais principais
+                if (typeof renderMetricCards === 'function') {
+                    renderMetricCards(safeCurrent);
+                }
+
+                if (typeof renderAdvancedMetrics === 'function') {
+                    renderAdvancedMetrics(safeCurrent);
+                }
+
+                if (typeof renderSpectralBands === 'function') {
+                    renderSpectralBands(safeCurrent);
+                }
+
+                if (typeof renderScoresAndSubscores === 'function') {
+                    renderScoresAndSubscores(safeCurrent);
+                }
+
+                // IA e sugestões (chamada defensiva)
+                if (window.aiUIController?.checkForAISuggestions) {
+                    aiUIController.checkForAISuggestions(safeCurrent);
+                }
+
+                // Marcar render seguro
+                console.log('[REF-GUARD] ✅ Renderização isolada concluída (sem comparação).');
+            } catch (err) {
+                console.error('[REF-GUARD] ❌ Falha ao renderizar métricas isoladas:', err);
+            }
+
+            // Encerrar somente a comparação A/B — sem resetar o modo ou limpar dados
+            return;
         }
         console.log('[REF-GUARD] ✅ Validação areSameTrack() passou - faixas são diferentes');
         
