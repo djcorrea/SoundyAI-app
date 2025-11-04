@@ -9892,6 +9892,13 @@ function renderReferenceComparisons(opts = {}) {
     console.log('[FIX-AUDIT] ✅ Render completo no modo reference');
     console.log('[FIX-AUDIT] ✅ Cards e sugestões renderizados após comparação');
     console.groupEnd(); // Fecha [SAFE_RENDER_REF]
+    
+    // ==== PATCH 2 FINAL: Validação e limpeza ====
+    if (opts.usedReferenceAnalysis !== true) {
+        console.error("[REF-PATCH] usedReferenceAnalysis caiu pra false — bug de wiring");
+        throw new Error("Reference not used");
+    }
+    window.__refRenderInProgress = false;
 }
 
 // 🔒 CÓPIA IMUTÁVEL DA FUNÇÃO ORIGINAL displayModalResults
