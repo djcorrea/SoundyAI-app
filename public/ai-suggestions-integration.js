@@ -1496,11 +1496,22 @@ class AISuggestionsIntegration {
                     console.log("🎼 hasScores:", !!analysis?.scores);
 
                     // � Garante que o objeto completo seja preservado (sem sobrescrever)
-                    const fullAnalysis = { ...analysis };
+                    // 🚨 CORREÇÃO CRÍTICA: Clonagem profunda (structuredClone/JSON) em vez de spread operator
+                    const fullAnalysis = typeof structuredClone === 'function' 
+                        ? structuredClone(analysis) 
+                        : JSON.parse(JSON.stringify(analysis));
 
-                    // 🔧 Garante modo reference intacto
+                    // � Log de debug após clonagem
+                    console.log("🔍 [DEBUG] Após clonagem profunda:", {
+                        method: typeof structuredClone === 'function' ? 'structuredClone' : 'JSON',
+                        hasUserAnalysis: !!fullAnalysis.userAnalysis,
+                        hasReferenceAnalysis: !!fullAnalysis.referenceAnalysis,
+                        hasTechnicalData: !!fullAnalysis.technicalData
+                    });
+
+                    // �🔧 Garante modo reference intacto
                     if (analysis?.mode === "reference") {
-                        console.log("🔒 [AI-FIX] Preservando modo reference e análises A/B");
+                        console.log("🧩 [AI-FIX] Reforçando estrutura A/B antes de renderizar...");
                         
                         if (window.referenceAnalysisData && !fullAnalysis.referenceAnalysis) {
                             fullAnalysis.referenceAnalysis = window.referenceAnalysisData;
@@ -1523,7 +1534,26 @@ class AISuggestionsIntegration {
                             fullAnalysis.scores = fullAnalysis.userAnalysis.scores;
                             console.log("🧩 [AI-FIX] scores restaurado de userAnalysis");
                         }
+                        
+                        // Garantir que metrics não sejam perdidos
+                        if (!fullAnalysis.metrics && fullAnalysis.userAnalysis?.metrics) {
+                            fullAnalysis.metrics = fullAnalysis.userAnalysis.metrics;
+                            console.log("🧩 [AI-FIX] metrics restaurado de userAnalysis");
+                        }
+
+                        fullAnalysis.isSecondTrack = true;
                     }
+                    
+                    // 🔍 Log final antes de chamar função original
+                    console.log("📊 Dados finais antes da renderização:", {
+                        mode: fullAnalysis.mode,
+                        hasUserAnalysis: !!fullAnalysis.userAnalysis,
+                        hasReferenceAnalysis: !!fullAnalysis.referenceAnalysis,
+                        hasTechnicalData: !!fullAnalysis.technicalData,
+                        hasMetrics: !!fullAnalysis.metrics,
+                        hasScores: !!fullAnalysis.scores,
+                        isSecondTrack: fullAnalysis.isSecondTrack
+                    });
 
                     // ✅ Chama função original SEM perder os dados técnicos
                     if (typeof originalDisplayModalResults === "function") {
