@@ -54,7 +54,34 @@ function deepCloneSafe(obj, seen = new WeakMap()) {
     return clone;
 }
 
-// 🛡️ HELPER: Comparador robusto de faixas (evita falso self-compare)
+// � STRINGIFY SEGURO (sem loops circulares)
+// Substitui JSON.stringify() com proteção contra referências circulares
+function safeStringify(obj) {
+    const seen = new WeakSet();
+    return JSON.stringify(obj, (key, value) => {
+        // Detectar e marcar referências circulares
+        if (typeof value === "object" && value !== null) {
+            if (seen.has(value)) {
+                return "[Circular]";
+            }
+            seen.add(value);
+        }
+        
+        // Omitir propriedades específicas que causam loops
+        if (key === "_referenceAnalysis" || key === "referenceAnalysis") {
+            return "[OmittedRef]";
+        }
+        
+        // Omitir propriedades privadas (começam com _)
+        if (key && key.startsWith("_")) {
+            return undefined;
+        }
+        
+        return value;
+    }, 2); // Indentação de 2 espaços para legibilidade
+}
+
+// �🛡️ HELPER: Comparador robusto de faixas (evita falso self-compare)
 function areSameTrack(a, b) {
     if (!a || !b) return false;
 
@@ -3195,8 +3222,9 @@ async function handleModalFileSelection(file) {
             
             // Marcar no normalizedResult que é modo referência com dados corretos
             normalizedResult._isReferenceMode = true;
-            normalizedResult._userAnalysis = userAnalysis;
-            normalizedResult._referenceAnalysis = referenceAnalysisData;
+            // 🛡️ PROTEÇÃO CIRCULAR: usar clone seguro para evitar loops
+            normalizedResult._userAnalysis = deepCloneSafe(userAnalysis);
+            normalizedResult._referenceAnalysis = deepCloneSafe(referenceAnalysisData);
             
             // ==== CHECKPOINT AUDITORIA REF-CONTAMINAÇÃO ====
             console.group("[AUDITORIA REF-CONTAMINAÇÃO]");
@@ -3205,6 +3233,7 @@ async function handleModalFileSelection(file) {
             console.log("📦 analysis.metadata.fileName:", normalizedResult?.metadata?.fileName);
             console.groupEnd();
             
+            console.log("[SAFE-MODAL] ✅ Fluxo reference intacto, iniciando renderização final.");
             await displayModalResults(normalizedResult);
             console.log('[FIX-REFERENCE] Modal aberto após segunda análise');
             
@@ -4803,20 +4832,24 @@ function displayModalResults(analysis) {
     // =========================================================================
     // 🚨 AUDITORIA COMPLETA EM TEMPO DE EXECUÇÃO - DESCOBRIR POR QUE NÃO RENDERIZA
     // =========================================================================
-    console.groupCollapsed('[AUDITORIA_REFERENCE_MODE] 🔍 INVESTIGAÇÃO COMPLETA');
-    console.log('[STEP 1] 🔍 Modo recebido:', analysis?.mode);
-    console.log('[STEP 2] 🔍 Contém metrics?', !!analysis?.metrics);
-    console.log('[STEP 3] 🔍 Contém technicalData?', !!analysis?.technicalData);
-    console.log('[STEP 4] 🔍 Contém suggestions?', !!analysis?.suggestions);
-    console.log('[STEP 5] 🔍 Funções disponíveis:', {
-        renderMetricCards: typeof window.renderMetricCards,
-        renderScoreSection: typeof window.renderScoreSection,
-        renderSuggestions: typeof window.renderSuggestions,
-        renderFinalScoreAtTop: typeof window.renderFinalScoreAtTop,
-        renderAdvancedMetrics: typeof window.renderAdvancedMetrics,
-    });
-    console.log('[STEP 6] 🔍 analysis completo:', JSON.parse(JSON.stringify(analysis || {})));
-    console.groupEnd();
+    try {
+        console.groupCollapsed('[AUDITORIA_REFERENCE_MODE] 🔍 INVESTIGAÇÃO COMPLETA');
+        console.log('[STEP 1] 🔍 Modo recebido:', analysis?.mode);
+        console.log('[STEP 2] 🔍 Contém metrics?', !!analysis?.metrics);
+        console.log('[STEP 3] 🔍 Contém technicalData?', !!analysis?.technicalData);
+        console.log('[STEP 4] 🔍 Contém suggestions?', !!analysis?.suggestions);
+        console.log('[STEP 5] 🔍 Funções disponíveis:', {
+            renderMetricCards: typeof window.renderMetricCards,
+            renderScoreSection: typeof window.renderScoreSection,
+            renderSuggestions: typeof window.renderSuggestions,
+            renderFinalScoreAtTop: typeof window.renderFinalScoreAtTop,
+            renderAdvancedMetrics: typeof window.renderAdvancedMetrics,
+        });
+        console.log('[STEP 6] 🔍 analysis (safe):', safeStringify(analysis || {}));
+        console.groupEnd();
+    } catch (e) {
+        console.warn('[AUDITORIA_REFERENCE_MODE] ⚠️ Falha ao logar analysis:', e.message);
+    }
     
     // 🔍 AUDITORIA: Estado AO ENTRAR em displayModalResults
     console.groupCollapsed('[AUDITORIA_STATE_FLOW] 🚀 displayModalResults - ENTRADA');
