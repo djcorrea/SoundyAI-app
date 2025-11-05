@@ -3243,6 +3243,14 @@ function setupAudioModal() {
 async function handleModalFileSelection(file) {
     __dbg('📁 Arquivo selecionado no modal:', file.name);
     
+    // ========================================
+    // 🔒 DECLARAÇÃO DE ESCOPO GLOBAL: normalizedFirst
+    // ========================================
+    // Garantir que normalizedFirst sempre exista no escopo da função
+    let normalizedFirst = window.__FIRST_ANALYSIS_FROZEN__ 
+        ? structuredClone(window.__FIRST_ANALYSIS_FROZEN__) 
+        : null;
+    
     // 🔧 CORREÇÃO: Prevenir múltiplas análises simultâneas
     if (typeof window !== 'undefined' && window.__MODAL_ANALYSIS_IN_PROGRESS__) {
         __dbg('⚠️ Análise já em progresso, ignorando nova seleção');
@@ -3330,6 +3338,13 @@ async function handleModalFileSelection(file) {
             // Usar cacheResultByRole para criar VID e salvar com papel USER
             const { vid: userVid, clone: userClone } = cacheResultByRole(analysisResult, { isSecondTrack: false });
             
+            // Atualizar normalizedFirst para uso nos logs e modal
+            if (!normalizedFirst && userClone) {
+                normalizedFirst = userClone;
+                window.__FIRST_ANALYSIS_FROZEN__ = structuredClone(normalizedFirst);
+                console.log('[SCOPE] ✅ normalizedFirst inicializado com userClone');
+            }
+            
             if (!window.FirstAnalysisStore?.has()) {
                 // Salvar como USER no FirstAnalysisStore
                 FirstAnalysisStore.setUser(userClone, userVid, analysisResult.jobId);
@@ -3364,22 +3379,34 @@ async function handleModalFileSelection(file) {
             console.log('  FirstAnalysisStore retorna clones:', true);
             console.groupEnd();
             
+            // ========================================
+            // 🛡️ VALIDAÇÃO: Garantir que normalizedFirst existe
+            // ========================================
+            if (!normalizedFirst) {
+                console.warn('[WARN] normalizedFirst ausente — usando fallback do FirstAnalysisStore.');
+                normalizedFirst = structuredClone(FirstAnalysisStore.getUser() || {});
+            }
+            
             console.log('[REF-SAVE ✅] ═══════════════════════════════════════');
             console.log('[REF-SAVE ✅] Primeira música processada com sucesso!');
-            console.log(`[REF-SAVE ✅] Job ID salvo globalmente: ${normalizedFirst.jobId}`);
+            console.log(`[REF-SAVE ✅] Job ID salvo globalmente: ${normalizedFirst?.jobId || 'unknown'}`);
             console.log('[REF-SAVE ✅] Locais de salvamento:');
             console.log('[REF-SAVE ✅]   - window.__REFERENCE_JOB_ID__');
             console.log('[REF-SAVE ✅]   - localStorage.referenceJobId');
             console.log('[REF-SAVE ✅]   - window.AnalysisCache (imutável)');
             console.log('[REF-SAVE ✅]   - window.FirstAnalysisStore (imutável + clonagem automática)');
-            console.log(`[REF-SAVE ✅] File Name: ${normalizedFirst.metadata?.fileName || normalizedFirst.fileName || 'unknown'}`);
-            console.log(`[REF-SAVE ✅] LUFS: ${normalizedFirst.technicalData?.lufsIntegrated || 'N/A'} LUFS`);
-            console.log(`[REF-SAVE ✅] DR: ${normalizedFirst.technicalData?.dynamicRange || 'N/A'} dB`);
+            console.log(`[REF-SAVE ✅] File Name: ${normalizedFirst?.metadata?.fileName || normalizedFirst?.fileName || 'unknown'}`);
+            console.log(`[REF-SAVE ✅] LUFS: ${normalizedFirst?.technicalData?.lufsIntegrated || 'N/A'} LUFS`);
+            console.log(`[REF-SAVE ✅] DR: ${normalizedFirst?.technicalData?.dynamicRange || 'N/A'} dB`);
             console.log('[REF-SAVE ✅] Este ID será usado na segunda música');
             console.log('[REF-SAVE ✅] Primeira análise salva e congelada.');
             console.log('[REF-SAVE ✅] ═══════════════════════════════════════');
             
-            openReferenceUploadModal(normalizedFirst.jobId, normalizedFirst);
+            if (normalizedFirst && normalizedFirst.jobId) {
+                openReferenceUploadModal(normalizedFirst.jobId, normalizedFirst);
+            } else {
+                console.error('[ERROR] ❌ Não foi possível abrir modal: normalizedFirst inválido');
+            }
         } else if (isSecondTrack) {
             // 🔥 FORÇAR: Se tem jobId de referência, SEMPRE tratar como segunda track
             console.log('🟢🟢🟢 [SEGUNDA-TRACK-DETECTADA-FORCE] ════════════════════════════════════');
