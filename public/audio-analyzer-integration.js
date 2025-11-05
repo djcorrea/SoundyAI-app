@@ -19,6 +19,66 @@ function cloneDeepSafe(obj) {
 }
 
 // ========================================
+// 🔄 HIDRATAÇÃO DE REFERÊNCIA (Correção 1)
+// ========================================
+/**
+ * Garante que a referência esteja hidratada e disponível para comparação A/B.
+ * Fonte de verdade: AnalysisCache ➜ FirstAnalysisStore ➜ __FIRST_ANALYSIS_FROZEN__
+ * @returns {Object} { ok: boolean, reason?: string, refId?: string, hasBands?: boolean, file?: string }
+ */
+function ensureReferenceHydrated() {
+  try {
+    const mode = window.currentAnalysisMode || window.__soundyState?.render?.mode;
+    const refId = window.__REFERENCE_JOB_ID__ || localStorage.getItem('referenceJobId');
+
+    if (mode !== 'reference' || !refId) {
+      return { ok: false, reason: 'no-ref-mode-or-id' };
+    }
+
+    // Fonte de verdade: AnalysisCache ➜ FirstAnalysisStore ➜ __FIRST_ANALYSIS_FROZEN__
+    const cache = window.AnalysisCache;
+    let ref = cache?.get?.(refId) || window.FirstAnalysisStore?.get?.() || window.__FIRST_ANALYSIS_FROZEN__;
+
+    if (!ref) {
+      return { ok: false, reason: 'no-ref-object' };
+    }
+
+    // deep clone SEM compartilhar metadata/bands
+    const refClone = (typeof structuredClone === 'function') 
+      ? structuredClone(ref) 
+      : JSON.parse(JSON.stringify(ref));
+
+    // Normalizar shape esperado (bands/technicalData/metadata)
+    if (!refClone.bands && refClone.spectralBands) {
+      refClone.bands = refClone.spectralBands;
+    }
+
+    // Publicar referência consistente no escopo global
+    window.referenceAnalysisData = refClone;
+    window.__FIRST_ANALYSIS_FROZEN__ = (typeof structuredClone === 'function') 
+      ? structuredClone(refClone) 
+      : JSON.parse(JSON.stringify(refClone));
+
+    // Sinalização
+    console.log('[ensureReferenceHydrated] ✅ Referência hidratada:', {
+      refId,
+      hasBands: !!refClone?.bands,
+      file: refClone?.metadata?.fileName || refClone?.fileName
+    });
+
+    return { 
+      ok: true, 
+      refId, 
+      hasBands: !!refClone?.bands, 
+      file: refClone?.metadata?.fileName || refClone?.fileName 
+    };
+  } catch (e) {
+    console.warn('[ensureReferenceHydrated] ❌ erro', e);
+    return { ok: false, reason: 'exception', error: String(e) };
+  }
+}
+
+// ========================================
 // 🛡️ GUARDIÃO GLOBAL: aiUIController Stub
 // ========================================
 /**
@@ -71,6 +131,39 @@ function cloneDeepSafe(obj) {
     }
   });
   observer.observe(document.body, { childList: true, subtree: true });
+})();
+
+// ========================================
+// ✅ CORREÇÃO 4: Alias Seguro para aiUIController
+// ========================================
+// Garantir que funções legadas estejam disponíveis como fallback
+(function createAIUIControllerAliases() {
+  if (!window.aiUIController) window.aiUIController = {};
+  
+  // Se renderMetricCards não existe mas existe função global, criar alias
+  if (typeof window.aiUIController.renderMetricCards !== 'function' && 
+      typeof window.renderMetricCards === 'function') {
+    window.aiUIController.renderMetricCards = (...args) => window.renderMetricCards(...args);
+    console.log('[ALIAS] ✅ Criado alias: aiUIController.renderMetricCards → renderMetricCards');
+  }
+  
+  if (typeof window.aiUIController.renderScoreSection !== 'function' && 
+      typeof window.renderScoreSection === 'function') {
+    window.aiUIController.renderScoreSection = (...args) => window.renderScoreSection(...args);
+    console.log('[ALIAS] ✅ Criado alias: aiUIController.renderScoreSection → renderScoreSection');
+  }
+  
+  if (typeof window.aiUIController.renderSuggestions !== 'function' && 
+      typeof window.renderSuggestions === 'function') {
+    window.aiUIController.renderSuggestions = (...args) => window.renderSuggestions(...args);
+    console.log('[ALIAS] ✅ Criado alias: aiUIController.renderSuggestions → renderSuggestions');
+  }
+  
+  if (typeof window.aiUIController.renderFinalScoreAtTop !== 'function' && 
+      typeof window.renderFinalScoreAtTop === 'function') {
+    window.aiUIController.renderFinalScoreAtTop = (...args) => window.renderFinalScoreAtTop(...args);
+    console.log('[ALIAS] ✅ Criado alias: aiUIController.renderFinalScoreAtTop → renderFinalScoreAtTop');
+  }
 })();
 
 // 📝 Carregar gerador de texto didático
@@ -177,6 +270,18 @@ const FirstAnalysisStore = window.FirstAnalysisStore;
 // �️ GUARDS: Isolamento de jobIds para evitar self-compare
 // Recebe objetos já clonados e garante que refFull tenha jobId único se necessário
 function refHardGuards({ userFull, refFull, secondAnalysis }) {
+    // ========================================
+    // ✅ CORREÇÃO 4: Validação de entrada
+    // ========================================
+    if (!userFull) {
+        console.warn('[refHardGuards] ⚠️ userFull inválido');
+        return { ok: false, reason: 'invalid-user' };
+    }
+    if (!refFull) {
+        console.warn('[refHardGuards] ⚠️ refFull inválido');
+        return { ok: false, reason: 'invalid-ref' };
+    }
+
     const userId = userFull?.jobId || userFull?.id;
     const refId = refFull?.jobId || refFull?.id;
     const secondId = secondAnalysis?.jobId || secondAnalysis?.id;
@@ -192,7 +297,7 @@ function refHardGuards({ userFull, refFull, secondAnalysis }) {
     }
 
     console.log('[GUARD] ✅ userJobId:', userId, '| refJobId:', refFull?.jobId || refFull?.id);
-    return { userFull, refFull };
+    return { ok: true, userFull, refFull };
 }
 
 // �🔒 CLONE PROFUNDO SEGURO (sem loops circulares)
@@ -5132,6 +5237,35 @@ async function displayModalResults(analysis) {
 
     console.log('[SAFE] ✅ aiUIController detectado, renderização liberada.');
 
+    // ========================================
+    // ✅ CORREÇÃO 2: AB SAFETY - Hidratação e Forçar Modo Reference
+    // ========================================
+    const abState = ensureReferenceHydrated();
+    const _modeNow = window.currentAnalysisMode || window.__soundyState?.render?.mode;
+
+    // Se é segunda faixa e temos refId válido, o modo é obrigatoriamente 'reference'
+    const isSecondTrack = !!(window.__REFERENCE_JOB_ID__ && window.FirstAnalysisStore?.has?.());
+    if (isSecondTrack && _modeNow !== 'reference') {
+        window.currentAnalysisMode = 'reference';
+        if (window.__soundyState?.render) window.__soundyState.render.mode = 'reference';
+        console.warn('[AB-FORCE] Forçando mode=reference porque há segunda faixa + referenceId.');
+    }
+
+    // Validar referência
+    if (isSecondTrack && (!abState.ok || !window.referenceAnalysisData?.bands)) {
+        console.error('[AB-BLOCK] Referência não hidratada para comparação', abState);
+        console.error('[AB-BLOCK] Segunda faixa detectada mas sem referência válida - abortando comparação A/B');
+        // Não degrade para genre; aborte a comparação para evitar self-compare
+        // Continue renderizando cards da segunda faixa normalmente (modo single)
+    } else if (isSecondTrack) {
+        console.log('[AB-SAFETY] ✅ Referência validada:', {
+            ok: abState.ok,
+            refId: abState.refId,
+            hasBands: abState.hasBands,
+            file: abState.file
+        });
+    }
+
     // =========================================================================
     // �️ GUARD CRÍTICO: Prevenir sobrescrita de __FIRST_ANALYSIS_FROZEN__
     // =========================================================================
@@ -5390,7 +5524,7 @@ async function displayModalResults(analysis) {
     }
     
     // 🎯 DETECÇÃO DE MODO COMPARAÇÃO ENTRE FAIXAS
-    const isSecondTrack = window.__REFERENCE_JOB_ID__ !== null && window.__REFERENCE_JOB_ID__ !== undefined;
+    const isSecondTrackCheck = window.__REFERENCE_JOB_ID__ !== null && window.__REFERENCE_JOB_ID__ !== undefined;
     const mode = analysis?.mode || currentAnalysisMode;
     
     // 🔴🔴🔴 DIAGNÓSTICO CRÍTICO: Por que não está entrando no bloco A/B?
@@ -5400,10 +5534,10 @@ async function displayModalResults(analysis) {
     console.log('🔴 [DIAGNÓSTICO-AB]   currentAnalysisMode:', currentAnalysisMode);
     console.log('🔴 [DIAGNÓSTICO-AB]   mode (final):', mode);
     console.log('🔴 [DIAGNÓSTICO-AB]   window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
-    console.log('🔴 [DIAGNÓSTICO-AB]   isSecondTrack:', isSecondTrack);
-    console.log('🔴 [DIAGNÓSTICO-AB] Condicional será:', mode === 'reference' && isSecondTrack);
+    console.log('🔴 [DIAGNÓSTICO-AB]   isSecondTrackCheck:', isSecondTrackCheck);
+    console.log('🔴 [DIAGNÓSTICO-AB] Condicional será:', mode === 'reference' && isSecondTrackCheck);
     console.log('🔴 [DIAGNÓSTICO-AB]   mode === "reference"?', mode === 'reference');
-    console.log('🔴 [DIAGNÓSTICO-AB]   isSecondTrack?', isSecondTrack);
+    console.log('🔴 [DIAGNÓSTICO-AB]   isSecondTrackCheck?', isSecondTrackCheck);
     console.log('🔴🔴🔴 [DIAGNÓSTICO-AB] ════════════════════════════════════');
     
     // 🎯 DEFINIR MODO NO ESTADO ANTES DE QUALQUER CÁLCULO
@@ -5412,7 +5546,7 @@ async function displayModalResults(analysis) {
     
     // 🔴 FIX CRÍTICO: Remover verificação de window.__FIRST_ANALYSIS_FROZEN__ da condicional
     // para permitir entrada no bloco e fazer recuperação automática
-    if (mode === 'reference' && isSecondTrack) {
+    if (mode === 'reference' && isSecondTrackCheck) {
         console.log('🎯 [COMPARE-MODE] Modo reference detectado - Segunda faixa chegou');
         console.log('📊 [COMPARE-MODE] window.__FIRST_ANALYSIS_FROZEN__ existe?', !!window.__FIRST_ANALYSIS_FROZEN__);
         console.log('📊 [COMPARE-MODE] Segunda faixa:', analysis);
@@ -8057,26 +8191,46 @@ async function displayModalResults(analysis) {
                 referenceBandsKeys: state.reference?.analysis?.bands ? Object.keys(state.reference.analysis.bands) : []
             });
             
-            // ✅ CORREÇÃO: SEMPRE chamar renderReferenceComparisons() - ela renderiza cards/scores/tabela
-            const renderMode = (mode === 'reference' && isSecondTrack && window.referenceAnalysisData) ? 'reference' : 'genre';
-            console.log(`📊 [RENDER-FLOW] Chamando renderReferenceComparisons() - modo: ${renderMode}`);
-            console.log('[AUDIT-FLOW-CHECK] ✅ Segunda chamada de renderReferenceComparisons (após cards)');
+            // ========================================
+            // ✅ CORREÇÃO 3: Padronizar chamada de renderReferenceComparisons
+            // ========================================
+            // Nunca chamar em 'genre' se existe segunda faixa + referenceId
+            const mustBeReference = !!(window.__REFERENCE_JOB_ID__ && window.referenceAnalysisData?.bands);
+            const compareMode = mustBeReference ? 'reference' : (window.currentAnalysisMode || 'genre');
             
-            // Preparar opts com análises corretas para modo reference
+            console.log(`📊 [RENDER-FLOW] Preparando renderReferenceComparisons() - modo: ${compareMode}`);
+            console.log('[RENDER-FLOW] mustBeReference:', mustBeReference);
+            console.log('[RENDER-FLOW] __REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
+            console.log('[RENDER-FLOW] referenceAnalysisData.bands:', !!window.referenceAnalysisData?.bands);
+            
+            // Preparar objeto ctx com clones profundos para evitar contaminação
+            const userClone = (typeof structuredClone === 'function') 
+                ? structuredClone(analysis) 
+                : JSON.parse(JSON.stringify(analysis));
+            
+            const refClone = window.referenceAnalysisData 
+                ? ((typeof structuredClone === 'function') 
+                    ? structuredClone(window.referenceAnalysisData) 
+                    : JSON.parse(JSON.stringify(window.referenceAnalysisData)))
+                : null;
+            
             const renderOpts = {
-                analysis,
-                mode: renderMode
+                mode: compareMode,
+                user: userClone,
+                ref: refClone,
+                // Compatibilidade com código legado
+                analysis: analysis,
+                userAnalysis: state.userAnalysis || state.reference?.userAnalysis || userClone,
+                referenceAnalysis: state.referenceAnalysis || state.reference?.referenceAnalysis || refClone
             };
             
-            if (renderMode === 'reference') {
-                // Adicionar userAnalysis e referenceAnalysis para o modo reference
-                renderOpts.userAnalysis = state.userAnalysis || state.reference?.userAnalysis;
-                renderOpts.referenceAnalysis = state.referenceAnalysis || state.reference?.referenceAnalysis;
-                console.log('[CARDS] ✅ Dados A/B preparados para renderReferenceComparisons:', {
-                    hasUserAnalysis: !!renderOpts.userAnalysis,
-                    hasReferenceAnalysis: !!renderOpts.referenceAnalysis
-                });
-            }
+            console.log('[RENDER-OPTS] ✅ Dados preparados:', {
+                mode: renderOpts.mode,
+                hasUser: !!renderOpts.user,
+                hasRef: !!renderOpts.ref,
+                userBands: !!renderOpts.user?.bands,
+                refBands: !!renderOpts.ref?.bands
+            });
             
             // 🔍 [AUDIT-BANDS-BEFORE] Log ANTES da chamada de renderReferenceComparisons
             try {
@@ -8485,15 +8639,42 @@ if (typeof window.comparisonLock === "undefined") {
 }
 
 // --- BEGIN: deterministic mode gate ---
-function renderReferenceComparisons(opts = {}) {
+function renderReferenceComparisons(ctx) {
+    // ========================================
+    // ✅ CORREÇÃO 3: Padronização de chamada e validação de ctx
+    // ========================================
+    // Normalizar ctx para aceitar objeto { mode, user, ref }
+    const mode = ctx?.mode || window.currentAnalysisMode || 'genre';
+    const user = ctx?.user || ctx?.userAnalysis || window._lastUserAnalysis || {};
+    const refData = ctx?.ref || ctx?.referenceAnalysis || window.referenceAnalysisData || {};
+
+    // HARD-GUARD: sem bands? não renderiza A/B para evitar self-compare
+    if (mode === 'reference') {
+        if (!refData?.bands || !user?.bands) {
+            console.warn('[A/B-SKIP] bands ausentes (user/ref). Evitando self-compare.');
+            return;
+        }
+    }
+
+    // Atualizar opts para compatibilidade com código existente
+    const opts = {
+        mode: mode,
+        userAnalysis: user,
+        referenceAnalysis: refData,
+        ...ctx // Mesclar propriedades adicionais de ctx
+    };
+
     // ==== STEP 3/6: refHardGuards() com areSameTrack() e retorno {abort, reason} ====
     const guardResult = (function refHardGuards(){
         const s = window.__soundyState || {};
         const globalRef = window.referenceAnalysisData || s.referenceAnalysis || null;
 
-        opts = opts || {};
-        if (!opts.userAnalysis && analysis?.userAnalysis) opts.userAnalysis = analysis.userAnalysis;
-        if (!opts.referenceAnalysis && analysis?.referenceAnalysis) opts.referenceAnalysis = analysis.referenceAnalysis;
+        if (!opts.userAnalysis && typeof analysis !== 'undefined' && analysis?.userAnalysis) {
+            opts.userAnalysis = analysis.userAnalysis;
+        }
+        if (!opts.referenceAnalysis && typeof analysis !== 'undefined' && analysis?.referenceAnalysis) {
+            opts.referenceAnalysis = analysis.referenceAnalysis;
+        }
 
         if (!opts.referenceAnalysis && globalRef) {
             console.warn("[REF-PATCH] Reinjetando referência a partir do global");
