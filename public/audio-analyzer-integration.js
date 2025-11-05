@@ -197,44 +197,63 @@ const __dwrn = (...a) => { if (__DEBUG_ANALYZER__) console.warn('[AUDIO-WARN]', 
 // ========================================
 (function initGlobalStores() {
   if (!window.AnalysisCache) {
-    const _map = new Map();
-    window.AnalysisCache = _map; // Expor Map diretamente para compatibilidade com CacheIndex
+    // 🔧 Implementação segura sem recursão infinita
+    const _data = new Map();
     
-    // Adaptar API para aceitar Virtual IDs (vid) ou jobId simples
-    window.AnalysisCache.put = function(keyOrAnalysis, analysis) {
-      // Suporta: put(vid, analysis) ou put(analysis)
-      let key, data;
-      if (typeof keyOrAnalysis === 'string' && analysis) {
-        key = keyOrAnalysis; // Virtual ID explícito
-        data = analysis;
-      } else {
-        data = keyOrAnalysis;
-        key = data?.jobId || data?.id; // Backward compatibility
-      }
+    window.AnalysisCache = {
+      _data: _data,
       
-      if (!key || !data) return;
-      _map.set(key, Object.freeze(cloneDeepSafe(data)));
-      console.log('[CACHE] ✅ put', { 
-        vid: key, 
-        file: data?.fileName || data?.metadata?.fileName,
-        isVirtualId: key.includes('::')
-      });
+      get(key) {
+        if (!key) return null;
+        const value = this._data.get(key);
+        return value ? cloneDeepSafe(value) : null;
+      },
+      
+      set(key, value) {
+        if (!key || !value) return;
+        this._data.set(key, Object.freeze(cloneDeepSafe(value)));
+      },
+      
+      has(key) {
+        return key ? this._data.has(key) : false;
+      },
+      
+      delete(key) {
+        return this._data.delete(key);
+      },
+      
+      clear() {
+        this._data.clear();
+        console.log('[CACHE] 🗑️ clear');
+      },
+      
+      // 🔧 API ESTENDIDA: Suporta Virtual IDs (vid) ou jobId simples
+      put(keyOrAnalysis, analysis) {
+        // Suporta: put(vid, analysis) ou put(analysis)
+        let key, data;
+        if (typeof keyOrAnalysis === 'string' && analysis) {
+          key = keyOrAnalysis; // Virtual ID explícito
+          data = analysis;
+        } else {
+          data = keyOrAnalysis;
+          key = data?.jobId || data?.id; // Backward compatibility
+        }
+        
+        if (!key || !data) return;
+        this._data.set(key, Object.freeze(cloneDeepSafe(data)));
+        console.log('[CACHE] ✅ put', { 
+          vid: key, 
+          file: data?.fileName || data?.metadata?.fileName,
+          isVirtualId: key.includes('::')
+        });
+      },
+      
+      ids() {
+        return Array.from(this._data.keys());
+      }
     };
     
-    window.AnalysisCache.get = function(k) {
-      if (!k) return null;
-      const a = _map.get(k);
-      return a ? cloneDeepSafe(a) : null;
-    };
-    
-    window.AnalysisCache.has = function(k) { return k && _map.has(k); };
-    window.AnalysisCache.ids = function() { return Array.from(_map.keys()); };
-    window.AnalysisCache.clear = function() { 
-      _map.clear(); 
-      console.log('[CACHE] 🗑️ clear');
-    };
-    
-    console.log('[BOOT] AnalysisCache ✅ (Virtual ID support)');
+    console.log('[BOOT] AnalysisCache ✅ (Virtual ID support, no recursion)');
   }
 
   if (!window.FirstAnalysisStore) {
