@@ -11,6 +11,165 @@
 window.CacheIndex ??= { USER: null, REF: null };
 
 // ========================================
+// 🧠 SISTEMA DE SESSÕES ISOLADAS (ANTI-CONTAMINAÇÃO DEFINITIVO)
+// ========================================
+/**
+ * Sistema de contextos isolados para análises de referência.
+ * Cada sessão armazena um par (referência, atual) completamente independente.
+ * NUNCA mais usar window.__FIRST_ANALYSIS_FROZEN__ ou stateV3.reference diretamente.
+ */
+window.AnalysisSessions = window.AnalysisSessions || {};
+
+/**
+ * Cria uma nova sessão de análise isolada
+ * @returns {string} ID único da sessão
+ */
+function createAnalysisSession() {
+    const sessionId = crypto.randomUUID();
+    window.AnalysisSessions[sessionId] = {
+        reference: null,  // Primeira música (alvo de comparação)
+        current: null,    // Segunda música (música do usuário)
+        ready: false,     // Flag indicando se ambas foram carregadas
+        createdAt: new Date().toISOString()
+    };
+    
+    console.log('🆕 [SESSION] Nova sessão criada:', sessionId);
+    console.log('   - Timestamp:', window.AnalysisSessions[sessionId].createdAt);
+    
+    return sessionId;
+}
+
+/**
+ * Salva primeira música (referência) na sessão
+ * @param {string} sessionId - ID da sessão
+ * @param {object} data - Dados da análise
+ */
+function saveFirstAnalysis(sessionId, data) {
+    if (!window.AnalysisSessions[sessionId]) {
+        console.error('❌ [SESSION] Sessão não encontrada:', sessionId);
+        return;
+    }
+    
+    // Deep clone para garantir isolamento total
+    window.AnalysisSessions[sessionId].reference = JSON.parse(JSON.stringify(data));
+    
+    console.log('💾 [SESSION] Primeira música salva na sessão:', sessionId);
+    console.log('   - JobId:', data?.jobId);
+    console.log('   - FileName:', data?.fileName || data?.metadata?.fileName);
+    console.log('   - LUFS:', data?.technicalData?.lufsIntegrated);
+}
+
+/**
+ * Salva segunda música (comparação) na sessão
+ * @param {string} sessionId - ID da sessão
+ * @param {object} data - Dados da análise
+ */
+function saveSecondAnalysis(sessionId, data) {
+    if (!window.AnalysisSessions[sessionId]) {
+        console.error('❌ [SESSION] Sessão não encontrada:', sessionId);
+        return;
+    }
+    
+    // Deep clone para garantir isolamento total
+    window.AnalysisSessions[sessionId].current = JSON.parse(JSON.stringify(data));
+    window.AnalysisSessions[sessionId].ready = true;
+    
+    console.log('💾 [SESSION] Segunda música salva na sessão:', sessionId);
+    console.log('   - JobId:', data?.jobId);
+    console.log('   - FileName:', data?.fileName || data?.metadata?.fileName);
+    console.log('   - LUFS:', data?.technicalData?.lufsIntegrated);
+    console.log('✅ [SESSION] Sessão pronta para comparação');
+}
+
+/**
+ * Obtém par de análises (referência, atual) da sessão
+ * Retorna clones independentes para evitar contaminação
+ * @param {string} sessionId - ID da sessão
+ * @returns {object|null} { ref, curr } ou null se sessão não estiver pronta
+ */
+function getSessionPair(sessionId) {
+    const session = window.AnalysisSessions[sessionId];
+    
+    if (!session) {
+        console.warn('⚠️ [SESSION-WARN] Sessão não encontrada:', sessionId);
+        return null;
+    }
+    
+    if (!session.ready) {
+        console.warn('⚠️ [SESSION-WARN] Sessão ainda não pronta:', sessionId);
+        console.warn('   - reference:', !!session.reference);
+        console.warn('   - current:', !!session.current);
+        return null;
+    }
+    
+    // Retornar clones independentes (NUNCA referências originais)
+    const pair = {
+        ref: JSON.parse(JSON.stringify(session.reference)),
+        curr: JSON.parse(JSON.stringify(session.current))
+    };
+    
+    console.log('📦 [SESSION] Par de análises obtido da sessão:', sessionId);
+    console.log('   - ref.jobId:', pair.ref?.jobId);
+    console.log('   - curr.jobId:', pair.curr?.jobId);
+    console.log('   - ref.fileName:', pair.ref?.fileName || pair.ref?.metadata?.fileName);
+    console.log('   - curr.fileName:', pair.curr?.fileName || pair.curr?.metadata?.fileName);
+    
+    // 🔒 AUDITORIA AUTOMÁTICA
+    console.table({
+        sessionId: sessionId,
+        refJob: pair.ref?.jobId,
+        currJob: pair.curr?.jobId,
+        refName: pair.ref?.fileName || pair.ref?.metadata?.fileName,
+        currName: pair.curr?.fileName || pair.curr?.metadata?.fileName,
+        sameJob: pair.ref?.jobId === pair.curr?.jobId,
+        sameName: (pair.ref?.fileName || pair.ref?.metadata?.fileName) === (pair.curr?.fileName || pair.curr?.metadata?.fileName)
+    });
+    
+    // 🚨 VALIDAÇÃO CRÍTICA
+    if (pair.ref?.jobId === pair.curr?.jobId) {
+        console.error('🚨 [SESSION-ERROR] CONTAMINAÇÃO DETECTADA NA SESSÃO!');
+        console.error('   JobIds são IGUAIS:', pair.ref.jobId);
+        console.error('   Isso indica problema na ORIGEM dos dados (backend ou upload)');
+        console.trace();
+    }
+    
+    if ((pair.ref?.fileName || pair.ref?.metadata?.fileName) === (pair.curr?.fileName || pair.curr?.metadata?.fileName)) {
+        console.error('🚨 [SESSION-ERROR] NOMES DE ARQUIVO IGUAIS!');
+        console.error('   FileName:', pair.ref?.fileName || pair.ref?.metadata?.fileName);
+        console.error('   Isso indica problema visual ou backend retornando mesmo arquivo');
+        console.trace();
+    }
+    
+    return pair;
+}
+
+/**
+ * Limpa sessão antiga (opcional - para economizar memória)
+ * @param {string} sessionId - ID da sessão a limpar
+ */
+function clearAnalysisSession(sessionId) {
+    if (window.AnalysisSessions[sessionId]) {
+        delete window.AnalysisSessions[sessionId];
+        console.log('🗑️ [SESSION] Sessão removida:', sessionId);
+    }
+}
+
+/**
+ * Lista todas as sessões ativas (para debug)
+ */
+function listAnalysisSessions() {
+    console.log('📋 [SESSION] Sessões ativas:', Object.keys(window.AnalysisSessions).length);
+    Object.entries(window.AnalysisSessions).forEach(([id, session]) => {
+        console.log(`   - ${id}:`, {
+            ready: session.ready,
+            refFile: session.reference?.fileName || session.reference?.metadata?.fileName,
+            currFile: session.current?.fileName || session.current?.metadata?.fileName,
+            createdAt: session.createdAt
+        });
+    });
+}
+
+// ========================================
 // 🔧 UTILIDADES DE CLONAGEM PROFUNDA
 // ========================================
 /**
@@ -3499,15 +3658,24 @@ async function handleModalFileSelection(file) {
             __dbg('🎯 Primeira música analisada - abrindo modal para segunda');
             
             // ========================================
+            // 🧠 CRIAR SESSÃO ISOLADA PARA ESTE PAR DE ANÁLISES
+            // ========================================
+            window.__CURRENT_SESSION_ID__ = createAnalysisSession();
+            console.log('🆕 [SESSION-FLOW] Sessão criada para primeira música:', window.__CURRENT_SESSION_ID__);
+            
+            // ========================================
             // 🔒 SALVAR PRIMEIRA ANÁLISE COM VIRTUAL ID
             // ========================================
             // Usar cacheResultByRole para criar VID e salvar com papel USER
             const { vid: userVid, clone: userClone } = cacheResultByRole(analysisResult, { isSecondTrack: false });
             
+            // 💾 SALVAR NA SESSÃO ISOLADA (fonte de verdade principal)
+            saveFirstAnalysis(window.__CURRENT_SESSION_ID__, userClone || analysisResult);
+            
             // Atualizar normalizedFirst para uso nos logs e modal
             if (!normalizedFirst && userClone) {
                 normalizedFirst = userClone;
-                window.__FIRST_ANALYSIS_FROZEN__ = structuredClone(normalizedFirst);
+                window.__FIRST_ANALYSIS_FROZEN__ = structuredClone(normalizedFirst); // Mantido para compatibilidade
                 console.log('[SCOPE] ✅ normalizedFirst inicializado com userClone');
             }
             
@@ -3602,7 +3770,26 @@ async function handleModalFileSelection(file) {
             // Usar cacheResultByRole para criar VID e salvar com papel REF
             const { vid: refVid, clone: refClone } = cacheResultByRole(analysisResult, { isSecondTrack: true });
             
-            // Salvar como REF no FirstAnalysisStore
+            // 💾 SALVAR NA SESSÃO ISOLADA (fonte de verdade principal)
+            if (window.__CURRENT_SESSION_ID__) {
+                saveSecondAnalysis(window.__CURRENT_SESSION_ID__, refClone || analysisResult);
+                console.log('✅ [SESSION-FLOW] Segunda música salva na sessão:', window.__CURRENT_SESSION_ID__);
+            } else {
+                console.error('❌ [SESSION-ERROR] Sessão não encontrada! Criando nova sessão de emergência...');
+                window.__CURRENT_SESSION_ID__ = createAnalysisSession();
+                
+                // Tentar recuperar primeira música do FirstAnalysisStore
+                const firstMusic = FirstAnalysisStore.getUser();
+                if (firstMusic) {
+                    saveFirstAnalysis(window.__CURRENT_SESSION_ID__, firstMusic);
+                    console.log('🔄 [SESSION-RECOVERY] Primeira música recuperada e salva');
+                }
+                
+                saveSecondAnalysis(window.__CURRENT_SESSION_ID__, refClone || analysisResult);
+                console.log('✅ [SESSION-RECOVERY] Segunda música salva na sessão de emergência');
+            }
+            
+            // Salvar como REF no FirstAnalysisStore (mantido para compatibilidade)
             FirstAnalysisStore.setRef(refClone, refVid, analysisResult.jobId);
             
             console.log('[A/B] 🧊 segunda faixa salva com VID', {
@@ -3959,6 +4146,30 @@ async function handleModalFileSelection(file) {
             console.log("🧊 __FIRST_ANALYSIS_FROZEN__:", window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName || window.__FIRST_ANALYSIS_FROZEN__?.fileName);
             console.log("📦 analysis.metadata.fileName:", normalizedResult?.metadata?.fileName);
             console.groupEnd();
+            
+            // ========================================
+            // 🧠 OBTER PAR DE ANÁLISES DA SESSÃO ISOLADA
+            // ========================================
+            console.log('[SESSION-FLOW] Obtendo par de análises da sessão:', window.__CURRENT_SESSION_ID__);
+            const sessionPair = getSessionPair(window.__CURRENT_SESSION_ID__);
+            
+            if (sessionPair) {
+                console.log('✅ [SESSION-FLOW] Par obtido com sucesso da sessão');
+                console.log('   - ref.jobId:', sessionPair.ref?.jobId);
+                console.log('   - curr.jobId:', sessionPair.curr?.jobId);
+                console.log('   - ref.fileName:', sessionPair.ref?.fileName || sessionPair.ref?.metadata?.fileName);
+                console.log('   - curr.fileName:', sessionPair.curr?.fileName || sessionPair.curr?.metadata?.fileName);
+                
+                // ✅ USAR DADOS DA SESSÃO COMO FONTE DE VERDADE
+                // Atualizar normalizedResult com dados da sessão
+                normalizedResult._sessionPair = sessionPair;
+                normalizedResult._useSessionData = true;
+                
+                console.log('🎯 [SESSION-FLOW] Dados da sessão anexados ao normalizedResult');
+            } else {
+                console.warn('⚠️ [SESSION-FLOW] Sessão não pronta, usando dados legados');
+                console.warn('   - window.__CURRENT_SESSION_ID__:', window.__CURRENT_SESSION_ID__);
+            }
             
             console.log("[SAFE-MODAL] ✅ Fluxo reference intacto, iniciando renderização final.");
             await displayModalResults(normalizedResult);
@@ -6021,78 +6232,48 @@ async function displayModalResults(analysis) {
         console.log('💡 Operação: deepCloneSafe() + normalizeBackendAnalysisData()');
         console.groupEnd();
         
-        // � HARD-GUARD: Usar FirstAnalysisStore.get() (única fonte de verdade)
-        const firstAnalysis = FirstAnalysisStore.get();
+        // ========================================
+        // 🧠 PRIORIZAR DADOS DA SESSÃO ISOLADA (FONTE DE VERDADE)
+        // ========================================
+        let refNormalized, currNormalized;
         
-        console.log('🔴 [AUDIT-CRITICAL] ANTES de criar refNormalized/currNormalized:');
-        console.log('  FirstAnalysisStore.has():', FirstAnalysisStore.has());
-        console.log('  firstAnalysis.metadata?.fileName:', firstAnalysis?.metadata?.fileName);
-        console.log('  firstAnalysis.jobId:', firstAnalysis?.jobId);
-        console.log('  analysis.metadata?.fileName:', analysis?.metadata?.fileName);
-        console.log('  analysis.jobId:', analysis?.jobId);
-        console.log('  🚨 SÃO O MESMO ARQUIVO?', firstAnalysis?.metadata?.fileName === analysis?.metadata?.fileName);
-        console.log('  🚨 SÃO O MESMO JOBID?', firstAnalysis?.jobId === analysis?.jobId);
-        
-        // ✅ PROTEÇÃO: Se FirstAnalysisStore não tem dados, é modo genre (não reference)
-        if (!FirstAnalysisStore.has()) {
-            console.log('[INFO] FirstAnalysisStore vazio - modo genre detectado. Continuando render normalmente.');
-            // ✅ NÃO RETORNA AQUI! Modo genre não precisa de primeira análise
-        }
-        
-        // ✅ Se FirstAnalysisStore.has() === true, significa que a primeira análise foi salva corretamente
-        
-        // 🆔 INFO: Virtual IDs (VID) garantem separação por papel mesmo com jobId reutilizado
-        console.log('[VID-INFO] ✅ Validação usando Virtual IDs:', {
-            firstJobId: firstAnalysis?.jobId,
-            currentJobId: analysis?.jobId,
-            userVid: window.CacheIndex.USER,
-            refVid: window.CacheIndex.REF,
-            note: 'jobId igual não significa self-compare - VIDs mantêm separação'
-        });
-        
-        // 🚨 VALIDAÇÃO FINAL: Se mesmo após recuperação window.__FIRST_ANALYSIS_FROZEN__ não existe, ABORTAR
-        if (!window.__FIRST_ANALYSIS_FROZEN__) {
-            console.error('🔴 [AUDIT-CRITICAL] ❌❌❌ ABORT: window.__FIRST_ANALYSIS_FROZEN__ continua undefined após tentativas de recuperação!');
-            console.error('🔴 [AUDIT-CRITICAL] ❌ NÃO É POSSÍVEL FAZER COMPARAÇÃO A/B SEM A PRIMEIRA ANÁLISE!');
-            console.error('🔴 [AUDIT-CRITICAL] ❌ Sistema vai exibir apenas análise single-track da 2ª música');
+        if (analysis?._useSessionData && analysis?._sessionPair) {
+            console.log('🎯 [SESSION-PRIORITY] Usando dados da sessão isolada como fonte de verdade');
+            const sessionPair = analysis._sessionPair;
             
-            // Forçar modo non-reference para evitar comparação incorreta
-            state.render.mode = 'single';
-            window.__soundyState = state;
+            // Normalizar dados da sessão
+            refNormalized = normalizeSafe(sessionPair.ref);   // Primeira música (referência)
+            currNormalized = normalizeSafe(sessionPair.curr); // Segunda música (atual)
             
-            // Pular todo o fluxo A/B e ir direto para renderização single-track
-            // (o código continuará naturalmente após o bloco if)
-            console.warn('⚠️ [FALLBACK] Pulando fluxo A/B - renderizando apenas segunda análise');
-        }
-        else if (window.__FIRST_ANALYSIS_FROZEN__.jobId === analysis.jobId) {
-            console.error('🔴 [AUDIT-CRITICAL] ❌❌❌ ABORT: window.__FIRST_ANALYSIS_FROZEN__.jobId === analysis.jobId!');
-            console.error('🔴 [AUDIT-CRITICAL] ❌ MESMO APÓS RECUPERAÇÃO, AS DUAS ANÁLISES TÊM O MESMO JOBID!');
-            console.error('🔴 [AUDIT-CRITICAL] ❌ Sistema está prestes a comparar música consigo mesma!');
-            console.table({
-                'FIRST_ANALYSIS.fileName': window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName,
-                'FIRST_ANALYSIS.jobId': window.__FIRST_ANALYSIS_FROZEN__?.jobId,
-                'analysis.fileName': analysis?.metadata?.fileName,
-                'analysis.jobId': analysis?.jobId,
-                'sameJobId': window.__FIRST_ANALYSIS_FROZEN__?.jobId === analysis?.jobId
-            });
+            console.log('✅ [SESSION-PRIORITY] Dados da sessão normalizados:');
+            console.log('   - refNormalized.jobId:', refNormalized?.jobId);
+            console.log('   - currNormalized.jobId:', currNormalized?.jobId);
+            console.log('   - refNormalized.fileName:', refNormalized?.fileName || refNormalized?.metadata?.fileName);
+            console.log('   - currNormalized.fileName:', currNormalized?.fileName || currNormalized?.metadata?.fileName);
+        } else {
+            console.log('⚠️ [LEGACY-MODE] Sessão não disponível, usando modo legado');
             
-            // Forçar modo non-reference
-            state.render.mode = 'single';
-            window.__soundyState = state;
-            console.warn('⚠️ [FALLBACK] Pulando fluxo A/B contaminado - renderizando apenas segunda análise');
+            // 🔒 HARD-GUARD: Usar FirstAnalysisStore.get() (única fonte de verdade - modo legado)
+            const firstAnalysis = FirstAnalysisStore.get();
+            
+            console.log('🔴 [AUDIT-CRITICAL] ANTES de criar refNormalized/currNormalized:');
+            console.log('  FirstAnalysisStore.has():', FirstAnalysisStore.has());
+            console.log('  firstAnalysis.metadata?.fileName:', firstAnalysis?.metadata?.fileName);
+            console.log('  firstAnalysis.jobId:', firstAnalysis?.jobId);
+            console.log('  analysis.metadata?.fileName:', analysis?.metadata?.fileName);
+            console.log('  analysis.jobId:', analysis?.jobId);
+            console.log('  🚨 SÃO O MESMO ARQUIVO?', firstAnalysis?.metadata?.fileName === analysis?.metadata?.fileName);
+            console.log('  🚨 SÃO O MESMO JOBID?', firstAnalysis?.jobId === analysis?.jobId);
+            
+            // ✅ STEP 2/6 REFATORADO: Normalização segura sem ciclos (modo legado)
+            console.log('[NORMALIZE-DEFENSIVE] 🔒 Criando cópia isolada da 1ª faixa (normalizeSafe)');
+            refNormalized = normalizeSafe(firstAnalysis);
+            
+            console.log('[NORMALIZE-DEFENSIVE] 🔒 Criando cópia isolada da 2ª faixa (normalizeSafe)');
+            currNormalized = normalizeSafe(analysis);
         }
-        else {
-            console.log('✅ [AUDIT-CRITICAL] Validação passou - window.__FIRST_ANALYSIS_FROZEN__ existe e é diferente de analysis');
-        }
         
-        // ✅ STEP 2/6 REFATORADO: Normalização segura sem ciclos
-        console.log('[NORMALIZE-DEFENSIVE] 🔒 Criando cópia isolada da 1ª faixa (normalizeSafe)');
-        const refNormalized = normalizeSafe(firstAnalysis); // 🔒 HARD-GUARD: firstAnalysis = FirstAnalysisStore.get()
-        
-        console.log('[NORMALIZE-DEFENSIVE] 🔒 Criando cópia isolada da 2ª faixa (normalizeSafe)');
-        const currNormalized = normalizeSafe(analysis);
-        
-        // � PRÉ-VALIDAÇÃO: Detectar contaminação de ponteiros ANTES de areSameTrack()
+        // Continua com PRÉ-VALIDAÇÃO (funciona para ambos os modos)
         const refFileName = refNormalized?.metadata?.fileName || refNormalized?.fileName;
         const currFileName = currNormalized?.metadata?.fileName || currNormalized?.fileName;
         const refJobId = refNormalized?.jobId || refNormalized?.id;
@@ -6402,14 +6583,31 @@ async function displayModalResults(analysis) {
         console.log('✅ [DISPLAY-MODAL] JobIds são diferentes - prosseguindo com renderização');
         console.groupEnd();
         
+        // ========================================
+        // 🧠 USAR DADOS DA SESSÃO SE DISPONÍVEL
+        // ========================================
+        let renderUserAnalysis, renderRefAnalysis;
+        
+        if (analysis?._useSessionData && analysis?._sessionPair) {
+            console.log('🎯 [RENDER-SESSION] Usando dados da sessão isolada para renderização');
+            renderUserAnalysis = frozenRef;   // Já é clone de sessionPair.ref
+            renderRefAnalysis = frozenCurr;   // Já é clone de sessionPair.curr
+        } else {
+            console.log('⚠️ [RENDER-LEGACY] Usando dados legados para renderização');
+            renderUserAnalysis = frozenRef;
+            renderRefAnalysis = frozenCurr;
+        }
+        
         renderReferenceComparisons({
             mode: 'reference',
-            userAnalysis: frozenRef,        // 1ª faixa (sua música) - CLONE INDEPENDENTE
-            referenceAnalysis: frozenCurr,   // 2ª faixa (referência) - CLONE INDEPENDENTE
+            userAnalysis: renderUserAnalysis,        // 1ª faixa (sua música) - CLONE INDEPENDENTE
+            referenceAnalysis: renderRefAnalysis,    // 2ª faixa (referência) - CLONE INDEPENDENTE
             analysis: {
-                userAnalysis: frozenRef,
-                referenceAnalysis: frozenCurr
-            }
+                userAnalysis: renderUserAnalysis,
+                referenceAnalysis: renderRefAnalysis
+            },
+            _useSessionData: analysis?._useSessionData,  // Propagar flag
+            _sessionId: window.__CURRENT_SESSION_ID__    // Propagar sessionId para auditoria
         });
         
         // ❌ REMOVIDO: renderTrackComparisonTable() - causava duplicação
@@ -9245,6 +9443,54 @@ if (typeof window.comparisonLock === "undefined") {
 
 // --- BEGIN: deterministic mode gate ---
 function renderReferenceComparisons(ctx) {
+    // ========================================
+    // 🎯 PASSO 1: PRIORIZAR DADOS DA SESSÃO SE DISPONÍVEL
+    // ========================================
+    console.group('🎯 [RENDER-REF] VALIDAÇÃO DE FONTE DE DADOS');
+    
+    if (ctx?._useSessionData && ctx?._sessionId) {
+        console.log('✅ [SESSION-MODE] Renderização usando dados da sessão isolada');
+        console.log('   - sessionId:', ctx._sessionId);
+        console.log('   - userAnalysis.jobId:', ctx.userAnalysis?.jobId);
+        console.log('   - referenceAnalysis.jobId:', ctx.referenceAnalysis?.jobId);
+        
+        // Validação de integridade da sessão
+        const sessionData = window.AnalysisSessions?.[ctx._sessionId];
+        if (sessionData?.ready) {
+            console.table({
+                sessionId: ctx._sessionId,
+                refJobId: sessionData.reference?.jobId,
+                currJobId: sessionData.current?.jobId,
+                refName: sessionData.reference?.fileName || sessionData.reference?.metadata?.fileName,
+                currName: sessionData.current?.fileName || sessionData.current?.metadata?.fileName,
+                sameJob: sessionData.reference?.jobId === sessionData.current?.jobId,
+                sameName: (sessionData.reference?.fileName || sessionData.reference?.metadata?.fileName) === 
+                          (sessionData.current?.fileName || sessionData.current?.metadata?.fileName)
+            });
+            
+            // 🚨 VALIDAÇÃO CRÍTICA: Dados da sessão NÃO podem ter jobIds iguais
+            if (sessionData.reference?.jobId === sessionData.current?.jobId) {
+                console.error('🚨 [SESSION-ERROR] SESSÃO CONTAMINADA!');
+                console.error('   - Sessão tem jobIds idênticos');
+                console.error('   - sessionId:', ctx._sessionId);
+                console.trace();
+                console.groupEnd();
+                alert('ERRO: Sessão contaminada detectada. Por favor, recarregue a página.');
+                return;
+            }
+            
+            console.log('✅ [SESSION-VALIDATED] Sessão validada - dados isolados confirmados');
+        } else {
+            console.warn('⚠️ [SESSION-WARN] Sessão não está pronta ou não existe');
+            console.log('   - Caindo para modo legado');
+        }
+    } else {
+        console.log('⚠️ [LEGACY-MODE] Renderização usando sistema legado');
+        console.log('   - Dados não vêm de sessão isolada');
+    }
+    
+    console.groupEnd();
+    
     // ========================================
     // 🚨 VALIDAÇÃO CRÍTICA NO INÍCIO: Tentar recuperar jobIds corretos se necessário
     // ========================================
