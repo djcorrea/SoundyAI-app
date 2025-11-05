@@ -3474,17 +3474,34 @@ async function handleModalFileSelection(file) {
             
             // �🔥 CORREÇÃO CRÍTICA: Primeira música é ATUAL (sua faixa), segunda é REFERÊNCIA (alvo)
             const state = window.__soundyState || {};
+            
+            // 🧊 PROTEÇÃO ANTIFALSA ATUALIZAÇÃO DA REFERÊNCIA
+            if (state?.render?.mode === 'reference' && window.__FIRST_ANALYSIS_FROZEN__) {
+                console.warn('[STATE-FIX] 🔒 Bloqueando sobrescrita de referência - usando cópia congelada');
+                console.warn('[STATE-FIX]   __FIRST_ANALYSIS_FROZEN__:', window.__FIRST_ANALYSIS_FROZEN__?.fileName || window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName);
+                console.warn('[STATE-FIX]   analysisResult (2ª faixa):', analysisResult?.fileName || analysisResult?.metadata?.fileName);
+                
+                // Garantir que previousAnalysis aponte para o frozen
+                if (!state.previousAnalysis || state.previousAnalysis.jobId === analysisResult.jobId) {
+                    console.warn('[STATE-FIX] ⚠️ Corrigindo previousAnalysis contaminado');
+                    state.previousAnalysis = JSON.parse(JSON.stringify(window.__FIRST_ANALYSIS_FROZEN__));
+                }
+            }
+            
             if (state.previousAnalysis) {
                 // ✅ SEMÂNTICA CORRETA DO FLUXO A/B:
                 // - Primeira faixa (previousAnalysis) = userAnalysis (SUA MÚSICA/ATUAL)
                 // - Segunda faixa (analysisResult) = referenceAnalysis (ALVO/REFERÊNCIA a alcançar)
-                state.userAnalysis = state.previousAnalysis;      // 1ª = sua faixa (atual)
-                state.referenceAnalysis = analysisResult;         // 2ª = faixa de referência (alvo)
                 
-                // 🎯 ESTRUTURA NOVA (CORRETA):
+                // 🧊 PROTEÇÃO ANTICONTAMINAÇÃO: Deep clone obrigatório
+                console.log('[STATE-FIX] 🔒 Criando deep clones para evitar contaminação de estado');
+                state.userAnalysis = JSON.parse(JSON.stringify(state.previousAnalysis));      // 1ª = sua faixa (atual)
+                state.referenceAnalysis = JSON.parse(JSON.stringify(analysisResult));         // 2ª = faixa de referência (alvo)
+                
+                // 🎯 ESTRUTURA NOVA (CORRETA) COM DEEP CLONE:
                 state.reference = state.reference || {};
-                state.reference.userAnalysis = state.previousAnalysis;    // 1ª faixa (sua música/atual)
-                state.reference.referenceAnalysis = analysisResult;       // 2ª faixa (referência/alvo)
+                state.reference.userAnalysis = JSON.parse(JSON.stringify(state.previousAnalysis));    // 1ª faixa (sua música/atual)
+                state.reference.referenceAnalysis = JSON.parse(JSON.stringify(analysisResult));       // 2ª faixa (referência/alvo)
                 state.reference.isSecondTrack = true;
                 state.reference.jobId = analysisResult.jobId || null;
                 
@@ -3539,13 +3556,16 @@ async function handleModalFileSelection(file) {
             } else if (FirstAnalysisStore.has()) {
                 // 🔥 FALLBACK: Primeira música é ATUAL (sua faixa), segunda é REFERÊNCIA (alvo)
                 const firstAnalysis = FirstAnalysisStore.get(); // sempre clone
-                state.userAnalysis = firstAnalysis;    // 1ª = sua faixa (atual)
-                state.referenceAnalysis = analysisResult;                 // 2ª = referência (alvo)
                 
-                // 🎯 ESTRUTURA NOVA (CORRETA):
+                // 🧊 PROTEÇÃO ANTICONTAMINAÇÃO: Deep clone obrigatório
+                console.log('[STATE-FIX] 🔒 FALLBACK - Criando deep clones para evitar contaminação');
+                state.userAnalysis = JSON.parse(JSON.stringify(firstAnalysis));    // 1ª = sua faixa (atual)
+                state.referenceAnalysis = JSON.parse(JSON.stringify(analysisResult));                 // 2ª = referência (alvo)
+                
+                // 🎯 ESTRUTURA NOVA (CORRETA) COM DEEP CLONE:
                 state.reference = state.reference || {};
-                state.reference.userAnalysis = firstAnalysis;  // 1ª faixa (sua música/atual)
-                state.reference.referenceAnalysis = analysisResult;                // 2ª faixa (referência/alvo)
+                state.reference.userAnalysis = JSON.parse(JSON.stringify(firstAnalysis));  // 1ª faixa (sua música/atual)
+                state.reference.referenceAnalysis = JSON.parse(JSON.stringify(analysisResult));                // 2ª faixa (referência/alvo)
                 state.reference.isSecondTrack = true;
                 state.reference.jobId = analysisResult.jobId || null;
                 
@@ -3628,8 +3648,10 @@ async function handleModalFileSelection(file) {
             // � PARTE 3.4: Garantir atribuição correta ANTES de displayModalResults
             // 🔧 PARTE 1: Normalize reference comparison structure
             if (state.render.mode === "reference" && analysisResult && state.previousAnalysis) {
-                const firstResult = state.previousAnalysis;
-                const secondResult = analysisResult;
+                // 🧊 PROTEÇÃO ANTICONTAMINAÇÃO: Deep clone para evitar mutação
+                console.log('[STATE-FIX] 🔒 Normalizando com deep clones');
+                const firstResult = JSON.parse(JSON.stringify(state.previousAnalysis));
+                const secondResult = JSON.parse(JSON.stringify(analysisResult));
 
                 const normalizedUser = {
                     fileName: firstResult.fileName || firstResult.metadata?.fileName,
@@ -3651,13 +3673,14 @@ async function handleModalFileSelection(file) {
                     }
                 };
 
+                // 🧊 PROTEÇÃO: Usar deep clone para state.reference
                 state.reference = {
                     mode: "reference",
                     isSecondTrack: true,
-                    userAnalysis: normalizedUser,
-                    referenceAnalysis: normalizedRef,
+                    userAnalysis: JSON.parse(JSON.stringify(normalizedUser)),
+                    referenceAnalysis: JSON.parse(JSON.stringify(normalizedRef)),
                     analysis: {
-                        bands: normalizedRef.bands
+                        bands: JSON.parse(JSON.stringify(normalizedRef.bands))
                     }
                 };
 
@@ -5992,20 +6015,31 @@ async function displayModalResults(analysis) {
         // ✅ SEMÂNTICA CORRETA:
         // - refNormalized = 1ª faixa = SUA MÚSICA (atual) = userAnalysis
         // - currNormalized = 2ª faixa = REFERÊNCIA (alvo a alcançar) = referenceAnalysis
-        referenceComparisonMetrics = {
-            // ESTRUTURA NOVA (CORRETA):
-            userTrack: refNormalized?.technicalData || {},        // 1ª faixa (sua música/atual)
-            referenceTrack: currNormalized?.technicalData || {}, // 2ª faixa (referência/alvo)
-            
-            userTrackFull: refNormalized || null,
-            referenceTrackFull: currNormalized || null,
-            
-            // LEGADO: manter por compatibilidade (mapeamento correto)
-            user: refNormalized?.technicalData || {},       // 1ª = sua música (atual)
-            reference: currNormalized?.technicalData || {}, // 2ª = referência (alvo)
-            userFull: refNormalized || null,
-            referenceFull: currNormalized || null
-        };
+        
+        // 🧊 PROTEÇÃO ANTICONTAMINAÇÃO: Só criar se ainda não existir
+        if (!referenceComparisonMetrics) {
+            console.log('[STATE-FIX] ✅ Criando referenceComparisonMetrics pela primeira vez');
+            referenceComparisonMetrics = {
+                // ESTRUTURA NOVA (CORRETA) COM DEEP CLONE:
+                userTrack: JSON.parse(JSON.stringify(refNormalized?.technicalData || {})),        // 1ª faixa (sua música/atual)
+                referenceTrack: JSON.parse(JSON.stringify(currNormalized?.technicalData || {})), // 2ª faixa (referência/alvo)
+                
+                userTrackFull: JSON.parse(JSON.stringify(refNormalized || null)),
+                referenceTrackFull: JSON.parse(JSON.stringify(currNormalized || null)),
+                
+                // LEGADO: manter por compatibilidade (mapeamento correto)
+                user: JSON.parse(JSON.stringify(refNormalized?.technicalData || {})),       // 1ª = sua música (atual)
+                reference: JSON.parse(JSON.stringify(currNormalized?.technicalData || {})), // 2ª = referência (alvo)
+                userFull: JSON.parse(JSON.stringify(refNormalized || null)),
+                referenceFull: JSON.parse(JSON.stringify(currNormalized || null))
+            };
+        } else {
+            console.warn('[STATE-FIX] ⚠️ referenceComparisonMetrics já inicializado, não sobrescrevendo');
+            console.warn('[STATE-FIX]   Mantendo dados originais:', {
+                userFile: referenceComparisonMetrics.userFull?.fileName || referenceComparisonMetrics.userFull?.metadata?.fileName,
+                refFile: referenceComparisonMetrics.referenceFull?.fileName || referenceComparisonMetrics.referenceFull?.metadata?.fileName
+            });
+        }
         
         console.log('[REF-FLOW] ✅ ═══════════════════════════════════════');
         console.log('[REF-FLOW] ✅ Métricas A/B construídas corretamente:');
@@ -6109,13 +6143,30 @@ async function displayModalResults(analysis) {
             referenceBandsLength: currNormalized?.bands ? Object.keys(currNormalized.bands).length : 0
         });
         
+        // 🧊 PROTEÇÃO ANTICONTAMINAÇÃO: Deep clone antes de renderizar
+        console.log('[STATE-FIX] 🔒 Criando frozen clones para renderReferenceComparisons');
+        const frozenRef = JSON.parse(JSON.stringify(refNormalized));
+        const frozenCurr = JSON.parse(JSON.stringify(currNormalized));
+        
+        // 🔍 AUDITORIA DE INTEGRIDADE
+        console.log('[STATE-INTEGRITY]', {
+            refJobId: frozenRef.jobId,
+            currJobId: frozenCurr.jobId,
+            refFile: frozenRef.fileName || frozenRef.metadata?.fileName,
+            currFile: frozenCurr.fileName || frozenCurr.metadata?.fileName,
+            sameJob: frozenRef.jobId === frozenCurr.jobId,
+            sameFile: (frozenRef.fileName || frozenRef.metadata?.fileName) === (frozenCurr.fileName || frozenCurr.metadata?.fileName),
+            areIndependent: frozenRef !== frozenCurr,
+            metadataIndependent: frozenRef.metadata !== frozenCurr.metadata
+        });
+        
         renderReferenceComparisons({
             mode: 'reference',
-            userAnalysis: refNormalized,        // 1ª faixa (sua música)
-            referenceAnalysis: currNormalized,   // 2ª faixa (referência)
+            userAnalysis: frozenRef,        // 1ª faixa (sua música) - CLONE INDEPENDENTE
+            referenceAnalysis: frozenCurr,   // 2ª faixa (referência) - CLONE INDEPENDENTE
             analysis: {
-                userAnalysis: refNormalized,
-                referenceAnalysis: currNormalized
+                userAnalysis: frozenRef,
+                referenceAnalysis: frozenCurr
             }
         });
         
