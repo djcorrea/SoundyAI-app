@@ -22,62 +22,55 @@ const __DEBUG_ANALYZER__ = true; // 🔧 TEMPORÁRIO: Ativado para debug do prob
 const __dbg = (...a) => { if (__DEBUG_ANALYZER__) console.log('[AUDIO-DEBUG]', ...a); };
 const __dwrn = (...a) => { if (__DEBUG_ANALYZER__) console.warn('[AUDIO-WARN]', ...a); };
 
-// 🔒 FIRST ANALYSIS IMMUTABLE STORE
-// Store imutável para garantir que a 1ª análise NUNCA seja contaminada pela 2ª
+// === FirstAnalysisStore (Single Source of Truth) ===
+// Store imutável para a 1ª faixa - set só uma vez, get sempre clonado, clear apenas no reset
 const FirstAnalysisStore = (() => {
-    let frozen = null; // { jobId, metadata, technicalData, ... } congelado
+    let _frozen = null;   // objeto congelado (deep clone da 1ª análise)
+    let _jobId = null;
 
     return {
-        /**
-         * Define a primeira análise UMA ÚNICA VEZ
-         * @param {Object} src - Objeto da primeira análise
-         * @returns {Object} - Objeto congelado
-         */
-        setOnce(src) {
-            if (frozen) {
-                console.warn('[FirstAnalysisStore] ⚠️ Tentativa de sobrescrever análise já congelada - BLOQUEADA');
-                return frozen;
+        has() { 
+            return !!_frozen && !!_jobId; 
+        },
+        
+        set(firstAnalysis) {
+            if (this.has()) {
+                console.warn('[FirstAnalysisStore] ⚠️ Já existe análise - não sobrescrever');
+                return; // não sobrescrever nunca
             }
-
-            // Usar structuredClone se disponível (mais rápido e robusto)
-            const clone = (typeof structuredClone === 'function')
-                ? structuredClone(src)
-                : deepCloneSafe(src);
-
-            // Congelar profundamente o objeto
-            frozen = Object.freeze(clone);
             
-            console.log('[FirstAnalysisStore] ✅ Primeira análise congelada:', {
-                jobId: frozen.jobId,
-                fileName: frozen.metadata?.fileName,
-                lufs: frozen.technicalData?.lufsIntegrated
+            const cloned = (typeof structuredClone === 'function')
+                ? structuredClone(firstAnalysis)
+                : JSON.parse(JSON.stringify(firstAnalysis));
+            
+            _frozen = Object.freeze(cloned);
+            _jobId = cloned?.jobId || cloned?.id || cloned?.metadata?.jobId || null;
+            
+            console.log('[FirstAnalysisStore] set()', { 
+                fileName: cloned?.fileName || cloned?.metadata?.fileName, 
+                jobId: _jobId 
             });
-
-            return frozen;
         },
-
-        /**
-         * Recupera a primeira análise congelada
-         * @returns {Object|null} - Primeira análise ou null
-         */
+        
         get() {
-            return frozen;
+            if (!this.has()) return null;
+            
+            // sempre devolver um clone novo para evitar ponteiros compartilhados
+            const cloned = (typeof structuredClone === 'function')
+                ? structuredClone(_frozen)
+                : JSON.parse(JSON.stringify(_frozen));
+            
+            return cloned;
         },
-
-        /**
-         * Verifica se há uma primeira análise armazenada
-         * @returns {boolean}
-         */
-        has() {
-            return !!frozen;
-        },
-
-        /**
-         * Limpa o store (apenas para reset completo)
-         */
+        
         clear() {
-            console.warn('[FirstAnalysisStore] 🗑️ Limpando store (reset completo)');
-            frozen = null;
+            _frozen = null;
+            _jobId = null;
+            console.log('[FirstAnalysisStore] clear()');
+        },
+        
+        jobId() { 
+            return _jobId; 
         }
     };
 })();
@@ -256,7 +249,7 @@ window.diagnosticReferenceFlow = function() {
     console.log('  referenceAnalysis:', window.__soundyState?.referenceAnalysis?.jobId || 'null');
     
     console.log('%c💾 Dados de Referência:', 'color:#FFD700;font-weight:bold;');
-    console.log('  window.referenceAnalysisData:', window.referenceAnalysisData ? 'PRESENTE' : 'null');
+    console.log('  FirstAnalysisStore:', FirstAnalysisStore.has() ? 'PRESENTE' : 'null');
     console.log('  window.referenceComparisonMetrics:', window.referenceComparisonMetrics ? 'PRESENTE' : 'null');
     
     console.log('%c🎯 Diagnóstico:', 'color:#00FF00;font-weight:bold;');
@@ -2215,32 +2208,12 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
     
     // � HARD-GUARD: Salvar primeira análise no FirstAnalysisStore (IMUTÁVEL)
     console.log('[FirstAnalysisStore] 🔒 Salvando primeira análise no store imutável...');
-    const firstClone = (typeof structuredClone === 'function')
-        ? structuredClone(firstAnalysisResult)
-        : deepCloneSafe(firstAnalysisResult);
     
-    FirstAnalysisStore.setOnce(firstClone);
+    // ✅ USAR NOVA API: FirstAnalysisStore.set() - clonagem interna
+    FirstAnalysisStore.set(firstAnalysisResult);
     
-    // 🔒 HARD-GUARD: Criar getter read-only para window.referenceAnalysisData
-    // Qualquer tentativa de SET posterior será bloqueada
-    if (!Object.getOwnPropertyDescriptor(window, 'referenceAnalysisData')?.get) {
-        Object.defineProperty(window, 'referenceAnalysisData', {
-            get() { 
-                return FirstAnalysisStore.get(); 
-            },
-            set(value) {
-                console.warn('[HARD-GUARD] ❌ BLOQUEADO: Tentativa de SET em referenceAnalysisData após primeira análise');
-                console.warn('[HARD-GUARD] ❌ Valor tentado:', value?.jobId, value?.metadata?.fileName);
-                console.trace('[HARD-GUARD] Stack trace da tentativa bloqueada:');
-            },
-            configurable: false
-        });
-        console.log('[HARD-GUARD] ✅ window.referenceAnalysisData protegido com getter read-only');
-    }
-    
-    // 🛡️ PROTEÇÃO CRÍTICA: Manter __FIRST_ANALYSIS_RESULT__ para compatibilidade
-    console.log('[DEEP-CLONE-GUARD] 🔒 Clonando firstAnalysisResult para __FIRST_ANALYSIS_RESULT__');
-    window.__FIRST_ANALYSIS_RESULT__ = structuredClone(firstAnalysisResult);
+    // ❌ REMOVER: Não usar mais window.referenceAnalysisData / window.__FIRST_ANALYSIS_RESULT__
+    // A ÚNICA fonte de verdade é FirstAnalysisStore
     
     window.lastReferenceJobId = referenceJobId;
     
@@ -2788,12 +2761,13 @@ function resetModalState() {
     if (!isAwaitingSecondTrack) {
         // 🧼 LIMPEZA COMPLETA: Só limpar se NÃO estivermos aguardando segunda música
         window.__REFERENCE_JOB_ID__ = null;
-        window.referenceAnalysisData = null;
         window.referenceComparisonMetrics = null;
         window.lastReferenceJobId = null;
         delete window.__REFERENCE_JOB_ID__;
-        delete window.__FIRST_ANALYSIS_RESULT__;
         localStorage.removeItem('referenceJobId');
+        
+        // ✅ LIMPAR FirstAnalysisStore
+        FirstAnalysisStore.clear();
         
         console.log('[FIX_REFID_RESET] Estado limpo completamente ✅');
         console.log('[FIX_REFID_RESET] Limpeza incluiu: window, localStorage e estado global');
@@ -2941,9 +2915,10 @@ async function handleModalFileSelection(file) {
         });
         console.log('🌐 Estado global ANTES de processar:');
         console.log('  window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
-        console.log('  window.referenceAnalysisData:', window.referenceAnalysisData ? {
-            fileName: window.referenceAnalysisData?.fileName || window.referenceAnalysisData?.metadata?.fileName,
-            jobId: window.referenceAnalysisData?.jobId
+        const firstAnalysis = FirstAnalysisStore.get();
+        console.log('  FirstAnalysisStore:', firstAnalysis ? {
+            fileName: firstAnalysis?.fileName || firstAnalysis?.metadata?.fileName,
+            jobId: firstAnalysis?.jobId
         } : 'null');
         console.log('  window.__soundyState.previousAnalysis:', window.__soundyState?.previousAnalysis ? {
             fileName: window.__soundyState.previousAnalysis?.fileName || window.__soundyState.previousAnalysis?.metadata?.fileName,
@@ -2954,7 +2929,7 @@ async function handleModalFileSelection(file) {
         console.log('[AUDIO-DEBUG] 🎯 Modo do job:', jobMode);
         console.log('[AUDIO-DEBUG] 🎯 É segunda faixa?', isSecondTrack);
         console.log('[AUDIO-DEBUG] 🎯 Reference Job ID armazenado:', window.__REFERENCE_JOB_ID__);
-        console.log('[AUDIO-DEBUG] 🎯 First Analysis Result:', !!window.__FIRST_ANALYSIS_RESULT__);
+        console.log('[AUDIO-DEBUG] 🎯 FirstAnalysisStore:', FirstAnalysisStore.has());
         console.log('[AUDIO-DEBUG] 🎯 Current mode:', currentAnalysisMode);
         
         // 🔧 FIX: Primeira música vem como "genre" (modo base), segunda como "reference"
@@ -2988,27 +2963,12 @@ async function handleModalFileSelection(file) {
             
             // 🔒 HARD-GUARD: Salvar primeira análise no FirstAnalysisStore (IMUTÁVEL)
             console.log('[FirstAnalysisStore] 🔒 Salvando primeira análise no store imutável...');
-            const firstClone = (typeof structuredClone === 'function')
-                ? structuredClone(analysisResult)
-                : deepCloneSafe(analysisResult);
             
-            FirstAnalysisStore.setOnce(firstClone);
+            // ✅ USAR NOVA API: FirstAnalysisStore.set() - clonagem interna
+            FirstAnalysisStore.set(analysisResult);
             
-            // 🔒 HARD-GUARD: Criar getter read-only para window.referenceAnalysisData (se ainda não existe)
-            if (!Object.getOwnPropertyDescriptor(window, 'referenceAnalysisData')?.get) {
-                Object.defineProperty(window, 'referenceAnalysisData', {
-                    get() { return FirstAnalysisStore.get(); },
-                    set(value) {
-                        console.warn('[HARD-GUARD] ❌ BLOQUEADO: Tentativa de SET em referenceAnalysisData');
-                        console.trace('[HARD-GUARD] Stack trace:');
-                    },
-                    configurable: false
-                });
-            }
-            
-            // ✅ REMOVER: window.__FIRST_ANALYSIS_FROZEN__ (substituído por FirstAnalysisStore)
-            // Manter apenas para compatibilidade temporária
-            console.log('[DEPRECATED] __FIRST_ANALYSIS_FROZEN__ mantido apenas para compatibilidade');
+            // ❌ REMOVER: Não usar mais window.referenceAnalysisData / window.__FIRST_ANALYSIS_FROZEN__
+            // A ÚNICA fonte de verdade é FirstAnalysisStore
             
             // 🔍 AUDITORIA: Estado APÓS salvar primeira análise
             console.groupCollapsed('[AUDITORIA_STATE_FLOW] 💾 Primeira Análise SALVA');
@@ -3019,24 +2979,16 @@ async function handleModalFileSelection(file) {
                 lufs: analysisResult?.technicalData?.lufsIntegrated,
                 objectId: analysisResult
             });
-            console.log('🔒 window.referenceAnalysisData (clone):', {
-                jobId: window.referenceAnalysisData?.jobId,
-                fileName: window.referenceAnalysisData?.metadata?.fileName || window.referenceAnalysisData?.fileName,
-                lufs: window.referenceAnalysisData?.technicalData?.lufsIntegrated,
-                objectId: window.referenceAnalysisData,
-                sameAsOriginal: window.referenceAnalysisData === analysisResult
-            });
-            console.log('🧊 window.__FIRST_ANALYSIS_FROZEN__ (frozen clone):', {
-                jobId: window.__FIRST_ANALYSIS_FROZEN__?.jobId,
-                fileName: window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName,
-                lufs: window.__FIRST_ANALYSIS_FROZEN__?.technicalData?.lufsIntegrated,
-                objectId: window.__FIRST_ANALYSIS_FROZEN__,
-                isFrozen: Object.isFrozen(window.__FIRST_ANALYSIS_FROZEN__)
+            const storedFirst = FirstAnalysisStore.get();
+            console.log('🔒 FirstAnalysisStore (clone):', {
+                jobId: storedFirst?.jobId,
+                fileName: storedFirst?.metadata?.fileName || storedFirst?.fileName,
+                lufs: storedFirst?.technicalData?.lufsIntegrated,
+                sameAsOriginal: false // sempre retorna clone
             });
             console.log('💡 Verificação de isolamento:');
-            console.log('  referenceAnalysisData !== analysisResult?', window.referenceAnalysisData !== analysisResult);
-            console.log('  __FIRST_ANALYSIS_FROZEN__ !== analysisResult?', window.__FIRST_ANALYSIS_FROZEN__ !== analysisResult);
-            console.log('  referenceAnalysisData !== __FIRST_ANALYSIS_FROZEN__?', window.referenceAnalysisData !== window.__FIRST_ANALYSIS_FROZEN__);
+            console.log('  FirstAnalysisStore.get() !== analysisResult?', storedFirst !== analysisResult);
+            console.log('  FirstAnalysisStore retorna clones:', true);
             console.groupEnd();
             
             console.log('[REF-SAVE ✅] ═══════════════════════════════════════');
@@ -3046,8 +2998,7 @@ async function handleModalFileSelection(file) {
             console.log('[REF-SAVE ✅]   - window.__REFERENCE_JOB_ID__');
             console.log('[REF-SAVE ✅]   - localStorage.referenceJobId');
             console.log('[REF-SAVE ✅]   - window.__soundyState.previousAnalysis');
-            console.log('[REF-SAVE ✅]   - window.referenceAnalysisData (cópia isolada)');
-            console.log('[REF-SAVE ✅]   - window.__FIRST_ANALYSIS_FROZEN__ (imutável)');
+            console.log('[REF-SAVE ✅]   - FirstAnalysisStore (imutável + clonagem automática)');
             console.log(`[REF-SAVE ✅] File Name: ${analysisResult.metadata?.fileName || analysisResult.fileName || 'unknown'}`);
             console.log(`[REF-SAVE ✅] LUFS: ${analysisResult.technicalData?.lufsIntegrated || 'N/A'} LUFS`);
             console.log(`[REF-SAVE ✅] DR: ${analysisResult.technicalData?.dynamicRange || 'N/A'} dB`);
@@ -3088,11 +3039,11 @@ async function handleModalFileSelection(file) {
                 lufs: analysisResult?.technicalData?.lufsIntegrated,
                 objectId: analysisResult
             });
-            console.log('🔒 window.__FIRST_ANALYSIS_FROZEN__ (1ª faixa congelada):', {
-                jobId: window.__FIRST_ANALYSIS_FROZEN__?.jobId,
-                fileName: window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName,
-                lufs: window.__FIRST_ANALYSIS_FROZEN__?.technicalData?.lufsIntegrated,
-                objectId: window.__FIRST_ANALYSIS_FROZEN__
+            const frozenFirst = FirstAnalysisStore.get();
+            console.log('🔒 FirstAnalysisStore (1ª faixa congelada):', {
+                jobId: frozenFirst?.jobId,
+                fileName: frozenFirst?.metadata?.fileName,
+                lufs: frozenFirst?.technicalData?.lufsIntegrated
             });
             console.log('💾 window.__soundyState.previousAnalysis (1ª faixa):', {
                 jobId: window.__soundyState?.previousAnalysis?.jobId,
@@ -3102,7 +3053,7 @@ async function handleModalFileSelection(file) {
             });
             console.log('⚠️ CHECKPOINT CRÍTICO: Verificar se objetos são distintos');
             console.log('  analysisResult !== previousAnalysis?', analysisResult !== window.__soundyState?.previousAnalysis);
-            console.log('  analysisResult !== __FIRST_ANALYSIS_FROZEN__?', analysisResult !== window.__FIRST_ANALYSIS_FROZEN__);
+            console.log('  analysisResult !== FirstAnalysisStore?', analysisResult !== FirstAnalysisStore.get());
             console.groupEnd();
             
             // �🔥 CORREÇÃO CRÍTICA: Primeira música é ATUAL (sua faixa), segunda é REFERÊNCIA (alvo)
@@ -3169,21 +3120,22 @@ async function handleModalFileSelection(file) {
                     userBands: Object.keys(state.userAnalysis?.technicalData?.spectral_balance || {}),
                     refBands: Object.keys(state.referenceAnalysis?.technicalData?.spectral_balance || {})
                 });
-            } else if (window.__FIRST_ANALYSIS_RESULT__) {
+            } else if (FirstAnalysisStore.has()) {
                 // 🔥 FALLBACK: Primeira música é ATUAL (sua faixa), segunda é REFERÊNCIA (alvo)
-                state.userAnalysis = window.__FIRST_ANALYSIS_RESULT__;    // 1ª = sua faixa (atual)
+                const firstAnalysis = FirstAnalysisStore.get(); // sempre clone
+                state.userAnalysis = firstAnalysis;    // 1ª = sua faixa (atual)
                 state.referenceAnalysis = analysisResult;                 // 2ª = referência (alvo)
                 
                 // 🎯 ESTRUTURA NOVA (CORRETA):
                 state.reference = state.reference || {};
-                state.reference.userAnalysis = window.__FIRST_ANALYSIS_RESULT__;  // 1ª faixa (sua música/atual)
+                state.reference.userAnalysis = firstAnalysis;  // 1ª faixa (sua música/atual)
                 state.reference.referenceAnalysis = analysisResult;                // 2ª faixa (referência/alvo)
                 state.reference.isSecondTrack = true;
                 state.reference.jobId = analysisResult.jobId || null;
                 
                 console.log('✅ [REFERENCE-A/B-CORRECTED] ═══════════════════════════════════════');
                 console.log('✅ [REFERENCE-A/B-CORRECTED] Fallback - Atribuição correta A/B:');
-                console.log('✅ [REFERENCE-A/B-CORRECTED]   1ª Faixa (ATUAL/SUA MÚSICA):', window.__FIRST_ANALYSIS_RESULT__.fileName);
+                console.log('✅ [REFERENCE-A/B-CORRECTED]   1ª Faixa (ATUAL/SUA MÚSICA):', firstAnalysis?.fileName);
                 console.log('✅ [REFERENCE-A/B-CORRECTED]   2ª Faixa (REFERÊNCIA/ALVO):', analysisResult.fileName);
                 console.log('✅ [REFERENCE-A/B-CORRECTED] ═══════════════════════════════════════');
                 
@@ -3217,11 +3169,11 @@ async function handleModalFileSelection(file) {
                 lufs: analysisResult?.technicalData?.lufsIntegrated,
                 objectId: analysisResult
             });
-            console.log('🔒 window.__FIRST_ANALYSIS_FROZEN__ (NÃO deve mudar):', {
-                jobId: window.__FIRST_ANALYSIS_FROZEN__?.jobId,
-                fileName: window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName,
-                lufs: window.__FIRST_ANALYSIS_FROZEN__?.technicalData?.lufsIntegrated,
-                isFrozen: Object.isFrozen(window.__FIRST_ANALYSIS_FROZEN__)
+            const checkFirst = FirstAnalysisStore.get();
+            console.log('🔒 FirstAnalysisStore (NÃO deve mudar):', {
+                jobId: checkFirst?.jobId,
+                fileName: checkFirst?.metadata?.fileName,
+                lufs: checkFirst?.technicalData?.lufsIntegrated
             });
             console.log('⚠️ PONTO CRÍTICO: normalizeBackendAnalysisData() vai modificar analysisResult?');
             console.groupEnd();
@@ -4971,8 +4923,8 @@ function displayModalResults(analysis) {
     // =========================================================================
     // �️ GUARD CRÍTICO: Prevenir sobrescrita de __FIRST_ANALYSIS_FROZEN__
     // =========================================================================
-    if (window.__FIRST_ANALYSIS_FROZEN__ && 
-        window.__FIRST_ANALYSIS_FROZEN__.jobId === analysis?.jobId) {
+    if (FirstAnalysisStore.has() && 
+        FirstAnalysisStore.jobId() === analysis?.jobId) {
         console.warn('[INFO] ⚠️ Mesmo jobId detectado (self-compare falso). Continuando render normalmente.');
         console.warn('[INFO] jobId:', analysis?.jobId);
         console.warn('[INFO] fileName:', analysis?.metadata?.fileName);
@@ -4995,10 +4947,10 @@ function displayModalResults(analysis) {
     // =========================================================================
     console.groupCollapsed("[DEBUG-DISPLAY] 🧠 Início displayModalResults()");
     console.log("📦 analysis.metadata.fileName:", analysis?.metadata?.fileName);
-    console.log("🧊 __FIRST_ANALYSIS_FROZEN__:", window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName);
-    console.log("🌐 referenceAnalysisData:", window.referenceAnalysisData?.metadata?.fileName);
+    console.log("🧊 FirstAnalysisStore:", FirstAnalysisStore.has() ? FirstAnalysisStore.get()?.metadata?.fileName : 'null');
     console.log("📊 analysis.metrics:", !!analysis?.metrics, "technicalData:", !!analysis?.technicalData);
-    console.log("📊 reference.metrics:", !!window.referenceAnalysisData?.metrics, "technicalData:", !!window.referenceAnalysisData?.technicalData);
+    const storedFirstForDebug = FirstAnalysisStore.get();
+    console.log("📊 first.metrics:", !!storedFirstForDebug?.metrics, "technicalData:", !!storedFirstForDebug?.technicalData);
     console.groupEnd();
     
     // =========================================================================
@@ -5048,10 +5000,11 @@ function displayModalResults(analysis) {
         objectId: analysis.referenceAnalysis
     } : 'null');
     console.log('🌐 Estado global atual:');
-    console.log('  window.__FIRST_ANALYSIS_FROZEN__:', window.__FIRST_ANALYSIS_FROZEN__ ? {
-        fileName: window.__FIRST_ANALYSIS_FROZEN__.metadata?.fileName,
-        jobId: window.__FIRST_ANALYSIS_FROZEN__.jobId,
-        lufs: window.__FIRST_ANALYSIS_FROZEN__.technicalData?.lufsIntegrated
+    const storedFirstForAudit = FirstAnalysisStore.get();
+    console.log('  FirstAnalysisStore:', storedFirstForAudit ? {
+        fileName: storedFirstForAudit.metadata?.fileName,
+        jobId: storedFirstForAudit.jobId,
+        lufs: storedFirstForAudit.technicalData?.lufsIntegrated
     } : 'null');
     console.log('  window.__soundyState.previousAnalysis:', window.__soundyState?.previousAnalysis ? {
         fileName: window.__soundyState.previousAnalysis?.metadata?.fileName || window.__soundyState.previousAnalysis?.fileName,
@@ -5091,51 +5044,48 @@ function displayModalResults(analysis) {
             referenceAnalysis: ref,
         };
 
-        // ==== PATCH 1: REF-PATCH: preparar comparação A/B com referência real ====
+        // ==== PATCH 2: SINGLE SOURCE OF TRUTH - FirstAnalysisStore API ====
         (function enforceABWiring() {
-          const s = window.__soundyState || {};
-          const globalRef = window.referenceAnalysisData || s.referenceAnalysis || null;
-          const firstFrozen = window.__FIRST_ANALYSIS_FROZEN__ || s.previousAnalysis || null;
-
-          // 1ª faixa (SUA música)
-          const userSrc =
-            analysis?.userAnalysis ||
-            analysis?._userAnalysis ||
-            firstFrozen;
-
-          // 2ª faixa (REFERÊNCIA)
-          const refSrc =
-            analysis?.referenceAnalysis ||
-            analysis?._referenceAnalysis ||
-            globalRef;
-
-          if (!userSrc || !refSrc) {
-            console.error("[REF-PATCH] Sem userSrc/refSrc para A/B", {
-              hasUser: !!userSrc, hasRef: !!refSrc, mode: analysis?.mode
-            });
-            return; // não renderiza A/B sem as duas
+          // 🎯 SEGUNDA análise = parâmetro analysis (sempre)
+          const second = analysis;
+          
+          // 🎯 PRIMEIRA análise = FirstAnalysisStore.get() (sempre retorna clone)
+          const first = FirstAnalysisStore.get();
+          
+          if (!first) {
+            console.error("[REF-PATCH] ❌ FirstAnalysisStore vazio - não há primeira análise");
+            return; // não renderiza A/B sem primeira
           }
-
-          const uName = userSrc?.metadata?.fileName || userSrc?.fileName;
-          const rName = refSrc?.metadata?.fileName || refSrc?.fileName;
-
-          // Anti self-compare
-          if (uName && rName && uName === rName) {
-            if (globalRef && (globalRef?.metadata?.fileName || globalRef?.fileName) !== uName) {
-              console.warn("[REF-PATCH] Self-compare detectado — forçando referência do global");
-              analysis.referenceAnalysis = deepCloneSafe(globalRef);
-            } else {
-              console.error("[REF-PATCH] Abortando A/B: referência igual à sua faixa");
-              return;
-            }
-          } else {
-            analysis.referenceAnalysis = deepCloneSafe(refSrc);
+          
+          // ✅ MONTAGEM A/B COM ISOLAMENTO TOTAL:
+          const userFull = first;             // 1ª faixa (sempre clone)
+          const refFull = structuredClone(second);  // 2ª faixa (clone explícito)
+          
+          // 🔒 DETECTAR E FORÇAR ISOLAMENTO SE jobIds IGUAIS (self-compare)
+          const userId = userFull?.jobId || userFull?.id || userFull?.metadata?.jobId;
+          const refId = refFull?.jobId || refFull?.id || refFull?.metadata?.jobId;
+          
+          if (userId && refId && userId === refId) {
+            console.warn("[REF-PATCH] ⚠️ Self-compare detectado! Forçando sufixo __ref");
+            refFull.jobId = `${refId}__ref`;
           }
-
-          analysis.userAnalysis = deepCloneSafe(userSrc);
+          
+          // ✅ ATRIBUIR OBJETOS ISOLADOS À ANÁLISE
+          analysis.userAnalysis = userFull;
+          analysis.referenceAnalysis = refFull;
           analysis.usedReferenceAnalysis = true; // 🔒 trava sem fallback
-
-          // Evita mutação por funções posteriores
+          
+          // ✅ AUDIT LOG: Confirmar A/B ready
+          const abReady = FirstAnalysisStore.has() && FirstAnalysisStore.jobId() !== (second?.jobId || second?.id);
+          console.log('[DISPLAY_MODAL_RESULTS]', {
+            mode: 'reference',
+            abReady: abReady,
+            userJobId: FirstAnalysisStore.jobId(),
+            refJobId: second?.jobId || second?.id,
+            selfCompare: false  // sempre false após força de isolamento
+          });
+          
+          // 🔒 Evita mutação por funções posteriores
           try {
             Object.freeze(analysis.userAnalysis);
             Object.freeze(analysis.referenceAnalysis);
