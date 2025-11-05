@@ -108,6 +108,83 @@ function getJobIdSafely(mode) {
 }
 
 // ========================================
+// 🎯 FUNÇÃO UTILITÁRIA CRÍTICA: getCorrectJobId
+// ========================================
+/**
+ * Retorna o jobId correto baseado no contexto
+ * NUNCA use localStorage.getItem('referenceJobId') diretamente!
+ * SEMPRE use esta função!
+ * 
+ * @param {string} context - 'user'|'second'|'current' = segunda música
+ *                          'reference'|'first' = primeira música
+ *                          'storage' = fallback para localStorage
+ * @returns {string|null} jobId correto para o contexto
+ */
+function getCorrectJobId(context) {
+    const mode = window.currentAnalysisMode || localStorage.getItem('currentAnalysisMode');
+    
+    console.group(`🎯 [GET-CORRECT-JOBID] Contexto: ${context}`);
+    console.log('   - Modo atual:', mode);
+    console.log('   - window.__CURRENT_JOB_ID__:', window.__CURRENT_JOB_ID__);
+    console.log('   - window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
+    console.log('   - sessionStorage.currentJobId:', sessionStorage.getItem('currentJobId'));
+    console.log('   - localStorage.referenceJobId:', localStorage.getItem('referenceJobId'));
+    
+    if (mode === 'reference') {
+        // Em modo reference, temos dois jobIds diferentes
+        const currentJobId = window.__CURRENT_JOB_ID__ || sessionStorage.getItem('currentJobId');
+        const referenceJobId = window.__REFERENCE_JOB_ID__ || localStorage.getItem('referenceJobId');
+        
+        // 🚨 VALIDAÇÃO CRÍTICA: NUNCA retornar jobIds iguais
+        if (currentJobId && referenceJobId && currentJobId === referenceJobId) {
+            console.error('❌ [CRITICAL] JobIds são iguais! Isso NÃO deveria acontecer!');
+            console.error('   currentJobId:', currentJobId);
+            console.error('   referenceJobId:', referenceJobId);
+            console.error('   context:', context);
+            console.trace();
+            
+            // Tenta recuperar do sessionStorage
+            const recoveredJobId = sessionStorage.getItem('currentJobId');
+            if (recoveredJobId && recoveredJobId !== referenceJobId) {
+                console.warn('⚠️ [RECOVERY] JobId recuperado do sessionStorage:', recoveredJobId);
+                window.__CURRENT_JOB_ID__ = recoveredJobId;
+                console.groupEnd();
+                return recoveredJobId;
+            }
+            
+            throw new Error('FATAL: JobIds iguais em modo reference - contaminação detectada!');
+        }
+        
+        // Decide qual jobId usar baseado no contexto
+        let selectedJobId;
+        if (context === 'user' || context === 'second' || context === 'current') {
+            selectedJobId = currentJobId;
+            console.log('✅ [JOB-ID] Retornando currentJobId (segunda música):', selectedJobId);
+        } else if (context === 'reference' || context === 'first') {
+            selectedJobId = referenceJobId;
+            console.log('✅ [JOB-ID] Retornando referenceJobId (primeira música):', selectedJobId);
+        } else if (context === 'storage') {
+            // Fallback para localStorage (compatibilidade)
+            selectedJobId = referenceJobId;
+            console.warn('⚠️ [JOB-ID] Contexto "storage" - retornando referenceJobId:', selectedJobId);
+        } else {
+            console.warn('⚠️ [JOB-ID] Contexto não especificado:', context);
+            selectedJobId = currentJobId; // Default: segunda música
+            console.log('   - Default: retornando currentJobId:', selectedJobId);
+        }
+        
+        console.groupEnd();
+        return selectedJobId;
+    } else {
+        // Modo normal: só existe um jobId
+        const jobId = window.__CURRENT_JOB_ID__ || sessionStorage.getItem('currentJobId') || localStorage.getItem('currentJobId');
+        console.log('✅ [JOB-ID] Modo normal - retornando:', jobId);
+        console.groupEnd();
+        return jobId;
+    }
+}
+
+// ========================================
 // 🔄 HIDRATAÇÃO DE REFERÊNCIA (Correção 1)
 // ========================================
 /**
@@ -3803,9 +3880,14 @@ async function handleModalFileSelection(file) {
             const currentJobId = normalizedResult?.jobId || analysisResult?.jobId;
             if (currentJobId) {
                 console.log('🔒 [PROTECTION] Ativando proteção para currentJobId:', currentJobId);
+                
+                // Salvar em múltiplas camadas de proteção
                 window.__CURRENT_JOB_ID__ = currentJobId;
+                sessionStorage.setItem('currentJobId', currentJobId); // 🆕 BACKUP EM SESSIONSTORAGE
+                
                 protectCurrentJobId(currentJobId);
                 console.log('✅ [PROTECTION] Proteção ativada - currentJobId protegido contra contaminação');
+                console.log('✅ [PROTECTION] sessionStorage.currentJobId salvo:', sessionStorage.getItem('currentJobId'));
             } else {
                 console.warn('⚠️ [PROTECTION] currentJobId não encontrado, proteção não ativada');
             }
@@ -15703,6 +15785,66 @@ window.addEventListener('resize', hideMetricTooltip);
 
 // 🧩 CORREÇÃO #7: Logs de debug automáticos para validação
 console.log("%c[SYSTEM CHECK] 🔍 Debug ativo para validação de fluxos genre/reference", "color:#7f00ff;font-weight:bold;");
+
+// ========================================
+// 🚨 SISTEMA DE MONITORAMENTO CONTÍNUO DE JOBID
+// ========================================
+/**
+ * Monitora se os jobIds permanecem diferentes em modo reference
+ * Detecta e corrige contaminação automaticamente
+ */
+(function startJobIdMonitor() {
+    let monitorInterval = null;
+    
+    function checkJobIdIntegrity() {
+        const mode = window.currentAnalysisMode || localStorage.getItem('currentAnalysisMode');
+        
+        if (mode === 'reference') {
+            const current = window.__CURRENT_JOB_ID__;
+            const reference = window.__REFERENCE_JOB_ID__;
+            
+            // Validação crítica
+            if (current && reference && current === reference) {
+                console.error('🚨 [MONITOR] CONTAMINAÇÃO DETECTADA!');
+                console.error('   currentJobId:', current);
+                console.error('   referenceJobId:', reference);
+                console.error('   Ambos são IGUAIS - isso NÃO deveria acontecer!');
+                console.trace();
+                
+                // Tenta recuperar do sessionStorage
+                const recoveredJobId = sessionStorage.getItem('currentJobId');
+                if (recoveredJobId && recoveredJobId !== reference) {
+                    window.__CURRENT_JOB_ID__ = recoveredJobId;
+                    console.log('✅ [MONITOR] JobId recuperado do sessionStorage:', recoveredJobId);
+                    console.log('✅ [MONITOR] Contaminação corrigida automaticamente');
+                } else {
+                    console.error('❌ [MONITOR] Não foi possível recuperar currentJobId do sessionStorage');
+                    console.error('❌ [MONITOR] Sistema pode estar em estado inconsistente');
+                }
+            }
+        }
+    }
+    
+    // Inicia monitoramento quando entrar em modo reference
+    window.addEventListener('analysisMode', (e) => {
+        if (e.detail?.mode === 'reference' && !monitorInterval) {
+            console.log('🔍 [MONITOR] Iniciando monitoramento de jobIds (intervalo: 1s)');
+            monitorInterval = setInterval(checkJobIdIntegrity, 1000);
+        } else if (e.detail?.mode !== 'reference' && monitorInterval) {
+            console.log('🔍 [MONITOR] Parando monitoramento de jobIds');
+            clearInterval(monitorInterval);
+            monitorInterval = null;
+        }
+    });
+    
+    // Inicia imediatamente se já estiver em modo reference
+    if (window.currentAnalysisMode === 'reference') {
+        console.log('🔍 [MONITOR] Modo reference detectado - iniciando monitoramento');
+        monitorInterval = setInterval(checkJobIdIntegrity, 1000);
+    }
+    
+    console.log('✅ [MONITOR] Sistema de monitoramento de jobIds ativado');
+})();
 
 window.addEventListener("beforeunload", () => {
     console.log("🧹 [CLEANUP] Encerrando sessão de análise e limpando estado.");
