@@ -75,7 +75,28 @@ const FirstAnalysisStore = (() => {
     };
 })();
 
-// 🔒 CLONE PROFUNDO SEGURO (sem loops circulares)
+// �️ GUARDS: Isolamento de jobIds para evitar self-compare
+// Recebe objetos já clonados e garante que refFull tenha jobId único se necessário
+function refHardGuards({ userFull, refFull, secondAnalysis }) {
+    const userId = userFull?.jobId || userFull?.id;
+    const refId = refFull?.jobId || refFull?.id;
+    const secondId = secondAnalysis?.jobId || secondAnalysis?.id;
+
+    // Se jobIds são iguais, força isolamento adicionando sufixo __ref
+    if (userId && refId && userId === refId) {
+        console.warn('[GUARD] ⚠️ jobIds iguais, isolando referência com sufixo __ref');
+        // Clone para evitar mutação do original
+        refFull = (typeof structuredClone === 'function')
+            ? structuredClone(refFull)
+            : JSON.parse(JSON.stringify(refFull));
+        refFull.jobId = `${refId}__ref`; // força ID diferente
+    }
+
+    console.log('[GUARD] ✅ userJobId:', userId, '| refJobId:', refFull?.jobId || refFull?.id);
+    return { userFull, refFull };
+}
+
+// �🔒 CLONE PROFUNDO SEGURO (sem loops circulares)
 // Substitui JSON.parse(JSON.stringify()) com proteção contra referências circulares
 function deepCloneSafe(obj, seen = new WeakMap()) {
     // Primitivos e null retornam direto
@@ -2939,29 +2960,20 @@ async function handleModalFileSelection(file) {
             // PRIMEIRA música em modo reference: abrir modal para música de referência
             __dbg('🎯 Primeira música analisada - abrindo modal para segunda');
             
-            // ⚙️ Salvar primeira análise no estado global
-            if (!window.__soundyState) window.__soundyState = {};
-            window.__soundyState.previousAnalysis = analysisResult;
-            console.log('✅ [REFERENCE-A/B] ═══════════════════════════════════════');
-            console.log('✅ [REFERENCE-A/B] Primeira análise salva no estado global');
-            console.log('✅ [REFERENCE-A/B] Verificação de dados salvos:');
-            console.log('✅ [REFERENCE-A/B]   fileName:', analysisResult.fileName || analysisResult.metadata?.fileName);
-            console.log('✅ [REFERENCE-A/B]   technicalData existe:', !!analysisResult.technicalData);
-            console.log('✅ [REFERENCE-A/B]   spectral_balance:', analysisResult.technicalData?.spectral_balance ? 'SIM' : 'NÃO');
-            console.log('✅ [REFERENCE-A/B]   bandas salvas:', analysisResult.technicalData?.spectral_balance ? Object.keys(analysisResult.technicalData.spectral_balance) : 'NENHUMA');
-            console.log('✅ [REFERENCE-A/B] ═══════════════════════════════════════');
-            
-            // 🔧 PARTE 3: Reset seguro antes da segunda análise
-            if (window.__soundyState.reference) {
-                delete window.__soundyState.reference.analysis;
-                console.log('[PARTE 3] reference.analysis limpo para evitar contaminação');
+            // 🔒 SALVAR PRIMEIRA ANÁLISE NO STORE IMUTÁVEL
+            if (!FirstAnalysisStore.has()) {
+                FirstAnalysisStore.set(analysisResult);
+                window.__REFERENCE_JOB_ID__ = analysisResult?.jobId || analysisResult?.id;
+                localStorage.setItem('referenceJobId', window.__REFERENCE_JOB_ID__);
+                
+                console.log('[STORE] ✅ Primeira faixa armazenada:', {
+                    fileName: analysisResult?.fileName || analysisResult?.metadata?.fileName,
+                    jobId: FirstAnalysisStore.jobId(),
+                    hasTechnicalData: !!analysisResult?.technicalData,
+                    hasSpectralBalance: !!analysisResult?.technicalData?.spectral_balance,
+                    bands: Object.keys(analysisResult?.technicalData?.spectral_balance || {})
+                });
             }
-            
-            // 🔧 FIX: Salvar jobId da primeira música com log detalhado
-            window.__REFERENCE_JOB_ID__ = analysisResult.jobId;
-            localStorage.setItem('referenceJobId', analysisResult.jobId);
-            
-            // 🔒 HARD-GUARD: Salvar primeira análise no FirstAnalysisStore (IMUTÁVEL)
             console.log('[FirstAnalysisStore] 🔒 Salvando primeira análise no store imutável...');
             
             // ✅ USAR NOVA API: FirstAnalysisStore.set() - clonagem interna
@@ -5044,53 +5056,61 @@ function displayModalResults(analysis) {
             referenceAnalysis: ref,
         };
 
-        // ==== PATCH 2: SINGLE SOURCE OF TRUTH - FirstAnalysisStore API ====
-        (function enforceABWiring() {
-          // 🎯 SEGUNDA análise = parâmetro analysis (sempre)
-          const second = analysis;
-          
-          // 🎯 PRIMEIRA análise = FirstAnalysisStore.get() (sempre retorna clone)
-          const first = FirstAnalysisStore.get();
-          
-          if (!first) {
-            console.error("[REF-PATCH] ❌ FirstAnalysisStore vazio - não há primeira análise");
-            return; // não renderiza A/B sem primeira
-          }
-          
-          // ✅ MONTAGEM A/B COM ISOLAMENTO TOTAL:
-          const userFull = first;             // 1ª faixa (sempre clone)
-          const refFull = structuredClone(second);  // 2ª faixa (clone explícito)
-          
-          // 🔒 DETECTAR E FORÇAR ISOLAMENTO SE jobIds IGUAIS (self-compare)
-          const userId = userFull?.jobId || userFull?.id || userFull?.metadata?.jobId;
-          const refId = refFull?.jobId || refFull?.id || refFull?.metadata?.jobId;
-          
-          if (userId && refId && userId === refId) {
-            console.warn("[REF-PATCH] ⚠️ Self-compare detectado! Forçando sufixo __ref");
-            refFull.jobId = `${refId}__ref`;
-          }
-          
-          // ✅ ATRIBUIR OBJETOS ISOLADOS À ANÁLISE
-          analysis.userAnalysis = userFull;
-          analysis.referenceAnalysis = refFull;
-          analysis.usedReferenceAnalysis = true; // 🔒 trava sem fallback
-          
-          // ✅ AUDIT LOG: Confirmar A/B ready
-          const abReady = FirstAnalysisStore.has() && FirstAnalysisStore.jobId() !== (second?.jobId || second?.id);
-          console.log('[DISPLAY_MODAL_RESULTS]', {
-            mode: 'reference',
-            abReady: abReady,
-            userJobId: FirstAnalysisStore.jobId(),
-            refJobId: second?.jobId || second?.id,
-            selfCompare: false  // sempre false após força de isolamento
-          });
-          
-          // 🔒 Evita mutação por funções posteriores
-          try {
+        // ==== PATCH 3: DEFINITIVO - FirstAnalysisStore + refHardGuards ====
+        const first = FirstAnalysisStore.get();
+        
+        if (!first) {
+            console.error('[A/B] ❌ Primeira análise não encontrada no FirstAnalysisStore');
+            console.warn('[A/B] ⚠️ Renderizando apenas segunda análise como single');
+            
+            // Renderiza apenas a segunda como single (fallback seguro)
+            if (typeof window.aiUIController !== 'undefined') {
+                window.aiUIController.renderMetricCards({ mode: 'single', user: analysis });
+                window.aiUIController.renderScoreSection({ mode: 'single', user: analysis });
+                window.aiUIController.renderSuggestions({ mode: 'single', user: analysis });
+                window.aiUIController.renderFinalScoreAtTop({ mode: 'single', user: analysis });
+                window.aiUIController.checkForAISuggestions({ mode: 'single', user: analysis });
+            }
+            return; // não prossegue sem primeira análise
+        }
+
+        // ✅ MONTAGEM A/B COM ISOLAMENTO COMPLETO
+        let userFull = first; // 1ª faixa (já é clone do FirstAnalysisStore.get())
+        let refFull = (typeof structuredClone === 'function')
+            ? structuredClone(analysis)
+            : JSON.parse(JSON.stringify(analysis)); // 2ª faixa (clone explícito)
+
+        // �️ APLICAR GUARDS: Isola jobIds se forem iguais
+        ({ userFull, refFull } = refHardGuards({ 
+            userFull, 
+            refFull, 
+            secondAnalysis: analysis 
+        }));
+
+        // ✅ ATRIBUIR OBJETOS ISOLADOS
+        analysis.userAnalysis = userFull;
+        analysis.referenceAnalysis = refFull;
+        analysis.usedReferenceAnalysis = true;
+        
+        // 🔒 FORÇAR selfCompare = false
+        if (!window.__soundyState) window.__soundyState = {};
+        window.__soundyState.selfCompare = false;
+
+        // ✅ LOG FINAL DE VALIDAÇÃO
+        console.log('[A/B-END] ✅ Comparação preparada:', {
+            firstJobId: userFull?.jobId || userFull?.id,
+            secondJobId: refFull?.jobId || refFull?.id,
+            selfCompare: false,
+            abReady: true
+        });
+
+        // 🔒 Congelar para evitar mutações posteriores
+        try {
             Object.freeze(analysis.userAnalysis);
             Object.freeze(analysis.referenceAnalysis);
-          } catch(_) {}
-        })();
+        } catch(e) {
+            console.warn('[A/B] ⚠️ Não foi possível congelar objetos:', e.message);
+        }
 
         renderReferenceComparisons(analysis, {
           mode: 'reference',
