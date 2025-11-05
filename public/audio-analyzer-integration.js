@@ -80,31 +80,24 @@ function protectCurrentJobId(initialValue) {
  * @param {string} mode - 'reference' ou 'genre'
  * @returns {string|null} jobId seguro
  */
+/**
+ * ⚠️ DEPRECATED - USE getCorrectJobId() INSTEAD
+ * Esta função está DEPRECADA e será removida em versões futuras.
+ * MOTIVO: Acessa localStorage diretamente sem validação, causando bug de comparação com mesma música.
+ * @deprecated Use getCorrectJobId(context) em vez disso
+ */
 function getJobIdSafely(mode) {
-    const currentJobId = window.__CURRENT_JOB_ID__;
-    const referenceJobId = window.__REFERENCE_JOB_ID__;
+    console.error('⚠️ [DEPRECATED] getJobIdSafely() está DEPRECADA! Use getCorrectJobId() em vez disso.');
+    console.trace('🔍 [DEPRECATED] Stack trace de quem chamou a função deprecada:');
     
-    console.group('🔒 [SAFE-GET] Retornando jobId seguro');
-    console.log('   - Modo:', mode);
-    console.log('   - CurrentJobId:', currentJobId);
-    console.log('   - ReferenceJobId:', referenceJobId);
-    
-    let safeJobId;
-    
+    // Redirecionar para a função correta
     if (mode === 'reference') {
-        // Em modo reference, SEMPRE usar currentJobId (segunda música)
-        safeJobId = currentJobId;
-        console.log('   - Retornando currentJobId (segunda música)');
+        return getCorrectJobId('reference');
+    } else if (mode === 'storage') {
+        return getCorrectJobId('storage');
     } else {
-        // Em outros modos, usar o que estiver disponível
-        safeJobId = currentJobId || referenceJobId || localStorage.getItem('referenceJobId');
-        console.log('   - Retornando jobId disponível');
+        return getCorrectJobId('current');
     }
-    
-    console.log('   - JobId retornado:', safeJobId);
-    console.groupEnd();
-    
-    return safeJobId;
 }
 
 // ========================================
@@ -195,7 +188,8 @@ function getCorrectJobId(context) {
 function ensureReferenceHydrated() {
   try {
     const mode = window.currentAnalysisMode || window.__soundyState?.render?.mode;
-    const refId = window.__REFERENCE_JOB_ID__ || localStorage.getItem('referenceJobId');
+    // 🎯 CORREÇÃO: Usar getCorrectJobId em vez de acesso direto
+    const refId = getCorrectJobId('reference');
 
     if (mode !== 'reference' || !refId) {
       return { ok: false, reason: 'no-ref-mode-or-id' };
@@ -797,7 +791,8 @@ window.diagnosticReferenceFlow = function() {
     console.log('  window.referenceComparisonMetrics:', window.referenceComparisonMetrics ? 'PRESENTE' : 'null');
     
     console.log('%c🎯 Diagnóstico:', 'color:#00FF00;font-weight:bold;');
-    const refId = window.__REFERENCE_JOB_ID__ || localStorage.getItem('referenceJobId');
+    // 🎯 CORREÇÃO: Usar getCorrectJobId em vez de acesso direto
+    const refId = getCorrectJobId('reference');
     if (currentAnalysisMode === 'reference') {
         if (!refId) {
             console.log('  ✅ Primeira música - pronto para receber segunda');
@@ -1098,14 +1093,15 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         __dbg('🔧 Criando job de análise...', { fileKey, mode, fileName });
 
         // 🔧 FIX CRÍTICO: Detectar se é primeira ou segunda música no modo referência
-        // 🔍 PASSO 3: AUDITORIA - Usar função segura
+        // 🎯 CORREÇÃO DEFINITIVA: Usar getCorrectJobId() em vez de acesso direto
         console.group('🔍 [AUDIT-LOCALSTORAGE] createAnalysisJob - Leitura de referenceJobId');
         console.log('   - Antes: window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
         console.log('   - Antes: localStorage.referenceJobId:', localStorage.getItem('referenceJobId'));
         
-        let referenceJobId = window.__REFERENCE_JOB_ID__ || localStorage.getItem('referenceJobId');
+        // 🎯 USA FUNÇÃO SEGURA ao invés de acesso direto
+        let referenceJobId = getCorrectJobId('reference'); // Primeira música
         
-        console.log('   - Valor obtido:', referenceJobId);
+        console.log('   - Valor obtido via getCorrectJobId("reference"):', referenceJobId);
         console.log('   - Mode:', mode);
         console.trace('   - Stack trace:');
         console.groupEnd();
@@ -5572,16 +5568,17 @@ async function displayModalResults(analysis) {
     // ========================================
     // Verifica se dados de referência foram perdidos e restaura do cache
     
-    // 🔍 PASSO 3: AUDITORIA - Usar função segura
+    // 🎯 CORREÇÃO DEFINITIVA: Usar getCorrectJobId() em vez de acesso direto
     console.group('🔍 [AUDIT-LOCALSTORAGE] displayModalResults - Leitura de referenceJobId');
     console.log('   - Antes: window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
     console.log('   - Antes: window.__CURRENT_JOB_ID__:', window.__CURRENT_JOB_ID__);
     console.log('   - Antes: localStorage.referenceJobId:', localStorage.getItem('referenceJobId'));
     console.log('   - Mode:', currentAnalysisMode);
     
-    const referenceJobId = getJobIdSafely('storage'); // Usa função segura
+    // 🎯 USA FUNÇÃO SEGURA ao invés de acesso direto
+    const referenceJobId = getCorrectJobId('reference'); // Primeira música
     
-    console.log('   - Valor obtido:', referenceJobId);
+    console.log('   - Valor obtido via getCorrectJobId("reference"):', referenceJobId);
     console.trace('   - Stack trace:');
     console.groupEnd();
     
@@ -9201,6 +9198,50 @@ if (typeof window.comparisonLock === "undefined") {
 
 // --- BEGIN: deterministic mode gate ---
 function renderReferenceComparisons(ctx) {
+    // ========================================
+    // 🚨 VALIDAÇÃO CRÍTICA: NUNCA COMPARAR MESMA MÚSICA
+    // ========================================
+    const userJobId = ctx?.userAnalysis?.jobId || ctx?.user?.jobId;
+    const refJobId = ctx?.referenceAnalysis?.jobId || ctx?.ref?.jobId;
+    
+    console.group('🚨 [RENDER-VALIDATION] Validação crítica de jobIds');
+    console.log('   - userJobId:', userJobId);
+    console.log('   - refJobId:', refJobId);
+    console.log('   - São iguais?', userJobId === refJobId);
+    
+    // VALIDAÇÃO CRÍTICA: Se jobIds são iguais, ABORTAR renderização
+    if (userJobId && refJobId && userJobId === refJobId) {
+        console.error('❌ [RENDER] ERRO CRÍTICO: Tentando comparar mesma música!');
+        console.error('   userJobId:', userJobId);
+        console.error('   refJobId:', refJobId);
+        console.trace();
+        
+        // Tenta recuperar o jobId correto da segunda música
+        const recoveredJobId = getCorrectJobId('current'); // Segunda música
+        const firstJobId = getCorrectJobId('reference'); // Primeira música
+        
+        console.log('🔄 [RENDER] Tentando recuperar jobIds corretos:');
+        console.log('   - Recovered currentJobId:', recoveredJobId);
+        console.log('   - Recovered referenceJobId:', firstJobId);
+        
+        if (recoveredJobId && firstJobId && recoveredJobId !== firstJobId) {
+            console.warn('⚠️ [RENDER] JobIds recuperados - reconstruindo ctx');
+            // Reconstruir ctx com jobIds corretos
+            // Por ora, ABORTAR para evitar renderização incorreta
+            alert('ERRO: Não foi possível carregar a comparação corretamente. Por favor, recarregue a página e tente novamente.');
+            console.groupEnd();
+            return;
+        } else {
+            console.error('❌ [RENDER] Não foi possível recuperar jobIds corretos');
+            alert('ERRO CRÍTICO: Comparação inválida detectada. Recarregue a página.');
+            console.groupEnd();
+            return;
+        }
+    }
+    
+    console.log('✅ [RENDER-VALIDATION] JobIds são diferentes - continuando renderização');
+    console.groupEnd();
+    
     // ========================================
     // ✅ CORREÇÃO 3: Padronização de chamada e validação de ctx
     // ========================================
