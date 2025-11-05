@@ -5873,43 +5873,59 @@ async function displayModalResults(analysis) {
         console.log('⚠️ Metadata são mesma referência?', refNormalized?.metadata === currNormalized?.metadata);
         console.groupEnd();
         
-        // �🛡️ Proteção contra auto-comparação e renderização segura
+        // 🛡️ Proteção contra auto-comparação e renderização segura
         let isSelfCompare = false;
         
-        // 🧠 VALIDAÇÃO INTELIGENTE: Mesmo fileName mas JobId diferente = NÃO é self-compare
+        // ========================================
+        // 🔧 VALIDAÇÃO INTELIGENTE: Usar jobId e VID em vez de apenas fileName
+        // ========================================
         const sameFileName = refFileName === currFileName;
-        const sameJobId = refJobId && currJobId && refJobId === currJobId;
+        const sameJobId = !!(refJobId && currJobId && refJobId === currJobId);
+        
+        // Verificar Virtual IDs (mais confiável que fileName)
+        const refVid = refNormalized?.vid || window.CacheIndex?.REF;
+        const currVid = currNormalized?.vid || window.CacheIndex?.USER;
+        const sameVid = !!(refVid && currVid && refVid === currVid);
+        
+        // Fallback: areSameTrack() para validação técnica
         const sameTrack = areSameTrack(refNormalized, currNormalized);
         
-        console.groupCollapsed('[SMART-VALIDATION] 🧠 Análise de Self-Compare');
+        console.groupCollapsed('[SMART-VALIDATION] 🧠 Análise de Self-Compare (VID-aware)');
         console.log('📋 Análise completa:', {
             sameFileName,
             sameJobId,
+            refVid,
+            currVid,
+            sameVid,
             sameTrack,
-            decisao: sameJobId ? 'SELF-COMPARE REAL' : (sameFileName && !sameJobId ? 'MESMO ARQUIVO, JOBs DIFERENTES → OK' : 'ARQUIVOS DIFERENTES')
+            decisao: (sameJobId || sameVid) 
+                ? 'SELF-COMPARE REAL (jobId ou VID idêntico)' 
+                : (sameFileName && !sameJobId && !sameVid) 
+                    ? 'MESMO ARQUIVO, IDs DIFERENTES → OK (não é self-compare)' 
+                    : 'ARQUIVOS DIFERENTES'
         });
         console.groupEnd();
         
-        if (sameTrack && sameJobId) {
-            console.warn('[REF-GUARD] ⚠️ Self-compare REAL detectado (mesmo jobId) — marcando flag mas CONTINUANDO renderização A/B.');
+        // Self-compare detectado se: jobId OU VID idênticos
+        if (sameJobId || sameVid) {
+            console.warn('[REF-GUARD] ⚠️ Self-compare REAL detectado — marcando flag mas CONTINUANDO renderização A/B.');
             isSelfCompare = true;
             
             // 🔥 Marcar no estado que é self-compare (sem interromper fluxo)
             if (!state.render) state.render = {};
             state.render.isSelfCompare = true;
             
-            // ❌ REMOVIDO: return que bloqueava todo o fluxo de renderização
-            // O fluxo agora continua normalmente, permitindo que cards, scores, sugestões e tabela sejam renderizados
-        } else if (sameFileName && !sameJobId) {
-            console.log('[REF-GUARD] ✅ Mesmo arquivo mas JobIds diferentes → Não é self-compare, continuando normalmente');
-        } else if (sameTrack && !sameJobId) {
-            console.log('[REF-GUARD] ⚠️ areSameTrack() detectou semelhança mas JobIds são diferentes → Continuando normalmente');
+            console.log('[REF-GUARD] 🔄 Self-compare confirmado:', {
+                sameJobId: sameJobId ? refJobId : false,
+                sameVid: sameVid ? refVid : false,
+                note: 'Score será 100% mas renderização continua'
+            });
+        } else if (sameFileName && !sameJobId && !sameVid) {
+            console.log('[REF-GUARD] ✅ Mesmo arquivo mas IDs diferentes → Não é self-compare, continuando normalmente');
+        } else if (sameTrack && !sameJobId && !sameVid) {
+            console.log('[REF-GUARD] ⚠️ areSameTrack() detectou semelhança mas IDs são diferentes → Continuando normalmente');
         } else {
-            console.log('[REF-GUARD] ✅ Validação areSameTrack() passou - faixas são diferentes');
-        }
-        
-        if (isSelfCompare) {
-            console.log('[REF-GUARD] 🔄 Self-compare confirmado mas CONTINUANDO fluxo de renderização completo (score será 100%)');
+            console.log('[REF-GUARD] ✅ Validação passou - faixas são diferentes');
         }
         
         // 🐛 DEBUG A/B
@@ -6337,13 +6353,67 @@ async function displayModalResults(analysis) {
     }
 
     function __tracksLookSame(userTd, refTd, userMd, refMd, userBands, refBands) {
-      const sameName = !!userMd?.fileName && !!refMd?.fileName && (userMd.fileName === refMd.fileName);
+      // ========================================
+      // 🔧 CORREÇÃO: Detecção segura de self-compare usando jobId e VID
+      // ========================================
+      // Recuperar objetos completos para acessar jobId e vid
+      const userFull = referenceComparisonMetrics?.userFull || {};
+      const refFull = referenceComparisonMetrics?.referenceFull || {};
+      
+      // Critério 1: jobId idêntico (mais confiável)
+      const sameJobId = !!(userFull?.jobId && refFull?.jobId && userFull.jobId === refFull.jobId);
+      
+      // Critério 2: Virtual ID idêntico (detecta mesmo jobId::ROLE)
+      const sameVid = !!(userFull?.vid && refFull?.vid && userFull.vid === refFull.vid);
+      
+      // Critério 3: Fallback - fileName idêntico APENAS se não há jobId em nenhum dos dois
+      const sameName = (
+        !userFull?.jobId && 
+        !refFull?.jobId && 
+        !!userMd?.fileName && 
+        !!refMd?.fileName && 
+        userMd.fileName === refMd.fileName
+      );
+      
+      // Critérios técnicos (mantidos para validação adicional)
       const sameLufs = __ae(userTd?.lufsIntegrated, refTd?.lufsIntegrated, 0.05);
       const sameTp   = __ae(userTd?.truePeakDbtp,  refTd?.truePeakDbtp,  0.05);
       const sameDr   = __ae(userTd?.dynamicRange,  refTd?.dynamicRange,  0.1);
       const sameCent = __ae(userTd?.spectralCentroidHz, refTd?.spectralCentroidHz, 5);
       const sameBands = __bandsSimilar(userBands, refBands);
-      return sameName || (sameLufs && sameTp && sameDr && sameCent) || sameBands;
+      
+      // Self-compare detectado se:
+      // 1. jobId idêntico OU
+      // 2. VID idêntico OU
+      // 3. Sem jobId em ambos E fileName idêntico OU
+      // 4. Todas as métricas técnicas idênticas E bands similares
+      const isSelfCompare = sameJobId || sameVid || sameName || (sameLufs && sameTp && sameDr && sameCent && sameBands);
+      
+      // Log de auditoria
+      console.log("[COMPARE-FLAG] selfCompare:", isSelfCompare, {
+        userJobId: userFull?.jobId || 'N/A',
+        refJobId: refFull?.jobId || 'N/A',
+        sameJobId,
+        userVid: userFull?.vid || window.CacheIndex?.USER || 'N/A',
+        refVid: refFull?.vid || window.CacheIndex?.REF || 'N/A',
+        sameVid,
+        userFile: userMd?.fileName || 'N/A',
+        refFile: refMd?.fileName || 'N/A',
+        sameName,
+        technicalMatch: sameLufs && sameTp && sameDr && sameCent && sameBands,
+        criteria: {
+          sameJobId,
+          sameVid,
+          sameName,
+          sameLufs,
+          sameTp,
+          sameDr,
+          sameCent,
+          sameBands
+        }
+      });
+      
+      return isSelfCompare;
     }
 
     /** 1) Extrai estruturas normalizadas que já existem nesse ponto do fluxo */
