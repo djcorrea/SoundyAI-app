@@ -42,6 +42,31 @@ function cloneDeepSafe(obj) {
   const observer = new MutationObserver(() => {
     if (window.aiUIController?.__ready) {
       console.log('[SAFE-BOOT] ✅ aiUIController real detectado, removendo stub.');
+      
+      // ========================================
+      // ✅ AUDITORIA DE COMPATIBILIDADE
+      // ========================================
+      const requiredFunctions = [
+        'renderMetricCards',
+        'renderScoreSection',
+        'renderSuggestions',
+        'renderFinalScoreAtTop',
+        'checkForAISuggestions'
+      ];
+      
+      const missingFunctions = requiredFunctions.filter(
+        fn => typeof window.aiUIController[fn] !== 'function'
+      );
+      
+      if (missingFunctions.length === 0) {
+        console.log('[COMPAT] ✅ aiUIController detectado com todas as funções esperadas');
+        console.log('[COMPAT] Funções disponíveis:', requiredFunctions);
+      } else {
+        console.error('[COMPAT-FAIL] ❌ Funções ausentes:', missingFunctions);
+        console.error('[COMPAT-FAIL] Tipo de aiUIController:', typeof window.aiUIController);
+        console.error('[COMPAT-FAIL] Protótipo:', Object.getPrototypeOf(window.aiUIController));
+      }
+      
       observer.disconnect();
     }
   });
