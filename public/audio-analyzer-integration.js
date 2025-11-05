@@ -3201,9 +3201,12 @@ async function handleModalFileSelection(file) {
             console.log('[REFERENCE-FLOW] ═══════════════════════════════════════');
             console.log('[REFERENCE-FLOW] Segunda música concluída - montando comparação A/B');
             
-            // Usar PRIMEIRA música como base do modal
-            const userAnalysis = state.previousAnalysis || state.userAnalysis;
-            const referenceAnalysisData = normalizedResult || state.referenceAnalysis;
+            // 🛡️ DEEP CLONE OBRIGATÓRIO: Evitar contaminação de ponteiros que causa falso self-compare
+            console.log('[DEEP-CLONE-GUARD] 🔒 Clonando userAnalysis para evitar compartilhamento de metadata');
+            const userAnalysis = structuredClone(state.previousAnalysis || state.userAnalysis);
+            
+            console.log('[DEEP-CLONE-GUARD] 🔒 Clonando referenceAnalysisData para evitar compartilhamento de metadata');
+            const referenceAnalysisData = structuredClone(normalizedResult || state.referenceAnalysis);
             
             console.log('[REFERENCE-COMPARE] ═══════════════════════════════════════');
             console.log('[REFERENCE-COMPARE] 1ª FAIXA (SUA MÚSICA):');
@@ -5214,10 +5217,42 @@ function displayModalResults(analysis) {
         console.log('[NORMALIZE-DEFENSIVE] 🔒 Criando cópia isolada da 2ª faixa (normalizeSafe)');
         const currNormalized = normalizeSafe(analysis);
         
-        // 🛡️ Proteção contra auto-comparação e renderização segura
+        // � PRÉ-VALIDAÇÃO: Detectar contaminação de ponteiros ANTES de areSameTrack()
+        const refFileName = refNormalized?.metadata?.fileName || refNormalized?.fileName;
+        const currFileName = currNormalized?.metadata?.fileName || currNormalized?.fileName;
+        const refJobId = refNormalized?.jobId || refNormalized?.id;
+        const currJobId = currNormalized?.jobId || currNormalized?.id;
+        
+        console.groupCollapsed('[PRE-VALIDATION] 🔍 Verificação de Integridade dos Objetos');
+        console.log('📁 Arquivo 1 (ref):', refFileName);
+        console.log('📁 Arquivo 2 (curr):', currFileName);
+        console.log('🆔 JobId 1 (ref):', refJobId);
+        console.log('🆔 JobId 2 (curr):', currJobId);
+        console.log('⚠️ Nomes iguais?', refFileName === currFileName);
+        console.log('⚠️ JobIds iguais?', refJobId === currJobId);
+        console.log('⚠️ Objetos são mesma referência?', refNormalized === currNormalized);
+        console.log('⚠️ Metadata são mesma referência?', refNormalized?.metadata === currNormalized?.metadata);
+        console.groupEnd();
+        
+        // �🛡️ Proteção contra auto-comparação e renderização segura
         let isSelfCompare = false;
-        if (areSameTrack(refNormalized, currNormalized)) {
-            console.warn('[REF-GUARD] Self-compare detectado — marcando flag mas CONTINUANDO renderização A/B.');
+        
+        // 🧠 VALIDAÇÃO INTELIGENTE: Mesmo fileName mas JobId diferente = NÃO é self-compare
+        const sameFileName = refFileName === currFileName;
+        const sameJobId = refJobId && currJobId && refJobId === currJobId;
+        const sameTrack = areSameTrack(refNormalized, currNormalized);
+        
+        console.groupCollapsed('[SMART-VALIDATION] 🧠 Análise de Self-Compare');
+        console.log('📋 Análise completa:', {
+            sameFileName,
+            sameJobId,
+            sameTrack,
+            decisao: sameJobId ? 'SELF-COMPARE REAL' : (sameFileName && !sameJobId ? 'MESMO ARQUIVO, JOBs DIFERENTES → OK' : 'ARQUIVOS DIFERENTES')
+        });
+        console.groupEnd();
+        
+        if (sameTrack && sameJobId) {
+            console.warn('[REF-GUARD] ⚠️ Self-compare REAL detectado (mesmo jobId) — marcando flag mas CONTINUANDO renderização A/B.');
             isSelfCompare = true;
             
             // 🔥 Marcar no estado que é self-compare (sem interromper fluxo)
@@ -5226,12 +5261,16 @@ function displayModalResults(analysis) {
             
             // ❌ REMOVIDO: return que bloqueava todo o fluxo de renderização
             // O fluxo agora continua normalmente, permitindo que cards, scores, sugestões e tabela sejam renderizados
+        } else if (sameFileName && !sameJobId) {
+            console.log('[REF-GUARD] ✅ Mesmo arquivo mas JobIds diferentes → Não é self-compare, continuando normalmente');
+        } else if (sameTrack && !sameJobId) {
+            console.log('[REF-GUARD] ⚠️ areSameTrack() detectou semelhança mas JobIds são diferentes → Continuando normalmente');
+        } else {
+            console.log('[REF-GUARD] ✅ Validação areSameTrack() passou - faixas são diferentes');
         }
         
         if (isSelfCompare) {
-            console.log('[REF-GUARD] ⚠️ Self-compare confirmado mas CONTINUANDO fluxo de renderização completo');
-        } else {
-            console.log('[REF-GUARD] ✅ Validação areSameTrack() passou - faixas são diferentes');
+            console.log('[REF-GUARD] 🔄 Self-compare confirmado mas CONTINUANDO fluxo de renderização completo (score será 100%)');
         }
         
         // 🐛 DEBUG A/B
@@ -8135,14 +8174,16 @@ function renderReferenceComparisons(opts = {}) {
 
         // ✅ STEP 3/6: Usar areSameTrack() em vez de comparação de fileName
         if (areSameTrack(opts.userAnalysis, opts.referenceAnalysis)) {
-            console.warn('[REF-GUARD] Self-compare detectado no refHardGuards()');
+            console.warn('[REF-GUARD] Self-compare detectado no refHardGuards() — CONTINUANDO renderização');
             // Tentar recuperar de globalRef
             if (globalRef && !areSameTrack(globalRef, opts.userAnalysis)) {
                 console.warn("[REF-PATCH] Recuperando referência de globalRef");
                 opts.referenceAnalysis = deepCloneSafe(globalRef);
             } else {
-                console.warn('[REF-GUARD] Abortando renderização — self-compare verdadeiro detectado');
-                return { abort: true, reason: 'self-compare' };
+                console.warn('[REF-GUARD] ⚠️ Self-compare verdadeiro detectado mas CONTINUANDO renderização (score será 100%)');
+                // ❌ REMOVIDO: return { abort: true, reason: 'self-compare' };
+                // Agora continua renderização normalmente, apenas marca flag
+                opts.isSelfCompare = true;
             }
         }
 
