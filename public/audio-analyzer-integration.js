@@ -4,6 +4,13 @@
 // ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
 
 // ========================================
+// 🆔 VIRTUAL IDS E ÍNDICE DE PAPÉIS (ANTI-SELF-COMPARE)
+// ========================================
+// Solução definitiva: Virtual ID composto por jobId + role (USER ou REF)
+// Mesmo que backend reutilize jobId, o VID mantém separação por papel
+window.CacheIndex ??= { USER: null, REF: null };
+
+// ========================================
 // 🔧 UTILIDADES DE CLONAGEM PROFUNDA
 // ========================================
 /**
@@ -191,81 +198,215 @@ const __dwrn = (...a) => { if (__DEBUG_ANALYZER__) console.warn('[AUDIO-WARN]', 
 (function initGlobalStores() {
   if (!window.AnalysisCache) {
     const _map = new Map();
-    window.AnalysisCache = {
-      put(analysis) {
-        if (!analysis) return;
-        const id = analysis.jobId || analysis.id;
-        if (!id) return;
-        _map.set(id, Object.freeze(cloneDeepSafe(analysis)));
-        console.log('[CACHE] ✅ put', { jobId: id, file: analysis?.fileName || analysis?.metadata?.fileName });
-      },
-      get(id) {
-        const a = _map.get(id);
-        return a ? cloneDeepSafe(a) : null;
-      },
-      has(id) { return _map.has(id); },
-      ids() { return Array.from(_map.keys()); },
-      clear() { 
-        _map.clear(); 
-        console.log('[CACHE] 🗑️ clear');
+    window.AnalysisCache = _map; // Expor Map diretamente para compatibilidade com CacheIndex
+    
+    // Adaptar API para aceitar Virtual IDs (vid) ou jobId simples
+    window.AnalysisCache.put = function(keyOrAnalysis, analysis) {
+      // Suporta: put(vid, analysis) ou put(analysis)
+      let key, data;
+      if (typeof keyOrAnalysis === 'string' && analysis) {
+        key = keyOrAnalysis; // Virtual ID explícito
+        data = analysis;
+      } else {
+        data = keyOrAnalysis;
+        key = data?.jobId || data?.id; // Backward compatibility
       }
+      
+      if (!key || !data) return;
+      _map.set(key, Object.freeze(cloneDeepSafe(data)));
+      console.log('[CACHE] ✅ put', { 
+        vid: key, 
+        file: data?.fileName || data?.metadata?.fileName,
+        isVirtualId: key.includes('::')
+      });
     };
-    console.log('[BOOT] AnalysisCache ✅');
+    
+    window.AnalysisCache.get = function(k) {
+      if (!k) return null;
+      const a = _map.get(k);
+      return a ? cloneDeepSafe(a) : null;
+    };
+    
+    window.AnalysisCache.has = function(k) { return k && _map.has(k); };
+    window.AnalysisCache.ids = function() { return Array.from(_map.keys()); };
+    window.AnalysisCache.clear = function() { 
+      _map.clear(); 
+      console.log('[CACHE] 🗑️ clear');
+    };
+    
+    console.log('[BOOT] AnalysisCache ✅ (Virtual ID support)');
   }
 
   if (!window.FirstAnalysisStore) {
-    let _frozen = null;
-    let _id = null;
+    const _state = {
+      user: null,      // Primeira faixa (USER)
+      userVid: null,   // Virtual ID do user
+      userJobId: null, // jobId original do user
+      ref: null,       // Segunda faixa (REF)
+      refVid: null,    // Virtual ID da ref
+      refJobId: null   // jobId original da ref
+    };
 
     window.FirstAnalysisStore = {
-      set(analysis) {
-        if (_frozen) {
-          console.warn('[FIRST-STORE] ⚠️ Já existe análise - não sobrescrever');
-          return; // set-once
+      // ========================================
+      // 🎯 API POR PAPEL (USER/REF)
+      // ========================================
+      setUser(analysis, vid, jobId) {
+        if (_state.user) {
+          console.warn('[FIRST-STORE] ⚠️ USER já existe - não sobrescrever');
+          return; // set-once para user
         }
-        const c = cloneDeepSafe(analysis);
-        _frozen = Object.freeze(c);
-        _id = c?.jobId || c?.id || null;
-        try { localStorage.setItem('referenceJobId', _id || ''); } catch {}
-        console.log('[FIRST-STORE] ✅ set', { jobId: _id, file: c?.fileName || c?.metadata?.fileName });
+        _state.user = analysis;
+        _state.userVid = vid;
+        _state.userJobId = jobId || analysis?.jobId;
+        console.log('[FIRST-STORE] ✅ setUser', { 
+          vid, 
+          jobId: _state.userJobId, 
+          file: analysis?.fileName || analysis?.metadata?.fileName 
+        });
       },
-      get() {
-        if (_frozen) return cloneDeepSafe(_frozen);
-        try {
-          const id = localStorage.getItem('referenceJobId') || null;
-          if (id && window.AnalysisCache?.has(id)) {
-            const fromCache = window.AnalysisCache.get(id);
-            _frozen = Object.freeze(cloneDeepSafe(fromCache));
-            _id = id;
-            console.log('[FIRST-STORE] ♻️ RESTORE', { jobId: _id });
-            return cloneDeepSafe(_frozen);
-          }
-        } catch {}
+      
+      setRef(analysis, vid, jobId) {
+        // REF pode ser sobrescrito (usuário pode trocar segunda faixa)
+        _state.ref = analysis;
+        _state.refVid = vid;
+        _state.refJobId = jobId || analysis?.jobId;
+        console.log('[FIRST-STORE] ✅ setRef', { 
+          vid, 
+          jobId: _state.refJobId, 
+          file: analysis?.fileName || analysis?.metadata?.fileName 
+        });
+      },
+      
+      getUser() {
+        if (_state.user) return _state.user;
+        // Fallback: recuperar do cache usando VID
+        if (window.CacheIndex.USER && window.AnalysisCache?.has(window.CacheIndex.USER)) {
+          const restored = window.AnalysisCache.get(window.CacheIndex.USER);
+          console.log('[FIRST-STORE] ♻️ RESTORE USER from cache', { vid: window.CacheIndex.USER });
+          return restored;
+        }
         return null;
       },
-      id() { return _id; },
+      
+      getRef() {
+        if (_state.ref) return _state.ref;
+        // Fallback: recuperar do cache usando VID
+        if (window.CacheIndex.REF && window.AnalysisCache?.has(window.CacheIndex.REF)) {
+          const restored = window.AnalysisCache.get(window.CacheIndex.REF);
+          console.log('[FIRST-STORE] ♻️ RESTORE REF from cache', { vid: window.CacheIndex.REF });
+          return restored;
+        }
+        return null;
+      },
+      
       has() { 
-        if (_frozen) return true;
-        try {
-          const id = localStorage.getItem('referenceJobId');
-          return !!(id && window.AnalysisCache?.has(id));
-        } catch {}
-        return false;
+        return !!_state.user || !!(window.CacheIndex.USER && window.AnalysisCache?.has(window.CacheIndex.USER));
       },
+      
+      // ========================================
+      // 🔧 COMPATIBILIDADE COM API ANTIGA
+      // ========================================
+      set(analysis) {
+        // Backward compatibility: se não tem user, assume que é o primeiro
+        if (!_state.user) {
+          const jobId = analysis?.jobId || analysis?.id;
+          const vid = `${jobId}::USER`;
+          this.setUser(analysis, vid, jobId);
+          window.CacheIndex.USER = vid;
+          try { localStorage.setItem('referenceJobId', jobId || ''); } catch {}
+        } else {
+          console.warn('[FIRST-STORE] ⚠️ set() chamado mas USER já existe - use setRef()');
+        }
+      },
+      
+      get() {
+        // Backward compatibility: retorna user (primeira faixa)
+        return this.getUser();
+      },
+      
+      id() { return _state.userJobId; },
+      jobId() { return _state.userJobId; },
+      
       clear() { 
-        _frozen = null; 
-        _id = null;
+        _state.user = null;
+        _state.userVid = null;
+        _state.userJobId = null;
+        _state.ref = null;
+        _state.refVid = null;
+        _state.refJobId = null;
+        window.CacheIndex.USER = null;
+        window.CacheIndex.REF = null;
         try { localStorage.removeItem('referenceJobId'); } catch {}
-        console.log('[FIRST-STORE] 🗑️ clear');
+        console.log('[FIRST-STORE] 🗑️ clear (USER + REF)');
       },
-      jobId() { return _id; }
+      
+      // ========================================
+      // 📊 DEBUG
+      // ========================================
+      _debug() {
+        return {
+          hasUser: !!_state.user,
+          hasRef: !!_state.ref,
+          userVid: _state.userVid,
+          refVid: _state.refVid,
+          userJobId: _state.userJobId,
+          refJobId: _state.refJobId,
+          cacheIndexUser: window.CacheIndex.USER,
+          cacheIndexRef: window.CacheIndex.REF
+        };
+      }
     };
-    console.log('[BOOT] FirstAnalysisStore ✅');
+    console.log('[BOOT] FirstAnalysisStore ✅ (Role-based: USER/REF)');
   }
 })();
 
 // Alias global para compatibilidade com código existente
 const FirstAnalysisStore = window.FirstAnalysisStore;
+
+// ========================================
+// 🔧 FUNÇÃO AUXILIAR: Cache por Papel (Role)
+// ========================================
+/**
+ * Salva resultado de análise com Virtual ID baseado no papel (USER ou REF)
+ * @param {Object} result - Resultado da análise do backend
+ * @param {Object} options - { isSecondTrack: boolean }
+ * @returns {Object} { vid: string, clone: Object }
+ */
+function cacheResultByRole(result, { isSecondTrack }) {
+  // Normalizar dados do backend
+  const base = normalizeBackendAnalysisData(result);
+  
+  // Clone profundo para evitar mutações
+  const clone = (typeof structuredClone === 'function') 
+    ? structuredClone(base) 
+    : JSON.parse(JSON.stringify(base));
+  
+  // Criar Virtual ID: jobId + papel (USER ou REF)
+  const jobId = result.jobId || result.id;
+  const role = isSecondTrack ? 'REF' : 'USER';
+  const vid = `${jobId}::${role}`;
+  
+  // Salvar no cache com VID
+  window.AnalysisCache.put(vid, clone);
+  
+  // Atualizar índice de papéis
+  if (isSecondTrack) {
+    window.CacheIndex.REF = vid;
+  } else {
+    window.CacheIndex.USER = vid;
+  }
+  
+  console.log('[VID] ✅ Cached by role', { 
+    vid, 
+    role, 
+    jobId, 
+    file: clone?.fileName || clone?.metadata?.fileName,
+    isSecondTrack
+  });
+  
+  return { vid, clone };
+}
 
 // �️ GUARDS: Isolamento de jobIds para evitar self-compare
 // Recebe objetos já clonados e garante que refFull tenha jobId único se necessário
@@ -3165,17 +3306,21 @@ async function handleModalFileSelection(file) {
             __dbg('🎯 Primeira música analisada - abrindo modal para segunda');
             
             // ========================================
-            // 🔒 NORMALIZAR E SALVAR PRIMEIRA ANÁLISE
+            // 🔒 SALVAR PRIMEIRA ANÁLISE COM VIRTUAL ID
             // ========================================
-            const normalizedFirst = normalizeBackendAnalysisData(analysisResult);
-            try { window.AnalysisCache?.put(normalizedFirst); } catch(e) { console.warn('[CACHE] put falhou', e); }
+            // Usar cacheResultByRole para criar VID e salvar com papel USER
+            const { vid: userVid, clone: userClone } = cacheResultByRole(analysisResult, { isSecondTrack: false });
             
             if (!window.FirstAnalysisStore?.has()) {
-                window.FirstAnalysisStore.set(normalizedFirst);
-                window.__REFERENCE_JOB_ID__ = normalizedFirst?.jobId || normalizedFirst?.id;
-                console.log('[A/B] 🧊 primeira faixa salva (normalizada)', {
-                    jobId: normalizedFirst?.jobId, 
-                    file: normalizedFirst?.fileName || normalizedFirst?.metadata?.fileName
+                // Salvar como USER no FirstAnalysisStore
+                FirstAnalysisStore.setUser(userClone, userVid, analysisResult.jobId);
+                window.__REFERENCE_JOB_ID__ = analysisResult.jobId;
+                
+                console.log('[A/B] 🧊 primeira faixa salva com VID', {
+                    vid: userVid,
+                    jobId: analysisResult.jobId, 
+                    file: userClone?.fileName || userClone?.metadata?.fileName,
+                    role: 'USER'
                 });
             }
             
@@ -3238,6 +3383,22 @@ async function handleModalFileSelection(file) {
             console.log('✅ [COMPARE-MODE] Tabela comparativa será exibida');
             console.log(`✅ [COMPARE-MODE] jobMode: ${jobMode}, currentMode: ${currentAnalysisMode}, isSecond: ${isSecondTrack}`);
             __dbg('🎯 Segunda música analisada - exibindo resultado comparativo');
+            
+            // ========================================
+            // 🔒 SALVAR SEGUNDA ANÁLISE COM VIRTUAL ID
+            // ========================================
+            // Usar cacheResultByRole para criar VID e salvar com papel REF
+            const { vid: refVid, clone: refClone } = cacheResultByRole(analysisResult, { isSecondTrack: true });
+            
+            // Salvar como REF no FirstAnalysisStore
+            FirstAnalysisStore.setRef(refClone, refVid, analysisResult.jobId);
+            
+            console.log('[A/B] 🧊 segunda faixa salva com VID', {
+                vid: refVid,
+                jobId: analysisResult.jobId,
+                file: refClone?.fileName || refClone?.metadata?.fileName,
+                role: 'REF'
+            });
             
             // � AUDITORIA: Estado ANTES de construir estrutura A/B
             console.groupCollapsed('[AUDITORIA_STATE_FLOW] 🎯 Segunda Análise RECEBIDA');
@@ -5267,15 +5428,17 @@ async function displayModalResults(analysis) {
     }
 
     // =========================================================================
-    // �️ GUARD CRÍTICO: Prevenir sobrescrita de __FIRST_ANALYSIS_FROZEN__
+    // 🆔 INFO: Sistema agora usa Virtual IDs (VID) para separação por papel
     // =========================================================================
-    if (FirstAnalysisStore.has() && 
-        FirstAnalysisStore.jobId() === analysis?.jobId) {
-        console.warn('[INFO] ⚠️ Mesmo jobId detectado (self-compare falso). Continuando render normalmente.');
-        console.warn('[INFO] jobId:', analysis?.jobId);
-        console.warn('[INFO] fileName:', analysis?.metadata?.fileName);
-        // ✅ NÃO RETORNA AQUI! Continua o fluxo para permitir renderização
-    }
+    // Mesmo que jobIds sejam iguais, Virtual IDs (jobId::USER e jobId::REF) mantêm separação
+    // O bloqueio de self-compare agora é feito por conteúdo em renderReferenceComparisons
+    console.log('[VID-INFO] ✅ Sistema usa Virtual IDs - jobId reutilizado não causa self-compare', {
+        currentJobId: analysis?.jobId,
+        userVid: window.CacheIndex.USER,
+        refVid: window.CacheIndex.REF,
+        storeHasUser: !!FirstAnalysisStore.getUser(),
+        storeHasRef: !!FirstAnalysisStore.getRef()
+    });
     
     // ✅ HARD-GUARD: Validar FirstAnalysisStore - se vazio, é modo genre (não reference)
     if (!FirstAnalysisStore.has()) {
@@ -5596,13 +5759,14 @@ async function displayModalResults(analysis) {
         
         // ✅ Se FirstAnalysisStore.has() === true, significa que a primeira análise foi salva corretamente
         
-        // 🛡️ VALIDAÇÃO: Garantir que primeira e segunda análises são DIFERENTES
-        if (firstAnalysis?.jobId === analysis?.jobId) {
-            console.warn('[INFO] ⚠️ Mesmo jobId detectado (self-compare falso). Continuando render normalmente.');
-            console.warn('[INFO] firstAnalysis.jobId:', firstAnalysis?.jobId);
-            console.warn('[INFO] analysis.jobId:', analysis?.jobId);
-            // ✅ NÃO RETORNA AQUI! Continua o fluxo para permitir renderização
-        }
+        // 🆔 INFO: Virtual IDs (VID) garantem separação por papel mesmo com jobId reutilizado
+        console.log('[VID-INFO] ✅ Validação usando Virtual IDs:', {
+            firstJobId: firstAnalysis?.jobId,
+            currentJobId: analysis?.jobId,
+            userVid: window.CacheIndex.USER,
+            refVid: window.CacheIndex.REF,
+            note: 'jobId igual não significa self-compare - VIDs mantêm separação'
+        });
         
         // 🚨 VALIDAÇÃO FINAL: Se mesmo após recuperação window.__FIRST_ANALYSIS_FROZEN__ não existe, ABORTAR
         if (!window.__FIRST_ANALYSIS_FROZEN__) {
@@ -8664,41 +8828,61 @@ function renderReferenceComparisons(ctx) {
         ...ctx // Mesclar propriedades adicionais de ctx
     };
 
-    // ==== STEP 3/6: refHardGuards() com areSameTrack() e retorno {abort, reason} ====
+    // ========================================
+    // 🛡️ BLOQUEIO DEFINITIVO DE SELF-COMPARE POR CONTEÚDO
+    // ========================================
+    // Recuperar faixas do FirstAnalysisStore usando papéis (USER/REF)
+    const userFromStore = FirstAnalysisStore.getUser();
+    const refFromStore = FirstAnalysisStore.getRef();
+    
+    if (!userFromStore?.bands || !refFromStore?.bands) {
+        console.warn('[AB-BLOCK] ⚠️ Bands ausentes - abortando A/B');
+        return;
+    }
+    
+    // Detectar self-compare por múltiplos critérios de conteúdo
+    const samePointer = userFromStore === refFromStore;
+    const sameJobId = userFromStore?.jobId && refFromStore?.jobId && userFromStore.jobId === refFromStore.jobId;
+    const sameFile = userFromStore?.metadata?.fileKey && refFromStore?.metadata?.fileKey && 
+                     userFromStore.metadata.fileKey === refFromStore.metadata.fileKey;
+    const sameHash = userFromStore?.objectId?.hash && refFromStore?.objectId?.hash && 
+                     userFromStore.objectId.hash === refFromStore.objectId.hash;
+    
+    if (samePointer || sameJobId || sameFile || sameHash) {
+        console.error('[AB-BLOCK] ❌ Self-compare detectado - abortando tabela A/B:', {
+            samePointer,
+            sameJobId: sameJobId ? `${userFromStore.jobId}` : false,
+            sameFile: sameFile ? `${userFromStore.metadata.fileKey}` : false,
+            sameHash: sameHash ? `${userFromStore.objectId.hash}` : false,
+            userVid: window.CacheIndex.USER,
+            refVid: window.CacheIndex.REF,
+            userFile: userFromStore?.fileName || userFromStore?.metadata?.fileName,
+            refFile: refFromStore?.fileName || refFromStore?.metadata?.fileName
+        });
+        return; // Aborta renderização A/B
+    }
+    
+    // ✅ Validação passou - são faixas diferentes
+    console.log('[AB-SAFETY] ✅ Faixas validadas como diferentes:', {
+        userVid: window.CacheIndex.USER,
+        refVid: window.CacheIndex.REF,
+        userFile: userFromStore?.fileName || userFromStore?.metadata?.fileName,
+        refFile: refFromStore?.fileName || refFromStore?.metadata?.fileName,
+        userJobId: userFromStore?.jobId,
+        refJobId: refFromStore?.jobId
+    });
+    
+    // Usar as faixas do store (com VIDs) em vez das globais
+    opts.userAnalysis = userFromStore;
+    opts.referenceAnalysis = refFromStore;
+    
+    // ==== STEP 3/6: refHardGuards() simplificado ====
     const guardResult = (function refHardGuards(){
         const s = window.__soundyState || {};
-        const globalRef = window.referenceAnalysisData || s.referenceAnalysis || null;
-
-        if (!opts.userAnalysis && typeof analysis !== 'undefined' && analysis?.userAnalysis) {
-            opts.userAnalysis = analysis.userAnalysis;
-        }
-        if (!opts.referenceAnalysis && typeof analysis !== 'undefined' && analysis?.referenceAnalysis) {
-            opts.referenceAnalysis = analysis.referenceAnalysis;
-        }
-
-        if (!opts.referenceAnalysis && globalRef) {
-            console.warn("[REF-PATCH] Reinjetando referência a partir do global");
-            opts.referenceAnalysis = deepCloneSafe(globalRef);
-        }
-
+        
         if (!opts.userAnalysis || !opts.referenceAnalysis) {
             console.error("[REF-PATCH] Faltam dados pra A/B");
             return { abort: true, reason: 'missing-data' };
-        }
-
-        // ✅ STEP 3/6: Usar areSameTrack() em vez de comparação de fileName
-        if (areSameTrack(opts.userAnalysis, opts.referenceAnalysis)) {
-            console.warn('[REF-GUARD] Self-compare detectado no refHardGuards() — CONTINUANDO renderização');
-            // Tentar recuperar de globalRef
-            if (globalRef && !areSameTrack(globalRef, opts.userAnalysis)) {
-                console.warn("[REF-PATCH] Recuperando referência de globalRef");
-                opts.referenceAnalysis = deepCloneSafe(globalRef);
-            } else {
-                console.warn('[REF-GUARD] ⚠️ Self-compare verdadeiro detectado mas CONTINUANDO renderização (score será 100%)');
-                // ❌ REMOVIDO: return { abort: true, reason: 'self-compare' };
-                // Agora continua renderização normalmente, apenas marca flag
-                opts.isSelfCompare = true;
-            }
         }
 
         opts.usedReferenceAnalysis = true;
