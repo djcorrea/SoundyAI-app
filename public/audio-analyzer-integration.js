@@ -2960,27 +2960,15 @@ async function handleModalFileSelection(file) {
             // PRIMEIRA música em modo reference: abrir modal para música de referência
             __dbg('🎯 Primeira música analisada - abrindo modal para segunda');
             
-            // 🔒 SALVAR PRIMEIRA ANÁLISE NO STORE IMUTÁVEL
+            // 🔒 SALVAR PRIMEIRA ANÁLISE NO STORE IMUTÁVEL (SET-ONCE)
             if (!FirstAnalysisStore.has()) {
                 FirstAnalysisStore.set(analysisResult);
                 window.__REFERENCE_JOB_ID__ = analysisResult?.jobId || analysisResult?.id;
-                localStorage.setItem('referenceJobId', window.__REFERENCE_JOB_ID__);
-                
-                console.log('[STORE] ✅ Primeira faixa armazenada:', {
-                    fileName: analysisResult?.fileName || analysisResult?.metadata?.fileName,
-                    jobId: FirstAnalysisStore.jobId(),
-                    hasTechnicalData: !!analysisResult?.technicalData,
-                    hasSpectralBalance: !!analysisResult?.technicalData?.spectral_balance,
-                    bands: Object.keys(analysisResult?.technicalData?.spectral_balance || {})
+                console.log('[A/B] 🧊 primeira faixa salva', {
+                    jobId: analysisResult?.jobId, 
+                    file: analysisResult?.fileName || analysisResult?.metadata?.fileName
                 });
             }
-            console.log('[FirstAnalysisStore] 🔒 Salvando primeira análise no store imutável...');
-            
-            // ✅ USAR NOVA API: FirstAnalysisStore.set() - clonagem interna
-            FirstAnalysisStore.set(analysisResult);
-            
-            // ❌ REMOVER: Não usar mais window.referenceAnalysisData / window.__FIRST_ANALYSIS_FROZEN__
-            // A ÚNICA fonte de verdade é FirstAnalysisStore
             
             // 🔍 AUDITORIA: Estado APÓS salvar primeira análise
             console.groupCollapsed('[AUDITORIA_STATE_FLOW] 💾 Primeira Análise SALVA');
@@ -3193,7 +3181,10 @@ async function handleModalFileSelection(file) {
             // Normalizar dados do backend
             const normalizedResult = normalizeBackendAnalysisData(analysisResult);
             
-            // 🔍 AUDITORIA: Estado APÓS normalizar analysisResult
+            // � POPULAR CACHE COM RESULTADO NORMALIZADO
+            AnalysisCache.put(normalizedResult);
+            
+            // �🔍 AUDITORIA: Estado APÓS normalizar analysisResult
             console.groupCollapsed('[AUDITORIA_STATE_FLOW] ✅ DEPOIS de normalizeBackendAnalysisData');
             console.log('⚙️ Contexto: Normalização concluída');
             console.log('📊 normalizedResult (resultado da normalização):', {
@@ -3542,6 +3533,10 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         
         // Normalizar e retornar sem modificar estado
         const normalizedResult = normalizeBackendAnalysisData(analysisResult);
+        
+        // 🔒 POPULAR CACHE COM RESULTADO NORMALIZADO
+        AnalysisCache.put(normalizedResult);
+        
         return normalizedResult;
     }
     
@@ -3586,6 +3581,9 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         
         // 🔧 CORREÇÃO: Normalizar dados do backend antes de usar
         const normalizedResult = normalizeBackendAnalysisData(analysisResult);
+        
+        // 🔒 POPULAR CACHE COM RESULTADO NORMALIZADO
+        AnalysisCache.put(normalizedResult);
         
         // ✅ CORREÇÃO: Carregar targets de gênero de /Refs/Out/ se não existirem
         if (!normalizedResult.referenceComparison) {
@@ -5081,42 +5079,22 @@ function displayModalResults(analysis) {
             : JSON.parse(JSON.stringify(analysis)); // 2ª faixa (clone explícito)
 
         // �️ APLICAR GUARDS: Isola jobIds se forem iguais
-        ({ userFull, refFull } = refHardGuards({ 
-            userFull, 
-            refFull, 
-            secondAnalysis: analysis 
-        }));
+        ({ userFull, refFull } = refHardGuards({ userFull, refFull }));
 
-        // ✅ ATRIBUIR OBJETOS ISOLADOS
-        analysis.userAnalysis = userFull;
-        analysis.referenceAnalysis = refFull;
-        analysis.usedReferenceAnalysis = true;
-        
-        // 🔒 FORÇAR selfCompare = false
-        if (!window.__soundyState) window.__soundyState = {};
-        window.__soundyState.selfCompare = false;
-
-        // ✅ LOG FINAL DE VALIDAÇÃO
-        console.log('[A/B-END] ✅ Comparação preparada:', {
-            firstJobId: userFull?.jobId || userFull?.id,
-            secondJobId: refFull?.jobId || refFull?.id,
-            selfCompare: false,
-            abReady: true
-        });
-
-        // 🔒 Congelar para evitar mutações posteriores
-        try {
-            Object.freeze(analysis.userAnalysis);
-            Object.freeze(analysis.referenceAnalysis);
-        } catch(e) {
-            console.warn('[A/B] ⚠️ Não foi possível congelar objetos:', e.message);
+        // ✅ RENDER COMPLETO (nunca aborta por contaminação - trabalha direto nos objetos)
+        if (typeof window.aiUIController !== 'undefined') {
+            window.aiUIController.renderMetricCards({ mode: 'reference', user: userFull, reference: refFull });
+            window.aiUIController.renderScoreSection({ mode: 'reference', user: userFull, reference: refFull });
+            window.aiUIController.renderSuggestions({ mode: 'reference', user: userFull, reference: refFull });
+            window.aiUIController.renderFinalScoreAtTop({ mode: 'reference', user: userFull, reference: refFull });
+            window.aiUIController.checkForAISuggestions({ mode: 'reference', user: userFull, reference: refFull });
         }
 
-        renderReferenceComparisons(analysis, {
-          mode: 'reference',
-          userAnalysis: analysis.userAnalysis,
-          referenceAnalysis: analysis.referenceAnalysis,
-          usedReferenceAnalysis: true
+        console.log('[A/B-END] ✅', {
+            userFile: userFull?.fileName || userFull?.metadata?.fileName,
+            refFile: refFull?.fileName || refFull?.metadata?.fileName,
+            userId: userFull?.jobId || userFull?.id,
+            refId: refFull?.jobId || refFull?.id
         });
         
         // ✅ CORREÇÃO CRÍTICA DA AUDITORIA (linha 4502)
@@ -7917,30 +7895,17 @@ function displayModalResults(analysis) {
                 console.warn('[AUDIT-ERROR]', 'AUDIT-BANDS-BEFORE', err);
             }
             
-            // 🧠 [ASYNC-SYNC-FIX] Garante que renderReferenceComparisons só será chamado após as bandas existirem
-            const ensureBandsReady = async () => {
-                let tries = 0;
-                while (
-                    (!window.__soundyState?.reference?.referenceAnalysis?.bands ||
-                     !window.__soundyState?.reference?.userAnalysis?.bands) &&
-                    tries < 20
-                ) {
-                    console.warn(`[ASYNC-SYNC-FIX] Esperando bandas carregarem... tentativa ${tries + 1}`);
-                    await new Promise(r => setTimeout(r, 200)); // espera 200ms por tentativa
-                    tries++;
-                }
-
-                const refReady = !!window.__soundyState?.reference?.referenceAnalysis?.bands;
-                const userReady = !!window.__soundyState?.reference?.userAnalysis?.bands;
-
-                console.log('[ASYNC-SYNC-FIX] ✅ Bandas prontas para render:', { refReady, userReady, tries });
-
-                // Só depois disso chamamos o render
-                renderReferenceComparisons(renderOpts);
+            // ✅ [BANDS-FIX] Nunca espera bandas no DOM - trabalha direto nos objetos
+            // Se os objetos existem, seguimos — processamento é nos dados, não no DOM
+            const ensureBandsReady = (userFull, refFull) => {
+                return !!(userFull && refFull);
             };
 
-            // Chama o fix antes do render
-            ensureBandsReady();
+            if (ensureBandsReady(renderOpts?.userAnalysis, renderOpts?.referenceAnalysis)) {
+                renderReferenceComparisons(renderOpts);
+            } else {
+                console.warn('[BANDS-FIX] ⚠️ Objetos ausentes, pulando render');
+            }
         } catch(e){ 
             console.error('❌ [RENDER-FLOW] ERRO em renderReferenceComparisons:', e);
             console.error('❌ Stack trace:', e.stack);
