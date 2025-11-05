@@ -22,6 +22,66 @@ const __DEBUG_ANALYZER__ = true; // 🔧 TEMPORÁRIO: Ativado para debug do prob
 const __dbg = (...a) => { if (__DEBUG_ANALYZER__) console.log('[AUDIO-DEBUG]', ...a); };
 const __dwrn = (...a) => { if (__DEBUG_ANALYZER__) console.warn('[AUDIO-WARN]', ...a); };
 
+// 🔒 FIRST ANALYSIS IMMUTABLE STORE
+// Store imutável para garantir que a 1ª análise NUNCA seja contaminada pela 2ª
+const FirstAnalysisStore = (() => {
+    let frozen = null; // { jobId, metadata, technicalData, ... } congelado
+
+    return {
+        /**
+         * Define a primeira análise UMA ÚNICA VEZ
+         * @param {Object} src - Objeto da primeira análise
+         * @returns {Object} - Objeto congelado
+         */
+        setOnce(src) {
+            if (frozen) {
+                console.warn('[FirstAnalysisStore] ⚠️ Tentativa de sobrescrever análise já congelada - BLOQUEADA');
+                return frozen;
+            }
+
+            // Usar structuredClone se disponível (mais rápido e robusto)
+            const clone = (typeof structuredClone === 'function')
+                ? structuredClone(src)
+                : deepCloneSafe(src);
+
+            // Congelar profundamente o objeto
+            frozen = Object.freeze(clone);
+            
+            console.log('[FirstAnalysisStore] ✅ Primeira análise congelada:', {
+                jobId: frozen.jobId,
+                fileName: frozen.metadata?.fileName,
+                lufs: frozen.technicalData?.lufsIntegrated
+            });
+
+            return frozen;
+        },
+
+        /**
+         * Recupera a primeira análise congelada
+         * @returns {Object|null} - Primeira análise ou null
+         */
+        get() {
+            return frozen;
+        },
+
+        /**
+         * Verifica se há uma primeira análise armazenada
+         * @returns {boolean}
+         */
+        has() {
+            return !!frozen;
+        },
+
+        /**
+         * Limpa o store (apenas para reset completo)
+         */
+        clear() {
+            console.warn('[FirstAnalysisStore] 🗑️ Limpando store (reset completo)');
+            frozen = null;
+        }
+    };
+})();
+
 // 🔒 CLONE PROFUNDO SEGURO (sem loops circulares)
 // Substitui JSON.parse(JSON.stringify()) com proteção contra referências circulares
 function deepCloneSafe(obj, seen = new WeakMap()) {
@@ -241,7 +301,8 @@ let referenceStepState = {
 
 // 🎯 COMPARAÇÃO ENTRE FAIXAS - Armazenamento da primeira análise
 window.lastReferenceJobId = null;
-window.referenceAnalysisData = null;
+// ❌ REMOVER: window.referenceAnalysisData agora é definido como getter read-only dinamicamente
+// quando a primeira análise é salva via FirstAnalysisStore.setOnce()
 
 // 🎯 COMPARAÇÃO ENTRE FAIXAS - Métricas de comparação (substitui __activeRefData quando em modo reference)
 let referenceComparisonMetrics = null;
@@ -2152,20 +2213,42 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
     // 🎯 PERSISTIR DADOS DA PRIMEIRA FAIXA
     window.__REFERENCE_JOB_ID__ = referenceJobId;
     
-    // 🛡️ PROTEÇÃO CRÍTICA: Deep clone para evitar contaminação de ponteiros
+    // � HARD-GUARD: Salvar primeira análise no FirstAnalysisStore (IMUTÁVEL)
+    console.log('[FirstAnalysisStore] 🔒 Salvando primeira análise no store imutável...');
+    const firstClone = (typeof structuredClone === 'function')
+        ? structuredClone(firstAnalysisResult)
+        : deepCloneSafe(firstAnalysisResult);
+    
+    FirstAnalysisStore.setOnce(firstClone);
+    
+    // 🔒 HARD-GUARD: Criar getter read-only para window.referenceAnalysisData
+    // Qualquer tentativa de SET posterior será bloqueada
+    if (!Object.getOwnPropertyDescriptor(window, 'referenceAnalysisData')?.get) {
+        Object.defineProperty(window, 'referenceAnalysisData', {
+            get() { 
+                return FirstAnalysisStore.get(); 
+            },
+            set(value) {
+                console.warn('[HARD-GUARD] ❌ BLOQUEADO: Tentativa de SET em referenceAnalysisData após primeira análise');
+                console.warn('[HARD-GUARD] ❌ Valor tentado:', value?.jobId, value?.metadata?.fileName);
+                console.trace('[HARD-GUARD] Stack trace da tentativa bloqueada:');
+            },
+            configurable: false
+        });
+        console.log('[HARD-GUARD] ✅ window.referenceAnalysisData protegido com getter read-only');
+    }
+    
+    // 🛡️ PROTEÇÃO CRÍTICA: Manter __FIRST_ANALYSIS_RESULT__ para compatibilidade
     console.log('[DEEP-CLONE-GUARD] 🔒 Clonando firstAnalysisResult para __FIRST_ANALYSIS_RESULT__');
     window.__FIRST_ANALYSIS_RESULT__ = structuredClone(firstAnalysisResult);
     
     window.lastReferenceJobId = referenceJobId;
     
-    // 🛡️ PROTEÇÃO CRÍTICA: Deep clone para evitar contaminação de ponteiros
-    console.log('[DEEP-CLONE-GUARD] 🔒 Clonando firstAnalysisResult para referenceAnalysisData');
-    window.referenceAnalysisData = structuredClone(firstAnalysisResult);
-    
     console.log('✅ [COMPARE-MODE] Primeira faixa salva:', {
         jobId: referenceJobId,
         score: firstAnalysisResult?.score,
-        lufs: firstAnalysisResult?.technicalData?.lufsIntegrated
+        lufs: firstAnalysisResult?.technicalData?.lufsIntegrated,
+        storeProtected: FirstAnalysisStore.has()
     });
     
     // 🔥 FIX-REFERENCE: NÃO chamar reset completo - apenas limpar UI visualmente
@@ -2602,7 +2685,12 @@ function closeAudioModal() {
         
         if (!hasActiveComparison) {
             // 🧹 LIMPEZA COMPLETA: Apenas se não houver comparação ativa
-            window.referenceAnalysisData = null;
+            // 🔒 HARD-GUARD: Limpar FirstAnalysisStore (única fonte de verdade)
+            FirstAnalysisStore.clear();
+            
+            // ❌ REMOVER: window.referenceAnalysisData agora é read-only (não pode ser setado)
+            // Ele sempre aponta para FirstAnalysisStore.get(), que acabamos de limpar
+            
             referenceComparisonMetrics = null;
             window.lastReferenceJobId = null;
             
@@ -2612,11 +2700,13 @@ function closeAudioModal() {
             localStorage.removeItem('referenceJobId');
             
             console.log('[CLEANUP] closeAudioModal: LIMPEZA TOTAL (sem comparação ativa)');
+            console.log('[CLEANUP] FirstAnalysisStore limpo - window.referenceAnalysisData agora retorna null');
         } else {
             // Preservar dados de referência
             console.log('[CLEANUP] closeAudioModal: PRESERVANDO referência (comparação ativa)');
             console.log('[CLEANUP]   - window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
             console.log('[CLEANUP]   - localStorage.referenceJobId:', localStorage.getItem('referenceJobId'));
+            console.log('[CLEANUP]   - FirstAnalysisStore.has():', FirstAnalysisStore.has());
         }
         
         // Limpeza de state global (sempre limpar estado temporário de renderização)
@@ -2896,15 +2986,29 @@ async function handleModalFileSelection(file) {
             window.__REFERENCE_JOB_ID__ = analysisResult.jobId;
             localStorage.setItem('referenceJobId', analysisResult.jobId);
             
-            // ✅ PATCH V2: Usar deepCloneSafe() para prevenir referências circulares
-            console.log('[DEEP-CLONE] 🔒 Criando cópia segura da primeira análise...');
-            window.referenceAnalysisData = deepCloneSafe(analysisResult);
+            // 🔒 HARD-GUARD: Salvar primeira análise no FirstAnalysisStore (IMUTÁVEL)
+            console.log('[FirstAnalysisStore] 🔒 Salvando primeira análise no store imutável...');
+            const firstClone = (typeof structuredClone === 'function')
+                ? structuredClone(analysisResult)
+                : deepCloneSafe(analysisResult);
             
-            // ✅ PATCH V2: Congelar primeira análise com clone seguro
-            window.__FIRST_ANALYSIS_FROZEN__ = Object.freeze(
-                deepCloneSafe(analysisResult)
-            );
-            console.log('[DEEP-CLONE] ✅ Primeira análise clonada e congelada com sucesso');
+            FirstAnalysisStore.setOnce(firstClone);
+            
+            // 🔒 HARD-GUARD: Criar getter read-only para window.referenceAnalysisData (se ainda não existe)
+            if (!Object.getOwnPropertyDescriptor(window, 'referenceAnalysisData')?.get) {
+                Object.defineProperty(window, 'referenceAnalysisData', {
+                    get() { return FirstAnalysisStore.get(); },
+                    set(value) {
+                        console.warn('[HARD-GUARD] ❌ BLOQUEADO: Tentativa de SET em referenceAnalysisData');
+                        console.trace('[HARD-GUARD] Stack trace:');
+                    },
+                    configurable: false
+                });
+            }
+            
+            // ✅ REMOVER: window.__FIRST_ANALYSIS_FROZEN__ (substituído por FirstAnalysisStore)
+            // Manter apenas para compatibilidade temporária
+            console.log('[DEPRECATED] __FIRST_ANALYSIS_FROZEN__ mantido apenas para compatibilidade');
             
             // 🔍 AUDITORIA: Estado APÓS salvar primeira análise
             console.groupCollapsed('[AUDITORIA_STATE_FLOW] 💾 Primeira Análise SALVA');
@@ -3498,8 +3602,11 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
     
     window.__soundyState = state;
     
-    // Limpar globais de referência
-    window.referenceAnalysisData = null;
+    // 🔒 HARD-GUARD: Limpar FirstAnalysisStore (única fonte de verdade)
+    FirstAnalysisStore.clear();
+    console.log('[CLEANUP] handleGenreAnalysisWithResult: FirstAnalysisStore limpo');
+    
+    // ❌ REMOVER: window.referenceAnalysisData agora é read-only (não pode ser setado)
     window.referenceComparisonMetrics = null;
     window.lastReferenceJobId = null;
     
@@ -4873,20 +4980,19 @@ function displayModalResults(analysis) {
         return;
     }
     
-    // GUARD ADICIONAL: Detectar contaminação entre userFull e refFull
-    if (window.__FIRST_ANALYSIS_FROZEN__ &&
-        window.referenceAnalysisData &&
-        window.__FIRST_ANALYSIS_FROZEN__.jobId === window.referenceAnalysisData.jobId) {
-        console.warn('[PROTECT] Detecção de contaminação entre userFull e refFull — restaurando cópia original');
-        console.warn('[PROTECT] __FIRST_ANALYSIS_FROZEN__.jobId:', window.__FIRST_ANALYSIS_FROZEN__.jobId);
-        console.warn('[PROTECT] referenceAnalysisData.jobId:', window.referenceAnalysisData.jobId);
-        console.warn('[PROTECT] Ambos apontam para o mesmo objeto! Restaurando separação...');
-        
-        // Restaurar referenceAnalysisData como clone independente
-        window.referenceAnalysisData = structuredClone(window.__FIRST_ANALYSIS_FROZEN__);
-        
-        console.log('[PROTECT] referenceAnalysisData restaurado como clone independente');
+    // 🔒 HARD-GUARD: Validar que FirstAnalysisStore tem dados antes de prosseguir
+    if (!FirstAnalysisStore.has()) {
+        console.error('[HARD-GUARD] ❌ FirstAnalysisStore vazio - primeira análise não foi salva corretamente');
+        console.error('[HARD-GUARD] ❌ Abortando displayModalResults - não há primeira análise para comparar');
+        return;
     }
+    
+    // ✅ REMOVER GUARD ANTIGO: window.referenceAnalysisData agora é read-only (getter)
+    // Não precisa mais "restaurar cópia" - ele SEMPRE aponta para FirstAnalysisStore.get()
+    console.log('[HARD-GUARD] ✅ FirstAnalysisStore validado - primeira análise protegida:', {
+        jobId: FirstAnalysisStore.get()?.jobId,
+        fileName: FirstAnalysisStore.get()?.metadata?.fileName
+    });
     
     // =========================================================================
     // �🚨 DEBUG CRÍTICO: Timing e Estado dos Dados (detecta chamada prematura)
@@ -5190,61 +5296,35 @@ function displayModalResults(analysis) {
         console.log('💡 Operação: deepCloneSafe() + normalizeBackendAnalysisData()');
         console.groupEnd();
         
-        // 🔴 AUDITORIA CRÍTICA: Verificar window.__FIRST_ANALYSIS_FROZEN__ ANTES de usar
+        // � HARD-GUARD: Usar FirstAnalysisStore.get() (única fonte de verdade)
+        const firstAnalysis = FirstAnalysisStore.get();
+        
         console.log('🔴 [AUDIT-CRITICAL] ANTES de criar refNormalized/currNormalized:');
-        console.log('  window.__FIRST_ANALYSIS_FROZEN__ existe?', !!window.__FIRST_ANALYSIS_FROZEN__);
-        console.log('  window.__FIRST_ANALYSIS_FROZEN__.metadata?.fileName:', window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName);
-        console.log('  window.__FIRST_ANALYSIS_FROZEN__.jobId:', window.__FIRST_ANALYSIS_FROZEN__?.jobId);
+        console.log('  FirstAnalysisStore.has():', FirstAnalysisStore.has());
+        console.log('  firstAnalysis.metadata?.fileName:', firstAnalysis?.metadata?.fileName);
+        console.log('  firstAnalysis.jobId:', firstAnalysis?.jobId);
         console.log('  analysis.metadata?.fileName:', analysis?.metadata?.fileName);
         console.log('  analysis.jobId:', analysis?.jobId);
-        console.log('  🚨 SÃO O MESMO ARQUIVO?', window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName === analysis?.metadata?.fileName);
-        console.log('  🚨 SÃO O MESMO JOBID?', window.__FIRST_ANALYSIS_FROZEN__?.jobId === analysis?.jobId);
+        console.log('  🚨 SÃO O MESMO ARQUIVO?', firstAnalysis?.metadata?.fileName === analysis?.metadata?.fileName);
+        console.log('  🚨 SÃO O MESMO JOBID?', firstAnalysis?.jobId === analysis?.jobId);
         
-        // 🚨 PROTEÇÃO: Se window.__FIRST_ANALYSIS_FROZEN__ não existe ou é o mesmo que analysis
-        if (!window.__FIRST_ANALYSIS_FROZEN__) {
-            console.error('🔴 [AUDIT-CRITICAL] ❌ window.__FIRST_ANALYSIS_FROZEN__ NÃO EXISTE!');
-            console.error('🔴 [AUDIT-CRITICAL] ❌ Tentando recuperar de múltiplas fontes...');
-            
-            // 🛡️ VALIDAÇÃO CRÍTICA: NÃO recuperar se a fonte tem o mesmo jobId que analysis
-            const currentJobId = analysis?.jobId || analysis?.id;
-            
-            // Tentar 3 fontes de recuperação (ordem de prioridade):
-            // 1. window.referenceAnalysisData (MAS VALIDAR QUE NÃO É A SEGUNDA ANÁLISE!)
-            if (window.referenceAnalysisData && window.referenceAnalysisData.jobId !== currentJobId) {
-                window.__FIRST_ANALYSIS_FROZEN__ = Object.freeze(deepCloneSafe(window.referenceAnalysisData));
-                console.log('🔴 [AUDIT-CRITICAL] ✅ Recuperado de window.referenceAnalysisData');
-                console.log('   fileName:', window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName);
-                console.log('   jobId:', window.__FIRST_ANALYSIS_FROZEN__?.jobId);
-            }
-            // 2. state.previousAnalysis (VALIDAR QUE NÃO É A SEGUNDA ANÁLISE!)
-            else if (state.previousAnalysis && state.previousAnalysis.jobId !== currentJobId) {
-                window.__FIRST_ANALYSIS_FROZEN__ = Object.freeze(deepCloneSafe(state.previousAnalysis));
-                console.log('🔴 [AUDIT-CRITICAL] ✅ Recuperado de state.previousAnalysis');
-                console.log('   fileName:', window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName);
-                console.log('   jobId:', window.__FIRST_ANALYSIS_FROZEN__?.jobId);
-            }
-            // 3. window.__soundyState.previousAnalysis (VALIDAR QUE NÃO É A SEGUNDA ANÁLISE!)
-            else if (window.__soundyState?.previousAnalysis && window.__soundyState.previousAnalysis.jobId !== currentJobId) {
-                window.__FIRST_ANALYSIS_FROZEN__ = Object.freeze(deepCloneSafe(window.__soundyState.previousAnalysis));
-                console.log('🔴 [AUDIT-CRITICAL] ✅ Recuperado de window.__soundyState.previousAnalysis');
-                console.log('   fileName:', window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName);
-                console.log('   jobId:', window.__FIRST_ANALYSIS_FROZEN__?.jobId);
-            }
-            else {
-                console.error('🔴 [AUDIT-CRITICAL] ❌ FALHA TOTAL: Nenhuma primeira análise disponível em NENHUMA fonte!');
-                console.error('🔴 [AUDIT-CRITICAL] ❌ Ou todas as fontes têm o mesmo jobId que a segunda análise!');
-                console.error('🔴 [AUDIT-CRITICAL] ❌ Fontes verificadas:');
-                console.error('   - window.referenceAnalysisData:', !!window.referenceAnalysisData, 'jobId:', window.referenceAnalysisData?.jobId);
-                console.error('   - state.previousAnalysis:', !!state.previousAnalysis, 'jobId:', state.previousAnalysis?.jobId);
-                console.error('   - window.__soundyState.previousAnalysis:', !!window.__soundyState?.previousAnalysis, 'jobId:', window.__soundyState?.previousAnalysis?.jobId);
-                console.error('   - analysis (segunda):', 'jobId:', currentJobId);
-                console.error('🔴 [AUDIT-CRITICAL] ❌ Sistema VAI COMPARAR A MESMA MÚSICA CONSIGO MESMA!');
-            }
+        // 🚨 PROTEÇÃO: Se FirstAnalysisStore não tem dados, ABORTAR
+        if (!FirstAnalysisStore.has()) {
+            console.error('🔴 [AUDIT-CRITICAL] ❌ FirstAnalysisStore VAZIO - primeira análise não foi salva!');
+            console.error('🔴 [AUDIT-CRITICAL] ❌ ABORTANDO displayModalResults - não há primeira análise para comparar');
+            return;
         }
         
-        if (window.__FIRST_ANALYSIS_FROZEN__?.jobId === analysis?.jobId) {
-            console.error('🔴 [AUDIT-CRITICAL] ❌ CONTAMINAÇÃO DETECTADA: window.__FIRST_ANALYSIS_FROZEN__ tem o mesmo jobId que analysis!');
-            console.error('🔴 [AUDIT-CRITICAL] ❌ Isso significa que a SEGUNDA análise sobrescreveu a PRIMEIRA!');
+        // ✅ REMOVER: Não há recovery de fontes perigosas - FirstAnalysisStore é a ÚNICA fonte
+        // Se FirstAnalysisStore.has() === true, significa que a primeira análise foi salva corretamente
+        
+        // 🛡️ VALIDAÇÃO: Garantir que primeira e segunda análises são DIFERENTES
+        if (firstAnalysis?.jobId === analysis?.jobId) {
+            console.error('🔴 [AUDIT-CRITICAL] ❌ CONTAMINAÇÃO DETECTADA: firstAnalysis tem o mesmo jobId que analysis!');
+            console.error('🔴 [AUDIT-CRITICAL] ❌ Isso significa self-compare (mesma música)!');
+            console.error('🔴 [AUDIT-CRITICAL] ❌ firstAnalysis.jobId:', firstAnalysis?.jobId);
+            console.error('🔴 [AUDIT-CRITICAL] ❌ analysis.jobId:', analysis?.jobId);
+            return; // ABORTAR - não permite comparação da mesma música
         }
         
         // 🚨 VALIDAÇÃO FINAL: Se mesmo após recuperação window.__FIRST_ANALYSIS_FROZEN__ não existe, ABORTAR
@@ -5284,7 +5364,7 @@ function displayModalResults(analysis) {
         
         // ✅ STEP 2/6 REFATORADO: Normalização segura sem ciclos
         console.log('[NORMALIZE-DEFENSIVE] 🔒 Criando cópia isolada da 1ª faixa (normalizeSafe)');
-        const refNormalized = normalizeSafe(window.__FIRST_ANALYSIS_FROZEN__);
+        const refNormalized = normalizeSafe(firstAnalysis); // 🔒 HARD-GUARD: firstAnalysis = FirstAnalysisStore.get()
         
         console.log('[NORMALIZE-DEFENSIVE] 🔒 Criando cópia isolada da 2ª faixa (normalizeSafe)');
         const currNormalized = normalizeSafe(analysis);
@@ -5784,10 +5864,10 @@ function displayModalResults(analysis) {
     let userFull  = referenceComparisonMetrics?.userFull;       // 1ª faixa (sua música)
     let refFull   = referenceComparisonMetrics?.referenceFull;  // 2ª faixa (referência)
     
-    // 🛡️ SAFEGUARD: Se userFull está undefined, recuperar de __FIRST_ANALYSIS_FROZEN__
-    if (!userFull && window.__FIRST_ANALYSIS_FROZEN__) {
-        console.warn('[SAFEGUARD] userFull está undefined — recuperando de __FIRST_ANALYSIS_FROZEN__');
-        userFull = structuredClone(window.__FIRST_ANALYSIS_FROZEN__);
+    // � HARD-GUARD: Se userFull está undefined, recuperar de FirstAnalysisStore.get()
+    if (!userFull && FirstAnalysisStore.has()) {
+        console.warn('[SAFEGUARD] userFull está undefined — recuperando de FirstAnalysisStore');
+        userFull = structuredClone(FirstAnalysisStore.get());
         console.log('[SAFEGUARD] ✅ userFull recuperado:', {
             fileName: userFull?.metadata?.fileName,
             jobId: userFull?.jobId
@@ -5805,6 +5885,14 @@ function displayModalResults(analysis) {
 
     /** 2) Hard-gates antes de montar o objeto de score */
     const isReferenceMode = !!(referenceComparisonMetrics && referenceComparisonMetrics.reference);
+    
+    // 🔍 LOG DE VERIFICAÇÃO MÍNIMO (temporário - conforme item 7 do plano)
+    console.log('[AB-CHECK]', {
+        userJobId: userFull?.jobId,
+        refJobId: refFull?.jobId,
+        userName: userFull?.metadata?.fileName,
+        refName: refFull?.metadata?.fileName
+    });
     
     // ✅ PATCH: Validação de integridade ANTES de calcular selfCompare
     console.log('[INTEGRITY-CHECK] Validando dados antes de calcular score:', {
@@ -5888,16 +5976,16 @@ function displayModalResults(analysis) {
     if (userMd.fileName === refMd.fileName && state.previousAnalysis) {
         console.warn('[FIX] 🚨 Detecção de self-compare FALSO – isolando referenceAnalysis');
         console.warn('[FIX] userFull foi contaminado com dados de refFull');
-        console.warn('[FIX] Tentando recuperar de __FIRST_ANALYSIS_FROZEN__...');
+        console.warn('[FIX] Tentando recuperar de FirstAnalysisStore...');
         
-        // 🛡️ PROTEÇÃO: SEMPRE usar __FIRST_ANALYSIS_FROZEN__ como fonte confiável (NUNCA referenceAnalysisData!)
-        if (!window.__FIRST_ANALYSIS_FROZEN__) {
-            console.error('[FIX] ❌ __FIRST_ANALYSIS_FROZEN__ não existe! Abortando recuperação...');
+        // � HARD-GUARD: SEMPRE usar FirstAnalysisStore.get() como fonte confiável
+        if (!FirstAnalysisStore.has()) {
+            console.error('[FIX] ❌ FirstAnalysisStore vazio! Abortando recuperação...');
             return;
         }
         
-        // Recuperar primeira análise de fonte confiável (APENAS __FIRST_ANALYSIS_FROZEN__)
-        const safeUserFull = structuredClone(window.__FIRST_ANALYSIS_FROZEN__);
+        // Recuperar primeira análise de fonte confiável (APENAS FirstAnalysisStore)
+        const safeUserFull = structuredClone(FirstAnalysisStore.get());
         userFull = safeUserFull;
         userMd = safeUserFull.metadata || {};
         userTd = safeUserFull.technicalData || {};
@@ -5906,7 +5994,7 @@ function displayModalResults(analysis) {
         console.log('[FIX] ✅ userFull recuperado:', {
             fileName: userMd.fileName,
             lufs: userTd.lufsIntegrated,
-            source: 'window.referenceAnalysisData'
+            source: 'FirstAnalysisStore'
         });
     }
     
