@@ -845,3 +845,39 @@ window.showAIQuickConfig = function() {
     }
     
 })();
+
+// ========================================
+// ✅ REGISTRO GLOBAL DO CONTROLADOR DE UI
+// ========================================
+(function ensureAIUIControllerExists() {
+    try {
+        if (typeof window.aiUIController === 'undefined') {
+            window.aiUIController = {
+                renderMetricCards: () => console.log('[SAFE] renderMetricCards placeholder'),
+                renderScoreSection: () => console.log('[SAFE] renderScoreSection placeholder'),
+                renderSuggestions: () => console.log('[SAFE] renderSuggestions placeholder'),
+                renderFinalScoreAtTop: () => console.log('[SAFE] renderFinalScoreAtTop placeholder'),
+                checkForAISuggestions: () => console.log('[SAFE] checkForAISuggestions placeholder'),
+                __ready: true
+            };
+            console.warn('[SAFE-REGISTER] aiUIController não inicializado pelo módulo principal — fallback ativado.');
+        } else {
+            window.aiUIController.__ready = true;
+            console.log('[SAFE-REGISTER] ✅ aiUIController pronto.');
+        }
+    } catch (error) {
+        console.error('[ERROR] ❌ Falha ao inicializar aiUIController:', error);
+        console.error('[ERROR] Stack trace:', error.stack);
+        
+        // Criar fallback de emergência mesmo com erro
+        window.aiUIController = {
+            renderMetricCards: () => console.error('[EMERGENCY] renderMetricCards - sistema falhou'),
+            renderScoreSection: () => console.error('[EMERGENCY] renderScoreSection - sistema falhou'),
+            renderSuggestions: () => console.error('[EMERGENCY] renderSuggestions - sistema falhou'),
+            renderFinalScoreAtTop: () => console.error('[EMERGENCY] renderFinalScoreAtTop - sistema falhou'),
+            checkForAISuggestions: () => console.error('[EMERGENCY] checkForAISuggestions - sistema falhou'),
+            __ready: false,
+            __error: error
+        };
+    }
+})();
