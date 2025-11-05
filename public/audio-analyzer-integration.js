@@ -5928,6 +5928,19 @@ async function displayModalResults(analysis) {
             console.log('[REF-GUARD] ✅ Validação passou - faixas são diferentes');
         }
         
+        // ✅ REVALIDAÇÃO: Garantir que não é falso-positivo
+        // Se chegou aqui com isSelfCompare mas VIDs são diferentes, corrigir
+        if (isSelfCompare && refVid !== currVid) {
+            console.warn('[REF-GUARD] ❎ Corrigido selfCompare falso-positivo (VIDs diferentes):', {
+                refVid,
+                currVid,
+                refFile: refFileName,
+                currFile: currFileName
+            });
+            isSelfCompare = false;
+            if (state.render) state.render.isSelfCompare = false;
+        }
+        
         // 🐛 DEBUG A/B
         console.log('[DEBUG-A/B]', {
             ref: refNormalized?.fileName || refNormalized?.metadata?.fileName,
@@ -8991,6 +9004,53 @@ function renderReferenceComparisons(ctx) {
     // Usar as faixas do store (com VIDs) em vez das globais
     opts.userAnalysis = userFromStore;
     opts.referenceAnalysis = refFromStore;
+    
+    // ========================================
+    // 🔧 DETECÇÃO SEGURA DE SELF-COMPARE (APÓS AB-SAFETY)
+    // ========================================
+    // Agora que temos os dados validados, detectar self-compare com critérios rigorosos
+    const refAnalysis = opts.referenceAnalysis;
+    const currAnalysis = opts.userAnalysis;
+    
+    const sameJob = !!(refAnalysis?.jobId && currAnalysis?.jobId && refAnalysis.jobId === currAnalysis.jobId);
+    const sameVid = !!(refAnalysis?.vid && currAnalysis?.vid && refAnalysis.vid === currAnalysis.vid);
+    const sameFileName = !!(refAnalysis?.fileName && currAnalysis?.fileName && refAnalysis.fileName === currAnalysis.fileName);
+    const refVid = window.CacheIndex?.REF;
+    const userVid = window.CacheIndex?.USER;
+    
+    // Só marca como selfCompare se TODAS as checagens coincidirem
+    let selfCompare = false;
+    if (sameJob && sameVid && sameFileName) {
+        selfCompare = true;
+        console.warn('[REF-GUARD] ⚠️ Self-compare detectado (todos critérios):', { sameJob, sameVid, sameFileName });
+    }
+    
+    // ✅ REVALIDAÇÃO: Limpar flag se for falso positivo
+    // Se VIDs ou files são diferentes, não pode ser self-compare
+    if (selfCompare && (userVid !== refVid || 
+        (refAnalysis?.fileName || refAnalysis?.metadata?.fileName) !== (currAnalysis?.fileName || currAnalysis?.metadata?.fileName))) {
+        console.warn('[REF-GUARD] ❎ Corrigido selfCompare falso-positivo após AB-SAFETY:', {
+            userVid,
+            refVid,
+            userFile: currAnalysis?.fileName || currAnalysis?.metadata?.fileName,
+            refFile: refAnalysis?.fileName || refAnalysis?.metadata?.fileName
+        });
+        selfCompare = false;
+    }
+    
+    // Marcar no opts para uso posterior
+    opts.isSelfCompare = selfCompare;
+    
+    console.log('[SELF-COMPARE-FINAL] Decisão final:', {
+        selfCompare,
+        sameJob,
+        sameVid,
+        sameFileName,
+        userVid,
+        refVid,
+        userFile: currAnalysis?.fileName || currAnalysis?.metadata?.fileName,
+        refFile: refAnalysis?.fileName || refAnalysis?.metadata?.fileName
+    });
     
     // ==== STEP 3/6: refHardGuards() simplificado ====
     const guardResult = (function refHardGuards(){
