@@ -3874,12 +3874,30 @@ async function handleModalFileSelection(file) {
             
             // � PASSO 2: ATIVAR PROTEÇÃO DE CURRENTJOBID
             const currentJobId = normalizedResult?.jobId || analysisResult?.jobId;
+            const referenceJobId = window.__REFERENCE_JOB_ID__ || localStorage.getItem('referenceJobId');
+            
             if (currentJobId) {
                 console.log('🔒 [PROTECTION] Ativando proteção para currentJobId:', currentJobId);
+                console.log('🔍 [PROTECTION] ReferenceJobId:', referenceJobId);
+                
+                // 🚨 VALIDAÇÃO CRÍTICA: Garantir que jobIds são DIFERENTES
+                if (currentJobId === referenceJobId) {
+                    console.error('❌ [MODAL-FILE] ERRO CRÍTICO: Backend retornou mesmo jobId!');
+                    console.error('   currentJobId:', currentJobId);
+                    console.error('   referenceJobId:', referenceJobId);
+                    console.trace();
+                    alert('ERRO: O backend retornou o mesmo jobId da primeira música. Tente novamente.');
+                    return;
+                }
+                
+                console.log('✅ [MODAL-FILE] Segunda música analisada:');
+                console.log('   Novo currentJobId:', currentJobId);
+                console.log('   ReferenceJobId:', referenceJobId);
+                console.log('   São diferentes?', currentJobId !== referenceJobId ? '✅ SIM' : '❌ NÃO');
                 
                 // Salvar em múltiplas camadas de proteção
                 window.__CURRENT_JOB_ID__ = currentJobId;
-                sessionStorage.setItem('currentJobId', currentJobId); // 🆕 BACKUP EM SESSIONSTORAGE
+                sessionStorage.setItem('currentJobId', currentJobId);
                 
                 protectCurrentJobId(currentJobId);
                 console.log('✅ [PROTECTION] Proteção ativada - currentJobId protegido contra contaminação');
@@ -6354,6 +6372,35 @@ async function displayModalResults(analysis) {
             areIndependent: frozenRef !== frozenCurr,
             metadataIndependent: frozenRef.metadata !== frozenCurr.metadata
         });
+        
+        // 🎯 VALIDAÇÃO CRÍTICA: Garantir que jobIds são DIFERENTES antes de renderizar
+        console.group('🔍 [DISPLAY-MODAL] Validação de JobIds antes de renderizar');
+        console.log('   - frozenRef.jobId:', frozenRef.jobId);
+        console.log('   - frozenCurr.jobId:', frozenCurr.jobId);
+        console.log('   - São diferentes?', frozenRef.jobId !== frozenCurr.jobId);
+        
+        // Validar com getCorrectJobId() também
+        const expectedCurrentJobId = getCorrectJobId('current');
+        const expectedReferenceJobId = getCorrectJobId('reference');
+        console.log('   - getCorrectJobId("current"):', expectedCurrentJobId);
+        console.log('   - getCorrectJobId("reference"):', expectedReferenceJobId);
+        console.log('   - Esses também são diferentes?', expectedCurrentJobId !== expectedReferenceJobId);
+        
+        if (frozenRef.jobId === frozenCurr.jobId) {
+            console.error('❌ [DISPLAY-MODAL] ERRO: frozenRef e frozenCurr têm o MESMO jobId!');
+            console.error('   Isso significa que os dados estão contaminados!');
+            console.trace();
+            console.groupEnd();
+            
+            // Tentar recuperar usando getCorrectJobId
+            console.warn('🔄 [DISPLAY-MODAL] Tentando recuperar dados corretos...');
+            // Por enquanto, ABORTAR para evitar renderização incorreta
+            alert('ERRO: Não foi possível carregar a comparação. Os dados estão contaminados. Recarregue a página.');
+            return;
+        }
+        
+        console.log('✅ [DISPLAY-MODAL] JobIds são diferentes - prosseguindo com renderização');
+        console.groupEnd();
         
         renderReferenceComparisons({
             mode: 'reference',
@@ -9199,14 +9246,64 @@ if (typeof window.comparisonLock === "undefined") {
 // --- BEGIN: deterministic mode gate ---
 function renderReferenceComparisons(ctx) {
     // ========================================
-    // 🚨 VALIDAÇÃO CRÍTICA: NUNCA COMPARAR MESMA MÚSICA
+    // 🚨 VALIDAÇÃO CRÍTICA NO INÍCIO: Tentar recuperar jobIds corretos se necessário
     // ========================================
-    const userJobId = ctx?.userAnalysis?.jobId || ctx?.user?.jobId;
-    const refJobId = ctx?.referenceAnalysis?.jobId || ctx?.ref?.jobId;
+    let userJobId = ctx?.userAnalysis?.jobId || ctx?.user?.jobId;
+    let refJobId = ctx?.referenceAnalysis?.jobId || ctx?.ref?.jobId;
     
+    console.group('🎯 [RENDER-REF] Iniciando renderização com validação');
+    console.log('   userJobId recebido:', userJobId);
+    console.log('   refJobId recebido:', refJobId);
+    console.log('   São iguais?', userJobId === refJobId);
+    
+    // Se recebeu jobIds iguais, TENTA RECUPERAR os corretos
+    if (userJobId && refJobId && userJobId === refJobId) {
+        console.error('❌ [RENDER-REF] ERRO: Recebeu jobIds iguais!');
+        console.error('   Tentando recuperar jobIds corretos com getCorrectJobId()...');
+        
+        // RECUPERA os jobIds corretos
+        const recoveredCurrentJobId = getCorrectJobId('current');
+        const recoveredReferenceJobId = getCorrectJobId('reference');
+        
+        console.log('🔄 [RENDER-REF] JobIds recuperados:');
+        console.log('   Novo userJobId (current):', recoveredCurrentJobId);
+        console.log('   Novo refJobId (reference):', recoveredReferenceJobId);
+        console.log('   Recuperados são diferentes?', recoveredCurrentJobId !== recoveredReferenceJobId);
+        
+        // Se AINDA forem iguais, ABORTA
+        if (recoveredCurrentJobId === recoveredReferenceJobId) {
+            console.error('❌ [RENDER-REF] FALHA NA RECUPERAÇÃO!');
+            console.error('   Mesmo após getCorrectJobId(), os jobIds são iguais');
+            console.trace();
+            console.groupEnd();
+            alert('ERRO: Não foi possível carregar a comparação. Os jobIds são iguais. Recarregue a página.');
+            return;
+        }
+        
+        console.log('✅ [RENDER-REF] JobIds recuperados com sucesso!');
+        console.log('   Atualizando userJobId e refJobId no contexto...');
+        
+        // Atualizar jobIds no contexto
+        userJobId = recoveredCurrentJobId;
+        refJobId = recoveredReferenceJobId;
+        
+        // Atualizar também no ctx se possível
+        if (ctx?.userAnalysis) ctx.userAnalysis.jobId = userJobId;
+        if (ctx?.referenceAnalysis) ctx.referenceAnalysis.jobId = refJobId;
+        if (ctx?.user) ctx.user.jobId = userJobId;
+        if (ctx?.ref) ctx.ref.jobId = refJobId;
+    } else {
+        console.log('✅ [RENDER-REF] JobIds já são diferentes - continuando normalmente');
+    }
+    
+    console.groupEnd();
+    
+    // ========================================
+    // 🚨 VALIDAÇÃO CRÍTICA: NUNCA COMPARAR MESMA MÚSICA (validação original mantida)
+    // ========================================
     console.group('🚨 [RENDER-VALIDATION] Validação crítica de jobIds');
-    console.log('   - userJobId:', userJobId);
-    console.log('   - refJobId:', refJobId);
+    console.log('   - userJobId (após possível recuperação):', userJobId);
+    console.log('   - refJobId (após possível recuperação):', refJobId);
     console.log('   - São iguais?', userJobId === refJobId);
     
     // VALIDAÇÃO CRÍTICA: Se jobIds são iguais, ABORTAR renderização
