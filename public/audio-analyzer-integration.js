@@ -2151,9 +2151,16 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
     
     // 🎯 PERSISTIR DADOS DA PRIMEIRA FAIXA
     window.__REFERENCE_JOB_ID__ = referenceJobId;
-    window.__FIRST_ANALYSIS_RESULT__ = firstAnalysisResult;
+    
+    // 🛡️ PROTEÇÃO CRÍTICA: Deep clone para evitar contaminação de ponteiros
+    console.log('[DEEP-CLONE-GUARD] 🔒 Clonando firstAnalysisResult para __FIRST_ANALYSIS_RESULT__');
+    window.__FIRST_ANALYSIS_RESULT__ = structuredClone(firstAnalysisResult);
+    
     window.lastReferenceJobId = referenceJobId;
-    window.referenceAnalysisData = firstAnalysisResult;
+    
+    // 🛡️ PROTEÇÃO CRÍTICA: Deep clone para evitar contaminação de ponteiros
+    console.log('[DEEP-CLONE-GUARD] 🔒 Clonando firstAnalysisResult para referenceAnalysisData');
+    window.referenceAnalysisData = structuredClone(firstAnalysisResult);
     
     console.log('✅ [COMPARE-MODE] Primeira faixa salva:', {
         jobId: referenceJobId,
@@ -3208,6 +3215,25 @@ async function handleModalFileSelection(file) {
             console.log('[DEEP-CLONE-GUARD] 🔒 Clonando referenceAnalysisData para evitar compartilhamento de metadata');
             const referenceAnalysisData = structuredClone(normalizedResult || state.referenceAnalysis);
             
+            // 🔍 VALIDAÇÃO CRÍTICA: Confirmar que os clones são independentes
+            console.groupCollapsed('[INTEGRITY-CHECK] 🔒 Validação de Clones Independentes');
+            console.log('✅ userAnalysis !== referenceAnalysisData?', userAnalysis !== referenceAnalysisData);
+            console.log('✅ userAnalysis.metadata !== referenceAnalysisData.metadata?', userAnalysis?.metadata !== referenceAnalysisData?.metadata);
+            console.log('📁 userFileName:', userAnalysis?.fileName || userAnalysis?.metadata?.fileName);
+            console.log('📁 refFileName:', referenceAnalysisData?.fileName || referenceAnalysisData?.metadata?.fileName);
+            console.log('🆔 userJobId:', userAnalysis?.jobId || userAnalysis?.id);
+            console.log('🆔 refJobId:', referenceAnalysisData?.jobId || referenceAnalysisData?.id);
+            console.log('⚠️ Nomes iguais?', (userAnalysis?.fileName || userAnalysis?.metadata?.fileName) === (referenceAnalysisData?.fileName || referenceAnalysisData?.metadata?.fileName));
+            console.log('⚠️ JobIds iguais?', (userAnalysis?.jobId || userAnalysis?.id) === (referenceAnalysisData?.jobId || referenceAnalysisData?.id));
+            
+            if ((userAnalysis?.fileName || userAnalysis?.metadata?.fileName) === (referenceAnalysisData?.fileName || referenceAnalysisData?.metadata?.fileName)) {
+                console.error('🚨 CONTAMINAÇÃO DETECTADA: userFileName === refFileName!');
+                console.error('🚨 Isso indica que os clones NÃO são independentes ou que a fonte está contaminada!');
+            } else {
+                console.log('✅ INTEGRIDADE CONFIRMADA: Arquivos são diferentes');
+            }
+            console.groupEnd();
+            
             console.log('[REFERENCE-COMPARE] ═══════════════════════════════════════');
             console.log('[REFERENCE-COMPARE] 1ª FAIXA (SUA MÚSICA):');
             console.log('[REFERENCE-COMPARE]   Nome:', userAnalysis?.fileName || userAnalysis?.metadata?.fileName);
@@ -3239,6 +3265,20 @@ async function handleModalFileSelection(file) {
             console.log("[SAFE-MODAL] ✅ Fluxo reference intacto, iniciando renderização final.");
             await displayModalResults(normalizedResult);
             console.log('[FIX-REFERENCE] Modal aberto após segunda análise');
+            
+            // 🔍 VALIDAÇÃO FINAL: Confirmar que __FIRST_ANALYSIS_FROZEN__ permanece intacto
+            console.groupCollapsed('[POST-RENDER-VALIDATION] 🔒 Verificação Final de Integridade');
+            console.log('🧊 __FIRST_ANALYSIS_FROZEN__ APÓS segunda análise:');
+            console.log('   fileName:', window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName);
+            console.log('   jobId:', window.__FIRST_ANALYSIS_FROZEN__?.jobId);
+            console.log('   É o mesmo que normalizedResult?', window.__FIRST_ANALYSIS_FROZEN__?.jobId === normalizedResult?.jobId);
+            
+            if (window.__FIRST_ANALYSIS_FROZEN__?.jobId === normalizedResult?.jobId) {
+                console.error('🚨 FALHA CRÍTICA: __FIRST_ANALYSIS_FROZEN__ foi sobrescrito pela segunda análise!');
+            } else {
+                console.log('✅ INTEGRIDADE MANTIDA: __FIRST_ANALYSIS_FROZEN__ permanece intacto');
+            }
+            console.groupEnd();
             
             // 🔧 FIX: NÃO LIMPAR referência durante modo REFERENCE ativo
             // A limpeza só deve ocorrer quando o usuário fechar o modal ou trocar de modo
@@ -4822,7 +4862,19 @@ function showModalLoading() {
 // 📊 Mostrar resultados no modal
 function displayModalResults(analysis) {
     // =========================================================================
-    // 🚨 DEBUG CRÍTICO: Timing e Estado dos Dados (detecta chamada prematura)
+    // �️ GUARD CRÍTICO: Prevenir sobrescrita de __FIRST_ANALYSIS_FROZEN__
+    // =========================================================================
+    if (window.__FIRST_ANALYSIS_FROZEN__ && 
+        window.__FIRST_ANALYSIS_FROZEN__.jobId === analysis?.jobId) {
+        console.warn('[INTEGRITY-GUARD] ⚠️ BLOQUEIO: Tentativa de sobrescrever __FIRST_ANALYSIS_FROZEN__ detectada!');
+        console.warn('[INTEGRITY-GUARD] jobId:', analysis?.jobId);
+        console.warn('[INTEGRITY-GUARD] fileName:', analysis?.metadata?.fileName);
+        console.warn('[INTEGRITY-GUARD] __FIRST_ANALYSIS_FROZEN__ já contém esta análise - abortando para evitar contaminação');
+        return;
+    }
+    
+    // =========================================================================
+    // �🚨 DEBUG CRÍTICO: Timing e Estado dos Dados (detecta chamada prematura)
     // =========================================================================
     console.groupCollapsed("[DEBUG-DISPLAY] 🧠 Início displayModalResults()");
     console.log("📦 analysis.metadata.fileName:", analysis?.metadata?.fileName);
@@ -5138,23 +5190,26 @@ function displayModalResults(analysis) {
             console.error('🔴 [AUDIT-CRITICAL] ❌ window.__FIRST_ANALYSIS_FROZEN__ NÃO EXISTE!');
             console.error('🔴 [AUDIT-CRITICAL] ❌ Tentando recuperar de múltiplas fontes...');
             
+            // 🛡️ VALIDAÇÃO CRÍTICA: NÃO recuperar se a fonte tem o mesmo jobId que analysis
+            const currentJobId = analysis?.jobId || analysis?.id;
+            
             // Tentar 3 fontes de recuperação (ordem de prioridade):
-            // 1. window.referenceAnalysisData
-            if (window.referenceAnalysisData) {
+            // 1. window.referenceAnalysisData (MAS VALIDAR QUE NÃO É A SEGUNDA ANÁLISE!)
+            if (window.referenceAnalysisData && window.referenceAnalysisData.jobId !== currentJobId) {
                 window.__FIRST_ANALYSIS_FROZEN__ = Object.freeze(deepCloneSafe(window.referenceAnalysisData));
                 console.log('🔴 [AUDIT-CRITICAL] ✅ Recuperado de window.referenceAnalysisData');
                 console.log('   fileName:', window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName);
                 console.log('   jobId:', window.__FIRST_ANALYSIS_FROZEN__?.jobId);
             }
-            // 2. state.previousAnalysis
-            else if (state.previousAnalysis) {
+            // 2. state.previousAnalysis (VALIDAR QUE NÃO É A SEGUNDA ANÁLISE!)
+            else if (state.previousAnalysis && state.previousAnalysis.jobId !== currentJobId) {
                 window.__FIRST_ANALYSIS_FROZEN__ = Object.freeze(deepCloneSafe(state.previousAnalysis));
                 console.log('🔴 [AUDIT-CRITICAL] ✅ Recuperado de state.previousAnalysis');
                 console.log('   fileName:', window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName);
                 console.log('   jobId:', window.__FIRST_ANALYSIS_FROZEN__?.jobId);
             }
-            // 3. window.__soundyState.previousAnalysis
-            else if (window.__soundyState?.previousAnalysis) {
+            // 3. window.__soundyState.previousAnalysis (VALIDAR QUE NÃO É A SEGUNDA ANÁLISE!)
+            else if (window.__soundyState?.previousAnalysis && window.__soundyState.previousAnalysis.jobId !== currentJobId) {
                 window.__FIRST_ANALYSIS_FROZEN__ = Object.freeze(deepCloneSafe(window.__soundyState.previousAnalysis));
                 console.log('🔴 [AUDIT-CRITICAL] ✅ Recuperado de window.__soundyState.previousAnalysis');
                 console.log('   fileName:', window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName);
@@ -5162,10 +5217,12 @@ function displayModalResults(analysis) {
             }
             else {
                 console.error('🔴 [AUDIT-CRITICAL] ❌ FALHA TOTAL: Nenhuma primeira análise disponível em NENHUMA fonte!');
+                console.error('🔴 [AUDIT-CRITICAL] ❌ Ou todas as fontes têm o mesmo jobId que a segunda análise!');
                 console.error('🔴 [AUDIT-CRITICAL] ❌ Fontes verificadas:');
-                console.error('   - window.referenceAnalysisData:', !!window.referenceAnalysisData);
-                console.error('   - state.previousAnalysis:', !!state.previousAnalysis);
-                console.error('   - window.__soundyState.previousAnalysis:', !!window.__soundyState?.previousAnalysis);
+                console.error('   - window.referenceAnalysisData:', !!window.referenceAnalysisData, 'jobId:', window.referenceAnalysisData?.jobId);
+                console.error('   - state.previousAnalysis:', !!state.previousAnalysis, 'jobId:', state.previousAnalysis?.jobId);
+                console.error('   - window.__soundyState.previousAnalysis:', !!window.__soundyState?.previousAnalysis, 'jobId:', window.__soundyState?.previousAnalysis?.jobId);
+                console.error('   - analysis (segunda):', 'jobId:', currentJobId);
                 console.error('🔴 [AUDIT-CRITICAL] ❌ Sistema VAI COMPARAR A MESMA MÚSICA CONSIGO MESMA!');
             }
         }
