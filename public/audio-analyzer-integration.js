@@ -26,6 +26,88 @@ function cloneDeepSafe(obj) {
 }
 
 // ========================================
+// 🔒 PASSO 2: PROTEÇÃO DE JOBID (ANTI-CONTAMINAÇÃO)
+// ========================================
+/**
+ * Protege window.__CURRENT_JOB_ID__ contra sobrescrita acidental
+ * Bloqueia tentativas de contaminar com __REFERENCE_JOB_ID__
+ */
+function protectCurrentJobId(initialValue) {
+    // Armazena valor privado
+    let _currentJobId = initialValue;
+    
+    // Redefine a propriedade com getter/setter protegido
+    Object.defineProperty(window, '__CURRENT_JOB_ID__', {
+        configurable: true,
+        enumerable: true,
+        set: function(value) {
+            console.group('⚠️ [PROTECTION] Tentativa de alterar currentJobId');
+            console.log('   - Valor antigo:', _currentJobId);
+            console.log('   - Valor novo:', value);
+            console.trace('   - Stack trace:');
+            console.groupEnd();
+            
+            // BLOQUEIO: Se tentar contaminar com referenceJobId
+            if (value && value === window.__REFERENCE_JOB_ID__) {
+                console.error('❌ [PROTECTION] BLOQUEADO! Tentativa de contaminar currentJobId com referenceJobId!');
+                console.error('❌ [PROTECTION] Mantendo valor original:', _currentJobId);
+                return; // BLOQUEIA a alteração
+            }
+            
+            // BLOQUEIO: Se já tiver valor e tentar alterar sem justificativa
+            if (_currentJobId && value && _currentJobId !== value) {
+                console.warn('⚠️ [PROTECTION] Sobrescrita de currentJobId detectada!');
+                console.warn('   Antigo:', _currentJobId);
+                console.warn('   Novo:', value);
+            }
+            
+            _currentJobId = value;
+            console.log('✅ [PROTECTION] currentJobId atualizado:', _currentJobId);
+        },
+        get: function() {
+            return _currentJobId;
+        }
+    });
+    
+    console.log('🔒 [PROTECTION] Proteção de currentJobId ativada com valor inicial:', initialValue);
+}
+
+// ========================================
+// 🛡️ PASSO 3: FUNÇÃO SEGURA PARA OBTER JOBID
+// ========================================
+/**
+ * Retorna o jobId correto baseado no modo, com proteção contra contaminação
+ * @param {string} mode - 'reference' ou 'genre'
+ * @returns {string|null} jobId seguro
+ */
+function getJobIdSafely(mode) {
+    const currentJobId = window.__CURRENT_JOB_ID__;
+    const referenceJobId = window.__REFERENCE_JOB_ID__;
+    
+    console.group('🔒 [SAFE-GET] Retornando jobId seguro');
+    console.log('   - Modo:', mode);
+    console.log('   - CurrentJobId:', currentJobId);
+    console.log('   - ReferenceJobId:', referenceJobId);
+    
+    let safeJobId;
+    
+    if (mode === 'reference') {
+        // Em modo reference, SEMPRE usar currentJobId (segunda música)
+        safeJobId = currentJobId;
+        console.log('   - Retornando currentJobId (segunda música)');
+    } else {
+        // Em outros modos, usar o que estiver disponível
+        safeJobId = currentJobId || referenceJobId || localStorage.getItem('referenceJobId');
+        console.log('   - Retornando jobId disponível');
+    }
+    
+    console.log('   - JobId retornado:', safeJobId);
+    console.groupEnd();
+    
+    return safeJobId;
+}
+
+// ========================================
 // 🔄 HIDRATAÇÃO DE REFERÊNCIA (Correção 1)
 // ========================================
 /**
@@ -939,7 +1021,18 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         __dbg('🔧 Criando job de análise...', { fileKey, mode, fileName });
 
         // 🔧 FIX CRÍTICO: Detectar se é primeira ou segunda música no modo referência
+        // 🔍 PASSO 3: AUDITORIA - Usar função segura
+        console.group('🔍 [AUDIT-LOCALSTORAGE] createAnalysisJob - Leitura de referenceJobId');
+        console.log('   - Antes: window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
+        console.log('   - Antes: localStorage.referenceJobId:', localStorage.getItem('referenceJobId'));
+        
         let referenceJobId = window.__REFERENCE_JOB_ID__ || localStorage.getItem('referenceJobId');
+        
+        console.log('   - Valor obtido:', referenceJobId);
+        console.log('   - Mode:', mode);
+        console.trace('   - Stack trace:');
+        console.groupEnd();
+        
         let actualMode = mode;
         
         // 🎯 CORREÇÃO DO FLUXO: Primeira música como "genre", segunda como "reference"
@@ -3706,7 +3799,18 @@ async function handleModalFileSelection(file) {
             console.log('[REFERENCE-FLOW] ═══════════════════════════════════════');
             console.log('[REFERENCE-FLOW] Segunda música concluída - montando comparação A/B');
             
-            // 🛡️ DEEP CLONE OBRIGATÓRIO: Evitar contaminação de ponteiros que causa falso self-compare
+            // � PASSO 2: ATIVAR PROTEÇÃO DE CURRENTJOBID
+            const currentJobId = normalizedResult?.jobId || analysisResult?.jobId;
+            if (currentJobId) {
+                console.log('🔒 [PROTECTION] Ativando proteção para currentJobId:', currentJobId);
+                window.__CURRENT_JOB_ID__ = currentJobId;
+                protectCurrentJobId(currentJobId);
+                console.log('✅ [PROTECTION] Proteção ativada - currentJobId protegido contra contaminação');
+            } else {
+                console.warn('⚠️ [PROTECTION] currentJobId não encontrado, proteção não ativada');
+            }
+            
+            // �🛡️ DEEP CLONE OBRIGATÓRIO: Evitar contaminação de ponteiros que causa falso self-compare
             console.log('[DEEP-CLONE-GUARD] 🔒 Clonando userAnalysis para evitar compartilhamento de metadata');
             const userAnalysis = structuredClone(state.previousAnalysis || state.userAnalysis);
             
@@ -5385,7 +5489,19 @@ async function displayModalResults(analysis) {
     // ✅ CORREÇÃO 2: RESTAURAÇÃO DE DADOS DE REFERÊNCIA
     // ========================================
     // Verifica se dados de referência foram perdidos e restaura do cache
-    const referenceJobId = window.__REFERENCE_JOB_ID__ || localStorage.getItem('referenceJobId');
+    
+    // 🔍 PASSO 3: AUDITORIA - Usar função segura
+    console.group('🔍 [AUDIT-LOCALSTORAGE] displayModalResults - Leitura de referenceJobId');
+    console.log('   - Antes: window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
+    console.log('   - Antes: window.__CURRENT_JOB_ID__:', window.__CURRENT_JOB_ID__);
+    console.log('   - Antes: localStorage.referenceJobId:', localStorage.getItem('referenceJobId'));
+    console.log('   - Mode:', currentAnalysisMode);
+    
+    const referenceJobId = getJobIdSafely('storage'); // Usa função segura
+    
+    console.log('   - Valor obtido:', referenceJobId);
+    console.trace('   - Stack trace:');
+    console.groupEnd();
     
     if (referenceJobId && currentAnalysisMode === 'reference') {
         // Verificar se dados de referência estão ausentes
@@ -6200,8 +6316,27 @@ async function displayModalResults(analysis) {
         // Chamar sugestões de IA após pequeno delay para garantir que DOM está pronto
         setTimeout(() => {
             if (window.aiUIController) {
+                // 🔍 PASSO 1: LOG CRÍTICO ANTES de checkForAISuggestions
+                console.group('🔍 [PRE-AI-SUGGESTIONS] Estado ANTES de checkForAISuggestions');
+                console.log('   - currentJobId (segunda música):', window.__CURRENT_JOB_ID__);
+                console.log('   - referenceJobId:', window.__REFERENCE_JOB_ID__);
+                console.log('   - localStorage.referenceJobId:', localStorage.getItem('referenceJobId'));
+                console.log('   - analysisForSuggestions:', {
+                    jobId: analysisForSuggestions?.jobId,
+                    fileName: analysisForSuggestions?.fileName || analysisForSuggestions?.metadata?.fileName
+                });
+                console.groupEnd();
+                
                 console.log('[AUDIT-FIX] ✅ Chamando aiUIController.checkForAISuggestions');
                 window.aiUIController.checkForAISuggestions(analysisForSuggestions, true);
+                
+                // 🔍 PASSO 1: LOG CRÍTICO DEPOIS de checkForAISuggestions
+                console.group('🔍 [POST-AI-SUGGESTIONS] Estado DEPOIS de checkForAISuggestions');
+                console.log('   - currentJobId:', window.__CURRENT_JOB_ID__);
+                console.log('   - referenceJobId:', window.__REFERENCE_JOB_ID__);
+                console.log('   - localStorage.referenceJobId:', localStorage.getItem('referenceJobId'));
+                console.log('   - MUDOU?', window.__CURRENT_JOB_ID__ === window.__REFERENCE_JOB_ID__ ? '❌ CONTAMINADO!' : '✅ Intacto');
+                console.groupEnd();
             } else if (window.forceShowAISuggestions) {
                 console.log('[AUDIT-FIX] ✅ Chamando forceShowAISuggestions');
                 window.forceShowAISuggestions(analysisForSuggestions);
