@@ -3,6 +3,21 @@
 // ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
 // ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
 
+// ========================================
+// 🔧 UTILIDADES DE CLONAGEM PROFUNDA
+// ========================================
+/**
+ * Clone profundo seguro - tenta structuredClone, fallback para JSON
+ * @param {*} obj - Objeto a ser clonado
+ * @returns {*} Clone independente ou objeto original (último recurso)
+ */
+function cloneDeepSafe(obj) {
+  if (!obj) return obj;
+  try { return structuredClone(obj); } catch {}
+  try { return JSON.parse(JSON.stringify(obj)); } catch {}
+  return obj; // último recurso (não deve acontecer)
+}
+
 // 📝 Carregar gerador de texto didático
 if (typeof window !== 'undefined' && !window.SuggestionTextGenerator) {
     const script = document.createElement('script');
@@ -22,58 +37,87 @@ const __DEBUG_ANALYZER__ = true; // 🔧 TEMPORÁRIO: Ativado para debug do prob
 const __dbg = (...a) => { if (__DEBUG_ANALYZER__) console.log('[AUDIO-DEBUG]', ...a); };
 const __dwrn = (...a) => { if (__DEBUG_ANALYZER__) console.warn('[AUDIO-WARN]', ...a); };
 
-// === FirstAnalysisStore (Single Source of Truth) ===
-// Store imutável para a 1ª faixa - set só uma vez, get sempre clonado, clear apenas no reset
-const FirstAnalysisStore = (() => {
-    let _frozen = null;   // objeto congelado (deep clone da 1ª análise)
-    let _jobId = null;
-
-    return {
-        has() { 
-            return !!_frozen && !!_jobId; 
-        },
-        
-        set(firstAnalysis) {
-            if (this.has()) {
-                console.warn('[FirstAnalysisStore] ⚠️ Já existe análise - não sobrescrever');
-                return; // não sobrescrever nunca
-            }
-            
-            const cloned = (typeof structuredClone === 'function')
-                ? structuredClone(firstAnalysis)
-                : JSON.parse(JSON.stringify(firstAnalysis));
-            
-            _frozen = Object.freeze(cloned);
-            _jobId = cloned?.jobId || cloned?.id || cloned?.metadata?.jobId || null;
-            
-            console.log('[FirstAnalysisStore] set()', { 
-                fileName: cloned?.fileName || cloned?.metadata?.fileName, 
-                jobId: _jobId 
-            });
-        },
-        
-        get() {
-            if (!this.has()) return null;
-            
-            // sempre devolver um clone novo para evitar ponteiros compartilhados
-            const cloned = (typeof structuredClone === 'function')
-                ? structuredClone(_frozen)
-                : JSON.parse(JSON.stringify(_frozen));
-            
-            return cloned;
-        },
-        
-        clear() {
-            _frozen = null;
-            _jobId = null;
-            console.log('[FirstAnalysisStore] clear()');
-        },
-        
-        jobId() { 
-            return _jobId; 
-        }
+// ========================================
+// 🗂️ STORES GLOBAIS: AnalysisCache + FirstAnalysisStore
+// ========================================
+(function initGlobalStores() {
+  if (!window.AnalysisCache) {
+    const _map = new Map();
+    window.AnalysisCache = {
+      put(analysis) {
+        if (!analysis) return;
+        const id = analysis.jobId || analysis.id;
+        if (!id) return;
+        _map.set(id, Object.freeze(cloneDeepSafe(analysis)));
+        console.log('[CACHE] ✅ put', { jobId: id, file: analysis?.fileName || analysis?.metadata?.fileName });
+      },
+      get(id) {
+        const a = _map.get(id);
+        return a ? cloneDeepSafe(a) : null;
+      },
+      has(id) { return _map.has(id); },
+      ids() { return Array.from(_map.keys()); },
+      clear() { 
+        _map.clear(); 
+        console.log('[CACHE] 🗑️ clear');
+      }
     };
+    console.log('[BOOT] AnalysisCache ✅');
+  }
+
+  if (!window.FirstAnalysisStore) {
+    let _frozen = null;
+    let _id = null;
+
+    window.FirstAnalysisStore = {
+      set(analysis) {
+        if (_frozen) {
+          console.warn('[FIRST-STORE] ⚠️ Já existe análise - não sobrescrever');
+          return; // set-once
+        }
+        const c = cloneDeepSafe(analysis);
+        _frozen = Object.freeze(c);
+        _id = c?.jobId || c?.id || null;
+        try { localStorage.setItem('referenceJobId', _id || ''); } catch {}
+        console.log('[FIRST-STORE] ✅ set', { jobId: _id, file: c?.fileName || c?.metadata?.fileName });
+      },
+      get() {
+        if (_frozen) return cloneDeepSafe(_frozen);
+        try {
+          const id = localStorage.getItem('referenceJobId') || null;
+          if (id && window.AnalysisCache?.has(id)) {
+            const fromCache = window.AnalysisCache.get(id);
+            _frozen = Object.freeze(cloneDeepSafe(fromCache));
+            _id = id;
+            console.log('[FIRST-STORE] ♻️ RESTORE', { jobId: _id });
+            return cloneDeepSafe(_frozen);
+          }
+        } catch {}
+        return null;
+      },
+      id() { return _id; },
+      has() { 
+        if (_frozen) return true;
+        try {
+          const id = localStorage.getItem('referenceJobId');
+          return !!(id && window.AnalysisCache?.has(id));
+        } catch {}
+        return false;
+      },
+      clear() { 
+        _frozen = null; 
+        _id = null;
+        try { localStorage.removeItem('referenceJobId'); } catch {}
+        console.log('[FIRST-STORE] 🗑️ clear');
+      },
+      jobId() { return _id; }
+    };
+    console.log('[BOOT] FirstAnalysisStore ✅');
+  }
 })();
+
+// Alias global para compatibilidade com código existente
+const FirstAnalysisStore = window.FirstAnalysisStore;
 
 // �️ GUARDS: Isolamento de jobIds para evitar self-compare
 // Recebe objetos já clonados e garante que refFull tenha jobId único se necessário
@@ -2960,13 +3004,18 @@ async function handleModalFileSelection(file) {
             // PRIMEIRA música em modo reference: abrir modal para música de referência
             __dbg('🎯 Primeira música analisada - abrindo modal para segunda');
             
-            // 🔒 SALVAR PRIMEIRA ANÁLISE NO STORE IMUTÁVEL (SET-ONCE)
-            if (!FirstAnalysisStore.has()) {
-                FirstAnalysisStore.set(analysisResult);
-                window.__REFERENCE_JOB_ID__ = analysisResult?.jobId || analysisResult?.id;
-                console.log('[A/B] 🧊 primeira faixa salva', {
-                    jobId: analysisResult?.jobId, 
-                    file: analysisResult?.fileName || analysisResult?.metadata?.fileName
+            // ========================================
+            // 🔒 NORMALIZAR E SALVAR PRIMEIRA ANÁLISE
+            // ========================================
+            const normalizedFirst = normalizeBackendAnalysisData(analysisResult);
+            try { window.AnalysisCache?.put(normalizedFirst); } catch(e) { console.warn('[CACHE] put falhou', e); }
+            
+            if (!window.FirstAnalysisStore?.has()) {
+                window.FirstAnalysisStore.set(normalizedFirst);
+                window.__REFERENCE_JOB_ID__ = normalizedFirst?.jobId || normalizedFirst?.id;
+                console.log('[A/B] 🧊 primeira faixa salva (normalizada)', {
+                    jobId: normalizedFirst?.jobId, 
+                    file: normalizedFirst?.fileName || normalizedFirst?.metadata?.fileName
                 });
             }
             
@@ -2993,20 +3042,20 @@ async function handleModalFileSelection(file) {
             
             console.log('[REF-SAVE ✅] ═══════════════════════════════════════');
             console.log('[REF-SAVE ✅] Primeira música processada com sucesso!');
-            console.log(`[REF-SAVE ✅] Job ID salvo globalmente: ${analysisResult.jobId}`);
+            console.log(`[REF-SAVE ✅] Job ID salvo globalmente: ${normalizedFirst.jobId}`);
             console.log('[REF-SAVE ✅] Locais de salvamento:');
             console.log('[REF-SAVE ✅]   - window.__REFERENCE_JOB_ID__');
             console.log('[REF-SAVE ✅]   - localStorage.referenceJobId');
-            console.log('[REF-SAVE ✅]   - window.__soundyState.previousAnalysis');
-            console.log('[REF-SAVE ✅]   - FirstAnalysisStore (imutável + clonagem automática)');
-            console.log(`[REF-SAVE ✅] File Name: ${analysisResult.metadata?.fileName || analysisResult.fileName || 'unknown'}`);
-            console.log(`[REF-SAVE ✅] LUFS: ${analysisResult.technicalData?.lufsIntegrated || 'N/A'} LUFS`);
-            console.log(`[REF-SAVE ✅] DR: ${analysisResult.technicalData?.dynamicRange || 'N/A'} dB`);
+            console.log('[REF-SAVE ✅]   - window.AnalysisCache (imutável)');
+            console.log('[REF-SAVE ✅]   - window.FirstAnalysisStore (imutável + clonagem automática)');
+            console.log(`[REF-SAVE ✅] File Name: ${normalizedFirst.metadata?.fileName || normalizedFirst.fileName || 'unknown'}`);
+            console.log(`[REF-SAVE ✅] LUFS: ${normalizedFirst.technicalData?.lufsIntegrated || 'N/A'} LUFS`);
+            console.log(`[REF-SAVE ✅] DR: ${normalizedFirst.technicalData?.dynamicRange || 'N/A'} dB`);
             console.log('[REF-SAVE ✅] Este ID será usado na segunda música');
             console.log('[REF-SAVE ✅] Primeira análise salva e congelada.');
             console.log('[REF-SAVE ✅] ═══════════════════════════════════════');
             
-            openReferenceUploadModal(analysisResult.jobId, analysisResult);
+            openReferenceUploadModal(normalizedFirst.jobId, normalizedFirst);
         } else if (isSecondTrack) {
             // 🔥 FORÇAR: Se tem jobId de referência, SEMPRE tratar como segunda track
             console.log('🟢🟢🟢 [SEGUNDA-TRACK-DETECTADA-FORCE] ════════════════════════════════════');
@@ -3395,21 +3444,30 @@ async function handleModalFileSelection(file) {
             return; // Aborta sem resetar modo
         }
         
-        // Verificar se é um erro de fallback para modo gênero (apenas erros reais)
+        // ========================================
+        // 🛡️ PROTEÇÃO: Nunca resetar modo se há primeira análise válida
+        // ========================================
         if (window.FEATURE_FLAGS?.FALLBACK_TO_GENRE && currentAnalysisMode === 'reference') {
-            console.warn('[REF-FLOW] Erro real — fallback ativado.');
-            
-            window.logReferenceEvent('error_fallback_to_genre', { 
-                error: error.message,
-                originalMode: currentAnalysisMode 
-            });
-            
-            showModalError('Erro na análise por referência. Redirecionando para análise por gênero...');
-            
-            setTimeout(() => {
-                currentAnalysisMode = 'genre';
-                configureModalForMode('genre');
-            }, 2000);
+            // NÃO altere currentAnalysisMode se houver referência válida salva
+            if (!window.FirstAnalysisStore?.has()) {
+                console.warn('[REF-FLOW] Erro real + sem primeira análise — fallback ativado.');
+                
+                window.logReferenceEvent('error_fallback_to_genre', { 
+                    error: error.message,
+                    originalMode: currentAnalysisMode 
+                });
+                
+                showModalError('Erro na análise por referência. Redirecionando para análise por gênero...');
+                
+                setTimeout(() => {
+                    currentAnalysisMode = 'genre';
+                    configureModalForMode('genre');
+                }, 2000);
+            } else {
+                console.warn('[REF-FLOW] Erro capturado, mas primeira análise existe — mantendo modo reference');
+                console.warn('[FALLBACK] Degradando visual apenas, não alterando modo global');
+                showModalError('Erro temporário na análise. Tente fazer upload da segunda faixa novamente.');
+            }
         } else {
             // Determinar tipo de erro para mensagem mais específica
             let errorMessage = error.message;
@@ -13897,7 +13955,26 @@ function normalizeBackendAnalysisData(result) {
     }
     console.groupEnd();
 
-    return normalized;
+    // ========================================
+    // 🔒 BLINDAGEM CRÍTICA: Quebrar compartilhamento de ponteiros
+    // ========================================
+    if (normalized && normalized.metadata) {
+      // quebra compartilhamento de ponteiro
+      normalized.metadata = { ...normalized.metadata };
+    }
+    if (normalized && normalized.technicalData) {
+      normalized.technicalData = { ...normalized.technicalData };
+    }
+    if (normalized && normalized.bands) {
+      normalized.bands = cloneDeepSafe(normalized.bands);
+    }
+
+    // ========================================
+    // 🔒 RETORNO FINAL: Clone profundo para garantir isolamento total
+    // ========================================
+    const normalizedOut = cloneDeepSafe(normalized);
+    Object.defineProperty(normalizedOut, 'sameAsInput', { value: false, enumerable: false });
+    return normalizedOut;
 }
 
 // =============== FUNÇÕES AUXILIARES ===============
