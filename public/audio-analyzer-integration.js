@@ -5017,7 +5017,42 @@ function showModalLoading() {
 
 // 📊 Mostrar resultados no modal
 // 📊 Mostrar resultados no modal
-function displayModalResults(analysis) {
+async function displayModalResults(analysis) {
+    console.log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
+
+    // ========================================
+    // ✅ PROTEÇÃO DEFINITIVA CONTRA ERRO DE INTERFACE
+    // ========================================
+    // Espera o módulo aiUIController inicializar antes de renderizar
+    let tries = 0;
+    const MAX_TRIES = 30;
+    const WAIT_MS = 150;
+
+    while (
+        (!window.aiUIController ||
+         typeof window.aiUIController.renderMetricCards !== 'function' ||
+         typeof window.aiUIController.renderScoreSection !== 'function') &&
+        tries < MAX_TRIES
+    ) {
+        await new Promise(r => setTimeout(r, WAIT_MS));
+        tries++;
+        if (tries % 5 === 0) {
+            console.warn(`[WAIT] aguardando aiUIController carregar... tentativa ${tries}`);
+        }
+    }
+
+    // Falha definitiva — controller nunca carregou
+    if (
+        !window.aiUIController ||
+        typeof window.aiUIController.renderMetricCards !== 'function'
+    ) {
+        console.error('[FATAL] aiUIController não carregado após todas as tentativas');
+        alert('Erro ao carregar interface de resultados. Recarregue a página.');
+        return;
+    }
+
+    console.log('[SAFE] ✅ aiUIController detectado, renderização liberada.');
+
     // =========================================================================
     // �️ GUARD CRÍTICO: Prevenir sobrescrita de __FIRST_ANALYSIS_FROZEN__
     // =========================================================================
