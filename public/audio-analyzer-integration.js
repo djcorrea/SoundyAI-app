@@ -4873,6 +4873,21 @@ function displayModalResults(analysis) {
         return;
     }
     
+    // GUARD ADICIONAL: Detectar contaminação entre userFull e refFull
+    if (window.__FIRST_ANALYSIS_FROZEN__ &&
+        window.referenceAnalysisData &&
+        window.__FIRST_ANALYSIS_FROZEN__.jobId === window.referenceAnalysisData.jobId) {
+        console.warn('[PROTECT] Detecção de contaminação entre userFull e refFull — restaurando cópia original');
+        console.warn('[PROTECT] __FIRST_ANALYSIS_FROZEN__.jobId:', window.__FIRST_ANALYSIS_FROZEN__.jobId);
+        console.warn('[PROTECT] referenceAnalysisData.jobId:', window.referenceAnalysisData.jobId);
+        console.warn('[PROTECT] Ambos apontam para o mesmo objeto! Restaurando separação...');
+        
+        // Restaurar referenceAnalysisData como clone independente
+        window.referenceAnalysisData = structuredClone(window.__FIRST_ANALYSIS_FROZEN__);
+        
+        console.log('[PROTECT] referenceAnalysisData restaurado como clone independente');
+    }
+    
     // =========================================================================
     // �🚨 DEBUG CRÍTICO: Timing e Estado dos Dados (detecta chamada prematura)
     // =========================================================================
@@ -5768,6 +5783,16 @@ function displayModalResults(analysis) {
     // 🔧 FIX CRÍTICO: Mudado de const para let para permitir recuperação em caso de contaminação
     let userFull  = referenceComparisonMetrics?.userFull;       // 1ª faixa (sua música)
     let refFull   = referenceComparisonMetrics?.referenceFull;  // 2ª faixa (referência)
+    
+    // 🛡️ SAFEGUARD: Se userFull está undefined, recuperar de __FIRST_ANALYSIS_FROZEN__
+    if (!userFull && window.__FIRST_ANALYSIS_FROZEN__) {
+        console.warn('[SAFEGUARD] userFull está undefined — recuperando de __FIRST_ANALYSIS_FROZEN__');
+        userFull = structuredClone(window.__FIRST_ANALYSIS_FROZEN__);
+        console.log('[SAFEGUARD] ✅ userFull recuperado:', {
+            fileName: userFull?.metadata?.fileName,
+            jobId: userFull?.jobId
+        });
+    }
 
     let userTd    = referenceComparisonMetrics?.userTrack   || {};
     let refTd     = referenceComparisonMetrics?.referenceTrack || {};
@@ -5801,7 +5826,10 @@ function displayModalResults(analysis) {
         // Tentar recuperar userFull de previousAnalysis
         if (state.previousAnalysis.metadata?.fileName !== refMd.fileName) {
             console.warn('[INTEGRITY-CHECK] ⚠️ Recuperando userFull de state.previousAnalysis');
-            const recoveredUserFull = state.previousAnalysis;
+            
+            // 🛡️ PROTEÇÃO: SEMPRE usar clone para evitar contaminação de ponteiros
+            console.log('[SAFEGUARD] Clonando state.previousAnalysis para evitar referência compartilhada');
+            const recoveredUserFull = structuredClone(state.previousAnalysis);
             const recoveredUserMd = recoveredUserFull.metadata || {};
             const recoveredUserTd = recoveredUserFull.technicalData || {};
             const recoveredUserBands = __normalizeBandKeys(__getBandsSafe(recoveredUserFull));
@@ -5860,10 +5888,16 @@ function displayModalResults(analysis) {
     if (userMd.fileName === refMd.fileName && state.previousAnalysis) {
         console.warn('[FIX] 🚨 Detecção de self-compare FALSO – isolando referenceAnalysis');
         console.warn('[FIX] userFull foi contaminado com dados de refFull');
-        console.warn('[FIX] Tentando recuperar de window.referenceAnalysisData...');
+        console.warn('[FIX] Tentando recuperar de __FIRST_ANALYSIS_FROZEN__...');
         
-        // Recuperar primeira análise de fonte confiável
-        const safeUserFull = deepCloneSafe(window.referenceAnalysisData || state.previousAnalysis);
+        // 🛡️ PROTEÇÃO: SEMPRE usar __FIRST_ANALYSIS_FROZEN__ como fonte confiável (NUNCA referenceAnalysisData!)
+        if (!window.__FIRST_ANALYSIS_FROZEN__) {
+            console.error('[FIX] ❌ __FIRST_ANALYSIS_FROZEN__ não existe! Abortando recuperação...');
+            return;
+        }
+        
+        // Recuperar primeira análise de fonte confiável (APENAS __FIRST_ANALYSIS_FROZEN__)
+        const safeUserFull = structuredClone(window.__FIRST_ANALYSIS_FROZEN__);
         userFull = safeUserFull;
         userMd = safeUserFull.metadata || {};
         userTd = safeUserFull.technicalData || {};
@@ -5875,6 +5909,32 @@ function displayModalResults(analysis) {
             source: 'window.referenceAnalysisData'
         });
     }
+    
+    // 🛡️ VALIDAÇÃO FINAL: Garantir que userFull e refFull são DIFERENTES após todas as recuperações
+    console.group('🔍 [FINAL VALIDATION] Verificação final de contaminação');
+    console.log('userMd.fileName:', userMd?.fileName);
+    console.log('refMd.fileName:', refMd?.fileName);
+    console.log('userFull.jobId:', userFull?.jobId);
+    console.log('refFull.jobId:', refFull?.jobId);
+    console.log('userFull === refFull?', userFull === refFull);
+    console.log('userMd === refMd?', userMd === refMd);
+    console.log('userTd === refTd?', userTd === refTd);
+    console.log('userBands === refBands?', userBands === refBands);
+    console.groupEnd();
+    
+    // ❌ BLOQUEIO CRÍTICO: Se após todas as recuperações ainda há contaminação, ABORTAR
+    if (userMd?.fileName === refMd?.fileName || userFull?.jobId === refFull?.jobId) {
+        console.error('[FINAL VALIDATION] ❌ CONTAMINAÇÃO PERSISTENTE DETECTADA!');
+        console.error('[FINAL VALIDATION] ❌ userFull ainda é igual a refFull após todas as recuperações');
+        console.error('[FINAL VALIDATION] ❌ Abortando cálculo de score para evitar resultados falsos');
+        console.error('[FINAL VALIDATION] userMd.fileName:', userMd?.fileName);
+        console.error('[FINAL VALIDATION] refMd.fileName:', refMd?.fileName);
+        console.error('[FINAL VALIDATION] userFull.jobId:', userFull?.jobId);
+        console.error('[FINAL VALIDATION] refFull.jobId:', refFull?.jobId);
+        return; // ABORTA - não permite cálculo com dados contaminados
+    }
+    
+    console.log('[FINAL VALIDATION] ✅ Dados validados - userFull e refFull são DIFERENTES');
     
     // ✅ STEP 6/6 (FINAL): Integrity check ANTES de __tracksLookSame() para abortar se contaminated
     if (areSameTrack(userFull, refFull)) {
