@@ -18,6 +18,36 @@ function cloneDeepSafe(obj) {
   return obj; // último recurso (não deve acontecer)
 }
 
+// ========================================
+// 🛡️ GUARDIÃO GLOBAL: aiUIController Stub
+// ========================================
+/**
+ * Garante que aiUIController sempre existe, mesmo antes do carregamento completo.
+ * Cria stub temporário que é substituído quando o controller real é carregado.
+ */
+(function ensureAIUIController() {
+  if (!window.aiUIController) {
+    console.warn('[SAFE-BOOT] aiUIController ausente - criando stub temporario.');
+
+    window.aiUIController = {
+      renderMetricCards: () => console.warn('[STUB] renderMetricCards chamado antes da carga real.'),
+      renderScoreSection: () => console.warn('[STUB] renderScoreSection chamado antes da carga real.'),
+      renderSuggestions: () => console.warn('[STUB] renderSuggestions chamado antes da carga real.'),
+      renderFinalScoreAtTop: () => console.warn('[STUB] renderFinalScoreAtTop chamado antes da carga real.'),
+      checkForAISuggestions: () => console.warn('[STUB] checkForAISuggestions chamado antes da carga real.')
+    };
+  }
+
+  // Espera ate o real ser carregado (quando o modulo UI inicializa)
+  const observer = new MutationObserver(() => {
+    if (window.aiUIController?.__ready) {
+      console.log('[SAFE-BOOT] ✅ aiUIController real detectado, removendo stub.');
+      observer.disconnect();
+    }
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+})();
+
 // 📝 Carregar gerador de texto didático
 if (typeof window !== 'undefined' && !window.SuggestionTextGenerator) {
     const script = document.createElement('script');
