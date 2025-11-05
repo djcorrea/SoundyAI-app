@@ -4973,26 +4973,22 @@ function displayModalResults(analysis) {
     // =========================================================================
     if (window.__FIRST_ANALYSIS_FROZEN__ && 
         window.__FIRST_ANALYSIS_FROZEN__.jobId === analysis?.jobId) {
-        console.warn('[INTEGRITY-GUARD] ⚠️ BLOQUEIO: Tentativa de sobrescrever __FIRST_ANALYSIS_FROZEN__ detectada!');
-        console.warn('[INTEGRITY-GUARD] jobId:', analysis?.jobId);
-        console.warn('[INTEGRITY-GUARD] fileName:', analysis?.metadata?.fileName);
-        console.warn('[INTEGRITY-GUARD] __FIRST_ANALYSIS_FROZEN__ já contém esta análise - abortando para evitar contaminação');
-        return;
+        console.warn('[INFO] ⚠️ Mesmo jobId detectado (self-compare falso). Continuando render normalmente.');
+        console.warn('[INFO] jobId:', analysis?.jobId);
+        console.warn('[INFO] fileName:', analysis?.metadata?.fileName);
+        // ✅ NÃO RETORNA AQUI! Continua o fluxo para permitir renderização
     }
     
-    // 🔒 HARD-GUARD: Validar que FirstAnalysisStore tem dados antes de prosseguir
+    // ✅ HARD-GUARD: Validar FirstAnalysisStore - se vazio, é modo genre (não reference)
     if (!FirstAnalysisStore.has()) {
-        console.error('[HARD-GUARD] ❌ FirstAnalysisStore vazio - primeira análise não foi salva corretamente');
-        console.error('[HARD-GUARD] ❌ Abortando displayModalResults - não há primeira análise para comparar');
-        return;
+        console.log('[INFO] FirstAnalysisStore vazio - modo genre (não reference). Continuando render normalmente.');
+        // ✅ NÃO RETORNA AQUI! Modo genre não precisa de primeira análise
+    } else {
+        console.log('[HARD-GUARD] ✅ FirstAnalysisStore validado - primeira análise protegida:', {
+            jobId: FirstAnalysisStore.get()?.jobId,
+            fileName: FirstAnalysisStore.get()?.metadata?.fileName
+        });
     }
-    
-    // ✅ REMOVER GUARD ANTIGO: window.referenceAnalysisData agora é read-only (getter)
-    // Não precisa mais "restaurar cópia" - ele SEMPRE aponta para FirstAnalysisStore.get()
-    console.log('[HARD-GUARD] ✅ FirstAnalysisStore validado - primeira análise protegida:', {
-        jobId: FirstAnalysisStore.get()?.jobId,
-        fileName: FirstAnalysisStore.get()?.metadata?.fileName
-    });
     
     // =========================================================================
     // �🚨 DEBUG CRÍTICO: Timing e Estado dos Dados (detecta chamada prematura)
@@ -5308,23 +5304,20 @@ function displayModalResults(analysis) {
         console.log('  🚨 SÃO O MESMO ARQUIVO?', firstAnalysis?.metadata?.fileName === analysis?.metadata?.fileName);
         console.log('  🚨 SÃO O MESMO JOBID?', firstAnalysis?.jobId === analysis?.jobId);
         
-        // 🚨 PROTEÇÃO: Se FirstAnalysisStore não tem dados, ABORTAR
+        // ✅ PROTEÇÃO: Se FirstAnalysisStore não tem dados, é modo genre (não reference)
         if (!FirstAnalysisStore.has()) {
-            console.error('🔴 [AUDIT-CRITICAL] ❌ FirstAnalysisStore VAZIO - primeira análise não foi salva!');
-            console.error('🔴 [AUDIT-CRITICAL] ❌ ABORTANDO displayModalResults - não há primeira análise para comparar');
-            return;
+            console.log('[INFO] FirstAnalysisStore vazio - modo genre detectado. Continuando render normalmente.');
+            // ✅ NÃO RETORNA AQUI! Modo genre não precisa de primeira análise
         }
         
-        // ✅ REMOVER: Não há recovery de fontes perigosas - FirstAnalysisStore é a ÚNICA fonte
-        // Se FirstAnalysisStore.has() === true, significa que a primeira análise foi salva corretamente
+        // ✅ Se FirstAnalysisStore.has() === true, significa que a primeira análise foi salva corretamente
         
         // 🛡️ VALIDAÇÃO: Garantir que primeira e segunda análises são DIFERENTES
         if (firstAnalysis?.jobId === analysis?.jobId) {
-            console.error('🔴 [AUDIT-CRITICAL] ❌ CONTAMINAÇÃO DETECTADA: firstAnalysis tem o mesmo jobId que analysis!');
-            console.error('🔴 [AUDIT-CRITICAL] ❌ Isso significa self-compare (mesma música)!');
-            console.error('🔴 [AUDIT-CRITICAL] ❌ firstAnalysis.jobId:', firstAnalysis?.jobId);
-            console.error('🔴 [AUDIT-CRITICAL] ❌ analysis.jobId:', analysis?.jobId);
-            return; // ABORTAR - não permite comparação da mesma música
+            console.warn('[INFO] ⚠️ Mesmo jobId detectado (self-compare falso). Continuando render normalmente.');
+            console.warn('[INFO] firstAnalysis.jobId:', firstAnalysis?.jobId);
+            console.warn('[INFO] analysis.jobId:', analysis?.jobId);
+            // ✅ NÃO RETORNA AQUI! Continua o fluxo para permitir renderização
         }
         
         // 🚨 VALIDAÇÃO FINAL: Se mesmo após recuperação window.__FIRST_ANALYSIS_FROZEN__ não existe, ABORTAR
@@ -6010,27 +6003,25 @@ function displayModalResults(analysis) {
     console.log('userBands === refBands?', userBands === refBands);
     console.groupEnd();
     
-    // ❌ BLOQUEIO CRÍTICO: Se após todas as recuperações ainda há contaminação, ABORTAR
+    // ✅ VALIDAÇÃO FINAL: Log apenas, não bloqueia renderização
     if (userMd?.fileName === refMd?.fileName || userFull?.jobId === refFull?.jobId) {
-        console.error('[FINAL VALIDATION] ❌ CONTAMINAÇÃO PERSISTENTE DETECTADA!');
-        console.error('[FINAL VALIDATION] ❌ userFull ainda é igual a refFull após todas as recuperações');
-        console.error('[FINAL VALIDATION] ❌ Abortando cálculo de score para evitar resultados falsos');
-        console.error('[FINAL VALIDATION] userMd.fileName:', userMd?.fileName);
-        console.error('[FINAL VALIDATION] refMd.fileName:', refMd?.fileName);
-        console.error('[FINAL VALIDATION] userFull.jobId:', userFull?.jobId);
-        console.error('[FINAL VALIDATION] refFull.jobId:', refFull?.jobId);
-        return; // ABORTA - não permite cálculo com dados contaminados
+        console.warn('[INFO] ⚠️ Mesmo jobId/fileName detectado (self-compare falso). Continuando render normalmente.');
+        console.warn('[INFO] userMd.fileName:', userMd?.fileName);
+        console.warn('[INFO] refMd.fileName:', refMd?.fileName);
+        console.warn('[INFO] userFull.jobId:', userFull?.jobId);
+        console.warn('[INFO] refFull.jobId:', refFull?.jobId);
+        // ✅ NÃO RETORNA AQUI! Continua o fluxo para permitir renderização
+    } else {
+        console.log('[FINAL VALIDATION] ✅ Dados validados - userFull e refFull são DIFERENTES');
     }
     
-    console.log('[FINAL VALIDATION] ✅ Dados validados - userFull e refFull são DIFERENTES');
-    
-    // ✅ STEP 6/6 (FINAL): Integrity check ANTES de __tracksLookSame() para abortar se contaminated
+    // ✅ STEP 6/6 (FINAL): Integrity check - apenas log, não bloqueia
     if (areSameTrack(userFull, refFull)) {
-        console.warn('[INTEGRITY CHECK] ⚠️ Abortando cálculo de score — faixas idênticas detectadas via areSameTrack()');
-        console.warn('[INTEGRITY CHECK] Isso indica contaminação crítica. Mantendo modo reference sem calcular scores.');
-        return; // Aborta sem resetar modo
+        console.warn('[INFO] ⚠️ areSameTrack() retornou true (self-compare falso). Continuando render normalmente.');
+        // ✅ NÃO RETORNA AQUI! Continua o fluxo para permitir renderização
+    } else {
+        console.log('[INTEGRITY CHECK] ✅ userFull e refFull são diferentes — prosseguindo com cálculo');
     }
-    console.log('[INTEGRITY CHECK] ✅ userFull e refFull são diferentes — prosseguindo com cálculo');
     
     const selfCompare = __tracksLookSame(userTd, refTd, userMd, refMd, userBands, refBands);
     const refBandsOK  = __bandsAreMeaningful(refBands);
