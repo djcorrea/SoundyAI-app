@@ -3443,32 +3443,33 @@ async function handleModalFileSelection(file) {
             }
             console.groupEnd();
             
-            // 🔧 FIX: NÃO LIMPAR referência durante modo REFERENCE ativo
-            // A limpeza só deve ocorrer quando o usuário fechar o modal ou trocar de modo
-            const usedReferenceAnalysis = normalizedResult._isReferenceMode || 
-                                          (normalizedResult._userAnalysis && normalizedResult._referenceAnalysis);
-            
-            if (jobMode !== 'reference' || !usedReferenceAnalysis) {
-                // Modo normal ou sem referência: limpar normalmente
+            // ========================================
+            // ✅ CORREÇÃO 1: EARLY RETURN - Impedir limpeza no modo reference
+            // ========================================
+            if (currentAnalysisMode === 'reference' || jobMode === 'reference') {
+                console.log('✅ [CLEANUP] ═══════════════════════════════════════');
+                console.log('✅ [CLEANUP] MODO REFERENCE ATIVO - Limpeza bloqueada por early return');
+                console.log('✅ [CLEANUP] Referência PRESERVADA intacta:');
+                console.log('✅ [CLEANUP]   - currentAnalysisMode:', currentAnalysisMode);
+                console.log('✅ [CLEANUP]   - window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
+                console.log('✅ [CLEANUP]   - localStorage.referenceJobId:', localStorage.getItem('referenceJobId'));
+                console.log('✅ [CLEANUP]   - FirstAnalysisStore.has():', FirstAnalysisStore.has());
+                console.log('✅ [CLEANUP] ═══════════════════════════════════════');
+                
+                // Marcar que há uma comparação ativa
+                window.__referenceComparisonActive = true;
+                
+                // EARLY RETURN: Não executa nenhuma limpeza
+                // Continua para o próximo bloco de código sem deletar nada
+            } else {
+                // Modo normal (genre): limpar normalmente
                 delete window.__REFERENCE_JOB_ID__;
                 delete window.__FIRST_ANALYSIS_RESULT__;
                 localStorage.removeItem('referenceJobId');
                 
                 console.log('✅ [CLEANUP] ═══════════════════════════════════════');
-                console.log('✅ [CLEANUP] Referência removida (modo normal)');
+                console.log('✅ [CLEANUP] Referência removida (modo genre)');
                 console.log('✅ [CLEANUP] ═══════════════════════════════════════');
-            } else {
-                // Modo REFERENCE ativo: PRESERVAR referência para próximas comparações
-                console.log('✅ [CLEANUP] ═══════════════════════════════════════');
-                console.log('✅ [CLEANUP] Referência PRESERVADA (modo reference ativo)');
-                console.log('✅ [CLEANUP] Mantidos:');
-                console.log('✅ [CLEANUP]   - window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
-                console.log('✅ [CLEANUP]   - localStorage.referenceJobId:', localStorage.getItem('referenceJobId'));
-                console.log('✅ [CLEANUP] Dados disponíveis para novas comparações');
-                console.log('✅ [CLEANUP] ═══════════════════════════════════════');
-                
-                // Marcar que há uma comparação ativa
-                window.__referenceComparisonActive = true;
             }
             
             // 🔒 MANTÉM: window.referenceAnalysisData e referenceComparisonMetrics para renderização
@@ -5044,6 +5045,59 @@ function showModalLoading() {
 // 📊 Mostrar resultados no modal
 async function displayModalResults(analysis) {
     console.log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
+
+    // ========================================
+    // ✅ CORREÇÃO 2: RESTAURAÇÃO DE DADOS DE REFERÊNCIA
+    // ========================================
+    // Verifica se dados de referência foram perdidos e restaura do cache
+    const referenceJobId = window.__REFERENCE_JOB_ID__ || localStorage.getItem('referenceJobId');
+    
+    if (referenceJobId && currentAnalysisMode === 'reference') {
+        // Verificar se dados de referência estão ausentes
+        const hasReferenceData = window.referenceAnalysisData || window.__FIRST_ANALYSIS_FROZEN__;
+        const hasFirstAnalysisStore = FirstAnalysisStore.has();
+        
+        if (!hasReferenceData && !hasFirstAnalysisStore) {
+            console.warn('[RESTORE] ⚠️ Dados de referência ausentes - tentando restaurar do cache');
+            console.log('[RESTORE] referenceJobId:', referenceJobId);
+            
+            // Tentar restaurar do AnalysisCache
+            if (window.AnalysisCache && window.AnalysisCache.has(referenceJobId)) {
+                const cachedReference = window.AnalysisCache.get(referenceJobId);
+                
+                if (cachedReference) {
+                    console.log('[RESTORE] ✅ Referência encontrada no AnalysisCache');
+                    
+                    // Clone profundo para evitar contaminação
+                    const restoredReference = (typeof structuredClone === 'function')
+                        ? structuredClone(cachedReference)
+                        : JSON.parse(JSON.stringify(cachedReference));
+                    
+                    // Restaurar para FirstAnalysisStore
+                    if (FirstAnalysisStore && typeof FirstAnalysisStore.set === 'function') {
+                        FirstAnalysisStore.set(restoredReference);
+                        console.log('[RESTORE] ✅ Referência restaurada no FirstAnalysisStore');
+                    }
+                    
+                    // Restaurar window.referenceAnalysisData
+                    window.referenceAnalysisData = restoredReference;
+                    window.__FIRST_ANALYSIS_FROZEN__ = Object.freeze(restoredReference);
+                    
+                    console.log('[RESTORE] ✅ Dados de referência completamente restaurados:', {
+                        jobId: restoredReference.jobId,
+                        fileName: restoredReference.metadata?.fileName || restoredReference.fileName
+                    });
+                } else {
+                    console.error('[RESTORE] ❌ Referência no cache está vazia');
+                }
+            } else {
+                console.error('[RESTORE] ❌ Referência não encontrada no AnalysisCache');
+                console.error('[RESTORE] Cache IDs disponíveis:', window.AnalysisCache?.ids?.() || 'N/A');
+            }
+        } else {
+            console.log('[RESTORE] ✅ Dados de referência já existem - restauração não necessária');
+        }
+    }
 
     // ========================================
     // ✅ PROTEÇÃO DEFINITIVA CONTRA ERRO DE INTERFACE
