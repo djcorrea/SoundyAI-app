@@ -1,7 +1,8 @@
 // work/index.js
-import "dotenv/config";
+import dotenv from "dotenv";
+dotenv.config();
 import pkg from "pg";
-import AWS from "aws-sdk";
+import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -87,12 +88,14 @@ console.log("   B2_APP_KEY:", process.env.B2_APP_KEY?.substring(0,10) + "...");
 console.log("   B2_BUCKET_NAME:", process.env.B2_BUCKET_NAME);
 console.log("   B2_ENDPOINT:", process.env.B2_ENDPOINT);
 
-const s3 = new AWS.S3({
+const s3 = new S3Client({
   endpoint: process.env.B2_ENDPOINT || "https://s3.us-east-005.backblazeb2.com",
   region: "us-east-005",
-  accessKeyId: process.env.B2_KEY_ID,
-  secretAccessKey: process.env.B2_APP_KEY,
-  signatureVersion: "v4",
+  credentials: {
+    accessKeyId: process.env.B2_KEY_ID,
+    secretAccessKey: process.env.B2_APP_KEY,
+  },
+  forcePathStyle: true,
 });
 const BUCKET_NAME = process.env.B2_BUCKET_NAME;
 
@@ -102,38 +105,42 @@ async function downloadFileFromBucket(key) {
   console.log(`🔍 Bucket: ${BUCKET_NAME}`);
   
   const localPath = path.join("/tmp", path.basename(key)); // Railway usa /tmp
-  await fs.promises.mkdir(path.dirname(localPath), { recursive: true });
+  return new Promise(async (resolve, reject) => {
+    try {
+      const write = fs.createWriteStream(localPath);
+      const command = new GetObjectCommand({ Bucket: BUCKET_NAME, Key: key });
+      const response = await s3.send(command);
+      const read = response.Body;
 
-  return new Promise((resolve, reject) => {
-    const write = fs.createWriteStream(localPath);
-    const read = s3.getObject({ Bucket: BUCKET_NAME, Key: key }).createReadStream();
+      // 🔥 TIMEOUT DE 2 MINUTOS - EVITA DOWNLOAD INFINITO
+      const timeout = setTimeout(() => {
+        write.destroy();
+        if (read && read.destroy) read.destroy();
+        reject(new Error(`Download timeout após 2 minutos para: ${key}`));
+      }, 120000);
 
-    // 🔥 TIMEOUT DE 2 MINUTOS - EVITA DOWNLOAD INFINITO
-    const timeout = setTimeout(() => {
-      write.destroy();
-      read.destroy();
-      reject(new Error(`Download timeout após 2 minutos para: ${key}`));
-    }, 120000);
+      read.on("error", (err) => {
+        clearTimeout(timeout);
+        console.error(`❌ Erro no stream de leitura para ${key}:`, err.message);
+        console.error(`❌ Código do erro:`, err.code);
+        console.error(`❌ Status:`, err.statusCode);
+        reject(err);
+      });
+      write.on("error", (err) => {
+        clearTimeout(timeout);
+        console.error(`❌ Erro no stream de escrita para ${key}:`, err.message);
+        reject(err);
+      });
+      write.on("finish", () => {
+        clearTimeout(timeout);
+        console.log(`✅ Download concluído para ${key}`);
+        resolve(localPath);
+      });
 
-    read.on("error", (err) => {
-      clearTimeout(timeout);
-      console.error(`❌ Erro no stream de leitura para ${key}:`, err.message);
-      console.error(`❌ Código do erro:`, err.code);
-      console.error(`❌ Status:`, err.statusCode);
+      read.pipe(write);
+    } catch (err) {
       reject(err);
-    });
-    write.on("error", (err) => {
-      clearTimeout(timeout);
-      console.error(`❌ Erro no stream de escrita para ${key}:`, err.message);
-      reject(err);
-    });
-    write.on("finish", () => {
-      clearTimeout(timeout);
-      console.log(`✅ Download concluído para ${key}`);
-      resolve(localPath);
-    });
-
-    read.pipe(write);
+    }
   });
 }
 

@@ -167,80 +167,80 @@
 /* Animações suaves */
 .ref-compare-table td {
     transition: all 0.25s ease;
-    padding: 0.4rem 0.6rem;
+    padding: 6px 8px;
     text-align: center;
-    font-size: clamp(12px, 1vw, 14px);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    font-size: clamp(11.5px, 0.9vw, 13px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.03);
     color: rgba(255, 255, 255, 0.8);
 }
 
 .ref-compare-table tbody tr:hover td {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.04);
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
-/* 🎯 Estilos refinados para tabela A/B */
+/* 🎯 Estilos refinados e compactos para tabela A/B */
 .ab-compare-table {
-    background: linear-gradient(135deg, rgba(0, 0, 0, 0.5), rgba(20, 20, 40, 0.4));
-    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.6), rgba(20, 20, 40, 0.5));
+    border-radius: 10px;
     overflow: hidden;
     border-collapse: separate;
-    border-spacing: 0 2px;
+    border-spacing: 0 1px;
     width: 100%;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
 .ab-compare-table thead th {
-    background: linear-gradient(135deg, rgba(127, 0, 255, 0.15), rgba(0, 255, 255, 0.15));
-    border-bottom: 2px solid rgba(82, 247, 173, 0.3);
-    padding: 0.6rem 0.8rem;
-    font-size: clamp(13px, 1.1vw, 15px);
+    background: linear-gradient(90deg, rgba(127, 0, 255, 0.2), rgba(0, 255, 255, 0.2));
+    border-bottom: 1px solid rgba(82, 247, 173, 0.25);
+    padding: 8px 10px;
+    font-size: clamp(12px, 1vw, 13px);
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.8px;
     font-weight: 600;
     color: rgba(255, 255, 255, 0.9);
 }
 
 .ab-compare-table tbody tr {
-    background: rgba(255, 255, 255, 0.02);
-    border-radius: 6px;
-    transition: background 0.25s ease, transform 0.2s ease;
+    background: rgba(255, 255, 255, 0.015);
+    border-radius: 4px;
+    transition: background 0.2s ease, transform 0.15s ease;
 }
 
 .ab-compare-table tbody tr:hover {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(255, 255, 255, 0.04);
     transform: translateX(2px);
 }
 
 .ab-compare-table .metric-name {
     text-align: left;
     font-weight: 500;
-    padding-left: 1rem;
-    color: rgba(255, 255, 255, 0.6);
-    font-size: clamp(12px, 1vw, 14px);
+    padding-left: 12px;
+    color: rgba(255, 255, 255, 0.65);
+    font-size: clamp(11.5px, 0.9vw, 13px);
 }
 
 .ab-compare-table .ab-user,
 .ab-compare-table .ab-ref {
     font-family: 'Courier New', monospace;
     font-weight: 600;
-    font-size: clamp(12px, 1vw, 14px);
-    background: linear-gradient(90deg, rgba(50, 50, 100, 0.15), rgba(0, 0, 0, 0.15));
-    padding: 0.5rem 0.6rem;
+    font-size: clamp(11.5px, 0.9vw, 13px);
+    background: linear-gradient(90deg, rgba(50, 50, 100, 0.12), rgba(0, 0, 0, 0.12));
+    padding: 6px 8px;
 }
 
 .ab-compare-table .delta-col {
     font-family: 'Courier New', monospace;
     font-weight: 600;
-    font-size: clamp(11px, 0.95vw, 13px);
+    font-size: clamp(11px, 0.85vw, 12px);
     color: rgba(255, 255, 255, 0.7);
-    padding: 0.4rem 0.5rem;
+    padding: 6px 8px;
 }
 
 .ab-compare-table .status-col {
-    min-width: 90px;
-    padding: 0.4rem 0.6rem;
+    min-width: 80px;
+    padding: 6px 8px;
     font-size: 12px;
 }
 
@@ -253,7 +253,7 @@
 }
 
 .ab-compare-table .diff-value {
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1;
 }
 
@@ -261,51 +261,54 @@
     font-size: 11px;
     font-weight: 500;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
 }
 
-/* Status com bordas neon e cores refinadas */
+/* Status com cores refinadas e bordas neon suaves */
 .ref-compare-table td.ok,
 .ab-compare-table .status-col.ok {
-    background: rgba(0, 42, 32, 0.8);
+    background: rgba(0, 40, 20, 0.3);
     color: #32ffb2;
     font-weight: 600;
-    border: 1px solid rgba(50, 255, 178, 0.3);
-    border-left: 3px solid rgba(0, 255, 170, 0.6);
+    border: 1px solid rgba(0, 255, 170, 0.2);
+    border-left: 3px solid rgba(0, 255, 170, 0.35);
+    border-radius: 4px;
 }
 
 .ref-compare-table td.yellow,
 .ab-compare-table .status-col.yellow {
-    background: rgba(42, 31, 0, 0.8);
+    background: rgba(80, 60, 0, 0.3);
     color: #ffd65a;
     font-weight: 600;
-    border: 1px solid rgba(255, 214, 90, 0.3);
-    border-left: 3px solid rgba(255, 204, 0, 0.6);
+    border: 1px solid rgba(255, 204, 0, 0.2);
+    border-left: 3px solid rgba(255, 204, 0, 0.35);
+    border-radius: 4px;
 }
 
 .ref-compare-table td.warn,
 .ab-compare-table .status-col.warn {
-    background: rgba(42, 0, 0, 0.8);
+    background: rgba(50, 0, 0, 0.35);
     color: #ff6677;
     font-weight: 600;
-    border: 1px solid rgba(255, 102, 119, 0.3);
-    border-left: 3px solid rgba(255, 51, 85, 0.6);
+    border: 1px solid rgba(255, 51, 85, 0.2);
+    border-left: 3px solid rgba(255, 51, 85, 0.35);
+    border-radius: 4px;
 }
 
-/* Headers coloridos */
+/* Headers coloridos com text-shadow sutil */
 .ab-user-header {
     color: #52f7ad !important;
-    text-shadow: 0 0 8px rgba(82, 247, 173, 0.4);
+    text-shadow: 0 0 6px rgba(82, 247, 173, 0.3);
 }
 
 .ab-ref-header {
     color: #ffce4d !important;
-    text-shadow: 0 0 8px rgba(255, 206, 77, 0.4);
+    text-shadow: 0 0 6px rgba(255, 206, 77, 0.3);
 }
 
-/* Track names no header - Refinado */
+/* Track names no header - Refinado e compacto */
 .ab-header {
-    animation: fadeInUp 0.5s ease-out;
+    animation: fadeInUp 0.4s ease-out;
     margin-bottom: 10px;
 }
 
@@ -316,24 +319,13 @@
 
 .track-name:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
-}
-
-.track-name::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, currentColor, transparent);
-    opacity: 0.3;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
 @keyframes fadeInUp {
     from {
         opacity: 0;
-        transform: translateY(15px);
+        transform: translateY(12px);
     }
     to {
         opacity: 1;
@@ -360,26 +352,28 @@
     border-bottom: none;
 }
 
-/* Responsividade mobile */
+/* Responsividade mobile - Compacta e centralizada */
 @media (max-width: 768px) {
     .ab-header {
         grid-template-columns: 1fr !important;
-        gap: 10px !important;
+        gap: 8px !important;
+        padding: 8px !important;
     }
     
     .ab-compare-table {
-        font-size: 11px;
+        font-size: 10px;
+        border-spacing: 0 1px;
     }
     
     .ab-compare-table th,
     .ab-compare-table td {
-        padding: 0.3rem 0.4rem;
-        font-size: 11px;
+        padding: 5px 6px;
+        font-size: 10.5px;
     }
     
     .ab-compare-table .metric-name {
         font-size: 10px;
-        padding-left: 0.5rem;
+        padding-left: 8px;
     }
     
     .ab-compare-table .delta-col {
@@ -395,16 +389,24 @@
     }
     
     .diff-value {
-        font-size: 12px !important;
+        font-size: 11px !important;
     }
     
     .ab-compare-table .status-col {
-        min-width: 70px;
-        padding: 0.3rem;
+        min-width: 65px;
+        padding: 5px;
     }
     
     .track-name {
         text-align: center;
+    }
+    
+    .ab-compare-table tbody tr:first-child td {
+        padding-top: 8px;
+    }
+    
+    .ab-compare-table tbody tr:last-child td {
+        padding-bottom: 8px;
     }
 }
 
