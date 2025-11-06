@@ -178,15 +178,20 @@ class AISuggestionUIController {
             hasAnalysis: !!analysis,
             hasSuggestions: !!analysis?.suggestions,
             suggestionsLength: analysis?.suggestions?.length || 0,
+            hasAISuggestions: !!analysis?.aiSuggestions,
+            aiSuggestionsLength: analysis?.aiSuggestions?.length || 0,
             mode: analysis?.mode
         });
         
-        if (!analysis || !analysis.suggestions) {
+        // ✅ CORRIGIDO: PRIORIZAR analysis.aiSuggestions se existir
+        const suggestionsToUse = analysis?.aiSuggestions || analysis?.suggestions;
+        
+        if (!suggestionsToUse || suggestionsToUse.length === 0) {
             console.warn('[AI-SUGGESTIONS] ⚠️ Nenhuma sugestão encontrada no analysis');
             console.warn('[AI-SUGGESTIONS] analysis:', analysis);
             
             // 🚨 FALLBACK: Criar sugestão genérica se não houver nenhuma
-            if (analysis && !analysis.suggestions) {
+            if (analysis && !suggestionsToUse) {
                 console.log('[AI-SUGGESTIONS] 🆘 Criando sugestão fallback genérica');
                 analysis.suggestions = [{
                     type: 'general',
@@ -201,12 +206,12 @@ class AISuggestionUIController {
         }
         
         // Verificar se há sugestões enriquecidas com IA
-        const aiSuggestions = analysis.suggestions.filter(s => s.ai_enhanced === true);
+        const aiSuggestions = suggestionsToUse.filter(s => s.ai_enhanced === true);
         
         console.log('[AI-SUGGESTIONS] Sugestões encontradas:', {
-            total: analysis.suggestions.length,
+            total: suggestionsToUse.length,
             aiEnhanced: aiSuggestions.length,
-            base: analysis.suggestions.length - aiSuggestions.length
+            base: suggestionsToUse.length - aiSuggestions.length
         });
         
         if (aiSuggestions.length > 0) {
@@ -214,9 +219,9 @@ class AISuggestionUIController {
             this.displayAISuggestions(aiSuggestions, analysis);
         } else {
             // 🚀 FORÇA EXIBIÇÃO: Mesmo sem IA configurada, mostrar interface com sugestões base
-            if (analysis.suggestions && analysis.suggestions.length > 0) {
-                console.log(`[AI-SUGGESTIONS] 🤖 Exibindo ${analysis.suggestions.length} sugestões base (IA não configurada)`);
-                this.displayBaseSuggestions(analysis.suggestions, analysis);
+            if (suggestionsToUse && suggestionsToUse.length > 0) {
+                console.log(`[AI-SUGGESTIONS] 🤖 Exibindo ${suggestionsToUse.length} sugestões base (IA não configurada)`);
+                this.displayBaseSuggestions(suggestionsToUse, analysis);
             } else {
                 console.warn('[AI-SUGGESTIONS] ⚠️ Nenhuma sugestão para exibir - mas não escondendo seção');
                 // 🆕 NÃO ESCONDER: Exibir mensagem amigável em vez de esconder
