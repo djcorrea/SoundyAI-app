@@ -11574,16 +11574,131 @@ function renderReferenceComparisons(ctx) {
         modo_referencia: isReferenceMode
     });
     
-    // MOSTRAR TABELA COMPLETA
-    container.innerHTML = `<div class="card" style="margin-top:12px;">
-        <div class="card-title">COMPARAÇÃO DE REFERÊNCIA (${titleText})</div>
-        <table class="ref-compare-table">
-            <thead><tr>
-                <th>Métrica</th><th>Valor</th><th>Alvo</th><th>Δ</th>
-            </tr></thead>
-            <tbody>${rows.join('') || '<tr><td colspan="4" style="opacity:.6">Sem métricas disponíveis</td></tr>'}</tbody>
-        </table>
-    </div>`;
+    // 🎯 [A/B-TABLE-FIX] CORREÇÃO CRÍTICA: Renderizar tabela A/B com 2 colunas independentes
+    // Modo REFERENCE: Extrair métricas de userAnalysis (1ª faixa) e referenceAnalysis (2ª faixa)
+    
+    let abTableHTML = '';
+    
+    if (isReferenceMode && opts.userAnalysis && opts.referenceAnalysis) {
+        console.log('🎯 [A/B-TABLE-FIX] Renderizando tabela A/B com 2 colunas independentes');
+        
+        const userTech = opts.userAnalysis.technicalData || {};
+        const refTech = opts.referenceAnalysis.technicalData || {};
+        
+        // 🎯 ASSERT CRÍTICO: Garantir que métricas são DIFERENTES
+        if (userTech.lufsIntegrated === refTech.lufsIntegrated &&
+            userTech.dynamicRange === refTech.dynamicRange &&
+            userTech.truePeakDbtp === refTech.truePeakDbtp) {
+            console.error('❌ [A/B-TABLE-FIX] ERRO CRÍTICO: user/ref metrics IDÊNTICAS - DOM duplicado ou fonte errada!');
+            console.table({
+                'User LUFS': userTech.lufsIntegrated,
+                'Ref LUFS': refTech.lufsIntegrated,
+                'User DR': userTech.dynamicRange,
+                'Ref DR': refTech.dynamicRange,
+                'User Peak': userTech.truePeakDbtp,
+                'Ref Peak': refTech.truePeakDbtp
+            });
+            container.innerHTML = '<div class="card" style="margin-top:12px;"><div style="color:red;padding:20px;">❌ ERRO: Métricas idênticas detectadas. Recarregue a página.</div></div>';
+            return;
+        }
+        
+        // Helper format
+        const nf = (n, d=2) => Number.isFinite(n) ? n.toFixed(d) : '—';
+        
+        // Construir linhas A/B
+        const abRows = [];
+        
+        const addABRow = (label, userVal, refVal, unit = '', dataMetric = '') => {
+            const dataAttr = dataMetric ? ` data-metric="${dataMetric}"` : '';
+            abRows.push(`<tr${dataAttr}>
+                <td style="font-weight:500;">${label}</td>
+                <td class="ab-user"${dataAttr}>${Number.isFinite(userVal) ? nf(userVal) + unit : '—'}</td>
+                <td class="ab-ref"${dataAttr}>${Number.isFinite(refVal) ? nf(refVal) + unit : '—'}</td>
+            </tr>`);
+        };
+        
+        // ===== MÉTRICAS PRINCIPAIS =====
+        addABRow('Loudness (LUFS)', userTech.lufsIntegrated, refTech.lufsIntegrated, ' LUFS', 'lufs');
+        addABRow('True Peak (dBTP)', userTech.truePeakDbtp, refTech.truePeakDbtp, ' dBTP', 'truepeak');
+        addABRow('Dynamic Range (LU)', userTech.dynamicRange, refTech.dynamicRange, ' LU', 'dr');
+        addABRow('LRA (LU)', userTech.lra, refTech.lra, ' LU', 'lra');
+        addABRow('Stereo Corr.', userTech.stereoCorrelation, refTech.stereoCorrelation, '', 'stereo');
+        
+        // ===== BANDAS ESPECTRAIS =====
+        const userBands = userTech.spectral_balance || {};
+        const refBands = refTech.spectral_balance || {};
+        
+        const bandNames = {
+            sub: 'Sub (20-60Hz)',
+            bass: 'Bass (60-150Hz)',
+            lowMid: 'Low-Mid (150-500Hz)',
+            mid: 'Mid (500-2kHz)',
+            highMid: 'High-Mid (2-5kHz)',
+            presence: 'Presence (5-10kHz)',
+            air: 'Air (10-20kHz)'
+        };
+        
+        Object.entries(bandNames).forEach(([key, name]) => {
+            const userVal = userBands[key]?.energy_db ?? userBands[key]?.percentage ?? userBands[key];
+            const refVal = refBands[key]?.energy_db ?? refBands[key]?.percentage ?? refBands[key];
+            if (Number.isFinite(userVal) || Number.isFinite(refVal)) {
+                addABRow(name, userVal, refVal, ' dB', `band-${key}`);
+            }
+        });
+        
+        // Nomes das faixas
+        const userName = opts.userAnalysis.fileName || opts.userAnalysis.metadata?.fileName || '1ª Faixa';
+        const refName = opts.referenceAnalysis.fileName || opts.referenceAnalysis.metadata?.fileName || '2ª Faixa';
+        
+        abTableHTML = `<div class="card" style="margin-top:12px;">
+            <div class="card-title">🎵 COMPARAÇÃO A/B ENTRE FAIXAS</div>
+            <div style="padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 12px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <div style="font-size: 11px; opacity: 0.7; margin-bottom: 4px;">FAIXA 1 (SUA MÚSICA)</div>
+                        <div style="font-weight: 600; font-size: 14px;">${userName}</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; opacity: 0.7; margin-bottom: 4px;">FAIXA 2 (REFERÊNCIA)</div>
+                        <div style="font-weight: 600; font-size: 14px;">${refName}</div>
+                    </div>
+                </div>
+            </div>
+            <table class="ref-compare-table ab-compare-table">
+                <thead><tr>
+                    <th>Métrica</th>
+                    <th class="ab-user-header">Faixa 1</th>
+                    <th class="ab-ref-header">Faixa 2</th>
+                </tr></thead>
+                <tbody>${abRows.join('')}</tbody>
+            </table>
+        </div>`;
+        
+        // 🎯 LOG DE VALIDAÇÃO PÓS-RENDER
+        console.group('🎯 [A/B-TABLE-VALIDATION] Validação pós-renderização');
+        console.log('USER LUFS:', userTech.lufsIntegrated);
+        console.log('REF LUFS:', refTech.lufsIntegrated);
+        console.log('USER DR:', userTech.dynamicRange);
+        console.log('REF DR:', refTech.dynamicRange);
+        console.log('USER TruePeak:', userTech.truePeakDbtp);
+        console.log('REF TruePeak:', refTech.truePeakDbtp);
+        console.groupEnd();
+        
+    } else {
+        // Modo GENRE ou fallback: usar tabela antiga
+        console.warn('⚠️ [A/B-TABLE-FIX] Modo GENRE ou dados incompletos - usando tabela de referência padrão');
+        abTableHTML = `<div class="card" style="margin-top:12px;">
+            <div class="card-title">COMPARAÇÃO DE REFERÊNCIA (${titleText})</div>
+            <table class="ref-compare-table">
+                <thead><tr>
+                    <th>Métrica</th><th>Valor</th><th>Alvo</th><th>Δ</th>
+                </tr></thead>
+                <tbody>${rows.join('') || '<tr><td colspan="4" style="opacity:.6">Sem métricas disponíveis</td></tr>'}</tbody>
+            </table>
+        </div>`;
+    }
+    
+    container.innerHTML = abTableHTML;
     
     // 🎯 FORÇAR VISIBILIDADE DA TABELA EM AMBOS OS MODOS
     console.log('[UI_RENDER] Forçando renderização da tabela comparativa');
@@ -11594,6 +11709,30 @@ function renderReferenceComparisons(ctx) {
         tableEl.style.visibility = 'visible';
         tableEl.style.opacity = '1';
         console.log('✅ [RENDER-REF] Tabela forçada para visível (mode:', renderMode, ')');
+        
+        // 🎯 [DOM-VALIDATION] ASSERT CRÍTICO: Verificar que elementos A/B são DISTINTOS
+        if (isReferenceMode) {
+            setTimeout(() => {
+                const userLufsEl = document.querySelector('.ab-user[data-metric="lufs"]');
+                const refLufsEl = document.querySelector('.ab-ref[data-metric="lufs"]');
+                
+                console.group('🎯 [DOM-VALIDATION] Verificação de elementos A/B');
+                console.log('User LUFS Element:', userLufsEl);
+                console.log('Ref LUFS Element:', refLufsEl);
+                console.log('São o mesmo elemento?', userLufsEl === refLufsEl);
+                console.log('User LUFS innerHTML:', userLufsEl?.innerHTML);
+                console.log('Ref LUFS innerHTML:', refLufsEl?.innerHTML);
+                
+                if (userLufsEl === refLufsEl) {
+                    console.error('❌ [DOM-VALIDATION] ERRO CRÍTICO: Elementos .ab-user e .ab-ref são o MESMO objeto!');
+                } else if (!userLufsEl || !refLufsEl) {
+                    console.error('❌ [DOM-VALIDATION] ERRO: Elementos não encontrados no DOM!');
+                } else {
+                    console.log('✅ [DOM-VALIDATION] Elementos A/B são DISTINTOS e independentes');
+                }
+                console.groupEnd();
+            }, 100);
+        }
     } else {
         console.error('❌ [RENDER-REF] Elemento #referenceComparisons NÃO encontrado no DOM!');
     }
