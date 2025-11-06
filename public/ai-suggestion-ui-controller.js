@@ -58,25 +58,55 @@ class AISuggestionUIController {
      * 📦 Cache dos elementos DOM
      */
     cacheElements() {
+        // 🔍 [AI-SUGGESTIONS-FIX] Apontar para IDs corretos do index.html
         this.elements = {
-            aiSection: document.getElementById('aiSuggestionsSection'),
-            aiContent: document.getElementById('aiSuggestionsContent'),
-            aiStatusBadge: document.getElementById('aiStatusBadge'),
-            aiModelBadge: document.getElementById('aiModelBadge'),
-            fullModal: document.getElementById('aiSuggestionsFullModal'),
-            fullModalContent: document.getElementById('aiFullModalContent'),
-            aiStatsCount: document.getElementById('aiStatsCount'),
-            aiStatsModel: document.getElementById('aiStatsModel'),
-            aiStatsTime: document.getElementById('aiStatsTime')
+            // ✅ Elementos principais do modal expandido
+            aiSection: document.getElementById('aiSuggestionsExpanded'),
+            aiContent: document.getElementById('aiExpandedGrid'),
+            
+            // ✅ Status e indicadores
+            aiStatusBadge: document.getElementById('aiExpandedStatus'),
+            aiModelBadge: document.getElementById('aiModelBadge'), // Pode não existir
+            
+            // ✅ Modal completo (fullscreen)
+            fullModal: document.getElementById('aiSuggestionsFullModal'), // Pode não existir
+            fullModalContent: document.getElementById('aiFullModalContent'), // Pode não existir
+            
+            // ✅ Elementos auxiliares
+            aiStatsCount: document.getElementById('aiStatsCount'), // Pode não existir
+            aiStatsModel: document.getElementById('aiStatsModel'), // Pode não existir
+            aiStatsTime: document.getElementById('aiStatsTime'), // Pode não existir
+            
+            // 🆕 Novos elementos do HTML atual
+            aiLoading: document.getElementById('aiExpandedLoading'),
+            aiFallbackNotice: document.getElementById('aiFallbackNotice')
         };
         
-        // Verificar se elementos existem
-        const missingElements = Object.entries(this.elements)
+        // Verificar se elementos CRÍTICOS existem
+        const criticalElements = ['aiSection', 'aiContent'];
+        const missingCritical = criticalElements.filter(key => !this.elements[key]);
+        
+        if (missingCritical.length > 0) {
+            console.error('❌ [AI-UI] Elementos DOM CRÍTICOS não encontrados:', missingCritical);
+            console.error('❌ [AI-UI] Sugestões da IA NÃO serão exibidas!');
+            console.error('❌ [AI-UI] Verifique se os IDs existem no index.html:', {
+                aiSuggestionsExpanded: !!document.getElementById('aiSuggestionsExpanded'),
+                aiExpandedGrid: !!document.getElementById('aiExpandedGrid')
+            });
+        } else {
+            console.log('✅ [AI-UI] Elementos DOM críticos encontrados:', {
+                aiSection: !!this.elements.aiSection,
+                aiContent: !!this.elements.aiContent
+            });
+        }
+        
+        // Log de elementos opcionais ausentes (não bloqueantes)
+        const allMissing = Object.entries(this.elements)
             .filter(([key, element]) => !element)
             .map(([key]) => key);
             
-        if (missingElements.length > 0) {
-            console.warn('⚠️ [AI-UI] Elementos DOM não encontrados:', missingElements);
+        if (allMissing.length > 0) {
+            console.warn('⚠️ [AI-UI] Elementos DOM opcionais não encontrados:', allMissing);
         }
     }
     
@@ -143,20 +173,39 @@ class AISuggestionUIController {
      * 🤖 Verificar e processar sugestões IA
      */
     checkForAISuggestions(analysis) {
-        if (!analysis || !analysis.suggestions) return;
+        console.log('[AI-SUGGESTIONS] 🔍 checkForAISuggestions() chamado');
+        console.log('[AI-SUGGESTIONS] Analysis recebido:', {
+            hasAnalysis: !!analysis,
+            hasSuggestions: !!analysis?.suggestions,
+            suggestionsLength: analysis?.suggestions?.length || 0,
+            mode: analysis?.mode
+        });
+        
+        if (!analysis || !analysis.suggestions) {
+            console.warn('[AI-SUGGESTIONS] ⚠️ Nenhuma sugestão encontrada no analysis');
+            console.warn('[AI-SUGGESTIONS] analysis:', analysis);
+            return;
+        }
         
         // Verificar se há sugestões enriquecidas com IA
         const aiSuggestions = analysis.suggestions.filter(s => s.ai_enhanced === true);
         
+        console.log('[AI-SUGGESTIONS] Sugestões encontradas:', {
+            total: analysis.suggestions.length,
+            aiEnhanced: aiSuggestions.length,
+            base: analysis.suggestions.length - aiSuggestions.length
+        });
+        
         if (aiSuggestions.length > 0) {
-            console.log(`🤖 [AI-UI] ${aiSuggestions.length} sugestões IA detectadas`);
+            console.log(`[AI-SUGGESTIONS] 🤖 ${aiSuggestions.length} sugestões IA detectadas - renderizando...`);
             this.displayAISuggestions(aiSuggestions, analysis);
         } else {
             // 🚀 FORÇA EXIBIÇÃO: Mesmo sem IA configurada, mostrar interface com sugestões base
             if (analysis.suggestions && analysis.suggestions.length > 0) {
-                console.log(`🤖 [AI-UI] Exibindo ${analysis.suggestions.length} sugestões base (IA não configurada)`);
+                console.log(`[AI-SUGGESTIONS] 🤖 Exibindo ${analysis.suggestions.length} sugestões base (IA não configurada)`);
                 this.displayBaseSuggestions(analysis.suggestions, analysis);
             } else {
+                console.warn('[AI-SUGGESTIONS] ⚠️ Nenhuma sugestão para exibir - escondendo seção');
                 this.hideAISection();
             }
         }
@@ -166,13 +215,38 @@ class AISuggestionUIController {
      * 🎨 Exibir sugestões IA na interface
      */
     displayAISuggestions(suggestions, analysis) {
-        if (!this.elements.aiSection) return;
+        console.log('[AI-SUGGESTIONS-RENDER] 🎨 Iniciando displayAISuggestions()');
+        console.log('[AI-SUGGESTIONS-RENDER] Container encontrado:', !!this.elements.aiSection);
+        console.log('[AI-SUGGESTIONS-RENDER] Sugestões recebidas:', suggestions.length);
+        
+        if (!this.elements.aiSection || !this.elements.aiContent) {
+            console.error('[AI-SUGGESTIONS-RENDER] ❌ Elementos DOM não encontrados!');
+            console.error('[AI-SUGGESTIONS-RENDER] aiSection:', !!this.elements.aiSection);
+            console.error('[AI-SUGGESTIONS-RENDER] aiContent:', !!this.elements.aiContent);
+            return;
+        }
         
         this.currentSuggestions = suggestions;
         
-        // Mostrar seção
+        // 🔍 [DEBUG] Log crítico de verificação
+        console.log('[AI-SUGGESTIONS-RENDER] ✅ Elementos DOM válidos');
+        console.log('[AI-SUGGESTIONS-RENDER] aiSection.id:', this.elements.aiSection.id);
+        console.log('[AI-SUGGESTIONS-RENDER] aiContent.id:', this.elements.aiContent.id);
+        
+        // Esconder loading
+        if (this.elements.aiLoading) {
+            this.elements.aiLoading.style.display = 'none';
+            console.log('[AI-SUGGESTIONS-RENDER] ✅ Loading escondido');
+        }
+        
+        // Mostrar seção principal
         this.elements.aiSection.style.display = 'block';
         this.elements.aiSection.classList.add('ai-fade-in');
+        console.log('[AI-SUGGESTIONS-RENDER] ✅ Seção aiSuggestionsExpanded exibida');
+        
+        // Mostrar grid de conteúdo
+        this.elements.aiContent.style.display = 'grid';
+        console.log('[AI-SUGGESTIONS-RENDER] ✅ Grid de sugestões exibido');
         
         // Atualizar status
         this.updateStatus('success', `${suggestions.length} sugestões geradas`);
@@ -183,23 +257,36 @@ class AISuggestionUIController {
         // Renderizar preview compacto
         this.renderCompactPreview(suggestions);
         
-        // Adicionar botão para expandir
-        this.addExpandButton();
-        
-        console.log('🎨 [AI-UI] Sugestões IA exibidas na interface');
+        console.log('[AI-SUGGESTIONS-RENDER] 🎨 Sugestões IA exibidas com sucesso!');
+        console.log('[AI-SUGGESTIONS-RENDER] Cards renderizados:', this.elements.aiContent.children.length);
     }
     
     /**
      * 🎨 Exibir sugestões base (sem IA) na interface
      */
     displayBaseSuggestions(suggestions, analysis) {
-        if (!this.elements.aiSection) return;
+        console.log('[AI-SUGGESTIONS-RENDER] 🎨 Iniciando displayBaseSuggestions() (modo base)');
+        console.log('[AI-SUGGESTIONS-RENDER] Container encontrado:', !!this.elements.aiSection);
+        console.log('[AI-SUGGESTIONS-RENDER] Sugestões base recebidas:', suggestions.length);
+        
+        if (!this.elements.aiSection || !this.elements.aiContent) {
+            console.error('[AI-SUGGESTIONS-RENDER] ❌ Elementos DOM não encontrados!');
+            return;
+        }
         
         this.currentSuggestions = suggestions;
+        
+        // Esconder loading
+        if (this.elements.aiLoading) {
+            this.elements.aiLoading.style.display = 'none';
+        }
         
         // Mostrar seção
         this.elements.aiSection.style.display = 'block';
         this.elements.aiSection.classList.add('ai-fade-in');
+        
+        // Mostrar grid de conteúdo
+        this.elements.aiContent.style.display = 'grid';
         
         // Atualizar status para indicar que IA não está configurada
         this.updateStatus('disabled', 'IA não configurada - sugestões base');
@@ -212,13 +299,11 @@ class AISuggestionUIController {
         // Renderizar preview compacto das sugestões base
         this.renderCompactPreview(suggestions, true);
         
-        // Adicionar botão para expandir
-        this.addExpandButton();
-        
         // Adicionar mensagem para configurar IA
         this.addConfigPrompt();
         
-        console.log('🎨 [AI-UI] Sugestões base exibidas (IA não configurada)');
+        console.log('[AI-SUGGESTIONS-RENDER] 🎨 Sugestões base exibidas (IA não configurada)');
+        console.log('[AI-SUGGESTIONS-RENDER] Cards renderizados:', this.elements.aiContent.children.length);
     }
     
     /**
@@ -485,28 +570,43 @@ class AISuggestionUIController {
      * 📱 Atualizar status da IA
      */
     updateStatus(type, message) {
-        if (!this.elements.aiStatusBadge) return;
+        console.log('[AI-STATUS] Atualizando status:', { type, message });
         
-        const statusIcon = this.elements.aiStatusBadge.querySelector('.ai-status-icon');
-        const statusText = this.elements.aiStatusBadge.querySelector('.ai-status-text');
-        
-        // Remover classes anteriores
-        this.elements.aiStatusBadge.className = 'ai-status-badge ' + type;
-        
-        // Atualizar conteúdo
-        if (statusIcon) {
-            const icons = {
-                processing: '🔄',
-                success: '✅',
-                error: '❌',
-                disabled: '⏸️'
-            };
-            statusIcon.textContent = icons[type] || '📡';
+        if (!this.elements.aiStatusBadge) {
+            console.warn('[AI-STATUS] ⚠️ aiStatusBadge não encontrado');
+            return;
         }
         
+        // Buscar elementos filhos (se existirem)
+        const statusDot = this.elements.aiStatusBadge.querySelector('.ai-status-dot');
+        const statusText = this.elements.aiStatusBadge.querySelector('.ai-status-text');
+        
+        console.log('[AI-STATUS] Elementos encontrados:', {
+            statusDot: !!statusDot,
+            statusText: !!statusText
+        });
+        
+        // Remover classes anteriores
+        this.elements.aiStatusBadge.className = 'ai-status-indicator ' + type;
+        
+        // Atualizar dot (se existir)
+        if (statusDot) {
+            // Classes de cor para o dot
+            const dotClasses = {
+                processing: 'pulsing',
+                success: 'success',
+                error: 'error',
+                disabled: 'disabled'
+            };
+            statusDot.className = 'ai-status-dot ' + (dotClasses[type] || '');
+        }
+        
+        // Atualizar texto (se existir)
         if (statusText) {
             statusText.textContent = message;
         }
+        
+        console.log('[AI-STATUS] ✅ Status atualizado para:', type);
     }
     
     /**
