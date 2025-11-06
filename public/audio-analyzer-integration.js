@@ -6624,20 +6624,59 @@ async function displayModalResults(analysis) {
                 console.log('   - localStorage.referenceJobId:', localStorage.getItem('referenceJobId'));
                 console.log('   - analysisForSuggestions:', {
                     jobId: analysisForSuggestions?.jobId,
-                    fileName: analysisForSuggestions?.fileName || analysisForSuggestions?.metadata?.fileName
+                    fileName: analysisForSuggestions?.fileName || analysisForSuggestions?.metadata?.fileName,
+                    hasSuggestions: !!analysisForSuggestions?.suggestions,
+                    suggestionsLength: analysisForSuggestions?.suggestions?.length || 0
+                });
+                
+                // 🔍 [AUDITORIA_DOM] Verificar estado do DOM de sugestões
+                const aiSection = document.getElementById('aiSuggestionsExpanded');
+                const aiContent = document.getElementById('aiExpandedGrid');
+                const existingSuggestions = aiContent?.querySelectorAll('.ai-suggestion-card')?.length || 0;
+                
+                console.log('   [AUDITORIA_DOM] Estado ANTES:', {
+                    aiSection: !!aiSection,
+                    aiSectionVisible: aiSection?.style?.display !== 'none',
+                    aiContent: !!aiContent,
+                    suggestionsExistentes: existingSuggestions
                 });
                 console.groupEnd();
                 
                 console.log('[AUDIT-FIX] ✅ Chamando aiUIController.checkForAISuggestions');
+                console.log('[AUDIT-FIX] Passando analysisForSuggestions com', analysisForSuggestions?.suggestions?.length || 0, 'sugestões');
                 window.aiUIController.checkForAISuggestions(analysisForSuggestions, true);
                 
-                // 🔍 PASSO 1: LOG CRÍTICO DEPOIS de checkForAISuggestions
-                console.group('🔍 [POST-AI-SUGGESTIONS] Estado DEPOIS de checkForAISuggestions');
-                console.log('   - currentJobId:', window.__CURRENT_JOB_ID__);
-                console.log('   - referenceJobId:', window.__REFERENCE_JOB_ID__);
-                console.log('   - localStorage.referenceJobId:', localStorage.getItem('referenceJobId'));
-                console.log('   - MUDOU?', window.__CURRENT_JOB_ID__ === window.__REFERENCE_JOB_ID__ ? '❌ CONTAMINADO!' : '✅ Intacto');
-                console.groupEnd();
+                // 🔍 PASSO 2: LOG CRÍTICO DEPOIS de checkForAISuggestions
+                setTimeout(() => {
+                    console.group('🔍 [POST-AI-SUGGESTIONS] Estado DEPOIS de checkForAISuggestions');
+                    console.log('   - currentJobId:', window.__CURRENT_JOB_ID__);
+                    console.log('   - referenceJobId:', window.__REFERENCE_JOB_ID__);
+                    console.log('   - localStorage.referenceJobId:', localStorage.getItem('referenceJobId'));
+                    console.log('   - MUDOU?', window.__CURRENT_JOB_ID__ === window.__REFERENCE_JOB_ID__ ? '❌ CONTAMINADO!' : '✅ Intacto');
+                    
+                    // 🔍 [AUDITORIA_DOM] Verificar estado do DOM de sugestões DEPOIS
+                    const aiSectionAfter = document.getElementById('aiSuggestionsExpanded');
+                    const aiContentAfter = document.getElementById('aiExpandedGrid');
+                    const cardsAfter = aiContentAfter?.querySelectorAll('.ai-suggestion-card')?.length || 0;
+                    
+                    console.log('   [AUDITORIA_DOM] Estado DEPOIS:', {
+                        aiSection: !!aiSectionAfter,
+                        aiSectionVisible: aiSectionAfter?.style?.display !== 'none',
+                        aiContent: !!aiContentAfter,
+                        cards: cardsAfter
+                    });
+                    
+                    if (cardsAfter === 0) {
+                        console.error('   [AUDITORIA_DOM] ❌ NENHUM CARD FOI RENDERIZADO!');
+                        console.error('   [AUDITORIA_DOM] Possíveis causas:');
+                        console.error('   [AUDITORIA_DOM]   1. analysisForSuggestions não tem suggestions[]');
+                        console.error('   [AUDITORIA_DOM]   2. Função checkForAISuggestions retornou cedo');
+                        console.error('   [AUDITORIA_DOM]   3. Erro no renderCompactPreview()');
+                    } else {
+                        console.log('   [AUDITORIA_DOM] ✅', cardsAfter, 'cards renderizados com sucesso!');
+                    }
+                    console.groupEnd();
+                }, 100); // Delay pequeno para dar tempo de renderizar
             } else if (window.forceShowAISuggestions) {
                 console.log('[AUDIT-FIX] ✅ Chamando forceShowAISuggestions');
                 window.forceShowAISuggestions(analysisForSuggestions);
