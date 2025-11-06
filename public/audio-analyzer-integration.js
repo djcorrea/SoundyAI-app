@@ -11,162 +11,93 @@
 window.CacheIndex ??= { USER: null, REF: null };
 
 // ========================================
-// 🧠 SISTEMA DE SESSÕES ISOLADAS (ANTI-CONTAMINAÇÃO DEFINITIVO)
+// 🧠 SISTEMA DE ARMAZENAMENTO ISOLADO FINAL
 // ========================================
 /**
- * Sistema de contextos isolados para análises de referência.
- * Cada sessão armazena um par (referência, atual) completamente independente.
- * NUNCA mais usar window.__FIRST_ANALYSIS_FROZEN__ ou stateV3.reference diretamente.
+ * Sistema simplificado e definitivo para armazenamento de análises.
+ * Duas variáveis isoladas: primeira e segunda música.
+ * NUNCA mais usar window.__FIRST_ANALYSIS_FROZEN__ ou stateV3.reference.
  */
-window.AnalysisSessions = window.AnalysisSessions || {};
+window.SoundyAI_Store = {
+    first: null,   // primeira música
+    second: null,  // segunda música
+};
 
 /**
- * Cria uma nova sessão de análise isolada
- * @returns {string} ID único da sessão
- */
-function createAnalysisSession() {
-    const sessionId = crypto.randomUUID();
-    window.AnalysisSessions[sessionId] = {
-        reference: null,  // Primeira música (alvo de comparação)
-        current: null,    // Segunda música (música do usuário)
-        ready: false,     // Flag indicando se ambas foram carregadas
-        createdAt: new Date().toISOString()
-    };
-    
-    console.log('🆕 [SESSION] Nova sessão criada:', sessionId);
-    console.log('   - Timestamp:', window.AnalysisSessions[sessionId].createdAt);
-    
-    return sessionId;
-}
-
-/**
- * Salva primeira música (referência) na sessão
- * @param {string} sessionId - ID da sessão
+ * Salva primeira análise (referência)
  * @param {object} data - Dados da análise
  */
-function saveFirstAnalysis(sessionId, data) {
-    if (!window.AnalysisSessions[sessionId]) {
-        console.error('❌ [SESSION] Sessão não encontrada:', sessionId);
-        return;
-    }
+function saveFirstAnalysis(data) {
+    // Deep clone para isolamento total
+    window.SoundyAI_Store.first = JSON.parse(JSON.stringify(data));
     
-    // Deep clone para garantir isolamento total
-    window.AnalysisSessions[sessionId].reference = JSON.parse(JSON.stringify(data));
-    
-    console.log('💾 [SESSION] Primeira música salva na sessão:', sessionId);
-    console.log('   - JobId:', data?.jobId);
-    console.log('   - FileName:', data?.fileName || data?.metadata?.fileName);
-    console.log('   - LUFS:', data?.technicalData?.lufsIntegrated);
+    console.log('✅ [STORE] Primeira análise salva isolada');
+    console.log('   - FileName:', window.SoundyAI_Store.first?.fileName || window.SoundyAI_Store.first?.metadata?.fileName);
+    console.log('   - JobId:', window.SoundyAI_Store.first?.jobId);
+    console.log('   - LUFS:', window.SoundyAI_Store.first?.technicalData?.lufsIntegrated);
 }
 
 /**
- * Salva segunda música (comparação) na sessão
- * @param {string} sessionId - ID da sessão
+ * Salva segunda análise (comparação)
  * @param {object} data - Dados da análise
  */
-function saveSecondAnalysis(sessionId, data) {
-    if (!window.AnalysisSessions[sessionId]) {
-        console.error('❌ [SESSION] Sessão não encontrada:', sessionId);
-        return;
-    }
+function saveSecondAnalysis(data) {
+    // Deep clone para isolamento total
+    window.SoundyAI_Store.second = JSON.parse(JSON.stringify(data));
     
-    // Deep clone para garantir isolamento total
-    window.AnalysisSessions[sessionId].current = JSON.parse(JSON.stringify(data));
-    window.AnalysisSessions[sessionId].ready = true;
-    
-    console.log('💾 [SESSION] Segunda música salva na sessão:', sessionId);
-    console.log('   - JobId:', data?.jobId);
-    console.log('   - FileName:', data?.fileName || data?.metadata?.fileName);
-    console.log('   - LUFS:', data?.technicalData?.lufsIntegrated);
-    console.log('✅ [SESSION] Sessão pronta para comparação');
+    console.log('✅ [STORE] Segunda análise salva isolada');
+    console.log('   - FileName:', window.SoundyAI_Store.second?.fileName || window.SoundyAI_Store.second?.metadata?.fileName);
+    console.log('   - JobId:', window.SoundyAI_Store.second?.jobId);
+    console.log('   - LUFS:', window.SoundyAI_Store.second?.technicalData?.lufsIntegrated);
 }
 
 /**
- * Obtém par de análises (referência, atual) da sessão
- * Retorna clones independentes para evitar contaminação
- * @param {string} sessionId - ID da sessão
- * @returns {object|null} { ref, curr } ou null se sessão não estiver pronta
+ * Obtém par de análises para comparação
+ * @returns {object|null} { ref, curr } ou null se alguma análise estiver faltando
  */
-function getSessionPair(sessionId) {
-    const session = window.AnalysisSessions[sessionId];
+function getComparisonPair() {
+    const ref = window.SoundyAI_Store.first;
+    const curr = window.SoundyAI_Store.second;
     
-    if (!session) {
-        console.warn('⚠️ [SESSION-WARN] Sessão não encontrada:', sessionId);
+    if (!ref || !curr) {
+        console.warn('⚠️ [STORE] Ainda falta uma das análises para comparar');
+        console.warn('   - first:', !!ref);
+        console.warn('   - second:', !!curr);
         return null;
     }
     
-    if (!session.ready) {
-        console.warn('⚠️ [SESSION-WARN] Sessão ainda não pronta:', sessionId);
-        console.warn('   - reference:', !!session.reference);
-        console.warn('   - current:', !!session.current);
-        return null;
-    }
-    
-    // Retornar clones independentes (NUNCA referências originais)
-    const pair = {
-        ref: JSON.parse(JSON.stringify(session.reference)),
-        curr: JSON.parse(JSON.stringify(session.current))
-    };
-    
-    console.log('📦 [SESSION] Par de análises obtido da sessão:', sessionId);
-    console.log('   - ref.jobId:', pair.ref?.jobId);
-    console.log('   - curr.jobId:', pair.curr?.jobId);
-    console.log('   - ref.fileName:', pair.ref?.fileName || pair.ref?.metadata?.fileName);
-    console.log('   - curr.fileName:', pair.curr?.fileName || pair.curr?.metadata?.fileName);
+    console.log('📦 [STORE] Par de análises obtido');
+    console.log('   - ref.jobId:', ref?.jobId);
+    console.log('   - curr.jobId:', curr?.jobId);
+    console.log('   - ref.fileName:', ref?.fileName || ref?.metadata?.fileName);
+    console.log('   - curr.fileName:', curr?.fileName || curr?.metadata?.fileName);
     
     // 🔒 AUDITORIA AUTOMÁTICA
     console.table({
-        sessionId: sessionId,
-        refJob: pair.ref?.jobId,
-        currJob: pair.curr?.jobId,
-        refName: pair.ref?.fileName || pair.ref?.metadata?.fileName,
-        currName: pair.curr?.fileName || pair.curr?.metadata?.fileName,
-        sameJob: pair.ref?.jobId === pair.curr?.jobId,
-        sameName: (pair.ref?.fileName || pair.ref?.metadata?.fileName) === (pair.curr?.fileName || pair.curr?.metadata?.fileName)
+        refJob: ref?.jobId,
+        currJob: curr?.jobId,
+        refName: ref?.fileName || ref?.metadata?.fileName,
+        currName: curr?.fileName || curr?.metadata?.fileName,
+        sameJob: ref?.jobId === curr?.jobId,
+        sameName: (ref?.fileName || ref?.metadata?.fileName) === (curr?.fileName || curr?.metadata?.fileName)
     });
     
     // 🚨 VALIDAÇÃO CRÍTICA
-    if (pair.ref?.jobId === pair.curr?.jobId) {
-        console.error('🚨 [SESSION-ERROR] CONTAMINAÇÃO DETECTADA NA SESSÃO!');
-        console.error('   JobIds são IGUAIS:', pair.ref.jobId);
-        console.error('   Isso indica problema na ORIGEM dos dados (backend ou upload)');
+    if (ref?.jobId === curr?.jobId) {
+        console.error('🚨 [STORE-ERROR] CONTAMINAÇÃO DETECTADA!');
+        console.error('   JobIds são IGUAIS:', ref.jobId);
+        console.error('   Isso NÃO DEVERIA ACONTECER com sistema isolado');
         console.trace();
     }
     
-    if ((pair.ref?.fileName || pair.ref?.metadata?.fileName) === (pair.curr?.fileName || pair.curr?.metadata?.fileName)) {
-        console.error('🚨 [SESSION-ERROR] NOMES DE ARQUIVO IGUAIS!');
-        console.error('   FileName:', pair.ref?.fileName || pair.ref?.metadata?.fileName);
-        console.error('   Isso indica problema visual ou backend retornando mesmo arquivo');
+    if ((ref?.fileName || ref?.metadata?.fileName) === (curr?.fileName || curr?.metadata?.fileName)) {
+        console.error('🚨 [STORE-ERROR] NOMES DE ARQUIVO IGUAIS!');
+        console.error('   FileName:', ref?.fileName || ref?.metadata?.fileName);
+        console.error('   Possível self-compare ou upload duplicado');
         console.trace();
     }
     
-    return pair;
-}
-
-/**
- * Limpa sessão antiga (opcional - para economizar memória)
- * @param {string} sessionId - ID da sessão a limpar
- */
-function clearAnalysisSession(sessionId) {
-    if (window.AnalysisSessions[sessionId]) {
-        delete window.AnalysisSessions[sessionId];
-        console.log('🗑️ [SESSION] Sessão removida:', sessionId);
-    }
-}
-
-/**
- * Lista todas as sessões ativas (para debug)
- */
-function listAnalysisSessions() {
-    console.log('📋 [SESSION] Sessões ativas:', Object.keys(window.AnalysisSessions).length);
-    Object.entries(window.AnalysisSessions).forEach(([id, session]) => {
-        console.log(`   - ${id}:`, {
-            ready: session.ready,
-            refFile: session.reference?.fileName || session.reference?.metadata?.fileName,
-            currFile: session.current?.fileName || session.current?.metadata?.fileName,
-            createdAt: session.createdAt
-        });
-    });
+    return { ref, curr };
 }
 
 // ========================================
@@ -3658,19 +3589,13 @@ async function handleModalFileSelection(file) {
             __dbg('🎯 Primeira música analisada - abrindo modal para segunda');
             
             // ========================================
-            // 🧠 CRIAR SESSÃO ISOLADA PARA ESTE PAR DE ANÁLISES
-            // ========================================
-            window.__CURRENT_SESSION_ID__ = createAnalysisSession();
-            console.log('🆕 [SESSION-FLOW] Sessão criada para primeira música:', window.__CURRENT_SESSION_ID__);
-            
-            // ========================================
             // 🔒 SALVAR PRIMEIRA ANÁLISE COM VIRTUAL ID
             // ========================================
             // Usar cacheResultByRole para criar VID e salvar com papel USER
             const { vid: userVid, clone: userClone } = cacheResultByRole(analysisResult, { isSecondTrack: false });
             
-            // 💾 SALVAR NA SESSÃO ISOLADA (fonte de verdade principal)
-            saveFirstAnalysis(window.__CURRENT_SESSION_ID__, userClone || analysisResult);
+            // 💾 SALVAR NO STORE ISOLADO (fonte de verdade principal)
+            saveFirstAnalysis(userClone || analysisResult);
             
             // Atualizar normalizedFirst para uso nos logs e modal
             if (!normalizedFirst && userClone) {
@@ -3770,24 +3695,8 @@ async function handleModalFileSelection(file) {
             // Usar cacheResultByRole para criar VID e salvar com papel REF
             const { vid: refVid, clone: refClone } = cacheResultByRole(analysisResult, { isSecondTrack: true });
             
-            // 💾 SALVAR NA SESSÃO ISOLADA (fonte de verdade principal)
-            if (window.__CURRENT_SESSION_ID__) {
-                saveSecondAnalysis(window.__CURRENT_SESSION_ID__, refClone || analysisResult);
-                console.log('✅ [SESSION-FLOW] Segunda música salva na sessão:', window.__CURRENT_SESSION_ID__);
-            } else {
-                console.error('❌ [SESSION-ERROR] Sessão não encontrada! Criando nova sessão de emergência...');
-                window.__CURRENT_SESSION_ID__ = createAnalysisSession();
-                
-                // Tentar recuperar primeira música do FirstAnalysisStore
-                const firstMusic = FirstAnalysisStore.getUser();
-                if (firstMusic) {
-                    saveFirstAnalysis(window.__CURRENT_SESSION_ID__, firstMusic);
-                    console.log('🔄 [SESSION-RECOVERY] Primeira música recuperada e salva');
-                }
-                
-                saveSecondAnalysis(window.__CURRENT_SESSION_ID__, refClone || analysisResult);
-                console.log('✅ [SESSION-RECOVERY] Segunda música salva na sessão de emergência');
-            }
+            // 💾 SALVAR NO STORE ISOLADO (fonte de verdade principal)
+            saveSecondAnalysis(refClone || analysisResult);
             
             // Salvar como REF no FirstAnalysisStore (mantido para compatibilidade)
             FirstAnalysisStore.setRef(refClone, refVid, analysisResult.jobId);
@@ -4148,27 +4057,25 @@ async function handleModalFileSelection(file) {
             console.groupEnd();
             
             // ========================================
-            // 🧠 OBTER PAR DE ANÁLISES DA SESSÃO ISOLADA
+            // 🧠 OBTER PAR DE ANÁLISES DO STORE ISOLADO
             // ========================================
-            console.log('[SESSION-FLOW] Obtendo par de análises da sessão:', window.__CURRENT_SESSION_ID__);
-            const sessionPair = getSessionPair(window.__CURRENT_SESSION_ID__);
+            console.log('[STORE-FLOW] Obtendo par de análises do store isolado');
+            const comparisonPair = getComparisonPair();
             
-            if (sessionPair) {
-                console.log('✅ [SESSION-FLOW] Par obtido com sucesso da sessão');
-                console.log('   - ref.jobId:', sessionPair.ref?.jobId);
-                console.log('   - curr.jobId:', sessionPair.curr?.jobId);
-                console.log('   - ref.fileName:', sessionPair.ref?.fileName || sessionPair.ref?.metadata?.fileName);
-                console.log('   - curr.fileName:', sessionPair.curr?.fileName || sessionPair.curr?.metadata?.fileName);
+            if (comparisonPair) {
+                console.log('✅ [STORE-FLOW] Par obtido com sucesso');
+                console.log('   - ref.jobId:', comparisonPair.ref?.jobId);
+                console.log('   - curr.jobId:', comparisonPair.curr?.jobId);
+                console.log('   - ref.fileName:', comparisonPair.ref?.fileName || comparisonPair.ref?.metadata?.fileName);
+                console.log('   - curr.fileName:', comparisonPair.curr?.fileName || comparisonPair.curr?.metadata?.fileName);
                 
-                // ✅ USAR DADOS DA SESSÃO COMO FONTE DE VERDADE
-                // Atualizar normalizedResult com dados da sessão
-                normalizedResult._sessionPair = sessionPair;
-                normalizedResult._useSessionData = true;
+                // ✅ USAR DADOS DO STORE COMO FONTE DE VERDADE
+                normalizedResult._comparisonPair = comparisonPair;
+                normalizedResult._useStoreData = true;
                 
-                console.log('🎯 [SESSION-FLOW] Dados da sessão anexados ao normalizedResult');
+                console.log('🎯 [STORE-FLOW] Dados do store anexados ao normalizedResult');
             } else {
-                console.warn('⚠️ [SESSION-FLOW] Sessão não pronta, usando dados legados');
-                console.warn('   - window.__CURRENT_SESSION_ID__:', window.__CURRENT_SESSION_ID__);
+                console.warn('⚠️ [STORE-FLOW] Store não pronto, usando dados legados');
             }
             
             console.log("[SAFE-MODAL] ✅ Fluxo reference intacto, iniciando renderização final.");
@@ -6233,25 +6140,25 @@ async function displayModalResults(analysis) {
         console.groupEnd();
         
         // ========================================
-        // 🧠 PRIORIZAR DADOS DA SESSÃO ISOLADA (FONTE DE VERDADE)
+        // 🧠 PRIORIZAR DADOS DO STORE ISOLADO (FONTE DE VERDADE)
         // ========================================
         let refNormalized, currNormalized;
         
-        if (analysis?._useSessionData && analysis?._sessionPair) {
-            console.log('🎯 [SESSION-PRIORITY] Usando dados da sessão isolada como fonte de verdade');
-            const sessionPair = analysis._sessionPair;
+        if (analysis?._useStoreData && analysis?._comparisonPair) {
+            console.log('🎯 [STORE-PRIORITY] Usando dados do store isolado como fonte de verdade');
+            const pair = analysis._comparisonPair;
             
-            // Normalizar dados da sessão
-            refNormalized = normalizeSafe(sessionPair.ref);   // Primeira música (referência)
-            currNormalized = normalizeSafe(sessionPair.curr); // Segunda música (atual)
+            // Normalizar dados do store
+            refNormalized = normalizeSafe(pair.ref);   // Primeira música (referência)
+            currNormalized = normalizeSafe(pair.curr); // Segunda música (atual)
             
-            console.log('✅ [SESSION-PRIORITY] Dados da sessão normalizados:');
+            console.log('✅ [STORE-PRIORITY] Dados do store normalizados:');
             console.log('   - refNormalized.jobId:', refNormalized?.jobId);
             console.log('   - currNormalized.jobId:', currNormalized?.jobId);
             console.log('   - refNormalized.fileName:', refNormalized?.fileName || refNormalized?.metadata?.fileName);
             console.log('   - currNormalized.fileName:', currNormalized?.fileName || currNormalized?.metadata?.fileName);
         } else {
-            console.log('⚠️ [LEGACY-MODE] Sessão não disponível, usando modo legado');
+            console.log('⚠️ [LEGACY-MODE] Store não disponível, usando modo legado');
             
             // 🔒 HARD-GUARD: Usar FirstAnalysisStore.get() (única fonte de verdade - modo legado)
             const firstAnalysis = FirstAnalysisStore.get();
@@ -6584,14 +6491,14 @@ async function displayModalResults(analysis) {
         console.groupEnd();
         
         // ========================================
-        // 🧠 USAR DADOS DA SESSÃO SE DISPONÍVEL
+        // 🧠 USAR DADOS DO STORE SE DISPONÍVEL
         // ========================================
         let renderUserAnalysis, renderRefAnalysis;
         
-        if (analysis?._useSessionData && analysis?._sessionPair) {
-            console.log('🎯 [RENDER-SESSION] Usando dados da sessão isolada para renderização');
-            renderUserAnalysis = frozenRef;   // Já é clone de sessionPair.ref
-            renderRefAnalysis = frozenCurr;   // Já é clone de sessionPair.curr
+        if (analysis?._useStoreData && analysis?._comparisonPair) {
+            console.log('🎯 [RENDER-STORE] Usando dados do store isolado para renderização');
+            renderUserAnalysis = frozenRef;   // Já é clone de comparisonPair.ref
+            renderRefAnalysis = frozenCurr;   // Já é clone de comparisonPair.curr
         } else {
             console.log('⚠️ [RENDER-LEGACY] Usando dados legados para renderização');
             renderUserAnalysis = frozenRef;
@@ -6606,8 +6513,7 @@ async function displayModalResults(analysis) {
                 userAnalysis: renderUserAnalysis,
                 referenceAnalysis: renderRefAnalysis
             },
-            _useSessionData: analysis?._useSessionData,  // Propagar flag
-            _sessionId: window.__CURRENT_SESSION_ID__    // Propagar sessionId para auditoria
+            _useStoreData: analysis?._useStoreData  // Propagar flag
         });
         
         // ❌ REMOVIDO: renderTrackComparisonTable() - causava duplicação
@@ -9444,49 +9350,45 @@ if (typeof window.comparisonLock === "undefined") {
 // --- BEGIN: deterministic mode gate ---
 function renderReferenceComparisons(ctx) {
     // ========================================
-    // 🎯 PASSO 1: PRIORIZAR DADOS DA SESSÃO SE DISPONÍVEL
+    // 🎯 PASSO 1: VALIDAR DADOS DO STORE SE DISPONÍVEL
     // ========================================
     console.group('🎯 [RENDER-REF] VALIDAÇÃO DE FONTE DE DADOS');
     
-    if (ctx?._useSessionData && ctx?._sessionId) {
-        console.log('✅ [SESSION-MODE] Renderização usando dados da sessão isolada');
-        console.log('   - sessionId:', ctx._sessionId);
+    if (ctx?._useStoreData) {
+        console.log('✅ [STORE-MODE] Renderização usando dados do store isolado');
         console.log('   - userAnalysis.jobId:', ctx.userAnalysis?.jobId);
         console.log('   - referenceAnalysis.jobId:', ctx.referenceAnalysis?.jobId);
         
-        // Validação de integridade da sessão
-        const sessionData = window.AnalysisSessions?.[ctx._sessionId];
-        if (sessionData?.ready) {
+        // Validação de integridade do store
+        if (window.SoundyAI_Store?.first && window.SoundyAI_Store?.second) {
             console.table({
-                sessionId: ctx._sessionId,
-                refJobId: sessionData.reference?.jobId,
-                currJobId: sessionData.current?.jobId,
-                refName: sessionData.reference?.fileName || sessionData.reference?.metadata?.fileName,
-                currName: sessionData.current?.fileName || sessionData.current?.metadata?.fileName,
-                sameJob: sessionData.reference?.jobId === sessionData.current?.jobId,
-                sameName: (sessionData.reference?.fileName || sessionData.reference?.metadata?.fileName) === 
-                          (sessionData.current?.fileName || sessionData.current?.metadata?.fileName)
+                refJobId: window.SoundyAI_Store.first?.jobId,
+                currJobId: window.SoundyAI_Store.second?.jobId,
+                refName: window.SoundyAI_Store.first?.fileName || window.SoundyAI_Store.first?.metadata?.fileName,
+                currName: window.SoundyAI_Store.second?.fileName || window.SoundyAI_Store.second?.metadata?.fileName,
+                sameJob: window.SoundyAI_Store.first?.jobId === window.SoundyAI_Store.second?.jobId,
+                sameName: (window.SoundyAI_Store.first?.fileName || window.SoundyAI_Store.first?.metadata?.fileName) === 
+                          (window.SoundyAI_Store.second?.fileName || window.SoundyAI_Store.second?.metadata?.fileName)
             });
             
-            // 🚨 VALIDAÇÃO CRÍTICA: Dados da sessão NÃO podem ter jobIds iguais
-            if (sessionData.reference?.jobId === sessionData.current?.jobId) {
-                console.error('🚨 [SESSION-ERROR] SESSÃO CONTAMINADA!');
-                console.error('   - Sessão tem jobIds idênticos');
-                console.error('   - sessionId:', ctx._sessionId);
+            // 🚨 VALIDAÇÃO CRÍTICA: Store NÃO pode ter jobIds iguais
+            if (window.SoundyAI_Store.first?.jobId === window.SoundyAI_Store.second?.jobId) {
+                console.error('🚨 [STORE-ERROR] STORE CONTAMINADO!');
+                console.error('   - Store tem jobIds idênticos');
                 console.trace();
                 console.groupEnd();
-                alert('ERRO: Sessão contaminada detectada. Por favor, recarregue a página.');
+                alert('ERRO: Store contaminado detectado. Por favor, recarregue a página.');
                 return;
             }
             
-            console.log('✅ [SESSION-VALIDATED] Sessão validada - dados isolados confirmados');
+            console.log('✅ [STORE-VALIDATED] Store validado - dados isolados confirmados');
         } else {
-            console.warn('⚠️ [SESSION-WARN] Sessão não está pronta ou não existe');
+            console.warn('⚠️ [STORE-WARN] Store não está completo');
             console.log('   - Caindo para modo legado');
         }
     } else {
         console.log('⚠️ [LEGACY-MODE] Renderização usando sistema legado');
-        console.log('   - Dados não vêm de sessão isolada');
+        console.log('   - Dados não vêm do store isolado');
     }
     
     console.groupEnd();
