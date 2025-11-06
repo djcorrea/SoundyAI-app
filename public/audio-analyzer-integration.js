@@ -11710,90 +11710,90 @@ function renderReferenceComparisons(ctx) {
                 -webkit-background-clip: text;
                 -webkit-text-fill-color: transparent;
                 background-clip: text;
-                font-size: clamp(16px, 1.5vw, 20px);
+                font-size: clamp(15px, 1.3vw, 18px);
                 font-weight: 700;
-                margin-bottom: 16px;
+                margin-bottom: 12px;
             ">🎵 COMPARAÇÃO A/B ENTRE FAIXAS</div>
             
-            <!-- Header com nomes das faixas - Refinado -->
+            <!-- Header com nomes das faixas - Compacto e elegante -->
             <div class="ab-header" style="
                 display: grid; 
                 grid-template-columns: 1fr 1fr; 
-                gap: 12px; 
-                padding: 12px; 
-                background: linear-gradient(135deg, rgba(127, 0, 255, 0.08) 0%, rgba(0, 255, 255, 0.08) 100%);
-                border-radius: 10px; 
+                gap: 10px; 
+                padding: 10px; 
+                background: linear-gradient(90deg, rgba(127, 0, 255, 0.08), rgba(0, 255, 255, 0.08));
+                border-radius: 8px; 
                 margin-bottom: 10px;
-                border: 1px solid rgba(127, 0, 255, 0.15);
+                border: 1px solid rgba(127, 0, 255, 0.12);
             ">
                 <div class="track-name user-track" style="
-                    padding: 10px 12px;
-                    background: rgba(82, 247, 173, 0.1);
-                    border-radius: 8px;
-                    border-left: 3px solid #52f7ad;
-                    box-shadow: 0 2px 8px rgba(82, 247, 173, 0.15);
+                    padding: 8px 10px;
+                    background: rgba(82, 247, 173, 0.08);
+                    border-radius: 6px;
+                    border-left: 2px solid #52f7ad;
+                    box-shadow: 0 2px 6px rgba(82, 247, 173, 0.12);
                 ">
                     <div style="
-                        font-size: 10px; 
+                        font-size: 9px; 
                         opacity: 0.7; 
-                        margin-bottom: 6px; 
+                        margin-bottom: 5px; 
                         text-transform: uppercase; 
-                        letter-spacing: 1px; 
+                        letter-spacing: 0.8px; 
                         font-weight: 600;
                         display: flex;
                         align-items: center;
-                        gap: 6px;
+                        gap: 5px;
                     ">
-                        <span style="font-size: 14px;">🎧</span>
-                        <span>Faixa 1 (Sua Música)</span>
+                        <span style="font-size: 13px;">🎧</span>
+                        <span>Faixa 1</span>
                     </div>
                     <div style="
                         font-weight: 600; 
-                        font-size: clamp(12px, 1.1vw, 14px); 
-                        line-height: 1.4; 
+                        font-size: clamp(11.5px, 1vw, 13px); 
+                        line-height: 1.3; 
                         word-break: break-word;
                         color: rgba(255, 255, 255, 0.9);
                     ">${userName}</div>
                 </div>
                 <div class="track-name ref-track" style="
-                    padding: 10px 12px;
-                    background: rgba(255, 206, 77, 0.1);
-                    border-radius: 8px;
-                    border-left: 3px solid #ffce4d;
-                    box-shadow: 0 2px 8px rgba(255, 206, 77, 0.15);
+                    padding: 8px 10px;
+                    background: rgba(255, 206, 77, 0.08);
+                    border-radius: 6px;
+                    border-left: 2px solid #ffce4d;
+                    box-shadow: 0 2px 6px rgba(255, 206, 77, 0.12);
                 ">
                     <div style="
-                        font-size: 10px; 
+                        font-size: 9px; 
                         opacity: 0.7; 
-                        margin-bottom: 6px; 
+                        margin-bottom: 5px; 
                         text-transform: uppercase; 
-                        letter-spacing: 1px; 
+                        letter-spacing: 0.8px; 
                         font-weight: 600;
                         display: flex;
                         align-items: center;
-                        gap: 6px;
+                        gap: 5px;
                     ">
-                        <span style="font-size: 14px;">🎚️</span>
-                        <span>Faixa 2 (Referência)</span>
+                        <span style="font-size: 13px;">🎚️</span>
+                        <span>Faixa 2</span>
                     </div>
                     <div style="
                         font-weight: 600; 
-                        font-size: clamp(12px, 1.1vw, 14px); 
-                        line-height: 1.4; 
+                        font-size: clamp(11.5px, 1vw, 13px); 
+                        line-height: 1.3; 
                         word-break: break-word;
                         color: rgba(255, 255, 255, 0.9);
                     ">${refName}</div>
                 </div>
             </div>
             
-            <!-- Tabela de comparação - Refinada -->
+            <!-- Tabela de comparação - Refinada e compacta -->
             <table class="ref-compare-table ab-compare-table" style="width: 100%;">
                 <thead>
                     <tr>
-                        <th style="text-align: left; padding-left: 1rem;">Métrica</th>
+                        <th style="text-align: left; padding-left: 12px;">Métrica</th>
                         <th class="ab-user-header">Faixa 1</th>
                         <th class="ab-ref-header">Faixa 2</th>
-                        <th>Δ (Diferença)</th>
+                        <th>Δ</th>
                         <th>Status</th>
                     </tr>
                 </thead>
