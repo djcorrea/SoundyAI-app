@@ -1,4 +1,5 @@
-﻿// 🎵 AUDIO ANALYZER INTEGRATION - VERSÃO REFATORADA
+﻿// @ts-nocheck
+// 🎵 AUDIO ANALYZER INTEGRATION - VERSÃO REFATORADA
 // Sistema de análise 100% baseado em processamento no back-end (Railway + Bucket)
 // ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
 // ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
@@ -3683,212 +3684,7 @@ async function handleModalFileSelection(file) {
             );
             
             console.log('[DISPLAY_MODAL_RESULTS] ✅ Comparação A/B renderizada com sucesso');
-                        dr: firstResult.dynamics?.dr ?? firstResult.dynamicRange,
-                        peak: firstResult.truePeak?.dbtp ?? firstResult.truePeakDbtp
-                    }
-                };
-
-                const normalizedRef = {
-                    fileName: secondResult.fileName || secondResult.metadata?.fileName,
-                    bands: secondResult.spectralBands || secondResult.bands || secondResult.technicalData?.spectral_balance,
-                    metrics: {
-                        lufs: secondResult.loudness?.integrated ?? secondResult.lufsIntegrated,
-                        dr: secondResult.dynamics?.dr ?? secondResult.dynamicRange,
-                        peak: secondResult.truePeak?.dbtp ?? secondResult.truePeakDbtp
-                    }
-                };
-
-                // 🧊 PROTEÇÃO: Usar deep clone para state.reference
-                state.reference = {
-                    mode: "reference",
-                    isSecondTrack: true,
-                    userAnalysis: JSON.parse(JSON.stringify(normalizedUser)),
-                    referenceAnalysis: JSON.parse(JSON.stringify(normalizedRef)),
-                    analysis: {
-                        bands: JSON.parse(JSON.stringify(normalizedRef.bands))
-                    }
-                };
-
-                state.render.mode = 'reference';
-                window.__soundyState = state;
-                console.log("[REF-FIX] Estrutura final corrigida", state.reference);
-            }
             
-            // 🔥 FORCE MODE REFERENCE EXPLICITAMENTE ANTES DE displayModalResults
-            state.render = state.render || {};
-            state.render.mode = 'reference';
-            currentAnalysisMode = 'reference';
-            window.__soundyState = state;
-            
-            console.log('🔥🔥🔥 [MODE-FORCE] ════════════════════════════════════════════════════════════');
-            console.log('🔥 [MODE-FORCE] ✅ Modo FORÇADO para reference antes de displayModalResults');
-            console.log('🔥 [MODE-FORCE] state.render.mode:', state.render.mode);
-            console.log('🔥 [MODE-FORCE] currentAnalysisMode:', currentAnalysisMode);
-            console.log('🔥 [MODE-FORCE] window.__soundyState.render.mode:', window.__soundyState.render.mode);
-            console.log('🔥🔥🔥 [MODE-FORCE] ════════════════════════════════════════════════════════════');
-            
-            // 🔥 CORREÇÃO: Preparar dados para comparação A/B correta
-            console.log('[REFERENCE-FLOW] ═══════════════════════════════════════');
-            console.log('[REFERENCE-FLOW] Segunda música concluída - montando comparação A/B');
-            
-            // � PASSO 2: ATIVAR PROTEÇÃO DE CURRENTJOBID
-            const currentJobId = normalizedResult?.jobId || analysisResult?.jobId;
-            const referenceJobId = window.__REFERENCE_JOB_ID__ || localStorage.getItem('referenceJobId');
-            
-            if (currentJobId) {
-                console.log('🔒 [PROTECTION] Ativando proteção para currentJobId:', currentJobId);
-                console.log('🔍 [PROTECTION] ReferenceJobId:', referenceJobId);
-                
-                // 🚨 VALIDAÇÃO CRÍTICA: Garantir que jobIds são DIFERENTES
-                if (currentJobId === referenceJobId) {
-                    console.error('❌ [MODAL-FILE] ERRO CRÍTICO: Backend retornou mesmo jobId!');
-                    console.error('   currentJobId:', currentJobId);
-                    console.error('   referenceJobId:', referenceJobId);
-                    console.trace();
-                    alert('ERRO: O backend retornou o mesmo jobId da primeira música. Tente novamente.');
-                    return;
-                }
-                
-                console.log('✅ [MODAL-FILE] Segunda música analisada:');
-                console.log('   Novo currentJobId:', currentJobId);
-                console.log('   ReferenceJobId:', referenceJobId);
-                console.log('   São diferentes?', currentJobId !== referenceJobId ? '✅ SIM' : '❌ NÃO');
-                
-                // Salvar em múltiplas camadas de proteção
-                window.__CURRENT_JOB_ID__ = currentJobId;
-                sessionStorage.setItem('currentJobId', currentJobId);
-                
-                protectCurrentJobId(currentJobId);
-                console.log('✅ [PROTECTION] Proteção ativada - currentJobId protegido contra contaminação');
-                console.log('✅ [PROTECTION] sessionStorage.currentJobId salvo:', sessionStorage.getItem('currentJobId'));
-            } else {
-                console.warn('⚠️ [PROTECTION] currentJobId não encontrado, proteção não ativada');
-            }
-            
-            // �🛡️ DEEP CLONE OBRIGATÓRIO: Evitar contaminação de ponteiros que causa falso self-compare
-            console.log('[DEEP-CLONE-GUARD] 🔒 Clonando userAnalysis para evitar compartilhamento de metadata');
-            const userAnalysis = structuredClone(state.previousAnalysis || state.userAnalysis);
-            
-            console.log('[DEEP-CLONE-GUARD] 🔒 Clonando referenceAnalysisData para evitar compartilhamento de metadata');
-            const referenceAnalysisData = structuredClone(normalizedResult || state.referenceAnalysis);
-            
-            // 🔍 VALIDAÇÃO CRÍTICA: Confirmar que os clones são independentes
-            console.groupCollapsed('[INTEGRITY-CHECK] 🔒 Validação de Clones Independentes');
-            console.log('✅ userAnalysis !== referenceAnalysisData?', userAnalysis !== referenceAnalysisData);
-            console.log('✅ userAnalysis.metadata !== referenceAnalysisData.metadata?', userAnalysis?.metadata !== referenceAnalysisData?.metadata);
-            console.log('📁 userFileName:', userAnalysis?.fileName || userAnalysis?.metadata?.fileName);
-            console.log('📁 refFileName:', referenceAnalysisData?.fileName || referenceAnalysisData?.metadata?.fileName);
-            console.log('🆔 userJobId:', userAnalysis?.jobId || userAnalysis?.id);
-            console.log('🆔 refJobId:', referenceAnalysisData?.jobId || referenceAnalysisData?.id);
-            console.log('⚠️ Nomes iguais?', (userAnalysis?.fileName || userAnalysis?.metadata?.fileName) === (referenceAnalysisData?.fileName || referenceAnalysisData?.metadata?.fileName));
-            console.log('⚠️ JobIds iguais?', (userAnalysis?.jobId || userAnalysis?.id) === (referenceAnalysisData?.jobId || referenceAnalysisData?.id));
-            
-            if ((userAnalysis?.fileName || userAnalysis?.metadata?.fileName) === (referenceAnalysisData?.fileName || referenceAnalysisData?.metadata?.fileName)) {
-                console.error('🚨 CONTAMINAÇÃO DETECTADA: userFileName === refFileName!');
-                console.error('🚨 Isso indica que os clones NÃO são independentes ou que a fonte está contaminada!');
-            } else {
-                console.log('✅ INTEGRIDADE CONFIRMADA: Arquivos são diferentes');
-            }
-            console.groupEnd();
-            
-            console.log('[REFERENCE-COMPARE] ═══════════════════════════════════════');
-            console.log('[REFERENCE-COMPARE] 1ª FAIXA (SUA MÚSICA):');
-            console.log('[REFERENCE-COMPARE]   Nome:', userAnalysis?.fileName || userAnalysis?.metadata?.fileName);
-            console.log('[REFERENCE-COMPARE]   technicalData:', !!userAnalysis?.technicalData);
-            console.log('[REFERENCE-COMPARE]   spectral_balance:', userAnalysis?.technicalData?.spectral_balance ? 'SIM' : 'NÃO');
-            console.log('[REFERENCE-COMPARE]   bandas:', userAnalysis?.technicalData?.spectral_balance ? Object.keys(userAnalysis.technicalData.spectral_balance) : 'NENHUMA');
-            console.log('[REFERENCE-COMPARE]   LUFS:', userAnalysis?.technicalData?.lufsIntegrated);
-            console.log('[REFERENCE-COMPARE] 2ª FAIXA (REFERÊNCIA):');
-            console.log('[REFERENCE-COMPARE]   Nome:', referenceAnalysisData?.fileName || referenceAnalysisData?.metadata?.fileName);
-            console.log('[REFERENCE-COMPARE]   technicalData:', !!referenceAnalysisData?.technicalData);
-            console.log('[REFERENCE-COMPARE]   spectral_balance:', referenceAnalysisData?.technicalData?.spectral_balance ? 'SIM' : 'NÃO');
-            console.log('[REFERENCE-COMPARE]   bandas:', referenceAnalysisData?.technicalData?.spectral_balance ? Object.keys(referenceAnalysisData.technicalData.spectral_balance) : 'NENHUMA');
-            console.log('[REFERENCE-COMPARE]   LUFS:', referenceAnalysisData?.technicalData?.lufsIntegrated);
-            console.log('[REFERENCE-COMPARE] ═══════════════════════════════════════');
-            
-            // Marcar no normalizedResult que é modo referência com dados corretos
-            normalizedResult._isReferenceMode = true;
-            // 🛡️ PROTEÇÃO CIRCULAR: usar clone seguro para evitar loops
-            normalizedResult._userAnalysis = deepCloneSafe(userAnalysis);
-            normalizedResult._referenceAnalysis = deepCloneSafe(referenceAnalysisData);
-            
-            // ==== CHECKPOINT AUDITORIA REF-CONTAMINAÇÃO ====
-            console.group("[AUDITORIA REF-CONTAMINAÇÃO]");
-            console.log("🌐 window.referenceAnalysisData:", window.referenceAnalysisData?.metadata?.fileName || window.referenceAnalysisData?.fileName);
-            console.log("🧊 __FIRST_ANALYSIS_FROZEN__:", window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName || window.__FIRST_ANALYSIS_FROZEN__?.fileName);
-            console.log("📦 analysis.metadata.fileName:", normalizedResult?.metadata?.fileName);
-            console.groupEnd();
-            
-            // ========================================
-            // 🧠 OBTER PAR DE ANÁLISES DO STORE ISOLADO
-            // ========================================
-            console.log('[STORE-FLOW] Obtendo par de análises do store isolado');
-            const comparisonPair = getComparisonPair();
-            
-            if (comparisonPair) {
-                console.log('✅ [STORE-FLOW] Par obtido com sucesso');
-                console.log('   - ref.jobId:', comparisonPair.ref?.jobId);
-                console.log('   - curr.jobId:', comparisonPair.curr?.jobId);
-                console.log('   - ref.fileName:', comparisonPair.ref?.fileName || comparisonPair.ref?.metadata?.fileName);
-                console.log('   - curr.fileName:', comparisonPair.curr?.fileName || comparisonPair.curr?.metadata?.fileName);
-                
-                // ✅ USAR DADOS DO STORE COMO FONTE DE VERDADE
-                normalizedResult._comparisonPair = comparisonPair;
-                normalizedResult._useStoreData = true;
-                
-                console.log('🎯 [STORE-FLOW] Dados do store anexados ao normalizedResult');
-            } else {
-                console.warn('⚠️ [STORE-FLOW] Store não pronto, usando dados legados');
-            }
-            
-            console.log("[SAFE-MODAL] ✅ Fluxo reference intacto, iniciando renderização final.");
-            await displayModalResults(normalizedResult);
-            console.log('[FIX-REFERENCE] Modal aberto após segunda análise');
-            
-            // 🔍 VALIDAÇÃO FINAL: Confirmar que __FIRST_ANALYSIS_FROZEN__ permanece intacto
-            console.groupCollapsed('[POST-RENDER-VALIDATION] 🔒 Verificação Final de Integridade');
-            console.log('🧊 __FIRST_ANALYSIS_FROZEN__ APÓS segunda análise:');
-            console.log('   fileName:', window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName);
-            console.log('   jobId:', window.__FIRST_ANALYSIS_FROZEN__?.jobId);
-            console.log('   É o mesmo que normalizedResult?', window.__FIRST_ANALYSIS_FROZEN__?.jobId === normalizedResult?.jobId);
-            
-            if (window.__FIRST_ANALYSIS_FROZEN__?.jobId === normalizedResult?.jobId) {
-                console.error('🚨 FALHA CRÍTICA: __FIRST_ANALYSIS_FROZEN__ foi sobrescrito pela segunda análise!');
-            } else {
-                console.log('✅ INTEGRIDADE MANTIDA: __FIRST_ANALYSIS_FROZEN__ permanece intacto');
-            }
-            console.groupEnd();
-            
-            // ========================================
-            // ✅ CORREÇÃO 1: EARLY RETURN - Impedir limpeza no modo reference
-            // ========================================
-            if (currentAnalysisMode === 'reference' || jobMode === 'reference') {
-                console.log('✅ [CLEANUP] ═══════════════════════════════════════');
-                console.log('✅ [CLEANUP] MODO REFERENCE ATIVO - Limpeza bloqueada por early return');
-                console.log('✅ [CLEANUP] Referência PRESERVADA intacta:');
-                console.log('✅ [CLEANUP]   - currentAnalysisMode:', currentAnalysisMode);
-                console.log('✅ [CLEANUP]   - window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
-                console.log('✅ [CLEANUP]   - localStorage.referenceJobId:', localStorage.getItem('referenceJobId'));
-                console.log('✅ [CLEANUP]   - FirstAnalysisStore.has():', FirstAnalysisStore.has());
-                console.log('✅ [CLEANUP] ═══════════════════════════════════════');
-                
-                // Marcar que há uma comparação ativa
-                window.__referenceComparisonActive = true;
-                
-                // EARLY RETURN: Não executa nenhuma limpeza
-                // Continua para o próximo bloco de código sem deletar nada
-            } else {
-                // Modo normal (genre): limpar normalmente
-                delete window.__REFERENCE_JOB_ID__;
-                delete window.__FIRST_ANALYSIS_RESULT__;
-                localStorage.removeItem('referenceJobId');
-                
-                console.log('✅ [CLEANUP] ═══════════════════════════════════════');
-                console.log('✅ [CLEANUP] Referência removida (modo genre)');
-                console.log('✅ [CLEANUP] ═══════════════════════════════════════');
-            }
-            
-            // 🔒 MANTÉM: window.referenceAnalysisData e referenceComparisonMetrics para renderização
         } else {
             // Modo genre: análise por gênero tradicional
             __dbg('🎯 Exibindo resultado por gênero');
@@ -3896,16 +3692,6 @@ async function handleModalFileSelection(file) {
         }
 
     } catch (error) {
-        console.error('🔴🔴🔴 [ERRO-CRÍTICO-CAPTURADO] ════════════════════════════════════');
-        console.error('🔴 [ERRO-CRÍTICO] Erro capturado no handleModalFileSelection!');
-        console.error('🔴 [ERRO-CRÍTICO] Este erro está RESETANDO currentAnalysisMode para "genre"!');
-        console.error('🔴 [ERRO-CRÍTICO] Error message:', error.message);
-        console.error('🔴 [ERRO-CRÍTICO] Error stack:', error.stack);
-        console.error('🔴 [ERRO-CRÍTICO] currentAnalysisMode ANTES:', currentAnalysisMode);
-        console.error('🔴 [ERRO-CRÍTICO] window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
-        console.error('🔴 [ERRO-CRÍTICO] isSecondTrack:', window.__REFERENCE_JOB_ID__ !== null);
-        console.error('🔴 [ERRO-CRÍTICO] FEATURE_FLAGS?.FALLBACK_TO_GENRE:', window.FEATURE_FLAGS?.FALLBACK_TO_GENRE);
-        console.error('🔴🔴🔴 [ERRO-CRÍTICO-CAPTURADO] ════════════════════════════════════');
         console.error('❌ Erro na análise do modal:', error);
         
         // ✅ STEP 4/6: Bloquear fallback para genre em caso de self-compare ou circular structure
@@ -3969,15 +3755,6 @@ async function handleModalFileSelection(file) {
     }
 }
 
-// � NOVAS FUNÇÕES: Análise baseada em fileKey (pós-upload remoto)
-
-/**
- * Processar análise por referência usando fileKey
- * @param {string} fileKey - Chave do arquivo no bucket
- * @param {string} fileName - Nome original do arquivo
- */
-// 🌐 NOVAS FUNÇÕES: Análise baseada em resultado remoto
-
 /**
  * Processar análise por referência usando resultado remoto
  * @param {Object} analysisResult - Resultado da análise remota
@@ -4027,8 +3804,6 @@ async function handleReferenceAnalysisWithResult(analysisResult, fileKey, fileNa
         if (uploadedFiles.original && uploadedFiles.reference) {
             enableReferenceComparison();
             updateModalProgress(100, '✅ Ambos os arquivos analisados! Comparação disponível.');
-            
-        
         }
         
     } catch (error) {
@@ -9217,10 +8992,6 @@ function renderReferenceComparisons(referenceAnalysis, currentAnalysis) {
     }
     
     console.log('[RENDER-REF] ✅ Container encontrado, prosseguindo com renderização...');
-            return displayModalResultsError('Erro na análise por referência (bandas não detectadas).');
-        }
-        return;
-    }
 
     // ✅ Substitui o fallback antigo
     comparisonData.refBands = refBandsReal;
