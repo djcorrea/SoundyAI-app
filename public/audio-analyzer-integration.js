@@ -11605,24 +11605,78 @@ function renderReferenceComparisons(ctx) {
         // Helper format
         const nf = (n, d=2) => Number.isFinite(n) ? n.toFixed(d) : '—';
         
-        // Construir linhas A/B
+        // 🎯 Helper para calcular status e cor baseado na diferença
+        const getStatusAndColor = (diff, tolerance = 0.5) => {
+            if (!Number.isFinite(diff)) {
+                return { class: '', text: 'N/A', color: 'rgba(255,255,255,0.3)' };
+            }
+            
+            const absDiff = Math.abs(diff);
+            
+            // Lógica adaptativa baseada no tipo de métrica
+            if (absDiff <= tolerance) {
+                // ✅ IDEAL
+                return { 
+                    class: 'ok', 
+                    text: 'Ideal',
+                    icon: '✅'
+                };
+            } else if (absDiff <= tolerance * 6) {
+                // ⚠️ AJUSTE LEVE
+                return { 
+                    class: 'yellow', 
+                    text: 'Ajuste leve',
+                    icon: '⚠️'
+                };
+            } else {
+                // ❌ CORRIGIR
+                return { 
+                    class: 'warn', 
+                    text: 'Corrigir',
+                    icon: '❌'
+                };
+            }
+        };
+        
+        // Construir linhas A/B com Delta e Status
         const abRows = [];
         
-        const addABRow = (label, userVal, refVal, unit = '', dataMetric = '') => {
+        const addABRow = (label, userVal, refVal, unit = '', dataMetric = '', tolerance = 0.5) => {
             const dataAttr = dataMetric ? ` data-metric="${dataMetric}"` : '';
+            
+            // Calcular diferença (Faixa 1 - Faixa 2)
+            let delta = null;
+            let deltaText = '—';
+            
+            if (Number.isFinite(userVal) && Number.isFinite(refVal)) {
+                delta = userVal - refVal;
+                const sign = delta > 0 ? '+' : '';
+                deltaText = `${sign}${nf(delta)}${unit}`;
+            }
+            
+            // Obter status e classe CSS
+            const status = getStatusAndColor(delta, tolerance);
+            
             abRows.push(`<tr${dataAttr}>
-                <td style="font-weight:500;">${label}</td>
-                <td class="ab-user"${dataAttr}>${Number.isFinite(userVal) ? nf(userVal) + unit : '—'}</td>
-                <td class="ab-ref"${dataAttr}>${Number.isFinite(refVal) ? nf(refVal) + unit : '—'}</td>
+                <td class="metric-name" style="font-weight:500; text-align:left; padding-left:12px;">${label}</td>
+                <td class="ab-user"${dataAttr} style="text-align:center; font-family:'Courier New',monospace; font-weight:600;">${Number.isFinite(userVal) ? nf(userVal) + unit : '—'}</td>
+                <td class="ab-ref"${dataAttr} style="text-align:center; font-family:'Courier New',monospace; font-weight:600;">${Number.isFinite(refVal) ? nf(refVal) + unit : '—'}</td>
+                <td class="delta-col" style="text-align:center; font-weight:600; font-family:'Courier New',monospace;">${deltaText}</td>
+                <td class="status-col ${status.class}" style="text-align:center; padding:8px;">
+                    <div class="diff-cell-content">
+                        <div class="diff-value">${status.icon}</div>
+                        <div class="diff-status">${status.text}</div>
+                    </div>
+                </td>
             </tr>`);
         };
         
         // ===== MÉTRICAS PRINCIPAIS =====
-        addABRow('Loudness (LUFS)', userTech.lufsIntegrated, refTech.lufsIntegrated, ' LUFS', 'lufs');
-        addABRow('True Peak (dBTP)', userTech.truePeakDbtp, refTech.truePeakDbtp, ' dBTP', 'truepeak');
-        addABRow('Dynamic Range (LU)', userTech.dynamicRange, refTech.dynamicRange, ' LU', 'dr');
-        addABRow('LRA (LU)', userTech.lra, refTech.lra, ' LU', 'lra');
-        addABRow('Stereo Corr.', userTech.stereoCorrelation, refTech.stereoCorrelation, '', 'stereo');
+        addABRow('Loudness (LUFS)', userTech.lufsIntegrated, refTech.lufsIntegrated, ' LUFS', 'lufs', 0.5);
+        addABRow('True Peak (dBTP)', userTech.truePeakDbtp, refTech.truePeakDbtp, ' dBTP', 'truepeak', 0.3);
+        addABRow('Dynamic Range (LU)', userTech.dynamicRange, refTech.dynamicRange, ' LU', 'dr', 1.0);
+        addABRow('LRA (LU)', userTech.lra, refTech.lra, ' LU', 'lra', 1.0);
+        addABRow('Stereo Corr.', userTech.stereoCorrelation, refTech.stereoCorrelation, '', 'stereo', 0.08);
         
         // ===== BANDAS ESPECTRAIS =====
         const userBands = userTech.spectral_balance || {};
@@ -11642,7 +11696,7 @@ function renderReferenceComparisons(ctx) {
             const userVal = userBands[key]?.energy_db ?? userBands[key]?.percentage ?? userBands[key];
             const refVal = refBands[key]?.energy_db ?? refBands[key]?.percentage ?? refBands[key];
             if (Number.isFinite(userVal) || Number.isFinite(refVal)) {
-                addABRow(name, userVal, refVal, ' dB', `band-${key}`);
+                addABRow(name, userVal, refVal, ' dB', `band-${key}`, 1.0);
             }
         });
         
@@ -11652,25 +11706,50 @@ function renderReferenceComparisons(ctx) {
         
         abTableHTML = `<div class="card" style="margin-top:12px;">
             <div class="card-title">🎵 COMPARAÇÃO A/B ENTRE FAIXAS</div>
-            <div style="padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 12px;">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                    <div>
-                        <div style="font-size: 11px; opacity: 0.7; margin-bottom: 4px;">FAIXA 1 (SUA MÚSICA)</div>
-                        <div style="font-weight: 600; font-size: 14px;">${userName}</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 11px; opacity: 0.7; margin-bottom: 4px;">FAIXA 2 (REFERÊNCIA)</div>
-                        <div style="font-weight: 600; font-size: 14px;">${refName}</div>
-                    </div>
+            
+            <!-- Header com nomes das faixas -->
+            <div class="ab-header" style="
+                display: grid; 
+                grid-template-columns: 1fr 1fr; 
+                gap: 16px; 
+                padding: 16px; 
+                background: linear-gradient(135deg, rgba(82, 247, 173, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
+                border-radius: 12px; 
+                margin-bottom: 16px;
+                border: 1px solid rgba(82, 247, 173, 0.1);
+            ">
+                <div class="track-name user-track" style="
+                    padding: 12px;
+                    background: rgba(82, 247, 173, 0.08);
+                    border-radius: 8px;
+                    border-left: 3px solid #52f7ad;
+                ">
+                    <div style="font-size: 10px; opacity: 0.7; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">🎧 Faixa 1 (Sua Música)</div>
+                    <div style="font-weight: 600; font-size: 13px; line-height: 1.4; word-break: break-word;">${userName}</div>
+                </div>
+                <div class="track-name ref-track" style="
+                    padding: 12px;
+                    background: rgba(255, 206, 77, 0.08);
+                    border-radius: 8px;
+                    border-left: 3px solid #ffce4d;
+                ">
+                    <div style="font-size: 10px; opacity: 0.7; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">🎚️ Faixa 2 (Referência)</div>
+                    <div style="font-weight: 600; font-size: 13px; line-height: 1.4; word-break: break-word;">${refName}</div>
                 </div>
             </div>
-            <table class="ref-compare-table ab-compare-table">
-                <thead><tr>
-                    <th>Métrica</th>
-                    <th class="ab-user-header">Faixa 1</th>
-                    <th class="ab-ref-header">Faixa 2</th>
-                </tr></thead>
-                <tbody>${abRows.join('')}</tbody>
+            
+            <!-- Tabela de comparação -->
+            <table class="ref-compare-table ab-compare-table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: rgba(255,255,255,0.05); border-bottom: 2px solid rgba(82, 247, 173, 0.2);">
+                        <th style="padding: 12px 8px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Métrica</th>
+                        <th class="ab-user-header" style="padding: 12px 8px; text-align: center; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; color: #52f7ad;">Faixa 1</th>
+                        <th class="ab-ref-header" style="padding: 12px 8px; text-align: center; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; color: #ffce4d;">Faixa 2</th>
+                        <th style="padding: 12px 8px; text-align: center; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Δ (Diferença)</th>
+                        <th style="padding: 12px 8px; text-align: center; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="ab-comparison-body">${abRows.join('')}</tbody>
             </table>
         </div>`;
         

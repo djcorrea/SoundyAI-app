@@ -167,10 +167,113 @@
 /* Animações suaves */
 .ref-compare-table td {
     transition: all 0.2s ease;
+    padding: 10px 8px;
+    text-align: center;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .ref-compare-table tbody tr:hover td {
     background: rgba(255, 255, 255, 0.08);
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* 🎯 Estilos específicos para tabela A/B */
+.ab-compare-table {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.ab-compare-table thead th {
+    background: rgba(255, 255, 255, 0.05);
+    border-bottom: 2px solid rgba(82, 247, 173, 0.2);
+    padding: 12px 8px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 600;
+}
+
+.ab-compare-table .metric-name {
+    text-align: left;
+    font-weight: 500;
+    padding-left: 12px;
+}
+
+.ab-compare-table .ab-user,
+.ab-compare-table .ab-ref {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.ab-compare-table .delta-col {
+    font-family: 'Courier New', monospace;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.ab-compare-table .status-col {
+    min-width: 100px;
+}
+
+/* Headers coloridos */
+.ab-user-header {
+    color: #52f7ad !important;
+}
+
+.ab-ref-header {
+    color: #ffce4d !important;
+}
+
+/* Track names no header */
+.ab-header {
+    animation: fadeInUp 0.4s ease-out;
+}
+
+.track-name {
+    transition: all 0.3s ease;
+}
+
+.track-name:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsividade mobile */
+@media (max-width: 768px) {
+    .ab-header {
+        grid-template-columns: 1fr !important;
+        gap: 12px !important;
+    }
+    
+    .ab-compare-table {
+        font-size: 11px;
+    }
+    
+    .ab-compare-table th,
+    .ab-compare-table td {
+        padding: 8px 4px;
+    }
+    
+    .ab-compare-table .metric-name {
+        font-size: 11px;
+    }
+    
+    .diff-status {
+        font-size: 8px !important;
+    }
 }
