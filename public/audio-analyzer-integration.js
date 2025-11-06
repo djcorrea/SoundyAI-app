@@ -16181,7 +16181,18 @@ if (typeof window !== 'undefined') {
     }
     
     // 💡 SUGESTÕES - Garantir algumas sugestões básicas - APENAS SE VALORES EXISTEM
+    console.log('[SUGGESTIONS-GEN] 🔍 Verificando geração de sugestões básicas...');
+    console.log('[SUGGESTIONS-GEN] normalized.suggestions.length =', normalized.suggestions.length);
+    console.log('[SUGGESTIONS-GEN] Métricas disponíveis:', {
+        dynamicRange: tech.dynamicRange,
+        stereoCorrelation: tech.stereoCorrelation,
+        lufsIntegrated: tech.lufsIntegrated,
+        truePeakDbtp: tech.truePeakDbtp
+    });
+    
     if (normalized.suggestions.length === 0) {
+        console.log('[SUGGESTIONS-GEN] ⚠️ Nenhuma sugestão do backend - gerando sugestões básicas...');
+        
         if (Number.isFinite(tech.dynamicRange) && tech.dynamicRange < 8) {
             normalized.suggestions.push({
                 type: 'dynamics',
@@ -16189,6 +16200,7 @@ if (typeof window !== 'undefined') {
                 action: 'Considerar reduzir compressão/limitação',
                 details: `DR atual: ${tech.dynamicRange.toFixed(1)}dB`
             });
+            console.log('[SUGGESTIONS-GEN] ✅ Sugestão de DR adicionada');
         }
         
         if (Number.isFinite(tech.stereoCorrelation) && tech.stereoCorrelation > 0.9) {
@@ -16198,6 +16210,7 @@ if (typeof window !== 'undefined') {
                 action: 'Aumentar espacialização estéreo',
                 details: `Correlação: ${tech.stereoCorrelation.toFixed(3)}`
             });
+            console.log('[SUGGESTIONS-GEN] ✅ Sugestão de correlação estéreo adicionada');
         }
         
         if (Number.isFinite(tech.lufsIntegrated) && tech.lufsIntegrated < -30) {
@@ -16207,6 +16220,52 @@ if (typeof window !== 'undefined') {
                 action: 'Aumentar volume geral',
                 details: `LUFS atual: ${tech.lufsIntegrated.toFixed(1)}`
             });
+            console.log('[SUGGESTIONS-GEN] ✅ Sugestão de loudness baixo adicionada');
+        }
+        
+        // 🆕 NOVAS SUGESTÕES BASEADAS EM MÉTRICAS COMUNS
+        if (Number.isFinite(tech.truePeakDbtp) && tech.truePeakDbtp > -1.0) {
+            normalized.suggestions.push({
+                type: 'true_peak',
+                message: 'True Peak muito próximo de 0 dBFS',
+                action: 'Reduzir True Peak para -1.0 dBTP para evitar clipping em conversões',
+                details: `True Peak atual: ${tech.truePeakDbtp.toFixed(2)} dBTP`
+            });
+            console.log('[SUGGESTIONS-GEN] ✅ Sugestão de True Peak adicionada');
+        }
+        
+        if (Number.isFinite(tech.lra) && tech.lra < 3) {
+            normalized.suggestions.push({
+                type: 'lra',
+                message: 'Loudness Range (LRA) muito baixo',
+                action: 'Mix muito comprimido - considerar reduzir compressão para mais dinâmica',
+                details: `LRA atual: ${tech.lra.toFixed(1)} LU`
+            });
+            console.log('[SUGGESTIONS-GEN] ✅ Sugestão de LRA adicionada');
+        }
+        
+        // Sugestões baseadas em bandas de frequência (se disponíveis)
+        if (tech.spectral_balance || tech.bandEnergies) {
+            const bands = tech.spectral_balance || tech.bandEnergies;
+            if (bands.bass != null && bands.bass < -6) {
+                normalized.suggestions.push({
+                    type: 'frequency_bass',
+                    message: 'Pouca energia em graves (bass)',
+                    action: 'Considerar aumentar frequências baixas (60-250 Hz)',
+                    details: `Bass: ${bands.bass.toFixed(1)} dB`
+                });
+                console.log('[SUGGESTIONS-GEN] ✅ Sugestão de bass baixo adicionada');
+            }
+            
+            if (bands.presence != null && bands.presence < -8) {
+                normalized.suggestions.push({
+                    type: 'frequency_presence',
+                    message: 'Pouca energia em presença (presence)',
+                    action: 'Aumentar clareza vocal e definição (2-6 kHz)',
+                    details: `Presence: ${bands.presence.toFixed(1)} dB`
+                });
+                console.log('[SUGGESTIONS-GEN] ✅ Sugestão de presence baixo adicionada');
+            }
         }
         
         // Sugestões baseadas nas novas métricas
@@ -16219,6 +16278,7 @@ if (typeof window !== 'undefined') {
                     action: 'Considerar equalização para melhor balanceamento',
                     details: `Uniformidade: ${uniformity.toFixed(3)}, ${tech.spectralUniformity.detailed.distribution || 'Análise pendente'}`
                 });
+                console.log('[SUGGESTIONS-GEN] ✅ Sugestão de uniformidade espectral adicionada');
             }
         }
         
@@ -16232,6 +16292,7 @@ if (typeof window !== 'undefined') {
                         action: 'Verificar filtro high-pass ou conteúdo sub-bass excessivo',
                         details: `Freq. primária: ${primary.toFixed(1)} Hz`
                     });
+                    console.log('[SUGGESTIONS-GEN] ✅ Sugestão de frequência baixa adicionada');
                 } else if (primary > 8000) {
                     normalized.suggestions.push({
                         type: 'frequency_focus',
@@ -16239,9 +16300,25 @@ if (typeof window !== 'undefined') {
                         action: 'Verificar conteúdo excessivo de agudos',
                         details: `Freq. primária: ${primary.toFixed(1)} Hz`
                     });
+                    console.log('[SUGGESTIONS-GEN] ✅ Sugestão de frequência alta adicionada');
                 }
             }
         }
+        
+        // 🚨 FALLBACK CRÍTICO: Sempre ter pelo menos uma sugestão
+        if (normalized.suggestions.length === 0) {
+            console.warn('[SUGGESTIONS-GEN] ⚠️ Nenhuma sugestão gerada - criando fallback genérico');
+            normalized.suggestions.push({
+                type: 'general',
+                message: 'Análise completa realizada',
+                action: 'Suas métricas de áudio foram analisadas com sucesso',
+                details: 'Revise os cards de métricas acima para mais detalhes'
+            });
+        }
+        
+        console.log('[SUGGESTIONS-GEN] ✅ Total de sugestões geradas:', normalized.suggestions.length);
+    } else {
+        console.log('[SUGGESTIONS-GEN] ✅ Backend enviou', normalized.suggestions.length, 'sugestões');
     }
     
     console.log('✅ [NORMALIZE] Normalização concluída:', {

@@ -184,7 +184,20 @@ class AISuggestionUIController {
         if (!analysis || !analysis.suggestions) {
             console.warn('[AI-SUGGESTIONS] ⚠️ Nenhuma sugestão encontrada no analysis');
             console.warn('[AI-SUGGESTIONS] analysis:', analysis);
-            return;
+            
+            // 🚨 FALLBACK: Criar sugestão genérica se não houver nenhuma
+            if (analysis && !analysis.suggestions) {
+                console.log('[AI-SUGGESTIONS] 🆘 Criando sugestão fallback genérica');
+                analysis.suggestions = [{
+                    type: 'general',
+                    message: 'Análise completa realizada',
+                    action: 'Suas métricas de áudio foram analisadas com sucesso',
+                    details: 'Revise os cards de métricas acima para mais detalhes',
+                    priority: 5
+                }];
+            } else {
+                return;
+            }
         }
         
         // Verificar se há sugestões enriquecidas com IA
@@ -205,8 +218,9 @@ class AISuggestionUIController {
                 console.log(`[AI-SUGGESTIONS] 🤖 Exibindo ${analysis.suggestions.length} sugestões base (IA não configurada)`);
                 this.displayBaseSuggestions(analysis.suggestions, analysis);
             } else {
-                console.warn('[AI-SUGGESTIONS] ⚠️ Nenhuma sugestão para exibir - escondendo seção');
-                this.hideAISection();
+                console.warn('[AI-SUGGESTIONS] ⚠️ Nenhuma sugestão para exibir - mas não escondendo seção');
+                // 🆕 NÃO ESCONDER: Exibir mensagem amigável em vez de esconder
+                this.displayEmptySuggestionsState();
             }
         }
     }
@@ -625,6 +639,50 @@ class AISuggestionUIController {
         if (this.elements.aiSection) {
             this.elements.aiSection.style.display = 'none';
         }
+    }
+    
+    /**
+     * 📭 Exibir estado vazio com mensagem amigável
+     */
+    displayEmptySuggestionsState() {
+        console.log('[AI-SUGGESTIONS] 📭 Exibindo estado vazio com mensagem amigável');
+        
+        if (!this.elements.aiSection || !this.elements.aiContent) {
+            console.error('[AI-SUGGESTIONS] ❌ Elementos DOM não encontrados para estado vazio');
+            return;
+        }
+        
+        // Esconder loading
+        if (this.elements.aiLoading) {
+            this.elements.aiLoading.style.display = 'none';
+        }
+        
+        // Mostrar seção
+        this.elements.aiSection.style.display = 'block';
+        this.elements.aiContent.style.display = 'block';
+        
+        // Renderizar mensagem amigável
+        this.elements.aiContent.innerHTML = `
+            <div class="ai-empty-state" style="
+                padding: 30px;
+                text-align: center;
+                background: rgba(255, 255, 255, 0.03);
+                border-radius: 8px;
+                border: 1px dashed rgba(255, 255, 255, 0.1);
+            ">
+                <div style="font-size: 48px; margin-bottom: 15px;">✨</div>
+                <h3 style="color: #52f7ad; margin-bottom: 10px;">Análise Completa</h3>
+                <p style="color: #aaa; margin-bottom: 20px;">
+                    Suas métricas de áudio foram analisadas com sucesso.<br>
+                    Revise os cards de métricas acima para detalhes técnicos.
+                </p>
+                <div style="font-size: 12px; color: #666; margin-top: 20px;">
+                    💡 Configure uma API Key da OpenAI para receber sugestões inteligentes personalizadas
+                </div>
+            </div>
+        `;
+        
+        console.log('[AI-SUGGESTIONS] ✅ Estado vazio renderizado');
     }
     
     /**
