@@ -356,6 +356,11 @@ class AISuggestionsIntegration {
             this.updateStats(finalSuggestions.length, processingTime, 'ai');
             this.hideFallbackNotice();
             
+            // ✅ CORRIGIDO: RETORNAR SUGESTÕES ENRIQUECIDAS
+            console.log('[AI-GENERATION] ✅ Retornando sugestões enriquecidas:', finalSuggestions.length);
+            console.log('[AI-GENERATION] Sample merged:', finalSuggestions[0]);
+            return finalSuggestions;
+            
         } catch (error) {
             console.error('❌ [AI-INTEGRATION] Erro crítico no processamento:', error);
             
@@ -365,7 +370,9 @@ class AISuggestionsIntegration {
                 this.updateStatus('error', 'Payload inválido');
                 this.displayEmptyState('Erro no formato dos dados. Tente analisar novamente.');
                 this.showFallbackNotice('Erro interno detectado. Recarregue a página.');
-                return;
+                // ✅ CORRIGIDO: RETORNAR SUGESTÕES BÁSICAS EM ERRO CRÍTICO
+                console.warn('[AI-GENERATION] ⚠️ Retornando sugestões básicas (payload inválido)');
+                return suggestions;
             }
             
             // Se der erro, tentar retry apenas para erros de conexão
@@ -389,6 +396,10 @@ class AISuggestionsIntegration {
             this.updateStatus('error', 'Sistema de IA indisponível');
             this.displayEmptyState('Sistema de sugestões inteligentes temporariamente indisponível');
             this.showFallbackNotice('IA temporariamente indisponível. Tente novamente em alguns minutos.');
+            
+            // ✅ CORRIGIDO: RETORNAR SUGESTÕES BÁSICAS EM CASO DE FALHA TOTAL
+            console.warn('[AI-GENERATION] ⚠️ Retornando sugestões básicas (falha total da IA)');
+            return suggestions;
             
         } finally {
             this.setLoadingState(false);
@@ -1568,10 +1579,37 @@ class AISuggestionsIntegration {
                             const metrics = fullAnalysis.technicalData || {};
                             
                             console.log('🔗 [AI-INTEGRATION] Processando sugestões (modo:', fullAnalysis.mode, ')');
-                            setTimeout(() => {
+                            setTimeout(async () => {
                                 // Verificar se this.processWithAI existe (contexto pode estar perdido)
                                 if (window.aiSuggestionsSystem && typeof window.aiSuggestionsSystem.processWithAI === 'function') {
-                                    window.aiSuggestionsSystem.processWithAI(fullAnalysis.suggestions, metrics, genre);
+                                    console.log('[AI-GENERATION] 🚀 Chamando processWithAI...');
+                                    
+                                    // ✅ CORRIGIDO: AGUARDAR e CAPTURAR resultado
+                                    const enrichedSuggestions = await window.aiSuggestionsSystem.processWithAI(
+                                        fullAnalysis.suggestions, 
+                                        metrics, 
+                                        genre
+                                    );
+                                    
+                                    // ✅ CORRIGIDO: ATRIBUIR resultado a analysis
+                                    if (enrichedSuggestions && enrichedSuggestions.length > 0) {
+                                        fullAnalysis.aiSuggestions = enrichedSuggestions;
+                                        fullAnalysis.suggestions = enrichedSuggestions;
+                                        
+                                        console.log('[AI-GENERATION] ✅ Sugestões atribuídas:', {
+                                            aiSuggestionsLength: fullAnalysis.aiSuggestions.length,
+                                            suggestionsLength: fullAnalysis.suggestions.length,
+                                            sample: fullAnalysis.aiSuggestions[0]
+                                        });
+                                        
+                                        // ✅ Forçar re-check com sugestões atualizadas
+                                        if (window.aiUIController) {
+                                            console.log('[AI-GENERATION] 🔄 Re-chamando checkForAISuggestions com sugestões enriquecidas');
+                                            window.aiUIController.checkForAISuggestions(fullAnalysis, true);
+                                        }
+                                    } else {
+                                        console.warn('[AI-GENERATION] ⚠️ Nenhuma sugestão enriquecida retornada');
+                                    }
                                 }
                             }, 100);
                         }
