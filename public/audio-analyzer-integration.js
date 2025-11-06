@@ -6559,6 +6559,23 @@ async function displayModalResults(analysis) {
             renderRefAnalysis = frozenCurr;
         }
         
+        // 🎯 [METRICS-DEBUG] LOG CRÍTICO DAS MÉTRICAS ANTES DE RENDERIZAR
+        console.group('🎯 [METRICS-DEBUG] Métricas ANTES de renderReferenceComparisons');
+        console.table({
+            'User LUFS': renderUserAnalysis?.technicalData?.lufsIntegrated,
+            'Ref LUFS': renderRefAnalysis?.technicalData?.lufsIntegrated,
+            'User DR': renderUserAnalysis?.technicalData?.dynamicRange,
+            'Ref DR': renderRefAnalysis?.technicalData?.dynamicRange,
+            'User TruePeak': renderUserAnalysis?.technicalData?.truePeakDbtp,
+            'Ref TruePeak': renderRefAnalysis?.technicalData?.truePeakDbtp,
+            'User JobId': renderUserAnalysis?.jobId,
+            'Ref JobId': renderRefAnalysis?.jobId,
+            'User File': renderUserAnalysis?.fileName || renderUserAnalysis?.metadata?.fileName,
+            'Ref File': renderRefAnalysis?.fileName || renderRefAnalysis?.metadata?.fileName
+        });
+        console.log('✅ [METRICS-DEBUG] Se os valores acima forem IGUAIS, há contaminação!');
+        console.groupEnd();
+        
         renderReferenceComparisons({
             mode: 'reference',
             userAnalysis: renderUserAnalysis,        // 1ª faixa (sua música) - CLONE INDEPENDENTE
@@ -9609,9 +9626,45 @@ function renderReferenceComparisons(ctx) {
         refJobId: refFromStore?.jobId
     });
     
-    // Usar as faixas do store (com VIDs) em vez das globais
-    opts.userAnalysis = userFromStore;
-    opts.referenceAnalysis = refFromStore;
+    // 🎯 [STORE-PRIORITY-FIX] PRIORIDADE ABSOLUTA: SoundyAI_Store > FirstAnalysisStore
+    console.log('🎯 [STORE-PRIORITY-FIX] Verificando prioridade de fonte de dados...');
+    
+    // Verificar se SoundyAI_Store tem ambas análises
+    const storeHasBoth = window.SoundyAI_Store?.first && window.SoundyAI_Store?.second;
+    
+    let finalUserAnalysis, finalReferenceAnalysis;
+    
+    if (storeHasBoth) {
+        console.log('✅ [STORE-PRIORITY-FIX] Usando SoundyAI_Store (prioridade máxima)');
+        finalUserAnalysis = window.SoundyAI_Store.first;
+        finalReferenceAnalysis = window.SoundyAI_Store.second;
+        
+        console.table({
+            'Fonte': 'SoundyAI_Store',
+            'User JobId': finalUserAnalysis?.jobId,
+            'Ref JobId': finalReferenceAnalysis?.jobId,
+            'User LUFS': finalUserAnalysis?.technicalData?.lufsIntegrated,
+            'Ref LUFS': finalReferenceAnalysis?.technicalData?.lufsIntegrated,
+            'User DR': finalUserAnalysis?.technicalData?.dynamicRange,
+            'Ref DR': finalReferenceAnalysis?.technicalData?.dynamicRange,
+            'User TruePeak': finalUserAnalysis?.technicalData?.truePeakDbtp,
+            'Ref TruePeak': finalReferenceAnalysis?.technicalData?.truePeakDbtp
+        });
+    } else {
+        console.warn('⚠️ [STORE-PRIORITY-FIX] SoundyAI_Store incompleto, usando FirstAnalysisStore (fallback)');
+        finalUserAnalysis = userFromStore;
+        finalReferenceAnalysis = refFromStore;
+        
+        console.table({
+            'Fonte': 'FirstAnalysisStore (fallback)',
+            'User JobId': finalUserAnalysis?.jobId,
+            'Ref JobId': finalReferenceAnalysis?.jobId
+        });
+    }
+    
+    // Usar as faixas priorizadas (SoundyAI_Store > FirstAnalysisStore)
+    opts.userAnalysis = finalUserAnalysis;
+    opts.referenceAnalysis = finalReferenceAnalysis;
     
     // ========================================
     // 🔧 DETECÇÃO SEGURA DE SELF-COMPARE (APÓS AB-SAFETY)
