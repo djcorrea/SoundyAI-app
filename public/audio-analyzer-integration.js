@@ -3589,82 +3589,26 @@ async function handleModalFileSelection(file) {
             __dbg('🎯 Primeira música analisada - abrindo modal para segunda');
             
             // ========================================
-            // 🔒 SALVAR PRIMEIRA ANÁLISE COM VIRTUAL ID
+            // ✅ SOLUÇÃO DEFINITIVA: ARMAZENAMENTO ISOLADO TOTAL
             // ========================================
-            // Usar cacheResultByRole para criar VID e salvar com papel USER
-            const { vid: userVid, clone: userClone } = cacheResultByRole(analysisResult, { isSecondTrack: false });
+            console.log('[STORE-SAVE] 💾 Salvando PRIMEIRA análise no store isolado');
             
-            // 💾 SALVAR NO STORE ISOLADO (fonte de verdade principal)
-            saveFirstAnalysis(userClone || analysisResult);
+            // Salvar primeira análise no store isolado (deep clone automático)
+            saveFirstAnalysis(analysisResult);
             
-            // Atualizar normalizedFirst para uso nos logs e modal
-            if (!normalizedFirst && userClone) {
-                normalizedFirst = userClone;
-                window.__FIRST_ANALYSIS_FROZEN__ = structuredClone(normalizedFirst); // Mantido para compatibilidade
-                console.log('[SCOPE] ✅ normalizedFirst inicializado com userClone');
-            }
+            // Atualizar window.referenceAnalysis (fonte de verdade única)
+            window.referenceAnalysis = structuredClone(analysisResult);
             
-            if (!window.FirstAnalysisStore?.has()) {
-                // Salvar como USER no FirstAnalysisStore
-                FirstAnalysisStore.setUser(userClone, userVid, analysisResult.jobId);
-                window.__REFERENCE_JOB_ID__ = analysisResult.jobId;
-                
-                console.log('[A/B] 🧊 primeira faixa salva com VID', {
-                    vid: userVid,
-                    jobId: analysisResult.jobId, 
-                    file: userClone?.fileName || userClone?.metadata?.fileName,
-                    role: 'USER'
-                });
-            }
+            console.log('[STORE-SAVE] ✅ Primeira análise salva com sucesso');
+            console.log('   - JobId:', window.referenceAnalysis?.jobId);
+            console.log('   - FileName:', window.referenceAnalysis?.fileName || window.referenceAnalysis?.metadata?.fileName);
+            console.log('   - LUFS:', window.referenceAnalysis?.technicalData?.lufsIntegrated);
             
-            // 🔍 AUDITORIA: Estado APÓS salvar primeira análise
-            console.groupCollapsed('[AUDITORIA_STATE_FLOW] 💾 Primeira Análise SALVA');
-            console.log('⚙️ Contexto: Salvamento da primeira faixa');
-            console.log('📊 analysisResult (original):', {
-                jobId: analysisResult?.jobId,
-                fileName: analysisResult?.metadata?.fileName || analysisResult?.fileName,
-                lufs: analysisResult?.technicalData?.lufsIntegrated,
-                objectId: analysisResult
-            });
-            const storedFirst = FirstAnalysisStore.get();
-            console.log('🔒 FirstAnalysisStore (clone):', {
-                jobId: storedFirst?.jobId,
-                fileName: storedFirst?.metadata?.fileName || storedFirst?.fileName,
-                lufs: storedFirst?.technicalData?.lufsIntegrated,
-                sameAsOriginal: false // sempre retorna clone
-            });
-            console.log('💡 Verificação de isolamento:');
-            console.log('  FirstAnalysisStore.get() !== analysisResult?', storedFirst !== analysisResult);
-            console.log('  FirstAnalysisStore retorna clones:', true);
-            console.groupEnd();
-            
-            // ========================================
-            // 🛡️ VALIDAÇÃO: Garantir que normalizedFirst existe
-            // ========================================
-            if (!normalizedFirst) {
-                console.warn('[WARN] normalizedFirst ausente — usando fallback do FirstAnalysisStore.');
-                normalizedFirst = structuredClone(FirstAnalysisStore.getUser() || {});
-            }
-            
-            console.log('[REF-SAVE ✅] ═══════════════════════════════════════');
-            console.log('[REF-SAVE ✅] Primeira música processada com sucesso!');
-            console.log(`[REF-SAVE ✅] Job ID salvo globalmente: ${normalizedFirst?.jobId || 'unknown'}`);
-            console.log('[REF-SAVE ✅] Locais de salvamento:');
-            console.log('[REF-SAVE ✅]   - window.__REFERENCE_JOB_ID__');
-            console.log('[REF-SAVE ✅]   - localStorage.referenceJobId');
-            console.log('[REF-SAVE ✅]   - window.AnalysisCache (imutável)');
-            console.log('[REF-SAVE ✅]   - window.FirstAnalysisStore (imutável + clonagem automática)');
-            console.log(`[REF-SAVE ✅] File Name: ${normalizedFirst?.metadata?.fileName || normalizedFirst?.fileName || 'unknown'}`);
-            console.log(`[REF-SAVE ✅] LUFS: ${normalizedFirst?.technicalData?.lufsIntegrated || 'N/A'} LUFS`);
-            console.log(`[REF-SAVE ✅] DR: ${normalizedFirst?.technicalData?.dynamicRange || 'N/A'} dB`);
-            console.log('[REF-SAVE ✅] Este ID será usado na segunda música');
-            console.log('[REF-SAVE ✅] Primeira análise salva e congelada.');
-            console.log('[REF-SAVE ✅] ═══════════════════════════════════════');
-            
-            if (normalizedFirst && normalizedFirst.jobId) {
-                openReferenceUploadModal(normalizedFirst.jobId, normalizedFirst);
+            // Abrir modal para segunda música
+            if (window.referenceAnalysis && window.referenceAnalysis.jobId) {
+                openReferenceUploadModal(window.referenceAnalysis.jobId, window.referenceAnalysis);
             } else {
-                console.error('[ERROR] ❌ Não foi possível abrir modal: normalizedFirst inválido');
+                console.error('[ERROR] ❌ Não foi possível abrir modal: referenceAnalysis inválido');
             }
         } else if (isSecondTrack) {
             // 🔥 FORÇAR: Se tem jobId de referência, SEMPRE tratar como segunda track
@@ -3675,251 +3619,70 @@ async function handleModalFileSelection(file) {
             console.log('🟢 [FORCE] window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
             console.log('🟢 [FORCE] IGNORANDO jobMode - usando APENAS isSecondTrack como critério');
             console.log('🟢🟢🟢 [SEGUNDA-TRACK-DETECTADA-FORCE] ════════════════════════════════════');
-            // SEGUNDA música em modo reference: mostrar resultado comparativo
             console.log('🟢 [SEGUNDA-TRACK] ✅ Sistema ENTROU no bloco de segunda track!');
-            console.log('🟢 [SEGUNDA-TRACK] jobMode:', jobMode);
-            console.log('🟢 [SEGUNDA-TRACK] currentAnalysisMode:', currentAnalysisMode);
-            console.log('🟢 [SEGUNDA-TRACK] isSecondTrack:', isSecondTrack);
-            console.log('🟢 [SEGUNDA-TRACK] window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
-            console.log('🟢 [SEGUNDA-TRACK] analysisResult.jobId:', analysisResult?.jobId);
-            console.log('🟢 [SEGUNDA-TRACK] Aguardando processamento... (se não aparecer erro abaixo, fluxo está correto)');
-            console.log('🟢🟢🟢 [SEGUNDA-TRACK-DETECTADA] ════════════════════════════════════');
-            console.log('🎯 [COMPARE-MODE] Segunda música analisada - exibindo comparação entre faixas');
-            console.log('✅ [COMPARE-MODE] Tabela comparativa será exibida');
-            console.log(`✅ [COMPARE-MODE] jobMode: ${jobMode}, currentMode: ${currentAnalysisMode}, isSecond: ${isSecondTrack}`);
-            __dbg('🎯 Segunda música analisada - exibindo resultado comparativo');
+            console.log('🟢 [SEGUNDA-TRACK] Aguardando processamento...');
             
             // ========================================
-            // 🔒 SALVAR SEGUNDA ANÁLISE COM VIRTUAL ID
+            // ✅ SOLUÇÃO DEFINITIVA: ARMAZENAMENTO ISOLADO TOTAL
             // ========================================
-            // Usar cacheResultByRole para criar VID e salvar com papel REF
-            const { vid: refVid, clone: refClone } = cacheResultByRole(analysisResult, { isSecondTrack: true });
+            console.log('[STORE-SAVE] 💾 Salvando SEGUNDA análise no store isolado');
             
-            // 💾 SALVAR NO STORE ISOLADO (fonte de verdade principal)
-            saveSecondAnalysis(refClone || analysisResult);
+            // Salvar segunda análise no store isolado (deep clone automático)
+            saveSecondAnalysis(analysisResult);
             
-            // Salvar como REF no FirstAnalysisStore (mantido para compatibilidade)
-            FirstAnalysisStore.setRef(refClone, refVid, analysisResult.jobId);
+            // Atualizar window.currentAnalysis (fonte de verdade única)
+            window.currentAnalysis = structuredClone(analysisResult);
             
-            console.log('[A/B] 🧊 segunda faixa salva com VID', {
-                vid: refVid,
-                jobId: analysisResult.jobId,
-                file: refClone?.fileName || refClone?.metadata?.fileName,
-                role: 'REF'
+            console.log('[STORE-SAVE] ✅ Segunda análise salva com sucesso');
+            console.log('   - JobId:', window.currentAnalysis?.jobId);
+            console.log('   - FileName:', window.currentAnalysis?.fileName || window.currentAnalysis?.metadata?.fileName);
+            console.log('   - LUFS:', window.currentAnalysis?.technicalData?.lufsIntegrated);
+            
+            // ========================================
+            // ✅ VALIDAÇÃO CRÍTICA: Prevenir self-compare
+            // ========================================
+            console.log('[ASSERT_REF_FLOW] 🔍 Validando se faixas são diferentes...');
+            
+            const refJobId = window.referenceAnalysis?.jobId;
+            const currJobId = window.currentAnalysis?.jobId;
+            const refFileName = window.referenceAnalysis?.fileName || window.referenceAnalysis?.metadata?.fileName;
+            const currFileName = window.currentAnalysis?.fileName || window.currentAnalysis?.metadata?.fileName;
+            
+            console.table({
+                referenceJobId: refJobId,
+                currentJobId: currJobId,
+                referenceFileName: refFileName,
+                currentFileName: currFileName,
+                sameJobId: refJobId === currJobId,
+                sameFileName: refFileName === currFileName
             });
             
-            // � AUDITORIA: Estado ANTES de construir estrutura A/B
-            console.groupCollapsed('[AUDITORIA_STATE_FLOW] 🎯 Segunda Análise RECEBIDA');
-            console.log('⚙️ Contexto: Recepção da segunda faixa');
-            console.log('📊 analysisResult (2ª faixa):', {
-                jobId: analysisResult?.jobId,
-                fileName: analysisResult?.metadata?.fileName || analysisResult?.fileName,
-                lufs: analysisResult?.technicalData?.lufsIntegrated,
-                objectId: analysisResult
-            });
-            const frozenFirst = FirstAnalysisStore.get();
-            console.log('🔒 FirstAnalysisStore (1ª faixa congelada):', {
-                jobId: frozenFirst?.jobId,
-                fileName: frozenFirst?.metadata?.fileName,
-                lufs: frozenFirst?.technicalData?.lufsIntegrated
-            });
-            console.log('💾 window.__soundyState.previousAnalysis (1ª faixa):', {
-                jobId: window.__soundyState?.previousAnalysis?.jobId,
-                fileName: window.__soundyState?.previousAnalysis?.metadata?.fileName,
-                lufs: window.__soundyState?.previousAnalysis?.technicalData?.lufsIntegrated,
-                objectId: window.__soundyState?.previousAnalysis
-            });
-            console.log('⚠️ CHECKPOINT CRÍTICO: Verificar se objetos são distintos');
-            console.log('  analysisResult !== previousAnalysis?', analysisResult !== window.__soundyState?.previousAnalysis);
-            console.log('  analysisResult !== FirstAnalysisStore?', analysisResult !== FirstAnalysisStore.get());
-            console.groupEnd();
-            
-            // �🔥 CORREÇÃO CRÍTICA: Primeira música é ATUAL (sua faixa), segunda é REFERÊNCIA (alvo)
-            const state = window.__soundyState || {};
-            
-            // 🧊 PROTEÇÃO ANTIFALSA ATUALIZAÇÃO DA REFERÊNCIA
-            if (state?.render?.mode === 'reference' && window.__FIRST_ANALYSIS_FROZEN__) {
-                console.warn('[STATE-FIX] 🔒 Bloqueando sobrescrita de referência - usando cópia congelada');
-                console.warn('[STATE-FIX]   __FIRST_ANALYSIS_FROZEN__:', window.__FIRST_ANALYSIS_FROZEN__?.fileName || window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName);
-                console.warn('[STATE-FIX]   analysisResult (2ª faixa):', analysisResult?.fileName || analysisResult?.metadata?.fileName);
+            // � VALIDAÇÃO: Bloquear self-compare
+            if (refJobId === currJobId || refFileName === currFileName) {
+                console.error('🚨 [ASSERT_REF_FLOW] SELF-COMPARE DETECTADO!');
+                console.error('   ❌ Mesma música detectada - comparação bloqueada');
+                console.warn('⚠️ Mesma faixa detectada — comparação ignorada.');
                 
-                // Garantir que previousAnalysis aponte para o frozen
-                if (!state.previousAnalysis || state.previousAnalysis.jobId === analysisResult.jobId) {
-                    console.warn('[STATE-FIX] ⚠️ Corrigindo previousAnalysis contaminado');
-                    state.previousAnalysis = JSON.parse(JSON.stringify(window.__FIRST_ANALYSIS_FROZEN__));
-                }
+                // Não renderizar comparação
+                return;
             }
             
-            if (state.previousAnalysis) {
-                // ✅ SEMÂNTICA CORRETA DO FLUXO A/B:
-                // - Primeira faixa (previousAnalysis) = userAnalysis (SUA MÚSICA/ATUAL)
-                // - Segunda faixa (analysisResult) = referenceAnalysis (ALVO/REFERÊNCIA a alcançar)
-                
-                // 🧊 PROTEÇÃO ANTICONTAMINAÇÃO: Deep clone obrigatório
-                console.log('[STATE-FIX] 🔒 Criando deep clones para evitar contaminação de estado');
-                state.userAnalysis = JSON.parse(JSON.stringify(state.previousAnalysis));      // 1ª = sua faixa (atual)
-                state.referenceAnalysis = JSON.parse(JSON.stringify(analysisResult));         // 2ª = faixa de referência (alvo)
-                
-                // 🎯 ESTRUTURA NOVA (CORRETA) COM DEEP CLONE:
-                state.reference = state.reference || {};
-                state.reference.userAnalysis = JSON.parse(JSON.stringify(state.previousAnalysis));    // 1ª faixa (sua música/atual)
-                state.reference.referenceAnalysis = JSON.parse(JSON.stringify(analysisResult));       // 2ª faixa (referência/alvo)
-                state.reference.isSecondTrack = true;
-                state.reference.jobId = analysisResult.jobId || null;
-                
-                console.log('✅ [REFERENCE-A/B-CORRECTED] ═══════════════════════════════════════');
-                console.log('✅ [REFERENCE-A/B-CORRECTED] Atribuição correta A/B:');
-                console.log('✅ [REFERENCE-A/B-CORRECTED]   1ª Faixa (ATUAL/SUA MÚSICA):', state.previousAnalysis.fileName || state.previousAnalysis.metadata?.fileName || '1ª Faixa');
-                console.log('✅ [REFERENCE-A/B-CORRECTED]   2ª Faixa (REFERÊNCIA/ALVO):', analysisResult.fileName || analysisResult.metadata?.fileName || '2ª Faixa');
-                console.log('✅ [REFERENCE-A/B-CORRECTED]   Comparação: SUA MÚSICA vs REFERÊNCIA');
-                console.log('✅ [REFERENCE-A/B-CORRECTED]   Modal mostrará: ESQUERDA=sua música, DIREITA=referência');
-                console.log('✅ [REFERENCE-A/B-CORRECTED]   1ª tem bandas:', !!state.userAnalysis?.technicalData?.spectral_balance);
-                console.log('✅ [REFERENCE-A/B-CORRECTED]   2ª tem bandas:', !!state.referenceAnalysis?.technicalData?.spectral_balance);
-                console.log('✅ [REFERENCE-A/B-CORRECTED] ═══════════════════════════════════════');
-                
-                // 🔍 AUDITORIA: Estado APÓS construir estrutura A/B
-                console.groupCollapsed('[AUDITORIA_STATE_FLOW] 🔧 Estrutura A/B CONSTRUÍDA');
-                console.log('⚙️ Contexto: Estrutura state.reference montada');
-                console.log('📊 state.userAnalysis (1ª faixa - SUA MÚSICA):', {
-                    jobId: state.userAnalysis?.jobId,
-                    fileName: state.userAnalysis?.metadata?.fileName || state.userAnalysis?.fileName,
-                    lufs: state.userAnalysis?.technicalData?.lufsIntegrated,
-                    objectId: state.userAnalysis
-                });
-                console.log('📊 state.referenceAnalysis (2ª faixa - REFERÊNCIA):', {
-                    jobId: state.referenceAnalysis?.jobId,
-                    fileName: state.referenceAnalysis?.metadata?.fileName || state.referenceAnalysis?.fileName,
-                    lufs: state.referenceAnalysis?.technicalData?.lufsIntegrated,
-                    objectId: state.referenceAnalysis
-                });
-                console.log('⚠️ VERIFICAÇÃO DE CONTAMINAÇÃO:');
-                console.log('  state.userAnalysis === state.referenceAnalysis?', state.userAnalysis === state.referenceAnalysis);
-                console.log('  state.userAnalysis === analysisResult?', state.userAnalysis === analysisResult);
-                console.log('  state.userAnalysis === state.previousAnalysis?', state.userAnalysis === state.previousAnalysis);
-                console.log('  state.referenceAnalysis === analysisResult?', state.referenceAnalysis === analysisResult);
-                console.log('💡 Próximo passo: Normalizar analysisResult antes de enviar para displayModalResults');
-                console.groupEnd();
-                
-                // 🎯 LOG AUDIT-MODE-FLOW (conforme solicitado)
-                console.log('[AUDIT-MODE-FLOW]', {
-                    mode: 'reference',
-                    isSecondTrack: state.reference.isSecondTrack,
-                    refJobId: state.reference.jobId,
-                    hasUserAnalysis: !!state.userAnalysis,
-                    hasReferenceAnalysis: !!state.referenceAnalysis
-                });
-                
-                // 🎯 LOG ASSERT_REF_FLOW
-                console.log("[ASSERT_REF_FLOW]", {
-                    mode: 'reference',
-                    userBands: Object.keys(state.userAnalysis?.technicalData?.spectral_balance || {}),
-                    refBands: Object.keys(state.referenceAnalysis?.technicalData?.spectral_balance || {})
-                });
-            } else if (FirstAnalysisStore.has()) {
-                // 🔥 FALLBACK: Primeira música é ATUAL (sua faixa), segunda é REFERÊNCIA (alvo)
-                const firstAnalysis = FirstAnalysisStore.get(); // sempre clone
-                
-                // 🧊 PROTEÇÃO ANTICONTAMINAÇÃO: Deep clone obrigatório
-                console.log('[STATE-FIX] 🔒 FALLBACK - Criando deep clones para evitar contaminação');
-                state.userAnalysis = JSON.parse(JSON.stringify(firstAnalysis));    // 1ª = sua faixa (atual)
-                state.referenceAnalysis = JSON.parse(JSON.stringify(analysisResult));                 // 2ª = referência (alvo)
-                
-                // 🎯 ESTRUTURA NOVA (CORRETA) COM DEEP CLONE:
-                state.reference = state.reference || {};
-                state.reference.userAnalysis = JSON.parse(JSON.stringify(firstAnalysis));  // 1ª faixa (sua música/atual)
-                state.reference.referenceAnalysis = JSON.parse(JSON.stringify(analysisResult));                // 2ª faixa (referência/alvo)
-                state.reference.isSecondTrack = true;
-                state.reference.jobId = analysisResult.jobId || null;
-                
-                console.log('✅ [REFERENCE-A/B-CORRECTED] ═══════════════════════════════════════');
-                console.log('✅ [REFERENCE-A/B-CORRECTED] Fallback - Atribuição correta A/B:');
-                console.log('✅ [REFERENCE-A/B-CORRECTED]   1ª Faixa (ATUAL/SUA MÚSICA):', firstAnalysis?.fileName);
-                console.log('✅ [REFERENCE-A/B-CORRECTED]   2ª Faixa (REFERÊNCIA/ALVO):', analysisResult.fileName);
-                console.log('✅ [REFERENCE-A/B-CORRECTED] ═══════════════════════════════════════');
-                
-                // 🎯 LOG ASSERT_REF_FLOW
-                console.log("[ASSERT_REF_FLOW]", {
-                    mode: 'reference',
-                    userTrack: state.userAnalysis?.fileName || 'Sua música (atual)',
-                    referenceTrack: state.referenceAnalysis?.fileName || 'Faixa de referência (alvo)',
-                    userBands: Object.keys(state.userAnalysis?.technicalData?.spectral_balance || {}),
-                    refBands: Object.keys(state.referenceAnalysis?.technicalData?.spectral_balance || {})
-                });
-            }
+            console.log('[ASSERT_REF_FLOW] ✅ Faixas são diferentes - prosseguindo com comparação');
+            console.log('[ASSERT_REF_FLOW] userTrack ≠ referenceTrack');
             
-            // 🚨 AUDIT_REF_FIX: NÃO chamar handleGenreAnalysisWithResult em modo reference!
-            // Esta função limpa o estado e força mode='genre', quebrando o fluxo A/B
+            // ========================================
+            // ✅ RENDERIZAR COMPARAÇÃO DIRETAMENTE
+            // ========================================
+            console.log('[DISPLAY_MODAL_RESULTS] Chamando renderização com dados isolados');
+            console.log('[DISPLAY_MODAL_RESULTS] Self-compare? false');
             
-            // PRESERVAR modo reference até o final (reutilizar state já declarado acima)
-            if (!state.render) state.render = {};
-            state.render.mode = 'reference';
-            window.__soundyState = state;
+            // Chamar renderReferenceComparisons diretamente com dados isolados
+            await renderReferenceComparisons(
+                structuredClone(window.referenceAnalysis),
+                structuredClone(window.currentAnalysis)
+            );
             
-            console.log('[AUDIT_REF_FIX] Preservando modo reference até final da renderização');
-            console.log('[MODE LOCKED] reference - handleGenreAnalysisWithResult PULADO');
-            
-            // 🔍 AUDITORIA: Estado ANTES de normalizar analysisResult
-            console.groupCollapsed('[AUDITORIA_STATE_FLOW] ⚙️ ANTES de normalizeBackendAnalysisData');
-            console.log('⚙️ Contexto: Prestes a normalizar analysisResult (2ª faixa)');
-            console.log('📊 analysisResult (ANTES de normalizar):', {
-                jobId: analysisResult?.jobId,
-                fileName: analysisResult?.metadata?.fileName || analysisResult?.fileName,
-                lufs: analysisResult?.technicalData?.lufsIntegrated,
-                objectId: analysisResult
-            });
-            const checkFirst = FirstAnalysisStore.get();
-            console.log('🔒 FirstAnalysisStore (NÃO deve mudar):', {
-                jobId: checkFirst?.jobId,
-                fileName: checkFirst?.metadata?.fileName,
-                lufs: checkFirst?.technicalData?.lufsIntegrated
-            });
-            console.log('⚠️ PONTO CRÍTICO: normalizeBackendAnalysisData() vai modificar analysisResult?');
-            console.groupEnd();
-            
-            // Normalizar dados do backend
-            const normalizedResult = normalizeBackendAnalysisData(analysisResult);
-            
-            // � POPULAR CACHE COM RESULTADO NORMALIZADO
-            AnalysisCache.put(normalizedResult);
-            
-            // �🔍 AUDITORIA: Estado APÓS normalizar analysisResult
-            console.groupCollapsed('[AUDITORIA_STATE_FLOW] ✅ DEPOIS de normalizeBackendAnalysisData');
-            console.log('⚙️ Contexto: Normalização concluída');
-            console.log('📊 normalizedResult (resultado da normalização):', {
-                jobId: normalizedResult?.jobId,
-                fileName: normalizedResult?.metadata?.fileName || normalizedResult?.fileName,
-                lufs: normalizedResult?.technicalData?.lufsIntegrated,
-                objectId: normalizedResult,
-                sameAsOriginal: normalizedResult === analysisResult
-            });
-            console.log('📊 analysisResult (APÓS normalização - pode ter mudado?):', {
-                jobId: analysisResult?.jobId,
-                fileName: analysisResult?.metadata?.fileName || analysisResult?.fileName,
-                lufs: analysisResult?.technicalData?.lufsIntegrated,
-                objectId: analysisResult
-            });
-            console.log('🔒 window.__FIRST_ANALYSIS_FROZEN__ (deve estar INTACTO):', {
-                jobId: window.__FIRST_ANALYSIS_FROZEN__?.jobId,
-                fileName: window.__FIRST_ANALYSIS_FROZEN__?.metadata?.fileName,
-                lufs: window.__FIRST_ANALYSIS_FROZEN__?.technicalData?.lufsIntegrated,
-                isFrozen: Object.isFrozen(window.__FIRST_ANALYSIS_FROZEN__)
-            });
-            console.log('💡 Próximo: Enviar normalizedResult para displayModalResults()');
-            console.groupEnd();
-            
-            // � PARTE 3.4: Garantir atribuição correta ANTES de displayModalResults
-            // 🔧 PARTE 1: Normalize reference comparison structure
-            if (state.render.mode === "reference" && analysisResult && state.previousAnalysis) {
-                // 🧊 PROTEÇÃO ANTICONTAMINAÇÃO: Deep clone para evitar mutação
-                console.log('[STATE-FIX] 🔒 Normalizando com deep clones');
-                const firstResult = JSON.parse(JSON.stringify(state.previousAnalysis));
-                const secondResult = JSON.parse(JSON.stringify(analysisResult));
-
-                const normalizedUser = {
-                    fileName: firstResult.fileName || firstResult.metadata?.fileName,
-                    bands: firstResult.spectralBands || firstResult.bands || firstResult.technicalData?.spectral_balance,
-                    metrics: {
-                        lufs: firstResult.loudness?.integrated ?? firstResult.lufsIntegrated,
+            console.log('[DISPLAY_MODAL_RESULTS] ✅ Comparação A/B renderizada com sucesso');
                         dr: firstResult.dynamics?.dr ?? firstResult.dynamicRange,
                         peak: firstResult.truePeak?.dbtp ?? firstResult.truePeakDbtp
                     }
@@ -9348,202 +9111,62 @@ if (typeof window.comparisonLock === "undefined") {
 }
 
 // --- BEGIN: deterministic mode gate ---
-function renderReferenceComparisons(ctx) {
+/**
+ * ✅ SOLUÇÃO DEFINITIVA: Renderiza comparação entre duas análises
+ * @param {object} referenceAnalysis - Primeira música (referência)
+ * @param {object} currentAnalysis - Segunda música (atual/comparação)
+ */
+function renderReferenceComparisons(referenceAnalysis, currentAnalysis) {
     // ========================================
-    // 🎯 PASSO 1: VALIDAR DADOS DO STORE SE DISPONÍVEL
+    // 🎯 VALIDAÇÃO CRÍTICA INICIAL
     // ========================================
-    console.group('🎯 [RENDER-REF] VALIDAÇÃO DE FONTE DE DADOS');
+    console.group('🎯 [RENDER-REF] VALIDAÇÃO CRÍTICA');
     
-    if (ctx?._useStoreData) {
-        console.log('✅ [STORE-MODE] Renderização usando dados do store isolado');
-        console.log('   - userAnalysis.jobId:', ctx.userAnalysis?.jobId);
-        console.log('   - referenceAnalysis.jobId:', ctx.referenceAnalysis?.jobId);
-        
-        // Validação de integridade do store
-        if (window.SoundyAI_Store?.first && window.SoundyAI_Store?.second) {
-            console.table({
-                refJobId: window.SoundyAI_Store.first?.jobId,
-                currJobId: window.SoundyAI_Store.second?.jobId,
-                refName: window.SoundyAI_Store.first?.fileName || window.SoundyAI_Store.first?.metadata?.fileName,
-                currName: window.SoundyAI_Store.second?.fileName || window.SoundyAI_Store.second?.metadata?.fileName,
-                sameJob: window.SoundyAI_Store.first?.jobId === window.SoundyAI_Store.second?.jobId,
-                sameName: (window.SoundyAI_Store.first?.fileName || window.SoundyAI_Store.first?.metadata?.fileName) === 
-                          (window.SoundyAI_Store.second?.fileName || window.SoundyAI_Store.second?.metadata?.fileName)
-            });
-            
-            // 🚨 VALIDAÇÃO CRÍTICA: Store NÃO pode ter jobIds iguais
-            if (window.SoundyAI_Store.first?.jobId === window.SoundyAI_Store.second?.jobId) {
-                console.error('🚨 [STORE-ERROR] STORE CONTAMINADO!');
-                console.error('   - Store tem jobIds idênticos');
-                console.trace();
-                console.groupEnd();
-                alert('ERRO: Store contaminado detectado. Por favor, recarregue a página.');
-                return;
-            }
-            
-            console.log('✅ [STORE-VALIDATED] Store validado - dados isolados confirmados');
-        } else {
-            console.warn('⚠️ [STORE-WARN] Store não está completo');
-            console.log('   - Caindo para modo legado');
-        }
-    } else {
-        console.log('⚠️ [LEGACY-MODE] Renderização usando sistema legado');
-        console.log('   - Dados não vêm do store isolado');
-    }
-    
-    console.groupEnd();
-    
-    // ========================================
-    // 🚨 VALIDAÇÃO CRÍTICA NO INÍCIO: Tentar recuperar jobIds corretos se necessário
-    // ========================================
-    let userJobId = ctx?.userAnalysis?.jobId || ctx?.user?.jobId;
-    let refJobId = ctx?.referenceAnalysis?.jobId || ctx?.ref?.jobId;
-    
-    console.group('🎯 [RENDER-REF] Iniciando renderização com validação');
-    console.log('   userJobId recebido:', userJobId);
-    console.log('   refJobId recebido:', refJobId);
-    console.log('   São iguais?', userJobId === refJobId);
-    
-    // Se recebeu jobIds iguais, TENTA RECUPERAR os corretos
-    if (userJobId && refJobId && userJobId === refJobId) {
-        console.error('❌ [RENDER-REF] ERRO: Recebeu jobIds iguais!');
-        console.error('   Tentando recuperar jobIds corretos com getCorrectJobId()...');
-        
-        // RECUPERA os jobIds corretos
-        const recoveredCurrentJobId = getCorrectJobId('current');
-        const recoveredReferenceJobId = getCorrectJobId('reference');
-        
-        console.log('🔄 [RENDER-REF] JobIds recuperados:');
-        console.log('   Novo userJobId (current):', recoveredCurrentJobId);
-        console.log('   Novo refJobId (reference):', recoveredReferenceJobId);
-        console.log('   Recuperados são diferentes?', recoveredCurrentJobId !== recoveredReferenceJobId);
-        
-        // Se AINDA forem iguais, ABORTA
-        if (recoveredCurrentJobId === recoveredReferenceJobId) {
-            console.error('❌ [RENDER-REF] FALHA NA RECUPERAÇÃO!');
-            console.error('   Mesmo após getCorrectJobId(), os jobIds são iguais');
-            console.trace();
-            console.groupEnd();
-            alert('ERRO: Não foi possível carregar a comparação. Os jobIds são iguais. Recarregue a página.');
-            return;
-        }
-        
-        console.log('✅ [RENDER-REF] JobIds recuperados com sucesso!');
-        console.log('   Atualizando userJobId e refJobId no contexto...');
-        
-        // Atualizar jobIds no contexto
-        userJobId = recoveredCurrentJobId;
-        refJobId = recoveredReferenceJobId;
-        
-        // Atualizar também no ctx se possível
-        if (ctx?.userAnalysis) ctx.userAnalysis.jobId = userJobId;
-        if (ctx?.referenceAnalysis) ctx.referenceAnalysis.jobId = refJobId;
-        if (ctx?.user) ctx.user.jobId = userJobId;
-        if (ctx?.ref) ctx.ref.jobId = refJobId;
-    } else {
-        console.log('✅ [RENDER-REF] JobIds já são diferentes - continuando normalmente');
-    }
-    
-    console.groupEnd();
-    
-    // ========================================
-    // 🚨 VALIDAÇÃO CRÍTICA: NUNCA COMPARAR MESMA MÚSICA (validação original mantida)
-    // ========================================
-    console.group('🚨 [RENDER-VALIDATION] Validação crítica de jobIds');
-    console.log('   - userJobId (após possível recuperação):', userJobId);
-    console.log('   - refJobId (após possível recuperação):', refJobId);
-    console.log('   - São iguais?', userJobId === refJobId);
-    
-    // VALIDAÇÃO CRÍTICA: Se jobIds são iguais, ABORTAR renderização
-    if (userJobId && refJobId && userJobId === refJobId) {
-        console.error('❌ [RENDER] ERRO CRÍTICO: Tentando comparar mesma música!');
-        console.error('   userJobId:', userJobId);
-        console.error('   refJobId:', refJobId);
-        console.trace();
-        
-        // Tenta recuperar o jobId correto da segunda música
-        const recoveredJobId = getCorrectJobId('current'); // Segunda música
-        const firstJobId = getCorrectJobId('reference'); // Primeira música
-        
-        console.log('🔄 [RENDER] Tentando recuperar jobIds corretos:');
-        console.log('   - Recovered currentJobId:', recoveredJobId);
-        console.log('   - Recovered referenceJobId:', firstJobId);
-        
-        if (recoveredJobId && firstJobId && recoveredJobId !== firstJobId) {
-            console.warn('⚠️ [RENDER] JobIds recuperados - reconstruindo ctx');
-            // Reconstruir ctx com jobIds corretos
-            // Por ora, ABORTAR para evitar renderização incorreta
-            alert('ERRO: Não foi possível carregar a comparação corretamente. Por favor, recarregue a página e tente novamente.');
-            console.groupEnd();
-            return;
-        } else {
-            console.error('❌ [RENDER] Não foi possível recuperar jobIds corretos');
-            alert('ERRO CRÍTICO: Comparação inválida detectada. Recarregue a página.');
-            console.groupEnd();
-            return;
-        }
-    }
-    
-    console.log('✅ [RENDER-VALIDATION] JobIds são diferentes - continuando renderização');
-    console.groupEnd();
-    
-    // ========================================
-    // ✅ CORREÇÃO 3: Padronização de chamada e validação de ctx
-    // ========================================
-    // Normalizar ctx para aceitar objeto { mode, user, ref }
-    const mode = ctx?.mode || window.currentAnalysisMode || 'genre';
-    const user = ctx?.user || ctx?.userAnalysis || window._lastUserAnalysis || {};
-    const refData = ctx?.ref || ctx?.referenceAnalysis || window.referenceAnalysisData || {};
-
-    // HARD-GUARD: sem bands? não renderiza A/B para evitar self-compare
-    if (mode === 'reference') {
-        if (!refData?.bands || !user?.bands) {
-            console.warn('[A/B-SKIP] bands ausentes (user/ref). Evitando self-compare.');
-            return;
-        }
-    }
-
-    // Atualizar opts para compatibilidade com código existente
-    const opts = {
-        mode: mode,
-        userAnalysis: user,
-        referenceAnalysis: refData,
-        ...ctx // Mesclar propriedades adicionais de ctx
-    };
-
-    // ========================================
-    // 🛡️ BLOQUEIO DEFINITIVO DE SELF-COMPARE POR CONTEÚDO
-    // ========================================
-    // Recuperar faixas do FirstAnalysisStore usando papéis (USER/REF)
-    const userFromStore = FirstAnalysisStore.getUser();
-    const refFromStore = FirstAnalysisStore.getRef();
-    
-    if (!userFromStore?.bands || !refFromStore?.bands) {
-        console.warn('[AB-BLOCK] ⚠️ Bands ausentes - abortando A/B');
+    if (!referenceAnalysis || !currentAnalysis) {
+        console.error('❌ [RENDER-REF] Faltam dados para comparação!');
+        console.error('   - referenceAnalysis:', !!referenceAnalysis);
+        console.error('   - currentAnalysis:', !!currentAnalysis);
+        console.groupEnd();
         return;
     }
     
-    // Detectar self-compare por múltiplos critérios de conteúdo
-    const samePointer = userFromStore === refFromStore;
-    const sameJobId = userFromStore?.jobId && refFromStore?.jobId && userFromStore.jobId === refFromStore.jobId;
-    const sameFile = userFromStore?.metadata?.fileKey && refFromStore?.metadata?.fileKey && 
-                     userFromStore.metadata.fileKey === refFromStore.metadata.fileKey;
-    const sameHash = userFromStore?.objectId?.hash && refFromStore?.objectId?.hash && 
-                     userFromStore.objectId.hash === refFromStore.objectId.hash;
+    const refJobId = referenceAnalysis.jobId;
+    const currJobId = currentAnalysis.jobId;
+    const refFileName = referenceAnalysis.fileName || referenceAnalysis.metadata?.fileName;
+    const currFileName = currentAnalysis.fileName || currentAnalysis.metadata?.fileName;
     
-    if (samePointer || sameJobId || sameFile || sameHash) {
-        console.error('[AB-BLOCK] ❌ Self-compare detectado - abortando tabela A/B:', {
-            samePointer,
-            sameJobId: sameJobId ? `${userFromStore.jobId}` : false,
-            sameFile: sameFile ? `${userFromStore.metadata.fileKey}` : false,
-            sameHash: sameHash ? `${userFromStore.objectId.hash}` : false,
-            userVid: window.CacheIndex.USER,
-            refVid: window.CacheIndex.REF,
-            userFile: userFromStore?.fileName || userFromStore?.metadata?.fileName,
-            refFile: refFromStore?.fileName || refFromStore?.metadata?.fileName
-        });
-        return; // Aborta renderização A/B
+    console.log('� Comparando:');
+    console.log('   - Referência:', refFileName, '(jobId:', refJobId, ')');
+    console.log('   - Atual:', currFileName, '(jobId:', currJobId, ')');
+    
+    // 🚨 VALIDAÇÃO: Bloquear self-compare
+    if (refJobId === currJobId) {
+        console.error('❌ [RENDER-REF] SELF-COMPARE DETECTADO!');
+        console.error('   - Mesmo jobId:', refJobId);
+        console.groupEnd();
+        alert('ERRO: Tentativa de comparar a mesma música. Por favor, selecione músicas diferentes.');
+        return;
     }
+    
+    if (refFileName === currFileName) {
+        console.warn('⚠️ [RENDER-REF] Mesmo nome de arquivo detectado!');
+        console.warn('   - FileName:', refFileName);
+    }
+    
+    console.log('✅ [RENDER-REF] Validação passou - faixas são diferentes');
+    console.groupEnd();
+    
+    // ========================================
+    // ✅ PREPARAR DADOS PARA RENDERIZAÇÃO
+    // ========================================
+    console.log('[RENDER-REF] Preparando dados para renderização da comparação...');
+    
+    // Criar estrutura compatível com código de renderização existente
+    const opts = {
+        mode: 'reference',
+        userAnalysis: referenceAnalysis,
+        referenceAnalysis: currentAnalysis
+    };
     
     // ✅ Validação passou - são faixas diferentes
     console.log('[AB-SAFETY] ✅ Faixas validadas como diferentes:', {
@@ -9555,218 +9178,45 @@ function renderReferenceComparisons(ctx) {
         refJobId: refFromStore?.jobId
     });
     
-    // Usar as faixas do store (com VIDs) em vez das globais
-    opts.userAnalysis = userFromStore;
-    opts.referenceAnalysis = refFromStore;
-    
     // ========================================
-    // 🔧 DETECÇÃO SEGURA DE SELF-COMPARE (APÓS AB-SAFETY)
+    // ✅ VALIDAÇÃO FINAL ANTES DA RENDERIZAÇÃO
     // ========================================
-    // Agora que temos os dados validados, detectar self-compare com critérios rigorosos
-    const refAnalysis = opts.referenceAnalysis;
-    const currAnalysis = opts.userAnalysis;
+    console.log('[RENDER-REF] Iniciando validação final antes da renderização...');
     
-    const sameJob = !!(refAnalysis?.jobId && currAnalysis?.jobId && refAnalysis.jobId === currAnalysis.jobId);
-    const sameVid = !!(refAnalysis?.vid && currAnalysis?.vid && refAnalysis.vid === currAnalysis.vid);
-    const sameFileName = !!(refAnalysis?.fileName && currAnalysis?.fileName && refAnalysis.fileName === currAnalysis.fileName);
-    const refVid = window.CacheIndex?.REF;
-    const userVid = window.CacheIndex?.USER;
-    
-    // Só marca como selfCompare se TODAS as checagens coincidirem
-    let selfCompare = false;
-    if (sameJob && sameVid && sameFileName) {
-        selfCompare = true;
-        console.warn('[REF-GUARD] ⚠️ Self-compare detectado (todos critérios):', { sameJob, sameVid, sameFileName });
-    }
-    
-    // ✅ REVALIDAÇÃO: Limpar flag se for falso positivo
-    // Se VIDs ou files são diferentes, não pode ser self-compare
-    if (selfCompare && (userVid !== refVid || 
-        (refAnalysis?.fileName || refAnalysis?.metadata?.fileName) !== (currAnalysis?.fileName || currAnalysis?.metadata?.fileName))) {
-        console.warn('[REF-GUARD] ❎ Corrigido selfCompare falso-positivo após AB-SAFETY:', {
-            userVid,
-            refVid,
-            userFile: currAnalysis?.fileName || currAnalysis?.metadata?.fileName,
-            refFile: refAnalysis?.fileName || refAnalysis?.metadata?.fileName
-        });
-        selfCompare = false;
-    }
-    
-    // Marcar no opts para uso posterior
-    opts.isSelfCompare = selfCompare;
-    
-    console.log('[SELF-COMPARE-FINAL] Decisão final:', {
-        selfCompare,
-        sameJob,
-        sameVid,
-        sameFileName,
-        userVid,
-        refVid,
-        userFile: currAnalysis?.fileName || currAnalysis?.metadata?.fileName,
-        refFile: refAnalysis?.fileName || refAnalysis?.metadata?.fileName
-    });
-    
-    // ==== STEP 3/6: refHardGuards() simplificado ====
-    const guardResult = (function refHardGuards(){
-        const s = window.__soundyState || {};
-        
-        if (!opts.userAnalysis || !opts.referenceAnalysis) {
-            console.error("[REF-PATCH] Faltam dados pra A/B");
-            return { abort: true, reason: 'missing-data' };
-        }
-
-        opts.usedReferenceAnalysis = true;
-
-        if (window.__refRenderInProgress) {
-            console.warn("[REF-PATCH] Render A/B em progresso — ignorando duplicado");
-            return { abort: true, reason: 'render-in-progress' };
-        }
-        window.__refRenderInProgress = true;
-        
-        return { abort: false };
-    })();
-    
-    // ✅ STEP 3/6: Tratar retorno de refHardGuards()
-    if (guardResult && guardResult.abort) {
-        console.warn(`[REF-GUARD] Abortando renderReferenceComparisons: ${guardResult.reason}`);
+    // Validação de dados obrigatórios
+    if (!opts.userAnalysis || !opts.referenceAnalysis) {
+        console.error('[RENDER-REF] ❌ Faltam dados para comparação A/B');
         return;
     }
     
-    // � [AUDIT-BANDS-IN-RENDER] Log NO INÍCIO da função renderReferenceComparisons
-    try {
-        const refBandsInRender = opts.referenceAnalysis?.bands || opts.referenceAnalysis?.technicalData?.spectral_balance;
-        const userBandsInRender = opts.userAnalysis?.bands || opts.userAnalysis?.technicalData?.spectral_balance;
-        console.log('[AUDIT-BANDS-IN-RENDER]', {
-            receivedRefBands: refBandsInRender,
-            receivedUserBands: userBandsInRender,
-            typeofRefBands: typeof refBandsInRender,
-            typeofUserBands: typeof userBandsInRender,
-            refBandsKeys: refBandsInRender ? Object.keys(refBandsInRender) : [],
-            userBandsKeys: userBandsInRender ? Object.keys(userBandsInRender) : [],
-            optsKeys: Object.keys(opts),
-            hasUserAnalysis: !!opts.userAnalysis,
-            hasReferenceAnalysis: !!opts.referenceAnalysis
-        });
-    } catch (err) {
-        console.warn('[AUDIT-ERROR]', 'AUDIT-BANDS-IN-RENDER', err);
-    }
-    
-    // �🔒 PROTEÇÃO ANTI-DUPLICAÇÃO: Detectar se faixas são idênticas
-    if (opts.userAnalysis?.fileName && opts.referenceAnalysis?.fileName &&
-        opts.userAnalysis.fileName === opts.referenceAnalysis.fileName) {
-        console.error("❌ [REF-DUPE] Detecção de duplicação — referência sobrescrita!");
-        console.table({
-            userTrack: opts.userAnalysis?.fileName,
-            refTrack: opts.referenceAnalysis?.fileName,
-        });
-        return; // aborta renderização duplicada
-    }
-    
-    // 🧩 Controle seguro de renderização
-    if (window.comparisonLock) {
-        console.warn("[LOCK] Renderização de comparação ignorada (lock ativo)");
+    // Verificar se há dados espectrais
+    if (!opts.userAnalysis.bands || !opts.referenceAnalysis.bands) {
+        console.error('[RENDER-REF] ❌ Faltam dados espectrais (bands) para comparação');
         return;
     }
     
-    // [AUDIT-FLOW] Log ANTES do lock
-    console.log("[AUDIT-FLOW] 🔍 ANTES do lock:", {
-        userAnalysis: !!opts.userAnalysis,
-        referenceAnalysis: !!opts.referenceAnalysis,
-        userBands: opts.userAnalysis?.bands || opts.userAnalysis?.technicalData?.spectral_balance,
-        refBands: opts.referenceAnalysis?.bands || opts.referenceAnalysis?.technicalData?.spectral_balance,
-        hasUserBands: !!(opts.userAnalysis?.bands || opts.userAnalysis?.technicalData?.spectral_balance),
-        hasRefBands: !!(opts.referenceAnalysis?.bands || opts.referenceAnalysis?.technicalData?.spectral_balance)
+    console.log('[RENDER-REF] ✅ Todos os dados necessários estão presentes');
+    
+    // Log de auditoria dos dados recebidos
+    console.log('[AUDIT-BANDS-IN-RENDER]', {
+        refBands: opts.referenceAnalysis.bands,
+        userBands: opts.userAnalysis.bands,
+        refFileName: opts.referenceAnalysis.fileName || opts.referenceAnalysis.metadata?.fileName,
+        userFileName: opts.userAnalysis.fileName || opts.userAnalysis.metadata?.fileName,
+        refJobId: opts.referenceAnalysis.jobId,
+        userJobId: opts.userAnalysis.jobId
     });
     
-    window.comparisonLock = true;
-    console.log("[LOCK] comparisonLock ativado");
-    
-    // [AUDIT-FLOW] Log DEPOIS do lock
-    console.log("[AUDIT-FLOW] 🔍 DEPOIS do lock:", {
-        comparisonLock: window.comparisonLock,
-        userAnalysis: !!opts.userAnalysis,
-        referenceAnalysis: !!opts.referenceAnalysis,
-        userBands: opts.userAnalysis?.bands || opts.userAnalysis?.technicalData?.spectral_balance,
-        refBands: opts.referenceAnalysis?.bands || opts.referenceAnalysis?.technicalData?.spectral_balance,
-        hasUserBands: !!(opts.userAnalysis?.bands || opts.userAnalysis?.technicalData?.spectral_balance),
-        hasRefBands: !!(opts.referenceAnalysis?.bands || opts.referenceAnalysis?.technicalData?.spectral_balance)
-    });
-    
-    // 🔧 PARTE 2: Proteção em renderReferenceComparisons
-    const globalState = window.__soundyState || {};
-    const refStateCheck = globalState?.reference || {};
-    const userCheck = refStateCheck.userAnalysis || opts.userAnalysis;
-    const refCheck = refStateCheck.referenceAnalysis || opts.referenceAnalysis;
-
-    if (!userCheck || !refCheck) {
-        console.warn("[REF-COMP] Faltam dados de referência ou usuário, usando fallback seguro");
-        window.comparisonLock = false;
-        console.log("[LOCK] comparisonLock liberado (fallback)");
-        return renderGenreComparisonSafe?.();
-    }
-
-    const userTrackCheck = userCheck.fileName || userCheck.metadata?.fileName || "Faixa 1 (usuário)";
-    const refTrackCheck = refCheck.fileName || refCheck.metadata?.fileName || "Faixa 2 (referência)";
-    const userBandsCheck = userCheck.bands || userCheck.technicalData?.spectral_balance || {};
-    const refBandsCheck = refCheck.bands || refCheck.technicalData?.spectral_balance || {};
-
-    const userBandsCountCheck = userBandsCheck ? Object.keys(userBandsCheck).length : 0;
-    const refBandsCountCheck = refBandsCheck ? Object.keys(refBandsCheck).length : 0;
-    
-    if (refBandsCountCheck === 0) {
-        console.warn("[REF-COMP] referenceBands ausentes - fallback para valores brutos");
-    }
-
-    console.log("[REF-COMP] Dados validados:", { 
-        userTrackCheck, 
-        refTrackCheck, 
-        userBandsCount: userBandsCountCheck, 
-        refBandsCount: refBandsCountCheck,
-        userBandsKeys: userBandsCheck ? Object.keys(userBandsCheck) : [],
-        refBandsKeys: refBandsCheck ? Object.keys(refBandsCheck) : []
-    });
-    
-    // 🧩 [FINAL-FIX] Validação real das bandas antes de renderizar
+    // ========================================
+    // ✅ PREPARAR CONTAINER PARA RENDERIZAÇÃO
+    // ========================================
     const container = document.getElementById('referenceComparisons');
     if (!container) {
-        window.comparisonLock = false;
-        console.log("[LOCK] comparisonLock liberado (container ausente)");
+        console.error('[RENDER-REF] ❌ Container #referenceComparisons não encontrado');
         return;
     }
     
-    // 🔧 CORREÇÃO CRÍTICA: Removido __REF_RENDER_LOCK__ que bloqueava segunda chamada legítima
-    // A validação de dados abaixo é suficiente para prevenir renders incompletos
-    console.log("[LOCK-FIX] ✅ Permitindo render com validação de dados (lock duplicado removido)");
-    
-    // Aceita opts ou analysis (backward compatibility)
-    const analysis = opts.analysis || opts;
-    let comparisonData = opts?.comparisonData || {};
-    
-    const refBandsReal =
-        comparisonData?.refBands ||
-        comparisonData?.referenceAnalysis?.bands ||
-        comparisonData?.referenceAnalysis?.technicalData?.spectral_balance ||
-        window.__soundyState?.reference?.referenceAnalysis?.bands ||
-        window.__soundyState?.reference?.referenceAnalysis?.technicalData?.spectral_balance;
-
-    const userBandsReal =
-        comparisonData?.userBands ||
-        comparisonData?.userAnalysis?.bands ||
-        comparisonData?.userAnalysis?.technicalData?.spectral_balance ||
-        window.__soundyState?.reference?.userAnalysis?.bands ||
-        window.__soundyState?.reference?.userAnalysis?.technicalData?.spectral_balance;
-
-    console.log('[VALIDATION-FIX] Verificando bandas:', {
-        refBandsRealKeys: refBandsReal ? Object.keys(refBandsReal) : null,
-        userBandsRealKeys: userBandsReal ? Object.keys(userBandsReal) : null,
-    });
-
-    if (!refBandsReal || !userBandsReal) {
-        console.error('[VALIDATION-FIX] ❌ Falha crítica: bandas não detectadas no momento do render.');
-        console.error('comparisonData:', comparisonData);
-        console.error('window.__soundyState:', window.__soundyState);
-        window.comparisonLock = false;
-        if (typeof displayModalResultsError === 'function') {
+    console.log('[RENDER-REF] ✅ Container encontrado, prosseguindo com renderização...');
             return displayModalResultsError('Erro na análise por referência (bandas não detectadas).');
         }
         return;
