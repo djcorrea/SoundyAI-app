@@ -166,86 +166,174 @@
 
 /* Animações suaves */
 .ref-compare-table td {
-    transition: all 0.2s ease;
-    padding: 10px 8px;
+    transition: all 0.25s ease;
+    padding: 0.4rem 0.6rem;
     text-align: center;
-    font-size: 13px;
+    font-size: clamp(12px, 1vw, 14px);
     border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    color: rgba(255, 255, 255, 0.8);
 }
 
 .ref-compare-table tbody tr:hover td {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.05);
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
-/* 🎯 Estilos específicos para tabela A/B */
+/* 🎯 Estilos refinados para tabela A/B */
 .ab-compare-table {
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 8px;
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.5), rgba(20, 20, 40, 0.4));
+    border-radius: 12px;
     overflow: hidden;
+    border-collapse: separate;
+    border-spacing: 0 2px;
+    width: 100%;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
 }
 
 .ab-compare-table thead th {
-    background: rgba(255, 255, 255, 0.05);
-    border-bottom: 2px solid rgba(82, 247, 173, 0.2);
-    padding: 12px 8px;
-    font-size: 11px;
+    background: linear-gradient(135deg, rgba(127, 0, 255, 0.15), rgba(0, 255, 255, 0.15));
+    border-bottom: 2px solid rgba(82, 247, 173, 0.3);
+    padding: 0.6rem 0.8rem;
+    font-size: clamp(13px, 1.1vw, 15px);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 1px;
     font-weight: 600;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.ab-compare-table tbody tr {
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 6px;
+    transition: background 0.25s ease, transform 0.2s ease;
+}
+
+.ab-compare-table tbody tr:hover {
+    background: rgba(255, 255, 255, 0.05);
+    transform: translateX(2px);
 }
 
 .ab-compare-table .metric-name {
     text-align: left;
     font-weight: 500;
-    padding-left: 12px;
+    padding-left: 1rem;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: clamp(12px, 1vw, 14px);
 }
 
 .ab-compare-table .ab-user,
 .ab-compare-table .ab-ref {
     font-family: 'Courier New', monospace;
     font-weight: 600;
-    font-size: 13px;
+    font-size: clamp(12px, 1vw, 14px);
+    background: linear-gradient(90deg, rgba(50, 50, 100, 0.15), rgba(0, 0, 0, 0.15));
+    padding: 0.5rem 0.6rem;
 }
 
 .ab-compare-table .delta-col {
     font-family: 'Courier New', monospace;
     font-weight: 600;
-    color: rgba(255, 255, 255, 0.9);
+    font-size: clamp(11px, 0.95vw, 13px);
+    color: rgba(255, 255, 255, 0.7);
+    padding: 0.4rem 0.5rem;
 }
 
 .ab-compare-table .status-col {
-    min-width: 100px;
+    min-width: 90px;
+    padding: 0.4rem 0.6rem;
+    font-size: 12px;
+}
+
+.ab-compare-table .diff-cell-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    flex-direction: row;
+}
+
+.ab-compare-table .diff-value {
+    font-size: 14px;
+    line-height: 1;
+}
+
+.ab-compare-table .diff-status {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Status com bordas neon e cores refinadas */
+.ref-compare-table td.ok,
+.ab-compare-table .status-col.ok {
+    background: rgba(0, 42, 32, 0.8);
+    color: #32ffb2;
+    font-weight: 600;
+    border: 1px solid rgba(50, 255, 178, 0.3);
+    border-left: 3px solid rgba(0, 255, 170, 0.6);
+}
+
+.ref-compare-table td.yellow,
+.ab-compare-table .status-col.yellow {
+    background: rgba(42, 31, 0, 0.8);
+    color: #ffd65a;
+    font-weight: 600;
+    border: 1px solid rgba(255, 214, 90, 0.3);
+    border-left: 3px solid rgba(255, 204, 0, 0.6);
+}
+
+.ref-compare-table td.warn,
+.ab-compare-table .status-col.warn {
+    background: rgba(42, 0, 0, 0.8);
+    color: #ff6677;
+    font-weight: 600;
+    border: 1px solid rgba(255, 102, 119, 0.3);
+    border-left: 3px solid rgba(255, 51, 85, 0.6);
 }
 
 /* Headers coloridos */
 .ab-user-header {
     color: #52f7ad !important;
+    text-shadow: 0 0 8px rgba(82, 247, 173, 0.4);
 }
 
 .ab-ref-header {
     color: #ffce4d !important;
+    text-shadow: 0 0 8px rgba(255, 206, 77, 0.4);
 }
 
-/* Track names no header */
+/* Track names no header - Refinado */
 .ab-header {
-    animation: fadeInUp 0.4s ease-out;
+    animation: fadeInUp 0.5s ease-out;
+    margin-bottom: 10px;
 }
 
 .track-name {
     transition: all 0.3s ease;
+    position: relative;
 }
 
 .track-name:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.track-name::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, currentColor, transparent);
+    opacity: 0.3;
 }
 
 @keyframes fadeInUp {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(15px);
     }
     to {
         opacity: 1;
@@ -253,11 +341,30 @@
     }
 }
 
+/* Separadores suaves entre linhas */
+.ab-compare-table tbody tr {
+    margin-bottom: 2px;
+}
+
+.ab-compare-table tbody tr td {
+    border-bottom: none;
+    vertical-align: middle;
+}
+
+.ab-compare-table tbody tr:first-child td {
+    padding-top: 0.6rem;
+}
+
+.ab-compare-table tbody tr:last-child td {
+    padding-bottom: 0.6rem;
+    border-bottom: none;
+}
+
 /* Responsividade mobile */
 @media (max-width: 768px) {
     .ab-header {
         grid-template-columns: 1fr !important;
-        gap: 12px !important;
+        gap: 10px !important;
     }
     
     .ab-compare-table {
@@ -266,14 +373,52 @@
     
     .ab-compare-table th,
     .ab-compare-table td {
-        padding: 8px 4px;
-    }
-    
-    .ab-compare-table .metric-name {
+        padding: 0.3rem 0.4rem;
         font-size: 11px;
     }
     
-    .diff-status {
-        font-size: 8px !important;
+    .ab-compare-table .metric-name {
+        font-size: 10px;
+        padding-left: 0.5rem;
     }
+    
+    .ab-compare-table .delta-col {
+        display: none; /* Esconder coluna Δ no mobile */
+    }
+    
+    .ab-compare-table thead th:nth-child(4) {
+        display: none; /* Esconder header Δ no mobile */
+    }
+    
+    .diff-status {
+        font-size: 9px !important;
+    }
+    
+    .diff-value {
+        font-size: 12px !important;
+    }
+    
+    .ab-compare-table .status-col {
+        min-width: 70px;
+        padding: 0.3rem;
+    }
+    
+    .track-name {
+        text-align: center;
+    }
+}
+
+/* Animação sutil nas células de valor */
+@keyframes pulseGlow {
+    0%, 100% {
+        box-shadow: 0 0 5px rgba(82, 247, 173, 0.1);
+    }
+    50% {
+        box-shadow: 0 0 10px rgba(82, 247, 173, 0.2);
+    }
+}
+
+.ab-compare-table .ab-user:hover,
+.ab-compare-table .ab-ref:hover {
+    animation: pulseGlow 2s ease-in-out infinite;
 }

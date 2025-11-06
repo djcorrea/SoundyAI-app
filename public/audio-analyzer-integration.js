@@ -11658,14 +11658,14 @@ function renderReferenceComparisons(ctx) {
             const status = getStatusAndColor(delta, tolerance);
             
             abRows.push(`<tr${dataAttr}>
-                <td class="metric-name" style="font-weight:500; text-align:left; padding-left:12px;">${label}</td>
-                <td class="ab-user"${dataAttr} style="text-align:center; font-family:'Courier New',monospace; font-weight:600;">${Number.isFinite(userVal) ? nf(userVal) + unit : '—'}</td>
-                <td class="ab-ref"${dataAttr} style="text-align:center; font-family:'Courier New',monospace; font-weight:600;">${Number.isFinite(refVal) ? nf(refVal) + unit : '—'}</td>
-                <td class="delta-col" style="text-align:center; font-weight:600; font-family:'Courier New',monospace;">${deltaText}</td>
-                <td class="status-col ${status.class}" style="text-align:center; padding:8px;">
+                <td class="metric-name">${label}</td>
+                <td class="ab-user"${dataAttr}>${Number.isFinite(userVal) ? nf(userVal) + unit : '—'}</td>
+                <td class="ab-ref"${dataAttr}>${Number.isFinite(refVal) ? nf(refVal) + unit : '—'}</td>
+                <td class="delta-col">${deltaText}</td>
+                <td class="status-col ${status.class}">
                     <div class="diff-cell-content">
-                        <div class="diff-value">${status.icon}</div>
-                        <div class="diff-status">${status.text}</div>
+                        <span class="diff-value">${status.icon}</span>
+                        <span class="diff-status">${status.text}</span>
                     </div>
                 </td>
             </tr>`);
@@ -11705,48 +11705,96 @@ function renderReferenceComparisons(ctx) {
         const refName = opts.referenceAnalysis.fileName || opts.referenceAnalysis.metadata?.fileName || '2ª Faixa';
         
         abTableHTML = `<div class="card" style="margin-top:12px;">
-            <div class="card-title">🎵 COMPARAÇÃO A/B ENTRE FAIXAS</div>
+            <div class="card-title" style="
+                background: linear-gradient(90deg, #7F00FF, #00FFFF);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+                background-clip: text;
+                font-size: clamp(16px, 1.5vw, 20px);
+                font-weight: 700;
+                margin-bottom: 16px;
+            ">🎵 COMPARAÇÃO A/B ENTRE FAIXAS</div>
             
-            <!-- Header com nomes das faixas -->
+            <!-- Header com nomes das faixas - Refinado -->
             <div class="ab-header" style="
                 display: grid; 
                 grid-template-columns: 1fr 1fr; 
-                gap: 16px; 
-                padding: 16px; 
-                background: linear-gradient(135deg, rgba(82, 247, 173, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%);
-                border-radius: 12px; 
-                margin-bottom: 16px;
-                border: 1px solid rgba(82, 247, 173, 0.1);
+                gap: 12px; 
+                padding: 12px; 
+                background: linear-gradient(135deg, rgba(127, 0, 255, 0.08) 0%, rgba(0, 255, 255, 0.08) 100%);
+                border-radius: 10px; 
+                margin-bottom: 10px;
+                border: 1px solid rgba(127, 0, 255, 0.15);
             ">
                 <div class="track-name user-track" style="
-                    padding: 12px;
-                    background: rgba(82, 247, 173, 0.08);
+                    padding: 10px 12px;
+                    background: rgba(82, 247, 173, 0.1);
                     border-radius: 8px;
                     border-left: 3px solid #52f7ad;
+                    box-shadow: 0 2px 8px rgba(82, 247, 173, 0.15);
                 ">
-                    <div style="font-size: 10px; opacity: 0.7; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">🎧 Faixa 1 (Sua Música)</div>
-                    <div style="font-weight: 600; font-size: 13px; line-height: 1.4; word-break: break-word;">${userName}</div>
+                    <div style="
+                        font-size: 10px; 
+                        opacity: 0.7; 
+                        margin-bottom: 6px; 
+                        text-transform: uppercase; 
+                        letter-spacing: 1px; 
+                        font-weight: 600;
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                    ">
+                        <span style="font-size: 14px;">🎧</span>
+                        <span>Faixa 1 (Sua Música)</span>
+                    </div>
+                    <div style="
+                        font-weight: 600; 
+                        font-size: clamp(12px, 1.1vw, 14px); 
+                        line-height: 1.4; 
+                        word-break: break-word;
+                        color: rgba(255, 255, 255, 0.9);
+                    ">${userName}</div>
                 </div>
                 <div class="track-name ref-track" style="
-                    padding: 12px;
-                    background: rgba(255, 206, 77, 0.08);
+                    padding: 10px 12px;
+                    background: rgba(255, 206, 77, 0.1);
                     border-radius: 8px;
                     border-left: 3px solid #ffce4d;
+                    box-shadow: 0 2px 8px rgba(255, 206, 77, 0.15);
                 ">
-                    <div style="font-size: 10px; opacity: 0.7; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">🎚️ Faixa 2 (Referência)</div>
-                    <div style="font-weight: 600; font-size: 13px; line-height: 1.4; word-break: break-word;">${refName}</div>
+                    <div style="
+                        font-size: 10px; 
+                        opacity: 0.7; 
+                        margin-bottom: 6px; 
+                        text-transform: uppercase; 
+                        letter-spacing: 1px; 
+                        font-weight: 600;
+                        display: flex;
+                        align-items: center;
+                        gap: 6px;
+                    ">
+                        <span style="font-size: 14px;">🎚️</span>
+                        <span>Faixa 2 (Referência)</span>
+                    </div>
+                    <div style="
+                        font-weight: 600; 
+                        font-size: clamp(12px, 1.1vw, 14px); 
+                        line-height: 1.4; 
+                        word-break: break-word;
+                        color: rgba(255, 255, 255, 0.9);
+                    ">${refName}</div>
                 </div>
             </div>
             
-            <!-- Tabela de comparação -->
-            <table class="ref-compare-table ab-compare-table" style="width: 100%; border-collapse: collapse;">
+            <!-- Tabela de comparação - Refinada -->
+            <table class="ref-compare-table ab-compare-table" style="width: 100%;">
                 <thead>
-                    <tr style="background: rgba(255,255,255,0.05); border-bottom: 2px solid rgba(82, 247, 173, 0.2);">
-                        <th style="padding: 12px 8px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Métrica</th>
-                        <th class="ab-user-header" style="padding: 12px 8px; text-align: center; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; color: #52f7ad;">Faixa 1</th>
-                        <th class="ab-ref-header" style="padding: 12px 8px; text-align: center; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; color: #ffce4d;">Faixa 2</th>
-                        <th style="padding: 12px 8px; text-align: center; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Δ (Diferença)</th>
-                        <th style="padding: 12px 8px; text-align: center; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;">Status</th>
+                    <tr>
+                        <th style="text-align: left; padding-left: 1rem;">Métrica</th>
+                        <th class="ab-user-header">Faixa 1</th>
+                        <th class="ab-ref-header">Faixa 2</th>
+                        <th>Δ (Diferença)</th>
+                        <th>Status</th>
                     </tr>
                 </thead>
                 <tbody id="ab-comparison-body">${abRows.join('')}</tbody>
