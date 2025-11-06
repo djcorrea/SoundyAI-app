@@ -15353,6 +15353,22 @@ console.log("%c[SYSTEM CHECK] 🔍 Debug ativo para validação de fluxos genre/
     console.log('✅ [MONITOR] Sistema de monitoramento de jobIds ativado');
 })();
 
+// ============================================================================
+// 🌍 EXPORTAÇÕES GLOBAIS ADICIONAIS (funções definidas após as primeiras exportações)
+// ============================================================================
+window.openAudioModal = openAudioModal;
+window.openReferenceUploadModal = openReferenceUploadModal;
+window.openModeSelectionModal = openModeSelectionModal;
+window.closeModeSelectionModal = closeModeSelectionModal;
+window.selectAnalysisMode = selectAnalysisMode;
+console.log('✅ [EXPORTS] Funções de modal exportadas globalmente:', {
+    openAudioModal: typeof window.openAudioModal,
+    openReferenceUploadModal: typeof window.openReferenceUploadModal,
+    openModeSelectionModal: typeof window.openModeSelectionModal,
+    closeModeSelectionModal: typeof window.closeModeSelectionModal,
+    selectAnalysisMode: typeof window.selectAnalysisMode
+});
+
 window.addEventListener("beforeunload", () => {
     console.log("🧹 [CLEANUP] Encerrando sessão de análise e limpando estado.");
 });
