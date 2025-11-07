@@ -69,7 +69,7 @@ class AISuggestionsIntegration {
             total: suggestions?.length || 0,
             isArray: Array.isArray(suggestions),
             type: typeof suggestions,
-            sample: suggestions?.slice(0, 2) || null
+            sampleCount: suggestions?.length || 0
         });
         
         if (suggestions && Array.isArray(suggestions)) {
@@ -138,6 +138,8 @@ class AISuggestionsIntegration {
         const allEnhancedSuggestions = [];
         let aiSuccessCount = 0;
         let aiErrorCount = 0;
+        
+        console.log(`[SUG-AUDIT] processWithAI > enrich in -> ${validSuggestions.length} sugestões base`);
         
         try {
             console.log('📋 [AI-INTEGRATION] Enviando TODAS as sugestões para IA:', validSuggestions.length);
@@ -1587,6 +1589,11 @@ class AISuggestionsIntegration {
                                     // ✅ PRESERVAR sugestões básicas ANTES de chamar IA
                                     const originalSuggestions = fullAnalysis.suggestions || [];
                                     
+                                    console.log('[SUG-AUDIT] Preservando base antes de enriquecer:', {
+                                        originalSuggestionsLength: originalSuggestions.length,
+                                        willPreserve: true
+                                    });
+                                    
                                     // ✅ CORRIGIDO: AGUARDAR e CAPTURAR resultado
                                     const enrichedSuggestions = await window.aiSuggestionsSystem.processWithAI(
                                         fullAnalysis.suggestions, 
@@ -1600,6 +1607,7 @@ class AISuggestionsIntegration {
                                         // ✅ MANTER sugestões básicas como fallback
                                         fullAnalysis.suggestions = originalSuggestions;
                                         
+                                        console.log('[SUG-AUDIT] processWithAI > enrich out -> ' + fullAnalysis.aiSuggestions.length + ' sugestões enriquecidas');
                                         console.log('[AI-GENERATION] ✅ Sugestões enriquecidas atribuídas:', {
                                             aiSuggestionsLength: fullAnalysis.aiSuggestions.length,
                                             originalSuggestionsLength: fullAnalysis.suggestions.length

@@ -6618,10 +6618,12 @@ async function displayModalResults(analysis) {
             mode: 'reference'
         };
         
+        console.log('[SUG-AUDIT] reference deltas ready:', !!analysis.referenceComparison);
         console.log('[AUDIT-FIX] 📊 analysisForSuggestions preparado:', {
             hasSuggestions: !!analysisForSuggestions.suggestions,
             suggestionsLength: analysisForSuggestions.suggestions?.length || 0,
-            mode: analysisForSuggestions.mode
+            mode: analysisForSuggestions.mode,
+            hasReferenceComparison: !!analysisForSuggestions.referenceComparison
         });
         
         // 🔥 Chamada ao displayModalResults no fluxo normal (não self-compare)
@@ -15368,6 +15370,15 @@ function generateBasicSuggestions(data) {
     const suggestions = [];
     const technicalData = data.technicalData || {};
     
+    console.log('[SUG-AUDIT] 🔍 generateBasicSuggestions INÍCIO:', {
+        hasTechnicalData: !!technicalData,
+        hasLufs: technicalData.lufsIntegrated != null,
+        hasTruePeak: technicalData.truePeakDbtp != null,
+        hasDR: technicalData.dynamicRange != null,
+        hasLRA: technicalData.lra != null,
+        hasBands: !!(technicalData.bandEnergies || technicalData.spectral_balance || technicalData.bands)
+    });
+    
     // Regra 1: LUFS Integrado
     if (technicalData.lufsIntegrated != null) {
         const lufs = technicalData.lufsIntegrated;
@@ -15379,8 +15390,10 @@ function generateBasicSuggestions(data) {
                 type: 'loudness',
                 category: 'loudness',
                 message: `LUFS Integrado está em ${lufs.toFixed(1)} dB quando deveria estar próximo de ${ideal.toFixed(1)} dB`,
-                action: delta > 3 ? `Ajustar loudness em ${(ideal - lufs).toFixed(1)} dB` : `Refinar loudness final`,
-                priority: delta > 3 ? 'crítica' : 'alta'
+                action: delta > 3 ? `Ajustar loudness em ${(ideal - lufs).toFixed(1)} dB via limitador` : `Refinar loudness final`,
+                priority: delta > 3 ? 'crítica' : 'alta',
+                band: 'full_spectrum',
+                delta: (ideal - lufs).toFixed(1)
             });
         }
     }
@@ -15392,9 +15405,11 @@ function generateBasicSuggestions(data) {
             suggestions.push({
                 type: 'clipping',
                 category: 'mastering',
-                message: `True Peak em ${tp.toFixed(2)} dBTP está acima do limite seguro de -1.0 dBTP`,
-                action: `Aplicar limitador com ceiling em -1.0 dBTP`,
-                priority: 'crítica'
+                message: `True Peak em ${tp.toFixed(2)} dBTP está acima do limite seguro de -1.0 dBTP (risco de clipping em conversão)`,
+                action: `Aplicar limitador com ceiling em -1.0 dBTP ou reduzir gain em ${(tp + 1.0).toFixed(2)} dB`,
+                priority: 'crítica',
+                band: 'full_spectrum',
+                delta: (tp + 1.0).toFixed(2)
             });
         }
     }
@@ -15408,14 +15423,102 @@ function generateBasicSuggestions(data) {
             suggestions.push({
                 type: 'dynamics',
                 category: 'mastering',
-                message: `Dynamic Range está em ${dr.toFixed(1)} dB quando deveria estar acima de ${minDR.toFixed(1)} dB`,
-                action: `Reduzir compressão/limitação para recuperar dinâmica`,
-                priority: 'alta'
+                message: `Dynamic Range está em ${dr.toFixed(1)} dB quando deveria estar acima de ${minDR.toFixed(1)} dB (mix muito comprimido)`,
+                action: `Reduzir compressão/limitação para recuperar ${(minDR - dr).toFixed(1)} dB de dinâmica`,
+                priority: 'alta',
+                band: 'full_spectrum',
+                delta: (minDR - dr).toFixed(1)
             });
         }
     }
     
-    console.log(`[AI-AUDIT][NORMALIZE] ✅ ${suggestions.length} sugestões básicas geradas`);
+    // Regra 4: LRA (Loudness Range)
+    if (technicalData.lra != null) {
+        const lra = technicalData.lra;
+        const minLRA = 3.0; // Mínimo recomendado para evitar fadiga auditiva
+        const maxLRA = 15.0; // Máximo para manter consistência
+        
+        if (lra < minLRA) {
+            suggestions.push({
+                type: 'lra_low',
+                category: 'dynamics',
+                message: `LRA (Loudness Range) está em ${lra.toFixed(1)} LU quando deveria estar entre ${minLRA} e ${maxLRA} LU (mix sem variação dinâmica)`,
+                action: `Aumentar variação dinâmica em ${(minLRA - lra).toFixed(1)} LU via automação ou compressão seletiva`,
+                priority: 'média',
+                band: 'full_spectrum',
+                delta: (minLRA - lra).toFixed(1)
+            });
+        } else if (lra > maxLRA) {
+            suggestions.push({
+                type: 'lra_high',
+                category: 'dynamics',
+                message: `LRA (Loudness Range) está em ${lra.toFixed(1)} LU quando deveria estar entre ${minLRA} e ${maxLRA} LU (variação dinâmica excessiva)`,
+                action: `Reduzir variação dinâmica em ${(lra - maxLRA).toFixed(1)} LU via compressão multibanda`,
+                priority: 'média',
+                band: 'full_spectrum',
+                delta: (lra - maxLRA).toFixed(1)
+            });
+        }
+    }
+    
+    // Regras 5-11: Bandas Espectrais (7 bandas)
+    const bands = technicalData.bandEnergies || technicalData.spectral_balance || technicalData.bands || {};
+    
+    if (Object.keys(bands).length > 0) {
+        const idealRanges = {
+            sub: { min: -38, max: -28, name: 'Sub (20-60Hz)' },
+            bass: { min: -31, max: -25, name: 'Bass (60-150Hz)' },
+            lowMid: { min: -28, max: -22, name: 'Low-Mid (150-500Hz)' },
+            low_mid: { min: -28, max: -22, name: 'Low-Mid (150-500Hz)' }, // Alias
+            mid: { min: -23, max: -17, name: 'Mid (500Hz-2kHz)' },
+            highMid: { min: -20, max: -14, name: 'High-Mid (2-5kHz)' },
+            high_mid: { min: -20, max: -14, name: 'High-Mid (2-5kHz)' }, // Alias
+            presence: { min: -23, max: -17, name: 'Presence (5-10kHz)' },
+            air: { min: -30, max: -24, name: 'Air (10-20kHz)' }
+        };
+        
+        for (const [band, ideal] of Object.entries(idealRanges)) {
+            const bandData = bands[band];
+            if (bandData && typeof bandData.energy_db === 'number') {
+                const value = bandData.energy_db;
+                
+                if (value < ideal.min) {
+                    const delta = ideal.min - value;
+                    suggestions.push({
+                        type: 'eq',
+                        category: 'eq',
+                        message: `${ideal.name} está em ${value.toFixed(1)} dB quando deveria estar entre ${ideal.min} e ${ideal.max} dB (${delta.toFixed(1)} dB abaixo do mínimo)`,
+                        action: `Aumentar ${ideal.name} em +${delta.toFixed(1)} dB via EQ`,
+                        priority: delta > 3 ? 'alta' : 'média',
+                        band: band,
+                        delta: `+${delta.toFixed(1)}`
+                    });
+                } else if (value > ideal.max) {
+                    const delta = value - ideal.max;
+                    suggestions.push({
+                        type: 'eq',
+                        category: 'eq',
+                        message: `${ideal.name} está em ${value.toFixed(1)} dB quando deveria estar entre ${ideal.min} e ${ideal.max} dB (${delta.toFixed(1)} dB acima do máximo)`,
+                        action: `Reduzir ${ideal.name} em -${delta.toFixed(1)} dB via EQ`,
+                        priority: delta > 3 ? 'alta' : 'média',
+                        band: band,
+                        delta: `-${delta.toFixed(1)}`
+                    });
+                }
+            }
+        }
+    }
+    
+    console.log(`[SUG-AUDIT] ✅ generateBasicSuggestions FIM: ${suggestions.length} sugestões geradas`);
+    suggestions.forEach((sug, i) => {
+        console.log(`[SUG-AUDIT] Sugestão ${i + 1}/${suggestions.length}:`, {
+            type: sug.type,
+            category: sug.category,
+            message: sug.message.substring(0, 60) + '...',
+            priority: sug.priority
+        });
+    });
+    
     return suggestions;
 }
 
@@ -15590,20 +15693,23 @@ function normalizeBackendAnalysisData(result) {
     };
 
     // ✅ GARANTIR SUGESTÕES BÁSICAS SE BACKEND NÃO ENVIOU
-    console.log(`[AI-AUDIT][NORMALIZE] Entrada:`, {
+    console.log(`[SUG-AUDIT] normalizeBackendAnalysisData > Entrada:`, {
         hasSuggestions: Array.isArray(normalized.suggestions),
-        suggestionsLength: normalized.suggestions?.length || 0
+        suggestionsLength: normalized.suggestions?.length || 0,
+        source: 'backend'
     });
     
     if (!normalized.suggestions || normalized.suggestions.length === 0) {
-        console.log(`[AI-AUDIT][NORMALIZE] Gerando sugestões básicas...`);
+        console.log(`[SUG-AUDIT] normalizeBackendAnalysisData > Gerando sugestões básicas no frontend...`);
         normalized.suggestions = generateBasicSuggestions(normalized);
-        console.log(`[AI-AUDIT][NORMALIZE] ✅ ${normalized.suggestions.length} sugestões básicas geradas`);
+        console.log(`[SUG-AUDIT] normalizeBackendAnalysisData > ✅ ${normalized.suggestions.length} sugestões básicas geradas no frontend`);
+    } else {
+        console.log(`[SUG-AUDIT] normalizeBackendAnalysisData > ✅ ${normalized.suggestions.length} sugestões vindas do backend (preservadas)`);
     }
     
-    console.log(`[AI-AUDIT][NORMALIZE] Saída:`, {
+    console.log(`[SUG-AUDIT] normalizeBackendAnalysisData > Saída:`, {
         suggestionsLength: normalized.suggestions.length,
-        sample: normalized.suggestions[0]
+        sampleFirst: normalized.suggestions[0]?.message?.substring(0, 50) + '...'
     });
 
     console.log("✅ [NORMALIZE] Parsed data:", normalized);
