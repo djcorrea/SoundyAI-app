@@ -98,57 +98,145 @@ export async function enrichSuggestionsWithAI(suggestions, context = {}) {
       total: data.usage?.total_tokens
     });
     
+    // 🛡️ VALIDAÇÃO CRÍTICA: Verificar estrutura da resposta
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Resposta da API inválida:', data);
-      throw new Error('Invalid OpenAI API response');
+      console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Resposta da API inválida - estrutura incorreta');
+      console.error('[AI-AUDIT][ULTRA_DIAG] 📦 Data recebido:', JSON.stringify(data, null, 2));
+      throw new Error('Invalid OpenAI API response structure');
     }
 
     const content = data.choices[0].message.content;
+    
+    // 🛡️ VALIDAÇÃO CRÍTICA: Conteúdo não pode estar vazio
+    if (!content || content.trim().length === 0) {
+      console.error('[AI-AUDIT][ULTRA_DIAG] ❌❌❌ CRÍTICO: Conteúdo vazio recebido da OpenAI!');
+      console.error('[AI-AUDIT][ULTRA_DIAG] 📦 Resposta completa:', JSON.stringify(data, null, 2));
+      throw new Error('Empty AI response content - OpenAI retornou string vazia');
+    }
+    
     console.log('[AI-AUDIT][ULTRA_DIAG] 📝 Conteúdo da resposta:', {
       caracteres: content.length,
-      primeiros100: content.substring(0, 100) + '...'
+      primeiros200: content.substring(0, 200).replace(/\n/g, ' '),
+      ultimos100: content.substring(content.length - 100).replace(/\n/g, ' ')
     });
+    
+    // 🔍 LOG CRÍTICO: Mostrar conteúdo COMPLETO para diagnóstico
+    console.log('[AI-AUDIT][ULTRA_DIAG] 🧩 Conteúdo COMPLETO (pré-parse):');
+    console.log(content.substring(0, 1000)); // Primeiros 1000 caracteres
+    if (content.length > 1000) {
+      console.log('[AI-AUDIT][ULTRA_DIAG] ... (truncado, total:', content.length, 'caracteres)');
+    }
 
-    // 📦 Parse da resposta JSON com regex fallback
+    // 📦 Parse da resposta JSON com validação robusta
     let enrichedData;
     try {
       console.log('[AI-AUDIT][ULTRA_DIAG] 🔄 Fazendo parse da resposta JSON...');
       
       // 🛡️ PARSE ROBUSTO: Usar regex para extrair JSON mesmo que haja texto extra
       const jsonMatch = content.match(/\{[\s\S]*\}/);
-      const jsonString = jsonMatch ? jsonMatch[0] : content;
+      
+      if (!jsonMatch) {
+        console.error('[AI-AUDIT][ULTRA_DIAG] ❌ CRÍTICO: Nenhum JSON válido encontrado no conteúdo!');
+        console.error('[AI-AUDIT][ULTRA_DIAG] 📦 Conteúdo recebido:', content.substring(0, 500));
+        throw new Error('No valid JSON found in AI response (regex match failed)');
+      }
+      
+      const jsonString = jsonMatch[0];
+      console.log('[AI-AUDIT][ULTRA_DIAG] 🔍 JSON extraído via regex:', {
+        caracteres: jsonString.length,
+        inicio: jsonString.substring(0, 100).replace(/\n/g, ' ')
+      });
       
       enrichedData = JSON.parse(jsonString);
       
-      console.log('[AI-AUDIT][ULTRA_DIAG] ✅ Parse bem-sucedido:', {
+      console.log('[AI-AUDIT][ULTRA_DIAG] ✅ Parse JSON bem-sucedido!');
+      console.log('[AI-AUDIT][ULTRA_DIAG] 📊 Estrutura parseada:', {
         hasEnrichedSuggestions: !!enrichedData.enrichedSuggestions,
-        count: enrichedData.enrichedSuggestions?.length || 0
+        isArray: Array.isArray(enrichedData.enrichedSuggestions),
+        count: enrichedData.enrichedSuggestions?.length || 0,
+        keys: Object.keys(enrichedData)
       });
+      
+      // 🔍 LOG CRÍTICO: Mostrar SAMPLE das sugestões parseadas
+      if (enrichedData.enrichedSuggestions?.length > 0) {
+        console.log('[AI-AUDIT][ULTRA_DIAG] 📋 Sample da primeira sugestão parseada:', {
+          index: enrichedData.enrichedSuggestions[0].index,
+          categoria: enrichedData.enrichedSuggestions[0].categoria,
+          nivel: enrichedData.enrichedSuggestions[0].nivel,
+          hasProblema: !!enrichedData.enrichedSuggestions[0].problema,
+          hasSolucao: !!enrichedData.enrichedSuggestions[0].solucao,
+          hasPlugin: !!enrichedData.enrichedSuggestions[0].pluginRecomendado
+        });
+      }
+      
     } catch (parseError) {
-      console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Erro ao fazer parse da resposta:', parseError.message);
-      console.error('[AI-AUDIT][ULTRA_DIAG] Conteúdo (primeiros 500 chars):', content.substring(0, 500));
-      throw new Error('Failed to parse AI response (provável texto fora do JSON)');
+      console.error('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.error('[AI-AUDIT][ULTRA_DIAG] ❌❌❌ ERRO CRÍTICO NO PARSE JSON ❌❌❌');
+      console.error('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.error('[AI-AUDIT][ULTRA_DIAG] 💥 Erro:', parseError.message);
+      console.error('[AI-AUDIT][ULTRA_DIAG] 📦 Conteúdo completo (primeiros 1000 chars):');
+      console.error(content.substring(0, 1000));
+      console.error('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      throw new Error(`Failed to parse AI response JSON: ${parseError.message}`);
     }
     
     // 🛡️ VALIDAÇÃO: Garantir que há sugestões enriquecidas
-    if (!enrichedData?.enrichedSuggestions?.length) {
-      console.warn('[AI-AUDIT][ULTRA_DIAG] ⚠️ Nenhuma sugestão enriquecida recebida — retornando base com flag empty_response');
-      return suggestions.map(sug => ({
-        ...sug,
-        aiEnhanced: false,
-        enrichmentStatus: 'empty_response'
-      }));
+    if (!enrichedData?.enrichedSuggestions || !Array.isArray(enrichedData.enrichedSuggestions)) {
+      console.error('[AI-AUDIT][ULTRA_DIAG] ❌❌❌ CRÍTICO: enrichedSuggestions não é array válido!');
+      console.error('[AI-AUDIT][ULTRA_DIAG] 📦 Tipo:', typeof enrichedData?.enrichedSuggestions);
+      console.error('[AI-AUDIT][ULTRA_DIAG] 📦 Valor:', enrichedData?.enrichedSuggestions);
+      throw new Error('enrichedSuggestions is not a valid array in AI response');
     }
+    
+    if (enrichedData.enrichedSuggestions.length === 0) {
+      console.error('[AI-AUDIT][ULTRA_DIAG] ❌❌❌ CRÍTICO: OpenAI retornou array VAZIO de sugestões!');
+      console.error('[AI-AUDIT][ULTRA_DIAG] ⚠️ Isso indica que o prompt pode estar mal formatado ou a IA falhou');
+      console.error('[AI-AUDIT][ULTRA_DIAG] 📦 Data completo:', JSON.stringify(enrichedData, null, 2));
+      throw new Error('OpenAI returned empty enrichedSuggestions array');
+    }
+    
+    console.log('[AI-AUDIT][ULTRA_DIAG] ✅ Validação OK: enrichedSuggestions é array com', enrichedData.enrichedSuggestions.length, 'itens');
 
     // 🔄 Mesclar sugestões base com enriquecimento IA
     console.log('[AI-AUDIT][ULTRA_DIAG] 🔄 Mesclando sugestões base com enriquecimento IA...');
     const enrichedSuggestions = mergeSuggestionsWithAI(suggestions, enrichedData);
 
+    // 🛡️ VALIDAÇÃO FINAL CRÍTICA
+    if (!Array.isArray(enrichedSuggestions)) {
+      console.error('[AI-AUDIT][ULTRA_DIAG] ❌❌❌ ERRO FATAL: mergeSuggestionsWithAI não retornou array!');
+      throw new Error('Merge function returned invalid data type');
+    }
+    
+    if (enrichedSuggestions.length === 0) {
+      console.error('[AI-AUDIT][ULTRA_DIAG] ❌❌❌ ERRO FATAL: Merge resultou em array vazio!');
+      console.error('[AI-AUDIT][ULTRA_DIAG] 📊 Sugestões base:', suggestions.length);
+      console.error('[AI-AUDIT][ULTRA_DIAG] 📊 Dados IA:', enrichedData.enrichedSuggestions?.length);
+      throw new Error('Merge resulted in empty array - check merge logic');
+    }
+    
+    const aiEnhancedCount = enrichedSuggestions.filter(s => s.aiEnhanced === true).length;
+    
+    if (aiEnhancedCount === 0) {
+      console.error('[AI-AUDIT][ULTRA_DIAG] ❌❌❌ ERRO FATAL: Nenhuma sugestão foi marcada como aiEnhanced!');
+      console.error('[AI-AUDIT][ULTRA_DIAG] ⚠️ Frontend irá ignorar todas as sugestões!');
+      throw new Error('No suggestions marked as aiEnhanced - frontend will ignore them');
+    }
+
     console.log('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[AI-AUDIT][ULTRA_DIAG] ✅ ENRIQUECIMENTO CONCLUÍDO COM SUCESSO');
+    console.log('[AI-AUDIT][ULTRA_DIAG] ✅✅✅ ENRIQUECIMENTO CONCLUÍDO COM SUCESSO ✅✅✅');
     console.log('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[AI-AUDIT][ULTRA_DIAG] 📊 Total de sugestões enriquecidas:', enrichedSuggestions.length);
+    console.log('[AI-AUDIT][ULTRA_DIAG] 🤖 Marcadas como aiEnhanced:', aiEnhancedCount, '/', enrichedSuggestions.length);
     console.log('[AI-AUDIT][ULTRA_DIAG] 🔧 Tokens consumidos:', data.usage?.total_tokens);
+    console.log('[AI-AUDIT][ULTRA_DIAG] 📋 Sample da primeira sugestão final:', {
+      type: enrichedSuggestions[0].type,
+      aiEnhanced: enrichedSuggestions[0].aiEnhanced,
+      categoria: enrichedSuggestions[0].categoria,
+      nivel: enrichedSuggestions[0].nivel,
+      hasProblema: !!enrichedSuggestions[0].problema,
+      hasSolucao: !!enrichedSuggestions[0].solucao,
+      hasPlugin: !!enrichedSuggestions[0].pluginRecomendado
+    });
     console.log('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     return enrichedSuggestions;
@@ -328,31 +416,53 @@ Agora, processe as sugestões base e retorne o JSON enriquecido seguindo EXATAME
  * 🔄 Mescla sugestões base com dados enriquecidos pela IA
  */
 function mergeSuggestionsWithAI(baseSuggestions, enrichedData) {
-  console.log('[AI-AUDIT][ULTRA_DIAG] 🔄 Iniciando merge de sugestões...');
-  console.log('[AI-AUDIT][ULTRA_DIAG] 📊 Sugestões base:', baseSuggestions.length);
-  console.log('[AI-AUDIT][ULTRA_DIAG] 📊 Dados enriquecidos:', enrichedData.enrichedSuggestions?.length || 0);
+  console.log('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('[AI-AUDIT][ULTRA_DIAG] 🔄 INICIANDO MERGE DE SUGESTÕES');
+  console.log('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('[AI-AUDIT][ULTRA_DIAG] 📊 Sugestões base recebidas:', baseSuggestions.length);
+  console.log('[AI-AUDIT][ULTRA_DIAG] 📊 Dados IA recebidos:', enrichedData.enrichedSuggestions?.length || 0);
   
   if (!enrichedData || !enrichedData.enrichedSuggestions) {
-    console.warn('[AI-AUDIT][ULTRA_DIAG] ⚠️ Dados enriquecidos inválidos - retornando sugestões base');
-    return baseSuggestions.map(sug => ({
-      ...sug,
-      aiEnhanced: false,
-      enrichmentStatus: 'invalid_data'
-    }));
+    console.error('[AI-AUDIT][ULTRA_DIAG] ❌ CRÍTICO: Dados enriquecidos inválidos!');
+    throw new Error('Invalid enrichedData structure in merge');
   }
 
   const aiSuggestions = enrichedData.enrichedSuggestions;
+  let successCount = 0;
+  let failCount = 0;
 
   const merged = baseSuggestions.map((baseSug, index) => {
+    // 🔍 Buscar enriquecimento por index primeiro, senão por posição
     const aiEnrichment = aiSuggestions.find(ai => ai.index === index) || aiSuggestions[index];
 
     if (!aiEnrichment) {
-      console.warn(`[AI-AUDIT][ULTRA_DIAG] ⚠️ Sem enriquecimento para sugestão ${index}`);
+      console.warn(`[AI-AUDIT][ULTRA_DIAG] ⚠️ Sem enriquecimento para sugestão ${index} - usando fallback`);
+      failCount++;
       return {
         ...baseSug,
         aiEnhanced: false,
-        enrichmentStatus: 'not_found'
+        enrichmentStatus: 'not_found',
+        categoria: mapCategoryFromType(baseSug.type, baseSug.category),
+        nivel: mapPriorityToNivel(baseSug.priority),
+        problema: baseSug.message,
+        causaProvavel: 'IA não forneceu análise para este item',
+        solucao: baseSug.action,
+        pluginRecomendado: 'Não especificado'
       };
+    }
+
+    successCount++;
+    
+    // 🔍 LOG: Detalhes do enriquecimento encontrado
+    if (index === 0) {
+      console.log(`[AI-AUDIT][ULTRA_DIAG] 📋 Exemplo de enriquecimento (index ${index}):`, {
+        temCategoria: !!aiEnrichment.categoria,
+        temNivel: !!aiEnrichment.nivel,
+        temProblema: !!aiEnrichment.problema,
+        temCausa: !!aiEnrichment.causaProvavel,
+        temSolucao: !!aiEnrichment.solucao,
+        temPlugin: !!aiEnrichment.pluginRecomendado
+      });
     }
 
     return {
@@ -367,15 +477,15 @@ function mergeSuggestionsWithAI(baseSuggestions, enrichedData) {
       userValue: baseSug.userValue,
       delta: baseSug.delta,
       
-      // 🔮 Enriquecimento IA (novo formato)
+      // 🔮 Enriquecimento IA (novo formato) - SEMPRE MARCAR COMO ENHANCED
       aiEnhanced: true,
       enrichmentStatus: 'success',
       
-      // Campos do novo formato
+      // Campos do novo formato com fallbacks seguros
       categoria: aiEnrichment.categoria || mapCategoryFromType(baseSug.type, baseSug.category),
       nivel: aiEnrichment.nivel || mapPriorityToNivel(baseSug.priority),
       problema: aiEnrichment.problema || baseSug.message,
-      causaProvavel: aiEnrichment.causaProvavel || 'Causa não especificada pela IA',
+      causaProvavel: aiEnrichment.causaProvavel || 'Análise detalhada não fornecida',
       solucao: aiEnrichment.solucao || baseSug.action,
       pluginRecomendado: aiEnrichment.pluginRecomendado || 'Plugin não especificado',
       dicaExtra: aiEnrichment.dicaExtra || null,
@@ -387,14 +497,30 @@ function mergeSuggestionsWithAI(baseSuggestions, enrichedData) {
     };
   });
   
-  console.log('[AI-AUDIT][ULTRA_DIAG] ✅ Merge concluído:', merged.length, 'sugestões mescladas');
-  console.log('[AI-AUDIT][ULTRA_DIAG] 📊 Estatísticas:', {
-    aiEnhanced: merged.filter(s => s.aiEnhanced).length,
-    notEnhanced: merged.filter(s => !s.aiEnhanced).length,
-    withProblema: merged.filter(s => s.problema).length,
-    withCausa: merged.filter(s => s.causaProvavel).length,
-    withPlugin: merged.filter(s => s.pluginRecomendado && s.pluginRecomendado !== 'Plugin não especificado').length
+  console.log('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('[AI-AUDIT][ULTRA_DIAG] ✅ MERGE CONCLUÍDO');
+  console.log('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('[AI-AUDIT][ULTRA_DIAG] 📊 Total de sugestões mescladas:', merged.length);
+  console.log('[AI-AUDIT][ULTRA_DIAG] 📊 Estatísticas detalhadas:', {
+    totalMerged: merged.length,
+    successfullyEnriched: successCount,
+    failedToEnrich: failCount,
+    aiEnhancedTrue: merged.filter(s => s.aiEnhanced === true).length,
+    aiEnhancedFalse: merged.filter(s => s.aiEnhanced === false).length,
+    withProblema: merged.filter(s => s.problema && s.problema !== '').length,
+    withCausaProvavel: merged.filter(s => s.causaProvavel && !s.causaProvavel.includes('não fornecida')).length,
+    withSolucao: merged.filter(s => s.solucao && s.solucao !== '').length,
+    withPlugin: merged.filter(s => s.pluginRecomendado && s.pluginRecomendado !== 'Plugin não especificado').length,
+    withDicaExtra: merged.filter(s => s.dicaExtra).length,
+    withParametros: merged.filter(s => s.parametros).length
   });
+  console.log('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  
+  // 🛡️ VALIDAÇÃO FINAL
+  if (merged.length !== baseSuggestions.length) {
+    console.error('[AI-AUDIT][ULTRA_DIAG] ❌ ERRO: Merge alterou número de sugestões!');
+    throw new Error(`Merge count mismatch: expected ${baseSuggestions.length}, got ${merged.length}`);
+  }
   
   return merged;
 }
