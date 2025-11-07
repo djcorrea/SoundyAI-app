@@ -12,6 +12,9 @@ import { fileURLToPath } from 'url';
 // Sistema de tratamento de erros padronizado
 import { makeErr, logAudio, assertFinite } from '../../lib/audio/error-handling.js';
 
+// ✅ Banco de dados para buscar análise de referência
+import pool from '../../db.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -217,11 +220,59 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       const genre = options.genre || finalJSON.metadata?.genre || 'unknown';
       const mode = options.mode || 'genre';
       
-      finalJSON.suggestions = generateSuggestionsFromMetrics(
-        coreMetrics,
-        genre,
-        mode
-      );
+      // ✅ MODO REFERENCE: Comparar com análise de referência
+      if (mode === "reference" && options.referenceJobId) {
+        console.log("[REFERENCE-MODE] Modo referência detectado - buscando análise de referência...");
+        console.log("[REFERENCE-MODE] ReferenceJobId:", options.referenceJobId);
+        
+        try {
+          const refJob = await pool.query("SELECT results FROM jobs WHERE id = $1", [options.referenceJobId]);
+          
+          if (refJob.rows.length > 0) {
+            const refData = typeof refJob.rows[0].results === "string"
+              ? JSON.parse(refJob.rows[0].results)
+              : refJob.rows[0].results;
+            
+            console.log("[REFERENCE-MODE] Análise de referência encontrada:", {
+              jobId: options.referenceJobId,
+              hasMetrics: !!(refData.lufs && refData.truePeak),
+              fileName: refData.fileName || refData.metadata?.fileName
+            });
+            
+            // Gerar deltas A/B
+            const referenceComparison = generateReferenceDeltas(coreMetrics, {
+              lufs: refData.lufs,
+              truePeak: refData.truePeak,
+              dynamics: refData.dynamics,
+              spectralBands: refData.spectralBands
+            });
+            
+            // Adicionar ao resultado final
+            finalJSON.referenceComparison = referenceComparison;
+            finalJSON.referenceJobId = options.referenceJobId;
+            finalJSON.referenceFileName = refData.fileName || refData.metadata?.fileName;
+            
+            // Gerar sugestões comparativas
+            finalJSON.suggestions = generateComparisonSuggestions(referenceComparison);
+            
+            console.log("[REFERENCE-MODE] ✅ Comparação A/B gerada:", {
+              deltasCalculados: Object.keys(referenceComparison).length,
+              suggestoesComparativas: finalJSON.suggestions.length,
+              hasIsComparisonFlag: finalJSON.suggestions.some(s => s.isComparison)
+            });
+          } else {
+            console.warn("[REFERENCE-MODE] ⚠️ Job de referência não encontrado - gerando sugestões genéricas");
+            finalJSON.suggestions = generateSuggestionsFromMetrics(coreMetrics, genre, mode);
+          }
+        } catch (refError) {
+          console.error("[REFERENCE-MODE] ❌ Erro ao buscar referência:", refError.message);
+          console.warn("[REFERENCE-MODE] Gerando sugestões genéricas como fallback");
+          finalJSON.suggestions = generateSuggestionsFromMetrics(coreMetrics, genre, mode);
+        }
+      } else {
+        // Modo genre normal
+        finalJSON.suggestions = generateSuggestionsFromMetrics(coreMetrics, genre, mode);
+      }
       
       console.log(`[AI-AUDIT][ASSIGN.inputType] suggestions:`, typeof finalJSON.suggestions, Array.isArray(finalJSON.suggestions));
       console.log(`[AI-AUDIT][ASSIGN.sample]`, finalJSON.suggestions?.slice(0, 2));
@@ -385,6 +436,155 @@ function generateComparisonSuggestions(diff) {
   if (diff.stereo && diff.stereo.width < -0.1)
     suggestions.push("A faixa tem imagem estéreo mais estreita que a referência.");
 
+  return suggestions;
+}
+
+/**
+ * ✅ NOVA FUNÇÃO: Calcula diferenças (deltas) entre user e reference
+ * Compara as métricas de duas faixas de áudio (modo A/B)
+ * 
+ * @param {Object} userMetrics - Métricas da faixa do usuário
+ * @param {Object} referenceMetrics - Métricas da faixa de referência
+ * @returns {Object} - Objeto com deltas calculados para todas as métricas
+ */
+function generateReferenceDeltas(userMetrics, referenceMetrics) {
+  const deltas = {
+    lufs: {
+      user: userMetrics.lufs?.integrated ?? null,
+      reference: referenceMetrics.lufs?.integrated ?? null,
+      delta: userMetrics.lufs && referenceMetrics.lufs
+        ? userMetrics.lufs.integrated - referenceMetrics.lufs.integrated
+        : null
+    },
+    truePeak: {
+      user: userMetrics.truePeak?.maxDbtp ?? null,
+      reference: referenceMetrics.truePeak?.maxDbtp ?? null,
+      delta: userMetrics.truePeak && referenceMetrics.truePeak
+        ? userMetrics.truePeak.maxDbtp - referenceMetrics.truePeak.maxDbtp
+        : null
+    },
+    dynamics: {
+      user: userMetrics.dynamics?.range ?? null,
+      reference: referenceMetrics.dynamics?.range ?? null,
+      delta: userMetrics.dynamics && referenceMetrics.dynamics
+        ? userMetrics.dynamics.range - referenceMetrics.dynamics.range
+        : null
+    },
+    spectralBands: {}
+  };
+
+  const bands = ["sub", "bass", "lowMid", "mid", "highMid", "presence", "air"];
+  for (const band of bands) {
+    const u = userMetrics.spectralBands?.[band]?.energy_db;
+    const r = referenceMetrics.spectralBands?.[band]?.energy_db;
+    if (typeof u === "number" && typeof r === "number") {
+      deltas.spectralBands[band] = {
+        user: u,
+        reference: r,
+        delta: +(u - r).toFixed(2)
+      };
+    }
+  }
+
+  console.log("[REFERENCE-DELTAS] Deltas calculados:", deltas);
+  return deltas;
+}
+
+/**
+ * ✅ NOVA FUNÇÃO: Gera sugestões baseadas nas diferenças entre user e reference
+ * Cria sugestões comparativas A/B ao invés de sugestões absolutas
+ * 
+ * @param {Object} deltas - Objeto com deltas calculados por generateReferenceDeltas()
+ * @returns {Array} - Array de sugestões comparativas com flag isComparison: true
+ */
+function generateComparisonSuggestions(deltas) {
+  const suggestions = [];
+
+  // Loudness
+  if (Math.abs(deltas.lufs?.delta ?? 0) > 1.5) {
+    const direction = deltas.lufs.delta > 0 ? "mais alta" : "mais baixa";
+    suggestions.push({
+      type: "loudness_comparison",
+      category: "Loudness",
+      message: `Sua faixa está ${direction} que a referência em ${Math.abs(deltas.lufs.delta).toFixed(1)} dB.`,
+      action: deltas.lufs.delta > 0
+        ? "Reduza o volume no limitador até se aproximar da referência."
+        : "Aumente o ganho de saída ou saturação para igualar a referência.",
+      referenceValue: deltas.lufs.reference,
+      userValue: deltas.lufs.user,
+      delta: deltas.lufs.delta.toFixed(2),
+      priority: "alta",
+      band: "full_spectrum",
+      isComparison: true
+    });
+  }
+
+  // True Peak
+  if (Math.abs(deltas.truePeak?.delta ?? 0) > 0.5) {
+    suggestions.push({
+      type: "truepeak_comparison",
+      category: "Mastering",
+      message: `True Peak está ${deltas.truePeak.delta > 0 ? "mais alto" : "mais baixo"} que a referência em ${Math.abs(deltas.truePeak.delta).toFixed(2)} dBTP.`,
+      action: "Ajuste o ceiling do limitador para se aproximar da referência.",
+      referenceValue: deltas.truePeak.reference,
+      userValue: deltas.truePeak.user,
+      delta: deltas.truePeak.delta.toFixed(2),
+      priority: "média",
+      band: "full_spectrum",
+      isComparison: true
+    });
+  }
+
+  // Dynamic Range
+  if (Math.abs(deltas.dynamics?.delta ?? 0) > 1.0) {
+    suggestions.push({
+      type: "dynamics_comparison",
+      category: "Compressão / DR",
+      message: `Dynamic Range está ${deltas.dynamics.delta > 0 ? "maior" : "menor"} que a referência em ${Math.abs(deltas.dynamics.delta).toFixed(1)} dB.`,
+      action: deltas.dynamics.delta > 0
+        ? "Aumente a compressão no master bus."
+        : "Reduza a compressão para abrir mais o mix.",
+      referenceValue: deltas.dynamics.reference,
+      userValue: deltas.dynamics.user,
+      delta: deltas.dynamics.delta.toFixed(2),
+      priority: "média",
+      band: "full_spectrum",
+      isComparison: true
+    });
+  }
+
+  // Bandas Espectrais
+  const bandNames = {
+    sub: "Sub (20-60Hz)",
+    bass: "Bass (60-150Hz)",
+    lowMid: "Low-Mid (150-500Hz)",
+    mid: "Mid (500Hz-2kHz)",
+    highMid: "High-Mid (2-5kHz)",
+    presence: "Presence (5-10kHz)",
+    air: "Air (10-20kHz)"
+  };
+
+  for (const [band, name] of Object.entries(bandNames)) {
+    const data = deltas.spectralBands[band];
+    if (data && Math.abs(data.delta) > 1.5) {
+      suggestions.push({
+        type: "eq_comparison",
+        category: "Equalização",
+        message: `${name} está ${data.delta > 0 ? "mais forte" : "mais fraco"} que a referência em ${Math.abs(data.delta).toFixed(1)} dB.`,
+        action: data.delta > 0
+          ? `Reduza ${name} em ${Math.abs(data.delta).toFixed(1)} dB via EQ.`
+          : `Aumente ${name} em ${Math.abs(data.delta).toFixed(1)} dB via EQ.`,
+        referenceValue: data.reference,
+        userValue: data.user,
+        delta: data.delta.toFixed(2),
+        priority: Math.abs(data.delta) > 3 ? "alta" : "média",
+        band: band,
+        isComparison: true
+      });
+    }
+  }
+
+  console.log(`[COMPARISON-SUGGESTIONS] Geradas ${suggestions.length} sugestões comparativas.`);
   return suggestions;
 }
 

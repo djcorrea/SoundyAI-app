@@ -65,17 +65,28 @@ router.get("/:id", async (req, res) => {
       updatedAt: job.updated_at,
       completedAt: job.completed_at,
       // ✅ CRÍTICO: Incluir análise completa se disponível
-      ...(fullResult || {})
+      ...(fullResult || {}),
+      // ✅ MODO REFERENCE: Adicionar campos de comparação A/B
+      referenceComparison: fullResult?.referenceComparison || null,
+      referenceJobId: fullResult?.referenceJobId || null,
+      referenceFileName: fullResult?.referenceFileName || null
     };
 
     // ✅ LOGS DE AUDITORIA DE RETORNO
     console.log(`[AI-AUDIT][API.out] Retornando job ${job.id}:`);
     console.log(`[AI-AUDIT][API.out] contains suggestions?`, Array.isArray(fullResult?.suggestions), "len:", fullResult?.suggestions?.length || 0);
     console.log(`[AI-AUDIT][API.out] contains aiSuggestions?`, Array.isArray(fullResult?.aiSuggestions), "len:", fullResult?.aiSuggestions?.length || 0);
+    console.log(`[AI-AUDIT][API.out] contains referenceComparison?`, !!fullResult?.referenceComparison);
 
     if (fullResult?.suggestions) {
       console.log(`[AI-AUDIT][API.out] ✅ Suggestions sendo enviadas para frontend:`, fullResult.suggestions.length);
       console.log(`[AI-AUDIT][API.out] Sample:`, fullResult.suggestions[0]);
+      
+      // Log adicional para modo reference
+      if (fullResult?.referenceComparison) {
+        console.log(`[AI-AUDIT][API.out] ✅ Modo reference - comparação A/B incluída`);
+        console.log(`[AI-AUDIT][API.out] Reference file:`, fullResult.referenceFileName);
+      }
     } else {
       console.error(`[AI-AUDIT][API.out] ❌ CRÍTICO: Nenhuma suggestion no JSON retornado!`);
     }
