@@ -399,12 +399,29 @@ async function updateJobStatus(jobId, status, results = null) {
     let params;
 
     if (results) {
-      // ✅ LOGS DE AUDITORIA PRÉ-SALVAMENTO
-      console.log(`[AI-AUDIT][SAVE] Salvando results para job ${jobId}:`, {
-        hasSuggestions: Array.isArray(results.suggestions),
-        suggestionsLength: results.suggestions?.length || 0,
-        suggestionsType: typeof results.suggestions
-      });
+      // ✅ LOGS DE AUDITORIA PRÉ-SALVAMENTO - SUGGESTIONS BASE
+      console.log(`[AI-AUDIT][SAVE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      console.log(`[AI-AUDIT][SAVE] 💾 SALVANDO RESULTS NO POSTGRES`);
+      console.log(`[AI-AUDIT][SAVE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      console.log(`[AI-AUDIT][SAVE] Job ID: ${jobId}`);
+      console.log(`[AI-AUDIT][SAVE] Status: ${status}`);
+      console.log(`[AI-AUDIT][SAVE] has suggestions?`, Array.isArray(results.suggestions));
+      console.log(`[AI-AUDIT][SAVE] suggestions length:`, results.suggestions?.length || 0);
+      console.log(`[AI-AUDIT][SAVE] suggestions type:`, typeof results.suggestions);
+      
+      // 🤖 LOGS DE AUDITORIA - AI SUGGESTIONS
+      console.log(`[AI-AUDIT][SAVE] has aiSuggestions?`, Array.isArray(results.aiSuggestions));
+      console.log(`[AI-AUDIT][SAVE] aiSuggestions length:`, results.aiSuggestions?.length || 0);
+      console.log(`[AI-AUDIT][SAVE] aiSuggestions type:`, typeof results.aiSuggestions);
+      
+      if (!results.aiSuggestions || results.aiSuggestions.length === 0) {
+        console.error(`[AI-AUDIT][SAVE] ❌ CRÍTICO: results.aiSuggestions AUSENTE no objeto results!`);
+        console.error(`[AI-AUDIT][SAVE] ⚠️ Postgres irá salvar SEM aiSuggestions!`);
+        console.error(`[AI-AUDIT][SAVE] Keys presentes:`, Object.keys(results).slice(0, 10));
+      } else {
+        console.log(`[AI-AUDIT][SAVE] ✅ results.aiSuggestions PRESENTE com ${results.aiSuggestions.length} itens`);
+      }
+      console.log(`[AI-AUDIT][SAVE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       
       query = `UPDATE jobs SET status = $1, results = $2, updated_at = NOW() WHERE id = $3 RETURNING *`;
       params = [status, JSON.stringify(results), jobId];
@@ -421,13 +438,28 @@ async function updateJobStatus(jobId, status, results = null) {
       const savedResults = typeof result.rows[0].results === 'string' 
         ? JSON.parse(result.rows[0].results) 
         : result.rows[0].results;
-        
-      console.log(`[AI-AUDIT][SAVE.after] Job salvo no Postgres:`, {
-        jobId: result.rows[0].id,
-        status: result.rows[0].status,
-        hasSuggestionsInDB: Array.isArray(savedResults.suggestions),
-        suggestionsLengthInDB: savedResults.suggestions?.length || 0
-      });
+      
+      console.log(`[AI-AUDIT][SAVE.after] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      console.log(`[AI-AUDIT][SAVE.after] ✅ JOB SALVO NO POSTGRES`);
+      console.log(`[AI-AUDIT][SAVE.after] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      console.log(`[AI-AUDIT][SAVE.after] Job ID:`, result.rows[0].id);
+      console.log(`[AI-AUDIT][SAVE.after] Status:`, result.rows[0].status);
+      console.log(`[AI-AUDIT][SAVE.after] has suggestions in DB?`, Array.isArray(savedResults.suggestions));
+      console.log(`[AI-AUDIT][SAVE.after] suggestions length in DB:`, savedResults.suggestions?.length || 0);
+      
+      // 🤖 VERIFICAÇÃO CRÍTICA: aiSuggestions no banco
+      console.log(`[AI-AUDIT][SAVE.after] has aiSuggestions in DB?`, Array.isArray(savedResults.aiSuggestions));
+      console.log(`[AI-AUDIT][SAVE.after] aiSuggestions length in DB:`, savedResults.aiSuggestions?.length || 0);
+      
+      if (!savedResults.aiSuggestions || savedResults.aiSuggestions.length === 0) {
+        console.error(`[AI-AUDIT][SAVE.after] ❌❌❌ CRÍTICO: aiSuggestions NÃO FOI SALVO NO POSTGRES! ❌❌❌`);
+        console.error(`[AI-AUDIT][SAVE.after] ⚠️ API irá retornar SEM aiSuggestions!`);
+        console.error(`[AI-AUDIT][SAVE.after] ⚠️ Frontend não receberá enriquecimento IA!`);
+      } else {
+        console.log(`[AI-AUDIT][SAVE.after] ✅✅✅ aiSuggestions SALVO COM SUCESSO! ✅✅✅`);
+        console.log(`[AI-AUDIT][SAVE.after] ${savedResults.aiSuggestions.length} itens enriquecidos disponíveis para frontend`);
+      }
+      console.log(`[AI-AUDIT][SAVE.after] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     }
     
     return result.rows[0];
@@ -725,7 +757,7 @@ async function audioProcessor(job) {
       finalJSON.suggestions = [];
     }
     
-    // ✅ LOGS DE AUDITORIA PRÉ-SALVAMENTO
+    // ✅ LOGS DE AUDITORIA PRÉ-SALVAMENTO - SUGGESTIONS BASE
     console.log(`[AI-AUDIT][SAVE.before] has suggestions?`, Array.isArray(finalJSON.suggestions), "len:", finalJSON.suggestions?.length || 0);
     
     if (!finalJSON.suggestions || finalJSON.suggestions.length === 0) {
@@ -735,6 +767,32 @@ async function audioProcessor(job) {
       console.log(`[AI-AUDIT][SAVE.before] ✅ finalJSON.suggestions contém ${finalJSON.suggestions.length} itens`);
       console.log(`[AI-AUDIT][SAVE.before] Sample:`, finalJSON.suggestions[0]);
     }
+    
+    // 🤖 LOGS DE AUDITORIA PRÉ-SALVAMENTO - AI SUGGESTIONS (ULTRA V2)
+    console.log(`[AI-AUDIT][SAVE.before] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`[AI-AUDIT][SAVE.before] 🤖 AUDITORIA aiSuggestions`);
+    console.log(`[AI-AUDIT][SAVE.before] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`[AI-AUDIT][SAVE.before] has aiSuggestions?`, Array.isArray(finalJSON.aiSuggestions));
+    console.log(`[AI-AUDIT][SAVE.before] aiSuggestions length:`, finalJSON.aiSuggestions?.length || 0);
+    console.log(`[AI-AUDIT][SAVE.before] aiSuggestions type:`, typeof finalJSON.aiSuggestions);
+    
+    if (!finalJSON.aiSuggestions || finalJSON.aiSuggestions.length === 0) {
+      console.error(`[AI-AUDIT][SAVE.before] ❌ CRÍTICO: finalJSON.aiSuggestions está vazio ou undefined!`);
+      console.error(`[AI-AUDIT][SAVE.before] Mode:`, mode);
+      console.error(`[AI-AUDIT][SAVE.before] ReferenceJobId:`, referenceJobId);
+      console.error(`[AI-AUDIT][SAVE.before] ⚠️ ISSO CAUSARÁ AUSÊNCIA DE aiSuggestions NO FRONTEND!`);
+    } else {
+      console.log(`[AI-AUDIT][SAVE.before] ✅ finalJSON.aiSuggestions contém ${finalJSON.aiSuggestions.length} itens`);
+      console.log(`[AI-AUDIT][SAVE.before] Sample aiSuggestion:`, {
+        aiEnhanced: finalJSON.aiSuggestions[0]?.aiEnhanced,
+        enrichmentStatus: finalJSON.aiSuggestions[0]?.enrichmentStatus,
+        categoria: finalJSON.aiSuggestions[0]?.categoria,
+        nivel: finalJSON.aiSuggestions[0]?.nivel,
+        hasProblema: !!finalJSON.aiSuggestions[0]?.problema,
+        hasSolucao: !!finalJSON.aiSuggestions[0]?.solucao
+      });
+    }
+    console.log(`[AI-AUDIT][SAVE.before] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     
     // 🎯 AUDIT: LOG DE CONCLUSÃO
     console.log('✅ [AUDIT_COMPLETE] ═══════════════════════════════════════');
