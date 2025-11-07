@@ -66,6 +66,9 @@ router.get("/:id", async (req, res) => {
       completedAt: job.completed_at,
       // ✅ CRÍTICO: Incluir análise completa se disponível
       ...(fullResult || {}),
+      // ✅ GARANTIA EXPLÍCITA: aiSuggestions SEMPRE no objeto final
+      aiSuggestions: fullResult?.aiSuggestions || [],
+      suggestions: fullResult?.suggestions || [],
       // ✅ MODO REFERENCE: Adicionar campos de comparação A/B
       referenceComparison: fullResult?.referenceComparison || null,
       referenceJobId: fullResult?.referenceJobId || null,
@@ -79,6 +82,19 @@ router.get("/:id", async (req, res) => {
     console.log(`[AI-AUDIT][ULTRA_DIAG] 🆔 Job ID: ${job.id}`);
     console.log(`[AI-AUDIT][ULTRA_DIAG] 📊 Status: ${normalizedStatus}`);
     console.log(`[AI-AUDIT][ULTRA_DIAG] 🎵 Mode: ${job.mode}`);
+    
+    // 🔍 LOG CRÍTICO: Verificar campos presentes no response ANTES do envio
+    console.log(`[AI-AUDIT][API-RESPONSE] 🔍 Campos no objeto response:`, Object.keys(response));
+    console.log(`[AI-AUDIT][API-RESPONSE] ✅ aiSuggestions incluído no response:`, {
+      presente: 'aiSuggestions' in response,
+      isArray: Array.isArray(response.aiSuggestions),
+      length: response.aiSuggestions?.length || 0
+    });
+    console.log(`[AI-AUDIT][API-RESPONSE] ✅ suggestions incluído no response:`, {
+      presente: 'suggestions' in response,
+      isArray: Array.isArray(response.suggestions),
+      length: response.suggestions?.length || 0
+    });
     
     // 🔍 VERIFICAÇÃO: Sugestões base
     console.log(`[AI-AUDIT][ULTRA_DIAG] 💡 Sugestões base:`, {
@@ -144,6 +160,29 @@ router.get("/:id", async (req, res) => {
     if (fullResult) {
       console.log(`[REDIS-RETURN] ✅ Full analysis included: LUFS=${fullResult.technicalData?.lufsIntegrated}, Peak=${fullResult.technicalData?.truePeakDbtp}, Score=${fullResult.score}`);
     }
+
+    // 🔮 LOG FINAL ANTES DO ENVIO
+    console.log(`[API-AUDIT][FINAL] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`[API-AUDIT][FINAL] 📤 ENVIANDO RESPONSE PARA FRONTEND`);
+    console.log(`[API-AUDIT][FINAL] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`[API-AUDIT][FINAL] ✅ aiSuggestions length:`, response.aiSuggestions?.length || 0);
+    console.log(`[API-AUDIT][FINAL] ✅ suggestions length:`, response.suggestions?.length || 0);
+    console.log(`[API-AUDIT][FINAL] ✅ referenceComparison presente:`, !!response.referenceComparison);
+    
+    if (response.aiSuggestions && response.aiSuggestions.length > 0) {
+      console.log(`[API-AUDIT][FINAL] 🌟🌟🌟 aiSuggestions INCLUÍDAS NA RESPOSTA! 🌟🌟🌟`);
+      console.log(`[API-AUDIT][FINAL] Sample da primeira aiSuggestion:`, {
+        aiEnhanced: response.aiSuggestions[0]?.aiEnhanced,
+        categoria: response.aiSuggestions[0]?.categoria,
+        nivel: response.aiSuggestions[0]?.nivel,
+        hasProblema: !!response.aiSuggestions[0]?.problema,
+        hasSolucao: !!response.aiSuggestions[0]?.solucao
+      });
+    } else {
+      console.warn(`[API-AUDIT][FINAL] ⚠️⚠️⚠️ aiSuggestions VAZIO OU AUSENTE! ⚠️⚠️⚠️`);
+      console.warn(`[API-AUDIT][FINAL] ⚠️ Frontend receberá array vazio e não exibirá IA`);
+    }
+    console.log(`[API-AUDIT][FINAL] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
     return res.json(response);
   } catch (err) {
