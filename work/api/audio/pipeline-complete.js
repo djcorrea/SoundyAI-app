@@ -239,6 +239,16 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
               fileName: refData.fileName || refData.metadata?.fileName
             });
             
+            // 🔍 AUDITORIA: Validar métricas antes de calcular deltas
+            console.log("[REFERENCE-MODE] Validando métricas de referência:", {
+              hasLufs: !!refData.lufs,
+              lufsValue: refData.lufs?.integrated,
+              hasTruePeak: !!refData.truePeak,
+              truePeakValue: refData.truePeak?.maxDbtp,
+              hasDynamics: !!refData.dynamics,
+              dynamicsValue: refData.dynamics?.range
+            });
+            
             // Gerar deltas A/B
             const referenceComparison = generateReferenceDeltas(coreMetrics, {
               lufs: refData.lufs,
@@ -246,6 +256,18 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
               dynamics: refData.dynamics,
               spectralBands: refData.spectralBands
             });
+            
+            // 🛡️ VALIDAÇÃO: Garantir que referenceComparison não contém NaN/Infinity
+            const hasInvalidDeltas = Object.entries(referenceComparison).some(([key, value]) => {
+              if (key === 'spectralBands') return false; // Verificar depois
+              return value?.delta != null && (!isFinite(value.delta));
+            });
+            
+            if (hasInvalidDeltas) {
+              console.error("[REFERENCE-MODE] ❌ CRÍTICO: Deltas inválidos detectados!");
+              console.error("[REFERENCE-MODE] referenceComparison:", JSON.stringify(referenceComparison, null, 2));
+              throw new Error("Invalid deltas detected in referenceComparison");
+            }
             
             // Adicionar ao resultado final
             finalJSON.referenceComparison = referenceComparison;
@@ -422,27 +444,29 @@ export async function compareMetrics(userMetrics, refMetrics) {
  * @returns {Object} - Objeto com deltas calculados para todas as métricas
  */
 function generateReferenceDeltas(userMetrics, referenceMetrics) {
+  // 🛡️ FUNÇÃO AUXILIAR: Cálculo seguro de delta (previne NaN, Infinity, null, undefined)
+  const safeDelta = (a, b) => {
+    if (typeof a === 'number' && isFinite(a) && typeof b === 'number' && isFinite(b)) {
+      return a - b;
+    }
+    return 0; // Fallback seguro para valores inválidos
+  };
+
   const deltas = {
     lufs: {
       user: userMetrics.lufs?.integrated ?? null,
       reference: referenceMetrics.lufs?.integrated ?? null,
-      delta: userMetrics.lufs && referenceMetrics.lufs
-        ? userMetrics.lufs.integrated - referenceMetrics.lufs.integrated
-        : null
+      delta: safeDelta(userMetrics.lufs?.integrated, referenceMetrics.lufs?.integrated)
     },
     truePeak: {
       user: userMetrics.truePeak?.maxDbtp ?? null,
       reference: referenceMetrics.truePeak?.maxDbtp ?? null,
-      delta: userMetrics.truePeak && referenceMetrics.truePeak
-        ? userMetrics.truePeak.maxDbtp - referenceMetrics.truePeak.maxDbtp
-        : null
+      delta: safeDelta(userMetrics.truePeak?.maxDbtp, referenceMetrics.truePeak?.maxDbtp)
     },
     dynamics: {
       user: userMetrics.dynamics?.range ?? null,
       reference: referenceMetrics.dynamics?.range ?? null,
-      delta: userMetrics.dynamics && referenceMetrics.dynamics
-        ? userMetrics.dynamics.range - referenceMetrics.dynamics.range
-        : null
+      delta: safeDelta(userMetrics.dynamics?.range, referenceMetrics.dynamics?.range)
     },
     spectralBands: {}
   };
@@ -451,16 +475,24 @@ function generateReferenceDeltas(userMetrics, referenceMetrics) {
   for (const band of bands) {
     const u = userMetrics.spectralBands?.[band]?.energy_db;
     const r = referenceMetrics.spectralBands?.[band]?.energy_db;
-    if (typeof u === "number" && typeof r === "number") {
+    if (typeof u === "number" && isFinite(u) && typeof r === "number" && isFinite(r)) {
       deltas.spectralBands[band] = {
         user: u,
         reference: r,
-        delta: +(u - r).toFixed(2)
+        delta: +safeDelta(u, r).toFixed(2)
       };
     }
   }
 
-  console.log("[REFERENCE-DELTAS] Deltas calculados:", deltas);
+  // 🔍 LOG DE DIAGNÓSTICO: Auditoria de deltas calculados
+  console.log("[DELTA-AUDIT] Deltas calculados:", {
+    lufs: deltas.lufs,
+    truePeak: deltas.truePeak,
+    dynamics: deltas.dynamics,
+    spectralBandsCount: Object.keys(deltas.spectralBands).length,
+    spectralBands: deltas.spectralBands
+  });
+
   return deltas;
 }
 
@@ -473,20 +505,26 @@ function generateReferenceDeltas(userMetrics, referenceMetrics) {
  */
 function generateComparisonSuggestions(deltas) {
   const suggestions = [];
+  
+  // 🛡️ FUNÇÃO AUXILIAR: Formatar número de forma segura
+  const safeFormat = (value, decimals = 1) => {
+    if (typeof value !== 'number' || !isFinite(value)) return '0.0';
+    return value.toFixed(decimals);
+  };
 
   // Loudness
-  if (Math.abs(deltas.lufs?.delta ?? 0) > 1.5) {
+  if (deltas.lufs?.delta != null && isFinite(deltas.lufs.delta) && Math.abs(deltas.lufs.delta) > 1.5) {
     const direction = deltas.lufs.delta > 0 ? "mais alta" : "mais baixa";
     suggestions.push({
       type: "loudness_comparison",
       category: "Loudness",
-      message: `Sua faixa está ${direction} que a referência em ${Math.abs(deltas.lufs.delta).toFixed(1)} dB.`,
+      message: `Sua faixa está ${direction} que a referência em ${safeFormat(Math.abs(deltas.lufs.delta))} dB.`,
       action: deltas.lufs.delta > 0
         ? "Reduza o volume no limitador até se aproximar da referência."
         : "Aumente o ganho de saída ou saturação para igualar a referência.",
       referenceValue: deltas.lufs.reference,
       userValue: deltas.lufs.user,
-      delta: deltas.lufs.delta.toFixed(2),
+      delta: safeFormat(deltas.lufs.delta, 2),
       priority: "alta",
       band: "full_spectrum",
       isComparison: true
@@ -494,15 +532,15 @@ function generateComparisonSuggestions(deltas) {
   }
 
   // True Peak
-  if (Math.abs(deltas.truePeak?.delta ?? 0) > 0.5) {
+  if (deltas.truePeak?.delta != null && isFinite(deltas.truePeak.delta) && Math.abs(deltas.truePeak.delta) > 0.5) {
     suggestions.push({
       type: "truepeak_comparison",
       category: "Mastering",
-      message: `True Peak está ${deltas.truePeak.delta > 0 ? "mais alto" : "mais baixo"} que a referência em ${Math.abs(deltas.truePeak.delta).toFixed(2)} dBTP.`,
+      message: `True Peak está ${deltas.truePeak.delta > 0 ? "mais alto" : "mais baixo"} que a referência em ${safeFormat(Math.abs(deltas.truePeak.delta), 2)} dBTP.`,
       action: "Ajuste o ceiling do limitador para se aproximar da referência.",
       referenceValue: deltas.truePeak.reference,
       userValue: deltas.truePeak.user,
-      delta: deltas.truePeak.delta.toFixed(2),
+      delta: safeFormat(deltas.truePeak.delta, 2),
       priority: "média",
       band: "full_spectrum",
       isComparison: true
@@ -510,17 +548,17 @@ function generateComparisonSuggestions(deltas) {
   }
 
   // Dynamic Range
-  if (Math.abs(deltas.dynamics?.delta ?? 0) > 1.0) {
+  if (deltas.dynamics?.delta != null && isFinite(deltas.dynamics.delta) && Math.abs(deltas.dynamics.delta) > 1.0) {
     suggestions.push({
       type: "dynamics_comparison",
       category: "Compressão / DR",
-      message: `Dynamic Range está ${deltas.dynamics.delta > 0 ? "maior" : "menor"} que a referência em ${Math.abs(deltas.dynamics.delta).toFixed(1)} dB.`,
+      message: `Dynamic Range está ${deltas.dynamics.delta > 0 ? "maior" : "menor"} que a referência em ${safeFormat(Math.abs(deltas.dynamics.delta))} dB.`,
       action: deltas.dynamics.delta > 0
         ? "Aumente a compressão no master bus."
         : "Reduza a compressão para abrir mais o mix.",
       referenceValue: deltas.dynamics.reference,
       userValue: deltas.dynamics.user,
-      delta: deltas.dynamics.delta.toFixed(2),
+      delta: safeFormat(deltas.dynamics.delta, 2),
       priority: "média",
       band: "full_spectrum",
       isComparison: true
@@ -540,17 +578,17 @@ function generateComparisonSuggestions(deltas) {
 
   for (const [band, name] of Object.entries(bandNames)) {
     const data = deltas.spectralBands[band];
-    if (data && Math.abs(data.delta) > 1.5) {
+    if (data && typeof data.delta === 'number' && isFinite(data.delta) && Math.abs(data.delta) > 1.5) {
       suggestions.push({
         type: "eq_comparison",
         category: "Equalização",
-        message: `${name} está ${data.delta > 0 ? "mais forte" : "mais fraco"} que a referência em ${Math.abs(data.delta).toFixed(1)} dB.`,
+        message: `${name} está ${data.delta > 0 ? "mais forte" : "mais fraco"} que a referência em ${safeFormat(Math.abs(data.delta))} dB.`,
         action: data.delta > 0
-          ? `Reduza ${name} em ${Math.abs(data.delta).toFixed(1)} dB via EQ.`
-          : `Aumente ${name} em ${Math.abs(data.delta).toFixed(1)} dB via EQ.`,
+          ? `Reduza ${name} em ${safeFormat(Math.abs(data.delta))} dB via EQ.`
+          : `Aumente ${name} em ${safeFormat(Math.abs(data.delta))} dB via EQ.`,
         referenceValue: data.reference,
         userValue: data.user,
-        delta: data.delta.toFixed(2),
+        delta: safeFormat(data.delta, 2),
         priority: Math.abs(data.delta) > 3 ? "alta" : "média",
         band: band,
         isComparison: true
@@ -559,6 +597,22 @@ function generateComparisonSuggestions(deltas) {
   }
 
   console.log(`[COMPARISON-SUGGESTIONS] Geradas ${suggestions.length} sugestões comparativas.`);
+  
+  // 🛡️ FALLBACK: Garantir que sempre retornamos ao menos 1 suggestion
+  if (!suggestions || suggestions.length === 0) {
+    console.warn('[COMPARISON-SUGGESTIONS] ⚠️ Nenhuma sugestão gerada - retornando fallback');
+    suggestions.push({
+      type: 'comparison_incomplete',
+      category: 'Diagnóstico',
+      message: 'Análise incompleta',
+      action: 'Alguns parâmetros da faixa de referência não puderam ser comparados. Verifique se ambas as faixas possuem métricas completas.',
+      priority: 'baixa',
+      band: 'full_spectrum',
+      isComparison: true,
+      isFallback: true
+    });
+  }
+  
   return suggestions;
 }
 
