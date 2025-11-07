@@ -412,32 +412,6 @@ export async function compareMetrics(userMetrics, refMetrics) {
   };
 }
 
-/**
- * 💡 GERADOR DE SUGESTÕES COMPARATIVAS
- * Analisa diferenças e sugere correções baseadas na referência
- */
-function generateComparisonSuggestions(diff) {
-  const suggestions = [];
-
-  if (diff.loudness && diff.loudness.integrated) {
-    if (diff.loudness.integrated < -1) suggestions.push("Aumente o volume geral (LUFS abaixo da referência)");
-    if (diff.loudness.integrated > 1) suggestions.push("Reduza o volume geral (LUFS acima da referência)");
-  }
-
-  if (diff.truePeak && diff.truePeak.maxDbtp > 1)
-    suggestions.push("True Peak está mais alto que a referência — risco de clip digital.");
-
-  if (diff.dynamics && diff.dynamics.range < -2)
-    suggestions.push("Dinâmica mais comprimida que a faixa de referência.");
-
-  if (diff.spectralBands && diff.spectralBands.bass && diff.spectralBands.bass.energy_db)
-    suggestions.push("Verifique o balanceamento de graves e médios com EQ ou sidechain.");
-
-  if (diff.stereo && diff.stereo.width < -0.1)
-    suggestions.push("A faixa tem imagem estéreo mais estreita que a referência.");
-
-  return suggestions;
-}
 
 /**
  * ✅ NOVA FUNÇÃO: Calcula diferenças (deltas) entre user e reference
