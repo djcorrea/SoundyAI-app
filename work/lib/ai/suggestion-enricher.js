@@ -53,6 +53,11 @@ export async function enrichSuggestionsWithAI(suggestions, context = {}) {
     console.log('[AI-AUDIT][ULTRA_DIAG] 🔧 Modelo: gpt-4o-mini');
     console.log('[AI-AUDIT][ULTRA_DIAG] 🔧 Temperature: 0.7');
     console.log('[AI-AUDIT][ULTRA_DIAG] 🔧 Max tokens: 2000');
+    console.log('[AI-AUDIT][ULTRA_DIAG] 🔧 Timeout: 25 segundos');
+    
+    // ⏱️ Configurar timeout de 25 segundos
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 25000);
     
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -73,10 +78,10 @@ export async function enrichSuggestionsWithAI(suggestions, context = {}) {
           }
         ],
         temperature: 0.7,
-        max_tokens: 2000,
-        response_format: { type: "json_object" }
-      })
-    });
+        max_tokens: 2000
+      }),
+      signal: controller.signal
+    }).finally(() => clearTimeout(timeout));
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -104,11 +109,17 @@ export async function enrichSuggestionsWithAI(suggestions, context = {}) {
       primeiros100: content.substring(0, 100) + '...'
     });
 
-    // 📦 Parse da resposta JSON
+    // 📦 Parse da resposta JSON com regex fallback
     let enrichedData;
     try {
       console.log('[AI-AUDIT][ULTRA_DIAG] 🔄 Fazendo parse da resposta JSON...');
-      enrichedData = JSON.parse(content);
+      
+      // 🛡️ PARSE ROBUSTO: Usar regex para extrair JSON mesmo que haja texto extra
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      const jsonString = jsonMatch ? jsonMatch[0] : content;
+      
+      enrichedData = JSON.parse(jsonString);
+      
       console.log('[AI-AUDIT][ULTRA_DIAG] ✅ Parse bem-sucedido:', {
         hasEnrichedSuggestions: !!enrichedData.enrichedSuggestions,
         count: enrichedData.enrichedSuggestions?.length || 0
@@ -116,7 +127,17 @@ export async function enrichSuggestionsWithAI(suggestions, context = {}) {
     } catch (parseError) {
       console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Erro ao fazer parse da resposta:', parseError.message);
       console.error('[AI-AUDIT][ULTRA_DIAG] Conteúdo (primeiros 500 chars):', content.substring(0, 500));
-      throw new Error('Failed to parse AI response');
+      throw new Error('Failed to parse AI response (provável texto fora do JSON)');
+    }
+    
+    // 🛡️ VALIDAÇÃO: Garantir que há sugestões enriquecidas
+    if (!enrichedData?.enrichedSuggestions?.length) {
+      console.warn('[AI-AUDIT][ULTRA_DIAG] ⚠️ Nenhuma sugestão enriquecida recebida — retornando base com flag empty_response');
+      return suggestions.map(sug => ({
+        ...sug,
+        aiEnhanced: false,
+        enrichmentStatus: 'empty_response'
+      }));
     }
 
     // 🔄 Mesclar sugestões base com enriquecimento IA
@@ -137,6 +158,17 @@ export async function enrichSuggestionsWithAI(suggestions, context = {}) {
     console.error('[AI-AUDIT][ULTRA_DIAG] ❌ ERRO NO ENRIQUECIMENTO IA');
     console.error('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.error('[AI-AUDIT][ULTRA_DIAG] 💥 Mensagem:', error.message);
+    
+    // 🛡️ Identificar tipo de erro específico
+    if (error.name === 'AbortError') {
+      console.error('[AI-AUDIT][ULTRA_DIAG] ⏱️ Tipo: Timeout (25s excedido)');
+      console.error('[AI-AUDIT][ULTRA_DIAG] 💡 Solução: Reduzir número de sugestões ou aumentar timeout');
+    } else if (error.message.includes('OpenAI API error')) {
+      console.error('[AI-AUDIT][ULTRA_DIAG] 🌐 Tipo: Erro da API OpenAI');
+    } else if (error.message.includes('Failed to parse')) {
+      console.error('[AI-AUDIT][ULTRA_DIAG] 📦 Tipo: Erro de parse JSON');
+    }
+    
     console.error('[AI-AUDIT][ULTRA_DIAG] 📍 Stack:', error.stack?.split('\n').slice(0, 3).join('\n'));
     console.error('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
