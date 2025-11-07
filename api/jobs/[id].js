@@ -90,6 +90,20 @@ router.get("/:id", async (req, res) => {
     } else {
       console.error(`[AI-AUDIT][API.out] ❌ CRÍTICO: Nenhuma suggestion no JSON retornado!`);
     }
+    
+    // 🔮 LOG DE AUDITORIA: aiSuggestions (ULTRA V2)
+    if (fullResult?.aiSuggestions) {
+      console.log(`[AI-AUDIT][API.out] ✅ aiSuggestions (IA enriquecida) sendo enviadas:`, fullResult.aiSuggestions.length);
+      console.log(`[AI-AUDIT][API.out] Sample aiSuggestion:`, {
+        type: fullResult.aiSuggestions[0]?.type,
+        aiEnhanced: fullResult.aiSuggestions[0]?.aiEnhanced,
+        hasProblema: !!fullResult.aiSuggestions[0]?.problema,
+        hasCausa: !!fullResult.aiSuggestions[0]?.causa,
+        hasPlugin: !!fullResult.aiSuggestions[0]?.plugin
+      });
+    } else {
+      console.warn(`[AI-AUDIT][API.out] ⚠️ aiSuggestions ausente - IA pode não ter sido executada`);
+    }
 
     console.log(`[REDIS-RETURN] 📊 Returning job ${job.id} with status '${normalizedStatus}'`);
     if (fullResult) {
