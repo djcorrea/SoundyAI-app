@@ -51,6 +51,201 @@ function saveSecondAnalysis(data) {
     console.log('   - LUFS:', window.SoundyAI_Store.second?.technicalData?.lufsIntegrated);
 }
 
+// ========================================
+// 🤖 SISTEMA DE ESPERA POR ENRIQUECIMENTO IA
+// ========================================
+
+/**
+ * Aguarda o enriquecimento IA (aiSuggestions) estar disponível
+ * @param {string} jobId - ID do job para consultar
+ * @param {number} timeout - Tempo máximo de espera em ms (padrão: 10000ms = 10s)
+ * @param {number} pollInterval - Intervalo entre consultas em ms (padrão: 1000ms = 1s)
+ * @returns {Promise<object|null>} - Dados enriquecidos ou null se timeout
+ */
+async function waitForAIEnrichment(jobId, timeout = 10000, pollInterval = 1000) {
+    console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[AI-SYNC] ⏳ Aguardando enriquecimento IA...');
+    console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[AI-SYNC] 🆔 Job ID:', jobId);
+    console.log('[AI-SYNC] ⏱️ Timeout:', timeout, 'ms');
+    console.log('[AI-SYNC] 🔄 Poll interval:', pollInterval, 'ms');
+    
+    const startTime = Date.now();
+    let attempt = 0;
+    
+    while (Date.now() - startTime < timeout) {
+        attempt++;
+        const elapsed = Date.now() - startTime;
+        
+        console.log(`[AI-SYNC] 🔍 Tentativa ${attempt} (${elapsed}ms/${timeout}ms)...`);
+        
+        try {
+            const response = await fetch(`/api/jobs/${jobId}`);
+            
+            if (!response.ok) {
+                console.warn(`[AI-SYNC] ⚠️ HTTP ${response.status} - Tentando novamente...`);
+                await new Promise(resolve => setTimeout(resolve, pollInterval));
+                continue;
+            }
+            
+            const data = await response.json();
+            
+            console.log(`[AI-SYNC] 📦 Resposta recebida (tentativa ${attempt}):`, {
+                hasAiSuggestions: Array.isArray(data.aiSuggestions),
+                aiSuggestionsLength: data.aiSuggestions?.length || 0,
+                hasSuggestions: Array.isArray(data.suggestions),
+                suggestionsLength: data.suggestions?.length || 0,
+                status: data.status
+            });
+            
+            // ✅ VERIFICAÇÃO: aiSuggestions existe E tem conteúdo
+            if (Array.isArray(data.aiSuggestions) && data.aiSuggestions.length > 0) {
+                // Verificar se pelo menos 1 tem aiEnhanced: true
+                const aiEnhancedCount = data.aiSuggestions.filter(s => s.aiEnhanced === true).length;
+                
+                console.log(`[AI-SYNC] 🎯 aiSuggestions encontrado:`, {
+                    total: data.aiSuggestions.length,
+                    aiEnhanced: aiEnhancedCount
+                });
+                
+                if (aiEnhancedCount > 0) {
+                    console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                    console.log('[AI-SYNC] ✅✅✅ ENRIQUECIMENTO IA CONCLUÍDO! ✅✅✅');
+                    console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                    console.log('[AI-SYNC] 📊 Total:', data.aiSuggestions.length, 'sugestões');
+                    console.log('[AI-SYNC] 🤖 Marcadas como aiEnhanced:', aiEnhancedCount);
+                    console.log('[AI-SYNC] ⏱️ Tempo decorrido:', Date.now() - startTime, 'ms');
+                    console.log('[AI-SYNC] 📋 Sample da primeira:', {
+                        aiEnhanced: data.aiSuggestions[0]?.aiEnhanced,
+                        categoria: data.aiSuggestions[0]?.categoria,
+                        nivel: data.aiSuggestions[0]?.nivel,
+                        hasProblema: !!data.aiSuggestions[0]?.problema,
+                        hasSolucao: !!data.aiSuggestions[0]?.solucao
+                    });
+                    console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                    
+                    return data;
+                } else {
+                    console.warn(`[AI-SYNC] ⚠️ aiSuggestions existe mas nenhum tem aiEnhanced: true`);
+                    console.warn(`[AI-SYNC] ⚠️ Aguardando processamento IA completar...`);
+                }
+            } else {
+                console.log(`[AI-SYNC] ⏳ aiSuggestions ainda não disponível, aguardando...`);
+            }
+            
+        } catch (error) {
+            console.error(`[AI-SYNC] ❌ Erro na tentativa ${attempt}:`, error.message);
+        }
+        
+        // Aguardar antes da próxima tentativa
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+    }
+    
+    // Timeout atingido
+    console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[AI-SYNC] ⏱️ TIMEOUT ATINGIDO');
+    console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.warn('[AI-SYNC] ⚠️ Enriquecimento IA não completou dentro do tempo limite');
+    console.warn('[AI-SYNC] ⚠️ Total de tentativas:', attempt);
+    console.warn('[AI-SYNC] ⚠️ Tempo decorrido:', Date.now() - startTime, 'ms');
+    console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    return null;
+}
+
+/**
+ * Mostra spinner visual de carregamento IA
+ * @param {string} message - Mensagem a exibir
+ */
+function showAILoadingSpinner(message = 'Conectando à IA...') {
+    console.log('[AI-UI][SPINNER] 🔄 Mostrando spinner:', message);
+    
+    // Tentar inserir no elemento de status do modal se existir
+    const statusElement = document.querySelector('#ai-enrichment-status') || 
+                         document.querySelector('.modal-status') ||
+                         document.querySelector('.analysis-status');
+    
+    if (statusElement) {
+        statusElement.innerHTML = `
+            <div class="ai-loading-spinner" id="aiEnrichmentSpinner">
+                <div class="spinner-icon">🔄</div>
+                <div class="spinner-message">${message}</div>
+                <div class="spinner-dots">
+                    <span class="dot">●</span>
+                    <span class="dot">●</span>
+                    <span class="dot">●</span>
+                </div>
+            </div>
+        `;
+        
+        // Adicionar animação via CSS inline
+        const style = document.createElement('style');
+        style.textContent = `
+            .ai-loading-spinner {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 20px;
+                background: rgba(0, 0, 0, 0.05);
+                border-radius: 8px;
+                margin: 10px 0;
+            }
+            .spinner-icon {
+                font-size: 32px;
+                animation: spin 2s linear infinite;
+            }
+            .spinner-message {
+                font-size: 14px;
+                color: #666;
+                margin: 10px 0 5px 0;
+                font-weight: 500;
+            }
+            .spinner-dots {
+                display: flex;
+                gap: 4px;
+            }
+            .spinner-dots .dot {
+                font-size: 8px;
+                animation: pulse 1.5s ease-in-out infinite;
+            }
+            .spinner-dots .dot:nth-child(2) {
+                animation-delay: 0.2s;
+            }
+            .spinner-dots .dot:nth-child(3) {
+                animation-delay: 0.4s;
+            }
+            @keyframes spin {
+                from { transform: rotate(0deg); }
+                to { transform: rotate(360deg); }
+            }
+            @keyframes pulse {
+                0%, 100% { opacity: 0.3; }
+                50% { opacity: 1; }
+            }
+        `;
+        
+        if (!document.getElementById('aiSpinnerStyles')) {
+            style.id = 'aiSpinnerStyles';
+            document.head.appendChild(style);
+        }
+    } else {
+        console.warn('[AI-UI][SPINNER] ⚠️ Elemento de status não encontrado');
+    }
+}
+
+/**
+ * Remove spinner visual de carregamento IA
+ */
+function hideAILoadingSpinner() {
+    console.log('[AI-UI][SPINNER] ✅ Removendo spinner');
+    
+    const spinner = document.getElementById('aiEnrichmentSpinner');
+    if (spinner) {
+        spinner.remove();
+    }
+}
+
 /**
  * Obtém par de análises para comparação
  * @returns {object|null} { ref, curr } ou null se alguma análise estiver faltando
@@ -4079,6 +4274,77 @@ async function handleModalFileSelection(file) {
             }
             
             console.log("[SAFE-MODAL] ✅ Fluxo reference intacto, iniciando renderização final.");
+            
+            // ========================================
+            // 🤖 AGUARDAR ENRIQUECIMENTO IA ANTES DE EXIBIR MODAL
+            // ========================================
+            console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log('[AI-SYNC] 🔍 Verificando status do enriquecimento IA...');
+            console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            
+            // Verificar se aiSuggestions já está presente
+            const hasAISuggestions = Array.isArray(normalizedResult.aiSuggestions) && 
+                                     normalizedResult.aiSuggestions.length > 0 &&
+                                     normalizedResult.aiSuggestions.some(s => s.aiEnhanced === true);
+            
+            console.log('[AI-SYNC] 📊 Estado atual:', {
+                hasAiSuggestions: Array.isArray(normalizedResult.aiSuggestions),
+                aiSuggestionsLength: normalizedResult.aiSuggestions?.length || 0,
+                aiEnhancedCount: normalizedResult.aiSuggestions?.filter(s => s.aiEnhanced === true).length || 0,
+                jobId: normalizedResult.jobId
+            });
+            
+            if (!hasAISuggestions) {
+                console.log('[AI-SYNC] ⏳ aiSuggestions não está pronto, aguardando enriquecimento...');
+                
+                // Mostrar spinner visual
+                showAILoadingSpinner('🤖 Conectando à IA para análise avançada...');
+                
+                try {
+                    // Aguardar enriquecimento IA (timeout de 10 segundos, polling a cada 1 segundo)
+                    const enrichedData = await waitForAIEnrichment(normalizedResult.jobId, 10000, 1000);
+                    
+                    if (enrichedData && enrichedData.aiSuggestions && enrichedData.aiSuggestions.length > 0) {
+                        // Sucesso: Mesclar aiSuggestions enriquecidas no normalizedResult
+                        normalizedResult.aiSuggestions = enrichedData.aiSuggestions;
+                        
+                        console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                        console.log('[AI-SYNC] ✅ Enriquecimento IA mesclado com sucesso!');
+                        console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                        console.log('[AI-SYNC] 📊 Total de aiSuggestions:', normalizedResult.aiSuggestions.length);
+                        console.log('[AI-SYNC] 🤖 Marcadas como aiEnhanced:', 
+                            normalizedResult.aiSuggestions.filter(s => s.aiEnhanced === true).length);
+                        
+                        // Atualizar cache com dados enriquecidos
+                        AnalysisCache.put(normalizedResult);
+                        
+                    } else {
+                        console.warn('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                        console.warn('[AI-SYNC] ⚠️ Enriquecimento IA não completou a tempo');
+                        console.warn('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                        console.warn('[AI-SYNC] ℹ️ Modal será exibido com sugestões base');
+                        console.warn('[AI-SYNC] ℹ️ IA pode estar desabilitada ou sobrecarregada');
+                    }
+                    
+                } catch (syncError) {
+                    console.error('[AI-SYNC] ❌ Erro ao aguardar enriquecimento IA:', syncError);
+                    console.warn('[AI-SYNC] ℹ️ Continuando com sugestões base...');
+                } finally {
+                    // Remover spinner
+                    hideAILoadingSpinner();
+                }
+                
+            } else {
+                console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                console.log('[AI-SYNC] ✅ aiSuggestions já presente no resultado!');
+                console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                console.log('[AI-SYNC] ℹ️ Não é necessário aguardar, exibindo imediatamente');
+            }
+            
+            console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log('[AI-SYNC] 🎬 Iniciando renderização do modal...');
+            console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            
             await displayModalResults(normalizedResult);
             console.log('[FIX-REFERENCE] Modal aberto após segunda análise');
             
@@ -4468,6 +4734,76 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         }
         
         updateModalProgress(100, `✅ Análise de ${fileName} concluída!`);
+        
+        // ========================================
+        // 🤖 AGUARDAR ENRIQUECIMENTO IA ANTES DE EXIBIR MODAL (MODO GENRE)
+        // ========================================
+        console.log('[AI-SYNC][GENRE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('[AI-SYNC][GENRE] 🔍 Verificando status do enriquecimento IA...');
+        console.log('[AI-SYNC][GENRE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
+        // Verificar se aiSuggestions já está presente
+        const hasAISuggestionsGenre = Array.isArray(normalizedResult.aiSuggestions) && 
+                                      normalizedResult.aiSuggestions.length > 0 &&
+                                      normalizedResult.aiSuggestions.some(s => s.aiEnhanced === true);
+        
+        console.log('[AI-SYNC][GENRE] 📊 Estado atual:', {
+            hasAiSuggestions: Array.isArray(normalizedResult.aiSuggestions),
+            aiSuggestionsLength: normalizedResult.aiSuggestions?.length || 0,
+            aiEnhancedCount: normalizedResult.aiSuggestions?.filter(s => s.aiEnhanced === true).length || 0,
+            jobId: normalizedResult.jobId
+        });
+        
+        if (!hasAISuggestionsGenre) {
+            console.log('[AI-SYNC][GENRE] ⏳ aiSuggestions não está pronto, aguardando enriquecimento...');
+            
+            // Mostrar spinner visual
+            showAILoadingSpinner('🤖 Conectando à IA para análise avançada...');
+            
+            try {
+                // Aguardar enriquecimento IA (timeout de 10 segundos, polling a cada 1 segundo)
+                const enrichedDataGenre = await waitForAIEnrichment(normalizedResult.jobId, 10000, 1000);
+                
+                if (enrichedDataGenre && enrichedDataGenre.aiSuggestions && enrichedDataGenre.aiSuggestions.length > 0) {
+                    // Sucesso: Mesclar aiSuggestions enriquecidas no normalizedResult
+                    normalizedResult.aiSuggestions = enrichedDataGenre.aiSuggestions;
+                    
+                    console.log('[AI-SYNC][GENRE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                    console.log('[AI-SYNC][GENRE] ✅ Enriquecimento IA mesclado com sucesso!');
+                    console.log('[AI-SYNC][GENRE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                    console.log('[AI-SYNC][GENRE] 📊 Total de aiSuggestions:', normalizedResult.aiSuggestions.length);
+                    console.log('[AI-SYNC][GENRE] 🤖 Marcadas como aiEnhanced:', 
+                        normalizedResult.aiSuggestions.filter(s => s.aiEnhanced === true).length);
+                    
+                    // Atualizar cache com dados enriquecidos
+                    AnalysisCache.put(normalizedResult);
+                    
+                } else {
+                    console.warn('[AI-SYNC][GENRE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                    console.warn('[AI-SYNC][GENRE] ⚠️ Enriquecimento IA não completou a tempo');
+                    console.warn('[AI-SYNC][GENRE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+                    console.warn('[AI-SYNC][GENRE] ℹ️ Modal será exibido com sugestões base');
+                    console.warn('[AI-SYNC][GENRE] ℹ️ IA pode estar desabilitada ou sobrecarregada');
+                }
+                
+            } catch (syncErrorGenre) {
+                console.error('[AI-SYNC][GENRE] ❌ Erro ao aguardar enriquecimento IA:', syncErrorGenre);
+                console.warn('[AI-SYNC][GENRE] ℹ️ Continuando com sugestões base...');
+            } finally {
+                // Remover spinner
+                hideAILoadingSpinner();
+            }
+            
+        } else {
+            console.log('[AI-SYNC][GENRE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log('[AI-SYNC][GENRE] ✅ aiSuggestions já presente no resultado!');
+            console.log('[AI-SYNC][GENRE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log('[AI-SYNC][GENRE] ℹ️ Não é necessário aguardar, exibindo imediatamente');
+        }
+        
+        console.log('[AI-SYNC][GENRE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('[AI-SYNC][GENRE] 🎬 Iniciando renderização do modal...');
+        console.log('[AI-SYNC][GENRE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
         // Exibir resultados diretamente no modal
         setTimeout(() => {
