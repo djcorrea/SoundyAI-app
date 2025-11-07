@@ -399,6 +399,13 @@ async function updateJobStatus(jobId, status, results = null) {
     let params;
 
     if (results) {
+      // ✅ LOGS DE AUDITORIA PRÉ-SALVAMENTO
+      console.log(`[AI-AUDIT][SAVE] Salvando results para job ${jobId}:`, {
+        hasSuggestions: Array.isArray(results.suggestions),
+        suggestionsLength: results.suggestions?.length || 0,
+        suggestionsType: typeof results.suggestions
+      });
+      
       query = `UPDATE jobs SET status = $1, results = $2, updated_at = NOW() WHERE id = $3 RETURNING *`;
       params = [status, JSON.stringify(results), jobId];
     } else {
@@ -408,6 +415,21 @@ async function updateJobStatus(jobId, status, results = null) {
 
     const result = await pool.query(query, params);
     console.log(`📝 [DB-UPDATE][${new Date().toISOString()}] -> Job ${jobId} status updated to '${status}'`);
+    
+    // ✅ LOGS DE AUDITORIA PÓS-SALVAMENTO
+    if (results && result.rows[0]) {
+      const savedResults = typeof result.rows[0].results === 'string' 
+        ? JSON.parse(result.rows[0].results) 
+        : result.rows[0].results;
+        
+      console.log(`[AI-AUDIT][SAVE.after] Job salvo no Postgres:`, {
+        jobId: result.rows[0].id,
+        status: result.rows[0].status,
+        hasSuggestionsInDB: Array.isArray(savedResults.suggestions),
+        suggestionsLengthInDB: savedResults.suggestions?.length || 0
+      });
+    }
+    
     return result.rows[0];
   } catch (error) {
     console.error(`💥 [DB-ERROR][${new Date().toISOString()}] -> Failed to update job ${jobId}:`, error.message);
@@ -697,6 +719,23 @@ async function audioProcessor(job) {
     console.log(`✅ [PROCESS][${new Date().toISOString()}] -> Processamento REAL concluído com sucesso`);
     console.log(`📊 [PROCESS] LUFS: ${finalJSON.technicalData?.lufsIntegrated || 'N/A'} | Peak: ${finalJSON.technicalData?.truePeakDbtp || 'N/A'}dBTP | Score: ${finalJSON.score || 0}`);
     
+    // ✅ GARANTIR QUE SUGGESTIONS NUNCA SEJA UNDEFINED
+    if (!finalJSON.suggestions) {
+      console.warn(`[AI-AUDIT][SAVE.before] ⚠️ finalJSON.suggestions estava undefined - inicializando como array vazio`);
+      finalJSON.suggestions = [];
+    }
+    
+    // ✅ LOGS DE AUDITORIA PRÉ-SALVAMENTO
+    console.log(`[AI-AUDIT][SAVE.before] has suggestions?`, Array.isArray(finalJSON.suggestions), "len:", finalJSON.suggestions?.length || 0);
+    
+    if (!finalJSON.suggestions || finalJSON.suggestions.length === 0) {
+      console.error(`[AI-AUDIT][SAVE.before] ❌ CRÍTICO: finalJSON.suggestions está vazio ou undefined!`);
+      console.error(`[AI-AUDIT][SAVE.before] finalJSON keys:`, Object.keys(finalJSON));
+    } else {
+      console.log(`[AI-AUDIT][SAVE.before] ✅ finalJSON.suggestions contém ${finalJSON.suggestions.length} itens`);
+      console.log(`[AI-AUDIT][SAVE.before] Sample:`, finalJSON.suggestions[0]);
+    }
+    
     // 🎯 AUDIT: LOG DE CONCLUSÃO
     console.log('✅ [AUDIT_COMPLETE] ═══════════════════════════════════════');
     console.log('✅ [AUDIT_COMPLETE] Job CONCLUÍDO com sucesso');
@@ -709,6 +748,7 @@ async function audioProcessor(job) {
     console.log(`✅ [AUDIT_COMPLETE] LUFS: ${finalJSON.technicalData?.lufsIntegrated || 'N/A'} LUFS`);
     console.log(`✅ [AUDIT_COMPLETE] DR: ${finalJSON.technicalData?.dynamicRange || 'N/A'} dB`);
     console.log(`✅ [AUDIT_COMPLETE] True Peak: ${finalJSON.technicalData?.truePeakDbtp || 'N/A'} dBTP`);
+    console.log(`✅ [AUDIT_COMPLETE] Suggestions: ${finalJSON.suggestions?.length || 0} items`);
     console.log(`✅ [AUDIT_COMPLETE] Processing Time: ${totalMs}ms`);
     console.log(`✅ [AUDIT_COMPLETE] Timestamp: ${new Date().toISOString()}`);
     console.log('✅ [AUDIT_COMPLETE] ═══════════════════════════════════════');

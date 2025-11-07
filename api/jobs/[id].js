@@ -68,6 +68,18 @@ router.get("/:id", async (req, res) => {
       ...(fullResult || {})
     };
 
+    // ✅ LOGS DE AUDITORIA DE RETORNO
+    console.log(`[AI-AUDIT][API.out] Retornando job ${job.id}:`);
+    console.log(`[AI-AUDIT][API.out] contains suggestions?`, Array.isArray(fullResult?.suggestions), "len:", fullResult?.suggestions?.length || 0);
+    console.log(`[AI-AUDIT][API.out] contains aiSuggestions?`, Array.isArray(fullResult?.aiSuggestions), "len:", fullResult?.aiSuggestions?.length || 0);
+
+    if (fullResult?.suggestions) {
+      console.log(`[AI-AUDIT][API.out] ✅ Suggestions sendo enviadas para frontend:`, fullResult.suggestions.length);
+      console.log(`[AI-AUDIT][API.out] Sample:`, fullResult.suggestions[0]);
+    } else {
+      console.error(`[AI-AUDIT][API.out] ❌ CRÍTICO: Nenhuma suggestion no JSON retornado!`);
+    }
+
     console.log(`[REDIS-RETURN] 📊 Returning job ${job.id} with status '${normalizedStatus}'`);
     if (fullResult) {
       console.log(`[REDIS-RETURN] ✅ Full analysis included: LUFS=${fullResult.technicalData?.lufsIntegrated}, Peak=${fullResult.technicalData?.truePeakDbtp}, Score=${fullResult.score}`);

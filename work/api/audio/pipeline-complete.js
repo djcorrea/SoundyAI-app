@@ -208,6 +208,30 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       throw makeErr('output_scoring', `JSON output failed: ${error.message}`, 'output_scoring_error');
     }
 
+    // ========= FASE 5.5: GERAÇÃO DE SUGESTÕES =========
+    try {
+      console.log(`[AI-AUDIT][REQ] Starting suggestions generation for: ${fileName}`);
+      console.log(`[AI-AUDIT][ASSIGN.before] analysis keys:`, Object.keys(finalJSON));
+      
+      // Gerar sugestões baseadas nas métricas técnicas
+      const genre = options.genre || finalJSON.metadata?.genre || 'unknown';
+      const mode = options.mode || 'genre';
+      
+      finalJSON.suggestions = generateSuggestionsFromMetrics(
+        coreMetrics,
+        genre,
+        mode
+      );
+      
+      console.log(`[AI-AUDIT][ASSIGN.inputType] suggestions:`, typeof finalJSON.suggestions, Array.isArray(finalJSON.suggestions));
+      console.log(`[AI-AUDIT][ASSIGN.sample]`, finalJSON.suggestions?.slice(0, 2));
+      
+    } catch (error) {
+      console.error(`[AI-AUDIT][GENERATION] ❌ Erro ao gerar sugestões: ${error.message}`);
+      // Garantir que sempre há um array, mesmo que vazio
+      finalJSON.suggestions = [];
+    }
+
     // ========= FINALIZAÇÃO =========
     const totalTime = Date.now() - startTime;
     timings.total = totalTime;
@@ -361,5 +385,125 @@ function generateComparisonSuggestions(diff) {
   if (diff.stereo && diff.stereo.width < -0.1)
     suggestions.push("A faixa tem imagem estéreo mais estreita que a referência.");
 
+  return suggestions;
+}
+
+/**
+ * 🎯 GERADOR DE SUGESTÕES BASEADAS EM MÉTRICAS
+ * Gera sugestões básicas analisando as métricas técnicas do áudio
+ * 
+ * @param {Object} technicalData - Dados técnicos do áudio (coreMetrics)
+ * @param {String} genre - Gênero musical ou categoria
+ * @param {String} mode - Modo de análise ('genre' ou 'reference')
+ * @returns {Array} - Array de sugestões estruturadas
+ */
+function generateSuggestionsFromMetrics(technicalData, genre = 'unknown', mode = 'genre') {
+  console.log(`[AI-AUDIT][GENERATION] Generating suggestions for genre: ${genre}, mode: ${mode}`);
+  
+  const suggestions = [];
+  
+  // Regra 1: LUFS Integrado
+  if (technicalData.lufs && typeof technicalData.lufs.integrated === 'number') {
+    const lufs = technicalData.lufs.integrated;
+    const ideal = mode === 'genre' ? -10.5 : -14.0; // -10.5 para EDM, -14.0 para streaming
+    const delta = Math.abs(lufs - ideal);
+    
+    if (delta > 1.0) {
+      suggestions.push({
+        type: 'loudness',
+        category: 'loudness',
+        message: `LUFS Integrado está em ${lufs.toFixed(1)} dB quando deveria estar próximo de ${ideal.toFixed(1)} dB (diferença de ${delta.toFixed(1)} dB)`,
+        action: delta > 3 ? `Ajustar loudness em ${(ideal - lufs).toFixed(1)} dB via limitador` : `Refinar loudness final`,
+        priority: delta > 3 ? 'crítica' : 'alta',
+        band: 'full_spectrum',
+        delta: (ideal - lufs).toFixed(1)
+      });
+    }
+  }
+  
+  // Regra 2: True Peak
+  if (technicalData.truePeak && typeof technicalData.truePeak.maxDbtp === 'number') {
+    const tp = technicalData.truePeak.maxDbtp;
+    if (tp > -1.0) {
+      suggestions.push({
+        type: 'clipping',
+        category: 'mastering',
+        message: `True Peak em ${tp.toFixed(2)} dBTP está acima do limite seguro de -1.0 dBTP (risco de clipping em conversão)`,
+        action: `Aplicar limitador com ceiling em -1.0 dBTP ou reduzir gain em ${(tp + 1.0).toFixed(2)} dB`,
+        priority: 'crítica',
+        band: 'full_spectrum',
+        delta: (tp + 1.0).toFixed(2)
+      });
+    }
+  }
+  
+  // Regra 3: Dynamic Range
+  if (technicalData.dynamics && typeof technicalData.dynamics.range === 'number') {
+    const dr = technicalData.dynamics.range;
+    const minDR = mode === 'genre' ? 6.0 : 8.0;
+    
+    if (dr < minDR) {
+      suggestions.push({
+        type: 'dynamics',
+        category: 'mastering',
+        message: `Dynamic Range está em ${dr.toFixed(1)} dB quando deveria estar acima de ${minDR.toFixed(1)} dB (mix muito comprimido)`,
+        action: `Reduzir compressão/limitação para recuperar ${(minDR - dr).toFixed(1)} dB de dinâmica`,
+        priority: 'alta',
+        band: 'full_spectrum',
+        delta: (minDR - dr).toFixed(1)
+      });
+    }
+  }
+  
+  // Regra 4-10: Bandas espectrais
+  if (technicalData.spectralBands) {
+    const bands = technicalData.spectralBands;
+    const idealRanges = {
+      sub: { min: -38, max: -28, name: 'Sub (20-60Hz)' },
+      bass: { min: -31, max: -25, name: 'Bass (60-150Hz)' },
+      lowMid: { min: -28, max: -22, name: 'Low-Mid (150-500Hz)' },
+      mid: { min: -23, max: -17, name: 'Mid (500Hz-2kHz)' },
+      highMid: { min: -20, max: -14, name: 'High-Mid (2-5kHz)' },
+      presence: { min: -23, max: -17, name: 'Presence (5-10kHz)' },
+      air: { min: -30, max: -24, name: 'Air (10-20kHz)' }
+    };
+    
+    for (const [band, ideal] of Object.entries(idealRanges)) {
+      const bandData = bands[band];
+      if (bandData && typeof bandData.energy_db === 'number') {
+        const value = bandData.energy_db;
+        
+        if (value < ideal.min) {
+          const delta = ideal.min - value;
+          suggestions.push({
+            type: 'eq',
+            category: 'eq',
+            message: `${ideal.name} está em ${value.toFixed(1)} dB quando deveria estar entre ${ideal.min} e ${ideal.max} dB (${delta.toFixed(1)} dB abaixo do mínimo)`,
+            action: `Aumentar ${ideal.name} em +${delta.toFixed(1)} dB via EQ`,
+            priority: delta > 3 ? 'alta' : 'média',
+            band: band,
+            delta: `+${delta.toFixed(1)}`
+          });
+        } else if (value > ideal.max) {
+          const delta = value - ideal.max;
+          suggestions.push({
+            type: 'eq',
+            category: 'eq',
+            message: `${ideal.name} está em ${value.toFixed(1)} dB quando deveria estar entre ${ideal.min} e ${ideal.max} dB (${delta.toFixed(1)} dB acima do máximo)`,
+            action: `Reduzir ${ideal.name} em -${delta.toFixed(1)} dB via EQ`,
+            priority: delta > 3 ? 'alta' : 'média',
+            band: band,
+            delta: `-${delta.toFixed(1)}`
+          });
+        }
+      }
+    }
+  }
+  
+  console.log(`[AI-AUDIT][GENERATION] Generated ${suggestions.length} suggestions`);
+  suggestions.forEach((sug, i) => {
+    console.log(`[AI-AUDIT][GENERATION] Suggestion ${i + 1}: ${sug.message}`);
+  });
+  
   return suggestions;
 }

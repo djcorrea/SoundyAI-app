@@ -183,17 +183,43 @@ class AISuggestionUIController {
             mode: analysis?.mode
         });
         
-        // ✅ CORRIGIDO: PRIORIZAR analysis.aiSuggestions se existir
-        const suggestionsToUse = analysis?.aiSuggestions || analysis?.suggestions;
+        // ✅ LÓGICA DEFENSIVA: Compatível com modo genre e reference
+        let suggestionsToUse = [];
         
-        if (!suggestionsToUse || suggestionsToUse.length === 0) {
+        if (analysis?.mode === 'reference') {
+            // Modo referência: tentar várias fontes
+            suggestionsToUse = 
+                analysis?.aiSuggestions || 
+                analysis?.referenceAnalysis?.aiSuggestions || 
+                analysis?.userAnalysis?.aiSuggestions || 
+                analysis?.suggestions || 
+                analysis?.referenceAnalysis?.suggestions ||
+                analysis?.userAnalysis?.suggestions ||
+                [];
+        } else {
+            // Modo gênero: priorizar aiSuggestions depois suggestions
+            suggestionsToUse = analysis?.aiSuggestions || analysis?.suggestions || [];
+        }
+        
+        // ✅ GARANTIR QUE É ARRAY
+        if (!Array.isArray(suggestionsToUse)) {
+            console.warn('[AI-SUGGESTIONS] ⚠️ suggestionsToUse não é array, convertendo');
+            suggestionsToUse = [];
+        }
+        
+        console.log('[AI-SUGGESTIONS] Suggestions to use:', {
+            length: suggestionsToUse.length,
+            isArray: Array.isArray(suggestionsToUse)
+        });
+        
+        if (suggestionsToUse.length === 0) {
             console.warn('[AI-SUGGESTIONS] ⚠️ Nenhuma sugestão encontrada no analysis');
             console.warn('[AI-SUGGESTIONS] analysis:', analysis);
             
             // 🚨 FALLBACK: Criar sugestão genérica se não houver nenhuma
-            if (analysis && !suggestionsToUse) {
+            if (analysis) {
                 console.log('[AI-SUGGESTIONS] 🆘 Criando sugestão fallback genérica');
-                analysis.suggestions = [{
+                suggestionsToUse = [{
                     type: 'general',
                     message: 'Análise completa realizada',
                     action: 'Suas métricas de áudio foram analisadas com sucesso',

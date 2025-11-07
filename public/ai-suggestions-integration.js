@@ -1584,6 +1584,9 @@ class AISuggestionsIntegration {
                                 if (window.aiSuggestionsSystem && typeof window.aiSuggestionsSystem.processWithAI === 'function') {
                                     console.log('[AI-GENERATION] 🚀 Chamando processWithAI...');
                                     
+                                    // ✅ PRESERVAR sugestões básicas ANTES de chamar IA
+                                    const originalSuggestions = fullAnalysis.suggestions || [];
+                                    
                                     // ✅ CORRIGIDO: AGUARDAR e CAPTURAR resultado
                                     const enrichedSuggestions = await window.aiSuggestionsSystem.processWithAI(
                                         fullAnalysis.suggestions, 
@@ -1591,15 +1594,15 @@ class AISuggestionsIntegration {
                                         genre
                                     );
                                     
-                                    // ✅ CORRIGIDO: ATRIBUIR resultado a analysis
+                                    // ✅ CORRIGIDO: NÃO sobrescrever fullAnalysis.suggestions
                                     if (enrichedSuggestions && enrichedSuggestions.length > 0) {
                                         fullAnalysis.aiSuggestions = enrichedSuggestions;
-                                        fullAnalysis.suggestions = enrichedSuggestions;
+                                        // ✅ MANTER sugestões básicas como fallback
+                                        fullAnalysis.suggestions = originalSuggestions;
                                         
-                                        console.log('[AI-GENERATION] ✅ Sugestões atribuídas:', {
+                                        console.log('[AI-GENERATION] ✅ Sugestões enriquecidas atribuídas:', {
                                             aiSuggestionsLength: fullAnalysis.aiSuggestions.length,
-                                            suggestionsLength: fullAnalysis.suggestions.length,
-                                            sample: fullAnalysis.aiSuggestions[0]
+                                            originalSuggestionsLength: fullAnalysis.suggestions.length
                                         });
                                         
                                         // ✅ Forçar re-check com sugestões atualizadas
@@ -1608,7 +1611,10 @@ class AISuggestionsIntegration {
                                             window.aiUIController.checkForAISuggestions(fullAnalysis, true);
                                         }
                                     } else {
-                                        console.warn('[AI-GENERATION] ⚠️ Nenhuma sugestão enriquecida retornada');
+                                        console.warn('[AI-GENERATION] ⚠️ IA não retornou sugestões - mantendo básicas');
+                                        // ✅ Preservar sugestões básicas se IA falhar
+                                        fullAnalysis.aiSuggestions = [];
+                                        fullAnalysis.suggestions = originalSuggestions;
                                     }
                                 }
                             }, 100);
