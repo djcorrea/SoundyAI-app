@@ -333,8 +333,12 @@ class AISuggestionUIController {
         // Mostrar grid de conteúdo
         this.elements.aiContent.style.display = 'grid';
         
-        // Atualizar status para indicar que IA não está configurada
-        this.updateStatus('disabled', 'IA não configurada - sugestões base');
+        // ✅ CORREÇÃO: NÃO mostrar status "IA não configurada" se há sugestões válidas
+        if (suggestions.length > 0) {
+            this.updateStatus('success', `${suggestions.length} sugestões disponíveis`);
+        } else {
+            this.updateStatus('disabled', 'IA não configurada - sugestões base');
+        }
         
         // Atualizar modelo
         if (this.elements.aiModelBadge) {
@@ -344,8 +348,10 @@ class AISuggestionUIController {
         // Renderizar preview compacto das sugestões base
         this.renderCompactPreview(suggestions, true);
         
-        // Adicionar mensagem para configurar IA
-        this.addConfigPrompt();
+        // ✅ CORREÇÃO: SÓ adicionar prompt de config se houver poucas sugestões
+        if (suggestions.length < 5) {
+            this.addConfigPrompt();
+        }
         
         console.log('[AI-SUGGESTIONS-RENDER] 🎨 Sugestões base exibidas (IA não configurada)');
         console.log('[AI-SUGGESTIONS-RENDER] Cards renderizados:', this.elements.aiContent.children.length);
@@ -357,8 +363,15 @@ class AISuggestionUIController {
     renderCompactPreview(suggestions, isBaseSuggestions = false) {
         if (!this.elements.aiContent) return;
         
-        const preview = suggestions.slice(0, 3); // Máximo 3 no preview
-        const hasMore = suggestions.length > 3;
+        // ✅ CORREÇÃO: Renderizar TODAS as sugestões (não limitar a 3)
+        const preview = suggestions; // Remover slice(0, 3) - mostrar todas
+        const hasMore = false; // Nunca há mais porque mostramos todas
+        
+        console.log('[AI-SUGGESTIONS-RENDER] 📊 Renderizando sugestões:', {
+            total: suggestions.length,
+            preview: preview.length,
+            isBase: isBaseSuggestions
+        });
         
         let html = preview.map((suggestion, index) => {
             const category = suggestion.ai_category || suggestion.category || 'geral';
