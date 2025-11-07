@@ -173,8 +173,8 @@ class AISuggestionUIController {
      * 🤖 Verificar e processar sugestões IA
      */
     checkForAISuggestions(analysis) {
-        console.log('[AI-SUGGESTIONS] 🔍 checkForAISuggestions() chamado');
-        console.log('[AI-SUGGESTIONS] Analysis recebido:', {
+        console.log('[SUG-AUDIT] checkForAISuggestions > INÍCIO');
+        console.log('[SUG-AUDIT] checkForAISuggestions > Analysis recebido:', {
             hasAnalysis: !!analysis,
             hasSuggestions: !!analysis?.suggestions,
             suggestionsLength: analysis?.suggestions?.length || 0,
@@ -203,13 +203,15 @@ class AISuggestionUIController {
         
         // ✅ GARANTIR QUE É ARRAY
         if (!Array.isArray(suggestionsToUse)) {
-            console.warn('[AI-SUGGESTIONS] ⚠️ suggestionsToUse não é array, convertendo');
+            console.warn('[SUG-AUDIT] checkForAISuggestions > ⚠️ suggestionsToUse não é array, convertendo');
             suggestionsToUse = [];
         }
         
-        console.log('[AI-SUGGESTIONS] Suggestions to use:', {
+        console.log('[SUG-AUDIT] checkForAISuggestions > Seleção de fonte:', {
             length: suggestionsToUse.length,
-            isArray: Array.isArray(suggestionsToUse)
+            isArray: Array.isArray(suggestionsToUse),
+            source: analysis?.aiSuggestions?.length ? 'aiSuggestions' : 'suggestions (base)',
+            mode: analysis?.mode || 'genre'
         });
         
         if (suggestionsToUse.length === 0) {
@@ -260,6 +262,7 @@ class AISuggestionUIController {
      * 🎨 Exibir sugestões IA na interface
      */
     displayAISuggestions(suggestions, analysis) {
+        console.log('[SUG-AUDIT] displayAISuggestions > render -> ' + suggestions.length + ' sugestões AI');
         console.log('[AI-SUGGESTIONS-RENDER] 🎨 Iniciando displayAISuggestions()');
         console.log('[AI-SUGGESTIONS-RENDER] Container encontrado:', !!this.elements.aiSection);
         console.log('[AI-SUGGESTIONS-RENDER] Sugestões recebidas:', suggestions.length);
@@ -310,6 +313,7 @@ class AISuggestionUIController {
      * 🎨 Exibir sugestões base (sem IA) na interface
      */
     displayBaseSuggestions(suggestions, analysis) {
+        console.log('[SUG-AUDIT] displayBaseSuggestions > render -> ' + suggestions.length + ' sugestões base');
         console.log('[AI-SUGGESTIONS-RENDER] 🎨 Iniciando displayBaseSuggestions() (modo base)');
         console.log('[AI-SUGGESTIONS-RENDER] Container encontrado:', !!this.elements.aiSection);
         console.log('[AI-SUGGESTIONS-RENDER] Sugestões base recebidas:', suggestions.length);
