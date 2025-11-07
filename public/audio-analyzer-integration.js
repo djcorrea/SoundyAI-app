@@ -9626,8 +9626,17 @@ function renderReferenceComparisons(ctx) {
     if (mode === 'reference') {
         if (!refData?.bands || !user?.bands) {
             console.warn('[A/B-SKIP] bands ausentes (user/ref). Evitando self-compare.');
+            console.warn('[SUG-AUDIT][REFERENCE] ⚠️ Modo reference mas sem bandas - pode afetar suggestions');
             return;
         }
+        
+        // ✅ AUDITORIA: Verificar se suggestions estão presentes
+        console.log('[SUG-AUDIT][REFERENCE] Dados recebidos:', {
+            userHasSuggestions: Array.isArray(user?.suggestions),
+            userSuggestionsLength: user?.suggestions?.length || 0,
+            refHasSuggestions: Array.isArray(refData?.suggestions),
+            refSuggestionsLength: refData?.suggestions?.length || 0
+        });
     }
 
     // Atualizar opts para compatibilidade com código existente
@@ -15684,13 +15693,23 @@ function normalizeBackendAnalysisData(result) {
         
         // Preservar outros campos importantes
         problems: data.problems || [],
-        suggestions: data.suggestions || [],
+        // ✅ PATCH CRÍTICO: Preservar suggestions do backend SEMPRE
+        // Não usar || [] pois isso sobrescreve array vazio vindo do backend
+        suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
         duration: data.duration || null,
         sampleRate: data.sampleRate || null,
         channels: data.channels || null,
         score: data.score || null,
         classification: data.classification || null
     };
+
+    // ✅ AUDITORIA CRÍTICA PRÉ-GERAÇÃO: Verificar se suggestions vieram do backend
+    console.log('[SUG-AUDIT][CRITICAL] PRÉ-NORMALIZAÇÃO data.suggestions:', {
+        exists: data.suggestions !== undefined,
+        isArray: Array.isArray(data.suggestions),
+        length: data.suggestions?.length || 0,
+        willPreserve: Array.isArray(data.suggestions) && data.suggestions.length > 0
+    });
 
     // ✅ GARANTIR SUGESTÕES BÁSICAS SE BACKEND NÃO ENVIOU
     console.log(`[SUG-AUDIT] normalizeBackendAnalysisData > Entrada:`, {
@@ -15749,8 +15768,17 @@ function normalizeBackendAnalysisData(result) {
         }
     }
     
-    // 🎯 LOGS ESPECÍFICOS DAS MÉTRICAS PRINCIPAIS (AUDITORIA COMPLETA RMS + LUFS)
+    // �� LOGS ESPECÍFICOS DAS MÉTRICAS PRINCIPAIS (AUDITORIA COMPLETA RMS + LUFS)
     console.log('[AUDITORIA-RMS-LUFS] RMS:', normalized.technicalData.avgLoudness, 'LUFS:', normalized.technicalData.lufsIntegrated);
+    
+    // ✅ AUDITORIA CRÍTICA: Verificar se suggestions vieram do backend
+    console.log('[SUG-AUDIT][CRITICAL] data.suggestions FROM BACKEND:', {
+        exists: data.suggestions !== undefined,
+        isArray: Array.isArray(data.suggestions),
+        length: data.suggestions?.length || 0,
+        type: typeof data.suggestions,
+        sample: data.suggestions?.[0]
+    });
     
     console.log('[AUDITORIA-RMS-LUFS] normalizeBackendAnalysisData > RMS=', normalized.technicalData.avgLoudness, {
         'energy.rms': energy.rms,
