@@ -73,10 +73,48 @@ router.get("/:id", async (req, res) => {
     };
 
     // ✅ LOGS DE AUDITORIA DE RETORNO
-    console.log(`[AI-AUDIT][API.out] Retornando job ${job.id}:`);
-    console.log(`[AI-AUDIT][API.out] contains suggestions?`, Array.isArray(fullResult?.suggestions), "len:", fullResult?.suggestions?.length || 0);
-    console.log(`[AI-AUDIT][API.out] contains aiSuggestions?`, Array.isArray(fullResult?.aiSuggestions), "len:", fullResult?.aiSuggestions?.length || 0);
-    console.log(`[AI-AUDIT][API.out] contains referenceComparison?`, !!fullResult?.referenceComparison);
+    console.log(`[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`[AI-AUDIT][ULTRA_DIAG] 📤 RETORNANDO JOB PARA FRONTEND`);
+    console.log(`[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`[AI-AUDIT][ULTRA_DIAG] 🆔 Job ID: ${job.id}`);
+    console.log(`[AI-AUDIT][ULTRA_DIAG] 📊 Status: ${normalizedStatus}`);
+    console.log(`[AI-AUDIT][ULTRA_DIAG] 🎵 Mode: ${job.mode}`);
+    
+    // 🔍 VERIFICAÇÃO: Sugestões base
+    console.log(`[AI-AUDIT][ULTRA_DIAG] 💡 Sugestões base:`, {
+      presente: Array.isArray(fullResult?.suggestions),
+      quantidade: fullResult?.suggestions?.length || 0,
+      sample: fullResult?.suggestions?.[0] ? {
+        type: fullResult.suggestions[0].type,
+        category: fullResult.suggestions[0].category,
+        priority: fullResult.suggestions[0].priority
+      } : null
+    });
+    
+    // 🔍 VERIFICAÇÃO: Sugestões enriquecidas com IA
+    console.log(`[AI-AUDIT][ULTRA_DIAG] 🤖 aiSuggestions (IA enriquecida):`, {
+      presente: Array.isArray(fullResult?.aiSuggestions),
+      quantidade: fullResult?.aiSuggestions?.length || 0,
+      sample: fullResult?.aiSuggestions?.[0] ? {
+        aiEnhanced: fullResult.aiSuggestions[0].aiEnhanced,
+        enrichmentStatus: fullResult.aiSuggestions[0].enrichmentStatus,
+        categoria: fullResult.aiSuggestions[0].categoria,
+        nivel: fullResult.aiSuggestions[0].nivel,
+        hasProblema: !!fullResult.aiSuggestions[0].problema,
+        hasCausaProvavel: !!fullResult.aiSuggestions[0].causaProvavel,
+        hasSolucao: !!fullResult.aiSuggestions[0].solucao,
+        hasPluginRecomendado: !!fullResult.aiSuggestions[0].pluginRecomendado
+      } : null
+    });
+    
+    // 🔍 VERIFICAÇÃO: Comparação A/B (modo reference)
+    console.log(`[AI-AUDIT][ULTRA_DIAG] 🔄 Comparação A/B:`, {
+      presente: !!fullResult?.referenceComparison,
+      referenceJobId: fullResult?.referenceJobId || null,
+      referenceFileName: fullResult?.referenceFileName || null
+    });
+    
+    console.log(`[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
     if (fullResult?.suggestions) {
       console.log(`[AI-AUDIT][API.out] ✅ Suggestions sendo enviadas para frontend:`, fullResult.suggestions.length);
@@ -88,21 +126,18 @@ router.get("/:id", async (req, res) => {
         console.log(`[AI-AUDIT][API.out] Reference file:`, fullResult.referenceFileName);
       }
     } else {
-      console.error(`[AI-AUDIT][API.out] ❌ CRÍTICO: Nenhuma suggestion no JSON retornado!`);
+      console.error(`[AI-AUDIT][ULTRA_DIAG] ❌ CRÍTICO: Nenhuma suggestion no JSON retornado!`);
+      console.error(`[AI-AUDIT][ULTRA_DIAG] ❌ Isso indica que o pipeline falhou em gerar sugestões base`);
     }
     
     // 🔮 LOG DE AUDITORIA: aiSuggestions (ULTRA V2)
-    if (fullResult?.aiSuggestions) {
+    if (fullResult?.aiSuggestions && fullResult.aiSuggestions.length > 0) {
+      console.log(`[AI-AUDIT][ULTRA_DIAG] 🔄 aiSuggestions presentes no merge Redis/Postgres: true`);
       console.log(`[AI-AUDIT][API.out] ✅ aiSuggestions (IA enriquecida) sendo enviadas:`, fullResult.aiSuggestions.length);
-      console.log(`[AI-AUDIT][API.out] Sample aiSuggestion:`, {
-        type: fullResult.aiSuggestions[0]?.type,
-        aiEnhanced: fullResult.aiSuggestions[0]?.aiEnhanced,
-        hasProblema: !!fullResult.aiSuggestions[0]?.problema,
-        hasCausa: !!fullResult.aiSuggestions[0]?.causa,
-        hasPlugin: !!fullResult.aiSuggestions[0]?.plugin
-      });
     } else {
-      console.warn(`[AI-AUDIT][API.out] ⚠️ aiSuggestions ausente - IA pode não ter sido executada`);
+      console.warn(`[AI-AUDIT][ULTRA_DIAG] 🔄 aiSuggestions presentes no merge Redis/Postgres: false`);
+      console.warn(`[AI-AUDIT][API.out] ⚠️ aiSuggestions ausente - IA pode não ter sido executada ou falhou`);
+      console.warn(`[AI-AUDIT][API.out] ⚠️ Verifique logs do pipeline para detalhes do erro`);
     }
 
     console.log(`[REDIS-RETURN] 📊 Returning job ${job.id} with status '${normalizedStatus}'`);

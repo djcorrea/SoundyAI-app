@@ -9,19 +9,23 @@
  * @returns {Array} - Sugestões enriquecidas com IA
  */
 export async function enrichSuggestionsWithAI(suggestions, context = {}) {
-  console.log('[AI-AUDIT][ULTRA_V2] 🚀 Iniciando enriquecimento de sugestões...');
-  console.log('[AI-AUDIT][ULTRA_V2] Sugestões base recebidas:', suggestions.length);
-  console.log('[AI-AUDIT][ULTRA_V2] Contexto:', {
+  console.log('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('[AI-AUDIT][ULTRA_DIAG] 🤖 INICIANDO ENRIQUECIMENTO COM IA');
+  console.log('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('[AI-AUDIT][ULTRA_DIAG] 📊 Sugestões base recebidas:', suggestions.length);
+  console.log('[AI-AUDIT][ULTRA_DIAG] 📦 Contexto recebido:', {
     genre: context.genre,
     mode: context.mode,
     hasUserMetrics: !!context.userMetrics,
     hasReferenceMetrics: !!context.referenceMetrics,
-    hasReferenceComparison: !!context.referenceComparison
+    hasReferenceComparison: !!context.referenceComparison,
+    referenceFileName: context.referenceFileName
   });
 
   // 🛡️ VALIDAÇÃO: Se não há API key, retornar sugestões base sem enriquecimento
   if (!process.env.OPENAI_API_KEY) {
-    console.warn('[AI-AUDIT][ULTRA_V2] ⚠️ OPENAI_API_KEY não configurada - retornando sugestões base');
+    console.warn('[AI-AUDIT][ULTRA_DIAG] ⚠️ OPENAI_API_KEY não configurada - retornando sugestões base');
+    console.warn('[AI-AUDIT][ULTRA_DIAG] ⚠️ Para ativar IA: configure OPENAI_API_KEY no arquivo .env');
     return suggestions.map(sug => ({
       ...sug,
       aiEnhanced: false,
@@ -31,7 +35,7 @@ export async function enrichSuggestionsWithAI(suggestions, context = {}) {
 
   // 🛡️ VALIDAÇÃO: Se não há sugestões, retornar array vazio
   if (!Array.isArray(suggestions) || suggestions.length === 0) {
-    console.warn('[AI-AUDIT][ULTRA_V2] ⚠️ Nenhuma sugestão para enriquecer');
+    console.warn('[AI-AUDIT][ULTRA_DIAG] ⚠️ Nenhuma sugestão para enriquecer - retornando array vazio');
     return [];
   }
 
@@ -39,9 +43,17 @@ export async function enrichSuggestionsWithAI(suggestions, context = {}) {
     // 📊 Preparar prompt para IA
     const prompt = buildEnrichmentPrompt(suggestions, context);
     
-    console.log('[AI-AUDIT][ULTRA_V2] 📝 Prompt preparado (caracteres):', prompt.length);
+    console.log('[AI-AUDIT][ULTRA_DIAG] 📝 Prompt preparado:', {
+      caracteres: prompt.length,
+      estimativaTokens: Math.ceil(prompt.length / 4)
+    });
     
     // 🤖 Chamar OpenAI API
+    console.log('[AI-AUDIT][ULTRA_DIAG] 🌐 Enviando requisição para OpenAI API...');
+    console.log('[AI-AUDIT][ULTRA_DIAG] 🔧 Modelo: gpt-4o-mini');
+    console.log('[AI-AUDIT][ULTRA_DIAG] 🔧 Temperature: 0.7');
+    console.log('[AI-AUDIT][ULTRA_DIAG] 🔧 Max tokens: 2000');
+    
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -68,41 +80,65 @@ export async function enrichSuggestionsWithAI(suggestions, context = {}) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[AI-AUDIT][ULTRA_V2] ❌ OpenAI API erro:', response.status, errorText);
+      console.error('[AI-AUDIT][ULTRA_DIAG] ❌ OpenAI API erro:', response.status, errorText);
       throw new Error(`OpenAI API error: ${response.status}`);
     }
 
     const data = await response.json();
     
+    console.log('[AI-AUDIT][ULTRA_DIAG] ✅ Resposta recebida da OpenAI API');
+    console.log('[AI-AUDIT][ULTRA_DIAG] 📊 Tokens usados:', {
+      prompt: data.usage?.prompt_tokens,
+      completion: data.usage?.completion_tokens,
+      total: data.usage?.total_tokens
+    });
+    
     if (!data.choices || !data.choices[0] || !data.choices[0].message) {
-      console.error('[AI-AUDIT][ULTRA_V2] ❌ Resposta da API inválida:', data);
+      console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Resposta da API inválida:', data);
       throw new Error('Invalid OpenAI API response');
     }
 
     const content = data.choices[0].message.content;
-    console.log('[AI-AUDIT][ULTRA_V2] ✅ Resposta recebida da IA (caracteres):', content.length);
+    console.log('[AI-AUDIT][ULTRA_DIAG] 📝 Conteúdo da resposta:', {
+      caracteres: content.length,
+      primeiros100: content.substring(0, 100) + '...'
+    });
 
     // 📦 Parse da resposta JSON
     let enrichedData;
     try {
+      console.log('[AI-AUDIT][ULTRA_DIAG] 🔄 Fazendo parse da resposta JSON...');
       enrichedData = JSON.parse(content);
+      console.log('[AI-AUDIT][ULTRA_DIAG] ✅ Parse bem-sucedido:', {
+        hasEnrichedSuggestions: !!enrichedData.enrichedSuggestions,
+        count: enrichedData.enrichedSuggestions?.length || 0
+      });
     } catch (parseError) {
-      console.error('[AI-AUDIT][ULTRA_V2] ❌ Erro ao fazer parse da resposta:', parseError.message);
-      console.error('[AI-AUDIT][ULTRA_V2] Conteúdo:', content.substring(0, 500));
+      console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Erro ao fazer parse da resposta:', parseError.message);
+      console.error('[AI-AUDIT][ULTRA_DIAG] Conteúdo (primeiros 500 chars):', content.substring(0, 500));
       throw new Error('Failed to parse AI response');
     }
 
     // 🔄 Mesclar sugestões base com enriquecimento IA
+    console.log('[AI-AUDIT][ULTRA_DIAG] 🔄 Mesclando sugestões base com enriquecimento IA...');
     const enrichedSuggestions = mergeSuggestionsWithAI(suggestions, enrichedData);
 
-    console.log('[AI-AUDIT][ULTRA_V2] ✅ Enriquecimento concluído:', enrichedSuggestions.length, 'sugestões');
-    console.log('[AI-AUDIT][ULTRA_V2] Tokens usados:', data.usage);
+    console.log('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[AI-AUDIT][ULTRA_DIAG] ✅ ENRIQUECIMENTO CONCLUÍDO COM SUCESSO');
+    console.log('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[AI-AUDIT][ULTRA_DIAG] 📊 Total de sugestões enriquecidas:', enrichedSuggestions.length);
+    console.log('[AI-AUDIT][ULTRA_DIAG] 🔧 Tokens consumidos:', data.usage?.total_tokens);
+    console.log('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     return enrichedSuggestions;
 
   } catch (error) {
-    console.error('[AI-AUDIT][ULTRA_V2] ❌ Erro no enriquecimento IA:', error.message);
-    console.error('[AI-AUDIT][ULTRA_V2] Stack:', error.stack);
+    console.error('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error('[AI-AUDIT][ULTRA_DIAG] ❌ ERRO NO ENRIQUECIMENTO IA');
+    console.error('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.error('[AI-AUDIT][ULTRA_DIAG] 💥 Mensagem:', error.message);
+    console.error('[AI-AUDIT][ULTRA_DIAG] 📍 Stack:', error.stack?.split('\n').slice(0, 3).join('\n'));
+    console.error('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     // 🛡️ FALLBACK: Retornar sugestões base com flag de erro
     return suggestions.map(sug => ({
@@ -260,8 +296,12 @@ Agora, processe as sugestões base e retorne o JSON enriquecido seguindo EXATAME
  * 🔄 Mescla sugestões base com dados enriquecidos pela IA
  */
 function mergeSuggestionsWithAI(baseSuggestions, enrichedData) {
+  console.log('[AI-AUDIT][ULTRA_DIAG] 🔄 Iniciando merge de sugestões...');
+  console.log('[AI-AUDIT][ULTRA_DIAG] 📊 Sugestões base:', baseSuggestions.length);
+  console.log('[AI-AUDIT][ULTRA_DIAG] 📊 Dados enriquecidos:', enrichedData.enrichedSuggestions?.length || 0);
+  
   if (!enrichedData || !enrichedData.enrichedSuggestions) {
-    console.warn('[AI-AUDIT][ULTRA_V2] ⚠️ Dados enriquecidos inválidos - retornando sugestões base');
+    console.warn('[AI-AUDIT][ULTRA_DIAG] ⚠️ Dados enriquecidos inválidos - retornando sugestões base');
     return baseSuggestions.map(sug => ({
       ...sug,
       aiEnhanced: false,
@@ -271,11 +311,11 @@ function mergeSuggestionsWithAI(baseSuggestions, enrichedData) {
 
   const aiSuggestions = enrichedData.enrichedSuggestions;
 
-  return baseSuggestions.map((baseSug, index) => {
+  const merged = baseSuggestions.map((baseSug, index) => {
     const aiEnrichment = aiSuggestions.find(ai => ai.index === index) || aiSuggestions[index];
 
     if (!aiEnrichment) {
-      console.warn(`[AI-AUDIT][ULTRA_V2] ⚠️ Sem enriquecimento para sugestão ${index}`);
+      console.warn(`[AI-AUDIT][ULTRA_DIAG] ⚠️ Sem enriquecimento para sugestão ${index}`);
       return {
         ...baseSug,
         aiEnhanced: false,
@@ -314,6 +354,17 @@ function mergeSuggestionsWithAI(baseSuggestions, enrichedData) {
       enrichmentVersion: 'ULTRA_V2'
     };
   });
+  
+  console.log('[AI-AUDIT][ULTRA_DIAG] ✅ Merge concluído:', merged.length, 'sugestões mescladas');
+  console.log('[AI-AUDIT][ULTRA_DIAG] 📊 Estatísticas:', {
+    aiEnhanced: merged.filter(s => s.aiEnhanced).length,
+    notEnhanced: merged.filter(s => !s.aiEnhanced).length,
+    withProblema: merged.filter(s => s.problema).length,
+    withCausa: merged.filter(s => s.causaProvavel).length,
+    withPlugin: merged.filter(s => s.pluginRecomendado && s.pluginRecomendado !== 'Plugin não especificado').length
+  });
+  
+  return merged;
 }
 
 /**
