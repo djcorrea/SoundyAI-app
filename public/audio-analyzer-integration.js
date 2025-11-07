@@ -15343,6 +15343,68 @@ window.displayReferenceResults = function(referenceResults) {
 // =============== FUNÇÕES DE NORMALIZAÇÃO DE DADOS ===============
 
 /**
+ * 🎯 GERADOR DE SUGESTÕES BÁSICAS
+ * Gera sugestões baseadas nas métricas técnicas (fallback se backend não enviar)
+ * 
+ * @param {Object} data - Dados normalizados da análise
+ * @returns {Array} - Array de sugestões estruturadas
+ */
+function generateBasicSuggestions(data) {
+    const suggestions = [];
+    const technicalData = data.technicalData || {};
+    
+    // Regra 1: LUFS Integrado
+    if (technicalData.lufsIntegrated != null) {
+        const lufs = technicalData.lufsIntegrated;
+        const ideal = -10.5; // Padrão para streaming
+        const delta = Math.abs(lufs - ideal);
+        
+        if (delta > 1.0) {
+            suggestions.push({
+                type: 'loudness',
+                category: 'loudness',
+                message: `LUFS Integrado está em ${lufs.toFixed(1)} dB quando deveria estar próximo de ${ideal.toFixed(1)} dB`,
+                action: delta > 3 ? `Ajustar loudness em ${(ideal - lufs).toFixed(1)} dB` : `Refinar loudness final`,
+                priority: delta > 3 ? 'crítica' : 'alta'
+            });
+        }
+    }
+    
+    // Regra 2: True Peak
+    if (technicalData.truePeakDbtp != null) {
+        const tp = technicalData.truePeakDbtp;
+        if (tp > -1.0) {
+            suggestions.push({
+                type: 'clipping',
+                category: 'mastering',
+                message: `True Peak em ${tp.toFixed(2)} dBTP está acima do limite seguro de -1.0 dBTP`,
+                action: `Aplicar limitador com ceiling em -1.0 dBTP`,
+                priority: 'crítica'
+            });
+        }
+    }
+    
+    // Regra 3: Dynamic Range
+    if (technicalData.dynamicRange != null) {
+        const dr = technicalData.dynamicRange;
+        const minDR = 6.0;
+        
+        if (dr < minDR) {
+            suggestions.push({
+                type: 'dynamics',
+                category: 'mastering',
+                message: `Dynamic Range está em ${dr.toFixed(1)} dB quando deveria estar acima de ${minDR.toFixed(1)} dB`,
+                action: `Reduzir compressão/limitação para recuperar dinâmica`,
+                priority: 'alta'
+            });
+        }
+    }
+    
+    console.log(`[AI-AUDIT][NORMALIZE] ✅ ${suggestions.length} sugestões básicas geradas`);
+    return suggestions;
+}
+
+/**
  * 🔧 FUNÇÃO CORRIGIDA: Normalizar dados do backend (compatível com JSON antigo e novo)
  * Mapeia a resposta do backend para o formato que o front-end espera
  * ✅ Compatível com JSON antigo e novo (pré/pós Redis)
@@ -15511,6 +15573,23 @@ function normalizeBackendAnalysisData(result) {
         score: data.score || null,
         classification: data.classification || null
     };
+
+    // ✅ GARANTIR SUGESTÕES BÁSICAS SE BACKEND NÃO ENVIOU
+    console.log(`[AI-AUDIT][NORMALIZE] Entrada:`, {
+        hasSuggestions: Array.isArray(normalized.suggestions),
+        suggestionsLength: normalized.suggestions?.length || 0
+    });
+    
+    if (!normalized.suggestions || normalized.suggestions.length === 0) {
+        console.log(`[AI-AUDIT][NORMALIZE] Gerando sugestões básicas...`);
+        normalized.suggestions = generateBasicSuggestions(normalized);
+        console.log(`[AI-AUDIT][NORMALIZE] ✅ ${normalized.suggestions.length} sugestões básicas geradas`);
+    }
+    
+    console.log(`[AI-AUDIT][NORMALIZE] Saída:`, {
+        suggestionsLength: normalized.suggestions.length,
+        sample: normalized.suggestions[0]
+    });
 
     console.log("✅ [NORMALIZE] Parsed data:", normalized);
     console.log("✅ [NORMALIZE] Normalized metrics:", {
