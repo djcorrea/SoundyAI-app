@@ -7987,10 +7987,23 @@ async function displayModalResults(analysis) {
                             lufs: analysis.lufs,
                             truePeak: analysis.truePeak,
                             lra: analysis.lra,
+                            dynamics: analysis.dynamics,
                             fileName: analysis.fileName,
                             duration: analysis.duration,
-                            sampleRate: analysis.sampleRate
+                            sampleRate: analysis.sampleRate,
+                            mode: analysis.mode || 'genre',
+                            // ✅ MODO REFERENCE: Adicionar dados de comparação A/B
+                            referenceComparison: analysis.referenceComparison || null,
+                            referenceJobId: analysis.referenceJobId || null,
+                            referenceFileName: analysis.referenceFileName || null
                         };
+                        
+                        // ✅ Log para modo reference
+                        if (analysisContext.mode === 'reference' && analysisContext.referenceComparison) {
+                            console.log('[ULTRA_V2] 🎯 Modo reference detectado - enriquecendo com dados de comparação A/B');
+                            console.log('[ULTRA_V2] Referência:', analysisContext.referenceFileName);
+                            console.log('[ULTRA_V2] Deltas disponíveis:', Object.keys(analysisContext.referenceComparison));
+                        }
                         
                         // 🚀 Enriquecer sugestões existentes
                         const ultraResults = ultraEnhancer.enhanceExistingSuggestions(enrichedSuggestions, analysisContext);
