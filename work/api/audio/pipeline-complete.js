@@ -15,6 +15,9 @@ import { makeErr, logAudio, assertFinite } from '../../lib/audio/error-handling.
 // ✅ Banco de dados para buscar análise de referência
 import pool from '../../db.js';
 
+// 🔮 Sistema de enriquecimento IA (ULTRA V2)
+import { enrichSuggestionsWithAI } from '../../lib/ai/suggestion-enricher.js';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -282,18 +285,82 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
               suggestoesComparativas: finalJSON.suggestions.length,
               hasIsComparisonFlag: finalJSON.suggestions.some(s => s.isComparison)
             });
+            
+            // 🔮 ENRIQUECIMENTO IA ULTRA V2
+            try {
+              console.log('[AI-AUDIT][ULTRA_V2] 🚀 Enriquecendo sugestões com IA...');
+              finalJSON.aiSuggestions = await enrichSuggestionsWithAI(finalJSON.suggestions, {
+                genre,
+                mode: mode || 'reference',
+                userMetrics: coreMetrics,
+                referenceMetrics: {
+                  lufs: refData.lufs,
+                  truePeak: refData.truePeak,
+                  dynamics: refData.dynamics,
+                  spectralBands: refData.spectralBands
+                },
+                referenceComparison,
+                referenceFileName: refData.fileName || refData.metadata?.fileName
+              });
+              console.log(`[AI-AUDIT][ULTRA_V2] ✅ ${finalJSON.aiSuggestions?.length || 0} sugestões enriquecidas`);
+            } catch (aiError) {
+              console.error('[AI-AUDIT][ULTRA_V2] ❌ Falha no enriquecimento IA:', aiError.message);
+              finalJSON.aiSuggestions = [];
+            }
           } else {
             console.warn("[REFERENCE-MODE] ⚠️ Job de referência não encontrado - gerando sugestões genéricas");
             finalJSON.suggestions = generateSuggestionsFromMetrics(coreMetrics, genre, mode);
+            
+            // 🔮 ENRIQUECIMENTO IA ULTRA V2 (fallback mode)
+            try {
+              console.log('[AI-AUDIT][ULTRA_V2] 🚀 Enriquecendo sugestões (modo fallback)...');
+              finalJSON.aiSuggestions = await enrichSuggestionsWithAI(finalJSON.suggestions, {
+                genre,
+                mode: 'genre',
+                userMetrics: coreMetrics
+              });
+              console.log(`[AI-AUDIT][ULTRA_V2] ✅ ${finalJSON.aiSuggestions?.length || 0} sugestões enriquecidas`);
+            } catch (aiError) {
+              console.error('[AI-AUDIT][ULTRA_V2] ❌ Falha no enriquecimento IA:', aiError.message);
+              finalJSON.aiSuggestions = [];
+            }
           }
         } catch (refError) {
           console.error("[REFERENCE-MODE] ❌ Erro ao buscar referência:", refError.message);
           console.warn("[REFERENCE-MODE] Gerando sugestões genéricas como fallback");
           finalJSON.suggestions = generateSuggestionsFromMetrics(coreMetrics, genre, mode);
+          
+          // 🔮 ENRIQUECIMENTO IA ULTRA V2 (error fallback)
+          try {
+            console.log('[AI-AUDIT][ULTRA_V2] 🚀 Enriquecendo sugestões (error fallback)...');
+            finalJSON.aiSuggestions = await enrichSuggestionsWithAI(finalJSON.suggestions, {
+              genre,
+              mode: 'genre',
+              userMetrics: coreMetrics
+            });
+            console.log(`[AI-AUDIT][ULTRA_V2] ✅ ${finalJSON.aiSuggestions?.length || 0} sugestões enriquecidas`);
+          } catch (aiError) {
+            console.error('[AI-AUDIT][ULTRA_V2] ❌ Falha no enriquecimento IA:', aiError.message);
+            finalJSON.aiSuggestions = [];
+          }
         }
       } else {
         // Modo genre normal
         finalJSON.suggestions = generateSuggestionsFromMetrics(coreMetrics, genre, mode);
+        
+        // 🔮 ENRIQUECIMENTO IA ULTRA V2 (modo genre)
+        try {
+          console.log('[AI-AUDIT][ULTRA_V2] 🚀 Enriquecendo sugestões (modo genre)...');
+          finalJSON.aiSuggestions = await enrichSuggestionsWithAI(finalJSON.suggestions, {
+            genre,
+            mode: 'genre',
+            userMetrics: coreMetrics
+          });
+          console.log(`[AI-AUDIT][ULTRA_V2] ✅ ${finalJSON.aiSuggestions?.length || 0} sugestões enriquecidas`);
+        } catch (aiError) {
+          console.error('[AI-AUDIT][ULTRA_V2] ❌ Falha no enriquecimento IA:', aiError.message);
+          finalJSON.aiSuggestions = [];
+        }
       }
       
       console.log(`[AI-AUDIT][ASSIGN.inputType] suggestions:`, typeof finalJSON.suggestions, Array.isArray(finalJSON.suggestions));
