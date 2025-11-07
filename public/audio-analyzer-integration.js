@@ -6606,8 +6606,23 @@ async function displayModalResults(analysis) {
         // 🎯 GARANTIR que sugestões de IA sejam chamadas também no modo reference
         console.log('[AUDIT-FIX] 🤖 Iniciando renderização de sugestões de IA no modo reference');
         
-        // Usar dados da primeira faixa (userAnalysis) para sugestões
-        const analysisForSuggestions = refNormalized || analysis;
+        // ✅ CORREÇÃO: Garantir que analysisForSuggestions inclua suggestions completas
+        const analysisForSuggestions = {
+            ...(refNormalized || analysis),
+            // ✅ Preservar suggestions da análise (pode vir do backend ou frontend)
+            suggestions: 
+                (refNormalized || analysis)?.suggestions || 
+                (refNormalized || analysis)?.userAnalysis?.suggestions || 
+                analysis?.suggestions ||
+                [],
+            mode: 'reference'
+        };
+        
+        console.log('[AUDIT-FIX] 📊 analysisForSuggestions preparado:', {
+            hasSuggestions: !!analysisForSuggestions.suggestions,
+            suggestionsLength: analysisForSuggestions.suggestions?.length || 0,
+            mode: analysisForSuggestions.mode
+        });
         
         // 🔥 Chamada ao displayModalResults no fluxo normal (não self-compare)
         if (typeof AISuggestionsIntegration?.displayModalResults === 'function') {
