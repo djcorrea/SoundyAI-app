@@ -225,16 +225,34 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       // Gerar sugestões baseadas nas métricas técnicas
       const genre = options.genre || finalJSON.metadata?.genre || 'unknown';
       const mode = options.mode || 'genre';
+      const referenceJobId = options.referenceJobId;
       
       console.log(`[AI-AUDIT][ULTRA_DIAG] 📊 Parâmetros:`, {
         genre,
         mode,
-        hasReferenceJobId: !!options.referenceJobId,
-        referenceJobId: options.referenceJobId
+        hasReferenceJobId: !!referenceJobId,
+        referenceJobId: referenceJobId
       });
       
+      // 🛡️ GUARDIÃO LEVE: Bloquear geração de sugestões apenas no modo genre sem referência
+      if (mode === 'genre' && !referenceJobId) {
+        console.log('[GUARDIÃO] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('[GUARDIÃO] 🎧 FAIXA BASE (A) DETECTADA');
+        console.log('[GUARDIÃO] mode: genre, referenceJobId: null');
+        console.log('[GUARDIÃO] ✅ Métricas calculadas e salvas normalmente');
+        console.log('[GUARDIÃO] 🚫 Pulando geração de sugestões textuais');
+        console.log('[GUARDIÃO] ℹ️ Sugestões serão geradas apenas na comparação A/B');
+        console.log('[GUARDIÃO] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
+        finalJSON.suggestions = [];
+        finalJSON.aiSuggestions = [];
+        
+        // Pular bloco de geração de sugestões
+        throw new Error('SKIP_SUGGESTIONS_GENERATION');
+      }
+      
       // ✅ MODO REFERENCE: Comparar com análise de referência
-      if (mode === "reference" && options.referenceJobId) {
+      if (mode === "reference" && referenceJobId) {
         console.log("[REFERENCE-MODE] Modo referência detectado - buscando análise de referência...");
         console.log("[REFERENCE-MODE] ReferenceJobId:", options.referenceJobId);
         
@@ -475,9 +493,15 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       console.log(`[AI-AUDIT][ASSIGN.sample]`, finalJSON.suggestions?.slice(0, 2));
       
     } catch (error) {
-      console.error(`[AI-AUDIT][GENERATION] ❌ Erro ao gerar sugestões: ${error.message}`);
-      // Garantir que sempre há um array, mesmo que vazio
-      finalJSON.suggestions = [];
+      if (error.message === 'SKIP_SUGGESTIONS_GENERATION') {
+        // Skip proposital - não logar como erro
+        console.log('[GUARDIÃO] ✅ Geração de sugestões pulada para faixa base (modo genre)');
+      } else {
+        console.error(`[AI-AUDIT][GENERATION] ❌ Erro ao gerar sugestões: ${error.message}`);
+        // Garantir arrays vazios em caso de erro real
+        finalJSON.suggestions = [];
+        finalJSON.aiSuggestions = [];
+      }
     }
 
     // ========= FINALIZAÇÃO =========

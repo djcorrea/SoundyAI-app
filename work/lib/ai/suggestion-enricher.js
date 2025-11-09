@@ -9,6 +9,22 @@
  * @returns {Array} - Sugestões enriquecidas com IA
  */
 export async function enrichSuggestionsWithAI(suggestions, context = {}) {
+  const mode = context.mode || 'genre';
+  const hasReferenceComparison = !!context.referenceComparison;
+  
+  // 🛡️ WHITELIST: IA só roda em modo reference com comparação
+  if (mode !== 'reference' || !hasReferenceComparison) {
+    console.log('[ENRICHER-GUARD] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[ENRICHER-GUARD] 🚫 BLOQUEANDO ENRIQUECIMENTO IA');
+    console.log('[ENRICHER-GUARD] mode=%s referenceComparison=%s', mode, hasReferenceComparison);
+    console.log('[ENRICHER-GUARD] ✅ Retornando array vazio (IA não deve rodar)');
+    console.log('[ENRICHER-GUARD] ℹ️ IA só é acionada em modo reference com comparação A/B');
+    console.log('[ENRICHER-GUARD] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    // Retornar array vazio quando não for modo reference
+    return [];
+  }
+  
   console.log('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('[AI-AUDIT][ULTRA_DIAG] 🤖 INICIANDO ENRIQUECIMENTO COM IA');
   console.log('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');

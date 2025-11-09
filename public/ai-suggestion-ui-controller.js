@@ -216,7 +216,32 @@ class AISuggestionUIController {
             console.warn('[AI-UI][AUDIT] ❌ aiSuggestions NÃO encontrado ou vazio');
         }
         
-        // 🎯 PRIORIDADE 2: Fallback para suggestions base
+        // 🛡️ GUARDIÃO FRONTEND: Não renderizar se não for modo reference
+        if (analysis?.mode !== 'reference' && (!analysis?.aiSuggestions || analysis.aiSuggestions.length === 0)) {
+            console.log('[UI-GUARD] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log('[UI-GUARD] 🚫 BLOQUEANDO RENDERIZAÇÃO');
+            console.log('[UI-GUARD] mode=%s aiSuggestions.len=%d', 
+                analysis?.mode || 'genre',
+                analysis?.aiSuggestions?.length || 0
+            );
+            console.log('[UI-GUARD] ℹ️ Faixa base (A) não exibe cards');
+            console.log('[UI-GUARD] ℹ️ Cards serão exibidos apenas na comparação A/B');
+            console.log('[UI-GUARD] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            
+            // Ocultar seção de sugestões
+            if (this.elements.aiSection) {
+                this.elements.aiSection.style.display = 'none';
+            }
+            
+            // Exibir mensagem informativa (se disponível)
+            if (typeof this.displayWaitingForReferenceState === 'function') {
+                this.displayWaitingForReferenceState();
+            }
+            
+            return;
+        }
+        
+        // 🎯 PRIORIDADE 2: Fallback para suggestions base (apenas em modo reference)
         let suggestionsToUse = [];
         
         if (analysis?.mode === 'reference') {
@@ -442,7 +467,67 @@ class AISuggestionUIController {
     }
     
     /**
-     * 🎨 DEPRECATED: Método antigo mantido para compatibilidade
+     * � Exibir estado de espera para faixa de referência
+     */
+    displayWaitingForReferenceState() {
+        if (!this.elements.aiSection || !this.elements.aiContent) {
+            console.warn('[UI-GUARD] ⚠️ Elementos aiSection/aiContent não encontrados');
+            return;
+        }
+        
+        console.log('[UI-GUARD] 🎧 Exibindo estado de espera para comparação');
+        
+        this.elements.aiSection.style.display = 'block';
+        this.elements.aiContent.innerHTML = `
+            <div style="
+                grid-column: 1 / -1;
+                text-align: center;
+                padding: 60px 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                border-radius: 16px;
+                color: white;
+            ">
+                <div style="font-size: 64px; margin-bottom: 20px;">🎵</div>
+                <h3 style="font-size: 24px; margin: 0 0 16px 0; font-weight: 600;">
+                    Análise Base Concluída
+                </h3>
+                <p style="font-size: 16px; margin: 0 0 24px 0; opacity: 0.9;">
+                    Esta é a faixa de referência (A).
+                </p>
+                <p style="font-size: 16px; margin: 0 0 12px 0; font-weight: 500;">
+                    Para ver sugestões comparativas:
+                </p>
+                <ol style="
+                    display: inline-block;
+                    text-align: left;
+                    font-size: 15px;
+                    line-height: 1.8;
+                    margin: 0 0 24px 0;
+                    padding-left: 20px;
+                ">
+                    <li>Envie uma segunda faixa (B) para comparação</li>
+                    <li>Selecione esta análise como referência</li>
+                    <li>A IA gerará sugestões detalhadas A vs B</li>
+                </ol>
+                <div style="
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 12px 24px;
+                    background: rgba(255,255,255,0.2);
+                    border-radius: 8px;
+                    font-size: 14px;
+                    font-weight: 500;
+                ">
+                    <span>💡</span>
+                    <span>Aguardando comparação</span>
+                </div>
+            </div>
+        `;
+    }
+    
+    /**
+     * �🎨 DEPRECATED: Método antigo mantido para compatibilidade
      */
     displayAISuggestions(suggestions, analysis) {
         console.warn('[AI-UI] displayAISuggestions() DEPRECATED - use renderAISuggestions()');
