@@ -238,6 +238,10 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         console.log("[REFERENCE-MODE] Modo referência detectado - buscando análise de referência...");
         console.log("[REFERENCE-MODE] ReferenceJobId:", options.referenceJobId);
         
+        // 🔍 AUDITORIA PONTO 1: Confirmação de contexto inicial
+        console.log('[AI-AUDIT][REF] 🔍 referenceJobId detectado:', options.referenceJobId);
+        console.log('[AI-AUDIT][REF] 🔍 mode inicial:', mode);
+        
         try {
           const refJob = await pool.query("SELECT results FROM jobs WHERE id = $1", [options.referenceJobId]);
           
@@ -287,6 +291,20 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
             finalJSON.referenceJobId = options.referenceJobId;
             finalJSON.referenceFileName = refData.fileName || refData.metadata?.fileName;
             
+            // 🔍 AUDITORIA PONTO 2: Persistência do objeto de comparação
+            console.log('[AI-AUDIT][REF] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log('[AI-AUDIT][REF] 📦 OBJETO referenceComparison CRIADO E SALVO');
+            console.log('[AI-AUDIT][REF] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log('[AI-AUDIT][REF] Contexto de comparação salvo:', !!referenceComparison);
+            console.log('[AI-AUDIT][REF] Campos em finalJSON:', {
+              hasReferenceComparison: !!finalJSON.referenceComparison,
+              hasReferenceJobId: !!finalJSON.referenceJobId,
+              hasReferenceFileName: !!finalJSON.referenceFileName,
+              referenceComparisonKeys: Object.keys(referenceComparison || {}),
+              sampleDelta: referenceComparison?.lufs?.delta
+            });
+            console.log('[AI-AUDIT][REF] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            
             // Gerar sugestões comparativas
             finalJSON.suggestions = generateComparisonSuggestions(referenceComparison);
             
@@ -309,12 +327,27 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
             // �🔮 ENRIQUECIMENTO IA ULTRA V2
             try {
               console.log('[AI-AUDIT][ULTRA_DIAG] 🚀 Enviando sugestões base para IA...');
+              
+              // 🔍 AUDITORIA PONTO 3: Verificação antes do enrich
+              console.log('[AI-AUDIT][REF] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              console.log('[AI-AUDIT][REF] 🤖 PRÉ-ENRICH: Verificando contexto');
+              console.log('[AI-AUDIT][REF] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              console.log('[AI-AUDIT][REF] Mode antes do enrich:', mode);
+              console.log('[AI-AUDIT][REF] referenceComparison existe?', !!referenceComparison);
+              console.log('[AI-AUDIT][REF] referenceComparison em finalJSON?', !!finalJSON.referenceComparison);
+              console.log('[AI-AUDIT][REF] Será enviado para enrichSuggestionsWithAI:', {
+                hasReferenceComparison: !!referenceComparison,
+                referenceComparisonKeys: Object.keys(referenceComparison || {}),
+                mode: mode || 'reference'
+              });
+              console.log('[AI-AUDIT][REF] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+              
               console.log('[AI-AUDIT][ULTRA_DIAG] 📦 Contexto enviado:', {
                 genre,
                 mode,
                 hasUserMetrics: !!coreMetrics,
                 hasReferenceMetrics: true,
-                hasReferenceComparison: true,
+                hasReferenceComparison: !!referenceComparison,
                 referenceFileName: refData.fileName || refData.metadata?.fileName
               });
               
