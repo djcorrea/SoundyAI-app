@@ -188,100 +188,63 @@ class AISuggestionUIController {
             keys: analysis ? Object.keys(analysis).slice(0, 15) : []
         });
         
-        // 🎯 PRIORIDADE 1: Verificar se aiSuggestions EXISTE e TEM CONTEÚDO
-        if (Array.isArray(analysis?.aiSuggestions) && analysis.aiSuggestions.length > 0) {
-            console.log('[AI-UI][AUDIT] ✅✅✅ aiSuggestions DETECTADO COM SUCESSO! ✅✅✅');
-            console.log('[AI-UI][AUDIT] Total de sugestões IA:', analysis.aiSuggestions.length);
-            console.log('[AI-UI][AUDIT] Sample da primeira:', {
-                aiEnhanced: analysis.aiSuggestions[0]?.aiEnhanced,
-                categoria: analysis.aiSuggestions[0]?.categoria,
-                nivel: analysis.aiSuggestions[0]?.nivel,
-                hasProblema: !!analysis.aiSuggestions[0]?.problema,
-                hasSolucao: !!analysis.aiSuggestions[0]?.solucao
-            });
-            
-            // ✅ Verificar se pelo menos 1 está marcada como aiEnhanced
-            const aiEnhancedCount = analysis.aiSuggestions.filter(s => s.aiEnhanced === true).length;
-            console.log('[AI-UI][AUDIT] Sugestões com aiEnhanced: true:', aiEnhancedCount, '/', analysis.aiSuggestions.length);
-            
-            if (aiEnhancedCount > 0) {
-                console.log('[AI-UI] 🌟 Exibindo sugestões IA enriquecidas');
-                this.renderAISuggestions(analysis.aiSuggestions);
-                return; // ✅ PARAR AQUI - Encontrou sugestões IA válidas
-            } else {
-                console.warn('[AI-UI][AUDIT] ⚠️ aiSuggestions existe mas NENHUMA com aiEnhanced: true!');
-                console.warn('[AI-UI][AUDIT] Isso indica problema no backend suggestion-enricher.js');
-            }
-        } else {
-            console.warn('[AI-UI][AUDIT] ❌ aiSuggestions NÃO encontrado ou vazio');
-        }
+        // 🧠 AUDITORIA COMPLETA: Log dos dados recebidos
+        console.log('[AUDIT:AI-FRONT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('[AUDIT:AI-FRONT]', {
+            mode: analysis?.mode,
+            aiSuggestions: analysis?.aiSuggestions?.length,
+            suggestions: analysis?.suggestions?.length,
+            sampleAI: analysis?.aiSuggestions?.[0]
+        });
+        console.log('[AUDIT:AI-FRONT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
-        // 🛡️ GUARDIÃO FRONTEND: Não renderizar se não for modo reference
-        if (analysis?.mode !== 'reference' && (!analysis?.aiSuggestions || analysis.aiSuggestions.length === 0)) {
-            console.log('[UI-GUARD] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-            console.log('[UI-GUARD] 🚫 BLOQUEANDO RENDERIZAÇÃO');
-            console.log('[UI-GUARD] mode=%s aiSuggestions.len=%d', 
-                analysis?.mode || 'genre',
-                analysis?.aiSuggestions?.length || 0
-            );
-            console.log('[UI-GUARD] ℹ️ Faixa base (A) não exibe cards');
-            console.log('[UI-GUARD] ℹ️ Cards serão exibidos apenas na comparação A/B');
-            console.log('[UI-GUARD] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        // 🛡️ VALIDAÇÃO: Verificar se há aiSuggestions válidas e enriquecidas
+        let suggestionsToUse = [];
+        
+        const hasValidAI = Array.isArray(analysis?.aiSuggestions) && analysis.aiSuggestions.length > 0;
+        const hasEnriched = hasValidAI && analysis.aiSuggestions.some(s => 
+            s.aiEnhanced === true || s.enrichmentStatus === 'success'
+        );
+        
+        console.log('[AI-FRONT][CHECK]', { 
+            hasValidAI, 
+            hasEnriched, 
+            mode: analysis?.mode 
+        });
+        
+        if (hasValidAI && hasEnriched) {
+            // ✅ Renderizar APENAS as sugestões da IA enriquecidas
+            suggestionsToUse = analysis.aiSuggestions;
+            console.log('[AI-FRONT] ✅ Renderizando sugestões IA enriquecidas');
+            console.log('[AI-FRONT] Total de cards:', suggestionsToUse.length);
+            
+            // Garantir visibilidade da seção
+            if (this.elements.aiSection) {
+                this.elements.aiSection.style.display = 'block';
+            }
+            
+            // ✅ RENDERIZAR sugestões IA
+            this.renderAISuggestions(suggestionsToUse);
+            return; // ✅ PARAR AQUI
+        } else {
+            // 🚫 Evita fallback para métricas genéricas
+            console.log('[AI-FRONT] ⚠️ Nenhuma IA válida detectada');
+            console.log('[AI-FRONT] hasValidAI:', hasValidAI);
+            console.log('[AI-FRONT] hasEnriched:', hasEnriched);
+            console.log('[AI-FRONT] 🚫 Ocultando cards genéricos');
             
             // Ocultar seção de sugestões
             if (this.elements.aiSection) {
                 this.elements.aiSection.style.display = 'none';
             }
             
-            // Exibir mensagem informativa (se disponível)
+            // Exibir estado de aguardo (se disponível)
             if (typeof this.displayWaitingForReferenceState === 'function') {
                 this.displayWaitingForReferenceState();
             }
             
-            return;
+            return; // ✅ NÃO RENDERIZAR NADA
         }
-        
-        // 🎯 PRIORIDADE 2: Fallback para suggestions base (apenas em modo reference)
-        let suggestionsToUse = [];
-        
-        if (analysis?.mode === 'reference') {
-            // Modo referência: tentar várias fontes
-            console.log('[AI-UI][AUDIT] Modo reference detectado - buscando em múltiplas fontes');
-            suggestionsToUse = 
-                analysis?.suggestions || 
-                analysis?.referenceAnalysis?.suggestions ||
-                analysis?.userAnalysis?.suggestions ||
-                [];
-        } else {
-            // Modo gênero: usar suggestions base
-            console.log('[AI-UI][AUDIT] Modo genre detectado - usando suggestions base');
-            suggestionsToUse = analysis?.suggestions || [];
-        }
-        
-        // ✅ GARANTIR QUE É ARRAY
-        if (!Array.isArray(suggestionsToUse)) {
-            console.warn('[AI-UI][AUDIT] ⚠️ suggestionsToUse não é array, convertendo');
-            suggestionsToUse = [];
-        }
-        
-        console.log('[AI-UI][AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('[AI-UI][AUDIT] 📊 RESULTADO DA SELEÇÃO');
-        console.log('[AI-UI][AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('[AI-UI][AUDIT] Sugestões selecionadas:', suggestionsToUse.length);
-        console.log('[AI-UI][AUDIT] Fonte:', analysis?.aiSuggestions?.length ? 'aiSuggestions (IA)' : 'suggestions (base)');
-        console.log('[AI-UI][AUDIT] Modo:', analysis?.mode || 'genre');
-        
-        if (suggestionsToUse.length === 0) {
-            console.error('[AI-UI][AUDIT] ❌ NENHUMA sugestão encontrada!');
-            console.error('[AI-UI][AUDIT] Analysis keys:', analysis ? Object.keys(analysis) : 'null');
-            console.error('[AI-UI][AUDIT] Exibindo estado vazio');
-            this.displayEmptySuggestionsState();
-            return;
-        }
-        
-        // ✅ RENDERIZAR: Sempre usar renderAISuggestions (compatível com ambos)
-        console.log('[AI-UI] 🤖 Renderizando', suggestionsToUse.length, 'sugestões');
-        this.renderAISuggestions(suggestionsToUse);
     }
     
     /**
