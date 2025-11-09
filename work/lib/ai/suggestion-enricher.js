@@ -300,6 +300,57 @@ Seu objetivo é **enriquecer e reescrever sugestões técnicas de análise de á
     if (rc.dynamics) {
       prompt += `- **Dynamic Range**: Sua faixa ${rc.dynamics.user} dB vs Referência ${rc.dynamics.reference} dB (diferença: ${rc.dynamics.delta} dB)\n`;
     }
+    
+    // ✅ BLOCO DE INSTRUÇÃO CRÍTICA PARA MODO COMPARAÇÃO A/B
+    prompt += `\n### 🎧 MODO COMPARAÇÃO A/B - INSTRUÇÕES CRÍTICAS\n\n`;
+    prompt += `Você está analisando uma **comparação técnica A/B** entre:\n`;
+    prompt += `- **Faixa A (User)**: Faixa do produtor que precisa ser otimizada\n`;
+    prompt += `- **Faixa B (Reference)**: Faixa profissional usada como padrão de qualidade\n\n`;
+
+    prompt += `**SUA MISSÃO PRINCIPAL:**\n`;
+    prompt += `1. Identificar as **diferenças técnicas** entre as duas faixas usando os deltas acima\n`;
+    prompt += `2. Gerar sugestões **específicas** que aproximem a mixagem do usuário da referência\n`;
+    prompt += `3. Para CADA delta significativo (>0.5 unidades), explicar:\n`;
+    prompt += `   - O que a diferença significa tecnicamente\n`;
+    prompt += `   - Por que isso aconteceu (causa provável)\n`;
+    prompt += `   - Como corrigir para igualar a referência (solução)\n`;
+    prompt += `   - Quais ferramentas usar (plugins recomendados)\n`;
+    prompt += `   - Parâmetros específicos para aplicar\n\n`;
+
+    prompt += `**INTERPRETAÇÃO DOS DELTAS:**\n`;
+
+    if (rc.lufs) {
+      const delta = parseFloat(rc.lufs.delta);
+      if (delta < -0.5) {
+        prompt += `- 🔊 **LUFS**: Sua faixa está ${Math.abs(delta).toFixed(1)} dB **mais baixa** que a referência → **Precisa aumentar loudness** (aplicar limiter no master)\n`;
+      } else if (delta > 0.5) {
+        prompt += `- 🔊 **LUFS**: Sua faixa está ${delta.toFixed(1)} dB **mais alta** que a referência → **Precisa reduzir loudness** (baixar gain do limiter)\n`;
+      }
+    }
+
+    if (rc.dynamics) {
+      const delta = parseFloat(rc.dynamics.delta);
+      if (delta > 0.5) {
+        prompt += `- 🎭 **Dynamic Range**: Sua faixa tem ${delta.toFixed(1)} dB **mais dinâmica** que a referência → **Precisa comprimir mais** para igualar punch e consistência\n`;
+      } else if (delta < -0.5) {
+        prompt += `- 🎭 **Dynamic Range**: Sua faixa tem ${Math.abs(delta).toFixed(1)} dB **menos dinâmica** → **Compressão excessiva**, reduza ratio ou threshold\n`;
+      }
+    }
+
+    if (rc.truePeak) {
+      const delta = parseFloat(rc.truePeak.delta);
+      if (delta < -0.5) {
+        prompt += `- 🎚️ **True Peak**: Sua faixa tem ${Math.abs(delta).toFixed(1)} dBTP de **margem adicional** → Pode aumentar limiter ceiling para igualar referência\n`;
+      }
+    }
+
+    prompt += `\n**CONTEXTO COMPARATIVO OBRIGATÓRIO:**\n`;
+    prompt += `- Toda sugestão deve referenciar explicitamente a faixa de referência\n`;
+    prompt += `- Use frases como "comparado à referência", "para igualar a referência", "aproximar do padrão da referência"\n`;
+    prompt += `- Priorize sugestões pelos maiores deltas (maior diferença = maior prioridade)\n`;
+    prompt += `- O objetivo é **aproximar da referência**, não perfeição absoluta\n\n`;
+    
+    console.log("[AI-AUDIT][COMPARISON-PROMPT] 🔍 Prompt do modo reference preparado com instruções A/B detalhadas");
   }
 
   // Adicionar métricas técnicas se disponíveis
