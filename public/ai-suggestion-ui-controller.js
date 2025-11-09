@@ -172,7 +172,7 @@ class AISuggestionUIController {
     /**
      * 🤖 Verificar e processar sugestões IA
      */
-    checkForAISuggestions(analysis) {
+    checkForAISuggestions(analysis, retryCount = 0) {
         console.log('[AI-UI][AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('[AI-UI][AUDIT] 🔍 VERIFICAÇÃO DE aiSuggestions');
         console.log('[AI-UI][AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -185,13 +185,58 @@ class AISuggestionUIController {
         console.log('[AI-UI][AUDIT] Analysis completo:', {
             hasAnalysis: !!analysis,
             mode: analysis?.mode,
+            status: analysis?.status,
             keys: analysis ? Object.keys(analysis).slice(0, 15) : []
         });
+        
+        // 🔄 ETAPA 2: Polling automático até status 'completed'
+        // Se ainda está processando, aguardar 3s e tentar novamente
+        if (analysis?.status === 'processing') {
+            if (retryCount >= 10) {
+                console.error('[AI-FRONT] ❌ Timeout: 10 tentativas de polling excedidas');
+                this.showLoadingState('Tempo limite excedido. Recarregue a página.');
+                return;
+            }
+            
+            console.log('[AI-FRONT] 🕐 IA ainda processando, tentando novamente em 3s...');
+            console.log('[AI-FRONT] Tentativa:', retryCount + 1, '/ 10');
+            
+            // Exibir estado de loading
+            this.showLoadingState('Aguardando análise da IA...');
+            
+            // Aguardar 3s e consultar novamente
+            setTimeout(() => {
+                console.log('[AI-FRONT] 🔄 Reconsultando análise após 3s...');
+                
+                // Buscar análise atualizada do backend
+                const jobId = analysis?.id || analysis?.jobId;
+                if (jobId) {
+                    fetch(`/api/jobs/${jobId}`)
+                        .then(res => res.json())
+                        .then(updatedAnalysis => {
+                            console.log('[AI-FRONT] 📥 Análise atualizada recebida:', {
+                                status: updatedAnalysis.status,
+                                aiSuggestions: updatedAnalysis.aiSuggestions?.length
+                            });
+                            this.checkForAISuggestions(updatedAnalysis, retryCount + 1);
+                        })
+                        .catch(err => {
+                            console.error('[AI-FRONT] ❌ Erro ao reconsultar:', err);
+                            this.showLoadingState('Erro ao consultar análise.');
+                        });
+                } else {
+                    console.error('[AI-FRONT] ❌ ID do job não encontrado para polling');
+                }
+            }, 3000);
+            
+            return; // ✅ PARAR AQUI e aguardar
+        }
         
         // 🧠 AUDITORIA COMPLETA: Log dos dados recebidos
         console.log('[AUDIT:AI-FRONT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('[AUDIT:AI-FRONT]', {
             mode: analysis?.mode,
+            status: analysis?.status,
             aiSuggestions: analysis?.aiSuggestions?.length,
             suggestions: analysis?.suggestions?.length,
             sampleAI: analysis?.aiSuggestions?.[0]
