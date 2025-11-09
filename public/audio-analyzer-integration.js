@@ -4345,6 +4345,30 @@ async function handleModalFileSelection(file) {
             console.log('[AI-SYNC] 🎬 Iniciando renderização do modal...');
             console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
             
+            // ========================================
+            // ✅ CORREÇÃO: Aguardar enriquecimento IA antes de abrir modal
+            // ========================================
+            if (!normalizedResult.aiSuggestions || normalizedResult.aiSuggestions.length === 0) {
+                console.log('[AI-SYNC] ⏳ Enriquecimento IA ausente — aguardando resposta...');
+                showAILoadingSpinner('🤖 Conectando à IA para análise avançada...');
+
+                try {
+                    const enrichedData = await waitForAIEnrichment(normalizedResult.jobId, 15000, 1500);
+
+                    if (enrichedData && enrichedData.aiSuggestions && enrichedData.aiSuggestions.length > 0) {
+                        normalizedResult.aiSuggestions = enrichedData.aiSuggestions;
+                        console.log(`[AI-SYNC] ✅ Sugestões enriquecidas mescladas: ${enrichedData.aiSuggestions.length}`);
+                    } else {
+                        console.warn('[AI-SYNC] ⚠️ Timeout ou IA não retornou sugestões válidas. Fallback para sugestões base.');
+                    }
+                } catch (error) {
+                    console.error('[AI-SYNC] ❌ Erro ao aguardar sugestões enriquecidas:', error);
+                } finally {
+                    hideAILoadingSpinner();
+                }
+            }
+
+            // ✅ Agora sim, exibe o modal com ou sem IA (fallback incluso)
             await displayModalResults(normalizedResult);
             console.log('[FIX-REFERENCE] Modal aberto após segunda análise');
             
@@ -4805,23 +4829,37 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         console.log('[AI-SYNC][GENRE] 🎬 Iniciando renderização do modal...');
         console.log('[AI-SYNC][GENRE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
-        // Exibir resultados diretamente no modal
-        setTimeout(() => {
-            console.log("[DISPLAY] Metrics modal triggered from handleGenreAnalysisWithResult");
-            // 🛡️ VERIFICAÇÃO DEFENSIVA: Garantir que displayModalResults existe
-            if (typeof displayModalResults === 'function') {
-                displayModalResults(normalizedResult);
-            } else {
-                console.warn('⚠️ [MODAL_MONITOR] Função displayModalResults não encontrada na análise por gênero');
-                setTimeout(() => {
-                    if (typeof displayModalResults === 'function') {
-                        displayModalResults(normalizedResult);
-                    } else {
-                        console.error('❌ [MODAL_MONITOR] Análise por gênero - função displayModalResults não encontrada');
-                    }
-                }, 1000);
+        // ========================================
+        // ✅ CORREÇÃO: Aguardar enriquecimento IA antes de abrir modal (MODO GENRE)
+        // ========================================
+        if (!normalizedResult.aiSuggestions || normalizedResult.aiSuggestions.length === 0) {
+            console.log('[AI-SYNC][GENRE] ⏳ Enriquecimento IA ausente — aguardando resposta...');
+            showAILoadingSpinner('🤖 Conectando à IA para análise avançada...');
+
+            try {
+                const enrichedData = await waitForAIEnrichment(normalizedResult.jobId, 15000, 1500);
+
+                if (enrichedData && enrichedData.aiSuggestions && enrichedData.aiSuggestions.length > 0) {
+                    normalizedResult.aiSuggestions = enrichedData.aiSuggestions;
+                    console.log(`[AI-SYNC][GENRE] ✅ Sugestões enriquecidas mescladas: ${enrichedData.aiSuggestions.length}`);
+                } else {
+                    console.warn('[AI-SYNC][GENRE] ⚠️ Timeout ou IA não retornou sugestões válidas. Fallback para sugestões base.');
+                }
+            } catch (error) {
+                console.error('[AI-SYNC][GENRE] ❌ Erro ao aguardar sugestões enriquecidas:', error);
+            } finally {
+                hideAILoadingSpinner();
             }
-        }, 500);
+        }
+        
+        // ✅ Agora sim, exibe o modal com ou sem IA (fallback incluso)
+        // 🛡️ VERIFICAÇÃO DEFENSIVA: Garantir que displayModalResults existe
+        if (typeof displayModalResults === 'function') {
+            await displayModalResults(normalizedResult);
+            console.log("[DISPLAY] Modal aberto com sucesso (modo genre)");
+        } else {
+            console.error('❌ [MODAL_MONITOR] Função displayModalResults não encontrada');
+        }
         
     } catch (error) {
         console.error('❌ Erro ao processar análise por gênero:', error);
