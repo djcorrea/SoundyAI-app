@@ -28,6 +28,31 @@ router.get("/:id", async (req, res) => {
     let normalizedStatus = job.status;
     if (normalizedStatus === "done") normalizedStatus = "completed";
     if (normalizedStatus === "failed") normalizedStatus = "error";
+    
+    // 🛡️ ETAPA 1: Delay seguro para evitar retorno prematuro
+    // Evita enviar aiSuggestions: [] antes do enriquecimento terminar
+    if (normalizedStatus === "processing") {
+      const elapsed = Date.now() - new Date(job.created_at).getTime();
+      const resultData = job.results || job.result;
+      let hasAISuggestions = false;
+      
+      try {
+        const parsed = typeof resultData === 'string' ? JSON.parse(resultData) : resultData;
+        hasAISuggestions = Array.isArray(parsed?.aiSuggestions) && parsed.aiSuggestions.length > 0;
+      } catch (e) {
+        // Ignorar erro de parse
+      }
+      
+      if (!hasAISuggestions && elapsed < 5000) {
+        console.log('[AI-BACKEND] ⏳ Aguardando IA enriquecer antes do retorno...');
+        console.log('[AI-BACKEND] Elapsed:', elapsed, 'ms / 5000 ms');
+        return res.status(202).json({ 
+          status: 'processing', 
+          message: 'AI enrichment pending',
+          id: job.id
+        });
+      }
+    }
 
     // 🎯 CORREÇÃO CRÍTICA: Retornar JSON completo da análise
     // 🔄 COMPATIBILIDADE: Tentar tanto 'results' (novo) quanto 'result' (antigo)
