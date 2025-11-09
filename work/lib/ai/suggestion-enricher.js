@@ -13,6 +13,25 @@ export async function enrichSuggestionsWithAI(suggestions, context = {}) {
   console.log('[AI-AUDIT][ULTRA_DIAG] 🤖 INICIANDO ENRIQUECIMENTO COM IA');
   console.log('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('[AI-AUDIT][ULTRA_DIAG] 📊 Sugestões base recebidas:', suggestions.length);
+  
+  // 🔍 AUDITORIA PONTO 4: Modo no enrich
+  console.log('[AI-AUDIT][REF] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('[AI-AUDIT][REF] 🎯 ENRICHER RECEBEU:');
+  console.log('[AI-AUDIT][REF] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('[AI-AUDIT][REF] Modo recebido:', context.mode);
+  console.log('[AI-AUDIT][REF] referenceComparison presente:', !!context.referenceComparison);
+  console.log('[AI-AUDIT][REF] Se false, O CONTEXTO FOI PERDIDO AQUI! ⚠️');
+  console.log('[AI-AUDIT][REF] Contexto completo:', {
+    genre: context.genre,
+    mode: context.mode,
+    hasUserMetrics: !!context.userMetrics,
+    hasReferenceMetrics: !!context.referenceMetrics,
+    hasReferenceComparison: !!context.referenceComparison,
+    referenceComparisonKeys: Object.keys(context.referenceComparison || {}),
+    referenceFileName: context.referenceFileName
+  });
+  console.log('[AI-AUDIT][REF] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  
   console.log('[AI-AUDIT][ULTRA_DIAG] 📦 Contexto recebido:', {
     genre: context.genre,
     mode: context.mode,
@@ -277,6 +296,16 @@ function buildEnrichmentPrompt(suggestions, context) {
   const mode = context.mode || 'genre';
   const genre = context.genre || 'unknown';
   
+  // 🔍 AUDITORIA PONTO 5: Modo dentro do buildPrompt
+  console.log('[AI-AUDIT][REF] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('[AI-AUDIT][REF] 📝 buildEnrichmentPrompt EXECUTANDO:');
+  console.log('[AI-AUDIT][REF] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('[AI-AUDIT][REF] Mode detectado:', mode);
+  console.log('[AI-AUDIT][REF] referenceComparison presente no context:', !!context.referenceComparison);
+  console.log('[AI-AUDIT][REF] Entrará no bloco "if (mode === reference)"?', mode === 'reference' && !!context.referenceComparison);
+  console.log('[AI-AUDIT][REF] Se NÃO entrar, modo será tratado como GENRE! ⚠️');
+  console.log('[AI-AUDIT][REF] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  
   let prompt = `Você é um engenheiro de mixagem e masterização especialista em áudio profissional.  
 Seu objetivo é **enriquecer e reescrever sugestões técnicas de análise de áudio** de forma detalhada, educativa e criativa, usando uma linguagem voltada a produtores musicais.
 
@@ -286,6 +315,9 @@ Seu objetivo é **enriquecer e reescrever sugestões técnicas de análise de á
 `;
 
   if (mode === 'reference' && context.referenceComparison) {
+    console.log('[AI-AUDIT][REF] ✅ ENTRANDO NO BLOCO DE MODO REFERENCE!');
+    console.log('[AI-AUDIT][REF] Adicionando instruções comparativas A/B ao prompt...');
+    
     prompt += `- **Tipo**: Comparação A/B com faixa de referência\n`;
     prompt += `- **Faixa de Referência**: ${context.referenceFileName || 'Não especificada'}\n\n`;
     
