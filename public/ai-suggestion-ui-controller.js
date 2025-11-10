@@ -246,6 +246,20 @@ class AISuggestionUIController {
     }
     
     checkForAISuggestions(analysis, retryCount = 0) {
+        // 🔬 PROTEÇÃO: Priorizar sugestões comparativas A vs B
+        const hasComparativeSuggestions = (
+            analysis?.mode === "compare" || 
+            (Array.isArray(analysis?.aiSuggestions) && analysis.aiSuggestions.length > 0 && analysis.aiSuggestions[0]?.categoria?.includes('vs'))
+        );
+        
+        if (hasComparativeSuggestions) {
+            console.log('%c[AI-FRONT] 🔬 Modo comparativo detectado - BLOQUEANDO geração por gênero', 'color:#FF00FF;font-weight:bold;');
+            console.log('[AI-FRONT] ℹ️ Sugestões existentes:', {
+                quantidade: analysis.aiSuggestions?.length,
+                categorias: analysis.aiSuggestions?.map(s => s.categoria).slice(0, 3)
+            });
+        }
+        
         // 🧩 ETAPA 1 — AUDITORIA PROFUNDA DE LOCALIZAÇÃO
         console.groupCollapsed('%c[AUDITORIA:AI-SUGGESTIONS] 🔍 Localização do campo aiSuggestions', 'color:#8F5BFF;font-weight:bold;');
         const keys = Object.keys(analysis || {});
@@ -255,6 +269,7 @@ class AISuggestionUIController {
         console.log('%c🧩 Contém data?', 'color:#00C9FF;', !!analysis?.data);
         console.log('%c🧩 aiSuggestions diretas:', 'color:#00FF88;', Array.isArray(analysis?.aiSuggestions));
         console.log('%c🧩 ai_suggestions diretas:', 'color:#00FF88;', Array.isArray(analysis?.ai_suggestions));
+        console.log('%c🔬 Modo comparativo?', 'color:#FF00FF;', hasComparativeSuggestions);
         console.groupEnd();
         
         // 🧩 PARTE 1 — AUDITORIA PROFUNDA (Início de `checkForAISuggestions`)
