@@ -174,55 +174,90 @@ class AISuggestionUIController {
      */
     /**
      * 🔍 Extrair aiSuggestions de qualquer nível do objeto analysis
-     * Verifica múltiplos caminhos possíveis incluindo referenceAnalysis e userAnalysis
-     * Busca recursiva garante detecção em qualquer profundidade
+     * Suporta: camelCase, snake_case, strings JSON, aninhamento profundo
+     * Busca recursiva garante detecção em qualquer estrutura
      */
     extractAISuggestions(analysis) {
-        console.log('[AI-EXTRACT] 🔍 Buscando aiSuggestions em todos os níveis...');
-
+        console.log('[AI-EXTRACT] 🔍 Iniciando busca por aiSuggestions (profundidade total)...');
         if (!analysis || typeof analysis !== 'object') return [];
 
-        // 🔹 Busca direta nos níveis mais comuns
-        const paths = [
-            'aiSuggestions',
-            'result.aiSuggestions',
-            'results.aiSuggestions',
-            'data.aiSuggestions',
-            'referenceAnalysis.aiSuggestions',
-            'userAnalysis.aiSuggestions',
-            'metadata.aiSuggestions',
-        ];
+        // 🔹 Função auxiliar de busca recursiva
+        const deepSearch = (obj, path = '') => {
+            if (!obj || typeof obj !== 'object') return null;
 
-        for (const path of paths) {
-            const value = path.split('.').reduce((acc, key) => acc?.[key], analysis);
-            if (Array.isArray(value) && value.length > 0) {
-                console.log(`%c[AI-EXTRACT] ✅ Encontrado em ${path}: ${value.length} sugestões`, 'color:#00FF88;');
-                console.log('[AI-EXTRACT] Sample primeira sugestão:', {
-                    problema: value[0]?.problema?.substring(0, 50),
-                    aiEnhanced: value[0]?.aiEnhanced,
-                    categoria: value[0]?.categoria
-                });
-                return value;
+            // Verifica variantes possíveis (camelCase e snake_case)
+            if (Array.isArray(obj.aiSuggestions) && obj.aiSuggestions.length > 0) {
+                console.log(`%c[AI-EXTRACT] ✅ Encontrado em caminho: ${path || 'raiz'}.aiSuggestions`, 'color:#00FF88;');
+                return obj.aiSuggestions;
             }
-        }
+            if (Array.isArray(obj.ai_suggestions) && obj.ai_suggestions.length > 0) {
+                console.log(`%c[AI-EXTRACT] ✅ Encontrado em caminho: ${path || 'raiz'}.ai_suggestions (snake_case)`, 'color:#00FF88;');
+                return obj.ai_suggestions;
+            }
 
-        // 🔹 Busca recursiva de segurança (profunda)
-        for (const key in analysis) {
-            const val = analysis[key];
-            if (val && typeof val === 'object') {
-                const nested = this.extractAISuggestions(val);
-                if (nested.length > 0) {
-                    console.log(`%c[AI-EXTRACT] ✅ Encontrado dentro de analysis.${key}`, 'color:#00FF88;');
-                    return nested;
+            // Detecta se veio stringificado
+            if (typeof obj.aiSuggestions === 'string') {
+                try {
+                    const parsed = JSON.parse(obj.aiSuggestions);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        console.log(`%c[AI-EXTRACT] ✅ Encontrado stringificado em: ${path || 'raiz'}.aiSuggestions`, 'color:#00FF88;');
+                        return parsed;
+                    }
+                } catch (err) {
+                    console.warn('[AI-EXTRACT] ⚠️ Falha ao parsear aiSuggestions stringificado:', err.message);
                 }
             }
+            if (typeof obj.ai_suggestions === 'string') {
+                try {
+                    const parsed = JSON.parse(obj.ai_suggestions);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        console.log(`%c[AI-EXTRACT] ✅ Encontrado stringificado em: ${path || 'raiz'}.ai_suggestions`, 'color:#00FF88;');
+                        return parsed;
+                    }
+                } catch (err) {
+                    console.warn('[AI-EXTRACT] ⚠️ Falha ao parsear ai_suggestions stringificado:', err.message);
+                }
+            }
+
+            // Busca recursiva em todos os objetos filhos
+            for (const key in obj) {
+                const val = obj[key];
+                if (val && typeof val === 'object') {
+                    const found = deepSearch(val, path ? `${path}.${key}` : key);
+                    if (found) return found;
+                }
+            }
+            return null;
+        };
+
+        const result = deepSearch(analysis);
+        if (Array.isArray(result) && result.length > 0) {
+            console.log(`%c[AI-EXTRACT] ✅ Encontradas ${result.length} sugestões enriquecidas`, 'color:#00FF88;');
+            console.log('[AI-EXTRACT] Sample primeira sugestão:', {
+                problema: result[0]?.problema?.substring(0, 50),
+                aiEnhanced: result[0]?.aiEnhanced,
+                categoria: result[0]?.categoria
+            });
+            return result;
         }
 
-        console.log('%c[AI-EXTRACT] ❌ Nenhum aiSuggestions encontrado em nenhum nível', 'color:#FF5555;');
+        console.log('%c[AI-EXTRACT] ❌ Nenhum aiSuggestions encontrado (nem ai_suggestions nem stringificado)', 'color:#FF5555;');
         return [];
     }
     
     checkForAISuggestions(analysis, retryCount = 0) {
+        // 🧩 ETAPA 1 — AUDITORIA PROFUNDA DE LOCALIZAÇÃO
+        console.groupCollapsed('%c[AUDITORIA:AI-SUGGESTIONS] 🔍 Localização do campo aiSuggestions', 'color:#8F5BFF;font-weight:bold;');
+        const keys = Object.keys(analysis || {});
+        console.log('%c🔑 Chaves de nível 1:', 'color:#FFD700;', keys);
+        console.log('%c🧩 Contém referenceAnalysis?', 'color:#00C9FF;', !!analysis?.referenceAnalysis);
+        console.log('%c🧩 Contém metadata?', 'color:#00C9FF;', !!analysis?.metadata);
+        console.log('%c🧩 Contém data?', 'color:#00C9FF;', !!analysis?.data);
+        console.log('%c🧩 aiSuggestions diretas:', 'color:#00FF88;', Array.isArray(analysis?.aiSuggestions));
+        console.log('%c🧩 ai_suggestions diretas:', 'color:#00FF88;', Array.isArray(analysis?.ai_suggestions));
+        console.groupEnd();
+        
+        // 🧩 PARTE 1 — AUDITORIA PROFUNDA (Início de `checkForAISuggestions`)
         // 🧩 PARTE 1 — AUDITORIA PROFUNDA
         console.groupCollapsed('%c[AUDITORIA:AI-FRONT] 🔍 Iniciando Auditoria Profunda de aiSuggestions', 'color:#8F5BFF;font-weight:bold;');
         console.log('%c[AI-AUDIT] 🔹 Análise recebida:', 'color:#00C9FF;', analysis);
@@ -333,6 +368,10 @@ class AISuggestionUIController {
         // 🧠 Bypass inteligente: se já há sugestões, ignora o status "processing"
         if (Array.isArray(extractedAI) && extractedAI.length > 0) {
             console.log('%c[AI-FRONT][BYPASS] ✅ aiSuggestions detectadas — ignorando status "processing"', 'color:#00FF88;font-weight:bold;');
+            
+            // 🧩 ETAPA 3 — GARANTIR QUE NÃO SAIA DO MODO "IA ENRIQUECIDA"
+            analysis.hasEnriched = true;
+            console.log('%c[AI-FRONT] 💜 Modo IA Enriquecida confirmado (%d sugestões)', 'color:#B279FF;font-weight:bold;', extractedAI.length);
             
             // 🧩 PARTE 4 — AUDITORIA FINAL DE RENDERIZAÇÃO
             console.groupCollapsed('%c[AI-FRONT][RENDER-AUDIT] 🎨 Auditoria Final de Renderização', 'color:#8F5BFF;font-weight:bold;');
