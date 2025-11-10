@@ -10,6 +10,8 @@ class AISuggestionUIController {
         this.currentSuggestions = [];
         this.isFullModalOpen = false;
         this.animationQueue = [];
+        this.lastAnalysisJobId = null; // 🔧 Rastrear última análise processada
+        this.lastAnalysisTimestamp = null; // 🔧 Timestamp da última análise
         
         // Elementos DOM
         this.elements = {
@@ -170,18 +172,48 @@ class AISuggestionUIController {
     }
     
     /**
+     * 🔄 Resetar estado de sugestões IA
+     * Limpa cache local e estado interno sem afetar renderização atual
+     */
+    resetAISuggestionState() {
+        console.log('%c[AI-UI][RESET] 🔄 Resetando estado de sugestões IA', 'color:#FF9500;font-weight:bold;');
+        
+        // Limpar cache de análise anterior
+        this.lastAnalysisJobId = null;
+        this.lastAnalysisTimestamp = null;
+        
+        // NÃO limpar currentSuggestions (mantém renderização visual)
+        // NÃO limpar elementos DOM (preserva estrutura)
+        
+        console.log('[AI-UI][RESET] ✅ Estado interno resetado');
+        console.log('[AI-UI][RESET] ℹ️  Renderização visual preservada');
+    }
+    
+    /**
      * 🤖 Verificar e processar sugestões IA
      */
     /**
      * 🔍 Extrair aiSuggestions de qualquer nível do objeto analysis
      * Suporta: camelCase, snake_case, strings JSON, aninhamento profundo
      * Busca recursiva garante detecção em qualquer estrutura
+     * 🔧 PRIORIDADE: userAnalysis.aiSuggestions (comparações A vs B)
      */
     extractAISuggestions(analysis) {
         console.log('[AI-EXTRACT] 🔍 Iniciando busca por aiSuggestions (profundidade total)...');
         if (!analysis || typeof analysis !== 'object') return [];
 
-        // 🔹 Função auxiliar de busca recursiva
+        // 🎯 PRIORIDADE 1: userAnalysis.aiSuggestions (comparações A vs B)
+        if (Array.isArray(analysis.userAnalysis?.aiSuggestions) && analysis.userAnalysis.aiSuggestions.length > 0) {
+            console.log(`%c[AI-EXTRACT] ✅ PRIORIDADE: Encontrado em userAnalysis.aiSuggestions`, 'color:#00FF88;font-weight:bold;');
+            console.log(`[AI-EXTRACT] 📊 Quantidade:`, analysis.userAnalysis.aiSuggestions.length);
+            console.log(`[AI-EXTRACT] 🔍 Primeira sugestão:`, {
+                categoria: analysis.userAnalysis.aiSuggestions[0]?.categoria,
+                problema: analysis.userAnalysis.aiSuggestions[0]?.problema?.substring(0, 60)
+            });
+            return analysis.userAnalysis.aiSuggestions;
+        }
+
+        // 🔹 Função auxiliar de busca recursiva (fallback)
         const deepSearch = (obj, path = '') => {
             if (!obj || typeof obj !== 'object') return null;
 
@@ -246,7 +278,16 @@ class AISuggestionUIController {
     }
     
     checkForAISuggestions(analysis, retryCount = 0) {
-        // 🔬 PROTEÇÃO: Priorizar sugestões comparativas A vs B
+        // � RESET AUTOMÁTICO: Detectar nova análise e limpar cache
+        const currentJobId = analysis?.jobId || analysis?.userAnalysis?.jobId || window.__CURRENT_JOB_ID__;
+        if (currentJobId && currentJobId !== this.lastAnalysisJobId) {
+            console.log('%c[AI-UI][RESET] 🔄 Nova análise detectada - resetando estado', 'color:#FF9500;font-weight:bold;');
+            console.log('[AI-UI][RESET] JobId anterior:', this.lastAnalysisJobId);
+            console.log('[AI-UI][RESET] JobId novo:', currentJobId);
+            this.resetAISuggestionState();
+        }
+        
+        // �🔬 PROTEÇÃO: Priorizar sugestões comparativas A vs B
         const hasComparativeSuggestions = (
             analysis?.mode === "compare" || 
             (Array.isArray(analysis?.aiSuggestions) && analysis.aiSuggestions.length > 0 && analysis.aiSuggestions[0]?.categoria?.includes('vs'))
@@ -265,10 +306,12 @@ class AISuggestionUIController {
         const keys = Object.keys(analysis || {});
         console.log('%c🔑 Chaves de nível 1:', 'color:#FFD700;', keys);
         console.log('%c🧩 Contém referenceAnalysis?', 'color:#00C9FF;', !!analysis?.referenceAnalysis);
+        console.log('%c🧩 Contém userAnalysis?', 'color:#00C9FF;', !!analysis?.userAnalysis);
         console.log('%c🧩 Contém metadata?', 'color:#00C9FF;', !!analysis?.metadata);
         console.log('%c🧩 Contém data?', 'color:#00C9FF;', !!analysis?.data);
         console.log('%c🧩 aiSuggestions diretas:', 'color:#00FF88;', Array.isArray(analysis?.aiSuggestions));
         console.log('%c🧩 ai_suggestions diretas:', 'color:#00FF88;', Array.isArray(analysis?.ai_suggestions));
+        console.log('%c🎯 userAnalysis.aiSuggestions:', 'color:#00FF88;font-weight:bold;', Array.isArray(analysis?.userAnalysis?.aiSuggestions) ? `${analysis.userAnalysis.aiSuggestions.length} sugestões` : '❌');
         console.log('%c🔬 Modo comparativo?', 'color:#FF00FF;', hasComparativeSuggestions);
         console.groupEnd();
         
@@ -402,6 +445,22 @@ class AISuggestionUIController {
 
             // Renderiza imediatamente
             this.renderAISuggestions(extractedAI);
+            
+            // 🔍 AUDITORIA AUTOMÁTICA: Verificar estado após renderização
+            console.group('%c[AUDITORIA:RESET-CHECK] 🔍 Estado após renderização', 'color:#FF9500;font-weight:bold;');
+            console.log('   currentJobId:', window.__CURRENT_JOB_ID__);
+            console.log('   referenceJobId:', window.__REFERENCE_JOB_ID__);
+            console.log('   hasAISuggestions:', !!(extractedAI?.length));
+            console.log('   aiSuggestionsLength:', extractedAI?.length || 0);
+            console.log('   localStorageReference:', localStorage.getItem('referenceJobId'));
+            console.log('   lastAnalysisJobId:', this.lastAnalysisJobId);
+            console.log('   🔄 IDs são diferentes?', window.__CURRENT_JOB_ID__ !== this.lastAnalysisJobId ? '✅ Sim (correto)' : '⚠️ Não (possível cache)');
+            console.groupEnd();
+            
+            // Atualizar última análise processada
+            this.lastAnalysisJobId = analysis?.jobId || window.__CURRENT_JOB_ID__;
+            this.lastAnalysisTimestamp = Date.now();
+            
             return;
         }
         
