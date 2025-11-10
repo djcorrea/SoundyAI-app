@@ -174,41 +174,73 @@ class AISuggestionUIController {
      */
     /**
      * 🔍 Extrair aiSuggestions de qualquer nível do objeto analysis
-     * Verifica múltiplos caminhos possíveis: analysis.aiSuggestions, analysis.result.aiSuggestions, analysis.data.aiSuggestions
+     * Verifica múltiplos caminhos possíveis incluindo referenceAnalysis e userAnalysis
+     * Busca recursiva garante detecção em qualquer profundidade
      */
     extractAISuggestions(analysis) {
-        console.log('[AI-EXTRACT] 🔍 Extraindo aiSuggestions de qualquer nível...');
-        
-        if (!analysis) {
-            console.warn('[AI-EXTRACT] ⚠️ Analysis é null/undefined');
-            return [];
-        }
-        
-        // Tentar múltiplos caminhos
+        console.log('[AI-EXTRACT] 🔍 Buscando aiSuggestions em todos os níveis...');
+
+        if (!analysis || typeof analysis !== 'object') return [];
+
+        // 🔹 Busca direta nos níveis mais comuns
         const paths = [
-            { name: 'analysis.aiSuggestions', value: analysis.aiSuggestions },
-            { name: 'analysis.result.aiSuggestions', value: analysis.result?.aiSuggestions },
-            { name: 'analysis.data.aiSuggestions', value: analysis.data?.aiSuggestions },
-            { name: 'analysis.results.aiSuggestions', value: analysis.results?.aiSuggestions }
+            'aiSuggestions',
+            'result.aiSuggestions',
+            'results.aiSuggestions',
+            'data.aiSuggestions',
+            'referenceAnalysis.aiSuggestions',
+            'userAnalysis.aiSuggestions',
+            'metadata.aiSuggestions',
         ];
-        
+
         for (const path of paths) {
-            if (Array.isArray(path.value) && path.value.length > 0) {
-                console.log(`[AI-EXTRACT] ✅ Encontrado em ${path.name}: ${path.value.length} sugestões`);
-                console.log('[AI-EXTRACT] Sample:', {
-                    problema: path.value[0]?.problema?.substring(0, 50),
-                    aiEnhanced: path.value[0]?.aiEnhanced,
-                    categoria: path.value[0]?.categoria
+            const value = path.split('.').reduce((acc, key) => acc?.[key], analysis);
+            if (Array.isArray(value) && value.length > 0) {
+                console.log(`%c[AI-EXTRACT] ✅ Encontrado em ${path}: ${value.length} sugestões`, 'color:#00FF88;');
+                console.log('[AI-EXTRACT] Sample primeira sugestão:', {
+                    problema: value[0]?.problema?.substring(0, 50),
+                    aiEnhanced: value[0]?.aiEnhanced,
+                    categoria: value[0]?.categoria
                 });
-                return path.value;
+                return value;
             }
         }
-        
-        console.warn('[AI-EXTRACT] ❌ Nenhum aiSuggestions encontrado em nenhum caminho');
+
+        // 🔹 Busca recursiva de segurança (profunda)
+        for (const key in analysis) {
+            const val = analysis[key];
+            if (val && typeof val === 'object') {
+                const nested = this.extractAISuggestions(val);
+                if (nested.length > 0) {
+                    console.log(`%c[AI-EXTRACT] ✅ Encontrado dentro de analysis.${key}`, 'color:#00FF88;');
+                    return nested;
+                }
+            }
+        }
+
+        console.log('%c[AI-EXTRACT] ❌ Nenhum aiSuggestions encontrado em nenhum nível', 'color:#FF5555;');
         return [];
     }
     
     checkForAISuggestions(analysis, retryCount = 0) {
+        // 🧩 PARTE 1 — AUDITORIA PROFUNDA
+        console.groupCollapsed('%c[AUDITORIA:AI-FRONT] 🔍 Iniciando Auditoria Profunda de aiSuggestions', 'color:#8F5BFF;font-weight:bold;');
+        console.log('%c[AI-AUDIT] 🔹 Análise recebida:', 'color:#00C9FF;', analysis);
+        console.log('%c[AI-AUDIT] 🔹 Chaves de nível 1:', 'color:#FFD700;', Object.keys(analysis || {}));
+        console.log('%c[AI-AUDIT] 🔹 referenceAnalysis?', 'color:#FFA500;', !!analysis?.referenceAnalysis);
+        console.log('%c[AI-AUDIT] 🔹 userAnalysis?', 'color:#FFA500;', !!analysis?.userAnalysis);
+        console.log('%c[AI-AUDIT] 🔹 aiSuggestions no topo?', 'color:#00FF88;', Array.isArray(analysis?.aiSuggestions) ? analysis.aiSuggestions.length : '❌');
+        console.log('%c[AI-AUDIT] 🔹 aiSuggestions em referenceAnalysis?', 'color:#00FF88;', Array.isArray(analysis?.referenceAnalysis?.aiSuggestions) ? analysis.referenceAnalysis.aiSuggestions.length : '❌');
+        console.log('%c[AI-AUDIT] 🔹 aiSuggestions em userAnalysis?', 'color:#00FF88;', Array.isArray(analysis?.userAnalysis?.aiSuggestions) ? analysis.userAnalysis.aiSuggestions.length : '❌');
+        console.groupEnd();
+        
+        // 🧩 PARTE 3 — AJUSTE DO STATUS (PREVENIR BLOQUEIO DO SPINNER)
+        // 🩵 Corrige status ausente herdado do subobjeto
+        if (!analysis.status && analysis.referenceAnalysis?.status) {
+            analysis.status = analysis.referenceAnalysis.status;
+            console.log('%c[AI-FRONT][STATUS-FIX] 🔁 Status herdado de referenceAnalysis:', 'color:#00FFFF;', analysis.status);
+        }
+        
         // 🎯 LOGS DE AUDITORIA VISUAL
         console.log('%c[AI-FRONT][AUDIT] 🚀 Iniciando checkForAISuggestions()', 'color:#8F5BFF; font-weight:bold;');
         console.log('%c[AI-FRONT][AUDIT] Status recebido:', 'color:#00C9FF;', analysis?.status);
@@ -301,6 +333,12 @@ class AISuggestionUIController {
         // 🧠 Bypass inteligente: se já há sugestões, ignora o status "processing"
         if (Array.isArray(extractedAI) && extractedAI.length > 0) {
             console.log('%c[AI-FRONT][BYPASS] ✅ aiSuggestions detectadas — ignorando status "processing"', 'color:#00FF88;font-weight:bold;');
+            
+            // 🧩 PARTE 4 — AUDITORIA FINAL DE RENDERIZAÇÃO
+            console.groupCollapsed('%c[AI-FRONT][RENDER-AUDIT] 🎨 Auditoria Final de Renderização', 'color:#8F5BFF;font-weight:bold;');
+            console.log('%c[RENDER-AUDIT] Quantidade de sugestões extraídas:', 'color:#00FF88;', extractedAI.length);
+            console.log('%c[RENDER-AUDIT] Primeiro item:', 'color:#FFD700;', extractedAI[0]);
+            console.groupEnd();
             
             // Garante que o spinner suma mesmo sem status "completed"
             if (this.elements.aiLoading) {
