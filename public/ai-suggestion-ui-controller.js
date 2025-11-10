@@ -172,6 +172,42 @@ class AISuggestionUIController {
     /**
      * 🤖 Verificar e processar sugestões IA
      */
+    /**
+     * 🔍 Extrair aiSuggestions de qualquer nível do objeto analysis
+     * Verifica múltiplos caminhos possíveis: analysis.aiSuggestions, analysis.result.aiSuggestions, analysis.data.aiSuggestions
+     */
+    extractAISuggestions(analysis) {
+        console.log('[AI-EXTRACT] 🔍 Extraindo aiSuggestions de qualquer nível...');
+        
+        if (!analysis) {
+            console.warn('[AI-EXTRACT] ⚠️ Analysis é null/undefined');
+            return [];
+        }
+        
+        // Tentar múltiplos caminhos
+        const paths = [
+            { name: 'analysis.aiSuggestions', value: analysis.aiSuggestions },
+            { name: 'analysis.result.aiSuggestions', value: analysis.result?.aiSuggestions },
+            { name: 'analysis.data.aiSuggestions', value: analysis.data?.aiSuggestions },
+            { name: 'analysis.results.aiSuggestions', value: analysis.results?.aiSuggestions }
+        ];
+        
+        for (const path of paths) {
+            if (Array.isArray(path.value) && path.value.length > 0) {
+                console.log(`[AI-EXTRACT] ✅ Encontrado em ${path.name}: ${path.value.length} sugestões`);
+                console.log('[AI-EXTRACT] Sample:', {
+                    problema: path.value[0]?.problema?.substring(0, 50),
+                    aiEnhanced: path.value[0]?.aiEnhanced,
+                    categoria: path.value[0]?.categoria
+                });
+                return path.value;
+            }
+        }
+        
+        console.warn('[AI-EXTRACT] ❌ Nenhum aiSuggestions encontrado em nenhum caminho');
+        return [];
+    }
+    
     checkForAISuggestions(analysis, retryCount = 0) {
         console.log('[AI-UI][AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('[AI-UI][AUDIT] 🔍 VERIFICAÇÃO DE aiSuggestions');
@@ -234,36 +270,43 @@ class AISuggestionUIController {
         
         // 🧠 AUDITORIA COMPLETA: Log dos dados recebidos
         console.log('[AUDIT:AI-FRONT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('[AUDIT:AI-FRONT]', {
+        console.log('[AUDIT:AI-FRONT] Objeto completo recebido:', {
             mode: analysis?.mode,
             status: analysis?.status,
-            aiSuggestions: analysis?.aiSuggestions?.length,
-            suggestions: analysis?.suggestions?.length,
-            sampleAI: analysis?.aiSuggestions?.[0]
+            keys: analysis ? Object.keys(analysis).slice(0, 20) : [],
+            aiSuggestions_direct: analysis?.aiSuggestions?.length,
+            aiSuggestions_result: analysis?.result?.aiSuggestions?.length,
+            aiSuggestions_data: analysis?.data?.aiSuggestions?.length,
+            suggestions: analysis?.suggestions?.length
         });
         console.log('[AUDIT:AI-FRONT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
-        // 🛡️ VALIDAÇÃO: Verificar se há aiSuggestions válidas e enriquecidas
+        // � EXTRAÇÃO ROBUSTA: Buscar aiSuggestions em todos os níveis possíveis
+        const extractedAI = this.extractAISuggestions(analysis);
+        console.log('[AI-FRONT][EXTRACT-RESULT] Extraídas:', extractedAI.length, 'sugestões');
+        
+        // �🛡️ VALIDAÇÃO: Verificar se há aiSuggestions válidas e enriquecidas
         let suggestionsToUse = [];
         
-        const hasValidAI = Array.isArray(analysis?.aiSuggestions) && analysis.aiSuggestions.length > 0;
-        const hasEnriched = hasValidAI && analysis.aiSuggestions.some(s => 
+        const hasValidAI = extractedAI.length > 0;
+        const hasEnriched = hasValidAI && extractedAI.some(s => 
             s.aiEnhanced === true || s.enrichmentStatus === 'success'
         );
         
         console.log('[AI-FRONT][CHECK]', { 
             hasValidAI, 
             hasEnriched, 
-            mode: analysis?.mode 
+            mode: analysis?.mode,
+            count: extractedAI.length
         });
         
         if (hasValidAI && hasEnriched) {
             // ✅ Renderizar APENAS as sugestões da IA enriquecidas
-            suggestionsToUse = analysis.aiSuggestions;
-            console.log('[AI-FRONT] ✅ Renderizando sugestões IA enriquecidas');
-            console.log('[AI-FRONT] Total de cards:', suggestionsToUse.length);
+            suggestionsToUse = extractedAI;
+            console.log('[AI-FRONT] ✅ IA detectada, renderizando sugestões...');
+            console.log('[AI-FRONT] 🟢 Renderizando', suggestionsToUse.length, 'cards de IA');
             
-            // Garantir visibilidade da seção
+            // Ocultar loading state
             if (this.elements.aiSection) {
                 this.elements.aiSection.style.display = 'block';
             }
@@ -271,6 +314,14 @@ class AISuggestionUIController {
             // ✅ RENDERIZAR sugestões IA
             this.renderAISuggestions(suggestionsToUse);
             return; // ✅ PARAR AQUI
+        } else if (hasValidAI && !hasEnriched) {
+            // ⚠️ Tem aiSuggestions mas não estão enriquecidas
+            console.warn('[AI-FRONT] ⚠️ aiSuggestions encontradas mas sem flag aiEnhanced');
+            console.warn('[AI-FRONT] Renderizando mesmo assim (pode ser formato legado)');
+            
+            suggestionsToUse = extractedAI;
+            this.renderAISuggestions(suggestionsToUse);
+            return;
         } else {
             // 🚫 Evita fallback para métricas genéricas
             console.log('[AI-FRONT] ⚠️ Nenhuma IA válida detectada');
@@ -300,7 +351,20 @@ class AISuggestionUIController {
         console.log('[AI-UI][RENDER] 🎨 INICIANDO RENDERIZAÇÃO');
         console.log('[AI-UI][RENDER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('[AI-UI][RENDER] Container encontrado:', !!this.elements.aiSection);
-        console.log('[AI-UI][RENDER] Sugestões recebidas:', suggestions.length);
+        console.log('[AI-UI][RENDER] Sugestões recebidas:', suggestions?.length || 0);
+        
+        // ✅ VALIDAÇÃO: Aceitar mesmo 1 sugestão
+        if (!suggestions || suggestions.length === 0) {
+            console.warn('[AI-UI][RENDER] ⚠️ Array de sugestões vazio ou inválido');
+            return;
+        }
+        
+        console.log('[AI-UI][RENDER] 🟢 Renderizando', suggestions.length, 'sugestão(ões)');
+        console.log('[AI-UI][RENDER] Sample primeira sugestão:', {
+            problema: suggestions[0]?.problema?.substring(0, 50) || suggestions[0]?.message?.substring(0, 50),
+            categoria: suggestions[0]?.categoria,
+            aiEnhanced: suggestions[0]?.aiEnhanced
+        });
         
         if (!this.elements.aiSection || !this.elements.aiContent) {
             console.error('[AI-UI][RENDER] ❌ Elementos DOM não encontrados!');
