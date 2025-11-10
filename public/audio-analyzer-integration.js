@@ -52,6 +52,265 @@ function saveSecondAnalysis(data) {
 }
 
 // ========================================
+// 🔬 GERADOR DE SUGESTÕES COMPARATIVAS A vs B
+// ========================================
+
+/**
+ * Gera sugestões de IA baseadas no delta entre duas análises (A vs B)
+ * @param {object} userAnalysis - Análise da faixa atual (B)
+ * @param {object} refAnalysis - Análise da referência (A)
+ * @returns {array} - Array de sugestões comparativas enriquecidas
+ */
+function buildComparativeAISuggestions(userAnalysis, refAnalysis) {
+    console.log('[A/B-SUGGESTIONS] 🔬 Gerando sugestões comparativas...');
+    
+    if (!userAnalysis || !refAnalysis) {
+        console.warn('[A/B-SUGGESTIONS] ⚠️ Análises incompletas - abortando geração');
+        return [];
+    }
+
+    // 🔍 Leitura segura de métricas (múltiplos caminhos possíveis)
+    const extractMetric = (analysis, metric) => {
+        const paths = {
+            lufs: [
+                analysis?.lufsIntegrated,
+                analysis?.avgLoudness,
+                analysis?.loudness?.integrated,
+                analysis?.technicalData?.lufsIntegrated,
+                analysis?.metrics?.loudness?.integrated
+            ],
+            lra: [
+                analysis?.lra,
+                analysis?.loudness?.lra,
+                analysis?.technicalData?.lra,
+                analysis?.metrics?.loudness?.lra
+            ],
+            tp: [
+                analysis?.truePeakDbtp,
+                analysis?.truePeak,
+                analysis?.loudness?.truePeak,
+                analysis?.truePeak?.maxDbtp,
+                analysis?.technicalData?.truePeakDbtp,
+                analysis?.metrics?.truePeak?.maxDbtp
+            ],
+            dr: [
+                analysis?.dynamicRange,
+                analysis?.dynamics?.dynamicRange,
+                analysis?.dynamics?.range,
+                analysis?.technicalData?.dynamicRange,
+                analysis?.metrics?.dynamics?.range
+            ],
+            cf: [
+                analysis?.crestFactor,
+                analysis?.dynamics?.crestFactor,
+                analysis?.dynamics?.crest,
+                analysis?.technicalData?.crestFactor,
+                analysis?.metrics?.dynamics?.crest
+            ]
+        };
+
+        const values = paths[metric] || [];
+        for (const val of values) {
+            if (typeof val === 'number' && !isNaN(val)) {
+                return val;
+            }
+        }
+        return null;
+    };
+
+    // 📊 Extrair métricas de ambas análises
+    const U = {
+        lufs: extractMetric(userAnalysis, 'lufs'),
+        lra: extractMetric(userAnalysis, 'lra'),
+        tp: extractMetric(userAnalysis, 'tp'),
+        dr: extractMetric(userAnalysis, 'dr'),
+        cf: extractMetric(userAnalysis, 'cf')
+    };
+
+    const R = {
+        lufs: extractMetric(refAnalysis, 'lufs'),
+        lra: extractMetric(refAnalysis, 'lra'),
+        tp: extractMetric(refAnalysis, 'tp'),
+        dr: extractMetric(refAnalysis, 'dr'),
+        cf: extractMetric(refAnalysis, 'cf')
+    };
+
+    console.log('[A/B-SUGGESTIONS] 📊 Métricas extraídas:', {
+        user: U,
+        reference: R
+    });
+
+    // 🔢 Calcular deltas (B - A)
+    const Δ = {
+        lufs: (U.lufs !== null && R.lufs !== null) ? (U.lufs - R.lufs) : null,
+        lra: (U.lra !== null && R.lra !== null) ? (U.lra - R.lra) : null,
+        tp: (U.tp !== null && R.tp !== null) ? (U.tp - R.tp) : null,
+        dr: (U.dr !== null && R.dr !== null) ? (U.dr - R.dr) : null,
+        cf: (U.cf !== null && R.cf !== null) ? (U.cf - R.cf) : null
+    };
+
+    console.log('[A/B-SUGGESTIONS] 🔢 Deltas calculados:', Δ);
+
+    // 🎚️ Thresholds de relevância
+    const TH = {
+        lufs: 1.0,    // 1 LUFS = diferença percebível
+        lra: 0.5,     // 0.5 LU = mudança na dinâmica
+        tp: 0.3,      // 0.3 dBTP = diferença em headroom
+        dr: 0.7,      // 0.7 dB = mudança no range dinâmico
+        cf: 0.7       // 0.7 = mudança em transientes
+    };
+
+    const suggestions = [];
+
+    // ==========================================
+    // 1️⃣ LOUDNESS (LUFS Integrado)
+    // ==========================================
+    if (Δ.lufs !== null && Math.abs(Δ.lufs) >= TH.lufs) {
+        const maisBaixo = Δ.lufs < 0;
+        const severidade = Math.abs(Δ.lufs) >= 3 ? "CRÍTICA" : (Math.abs(Δ.lufs) >= 2 ? "ALTA" : "MODERADA");
+        
+        suggestions.push({
+            categoria: "Loudness (A vs B)",
+            severidade: severidade,
+            problema: `Sua faixa está ${maisBaixo ? "mais baixa" : "mais alta"} que a referência em ${Math.abs(Δ.lufs).toFixed(2)} LUFS. Faixa atual: ${U.lufs?.toFixed(2)} LUFS vs Referência: ${R.lufs?.toFixed(2)} LUFS.`,
+            causaProvavel: maisBaixo
+                ? "Gain staging conservador na masterização ou limiter com threshold muito baixo."
+                : "Limiter excessivamente agressivo ou ganho de entrada muito alto.",
+            solucao: maisBaixo
+                ? `Aumente o ganho no bus master em aproximadamente ${Math.abs(Δ.lufs).toFixed(1)} dB. Use um limiter com ceiling adequado (-0.3 dBTP) e ajuste o input gain até atingir ${R.lufs?.toFixed(1)} LUFS.`
+                : `Reduza o input gain do limiter em ${Math.abs(Δ.lufs).toFixed(1)} dB. Reequilibre os buses para evitar compressão excessiva e mantenha o ceiling em -1.0 dBTP.`,
+            pluginRecomendado: "FabFilter Pro-L 2, iZotope Ozone Maximizer, Waves L2",
+            dicaExtra: "Compare trechos equivalentes (drop/refrão) entre as faixas. Use medidores de loudness (Youlean, LUFS Meter) para monitoramento em tempo real.",
+            parametros: {
+                alvoLUFS: R.lufs,
+                diferenca: Δ.lufs,
+                ajusteSugerido: maisBaixo ? `+${Math.abs(Δ.lufs).toFixed(1)} dB` : `-${Math.abs(Δ.lufs).toFixed(1)} dB`
+            },
+            aiEnhanced: true
+        });
+    }
+
+    // ==========================================
+    // 2️⃣ TRUE PEAK
+    // ==========================================
+    if (Δ.tp !== null && Math.abs(Δ.tp) >= TH.tp) {
+        const maisAlto = Δ.tp > 0;
+        const severidade = Math.abs(Δ.tp) >= 1.0 ? "CRÍTICA" : (Math.abs(Δ.tp) >= 0.5 ? "ALTA" : "MODERADA");
+        
+        suggestions.push({
+            categoria: "True Peak (A vs B)",
+            severidade: severidade,
+            problema: `True Peak ${maisAlto ? "maior" : "menor"} que a referência em ${Math.abs(Δ.tp).toFixed(2)} dBTP. Faixa atual: ${U.tp?.toFixed(2)} dBTP vs Referência: ${R.tp?.toFixed(2)} dBTP.`,
+            causaProvavel: maisAlto 
+                ? "Inter-sample peaks causados por limiter sem oversampling adequado ou clipping digital." 
+                : "Headroom excessivo não aproveitado - potencial de ganho adicional.",
+            solucao: maisAlto
+                ? `Ajuste o ceiling do limiter para máximo de -1.0 dBTP. Habilite oversampling 4x ou superior e revise o release time para evitar distorção intersample.`
+                : `Você pode aumentar o ceiling em até ${Math.abs(Δ.tp).toFixed(1)} dB mantendo margem segura. Ajuste para aproximadamente ${R.tp?.toFixed(1)} dBTP.`,
+            pluginRecomendado: "FabFilter Pro-L 2 (oversampling 4x-32x), iZotope Ozone Maximizer, Waves L2 Ultramaximizer",
+            dicaExtra: "Use medidores de true peak (TT Dynamic Range Meter) e sempre mantenha -0.5 a -1.0 dBTP para distribuição em streaming (Spotify, Apple Music).",
+            parametros: {
+                alvoTP: R.tp,
+                diferenca: Δ.tp,
+                ceilingRecomendado: maisAlto ? "-1.0 dBTP" : `${R.tp?.toFixed(1)} dBTP`
+            },
+            aiEnhanced: true
+        });
+    }
+
+    // ==========================================
+    // 3️⃣ LRA (Loudness Range - Macro Dinâmica)
+    // ==========================================
+    if (Δ.lra !== null && Math.abs(Δ.lra) >= TH.lra) {
+        const maisEstatica = Δ.lra < 0;
+        const severidade = Math.abs(Δ.lra) >= 2.0 ? "ALTA" : (Math.abs(Δ.lra) >= 1.0 ? "MODERADA" : "LEVE");
+        
+        suggestions.push({
+            categoria: "LRA / Dinâmica Macro (A vs B)",
+            severidade: severidade,
+            problema: `Sua LRA está ${maisEstatica ? "mais baixa" : "mais alta"} que a referência em ${Math.abs(Δ.lra).toFixed(2)} LU. Faixa atual: ${U.lra?.toFixed(2)} LU vs Referência: ${R.lra?.toFixed(2)} LU.`,
+            causaProvavel: maisEstatica 
+                ? "Compressão e limiting excessivos reduzindo contraste dinâmico entre seções." 
+                : "Diferenças de arranjo, automação de volume ou menos processamento dinâmico.",
+            solucao: maisEstatica
+                ? `Reduza ratio/threshold dos compressores de bus em 2-3 dB. Use automação de volume para criar contrastes entre intro/verso/refrão/drop. Alivie o limiter para preservar dinâmica.`
+                : `Ajuste levemente o bus compressor (ratio 2:1-3:1, attack 30ms, release auto) para apertar a macro dinâmica. Considere sidechain compression em elementos rítmicos.`,
+            pluginRecomendado: "SSL Bus Compressor, Glue Compressor (Ableton), API 2500, VCA compressor",
+            dicaExtra: "LRA ideal para música eletrônica: 3-6 LU. Para rock/pop: 6-10 LU. Use automação de ganho antes de processar para moldar a dinâmica desejada.",
+            parametros: {
+                alvoLRA: R.lra,
+                diferenca: Δ.lra,
+                tipoProcessamento: maisEstatica ? "Aliviar compressão" : "Apertar dinâmica"
+            },
+            aiEnhanced: true
+        });
+    }
+
+    // ==========================================
+    // 4️⃣ DYNAMIC RANGE (DR)
+    // ==========================================
+    if (Δ.dr !== null && Math.abs(Δ.dr) >= TH.dr) {
+        const severidade = Math.abs(Δ.dr) >= 2.0 ? "ALTA" : (Math.abs(Δ.dr) >= 1.0 ? "MODERADA" : "LEVE");
+        
+        suggestions.push({
+            categoria: "Dynamic Range (A vs B)",
+            severidade: severidade,
+            problema: `Dynamic Range difere em ${Math.abs(Δ.dr).toFixed(2)} dB da referência. Faixa atual: ${U.dr?.toFixed(2)} dB vs Referência: ${R.dr?.toFixed(2)} dB.`,
+            causaProvavel: "Relação entre picos e RMS (média de energia) diferente da referência devido a processamento dinâmico distinto.",
+            solucao: `Ajuste compressão nos subgrupos (drums, bass, synths) para aproximar DR de ${R.dr?.toFixed(1)} dB. Use clippers transparentes antes do limiter para controlar transientes sem perder corpo.`,
+            pluginRecomendado: "Clipper transparente (StandardCLIP, K-Clip), bus compressor multi-banda",
+            dicaExtra: "DR típico por gênero: EDM (4-6 dB), Pop (6-8 dB), Rock (8-12 dB). Valores muito baixos (<4 dB) indicam overprocessing.",
+            parametros: {
+                alvoDR: R.dr,
+                diferenca: Δ.dr,
+                drIdeal: R.dr?.toFixed(1) + " dB"
+            },
+            aiEnhanced: true
+        });
+    }
+
+    // ==========================================
+    // 5️⃣ CREST FACTOR (Relação Pico/RMS)
+    // ==========================================
+    if (Δ.cf !== null && Math.abs(Δ.cf) >= TH.cf) {
+        const severidade = Math.abs(Δ.cf) >= 1.5 ? "MODERADA" : "LEVE";
+        
+        suggestions.push({
+            categoria: "Crest Factor (A vs B)",
+            severidade: severidade,
+            problema: `Crest Factor difere em ${Math.abs(Δ.cf).toFixed(2)} dB da referência. Faixa atual: ${U.cf?.toFixed(2)} vs Referência: ${R.cf?.toFixed(2)}.`,
+            causaProvavel: "Transientes (kicks, snares, attacks) com intensidades diferentes entre as faixas.",
+            solucao: `Ajuste attack/release de compressores para aproximar punch da referência. Use transient shapers para moldar ataques de percussão. CF alvo: ${R.cf?.toFixed(1)}.`,
+            pluginRecomendado: "SPL Transient Designer, Oxford Transmod, Waves Trans-X, saturação sutil (decapitator)",
+            dicaExtra: "CF alto = mais transientes (>10 dB). CF baixo = som mais constante (<6 dB). Use saturação para adicionar harmônicos e corpo sem aumentar picos.",
+            parametros: {
+                alvoCF: R.cf,
+                diferenca: Δ.cf,
+                ajusteTransientes: Δ.cf < 0 ? "Aumentar ataques" : "Suavizar transientes"
+            },
+            aiEnhanced: true
+        });
+    }
+
+    // ==========================================
+    // 📊 RESULTADO FINAL
+    // ==========================================
+    console.log(`[A/B-SUGGESTIONS] ✅ Geradas ${suggestions.length} sugestões comparativas`);
+    
+    if (suggestions.length > 0) {
+        console.log('[A/B-SUGGESTIONS] 📋 Resumo das sugestões:', 
+            suggestions.map(s => `${s.categoria} (${s.severidade})`).join(', ')
+        );
+    }
+
+    // Limitar a 5 sugestões mais relevantes (ordenadas por severidade)
+    const severityOrder = { "CRÍTICA": 0, "ALTA": 1, "MODERADA": 2, "IMPORTANTE": 3, "LEVE": 4 };
+    return suggestions
+        .sort((a, b) => (severityOrder[a.severidade] || 5) - (severityOrder[b.severidade] || 5))
+        .slice(0, 5);
+}
+
+// ========================================
 // 🤖 SISTEMA DE ESPERA POR ENRIQUECIMENTO IA
 // ========================================
 
@@ -6353,6 +6612,30 @@ async function displayModalResults(analysis) {
 
         // �️ APLICAR GUARDS: Isola jobIds se forem iguais
         ({ userFull, refFull } = refHardGuards({ userFull, refFull }));
+
+        // 🔬 GERAR SUGESTÕES COMPARATIVAS A vs B (se ainda não existirem)
+        const hasExistingSuggestions = Array.isArray(userFull?.aiSuggestions) && userFull.aiSuggestions.length > 0;
+        
+        if (!hasExistingSuggestions) {
+            console.log('[A/B-FLOW] 🔬 Gerando sugestões comparativas A vs B...');
+            const comparativeSuggestions = buildComparativeAISuggestions(userFull, refFull);
+            
+            if (comparativeSuggestions.length > 0) {
+                // Injetar sugestões comparativas no userFull
+                userFull.aiSuggestions = comparativeSuggestions;
+                userFull.hasEnriched = true;
+                userFull.mode = "compare";
+                
+                console.log('[A/B-FLOW] ✅ Sugestões comparativas injetadas:', {
+                    quantidade: comparativeSuggestions.length,
+                    categorias: comparativeSuggestions.map(s => s.categoria).join(', ')
+                });
+            } else {
+                console.warn('[A/B-FLOW] ⚠️ Nenhuma sugestão comparativa gerada - métricas insuficientes');
+            }
+        } else {
+            console.log('[A/B-FLOW] ℹ️ Sugestões já existem - pulando geração comparativa');
+        }
 
         // ✅ RENDER COMPLETO (nunca aborta por contaminação - trabalha direto nos objetos)
         if (typeof window.aiUIController !== 'undefined') {
