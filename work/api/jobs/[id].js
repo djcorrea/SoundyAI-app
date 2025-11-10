@@ -178,6 +178,18 @@ router.get("/:id", async (req, res) => {
     }
 
     // --- ETAPA 4: RETORNAR OBJETO COMPLETO ---
+    
+    // ✅ Correção de status para "completed" quando aiSuggestions já existem
+    if (
+      response?.aiSuggestions &&
+      Array.isArray(response.aiSuggestions) &&
+      response.aiSuggestions.length > 0 &&
+      (response.status === 'processing' || !response.status)
+    ) {
+      console.log('[API-JOBS][STATUS-FIX] ✅ Detected aiSuggestions. Updating status -> "completed"');
+      response.status = 'completed';
+    }
+    
     return res.json(response);
   } catch (err) {
     console.error("❌ Erro ao buscar job:", err);

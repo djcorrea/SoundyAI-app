@@ -209,6 +209,11 @@ class AISuggestionUIController {
     }
     
     checkForAISuggestions(analysis, retryCount = 0) {
+        // 🎯 LOGS DE AUDITORIA VISUAL
+        console.log('%c[AI-FRONT][AUDIT] 🚀 Iniciando checkForAISuggestions()', 'color:#8F5BFF; font-weight:bold;');
+        console.log('%c[AI-FRONT][AUDIT] Status recebido:', 'color:#00C9FF;', analysis?.status);
+        console.log('%c[AI-FRONT][AUDIT] aiSuggestions:', 'color:#FFD700;', Array.isArray(analysis?.aiSuggestions) ? analysis.aiSuggestions.length : '❌ none');
+        
         // 🔍 AUDITORIA PROFUNDA COM LOGS VISUAIS
         console.group('%c🔍 [AI-FRONT AUDITORIA] Iniciando verificação do sistema de IA', 'color:#8F5BFF;font-weight:bold;font-size:14px');
         console.time('⏱️ Tempo total até renderização');
@@ -292,6 +297,21 @@ class AISuggestionUIController {
         const extractedAI = this.extractAISuggestions(analysis);
         console.log('%c📊 [STEP 2] Quantidade detectada:', 'color:#00FF88;font-weight:bold', extractedAI.length);
         console.log('[AI-FRONT][EXTRACT-RESULT] Extraídas:', extractedAI.length, 'sugestões');
+        
+        // 🧠 Bypass inteligente: se já há sugestões, ignora o status "processing"
+        if (Array.isArray(extractedAI) && extractedAI.length > 0) {
+            console.log('%c[AI-FRONT][BYPASS] ✅ aiSuggestions detectadas — ignorando status "processing"', 'color:#00FF88;font-weight:bold;');
+            
+            // Garante que o spinner suma mesmo sem status "completed"
+            if (this.elements.aiLoading) {
+                this.elements.aiLoading.style.display = 'none';
+                console.log('%c[AI-FRONT][SPINNER] 🟢 Ocultando spinner automaticamente', 'color:#FFD700;');
+            }
+
+            // Renderiza imediatamente
+            this.renderAISuggestions(extractedAI);
+            return;
+        }
         
         // 🚨 RENDERIZAÇÃO FORÇADA PARA DEBUG
         if (extractedAI.length > 0) {
@@ -454,17 +474,19 @@ class AISuggestionUIController {
      * 🎨 Renderizar sugestões IA (UNIFIED - funciona com base e AI)
      */
     renderAISuggestions(suggestions) {
+        // 🧠 PARTE 4: Proteção extra no renderizador
+        if (!suggestions || suggestions.length === 0) {
+            console.warn('%c[AI-FRONT][RENDER] ⚠️ Nenhuma sugestão recebida para renderizar', 'color:#FFA500;');
+            return;
+        }
+
+        console.log('%c[AI-FRONT][RENDER] 🟢 Renderizando', 'color:#00FF88;', suggestions.length, 'sugestão(ões)');
+        
         console.log('[AI-UI][RENDER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('[AI-UI][RENDER] 🎨 INICIANDO RENDERIZAÇÃO');
         console.log('[AI-UI][RENDER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('[AI-UI][RENDER] Container encontrado:', !!this.elements.aiSection);
         console.log('[AI-UI][RENDER] Sugestões recebidas:', suggestions?.length || 0);
-        
-        // ✅ VALIDAÇÃO: Aceitar mesmo 1 sugestão
-        if (!suggestions || suggestions.length === 0) {
-            console.warn('[AI-UI][RENDER] ⚠️ Array de sugestões vazio ou inválido');
-            return;
-        }
         
         console.log('[AI-UI][RENDER] 🟢 Renderizando', suggestions.length, 'sugestão(ões)');
         console.log('[AI-UI][RENDER] Sample primeira sugestão:', {
