@@ -209,6 +209,13 @@ class AISuggestionUIController {
     }
     
     checkForAISuggestions(analysis, retryCount = 0) {
+        // 🔍 AUDITORIA PROFUNDA COM LOGS VISUAIS
+        console.group('%c🔍 [AI-FRONT AUDITORIA] Iniciando verificação do sistema de IA', 'color:#8F5BFF;font-weight:bold;font-size:14px');
+        console.time('⏱️ Tempo total até renderização');
+        
+        console.log('%c📩 [STEP 1] JSON recebido do backend', 'color:#00C9FF;font-weight:bold', analysis);
+        console.log('%c📦 Campos principais:', 'color:#00C9FF', analysis ? Object.keys(analysis) : []);
+        
         console.log('[AI-UI][AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('[AI-UI][AUDIT] 🔍 VERIFICAÇÃO DE aiSuggestions');
         console.log('[AI-UI][AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -283,7 +290,107 @@ class AISuggestionUIController {
         
         // � EXTRAÇÃO ROBUSTA: Buscar aiSuggestions em todos os níveis possíveis
         const extractedAI = this.extractAISuggestions(analysis);
+        console.log('%c📊 [STEP 2] Quantidade detectada:', 'color:#00FF88;font-weight:bold', extractedAI.length);
         console.log('[AI-FRONT][EXTRACT-RESULT] Extraídas:', extractedAI.length, 'sugestões');
+        
+        // 🚨 RENDERIZAÇÃO FORÇADA PARA DEBUG
+        if (extractedAI.length > 0) {
+            console.log('%c✅ [STEP 3] Sugestões detectadas, preparando renderização...', 'color:#00FF88;font-weight:bold');
+            console.log('%c🧠 Primeira sugestão:', 'color:#FFD700', extractedAI[0]);
+            
+            // Tentar múltiplos seletores para encontrar o container
+            const containerSelectors = [
+                '#ai-suggestion-container',
+                '.ai-suggestions-container',
+                '#aiSuggestionsContainer',
+                '.ai-content',
+                '#ai-content'
+            ];
+            
+            let container = null;
+            for (const selector of containerSelectors) {
+                container = document.querySelector(selector);
+                if (container) {
+                    console.log(`%c🎯 [DEBUG] Container encontrado com seletor: ${selector}`, 'color:#FFD700', container);
+                    break;
+                }
+            }
+            
+            if (!container && this.elements?.aiContent) {
+                container = this.elements.aiContent;
+                console.log('%c🎯 [DEBUG] Usando this.elements.aiContent', 'color:#FFD700', container);
+            }
+            
+            if (container) {
+                // 🔥 RENDERIZAÇÃO FORÇADA MANUAL
+                console.log('%c🔥 [STEP 4-DEBUG] Tentando renderização forçada manual...', 'color:#FF4444;font-weight:bold');
+                
+                const forcedHTML = `
+                    <div class="ai-suggestion-card" style="
+                        padding: 20px;
+                        margin: 10px;
+                        border: 2px solid #00FF88;
+                        border-radius: 8px;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                    ">
+                        <h3 style="margin: 0 0 15px 0; font-size: 18px;">
+                            🎯 ${extractedAI[0].categoria || 'Sugestão Técnica'}
+                        </h3>
+                        <p style="margin: 10px 0;"><b>⚠️ Problema:</b> ${extractedAI[0].problema || extractedAI[0].message || '—'}</p>
+                        <p style="margin: 10px 0;"><b>🔍 Causa:</b> ${extractedAI[0].causaProvavel || '—'}</p>
+                        <p style="margin: 10px 0;"><b>🛠️ Solução:</b> ${extractedAI[0].solucao || extractedAI[0].action || '—'}</p>
+                        <p style="margin: 10px 0;"><b>🔌 Plugin:</b> ${extractedAI[0].pluginRecomendado || '—'}</p>
+                        <p style="margin: 15px 0 0 0; font-size: 12px; opacity: 0.8;">
+                            ✅ Renderizado manualmente em ${new Date().toLocaleTimeString()}
+                        </p>
+                    </div>
+                `;
+                
+                container.innerHTML = forcedHTML;
+                container.style.display = 'block';
+                
+                console.log('%c🟢 [STEP 4] Card renderizado manualmente com sucesso!', 'color:#00FF88;font-weight:bold;font-size:16px');
+                console.timeEnd('⏱️ Tempo total até renderização');
+                
+                // Ocultar loading
+                const loadingElements = document.querySelectorAll('.ai-loading, [class*="loading"], [class*="spinner"]');
+                loadingElements.forEach(el => {
+                    el.style.display = 'none';
+                    el.classList.add('hidden');
+                });
+                
+                console.log('%c🎉 RENDERIZAÇÃO FORÇADA COMPLETA - Monitorando por 5s...', 'color:#FFD700;font-weight:bold;font-size:14px');
+                
+                // Monitorar se algo limpa o container
+                let cleanupAttempts = 0;
+                const monitorInterval = setInterval(() => {
+                    if (!container.innerHTML.includes('Renderizado manualmente')) {
+                        cleanupAttempts++;
+                        console.error(`%c🚨 [ALERTA] Container foi limpo! Tentativa: ${cleanupAttempts}`, 'color:#FF0000;font-weight:bold;font-size:14px');
+                        console.trace('Stack trace do cleanup');
+                    }
+                }, 500);
+                
+                setTimeout(() => {
+                    clearInterval(monitorInterval);
+                    if (cleanupAttempts === 0) {
+                        console.log('%c✅ [SUCESSO] Container mantido intacto por 5s', 'color:#00FF88;font-weight:bold');
+                    } else {
+                        console.error(`%c❌ [FALHA] Container foi limpo ${cleanupAttempts} vezes`, 'color:#FF0000;font-weight:bold');
+                    }
+                    console.groupEnd();
+                }, 5000);
+                
+                return; // Parar aqui para não executar lógica normal
+            } else {
+                console.error('%c🚨 [ERRO] Container de IA não encontrado no DOM.', 'color:#FF0000;font-weight:bold');
+                console.log('Seletores tentados:', containerSelectors);
+                console.log('this.elements:', this.elements);
+            }
+        } else {
+            console.warn('%c⚠️ [STEP 5] Nenhuma sugestão detectada', 'color:#FFA500;font-weight:bold', 'status:', analysis?.status);
+        }
         
         // �🛡️ VALIDAÇÃO: Verificar se há aiSuggestions válidas e enriquecidas
         let suggestionsToUse = [];
