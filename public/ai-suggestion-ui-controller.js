@@ -512,7 +512,15 @@ class AISuggestionUIController {
      * 🎨 Renderizar sugestões IA (UNIFIED - funciona com base e AI)
      */
     renderAISuggestions(suggestions) {
-        // 🧠 PARTE 4: Proteção extra no renderizador
+        // � ETAPA 1 — AUDITORIA DE RENDERIZAÇÃO VISUAL
+        console.groupCollapsed('%c[AUDITORIA_RENDER] 🎨 Verificando Renderização de AI Cards', 'color:#8F5BFF;font-weight:bold;');
+        console.log('%c[AI-RENDER-AUDIT] Sugestões recebidas:', 'color:#FFD700;', suggestions?.length);
+        console.log('%c[AI-RENDER-AUDIT] Modo atual:', 'color:#00C9FF;', suggestions?.[0]?.aiEnhanced ? 'IA Enriquecida' : 'Base');
+        console.log('%c[AI-RENDER-AUDIT] Container principal:', 'color:#00FF88;', this.elements.aiContent);
+        console.log('%c[AI-RENDER-AUDIT] HTML antes do insert:', 'color:#FFA500;', this.elements.aiContent?.innerHTML?.slice(0, 120));
+        console.groupEnd();
+        
+        // �🧠 PARTE 4: Proteção extra no renderizador
         if (!suggestions || suggestions.length === 0) {
             console.warn('%c[AI-FRONT][RENDER] ⚠️ Nenhuma sugestão recebida para renderizar', 'color:#FFA500;');
             return;
@@ -558,6 +566,15 @@ class AISuggestionUIController {
         const aiEnhancedCount = suggestions.filter(s => s.aiEnhanced === true).length;
         const isAIEnriched = aiEnhancedCount > 0;
         
+        // 🧩 ETAPA 2 — CORREÇÃO DE TEMPLATE
+        // 🚀 Forçar template correto se for IA enriquecida
+        if (isAIEnriched || suggestions?.[0]?.aiEnhanced) {
+            console.log('%c[AI-RENDER-FIX] 🔧 Modo IA Enriquecida detectado — forçando template AI', 'color:#00FF88;');
+            this.currentTemplate = 'ai'; // força o template estilizado
+        } else {
+            console.log('%c[AI-RENDER-FIX] ⚠️ Modo genérico ativo (sem IA específica)', 'color:#FFA500;');
+        }
+        
         console.log('[AI-UI][RENDER] Tipo de sugestões:', {
             total: suggestions.length,
             aiEnhanced: aiEnhancedCount,
@@ -580,6 +597,19 @@ class AISuggestionUIController {
         
         // Renderizar cards
         this.renderSuggestionCards(suggestions, isAIEnriched);
+        
+        // 🧩 ETAPA 4 — FORÇAR REVALIDAÇÃO DE CLASSES NO DOM
+        setTimeout(() => {
+            const cards = this.elements.aiContent?.querySelectorAll('.ai-suggestion-card');
+            console.log('%c[AI-RENDER-VERIFY] 🔍 Cards detectados no DOM:', 'color:#00FF88;', cards?.length);
+            if (!cards || cards.length === 0) {
+                console.warn('[AI-RENDER-VERIFY] ❌ Nenhum card detectado — revalidando template');
+                this.currentTemplate = 'ai';
+                this.renderSuggestionCards(suggestions, true); // força renderização IA
+            } else {
+                console.log('%c[AI-RENDER-VERIFY] ✅ Cards validados com sucesso!', 'color:#00FF88;');
+            }
+        }, 300);
         
         console.log('[AI-UI][RENDER] ✅ Renderização concluída!');
         console.log('[AI-UI][RENDER] Cards renderizados:', this.elements.aiContent.children.length);
