@@ -3,6 +3,157 @@
 // ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
 // ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
 
+// 🔍 AUDITORIA DE STORAGE - Sistema de detecção de inconsistências
+(function initStorageAudit() {
+    console.group('%c[AUDITORIA-STORAGE] 🧠 Inicializando sistema de auditoria de storage', 'color:#A974FF;font-weight:bold;font-size:14px;');
+    
+    // 1️⃣ Verificar localStorage atual
+    const localRefJobId = localStorage.getItem('referenceJobId');
+    const localRefAnalysis = localStorage.getItem('referenceAnalysis');
+    
+    console.log('%c[AUDITORIA-STORAGE] 📦 localStorage:', 'color:#FFD700;font-weight:bold;');
+    console.log('   referenceJobId:', localRefJobId || '❌ vazio');
+    console.log('   referenceAnalysis:', localRefAnalysis ? `✅ ${localRefAnalysis.length} bytes` : '❌ vazio');
+    
+    // 2️⃣ Verificar sessionStorage atual
+    const sessionRefJobId = sessionStorage.getItem('referenceJobId');
+    const sessionRefAnalysis = sessionStorage.getItem('referenceAnalysis');
+    const sessionCurrentJobId = sessionStorage.getItem('currentJobId');
+    
+    console.log('%c[AUDITORIA-STORAGE] 📦 sessionStorage:', 'color:#FFD700;font-weight:bold;');
+    console.log('   referenceJobId:', sessionRefJobId || '❌ vazio');
+    console.log('   referenceAnalysis:', sessionRefAnalysis ? `✅ ${sessionRefAnalysis.length} bytes` : '❌ vazio');
+    console.log('   currentJobId:', sessionCurrentJobId || '❌ vazio');
+    
+    // 3️⃣ Verificar variáveis globais
+    console.log('%c[AUDITORIA-STORAGE] 🌐 Variáveis globais:', 'color:#FFD700;font-weight:bold;');
+    console.log('   window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__ || '❌ undefined');
+    console.log('   window.__CURRENT_JOB_ID__:', window.__CURRENT_JOB_ID__ || '❌ undefined');
+    
+    // 4️⃣ Detectar inconsistências
+    console.log('%c[AUDITORIA-STORAGE] 🔍 Análise de consistência:', 'color:#A974FF;font-weight:bold;');
+    
+    if (localRefJobId && !sessionRefJobId) {
+        console.log('%c   ⚠️ PROBLEMA: referenceJobId apenas em localStorage', 'color:#FF5555;font-weight:bold;');
+        console.log('   ⚠️ Risco: Compartilhamento entre abas (localStorage é global)');
+        console.log('   ✅ Solução: Migrar para sessionStorage (isolamento por aba)');
+    }
+    
+    if (localRefJobId && sessionRefJobId && localRefJobId !== sessionRefJobId) {
+        console.log('%c   ❌ INCONSISTÊNCIA CRÍTICA: JobIds diferentes!', 'color:#FF5555;font-weight:bold;');
+        console.log('   localStorage.referenceJobId:', localRefJobId);
+        console.log('   sessionStorage.referenceJobId:', sessionRefJobId);
+    }
+    
+    if (!localRefJobId && !sessionRefJobId && !window.__REFERENCE_JOB_ID__) {
+        console.log('%c   ✅ Estado limpo - sem referência ativa', 'color:#00FF88;');
+    }
+    
+    if (localRefJobId || sessionRefJobId || window.__REFERENCE_JOB_ID__) {
+        console.log('%c   📊 Referência ativa detectada:', 'color:#00C9FF;');
+        console.log('   Prioridade: sessionStorage > window > localStorage');
+    }
+    
+    console.groupEnd();
+    
+    // 5️⃣ Criar utilitário global de storage com fallback
+    window.StorageManager = {
+        // Salvar referenceJobId
+        setReferenceJobId(jobId) {
+            console.log('%c[STORAGE-MANAGER] 💾 Salvando referenceJobId:', 'color:#00FF88;font-weight:bold;', jobId);
+            try {
+                sessionStorage.setItem('referenceJobId', jobId);
+                console.log('   ✅ Salvo em sessionStorage (isolado por aba)');
+            } catch (e) {
+                console.warn('   ⚠️ Falha no sessionStorage, usando localStorage como fallback:', e.message);
+                localStorage.setItem('referenceJobId', jobId);
+            }
+        },
+        
+        // Ler referenceJobId (prioridade: sessionStorage > window > localStorage)
+        getReferenceJobId() {
+            const sessionId = sessionStorage.getItem('referenceJobId');
+            const windowId = window.__REFERENCE_JOB_ID__;
+            const localId = localStorage.getItem('referenceJobId');
+            
+            const result = sessionId || windowId || localId;
+            
+            console.log('%c[STORAGE-MANAGER] 📖 Lendo referenceJobId:', 'color:#FFD700;', result || '❌ não encontrado');
+            console.log('   sessionStorage:', sessionId || '❌');
+            console.log('   window.__REFERENCE_JOB_ID__:', windowId || '❌');
+            console.log('   localStorage:', localId || '❌');
+            
+            return result;
+        },
+        
+        // Salvar referenceAnalysis
+        setReferenceAnalysis(analysis) {
+            const json = JSON.stringify(analysis);
+            console.log('%c[STORAGE-MANAGER] 💾 Salvando referenceAnalysis:', 'color:#00FF88;font-weight:bold;', `${json.length} bytes`);
+            try {
+                sessionStorage.setItem('referenceAnalysis', json);
+                console.log('   ✅ Salvo em sessionStorage');
+            } catch (e) {
+                console.warn('   ⚠️ Falha no sessionStorage (quota?), usando localStorage:', e.message);
+                try {
+                    localStorage.setItem('referenceAnalysis', json);
+                } catch (e2) {
+                    console.error('   ❌ Falha em ambos storages:', e2.message);
+                }
+            }
+        },
+        
+        // Ler referenceAnalysis
+        getReferenceAnalysis() {
+            const sessionData = sessionStorage.getItem('referenceAnalysis');
+            const localData = localStorage.getItem('referenceAnalysis');
+            
+            const result = sessionData || localData;
+            
+            if (result) {
+                try {
+                    const parsed = JSON.parse(result);
+                    console.log('%c[STORAGE-MANAGER] 📖 referenceAnalysis recuperado:', 'color:#FFD700;', 
+                        `${result.length} bytes`, 
+                        sessionData ? '(sessionStorage)' : '(localStorage fallback)');
+                    return parsed;
+                } catch (e) {
+                    console.error('%c[STORAGE-MANAGER] ❌ Erro ao parsear referenceAnalysis:', 'color:#FF5555;', e.message);
+                    return null;
+                }
+            }
+            
+            console.log('%c[STORAGE-MANAGER] 📖 referenceAnalysis:', 'color:#FFD700;', '❌ não encontrado');
+            return null;
+        },
+        
+        // Limpar referência
+        clearReference() {
+            console.log('%c[STORAGE-MANAGER] 🗑️ Limpando referência...', 'color:#FF9500;font-weight:bold;');
+            try {
+                sessionStorage.removeItem('referenceJobId');
+                sessionStorage.removeItem('referenceAnalysis');
+                console.log('   ✅ sessionStorage limpo');
+            } catch (e) {
+                console.warn('   ⚠️ Erro ao limpar sessionStorage:', e.message);
+            }
+            
+            try {
+                localStorage.removeItem('referenceJobId');
+                localStorage.removeItem('referenceAnalysis');
+                console.log('   ✅ localStorage limpo');
+            } catch (e) {
+                console.warn('   ⚠️ Erro ao limpar localStorage:', e.message);
+            }
+            
+            delete window.__REFERENCE_JOB_ID__;
+            console.log('   ✅ window.__REFERENCE_JOB_ID__ removido');
+        }
+    };
+    
+    console.log('%c[AUDITORIA-STORAGE] ✅ Sistema de storage auditado e StorageManager criado', 'color:#00FF88;font-weight:bold;');
+})();
+
 // ========================================
 // 🆔 VIRTUAL IDS E ÍNDICE DE PAPÉIS (ANTI-SELF-COMPARE)
 // ========================================
@@ -670,7 +821,9 @@ function getCorrectJobId(context) {
     if (mode === 'reference') {
         // Em modo reference, temos dois jobIds diferentes
         const currentJobId = window.__CURRENT_JOB_ID__ || sessionStorage.getItem('currentJobId');
-        const referenceJobId = window.__REFERENCE_JOB_ID__ || localStorage.getItem('referenceJobId');
+        
+        // 🔧 CORREÇÃO: Usar StorageManager para ler referenceJobId
+        const referenceJobId = window.__REFERENCE_JOB_ID__ || window.StorageManager.getReferenceJobId();
         
         // 🚨 VALIDAÇÃO CRÍTICA: NUNCA retornar jobIds iguais
         if (currentJobId && referenceJobId && currentJobId === referenceJobId) {
@@ -1030,7 +1183,13 @@ const __dwrn = (...a) => { if (__DEBUG_ANALYZER__) console.warn('[AUDIO-WARN]', 
           const vid = `${jobId}::USER`;
           this.setUser(analysis, vid, jobId);
           window.CacheIndex.USER = vid;
-          try { localStorage.setItem('referenceJobId', jobId || ''); } catch {}
+          
+          // 🔧 CORREÇÃO: Usar StorageManager ao invés de localStorage direto
+          try { 
+            window.StorageManager.setReferenceJobId(jobId || '');
+          } catch (e) {
+            console.warn('[FIRST-STORE] ⚠️ Falha ao salvar referenceJobId:', e);
+          }
         } else {
           console.warn('[FIRST-STORE] ⚠️ set() chamado mas USER já existe - use setRef()');
         }
@@ -1053,7 +1212,14 @@ const __dwrn = (...a) => { if (__DEBUG_ANALYZER__) console.warn('[AUDIO-WARN]', 
         _state.refJobId = null;
         window.CacheIndex.USER = null;
         window.CacheIndex.REF = null;
-        try { localStorage.removeItem('referenceJobId'); } catch {}
+        
+        // 🔧 CORREÇÃO: Usar StorageManager
+        try { 
+          window.StorageManager.clearReference();
+        } catch (e) {
+          console.warn('[FIRST-STORE] ⚠️ Falha ao limpar referência:', e);
+        }
+        
         console.log('[FIRST-STORE] 🗑️ clear (USER + REF)');
       },
       
@@ -4424,7 +4590,8 @@ async function handleModalFileSelection(file) {
             
             // � PASSO 2: ATIVAR PROTEÇÃO DE CURRENTJOBID
             const currentJobId = normalizedResult?.jobId || analysisResult?.jobId;
-            const referenceJobId = window.__REFERENCE_JOB_ID__ || localStorage.getItem('referenceJobId');
+            // 🔧 CORREÇÃO: Usar StorageManager
+            const referenceJobId = window.__REFERENCE_JOB_ID__ || window.StorageManager.getReferenceJobId();
             
             if (currentJobId) {
                 console.log('🔒 [PROTECTION] Ativando proteção para currentJobId:', currentJobId);
