@@ -202,15 +202,49 @@ class AISuggestionUIController {
         console.log('[AI-EXTRACT] 🔍 Iniciando busca por aiSuggestions (profundidade total)...');
         if (!analysis || typeof analysis !== 'object') return [];
 
-        // 🎯 PRIORIDADE 1: userAnalysis.aiSuggestions (comparações A vs B)
+        // 🎯 PRIORIDADE 1: analysis.aiSuggestions (nível raiz - backend envia aqui)
+        if (Array.isArray(analysis.aiSuggestions) && analysis.aiSuggestions.length > 0) {
+            console.log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: NÍVEL RAIZ`, 'color:#00FF88;font-weight:bold;');
+            console.log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.aiSuggestions.length}`, 'color:#00FF88;font-weight:bold;');
+            console.log(`[AI-EXTRACT] 🔍 Primeira sugestão:`, {
+                categoria: analysis.aiSuggestions[0]?.categoria,
+                problema: analysis.aiSuggestions[0]?.problema?.substring(0, 60),
+                aiEnhanced: analysis.aiSuggestions[0]?.aiEnhanced
+            });
+            return analysis.aiSuggestions;
+        }
+
+        // 🎯 PRIORIDADE 2: userAnalysis.aiSuggestions (comparações A vs B)
         if (Array.isArray(analysis.userAnalysis?.aiSuggestions) && analysis.userAnalysis.aiSuggestions.length > 0) {
-            console.log(`%c[AI-EXTRACT] ✅ PRIORIDADE: Encontrado em userAnalysis.aiSuggestions`, 'color:#00FF88;font-weight:bold;');
-            console.log(`[AI-EXTRACT] 📊 Quantidade:`, analysis.userAnalysis.aiSuggestions.length);
+            console.log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: userAnalysis`, 'color:#00FF88;font-weight:bold;');
+            console.log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.userAnalysis.aiSuggestions.length}`, 'color:#00FF88;font-weight:bold;');
             console.log(`[AI-EXTRACT] 🔍 Primeira sugestão:`, {
                 categoria: analysis.userAnalysis.aiSuggestions[0]?.categoria,
                 problema: analysis.userAnalysis.aiSuggestions[0]?.problema?.substring(0, 60)
             });
             return analysis.userAnalysis.aiSuggestions;
+        }
+        
+        // 🎯 PRIORIDADE 3: referenceAnalysis.aiSuggestions
+        if (Array.isArray(analysis.referenceAnalysis?.aiSuggestions) && analysis.referenceAnalysis.aiSuggestions.length > 0) {
+            console.log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: referenceAnalysis`, 'color:#00FF88;font-weight:bold;');
+            console.log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.referenceAnalysis.aiSuggestions.length}`, 'color:#00FF88;font-weight:bold;');
+            return analysis.referenceAnalysis.aiSuggestions;
+        }
+        
+        // 🎯 PRIORIDADE 4: analysis.suggestions (fallback genérico)
+        if (Array.isArray(analysis.suggestions) && analysis.suggestions.length > 0) {
+            // Verificar se são sugestões IA (com aiEnhanced ou campos específicos)
+            const hasAIFields = analysis.suggestions.some(s => 
+                s.aiEnhanced === true || 
+                (s.categoria && s.problema && s.solucao)
+            );
+            
+            if (hasAIFields) {
+                console.log(`%c[AI-FIX] ✅ Campo aiSuggestions detectado em: suggestions (fallback)`, 'color:#FFD700;font-weight:bold;');
+                console.log(`%c[AI-FIX] 📊 Quantidade total: ${analysis.suggestions.length}`, 'color:#FFD700;font-weight:bold;');
+                return analysis.suggestions;
+            }
         }
 
         // 🔹 Função auxiliar de busca recursiva (fallback)
@@ -363,8 +397,26 @@ class AISuggestionUIController {
         });
         
         // 🔄 ETAPA 2: Polling automático até status 'completed'
-        // Se ainda está processando, aguardar 3s e tentar novamente
-        if (analysis?.status === 'processing') {
+        // 🔧 CORREÇÃO: Permitir renderização se aiSuggestions existir, mesmo sem status
+        
+        // � EXTRAÇÃO ROBUSTA: Buscar aiSuggestions em todos os níveis possíveis
+        const extractedAI = this.extractAISuggestions(analysis);
+        console.log('%c📊 [STEP 2] Quantidade detectada:', 'color:#00FF88;font-weight:bold', extractedAI.length);
+        console.log('[AI-FRONT][EXTRACT-RESULT] Extraídas:', extractedAI.length, 'sugestões');
+        
+        // 🔧 CORREÇÃO: Bypass de status se aiSuggestions existir
+        const hasValidAISuggestions = Array.isArray(extractedAI) && extractedAI.length > 0;
+        
+        if (!analysis.status && !hasValidAISuggestions) {
+            console.warn('%c[AI-FRONT][BYPASS] ⚠️ Status undefined e sem aiSuggestions - ignorando', 'color:#FF9500;');
+            // Continua verificando outras condições
+        } else if (!analysis.status && hasValidAISuggestions) {
+            console.warn('%c[AI-FRONT][BYPASS] ✅ Status undefined mas aiSuggestions presente - continuando renderização', 'color:#00FF88;font-weight:bold;');
+            analysis.status = 'completed'; // Força status para evitar bloqueios posteriores
+        }
+        
+        // Se ainda está processando E não tem sugestões, aguardar
+        if (analysis?.status === 'processing' && !hasValidAISuggestions) {
             if (retryCount >= 10) {
                 console.error('[AI-FRONT] ❌ Timeout: 10 tentativas de polling excedidas');
                 this.showLoadingState('Tempo limite excedido. Recarregue a página.');
@@ -417,11 +469,6 @@ class AISuggestionUIController {
             suggestions: analysis?.suggestions?.length
         });
         console.log('[AUDIT:AI-FRONT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        
-        // � EXTRAÇÃO ROBUSTA: Buscar aiSuggestions em todos os níveis possíveis
-        const extractedAI = this.extractAISuggestions(analysis);
-        console.log('%c📊 [STEP 2] Quantidade detectada:', 'color:#00FF88;font-weight:bold', extractedAI.length);
-        console.log('[AI-FRONT][EXTRACT-RESULT] Extraídas:', extractedAI.length, 'sugestões');
         
         // 🧠 Bypass inteligente: se já há sugestões, ignora o status "processing"
         if (Array.isArray(extractedAI) && extractedAI.length > 0) {
