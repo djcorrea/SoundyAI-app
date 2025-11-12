@@ -13,6 +13,9 @@ class AISuggestionUIController {
         this.lastAnalysisJobId = null; // 🔧 Rastrear última análise processada
         this.lastAnalysisTimestamp = null; // 🔧 Timestamp da última análise
         
+        // FIX: Timer para debounce de checkForAISuggestions
+        this.__debounceTimer = null;
+        
         // Elementos DOM
         this.elements = {
             aiSection: null,
@@ -190,6 +193,31 @@ class AISuggestionUIController {
     }
     
     /**
+     * 🛡️ FIX: Reset seguro que previne race condition
+     * Protege renderização concluída em modo reference
+     */
+    safeResetAIState() {
+        console.log('%c[AI-UI][SAFE-RESET] 🔍 Verificando se reset é seguro...', 'color:#00C9FF;font-weight:bold;');
+        
+        // FIX: Se análise está em modo reference (comparação A/B), nunca resetar após render
+        const currentMode = window.__CURRENT_ANALYSIS_MODE__;
+        if (currentMode === 'reference') {
+            console.warn('%c[AI-UI][SAFE-RESET] 🧊 Reset bloqueado: modo reference ativo', 'color:#FFA500;font-weight:bold;');
+            return;
+        }
+        
+        // FIX: Se renderização já foi concluída, não resetar (previne Safari bug)
+        if (window.__AI_RENDER_COMPLETED__ === true) {
+            console.warn('%c[AI-UI][SAFE-RESET] 🧊 Reset bloqueado: renderização já concluída', 'color:#FFA500;font-weight:bold;');
+            return;
+        }
+        
+        // Reset normal permitido
+        console.log('%c[AI-UI][SAFE-RESET] ✅ Reset permitido', 'color:#00FF88;font-weight:bold;');
+        this.resetAISuggestionState();
+    }
+    
+    /**
      * 🤖 Verificar e processar sugestões IA
      */
     /**
@@ -311,14 +339,33 @@ class AISuggestionUIController {
         return [];
     }
     
+    /**
+     * 🕐 FIX: Wrapper com debounce para prevenir múltiplas chamadas simultâneas (Safari bug)
+     */
     checkForAISuggestions(analysis, retryCount = 0) {
-        // � RESET AUTOMÁTICO: Detectar nova análise e limpar cache
+        // FIX: Debounce de 400ms para prevenir race condition no Safari
+        if (this.__debounceTimer) {
+            clearTimeout(this.__debounceTimer);
+        }
+        
+        this.__debounceTimer = setTimeout(() => {
+            this.__runCheckForAISuggestions(analysis, retryCount);
+        }, 400);
+    }
+    
+    /**
+     * 🤖 FIX: Função interna que executa a verificação real
+     */
+    __runCheckForAISuggestions(analysis, retryCount = 0) {
+        // FIX: Reset automático SEGURO com proteção contra race condition
         const currentJobId = analysis?.jobId || analysis?.userAnalysis?.jobId || window.__CURRENT_JOB_ID__;
         if (currentJobId && currentJobId !== this.lastAnalysisJobId) {
-            console.log('%c[AI-UI][RESET] 🔄 Nova análise detectada - resetando estado', 'color:#FF9500;font-weight:bold;');
+            console.log('%c[AI-UI][RESET] 🔄 Nova análise detectada - executando reset seguro', 'color:#FF9500;font-weight:bold;');
             console.log('[AI-UI][RESET] JobId anterior:', this.lastAnalysisJobId);
             console.log('[AI-UI][RESET] JobId novo:', currentJobId);
-            this.resetAISuggestionState();
+            
+            // FIX: Usar safeResetAIState() em vez de resetAISuggestionState()
+            this.safeResetAIState();
         }
         
         // �🔬 PROTEÇÃO: Priorizar sugestões comparativas A vs B
@@ -474,6 +521,14 @@ class AISuggestionUIController {
         if (Array.isArray(extractedAI) && extractedAI.length > 0) {
             console.log('%c[AI-FRONT][BYPASS] ✅ aiSuggestions detectadas — ignorando status "processing"', 'color:#00FF88;font-weight:bold;');
             
+            // FIX: Resetar flag de render completado para nova análise
+            window.__AI_RENDER_COMPLETED__ = false;
+            
+            // FIX: Atualizar lastAnalysisJobId ANTES da renderização (previne race condition)
+            this.lastAnalysisJobId = analysis?.jobId || window.__CURRENT_JOB_ID__;
+            this.lastAnalysisTimestamp = Date.now();
+            console.log('%c[AI-FIX] 🔒 lastAnalysisJobId atualizado ANTES do render:', 'color:#00FF88;font-weight:bold;', this.lastAnalysisJobId);
+            
             // 🧩 ETAPA 3 — GARANTIR QUE NÃO SAIA DO MODO "IA ENRIQUECIDA"
             analysis.hasEnriched = true;
             console.log('%c[AI-FRONT] 💜 Modo IA Enriquecida confirmado (%d sugestões)', 'color:#B279FF;font-weight:bold;', extractedAI.length);
@@ -493,6 +548,10 @@ class AISuggestionUIController {
             // Renderiza imediatamente
             this.renderAISuggestions(extractedAI);
             
+            // FIX: Marcar renderização como concluída APÓS render
+            window.__AI_RENDER_COMPLETED__ = true;
+            console.log('%c[AI-FIX] ✅ window.__AI_RENDER_COMPLETED__ = true', 'color:#00FF88;font-weight:bold;');
+            
             // 🔍 AUDITORIA AUTOMÁTICA: Verificar estado após renderização
             console.group('%c[AUDITORIA:RESET-CHECK] 🔍 Estado após renderização', 'color:#FF9500;font-weight:bold;');
             console.log('   currentJobId:', window.__CURRENT_JOB_ID__);
@@ -501,12 +560,9 @@ class AISuggestionUIController {
             console.log('   aiSuggestionsLength:', extractedAI?.length || 0);
             console.log('   localStorageReference:', localStorage.getItem('referenceJobId'));
             console.log('   lastAnalysisJobId:', this.lastAnalysisJobId);
+            console.log('   renderCompleted:', window.__AI_RENDER_COMPLETED__);
             console.log('   🔄 IDs são diferentes?', window.__CURRENT_JOB_ID__ !== this.lastAnalysisJobId ? '✅ Sim (correto)' : '⚠️ Não (possível cache)');
             console.groupEnd();
-            
-            // Atualizar última análise processada
-            this.lastAnalysisJobId = analysis?.jobId || window.__CURRENT_JOB_ID__;
-            this.lastAnalysisTimestamp = Date.now();
             
             return;
         }
@@ -768,6 +824,10 @@ class AISuggestionUIController {
                 this.renderSuggestionCards(suggestions, true); // força renderização IA
             } else {
                 console.log('%c[AI-RENDER-VERIFY] ✅ Cards validados com sucesso!', 'color:#00FF88;');
+                
+                // FIX: Marcar renderização como DEFINITIVAMENTE concluída após validação DOM
+                window.__AI_RENDER_COMPLETED__ = true;
+                console.log('%c[AI-FIX] 🔒 Renderização validada e marcada como concluída', 'color:#00FF88;font-weight:bold;');
             }
         }, 300);
         
