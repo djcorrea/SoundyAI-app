@@ -36,6 +36,20 @@ router.get("/:id", async (req, res) => {
     if (normalizedStatus === "done") normalizedStatus = "completed";
     if (normalizedStatus === "failed") normalizedStatus = "error";
 
+    // 🛡️ FIX: Se job ainda está em processing, retornar APENAS status
+    // Previne frontend receber JSON incompleto antes do worker terminar
+    if (normalizedStatus === "processing" || normalizedStatus === "queued") {
+      console.log(`[API-FIX] 🔒 Job ${job.id} em status '${normalizedStatus}' - retornando apenas status`);
+      console.log(`[API-FIX] ℹ️ JSON completo será retornado quando status = 'completed'`);
+      
+      return res.json({
+        id: job.id,
+        status: normalizedStatus,
+        createdAt: job.created_at,
+        updatedAt: job.updated_at
+      });
+    }
+
     // 🎯 CORREÇÃO CRÍTICA: Retornar JSON completo da análise
     // 🔄 COMPATIBILIDADE: Tentar tanto 'results' (novo) quanto 'result' (antigo)
     let fullResult = null;
@@ -54,7 +68,27 @@ router.get("/:id", async (req, res) => {
       }
     }
 
-    // 🚀 RESULTADO FINAL: Mesclar dados do job com análise completa
+    // �️ FIX: Validação adicional - Se status é completed mas sem dados essenciais, 
+    // retornar como processing para evitar mostrar interface vazia
+    if (normalizedStatus === "completed") {
+      const hasSuggestions = fullResult?.suggestions && Array.isArray(fullResult.suggestions) && fullResult.suggestions.length > 0;
+      const hasTechnicalData = fullResult?.technicalData && typeof fullResult.technicalData === 'object';
+      
+      if (!hasSuggestions || !hasTechnicalData) {
+        console.warn(`[API-FIX] ⚠️ Job ${job.id} marcado como 'completed' mas faltam dados essenciais`);
+        console.warn(`[API-FIX] hasSuggestions: ${hasSuggestions}, hasTechnicalData: ${hasTechnicalData}`);
+        console.warn(`[API-FIX] Retornando status 'processing' para frontend aguardar dados completos`);
+        
+        return res.json({
+          id: job.id,
+          status: "processing",
+          createdAt: job.created_at,
+          updatedAt: job.updated_at
+        });
+      }
+    }
+
+    // �🚀 RESULTADO FINAL: Mesclar dados do job com análise completa
     const response = {
       id: job.id,
       fileKey: job.file_key,
@@ -82,6 +116,19 @@ router.get("/:id", async (req, res) => {
     console.log(`[AI-AUDIT][ULTRA_DIAG] 🆔 Job ID: ${job.id}`);
     console.log(`[AI-AUDIT][ULTRA_DIAG] 📊 Status: ${normalizedStatus}`);
     console.log(`[AI-AUDIT][ULTRA_DIAG] 🎵 Mode: ${job.mode}`);
+    
+    // FIX: Logs específicos de validação
+    console.log(`[API-FIX][VALIDATION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`[API-FIX][VALIDATION] Status no DB: ${job.status}`);
+    console.log(`[API-FIX][VALIDATION] Status normalizado: ${normalizedStatus}`);
+    console.log(`[API-FIX][VALIDATION] Tem fullResult? ${!!fullResult}`);
+    if (fullResult) {
+      console.log(`[API-FIX][VALIDATION] suggestions: ${fullResult.suggestions?.length || 0} itens`);
+      console.log(`[API-FIX][VALIDATION] aiSuggestions: ${fullResult.aiSuggestions?.length || 0} itens`);
+      console.log(`[API-FIX][VALIDATION] technicalData: ${!!fullResult.technicalData}`);
+      console.log(`[API-FIX][VALIDATION] score: ${fullResult.score || 'null'}`);
+    }
+    console.log(`[API-FIX][VALIDATION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     
     // 🔍 LOG CRÍTICO: Verificar campos presentes no response ANTES do envio
     console.log(`[AI-AUDIT][API-RESPONSE] 🔍 Campos no objeto response:`, Object.keys(response));
