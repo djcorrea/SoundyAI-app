@@ -71,12 +71,15 @@ router.get("/:id", async (req, res) => {
     // �️ FIX: Validação adicional - Se status é completed mas sem dados essenciais, 
     // retornar como processing para evitar mostrar interface vazia
     if (normalizedStatus === "completed") {
-      const hasSuggestions = fullResult?.suggestions && Array.isArray(fullResult.suggestions) && fullResult.suggestions.length > 0;
       const hasTechnicalData = fullResult?.technicalData && typeof fullResult.technicalData === 'object';
       
-      if (!hasSuggestions || !hasTechnicalData) {
-        console.warn(`[API-FIX] ⚠️ Job ${job.id} marcado como 'completed' mas faltam dados essenciais`);
-        console.warn(`[API-FIX] hasSuggestions: ${hasSuggestions}, hasTechnicalData: ${hasTechnicalData}`);
+      // Detectar se é primeiro ou segundo job
+      const referenceJobId = fullResult?.referenceJobId || job.reference_job_id;
+      const isSecondJob = job.mode === 'reference' && referenceJobId;
+      
+      // Validar technicalData sempre (obrigatório para ambos os jobs)
+      if (!hasTechnicalData) {
+        console.warn(`[API-FIX] Job ${job.id} marcado como 'completed' mas falta technicalData`);
         console.warn(`[API-FIX] Retornando status 'processing' para frontend aguardar dados completos`);
         
         return res.json({
@@ -85,6 +88,30 @@ router.get("/:id", async (req, res) => {
           createdAt: job.created_at,
           updatedAt: job.updated_at
         });
+      }
+      
+      // Validar suggestions/aiSuggestions SOMENTE no segundo job
+      if (isSecondJob) {
+        const hasSuggestions = fullResult?.suggestions && 
+                              Array.isArray(fullResult.suggestions) && 
+                              fullResult.suggestions.length > 0;
+        
+        if (!hasSuggestions) {
+          console.warn(`[API-FIX] Job ${job.id} (SEGUNDO JOB) marcado como 'completed' mas falta suggestions`);
+          console.warn(`[API-FIX] Mode: ${job.mode}, referenceJobId: ${referenceJobId}`);
+          console.warn(`[API-FIX] Retornando status 'processing' para frontend aguardar comparacao completa`);
+          
+          return res.json({
+            id: job.id,
+            status: "processing",
+            createdAt: job.created_at,
+            updatedAt: job.updated_at
+          });
+        }
+      } else {
+        // Primeiro job: suggestions vazias sao normais
+        console.log(`[API-FIX] Job ${job.id} (PRIMEIRO JOB) - suggestions vazias sao validas`);
+        console.log(`[API-FIX] Mode: ${job.mode}, referenceJobId: ${referenceJobId || 'null'}`);
       }
     }
 

@@ -385,28 +385,51 @@ function startHealthCheckServer() {
 /**
  * 🛡️ FIX: Validar se JSON está completo antes de marcar como completed
  * Retorna { valid: boolean, missing: string[] }
+ * 
+ * IMPORTANTE: suggestions e aiSuggestions SÓ são obrigatórios no SEGUNDO job (comparação A/B)
+ * No PRIMEIRO job (análise individual), arrays vazios são VÁLIDOS
  */
 function validateCompleteJSON(finalJSON, mode, referenceJobId) {
   const missing = [];
   
+  // 🎯 Detectar se é o PRIMEIRO ou SEGUNDO job do fluxo A/B
+  const isFirstJob = !referenceJobId || referenceJobId === null;
+  const isSecondJob = mode === 'reference' && referenceJobId && referenceJobId !== null;
+  
   console.log('[WORKER-VALIDATION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('[WORKER-VALIDATION] 🔍 VALIDANDO JSON ANTES DE MARCAR COMPLETED');
   console.log('[WORKER-VALIDATION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log(`[WORKER-VALIDATION] Modo: ${mode}`);
+  console.log(`[WORKER-VALIDATION] ReferenceJobId: ${referenceJobId || 'null'}`);
+  console.log(`[WORKER-VALIDATION] Tipo de análise: ${isFirstJob ? 'PRIMEIRO JOB (individual)' : 'SEGUNDO JOB (comparação A/B)'}`);
+  console.log('[WORKER-VALIDATION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   
   // 1. Validar suggestions (base)
-  if (!Array.isArray(finalJSON.suggestions) || finalJSON.suggestions.length === 0) {
-    missing.push('suggestions (array vazio ou ausente)');
-    console.error('[WORKER-VALIDATION] ❌ suggestions: AUSENTE ou VAZIO');
+  // 🎯 FIX: Só validar se for SEGUNDO job (comparação A/B)
+  if (isSecondJob) {
+    if (!Array.isArray(finalJSON.suggestions) || finalJSON.suggestions.length === 0) {
+      missing.push('suggestions (array vazio ou ausente)');
+      console.error('[WORKER-VALIDATION] ❌ suggestions: AUSENTE ou VAZIO (obrigatório para comparação A/B)');
+    } else {
+      console.log(`[WORKER-VALIDATION] ✅ suggestions: ${finalJSON.suggestions.length} itens`);
+    }
   } else {
-    console.log(`[WORKER-VALIDATION] ✅ suggestions: ${finalJSON.suggestions.length} itens`);
+    // Primeiro job: suggestions vazias são VÁLIDAS
+    console.log(`[WORKER-VALIDATION] ⏭️ suggestions: ${finalJSON.suggestions?.length || 0} itens (OPCIONAL para primeiro job)`);
   }
   
   // 2. Validar aiSuggestions (IA enriquecida)
-  if (!Array.isArray(finalJSON.aiSuggestions) || finalJSON.aiSuggestions.length === 0) {
-    missing.push('aiSuggestions (array vazio ou ausente)');
-    console.error('[WORKER-VALIDATION] ❌ aiSuggestions: AUSENTE ou VAZIO');
+  // 🎯 FIX: Só validar se for SEGUNDO job (comparação A/B)
+  if (isSecondJob) {
+    if (!Array.isArray(finalJSON.aiSuggestions) || finalJSON.aiSuggestions.length === 0) {
+      missing.push('aiSuggestions (array vazio ou ausente)');
+      console.error('[WORKER-VALIDATION] ❌ aiSuggestions: AUSENTE ou VAZIO (obrigatório para comparação A/B)');
+    } else {
+      console.log(`[WORKER-VALIDATION] ✅ aiSuggestions: ${finalJSON.aiSuggestions.length} itens`);
+    }
   } else {
-    console.log(`[WORKER-VALIDATION] ✅ aiSuggestions: ${finalJSON.aiSuggestions.length} itens`);
+    // Primeiro job: aiSuggestions vazias são VÁLIDAS
+    console.log(`[WORKER-VALIDATION] ⏭️ aiSuggestions: ${finalJSON.aiSuggestions?.length || 0} itens (OPCIONAL para primeiro job)`);
   }
   
   // 3. Validar technicalData
