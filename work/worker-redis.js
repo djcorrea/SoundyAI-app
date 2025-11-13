@@ -383,6 +383,108 @@ function startHealthCheckServer() {
 // ===============================================
 
 /**
+ * 🛡️ FIX: Validar se JSON está completo antes de marcar como completed
+ * Retorna { valid: boolean, missing: string[] }
+ */
+function validateCompleteJSON(finalJSON, mode, referenceJobId) {
+  const missing = [];
+  
+  console.log('[WORKER-VALIDATION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('[WORKER-VALIDATION] 🔍 VALIDANDO JSON ANTES DE MARCAR COMPLETED');
+  console.log('[WORKER-VALIDATION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  
+  // 1. Validar suggestions (base)
+  if (!Array.isArray(finalJSON.suggestions) || finalJSON.suggestions.length === 0) {
+    missing.push('suggestions (array vazio ou ausente)');
+    console.error('[WORKER-VALIDATION] ❌ suggestions: AUSENTE ou VAZIO');
+  } else {
+    console.log(`[WORKER-VALIDATION] ✅ suggestions: ${finalJSON.suggestions.length} itens`);
+  }
+  
+  // 2. Validar aiSuggestions (IA enriquecida)
+  if (!Array.isArray(finalJSON.aiSuggestions) || finalJSON.aiSuggestions.length === 0) {
+    missing.push('aiSuggestions (array vazio ou ausente)');
+    console.error('[WORKER-VALIDATION] ❌ aiSuggestions: AUSENTE ou VAZIO');
+  } else {
+    console.log(`[WORKER-VALIDATION] ✅ aiSuggestions: ${finalJSON.aiSuggestions.length} itens`);
+  }
+  
+  // 3. Validar technicalData
+  if (!finalJSON.technicalData || typeof finalJSON.technicalData !== 'object') {
+    missing.push('technicalData (ausente ou inválido)');
+    console.error('[WORKER-VALIDATION] ❌ technicalData: AUSENTE');
+  } else {
+    const hasLUFS = typeof finalJSON.technicalData.lufsIntegrated === 'number';
+    const hasPeak = typeof finalJSON.technicalData.truePeakDbtp === 'number';
+    const hasDR = typeof finalJSON.technicalData.dynamicRange === 'number';
+    
+    if (!hasLUFS) missing.push('technicalData.lufsIntegrated');
+    if (!hasPeak) missing.push('technicalData.truePeakDbtp');
+    if (!hasDR) missing.push('technicalData.dynamicRange');
+    
+    console.log(`[WORKER-VALIDATION] ✅ technicalData: presente`);
+    console.log(`[WORKER-VALIDATION]    - LUFS: ${hasLUFS ? finalJSON.technicalData.lufsIntegrated : 'AUSENTE'}`);
+    console.log(`[WORKER-VALIDATION]    - Peak: ${hasPeak ? finalJSON.technicalData.truePeakDbtp : 'AUSENTE'}`);
+    console.log(`[WORKER-VALIDATION]    - DR: ${hasDR ? finalJSON.technicalData.dynamicRange : 'AUSENTE'}`);
+  }
+  
+  // 4. Validar score
+  if (typeof finalJSON.score !== 'number') {
+    missing.push('score (ausente ou não numérico)');
+    console.error('[WORKER-VALIDATION] ❌ score: AUSENTE');
+  } else {
+    console.log(`[WORKER-VALIDATION] ✅ score: ${finalJSON.score}`);
+  }
+  
+  // 5. Validar spectralBands
+  if (!finalJSON.spectralBands || typeof finalJSON.spectralBands !== 'object') {
+    missing.push('spectralBands (ausente)');
+    console.error('[WORKER-VALIDATION] ❌ spectralBands: AUSENTE');
+  } else {
+    console.log('[WORKER-VALIDATION] ✅ spectralBands: presente');
+  }
+  
+  // 6. Validar metrics
+  if (!finalJSON.metrics || typeof finalJSON.metrics !== 'object') {
+    missing.push('metrics (ausente)');
+    console.error('[WORKER-VALIDATION] ❌ metrics: AUSENTE');
+  } else {
+    console.log('[WORKER-VALIDATION] ✅ metrics: presente');
+  }
+  
+  // 7. Validar scoring
+  if (!finalJSON.scoring || typeof finalJSON.scoring !== 'object') {
+    missing.push('scoring (ausente)');
+    console.error('[WORKER-VALIDATION] ❌ scoring: AUSENTE');
+  } else {
+    console.log('[WORKER-VALIDATION] ✅ scoring: presente');
+  }
+  
+  // 8. Validar referenceComparison se necessário
+  if (mode === 'reference' && referenceJobId) {
+    if (!finalJSON.referenceComparison || typeof finalJSON.referenceComparison !== 'object') {
+      missing.push('referenceComparison (necessário para modo reference)');
+      console.error('[WORKER-VALIDATION] ❌ referenceComparison: AUSENTE (obrigatório para modo reference)');
+    } else {
+      console.log('[WORKER-VALIDATION] ✅ referenceComparison: presente');
+    }
+  }
+  
+  const isValid = missing.length === 0;
+  
+  console.log('[WORKER-VALIDATION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  if (isValid) {
+    console.log('[WORKER-VALIDATION] ✅✅✅ JSON COMPLETO - PODE MARCAR COMO COMPLETED');
+  } else {
+    console.error('[WORKER-VALIDATION] ❌❌❌ JSON INCOMPLETO - NÃO PODE MARCAR COMO COMPLETED');
+    console.error(`[WORKER-VALIDATION] Campos faltando (${missing.length}):`, missing);
+  }
+  console.log('[WORKER-VALIDATION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  
+  return { valid: isValid, missing };
+}
+
+/**
  * Atualizar status do job no PostgreSQL
  */
 async function updateJobStatus(jobId, status, results = null) {
@@ -794,6 +896,30 @@ async function audioProcessor(job) {
     }
     console.log(`[AI-AUDIT][SAVE.before] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
     
+    // 🛡️ FIX: VALIDAR JSON ANTES DE MARCAR COMO COMPLETED
+    const validation = validateCompleteJSON(finalJSON, mode, referenceJobId);
+    
+    if (!validation.valid) {
+      console.error('[WORKER] ❌❌❌ JSON INCOMPLETO - AGUARDANDO MÓDULOS FALTANTES');
+      console.error('[WORKER] Campos ausentes:', validation.missing);
+      console.error('[WORKER] Status permanecerá como "processing"');
+      console.error('[WORKER] Job NÃO será marcado como completed');
+      
+      // Salvar com status processing para frontend continuar aguardando
+      await updateJobStatus(jobId, 'processing', finalJSON);
+      
+      // Limpar arquivo temporário
+      if (localFilePath && fs.existsSync(localFilePath)) {
+        fs.unlinkSync(localFilePath);
+        console.log(`🗑️ [PROCESS][${new Date().toISOString()}] -> Arquivo temporário removido: ${localFilePath}`);
+      }
+      
+      // Retornar erro para BullMQ tentar novamente
+      throw new Error(`JSON incompleto: ${validation.missing.join(', ')}`);
+    }
+    
+    console.log('[WORKER] ✅✅✅ JSON VALIDADO - MARCANDO COMO COMPLETED');
+    
     // 🎯 AUDIT: LOG DE CONCLUSÃO
     console.log('✅ [AUDIT_COMPLETE] ═══════════════════════════════════════');
     console.log('✅ [AUDIT_COMPLETE] Job CONCLUÍDO com sucesso');
@@ -807,6 +933,7 @@ async function audioProcessor(job) {
     console.log(`✅ [AUDIT_COMPLETE] DR: ${finalJSON.technicalData?.dynamicRange || 'N/A'} dB`);
     console.log(`✅ [AUDIT_COMPLETE] True Peak: ${finalJSON.technicalData?.truePeakDbtp || 'N/A'} dBTP`);
     console.log(`✅ [AUDIT_COMPLETE] Suggestions: ${finalJSON.suggestions?.length || 0} items`);
+    console.log(`✅ [AUDIT_COMPLETE] aiSuggestions: ${finalJSON.aiSuggestions?.length || 0} items`);
     console.log(`✅ [AUDIT_COMPLETE] Processing Time: ${totalMs}ms`);
     console.log(`✅ [AUDIT_COMPLETE] Timestamp: ${new Date().toISOString()}`);
     console.log('✅ [AUDIT_COMPLETE] ═══════════════════════════════════════');
