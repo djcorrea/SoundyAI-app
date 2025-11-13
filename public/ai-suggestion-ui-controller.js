@@ -343,6 +343,15 @@ class AISuggestionUIController {
      * 🕐 FIX: Wrapper com debounce para prevenir múltiplas chamadas simultâneas (Safari bug)
      */
     checkForAISuggestions(analysis, retryCount = 0) {
+        // 🚫 GUARD: Impede segunda chamada após renderização concluída
+        if (window.__AI_RENDER_COMPLETED__ === true) {
+            console.warn('%c[AI-GUARD] 🔒 Renderização já concluída — ignorando chamada duplicada de checkForAISuggestions()', 'color:#FF9500;font-weight:bold;');
+            console.log('[AI-GUARD] Status recebido:', analysis?.status);
+            console.log('[AI-GUARD] aiSuggestions:', Array.isArray(analysis?.aiSuggestions) ? analysis.aiSuggestions.length : 'undefined');
+            console.log('[AI-GUARD] window.__AI_RENDER_COMPLETED__:', window.__AI_RENDER_COMPLETED__);
+            return; // ✅ BLOQUEIA segunda chamada
+        }
+        
         // FIX: Debounce de 400ms para prevenir race condition no Safari
         if (this.__debounceTimer) {
             clearTimeout(this.__debounceTimer);
