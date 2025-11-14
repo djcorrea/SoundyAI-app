@@ -6508,6 +6508,18 @@ function showModalLoading() {
 async function displayModalResults(analysis) {
     console.log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
 
+    const incomingModeRaw = analysis?.mode || window.currentAnalysisMode || window.__soundyState?.render?.mode || '';
+    const incomingMode = typeof incomingModeRaw === 'string' ? incomingModeRaw.toLowerCase() : '';
+
+    if (typeof window.__AI_RENDER_COMPLETED__ !== 'boolean') {
+        window.__AI_RENDER_COMPLETED__ = false;
+    }
+
+    if (incomingMode === 'reference' || incomingMode === 'genre') {
+        window.__AI_RENDER_COMPLETED__ = false;
+        console.log(`[AI-GUARD] ♻️ Flag de renderização resetada para modo ${incomingMode || 'desconhecido'} antes do modal`);
+    }
+
     // ========================================
     // ✅ CORREÇÃO 2: RESTAURAÇÃO DE DADOS DE REFERÊNCIA
     // ========================================
