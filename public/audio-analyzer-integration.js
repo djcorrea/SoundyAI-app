@@ -1853,15 +1853,6 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             mode: actualMode,
             fileName: fileName
         };
-
-        // 🎯 Apenas no modo REAL de gênero enviaremos o gênero selecionado
-        if (mode === 'genre') {
-            const activeGenre = window.PROD_AI_REF_GENRE || window.__activeRefGenre;
-            if (activeGenre) {
-                payload.genre = activeGenre;
-                console.log('[GENRE-MODE] Enviando análise com genre:', payload.genre, 'mode:', payload.mode);
-            }
-        }
         
         // Adicionar referenceJobId apenas se existir
         if (referenceJobId && actualMode === 'reference') {
@@ -6507,18 +6498,6 @@ function showModalLoading() {
 // 📊 Mostrar resultados no modal
 async function displayModalResults(analysis) {
     console.log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
-
-    const incomingModeRaw = analysis?.mode || window.currentAnalysisMode || window.__soundyState?.render?.mode || '';
-    const incomingMode = typeof incomingModeRaw === 'string' ? incomingModeRaw.toLowerCase() : '';
-
-    if (typeof window.__AI_RENDER_COMPLETED__ !== 'boolean') {
-        window.__AI_RENDER_COMPLETED__ = false;
-    }
-
-    if (incomingMode === 'reference' || incomingMode === 'genre') {
-        window.__AI_RENDER_COMPLETED__ = false;
-        console.log(`[AI-GUARD] ♻️ Flag de renderização resetada para modo ${incomingMode || 'desconhecido'} antes do modal`);
-    }
 
     // ========================================
     // ✅ CORREÇÃO 2: RESTAURAÇÃO DE DADOS DE REFERÊNCIA

@@ -164,21 +164,6 @@ class AISuggestionUIController {
             }
         });
     }
-
-    /**
-     * 🧭 Determinar modo ativo da análise atual
-     */
-    getActiveMode(analysis) {
-        const rawMode = analysis?.mode
-            || analysis?.user?.mode
-            || analysis?.userAnalysis?.mode
-            || analysis?.metadata?.mode
-            || window.__CURRENT_ANALYSIS_MODE__
-            || window.currentAnalysisMode
-            || window.__soundyState?.render?.mode
-            || '';
-        return typeof rawMode === 'string' ? rawMode.toLowerCase() : '';
-    }
     
     /**
      * 🔍 Verificar sugestões IA existentes
@@ -358,21 +343,13 @@ class AISuggestionUIController {
      * 🕐 FIX: Wrapper com debounce para prevenir múltiplas chamadas simultâneas (Safari bug)
      */
     checkForAISuggestions(analysis, retryCount = 0) {
-        const activeMode = this.getActiveMode(analysis);
-        const isReferenceMode = activeMode === 'reference';
-
-        // 🚫 GUARD: Impede segunda chamada após renderização concluída (exceto modo reference)
-        if (window.__AI_RENDER_COMPLETED__ === true && !isReferenceMode) {
+        // 🚫 GUARD: Impede segunda chamada após renderização concluída
+        if (window.__AI_RENDER_COMPLETED__ === true) {
             console.warn('%c[AI-GUARD] 🔒 Renderização já concluída — ignorando chamada duplicada de checkForAISuggestions()', 'color:#FF9500;font-weight:bold;');
             console.log('[AI-GUARD] Status recebido:', analysis?.status);
             console.log('[AI-GUARD] aiSuggestions:', Array.isArray(analysis?.aiSuggestions) ? analysis.aiSuggestions.length : 'undefined');
             console.log('[AI-GUARD] window.__AI_RENDER_COMPLETED__:', window.__AI_RENDER_COMPLETED__);
-            console.log('[AI-GUARD] Modo ativo:', activeMode || 'desconhecido');
             return; // ✅ BLOQUEIA segunda chamada
-        }
-
-        if (window.__AI_RENDER_COMPLETED__ === true && isReferenceMode) {
-            console.log('%c[AI-GUARD] ♻️ Modo reference detectado — ignorando flag concluída para permitir render duplo', 'color:#00C9FF;font-weight:bold;');
         }
         
         // FIX: Debounce de 400ms para prevenir race condition no Safari
@@ -553,11 +530,8 @@ class AISuggestionUIController {
         if (Array.isArray(extractedAI) && extractedAI.length > 0) {
             console.log('%c[AI-FRONT][BYPASS] ✅ aiSuggestions detectadas — ignorando status "processing"', 'color:#00FF88;font-weight:bold;');
             
-            // FIX: Resetar flag de render completado apenas para modos especiais
-            if (activeMode === 'reference' || activeMode === 'genre') {
-                window.__AI_RENDER_COMPLETED__ = false;
-                console.log(`%c[AI-FLAG] ♻️ Resetando flag de renderização (modo: ${activeMode || 'desconhecido'})`, 'color:#00FF88;font-weight:bold;');
-            }
+            // FIX: Resetar flag de render completado para nova análise
+            window.__AI_RENDER_COMPLETED__ = false;
             
             // FIX: Atualizar lastAnalysisJobId ANTES da renderização (previne race condition)
             this.lastAnalysisJobId = analysis?.jobId || window.__CURRENT_JOB_ID__;
@@ -583,7 +557,11 @@ class AISuggestionUIController {
             // Renderiza imediatamente
             this.renderAISuggestions(extractedAI);
             
-            // 🔍 AUDITORIA AUTOMÁTICA: Verificar estado após renderização (flag será atualizada após validação do DOM)
+            // FIX: Marcar renderização como concluída APÓS render
+            window.__AI_RENDER_COMPLETED__ = true;
+            console.log('%c[AI-FIX] ✅ window.__AI_RENDER_COMPLETED__ = true', 'color:#00FF88;font-weight:bold;');
+            
+            // 🔍 AUDITORIA AUTOMÁTICA: Verificar estado após renderização
             console.group('%c[AUDITORIA:RESET-CHECK] 🔍 Estado após renderização', 'color:#FF9500;font-weight:bold;');
             console.log('   currentJobId:', window.__CURRENT_JOB_ID__);
             console.log('   referenceJobId:', window.__REFERENCE_JOB_ID__);
