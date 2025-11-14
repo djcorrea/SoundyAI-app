@@ -136,22 +136,24 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
     // 🔑 CRÍTICO: Usar jobId (UUID) na coluna 'id' do PostgreSQL
     // 🎯 NOVO: Adicionar reference_for (referenceJobId) para modo reference
     const result = await pool.query(
-      `INSERT INTO jobs (id, file_key, mode, status, file_name, reference_for, genre, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()) RETURNING *`,
-      [jobId, fileKey, mode, "queued", fileName || null, referenceJobId || null, genre || null]
+      `INSERT INTO jobs (id, file_key, mode, status, file_name, reference_for, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *`,
+      [jobId, fileKey, mode, "queued", fileName || null, referenceJobId || null]
     );
 
+    const persistedJob = { ...result.rows[0], genre: genre || null };
+
     console.log(`✅ [API] Gravado no PostgreSQL:`, {
-      id: result.rows[0].id,
-      fileKey: result.rows[0].file_key,
-      status: result.rows[0].status,
-      mode: result.rows[0].mode,
-      referenceFor: result.rows[0].reference_for,
-      genre: result.rows[0].genre || null
+      id: persistedJob.id,
+      fileKey: persistedJob.file_key,
+      status: persistedJob.status,
+      mode: persistedJob.mode,
+      referenceFor: persistedJob.reference_for,
+      genre: persistedJob.genre
     });
     console.log('🎯 [API] Fluxo completo - Redis ➜ PostgreSQL concluído!');
 
-    return result.rows[0];
+    return persistedJob;
       
   } catch (error) {
     console.error(`💥 [JOB-CREATE] Erro crítico:`, error.message);
