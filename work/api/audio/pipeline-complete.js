@@ -23,37 +23,6 @@ const __dirname = path.dirname(__filename);
 
 console.log('🎵 Pipeline Completo (Fases 5.1-5.4) carregado - Node.js Backend CORRIGIDO');
 
-const genreReferenceCache = new Map();
-
-async function loadGenreReferenceTargets(genreKey) {
-  if (!genreKey) return null;
-  const normalized = String(genreKey).toLowerCase();
-
-  if (genreReferenceCache.has(normalized)) {
-    return genreReferenceCache.get(normalized);
-  }
-
-  const referencePath = path.join(__dirname, '../../../public/refs/out', `${normalized}.json`);
-
-  try {
-    const fileContents = await fs.promises.readFile(referencePath, 'utf-8');
-    const parsed = JSON.parse(fileContents);
-    const genrePayload = parsed[normalized] || parsed;
-    const referenceData = {
-      genre: normalized,
-      mode: genrePayload?.mode || 'genre_reference',
-      ...genrePayload
-    };
-
-    genreReferenceCache.set(normalized, referenceData);
-    return referenceData;
-  } catch (error) {
-    console.warn(`[GENRE-MODE] Falha ao carregar targets de gênero (${normalized}):`, error.message);
-    genreReferenceCache.set(normalized, null);
-    return null;
-  }
-}
-
 /**
  * 🗂️ Criar arquivo temporário WAV para FFmpeg True Peak
  */
@@ -204,13 +173,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       };
       
       // 🎯 USAR MÉTRICAS PRELOADED SE DISPONÍVEIS (evita async mid-pipeline)
-      let reference = options.preloadedReferenceMetrics || options.reference || null;
-      if (!reference && options.genre) {
-        reference = await loadGenreReferenceTargets(options.genre);
-      }
-
-      console.log('[GENRE-MODE] pipeline-complete options.genre:', options.genre || 'none');
-      console.log('[GENRE-MODE] reference selecionada no pipeline:', reference?.mode || reference?.genre || 'fallback_universal');
+      const reference = options.preloadedReferenceMetrics || options.reference || options.genre || null;
       
       // Validar coreMetrics antes de passar para generateJSONOutput
       if (!coreMetrics || typeof coreMetrics !== 'object') {
@@ -222,8 +185,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         jobId, 
         fileName,
         mode: options.mode,
-        referenceJobId: options.referenceJobId,
-        genre: options.genre
+        referenceJobId: options.referenceJobId
       });
       
       timings.phase4_json_output = Date.now() - phase4StartTime;

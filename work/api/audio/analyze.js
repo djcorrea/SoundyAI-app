@@ -78,7 +78,7 @@ function validateFileType(fileKey) {
  * 🔑 IMPORTANTE: jobId DEVE SEMPRE SER UUID VÁLIDO para PostgreSQL
  * Ordem obrigatória: Redis → PostgreSQL (previne jobs órfãos)
  */
-async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = null, genre = null) {
+async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = null) {
   // 🔑 CRÍTICO: jobId DEVE ser UUID válido para tabela PostgreSQL (coluna tipo 'uuid')
   const jobId = randomUUID();
   
@@ -91,7 +91,6 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
   console.log(`   📁 Arquivo: ${fileKey}`);
   console.log(`   ⚙️ Modo: ${mode}`);
   console.log(`   🔗 Reference Job ID: ${referenceJobId || 'nenhum'}`);
-  console.log(`   🎼 Gênero alvo: ${genre || 'nenhum'}`);
 
   try {
     // ✅ ETAPA 1: GARANTIR QUE FILA ESTÁ PRONTA
@@ -111,8 +110,7 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
       fileKey,
       fileName,
       mode,
-      referenceJobId: referenceJobId, // 🔗 ID do job de referência (se mode='comparison')
-      genre
+      referenceJobId: referenceJobId // 🔗 ID do job de referência (se mode='comparison')
     }, {
       jobId: externalId,   // 📋 BullMQ job ID (pode ser customizado)
       priority: 1,
@@ -141,19 +139,16 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
       [jobId, fileKey, mode, "queued", fileName || null, referenceJobId || null]
     );
 
-    const persistedJob = { ...result.rows[0], genre: genre || null };
-
     console.log(`✅ [API] Gravado no PostgreSQL:`, {
-      id: persistedJob.id,
-      fileKey: persistedJob.file_key,
-      status: persistedJob.status,
-      mode: persistedJob.mode,
-      referenceFor: persistedJob.reference_for,
-      genre: persistedJob.genre
+      id: result.rows[0].id,
+      fileKey: result.rows[0].file_key,
+      status: result.rows[0].status,
+      mode: result.rows[0].mode,
+      referenceFor: result.rows[0].reference_for
     });
     console.log('🎯 [API] Fluxo completo - Redis ➜ PostgreSQL concluído!');
 
-    return persistedJob;
+    return result.rows[0];
       
   } catch (error) {
     console.error(`💥 [JOB-CREATE] Erro crítico:`, error.message);
@@ -338,7 +333,7 @@ router.post("/analyze", async (req, res) => {
   console.log('🚀 [API] /analyze chamada');
   
   try {
-    const { fileKey, mode = "genre", fileName, genre = null } = req.body;
+    const { fileKey, mode = "genre", fileName } = req.body;
     
     // 🧠 LOG DE DEBUG: Modo recebido
     console.log('🧠 Modo de análise recebido:', mode);
@@ -373,7 +368,6 @@ router.post("/analyze", async (req, res) => {
     // 🧠 DEBUG: Log do modo e referenceJobId
     console.log('🧠 [ANALYZE] Modo:', mode);
     console.log('🔗 [ANALYZE] Reference Job ID:', referenceJobId || 'nenhum');
-    console.log('🎼 [ANALYZE] Gênero alvo:', genre || 'nenhum');
     
     if (mode === 'reference' && referenceJobId) {
       console.log('🎯 [ANALYZE] Segunda música detectada - será comparada com job:', referenceJobId);
@@ -391,7 +385,7 @@ router.post("/analyze", async (req, res) => {
     const queue = getAudioQueue();
     
     // ✅ CRIAR JOB NO BANCO E ENFILEIRAR (passar referenceJobId)
-    const jobRecord = await createJobInDatabase(fileKey, mode, fileName, referenceJobId, genre);
+    const jobRecord = await createJobInDatabase(fileKey, mode, fileName, referenceJobId);
 
     // ✅ RESPOSTA DE SUCESSO
     res.status(200).json({
@@ -401,8 +395,7 @@ router.post("/analyze", async (req, res) => {
       mode: jobRecord.mode,
       fileName: jobRecord.file_name || null,
       status: jobRecord.status,
-      createdAt: jobRecord.created_at,
-      genre: jobRecord.genre || null
+      createdAt: jobRecord.created_at
     });
 
   } catch (error) {

@@ -645,7 +645,7 @@ async function downloadFileFromBucket(fileKey) {
  */
 async function audioProcessor(job) {
   // 🔑 ESTRUTURA ATUALIZADA: suporte para jobId UUID + externalId para logs + referenceJobId
-  const { jobId, externalId, fileKey, mode, fileName, referenceJobId, genre } = job.data;
+  const { jobId, externalId, fileKey, mode, fileName, referenceJobId } = job.data;
   
   // 🎯 AUDIT: LOG INICIAL - Job consumido da fila
   console.log('🔍 [AUDIT_CONSUME] ═══════════════════════════════════════');
@@ -709,13 +709,10 @@ async function audioProcessor(job) {
     mode,
     fileName,
     referenceJobId,
-    genre,
     jobName: job.name,
     timestamp: new Date(job.timestamp).toISOString(),
     attempts: job.attemptsMade + 1
   });
-
-  console.log('[GENRE-MODE] Worker processando job com genre:', genre || 'null', 'mode:', mode);
 
   let localFilePath = null;
   let preloadedReferenceMetrics = null;
@@ -845,8 +842,7 @@ async function audioProcessor(job) {
       jobId: jobId,
       mode: mode,
       referenceJobId: referenceJobId,
-      preloadedReferenceMetrics: preloadedReferenceMetrics, // ← MÉTRICAS CARREGADAS NO INÍCIO
-      genre: genre
+      preloadedReferenceMetrics: preloadedReferenceMetrics // ← MÉTRICAS CARREGADAS NO INÍCIO
     });
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
