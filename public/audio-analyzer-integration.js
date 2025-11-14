@@ -1853,6 +1853,15 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             mode: actualMode,
             fileName: fileName
         };
+
+        // 🎯 Apenas no modo REAL de gênero enviaremos o gênero selecionado
+        if (mode === 'genre') {
+            const activeGenre = window.PROD_AI_REF_GENRE || window.__activeRefGenre;
+            if (activeGenre) {
+                payload.genre = activeGenre;
+                console.log('[GENRE-MODE] Enviando análise com genre:', payload.genre, 'mode:', payload.mode);
+            }
+        }
         
         // Adicionar referenceJobId apenas se existir
         if (referenceJobId && actualMode === 'reference') {
