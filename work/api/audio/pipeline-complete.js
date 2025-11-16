@@ -226,22 +226,24 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       const genre = options.genre || finalJSON.metadata?.genre || 'unknown';
       const mode = options.mode || 'genre';
       const referenceJobId = options.referenceJobId;
+      const isReferenceBase = options.isReferenceBase === true; // 🔧 FIX: Flag do frontend
       
       console.log(`[AI-AUDIT][ULTRA_DIAG] 📊 Parâmetros:`, {
         genre,
         mode,
         hasReferenceJobId: !!referenceJobId,
-        referenceJobId: referenceJobId
+        referenceJobId: referenceJobId,
+        isReferenceBase: isReferenceBase // 🔧 FIX: Log da flag
       });
       
-      // 🛡️ GUARDIÃO LEVE: Bloquear geração de sugestões apenas no modo genre sem referência
-      if (mode === 'genre' && !referenceJobId) {
+      // 🛡️ GUARDIÃO AJUSTADO: Bloquear geração APENAS na primeira música da referência
+      if (mode === 'genre' && isReferenceBase === true) {
         console.log('[GUARDIÃO] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('[GUARDIÃO] 🎧 FAIXA BASE (A) DETECTADA');
-        console.log('[GUARDIÃO] mode: genre, referenceJobId: null');
+        console.log('[GUARDIÃO] 🎧 PRIMEIRA MÚSICA DA REFERÊNCIA DETECTADA');
+        console.log('[GUARDIÃO] mode: genre, isReferenceBase: true');
         console.log('[GUARDIÃO] ✅ Métricas calculadas e salvas normalmente');
         console.log('[GUARDIÃO] 🚫 Pulando geração de sugestões textuais');
-        console.log('[GUARDIÃO] ℹ️ Sugestões serão geradas apenas na comparação A/B');
+        console.log('[GUARDIÃO] ℹ️ Sugestões serão geradas na comparação A/B');
         console.log('[GUARDIÃO] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
         finalJSON.suggestions = [];
@@ -249,6 +251,16 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         
         // Pular bloco de geração de sugestões
         throw new Error('SKIP_SUGGESTIONS_GENERATION');
+      }
+      
+      // 🎯 FIX: Garantir que modo gênero PURO sempre gera suggestions
+      if (mode === 'genre' && isReferenceBase === false) {
+        console.log('[GENRE-MODE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('[GENRE-MODE] 🎵 ANÁLISE DE GÊNERO PURA DETECTADA');
+        console.log('[GENRE-MODE] mode: genre, isReferenceBase: false');
+        console.log('[GENRE-MODE] ✅ Suggestions e aiSuggestions serão geradas');
+        console.log('[GENRE-MODE] 🎯 Targets de gênero serão usados para comparação');
+        console.log('[GENRE-MODE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       }
       
       // ✅ MODO REFERENCE: Comparar com análise de referência
