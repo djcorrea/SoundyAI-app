@@ -1817,6 +1817,7 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         console.groupEnd();
         
         let actualMode = mode;
+        let isReferenceBase = false; // 🔧 FIX: Flag para diferenciar primeira música da referência
         
         // 🎯 CORREÇÃO DO FLUXO: Primeira música como "genre", segunda como "reference"
         if (mode === 'reference') {
@@ -1829,6 +1830,7 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             if (referenceJobId) {
                 // TEM referenceJobId = É A SEGUNDA MÚSICA
                 actualMode = 'reference'; // Mantém "reference"
+                isReferenceBase = false; // Segunda música não é base
                 console.log('[MODE ✅] ═══════════════════════════════════════');
                 console.log('[MODE ✅] SEGUNDA música detectada');
                 console.log('[MODE ✅] Mode enviado: "reference"');
@@ -1838,9 +1840,11 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             } else {
                 // NÃO TEM referenceJobId = É A PRIMEIRA MÚSICA
                 actualMode = 'genre'; // Envia como "genre" para análise normal
+                isReferenceBase = true; // 🔧 FIX: Marcar como primeira música da referência
                 console.log('[MODE ✅] ═══════════════════════════════════════');
                 console.log('[MODE ✅] PRIMEIRA música detectada');
                 console.log('[MODE ✅] Mode enviado: "genre" (base para comparação)');
+                console.log('[MODE ✅] isReferenceBase: true (diferencia de análise de gênero pura)');
                 console.log('[MODE ✅] Esta análise será salva como referência');
                 console.log('[MODE ✅] Próxima música será comparada com esta');
                 console.log('[MODE ✅] ═══════════════════════════════════════');
@@ -1851,7 +1855,8 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         const payload = {
             fileKey: fileKey,
             mode: actualMode,
-            fileName: fileName
+            fileName: fileName,
+            isReferenceBase: isReferenceBase // 🔧 FIX: Adicionar flag ao payload
         };
         
         // Adicionar referenceJobId apenas se existir
@@ -1868,6 +1873,7 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             console.log('[REF-PAYLOAD ✅] ═══════════════════════════════════════');
             console.log('[REF-PAYLOAD ✅] Payload SEM referenceJobId (primeira música):');
             console.log(`[REF-PAYLOAD ✅]   mode: "${actualMode}" (análise base)`);
+            console.log(`[REF-PAYLOAD ✅]   isReferenceBase: ${isReferenceBase}`);
             console.log(`[REF-PAYLOAD ✅]   fileName: "${fileName}"`);
             console.log('[REF-PAYLOAD ✅] ═══════════════════════════════════════');
         }
