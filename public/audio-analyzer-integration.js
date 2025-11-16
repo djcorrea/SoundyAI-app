@@ -1541,6 +1541,78 @@ let referenceStepState = {
     referenceAnalysis: null
 };
 
+// ========================================
+// 🔥 STATE MACHINE - VIEW MODE CONTROLLER
+// ========================================
+// Controla qual UI deve ser renderizada (gênero vs referência)
+// Impede contaminação entre modos
+window.__soundyViewMode = window.__soundyViewMode || "genre";
+
+function setViewMode(mode) {
+    const validModes = ["genre", "reference"];
+    if (!validModes.includes(mode)) {
+        console.error("[VIEW-MODE] ❌ Modo inválido:", mode);
+        return;
+    }
+    
+    const oldMode = window.__soundyViewMode;
+    window.__soundyViewMode = mode;
+    
+    console.log(`%c[VIEW-MODE] 🔄 Alterado: ${oldMode} → ${mode}`, 'color:#00D9FF;font-weight:bold;font-size:13px;');
+    
+    // Limpar estado do modo anterior
+    if (mode === "genre" && oldMode === "reference") {
+        console.log("[VIEW-MODE] 🧹 Limpando estado de referência ao mudar para gênero");
+        resetReferenceStateFully();
+    }
+}
+
+function getViewMode() {
+    return window.__soundyViewMode || "genre";
+}
+
+// 🔒 GUARD: Bloqueia execução de UI de referência no modo gênero
+function canRunReferenceUI(analysis) {
+    const viewMode = getViewMode();
+    
+    // Regra 1: ViewMode deve ser "reference"
+    if (viewMode !== "reference") {
+        console.log(`%c[REFERENCE-GUARD] 🚫 Bloqueando UI de referência`, 'color:#FF6B6B;font-weight:bold;');
+        console.log(`[REFERENCE-GUARD]    viewMode atual: "${viewMode}" (esperado: "reference")`);
+        return false;
+    }
+    
+    // Regra 2: Análise deve existir
+    if (!analysis) {
+        console.log('[REFERENCE-GUARD] 🚫 Bloqueando: analysis não existe');
+        return false;
+    }
+    
+    // Regra 3: Deve ter dados de referência
+    const hasRefComparison = !!analysis.referenceComparison;
+    const hasRefJobId = !!analysis.referenceJobId || !!analysis.metadata?.referenceJobId || !!window.__REFERENCE_JOB_ID__;
+    const hasRefData = !!window.referenceAnalysisData;
+    
+    if (!hasRefComparison && !hasRefJobId && !hasRefData) {
+        console.log('[REFERENCE-GUARD] 🚫 Bloqueando: sem dados de referência');
+        console.log('[REFERENCE-GUARD]    referenceComparison:', hasRefComparison);
+        console.log('[REFERENCE-GUARD]    referenceJobId:', hasRefJobId);
+        console.log('[REFERENCE-GUARD]    referenceAnalysisData:', hasRefData);
+        return false;
+    }
+    
+    // Regra 4: Mode deve ser "reference"
+    if (analysis.mode !== 'reference' && analysis.isReferenceBase !== true) {
+        console.log('[REFERENCE-GUARD] 🚫 Bloqueando: analysis.mode não é "reference"');
+        console.log('[REFERENCE-GUARD]    analysis.mode:', analysis.mode);
+        console.log('[REFERENCE-GUARD]    analysis.isReferenceBase:', analysis.isReferenceBase);
+        return false;
+    }
+    
+    console.log('%c[REFERENCE-GUARD] ✅ Permitindo UI de referência', 'color:#00FF88;font-weight:bold;');
+    return true;
+}
+
 // 🎯 COMPARAÇÃO ENTRE FAIXAS - Armazenamento da primeira análise
 window.lastReferenceJobId = null;
 // ❌ REMOVER: window.referenceAnalysisData agora é definido como getter read-only dinamicamente
@@ -3949,76 +4021,199 @@ function resetReferenceStateFully() {
     console.groupEnd();
 }
 
-// 🔥 CORREÇÃO CRÍTICA: Renderização isolada EXCLUSIVA para modo gênero
-function forceRenderGenreOnly(analysis) {
-    console.group('%c[GENRE-RENDER] 🎨 Renderização isolada de modo gênero', 'color:#00C9FF;font-weight:bold;font-size:14px;');
+// ========================================
+// 🔥 UI HELPERS - SHOW/HIDE SEÇÕES
+// ========================================
+
+function hideReferenceUI() {
+    console.log('[UI-CONTROL] 🙈 Ocultando elementos de UI de referência...');
     
-    // 1️⃣ Validar que é modo gênero
-    if (analysis.mode !== 'genre' || analysis.isReferenceBase === true) {
-        console.error('[GENRE-RENDER] ❌ ERRO: Função chamada fora do modo gênero!');
-        console.error('[GENRE-RENDER]    mode:', analysis.mode);
-        console.error('[GENRE-RENDER]    isReferenceBase:', analysis.isReferenceBase);
+    // Ocultar elementos específicos de referência
+    const refSelectors = [
+        '[data-section="reference"]',
+        '.reference-mode',
+        '#reference-comparison-container',
+        '.reference-comparison',
+        '.track-comparison',
+        '[data-mode="reference"]'
+    ];
+    
+    refSelectors.forEach(selector => {
+        const elements = document.querySelectorAll(selector);
+        elements.forEach(el => {
+            el.classList.add('hidden');
+            el.style.display = 'none';
+        });
+        if (elements.length > 0) {
+            console.log(`[UI-CONTROL]    ✅ Ocultos ${elements.length} elementos: ${selector}`);
+        }
+    });
+}
+
+function showGenreUI() {
+    console.log('[UI-CONTROL] 👁️ Exibindo elementos de UI de gênero...');
+    
+    // Exibir elementos específicos de gênero
+    const genreSelectors = [
+        '[data-section="genre"]',
+        '.genre-mode',
+        '#genre-comparison-container',
+        '.genre-comparison',
+        '[data-mode="genre"]'
+    ];
+    
+    genreSelectors.forEach(selector => {
+        const elements = document.querySelectorAll(selector);
+        elements.forEach(el => {
+            el.classList.remove('hidden');
+            el.style.display = '';
+        });
+        if (elements.length > 0) {
+            console.log(`[UI-CONTROL]    ✅ Exibidos ${elements.length} elementos: ${selector}`);
+        }
+    });
+}
+
+function hideGenreUI() {
+    console.log('[UI-CONTROL] 🙈 Ocultando elementos de UI de gênero...');
+    
+    const genreSelectors = [
+        '[data-section="genre"]',
+        '.genre-mode',
+        '#genre-comparison-container',
+        '.genre-comparison',
+        '[data-mode="genre"]'
+    ];
+    
+    genreSelectors.forEach(selector => {
+        const elements = document.querySelectorAll(selector);
+        elements.forEach(el => {
+            el.classList.add('hidden');
+            el.style.display = 'none';
+        });
+        if (elements.length > 0) {
+            console.log(`[UI-CONTROL]    ✅ Ocultos ${elements.length} elementos: ${selector}`);
+        }
+    });
+}
+
+function showReferenceUI() {
+    console.log('[UI-CONTROL] 👁️ Exibindo elementos de UI de referência...');
+    
+    const refSelectors = [
+        '[data-section="reference"]',
+        '.reference-mode',
+        '#reference-comparison-container',
+        '.reference-comparison',
+        '.track-comparison',
+        '[data-mode="reference"]'
+    ];
+    
+    refSelectors.forEach(selector => {
+        const elements = document.querySelectorAll(selector);
+        elements.forEach(el => {
+            el.classList.remove('hidden');
+            el.style.display = '';
+        });
+        if (elements.length > 0) {
+            console.log(`[UI-CONTROL]    ✅ Exibidos ${elements.length} elementos: ${selector}`);
+        }
+    });
+}
+
+// ========================================
+// 🔥 RENDERIZAÇÃO ISOLADA DE GÊNERO
+// ========================================
+
+function renderGenreView(analysis) {
+    console.group('%c[GENRE-VIEW] 🎨 Renderizando UI exclusiva de gênero', 'color:#00C9FF;font-weight:bold;font-size:14px;');
+    
+    // 1️⃣ Validar análise
+    if (!analysis) {
+        console.error('[GENRE-VIEW] ❌ ERRO: Análise não fornecida');
         console.groupEnd();
         return;
     }
     
     // 2️⃣ Garantir limpeza completa
-    console.log('[GENRE-RENDER] 1️⃣ Executando limpeza preventiva...');
+    console.log('[GENRE-VIEW] 1️⃣ Executando limpeza preventiva...');
     resetReferenceStateFully();
     
-    // 3️⃣ Obter gênero
+    // 3️⃣ Configurar ViewMode
+    console.log('[GENRE-VIEW] 2️⃣ Configurando ViewMode...');
+    setViewMode("genre");
+    
+    // 4️⃣ Controlar UI visibility
+    console.log('[GENRE-VIEW] 3️⃣ Controlando visibilidade de UI...');
+    hideReferenceUI();
+    showGenreUI();
+    
+    // 5️⃣ Obter gênero
     const genre = analysis.metadata?.genre || 
                   analysis.genreId || 
                   analysis.classification || 
                   window.PROD_AI_REF_GENRE || 
                   window.__selectedGenre || 
+                  window.__activeRefGenre ||
                   'default';
     
-    console.log('[GENRE-RENDER] 2️⃣ Gênero identificado:', genre);
+    console.log('[GENRE-VIEW] 4️⃣ Gênero identificado:', genre);
     
-    // 4️⃣ Verificar targets de gênero
+    // 6️⃣ Obter targets de gênero
     const genreTargets = window.PROD_AI_REF_DATA?.[genre] || 
                         window.__activeRefData;
     
     if (!genreTargets) {
-        console.warn('[GENRE-RENDER] ⚠️ Targets de gênero não disponíveis');
-        console.warn('[GENRE-RENDER]    window.PROD_AI_REF_DATA:', !!window.PROD_AI_REF_DATA);
-        console.warn('[GENRE-RENDER]    window.__activeRefData:', !!window.__activeRefData);
+        console.warn('[GENRE-VIEW] ⚠️ Targets de gênero não disponíveis');
+        console.warn('[GENRE-VIEW]    window.PROD_AI_REF_DATA:', !!window.PROD_AI_REF_DATA);
+        console.warn('[GENRE-VIEW]    window.__activeRefData:', !!window.__activeRefData);
     } else {
-        console.log('[GENRE-RENDER] 3️⃣ Targets de gênero encontrados:', !!genreTargets?.bands);
+        console.log('[GENRE-VIEW] 5️⃣ Targets encontrados:', {
+            hasBands: !!genreTargets?.bands,
+            bandsCount: genreTargets?.bands ? Object.keys(genreTargets.bands).length : 0
+        });
     }
     
-    // 5️⃣ Preparar contexto de renderização ISOLADO
-    const genreRenderContext = {
+    // 7️⃣ Renderizar tabela de comparação de gênero
+    console.log('[GENRE-VIEW] 6️⃣ Renderizando tabela de comparação...');
+    renderGenreComparisonTable({
+        analysis,
+        genre,
+        targets: genreTargets
+    });
+    
+    console.log('%c[GENRE-VIEW] ✅ Renderização de gênero concluída', 'color:#00FF88;font-weight:bold;');
+    console.groupEnd();
+}
+
+function renderGenreComparisonTable(options) {
+    const { analysis, genre, targets } = options;
+    
+    console.group('[GENRE-TABLE] 📊 Montando tabela de comparação de gênero');
+    
+    if (!targets || !targets.bands) {
+        console.warn('[GENRE-TABLE] ⚠️ Targets não disponíveis, não é possível montar tabela');
+        console.groupEnd();
+        return;
+    }
+    
+    // Chamar renderReferenceComparisons com contexto de gênero
+    const genreContext = {
         mode: 'genre',
         analysis: analysis,
         userAnalysis: analysis,
-        referenceAnalysis: null,  // Modo gênero NÃO tem segunda faixa
+        referenceAnalysis: null,
         user: analysis,
-        ref: null,                 // Modo gênero NÃO tem referência
+        ref: null,
         genre: genre,
-        targets: genreTargets,
-        _isGenreIsolated: true     // Flag de isolamento
+        targets: targets,
+        _isGenreIsolated: true
     };
     
-    console.log('[GENRE-RENDER] 4️⃣ Contexto preparado:', {
-        mode: genreRenderContext.mode,
-        hasAnalysis: !!genreRenderContext.analysis,
-        hasTargets: !!genreRenderContext.targets,
-        genre: genreRenderContext.genre,
-        isIsolated: genreRenderContext._isGenreIsolated
-    });
+    console.log('[GENRE-TABLE] Chamando renderReferenceComparisons com contexto de gênero');
+    renderReferenceComparisons(genreContext);
     
-    // 6️⃣ Chamar renderReferenceComparisons com contexto isolado
-    console.log('[GENRE-RENDER] 5️⃣ Chamando renderReferenceComparisons() com contexto isolado...');
-    try {
-        renderReferenceComparisons(genreRenderContext);
-        console.log('%c[GENRE-RENDER] ✅ Renderização de gênero concluída com sucesso', 'color:#00FF88;font-weight:bold;');
-    } catch (error) {
-        console.error('[GENRE-RENDER] ❌ ERRO na renderização:', error);
-        console.error('[GENRE-RENDER]    stack:', error.stack);
-    }
-    
+    console.log('[GENRE-TABLE] ✅ Tabela renderizada');
     console.groupEnd();
 }
 
@@ -5252,10 +5447,17 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
             // 🔥 EXECUTAR LIMPEZA COMPLETA
             resetReferenceStateFully();
             
+            // 🔒 CONFIGURAR VIEW MODE
+            setViewMode("genre");
+            
             // 🔒 FORÇAR MODO GÊNERO
             window.currentAnalysisMode = 'genre';
             
             console.log('%c[GENRE-BARRIER] ✅ BARREIRA 3 CONCLUÍDA: Estado limpo antes de processar análise', 'color:#00FF88;font-weight:bold;');
+        } else if (normalizedResult.mode === 'reference' || normalizedResult.isReferenceBase === true) {
+            // Modo referência: configurar ViewMode
+            console.log('[REFERENCE-MODE] Configurando ViewMode para "reference" (backend retornou mode: "reference")');
+            setViewMode("reference");
         }
         
         // ✅ CORREÇÃO CRÍTICA: Carregar targets de gênero baseado em MODE, não em referenceComparison
@@ -10071,6 +10273,9 @@ async function displayModalResults(analysis) {
                 // 🔥 EXECUTAR LIMPEZA COMPLETA
                 resetReferenceStateFully();
                 
+                // 🔒 CONFIGURAR VIEW MODE
+                setViewMode("genre");
+                
                 // 🔒 FORÇAR MODO GÊNERO
                 window.currentAnalysisMode = 'genre';
                 analysis.mode = 'genre';
@@ -10121,14 +10326,25 @@ async function displayModalResults(analysis) {
                 // ✅ MODO GÊNERO: Usar renderização isolada
                 console.log('%c[GENRE-BARRIER] 🚧 BARREIRA 2 ATIVADA: Renderização isolada de gênero', 'color:#FF6B6B;font-weight:bold;font-size:14px;');
                 
-                // 🔥 CHAMAR FUNÇÃO ISOLADA
-                forceRenderGenreOnly(analysis);
+                // 🔥 CONFIGURAR VIEW MODE
+                setViewMode("genre");
+                
+                // 🔥 CHAMAR RENDERIZAÇÃO ISOLADA DE GÊNERO
+                renderGenreView(analysis);
                 
                 console.log('%c[GENRE-BARRIER] ✅ BARREIRA 2 CONCLUÍDA: Renderização de gênero finalizada', 'color:#00FF88;font-weight:bold;');
                 
                 // ❌ NÃO executar lógica de referência
                 return;
             }
+            
+            // ========================================
+            // 🎯 MODO REFERÊNCIA: Configurar ViewMode e prosseguir
+            // ========================================
+            console.log('[REFERENCE-MODE] Configurando ViewMode para "reference"');
+            setViewMode("reference");
+            hideGenreUI();
+            showReferenceUI();
             
             // ========================================
             // 🎯 MODO REFERÊNCIA: Fluxo normal
@@ -13389,14 +13605,19 @@ function renderTrackComparisonTable(baseAnalysis, referenceAnalysis) {
     `;
     
     // 🎯 AUDIT_REF_FIX: Log final de confirmação do fluxo A/B
-    console.log('✅ [TRACK-COMPARE] Tabela comparativa renderizada com sucesso');
-    console.log('[REFERENCE-A/B FIXED ✅] Comparação A/B entre faixas concluída');
-    console.log('[AUDIT_REF_FIX] Tabela exibindo valores brutos da segunda faixa (referência real)');
-    console.log('[MODE LOCKED] reference - renderização completa sem alteração de modo');
-    
-    // 🎉 LOG FINAL DE AUDITORIA
-    console.log("✅ [REFERENCE-A/B FIXED] Comparação renderizada sem erros.");
-    console.log("✅ [AUDITORIA_FINAL_RENDER_REF] Render concluído com sucesso.");
+    // 🔒 GUARD: Só executar logs de referência se viewMode === "reference"
+    if (getViewMode() === "reference" && canRunReferenceUI({ mode: 'reference', referenceComparison: true })) {
+        console.log('✅ [TRACK-COMPARE] Tabela comparativa renderizada com sucesso');
+        console.log('[REFERENCE-A/B FIXED ✅] Comparação A/B entre faixas concluída');
+        console.log('[AUDIT_REF_FIX] Tabela exibindo valores brutos da segunda faixa (referência real)');
+        console.log('[MODE LOCKED] reference - renderização completa sem alteração de modo');
+        
+        // 🎉 LOG FINAL DE AUDITORIA
+        console.log("✅ [REFERENCE-A/B FIXED] Comparação renderizada sem erros.");
+        console.log("✅ [AUDITORIA_FINAL_RENDER_REF] Render concluído com sucesso.");
+    } else {
+        console.log('[REFERENCE-GUARD] 🚫 Logs de referência bloqueados (viewMode:', getViewMode(), ')');
+    }
     
     // 🎯 VALIDAÇÃO FINAL PÓS-FIX
     const validationData = {
@@ -14280,7 +14501,8 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
     console.log('🎯 Score final calculado:', result);
     
     // 🎯 AUDIT_REF_FIX: Log final de confirmação do fluxo A/B
-    if (refData._isReferenceMode === true) {
+    // 🔒 GUARD: Só executar logs de referência se viewMode === "reference"
+    if (refData._isReferenceMode === true && getViewMode() === "reference" && canRunReferenceUI({ mode: 'reference', referenceComparison: true })) {
         console.log('[REFERENCE-A/B FIXED ✅] Comparação A/B concluída com sucesso');
         console.log('[AUDIT_REF_FIX] Bands carregadas da segunda música (referência real)');
         console.log('[AUDIT_REF_FIX] ReferenceComparison gerado com dados A/B corretos');
