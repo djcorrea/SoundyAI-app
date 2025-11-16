@@ -9848,16 +9848,55 @@ async function displayModalResults(analysis) {
         // 🎯 CORRIGIDO: Só renderizar referências se NÃO estiver em modo comparação de faixas
         // O displayModalResults() já trata comparação via renderTrackComparisonTable()
         try { 
-            const isSecondTrack = window.__REFERENCE_JOB_ID__ !== null;
+            // ========================================
+            // 🎯 CORREÇÃO DEFINITIVA: LIMPAR FLAGS NO MODO GÊNERO
+            // ========================================
+            // Antes de qualquer decisão de renderização, verificar se é modo gênero puro
+            // e limpar TODAS as flags residuais de sessões anteriores de referência
+            if (analysis.mode === 'genre' && analysis.isReferenceBase !== true) {
+                console.log('[GENRE-MODE] 🧹 Detectado modo gênero puro - limpando flags de referência');
+                console.log('[GENRE-MODE] analysis.mode:', analysis.mode);
+                console.log('[GENRE-MODE] analysis.isReferenceBase:', analysis.isReferenceBase);
+                console.log('[GENRE-MODE] currentAnalysisMode:', window.currentAnalysisMode);
+                
+                // Limpar flags globais
+                window.__referenceComparisonActive = false;
+                window.__REFERENCE_JOB_ID__ = undefined;
+                window.referenceAnalysisData = undefined;
+                
+                // Limpar estado
+                const state = window.__soundyState || {};
+                if (state.reference) {
+                    state.reference.analysis = undefined;
+                    state.reference.isSecondTrack = false;
+                    state.reference.jobId = undefined;
+                }
+                if (state.render) {
+                    state.render.mode = 'genre';
+                }
+                window.__soundyState = state;
+                
+                console.log('[GENRE-MODE] ✅ Flags limpas - renderização isolada garantida');
+            }
+            
+            // 🎯 CORREÇÃO: isSecondTrack DEVE validar o modo
+            const isSecondTrack = (
+                analysis.mode === 'reference' &&
+                window.__REFERENCE_JOB_ID__ !== null &&
+                window.__REFERENCE_JOB_ID__ !== undefined
+            );
+            
             const mode = analysis?.mode || currentAnalysisMode;
             
             const state = window.__soundyState || {};
             
-            console.log('🔍 [RENDER-FLOW] Verificando se deve chamar renderReferenceComparisons:', {
-                mode,
+            console.log('🔍 [RENDER-FLOW] Verificando modo e decisão de renderização:', {
+                'analysis.mode': analysis.mode,
+                'analysis.isReferenceBase': analysis.isReferenceBase,
+                'currentAnalysisMode': window.currentAnalysisMode,
                 isSecondTrack,
                 hasReferenceAnalysisData: !!window.referenceAnalysisData,
-                shouldSkip: mode === 'reference' && isSecondTrack && window.referenceAnalysisData,
+                '__REFERENCE_JOB_ID__': window.__REFERENCE_JOB_ID__,
                 stateRenderMode: state.render?.mode
             });
             
@@ -9871,75 +9910,113 @@ async function displayModalResults(analysis) {
             });
             
             // ========================================
-            // ✅ CORREÇÃO 3: Padronizar chamada de renderReferenceComparisons
+            // 🎯 CORREÇÃO: DECISÃO DE RENDERIZAÇÃO BASEADA EM MODO
             // ========================================
-            // Nunca chamar em 'genre' se existe segunda faixa + referenceId
-            const mustBeReference = !!(window.__REFERENCE_JOB_ID__ && window.referenceAnalysisData?.bands);
-            const compareMode = mustBeReference ? 'reference' : (window.currentAnalysisMode || 'genre');
+            // NUNCA chamar renderReferenceComparisons() em modo gênero puro
+            const isGenrePure = (
+                analysis.mode === 'genre' &&
+                analysis.isReferenceBase !== true
+            );
             
-            console.log(`📊 [RENDER-FLOW] Preparando renderReferenceComparisons() - modo: ${compareMode}`);
-            console.log('[RENDER-FLOW] mustBeReference:', mustBeReference);
-            console.log('[RENDER-FLOW] __REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
-            console.log('[RENDER-FLOW] referenceAnalysisData.bands:', !!window.referenceAnalysisData?.bands);
+            const mustBeReference = (
+                !isGenrePure &&
+                (analysis.mode === 'reference' || analysis.isReferenceBase === true) &&
+                window.__REFERENCE_JOB_ID__ &&
+                window.referenceAnalysisData?.bands
+            );
             
-            // Preparar objeto ctx com clones profundos para evitar contaminação
-            const userClone = (typeof structuredClone === 'function') 
-                ? structuredClone(analysis) 
-                : JSON.parse(JSON.stringify(analysis));
+            const compareMode = mustBeReference ? 'reference' : (analysis.mode || 'genre');
             
-            const refClone = window.referenceAnalysisData 
-                ? ((typeof structuredClone === 'function') 
-                    ? structuredClone(window.referenceAnalysisData) 
-                    : JSON.parse(JSON.stringify(window.referenceAnalysisData)))
-                : null;
-            
-            const renderOpts = {
-                mode: compareMode,
-                user: userClone,
-                ref: refClone,
-                // Compatibilidade com código legado
-                analysis: analysis,
-                userAnalysis: state.userAnalysis || state.reference?.userAnalysis || userClone,
-                referenceAnalysis: state.referenceAnalysis || state.reference?.referenceAnalysis || refClone
-            };
-            
-            console.log('[RENDER-OPTS] ✅ Dados preparados:', {
-                mode: renderOpts.mode,
-                hasUser: !!renderOpts.user,
-                hasRef: !!renderOpts.ref,
-                userBands: !!renderOpts.user?.bands,
-                refBands: !!renderOpts.ref?.bands
-            });
-            
-            // 🔍 [AUDIT-BANDS-BEFORE] Log ANTES da chamada de renderReferenceComparisons
-            try {
-                const refBands = renderOpts.referenceAnalysis?.bands || renderOpts.referenceAnalysis?.technicalData?.spectral_balance;
-                const userBands = renderOpts.userAnalysis?.bands || renderOpts.userAnalysis?.technicalData?.spectral_balance;
-                console.log('[AUDIT-BANDS-BEFORE]', {
-                    hasRefBands: !!refBands,
-                    hasUserBands: !!userBands,
-                    refBandsType: typeof refBands,
-                    userBandsType: typeof userBands,
-                    refBandsKeys: refBands ? Object.keys(refBands) : [],
-                    userBandsKeys: userBands ? Object.keys(userBands) : [],
-                    refBandsPreview: refBands ? Object.keys(refBands).slice(0, 3) : 'N/A',
-                    userBandsPreview: userBands ? Object.keys(userBands).slice(0, 3) : 'N/A',
-                    renderOptsKeys: Object.keys(renderOpts)
-                });
-            } catch (err) {
-                console.warn('[AUDIT-ERROR]', 'AUDIT-BANDS-BEFORE', err);
-            }
-            
-            // ✅ [BANDS-FIX] Nunca espera bandas no DOM - trabalha direto nos objetos
-            // Se os objetos existem, seguimos — processamento é nos dados, não no DOM
-            const ensureBandsReady = (userFull, refFull) => {
-                return !!(userFull && refFull);
-            };
-
-            if (ensureBandsReady(renderOpts?.userAnalysis, renderOpts?.referenceAnalysis)) {
-                renderReferenceComparisons(renderOpts);
+            // ========================================
+            // 🎯 SEPARAÇÃO DE FLUXOS: GÊNERO vs REFERÊNCIA
+            // ========================================
+            if (isGenrePure) {
+                // ✅ MODO GÊNERO PURO - RENDERIZAÇÃO ISOLADA
+                console.log('🎵 [GENRE-MODE] ═══════════════════════════════════════');
+                console.log('🎵 [GENRE-MODE] MODO GÊNERO PURO DETECTADO');
+                console.log('🎵 [GENRE-MODE] Renderizando tabela de comparação com targets de gênero');
+                console.log('🎵 [GENRE-MODE] analysis.mode:', analysis.mode);
+                console.log('🎵 [GENRE-MODE] analysis.isReferenceBase:', analysis.isReferenceBase);
+                console.log('🎵 [GENRE-MODE] ═══════════════════════════════════════');
+                
+                // A renderização de cards, scores e sugestões já foi feita antes
+                // Aqui só precisamos garantir que a tabela de comparação de frequências seja renderizada
+                // (futuramente, criar função renderGenreComparison() dedicada)
+                console.log('[GENRE-MODE] ✅ Tabela de gênero será renderizada por lógica dedicada (futura implementação)');
+                
             } else {
-                console.warn('[BANDS-FIX] ⚠️ Objetos ausentes, pulando render');
+                // ✅ MODO REFERÊNCIA (PRIMEIRA OU SEGUNDA FAIXA)
+                console.log('🎵 [REFERENCE-MODE] ═══════════════════════════════════════');
+                console.log('🎵 [REFERENCE-MODE] MODO REFERÊNCIA DETECTADO');
+                console.log('🎵 [REFERENCE-MODE] analysis.mode:', analysis.mode);
+                console.log('🎵 [REFERENCE-MODE] analysis.isReferenceBase:', analysis.isReferenceBase);
+                console.log('🎵 [REFERENCE-MODE] isSecondTrack:', isSecondTrack);
+                console.log('🎵 [REFERENCE-MODE] ═══════════════════════════════════════');
+                
+                console.log(`📊 [RENDER-FLOW] Preparando renderReferenceComparisons() - modo: ${compareMode}`);
+                console.log('[RENDER-FLOW] mustBeReference:', mustBeReference);
+                console.log('[RENDER-FLOW] __REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
+                console.log('[RENDER-FLOW] referenceAnalysisData.bands:', !!window.referenceAnalysisData?.bands);
+                
+                // Preparar objeto ctx com clones profundos para evitar contaminação
+                const userClone = (typeof structuredClone === 'function') 
+                    ? structuredClone(analysis) 
+                    : JSON.parse(JSON.stringify(analysis));
+                
+                const refClone = window.referenceAnalysisData 
+                    ? ((typeof structuredClone === 'function') 
+                        ? structuredClone(window.referenceAnalysisData) 
+                        : JSON.parse(JSON.stringify(window.referenceAnalysisData)))
+                    : null;
+                
+                const renderOpts = {
+                    mode: compareMode,
+                    user: userClone,
+                    ref: refClone,
+                    // Compatibilidade com código legado
+                    analysis: analysis,
+                    userAnalysis: state.userAnalysis || state.reference?.userAnalysis || userClone,
+                    referenceAnalysis: state.referenceAnalysis || state.reference?.referenceAnalysis || refClone
+                };
+                
+                console.log('[RENDER-OPTS] ✅ Dados preparados:', {
+                    mode: renderOpts.mode,
+                    hasUser: !!renderOpts.user,
+                    hasRef: !!renderOpts.ref,
+                    userBands: !!renderOpts.user?.bands,
+                    refBands: !!renderOpts.ref?.bands
+                });
+                
+                // 🔍 [AUDIT-BANDS-BEFORE] Log ANTES da chamada de renderReferenceComparisons
+                try {
+                    const refBands = renderOpts.referenceAnalysis?.bands || renderOpts.referenceAnalysis?.technicalData?.spectral_balance;
+                    const userBands = renderOpts.userAnalysis?.bands || renderOpts.userAnalysis?.technicalData?.spectral_balance;
+                    console.log('[AUDIT-BANDS-BEFORE]', {
+                        hasRefBands: !!refBands,
+                        hasUserBands: !!userBands,
+                        refBandsType: typeof refBands,
+                        userBandsType: typeof userBands,
+                        refBandsKeys: refBands ? Object.keys(refBands) : [],
+                        userBandsKeys: userBands ? Object.keys(userBands) : [],
+                        refBandsPreview: refBands ? Object.keys(refBands).slice(0, 3) : 'N/A',
+                        userBandsPreview: userBands ? Object.keys(userBands).slice(0, 3) : 'N/A',
+                        renderOptsKeys: Object.keys(renderOpts)
+                    });
+                } catch (err) {
+                    console.warn('[AUDIT-ERROR]', 'AUDIT-BANDS-BEFORE', err);
+                }
+                
+                // ✅ [BANDS-FIX] Nunca espera bandas no DOM - trabalha direto nos objetos
+                // Se os objetos existem, seguimos — processamento é nos dados, não no DOM
+                const ensureBandsReady = (userFull, refFull) => {
+                    return !!(userFull && refFull);
+                };
+
+                if (ensureBandsReady(renderOpts?.userAnalysis, renderOpts?.referenceAnalysis)) {
+                    renderReferenceComparisons(renderOpts);
+                } else {
+                    console.warn('[BANDS-FIX] ⚠️ Objetos ausentes para comparação A/B, pulando render de referência');
+                }
             }
         } catch(e){ 
             console.error('❌ [RENDER-FLOW] ERRO em renderReferenceComparisons:', e);
