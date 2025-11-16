@@ -9937,12 +9937,25 @@ async function displayModalResults(analysis) {
                 console.log('🎵 [GENRE-MODE] Renderizando tabela de comparação com targets de gênero');
                 console.log('🎵 [GENRE-MODE] analysis.mode:', analysis.mode);
                 console.log('🎵 [GENRE-MODE] analysis.isReferenceBase:', analysis.isReferenceBase);
+                console.log('🎵 [GENRE-MODE] Gênero selecionado:', analysis.metadata?.genre || window.__selectedGenre);
                 console.log('🎵 [GENRE-MODE] ═══════════════════════════════════════');
                 
-                // A renderização de cards, scores e sugestões já foi feita antes
-                // Aqui só precisamos garantir que a tabela de comparação de frequências seja renderizada
-                // (futuramente, criar função renderGenreComparison() dedicada)
-                console.log('[GENRE-MODE] ✅ Tabela de gênero será renderizada por lógica dedicada (futura implementação)');
+                // ✅ CHAMAR RENDERER ORIGINAL COM MODO GÊNERO
+                // A função renderReferenceComparisons() já suporta modo gênero
+                // Ela renderiza tabela comparando análise atual com targets de gênero
+                const genreRenderOpts = {
+                    mode: 'genre',
+                    analysis: analysis,
+                    userAnalysis: analysis,
+                    referenceAnalysis: null, // Gênero não tem segunda faixa
+                    user: analysis,
+                    ref: null
+                };
+                
+                console.log('[GENRE-MODE] ✅ Chamando renderReferenceComparisons() com modo genre');
+                console.log('[GENRE-MODE] 📊 Targets de gênero disponíveis:', !!window.__activeRefData?.bands);
+                
+                renderReferenceComparisons(genreRenderOpts);
                 
             } else {
                 // ✅ MODO REFERÊNCIA (PRIMEIRA OU SEGUNDA FAIXA)
