@@ -613,9 +613,9 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
 
     // ===== REFERENCE COMPARISON =====
     // 🎯 MODO REFERENCE: Comparar com métricas preloaded da faixa de referência
-    // 🎵 MODO GENRE: Comparar com alvos de gênero
+    // 🎵 MODO GENRE: NÃO criar campo (retornar undefined)
     referenceComparison: (() => {
-      // Se modo reference E temos métricas preloaded, fazer comparação real
+      // 🔒 APENAS criar referenceComparison em modo reference COM métricas preloaded
       if (options.mode === 'reference' && options.preloadedReferenceMetrics) {
         console.log('🎯 [JSON-OUTPUT] Gerando comparação por REFERÊNCIA (faixa real)');
         
@@ -630,12 +630,9 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
         return generateReferenceComparison(technicalData, options.preloadedReferenceMetrics, comparisonOptions);
       }
       
-      // Caso contrário, usar comparação por gênero
-      console.log('🎵 [JSON-OUTPUT] Gerando comparação por GÊNERO (alvos padrão)');
-      return {
-        mode: 'genre',
-        references: generateGenreReference(technicalData, options.genre || 'trance')
-      };
+      // 🛡️ MODO GÊNERO: Retornar undefined para NÃO criar o campo
+      console.log('🎵 [JSON-OUTPUT] Modo gênero detectado - referenceComparison NÃO será criado');
+      return undefined;
     })(),
 
     // ===== METRICS (Structured for Frontend) =====
@@ -831,7 +828,8 @@ function createCompactJSON(fullJSON) {
     diagnostics: fullJSON.diagnostics,
     scores: fullJSON.scores,
     scoring: fullJSON.scoring,
-    referenceComparison: fullJSON.referenceComparison,
+    // 🔒 SEGURANÇA: Só incluir referenceComparison se realmente existir
+    ...(fullJSON.referenceComparison ? { referenceComparison: fullJSON.referenceComparison } : {}),
     // TechnicalData essencial para frontend
     technicalData: {
       lufsIntegrated: fullJSON.technicalData?.lufsIntegrated,
