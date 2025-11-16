@@ -264,9 +264,11 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       }
       
       // ✅ MODO REFERENCE: Comparar com análise de referência
+      // 🔒 SEGURANÇA: Só criar referenceComparison quando for REALMENTE modo reference
       if (mode === "reference" && referenceJobId) {
         console.log("[REFERENCE-MODE] Modo referência detectado - buscando análise de referência...");
         console.log("[REFERENCE-MODE] ReferenceJobId:", options.referenceJobId);
+        console.log("[REFERENCE-MODE] ✅ Condições validadas: mode='reference' + referenceJobId presente");
         
         // 🔍 AUDITORIA PONTO 1: Confirmação de contexto inicial
         console.log('[AI-AUDIT][REF] 🔍 referenceJobId detectado:', options.referenceJobId);
@@ -455,6 +457,17 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
             finalJSON.aiSuggestions = [];
           }
         }
+      }
+      
+      // 🔒 GARANTIA ADICIONAL: Remover referenceComparison se não for modo reference
+      if (mode !== "reference" && finalJSON.referenceComparison) {
+        console.log("[SECURITY] ⚠️ referenceComparison detectado em modo não-reference - removendo!");
+        console.log("[SECURITY] mode atual:", mode);
+        console.log("[SECURITY] isReferenceBase:", isReferenceBase);
+        delete finalJSON.referenceComparison;
+        delete finalJSON.referenceJobId;
+        delete finalJSON.referenceFileName;
+        console.log("[SECURITY] ✅ referenceComparison removido - modo gênero limpo");
       } else {
         // Modo genre normal
         finalJSON.suggestions = generateSuggestionsFromMetrics(coreMetrics, genre, mode);

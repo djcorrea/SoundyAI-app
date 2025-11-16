@@ -5074,10 +5074,28 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         // 🔒 POPULAR CACHE COM RESULTADO NORMALIZADO
         AnalysisCache.put(normalizedResult);
         
-        // ✅ CORREÇÃO: Carregar targets de gênero de /Refs/Out/ se não existirem
-        if (!normalizedResult.referenceComparison) {
+        // ✅ CORREÇÃO CRÍTICA: Carregar targets de gênero baseado em MODE, não em referenceComparison
+        const isGenreMode = (
+            normalizedResult.mode === 'genre' &&
+            normalizedResult.isReferenceBase !== true
+        );
+        
+        if (isGenreMode) {
+            console.log('[GENRE-TARGETS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            console.log('[GENRE-TARGETS] 🎵 MODO GÊNERO PURO DETECTADO');
+            console.log('[GENRE-TARGETS] mode:', normalizedResult.mode);
+            console.log('[GENRE-TARGETS] isReferenceBase:', normalizedResult.isReferenceBase);
+            console.log('[GENRE-TARGETS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+            
+            // 🔒 LIMPAR referenceComparison residual de sessões anteriores
+            if (normalizedResult.referenceComparison) {
+                console.log('[GENRE-TARGETS] ⚠️ referenceComparison residual detectado - removendo');
+                delete normalizedResult.referenceComparison;
+            }
+            
+            // Carregar targets de gênero de /Refs/Out/
             const genreId = normalizedResult.genreId || normalizedResult.metadata?.genre || normalizedResult.genre || "default";
-            console.log(`[GENRE-TARGETS] Tentando carregar targets para gênero: ${genreId}`);
+            console.log(`[GENRE-TARGETS] Carregando targets para gênero: ${genreId}`);
             
             try {
                 const response = await fetch(`/Refs/Out/${genreId}.json`);
@@ -5094,7 +5112,9 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
                 console.error("[GENRE-TARGETS] Continuando com targets padrão ou sem targets");
             }
         } else {
-            console.log("[GENRE-TARGETS] ✅ referenceComparison já existe, pulando carregamento");
+            console.log("[GENRE-TARGETS] ⚠️ Não é modo gênero puro - pulando carregamento de targets");
+            console.log("[GENRE-TARGETS] mode:", normalizedResult.mode);
+            console.log("[GENRE-TARGETS] isReferenceBase:", normalizedResult.isReferenceBase);
         }
         
         // 🎯 CORREÇÃO CRÍTICA: Gerar sugestões no primeiro load
