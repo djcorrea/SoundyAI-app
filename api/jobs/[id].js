@@ -115,7 +115,7 @@ router.get("/:id", async (req, res) => {
       }
     }
 
-    // �🚀 RESULTADO FINAL: Mesclar dados do job com análise completa
+    // 🚀 RESULTADO FINAL: Mesclar dados do job com análise completa
     const response = {
       id: job.id,
       fileKey: job.file_key,
@@ -129,12 +129,27 @@ router.get("/:id", async (req, res) => {
       ...(fullResult || {}),
       // ✅ GARANTIA EXPLÍCITA: aiSuggestions SEMPRE no objeto final
       aiSuggestions: fullResult?.aiSuggestions || [],
-      suggestions: fullResult?.suggestions || [],
-      // ✅ MODO REFERENCE: Adicionar campos de comparação A/B
-      referenceComparison: fullResult?.referenceComparison || null,
-      referenceJobId: fullResult?.referenceJobId || null,
-      referenceFileName: fullResult?.referenceFileName || null
+      suggestions: fullResult?.suggestions || []
     };
+
+    // ✅ CORREÇÃO CRÍTICA: Adicionar campos de referência APENAS se mode === 'reference'
+    // 🎯 FIX: Evita que modo 'genre' receba campos que confundem o frontend
+    if (job.mode === 'reference') {
+      response.referenceComparison = fullResult?.referenceComparison || null;
+      response.referenceJobId = fullResult?.referenceJobId || null;
+      response.referenceFileName = fullResult?.referenceFileName || null;
+      
+      console.log(`[API-FIX] ✅ Modo reference - campos de comparação incluídos`);
+      console.log(`[API-FIX]    referenceComparison presente:`, !!response.referenceComparison);
+      console.log(`[API-FIX]    referenceJobId:`, response.referenceJobId || 'null');
+    } else {
+      // ✅ GARANTIA: Remover campos se vieram no fullResult por engano
+      delete response.referenceComparison;
+      delete response.referenceJobId;
+      delete response.referenceFileName;
+      
+      console.log(`[API-FIX] ✅ Modo '${job.mode}' - campos de referência removidos`);
+    }
 
     // ✅ LOGS DE AUDITORIA DE RETORNO
     console.log(`[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
