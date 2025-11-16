@@ -3949,13 +3949,36 @@ function resetReferenceState() {
 function resetReferenceStateFully() {
     console.group('%c[GENRE-ISOLATION] 🧹 Limpeza completa do estado de referência', 'color:#FF6B6B;font-weight:bold;font-size:14px;');
     
-    // 1️⃣ Limpar variáveis globais window
+    // 1️⃣ Limpar variáveis globais window - CRÍTICO
     console.log('[GENRE-ISOLATION] 1️⃣ Limpando variáveis globais window...');
+    
+    // 🎯 CORREÇÃO CRÍTICA: Resetar PROD_AI_REF_DATA para false (não delete)
+    window.PROD_AI_REF_DATA = false;
+    console.log('   ✅ window.PROD_AI_REF_DATA: false');
+    
+    // 🎯 CORREÇÃO CRÍTICA: Resetar __activeRefData
+    window.__activeRefData = null;
+    console.log('   ✅ window.__activeRefData: null');
+    
+    // 🎯 CORREÇÃO CRÍTICA: Resetar __REFERENCE_JOB_ID__
     delete window.__REFERENCE_JOB_ID__;
+    console.log('   ✅ window.__REFERENCE_JOB_ID__: removido');
+    
+    // 🎯 CORREÇÃO CRÍTICA: Resetar __REFERENCE_FILE_KEY__
+    window.__REFERENCE_FILE_KEY__ = null;
+    console.log('   ✅ window.__REFERENCE_FILE_KEY__: null');
+    
+    // 🎯 CORREÇÃO CRÍTICA: Resetar __CURRENT_JOB_ID__
+    window.__CURRENT_JOB_ID__ = null;
+    console.log('   ✅ window.__CURRENT_JOB_ID__: null');
+    
+    // 🎯 CORREÇÃO CRÍTICA: Resetar __activeUserData
+    window.__activeUserData = null;
+    console.log('   ✅ window.__activeUserData: null');
+    
     delete window.referenceAnalysisData;
     window.__referenceComparisonActive = false;
     window.__FIRST_ANALYSIS_FROZEN__ = undefined;
-    console.log('   ✅ window.__REFERENCE_JOB_ID__: removido');
     console.log('   ✅ window.referenceAnalysisData: removido');
     console.log('   ✅ window.__referenceComparisonActive: false');
     
@@ -5999,6 +6022,10 @@ async function handleGenreFileSelection(file) {
 
     // 🐛 CORREÇÃO CRÍTICA: Só carregar referências de gênero se estivermos NO MODO GÊNERO
     if (window.currentAnalysisMode === 'genre') {
+        // 🎯 CORREÇÃO CRÍTICA: RESETAR ESTADO DE REFERÊNCIA ANTES DE CARREGAR TARGETS DE GÊNERO
+        console.log('🧹 [GENRE-MODE] Resetando estado de referência antes de carregar targets...');
+        resetReferenceStateFully();
+        
         // Garantir que referências do gênero selecionado estejam carregadas antes da análise (evita race e gênero errado)
         try {
             const genre = (typeof window !== 'undefined') ? window.PROD_AI_REF_GENRE : null;
