@@ -11323,6 +11323,12 @@ function renderReferenceComparisons(ctx) {
             // Extrair bandas do usuário
             const userBands = analysis.bands || analysis.technicalData?.spectral_balance || {};
             
+            console.log('🔍 [GENRE-DEBUG] Dados ANTES de processar tabela:');
+            console.log('   - userBands:', userBands);
+            console.log('   - userBands keys:', Object.keys(userBands));
+            console.log('   - genreTargets:', genreTargets);
+            console.log('   - genreTargets.bands:', genreTargets?.bands);
+            
             // 🔥 CORREÇÃO CRÍTICA: genreTargets JÁ É o objeto enriquecido
             // Não precisa acessar genreTargets[genreKey] novamente
             let targetBands = null;
@@ -11353,9 +11359,18 @@ function renderReferenceComparisons(ctx) {
             
             if (!targetBands) {
                 console.error('❌ [GENRE-ISOLATED] Não foi possível extrair targetBands');
+                console.error('   - genreTargets:', genreTargets);
+                console.error('   - genreTargets.bands:', genreTargets?.bands);
+                console.error('   - genreTargets.legacy_compatibility:', genreTargets?.legacy_compatibility);
+                console.error('   - genreTargets.hybrid_processing:', genreTargets?.hybrid_processing);
+                console.error('   - genre:', genre);
                 console.groupEnd();
                 return;
             }
+            
+            console.log('✅ [GENRE-DEBUG] targetBands extraído com sucesso:');
+            console.log('   - targetBands keys:', Object.keys(targetBands));
+            console.log('   - targetBands:', targetBands);
             
             // Mapeamento de bandas (userBands → targetBands)
             const bandMapping = {
@@ -11443,11 +11458,19 @@ function renderReferenceComparisons(ctx) {
                 </div>
             `;
             
+            console.log('🎨 [GENRE-DEBUG] HTML da tabela gerado:');
+            console.log('   - tableHTML length:', tableHTML.length);
+            console.log('   - tableHTML preview:', tableHTML.substring(0, 300));
+            console.log('   - container:', container);
+            console.log('   - container.id:', container?.id);
+            
             // Renderizar no container
             container.innerHTML = tableHTML;
             container.style.display = 'block';
             
             console.log('✅ [GENRE-ISOLATED] Tabela de gênero renderizada com sucesso');
+            console.log('   - container.innerHTML.length:', container.innerHTML.length);
+            console.log('   - container.style.display:', container.style.display);
             console.groupEnd();
             return; // ❌ NÃO continuar para guards de referência
             
