@@ -4014,9 +4014,24 @@ function resetReferenceStateFully(preserveGenre) {
     
     // 🔥 CORREÇÃO CRÍTICA: Salvar targets do gênero preservado ANTES de limpar
     let __savedGenreTargets = null;
-    if (__savedGenre && window.PROD_AI_REF_DATA && window.PROD_AI_REF_DATA[__savedGenre]) {
-        __savedGenreTargets = window.PROD_AI_REF_DATA[__savedGenre];
-        console.log('[GENRE-ISOLATION] 💾 Targets do gênero salvos:', __savedGenre);
+    if (__savedGenre) {
+        // PROD_AI_REF_DATA pode ser dicionário ou objeto único
+        if (window.PROD_AI_REF_DATA && typeof window.PROD_AI_REF_DATA === 'object') {
+            if (window.PROD_AI_REF_DATA[__savedGenre]) {
+                // Estrutura de dicionário
+                __savedGenreTargets = window.PROD_AI_REF_DATA[__savedGenre];
+                console.log('[GENRE-ISOLATION] 💾 Targets do gênero salvos (dicionário):', __savedGenre);
+            } else if (window.PROD_AI_REF_DATA.bands || window.PROD_AI_REF_DATA.legacy_compatibility) {
+                // Objeto único
+                __savedGenreTargets = window.PROD_AI_REF_DATA;
+                console.log('[GENRE-ISOLATION] 💾 Targets salvos (objeto único):', __savedGenre);
+            }
+        }
+        // Fallback para __activeRefData
+        if (!__savedGenreTargets && window.__activeRefData) {
+            __savedGenreTargets = window.__activeRefData;
+            console.log('[GENRE-ISOLATION] 💾 Targets salvos de __activeRefData:', __savedGenre);
+        }
     }
     
     // 🎯 CORREÇÃO CRÍTICA: Resetar PROD_AI_REF_DATA para false (não delete)
@@ -4291,17 +4306,38 @@ function renderGenreView(analysis) {
     console.log('[GENRE-VIEW] 4️⃣ Gênero identificado:', genre);
     
     // 6️⃣ Obter targets de gênero
-    const genreTargets = window.PROD_AI_REF_DATA?.[genre] || 
-                        window.__activeRefData;
+    // 🔥 CORREÇÃO: PROD_AI_REF_DATA pode ser um objeto único OU um dicionário
+    let genreTargets = null;
+    
+    if (window.PROD_AI_REF_DATA) {
+        if (typeof window.PROD_AI_REF_DATA === 'object' && window.PROD_AI_REF_DATA[genre]) {
+            // Estrutura de dicionário: { genre1: {...}, genre2: {...} }
+            genreTargets = window.PROD_AI_REF_DATA[genre];
+            console.log('[GENRE-VIEW] 📦 Targets obtidos de PROD_AI_REF_DATA[genre] (dicionário)');
+        } else if (window.PROD_AI_REF_DATA.bands || window.PROD_AI_REF_DATA.legacy_compatibility) {
+            // Objeto único diretamente atribuído
+            genreTargets = window.PROD_AI_REF_DATA;
+            console.log('[GENRE-VIEW] 📦 Targets obtidos de PROD_AI_REF_DATA (objeto único)');
+        }
+    }
+    
+    // Fallback para __activeRefData
+    if (!genreTargets && window.__activeRefData) {
+        genreTargets = window.__activeRefData;
+        console.log('[GENRE-VIEW] 📦 Targets obtidos de __activeRefData (fallback)');
+    }
     
     if (!genreTargets) {
         console.warn('[GENRE-VIEW] ⚠️ Targets de gênero não disponíveis');
-        console.warn('[GENRE-VIEW]    window.PROD_AI_REF_DATA:', !!window.PROD_AI_REF_DATA);
-        console.warn('[GENRE-VIEW]    window.__activeRefData:', !!window.__activeRefData);
+        console.warn('[GENRE-VIEW]    window.PROD_AI_REF_DATA:', window.PROD_AI_REF_DATA);
+        console.warn('[GENRE-VIEW]    window.__activeRefData:', window.__activeRefData);
+        console.warn('[GENRE-VIEW]    Tipo PROD_AI_REF_DATA:', typeof window.PROD_AI_REF_DATA);
     } else {
         console.log('[GENRE-VIEW] 5️⃣ Targets encontrados:', {
             hasBands: !!genreTargets?.bands,
-            bandsCount: genreTargets?.bands ? Object.keys(genreTargets.bands).length : 0
+            bandsCount: genreTargets?.bands ? Object.keys(genreTargets.bands).length : 0,
+            hasLegacyCompatibility: !!genreTargets?.legacy_compatibility,
+            hasLufsTarget: genreTargets?.lufs_target !== undefined
         });
     }
     
@@ -5641,7 +5677,22 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
                 try {
                     const response = await fetch(`/refs/out/${genreId}.json`);
                     if (response.ok) {
-                        const targets = await response.json();
+                        const rawJson = await response.json();
+                        
+                        // 🔥 CORREÇÃO CRÍTICA: Extrair o objeto interno do JSON
+                        // O JSON tem estrutura: { "genreId": { ...dados... } }
+                        const rootKey = Object.keys(rawJson)[0];
+                        let targets = rawJson[rootKey] || rawJson;
+                        
+                        console.log('[GENRE-TARGETS] 📦 JSON bruto carregado:', { 
+                            rootKey, 
+                            hasRootKey: !!rootKey,
+                            targetKeys: Object.keys(targets)
+                        });
+                        
+                        // 🔥 CORREÇÃO CRÍTICA: Enriquecer targets usando enrichReferenceObject
+                        targets = enrichReferenceObject(targets, genreId);
+                        console.log('[GENRE-TARGETS] 🔧 Targets enriquecidos via enrichReferenceObject');
                         
                         // 🔥 CORREÇÃO CRÍTICA: Atribuir targets a TODAS as variáveis globais
                         normalizedResult.referenceComparison = targets;
@@ -5664,14 +5715,18 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
                         window.__CURRENT_GENRE = genreId;
                         console.log(`[GENRE-TARGETS] 🎯 window.__CURRENT_GENRE = '${genreId}'`);
                         
-                        console.log(`[GENRE-TARGETS] ✅ Targets carregados para ${genreId}:`, targets);
-                        console.log('[GENRE-TARGETS] 📊 Estrutura targets:', {
+                        console.log(`[GENRE-TARGETS] ✅ Targets carregados e enriquecidos para ${genreId}`);
+                        console.log('[GENRE-TARGETS] 📊 Estrutura targets (APÓS enriquecimento):', {
                             hasBands: !!targets?.bands,
                             bandsCount: targets?.bands ? Object.keys(targets.bands).length : 0,
-                            hasLoudness: !!targets?.loudness,
-                            hasDynamics: !!targets?.dynamics,
-                            hasStereo: !!targets?.stereo
+                            hasLegacyCompatibility: !!targets?.legacy_compatibility,
+                            hasHybridProcessing: !!targets?.hybrid_processing,
+                            hasLufsTarget: !!targets?.lufs_target,
+                            hasTruePeakTarget: !!targets?.true_peak_target,
+                            hasDrTarget: !!targets?.dr_target,
+                            hasStereoTarget: !!targets?.stereo_target
                         });
+                        console.log('[GENRE-TARGETS] 📋 Targets.bands:', targets?.bands);
                     } else {
                         console.warn(`[GENRE-TARGETS] ⚠️ Arquivo não encontrado: /refs/out/${genreId}.json (${response.status})`);
                         console.warn(`[GENRE-TARGETS] Continuando sem targets específicos do gênero`);
