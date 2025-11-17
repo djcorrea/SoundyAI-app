@@ -11137,16 +11137,29 @@ function renderReferenceComparisons(ctx) {
             // Extrair bandas do usuário
             const userBands = analysis.bands || analysis.technicalData?.spectral_balance || {};
             
-            // Extrair targets de gênero (buscar em múltiplos locais)
+            // 🔥 CORREÇÃO CRÍTICA: genreTargets JÁ É o objeto enriquecido
+            // Não precisa acessar genreTargets[genreKey] novamente
             let targetBands = null;
-            const genreKey = genre?.toLowerCase().replace(/\s+/g, '_');
             
-            if (genreTargets[genreKey]?.legacy_compatibility?.bands) {
-                targetBands = genreTargets[genreKey].legacy_compatibility.bands;
-                console.log('🎯 [GENRE-ISOLATED] Usando legacy_compatibility.bands');
-            } else if (genreTargets[genreKey]?.hybrid_processing?.spectral_bands) {
-                targetBands = genreTargets[genreKey].hybrid_processing.spectral_bands;
-                console.log('🎯 [GENRE-ISOLATED] Usando hybrid_processing.spectral_bands');
+            // Prioridade 1: bands já mapeado via enrichReferenceObject
+            if (genreTargets.bands) {
+                targetBands = genreTargets.bands;
+                console.log('🎯 [GENRE-ISOLATED] Usando genreTargets.bands (enriquecido)');
+            } 
+            // Prioridade 2: legacy_compatibility.bands (fallback)
+            else if (genreTargets.legacy_compatibility?.bands) {
+                targetBands = genreTargets.legacy_compatibility.bands;
+                console.log('🎯 [GENRE-ISOLATED] Usando legacy_compatibility.bands (fallback)');
+            } 
+            // Prioridade 3: hybrid_processing.spectral_bands (fallback 2)
+            else if (genreTargets.hybrid_processing?.spectral_bands) {
+                targetBands = genreTargets.hybrid_processing.spectral_bands;
+                console.log('🎯 [GENRE-ISOLATED] Usando hybrid_processing.spectral_bands (fallback 2)');
+            } 
+            // Prioridade 4: Buscar na estrutura aninhada (caso não tenha sido enriquecido)
+            else if (genreTargets[genre]?.bands) {
+                targetBands = genreTargets[genre].bands;
+                console.log('🎯 [GENRE-ISOLATED] Usando genreTargets[genre].bands (estrutura aninhada)');
             } else if (genreTargets.bands) {
                 targetBands = genreTargets.bands;
                 console.log('🎯 [GENRE-ISOLATED] Usando bands direto');
