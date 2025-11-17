@@ -1,0 +1,18 @@
+{
+  "default": {
+    "version": "v1_fallback_safety",
+    "generated_at": "2025-11-16T00:00:00.000Z",
+    "num_tracks": 0,
+    "processing_mode": "fallback_only",
+    "note": "Este arquivo é um fallback de segurança e NÃO deve ser usado em produção. Se você está vendo este arquivo sendo carregado, significa que o gênero não foi preservado corretamente no fluxo.",
+    "lufs_target": -14,
+    "true_peak_target": -1,
+    "dynamic_range_target": 8,
+    "stereo_target": 0.1,
+    "lra_target": 6,
+    "bands": {},
+    "ranges": {},
+    "targets": {},
+    "error": "FALLBACK_DEFAULT_LOADED"
+  }
+}
