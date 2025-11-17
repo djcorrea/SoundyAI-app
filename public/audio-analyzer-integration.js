@@ -3980,9 +3980,34 @@ function resetReferenceState() {
     window.logReferenceEvent('reference_state_reset');
 }
 
+// 🎯 FUNÇÃO AUXILIAR: Obter gênero ativo de múltiplas fontes
+function getActiveGenre(analysis, fallback) {
+    const genre = analysis?.genre ||
+                 analysis?.genreId ||
+                 analysis?.metadata?.genre ||
+                 window.__CURRENT_GENRE ||
+                 window.__soundyState?.render?.genre ||
+                 window.__activeUserGenre ||
+                 window.PROD_AI_REF_GENRE ||
+                 fallback;
+    
+    console.log('[GET-ACTIVE-GENRE] Gênero detectado:', genre, '(fallback:', fallback, ')');
+    return genre;
+}
+
 // 🔥 CORREÇÃO CRÍTICA: Limpeza COMPLETA do estado de referência para modo gênero
-function resetReferenceStateFully() {
+function resetReferenceStateFully(preserveGenre) {
     console.group('%c[GENRE-ISOLATION] 🧹 Limpeza completa do estado de referência', 'color:#FF6B6B;font-weight:bold;font-size:14px;');
+    
+    // 🎯 SALVAR GÊNERO ANTES DE LIMPAR
+    const __savedGenre = preserveGenre || 
+                        window.__CURRENT_GENRE ||
+                        window.__soundyState?.render?.genre ||
+                        window.__activeUserGenre;
+    
+    if (__savedGenre) {
+        console.log('[GENRE-ISOLATION] 💾 Salvando gênero antes da limpeza:', __savedGenre);
+    }
     
     // 1️⃣ Limpar variáveis globais window - CRÍTICO
     console.log('[GENRE-ISOLATION] 1️⃣ Limpando variáveis globais window...');
@@ -4073,6 +4098,26 @@ function resetReferenceStateFully() {
             referenceAnalysis: null
         };
         console.log('   ✅ referenceStepState: resetado');
+    }
+    
+    // 🎯 RESTAURAR GÊNERO APÓS LIMPEZA
+    if (__savedGenre) {
+        console.log('[GENRE-ISOLATION] 🔄 Restaurando gênero:', __savedGenre);
+        window.__CURRENT_GENRE = __savedGenre;
+        
+        if (!window.__soundyState) {
+            window.__soundyState = {};
+        }
+        if (!window.__soundyState.render) {
+            window.__soundyState.render = {};
+        }
+        
+        window.__soundyState.render.genre = __savedGenre;
+        window.__activeUserGenre = __savedGenre;
+        
+        console.log('   ✅ window.__CURRENT_GENRE:', __savedGenre);
+        console.log('   ✅ window.__soundyState.render.genre:', __savedGenre);
+        console.log('   ✅ window.__activeUserGenre:', __savedGenre);
     }
     
     console.log('%c[GENRE-ISOLATION] ✅ Estado de referência completamente limpo', 'color:#00FF88;font-weight:bold;');
@@ -4195,7 +4240,14 @@ function renderGenreView(analysis) {
     
     // 2️⃣ Garantir limpeza completa
     console.log('[GENRE-VIEW] 1️⃣ Executando limpeza preventiva...');
-    resetReferenceStateFully();
+    // 🎯 PRESERVAR GÊNERO durante o reset
+    const genreToPreserve = getActiveGenre(analysis, window.PROD_AI_REF_GENRE);
+    resetReferenceStateFully(genreToPreserve);
+    
+    // 🎯 GARANTIR que analysis.genre está definido
+    if (genreToPreserve && !analysis.genre) {
+        analysis.genre = genreToPreserve;
+    }
     
     // 3️⃣ Configurar ViewMode
     console.log('[GENRE-VIEW] 2️⃣ Configurando ViewMode...');
@@ -5503,7 +5555,16 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
             console.log('[GENRE-BARRIER] normalizedResult.isReferenceBase:', normalizedResult.isReferenceBase);
             
             // 🔥 EXECUTAR LIMPEZA COMPLETA
-            resetReferenceStateFully();
+            // 🎯 PRESERVAR GÊNERO durante o reset
+            const genreToPreserve = getActiveGenre(normalizedResult, window.PROD_AI_REF_GENRE);
+            console.log('[GENRE-BARRIER] Gênero a preservar:', genreToPreserve);
+            resetReferenceStateFully(genreToPreserve);
+            
+            // 🎯 GARANTIR que normalizedResult.genre está definido
+            if (genreToPreserve && !normalizedResult.genre) {
+                normalizedResult.genre = genreToPreserve;
+                console.log('[GENRE-BARRIER] normalizedResult.genre restaurado:', genreToPreserve);
+            }
             
             // 🔒 CONFIGURAR VIEW MODE
             setViewMode("genre");
@@ -5538,12 +5599,27 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
             }
             
             // Carregar targets de gênero de /refs/out/
-            const genreId = normalizedResult.genreId || normalizedResult.metadata?.genre || normalizedResult.genre || "default";
-            console.log(`[GENRE-TARGETS] Carregando targets para gênero: ${genreId}`);
+            // 🎯 CORREÇÃO: Usar getActiveGenre ao invés de fallback direto para "default"
+            const genreId = getActiveGenre(normalizedResult, null);
             
-            try {
-                const response = await fetch(`/refs/out/${genreId}.json`);
-                if (response.ok) {
+            if (!genreId) {
+                console.warn('[GENRE-TARGETS] ⚠️ Nenhum gênero detectado - pulando carregamento de targets');
+                console.warn('[GENRE-TARGETS] Fontes verificadas:', {
+                    'normalizedResult.genre': normalizedResult.genre,
+                    'normalizedResult.genreId': normalizedResult.genreId,
+                    'normalizedResult.metadata?.genre': normalizedResult.metadata?.genre,
+                    'window.__CURRENT_GENRE': window.__CURRENT_GENRE,
+                    'window.PROD_AI_REF_GENRE': window.PROD_AI_REF_GENRE
+                });
+            } else {
+                console.log(`[GENRE-TARGETS] Carregando targets para gênero: ${genreId}`);
+            }
+            
+            // 🎯 VALIDAÇÃO: Só carregar se genreId for válido (não vazio, não 'default')
+            if (genreId && genreId !== 'default') {
+                try {
+                    const response = await fetch(`/refs/out/${genreId}.json`);
+                    if (response.ok) {
                     const targets = await response.json();
                     normalizedResult.referenceComparison = targets;
                     console.log(`[GENRE-TARGETS] ✅ Targets carregados para ${genreId}:`, targets);
@@ -5551,9 +5627,12 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
                     console.warn(`[GENRE-TARGETS] ⚠️ Arquivo não encontrado: /refs/out/${genreId}.json (${response.status})`);
                     console.warn(`[GENRE-TARGETS] Continuando sem targets específicos do gênero`);
                 }
-            } catch (err) {
-                console.error("[GENRE-TARGETS] ❌ Erro ao carregar targets de gênero:", err);
-                console.error("[GENRE-TARGETS] Continuando com targets padrão ou sem targets");
+                } catch (err) {
+                    console.error("[GENRE-TARGETS] ❌ Erro ao carregar targets de gênero:", err);
+                    console.error("[GENRE-TARGETS] Continuando com targets padrão ou sem targets");
+                }
+            } else {
+                console.warn('[GENRE-TARGETS] ⚠️ GenreId inválido ou "default" - pulando fetch:', genreId);
             }
         } else {
             console.log("[GENRE-TARGETS] ⚠️ Não é modo gênero puro - pulando carregamento de targets");
@@ -6058,8 +6137,11 @@ async function handleGenreFileSelection(file) {
     // 🐛 CORREÇÃO CRÍTICA: Só carregar referências de gênero se estivermos NO MODO GÊNERO
     if (window.currentAnalysisMode === 'genre') {
         // 🎯 CORREÇÃO CRÍTICA: RESETAR ESTADO DE REFERÊNCIA ANTES DE CARREGAR TARGETS DE GÊNERO
+        // 🎯 PRESERVAR GÊNERO durante o reset
+        const currentGenre = window.PROD_AI_REF_GENRE || window.__CURRENT_GENRE;
         console.log('🧹 [GENRE-MODE] Resetando estado de referência antes de carregar targets...');
-        resetReferenceStateFully();
+        console.log('🧹 [GENRE-MODE] Gênero preservado:', currentGenre);
+        resetReferenceStateFully(currentGenre);
         
         // Garantir que referências do gênero selecionado estejam carregadas antes da análise (evita race e gênero errado)
         try {
@@ -10333,7 +10415,16 @@ async function displayModalResults(analysis) {
                 console.log('[GENRE-BARRIER] currentAnalysisMode:', window.currentAnalysisMode);
                 
                 // 🔥 EXECUTAR LIMPEZA COMPLETA
-                resetReferenceStateFully();
+                // 🎯 PRESERVAR GÊNERO durante o reset
+                const genreToPreserve = getActiveGenre(analysis, window.PROD_AI_REF_GENRE);
+                console.log('[GENRE-BARRIER] Gênero a preservar:', genreToPreserve);
+                resetReferenceStateFully(genreToPreserve);
+                
+                // 🎯 GARANTIR que analysis.genre está definido
+                if (genreToPreserve && !analysis.genre) {
+                    analysis.genre = genreToPreserve;
+                    console.log('[GENRE-BARRIER] analysis.genre restaurado:', genreToPreserve);
+                }
                 
                 // 🔒 CONFIGURAR VIEW MODE
                 setViewMode("genre");
@@ -14507,7 +14598,12 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
     });
     
     // Determinar pesos por gênero
-    const genreKey = genre ? genre.toLowerCase().replace(/\s+/g, '_') : 'default';
+    // 🎯 CORREÇÃO: Não usar 'default' como fallback, usar null
+    const genreKey = genre ? genre.toLowerCase().replace(/\s+/g, '_') : null;
+    
+    if (!genreKey) {
+        console.warn('[GET-BAND-LABEL] Gênero não fornecido, usando label genérico');
+    }
     const weights = GENRE_SCORING_WEIGHTS[genreKey] || GENRE_SCORING_WEIGHTS['default'];
     
     console.log('⚖️ Pesos aplicados:', weights);
