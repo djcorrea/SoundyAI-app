@@ -4384,11 +4384,13 @@ function renderGenreView(analysis) {
     
     // 7️⃣ Renderizar tabela de comparação de gênero
     console.log('[GENRE-VIEW] 6️⃣ Renderizando tabela de comparação...');
+    console.log('[GENRE-VIEW] 🎯 GARANTIA: Chamando renderGenreComparisonTable com targets validados');
     renderGenreComparisonTable({
         analysis,
         genre,
         targets: genreTargets
     });
+    console.log('[GENRE-VIEW] 🎯 GARANTIA: renderGenreComparisonTable executado');
     
     console.log('%c[GENRE-VIEW] ✅ Renderização de gênero concluída', 'color:#00FF88;font-weight:bold;');
     console.groupEnd();
@@ -10627,6 +10629,19 @@ async function displayModalResults(analysis) {
         // O displayModalResults() já trata comparação via renderTrackComparisonTable()
         try { 
             // ========================================
+            // 🔥 EARLY RETURN: MODO GÊNERO TEM PRIORIDADE ABSOLUTA
+            // ========================================
+            // Verificar modo gênero ANTES de qualquer outra lógica
+            if (analysis?.mode === "genre") {
+                console.log('%c[GENRE-EARLY-RETURN] 🚧 MODO GÊNERO DETECTADO - RENDERIZAÇÃO DIRETA', 'color:#FF6B6B;font-weight:bold;font-size:14px;');
+                console.log('[GENRE-EARLY-RETURN] analysis.mode:', analysis.mode);
+                console.log('[GENRE-EARLY-RETURN] Chamando renderGenreView() diretamente');
+                renderGenreView(analysis);
+                console.log('%c[GENRE-EARLY-RETURN] ✅ CONCLUÍDO - RETORNANDO', 'color:#00FF88;font-weight:bold;');
+                return;
+            }
+            
+            // ========================================
             // 🔥 BARREIRA 1: ISOLAMENTO COMPLETO DO MODO GÊNERO
             // ========================================
             // ANTES de qualquer decisão de renderização, verificar se é modo gênero puro
@@ -11197,7 +11212,10 @@ function renderReferenceComparisons(ctx) {
                        window.__soundyState?.render?.mode === "genre" ||
                        (typeof getViewMode === 'function' && getViewMode() === "genre");
     
+    // 🔥 BYPASS TOTAL DE GUARDS PARA MODO GÊNERO
+    let bypassReturn = false;
     if (isGenreMode) {
+        bypassReturn = true;
         console.group('🎵 [GENRE-ISOLATED] 🚧 MODO GÊNERO DETECTADO - BYPASS DE GUARDS');
         console.log('🎵 [GENRE-ISOLATED] Modo:', ctx?.mode);
         console.log('🎵 [GENRE-ISOLATED] _isGenreIsolated:', ctx?._isGenreIsolated);
