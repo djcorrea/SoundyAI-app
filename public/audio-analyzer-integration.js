@@ -11075,11 +11075,105 @@ function deriveTolerance(rangeOrValue, fallback = 2.0) {
 }
 
 // 🎯 HELPER: Computar se tem dados necessários para referenceComparisonMetrics
+/**
+ * 🎯 FUNÇÃO CRÍTICA: Obter métricas de comparação ativas (modo referência OU gênero)
+ * 
+ * Esta função resolve o bug onde modo gênero não detectava targets carregados.
+ * 
+ * REGRAS:
+ * 1. Modo referência: usa analysis.referenceComparisonMetrics (vem do backend)
+ * 2. Modo gênero: usa window.__activeRefData / window.PROD_AI_REF_DATA[genre] (carregado no front)
+ * 3. Nunca quebra comportamento de modo referência existente
+ * 
+ * @param {Object} normalizedResult - Análise normalizada
+ * @returns {Object|null} - Métricas de comparação ou null
+ */
+function getActiveReferenceComparisonMetrics(normalizedResult) {
+    const mode = normalizedResult?.mode || window.__soundyState?.render?.mode || 'genre';
+    const genre = normalizedResult?.genre || 
+                  normalizedResult?.metadata?.genre ||
+                  window.__CURRENT_GENRE || 
+                  window.__soundyState?.render?.genre ||
+                  window.PROD_AI_REF_GENRE;
+
+    console.group('🔍 [GENRE-FIX] getActiveReferenceComparisonMetrics');
+    console.log('Mode:', mode);
+    console.log('Genre:', genre);
+
+    // 1️⃣ MODO REFERÊNCIA: usa o que veio do backend
+    if (mode === 'reference' && normalizedResult?.referenceComparisonMetrics) {
+        console.log('✅ [GENRE-FIX] Usando referenceComparisonMetrics do backend (modo reference)');
+        console.log('   - Fonte: backend');
+        console.log('   - Tem bands:', !!normalizedResult.referenceComparisonMetrics.bands);
+        console.groupEnd();
+        return normalizedResult.referenceComparisonMetrics;
+    }
+
+    // 2️⃣ MODO GÊNERO: usa targets carregados no front via [GENRE-TARGETS]
+    if (mode === 'genre') {
+        // Prioridade 1: window.__activeRefData (global universal)
+        if (window.__activeRefData) {
+            console.log('✅ [GENRE-FIX] Usando window.__activeRefData (modo genre)');
+            console.log('   - Fonte: window.__activeRefData');
+            console.log('   - Tem bands:', !!window.__activeRefData.bands);
+            console.log('   - Tem referenceComparisonMetrics:', !!window.__activeRefData.referenceComparisonMetrics);
+            console.groupEnd();
+            // Se existir estrutura referenceComparisonMetrics dentro, usa ela
+            // Senão, retorna o próprio objeto (que tem bands, lufs_target, etc)
+            return window.__activeRefData.referenceComparisonMetrics || window.__activeRefData;
+        }
+        
+        // Prioridade 2: window.PROD_AI_REF_DATA[genre] (dicionário por gênero)
+        if (genre && window.PROD_AI_REF_DATA && window.PROD_AI_REF_DATA[genre]) {
+            console.log('✅ [GENRE-FIX] Usando PROD_AI_REF_DATA[genre] (modo genre)');
+            console.log('   - Fonte: window.PROD_AI_REF_DATA[' + genre + ']');
+            console.log('   - Tem bands:', !!window.PROD_AI_REF_DATA[genre].bands);
+            console.groupEnd();
+            const genreData = window.PROD_AI_REF_DATA[genre];
+            return genreData.referenceComparisonMetrics || genreData;
+        }
+        
+        // Prioridade 3: Fallback para analysis.referenceComparisonMetrics (se existir)
+        if (normalizedResult?.referenceComparisonMetrics) {
+            console.log('✅ [GENRE-FIX] Usando analysis.referenceComparisonMetrics (fallback)');
+            console.log('   - Fonte: analysis.referenceComparisonMetrics');
+            console.groupEnd();
+            return normalizedResult.referenceComparisonMetrics;
+        }
+        
+        console.warn('❌ [GENRE-FIX] Nenhum target de gênero encontrado');
+        console.warn('   - window.__activeRefData:', !!window.__activeRefData);
+        console.warn('   - window.PROD_AI_REF_DATA:', !!window.PROD_AI_REF_DATA);
+        console.warn('   - Genre:', genre);
+        console.groupEnd();
+        return null;
+    }
+
+    // 3️⃣ FALLBACK: tentar analysis.referenceComparisonMetrics
+    if (normalizedResult?.referenceComparisonMetrics) {
+        console.log('✅ [GENRE-FIX] Usando analysis.referenceComparisonMetrics (fallback genérico)');
+        console.groupEnd();
+        return normalizedResult.referenceComparisonMetrics;
+    }
+
+    console.warn('❌ [GENRE-FIX] Nenhuma métrica de comparação disponível');
+    console.groupEnd();
+    return null;
+}
+
 function computeHasReferenceComparisonMetrics(analysis) {
-    const hasBands = !!(analysis?.bands || analysis?.spectralBands?.centralized || analysis?.spectral?.bands);
-    const hasScores = !!(analysis?.scores?.frequency || analysis?.scoring?.frequency);
-    const hasRefStruct = !!analysis?.referenceComparison;
-    return hasRefStruct || (hasBands && hasScores);
+    // 🎯 CORREÇÃO CRÍTICA: Usar getActiveReferenceComparisonMetrics() ao invés de só verificar analysis
+    const comparisonMetrics = getActiveReferenceComparisonMetrics(analysis);
+    const hasMetrics = !!comparisonMetrics;
+    
+    console.log('[GENRE-FIX] computeHasReferenceComparisonMetrics:', {
+        hasMetrics,
+        mode: analysis?.mode,
+        hasActiveRefData: !!window.__activeRefData,
+        hasProdAiRefData: !!window.PROD_AI_REF_DATA
+    });
+    
+    return hasMetrics;
 }
 
 // --- BEGIN: band target resolver (mode-aware) ---
@@ -15181,14 +15275,21 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
 
 // Recalcular apenas as sugestões baseadas em referência (sem reprocessar o áudio)
 function updateReferenceSuggestions(analysis) {
+    // 🎯 CORREÇÃO CRÍTICA: Usar getActiveReferenceComparisonMetrics() para detectar targets corretamente
+    const activeComparisonMetrics = getActiveReferenceComparisonMetrics(analysis);
+    const hasActiveComparisonMetrics = !!activeComparisonMetrics;
+    
     console.log('🔍 [DEBUG-REF] updateReferenceSuggestions chamado:', {
         hasAnalysis: !!analysis,
         hasTechnicalData: !!analysis?.technicalData,
         hasActiveRefData: !!__activeRefData,
-        hasReferenceComparisonMetrics: !!referenceComparisonMetrics,
+        hasReferenceComparisonMetrics: hasActiveComparisonMetrics, // ✅ CORRIGIDO: usa função nova
+        hasReferenceComparisonMetricsOLD: !!referenceComparisonMetrics, // ❌ ANTIGO (para comparação)
         activeRefGenre: __activeRefGenre,
         activeRefDataKeys: __activeRefData ? Object.keys(__activeRefData) : null,
-        currentGenre: window.PROD_AI_REF_GENRE
+        currentGenre: window.PROD_AI_REF_GENRE,
+        mode: analysis?.mode,
+        activeComparisonMetricsSource: activeComparisonMetrics ? 'detected' : 'none'
     });
     
     if (!analysis || !analysis.technicalData) {
