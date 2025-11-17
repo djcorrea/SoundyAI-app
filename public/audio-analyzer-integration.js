@@ -2666,24 +2666,60 @@ function enrichReferenceObject(refObj, genreKey) {
     try {
         if (!refObj || typeof refObj !== 'object') return refObj;
         
-        // CORREÇÃO CRÍTICA: Mapear legacy_compatibility para propriedades root
+        // 🔥 CORREÇÃO CRÍTICA: Mapear hybrid_processing para propriedades root
+        if (refObj.hybrid_processing && typeof refObj.hybrid_processing === 'object') {
+            const hybrid = refObj.hybrid_processing;
+            
+            // Mapear original_metrics
+            if (hybrid.original_metrics && typeof hybrid.original_metrics === 'object') {
+                refObj.original_metrics = hybrid.original_metrics;
+                
+                // Mapear métricas individuais para compatibilidade
+                if (hybrid.original_metrics.lufs_integrated !== undefined) {
+                    refObj.lufs_target = hybrid.original_metrics.lufs_integrated;
+                }
+                if (hybrid.original_metrics.true_peak_dbtp !== undefined) {
+                    refObj.true_peak_target = hybrid.original_metrics.true_peak_dbtp;
+                }
+                if (hybrid.original_metrics.dynamic_range !== undefined) {
+                    refObj.dr_target = hybrid.original_metrics.dynamic_range;
+                }
+                if (hybrid.original_metrics.stereo_correlation !== undefined) {
+                    refObj.stereo_target = hybrid.original_metrics.stereo_correlation;
+                }
+                if (hybrid.original_metrics.lra !== undefined) {
+                    refObj.lra_target = hybrid.original_metrics.lra;
+                }
+            }
+            
+            // Mapear spectral_bands (prioridade sobre legacy)
+            if (hybrid.spectral_bands && typeof hybrid.spectral_bands === 'object') {
+                refObj.spectral_bands = hybrid.spectral_bands;
+                // Também atribuir a 'bands' para compatibilidade
+                if (!refObj.bands) {
+                    refObj.bands = hybrid.spectral_bands;
+                }
+            }
+        }
+        
+        // CORREÇÃO CRÍTICA: Mapear legacy_compatibility para propriedades root (fallback)
         if (refObj.legacy_compatibility && typeof refObj.legacy_compatibility === 'object') {
             const legacy = refObj.legacy_compatibility;
             
-            // Mapear propriedades principais
-            if (legacy.lufs_target !== undefined) refObj.lufs_target = legacy.lufs_target;
+            // Mapear propriedades principais (apenas se não foram definidas por hybrid)
+            if (legacy.lufs_target !== undefined && refObj.lufs_target === undefined) refObj.lufs_target = legacy.lufs_target;
             if (legacy.tol_lufs !== undefined) refObj.tol_lufs = legacy.tol_lufs;
-            if (legacy.true_peak_target !== undefined) refObj.true_peak_target = legacy.true_peak_target;
+            if (legacy.true_peak_target !== undefined && refObj.true_peak_target === undefined) refObj.true_peak_target = legacy.true_peak_target;
             if (legacy.tol_true_peak !== undefined) refObj.tol_true_peak = legacy.tol_true_peak;
-            if (legacy.dr_target !== undefined) refObj.dr_target = legacy.dr_target;
+            if (legacy.dr_target !== undefined && refObj.dr_target === undefined) refObj.dr_target = legacy.dr_target;
             if (legacy.tol_dr !== undefined) refObj.tol_dr = legacy.tol_dr;
-            if (legacy.lra_target !== undefined) refObj.lra_target = legacy.lra_target;
+            if (legacy.lra_target !== undefined && refObj.lra_target === undefined) refObj.lra_target = legacy.lra_target;
             if (legacy.tol_lra !== undefined) refObj.tol_lra = legacy.tol_lra;
-            if (legacy.stereo_target !== undefined) refObj.stereo_target = legacy.stereo_target;
+            if (legacy.stereo_target !== undefined && refObj.stereo_target === undefined) refObj.stereo_target = legacy.stereo_target;
             if (legacy.tol_stereo !== undefined) refObj.tol_stereo = legacy.tol_stereo;
             
-            // Mapear bandas de frequência
-            if (legacy.bands && typeof legacy.bands === 'object') {
+            // Mapear bandas de frequência (apenas se não foram definidas por hybrid)
+            if (legacy.bands && typeof legacy.bands === 'object' && !refObj.bands) {
                 refObj.bands = legacy.bands;
             }
         }
@@ -5693,6 +5729,44 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
                         // 🔥 CORREÇÃO CRÍTICA: Enriquecer targets usando enrichReferenceObject
                         targets = enrichReferenceObject(targets, genreId);
                         console.log('[GENRE-TARGETS] 🔧 Targets enriquecidos via enrichReferenceObject');
+                        
+                        // 🔍 DIAGNÓSTICO: Logs detalhados da estrutura após enriquecimento
+                        console.log('[GENRE-TARGETS] 📊 Estrutura targets (APÓS enriquecimento):', {
+                            hasBands: !!targets?.bands,
+                            bandsCount: targets?.bands ? Object.keys(targets.bands).length : 0,
+                            hasSpectralBands: !!targets?.spectral_bands,
+                            spectralBandsCount: targets?.spectral_bands ? Object.keys(targets.spectral_bands).length : 0,
+                            hasLegacyCompatibility: !!targets?.legacy_compatibility,
+                            hasHybridProcessing: !!targets?.hybrid_processing,
+                            hasOriginalMetrics: !!targets?.original_metrics,
+                            hasLufsTarget: targets?.lufs_target !== undefined,
+                            hasTruePeakTarget: targets?.true_peak_target !== undefined,
+                            hasDrTarget: targets?.dr_target !== undefined,
+                            hasStereoTarget: targets?.stereo_target !== undefined
+                        });
+                        
+                        // 🔍 DIAGNÓSTICO: Amostra das bandas
+                        if (targets?.bands) {
+                            const sampleBand = Object.keys(targets.bands)[0];
+                            console.log('[GENRE-TARGETS] 📋 Amostra de banda:', sampleBand, targets.bands[sampleBand]);
+                        }
+                        
+                        // 🔥 CORREÇÃO CRÍTICA: Criar referenceComparisonMetrics para UI
+                        normalizedResult.referenceComparisonMetrics = {
+                            bands: targets.bands || targets.spectral_bands,
+                            spectralBands: targets.spectral_bands || targets.bands,
+                            legacyBands: targets.legacy_compatibility?.bands,
+                            originalMetrics: targets.original_metrics || targets.hybrid_processing?.original_metrics,
+                            lufs_target: targets.lufs_target,
+                            true_peak_target: targets.true_peak_target,
+                            dr_target: targets.dr_target,
+                            stereo_target: targets.stereo_target,
+                            lra_target: targets.lra_target
+                        };
+                        console.log('[GENRE-TARGETS] 📦 referenceComparisonMetrics criado:', {
+                            hasBands: !!normalizedResult.referenceComparisonMetrics.bands,
+                            hasOriginalMetrics: !!normalizedResult.referenceComparisonMetrics.originalMetrics
+                        });
                         
                         // 🔥 CORREÇÃO CRÍTICA: Atribuir targets a TODAS as variáveis globais
                         normalizedResult.referenceComparison = targets;
