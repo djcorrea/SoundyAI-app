@@ -10504,46 +10504,8 @@ async function displayModalResults(analysis) {
             );
             
             if (isGenrePure) {
-                // ✅ MODO GÊNERO: Usar renderização isolada
-                console.log('%c[GENRE-BARRIER] 🚧 BARREIRA 2 ATIVADA: Renderização isolada de gênero', 'color:#FF6B6B;font-weight:bold;font-size:14px;');
-                
-                // 🔥 CONFIGURAR VIEW MODE
-                setViewMode("genre");
-                
-                // 🔥 CHAMAR RENDERIZAÇÃO ISOLADA DE GÊNERO
-                renderGenreView(analysis);
-                
-                console.log('%c[GENRE-BARRIER] ✅ BARREIRA 2 CONCLUÍDA: Renderização de gênero finalizada', 'color:#00FF88;font-weight:bold;');
-                
-                // ❌ NÃO executar lógica de referência
-                return;
-            }
-            
-            // ========================================
-            // 🎯 MODO REFERÊNCIA: Configurar ViewMode e prosseguir
-            // ========================================
-            console.log('[REFERENCE-MODE] Configurando ViewMode para "reference"');
-            setViewMode("reference");
-            hideGenreUI();
-            showReferenceUI();
-            
-            // ========================================
-            // 🎯 MODO REFERÊNCIA: Fluxo normal
-            // ========================================
-            const mustBeReference = (
-                !isGenrePure &&
-                (analysis.mode === 'reference' || analysis.isReferenceBase === true) &&
-                window.__REFERENCE_JOB_ID__ &&
-                window.referenceAnalysisData?.bands
-            );
-            
-            const compareMode = mustBeReference ? 'reference' : (analysis.mode || 'genre');
-            
-            // ========================================
-            // 🎯 SEPARAÇÃO DE FLUXOS: GÊNERO vs REFERÊNCIA
-            // ========================================
-            if (isGenrePure) {
                 // ✅ MODO GÊNERO PURO - RENDERIZAÇÃO ISOLADA
+                console.log('%c[GENRE-BARRIER] 🚧 BARREIRA 2 ATIVADA: Renderização isolada de gênero', 'color:#FF6B6B;font-weight:bold;font-size:14px;');
                 console.log('🎵 [GENRE-MODE] ═══════════════════════════════════════');
                 console.log('🎵 [GENRE-MODE] MODO GÊNERO PURO DETECTADO');
                 console.log('🎵 [GENRE-MODE] Renderizando tabela de comparação com targets de gênero');
@@ -10552,23 +10514,17 @@ async function displayModalResults(analysis) {
                 console.log('🎵 [GENRE-MODE] Gênero selecionado:', analysis.metadata?.genre || window.__selectedGenre);
                 console.log('🎵 [GENRE-MODE] ═══════════════════════════════════════');
                 
-                // ✅ CHAMAR RENDERER ORIGINAL COM MODO GÊNERO
-                // A função renderReferenceComparisons() já suporta modo gênero
-                // Ela renderiza tabela comparando análise atual com targets de gênero
-                const genreRenderOpts = {
-                    mode: 'genre',
-                    analysis: analysis,
-                    userAnalysis: analysis,
-                    referenceAnalysis: null, // Gênero não tem segunda faixa
-                    user: analysis,
-                    ref: null
-                };
+                // 🔥 CONFIGURAR VIEW MODE
+                setViewMode("genre");
                 
-                console.log('[GENRE-MODE] ✅ Chamando renderReferenceComparisons() com modo genre');
-                console.log('[GENRE-MODE] 📊 Targets de gênero disponíveis:', !!window.__activeRefData?.bands);
+                // 🔥 CHAMAR RENDERIZAÇÃO ISOLADA DE GÊNERO
+                console.log('[GENRE-MODE] ✅ Chamando renderGenreView()');
+                renderGenreView(analysis);
                 
-                renderReferenceComparisons(genreRenderOpts);
+                console.log('%c[GENRE-BARRIER] ✅ BARREIRA 2 CONCLUÍDA: Renderização de gênero finalizada', 'color:#00FF88;font-weight:bold;');
                 
+                // ❌ NÃO executar lógica de referência
+                return;
             } else {
                 // ✅ MODO REFERÊNCIA (PRIMEIRA OU SEGUNDA FAIXA)
                 console.log('🎵 [REFERENCE-MODE] ═══════════════════════════════════════');
