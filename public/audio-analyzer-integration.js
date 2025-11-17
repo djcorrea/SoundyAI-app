@@ -8353,6 +8353,13 @@ async function displayModalResults(analysis) {
     
     console.log('[AUDIT-FLOW-CHECK] ✅ Todos os gates passaram - continuando para renderização');
     
+    // 🔥 CORREÇÃO CRÍTICA: Abrir modal ANTES de renderizar modo gênero
+    // O container #referenceComparisons só existe DEPOIS do modal ser aberto
+    if (uploadArea) uploadArea.style.display = 'none';
+    if (loading) loading.style.display = 'none';
+    results.style.display = 'block';
+    console.log('[MODAL-OPEN] ✅ Modal aberto - results.style.display = "block"');
+    
     // 🔧 CORREÇÃO CRÍTICA: Normalizar dados do backend para compatibilidade com front-end
     // ✅ PATCH: Normalização redundante REMOVIDA - dados já normalizados em handleModalFileSelection
     if (analysis && typeof analysis === 'object') {
@@ -8929,12 +8936,8 @@ async function displayModalResults(analysis) {
 
     /* =========[ /BLOCO: SCORES A/B ]========= */
     
-    // Ocultar outras seções
-    if (uploadArea) uploadArea.style.display = 'none';
-    if (loading) loading.style.display = 'none';
-    
-    // Mostrar resultados
-    results.style.display = 'block';
+    // 🔥 REMOVIDO: Modal já foi aberto no início da função (linha 8350)
+    // Remover duplicação de abertura do modal que estava causando problemas no modo gênero
     
     // 🎯 NOVO: Verificar se é modo referência e adicionar seção de comparação
     if (analysis.analysisMode === 'reference' && analysis.comparison) {
