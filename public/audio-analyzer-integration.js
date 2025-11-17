@@ -11022,7 +11022,185 @@ if (typeof window.comparisonLock === "undefined") {
 // --- BEGIN: deterministic mode gate ---
 function renderReferenceComparisons(ctx) {
     // ========================================
-    // 🎯 PASSO 1: VALIDAR DADOS DO STORE SE DISPONÍVEL
+    // 🎯 PASSO 0: DETECÇÃO DE MODO GÊNERO (PRIORIDADE MÁXIMA)
+    // ========================================
+    // 🔥 CRITICAL: Detectar modo gênero ANTES de qualquer guard de referência
+    const isGenreMode = ctx?.mode === "genre" || 
+                       ctx?._isGenreIsolated === true ||
+                       ctx?.analysis?.mode === "genre" ||
+                       window.__soundyState?.render?.mode === "genre" ||
+                       (typeof getViewMode === 'function' && getViewMode() === "genre");
+    
+    if (isGenreMode) {
+        console.group('🎵 [GENRE-ISOLATED] 🚧 MODO GÊNERO DETECTADO - BYPASS DE GUARDS');
+        console.log('🎵 [GENRE-ISOLATED] Modo:', ctx?.mode);
+        console.log('🎵 [GENRE-ISOLATED] _isGenreIsolated:', ctx?._isGenreIsolated);
+        console.log('🎵 [GENRE-ISOLATED] analysis.mode:', ctx?.analysis?.mode);
+        console.log('🎵 [GENRE-ISOLATED] Targets disponíveis:', !!ctx?.targets?.bands);
+        console.log('🎵 [GENRE-ISOLATED] Bandas do usuário:', !!ctx?.analysis?.bands);
+        
+        // 🎯 RENDERIZAÇÃO ISOLADA DE GÊNERO
+        const container = document.getElementById('referenceComparisons');
+        if (!container) {
+            console.error('❌ [GENRE-ISOLATED] Container #referenceComparisons não encontrado');
+            console.groupEnd();
+            return;
+        }
+        
+        // Extrair dados necessários
+        const analysis = ctx?.analysis || ctx?.userAnalysis || ctx?.user;
+        const genreTargets = ctx?.targets || analysis?.referenceComparison || window.__activeRefData;
+        const genre = ctx?.genre || analysis?.genre || window.__CURRENT_GENRE;
+        
+        if (!analysis) {
+            console.error('❌ [GENRE-ISOLATED] Análise não disponível');
+            console.groupEnd();
+            return;
+        }
+        
+        if (!genreTargets || !genreTargets.bands) {
+            console.warn('⚠️ [GENRE-ISOLATED] Targets de gênero não disponíveis');
+            console.warn('   - ctx.targets:', !!ctx?.targets);
+            console.warn('   - analysis.referenceComparison:', !!analysis?.referenceComparison);
+            console.warn('   - window.__activeRefData:', !!window.__activeRefData);
+            console.groupEnd();
+            return;
+        }
+        
+        console.log('✅ [GENRE-ISOLATED] Dados validados, iniciando renderização de tabela de gênero');
+        console.log('   - Gênero:', genre);
+        console.log('   - Bandas do usuário:', analysis.bands ? Object.keys(analysis.bands) : 'N/A');
+        console.log('   - Targets disponíveis:', genreTargets.bands ? Object.keys(genreTargets.bands) : 'N/A');
+        
+        // 🎯 RENDERIZAR TABELA DE GÊNERO (implementação inline)
+        try {
+            // Extrair bandas do usuário
+            const userBands = analysis.bands || analysis.technicalData?.spectral_balance || {};
+            
+            // Extrair targets de gênero (buscar em múltiplos locais)
+            let targetBands = null;
+            const genreKey = genre?.toLowerCase().replace(/\s+/g, '_');
+            
+            if (genreTargets[genreKey]?.legacy_compatibility?.bands) {
+                targetBands = genreTargets[genreKey].legacy_compatibility.bands;
+                console.log('🎯 [GENRE-ISOLATED] Usando legacy_compatibility.bands');
+            } else if (genreTargets[genreKey]?.hybrid_processing?.spectral_bands) {
+                targetBands = genreTargets[genreKey].hybrid_processing.spectral_bands;
+                console.log('🎯 [GENRE-ISOLATED] Usando hybrid_processing.spectral_bands');
+            } else if (genreTargets.bands) {
+                targetBands = genreTargets.bands;
+                console.log('🎯 [GENRE-ISOLATED] Usando bands direto');
+            }
+            
+            if (!targetBands) {
+                console.error('❌ [GENRE-ISOLATED] Não foi possível extrair targetBands');
+                console.groupEnd();
+                return;
+            }
+            
+            // Mapeamento de bandas (userBands → targetBands)
+            const bandMapping = {
+                'sub': 'sub',
+                'bass': 'low_bass',
+                'lowMid': 'low_mid',
+                'mid': 'mid',
+                'highMid': 'high_mid',
+                'presence': 'presenca',
+                'air': 'brilho'
+            };
+            
+            // Montar HTML da tabela
+            let tableHTML = `
+                <div class="comparison-section genre-mode">
+                    <h3>📊 Comparação com Gênero: ${genre || 'Selecionado'}</h3>
+                    <table class="comparison-table">
+                        <thead>
+                            <tr>
+                                <th>Banda</th>
+                                <th>Sua Faixa</th>
+                                <th>Target Ideal</th>
+                                <th>Diferença</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            // Processar cada banda
+            Object.entries(bandMapping).forEach(([userKey, targetKey]) => {
+                const userBand = userBands[userKey];
+                const targetBand = targetBands[targetKey];
+                
+                if (!userBand || !targetBand) return;
+                
+                // Extrair valor do usuário (em dB)
+                let userValue = null;
+                if (typeof userBand === 'object' && Number.isFinite(userBand.energy_db)) {
+                    userValue = userBand.energy_db;
+                } else if (typeof userBand === 'object' && Number.isFinite(userBand.rms_db)) {
+                    userValue = userBand.rms_db;
+                } else if (Number.isFinite(userBand)) {
+                    userValue = userBand;
+                }
+                
+                if (!Number.isFinite(userValue)) return;
+                
+                // Extrair target (usar target_range se disponível)
+                let targetMin, targetMax, targetCenter;
+                if (targetBand.target_range) {
+                    targetMin = targetBand.target_range.min;
+                    targetMax = targetBand.target_range.max;
+                    targetCenter = (targetMin + targetMax) / 2;
+                } else if (Number.isFinite(targetBand.target_db)) {
+                    targetCenter = targetBand.target_db;
+                    const tol = targetBand.tol_db || 3;
+                    targetMin = targetCenter - tol;
+                    targetMax = targetCenter + tol;
+                }
+                
+                if (!Number.isFinite(targetCenter)) return;
+                
+                // Calcular diferença e status
+                const diff = userValue - targetCenter;
+                const isInRange = userValue >= targetMin && userValue <= targetMax;
+                const status = isInRange ? '✅ Ideal' : (diff > 0 ? '⚠️ Alto' : '⚠️ Baixo');
+                const statusClass = isInRange ? 'status-good' : 'status-warning';
+                
+                // Adicionar linha na tabela
+                tableHTML += `
+                    <tr class="${statusClass}">
+                        <td><strong>${userKey.toUpperCase()}</strong></td>
+                        <td>${userValue.toFixed(1)} dB</td>
+                        <td>${targetCenter.toFixed(1)} dB (±${((targetMax - targetMin) / 2).toFixed(1)})</td>
+                        <td>${diff > 0 ? '+' : ''}${diff.toFixed(1)} dB</td>
+                        <td>${status}</td>
+                    </tr>
+                `;
+            });
+            
+            tableHTML += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            // Renderizar no container
+            container.innerHTML = tableHTML;
+            container.style.display = 'block';
+            
+            console.log('✅ [GENRE-ISOLATED] Tabela de gênero renderizada com sucesso');
+            console.groupEnd();
+            return; // ❌ NÃO continuar para guards de referência
+            
+        } catch (err) {
+            console.error('❌ [GENRE-ISOLATED] Erro ao renderizar tabela de gênero:', err);
+            console.groupEnd();
+            return;
+        }
+    }
+    
+    // ========================================
+    // 🎯 PASSO 1: VALIDAR DADOS DO STORE SE DISPONÍVEL (MODO REFERENCE)
     // ========================================
     console.group('🎯 [RENDER-REF] VALIDAÇÃO DE FONTE DE DADOS');
     
