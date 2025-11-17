@@ -29,6 +29,29 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// ---------- Servir arquivos estáticos da pasta public ----------
+// 🎯 CRÍTICO: Servir JSONs de referência e frontend estático
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Servir pasta public com configuração correta de headers para JSON
+app.use(express.static(path.join(__dirname, '../public'), {
+  setHeaders: (res, filePath) => {
+    // Garantir que arquivos .json sejam servidos com Content-Type correto
+    if (filePath.endsWith('.json')) {
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    }
+  },
+  // Não usar index.html como fallback para evitar servir HTML no lugar de JSON
+  index: false
+}));
+
+console.log('📁 [STATIC] Servindo arquivos estáticos de:', path.join(__dirname, '../public'));
+console.log('📁 [STATIC] Arquivos JSON de referência disponíveis em: /refs/out/*.json');
+
 // ---------- Logging middleware ----------
 app.use((req, res, next) => {
   console.log(`🌐 [API] ${req.method} ${req.path} - ${new Date().toISOString()}`);
@@ -105,6 +128,12 @@ app.get('/health/queue', async (req, res) => {
 
 // ---------- Root endpoint ----------
 app.get('/', (req, res) => {
+  // Servir index.html do frontend
+  res.sendFile(path.join(__dirname, '../public/index.html'));
+});
+
+// ---------- API Info endpoint ----------
+app.get('/api', (req, res) => {
   res.json({
     service: 'SoundyAI API',
     status: 'running',
@@ -113,7 +142,8 @@ app.get('/', (req, res) => {
     endpoints: {
       analyze: '/api/audio/analyze',
       jobs: '/api/jobs/:id',
-      health: '/health'
+      health: '/health',
+      presign: '/api/presign'
     }
   });
 });
