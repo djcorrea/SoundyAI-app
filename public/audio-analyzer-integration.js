@@ -8611,11 +8611,37 @@ async function displayModalResults(analysis) {
       if (!refData || typeof refData !== 'object') refData = {};
       if (!__num(refData.tol_spectral) || refData.tol_spectral <= 0) refData.tol_spectral = 300;
 
+      // 🎯 MODO GÊNERO: Detectar se é modo gênero baseado em análise e state
+      const isGenreMode = analysisObj?.mode === "genre" || 
+                         window.__soundyState?.render?.mode === "genre" ||
+                         (getViewMode && getViewMode() === "genre");
+      
+      // 🎯 MODO GÊNERO: Verificar se há targets de gênero carregados
+      const hasGenreTargets = !!(analysisObj?.referenceComparison?.bands || 
+                                analysisObj?.referenceComparison?.legacy_compatibility?.bands ||
+                                analysisObj?.genreTargets?.bands);
+      
+      console.log('🔍 [SCORES-GUARD-ENHANCED]', {
+        isGenreMode,
+        hasGenreTargets,
+        analysisMode: analysisObj?.mode,
+        viewMode: window.__soundyState?.render?.mode,
+        hasRefBands: !!(refData?.bands),
+        isReferenceMode: refData?._isReferenceMode,
+        disabledBands: refData?._disabledBands
+      });
+
       // Chama o cálculo original
       const out = calculateAnalysisScores(analysisObj, refData, genre) || {};
 
-      // Se frequência está desativada (sem bandas confiáveis), zera peso de frequência e re-normaliza
-      if (!refData.bands || refData._disabledBands) {
+      // 🎯 DECISÃO DE DESATIVAR FREQUÊNCIA:
+      // - Modo REFERENCE: desativar se !refData.bands ou _disabledBands
+      // - Modo GENRE: NÃO desativar se houver targets de gênero carregados
+      const shouldDisableFrequency = isGenreMode 
+        ? (!hasGenreTargets && (!refData.bands || refData._disabledBands)) // Modo gênero: só desativar se NÃO houver targets
+        : (!refData.bands || refData._disabledBands); // Modo reference: desativar se sem bandas A/B
+      
+      if (shouldDisableFrequency) {
         const subs = out.subscores || out; // compat: alguns retornam direto
         const weights = {
           loudness: 0.32, dinamica: 0.23, frequencia: 0.0, estereo: 0.15, tecnico: 0.30 // soma = 1.0
@@ -8632,6 +8658,8 @@ async function displayModalResults(analysis) {
         out._weightsApplied = weights;
         out._freqDisabled = true;
         console.warn('⚠️ [SCORES-GUARD] Frequência desativada ⇒ pesos re-normalizados', weights);
+      } else if (isGenreMode && hasGenreTargets) {
+        console.log('✅ [SCORES-GUARD] Modo GÊNERO: Frequência ATIVADA (targets de gênero disponíveis)');
       }
 
       // Hard-cap de True Peak continua valendo (o seu já está aplicado antes)
@@ -14557,6 +14585,87 @@ function calculateTechnicalScore(analysis, refData) {
 function calculateAnalysisScores(analysis, refData, genre = null) {
     console.log('🎯 Calculando scores da análise...', { genre });
     
+    // 🎯 MODO GÊNERO: Detectar se é modo gênero e se há targets carregados
+    const isGenreMode = analysis?.mode === "genre" || 
+                       window.__soundyState?.render?.mode === "genre" ||
+                       (typeof getViewMode === 'function' && getViewMode() === "genre");
+    
+    // 🎯 MODO GÊNERO: Extrair targets de gênero de referenceComparison
+    let genreTargetBands = null;
+    let genreTargetMetrics = null;
+    
+    if (isGenreMode && analysis?.referenceComparison) {
+        const refComp = analysis.referenceComparison;
+        
+        // Buscar em múltiplos locais possíveis (estrutura varia entre JSONs)
+        const genreKey = genre || analysis.genre || analysis.genreId;
+        const genreData = genreKey ? refComp[genreKey] : null;
+        
+        // Extrair bandas: legacy_compatibility.bands OU hybrid_processing.spectral_bands
+        if (genreData?.legacy_compatibility?.bands) {
+            genreTargetBands = genreData.legacy_compatibility.bands;
+            console.log('🎯 [GENRE-TARGETS] Usando legacy_compatibility.bands:', Object.keys(genreTargetBands));
+        } else if (genreData?.hybrid_processing?.spectral_bands) {
+            genreTargetBands = genreData.hybrid_processing.spectral_bands;
+            console.log('🎯 [GENRE-TARGETS] Usando hybrid_processing.spectral_bands:', Object.keys(genreTargetBands));
+        } else if (refComp.bands) {
+            genreTargetBands = refComp.bands;
+            console.log('🎯 [GENRE-TARGETS] Usando bands direto:', Object.keys(genreTargetBands));
+        }
+        
+        // Extrair métricas escalares (LUFS, DR, etc.)
+        if (genreData?.legacy_compatibility) {
+            const lc = genreData.legacy_compatibility;
+            genreTargetMetrics = {
+                lufs_target: lc.lufs_target,
+                true_peak_target: lc.true_peak_target,
+                dr_target: lc.dr_target,
+                lra_target: lc.lra_target,
+                stereo_target: lc.stereo_target,
+                tol_lufs: lc.tol_lufs || 1.0,
+                tol_true_peak: lc.tol_true_peak || 0.25,
+                tol_dr: lc.tol_dr || 1.25,
+                tol_lra: lc.tol_lra || 2.5,
+                tol_stereo: lc.tol_stereo || 0.065
+            };
+            console.log('🎯 [GENRE-TARGETS] Métricas extraídas de legacy_compatibility');
+        } else if (genreData?.hybrid_processing?.original_metrics) {
+            const om = genreData.hybrid_processing.original_metrics;
+            genreTargetMetrics = {
+                lufs_target: om.lufs_integrated,
+                true_peak_target: om.true_peak_dbtp,
+                dr_target: om.dynamic_range,
+                lra_target: om.lra,
+                stereo_target: om.stereo_correlation,
+                tol_lufs: 1.0,
+                tol_true_peak: 0.25,
+                tol_dr: 1.25,
+                tol_lra: 2.5,
+                tol_stereo: 0.065
+            };
+            console.log('🎯 [GENRE-TARGETS] Métricas extraídas de hybrid_processing.original_metrics');
+        }
+        
+        // 🎯 INJETAR targets de gênero em refData se disponíveis
+        if (genreTargetBands && Object.keys(genreTargetBands).length > 0) {
+            console.log('✅ [GENRE-TARGETS] Injetando bandas de gênero em refData');
+            refData = {
+                ...refData,
+                bands: genreTargetBands,
+                _isReferenceMode: false, // NÃO é modo A/B
+                _isGenreMode: true,
+                _genreTargetsLoaded: true
+            };
+            
+            // Mesclar métricas se disponíveis
+            if (genreTargetMetrics) {
+                refData = { ...refData, ...genreTargetMetrics };
+            }
+        } else {
+            console.warn('⚠️ [GENRE-TARGETS] Targets de gênero não encontrados em referenceComparison');
+        }
+    }
+    
     // 🔍 [AUDIT-BANDS-IN-CALC] Log NO INÍCIO do cálculo de scores
     try {
         const refBandsInCalc = refData?.bands || refData?._referenceBands;
@@ -14571,7 +14680,9 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
             refBandsSample: refBandsInCalc ? Object.keys(refBandsInCalc).slice(0, 3) : 'undefined',
             userBandsSample: userBandsInCalc ? Object.keys(userBandsInCalc).slice(0, 3) : 'undefined',
             refDataKeys: refData ? Object.keys(refData) : [],
-            isReferenceMode: refData?._isReferenceMode
+            isReferenceMode: refData?._isReferenceMode,
+            isGenreMode: isGenreMode,
+            genreTargetsLoaded: refData?._genreTargetsLoaded
         });
     } catch (err) {
         console.warn('[AUDIT-ERROR]', 'AUDIT-BANDS-IN-CALC', err);
