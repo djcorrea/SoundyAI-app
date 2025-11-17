@@ -8725,8 +8725,45 @@ async function displayModalResults(analysis) {
         console.log('[INTEGRITY CHECK] ✅ userFull e refFull são diferentes — prosseguindo com cálculo');
     }
     
-    const selfCompare = __tracksLookSame(userTd, refTd, userMd, refMd, userBands, refBands);
-    const refBandsOK  = __bandsAreMeaningful(refBands);
+    // 🎯 ROOT CAUSE FIX: Detectar modo gênero ANTES de calcular refBandsOK
+    // Em modo gênero, refBands vem de genreTargets, NÃO de referenceAnalysis!
+    const isGenreMode = analysis?.mode === "genre" || 
+                       state?.render?.mode === "genre" ||
+                       (!window.__REFERENCE_JOB_ID__ && !state?.reference?.isSecondTrack);
+    
+    let finalRefBands = refBands;
+    
+    if (isGenreMode) {
+        console.log('🎯 [GENRE-BANDS-FIX] Modo GÊNERO detectado - buscando bandas de genreTargets');
+        
+        // Buscar bandas dos targets de gênero carregados
+        const genreTargets = window.__activeRefData || 
+                           analysis?.referenceComparison || 
+                           (analysis?.genre ? window.PROD_AI_REF_DATA?.[analysis.genre] : null);
+        
+        if (genreTargets) {
+            // Tentar extrair bandas de diferentes estruturas possíveis
+            finalRefBands = genreTargets.bands || 
+                          genreTargets.legacy_compatibility?.bands ||
+                          genreTargets.hybrid_processing?.spectral_bands ||
+                          null;
+            
+            console.log('🎯 [GENRE-BANDS-FIX] Bandas de gênero encontradas:', {
+                source: genreTargets.bands ? 'bands' : 
+                       genreTargets.legacy_compatibility?.bands ? 'legacy_compatibility.bands' :
+                       genreTargets.hybrid_processing?.spectral_bands ? 'hybrid_processing.spectral_bands' : 'null',
+                bands: finalRefBands ? Object.keys(finalRefBands) : 'null',
+                genre: analysis?.genre
+            });
+        } else {
+            console.warn('⚠️ [GENRE-BANDS-FIX] Targets de gênero NÃO encontrados! refBands será null');
+        }
+    } else {
+        console.log('🔄 [AB-MODE] Modo A/B detectado - usando refBands de referenceAnalysis');
+    }
+    
+    const selfCompare = __tracksLookSame(userTd, refTd, userMd, refMd, userBands, finalRefBands);
+    const refBandsOK  = __bandsAreMeaningful(finalRefBands);
     const userBandsOK = __bandsAreMeaningful(userBands);
 
     // 🧪 MODO VERIFICAÇÃO: Log estruturado com console.table
@@ -8740,15 +8777,18 @@ async function displayModalResults(analysis) {
         'userLUFS': userTd?.lufsIntegrated || 'N/A',
         'refLUFS': refTd?.lufsIntegrated || 'N/A',
         'userBandsOK': userBandsOK,
-        'refBandsOK': refBandsOK
+        'refBandsOK': refBandsOK,
+        'isGenreMode': isGenreMode,
+        'finalRefBands': finalRefBands ? 'OK' : 'null'
     });
     
     console.log('[VERIFY_AB_ORDER]', {
       mode: state.render.mode,
+      isGenreMode: isGenreMode,
       userFile: userMd.fileName, refFile: refMd.fileName,
       userLUFS: userTd.lufsIntegrated, refLUFS: refTd.lufsIntegrated,
       userBands: userBandsOK ? __keys(userBands) : 'ausente',
-      refBands: refBandsOK  ? __keys(refBands)  : 'ausente',
+      refBands: refBandsOK  ? __keys(finalRefBands)  : 'ausente',
       selfCompare
     });
     
@@ -8772,7 +8812,7 @@ async function displayModalResults(analysis) {
     if (!refBandsOK || !userBandsOK || selfCompare) {
       disableFrequency = true;
       console.warn('⚠️ [SCORES-GUARD] Desativando score de Frequência:',
-        { refBandsOK, userBandsOK, selfCompare });
+        { refBandsOK, userBandsOK, selfCompare, isGenreMode });
 
       // monta alvo somente com métricas escalares (sem bandas)
       referenceDataForScores = {
@@ -8788,7 +8828,7 @@ async function displayModalResults(analysis) {
         _disabledBands: true
       };
     } else {
-      // fluxo normal (A/B saudável)
+      // fluxo normal (A/B saudável OU modo gênero com targets)
       referenceDataForScores = {
         lufs_target:          refTd.lufsIntegrated ?? refTd.lufs_integrated,
         true_peak_target:     refTd.truePeakDbtp   ?? refTd.true_peak_dbtp,
@@ -8796,15 +8836,17 @@ async function displayModalResults(analysis) {
         lra_target:           refTd.lra,
         stereo_target:        refTd.stereoCorrelation ?? refTd.stereo_correlation,
         spectral_centroid_target: refTd.spectralCentroidHz ?? refTd.spectral_centroid,
-        bands: refBands, // <- bandas reais da referência
+        bands: finalRefBands, // <- bandas reais (de referência A/B ou gênero)
         tol_lufs: 0.5, tol_true_peak: 0.3, tol_dr: 1.0, tol_lra: 1.0, tol_stereo: 0.08, tol_spectral: 300,
         _isReferenceMode: true
       };
     }
 
     console.log('[SCORE-FIX] Bandas preparadas p/ cálculo:', {
-      disableFrequency, refBands: referenceDataForScores.bands ? __keys(referenceDataForScores.bands) : 'desativado',
-      userBands: userBandsOK ? __keys(userBands) : 'ausente'
+      disableFrequency, 
+      refBands: referenceDataForScores.bands ? __keys(referenceDataForScores.bands) : 'desativado',
+      userBands: userBandsOK ? __keys(userBands) : 'ausente',
+      isGenreMode: isGenreMode
     });
 
     /** 4) Cálculo seguro com proteção de tolerância e re-balanceamento de pesos */
