@@ -2887,25 +2887,60 @@ async function fetchRefJsonWithFallback(paths) {
     for (const p of paths) {
         if (!p) continue;
         try {
+            // 🎯 CORREÇÃO: Usar window.location.origin para garantir caminho absoluto no deploy
+            const baseUrl = (typeof window !== 'undefined' && window.location) 
+                ? window.location.origin 
+                : '';
+            
+            // Se o path já é absoluto (começa com http), não adicionar origin
+            const fullUrl = p.startsWith('http') ? p : `${baseUrl}${p.startsWith('/') ? '' : '/'}${p}`;
+            
             // Cache-busting para evitar CDN retornar 404 ou versões antigas
-            const hasQ = p.includes('?');
-            const url = p + (hasQ ? '&' : '?') + 'v=' + Date.now();
+            const hasQ = fullUrl.includes('?');
+            const url = fullUrl + (hasQ ? '&' : '?') + 'v=' + Date.now();
+            
             if (__DEBUG_ANALYZER__) console.log('[refs] tentando fetch:', url);
+            
             const res = await fetch(url, {
                 cache: 'no-store',
-                headers: { 'Cache-Control': 'no-cache', 'Pragma': 'no-cache' }
+                headers: { 
+                    'Cache-Control': 'no-cache', 
+                    'Pragma': 'no-cache',
+                    'Accept': 'application/json'
+                }
             });
+            
             if (res.ok) {
+                // 🎯 VALIDAÇÃO CRÍTICA: Verificar Content-Type
+                const contentType = res.headers.get('content-type') || '';
+                if (!contentType.includes('application/json')) {
+                    console.warn('[refs] ⚠️ Content-Type incorreto:', contentType, 'em', p);
+                    console.warn('[refs] Esperado: application/json, recebido HTML provavelmente');
+                    throw new Error(`Content-Type inválido: ${contentType} (esperado JSON)`);
+                }
+                
                 if (__DEBUG_ANALYZER__) console.log('[refs] OK:', p);
                 
                 // Verificar se a resposta tem conteúdo JSON válido
                 const text = await res.text();
+                
+                // 🎯 VALIDAÇÃO CRÍTICA: Detectar HTML no lugar de JSON
+                if (text.trim().startsWith('<!DOCTYPE') || text.trim().startsWith('<html')) {
+                    console.error('[refs] ❌ ERRO: Servidor retornou HTML ao invés de JSON em', p);
+                    console.error('[refs] Primeiros 200 caracteres:', text.substring(0, 200));
+                    throw new Error(`HTML retornado ao invés de JSON em ${p}`);
+                }
+                
                 if (text.trim()) {
                     try {
-                        return JSON.parse(text);
+                        const json = JSON.parse(text);
+                        console.log('[refs] ✅ JSON válido carregado de:', p);
+                        return json;
                     } catch (jsonError) {
-                        console.warn('[refs] JSON inválido em', p, ':', text.substring(0, 100));
-                        throw new Error(`JSON inválido em ${p}`);
+                        console.error('[refs] ❌ JSON inválido em', p);
+                        console.error('[refs] Erro:', jsonError.message);
+                        console.error('[refs] Primeiros 200 caracteres:', text.substring(0, 200));
+                        throw new Error(`JSON inválido em ${p}: ${jsonError.message}`);
                     }
                 } else {
                     console.warn('[refs] Resposta vazia em', p);
