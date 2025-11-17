@@ -4012,13 +4012,32 @@ function resetReferenceStateFully(preserveGenre) {
     // 1️⃣ Limpar variáveis globais window - CRÍTICO
     console.log('[GENRE-ISOLATION] 1️⃣ Limpando variáveis globais window...');
     
+    // 🔥 CORREÇÃO CRÍTICA: Salvar targets do gênero preservado ANTES de limpar
+    let __savedGenreTargets = null;
+    if (__savedGenre && window.PROD_AI_REF_DATA && window.PROD_AI_REF_DATA[__savedGenre]) {
+        __savedGenreTargets = window.PROD_AI_REF_DATA[__savedGenre];
+        console.log('[GENRE-ISOLATION] 💾 Targets do gênero salvos:', __savedGenre);
+    }
+    
     // 🎯 CORREÇÃO CRÍTICA: Resetar PROD_AI_REF_DATA para false (não delete)
     window.PROD_AI_REF_DATA = false;
     console.log('   ✅ window.PROD_AI_REF_DATA: false');
     
-    // 🎯 CORREÇÃO CRÍTICA: Resetar __activeRefData
-    window.__activeRefData = null;
-    console.log('   ✅ window.__activeRefData: null');
+    // 🔥 CORREÇÃO CRÍTICA: Restaurar targets do gênero preservado
+    if (__savedGenre && __savedGenreTargets) {
+        if (!window.PROD_AI_REF_DATA || window.PROD_AI_REF_DATA === false) {
+            window.PROD_AI_REF_DATA = {};
+        }
+        window.PROD_AI_REF_DATA[__savedGenre] = __savedGenreTargets;
+        window.__activeRefData = __savedGenreTargets;
+        console.log(`[GENRE-ISOLATION] 🔄 Targets restaurados para gênero: ${__savedGenre}`);
+        console.log('   ✅ window.PROD_AI_REF_DATA[' + __savedGenre + ']: restaurado');
+        console.log('   ✅ window.__activeRefData: restaurado com targets do gênero');
+    } else {
+        // 🎯 CORREÇÃO CRÍTICA: Resetar __activeRefData apenas se não houver gênero preservado
+        window.__activeRefData = null;
+        console.log('   ✅ window.__activeRefData: null');
+    }
     
     // 🎯 CORREÇÃO CRÍTICA: Resetar __REFERENCE_JOB_ID__
     delete window.__REFERENCE_JOB_ID__;
@@ -4114,10 +4133,12 @@ function resetReferenceStateFully(preserveGenre) {
         
         window.__soundyState.render.genre = __savedGenre;
         window.__activeUserGenre = __savedGenre;
+        window.PROD_AI_REF_GENRE = __savedGenre;  // ✅ CORREÇÃO: Sincronizar PROD_AI_REF_GENRE
         
         console.log('   ✅ window.__CURRENT_GENRE:', __savedGenre);
         console.log('   ✅ window.__soundyState.render.genre:', __savedGenre);
         console.log('   ✅ window.__activeUserGenre:', __savedGenre);
+        console.log('   ✅ window.PROD_AI_REF_GENRE:', __savedGenre);
     }
     
     console.log('%c[GENRE-ISOLATION] ✅ Estado de referência completamente limpo', 'color:#00FF88;font-weight:bold;');
@@ -5620,13 +5641,41 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
                 try {
                     const response = await fetch(`/refs/out/${genreId}.json`);
                     if (response.ok) {
-                    const targets = await response.json();
-                    normalizedResult.referenceComparison = targets;
-                    console.log(`[GENRE-TARGETS] ✅ Targets carregados para ${genreId}:`, targets);
-                } else {
-                    console.warn(`[GENRE-TARGETS] ⚠️ Arquivo não encontrado: /refs/out/${genreId}.json (${response.status})`);
-                    console.warn(`[GENRE-TARGETS] Continuando sem targets específicos do gênero`);
-                }
+                        const targets = await response.json();
+                        
+                        // 🔥 CORREÇÃO CRÍTICA: Atribuir targets a TODAS as variáveis globais
+                        normalizedResult.referenceComparison = targets;
+                        
+                        // ✅ CORREÇÃO: Inicializar window.PROD_AI_REF_DATA como objeto se for false
+                        if (!window.PROD_AI_REF_DATA || window.PROD_AI_REF_DATA === false) {
+                            window.PROD_AI_REF_DATA = {};
+                            console.log('[GENRE-TARGETS] 🔧 Inicializando window.PROD_AI_REF_DATA como objeto');
+                        }
+                        
+                        // ✅ CORREÇÃO: Atribuir targets ao gênero específico
+                        window.PROD_AI_REF_DATA[genreId] = targets;
+                        console.log(`[GENRE-TARGETS] 📦 window.PROD_AI_REF_DATA['${genreId}'] atribuído`);
+                        
+                        // ✅ CORREÇÃO: Atualizar __activeRefData
+                        window.__activeRefData = targets;
+                        console.log('[GENRE-TARGETS] 📦 window.__activeRefData atualizado');
+                        
+                        // ✅ CORREÇÃO: Sincronizar gênero ativo
+                        window.__CURRENT_GENRE = genreId;
+                        console.log(`[GENRE-TARGETS] 🎯 window.__CURRENT_GENRE = '${genreId}'`);
+                        
+                        console.log(`[GENRE-TARGETS] ✅ Targets carregados para ${genreId}:`, targets);
+                        console.log('[GENRE-TARGETS] 📊 Estrutura targets:', {
+                            hasBands: !!targets?.bands,
+                            bandsCount: targets?.bands ? Object.keys(targets.bands).length : 0,
+                            hasLoudness: !!targets?.loudness,
+                            hasDynamics: !!targets?.dynamics,
+                            hasStereo: !!targets?.stereo
+                        });
+                    } else {
+                        console.warn(`[GENRE-TARGETS] ⚠️ Arquivo não encontrado: /refs/out/${genreId}.json (${response.status})`);
+                        console.warn(`[GENRE-TARGETS] Continuando sem targets específicos do gênero`);
+                    }
                 } catch (err) {
                     console.error("[GENRE-TARGETS] ❌ Erro ao carregar targets de gênero:", err);
                     console.error("[GENRE-TARGETS] Continuando com targets padrão ou sem targets");
