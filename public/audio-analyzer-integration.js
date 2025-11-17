@@ -4364,16 +4364,21 @@ function renderGenreView(analysis) {
     }
     
     if (!genreTargets) {
-        console.warn('[GENRE-VIEW] ⚠️ Targets de gênero não disponíveis');
-        console.warn('[GENRE-VIEW]    window.PROD_AI_REF_DATA:', window.PROD_AI_REF_DATA);
-        console.warn('[GENRE-VIEW]    window.__activeRefData:', window.__activeRefData);
-        console.warn('[GENRE-VIEW]    Tipo PROD_AI_REF_DATA:', typeof window.PROD_AI_REF_DATA);
+        console.error('[GENRE-VIEW] ❌ CRÍTICO: Targets de gênero não disponíveis - ABORTANDO');
+        console.error('[GENRE-VIEW]    window.PROD_AI_REF_DATA:', window.PROD_AI_REF_DATA);
+        console.error('[GENRE-VIEW]    window.__activeRefData:', window.__activeRefData);
+        console.error('[GENRE-VIEW]    Tipo PROD_AI_REF_DATA:', typeof window.PROD_AI_REF_DATA);
+        console.error('[GENRE-VIEW]    analysis.referenceComparison:', analysis.referenceComparison);
+        console.error('[GENRE-VIEW] 🔍 DIAGNÓSTICO: Verificar se targets foram carregados antes de displayModalResults');
+        console.groupEnd();
+        return; // ❌ ABORTAR se não houver targets
     } else {
         console.log('[GENRE-VIEW] 5️⃣ Targets encontrados:', {
             hasBands: !!genreTargets?.bands,
             bandsCount: genreTargets?.bands ? Object.keys(genreTargets.bands).length : 0,
             hasLegacyCompatibility: !!genreTargets?.legacy_compatibility,
-            hasLufsTarget: genreTargets?.lufs_target !== undefined
+            hasLufsTarget: genreTargets?.lufs_target !== undefined,
+            bandas: genreTargets?.bands ? Object.keys(genreTargets.bands) : 'N/A'
         });
     }
     
@@ -4393,12 +4398,23 @@ function renderGenreComparisonTable(options) {
     const { analysis, genre, targets } = options;
     
     console.group('[GENRE-TABLE] 📊 Montando tabela de comparação de gênero');
+    console.log('[GENRE-TABLE] Parâmetros recebidos:', {
+        hasAnalysis: !!analysis,
+        hasTargets: !!targets,
+        genre: genre,
+        targetsBands: targets?.bands ? Object.keys(targets.bands) : 'N/A',
+        analysisBands: analysis?.bands ? Object.keys(analysis.bands) : 'N/A'
+    });
     
     if (!targets || !targets.bands) {
-        console.warn('[GENRE-TABLE] ⚠️ Targets não disponíveis, não é possível montar tabela');
+        console.error('[GENRE-TABLE] ❌ CRÍTICO: Targets não disponíveis, não é possível montar tabela');
+        console.error('[GENRE-TABLE] targets:', targets);
+        console.error('[GENRE-TABLE] targets?.bands:', targets?.bands);
         console.groupEnd();
         return;
     }
+    
+    console.log('[GENRE-TABLE] ✅ Targets validados, bands disponíveis:', Object.keys(targets.bands).length, 'bandas');
     
     // Chamar renderReferenceComparisons com contexto de gênero
     const genreContext = {
@@ -4413,6 +4429,12 @@ function renderGenreComparisonTable(options) {
         _isGenreIsolated: true
     };
     
+    console.log('[GENRE-TABLE] Contexto de gênero criado:', {
+        mode: genreContext.mode,
+        hasAnalysis: !!genreContext.analysis,
+        hasTargets: !!genreContext.targets,
+        isGenreIsolated: genreContext._isGenreIsolated
+    });
     console.log('[GENRE-TABLE] Chamando renderReferenceComparisons com contexto de gênero');
     renderReferenceComparisons(genreContext);
     
@@ -10691,6 +10713,16 @@ async function displayModalResults(analysis) {
                 console.log('🎵 [GENRE-MODE] analysis.isReferenceBase:', analysis.isReferenceBase);
                 console.log('🎵 [GENRE-MODE] Gênero selecionado:', analysis.metadata?.genre || window.__selectedGenre);
                 console.log('🎵 [GENRE-MODE] ═══════════════════════════════════════');
+                
+                // 🔍 DIAGNÓSTICO: Verificar estado dos targets ANTES de renderizar
+                console.group('🔍 [GENRE-DIAGNOSTIC] Estado dos targets');
+                console.log('window.__activeRefData:', window.__activeRefData);
+                console.log('window.__activeRefData?.bands:', window.__activeRefData?.bands);
+                console.log('window.PROD_AI_REF_DATA:', window.PROD_AI_REF_DATA);
+                console.log('window.__CURRENT_GENRE:', window.__CURRENT_GENRE);
+                console.log('analysis.referenceComparison:', analysis.referenceComparison);
+                console.log('analysis.referenceComparisonMetrics:', analysis.referenceComparisonMetrics);
+                console.groupEnd();
                 
                 // 🔥 CONFIGURAR VIEW MODE
                 setViewMode("genre");
