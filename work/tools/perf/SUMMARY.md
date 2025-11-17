@@ -198,7 +198,9 @@ SE META NÃO ATINGIDA: Considerar remover BPM B completamente
 ### 4. Otimização 1: BPM Condicional (1 semana)
 - [ ] Criar branch: `perf/otimizacao-bpm-condicional`
 - [ ] Implementar lógica condicional
-- [ ] Rodar: `npm run perf:exp -- --experiment=bpm-conditional`
+- [ ] Rodar: `
+
+rf:exp -- --experiment=bpm-conditional`
 - [ ] Validar: `npm run perf:parity <baseline> <optimized>`
 - [ ] Criar PR com changelog
 
