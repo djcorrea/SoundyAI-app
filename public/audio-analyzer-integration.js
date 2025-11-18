@@ -4358,6 +4358,31 @@ function searchBandWithAlias(bandKey, bandsObject) {
  * @param {Object} analysis - Objeto de análise completo
  * @returns {Object|null} Dados da banda com source
  */
+/**
+ * Normaliza nomes de bandas do backend para formato dos targets.
+ * Garante compatibilidade sem alterar dados de origem.
+ */
+function normalizeBandName(name) {
+    const map = {
+        // Backend → Targets
+        'bass': 'low_bass',
+        'lowMid': 'low_mid',
+        'highMid': 'high_mid',
+        'presence': 'presenca',
+        'air': 'brilho',
+        // Já corretos
+        'sub': 'sub',
+        'mid': 'mid',
+        'upper_bass': 'upper_bass',
+        'low_bass': 'low_bass',
+        'low_mid': 'low_mid',
+        'high_mid': 'high_mid',
+        'brilho': 'brilho',
+        'presenca': 'presenca'
+    };
+    return map[name] || name;
+}
+
 function getBandDataWithCascade(bandKey, analysis) {
     // 1. Prioridade: analysis.metrics.bands (centralizado)
     if (analysis.metrics?.bands) {
@@ -4586,18 +4611,17 @@ function renderGenreView(analysis) {
 function renderGenreComparisonTable(options) {
     const { analysis, genre, targets } = options;
     
-    console.group('[GENRE-TABLE] 📊 RENDERIZAÇÃO CLÁSSICA DE GÊNERO');
+    console.group('[GENRE-TABLE] 📊 RENDERIZAÇÃO CLÁSSICA COMPLETA DE GÊNERO');
     console.log('[GENRE-TABLE] 🎯 Gênero:', genre);
     console.log('[GENRE-TABLE] 📁 Targets:', targets);
-    console.log('[GENRE-TABLE] 📊 Analysis bands:', analysis?.bands ? Object.keys(analysis.bands) : 'N/A');
-    
-    // Validar targets
-    if (!targets || !targets.hybrid_processing || !targets.hybrid_processing.spectral_bands) {
-        console.error('[GENRE-TABLE] ❌ Targets inválidos! Precisa de hybrid_processing.spectral_bands');
-        console.error('[GENRE-TABLE] targets:', targets);
-        console.groupEnd();
-        return;
-    }
+    console.log('[GENRE-TABLE] 📊 Analysis:', {
+        lufs: analysis?.loudness?.integrated,
+        truePeak: analysis?.truePeakDbtp,
+        dr: analysis?.dynamics?.dr,
+        lra: analysis?.dynamics?.lra,
+        stereo: analysis?.stereo,
+        bands: analysis?.bands ? Object.keys(analysis.bands) : 'N/A'
+    });
     
     // Buscar container
     const container = document.getElementById('referenceComparisons');
@@ -4607,131 +4631,232 @@ function renderGenreComparisonTable(options) {
         return;
     }
     
-    // 🔥 FORÇAR TABELA CLÁSSICA (desativar fallback)
-    const forceClassicGenreTable = true;
-    console.log('[GENRE-TABLE] 🔥 Tabela clássica FORÇADA (sem fallback)');
+    // 🎯 EXTRAIR TARGETS DO GÊNERO (estrutura aninhada ou direta)
+    let genreData = targets;
+    if (targets[genre]) {
+        genreData = targets[genre];
+    }
     
-    // 🎯 USAR BANDAS CONVERTIDAS (genreBands) ao invés de bands originais
-    const userBands = analysis.genreBands || analysis.bands || {};
-    const targetBands = targets.hybrid_processing.spectral_bands;
+    console.log('[GENRE-TABLE] 📦 Dados do gênero:', {
+        lufs_target: genreData.lufs_target,
+        true_peak_target: genreData.true_peak_target,
+        dr_target: genreData.dr_target,
+        lra_target: genreData.lra_target,
+        stereo_target: genreData.stereo_target,
+        hasBands: !!genreData.bands
+    });
     
-    console.log('[GENRE-TABLE] 🔍 User bands (convertidas):', Object.keys(userBands));
+    const targetBands = genreData.bands || {};
+    
     console.log('[GENRE-TABLE] 🎯 Target bands:', Object.keys(targetBands));
-    console.log('[GENRE-TABLE] 📊 Usando genreBands:', !!analysis.genreBands);
     
-    // 🔥 NOVO MAPEAMENTO: userBands JÁ estão no formato de targets (após conversão)
-    const bandMap = {
-        sub: 'sub',
-        low_bass: 'low_bass',           // ✅ JÁ convertido
-        upper_bass: 'upper_bass',       // ⚠️ pode ser null
-        low_mid: 'low_mid',             // ✅ JÁ convertido
-        mid: 'mid',
-        high_mid: 'high_mid',           // ✅ JÁ convertido
-        brilho: 'brilho',               // ✅ JÁ convertido
-        presenca: 'presenca'            // ✅ JÁ convertido
-    };
-    
-    // Nomes amigáveis
-    const nomesBandas = {
-        sub: 'Sub (20-60 Hz)',
-        low_bass: 'Bass (60-120 Hz)',           // ✅ atualizado
-        upper_bass: 'Upper Bass (120-250 Hz)',
-        low_mid: 'Low Mid (250-500 Hz)',        // ✅ atualizado
-        mid: 'Mid (500-2k Hz)',
-        high_mid: 'High Mid (2k-4k Hz)',        // ✅ atualizado
-        brilho: 'Brilho (4k-10k Hz)',
-        presenca: 'Presença (10k-20k Hz)'
+    // 🎯 HELPER: Calcular severidade e ação baseado em diferença e tolerância
+    const calcSeverity = (value, target, tolerance) => {
+        if (target === null || target === undefined || !Number.isFinite(value)) {
+            return { severity: 'N/A', severityClass: 'na', action: 'Sem dados' };
+        }
+        
+        const diff = value - target;
+        const absDiff = Math.abs(diff);
+        
+        if (absDiff <= tolerance) {
+            return { severity: 'OK', severityClass: 'ok', action: '✅ Dentro do padrão', diff };
+        } else if (absDiff <= tolerance * 2) {
+            const action = diff > 0 ? `⚠️ Reduzir ${absDiff.toFixed(1)}` : `⚠️ Aumentar ${absDiff.toFixed(1)}`;
+            return { severity: 'ATENÇÃO', severityClass: 'caution', action, diff };
+        } else if (absDiff <= tolerance * 3) {
+            const action = diff > 0 ? `🟡 Reduzir ${absDiff.toFixed(1)}` : `🟡 Aumentar ${absDiff.toFixed(1)}`;
+            return { severity: 'ALTA', severityClass: 'warning', action, diff };
+        } else {
+            const action = diff > 0 ? `🔴 Reduzir ${absDiff.toFixed(1)}` : `🔴 Aumentar ${absDiff.toFixed(1)}`;
+            return { severity: 'CRÍTICA', severityClass: 'critical', action, diff };
+        }
     };
     
     // Construir linhas da tabela
     const rows = [];
     
-    Object.entries(bandMap).forEach(([userKey, targetKey]) => {
-        // 🎯 BUSCA EM CASCATA com ALIAS (branch imersao)
-        const bandData = getBandDataWithCascade(userKey, analysis);
-        
-        // 🔇 TRATAMENTO SILENCIOSO: ignorar bandas ausentes (branch imersao)
-        if (!bandData || !Number.isFinite(bandData.energy_db)) {
-            console.log(`🔇 [BANDS] Ignorando banda inexistente: ${userKey}`);
-            return; // ✅ continue silencioso
+    // ════════════════════════════════════════════════════════════════════
+    // 1️⃣ MÉTRICAS PRINCIPAIS (LUFS, TRUE PEAK, DR, LRA, STEREO)
+    // ════════════════════════════════════════════════════════════════════
+    
+    // 🔊 LUFS Integrado
+    if (genreData.lufs_target !== null && genreData.lufs_target !== undefined) {
+        const lufsValue = analysis?.loudness?.integrated;
+        if (Number.isFinite(lufsValue)) {
+            const result = calcSeverity(lufsValue, genreData.lufs_target, genreData.tol_lufs || 1.0);
+            rows.push(`
+                <tr class="genre-row ${result.severityClass}">
+                    <td class="metric-name">🔊 Loudness (LUFS)</td>
+                    <td class="metric-value">${lufsValue.toFixed(2)} LUFS</td>
+                    <td class="metric-target">${genreData.lufs_target.toFixed(1)} LUFS</td>
+                    <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${result.diff >= 0 ? '+' : ''}${result.diff.toFixed(2)}</td>
+                    <td class="metric-severity ${result.severityClass}">${result.severity}</td>
+                    <td class="metric-action ${result.severityClass}">${result.action}</td>
+                </tr>
+            `);
+            console.log(`[GENRE-TABLE] ✅ LUFS: ${lufsValue.toFixed(2)} | Target: ${genreData.lufs_target} | ${result.severity}`);
         }
-        
+    }
+    
+    // 🎚️ True Peak
+    if (genreData.true_peak_target !== null && genreData.true_peak_target !== undefined) {
+        const tpValue = analysis?.truePeakDbtp;
+        if (Number.isFinite(tpValue)) {
+            const result = calcSeverity(tpValue, genreData.true_peak_target, genreData.tol_true_peak || 0.5);
+            rows.push(`
+                <tr class="genre-row ${result.severityClass}">
+                    <td class="metric-name">🎚️ Pico Real (dBTP)</td>
+                    <td class="metric-value">${tpValue.toFixed(2)} dBTP</td>
+                    <td class="metric-target">${genreData.true_peak_target.toFixed(1)} dBTP</td>
+                    <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${result.diff >= 0 ? '+' : ''}${result.diff.toFixed(2)}</td>
+                    <td class="metric-severity ${result.severityClass}">${result.severity}</td>
+                    <td class="metric-action ${result.severityClass}">${result.action}</td>
+                </tr>
+            `);
+            console.log(`[GENRE-TABLE] ✅ True Peak: ${tpValue.toFixed(2)} | Target: ${genreData.true_peak_target} | ${result.severity}`);
+        }
+    }
+    
+    // 📊 Dynamic Range (DR)
+    if (genreData.dr_target !== null && genreData.dr_target !== undefined) {
+        const drValue = analysis?.dynamics?.dr;
+        if (Number.isFinite(drValue)) {
+            const result = calcSeverity(drValue, genreData.dr_target, genreData.tol_dr || 1.0);
+            rows.push(`
+                <tr class="genre-row ${result.severityClass}">
+                    <td class="metric-name">📊 Dinâmica (DR)</td>
+                    <td class="metric-value">${drValue.toFixed(2)} DR</td>
+                    <td class="metric-target">${genreData.dr_target.toFixed(1)} DR</td>
+                    <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${result.diff >= 0 ? '+' : ''}${result.diff.toFixed(2)}</td>
+                    <td class="metric-severity ${result.severityClass}">${result.severity}</td>
+                    <td class="metric-action ${result.severityClass}">${result.action}</td>
+                </tr>
+            `);
+            console.log(`[GENRE-TABLE] ✅ DR: ${drValue.toFixed(2)} | Target: ${genreData.dr_target} | ${result.severity}`);
+        }
+    }
+    
+    // 📈 Loudness Range (LRA)
+    if (genreData.lra_target !== null && genreData.lra_target !== undefined) {
+        const lraValue = analysis?.dynamics?.lra;
+        if (Number.isFinite(lraValue)) {
+            const result = calcSeverity(lraValue, genreData.lra_target, genreData.tol_lra || 2.0);
+            rows.push(`
+                <tr class="genre-row ${result.severityClass}">
+                    <td class="metric-name">📈 LRA (Faixa de Loudness)</td>
+                    <td class="metric-value">${lraValue.toFixed(2)} LU</td>
+                    <td class="metric-target">${genreData.lra_target.toFixed(1)} LU</td>
+                    <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${result.diff >= 0 ? '+' : ''}${result.diff.toFixed(2)}</td>
+                    <td class="metric-severity ${result.severityClass}">${result.severity}</td>
+                    <td class="metric-action ${result.severityClass}">${result.action}</td>
+                </tr>
+            `);
+            console.log(`[GENRE-TABLE] ✅ LRA: ${lraValue.toFixed(2)} | Target: ${genreData.lra_target} | ${result.severity}`);
+        }
+    }
+    
+    // 🎧 Stereo Correlation
+    if (genreData.stereo_target !== null && genreData.stereo_target !== undefined) {
+        const stereoValue = analysis?.stereo;
+        if (Number.isFinite(stereoValue)) {
+            const result = calcSeverity(stereoValue, genreData.stereo_target, genreData.tol_stereo || 0.1);
+            rows.push(`
+                <tr class="genre-row ${result.severityClass}">
+                    <td class="metric-name">🎧 Imagem Estéreo</td>
+                    <td class="metric-value">${stereoValue.toFixed(3)}</td>
+                    <td class="metric-target">${genreData.stereo_target.toFixed(3)}</td>
+                    <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${result.diff >= 0 ? '+' : ''}${result.diff.toFixed(3)}</td>
+                    <td class="metric-severity ${result.severityClass}">${result.severity}</td>
+                    <td class="metric-action ${result.severityClass}">${result.action}</td>
+                </tr>
+            `);
+            console.log(`[GENRE-TABLE] ✅ Stereo: ${stereoValue.toFixed(3)} | Target: ${genreData.stereo_target} | ${result.severity}`);
+        }
+    }
+    
+    // ════════════════════════════════════════════════════════════════════
+    // 2️⃣ BANDAS ESPECTRAIS
+    // ════════════════════════════════════════════════════════════════════
+    
+    const nomesBandas = {
+        sub: '🔉 Sub (20-60 Hz)',
+        low_bass: '🔊 Bass (60-120 Hz)',
+        upper_bass: '🔊 Upper Bass (120-250 Hz)',
+        low_mid: '🎵 Low Mid (250-500 Hz)',
+        mid: '🎵 Mid (500-2k Hz)',
+        high_mid: '🎸 High Mid (2k-4k Hz)',
+        brilho: '✨ Brilho (4k-10k Hz)',
+        presenca: '💎 Presença (10k-20k Hz)'
+    };
+    
+    // 🎯 Buscar bandas do backend (com nomes originais)
+    const userBands = analysis?.bands || {};
+    console.log('[GENRE-TABLE] 📦 User bands (backend):', Object.keys(userBands));
+    
+    // 🔄 Processar TODAS as bandas do target
+    Object.keys(targetBands).forEach(targetKey => {
         const targetBand = targetBands[targetKey];
         
-        // ✅ Suporte a target_range.min/max (fallback para novo formato JSON)
-        const min = targetBand?.min ?? targetBand?.target_range?.min;
-        const max = targetBand?.max ?? targetBand?.target_range?.max;
+        // Pular se não há target válido
+        if (!targetBand || targetBand.target_db === null) {
+            console.log(`[GENRE-TABLE] ⏭️ Pulando banda sem target: ${targetKey}`);
+            return;
+        }
         
-        if (!targetBand || typeof min === 'undefined' || typeof max === 'undefined') {
-            console.warn(`[GENRE-TABLE] ⚠️ Target band "${targetKey}" sem min/max (testado: .min, .max, .target_range.min, .target_range.max)`, targetBand);
+        // 🎯 BUSCAR BANDA DO BACKEND
+        // Tentar nome direto primeiro, depois tentar nomes alternativos
+        let bandData = null;
+        let usedKey = null;
+        
+        // Mapeamento reverso: target → backend
+        const reverseMap = {
+            'low_bass': 'bass',
+            'low_mid': 'lowMid',
+            'high_mid': 'highMid',
+            'presenca': 'presence',
+            'brilho': 'air'
+        };
+        
+        // 1. Tentar nome direto
+        if (userBands[targetKey]) {
+            bandData = userBands[targetKey];
+            usedKey = targetKey;
+        }
+        // 2. Tentar mapeamento reverso
+        else if (reverseMap[targetKey] && userBands[reverseMap[targetKey]]) {
+            bandData = userBands[reverseMap[targetKey]];
+            usedKey = reverseMap[targetKey];
+            console.log(`[GENRE-TABLE] 🔄 Mapeamento: ${targetKey} ← ${usedKey}`);
+        }
+        
+        // 🔇 TRATAMENTO SILENCIOSO: ignorar bandas ausentes
+        if (!bandData || !Number.isFinite(bandData.energy_db)) {
+            console.log(`[GENRE-TABLE] 🔇 Banda não encontrada: ${targetKey}`);
             return;
         }
         
         const userValue = bandData.energy_db;
+        const targetValue = targetBand.target_db;
+        const tolerance = targetBand.tol_db || 2.0;
         
-        console.log(`[GENRE-TABLE] ✅ ${userKey}: ${userValue.toFixed(2)} dB (${bandData.source})`);
-        const alvoIdeal = (min + max) / 2;
-        const diferenca = userValue - alvoIdeal;
+        // Calcular diferença e severidade
+        const result = calcSeverity(userValue, targetValue, tolerance);
         
-        // Calcular severidade e ação
-        let severidade = 'OK';
-        let severidadeClass = 'ok';
-        let acao = '✅ Dentro do padrão';
-        
-        if (userValue < min) {
-            const distancia = min - userValue;
-            if (distancia >= 6) {
-                severidade = 'CRÍTICA';
-                severidadeClass = 'critical';
-                acao = `🔴 Aumentar ${distancia.toFixed(1)} dB`;
-            } else if (distancia >= 3) {
-                severidade = 'ALTA';
-                severidadeClass = 'warning';
-                acao = `🟡 Aumentar ${distancia.toFixed(1)} dB`;
-            } else {
-                severidade = 'MODERADA';
-                severidadeClass = 'caution';
-                acao = `⚠️ Aumentar ${distancia.toFixed(1)} dB`;
-            }
-        } else if (userValue > max) {
-            const distancia = userValue - max;
-            if (distancia >= 6) {
-                severidade = 'CRÍTICA';
-                severidadeClass = 'critical';
-                acao = `🔴 Reduzir ${distancia.toFixed(1)} dB`;
-            } else if (distancia >= 3) {
-                severidade = 'ALTA';
-                severidadeClass = 'warning';
-                acao = `🟡 Reduzir ${distancia.toFixed(1)} dB`;
-            } else {
-                severidade = 'MODERADA';
-                severidadeClass = 'caution';
-                acao = `⚠️ Reduzir ${distancia.toFixed(1)} dB`;
-            }
-        } else {
-            // Dentro da faixa
-            const desvio = Math.abs(diferenca);
-            if (desvio >= 3) {
-                severidade = 'ATENÇÃO';
-                severidadeClass = 'caution';
-                acao = diferenca > 0 ? `⚠️ Reduzir ${desvio.toFixed(1)} dB` : `⚠️ Aumentar ${desvio.toFixed(1)} dB`;
-            }
-        }
-        
-        const nomeAmigavel = nomesBandas[userKey] || userKey;
+        const nomeAmigavel = nomesBandas[targetKey] || targetKey;
         
         rows.push(`
-            <tr class="genre-row ${severidadeClass}">
+            <tr class="genre-row ${result.severityClass}">
                 <td class="metric-name">${nomeAmigavel}</td>
                 <td class="metric-value">${userValue.toFixed(2)} dB</td>
-                <td class="metric-target">${min.toFixed(1)} - ${max.toFixed(1)} dB</td>
-                <td class="metric-diff ${diferenca >= 0 ? 'positive' : 'negative'}">${diferenca >= 0 ? '+' : ''}${diferenca.toFixed(2)} dB</td>
-                <td class="metric-severity ${severidadeClass}">${severidade}</td>
-                <td class="metric-action ${severidadeClass}">${acao}</td>
+                <td class="metric-target">${targetValue.toFixed(1)} dB</td>
+                <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${result.diff >= 0 ? '+' : ''}${result.diff.toFixed(2)} dB</td>
+                <td class="metric-severity ${result.severityClass}">${result.severity}</td>
+                <td class="metric-action ${result.severityClass}">${result.action}</td>
             </tr>
         `);
         
-        console.log(`[GENRE-TABLE] ✅ ${nomeAmigavel}: ${userValue.toFixed(2)} dB | ${min.toFixed(1)}-${max.toFixed(1)} | Δ: ${diferenca.toFixed(2)} | ${severidade}`);
+        console.log(`[GENRE-TABLE] ✅ ${nomeAmigavel}: ${userValue.toFixed(2)} dB | Target: ${targetValue.toFixed(1)} | ${result.severity}`);
     });
     
     // Renderizar HTML completo
