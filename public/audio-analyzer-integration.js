@@ -4314,6 +4314,86 @@ function showReferenceUI() {
  * @param {Object} bands - Bandas do backend (analysis.bands)
  * @returns {Object} Bandas convertidas para formato de targets de gênero
  */
+// 🎯 SISTEMA DE ALIAS DE BANDAS (branch imersao)
+const BAND_ALIASES = {
+    'bass': ['low_bass', 'upper_bass'],
+    'lowMid': ['low_mid'],
+    'highMid': ['high_mid'],
+    'presence': ['presenca'],
+    'air': ['brilho']
+};
+
+/**
+ * Busca banda com suporte a alias (branch imersao)
+ * @param {string} bandKey - Chave da banda
+ * @param {Object} bandsObject - Objeto com bandas
+ * @returns {Object|null} Dados da banda ou null
+ */
+function searchBandWithAlias(bandKey, bandsObject) {
+    if (!bandsObject || typeof bandsObject !== 'object') return null;
+    
+    // 1. Busca direta
+    if (bandsObject[bandKey]) {
+        return bandsObject[bandKey];
+    }
+    
+    // 2. Busca por alias
+    const aliases = BAND_ALIASES[bandKey];
+    if (aliases) {
+        for (const alias of aliases) {
+            if (bandsObject[alias]) {
+                console.log(`🔄 [ALIAS] ${bandKey} → ${alias}`);
+                return bandsObject[alias];
+            }
+        }
+    }
+    
+    return null;
+}
+
+/**
+ * Busca banda em múltiplas fontes com cascata (branch imersao)
+ * @param {string} bandKey - Chave da banda
+ * @param {Object} analysis - Objeto de análise completo
+ * @returns {Object|null} Dados da banda com source
+ */
+function getBandDataWithCascade(bandKey, analysis) {
+    // 1. Prioridade: analysis.metrics.bands (centralizado)
+    if (analysis.metrics?.bands) {
+        const data = searchBandWithAlias(bandKey, analysis.metrics.bands);
+        if (data) {
+            return { 
+                energy_db: data.energy_db || data.rms_db, 
+                source: 'centralized' 
+            };
+        }
+    }
+    
+    // 2. Fallback: tech.bandEnergies (legado)
+    if (analysis.technicalData?.bandEnergies) {
+        const data = searchBandWithAlias(bandKey, analysis.technicalData.bandEnergies);
+        if (data) {
+            return { 
+                energy_db: data.energy_db || data.rms_db, 
+                source: 'legacy' 
+            };
+        }
+    }
+    
+    // 3. Fallback: tech.spectralBands
+    if (analysis.technicalData?.spectralBands) {
+        const data = searchBandWithAlias(bandKey, analysis.technicalData.spectralBands);
+        if (data) {
+            return { 
+                energy_db: data.energy_db || data.rms_db, 
+                source: 'spectral' 
+            };
+        }
+    }
+    
+    return null;
+}
+
 function mapBackendBandsToGenreBands(bands) {
     if (!bands || typeof bands !== 'object') {
         console.warn('[BAND-MAPPER] ⚠️ Bandas inválidas recebidas:', bands);
@@ -4546,7 +4626,15 @@ function renderGenreComparisonTable(options) {
     const rows = [];
     
     Object.entries(bandMap).forEach(([userKey, targetKey]) => {
-        const userBand = userBands[userKey];
+        // 🎯 BUSCA EM CASCATA com ALIAS (branch imersao)
+        const bandData = getBandDataWithCascade(userKey, analysis);
+        
+        // 🔇 TRATAMENTO SILENCIOSO: ignorar bandas ausentes (branch imersao)
+        if (!bandData || !Number.isFinite(bandData.energy_db)) {
+            console.log(`🔇 [BANDS] Ignorando banda inexistente: ${userKey}`);
+            return; // ✅ continue silencioso
+        }
+        
         const targetBand = targetBands[targetKey];
         
         // ✅ Suporte a target_range.min/max (fallback para novo formato JSON)
@@ -4558,12 +4646,9 @@ function renderGenreComparisonTable(options) {
             return;
         }
         
-        const userValue = userBand?.energy_db ?? null;
+        const userValue = bandData.energy_db;
         
-        if (userValue === null) {
-            console.warn(`[GENRE-TABLE] ⚠️ User band "${userKey}" sem energy_db - IGNORANDO (continuar com outras bandas)`);
-            return; // continue para próxima banda
-        }
+        console.log(`[GENRE-TABLE] ✅ ${userKey}: ${userValue.toFixed(2)} dB (${bandData.source})`);
         const alvoIdeal = (min + max) / 2;
         const diferenca = userValue - alvoIdeal;
         
@@ -14918,22 +15003,21 @@ function calculateFrequencyScore(analysis, refData) {
     
     // Processar cada banda individualmente
     Object.entries(bandMapping).forEach(([calcBand, refBand]) => {
-        const bandData = bandsToUse[calcBand];
+        // 🎯 BUSCA EM CASCATA com ALIAS (branch imersao)
+        const bandData = getBandDataWithCascade(calcBand, analysis);
+        
+        // 🔇 TRATAMENTO SILENCIOSO: ignorar bandas ausentes (branch imersao)
+        if (!bandData || !Number.isFinite(bandData.energy_db)) {
+            console.log(`🔇 [SCORE-FREQ] Ignorando banda inexistente: ${calcBand}`);
+            return; // ✅ continue silencioso
+        }
+        
         const refBandData = refData.bands[refBand];
         
-        if (bandData && refBandData) {
-            let energyDb = null;
+        if (refBandData) {
+            const energyDb = bandData.energy_db;
             
-            // Extrair valor em dB da banda
-            if (typeof bandData === 'object' && Number.isFinite(bandData.energy_db)) {
-                energyDb = bandData.energy_db;
-            } else if (typeof bandData === 'object' && Number.isFinite(bandData.rms_db)) {
-                energyDb = bandData.rms_db;
-            } else if (Number.isFinite(bandData)) {
-                energyDb = bandData;
-            }
-            
-            if (!Number.isFinite(energyDb)) return;
+            console.log(`[SCORE-FREQ] ✅ ${calcBand}: ${energyDb.toFixed(2)} dB (${bandData.source})`);
             
             // 🎯 CORREÇÃO CRÍTICA: Detectar modo e usar valores apropriados
             let targetDb = null;
