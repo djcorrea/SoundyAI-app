@@ -4359,26 +4359,20 @@ function searchBandWithAlias(bandKey, bandsObject) {
  * @returns {Object|null} Dados da banda com source
  */
 /**
- * Normaliza nomes de bandas do backend para formato dos targets.
- * Garante compatibilidade sem alterar dados de origem.
+ * Normaliza nomes de bandas do backend para formato dos targets de gênero.
+ * Backend: ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air']
+ * Targets: ['sub', 'low_bass', 'upper_bass', 'low_mid', 'mid', 'high_mid', 'brilho', 'presenca']
  */
-function normalizeBandName(name) {
+function normalizeGenreBandName(name) {
     const map = {
-        // Backend → Targets
         'bass': 'low_bass',
         'lowMid': 'low_mid',
         'highMid': 'high_mid',
         'presence': 'presenca',
         'air': 'brilho',
-        // Já corretos
         'sub': 'sub',
-        'mid': 'mid',
-        'upper_bass': 'upper_bass',
-        'low_bass': 'low_bass',
-        'low_mid': 'low_mid',
-        'high_mid': 'high_mid',
-        'brilho': 'brilho',
-        'presenca': 'presenca'
+        'mid': 'mid'
+        // 'totalPercentage' será ignorado (não está no map)
     };
     return map[name] || name;
 }
@@ -4611,17 +4605,16 @@ function renderGenreView(analysis) {
 function renderGenreComparisonTable(options) {
     const { analysis, genre, targets } = options;
     
-    console.group('[GENRE-TABLE] 📊 RENDERIZAÇÃO CLÁSSICA COMPLETA DE GÊNERO');
+    console.group('[GENRE-TABLE] 📊 RENDERIZAÇÃO COMPLETA DE GÊNERO');
     console.log('[GENRE-TABLE] 🎯 Gênero:', genre);
-    console.log('[GENRE-TABLE] 📁 Targets:', targets);
-    console.log('[GENRE-TABLE] 📊 Analysis:', {
-        lufs: analysis?.loudness?.integrated,
-        truePeak: analysis?.truePeakDbtp,
-        dr: analysis?.dynamics?.dr,
-        lra: analysis?.dynamics?.lra,
-        stereo: analysis?.stereo,
-        bands: analysis?.bands ? Object.keys(analysis.bands) : 'N/A'
-    });
+    console.log('[GENRE-TABLE] 📁 Targets recebidos:', targets);
+    
+    // 🛡️ GUARD: Apenas para modo gênero
+    if (analysis?.mode !== 'genre') {
+        console.warn('[GENRE-TABLE] ⏭️ Modo não é gênero, abortando renderização');
+        console.groupEnd();
+        return;
+    }
     
     // Buscar container
     const container = document.getElementById('referenceComparisons');
@@ -4637,14 +4630,41 @@ function renderGenreComparisonTable(options) {
         genreData = targets[genre];
     }
     
-    console.log('[GENRE-TABLE] 📦 Dados do gênero:', {
+    console.log('[GENRE-TABLE] 📦 Genre data:', {
         lufs_target: genreData.lufs_target,
         true_peak_target: genreData.true_peak_target,
         dr_target: genreData.dr_target,
         lra_target: genreData.lra_target,
         stereo_target: genreData.stereo_target,
+        tol_lufs: genreData.tol_lufs,
+        tol_true_peak: genreData.tol_true_peak,
+        tol_dr: genreData.tol_dr,
+        tol_lra: genreData.tol_lra,
+        tol_stereo: genreData.tol_stereo,
         hasBands: !!genreData.bands
     });
+    
+    // 🎯 EXTRAIR VALORES DO ANALYSIS (mesmas fontes usadas em calculateScore)
+    const lufsIntegrated = analysis.loudness?.integrated ?? analysis.technicalData?.lufsIntegrated ?? null;
+    const truePeakDbtp = analysis.truePeakDbtp ?? analysis.truePeak?.maxDbtp ?? analysis.technicalData?.truePeakDbtp ?? null;
+    const dynamicRange = analysis.dynamicRange ?? analysis.dynamics?.range ?? analysis.technicalData?.dynamicRange ?? null;
+    const lra = analysis.lra ?? analysis.loudness?.lra ?? analysis.technicalData?.lra ?? null;
+    const stereoCorrelation = analysis.stereoCorrelation ?? analysis.stereo?.correlation ?? analysis.technicalData?.stereoCorrelation ?? null;
+    
+    console.log('[GENRE-TABLE] 📊 Valores extraídos do analysis:', {
+        lufsIntegrated,
+        truePeakDbtp,
+        dynamicRange,
+        lra,
+        stereoCorrelation
+    });
+    
+    // 🎯 EXTRAIR BANDAS (mesma fonte usada em calculateFrequencyScore)
+    const centralizedBands = analysis.metrics?.bands;
+    const legacyBandEnergies = analysis.technicalData?.bandEnergies;
+    const userBands = centralizedBands && Object.keys(centralizedBands).length > 0 ? centralizedBands : legacyBandEnergies;
+    
+    console.log('[GENRE-TABLE] 🎵 Bandas do usuário:', userBands ? Object.keys(userBands) : 'N/A');
     
     const targetBands = genreData.bands || {};
     
@@ -4675,6 +4695,8 @@ function renderGenreComparisonTable(options) {
     
     // Construir linhas da tabela
     const rows = [];
+    let metricsCount = 0;
+    let bandsCount = 0;
     
     // ════════════════════════════════════════════════════════════════════
     // 1️⃣ MÉTRICAS PRINCIPAIS (LUFS, TRUE PEAK, DR, LRA, STEREO)
@@ -4682,7 +4704,7 @@ function renderGenreComparisonTable(options) {
     
     // 🔊 LUFS Integrado
     if (genreData.lufs_target !== null && genreData.lufs_target !== undefined) {
-        const lufsValue = analysis?.loudness?.integrated;
+        const lufsValue = lufsIntegrated;
         if (Number.isFinite(lufsValue)) {
             const result = calcSeverity(lufsValue, genreData.lufs_target, genreData.tol_lufs || 1.0);
             rows.push(`
@@ -4695,13 +4717,14 @@ function renderGenreComparisonTable(options) {
                     <td class="metric-action ${result.severityClass}">${result.action}</td>
                 </tr>
             `);
+            metricsCount++;
             console.log(`[GENRE-TABLE] ✅ LUFS: ${lufsValue.toFixed(2)} | Target: ${genreData.lufs_target} | ${result.severity}`);
         }
     }
     
     // 🎚️ True Peak
     if (genreData.true_peak_target !== null && genreData.true_peak_target !== undefined) {
-        const tpValue = analysis?.truePeakDbtp;
+        const tpValue = truePeakDbtp;
         if (Number.isFinite(tpValue)) {
             const result = calcSeverity(tpValue, genreData.true_peak_target, genreData.tol_true_peak || 0.5);
             rows.push(`
@@ -4714,13 +4737,14 @@ function renderGenreComparisonTable(options) {
                     <td class="metric-action ${result.severityClass}">${result.action}</td>
                 </tr>
             `);
+            metricsCount++;
             console.log(`[GENRE-TABLE] ✅ True Peak: ${tpValue.toFixed(2)} | Target: ${genreData.true_peak_target} | ${result.severity}`);
         }
     }
     
     // 📊 Dynamic Range (DR)
     if (genreData.dr_target !== null && genreData.dr_target !== undefined) {
-        const drValue = analysis?.dynamics?.dr;
+        const drValue = dynamicRange;
         if (Number.isFinite(drValue)) {
             const result = calcSeverity(drValue, genreData.dr_target, genreData.tol_dr || 1.0);
             rows.push(`
@@ -4733,13 +4757,14 @@ function renderGenreComparisonTable(options) {
                     <td class="metric-action ${result.severityClass}">${result.action}</td>
                 </tr>
             `);
+            metricsCount++;
             console.log(`[GENRE-TABLE] ✅ DR: ${drValue.toFixed(2)} | Target: ${genreData.dr_target} | ${result.severity}`);
         }
     }
     
     // 📈 Loudness Range (LRA)
     if (genreData.lra_target !== null && genreData.lra_target !== undefined) {
-        const lraValue = analysis?.dynamics?.lra;
+        const lraValue = lra;
         if (Number.isFinite(lraValue)) {
             const result = calcSeverity(lraValue, genreData.lra_target, genreData.tol_lra || 2.0);
             rows.push(`
@@ -4752,13 +4777,14 @@ function renderGenreComparisonTable(options) {
                     <td class="metric-action ${result.severityClass}">${result.action}</td>
                 </tr>
             `);
+            metricsCount++;
             console.log(`[GENRE-TABLE] ✅ LRA: ${lraValue.toFixed(2)} | Target: ${genreData.lra_target} | ${result.severity}`);
         }
     }
     
     // 🎧 Stereo Correlation
     if (genreData.stereo_target !== null && genreData.stereo_target !== undefined) {
-        const stereoValue = analysis?.stereo;
+        const stereoValue = stereoCorrelation;
         if (Number.isFinite(stereoValue)) {
             const result = calcSeverity(stereoValue, genreData.stereo_target, genreData.tol_stereo || 0.1);
             rows.push(`
@@ -4771,6 +4797,7 @@ function renderGenreComparisonTable(options) {
                     <td class="metric-action ${result.severityClass}">${result.action}</td>
                 </tr>
             `);
+            metricsCount++;
             console.log(`[GENRE-TABLE] ✅ Stereo: ${stereoValue.toFixed(3)} | Target: ${genreData.stereo_target} | ${result.severity}`);
         }
     }
@@ -4790,74 +4817,59 @@ function renderGenreComparisonTable(options) {
         presenca: '💎 Presença (10k-20k Hz)'
     };
     
-    // 🎯 Buscar bandas do backend (com nomes originais)
-    const userBands = analysis?.bands || {};
-    console.log('[GENRE-TABLE] 📦 User bands (backend):', Object.keys(userBands));
-    
-    // 🔄 Processar TODAS as bandas do target
-    Object.keys(targetBands).forEach(targetKey => {
-        const targetBand = targetBands[targetKey];
-        
-        // Pular se não há target válido
-        if (!targetBand || targetBand.target_db === null) {
-            console.log(`[GENRE-TABLE] ⏭️ Pulando banda sem target: ${targetKey}`);
-            return;
-        }
-        
-        // 🎯 BUSCAR BANDA DO BACKEND
-        // Tentar nome direto primeiro, depois tentar nomes alternativos
-        let bandData = null;
-        let usedKey = null;
-        
-        // Mapeamento reverso: target → backend
-        const reverseMap = {
-            'low_bass': 'bass',
-            'low_mid': 'lowMid',
-            'high_mid': 'highMid',
-            'presenca': 'presence',
-            'brilho': 'air'
-        };
-        
-        // 1. Tentar nome direto
-        if (userBands[targetKey]) {
-            bandData = userBands[targetKey];
-            usedKey = targetKey;
-        }
-        // 2. Tentar mapeamento reverso
-        else if (reverseMap[targetKey] && userBands[reverseMap[targetKey]]) {
-            bandData = userBands[reverseMap[targetKey]];
-            usedKey = reverseMap[targetKey];
-            console.log(`[GENRE-TABLE] 🔄 Mapeamento: ${targetKey} ← ${usedKey}`);
-        }
-        
-        // 🔇 TRATAMENTO SILENCIOSO: ignorar bandas ausentes
-        if (!bandData || !Number.isFinite(bandData.energy_db)) {
-            console.log(`[GENRE-TABLE] 🔇 Banda não encontrada: ${targetKey}`);
-            return;
-        }
-        
-        const userValue = bandData.energy_db;
-        const targetValue = targetBand.target_db;
-        const tolerance = targetBand.tol_db || 2.0;
-        
-        // Calcular diferença e severidade
-        const result = calcSeverity(userValue, targetValue, tolerance);
-        
-        const nomeAmigavel = nomesBandas[targetKey] || targetKey;
-        
-        rows.push(`
-            <tr class="genre-row ${result.severityClass}">
-                <td class="metric-name">${nomeAmigavel}</td>
-                <td class="metric-value">${userValue.toFixed(2)} dB</td>
-                <td class="metric-target">${targetValue.toFixed(1)} dB</td>
-                <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${result.diff >= 0 ? '+' : ''}${result.diff.toFixed(2)} dB</td>
-                <td class="metric-severity ${result.severityClass}">${result.severity}</td>
-                <td class="metric-action ${result.severityClass}">${result.action}</td>
-            </tr>
-        `);
-        
-        console.log(`[GENRE-TABLE] ✅ ${nomeAmigavel}: ${userValue.toFixed(2)} dB | Target: ${targetValue.toFixed(1)} | ${result.severity}`);
-    });
+    // 🎯 ITERAR SOBRE AS BANDAS DO USUÁRIO (backend) e mapear para targets
+    if (userBands && Object.keys(userBands).length > 0) {
+        Object.keys(userBands).forEach(backendKey => {
+            // Ignorar 'totalPercentage'
+            if (backendKey === 'totalPercentage') {
+                return;
+            }
+            
+            // 🔄 NORMALIZAR nome da banda do backend para target
+            const targetKey = normalizeGenreBandName(backendKey);
+            const targetBand = targetBands[targetKey];
+            
+            // Verificar se existe target para essa banda
+            if (!targetBand) {
+                console.log(`[GENRE-TABLE] ⏭️ Pulando banda sem target: ${backendKey} → ${targetKey}`);
+                return;
+            }
+            
+            // Verificar se o target tem valor válido
+            if (targetBand.target_db === null || targetBand.target_db === undefined) {
+                console.log(`[GENRE-TABLE] ⏭️ Pulando banda com target null: ${targetKey}`);
+                return;
+            }
+            
+            const bandData = userBands[backendKey];
+            const energyDb = bandData.energy_db ?? bandData.rms_db ?? (typeof bandData === 'number' ? bandData : null);
+            
+            if (!Number.isFinite(energyDb)) {
+                console.log(`[GENRE-TABLE] 🔇 Banda sem valor válido: ${backendKey}`);
+                return;
+            }
+            
+            const targetValue = targetBand.target_db;
+            const tolerance = targetBand.tol_db || 2.0;
+            
+            const result = calcSeverity(energyDb, targetValue, tolerance);
+            
+            const nomeAmigavel = nomesBandas[targetKey] || targetKey;
+            
+            rows.push(`
+                <tr class="genre-row ${result.severityClass}">
+                    <td class="metric-name">${nomeAmigavel}</td>
+                    <td class="metric-value">${energyDb.toFixed(2)} dB</td>
+                    <td class="metric-target">${targetValue.toFixed(1)} dB</td>
+                    <td class="metric-diff ${result.diff >= 0 ? 'positive' : 'negative'}">${result.diff >= 0 ? '+' : ''}${result.diff.toFixed(2)} dB</td>
+                    <td class="metric-severity ${result.severityClass}">${result.severity}</td>
+                    <td class="metric-action ${result.severityClass}">${result.action}</td>
+                </tr>
+            `);
+            bandsCount++;
+            console.log(`[GENRE-TABLE] ✅ ${nomeAmigavel}: ${energyDb.toFixed(2)} dB | Target: ${targetValue.toFixed(1)} | ${result.severity}`);
+        });
+    }
     
     // Renderizar HTML completo
     const tableHTML = `
@@ -5029,8 +5041,11 @@ function renderGenreComparisonTable(options) {
         console.log('[GENRE-TABLE] 🎨 Estilos CSS injetados');
     }
     
-    console.log('[GENRE-TABLE] ✅ Tabela CLÁSSICA renderizada com', rows.length, 'bandas');
-    console.log('[GENRE-TABLE] 📍 Container #referenceComparisons:', container);
+    console.log('[GENRE-TABLE] ✅ Tabela COMPLETA renderizada:', {
+        metricas: metricsCount,
+        bandas: bandsCount,
+        totalLinhas: rows.length
+    });
     console.groupEnd();
 }
 
