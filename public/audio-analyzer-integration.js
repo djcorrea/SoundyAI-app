@@ -4399,48 +4399,174 @@ function renderGenreView(analysis) {
 function renderGenreComparisonTable(options) {
     const { analysis, genre, targets } = options;
     
-    console.group('[GENRE-TABLE] 📊 Montando tabela de comparação de gênero');
-    console.log('[GENRE-TABLE] Parâmetros recebidos:', {
-        hasAnalysis: !!analysis,
-        hasTargets: !!targets,
-        genre: genre,
-        targetsBands: targets?.bands ? Object.keys(targets.bands) : 'N/A',
-        analysisBands: analysis?.bands ? Object.keys(analysis.bands) : 'N/A'
-    });
+    console.group('[GENRE-TABLE] 📊 RENDERIZAÇÃO CLÁSSICA DE GÊNERO');
+    console.log('[GENRE-TABLE] 🎯 Gênero:', genre);
+    console.log('[GENRE-TABLE] 📁 Targets:', targets);
+    console.log('[GENRE-TABLE] 📊 Analysis bands:', analysis?.bands ? Object.keys(analysis.bands) : 'N/A');
     
-    if (!targets || !targets.bands) {
-        console.error('[GENRE-TABLE] ❌ CRÍTICO: Targets não disponíveis, não é possível montar tabela');
+    // Validar targets
+    if (!targets || !targets.hybrid_processing || !targets.hybrid_processing.spectral_bands) {
+        console.error('[GENRE-TABLE] ❌ Targets inválidos! Precisa de hybrid_processing.spectral_bands');
         console.error('[GENRE-TABLE] targets:', targets);
-        console.error('[GENRE-TABLE] targets?.bands:', targets?.bands);
         console.groupEnd();
         return;
     }
     
-    console.log('[GENRE-TABLE] ✅ Targets validados, bands disponíveis:', Object.keys(targets.bands).length, 'bandas');
+    // Buscar container
+    const container = document.getElementById('referenceComparisons');
+    if (!container) {
+        console.error('[GENRE-TABLE] ❌ Container #referenceComparisons não encontrado!');
+        console.groupEnd();
+        return;
+    }
     
-    // Chamar renderReferenceComparisons com contexto de gênero
-    const genreContext = {
-        mode: 'genre',
-        analysis: analysis,
-        userAnalysis: analysis,
-        referenceAnalysis: null,
-        user: analysis,
-        ref: null,
-        genre: genre,
-        targets: targets,
-        _isGenreIsolated: true
+    // Buscar bands
+    const userBands = analysis.bands || {};
+    const targetBands = targets.hybrid_processing.spectral_bands;
+    
+    console.log('[GENRE-TABLE] 🔍 User bands:', Object.keys(userBands));
+    console.log('[GENRE-TABLE] 🎯 Target bands:', Object.keys(targetBands));
+    
+    // Mapeamento de bandas
+    const bandMap = {
+        sub: 'sub',
+        bass: 'low_bass',
+        upperBass: 'upper_bass',
+        lowMid: 'low_mid',
+        mid: 'mid',
+        highMid: 'high_mid',
+        brilho: 'brilho',
+        presenca: 'presenca'
     };
     
-    console.log('[GENRE-TABLE] Contexto de gênero criado:', {
-        mode: genreContext.mode,
-        hasAnalysis: !!genreContext.analysis,
-        hasTargets: !!genreContext.targets,
-        isGenreIsolated: genreContext._isGenreIsolated
-    });
-    console.log('[GENRE-TABLE] Chamando renderReferenceComparisons com contexto de gênero');
-    renderReferenceComparisons(genreContext);
+    // Nomes amigáveis
+    const nomesBandas = {
+        sub: 'Sub (20-60 Hz)',
+        bass: 'Bass (60-120 Hz)',
+        upperBass: 'Upper Bass (120-250 Hz)',
+        lowMid: 'Low Mid (250-500 Hz)',
+        mid: 'Mid (500-2k Hz)',
+        highMid: 'High Mid (2k-4k Hz)',
+        brilho: 'Brilho (4k-10k Hz)',
+        presenca: 'Presença (10k-20k Hz)'
+    };
     
-    console.log('[GENRE-TABLE] ✅ Tabela renderizada');
+    // Construir linhas da tabela
+    const rows = [];
+    
+    Object.entries(bandMap).forEach(([userKey, targetKey]) => {
+        const userBand = userBands[userKey];
+        const targetBand = targetBands[targetKey];
+        
+        if (!targetBand || typeof targetBand.min === 'undefined' || typeof targetBand.max === 'undefined') {
+            console.warn(`[GENRE-TABLE] ⚠️ Target band "${targetKey}" sem min/max`);
+            return;
+        }
+        
+        const userValue = userBand?.energy_db ?? null;
+        
+        if (userValue === null) {
+            console.warn(`[GENRE-TABLE] ⚠️ User band "${userKey}" sem energy_db`);
+            return;
+        }
+        
+        const min = targetBand.min;
+        const max = targetBand.max;
+        const alvoIdeal = (min + max) / 2;
+        const diferenca = userValue - alvoIdeal;
+        
+        // Calcular severidade e ação
+        let severidade = 'OK';
+        let severidadeClass = 'ok';
+        let acao = '✅ Dentro do padrão';
+        
+        if (userValue < min) {
+            const distancia = min - userValue;
+            if (distancia >= 6) {
+                severidade = 'CRÍTICA';
+                severidadeClass = 'critical';
+                acao = `🔴 Aumentar ${distancia.toFixed(1)} dB`;
+            } else if (distancia >= 3) {
+                severidade = 'ALTA';
+                severidadeClass = 'warning';
+                acao = `🟡 Aumentar ${distancia.toFixed(1)} dB`;
+            } else {
+                severidade = 'MODERADA';
+                severidadeClass = 'caution';
+                acao = `⚠️ Aumentar ${distancia.toFixed(1)} dB`;
+            }
+        } else if (userValue > max) {
+            const distancia = userValue - max;
+            if (distancia >= 6) {
+                severidade = 'CRÍTICA';
+                severidadeClass = 'critical';
+                acao = `🔴 Reduzir ${distancia.toFixed(1)} dB`;
+            } else if (distancia >= 3) {
+                severidade = 'ALTA';
+                severidadeClass = 'warning';
+                acao = `🟡 Reduzir ${distancia.toFixed(1)} dB`;
+            } else {
+                severidade = 'MODERADA';
+                severidadeClass = 'caution';
+                acao = `⚠️ Reduzir ${distancia.toFixed(1)} dB`;
+            }
+        } else {
+            // Dentro da faixa
+            const desvio = Math.abs(diferenca);
+            if (desvio >= 3) {
+                severidade = 'ATENÇÃO';
+                severidadeClass = 'caution';
+                acao = diferenca > 0 ? `⚠️ Reduzir ${desvio.toFixed(1)} dB` : `⚠️ Aumentar ${desvio.toFixed(1)} dB`;
+            }
+        }
+        
+        const nomeAmigavel = nomesBandas[userKey] || userKey;
+        
+        rows.push(`
+            <tr class="genre-row ${severidadeClass}">
+                <td class="metric-name">${nomeAmigavel}</td>
+                <td class="metric-value">${userValue.toFixed(2)} dB</td>
+                <td class="metric-target">${min.toFixed(1)} - ${max.toFixed(1)} dB</td>
+                <td class="metric-diff ${diferenca >= 0 ? 'positive' : 'negative'}">${diferenca >= 0 ? '+' : ''}${diferenca.toFixed(2)} dB</td>
+                <td class="metric-severity ${severidadeClass}">${severidade}</td>
+                <td class="metric-action ${severidadeClass}">${acao}</td>
+            </tr>
+        `);
+        
+        console.log(`[GENRE-TABLE] ✅ ${nomeAmigavel}: ${userValue.toFixed(2)} dB | ${min.toFixed(1)}-${max.toFixed(1)} | Δ: ${diferenca.toFixed(2)} | ${severidade}`);
+    });
+    
+    // Renderizar HTML completo
+    const tableHTML = `
+        <div class="card genre-comparison-classic" style="margin-top:12px;">
+            <div class="card-title">COMPARAÇÃO COM ${genre.toUpperCase()}</div>
+            <table class="classic-genre-table">
+                <thead>
+                    <tr>
+                        <th>Métrica</th>
+                        <th>Valor</th>
+                        <th>Alvo</th>
+                        <th>Diferença</th>
+                        <th>Severidade</th>
+                        <th>Ação Sugerida</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${rows.join('')}
+                </tbody>
+            </table>
+        </div>
+    `;
+    
+    container.innerHTML = tableHTML;
+    
+    // Forçar visibilidade
+    container.classList.remove('hidden');
+    container.style.display = '';
+    container.style.visibility = 'visible';
+    container.style.opacity = '1';
+    
+    console.log('[GENRE-TABLE] ✅ Tabela CLÁSSICA renderizada com', rows.length, 'bandas');
     console.groupEnd();
 }
 
@@ -14076,6 +14202,131 @@ function renderReferenceComparisons(ctx) {
         .ref-compare-table tbody tr:hover td{background:rgba(255,255,255,.04);} 
         `;
         document.head.appendChild(style);
+    }
+    
+    // 🎯 ESTILOS DA TABELA CLÁSSICA DE GÊNERO
+    if (!document.getElementById('classicGenreStyles')) {
+        const genreStyle = document.createElement('style');
+        genreStyle.id = 'classicGenreStyles';
+        genreStyle.textContent = `
+        .classic-genre-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 11px;
+        }
+        .classic-genre-table th {
+            font-weight: 600;
+            padding: 6px 8px;
+            border-bottom: 2px solid rgba(255,255,255,.15);
+            font-size: 11px;
+            color: #fff;
+            text-align: left;
+            letter-spacing: .5px;
+            background: rgba(0,0,0,.2);
+        }
+        .classic-genre-table tbody tr {
+            transition: background .2s ease;
+        }
+        .classic-genre-table tbody tr:hover {
+            background: rgba(255,255,255,.05);
+        }
+        .classic-genre-table td {
+            padding: 7px 8px;
+            border-bottom: 1px solid rgba(255,255,255,.08);
+            font-size: 11px;
+        }
+        .classic-genre-table tr:last-child td {
+            border-bottom: 0;
+        }
+        
+        /* 🎯 CORES DE SEVERIDADE */
+        .classic-genre-table .genre-row.ok {
+            background: rgba(82, 247, 173, .05);
+        }
+        .classic-genre-table .genre-row.ok:hover {
+            background: rgba(82, 247, 173, .12);
+        }
+        .classic-genre-table .genre-row.caution {
+            background: rgba(255, 206, 77, .08);
+        }
+        .classic-genre-table .genre-row.caution:hover {
+            background: rgba(255, 206, 77, .15);
+        }
+        .classic-genre-table .genre-row.warning {
+            background: rgba(255, 165, 0, .1);
+        }
+        .classic-genre-table .genre-row.warning:hover {
+            background: rgba(255, 165, 0, .18);
+        }
+        .classic-genre-table .genre-row.critical {
+            background: rgba(255, 82, 82, .12);
+        }
+        .classic-genre-table .genre-row.critical:hover {
+            background: rgba(255, 82, 82, .2);
+        }
+        
+        /* 🎯 COLUNAS ESPECÍFICAS */
+        .classic-genre-table .metric-name {
+            font-weight: 500;
+            color: #e1e8f0;
+        }
+        .classic-genre-table .metric-value {
+            font-weight: 600;
+            color: #52f7ad;
+            text-align: center;
+        }
+        .classic-genre-table .metric-target {
+            color: #9ca9ba;
+            text-align: center;
+            font-size: 10px;
+        }
+        .classic-genre-table .metric-diff {
+            text-align: center;
+            font-weight: 600;
+        }
+        .classic-genre-table .metric-diff.positive {
+            color: #ff8a80;
+        }
+        .classic-genre-table .metric-diff.negative {
+            color: #80d8ff;
+        }
+        .classic-genre-table .metric-severity {
+            text-align: center;
+            font-weight: 700;
+            font-size: 10px;
+            letter-spacing: .8px;
+        }
+        .classic-genre-table .metric-severity.ok {
+            color: #52f7ad;
+        }
+        .classic-genre-table .metric-severity.caution {
+            color: #ffce4d;
+        }
+        .classic-genre-table .metric-severity.warning {
+            color: #ffa500;
+        }
+        .classic-genre-table .metric-severity.critical {
+            color: #ff5252;
+        }
+        .classic-genre-table .metric-action {
+            text-align: center;
+            font-size: 10px;
+            font-weight: 500;
+        }
+        .classic-genre-table .metric-action.ok {
+            color: #52f7ad;
+        }
+        .classic-genre-table .metric-action.caution {
+            color: #ffce4d;
+        }
+        .classic-genre-table .metric-action.warning {
+            color: #ffa500;
+        }
+        .classic-genre-table .metric-action.critical {
+            color: #ff5252;
+        }
+        `;
+        document.head.appendChild(genreStyle);
     }
     
     // Garantir que o CSS do priority-banner esteja disponível no modal
