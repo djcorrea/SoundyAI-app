@@ -3841,7 +3841,7 @@ function initGenreModal() {
     
     // 🎯 Handler de clique nos gêneros
     genreCards.forEach(card => {
-        card.addEventListener('click', (e) => {
+        card.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
             
@@ -3855,7 +3855,9 @@ function initGenreModal() {
             
             // 🔥 REUTILIZAR EXATAMENTE: Chamar applyGenreSelection como especificado
             if (typeof applyGenreSelection === 'function') {
-                applyGenreSelection(genre);
+                // ✅ CORREÇÃO CRÍTICA: Aguardar carregamento completo dos targets
+                await applyGenreSelection(genre);
+                __dbg('[GENRE_MODAL] ✅ Targets de gênero carregados:', window.__activeRefData);
             } else {
                 console.error('[GENRE_MODAL] applyGenreSelection não está disponível');
                 return;
@@ -3865,9 +3867,8 @@ function initGenreModal() {
             closeGenreModal();
             
             // 🔥 CONTINUAR FLUXO: Abrir modal de upload automaticamente
-            setTimeout(() => {
-                openAnalysisModalForGenre();
-            }, 200); // Pequeno delay para suavizar transição
+            // ✅ CORREÇÃO: Removido setTimeout - targets já estão carregados
+            openAnalysisModalForGenre();
         });
     });
     
@@ -6641,6 +6642,17 @@ async function handleGenreFileSelection(file) {
 
     // 🐛 CORREÇÃO CRÍTICA: Só carregar referências de gênero se estivermos NO MODO GÊNERO
     if (window.currentAnalysisMode === 'genre') {
+        // 🎯 FALLBACK SEGURO: Restaurar gênero do localStorage se não estiver setado
+        if (!window.PROD_AI_REF_GENRE) {
+            const savedGenre = localStorage.getItem('prodai_ref_genre');
+            if (savedGenre) {
+                console.log('🔧 [GENRE-FALLBACK] Restaurando gênero do localStorage:', savedGenre);
+                window.PROD_AI_REF_GENRE = savedGenre;
+            } else {
+                console.error('❌ [GENRE-CRITICAL] Gênero não encontrado - modo gênero sem targets');
+            }
+        }
+        
         // 🎯 CORREÇÃO CRÍTICA: RESETAR ESTADO DE REFERÊNCIA ANTES DE CARREGAR TARGETS DE GÊNERO
         // 🎯 PRESERVAR GÊNERO durante o reset
         const currentGenre = window.PROD_AI_REF_GENRE || window.__CURRENT_GENRE;
@@ -6648,18 +6660,30 @@ async function handleGenreFileSelection(file) {
         console.log('🧹 [GENRE-MODE] Gênero preservado:', currentGenre);
         resetReferenceStateFully(currentGenre);
         
-        // Garantir que referências do gênero selecionado estejam carregadas antes da análise (evita race e gênero errado)
+        // Garantir que referências do gênero selecionado estejam carregadas antes da análise
         try {
-            const genre = (typeof window !== 'undefined') ? window.PROD_AI_REF_GENRE : null;
+            const genre = window.PROD_AI_REF_GENRE;
             console.log('🔍 [DIAGNÓSTICO] Carregando referências de gênero:', genre);
             
-            if (genre && (!__activeRefData || __activeRefGenre !== genre)) {
+            // ✅ CORREÇÃO: Sempre carregar targets se gênero existir
+            if (genre) {
                 updateModalProgress(25, `📚 Carregando referências: ${genre}...`);
                 await loadReferenceData(genre);
                 updateModalProgress(30, '📚 Referências ok');
+                
+                // ✅ VALIDAÇÃO: Confirmar que targets foram carregados
+                if (!window.__activeRefData) {
+                    console.error('❌ [GENRE-CRITICAL] Falha ao carregar targets de gênero');
+                } else {
+                    console.log('✅ [GENRE-SUCCESS] Targets carregados:', {
+                        genre,
+                        hasBands: !!window.__activeRefData.bands,
+                        lufsTarget: window.__activeRefData.lufs_target
+                    });
+                }
             }
-        } catch (_) { 
-            console.log('🔍 [DIAGNÓSTICO] Erro ao carregar referências de gênero (não crítico)');
+        } catch (e) { 
+            console.error('❌ [GENRE-ERROR] Erro ao carregar referências de gênero:', e);
         }
     } else {
         console.log('🔍 [DIAGNÓSTICO] PULAR carregamento de referências - modo não é gênero');
