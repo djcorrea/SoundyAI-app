@@ -10672,6 +10672,10 @@ async function displayModalResults(analysis) {
     
         // 🎯 CORRIGIDO: Só renderizar referências se NÃO estiver em modo comparação de faixas
         // O displayModalResults() já trata comparação via renderTrackComparisonTable()
+        
+        // 🔥 FLAG DE CONTROLE: Impedir dupla renderização em modo gênero
+        let genreRenderComplete = false;
+        
         try { 
             // ========================================
             // 🔥 MODO GÊNERO: RENDERIZAÇÃO ISOLADA
@@ -10688,6 +10692,9 @@ async function displayModalResults(analysis) {
                 
                 // ✅ CHAMAR FUNÇÃO DE RENDERIZAÇÃO DE GÊNERO
                 renderGenreView(analysis);
+                
+                // 🔥 MARCAR FLAG: Gênero foi renderizado, NÃO renderizar A/B depois
+                genreRenderComplete = true;
                 
                 console.log('%c[GENRE-MODE] ✅ RENDERIZAÇÃO CONCLUÍDA', 'color:#00FF88;font-weight:bold;');
                 return;
@@ -10790,7 +10797,10 @@ async function displayModalResults(analysis) {
                 return !!(userFull && refFull);
             };
 
-            if (ensureBandsReady(renderOpts?.userAnalysis, renderOpts?.referenceAnalysis)) {
+            // 🔥 PROTEÇÃO: NÃO renderizar A/B se gênero já foi renderizado
+            if (genreRenderComplete) {
+                console.log('[GENRE-PROTECTION] ✅ Modo gênero já renderizado - BLOQUEANDO renderização A/B');
+            } else if (ensureBandsReady(renderOpts?.userAnalysis, renderOpts?.referenceAnalysis)) {
                 renderReferenceComparisons(renderOpts);
             } else {
                 console.warn('[BANDS-FIX] ⚠️ Objetos ausentes para comparação A/B, pulando render de referência');
