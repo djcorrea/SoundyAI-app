@@ -11473,7 +11473,7 @@ function computeHasReferenceComparisonMetrics(analysis) {
 }
 
 // --- BEGIN: band target resolver (mode-aware) ---
-const BAND_ALIASES = {
+const BAND_NORMALIZATION_MAP = {
     // normaliza chaves heterogêneas para um vocabulário comum
     low_bass: 'bass',
     upper_bass: 'bass',
@@ -11507,7 +11507,7 @@ function pickNumeric(val) {
 }
 
 function normalizeBandKey(k) {
-    return BAND_ALIASES[k] || k;
+    return BAND_NORMALIZATION_MAP[k] || k;
 }
 
 function getReferenceBandValue(refBands, bandKey) {
