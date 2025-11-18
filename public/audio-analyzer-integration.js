@@ -5036,6 +5036,97 @@ function renderGenreComparisonTable(options) {
             .classic-genre-table .metric-diff.negative {
                 color: #00d4ff;
             }
+            
+            /* 🎯 MOBILE RESPONSIVO - TABELA GÊNERO */
+            @media (max-width: 768px) {
+                .genre-comparison-classic {
+                    padding: 12px !important;
+                    border-radius: 12px !important;
+                    overflow-x: hidden !important;
+                }
+                
+                .classic-genre-table {
+                    table-layout: fixed !important;
+                    width: 100% !important;
+                    font-size: 10px !important;
+                    overflow-x: auto !important;
+                    display: block !important;
+                }
+                
+                .classic-genre-table thead,
+                .classic-genre-table tbody,
+                .classic-genre-table tr {
+                    display: table !important;
+                    width: 100% !important;
+                    table-layout: fixed !important;
+                }
+                
+                .classic-genre-table th {
+                    padding: 8px 4px !important;
+                    font-size: 9px !important;
+                    letter-spacing: 0.3px !important;
+                    line-height: 1.2 !important;
+                    word-wrap: break-word !important;
+                }
+                
+                .classic-genre-table td {
+                    padding: 8px 4px !important;
+                    font-size: 10px !important;
+                    line-height: 1.3 !important;
+                    word-wrap: break-word !important;
+                }
+                
+                .classic-genre-table th:nth-child(1),
+                .classic-genre-table td:nth-child(1) {
+                    width: 22% !important;
+                    text-align: left !important;
+                }
+                
+                .classic-genre-table th:nth-child(2),
+                .classic-genre-table td:nth-child(2),
+                .classic-genre-table th:nth-child(3),
+                .classic-genre-table td:nth-child(3),
+                .classic-genre-table th:nth-child(4),
+                .classic-genre-table td:nth-child(4) {
+                    width: 14% !important;
+                }
+                
+                .classic-genre-table th:nth-child(5),
+                .classic-genre-table td:nth-child(5) {
+                    width: 15% !important;
+                }
+                
+                .classic-genre-table th:nth-child(6),
+                .classic-genre-table td:nth-child(6) {
+                    width: 21% !important;
+                }
+                
+                .classic-genre-table td .icon,
+                .classic-genre-table td i,
+                .classic-genre-table td svg {
+                    width: 12px !important;
+                    height: 12px !important;
+                    font-size: 12px !important;
+                }
+                
+                .classic-genre-table .metric-severity {
+                    font-size: 9px !important;
+                    font-weight: 600 !important;
+                }
+                
+                .classic-genre-table .metric-action {
+                    font-size: 9px !important;
+                }
+                
+                .classic-genre-table .metric-diff {
+                    font-size: 9px !important;
+                }
+                
+                .genre-comparison-classic .card-title {
+                    font-size: 13px !important;
+                    padding: 8px 0 !important;
+                }
+            }
         `;
         document.head.appendChild(style);
         console.log('[GENRE-TABLE] 🎨 Estilos CSS injetados');
