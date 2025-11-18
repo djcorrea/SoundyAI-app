@@ -11275,28 +11275,10 @@ async function displayModalResults(analysis) {
         
         // 🎯 RENDERIZAR SCORES DO NOVO SISTEMA
         const renderNewScores = () => {
-            // 🔍 AUDITORIA CRÍTICA: Verificar estrutura de analysis.scores
-            console.log('[SUBSCORE-AUDIT] ═══════════════════════════════════════');
-            console.log('[SUBSCORE-AUDIT] Estrutura completa de analysis.scores:');
-            console.log('[SUBSCORE-AUDIT] analysis.scores:', analysis.scores);
-            console.log('[SUBSCORE-AUDIT] ');
-            console.log('[SUBSCORE-AUDIT] Propriedades disponíveis:');
-            if (analysis.scores) {
-                console.log('[SUBSCORE-AUDIT]   - loudness:', analysis.scores.loudness, typeof analysis.scores.loudness);
-                console.log('[SUBSCORE-AUDIT]   - dinamica:', analysis.scores.dinamica, typeof analysis.scores.dinamica);
-                console.log('[SUBSCORE-AUDIT]   - estereo:', analysis.scores.estereo, typeof analysis.scores.estereo);
-                console.log('[SUBSCORE-AUDIT]   - frequencia:', analysis.scores.frequencia, typeof analysis.scores.frequencia);
-                console.log('[SUBSCORE-AUDIT]   - tecnico:', analysis.scores.tecnico, typeof analysis.scores.tecnico);
-                console.log('[SUBSCORE-AUDIT]   - final:', analysis.scores.final, typeof analysis.scores.final);
-                console.log('[SUBSCORE-AUDIT]   - Todas as chaves:', Object.keys(analysis.scores));
-            }
-            console.log('[SUBSCORE-AUDIT] ═══════════════════════════════════════');
-            
             // Verificar se temos scores calculados
             const scores = analysis.scores;
             
             if (!scores) {
-                console.warn('[SUBSCORE-AUDIT] ⚠️ analysis.scores é NULL ou UNDEFINED');
                 return `<div class="data-row">
                     <span class="label">Sistema de Scoring:</span>
                     <span class="value">Não disponível</span>
@@ -15206,23 +15188,11 @@ function calculateMetricScore(actualValue, targetValue, tolerance) {
 
 // 3. CALCULAR SCORE DE LOUDNESS (LUFS, True Peak, Crest Factor)
 function calculateLoudnessScore(analysis, refData) {
-    console.log('[SUBSCORE-CALC] 🔊 calculateLoudnessScore INICIADO');
-    console.log('[SUBSCORE-CALC] analysis existe?', !!analysis);
-    console.log('[SUBSCORE-CALC] refData existe?', !!refData);
-    
-    if (!analysis || !refData) {
-        console.warn('[SUBSCORE-CALC] ⚠️ calculateLoudnessScore ABORTADO: dados ausentes');
-        return null;
-    }
+    if (!analysis || !refData) return null;
     
     const tech = analysis.technicalData || {};
     const metrics = analysis.metrics || {};
     const scores = [];
-    
-    console.log('[SUBSCORE-CALC] tech:', tech);
-    console.log('[SUBSCORE-CALC] metrics:', metrics);
-    console.log('[SUBSCORE-CALC] refData.lufs_target:', refData.lufs_target);
-    console.log('[SUBSCORE-CALC] refData.true_peak_target:', refData.true_peak_target);
     
     // LUFS Integrado (métrica principal de loudness)
     const lufsValue = metrics.lufs_integrated || tech.lufsIntegrated;
@@ -15299,23 +15269,11 @@ function calculateLoudnessScore(analysis, refData) {
 
 // 4. CALCULAR SCORE DE DINÂMICA (LRA, DR, Crest Consistency, Fator de Crista)
 function calculateDynamicsScore(analysis, refData) {
-    console.log('[SUBSCORE-CALC] 📊 calculateDynamicsScore INICIADO');
-    console.log('[SUBSCORE-CALC] analysis existe?', !!analysis);
-    console.log('[SUBSCORE-CALC] refData existe?', !!refData);
-    
-    if (!analysis || !refData) {
-        console.warn('[SUBSCORE-CALC] ⚠️ calculateDynamicsScore ABORTADO: dados ausentes');
-        return null;
-    }
+    if (!analysis || !refData) return null;
     
     const tech = analysis.technicalData || {};
     const metrics = analysis.metrics || {};
     const scores = [];
-    
-    console.log('[SUBSCORE-CALC] tech.dynamicRange:', tech.dynamicRange);
-    console.log('[SUBSCORE-CALC] metrics.dynamic_range:', metrics.dynamic_range);
-    console.log('[SUBSCORE-CALC] refData.dr_target:', refData.dr_target);
-    console.log('[SUBSCORE-CALC] refData.lra_target:', refData.lra_target);
     
     // Dynamic Range (DR) - métrica principal de dinâmica
     const drValue = metrics.dynamic_range || tech.dynamicRange;
@@ -15403,22 +15361,11 @@ function calculateDynamicsScore(analysis, refData) {
 
 // 5. CALCULAR SCORE DE ESTÉREO (Largura, Correlação, Balanço L/R)
 function calculateStereoScore(analysis, refData) {
-    console.log('[SUBSCORE-CALC] 🎧 calculateStereoScore INICIADO');
-    console.log('[SUBSCORE-CALC] analysis existe?', !!analysis);
-    console.log('[SUBSCORE-CALC] refData existe?', !!refData);
-    
-    if (!analysis || !refData) {
-        console.warn('[SUBSCORE-CALC] ⚠️ calculateStereoScore ABORTADO: dados ausentes');
-        return null;
-    }
+    if (!analysis || !refData) return null;
     
     const tech = analysis.technicalData || {};
     const metrics = analysis.metrics || {};
     const scores = [];
-    
-    console.log('[SUBSCORE-CALC] tech.stereoCorrelation:', tech.stereoCorrelation);
-    console.log('[SUBSCORE-CALC] metrics.stereo_correlation:', metrics.stereo_correlation);
-    console.log('[SUBSCORE-CALC] refData.stereo_target:', refData.stereo_target);
     
     // Correlação Estéreo (principal métrica de estéreo)
     const stereoValue = metrics.stereo_correlation || tech.stereoCorrelation;
@@ -15959,22 +15906,6 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
         frequencia: frequencyScore,
         tecnico: technicalScore
     });
-    
-    // 🔍 AUDITORIA CRÍTICA: Verificar se algum subscore é null
-    console.log('[SUBSCORE-AUDIT] ═══════════════════════════════════════');
-    console.log('[SUBSCORE-AUDIT] RESULTADO FINAL dos subscores:');
-    console.log('[SUBSCORE-AUDIT] Loudness:', loudnessScore, '(tipo:', typeof loudnessScore, ')');
-    console.log('[SUBSCORE-AUDIT] Dinâmica:', dynamicsScore, '(tipo:', typeof dynamicsScore, ')');
-    console.log('[SUBSCORE-AUDIT] Estéreo:', stereoScore, '(tipo:', typeof stereoScore, ')');
-    console.log('[SUBSCORE-AUDIT] Frequência:', frequencyScore, '(tipo:', typeof frequencyScore, ')');
-    console.log('[SUBSCORE-AUDIT] Técnico:', technicalScore, '(tipo:', typeof technicalScore, ')');
-    
-    if (loudnessScore === null) console.warn('[SUBSCORE-AUDIT] ⚠️ Loudness retornou NULL');
-    if (dynamicsScore === null) console.warn('[SUBSCORE-AUDIT] ⚠️ Dinâmica retornou NULL');
-    if (stereoScore === null) console.warn('[SUBSCORE-AUDIT] ⚠️ Estéreo retornou NULL');
-    if (frequencyScore === null) console.warn('[SUBSCORE-AUDIT] ⚠️ Frequência retornou NULL');
-    if (technicalScore === null) console.warn('[SUBSCORE-AUDIT] ⚠️ Técnico retornou NULL');
-    console.log('[SUBSCORE-AUDIT] ═══════════════════════════════════════');
     
     // Determinar pesos por gênero
     // 🎯 CORREÇÃO: Não usar 'default' como fallback, usar null
