@@ -4552,12 +4552,32 @@ function renderGenreView(analysis) {
     // 7️⃣ Renderizar tabela de comparação de gênero
     console.log('[GENRE-VIEW] 6️⃣ Renderizando tabela de comparação...');
     console.log('[GENRE-VIEW] 🎯 GARANTIA: Chamando renderGenreComparisonTable com targets validados');
+    console.log('[GENRE-VIEW] 🔍 AUDIT: Targets sendo passados:', {
+        hasHybridProcessing: !!genreTargets?.hybrid_processing,
+        hasSpectralBands: !!genreTargets?.hybrid_processing?.spectral_bands,
+        spectralBandsKeys: genreTargets?.hybrid_processing?.spectral_bands ? Object.keys(genreTargets.hybrid_processing.spectral_bands) : 'N/A'
+    });
+    
     renderGenreComparisonTable({
         analysis,
         genre,
         targets: genreTargets
     });
+    
     console.log('[GENRE-VIEW] 🎯 GARANTIA: renderGenreComparisonTable executado');
+    console.log('[GENRE-VIEW] 🔍 AUDIT: Verificando se #referenceComparisons foi preenchido...');
+    
+    const refCompContainer = document.getElementById('referenceComparisons');
+    if (refCompContainer) {
+        console.log('[GENRE-VIEW] ✅ Container encontrado:', {
+            innerHTML: refCompContainer.innerHTML.length > 0 ? `${refCompContainer.innerHTML.length} chars` : 'VAZIO',
+            display: window.getComputedStyle(refCompContainer).display,
+            visibility: window.getComputedStyle(refCompContainer).visibility,
+            opacity: window.getComputedStyle(refCompContainer).opacity
+        });
+    } else {
+        console.error('[GENRE-VIEW] ❌ Container #referenceComparisons NÃO ENCONTRADO!');
+    }
     
     console.log('%c[GENRE-VIEW] ✅ Renderização de gênero concluída', 'color:#00FF88;font-weight:bold;');
     console.groupEnd();
@@ -4736,15 +4756,156 @@ function renderGenreComparisonTable(options) {
         </div>
     `;
     
+    // 🔥 AUDITORIA CRÍTICA: Verificar container ANTES de inserir HTML
+    console.log('[GENRE-TABLE-AUDIT] 🔍 ANTES de innerHTML:', {
+        containerExists: !!container,
+        containerVisible: container ? window.getComputedStyle(container).display : 'N/A',
+        containerOpacity: container ? window.getComputedStyle(container).opacity : 'N/A',
+        containerParent: container ? container.parentElement?.id : 'N/A',
+        tableHTMLLength: tableHTML.length,
+        rowsCount: rows.length
+    });
+    
     container.innerHTML = tableHTML;
+    
+    // 🔥 AUDITORIA CRÍTICA: Verificar container DEPOIS de inserir HTML
+    console.log('[GENRE-TABLE-AUDIT] 🔍 DEPOIS de innerHTML:', {
+        containerInnerHTMLLength: container.innerHTML.length,
+        containerFirstChild: container.firstChild ? container.firstChild.className : 'N/A',
+        tableExists: !!container.querySelector('.classic-genre-table'),
+        rowsInDOM: container.querySelectorAll('tr').length
+    });
     
     // Forçar visibilidade
     container.classList.remove('hidden');
-    container.style.display = '';
+    container.style.display = 'block';
     container.style.visibility = 'visible';
     container.style.opacity = '1';
     
+    // 🔥 AUDITORIA FINAL: Verificar visibilidade computada
+    const computedStyle = window.getComputedStyle(container);
+    console.log('[GENRE-TABLE-AUDIT] 🔍 VISIBILIDADE FINAL:', {
+        display: computedStyle.display,
+        visibility: computedStyle.visibility,
+        opacity: computedStyle.opacity,
+        height: computedStyle.height,
+        overflow: computedStyle.overflow
+    });
+    
+    // 🎨 INJETAR ESTILOS CSS PARA TABELA CLÁSSICA DE GÊNERO (branch imersao)
+    if (!document.getElementById('classicGenreTableStyles')) {
+        const style = document.createElement('style');
+        style.id = 'classicGenreTableStyles';
+        style.textContent = `
+            /* 🎯 TABELA CLÁSSICA DE GÊNERO */
+            .genre-comparison-classic {
+                background: linear-gradient(135deg, rgba(14, 20, 34, 0.95), rgba(31, 43, 64, 0.95));
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                border-radius: 16px;
+                padding: 24px;
+                margin-top: 16px;
+            }
+            
+            .classic-genre-table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 13px;
+            }
+            
+            .classic-genre-table thead {
+                background: rgba(0, 102, 255, 0.15);
+                border-bottom: 2px solid rgba(36, 157, 255, 0.4);
+            }
+            
+            .classic-genre-table th {
+                font-weight: 600;
+                padding: 12px 16px;
+                text-align: center;
+                font-size: 12px;
+                color: #00f0ff;
+                letter-spacing: 0.5px;
+                text-transform: uppercase;
+            }
+            
+            .classic-genre-table th:first-child {
+                text-align: left;
+            }
+            
+            .classic-genre-table td {
+                padding: 12px 16px;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+                color: #f5f7fa;
+                text-align: center;
+            }
+            
+            .classic-genre-table td:first-child {
+                text-align: left;
+                font-weight: 500;
+            }
+            
+            .classic-genre-table tr:last-child td {
+                border-bottom: 0;
+            }
+            
+            .classic-genre-table tbody tr:hover {
+                background: rgba(255, 255, 255, 0.05);
+            }
+            
+            /* 🎨 CORES DE SEVERIDADE */
+            .classic-genre-table .genre-row.ok {
+                background: rgba(82, 247, 173, 0.08);
+            }
+            
+            .classic-genre-table .genre-row.caution {
+                background: rgba(255, 206, 77, 0.08);
+            }
+            
+            .classic-genre-table .genre-row.warning {
+                background: rgba(255, 165, 0, 0.08);
+            }
+            
+            .classic-genre-table .genre-row.critical {
+                background: rgba(255, 123, 123, 0.08);
+            }
+            
+            .classic-genre-table .metric-severity.ok {
+                color: #52f7ad;
+                font-weight: 600;
+            }
+            
+            .classic-genre-table .metric-severity.caution {
+                color: #ffce4d;
+                font-weight: 600;
+            }
+            
+            .classic-genre-table .metric-severity.warning {
+                color: #ffa500;
+                font-weight: 600;
+            }
+            
+            .classic-genre-table .metric-severity.critical {
+                color: #ff7b7b;
+                font-weight: 600;
+            }
+            
+            .classic-genre-table .metric-action {
+                font-size: 12px;
+            }
+            
+            .classic-genre-table .metric-diff.positive {
+                color: #ffa500;
+            }
+            
+            .classic-genre-table .metric-diff.negative {
+                color: #00d4ff;
+            }
+        `;
+        document.head.appendChild(style);
+        console.log('[GENRE-TABLE] 🎨 Estilos CSS injetados');
+    }
+    
     console.log('[GENRE-TABLE] ✅ Tabela CLÁSSICA renderizada com', rows.length, 'bandas');
+    console.log('[GENRE-TABLE] 📍 Container #referenceComparisons:', container);
     console.groupEnd();
 }
 
