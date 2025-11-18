@@ -4458,8 +4458,12 @@ function renderGenreComparisonTable(options) {
         const userBand = userBands[userKey];
         const targetBand = targetBands[targetKey];
         
-        if (!targetBand || typeof targetBand.min === 'undefined' || typeof targetBand.max === 'undefined') {
-            console.warn(`[GENRE-TABLE] ⚠️ Target band "${targetKey}" sem min/max`);
+        // ✅ Suporte a target_range.min/max (fallback para novo formato JSON)
+        const min = targetBand?.min ?? targetBand?.target_range?.min;
+        const max = targetBand?.max ?? targetBand?.target_range?.max;
+        
+        if (!targetBand || typeof min === 'undefined' || typeof max === 'undefined') {
+            console.warn(`[GENRE-TABLE] ⚠️ Target band "${targetKey}" sem min/max (testado: .min, .max, .target_range.min, .target_range.max)`, targetBand);
             return;
         }
         
@@ -4469,9 +4473,6 @@ function renderGenreComparisonTable(options) {
             console.warn(`[GENRE-TABLE] ⚠️ User band "${userKey}" sem energy_db`);
             return;
         }
-        
-        const min = targetBand.min;
-        const max = targetBand.max;
         const alvoIdeal = (min + max) / 2;
         const diferenca = userValue - alvoIdeal;
         
