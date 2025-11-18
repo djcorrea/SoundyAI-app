@@ -4300,6 +4300,80 @@ function showReferenceUI() {
 // 🔥 RENDERIZAÇÃO ISOLADA DE GÊNERO
 // ========================================
 
+// 🎯 MÓDULO DE CONVERSÃO DE BANDAS (EXCLUSIVO PARA MODO GÊNERO)
+// ========================================
+/**
+ * Converte nomes de bandas do backend para o formato esperado pelos targets de gênero.
+ * 
+ * Backend envia: sub, bass, lowMid, mid, highMid, presence, air
+ * Targets esperam: sub, low_bass, upper_bass, low_mid, mid, high_mid, brilho, presenca
+ * 
+ * ⚠️ USO EXCLUSIVO: Apenas para analysis.mode === "genre"
+ * ❌ NUNCA usar para: mode === "reference", A/B, referenceComparison
+ * 
+ * @param {Object} bands - Bandas do backend (analysis.bands)
+ * @returns {Object} Bandas convertidas para formato de targets de gênero
+ */
+function mapBackendBandsToGenreBands(bands) {
+    if (!bands || typeof bands !== 'object') {
+        console.warn('[BAND-MAPPER] ⚠️ Bandas inválidas recebidas:', bands);
+        return {};
+    }
+    
+    console.group('[BAND-MAPPER] 🔄 Convertendo bandas do backend para formato de gênero');
+    console.log('[BAND-MAPPER] Bandas originais (backend):', Object.keys(bands));
+    
+    const mapped = {
+        // Mapeamento direto (mesma chave)
+        sub: bands.sub || null,
+        mid: bands.mid || null,
+        
+        // Conversões necessárias
+        low_bass: bands.bass || null,           // bass → low_bass
+        upper_bass: null,                       // ❌ não existe no backend atual
+        low_mid: bands.lowMid || null,          // lowMid → low_mid
+        high_mid: bands.highMid || null,        // highMid → high_mid
+        brilho: bands.air || null,              // air → brilho
+        presenca: bands.presence || null        // presence → presenca
+    };
+    
+    console.log('[BAND-MAPPER] Bandas convertidas (targets):', Object.keys(mapped).filter(k => mapped[k] !== null));
+    console.log('[BAND-MAPPER] Bandas ausentes:', Object.keys(mapped).filter(k => mapped[k] === null));
+    console.groupEnd();
+    
+    return mapped;
+}
+
+/**
+ * Aplica conversão de bandas EXCLUSIVAMENTE para modo gênero.
+ * 
+ * @param {Object} analysis - Objeto de análise completo
+ * @returns {Object} Análise com bandas convertidas (analysis.genreBands)
+ */
+function applyGenreBandConversion(analysis) {
+    // 🛡️ GUARD: Apenas para modo gênero
+    if (analysis?.mode !== 'genre') {
+        console.log('[BAND-MAPPER] ⏭️ Modo não é gênero, pulando conversão');
+        return analysis;
+    }
+    
+    console.group('[BAND-MAPPER] 🎯 Aplicando conversão de bandas para modo GÊNERO');
+    console.log('[BAND-MAPPER] Mode:', analysis.mode);
+    console.log('[BAND-MAPPER] Bandas originais:', analysis.bands ? Object.keys(analysis.bands) : 'N/A');
+    
+    // Converter bandas do backend para formato de targets
+    if (analysis.bands) {
+        analysis.genreBands = mapBackendBandsToGenreBands(analysis.bands);
+        console.log('[BAND-MAPPER] ✅ analysis.genreBands criado com', Object.keys(analysis.genreBands).filter(k => analysis.genreBands[k] !== null).length, 'bandas');
+    } else {
+        console.warn('[BAND-MAPPER] ⚠️ analysis.bands não disponível');
+        analysis.genreBands = {};
+    }
+    
+    console.groupEnd();
+    return analysis;
+}
+
 function renderGenreView(analysis) {
     console.group('%c[GENRE-VIEW] 🎨 Renderizando UI exclusiva de gênero', 'color:#00C9FF;font-weight:bold;font-size:14px;');
     
@@ -4347,6 +4421,11 @@ function renderGenreView(analysis) {
                   'default';
     
     console.log('[GENRE-VIEW] 4️⃣ Gênero identificado:', genre);
+    
+    // 🎯 CONVERSÃO DE BANDAS: Backend → Targets de gênero
+    console.log('[GENRE-VIEW] 🔄 Aplicando conversão de bandas...');
+    applyGenreBandConversion(analysis);
+    console.log('[GENRE-VIEW] ✅ Bandas convertidas:', analysis.genreBands ? Object.keys(analysis.genreBands).filter(k => analysis.genreBands[k] !== null) : 'N/A');
     
     // 6️⃣ Obter targets de gênero
     // 🔥 CORREÇÃO: PROD_AI_REF_DATA pode ser um objeto único OU um dicionário
@@ -4431,33 +4510,34 @@ function renderGenreComparisonTable(options) {
     const forceClassicGenreTable = true;
     console.log('[GENRE-TABLE] 🔥 Tabela clássica FORÇADA (sem fallback)');
     
-    // Buscar bands
-    const userBands = analysis.bands || {};
+    // 🎯 USAR BANDAS CONVERTIDAS (genreBands) ao invés de bands originais
+    const userBands = analysis.genreBands || analysis.bands || {};
     const targetBands = targets.hybrid_processing.spectral_bands;
     
-    console.log('[GENRE-TABLE] 🔍 User bands:', Object.keys(userBands));
+    console.log('[GENRE-TABLE] 🔍 User bands (convertidas):', Object.keys(userBands));
     console.log('[GENRE-TABLE] 🎯 Target bands:', Object.keys(targetBands));
+    console.log('[GENRE-TABLE] 📊 Usando genreBands:', !!analysis.genreBands);
     
-    // Mapeamento de bandas
+    // 🔥 NOVO MAPEAMENTO: userBands JÁ estão no formato de targets (após conversão)
     const bandMap = {
         sub: 'sub',
-        bass: 'low_bass',
-        upperBass: 'upper_bass',
-        lowMid: 'low_mid',
+        low_bass: 'low_bass',           // ✅ JÁ convertido
+        upper_bass: 'upper_bass',       // ⚠️ pode ser null
+        low_mid: 'low_mid',             // ✅ JÁ convertido
         mid: 'mid',
-        highMid: 'high_mid',
-        brilho: 'brilho',
-        presenca: 'presenca'
+        high_mid: 'high_mid',           // ✅ JÁ convertido
+        brilho: 'brilho',               // ✅ JÁ convertido
+        presenca: 'presenca'            // ✅ JÁ convertido
     };
     
     // Nomes amigáveis
     const nomesBandas = {
         sub: 'Sub (20-60 Hz)',
-        bass: 'Bass (60-120 Hz)',
-        upperBass: 'Upper Bass (120-250 Hz)',
-        lowMid: 'Low Mid (250-500 Hz)',
+        low_bass: 'Bass (60-120 Hz)',           // ✅ atualizado
+        upper_bass: 'Upper Bass (120-250 Hz)',
+        low_mid: 'Low Mid (250-500 Hz)',        // ✅ atualizado
         mid: 'Mid (500-2k Hz)',
-        highMid: 'High Mid (2k-4k Hz)',
+        high_mid: 'High Mid (2k-4k Hz)',        // ✅ atualizado
         brilho: 'Brilho (4k-10k Hz)',
         presenca: 'Presença (10k-20k Hz)'
     };
