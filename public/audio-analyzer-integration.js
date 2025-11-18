@@ -11396,6 +11396,13 @@ function renderReferenceComparisons(ctx) {
                 'air': 'brilho'
             };
             
+            console.log('🔍 [GENRE-BAND-MAPPING] Iniciando processamento de bandas:');
+            console.log('   - Mapeamento:', bandMapping);
+            
+            // Contador de bandas processadas
+            let bandasProcessadas = 0;
+            let bandasIgnoradas = [];
+            
             // Montar HTML da tabela
             let tableHTML = `
                 <div class="comparison-section genre-mode">
@@ -11404,9 +11411,9 @@ function renderReferenceComparisons(ctx) {
                         <thead>
                             <tr>
                                 <th>Banda</th>
+                                <th>Min</th>
+                                <th>Max</th>
                                 <th>Sua Faixa</th>
-                                <th>Target Ideal</th>
-                                <th>Diferença</th>
                                 <th>Status</th>
                             </tr>
                         </thead>
@@ -11415,10 +11422,25 @@ function renderReferenceComparisons(ctx) {
             
             // Processar cada banda
             Object.entries(bandMapping).forEach(([userKey, targetKey]) => {
+                console.log(`🔍 [GENRE-BAND] Processando ${userKey} → ${targetKey}`);
+                
                 const userBand = userBands[userKey];
                 const targetBand = targetBands[targetKey];
                 
-                if (!userBand || !targetBand) return;
+                console.log(`   - userBand (${userKey}):`, userBand);
+                console.log(`   - targetBand (${targetKey}):`, targetBand);
+                
+                if (!userBand) {
+                    console.warn(`   ⚠️ userBand ausente para ${userKey}`);
+                    bandasIgnoradas.push(`${userKey} (user ausente)`);
+                    return;
+                }
+                
+                if (!targetBand) {
+                    console.warn(`   ⚠️ targetBand ausente para ${targetKey}`);
+                    bandasIgnoradas.push(`${targetKey} (target ausente)`);
+                    return;
+                }
                 
                 // Extrair valor do usuário (em dB)
                 let userValue = null;
@@ -11430,7 +11452,13 @@ function renderReferenceComparisons(ctx) {
                     userValue = userBand;
                 }
                 
-                if (!Number.isFinite(userValue)) return;
+                console.log(`   - userValue extraído: ${userValue}`);
+                
+                if (!Number.isFinite(userValue)) {
+                    console.warn(`   ⚠️ userValue inválido para ${userKey}`);
+                    bandasIgnoradas.push(`${userKey} (valor inválido)`);
+                    return;
+                }
                 
                 // Extrair target (usar target_range se disponível)
                 let targetMin, targetMax, targetCenter;
@@ -11438,14 +11466,20 @@ function renderReferenceComparisons(ctx) {
                     targetMin = targetBand.target_range.min;
                     targetMax = targetBand.target_range.max;
                     targetCenter = (targetMin + targetMax) / 2;
+                    console.log(`   - Target range: min=${targetMin}, max=${targetMax}, center=${targetCenter}`);
                 } else if (Number.isFinite(targetBand.target_db)) {
                     targetCenter = targetBand.target_db;
                     const tol = targetBand.tol_db || 3;
                     targetMin = targetCenter - tol;
                     targetMax = targetCenter + tol;
+                    console.log(`   - Target db: center=${targetCenter}, tol=${tol}, min=${targetMin}, max=${targetMax}`);
                 }
                 
-                if (!Number.isFinite(targetCenter)) return;
+                if (!Number.isFinite(targetCenter)) {
+                    console.warn(`   ⚠️ targetCenter inválido para ${targetKey}`);
+                    bandasIgnoradas.push(`${targetKey} (target inválido)`);
+                    return;
+                }
                 
                 // Calcular diferença e status
                 const diff = userValue - targetCenter;
@@ -11453,16 +11487,20 @@ function renderReferenceComparisons(ctx) {
                 const status = isInRange ? '✅ Ideal' : (diff > 0 ? '⚠️ Alto' : '⚠️ Baixo');
                 const statusClass = isInRange ? 'status-good' : 'status-warning';
                 
+                console.log(`   ✅ Banda ${userKey}: valor=${userValue.toFixed(1)}, range=[${targetMin.toFixed(1)}, ${targetMax.toFixed(1)}], status=${status}`);
+                
                 // Adicionar linha na tabela
                 tableHTML += `
                     <tr class="${statusClass}">
                         <td><strong>${userKey.toUpperCase()}</strong></td>
+                        <td>${targetMin.toFixed(1)} dB</td>
+                        <td>${targetMax.toFixed(1)} dB</td>
                         <td>${userValue.toFixed(1)} dB</td>
-                        <td>${targetCenter.toFixed(1)} dB (±${((targetMax - targetMin) / 2).toFixed(1)})</td>
-                        <td>${diff > 0 ? '+' : ''}${diff.toFixed(1)} dB</td>
                         <td>${status}</td>
                     </tr>
                 `;
+                
+                bandasProcessadas++;
             });
             
             tableHTML += `
@@ -11471,9 +11509,13 @@ function renderReferenceComparisons(ctx) {
                 </div>
             `;
             
+            console.log('📊 [GENRE-BAND-SUMMARY] Processamento concluído:');
+            console.log(`   - Bandas processadas: ${bandasProcessadas}/7`);
+            console.log(`   - Bandas ignoradas: ${bandasIgnoradas.length > 0 ? bandasIgnoradas.join(', ') : 'nenhuma'}`);
+            
             console.log('🎨 [GENRE-DEBUG] HTML da tabela gerado:');
             console.log('   - tableHTML length:', tableHTML.length);
-            console.log('   - tableHTML preview:', tableHTML.substring(0, 300));
+            console.log('   - tableHTML preview:', tableHTML.substring(0, 500));
             console.log('   - container:', container);
             console.log('   - container.id:', container?.id);
             
@@ -11484,6 +11526,7 @@ function renderReferenceComparisons(ctx) {
             console.log('✅ [GENRE-ISOLATED] Tabela de gênero renderizada com sucesso');
             console.log('   - container.innerHTML.length:', container.innerHTML.length);
             console.log('   - container.style.display:', container.style.display);
+            console.log('   - HTML final no container:', container.innerHTML.substring(0, 500));
             console.groupEnd();
             return; // ❌ NÃO continuar para guards de referência
             
