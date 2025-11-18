@@ -4303,6 +4303,13 @@ function showReferenceUI() {
 function renderGenreView(analysis) {
     console.group('%c[GENRE-VIEW] 🎨 Renderizando UI exclusiva de gênero', 'color:#00C9FF;font-weight:bold;font-size:14px;');
     
+    // 🔥 ISOLAMENTO TOTAL: Limpar TODAS as variáveis de referência
+    console.log('[GENRE-VIEW] 🧹 LIMPANDO variáveis de referência...');
+    analysis.referenceComparison = undefined;
+    analysis.referenceComparisonMetrics = undefined;
+    window.referenceComparisonMetrics = null;
+    console.log('[GENRE-VIEW] ✅ Variáveis de referência limpas');
+    
     // 1️⃣ Validar análise
     if (!analysis) {
         console.error('[GENRE-VIEW] ❌ ERRO: Análise não fornecida');
@@ -4420,6 +4427,10 @@ function renderGenreComparisonTable(options) {
         return;
     }
     
+    // 🔥 FORÇAR TABELA CLÁSSICA (desativar fallback)
+    const forceClassicGenreTable = true;
+    console.log('[GENRE-TABLE] 🔥 Tabela clássica FORÇADA (sem fallback)');
+    
     // Buscar bands
     const userBands = analysis.bands || {};
     const targetBands = targets.hybrid_processing.spectral_bands;
@@ -4470,8 +4481,8 @@ function renderGenreComparisonTable(options) {
         const userValue = userBand?.energy_db ?? null;
         
         if (userValue === null) {
-            console.warn(`[GENRE-TABLE] ⚠️ User band "${userKey}" sem energy_db`);
-            return;
+            console.warn(`[GENRE-TABLE] ⚠️ User band "${userKey}" sem energy_db - IGNORANDO (continuar com outras bandas)`);
+            return; // continue para próxima banda
         }
         const alvoIdeal = (min + max) / 2;
         const diferenca = userValue - alvoIdeal;
@@ -11197,6 +11208,12 @@ function deriveTolerance(rangeOrValue, fallback = 2.0) {
  * @returns {Object|null} - Métricas de comparação ou null
  */
 function getActiveReferenceComparisonMetrics(normalizedResult) {
+    // 🔥 BYPASS TOTAL: Modo gênero NUNCA retorna referenceComparisonMetrics
+    if (normalizedResult?.mode === 'genre') {
+        console.log('[GENRE-BYPASS] getActiveReferenceComparisonMetrics: modo gênero detectado, retornando null');
+        return null;
+    }
+    
     const mode = normalizedResult?.mode || window.__soundyState?.render?.mode || 'genre';
     const genre = normalizedResult?.genre || 
                   normalizedResult?.metadata?.genre ||
@@ -11270,6 +11287,12 @@ function getActiveReferenceComparisonMetrics(normalizedResult) {
 }
 
 function computeHasReferenceComparisonMetrics(analysis) {
+    // 🔥 BYPASS TOTAL: Modo gênero NUNCA tem referenceComparisonMetrics
+    if (analysis?.mode === 'genre') {
+        console.log('[GENRE-BYPASS] computeHasReferenceComparisonMetrics: modo gênero detectado, retornando false');
+        return false;
+    }
+    
     // 🎯 CORREÇÃO CRÍTICA: Usar getActiveReferenceComparisonMetrics() ao invés de só verificar analysis
     const comparisonMetrics = getActiveReferenceComparisonMetrics(analysis);
     const hasMetrics = !!comparisonMetrics;
