@@ -9707,9 +9707,38 @@ async function displayModalResults(analysis) {
     const analysisScores = __safeCalculateAnalysisScores(analysis, referenceDataForScores, detectedGenre);
 
     if (analysisScores) {
+        // ═════════════════════════════════════════════════════════════════
+        // 🔍 TAREFA 1: AUDITORIA COMPLETA DA ESTRUTURA DE SCORES
+        // ═════════════════════════════════════════════════════════════════
+        console.group('🔍 [AUDIT-SCORES] ESTRUTURA COMPLETA DE analysisScores');
+        console.log('[AUDIT-SCORES] analysisScores bruto:', analysisScores);
+        console.log('[AUDIT-SCORES] keys:', Object.keys(analysisScores || {}));
+        console.log('[AUDIT-SCORES] Subscores individuais:');
+        console.log('  - analysisScores.loudness:', analysisScores.loudness);
+        console.log('  - analysisScores.dinamica:', analysisScores.dinamica);
+        console.log('  - analysisScores.dynamics:', analysisScores.dynamics);
+        console.log('  - analysisScores.estereo:', analysisScores.estereo);
+        console.log('  - analysisScores.stereo:', analysisScores.stereo);
+        console.log('  - analysisScores.frequency:', analysisScores.frequency);
+        console.log('  - analysisScores.frequencia:', analysisScores.frequencia);
+        console.log('  - analysisScores.technical:', analysisScores.technical);
+        console.log('  - analysisScores.tecnico:', analysisScores.tecnico);
+        console.log('  - analysisScores.subscores (objeto):', analysisScores.subscores);
+        if (analysisScores.subscores) {
+            console.log('    → subscores.loudness:', analysisScores.subscores.loudness);
+            console.log('    → subscores.dynamics:', analysisScores.subscores.dynamics);
+            console.log('    → subscores.stereo:', analysisScores.subscores.stereo);
+            console.log('    → subscores.frequency:', analysisScores.subscores.frequency);
+            console.log('    → subscores.technical:', analysisScores.subscores.technical);
+        }
+        console.log('  - analysisScores.breakdown:', analysisScores.breakdown);
+        console.log('  - analysisScores.final:', analysisScores.final);
+        console.log('  - analysisScores.composite:', analysisScores.composite);
+        console.groupEnd();
+        
         // Adicionar scores à análise
         analysis.scores = analysisScores;
-        console.log('✅ Scores calculados e adicionados à análise:', analysisScores);
+        console.log('✅ Scores calculados e adicionados à análise');
         
         // Também armazenar globalmente
         if (typeof window !== 'undefined') {
@@ -11278,12 +11307,63 @@ async function displayModalResults(analysis) {
             // Verificar se temos scores calculados
             const scores = analysis.scores;
             
+            // ═════════════════════════════════════════════════════════════════
+            // 🔍 TAREFA 2: AUDITORIA DE LEITURA DE SCORES NA UI
+            // ═════════════════════════════════════════════════════════════════
+            console.group('🎨 [AUDIT-RENDER] LEITURA DE SCORES NA UI');
+            console.log('[AUDIT-RENDER] analysis.scores recebido pela UI:', scores);
+            console.log('[AUDIT-RENDER] scores existe?', !!scores);
+            console.log('[AUDIT-RENDER] scores.loudness:', scores?.loudness);
+            console.log('[AUDIT-RENDER] scores.dinamica:', scores?.dinamica);
+            console.log('[AUDIT-RENDER] scores.estereo:', scores?.estereo);
+            console.log('[AUDIT-RENDER] scores.frequencia:', scores?.frequencia);
+            console.log('[AUDIT-RENDER] scores.tecnico:', scores?.tecnico);
+            console.log('[AUDIT-RENDER] scores.subscores:', scores?.subscores);
+            console.groupEnd();
+            
             if (!scores) {
+                console.warn('⚠️ [AUDIT-RENDER] SCORES AUSENTES - renderizando fallback');
                 return `<div class="data-row">
                     <span class="label">Sistema de Scoring:</span>
                     <span class="value">Não disponível</span>
                 </div>`;
             }
+            
+            // ═════════════════════════════════════════════════════════════════
+            // 🔧 TAREFA 3: NORMALIZAÇÃO DE ESTRUTURA DE SCORES
+            // ═════════════════════════════════════════════════════════════════
+            // Adaptar estrutura retornada por calculateAnalysisScores para UI
+            const rawScores = scores || {};
+            const subs = rawScores.subscores || rawScores;
+            
+            const normalizedScores = {
+                loudness: subs.loudness ?? rawScores.loudness ?? subs.lufs ?? null,
+                dinamica: subs.dinamica ?? subs.dynamics ?? rawScores.dinamica ?? rawScores.dynamics ?? null,
+                estereo: subs.estereo ?? subs.stereo ?? rawScores.estereo ?? rawScores.stereo ?? null,
+                frequencia: subs.frequencia ?? subs.frequency ?? rawScores.frequencia ?? rawScores.frequency ?? null,
+                tecnico: subs.tecnico ?? subs.technical ?? rawScores.tecnico ?? rawScores.technical ?? null,
+                final: rawScores.final ?? rawScores.composite ?? rawScores.score ?? null,
+                breakdown: rawScores.breakdown ?? null
+            };
+            
+            console.group('✅ [AUDIT-RENDER] SCORES NORMALIZADOS');
+            console.log('[AUDIT-RENDER] normalizedScores.loudness:', normalizedScores.loudness);
+            console.log('[AUDIT-RENDER] normalizedScores.dinamica:', normalizedScores.dinamica);
+            console.log('[AUDIT-RENDER] normalizedScores.estereo:', normalizedScores.estereo);
+            console.log('[AUDIT-RENDER] normalizedScores.frequencia:', normalizedScores.frequencia);
+            console.log('[AUDIT-RENDER] normalizedScores.tecnico:', normalizedScores.tecnico);
+            console.log('[AUDIT-RENDER] normalizedScores.final:', normalizedScores.final);
+            
+            // 🔍 TAREFA 4: VALIDAÇÃO FINAL - Contagem de valores null
+            const nullCount = Object.values(normalizedScores).filter(v => v === null).length;
+            const validCount = Object.values(normalizedScores).filter(v => Number.isFinite(v)).length;
+            console.log('📊 [AUDIT-RENDER] VALIDAÇÃO:', {
+                total: Object.keys(normalizedScores).length,
+                validos: validCount,
+                nulos: nullCount,
+                status: nullCount === 0 ? '✅ TODOS PREENCHIDOS' : `⚠️ ${nullCount} NULOS`
+            });
+            console.groupEnd();
             
             const renderScoreProgressBar = (label, value, color = '#00ffff', emoji = '🎯') => {
                 // Se null/undefined, renderizar "—" e barra vazia SEM cores "ok"
@@ -11324,12 +11404,13 @@ async function displayModalResults(analysis) {
             // ❌ NÃO INCLUIR O SCORE FINAL AQUI - ele tem seu próprio container no topo
             
             // ✅ Sub-scores permanecem no mesmo lugar (dentro do card Scores & Diagnóstico)
+            // 🔧 USANDO normalizedScores ao invés de scores bruto
             const subScoresHtml = `
-                ${renderScoreProgressBar('Loudness', scores.loudness, '#ff3366', '🔊')}
-                ${renderScoreProgressBar('Frequência', scores.frequencia, '#00ffff', '🎵')}
-                ${renderScoreProgressBar('Estéreo', scores.estereo, '#ff6b6b', '🎧')}
-                ${renderScoreProgressBar('Dinâmica', scores.dinamica, '#ffd700', '📊')}
-                ${renderScoreProgressBar('Técnico', scores.tecnico, '#00ff92', '🔧')}
+                ${renderScoreProgressBar('Loudness', normalizedScores.loudness, '#ff3366', '🔊')}
+                ${renderScoreProgressBar('Frequência', normalizedScores.frequencia, '#00ffff', '🎵')}
+                ${renderScoreProgressBar('Estéreo', normalizedScores.estereo, '#ff6b6b', '🎧')}
+                ${renderScoreProgressBar('Dinâmica', normalizedScores.dinamica, '#ffd700', '📊')}
+                ${renderScoreProgressBar('Técnico', normalizedScores.tecnico, '#00ff92', '🔧')}
             `;
             
             return subScoresHtml;
