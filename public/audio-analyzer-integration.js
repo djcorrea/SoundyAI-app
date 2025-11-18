@@ -15194,8 +15194,19 @@ function calculateLoudnessScore(analysis, refData) {
     const metrics = analysis.metrics || {};
     const scores = [];
     
+    // Helper para extração robusta
+    const extract = (...values) => values.find(v => Number.isFinite(v));
+    
     // LUFS Integrado (métrica principal de loudness)
-    const lufsValue = metrics.lufs_integrated || tech.lufsIntegrated;
+    // Busca em: metrics.lufs_integrated (novo), metrics.lufs, tech.lufsIntegrated, analysis.lufs, analysis.loudness.integrated
+    const lufsValue = extract(
+        metrics.lufs_integrated, 
+        metrics.lufs, 
+        tech.lufsIntegrated, 
+        analysis.lufs, 
+        analysis.loudness?.integrated
+    );
+    
     if (Number.isFinite(lufsValue) && Number.isFinite(refData.lufs_target) && Number.isFinite(refData.tol_lufs)) {
         const score = calculateMetricScore(lufsValue, refData.lufs_target, refData.tol_lufs);
         if (score !== null) {
@@ -15205,7 +15216,15 @@ function calculateLoudnessScore(analysis, refData) {
     }
     
     // True Peak (importante para evitar clipping digital)
-    const truePeakValue = metrics.true_peak_dbtp || tech.truePeakDbtp;
+    // Busca em: metrics.true_peak_dbtp (novo), metrics.true_peak, tech.truePeakDbtp, analysis.truePeakDbtp, analysis.truePeak.maxDbtp
+    const truePeakValue = extract(
+        metrics.true_peak_dbtp, 
+        metrics.true_peak, 
+        tech.truePeakDbtp, 
+        analysis.truePeakDbtp,
+        analysis.truePeak?.maxDbtp
+    );
+    
     if (Number.isFinite(truePeakValue) && Number.isFinite(refData.true_peak_target) && Number.isFinite(refData.tol_true_peak)) {
         const score = calculateMetricScore(truePeakValue, refData.true_peak_target, refData.tol_true_peak);
         if (score !== null) {
@@ -15215,7 +15234,7 @@ function calculateLoudnessScore(analysis, refData) {
     }
     
     // Crest Factor (dinâmica de picos)
-    const crestValue = tech.crestFactor || metrics.crest_factor;
+    const crestValue = extract(metrics.crest_factor, tech.crestFactor, analysis.crestFactor);
     if (Number.isFinite(crestValue) && refData.crest_target && Number.isFinite(refData.crest_target)) {
         const tolerance = refData.tol_crest || 2.0;
         const score = calculateMetricScore(crestValue, refData.crest_target, tolerance);
@@ -15275,8 +15294,19 @@ function calculateDynamicsScore(analysis, refData) {
     const metrics = analysis.metrics || {};
     const scores = [];
     
+    // Helper para extração robusta
+    const extract = (...values) => values.find(v => Number.isFinite(v));
+    
     // Dynamic Range (DR) - métrica principal de dinâmica
-    const drValue = metrics.dynamic_range || tech.dynamicRange;
+    // Busca em: metrics.dynamic_range (novo), metrics.dr, tech.dynamicRange, analysis.dynamicRange, analysis.dynamics.range
+    const drValue = extract(
+        metrics.dynamic_range, 
+        metrics.dr, 
+        tech.dynamicRange, 
+        analysis.dynamicRange,
+        analysis.dynamics?.range
+    );
+    
     if (Number.isFinite(drValue) && Number.isFinite(refData.dr_target) && Number.isFinite(refData.tol_dr)) {
         const score = calculateMetricScore(drValue, refData.dr_target, refData.tol_dr);
         if (score !== null) {
@@ -15286,7 +15316,14 @@ function calculateDynamicsScore(analysis, refData) {
     }
     
     // LRA (Loudness Range) - variação de loudness
-    const lraValue = metrics.lra || tech.lra;
+    // Busca em: metrics.lra, tech.lra, analysis.lra, analysis.loudness.lra
+    const lraValue = extract(
+        metrics.lra, 
+        tech.lra, 
+        analysis.lra, 
+        analysis.loudness?.lra
+    );
+    
     if (Number.isFinite(lraValue) && Number.isFinite(refData.lra_target) && Number.isFinite(refData.tol_lra)) {
         const score = calculateMetricScore(lraValue, refData.lra_target, refData.tol_lra);
         if (score !== null) {
@@ -15296,7 +15333,7 @@ function calculateDynamicsScore(analysis, refData) {
     }
     
     // Crest Factor (já incluído em Loudness, mas importante para dinâmica também)
-    const crestValue = tech.crestFactor || metrics.crest_factor;
+    const crestValue = extract(metrics.crest_factor, tech.crestFactor, analysis.crestFactor);
     if (Number.isFinite(crestValue) && refData.crest_target && Number.isFinite(refData.crest_target)) {
         const tolerance = refData.tol_crest || 2.0;
         const score = calculateMetricScore(crestValue, refData.crest_target, tolerance);
@@ -15307,7 +15344,7 @@ function calculateDynamicsScore(analysis, refData) {
     }
     
     // Compressão detectada (se disponível)
-    const compressionRatio = tech.compressionRatio;
+    const compressionRatio = extract(metrics.compression_ratio, tech.compressionRatio, analysis.compressionRatio);
     if (Number.isFinite(compressionRatio) && refData.compression_target && Number.isFinite(refData.compression_target)) {
         const tolerance = refData.tol_compression || 1.0;
         const score = calculateMetricScore(compressionRatio, refData.compression_target, tolerance);
@@ -15367,8 +15404,19 @@ function calculateStereoScore(analysis, refData) {
     const metrics = analysis.metrics || {};
     const scores = [];
     
+    // Helper para extração robusta
+    const extract = (...values) => values.find(v => Number.isFinite(v));
+    
     // Correlação Estéreo (principal métrica de estéreo)
-    const stereoValue = metrics.stereo_correlation || tech.stereoCorrelation;
+    // Busca em: metrics.stereo_correlation (novo), metrics.correlation, tech.stereoCorrelation, analysis.stereoCorrelation, analysis.stereo.correlation
+    const stereoValue = extract(
+        metrics.stereo_correlation, 
+        metrics.correlation, 
+        tech.stereoCorrelation, 
+        analysis.stereoCorrelation,
+        analysis.stereo?.correlation
+    );
+    
     if (Number.isFinite(stereoValue) && Number.isFinite(refData.stereo_target) && Number.isFinite(refData.tol_stereo)) {
         const score = calculateMetricScore(stereoValue, refData.stereo_target, refData.tol_stereo);
         if (score !== null) {
@@ -15378,7 +15426,15 @@ function calculateStereoScore(analysis, refData) {
     }
     
     // Largura Estéreo (Width)
-    const widthValue = tech.stereoWidth || metrics.stereo_width;
+    // Busca em: metrics.stereo_width, metrics.width, tech.stereoWidth, analysis.stereoWidth, analysis.stereo.width
+    const widthValue = extract(
+        metrics.stereo_width, 
+        metrics.width, 
+        tech.stereoWidth, 
+        analysis.stereoWidth,
+        analysis.stereo?.width
+    );
+    
     if (Number.isFinite(widthValue) && refData.width_target && Number.isFinite(refData.width_target)) {
         const tolerance = refData.tol_width || 0.2;
         const score = calculateMetricScore(widthValue, refData.width_target, tolerance);
@@ -15609,10 +15665,13 @@ function calculateTechnicalScore(analysis, refData) {
     const metrics = analysis.metrics || {};
     const scores = [];
     
+    // Helper para extração robusta
+    const extract = (...values) => values.find(v => Number.isFinite(v));
+    
     console.log('🔧 Calculando Score Técnico...');
     
     // 1. CLIPPING - Deve ser próximo de 0% (PENALIZAÇÃO FORTE PARA PROBLEMAS CRÍTICOS)
-    const clippingValue = tech.clipping || metrics.clipping || 0;
+    const clippingValue = extract(metrics.clipping, tech.clipping, analysis.clipping) || 0;
     if (Number.isFinite(clippingValue)) {
         let clippingScore = 100;
         
@@ -15633,7 +15692,7 @@ function calculateTechnicalScore(analysis, refData) {
     }
     
     // 2. DC OFFSET - Deve ser próximo de 0
-    const dcOffsetValue = Math.abs(tech.dcOffset || metrics.dc_offset || 0);
+    const dcOffsetValue = Math.abs(extract(metrics.dc_offset, tech.dcOffset, analysis.dcOffset) || 0);
     if (Number.isFinite(dcOffsetValue)) {
         let dcScore = 100;
         
@@ -15654,7 +15713,7 @@ function calculateTechnicalScore(analysis, refData) {
     }
     
     // 3. THD (Total Harmonic Distortion) - Deve ser baixo
-    const thdValue = tech.thd || metrics.thd || 0;
+    const thdValue = extract(metrics.thd, tech.thd, analysis.thd) || 0;
     if (Number.isFinite(thdValue)) {
         let thdScore = 100;
         
