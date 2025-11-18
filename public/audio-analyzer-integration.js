@@ -8731,26 +8731,74 @@ async function displayModalResults(analysis) {
             console.log('🛡️ [PASSO 2] Criado analysis.referenceComparison vazio');
         }
         
-        // 🎯 Preencher targets a partir de referenceComparisonMetrics ou genreTargets
-        const genreTargets = __activeRefData || {};
+        // 🎯 CORREÇÃO CRÍTICA: Preencher targets de GÊNERO completos
+        const mode = analysis?.mode || currentAnalysisMode || 'genre';
+        const isGenreMode = mode === 'genre';
         
-        if (!analysis.referenceComparison.lufs_target) {
-            analysis.referenceComparison.lufs_target = genreTargets.lufs_target ?? -14;
-        }
-        if (!analysis.referenceComparison.tp_target) {
-            analysis.referenceComparison.tp_target = genreTargets.true_peak_target ?? -1;
-        }
-        if (!analysis.referenceComparison.dr_target) {
-            analysis.referenceComparison.dr_target = genreTargets.dr_target ?? 8;
-        }
-        if (!analysis.referenceComparison.lra_target) {
-            analysis.referenceComparison.lra_target = genreTargets.lra_target ?? 6;
-        }
-        if (!analysis.referenceComparison.stereo_target) {
-            analysis.referenceComparison.stereo_target = genreTargets.stereo_target ?? 0.1;
+        if (isGenreMode) {
+            // Obter targets de gênero de múltiplas fontes
+            const genreTargets = window.__activeRefData || 
+                                window.PROD_AI_REF_DATA?.[analysis.genre] || 
+                                window.PROD_AI_REF_DATA?.[window.PROD_AI_REF_GENRE] || 
+                                {};
+            
+            console.log('🎯 [GENRE-TARGETS-MERGE] Mesclando targets de gênero:', {
+                hasGenreTargets: !!genreTargets,
+                hasBands: !!(genreTargets.bands),
+                source: window.__activeRefData ? '__activeRefData' : 'PROD_AI_REF_DATA'
+            });
+            
+            if (genreTargets && Object.keys(genreTargets).length > 0) {
+                // Fonte primária: referenceComparison ou referenceComparisonMetrics
+                const src = genreTargets.referenceComparison || 
+                           genreTargets.referenceComparisonMetrics || 
+                           genreTargets;
+                
+                // ✅ CRÍTICO: Mesclar TODOS os targets incluindo bandas
+                if (src.lufs_target != null)   analysis.referenceComparison.lufs_target   = src.lufs_target;
+                if (src.tp_target != null)     analysis.referenceComparison.tp_target     = src.tp_target;
+                if (src.dr_target != null)     analysis.referenceComparison.dr_target     = src.dr_target;
+                if (src.lra_target != null)    analysis.referenceComparison.lra_target    = src.lra_target;
+                if (src.stereo_target != null) analysis.referenceComparison.stereo_target = src.stereo_target;
+                
+                // ✅ CRÍTICO: Incluir BANDAS de gênero
+                if (src.bands && Object.keys(src.bands).length > 0) {
+                    analysis.referenceComparison.bands = src.bands;
+                    console.log('✅ [GENRE-BANDS-MERGED] Bandas de gênero incluídas:', Object.keys(src.bands));
+                }
+                
+                // Marcar como targets de gênero
+                analysis.referenceComparison._isGenreMode = true;
+                analysis.referenceComparison._genreTargetsLoaded = true;
+            } else {
+                console.warn('⚠️ [GENRE-TARGETS-MERGE] Targets de gênero não encontrados, usando fallback');
+                // Fallback com valores padrão
+                if (!analysis.referenceComparison.lufs_target)   analysis.referenceComparison.lufs_target   = -14;
+                if (!analysis.referenceComparison.tp_target)     analysis.referenceComparison.tp_target     = -1;
+                if (!analysis.referenceComparison.dr_target)     analysis.referenceComparison.dr_target     = 8;
+                if (!analysis.referenceComparison.lra_target)    analysis.referenceComparison.lra_target    = 6;
+                if (!analysis.referenceComparison.stereo_target) analysis.referenceComparison.stereo_target = 0.1;
+            }
+        } else {
+            // Modo referência: usar fallback simples
+            const genreTargets = __activeRefData || {};
+            if (!analysis.referenceComparison.lufs_target)   analysis.referenceComparison.lufs_target   = genreTargets.lufs_target ?? -14;
+            if (!analysis.referenceComparison.tp_target)     analysis.referenceComparison.tp_target     = genreTargets.true_peak_target ?? -1;
+            if (!analysis.referenceComparison.dr_target)     analysis.referenceComparison.dr_target     = genreTargets.dr_target ?? 8;
+            if (!analysis.referenceComparison.lra_target)    analysis.referenceComparison.lra_target    = genreTargets.lra_target ?? 6;
+            if (!analysis.referenceComparison.stereo_target) analysis.referenceComparison.stereo_target = genreTargets.stereo_target ?? 0.1;
         }
         
-        console.log('✅ [PASSO 2] analysis.referenceComparison garantido:', analysis.referenceComparison);
+        console.log('✅ [PASSO 2] analysis.referenceComparison garantido:', {
+            hasBands: !!analysis.referenceComparison.bands,
+            bandsCount: analysis.referenceComparison.bands ? Object.keys(analysis.referenceComparison.bands).length : 0,
+            isGenreMode: analysis.referenceComparison._isGenreMode,
+            targets: {
+                lufs: analysis.referenceComparison.lufs_target,
+                tp: analysis.referenceComparison.tp_target,
+                dr: analysis.referenceComparison.dr_target
+            }
+        });
     }
     
     /* =========[ BLOCO: SCORES A/B – substitui 4888–5050 ]========= */
@@ -9189,22 +9237,40 @@ async function displayModalResults(analysis) {
       if (!refData || typeof refData !== 'object') refData = {};
       if (!__num(refData.tol_spectral) || refData.tol_spectral <= 0) refData.tol_spectral = 300;
 
-      // 🎯 MODO GÊNERO: Detectar se é modo gênero baseado em análise e state
+      // 🎯 CORREÇÃO: Detectar modo gênero e targets de múltiplas fontes
       const isGenreMode = analysisObj?.mode === "genre" || 
                          window.__soundyState?.render?.mode === "genre" ||
                          (getViewMode && getViewMode() === "genre");
       
-      // 🎯 MODO GÊNERO: Verificar se há targets de gênero carregados
-      const hasGenreTargets = !!(analysisObj?.referenceComparison?.bands || 
-                                analysisObj?.referenceComparison?.legacy_compatibility?.bands ||
-                                analysisObj?.genreTargets?.bands);
+      // 🎯 CORREÇÃO: Buscar targets de gênero de todas as fontes possíveis
+      const genreTargets = window.__activeRefData || 
+                          window.PROD_AI_REF_DATA?.[analysisObj?.genre] || 
+                          window.PROD_AI_REF_DATA?.[window.PROD_AI_REF_GENRE];
+      
+      const genreBands = genreTargets?.bands || 
+                        genreTargets?.referenceComparison?.bands ||
+                        analysisObj?.referenceComparison?.bands;
+      
+      // ✅ CRÍTICO: hasGenreTargets deve ser true se houver targets ou bandas
+      const hasGenreTargets = isGenreMode && (
+        !!genreTargets || 
+        !!(analysisObj?.referenceComparison?._genreTargetsLoaded) ||
+        !!(analysisObj?.referenceComparison?.bands)
+      );
+      
+      const hasRefBands = !!(genreBands && Object.keys(genreBands).length > 0);
+      const refBandsOK = hasRefBands;
       
       console.log('🔍 [SCORES-GUARD-ENHANCED]', {
         isGenreMode,
         hasGenreTargets,
+        hasRefBands,
+        refBandsOK,
         analysisMode: analysisObj?.mode,
         viewMode: window.__soundyState?.render?.mode,
-        hasRefBands: !!(refData?.bands),
+        refDataHasBands: !!(refData?.bands),
+        genreTargetsFound: !!genreTargets,
+        genreBandsCount: genreBands ? Object.keys(genreBands).length : 0,
         isReferenceMode: refData?._isReferenceMode,
         disabledBands: refData?._disabledBands
       });
