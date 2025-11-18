@@ -11275,10 +11275,28 @@ async function displayModalResults(analysis) {
         
         // 🎯 RENDERIZAR SCORES DO NOVO SISTEMA
         const renderNewScores = () => {
+            // 🔍 AUDITORIA CRÍTICA: Verificar estrutura de analysis.scores
+            console.log('[SUBSCORE-AUDIT] ═══════════════════════════════════════');
+            console.log('[SUBSCORE-AUDIT] Estrutura completa de analysis.scores:');
+            console.log('[SUBSCORE-AUDIT] analysis.scores:', analysis.scores);
+            console.log('[SUBSCORE-AUDIT] ');
+            console.log('[SUBSCORE-AUDIT] Propriedades disponíveis:');
+            if (analysis.scores) {
+                console.log('[SUBSCORE-AUDIT]   - loudness:', analysis.scores.loudness, typeof analysis.scores.loudness);
+                console.log('[SUBSCORE-AUDIT]   - dinamica:', analysis.scores.dinamica, typeof analysis.scores.dinamica);
+                console.log('[SUBSCORE-AUDIT]   - estereo:', analysis.scores.estereo, typeof analysis.scores.estereo);
+                console.log('[SUBSCORE-AUDIT]   - frequencia:', analysis.scores.frequencia, typeof analysis.scores.frequencia);
+                console.log('[SUBSCORE-AUDIT]   - tecnico:', analysis.scores.tecnico, typeof analysis.scores.tecnico);
+                console.log('[SUBSCORE-AUDIT]   - final:', analysis.scores.final, typeof analysis.scores.final);
+                console.log('[SUBSCORE-AUDIT]   - Todas as chaves:', Object.keys(analysis.scores));
+            }
+            console.log('[SUBSCORE-AUDIT] ═══════════════════════════════════════');
+            
             // Verificar se temos scores calculados
             const scores = analysis.scores;
             
             if (!scores) {
+                console.warn('[SUBSCORE-AUDIT] ⚠️ analysis.scores é NULL ou UNDEFINED');
                 return `<div class="data-row">
                     <span class="label">Sistema de Scoring:</span>
                     <span class="value">Não disponível</span>
@@ -15188,25 +15206,26 @@ function calculateMetricScore(actualValue, targetValue, tolerance) {
 
 // 3. CALCULAR SCORE DE LOUDNESS (LUFS, True Peak, Crest Factor)
 function calculateLoudnessScore(analysis, refData) {
-    if (!analysis || !refData) return null;
+    console.log('[SUBSCORE-CALC] 🔊 calculateLoudnessScore INICIADO');
+    console.log('[SUBSCORE-CALC] analysis existe?', !!analysis);
+    console.log('[SUBSCORE-CALC] refData existe?', !!refData);
+    
+    if (!analysis || !refData) {
+        console.warn('[SUBSCORE-CALC] ⚠️ calculateLoudnessScore ABORTADO: dados ausentes');
+        return null;
+    }
     
     const tech = analysis.technicalData || {};
     const metrics = analysis.metrics || {};
     const scores = [];
     
-    // Helper para extração robusta
-    const extract = (...values) => values.find(v => Number.isFinite(v));
+    console.log('[SUBSCORE-CALC] tech:', tech);
+    console.log('[SUBSCORE-CALC] metrics:', metrics);
+    console.log('[SUBSCORE-CALC] refData.lufs_target:', refData.lufs_target);
+    console.log('[SUBSCORE-CALC] refData.true_peak_target:', refData.true_peak_target);
     
     // LUFS Integrado (métrica principal de loudness)
-    // Busca em: metrics.lufs_integrated (novo), metrics.lufs, tech.lufsIntegrated, analysis.lufs, analysis.loudness.integrated
-    const lufsValue = extract(
-        metrics.lufs_integrated, 
-        metrics.lufs, 
-        tech.lufsIntegrated, 
-        analysis.lufs, 
-        analysis.loudness?.integrated
-    );
-    
+    const lufsValue = metrics.lufs_integrated || tech.lufsIntegrated;
     if (Number.isFinite(lufsValue) && Number.isFinite(refData.lufs_target) && Number.isFinite(refData.tol_lufs)) {
         const score = calculateMetricScore(lufsValue, refData.lufs_target, refData.tol_lufs);
         if (score !== null) {
@@ -15216,15 +15235,7 @@ function calculateLoudnessScore(analysis, refData) {
     }
     
     // True Peak (importante para evitar clipping digital)
-    // Busca em: metrics.true_peak_dbtp (novo), metrics.true_peak, tech.truePeakDbtp, analysis.truePeakDbtp, analysis.truePeak.maxDbtp
-    const truePeakValue = extract(
-        metrics.true_peak_dbtp, 
-        metrics.true_peak, 
-        tech.truePeakDbtp, 
-        analysis.truePeakDbtp,
-        analysis.truePeak?.maxDbtp
-    );
-    
+    const truePeakValue = metrics.true_peak_dbtp || tech.truePeakDbtp;
     if (Number.isFinite(truePeakValue) && Number.isFinite(refData.true_peak_target) && Number.isFinite(refData.tol_true_peak)) {
         const score = calculateMetricScore(truePeakValue, refData.true_peak_target, refData.tol_true_peak);
         if (score !== null) {
@@ -15234,7 +15245,7 @@ function calculateLoudnessScore(analysis, refData) {
     }
     
     // Crest Factor (dinâmica de picos)
-    const crestValue = extract(metrics.crest_factor, tech.crestFactor, analysis.crestFactor);
+    const crestValue = tech.crestFactor || metrics.crest_factor;
     if (Number.isFinite(crestValue) && refData.crest_target && Number.isFinite(refData.crest_target)) {
         const tolerance = refData.tol_crest || 2.0;
         const score = calculateMetricScore(crestValue, refData.crest_target, tolerance);
@@ -15288,25 +15299,26 @@ function calculateLoudnessScore(analysis, refData) {
 
 // 4. CALCULAR SCORE DE DINÂMICA (LRA, DR, Crest Consistency, Fator de Crista)
 function calculateDynamicsScore(analysis, refData) {
-    if (!analysis || !refData) return null;
+    console.log('[SUBSCORE-CALC] 📊 calculateDynamicsScore INICIADO');
+    console.log('[SUBSCORE-CALC] analysis existe?', !!analysis);
+    console.log('[SUBSCORE-CALC] refData existe?', !!refData);
+    
+    if (!analysis || !refData) {
+        console.warn('[SUBSCORE-CALC] ⚠️ calculateDynamicsScore ABORTADO: dados ausentes');
+        return null;
+    }
     
     const tech = analysis.technicalData || {};
     const metrics = analysis.metrics || {};
     const scores = [];
     
-    // Helper para extração robusta
-    const extract = (...values) => values.find(v => Number.isFinite(v));
+    console.log('[SUBSCORE-CALC] tech.dynamicRange:', tech.dynamicRange);
+    console.log('[SUBSCORE-CALC] metrics.dynamic_range:', metrics.dynamic_range);
+    console.log('[SUBSCORE-CALC] refData.dr_target:', refData.dr_target);
+    console.log('[SUBSCORE-CALC] refData.lra_target:', refData.lra_target);
     
     // Dynamic Range (DR) - métrica principal de dinâmica
-    // Busca em: metrics.dynamic_range (novo), metrics.dr, tech.dynamicRange, analysis.dynamicRange, analysis.dynamics.range
-    const drValue = extract(
-        metrics.dynamic_range, 
-        metrics.dr, 
-        tech.dynamicRange, 
-        analysis.dynamicRange,
-        analysis.dynamics?.range
-    );
-    
+    const drValue = metrics.dynamic_range || tech.dynamicRange;
     if (Number.isFinite(drValue) && Number.isFinite(refData.dr_target) && Number.isFinite(refData.tol_dr)) {
         const score = calculateMetricScore(drValue, refData.dr_target, refData.tol_dr);
         if (score !== null) {
@@ -15316,14 +15328,7 @@ function calculateDynamicsScore(analysis, refData) {
     }
     
     // LRA (Loudness Range) - variação de loudness
-    // Busca em: metrics.lra, tech.lra, analysis.lra, analysis.loudness.lra
-    const lraValue = extract(
-        metrics.lra, 
-        tech.lra, 
-        analysis.lra, 
-        analysis.loudness?.lra
-    );
-    
+    const lraValue = metrics.lra || tech.lra;
     if (Number.isFinite(lraValue) && Number.isFinite(refData.lra_target) && Number.isFinite(refData.tol_lra)) {
         const score = calculateMetricScore(lraValue, refData.lra_target, refData.tol_lra);
         if (score !== null) {
@@ -15333,7 +15338,7 @@ function calculateDynamicsScore(analysis, refData) {
     }
     
     // Crest Factor (já incluído em Loudness, mas importante para dinâmica também)
-    const crestValue = extract(metrics.crest_factor, tech.crestFactor, analysis.crestFactor);
+    const crestValue = tech.crestFactor || metrics.crest_factor;
     if (Number.isFinite(crestValue) && refData.crest_target && Number.isFinite(refData.crest_target)) {
         const tolerance = refData.tol_crest || 2.0;
         const score = calculateMetricScore(crestValue, refData.crest_target, tolerance);
@@ -15344,7 +15349,7 @@ function calculateDynamicsScore(analysis, refData) {
     }
     
     // Compressão detectada (se disponível)
-    const compressionRatio = extract(metrics.compression_ratio, tech.compressionRatio, analysis.compressionRatio);
+    const compressionRatio = tech.compressionRatio;
     if (Number.isFinite(compressionRatio) && refData.compression_target && Number.isFinite(refData.compression_target)) {
         const tolerance = refData.tol_compression || 1.0;
         const score = calculateMetricScore(compressionRatio, refData.compression_target, tolerance);
@@ -15398,25 +15403,25 @@ function calculateDynamicsScore(analysis, refData) {
 
 // 5. CALCULAR SCORE DE ESTÉREO (Largura, Correlação, Balanço L/R)
 function calculateStereoScore(analysis, refData) {
-    if (!analysis || !refData) return null;
+    console.log('[SUBSCORE-CALC] 🎧 calculateStereoScore INICIADO');
+    console.log('[SUBSCORE-CALC] analysis existe?', !!analysis);
+    console.log('[SUBSCORE-CALC] refData existe?', !!refData);
+    
+    if (!analysis || !refData) {
+        console.warn('[SUBSCORE-CALC] ⚠️ calculateStereoScore ABORTADO: dados ausentes');
+        return null;
+    }
     
     const tech = analysis.technicalData || {};
     const metrics = analysis.metrics || {};
     const scores = [];
     
-    // Helper para extração robusta
-    const extract = (...values) => values.find(v => Number.isFinite(v));
+    console.log('[SUBSCORE-CALC] tech.stereoCorrelation:', tech.stereoCorrelation);
+    console.log('[SUBSCORE-CALC] metrics.stereo_correlation:', metrics.stereo_correlation);
+    console.log('[SUBSCORE-CALC] refData.stereo_target:', refData.stereo_target);
     
     // Correlação Estéreo (principal métrica de estéreo)
-    // Busca em: metrics.stereo_correlation (novo), metrics.correlation, tech.stereoCorrelation, analysis.stereoCorrelation, analysis.stereo.correlation
-    const stereoValue = extract(
-        metrics.stereo_correlation, 
-        metrics.correlation, 
-        tech.stereoCorrelation, 
-        analysis.stereoCorrelation,
-        analysis.stereo?.correlation
-    );
-    
+    const stereoValue = metrics.stereo_correlation || tech.stereoCorrelation;
     if (Number.isFinite(stereoValue) && Number.isFinite(refData.stereo_target) && Number.isFinite(refData.tol_stereo)) {
         const score = calculateMetricScore(stereoValue, refData.stereo_target, refData.tol_stereo);
         if (score !== null) {
@@ -15426,15 +15431,7 @@ function calculateStereoScore(analysis, refData) {
     }
     
     // Largura Estéreo (Width)
-    // Busca em: metrics.stereo_width, metrics.width, tech.stereoWidth, analysis.stereoWidth, analysis.stereo.width
-    const widthValue = extract(
-        metrics.stereo_width, 
-        metrics.width, 
-        tech.stereoWidth, 
-        analysis.stereoWidth,
-        analysis.stereo?.width
-    );
-    
+    const widthValue = tech.stereoWidth || metrics.stereo_width;
     if (Number.isFinite(widthValue) && refData.width_target && Number.isFinite(refData.width_target)) {
         const tolerance = refData.tol_width || 0.2;
         const score = calculateMetricScore(widthValue, refData.width_target, tolerance);
@@ -15665,13 +15662,10 @@ function calculateTechnicalScore(analysis, refData) {
     const metrics = analysis.metrics || {};
     const scores = [];
     
-    // Helper para extração robusta
-    const extract = (...values) => values.find(v => Number.isFinite(v));
-    
     console.log('🔧 Calculando Score Técnico...');
     
     // 1. CLIPPING - Deve ser próximo de 0% (PENALIZAÇÃO FORTE PARA PROBLEMAS CRÍTICOS)
-    const clippingValue = extract(metrics.clipping, tech.clipping, analysis.clipping) || 0;
+    const clippingValue = tech.clipping || metrics.clipping || 0;
     if (Number.isFinite(clippingValue)) {
         let clippingScore = 100;
         
@@ -15692,7 +15686,7 @@ function calculateTechnicalScore(analysis, refData) {
     }
     
     // 2. DC OFFSET - Deve ser próximo de 0
-    const dcOffsetValue = Math.abs(extract(metrics.dc_offset, tech.dcOffset, analysis.dcOffset) || 0);
+    const dcOffsetValue = Math.abs(tech.dcOffset || metrics.dc_offset || 0);
     if (Number.isFinite(dcOffsetValue)) {
         let dcScore = 100;
         
@@ -15713,7 +15707,7 @@ function calculateTechnicalScore(analysis, refData) {
     }
     
     // 3. THD (Total Harmonic Distortion) - Deve ser baixo
-    const thdValue = extract(metrics.thd, tech.thd, analysis.thd) || 0;
+    const thdValue = tech.thd || metrics.thd || 0;
     if (Number.isFinite(thdValue)) {
         let thdScore = 100;
         
@@ -15965,6 +15959,22 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
         frequencia: frequencyScore,
         tecnico: technicalScore
     });
+    
+    // 🔍 AUDITORIA CRÍTICA: Verificar se algum subscore é null
+    console.log('[SUBSCORE-AUDIT] ═══════════════════════════════════════');
+    console.log('[SUBSCORE-AUDIT] RESULTADO FINAL dos subscores:');
+    console.log('[SUBSCORE-AUDIT] Loudness:', loudnessScore, '(tipo:', typeof loudnessScore, ')');
+    console.log('[SUBSCORE-AUDIT] Dinâmica:', dynamicsScore, '(tipo:', typeof dynamicsScore, ')');
+    console.log('[SUBSCORE-AUDIT] Estéreo:', stereoScore, '(tipo:', typeof stereoScore, ')');
+    console.log('[SUBSCORE-AUDIT] Frequência:', frequencyScore, '(tipo:', typeof frequencyScore, ')');
+    console.log('[SUBSCORE-AUDIT] Técnico:', technicalScore, '(tipo:', typeof technicalScore, ')');
+    
+    if (loudnessScore === null) console.warn('[SUBSCORE-AUDIT] ⚠️ Loudness retornou NULL');
+    if (dynamicsScore === null) console.warn('[SUBSCORE-AUDIT] ⚠️ Dinâmica retornou NULL');
+    if (stereoScore === null) console.warn('[SUBSCORE-AUDIT] ⚠️ Estéreo retornou NULL');
+    if (frequencyScore === null) console.warn('[SUBSCORE-AUDIT] ⚠️ Frequência retornou NULL');
+    if (technicalScore === null) console.warn('[SUBSCORE-AUDIT] ⚠️ Técnico retornou NULL');
+    console.log('[SUBSCORE-AUDIT] ═══════════════════════════════════════');
     
     // Determinar pesos por gênero
     // 🎯 CORREÇÃO: Não usar 'default' como fallback, usar null
