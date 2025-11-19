@@ -9735,6 +9735,9 @@ async function displayModalResults(analysis) {
     console.log("  - bands:", referenceDataForScores?.bands ? Object.keys(referenceDataForScores.bands) : 'null');
     console.groupEnd();
     
+    // 🎯 [FLOW-FIX] Calculando scores APÓS normalização de métricas
+    console.log("[FLOW-FIX] Calculando scores APÓS normalização de métricas.");
+    
     const analysisScores = __safeCalculateAnalysisScores(analysis, referenceDataForScores, detectedGenre);
 
     if (analysisScores) {
@@ -15910,6 +15913,13 @@ function calculateTechnicalScore(analysis, refData) {
 // 8. FUNÇÃO PRINCIPAL: CALCULAR TODOS OS SCORES
 function calculateAnalysisScores(analysis, refData, genre = null) {
     console.log('🎯 Calculando scores da análise...', { genre });
+    
+    // 🎯 [FLOW-FIX] Métricas recebidas dentro de calculateAnalysisScores
+    console.log("[FLOW-FIX] Métricas recebidas dentro de calculateAnalysisScores:", {
+        loudness: analysis.loudness,
+        metrics: analysis.metrics,
+        technicalData: analysis.technicalData
+    });
     
     // 🎯 MODO GÊNERO: Detectar se é modo gênero e se há targets carregados
     const isGenreMode = analysis?.mode === "genre" || 
