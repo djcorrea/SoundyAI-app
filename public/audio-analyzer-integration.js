@@ -9704,6 +9704,37 @@ async function displayModalResults(analysis) {
 
     /** 5) EXECUTA o cálculo com o objeto blindado */
     const detectedGenre = analysis.metadata?.genre || analysis.genre || __activeRefGenre;
+    
+    // ═════════════════════════════════════════════════════════════════
+    // 🔍 PARTE 4: TESTE DE INSPEÇÃO OBRIGATÓRIO (PRÉ-CÁLCULO)
+    // ═════════════════════════════════════════════════════════════════
+    console.group("🔍 [AUDIT-BACKEND-FLOW] MÉTRICAS RECEBIDAS DO BACKEND");
+    console.log("📊 analysis.technicalData:", analysis.technicalData);
+    console.log("📊 analysis.metrics:", analysis.metrics);
+    console.log("🔑 Keys technicalData:", Object.keys(analysis.technicalData || {}));
+    console.log("🔑 Keys metrics:", Object.keys(analysis.metrics || {}));
+    console.log("📍 Métricas específicas:");
+    console.log("  - technicalData.lufsIntegrated:", analysis.technicalData?.lufsIntegrated);
+    console.log("  - metrics.lufs_integrated:", analysis.metrics?.lufs_integrated);
+    console.log("  - technicalData.truePeakDbtp:", analysis.technicalData?.truePeakDbtp);
+    console.log("  - metrics.true_peak_dbtp:", analysis.metrics?.true_peak_dbtp);
+    console.log("  - technicalData.dynamicRange:", analysis.technicalData?.dynamicRange);
+    console.log("  - metrics.dynamic_range:", analysis.metrics?.dynamic_range);
+    console.log("  - technicalData.lra:", analysis.technicalData?.lra);
+    console.log("  - metrics.lra:", analysis.metrics?.lra);
+    console.log("  - technicalData.stereoCorrelation:", analysis.technicalData?.stereoCorrelation);
+    console.log("  - metrics.stereo_correlation:", analysis.metrics?.stereo_correlation);
+    console.log("  - technicalData.stereoWidth:", analysis.technicalData?.stereoWidth);
+    console.log("  - metrics.stereo_width:", analysis.metrics?.stereo_width);
+    console.log("📌 Targets para cálculo (refData):");
+    console.log("  - lufs_target:", referenceDataForScores?.lufs_target);
+    console.log("  - true_peak_target:", referenceDataForScores?.true_peak_target);
+    console.log("  - dr_target:", referenceDataForScores?.dr_target);
+    console.log("  - lra_target:", referenceDataForScores?.lra_target);
+    console.log("  - stereo_target:", referenceDataForScores?.stereo_target);
+    console.log("  - bands:", referenceDataForScores?.bands ? Object.keys(referenceDataForScores.bands) : 'null');
+    console.groupEnd();
+    
     const analysisScores = __safeCalculateAnalysisScores(analysis, referenceDataForScores, detectedGenre);
 
     if (analysisScores) {
@@ -9734,6 +9765,21 @@ async function displayModalResults(analysis) {
         console.log('  - analysisScores.breakdown:', analysisScores.breakdown);
         console.log('  - analysisScores.final:', analysisScores.final);
         console.log('  - analysisScores.composite:', analysisScores.composite);
+        
+        // 🔍 PARTE 5: DIAGNÓSTICO FINAL - Identificar subscores NULL
+        const nullScores = [];
+        if (analysisScores.loudness === null || analysisScores.loudness === undefined) nullScores.push('loudness');
+        if (analysisScores.dinamica === null || analysisScores.dinamica === undefined) nullScores.push('dinamica');
+        if (analysisScores.estereo === null || analysisScores.estereo === undefined) nullScores.push('estereo');
+        if (analysisScores.frequencia === null || analysisScores.frequencia === undefined) nullScores.push('frequencia');
+        if (analysisScores.tecnico === null || analysisScores.tecnico === undefined) nullScores.push('tecnico');
+        
+        if (nullScores.length > 0) {
+            console.error('❌ [AUDIT-SCORES] SUBSCORES NULL DETECTADOS:', nullScores);
+            console.error('⚠️ [AUDIT-SCORES] Causa provável: métricas ausentes em analysis.metrics ou analysis.technicalData');
+        } else {
+            console.log('✅ [AUDIT-SCORES] TODOS OS SUBSCORES SÃO VÁLIDOS');
+        }
         console.groupEnd();
         
         // Adicionar scores à análise
@@ -18612,7 +18658,61 @@ function normalizeBackendAnalysisData(result) {
                         null,
                          
             bandEnergies: bands,
-            spectral_balance: bands
+            spectral_balance: bands,
+            
+            // 🎯 CRITICAL FIX: Adicionar stereoCorrelation e stereoWidth
+            stereoCorrelation: src.stereoCorrelation ?? 
+                              data.technicalData?.stereoCorrelation ??
+                              data.stereoCorrelation ??
+                              null,
+            
+            stereoWidth: src.stereoWidth ??
+                        data.technicalData?.stereoWidth ??
+                        data.stereoWidth ??
+                        null
+        },
+        
+        // 🎯 CRITICAL FIX: Adicionar objeto metrics com nomenclatura snake_case
+        // Isso garante compatibilidade com calculateLoudnessScore/Dynamics/Stereo
+        metrics: {
+            lufs_integrated: loudness.integratedLUFS ?? 
+                            loudness.integrated ?? 
+                            src.lufsIntegrated ?? 
+                            data.technicalData?.lufsIntegrated ?? 
+                            data.loudness?.integrated ?? 
+                            null,
+            
+            true_peak_dbtp: truePeak.maxDbtp ?? 
+                           src.truePeakDbtp ?? 
+                           data.technicalData?.truePeakDbtp ?? 
+                           null,
+            
+            dynamic_range: dynamics.range ?? 
+                          src.dynamicRange ?? 
+                          data.technicalData?.dynamicRange ?? 
+                          null,
+            
+            lra: loudness.lra ?? 
+                src.lra ?? 
+                data.technicalData?.lra ?? 
+                data.loudness?.lra ?? 
+                null,
+            
+            stereo_correlation: src.stereoCorrelation ?? 
+                               data.technicalData?.stereoCorrelation ??
+                               data.stereoCorrelation ??
+                               null,
+            
+            stereo_width: src.stereoWidth ??
+                         data.technicalData?.stereoWidth ??
+                         data.stereoWidth ??
+                         null,
+            
+            crest_factor: dynamics.crest ?? 
+                         src.crestFactor ?? 
+                         src.crest_factor ??
+                         data.technicalData?.crestFactor ?? 
+                         null
         },
         
         metadata: data.metadata ?? {},
