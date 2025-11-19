@@ -15927,20 +15927,44 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
         const genreKey = genre || analysis.genre || analysis.genreId;
         const genreData = genreKey ? refComp[genreKey] : null;
         
-        // Extrair bandas: legacy_compatibility.bands OU hybrid_processing.spectral_bands
-        if (genreData?.legacy_compatibility?.bands) {
+        // 🎯 CORREÇÃO CRÍTICA: Extrair bandas do ROOT primeiro
+        if (genreData?.bands) {
+            genreTargetBands = genreData.bands;
+            console.log('✅ [GENRE-TARGETS] Usando bands do ROOT (correto):', Object.keys(genreTargetBands));
+        } else if (genreData?.legacy_compatibility?.bands) {
             genreTargetBands = genreData.legacy_compatibility.bands;
-            console.log('🎯 [GENRE-TARGETS] Usando legacy_compatibility.bands:', Object.keys(genreTargetBands));
+            console.log('⚠️ [GENRE-TARGETS] Usando legacy_compatibility.bands (fallback):', Object.keys(genreTargetBands));
         } else if (genreData?.hybrid_processing?.spectral_bands) {
             genreTargetBands = genreData.hybrid_processing.spectral_bands;
-            console.log('🎯 [GENRE-TARGETS] Usando hybrid_processing.spectral_bands:', Object.keys(genreTargetBands));
+            console.log('⚠️ [GENRE-TARGETS] Usando hybrid_processing.spectral_bands (fallback):', Object.keys(genreTargetBands));
         } else if (refComp.bands) {
             genreTargetBands = refComp.bands;
-            console.log('🎯 [GENRE-TARGETS] Usando bands direto:', Object.keys(genreTargetBands));
+            console.log('⚠️ [GENRE-TARGETS] Usando bands direto do refComp (fallback):', Object.keys(genreTargetBands));
         }
         
-        // Extrair métricas escalares (LUFS, DR, etc.)
-        if (genreData?.legacy_compatibility) {
+        // 🎯 CORREÇÃO CRÍTICA: Extrair métricas escalares do ROOT primeiro
+        if (genreData && genreData.lufs_target !== undefined) {
+            // ROOT tem targets válidos (estrutura correta V2)
+            genreTargetMetrics = {
+                lufs_target: genreData.lufs_target,
+                true_peak_target: genreData.true_peak_target,
+                dr_target: genreData.dr_target,
+                lra_target: genreData.lra_target,
+                stereo_target: genreData.stereo_target,
+                tol_lufs: genreData.tol_lufs || 1.0,
+                tol_true_peak: genreData.tol_true_peak || 0.25,
+                tol_dr: genreData.tol_dr || 1.25,
+                tol_lra: genreData.tol_lra || 2.5,
+                tol_stereo: genreData.tol_stereo || 0.065
+            };
+            console.log('✅ [GENRE-TARGETS] Métricas extraídas do ROOT (correto):', {
+                lufs: genreTargetMetrics.lufs_target,
+                peak: genreTargetMetrics.true_peak_target,
+                dr: genreTargetMetrics.dr_target,
+                stereo: genreTargetMetrics.stereo_target
+            });
+        } else if (genreData?.legacy_compatibility) {
+            // Fallback: legacy_compatibility (estrutura antiga)
             const lc = genreData.legacy_compatibility;
             genreTargetMetrics = {
                 lufs_target: lc.lufs_target,
@@ -15954,8 +15978,9 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
                 tol_lra: lc.tol_lra || 2.5,
                 tol_stereo: lc.tol_stereo || 0.065
             };
-            console.log('🎯 [GENRE-TARGETS] Métricas extraídas de legacy_compatibility');
+            console.log('⚠️ [GENRE-TARGETS] Métricas extraídas de legacy_compatibility (fallback)');
         } else if (genreData?.hybrid_processing?.original_metrics) {
+            // Fallback 2: hybrid_processing (estrutura híbrida)
             const om = genreData.hybrid_processing.original_metrics;
             genreTargetMetrics = {
                 lufs_target: om.lufs_integrated,
@@ -15969,7 +15994,7 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
                 tol_lra: 2.5,
                 tol_stereo: 0.065
             };
-            console.log('🎯 [GENRE-TARGETS] Métricas extraídas de hybrid_processing.original_metrics');
+            console.log('⚠️ [GENRE-TARGETS] Métricas extraídas de hybrid_processing.original_metrics (fallback)');
         }
         
         // 🎯 INJETAR targets de gênero em refData se disponíveis
@@ -16092,6 +16117,16 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
         weights: weights,
         genre: genreKey
     };
+    
+    // 🎯 LOG DE AUDITORIA: Verificar subscores após correção
+    console.log('[AUDIT-SCORES-FIX] Subscores depois da correção:', {
+        loudness: result.loudness,
+        dinamica: result.dinamica,
+        estereo: result.estereo,
+        frequencia: result.frequencia,
+        tecnico: result.tecnico,
+        final: result.final
+    });
     
     console.log('🎯 Score final calculado:', result);
     
