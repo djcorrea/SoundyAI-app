@@ -9579,6 +9579,42 @@ async function displayModalResults(analysis) {
     }
     console.groupEnd();
 
+    /** 2.5) FUNÇÃO CRÍTICA: Injetar targets de gênero em refData */
+    function injectGenreTargetsIntoRefData(refData, genreTargets) {
+        if (!refData || !genreTargets) return refData;
+        
+        const fields = [
+            "lufs_target",
+            "true_peak_target",
+            "dr_target",
+            "lra_target",
+            "stereo_target",
+            "bands",
+            "tol_lufs",
+            "tol_true_peak",
+            "tol_dr",
+            "tol_lra",
+            "tol_stereo"
+        ];
+        
+        fields.forEach(key => {
+            if (genreTargets[key] !== undefined) {
+                refData[key] = genreTargets[key];
+            }
+        });
+        
+        console.log("[GENRE-FIX] Targets injetados em refData:", {
+            lufs_target: refData.lufs_target,
+            true_peak_target: refData.true_peak_target,
+            dr_target: refData.dr_target,
+            stereo_target: refData.stereo_target,
+            hasBands: !!refData.bands,
+            bandsCount: refData.bands ? Object.keys(refData.bands).length : 0
+        });
+        
+        return refData;
+    }
+
     /** 3) Se referência não é válida ou A==B, rebaixa o score de frequência via "disable" e re-normaliza pesos */
     let disableFrequency = false;
     let referenceDataForScores = null;
@@ -9734,6 +9770,23 @@ async function displayModalResults(analysis) {
     console.log("  - stereo_target:", referenceDataForScores?.stereo_target);
     console.log("  - bands:", referenceDataForScores?.bands ? Object.keys(referenceDataForScores.bands) : 'null');
     console.groupEnd();
+    
+    // 🎯 [GENRE-FIX] CRÍTICO: Aplicar targets de gênero antes dos scores
+    // isGenreMode já foi declarado anteriormente (linha 9504)
+    
+    if (isGenreMode && window.__activeRefData) {
+        console.log("[GENRE-FIX] Aplicando genreTargets a refData antes dos scores.");
+        console.log("[GENRE-FIX] window.__activeRefData disponível:", {
+            lufs_target: window.__activeRefData.lufs_target,
+            true_peak_target: window.__activeRefData.true_peak_target,
+            dr_target: window.__activeRefData.dr_target,
+            stereo_target: window.__activeRefData.stereo_target,
+            hasBands: !!window.__activeRefData.bands,
+            bandsCount: window.__activeRefData.bands ? Object.keys(window.__activeRefData.bands).length : 0
+        });
+        
+        referenceDataForScores = injectGenreTargetsIntoRefData(referenceDataForScores, window.__activeRefData);
+    }
     
     // 🎯 [FLOW-FIX] Calculando scores APÓS normalização de métricas
     console.log("[FLOW-FIX] Calculando scores APÓS normalização de métricas.");
@@ -15919,6 +15972,17 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
         loudness: analysis.loudness,
         metrics: analysis.metrics,
         technicalData: analysis.technicalData
+    });
+    
+    // 🎯 [GENRE-FIX] Targets finais entregues ao score
+    console.log("[GENRE-FIX] Targets finais entregues ao score:", {
+        lufs_target: refData?.lufs_target,
+        true_peak_target: refData?.true_peak_target,
+        dr_target: refData?.dr_target,
+        stereo_target: refData?.stereo_target,
+        lra_target: refData?.lra_target,
+        bands: refData?.bands ? Object.keys(refData.bands) : null,
+        bandsCount: refData?.bands ? Object.keys(refData.bands).length : 0
     });
     
     // 🎯 MODO GÊNERO: Detectar se é modo gênero e se há targets carregados
