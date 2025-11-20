@@ -13,8 +13,7 @@ import { fileURLToPath } from 'url';
 import { makeErr, logAudio, assertFinite } from '../../lib/audio/error-handling.js';
 
 // ✅ Banco de dados para buscar análise de referência
-import getPool from '../../db.js';
-const pool = getPool();
+import pool from '../../db.js';
 
 // 🔮 Sistema de enriquecimento IA (ULTRA V2)
 import { enrichSuggestionsWithAI } from '../../lib/ai/suggestion-enricher.js';

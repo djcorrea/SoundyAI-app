@@ -1,11 +1,11 @@
-// api/jobs/[id].js
+﻿// api/jobs/[id].js
 import express from "express";
 import pkg from "pg";
 
 const { Pool } = pkg;
 const router = express.Router();
 
-// 🔑 Conexão com Postgres (Railway usa DATABASE_URL)
+// ðŸ”‘ ConexÃ£o com Postgres (Railway usa DATABASE_URL)
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.PGSSL === "disable" ? false : { rejectUnauthorized: false },
@@ -26,21 +26,21 @@ router.get("/:id", async (req, res) => {
     );
 
     if (rows.length === 0) {
-      return res.status(404).json({ error: "Job não encontrado" });
+      return res.status(404).json({ error: "Job nÃ£o encontrado" });
     }
 
     const job = rows[0];
 
-    // 🔑 Normalizar status para o frontend entender
+    // ðŸ”‘ Normalizar status para o frontend entender
     let normalizedStatus = job.status;
     if (normalizedStatus === "done") normalizedStatus = "completed";
     if (normalizedStatus === "failed") normalizedStatus = "error";
 
-    // 🛡️ FIX: Se job ainda está em processing, retornar APENAS status
+    // ðŸ›¡ï¸ FIX: Se job ainda estÃ¡ em processing, retornar APENAS status
     // Previne frontend receber JSON incompleto antes do worker terminar
     if (normalizedStatus === "processing" || normalizedStatus === "queued") {
-      console.log(`[API-FIX] 🔒 Job ${job.id} em status '${normalizedStatus}' - retornando apenas status`);
-      console.log(`[API-FIX] ℹ️ JSON completo será retornado quando status = 'completed'`);
+      console.log(`[API-FIX] ðŸ”’ Job ${job.id} em status '${normalizedStatus}' - retornando apenas status`);
+      console.log(`[API-FIX] â„¹ï¸ JSON completo serÃ¡ retornado quando status = 'completed'`);
       
       return res.json({
         id: job.id,
@@ -50,34 +50,49 @@ router.get("/:id", async (req, res) => {
       });
     }
 
-    // 🎯 CORREÇÃO CRÍTICA: Retornar JSON completo da análise
-    // 🔄 COMPATIBILIDADE: Tentar tanto 'results' (novo) quanto 'result' (antigo)
+    // ðŸŽ¯ CORREÃ‡ÃƒO CRÃTICA: Retornar JSON completo da anÃ¡lise
+    // ðŸ”„ COMPATIBILIDADE: Tentar tanto 'results' (novo) quanto 'result' (antigo)
     let fullResult = null;
     
     const resultData = job.results || job.result;
     if (resultData) {
       try {
-        // Parse do JSON salvo pelo worker
-        fullResult = typeof resultData === 'string' ? JSON.parse(resultData) : resultData;
-        console.log("[REDIS-RETURN] 🔍 Job result merged with full analysis JSON");
-        console.log(`[REDIS-RETURN] Analysis contains: ${Object.keys(fullResult).join(', ')}`);
-        console.log(`[REDIS-RETURN] Data source: ${job.results ? 'results (new)' : 'result (legacy)'}`);
+        // âœ… PROBLEMA 1 CORRIGIDO: Parse robusto
+        if (typeof resultData === 'object' && resultData !== null) {
+          // JÃ¡ Ã© objeto - usar diretamente
+          fullResult = resultData;
+          console.log("[REDIS-RETURN] ðŸ” Job result jÃ¡ Ã© objeto (JSONB nativo)");
+        } else if (typeof resultData === 'string') {
+          // Ã‰ string - parsear
+          fullResult = JSON.parse(resultData);
+          console.log("[REDIS-RETURN] ðŸ” Job result parseado de string");
+        } else {
+          console.warn("[REDIS-RETURN] âš ï¸ resultData em formato desconhecido:", typeof resultData);
+        }
+        
+        if (fullResult) {
+          console.log("[REDIS-RETURN] âœ… Job result merged with full analysis JSON");
+          console.log(`[REDIS-RETURN] Analysis contains: ${Object.keys(fullResult).join(', ')}`);
+          console.log(`[REDIS-RETURN] Data source: ${job.results ? 'results (new)' : 'result (legacy)'}`);
+        }
       } catch (parseError) {
-        console.error("[REDIS-RETURN] ❌ Erro ao fazer parse do results JSON:", parseError);
+        console.error("[REDIS-RETURN] âŒ Erro ao fazer parse do results JSON:", parseError.message);
+        console.error("[REDIS-RETURN] âš ï¸ Mantendo resultData original sem parse");
+        // NÃƒO zerar fullResult - tentar usar o dado original
         fullResult = resultData;
       }
     }
 
-    // �️ FIX: Validação adicional - Se status é completed mas sem dados essenciais, 
+    // ï¿½ï¸ FIX: ValidaÃ§Ã£o adicional - Se status Ã© completed mas sem dados essenciais, 
     // retornar como processing para evitar mostrar interface vazia
     if (normalizedStatus === "completed") {
       const hasTechnicalData = fullResult?.technicalData && typeof fullResult.technicalData === 'object';
       
-      // Detectar se é primeiro ou segundo job
+      // Detectar se Ã© primeiro ou segundo job
       const referenceJobId = fullResult?.referenceJobId || job.reference_job_id;
       const isSecondJob = job.mode === 'reference' && referenceJobId;
       
-      // Validar technicalData sempre (obrigatório para ambos os jobs)
+      // Validar technicalData sempre (obrigatÃ³rio para ambos os jobs)
       if (!hasTechnicalData) {
         console.warn(`[API-FIX] Job ${job.id} marcado como 'completed' mas falta technicalData`);
         console.warn(`[API-FIX] Retornando status 'processing' para frontend aguardar dados completos`);
@@ -115,7 +130,9 @@ router.get("/:id", async (req, res) => {
       }
     }
 
-    // �🚀 RESULTADO FINAL: Mesclar dados do job com análise completa
+    // ðŸ”¥ðŸš€ RESULTADO FINAL: Merge EXPLÃCITO (nÃ£o usar spread operator)
+    // âœ… PROBLEMA 3 CORRIGIDO: Merge explÃ­cito campo a campo
+    // âœ… PROBLEMA 4 CORRIGIDO: Sempre retornar status real do banco
     const response = {
       id: job.id,
       fileKey: job.file_key,
@@ -125,27 +142,48 @@ router.get("/:id", async (req, res) => {
       createdAt: job.created_at,
       updatedAt: job.updated_at,
       completedAt: job.completed_at,
-      // ✅ CRÍTICO: Incluir análise completa se disponível
-      ...(fullResult || {}),
-      // ✅ GARANTIA EXPLÍCITA: aiSuggestions SEMPRE no objeto final
-      aiSuggestions: fullResult?.aiSuggestions || [],
-      suggestions: fullResult?.suggestions || [],
-      // ✅ MODO REFERENCE: Adicionar campos de comparação A/B
-      referenceComparison: fullResult?.referenceComparison || null,
-      referenceJobId: fullResult?.referenceJobId || null,
-      referenceFileName: fullResult?.referenceFileName || null
+      
+      // âœ… MERGE EXPLÃCITO: Todos os campos individuais
+      technicalData: fullResult?.technicalData ?? null,
+      aiSuggestions: Array.isArray(fullResult?.aiSuggestions) ? fullResult.aiSuggestions : [],
+      suggestions: Array.isArray(fullResult?.suggestions) ? fullResult.suggestions : [],
+      spectralBands: fullResult?.spectralBands ?? null,
+      genreBands: fullResult?.genreBands ?? null,
+      diagnostics: fullResult?.diagnostics ?? null,
+      score: fullResult?.score ?? null,
+      classification: fullResult?.classification ?? null,
+      performance: fullResult?.performance ?? null,
+      metadata: fullResult?.metadata ?? null,
+      
+      // Campos de loudness
+      loudness: fullResult?.loudness ?? null,
+      truePeak: fullResult?.truePeak ?? null,
+      stereo: fullResult?.stereo ?? null,
+      dynamics: fullResult?.dynamics ?? null,
+      spectral: fullResult?.spectral ?? null,
+      
+      // Campos de referÃªncia (modo A/B)
+      referenceComparison: fullResult?.referenceComparison ?? null,
+      referenceJobId: fullResult?.referenceJobId ?? null,
+      referenceFileName: fullResult?.referenceFileName ?? null,
+      
+      // Campos auxiliares
+      _worker: fullResult?._worker ?? null,
+      scores: fullResult?.scores ?? null,
+      scoring: fullResult?.scoring ?? null,
+      metrics: fullResult?.metrics ?? null
     };
 
-    // ✅ LOGS DE AUDITORIA DE RETORNO
-    console.log(`[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    console.log(`[AI-AUDIT][ULTRA_DIAG] 📤 RETORNANDO JOB PARA FRONTEND`);
-    console.log(`[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    console.log(`[AI-AUDIT][ULTRA_DIAG] 🆔 Job ID: ${job.id}`);
-    console.log(`[AI-AUDIT][ULTRA_DIAG] 📊 Status: ${normalizedStatus}`);
-    console.log(`[AI-AUDIT][ULTRA_DIAG] 🎵 Mode: ${job.mode}`);
+    // âœ… LOGS DE AUDITORIA DE RETORNO
+    console.log(`[AI-AUDIT][ULTRA_DIAG] â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”`);
+    console.log(`[AI-AUDIT][ULTRA_DIAG] ðŸ“¤ RETORNANDO JOB PARA FRONTEND`);
+    console.log(`[AI-AUDIT][ULTRA_DIAG] â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”`);
+    console.log(`[AI-AUDIT][ULTRA_DIAG] ðŸ†” Job ID: ${job.id}`);
+    console.log(`[AI-AUDIT][ULTRA_DIAG] ðŸ“Š Status: ${normalizedStatus}`);
+    console.log(`[AI-AUDIT][ULTRA_DIAG] ðŸŽµ Mode: ${job.mode}`);
     
-    // FIX: Logs específicos de validação
-    console.log(`[API-FIX][VALIDATION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    // FIX: Logs especÃ­ficos de validaÃ§Ã£o
+    console.log(`[API-FIX][VALIDATION] â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”`);
     console.log(`[API-FIX][VALIDATION] Status no DB: ${job.status}`);
     console.log(`[API-FIX][VALIDATION] Status normalizado: ${normalizedStatus}`);
     console.log(`[API-FIX][VALIDATION] Tem fullResult? ${!!fullResult}`);
@@ -155,23 +193,23 @@ router.get("/:id", async (req, res) => {
       console.log(`[API-FIX][VALIDATION] technicalData: ${!!fullResult.technicalData}`);
       console.log(`[API-FIX][VALIDATION] score: ${fullResult.score || 'null'}`);
     }
-    console.log(`[API-FIX][VALIDATION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`[API-FIX][VALIDATION] â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”`);
     
-    // 🔍 LOG CRÍTICO: Verificar campos presentes no response ANTES do envio
-    console.log(`[AI-AUDIT][API-RESPONSE] 🔍 Campos no objeto response:`, Object.keys(response));
-    console.log(`[AI-AUDIT][API-RESPONSE] ✅ aiSuggestions incluído no response:`, {
+    // ðŸ” LOG CRÃTICO: Verificar campos presentes no response ANTES do envio
+    console.log(`[AI-AUDIT][API-RESPONSE] ðŸ” Campos no objeto response:`, Object.keys(response));
+    console.log(`[AI-AUDIT][API-RESPONSE] âœ… aiSuggestions incluÃ­do no response:`, {
       presente: 'aiSuggestions' in response,
       isArray: Array.isArray(response.aiSuggestions),
       length: response.aiSuggestions?.length || 0
     });
-    console.log(`[AI-AUDIT][API-RESPONSE] ✅ suggestions incluído no response:`, {
+    console.log(`[AI-AUDIT][API-RESPONSE] âœ… suggestions incluÃ­do no response:`, {
       presente: 'suggestions' in response,
       isArray: Array.isArray(response.suggestions),
       length: response.suggestions?.length || 0
     });
     
-    // 🔍 VERIFICAÇÃO: Sugestões base
-    console.log(`[AI-AUDIT][ULTRA_DIAG] 💡 Sugestões base:`, {
+    // ðŸ” VERIFICAÃ‡ÃƒO: SugestÃµes base
+    console.log(`[AI-AUDIT][ULTRA_DIAG] ðŸ’¡ SugestÃµes base:`, {
       presente: Array.isArray(fullResult?.suggestions),
       quantidade: fullResult?.suggestions?.length || 0,
       sample: fullResult?.suggestions?.[0] ? {
@@ -181,8 +219,8 @@ router.get("/:id", async (req, res) => {
       } : null
     });
     
-    // 🔍 VERIFICAÇÃO: Sugestões enriquecidas com IA
-    console.log(`[AI-AUDIT][ULTRA_DIAG] 🤖 aiSuggestions (IA enriquecida):`, {
+    // ðŸ” VERIFICAÃ‡ÃƒO: SugestÃµes enriquecidas com IA
+    console.log(`[AI-AUDIT][ULTRA_DIAG] ðŸ¤– aiSuggestions (IA enriquecida):`, {
       presente: Array.isArray(fullResult?.aiSuggestions),
       quantidade: fullResult?.aiSuggestions?.length || 0,
       sample: fullResult?.aiSuggestions?.[0] ? {
@@ -197,54 +235,54 @@ router.get("/:id", async (req, res) => {
       } : null
     });
     
-    // 🔍 VERIFICAÇÃO: Comparação A/B (modo reference)
-    console.log(`[AI-AUDIT][ULTRA_DIAG] 🔄 Comparação A/B:`, {
+    // ðŸ” VERIFICAÃ‡ÃƒO: ComparaÃ§Ã£o A/B (modo reference)
+    console.log(`[AI-AUDIT][ULTRA_DIAG] ðŸ”„ ComparaÃ§Ã£o A/B:`, {
       presente: !!fullResult?.referenceComparison,
       referenceJobId: fullResult?.referenceJobId || null,
       referenceFileName: fullResult?.referenceFileName || null
     });
     
-    console.log(`[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`[AI-AUDIT][ULTRA_DIAG] â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”`);
 
     if (fullResult?.suggestions) {
-      console.log(`[AI-AUDIT][API.out] ✅ Suggestions sendo enviadas para frontend:`, fullResult.suggestions.length);
+      console.log(`[AI-AUDIT][API.out] âœ… Suggestions sendo enviadas para frontend:`, fullResult.suggestions.length);
       console.log(`[AI-AUDIT][API.out] Sample:`, fullResult.suggestions[0]);
       
       // Log adicional para modo reference
       if (fullResult?.referenceComparison) {
-        console.log(`[AI-AUDIT][API.out] ✅ Modo reference - comparação A/B incluída`);
+        console.log(`[AI-AUDIT][API.out] âœ… Modo reference - comparaÃ§Ã£o A/B incluÃ­da`);
         console.log(`[AI-AUDIT][API.out] Reference file:`, fullResult.referenceFileName);
       }
     } else {
-      console.error(`[AI-AUDIT][ULTRA_DIAG] ❌ CRÍTICO: Nenhuma suggestion no JSON retornado!`);
-      console.error(`[AI-AUDIT][ULTRA_DIAG] ❌ Isso indica que o pipeline falhou em gerar sugestões base`);
+      console.error(`[AI-AUDIT][ULTRA_DIAG] âŒ CRÃTICO: Nenhuma suggestion no JSON retornado!`);
+      console.error(`[AI-AUDIT][ULTRA_DIAG] âŒ Isso indica que o pipeline falhou em gerar sugestÃµes base`);
     }
     
-    // 🔮 LOG DE AUDITORIA: aiSuggestions (ULTRA V2)
+    // ðŸ”® LOG DE AUDITORIA: aiSuggestions (ULTRA V2)
     if (fullResult?.aiSuggestions && fullResult.aiSuggestions.length > 0) {
-      console.log(`[AI-AUDIT][ULTRA_DIAG] 🔄 aiSuggestions presentes no merge Redis/Postgres: true`);
-      console.log(`[AI-AUDIT][API.out] ✅ aiSuggestions (IA enriquecida) sendo enviadas:`, fullResult.aiSuggestions.length);
+      console.log(`[AI-AUDIT][ULTRA_DIAG] ðŸ”„ aiSuggestions presentes no merge Redis/Postgres: true`);
+      console.log(`[AI-AUDIT][API.out] âœ… aiSuggestions (IA enriquecida) sendo enviadas:`, fullResult.aiSuggestions.length);
     } else {
-      console.warn(`[AI-AUDIT][ULTRA_DIAG] 🔄 aiSuggestions presentes no merge Redis/Postgres: false`);
-      console.warn(`[AI-AUDIT][API.out] ⚠️ aiSuggestions ausente - IA pode não ter sido executada ou falhou`);
-      console.warn(`[AI-AUDIT][API.out] ⚠️ Verifique logs do pipeline para detalhes do erro`);
+      console.warn(`[AI-AUDIT][ULTRA_DIAG] ðŸ”„ aiSuggestions presentes no merge Redis/Postgres: false`);
+      console.warn(`[AI-AUDIT][API.out] âš ï¸ aiSuggestions ausente - IA pode nÃ£o ter sido executada ou falhou`);
+      console.warn(`[AI-AUDIT][API.out] âš ï¸ Verifique logs do pipeline para detalhes do erro`);
     }
 
-    console.log(`[REDIS-RETURN] 📊 Returning job ${job.id} with status '${normalizedStatus}'`);
+    console.log(`[REDIS-RETURN] ðŸ“Š Returning job ${job.id} with status '${normalizedStatus}'`);
     if (fullResult) {
-      console.log(`[REDIS-RETURN] ✅ Full analysis included: LUFS=${fullResult.technicalData?.lufsIntegrated}, Peak=${fullResult.technicalData?.truePeakDbtp}, Score=${fullResult.score}`);
+      console.log(`[REDIS-RETURN] âœ… Full analysis included: LUFS=${fullResult.technicalData?.lufsIntegrated}, Peak=${fullResult.technicalData?.truePeakDbtp}, Score=${fullResult.score}`);
     }
 
-    // 🔮 LOG FINAL ANTES DO ENVIO
-    console.log(`[API-AUDIT][FINAL] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    console.log(`[API-AUDIT][FINAL] 📤 ENVIANDO RESPONSE PARA FRONTEND`);
-    console.log(`[API-AUDIT][FINAL] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    console.log(`[API-AUDIT][FINAL] ✅ aiSuggestions length:`, response.aiSuggestions?.length || 0);
-    console.log(`[API-AUDIT][FINAL] ✅ suggestions length:`, response.suggestions?.length || 0);
-    console.log(`[API-AUDIT][FINAL] ✅ referenceComparison presente:`, !!response.referenceComparison);
+    // ðŸ”® LOG FINAL ANTES DO ENVIO
+    console.log(`[API-AUDIT][FINAL] â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”`);
+    console.log(`[API-AUDIT][FINAL] ðŸ“¤ ENVIANDO RESPONSE PARA FRONTEND`);
+    console.log(`[API-AUDIT][FINAL] â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”`);
+    console.log(`[API-AUDIT][FINAL] âœ… aiSuggestions length:`, response.aiSuggestions?.length || 0);
+    console.log(`[API-AUDIT][FINAL] âœ… suggestions length:`, response.suggestions?.length || 0);
+    console.log(`[API-AUDIT][FINAL] âœ… referenceComparison presente:`, !!response.referenceComparison);
     
     if (response.aiSuggestions && response.aiSuggestions.length > 0) {
-      console.log(`[API-AUDIT][FINAL] 🌟🌟🌟 aiSuggestions INCLUÍDAS NA RESPOSTA! 🌟🌟🌟`);
+      console.log(`[API-AUDIT][FINAL] ðŸŒŸðŸŒŸðŸŒŸ aiSuggestions INCLUÃDAS NA RESPOSTA! ðŸŒŸðŸŒŸðŸŒŸ`);
       console.log(`[API-AUDIT][FINAL] Sample da primeira aiSuggestion:`, {
         aiEnhanced: response.aiSuggestions[0]?.aiEnhanced,
         categoria: response.aiSuggestions[0]?.categoria,
@@ -253,14 +291,14 @@ router.get("/:id", async (req, res) => {
         hasSolucao: !!response.aiSuggestions[0]?.solucao
       });
     } else {
-      console.warn(`[API-AUDIT][FINAL] ⚠️⚠️⚠️ aiSuggestions VAZIO OU AUSENTE! ⚠️⚠️⚠️`);
-      console.warn(`[API-AUDIT][FINAL] ⚠️ Frontend receberá array vazio e não exibirá IA`);
+      console.warn(`[API-AUDIT][FINAL] âš ï¸âš ï¸âš ï¸ aiSuggestions VAZIO OU AUSENTE! âš ï¸âš ï¸âš ï¸`);
+      console.warn(`[API-AUDIT][FINAL] âš ï¸ Frontend receberÃ¡ array vazio e nÃ£o exibirÃ¡ IA`);
     }
-    console.log(`[API-AUDIT][FINAL] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+    console.log(`[API-AUDIT][FINAL] â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”â”`);
 
     return res.json(response);
   } catch (err) {
-    console.error("❌ Erro ao buscar job:", err);
+    console.error("âŒ Erro ao buscar job:", err);
     return res.status(500).json({ error: "Falha ao buscar job" });
   }
 });

@@ -11,7 +11,7 @@
 import "dotenv/config";
 import { Worker } from 'bullmq';
 import Redis from 'ioredis';
-import getPool from './db.js';  // 🔧 PATCH: Importar função, não pool
+import pool from './db.js';
 import AWS from "aws-sdk";
 import fs from "fs";
 import path from "path";
@@ -512,10 +512,7 @@ function validateCompleteJSON(finalJSON, mode, referenceJobId) {
  */
 async function updateJobStatus(jobId, status, results = null) {
   try {
-    // 🔧 PATCH: Obter pool AGORA (lazy loading após validações)
-    const pool = getPool();
-    
-    // 🔒 VALIDAÇÃO CRÍTICA: Verificar UUID antes de executar query
+    //  VALIDAÇÃO CRÍTICA: Verificar UUID antes de executar query
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(jobId)) {
       console.error(`💥 [DB-UPDATE] ERRO: jobId inválido para PostgreSQL: '${jobId}'`);
@@ -551,9 +548,7 @@ async function updateJobStatus(jobId, status, results = null) {
       }
       console.log(`[AI-AUDIT][SAVE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       
-      // 🔧 FIX: Usar coluna "result" (singular) em vez de "results" (plural)
-      // BUG RAIZ: Schema tem "result" mas código usava "results" → dados não salvavam
-      query = `UPDATE jobs SET status = $1, result = $2, updated_at = NOW() WHERE id = $3 RETURNING *`;
+      query = `UPDATE jobs SET status = $1, results = $2, updated_at = NOW() WHERE id = $3 RETURNING *`;
       params = [status, JSON.stringify(results), jobId];
     } else {
       query = `UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`;
@@ -565,10 +560,9 @@ async function updateJobStatus(jobId, status, results = null) {
     
     // ✅ LOGS DE AUDITORIA PÓS-SALVAMENTO
     if (results && result.rows[0]) {
-      // 🔧 FIX: Ler de "result" (singular) em vez de "results" (plural)
-      const savedResults = typeof result.rows[0].result === 'string' 
-        ? JSON.parse(result.rows[0].result) 
-        : result.rows[0].result;
+      const savedResults = typeof result.rows[0].results === 'string' 
+        ? JSON.parse(result.rows[0].results) 
+        : result.rows[0].results;
       
       console.log(`[AI-AUDIT][SAVE.after] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       console.log(`[AI-AUDIT][SAVE.after] ✅ JOB SALVO NO POSTGRES`);
@@ -758,9 +752,6 @@ async function audioProcessor(job) {
       console.log('🔍 [AUDIT_REFERENCE] ═══════════════════════════════════════');
       
       try {
-        // 🔧 PATCH: Obter pool antes de usar
-        const pool = getPool();
-        
         const refResult = await pool.query(
           `SELECT id, status, results FROM jobs WHERE id = $1`,
           [referenceJobId]
