@@ -12,18 +12,12 @@ export async function enrichSuggestionsWithAI(suggestions, context = {}) {
   const mode = context.mode || 'genre';
   const hasReferenceComparison = !!context.referenceComparison;
   
-  // 🛡️ WHITELIST: IA só roda em modo reference com comparação
-  if (mode !== 'reference' || !hasReferenceComparison) {
-    console.log('[ENRICHER-GUARD] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[ENRICHER-GUARD] 🚫 BLOQUEANDO ENRIQUECIMENTO IA');
-    console.log('[ENRICHER-GUARD] mode=%s referenceComparison=%s', mode, hasReferenceComparison);
-    console.log('[ENRICHER-GUARD] ✅ Retornando array vazio (IA não deve rodar)');
-    console.log('[ENRICHER-GUARD] ℹ️ IA só é acionada em modo reference com comparação A/B');
-    console.log('[ENRICHER-GUARD] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    
-    // Retornar array vazio quando não for modo reference
-    return [];
-  }
+  // 🔧 CORREÇÃO: Remover whitelist — IA deve rodar em AMBOS os modos (genre + reference)
+  console.log('[ENRICHER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('[ENRICHER] 🤖 ENRIQUECIMENTO IA ATIVADO');
+  console.log('[ENRICHER] mode=%s referenceComparison=%s', mode, hasReferenceComparison);
+  console.log('[ENRICHER] ✅ IA habilitada para modo genre E reference');
+  console.log('[ENRICHER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   
   console.log('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('[AI-AUDIT][ULTRA_DIAG] 🤖 INICIANDO ENRIQUECIMENTO COM IA');
