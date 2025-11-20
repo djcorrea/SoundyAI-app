@@ -468,14 +468,18 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         delete finalJSON.referenceJobId;
         delete finalJSON.referenceFileName;
         console.log("[SECURITY] ✅ referenceComparison removido - modo gênero limpo");
-      } else {
-        // Modo genre normal
+      }
+      
+      // 🎯 CORREÇÃO CRÍTICA: Sempre gerar sugestões e chamar IA no modo genre
+      // Movido para fora do else para garantir execução em TODOS os casos
+      if (mode !== "reference") {
+        // Modo genre normal - SEMPRE executar
         finalJSON.suggestions = generateSuggestionsFromMetrics(coreMetrics, genre, mode);
         
-        // � LOG DE DIAGNÓSTICO: Sugestões base geradas (modo genre)
+        // 🔍 LOG DE DIAGNÓSTICO: Sugestões base geradas (modo genre)
         console.log(`[AI-AUDIT][ULTRA_DIAG] ✅ Sugestões base detectadas (modo genre): ${finalJSON.suggestions.length} itens`);
         
-        // �🔮 ENRIQUECIMENTO IA ULTRA V2 (modo genre)
+        // 🔮 ENRIQUECIMENTO IA ULTRA V2 (modo genre) - SEMPRE executar
         try {
           console.log('[AI-AUDIT][ULTRA_DIAG] 🚀 Enviando sugestões base para IA (modo genre)...');
           finalJSON.aiSuggestions = await enrichSuggestionsWithAI(finalJSON.suggestions, {
