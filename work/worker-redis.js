@@ -548,7 +548,9 @@ async function updateJobStatus(jobId, status, results = null) {
       }
       console.log(`[AI-AUDIT][SAVE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       
-      query = `UPDATE jobs SET status = $1, results = $2, updated_at = NOW() WHERE id = $3 RETURNING *`;
+      // 🔧 FIX: Usar coluna "result" (singular) em vez de "results" (plural)
+      // BUG RAIZ: Schema tem "result" mas código usava "results" → dados não salvavam
+      query = `UPDATE jobs SET status = $1, result = $2, updated_at = NOW() WHERE id = $3 RETURNING *`;
       params = [status, JSON.stringify(results), jobId];
     } else {
       query = `UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`;
@@ -560,9 +562,10 @@ async function updateJobStatus(jobId, status, results = null) {
     
     // ✅ LOGS DE AUDITORIA PÓS-SALVAMENTO
     if (results && result.rows[0]) {
-      const savedResults = typeof result.rows[0].results === 'string' 
-        ? JSON.parse(result.rows[0].results) 
-        : result.rows[0].results;
+      // 🔧 FIX: Ler de "result" (singular) em vez de "results" (plural)
+      const savedResults = typeof result.rows[0].result === 'string' 
+        ? JSON.parse(result.rows[0].result) 
+        : result.rows[0].result;
       
       console.log(`[AI-AUDIT][SAVE.after] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       console.log(`[AI-AUDIT][SAVE.after] ✅ JOB SALVO NO POSTGRES`);
