@@ -526,6 +526,24 @@ class AISuggestionUIController {
         });
         console.log('[AUDIT:AI-FRONT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
+        // 🔧 FIX CRÍTICO: Se status é 'completed' mas não há sugestões, ocultar loading e não exibir nada
+        if (analysis?.status === 'completed' && !hasValidAISuggestions) {
+            console.log('%c[AI-FRONT][FIX] ✅ Status completed sem sugestões - ocultando loading', 'color:#FFD700;font-weight:bold;');
+            
+            // Ocultar spinner de loading
+            if (this.elements.aiLoading) {
+                this.elements.aiLoading.style.display = 'none';
+            }
+            
+            // Ocultar seção inteira (não há sugestões para exibir)
+            if (this.elements.aiSection) {
+                this.elements.aiSection.style.display = 'none';
+            }
+            
+            console.log('[AI-FRONT][FIX] Análise completa mas sem sugestões IA - interface ocultada');
+            return; // ✅ PARAR AQUI
+        }
+        
         // 🧠 Bypass inteligente: se já há sugestões, ignora o status "processing"
         if (Array.isArray(extractedAI) && extractedAI.length > 0) {
             console.log('%c[AI-FRONT][BYPASS] ✅ aiSuggestions detectadas — ignorando status "processing"', 'color:#00FF88;font-weight:bold;');
@@ -1333,6 +1351,40 @@ class AISuggestionUIController {
         `;
         
         console.log('[AI-SUGGESTIONS] ✅ Estado vazio renderizado');
+    }
+    
+    /**
+     * 🕐 Exibir estado de loading/processamento (FIX: função ausente)
+     * @param {string} message - Mensagem a ser exibida
+     */
+    showLoadingState(message = 'Aguardando análise da IA...') {
+        console.log('[AI-UI][LOADING] 🕐 Exibindo estado de loading:', message);
+        
+        if (!this.elements.aiLoading) {
+            console.warn('[AI-UI][LOADING] ⚠️ Elemento aiLoading não encontrado');
+            return;
+        }
+        
+        // Mostrar spinner de loading
+        this.elements.aiLoading.style.display = 'flex';
+        
+        // Atualizar mensagem se elemento existe
+        const loadingText = this.elements.aiLoading.querySelector('p');
+        if (loadingText) {
+            loadingText.textContent = message;
+        }
+        
+        // Esconder grid de sugestões
+        if (this.elements.aiContent) {
+            this.elements.aiContent.style.display = 'none';
+        }
+        
+        // Mostrar seção principal
+        if (this.elements.aiSection) {
+            this.elements.aiSection.style.display = 'block';
+        }
+        
+        console.log('[AI-UI][LOADING] ✅ Estado de loading exibido');
     }
     
     /**
