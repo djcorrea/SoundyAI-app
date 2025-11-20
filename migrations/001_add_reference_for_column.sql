@@ -1,7 +1,7 @@
 -- 🎯 MIGRAÇÃO: Adicionar suporte para modo reference (comparação track-to-track)
 -- Data: 2025-11-01
 -- Propósito: Adicionar coluna reference_for para vincular segundo track ao primeiro
-
+h
 -- Adicionar coluna reference_for (UUID do job de referência)
 DO $$
 BEGIN
