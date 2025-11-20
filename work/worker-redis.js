@@ -11,7 +11,7 @@
 import "dotenv/config";
 import { Worker } from 'bullmq';
 import Redis from 'ioredis';
-import pool from './db.js';
+import getPool from './db.js';  // 🔧 PATCH: Importar função, não pool
 import AWS from "aws-sdk";
 import fs from "fs";
 import path from "path";
@@ -512,6 +512,9 @@ function validateCompleteJSON(finalJSON, mode, referenceJobId) {
  */
 async function updateJobStatus(jobId, status, results = null) {
   try {
+    // 🔧 PATCH: Obter pool AGORA (lazy loading após validações)
+    const pool = getPool();
+    
     // 🔒 VALIDAÇÃO CRÍTICA: Verificar UUID antes de executar query
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(jobId)) {
@@ -755,6 +758,9 @@ async function audioProcessor(job) {
       console.log('🔍 [AUDIT_REFERENCE] ═══════════════════════════════════════');
       
       try {
+        // 🔧 PATCH: Obter pool antes de usar
+        const pool = getPool();
+        
         const refResult = await pool.query(
           `SELECT id, status, results FROM jobs WHERE id = $1`,
           [referenceJobId]

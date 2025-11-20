@@ -28,4 +28,5 @@ function getPool() {
   return pool;
 }
 
-export default getPool();
+// 🔧 PATCH: Exportar FUNÇÃO (lazy loading), não pool executado
+export default getPool;  // ← SEM () - função não executada no import
