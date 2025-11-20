@@ -263,9 +263,24 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         console.log('[GENRE-MODE] 🎯 Targets de gênero serão usados para comparação');
         console.log('[GENRE-MODE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         
-        // 🔧 GERAR SUGESTÕES BASE
-        finalJSON.suggestions = generateSuggestionsFromMetrics(coreMetrics, genre, mode);
-        console.log(`[GENRE-MODE] ✅ ${finalJSON.suggestions.length} sugestões base geradas`);
+        // 🔧 GERAR SUGESTÕES AVANÇADAS (Sistema completo baseado em penalties)
+        console.log('[GENRE-MODE] 🚀 Usando sistema avançado de sugestões com scoring.penalties');
+        finalJSON.suggestions = generateAdvancedSuggestionsFromScoring(coreMetrics, coreMetrics.scoring, genre, mode);
+        console.log(`[GENRE-MODE] ✅ ${finalJSON.suggestions.length} sugestões avançadas geradas`);
+        
+        // 🔍 LOG: Exemplo da primeira sugestão avançada
+        if (finalJSON.suggestions.length > 0) {
+          const firstSug = finalJSON.suggestions[0];
+          console.log('[GENRE-MODE] 📋 Exemplo sugestão avançada:', {
+            priority: firstSug.priority,
+            problema: firstSug.problema?.substring(0, 50),
+            temCausa: !!firstSug.causaProvavel,
+            temSolucao: !!firstSug.solucao,
+            temPlugin: !!firstSug.pluginRecomendado,
+            temDica: !!firstSug.dicaExtra,
+            temParametros: !!firstSug.parametros
+          });
+        }
         
         // 🤖 ENRIQUECIMENTO IA ULTRA V2
         try {
@@ -437,7 +452,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
             }
           } else {
             console.warn("[REFERENCE-MODE] ⚠️ Job de referência não encontrado - gerando sugestões genéricas");
-            finalJSON.suggestions = generateSuggestionsFromMetrics(coreMetrics, genre, mode);
+            finalJSON.suggestions = generateAdvancedSuggestionsFromScoring(coreMetrics, coreMetrics.scoring, genre, mode);
             
             // � LOG DE DIAGNÓSTICO: Sugestões base geradas (fallback)
             console.log(`[AI-AUDIT][ULTRA_DIAG] ✅ Sugestões base detectadas (fallback): ${finalJSON.suggestions.length} itens`);
@@ -458,11 +473,12 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
           }
         } catch (refError) {
           console.error("[REFERENCE-MODE] ❌ Erro ao buscar referência:", refError.message);
-          console.warn("[REFERENCE-MODE] Gerando sugestões genéricas como fallback");
-          finalJSON.suggestions = generateSuggestionsFromMetrics(coreMetrics, genre, mode);
+          console.warn("[REFERENCE-MODE] Gerando sugestões avançadas como fallback");
+          console.log('[REFERENCE-MODE-ERROR-FALLBACK] 🚀 Usando sistema avançado de sugestões com scoring.penalties');
+          finalJSON.suggestions = generateAdvancedSuggestionsFromScoring(coreMetrics, coreMetrics.scoring, genre, mode);
           
-          // 🔍 LOG DE DIAGNÓSTICO: Sugestões base geradas (error fallback)
-          console.log(`[AI-AUDIT][ULTRA_DIAG] ✅ Sugestões base detectadas (error fallback): ${finalJSON.suggestions.length} itens`);
+          // 🔍 LOG DE DIAGNÓSTICO: Sugestões avançadas geradas (error fallback)
+          console.log(`[AI-AUDIT][ULTRA_DIAG] ✅ Sugestões avançadas detectadas (error fallback): ${finalJSON.suggestions.length} itens`);
           
           // 🔮 ENRIQUECIMENTO IA ULTRA V2 (error fallback)
           try {
@@ -850,160 +866,494 @@ function generateComparisonSuggestions(deltas) {
  * @param {String} mode - Modo de análise ('genre' ou 'reference')
  * @returns {Array} - Array de sugestões estruturadas
  */
+/**
+ * 🎯 GERADOR AVANÇADO DE SUGESTÕES BASEADO EM PENALTIES DO SCORING
+ * ═════════════════════════════════════════════════════════════════
+ * 
+ * Sistema COMPLETO de análise e geração de sugestões estruturadas que:
+ * 
+ * 1. Lê scoring.penalties diretamente (fonte oficial de problemas)
+ * 2. Gera sugestões em ordem de prioridade (True Peak > LUFS > DR > Stereo > Bandas)
+ * 3. Constrói objetos com estrutura de 6 blocos para enriquecimento ULTRA-V2:
+ *    - problema (descrição técnica direta)
+ *    - causaProvavel (explicação da origem)
+ *    - solucao (instrução prática)
+ *    - pluginRecomendado (ferramentas)
+ *    - dicaExtra (insights profissionais)
+ *    - parametros (valores específicos)
+ * 
+ * @param {Object} technicalData - Métricas técnicas completas
+ * @param {Object} scoring - Objeto de scoring com penalties array
+ * @param {String} genre - Gênero para contexto
+ * @param {String} mode - 'genre' ou 'reference'
+ * @returns {Array} Sugestões estruturadas prontas para ULTRA-V2
+ */
+function generateAdvancedSuggestionsFromScoring(technicalData, scoring, genre = 'unknown', mode = 'genre') {
+  console.log(`[ADVANCED-SUGGEST] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+  console.log(`[ADVANCED-SUGGEST] 🎯 Iniciando geração avançada`);
+  console.log(`[ADVANCED-SUGGEST] Genre: ${genre}, Mode: ${mode}`);
+  console.log(`[ADVANCED-SUGGEST] Penalties disponíveis: ${scoring?.penalties?.length || 0}`);
+  
+  const suggestions = [];
+  const penalties = scoring?.penalties || [];
+  
+  // 🎯 MAPEAMENTO DE PRIORIDADES (conforme especificação)
+  const priorityMap = {
+    'truePeakDbtp': 1,     // Máxima prioridade (clipping)
+    'lufsIntegrated': 2,   // Loudness
+    'dynamicRange': 3,     // Dinâmica
+    'stereoCorrelation': 4, // Estéreo
+    'lra': 5               // LRA
+    // Bandas espectrais: prioridade 6+
+  };
+  
+  // 🎯 ESTRUTURA DE CONHECIMENTO TÉCNICO POR MÉTRICA
+  const technicalKnowledge = {
+    truePeakDbtp: {
+      categoria: 'MASTERING',
+      tipoProblema: 'True Peak',
+      faixaFreq: 'Espectro completo (20Hz-20kHz)',
+      causas: [
+        'Limitador com ceiling muito alto ou desabilitado',
+        'Overshooting em conversão inter-sample',
+        'Excesso de saturação/distorção antes do limiter',
+        'Compressão excessiva gerando picos de reconstrução'
+      ],
+      plugins: ['FabFilter Pro-L 2', 'iZotope Ozone Maximizer', 'Waves L2 Ultramaximizer', 'Sonnox Oxford Limiter'],
+      dicas: [
+        'Use oversampling 4x-32x no limiter para prevenir overshooting',
+        'True Peak target ideal: -1.0 dBTP (streaming) ou -0.3 dBTP (CD)',
+        'Sempre medir com True Peak meters (ITU-R BS.1770)',
+        'Margem de segurança: deixe -0.5 dBTP de headroom adicional'
+      ]
+    },
+    lufsIntegrated: {
+      categoria: 'LOUDNESS',
+      tipoProblema: 'LUFS Integrado',
+      faixaFreq: 'Espectro completo (percepção de loudness)',
+      causas: [
+        'Mixagem com volume RMS baixo e limiter inativo',
+        'Excesso de limitação gerando loudness artificial',
+        'Falta de compressão paralela no bus master',
+        'Desequilíbrio espectral (excesso de graves ou agudos)'
+      ],
+      plugins: ['FabFilter Pro-L 2', 'Waves L3', 'iZotope Ozone Maximizer', 'Youlean Loudness Meter'],
+      dicas: [
+        'LUFS ideal: -14 para streaming (Spotify/Apple), -10.5 para EDM/Funk',
+        'Não confundir loudness com volume peak - são métricas diferentes',
+        'Use limitador transparente + compressão paralela para corpo',
+        'Monitore LUFS em tempo real durante mixagem'
+      ]
+    },
+    dynamicRange: {
+      categoria: 'DYNAMICS',
+      tipoProblema: 'Dynamic Range',
+      faixaFreq: 'Espectro completo (dinâmica RMS vs Peak)',
+      causas: [
+        'Compressão excessiva no master bus',
+        'Limitação agressiva com baixo threshold',
+        'Falta de automação de ganho (tudo no mesmo nível)',
+        'Clipper pesado antes do limiter'
+      ],
+      plugins: ['SSL Bus Compressor', 'Glue Compressor', 'API 2500', 'Klanghelm MJUC'],
+      dicas: [
+        'DR ideal: EDM (4-6 dB), Pop (6-8 dB), Rock (8-12 dB)',
+        'DR < 4 dB indica overprocessing severo',
+        'Prefira compressão paralela a compressão serial pesada',
+        'Preserve transientes com saturação sutil em vez de limiter bruto'
+      ]
+    },
+    stereoCorrelation: {
+      categoria: 'STEREO',
+      tipoProblema: 'Correlação Estéreo',
+      faixaFreq: 'Imagem estéreo (L/R phase relationship)',
+      causas: [
+        'Problemas de fase entre canais L/R',
+        'Uso excessivo de stereo wideners',
+        'Reverbs/delays sem high-pass filter',
+        'Graves não mono (sub-bass fora de fase)'
+      ],
+      plugins: ['Ozone Imager', 'Waves S1 Stereo Imager', 'iZotope Insight', 'Voxengo SPAN'],
+      dicas: [
+        'Correlação ideal: 0.70-0.90 (boa largura + compatibilidade mono)',
+        'Correlação < 0.30 indica problemas sérios de phase',
+        'Sempre manter sub-bass (< 120Hz) 100% mono',
+        'Testar mix em mono para validar phase issues'
+      ]
+    },
+    lra: {
+      categoria: 'DYNAMICS',
+      tipoProblema: 'Loudness Range (LRA)',
+      faixaFreq: 'Variação de loudness ao longo do tempo',
+      causas: [
+        'Compressão excessiva destruindo variação dinâmica',
+        'Automação de ganho muito agressiva',
+        'Falta de contraste entre seções (verso/refrão)',
+        'Limitação constante sem breathing room'
+      ],
+      plugins: ['Waves Vocal Rider', 'SSL Bus Compressor', 'UAD Precision Limiter', 'Youlean Loudness Meter'],
+      dicas: [
+        'LRA ideal: EDM (3-6 LU), Pop/Rock (6-10 LU), Acústico (10-15 LU)',
+        'LRA < 2 LU indica mix "sausage" (sem dinâmica)',
+        'Use automação de ganho antes de processar para moldar dinâmica',
+        'Preserve contraste entre seções - compressor não deve aplainar tudo'
+      ]
+    }
+  };
+  
+  // 🎯 BANDA ESPECTRAL: Conhecimento técnico
+  const bandKnowledge = {
+    sub: {
+      nome: 'Sub (20-60Hz)',
+      categoria: 'LOW END',
+      causas: ['Falta de boost em 40-50Hz', 'High-pass muito agressivo', 'Room modes cancelando sub'],
+      plugins: ['FabFilter Pro-Q 3', 'Waves Renaissance Bass', 'MaxxBass', 'Submarine'],
+      dicas: ['Sub deve ser mono e limpo', 'Cortar < 30Hz (rumble inútil)', 'Usar side-chain com kick']
+    },
+    bass: {
+      nome: 'Bass (60-150Hz)',
+      categoria: 'LOW END',
+      causas: ['Falta de corpo no kick/808', 'Excesso de sub mascarando bass', 'Compressão excessiva'],
+      plugins: ['FabFilter Pro-Q 3', 'SSL E-Channel', 'Pultec EQP-1A', 'Waves SSL G-Master Buss'],
+      dicas: ['Faixa crítica do kick e 808', 'Bell em 100Hz para punch', 'Atenção a lama em 200Hz']
+    },
+    low_bass: {
+      nome: 'Low Bass (60-150Hz)',
+      categoria: 'LOW END',
+      causas: ['Mesmas causas do bass', 'Problema comum em funk/EDM'],
+      plugins: ['FabFilter Pro-Q 3', 'Waves SSL G-Master Buss'],
+      dicas: ['Região do punch do kick', 'Evitar mud em 200-250Hz']
+    },
+    upper_bass: {
+      nome: 'Upper Bass (150-300Hz)',
+      categoria: 'LOW MID',
+      causas: ['Acúmulo de energia (lama)', 'Falta de cut em 200-250Hz', 'Graves de guitarra/baixo desalinhados'],
+      plugins: ['FabFilter Pro-Q 3', 'Waves F6 Dynamic EQ', 'TDR Nova'],
+      dicas: ['Faixa do "mud" - frequentemente precisa cut', 'Dynamic EQ ajuda a controlar lama', 'Atenção em vocais masculinos']
+    },
+    lowMid: {
+      nome: 'Low-Mid (300-500Hz)',
+      categoria: 'MID',
+      causas: ['Lama acumulada', 'Falta de clareza em vocais/instrumentos', 'Resonâncias de sala'],
+      plugins: ['FabFilter Pro-Q 3', 'Waves F6 Dynamic EQ'],
+      dicas: ['Frequentemente precisa cut para abrir espaço', 'Vocais masculinos têm fundamentais aqui']
+    },
+    low_mid: {
+      nome: 'Low-Mid (300-500Hz)',
+      categoria: 'MID',
+      causas: ['Mesmas causas do lowMid'],
+      plugins: ['FabFilter Pro-Q 3', 'Waves F6 Dynamic EQ'],
+      dicas: ['Crítico para clareza', 'Cortar lama libera mix']
+    },
+    mid: {
+      nome: 'Mid (500Hz-2kHz)',
+      categoria: 'MID',
+      causas: ['Falta de presença', 'Excesso = som boxy/nasal', 'Vocais sem corpo'],
+      plugins: ['FabFilter Pro-Q 3', 'Waves API 550', 'SSL E-Channel'],
+      dicas: ['Região da presença vocal', 'Boost em 1kHz para clareza', 'Cut em 500-800Hz se nasal']
+    },
+    highMid: {
+      nome: 'High-Mid (2-5kHz)',
+      categoria: 'HIGH MID',
+      causas: ['Falta de definição', 'Excesso = fadiga auditiva', 'Vocais sem inteligibilidade'],
+      plugins: ['FabFilter Pro-Q 3', 'Waves Renaissance EQ', 'UAD Neve 1073'],
+      dicas: ['Região crítica da inteligibilidade', 'Boost em 3kHz para presença', 'Cuidado: excesso cansa']
+    },
+    high_mid: {
+      nome: 'High-Mid (2-5kHz)',
+      categoria: 'HIGH MID',
+      causas: ['Mesmas causas do highMid'],
+      plugins: ['FabFilter Pro-Q 3', 'Waves Renaissance EQ'],
+      dicas: ['Presença e definição', 'Não exagerar - causa fadiga']
+    },
+    presence: {
+      nome: 'Presence (5-10kHz)',
+      categoria: 'HIGH END',
+      causas: ['Falta de brilho', 'Excesso = sibilância', 'Hi-hats/cymbals sem ar'],
+      plugins: ['FabFilter Pro-Q 3', 'Waves De-Esser', 'Soothe2'],
+      dicas: ['Região do brilho e ar', 'Controlar sibilância em 6-8kHz', 'Shelf em 10kHz para ar']
+    },
+    presenca: {
+      nome: 'Presença (5-10kHz)',
+      categoria: 'HIGH END',
+      causas: ['Mesmas causas do presence'],
+      plugins: ['FabFilter Pro-Q 3', 'Waves De-Esser'],
+      dicas: ['Brilho e ar', 'Atenção à sibilância']
+    },
+    air: {
+      nome: 'Air (10-20kHz)',
+      categoria: 'HIGH END',
+      causas: ['Falta de abertura', 'High-cut muito cedo', 'Falta de reverb/ambiência'],
+      plugins: ['FabFilter Pro-Q 3', 'Waves Aphex Aural Exciter', 'iZotope Ozone Exciter'],
+      dicas: ['Shelf boost em 12kHz para "ar"', 'Não exagerar - pode soar artificial', 'Usar saturação sutil']
+    },
+    brilho: {
+      nome: 'Brilho (8-16kHz)',
+      categoria: 'HIGH END',
+      causas: ['Falta de harmônicos altos', 'Excesso de high-cut', 'Falta de exciter/saturação'],
+      plugins: ['FabFilter Pro-Q 3', 'Waves Aphex Aural Exciter'],
+      dicas: ['Shelf boost em 10-12kHz', 'Saturação adiciona harmônicos']
+    }
+  };
+  
+  // 🎯 FASE 1: PROCESSAR PENALTIES E GERAR SUGESTÕES BASE
+  for (const penalty of penalties) {
+    const { key, n, status, severity } = penalty;
+    
+    // Pular métricas OK (sem problemas)
+    if (status === 'OK') continue;
+    
+    // Determinar prioridade baseada no tipo de métrica
+    let priority = 'média';
+    if (severity === 'alta' || n > 3) priority = 'crítica';
+    else if (severity === 'media' || n > 1.5) priority = 'alta';
+    else priority = 'média';
+    
+    // Buscar conhecimento técnico
+    const knowledge = technicalKnowledge[key];
+    const isBand = !knowledge && (bandKnowledge[key] || key.includes('_db'));
+    
+    if (knowledge) {
+      // 🔧 MÉTRICA PRINCIPAL (LUFS, True Peak, DR, etc)
+      const metricData = getMetricValue(technicalData, key);
+      if (!metricData) continue;
+      
+      const { value, target, unit } = metricData;
+      const delta = Math.abs(value - target);
+      
+      // Construir problema técnico
+      const problema = `${knowledge.tipoProblema} está em ${value.toFixed(2)}${unit} quando deveria estar próximo de ${target.toFixed(2)}${unit} (desvio de ${delta.toFixed(2)}${unit}, ${n.toFixed(1)}x a tolerância)`;
+      
+      // Escolher causa provável baseada em severity
+      const causaProvavel = knowledge.causas[severity === 'alta' ? 0 : (severity === 'media' ? 1 : 2)] || knowledge.causas[0];
+      
+      // Construir solução
+      const direction = value > target ? 'reduzir' : 'aumentar';
+      const solucao = `${direction === 'reduzir' ? 'Reduzir' : 'Aumentar'} ${knowledge.tipoProblema.toLowerCase()} em ${delta.toFixed(2)}${unit} via ${knowledge.plugins[0].split(' ')[0].toLowerCase()}`;
+      
+      // Plugin recomendado (escolher baseado em criticidade)
+      const pluginRecomendado = severity === 'alta' ? knowledge.plugins[0] : knowledge.plugins[1] || knowledge.plugins[0];
+      
+      // Dica extra
+      const dicaExtra = knowledge.dicas[Math.min(Math.floor(n), knowledge.dicas.length - 1)];
+      
+      // Parâmetros técnicos
+      let parametros = '';
+      if (key === 'truePeakDbtp') {
+        parametros = `Ceiling: ${target.toFixed(1)} dBTP, Lookahead: 10ms, Oversampling: 4x mínimo`;
+      } else if (key === 'lufsIntegrated') {
+        parametros = `Target LUFS: ${target.toFixed(1)} dB, Threshold ajustar até atingir target, Gain: auto-adjust`;
+      } else if (key === 'dynamicRange') {
+        parametros = `Ratio: 2:1-4:1, Threshold: -3dB a -6dB, Attack: 10-30ms, Release: 100-300ms`;
+      } else if (key === 'stereoCorrelation') {
+        parametros = `Width: reduzir 10-20%, Mono graves < 120Hz, High-pass reverbs em 200Hz`;
+      }
+      
+      suggestions.push({
+        type: key,
+        category: knowledge.categoria.toLowerCase(),
+        priority,
+        severity,
+        problema,
+        causaProvavel,
+        solucao,
+        pluginRecomendado,
+        dicaExtra,
+        parametros,
+        // Campos técnicos para referência
+        band: 'full_spectrum',
+        frequencyRange: knowledge.faixaFreq,
+        delta: `${direction === 'reduzir' ? '-' : '+'}${delta.toFixed(2)}`,
+        targetValue: target.toFixed(2),
+        currentValue: value.toFixed(2),
+        deviationRatio: n.toFixed(2)
+      });
+      
+    } else if (isBand) {
+      // 🔧 BANDA ESPECTRAL
+      const bandKey = key.replace('_db', '');
+      const bandInfo = bandKnowledge[bandKey];
+      if (!bandInfo) continue;
+      
+      const bandData = getBandValue(technicalData, bandKey);
+      if (!bandData) continue;
+      
+      const { value, targetMin, targetMax } = bandData;
+      const isBelow = value < targetMin;
+      const delta = isBelow ? (targetMin - value) : (value - targetMax);
+      
+      const problema = `${bandInfo.nome} está em ${value.toFixed(1)} dB quando deveria estar entre ${targetMin} e ${targetMax} dB (${isBelow ? 'abaixo' : 'acima'} em ${delta.toFixed(1)} dB)`;
+      
+      const causaProvavel = bandInfo.causas[isBelow ? 0 : 1] || bandInfo.causas[0];
+      
+      const solucao = `${isBelow ? 'Aumentar' : 'Reduzir'} ${bandInfo.nome} em ${isBelow ? '+' : '-'}${delta.toFixed(1)} dB via EQ paramétrico`;
+      
+      const pluginRecomendado = bandInfo.plugins[0];
+      
+      const dicaExtra = bandInfo.dicas[0];
+      
+      const parametros = `Q: 0.7-1.5, Frequency: centro da banda, Gain: ${isBelow ? '+' : '-'}${delta.toFixed(1)} dB`;
+      
+      suggestions.push({
+        type: 'eq',
+        category: bandInfo.categoria.toLowerCase().replace(' ', '_'),
+        priority,
+        severity,
+        problema,
+        causaProvavel,
+        solucao,
+        pluginRecomendado,
+        dicaExtra,
+        parametros,
+        band: bandKey,
+        frequencyRange: bandInfo.nome,
+        delta: `${isBelow ? '+' : '-'}${delta.toFixed(1)}`,
+        targetRange: `${targetMin} a ${targetMax} dB`,
+        currentValue: value.toFixed(1),
+        deviationRatio: n.toFixed(2)
+      });
+    }
+  }
+  
+  // 🎯 FASE 2: ORDENAR POR PRIORIDADE (True Peak > LUFS > DR > Stereo > Bandas)
+  const priorityOrder = { 'crítica': 0, 'alta': 1, 'média': 2, 'baixa': 3 };
+  const typeOrder = { 'truePeakDbtp': 0, 'lufsIntegrated': 1, 'dynamicRange': 2, 'stereoCorrelation': 3, 'lra': 4, 'eq': 5 };
+  
+  suggestions.sort((a, b) => {
+    // Primeiro por prioridade
+    const priorityDiff = (priorityOrder[a.priority] || 99) - (priorityOrder[b.priority] || 99);
+    if (priorityDiff !== 0) return priorityDiff;
+    
+    // Depois por tipo (True Peak primeiro)
+    const typeA = a.type === 'eq' ? 5 : (typeOrder[a.type] || 99);
+    const typeB = b.type === 'eq' ? 5 : (typeOrder[b.type] || 99);
+    return typeA - typeB;
+  });
+  
+  console.log(`[ADVANCED-SUGGEST] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+  console.log(`[ADVANCED-SUGGEST] ✅ ${suggestions.length} sugestões avançadas geradas`);
+  suggestions.forEach((sug, i) => {
+    console.log(`[ADVANCED-SUGGEST] ${i + 1}. [${sug.priority}] ${sug.problema.substring(0, 70)}...`);
+  });
+  console.log(`[ADVANCED-SUGGEST] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+  
+  return suggestions;
+}
+
+/**
+ * 🔍 Extrair valor de métrica de technicalData
+ */
+function getMetricValue(technicalData, key) {
+  const map = {
+    truePeakDbtp: { path: 'truePeak.maxDbtp', target: -1.0, unit: ' dBTP' },
+    lufsIntegrated: { path: 'lufs.integrated', target: -10.5, unit: ' LUFS' },
+    dynamicRange: { path: 'dynamics.range', target: 9.0, unit: ' dB' },
+    stereoCorrelation: { path: 'stereoCorrelation', target: 0.85, unit: '' },
+    lra: { path: 'lufs.lra', target: 2.5, unit: ' LU' }
+  };
+  
+  const config = map[key];
+  if (!config) return null;
+  
+  const value = getNestedValue(technicalData, config.path);
+  if (!Number.isFinite(value)) return null;
+  
+  return { value, target: config.target, unit: config.unit };
+}
+
+/**
+ * 🔍 Extrair valor de banda espectral
+ */
+function getBandValue(technicalData, bandKey) {
+  const bands = technicalData.spectralBands;
+  if (!bands || !bands[bandKey]) return null;
+  
+  const bandData = bands[bandKey];
+  const value = bandData.energy_db;
+  if (!Number.isFinite(value)) return null;
+  
+  // Ranges de referência (mesmos do scoring)
+  const ranges = {
+    sub: { min: -38, max: -28 },
+    bass: { min: -31, max: -25 },
+    low_bass: { min: -32, max: -24 },
+    upper_bass: { min: -33, max: -26 },
+    lowMid: { min: -28, max: -22 },
+    low_mid: { min: -34, max: -28 },
+    mid: { min: -23, max: -17 },
+    highMid: { min: -20, max: -14 },
+    high_mid: { min: -42, max: -33 },
+    presence: { min: -23, max: -17 },
+    presenca: { min: -44, max: -33 },
+    air: { min: -30, max: -24 },
+    brilho: { min: -48, max: -32 }
+  };
+  
+  const range = ranges[bandKey];
+  if (!range) return null;
+  
+  return { value, targetMin: range.min, targetMax: range.max };
+}
+
+/**
+ * 🔍 Acessar propriedade aninhada via string path
+ */
+function getNestedValue(obj, path) {
+  return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+}
+
+/**
+ * 🔧 FUNÇÃO LEGADA: Mantida para compatibilidade (agora usa o sistema avançado internamente)
+ */
 function generateSuggestionsFromMetrics(technicalData, genre = 'unknown', mode = 'genre') {
-  console.log(`[AI-AUDIT][GENERATION] Generating suggestions for genre: ${genre}, mode: ${mode}`);
+  console.log(`[LEGACY-SUGGEST] ⚠️ Função legada chamada - redirecionando para sistema avançado`);
+  
+  // Se houver scoring disponível, usar sistema avançado
+  if (technicalData.scoring && technicalData.scoring.penalties) {
+    return generateAdvancedSuggestionsFromScoring(technicalData, technicalData.scoring, genre, mode);
+  }
+  
+  // Fallback: Sistema simples (apenas True Peak e LUFS)
+  console.log(`[LEGACY-SUGGEST] ⚠️ Scoring não disponível - usando fallback simples`);
   
   const suggestions = [];
   
-  // 🎯 PRIORIDADE 1: True Peak (SEGURANÇA PRIMEIRO)
-  // Alinhado com scoring.js: target -1.0, tolerância 2.5 (status OK se <= 1.5 dBTP)
+  // True Peak
   if (technicalData.truePeak && typeof technicalData.truePeak.maxDbtp === 'number') {
     const tp = technicalData.truePeak.maxDbtp;
-    const target = -1.0;
-    const tolerance = 2.5; // Mesma tolerância do scoring
-    
-    // 🔧 CORREÇÃO: Usar threshold consistente com penalties
-    // Só gera sugestão se FORA da tolerância (> target + tolerance)
-    if (tp > target + tolerance) {
-      // Crítico: muito acima da tolerância
+    if (tp > -1.0) {
       suggestions.push({
         type: 'clipping',
         category: 'mastering',
-        message: `True Peak em ${tp.toFixed(2)} dBTP está ${(tp - target).toFixed(2)} dB acima do limite seguro de ${target.toFixed(1)} dBTP (risco crítico de clipping)`,
-        action: `Aplicar limitador com ceiling em -1.0 dBTP ou reduzir gain em ${(tp + 1.0).toFixed(2)} dB`,
-        priority: 'crítica',
-        band: 'full_spectrum',
-        delta: (tp - target).toFixed(2),
-        severity: 'alta'
-      });
-    } else if (tp > target) {
-      // Atenção: acima do target mas dentro da tolerância
-      const delta = tp - target;
-      suggestions.push({
-        type: 'clipping',
-        category: 'mastering',
-        message: `True Peak em ${tp.toFixed(2)} dBTP está ligeiramente acima do ideal (${target.toFixed(1)} dBTP), mas dentro da margem aceitável`,
-        action: `Considerar ajuste fino: reduzir gain em ${delta.toFixed(2)} dB para máxima segurança em conversão`,
-        priority: 'atenção',
-        band: 'full_spectrum',
-        delta: delta.toFixed(2),
-        severity: 'leve'
+        priority: tp > 1.5 ? 'crítica' : 'atenção',
+        severity: tp > 1.5 ? 'alta' : 'leve',
+        problema: `True Peak em ${tp.toFixed(2)} dBTP acima do limite seguro`,
+        solucao: `Aplicar limitador com ceiling em -1.0 dBTP`,
+        pluginRecomendado: 'FabFilter Pro-L 2',
+        band: 'full_spectrum'
       });
     }
   }
   
-  // 🎯 PRIORIDADE 2: LUFS Integrado (LOUDNESS)
+  // LUFS
   if (technicalData.lufs && typeof technicalData.lufs.integrated === 'number') {
     const lufs = technicalData.lufs.integrated;
-    const ideal = mode === 'genre' ? -10.5 : -14.0; // -10.5 para EDM, -14.0 para streaming
-    const delta = Math.abs(lufs - ideal);
+    const target = -10.5;
+    const delta = Math.abs(lufs - target);
     
-    if (delta > 3.0) {
+    if (delta > 1.0) {
       suggestions.push({
         type: 'loudness',
         category: 'loudness',
-        message: `LUFS Integrado está em ${lufs.toFixed(1)} dB quando deveria estar próximo de ${ideal.toFixed(1)} dB (diferença de ${delta.toFixed(1)} dB)`,
-        action: `Ajustar loudness em ${(ideal - lufs).toFixed(1)} dB via limitador`,
-        priority: 'crítica',
-        band: 'full_spectrum',
-        delta: (ideal - lufs).toFixed(1),
-        severity: 'alta'
-      });
-    } else if (delta > 1.0) {
-      suggestions.push({
-        type: 'loudness',
-        category: 'loudness',
-        message: `LUFS Integrado está em ${lufs.toFixed(1)} dB quando deveria estar próximo de ${ideal.toFixed(1)} dB (diferença de ${delta.toFixed(1)} dB)`,
-        action: `Refinar loudness final: ajustar ${(ideal - lufs).toFixed(1)} dB`,
-        priority: 'alta',
-        band: 'full_spectrum',
-        delta: (ideal - lufs).toFixed(1),
-        severity: 'media'
-      });
-    }
-  }
-  
-  // 🎯 PRIORIDADE 3: Dynamic Range (DINÂMICA)
-  if (technicalData.dynamics && typeof technicalData.dynamics.range === 'number') {
-    const dr = technicalData.dynamics.range;
-    const minDR = mode === 'genre' ? 6.0 : 8.0;
-    const delta = minDR - dr;
-    
-    if (dr < minDR) {
-      suggestions.push({
-        type: 'dynamics',
-        category: 'mastering',
-        message: `Dynamic Range está em ${dr.toFixed(1)} dB quando deveria estar acima de ${minDR.toFixed(1)} dB (mix muito comprimido)`,
-        action: `Reduzir compressão/limitação para recuperar ${delta.toFixed(1)} dB de dinâmica`,
         priority: delta > 3 ? 'crítica' : 'alta',
-        band: 'full_spectrum',
-        delta: delta.toFixed(1),
-        severity: delta > 3 ? 'alta' : 'media'
+        severity: delta > 3 ? 'alta' : 'media',
+        problema: `LUFS Integrado em ${lufs.toFixed(1)} LUFS está ${delta.toFixed(1)} dB distante do ideal (${target} LUFS)`,
+        solucao: `Ajustar loudness em ${(target - lufs).toFixed(1)} dB`,
+        pluginRecomendado: 'FabFilter Pro-L 2',
+        band: 'full_spectrum'
       });
     }
   }
-  
-  // 🎯 PRIORIDADE 4: Bandas Espectrais (EQ)
-  if (technicalData.spectralBands) {
-    const bands = technicalData.spectralBands;
-    const idealRanges = {
-      sub: { min: -38, max: -28, name: 'Sub (20-60Hz)' },
-      bass: { min: -31, max: -25, name: 'Bass (60-150Hz)' },
-      lowMid: { min: -28, max: -22, name: 'Low-Mid (150-500Hz)' },
-      mid: { min: -23, max: -17, name: 'Mid (500Hz-2kHz)' },
-      highMid: { min: -20, max: -14, name: 'High-Mid (2-5kHz)' },
-      presence: { min: -23, max: -17, name: 'Presence (5-10kHz)' },
-      air: { min: -30, max: -24, name: 'Air (10-20kHz)' }
-    };
-    
-    for (const [band, ideal] of Object.entries(idealRanges)) {
-      const bandData = bands[band];
-      if (bandData && typeof bandData.energy_db === 'number') {
-        const value = bandData.energy_db;
-        
-        if (value < ideal.min) {
-          const delta = ideal.min - value;
-          suggestions.push({
-            type: 'eq',
-            category: 'eq',
-            message: `${ideal.name} está em ${value.toFixed(1)} dB quando deveria estar entre ${ideal.min} e ${ideal.max} dB (${delta.toFixed(1)} dB abaixo do mínimo)`,
-            action: `Aumentar ${ideal.name} em +${delta.toFixed(1)} dB via EQ`,
-            priority: delta > 5 ? 'crítica' : (delta > 3 ? 'alta' : 'média'),
-            band: band,
-            delta: `+${delta.toFixed(1)}`,
-            severity: delta > 5 ? 'alta' : (delta > 3 ? 'media' : 'leve')
-          });
-        } else if (value > ideal.max) {
-          const delta = value - ideal.max;
-          suggestions.push({
-            type: 'eq',
-            category: 'eq',
-            message: `${ideal.name} está em ${value.toFixed(1)} dB quando deveria estar entre ${ideal.min} e ${ideal.max} dB (${delta.toFixed(1)} dB acima do máximo)`,
-            action: `Reduzir ${ideal.name} em -${delta.toFixed(1)} dB via EQ`,
-            priority: delta > 5 ? 'crítica' : (delta > 3 ? 'alta' : 'média'),
-            band: band,
-            delta: `-${delta.toFixed(1)}`,
-            severity: delta > 5 ? 'alta' : (delta > 3 ? 'media' : 'leve')
-          });
-        }
-      }
-    }
-  }
-  
-  // 🎯 ORDENAÇÃO FINAL: Garantir ordem por prioridade e categoria
-  const priorityOrder = { 'crítica': 0, 'alta': 1, 'atenção': 2, 'média': 3, 'baixa': 4 };
-  const categoryOrder = { 'mastering': 0, 'loudness': 1, 'eq': 2, 'dynamics': 3, 'stereo': 4 };
-  
-  suggestions.sort((a, b) => {
-    const priorityDiff = (priorityOrder[a.priority] || 99) - (priorityOrder[b.priority] || 99);
-    if (priorityDiff !== 0) return priorityDiff;
-    return (categoryOrder[a.category] || 99) - (categoryOrder[b.category] || 99);
-  });
-  
-  console.log(`[AI-AUDIT][GENERATION] Generated ${suggestions.length} suggestions (ordenadas por prioridade)`);
-  suggestions.forEach((sug, i) => {
-    console.log(`[AI-AUDIT][GENERATION] ${i + 1}. [${sug.priority}] ${sug.type}: ${sug.message.substring(0, 60)}...`);
-  });
   
   return suggestions;
 }
