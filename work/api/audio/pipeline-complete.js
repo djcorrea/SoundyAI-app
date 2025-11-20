@@ -253,13 +253,34 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         throw new Error('SKIP_SUGGESTIONS_GENERATION');
       }
       
-      // 🎯 FIX: Garantir que modo gênero PURO sempre gera suggestions
+      // 🎯 CORREÇÃO CRÍTICA: Gerar suggestions + AI para modo genre PURO
+      // EXECUTADO ANTES do bloco de reference para garantir que NÃO seja pulado
       if (mode === 'genre' && isReferenceBase === false) {
         console.log('[GENRE-MODE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('[GENRE-MODE] 🎵 ANÁLISE DE GÊNERO PURA DETECTADA');
         console.log('[GENRE-MODE] mode: genre, isReferenceBase: false');
         console.log('[GENRE-MODE] ✅ Suggestions e aiSuggestions serão geradas');
         console.log('[GENRE-MODE] 🎯 Targets de gênero serão usados para comparação');
+        console.log('[GENRE-MODE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
+        // 🔧 GERAR SUGESTÕES BASE
+        finalJSON.suggestions = generateSuggestionsFromMetrics(coreMetrics, genre, mode);
+        console.log(`[GENRE-MODE] ✅ ${finalJSON.suggestions.length} sugestões base geradas`);
+        
+        // 🤖 ENRIQUECIMENTO IA ULTRA V2
+        try {
+          console.log('[GENRE-MODE] 🚀 Enviando para enrichSuggestionsWithAI...');
+          finalJSON.aiSuggestions = await enrichSuggestionsWithAI(finalJSON.suggestions, {
+            genre,
+            mode: 'genre',
+            userMetrics: coreMetrics
+          });
+          console.log(`[GENRE-MODE] ✅ ${finalJSON.aiSuggestions?.length || 0} sugestões enriquecidas pela IA`);
+        } catch (aiError) {
+          console.error('[GENRE-MODE] ❌ Falha no enrichment:', aiError.message);
+          finalJSON.aiSuggestions = [];
+        }
+        
         console.log('[GENRE-MODE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       }
       
@@ -468,30 +489,6 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         delete finalJSON.referenceJobId;
         delete finalJSON.referenceFileName;
         console.log("[SECURITY] ✅ referenceComparison removido - modo gênero limpo");
-      }
-      
-      // 🎯 CORREÇÃO CRÍTICA: Sempre gerar sugestões e chamar IA no modo genre
-      // Movido para fora do else para garantir execução em TODOS os casos
-      if (mode !== "reference") {
-        // Modo genre normal - SEMPRE executar
-        finalJSON.suggestions = generateSuggestionsFromMetrics(coreMetrics, genre, mode);
-        
-        // 🔍 LOG DE DIAGNÓSTICO: Sugestões base geradas (modo genre)
-        console.log(`[AI-AUDIT][ULTRA_DIAG] ✅ Sugestões base detectadas (modo genre): ${finalJSON.suggestions.length} itens`);
-        
-        // 🔮 ENRIQUECIMENTO IA ULTRA V2 (modo genre) - SEMPRE executar
-        try {
-          console.log('[AI-AUDIT][ULTRA_DIAG] 🚀 Enviando sugestões base para IA (modo genre)...');
-          finalJSON.aiSuggestions = await enrichSuggestionsWithAI(finalJSON.suggestions, {
-            genre,
-            mode: 'genre',
-            userMetrics: coreMetrics
-          });
-          console.log(`[AI-AUDIT][ULTRA_DIAG] ✅ ${finalJSON.aiSuggestions?.length || 0} sugestões enriquecidas`);
-        } catch (aiError) {
-          console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Falha ao executar enrichSuggestionsWithAI:', aiError.message);
-          finalJSON.aiSuggestions = [];
-        }
       }
       
       // 🔍 LOG DE DIAGNÓSTICO: Estrutura final do JSON
