@@ -249,13 +249,11 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         finalJSON.suggestions = [];
         finalJSON.aiSuggestions = [];
         
-        // Pular bloco de geração de sugestões
-        throw new Error('SKIP_SUGGESTIONS_GENERATION');
-      }
-      
-      // 🎯 CORREÇÃO CRÍTICA: Gerar suggestions + AI para modo genre PURO
-      // EXECUTADO ANTES do bloco de reference para garantir que NÃO seja pulado
-      if (mode === 'genre' && isReferenceBase === false) {
+        // 🔧 FIX: NÃO usar throw - usar estrutura de controle normal
+        // (throw causa catch que pode zerar sugestões em outros casos)
+      } else if (mode === 'genre' && isReferenceBase === false) {
+        // 🎯 CORREÇÃO CRÍTICA: Gerar suggestions + AI para modo genre PURO
+        // EXECUTADO ANTES do bloco de reference para garantir que NÃO seja pulado
         console.log('[GENRE-MODE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log('[GENRE-MODE] 🎵 ANÁLISE DE GÊNERO PURA DETECTADA');
         console.log('[GENRE-MODE] mode: genre, isReferenceBase: false');
@@ -535,15 +533,17 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       console.log(`[AI-AUDIT][ASSIGN.sample]`, finalJSON.suggestions?.slice(0, 2));
       
     } catch (error) {
-      if (error.message === 'SKIP_SUGGESTIONS_GENERATION') {
-        // Skip proposital - não logar como erro
-        console.log('[GUARDIÃO] ✅ Geração de sugestões pulada para faixa base (modo genre)');
-      } else {
-        console.error(`[AI-AUDIT][GENERATION] ❌ Erro ao gerar sugestões: ${error.message}`);
-        // Garantir arrays vazios em caso de erro real
-        finalJSON.suggestions = [];
-        finalJSON.aiSuggestions = [];
-      }
+      // 🔧 FIX: Remover catch que zerava aiSuggestions silenciosamente
+      // Qualquer erro REAL deve ser propagado, não silenciado
+      console.error(`[AI-AUDIT][GENERATION] ❌ ERRO CRÍTICO ao gerar sugestões:`, error.message);
+      console.error(`[AI-AUDIT][GENERATION] ❌ Stack:`, error.stack);
+      
+      // Garantir arrays vazios em caso de erro REAL
+      finalJSON.suggestions = finalJSON.suggestions || [];
+      finalJSON.aiSuggestions = finalJSON.aiSuggestions || [];
+      
+      // 🚨 IMPORTANTE: Não silenciar erro - logar para debug
+      console.error('[AI-AUDIT][GENERATION] ❌ Continuando com arrays vazios mas erro será investigado');
     }
 
     // ========= FINALIZAÇÃO =========
