@@ -2,7 +2,9 @@ import express from "express";
 import multer from "multer";
 import AWS from "aws-sdk";
 import cors from "cors";
-import pool from "../db.js";
+import getPool from "../db.js";
+
+const pool = getPool();
 
 const app = express();
 const PORT = process.env.PORT || 3000;

@@ -7,7 +7,9 @@
 
 import express from 'express';
 import { randomUUID } from 'crypto';
-import pool from "../../db.js";
+import getPool from "../../db.js";
+
+const pool = getPool();
 
 const router = express.Router();
 

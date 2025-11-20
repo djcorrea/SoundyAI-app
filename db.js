@@ -28,4 +28,4 @@ function getPool() {
   return pool;
 }
 
-export default getPool();
+export default getPool;  // ← CORRIGIDO: exporta função, não execução

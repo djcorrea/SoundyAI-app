@@ -23,7 +23,9 @@ import "dotenv/config";
 import express from "express";
 import { randomUUID } from "crypto";
 import { getAudioQueue, getQueueReadyPromise } from '../../lib/queue.js';
-import pool from "../../db.js";
+import getPool from "../../db.js";
+
+const pool = getPool();
 
 // Definir service name para auditoria
 process.env.SERVICE_NAME = 'api';
