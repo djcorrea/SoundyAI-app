@@ -719,6 +719,12 @@ class AISuggestionUIController {
             console.log('[AI-FRONT] hasEnriched:', hasEnriched);
             console.log('[AI-FRONT] 🚫 Ocultando cards genéricos');
             
+            // 🔧 CORREÇÃO CRÍTICA: Ocultar loading antes de retornar
+            if (this.elements.aiLoading) {
+                this.elements.aiLoading.style.display = 'none';
+                console.log('[AI-FIX] ✅ Loading ocultado (sem sugestões válidas)');
+            }
+            
             // Ocultar seção de sugestões
             if (this.elements.aiSection) {
                 this.elements.aiSection.style.display = 'none';
@@ -1333,6 +1339,61 @@ class AISuggestionUIController {
         `;
         
         console.log('[AI-SUGGESTIONS] ✅ Estado vazio renderizado');
+    }
+    
+    /**
+     * 🕐 Exibir estado de carregamento durante polling
+     * Função que estava faltando - referenciada mas não implementada
+     */
+    showLoadingState(message = 'Aguardando análise da IA...') {
+        if (!this.elements.aiSection) {
+            console.warn('[AI-UI] showLoadingState: aiSection não encontrado');
+            return;
+        }
+        
+        this.elements.aiSection.style.display = 'block';
+        
+        // Se aiLoading existe, apenas atualizar mensagem
+        if (this.elements.aiLoading) {
+            this.elements.aiLoading.style.display = 'block';
+            const messageEl = this.elements.aiLoading.querySelector('p');
+            if (messageEl) {
+                messageEl.textContent = message;
+            }
+            return;
+        }
+        
+        // Fallback: renderizar no aiContent
+        if (this.elements.aiContent) {
+            this.elements.aiContent.innerHTML = `
+                <div style="
+                    grid-column: 1 / -1;
+                    text-align: center;
+                    padding: 60px 20px;
+                    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+                    border-radius: 16px;
+                    color: white;
+                ">
+                    <div style="font-size: 48px; animation: pulse 1.5s ease-in-out infinite;">
+                        🤖
+                    </div>
+                    <h3>Conectando com sistema de IA</h3>
+                    <p>${message}</p>
+                    <div style="animation: spin 1s linear infinite;">
+                        Processando...
+                    </div>
+                </div>
+                <style>
+                    @keyframes spin {
+                        to { transform: rotate(360deg); }
+                    }
+                    @keyframes pulse {
+                        0%, 100% { transform: scale(1); opacity: 1; }
+                        50% { transform: scale(1.1); opacity: 0.8; }
+                    }
+                </style>
+            `;
+        }
     }
     
     /**
