@@ -4119,18 +4119,12 @@ function resetReferenceStateFully(preserveGenre) {
         delete window.__soundyState.reference;
         delete window.__soundyState.referenceAnalysis;
         delete window.__soundyState.previousAnalysis;
-        
-        // 🔧 FIX: NÃO APAGAR flags do módulo de sugestões
-        // Preservar: aiSuggestionsReady, suggestionsReady, __AI_RENDER_COMPLETED__
-        // Esses campos são usados pelo ai-suggestion-ui-controller.js
-        
         if (window.__soundyState.render) {
             window.__soundyState.render.mode = 'genre';
         }
         console.log('   ✅ __soundyState.reference: removido');
         console.log('   ✅ __soundyState.referenceAnalysis: removido');
         console.log('   ✅ __soundyState.render.mode: forçado para "genre"');
-        console.log('   ✅ __soundyState: flags de sugestões preservadas');
     }
     
     // 3️⃣ Limpar localStorage
@@ -4176,6 +4170,12 @@ function resetReferenceStateFully(preserveGenre) {
         };
         console.log('   ✅ referenceStepState: resetado');
     }
+    
+    // 🔧 CORREÇÃO CRÍTICA: Resetar flag de renderização de IA
+    // Permite que o módulo de sugestões seja re-renderizado após limpeza
+    console.log('[GENRE-ISOLATION] 7️⃣ Resetando flags de renderização de IA...');
+    window.__AI_RENDER_COMPLETED__ = false;
+    console.log('   ✅ window.__AI_RENDER_COMPLETED__: false (permitir re-renderização)');
     
     // 🎯 RESTAURAR GÊNERO APÓS LIMPEZA
     if (__savedGenre) {
