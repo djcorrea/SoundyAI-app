@@ -855,60 +855,95 @@ function generateSuggestionsFromMetrics(technicalData, genre = 'unknown', mode =
   
   const suggestions = [];
   
-  // Regra 1: LUFS Integrado
+  // 🎯 PRIORIDADE 1: True Peak (SEGURANÇA PRIMEIRO)
+  // Alinhado com scoring.js: target -1.0, tolerância 2.5 (status OK se <= 1.5 dBTP)
+  if (technicalData.truePeak && typeof technicalData.truePeak.maxDbtp === 'number') {
+    const tp = technicalData.truePeak.maxDbtp;
+    const target = -1.0;
+    const tolerance = 2.5; // Mesma tolerância do scoring
+    
+    // 🔧 CORREÇÃO: Usar threshold consistente com penalties
+    // Só gera sugestão se FORA da tolerância (> target + tolerance)
+    if (tp > target + tolerance) {
+      // Crítico: muito acima da tolerância
+      suggestions.push({
+        type: 'clipping',
+        category: 'mastering',
+        message: `True Peak em ${tp.toFixed(2)} dBTP está ${(tp - target).toFixed(2)} dB acima do limite seguro de ${target.toFixed(1)} dBTP (risco crítico de clipping)`,
+        action: `Aplicar limitador com ceiling em -1.0 dBTP ou reduzir gain em ${(tp + 1.0).toFixed(2)} dB`,
+        priority: 'crítica',
+        band: 'full_spectrum',
+        delta: (tp - target).toFixed(2),
+        severity: 'alta'
+      });
+    } else if (tp > target) {
+      // Atenção: acima do target mas dentro da tolerância
+      const delta = tp - target;
+      suggestions.push({
+        type: 'clipping',
+        category: 'mastering',
+        message: `True Peak em ${tp.toFixed(2)} dBTP está ligeiramente acima do ideal (${target.toFixed(1)} dBTP), mas dentro da margem aceitável`,
+        action: `Considerar ajuste fino: reduzir gain em ${delta.toFixed(2)} dB para máxima segurança em conversão`,
+        priority: 'atenção',
+        band: 'full_spectrum',
+        delta: delta.toFixed(2),
+        severity: 'leve'
+      });
+    }
+  }
+  
+  // 🎯 PRIORIDADE 2: LUFS Integrado (LOUDNESS)
   if (technicalData.lufs && typeof technicalData.lufs.integrated === 'number') {
     const lufs = technicalData.lufs.integrated;
     const ideal = mode === 'genre' ? -10.5 : -14.0; // -10.5 para EDM, -14.0 para streaming
     const delta = Math.abs(lufs - ideal);
     
-    if (delta > 1.0) {
+    if (delta > 3.0) {
       suggestions.push({
         type: 'loudness',
         category: 'loudness',
         message: `LUFS Integrado está em ${lufs.toFixed(1)} dB quando deveria estar próximo de ${ideal.toFixed(1)} dB (diferença de ${delta.toFixed(1)} dB)`,
-        action: delta > 3 ? `Ajustar loudness em ${(ideal - lufs).toFixed(1)} dB via limitador` : `Refinar loudness final`,
-        priority: delta > 3 ? 'crítica' : 'alta',
-        band: 'full_spectrum',
-        delta: (ideal - lufs).toFixed(1)
-      });
-    }
-  }
-  
-  // Regra 2: True Peak
-  if (technicalData.truePeak && typeof technicalData.truePeak.maxDbtp === 'number') {
-    const tp = technicalData.truePeak.maxDbtp;
-    if (tp > -1.0) {
-      suggestions.push({
-        type: 'clipping',
-        category: 'mastering',
-        message: `True Peak em ${tp.toFixed(2)} dBTP está acima do limite seguro de -1.0 dBTP (risco de clipping em conversão)`,
-        action: `Aplicar limitador com ceiling em -1.0 dBTP ou reduzir gain em ${(tp + 1.0).toFixed(2)} dB`,
+        action: `Ajustar loudness em ${(ideal - lufs).toFixed(1)} dB via limitador`,
         priority: 'crítica',
         band: 'full_spectrum',
-        delta: (tp + 1.0).toFixed(2)
+        delta: (ideal - lufs).toFixed(1),
+        severity: 'alta'
+      });
+    } else if (delta > 1.0) {
+      suggestions.push({
+        type: 'loudness',
+        category: 'loudness',
+        message: `LUFS Integrado está em ${lufs.toFixed(1)} dB quando deveria estar próximo de ${ideal.toFixed(1)} dB (diferença de ${delta.toFixed(1)} dB)`,
+        action: `Refinar loudness final: ajustar ${(ideal - lufs).toFixed(1)} dB`,
+        priority: 'alta',
+        band: 'full_spectrum',
+        delta: (ideal - lufs).toFixed(1),
+        severity: 'media'
       });
     }
   }
   
-  // Regra 3: Dynamic Range
+  // 🎯 PRIORIDADE 3: Dynamic Range (DINÂMICA)
   if (technicalData.dynamics && typeof technicalData.dynamics.range === 'number') {
     const dr = technicalData.dynamics.range;
     const minDR = mode === 'genre' ? 6.0 : 8.0;
+    const delta = minDR - dr;
     
     if (dr < minDR) {
       suggestions.push({
         type: 'dynamics',
         category: 'mastering',
         message: `Dynamic Range está em ${dr.toFixed(1)} dB quando deveria estar acima de ${minDR.toFixed(1)} dB (mix muito comprimido)`,
-        action: `Reduzir compressão/limitação para recuperar ${(minDR - dr).toFixed(1)} dB de dinâmica`,
-        priority: 'alta',
+        action: `Reduzir compressão/limitação para recuperar ${delta.toFixed(1)} dB de dinâmica`,
+        priority: delta > 3 ? 'crítica' : 'alta',
         band: 'full_spectrum',
-        delta: (minDR - dr).toFixed(1)
+        delta: delta.toFixed(1),
+        severity: delta > 3 ? 'alta' : 'media'
       });
     }
   }
   
-  // Regra 4-10: Bandas espectrais
+  // 🎯 PRIORIDADE 4: Bandas Espectrais (EQ)
   if (technicalData.spectralBands) {
     const bands = technicalData.spectralBands;
     const idealRanges = {
@@ -933,9 +968,10 @@ function generateSuggestionsFromMetrics(technicalData, genre = 'unknown', mode =
             category: 'eq',
             message: `${ideal.name} está em ${value.toFixed(1)} dB quando deveria estar entre ${ideal.min} e ${ideal.max} dB (${delta.toFixed(1)} dB abaixo do mínimo)`,
             action: `Aumentar ${ideal.name} em +${delta.toFixed(1)} dB via EQ`,
-            priority: delta > 3 ? 'alta' : 'média',
+            priority: delta > 5 ? 'crítica' : (delta > 3 ? 'alta' : 'média'),
             band: band,
-            delta: `+${delta.toFixed(1)}`
+            delta: `+${delta.toFixed(1)}`,
+            severity: delta > 5 ? 'alta' : (delta > 3 ? 'media' : 'leve')
           });
         } else if (value > ideal.max) {
           const delta = value - ideal.max;
@@ -944,18 +980,29 @@ function generateSuggestionsFromMetrics(technicalData, genre = 'unknown', mode =
             category: 'eq',
             message: `${ideal.name} está em ${value.toFixed(1)} dB quando deveria estar entre ${ideal.min} e ${ideal.max} dB (${delta.toFixed(1)} dB acima do máximo)`,
             action: `Reduzir ${ideal.name} em -${delta.toFixed(1)} dB via EQ`,
-            priority: delta > 3 ? 'alta' : 'média',
+            priority: delta > 5 ? 'crítica' : (delta > 3 ? 'alta' : 'média'),
             band: band,
-            delta: `-${delta.toFixed(1)}`
+            delta: `-${delta.toFixed(1)}`,
+            severity: delta > 5 ? 'alta' : (delta > 3 ? 'media' : 'leve')
           });
         }
       }
     }
   }
   
-  console.log(`[AI-AUDIT][GENERATION] Generated ${suggestions.length} suggestions`);
+  // 🎯 ORDENAÇÃO FINAL: Garantir ordem por prioridade e categoria
+  const priorityOrder = { 'crítica': 0, 'alta': 1, 'atenção': 2, 'média': 3, 'baixa': 4 };
+  const categoryOrder = { 'mastering': 0, 'loudness': 1, 'eq': 2, 'dynamics': 3, 'stereo': 4 };
+  
+  suggestions.sort((a, b) => {
+    const priorityDiff = (priorityOrder[a.priority] || 99) - (priorityOrder[b.priority] || 99);
+    if (priorityDiff !== 0) return priorityDiff;
+    return (categoryOrder[a.category] || 99) - (categoryOrder[b.category] || 99);
+  });
+  
+  console.log(`[AI-AUDIT][GENERATION] Generated ${suggestions.length} suggestions (ordenadas por prioridade)`);
   suggestions.forEach((sug, i) => {
-    console.log(`[AI-AUDIT][GENERATION] Suggestion ${i + 1}: ${sug.message}`);
+    console.log(`[AI-AUDIT][GENERATION] ${i + 1}. [${sug.priority}] ${sug.type}: ${sug.message.substring(0, 60)}...`);
   });
   
   return suggestions;
