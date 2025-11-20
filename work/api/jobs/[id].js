@@ -61,19 +61,35 @@ router.get("/:id", async (req, res) => {
     const resultData = job.results || job.result;
     if (resultData) {
       try {
-        // Parse do JSON salvo pelo worker
-        fullResult = typeof resultData === 'string' ? JSON.parse(resultData) : resultData;
-        console.log("[REDIS-RETURN] 🔍 Job result merged with full analysis JSON");
-        console.log(`[REDIS-RETURN] Analysis contains: ${Object.keys(fullResult).join(', ')}`);
-        console.log(`[REDIS-RETURN] Data source: ${job.results ? 'results (new)' : 'result (legacy)'}`);
+        // 🔧 PATCH 1: Parse forçado com validação completa
+        if (typeof resultData === 'string') {
+          fullResult = JSON.parse(resultData);
+        } else if (typeof resultData === 'object' && resultData !== null) {
+          fullResult = resultData;
+        } else {
+          console.error("[REDIS-RETURN] ❌ result não é string nem objeto:", typeof resultData);
+          fullResult = null;
+        }
+        
+        // Validação crítica
+        if (!fullResult || typeof fullResult !== 'object') {
+          console.error("[REDIS-RETURN] ❌ Parse falhou, fullResult inválido");
+          fullResult = null;
+        } else {
+          console.log("[REDIS-RETURN] ✅ Parse bem-sucedido:", Object.keys(fullResult).length, "campos");
+          console.log(`[REDIS-RETURN] Analysis contains: ${Object.keys(fullResult).join(', ')}`);
+          console.log(`[REDIS-RETURN] Data source: ${job.results ? 'results (new)' : 'result (legacy)'}`);
+        }
       } catch (parseError) {
         console.error("[REDIS-RETURN] ❌ Erro ao fazer parse do results JSON:", parseError);
-        fullResult = resultData;
+        fullResult = null;
       }
     }
 
     // 🚀 RESULTADO FINAL: Mesclar dados do job com análise completa
+    // 🔧 PATCH 2: Merge explícito de TODOS os campos (mais robusto que spread)
     const response = {
+      // Campos do banco (sempre presentes)
       id: job.id,
       jobId: job.id, // Alias para compatibilidade
       fileKey: job.file_key,
@@ -83,13 +99,55 @@ router.get("/:id", async (req, res) => {
       createdAt: job.created_at,
       updatedAt: job.updated_at,
       completedAt: job.completed_at,
-      // ✅ CRÍTICO: Incluir análise completa se disponível
-      ...(fullResult || {})
+      
+      // 🔥 CRÍTICO: Campos da análise (explícitos com fallback)
+      technicalData: fullResult?.technicalData || null,
+      aiSuggestions: fullResult?.aiSuggestions || [],
+      suggestions: fullResult?.suggestions || [],
+      spectralBands: fullResult?.spectralBands || null,
+      genreBands: fullResult?.genreBands || null,
+      diagnostics: fullResult?.diagnostics || null,
+      enhancedMetrics: fullResult?.enhancedMetrics || null,
+      score: fullResult?.score || 0,
+      performance: fullResult?.performance || null,
+      
+      // Campos de modo reference
+      referenceComparison: fullResult?.referenceComparison || null,
+      referenceJobId: fullResult?.referenceJobId || null,
+      referenceFileName: fullResult?.referenceFileName || null,
+      
+      // Metadados do worker
+      _worker: fullResult?._worker || null
     };
+    
+    // Log de auditoria do merge
+    console.log("[API-MERGE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("[API-MERGE] 🔍 MERGE COMPLETO - Campos incluídos:");
+    console.log("[API-MERGE] technicalData:", !!response.technicalData);
+    console.log("[API-MERGE] aiSuggestions:", response.aiSuggestions?.length || 0);
+    console.log("[API-MERGE] suggestions:", response.suggestions?.length || 0);
+    console.log("[API-MERGE] spectralBands:", !!response.spectralBands);
+    console.log("[API-MERGE] score:", response.score);
+    console.log("[API-MERGE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
+    // 🔧 PATCH 3: Validação APENAS se fullResult for completamente null
+    // (Removido: validação prematura de technicalData que derubava status)
+    if (normalizedStatus === "completed" && !fullResult) {
+      console.warn(`[API-FIX] Job ${job.id} marcado 'completed' mas result está null`);
+      console.warn(`[API-FIX] Retornando status 'processing' para aguardar worker`);
+      
+      return res.json({
+        id: job.id,
+        status: "processing",
+        createdAt: job.created_at,
+        updatedAt: job.updated_at
+      });
+    }
+    
     // --- ETAPA 1: AUDITORIA DO MERGE ---
     console.log('[AI-MERGE][AUDIT] Verificando merge Redis/Postgres para aiSuggestions...');
     console.log('[AI-MERGE][AUDIT] Status atual:', {
+      technicalData: !!response.technicalData,
       aiSuggestions: response.aiSuggestions?.length || 0,
       suggestions: response.suggestions?.length || 0,
       status: response.status,
@@ -123,13 +181,15 @@ router.get("/:id", async (req, res) => {
             }
           }
 
-          if (dbFullResult) {
-            // ✅ Se o Postgres tiver aiSuggestions válidas, substituímos no response final
+          // 🔧 PATCH 4: Restaurar TODOS os campos do Postgres (não só aiSuggestions)
+          if (dbFullResult && typeof dbFullResult === 'object') {
+            console.log('[AI-MERGE][FIX] 🔄 Restaurando TODOS os campos do Postgres...');
+            
+            // Restaurar cada campo individualmente (mais seguro que spread)
             if (Array.isArray(dbFullResult.aiSuggestions) && dbFullResult.aiSuggestions.length > 0) {
               response.aiSuggestions = dbFullResult.aiSuggestions;
-              console.log(`[AI-MERGE][FIX] ✅ Recuperado ${dbFullResult.aiSuggestions.length} aiSuggestions do Postgres.`);
+              console.log(`[AI-MERGE][FIX] ✅ Restaurado ${dbFullResult.aiSuggestions.length} aiSuggestions`);
               
-              // Log da primeira sugestão para validação
               if (dbFullResult.aiSuggestions[0]) {
                 console.log('[AI-MERGE][FIX] Sample:', {
                   problema: dbFullResult.aiSuggestions[0].problema?.substring(0, 50),
@@ -137,20 +197,36 @@ router.get("/:id", async (req, res) => {
                 });
               }
             }
-
-            // Se também tiver suggestions base (para fallback)
-            if (Array.isArray(dbFullResult.suggestions) && dbFullResult.suggestions.length > 0 && (!response.suggestions || response.suggestions.length === 0)) {
+            
+            if (Array.isArray(dbFullResult.suggestions) && dbFullResult.suggestions.length > 0) {
               response.suggestions = dbFullResult.suggestions;
-              console.log('[AI-MERGE][FIX] 💡 Substituído suggestions vazio por valor do banco.');
+              console.log(`[AI-MERGE][FIX] ✅ Restaurado ${dbFullResult.suggestions.length} suggestions`);
             }
-
-            // Atualiza status para completed se IA foi encontrada
+            
+            // 🔥 CRÍTICO: Restaurar technicalData (antes não era restaurado!)
+            if (dbFullResult.technicalData && typeof dbFullResult.technicalData === 'object') {
+              response.technicalData = dbFullResult.technicalData;
+              console.log('[AI-MERGE][FIX] ✅ Restaurado technicalData');
+            }
+            
+            // Restaurar outros campos importantes
+            if (dbFullResult.spectralBands) {
+              response.spectralBands = dbFullResult.spectralBands;
+              console.log('[AI-MERGE][FIX] ✅ Restaurado spectralBands');
+            }
+            if (dbFullResult.genreBands) response.genreBands = dbFullResult.genreBands;
+            if (dbFullResult.diagnostics) response.diagnostics = dbFullResult.diagnostics;
+            if (dbFullResult.enhancedMetrics) response.enhancedMetrics = dbFullResult.enhancedMetrics;
+            if (dbFullResult.score !== undefined) response.score = dbFullResult.score;
+            if (dbFullResult.performance) response.performance = dbFullResult.performance;
+            
+            // Atualizar status se necessário
             if (dbJob.status === 'completed' || dbJob.status === 'done') {
               response.status = 'completed';
-              console.log('[AI-MERGE][FIX] 🟢 Status atualizado para completed (IA detectada).');
+              console.log('[AI-MERGE][FIX] 🟢 Status atualizado para completed');
             }
           } else {
-            console.warn('[AI-MERGE][AUDIT] ⚠️ Resultado do Postgres vazio ou inválido.');
+            console.warn('[AI-MERGE][AUDIT] ⚠️ dbFullResult inválido ou vazio');
           }
         } else {
           console.warn('[AI-MERGE][AUDIT] ❌ Nenhum registro correspondente encontrado no Postgres.');
