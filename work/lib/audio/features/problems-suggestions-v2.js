@@ -1,6 +1,7 @@
 // 🎯 PROBLEMS & SUGGESTIONS ANALYZER V2 - Sistema Educativo com Criticidade por Cores
 // Implementação completa para análise inteligente de problemas e geração de sugestões educativas
 
+// eslint-disable-next-line import/no-unresolved
 import { logAudio } from '../error-handling.js';
 
 /**

@@ -247,64 +247,78 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       console.log(`[AI-AUDIT][FLOW-CHECK] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
 
       
-      // 🛡️ GUARDIÃO AJUSTADO: Bloquear geração APENAS na primeira música da referência
+      // ========= NOVO SISTEMA DE SUGESTÕES V2 =========
+      // O V2 sempre prevalece sobre o sistema legado quando disponível
+      
+      console.log('[V2-SYSTEM] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[V2-SYSTEM] 🎯 PRIORIZANDO SUGESTÕES DO V2');
+      console.log('[V2-SYSTEM] mode:', mode, 'isReferenceBase:', isReferenceBase);
+      
+      const v2Suggestions = coreMetrics.suggestions || [];
+      const v2Problems = coreMetrics.problems || [];
+      const v2Metadata = coreMetrics.suggestionMetadata || {};
+      const v2Summary = coreMetrics.qualityAssessment || {};
+      
+      console.log('[V2-SYSTEM] 📊 Dados do V2:', {
+        suggestions: v2Suggestions.length,
+        problems: v2Problems.length,
+        hasMetadata: !!Object.keys(v2Metadata).length,
+        hasSummary: !!Object.keys(v2Summary).length
+      });
+      
+      // 🛡️ GUARDIÃO: Bloquear APENAS na primeira música da referência
       if (mode === 'genre' && isReferenceBase === true) {
-        console.log('[GUARDIÃO] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('[GUARDIÃO] 🎧 PRIMEIRA MÚSICA DA REFERÊNCIA DETECTADA');
-        console.log('[GUARDIÃO] mode: genre, isReferenceBase: true');
-        console.log('[GUARDIÃO] ✅ Métricas calculadas e salvas normalmente');
-        console.log('[GUARDIÃO] 🚫 Pulando geração de sugestões textuais');
-        console.log('[GUARDIÃO] ℹ️ Sugestões serão geradas na comparação A/B');
-        console.log('[GUARDIÃO] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        
+        console.log('[V2-SYSTEM] 🎧 Primeira música da referência - pulando sugestões');
         finalJSON.suggestions = [];
         finalJSON.aiSuggestions = [];
         
-      } else if (mode === 'genre') {
-        // 🔧 CORREÇÃO CRÍTICA: Cobrir TODOS os casos de mode='genre' (não apenas isReferenceBase=false)
-        // 🎯 Agora pega mode='genre' com isReferenceBase=false OU undefined
-        console.log('[GENRE-MODE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('[GENRE-MODE] 🎵 ANÁLISE DE GÊNERO DETECTADA');
-        console.log('[GENRE-MODE] mode: genre, isReferenceBase:', isReferenceBase);
-        console.log('[GENRE-MODE] ✅ Suggestions e aiSuggestions serão geradas');
-        console.log('[GENRE-MODE] 🎯 Targets de gênero serão usados para comparação');
-        console.log('[GENRE-MODE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      } else {
+        // Usar V2 com fallback para sistema legado
+        let finalSuggestions = v2Suggestions;
         
-        // 🔧 GERAR SUGESTÕES AVANÇADAS (Sistema completo baseado em penalties)
-        console.log('[GENRE-MODE] 🚀 Usando sistema avançado de sugestões com scoring.penalties');
-        finalJSON.suggestions = generateAdvancedSuggestionsFromScoring(coreMetrics, coreMetrics.scoring, genre, mode);
-        console.log(`[GENRE-MODE] ✅ ${finalJSON.suggestions.length} sugestões avançadas geradas`);
-        
-        // 🔍 LOG: Exemplo da primeira sugestão avançada
-        if (finalJSON.suggestions.length > 0) {
-          const firstSug = finalJSON.suggestions[0];
-          console.log('[GENRE-MODE] 📋 Exemplo sugestão avançada:', {
-            priority: firstSug.priority,
-            problema: firstSug.problema?.substring(0, 50),
-            temCausa: !!firstSug.causaProvavel,
-            temSolucao: !!firstSug.solucao,
-            temPlugin: !!firstSug.pluginRecomendado,
-            temDica: !!firstSug.dicaExtra,
-            temParametros: !!firstSug.parametros
-          });
+        if (!Array.isArray(v2Suggestions) || v2Suggestions.length === 0) {
+          console.warn('[V2-SYSTEM] ⚠️ V2 vazio - usando fallback legado (scoring)');
+          finalSuggestions = generateAdvancedSuggestionsFromScoring(coreMetrics, coreMetrics.scoring, genre, mode) || [];
+          console.log(`[V2-SYSTEM] 📋 Fallback gerou ${finalSuggestions.length} sugestões`);
+        } else {
+          console.log(`[V2-SYSTEM] ✅ Usando ${v2Suggestions.length} sugestões do V2`);
         }
         
-        // 🤖 ENRIQUECIMENTO IA ULTRA V2
+        // 🤖 ENRIQUECIMENTO IA nas sugestões finais
         try {
-          console.log('[GENRE-MODE] 🚀 Enviando para enrichSuggestionsWithAI...');
-          finalJSON.aiSuggestions = await enrichSuggestionsWithAI(finalJSON.suggestions, {
+          console.log('[V2-SYSTEM] 🚀 Enriquecendo sugestões via IA...');
+          const enriched = await enrichSuggestionsWithAI(finalSuggestions, {
+            fileName: metadata.fileName,
             genre,
-            mode: 'genre',
+            mode,
+            scoring: coreMetrics.scoring,
+            metrics: coreMetrics,
             userMetrics: coreMetrics
           });
-          console.log(`[GENRE-MODE] ✅ ${finalJSON.aiSuggestions?.length || 0} sugestões enriquecidas pela IA`);
+          
+          finalJSON.suggestions = finalSuggestions;
+          finalJSON.aiSuggestions = enriched || [];
+          finalJSON.suggestionMetadata = v2Metadata;
+          finalJSON.problems = v2Problems;
+          finalJSON.summary = v2Summary;
+          
+          console.log(`[V2-SYSTEM] ✅ ${finalJSON.aiSuggestions.length} sugestões enriquecidas pela IA`);
         } catch (aiError) {
-          console.error('[GENRE-MODE] ❌ Falha no enrichment:', aiError.message);
+          console.error('[V2-SYSTEM] ❌ Erro no enrichment:', aiError.message);
+          finalJSON.suggestions = finalSuggestions;
           finalJSON.aiSuggestions = [];
+          finalJSON.suggestionMetadata = v2Metadata;
+          finalJSON.problems = v2Problems;
+          finalJSON.summary = v2Summary;
         }
-        
-        console.log('[GENRE-MODE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       }
+      
+      console.log('[V2-SYSTEM] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[V2-SYSTEM] 📊 Resultado final:', {
+        suggestions: finalJSON.suggestions?.length || 0,
+        aiSuggestions: finalJSON.aiSuggestions?.length || 0,
+        problems: finalJSON.problems?.length || 0
+      });
       
       // ✅ MODO REFERENCE: Comparar com análise de referência
       // 🔒 SEGURANÇA: Só criar referenceComparison quando for REALMENTE modo reference
