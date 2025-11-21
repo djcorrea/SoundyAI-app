@@ -252,7 +252,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
    * 🔊 Análise LUFS com Sugestões Educativas
    */
   analyzeLUFS(metrics, suggestions, problems) {
-    const lufs = metrics.lufs?.integrated;
+    const lufs = metrics.lufs?.lufs_integrated;
     if (!Number.isFinite(lufs)) return;
     
     const threshold = this.thresholds.lufs;
@@ -304,7 +304,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
    * 🎯 Análise True Peak com Sugestões Educativas
    */
   analyzeTruePeak(metrics, suggestions, problems) {
-    const truePeak = metrics.truePeak?.peak;
+    const truePeak = metrics.truePeak?.maxDbtp;
     if (!Number.isFinite(truePeak)) return;
     
     const threshold = this.thresholds.truePeak;
