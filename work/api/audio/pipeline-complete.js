@@ -613,44 +613,6 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     console.log(`🏁 [${jobId.substring(0,8)}] Pipeline completo finalizado em ${totalTime}ms`);
     console.log(`✅ [${jobId.substring(0,8)}] JSON final pronto para salvar no banco`);
     
-    // 🛡️ VALIDAÇÃO FINAL OBRIGATÓRIA: Garantir que finalJSON contém todos os campos críticos
-    console.log(`[PIPELINE-FINAL-VALIDATION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    console.log(`[PIPELINE-FINAL-VALIDATION] 🔍 VALIDAÇÃO FINAL DO finalJSON`);
-    console.log(`[PIPELINE-FINAL-VALIDATION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    
-    // Garantir que arrays existem (mesmo que vazios)
-    if (!finalJSON.suggestions) {
-      console.error(`[PIPELINE-FINAL-VALIDATION] ❌ CRÍTICO: suggestions ausente! Inicializando array vazio.`);
-      finalJSON.suggestions = [];
-    }
-    if (!finalJSON.aiSuggestions) {
-      console.error(`[PIPELINE-FINAL-VALIDATION] ❌ CRÍTICO: aiSuggestions ausente! Inicializando array vazio.`);
-      finalJSON.aiSuggestions = [];
-    }
-    if (!finalJSON.problems) {
-      console.warn(`[PIPELINE-FINAL-VALIDATION] ⚠️ problems ausente - inicializando array vazio`);
-      finalJSON.problems = [];
-    }
-    if (!finalJSON.summary) {
-      console.warn(`[PIPELINE-FINAL-VALIDATION] ⚠️ summary ausente - inicializando objeto vazio`);
-      finalJSON.summary = {};
-    }
-    
-    console.log(`[PIPELINE-FINAL-VALIDATION] 📊 Validação completa:`);
-    console.log(`[PIPELINE-FINAL-VALIDATION] ->  suggestions: ${finalJSON.suggestions.length} itens`);
-    console.log(`[PIPELINE-FINAL-VALIDATION] ->  aiSuggestions: ${finalJSON.aiSuggestions.length} itens`);
-    console.log(`[PIPELINE-FINAL-VALIDATION] ->  problems: ${finalJSON.problems.length} itens`);
-    console.log(`[PIPELINE-FINAL-VALIDATION] ->  summary: ${!!finalJSON.summary}`);
-    console.log(`[PIPELINE-FINAL-VALIDATION] ->  score: ${finalJSON.score}`);
-    console.log(`[PIPELINE-FINAL-VALIDATION] ->  technicalData: ${!!finalJSON.technicalData}`);
-    
-    if (finalJSON.suggestions.length === 0 && finalJSON.aiSuggestions.length === 0) {
-      console.error(`[PIPELINE-FINAL-VALIDATION] ⚠️⚠️⚠️ ALERTA: Ambos suggestions e aiSuggestions estão vazios!`);
-      console.error(`[PIPELINE-FINAL-VALIDATION] Isso indica falha na geração ou enriquecimento.`);
-    }
-    
-    console.log(`[PIPELINE-FINAL-VALIDATION] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
-    
     logAudio('pipeline', 'done', {
       ms: totalTime,
       meta: {
