@@ -592,6 +592,14 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       prioritized: technicalData.problemsAnalysis?.priorityRecommendations || []
     },
 
+    // ===== SUGGESTIONS & AI SUGGESTIONS (Base - Serão enriquecidos pelo pipeline) =====
+    // 🔧 FIX: Garantir que esses campos SEMPRE existam na estrutura base
+    // Pipeline-complete.js irá popular/sobrescrever com dados reais
+    suggestions: [],
+    aiSuggestions: [],
+    summary: null,
+    suggestionMetadata: null,
+
     // ===== SCORES (Subscores) =====
     scores: {
       dynamicRange: scoringResult.breakdown?.dynamics || 0,
