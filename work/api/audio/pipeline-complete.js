@@ -236,6 +236,17 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         isReferenceBase: isReferenceBase // 🔧 FIX: Log da flag
       });
       
+      console.log(`[AI-AUDIT][FLOW-CHECK] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      console.log(`[AI-AUDIT][FLOW-CHECK] 🔍 VALIDAÇÃO DE FLUXO DE EXECUÇÃO`);
+      console.log(`[AI-AUDIT][FLOW-CHECK] mode === 'genre'?`, mode === 'genre');
+      console.log(`[AI-AUDIT][FLOW-CHECK] isReferenceBase === true?`, isReferenceBase === true);
+      console.log(`[AI-AUDIT][FLOW-CHECK] isReferenceBase === false?`, isReferenceBase === false);
+      console.log(`[AI-AUDIT][FLOW-CHECK] isReferenceBase === undefined?`, isReferenceBase === undefined);
+      console.log(`[AI-AUDIT][FLOW-CHECK] mode === 'reference'?`, mode === 'reference');
+      console.log(`[AI-AUDIT][FLOW-CHECK] hasReferenceJobId?`, !!referenceJobId);
+      console.log(`[AI-AUDIT][FLOW-CHECK] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+
+      
       // 🛡️ GUARDIÃO AJUSTADO: Bloquear geração APENAS na primeira música da referência
       if (mode === 'genre' && isReferenceBase === true) {
         console.log('[GUARDIÃO] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -249,14 +260,12 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         finalJSON.suggestions = [];
         finalJSON.aiSuggestions = [];
         
-        // 🔧 FIX: NÃO usar throw - usar estrutura de controle normal
-        // (throw causa catch que pode zerar sugestões em outros casos)
-      } else if (mode === 'genre' && isReferenceBase === false) {
-        // 🎯 CORREÇÃO CRÍTICA: Gerar suggestions + AI para modo genre PURO
-        // EXECUTADO ANTES do bloco de reference para garantir que NÃO seja pulado
+      } else if (mode === 'genre') {
+        // 🔧 CORREÇÃO CRÍTICA: Cobrir TODOS os casos de mode='genre' (não apenas isReferenceBase=false)
+        // 🎯 Agora pega mode='genre' com isReferenceBase=false OU undefined
         console.log('[GENRE-MODE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('[GENRE-MODE] 🎵 ANÁLISE DE GÊNERO PURA DETECTADA');
-        console.log('[GENRE-MODE] mode: genre, isReferenceBase: false');
+        console.log('[GENRE-MODE] 🎵 ANÁLISE DE GÊNERO DETECTADA');
+        console.log('[GENRE-MODE] mode: genre, isReferenceBase:', isReferenceBase);
         console.log('[GENRE-MODE] ✅ Suggestions e aiSuggestions serão geradas');
         console.log('[GENRE-MODE] 🎯 Targets de gênero serão usados para comparação');
         console.log('[GENRE-MODE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -528,6 +537,29 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         hasReferenceFileName: !!finalJSON.referenceFileName
       });
       console.log(`[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
+      
+      // 🔥 LOG ADICIONAL: Confirmar se algum array está vazio quando não deveria
+      if (mode === 'genre' && !isReferenceBase) {
+        if (!finalJSON.suggestions || finalJSON.suggestions.length === 0) {
+          console.error(`[AI-AUDIT][CRITICAL] ❌❌❌ SUGGESTIONS VAZIO EM MODO GENRE!`);
+          console.error(`[AI-AUDIT][CRITICAL] Isso indica que generateAdvancedSuggestionsFromScoring falhou`);
+        }
+        if (!finalJSON.aiSuggestions || finalJSON.aiSuggestions.length === 0) {
+          console.error(`[AI-AUDIT][CRITICAL] ❌❌❌ AI_SUGGESTIONS VAZIO EM MODO GENRE!`);
+          console.error(`[AI-AUDIT][CRITICAL] Isso indica que enrichSuggestionsWithAI falhou ou não foi chamado`);
+        }
+      }
+      
+      if (mode === 'reference' && referenceJobId) {
+        if (!finalJSON.suggestions || finalJSON.suggestions.length === 0) {
+          console.error(`[AI-AUDIT][CRITICAL] ❌❌❌ SUGGESTIONS VAZIO EM MODO REFERENCE!`);
+          console.error(`[AI-AUDIT][CRITICAL] Isso indica que generateComparisonSuggestions falhou`);
+        }
+        if (!finalJSON.aiSuggestions || finalJSON.aiSuggestions.length === 0) {
+          console.error(`[AI-AUDIT][CRITICAL] ❌❌❌ AI_SUGGESTIONS VAZIO EM MODO REFERENCE!`);
+          console.error(`[AI-AUDIT][CRITICAL] Isso indica que enrichSuggestionsWithAI falhou ou não foi chamado`);
+        }
+      }
       
       console.log(`[AI-AUDIT][ASSIGN.inputType] suggestions:`, typeof finalJSON.suggestions, Array.isArray(finalJSON.suggestions));
       console.log(`[AI-AUDIT][ASSIGN.sample]`, finalJSON.suggestions?.slice(0, 2));
