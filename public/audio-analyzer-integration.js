@@ -3,60 +3,9 @@
 // ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
 // ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
 
-// 🔍 AUDITORIA DE STORAGE - Sistema de detecção de inconsistências
+// 🔍 Sistema de gerenciamento de storage com fallback
 (function initStorageAudit() {
-    console.group('%c[AUDITORIA-STORAGE] 🧠 Inicializando sistema de auditoria de storage', 'color:#A974FF;font-weight:bold;font-size:14px;');
-    
-    // 1️⃣ Verificar localStorage atual
-    const localRefJobId = localStorage.getItem('referenceJobId');
-    const localRefAnalysis = localStorage.getItem('referenceAnalysis');
-    
-    console.log('%c[AUDITORIA-STORAGE] 📦 localStorage:', 'color:#FFD700;font-weight:bold;');
-    console.log('   referenceJobId:', localRefJobId || '❌ vazio');
-    console.log('   referenceAnalysis:', localRefAnalysis ? `✅ ${localRefAnalysis.length} bytes` : '❌ vazio');
-    
-    // 2️⃣ Verificar sessionStorage atual
-    const sessionRefJobId = sessionStorage.getItem('referenceJobId');
-    const sessionRefAnalysis = sessionStorage.getItem('referenceAnalysis');
-    const sessionCurrentJobId = sessionStorage.getItem('currentJobId');
-    
-    console.log('%c[AUDITORIA-STORAGE] 📦 sessionStorage:', 'color:#FFD700;font-weight:bold;');
-    console.log('   referenceJobId:', sessionRefJobId || '❌ vazio');
-    console.log('   referenceAnalysis:', sessionRefAnalysis ? `✅ ${sessionRefAnalysis.length} bytes` : '❌ vazio');
-    console.log('   currentJobId:', sessionCurrentJobId || '❌ vazio');
-    
-    // 3️⃣ Verificar variáveis globais
-    console.log('%c[AUDITORIA-STORAGE] 🌐 Variáveis globais:', 'color:#FFD700;font-weight:bold;');
-    console.log('   window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__ || '❌ undefined');
-    console.log('   window.__CURRENT_JOB_ID__:', window.__CURRENT_JOB_ID__ || '❌ undefined');
-    
-    // 4️⃣ Detectar inconsistências
-    console.log('%c[AUDITORIA-STORAGE] 🔍 Análise de consistência:', 'color:#A974FF;font-weight:bold;');
-    
-    if (localRefJobId && !sessionRefJobId) {
-        console.log('%c   ⚠️ PROBLEMA: referenceJobId apenas em localStorage', 'color:#FF5555;font-weight:bold;');
-        console.log('   ⚠️ Risco: Compartilhamento entre abas (localStorage é global)');
-        console.log('   ✅ Solução: Migrar para sessionStorage (isolamento por aba)');
-    }
-    
-    if (localRefJobId && sessionRefJobId && localRefJobId !== sessionRefJobId) {
-        console.log('%c   ❌ INCONSISTÊNCIA CRÍTICA: JobIds diferentes!', 'color:#FF5555;font-weight:bold;');
-        console.log('   localStorage.referenceJobId:', localRefJobId);
-        console.log('   sessionStorage.referenceJobId:', sessionRefJobId);
-    }
-    
-    if (!localRefJobId && !sessionRefJobId && !window.__REFERENCE_JOB_ID__) {
-        console.log('%c   ✅ Estado limpo - sem referência ativa', 'color:#00FF88;');
-    }
-    
-    if (localRefJobId || sessionRefJobId || window.__REFERENCE_JOB_ID__) {
-        console.log('%c   📊 Referência ativa detectada:', 'color:#00C9FF;');
-        console.log('   Prioridade: sessionStorage > window > localStorage');
-    }
-    
-    console.groupEnd();
-    
-    // 5️⃣ Criar utilitário global de storage com fallback
+    // Criar utilitário global de storage com fallback
     window.StorageManager = {
         // Salvar referenceJobId
         setReferenceJobId(jobId) {
@@ -473,9 +422,7 @@ function buildComparativeAISuggestions(userAnalysis, refAnalysis) {
  * @returns {Promise<object|null>} - Dados enriquecidos ou null se timeout
  */
 async function waitForAIEnrichment(jobId, timeout = 10000, pollInterval = 1000) {
-    console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[AI-SYNC] ⏳ Aguardando enriquecimento IA...');
-    console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[AI-SYNC] 🆔 Job ID:', jobId);
     console.log('[AI-SYNC] ⏱️ Timeout:', timeout, 'ms');
     console.log('[AI-SYNC] 🔄 Poll interval:', pollInterval, 'ms');
@@ -519,9 +466,7 @@ async function waitForAIEnrichment(jobId, timeout = 10000, pollInterval = 1000) 
                 });
                 
                 if (aiEnhancedCount > 0) {
-                    console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                     console.log('[AI-SYNC] ✅✅✅ ENRIQUECIMENTO IA CONCLUÍDO! ✅✅✅');
-                    console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                     console.log('[AI-SYNC] 📊 Total:', data.aiSuggestions.length, 'sugestões');
                     console.log('[AI-SYNC] 🤖 Marcadas como aiEnhanced:', aiEnhancedCount);
                     console.log('[AI-SYNC] ⏱️ Tempo decorrido:', Date.now() - startTime, 'ms');
@@ -782,9 +727,6 @@ function protectCurrentJobId(initialValue) {
  * @deprecated Use getCorrectJobId(context) em vez disso
  */
 function getJobIdSafely(mode) {
-    console.error('⚠️ [DEPRECATED] getJobIdSafely() está DEPRECADA! Use getCorrectJobId() em vez disso.');
-    console.trace('🔍 [DEPRECATED] Stack trace de quem chamou a função deprecada:');
-    
     // Redirecionar para a função correta
     if (mode === 'reference') {
         return getCorrectJobId('reference');
@@ -944,8 +886,6 @@ function ensureReferenceHydrated() {
  */
 (function ensureAIUIController() {
   if (!window.aiUIController) {
-    console.warn('[SAFE-BOOT] aiUIController ausente - criando stub temporario.');
-
     window.aiUIController = {
       renderMetricCards: () => console.warn('[STUB] renderMetricCards chamado antes da carga real.'),
       renderScoreSection: () => console.warn('[STUB] renderScoreSection chamado antes da carga real.'),
@@ -958,8 +898,6 @@ function ensureReferenceHydrated() {
   // Espera ate o real ser carregado (quando o modulo UI inicializa)
   const observer = new MutationObserver(() => {
     if (window.aiUIController?.__ready) {
-      console.log('[SAFE-BOOT] ✅ aiUIController real detectado, removendo stub.');
-      
       // ========================================
       // ✅ AUDITORIA DE COMPATIBILIDADE
       // ========================================
@@ -1001,25 +939,21 @@ function ensureReferenceHydrated() {
   if (typeof window.aiUIController.renderMetricCards !== 'function' && 
       typeof window.renderMetricCards === 'function') {
     window.aiUIController.renderMetricCards = (...args) => window.renderMetricCards(...args);
-    console.log('[ALIAS] ✅ Criado alias: aiUIController.renderMetricCards → renderMetricCards');
   }
   
   if (typeof window.aiUIController.renderScoreSection !== 'function' && 
       typeof window.renderScoreSection === 'function') {
     window.aiUIController.renderScoreSection = (...args) => window.renderScoreSection(...args);
-    console.log('[ALIAS] ✅ Criado alias: aiUIController.renderScoreSection → renderScoreSection');
   }
   
   if (typeof window.aiUIController.renderSuggestions !== 'function' && 
       typeof window.renderSuggestions === 'function') {
     window.aiUIController.renderSuggestions = (...args) => window.renderSuggestions(...args);
-    console.log('[ALIAS] ✅ Criado alias: aiUIController.renderSuggestions → renderSuggestions');
   }
   
   if (typeof window.aiUIController.renderFinalScoreAtTop !== 'function' && 
       typeof window.renderFinalScoreAtTop === 'function') {
     window.aiUIController.renderFinalScoreAtTop = (...args) => window.renderFinalScoreAtTop(...args);
-    console.log('[ALIAS] ✅ Criado alias: aiUIController.renderFinalScoreAtTop → renderFinalScoreAtTop');
   }
 })();
 
