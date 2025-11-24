@@ -1,3 +1,38 @@
+// Capturador global de logs para debug profundo
+window._fullLogCapture = [];
+const _origLog = console.log;
+const _origError = console.error;
+const _origWarn = console.warn;
+
+console.log = (...args) => {
+  window._fullLogCapture.push({ type: 'log', args, time: new Date().toISOString() });
+  _origLog.apply(console, args);
+};
+
+console.warn = (...args) => {
+  window._fullLogCapture.push({ type: 'warn', args, time: new Date().toISOString() });
+  _origWarn.apply(console, args);
+};
+
+console.error = (...args) => {
+  window._fullLogCapture.push({ type: 'error', args, time: new Date().toISOString() });
+  _origError.apply(console, args);
+};
+
+// Função para baixar todo o log em um arquivo .txt
+window.downloadFullLog = function () {
+  const blob = new Blob(
+    [JSON.stringify(window._fullLogCapture, null, 2)],
+    { type: "text/plain" }
+  );
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "soundyai-debug-log.txt";
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
 // 🎵 AUDIO ANALYZER INTEGRATION - VERSÃO REFATORADA
 // Sistema de análise 100% baseado em processamento no back-end (Railway + Bucket)
 // ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
