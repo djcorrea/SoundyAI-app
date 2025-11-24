@@ -1,3 +1,53 @@
+// === SOUNDYAI DEBUGGER LITE — DUMP PARTITIONED ===
+
+window._sdLiteBuffer = [];
+window._sdLite_MAX = 2000; // mantém apenas 2000 eventos (leve)
+
+// captura logs sem exagero
+function _sdLite_add(type, args) {
+  try {
+    const msg = args
+      .map(a => typeof a === "object" ? JSON.stringify(a).slice(0, 5000) : String(a))
+      .join(" ");
+
+    window._sdLiteBuffer.push({
+      t: Date.now(),
+      type,
+      msg
+    });
+
+    if (window._sdLiteBuffer.length > window._sdLite_MAX) {
+      window._sdLiteBuffer.shift();
+    }
+  } catch (_) {}
+}
+
+const _oldLog = console.log;
+const _oldWarn = console.warn;
+const _oldError = console.error;
+
+console.log = (...a) => { _sdLite_add("log", a); _oldLog.apply(console, a); };
+console.warn = (...a) => { _sdLite_add("warn", a); _oldWarn.apply(console, a); };
+console.error = (...a) => {
+  _sdLite_add("error", a);
+  _oldError.apply(console, a);
+};
+
+// dump reduzido e segmentado
+window.downloadLiteDump = function () {
+  const json = JSON.stringify(window._sdLiteBuffer, null, 2);
+  const parts = Math.ceil(json.length / 30000);
+  for (let i = 0; i < parts; i++) {
+    const slice = json.slice(i * 30000, (i + 1) * 30000);
+    const blob = new Blob([slice], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `soundyai-dump-part${i+1}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+};
+
 // === SMART DEBUGGER SOUNDYAI - LEVEL 3 (INTERCEPTAÇÃO CRÍTICA) ===
 
 window.SoundyDebugEvents = [];
