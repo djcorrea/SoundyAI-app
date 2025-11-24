@@ -1,37 +1,140 @@
-// Capturador global de logs para debug profundo
-window._fullLogCapture = [];
+// === SMART DEBUGGER SOUNDYAI - LEVEL 3 (INTERCEPTAÇÃO CRÍTICA) ===
+
+window.SoundyDebugEvents = [];
+window.SoundyLastDump = null;
+
+// Função para gerar nome único de arquivo
+function _sd_fileName(prefix = "soundyai-debug") {
+  const t = new Date();
+  return `${prefix}-${t.getFullYear()}-${t.getMonth()+1}-${t.getDate()}-${t.getHours()}-${t.getMinutes()}-${t.getSeconds()}.json`;
+}
+
+// Função central de dump
+window._sd_dump = function (reason = "unknown") {
+  try {
+    const dump = {
+      reason,
+      time: Date.now(),
+      events: window.SoundyDebugEvents,
+      lastJobResult: window.__lastJobResult || null,
+      lastSuggestionsRaw: window.__lastSuggestionsRaw || null,
+      lastSuggestionsMerged: window.__lastSuggestionsMerged || null,
+      aiSyncState: window.__aiSyncState || null,
+      jobIds: {
+        current: window.__CURRENT_JOB_ID__ || null,
+        reference: window.__REFERENCE_JOB_ID__ || null,
+      },
+    };
+
+    window.SoundyLastDump = dump;
+
+    const blob = new Blob([JSON.stringify(dump, null, 2)], {
+      type: "application/json",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = _sd_fileName("soundyai-debug");
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("[SMARTDEBUG] ❌ Falha ao gerar dump:", err);
+  }
+};
+
+// Função pública
+window.downloadDebugDump = function () {
+  window._sd_dump("manual");
+};
+
+// Captura de logs base
 const _origLog = console.log;
-const _origError = console.error;
 const _origWarn = console.warn;
+const _origError = console.error;
+
+function _sd_capture(type, args) {
+  try {
+    const msg = args.map(a =>
+      typeof a === "object"
+        ? JSON.stringify(a).slice(0, 15000)
+        : String(a)
+    ).join(" ");
+
+    window.SoundyDebugEvents.push({
+      type,
+      msg,
+      time: Date.now(),
+    });
+
+    // Mantém buffer grande (2500 eventos)
+    if (window.SoundyDebugEvents.length > 2500) {
+      window.SoundyDebugEvents.shift();
+    }
+  } catch (_) {}
+}
 
 console.log = (...args) => {
-  window._fullLogCapture.push({ type: 'log', args, time: new Date().toISOString() });
+  _sd_capture("log", args);
   _origLog.apply(console, args);
 };
-
 console.warn = (...args) => {
-  window._fullLogCapture.push({ type: 'warn', args, time: new Date().toISOString() });
+  _sd_capture("warn", args);
   _origWarn.apply(console, args);
 };
-
 console.error = (...args) => {
-  window._fullLogCapture.push({ type: 'error', args, time: new Date().toISOString() });
+  _sd_capture("error", args);
   _origError.apply(console, args);
+  
+  // qualquer erro dispara um dump automático
+  window._sd_dump("error");
 };
 
-// Função para baixar todo o log em um arquivo .txt
-window.downloadFullLog = function () {
-  const blob = new Blob(
-    [JSON.stringify(window._fullLogCapture, null, 2)],
-    { type: "text/plain" }
-  );
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = "soundyai-debug-log.txt";
-  a.click();
-  URL.revokeObjectURL(url);
+// === INTERCEPTAÇÃO DAS FUNÇÕES CRÍTICAS ===
+
+// Intercepta AI-SYNC
+window.__captureAISync = (state) => {
+  window.__aiSyncState = state;
+  _sd_capture("ai-sync-state", [state]);
 };
+
+// Intercepta jobIds
+window.__captureJobIds = (cur, ref) => {
+  window.__CURRENT_JOB_ID__ = cur;
+  window.__REFERENCE_JOB_ID__ = ref;
+  _sd_capture("jobids", [{ current: cur, reference: ref }]);
+};
+
+// Intercepta sugestões antes/depois do merge
+window.__captureSuggestions = (raw, merged) => {
+  window.__lastSuggestionsRaw = raw;
+  window.__lastSuggestionsMerged = merged;
+  _sd_capture("suggestions", [{
+    raw: raw ? JSON.stringify(raw).slice(0,12000) : null,
+    merged: merged ? JSON.stringify(merged).slice(0,12000) : null,
+  }]);
+};
+
+// Intercepta job result do backend
+window.__captureJobResult = (job) => {
+  window.__lastJobResult = job;
+  _sd_capture("job-result", [{
+    job: job ? JSON.stringify(job).slice(0,15000) : null
+  }]);
+};
+
+// Intercepta exceções não tratadas
+window.addEventListener("unhandledrejection", (e) => {
+  _sd_capture("promise-error", [e.reason]);
+  window._sd_dump("promise-error");
+});
+
+window.addEventListener("error", (e) => {
+  _sd_capture("window-error", [e.message, e.filename, e.lineno]);
+  window._sd_dump("window-error");
+});
+
+// === FIM DO SMART DEBUGGER ===
 
 // 🎵 AUDIO ANALYZER INTEGRATION - VERSÃO REFATORADA
 // Sistema de análise 100% baseado em processamento no back-end (Railway + Bucket)
