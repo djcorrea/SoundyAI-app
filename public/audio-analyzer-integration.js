@@ -3,106 +3,6 @@
 // ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
 // ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
 
-// 🔍 Sistema de gerenciamento de storage com fallback
-(function initStorageAudit() {
-    // Criar utilitário global de storage com fallback
-    window.StorageManager = {
-        // Salvar referenceJobId
-        setReferenceJobId(jobId) {
-            console.log('%c[STORAGE-MANAGER] 💾 Salvando referenceJobId:', 'color:#00FF88;font-weight:bold;', jobId);
-            try {
-                sessionStorage.setItem('referenceJobId', jobId);
-                console.log('   ✅ Salvo em sessionStorage (isolado por aba)');
-            } catch (e) {
-                console.warn('   ⚠️ Falha no sessionStorage, usando localStorage como fallback:', e.message);
-                localStorage.setItem('referenceJobId', jobId);
-            }
-        },
-        
-        // Ler referenceJobId (prioridade: sessionStorage > window > localStorage)
-        getReferenceJobId() {
-            const sessionId = sessionStorage.getItem('referenceJobId');
-            const windowId = window.__REFERENCE_JOB_ID__;
-            const localId = localStorage.getItem('referenceJobId');
-            
-            const result = sessionId || windowId || localId;
-            
-            console.log('%c[STORAGE-MANAGER] 📖 Lendo referenceJobId:', 'color:#FFD700;', result || '❌ não encontrado');
-            console.log('   sessionStorage:', sessionId || '❌');
-            console.log('   window.__REFERENCE_JOB_ID__:', windowId || '❌');
-            console.log('   localStorage:', localId || '❌');
-            
-            return result;
-        },
-        
-        // Salvar referenceAnalysis
-        setReferenceAnalysis(analysis) {
-            const json = JSON.stringify(analysis);
-            console.log('%c[STORAGE-MANAGER] 💾 Salvando referenceAnalysis:', 'color:#00FF88;font-weight:bold;', `${json.length} bytes`);
-            try {
-                sessionStorage.setItem('referenceAnalysis', json);
-                console.log('   ✅ Salvo em sessionStorage');
-            } catch (e) {
-                console.warn('   ⚠️ Falha no sessionStorage (quota?), usando localStorage:', e.message);
-                try {
-                    localStorage.setItem('referenceAnalysis', json);
-                } catch (e2) {
-                    console.error('   ❌ Falha em ambos storages:', e2.message);
-                }
-            }
-        },
-        
-        // Ler referenceAnalysis
-        getReferenceAnalysis() {
-            const sessionData = sessionStorage.getItem('referenceAnalysis');
-            const localData = localStorage.getItem('referenceAnalysis');
-            
-            const result = sessionData || localData;
-            
-            if (result) {
-                try {
-                    const parsed = JSON.parse(result);
-                    console.log('%c[STORAGE-MANAGER] 📖 referenceAnalysis recuperado:', 'color:#FFD700;', 
-                        `${result.length} bytes`, 
-                        sessionData ? '(sessionStorage)' : '(localStorage fallback)');
-                    return parsed;
-                } catch (e) {
-                    console.error('%c[STORAGE-MANAGER] ❌ Erro ao parsear referenceAnalysis:', 'color:#FF5555;', e.message);
-                    return null;
-                }
-            }
-            
-            console.log('%c[STORAGE-MANAGER] 📖 referenceAnalysis:', 'color:#FFD700;', '❌ não encontrado');
-            return null;
-        },
-        
-        // Limpar referência
-        clearReference() {
-            console.log('%c[STORAGE-MANAGER] 🗑️ Limpando referência...', 'color:#FF9500;font-weight:bold;');
-            try {
-                sessionStorage.removeItem('referenceJobId');
-                sessionStorage.removeItem('referenceAnalysis');
-                console.log('   ✅ sessionStorage limpo');
-            } catch (e) {
-                console.warn('   ⚠️ Erro ao limpar sessionStorage:', e.message);
-            }
-            
-            try {
-                localStorage.removeItem('referenceJobId');
-                localStorage.removeItem('referenceAnalysis');
-                console.log('   ✅ localStorage limpo');
-            } catch (e) {
-                console.warn('   ⚠️ Erro ao limpar localStorage:', e.message);
-            }
-            
-            delete window.__REFERENCE_JOB_ID__;
-            console.log('   ✅ window.__REFERENCE_JOB_ID__ removido');
-        }
-    };
-    
-    console.log('%c[AUDITORIA-STORAGE] ✅ Sistema de storage auditado e StorageManager criado', 'color:#00FF88;font-weight:bold;');
-})();
-
 // ========================================
 // 🆔 VIRTUAL IDS E ÍNDICE DE PAPÉIS (ANTI-SELF-COMPARE)
 // ========================================
@@ -422,7 +322,9 @@ function buildComparativeAISuggestions(userAnalysis, refAnalysis) {
  * @returns {Promise<object|null>} - Dados enriquecidos ou null se timeout
  */
 async function waitForAIEnrichment(jobId, timeout = 10000, pollInterval = 1000) {
+    console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[AI-SYNC] ⏳ Aguardando enriquecimento IA...');
+    console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[AI-SYNC] 🆔 Job ID:', jobId);
     console.log('[AI-SYNC] ⏱️ Timeout:', timeout, 'ms');
     console.log('[AI-SYNC] 🔄 Poll interval:', pollInterval, 'ms');
@@ -466,7 +368,9 @@ async function waitForAIEnrichment(jobId, timeout = 10000, pollInterval = 1000) 
                 });
                 
                 if (aiEnhancedCount > 0) {
+                    console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                     console.log('[AI-SYNC] ✅✅✅ ENRIQUECIMENTO IA CONCLUÍDO! ✅✅✅');
+                    console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                     console.log('[AI-SYNC] 📊 Total:', data.aiSuggestions.length, 'sugestões');
                     console.log('[AI-SYNC] 🤖 Marcadas como aiEnhanced:', aiEnhancedCount);
                     console.log('[AI-SYNC] ⏱️ Tempo decorrido:', Date.now() - startTime, 'ms');
@@ -727,6 +631,9 @@ function protectCurrentJobId(initialValue) {
  * @deprecated Use getCorrectJobId(context) em vez disso
  */
 function getJobIdSafely(mode) {
+    console.error('⚠️ [DEPRECATED] getJobIdSafely() está DEPRECADA! Use getCorrectJobId() em vez disso.');
+    console.trace('🔍 [DEPRECATED] Stack trace de quem chamou a função deprecada:');
+    
     // Redirecionar para a função correta
     if (mode === 'reference') {
         return getCorrectJobId('reference');
@@ -886,6 +793,8 @@ function ensureReferenceHydrated() {
  */
 (function ensureAIUIController() {
   if (!window.aiUIController) {
+    console.warn('[SAFE-BOOT] aiUIController ausente - criando stub temporario.');
+
     window.aiUIController = {
       renderMetricCards: () => console.warn('[STUB] renderMetricCards chamado antes da carga real.'),
       renderScoreSection: () => console.warn('[STUB] renderScoreSection chamado antes da carga real.'),
@@ -898,6 +807,7 @@ function ensureReferenceHydrated() {
   // Espera ate o real ser carregado (quando o modulo UI inicializa)
   const observer = new MutationObserver(() => {
     if (window.aiUIController?.__ready) {
+      
       // ========================================
       // ✅ AUDITORIA DE COMPATIBILIDADE
       // ========================================
