@@ -145,7 +145,8 @@ async function downloadFileFromBucket(key) {
 }
 
 // ---------- Análise REAL via pipeline ----------
-async function analyzeAudioWithPipeline(localFilePath, job) {
+// 🔧 FUNÇÃO CORRIGIDA: agora passa genre/mode/jobId corretamente
+async function analyzeAudioWithPipeline(localFilePath, jobOrOptions) {
   const filename = path.basename(localFilePath);
   
   try {
@@ -153,12 +154,41 @@ async function analyzeAudioWithPipeline(localFilePath, job) {
     console.log(`📊 Arquivo lido: ${fileBuffer.length} bytes`);
 
     const t0 = Date.now();
-    
+
+    // Normalizar tanto o "job" antigo quanto o novo "options"
+    const pipelineOptions = {
+      // ID do job
+      jobId: jobOrOptions.jobId || jobOrOptions.id || null,
+
+      // Referência (quando existir)
+      reference: jobOrOptions.reference || jobOrOptions.reference_file_key || null,
+
+      // Modo de análise: 'genre', 'comparison', etc.
+      mode: jobOrOptions.mode || 'genre',
+
+      // Gênero (PRIORIDADE: explicitamente passado > dentro de data > fallback default)
+      genre:
+        jobOrOptions.genre ||
+        jobOrOptions.data?.genre ||
+        jobOrOptions.genre_detected ||
+        'default',
+
+      // Dados de comparação, se existirem
+      referenceJobId:
+        jobOrOptions.referenceJobId ||
+        jobOrOptions.reference_job_id ||
+        null,
+
+      isReferenceBase:
+        jobOrOptions.isReferenceBase ??
+        jobOrOptions.is_reference_base ??
+        false,
+    };
+
+    console.log('[GENRE-FLOW][PIPELINE] ▶ Enviando options para processAudioComplete:', pipelineOptions);
+
     // 🔥 TIMEOUT DE 3 MINUTOS PARA EVITAR TRAVAMENTO
-    const pipelinePromise = processAudioComplete(fileBuffer, filename, {
-      jobId: job.id,
-      reference: job?.reference || null
-    });
+    const pipelinePromise = processAudioComplete(fileBuffer, filename, pipelineOptions);
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
         reject(new Error(`Pipeline timeout após 3 minutos para: ${filename}`));
