@@ -33,7 +33,7 @@ router.get("/:id", async (req, res) => {
     // Evita enviar aiSuggestions: [] antes do enriquecimento terminar
     if (normalizedStatus === "processing") {
       const elapsed = Date.now() - new Date(job.created_at).getTime();
-      const resultData = job.results || job.result;
+      const resultData = job.results;
       let hasAISuggestions = false;
       
       try {
@@ -55,17 +55,17 @@ router.get("/:id", async (req, res) => {
     }
 
     // 🎯 CORREÇÃO CRÍTICA: Retornar JSON completo da análise
-    // 🔄 COMPATIBILIDADE: Tentar tanto 'results' (novo) quanto 'result' (antigo)
+    // ✅ RAILWAY COMPATIBILITY: Usar APENAS 'results' (json)
     let fullResult = null;
     
-    const resultData = job.results || job.result;
+    const resultData = job.results;
     if (resultData) {
       try {
         // Parse do JSON salvo pelo worker
         fullResult = typeof resultData === 'string' ? JSON.parse(resultData) : resultData;
         console.log("[REDIS-RETURN] 🔍 Job result merged with full analysis JSON");
         console.log(`[REDIS-RETURN] Analysis contains: ${Object.keys(fullResult).join(', ')}`);
-        console.log(`[REDIS-RETURN] Data source: ${job.results ? 'results (new)' : 'result (legacy)'}`);
+        console.log(`[REDIS-RETURN] Data source: results (Railway standard)`);
       } catch (parseError) {
         console.error("[REDIS-RETURN] ❌ Erro ao fazer parse do results JSON:", parseError);
         fullResult = resultData;
@@ -114,7 +114,7 @@ router.get("/:id", async (req, res) => {
           let dbFullResult = null;
 
           // Parse do resultado do Postgres
-          const dbResultData = dbJob.results || dbJob.result;
+          const dbResultData = dbJob.results;
           if (dbResultData) {
             try {
               dbFullResult = typeof dbResultData === 'string' ? JSON.parse(dbResultData) : dbResultData;
