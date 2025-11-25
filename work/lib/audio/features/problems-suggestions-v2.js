@@ -179,14 +179,26 @@ const GENRE_THRESHOLDS = {
  * 🎓 Classe Principal - Problems & Suggestions Analyzer V2
  */
 export class ProblemsAndSuggestionsAnalyzerV2 {
-  constructor(genre = 'default') {
+  constructor(genre = 'default', customTargets = null) {
     this.genre = genre;
-    this.thresholds = GENRE_THRESHOLDS[genre] || GENRE_THRESHOLDS['default'];
+    
+    // 🎯 PRIORIDADE: customTargets (do filesystem) > GENRE_THRESHOLDS (hardcoded)
+    if (customTargets && typeof customTargets === 'object' && Object.keys(customTargets).length > 0) {
+      console.log(`[PROBLEMS_V2] ✅ Usando customTargets para ${genre}`);
+      this.thresholds = customTargets;
+      this.targetsSource = 'filesystem';
+    } else {
+      console.log(`[PROBLEMS_V2] 📋 Usando GENRE_THRESHOLDS hardcoded para ${genre}`);
+      this.thresholds = GENRE_THRESHOLDS[genre] || GENRE_THRESHOLDS['default'];
+      this.targetsSource = 'hardcoded';
+    }
+    
     this.severity = SEVERITY_SYSTEM;
     
     logAudio('problems_v2', 'init', { 
       genre: this.genre, 
-      thresholds: Object.keys(this.thresholds).length 
+      thresholds: Object.keys(this.thresholds).length,
+      source: this.targetsSource
     });
   }
   
@@ -717,9 +729,14 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
 
 /**
  * 🎯 Função Principal para Exportação
+ * 
+ * @param {Object} audioMetrics - Métricas de áudio calculadas
+ * @param {string} genre - Nome do gênero
+ * @param {Object|null} customTargets - Targets carregados do filesystem (opcional)
+ * @returns {Object} - Análise completa com sugestões
  */
-export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default') {
-  const analyzer = new ProblemsAndSuggestionsAnalyzerV2(genre);
+export function analyzeProblemsAndSuggestionsV2(audioMetrics, genre = 'default', customTargets = null) {
+  const analyzer = new ProblemsAndSuggestionsAnalyzerV2(genre, customTargets);
   return analyzer.analyzeWithEducationalSuggestions(audioMetrics);
 }
 

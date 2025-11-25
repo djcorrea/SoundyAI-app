@@ -6,6 +6,7 @@ import { segmentAudioTemporal } from "./temporal-segmentation.js"; // Fase 5.2
 import { calculateCoreMetrics } from "./core-metrics.js";      // Fase 5.3
 import { generateJSONOutput } from "./json-output.js";         // Fase 5.4
 import { analyzeProblemsAndSuggestionsV2 } from "../../lib/audio/features/problems-suggestions-v2.js"; // Fase 5.4.1
+import { loadGenreTargets } from "../../lib/audio/utils/genre-targets-loader.js";
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -219,7 +220,23 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     try {
       console.log(`[SUGGESTIONS_V1] ⚡ Gerando sugestões base (V1)...`);
       
-      const problemsAndSuggestions = analyzeProblemsAndSuggestionsV2(coreMetrics, options.genre || 'default');
+      // 🎯 CARREGAR TARGETS DO FILESYSTEM (APENAS MODO GÊNERO)
+      const mode = options.mode || 'genre';
+      const detectedGenre = options.genre || 'default';
+      let customTargets = null;
+      
+      if (mode !== 'reference' && detectedGenre && detectedGenre !== 'default') {
+        customTargets = loadGenreTargets(detectedGenre);
+        if (customTargets) {
+          console.log(`[SUGGESTIONS_V1] ✅ Usando targets de ${detectedGenre} do filesystem`);
+        } else {
+          console.log(`[SUGGESTIONS_V1] 📋 Usando targets hardcoded para ${detectedGenre}`);
+        }
+      } else if (mode === 'reference') {
+        console.log(`[SUGGESTIONS_V1] 🔒 Modo referência - ignorando targets de gênero`);
+      }
+      
+      const problemsAndSuggestions = analyzeProblemsAndSuggestionsV2(coreMetrics, detectedGenre, customTargets);
       
       // Preencher estrutura completa do finalJSON com sugestões base
       finalJSON.problemsAnalysis = {
@@ -303,8 +320,23 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       console.log('[V2-SYSTEM] mode:', mode, 'isReferenceBase:', isReferenceBase);
       console.log('[V2-SYSTEM] V1 já gerou:', finalJSON.suggestions?.length || 0, 'sugestões');
       
+      // 🎯 CARREGAR TARGETS DO FILESYSTEM (APENAS MODO GÊNERO)
+      const detectedGenreV2 = options.genre || 'default';
+      let customTargetsV2 = null;
+      
+      if (mode !== 'reference' && detectedGenreV2 && detectedGenreV2 !== 'default') {
+        customTargetsV2 = loadGenreTargets(detectedGenreV2);
+        if (customTargetsV2) {
+          console.log(`[V2-SYSTEM] ✅ Usando targets de ${detectedGenreV2} do filesystem`);
+        } else {
+          console.log(`[V2-SYSTEM] 📋 Usando targets hardcoded para ${detectedGenreV2}`);
+        }
+      } else if (mode === 'reference') {
+        console.log(`[V2-SYSTEM] 🔒 Modo referência - ignorando targets de gênero`);
+      }
+      
       // 🔧 REINTEGRAÇÃO DO MOTOR V2
-      const v2 = analyzeProblemsAndSuggestionsV2(coreMetrics, options.genre || 'default');
+      const v2 = analyzeProblemsAndSuggestionsV2(coreMetrics, detectedGenreV2, customTargetsV2);
       
       const v2Suggestions = v2.suggestions || [];
       const v2Problems = v2.problems || [];
