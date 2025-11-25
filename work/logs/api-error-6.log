@@ -1,0 +1,106 @@
+(node:20540) NOTE: The AWS SDK for JavaScript (v2) is in maintenance mode.
+ SDK releases are limited to address critical bug fixes and security issues only.
+
+Please migrate your code to use AWS SDK for JavaScript (v3).
+For more information, check the blog post at https://a.co/cUPnyil
+(Use `node --trace-warnings ...` to show where the warning was created)
+[ANALYZE] Erro ao criar job no banco: AggregateError [ECONNREFUSED]: 
+    at C:\Users\DJ Correa\Desktop\Programação\SoundyAI\work\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async createJobInDatabase (file:///C:/Users/DJ%20Correa/Desktop/Programa%C3%A7%C3%A3o/SoundyAI/work/api/audio/analyze.js:90:20)
+    at async file:///C:/Users/DJ%20Correa/Desktop/Programa%C3%A7%C3%A3o/SoundyAI/work/api/audio/analyze.js:221:23 {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:5432
+        at createConnectionError (node:net:1678:14)
+        at afterConnectMultiple (node:net:1708:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 5432
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:5432
+        at createConnectionError (node:net:1678:14)
+        at afterConnectMultiple (node:net:1708:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 5432
+    }
+  ]
+}
+[ANALYZE] Erro na criação do job: Error: Erro ao criar job de análise: 
+    at createJobInDatabase (file:///C:/Users/DJ%20Correa/Desktop/Programa%C3%A7%C3%A3o/SoundyAI/work/api/audio/analyze.js:116:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///C:/Users/DJ%20Correa/Desktop/Programa%C3%A7%C3%A3o/SoundyAI/work/api/audio/analyze.js:221:23
+(node:17792) NOTE: The AWS SDK for JavaScript (v2) is in maintenance mode.
+ SDK releases are limited to address critical bug fixes and security issues only.
+
+Please migrate your code to use AWS SDK for JavaScript (v3).
+For more information, check the blog post at https://a.co/cUPnyil
+(Use `node --trace-warnings ...` to show where the warning was created)
+[ANALYZE] Erro ao criar job no banco: AggregateError [ECONNREFUSED]: 
+    at C:\Users\DJ Correa\Desktop\Programação\SoundyAI\work\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async createJobInDatabase (file:///C:/Users/DJ%20Correa/Desktop/Programa%C3%A7%C3%A3o/SoundyAI/work/api/audio/analyze.js:90:20)
+    at async file:///C:/Users/DJ%20Correa/Desktop/Programa%C3%A7%C3%A3o/SoundyAI/work/api/audio/analyze.js:221:23 {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:5432
+        at createConnectionError (node:net:1678:14)
+        at afterConnectMultiple (node:net:1708:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 5432
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:5432
+        at createConnectionError (node:net:1678:14)
+        at afterConnectMultiple (node:net:1708:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 5432
+    }
+  ]
+}
+[ANALYZE] Erro na criação do job: Error: Erro ao criar job de análise: 
+    at createJobInDatabase (file:///C:/Users/DJ%20Correa/Desktop/Programa%C3%A7%C3%A3o/SoundyAI/work/api/audio/analyze.js:116:11)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///C:/Users/DJ%20Correa/Desktop/Programa%C3%A7%C3%A3o/SoundyAI/work/api/audio/analyze.js:221:23
+(node:19352) NOTE: The AWS SDK for JavaScript (v2) is in maintenance mode.
+ SDK releases are limited to address critical bug fixes and security issues only.
+
+Please migrate your code to use AWS SDK for JavaScript (v3).
+For more information, check the blog post at https://a.co/cUPnyil
+(Use `node --trace-warnings ...` to show where the warning was created)
+❌ Erro ao buscar job: AggregateError [ECONNREFUSED]: 
+    at C:\Users\DJ Correa\Desktop\Programação\SoundyAI\work\node_modules\pg-pool\index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async file:///C:/Users/DJ%20Correa/Desktop/Programa%C3%A7%C3%A3o/SoundyAI/work/api/jobs/%5Bid%5D.js:12:22 {
+  code: 'ECONNREFUSED',
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:5432
+        at createConnectionError (node:net:1678:14)
+        at afterConnectMultiple (node:net:1708:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 5432
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:5432
+        at createConnectionError (node:net:1678:14)
+        at afterConnectMultiple (node:net:1708:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 5432
+    }
+  ]
+}
