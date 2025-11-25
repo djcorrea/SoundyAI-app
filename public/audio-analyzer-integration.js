@@ -2100,7 +2100,7 @@ async function pollJobStatus(jobId) {
                     __dbg('✅ Job concluído com sucesso');
                     
                     // 🎯 NOVO: Verificar modo e decidir fluxo
-                    const jobResult = jobData.result || jobData;
+                    const jobResult = jobData.result || jobData.results || jobData;
                     jobResult.jobId = jobId; // Incluir jobId no resultado
                     jobResult.mode = jobData.mode; // Incluir mode no resultado
                     

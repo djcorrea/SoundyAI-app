@@ -287,7 +287,7 @@ async function processJob(job) {
 
       // Salvar resultado comparativo
       const finalUpdateResult = await client.query(
-        `UPDATE jobs SET results = $1, status = 'done', updated_at = NOW() WHERE id = $2`,
+        `UPDATE jobs SET result = $1, results = $1, status = 'done', updated_at = NOW() WHERE id = $2`,
         [JSON.stringify(comparison), job.id]
       );
 
@@ -321,7 +321,7 @@ async function processJob(job) {
 
     // 🔥 ATUALIZAR STATUS FINAL + VERIFICAR SE FUNCIONOU
     const finalUpdateResult = await client.query(
-      "UPDATE jobs SET status = $1, results = $2::json, completed_at = NOW(), updated_at = NOW() WHERE id = $3",
+      "UPDATE jobs SET status = $1, result = $2::jsonb, results = $2::jsonb, completed_at = NOW(), updated_at = NOW() WHERE id = $3",
       ["done", JSON.stringify(result), job.id]
     );
 
