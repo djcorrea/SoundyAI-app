@@ -9,9 +9,8 @@ router.get("/:id", async (req, res) => {
   const { id } = req.params;
 
   try {
-    // 🔧 CORREÇÃO CRÍTICA: Selecionar apenas 'result' (singular) da tabela
     const { rows } = await pool.query(
-      `SELECT id, file_key, mode, status, error, result,
+      `SELECT id, file_key, mode, status, error, results, result,
               created_at, updated_at, completed_at
          FROM jobs
         WHERE id = $1
@@ -34,8 +33,7 @@ router.get("/:id", async (req, res) => {
     // Evita enviar aiSuggestions: [] antes do enriquecimento terminar
     if (normalizedStatus === "processing") {
       const elapsed = Date.now() - new Date(job.created_at).getTime();
-      // 🔧 CORREÇÃO CRÍTICA: Usar apenas 'result' (singular)
-      const resultData = job.result;
+      const resultData = job.results || job.result;
       let hasAISuggestions = false;
       
       try {
@@ -57,19 +55,17 @@ router.get("/:id", async (req, res) => {
     }
 
     // 🎯 CORREÇÃO CRÍTICA: Retornar JSON completo da análise
-    // 🔧 USAR APENAS 'result' (singular)
+    // 🔄 COMPATIBILIDADE: Tentar tanto 'results' (novo) quanto 'result' (antigo)
     let fullResult = null;
     
-    const resultData = job.result;
+    const resultData = job.results || job.result;
     if (resultData) {
       try {
         // Parse do JSON salvo pelo worker
         fullResult = typeof resultData === 'string' ? JSON.parse(resultData) : resultData;
         console.log("[REDIS-RETURN] 🔍 Job result merged with full analysis JSON");
         console.log(`[REDIS-RETURN] Analysis contains: ${Object.keys(fullResult).join(', ')}`);
-        console.log(`[RESULT FIX] job.result keys:`, Object.keys(fullResult || {}).slice(0, 15));
-        console.log(`[RESULT FIX] aiSuggestions present:`, Array.isArray(fullResult?.aiSuggestions));
-        console.log(`[RESULT FIX] aiSuggestions length:`, fullResult?.aiSuggestions?.length || 0);
+        console.log(`[REDIS-RETURN] Data source: ${job.results ? 'results (new)' : 'result (legacy)'}`);
       } catch (parseError) {
         console.error("[REDIS-RETURN] ❌ Erro ao fazer parse do results JSON:", parseError);
         fullResult = resultData;
@@ -105,9 +101,8 @@ router.get("/:id", async (req, res) => {
       console.log('[AI-MERGE][AUDIT] ⚠️ aiSuggestions ausente no Redis, tentando recuperar do Postgres...');
 
       try {
-        // 🔧 CORREÇÃO CRÍTICA: SELECT apenas 'result' (singular)
         const { rows: pgRows } = await pool.query(
-          `SELECT result, status
+          `SELECT results, result, status
            FROM jobs
            WHERE id = $1
            LIMIT 1`,
@@ -118,11 +113,8 @@ router.get("/:id", async (req, res) => {
           const dbJob = pgRows[0];
           let dbFullResult = null;
 
-          // 🔧 CORREÇÃO CRÍTICA: Usar apenas dbJob.result
-          const dbResultData = dbJob.result;
-          
-          // 🔍 LOG DE VALIDAÇÃO
-          console.log(`[RESULT FIX] dbJob.result keys:`, Object.keys(dbResultData || {}).slice(0, 15));
+          // Parse do resultado do Postgres
+          const dbResultData = dbJob.results || dbJob.result;
           if (dbResultData) {
             try {
               dbFullResult = typeof dbResultData === 'string' ? JSON.parse(dbResultData) : dbResultData;

@@ -548,14 +548,8 @@ async function updateJobStatus(jobId, status, results = null) {
       }
       console.log(`[AI-AUDIT][SAVE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       
-      // 🔧 CORREÇÃO CRÍTICA: Usar 'result' (singular) ao invés de 'results' (plural)
-      query = `UPDATE jobs SET status = $1, result = $2::jsonb, updated_at = NOW() WHERE id = $3 RETURNING *`;
+      query = `UPDATE jobs SET status = $1, results = $2, updated_at = NOW() WHERE id = $3 RETURNING *`;
       params = [status, JSON.stringify(results), jobId];
-      
-      // 🔍 LOG DE VALIDAÇÃO: Confirmar que aiSuggestions está sendo salvo
-      console.log(`[RESULT FIX] Salvando no campo 'result' (singular)`);
-      console.log(`[RESULT FIX] aiSuggestions count: ${results.aiSuggestions?.length || 0}`);
-      console.log(`[RESULT FIX] suggestions count: ${results.suggestions?.length || 0}`);
     } else {
       query = `UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`;
       params = [status, jobId];
@@ -566,13 +560,9 @@ async function updateJobStatus(jobId, status, results = null) {
     
     // ✅ LOGS DE AUDITORIA PÓS-SALVAMENTO
     if (results && result.rows[0]) {
-      // 🔧 CORREÇÃO CRÍTICA: Ler de 'result' (singular) ao invés de 'results' (plural)
-      const savedResults = typeof result.rows[0].result === 'string' 
-        ? JSON.parse(result.rows[0].result) 
-        : result.rows[0].result;
-      
-      // 🔍 LOG DE VALIDAÇÃO: Verificar estrutura salva
-      console.log(`[RESULT FIX] job.result keys:`, Object.keys(savedResults || {}).slice(0, 15));
+      const savedResults = typeof result.rows[0].results === 'string' 
+        ? JSON.parse(result.rows[0].results) 
+        : result.rows[0].results;
       
       console.log(`[AI-AUDIT][SAVE.after] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       console.log(`[AI-AUDIT][SAVE.after] ✅ JOB SALVO NO POSTGRES`);
@@ -763,8 +753,7 @@ async function audioProcessor(job) {
       
       try {
         const refResult = await pool.query(
-          // 🔧 CORREÇÃO CRÍTICA: SELECT result (singular) ao invés de results (plural)
-          `SELECT id, status, result FROM jobs WHERE id = $1`,
+          `SELECT id, status, results FROM jobs WHERE id = $1`,
           [referenceJobId]
         );
         
@@ -779,20 +768,17 @@ async function audioProcessor(job) {
           const refJob = refResult.rows[0];
           console.log(`🔍 [AUDIT_REFERENCE] Job de referência encontrado!`);
           console.log(`🔍 [AUDIT_REFERENCE] Status do job ref: ${refJob.status}`);
-          // 🔧 CORREÇÃO CRÍTICA: Usar refJob.result (singular) ao invés de refJob.results (plural)
-          console.log(`🔍 [AUDIT_REFERENCE] Tem resultados: ${refJob.result ? 'SIM' : 'NÃO'}`);
-          console.log(`[RESULT FIX] refJob.result keys:`, Object.keys(refJob.result || {}).slice(0, 10));
+          console.log(`🔍 [AUDIT_REFERENCE] Tem resultados: ${refJob.results ? 'SIM' : 'NÃO'}`);
           
           if (refJob.status !== 'completed') {
             console.warn(`⚠️ [AUDIT_REFERENCE] ALERTA: Job ref com status '${refJob.status}' (esperado: 'completed')`);
             console.warn(`⚠️ [AUDIT_REFERENCE] Job pode estar: pending, processing, ou failed`);
             console.warn(`⚠️ [AUDIT_REFERENCE] Análise prosseguirá sem comparação`);
-          } else if (!refJob.result) {
+          } else if (!refJob.results) {
             console.warn(`⚠️ [AUDIT_REFERENCE] ALERTA: Job ref completed mas sem resultados!`);
             console.warn(`⚠️ [AUDIT_REFERENCE] Análise prosseguirá sem comparação`);
           } else {
-            // 🔧 CORREÇÃO CRÍTICA: Usar refJob.result (singular)
-            preloadedReferenceMetrics = refJob.result;
+            preloadedReferenceMetrics = refJob.results;
             console.log('✅ [AUDIT_REFERENCE] ═══════════════════════════════════════');
             console.log('✅ [AUDIT_REFERENCE] Métricas de referência CARREGADAS com sucesso!');
             console.log(`✅ [AUDIT_REFERENCE] Score ref: ${preloadedReferenceMetrics.score || 'N/A'}`);
