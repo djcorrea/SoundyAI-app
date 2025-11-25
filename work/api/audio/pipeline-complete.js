@@ -332,18 +332,12 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         console.log('[AI-AUDIT][REF] 🔍 mode inicial:', mode);
         
         try {
-          // 🔧 CORREÇÃO CRÍTICA: SELECT result (singular) ao invés de results (plural)
-          const refJob = await pool.query("SELECT result FROM jobs WHERE id = $1", [options.referenceJobId]);
+          const refJob = await pool.query("SELECT results FROM jobs WHERE id = $1", [options.referenceJobId]);
           
           if (refJob.rows.length > 0) {
-            // 🔧 CORREÇÃO CRÍTICA: Ler de result (singular)
-            const refData = typeof refJob.rows[0].result === "string"
-              ? JSON.parse(refJob.rows[0].result)
-              : refJob.rows[0].result;
-            
-            // 🔍 LOG DE VALIDAÇÃO: Confirmar estrutura da referência
-            console.log("[RESULT FIX] refData keys:", Object.keys(refData || {}).slice(0, 15));
-            console.log("[RESULT FIX] refData aiSuggestions length:", refData?.aiSuggestions?.length || 0);
+            const refData = typeof refJob.rows[0].results === "string"
+              ? JSON.parse(refJob.rows[0].results)
+              : refJob.rows[0].results;
             
             console.log("[REFERENCE-MODE] Análise de referência encontrada:", {
               jobId: options.referenceJobId,

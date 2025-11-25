@@ -248,8 +248,7 @@ async function updateJobStatus(jobId, status, results = null) {
     let params;
 
     if (results) {
-      // 🔧 CORREÇÃO CRÍTICA: Usar 'result' (singular) ao invés de 'results' (plural)
-      query = `UPDATE jobs SET status = $1, result = $2::jsonb, updated_at = NOW() WHERE id = $3 RETURNING *`;
+      query = `UPDATE jobs SET status = $1, results = $2, updated_at = NOW() WHERE id = $3 RETURNING *`;
       params = [status, JSON.stringify(results), jobId];
     } else {
       query = `UPDATE jobs SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`;
