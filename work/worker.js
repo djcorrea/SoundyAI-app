@@ -269,6 +269,24 @@ async function processJob(job) {
     // Update health before intensive processing
     updateWorkerHealth();
 
+    // ✅ PASSO 1: GARANTIR QUE O GÊNERO CHEGA NO PIPELINE
+    const options = {
+      jobId: job.id,
+      reference: job?.reference || null,
+      mode: job.mode || 'genre',
+      genre: job.data?.genre || job.genre || 'default',
+      referenceJobId: job.reference_job_id || null,
+      isReferenceBase: job.is_reference_base || false
+    };
+    
+    console.log('[GENRE-FLOW] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[GENRE-FLOW] 📊 Parâmetros recebidos no worker:');
+    console.log('[GENRE-FLOW] genre recebido no worker:', options.genre);
+    console.log('[GENRE-FLOW] mode recebido no worker:', options.mode);
+    console.log('[GENRE-FLOW] referenceJobId:', options.referenceJobId);
+    console.log('[GENRE-FLOW] isReferenceBase:', options.isReferenceBase);
+    console.log('[GENRE-FLOW] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
     // ✅ DETECÇÃO DO MODO COMPARISON
     if (job.mode === "comparison") {
       console.log("🎧 [Worker] Iniciando análise comparativa entre faixas...");
@@ -319,7 +337,7 @@ async function processJob(job) {
     }
 
     // Fluxo normal para jobs de análise única
-    const analysisResult = await analyzeAudioWithPipeline(localFilePath, job);
+    const analysisResult = await analyzeAudioWithPipeline(localFilePath, options);
 
     const result = {
       ok: true,

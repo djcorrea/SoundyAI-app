@@ -77,6 +77,14 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
   console.log(`🚀 [${jobId.substring(0,8)}] Iniciando pipeline completo para: ${fileName}`);
   console.log(`📊 [${jobId.substring(0,8)}] Buffer size: ${audioBuffer.length} bytes`);
   console.log(`🔧 [${jobId.substring(0,8)}] Opções:`, options);
+  
+  // PASSO 2: GARANTIR QUE O MODO NÃO VAZA PARA REFERÊNCIA
+  console.log('[MODE-FLOW] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('[MODE-FLOW] MODO DETECTADO:', options.mode || 'genre');
+  console.log('[MODE-FLOW] GENRE DETECTADO:', options.genre || 'default');
+  console.log('[MODE-FLOW] referenceJobId:', options.referenceJobId || 'null');
+  console.log('[MODE-FLOW] isReferenceBase:', options.isReferenceBase || false);
+  console.log('[MODE-FLOW] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
   let audioData, segmentedData, coreMetrics, finalJSON;
   const timings = {};
@@ -225,6 +233,13 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       const detectedGenre = options.genre || 'default';
       let customTargets = null;
       
+      console.log('[SUGGESTIONS_V1] 📊 Contexto:', {
+        mode,
+        detectedGenre,
+        hasCoreMetrics: !!coreMetrics,
+        coreMetricsKeys: Object.keys(coreMetrics || {})
+      });
+      
       if (mode !== 'reference' && detectedGenre && detectedGenre !== 'default') {
         customTargets = loadGenreTargets(detectedGenre);
         if (customTargets) {
@@ -234,6 +249,12 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         }
       } else if (mode === 'reference') {
         console.log(`[SUGGESTIONS_V1] 🔒 Modo referência - ignorando targets de gênero`);
+      }
+      
+      // PASSO 4: GARANTIR QUE analyzeProblemsAndSuggestionsV2 É CHAMADO APÓS coreMetrics
+      console.log('[SUGGESTIONS_V1] 🔍 Validando coreMetrics antes de gerar sugestões...');
+      if (!coreMetrics || typeof coreMetrics !== 'object') {
+        throw new Error('coreMetrics inválido ou ausente');
       }
       
       const problemsAndSuggestions = analyzeProblemsAndSuggestionsV2(coreMetrics, detectedGenre, customTargets);
@@ -256,9 +277,14 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       finalJSON.summary = problemsAndSuggestions.summary || {};
       finalJSON.suggestionMetadata = problemsAndSuggestions.metadata || {};
       
+      // PASSO 5: LOGS PARA VALIDAÇÃO
+      console.log('[SUGGESTIONS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[SUGGESTIONS] V1 count:', problemsAndSuggestions.suggestions?.length || 0);
+      console.log('[SUGGESTIONS] V1 sample:', problemsAndSuggestions.suggestions?.[0]);
       console.log(`[SUGGESTIONS_V1] ✅ ${finalJSON.suggestions.length} sugestões base geradas`);
       console.log(`[SUGGESTIONS_V1] 📊 Problems: ${finalJSON.problemsAnalysis.problems?.length || 0}`);
       console.log(`[SUGGESTIONS_V1] 📊 Priority: ${finalJSON.problemsAnalysis.priorityRecommendations?.length || 0}`);
+      console.log('[SUGGESTIONS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
       // ✅ VALIDAÇÃO CRÍTICA: Garantir que sugestões foram geradas
       if (!Array.isArray(finalJSON.suggestions) || finalJSON.suggestions.length === 0) {
@@ -336,6 +362,11 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       }
       
       // 🔧 REINTEGRAÇÃO DO MOTOR V2
+      console.log('[V2-SYSTEM] 🔍 Validando coreMetrics antes de gerar V2...');
+      if (!coreMetrics || typeof coreMetrics !== 'object') {
+        throw new Error('coreMetrics inválido para Motor V2');
+      }
+      
       const v2 = analyzeProblemsAndSuggestionsV2(coreMetrics, detectedGenreV2, customTargetsV2);
       
       const v2Suggestions = v2.suggestions || [];
@@ -343,12 +374,17 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       const v2Summary = v2.summary || {};
       const v2Metadata = v2.metadata || {};
       
+      // PASSO 5: LOGS PARA VALIDAÇÃO DO MOTOR V2
+      console.log('[SUGGESTIONS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[SUGGESTIONS] V2 count:', v2Suggestions.length);
+      console.log('[SUGGESTIONS] V2 sample:', v2Suggestions[0]);
       console.log('[V2-SYSTEM] 📊 Dados do V2:', {
         suggestions: v2Suggestions.length,
         problems: v2Problems.length,
         hasMetadata: !!Object.keys(v2Metadata).length,
         hasSummary: !!Object.keys(v2Summary).length
       });
+      console.log('[SUGGESTIONS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
       // 🛡️ GUARDIÃO: Primeira música da referência NÃO gera sugestões absolutas
       if (mode === 'genre' && isReferenceBase === true) {
@@ -357,6 +393,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       } else if (mode === 'genre' && isReferenceBase !== true) {
         // ✅ MODO GÊNERO: Aplicar Motor V2 ao JSON final
         console.log('[SUGGESTIONS_V2] ✔ Aplicando Motor V2 ao JSON final');
+        const v1Count = finalJSON.suggestions?.length || 0;
         finalJSON.suggestions = [
           ...(finalJSON.suggestions || []),
           ...v2Suggestions
@@ -366,6 +403,12 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         finalJSON.summary = v2Summary;
         finalJSON.suggestionMetadata = v2Metadata;
         
+        // PASSO 5: LOGS PARA VALIDAÇÃO FINAL
+        console.log('[SUGGESTIONS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('[SUGGESTIONS] V1 original count:', v1Count);
+        console.log('[SUGGESTIONS] V2 adicionado count:', v2Suggestions.length);
+        console.log('[SUGGESTIONS] Final count:', finalJSON.suggestions.length);
+        console.log('[SUGGESTIONS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         console.log(`[V2-SYSTEM] ✅ V2 integrado: ${v2Suggestions.length} sugestões adicionadas`);
         console.log(`[V2-SYSTEM] 📊 Total suggestions: ${finalJSON.suggestions.length}`);
       } else {
