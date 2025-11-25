@@ -5,6 +5,7 @@ import decodeAudioFile from "./audio-decoder.js";              // Fase 5.1
 import { segmentAudioTemporal } from "./temporal-segmentation.js"; // Fase 5.2  
 import { calculateCoreMetrics } from "./core-metrics.js";      // Fase 5.3
 import { generateJSONOutput } from "./json-output.js";         // Fase 5.4
+import { analyzeProblemsAndSuggestionsV2 } from "../../lib/audio/features/problems-suggestions-v2.js"; // Fase 5.4.1
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -214,6 +215,52 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       throw makeErr('output_scoring', `JSON output failed: ${error.message}`, 'output_scoring_error');
     }
 
+    // ========= FASE 5.4.1: SUGESTÕES BASE (V1) =========
+    try {
+      console.log(`[SUGGESTIONS_V1] ⚡ Gerando sugestões base (V1)...`);
+      
+      const problemsAndSuggestions = analyzeProblemsAndSuggestionsV2(coreMetrics, options.genre || 'default');
+      
+      // Preencher estrutura completa do finalJSON com sugestões base
+      finalJSON.problemsAnalysis = {
+        problems: problemsAndSuggestions.problems || [],
+        suggestions: problemsAndSuggestions.suggestions || [],
+        qualityAssessment: problemsAndSuggestions.qualityAssessment || problemsAndSuggestions.summary || {},
+        priorityRecommendations: problemsAndSuggestions.priorityRecommendations || []
+      };
+      
+      finalJSON.diagnostics = {
+        problems: problemsAndSuggestions.problems || [],
+        suggestions: problemsAndSuggestions.suggestions || [],
+        prioritized: problemsAndSuggestions.priorityRecommendations || []
+      };
+      
+      finalJSON.suggestions = problemsAndSuggestions.suggestions || [];
+      finalJSON.summary = problemsAndSuggestions.summary || {};
+      finalJSON.suggestionMetadata = problemsAndSuggestions.metadata || {};
+      
+      console.log(`[SUGGESTIONS_V1] ✅ ${finalJSON.suggestions.length} sugestões base geradas`);
+      console.log(`[SUGGESTIONS_V1] 📊 Problems: ${finalJSON.problemsAnalysis.problems?.length || 0}`);
+      console.log(`[SUGGESTIONS_V1] 📊 Priority: ${finalJSON.problemsAnalysis.priorityRecommendations?.length || 0}`);
+      
+      // ✅ VALIDAÇÃO CRÍTICA: Garantir que sugestões foram geradas
+      if (!Array.isArray(finalJSON.suggestions) || finalJSON.suggestions.length === 0) {
+        console.warn(`[SUGGESTIONS_V1] ⚠️ ALERTA: Nenhuma sugestão base foi gerada!`);
+      }
+      if (!finalJSON.problemsAnalysis?.suggestions || finalJSON.problemsAnalysis.suggestions.length === 0) {
+        console.warn(`[SUGGESTIONS_V1] ⚠️ ALERTA: problemsAnalysis.suggestions está vazio!`);
+      }
+      
+    } catch (suggestionsError) {
+      console.error(`[SUGGESTIONS_V1] ❌ Erro ao gerar sugestões base:`, suggestionsError.message);
+      // Garantir estrutura mínima mesmo em caso de erro
+      finalJSON.suggestions = [];
+      finalJSON.problemsAnalysis = { problems: [], suggestions: [] };
+      finalJSON.diagnostics = { problems: [], suggestions: [], prioritized: [] };
+      finalJSON.summary = {};
+      finalJSON.suggestionMetadata = {};
+    }
+
     // ========= FASE 5.5: GERAÇÃO DE SUGESTÕES =========
     try {
       console.log(`[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
@@ -248,11 +295,13 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
 
       
       // ========= NOVO SISTEMA DE SUGESTÕES V2 =========
-      // O V2 sempre prevalece sobre o sistema legado quando disponível
+      // ⚠️ IMPORTANTE: V1 já gerou suggestions base na fase 5.4.1
+      // V2 aqui serve apenas para complementar ou usar em modos especiais
       
       console.log('[V2-SYSTEM] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('[V2-SYSTEM] 🎯 PRIORIZANDO SUGESTÕES DO V2');
+      console.log('[V2-SYSTEM] 🎯 Verificando sugestões V2 (complementar ao V1)');
       console.log('[V2-SYSTEM] mode:', mode, 'isReferenceBase:', isReferenceBase);
+      console.log('[V2-SYSTEM] V1 já gerou:', finalJSON.suggestions?.length || 0, 'sugestões');
       
       const v2Suggestions = coreMetrics.suggestions || [];
       const v2Problems = coreMetrics.problems || [];
@@ -268,30 +317,16 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       
       // 🛡️ GUARDIÃO: Bloquear APENAS na primeira música da referência
       if (mode === 'genre' && isReferenceBase === true) {
-        console.log('[V2-SYSTEM] 🎧 Primeira música da referência - pulando sugestões');
+        console.log('[V2-SYSTEM] 🎧 Primeira música da referência - limpando sugestões');
         finalJSON.suggestions = [];
         finalJSON.aiSuggestions = [];
         
       } else {
-        // Usar V2 com fallback para sistema legado
-        let finalSuggestions = v2Suggestions;
-        
-        if (!Array.isArray(v2Suggestions) || v2Suggestions.length === 0) {
-          console.warn('[V2-SYSTEM] ⚠️ V2 vazio - usando fallback legado (scoring)');
-          finalSuggestions = generateAdvancedSuggestionsFromScoring(coreMetrics, coreMetrics.scoring, genre, mode) || [];
-          console.log(`[V2-SYSTEM] 📋 Fallback gerou ${finalSuggestions.length} sugestões`);
-        } else {
-          console.log(`[V2-SYSTEM] ✅ Usando ${v2Suggestions.length} sugestões do V2`);
-        }
-        
-        // 💾 SALVAR SUGGESTIONS BASE (sem IA por enquanto)
-        finalJSON.suggestions = finalSuggestions;
+        // ✅ V1 já preencheu suggestions - apenas marcar para enriquecimento IA
+        console.log(`[V2-SYSTEM] ✅ Mantendo ${finalJSON.suggestions?.length || 0} sugestões do V1`);
         finalJSON.aiSuggestions = []; // ⤵️ Será preenchido pelo worker assíncrono
-        finalJSON.suggestionMetadata = v2Metadata;
-        finalJSON.problems = v2Problems;
-        finalJSON.summary = v2Summary;
         
-        console.log(`[V2-SYSTEM] 💾 Suggestions base salvas, IA será processada de forma assíncrona`);
+        console.log(`[V2-SYSTEM] 💾 Suggestions V1 preservadas, IA será processada de forma assíncrona`);
       }
       
       console.log('[V2-SYSTEM] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
