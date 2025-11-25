@@ -87,6 +87,16 @@ router.get("/:id", async (req, res) => {
       ...(fullResult || {})
     };
 
+    // 🔒 GARANTIA: Sobrescrever campos obrigatórios do banco se presentes
+    if (fullResult) {
+      response.suggestions = fullResult.suggestions ?? [];
+      response.aiSuggestions = fullResult.aiSuggestions ?? [];
+      response.problemsAnalysis = fullResult.problemsAnalysis ?? {};
+      response.diagnostics = fullResult.diagnostics ?? {};
+      response.summary = fullResult.summary ?? {};
+      response.suggestionMetadata = fullResult.suggestionMetadata ?? {};
+    }
+
     // --- ETAPA 1: AUDITORIA DO MERGE ---
     console.log('[AI-MERGE][AUDIT] Verificando merge Redis/Postgres para aiSuggestions...');
     console.log('[AI-MERGE][AUDIT] Status atual:', {
@@ -124,24 +134,23 @@ router.get("/:id", async (req, res) => {
           }
 
           if (dbFullResult) {
-            // ✅ Se o Postgres tiver aiSuggestions válidas, substituímos no response final
-            if (Array.isArray(dbFullResult.aiSuggestions) && dbFullResult.aiSuggestions.length > 0) {
-              response.aiSuggestions = dbFullResult.aiSuggestions;
-              console.log(`[AI-MERGE][FIX] ✅ Recuperado ${dbFullResult.aiSuggestions.length} aiSuggestions do Postgres.`);
-              
-              // Log da primeira sugestão para validação
-              if (dbFullResult.aiSuggestions[0]) {
-                console.log('[AI-MERGE][FIX] Sample:', {
-                  problema: dbFullResult.aiSuggestions[0].problema?.substring(0, 50),
-                  aiEnhanced: dbFullResult.aiSuggestions[0].aiEnhanced
-                });
-              }
-            }
-
-            // Se também tiver suggestions base (para fallback)
-            if (Array.isArray(dbFullResult.suggestions) && dbFullResult.suggestions.length > 0 && (!response.suggestions || response.suggestions.length === 0)) {
-              response.suggestions = dbFullResult.suggestions;
-              console.log('[AI-MERGE][FIX] 💡 Substituído suggestions vazio por valor do banco.');
+            // ✅ Sobrescrever campos obrigatórios com valores do Postgres (sempre preferir banco)
+            response.suggestions = dbFullResult.suggestions ?? [];
+            response.aiSuggestions = dbFullResult.aiSuggestions ?? [];
+            response.problemsAnalysis = dbFullResult.problemsAnalysis ?? {};
+            
+            console.log(`[AI-MERGE][FIX] ✅ Campos sincronizados do Postgres:`, {
+              suggestions: response.suggestions.length,
+              aiSuggestions: response.aiSuggestions.length,
+              hasProblemAnalysis: !!response.problemsAnalysis
+            });
+            
+            // Log da primeira sugestão para validação
+            if (response.aiSuggestions.length > 0 && response.aiSuggestions[0]) {
+              console.log('[AI-MERGE][FIX] Sample aiSuggestion:', {
+                problema: response.aiSuggestions[0].problema?.substring(0, 50),
+                aiEnhanced: response.aiSuggestions[0].aiEnhanced
+              });
             }
 
             // Atualiza status para completed se IA foi encontrada

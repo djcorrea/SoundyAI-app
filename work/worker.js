@@ -285,6 +285,16 @@ async function processJob(job) {
       const { compareMetrics } = await import("../api/audio/pipeline-complete.js");
       const comparison = await compareMetrics(userMetrics, refMetrics);
 
+      // 🔒 GARANTIA: Validar campos obrigatórios antes de salvar no banco
+      if (!Array.isArray(comparison.suggestions)) {
+        console.error("[SUGGESTIONS_ERROR] suggestions ausente na comparação - aplicando fallback");
+        comparison.suggestions = [];
+      }
+      if (!Array.isArray(comparison.aiSuggestions)) {
+        console.error("[SUGGESTIONS_ERROR] aiSuggestions ausente na comparação - aplicando fallback");
+        comparison.aiSuggestions = [];
+      }
+
       // Salvar resultado comparativo
       const finalUpdateResult = await client.query(
         `UPDATE jobs SET result = $1, results = $1, status = 'done', updated_at = NOW() WHERE id = $2`,
@@ -318,6 +328,28 @@ async function processJob(job) {
       analyzedAt: new Date().toISOString(),
       ...analysisResult,
     };
+
+    // 🔒 GARANTIA: Validar campos obrigatórios antes de salvar no banco
+    if (!Array.isArray(result.suggestions)) {
+      console.error("[SUGGESTIONS_ERROR] suggestions ausente ou inválido - aplicando fallback");
+      result.suggestions = [];
+    }
+    if (!Array.isArray(result.aiSuggestions)) {
+      console.error("[SUGGESTIONS_ERROR] aiSuggestions ausente ou inválido - aplicando fallback");
+      result.aiSuggestions = [];
+    }
+    if (!result.problemsAnalysis || typeof result.problemsAnalysis !== 'object') {
+      console.error("[SUGGESTIONS_ERROR] problemsAnalysis ausente - aplicando fallback");
+      result.problemsAnalysis = { problems: [], suggestions: [] };
+    }
+
+    console.log("[✅ VALIDATION] Campos validados antes de salvar:", {
+      suggestions: result.suggestions.length,
+      aiSuggestions: result.aiSuggestions.length,
+      hasProblemAnalysis: !!result.problemsAnalysis,
+      hasTechnicalData: !!(result.lufs || result.truePeak),
+      hasScore: result.score !== undefined
+    });
 
     // 🔥 ATUALIZAR STATUS FINAL + VERIFICAR SE FUNCIONOU
     const finalUpdateResult = await client.query(
