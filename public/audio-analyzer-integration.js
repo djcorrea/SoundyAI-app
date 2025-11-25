@@ -473,7 +473,6 @@ function buildComparativeAISuggestions(userAnalysis, refAnalysis) {
  * @returns {Promise<object|null>} - Dados enriquecidos ou null se timeout
  */
 async function waitForAIEnrichment(jobId, timeout = 10000, pollInterval = 1000) {
-    console.log('[AI-SYNC] 🔵 Iniciando polling IA jobId:', jobId, 'timeout:', timeout);
     console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[AI-SYNC] ⏳ Aguardando enriquecimento IA...');
     console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -488,7 +487,6 @@ async function waitForAIEnrichment(jobId, timeout = 10000, pollInterval = 1000) 
         attempt++;
         const elapsed = Date.now() - startTime;
         
-        console.log('[AI-SYNC] 🔍 Tentativa', attempt, '-> aguardando resposta...');
         console.log(`[AI-SYNC] 🔍 Tentativa ${attempt} (${elapsed}ms/${timeout}ms)...`);
         
         try {
@@ -502,7 +500,6 @@ async function waitForAIEnrichment(jobId, timeout = 10000, pollInterval = 1000) 
             
             const data = await response.json();
             
-            console.log('[AI-SYNC] 🔍 Tentativa', attempt, '-> aiSuggestions:', data?.aiSuggestions?.length);
             console.log(`[AI-SYNC] 📦 Resposta recebida (tentativa ${attempt}):`, {
                 hasAiSuggestions: Array.isArray(data.aiSuggestions),
                 aiSuggestionsLength: data.aiSuggestions?.length || 0,
@@ -522,7 +519,6 @@ async function waitForAIEnrichment(jobId, timeout = 10000, pollInterval = 1000) 
                 });
                 
                 if (aiEnhancedCount > 0) {
-                    console.log('[AI-SYNC] 🟢 IA retornou com', data.aiSuggestions.length, 'sugestões.');
                     console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                     console.log('[AI-SYNC] ✅✅✅ ENRIQUECIMENTO IA CONCLUÍDO! ✅✅✅');
                     console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -556,7 +552,6 @@ async function waitForAIEnrichment(jobId, timeout = 10000, pollInterval = 1000) 
     }
     
     // Timeout atingido
-    console.warn('[AI-SYNC] ⛔ TIMEOUT: IA não retornou dentro do tempo limite.');
     console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[AI-SYNC] ⏱️ TIMEOUT ATINGIDO');
     console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
