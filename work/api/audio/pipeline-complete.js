@@ -332,12 +332,12 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         console.log('[AI-AUDIT][REF] 🔍 mode inicial:', mode);
         
         try {
-          const refJob = await pool.query("SELECT results FROM jobs WHERE id = $1", [options.referenceJobId]);
+          const refJob = await pool.query("SELECT COALESCE(result, results) AS result FROM jobs WHERE id = $1", [options.referenceJobId]);
           
           if (refJob.rows.length > 0) {
-            const refData = typeof refJob.rows[0].results === "string"
-              ? JSON.parse(refJob.rows[0].results)
-              : refJob.rows[0].results;
+            const refData = typeof refJob.rows[0].result === "string"
+              ? JSON.parse(refJob.rows[0].result)
+              : refJob.rows[0].result;
             
             console.log("[REFERENCE-MODE] Análise de referência encontrada:", {
               jobId: options.referenceJobId,
