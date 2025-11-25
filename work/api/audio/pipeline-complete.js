@@ -651,6 +651,16 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       hasSuggestionMetadata: !!finalJSON.suggestionMetadata
     });
     
+    // 📊 LOG DE AUDITORIA FINAL: Status completo das sugestões
+    console.log('[AI-AUDIT][SUGGESTIONS_STATUS] 🎯 PIPELINE COMPLETO:', {
+      problems: finalJSON.problemsAnalysis?.problems?.length || finalJSON.problems?.length || 0,
+      baseSuggestions: finalJSON.suggestions?.length || 0,
+      aiSuggestions: finalJSON.aiSuggestions?.length || 0,
+      mode: finalJSON.mode || 'unknown',
+      hasScore: finalJSON.score !== undefined,
+      hasTechnicalData: !!(finalJSON.lufs || finalJSON.truePeak)
+    });
+    
     logAudio('pipeline', 'done', {
       ms: totalTime,
       meta: {

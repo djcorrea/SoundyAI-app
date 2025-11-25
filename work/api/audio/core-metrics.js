@@ -362,6 +362,15 @@ class CoreMetricsProcessor {
       coreMetrics.priorityRecommendations = problemsAnalysis?.priorityRecommendations || [];
       coreMetrics.suggestionMetadata = problemsAnalysis?.metadata || {};
 
+      // 📊 LOG DE AUDITORIA: Confirmar geração de sugestões
+      console.log('[AI-AUDIT][SUGGESTIONS_STATUS] ✅ Sugestões V2 integradas:', {
+        problems: coreMetrics.problems.length,
+        baseSuggestions: coreMetrics.suggestions.length,
+        hasQualityAssessment: !!Object.keys(coreMetrics.qualityAssessment).length,
+        hasPriorityRecommendations: coreMetrics.priorityRecommendations.length,
+        hasMetadata: !!Object.keys(coreMetrics.suggestionMetadata).length
+      });
+
       // ========= VALIDAÇÃO FINAL =========
       try {
         assertFinite(coreMetrics, 'core_metrics');

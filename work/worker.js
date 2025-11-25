@@ -350,6 +350,17 @@ async function processJob(job) {
       hasTechnicalData: !!(result.lufs || result.truePeak),
       hasScore: result.score !== undefined
     });
+    
+    // 📊 LOG DE AUDITORIA FINAL: Antes de persistir no banco
+    console.log('[AI-AUDIT][SUGGESTIONS_STATUS] 💾 WORKER SALVANDO:', {
+      jobId: job.id.substring(0, 8),
+      mode: result.mode,
+      problems: result.problemsAnalysis?.problems?.length || 0,
+      baseSuggestions: result.suggestions.length,
+      aiSuggestions: result.aiSuggestions.length,
+      score: result.score,
+      hasAllFields: !!(result.suggestions && result.aiSuggestions && result.problemsAnalysis)
+    });
 
     // 🔥 ATUALIZAR STATUS FINAL + VERIFICAR SE FUNCIONOU
     const finalUpdateResult = await client.query(
