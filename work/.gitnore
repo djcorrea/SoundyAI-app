@@ -1,0 +1,11 @@
+# bloquear apenas o que realmente é pesado
+node_modules/
+logs/
+temp/
+*.log
+*.txt
+
+# permitir código
+!*.js
+!*.json
+!*.md
