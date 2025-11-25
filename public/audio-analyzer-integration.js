@@ -1,195 +1,158 @@
-// === SOUNDYAI DEBUGGER LITE — DUMP PARTITIONED ===
-
-window._sdLiteBuffer = [];
-window._sdLite_MAX = 2000; // mantém apenas 2000 eventos (leve)
-
-// captura logs sem exagero
-function _sdLite_add(type, args) {
-  try {
-    const msg = args
-      .map(a => typeof a === "object" ? JSON.stringify(a).slice(0, 5000) : String(a))
-      .join(" ");
-
-    window._sdLiteBuffer.push({
-      t: Date.now(),
-      type,
-      msg
-    });
-
-    if (window._sdLiteBuffer.length > window._sdLite_MAX) {
-      window._sdLiteBuffer.shift();
-    }
-  } catch (_) {}
-}
-
-const _oldLog = console.log;
-const _oldWarn = console.warn;
-const _oldError = console.error;
-
-console.log = (...a) => { _sdLite_add("log", a); _oldLog.apply(console, a); };
-console.warn = (...a) => { _sdLite_add("warn", a); _oldWarn.apply(console, a); };
-console.error = (...a) => {
-  _sdLite_add("error", a);
-  _oldError.apply(console, a);
-};
-
-// dump reduzido e segmentado
-window.downloadLiteDump = function () {
-  const json = JSON.stringify(window._sdLiteBuffer, null, 2);
-  const parts = Math.ceil(json.length / 30000);
-  for (let i = 0; i < parts; i++) {
-    const slice = json.slice(i * 30000, (i + 1) * 30000);
-    const blob = new Blob([slice], { type: "application/json" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `soundyai-dump-part${i+1}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }
-};
-
-// === SMART DEBUGGER SOUNDYAI - LEVEL 3 (INTERCEPTAÇÃO CRÍTICA) ===
-
-window.SoundyDebugEvents = [];
-window.SoundyLastDump = null;
-
-// Função para gerar nome único de arquivo
-function _sd_fileName(prefix = "soundyai-debug") {
-  const t = new Date();
-  return `${prefix}-${t.getFullYear()}-${t.getMonth()+1}-${t.getDate()}-${t.getHours()}-${t.getMinutes()}-${t.getSeconds()}.json`;
-}
-
-// Função central de dump
-window._sd_dump = function (reason = "unknown") {
-  try {
-    const dump = {
-      reason,
-      time: Date.now(),
-      events: window.SoundyDebugEvents,
-      lastJobResult: window.__lastJobResult || null,
-      lastSuggestionsRaw: window.__lastSuggestionsRaw || null,
-      lastSuggestionsMerged: window.__lastSuggestionsMerged || null,
-      aiSyncState: window.__aiSyncState || null,
-      jobIds: {
-        current: window.__CURRENT_JOB_ID__ || null,
-        reference: window.__REFERENCE_JOB_ID__ || null,
-      },
-    };
-
-    window.SoundyLastDump = dump;
-
-    const blob = new Blob([JSON.stringify(dump, null, 2)], {
-      type: "application/json",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = _sd_fileName("soundyai-debug");
-    a.click();
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    console.error("[SMARTDEBUG] ❌ Falha ao gerar dump:", err);
-  }
-};
-
-// Função pública
-window.downloadDebugDump = function () {
-  window._sd_dump("manual");
-};
-
-// Captura de logs base
-const _origLog = console.log;
-const _origWarn = console.warn;
-const _origError = console.error;
-
-function _sd_capture(type, args) {
-  try {
-    const msg = args.map(a =>
-      typeof a === "object"
-        ? JSON.stringify(a).slice(0, 15000)
-        : String(a)
-    ).join(" ");
-
-    window.SoundyDebugEvents.push({
-      type,
-      msg,
-      time: Date.now(),
-    });
-
-    // Mantém buffer grande (2500 eventos)
-    if (window.SoundyDebugEvents.length > 2500) {
-      window.SoundyDebugEvents.shift();
-    }
-  } catch (_) {}
-}
-
-console.log = (...args) => {
-  _sd_capture("log", args);
-  _origLog.apply(console, args);
-};
-console.warn = (...args) => {
-  _sd_capture("warn", args);
-  _origWarn.apply(console, args);
-};
-console.error = (...args) => {
-  _sd_capture("error", args);
-  _origError.apply(console, args);
-  
-  // qualquer erro dispara um dump automático
-  window._sd_dump("error");
-};
-
-// === INTERCEPTAÇÃO DAS FUNÇÕES CRÍTICAS ===
-
-// Intercepta AI-SYNC
-window.__captureAISync = (state) => {
-  window.__aiSyncState = state;
-  _sd_capture("ai-sync-state", [state]);
-};
-
-// Intercepta jobIds
-window.__captureJobIds = (cur, ref) => {
-  window.__CURRENT_JOB_ID__ = cur;
-  window.__REFERENCE_JOB_ID__ = ref;
-  _sd_capture("jobids", [{ current: cur, reference: ref }]);
-};
-
-// Intercepta sugestões antes/depois do merge
-window.__captureSuggestions = (raw, merged) => {
-  window.__lastSuggestionsRaw = raw;
-  window.__lastSuggestionsMerged = merged;
-  _sd_capture("suggestions", [{
-    raw: raw ? JSON.stringify(raw).slice(0,12000) : null,
-    merged: merged ? JSON.stringify(merged).slice(0,12000) : null,
-  }]);
-};
-
-// Intercepta job result do backend
-window.__captureJobResult = (job) => {
-  window.__lastJobResult = job;
-  _sd_capture("job-result", [{
-    job: job ? JSON.stringify(job).slice(0,15000) : null
-  }]);
-};
-
-// Intercepta exceções não tratadas
-window.addEventListener("unhandledrejection", (e) => {
-  _sd_capture("promise-error", [e.reason]);
-  window._sd_dump("promise-error");
-});
-
-window.addEventListener("error", (e) => {
-  _sd_capture("window-error", [e.message, e.filename, e.lineno]);
-  window._sd_dump("window-error");
-});
-
-// === FIM DO SMART DEBUGGER ===
-
 // 🎵 AUDIO ANALYZER INTEGRATION - VERSÃO REFATORADA
 // Sistema de análise 100% baseado em processamento no back-end (Railway + Bucket)
 // ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
 // ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
+
+// 🔍 AUDITORIA DE STORAGE - Sistema de detecção de inconsistências
+(function initStorageAudit() {
+    console.group('%c[AUDITORIA-STORAGE] 🧠 Inicializando sistema de auditoria de storage', 'color:#A974FF;font-weight:bold;font-size:14px;');
+    
+    // 1️⃣ Verificar localStorage atual
+    const localRefJobId = localStorage.getItem('referenceJobId');
+    const localRefAnalysis = localStorage.getItem('referenceAnalysis');
+    
+    console.log('%c[AUDITORIA-STORAGE] 📦 localStorage:', 'color:#FFD700;font-weight:bold;');
+    console.log('   referenceJobId:', localRefJobId || '❌ vazio');
+    console.log('   referenceAnalysis:', localRefAnalysis ? `✅ ${localRefAnalysis.length} bytes` : '❌ vazio');
+    
+    // 2️⃣ Verificar sessionStorage atual
+    const sessionRefJobId = sessionStorage.getItem('referenceJobId');
+    const sessionRefAnalysis = sessionStorage.getItem('referenceAnalysis');
+    const sessionCurrentJobId = sessionStorage.getItem('currentJobId');
+    
+    console.log('%c[AUDITORIA-STORAGE] 📦 sessionStorage:', 'color:#FFD700;font-weight:bold;');
+    console.log('   referenceJobId:', sessionRefJobId || '❌ vazio');
+    console.log('   referenceAnalysis:', sessionRefAnalysis ? `✅ ${sessionRefAnalysis.length} bytes` : '❌ vazio');
+    console.log('   currentJobId:', sessionCurrentJobId || '❌ vazio');
+    
+    // 3️⃣ Verificar variáveis globais
+    console.log('%c[AUDITORIA-STORAGE] 🌐 Variáveis globais:', 'color:#FFD700;font-weight:bold;');
+    console.log('   window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__ || '❌ undefined');
+    console.log('   window.__CURRENT_JOB_ID__:', window.__CURRENT_JOB_ID__ || '❌ undefined');
+    
+    // 4️⃣ Detectar inconsistências
+    console.log('%c[AUDITORIA-STORAGE] 🔍 Análise de consistência:', 'color:#A974FF;font-weight:bold;');
+    
+    if (localRefJobId && !sessionRefJobId) {
+        console.log('%c   ⚠️ PROBLEMA: referenceJobId apenas em localStorage', 'color:#FF5555;font-weight:bold;');
+        console.log('   ⚠️ Risco: Compartilhamento entre abas (localStorage é global)');
+        console.log('   ✅ Solução: Migrar para sessionStorage (isolamento por aba)');
+    }
+    
+    if (localRefJobId && sessionRefJobId && localRefJobId !== sessionRefJobId) {
+        console.log('%c   ❌ INCONSISTÊNCIA CRÍTICA: JobIds diferentes!', 'color:#FF5555;font-weight:bold;');
+        console.log('   localStorage.referenceJobId:', localRefJobId);
+        console.log('   sessionStorage.referenceJobId:', sessionRefJobId);
+    }
+    
+    if (!localRefJobId && !sessionRefJobId && !window.__REFERENCE_JOB_ID__) {
+        console.log('%c   ✅ Estado limpo - sem referência ativa', 'color:#00FF88;');
+    }
+    
+    if (localRefJobId || sessionRefJobId || window.__REFERENCE_JOB_ID__) {
+        console.log('%c   📊 Referência ativa detectada:', 'color:#00C9FF;');
+        console.log('   Prioridade: sessionStorage > window > localStorage');
+    }
+    
+    console.groupEnd();
+    
+    // 5️⃣ Criar utilitário global de storage com fallback
+    window.StorageManager = {
+        // Salvar referenceJobId
+        setReferenceJobId(jobId) {
+            console.log('%c[STORAGE-MANAGER] 💾 Salvando referenceJobId:', 'color:#00FF88;font-weight:bold;', jobId);
+            try {
+                sessionStorage.setItem('referenceJobId', jobId);
+                console.log('   ✅ Salvo em sessionStorage (isolado por aba)');
+            } catch (e) {
+                console.warn('   ⚠️ Falha no sessionStorage, usando localStorage como fallback:', e.message);
+                localStorage.setItem('referenceJobId', jobId);
+            }
+        },
+        
+        // Ler referenceJobId (prioridade: sessionStorage > window > localStorage)
+        getReferenceJobId() {
+            const sessionId = sessionStorage.getItem('referenceJobId');
+            const windowId = window.__REFERENCE_JOB_ID__;
+            const localId = localStorage.getItem('referenceJobId');
+            
+            const result = sessionId || windowId || localId;
+            
+            console.log('%c[STORAGE-MANAGER] 📖 Lendo referenceJobId:', 'color:#FFD700;', result || '❌ não encontrado');
+            console.log('   sessionStorage:', sessionId || '❌');
+            console.log('   window.__REFERENCE_JOB_ID__:', windowId || '❌');
+            console.log('   localStorage:', localId || '❌');
+            
+            return result;
+        },
+        
+        // Salvar referenceAnalysis
+        setReferenceAnalysis(analysis) {
+            const json = JSON.stringify(analysis);
+            console.log('%c[STORAGE-MANAGER] 💾 Salvando referenceAnalysis:', 'color:#00FF88;font-weight:bold;', `${json.length} bytes`);
+            try {
+                sessionStorage.setItem('referenceAnalysis', json);
+                console.log('   ✅ Salvo em sessionStorage');
+            } catch (e) {
+                console.warn('   ⚠️ Falha no sessionStorage (quota?), usando localStorage:', e.message);
+                try {
+                    localStorage.setItem('referenceAnalysis', json);
+                } catch (e2) {
+                    console.error('   ❌ Falha em ambos storages:', e2.message);
+                }
+            }
+        },
+        
+        // Ler referenceAnalysis
+        getReferenceAnalysis() {
+            const sessionData = sessionStorage.getItem('referenceAnalysis');
+            const localData = localStorage.getItem('referenceAnalysis');
+            
+            const result = sessionData || localData;
+            
+            if (result) {
+                try {
+                    const parsed = JSON.parse(result);
+                    console.log('%c[STORAGE-MANAGER] 📖 referenceAnalysis recuperado:', 'color:#FFD700;', 
+                        `${result.length} bytes`, 
+                        sessionData ? '(sessionStorage)' : '(localStorage fallback)');
+                    return parsed;
+                } catch (e) {
+                    console.error('%c[STORAGE-MANAGER] ❌ Erro ao parsear referenceAnalysis:', 'color:#FF5555;', e.message);
+                    return null;
+                }
+            }
+            
+            console.log('%c[STORAGE-MANAGER] 📖 referenceAnalysis:', 'color:#FFD700;', '❌ não encontrado');
+            return null;
+        },
+        
+        // Limpar referência
+        clearReference() {
+            console.log('%c[STORAGE-MANAGER] 🗑️ Limpando referência...', 'color:#FF9500;font-weight:bold;');
+            try {
+                sessionStorage.removeItem('referenceJobId');
+                sessionStorage.removeItem('referenceAnalysis');
+                console.log('   ✅ sessionStorage limpo');
+            } catch (e) {
+                console.warn('   ⚠️ Erro ao limpar sessionStorage:', e.message);
+            }
+            
+            try {
+                localStorage.removeItem('referenceJobId');
+                localStorage.removeItem('referenceAnalysis');
+                console.log('   ✅ localStorage limpo');
+            } catch (e) {
+                console.warn('   ⚠️ Erro ao limpar localStorage:', e.message);
+            }
+            
+            delete window.__REFERENCE_JOB_ID__;
+            console.log('   ✅ window.__REFERENCE_JOB_ID__ removido');
+        }
+    };
+    
+    console.log('%c[AUDITORIA-STORAGE] ✅ Sistema de storage auditado e StorageManager criado', 'color:#00FF88;font-weight:bold;');
+})();
 
 // ========================================
 // 🆔 VIRTUAL IDS E ÍNDICE DE PAPÉIS (ANTI-SELF-COMPARE)
@@ -510,6 +473,7 @@ function buildComparativeAISuggestions(userAnalysis, refAnalysis) {
  * @returns {Promise<object|null>} - Dados enriquecidos ou null se timeout
  */
 async function waitForAIEnrichment(jobId, timeout = 10000, pollInterval = 1000) {
+    console.log('[AI-SYNC] 🔵 Iniciando polling IA jobId:', jobId, 'timeout:', timeout);
     console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[AI-SYNC] ⏳ Aguardando enriquecimento IA...');
     console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -524,6 +488,7 @@ async function waitForAIEnrichment(jobId, timeout = 10000, pollInterval = 1000) 
         attempt++;
         const elapsed = Date.now() - startTime;
         
+        console.log('[AI-SYNC] 🔍 Tentativa', attempt, '-> aguardando resposta...');
         console.log(`[AI-SYNC] 🔍 Tentativa ${attempt} (${elapsed}ms/${timeout}ms)...`);
         
         try {
@@ -537,6 +502,7 @@ async function waitForAIEnrichment(jobId, timeout = 10000, pollInterval = 1000) 
             
             const data = await response.json();
             
+            console.log('[AI-SYNC] 🔍 Tentativa', attempt, '-> aiSuggestions:', data?.aiSuggestions?.length);
             console.log(`[AI-SYNC] 📦 Resposta recebida (tentativa ${attempt}):`, {
                 hasAiSuggestions: Array.isArray(data.aiSuggestions),
                 aiSuggestionsLength: data.aiSuggestions?.length || 0,
@@ -556,6 +522,7 @@ async function waitForAIEnrichment(jobId, timeout = 10000, pollInterval = 1000) 
                 });
                 
                 if (aiEnhancedCount > 0) {
+                    console.log('[AI-SYNC] 🟢 IA retornou com', data.aiSuggestions.length, 'sugestões.');
                     console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                     console.log('[AI-SYNC] ✅✅✅ ENRIQUECIMENTO IA CONCLUÍDO! ✅✅✅');
                     console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -589,6 +556,7 @@ async function waitForAIEnrichment(jobId, timeout = 10000, pollInterval = 1000) 
     }
     
     // Timeout atingido
+    console.warn('[AI-SYNC] ⛔ TIMEOUT: IA não retornou dentro do tempo limite.');
     console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[AI-SYNC] ⏱️ TIMEOUT ATINGIDO');
     console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -995,6 +963,7 @@ function ensureReferenceHydrated() {
   // Espera ate o real ser carregado (quando o modulo UI inicializa)
   const observer = new MutationObserver(() => {
     if (window.aiUIController?.__ready) {
+      console.log('[SAFE-BOOT] ✅ aiUIController real detectado, removendo stub.');
       
       // ========================================
       // ✅ AUDITORIA DE COMPATIBILIDADE
@@ -1037,21 +1006,25 @@ function ensureReferenceHydrated() {
   if (typeof window.aiUIController.renderMetricCards !== 'function' && 
       typeof window.renderMetricCards === 'function') {
     window.aiUIController.renderMetricCards = (...args) => window.renderMetricCards(...args);
+    console.log('[ALIAS] ✅ Criado alias: aiUIController.renderMetricCards → renderMetricCards');
   }
   
   if (typeof window.aiUIController.renderScoreSection !== 'function' && 
       typeof window.renderScoreSection === 'function') {
     window.aiUIController.renderScoreSection = (...args) => window.renderScoreSection(...args);
+    console.log('[ALIAS] ✅ Criado alias: aiUIController.renderScoreSection → renderScoreSection');
   }
   
   if (typeof window.aiUIController.renderSuggestions !== 'function' && 
       typeof window.renderSuggestions === 'function') {
     window.aiUIController.renderSuggestions = (...args) => window.renderSuggestions(...args);
+    console.log('[ALIAS] ✅ Criado alias: aiUIController.renderSuggestions → renderSuggestions');
   }
   
   if (typeof window.aiUIController.renderFinalScoreAtTop !== 'function' && 
       typeof window.renderFinalScoreAtTop === 'function') {
     window.aiUIController.renderFinalScoreAtTop = (...args) => window.renderFinalScoreAtTop(...args);
+    console.log('[ALIAS] ✅ Criado alias: aiUIController.renderFinalScoreAtTop → renderFinalScoreAtTop');
   }
 })();
 
