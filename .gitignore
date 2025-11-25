@@ -83,3 +83,17 @@ Thumbs.db
 !public/lib/audio/**
 !public/lib/audio/**/*.js
 !public/refs/**
+
+node_modules/
+backup/
+__testes__/
+auditoria/
+auditoria externa/
+publico/audio/
+*.wav
+*.mp3
+*.ogg
+*.pdf
+*.zip
+*.rar
+uploads/
