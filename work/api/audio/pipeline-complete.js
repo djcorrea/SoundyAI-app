@@ -284,33 +284,14 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
           console.log(`[V2-SYSTEM] ✅ Usando ${v2Suggestions.length} sugestões do V2`);
         }
         
-        // 🤖 ENRIQUECIMENTO IA nas sugestões finais
-        try {
-          console.log('[V2-SYSTEM] 🚀 Enriquecendo sugestões via IA...');
-          const enriched = await enrichSuggestionsWithAI(finalSuggestions, {
-            fileName: metadata.fileName,
-            genre,
-            mode,
-            scoring: coreMetrics.scoring,
-            metrics: coreMetrics,
-            userMetrics: coreMetrics
-          });
-          
-          finalJSON.suggestions = finalSuggestions;
-          finalJSON.aiSuggestions = enriched || [];
-          finalJSON.suggestionMetadata = v2Metadata;
-          finalJSON.problems = v2Problems;
-          finalJSON.summary = v2Summary;
-          
-          console.log(`[V2-SYSTEM] ✅ ${finalJSON.aiSuggestions.length} sugestões enriquecidas pela IA`);
-        } catch (aiError) {
-          console.error('[V2-SYSTEM] ❌ Erro no enrichment:', aiError.message);
-          finalJSON.suggestions = finalSuggestions;
-          finalJSON.aiSuggestions = [];
-          finalJSON.suggestionMetadata = v2Metadata;
-          finalJSON.problems = v2Problems;
-          finalJSON.summary = v2Summary;
-        }
+        // 💾 SALVAR SUGGESTIONS BASE (sem IA por enquanto)
+        finalJSON.suggestions = finalSuggestions;
+        finalJSON.aiSuggestions = []; // ⤵️ Será preenchido pelo worker assíncrono
+        finalJSON.suggestionMetadata = v2Metadata;
+        finalJSON.problems = v2Problems;
+        finalJSON.summary = v2Summary;
+        
+        console.log(`[V2-SYSTEM] 💾 Suggestions base salvas, IA será processada de forma assíncrona`);
       }
       
       console.log('[V2-SYSTEM] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -431,44 +412,12 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
               });
               console.log('[AI-AUDIT][REF] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
               
-              console.log('[AI-AUDIT][ULTRA_DIAG] 📦 Contexto enviado:', {
-                genre,
-                mode,
-                hasUserMetrics: !!coreMetrics,
-                hasReferenceMetrics: true,
-                hasReferenceComparison: !!referenceComparison,
-                referenceFileName: refData.fileName || refData.metadata?.fileName
-              });
+              console.log('[AI-AUDIT][ULTRA_DIAG] 💾 Contexto salvo, IA será processada de forma assíncrona');
               
-              finalJSON.aiSuggestions = await enrichSuggestionsWithAI(finalJSON.suggestions, {
-                genre,
-                mode: mode || 'reference',
-                userMetrics: coreMetrics,
-                referenceMetrics: {
-                  lufs: refData.lufs,
-                  truePeak: refData.truePeak,
-                  dynamics: refData.dynamics,
-                  spectralBands: refData.spectralBands
-                },
-                referenceComparison,
-                referenceFileName: refData.fileName || refData.metadata?.fileName
-              });
-              
-              console.log(`[AI-AUDIT][ULTRA_DIAG] ✅ ${finalJSON.aiSuggestions?.length || 0} sugestões enriquecidas retornadas`);
-              
-              if (finalJSON.aiSuggestions && finalJSON.aiSuggestions.length > 0) {
-                console.log(`[AI-AUDIT][ULTRA_DIAG] 📋 Sample de sugestão enriquecida:`, {
-                  aiEnhanced: finalJSON.aiSuggestions[0]?.aiEnhanced,
-                  categoria: finalJSON.aiSuggestions[0]?.categoria,
-                  nivel: finalJSON.aiSuggestions[0]?.nivel,
-                  hasProblema: !!finalJSON.aiSuggestions[0]?.problema,
-                  hasCausaProvavel: !!finalJSON.aiSuggestions[0]?.causaProvavel,
-                  hasSolucao: !!finalJSON.aiSuggestions[0]?.solucao,
-                  hasPluginRecomendado: !!finalJSON.aiSuggestions[0]?.pluginRecomendado
-                });
-              }
+              // 💾 SALVAR SUGGESTIONS BASE (IA será adicionada de forma assíncrona)
+              finalJSON.aiSuggestions = []; // ⤵️ Será preenchido pelo worker assíncrono
             } catch (aiError) {
-              console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Falha ao executar enrichSuggestionsWithAI:', aiError.message);
+              console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Erro ao processar referência:', aiError.message);
               finalJSON.aiSuggestions = [];
             }
           } else {
@@ -480,13 +429,8 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
             
             // �🔮 ENRIQUECIMENTO IA ULTRA V2 (fallback mode)
             try {
-              console.log('[AI-AUDIT][ULTRA_DIAG] 🚀 Enviando sugestões base para IA (modo fallback)...');
-              finalJSON.aiSuggestions = await enrichSuggestionsWithAI(finalJSON.suggestions, {
-                genre,
-                mode: 'genre',
-                userMetrics: coreMetrics
-              });
-              console.log(`[AI-AUDIT][ULTRA_DIAG] ✅ ${finalJSON.aiSuggestions?.length || 0} sugestões enriquecidas`);
+              console.log('[AI-AUDIT][FALLBACK] Suggestions base prontas, IA sera processada de forma assincrona');
+              finalJSON.aiSuggestions = [];
             } catch (aiError) {
               console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Falha ao executar enrichSuggestionsWithAI:', aiError.message);
               finalJSON.aiSuggestions = [];
@@ -501,19 +445,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
           // 🔍 LOG DE DIAGNÓSTICO: Sugestões avançadas geradas (error fallback)
           console.log(`[AI-AUDIT][ULTRA_DIAG] ✅ Sugestões avançadas detectadas (error fallback): ${finalJSON.suggestions.length} itens`);
           
-          // 🔮 ENRIQUECIMENTO IA ULTRA V2 (error fallback)
-          try {
-            console.log('[AI-AUDIT][ULTRA_DIAG] 🚀 Enviando sugestões base para IA (error fallback)...');
-            finalJSON.aiSuggestions = await enrichSuggestionsWithAI(finalJSON.suggestions, {
-              genre,
-              mode: 'genre',
-              userMetrics: coreMetrics
-            });
-            console.log(`[AI-AUDIT][ULTRA_DIAG] ✅ ${finalJSON.aiSuggestions?.length || 0} sugestões enriquecidas`);
-          } catch (aiError) {
-            console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Falha ao executar enrichSuggestionsWithAI:', aiError.message);
-            finalJSON.aiSuggestions = [];
-          }
+          // 💾 SALVAR SUGGESTIONS BASE (IA será adicionada de forma assíncrona)
+          finalJSON.aiSuggestions = []; // ⤵️ Será preenchido pelo worker assíncrono
+          console.log('[AI-AUDIT][ERROR-FALLBACK] 💾 Suggestions base salvas, IA será processada de forma assíncrona');
         }
       }
       
