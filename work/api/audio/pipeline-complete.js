@@ -580,16 +580,23 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       
     } catch (error) {
       // 🔧 FIX: Remover catch que zerava aiSuggestions silenciosamente
-      // Qualquer erro REAL deve ser propagado, não silenciado
-      console.error(`[AI-AUDIT][GENERATION] ❌ ERRO CRÍTICO ao gerar sugestões:`, error.message);
-      console.error(`[AI-AUDIT][GENERATION] ❌ Stack:`, error.stack);
+      // Qualquer erro REAL deve ser propagado, mas garantir arrays vazios
+      console.error(`[SUGGESTIONS_ERROR] ❌ ERRO CRÍTICO ao gerar sugestões:`, error.message);
+      console.error(`[SUGGESTIONS_ERROR] ❌ Stack:`, error.stack);
       
       // Garantir arrays vazios em caso de erro REAL
-      finalJSON.suggestions = finalJSON.suggestions || [];
-      finalJSON.aiSuggestions = finalJSON.aiSuggestions || [];
+      if (!Array.isArray(finalJSON.suggestions)) {
+        finalJSON.suggestions = [];
+      }
+      if (!Array.isArray(finalJSON.aiSuggestions)) {
+        finalJSON.aiSuggestions = [];
+      }
+      if (!finalJSON.problemsAnalysis || typeof finalJSON.problemsAnalysis !== 'object') {
+        finalJSON.problemsAnalysis = { problems: [], suggestions: [] };
+      }
       
       // 🚨 IMPORTANTE: Não silenciar erro - logar para debug
-      console.error('[AI-AUDIT][GENERATION] ❌ Continuando com arrays vazios mas erro será investigado');
+      console.error('[SUGGESTIONS_ERROR] ❌ Continuando com arrays vazios mas erro será investigado');
     }
 
     // ========= FINALIZAÇÃO =========
@@ -610,8 +617,39 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       throw makeErr('output_scoring', `Final validation failed: ${validationError.message}`, 'final_validation_error');
     }
 
+    // 🔒 GARANTIA FINAL: Validar estrutura obrigatória antes de retornar
+    if (!Array.isArray(finalJSON.suggestions)) {
+      console.error("[SUGGESTIONS_ERROR] suggestions ausente no retorno final - forçando array vazio");
+      finalJSON.suggestions = [];
+    }
+    if (!Array.isArray(finalJSON.aiSuggestions)) {
+      console.error("[SUGGESTIONS_ERROR] aiSuggestions ausente no retorno final - forçando array vazio");
+      finalJSON.aiSuggestions = [];
+    }
+    if (!finalJSON.problemsAnalysis || typeof finalJSON.problemsAnalysis !== 'object') {
+      console.error("[SUGGESTIONS_ERROR] problemsAnalysis ausente no retorno final - forçando objeto padrão");
+      finalJSON.problemsAnalysis = { problems: [], suggestions: [] };
+    }
+    if (!finalJSON.diagnostics || typeof finalJSON.diagnostics !== 'object') {
+      finalJSON.diagnostics = {};
+    }
+    if (!finalJSON.summary || typeof finalJSON.summary !== 'object') {
+      finalJSON.summary = {};
+    }
+    if (!finalJSON.suggestionMetadata || typeof finalJSON.suggestionMetadata !== 'object') {
+      finalJSON.suggestionMetadata = {};
+    }
+
     console.log(`🏁 [${jobId.substring(0,8)}] Pipeline completo finalizado em ${totalTime}ms`);
     console.log(`✅ [${jobId.substring(0,8)}] JSON final pronto para salvar no banco`);
+    console.log(`[✅ FINAL_STRUCTURE] Estrutura validada:`, {
+      suggestions: finalJSON.suggestions.length,
+      aiSuggestions: finalJSON.aiSuggestions.length,
+      hasProblemAnalysis: !!finalJSON.problemsAnalysis,
+      hasDiagnostics: !!finalJSON.diagnostics,
+      hasSummary: !!finalJSON.summary,
+      hasSuggestionMetadata: !!finalJSON.suggestionMetadata
+    });
     
     logAudio('pipeline', 'done', {
       ms: totalTime,
