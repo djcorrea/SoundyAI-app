@@ -16,6 +16,7 @@ import { calculateDominantFrequencies } from "../../lib/audio/features/dominant-
 import { calculateDCOffset } from "../../lib/audio/features/dc-offset.js";
 import { calculateSpectralUniformity } from "../../lib/audio/features/spectral-uniformity.js";
 import { analyzeProblemsAndSuggestionsV2 } from "../../lib/audio/features/problems-suggestions-v2.js";
+import { loadGenreTargets } from "../../lib/audio/utils/genre-targets-loader.js";
 
 // Sistema de tratamento de erros padronizado
 import { makeErr, logAudio, assertFinite, ensureFiniteArray } from '../../lib/audio/error-handling.js';
@@ -337,11 +338,28 @@ class CoreMetricsProcessor {
         try {
           // Detectar gênero a partir das opções ou usar default
           const detectedGenre = options.genre || options.reference?.genre || 'default';
+          const mode = options.mode || 'genre';
           
           console.log("[SUGGESTIONS] Ativas (V2 rodando normalmente).");
-          problemsAnalysis = analyzeProblemsAndSuggestionsV2(coreMetrics, detectedGenre);
+          
+          // 🎯 CARREGAR TARGETS DO FILESYSTEM (APENAS MODO GÊNERO)
+          let customTargets = null;
+          if (mode !== 'reference' && detectedGenre && detectedGenre !== 'default') {
+            customTargets = loadGenreTargets(detectedGenre);
+            if (customTargets) {
+              console.log(`[CORE_METRICS] ✅ Usando targets de ${detectedGenre} do filesystem`);
+            } else {
+              console.log(`[CORE_METRICS] 📋 Usando targets hardcoded para ${detectedGenre}`);
+            }
+          } else if (mode === 'reference') {
+            console.log(`[CORE_METRICS] 🔒 Modo referência - ignorando targets de gênero`);
+          }
+          
+          problemsAnalysis = analyzeProblemsAndSuggestionsV2(coreMetrics, detectedGenre, customTargets);
           logAudio('core_metrics', 'problems_analysis_success', { 
             genre: detectedGenre,
+            mode: mode,
+            usingCustomTargets: !!customTargets,
             totalSuggestions: problemsAnalysis.suggestions.length,
             criticalCount: problemsAnalysis.metadata.criticalCount,
             warningCount: problemsAnalysis.metadata.warningCount
