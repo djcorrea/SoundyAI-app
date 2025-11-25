@@ -268,10 +268,6 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       
       // 🛡️ GUARDIÃO: Bloquear APENAS na primeira música da referência
       if (mode === 'genre' && isReferenceBase === true) {
-        console.warn('[AI-DISPATCH] ⚠️ Worker de IA não será disparado', {
-          reason: 'isReferenceBase === true',
-          mode: mode
-        });
         console.log('[V2-SYSTEM] 🎧 Primeira música da referência - pulando sugestões');
         finalJSON.suggestions = [];
         finalJSON.aiSuggestions = [];
@@ -291,14 +287,6 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         // 🤖 ENRIQUECIMENTO IA nas sugestões finais
         try {
           console.log('[V2-SYSTEM] 🚀 Enriquecendo sugestões via IA...');
-          
-          console.log('[AI-DISPATCH] 🚀 Disparando worker de IA...', {
-            jobId: jobId,
-            mode: mode,
-            suggestionsCount: finalSuggestions?.length,
-            hasApiKey: !!process.env.OPENAI_API_KEY
-          });
-          
           const enriched = await enrichSuggestionsWithAI(finalSuggestions, {
             fileName: metadata.fileName,
             genre,
@@ -314,10 +302,8 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
           finalJSON.problems = v2Problems;
           finalJSON.summary = v2Summary;
           
-          console.log('[AI-DISPATCH] ✅ IA concluiu com', enriched?.length || 0, 'sugestões');
           console.log(`[V2-SYSTEM] ✅ ${finalJSON.aiSuggestions.length} sugestões enriquecidas pela IA`);
         } catch (aiError) {
-          console.error('[AI-DISPATCH] ❌ Erro na IA:', aiError);
           console.error('[V2-SYSTEM] ❌ Erro no enrichment:', aiError.message);
           finalJSON.suggestions = finalSuggestions;
           finalJSON.aiSuggestions = [];
@@ -346,12 +332,18 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         console.log('[AI-AUDIT][REF] 🔍 mode inicial:', mode);
         
         try {
-          const refJob = await pool.query("SELECT results FROM jobs WHERE id = $1", [options.referenceJobId]);
+          // 🔧 CORREÇÃO CRÍTICA: SELECT result (singular) ao invés de results (plural)
+          const refJob = await pool.query("SELECT result FROM jobs WHERE id = $1", [options.referenceJobId]);
           
           if (refJob.rows.length > 0) {
-            const refData = typeof refJob.rows[0].results === "string"
-              ? JSON.parse(refJob.rows[0].results)
-              : refJob.rows[0].results;
+            // 🔧 CORREÇÃO CRÍTICA: Ler de result (singular)
+            const refData = typeof refJob.rows[0].result === "string"
+              ? JSON.parse(refJob.rows[0].result)
+              : refJob.rows[0].result;
+            
+            // 🔍 LOG DE VALIDAÇÃO: Confirmar estrutura da referência
+            console.log("[RESULT FIX] refData keys:", Object.keys(refData || {}).slice(0, 15));
+            console.log("[RESULT FIX] refData aiSuggestions length:", refData?.aiSuggestions?.length || 0);
             
             console.log("[REFERENCE-MODE] Análise de referência encontrada:", {
               jobId: options.referenceJobId,

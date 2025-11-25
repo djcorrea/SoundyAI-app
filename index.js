@@ -357,8 +357,6 @@ async function processJobs() {
     }
 
     // Salvar resultado
-    console.log('[AI-UPDATE] 🔄 Atualizando job', job.id, 'com', result.aiSuggestions?.length || 0, 'sugestões');
-    
     await client.query(
       `UPDATE jobs SET 
        status = 'completed',
@@ -368,11 +366,9 @@ async function processJobs() {
       [JSON.stringify(result), job.id]
     );
 
-    console.log('[AI-UPDATE] 🟢 Postgres atualizado para job:', job.id);
     console.log(`✅ Job ${job.id} concluído`);
     
   } catch (error) {
-    console.error('[AI-UPDATE] 🔴 Falhou ao salvar:', error);
     console.error("❌ Erro processando job:", error);
     
     if (res && res.rows[0]) {

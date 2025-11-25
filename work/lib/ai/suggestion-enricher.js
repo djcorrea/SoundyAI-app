@@ -12,12 +12,6 @@ export async function enrichSuggestionsWithAI(suggestions, context = {}) {
   const mode = context.mode || 'genre';
   const hasReferenceComparison = !!context.referenceComparison;
   
-  console.log('[AI-WORKER] 🟪 Iniciando enrichSuggestionsWithAI', {
-    jobId: context.jobId,
-    suggestionsCount: suggestions?.length,
-    technicalKeys: Object.keys(context || {})
-  });
-  
   // 🔧 CORREÇÃO: Remover whitelist — IA deve rodar em AMBOS os modos (genre + reference)
   console.log('[ENRICHER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('[ENRICHER] 🤖 ENRIQUECIMENTO IA ATIVADO');
@@ -84,7 +78,6 @@ export async function enrichSuggestionsWithAI(suggestions, context = {}) {
     });
     
     // 🤖 Chamar OpenAI API
-    console.log('[AI-WORKER] 🟨 Chamando Anthropic API...');
     console.log('[AI-AUDIT][ULTRA_DIAG] 🌐 Enviando requisição para OpenAI API...');
     console.log('[AI-AUDIT][ULTRA_DIAG] 🔧 Modelo: gpt-4o-mini');
     console.log('[AI-AUDIT][ULTRA_DIAG] 🔧 Temperature: 0.7');
@@ -127,10 +120,6 @@ export async function enrichSuggestionsWithAI(suggestions, context = {}) {
 
     const data = await response.json();
     
-    console.log('[AI-WORKER] 🟩 Anthropic respondeu', {
-      tokensUsed: data.usage,
-      suggestionsGenerated: data.choices?.[0]?.message ? 1 : 0
-    });
     console.log('[AI-AUDIT][ULTRA_DIAG] ✅ Resposta recebida da OpenAI API');
     console.log('[AI-AUDIT][ULTRA_DIAG] 📊 Tokens usados:', {
       prompt: data.usage?.prompt_tokens,
@@ -279,11 +268,9 @@ export async function enrichSuggestionsWithAI(suggestions, context = {}) {
     });
     console.log('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    console.log('[AI-WORKER] 🔵 Finalizando enrich IA jobId:', context.jobId, 'Quantidade:', enrichedSuggestions?.length);
     return enrichedSuggestions;
 
   } catch (error) {
-    console.error('[AI-WORKER] 🟥 ERRO NA ANTHROPIC:', error);
     console.error('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.error('[AI-AUDIT][ULTRA_DIAG] ❌ ERRO NO ENRIQUECIMENTO IA');
     console.error('[AI-AUDIT][ULTRA_DIAG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
