@@ -373,6 +373,29 @@ async function processJob(job) {
     }
 
     console.log(`✅ Job ${job.id} concluído e salvo no banco`);
+    
+    // 🤖 DISPATCH WORKER DE IA ASSÍNCRONO (não bloqueia o retorno)
+    const shouldEnrich = result.mode !== 'genre' || !job.is_reference_base;
+    if (shouldEnrich && Array.isArray(result.suggestions) && result.suggestions.length > 0) {
+      console.log("[AI-DISPATCH] Worker disparado", job.id);
+      console.log("[AI-DISPATCH] Suggestions base:", result.suggestions.length);
+      
+      // Disparar de forma assíncrona (não esperar)
+      setImmediate(async () => {
+        try {
+          await enrichJobWithAI(job.id, result, client);
+        } catch (enrichError) {
+          console.error("[AI-DISPATCH] ❌ Erro no enriquecimento assíncrono:", enrichError.message);
+        }
+      });
+    } else {
+      console.log("[AI-DISPATCH] ⏭️ Pulando enriquecimento IA:", {
+        mode: result.mode,
+        isReferenceBase: job.is_reference_base,
+        hasSuggestions: result.suggestions?.length > 0
+      });
+    }
+    
     updateWorkerHealth(); // Marcar como healthy após sucesso
   } catch (err) {
     console.error("❌ Erro no job:", err);
@@ -505,6 +528,53 @@ async function processJobs() {
 
 setInterval(processJobs, 5000);
 processJobs();
+
+/**
+ * 🤖 ENRIQUECER JOB COM IA DE FORMA ASSÍNCRONA
+ * Chamado após salvar o job base para adicionar aiSuggestions
+ */
+async function enrichJobWithAI(jobId, baseResult, client) {
+  console.log(`[AI-ENRICH] 🔄 Iniciando enriquecimento para job ${jobId}...`);
+  
+  try {
+    // Importar dinamicamente para evitar circular dependency
+    const { enrichSuggestionsWithAI } = await import("../lib/ai/suggestion-enricher.js");
+    
+    // Enriquecer suggestions com IA
+    const enriched = await enrichSuggestionsWithAI(baseResult.suggestions, {
+      fileName: baseResult.metadata?.fileName || 'unknown',
+      genre: baseResult.metadata?.genre || 'default',
+      mode: baseResult.mode,
+      scoring: baseResult.scoring,
+      metrics: baseResult,
+      userMetrics: baseResult
+    });
+    
+    if (!Array.isArray(enriched) || enriched.length === 0) {
+      console.warn(`[AI-ENRICH] ⚠️ Nenhuma sugestão enriquecida gerada para ${jobId}`);
+      return;
+    }
+    
+    console.log(`[AI-ENRICH] ✅ ${enriched.length} sugestões enriquecidas pela IA`);
+    
+    // Atualizar apenas o campo aiSuggestions no banco
+    const updatedResult = {
+      ...baseResult,
+      aiSuggestions: enriched
+    };
+    
+    await client.query(
+      "UPDATE jobs SET result = $1::jsonb, results = $1::jsonb, updated_at = NOW() WHERE id = $2",
+      [JSON.stringify(updatedResult), jobId]
+    );
+    
+    console.log(`[AI-ENRICH] 💾 Job ${jobId} atualizado com aiSuggestions`);
+    
+  } catch (error) {
+    console.error(`[AI-ENRICH] ❌ Erro ao enriquecer job ${jobId}:`, error.message);
+    console.error(`[AI-ENRICH] Stack:`, error.stack);
+  }
+}
 
 // ---------- Servidor Express para Railway ----------
 const app = express();
