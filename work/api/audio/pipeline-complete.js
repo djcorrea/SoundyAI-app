@@ -296,17 +296,20 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       
       // ========= NOVO SISTEMA DE SUGESTÕES V2 =========
       // ⚠️ IMPORTANTE: V1 já gerou suggestions base na fase 5.4.1
-      // V2 aqui serve apenas para complementar ou usar em modos especiais
+      // V2 aqui serve para complementar V1 no modo gênero
       
       console.log('[V2-SYSTEM] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('[V2-SYSTEM] 🎯 Verificando sugestões V2 (complementar ao V1)');
+      console.log('[V2-SYSTEM] 🎯 Executando Motor V2 para complementar V1');
       console.log('[V2-SYSTEM] mode:', mode, 'isReferenceBase:', isReferenceBase);
       console.log('[V2-SYSTEM] V1 já gerou:', finalJSON.suggestions?.length || 0, 'sugestões');
       
-      const v2Suggestions = coreMetrics.suggestions || [];
-      const v2Problems = coreMetrics.problems || [];
-      const v2Metadata = coreMetrics.suggestionMetadata || {};
-      const v2Summary = coreMetrics.qualityAssessment || {};
+      // 🔧 REINTEGRAÇÃO DO MOTOR V2
+      const v2 = analyzeProblemsAndSuggestionsV2(coreMetrics, options.genre || 'default');
+      
+      const v2Suggestions = v2.suggestions || [];
+      const v2Problems = v2.problems || [];
+      const v2Summary = v2.summary || {};
+      const v2Metadata = v2.metadata || {};
       
       console.log('[V2-SYSTEM] 📊 Dados do V2:', {
         suggestions: v2Suggestions.length,
@@ -315,19 +318,31 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         hasSummary: !!Object.keys(v2Summary).length
       });
       
-      // 🛡️ GUARDIÃO: Bloquear APENAS na primeira música da referência
+      // 🛡️ GUARDIÃO: Primeira música da referência NÃO gera sugestões absolutas
       if (mode === 'genre' && isReferenceBase === true) {
-        console.log('[V2-SYSTEM] 🎧 Primeira música da referência - limpando sugestões');
-        finalJSON.suggestions = [];
-        finalJSON.aiSuggestions = [];
+        console.log('[V2-SYSTEM] Primeira música da referência - mantemos json neutro, mas NÃO apagamos sugestões futuras');
+        // Não gera V2 e não gera AI aqui. Apenas deixa como está.
+      } else if (mode === 'genre' && isReferenceBase !== true) {
+        // ✅ MODO GÊNERO: Aplicar Motor V2 ao JSON final
+        console.log('[SUGGESTIONS_V2] ✔ Aplicando Motor V2 ao JSON final');
+        finalJSON.suggestions = [
+          ...(finalJSON.suggestions || []),
+          ...v2Suggestions
+        ];
+        finalJSON.problemsAnalysis.suggestions = finalJSON.suggestions;
+        finalJSON.diagnostics.suggestions = finalJSON.suggestions;
+        finalJSON.summary = v2Summary;
+        finalJSON.suggestionMetadata = v2Metadata;
         
+        console.log(`[V2-SYSTEM] ✅ V2 integrado: ${v2Suggestions.length} sugestões adicionadas`);
+        console.log(`[V2-SYSTEM] 📊 Total suggestions: ${finalJSON.suggestions.length}`);
       } else {
-        // ✅ V1 já preencheu suggestions - apenas marcar para enriquecimento IA
-        console.log(`[V2-SYSTEM] ✅ Mantendo ${finalJSON.suggestions?.length || 0} sugestões do V1`);
-        finalJSON.aiSuggestions = []; // ⤵️ Será preenchido pelo worker assíncrono
-        
-        console.log(`[V2-SYSTEM] 💾 Suggestions V1 preservadas, IA será processada de forma assíncrona`);
+        // Modo reference - ignora V1 e V2 (usa apenas comparação)
+        console.log('[V2-SYSTEM] Modo reference - ignorando V1 e V2');
       }
+      
+      // ✅ Marcar aiSuggestions vazio (será preenchido pelo worker assíncrono)
+      finalJSON.aiSuggestions = [];
       
       console.log('[V2-SYSTEM] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('[V2-SYSTEM] 📊 Resultado final:', {
@@ -337,11 +352,14 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       });
       
       // ✅ MODO REFERENCE: Comparar com análise de referência
-      // 🔒 SEGURANÇA: Só criar referenceComparison quando for REALMENTE modo reference
+      // 🔒 SEGURANÇA: Só criar referenceComparison quando for REALMENTE modo reference E tiver referenceJobId
       if (mode === "reference" && referenceJobId) {
-        console.log("[REFERENCE-MODE] Modo referência detectado - buscando análise de referência...");
+        console.log("[REFERENCE-MODE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+        console.log("[REFERENCE-MODE] 🎯 MODO REFERENCE ATIVADO");
         console.log("[REFERENCE-MODE] ReferenceJobId:", options.referenceJobId);
-        console.log("[REFERENCE-MODE] ✅ Condições validadas: mode='reference' + referenceJobId presente");
+        console.log("[REFERENCE-MODE] ✅ Condições: mode='reference' + referenceJobId presente");
+        console.log("[REFERENCE-MODE] ⚠️ V1 e V2 serão IGNORADOS - apenas comparação A/B");
+        console.log("[REFERENCE-MODE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
         
         // 🔍 AUDITORIA PONTO 1: Confirmação de contexto inicial
         console.log('[AI-AUDIT][REF] 🔍 referenceJobId detectado:', options.referenceJobId);
@@ -597,16 +615,35 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     }
     if (!finalJSON.problemsAnalysis || typeof finalJSON.problemsAnalysis !== 'object') {
       console.error("[SUGGESTIONS_ERROR] problemsAnalysis ausente no retorno final - forçando objeto padrão");
-      finalJSON.problemsAnalysis = { problems: [], suggestions: [] };
+      finalJSON.problemsAnalysis = { 
+        problems: [], 
+        suggestions: finalJSON.suggestions || [],
+        qualityAssessment: {},
+        priorityRecommendations: []
+      };
     }
     if (!finalJSON.diagnostics || typeof finalJSON.diagnostics !== 'object') {
-      finalJSON.diagnostics = {};
+      finalJSON.diagnostics = {
+        problems: [],
+        suggestions: finalJSON.suggestions || [],
+        prioritized: []
+      };
     }
     if (!finalJSON.summary || typeof finalJSON.summary !== 'object') {
       finalJSON.summary = {};
     }
     if (!finalJSON.suggestionMetadata || typeof finalJSON.suggestionMetadata !== 'object') {
       finalJSON.suggestionMetadata = {};
+    }
+    
+    // ✅ GARANTIA EXTRA: Sincronizar suggestions entre campos
+    if (finalJSON.suggestions.length > 0) {
+      if (!finalJSON.problemsAnalysis.suggestions || finalJSON.problemsAnalysis.suggestions.length === 0) {
+        finalJSON.problemsAnalysis.suggestions = finalJSON.suggestions;
+      }
+      if (!finalJSON.diagnostics.suggestions || finalJSON.diagnostics.suggestions.length === 0) {
+        finalJSON.diagnostics.suggestions = finalJSON.suggestions;
+      }
     }
 
     console.log(`🏁 [${jobId.substring(0,8)}] Pipeline completo finalizado em ${totalTime}ms`);
