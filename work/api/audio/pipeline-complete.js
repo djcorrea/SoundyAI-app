@@ -268,6 +268,10 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       
       // 🛡️ GUARDIÃO: Bloquear APENAS na primeira música da referência
       if (mode === 'genre' && isReferenceBase === true) {
+        console.warn('[AI-DISPATCH] ⚠️ Worker de IA não será disparado', {
+          reason: 'isReferenceBase === true',
+          mode: mode
+        });
         console.log('[V2-SYSTEM] 🎧 Primeira música da referência - pulando sugestões');
         finalJSON.suggestions = [];
         finalJSON.aiSuggestions = [];
@@ -287,6 +291,14 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         // 🤖 ENRIQUECIMENTO IA nas sugestões finais
         try {
           console.log('[V2-SYSTEM] 🚀 Enriquecendo sugestões via IA...');
+          
+          console.log('[AI-DISPATCH] 🚀 Disparando worker de IA...', {
+            jobId: jobId,
+            mode: mode,
+            suggestionsCount: finalSuggestions?.length,
+            hasApiKey: !!process.env.OPENAI_API_KEY
+          });
+          
           const enriched = await enrichSuggestionsWithAI(finalSuggestions, {
             fileName: metadata.fileName,
             genre,
@@ -302,8 +314,10 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
           finalJSON.problems = v2Problems;
           finalJSON.summary = v2Summary;
           
+          console.log('[AI-DISPATCH] ✅ IA concluiu com', enriched?.length || 0, 'sugestões');
           console.log(`[V2-SYSTEM] ✅ ${finalJSON.aiSuggestions.length} sugestões enriquecidas pela IA`);
         } catch (aiError) {
+          console.error('[AI-DISPATCH] ❌ Erro na IA:', aiError);
           console.error('[V2-SYSTEM] ❌ Erro no enrichment:', aiError.message);
           finalJSON.suggestions = finalSuggestions;
           finalJSON.aiSuggestions = [];
