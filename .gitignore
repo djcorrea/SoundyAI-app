@@ -7,11 +7,6 @@ node_modules/
 .pnp.*
 .pnp.js
 
-# Lockfiles (MANTER no repo para builds consistentes!)
-# NÃO ignore package-lock.json nem yarn.lock
-#package-lock.json
-#yarn.lock
-
 # ==========================
 # Build e cache
 # ==========================
@@ -20,6 +15,39 @@ dist/
 build/
 .cache/
 .nuxt/
+.temp/
+tmp/
+
+# ==========================
+# Environment
+# ==========================
+.env
+.env.*
+!env.example
+
+# ==========================
+# Logs
+# ==========================
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ==========================
+# Arquivos grandes / binários
+# ==========================
+*.zip
+*.rar
+*.7z
+*.tar
+*.tar.gz
+*.iso
+*.dmg
+*.exe
+*.msi
+*.deb
+*.rpm
 
 # ==========================
 # Áudio pesado
@@ -32,68 +60,34 @@ build/
 *.ogg
 *.wma
 *.aiff
-*.au
-*.ra
 
-# Diretórios de samples
-
-# ==========================
-# Arquivos grandes e binários
-# ==========================
-*.zip
-*.rar
-*.7z
-*.tar.gz
-*.tar
-*.iso
-*.dmg
-*.exe
-*.msi
-*.deb
-*.rpm
+# Diretórios grandes (pesados)
+backup/
+uploads/
+publico/audio/
+__testes__/
+__tests__/
+__testes__/**
+__tests__/**
+documentos/
+auditoria/
+auditoria externa/
+auditoria_externa/
+relatorios/
+temp/
+cache/
 
 # ==========================
-# Logs
-# ==========================
-*.log
-logs/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# ==========================
-# Environment
-# ==========================
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# ==========================
-# IDE / OS
+# IDE / Sistema
 # ==========================
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
 
-# --- PERMITIR libs que precisam ser servidas por URL a partir de /public
+# ==========================
+# Corrêa: PERMITIR libs fixas do front
+# ==========================
 !public/lib/**
 !public/lib/audio/**
-!public/lib/audio/**/*.js
 !public/refs/**
-
-node_modules/
-backup/
-__testes__/
-auditoria/
-auditoria externa/
-publico/audio/
-*.wav
-*.mp3
-*.ogg
-*.pdf
-*.zip
-*.rar
-uploads/
