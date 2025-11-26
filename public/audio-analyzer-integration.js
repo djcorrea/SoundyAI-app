@@ -4058,8 +4058,7 @@ function getActiveGenre(analysis, fallback) {
                  window.__soundyState?.render?.genre ||
                  window.__activeUserGenre ||
                  window.PROD_AI_REF_GENRE ||
-                 fallback ||
-                 'default';  // 🎯 PATCH CIRÚRGICO: Garantir fallback mínimo
+                 fallback;
     
     console.log('[GET-ACTIVE-GENRE] Gênero detectado:', genre, '(fallback:', fallback, ')');
     return genre;
@@ -4119,13 +4118,9 @@ function resetReferenceStateFully(preserveGenre) {
         console.log('   ✅ window.PROD_AI_REF_DATA[' + __savedGenre + ']: restaurado');
         console.log('   ✅ window.__activeRefData: restaurado com targets do gênero');
     } else {
-        // 🎯 PATCH CIRÚRGICO: Só limpar __activeRefData se em modo reference ou sem preserveGenre
-        if (window.currentAnalysisMode === 'reference' || !preserveGenre) {
-            window.__activeRefData = null;
-            console.log('   ✅ window.__activeRefData: null (modo reference ou sem gênero)');
-        } else {
-            console.log('   ⏭️ window.__activeRefData: PRESERVADO (modo gênero com targets)');
-        }
+        // 🎯 CORREÇÃO CRÍTICA: Resetar __activeRefData apenas se não houver gênero preservado
+        window.__activeRefData = null;
+        console.log('   ✅ window.__activeRefData: null');
     }
     
     // 🎯 CORREÇÃO CRÍTICA: Resetar __REFERENCE_JOB_ID__
@@ -4534,21 +4529,15 @@ function renderGenreView(analysis) {
         return;
     }
     
-    // 2️⃣ PATCH CIRÚRGICO: REMOVER reset durante renderização
-    // Reset foi movido para ANTES de carregar targets em handleGenreAnalysisWithResult
-    console.log('[GENRE-VIEW] 1️⃣ Validando gênero (reset removido)...');
+    // 2️⃣ Garantir limpeza completa
+    console.log('[GENRE-VIEW] 1️⃣ Executando limpeza preventiva...');
+    // 🎯 PRESERVAR GÊNERO durante o reset
+    const genreToPreserve = getActiveGenre(analysis, window.PROD_AI_REF_GENRE);
+    resetReferenceStateFully(genreToPreserve);
     
     // 🎯 GARANTIR que analysis.genre está definido
-    const genreToPreserve = getActiveGenre(analysis, window.PROD_AI_REF_GENRE);
     if (genreToPreserve && !analysis.genre) {
         analysis.genre = genreToPreserve;
-    }
-    
-    // 🛡️ GUARD: Abortar se não houver gênero válido
-    if (!analysis.genre && !window.__CURRENT_GENRE && !window.PROD_AI_REF_GENRE) {
-        console.error('[GENRE-VIEW] ❌ Nenhum gênero disponível - abortando renderização');
-        console.groupEnd();
-        return;
     }
     
     // 3️⃣ Configurar ViewMode
@@ -6411,14 +6400,43 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
             normalizedResult.isReferenceBase !== true
         );
         
-        // 🎯 PATCH CIRÚRGICO: REORDENAR FLUXO - Carregar targets ANTES do reset
-        const isGenreModeFromBackend = (
+        if (isGenreModeFromBackend) {
+            console.log('%c[GENRE-BARRIER] 🚧 BARREIRA 3 ATIVADA: Análise de gênero recebida do backend', 'color:#FF6B6B;font-weight:bold;font-size:14px;');
+            console.log('[GENRE-BARRIER] normalizedResult.mode:', normalizedResult.mode);
+            console.log('[GENRE-BARRIER] normalizedResult.isReferenceBase:', normalizedResult.isReferenceBase);
+            
+            // 🔥 EXECUTAR LIMPEZA COMPLETA
+            // 🎯 PRESERVAR GÊNERO durante o reset
+            const genreToPreserve = getActiveGenre(normalizedResult, window.PROD_AI_REF_GENRE);
+            console.log('[GENRE-BARRIER] Gênero a preservar:', genreToPreserve);
+            resetReferenceStateFully(genreToPreserve);
+            
+            // 🎯 GARANTIR que normalizedResult.genre está definido
+            if (genreToPreserve && !normalizedResult.genre) {
+                normalizedResult.genre = genreToPreserve;
+                console.log('[GENRE-BARRIER] normalizedResult.genre restaurado:', genreToPreserve);
+            }
+            
+            // 🔒 CONFIGURAR VIEW MODE
+            setViewMode("genre");
+            
+            // 🔒 FORÇAR MODO GÊNERO
+            window.currentAnalysisMode = 'genre';
+            
+            console.log('%c[GENRE-BARRIER] ✅ BARREIRA 3 CONCLUÍDA: Estado limpo antes de processar análise', 'color:#00FF88;font-weight:bold;');
+        } else if (normalizedResult.mode === 'reference' || normalizedResult.isReferenceBase === true) {
+            // Modo referência: configurar ViewMode
+            console.log('[REFERENCE-MODE] Configurando ViewMode para "reference" (backend retornou mode: "reference")');
+            setViewMode("reference");
+        }
+        
+        // ✅ CORREÇÃO CRÍTICA: Carregar targets de gênero baseado em MODE, não em referenceComparison
+        const isGenreMode = (
             normalizedResult.mode === 'genre' &&
             normalizedResult.isReferenceBase !== true
         );
         
-        // ✅ PASSO 1: CARREGAR TARGETS PRIMEIRO (se modo gênero)
-        if (isGenreModeFromBackend) {
+        if (isGenreMode) {
             console.log('[GENRE-TARGETS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
             console.log('[GENRE-TARGETS] 🎵 MODO GÊNERO PURO DETECTADO');
             console.log('[GENRE-TARGETS] mode:', normalizedResult.mode);
@@ -6552,34 +6570,6 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
             } else {
                 console.warn('[GENRE-TARGETS] ⚠️ GenreId inválido ou "default" - pulando fetch:', genreId);
             }
-            
-            // ✅ PASSO 2: RESET CONTROLADO APÓS CARREGAR TARGETS
-            console.log('%c[GENRE-BARRIER] 🚧 BARREIRA 3 ATIVADA: Análise de gênero recebida do backend', 'color:#FF6B6B;font-weight:bold;font-size:14px;');
-            console.log('[GENRE-BARRIER] normalizedResult.mode:', normalizedResult.mode);
-            console.log('[GENRE-BARRIER] normalizedResult.isReferenceBase:', normalizedResult.isReferenceBase);
-            
-            // 🔥 EXECUTAR LIMPEZA COMPLETA (targets já carregados e protegidos pela CORREÇÃO #1)
-            const genreToPreserve = getActiveGenre(normalizedResult, window.PROD_AI_REF_GENRE);
-            console.log('[GENRE-BARRIER] Gênero a preservar:', genreToPreserve);
-            resetReferenceStateFully(genreToPreserve);
-            
-            // 🎯 GARANTIR que normalizedResult.genre está definido
-            if (genreToPreserve && !normalizedResult.genre) {
-                normalizedResult.genre = genreToPreserve;
-                console.log('[GENRE-BARRIER] normalizedResult.genre restaurado:', genreToPreserve);
-            }
-            
-            // 🔒 CONFIGURAR VIEW MODE
-            setViewMode("genre");
-            
-            // 🔒 FORÇAR MODO GÊNERO
-            window.currentAnalysisMode = 'genre';
-            
-            console.log('%c[GENRE-BARRIER] ✅ BARREIRA 3 CONCLUÍDA: Estado limpo APÓS carregar targets', 'color:#00FF88;font-weight:bold;');
-        } else if (normalizedResult.mode === 'reference' || normalizedResult.isReferenceBase === true) {
-            // Modo referência: configurar ViewMode
-            console.log('[REFERENCE-MODE] Configurando ViewMode para "reference" (backend retornou mode: "reference")');
-            setViewMode("reference");
         } else {
             console.log("[GENRE-TARGETS] ⚠️ Não é modo gênero puro - pulando carregamento de targets");
             console.log("[GENRE-TARGETS] mode:", normalizedResult.mode);
@@ -7099,30 +7089,6 @@ async function handleGenreFileSelection(file) {
         console.log('🧹 [GENRE-MODE] Resetando estado de referência antes de carregar targets...');
         console.log('🧹 [GENRE-MODE] Gênero preservado:', currentGenre);
         resetReferenceStateFully(currentGenre);
-        
-        // 🎯 PATCH CIRÚRGICO: Recarregar targets após reset se em modo gênero
-        const newMode = window.currentAnalysisMode || 'genre';
-        if (newMode === 'genre' && currentGenre && currentGenre !== 'default') {
-            try {
-                console.log('🔄 [PATCH] Recarregando targets após trocar para modo gênero');
-                updateModalProgress(25, `📚 Carregando referências: ${currentGenre}...`);
-                await loadReferenceData(currentGenre);
-                updateModalProgress(30, '📚 Referências ok');
-                
-                // ✅ VALIDAÇÃO: Confirmar que targets foram carregados
-                if (!window.__activeRefData) {
-                    console.error('❌ [GENRE-CRITICAL] Falha ao carregar targets de gênero');
-                } else {
-                    console.log('✅ [GENRE-SUCCESS] Targets recarregados após trocar modo:', {
-                        genre: currentGenre,
-                        hasBands: !!window.__activeRefData.bands,
-                        lufsTarget: window.__activeRefData.lufs_target
-                    });
-                }
-            } catch (e) { 
-                console.error('❌ [GENRE-ERROR] Erro ao recarregar referências de gênero:', e);
-            }
-        }
         
         // Garantir que referências do gênero selecionado estejam carregadas antes da análise
         try {
