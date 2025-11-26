@@ -319,11 +319,34 @@ async function processJob(job) {
       'job.mode': job.mode
     });
     
+    // 🎯 CORREÇÃO CRÍTICA: Extrair genre com validação explícita
+    let extractedGenre = null;
+    if (job.data && typeof job.data === 'object') {
+      extractedGenre = job.data.genre;
+    } else if (typeof job.data === 'string') {
+      try {
+        const parsed = JSON.parse(job.data);
+        extractedGenre = parsed.genre;
+      } catch (e) {
+        console.warn('[TRACE-GENRE][WORKER] ⚠️ Falha ao fazer parse de job.data:', e.message);
+      }
+    }
+
+    // Fallback chain explícito
+    const finalGenre = extractedGenre || job.genre || 'default';
+
+    console.log('[TRACE-GENRE][WORKER-EXTRACTION] 🎵 Genre extraction:', {
+      'job.data (raw)': job.data,
+      'extractedGenre': extractedGenre,
+      'job.genre': job.genre,
+      'finalGenre': finalGenre
+    });
+    
     const options = {
       jobId: job.id,
       reference: job?.reference || null,
       mode: job.mode || 'genre',
-      genre: job.data?.genre || job.genre || 'default',
+      genre: finalGenre,
       referenceJobId: job.reference_job_id || null,
       isReferenceBase: job.is_reference_base || false
     };
@@ -389,10 +412,12 @@ async function processJob(job) {
     // Fluxo normal para jobs de análise única
     const analysisResult = await analyzeAudioWithPipeline(localFilePath, options);
 
+    // ✅ CORREÇÃO CRÍTICA: Garantir que genre SEMPRE está no result final
     const result = {
       ok: true,
       file: job.file_key,
       mode: job.mode,
+      genre: options.genre, // 🎯 Garantir genre no resultado
       analyzedAt: new Date().toISOString(),
       ...analysisResult,
     };
@@ -505,8 +530,9 @@ async function processJob(job) {
     });
 
     // 🔥 ATUALIZAR STATUS FINAL + VERIFICAR SE FUNCIONOU
+    // ✅ CORREÇÃO CRÍTICA: Remover cast ::jsonb (Postgres driver detecta JSON automaticamente)
     const finalUpdateResult = await client.query(
-      "UPDATE jobs SET status = $1, result = $2::jsonb, results = $2::jsonb, completed_at = NOW(), updated_at = NOW() WHERE id = $3",
+      "UPDATE jobs SET status = $1, result = $2, results = $2, completed_at = NOW(), updated_at = NOW() WHERE id = $3",
       ["done", JSON.stringify(result), job.id]
     );
 
