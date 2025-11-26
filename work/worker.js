@@ -72,18 +72,6 @@ try {
   process.exit(1); // encerra só se pipeline não existir
 }
 
-// ---------- Importar enrichment de IA ----------
-let enrichSuggestionsWithAI = null;
-
-try {
-  const imported = await import("./lib/ai/suggestion-enricher.js");
-  enrichSuggestionsWithAI = imported.enrichSuggestionsWithAI;
-  console.log("✅ Enrichment de IA carregado com sucesso!");
-} catch (err) {
-  console.warn("⚠️ Enrichment de IA não disponível:", err.message);
-  // Não é crítico - worker funciona sem IA
-}
-
 // ---------- Conectar ao Postgres ----------
 const { Client } = pkg;
 const client = new Client({
@@ -389,53 +377,7 @@ async function processJob(job) {
       ...analysisResult,
     };
 
-    // ✅ ENRIQUECIMENTO DE IA SÍNCRONO (ANTES de salvar no banco)
-    const shouldEnrich = result.mode !== 'genre' || !job.is_reference_base;
-    if (enrichSuggestionsWithAI && shouldEnrich && Array.isArray(result.suggestions) && result.suggestions.length > 0) {
-      console.log("[AI-ENRICH] 🤖 Iniciando enrichment IA ANTES de salvar job...");
-      console.log("[AI-ENRICH] Suggestions base:", result.suggestions.length);
-      
-      try {
-        // ✅ AGUARDAR o enrichment (SÍNCRONO)
-        const enriched = await enrichSuggestionsWithAI(result.suggestions, {
-          fileName: result.metadata?.fileName || 'unknown',
-          genre: result.metadata?.genre || 'default',
-          mode: result.mode,
-          scoring: result.scoring,
-          metrics: result,
-          userMetrics: result,
-          referenceComparison: result.referenceComparison,
-          referenceFileName: result.referenceFileName
-        });
-        
-        // ✅ Inserir aiSuggestions NO result ANTES de salvar
-        if (Array.isArray(enriched) && enriched.length > 0) {
-          result.aiSuggestions = enriched;
-          result._aiEnhanced = true;
-          console.log(`[AI-ENRICH] ✅ ${enriched.length} sugestões enriquecidas pela IA`);
-        } else {
-          console.warn("[AI-ENRICH] ⚠️ Nenhuma sugestão enriquecida gerada");
-          result.aiSuggestions = [];
-          result._aiEnhanced = false;
-        }
-        
-      } catch (enrichError) {
-        console.error("[AI-ENRICH] ❌ Erro no enrichment:", enrichError.message);
-        result.aiSuggestions = [];
-        result._aiEnhanced = false;
-      }
-    } else {
-      console.log("[AI-ENRICH] ⏭️ Pulando enrichment IA:", {
-        hasEnricher: !!enrichSuggestionsWithAI,
-        mode: result.mode,
-        isReferenceBase: job.is_reference_base,
-        hasSuggestions: result.suggestions?.length > 0
-      });
-      result.aiSuggestions = [];
-      result._aiEnhanced = false;
-    }
-
-    // 🔒 GARANTIA: Validar campos obrigatórios DEPOIS do enrichment
+    // 🔒 GARANTIA: Validar campos obrigatórios antes de salvar no banco
     if (!Array.isArray(result.suggestions)) {
       console.error("[SUGGESTIONS_ERROR] suggestions ausente ou inválido - aplicando fallback");
       result.suggestions = [];
@@ -449,15 +391,58 @@ async function processJob(job) {
       result.problemsAnalysis = { problems: [], suggestions: [] };
     }
 
-    console.log("[✅ VALIDATION] Campos validados DEPOIS do enrichment:", {
+    console.log("[✅ VALIDATION] Campos validados antes de salvar:", {
       suggestions: result.suggestions.length,
       aiSuggestions: result.aiSuggestions.length,
-      _aiEnhanced: result._aiEnhanced,
       hasProblemAnalysis: !!result.problemsAnalysis,
       hasTechnicalData: !!(result.lufs || result.truePeak),
       hasScore: result.score !== undefined
     });
     
+    // 📊 LOG DE AUDITORIA PRÉ-ENRICHMENT
+    console.log('[AI-AUDIT][SUGGESTIONS_STATUS] 📊 ANTES DO ENRICHMENT:', {
+      jobId: job.id.substring(0, 8),
+      mode: result.mode,
+      problems: result.problemsAnalysis?.problems?.length || 0,
+      baseSuggestions: result.suggestions.length,
+      aiSuggestions: result.aiSuggestions.length,
+      score: result.score
+    });
+
+    // 🤖 ENRIQUECER COM IA ANTES DE SALVAR (SÍNCRONO)
+    const shouldEnrich = result.mode !== 'genre' || !job.is_reference_base;
+    if (shouldEnrich && Array.isArray(result.suggestions) && result.suggestions.length > 0) {
+      console.log("[AI-ENRICH] 🤖 Iniciando enrichment IA (SÍNCRONO)...");
+      console.log("[AI-ENRICH] 📊 Suggestions base:", result.suggestions.length);
+      console.log("[AI-ENRICH] 📊 Mode:", result.mode);
+      console.log("[AI-ENRICH] 📊 Genre:", result.metadata?.genre || 'default');
+      
+      try {
+        // ✅ AGUARDAR enriquecimento ANTES de salvar
+        const aiSuggestions = await enrichJobWithAI(result);
+        result.aiSuggestions = aiSuggestions;
+        result._aiEnhanced = aiSuggestions.length > 0;
+        
+        console.log("[AI-ENRICH] ✅ Enrichment concluído:", {
+          aiSuggestionsCount: result.aiSuggestions.length,
+          _aiEnhanced: result._aiEnhanced
+        });
+      } catch (enrichError) {
+        console.error("[AI-ENRICH] ❌ Erro no enriquecimento:", enrichError.message);
+        result.aiSuggestions = [];
+        result._aiEnhanced = false;
+      }
+    } else {
+      console.log("[AI-ENRICH] ⏭️ Pulando enriquecimento IA:", {
+        mode: result.mode,
+        isReferenceBase: job.is_reference_base,
+        hasSuggestions: result.suggestions?.length > 0,
+        shouldEnrich
+      });
+      result.aiSuggestions = [];
+      result._aiEnhanced = false;
+    }
+
     // 📊 LOG DE AUDITORIA FINAL: Antes de persistir no banco
     console.log('[AI-AUDIT][SUGGESTIONS_STATUS] 💾 WORKER SALVANDO:', {
       jobId: job.id.substring(0, 8),
@@ -470,7 +455,8 @@ async function processJob(job) {
       hasAllFields: !!(result.suggestions && result.aiSuggestions && result.problemsAnalysis)
     });
 
-    // 🔥 ATUALIZAR STATUS FINAL + VERIFICAR SE FUNCIONOU
+    // 🔥 SALVAR NO BANCO APENAS UMA VEZ (COM TUDO)
+    console.log('[AI-ENRICH] 💾 Salvando resultado final no banco...');
     const finalUpdateResult = await client.query(
       "UPDATE jobs SET status = $1, result = $2::jsonb, results = $2::jsonb, completed_at = NOW(), updated_at = NOW() WHERE id = $3",
       ["done", JSON.stringify(result), job.id]
@@ -481,6 +467,7 @@ async function processJob(job) {
     }
 
     console.log(`✅ Job ${job.id} concluído e salvo no banco COM aiSuggestions`);
+    console.log(`✅ Final counts: suggestions=${result.suggestions.length}, aiSuggestions=${result.aiSuggestions.length}`);
     
     updateWorkerHealth(); // Marcar como healthy após sucesso
   } catch (err) {
@@ -615,7 +602,44 @@ async function processJobs() {
 setInterval(processJobs, 5000);
 processJobs();
 
-// FUNÇÃO enrichJobWithAI REMOVIDA - Enrichment agora é SÍNCRONO no fluxo principal
+/**
+ * 🤖 ENRIQUECER SUGESTÕES COM IA (SÍNCRONO)
+ * Chamado ANTES de salvar o job para garantir aiSuggestions no resultado final
+ * @returns {Array} Array de sugestões enriquecidas ou array vazio em caso de erro
+ */
+async function enrichJobWithAI(baseResult) {
+  console.log(`[AI-ENRICH] 🔄 Iniciando enriquecimento com IA...`);
+  
+  try {
+    // Importar dinamicamente para evitar circular dependency
+    const { enrichSuggestionsWithAI } = await import("../lib/ai/suggestion-enricher.js");
+    
+    // Enriquecer suggestions com IA
+    const enriched = await enrichSuggestionsWithAI(baseResult.suggestions, {
+      fileName: baseResult.metadata?.fileName || 'unknown',
+      genre: baseResult.metadata?.genre || 'default',
+      mode: baseResult.mode,
+      scoring: baseResult.scoring,
+      metrics: baseResult,
+      userMetrics: baseResult,
+      referenceComparison: baseResult.referenceComparison || null,
+      referenceFileName: baseResult.referenceFileName || null
+    });
+    
+    if (!Array.isArray(enriched) || enriched.length === 0) {
+      console.warn(`[AI-ENRICH] ⚠️ Nenhuma sugestão enriquecida gerada - usando fallback`);
+      return [];
+    }
+    
+    console.log(`[AI-ENRICH] ✅ ${enriched.length} sugestões enriquecidas pela IA`);
+    return enriched;
+    
+  } catch (error) {
+    console.error(`[AI-ENRICH] ❌ Erro ao enriquecer:`, error.message);
+    console.error(`[AI-ENRICH] Stack:`, error.stack);
+    return [];
+  }
+}
 
 // ---------- Servidor Express para Railway ----------
 const app = express();
