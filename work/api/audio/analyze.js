@@ -133,11 +133,15 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
     console.log('📝 [API] Gravando no PostgreSQL com UUID...');
     
     // 🔑 CRÍTICO: Usar jobId (UUID) na coluna 'id' do PostgreSQL
-    // 🎯 NOVO: Adicionar reference_for (referenceJobId) para modo reference
-    // 🎯 CORREÇÃO CRÍTICA: Adicionar campo data com genre
-    const jobData = genre ? { genre } : null;
+    // 🎯 CORREÇÃO CRÍTICA: Validar genre como string não-vazia antes de salvar
+    const hasValidGenre = genre && typeof genre === 'string' && genre.trim().length > 0;
+    const jobData = hasValidGenre ? { genre: genre.trim() } : null;
     
-    console.log('[TRACE-GENRE][DB-INSERT] 💾 Salvando genre no banco:', jobData);
+    console.log('[TRACE-GENRE][DB-INSERT] 💾 Salvando genre no banco:', {
+      genreOriginal: genre,
+      hasValidGenre,
+      jobData
+    });
     
     const result = await pool.query(
       `INSERT INTO jobs (id, file_key, mode, status, file_name, reference_for, data, created_at, updated_at)
@@ -150,7 +154,8 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
       fileKey: result.rows[0].file_key,
       status: result.rows[0].status,
       mode: result.rows[0].mode,
-      referenceFor: result.rows[0].reference_for
+      referenceFor: result.rows[0].reference_for,
+      data: result.rows[0].data
     });
     console.log('🎯 [API] Fluxo completo - Redis ➜ PostgreSQL concluído!');
 

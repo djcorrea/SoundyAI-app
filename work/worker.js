@@ -321,6 +321,8 @@ async function processJob(job) {
     
     // 🎯 CORREÇÃO CRÍTICA: Extrair genre com validação explícita
     let extractedGenre = null;
+    
+    // Tentar extrair de job.data (objeto ou string JSON)
     if (job.data && typeof job.data === 'object') {
       extractedGenre = job.data.genre;
     } else if (typeof job.data === 'string') {
@@ -331,15 +333,27 @@ async function processJob(job) {
         console.warn('[TRACE-GENRE][WORKER] ⚠️ Falha ao fazer parse de job.data:', e.message);
       }
     }
+    
+    // Validar se extractedGenre é string válida
+    if (extractedGenre && typeof extractedGenre === 'string' && extractedGenre.trim().length > 0) {
+      extractedGenre = extractedGenre.trim();
+      console.log('[TRACE-GENRE][WORKER] ✅ Genre extraído de job.data:', extractedGenre);
+    } else {
+      extractedGenre = null;
+      console.warn('[TRACE-GENRE][WORKER] ⚠️ job.data.genre inválido ou ausente');
+    }
 
-    // Fallback chain explícito
-    const finalGenre = extractedGenre || job.genre || 'default';
+    // Fallback chain explícito com validação
+    const finalGenre = extractedGenre || 
+                      (job.genre && typeof job.genre === 'string' ? job.genre.trim() : null) || 
+                      'default';
 
     console.log('[TRACE-GENRE][WORKER-EXTRACTION] 🎵 Genre extraction:', {
       'job.data (raw)': job.data,
       'extractedGenre': extractedGenre,
       'job.genre': job.genre,
-      'finalGenre': finalGenre
+      'finalGenre': finalGenre,
+      'isDefault': finalGenre === 'default'
     });
     
     const options = {
