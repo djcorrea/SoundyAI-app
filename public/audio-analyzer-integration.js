@@ -1939,15 +1939,25 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         const genreSelect = document.getElementById('audioRefGenreSelect');
         let selectedGenre = genreSelect?.value;
         
-        // 🎯 CORREÇÃO: Validar se é string não-vazia antes de fallback
-        if (!selectedGenre || selectedGenre.trim() === '') {
-            selectedGenre = window.PROD_AI_REF_GENRE || 'default';
+        // 🔒 Validação robusta — nunca deixar vir vazio
+        if (!selectedGenre || typeof selectedGenre !== "string" || selectedGenre.trim() === "") {
+            selectedGenre = window.__CURRENT_SELECTED_GENRE || window.PROD_AI_REF_GENRE;
         }
         
-        console.log('[TRACE-GENRE][FRONTEND] 🎵 Gênero selecionado para envio:', {
-            'genreSelect.value': genreSelect?.value,
-            'window.PROD_AI_REF_GENRE': window.PROD_AI_REF_GENRE,
-            'selectedGenre (final)': selectedGenre
+        // 🔒 Se ainda estiver inválido, fallback para "default"
+        if (!selectedGenre || selectedGenre.trim() === "") {
+            selectedGenre = "default";
+        }
+        
+        // Sanitizar
+        selectedGenre = selectedGenre.trim();
+        
+        // LOG obrigatório
+        console.log("[GENRE FINAL PAYLOAD]", {
+            selectedGenre,
+            genreSelectValue: genreSelect?.value,
+            refGenre: window.PROD_AI_REF_GENRE,
+            currentSelected: window.__CURRENT_SELECTED_GENRE
         });
 
         // Montar payload com modo correto
@@ -1986,6 +1996,9 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         console.log('[FIX_REFID_PAYLOAD] Payload final sendo enviado para /api/audio/analyze:');
         console.log('[FIX_REFID_PAYLOAD]', JSON.stringify(payload, null, 2));
         console.log('[FIX_REFID_PAYLOAD] ═══════════════════════════════════════');
+        
+        // 🔒 LOG OBRIGATÓRIO ANTES DO FETCH
+        console.log("[GENRE FINAL PAYLOAD SENT]", payload);
 
         const response = await fetch('/api/audio/analyze', {
             method: 'POST',
