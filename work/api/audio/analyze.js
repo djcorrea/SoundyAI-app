@@ -78,7 +78,7 @@ function validateFileType(fileKey) {
  * 🔑 IMPORTANTE: jobId DEVE SEMPRE SER UUID VÁLIDO para PostgreSQL
  * Ordem obrigatória: Redis → PostgreSQL (previne jobs órfãos)
  */
-async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = null) {
+async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = null, genre = null) {
   // 🔑 CRÍTICO: jobId DEVE ser UUID válido para tabela PostgreSQL (coluna tipo 'uuid')
   const jobId = randomUUID();
   
@@ -90,6 +90,7 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
   console.log(`   📋 ID Externo: ${externalId}`);
   console.log(`   📁 Arquivo: ${fileKey}`);
   console.log(`   ⚙️ Modo: ${mode}`);
+  console.log(`   🎵 Gênero: ${genre || 'não especificado'}`);
   console.log(`   🔗 Reference Job ID: ${referenceJobId || 'nenhum'}`);
 
   try {
@@ -133,10 +134,15 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
     
     // 🔑 CRÍTICO: Usar jobId (UUID) na coluna 'id' do PostgreSQL
     // 🎯 NOVO: Adicionar reference_for (referenceJobId) para modo reference
+    // 🎯 CORREÇÃO CRÍTICA: Adicionar campo data com genre
+    const jobData = genre ? { genre } : null;
+    
+    console.log('[TRACE-GENRE][DB-INSERT] 💾 Salvando genre no banco:', jobData);
+    
     const result = await pool.query(
-      `INSERT INTO jobs (id, file_key, mode, status, file_name, reference_for, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *`,
-      [jobId, fileKey, mode, "queued", fileName || null, referenceJobId || null]
+      `INSERT INTO jobs (id, file_key, mode, status, file_name, reference_for, data, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()) RETURNING *`,
+      [jobId, fileKey, mode, "queued", fileName || null, referenceJobId || null, jobData ? JSON.stringify(jobData) : null]
     );
 
     console.log(`✅ [API] Gravado no PostgreSQL:`, {
@@ -333,7 +339,9 @@ router.post("/analyze", async (req, res) => {
   console.log('🚀 [API] /analyze chamada');
   
   try {
-    const { fileKey, mode = "genre", fileName } = req.body;
+    const { fileKey, mode = "genre", fileName, genre } = req.body;
+    
+    console.log('[TRACE-GENRE][INPUT] 🔍 Genre recebido do frontend:', genre);
     
     // 🧠 LOG DE DEBUG: Modo recebido
     console.log('🧠 Modo de análise recebido:', mode);
@@ -384,8 +392,10 @@ router.post("/analyze", async (req, res) => {
     // ✅ OBTER INSTÂNCIA DA FILA
     const queue = getAudioQueue();
     
-    // ✅ CRIAR JOB NO BANCO E ENFILEIRAR (passar referenceJobId)
-    const jobRecord = await createJobInDatabase(fileKey, mode, fileName, referenceJobId);
+    // ✅ CRIAR JOB NO BANCO E ENFILEIRAR (passar referenceJobId e genre)
+    const jobRecord = await createJobInDatabase(fileKey, mode, fileName, referenceJobId, genre);
+    
+    console.log('[TRACE-GENRE][JOB-CREATED] ✅ Job criado com genre:', jobRecord.data);
 
     // ✅ RESPOSTA DE SUCESSO
     res.status(200).json({
