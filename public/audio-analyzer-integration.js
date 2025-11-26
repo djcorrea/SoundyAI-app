@@ -1937,12 +1937,17 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         
         // 🎯 Extrair gênero selecionado do dropdown
         const genreSelect = document.getElementById('audioRefGenreSelect');
-        const selectedGenre = genreSelect?.value || window.PROD_AI_REF_GENRE || 'default';
+        let selectedGenre = genreSelect?.value;
+        
+        // 🎯 CORREÇÃO: Validar se é string não-vazia antes de fallback
+        if (!selectedGenre || selectedGenre.trim() === '') {
+            selectedGenre = window.PROD_AI_REF_GENRE || 'default';
+        }
         
         console.log('[TRACE-GENRE][FRONTEND] 🎵 Gênero selecionado para envio:', {
             'genreSelect.value': genreSelect?.value,
             'window.PROD_AI_REF_GENRE': window.PROD_AI_REF_GENRE,
-            'selectedGenre': selectedGenre
+            'selectedGenre (final)': selectedGenre
         });
 
         // Montar payload com modo correto
@@ -2351,12 +2356,17 @@ async function startReferenceAnalysis() {
 
         // 🎯 Extrair gênero selecionado do dropdown
         const genreSelect = document.getElementById('audioRefGenreSelect');
-        const selectedGenre = genreSelect?.value || window.PROD_AI_REF_GENRE || 'default';
+        let selectedGenre = genreSelect?.value;
+        
+        // 🎯 CORREÇÃO: Validar se é string não-vazia antes de fallback
+        if (!selectedGenre || selectedGenre.trim() === '') {
+            selectedGenre = window.PROD_AI_REF_GENRE || 'default';
+        }
         
         console.log('[TRACE-GENRE][FRONTEND-REF] 🎵 Gênero para análise de referência:', {
             'genreSelect.value': genreSelect?.value,
             'window.PROD_AI_REF_GENRE': window.PROD_AI_REF_GENRE,
-            'selectedGenre': selectedGenre
+            'selectedGenre (final)': selectedGenre
         });
 
         const response = await fetch('/api/audio/analyze', {
