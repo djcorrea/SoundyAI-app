@@ -1935,12 +1935,23 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             }
         }
         
+        // 🎯 Extrair gênero selecionado do dropdown
+        const genreSelect = document.getElementById('audioRefGenreSelect');
+        const selectedGenre = genreSelect?.value || window.PROD_AI_REF_GENRE || 'default';
+        
+        console.log('[TRACE-GENRE][FRONTEND] 🎵 Gênero selecionado para envio:', {
+            'genreSelect.value': genreSelect?.value,
+            'window.PROD_AI_REF_GENRE': window.PROD_AI_REF_GENRE,
+            'selectedGenre': selectedGenre
+        });
+
         // Montar payload com modo correto
         const payload = {
             fileKey: fileKey,
             mode: actualMode,
             fileName: fileName,
-            isReferenceBase: isReferenceBase // 🔧 FIX: Adicionar flag ao payload
+            isReferenceBase: isReferenceBase, // 🔧 FIX: Adicionar flag ao payload
+            genre: selectedGenre // 🎯 FIX CRÍTICO: Gênero agora incluído no payload
         };
         
         // Adicionar referenceJobId apenas se existir
@@ -2338,6 +2349,16 @@ async function startReferenceAnalysis() {
     try {
         showAnalysisProgress();
 
+        // 🎯 Extrair gênero selecionado do dropdown
+        const genreSelect = document.getElementById('audioRefGenreSelect');
+        const selectedGenre = genreSelect?.value || window.PROD_AI_REF_GENRE || 'default';
+        
+        console.log('[TRACE-GENRE][FRONTEND-REF] 🎵 Gênero para análise de referência:', {
+            'genreSelect.value': genreSelect?.value,
+            'window.PROD_AI_REF_GENRE': window.PROD_AI_REF_GENRE,
+            'selectedGenre': selectedGenre
+        });
+
         const response = await fetch('/api/audio/analyze', {
             method: 'POST',
             headers: {
@@ -2346,7 +2367,8 @@ async function startReferenceAnalysis() {
             body: JSON.stringify({
                 originalKey: uploadedFiles.original,
                 referenceKey: uploadedFiles.reference,
-                mode: 'reference'
+                mode: 'reference',
+                genre: selectedGenre // 🎯 FIX CRÍTICO: Gênero agora incluído
             })
         });
 
