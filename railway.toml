@@ -1,8 +1,11 @@
 [build]
 builder = "NIXPACKS"
+# Define que o Railway deve buildar usando o diretório work
+root = "work"
 
 [deploy]
-startCommand = "node server.js"
+# Roda o servidor lá dentro da pasta work
+startCommand = "node work/server.js"
 healthcheckPath = ""
 healthcheckTimeout = 60
 restartPolicyType = "ON_FAILURE"

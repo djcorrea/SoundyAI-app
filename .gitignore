@@ -91,3 +91,5 @@ Thumbs.db
 !public/lib/**
 !public/lib/audio/**
 !public/refs/**
+!work/**
+!work/*
