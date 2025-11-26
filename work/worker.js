@@ -394,12 +394,24 @@ async function processJob(job) {
     if (enrichSuggestionsWithAI && shouldEnrich && Array.isArray(result.suggestions) && result.suggestions.length > 0) {
       console.log("[AI-ENRICH] 🤖 Iniciando enrichment IA ANTES de salvar job...");
       console.log("[AI-ENRICH] Suggestions base:", result.suggestions.length);
+      console.log("[AI-ENRICH] Genre do result:", result.genre || result.metadata?.genre);
       
       try {
+        // ✅ CORREÇÃO: Usar result.genre diretamente, com fallback para metadata
+        const enrichmentGenre = result.genre || result.metadata?.genre || result.summary?.genre || 'default';
+        
+        console.log('[AI-ENRICH] 📊 Contexto para enrichment:', {
+          fileName: result.metadata?.fileName,
+          genre: enrichmentGenre,
+          mode: result.mode,
+          hasSummary: !!result.summary,
+          summaryGenre: result.summary?.genre
+        });
+        
         // ✅ AGUARDAR o enrichment (SÍNCRONO)
         const enriched = await enrichSuggestionsWithAI(result.suggestions, {
           fileName: result.metadata?.fileName || 'unknown',
-          genre: result.metadata?.genre || 'default',
+          genre: enrichmentGenre,
           mode: result.mode,
           scoring: result.scoring,
           metrics: result,
@@ -413,14 +425,17 @@ async function processJob(job) {
           result.aiSuggestions = enriched;
           result._aiEnhanced = true;
           console.log(`[AI-ENRICH] ✅ ${enriched.length} sugestões enriquecidas pela IA`);
+          console.log(`[AI-ENRICH] 📋 Amostra da primeira sugestão:`, enriched[0]);
         } else {
           console.warn("[AI-ENRICH] ⚠️ Nenhuma sugestão enriquecida gerada");
+          console.warn("[AI-ENRICH] ⚠️ Retorno de enrichSuggestionsWithAI:", enriched);
           result.aiSuggestions = [];
           result._aiEnhanced = false;
         }
         
       } catch (enrichError) {
         console.error("[AI-ENRICH] ❌ Erro no enrichment:", enrichError.message);
+        console.error("[AI-ENRICH] ❌ Stack:", enrichError.stack);
         result.aiSuggestions = [];
         result._aiEnhanced = false;
       }
@@ -429,7 +444,8 @@ async function processJob(job) {
         hasEnricher: !!enrichSuggestionsWithAI,
         mode: result.mode,
         isReferenceBase: job.is_reference_base,
-        hasSuggestions: result.suggestions?.length > 0
+        hasSuggestions: result.suggestions?.length > 0,
+        suggestionsCount: result.suggestions?.length || 0
       });
       result.aiSuggestions = [];
       result._aiEnhanced = false;
@@ -459,9 +475,19 @@ async function processJob(job) {
     });
     
     // 📊 LOG DE AUDITORIA FINAL: Antes de persistir no banco
+    console.log('[GENRE-FLOW][WORKER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[GENRE-FLOW][WORKER] 🎯 VALIDAÇÃO FINAL ANTES DE SALVAR:');
+    console.log('[GENRE-FLOW][WORKER] result.genre:', result.genre);
+    console.log('[GENRE-FLOW][WORKER] result.summary.genre:', result.summary?.genre);
+    console.log('[GENRE-FLOW][WORKER] result.suggestionMetadata.genre:', result.suggestionMetadata?.genre);
+    console.log('[GENRE-FLOW][WORKER] result.mode:', result.mode);
+    console.log('[GENRE-FLOW][WORKER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
     console.log('[AI-AUDIT][SUGGESTIONS_STATUS] 💾 WORKER SALVANDO:', {
       jobId: job.id.substring(0, 8),
       mode: result.mode,
+      genre: result.genre,
+      summaryGenre: result.summary?.genre,
       problems: result.problemsAnalysis?.problems?.length || 0,
       baseSuggestions: result.suggestions.length,
       aiSuggestions: result.aiSuggestions.length,

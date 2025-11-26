@@ -191,11 +191,24 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       }
       
       // 🎯 PASSAR MODE E REFERENCE JOB ID PARA JSON OUTPUT
+      const mode = options.mode || 'genre';
+      const detectedGenre = options.genre || 'default';
+      
       finalJSON = generateJSONOutput(coreMetrics, reference, metadata, { 
         jobId, 
         fileName,
-        mode: options.mode,
+        mode: mode,
+        genre: detectedGenre,
         referenceJobId: options.referenceJobId
+      });
+      
+      // ✅ CORREÇÃO CRÍTICA: Adicionar genre ao finalJSON logo após geração
+      finalJSON.genre = detectedGenre;
+      finalJSON.mode = mode;
+      
+      console.log('[GENRE-FLOW][PIPELINE] ✅ Genre adicionado ao finalJSON:', {
+        genre: finalJSON.genre,
+        mode: finalJSON.mode
       });
       
       timings.phase4_json_output = Date.now() - phase4StartTime;
@@ -232,6 +245,13 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       const mode = options.mode || 'genre';
       const detectedGenre = options.genre || 'default';
       let customTargets = null;
+      
+      console.log('[GENRE-FLOW][PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[GENRE-FLOW][PIPELINE] 📊 Contexto recebido:');
+      console.log('[GENRE-FLOW][PIPELINE] mode:', mode);
+      console.log('[GENRE-FLOW][PIPELINE] detectedGenre:', detectedGenre);
+      console.log('[GENRE-FLOW][PIPELINE] options.genre:', options.genre);
+      console.log('[GENRE-FLOW][PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
       console.log('[SUGGESTIONS_V1] 📊 Contexto:', {
         mode,
@@ -394,14 +414,24 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         // ✅ MODO GÊNERO: Aplicar Motor V2 ao JSON final
         console.log('[SUGGESTIONS_V2] ✔ Aplicando Motor V2 ao JSON final');
         const v1Count = finalJSON.suggestions?.length || 0;
-        finalJSON.suggestions = [
-          ...(finalJSON.suggestions || []),
-          ...v2Suggestions
-        ];
-        finalJSON.problemsAnalysis.suggestions = finalJSON.suggestions;
-        finalJSON.diagnostics.suggestions = finalJSON.suggestions;
-        finalJSON.summary = v2Summary;
-        finalJSON.suggestionMetadata = v2Metadata;
+        
+        // 🚨 CORREÇÃO: Não duplicar sugestões se V1 e V2 retornaram o mesmo
+        // V1 e V2 chamam a mesma função com os mesmos parâmetros, então só usar V2
+        finalJSON.suggestions = v2Suggestions;
+        finalJSON.problemsAnalysis.suggestions = v2Suggestions;
+        finalJSON.diagnostics.suggestions = v2Suggestions;
+        
+        // ✅ CORREÇÃO CRÍTICA: Garantir que genre seja propagado para summary e metadata
+        finalJSON.summary = {
+          ...v2Summary,
+          genre: detectedGenre  // ← FORÇAR GÊNERO CORRETO
+        };
+        finalJSON.suggestionMetadata = {
+          ...v2Metadata,
+          genre: detectedGenre  // ← FORÇAR GÊNERO CORRETO
+        };
+        
+        console.log('[GENRE-FLOW][PIPELINE] ✅ Summary e Metadata atualizados com genre:', detectedGenre);
         
         // PASSO 5: LOGS PARA VALIDAÇÃO FINAL
         console.log('[SUGGESTIONS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -741,6 +771,15 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       hasScore: finalJSON.score !== undefined,
       hasTechnicalData: !!(finalJSON.lufs || finalJSON.truePeak)
     });
+    
+    // ✅ VALIDAÇÃO FINAL: Verificar se genre foi propagado corretamente
+    console.log('[GENRE-FLOW][PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[GENRE-FLOW][PIPELINE] 🎯 VALIDAÇÃO FINAL DO GÊNERO:');
+    console.log('[GENRE-FLOW][PIPELINE] finalJSON.genre:', finalJSON.genre);
+    console.log('[GENRE-FLOW][PIPELINE] finalJSON.summary.genre:', finalJSON.summary?.genre);
+    console.log('[GENRE-FLOW][PIPELINE] finalJSON.suggestionMetadata.genre:', finalJSON.suggestionMetadata?.genre);
+    console.log('[GENRE-FLOW][PIPELINE] finalJSON.mode:', finalJSON.mode);
+    console.log('[GENRE-FLOW][PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     logAudio('pipeline', 'done', {
       ms: totalTime,
