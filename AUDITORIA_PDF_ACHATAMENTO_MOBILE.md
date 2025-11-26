@@ -23,7 +23,7 @@ O PDF está sendo **achatado verticalmente no mobile (principalmente a segunda p
 - Página 1: ⚠️ Leve achatamento
 - Página 2: 🔴 Achatamento severo
 
----
+---xzczxcz
 
 ## 🔍 ANÁLISE TÉCNICA DETALHADA
 
