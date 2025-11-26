@@ -1,0 +1,9 @@
+[phases.setup]
+project_dir = "."
+
+[phases.install]
+cmds = ["npm install"]
+cwd = "."
+
+[start]
+cmd = "node api/server.js"
