@@ -1,0 +1,11 @@
+(node:22800) NOTE: The AWS SDK for JavaScript (v2) is in maintenance mode.
+ SDK releases are limited to address critical bug fixes and security issues only.
+
+Please migrate your code to use AWS SDK for JavaScript (v3).
+For more information, check the blog post at https://a.co/cUPnyil
+(Use `node --trace-warnings ...` to show where the warning was created)
+❌ [WORKER-REDIS] Erro ao atualizar status no Postgres: invalid input syntax for type uuid: "validation-test-1761532713101"
+❌ [WORKER-REDIS] Erro no stream de leitura para validation/test.wav: Key not found
+❌ [WORKER-REDIS] Erro no job 9 (validation-test-1761532713101): Key not found
+❌ [WORKER-REDIS] Erro ao atualizar status no Postgres: invalid input syntax for type uuid: "validation-test-1761532713101"
+❌ [WORKER-REDIS] 💥 FALHADO: 9 | JobID: validati | File: test.wav | Erro: Key not found

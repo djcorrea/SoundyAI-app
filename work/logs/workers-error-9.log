@@ -1,0 +1,16 @@
+(node:19032) NOTE: The AWS SDK for JavaScript (v2) is in maintenance mode.
+ SDK releases are limited to address critical bug fixes and security issues only.
+
+Please migrate your code to use AWS SDK for JavaScript (v3).
+For more information, check the blog post at https://a.co/cUPnyil
+(Use `node --trace-warnings ...` to show where the warning was created)
+❌ [WORKER-REDIS] Erro ao atualizar status no Postgres: invalid input syntax for type uuid: "test-1761531743299"
+❌ [WORKER-REDIS] Erro no stream de leitura para test-files/sample.wav: Key not found
+❌ [WORKER-REDIS] Erro no job 2 (test-1761531743299): Key not found
+❌ [WORKER-REDIS] Erro ao atualizar status no Postgres: invalid input syntax for type uuid: "test-1761531743299"
+❌ [WORKER-REDIS] 💥 FALHADO: 2 | JobID: test-176 | File: sample.wav | Erro: Key not found
+❌ [WORKER-REDIS] Erro ao atualizar status no Postgres: invalid input syntax for type uuid: "real-test-1761532120198"
+❌ [WORKER-REDIS] Erro no stream de leitura para uploads/test.wav: Key not found
+❌ [WORKER-REDIS] Erro no job 6 (real-test-1761532120198): Key not found
+❌ [WORKER-REDIS] Erro ao atualizar status no Postgres: invalid input syntax for type uuid: "real-test-1761532120198"
+❌ [WORKER-REDIS] 💥 FALHADO: 6 | JobID: real-tes | File: test.wav | Erro: Key not found

@@ -1,0 +1,141 @@
+🔗 [DB] Singleton PostgreSQL Pool criado - Max: 2 conexões
+✅ True Peak FFmpeg implementação carregada
+🎛️ Normalização Pré-Análise carregada - Target -23 LUFS
+📊 Audit Logging carregado - Sistema de auditoria de correções
+🎵 Spectral Metrics Calculator carregado - Schema numérico padrão
+🎚️ Dynamics Metrics Calculator carregado - DR, Crest Factor e LRA profissionais
+🌈 Spectral Bands Calculator carregado - 7 bandas profissionais com soma 100%
+🎵 Spectral Centroid Calculator carregado - Centro de brilho em Hz
+🎭 Stereo Metrics Calculator carregado - Correlação (-1 a +1) e Largura (0 a 1)
+🎵 Dominant Frequency Analyzer carregado - Análise de picos espectrais
+⚡ DC Offset Analyzer carregado - Detecção de corrente contínua
+🎵 Spectral Uniformity Analyzer carregado - Análise de uniformidade espectral
+🎯 Problems & Suggestions Analyzer V2 carregado - Sistema educativo com criticidade por cores
+[AUDIO] init stage=spectral_bands {"sampleRate":48000,"fftSize":4096,"frequencyResolution":"11.72","bandsCount":7}
+[AUDIO] init stage=spectral_centroid {"sampleRate":48000,"fftSize":4096,"frequencyResolution":"11.72","nyquistFreq":24000,"binsCount":2049}
+[AUDIO] init stage=stereo_metrics {"minSamples":1024,"maxSamples":96000,"windowSize":4096}
+[AUDIO] init stage=core_metrics {"config":{"SAMPLE_RATE":48000,"FFT_SIZE":4096,"FFT_HOP_SIZE":1024,"WINDOW_TYPE":"hann","LUFS_BLOCK_DURATION_MS":400,"LUFS_SHORT_TERM_DURATION_MS":3000,"LUFS_ABSOLUTE_THRESHOLD":-70,"LUFS_RELATIVE_THRESHOLD":-10,"TRUE_PEAK_OVERSAMPLING":4},"correctedModules":["spectral_bands","spectral_centroid","stereo_metrics","dynamics"],"activeAnalyzers":["problems_suggestions"],"skippedAnalyzers":["dominant_frequencies_class","dc_offset","spectral_uniformity"]}
+✅ Core Metrics Processor inicializado (Fase 5.3) - CORRIGIDO com fail-fast
+📦 JSON Output & Scoring (Fase 5.4) carregado - Equal Weight V3 COMPLETO + CORREÇÃO AGRESSIVA
+✅ JSON Output & Scoring (Fase 5.4) carregado - 100% compatível com frontend
+🎵 Pipeline Completo (Fases 5.1-5.4) carregado - Node.js Backend CORRIGIDO
+✅ [WORKER-REDIS] Pipeline completo carregado com sucesso!
+🟢 [REDIS] Conectado ao Upstash Redis
+✅ [REDIS] Conexão pronta para uso
+✅ [DB] Pool de conexão PostgreSQL inicializado com Singleton
+✅ [WORKER-REDIS] Conectado ao Postgres via Singleton Pool
+🔍 [WORKER-REDIS] Debug B2 Config:
+   B2_KEY_ID: 0055dff741da4370000000007
+   B2_APP_KEY: K005lDWMga...
+   B2_BUCKET_NAME: SoundyAI-Bucket
+   B2_ENDPOINT: https://s3.us-east-005.backblazeb2.com
+🔄 [WORKER-REDIS] Verificando jobs órfãos...
+🚫 [WORKER-REDIS] Verificando jobs problemáticos para blacklist...
+🏭 [WORKER-REDIS] 🚀 ÚNICO WORKER RESPONSÁVEL - Concorrência: 5
+🏗️ [WORKER-REDIS] Arquitetura: Redis Workers Only (Legacy worker desabilitado)
+🚀 [WORKER] Criando worker 'audio-analyzer' com concorrência: 5
+🚀 [WORKER-REDIS] 🎯 Worker Redis EXCLUSIVO iniciado! PID: 21476
+🏗️ [WORKER-REDIS] Arquitetura: Redis Workers Only - Legacy worker desabilitado
+⚡ [WORKER-REDIS] Pronto para processar 5 jobs simultâneos por worker
+🟢 [WORKER-REDIS] 🚀 WORKER ÚNICO PRONTO! PID: 21476, Concorrência: 5
+✅ [WORKER-REDIS] Arquitetura: Redis-only (sem conflitos legacy)
+✅ [WORKER-REDIS] Nenhum job problemático encontrado para blacklist
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 0 falhadas | PID: 21476
+🔄 [WORKER-REDIS] Verificando jobs órfãos...
+🚫 [WORKER-REDIS] Verificando jobs problemáticos para blacklist...
+✅ [DB] Pool de conexão PostgreSQL inicializado com Singleton
+✅ [WORKER-REDIS] Nenhum job problemático encontrado para blacklist
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 0 falhadas | PID: 21476
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 0 falhadas | PID: 21476
+🧹 [REDIS] Limpeza inteligente executada - fila otimizada
+🔄 [WORKER-REDIS] Verificando jobs órfãos...
+🚫 [WORKER-REDIS] Verificando jobs problemáticos para blacklist...
+✅ [DB] Pool de conexão PostgreSQL inicializado com Singleton
+✅ [WORKER-REDIS] Nenhum job problemático encontrado para blacklist
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 0 falhadas | PID: 21476
+🔄 [WORKER-REDIS] Verificando jobs órfãos...
+🚫 [WORKER-REDIS] Verificando jobs problemáticos para blacklist...
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 0 falhadas | PID: 21476
+✅ [DB] Pool de conexão PostgreSQL inicializado com Singleton
+✅ [WORKER-REDIS] Nenhum job problemático encontrado para blacklist
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 0 falhadas | PID: 21476
+🧹 [REDIS] Limpeza inteligente executada - fila otimizada
+🔄 [WORKER-REDIS] Verificando jobs órfãos...
+🚫 [WORKER-REDIS] Verificando jobs problemáticos para blacklist...
+✅ [DB] Pool de conexão PostgreSQL inicializado com Singleton
+✅ [WORKER-REDIS] Nenhum job problemático encontrado para blacklist
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 0 falhadas | PID: 21476
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 1 falhadas | PID: 21476
+🔄 [WORKER-REDIS] Verificando jobs órfãos...
+🚫 [WORKER-REDIS] Verificando jobs problemáticos para blacklist...
+✅ [DB] Pool de conexão PostgreSQL inicializado com Singleton
+✅ [WORKER-REDIS] Nenhum job problemático encontrado para blacklist
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 1 falhadas | PID: 21476
+🧹 [REDIS] Limpeza inteligente executada - fila otimizada
+🔄 [WORKER-REDIS] Verificando jobs órfãos...
+🚫 [WORKER-REDIS] Verificando jobs problemáticos para blacklist...
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 0 falhadas | PID: 21476
+✅ [DB] Pool de conexão PostgreSQL inicializado com Singleton
+✅ [WORKER-REDIS] Nenhum job problemático encontrado para blacklist
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 0 falhadas | PID: 21476
+🔄 [WORKER-REDIS] Verificando jobs órfãos...
+🚫 [WORKER-REDIS] Verificando jobs problemáticos para blacklist...
+✅ [DB] Pool de conexão PostgreSQL inicializado com Singleton
+✅ [WORKER-REDIS] Nenhum job problemático encontrado para blacklist
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 0 falhadas | PID: 21476
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 0 falhadas | PID: 21476
+🧹 [REDIS] Limpeza inteligente executada - fila otimizada
+🔄 [WORKER-REDIS] Verificando jobs órfãos...
+🚫 [WORKER-REDIS] Verificando jobs problemáticos para blacklist...
+✅ [DB] Pool de conexão PostgreSQL inicializado com Singleton
+✅ [WORKER-REDIS] Nenhum job problemático encontrado para blacklist
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 0 falhadas | PID: 21476
+🔄 [WORKER-REDIS] Verificando jobs órfãos...
+🚫 [WORKER-REDIS] Verificando jobs problemáticos para blacklist...
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 0 falhadas | PID: 21476
+✅ [DB] Pool de conexão PostgreSQL inicializado com Singleton
+✅ [WORKER-REDIS] Nenhum job problemático encontrado para blacklist
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 1 falhadas | PID: 21476
+🧹 [REDIS] Limpeza inteligente executada - fila otimizada
+🔄 [WORKER-REDIS] Verificando jobs órfãos...
+🚫 [WORKER-REDIS] Verificando jobs problemáticos para blacklist...
+✅ [DB] Pool de conexão PostgreSQL inicializado com Singleton
+✅ [WORKER-REDIS] Nenhum job problemático encontrado para blacklist
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 3 falhadas | PID: 21476
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 5 falhadas | PID: 21476
+🔄 [WORKER-REDIS] Verificando jobs órfãos...
+🚫 [WORKER-REDIS] Verificando jobs problemáticos para blacklist...
+✅ [DB] Pool de conexão PostgreSQL inicializado com Singleton
+✅ [WORKER-REDIS] Nenhum job problemático encontrado para blacklist
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 6 falhadas | PID: 21476
+🧹 [REDIS] Limpeza inteligente executada - fila otimizada
+🔄 [WORKER-REDIS] Verificando jobs órfãos...
+🚫 [WORKER-REDIS] Verificando jobs problemáticos para blacklist...
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 2 falhadas | PID: 21476
+✅ [DB] Pool de conexão PostgreSQL inicializado com Singleton
+✅ [WORKER-REDIS] Nenhum job problemático encontrado para blacklist
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 1 falhadas | PID: 21476
+🎯 [WORKER-REDIS] 🧠 PROCESSANDO: 9 | JobID: validati | File: test.wav
+🚀 [WORKER-REDIS] Processando job 9 (validation-test-1761532713101) - validation/test.wav
+✅ [DB] Pool de conexão PostgreSQL inicializado com Singleton
+🔍 [WORKER-REDIS] Tentando baixar: validation/test.wav
+🔍 [WORKER-REDIS] Bucket: SoundyAI-Bucket
+✅ [DB] Pool de conexão PostgreSQL inicializado com Singleton
+🔄 [WORKER-REDIS] Verificando jobs órfãos...
+🚫 [WORKER-REDIS] Verificando jobs problemáticos para blacklist...
+✅ [DB] Pool de conexão PostgreSQL inicializado com Singleton
+✅ [WORKER-REDIS] Nenhum job problemático encontrado para blacklist
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 2 falhadas | PID: 21476
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 2 falhadas | PID: 21476
+🧹 [REDIS] Limpeza inteligente executada - fila otimizada
+🔄 [WORKER-REDIS] Verificando jobs órfãos...
+🚫 [WORKER-REDIS] Verificando jobs problemáticos para blacklist...
+✅ [DB] Pool de conexão PostgreSQL inicializado com Singleton
+✅ [WORKER-REDIS] Nenhum job problemático encontrado para blacklist
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 1 falhadas | PID: 21476
+🔄 [WORKER-REDIS] Verificando jobs órfãos...
+🚫 [WORKER-REDIS] Verificando jobs problemáticos para blacklist...
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 1 falhadas | PID: 21476
+✅ [DB] Pool de conexão PostgreSQL inicializado com Singleton
+✅ [WORKER-REDIS] Nenhum job problemático encontrado para blacklist
+📊 [WORKER-REDIS] 📈 FILA: 0 aguardando | 0 ativas | 0 completas | 1 falhadas | PID: 21476

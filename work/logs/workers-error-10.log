@@ -1,0 +1,31 @@
+(node:15004) NOTE: The AWS SDK for JavaScript (v2) is in maintenance mode.
+ SDK releases are limited to address critical bug fixes and security issues only.
+
+Please migrate your code to use AWS SDK for JavaScript (v3).
+For more information, check the blog post at https://a.co/cUPnyil
+(Use `node --trace-warnings ...` to show where the warning was created)
+❌ [WORKER-REDIS] Erro ao atualizar status no Postgres: invalid input syntax for type uuid: "test-1761531743299"
+❌ [WORKER-REDIS] Erro no stream de leitura para test-files/sample.wav: Key not found
+❌ [WORKER-REDIS] Erro no job 2 (test-1761531743299): Key not found
+❌ [WORKER-REDIS] Erro ao atualizar status no Postgres: invalid input syntax for type uuid: "test-1761531743299"
+❌ [WORKER-REDIS] 💥 FALHADO: 2 | JobID: test-176 | File: sample.wav | Erro: Key not found
+❌ [WORKER-REDIS] Erro ao atualizar status no Postgres: invalid input syntax for type uuid: "debug-test-1761531833479"
+❌ [WORKER-REDIS] Erro no stream de leitura para test-files/sample.wav: Key not found
+❌ [WORKER-REDIS] Erro no job 3 (debug-test-1761531833479): Key not found
+❌ [WORKER-REDIS] Erro ao atualizar status no Postgres: invalid input syntax for type uuid: "debug-test-1761531833479"
+❌ [WORKER-REDIS] 💥 FALHADO: 3 | JobID: debug-te | File: sample.wav | Erro: Key not found
+❌ [WORKER-REDIS] Erro ao atualizar status no Postgres: invalid input syntax for type uuid: "debug-test-1761531892513"
+❌ [WORKER-REDIS] Erro no stream de leitura para test-files/sample.wav: Key not found
+❌ [WORKER-REDIS] Erro no job 4 (debug-test-1761531892513): Key not found
+❌ [WORKER-REDIS] Erro ao atualizar status no Postgres: invalid input syntax for type uuid: "debug-test-1761531892513"
+❌ [WORKER-REDIS] 💥 FALHADO: 4 | JobID: debug-te | File: sample.wav | Erro: Key not found
+❌ [WORKER-REDIS] Erro ao atualizar status no Postgres: invalid input syntax for type uuid: "real-test-1761531976391"
+❌ [WORKER-REDIS] Erro no stream de leitura para uploads/test.wav: Key not found
+❌ [WORKER-REDIS] Erro no job 5 (real-test-1761531976391): Key not found
+❌ [WORKER-REDIS] Erro ao atualizar status no Postgres: invalid input syntax for type uuid: "real-test-1761531976391"
+❌ [WORKER-REDIS] 💥 FALHADO: 5 | JobID: real-tes | File: test.wav | Erro: Key not found
+❌ [WORKER-REDIS] Erro ao atualizar status no Postgres: invalid input syntax for type uuid: "audit-test-1761533286786"
+❌ [WORKER-REDIS] Erro no stream de leitura para test-files/audit-sample.wav: Key not found
+❌ [WORKER-REDIS] Erro no job 11 (audit-test-1761533286786): Key not found
+❌ [WORKER-REDIS] Erro ao atualizar status no Postgres: invalid input syntax for type uuid: "audit-test-1761533286786"
+❌ [WORKER-REDIS] 💥 FALHADO: 11 | JobID: audit-te | File: audit-sample.wav | Erro: Key not found

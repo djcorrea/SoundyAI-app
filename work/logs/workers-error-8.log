@@ -1,0 +1,11 @@
+(node:24332) NOTE: The AWS SDK for JavaScript (v2) is in maintenance mode.
+ SDK releases are limited to address critical bug fixes and security issues only.
+
+Please migrate your code to use AWS SDK for JavaScript (v3).
+For more information, check the blog post at https://a.co/cUPnyil
+(Use `node --trace-warnings ...` to show where the warning was created)
+❌ [WORKER-REDIS] Erro ao atualizar status no Postgres: invalid input syntax for type uuid: "worker-flow-test-1761532262768"
+❌ [WORKER-REDIS] Erro no stream de leitura para uploads/test.wav: Key not found
+❌ [WORKER-REDIS] Erro no job 7 (worker-flow-test-1761532262768): Key not found
+❌ [WORKER-REDIS] Erro ao atualizar status no Postgres: invalid input syntax for type uuid: "worker-flow-test-1761532262768"
+❌ [WORKER-REDIS] 💥 FALHADO: 7 | JobID: worker-f | File: test.wav | Erro: Key not found
