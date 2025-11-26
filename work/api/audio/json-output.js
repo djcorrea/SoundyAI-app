@@ -54,9 +54,10 @@ export function generateJSONOutput(coreMetrics, reference = null, metadata = {},
       throw makeErr('output_scoring', `Invalid scoring result: ${JSON.stringify(scoringResult)}`, 'invalid_scoring_result');
     }
 
-    // 🎯 Passar mode e preloadedReferenceMetrics para buildFinalJSON
+    // 🎯 Passar genre, mode e preloadedReferenceMetrics para buildFinalJSON
     const finalJSON = buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, { 
       jobId,
+      genre: options.genre,
       mode: options.mode,
       referenceJobId: options.referenceJobId,
       preloadedReferenceMetrics: options.preloadedReferenceMetrics
@@ -469,6 +470,16 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
   const scoreValue = scoringResult.score || scoringResult.scorePct;
 
   return {
+    // 🎯 CORREÇÃO CRÍTICA: Incluir genre e mode no JSON final
+    // Esses campos são FUNDAMENTAIS para:
+    // - Carregamento correto dos targets específicos por gênero no frontend
+    // - Renderização do modo gênero vs modo referência
+    // - Sugestões técnicas contextualizadas
+    // - Comparação de bandas espectrais
+    // - Preservação do fluxo A/B no modo referência
+    genre: options.genre || 'default',
+    mode: options.mode || 'genre',
+    
     score: Math.round(scoreValue * 10) / 10,
     classification: scoringResult.classification || 'unknown',
 
