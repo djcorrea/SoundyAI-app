@@ -312,6 +312,13 @@ async function processJob(job) {
     updateWorkerHealth();
 
     // ✅ PASSO 1: GARANTIR QUE O GÊNERO CHEGA NO PIPELINE
+    console.log('[TRACE-GENRE][WORKER-INPUT] 🔍 Job recebido do banco:', {
+      'job.data': job.data,
+      'job.data?.genre': job.data?.genre,
+      'job.genre': job.genre,
+      'job.mode': job.mode
+    });
+    
     const options = {
       jobId: job.id,
       reference: job?.reference || null,
@@ -324,6 +331,7 @@ async function processJob(job) {
     console.log('[GENRE-FLOW] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[GENRE-FLOW] 📊 Parâmetros recebidos no worker:');
     console.log('[GENRE-FLOW] genre recebido no worker:', options.genre);
+    console.log('[TRACE-GENRE][WORKER-OPTIONS] ✅ Options construído com genre:', options.genre);
     console.log('[GENRE-FLOW] mode recebido no worker:', options.mode);
     console.log('[GENRE-FLOW] referenceJobId:', options.referenceJobId);
     console.log('[GENRE-FLOW] isReferenceBase:', options.isReferenceBase);
