@@ -462,7 +462,13 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
    * 🌈 Análise Bandas Espectrais com Sugestões Educativas
    */
   analyzeSpectralBands(metrics, suggestions, problems) {
-    const bands = metrics.centralizedBands || metrics.spectralBands || metrics.spectral_balance;
+    // ✅ CORREÇÃO CRÍTICA: spectralBands retorna { bands: {...}, totalPercentage, valid }
+    // Não é um objeto plano, mas sim um wrapper com .bands aninhado
+    const spectralData = metrics.centralizedBands || metrics.spectralBands || metrics.spectral_balance;
+    if (!spectralData || typeof spectralData !== 'object') return;
+    
+    // ✅ EXTRAIR O OBJETO BANDS CORRETO
+    const bands = spectralData.bands || spectralData;
     if (!bands || typeof bands !== 'object') return;
     
     // 🎯 EXPANSÃO COMPLETA: Todas as bandas espectrais com múltiplas variações de nomes
