@@ -194,6 +194,12 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       const mode = options.mode || 'genre';
       const detectedGenre = options.genre || 'default';
       
+      console.log('[GENRE-FLOW][PIPELINE] Genre detectado (linha 195):', {
+        'options.genre': options.genre,
+        'detectedGenre': detectedGenre,
+        'isDefault': detectedGenre === 'default'
+      });
+      
       finalJSON = generateJSONOutput(coreMetrics, reference, metadata, { 
         jobId, 
         fileName,
@@ -245,6 +251,12 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       const mode = options.mode || 'genre';
       const detectedGenre = options.genre || 'default';
       let customTargets = null;
+      
+      console.log('[GENRE-FLOW][PIPELINE] Genre detectado (linha 246):', {
+        'options.genre': options.genre,
+        'detectedGenre': detectedGenre,
+        'isDefault': detectedGenre === 'default'
+      });
       
       console.log('[GENRE-FLOW][PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('[GENRE-FLOW][PIPELINE] 📊 Contexto recebido:');
@@ -369,6 +381,12 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       // 🎯 CARREGAR TARGETS DO FILESYSTEM (APENAS MODO GÊNERO)
       const detectedGenreV2 = options.genre || 'default';
       let customTargetsV2 = null;
+      
+      console.log('[GENRE-FLOW][PIPELINE] Genre detectado (linha 376):', {
+        'options.genre': options.genre,
+        'detectedGenreV2': detectedGenreV2,
+        'isDefault': detectedGenreV2 === 'default'
+      });
       
       if (mode !== 'reference' && detectedGenreV2 && detectedGenreV2 !== 'default') {
         customTargetsV2 = loadGenreTargets(detectedGenreV2);
