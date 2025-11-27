@@ -78,7 +78,7 @@ function validateFileType(fileKey) {
  * 🔑 IMPORTANTE: jobId DEVE SEMPRE SER UUID VÁLIDO para PostgreSQL
  * Ordem obrigatória: Redis → PostgreSQL (previne jobs órfãos)
  */
-async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = null, genre = null) {
+async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = null, genre = null, genreTargets = null) {
   // 🔑 CRÍTICO: jobId DEVE ser UUID válido para tabela PostgreSQL (coluna tipo 'uuid')
   const jobId = randomUUID();
   
@@ -91,6 +91,7 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
   console.log(`   📁 Arquivo: ${fileKey}`);
   console.log(`   ⚙️ Modo: ${mode}`);
   console.log(`   🎵 Gênero: ${genre || 'não especificado'}`);
+  console.log(`   🎯 Targets: ${genreTargets ? 'presentes' : 'ausentes'}`);
   console.log(`   🔗 Reference Job ID: ${referenceJobId || 'nenhum'}`);
 
   try {
@@ -132,21 +133,32 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
     // ✅ ETAPA 3: GRAVAR NO POSTGRESQL DEPOIS
     console.log('📝 [API] Gravando no PostgreSQL com UUID...');
     
-    // 🔑 CRÍTICO: Usar jobId (UUID) na coluna 'id' do PostgreSQL
-    // 🎯 CORREÇÃO CRÍTICA: Validar genre como string não-vazia antes de salvar
-    const hasValidGenre = genre && typeof genre === 'string' && genre.trim().length > 0;
-    const jobData = hasValidGenre ? { genre: genre.trim() } : null;
+    // 🎯 CORREÇÃO CRÍTICA: SEMPRE salvar genre E genreTargets (NUNCA null)
+    // Se genre for string vazia ou null, REJEITAR (não usar fallback)
+    if (!genre || typeof genre !== 'string' || genre.trim().length === 0) {
+      throw new Error('❌ [CRITICAL] Genre é obrigatório e não pode ser vazio');
+    }
     
-    console.log('[TRACE-GENRE][DB-INSERT] 💾 Salvando genre no banco:', {
-      genreOriginal: genre,
-      hasValidGenre,
-      jobData
+    // Construir jobData SEMPRE com genre + genreTargets (se presentes)
+    const jobData = {
+      genre: genre.trim(),
+      genreTargets: genreTargets || null
+    };
+    
+    // 🎯 LOG DE AUDITORIA OBRIGATÓRIO
+    console.log('[GENRE-TRACE][BACKEND] 💾 Salvando no banco:', {
+      jobId: jobId.substring(0, 8),
+      receivedGenre: genre,
+      savedGenre: jobData.genre,
+      hasGenreTargets: !!jobData.genreTargets,
+      genreTargetsKeys: jobData.genreTargets ? Object.keys(jobData.genreTargets) : null,
+      jobDataStringified: JSON.stringify(jobData)
     });
     
     const result = await pool.query(
       `INSERT INTO jobs (id, file_key, mode, status, file_name, reference_for, data, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()) RETURNING *`,
-      [jobId, fileKey, mode, "queued", fileName || null, referenceJobId || null, jobData ? JSON.stringify(jobData) : null]
+      [jobId, fileKey, mode, "queued", fileName || null, referenceJobId || null, JSON.stringify(jobData)]
     );
 
     console.log(`✅ [API] Gravado no PostgreSQL:`, {
@@ -344,9 +356,16 @@ router.post("/analyze", async (req, res) => {
   console.log('🚀 [API] /analyze chamada');
   
   try {
-    const { fileKey, mode = "genre", fileName, genre } = req.body;
+    const { fileKey, mode = "genre", fileName, genre, genreTargets } = req.body;
     
-    console.log('[TRACE-GENRE][INPUT] 🔍 Genre recebido do frontend:', genre);
+    // 🎯 LOG DE AUDITORIA OBRIGATÓRIO
+    console.log('[GENRE-TRACE][BACKEND] 📥 Payload recebido do frontend:', {
+      genre,
+      hasGenreTargets: !!genreTargets,
+      genreTargetsKeys: genreTargets ? Object.keys(genreTargets) : null,
+      mode,
+      fileKey
+    });
     
     // 🧠 LOG DE DEBUG: Modo recebido
     console.log('🧠 Modo de análise recebido:', mode);
@@ -397,10 +416,10 @@ router.post("/analyze", async (req, res) => {
     // ✅ OBTER INSTÂNCIA DA FILA
     const queue = getAudioQueue();
     
-    // ✅ CRIAR JOB NO BANCO E ENFILEIRAR (passar referenceJobId e genre)
-    const jobRecord = await createJobInDatabase(fileKey, mode, fileName, referenceJobId, genre);
+    // ✅ CRIAR JOB NO BANCO E ENFILEIRAR (passar referenceJobId, genre E genreTargets)
+    const jobRecord = await createJobInDatabase(fileKey, mode, fileName, referenceJobId, genre, genreTargets);
     
-    console.log('[TRACE-GENRE][JOB-CREATED] ✅ Job criado com genre:', jobRecord.data);
+    console.log('[GENRE-TRACE][BACKEND] ✅ Job criado - genre salvo:', jobRecord.data);
 
     // ✅ RESPOSTA DE SUCESSO
     res.status(200).json({

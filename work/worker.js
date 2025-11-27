@@ -312,48 +312,57 @@ async function processJob(job) {
     updateWorkerHealth();
 
     // ✅ PASSO 1: GARANTIR QUE O GÊNERO CHEGA NO PIPELINE
-    console.log('[TRACE-GENRE][WORKER-INPUT] 🔍 Job recebido do banco:', {
-      'job.data': job.data,
-      'job.data?.genre': job.data?.genre,
-      'job.genre': job.genre,
+    console.log('[GENRE-TRACE][WORKER-INPUT] 🔍 Job recebido do banco:', {
+      'job.id': job.id.substring(0, 8),
+      'job.data (raw type)': typeof job.data,
+      'job.data (raw value)': job.data,
       'job.mode': job.mode
     });
     
-    // 🎯 CORREÇÃO CRÍTICA: Extrair genre com validação explícita
+    // 🎯 CORREÇÃO CRÍTICA: Extrair genre E genreTargets com validação explícita
     let extractedGenre = null;
+    let extractedGenreTargets = null;
     
     // Tentar extrair de job.data (objeto ou string JSON)
     if (job.data && typeof job.data === 'object') {
       extractedGenre = job.data.genre;
+      extractedGenreTargets = job.data.genreTargets;
     } else if (typeof job.data === 'string') {
       try {
         const parsed = JSON.parse(job.data);
         extractedGenre = parsed.genre;
+        extractedGenreTargets = parsed.genreTargets;
       } catch (e) {
-        console.warn('[TRACE-GENRE][WORKER] ⚠️ Falha ao fazer parse de job.data:', e.message);
+        console.error('[GENRE-TRACE][WORKER] ❌ CRÍTICO: Falha ao fazer parse de job.data:', e.message);
+        throw new Error(`Job ${job.id} possui job.data inválido (não é JSON válido)`);
       }
+    } else {
+      console.error('[GENRE-TRACE][WORKER] ❌ CRÍTICO: job.data está null ou tipo inválido:', typeof job.data);
+      throw new Error(`Job ${job.id} não possui job.data (null ou undefined)`);
     }
     
-    // Validar se extractedGenre é string válida
-    if (extractedGenre && typeof extractedGenre === 'string' && extractedGenre.trim().length > 0) {
-      extractedGenre = extractedGenre.trim();
-      console.log('[TRACE-GENRE][WORKER] ✅ Genre extraído de job.data:', extractedGenre);
-    } else {
-      extractedGenre = null;
-      console.warn('[TRACE-GENRE][WORKER] ⚠️ job.data.genre inválido ou ausente');
+    // 🚨 VALIDAÇÃO CRÍTICA: Se genre não for string válida, REJEITAR JOB (NUNCA usar 'default')
+    if (!extractedGenre || typeof extractedGenre !== 'string' || extractedGenre.trim().length === 0) {
+      console.error('[GENRE-TRACE][WORKER] ❌ CRÍTICO: job.data.genre inválido ou ausente:', {
+        extractedGenre,
+        type: typeof extractedGenre,
+        jobId: job.id.substring(0, 8),
+        jobData: job.data
+      });
+      throw new Error(`Job ${job.id} não possui genre válido em job.data - REJEITADO (nunca usar 'default')`);
     }
+    
+    const finalGenre = extractedGenre.trim();
+    const finalGenreTargets = extractedGenreTargets || null;
 
-    // Fallback chain explícito com validação
-    const finalGenre = extractedGenre || 
-                      (job.genre && typeof job.genre === 'string' ? job.genre.trim() : null) || 
-                      'default';
-
-    console.log('[TRACE-GENRE][WORKER-EXTRACTION] 🎵 Genre extraction:', {
-      'job.data (raw)': job.data,
-      'extractedGenre': extractedGenre,
-      'job.genre': job.genre,
-      'finalGenre': finalGenre,
-      'isDefault': finalGenre === 'default'
+    // 🎯 LOG DE AUDITORIA OBRIGATÓRIO
+    console.log('[GENRE-TRACE][WORKER-LOADED] ✅ Dados carregados do banco:', {
+      jobId: job.id.substring(0, 8),
+      jobData: job.data,
+      extractedGenre,
+      extractedGenreTargets: extractedGenreTargets ? Object.keys(extractedGenreTargets) : null,
+      finalGenre,
+      hasTargets: !!finalGenreTargets
     });
     
     const options = {
@@ -361,15 +370,22 @@ async function processJob(job) {
       reference: job?.reference || null,
       mode: job.mode || 'genre',
       genre: finalGenre,
+      genreTargets: finalGenreTargets, // 🎯 NOVO: Passar targets para o pipeline
       referenceJobId: job.reference_job_id || null,
       isReferenceBase: job.is_reference_base || false
     };
     
     console.log('[GENRE-FLOW] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[GENRE-FLOW] 📊 Parâmetros recebidos no worker:');
-    console.log('[GENRE-FLOW] genre recebido no worker:', options.genre);
-    console.log('[TRACE-GENRE][WORKER-OPTIONS] ✅ Options construído com genre:', options.genre);
-    console.log('[GENRE-FLOW] mode recebido no worker:', options.mode);
+    console.log('[GENRE-FLOW] 📊 Parâmetros enviados para pipeline:');
+    console.log('[GENRE-FLOW] genre:', options.genre);
+    console.log('[GENRE-FLOW] hasTargets:', !!options.genreTargets);
+    console.log('[GENRE-FLOW] targetKeys:', options.genreTargets ? Object.keys(options.genreTargets) : null);
+    console.log('[GENRE-TRACE][WORKER-OPTIONS] ✅ Options construído:', {
+      genre: options.genre,
+      hasTargets: !!options.genreTargets,
+      mode: options.mode
+    });
+    console.log('[GENRE-FLOW] mode:', options.mode);
     console.log('[GENRE-FLOW] referenceJobId:', options.referenceJobId);
     console.log('[GENRE-FLOW] isReferenceBase:', options.isReferenceBase);
     console.log('[GENRE-FLOW] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -529,6 +545,15 @@ async function processJob(job) {
     console.log('[GENRE-FLOW][WORKER] result.suggestionMetadata.genre:', result.suggestionMetadata?.genre);
     console.log('[GENRE-FLOW][WORKER] result.mode:', result.mode);
     console.log('[GENRE-FLOW][WORKER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    // 🎯 LOG DE AUDITORIA OBRIGATÓRIO
+    console.log('[GENRE-TRACE][WORKER-RESULT] 💾 Resultado final antes de salvar:', {
+      jobId: job.id.substring(0, 8),
+      'result.genre': result.genre,
+      'options.genre original': options.genre,
+      hasGenreTargets: !!options.genreTargets,
+      mode: result.mode
+    });
     
     console.log('[AI-AUDIT][SUGGESTIONS_STATUS] 💾 WORKER SALVANDO:', {
       jobId: job.id.substring(0, 8),
