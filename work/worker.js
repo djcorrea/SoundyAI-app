@@ -484,14 +484,18 @@ async function processJob(job) {
       // 🎯 DEPOIS sobrescrever com valores corretos de options (modo genre)
       mode: job.mode,
       genre: options.genre,  // 🎯 NUNCA usar analysisResult.genre no modo genre
-      ...(options.genreTargets ? {
-        data: {
-          ...(analysisResult.data || {}),
-          genre: options.genre,
-          genreTargets: options.genreTargets
-        }
-      } : {}),
     };
+
+    // 🎯 CORREÇÃO DEFINITIVA: Preservar data do analysisResult (pipeline já criou)
+    if (analysisResult.data) {
+      result.data = analysisResult.data;
+    } else if (options.genreTargets) {
+      // Fallback: Se pipeline não criou data, criar aqui
+      result.data = {
+        genre: options.genre,
+        genreTargets: options.genreTargets
+      };
+    }
 
     // ✅ ENRIQUECIMENTO DE IA SÍNCRONO (ANTES de salvar no banco)
     const shouldEnrich = result.mode !== 'genre' || !job.is_reference_base;

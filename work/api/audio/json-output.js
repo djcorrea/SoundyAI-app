@@ -487,13 +487,11 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     genre: finalGenre,
     mode: options.mode || 'genre',
     
-    // 🎯 NOVO: Adicionar estrutura data com genre e genreTargets quando existirem
-    ...(isGenreMode && options.genreTargets ? {
-      data: {
-        genre: finalGenre,
-        genreTargets: options.genreTargets
-      }
-    } : {}),
+    // 🎯 CORREÇÃO DEFINITIVA: SEMPRE incluir data com genre e genreTargets
+    data: {
+      genre: finalGenre || options.genre,
+      genreTargets: options.genreTargets || null
+    },
     
     score: Math.round(scoreValue * 10) / 10,
     classification: scoringResult.classification || 'unknown',
