@@ -168,16 +168,35 @@ async function analyzeAudioWithPipeline(localFilePath, jobOrOptions) {
     const t0 = Date.now();
 
     // Normalizar tanto o "job" antigo quanto o novo "options"
-    const mode = jobOrOptions.mode || 'genre';
-    const isGenreMode = mode === 'genre';
-    
-    // 🎯 CORREÇÃO: Resolver genre de forma inteligente baseado no modo
-    const resolvedGenre =
-      jobOrOptions.genre ||
-      jobOrOptions.data?.genre ||
-      jobOrOptions.genre_detected ||
-      null;
-    
+    // 🎯 Determine if we're in pure genre mode
+    const isGenreMode = jobOrOptions.mode === "genre";
+
+    let resolvedGenre = null;
+
+    // 🎯 MODO GÊNERO: sem fallback "default"
+    if (isGenreMode) {
+        resolvedGenre =
+            jobOrOptions.genre ||
+            jobOrOptions.data?.genre ||
+            null;
+
+        if (typeof resolvedGenre === "string") {
+            resolvedGenre = resolvedGenre.trim();
+        }
+
+        if (!resolvedGenre) {
+            console.error("[GENRE-ERROR] Modo gênero, mas gênero ausente:", jobOrOptions);
+            resolvedGenre = null; // NÃO usar default
+        }
+    } else {
+        // Para modos diferentes de gênero, pode usar fallback antigo
+        resolvedGenre =
+            jobOrOptions.genre ||
+            jobOrOptions.data?.genre ||
+            jobOrOptions.genre_detected ||
+            "default";
+    }
+
     const pipelineOptions = {
       // ID do job
       jobId: jobOrOptions.jobId || jobOrOptions.id || null,
@@ -186,21 +205,16 @@ async function analyzeAudioWithPipeline(localFilePath, jobOrOptions) {
       reference: jobOrOptions.reference || jobOrOptions.reference_file_key || null,
 
       // Modo de análise: 'genre', 'comparison', etc.
-      mode: mode,
+      mode: jobOrOptions.mode || 'genre',
 
-      // 🎯 CORREÇÃO: No modo genre, preservar genre recebido; outros modos mantêm comportamento antigo
-      genre: isGenreMode
-        ? ((resolvedGenre && String(resolvedGenre).trim()) || 'default')
-        : (jobOrOptions.genre ||
-           jobOrOptions.data?.genre ||
-           jobOrOptions.genre_detected ||
-           'default'),
+      // 🎯 CORREÇÃO CRÍTICA: Genre sem fallback "default" no modo genre
+      genre: resolvedGenre,
 
-      // 🎯 NOVO: Propagar genreTargets quando existirem (modo genre)
+      // 🎯 NOVO: Propagar genreTargets
       genreTargets:
         jobOrOptions.genreTargets ||
         jobOrOptions.data?.genreTargets ||
-        undefined,
+        null,
 
       // Dados de comparação, se existirem
       referenceJobId:
@@ -214,6 +228,7 @@ async function analyzeAudioWithPipeline(localFilePath, jobOrOptions) {
         false,
     };
 
+    console.log("[DEBUG-GENRE] pipelineOptions FINAL:", pipelineOptions.genre, pipelineOptions.genreTargets);
     console.log('[GENRE-FLOW][PIPELINE] ▶ Enviando options para processAudioComplete:', pipelineOptions);
 
     // 🔥 TIMEOUT DE 3 MINUTOS PARA EVITAR TRAVAMENTO
