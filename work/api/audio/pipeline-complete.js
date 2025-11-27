@@ -259,7 +259,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       // 🎯 CORREÇÃO: Resolver genre baseado no modo
       const resolvedGenre = options.genre || options.data?.genre || options.genre_detected || null;
       const detectedGenre = isGenreMode
-        ? ((resolvedGenre && String(resolvedGenre).trim()) || 'default')
+        ? (resolvedGenre && String(resolvedGenre).trim())  // 🎯 SEM fallback 'default' no modo genre
         : (options.genre || 'default');
       
       let customTargets = null;
@@ -396,7 +396,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       // 🎯 CORREÇÃO: Resolver genre baseado no modo (reutilizar lógica)
       const resolvedGenreV2 = options.genre || options.data?.genre || options.genre_detected || null;
       const detectedGenreV2 = (mode === 'genre')
-        ? ((resolvedGenreV2 && String(resolvedGenreV2).trim()) || 'default')
+        ? (resolvedGenreV2 && String(resolvedGenreV2).trim())  // 🎯 SEM fallback 'default' no modo genre
         : (options.genre || 'default');
       
       let customTargetsV2 = null;
