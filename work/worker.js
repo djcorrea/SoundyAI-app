@@ -475,13 +475,22 @@ async function processJob(job) {
     const analysisResult = await analyzeAudioWithPipeline(localFilePath, options);
 
     // ✅ CORREÇÃO CRÍTICA: Garantir que genre SEMPRE está no result final
+    // 🎯 MERGE analysisResult ANTES para não sobrescrever genre/genreTargets
     const result = {
       ok: true,
       file: job.file_key,
-      mode: job.mode,
-      genre: options.genre, // 🎯 Garantir genre no resultado
       analyzedAt: new Date().toISOString(),
-      ...analysisResult,
+      ...analysisResult,  // 🎯 Pipeline result PRIMEIRO
+      // 🎯 DEPOIS sobrescrever com valores corretos de options (modo genre)
+      mode: job.mode,
+      genre: options.genre,  // 🎯 NUNCA usar analysisResult.genre no modo genre
+      ...(options.genreTargets ? {
+        data: {
+          ...(analysisResult.data || {}),
+          genre: options.genre,
+          genreTargets: options.genreTargets
+        }
+      } : {}),
     };
 
     // ✅ ENRIQUECIMENTO DE IA SÍNCRONO (ANTES de salvar no banco)
@@ -492,8 +501,11 @@ async function processJob(job) {
       console.log("[AI-ENRICH] Genre do result:", result.genre || result.metadata?.genre);
       
       try {
-        // ✅ CORREÇÃO: Usar result.genre diretamente, com fallback para metadata
-        const enrichmentGenre = result.genre || result.metadata?.genre || result.summary?.genre || 'default';
+        // 🎯 CORREÇÃO: No modo genre, NUNCA usar 'default' como fallback
+        const isGenreMode = result.mode === 'genre';
+        const enrichmentGenre = isGenreMode
+          ? (result.genre || result.data?.genre || result.metadata?.genre || null)
+          : (result.genre || result.metadata?.genre || result.summary?.genre || 'default');
         
         console.log('[AI-ENRICH] 📊 Contexto para enrichment:', {
           fileName: result.metadata?.fileName,
@@ -598,6 +610,17 @@ async function processJob(job) {
       _aiEnhanced: result._aiEnhanced,
       score: result.score,
       hasAllFields: !!(result.suggestions && result.aiSuggestions && result.problemsAnalysis)
+    });
+
+    // 🎯 LOG OBRIGATÓRIO: Estado final do result ANTES de salvar
+    console.log("[RESULT-FIX] FINAL GENRE BEFORE RETURN:", {
+      fromPipeline: analysisResult.genre,
+      fromOptions: options.genre,
+      fromJobData: job.data?.genre,
+      finalResultGenre: result.genre,
+      finalResultDataGenre: result.data?.genre,
+      hasGenreTargets: !!result.data?.genreTargets,
+      mode: result.mode
     });
 
     // 🔥 ATUALIZAR STATUS FINAL + VERIFICAR SE FUNCIONOU
