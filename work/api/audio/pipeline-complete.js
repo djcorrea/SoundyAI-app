@@ -217,15 +217,8 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         referenceJobId: options.referenceJobId
       });
       
-      // 🎯 CORREÇÃO DEFINITIVA: GARANTIR que data.genre e data.genreTargets existam
-      finalJSON.data = finalJSON.data || {};
-      finalJSON.data.genre = detectedGenre || options.genre;
-      finalJSON.data.genreTargets = options.genreTargets || null;
-      
-      console.log('[GENRE-FLOW][PIPELINE] ✅ data.genre e data.genreTargets garantidos:', {
-        'finalJSON.genre': finalJSON.genre,
-        'finalJSON.data.genre': finalJSON.data.genre,
-        'finalJSON.data.genreTargets': !!finalJSON.data.genreTargets,
+      console.log('[GENRE-FLOW][PIPELINE] ✅ Genre adicionado ao finalJSON:', {
+        genre: finalJSON.genre,
         mode: finalJSON.mode
       });
       
