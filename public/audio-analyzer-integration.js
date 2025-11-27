@@ -3959,11 +3959,15 @@ function openAnalysisModalForGenre() {
     configureModalForMode('genre');
     
     modal.style.display = 'flex';
-    resetModalState();
+    
+    // ✅ CORREÇÃO CRÍTICA: NÃO resetar gênero/targets aqui!
+    // Apenas limpar estado visual de upload (preserva gênero selecionado)
+    clearAudioOnlyState();
+    
     modal.setAttribute('tabindex', '-1');
     modal.focus();
     
-    __dbg('[GENRE_MODAL] Modal de análise aberto');
+    __dbg('[GENRE_MODAL] Modal de análise aberto (gênero preservado)');
 }
 
 // Expor funções globalmente
@@ -3999,7 +4003,16 @@ function openAnalysisModalForMode(mode) {
     }
     
     modal.style.display = 'flex';
-    resetModalState();
+    
+    // ✅ CORREÇÃO: Reset seletivo baseado no modo
+    if (mode === 'genre') {
+        // Modo gênero: apenas limpar visual (preserva gênero)
+        clearAudioOnlyState();
+    } else {
+        // Modo referência: reset completo
+        resetModalState();
+    }
+    
     modal.setAttribute('tabindex', '-1');
     modal.focus();
     
@@ -5350,6 +5363,36 @@ function closeAudioModal() {
 }
 
 // 🔄 Reset estado do modal
+/**
+ * 🆕 NOVA FUNÇÃO: Limpa APENAS estado visual de upload
+ * NÃO toca em gênero, targets ou localStorage
+ * Usada ao abrir modal de análise (preserva seleção de gênero)
+ */
+function clearAudioOnlyState() {
+    const uploadArea = document.getElementById('audioUploadArea');
+    const loading = document.getElementById('audioAnalysisLoading');
+    const results = document.getElementById('audioAnalysisResults');
+    const progressFill = document.getElementById('audioProgressFill');
+    const progressText = document.getElementById('audioProgressText');
+    const fileInput = document.getElementById('modalAudioFileInput');
+
+    if (uploadArea) uploadArea.style.display = 'block';
+    if (loading) loading.style.display = 'none';
+    if (results) results.style.display = 'none';
+    
+    if (progressFill) progressFill.style.width = '0%';
+    if (progressText) progressText.textContent = '';
+    
+    if (fileInput) fileInput.value = '';
+
+    console.log('[AUDIO-RESET] ✅ Apenas estado de áudio foi limpo (gênero preservado)');
+    console.log('[AUDIO-RESET] 📊 Gênero mantido:', {
+        PROD_AI_REF_GENRE: window.PROD_AI_REF_GENRE,
+        __CURRENT_SELECTED_GENRE: window.__CURRENT_SELECTED_GENRE,
+        hasTargets: !!window.__activeRefData
+    });
+}
+
 function resetModalState() {
     __dbg('🔄 Resetando estado do modal...');
     
