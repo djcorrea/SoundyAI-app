@@ -4081,11 +4081,29 @@ function getActiveGenre(analysis, fallback) {
 function resetReferenceStateFully(preserveGenre) {
     console.group('%c[GENRE-ISOLATION] 🧹 Limpeza completa do estado de referência', 'color:#FF6B6B;font-weight:bold;font-size:14px;');
     
-    // 🎯 SALVAR GÊNERO ANTES DE LIMPAR
-    const __savedGenre = preserveGenre || 
-                        window.__CURRENT_GENRE ||
-                        window.__soundyState?.render?.genre ||
-                        window.__activeUserGenre;
+    // ===============================================================
+    // 🔒 BLOCO 1 — PRESERVAR GÊNERO ANTES DO RESET (MÚLTIPLAS FONTES)
+    // ===============================================================
+    let __PRESERVED_GENRE__ = null;
+
+    try {
+        const genreSelect = document.getElementById("audioRefGenreSelect");
+
+        __PRESERVED_GENRE__ = preserveGenre ||
+                             window.__CURRENT_SELECTED_GENRE ||
+                             window.PROD_AI_REF_GENRE ||
+                             (genreSelect ? genreSelect.value : null) ||
+                             window.__CURRENT_GENRE ||
+                             window.__soundyState?.render?.genre ||
+                             window.__activeUserGenre;
+
+        console.log("[SAFE-RESET] ⚠️ Preservando gênero selecionado:", __PRESERVED_GENRE__);
+    } catch (e) {
+        console.warn("[SAFE-RESET] Falha ao capturar gênero antes do reset:", e);
+    }
+    
+    // 🎯 SALVAR GÊNERO ANTES DE LIMPAR (compatibilidade com código existente)
+    const __savedGenre = __PRESERVED_GENRE__;
     
     if (__savedGenre) {
         console.log('[GENRE-ISOLATION] 💾 Salvando gênero antes da limpeza:', __savedGenre);
@@ -4242,6 +4260,29 @@ function resetReferenceStateFully(preserveGenre) {
         console.log('   ✅ window.__soundyState.render.genre:', __savedGenre);
         console.log('   ✅ window.__activeUserGenre:', __savedGenre);
         console.log('   ✅ window.PROD_AI_REF_GENRE:', __savedGenre);
+    }
+    
+    // ===============================================================
+    // 🔒 BLOCO 3 — RESTAURAR GÊNERO NO DROPDOWN APÓS O RESET
+    // ===============================================================
+    try {
+        const genreSelect = document.getElementById("audioRefGenreSelect");
+
+        if (__PRESERVED_GENRE__ && typeof __PRESERVED_GENRE__ === "string") {
+            window.__CURRENT_SELECTED_GENRE = __PRESERVED_GENRE__;
+            window.PROD_AI_REF_GENRE = __PRESERVED_GENRE__;
+            window.__CURRENT_GENRE = __PRESERVED_GENRE__;
+
+            if (genreSelect) {
+                genreSelect.value = __PRESERVED_GENRE__;
+            }
+
+            console.log("[SAFE-RESET] ✅ Gênero restaurado no dropdown após reset:", __PRESERVED_GENRE__);
+        } else {
+            console.warn("[SAFE-RESET] ⚠️ Nenhum gênero válido preservado para dropdown.");
+        }
+    } catch (e) {
+        console.warn("[SAFE-RESET] Falha ao restaurar gênero no dropdown:", e);
     }
     
     console.log('%c[GENRE-ISOLATION] ✅ Estado de referência completamente limpo', 'color:#00FF88;font-weight:bold;');
@@ -5312,6 +5353,24 @@ function closeAudioModal() {
 function resetModalState() {
     __dbg('🔄 Resetando estado do modal...');
     
+    // ===============================================================
+    // 🔒 BLOCO 1 — PRESERVAR GÊNERO ANTES DO RESET
+    // ===============================================================
+    let __PRESERVED_GENRE__ = null;
+
+    try {
+        const genreSelect = document.getElementById("audioRefGenreSelect");
+
+        __PRESERVED_GENRE__ =
+            window.__CURRENT_SELECTED_GENRE ||
+            window.PROD_AI_REF_GENRE ||
+            (genreSelect ? genreSelect.value : null);
+
+        console.log("[SAFE-RESET] ⚠️ Preservando gênero selecionado:", __PRESERVED_GENRE__);
+    } catch (e) {
+        console.warn("[SAFE-RESET] Falha ao capturar gênero antes do reset:", e);
+    }
+    
     // Mostrar área de upload
     const uploadArea = document.getElementById('audioUploadArea');
     const loading = document.getElementById('audioAnalysisLoading');
@@ -5381,6 +5440,28 @@ function resetModalState() {
     // Flags internas
     delete window.__AUDIO_ADVANCED_READY__;
     delete window.__MODAL_ANALYSIS_IN_PROGRESS__;    console.log('[CLEANUP] resetModalState: estado global/flags limpos');
+    
+    // ===============================================================
+    // 🔒 BLOCO 3 — RESTAURAR GÊNERO APÓS O RESET
+    // ===============================================================
+    try {
+        const genreSelect = document.getElementById("audioRefGenreSelect");
+
+        if (__PRESERVED_GENRE__ && typeof __PRESERVED_GENRE__ === "string") {
+            window.__CURRENT_SELECTED_GENRE = __PRESERVED_GENRE__;
+            window.PROD_AI_REF_GENRE = __PRESERVED_GENRE__;
+
+            if (genreSelect) {
+                genreSelect.value = __PRESERVED_GENRE__;
+            }
+
+            console.log("[SAFE-RESET] ✅ Gênero restaurado após reset:", __PRESERVED_GENRE__);
+        } else {
+            console.warn("[SAFE-RESET] ⚠️ Nenhum gênero válido preservado.");
+        }
+    } catch (e) {
+        console.warn("[SAFE-RESET] Falha ao restaurar gênero após reset:", e);
+    }
     
     __dbg('✅ Estado do modal resetado completamente');
 }
