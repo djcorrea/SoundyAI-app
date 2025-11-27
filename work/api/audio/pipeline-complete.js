@@ -192,12 +192,20 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       
       // 🎯 PASSAR MODE E REFERENCE JOB ID PARA JSON OUTPUT
       const mode = options.mode || 'genre';
-      const detectedGenre = options.genre || 'default';
+      const isGenreMode = mode === 'genre';
+      
+      // 🎯 CORREÇÃO: Resolver genre baseado no modo
+      const resolvedGenre = options.genre || options.data?.genre || options.genre_detected || null;
+      const detectedGenre = isGenreMode
+        ? ((resolvedGenre && String(resolvedGenre).trim()) || 'default')
+        : (options.genre || 'default');
       
       console.log('[GENRE-FLOW][PIPELINE] Genre detectado (linha 195):', {
         'options.genre': options.genre,
         'detectedGenre': detectedGenre,
-        'isDefault': detectedGenre === 'default'
+        'isDefault': detectedGenre === 'default',
+        'mode': mode,
+        'isGenreMode': isGenreMode
       });
       
       finalJSON = generateJSONOutput(coreMetrics, reference, metadata, { 
@@ -205,12 +213,9 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         fileName,
         mode: mode,
         genre: detectedGenre,
+        genreTargets: options.genreTargets,
         referenceJobId: options.referenceJobId
       });
-      
-      // ✅ CORREÇÃO CRÍTICA: Adicionar genre ao finalJSON logo após geração
-      finalJSON.genre = detectedGenre;
-      finalJSON.mode = mode;
       
       console.log('[GENRE-FLOW][PIPELINE] ✅ Genre adicionado ao finalJSON:', {
         genre: finalJSON.genre,
@@ -249,13 +254,22 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       
       // 🎯 CARREGAR TARGETS DO FILESYSTEM (APENAS MODO GÊNERO)
       const mode = options.mode || 'genre';
-      const detectedGenre = options.genre || 'default';
+      const isGenreMode = mode === 'genre';
+      
+      // 🎯 CORREÇÃO: Resolver genre baseado no modo
+      const resolvedGenre = options.genre || options.data?.genre || options.genre_detected || null;
+      const detectedGenre = isGenreMode
+        ? ((resolvedGenre && String(resolvedGenre).trim()) || 'default')
+        : (options.genre || 'default');
+      
       let customTargets = null;
       
       console.log('[GENRE-FLOW][PIPELINE] Genre detectado (linha 246):', {
         'options.genre': options.genre,
         'detectedGenre': detectedGenre,
-        'isDefault': detectedGenre === 'default'
+        'isDefault': detectedGenre === 'default',
+        'mode': mode,
+        'isGenreMode': isGenreMode
       });
       
       console.log('[GENRE-FLOW][PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -379,13 +393,19 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       console.log('[V2-SYSTEM] V1 já gerou:', finalJSON.suggestions?.length || 0, 'sugestões');
       
       // 🎯 CARREGAR TARGETS DO FILESYSTEM (APENAS MODO GÊNERO)
-      const detectedGenreV2 = options.genre || 'default';
+      // 🎯 CORREÇÃO: Resolver genre baseado no modo (reutilizar lógica)
+      const resolvedGenreV2 = options.genre || options.data?.genre || options.genre_detected || null;
+      const detectedGenreV2 = (mode === 'genre')
+        ? ((resolvedGenreV2 && String(resolvedGenreV2).trim()) || 'default')
+        : (options.genre || 'default');
+      
       let customTargetsV2 = null;
       
       console.log('[GENRE-FLOW][PIPELINE] Genre detectado (linha 376):', {
         'options.genre': options.genre,
         'detectedGenreV2': detectedGenreV2,
-        'isDefault': detectedGenreV2 === 'default'
+        'isDefault': detectedGenreV2 === 'default',
+        'mode': mode
       });
       
       if (mode !== 'reference' && detectedGenreV2 && detectedGenreV2 !== 'default') {

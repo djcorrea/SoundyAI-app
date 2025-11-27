@@ -468,6 +468,13 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
 function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, options = {}) {
   const jobId = options.jobId || 'unknown';
   const scoreValue = scoringResult.score || scoringResult.scorePct;
+  
+  // 🎯 CORREÇÃO: Resolver genre baseado no modo
+  const isGenreMode = (options.mode || 'genre') === 'genre';
+  const resolvedGenre = options.genre || options.data?.genre || options.genre_detected || null;
+  const finalGenre = isGenreMode
+    ? ((resolvedGenre && String(resolvedGenre).trim()) || 'default')
+    : (options.genre || 'default');
 
   return {
     // 🎯 CORREÇÃO CRÍTICA: Incluir genre e mode no JSON final
@@ -477,8 +484,16 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     // - Sugestões técnicas contextualizadas
     // - Comparação de bandas espectrais
     // - Preservação do fluxo A/B no modo referência
-    genre: options.genre || 'default',
+    genre: finalGenre,
     mode: options.mode || 'genre',
+    
+    // 🎯 NOVO: Adicionar estrutura data com genre e genreTargets quando existirem
+    ...(isGenreMode && options.genreTargets ? {
+      data: {
+        genre: finalGenre,
+        genreTargets: options.genreTargets
+      }
+    } : {}),
     
     score: Math.round(scoreValue * 10) / 10,
     classification: scoringResult.classification || 'unknown',
