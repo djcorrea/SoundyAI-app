@@ -1952,9 +1952,25 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         // Sanitizar
         selectedGenre = selectedGenre.trim();
         
+        // ✅ GARANTIR que targets sejam incluídos no payload
+        let genreTargets = null;
+        if (window.__activeRefData?.targets) {
+            genreTargets = window.__activeRefData.targets;
+            console.log('✅ [CREATE-JOB] Targets de gênero incluídos no payload:', {
+                genre: selectedGenre,
+                hasTargets: !!genreTargets,
+                targetKeys: Object.keys(genreTargets),
+                targetSource: window.__activeRefData.targetSource
+            });
+        } else {
+            console.warn('⚠️ [CREATE-JOB] Nenhum target encontrado para gênero:', selectedGenre);
+        }
+        
         // LOG obrigatório
         console.log("[GENRE FINAL PAYLOAD]", {
             selectedGenre,
+            hasTargets: !!genreTargets,
+            targetCount: genreTargets ? Object.keys(genreTargets).length : 0,
             genreSelectValue: genreSelect?.value,
             refGenre: window.PROD_AI_REF_GENRE,
             currentSelected: window.__CURRENT_SELECTED_GENRE
@@ -3115,6 +3131,117 @@ function ensureActiveGenreOption(selectEl, genreKey) {
     }
 }
 
+/**
+ * 🎯 NOVA FUNÇÃO: Extrair targets de gênero do JSON
+ * Formato esperado do JSON:
+ * {
+ *   "nome_genero": {
+ *     "version": "...",
+ *     "hybrid_processing": {
+ *       "original_metrics": {...},
+ *       "spectral_bands": {...}  ← PRIORIDADE 1
+ *     },
+ *     "legacy_compatibility": {
+ *       "bands": {...}  ← PRIORIDADE 2
+ *     },
+ *     "bands": {...}  ← PRIORIDADE 3 (fallback)
+ *   }
+ * }
+ */
+function extractGenreTargets(json, genreName) {
+    console.log('[EXTRACT-TARGETS] 🔍 Extraindo targets para:', genreName);
+    console.log('[EXTRACT-TARGETS] 📦 JSON recebido:', json);
+    
+    // 1. Identificar o root real do gênero
+    let root = null;
+    
+    // Tentar: json[genreName]
+    if (json && typeof json === 'object' && json[genreName]) {
+        root = json[genreName];
+        console.log('[EXTRACT-TARGETS] ✅ Root encontrado em json[genreName]');
+    }
+    // Tentar: json já é o root (quando vem de cache ou embedded)
+    else if (json && typeof json === 'object' && json.version) {
+        root = json;
+        console.log('[EXTRACT-TARGETS] ✅ JSON já é o root (tem version)');
+    }
+    // Tentar: primeiro objeto no JSON
+    else if (json && typeof json === 'object') {
+        const firstKey = Object.keys(json)[0];
+        if (firstKey && json[firstKey] && typeof json[firstKey] === 'object') {
+            root = json[firstKey];
+            console.log('[EXTRACT-TARGETS] ✅ Root encontrado na primeira chave:', firstKey);
+        }
+    }
+    
+    if (!root) {
+        console.error('[EXTRACT-TARGETS] ❌ Root não encontrado no JSON');
+        return null;
+    }
+    
+    console.log('[EXTRACT-TARGETS] 📊 Root identificado:', {
+        version: root.version,
+        hasHybridProcessing: !!root.hybrid_processing,
+        hasLegacyCompatibility: !!root.legacy_compatibility,
+        hasBands: !!root.bands
+    });
+    
+    // 2. Buscar targets na ordem de prioridade
+    let targets = null;
+    let source = null;
+    
+    // PRIORIDADE 1: hybrid_processing.spectral_bands
+    if (root.hybrid_processing?.spectral_bands) {
+        targets = root.hybrid_processing.spectral_bands;
+        source = 'hybrid_processing.spectral_bands';
+        console.log('[EXTRACT-TARGETS] ✅ Targets encontrados em hybrid_processing.spectral_bands');
+    }
+    // PRIORIDADE 2: legacy_compatibility.bands
+    else if (root.legacy_compatibility?.bands) {
+        targets = root.legacy_compatibility.bands;
+        source = 'legacy_compatibility.bands';
+        console.log('[EXTRACT-TARGETS] ✅ Targets encontrados em legacy_compatibility.bands');
+    }
+    // PRIORIDADE 3: bands (fallback)
+    else if (root.bands) {
+        targets = root.bands;
+        source = 'bands';
+        console.log('[EXTRACT-TARGETS] ✅ Targets encontrados em bands (fallback)');
+    }
+    // PRIORIDADE 4: hybrid_processing.original_metrics (último recurso)
+    else if (root.hybrid_processing?.original_metrics) {
+        targets = root.hybrid_processing.original_metrics;
+        source = 'hybrid_processing.original_metrics';
+        console.log('[EXTRACT-TARGETS] ⚠️ Usando original_metrics como último recurso');
+    }
+    
+    if (!targets) {
+        console.error('[EXTRACT-TARGETS] ❌ Nenhum target encontrado no JSON');
+        console.error('[EXTRACT-TARGETS] 📦 Root completo:', root);
+        return null;
+    }
+    
+    // 3. Criar objeto de resultado completo
+    const result = {
+        ...root,
+        targets: targets,
+        targetSource: source
+    };
+    
+    console.log('[EXTRACT-TARGETS] ✅ Extração completa:', {
+        genre: genreName,
+        source: source,
+        version: root.version,
+        targetKeys: Object.keys(targets),
+        lufs_target: root.lufs_target,
+        true_peak_target: root.true_peak_target,
+        dr_target: root.dr_target,
+        stereo_target: root.stereo_target
+    });
+    
+    return result;
+}
+
 async function loadReferenceData(genre) {
     try {
         // Se feature flag de invalidar cache por troca de escala/gênero estiver ativa, ignorar cache salvo
@@ -3122,6 +3249,15 @@ async function loadReferenceData(genre) {
         if (!bypassCache && __refDataCache[genre]) {
             __activeRefData = __refDataCache[genre];
             __activeRefGenre = genre;
+            
+            // ✅ Log detalhado dos targets carregados do cache
+            console.log('[LOAD-REF] 📦 Carregado do cache:', {
+                genre: genre,
+                hasTargets: !!__activeRefData?.targets,
+                targetKeys: __activeRefData?.targets ? Object.keys(__activeRefData.targets) : [],
+                targetSource: __activeRefData?.targetSource
+            });
+            
             updateRefStatus('✔ referências (cache)', '#0d6efd');
             return __activeRefData;
         }
@@ -3143,25 +3279,38 @@ async function loadReferenceData(genre) {
                 `./refs/out/${genre}.json?v=${version}`,
                 `../refs/out/${genre}.json?v=${version}`
             ]);
-            const rootKey = Object.keys(json)[0];
-            const data = json[rootKey];
-            if (data && typeof data === 'object' && data.version) {
-                const enrichedNet = enrichReferenceObject(data, genre);
+            
+            // ✅ NOVA LÓGICA: Usar extractGenreTargets para processar JSON
+            const extractedData = extractGenreTargets(json, genre);
+            
+            if (extractedData && typeof extractedData === 'object' && extractedData.version) {
+                const enrichedNet = enrichReferenceObject(extractedData, genre);
                 __refDataCache[genre] = enrichedNet;
                 __activeRefData = enrichedNet;
                 __activeRefGenre = genre;
                 window.PROD_AI_REF_DATA = enrichedNet;
+                window.__activeRefData = enrichedNet; // ✅ Garantir disponibilidade global
                 
-                // Log de diagnóstico
-                console.log('🎯 REFS DIAGNOSTIC:', {
+                // ✅ Log detalhado mostrando targets reais
+                console.log('🎯 REFS DIAGNOSTIC (EXTERNAL):', {
                     genre,
                     source: 'external',
                     path: `/refs/out/${genre}.json`,
-                    version: data.version,
-                    num_tracks: data.num_tracks,
-                    lufs_target: data.lufs_target,
-                    true_peak_target: data.true_peak_target,
-                    stereo_target: data.stereo_target
+                    version: extractedData.version,
+                    num_tracks: extractedData.num_tracks,
+                    lufs_target: extractedData.lufs_target,
+                    true_peak_target: extractedData.true_peak_target,
+                    stereo_target: extractedData.stereo_target,
+                    targetSource: extractedData.targetSource,
+                    targetKeys: extractedData.targets ? Object.keys(extractedData.targets) : [],
+                    firstTarget: extractedData.targets ? Object.values(extractedData.targets)[0] : null
+                });
+                
+                console.log('✅ [GENRE_MODAL] Targets de gênero carregados:', {
+                    genre: genre,
+                    hasTargets: !!extractedData.targets,
+                    targetCount: extractedData.targets ? Object.keys(extractedData.targets).length : 0,
+                    targetSample: extractedData.targets ? Object.keys(extractedData.targets).slice(0, 3) : []
                 });
                 
                 updateRefStatus('✔ referências aplicadas', '#0d6efd');
@@ -3184,27 +3333,43 @@ async function loadReferenceData(genre) {
         const embInline = __INLINE_EMBEDDED_REFS__?.byGenre?.[genre] || null;
         const useData = embWin || embInline;
         if (useData && typeof useData === 'object') {
-            const enriched = enrichReferenceObject(structuredClone(useData), genre);
-            __refDataCache[genre] = enriched;
-            __activeRefData = enriched;
-            __activeRefGenre = genre;
-            window.PROD_AI_REF_DATA = enriched;
+            // ✅ NOVA LÓGICA: Extrair targets corretamente
+            const extractedData = extractGenreTargets(useData, genre);
             
-            // Log de diagnóstico
-            console.log('🎯 REFS DIAGNOSTIC:', {
-                genre,
-                source: 'embedded',
-                path: embWin ? 'window.__EMBEDDED_REFS__' : '__INLINE_EMBEDDED_REFS__',
-                version: 'embedded',
-                num_tracks: useData.num_tracks || 'unknown',
-                lufs_target: useData.lufs_target,
-                true_peak_target: useData.true_peak_target,
-                stereo_target: useData.stereo_target
-            });
-            
-            updateRefStatus('✔ referências embutidas', '#0d6efd');
-            try { buildAggregatedRefStats(); } catch {}
-            return enriched;
+            if (extractedData) {
+                const enriched = enrichReferenceObject(structuredClone(extractedData), genre);
+                __refDataCache[genre] = enriched;
+                __activeRefData = enriched;
+                __activeRefGenre = genre;
+                window.PROD_AI_REF_DATA = enriched;
+                window.__activeRefData = enriched; // ✅ Garantir disponibilidade global
+                
+                // ✅ Log detalhado mostrando targets reais
+                console.log('🎯 REFS DIAGNOSTIC (EMBEDDED):', {
+                    genre,
+                    source: 'embedded',
+                    path: embWin ? 'window.__EMBEDDED_REFS__' : '__INLINE_EMBEDDED_REFS__',
+                    version: extractedData.version || 'embedded',
+                    num_tracks: extractedData.num_tracks || 'unknown',
+                    lufs_target: extractedData.lufs_target,
+                    true_peak_target: extractedData.true_peak_target,
+                    stereo_target: extractedData.stereo_target,
+                    targetSource: extractedData.targetSource,
+                    targetKeys: extractedData.targets ? Object.keys(extractedData.targets) : [],
+                    firstTarget: extractedData.targets ? Object.values(extractedData.targets)[0] : null
+                });
+                
+                console.log('✅ [GENRE_MODAL] Targets de gênero carregados:', {
+                    genre: genre,
+                    hasTargets: !!extractedData.targets,
+                    targetCount: extractedData.targets ? Object.keys(extractedData.targets).length : 0,
+                    targetSample: extractedData.targets ? Object.keys(extractedData.targets).slice(0, 3) : []
+                });
+                
+                updateRefStatus('✔ referências embutidas', '#0d6efd');
+                try { buildAggregatedRefStats(); } catch {}
+                return enriched;
+            }
         }
         
         // 3) Se ainda nada funcionou e REFS_ALLOW_NETWORK está ativo (legacy path)
@@ -3902,7 +4067,21 @@ function initGenreModal() {
             if (typeof applyGenreSelection === 'function') {
                 // ✅ CORREÇÃO CRÍTICA: Aguardar carregamento completo dos targets
                 await applyGenreSelection(genre);
-                __dbg('[GENRE_MODAL] ✅ Targets de gênero carregados:', window.__activeRefData);
+                
+                // ✅ Log detalhado mostrando targets reais
+                console.log('✅ [GENRE_MODAL] Targets de gênero carregados:', {
+                    genre: genre,
+                    hasActiveRefData: !!window.__activeRefData,
+                    hasTargets: !!window.__activeRefData?.targets,
+                    targetSource: window.__activeRefData?.targetSource,
+                    targetKeys: window.__activeRefData?.targets ? Object.keys(window.__activeRefData.targets) : [],
+                    targetSample: window.__activeRefData?.targets ? Object.keys(window.__activeRefData.targets).slice(0, 3) : [],
+                    lufs_target: window.__activeRefData?.lufs_target,
+                    true_peak_target: window.__activeRefData?.true_peak_target,
+                    version: window.__activeRefData?.version
+                });
+                
+                __dbg('[GENRE_MODAL] ✅ applyGenreSelection concluído com sucesso');
             } else {
                 console.error('[GENRE_MODAL] applyGenreSelection não está disponível');
                 return;
@@ -4092,6 +4271,14 @@ function getActiveGenre(analysis, fallback) {
 
 // 🔥 CORREÇÃO CRÍTICA: Limpeza COMPLETA do estado de referência para modo gênero
 function resetReferenceStateFully(preserveGenre) {
+    // ✅ PROTEÇÃO: Não limpar targets no modo gênero
+    const currentMode = window.currentAnalysisMode;
+    if (currentMode === 'genre') {
+        console.log('%c[GENRE-ISOLATION] 🛡️ Modo GENRE detectado - IGNORANDO reset de referência', 'color:#FFD700;font-weight:bold;font-size:14px;');
+        console.log('[GENRE-ISOLATION] ✅ Targets de gênero preservados (reset bloqueado)');
+        return; // NÃO executar reset no modo gênero
+    }
+    
     console.group('%c[GENRE-ISOLATION] 🧹 Limpeza completa do estado de referência', 'color:#FF6B6B;font-weight:bold;font-size:14px;');
     
     // ===============================================================
