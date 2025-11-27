@@ -168,6 +168,16 @@ async function analyzeAudioWithPipeline(localFilePath, jobOrOptions) {
     const t0 = Date.now();
 
     // Normalizar tanto o "job" antigo quanto o novo "options"
+    const mode = jobOrOptions.mode || 'genre';
+    const isGenreMode = mode === 'genre';
+    
+    // 🎯 CORREÇÃO: Resolver genre de forma inteligente baseado no modo
+    const resolvedGenre =
+      jobOrOptions.genre ||
+      jobOrOptions.data?.genre ||
+      jobOrOptions.genre_detected ||
+      null;
+    
     const pipelineOptions = {
       // ID do job
       jobId: jobOrOptions.jobId || jobOrOptions.id || null,
@@ -176,14 +186,21 @@ async function analyzeAudioWithPipeline(localFilePath, jobOrOptions) {
       reference: jobOrOptions.reference || jobOrOptions.reference_file_key || null,
 
       // Modo de análise: 'genre', 'comparison', etc.
-      mode: jobOrOptions.mode || 'genre',
+      mode: mode,
 
-      // Gênero (PRIORIDADE: explicitamente passado > dentro de data > fallback default)
-      genre:
-        jobOrOptions.genre ||
-        jobOrOptions.data?.genre ||
-        jobOrOptions.genre_detected ||
-        'default',
+      // 🎯 CORREÇÃO: No modo genre, preservar genre recebido; outros modos mantêm comportamento antigo
+      genre: isGenreMode
+        ? ((resolvedGenre && String(resolvedGenre).trim()) || 'default')
+        : (jobOrOptions.genre ||
+           jobOrOptions.data?.genre ||
+           jobOrOptions.genre_detected ||
+           'default'),
+
+      // 🎯 NOVO: Propagar genreTargets quando existirem (modo genre)
+      genreTargets:
+        jobOrOptions.genreTargets ||
+        jobOrOptions.data?.genreTargets ||
+        undefined,
 
       // Dados de comparação, se existirem
       referenceJobId:
