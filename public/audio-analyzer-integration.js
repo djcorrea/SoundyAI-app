@@ -1935,43 +1935,40 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             }
         }
         
-        // 🎯 Extrair gênero selecionado do dropdown
-        const genreSelect = document.getElementById('audioRefGenreSelect');
-        let selectedGenre = genreSelect?.value;
+        // 🔒 PATCH: PRESERVAR GÊNERO ANTES DE MONTAR PAYLOAD
+        preserveGenreState();
+        
+        // 🎯 Usar SEMPRE o __CURRENT_SELECTED_GENRE (não o dropdown)
+        let finalGenre = window.__CURRENT_SELECTED_GENRE || window.PROD_AI_REF_GENRE;
+        let finalTargets = window.__CURRENT_GENRE_TARGETS || window.currentGenreTargets || window.__activeRefData?.targets;
         
         // 🔒 Validação robusta — nunca deixar vir vazio
-        if (!selectedGenre || typeof selectedGenre !== "string" || selectedGenre.trim() === "") {
-            selectedGenre = window.__CURRENT_SELECTED_GENRE || window.PROD_AI_REF_GENRE;
-        }
-        
-        // 🔒 Se ainda estiver inválido, fallback para "default"
-        if (!selectedGenre || selectedGenre.trim() === "") {
-            selectedGenre = "default";
+        if (!finalGenre || typeof finalGenre !== "string" || finalGenre.trim() === "") {
+            // Última tentativa: buscar do dropdown
+            const genreSelect = document.getElementById('audioRefGenreSelect');
+            finalGenre = genreSelect?.value || "default";
         }
         
         // Sanitizar
-        selectedGenre = selectedGenre.trim();
+        finalGenre = finalGenre.trim();
         
         // ✅ GARANTIR que targets sejam incluídos no payload
-        let genreTargets = null;
-        if (window.__activeRefData?.targets) {
-            genreTargets = window.__activeRefData.targets;
+        if (finalTargets) {
             console.log('✅ [CREATE-JOB] Targets de gênero incluídos no payload:', {
-                genre: selectedGenre,
-                hasTargets: !!genreTargets,
-                targetKeys: Object.keys(genreTargets),
-                targetSource: window.__activeRefData.targetSource
+                genre: finalGenre,
+                hasTargets: !!finalTargets,
+                targetKeys: Object.keys(finalTargets),
+                targetSource: window.__activeRefData?.targetSource
             });
         } else {
-            console.warn('⚠️ [CREATE-JOB] Nenhum target encontrado para gênero:', selectedGenre);
+            console.warn('⚠️ [CREATE-JOB] Nenhum target encontrado para gênero:', finalGenre);
         }
         
         // LOG obrigatório
         console.log("[GENRE FINAL PAYLOAD]", {
-            selectedGenre,
-            hasTargets: !!genreTargets,
-            targetCount: genreTargets ? Object.keys(genreTargets).length : 0,
-            genreSelectValue: genreSelect?.value,
+            finalGenre,
+            hasTargets: !!finalTargets,
+            targetCount: finalTargets ? Object.keys(finalTargets).length : 0,
             refGenre: window.PROD_AI_REF_GENRE,
             currentSelected: window.__CURRENT_SELECTED_GENRE
         });
@@ -1981,9 +1978,24 @@ async function createAnalysisJob(fileKey, mode, fileName) {
             fileKey: fileKey,
             mode: actualMode,
             fileName: fileName,
-            isReferenceBase: isReferenceBase, // 🔧 FIX: Adicionar flag ao payload
-            genre: selectedGenre // 🎯 FIX CRÍTICO: Gênero agora incluído no payload
+            isReferenceBase: isReferenceBase,
+            genre: finalGenre, // 🔒 PATCH: Usar finalGenre sempre
+            genreTargets: finalTargets, // 🔒 PATCH: Incluir targets
+            hasTargets: !!finalTargets // 🔒 PATCH: Flag indicando presença de targets
         };
+        
+        // 🔥 GUARD PREVENTIVO: NUNCA enviar sem gênero ou targets
+        if (!payload.genre || !payload.genreTargets) {
+            const errorMsg = `[GENRE-ERROR] Gênero ou targets ausentes antes do envio do job. Genre: ${payload.genre}, HasTargets: ${!!payload.genreTargets}`;
+            console.error(errorMsg);
+            throw new Error(errorMsg);
+        }
+        
+        console.log('[GENRE-GUARD] ✅ Payload validado:', {
+            genre: payload.genre,
+            hasTargets: payload.hasTargets,
+            targetCount: payload.genreTargets ? Object.keys(payload.genreTargets).length : 0
+        });
         
         // Adicionar referenceJobId apenas se existir
         if (referenceJobId && actualMode === 'reference') {
@@ -3441,6 +3453,26 @@ function updateRefStatus(text, color) {
     if (el) { el.textContent = text; el.style.background = color || '#1f2b40'; }
 }
 
+/**
+ * 🔒 FUNÇÃO DE PRESERVAÇÃO DE GÊNERO
+ * Garante que o gênero selecionado NUNCA seja perdido em resets
+ */
+function preserveGenreState() {
+    if (window.__CURRENT_SELECTED_GENRE) return;
+
+    // Se o CURRENT não existir, restaurar do refGenre
+    if (window.PROD_AI_REF_GENRE) {
+        window.__CURRENT_SELECTED_GENRE = window.PROD_AI_REF_GENRE;
+        console.log('[PRESERVE-GENRE] ✅ __CURRENT_SELECTED_GENRE restaurado de PROD_AI_REF_GENRE:', window.PROD_AI_REF_GENRE);
+    }
+
+    // Reatribuir targets
+    if (window.__CURRENT_GENRE_TARGETS) {
+        window.currentGenreTargets = window.__CURRENT_GENRE_TARGETS;
+        console.log('[PRESERVE-GENRE] ✅ currentGenreTargets restaurado de __CURRENT_GENRE_TARGETS');
+    }
+}
+
 function applyGenreSelection(genre) {
     if (!genre) return Promise.resolve();
     window.PROD_AI_REF_GENRE = genre;
@@ -3457,8 +3489,26 @@ function applyGenreSelection(genre) {
         invalidateReferenceDerivedCaches();
         console.log('✅ Cache invalidado para gênero:', genre);
     } catch(e) { console.warn('⚠️ Falha na invalidação:', e); }
+    
     // Carregar refs e, se já houver análise no modal, atualizar sugestões de referência e re-renderizar
     return loadReferenceData(genre).then(() => {
+        // 🔒 PATCH: Salvar gênero e targets em TODAS as variáveis globais
+        window.__CURRENT_SELECTED_GENRE = genre;
+        window.PROD_AI_REF_GENRE = genre;
+        
+        // Extrair targets do __activeRefData carregado
+        if (window.__activeRefData?.targets) {
+            window.__CURRENT_GENRE_TARGETS = window.__activeRefData.targets;
+            window.currentGenreTargets = window.__activeRefData.targets;
+            console.log('[APPLY-GENRE] ✅ Gênero e targets salvos:', {
+                genre: genre,
+                hasTargets: true,
+                targetKeys: Object.keys(window.__activeRefData.targets)
+            });
+        } else {
+            console.warn('[APPLY-GENRE] ⚠️ Targets não encontrados em __activeRefData');
+        }
+        
         try {
             if (typeof currentModalAnalysis === 'object' && currentModalAnalysis) {
                 // 🎯 NOVO: Recalcular score com nova referência
@@ -5583,10 +5633,14 @@ function clearAudioOnlyState() {
 function resetModalState() {
     __dbg('🔄 Resetando estado do modal...');
     
+    // 🔒 PATCH: PRESERVAR GÊNERO ANTES DE QUALQUER OPERAÇÃO
+    preserveGenreState();
+    
     // ===============================================================
     // 🔒 BLOCO 1 — PRESERVAR GÊNERO ANTES DO RESET
     // ===============================================================
     let __PRESERVED_GENRE__ = null;
+    let __PRESERVED_TARGETS__ = null;
 
     try {
         const genreSelect = document.getElementById("audioRefGenreSelect");
@@ -5595,8 +5649,14 @@ function resetModalState() {
             window.__CURRENT_SELECTED_GENRE ||
             window.PROD_AI_REF_GENRE ||
             (genreSelect ? genreSelect.value : null);
+        
+        __PRESERVED_TARGETS__ =
+            window.__CURRENT_GENRE_TARGETS ||
+            window.currentGenreTargets ||
+            window.__activeRefData?.targets;
 
         console.log("[SAFE-RESET] ⚠️ Preservando gênero selecionado:", __PRESERVED_GENRE__);
+        console.log("[SAFE-RESET] ⚠️ Preservando targets:", __PRESERVED_TARGETS__ ? Object.keys(__PRESERVED_TARGETS__) : 'null');
     } catch (e) {
         console.warn("[SAFE-RESET] Falha ao capturar gênero antes do reset:", e);
     }
@@ -5672,7 +5732,7 @@ function resetModalState() {
     delete window.__MODAL_ANALYSIS_IN_PROGRESS__;    console.log('[CLEANUP] resetModalState: estado global/flags limpos');
     
     // ===============================================================
-    // 🔒 BLOCO 3 — RESTAURAR GÊNERO APÓS O RESET
+    // 🔒 BLOCO 3 — RESTAURAR GÊNERO E TARGETS APÓS O RESET
     // ===============================================================
     try {
         const genreSelect = document.getElementById("audioRefGenreSelect");
@@ -5689,8 +5749,15 @@ function resetModalState() {
         } else {
             console.warn("[SAFE-RESET] ⚠️ Nenhum gênero válido preservado.");
         }
+        
+        // 🔒 PATCH: RESTAURAR TARGETS TAMBÉM
+        if (__PRESERVED_TARGETS__) {
+            window.__CURRENT_GENRE_TARGETS = __PRESERVED_TARGETS__;
+            window.currentGenreTargets = __PRESERVED_TARGETS__;
+            console.log("[SAFE-RESET] ✅ Targets restaurados após reset:", Object.keys(__PRESERVED_TARGETS__));
+        }
     } catch (e) {
-        console.warn("[SAFE-RESET] Falha ao restaurar gênero após reset:", e);
+        console.warn("[SAFE-RESET] Falha ao restaurar gênero:", e);
     }
     
     __dbg('✅ Estado do modal resetado completamente');
@@ -6700,6 +6767,9 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
     window.lastReferenceJobId = null;
     
     console.log('🎚️ [FIX-GENRE] Estado completamente limpo, modo forçado para "genre"');
+    
+    // 🔒 PATCH: PRESERVAR GÊNERO APÓS LIMPEZA
+    preserveGenreState();
     
     try {
         // Verificar estrutura do resultado
