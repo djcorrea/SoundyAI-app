@@ -3,6 +3,78 @@
 // ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
 // ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
 
+// ═══════════════════════════════════════════════════════════════════
+// 🎯 GENRE TARGETS UTILS - FONTE ÚNICA DE VERDADE
+// ═══════════════════════════════════════════════════════════════════
+/**
+ * Extrai genre targets de uma análise
+ * ÚNICA FONTE OFICIAL: analysis.data.genreTargets
+ * @param {Object} analysis - Objeto de análise normalizado
+ * @returns {Object|null} Targets do gênero ou null
+ */
+function extractGenreTargetsFromAnalysis(analysis) {
+    console.log('[GENRE-TARGETS-UTILS] 🔍 Extraindo targets da análise');
+    
+    // 🎯 PRIORIDADE 1: analysis.data.genreTargets (BACKEND OFICIAL)
+    if (analysis?.data?.genreTargets) {
+        console.log('[GENRE-TARGETS-UTILS] ✅ Targets encontrados em analysis.data.genreTargets');
+        console.log('[GENRE-TARGETS-UTILS] Keys:', Object.keys(analysis.data.genreTargets));
+        return analysis.data.genreTargets;
+    }
+    
+    // 🎯 PRIORIDADE 2: analysis.genreTargets (fallback direto)
+    if (analysis?.genreTargets) {
+        console.log('[GENRE-TARGETS-UTILS] ⚠️ Targets encontrados em analysis.genreTargets (fallback)');
+        console.log('[GENRE-TARGETS-UTILS] Keys:', Object.keys(analysis.genreTargets));
+        return analysis.genreTargets;
+    }
+    
+    // 🎯 PRIORIDADE 3: analysis.data.targets (nomenclatura alternativa)
+    if (analysis?.data?.targets) {
+        console.log('[GENRE-TARGETS-UTILS] ⚠️ Targets encontrados em analysis.data.targets (nomenclatura antiga)');
+        console.log('[GENRE-TARGETS-UTILS] Keys:', Object.keys(analysis.data.targets));
+        return analysis.data.targets;
+    }
+    
+    console.warn('[GENRE-TARGETS-UTILS] ❌ Nenhum target encontrado na análise');
+    console.warn('[GENRE-TARGETS-UTILS] analysis.data:', analysis?.data);
+    console.warn('[GENRE-TARGETS-UTILS] analysis.genreTargets:', analysis?.genreTargets);
+    return null;
+}
+
+/**
+ * Extrai gênero de uma análise
+ * ÚNICA FONTE OFICIAL: analysis.data.genre
+ * @param {Object} analysis - Objeto de análise normalizado
+ * @returns {string|null} Nome do gênero ou null
+ */
+function extractGenreFromAnalysis(analysis) {
+    console.log('[GENRE-TARGETS-UTILS] 🎵 Extraindo gênero da análise');
+    
+    // 🎯 PRIORIDADE 1: analysis.data.genre (BACKEND OFICIAL)
+    if (analysis?.data?.genre) {
+        console.log('[GENRE-TARGETS-UTILS] ✅ Gênero encontrado em analysis.data.genre:', analysis.data.genre);
+        return analysis.data.genre;
+    }
+    
+    // 🎯 PRIORIDADE 2: analysis.genre (fallback direto)
+    if (analysis?.genre) {
+        console.log('[GENRE-TARGETS-UTILS] ⚠️ Gênero encontrado em analysis.genre (fallback):', analysis.genre);
+        return analysis.genre;
+    }
+    
+    // 🎯 PRIORIDADE 3: analysis.metadata.genre
+    if (analysis?.metadata?.genre) {
+        console.log('[GENRE-TARGETS-UTILS] ⚠️ Gênero encontrado em analysis.metadata.genre (fallback):', analysis.metadata.genre);
+        return analysis.metadata.genre;
+    }
+    
+    console.warn('[GENRE-TARGETS-UTILS] ❌ Nenhum gênero encontrado na análise');
+    return null;
+}
+
+console.log('✅ Genre Targets Utils carregado');
+
 // 🔍 AUDITORIA DE STORAGE - Sistema de detecção de inconsistências
 (function initStorageAudit() {
     console.group('%c[AUDITORIA-STORAGE] 🧠 Inicializando sistema de auditoria de storage', 'color:#A974FF;font-weight:bold;font-size:14px;');
@@ -1940,7 +2012,25 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         
         // 🎯 Usar SEMPRE o __CURRENT_SELECTED_GENRE (não o dropdown)
         let finalGenre = window.__CURRENT_SELECTED_GENRE || window.PROD_AI_REF_GENRE;
-        let finalTargets = window.__CURRENT_GENRE_TARGETS || window.currentGenreTargets || window.__activeRefData?.targets;
+        
+        // 🎯 CORREÇÃO CRÍTICA: Extrair targets da análise anterior se disponível
+        let finalTargets = null;
+        
+        // Prioridade 1: Se há análise anterior, extrair targets dela (FONTE OFICIAL)
+        const previousAnalysis = window.currentAnalysisData || window.__soundyState?.previousAnalysis;
+        if (previousAnalysis) {
+            console.log('[CREATE-JOB] 🎯 Extraindo targets da análise anterior (FONTE OFICIAL)');
+            finalTargets = extractGenreTargetsFromAnalysis(previousAnalysis);
+            if (finalTargets) {
+                console.log('[CREATE-JOB] ✅ Targets extraídos de analysis.data.genreTargets:', Object.keys(finalTargets));
+            }
+        }
+        
+        // Prioridade 2 (FALLBACK): Usar variáveis globais
+        if (!finalTargets) {
+            console.warn('[CREATE-JOB] ⚠️ FALLBACK: Usando targets das variáveis globais');
+            finalTargets = window.__CURRENT_GENRE_TARGETS || window.currentGenreTargets || window.__activeRefData?.targets;
+        }
         
         // 🔒 Validação robusta — nunca deixar vir vazio
         if (!finalGenre || typeof finalGenre !== "string" || finalGenre.trim() === "") {
@@ -3457,8 +3547,39 @@ function updateRefStatus(text, color) {
  * 🔒 FUNÇÃO DE PRESERVAÇÃO DE GÊNERO
  * Garante que o gênero selecionado NUNCA seja perdido em resets
  */
-function preserveGenreState() {
-    if (window.__CURRENT_SELECTED_GENRE) return;
+function preserveGenreState(sourceAnalysis = null) {
+    console.log('[PRESERVE-GENRE] 🔒 Preservando estado do gênero');
+    
+    // 🎯 CORREÇÃO CRÍTICA: Se foi passada uma análise, extrair targets dela primeiro
+    if (sourceAnalysis) {
+        console.log('[PRESERVE-GENRE] 🎯 Análise fornecida - extraindo genre e targets (FONTE OFICIAL)');
+        
+        const extractedGenre = extractGenreFromAnalysis(sourceAnalysis);
+        const extractedTargets = extractGenreTargetsFromAnalysis(sourceAnalysis);
+        
+        if (extractedGenre) {
+            window.__CURRENT_SELECTED_GENRE = extractedGenre;
+            window.PROD_AI_REF_GENRE = extractedGenre;
+            console.log('[PRESERVE-GENRE] ✅ Gênero extraído de analysis.data.genre:', extractedGenre);
+        }
+        
+        if (extractedTargets) {
+            window.__CURRENT_GENRE_TARGETS = extractedTargets;
+            window.currentGenreTargets = extractedTargets;
+            console.log('[PRESERVE-GENRE] ✅ Targets extraídos de analysis.data.genreTargets:', Object.keys(extractedTargets));
+        }
+        
+        // Se conseguiu extrair ambos, retornar
+        if (extractedGenre && extractedTargets) {
+            return;
+        }
+    }
+    
+    // Se __CURRENT_SELECTED_GENRE já existe, não precisa restaurar
+    if (window.__CURRENT_SELECTED_GENRE) {
+        console.log('[PRESERVE-GENRE] ✅ __CURRENT_SELECTED_GENRE já existe:', window.__CURRENT_SELECTED_GENRE);
+        return;
+    }
 
     // Se o CURRENT não existir, restaurar do refGenre
     if (window.PROD_AI_REF_GENRE) {
@@ -4949,7 +5070,7 @@ function renderGenreComparisonTable(options) {
     
     console.group('[GENRE-TABLE] 📊 RENDERIZAÇÃO COMPLETA DE GÊNERO');
     console.log('[GENRE-TABLE] 🎯 Gênero:', genre);
-    console.log('[GENRE-TABLE] 📁 Targets recebidos:', targets);
+    console.log('[GENRE-TABLE] 📁 Targets recebidos (parâmetro):', targets);
     
     // 🛡️ GUARD: Apenas para modo gênero
     if (analysis?.mode !== 'genre') {
@@ -4966,10 +5087,28 @@ function renderGenreComparisonTable(options) {
         return;
     }
     
-    // 🎯 EXTRAIR TARGETS DO GÊNERO (estrutura aninhada ou direta)
-    let genreData = targets;
-    if (targets[genre]) {
-        genreData = targets[genre];
+    // 🎯 CORREÇÃO CRÍTICA: Extrair targets SEMPRE de analysis.data.genreTargets primeiro
+    console.log('[GENRE-TABLE] 🎯 Extraindo targets da análise (FONTE OFICIAL)');
+    let genreData = extractGenreTargetsFromAnalysis(analysis);
+    
+    // Fallback: usar parâmetro targets se analysis não tiver
+    if (!genreData) {
+        console.warn('[GENRE-TABLE] ⚠️ FALLBACK: Usando targets do parâmetro (analysis.data.genreTargets não disponível)');
+        genreData = targets;
+    }
+    
+    // Se targets for um objeto com chaves de gênero, extrair o correto
+    if (genreData && genreData[genre]) {
+        console.log('[GENRE-TABLE] 📦 Extraindo targets específicos do gênero:', genre);
+        genreData = genreData[genre];
+    }
+    
+    if (!genreData) {
+        console.error('[GENRE-TABLE] ❌ CRÍTICO: Nenhum target disponível!');
+        console.error('[GENRE-TABLE]    - analysis.data.genreTargets:', !!analysis?.data?.genreTargets);
+        console.error('[GENRE-TABLE]    - targets parameter:', !!targets);
+        console.groupEnd();
+        return;
     }
     
     console.log('[GENRE-TABLE] 📦 Genre data:', {
@@ -12496,42 +12635,54 @@ function getActiveReferenceComparisonMetrics(normalizedResult) {
         return normalizedResult.referenceComparisonMetrics;
     }
 
-    // 2️⃣ MODO GÊNERO: usa targets carregados no front via [GENRE-TARGETS]
+    // 2️⃣ MODO GÊNERO: 🎯 CORREÇÃO CRÍTICA - Usar analysis.data.genreTargets
     if (mode === 'genre') {
-        // Prioridade 1: window.__activeRefData (global universal)
+        console.log('🎯 [GENRE-TARGETS] Extraindo targets da análise (FONTE OFICIAL)');
+        
+        // 🎯 PRIORIDADE 1: analysis.data.genreTargets (BACKEND OFICIAL)
+        const genreTargets = extractGenreTargetsFromAnalysis(normalizedResult);
+        if (genreTargets) {
+            console.log('✅ [GENRE-FIX] Usando analysis.data.genreTargets (modo genre - FONTE OFICIAL)');
+            console.log('   - Fonte: analysis.data.genreTargets');
+            console.log('   - Tem bands:', !!genreTargets.bands);
+            console.log('   - Keys:', Object.keys(genreTargets));
+            console.groupEnd();
+            return genreTargets.referenceComparisonMetrics || genreTargets;
+        }
+        
+        // 🎯 PRIORIDADE 2 (FALLBACK): window.__activeRefData (global universal)
         if (window.__activeRefData) {
-            console.log('✅ [GENRE-FIX] Usando window.__activeRefData (modo genre)');
-            console.log('   - Fonte: window.__activeRefData');
+            console.warn('⚠️ [GENRE-FIX] FALLBACK: Usando window.__activeRefData (analysis.data.genreTargets não disponível)');
+            console.log('   - Fonte: window.__activeRefData (FALLBACK)');
             console.log('   - Tem bands:', !!window.__activeRefData.bands);
             console.log('   - Tem referenceComparisonMetrics:', !!window.__activeRefData.referenceComparisonMetrics);
             console.groupEnd();
-            // Se existir estrutura referenceComparisonMetrics dentro, usa ela
-            // Senão, retorna o próprio objeto (que tem bands, lufs_target, etc)
             return window.__activeRefData.referenceComparisonMetrics || window.__activeRefData;
         }
         
-        // Prioridade 2: window.PROD_AI_REF_DATA[genre] (dicionário por gênero)
+        // 🎯 PRIORIDADE 3 (FALLBACK): window.PROD_AI_REF_DATA[genre] (dicionário por gênero)
         if (genre && window.PROD_AI_REF_DATA && window.PROD_AI_REF_DATA[genre]) {
-            console.log('✅ [GENRE-FIX] Usando PROD_AI_REF_DATA[genre] (modo genre)');
-            console.log('   - Fonte: window.PROD_AI_REF_DATA[' + genre + ']');
+            console.warn('⚠️ [GENRE-FIX] FALLBACK: Usando PROD_AI_REF_DATA[genre] (analysis.data.genreTargets não disponível)');
+            console.log('   - Fonte: window.PROD_AI_REF_DATA[' + genre + '] (FALLBACK)');
             console.log('   - Tem bands:', !!window.PROD_AI_REF_DATA[genre].bands);
             console.groupEnd();
             const genreData = window.PROD_AI_REF_DATA[genre];
             return genreData.referenceComparisonMetrics || genreData;
         }
         
-        // Prioridade 3: Fallback para analysis.referenceComparisonMetrics (se existir)
+        // 🎯 PRIORIDADE 4 (FALLBACK): Fallback para analysis.referenceComparisonMetrics (se existir)
         if (normalizedResult?.referenceComparisonMetrics) {
-            console.log('✅ [GENRE-FIX] Usando analysis.referenceComparisonMetrics (fallback)');
-            console.log('   - Fonte: analysis.referenceComparisonMetrics');
+            console.warn('⚠️ [GENRE-FIX] FALLBACK: Usando analysis.referenceComparisonMetrics (último recurso)');
+            console.log('   - Fonte: analysis.referenceComparisonMetrics (FALLBACK)');
             console.groupEnd();
             return normalizedResult.referenceComparisonMetrics;
         }
         
-        console.warn('❌ [GENRE-FIX] Nenhum target de gênero encontrado');
-        console.warn('   - window.__activeRefData:', !!window.__activeRefData);
-        console.warn('   - window.PROD_AI_REF_DATA:', !!window.PROD_AI_REF_DATA);
-        console.warn('   - Genre:', genre);
+        console.error('❌ [GENRE-FIX] CRÍTICO: Nenhum target de gênero encontrado!');
+        console.error('   - analysis.data.genreTargets:', !!normalizedResult?.data?.genreTargets);
+        console.error('   - window.__activeRefData:', !!window.__activeRefData);
+        console.error('   - window.PROD_AI_REF_DATA:', !!window.PROD_AI_REF_DATA);
+        console.error('   - Genre:', genre);
         console.groupEnd();
         return null;
     }
@@ -19098,6 +19249,13 @@ function normalizeBackendAnalysisData(result) {
 
     console.log("[NORMALIZE] Source data extracted:", src);
     console.log("[NORMALIZE] Full data structure:", data);
+    
+    // 🎯 CRÍTICO: Preservar data.genre e data.genreTargets (FONTE OFICIAL DO BACKEND)
+    console.log("[NORMALIZE] 🎵 Preservando genre do backend:", {
+        'data.genre': data.genre,
+        'result.data.genre': result?.data?.genre,
+        'hasGenreTargets': !!(data.genreTargets || result?.data?.genreTargets)
+    });
 
     const loudness = src.loudness || data.loudness || data.technicalData?.loudness || {};
     const dynamics = src.dynamics || data.dynamics || data.technicalData?.dynamics || {};
@@ -19108,6 +19266,14 @@ function normalizeBackendAnalysisData(result) {
     const normalized = {
         // Preservar estrutura original
         ...data,
+        
+        // 🎯 CRÍTICO: Garantir que data.genre e data.genreTargets sejam preservados
+        data: {
+            genre: data.genre || result?.data?.genre || null,
+            genreTargets: data.genreTargets || result?.data?.genreTargets || null,
+            // Preservar outros dados se existirem
+            ...(data.data || {})
+        },
         
         // 🎯 Métricas normalizadas (RMS e LUFS separados)
         avgLoudness: energy.rms ?? 
