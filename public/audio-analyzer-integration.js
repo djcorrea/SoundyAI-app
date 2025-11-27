@@ -3,15 +3,6 @@
 // ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
 // ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
 
-// 🎯 IMPORTAR UTILITÁRIO DE GENRE TARGETS (FONTE ÚNICA)
-import { 
-    extractGenreTargetsFromAnalysis, 
-    loadDefaultGenreTargets, 
-    extractGenreFromAnalysis,
-    getGenreTargetsWithFallback,
-    validateGenreTargets 
-} from './genre-targets-utils.js';
-
 // 🔍 AUDITORIA DE STORAGE - Sistema de detecção de inconsistências
 (function initStorageAudit() {
     console.group('%c[AUDITORIA-STORAGE] 🧠 Inicializando sistema de auditoria de storage', 'color:#A974FF;font-weight:bold;font-size:14px;');
@@ -4879,39 +4870,29 @@ function renderGenreView(analysis) {
     console.log('[GENRE-VIEW] ✅ Bandas convertidas:', analysis.genreBands ? Object.keys(analysis.genreBands).filter(k => analysis.genreBands[k] !== null) : 'N/A');
     
     // 6️⃣ Obter targets de gênero
-    // 🎯 CORREÇÃO CRÍTICA: Usar ÚNICA FONTE OFICIAL - analysis.data.genreTargets
-    let genreTargets = extractGenreTargetsFromAnalysis(analysis);
+    // 🔥 CORREÇÃO: PROD_AI_REF_DATA pode ser um objeto único OU um dicionário
+    let genreTargets = null;
     
-    // Se não veio do backend, tentar fonte secundária (window)
-    if (!genreTargets) {
-        console.warn('[GENRE-VIEW] ⚠️ Targets NÃO vieram do backend (analysis.data.genreTargets)');
-        console.warn('[GENRE-VIEW] 🔍 Tentando fontes secundárias (window)...');
-        
-        if (window.PROD_AI_REF_DATA) {
-            if (typeof window.PROD_AI_REF_DATA === 'object' && window.PROD_AI_REF_DATA[genre]) {
-                // Estrutura de dicionário: { genre1: {...}, genre2: {...} }
-                genreTargets = window.PROD_AI_REF_DATA[genre];
-                console.log('[GENRE-VIEW] 📦 Targets obtidos de PROD_AI_REF_DATA[genre] (fallback dicionário)');
-            } else if (window.PROD_AI_REF_DATA.bands || window.PROD_AI_REF_DATA.legacy_compatibility) {
-                // Objeto único diretamente atribuído
-                genreTargets = window.PROD_AI_REF_DATA;
-                console.log('[GENRE-VIEW] 📦 Targets obtidos de PROD_AI_REF_DATA (fallback objeto único)');
-            }
+    if (window.PROD_AI_REF_DATA) {
+        if (typeof window.PROD_AI_REF_DATA === 'object' && window.PROD_AI_REF_DATA[genre]) {
+            // Estrutura de dicionário: { genre1: {...}, genre2: {...} }
+            genreTargets = window.PROD_AI_REF_DATA[genre];
+            console.log('[GENRE-VIEW] 📦 Targets obtidos de PROD_AI_REF_DATA[genre] (dicionário)');
+        } else if (window.PROD_AI_REF_DATA.bands || window.PROD_AI_REF_DATA.legacy_compatibility) {
+            // Objeto único diretamente atribuído
+            genreTargets = window.PROD_AI_REF_DATA;
+            console.log('[GENRE-VIEW] 📦 Targets obtidos de PROD_AI_REF_DATA (objeto único)');
         }
-        
-        // Fallback para __activeRefData
-        if (!genreTargets && window.__activeRefData) {
-            genreTargets = window.__activeRefData;
-            console.log('[GENRE-VIEW] 📦 Targets obtidos de __activeRefData (fallback)');
-        }
-    } else {
-        console.log('[GENRE-VIEW] ✅ Targets carregados da FONTE OFICIAL: analysis.data.genreTargets');
+    }
+    
+    // Fallback para __activeRefData
+    if (!genreTargets && window.__activeRefData) {
+        genreTargets = window.__activeRefData;
+        console.log('[GENRE-VIEW] 📦 Targets obtidos de __activeRefData (fallback)');
     }
     
     if (!genreTargets) {
         console.error('[GENRE-VIEW] ❌ CRÍTICO: Targets de gênero não disponíveis - ABORTANDO');
-        console.error('[GENRE-VIEW]    analysis.data:', analysis.data);
-        console.error('[GENRE-VIEW]    analysis.data.genreTargets:', analysis.data?.genreTargets);
         console.error('[GENRE-VIEW]    window.PROD_AI_REF_DATA:', window.PROD_AI_REF_DATA);
         console.error('[GENRE-VIEW]    window.__activeRefData:', window.__activeRefData);
         console.error('[GENRE-VIEW]    Tipo PROD_AI_REF_DATA:', typeof window.PROD_AI_REF_DATA);
@@ -12515,23 +12496,12 @@ function getActiveReferenceComparisonMetrics(normalizedResult) {
         return normalizedResult.referenceComparisonMetrics;
     }
 
-    // 2️⃣ MODO GÊNERO: usa targets carregados do BACKEND (analysis.data.genreTargets)
+    // 2️⃣ MODO GÊNERO: usa targets carregados no front via [GENRE-TARGETS]
     if (mode === 'genre') {
-        // 🎯 PRIORIDADE 1: analysis.data.genreTargets (FONTE OFICIAL DO BACKEND)
-        const genreTargetsFromBackend = extractGenreTargetsFromAnalysis(normalizedResult);
-        if (genreTargetsFromBackend) {
-            console.log('✅ [GENRE-FIX] Usando analysis.data.genreTargets (OFICIAL - modo genre)');
-            console.log('   - Fonte: analysis.data.genreTargets (backend)');
-            console.log('   - Tem bands:', !!genreTargetsFromBackend.bands);
-            console.log('   - Tem referenceComparisonMetrics:', !!genreTargetsFromBackend.referenceComparisonMetrics);
-            console.groupEnd();
-            return genreTargetsFromBackend.referenceComparisonMetrics || genreTargetsFromBackend;
-        }
-        
-        // Fallback: window.__activeRefData (global universal)
+        // Prioridade 1: window.__activeRefData (global universal)
         if (window.__activeRefData) {
-            console.warn('⚠️ [GENRE-FIX] Targets NÃO vieram do backend - usando window.__activeRefData (fallback)');
-            console.log('   - Fonte: window.__activeRefData (fallback)');
+            console.log('✅ [GENRE-FIX] Usando window.__activeRefData (modo genre)');
+            console.log('   - Fonte: window.__activeRefData');
             console.log('   - Tem bands:', !!window.__activeRefData.bands);
             console.log('   - Tem referenceComparisonMetrics:', !!window.__activeRefData.referenceComparisonMetrics);
             console.groupEnd();
