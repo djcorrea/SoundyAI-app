@@ -78,10 +78,18 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
   console.log(`📊 [${jobId.substring(0,8)}] Buffer size: ${audioBuffer.length} bytes`);
   console.log(`🔧 [${jobId.substring(0,8)}] Opções:`, options);
   
+  // 🔥 LOG OBRIGATÓRIO: ENTRADA DO PIPELINE
+  console.log('[GENRE-TRACE][PIPELINE-INPUT]', {
+    jobId: jobId.substring(0, 8),
+    incomingGenre: options.genre,
+    incomingTargets: options.genreTargets ? Object.keys(options.genreTargets) : null,
+    mode: options.mode
+  });
+  
   // PASSO 2: GARANTIR QUE O MODO NÃO VAZA PARA REFERÊNCIA
   console.log('[MODE-FLOW] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('[MODE-FLOW] MODO DETECTADO:', options.mode || 'genre');
-  console.log('[MODE-FLOW] GENRE DETECTADO:', options.genre || 'default');
+  console.log('[MODE-FLOW] GENRE DETECTADO:', options.genre || '(null)');
   console.log('[MODE-FLOW] referenceJobId:', options.referenceJobId || 'null');
   console.log('[MODE-FLOW] isReferenceBase:', options.isReferenceBase || false);
   console.log('[MODE-FLOW] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -197,7 +205,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       // 🎯 CORREÇÃO: Resolver genre baseado no modo
       const resolvedGenre = options.genre || options.data?.genre || options.genre_detected || null;
       const detectedGenre = isGenreMode
-        ? ((resolvedGenre && String(resolvedGenre).trim()) || 'default')
+        ? (resolvedGenre && String(resolvedGenre).trim())  // 🔥 SEM fallback 'default' no modo genre
         : (options.genre || 'default');
       
       console.log('[GENRE-FLOW][PIPELINE] Genre detectado (linha 195):', {
@@ -287,9 +295,13 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       });
       
       if (mode !== 'reference' && detectedGenre && detectedGenre !== 'default') {
-        customTargets = loadGenreTargets(detectedGenre);
-        if (customTargets) {
-          console.log(`[SUGGESTIONS_V1] ✅ Usando targets de ${detectedGenre} do filesystem`);
+        // 🔥 PRIORIZAR genreTargets do usuário
+        customTargets = options.genreTargets || loadGenreTargets(detectedGenre);
+        
+        if (options.genreTargets) {
+          console.log(`[SUGGESTIONS_V1] 🎯 Usando targets CUSTOMIZADOS do usuário para ${detectedGenre}`);
+        } else if (customTargets) {
+          console.log(`[SUGGESTIONS_V1] 📂 Usando targets de ${detectedGenre} do filesystem`);
         } else {
           console.log(`[SUGGESTIONS_V1] 📋 Usando targets hardcoded para ${detectedGenre}`);
         }
@@ -409,9 +421,13 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       });
       
       if (mode !== 'reference' && detectedGenreV2 && detectedGenreV2 !== 'default') {
-        customTargetsV2 = loadGenreTargets(detectedGenreV2);
-        if (customTargetsV2) {
-          console.log(`[V2-SYSTEM] ✅ Usando targets de ${detectedGenreV2} do filesystem`);
+        // 🔥 PRIORIZAR genreTargets do usuário
+        customTargetsV2 = options.genreTargets || loadGenreTargets(detectedGenreV2);
+        
+        if (options.genreTargets) {
+          console.log(`[V2-SYSTEM] 🎯 Usando targets CUSTOMIZADOS do usuário para ${detectedGenreV2}`);
+        } else if (customTargetsV2) {
+          console.log(`[V2-SYSTEM] 📂 Usando targets de ${detectedGenreV2} do filesystem`);
         } else {
           console.log(`[V2-SYSTEM] 📋 Usando targets hardcoded para ${detectedGenreV2}`);
         }
@@ -818,6 +834,15 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     console.log('[GENRE-FLOW][PIPELINE] finalJSON.suggestionMetadata.genre:', finalJSON.suggestionMetadata?.genre);
     console.log('[GENRE-FLOW][PIPELINE] finalJSON.mode:', finalJSON.mode);
     console.log('[GENRE-FLOW][PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    // 🔥 LOG OBRIGATÓRIO: SAÍDA DO PIPELINE
+    console.log('[GENRE-TRACE][PIPELINE-OUTPUT]', {
+      jobId: jobId.substring(0, 8),
+      resultGenre: finalJSON.genre,
+      summaryGenre: finalJSON.summary?.genre,
+      metadataGenre: finalJSON.metadata?.genre,
+      suggestionMetadataGenre: finalJSON.suggestionMetadata?.genre
+    });
     
     logAudio('pipeline', 'done', {
       ms: totalTime,
