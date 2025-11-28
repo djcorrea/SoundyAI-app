@@ -474,23 +474,45 @@ async function processJob(job) {
     // Fluxo normal para jobs de análise única
     const analysisResult = await analyzeAudioWithPipeline(localFilePath, options);
 
-    // ✅ CORREÇÃO CRÍTICA: Garantir que genre SEMPRE está no result final
-    // 🎯 MERGE analysisResult ANTES para não sobrescrever genre/genreTargets
+    // 🔥 CORREÇÃO DEFINITIVA: Forçar genre do usuário em TODAS as estruturas
+    const forcedGenre = options.genre;   // Gênero escolhido pelo usuário
+    const forcedTargets = options.genreTargets || null;
+
     const result = {
       ok: true,
       file: job.file_key,
       analyzedAt: new Date().toISOString(),
-      ...analysisResult,  // 🎯 Pipeline result PRIMEIRO
-      // 🎯 DEPOIS sobrescrever com valores corretos de options (modo genre)
+
+      ...analysisResult,
+
+      // 🔥 Correção suprema: garantir que a raiz sempre tenha o gênero correto
+      genre: forcedGenre,
       mode: job.mode,
-      genre: options.genre,  // 🎯 NUNCA usar analysisResult.genre no modo genre
-      ...(options.genreTargets ? {
-        data: {
-          ...(analysisResult.data || {}),
-          genre: options.genre,
-          genreTargets: options.genreTargets
-        }
-      } : {}),
+
+      // 🔥 Corrigir summary.genre
+      summary: {
+        ...(analysisResult.summary || {}),
+        genre: forcedGenre
+      },
+
+      // 🔥 Corrigir metadata.genre
+      metadata: {
+        ...(analysisResult.metadata || {}),
+        genre: forcedGenre
+      },
+
+      // 🔥 Corrigir suggestionMetadata.genre
+      suggestionMetadata: {
+        ...(analysisResult.suggestionMetadata || {}),
+        genre: forcedGenre
+      },
+
+      // 🔥 Corrigir data.genre + incluir targets
+      data: {
+        ...(analysisResult.data || {}),
+        genre: forcedGenre,
+        genreTargets: forcedTargets
+      }
     };
 
     // ✅ ENRIQUECIMENTO DE IA SÍNCRONO (ANTES de salvar no banco)
@@ -621,6 +643,17 @@ async function processJob(job) {
       finalResultDataGenre: result.data?.genre,
       hasGenreTargets: !!result.data?.genreTargets,
       mode: result.mode
+    });
+
+    // 🔥 LOG DE AUDITORIA FINAL: Verificar TODOS os campos genre
+    console.log("[GENRE-AUDIT-FINAL]", {
+      resultGenre: result.genre,
+      summaryGenre: result.summary?.genre,
+      metadataGenre: result.metadata?.genre,
+      suggestionMetadataGenre: result.suggestionMetadata?.genre,
+      dataGenre: result.data?.genre,
+      receivedGenre: options.genre,
+      jobGenre: job.data?.genre
     });
 
     // 🔥 ATUALIZAR STATUS FINAL + VERIFICAR SE FUNCIONOU
