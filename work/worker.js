@@ -197,6 +197,16 @@ async function analyzeAudioWithPipeline(localFilePath, jobOrOptions) {
             "default";
     }
 
+    // 🔥 LOG CIRÚRGICO: Rastrear genre ANTES de entrar no pipeline
+    console.log('[GENRE-DEEP-TRACE][WORKER-PRE-PIPELINE]', {
+      ponto: 'analyzeAudioWithPipeline - ANTES de criar pipelineOptions',
+      'jobOrOptions.genre': jobOrOptions.genre,
+      'jobOrOptions.data?.genre': jobOrOptions.data?.genre,
+      'resolvedGenre': resolvedGenre,
+      'isGenreMode': isGenreMode,
+      'mode': jobOrOptions.mode
+    });
+
     const pipelineOptions = {
       // ID do job
       jobId: jobOrOptions.jobId || jobOrOptions.id || null,
@@ -227,6 +237,14 @@ async function analyzeAudioWithPipeline(localFilePath, jobOrOptions) {
         jobOrOptions.is_reference_base ??
         false,
     };
+
+    // 🔥 LOG CIRÚRGICO: Rastrear genre DEPOIS de criar pipelineOptions
+    console.log('[GENRE-DEEP-TRACE][WORKER-POST-OPTIONS]', {
+      ponto: 'analyzeAudioWithPipeline - DEPOIS de criar pipelineOptions',
+      'pipelineOptions.genre': pipelineOptions.genre,
+      'pipelineOptions.genreTargets': pipelineOptions.genreTargets ? Object.keys(pipelineOptions.genreTargets) : null,
+      'pipelineOptions.mode': pipelineOptions.mode
+    });
 
     console.log("[DEBUG-GENRE] pipelineOptions FINAL:", pipelineOptions.genre, pipelineOptions.genreTargets);
     console.log('[GENRE-FLOW][PIPELINE] ▶ Enviando options para processAudioComplete:', pipelineOptions);

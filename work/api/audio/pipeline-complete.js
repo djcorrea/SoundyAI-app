@@ -202,11 +202,29 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       const mode = options.mode || 'genre';
       const isGenreMode = mode === 'genre';
       
+      // 🔥 LOG CIRÚRGICO: ANTES de resolver genre (JSON Output)
+      console.log('[GENRE-DEEP-TRACE][PIPELINE-JSON-PRE]', {
+        ponto: 'pipeline-complete.js linha ~197 - ANTES resolução',
+        'options.genre': options.genre,
+        'options.data?.genre': options.data?.genre,
+        'options.genre_detected': options.genre_detected,
+        'isGenreMode': isGenreMode
+      });
+      
       // 🎯 CORREÇÃO: Resolver genre baseado no modo
       const resolvedGenre = options.genre || options.data?.genre || options.genre_detected || null;
       const detectedGenre = isGenreMode
         ? (resolvedGenre && String(resolvedGenre).trim())  // 🔥 SEM fallback 'default' no modo genre
         : (options.genre || 'default');
+      
+      // 🔥 LOG CIRÚRGICO: DEPOIS de resolver genre (JSON Output)
+      console.log('[GENRE-DEEP-TRACE][PIPELINE-JSON-POST]', {
+        ponto: 'pipeline-complete.js linha ~197 - DEPOIS resolução',
+        'resolvedGenre': resolvedGenre,
+        'detectedGenre': detectedGenre,
+        'isNull': detectedGenre === null,
+        'isDefault': detectedGenre === 'default'
+      });
       
       console.log('[GENRE-FLOW][PIPELINE] Genre detectado (linha 195):', {
         'options.genre': options.genre,
@@ -264,11 +282,28 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       const mode = options.mode || 'genre';
       const isGenreMode = mode === 'genre';
       
+      // 🔥 LOG CIRÚRGICO: ANTES de resolver genre (Suggestions V1)
+      console.log('[GENRE-DEEP-TRACE][PIPELINE-V1-PRE]', {
+        ponto: 'pipeline-complete.js linha ~260 - ANTES resolução V1',
+        'options.genre': options.genre,
+        'options.data?.genre': options.data?.genre,
+        'isGenreMode': isGenreMode
+      });
+      
       // 🎯 CORREÇÃO: Resolver genre baseado no modo
       const resolvedGenre = options.genre || options.data?.genre || options.genre_detected || null;
       const detectedGenre = isGenreMode
         ? (resolvedGenre && String(resolvedGenre).trim())  // 🎯 SEM fallback 'default' no modo genre
         : (options.genre || 'default');
+      
+      // 🔥 LOG CIRÚRGICO: DEPOIS de resolver genre (Suggestions V1)
+      console.log('[GENRE-DEEP-TRACE][PIPELINE-V1-POST]', {
+        ponto: 'pipeline-complete.js linha ~260 - DEPOIS resolução V1',
+        'resolvedGenre': resolvedGenre,
+        'detectedGenre': detectedGenre,
+        'isNull': detectedGenre === null,
+        'isDefault': detectedGenre === 'default'
+      });
       
       let customTargets = null;
       
@@ -331,9 +366,25 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         prioritized: problemsAndSuggestions.priorityRecommendations || []
       };
       
+      // 🔥 LOG CIRÚRGICO: ANTES de atribuir summary/metadata de V1
+      console.log('[GENRE-DEEP-TRACE][V1-SUMMARY-PRE]', {
+        ponto: 'pipeline-complete.js linha ~370 - ANTES atribuir V1',
+        'problemsAndSuggestions.summary?.genre': problemsAndSuggestions.summary?.genre,
+        'problemsAndSuggestions.metadata?.genre': problemsAndSuggestions.metadata?.genre,
+        'detectedGenre (disponível)': detectedGenre
+      });
+      
       finalJSON.suggestions = problemsAndSuggestions.suggestions || [];
       finalJSON.summary = problemsAndSuggestions.summary || {};
       finalJSON.suggestionMetadata = problemsAndSuggestions.metadata || {};
+      
+      // 🔥 LOG CIRÚRGICO: DEPOIS de atribuir summary/metadata de V1
+      console.log('[GENRE-DEEP-TRACE][V1-SUMMARY-POST]', {
+        ponto: 'pipeline-complete.js linha ~370 - DEPOIS atribuir V1',
+        'finalJSON.summary.genre': finalJSON.summary?.genre,
+        'finalJSON.suggestionMetadata.genre': finalJSON.suggestionMetadata?.genre,
+        'PROBLEMA?': finalJSON.summary?.genre !== detectedGenre
+      });
       
       // PASSO 5: LOGS PARA VALIDAÇÃO
       console.log('[SUGGESTIONS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -355,6 +406,13 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     } catch (suggestionsError) {
       console.error(`[SUGGESTIONS_V1] ❌ Erro ao gerar sugestões base:`, suggestionsError.message);
       // Garantir estrutura mínima mesmo em caso de erro
+      // 🔥 LOG CIRÚRGICO: ERRO - Zerando summary/metadata
+      console.log('[GENRE-DEEP-TRACE][ERROR-RESET]', {
+        ponto: 'pipeline-complete.js linha ~396 - ERRO: Zerando summary/metadata',
+        'detectedGenre (perdido?)': detectedGenre,
+        'ALERTA': 'summary e metadata serão VAZIOS - genre SERÁ PERDIDO'
+      });
+      
       finalJSON.suggestions = [];
       finalJSON.problemsAnalysis = { problems: [], suggestions: [] };
       finalJSON.diagnostics = { problems: [], suggestions: [], prioritized: [] };
@@ -405,11 +463,28 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       console.log('[V2-SYSTEM] V1 já gerou:', finalJSON.suggestions?.length || 0, 'sugestões');
       
       // 🎯 CARREGAR TARGETS DO FILESYSTEM (APENAS MODO GÊNERO)
+      // 🔥 LOG CIRÚRGICO: ANTES de resolver genre (Suggestions V2)
+      console.log('[GENRE-DEEP-TRACE][PIPELINE-V2-PRE]', {
+        ponto: 'pipeline-complete.js linha ~400 - ANTES resolução V2',
+        'options.genre': options.genre,
+        'options.data?.genre': options.data?.genre,
+        'mode': mode
+      });
+      
       // 🎯 CORREÇÃO: Resolver genre baseado no modo (reutilizar lógica)
       const resolvedGenreV2 = options.genre || options.data?.genre || options.genre_detected || null;
       const detectedGenreV2 = (mode === 'genre')
         ? (resolvedGenreV2 && String(resolvedGenreV2).trim())  // 🎯 SEM fallback 'default' no modo genre
         : (options.genre || 'default');
+      
+      // 🔥 LOG CIRÚRGICO: DEPOIS de resolver genre (Suggestions V2)
+      console.log('[GENRE-DEEP-TRACE][PIPELINE-V2-POST]', {
+        ponto: 'pipeline-complete.js linha ~400 - DEPOIS resolução V2',
+        'resolvedGenreV2': resolvedGenreV2,
+        'detectedGenreV2': detectedGenreV2,
+        'isNull': detectedGenreV2 === null,
+        'isDefault': detectedGenreV2 === 'default'
+      });
       
       let customTargetsV2 = null;
       
@@ -475,6 +550,15 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         finalJSON.problemsAnalysis.suggestions = v2Suggestions;
         finalJSON.diagnostics.suggestions = v2Suggestions;
         
+        // 🔥 LOG CIRÚRGICO: ANTES de forçar genre em summary/metadata
+        console.log('[GENRE-DEEP-TRACE][SUMMARY-METADATA-PRE]', {
+          ponto: 'pipeline-complete.js linha ~535 - ANTES forçar summary/metadata',
+          'detectedGenre (usado para forçar)': detectedGenre,
+          'v2Summary.genre': v2Summary?.genre,
+          'v2Metadata.genre': v2Metadata?.genre,
+          'finalJSON.genre': finalJSON.genre
+        });
+        
         // ✅ CORREÇÃO CRÍTICA: Garantir que genre seja propagado para summary e metadata
         finalJSON.summary = {
           ...v2Summary,
@@ -484,6 +568,14 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
           ...v2Metadata,
           genre: detectedGenre  // ← FORÇAR GÊNERO CORRETO
         };
+        
+        // 🔥 LOG CIRÚRGICO: DEPOIS de forçar genre em summary/metadata
+        console.log('[GENRE-DEEP-TRACE][SUMMARY-METADATA-POST]', {
+          ponto: 'pipeline-complete.js linha ~535 - DEPOIS forçar summary/metadata',
+          'finalJSON.summary.genre': finalJSON.summary?.genre,
+          'finalJSON.suggestionMetadata.genre': finalJSON.suggestionMetadata?.genre,
+          'finalJSON.genre': finalJSON.genre
+        });
         
         console.log('[GENRE-FLOW][PIPELINE] ✅ Summary e Metadata atualizados com genre:', detectedGenre);
         
@@ -788,10 +880,26 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         prioritized: []
       };
     }
+    
+    // 🔥 LOG CIRÚRGICO: ANTES de validar summary/metadata (final)
+    console.log('[GENRE-DEEP-TRACE][FINAL-VALIDATION-PRE]', {
+      ponto: 'pipeline-complete.js linha ~860 - ANTES validação final',
+      'finalJSON.summary existe?': !!finalJSON.summary,
+      'finalJSON.summary.genre': finalJSON.summary?.genre,
+      'finalJSON.suggestionMetadata existe?': !!finalJSON.suggestionMetadata,
+      'finalJSON.suggestionMetadata.genre': finalJSON.suggestionMetadata?.genre
+    });
+    
     if (!finalJSON.summary || typeof finalJSON.summary !== 'object') {
+      console.log('[GENRE-DEEP-TRACE][FINAL-VALIDATION-RESET-SUMMARY]', {
+        alerta: 'summary era inválido - RESETANDO (genre perdido)'
+      });
       finalJSON.summary = {};
     }
     if (!finalJSON.suggestionMetadata || typeof finalJSON.suggestionMetadata !== 'object') {
+      console.log('[GENRE-DEEP-TRACE][FINAL-VALIDATION-RESET-METADATA]', {
+        alerta: 'suggestionMetadata era inválido - RESETANDO (genre perdido)'
+      });
       finalJSON.suggestionMetadata = {};
     }
     
