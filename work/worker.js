@@ -173,11 +173,12 @@ async function analyzeAudioWithPipeline(localFilePath, jobOrOptions) {
 
     let resolvedGenre = null;
 
-    // 🎯 MODO GÊNERO: sem fallback "default"
+    // 🎯 MODO GÊANERO: sem fallback "default"
     if (isGenreMode) {
+        // 🔥 PRIORIZAR job.data.genre (mais confiável que job.genre)
         resolvedGenre =
-            jobOrOptions.genre ||
             jobOrOptions.data?.genre ||
+            jobOrOptions.genre ||
             null;
 
         if (typeof resolvedGenre === "string") {
@@ -185,8 +186,13 @@ async function analyzeAudioWithPipeline(localFilePath, jobOrOptions) {
         }
 
         if (!resolvedGenre) {
-            console.error("[GENRE-ERROR] Modo gênero, mas gênero ausente:", jobOrOptions);
-            resolvedGenre = null; // NÃO usar default
+            console.error("[GENRE-ERROR] Modo gênero, mas gênero ausente:", {
+              'jobOrOptions.data?.genre': jobOrOptions.data?.genre,
+              'jobOrOptions.genre': jobOrOptions.genre,
+              'hasData': !!jobOrOptions.data,
+              'jobId': jobOrOptions.jobId || jobOrOptions.id
+            });
+            resolvedGenre = null; // Apenas se REALMENTE não existir
         }
     } else {
         // Para modos diferentes de gênero, pode usar fallback antigo
@@ -431,8 +437,8 @@ async function processJob(job) {
       console.log(`🎵 Arquivo de referência pronto: ${refPath}`);
 
       // Analisar ambos os arquivos
-      const userMetrics = await analyzeAudioWithPipeline(localFilePath, job);
-      const refMetrics = await analyzeAudioWithPipeline(refPath, job);
+      const userMetrics = await analyzeAudioWithPipeline(localFilePath, options);  // 🔥 USAR OPTIONS
+      const refMetrics = await analyzeAudioWithPipeline(refPath, options);  // 🔥 USAR OPTIONS
 
       // Importar função de comparação
       const { compareMetrics } = await import("../api/audio/pipeline-complete.js");
@@ -473,6 +479,22 @@ async function processJob(job) {
 
     // Fluxo normal para jobs de análise única
     const analysisResult = await analyzeAudioWithPipeline(localFilePath, options);
+
+    // 🔥 VALIDAÇÃO CRÍTICA: Verificar se genre foi mantido
+    console.log('[GENRE-DEBUG][BEFORE-RESULT]', {
+      'analysisResult.genre': analysisResult.genre,
+      'options.genre': options.genre,
+      'job.data.genre': job.data?.genre,
+      'finalGenre (do banco)': finalGenre,
+      'isNull': analysisResult.genre === null,
+      'isUndefined': analysisResult.genre === undefined
+    });
+
+    // 🔥 SE analysisResult.genre for null MAS options.genre existir, FORÇAR
+    if ((!analysisResult.genre || analysisResult.genre === null) && options.genre) {
+      console.warn('[GENRE-FIX] ⚠️ analysisResult.genre é null, mas options.genre existe. Forçando...');
+      analysisResult.genre = options.genre;
+    }
 
     // 🔥 CORREÇÃO DEFINITIVA: Forçar genre do usuário em TODAS as estruturas
     const forcedGenre = options.genre;   // Gênero escolhido pelo usuário
