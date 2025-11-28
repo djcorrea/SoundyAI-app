@@ -469,12 +469,32 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
   const jobId = options.jobId || 'unknown';
   const scoreValue = scoringResult.score || scoringResult.scorePct;
   
+  // 🔥 LOG CIRÚRGICO: ENTRADA do buildFinalJSON
+  console.log('[GENRE-DEEP-TRACE][JSON-OUTPUT-PRE]', {
+    ponto: 'json-output.js buildFinalJSON - ENTRADA',
+    'options.genre': options.genre,
+    'options.data?.genre': options.data?.genre,
+    'options.genre_detected': options.genre_detected,
+    'options.mode': options.mode
+  });
+  
   // 🎯 CORREÇÃO: Resolver genre baseado no modo
   const isGenreMode = (options.mode || 'genre') === 'genre';
   const resolvedGenre = options.genre || options.data?.genre || options.genre_detected || null;
   const finalGenre = isGenreMode
     ? (resolvedGenre && String(resolvedGenre).trim())  // 🎯 SEM fallback 'default' no modo genre
     : (options.genre || 'default');
+  
+  // 🔥 LOG CIRÚRGICO: DEPOIS de resolver finalGenre
+  console.log('[GENRE-DEEP-TRACE][JSON-OUTPUT-POST]', {
+    ponto: 'json-output.js buildFinalJSON - DEPOIS resolução',
+    'isGenreMode': isGenreMode,
+    'resolvedGenre': resolvedGenre,
+    'finalGenre': finalGenre,
+    'isNull': finalGenre === null,
+    'isEmpty': finalGenre === '',
+    'isDefault': finalGenre === 'default'
+  });
 
   return {
     // 🎯 CORREÇÃO CRÍTICA: Incluir genre e mode no JSON final
