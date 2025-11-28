@@ -492,24 +492,9 @@ async function processJob(job) {
     // Fluxo normal para jobs de análise única
     const analysisResult = await analyzeAudioWithPipeline(localFilePath, options);
 
-    // 🎯 FONTE ÚNICA DE VERDADE: Genre vem do job.data.genre (escolhido pelo usuário)
-    // NUNCA usar 'default' ou null em mode='genre'
-    const isGenreMode = job.mode === 'genre';
-    const finalGenreFromJob =
-      job.data?.genre ||
-      options.genre ||
-      analysisResult.genre ||
-      (isGenreMode ? null : 'default');  // Em mode='genre', prefira null a 'default'
-
-    const forcedGenre = finalGenreFromJob;
-    const forcedTargets = options.genreTargets || job.data?.genreTargets || null;
-
-    console.log('[WORKER-GENRE-SYNC] 🎯 Sincronizando genre em TODAS as estruturas:', {
-      mode: job.mode,
-      isGenreMode,
-      finalGenreFromJob,
-      hasTargets: !!forcedTargets
-    });
+    // 🔥 CORREÇÃO DEFINITIVA: Forçar genre do usuário em TODAS as estruturas
+    const forcedGenre = options.genre;   // Gênero escolhido pelo usuário
+    const forcedTargets = options.genreTargets || null;
 
     const result = {
       ok: true,
@@ -518,29 +503,29 @@ async function processJob(job) {
 
       ...analysisResult,
 
-      // 🔥 Fonte única de verdade: genre sincronizado em TODAS as estruturas
+      // 🔥 Correção suprema: garantir que a raiz sempre tenha o gênero correto
       genre: forcedGenre,
       mode: job.mode,
 
-      // 🔥 summary.genre SEMPRE sincronizado
+      // 🔥 Corrigir summary.genre
       summary: {
         ...(analysisResult.summary || {}),
         genre: forcedGenre
       },
 
-      // 🔥 metadata.genre SEMPRE sincronizado
+      // 🔥 Corrigir metadata.genre
       metadata: {
         ...(analysisResult.metadata || {}),
         genre: forcedGenre
       },
 
-      // 🔥 suggestionMetadata.genre SEMPRE sincronizado
+      // 🔥 Corrigir suggestionMetadata.genre
       suggestionMetadata: {
         ...(analysisResult.suggestionMetadata || {}),
         genre: forcedGenre
       },
 
-      // 🔥 data.genre + genreTargets SEMPRE sincronizados
+      // 🔥 Corrigir data.genre + incluir targets
       data: {
         ...(analysisResult.data || {}),
         genre: forcedGenre,
