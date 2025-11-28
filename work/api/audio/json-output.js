@@ -478,12 +478,14 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     'options.mode': options.mode
   });
   
-  // 🎯 CORREÇÃO: Resolver genre baseado no modo
+  // 🎯 CORREÇÃO CRÍTICA: NUNCA usar 'default' em mode='genre'
+  // Em mode='genre', prefira null a 'default' para evitar contaminação
   const isGenreMode = (options.mode || 'genre') === 'genre';
   const resolvedGenre = options.genre || options.data?.genre || options.genre_detected || null;
+  
   const finalGenre = isGenreMode
-    ? (resolvedGenre && String(resolvedGenre).trim())  // 🎯 SEM fallback 'default' no modo genre
-    : (options.genre || 'default');
+    ? (resolvedGenre && String(resolvedGenre).trim() || null)  // 🎯 Em mode='genre': null em vez de 'default'
+    : (resolvedGenre || 'default');  // Outros modos podem usar 'default'
   
   // 🔥 LOG CIRÚRGICO: DEPOIS de resolver finalGenre
   console.log('[GENRE-DEEP-TRACE][JSON-OUTPUT-POST]', {

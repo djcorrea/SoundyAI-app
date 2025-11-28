@@ -161,6 +161,95 @@ function loadDefaultGenreTargets(genreName = "default") {
 
 console.log('✅ Genre-Only Extraction Utils carregado');
 
+// ═══════════════════════════════════════════════════════════════════
+// 🛡️ MODE GUARDS - HELPERS PARA PROTEGER MODO GENRE DE CONTAMINAÇÃO
+// ═══════════════════════════════════════════════════════════════════
+
+/**
+ * Verifica se está em modo genre puro (SEM comparison/reference)
+ * @param {string|Object} modeOrAnalysis - Mode string ou objeto analysis
+ * @returns {boolean} true se for modo genre puro
+ */
+function isGenreMode(modeOrAnalysis) {
+    if (!modeOrAnalysis) return false;
+    
+    const mode = typeof modeOrAnalysis === 'string' 
+        ? modeOrAnalysis 
+        : (modeOrAnalysis.mode || window.currentAnalysisMode || 'genre');
+    
+    return mode === 'genre' || mode === 'GENRE';
+}
+
+/**
+ * Verifica se está em modo comparison/reference
+ * @param {string|Object} modeOrAnalysis - Mode string ou objeto analysis
+ * @returns {boolean} true se for modo comparison/reference
+ */
+function isComparisonMode(modeOrAnalysis) {
+    if (!modeOrAnalysis) return false;
+    
+    const mode = typeof modeOrAnalysis === 'string' 
+        ? modeOrAnalysis 
+        : (modeOrAnalysis.mode || window.currentAnalysisMode || 'genre');
+    
+    return mode === 'reference' || mode === 'comparison' || mode === 'ab';
+}
+
+/**
+ * 🚨 GUARD CRÍTICO: Bloqueia execução de lógica comparison em mode='genre'
+ * @param {Object} analysis - Objeto analysis
+ * @param {string} context - Nome da função/contexto para log
+ * @returns {boolean} true se deve CONTINUAR, false se deve ABORTAR
+ */
+function shouldRunComparisonLogic(analysis, context = 'unknown') {
+    const mode = analysis?.mode || window.currentAnalysisMode;
+    
+    if (isGenreMode(mode)) {
+        console.log(`[MODE-GUARD] 🛡️ ${context}: BLOQUEANDO lógica comparison (mode='${mode}')`);
+        return false;
+    }
+    
+    console.log(`[MODE-GUARD] ✅ ${context}: Permitindo lógica comparison (mode='${mode}')`);
+    return true;
+}
+
+/**
+ * Extrai genre de analysis NUNCA usando 'default' ou 'GIN' como fallback
+ * @param {Object} analysis - Objeto analysis
+ * @returns {string|null} Genre correto ou null
+ */
+function extractGenreSafely(analysis) {
+    // 🎯 PRIORIDADE 1: analysis.data.genre (BACKEND OFICIAL)
+    if (analysis?.data?.genre && analysis.data.genre !== 'default') {
+        return analysis.data.genre;
+    }
+    
+    // 🎯 PRIORIDADE 2: analysis.genre direto
+    if (analysis?.genre && analysis.genre !== 'default') {
+        return analysis.genre;
+    }
+    
+    // 🎯 PRIORIDADE 3: analysis.summary.genre
+    if (analysis?.summary?.genre && analysis.summary.genre !== 'default') {
+        return analysis.summary.genre;
+    }
+    
+    // 🎯 PRIORIDADE 4: analysis.suggestionMetadata.genre
+    if (analysis?.suggestionMetadata?.genre && analysis.suggestionMetadata.genre !== 'default') {
+        return analysis.suggestionMetadata.genre;
+    }
+    
+    // 🎯 ÚLTIMO RECURSO: analysis.metadata.genre
+    if (analysis?.metadata?.genre && analysis.metadata.genre !== 'default') {
+        return analysis.metadata.genre;
+    }
+    
+    console.warn('[GENRE-EXTRACT] ⚠️ Genre não encontrado em nenhuma fonte válida');
+    return null;
+}
+
+console.log('✅ Mode Guards (isGenreMode, isComparisonMode, shouldRunComparisonLogic) carregados');
+
 // 🔍 AUDITORIA DE STORAGE - Sistema de detecção de inconsistências
 (function initStorageAudit() {
     console.group('%c[AUDITORIA-STORAGE] 🧠 Inicializando sistema de auditoria de storage', 'color:#A974FF;font-weight:bold;font-size:14px;');
@@ -6946,16 +7035,17 @@ async function handleReferenceAnalysisWithResult(analysisResult, fileKey, fileNa
 async function handleGenreAnalysisWithResult(analysisResult, fileName) {
     __dbg('🎵 Processando análise por gênero com resultado remoto:', { fileName });
     
-    // 🧩 AUDIT_REF_FIX: Verificar se NÃO estamos em modo reference antes de limpar
-    const state = window.__soundyState || {};
-    const currentMode = state?.render?.mode || currentAnalysisMode;
-    const isSecondTrack = state?.reference?.isSecondTrack || false;
+    // 🛡️ GUARD CRÍTICO: Verificar se estamos REALMENTE em modo genre
+    const detectedMode = analysisResult?.mode || window.currentAnalysisMode || 'genre';
+    const _isGenreMode = isGenreMode(detectedMode);
     
-    // 🚨 PROTEÇÃO: NÃO limpar estado se estivermos em modo reference
-    if (currentMode === 'reference' && isSecondTrack) {
-        console.warn('⚠️ [AUDIT_REF_FIX] handleGenreAnalysisWithResult chamado em modo reference!');
-        console.warn('⚠️ [AUDIT_REF_FIX] ABORTANDO limpeza para preservar dados A/B');
-        console.log('[MODE LOCKED] reference - limpeza de estado BLOQUEADA');
+    console.log('[MODE-GUARD] handleGenreAnalysisWithResult - Mode:', detectedMode, '| isGenreMode:', _isGenreMode);
+    
+    // Se NÃO é modo genre, não limpar estado (pode ser reference)
+    if (!_isGenreMode) {
+        console.warn('[MODE-GUARD] ⚠️ handleGenreAnalysisWithResult chamado mas mode não é "genre"!');
+        console.warn('[MODE-GUARD] Mode detectado:', detectedMode);
+        console.warn('[MODE-GUARD] ABORTANDO limpeza de estado para preservar dados A/B');
         
         // Normalizar e retornar sem modificar estado
         const normalizedResult = normalizeBackendAnalysisData(analysisResult);
@@ -6966,10 +7056,11 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         return normalizedResult;
     }
     
-    // 🧩 CORREÇÃO #1: Limpeza completa APENAS em modo Genre genuíno
+    // ✅ CONFIRMADO: Modo genre genuíno - pode limpar estado
+    console.log('[MODE-GUARD] ✅ Modo GENRE confirmado - executando limpeza de estado');
     
-    // Limpar completamente estado de referência
-    state.userAnalysis = null;
+    // 🧩 CORREÇÃO #1: Limpeza completa APENAS em modo Genre genuíno
+    const state = window.__soundyState || {};
     state.referenceAnalysis = null;
     state.previousAnalysis = null;
     
@@ -8638,23 +8729,45 @@ async function displayModalResults(analysis) {
     console.log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
 
     // ========================================
-    // ✅ CORREÇÃO 2: RESTAURAÇÃO DE DADOS DE REFERÊNCIA
+    // 🛡️ GUARD CRÍTICO: DETECTAR MODO GENRE E PROTEGER DE LÓGICA COMPARISON
+    // ========================================
+    const detectedMode = analysis?.mode || window.currentAnalysisMode || 'genre';
+    const _isGenreMode = isGenreMode(detectedMode);
+    
+    console.log('[MODE-GUARD] displayModalResults - Mode:', detectedMode, '| isGenreMode:', _isGenreMode);
+    
+    // Se é modo genre, NÃO executar nenhuma lógica de reference/comparison
+    if (_isGenreMode) {
+        console.log('[MODE-GUARD] 🛡️ displayModalResults: Mode GENRE detectado');
+        console.log('[MODE-GUARD] ✅ BLOQUEANDO toda lógica de reference/comparison');
+        
+        // 🔥 LIMPAR qualquer resíduo de referência
+        window.referenceAnalysisData = null;
+        window.referenceComparisonMetrics = null;
+        
+        console.log('[MODE-GUARD] ✅ Referências residuais limpas');
+    }
+
+    // ========================================
+    // ✅ CORREÇÃO 2: RESTAURAÇÃO DE DADOS DE REFERÊNCIA (SOMENTE MODO REFERENCE)
     // ========================================
     // Verifica se dados de referência foram perdidos e restaura do cache
     
-    // 🎯 CORREÇÃO DEFINITIVA: Usar getCorrectJobId() em vez de acesso direto
-    console.group('🔍 [AUDIT-LOCALSTORAGE] displayModalResults - Leitura de referenceJobId');
-    console.log('   - Antes: window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
-    console.log('   - Antes: window.__CURRENT_JOB_ID__:', window.__CURRENT_JOB_ID__);
-    console.log('   - Antes: localStorage.referenceJobId:', localStorage.getItem('referenceJobId'));
-    console.log('   - Mode:', currentAnalysisMode);
-    
-    // 🎯 USA FUNÇÃO SEGURA ao invés de acesso direto
-    const referenceJobId = getCorrectJobId('reference'); // Primeira música
-    
-    console.log('   - Valor obtido via getCorrectJobId("reference"):', referenceJobId);
-    console.trace('   - Stack trace:');
-    console.groupEnd();
+    // 🛡️ GUARD: Só executar em modo reference
+    if (!_isGenreMode && isComparisonMode(detectedMode)) {
+        // 🎯 CORREÇÃO DEFINITIVA: Usar getCorrectJobId() em vez de acesso direto
+        console.group('🔍 [AUDIT-LOCALSTORAGE] displayModalResults - Leitura de referenceJobId');
+        console.log('   - Antes: window.__REFERENCE_JOB_ID__:', window.__REFERENCE_JOB_ID__);
+        console.log('   - Antes: window.__CURRENT_JOB_ID__:', window.__CURRENT_JOB_ID__);
+        console.log('   - Antes: localStorage.referenceJobId:', localStorage.getItem('referenceJobId'));
+        console.log('   - Mode:', currentAnalysisMode);
+        
+        // 🎯 USA FUNÇÃO SEGURA ao invés de acesso direto
+        const referenceJobId = getCorrectJobId('reference'); // Primeira música
+        
+        console.log('   - Valor obtido via getCorrectJobId("reference"):', referenceJobId);
+        console.trace('   - Stack trace:');
+        console.groupEnd();
     
     if (referenceJobId && currentAnalysisMode === 'reference') {
         // Verificar se dados de referência estão ausentes
@@ -8702,6 +8815,8 @@ async function displayModalResults(analysis) {
             console.log('[RESTORE] ✅ Dados de referência já existem - restauração não necessária');
         }
     }
+    
+    } // 🔥 FIM DO GUARD: isComparisonMode(detectedMode)
 
     // ========================================
     // ✅ PROTEÇÃO DEFINITIVA CONTRA ERRO DE INTERFACE
@@ -12820,9 +12935,15 @@ function getActiveReferenceComparisonMetrics(normalizedResult) {
 }
 
 function computeHasReferenceComparisonMetrics(analysis) {
-    // 🔥 BYPASS TOTAL: Modo gênero NUNCA tem referenceComparisonMetrics
-    if (analysis?.mode === 'genre') {
-        console.log('[GENRE-BYPASS] computeHasReferenceComparisonMetrics: modo gênero detectado, retornando false');
+    // 🔥 GUARD ABSOLUTO: Modo genre NUNCA tem referenceComparisonMetrics
+    if (isGenreMode(analysis)) {
+        console.log('[MODE-GUARD] 🛡️ computeHasReferenceComparisonMetrics: mode=genre detectado, retornando false (SEM COMPARISON)');
+        return false;
+    }
+    
+    // 🔥 GUARD ADICIONAL: Verificar mode explicitamente
+    if (!isComparisonMode(analysis)) {
+        console.log('[MODE-GUARD] 🛡️ computeHasReferenceComparisonMetrics: não é modo comparison, retornando false');
         return false;
     }
     
@@ -12964,23 +13085,26 @@ function renderReferenceComparisons(ctx) {
     // 🎯 PASSO 0: DETECÇÃO DE MODO GÊNERO (PRIORIDADE MÁXIMA)
     // ========================================
     // 🔥 CRITICAL: Detectar modo gênero ANTES de qualquer guard de referência
-    const isGenreMode = ctx?.mode === "genre" || 
-                       ctx?._isGenreIsolated === true ||
-                       ctx?.analysis?.mode === "genre" ||
-                       window.__soundyState?.render?.mode === "genre" ||
-                       (typeof getViewMode === 'function' && getViewMode() === "genre");
+    const detectedMode = ctx?.mode || 
+                         ctx?.analysis?.mode || 
+                         window.__soundyState?.render?.mode ||
+                         window.currentAnalysisMode ||
+                         'genre';
     
-    // 🔥 BYPASS TOTAL: renderReferenceComparisons NÃO deve renderizar NADA para modo gênero
-    if (isGenreMode) {
-        console.group('🎵 [GENRE-BYPASS] 🚧 MODO GÊNERO DETECTADO');
-        console.log('🎵 [GENRE-BYPASS] renderReferenceComparisons NÃO renderiza para gênero');
-        console.log('🎵 [GENRE-BYPASS] Renderização deve ser feita por renderGenreComparisonTable');
-        console.log('🎵 [GENRE-BYPASS] Modo:', ctx?.mode);
-        console.log('🎵 [GENRE-BYPASS] _isGenreIsolated:', ctx?._isGenreIsolated);
-        console.log('🎵 [GENRE-BYPASS] analysis.mode:', ctx?.analysis?.mode);
-        console.groupEnd();
-        return; // ❌ BYPASS TOTAL - não renderizar nada
+    const _isGenreMode = isGenreMode(detectedMode) ||
+                        ctx?._isGenreIsolated === true;
+    
+    // 🛡️ GUARD ABSOLUTO: BLOQUEAR TUDO se mode='genre'
+    if (_isGenreMode) {
+        console.log('[MODE-GUARD] 🛡️ renderReferenceComparisons: BLOQUEADO (mode=genre detectado)');
+        console.log('[MODE-GUARD] Mode:', detectedMode, '| _isGenreIsolated:', ctx?._isGenreIsolated);
+        
+        // 🔥 RETORNAR IMEDIATAMENTE - NÃO EXECUTAR NADA DE COMPARISON
+        return;
     }
+    
+    // 🎯 Modo comparison/reference - continuar normalmente
+    console.log('[MODE-GUARD] ✅ renderReferenceComparisons: Permitido (mode=' + detectedMode + ')');
     
     // ========================================
     // 🎯 PASSO 1: VALIDAR DADOS DO STORE SE DISPONÍVEL (MODO REFERENCE)
