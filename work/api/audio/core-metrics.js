@@ -345,9 +345,13 @@ class CoreMetricsProcessor {
           // 🎯 CARREGAR TARGETS DO FILESYSTEM (APENAS MODO GÊNERO)
           let customTargets = null;
           if (mode !== 'reference' && detectedGenre && detectedGenre !== 'default') {
-            customTargets = loadGenreTargets(detectedGenre);
-            if (customTargets) {
-              console.log(`[CORE_METRICS] ✅ Usando targets de ${detectedGenre} do filesystem`);
+            // 🔥 PRIORIZAR genreTargets do usuário
+            customTargets = options.genreTargets || loadGenreTargets(detectedGenre);
+            
+            if (options.genreTargets) {
+              console.log(`[CORE_METRICS] 🎯 Usando targets CUSTOMIZADOS do usuário para ${detectedGenre}`);
+            } else if (customTargets) {
+              console.log(`[CORE_METRICS] 📂 Usando targets de ${detectedGenre} do filesystem`);
             } else {
               console.log(`[CORE_METRICS] 📋 Usando targets hardcoded para ${detectedGenre}`);
             }
