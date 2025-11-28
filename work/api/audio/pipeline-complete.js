@@ -913,66 +913,6 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       }
     }
 
-    // 🔥 GUARD FINAL ABSOLUTO: Forçar genre correto em TODAS as estruturas nested
-    // Quando mode='genre', garantir que genre NUNCA seja null/'default' em summary/metadata/suggestionMetadata
-    const mode = options.mode || 'genre';
-    const isGenreMode = mode === 'genre';
-    
-    if (isGenreMode) {
-      // Fonte única de verdade: options.genre (escolhido pelo usuário)
-      const safeFinalGenre =
-        options.genre ||
-        options.data?.genre ||
-        options.genre_detected ||
-        finalJSON.genre ||
-        finalJSON.summary?.genre ||
-        finalJSON.suggestionMetadata?.genre ||
-        null;
-
-      console.log('[GENRE-GUARD-FINAL] 🔒 Aplicando guard final em mode="genre":', {
-        safeFinalGenre,
-        'options.genre': options.genre,
-        'finalJSON.genre ANTES': finalJSON.genre,
-        'finalJSON.summary.genre ANTES': finalJSON.summary?.genre,
-        'finalJSON.suggestionMetadata.genre ANTES': finalJSON.suggestionMetadata?.genre
-      });
-
-      if (safeFinalGenre) {
-        // 🔥 FORÇAR genre em TODAS as estruturas
-        finalJSON.genre = safeFinalGenre;
-
-        finalJSON.summary = {
-          ...(finalJSON.summary || {}),
-          genre: safeFinalGenre
-        };
-
-        finalJSON.suggestionMetadata = {
-          ...(finalJSON.suggestionMetadata || {}),
-          genre: safeFinalGenre
-        };
-
-        finalJSON.metadata = {
-          ...(finalJSON.metadata || {}),
-          genre: safeFinalGenre
-        };
-
-        // 🔥 FORÇAR em data também
-        if (finalJSON.data) {
-          finalJSON.data.genre = safeFinalGenre;
-        }
-
-        console.log('[GENRE-GUARD-FINAL] ✅ Genre sincronizado em TODAS as estruturas:', {
-          'finalJSON.genre': finalJSON.genre,
-          'finalJSON.summary.genre': finalJSON.summary?.genre,
-          'finalJSON.suggestionMetadata.genre': finalJSON.suggestionMetadata?.genre,
-          'finalJSON.metadata.genre': finalJSON.metadata?.genre,
-          'finalJSON.data.genre': finalJSON.data?.genre
-        });
-      } else {
-        console.warn('[GENRE-GUARD-FINAL] ⚠️ ALERTA: safeFinalGenre é null em mode="genre"!');
-      }
-    }
-
     console.log(`🏁 [${jobId.substring(0,8)}] Pipeline completo finalizado em ${totalTime}ms`);
     console.log(`✅ [${jobId.substring(0,8)}] JSON final pronto para salvar no banco`);
     console.log(`[✅ FINAL_STRUCTURE] Estrutura validada:`, {
