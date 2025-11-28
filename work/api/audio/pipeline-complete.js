@@ -86,17 +86,6 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     mode: options.mode
   });
   
-  // 🔥 LOG DE DEBUG: Verificar se genre chegou corretamente
-  console.log('[GENRE-DEBUG][PIPELINE-START]', {
-    'options.genre': options.genre,
-    'options.data?.genre': options.data?.genre,
-    'options.genreTargets': options.genreTargets ? Object.keys(options.genreTargets) : null,
-    'isNull': options.genre === null,
-    'isUndefined': options.genre === undefined,
-    'isEmpty': options.genre === '',
-    'typeOf': typeof options.genre
-  });
-  
   // PASSO 2: GARANTIR QUE O MODO NÃO VAZA PARA REFERÊNCIA
   console.log('[MODE-FLOW] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('[MODE-FLOW] MODO DETECTADO:', options.mode || 'genre');
