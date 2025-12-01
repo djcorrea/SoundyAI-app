@@ -3,6 +3,50 @@
 // ⚠️ REMOÇÃO COMPLETA: Web Audio API, AudioContext, processamento local
 // ✅ NOVO FLUXO: Presigned URL → Upload → Job Creation → Status Polling
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 🎯 MODE ENGINE: Fonte única de verdade para modo de análise
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+window.SOUNDY_MODE_ENGINE = {
+    mode: "genre",          // "genre" | "reference_base" | "reference_compare"
+    referenceBase: null,    // análise completa da primeira música
+    referenceJobId: null,   // jobId da primeira música
+
+    setGenre() {
+        this.mode = "genre";
+        this.referenceBase = null;
+        this.referenceJobId = null;
+        setViewMode("genre");
+    },
+
+    startReferenceBase(firstAnalysis) {
+        this.mode = "reference_base";
+        this.referenceBase = firstAnalysis;
+        this.referenceJobId = firstAnalysis.jobId;
+        setViewMode("genre"); // ainda se comporta visualmente como gênero
+    },
+
+    startReferenceCompare() {
+        this.mode = "reference_compare";
+        setViewMode("reference");
+    },
+
+    isGenre() {
+        return this.mode === "genre";
+    },
+
+    isReferenceBase() {
+        return this.mode === "reference_base";
+    },
+
+    isReferenceCompare() {
+        return this.mode === "reference_compare";
+    },
+
+    clear() {
+        this.setGenre();
+    }
+};
+
 // ═══════════════════════════════════════════════════════════════════
 // 🎯 GENRE TARGETS UTILS - FONTE ÚNICA DE VERDADE
 // ═══════════════════════════════════════════════════════════════════
@@ -1731,43 +1775,22 @@ function getViewMode() {
 
 // 🔒 GUARD: Bloqueia execução de UI de referência no modo gênero
 function canRunReferenceUI(analysis) {
-    const viewMode = getViewMode();
-    
-    // Regra 1: ViewMode deve ser "reference"
-    if (viewMode !== "reference") {
-        console.log(`%c[REFERENCE-GUARD] 🚫 Bloqueando UI de referência`, 'color:#FF6B6B;font-weight:bold;');
-        console.log(`[REFERENCE-GUARD]    viewMode atual: "${viewMode}" (esperado: "reference")`);
+    // UI de referência só pode renderizar na segunda track
+    if (!SOUNDY_MODE_ENGINE.isReferenceCompare()) {
         return false;
     }
-    
-    // Regra 2: Análise deve existir
+
     if (!analysis) {
-        console.log('[REFERENCE-GUARD] 🚫 Bloqueando: analysis não existe');
         return false;
     }
-    
-    // Regra 3: Deve ter dados de referência
+
     const hasRefComparison = !!analysis.referenceComparison;
-    const hasRefJobId = !!analysis.referenceJobId || !!analysis.metadata?.referenceJobId || !!window.__REFERENCE_JOB_ID__;
-    const hasRefData = !!window.referenceAnalysisData;
-    
-    if (!hasRefComparison && !hasRefJobId && !hasRefData) {
-        console.log('[REFERENCE-GUARD] 🚫 Bloqueando: sem dados de referência');
-        console.log('[REFERENCE-GUARD]    referenceComparison:', hasRefComparison);
-        console.log('[REFERENCE-GUARD]    referenceJobId:', hasRefJobId);
-        console.log('[REFERENCE-GUARD]    referenceAnalysisData:', hasRefData);
+    const hasRefJobId = !!analysis.referenceJobId || !!analysis.metadata?.referenceJobId;
+
+    if (!hasRefComparison && !hasRefJobId) {
         return false;
     }
-    
-    // Regra 4: Mode deve ser "reference"
-    if (analysis.mode !== 'reference' && analysis.isReferenceBase !== true) {
-        console.log('[REFERENCE-GUARD] 🚫 Bloqueando: analysis.mode não é "reference"');
-        console.log('[REFERENCE-GUARD]    analysis.mode:', analysis.mode);
-        console.log('[REFERENCE-GUARD]    analysis.isReferenceBase:', analysis.isReferenceBase);
-        return false;
-    }
-    
-    console.log('%c[REFERENCE-GUARD] ✅ Permitindo UI de referência', 'color:#00FF88;font-weight:bold;');
+
     return true;
 }
 
@@ -4612,6 +4635,7 @@ function resetReferenceStateFully(preserveGenre) {
     }
     
     // 🎯 CORREÇÃO CRÍTICA: Resetar __REFERENCE_JOB_ID__
+    SOUNDY_MODE_ENGINE.clear();
     delete window.__REFERENCE_JOB_ID__;
     console.log('   ✅ window.__REFERENCE_JOB_ID__: removido');
     
@@ -5781,6 +5805,9 @@ function closeAudioModal() {
             // ❌ REMOVER: window.referenceAnalysisData agora é read-only (não pode ser setado)
             // Ele sempre aponta para FirstAnalysisStore.get(), que acabamos de limpar
             
+            // Limpar Mode Engine
+            SOUNDY_MODE_ENGINE.clear();
+            
             referenceComparisonMetrics = null;
             window.lastReferenceJobId = null;
             
@@ -5935,6 +5962,7 @@ function resetModalState() {
 
     if (!isAwaitingSecondTrack) {
         // 🧼 LIMPEZA COMPLETA: Só limpar se NÃO estivermos aguardando segunda música
+        SOUNDY_MODE_ENGINE.clear();
         window.__REFERENCE_JOB_ID__ = null;
         window.referenceComparisonMetrics = null;
         window.lastReferenceJobId = null;
@@ -7047,10 +7075,21 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
             window.currentAnalysisMode = 'genre';
             
             console.log('%c[GENRE-BARRIER] ✅ BARREIRA 3 CONCLUÍDA: Estado limpo antes de processar análise', 'color:#00FF88;font-weight:bold;');
-        } else if (normalizedResult.mode === 'reference' || normalizedResult.isReferenceBase === true) {
-            // Modo referência: configurar ViewMode
-            console.log('[REFERENCE-MODE] Configurando ViewMode para "reference" (backend retornou mode: "reference")');
-            setViewMode("reference");
+        }
+        
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // 🎯 MODE ENGINE: Configuração baseada em mode + isReferenceBase
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        
+        // PRIMEIRA TRACK DO FLUXO A/B (mode: "genre" + isReferenceBase: true)
+        if (normalizedResult.isReferenceBase === true && normalizedResult.mode === 'genre') {
+            SOUNDY_MODE_ENGINE.startReferenceBase(normalizedResult);
+            console.log('[MODE-ENGINE] Primeira track salva como referência base');
+        }
+        // SEGUNDA TRACK (mode: "reference" do backend)
+        else if (normalizedResult.mode === 'reference') {
+            SOUNDY_MODE_ENGINE.startReferenceCompare();
+            console.log('[MODE-ENGINE] Segunda track detectada, modo A/B ativado');
         }
         
         // ✅ CORREÇÃO CRÍTICA: Carregar targets de gênero baseado em MODE, não em referenceComparison
@@ -10162,9 +10201,7 @@ async function displayModalResults(analysis) {
     
     // 🎯 ROOT CAUSE FIX: Detectar modo gênero ANTES de calcular refBandsOK
     // Em modo gênero, refBands vem de genreTargets, NÃO de referenceAnalysis!
-    const isGenreMode = analysis?.mode === "genre" || 
-                       state?.render?.mode === "genre" ||
-                       (!window.__REFERENCE_JOB_ID__ && !state?.reference?.isSecondTrack);
+    const isGenreMode = SOUNDY_MODE_ENGINE.isGenre();
     
     let finalRefBands = refBands;
     
@@ -10327,9 +10364,7 @@ async function displayModalResults(analysis) {
       if (!__num(refData.tol_spectral) || refData.tol_spectral <= 0) refData.tol_spectral = 300;
 
       // 🎯 CORREÇÃO: Detectar modo gênero e targets de múltiplas fontes
-      const isGenreMode = analysisObj?.mode === "genre" || 
-                         window.__soundyState?.render?.mode === "genre" ||
-                         (getViewMode && getViewMode() === "genre");
+      const isGenreMode = SOUNDY_MODE_ENGINE.isGenre();
       
       // 🎯 CORREÇÃO: Buscar targets de gênero de todas as fontes possíveis
       const genreTargets = window.__activeRefData || 
@@ -12730,7 +12765,7 @@ function deriveTolerance(rangeOrValue, fallback = 2.0) {
  */
 function getActiveReferenceComparisonMetrics(normalizedResult) {
     // 🔥 BYPASS TOTAL: Modo gênero NUNCA retorna referenceComparisonMetrics
-    if (normalizedResult?.mode === 'genre') {
+    if (SOUNDY_MODE_ENGINE.isGenre()) {
         console.log('[GENRE-BYPASS] getActiveReferenceComparisonMetrics: modo gênero detectado, retornando null');
         return null;
     }
@@ -12821,7 +12856,7 @@ function getActiveReferenceComparisonMetrics(normalizedResult) {
 
 function computeHasReferenceComparisonMetrics(analysis) {
     // 🔥 BYPASS TOTAL: Modo gênero NUNCA tem referenceComparisonMetrics
-    if (analysis?.mode === 'genre') {
+    if (SOUNDY_MODE_ENGINE.isGenre()) {
         console.log('[GENRE-BYPASS] computeHasReferenceComparisonMetrics: modo gênero detectado, retornando false');
         return false;
     }
@@ -12963,23 +12998,8 @@ function renderReferenceComparisons(ctx) {
     // ========================================
     // 🎯 PASSO 0: DETECÇÃO DE MODO GÊNERO (PRIORIDADE MÁXIMA)
     // ========================================
-    // 🔥 CRITICAL: Detectar modo gênero ANTES de qualquer guard de referência
-    const isGenreMode = ctx?.mode === "genre" || 
-                       ctx?._isGenreIsolated === true ||
-                       ctx?.analysis?.mode === "genre" ||
-                       window.__soundyState?.render?.mode === "genre" ||
-                       (typeof getViewMode === 'function' && getViewMode() === "genre");
-    
-    // 🔥 BYPASS TOTAL: renderReferenceComparisons NÃO deve renderizar NADA para modo gênero
-    if (isGenreMode) {
-        console.group('🎵 [GENRE-BYPASS] 🚧 MODO GÊNERO DETECTADO');
-        console.log('🎵 [GENRE-BYPASS] renderReferenceComparisons NÃO renderiza para gênero');
-        console.log('🎵 [GENRE-BYPASS] Renderização deve ser feita por renderGenreComparisonTable');
-        console.log('🎵 [GENRE-BYPASS] Modo:', ctx?.mode);
-        console.log('🎵 [GENRE-BYPASS] _isGenreIsolated:', ctx?._isGenreIsolated);
-        console.log('🎵 [GENRE-BYPASS] analysis.mode:', ctx?.analysis?.mode);
-        console.groupEnd();
-        return; // ❌ BYPASS TOTAL - não renderizar nada
+    if (!SOUNDY_MODE_ENGINE.isReferenceCompare()) {
+        return;
     }
     
     // ========================================
@@ -16689,9 +16709,7 @@ function calculateAnalysisScores(analysis, refData, genre = null) {
     });
     
     // 🎯 MODO GÊNERO: Detectar se é modo gênero e se há targets carregados
-    const isGenreMode = analysis?.mode === "genre" || 
-                       window.__soundyState?.render?.mode === "genre" ||
-                       (typeof getViewMode === 'function' && getViewMode() === "genre");
+    const isGenreMode = SOUNDY_MODE_ENGINE.isGenre();
     
     // 🎯 MODO GÊNERO: Extrair targets de gênero de referenceComparison
     let genreTargetBands = null;
