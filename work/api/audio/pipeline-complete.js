@@ -350,7 +350,17 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         throw new Error('coreMetrics inválido ou ausente');
       }
       
-      const problemsAndSuggestions = analyzeProblemsAndSuggestionsV2(coreMetrics, detectedGenre, customTargets);
+      // 🛡️ BLINDAGEM PRIMÁRIA: Garantir que genre NUNCA seja null
+      const genreForAnalyzer = 
+        options.genre ||
+        options.data?.genre ||
+        detectedGenre ||
+        finalJSON?.genre ||
+        'default';
+      
+      console.log('[GENRE-BLINDAGEM] genreForAnalyzer:', genreForAnalyzer);
+      
+      const problemsAndSuggestions = analyzeProblemsAndSuggestionsV2(coreMetrics, genreForAnalyzer, customTargets);
       
       // Preencher estrutura completa do finalJSON com sugestões base
       finalJSON.problemsAnalysis = {
@@ -516,7 +526,17 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         throw new Error('coreMetrics inválido para Motor V2');
       }
       
-      const v2 = analyzeProblemsAndSuggestionsV2(coreMetrics, detectedGenreV2, customTargetsV2);
+      // 🛡️ BLINDAGEM PRIMÁRIA V2: Garantir que genre NUNCA seja null
+      const genreForAnalyzerV2 =
+        options.genre ||
+        options.data?.genre ||
+        detectedGenreV2 ||
+        finalJSON?.genre ||
+        'default';
+      
+      console.log('[GENRE-BLINDAGEM-V2] genreForAnalyzerV2:', genreForAnalyzerV2);
+      
+      const v2 = analyzeProblemsAndSuggestionsV2(coreMetrics, genreForAnalyzerV2, customTargetsV2);
       
       const v2Suggestions = v2.suggestions || [];
       const v2Problems = v2.problems || [];
@@ -578,6 +598,30 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         });
         
         console.log('[GENRE-FLOW][PIPELINE] ✅ Summary e Metadata atualizados com genre:', detectedGenre);
+        
+        // 🛡️ BLINDAGEM FINAL: Garantir que genre correto sobreviva ao merge
+        const safeGenre =
+          finalJSON.genre ||
+          options.genre ||
+          options.data?.genre ||
+          detectedGenre ||
+          'default';
+        
+        finalJSON.genre = safeGenre;
+        
+        if (finalJSON.summary) {
+          finalJSON.summary.genre = safeGenre;
+        }
+        
+        if (finalJSON.metadata) {
+          finalJSON.metadata.genre = safeGenre;
+        }
+        
+        if (finalJSON.suggestionMetadata) {
+          finalJSON.suggestionMetadata.genre = safeGenre;
+        }
+        
+        console.log('[GENRE-BLINDAGEM-FINAL] Genre blindado:', safeGenre);
         
         // PASSO 5: LOGS PARA VALIDAÇÃO FINAL
         console.log('[SUGGESTIONS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
