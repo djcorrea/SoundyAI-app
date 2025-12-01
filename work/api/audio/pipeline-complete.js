@@ -388,6 +388,17 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       finalJSON.summary = problemsAndSuggestions.summary || {};
       finalJSON.suggestionMetadata = problemsAndSuggestions.metadata || {};
       
+      // 🛡️ BLINDAGEM IMEDIATA V1: Forçar genre correto em summary/metadata logo após atribuir
+      if (detectedGenre) {
+        if (finalJSON.summary && typeof finalJSON.summary === 'object') {
+          finalJSON.summary.genre = detectedGenre;
+        }
+        if (finalJSON.suggestionMetadata && typeof finalJSON.suggestionMetadata === 'object') {
+          finalJSON.suggestionMetadata.genre = detectedGenre;
+        }
+        console.log('[GENRE-BLINDAGEM-V1] Genre forçado em V1:', detectedGenre);
+      }
+      
       // 🔥 LOG CIRÚRGICO: DEPOIS de atribuir summary/metadata de V1
       console.log('[GENRE-DEEP-TRACE][V1-SUMMARY-POST]', {
         ponto: 'pipeline-complete.js linha ~370 - DEPOIS atribuir V1',

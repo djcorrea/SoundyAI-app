@@ -518,9 +518,29 @@ async function processJob(job) {
     // Fluxo normal para jobs de análise única
     const analysisResult = await analyzeAudioWithPipeline(localFilePath, options);
 
+    // 🔥 AUDITORIA: Genre ANTES do merge
+    console.log('[GENRE-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[GENRE-AUDIT] ANTES DO MERGE:');
+    console.log('[GENRE-AUDIT] options.genre:', options.genre);
+    console.log('[GENRE-AUDIT] analysisResult.genre:', analysisResult.genre);
+    console.log('[GENRE-AUDIT] analysisResult.summary?.genre:', analysisResult.summary?.genre);
+    console.log('[GENRE-AUDIT] analysisResult.metadata?.genre:', analysisResult.metadata?.genre);
+    console.log('[GENRE-AUDIT] analysisResult.suggestionMetadata?.genre:', analysisResult.suggestionMetadata?.genre);
+    console.log('[GENRE-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
     // 🔥 CORREÇÃO DEFINITIVA: Forçar genre do usuário em TODAS as estruturas
     const forcedGenre = options.genre;   // Gênero escolhido pelo usuário
     const forcedTargets = options.genreTargets || null;
+
+    // 🛡️ Helper: Merge sem sobrescrever genre com null/undefined
+    const mergePreservingGenre = (base, override, forcedGenreValue) => {
+      const merged = { ...base, ...override };
+      // Se genre for null, undefined ou string vazia, forçar o correto
+      if (!merged.genre || merged.genre === null || merged.genre === undefined) {
+        merged.genre = forcedGenreValue;
+      }
+      return merged;
+    };
 
     const result = {
       ok: true,
@@ -533,31 +553,41 @@ async function processJob(job) {
       genre: forcedGenre,
       mode: job.mode,
 
-      // 🔥 Corrigir summary.genre
-      summary: {
-        ...(analysisResult.summary || {}),
-        genre: forcedGenre
-      },
+      // 🔥 Merge inteligente: preserva genre mesmo se vier null
+      summary: mergePreservingGenre(
+        analysisResult.summary || {},
+        {},
+        forcedGenre
+      ),
 
-      // 🔥 Corrigir metadata.genre
-      metadata: {
-        ...(analysisResult.metadata || {}),
-        genre: forcedGenre
-      },
+      metadata: mergePreservingGenre(
+        analysisResult.metadata || {},
+        {},
+        forcedGenre
+      ),
 
-      // 🔥 Corrigir suggestionMetadata.genre
-      suggestionMetadata: {
-        ...(analysisResult.suggestionMetadata || {}),
-        genre: forcedGenre
-      },
+      suggestionMetadata: mergePreservingGenre(
+        analysisResult.suggestionMetadata || {},
+        {},
+        forcedGenre
+      ),
 
-      // 🔥 Corrigir data.genre + incluir targets
-      data: {
-        ...(analysisResult.data || {}),
-        genre: forcedGenre,
-        genreTargets: forcedTargets
-      }
+      data: mergePreservingGenre(
+        analysisResult.data || {},
+        { genreTargets: forcedTargets },
+        forcedGenre
+      )
     };
+
+    // 🔥 AUDITORIA: Genre DEPOIS do merge
+    console.log('[GENRE-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[GENRE-AUDIT] DEPOIS DO MERGE:');
+    console.log('[GENRE-AUDIT] result.genre:', result.genre);
+    console.log('[GENRE-AUDIT] result.summary?.genre:', result.summary?.genre);
+    console.log('[GENRE-AUDIT] result.metadata?.genre:', result.metadata?.genre);
+    console.log('[GENRE-AUDIT] result.suggestionMetadata?.genre:', result.suggestionMetadata?.genre);
+    console.log('[GENRE-AUDIT] result.data?.genre:', result.data?.genre);
+    console.log('[GENRE-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // ✅ ENRIQUECIMENTO DE IA SÍNCRONO (ANTES de salvar no banco)
     const shouldEnrich = result.mode !== 'genre' || !job.is_reference_base;
@@ -655,6 +685,17 @@ async function processJob(job) {
     console.log('[GENRE-FLOW][WORKER] result.suggestionMetadata.genre:', result.suggestionMetadata?.genre);
     console.log('[GENRE-FLOW][WORKER] result.mode:', result.mode);
     console.log('[GENRE-FLOW][WORKER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    // 🔥 AUDITORIA: Genre ANTES DE SALVAR NO POSTGRES
+    console.log('[GENRE-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[GENRE-AUDIT] FINAL (antes de salvar no Postgres):');
+    console.log('[GENRE-AUDIT] result.genre:', result.genre);
+    console.log('[GENRE-AUDIT] result.summary?.genre:', result.summary?.genre);
+    console.log('[GENRE-AUDIT] result.metadata?.genre:', result.metadata?.genre);
+    console.log('[GENRE-AUDIT] result.suggestionMetadata?.genre:', result.suggestionMetadata?.genre);
+    console.log('[GENRE-AUDIT] result.data?.genre:', result.data?.genre);
+    console.log('[GENRE-AUDIT] JSON.stringify length:', JSON.stringify(result).length);
+    console.log('[GENRE-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     // 🎯 LOG DE AUDITORIA OBRIGATÓRIO
     console.log('[GENRE-TRACE][WORKER-RESULT] 💾 Resultado final antes de salvar:', {
