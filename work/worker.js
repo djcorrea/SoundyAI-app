@@ -492,6 +492,30 @@ async function processJob(job) {
 
       console.log('[GENRE-COMPARISON] Genre forçado no resultado comparativo:', forcedGenre);
 
+      // 🛡️ BLINDAGEM DEFINITIVA: Garantir genre correto ANTES do UPDATE (modo comparison)
+      const originalPayloadComparison = job.data || {};
+      const safeGenreComparison = 
+        (forcedGenre && forcedGenre !== 'default' && forcedGenre !== null)
+          ? forcedGenre
+          : originalPayloadComparison.genre ||
+            options.genre ||
+            comparisonResult.summary?.genre ||
+            comparisonResult.data?.genre ||
+            'default';
+
+      // Forçar em todas as estruturas
+      comparisonResult.genre = safeGenreComparison;
+      if (comparisonResult.summary) comparisonResult.summary.genre = safeGenreComparison;
+      if (comparisonResult.metadata) comparisonResult.metadata.genre = safeGenreComparison;
+      if (comparisonResult.suggestionMetadata) comparisonResult.suggestionMetadata.genre = safeGenreComparison;
+
+      console.log("[GENRE-WORKER-BEFORE-SAVE][COMPARISON]", {
+        incomingGenre: comparisonResult.genre,
+        jobDataGenre: job.data?.genre,
+        payloadGenre: originalPayloadComparison?.genre,
+        safeGenreComparison: safeGenreComparison
+      });
+
       // Salvar resultado comparativo
       const finalUpdateResult = await client.query(
         `UPDATE jobs SET result = $1, results = $1, status = 'done', updated_at = NOW() WHERE id = $2`,
@@ -739,6 +763,48 @@ async function processJob(job) {
       dataGenre: result.data?.genre,
       receivedGenre: options.genre,
       jobGenre: job.data?.genre
+    });
+
+    // 🛡️ BLINDAGEM DEFINITIVA: Garantir genre correto IMEDIATAMENTE ANTES do salvamento
+    // Prioridade: result.genre válido > job.data.genre > options.genre > summary.genre > data.genre > 'default'
+    const originalPayload = job.data || {};
+    const safeGenreBeforeSave = 
+      (result.genre && result.genre !== 'default' && result.genre !== null) 
+        ? result.genre
+        : originalPayload.genre || 
+          options.genre || 
+          result.summary?.genre || 
+          result.data?.genre || 
+          'default';
+
+    // Forçar genre correto em TODAS as estruturas antes do UPDATE
+    result.genre = safeGenreBeforeSave;
+    
+    if (result.summary && typeof result.summary === 'object') {
+      result.summary.genre = safeGenreBeforeSave;
+    }
+    
+    if (result.metadata && typeof result.metadata === 'object') {
+      result.metadata.genre = safeGenreBeforeSave;
+    }
+    
+    if (result.suggestionMetadata && typeof result.suggestionMetadata === 'object') {
+      result.suggestionMetadata.genre = safeGenreBeforeSave;
+    }
+    
+    if (result.data && typeof result.data === 'object') {
+      result.data.genre = safeGenreBeforeSave;
+    }
+
+    // 🔍 LOG CRÍTICO: Genre IMEDIATAMENTE ANTES DO UPDATE
+    console.log("[GENRE-WORKER-BEFORE-SAVE]", {
+      incomingGenre: result.genre,
+      jobDataGenre: job.data?.genre,
+      payloadGenre: originalPayload?.genre,
+      safeGenreBeforeSave: safeGenreBeforeSave,
+      willSaveAsNull: safeGenreBeforeSave === null || safeGenreBeforeSave === undefined,
+      summaryGenreAfterFix: result.summary?.genre,
+      metadataGenreAfterFix: result.metadata?.genre
     });
 
     // 🔥 ATUALIZAR STATUS FINAL + VERIFICAR SE FUNCIONOU
