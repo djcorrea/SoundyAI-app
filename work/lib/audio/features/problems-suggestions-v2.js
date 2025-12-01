@@ -180,7 +180,13 @@ const GENRE_THRESHOLDS = {
  */
 export class ProblemsAndSuggestionsAnalyzerV2 {
   constructor(genre = 'default', customTargets = null) {
-    this.genre = genre;
+    // 🛡️ BLINDAGEM SECUNDÁRIA: Validar e proteger genre
+    if (!genre || typeof genre !== 'string' || !genre.trim()) {
+      console.error('[ANALYZER-ERROR] Genre inválido recebido:', genre);
+      genre = 'default';
+    }
+    
+    this.genre = genre.trim();
     
     // 🎯 PRIORIDADE: customTargets (do filesystem) > GENRE_THRESHOLDS (hardcoded)
     if (customTargets && typeof customTargets === 'object' && Object.keys(customTargets).length > 0) {
