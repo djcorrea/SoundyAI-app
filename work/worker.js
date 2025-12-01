@@ -456,20 +456,46 @@ async function processJob(job) {
       const { compareMetrics } = await import("../api/audio/pipeline-complete.js");
       const comparison = await compareMetrics(userMetrics, refMetrics);
 
+      // 🛡️ BLINDAGEM: Forçar genre correto no modo comparison
+      const forcedGenre = options.genre || job.data?.genre;
+
+      const comparisonResult = {
+        ...comparison,
+        genre: forcedGenre,
+        mode: job.mode,
+        
+        summary: {
+          ...(comparison.summary || {}),
+          genre: forcedGenre
+        },
+        
+        metadata: {
+          ...(comparison.metadata || {}),
+          genre: forcedGenre
+        },
+        
+        suggestionMetadata: {
+          ...(comparison.suggestionMetadata || {}),
+          genre: forcedGenre
+        }
+      };
+
       // 🔒 GARANTIA: Validar campos obrigatórios antes de salvar no banco
-      if (!Array.isArray(comparison.suggestions)) {
+      if (!Array.isArray(comparisonResult.suggestions)) {
         console.error("[SUGGESTIONS_ERROR] suggestions ausente na comparação - aplicando fallback");
-        comparison.suggestions = [];
+        comparisonResult.suggestions = [];
       }
-      if (!Array.isArray(comparison.aiSuggestions)) {
+      if (!Array.isArray(comparisonResult.aiSuggestions)) {
         console.error("[SUGGESTIONS_ERROR] aiSuggestions ausente na comparação - aplicando fallback");
-        comparison.aiSuggestions = [];
+        comparisonResult.aiSuggestions = [];
       }
+
+      console.log('[GENRE-COMPARISON] Genre forçado no resultado comparativo:', forcedGenre);
 
       // Salvar resultado comparativo
       const finalUpdateResult = await client.query(
         `UPDATE jobs SET result = $1, results = $1, status = 'done', updated_at = NOW() WHERE id = $2`,
-        [JSON.stringify(comparison), job.id]
+        [JSON.stringify(comparisonResult), job.id]
       );
 
       if (finalUpdateResult.rowCount === 0) {
