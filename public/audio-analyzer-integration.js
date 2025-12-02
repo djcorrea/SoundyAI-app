@@ -1743,6 +1743,10 @@ let referenceStepState = {
     referenceAnalysis: null
 };
 
+// 🛡️ PROTEÇÃO CRÍTICA: Flag para rastrear se usuário EXPLICITAMENTE selecionou modo reference
+// Impede que o sistema ative modo A/B automaticamente quando usuário está em modo genre
+let userExplicitlySelectedReferenceMode = false;
+
 // ========================================
 // 🔥 STATE MACHINE - VIEW MODE CONTROLLER
 // ========================================
@@ -1889,7 +1893,17 @@ function selectAnalysisMode(mode) {
         // 🔥 EXECUTAR LIMPEZA COMPLETA do estado de referência
         resetReferenceStateFully();
         
+        // 🛡️ PROTEÇÃO: Resetar flag de seleção explícita
+        userExplicitlySelectedReferenceMode = false;
+        console.log('%c[PROTECTION] ✅ Flag userExplicitlySelectedReferenceMode resetada para false', 'color:#00FF88;font-weight:bold;');
+        
         console.log('%c[GENRE-BARRIER] ✅ BARREIRA 4 CONCLUÍDA: Estado limpo ao selecionar gênero', 'color:#00FF88;font-weight:bold;');
+    }
+    
+    // 🛡️ PROTEÇÃO: Definir flag quando usuário seleciona modo reference EXPLICITAMENTE
+    if (mode === 'reference') {
+        userExplicitlySelectedReferenceMode = true;
+        console.log('%c[PROTECTION] ✅ Flag userExplicitlySelectedReferenceMode ATIVADA - usuário clicou em modo A/B', 'color:#FFD700;font-weight:bold;font-size:14px;');
     }
     
     // Armazenar modo selecionado
@@ -4154,9 +4168,19 @@ function openReferenceUploadModal(referenceJobId, firstAnalysisResult) {
 
     console.log('[FIX-REFERENCE] Modal reaberto SEM limpar flags de referência');
     
+    // 🛡️ PROTEÇÃO CRÍTICA: Não permitir ativação de modo reference se usuário não selecionou explicitamente
+    if (!userExplicitlySelectedReferenceMode) {
+        console.error('%c[PROTECTION] ❌ BLOQUEIO ATIVADO: openReferenceUploadModal chamado mas userExplicitlySelectedReferenceMode = false', 'color:#FF0000;font-weight:bold;font-size:14px;');
+        console.error('[PROTECTION] ❌ Modo reference não pode ser ativado automaticamente - usuário está em modo genre');
+        console.trace('[PROTECTION] Stack trace do bloqueio:');
+        alert('⚠️ ERRO: Sistema tentou ativar modo A/B automaticamente. Por favor, selecione o modo A/B explicitamente.');
+        return;
+    }
+    
     // 🎯 CORREÇÃO: Manter modo 'reference' para segunda música também
     // O backend identifica que é comparação pela presença do referenceJobId
     currentAnalysisMode = 'reference';
+    console.log('%c[PROTECTION] ✅ currentAnalysisMode definido como reference - flag verificada', 'color:#00FF88;font-weight:bold;');
     
     // Abrir modal novamente
     const modal = document.getElementById('audioAnalysisModal');
@@ -4556,10 +4580,19 @@ function resetReferenceStateFully(preserveGenre) {
     if (currentMode === 'genre') {
         console.log('%c[GENRE-ISOLATION] 🛡️ Modo GENRE detectado - IGNORANDO reset de referência', 'color:#FFD700;font-weight:bold;font-size:14px;');
         console.log('[GENRE-ISOLATION] ✅ Targets de gênero preservados (reset bloqueado)');
+        
+        // 🛡️ PROTEÇÃO: Resetar flag ao limpar estado de referência
+        userExplicitlySelectedReferenceMode = false;
+        console.log('%c[PROTECTION] ✅ Flag userExplicitlySelectedReferenceMode resetada em resetReferenceStateFully', 'color:#00FF88;font-weight:bold;');
+        
         return; // NÃO executar reset no modo gênero
     }
     
     console.group('%c[GENRE-ISOLATION] 🧹 Limpeza completa do estado de referência', 'color:#FF6B6B;font-weight:bold;font-size:14px;');
+    
+    // 🛡️ PROTEÇÃO: Resetar flag ao limpar estado de referência
+    userExplicitlySelectedReferenceMode = false;
+    console.log('%c[PROTECTION] ✅ Flag userExplicitlySelectedReferenceMode resetada em resetReferenceStateFully', 'color:#00FF88;font-weight:bold;');
     
     // ===============================================================
     // 🔒 BLOCO 1 — PRESERVAR GÊNERO ANTES DO RESET (MÚLTIPLAS FONTES)
@@ -6196,16 +6229,25 @@ async function handleModalFileSelection(file) {
             }
             
             if (!window.FirstAnalysisStore?.has()) {
-                // Salvar como USER no FirstAnalysisStore
-                FirstAnalysisStore.setUser(userClone, userVid, analysisResult.jobId);
-                window.__REFERENCE_JOB_ID__ = analysisResult.jobId;
-                
-                console.log('[A/B] 🧊 primeira faixa salva com VID', {
-                    vid: userVid,
-                    jobId: analysisResult.jobId, 
-                    file: userClone?.fileName || userClone?.metadata?.fileName,
-                    role: 'USER'
-                });
+                // 🛡️ PROTEÇÃO CRÍTICA: Não salvar como referência se modo não foi selecionado explicitamente
+                if (!userExplicitlySelectedReferenceMode) {
+                    console.warn('%c[PROTECTION] ⚠️ BLOQUEIO: Tentativa de salvar __REFERENCE_JOB_ID__ mas userExplicitlySelectedReferenceMode = false', 'color:#FFA500;font-weight:bold;');
+                    console.warn('[PROTECTION] ⚠️ Sistema em modo genre - ignorando salvamento de referência');
+                    console.trace('[PROTECTION] Stack trace do bloqueio:');
+                    // NÃO executar salvamento de referência
+                } else {
+                    // Salvar como USER no FirstAnalysisStore
+                    FirstAnalysisStore.setUser(userClone, userVid, analysisResult.jobId);
+                    window.__REFERENCE_JOB_ID__ = analysisResult.jobId;
+                    
+                    console.log('[A/B] 🧊 primeira faixa salva com VID', {
+                        vid: userVid,
+                        jobId: analysisResult.jobId, 
+                        file: userClone?.fileName || userClone?.metadata?.fileName,
+                        role: 'USER'
+                    });
+                    console.log('%c[PROTECTION] ✅ __REFERENCE_JOB_ID__ definido - flag verificada', 'color:#00FF88;font-weight:bold;');
+                }
             }
             
             // 🔍 AUDITORIA: Estado APÓS salvar primeira análise
@@ -6346,6 +6388,16 @@ async function handleModalFileSelection(file) {
                 // - Primeira faixa (previousAnalysis) = userAnalysis (SUA MÚSICA/ATUAL)
                 // - Segunda faixa (analysisResult) = referenceAnalysis (ALVO/REFERÊNCIA a alcançar)
                 
+                // 🛡️ PROTEÇÃO CRÍTICA: Não permitir isSecondTrack = true se usuário não selecionou modo reference
+                if (!userExplicitlySelectedReferenceMode) {
+                    console.error('%c[PROTECTION] ❌ BLOQUEIO CRÍTICO: Tentativa de ativar isSecondTrack mas userExplicitlySelectedReferenceMode = false', 'color:#FF0000;font-weight:bold;font-size:16px;');
+                    console.error('[PROTECTION] ❌ Sistema em modo genre - NÃO pode processar segunda track');
+                    console.error('[PROTECTION] ❌ state.previousAnalysis existe mas modo não é reference explícito');
+                    console.trace('[PROTECTION] Stack trace do bloqueio:');
+                    // NÃO construir estrutura A/B - abortar processamento de segunda track
+                    return;
+                }
+                
                 // 🧊 PROTEÇÃO ANTICONTAMINAÇÃO: Deep clone obrigatório
                 console.log('[STATE-FIX] 🔒 Criando deep clones para evitar contaminação de estado');
                 state.userAnalysis = JSON.parse(JSON.stringify(state.previousAnalysis));      // 1ª = sua faixa (atual)
@@ -6357,6 +6409,8 @@ async function handleModalFileSelection(file) {
                 state.reference.referenceAnalysis = JSON.parse(JSON.stringify(analysisResult));       // 2ª faixa (referência/alvo)
                 state.reference.isSecondTrack = true;
                 state.reference.jobId = analysisResult.jobId || null;
+                
+                console.log('%c[PROTECTION] ✅ isSecondTrack = true PERMITIDO - flag verificada', 'color:#00FF88;font-weight:bold;');
                 
                 console.log('✅ [REFERENCE-A/B-CORRECTED] ═══════════════════════════════════════');
                 console.log('✅ [REFERENCE-A/B-CORRECTED] Atribuição correta A/B:');
@@ -6410,6 +6464,16 @@ async function handleModalFileSelection(file) {
                 // 🔥 FALLBACK: Primeira música é ATUAL (sua faixa), segunda é REFERÊNCIA (alvo)
                 const firstAnalysis = FirstAnalysisStore.get(); // sempre clone
                 
+                // 🛡️ PROTEÇÃO CRÍTICA: Não permitir isSecondTrack = true se usuário não selecionou modo reference
+                if (!userExplicitlySelectedReferenceMode) {
+                    console.error('%c[PROTECTION] ❌ BLOQUEIO CRÍTICO (FALLBACK): Tentativa de ativar isSecondTrack mas userExplicitlySelectedReferenceMode = false', 'color:#FF0000;font-weight:bold;font-size:16px;');
+                    console.error('[PROTECTION] ❌ Sistema em modo genre - NÃO pode processar segunda track');
+                    console.error('[PROTECTION] ❌ FirstAnalysisStore.has() = true mas modo não é reference explícito');
+                    console.trace('[PROTECTION] Stack trace do bloqueio:');
+                    // NÃO construir estrutura A/B - abortar processamento de segunda track
+                    return;
+                }
+                
                 // 🧊 PROTEÇÃO ANTICONTAMINAÇÃO: Deep clone obrigatório
                 console.log('[STATE-FIX] 🔒 FALLBACK - Criando deep clones para evitar contaminação');
                 state.userAnalysis = JSON.parse(JSON.stringify(firstAnalysis));    // 1ª = sua faixa (atual)
@@ -6421,6 +6485,8 @@ async function handleModalFileSelection(file) {
                 state.reference.referenceAnalysis = JSON.parse(JSON.stringify(analysisResult));                // 2ª faixa (referência/alvo)
                 state.reference.isSecondTrack = true;
                 state.reference.jobId = analysisResult.jobId || null;
+                
+                console.log('%c[PROTECTION] ✅ isSecondTrack = true PERMITIDO (FALLBACK) - flag verificada', 'color:#00FF88;font-weight:bold;');
                 
                 console.log('✅ [REFERENCE-A/B-CORRECTED] ═══════════════════════════════════════');
                 console.log('✅ [REFERENCE-A/B-CORRECTED] Fallback - Atribuição correta A/B:');
@@ -6543,11 +6609,21 @@ async function handleModalFileSelection(file) {
             }
             
             // 🔥 FORCE MODE REFERENCE EXPLICITAMENTE ANTES DE displayModalResults
+            // 🛡️ PROTEÇÃO CRÍTICA: Só forçar modo reference se usuário selecionou explicitamente
+            if (!userExplicitlySelectedReferenceMode) {
+                console.error('%c[PROTECTION] ❌ BLOQUEIO: Tentativa de forçar modo reference mas userExplicitlySelectedReferenceMode = false', 'color:#FF0000;font-weight:bold;font-size:16px;');
+                console.error('[PROTECTION] ❌ Sistema em modo genre - NÃO pode forçar modo reference');
+                console.trace('[PROTECTION] Stack trace do bloqueio:');
+                // NÃO forçar modo reference
+                return;
+            }
+            
             state.render = state.render || {};
             state.render.mode = 'reference';
             currentAnalysisMode = 'reference';
             window.__soundyState = state;
             
+            console.log('%c[PROTECTION] ✅ Modo forçado para reference - flag verificada', 'color:#00FF88;font-weight:bold;');
             console.log('🔥🔥🔥 [MODE-FORCE] ════════════════════════════════════════════════════════════');
             console.log('🔥 [MODE-FORCE] ✅ Modo FORÇADO para reference antes de displayModalResults');
             console.log('🔥 [MODE-FORCE] state.render.mode:', state.render.mode);
@@ -8783,10 +8859,22 @@ async function displayModalResults(analysis) {
 
     // Se é segunda faixa e temos refId válido, o modo é obrigatoriamente 'reference'
     const isSecondTrack = !!(window.__REFERENCE_JOB_ID__ && window.FirstAnalysisStore?.has?.());
+    
+    // 🛡️ PROTEÇÃO CRÍTICA: Só forçar modo reference se usuário selecionou explicitamente
     if (isSecondTrack && _modeNow !== 'reference') {
+        if (!userExplicitlySelectedReferenceMode) {
+            console.error('%c[PROTECTION] ❌ BLOQUEIO em displayModalResults: isSecondTrack detectado mas userExplicitlySelectedReferenceMode = false', 'color:#FF0000;font-weight:bold;font-size:16px;');
+            console.error('[PROTECTION] ❌ Sistema em modo genre - NÃO pode forçar modo reference');
+            console.error('[PROTECTION] ❌ Abortando renderização A/B');
+            console.trace('[PROTECTION] Stack trace do bloqueio:');
+            // NÃO forçar modo reference - abortar
+            return;
+        }
+        
         window.currentAnalysisMode = 'reference';
         if (window.__soundyState?.render) window.__soundyState.render.mode = 'reference';
         console.warn('[AB-FORCE] Forçando mode=reference porque há segunda faixa + referenceId.');
+        console.log('%c[PROTECTION] ✅ Modo forçado para reference em displayModalResults - flag verificada', 'color:#00FF88;font-weight:bold;');
     }
 
     // Validar referência
