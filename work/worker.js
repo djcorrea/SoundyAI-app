@@ -787,16 +787,15 @@ async function processJob(job) {
     });
 
     // 🛡️ BLINDAGEM DEFINITIVA: Garantir genre correto IMEDIATAMENTE ANTES do salvamento
-    // Prioridade: result.genre válido > job.data.genre > options.genre > summary.genre > data.genre > 'default'
+    // 🎯 PRIORIDADE CORRETA: options.genre (fonte oficial) > job.data.genre > result.genre > null (válido)
     const originalPayload = job.data || {};
     const safeGenreBeforeSave = 
-      (result.genre && result.genre !== 'default' && result.genre !== null) 
-        ? result.genre
-        : originalPayload.genre || 
-          options.genre || 
-          result.summary?.genre || 
-          result.data?.genre || 
-          'default';
+      options.genre ??
+      originalPayload.genre ??
+      result.genre ??
+      result.summary?.genre ??
+      result.data?.genre ??
+      null;
 
     // Forçar genre correto em TODAS as estruturas antes do UPDATE
     result.genre = safeGenreBeforeSave;
