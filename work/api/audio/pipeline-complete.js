@@ -642,12 +642,13 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         console.log('[GENRE-FLOW][PIPELINE] ✅ Summary e Metadata atualizados com genre:', detectedGenreV2);
         
         // 🛡️ BLINDAGEM FINAL: Garantir que genre correto sobreviva ao merge
-        const safeGenre =
-          options.genre ??
-          options.data?.genre ??
-          finalJSON.genre ??
-          detectedGenreV2 ??
-          'default';
+        // 🔥 CORREÇÃO CRÍTICA ROOT CAUSE: Priorizar SEMPRE options.genre (vem do usuário)
+        // NUNCA ler finalJSON.genre ou detectedGenreV2 se options.genre existir
+        const safeGenre = (
+          options.genre ||
+          options.data?.genre ||
+          null
+        );
         
         finalJSON.genre = safeGenre;
         
