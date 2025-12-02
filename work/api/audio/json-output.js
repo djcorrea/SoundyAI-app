@@ -482,7 +482,7 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
   const isGenreMode = (options.mode || 'genre') === 'genre';
   const resolvedGenre = options.genre || options.data?.genre || options.genre_detected || null;
   const finalGenre = isGenreMode
-    ? (resolvedGenre && String(resolvedGenre).trim())  // 🎯 SEM fallback 'default' no modo genre
+    ? (resolvedGenre ? String(resolvedGenre).trim() || null : null)
     : (options.genre || 'default');
   
   // 🔥 LOG CIRÚRGICO: DEPOIS de resolver finalGenre
