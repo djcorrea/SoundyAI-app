@@ -4560,13 +4560,10 @@ function resetReferenceState() {
 
 // 🎯 FUNÇÃO AUXILIAR: Obter gênero ativo de múltiplas fontes
 function getActiveGenre(analysis, fallback) {
-    const genre = analysis?.genre ||
+    const genre = analysis?.data?.genre ||
+                 analysis?.genre ||
                  analysis?.genreId ||
                  analysis?.metadata?.genre ||
-                 window.__CURRENT_GENRE ||
-                 window.__soundyState?.render?.genre ||
-                 window.__activeUserGenre ||
-                 window.PROD_AI_REF_GENRE ||
                  fallback;
     
     console.log('[GET-ACTIVE-GENRE] Gênero detectado:', genre, '(fallback:', fallback, ')');
