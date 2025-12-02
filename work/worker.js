@@ -566,14 +566,14 @@ async function processJob(job) {
       return merged;
     };
 
+    // 🔥 CORREÇÃO CRÍTICA: NÃO usar spread de analysisResult (copia estruturas com genre: null)
+    // Copiar campos EXPLICITAMENTE para garantir controle total
     const result = {
       ok: true,
       file: job.file_key,
       analyzedAt: new Date().toISOString(),
 
-      ...analysisResult,
-
-      // 🔥 Correção suprema: garantir que a raiz sempre tenha o gênero correto
+      // 🔥 Genre SEMPRE forçado na raiz
       genre: forcedGenre,
       mode: job.mode,
 
@@ -600,7 +600,25 @@ async function processJob(job) {
         analysisResult.data || {},
         { genreTargets: forcedTargets },
         forcedGenre
-      )
+      ),
+      
+      // 🔥 Campos EXPLÍCITOS de analysisResult (sem spread cego)
+      suggestions: analysisResult.suggestions || [],
+      aiSuggestions: analysisResult.aiSuggestions || [],
+      problems: analysisResult.problems || [],
+      problemsAnalysis: analysisResult.problemsAnalysis || { problems: [], suggestions: [] },
+      diagnostics: analysisResult.diagnostics || {},
+      scoring: analysisResult.scoring || {},
+      technicalData: analysisResult.technicalData || {},
+      
+      // Campos técnicos opcionais
+      lufs: analysisResult.lufs,
+      truePeak: analysisResult.truePeak,
+      dynamicRange: analysisResult.dynamicRange,
+      spectralBalance: analysisResult.spectralBalance,
+      score: analysisResult.score,
+      readyForRelease: analysisResult.readyForRelease,
+      overallRating: analysisResult.overallRating
     };
 
     // 🔥 AUDITORIA: Genre DEPOIS do merge
@@ -807,16 +825,76 @@ async function processJob(job) {
       metadataGenreAfterFix: result.metadata?.genre
     });
 
+    // 🔍 LOG PARANOID NÍVEL 1: ANTES DO JSON.stringify
+    console.log("[GENRE-PARANOID][PRE-STRINGIFY] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("[GENRE-PARANOID][PRE-STRINGIFY] result.genre:", result.genre);
+    console.log("[GENRE-PARANOID][PRE-STRINGIFY] result.summary?.genre:", result.summary?.genre);
+    console.log("[GENRE-PARANOID][PRE-STRINGIFY] result.metadata?.genre:", result.metadata?.genre);
+    console.log("[GENRE-PARANOID][PRE-STRINGIFY] result.suggestionMetadata?.genre:", result.suggestionMetadata?.genre);
+    console.log("[GENRE-PARANOID][PRE-STRINGIFY] result.data?.genre:", result.data?.genre);
+    console.log("[GENRE-PARANOID][PRE-STRINGIFY] Todas chaves do result:", Object.keys(result));
+
+    // Verificar se há chaves ocultas com genre: null
+    const allKeys = Object.keys(result);
+    const keysWithGenre = [];
+    for (const key of allKeys) {
+      if (result[key] && typeof result[key] === 'object' && 'genre' in result[key]) {
+        keysWithGenre.push({ key, genre: result[key].genre });
+      }
+    }
+    console.log("[GENRE-PARANOID][PRE-STRINGIFY] Chaves com 'genre':", keysWithGenre);
+    console.log("[GENRE-PARANOID][PRE-STRINGIFY] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+    const resultJSON = JSON.stringify(result);
+
+    // 🔍 LOG PARANOID NÍVEL 2: DEPOIS DO JSON.stringify
+    console.log("[GENRE-PARANOID][POST-STRINGIFY] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    const parsed = JSON.parse(resultJSON);
+    console.log("[GENRE-PARANOID][POST-STRINGIFY] parsed.genre:", parsed.genre);
+    console.log("[GENRE-PARANOID][POST-STRINGIFY] parsed.summary?.genre:", parsed.summary?.genre);
+    console.log("[GENRE-PARANOID][POST-STRINGIFY] parsed.metadata?.genre:", parsed.metadata?.genre);
+    console.log("[GENRE-PARANOID][POST-STRINGIFY] JSON sample:", resultJSON.substring(0, 500));
+
+    // 🚨 ALERTA SE GENRE FOI PERDIDO
+    if (!parsed.genre || parsed.genre === null) {
+      console.error("[GENRE-PARANOID][POST-STRINGIFY] 🚨🚨🚨 GENRE PERDIDO DURANTE STRINGIFY!");
+      console.error("[GENRE-PARANOID][POST-STRINGIFY] result.genre ANTES:", result.genre);
+      console.error("[GENRE-PARANOID][POST-STRINGIFY] parsed.genre DEPOIS:", parsed.genre);
+    }
+    console.log("[GENRE-PARANOID][POST-STRINGIFY] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
     // 🔥 ATUALIZAR STATUS FINAL + VERIFICAR SE FUNCIONOU
     // ✅ CORREÇÃO CRÍTICA: Remover cast ::jsonb (Postgres driver detecta JSON automaticamente)
     const finalUpdateResult = await client.query(
       "UPDATE jobs SET status = $1, result = $2, results = $2, completed_at = NOW(), updated_at = NOW() WHERE id = $3",
-      ["done", JSON.stringify(result), job.id]
+      ["done", resultJSON, job.id]
     );
 
     if (finalUpdateResult.rowCount === 0) {
       throw new Error(`Falha ao atualizar job ${job.id} para status 'done'`);
     }
+
+    // 🔍 LOG PARANOID NÍVEL 3: VERIFICAR BANCO IMEDIATAMENTE
+    console.log("[GENRE-PARANOID][POST-UPDATE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    try {
+      const verifyDB = await client.query(
+        "SELECT results->>'genre' as results_genre, results->'summary'->>'genre' as summary_genre FROM jobs WHERE id = $1",
+        [job.id]
+      );
+      console.log("[GENRE-PARANOID][POST-UPDATE] DB results.genre:", verifyDB.rows[0]?.results_genre);
+      console.log("[GENRE-PARANOID][POST-UPDATE] DB results.summary.genre:", verifyDB.rows[0]?.summary_genre);
+
+      if (verifyDB.rows[0]?.results_genre !== result.genre) {
+        console.error("[GENRE-PARANOID][POST-UPDATE] 🚨🚨🚨 GENRE PERDIDO NO BANCO!");
+        console.error("[GENRE-PARANOID][POST-UPDATE] Esperado:", result.genre);
+        console.error("[GENRE-PARANOID][POST-UPDATE] Recebido no DB:", verifyDB.rows[0]?.results_genre);
+      } else {
+        console.log("[GENRE-PARANOID][POST-UPDATE] ✅ Genre salvo corretamente no banco!");
+      }
+    } catch (verifyError) {
+      console.error("[GENRE-PARANOID][POST-UPDATE] Erro ao verificar banco:", verifyError.message);
+    }
+    console.log("[GENRE-PARANOID][POST-UPDATE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
     console.log(`✅ Job ${job.id} concluído e salvo no banco COM aiSuggestions`);
     
