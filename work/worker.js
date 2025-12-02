@@ -406,14 +406,14 @@ async function processJob(job) {
     const finalGenreTargets = extractedGenreTargets || null;
 
     // 🎯 LOG DE AUDITORIA OBRIGATÓRIO
-    console.log('[GENRE-TRACE][WORKER-LOADED] ✅ Dados carregados do banco:', {
-      jobId: job.id.substring(0, 8),
-      jobData: job.data,
-      extractedGenre,
-      extractedGenreTargets: extractedGenreTargets ? Object.keys(extractedGenreTargets) : null,
-      finalGenre,
-      hasTargets: !!finalGenreTargets
-    });
+    console.log('[AUDIT-WORKER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[AUDIT-WORKER] job.id:', job.id);
+    console.log('[AUDIT-WORKER] job.mode:', job.mode);
+    console.log('[AUDIT-WORKER] job.data.genre:', job.data?.genre);
+    console.log('[AUDIT-WORKER] job.data.genreTargets:', job.data?.genreTargets ? 'PRESENTE' : 'AUSENTE');
+    console.log('[AUDIT-WORKER] extractedGenre:', extractedGenre);
+    console.log('[AUDIT-WORKER] finalGenre (trimmed):', finalGenre);
+    console.log('[AUDIT-WORKER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     const options = {
       jobId: job.id,
@@ -425,20 +425,23 @@ async function processJob(job) {
       isReferenceBase: job.is_reference_base || false
     };
     
+    // 🔥 PATCH 1: GARANTIR QUE options.genre RECEBE O GÊNERO DE data
+    if (job.mode === 'genre' && job.data && job.data.genre && !options.genre) {
+      options.genre = job.data.genre;
+      console.log('[AUDIT-FIX] Propagando job.data.genre para options.genre:', options.genre);
+    }
+    
     console.log('[GENRE-FLOW] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[GENRE-FLOW] 📊 Parâmetros enviados para pipeline:');
     console.log('[GENRE-FLOW] genre:', options.genre);
     console.log('[GENRE-FLOW] hasTargets:', !!options.genreTargets);
     console.log('[GENRE-FLOW] targetKeys:', options.genreTargets ? Object.keys(options.genreTargets) : null);
-    console.log('[GENRE-TRACE][WORKER-OPTIONS] ✅ Options construído:', {
-      genre: options.genre,
-      hasTargets: !!options.genreTargets,
-      mode: options.mode
-    });
-    console.log('[GENRE-FLOW] mode:', options.mode);
-    console.log('[GENRE-FLOW] referenceJobId:', options.referenceJobId);
-    console.log('[GENRE-FLOW] isReferenceBase:', options.isReferenceBase);
-    console.log('[GENRE-FLOW] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[AUDIT-WORKER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[AUDIT-WORKER] OPTIONS ENVIADO PARA PIPELINE:');
+    console.log('[AUDIT-WORKER] options.genre:', options.genre);
+    console.log('[AUDIT-WORKER] options.genreTargets:', options.genreTargets ? 'PRESENTE' : 'AUSENTE');
+    console.log('[AUDIT-WORKER] options.mode:', options.mode);
+    console.log('[AUDIT-WORKER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // ✅ DETECÇÃO DO MODO COMPARISON
     if (job.mode === "comparison") {
@@ -862,6 +865,15 @@ async function processJob(job) {
       console.error("[GENRE-PARANOID][POST-STRINGIFY] parsed.genre DEPOIS:", parsed.genre);
     }
     console.log("[GENRE-PARANOID][POST-STRINGIFY] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+
+    // 🔥 AUDIT LOG FINAL: ANTES DO UPDATE NO BANCO
+    console.log('[AUDIT-DB-SAVE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[AUDIT-DB-SAVE] job.id:', job.id);
+    console.log('[AUDIT-DB-SAVE] result.genre que será salvo:', result.genre);
+    console.log('[AUDIT-DB-SAVE] result.summary?.genre:', result.summary?.genre);
+    console.log('[AUDIT-DB-SAVE] result.suggestionMetadata?.genre:', result.suggestionMetadata?.genre);
+    console.log('[AUDIT-DB-SAVE] result.data?.genre:', result.data?.genre);
+    console.log('[AUDIT-DB-SAVE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // 🔥 ATUALIZAR STATUS FINAL + VERIFICAR SE FUNCIONOU
     // ✅ CORREÇÃO CRÍTICA: Remover cast ::jsonb (Postgres driver detecta JSON automaticamente)
