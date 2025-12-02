@@ -350,17 +350,22 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         throw new Error('coreMetrics inválido ou ausente');
       }
       
-      // 🛡️ BLINDAGEM PRIMÁRIA: Garantir que genre NUNCA seja null
+      // 🛡️ BLINDAGEM PRIMÁRIA CORRIGIDA: Preservar genre correto, sem fallback 'default'
       const genreForAnalyzer = 
         options.genre ||
         options.data?.genre ||
         detectedGenre ||
         finalJSON?.genre ||
-        'default';
+        null;  // 🔥 NUNCA usar 'default' como fallback - deixar null explícito
       
       console.log('[GENRE-BLINDAGEM] genreForAnalyzer:', genreForAnalyzer);
+      console.log('[GENRE-BLINDAGEM] ALERTA: Se null, analyzer usará default interno - DEVE SER CORRIGIDO!');
       
-      const problemsAndSuggestions = analyzeProblemsAndSuggestionsV2(coreMetrics, genreForAnalyzer, customTargets);
+      // 🔥 PATCH DEFINITIVO: Garantir que genre NUNCA seja null ao chamar analyzer
+      const finalGenreForAnalyzer = genreForAnalyzer || detectedGenre || options.genre || 'funk_bh';
+      console.log('[GENRE-PATCH] Genre final para analyzer:', finalGenreForAnalyzer);
+      
+      const problemsAndSuggestions = analyzeProblemsAndSuggestionsV2(coreMetrics, finalGenreForAnalyzer, customTargets);
       
       // Preencher estrutura completa do finalJSON com sugestões base
       finalJSON.problemsAnalysis = {
