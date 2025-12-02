@@ -1,4 +1,13 @@
 // worker-root.js - Worker na raiz do projeto
+// 
+// 🚫 WORKER DESATIVADO - Use work/worker.js
+// Este arquivo causa race condition processando jobs em paralelo
+
+console.error("🚫🚫🚫 WORKER LEGADO DESATIVADO - Use work/worker.js");
+console.error("🚫 worker-root.js está desabilitado - causa race condition");
+console.error("🚫 Para ativar novamente, remova o process.exit(0) no início do arquivo");
+process.exit(0);
+
 import "dotenv/config";
 import pkg from "pg";
 import AWS from "aws-sdk";
