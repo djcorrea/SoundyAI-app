@@ -73,6 +73,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
   const startTime = Date.now();
   const jobId = options.jobId || 'unknown';
   let tempFilePath = null;
+  let detectedGenre = null; // 🛡️ Escopo global da função para evitar ReferenceError
   
   console.log(`🚀 [${jobId.substring(0,8)}] Iniciando pipeline completo para: ${fileName}`);
   console.log(`📊 [${jobId.substring(0,8)}] Buffer size: ${audioBuffer.length} bytes`);
@@ -213,7 +214,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       
       // 🎯 CORREÇÃO: Resolver genre baseado no modo
       const resolvedGenre = options.genre || options.data?.genre || options.genre_detected || null;
-      const detectedGenre = isGenreMode
+      detectedGenre = isGenreMode
         ? (resolvedGenre && String(resolvedGenre).trim())  // 🔥 SEM fallback 'default' no modo genre
         : (options.genre || 'default');
       
@@ -292,7 +293,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       
       // 🎯 CORREÇÃO: Resolver genre baseado no modo
       const resolvedGenre = options.genre || options.data?.genre || options.genre_detected || null;
-      const detectedGenre = isGenreMode
+      detectedGenre = isGenreMode
         ? (resolvedGenre && String(resolvedGenre).trim())  // 🎯 SEM fallback 'default' no modo genre
         : (options.genre || 'default');
       
@@ -614,7 +615,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         // 🔥 LOG CIRÚRGICO: ANTES de forçar genre em summary/metadata
         console.log('[GENRE-DEEP-TRACE][SUMMARY-METADATA-PRE]', {
           ponto: 'pipeline-complete.js linha ~535 - ANTES forçar summary/metadata',
-          'detectedGenre (usado para forçar)': detectedGenre,
+          'detectedGenre (usado para forçar)': detectedGenreV2,
           'v2Summary.genre': v2Summary?.genre,
           'v2Metadata.genre': v2Metadata?.genre,
           'finalJSON.genre': finalJSON.genre
@@ -623,11 +624,11 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         // ✅ CORREÇÃO CRÍTICA: Garantir que genre seja propagado para summary e metadata
         finalJSON.summary = {
           ...v2Summary,
-          genre: detectedGenre  // ← FORÇAR GÊNERO CORRETO
+          genre: detectedGenreV2  // ← FORÇAR GÊNERO CORRETO
         };
         finalJSON.suggestionMetadata = {
           ...v2Metadata,
-          genre: detectedGenre  // ← FORÇAR GÊNERO CORRETO
+          genre: detectedGenreV2  // ← FORÇAR GÊNERO CORRETO
         };
         
         // 🔥 LOG CIRÚRGICO: DEPOIS de forçar genre em summary/metadata
@@ -638,14 +639,14 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
           'finalJSON.genre': finalJSON.genre
         });
         
-        console.log('[GENRE-FLOW][PIPELINE] ✅ Summary e Metadata atualizados com genre:', detectedGenre);
+        console.log('[GENRE-FLOW][PIPELINE] ✅ Summary e Metadata atualizados com genre:', detectedGenreV2);
         
         // 🛡️ BLINDAGEM FINAL: Garantir que genre correto sobreviva ao merge
         const safeGenre =
           finalJSON.genre ||
           options.genre ||
           options.data?.genre ||
-          detectedGenre ||
+          detectedGenreV2 ||
           'default';
         
         finalJSON.genre = safeGenre;
