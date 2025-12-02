@@ -236,8 +236,11 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       // 📊 RESUMO FINAL
       const summary = this.generateSummary(suggestions, problems);
       
+      // 🔥 PATCH CRÍTICO: Preservar genre original mesmo se this.genre foi convertido para 'default'
+      const originalGenre = this._originalGenre || this.genre;  // Tentar recuperar genre original
+      
       const result = {
-        genre: this.genre,
+        genre: originalGenre,  // 🔥 Usar genre original, não this.genre
         suggestions: suggestions.map(s => this.formatSuggestionForJSON(s)),
         problems: problems.map(p => this.formatProblemForJSON(p)),
         summary,
@@ -247,7 +250,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
           warningCount: suggestions.filter(s => s.severity.level === 'warning').length,
           okCount: suggestions.filter(s => s.severity.level === 'ok').length,
           analysisDate: new Date().toISOString(),
-          genre: this.genre,
+          genre: originalGenre,  // 🔥 Usar genre original aqui também
           version: '2.0.0'
         }
       };
@@ -659,7 +662,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     return {
       overallRating,
       readyForRelease,
-      genre: this.genre,
+      genre: this._originalGenre || this.genre,  // 🔥 Usar original, não interno
       // Novos campos específicos para dinâmica
       corrigirIssues: totalCorrigir,
       ajusteLeveIssues: totalAjuste,
