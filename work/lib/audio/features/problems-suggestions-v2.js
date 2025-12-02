@@ -213,6 +213,12 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
    */
   analyzeWithEducationalSuggestions(audioMetrics) {
     try {
+      console.log('[AUDIT-PROBLEMS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[AUDIT-PROBLEMS] DENTRO DO ANALYZER:');
+      console.log('[AUDIT-PROBLEMS] this._originalGenre:', this._originalGenre);
+      console.log('[AUDIT-PROBLEMS] this.genre:', this.genre);
+      console.log('[AUDIT-PROBLEMS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      
       logAudio('problems_v2', 'analysis_start', { genre: this.genre });
       
       const suggestions = [];
@@ -238,6 +244,12 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       
       // 🔥 PATCH CRÍTICO: Preservar genre original mesmo se this.genre foi convertido para 'default'
       const originalGenre = this._originalGenre || this.genre;  // Tentar recuperar genre original
+      
+      console.log('[AUDIT-PROBLEMS-RESULT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[AUDIT-PROBLEMS-RESULT] ANTES DE RETORNAR RESULT:');
+      console.log('[AUDIT-PROBLEMS-RESULT] originalGenre:', originalGenre);
+      console.log('[AUDIT-PROBLEMS-RESULT] summary.genre:', summary?.genre);
+      console.log('[AUDIT-PROBLEMS-RESULT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
       const result = {
         genre: originalGenre,  // 🔥 Usar genre original, não this.genre

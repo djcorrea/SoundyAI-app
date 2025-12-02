@@ -351,19 +351,30 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       }
       
       // 🛡️ BLINDAGEM PRIMÁRIA CORRIGIDA: Preservar genre correto, sem fallback 'default'
-      const genreForAnalyzer = 
+      // 🔥 PATCH 2: RESOLVER CORRETAMENTE O GÊNERO PARA O ANALYZER
+      const genreFromData =
         options.genre ||
         options.data?.genre ||
-        detectedGenre ||
-        finalJSON?.genre ||
-        null;  // 🔥 NUNCA usar 'default' como fallback - deixar null explícito
+        options.data?.targets?.genre ||
+        options.data?.genre_detected ||
+        null;
       
+      const genreForAnalyzer = genreFromData || detectedGenre || finalJSON?.genre || null;
+      const finalGenreForAnalyzer = genreForAnalyzer || detectedGenre || options.genre || 'default';
+      
+      console.log('[AUDIT-FIX] genreFromData:', genreFromData, 'finalGenreForAnalyzer:', finalGenreForAnalyzer);
       console.log('[GENRE-BLINDAGEM] genreForAnalyzer:', genreForAnalyzer);
       console.log('[GENRE-BLINDAGEM] ALERTA: Se null, analyzer usará default interno - DEVE SER CORRIGIDO!');
       
-      // 🔥 PATCH DEFINITIVO: Garantir que genre NUNCA seja null ao chamar analyzer
-      const finalGenreForAnalyzer = genreForAnalyzer || detectedGenre || options.genre || 'funk_bh';
-      console.log('[GENRE-PATCH] Genre final para analyzer:', finalGenreForAnalyzer);
+      console.log('[AUDIT-PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[AUDIT-PIPELINE] ANTES DE CHAMAR analyzeProblemsAndSuggestionsV2:');
+      console.log('[AUDIT-PIPELINE] options.genre:', options.genre);
+      console.log('[AUDIT-PIPELINE] options.data?.genre:', options.data?.genre);
+      console.log('[AUDIT-PIPELINE] detectedGenre:', detectedGenre);
+      console.log('[AUDIT-PIPELINE] finalJSON.genre antes do analyzer:', finalJSON?.genre);
+      console.log('[AUDIT-PIPELINE] genreForAnalyzer:', genreForAnalyzer);
+      console.log('[AUDIT-PIPELINE] finalGenreForAnalyzer (SERÁ PASSADO):', finalGenreForAnalyzer);
+      console.log('[AUDIT-PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
       const problemsAndSuggestions = analyzeProblemsAndSuggestionsV2(coreMetrics, finalGenreForAnalyzer, customTargets);
       
@@ -444,6 +455,20 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       finalJSON.diagnostics = { problems: [], suggestions: [], prioritized: [] };
       finalJSON.summary = {};
       finalJSON.suggestionMetadata = {};
+    }
+    
+    // 🔥 PATCH 3: GARANTIR QUE finalJSON TENHA genre NO TOPO ANTES DE RETORNAR
+    if (!finalJSON.genre) {
+      const genreFromData =
+        options.genre ||
+        options.data?.genre ||
+        detectedGenre ||
+        finalJSON.summary?.genre ||
+        finalJSON.suggestionMetadata?.genre ||
+        null;
+      
+      finalJSON.genre = genreFromData || finalGenreForAnalyzer || null;
+      console.log('[AUDIT-FIX] finalJSON.genre antes de enviar para o worker:', finalJSON.genre);
     }
 
     // ========= FASE 5.5: GERAÇÃO DE SUGESTÕES =========
