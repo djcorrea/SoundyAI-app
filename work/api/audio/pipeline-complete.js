@@ -215,7 +215,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       // 🎯 CORREÇÃO: Resolver genre baseado no modo
       const resolvedGenre = options.genre || options.data?.genre || options.genre_detected || null;
       detectedGenre = isGenreMode
-        ? (resolvedGenre && String(resolvedGenre).trim())  // 🔥 SEM fallback 'default' no modo genre
+        ? (resolvedGenre ? String(resolvedGenre).trim() || null : null)
         : (options.genre || 'default');
       
       // 🔥 LOG CIRÚRGICO: DEPOIS de resolver genre (JSON Output)
@@ -294,7 +294,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       // 🎯 CORREÇÃO: Resolver genre baseado no modo
       const resolvedGenre = options.genre || options.data?.genre || options.genre_detected || null;
       detectedGenre = isGenreMode
-        ? (resolvedGenre && String(resolvedGenre).trim())  // 🎯 SEM fallback 'default' no modo genre
+        ? (resolvedGenre ? String(resolvedGenre).trim() || null : null)
         : (options.genre || 'default');
       
       // 🔥 LOG CIRÚRGICO: DEPOIS de resolver genre (Suggestions V1)
@@ -526,7 +526,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       // 🎯 CORREÇÃO: Resolver genre baseado no modo (reutilizar lógica)
       const resolvedGenreV2 = options.genre || options.data?.genre || options.genre_detected || null;
       const detectedGenreV2 = (mode === 'genre')
-        ? (resolvedGenreV2 && String(resolvedGenreV2).trim())  // 🎯 SEM fallback 'default' no modo genre
+        ? (resolvedGenreV2 ? String(resolvedGenreV2).trim() || null : null)
         : (options.genre || 'default');
       
       // 🔥 LOG CIRÚRGICO: DEPOIS de resolver genre (Suggestions V2)
@@ -643,10 +643,10 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         
         // 🛡️ BLINDAGEM FINAL: Garantir que genre correto sobreviva ao merge
         const safeGenre =
-          finalJSON.genre ||
-          options.genre ||
-          options.data?.genre ||
-          detectedGenreV2 ||
+          options.genre ??
+          options.data?.genre ??
+          finalJSON.genre ??
+          detectedGenreV2 ??
           'default';
         
         finalJSON.genre = safeGenre;
