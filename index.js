@@ -1,12 +1,11 @@
+// 🚫🚫🚫 WORKER LEGADO DESATIVADO 🚫🚫🚫
+// Este arquivo sobrescreve results sem genre - NÃO USAR
+process.exit(1);
+
 // index.js - Servidor Web + Worker (Railway hybrid)
 // 
 // 🚫 WORKER DESATIVADO - Use work/worker.js
 // Este arquivo contém worker legado que sobrescreve results sem genre
-
-console.error("🚫🚫🚫 WORKER LEGADO DESATIVADO - Use work/worker.js");
-console.error("🚫 index.js está desabilitado porque sobrescreve results sem genre");
-console.error("🚫 Para ativar novamente, remova o process.exit(0) no início do arquivo");
-process.exit(0);
 
 import "dotenv/config";
 import express from "express";
