@@ -331,6 +331,16 @@ console.log('✅ Genre-Only Extraction Utils carregado');
         
         // Limpar referência
         clearReference() {
+            // 🚨 BLINDAGEM ABSOLUTA: NUNCA limpar em modo genre
+            if (window.__CURRENT_MODE__ === 'genre') {
+                console.warn('[GENRE-PROTECT] ⚠️ StorageManager.clearReference() BLOQUEADO em modo genre');
+                console.warn('[GENRE-PROTECT]   - Preservando:', {
+                    selectedGenre: window.__CURRENT_SELECTED_GENRE,
+                    mode: window.__CURRENT_MODE__
+                });
+                return; // NÃO executar limpeza
+            }
+
             console.log('%c[STORAGE-MANAGER] 🗑️ Limpando referência...', 'color:#FF9500;font-weight:bold;');
             try {
                 sessionStorage.removeItem('referenceJobId');
@@ -2135,6 +2145,14 @@ async function createAnalysisJob(fileKey, mode, fileName) {
         
         // 🎯 Usar SEMPRE o __CURRENT_SELECTED_GENRE (não o dropdown)
         let finalGenre = window.__CURRENT_SELECTED_GENRE || window.PROD_AI_REF_GENRE;
+        
+        // 🚨 LOG DE AUDITORIA: Genre antes de enviar
+        console.log('[GENRE-PAYLOAD-SEND] 📤 Enviando payload:', {
+            genre: finalGenre,
+            mode: actualMode,
+            selectedGenre: window.__CURRENT_SELECTED_GENRE,
+            currentMode: window.__CURRENT_MODE__
+        });
         
         // 🎯 CORREÇÃO CRÍTICA: Extrair targets da análise anterior se disponível
         let finalTargets = null;
@@ -5836,8 +5854,11 @@ function closeAudioModal() {
         // 🔧 FIX: Verificar se há comparação ativa antes de limpar
         const hasActiveComparison = window.__referenceComparisonActive === true;
         
-        if (!hasActiveComparison) {
-            // 🧹 LIMPEZA COMPLETA: Apenas se não houver comparação ativa
+        // 🚨 BLINDAGEM: NÃO limpar FirstAnalysisStore em modo genre
+        const isGenreMode = window.__CURRENT_MODE__ === 'genre';
+        
+        if (!hasActiveComparison && !isGenreMode) {
+            // 🧹 LIMPEZA COMPLETA: Apenas se não houver comparação ativa E não for modo genre
             // 🔒 HARD-GUARD: Limpar FirstAnalysisStore (única fonte de verdade)
             FirstAnalysisStore.clear();
             
@@ -5857,6 +5878,14 @@ function closeAudioModal() {
             
             console.log('[CLEANUP] closeAudioModal: LIMPEZA TOTAL (sem comparação ativa)');
             console.log('[CLEANUP] FirstAnalysisStore limpo - window.referenceAnalysisData agora retorna null');
+        } else if (isGenreMode) {
+            // Preservar gênero em modo genre
+            console.log('[CLEANUP] closeAudioModal: PRESERVANDO gênero (modo genre)');
+            console.log('[GENRE-PROTECT] ⚠️ Limpeza FirstAnalysisStore BLOQUEADA em modo genre');
+            console.log('[GENRE-PROTECT]   - Preservando:', {
+                selectedGenre: window.__CURRENT_SELECTED_GENRE,
+                mode: window.__CURRENT_MODE__
+            });
         } else {
             // Preservar dados de referência
             console.log('[CLEANUP] closeAudioModal: PRESERVANDO referência (comparação ativa)');
@@ -7076,7 +7105,39 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         return normalizedResult;
     }
     
-    // 🧩 CORREÇÃO #1: Limpeza completa APENAS em modo Genre genuíno
+    // 🚨 BLINDAGEM: NÃO limpar estado em modo genre (preservar gênero)
+    if (window.__CURRENT_MODE__ === 'genre') {
+        console.warn('[GENRE-PROTECT] ⚠️ handleGenreAnalysisWithResult - limpeza BLOQUEADA em modo genre');
+        console.log('[GENRE-PROTECT]   - Preservando:', {
+            selectedGenre: window.__CURRENT_SELECTED_GENRE,
+            mode: window.__CURRENT_MODE__
+        });
+        
+        // Normalizar e retornar sem limpar estado
+        const normalizedResult = normalizeBackendAnalysisData(analysisResult);
+        AnalysisCache.put(normalizedResult);
+        
+        console.log('[GENRE-BEFORE-DISPLAY] 🎵 Genre preservado:', {
+            preservedGenre: window.__CURRENT_SELECTED_GENRE,
+            normalizedGenre: normalizedResult.genre
+        });
+        
+        // ✅ Continuar processamento SEM limpar estado
+        updateModalProgress(90, '🎵 Aplicando resultado da análise...');
+        
+        try {
+            if (!analysisResult || typeof analysisResult !== 'object') {
+                throw new Error('Resultado de análise inválido recebido do servidor');
+            }
+            
+            return normalizedResult;
+        } catch (error) {
+            console.error('❌ Erro ao processar análise de gênero:', error);
+            throw error;
+        }
+    }
+    
+    // 🧩 CORREÇÃO #1: Limpeza completa APENAS em modo Reference (quando não há segundo track)
     
     // Limpar completamente estado de referência
     state.userAnalysis = null;
@@ -19495,20 +19556,35 @@ function normalizeBackendAnalysisData(result) {
     const energy = src.energy || data.energy || data.technicalData?.energy || {};
     const bands = src.bands || src.spectralBands || data.technicalData?.bands || data.technicalData?.spectralBands || data.spectralBands || {};
 
+    // 🎯 CRÍTICO: Genre e mode no nível RAIZ (prioridade máxima para leitura)
+    const backendGenre = result?.genre || 
+                         data.genre || 
+                         result?.data?.genre || 
+                         result?.metadata?.genre ||
+                         null;
+    
+    const backendMode = result?.mode || 
+                        data.mode || 
+                        'genre';
+    
+    // 🚨 RESTAURAÇÃO DE GÊNERO: Se backend retornou null E modo é genre, restaurar preservado
+    const preservedGenre = window.__CURRENT_SELECTED_GENRE || window.__PRESERVED_GENRE__;
+    const finalGenre = (backendMode === 'genre' && (!backendGenre || backendGenre === null))
+                        ? preservedGenre
+                        : backendGenre;
+    
+    if (backendMode === 'genre' && (!backendGenre || backendGenre === null) && preservedGenre) {
+        console.warn('[NORMALIZE] ⚠️ Backend retornou genre NULL em modo genre!');
+        console.warn('[NORMALIZE] 🔄 RESTAURANDO genre preservado:', preservedGenre);
+        console.log('[GENRE-BEFORE-RESTORE]', { backendGenre, preservedGenre, finalGenre });
+    }
+    
     const normalized = {
         // Preservar estrutura original
         ...data,
         
-        // 🎯 CRÍTICO: Genre e mode no nível RAIZ (prioridade máxima para leitura)
-        genre: result?.genre || 
-               data.genre || 
-               result?.data?.genre || 
-               result?.metadata?.genre ||
-               null,
-        
-        mode: result?.mode || 
-              data.mode || 
-              'genre',
+        genre: finalGenre,
+        mode: backendMode,
         
         // 🎯 CRÍTICO: Garantir que data.genre venha da FONTE CORRETA
         // 🔥 CORREÇÃO DEFINITIVA: SPREAD PRIMEIRO, DEPOIS SOBRESCREVER com valores corretos
