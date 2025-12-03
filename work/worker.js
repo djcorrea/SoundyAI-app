@@ -786,34 +786,37 @@ async function processJob(job) {
       jobGenre: job.data?.genre
     });
 
-    // 🛡️ BLINDAGEM DEFINITIVA: Garantir genre correto IMEDIATAMENTE ANTES do salvamento
-    // 🎯 PRIORIDADE CORRETA: options.genre (fonte oficial) > job.data.genre > result.genre > null (válido)
-    const originalPayload = job.data || {};
-    const safeGenreBeforeSave = 
-      options.genre ??
-      originalPayload.genre ??
-      result.genre ??
-      result.summary?.genre ??
-      result.data?.genre ??
-      null;
+    //--------------------------------------------------------------
+    // 🛑 PATCH DEFINITIVO: FORÇAR GÊNERO DO JOB SEMPRE
+    // Este patch garante que o gênero salvo no "results" seja
+    // exatamente o mesmo de job.data.genre, ignorando o pipeline.
+    //--------------------------------------------------------------
 
-    // Forçar genre correto em TODAS as estruturas antes do UPDATE
-    result.genre = safeGenreBeforeSave;
-    
-    if (result.summary && typeof result.summary === 'object') {
-      result.summary.genre = safeGenreBeforeSave;
-    }
-    
-    if (result.metadata && typeof result.metadata === 'object') {
-      result.metadata.genre = safeGenreBeforeSave;
-    }
-    
-    if (result.suggestionMetadata && typeof result.suggestionMetadata === 'object') {
-      result.suggestionMetadata.genre = safeGenreBeforeSave;
-    }
-    
-    if (result.data && typeof result.data === 'object') {
-      result.data.genre = safeGenreBeforeSave;
+    const genreFromJob = job.data?.genre ?? null;
+
+    if (genreFromJob) {
+        // 1) GÊNERO OFICIAL NO RESULT PRINCIPAL
+        result.genre = genreFromJob;
+
+        // 2) GÊNERO OFICIAL NO SUMMARY
+        result.summary = result.summary || {};
+        result.summary.genre = genreFromJob;
+
+        // 3) GÊNERO OFICIAL NO METADATA
+        result.metadata = result.metadata || {};
+        result.metadata.genre = genreFromJob;
+
+        // 4) GÊNERO OFICIAL NO suggestionMetadata
+        result.suggestionMetadata = result.suggestionMetadata || {};
+        result.suggestionMetadata.genre = genreFromJob;
+
+        // 5) GÊNERO OFICIAL NO DATA DO RESULT
+        result.data = result.data || {};
+        result.data.genre = genreFromJob;
+
+        console.log("[GENRE-PATCH] Aplicado gênero oficial do job:", genreFromJob);
+    } else {
+        console.warn("[GENRE-PATCH] job.data.genre ausente; mantendo valores existentes.");
     }
 
     // 🔍 LOG CRÍTICO: Genre IMEDIATAMENTE ANTES DO UPDATE
