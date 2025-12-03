@@ -484,6 +484,24 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
   const finalGenre = isGenreMode
     ? (resolvedGenre ? String(resolvedGenre).trim() || null : null)
     : (options.genre || 'default');
+
+  // 🚨 BLINDAGEM ABSOLUTA: Modo genre NÃO pode ter finalGenre null/default
+  if (isGenreMode && (!finalGenre || finalGenre === 'default')) {
+    console.error('[JSON-OUTPUT-ERROR] Modo genre mas finalGenre inválido:', {
+      finalGenre,
+      resolvedGenre,
+      optionsGenre: options.genre,
+      dataGenre: options.data?.genre
+    });
+    throw new Error('[GENRE-ERROR] JSON output recebeu modo genre sem finalGenre válido');
+  }
+
+  // 🚨 LOG DE AUDITORIA
+  console.log('[AUDIT-JSON-OUTPUT] finalGenre:', {
+    finalGenre,
+    isGenreMode,
+    optionsGenre: options.genre
+  });
   
   // 🔥 LOG CIRÚRGICO: DEPOIS de resolver finalGenre
   console.log('[GENRE-DEEP-TRACE][JSON-OUTPUT-POST]', {

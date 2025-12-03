@@ -213,10 +213,30 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       });
       
       // 🎯 CORREÇÃO: Resolver genre baseado no modo
-      const resolvedGenre = options.genre || options.data?.genre || options.genre_detected || null;
+      let resolvedGenre = options.genre || options.data?.genre || options.genre_detected || null;
+
+      // 🚨 BLINDAGEM ABSOLUTA BUG #1: Modo genre exige gênero válido SEMPRE
+      if (isGenreMode && (!resolvedGenre || resolvedGenre === 'default')) {
+        console.error('[PIPELINE-ERROR] Modo genre recebeu options.genre inválido:', {
+          optionsGenre: options.genre,
+          dataGenre: options.data?.genre,
+          mode: options.mode,
+          isGenreMode
+        });
+        throw new Error('[GENRE-ERROR] Pipeline recebeu modo genre SEM gênero válido - NUNCA usar default');
+      }
+
       detectedGenre = isGenreMode
         ? (resolvedGenre ? String(resolvedGenre).trim() || null : null)
         : (options.genre || 'default');
+
+      // 🚨 LOG DE AUDITORIA
+      console.log('[AUDIT-PIPELINE] Genre resolvido:', {
+        isGenreMode,
+        resolvedGenre,
+        detectedGenre,
+        optionsGenre: options.genre
+      });
       
       // 🔥 LOG CIRÚRGICO: DEPOIS de resolver genre (JSON Output)
       console.log('[GENRE-DEEP-TRACE][PIPELINE-JSON-POST]', {
