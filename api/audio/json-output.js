@@ -285,8 +285,52 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
 function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, options = {}) {
   const jobId = options.jobId || 'unknown';
   const scoreValue = scoringResult.score || scoringResult.scorePct;
+  
+  // 🔥 LOG: Entrada do buildFinalJSON
+  console.log('[GENRE-FLOW][JSON-OUTPUT-PRE]', {
+    'options.genre': options.genre,
+    'options.mode': options.mode,
+    'options.data?.genre': options.data?.genre
+  });
+  
+  // 🎯 CORREÇÃO: Resolver genre baseado no modo
+  const isGenreMode = (options.mode || 'genre') === 'genre';
+  const resolvedGenre = options.genre || options.data?.genre || null;
+  const finalGenre = isGenreMode
+    ? (resolvedGenre ? String(resolvedGenre).trim() || null : null)
+    : (options.genre || 'default');
+  
+  // 🚨 BLINDAGEM: Modo genre NÃO pode ter finalGenre null/default
+  if (isGenreMode && (!finalGenre || finalGenre === 'default')) {
+    console.error('[JSON-OUTPUT-ERROR] Modo genre mas finalGenre inválido:', {
+      finalGenre,
+      resolvedGenre,
+      optionsGenre: options.genre,
+      dataGenre: options.data?.genre
+    });
+    throw new Error('[GENRE-ERROR] JSON output recebeu modo genre sem finalGenre válido');
+  }
+  
+  // 🔥 LOG: Após resolução do genre
+  console.log('[GENRE-FLOW][JSON-OUTPUT-POST]', {
+    'isGenreMode': isGenreMode,
+    'resolvedGenre': resolvedGenre,
+    'finalGenre': finalGenre
+  });
 
   return {
+    // 🎯 CORREÇÃO CRÍTICA: Incluir genre e mode no JSON final
+    genre: finalGenre,
+    mode: options.mode || 'genre',
+    
+    // 🎯 Adicionar data com genre e genreTargets quando existirem
+    ...(isGenreMode && options.genreTargets ? {
+      data: {
+        genre: finalGenre,
+        genreTargets: options.genreTargets
+      }
+    } : {}),
+    
     score: Math.round(scoreValue * 10) / 10,
     classification: scoringResult.classification || 'unknown',
 
@@ -368,7 +412,11 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     },
 
     // ===== REFERENCE COMPARISON =====
-    referenceComparison: options.reference?.comparison || generateGenreReference(technicalData, options.genre || 'trance'),
+    // 🎯 CORREÇÃO: Só gerar referenceComparison em modo reference
+    // Modo genre NÃO deve ter referenceComparison genérico
+    ...(isGenreMode ? {} : {
+      referenceComparison: options.reference?.comparison || null
+    }),
 
     // ===== TECHNICAL DATA (Frontend Compatible) =====
     technicalData: {

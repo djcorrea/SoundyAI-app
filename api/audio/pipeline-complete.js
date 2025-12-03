@@ -82,11 +82,63 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       fileSize: audioBuffer.length,
       processingTime: Date.now() - startTime
     };
-    const reference = (options && options.reference) || (options && options.genre) || null;
-    const finalJSON = generateJSONOutput(coreMetrics, reference, metadata);
+    
+    // 🎯 CORREÇÃO CRÍTICA: Resolver genre e mode antes de passar para JSON Output
+    const mode = options.mode || 'genre';
+    const isGenreMode = mode === 'genre';
+    
+    // 🔥 LOG: Rastrear genre ANTES de passar para JSON Output
+    console.log('[GENRE-FLOW][PIPELINE-PRE-JSON]', {
+      'options.genre': options.genre,
+      'options.mode': options.mode,
+      'options.genreTargets': options.genreTargets ? Object.keys(options.genreTargets) : null
+    });
+    
+    // Resolver genre baseado no modo
+    let resolvedGenre = options.genre || options.data?.genre || null;
+    
+    // 🚨 BLINDAGEM: Modo genre EXIGE gênero válido
+    if (isGenreMode && (!resolvedGenre || resolvedGenre === 'default')) {
+      console.error('[PIPELINE-ERROR] Modo genre sem gênero válido:', {
+        optionsGenre: options.genre,
+        dataGenre: options.data?.genre,
+        mode: options.mode
+      });
+      throw new Error('[GENRE-ERROR] Pipeline recebeu modo genre SEM gênero válido');
+    }
+    
+    const detectedGenre = isGenreMode
+      ? (resolvedGenre ? String(resolvedGenre).trim() || null : null)
+      : (options.genre || 'default');
+    
+    // 🔥 LOG: Confirmar genre após resolução
+    console.log('[GENRE-FLOW][PIPELINE-POST-RESOLVE]', {
+      'resolvedGenre': resolvedGenre,
+      'detectedGenre': detectedGenre,
+      'isGenreMode': isGenreMode
+    });
+    
+    // 🎯 CORREÇÃO CRÍTICA: Repassar options COMPLETO com genre, mode, genreTargets
+    const reference = options.reference || null;
+    const finalJSON = generateJSONOutput(coreMetrics, reference, metadata, {
+      jobId: options.jobId,
+      fileName,
+      mode: mode,
+      genre: detectedGenre,
+      genreTargets: options.genreTargets,
+      referenceJobId: options.referenceJobId,
+      data: options.data
+    });
+    
     const phase4Time = Date.now() - phase4StartTime;
     console.log(`✅ Fase 5.4 concluída em ${phase4Time}ms`);
     console.log(`🎯 Score final: ${finalJSON.score}% (${finalJSON.classification})`);
+    
+    // 🔥 LOG: Confirmar genre no JSON final
+    console.log('[GENRE-FLOW][PIPELINE-FINAL-JSON]', {
+      'finalJSON.genre': finalJSON.genre,
+      'finalJSON.mode': finalJSON.mode
+    });
 
     // ✅ Estatísticas finais
     const totalTime = Date.now() - startTime;
