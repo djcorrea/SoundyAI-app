@@ -4560,13 +4560,22 @@ function resetReferenceState() {
 
 // 🎯 FUNÇÃO AUXILIAR: Obter gênero ativo de múltiplas fontes
 function getActiveGenre(analysis, fallback) {
-    const genre = analysis?.data?.genre ||
-                 analysis?.genre ||
-                 analysis?.genreId ||
-                 analysis?.metadata?.genre ||
-                 fallback;
+    // 🎯 PRIORIDADE CORRETA: Fontes diretas ANTES de data.genre
+    const genre = analysis?.genre ||             // ✅ 1ª prioridade: valor direto
+                 analysis?.genreId ||            // ✅ 2ª prioridade: ID do gênero
+                 analysis?.metadata?.genre ||    // ✅ 3ª prioridade: metadata
+                 analysis?.data?.genre ||        // ⚠️ 4ª prioridade: pode ser null (contaminado)
+                 fallback;                       // ✅ 5ª prioridade: fallback
     
     console.log('[GET-ACTIVE-GENRE] Gênero detectado:', genre, '(fallback:', fallback, ')');
+    console.log('[GET-ACTIVE-GENRE] Fontes verificadas:', {
+        'analysis.genre': analysis?.genre,
+        'analysis.genreId': analysis?.genreId,
+        'analysis.metadata.genre': analysis?.metadata?.genre,
+        'analysis.data.genre': analysis?.data?.genre,
+        'fallback': fallback,
+        'final': genre
+    });
     return genre;
 }
 
@@ -19490,10 +19499,28 @@ function normalizeBackendAnalysisData(result) {
         // Preservar estrutura original
         ...data,
         
-        // 🎯 CRÍTICO: Garantir que data.genre e data.genreTargets sejam preservados
+        // 🎯 CRÍTICO: Genre e mode no nível RAIZ (prioridade máxima para leitura)
+        genre: result?.genre || 
+               data.genre || 
+               result?.data?.genre || 
+               result?.metadata?.genre ||
+               null,
+        
+        mode: result?.mode || 
+              data.mode || 
+              'genre',
+        
+        // 🎯 CRÍTICO: Garantir que data.genre venha da FONTE CORRETA
+        // PRIORIZAÇÃO: result.genre (direto) > data.genre > result.data.genre (contaminado)
         data: {
-            genre: data.genre || result?.data?.genre || null,
-            genreTargets: data.genreTargets || result?.data?.genreTargets || null,
+            genre: result?.genre || 
+                   data.genre || 
+                   result?.data?.genre || 
+                   null,
+            genreTargets: result?.genreTargets ||
+                         data.genreTargets || 
+                         result?.data?.genreTargets || 
+                         null,
             // Preservar outros dados se existirem
             ...(data.data || {})
         },
