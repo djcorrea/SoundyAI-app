@@ -19511,8 +19511,12 @@ function normalizeBackendAnalysisData(result) {
               'genre',
         
         // 🎯 CRÍTICO: Garantir que data.genre venha da FONTE CORRETA
-        // PRIORIZAÇÃO: result.genre (direto) > data.genre > result.data.genre (contaminado)
+        // 🔥 CORREÇÃO DEFINITIVA: SPREAD PRIMEIRO, DEPOIS SOBRESCREVER com valores corretos
         data: {
+            // PRIMEIRO: Spread para preservar outros dados
+            ...(data.data || {}),
+            
+            // DEPOIS: FORÇAR genre e genreTargets (NUNCA podem ser sobrescritos!)
             genre: result?.genre || 
                    data.genre || 
                    result?.data?.genre || 
@@ -19520,9 +19524,15 @@ function normalizeBackendAnalysisData(result) {
             genreTargets: result?.genreTargets ||
                          data.genreTargets || 
                          result?.data?.genreTargets || 
-                         null,
-            // Preservar outros dados se existirem
-            ...(data.data || {})
+                         null
+        },
+        
+        // 🔍 AUDITORIA CRÍTICA: Verificar se spread contaminou genre
+        __genreAudit: {
+            preSpreadGenre: result?.genre || data.genre || null,
+            dataDataGenre: data.data?.genre || null,
+            spreadContamination: !!(data.data?.genre === null && (result?.genre || data.genre)),
+            timestamp: new Date().toISOString()
         },
         
         // 🎯 Métricas normalizadas (RMS e LUFS separados)
