@@ -4565,6 +4565,16 @@ function configureModalForMode(mode) {
 
 // 🎯 NOVO: Reset estado do modo referência (compatibilidade)
 function resetReferenceState() {
+    // 🚨 BLINDAGEM ABSOLUTA: NUNCA resetar em modo genre
+    if (window.__CURRENT_MODE__ === 'genre') {
+        console.warn('[GENRE-PROTECT] ⚠️ resetReferenceState() BLOQUEADO em modo genre');
+        console.warn('[GENRE-PROTECT]   - Preservando:', {
+            selectedGenre: window.__CURRENT_SELECTED_GENRE,
+            mode: window.__CURRENT_MODE__
+        });
+        return; // NÃO executar reset
+    }
+
     referenceStepState = {
         currentStep: 'userAudio',
         userAudioFile: null,
@@ -5956,6 +5966,16 @@ function clearAudioOnlyState() {
 
 function resetModalState() {
     __dbg('🔄 Resetando estado do modal...');
+    
+    // 🚨 BLINDAGEM ABSOLUTA: NUNCA resetar em modo genre
+    if (window.__CURRENT_MODE__ === 'genre') {
+        console.warn('[GENRE-PROTECT] ⚠️ resetModalState() BLOQUEADO em modo genre');
+        console.warn('[GENRE-PROTECT]   - Preservando:', {
+            selectedGenre: window.__CURRENT_SELECTED_GENRE,
+            mode: window.__CURRENT_MODE__
+        });
+        return; // NÃO executar reset
+    }
     
     // 🔒 PATCH: PRESERVAR GÊNERO ANTES DE QUALQUER OPERAÇÃO
     preserveGenreState();
@@ -8818,6 +8838,14 @@ function showModalLoading() {
 // 📊 Mostrar resultados no modal
 async function displayModalResults(analysis) {
     console.log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
+    
+    // 🚨 LOG DIAGNÓSTICO: Gênero ANTES de exibir modal
+    console.log('[GENRE-BEFORE-DISPLAY] 🎵 Estado do gênero:', {
+        preservedGenre: window.__CURRENT_SELECTED_GENRE,
+        analysisGenre: analysis?.genre,
+        mode: window.__CURRENT_MODE__ || currentAnalysisMode,
+        timestamp: new Date().toISOString()
+    });
 
     // ========================================
     // ✅ CORREÇÃO 2: RESTAURAÇÃO DE DADOS DE REFERÊNCIA
