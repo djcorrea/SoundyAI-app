@@ -249,6 +249,14 @@ async function analyzeAudioWithPipeline(localFilePath, jobOrOptions) {
     console.log("[DEBUG-GENRE] pipelineOptions FINAL:", pipelineOptions.genre, pipelineOptions.genreTargets);
     console.log('[GENRE-FLOW][PIPELINE] ▶ Enviando options para processAudioComplete:', pipelineOptions);
 
+    // 🚨 AUDIT LOG OBRIGATÓRIO: Rastrear genre antes de entrar no pipeline
+    console.log('[AUDIT-WORKER → PIPELINE] Enviando para pipeline:', {
+      genre: pipelineOptions.genre,
+      genreTargets: pipelineOptions.genreTargets,
+      mode: pipelineOptions.mode,
+      jobId: pipelineOptions.jobId
+    });
+
     // 🔥 TIMEOUT DE 3 MINUTOS PARA EVITAR TRAVAMENTO
     const pipelinePromise = processAudioComplete(fileBuffer, filename, pipelineOptions);
     const timeoutPromise = new Promise((_, reject) => {
@@ -899,6 +907,24 @@ async function processJob(job) {
     console.log('[GENRE-PATCH-V2]    resultsForDb.metadata.genre:', resultsForDb.metadata.genre);
     console.log('[GENRE-PATCH-V2]    resultsForDb.suggestionMetadata.genre:', resultsForDb.suggestionMetadata.genre);
     console.log('[GENRE-PATCH-V2] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    // 🚨 BLINDAGEM FINAL: NUNCA salvar genre null/default em modo genre
+    if (options.mode === 'genre' && (!resultsForDb.genre || resultsForDb.genre === 'default')) {
+      console.error('[RESULTS-ERROR] Tentativa de salvar results.genre NULL/DEFAULT:', {
+        pipelineGenre: resultsForDb.genre,
+        expectedGenre: options.genre,
+        mode: options.mode
+      });
+      throw new Error('[GENRE-ERROR] Falha crítica: results.genre não pode ser null/default em modo genre');
+    }
+
+    // 🚨 LOG DE AUDITORIA FINAL
+    console.log('[AUDIT-RESULTS] Validação final antes de salvar:', {
+      resultsGenre: resultsForDb.genre,
+      optionsGenre: options.genre,
+      mode: options.mode,
+      isValid: resultsForDb.genre === options.genre
+    });
 
     // 🎯 PASSO 4: Serializar AMBOS os objetos
     const resultJSON = JSON.stringify(result);      // Para campo 'result' (compatibilidade)

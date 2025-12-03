@@ -336,9 +336,28 @@ class CoreMetricsProcessor {
       
       if (!DISABLE_SUGGESTIONS) {
         try {
-          // Detectar gênero a partir das opções ou usar default
-          const detectedGenre = options.genre || options.reference?.genre || 'default';
+          // 🚨 BLINDAGEM ABSOLUTA: Detectar gênero SEM fallback default silencioso
+          const detectedGenre = options.genre || options.data?.genre || options.reference?.genre || null;
           const mode = options.mode || 'genre';
+
+          // 🚨 Se modo genre → gênero É obrigatório
+          if (mode === 'genre' && (!detectedGenre || detectedGenre === 'default')) {
+            console.error('[CORE-METRICS-ERROR] Genre ausente ou default em modo genre:', {
+              optionsGenre: options.genre,
+              dataGenre: options.data?.genre,
+              referenceGenre: options.reference?.genre,
+              mode
+            });
+            throw new Error('[GENRE-ERROR] CoreMetrics recebeu modo genre SEM gênero válido - ABORTAR');
+          }
+
+          // 🚨 LOG DE AUDITORIA
+          console.log('[AUDIT-CORE-METRICS] Genre detectado:', {
+            detectedGenre,
+            mode,
+            optionsGenre: options.genre,
+            hasGenreTargets: !!options.genreTargets
+          });
           
           console.log("[SUGGESTIONS] Ativas (V2 rodando normalmente).");
           

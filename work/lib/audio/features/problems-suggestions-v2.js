@@ -188,6 +188,9 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     
     this.genre = genre.trim();
     
+    // 🔥 PATCH CRÍTICO BUG #2: Salvar o gênero original ANTES de qualquer transformação
+    this._originalGenre = genre.trim();
+    
     // 🎯 PRIORIDADE: customTargets (do filesystem) > GENRE_THRESHOLDS (hardcoded)
     if (customTargets && typeof customTargets === 'object' && Object.keys(customTargets).length > 0) {
       console.log(`[PROBLEMS_V2] ✅ Usando customTargets para ${genre}`);
