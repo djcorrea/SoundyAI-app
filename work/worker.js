@@ -553,6 +553,96 @@ async function processJob(job) {
     // Fluxo normal para jobs de análise única
     const analysisResult = await analyzeAudioWithPipeline(localFilePath, options);
 
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 🎯 CORREÇÃO CRÍTICA: RESOLUÇÃO FINAL DE GÊNERO
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // Helper para garantir que gênero NUNCA se perca no pipeline
+    function resolveGenreForOutput(job, analysis, options = {}) {
+      const mode = options.mode || job.data?.mode || analysis.mode || null;
+
+      const genreFromJob = job.data?.genre || null;
+      const genreFromOptions = options.genre || null;
+
+      // Tenta pegar o gênero que o pipeline já detectou/propagou
+      const genreFromAnalysis =
+        analysis?.genre ||
+        analysis?.detectedGenre ||
+        analysis?.summary?.genre ||
+        analysis?.technicalData?.problemsAnalysis?.qualityAssessment?.genre ||
+        null;
+
+      // Fallback FINAL: se o job foi criado com genre, ele é soberano
+      const resolvedGenre =
+        genreFromAnalysis ||
+        genreFromOptions ||
+        genreFromJob ||
+        null;
+
+      console.log('[RESOLVE-GENRE] 🔍 Resolução de gênero:', {
+        mode,
+        genreFromJob,
+        genreFromOptions,
+        genreFromAnalysis,
+        resolvedGenre
+      });
+
+      // Se estamos em modo genre, gênero é obrigatório
+      if (mode === "genre" && (!resolvedGenre || typeof resolvedGenre !== "string")) {
+        console.error('[RESOLVE-GENRE] ❌ ERRO CRÍTICO: modo genre sem gênero válido!', {
+          mode,
+          genreFromJob,
+          genreFromOptions,
+          genreFromAnalysis,
+          resolvedGenre
+        });
+        throw new Error(
+          "[GENRE-ERROR] Pipeline recebeu modo genre SEM gênero válido - NUNCA usar default"
+        );
+      }
+
+      // Injeta o gênero resolvido de volta na análise para o resto do pipeline usar
+      if (resolvedGenre) {
+        if (!analysis.genre) analysis.genre = resolvedGenre;
+        if (!analysis.detectedGenre) analysis.detectedGenre = resolvedGenre;
+
+        if (!analysis.summary) analysis.summary = {};
+        if (!analysis.summary.genre) analysis.summary.genre = resolvedGenre;
+
+        if (!analysis.metadata) analysis.metadata = {};
+        if (!analysis.metadata.genre) analysis.metadata.genre = resolvedGenre;
+
+        if (!analysis.suggestionMetadata) analysis.suggestionMetadata = {};
+        if (!analysis.suggestionMetadata.genre) analysis.suggestionMetadata.genre = resolvedGenre;
+
+        if (!analysis.technicalData) analysis.technicalData = {};
+        if (!analysis.technicalData.problemsAnalysis) {
+          analysis.technicalData.problemsAnalysis = {};
+        }
+        if (!analysis.technicalData.problemsAnalysis.qualityAssessment) {
+          analysis.technicalData.problemsAnalysis.qualityAssessment = {};
+        }
+        if (!analysis.technicalData.problemsAnalysis.qualityAssessment.genre) {
+          analysis.technicalData.problemsAnalysis.qualityAssessment.genre = resolvedGenre;
+        }
+
+        if (!analysis.data) analysis.data = {};
+        if (!analysis.data.genre) analysis.data.genre = resolvedGenre;
+
+        console.log('[RESOLVE-GENRE] ✅ Gênero injetado em todas as estruturas:', resolvedGenre);
+      }
+
+      return { mode, resolvedGenre };
+    }
+
+    // 🎯 APLICAR RESOLUÇÃO DE GÊNERO IMEDIATAMENTE APÓS RECEBER DO PIPELINE
+    const { mode: resolvedMode, resolvedGenre } = resolveGenreForOutput(job, analysisResult, options);
+    
+    console.log('[RESOLVE-GENRE] ✅ Resolução completa:', {
+      resolvedMode,
+      resolvedGenre,
+      'analysisResult.genre após inject': analysisResult.genre
+    });
+
     // 🔥 AUDITORIA: Genre ANTES do merge
     console.log('[GENRE-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[GENRE-AUDIT] ANTES DO MERGE:');
@@ -563,8 +653,8 @@ async function processJob(job) {
     console.log('[GENRE-AUDIT] analysisResult.suggestionMetadata?.genre:', analysisResult.suggestionMetadata?.genre);
     console.log('[GENRE-AUDIT] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    // 🔥 CORREÇÃO DEFINITIVA: Forçar genre do usuário em TODAS as estruturas
-    const forcedGenre = options.genre;   // Gênero escolhido pelo usuário
+    // 🔥 CORREÇÃO DEFINITIVA: Usar resolvedGenre do helper (já validado)
+    const forcedGenre = resolvedGenre || options.genre;   // Gênero já resolvido e validado
     const forcedTargets = options.genreTargets || null;
 
     // 🛡️ Helper: Merge sem sobrescrever genre com null/undefined
