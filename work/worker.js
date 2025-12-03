@@ -786,124 +786,218 @@ async function processJob(job) {
       jobGenre: job.data?.genre
     });
 
-    //--------------------------------------------------------------
-    // 🛑 PATCH DEFINITIVO: FORÇAR GÊNERO DO JOB SEMPRE
-    // Este patch garante que o gênero salvo no "results" seja
-    // exatamente o mesmo de job.data.genre, ignorando o pipeline.
-    //--------------------------------------------------------------
+    //━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 🔥 PATCH DEFINITIVO V2: CRIAR OBJETO RESULTS SEPARADO PARA GARANTIA ABSOLUTA
+    //━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // PROBLEMA ROOT CAUSE: result e results compartilhavam mesmo objeto JSON
+    // SOLUÇÃO: Criar resultsForDb separado com GARANTIA de genre correto
+    //━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-    const genreFromJob = job.data?.genre ?? null;
+    // 🎯 PASSO 1: Extrair genre com prioridade absoluta
+    const genreFromJob =
+      job.data?.genre ||
+      job.payload?.genre ||
+      options.genre ||
+      result?.genre ||
+      result?.data?.genre ||
+      result?.summary?.genre ||
+      result?.metadata?.genre ||
+      null;
 
+    console.log('[GENRE-PATCH-V2] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[GENRE-PATCH-V2] 🎯 Extraindo genre prioritário:');
+    console.log('[GENRE-PATCH-V2]    job.data.genre:', job.data?.genre);
+    console.log('[GENRE-PATCH-V2]    job.payload.genre:', job.payload?.genre);
+    console.log('[GENRE-PATCH-V2]    options.genre:', options.genre);
+    console.log('[GENRE-PATCH-V2]    result.genre:', result?.genre);
+    console.log('[GENRE-PATCH-V2]    ➡️ GÉNERO FINAL:', genreFromJob);
+    console.log('[GENRE-PATCH-V2] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    // 🎯 PASSO 2: Forçar genre no objeto result (para compatibilidade)
     if (genreFromJob) {
-        // 1) GÊNERO OFICIAL NO RESULT PRINCIPAL
         result.genre = genreFromJob;
-
-        // 2) GÊNERO OFICIAL NO SUMMARY
         result.summary = result.summary || {};
         result.summary.genre = genreFromJob;
-
-        // 3) GÊNERO OFICIAL NO METADATA
         result.metadata = result.metadata || {};
         result.metadata.genre = genreFromJob;
-
-        // 4) GÊNERO OFICIAL NO suggestionMetadata
         result.suggestionMetadata = result.suggestionMetadata || {};
         result.suggestionMetadata.genre = genreFromJob;
-
-        // 5) GÊNERO OFICIAL NO DATA DO RESULT
         result.data = result.data || {};
         result.data.genre = genreFromJob;
-
-        console.log("[GENRE-PATCH] Aplicado gênero oficial do job:", genreFromJob);
-    } else {
-        console.warn("[GENRE-PATCH] job.data.genre ausente; mantendo valores existentes.");
     }
 
-    // 🔍 LOG CRÍTICO: Genre IMEDIATAMENTE ANTES DO UPDATE
-    console.log("[GENRE-WORKER-BEFORE-SAVE]", {
-      incomingGenre: result.genre,
-      jobDataGenre: job.data?.genre,
-      payloadGenre: originalPayload?.genre,
-      safeGenreBeforeSave: safeGenreBeforeSave,
-      willSaveAsNull: safeGenreBeforeSave === null || safeGenreBeforeSave === undefined,
-      summaryGenreAfterFix: result.summary?.genre,
-      metadataGenreAfterFix: result.metadata?.genre
-    });
+    // 🎯 PASSO 3: Criar resultsForDb SEPARADO com estrutura garantida
+    const resultsForDb = {
+      // ✅ GARANTIA ABSOLUTA: Genre correto na raiz
+      genre: genreFromJob,
+      
+      // ✅ Mode, score e classification
+      mode: result.mode || job.mode || 'genre',
+      score: result.score ?? 0,
+      classification: result.classification || 'Análise Concluída',
+      scoringMethod: result.scoringMethod || 'default',
+      
+      // ✅ Data com genre garantido
+      data: {
+        genre: genreFromJob,
+        genreTargets: result.data?.genreTargets || result.genreTargets || null,
+        ...result.data
+      },
+      
+      // ✅ Summary com genre garantido
+      summary: {
+        genre: genreFromJob,
+        ...result.summary
+      },
+      
+      // ✅ Metadata com genre garantido
+      metadata: {
+        genre: genreFromJob,
+        fileName: result.metadata?.fileName || result.fileName || job.file_key,
+        fileSize: result.metadata?.fileSize || 0,
+        duration: result.metadata?.duration || 0,
+        sampleRate: result.metadata?.sampleRate || 48000,
+        channels: result.metadata?.channels || 2,
+        processedAt: new Date().toISOString(),
+        ...result.metadata
+      },
+      
+      // ✅ SuggestionMetadata com genre garantido
+      suggestionMetadata: {
+        genre: genreFromJob,
+        ...result.suggestionMetadata
+      },
+      
+      // ✅ Métricas técnicas
+      technicalData: result.technicalData || {},
+      loudness: result.loudness || {},
+      dynamics: result.dynamics || {},
+      truePeak: result.truePeak || {},
+      energy: result.energy || {},
+      bands: result.bands || result.spectralBands || {},
+      
+      // ✅ Suggestions e AI
+      suggestions: result.suggestions || [],
+      aiSuggestions: result.aiSuggestions || [],
+      problemsAnalysis: result.problemsAnalysis || {},
+      diagnostics: result.diagnostics || {},
+      
+      // ✅ Performance e metadata
+      performance: result.performance || {},
+      ok: true,
+      file: job.file_key,
+      analyzedAt: result.analyzedAt || new Date().toISOString(),
+      _aiEnhanced: result._aiEnhanced || false,
+      _worker: result._worker || { source: 'pipeline_complete' }
+    };
 
-    // 🔍 LOG PARANOID NÍVEL 1: ANTES DO JSON.stringify
-    console.log("[GENRE-PARANOID][PRE-STRINGIFY] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    console.log("[GENRE-PARANOID][PRE-STRINGIFY] result.genre:", result.genre);
-    console.log("[GENRE-PARANOID][PRE-STRINGIFY] result.summary?.genre:", result.summary?.genre);
-    console.log("[GENRE-PARANOID][PRE-STRINGIFY] result.metadata?.genre:", result.metadata?.genre);
-    console.log("[GENRE-PARANOID][PRE-STRINGIFY] result.suggestionMetadata?.genre:", result.suggestionMetadata?.genre);
-    console.log("[GENRE-PARANOID][PRE-STRINGIFY] result.data?.genre:", result.data?.genre);
-    console.log("[GENRE-PARANOID][PRE-STRINGIFY] Todas chaves do result:", Object.keys(result));
+    console.log('[GENRE-PATCH-V2] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[GENRE-PATCH-V2] 📦 resultsForDb criado:');
+    console.log('[GENRE-PATCH-V2]    resultsForDb.genre:', resultsForDb.genre);
+    console.log('[GENRE-PATCH-V2]    resultsForDb.data.genre:', resultsForDb.data.genre);
+    console.log('[GENRE-PATCH-V2]    resultsForDb.summary.genre:', resultsForDb.summary.genre);
+    console.log('[GENRE-PATCH-V2]    resultsForDb.metadata.genre:', resultsForDb.metadata.genre);
+    console.log('[GENRE-PATCH-V2]    resultsForDb.suggestionMetadata.genre:', resultsForDb.suggestionMetadata.genre);
+    console.log('[GENRE-PATCH-V2] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    // Verificar se há chaves ocultas com genre: null
-    const allKeys = Object.keys(result);
-    const keysWithGenre = [];
-    for (const key of allKeys) {
-      if (result[key] && typeof result[key] === 'object' && 'genre' in result[key]) {
-        keysWithGenre.push({ key, genre: result[key].genre });
-      }
-    }
-    console.log("[GENRE-PARANOID][PRE-STRINGIFY] Chaves com 'genre':", keysWithGenre);
-    console.log("[GENRE-PARANOID][PRE-STRINGIFY] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    // 🎯 PASSO 4: Serializar AMBOS os objetos
+    const resultJSON = JSON.stringify(result);      // Para campo 'result' (compatibilidade)
+    const resultsJSON = JSON.stringify(resultsForDb); // Para campo 'results' (GARANTIA)
 
-    const resultJSON = JSON.stringify(result);
-
-    // 🔍 LOG PARANOID NÍVEL 2: DEPOIS DO JSON.stringify
-    console.log("[GENRE-PARANOID][POST-STRINGIFY] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    const parsed = JSON.parse(resultJSON);
-    console.log("[GENRE-PARANOID][POST-STRINGIFY] parsed.genre:", parsed.genre);
-    console.log("[GENRE-PARANOID][POST-STRINGIFY] parsed.summary?.genre:", parsed.summary?.genre);
-    console.log("[GENRE-PARANOID][POST-STRINGIFY] parsed.metadata?.genre:", parsed.metadata?.genre);
-    console.log("[GENRE-PARANOID][POST-STRINGIFY] JSON sample:", resultJSON.substring(0, 500));
-
+    // 🔍 LOG PARANOID NÍVEL 1: VERIFICAR SERIALIZAÇÃO
+    console.log("[GENRE-PARANOID][PRE-UPDATE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("[GENRE-PARANOID][PRE-UPDATE] 📊 result (compatibilidade):");
+    console.log("[GENRE-PARANOID][PRE-UPDATE]    result.genre:", result.genre);
+    console.log("[GENRE-PARANOID][PRE-UPDATE]    JSON length:", resultJSON.length);
+    
+    console.log("[GENRE-PARANOID][PRE-UPDATE] 📦 resultsForDb (GARANTIA):");
+    console.log("[GENRE-PARANOID][PRE-UPDATE]    resultsForDb.genre:", resultsForDb.genre);
+    console.log("[GENRE-PARANOID][PRE-UPDATE]    resultsForDb.data.genre:", resultsForDb.data.genre);
+    console.log("[GENRE-PARANOID][PRE-UPDATE]    JSON length:", resultsJSON.length);
+    
+    // Parse para validar
+    const parsedResult = JSON.parse(resultJSON);
+    const parsedResults = JSON.parse(resultsJSON);
+    
+    console.log("[GENRE-PARANOID][PRE-UPDATE] ✅ Validação pós-parse:");
+    console.log("[GENRE-PARANOID][PRE-UPDATE]    parsedResult.genre:", parsedResult.genre);
+    console.log("[GENRE-PARANOID][PRE-UPDATE]    parsedResults.genre:", parsedResults.genre);
+    console.log("[GENRE-PARANOID][PRE-UPDATE]    parsedResults.data.genre:", parsedResults.data?.genre);
+    
     // 🚨 ALERTA SE GENRE FOI PERDIDO
-    if (!parsed.genre || parsed.genre === null) {
-      console.error("[GENRE-PARANOID][POST-STRINGIFY] 🚨🚨🚨 GENRE PERDIDO DURANTE STRINGIFY!");
-      console.error("[GENRE-PARANOID][POST-STRINGIFY] result.genre ANTES:", result.genre);
-      console.error("[GENRE-PARANOID][POST-STRINGIFY] parsed.genre DEPOIS:", parsed.genre);
+    if (!parsedResults.genre || parsedResults.genre === null) {
+      console.error("[GENRE-PARANOID][PRE-UPDATE] 🚨🚨🚨 GENRE NULL EM resultsJSON!");
+      console.error("[GENRE-PARANOID][PRE-UPDATE] genreFromJob original:", genreFromJob);
+      console.error("[GENRE-PARANOID][PRE-UPDATE] resultsForDb.genre:", resultsForDb.genre);
+      console.error("[GENRE-PARANOID][PRE-UPDATE] parsedResults.genre:", parsedResults.genre);
     }
-    console.log("[GENRE-PARANOID][POST-STRINGIFY] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("[GENRE-PARANOID][PRE-UPDATE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
-    // 🔥 AUDIT LOG FINAL: ANTES DO UPDATE NO BANCO
+    // 🔥 ATUALIZAR STATUS FINAL: USAR resultsJSON SEPARADO
     console.log('[AUDIT-DB-SAVE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    console.log('[AUDIT-DB-SAVE] job.id:', job.id);
-    console.log('[AUDIT-DB-SAVE] result.genre que será salvo:', result.genre);
-    console.log('[AUDIT-DB-SAVE] result.summary?.genre:', result.summary?.genre);
-    console.log('[AUDIT-DB-SAVE] result.suggestionMetadata?.genre:', result.suggestionMetadata?.genre);
-    console.log('[AUDIT-DB-SAVE] result.data?.genre:', result.data?.genre);
+    console.log('[AUDIT-DB-SAVE] 🎯 Salvando no PostgreSQL:');
+    console.log('[AUDIT-DB-SAVE]    job.id:', job.id);
+    console.log('[AUDIT-DB-SAVE]    Campo result = resultJSON (length:', resultJSON.length, ')');
+    console.log('[AUDIT-DB-SAVE]    Campo results = resultsJSON (length:', resultsJSON.length, ')');
+    console.log('[AUDIT-DB-SAVE]    Genre esperado:', genreFromJob);
     console.log('[AUDIT-DB-SAVE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
-    // 🔥 ATUALIZAR STATUS FINAL + VERIFICAR SE FUNCIONOU
-    // ✅ CORREÇÃO CRÍTICA: Remover cast ::jsonb (Postgres driver detecta JSON automaticamente)
     const finalUpdateResult = await client.query(
-      "UPDATE jobs SET status = $1, result = $2, results = $2, completed_at = NOW(), updated_at = NOW() WHERE id = $3",
-      ["done", resultJSON, job.id]
+      `UPDATE jobs 
+       SET status = $1, 
+           result = $2, 
+           results = $3, 
+           completed_at = NOW(), 
+           updated_at = NOW() 
+       WHERE id = $4`,
+      ["done", resultJSON, resultsJSON, job.id]
     );
 
     if (finalUpdateResult.rowCount === 0) {
       throw new Error(`Falha ao atualizar job ${job.id} para status 'done'`);
     }
 
-    // 🔍 LOG PARANOID NÍVEL 3: VERIFICAR BANCO IMEDIATAMENTE
+    // 🔍 LOG PARANOID NÍVEL 2: VERIFICAR BANCO IMEDIATAMENTE
     console.log("[GENRE-PARANOID][POST-UPDATE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     try {
       const verifyDB = await client.query(
-        "SELECT results->>'genre' as results_genre, results->'summary'->>'genre' as summary_genre FROM jobs WHERE id = $1",
+        `SELECT 
+           data->>'genre' AS data_genre,
+           results->>'genre' AS results_genre,
+           results->'data'->>'genre' AS results_data_genre,
+           results->'summary'->>'genre' AS results_summary_genre,
+           results->'metadata'->>'genre' AS results_metadata_genre,
+           result->>'genre' AS result_genre
+         FROM jobs 
+         WHERE id = $1`,
         [job.id]
       );
-      console.log("[GENRE-PARANOID][POST-UPDATE] DB results.genre:", verifyDB.rows[0]?.results_genre);
-      console.log("[GENRE-PARANOID][POST-UPDATE] DB results.summary.genre:", verifyDB.rows[0]?.summary_genre);
-
-      if (verifyDB.rows[0]?.results_genre !== result.genre) {
-        console.error("[GENRE-PARANOID][POST-UPDATE] 🚨🚨🚨 GENRE PERDIDO NO BANCO!");
-        console.error("[GENRE-PARANOID][POST-UPDATE] Esperado:", result.genre);
-        console.error("[GENRE-PARANOID][POST-UPDATE] Recebido no DB:", verifyDB.rows[0]?.results_genre);
+      
+      const dbRow = verifyDB.rows[0];
+      
+      console.log("[GENRE-PARANOID][POST-UPDATE] 📊 Verificação completa do banco:");
+      console.log("[GENRE-PARANOID][POST-UPDATE]    data.genre:", dbRow?.data_genre);
+      console.log("[GENRE-PARANOID][POST-UPDATE]    result.genre:", dbRow?.result_genre);
+      console.log("[GENRE-PARANOID][POST-UPDATE]    results.genre:", dbRow?.results_genre);
+      console.log("[GENRE-PARANOID][POST-UPDATE]    results.data.genre:", dbRow?.results_data_genre);
+      console.log("[GENRE-PARANOID][POST-UPDATE]    results.summary.genre:", dbRow?.results_summary_genre);
+      console.log("[GENRE-PARANOID][POST-UPDATE]    results.metadata.genre:", dbRow?.results_metadata_genre);
+      console.log("[GENRE-PARANOID][POST-UPDATE]    Genre esperado:", genreFromJob);
+      
+      // 🚨 VALIDAÇÃO: Todos devem ser iguais ao genreFromJob
+      const allMatch = 
+        dbRow?.data_genre === genreFromJob &&
+        dbRow?.results_genre === genreFromJob &&
+        dbRow?.results_data_genre === genreFromJob;
+      
+      if (!allMatch) {
+        console.error("[GENRE-PARANOID][POST-UPDATE] 🚨🚨🚨 GENRE INCONSISTENTE NO BANCO!");
+        console.error("[GENRE-PARANOID][POST-UPDATE] Esperado em TODOS:", genreFromJob);
+        console.error("[GENRE-PARANOID][POST-UPDATE] data.genre:", dbRow?.data_genre, dbRow?.data_genre === genreFromJob ? '✅' : '❌');
+        console.error("[GENRE-PARANOID][POST-UPDATE] results.genre:", dbRow?.results_genre, dbRow?.results_genre === genreFromJob ? '✅' : '❌');
+        console.error("[GENRE-PARANOID][POST-UPDATE] results.data.genre:", dbRow?.results_data_genre, dbRow?.results_data_genre === genreFromJob ? '✅' : '❌');
       } else {
-        console.log("[GENRE-PARANOID][POST-UPDATE] ✅ Genre salvo corretamente no banco!");
+        console.log("[GENRE-PARANOID][POST-UPDATE] ✅✅✅ GENRE SALVO CORRETAMENTE EM TODOS OS CAMPOS!");
       }
     } catch (verifyError) {
       console.error("[GENRE-PARANOID][POST-UPDATE] Erro ao verificar banco:", verifyError.message);
