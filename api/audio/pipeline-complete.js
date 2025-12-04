@@ -12,6 +12,14 @@ console.log('🎵 Pipeline Completo (Fases 5.1-5.4) carregado - Node.js Backend'
 export async function processAudioComplete(audioBuffer, fileName, options = {}) {
   const startTime = Date.now();
   
+  console.log('\n\n===== [DEBUG-PIPELINE-GENRE] Início do pipeline =====');
+  console.log('mode:', options.mode);
+  console.log('genre (options.genre):', options.genre);
+  console.log('finalGenre:', options.finalGenre);
+  console.log('selectedGenre:', options.selectedGenre);
+  console.log('genreTargets:', options.genreTargets ? Object.keys(options.genreTargets) : null);
+  console.log('=====================================================\n\n');
+  
   console.log(`🚀 Iniciando pipeline completo para: ${fileName}`);
   console.log(`📊 Buffer size: ${audioBuffer.length} bytes`);
   console.log(`🔧 Opções:`, options);
