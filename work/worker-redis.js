@@ -652,11 +652,17 @@ async function audioProcessor(job) {
   // 🔑 ESTRUTURA ATUALIZADA: suporte para jobId UUID + externalId para logs + referenceJobId
   const { jobId, externalId, fileKey, mode, fileName, referenceJobId } = job.data;
   
+  console.log("\n🔵🔵 [AUDIT:WORKER-ENTRY] Worker recebeu job:");
+  console.log("🔵 [AUDIT:WORKER-ENTRY] Arquivo:", import.meta.url);
+  console.dir(job.data, { depth: 10 });
+  
   console.log("\n\n🔵🔵🔵 [AUDIT:WORKER-ENTRY] Job recebido pelo worker:");
   console.dir(job.data, { depth: 10 });
   console.log("🔵 [AUDIT:WORKER-ENTRY] Genre recebido:", job.data?.genre);
+  console.log("🔵 [AUDIT:WORKER-ENTRY] GenreTargets recebido:", job.data?.genreTargets);
   console.log("🔵 [AUDIT:WORKER-ENTRY] Mode recebido:", job.data?.mode);
-  console.log("🔵 [AUDIT:WORKER-ENTRY] GenreTargets recebido:", job.data?.genreTargets ? Object.keys(job.data.genreTargets) : null);
+  console.log("🔵 [AUDIT:WORKER-ENTRY] FileKey recebido:", job.data?.fileKey);
+  console.log("🔵 [AUDIT:WORKER-ENTRY] JobId recebido:", job.data?.jobId);
   
   // 🎯 AUDIT: LOG INICIAL - Job consumido da fila
   console.log('🔍 [AUDIT_CONSUME] ═══════════════════════════════════════');
