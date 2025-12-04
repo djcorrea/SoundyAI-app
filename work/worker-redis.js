@@ -650,7 +650,16 @@ async function downloadFileFromBucket(fileKey) {
  */
 async function audioProcessor(job) {
   // 🔑 ESTRUTURA ATUALIZADA: suporte para jobId UUID + externalId para logs + referenceJobId
-  const { jobId, externalId, fileKey, mode, fileName, referenceJobId } = job.data;
+  const {
+    jobId,
+    externalId,
+    fileKey,
+    mode,
+    fileName,
+    referenceJobId,
+    genre,
+    genreTargets,
+  } = job.data;
   
   console.log("\n🔵🔵 [AUDIT:WORKER-ENTRY] Worker recebeu job:");
   console.log("🔵 [AUDIT:WORKER-ENTRY] Arquivo:", import.meta.url);
@@ -856,10 +865,12 @@ async function audioProcessor(job) {
     console.log(`🎯 [WORKER-ANALYSIS] ═══════════════════════════════`);
     
     const pipelinePromise = processAudioComplete(fileBuffer, fileName || 'unknown.wav', {
-      jobId: jobId,
-      mode: mode,
-      referenceJobId: referenceJobId,
-      preloadedReferenceMetrics: preloadedReferenceMetrics // ← MÉTRICAS CARREGADAS NO INÍCIO
+      jobId,
+      mode,
+      referenceJobId,
+      preloadedReferenceMetrics,
+      genre,
+      genreTargets,
     });
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => {
