@@ -3,6 +3,7 @@
 
 // eslint-disable-next-line import/no-unresolved
 import { logAudio } from '../error-handling.js';
+import { v4 as uuidv4 } from 'uuid';
 
 /**
  * 🎨 Sistema de Criticidade com Cores - AUDITORIA ESPECÍFICA PARA DINÂMICA (LU RANGE)
@@ -813,8 +814,6 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
    * Garante estrutura completa e consistente para frontend e AI enrichment
    */
   formatSuggestionForJSON(suggestion) {
-    const { v4: uuidv4 } = require('uuid');
-    
     return {
       // 🆔 Identificação única
       id: suggestion.id || uuidv4(),

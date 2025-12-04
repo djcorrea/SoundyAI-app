@@ -454,9 +454,5 @@ class SubScoreCorrector {
     }
 }
 
-// Exportar para uso
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = SubScoreCorrector;
-} else if (typeof window !== 'undefined') {
-    window.SubScoreCorrector = SubScoreCorrector;
-}
+// Exportar para uso ESM
+export default SubScoreCorrector;

@@ -443,9 +443,5 @@ class SubScorePrecisionValidator {
     }
 }
 
-// Exportar para uso
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = SubScorePrecisionValidator;
-} else if (typeof window !== 'undefined') {
-    window.SubScorePrecisionValidator = SubScorePrecisionValidator;
-}
+// Exportar para uso ESM
+export default SubScorePrecisionValidator;
