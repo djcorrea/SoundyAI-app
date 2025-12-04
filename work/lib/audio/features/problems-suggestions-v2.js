@@ -280,8 +280,16 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       return result;
       
     } catch (error) {
-      logAudio('problems_v2', 'analysis_error', { error: error.message });
-      return this.getEmptyResult();
+      logAudio('problems_v2', 'analysis_error', {
+        error: error.message,
+        stack: error.stack,
+        genre: this.genre,
+      });
+      
+      // ❌ NÃO retornar getEmptyResult() aqui.
+      // Queremos que o erro estoure para a pipeline,
+      // para conseguir ver a causa raiz completa nos logs.
+      throw error;
     }
   }
   

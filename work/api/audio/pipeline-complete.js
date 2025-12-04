@@ -304,187 +304,172 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       throw makeErr('output_scoring', `JSON output failed: ${error.message}`, 'output_scoring_error');
     }
 
-    // ========= FASE 5.4.1: SUGESTÕES BASE (V1) =========
+    // ========= FASE 5.4.1: SUGESTÕES BASE (V1) - FAIL-FAST MODE =========
+    // 🎯 CARREGAR TARGETS DO FILESYSTEM (APENAS MODO GÊNERO)
+    const mode = options.mode || 'genre';
+    const isGenreMode = mode === 'genre';
+    
+    // 🔥 LOG CIRÚRGICO: ANTES de resolver genre (Suggestions V1)
+    console.log('[GENRE-DEEP-TRACE][PIPELINE-V1-PRE]', {
+      ponto: 'pipeline-complete.js linha ~260 - ANTES resolução V1',
+      'options.genre': options.genre,
+      'options.data?.genre': options.data?.genre,
+      'isGenreMode': isGenreMode
+    });
+    
+    // 🎯 CORREÇÃO: Resolver genre baseado no modo
+    const resolvedGenre = options.genre || options.data?.genre || options.genre_detected || null;
+    detectedGenre = isGenreMode
+      ? (resolvedGenre ? String(resolvedGenre).trim() || null : null)
+      : (options.genre || 'default');
+    
+    // 🔥 LOG CIRÚRGICO: DEPOIS de resolver genre (Suggestions V1)
+    console.log('[GENRE-DEEP-TRACE][PIPELINE-V1-POST]', {
+      ponto: 'pipeline-complete.js linha ~260 - DEPOIS resolução V1',
+      'resolvedGenre': resolvedGenre,
+      'detectedGenre': detectedGenre,
+      'isNull': detectedGenre === null,
+      'isDefault': detectedGenre === 'default'
+    });
+    
+    let customTargets = null;
+    
+    console.log('[GENRE-FLOW][PIPELINE] Genre detectado (linha 246):', {
+      'options.genre': options.genre,
+      'detectedGenre': detectedGenre,
+      'isDefault': detectedGenre === 'default',
+      'mode': mode,
+      'isGenreMode': isGenreMode
+    });
+    
+    console.log('[GENRE-FLOW][PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[GENRE-FLOW][PIPELINE] 📊 Contexto recebido:');
+    console.log('[GENRE-FLOW][PIPELINE] mode:', mode);
+    console.log('[GENRE-FLOW][PIPELINE] detectedGenre:', detectedGenre);
+    console.log('[GENRE-FLOW][PIPELINE] options.genre:', options.genre);
+    console.log('[GENRE-FLOW][PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
+    console.log('[SUGGESTIONS_V1] 📊 Contexto:', {
+      mode,
+      detectedGenre,
+      hasCoreMetrics: !!coreMetrics,
+      coreMetricsKeys: Object.keys(coreMetrics || {})
+    });
+    
+    if (mode !== 'reference' && detectedGenre && detectedGenre !== 'default') {
+      // 🔥 PRIORIZAR genreTargets do usuário
+      customTargets = options.genreTargets || loadGenreTargets(detectedGenre);
+      
+      if (options.genreTargets) {
+        console.log(`[SUGGESTIONS_V1] 🎯 Usando targets CUSTOMIZADOS do usuário para ${detectedGenre}`);
+      } else if (customTargets) {
+        console.log(`[SUGGESTIONS_V1] 📂 Usando targets de ${detectedGenre} do filesystem`);
+      } else {
+        console.log(`[SUGGESTIONS_V1] 📋 Usando targets hardcoded para ${detectedGenre}`);
+      }
+    } else if (mode === 'reference') {
+      console.log(`[SUGGESTIONS_V1] 🔒 Modo referência - ignorando targets de gênero`);
+    }
+    
+    // 🛡️ BLINDAGEM PRIMÁRIA CORRIGIDA: Preservar genre correto, sem fallback 'default'
+    // 🔥 PATCH 2: RESOLVER CORRETAMENTE O GÊNERO PARA O ANALYZER
+    const genreFromData =
+      options.genre ||
+      options.data?.genre ||
+      options.data?.targets?.genre ||
+      options.data?.genre_detected ||
+      null;
+    
+    const genreForAnalyzer = genreFromData || detectedGenre || finalJSON?.genre || null;
+    const finalGenreForAnalyzer = genreForAnalyzer || detectedGenre || options.genre || 'default';
+    
+    // 🧠 FASE 5.4.1 – Análise de problemas e sugestões V2 (fail-fast)
+    console.log('[DEBUG-SUGGESTIONS] =================================================');
+    console.log('[DEBUG-SUGGESTIONS] Entrando na FASE 5.4.1 – analyzeProblemsAndSuggestionsV2');
+    console.log('[DEBUG-SUGGESTIONS] finalGenreForAnalyzer:', finalGenreForAnalyzer);
+    console.log('[DEBUG-SUGGESTIONS] has customTargets?', !!customTargets);
+    console.log('[DEBUG-SUGGESTIONS] customTargets keys:', customTargets ? Object.keys(customTargets) : 'null');
+    console.log('[DEBUG-SUGGESTIONS] coreMetrics keys:', coreMetrics ? Object.keys(coreMetrics) : 'null');
+    console.log('[DEBUG-SUGGESTIONS] coreMetrics.lufs?.integrated:', coreMetrics?.lufs?.integrated);
+    console.log('[DEBUG-SUGGESTIONS] coreMetrics.dynamics?.dynamicRange:', coreMetrics?.dynamics?.dynamicRange);
+    console.log('[DEBUG-SUGGESTIONS] =================================================');
+    
     try {
-      console.log(`[SUGGESTIONS_V1] ⚡ Gerando sugestões base (V1)...`);
+      const problemsAndSuggestions = analyzeProblemsAndSuggestionsV2(
+        coreMetrics,
+        finalGenreForAnalyzer,
+        customTargets
+      );
       
-      // 🎯 CARREGAR TARGETS DO FILESYSTEM (APENAS MODO GÊNERO)
-      const mode = options.mode || 'genre';
-      const isGenreMode = mode === 'genre';
+      console.log('[DEBUG-SUGGESTIONS] ✅ analyzeProblemsAndSuggestionsV2 retornou com sucesso');
+      console.log('[DEBUG-SUGGESTIONS] problems length:', problemsAndSuggestions?.problems?.length || 0);
+      console.log('[DEBUG-SUGGESTIONS] suggestions length:', problemsAndSuggestions?.suggestions?.length || 0);
+      console.log('[DEBUG-SUGGESTIONS] aiSuggestions length:', problemsAndSuggestions?.aiSuggestions?.length || 0);
       
-      // 🔥 LOG CIRÚRGICO: ANTES de resolver genre (Suggestions V1)
-      console.log('[GENRE-DEEP-TRACE][PIPELINE-V1-PRE]', {
-        ponto: 'pipeline-complete.js linha ~260 - ANTES resolução V1',
-        'options.genre': options.genre,
-        'options.data?.genre': options.data?.genre,
-        'isGenreMode': isGenreMode
-      });
-      
-      // 🎯 CORREÇÃO: Resolver genre baseado no modo
-      const resolvedGenre = options.genre || options.data?.genre || options.genre_detected || null;
-      detectedGenre = isGenreMode
-        ? (resolvedGenre ? String(resolvedGenre).trim() || null : null)
-        : (options.genre || 'default');
-      
-      // 🔥 LOG CIRÚRGICO: DEPOIS de resolver genre (Suggestions V1)
-      console.log('[GENRE-DEEP-TRACE][PIPELINE-V1-POST]', {
-        ponto: 'pipeline-complete.js linha ~260 - DEPOIS resolução V1',
-        'resolvedGenre': resolvedGenre,
-        'detectedGenre': detectedGenre,
-        'isNull': detectedGenre === null,
-        'isDefault': detectedGenre === 'default'
-      });
-      
-      let customTargets = null;
-      
-      console.log('[GENRE-FLOW][PIPELINE] Genre detectado (linha 246):', {
-        'options.genre': options.genre,
-        'detectedGenre': detectedGenre,
-        'isDefault': detectedGenre === 'default',
-        'mode': mode,
-        'isGenreMode': isGenreMode
-      });
-      
-      console.log('[GENRE-FLOW][PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('[GENRE-FLOW][PIPELINE] 📊 Contexto recebido:');
-      console.log('[GENRE-FLOW][PIPELINE] mode:', mode);
-      console.log('[GENRE-FLOW][PIPELINE] detectedGenre:', detectedGenre);
-      console.log('[GENRE-FLOW][PIPELINE] options.genre:', options.genre);
-      console.log('[GENRE-FLOW][PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      
-      console.log('[SUGGESTIONS_V1] 📊 Contexto:', {
-        mode,
-        detectedGenre,
-        hasCoreMetrics: !!coreMetrics,
-        coreMetricsKeys: Object.keys(coreMetrics || {})
-      });
-      
-      if (mode !== 'reference' && detectedGenre && detectedGenre !== 'default') {
-        // 🔥 PRIORIZAR genreTargets do usuário
-        customTargets = options.genreTargets || loadGenreTargets(detectedGenre);
+      // Garantir que o resultado seja atribuído corretamente no finalJSON
+      if (problemsAndSuggestions) {
+        finalJSON.problemsAnalysis = {
+          problems: problemsAndSuggestions.problems || [],
+          suggestions: problemsAndSuggestions.suggestions || [],
+          qualityAssessment: problemsAndSuggestions.qualityAssessment || {},
+          priorityRecommendations: problemsAndSuggestions.priorityRecommendations || []
+        };
         
-        if (options.genreTargets) {
-          console.log(`[SUGGESTIONS_V1] 🎯 Usando targets CUSTOMIZADOS do usuário para ${detectedGenre}`);
-        } else if (customTargets) {
-          console.log(`[SUGGESTIONS_V1] 📂 Usando targets de ${detectedGenre} do filesystem`);
-        } else {
-          console.log(`[SUGGESTIONS_V1] 📋 Usando targets hardcoded para ${detectedGenre}`);
+        finalJSON.diagnostics = {
+          problems: problemsAndSuggestions.diagnostics?.problems || [],
+          suggestions: problemsAndSuggestions.diagnostics?.suggestions || [],
+          prioritized: problemsAndSuggestions.diagnostics?.prioritized || []
+        };
+        
+        finalJSON.suggestions = problemsAndSuggestions.suggestions || [];
+        finalJSON.aiSuggestions = problemsAndSuggestions.aiSuggestions || [];
+        
+        finalJSON.summary = problemsAndSuggestions.summary || {
+          overallRating: 'Análise não disponível',
+          score: 0,
+          genre: finalGenreForAnalyzer
+        };
+        
+        finalJSON.suggestionMetadata = problemsAndSuggestions.metadata || {
+          totalSuggestions: finalJSON.suggestions.length,
+          criticalCount: 0,
+          warningCount: 0,
+          okCount: 0,
+          analysisDate: new Date().toISOString(),
+          genre: finalGenreForAnalyzer,
+          version: '2.0.0'
+        };
+        
+        // 🛡️ BLINDAGEM IMEDIATA V1: Forçar genre correto em summary/metadata
+        if (detectedGenre) {
+          if (finalJSON.summary && typeof finalJSON.summary === 'object') {
+            finalJSON.summary.genre = detectedGenre;
+          }
+          if (finalJSON.suggestionMetadata && typeof finalJSON.suggestionMetadata === 'object') {
+            finalJSON.suggestionMetadata.genre = detectedGenre;
+          }
+          console.log('[GENRE-BLINDAGEM-V1] Genre forçado em V1:', detectedGenre);
         }
-      } else if (mode === 'reference') {
-        console.log(`[SUGGESTIONS_V1] 🔒 Modo referência - ignorando targets de gênero`);
-      }
-      
-      // PASSO 4: GARANTIR QUE analyzeProblemsAndSuggestionsV2 É CHAMADO APÓS coreMetrics
-      console.log('[SUGGESTIONS_V1] 🔍 Validando coreMetrics antes de gerar sugestões...');
-      if (!coreMetrics || typeof coreMetrics !== 'object') {
-        throw new Error('coreMetrics inválido ou ausente');
-      }
-      
-      // 🛡️ BLINDAGEM PRIMÁRIA CORRIGIDA: Preservar genre correto, sem fallback 'default'
-      // 🔥 PATCH 2: RESOLVER CORRETAMENTE O GÊNERO PARA O ANALYZER
-      const genreFromData =
-        options.genre ||
-        options.data?.genre ||
-        options.data?.targets?.genre ||
-        options.data?.genre_detected ||
-        null;
-      
-      const genreForAnalyzer = genreFromData || detectedGenre || finalJSON?.genre || null;
-      const finalGenreForAnalyzer = genreForAnalyzer || detectedGenre || options.genre || 'default';
-      
-      console.log('[AUDIT-FIX] genreFromData:', genreFromData, 'finalGenreForAnalyzer:', finalGenreForAnalyzer);
-      console.log('[GENRE-BLINDAGEM] genreForAnalyzer:', genreForAnalyzer);
-      console.log('[GENRE-BLINDAGEM] ALERTA: Se null, analyzer usará default interno - DEVE SER CORRIGIDO!');
-      
-      console.log('[AUDIT-PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('[AUDIT-PIPELINE] ANTES DE CHAMAR analyzeProblemsAndSuggestionsV2:');
-      console.log('[AUDIT-PIPELINE] options.genre:', options.genre);
-      console.log('[AUDIT-PIPELINE] options.data?.genre:', options.data?.genre);
-      console.log('[AUDIT-PIPELINE] detectedGenre:', detectedGenre);
-      console.log('[AUDIT-PIPELINE] finalJSON.genre antes do analyzer:', finalJSON?.genre);
-      console.log('[AUDIT-PIPELINE] genreForAnalyzer:', genreForAnalyzer);
-      console.log('[AUDIT-PIPELINE] finalGenreForAnalyzer (SERÁ PASSADO):', finalGenreForAnalyzer);
-      console.log('[AUDIT-PIPELINE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      
-      const problemsAndSuggestions = analyzeProblemsAndSuggestionsV2(coreMetrics, finalGenreForAnalyzer, customTargets);
-      
-      // Preencher estrutura completa do finalJSON com sugestões base
-      finalJSON.problemsAnalysis = {
-        problems: problemsAndSuggestions.problems || [],
-        suggestions: problemsAndSuggestions.suggestions || [],
-        qualityAssessment: problemsAndSuggestions.qualityAssessment || problemsAndSuggestions.summary || {},
-        priorityRecommendations: problemsAndSuggestions.priorityRecommendations || []
-      };
-      
-      finalJSON.diagnostics = {
-        problems: problemsAndSuggestions.problems || [],
-        suggestions: problemsAndSuggestions.suggestions || [],
-        prioritized: problemsAndSuggestions.priorityRecommendations || []
-      };
-      
-      // 🔥 LOG CIRÚRGICO: ANTES de atribuir summary/metadata de V1
-      console.log('[GENRE-DEEP-TRACE][V1-SUMMARY-PRE]', {
-        ponto: 'pipeline-complete.js linha ~370 - ANTES atribuir V1',
-        'problemsAndSuggestions.summary?.genre': problemsAndSuggestions.summary?.genre,
-        'problemsAndSuggestions.metadata?.genre': problemsAndSuggestions.metadata?.genre,
-        'detectedGenre (disponível)': detectedGenre
-      });
-      
-      finalJSON.suggestions = problemsAndSuggestions.suggestions || [];
-      finalJSON.summary = problemsAndSuggestions.summary || {};
-      finalJSON.suggestionMetadata = problemsAndSuggestions.metadata || {};
-      
-      // 🛡️ BLINDAGEM IMEDIATA V1: Forçar genre correto em summary/metadata logo após atribuir
-      if (detectedGenre) {
-        if (finalJSON.summary && typeof finalJSON.summary === 'object') {
-          finalJSON.summary.genre = detectedGenre;
-        }
-        if (finalJSON.suggestionMetadata && typeof finalJSON.suggestionMetadata === 'object') {
-          finalJSON.suggestionMetadata.genre = detectedGenre;
-        }
-        console.log('[GENRE-BLINDAGEM-V1] Genre forçado em V1:', detectedGenre);
-      }
-      
-      // 🔥 LOG CIRÚRGICO: DEPOIS de atribuir summary/metadata de V1
-      console.log('[GENRE-DEEP-TRACE][V1-SUMMARY-POST]', {
-        ponto: 'pipeline-complete.js linha ~370 - DEPOIS atribuir V1',
-        'finalJSON.summary.genre': finalJSON.summary?.genre,
-        'finalJSON.suggestionMetadata.genre': finalJSON.suggestionMetadata?.genre,
-        'PROBLEMA?': finalJSON.summary?.genre !== detectedGenre
-      });
-      
-      // PASSO 5: LOGS PARA VALIDAÇÃO
-      console.log('[SUGGESTIONS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('[SUGGESTIONS] V1 count:', problemsAndSuggestions.suggestions?.length || 0);
-      console.log('[SUGGESTIONS] V1 sample:', problemsAndSuggestions.suggestions?.[0]);
-      console.log(`[SUGGESTIONS_V1] ✅ ${finalJSON.suggestions.length} sugestões base geradas`);
-      console.log(`[SUGGESTIONS_V1] 📊 Problems: ${finalJSON.problemsAnalysis.problems?.length || 0}`);
-      console.log(`[SUGGESTIONS_V1] 📊 Priority: ${finalJSON.problemsAnalysis.priorityRecommendations?.length || 0}`);
-      console.log('[SUGGESTIONS] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      
-      // ✅ VALIDAÇÃO CRÍTICA: Garantir que sugestões foram geradas
-      if (!Array.isArray(finalJSON.suggestions) || finalJSON.suggestions.length === 0) {
-        console.warn(`[SUGGESTIONS_V1] ⚠️ ALERTA: Nenhuma sugestão base foi gerada!`);
-      }
-      if (!finalJSON.problemsAnalysis?.suggestions || finalJSON.problemsAnalysis.suggestions.length === 0) {
-        console.warn(`[SUGGESTIONS_V1] ⚠️ ALERTA: problemsAnalysis.suggestions está vazio!`);
+      } else {
+        console.warn('[DEBUG-SUGGESTIONS] ⚠️ analyzeProblemsAndSuggestionsV2 retornou null/undefined. Mantendo estruturas atuais.');
       }
       
     } catch (suggestionsError) {
-      console.error(`[SUGGESTIONS_V1] ❌ Erro ao gerar sugestões base:`, suggestionsError.message);
-      // Garantir estrutura mínima mesmo em caso de erro
-      // 🔥 LOG CIRÚRGICO: ERRO - Zerando summary/metadata
-      console.log('[GENRE-DEEP-TRACE][ERROR-RESET]', {
-        ponto: 'pipeline-complete.js linha ~396 - ERRO: Zerando summary/metadata',
-        'detectedGenre (perdido?)': detectedGenre,
-        'ALERTA': 'summary e metadata serão VAZIOS - genre SERÁ PERDIDO'
+      console.error('[SUGGESTIONS_V2] ❌ ERRO CRÍTICO ao gerar sugestões base');
+      console.error('[SUGGESTIONS_V2] Mensagem:', suggestionsError.message);
+      console.error('[SUGGESTIONS_V2] Stack:', suggestionsError.stack);
+      console.error('[SUGGESTIONS_V2] Contexto:', {
+        finalGenreForAnalyzer,
+        hasCustomTargets: !!customTargets,
+        customTargetsKeys: customTargets ? Object.keys(customTargets) : 'null',
+        coreMetricsKeys: coreMetrics ? Object.keys(coreMetrics) : 'null',
       });
       
-      finalJSON.suggestions = [];
-      finalJSON.problemsAnalysis = { problems: [], suggestions: [] };
-      finalJSON.diagnostics = { problems: [], suggestions: [], prioritized: [] };
-      finalJSON.summary = {};
-      finalJSON.suggestionMetadata = {};
+      // ❌ NÃO zerar mais summary/metadata/suggestions aqui.
+      // Queremos que o erro suba para o worker e o job falhe,
+      // para podermos ver a causa raiz nos logs.
+      
+      throw suggestionsError;
     }
     
     // 🔥 PATCH 3: GARANTIR QUE finalJSON TENHA genre NO TOPO ANTES DE RETORNAR
