@@ -364,7 +364,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       console.log('[TARGET-DEBUG] options.genreTargets:', options.genreTargets ? 'presente' : 'null');
       console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
-      customTargets = options.genreTargets || loadGenreTargets(detectedGenre);
+      customTargets = options.genreTargets || await loadGenreTargets(detectedGenre);
       
       console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('[TARGET-DEBUG] DEPOIS DE CARREGAR TARGETS:');
@@ -579,7 +579,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       
       if (mode !== 'reference' && detectedGenreV2 && detectedGenreV2 !== 'default') {
         // 🔥 PRIORIZAR genreTargets do usuário
-        customTargetsV2 = options.genreTargets || loadGenreTargets(detectedGenreV2);
+        customTargetsV2 = options.genreTargets || await loadGenreTargets(detectedGenreV2);
         
         if (options.genreTargets) {
           console.log(`[V2-SYSTEM] 🎯 Usando targets CUSTOMIZADOS do usuário para ${detectedGenreV2}`);

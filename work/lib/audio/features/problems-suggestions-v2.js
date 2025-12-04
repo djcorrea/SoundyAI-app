@@ -76,8 +76,9 @@ const SEVERITY_SYSTEM = {
 
 /**
  * 🎵 Thresholds por Gênero Musical
+ * Exportado para permitir fallback quando JSONs falharem
  */
-const GENRE_THRESHOLDS = {
+export const GENRE_THRESHOLDS = {
   // 🚗 Funk Automotivo - Mais agressivo (≤14 LU aceitável)
   'funk_automotivo': {
     lufs: { target: -6.2, tolerance: 2.0, critical: 3.0 },
@@ -313,27 +314,41 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     const lufs = metrics.lufs?.lufs_integrated;
     if (!Number.isFinite(lufs)) return;
     
-    const threshold = this.thresholds.lufs;
-    const diff = Math.abs(lufs - threshold.target);
-    const severity = this.calculateSeverity(diff, threshold.tolerance, threshold.critical);
+    // 🛡️ SAFEGUARD: Validar threshold antes de acessar .target
+    const lufsThreshold = this.thresholds?.lufs;
+    
+    if (
+      !lufsThreshold ||
+      typeof lufsThreshold.target !== 'number' ||
+      typeof lufsThreshold.tolerance !== 'number'
+    ) {
+      console.warn('[PROBLEMS_V2][SAFEGUARD] Missing or invalid lufs thresholds for genre:', this.genre, {
+        thresholdsKeys: this.thresholds ? Object.keys(this.thresholds) : null,
+        lufsThreshold: lufsThreshold
+      });
+      return; // não quebra, só pula a análise de LUFS
+    }
+    
+    const diff = Math.abs(lufs - lufsThreshold.target);
+    const severity = this.calculateSeverity(diff, lufsThreshold.tolerance, lufsThreshold.critical || lufsThreshold.tolerance * 1.5);
     
     let message, explanation, action;
     
     if (severity.level === 'critical') {
-      if (lufs > threshold.target) {
-        message = `LUFS muito alto: ${lufs.toFixed(1)} dB (limite: ${threshold.target} dB)`;
-        explanation = `Seu áudio está ${(lufs - threshold.target).toFixed(1)} dB acima do ideal para ${this.genre}. Isso pode causar distorção e fadiga auditiva.`;
-        action = `Reduza o gain geral em ${Math.ceil(lufs - threshold.target)} dB usando um limiter ou reduzindo o volume master.`;
+      if (lufs > lufsThreshold.target) {
+        message = `LUFS muito alto: ${lufs.toFixed(1)} dB (limite: ${lufsThreshold.target} dB)`;
+        explanation = `Seu áudio está ${(lufs - lufsThreshold.target).toFixed(1)} dB acima do ideal para ${this.genre}. Isso pode causar distorção e fadiga auditiva.`;
+        action = `Reduza o gain geral em ${Math.ceil(lufs - lufsThreshold.target)} dB usando um limiter ou reduzindo o volume master.`;
       } else {
-        message = `LUFS muito baixo: ${lufs.toFixed(1)} dB (mínimo: ${threshold.target} dB)`;
-        explanation = `Seu áudio está ${(threshold.target - lufs).toFixed(1)} dB abaixo do ideal. Ficará muito baixo comparado a outras músicas.`;
-        action = `Aumente o loudness usando um limiter suave ou maximizer, elevando gradualmente até ${threshold.target} dB LUFS.`;
+        message = `LUFS muito baixo: ${lufs.toFixed(1)} dB (mínimo: ${lufsThreshold.target} dB)`;
+        explanation = `Seu áudio está ${(lufsThreshold.target - lufs).toFixed(1)} dB abaixo do ideal. Ficará muito baixo comparado a outras músicas.`;
+        action = `Aumente o loudness usando um limiter suave ou maximizer, elevando gradualmente até ${lufsThreshold.target} dB LUFS.`;
       }
     } else if (severity.level === 'warning') {
-      if (lufs > threshold.target) {
+      if (lufs > lufsThreshold.target) {
         message = `LUFS levemente alto: ${lufs.toFixed(1)} dB`;
         explanation = `Está um pouco acima do ideal para ${this.genre}, mas ainda aceitável.`;
-        action = `Considere reduzir 1-2 dB no limiter para ficar mais próximo de ${threshold.target} dB LUFS.`;
+        action = `Considere reduzir 1-2 dB no limiter para ficar mais próximo de ${lufsThreshold.target} dB LUFS.`;
       } else {
         message = `LUFS levemente baixo: ${lufs.toFixed(1)} dB`;
         explanation = `Está um pouco abaixo do ideal, mas pode funcionar dependendo da plataforma.`;
@@ -352,8 +367,8 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       explanation,
       action,
       currentValue: `${lufs.toFixed(1)} LUFS`,
-      targetValue: `${threshold.target} LUFS`,
-      delta: `${(lufs - threshold.target).toFixed(1)} dB`,
+      targetValue: `${lufsThreshold.target} LUFS`,
+      delta: `${(lufs - lufsThreshold.target).toFixed(1)} dB`,
       priority: severity.priority
     });
   }
@@ -365,9 +380,22 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     const truePeak = metrics.truePeak?.maxDbtp;
     if (!Number.isFinite(truePeak)) return;
     
-    const threshold = this.thresholds.truePeak;
-    const diff = truePeak - threshold.target; // True peak sempre comparado "acima"
-    const severity = this.calculateSeverityForTruePeak(diff, threshold.tolerance, threshold.critical);
+    // 🛡️ SAFEGUARD: Validar threshold antes de acessar .target
+    const tpThreshold = this.thresholds?.truePeak;
+    
+    if (
+      !tpThreshold ||
+      typeof tpThreshold.target !== 'number' ||
+      typeof tpThreshold.tolerance !== 'number'
+    ) {
+      console.warn('[PROBLEMS_V2][SAFEGUARD] Missing or invalid truePeak thresholds for genre:', this.genre, {
+        thresholdsKeys: this.thresholds ? Object.keys(this.thresholds) : null
+      });
+      return;
+    }
+    
+    const diff = truePeak - tpThreshold.target; // True peak sempre comparado "acima"
+    const severity = this.calculateSeverityForTruePeak(diff, tpThreshold.tolerance, tpThreshold.critical || tpThreshold.tolerance * 1.5);
     
     let message, explanation, action;
     
@@ -392,7 +420,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       explanation,
       action,
       currentValue: `${truePeak.toFixed(1)} dBTP`,
-      targetValue: `< ${threshold.target} dBTP`,
+      targetValue: `< ${tpThreshold.target} dBTP`,
       delta: diff > 0 ? `+${diff.toFixed(1)} dB acima` : `${Math.abs(diff).toFixed(1)} dB seguro`,
       priority: severity.priority
     });
@@ -458,14 +486,25 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     const correlation = metrics.stereo?.correlation;
     if (!Number.isFinite(correlation)) return;
     
-    const threshold = this.thresholds.stereo;
-    const diff = Math.abs(correlation - threshold.target);
-    const severity = this.calculateSeverity(diff, threshold.tolerance, threshold.critical);
+    // 🛡️ SAFEGUARD: Validar threshold antes de acessar .target
+    const stereoThreshold = this.thresholds?.stereo;
+    
+    if (
+      !stereoThreshold ||
+      typeof stereoThreshold.target !== 'number' ||
+      typeof stereoThreshold.tolerance !== 'number'
+    ) {
+      console.warn('[PROBLEMS_V2][SAFEGUARD] Missing or invalid stereo thresholds for genre:', this.genre);
+      return;
+    }
+    
+    const diff = Math.abs(correlation - stereoThreshold.target);
+    const severity = this.calculateSeverity(diff, stereoThreshold.tolerance, stereoThreshold.critical || stereoThreshold.tolerance * 1.5);
     
     let message, explanation, action;
     
     if (severity.level === 'critical') {
-      if (correlation < threshold.target - threshold.critical) {
+      if (correlation < stereoThreshold.target - stereoThreshold.critical) {
         message = `🔴 Estéreo muito estreito: ${correlation.toFixed(2)}`;
         explanation = `Sua música está quase mono. Falta largura estéreo e espacialidade.`;
         action = `Adicione reverb estéreo, duplicação de elementos ou use stereo widening. Experimente panning mais agressivo.`;
@@ -475,7 +514,7 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
         action = `Verifique compatibilidade mono. Reduza stereo widening e centralize elementos importantes (baixo, vocal).`;
       }
     } else if (severity.level === 'warning') {
-      if (correlation < threshold.target) {
+      if (correlation < stereoThreshold.target) {
         message = `🟠 Estéreo estreito: ${correlation.toFixed(2)}`;
         explanation = `Um pouco estreito para ${this.genre}, mas ainda funcional.`;
         action = `Experimente abrir mais com reverb sutil ou doubling de instrumentos.`;
@@ -497,8 +536,8 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       explanation,
       action,
       currentValue: correlation.toFixed(2),
-      targetValue: threshold.target.toFixed(2),
-      delta: `${(correlation - threshold.target).toFixed(2)}`,
+      targetValue: stereoThreshold.target.toFixed(2),
+      delta: diff.toFixed(2),
       priority: severity.priority
     });
   }
@@ -570,11 +609,20 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
    * 🎵 Análise Individual de Banda Espectral
    */
   analyzeBand(bandKey, value, bandName, suggestions) {
-    const threshold = this.thresholds[bandKey];
-    if (!threshold) return;
+    // 🛡️ SAFEGUARD: Validar threshold antes de acessar .target
+    const threshold = this.thresholds?.[bandKey];
+    
+    if (
+      !threshold ||
+      typeof threshold.target !== 'number' ||
+      typeof threshold.tolerance !== 'number'
+    ) {
+      // Não logar warning para cada banda (evitar spam), apenas pular
+      return;
+    }
     
     const diff = Math.abs(value - threshold.target);
-    const severity = this.calculateSeverity(diff, threshold.tolerance, threshold.critical);
+    const severity = this.calculateSeverity(diff, threshold.tolerance, threshold.critical || threshold.tolerance * 1.5);
     
     let message, explanation, action;
     

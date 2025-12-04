@@ -37,12 +37,13 @@ const BAND_MAPPING = {
  * 1. Normaliza nome do gênero
  * 2. Verifica cache
  * 3. Tenta carregar JSON do filesystem
- * 4. Valida estrutura
- * 5. Converte para formato interno
- * 6. Cacheia resultado
- * 7. Retorna null em caso de erro (usar fallback hardcoded)
+ * 4. Se falhar, tenta fallback para GENRE_THRESHOLDS hardcoded
+ * 5. Valida estrutura
+ * 6. Converte para formato interno
+ * 7. Cacheia resultado
+ * 8. Retorna null APENAS se tudo falhar
  */
-export function loadGenreTargets(genre) {
+export async function loadGenreTargets(genre) {
   console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   console.log('[TARGET-LOADER] ENTRADA DA FUNÇÃO loadGenreTargets');
   console.log('[TARGET-LOADER] genre recebido:', genre);
@@ -54,10 +55,10 @@ export function loadGenreTargets(genre) {
   
   console.log('[TARGET-LOADER] normalizedGenre:', normalizedGenre);
   
-  // Se não houver gênero válido, retornar null (usar fallback)
+  // Se não houver gênero válido, tentar fallback imediatamente
   if (!normalizedGenre || normalizedGenre === 'default' || normalizedGenre === 'unknown') {
-    console.log(`[TARGETS] Gênero inválido ou default: "${genre}" - usando fallback hardcoded`);
-    return null;
+    console.log(`[TARGETS] Gênero inválido ou default: "${genre}" - tentando fallback hardcoded`);
+    return await loadFromHardcodedFallback(normalizedGenre);
   }
   
   // Verificar cache
@@ -86,8 +87,8 @@ export function loadGenreTargets(genre) {
     
     if (!fileExists) {
       console.warn(`[TARGETS] ⚠️ File not found: ${jsonPath}`);
-      console.warn(`[TARGETS] ⚠️ Usando fallback hardcoded`);
-      return null;
+      console.warn(`[TARGETS] ⚠️ Tentando fallback hardcoded...`);
+      return await loadFromHardcodedFallback(normalizedGenre);
     }
     
     // Ler e parsear JSON
@@ -110,8 +111,8 @@ export function loadGenreTargets(genre) {
     
     // Validar estrutura mínima
     if (!validateTargetsStructure(rawTargets)) {
-      console.error(`[TARGETS] ❌ Invalid structure in ${normalizedGenre}.json - using fallback`);
-      return null;
+      console.error(`[TARGETS] ❌ Invalid structure in ${normalizedGenre}.json - tentando fallback hardcoded`);
+      return await loadFromHardcodedFallback(normalizedGenre);
     }
     
     // Converter para formato interno
@@ -119,8 +120,8 @@ export function loadGenreTargets(genre) {
     
     // Validar targets convertidos
     if (!convertedTargets || Object.keys(convertedTargets).length === 0) {
-      console.error(`[TARGETS] ❌ Conversion failed for ${normalizedGenre} - using fallback`);
-      return null;
+      console.error(`[TARGETS] ❌ Conversion failed for ${normalizedGenre} - tentando fallback hardcoded`);
+      return await loadFromHardcodedFallback(normalizedGenre);
     }
     
     // Cachear resultado
@@ -139,6 +140,58 @@ export function loadGenreTargets(genre) {
     
   } catch (error) {
     console.error(`[TARGETS] ❌ Erro ao carregar ${normalizedGenre}:`, error.message);
+    console.error(`[TARGETS] Stack:`, error.stack);
+    console.warn(`[TARGETS] Tentando fallback hardcoded...`);
+    return await loadFromHardcodedFallback(normalizedGenre);
+  }
+}
+
+/**
+ * 🛡️ FALLBACK: CARREGA THRESHOLDS HARDCODED
+ * 
+ * Quando o arquivo JSON não existe ou é inválido, carrega os thresholds
+ * hardcoded do arquivo problems-suggestions-v2.js (GENRE_THRESHOLDS).
+ * 
+ * @param {string} normalizedGenre - Nome do gênero normalizado
+ * @returns {Object|null} - Thresholds hardcoded ou null se não existir
+ */
+async function loadFromHardcodedFallback(normalizedGenre) {
+  try {
+    console.log(`[TARGETS] 🛡️ Tentando fallback hardcoded para: ${normalizedGenre}`);
+    
+    // Importar GENRE_THRESHOLDS dinamicamente
+    const module = await import('../features/problems-suggestions-v2.js');
+    const GENRE_THRESHOLDS = module.GENRE_THRESHOLDS;
+    
+    if (!GENRE_THRESHOLDS || typeof GENRE_THRESHOLDS !== 'object') {
+      console.error('[TARGETS] ❌ GENRE_THRESHOLDS não encontrado no módulo');
+      return null;
+    }
+    
+    // Buscar threshold específico do gênero
+    let genreThreshold = GENRE_THRESHOLDS[normalizedGenre];
+    
+    // Se não encontrar, tentar "default"
+    if (!genreThreshold) {
+      console.warn(`[TARGETS] ⚠️ Gênero ${normalizedGenre} não encontrado em GENRE_THRESHOLDS - usando "default"`);
+      genreThreshold = GENRE_THRESHOLDS['default'];
+    }
+    
+    if (!genreThreshold) {
+      console.error('[TARGETS] ❌ Nem gênero específico nem "default" encontrado em GENRE_THRESHOLDS');
+      return null;
+    }
+    
+    console.log(`[TARGETS] ✅ Fallback hardcoded carregado: ${normalizedGenre}`);
+    console.log(`[TARGETS] 📊 Métricas disponíveis:`, Object.keys(genreThreshold));
+    
+    // Cachear resultado
+    targetsCache.set(normalizedGenre, genreThreshold);
+    
+    return genreThreshold;
+    
+  } catch (error) {
+    console.error(`[TARGETS] ❌ Erro ao carregar fallback hardcoded:`, error.message);
     console.error(`[TARGETS] Stack:`, error.stack);
     return null;
   }
