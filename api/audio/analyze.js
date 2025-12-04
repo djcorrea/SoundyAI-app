@@ -102,6 +102,16 @@ async function createJobInDatabase(fileKey, mode, fileName) {
     const queue = getAudioQueue();
     console.log('📩 [API] Enfileirando job no Redis...');
     
+    console.log('\n\n===== [DEBUG-CONTROLLER-PAYLOAD] Payload que VAI para o Redis =====');
+    console.dir({
+      jobId: jobId,
+      externalId: externalId,
+      fileKey,
+      fileName,
+      mode
+    }, { depth: 10 });
+    console.log('===============================================================\n\n');
+    
     const redisJob = await queue.add('process-audio', {
       jobId: jobId,        // 🔑 UUID para PostgreSQL
       externalId: externalId, // 📋 ID customizado para logs
