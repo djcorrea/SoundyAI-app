@@ -320,9 +320,9 @@ async function analyzeAudioWithPipeline(localFilePath, jobOrOptions) {
 async function processJob(job) {
   console.log("📥 Processando job:", job.id);
 
-  console.log('\n\n===== [DEBUG-WORKER-JOB.DATA] Recebido no Worker =====');
+  console.log('\n\n===== [DEBUG-WORKER-JOB.DATA] Recebido no Worker (WORK) =====');
   console.dir(job.data, { depth: 10 });
-  console.log('=======================================================\n\n');
+  console.log('===============================================================\n\n');
 
   let localFilePath = null;
   let heartbeatInterval = null;

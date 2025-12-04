@@ -106,13 +106,15 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
     const queue = getAudioQueue();
     console.log('📩 [API] Enfileirando job no Redis...');
     
-    console.log('\n\n===== [DEBUG-CONTROLLER-PAYLOAD] Payload que VAI para o Redis =====');
+    console.log('\n\n===== [DEBUG-CONTROLLER-PAYLOAD] Payload que VAI para o Redis (WORK) =====');
     console.dir({
       jobId: jobId,
       externalId: externalId,
       fileKey,
       fileName,
       mode,
+      genre: genre,
+      genreTargets: genreTargets,
       referenceJobId: referenceJobId
     }, { depth: 10 });
     console.log('===============================================================\n\n');
