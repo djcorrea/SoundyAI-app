@@ -358,7 +358,23 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     
     if (mode !== 'reference' && detectedGenre && detectedGenre !== 'default') {
       // 🔥 PRIORIZAR genreTargets do usuário
+      console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[TARGET-DEBUG] ANTES DE CARREGAR TARGETS:');
+      console.log('[TARGET-DEBUG] detectedGenre:', detectedGenre);
+      console.log('[TARGET-DEBUG] options.genreTargets:', options.genreTargets ? 'presente' : 'null');
+      console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      
       customTargets = options.genreTargets || loadGenreTargets(detectedGenre);
+      
+      console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('[TARGET-DEBUG] DEPOIS DE CARREGAR TARGETS:');
+      console.log('[TARGET-DEBUG] customTargets:', customTargets ? 'presente' : 'NULL');
+      if (customTargets) {
+        console.log('[TARGET-DEBUG] customTargets keys:', Object.keys(customTargets));
+        console.log('[TARGET-DEBUG] customTargets.lufs:', customTargets.lufs);
+        console.log('[TARGET-DEBUG] customTargets.dr:', customTargets.dr);
+      }
+      console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
       if (options.genreTargets) {
         console.log(`[SUGGESTIONS_V1] 🎯 Usando targets CUSTOMIZADOS do usuário para ${detectedGenre}`);

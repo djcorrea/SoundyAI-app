@@ -43,8 +43,16 @@ const BAND_MAPPING = {
  * 7. Retorna null em caso de erro (usar fallback hardcoded)
  */
 export function loadGenreTargets(genre) {
+  console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('[TARGET-LOADER] ENTRADA DA FUNÇÃO loadGenreTargets');
+  console.log('[TARGET-LOADER] genre recebido:', genre);
+  console.log('[TARGET-LOADER] tipo:', typeof genre);
+  console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  
   // Normalizar nome do gênero
   const normalizedGenre = normalizeGenreName(genre);
+  
+  console.log('[TARGET-LOADER] normalizedGenre:', normalizedGenre);
   
   // Se não houver gênero válido, retornar null (usar fallback)
   if (!normalizedGenre || normalizedGenre === 'default' || normalizedGenre === 'unknown') {
@@ -65,21 +73,40 @@ export function loadGenreTargets(genre) {
     `${normalizedGenre}.json`
   );
   
-  console.log(`[TARGETS] 🔍 Tentando carregar: ${jsonPath}`);
+  console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+  console.log('[TARGET-LOADER] PATH CONSTRUÍDO:');
+  console.log('[TARGET-LOADER] __dirname:', __dirname);
+  console.log('[TARGET-LOADER] jsonPath:', jsonPath);
+  console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   
   try {
     // Verificar se arquivo existe
-    if (!fs.existsSync(jsonPath)) {
-      console.warn(`[TARGETS] ⚠️ File not found: ${normalizedGenre}.json - using fallback`);
+    const fileExists = fs.existsSync(jsonPath);
+    console.log('[TARGET-LOADER] fs.existsSync:', fileExists);
+    
+    if (!fileExists) {
+      console.warn(`[TARGETS] ⚠️ File not found: ${jsonPath}`);
+      console.warn(`[TARGETS] ⚠️ Usando fallback hardcoded`);
       return null;
     }
     
     // Ler e parsear JSON
+    console.log('[TARGET-LOADER] Lendo arquivo...');
     const rawData = fs.readFileSync(jsonPath, 'utf-8');
+    console.log('[TARGET-LOADER] Arquivo lido, parseando JSON...');
     const parsed = JSON.parse(rawData);
+    console.log('[TARGET-LOADER] JSON parseado com sucesso');
+    console.log('[TARGET-LOADER] Top-level keys:', Object.keys(parsed));
     
     // Extrair targets do primeiro nível (formato: { "funk_mandela": { ... } })
     const rawTargets = parsed[normalizedGenre] || parsed;
+    
+    console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[TARGET-LOADER] EXTRAÇÃO DE TARGETS:');
+    console.log('[TARGET-LOADER] normalizedGenre:', normalizedGenre);
+    console.log('[TARGET-LOADER] parsed[normalizedGenre] existe?', !!parsed[normalizedGenre]);
+    console.log('[TARGET-LOADER] rawTargets keys:', Object.keys(rawTargets || {}));
+    console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     // Validar estrutura mínima
     if (!validateTargetsStructure(rawTargets)) {
@@ -99,8 +126,14 @@ export function loadGenreTargets(genre) {
     // Cachear resultado
     targetsCache.set(normalizedGenre, convertedTargets);
     
+    console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[TARGET-LOADER] SUCESSO - TARGETS CONVERTIDOS:');
     console.log(`[TARGETS] ✅ Loaded from filesystem: ${normalizedGenre}`);
     console.log(`[TARGETS] 📊 Métricas carregadas:`, Object.keys(convertedTargets));
+    console.log('[TARGET-LOADER] convertedTargets.lufs:', convertedTargets.lufs);
+    console.log('[TARGET-LOADER] convertedTargets.dr:', convertedTargets.dr);
+    console.log('[TARGET-LOADER] convertedTargets.truePeak:', convertedTargets.truePeak);
+    console.log('[TARGET-LOADER] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     
     return convertedTargets;
     
