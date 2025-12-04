@@ -75,12 +75,12 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
   let tempFilePath = null;
   let detectedGenre = null; // 🛡️ Escopo global da função para evitar ReferenceError
   
-  console.log('\n\n===== [DEBUG-PIPELINE-GENRE] Início do pipeline =====');
-  console.log('mode:', options.mode);
-  console.log('genre (options.genre):', options.genre);
-  console.log('finalGenre:', options.finalGenre);
-  console.log('selectedGenre:', options.selectedGenre);
-  console.log('genreTargets:', options.genreTargets ? Object.keys(options.genreTargets) : null);
+  console.log('\n\n===== [DEBUG-PIPELINE-GENRE] Início do pipeline (WORK) =====');
+  console.log('mode:', options?.mode);
+  console.log('genre (options.genre):', options?.genre);
+  console.log('finalGenre:', options?.finalGenre);
+  console.log('selectedGenre:', options?.selectedGenre);
+  console.log('genreTargets keys:', options?.genreTargets ? Object.keys(options.genreTargets) : null);
   console.log('jobId:', jobId);
   console.log('=====================================================\n\n');
   
