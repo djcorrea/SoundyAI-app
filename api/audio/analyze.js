@@ -113,21 +113,25 @@ async function createJobInDatabase(fileKey, mode, fileName) {
     console.log('===============================================================\n\n');
     
     const redisJob = await queue.add('process-audio', {
-      jobId: jobId,        // 🔑 UUID para PostgreSQL
-      externalId: externalId, // 📋 ID customizado para logs
+      jobId,
+      externalId,
       fileKey,
       fileName,
-      mode
+      mode,
+      genre,
+      genreTargets,
+      hasTargets,
+      isReferenceBase
     }, {
-      jobId: externalId,   // 📋 BullMQ job ID (pode ser customizado)
+      jobId: externalId,
       priority: 1,
       attempts: 3,
       backoff: {
         type: 'exponential',
-        delay: 2000,
+        delay: 2000
       },
       removeOnComplete: 10,
-      removeOnFail: 5,
+      removeOnFail: 5
     });
     
     console.log(`✅ [API] Job enfileirado com sucesso:`);
@@ -248,7 +252,16 @@ router.post("/analyze", async (req, res) => {
   console.log('🚀 [API] /analyze chamada');
   
   try {
-    const { fileKey, mode = "genre", fileName } = req.body;
+    // pegar tudo que o front envia para o modo genre
+    const {
+      fileKey,
+      mode = "genre",
+      fileName,
+      genre,
+      genreTargets,
+      hasTargets,
+      isReferenceBase
+    } = req.body;
     
     // ✅ VALIDAÇÕES BÁSICAS
     if (!fileKey) {
