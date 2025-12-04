@@ -106,6 +106,18 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
     const queue = getAudioQueue();
     console.log('📩 [API] Enfileirando job no Redis...');
     
+    console.log("🟥 [AUDIT:CONTROLLER-QUEUE] Payload enviado para BullMQ:");
+    console.dir({
+      jobId: jobId,
+      externalId: externalId,
+      fileKey,
+      fileName,
+      mode,
+      genre: genre,
+      genreTargets: genreTargets,
+      referenceJobId: referenceJobId
+    }, { depth: 10 });
+    
     console.log('\n\n===== [DEBUG-CONTROLLER-PAYLOAD] Payload que VAI para o Redis (WORK) =====');
     console.dir({
       jobId: jobId,
@@ -369,6 +381,9 @@ router.post("/analyze", async (req, res) => {
   console.log('🚀 [API] /analyze chamada');
   
   try {
+    console.log("🟥 [AUDIT:CONTROLLER-BODY] Payload recebido do front:");
+    console.dir(req.body, { depth: 10 });
+    
     const { fileKey, mode = "genre", fileName, genre, genreTargets } = req.body;
     
     // 🎯 LOG DE AUDITORIA OBRIGATÓRIO
@@ -428,6 +443,9 @@ router.post("/analyze", async (req, res) => {
 
     // ✅ OBTER INSTÂNCIA DA FILA
     const queue = getAudioQueue();
+    
+    console.log("🟥 [AUDIT:CONTROLLER-PAYLOAD] Payload enviado para Postgres:");
+    console.dir({ fileKey, mode, fileName, referenceJobId, genre, genreTargets }, { depth: 10 });
     
     // ✅ CRIAR JOB NO BANCO E ENFILEIRAR (passar referenceJobId, genre E genreTargets)
     const jobRecord = await createJobInDatabase(fileKey, mode, fileName, referenceJobId, genre, genreTargets);
