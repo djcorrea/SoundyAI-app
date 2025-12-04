@@ -357,14 +357,17 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     });
     
     if (mode !== 'reference' && detectedGenre && detectedGenre !== 'default') {
-      // 🔥 PRIORIZAR genreTargets do usuário
+      // 🎯 PRIORIZAR TARGETS OFICIAIS DO FILESYSTEM (formato interno completo)
       console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('[TARGET-DEBUG] ANTES DE CARREGAR TARGETS:');
       console.log('[TARGET-DEBUG] detectedGenre:', detectedGenre);
-      console.log('[TARGET-DEBUG] options.genreTargets:', options.genreTargets ? 'presente' : 'null');
+      console.log('[TARGET-DEBUG] options.genreTargets (ignorado):', options.genreTargets ? 'presente mas será ignorado' : 'null');
       console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
-      customTargets = options.genreTargets || await loadGenreTargets(detectedGenre);
+      // 🔥 CORREÇÃO CIRÚRGICA: SEMPRE carregar do filesystem
+      // options.genreTargets vem do frontend com APENAS bands (incompleto)
+      // loadGenreTargets retorna formato interno completo: { lufs, truePeak, dr, stereo, bands... }
+      customTargets = await loadGenreTargets(detectedGenre);
       
       console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('[TARGET-DEBUG] DEPOIS DE CARREGAR TARGETS:');
@@ -376,10 +379,8 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       }
       console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
-      if (options.genreTargets) {
-        console.log(`[SUGGESTIONS_V1] 🎯 Usando targets CUSTOMIZADOS do usuário para ${detectedGenre}`);
-      } else if (customTargets) {
-        console.log(`[SUGGESTIONS_V1] 📂 Usando targets de ${detectedGenre} do filesystem`);
+      if (customTargets) {
+        console.log(`[SUGGESTIONS_V1] 📂 Usando targets de ${detectedGenre} do filesystem (formato interno completo)`);
       } else {
         console.log(`[SUGGESTIONS_V1] 📋 Usando targets hardcoded para ${detectedGenre}`);
       }
@@ -578,13 +579,14 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       });
       
       if (mode !== 'reference' && detectedGenreV2 && detectedGenreV2 !== 'default') {
-        // 🔥 PRIORIZAR genreTargets do usuário
-        customTargetsV2 = options.genreTargets || await loadGenreTargets(detectedGenreV2);
+        // 🎯 PRIORIZAR TARGETS OFICIAIS DO FILESYSTEM (formato interno completo)
+        // 🔥 CORREÇÃO CIRÚRGICA: SEMPRE carregar do filesystem
+        // options.genreTargets vem do frontend com APENAS bands (incompleto)
+        // loadGenreTargets retorna formato interno completo: { lufs, truePeak, dr, stereo, bands... }
+        customTargetsV2 = await loadGenreTargets(detectedGenreV2);
         
-        if (options.genreTargets) {
-          console.log(`[V2-SYSTEM] 🎯 Usando targets CUSTOMIZADOS do usuário para ${detectedGenreV2}`);
-        } else if (customTargetsV2) {
-          console.log(`[V2-SYSTEM] 📂 Usando targets de ${detectedGenreV2} do filesystem`);
+        if (customTargetsV2) {
+          console.log(`[V2-SYSTEM] 📂 Usando targets de ${detectedGenreV2} do filesystem (formato interno completo)`);
         } else {
           console.log(`[V2-SYSTEM] 📋 Usando targets hardcoded para ${detectedGenreV2}`);
         }
