@@ -284,11 +284,24 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
         }
       };
       
+      // 🎯 PRIORIDADE TRUE PEAK: Se True Peak crítico, marcar para renderização prioritária
+      const hasCriticalTruePeak = suggestions.some(s => 
+        (s.metric === 'truePeak' || s.metric === 'true_peak') && 
+        s.severity?.level === 'critical'
+      );
+      
+      if (hasCriticalTruePeak) {
+        result.priority = 'tp_first';
+        result.priorityMessage = '🔴 CORREÇÃO PRIORITÁRIA: Reduza o True Peak antes de realizar outros ajustes. Clipping digital impede análise precisa.';
+        console.log('[PROBLEMS_V2][PRIORITY] ⚠️ True Peak crítico detectado - marcado como prioridade');
+      }
+      
       logAudio('problems_v2', 'analysis_complete', {
         totalSuggestions: suggestions.length,
         critical: result.metadata.criticalCount,
         warning: result.metadata.warningCount,
-        ok: result.metadata.okCount
+        ok: result.metadata.okCount,
+        hasCriticalTruePeak
       });
       
       return result;
@@ -622,29 +635,61 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     }
     
     const diff = Math.abs(value - threshold.target);
+    const rawDelta = value - threshold.target; // Preservar sinal para sugestão
     const severity = this.calculateSeverity(diff, threshold.tolerance, threshold.critical || threshold.tolerance * 1.5);
     
     let message, explanation, action;
+    
+    // 🎯 REGRA ABSOLUTAMENTE RÍGIDA: Máximo ±6 dB por ajuste
+    const MAX_ADJUSTMENT_DB = 6.0;
+    let actionableGain = rawDelta;
+    let isProgressiveAdjustment = false;
+    
+    if (Math.abs(rawDelta) > MAX_ADJUSTMENT_DB) {
+      // Delta maior que 6 dB: sugerir ajuste progressivo
+      actionableGain = Math.sign(rawDelta) * Math.min(MAX_ADJUSTMENT_DB, Math.abs(rawDelta));
+      isProgressiveAdjustment = true;
+    }
     
     if (severity.level === 'critical') {
       if (value > threshold.target + threshold.critical) {
         message = `🔴 ${bandName} muito alto: ${value.toFixed(1)} dB`;
         explanation = `Excesso nesta faixa pode causar "booming" e mascarar outras frequências.`;
-        action = `Corte ${(value - threshold.target).toFixed(1)} dB em ${bandName} com EQ. Use filtro Q médio.`;
+        
+        if (isProgressiveAdjustment) {
+          action = `Ajuste progressivo: reduza entre 2 a 4 dB inicialmente e reavalie. Delta total: ${Math.abs(rawDelta).toFixed(1)} dB.`;
+        } else {
+          action = `Corte ${Math.abs(actionableGain).toFixed(1)} dB em ${bandName} com EQ. Use filtro Q médio.`;
+        }
       } else {
         message = `🔴 ${bandName} muito baixo: ${value.toFixed(1)} dB`;
         explanation = `Falta de energia nesta faixa deixa o som sem fundação e corpo.`;
-        action = `Aumente ${Math.abs(value - threshold.target).toFixed(1)} dB em ${bandName} com EQ suave.`;
+        
+        if (isProgressiveAdjustment) {
+          action = `Ajuste progressivo: aumente entre 2 a 4 dB inicialmente e reavalie. Delta total: ${Math.abs(rawDelta).toFixed(1)} dB.`;
+        } else {
+          action = `Aumente ${Math.abs(actionableGain).toFixed(1)} dB em ${bandName} com EQ suave.`;
+        }
       }
     } else if (severity.level === 'warning') {
       if (value > threshold.target) {
         message = `🟠 ${bandName} levemente alto: ${value.toFixed(1)} dB`;
         explanation = `Um pouco acima do ideal, mas ainda controlável.`;
-        action = `Considere corte sutil de 1-2 dB em ${bandName}.`;
+        
+        if (isProgressiveAdjustment) {
+          action = `Ajuste progressivo: considere redução de 2-3 dB e reavalie.`;
+        } else {
+          action = `Considere corte sutil de 1-2 dB em ${bandName}.`;
+        }
       } else {
         message = `🟠 ${bandName} levemente baixo: ${value.toFixed(1)} dB`;
         explanation = `Um pouco abaixo do ideal, mas pode funcionar.`;
-        action = `Considere realce sutil de 1-2 dB em ${bandName}.`;
+        
+        if (isProgressiveAdjustment) {
+          action = `Ajuste progressivo: considere aumento de 2-3 dB e reavalie.`;
+        } else {
+          action = `Considere realce sutil de 1-2 dB em ${bandName}.`;
+        }
       }
     } else {
       message = `🟢 ${bandName} ideal: ${value.toFixed(1)} dB`;
@@ -660,7 +705,10 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
       action,
       currentValue: `${value.toFixed(1)} dB`,
       targetValue: `${threshold.target} dB`,
-      delta: `${(value - threshold.target).toFixed(1)} dB`,
+      delta: `${rawDelta.toFixed(1)} dB`,
+      actionableGain: `${actionableGain > 0 ? '+' : ''}${actionableGain.toFixed(1)} dB`,
+      isProgressiveAdjustment,
+      maxSingleAdjustment: `±${MAX_ADJUSTMENT_DB} dB`,
       priority: severity.priority,
       bandName
     });
@@ -762,23 +810,53 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
   
   /**
    * 📝 Formatar Sugestão para JSON Final
+   * Garante estrutura completa e consistente para frontend e AI enrichment
    */
   formatSuggestionForJSON(suggestion) {
+    const { v4: uuidv4 } = require('uuid');
+    
     return {
-      type: suggestion.metric,         // ✅ CAMPO NECESSÁRIO PARA FRONTEND
+      // 🆔 Identificação única
+      id: suggestion.id || uuidv4(),
+      
+      // 🎯 Tipo de métrica (compatibilidade com frontend)
+      type: suggestion.metric,
       metric: suggestion.metric,
-      severity: suggestion.severity.level,
-      color: suggestion.severity.colorHex,
-      colorCode: suggestion.severity.color,
-      icon: suggestion.severity.icon,
+      
+      // 🚦 Severidade
+      severity: suggestion.severity?.level || 'unknown',
+      color: suggestion.severity?.colorHex || '#808080',
+      colorCode: suggestion.severity?.color || 'gray',
+      icon: suggestion.severity?.icon || '❓',
+      priority: suggestion.priority || 99,
+      
+      // 📊 Mensagens e Ação
+      title: suggestion.message || 'Sem título',
       message: suggestion.message,
+      problem: suggestion.explanation || 'Sem descrição do problema',
       explanation: suggestion.explanation,
+      cause: suggestion.cause || null,  // Pode ser enriquecido por AI
+      solution: suggestion.action || 'Sem ação específica',
       action: suggestion.action,
+      extra: suggestion.extra || null,   // Dicas adicionais para AI
+      
+      // 🔧 Plugin/Ferramenta sugerida
+      plugin: suggestion.plugin || null,
+      
+      // 📏 Valores numéricos
       currentValue: suggestion.currentValue,
       targetValue: suggestion.targetValue,
       delta: suggestion.delta,
-      priority: suggestion.priority,
-      bandName: suggestion.bandName || null
+      
+      // 🎛️ Campos específicos de bandas
+      bandName: suggestion.bandName || null,
+      actionableGain: suggestion.actionableGain || null,
+      isProgressiveAdjustment: suggestion.isProgressiveAdjustment || false,
+      maxSingleAdjustment: suggestion.maxSingleAdjustment || null,
+      
+      // 🤖 Marcadores para AI enrichment
+      aiEnhanced: false,
+      enrichmentStatus: 'pending'
     };
   }
   
