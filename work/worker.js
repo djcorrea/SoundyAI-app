@@ -324,6 +324,12 @@ async function processJob(job) {
   console.dir(job.data, { depth: 10 });
   console.log('===============================================================\n\n');
 
+  console.log("\n\n🔵🔵🔵 [AUDIT:WORKER-ENTRY] Job recebido pelo worker:");
+  console.dir(job.data, { depth: 10 });
+  console.log("🔵 [AUDIT:WORKER-ENTRY] Genre recebido:", job.data?.genre);
+  console.log("🔵 [AUDIT:WORKER-ENTRY] Mode recebido:", job.data?.mode);
+  console.log("🔵 [AUDIT:WORKER-ENTRY] GenreTargets recebido:", job.data?.genreTargets ? Object.keys(job.data.genreTargets) : null);
+
   let localFilePath = null;
   let heartbeatInterval = null;
 
@@ -582,6 +588,14 @@ async function processJob(job) {
         genreFromJob ||
         null;
 
+      console.log('\n\n🟠🟠🟠 [AUDIT:GENRE-CHECK] Resolução de gênero no worker:');
+      console.log('🟠 [AUDIT:GENRE-CHECK] mode:', mode);
+      console.log('🟠 [AUDIT:GENRE-CHECK] genreFromJob:', genreFromJob);
+      console.log('🟠 [AUDIT:GENRE-CHECK] genreFromOptions:', genreFromOptions);
+      console.log('🟠 [AUDIT:GENRE-CHECK] genreFromAnalysis:', genreFromAnalysis);
+      console.log('🟠 [AUDIT:GENRE-CHECK] resolvedGenre (FINAL):', resolvedGenre);
+      console.log('🟠 [AUDIT:GENRE-CHECK] results?.metadata?.detectedGenre:', analysis?.metadata?.detectedGenre);
+      
       console.log('[RESOLVE-GENRE] 🔍 Resolução de gênero:', {
         mode,
         genreFromJob,
@@ -592,6 +606,15 @@ async function processJob(job) {
 
       // Se estamos em modo genre, gênero é obrigatório
       if (mode === "genre" && (!resolvedGenre || typeof resolvedGenre !== "string")) {
+        console.error('\n\n🔴🔴🔴 [AUDIT:GENRE-ERROR] ERRO CRÍTICO: Modo genre sem gênero válido!');
+        console.error('🔴 [AUDIT:GENRE-ERROR] mode:', mode);
+        console.error('🔴 [AUDIT:GENRE-ERROR] genreFromJob:', genreFromJob);
+        console.error('🔴 [AUDIT:GENRE-ERROR] genreFromOptions:', genreFromOptions);
+        console.error('🔴 [AUDIT:GENRE-ERROR] genreFromAnalysis:', genreFromAnalysis);
+        console.error('🔴 [AUDIT:GENRE-ERROR] resolvedGenre:', resolvedGenre);
+        console.error('🔴 [AUDIT:GENRE-ERROR] job.data completo:');
+        console.dir(job.data, { depth: 10 });
+        
         console.error('[RESOLVE-GENRE] ❌ ERRO CRÍTICO: modo genre sem gênero válido!', {
           mode,
           genreFromJob,
@@ -1024,6 +1047,16 @@ async function processJob(job) {
     const resultJSON = JSON.stringify(result);      // Para campo 'result' (compatibilidade)
     const resultsJSON = JSON.stringify(resultsForDb); // Para campo 'results' (GARANTIA)
 
+    console.log('\n\n🟣🟣🟣 [AUDIT:RESULT-BEFORE-SAVE] Resultado ANTES de salvar no Postgres:');
+    console.log('🟣 [AUDIT:RESULT-BEFORE-SAVE] resultsForDb.genre:', resultsForDb.genre);
+    console.log('🟣 [AUDIT:RESULT-BEFORE-SAVE] resultsForDb.mode:', resultsForDb.mode);
+    console.log('🟣 [AUDIT:RESULT-BEFORE-SAVE] resultsForDb.data?.genre:', resultsForDb.data?.genre);
+    console.log('🟣 [AUDIT:RESULT-BEFORE-SAVE] resultsForDb.summary?.genre:', resultsForDb.summary?.genre);
+    console.log('🟣 [AUDIT:RESULT-BEFORE-SAVE] resultsForDb.metadata?.genre:', resultsForDb.metadata?.genre);
+    console.log('🟣 [AUDIT:RESULT-BEFORE-SAVE] Genre original (job.data):', job.data?.genre);
+    console.log('🟣 [AUDIT:RESULT-BEFORE-SAVE] JSON length:', resultsJSON.length);
+    console.log('🟣 [AUDIT:RESULT-BEFORE-SAVE] Será salvo no campo results da tabela jobs');
+
     // 🔍 LOG PARANOID NÍVEL 1: VERIFICAR SERIALIZAÇÃO
     console.log("[GENRE-PARANOID][PRE-UPDATE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log("[GENRE-PARANOID][PRE-UPDATE] 📊 result (compatibilidade):");
@@ -1258,6 +1291,8 @@ async function processJobs() {
 
 setInterval(processJobs, 5000);
 processJobs();
+
+console.log("🟪 [WORK-INIT] Work iniciado. Aguardando jobs...");
 
 // FUNÇÃO enrichJobWithAI REMOVIDA - Enrichment agora é SÍNCRONO no fluxo principal
 
