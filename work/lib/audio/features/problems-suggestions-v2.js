@@ -180,6 +180,17 @@ const GENRE_THRESHOLDS = {
  */
 export class ProblemsAndSuggestionsAnalyzerV2 {
   constructor(genre = 'default', customTargets = null) {
+    console.log('[ANALYZER-CONSTRUCTOR] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    console.log('[ANALYZER-CONSTRUCTOR] ENTRADA DO CONSTRUTOR:');
+    console.log('[ANALYZER-CONSTRUCTOR] genre:', genre);
+    console.log('[ANALYZER-CONSTRUCTOR] customTargets:', customTargets ? 'presente' : 'NULL');
+    if (customTargets) {
+      console.log('[ANALYZER-CONSTRUCTOR] customTargets keys:', Object.keys(customTargets));
+      console.log('[ANALYZER-CONSTRUCTOR] customTargets.lufs:', customTargets.lufs);
+      console.log('[ANALYZER-CONSTRUCTOR] customTargets.dr:', customTargets.dr);
+    }
+    console.log('[ANALYZER-CONSTRUCTOR] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    
     // 🛡️ BLINDAGEM SECUNDÁRIA: Validar e proteger genre
     if (!genre || typeof genre !== 'string' || !genre.trim()) {
       console.error('[ANALYZER-ERROR] Genre inválido recebido:', genre);
@@ -194,6 +205,8 @@ export class ProblemsAndSuggestionsAnalyzerV2 {
     // 🎯 PRIORIDADE: customTargets (do filesystem) > GENRE_THRESHOLDS (hardcoded)
     if (customTargets && typeof customTargets === 'object' && Object.keys(customTargets).length > 0) {
       console.log(`[PROBLEMS_V2] ✅ Usando customTargets para ${genre}`);
+      console.log('[PROBLEMS_V2] customTargets.lufs:', customTargets.lufs);
+      console.log('[PROBLEMS_V2] customTargets.dr:', customTargets.dr);
       this.thresholds = customTargets;
       this.targetsSource = 'filesystem';
     } else {
