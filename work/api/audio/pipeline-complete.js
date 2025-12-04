@@ -26,6 +26,101 @@ const __dirname = path.dirname(__filename);
 console.log('🎵 Pipeline Completo (Fases 5.1-5.4) carregado - Node.js Backend CORRIGIDO');
 
 /**
+ * 🎯 FUNÇÃO DE ORDENAÇÃO PROFISSIONAL DE SUGESTÕES
+ * Ordena sugestões seguindo prioridade técnica profissional:
+ * 1. True Peak (mais crítico)
+ * 2. LUFS
+ * 3. Dynamic Range
+ * 4. Headroom
+ * 5. Bandas espectrais (sub → brilho)
+ * 6. Stereo Width
+ * 7. Outros
+ */
+function orderSuggestionsForUser(suggestions) {
+  if (!Array.isArray(suggestions) || suggestions.length === 0) {
+    return suggestions;
+  }
+  
+  const weights = {
+    // Métricas críticas
+    'true_peak': 1,
+    'truePeak': 1,
+    'truePeakDbtp': 1,
+    
+    // Loudness
+    'lufs': 2,
+    'lufsIntegrated': 2,
+    
+    // Dinâmica
+    'dynamic_range': 3,
+    'dynamicRange': 3,
+    'dr': 3,
+    
+    // Headroom
+    'headroom': 4,
+    
+    // Bandas espectrais (ordem profissional: graves → agudos)
+    'sub': 5,
+    'low_bass': 6,
+    'bass': 6,
+    'upper_bass': 7,
+    'lowMid': 8,
+    'low_mid': 8,
+    'mid': 9,
+    'highMid': 10,
+    'high_mid': 10,
+    'presence': 11,
+    'presenca': 11,
+    'brilho': 12,
+    'air': 12,
+    
+    // Stereo
+    'stereo_width': 13,
+    'stereo': 13,
+    'stereoCorrelation': 13,
+    
+    // LRA
+    'lra': 14,
+    
+    // EQ genérico
+    'eq': 15,
+    'band': 15,
+    
+    // Outros
+    'other': 99
+  };
+  
+  return suggestions.sort((a, b) => {
+    // Determinar peso de cada sugestão
+    const getWeight = (sug) => {
+      // Tentar diferentes campos onde o tipo pode estar
+      const type = sug.type || sug.metric || sug.category || 'other';
+      
+      // Normalizar para minúsculas e remover espaços
+      const normalizedType = String(type).toLowerCase().replace(/\s+/g, '_');
+      
+      // Buscar peso, fallback para 99 (outros)
+      return weights[normalizedType] || weights[type] || 99;
+    };
+    
+    const wA = getWeight(a);
+    const wB = getWeight(b);
+    
+    // Ordenar por peso (menor peso = maior prioridade)
+    if (wA !== wB) {
+      return wA - wB;
+    }
+    
+    // Se pesos iguais, ordenar por severidade (se existir)
+    const severityOrder = { 'critical': 0, 'crítica': 0, 'high': 1, 'alta': 1, 'medium': 2, 'média': 2, 'low': 3, 'baixa': 3 };
+    const sevA = severityOrder[a.severity] || severityOrder[a.priority] || 99;
+    const sevB = severityOrder[b.severity] || severityOrder[b.priority] || 99;
+    
+    return sevA - sevB;
+  });
+}
+
+/**
  * 🗂️ Criar arquivo temporário WAV para FFmpeg True Peak
  */
 function createTempWavFile(audioBuffer, audioData, fileName, jobId) {
@@ -711,8 +806,34 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         console.log('[V2-SYSTEM] Modo reference - ignorando V1 e V2');
       }
       
-      // ✅ Marcar aiSuggestions vazio (será preenchido pelo worker assíncrono)
-      finalJSON.aiSuggestions = [];
+      // 🤖 ENRIQUECIMENTO IA ULTRA V2 - MODO GENRE
+      try {
+        console.log('[AI-AUDIT][ULTRA_DIAG] 🚀 Enviando sugestões base para IA (modo genre)...');
+        
+        const aiContext = {
+          genre: finalGenreForAnalyzer,
+          mode: mode || 'genre',
+          userMetrics: coreMetrics,
+          referenceMetrics: null,
+          referenceComparison: null,
+          fileName: fileName || metadata?.fileName || 'unknown',
+          referenceFileName: null,
+          deltas: null
+        };
+        
+        finalJSON.aiSuggestions = await enrichSuggestionsWithAI(finalJSON.suggestions, aiContext);
+        
+        console.log(`[AI-AUDIT][ULTRA_DIAG] ✅ IA retornou ${finalJSON.aiSuggestions.length} sugestões enriquecidas`);
+      } catch (aiError) {
+        console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Falha ao executar enrichSuggestionsWithAI:', aiError.message);
+        console.error('[AI-AUDIT][ULTRA_DIAG] Stack:', aiError.stack);
+        finalJSON.aiSuggestions = finalJSON.suggestions.map(sug => ({
+          ...sug,
+          aiEnhanced: false,
+          enrichmentStatus: 'error',
+          enrichmentError: aiError.message
+        }));
+      }
       
       console.log('[V2-SYSTEM] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('[V2-SYSTEM] 📊 Resultado final:', {
@@ -835,13 +956,42 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
               });
               console.log('[AI-AUDIT][REF] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
               
-              console.log('[AI-AUDIT][ULTRA_DIAG] 💾 Contexto salvo, IA será processada de forma assíncrona');
+              console.log('[AI-AUDIT][ULTRA_DIAG] 🚀 Enviando para IA com contexto de comparação...');
               
-              // 💾 SALVAR SUGGESTIONS BASE (IA será adicionada de forma assíncrona)
-              finalJSON.aiSuggestions = []; // ⤵️ Será preenchido pelo worker assíncrono
+              // 🤖 ENRIQUECIMENTO IA ULTRA V2 - MODO REFERENCE COM COMPARAÇÃO
+              try {
+                const aiContext = {
+                  genre: finalGenreForAnalyzer,
+                  mode: 'reference',
+                  userMetrics: coreMetrics,
+                  referenceMetrics: refData,
+                  referenceComparison: referenceComparison,
+                  fileName: fileName || metadata?.fileName || 'unknown',
+                  referenceFileName: refData?.fileName || refData?.metadata?.fileName,
+                  deltas: referenceComparison
+                };
+                
+                finalJSON.aiSuggestions = await enrichSuggestionsWithAI(finalJSON.suggestions, aiContext);
+                
+                console.log(`[AI-AUDIT][ULTRA_DIAG] ✅ IA retornou ${finalJSON.aiSuggestions.length} sugestões enriquecidas`);
+              } catch (aiError) {
+                console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Falha ao executar enrichSuggestionsWithAI:', aiError.message);
+                console.error('[AI-AUDIT][ULTRA_DIAG] Stack:', aiError.stack);
+                finalJSON.aiSuggestions = finalJSON.suggestions.map(sug => ({
+                  ...sug,
+                  aiEnhanced: false,
+                  enrichmentStatus: 'error',
+                  enrichmentError: aiError.message
+                }));
+              }
             } catch (aiError) {
               console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Erro ao processar referência:', aiError.message);
-              finalJSON.aiSuggestions = [];
+              finalJSON.aiSuggestions = finalJSON.suggestions.map(sug => ({
+                ...sug,
+                aiEnhanced: false,
+                enrichmentStatus: 'outer_error',
+                enrichmentError: aiError.message
+              }));
             }
           } else {
             console.warn("[REFERENCE-MODE] ⚠️ Job de referência não encontrado - gerando sugestões genéricas");
@@ -868,9 +1018,33 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
           // 🔍 LOG DE DIAGNÓSTICO: Sugestões avançadas geradas (error fallback)
           console.log(`[AI-AUDIT][ULTRA_DIAG] ✅ Sugestões avançadas detectadas (error fallback): ${finalJSON.suggestions.length} itens`);
           
-          // 💾 SALVAR SUGGESTIONS BASE (IA será adicionada de forma assíncrona)
-          finalJSON.aiSuggestions = []; // ⤵️ Será preenchido pelo worker assíncrono
-          console.log('[AI-AUDIT][ERROR-FALLBACK] 💾 Suggestions base salvas, IA será processada de forma assíncrona');
+          // 🤖 ENRIQUECIMENTO IA ULTRA V2 (error fallback)
+          try {
+            console.log('[AI-AUDIT][ERROR-FALLBACK] 🚀 Enviando para IA (error fallback)...');
+            
+            const aiContext = {
+              genre: finalGenreForAnalyzer,
+              mode: 'reference',
+              userMetrics: coreMetrics,
+              referenceMetrics: null,
+              referenceComparison: null,
+              fileName: fileName || metadata?.fileName || 'unknown',
+              referenceFileName: null,
+              deltas: null
+            };
+            
+            finalJSON.aiSuggestions = await enrichSuggestionsWithAI(finalJSON.suggestions, aiContext);
+            
+            console.log(`[AI-AUDIT][ERROR-FALLBACK] ✅ IA retornou ${finalJSON.aiSuggestions.length} sugestões`);
+          } catch (aiError) {
+            console.error('[AI-AUDIT][ERROR-FALLBACK] ❌ Erro no enriquecimento IA:', aiError.message);
+            finalJSON.aiSuggestions = finalJSON.suggestions.map(sug => ({
+              ...sug,
+              aiEnhanced: false,
+              enrichmentStatus: 'error',
+              enrichmentError: aiError.message
+            }));
+          }
         }
       }
       
@@ -946,7 +1120,29 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         finalJSON.suggestions = [];
       }
       if (!Array.isArray(finalJSON.aiSuggestions)) {
-        finalJSON.aiSuggestions = [];
+        // 🤖 Tentar enriquecer mesmo com erro (se há suggestions base)
+        if (finalJSON.suggestions.length > 0) {
+          try {
+            console.log('[AI-AUDIT][CATCH] 🚀 Tentando enriquecer após erro...');
+            const aiContext = {
+              genre: finalGenreForAnalyzer || 'default',
+              mode: mode || 'genre',
+              userMetrics: coreMetrics,
+              referenceMetrics: null,
+              referenceComparison: null,
+              fileName: fileName || metadata?.fileName || 'unknown',
+              referenceFileName: null,
+              deltas: null
+            };
+            finalJSON.aiSuggestions = await enrichSuggestionsWithAI(finalJSON.suggestions, aiContext);
+            console.log(`[AI-AUDIT][CATCH] ✅ IA retornou ${finalJSON.aiSuggestions.length} sugestões`);
+          } catch (aiError) {
+            console.error('[AI-AUDIT][CATCH] ❌ Falha final ao enriquecer:', aiError.message);
+            finalJSON.aiSuggestions = [];
+          }
+        } else {
+          finalJSON.aiSuggestions = [];
+        }
       }
       if (!finalJSON.problemsAnalysis || typeof finalJSON.problemsAnalysis !== 'object') {
         finalJSON.problemsAnalysis = { problems: [], suggestions: [] };
@@ -967,6 +1163,22 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     finalJSON.metadata.stage = 'completed';
     finalJSON.metadata.pipelineVersion = '5.1-5.4-corrected';
 
+    // 🎯 ORDENAR SUGESTÕES POR PRIORIDADE PROFISSIONAL
+    finalJSON.suggestions = orderSuggestionsForUser(finalJSON.suggestions || []);
+    finalJSON.aiSuggestions = orderSuggestionsForUser(finalJSON.aiSuggestions || []);
+    
+    console.log('[ORDERING] ✅ Sugestões ordenadas por prioridade profissional');
+    console.log('[ORDERING] suggestions:', finalJSON.suggestions.length, 'itens');
+    console.log('[ORDERING] aiSuggestions:', finalJSON.aiSuggestions.length, 'itens');
+    
+    // 🎯 ORDENAR SUGESTÕES POR PRIORIDADE PROFISSIONAL
+    finalJSON.suggestions = orderSuggestionsForUser(finalJSON.suggestions || []);
+    finalJSON.aiSuggestions = orderSuggestionsForUser(finalJSON.aiSuggestions || []);
+    
+    console.log('[ORDERING] ✅ Sugestões ordenadas por prioridade profissional');
+    console.log('[ORDERING] suggestions:', finalJSON.suggestions.length, 'itens');
+    console.log('[ORDERING] aiSuggestions:', finalJSON.aiSuggestions.length, 'itens');
+    
     // Validação final - garantir que não temos NaN/Infinity
     try {
       assertFinite(finalJSON, 'output_scoring');
