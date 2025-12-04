@@ -48,6 +48,12 @@ async function addTestJob() {
     console.log(`[MANUAL-JOB][${new Date().toISOString()}] -> 📋 PASSO 2: Adicionando job de teste...`);
     console.log(`[MANUAL-JOB][${new Date().toISOString()}] -> 🎯 Job Data:`, testData);
     
+    // 🟥🟥 AUDITORIA: QUEM ESTÁ CRIANDO O JOB
+    console.log("🟥🟥 [AUDIT:JOB-CREATOR] Este arquivo está CRIANDO um job AGORA:");
+    console.log("🟥 [AUDIT:JOB-CREATOR] Arquivo:", import.meta.url);
+    console.log("🟥 [AUDIT:JOB-CREATOR] Payload enviado para a fila:");
+    console.dir(testData, { depth: 10 });
+    
     // ✅ Adicionar job com mesmo formato que a API
     const redisJob = await audioQueue.add('process-audio', testData, {
       removeOnComplete: 10,

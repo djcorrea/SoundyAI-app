@@ -131,14 +131,24 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
     }, { depth: 10 });
     console.log('===============================================================\n\n');
     
-    const redisJob = await queue.add('process-audio', {
+    // 🟥🟥 AUDITORIA: QUEM ESTÁ CRIANDO O JOB
+    const payloadParaRedis = {
       jobId: jobId,        // 🔑 UUID para PostgreSQL
       externalId: externalId, // 📋 ID customizado para logs
       fileKey,
       fileName,
       mode,
+      genre: genre,        // 🎯 CRÍTICO: Genre DEVE ir para Redis
+      genreTargets: genreTargets, // 🎯 CRÍTICO: GenreTargets DEVE ir para Redis
       referenceJobId: referenceJobId // 🔗 ID do job de referência (se mode='comparison')
-    }, {
+    };
+    
+    console.log("🟥🟥 [AUDIT:JOB-CREATOR] Este arquivo está CRIANDO um job AGORA:");
+    console.log("🟥 [AUDIT:JOB-CREATOR] Arquivo:", import.meta.url);
+    console.log("🟥 [AUDIT:JOB-CREATOR] Payload enviado para a fila:");
+    console.dir(payloadParaRedis, { depth: 10 });
+    
+    const redisJob = await queue.add('process-audio', payloadParaRedis, {
       jobId: externalId,   // 📋 BullMQ job ID (pode ser customizado)
       priority: 1,
       attempts: 3,
@@ -242,7 +252,8 @@ async function createComparisonJobInDatabase(userFileKey, referenceFileKey, user
     const queue = getAudioQueue();
     console.log('📩 [API] Enfileirando job de comparação no Redis...');
     
-    const redisJob = await queue.add('process-audio', {
+    // 🟥🟥 AUDITORIA: QUEM ESTÁ CRIANDO O JOB DE COMPARAÇÃO
+    const payloadParaRedis = {
       jobId: jobId,        // 🔑 UUID para PostgreSQL
       externalId: externalId, // 📋 ID customizado para logs
       fileKey: userFileKey,
@@ -250,7 +261,14 @@ async function createComparisonJobInDatabase(userFileKey, referenceFileKey, user
       fileName: userFileName,
       refFileName: refFileName,
       mode: 'comparison'
-    }, {
+    };
+    
+    console.log("🟥🟥 [AUDIT:JOB-CREATOR] Este arquivo está CRIANDO um job de COMPARAÇÃO AGORA:");
+    console.log("🟥 [AUDIT:JOB-CREATOR] Arquivo:", import.meta.url);
+    console.log("🟥 [AUDIT:JOB-CREATOR] Payload enviado para a fila:");
+    console.dir(payloadParaRedis, { depth: 10 });
+    
+    const redisJob = await queue.add('process-audio', payloadParaRedis, {
       jobId: externalId,   // 📋 BullMQ job ID (pode ser customizado)
       priority: 1,
       attempts: 3,

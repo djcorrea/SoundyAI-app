@@ -324,11 +324,17 @@ async function processJob(job) {
   console.dir(job.data, { depth: 10 });
   console.log('===============================================================\n\n');
 
+  console.log("\n🔵🔵 [AUDIT:WORKER-ENTRY] Worker recebeu job:");
+  console.log("🔵 [AUDIT:WORKER-ENTRY] Arquivo:", import.meta.url);
+  console.dir(job.data, { depth: 10 });
+  
   console.log("\n\n🔵🔵🔵 [AUDIT:WORKER-ENTRY] Job recebido pelo worker:");
   console.dir(job.data, { depth: 10 });
   console.log("🔵 [AUDIT:WORKER-ENTRY] Genre recebido:", job.data?.genre);
+  console.log("🔵 [AUDIT:WORKER-ENTRY] GenreTargets recebido:", job.data?.genreTargets);
   console.log("🔵 [AUDIT:WORKER-ENTRY] Mode recebido:", job.data?.mode);
-  console.log("🔵 [AUDIT:WORKER-ENTRY] GenreTargets recebido:", job.data?.genreTargets ? Object.keys(job.data.genreTargets) : null);
+  console.log("🔵 [AUDIT:WORKER-ENTRY] FileKey recebido:", job.data?.fileKey);
+  console.log("🔵 [AUDIT:WORKER-ENTRY] JobId recebido:", job.data?.jobId);
 
   let localFilePath = null;
   let heartbeatInterval = null;
