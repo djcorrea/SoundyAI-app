@@ -548,6 +548,11 @@ async function updateJobStatus(jobId, status, results = null) {
       }
       console.log(`[AI-AUDIT][SAVE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`);
       
+      console.log('\n\n🟣🟣🟣 [AUDIT:RESULT-BEFORE-SAVE] Resultado final antes de retornar:');
+      console.dir(results, { depth: 10 });
+      console.log('🟣 [AUDIT:RESULT-BEFORE-SAVE] Genre no results:', results?.metadata?.genre);
+      console.log('🟣 [AUDIT:RESULT-BEFORE-SAVE] results.genre:', results?.genre);
+      
       query = `UPDATE jobs SET status = $1, results = $2, updated_at = NOW() WHERE id = $3 RETURNING *`;
       params = [status, JSON.stringify(results), jobId];
     } else {
@@ -646,6 +651,12 @@ async function downloadFileFromBucket(fileKey) {
 async function audioProcessor(job) {
   // 🔑 ESTRUTURA ATUALIZADA: suporte para jobId UUID + externalId para logs + referenceJobId
   const { jobId, externalId, fileKey, mode, fileName, referenceJobId } = job.data;
+  
+  console.log("\n\n🔵🔵🔵 [AUDIT:WORKER-ENTRY] Job recebido pelo worker:");
+  console.dir(job.data, { depth: 10 });
+  console.log("🔵 [AUDIT:WORKER-ENTRY] Genre recebido:", job.data?.genre);
+  console.log("🔵 [AUDIT:WORKER-ENTRY] Mode recebido:", job.data?.mode);
+  console.log("🔵 [AUDIT:WORKER-ENTRY] GenreTargets recebido:", job.data?.genreTargets ? Object.keys(job.data.genreTargets) : null);
   
   // 🎯 AUDIT: LOG INICIAL - Job consumido da fila
   console.log('🔍 [AUDIT_CONSUME] ═══════════════════════════════════════');
@@ -973,6 +984,10 @@ async function audioProcessor(job) {
 
   } catch (error) {
     console.error(`💥 [PROCESS][${new Date().toISOString()}] -> Erro no processamento:`, error.message);
+    
+    console.log("🔴 [AUDIT:GENRE-ERROR] Gênero chegou NU no pipeline!");
+    console.log("🔴 [AUDIT:GENRE-ERROR] job.data ===>");
+    console.dir(job.data, { depth: 10 });
     
     // 🎯 AUDIT: LOG DE ERRO
     console.error('❌ [AUDIT_ERROR] ═══════════════════════════════════════');
