@@ -307,7 +307,15 @@ async function analyzeAudioWithPipeline(localFilePath, jobOrOptions) {
         engineVersion: 'worker-error',
         pipelinePhase: 'error'
       },
-      technicalData: {},
+      technicalData: {
+        lufsIntegrated: null,
+        truePeakDbtp: null,
+        dynamicRange: null,
+        crestFactor: null,
+        stereoCorrelation: null,
+        spectral_balance: null,
+        _error: 'pipeline_failed'
+      },
       warnings: [`Worker error: ${error.message}`],
       buildVersion: 'worker-error',
       frontendCompatible: false,
@@ -1000,12 +1008,32 @@ async function processJob(job) {
       },
       
       // ✅ Métricas técnicas
-      technicalData: result.technicalData || {},
+      technicalData: (() => {
+        // 🔥 VALIDAÇÃO CRÍTICA: NUNCA salvar technicalData vazio
+        if (!result.technicalData || typeof result.technicalData !== 'object') {
+          console.error('[WORKER-CRITICAL] result.technicalData ausente ou inválido:', typeof result.technicalData);
+          throw new Error('[WORKER-ERROR] result.technicalData está ausente - pipeline falhou');
+        }
+        const keys = Object.keys(result.technicalData);
+        if (keys.length === 0) {
+          console.error('[WORKER-CRITICAL] result.technicalData está vazio:', result.technicalData);
+          throw new Error('[WORKER-ERROR] result.technicalData está vazio - pipeline não gerou métricas');
+        }
+        // Validar campos essenciais
+        const essentialFields = ['lufsIntegrated', 'truePeakDbtp', 'dynamicRange', 'spectral_balance'];
+        const missingFields = essentialFields.filter(f => result.technicalData[f] === undefined);
+        if (missingFields.length > 0) {
+          console.warn('[WORKER-WARNING] Campos essenciais ausentes:', missingFields);
+        }
+        console.log('[WORKER-VALIDATION] ✅ technicalData válido com', keys.length, 'campos');
+        return result.technicalData;
+      })(),
       loudness: result.loudness || {},
       dynamics: result.dynamics || {},
       truePeak: result.truePeak || {},
       energy: result.energy || {},
-      bands: result.bands || result.spectralBands || {},
+      // ❌ REMOVIDO: bands duplicado - usar apenas technicalData.spectral_balance
+      // bands: result.bands || result.spectralBands || {},
       
       // ✅ Suggestions e AI
       suggestions: result.suggestions || [],
