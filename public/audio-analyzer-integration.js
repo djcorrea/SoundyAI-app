@@ -13471,8 +13471,8 @@ function renderReferenceComparisons(ctx) {
     }
     
     // 🛡️ PATCH 3: GUARD ADICIONAL - Se for modo gênero, não renderizar A/B
-    const analysis = ctx?.userAnalysis || ctx?.user;
-    if (analysis?.mode === 'genre') {
+    const analysisCheck = ctx?.userAnalysis || ctx?.user;
+    if (analysisCheck?.mode === 'genre') {
         console.log('[RENDER-REF] 🎯 Modo gênero detectado - deve usar renderGenreComparisonTable');
         console.warn('[RENDER-REF] ⚠️ Esta função não deve ser chamada para modo gênero!');
         return; // Modo gênero deve usar renderGenreComparisonTable
@@ -13913,7 +13913,7 @@ function renderReferenceComparisons(ctx) {
     console.log("[LOCK-FIX] ✅ Permitindo render com validação de dados (lock duplicado removido)");
     
     // Aceita opts ou analysis (backward compatibility)
-    const analysis = opts.analysis || opts;
+    const finalAnalysis = opts.analysis || opts;
     let comparisonData = opts?.comparisonData || {};
     
     const refBandsReal =
