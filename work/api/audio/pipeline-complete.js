@@ -360,6 +360,47 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         'isGenreMode': isGenreMode
       });
       
+      // 🔥 CARREGAR TARGETS DO FILESYSTEM (ANTES de usar)
+      if (mode !== 'reference' && detectedGenre && detectedGenre !== 'default') {
+        // 🎯 PRIORIZAR TARGETS OFICIAIS DO FILESYSTEM (formato interno completo)
+        console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('[TARGET-DEBUG] ANTES DE CARREGAR TARGETS:');
+        console.log('[TARGET-DEBUG] detectedGenre:', detectedGenre);
+        console.log('[TARGET-DEBUG] options.genreTargets (ignorado):', options.genreTargets ? 'presente mas será ignorado' : 'null');
+        console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
+        // 🔥 CORREÇÃO CIRÚRGICA: SEMPRE carregar do filesystem
+        // options.genreTargets vem do frontend com APENAS bands (incompleto)
+        // loadGenreTargets retorna formato interno completo: { lufs, truePeak, dr, stereo, bands... }
+        customTargets = await loadGenreTargets(detectedGenre);
+        
+        // 🔧 LOGS DE DEPURAÇÃO (após carregamento)
+        console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('[TARGET-DEBUG] DEPOIS DE CARREGAR TARGETS:');
+        console.log('[TARGET-DEBUG] customTargets:', customTargets ? 'presente' : 'NULL');
+        if (customTargets) {
+          console.log('[TARGET-DEBUG] customTargets keys:', Object.keys(customTargets));
+          console.log('[TARGET-DEBUG] customTargets.lufs:', customTargets.lufs);
+          console.log('[TARGET-DEBUG] customTargets.dr:', customTargets.dr);
+          console.log('[GENRE-TARGETS-PATCH-V2] customTargets carregado do filesystem');
+          console.log('[GENRE-TARGETS-PATCH-V2] keys:', Object.keys(customTargets));
+          console.log('[GENRE-TARGETS-PATCH-V2] lufs:', customTargets.lufs);
+          console.log('[GENRE-TARGETS-PATCH-V2] truePeak:', customTargets.truePeak);
+        }
+        console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
+        // ❌ VALIDAÇÃO OBRIGATÓRIA: customTargets DEVE existir
+        if (!customTargets) {
+          const errorMsg = `❌ ERRO CRÍTICO: customTargets não carregado para gênero "${detectedGenre}". Arquivo JSON não encontrado ou inválido.`;
+          console.error(`[SUGGESTIONS_V1] ${errorMsg}`);
+          throw new Error(errorMsg);
+        }
+        
+        console.log(`[SUGGESTIONS_V1] ✅ Usando targets de ${detectedGenre} do filesystem (formato interno completo)`);
+      } else if (mode === 'reference') {
+        console.log(`[SUGGESTIONS_V1] 🔒 Modo referência - ignorando targets de gênero`);
+      }
+      
       console.log('[GENRE-TARGETS-PATCH-V2] ----------');
       console.log('[GENRE-TARGETS-PATCH-V2] customTargets presente?', !!customTargets);
       if (customTargets) {
@@ -439,8 +480,6 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       'isDefault': detectedGenre === 'default'
     });
     
-    let customTargets = null;
-    
     console.log('[GENRE-FLOW][PIPELINE] Genre detectado (linha 246):', {
       'options.genre': options.genre,
       'detectedGenre': detectedGenre,
@@ -462,46 +501,6 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       hasCoreMetrics: !!coreMetrics,
       coreMetricsKeys: Object.keys(coreMetrics || {})
     });
-    
-    if (mode !== 'reference' && detectedGenre && detectedGenre !== 'default') {
-      // 🎯 PRIORIZAR TARGETS OFICIAIS DO FILESYSTEM (formato interno completo)
-      console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('[TARGET-DEBUG] ANTES DE CARREGAR TARGETS:');
-      console.log('[TARGET-DEBUG] detectedGenre:', detectedGenre);
-      console.log('[TARGET-DEBUG] options.genreTargets (ignorado):', options.genreTargets ? 'presente mas será ignorado' : 'null');
-      console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      
-      // 🔥 CORREÇÃO CIRÚRGICA: SEMPRE carregar do filesystem
-      // options.genreTargets vem do frontend com APENAS bands (incompleto)
-      // loadGenreTargets retorna formato interno completo: { lufs, truePeak, dr, stereo, bands... }
-      customTargets = await loadGenreTargets(detectedGenre);
-      
-      // 🔧 LOGS DE DEPURAÇÃO (após carregamento)
-      console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      console.log('[TARGET-DEBUG] DEPOIS DE CARREGAR TARGETS:');
-      console.log('[TARGET-DEBUG] customTargets:', customTargets ? 'presente' : 'NULL');
-      if (customTargets) {
-        console.log('[TARGET-DEBUG] customTargets keys:', Object.keys(customTargets));
-        console.log('[TARGET-DEBUG] customTargets.lufs:', customTargets.lufs);
-        console.log('[TARGET-DEBUG] customTargets.dr:', customTargets.dr);
-        console.log('[GENRE-TARGETS-PATCH-V2] customTargets carregado do filesystem');
-        console.log('[GENRE-TARGETS-PATCH-V2] keys:', Object.keys(customTargets));
-        console.log('[GENRE-TARGETS-PATCH-V2] lufs:', customTargets.lufs);
-        console.log('[GENRE-TARGETS-PATCH-V2] truePeak:', customTargets.truePeak);
-      }
-      console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-      
-      // ❌ VALIDAÇÃO OBRIGATÓRIA: customTargets DEVE existir
-      if (!customTargets) {
-        const errorMsg = `❌ ERRO CRÍTICO: customTargets não carregado para gênero "${detectedGenre}". Arquivo JSON não encontrado ou inválido.`;
-        console.error(`[SUGGESTIONS_V1] ${errorMsg}`);
-        throw new Error(errorMsg);
-      }
-      
-      console.log(`[SUGGESTIONS_V1] ✅ Usando targets de ${detectedGenre} do filesystem (formato interno completo)`);
-    } else if (mode === 'reference') {
-      console.log(`[SUGGESTIONS_V1] 🔒 Modo referência - ignorando targets de gênero`);
-    }
     
     // 🛡️ BLINDAGEM PRIMÁRIA CORRIGIDA: Preservar genre correto, sem fallback 'default'
     // 🔥 PATCH 2: RESOLVER CORRETAMENTE O GÊNERO PARA O ANALYZER
