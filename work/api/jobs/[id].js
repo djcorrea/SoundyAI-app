@@ -10,7 +10,7 @@ router.get("/:id", async (req, res) => {
 
   try {
     const { rows } = await pool.query(
-      `SELECT id, file_key, mode, status, error, results, result,
+      `SELECT id, file_key, mode, status, error, results, result, data,
               created_at, updated_at, completed_at
          FROM jobs
         WHERE id = $1
@@ -72,6 +72,17 @@ router.get("/:id", async (req, res) => {
       }
     }
 
+    // 🔥 PARSE do campo data (se vier como JSON string)
+    let parsedData = null;
+    if (job.data) {
+      try {
+        parsedData = typeof job.data === 'string' ? JSON.parse(job.data) : job.data;
+      } catch (e) {
+        console.error('[API-JOBS] ⚠️ Erro ao fazer parse de job.data:', e);
+        parsedData = job.data;
+      }
+    }
+
     // 🚀 RESULTADO FINAL: Mesclar dados do job com análise completa
     const response = {
       id: job.id,
@@ -80,7 +91,7 @@ router.get("/:id", async (req, res) => {
       mode: job.mode,
       status: normalizedStatus,
       error: job.error || null,
-      data: job.data || null,
+      data: parsedData,
       createdAt: job.created_at,
       updatedAt: job.updated_at,
       completedAt: job.completed_at,
@@ -96,6 +107,19 @@ router.get("/:id", async (req, res) => {
       response.diagnostics = fullResult.diagnostics ?? {};
       response.summary = fullResult.summary ?? {};
       response.suggestionMetadata = fullResult.suggestionMetadata ?? {};
+    }
+
+    // 🔥 PROTEÇÃO CRÍTICA: Restaurar campo 'data' do banco (não deixar fullResult sobrescrever)
+    if (parsedData) {
+      response.data = parsedData;
+      console.log('[API-JOBS][DATA] ✅ Campo data incluído no response:', {
+        hasData: !!parsedData,
+        hasGenre: !!parsedData?.genre,
+        hasGenreTargets: !!parsedData?.genreTargets,
+        genre: parsedData?.genre
+      });
+    } else {
+      console.log('[API-JOBS][DATA] ⚠️ Campo data está null/undefined no PostgreSQL');
     }
 
     // --- ETAPA 1: AUDITORIA DO MERGE ---
