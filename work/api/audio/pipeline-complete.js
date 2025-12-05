@@ -474,11 +474,14 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       }
       console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
-      if (customTargets) {
-        console.log(`[SUGGESTIONS_V1] 📂 Usando targets de ${detectedGenre} do filesystem (formato interno completo)`);
-      } else {
-        console.log(`[SUGGESTIONS_V1] 📋 Usando targets hardcoded para ${detectedGenre}`);
+      // ❌ VALIDAÇÃO OBRIGATÓRIA: customTargets DEVE existir
+      if (!customTargets) {
+        const errorMsg = `❌ ERRO CRÍTICO: customTargets não carregado para gênero "${detectedGenre}". Arquivo JSON não encontrado ou inválido.`;
+        console.error(`[SUGGESTIONS_V1] ${errorMsg}`);
+        throw new Error(errorMsg);
       }
+      
+      console.log(`[SUGGESTIONS_V1] ✅ Usando targets de ${detectedGenre} do filesystem (formato interno completo)`);
     } else if (mode === 'reference') {
       console.log(`[SUGGESTIONS_V1] 🔒 Modo referência - ignorando targets de gênero`);
     }
@@ -806,10 +809,24 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         console.log('[V2-SYSTEM] Modo reference - ignorando V1 e V2');
       }
       
-      // 🤖 ENRIQUECIMENTO IA ULTRA V2 - MODO GENRE
+      // 🤖 ENRIQUECIMENTO IA OBRIGATÓRIO - MODO GENRE
+      // ✅ REGRA: SEMPRE enriquecer sugestões, NUNCA pular esta etapa
+      console.log('[AI-AUDIT][ULTRA_DIAG] 🚀 Enviando sugestões base para IA (modo genre)...');
+      console.log('[AI-AUDIT][ULTRA_DIAG] Sugestões base count:', finalJSON.suggestions?.length || 0);
+      
+      // ❌ VALIDAÇÃO: Garantir que há sugestões para enriquecer
+      if (!finalJSON.suggestions || finalJSON.suggestions.length === 0) {
+        console.warn('[AI-AUDIT][ULTRA_DIAG] ⚠️ Nenhuma sugestão base para enriquecer - criando fallback');
+        finalJSON.suggestions = [{
+          metric: 'info',
+          severity: 'info',
+          message: 'Mixagem dentro dos padrões',
+          action: 'Nenhum ajuste crítico necessário',
+          priority: 0
+        }];
+      }
+      
       try {
-        console.log('[AI-AUDIT][ULTRA_DIAG] 🚀 Enviando sugestões base para IA (modo genre)...');
-        
         const aiContext = {
           genre: finalGenreForAnalyzer,
           mode: mode || 'genre',
@@ -818,21 +835,34 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
           referenceComparison: null,
           fileName: fileName || metadata?.fileName || 'unknown',
           referenceFileName: null,
-          deltas: null
+          deltas: null,
+          customTargets: customTargets // ✅ Passar targets para IA validar
         };
         
         finalJSON.aiSuggestions = await enrichSuggestionsWithAI(finalJSON.suggestions, aiContext);
         
+        // ❌ VALIDAÇÃO CRÍTICA: IA DEVE retornar sugestões
+        if (!finalJSON.aiSuggestions || finalJSON.aiSuggestions.length === 0) {
+          throw new Error('enrichSuggestionsWithAI retornou array vazio ou null');
+        }
+        
         console.log(`[AI-AUDIT][ULTRA_DIAG] ✅ IA retornou ${finalJSON.aiSuggestions.length} sugestões enriquecidas`);
       } catch (aiError) {
-        console.error('[AI-AUDIT][ULTRA_DIAG] ❌ Falha ao executar enrichSuggestionsWithAI:', aiError.message);
+        console.error('[AI-AUDIT][ULTRA_DIAG] ❌ ERRO CRÍTICO ao executar enrichSuggestionsWithAI:', aiError.message);
         console.error('[AI-AUDIT][ULTRA_DIAG] Stack:', aiError.stack);
+        
+        // ✅ FALLBACK OBRIGATÓRIO: Manter sugestões base com flag de erro
         finalJSON.aiSuggestions = finalJSON.suggestions.map(sug => ({
           ...sug,
           aiEnhanced: false,
           enrichmentStatus: 'error',
-          enrichmentError: aiError.message
+          enrichmentError: aiError.message,
+          problema: sug.message || 'Problema não especificado',
+          causaProvavel: 'Enriquecimento IA falhou',
+          solucao: sug.action || 'Consulte sugestão base'
         }));
+        
+        console.warn('[AI-AUDIT][ULTRA_DIAG] ⚠️ Usando fallback: sugestões base sem enriquecimento');
       }
       
       console.log('[V2-SYSTEM] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -1167,13 +1197,33 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
     finalJSON.suggestions = orderSuggestionsForUser(finalJSON.suggestions || []);
     finalJSON.aiSuggestions = orderSuggestionsForUser(finalJSON.aiSuggestions || []);
     
-    console.log('[ORDERING] ✅ Sugestões ordenadas por prioridade profissional');
-    console.log('[ORDERING] suggestions:', finalJSON.suggestions.length, 'itens');
-    console.log('[ORDERING] aiSuggestions:', finalJSON.aiSuggestions.length, 'itens');
+    // ✅ FALLBACK OBRIGATÓRIO: Sempre exibir pelo menos uma sugestão
+    if (!Array.isArray(finalJSON.suggestions) || finalJSON.suggestions.length === 0) {
+      console.warn('[FALLBACK] ⚠️ Nenhuma sugestão gerada - criando mensagem padrão');
+      finalJSON.suggestions = [{
+        type: 'info',
+        metric: 'info',
+        severity: 'info',
+        message: 'Mixagem dentro dos padrões do gênero',
+        action: 'Nenhum ajuste crítico necessário. Continue com seu trabalho!',
+        priority: 0,
+        category: 'Geral',
+        aiEnhanced: false
+      }];
+    }
     
-    // 🎯 ORDENAR SUGESTÕES POR PRIORIDADE PROFISSIONAL
-    finalJSON.suggestions = orderSuggestionsForUser(finalJSON.suggestions || []);
-    finalJSON.aiSuggestions = orderSuggestionsForUser(finalJSON.aiSuggestions || []);
+    if (!Array.isArray(finalJSON.aiSuggestions) || finalJSON.aiSuggestions.length === 0) {
+      console.warn('[FALLBACK] ⚠️ Nenhuma sugestão AI - usando sugestões base');
+      finalJSON.aiSuggestions = finalJSON.suggestions.map(sug => ({
+        ...sug,
+        problema: sug.message || 'Análise concluída',
+        causaProvavel: 'Métricas estão dentro dos padrões estabelecidos',
+        solucao: sug.action || 'Continue seu trabalho normalmente',
+        pluginRecomendado: 'Nenhum ajuste necessário',
+        aiEnhanced: false,
+        enrichmentStatus: 'fallback'
+      }));
+    }
     
     console.log('[ORDERING] ✅ Sugestões ordenadas por prioridade profissional');
     console.log('[ORDERING] suggestions:', finalJSON.suggestions.length, 'itens');

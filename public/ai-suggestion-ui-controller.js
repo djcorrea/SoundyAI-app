@@ -554,8 +554,27 @@ class AISuggestionUIController {
                 console.log('%c[AI-FRONT][SPINNER] 🟢 Ocultando spinner automaticamente', 'color:#FFD700;');
             }
 
-            // Renderiza imediatamente
-            this.renderAISuggestions(extractedAI);
+            // ✅ EXTRAIR genreTargets do payload
+            const genreTargets = analysis?.genreTargets || 
+                                 analysis?.data?.genreTargets || 
+                                 analysis?.result?.genreTargets ||
+                                 analysis?.customTargets ||
+                                 null;
+            
+            if (!genreTargets) {
+                console.warn('[AI-UI][VALIDATION] ⚠️ genreTargets não encontrado no payload - validação será ignorada');
+                console.log('[AI-UI][VALIDATION] Tentei:', {
+                    'analysis.genreTargets': !!analysis?.genreTargets,
+                    'analysis.data.genreTargets': !!analysis?.data?.genreTargets,
+                    'analysis.result.genreTargets': !!analysis?.result?.genreTargets,
+                    'analysis.customTargets': !!analysis?.customTargets
+                });
+            } else {
+                console.log('[AI-UI][VALIDATION] ✅ genreTargets encontrado:', Object.keys(genreTargets));
+            }
+
+            // Renderiza imediatamente com genreTargets para validação
+            this.renderAISuggestions(extractedAI, genreTargets);
             
             // FIX: Marcar renderização como concluída APÓS render
             window.__AI_RENDER_COMPLETED__ = true;
@@ -741,8 +760,10 @@ class AISuggestionUIController {
     
     /**
      * 🎨 Renderizar sugestões IA (UNIFIED - funciona com base e AI)
+     * @param {Array} suggestions - Array de sugestões
+     * @param {Object} genreTargets - Targets do gênero para validação
      */
-    renderAISuggestions(suggestions) {
+    renderAISuggestions(suggestions, genreTargets = null) {
         // � ETAPA 1 — AUDITORIA DE RENDERIZAÇÃO VISUAL
         console.groupCollapsed('%c[AUDITORIA_RENDER] 🎨 Verificando Renderização de AI Cards', 'color:#8F5BFF;font-weight:bold;');
         console.log('%c[AI-RENDER-AUDIT] Sugestões recebidas:', 'color:#FFD700;', suggestions?.length);
@@ -827,7 +848,7 @@ class AISuggestionUIController {
         }
         
         // Renderizar cards
-        this.renderSuggestionCards(suggestions, isAIEnriched);
+        this.renderSuggestionCards(suggestions, isAIEnriched, genreTargets);
         
         // 🧩 ETAPA 4 — FORÇAR REVALIDAÇÃO DE CLASSES NO DOM
         setTimeout(() => {
@@ -836,7 +857,7 @@ class AISuggestionUIController {
             if (!cards || cards.length === 0) {
                 console.warn('[AI-RENDER-VERIFY] ❌ Nenhum card detectado — revalidando template');
                 this.currentTemplate = 'ai';
-                this.renderSuggestionCards(suggestions, true); // força renderização IA
+                this.renderSuggestionCards(suggestions, true, genreTargets); // força renderização IA
             } else {
                 console.log('%c[AI-RENDER-VERIFY] ✅ Cards validados com sucesso!', 'color:#00FF88;');
                 
@@ -851,19 +872,106 @@ class AISuggestionUIController {
     }
     
     /**
+     * ✅ VALIDAR E CORRIGIR SUGESTÕES COM TARGETS REAIS
+     * Garante que valores "ideal" exibidos correspondem aos targets do JSON
+     */
+    validateAndCorrectSuggestions(suggestions, genreTargets) {
+        if (!genreTargets || !Array.isArray(suggestions)) {
+            console.warn('[AI-UI][VALIDATION] ⚠️ genreTargets não fornecido - validação ignorada');
+            return suggestions;
+        }
+        
+        console.log('[AI-UI][VALIDATION] 🔍 Validando', suggestions.length, 'sugestões contra targets reais');
+        
+        return suggestions.map(suggestion => {
+            // Identificar métrica da sugestão
+            const metric = suggestion.metric || suggestion.category || this.guessMetricFromText(suggestion.problema || suggestion.message);
+            
+            if (!metric || metric === 'info') {
+                return suggestion; // Sugestões informativas não precisam validação
+            }
+            
+            // Obter target real do JSON
+            const targetData = genreTargets[metric];
+            
+            if (!targetData || typeof targetData.target_db !== 'number') {
+                console.warn(`[AI-UI][VALIDATION] ⚠️ Target não encontrado para métrica "${metric}"`);
+                return suggestion;
+            }
+            
+            const realTarget = targetData.target_db;
+            
+            // Corrigir textos que mencionam valores "ideal" incorretos
+            const correctedSuggestion = { ...suggestion };
+            
+            // Regex para encontrar padrões como "ideal: -14 dB" ou "target: -29 dB"
+            const idealRegex = /(ideal|target|alvo|objetivo):\s*[-+]?\d+\.?\d*\s*(dB|LUFS)/gi;
+            
+            ['problema', 'message', 'causaProvavel', 'solucao', 'action'].forEach(field => {
+                if (correctedSuggestion[field] && typeof correctedSuggestion[field] === 'string') {
+                    const original = correctedSuggestion[field];
+                    const corrected = original.replace(idealRegex, (match) => {
+                        return match.replace(/[-+]?\d+\.?\d*/, realTarget.toFixed(1));
+                    });
+                    
+                    if (original !== corrected) {
+                        console.log(`[AI-UI][VALIDATION] 🔧 Corrigido "${metric}":`, {
+                            original: original.substring(0, 60) + '...',
+                            corrected: corrected.substring(0, 60) + '...'
+                        });
+                        correctedSuggestion[field] = corrected;
+                    }
+                }
+            });
+            
+            // Adicionar badge de conformidade
+            correctedSuggestion._validated = true;
+            correctedSuggestion._realTarget = realTarget;
+            
+            return correctedSuggestion;
+        });
+    }
+    
+    /**
+     * 🔍 Inferir métrica do texto da sugestão
+     */
+    guessMetricFromText(text) {
+        if (!text) return 'unknown';
+        
+        const lowerText = text.toLowerCase();
+        
+        if (lowerText.includes('lufs') || lowerText.includes('loudness')) return 'lufs';
+        if (lowerText.includes('true peak') || lowerText.includes('truepeak')) return 'truePeak';
+        if (lowerText.includes('dynamic range') || lowerText.includes('dr')) return 'dr';
+        if (lowerText.includes('sub') || lowerText.includes('20-60')) return 'sub';
+        if (lowerText.includes('bass') || lowerText.includes('60-150')) return 'bass';
+        if (lowerText.includes('low mid') || lowerText.includes('150-500')) return 'lowMid';
+        if (lowerText.includes('mid') && !lowerText.includes('high')) return 'mid';
+        if (lowerText.includes('high mid') || lowerText.includes('2-5khz')) return 'highMid';
+        if (lowerText.includes('presença') || lowerText.includes('presence')) return 'presenca';
+        if (lowerText.includes('brilho') || lowerText.includes('air')) return 'brilho';
+        
+        return 'unknown';
+    }
+    
+    /**
      * 📋 Renderizar cards de sugestões (UNIFIED)
      */
-    renderSuggestionCards(suggestions, isAIEnriched = false) {
+    renderSuggestionCards(suggestions, isAIEnriched = false, genreTargets = null) {
         if (!this.elements.aiContent) return;
         
         console.log('[AI-UI][RENDER] 📋 Renderizando', suggestions.length, 'cards');
         console.log('[AI-UI][RENDER] Modo:', isAIEnriched ? 'IA Enriquecida' : 'Base');
+        console.log('[AI-UI][RENDER] genreTargets:', genreTargets ? 'presente' : 'ausente');
         
-        const cardsHtml = suggestions.map((suggestion, index) => {
+        // ✅ VALIDAR SUGESTÕES CONTRA TARGETS REAIS
+        const validatedSuggestions = this.validateAndCorrectSuggestions(suggestions, genreTargets);
+        
+        const cardsHtml = validatedSuggestions.map((suggestion, index) => {
             if (isAIEnriched) {
-                return this.renderAIEnrichedCard(suggestion, index);
+                return this.renderAIEnrichedCard(suggestion, index, genreTargets);
             } else {
-                return this.renderBaseSuggestionCard(suggestion, index);
+                return this.renderBaseSuggestionCard(suggestion, index, genreTargets);
             }
         }).join('');
         
@@ -874,7 +982,7 @@ class AISuggestionUIController {
     /**
      * 🎴 Renderizar card de sugestão IA enriquecida
      */
-    renderAIEnrichedCard(suggestion, index) {
+    renderAIEnrichedCard(suggestion, index, genreTargets = null) {
         const categoria = suggestion.categoria || suggestion.category || 'Geral';
         const nivel = suggestion.nivel || suggestion.priority || 'média';
         const problema = suggestion.problema || suggestion.message || 'Problema não especificado';
@@ -884,11 +992,19 @@ class AISuggestionUIController {
         const dica = suggestion.dicaExtra || null;
         const parametros = suggestion.parametros || null;
         
+        // ✅ Badge de validação de targets
+        const isValidated = suggestion._validated === true;
+        const realTarget = suggestion._realTarget;
+        const validationBadge = (isValidated && realTarget !== undefined) 
+            ? `<div class="ai-validation-badge" title="Target validado: ${realTarget.toFixed(1)} dB">✓ Validado</div>` 
+            : '';
+        
         return `
-            <div class="ai-suggestion-card ai-enriched ai-new" style="animation-delay: ${index * 0.1}s" data-index="${index}">
+            <div class="ai-suggestion-card ai-enriched ai-new ${isValidated ? 'validated' : ''}" style="animation-delay: ${index * 0.1}s" data-index="${index}">
                 <div class="ai-suggestion-header">
                     <span class="ai-suggestion-category">${categoria}</span>
                     <div class="ai-suggestion-priority ${this.getPriorityClass(nivel)}">${nivel}</div>
+                    ${validationBadge}
                 </div>
                 
                 <div class="ai-suggestion-content">
@@ -938,17 +1054,25 @@ class AISuggestionUIController {
     /**
      * 🎴 Renderizar card de sugestão base
      */
-    renderBaseSuggestionCard(suggestion, index) {
+    renderBaseSuggestionCard(suggestion, index, genreTargets = null) {
         const category = suggestion.category || suggestion.type || 'Geral';
         const priority = suggestion.priority || 5;
         const message = suggestion.message || suggestion.title || 'Mensagem não especificada';
         const action = suggestion.action || suggestion.description || 'Ação não especificada';
         
+        // ✅ Badge de validação de targets
+        const isValidated = suggestion._validated === true;
+        const realTarget = suggestion._realTarget;
+        const validationBadge = (isValidated && realTarget !== undefined) 
+            ? `<div class="ai-validation-badge" title="Target validado: ${realTarget.toFixed(1)} dB">✓ Validado</div>` 
+            : '';
+        
         return `
-            <div class="ai-suggestion-card ai-base ai-new" style="animation-delay: ${index * 0.1}s" data-index="${index}">
+            <div class="ai-suggestion-card ai-base ai-new ${isValidated ? 'validated' : ''}" style="animation-delay: ${index * 0.1}s" data-index="${index}">
                 <div class="ai-suggestion-header">
                     <span class="ai-suggestion-category">${category}</span>
                     <div class="ai-suggestion-priority ${this.getPriorityClass(priority)}">${priority}</div>
+                    ${validationBadge}
                 </div>
                 
                 <div class="ai-suggestion-content">
