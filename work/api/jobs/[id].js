@@ -59,190 +59,118 @@ router.get("/:id", async (req, res) => {
     if (normalizedStatus === "done") normalizedStatus = "completed";
     if (normalizedStatus === "failed") normalizedStatus = "error";
     
-    // 🛡️ ETAPA 1: Delay seguro para evitar retorno prematuro
-    // Evita enviar aiSuggestions: [] antes do enriquecimento terminar
-    if (normalizedStatus === "processing") {
-      const elapsed = Date.now() - new Date(job.created_at).getTime();
-      const resultData = job.results || job.result;
-      let hasAISuggestions = false;
-      
-      try {
-        const parsed = typeof resultData === 'string' ? JSON.parse(resultData) : resultData;
-        hasAISuggestions = Array.isArray(parsed?.aiSuggestions) && parsed.aiSuggestions.length > 0;
-      } catch (e) {
-        // Ignorar erro de parse
-      }
-      
-      if (!hasAISuggestions && elapsed < 5000) {
-        console.log('[AI-BACKEND] ⏳ Aguardando IA enriquecer antes do retorno...');
-        console.log('[AI-BACKEND] Elapsed:', elapsed, 'ms / 5000 ms');
-        return res.status(202).json({ 
-          status: 'processing', 
-          message: 'AI enrichment pending',
-          id: job.id
-        });
-      }
-    }
+    console.log(`[API-JOBS] Status do banco: ${job.status} → Normalizado: ${normalizedStatus}`);
 
-    // 🎯 CORREÇÃO CRÍTICA: Retornar JSON completo da análise
-    // 🔄 COMPATIBILIDADE: Tentar tanto 'results' (novo) quanto 'result' (antigo)
+    // 🎯 PARSE DO RESULTADO: Tentar tanto 'results' (novo) quanto 'result' (antigo)
     let fullResult = null;
     
     const resultData = job.results || job.result;
     if (resultData) {
       try {
-        // Parse do JSON salvo pelo worker
         fullResult = typeof resultData === 'string' ? JSON.parse(resultData) : resultData;
-        console.log("[REDIS-RETURN] 🔍 Job result merged with full analysis JSON");
-        console.log(`[REDIS-RETURN] Analysis contains: ${Object.keys(fullResult).join(', ')}`);
-        console.log(`[REDIS-RETURN] Data source: ${job.results ? 'results (new)' : 'result (legacy)'}`);
+        console.log("[API-JOBS] ✅ Job result parsed successfully");
+        console.log(`[API-JOBS] Analysis contains: ${Object.keys(fullResult).join(', ')}`);
+        console.log(`[API-JOBS] Data source: ${job.results ? 'results (new)' : 'result (legacy)'}`);
       } catch (parseError) {
-        console.error("[REDIS-RETURN] ❌ Erro ao fazer parse do results JSON:", parseError);
+        console.error("[API-JOBS] ❌ Erro ao fazer parse do results JSON:", parseError);
         fullResult = resultData;
       }
     }
 
-    // 🚀 RESULTADO FINAL: Mesclar dados do job com análise completa
-    const response = {
-      id: job.id,
-      jobId: job.id, // Alias para compatibilidade
-      fileKey: job.file_key,
-      mode: job.mode,
-      status: normalizedStatus,
-      error: job.error || null,
-      createdAt: job.created_at,
-      updatedAt: job.updated_at,
-      completedAt: job.completed_at,
-      // ✅ CRÍTICO: Incluir análise completa se disponível
-      ...(fullResult || {})
-    };
-
-    // 🔒 GARANTIA: Sobrescrever campos obrigatórios do banco se presentes
+    // 📊 LOG DE AUDITORIA: Verificar aiSuggestions
     if (fullResult) {
-      response.suggestions = fullResult.suggestions ?? [];
-      response.aiSuggestions = fullResult.aiSuggestions ?? [];
-      response.problemsAnalysis = fullResult.problemsAnalysis ?? {};
-      response.diagnostics = fullResult.diagnostics ?? {};
-      response.summary = fullResult.summary ?? {};
-      response.suggestionMetadata = fullResult.suggestionMetadata ?? {};
+      console.log('[API-JOBS][AUDIT] Verificando aiSuggestions...', {
+        hasAiSuggestions: Array.isArray(fullResult.aiSuggestions),
+        aiSuggestionsLength: fullResult.aiSuggestions?.length || 0,
+        hasSuggestions: Array.isArray(fullResult.suggestions),
+        suggestionsLength: fullResult.suggestions?.length || 0,
+        status: normalizedStatus
+      });
     }
 
-    // --- ETAPA 1: AUDITORIA DO MERGE ---
-    console.log('[AI-MERGE][AUDIT] Verificando merge Redis/Postgres para aiSuggestions...');
-    console.log('[AI-MERGE][AUDIT] Status atual:', {
-      aiSuggestions: response.aiSuggestions?.length || 0,
-      suggestions: response.suggestions?.length || 0,
-      status: response.status,
-      mode: response.mode
-    });
+    // 🚀 FORMATO DE RETORNO BASEADO NO STATUS
+    let response;
 
-    // --- ETAPA 2: RECUPERAÇÃO DO POSTGRES SE NECESSÁRIO ---
-    if (!response.aiSuggestions || response.aiSuggestions.length === 0) {
-      console.log('[AI-MERGE][AUDIT] ⚠️ aiSuggestions ausente no Redis, tentando recuperar do Postgres...');
-
-      try {
-        const { rows: pgRows } = await pool.query(
-          `SELECT results, result, status
-           FROM jobs
-           WHERE id = $1
-           LIMIT 1`,
-          [job.id]
-        );
-
-        if (pgRows.length > 0) {
-          const dbJob = pgRows[0];
-          let dbFullResult = null;
-
-          // Parse do resultado do Postgres
-          const dbResultData = dbJob.results || dbJob.result;
-          if (dbResultData) {
-            try {
-              dbFullResult = typeof dbResultData === 'string' ? JSON.parse(dbResultData) : dbResultData;
-            } catch (e) {
-              console.error('[AI-MERGE][AUDIT] ❌ Erro ao fazer parse do resultado do Postgres:', e);
-            }
-          }
-
-          if (dbFullResult) {
-            // ✅ Sobrescrever campos obrigatórios com valores do Postgres (sempre preferir banco)
-            response.suggestions = dbFullResult.suggestions ?? [];
-            response.aiSuggestions = dbFullResult.aiSuggestions ?? [];
-            response.problemsAnalysis = dbFullResult.problemsAnalysis ?? {};
-            
-            console.log(`[AI-MERGE][FIX] ✅ Campos sincronizados do Postgres:`, {
-              suggestions: response.suggestions.length,
-              aiSuggestions: response.aiSuggestions.length,
-              hasProblemAnalysis: !!response.problemsAnalysis
-            });
-            
-            // Log da primeira sugestão para validação
-            if (response.aiSuggestions.length > 0 && response.aiSuggestions[0]) {
-              console.log('[AI-MERGE][FIX] Sample aiSuggestion:', {
-                problema: response.aiSuggestions[0].problema?.substring(0, 50),
-                aiEnhanced: response.aiSuggestions[0].aiEnhanced
-              });
-            }
-
-            // Atualiza status para completed se IA foi encontrada
-            if (dbJob.status === 'completed' || dbJob.status === 'done') {
-              response.status = 'completed';
-              console.log('[AI-MERGE][FIX] 🟢 Status atualizado para completed (IA detectada).');
-            }
-          } else {
-            console.warn('[AI-MERGE][AUDIT] ⚠️ Resultado do Postgres vazio ou inválido.');
-          }
-        } else {
-          console.warn('[AI-MERGE][AUDIT] ❌ Nenhum registro correspondente encontrado no Postgres.');
+    if (normalizedStatus === "queued") {
+      // Status queued: retorno mínimo
+      response = {
+        ok: true,
+        job: {
+          id: job.id,
+          status: "queued",
+          file_key: job.file_key,
+          mode: job.mode,
+          created_at: job.created_at
         }
-      } catch (err) {
-        console.error('[AI-MERGE][FIX] ❌ Erro ao recuperar aiSuggestions do Postgres:', err);
+      };
+      console.log('[API-JOBS] 📦 Retornando job QUEUED (mínimo)');
+      
+    } else if (normalizedStatus === "processing") {
+      // Status processing: retorno mínimo + progresso se disponível
+      response = {
+        ok: true,
+        job: {
+          id: job.id,
+          status: "processing",
+          file_key: job.file_key,
+          mode: job.mode,
+          created_at: job.created_at,
+          updated_at: job.updated_at
+        }
+      };
+      console.log('[API-JOBS] ⚙️ Retornando job PROCESSING');
+      
+    } else if (normalizedStatus === "completed") {
+      // Status completed: retorno COMPLETO com results
+      response = {
+        ok: true,
+        job: {
+          id: job.id,
+          status: "completed",
+          file_key: job.file_key,
+          mode: job.mode,
+          created_at: job.created_at,
+          updated_at: job.updated_at,
+          completed_at: job.completed_at,
+          results: fullResult,
+          error: null
+        }
+      };
+      console.log('[API-JOBS] ✅ Retornando job COMPLETED com results');
+      
+      if (fullResult) {
+        console.log('[API-JOBS] 📊 Metrics:', {
+          lufs: fullResult.technicalData?.lufsIntegrated,
+          peak: fullResult.technicalData?.truePeakDbtp,
+          score: fullResult.score,
+          aiSuggestions: fullResult.aiSuggestions?.length || 0
+        });
       }
-    } else {
-      console.log('[AI-MERGE][AUDIT] ✅ aiSuggestions já presente no response inicial.');
+      
+    } else if (normalizedStatus === "error") {
+      // Status error: retorno com erro
+      response = {
+        ok: false,
+        job: {
+          id: job.id,
+          status: "error",
+          file_key: job.file_key,
+          mode: job.mode,
+          created_at: job.created_at,
+          updated_at: job.updated_at,
+          error: job.error || "Erro desconhecido"
+        }
+      };
+      console.log('[API-JOBS] ❌ Retornando job ERROR');
     }
 
-    // --- ETAPA 3: LOG FINAL DO RESULTADO ---
-    console.log('[AI-MERGE][RESULT]', {
-      aiSuggestions: response.aiSuggestions?.length || 0,
-      suggestions: response.suggestions?.length || 0,
-      status: response.status,
-      mode: response.mode,
-      hasAIEnhanced: response.aiSuggestions?.some(s => s.aiEnhanced) || false
-    });
-
-    console.log(`[REDIS-RETURN] 📊 Returning job ${job.id} with status '${normalizedStatus}'`);
-    if (fullResult || response.aiSuggestions) {
-      console.log(`[REDIS-RETURN] ✅ Full analysis included: LUFS=${response.technicalData?.lufsIntegrated}, Peak=${response.technicalData?.truePeakDbtp}, Score=${response.score}`);
-      console.log(`[API-AUDIT][FINAL] ✅ aiSuggestions length: ${response.aiSuggestions?.length || 0}`);
-    }
-
-    // --- ETAPA 4: RETORNAR FORMATO UNIFICADO ---
-    
-    // 🔥 UNIFICAR: Sempre retornar results no formato esperado pelo frontend
-    const unifiedResponse = {
-      ok: true,
-      job: {
-        id: job.id,
-        status: normalizedStatus,
-        results: fullResult,
-        error: job.error || null,
-        file_key: job.file_key,
-        mode: job.mode,
-        created_at: job.created_at,
-        updated_at: job.updated_at,
-        completed_at: job.completed_at
-      }
-    };
-    
-    console.log('[API-JOBS][UNIFIED] 📤 Retornando formato unificado:', {
-      ok: unifiedResponse.ok,
-      jobId: unifiedResponse.job.id,
-      status: unifiedResponse.job.status,
-      hasResults: !!unifiedResponse.job.results,
-      hasError: !!unifiedResponse.job.error
+    console.log('[API-JOBS] 📤 Response final:', {
+      ok: response.ok,
+      status: response.job.status,
+      hasResults: !!response.job.results
     });
     
-    return res.status(200).json(unifiedResponse);
+    return res.status(200).json(response);
   } catch (err) {
     console.error("❌ Erro ao buscar job:", err);
     return res.status(500).json({
