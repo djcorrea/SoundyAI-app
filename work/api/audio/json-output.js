@@ -465,6 +465,58 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
   return technicalData;
 }
 
+/**
+ * 🎯 FUNÇÃO DE NORMALIZAÇÃO: Converte genreTargets do formato backend (nested + PT) para formato frontend (flat + EN)
+ * Resolve incompatibilidade estrutural entre backend e frontend
+ */
+function normalizeGenreTargetsForFrontend(targets) {
+  if (!targets || typeof targets !== 'object' || Object.keys(targets).length === 0) return null;
+
+  console.log('[JSON-OUTPUT-NORMALIZE] ----------');
+  console.log('[JSON-OUTPUT-NORMALIZE] Entrada - keys:', Object.keys(targets));
+
+  const normalized = {
+    // Converter nested para flat (lufs.target → lufs_target)
+    lufs_target: targets.lufs?.target,
+    lufs_tolerance: targets.lufs?.tolerance,
+
+    true_peak_target: targets.truePeak?.target,
+    true_peak_tolerance: targets.truePeak?.tolerance,
+
+    dr_target: targets.dr?.target,
+    dr_tolerance: targets.dr?.tolerance,
+
+    lra_target: targets.lra?.target,
+    lra_tolerance: targets.lra?.tolerance,
+
+    stereo_target: targets.stereo?.target,
+    stereo_tolerance: targets.stereo?.tolerance,
+
+    spectralBands: {}
+  };
+
+  // Processar bandas espectrais (normalizar PT → EN)
+  const bandKeys = Object.keys(targets).filter(k =>
+    !['lufs', 'truePeak', 'dr', 'lra', 'stereo'].includes(k)
+  );
+
+  bandKeys.forEach(key => {
+    // Normalizar nomes PT → EN
+    const normalizedKey =
+      key === 'presenca' ? 'presence' :
+      key === 'brilho' ? 'air' :
+      key;
+
+    normalized.spectralBands[normalizedKey] = targets[key];
+  });
+
+  console.log('[JSON-OUTPUT-NORMALIZE] Saída - keys:', Object.keys(normalized));
+  console.log('[JSON-OUTPUT-NORMALIZE] Bandas normalizadas:', Object.keys(normalized.spectralBands));
+  console.log('[JSON-OUTPUT-NORMALIZE] ----------');
+
+  return normalized;
+}
+
 function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, options = {}) {
   const jobId = options.jobId || 'unknown';
   const scoreValue = scoringResult.score || scoringResult.scorePct;
@@ -529,7 +581,7 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     ...(isGenreMode && options.genreTargets ? {
       data: {
         genre: finalGenre,
-        genreTargets: options.genreTargets
+        genreTargets: normalizeGenreTargetsForFrontend(options.genreTargets)
       }
     } : {}),
     
