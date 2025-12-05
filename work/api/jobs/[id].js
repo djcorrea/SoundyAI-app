@@ -8,6 +8,25 @@ const router = express.Router();
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
 
+  // 🔒 VALIDAÇÃO: ID obrigatório e deve ser UUID válido
+  if (!id || id === "undefined" || id === "null" || id.trim() === "") {
+    return res.status(400).json({ 
+      error: "Invalid jobId",
+      message: "Job ID is required and cannot be undefined, null or empty",
+      received: id 
+    });
+  }
+
+  // Validar formato UUID
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!uuidRegex.test(id)) {
+    return res.status(400).json({ 
+      error: "Invalid UUID format",
+      message: "Job ID must be a valid UUID",
+      received: id 
+    });
+  }
+
   try {
     const { rows } = await pool.query(
       `SELECT id, file_key, mode, status, error, results, result,
@@ -186,20 +205,24 @@ router.get("/:id", async (req, res) => {
       console.log(`[API-AUDIT][FINAL] ✅ aiSuggestions length: ${response.aiSuggestions?.length || 0}`);
     }
 
-    // --- ETAPA 4: RETORNAR OBJETO COMPLETO ---
+    // --- ETAPA 4: RETORNAR FORMATO UNIFICADO ---
     
-    // ✅ Correção de status para "completed" quando aiSuggestions já existem
-    if (
-      response?.aiSuggestions &&
-      Array.isArray(response.aiSuggestions) &&
-      response.aiSuggestions.length > 0 &&
-      (response.status === 'processing' || !response.status)
-    ) {
-      console.log('[API-JOBS][STATUS-FIX] ✅ Detected aiSuggestions. Updating status -> "completed"');
-      response.status = 'completed';
-    }
+    // 🔥 UNIFICAR: Sempre retornar results no formato esperado pelo frontend
+    const unifiedResponse = {
+      id: job.id,
+      status: normalizedStatus,
+      results: fullResult,
+      error: job.error || null
+    };
     
-    return res.json(response);
+    console.log('[API-JOBS][UNIFIED] 📤 Retornando formato unificado:', {
+      id: unifiedResponse.id,
+      status: unifiedResponse.status,
+      hasResults: !!unifiedResponse.results,
+      hasError: !!unifiedResponse.error
+    });
+    
+    return res.json(unifiedResponse);
   } catch (err) {
     console.error("❌ Erro ao buscar job:", err);
     return res.status(500).json({ error: "Falha ao buscar job" });

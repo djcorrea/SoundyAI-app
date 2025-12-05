@@ -1101,71 +1101,33 @@ async function processJob(job) {
     console.log('[AUDIT-DB-SAVE]    Genre esperado:', genreFromJob);
     console.log('[AUDIT-DB-SAVE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
+    // 🔥 PATCH: Salvar finalJSON em results com status completed
     const finalUpdateResult = await client.query(
       `UPDATE jobs 
-       SET status = $1, 
-           result = $2, 
-           results = $3, 
-           completed_at = NOW(), 
+       SET results = $1::jsonb, 
+           status = 'completed', 
+           completed_at = NOW(),
            updated_at = NOW() 
-       WHERE id = $4`,
-      ["done", resultJSON, resultsJSON, job.id]
+       WHERE id = $2`,
+      [resultsJSON, job.id]
     );
 
     if (finalUpdateResult.rowCount === 0) {
-      throw new Error(`Falha ao atualizar job ${job.id} para status 'done'`);
+      throw new Error(`Falha ao atualizar job ${job.id} para status 'completed'`);
     }
 
-    // 🔍 LOG PARANOID NÍVEL 2: VERIFICAR BANCO IMEDIATAMENTE
-    console.log("[GENRE-PARANOID][POST-UPDATE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    try {
-      const verifyDB = await client.query(
-        `SELECT 
-           data->>'genre' AS data_genre,
-           results->>'genre' AS results_genre,
-           results->'data'->>'genre' AS results_data_genre,
-           results->'summary'->>'genre' AS results_summary_genre,
-           results->'metadata'->>'genre' AS results_metadata_genre,
-           result->>'genre' AS result_genre
-         FROM jobs 
-         WHERE id = $1`,
-        [job.id]
-      );
-      
-      const dbRow = verifyDB.rows[0];
-      
-      console.log("[GENRE-PARANOID][POST-UPDATE] 📊 Verificação completa do banco:");
-      console.log("[GENRE-PARANOID][POST-UPDATE]    data.genre:", dbRow?.data_genre);
-      console.log("[GENRE-PARANOID][POST-UPDATE]    result.genre:", dbRow?.result_genre);
-      console.log("[GENRE-PARANOID][POST-UPDATE]    results.genre:", dbRow?.results_genre);
-      console.log("[GENRE-PARANOID][POST-UPDATE]    results.data.genre:", dbRow?.results_data_genre);
-      console.log("[GENRE-PARANOID][POST-UPDATE]    results.summary.genre:", dbRow?.results_summary_genre);
-      console.log("[GENRE-PARANOID][POST-UPDATE]    results.metadata.genre:", dbRow?.results_metadata_genre);
-      console.log("[GENRE-PARANOID][POST-UPDATE]    Genre esperado:", genreFromJob);
-      
-      // 🚨 VALIDAÇÃO: Todos devem ser iguais ao genreFromJob
-      const allMatch = 
-        dbRow?.data_genre === genreFromJob &&
-        dbRow?.results_genre === genreFromJob &&
-        dbRow?.results_data_genre === genreFromJob;
-      
-      if (!allMatch) {
-        console.error("[GENRE-PARANOID][POST-UPDATE] 🚨🚨🚨 GENRE INCONSISTENTE NO BANCO!");
-        console.error("[GENRE-PARANOID][POST-UPDATE] Esperado em TODOS:", genreFromJob);
-        console.error("[GENRE-PARANOID][POST-UPDATE] data.genre:", dbRow?.data_genre, dbRow?.data_genre === genreFromJob ? '✅' : '❌');
-        console.error("[GENRE-PARANOID][POST-UPDATE] results.genre:", dbRow?.results_genre, dbRow?.results_genre === genreFromJob ? '✅' : '❌');
-        console.error("[GENRE-PARANOID][POST-UPDATE] results.data.genre:", dbRow?.results_data_genre, dbRow?.results_data_genre === genreFromJob ? '✅' : '❌');
-      } else {
-        console.log("[GENRE-PARANOID][POST-UPDATE] ✅✅✅ GENRE SALVO CORRETAMENTE EM TODOS OS CAMPOS!");
-      }
-    } catch (verifyError) {
-      console.error("[GENRE-PARANOID][POST-UPDATE] Erro ao verificar banco:", verifyError.message);
-    }
-    console.log("[GENRE-PARANOID][POST-UPDATE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log('[WORKER] ✅ Job finalizado e salvo:', {
+      jobId: job.id,
+      status: 'completed',
+      resultsSize: resultsJSON.length,
+      genre: resultsForDb.genre
+    });
 
-    console.log(`✅ Job ${job.id} concluído e salvo no banco COM aiSuggestions`);
+    updateWorkerHealth();
     
-    updateWorkerHealth(); // Marcar como healthy após sucesso
+    // 🔥 RETORNAR: { results: finalJSON }
+    return { results: resultsForDb };
+
   } catch (err) {
     console.error("❌ Erro no job:", err);
     
