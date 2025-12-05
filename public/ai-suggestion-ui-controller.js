@@ -955,6 +955,54 @@ class AISuggestionUIController {
     }
     
     /**
+     * 🔧 NOVO: Construir mensagem de problema padrão baseada em BaseSuggestion
+     * @param {Object} suggestion - Objeto BaseSuggestion
+     * @returns {string} Mensagem de problema formatada
+     */
+    buildDefaultProblemMessage(suggestion) {
+        const { label, value, target, delta, direction, severity } = suggestion;
+        
+        if (!label || !Number.isFinite(value) || !Number.isFinite(target)) {
+            return suggestion.observation || suggestion.message || 'Problema não especificado';
+        }
+        
+        const valueStr = value.toFixed(1);
+        const targetStr = target.toFixed(1);
+        const deltaStr = delta > 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1);
+        
+        let intensifier = '';
+        if (severity === 'critical') intensifier = 'muito ';
+        else if (severity === 'warning') intensifier = 'levemente ';
+        
+        const directionText = direction === 'high' ? 'alto' : direction === 'low' ? 'baixo' : 'adequado';
+        
+        if (direction === 'ok') {
+            return `${label} dentro do range esperado: ${valueStr} dB (alvo: ${targetStr} dB)`;
+        }
+        
+        return `${label} ${intensifier}${directionText}: ${valueStr} dB (alvo: ${targetStr} dB, diferença: ${deltaStr} dB)`;
+    }
+
+    /**
+     * 🔧 NOVO: Construir mensagem de solução padrão baseada em BaseSuggestion
+     * @param {Object} suggestion - Objeto BaseSuggestion
+     * @returns {string} Mensagem de solução formatada
+     */
+    buildDefaultSolutionMessage(suggestion) {
+        const { label, delta, direction } = suggestion;
+        
+        if (!label || !Number.isFinite(delta) || direction === 'ok') {
+            return suggestion.recommendation || suggestion.action || 'Mantenha os ajustes atuais';
+        }
+        
+        const absDelta = Math.abs(delta);
+        const adjustmentDb = Math.min(absDelta, 6).toFixed(1);
+        const actionVerb = direction === 'high' ? 'Reduza' : 'Aumente';
+        
+        return `${actionVerb} aproximadamente ${adjustmentDb} dB em ${label} com EQ suave.`;
+    }
+    
+    /**
      * 📋 Renderizar cards de sugestões (UNIFIED)
      */
     renderSuggestionCards(suggestions, isAIEnriched = false, genreTargets = null) {
@@ -985,9 +1033,20 @@ class AISuggestionUIController {
     renderAIEnrichedCard(suggestion, index, genreTargets = null) {
         const categoria = suggestion.categoria || suggestion.category || 'Geral';
         const nivel = suggestion.nivel || suggestion.priority || 'média';
-        const problema = suggestion.problema || suggestion.message || 'Problema não especificado';
+        
+        // 🔧 NOVO: Usar buildDefault como fallback se não houver IA enrichment
+        const problema = suggestion.problema || 
+                        (suggestion.aiEnhanced === false && suggestion.observation 
+                            ? this.buildDefaultProblemMessage(suggestion)
+                            : suggestion.message || 'Problema não especificado');
+        
         const causaProvavel = suggestion.causaProvavel || 'Causa não analisada';
-        const solucao = suggestion.solucao || suggestion.action || 'Solução não especificada';
+        
+        const solucao = suggestion.solucao || 
+                       (suggestion.aiEnhanced === false && suggestion.recommendation
+                           ? this.buildDefaultSolutionMessage(suggestion)
+                           : suggestion.action || 'Solução não especificada');
+        
         const plugin = suggestion.pluginRecomendado || 'Não especificado';
         const dica = suggestion.dicaExtra || null;
         const parametros = suggestion.parametros || null;
