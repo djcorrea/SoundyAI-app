@@ -600,6 +600,18 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     'isDefault': finalGenre === 'default'
   });
 
+  // 🔧 PATCH CRÍTICO: Normalizar genreTargets ANTES do return
+  // Garante que data.genreTargets.bands SEMPRE existe no modo genre
+  let normalizedTargets = null;
+  if (isGenreMode && options.genreTargets) {
+    normalizedTargets = normalizeGenreTargetsForFrontend(options.genreTargets);
+    console.log('[JSON-OUTPUT-PATCH] ✅ genreTargets normalizado:', {
+      hasBands: !!normalizedTargets?.bands,
+      bandsCount: normalizedTargets?.bands ? Object.keys(normalizedTargets.bands).length : 0,
+      bandKeys: normalizedTargets?.bands ? Object.keys(normalizedTargets.bands) : []
+    });
+  }
+
   return {
     // 🎯 CORREÇÃO CRÍTICA: Incluir genre e mode no JSON final
     // Esses campos são FUNDAMENTAIS para:
@@ -611,11 +623,18 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     genre: finalGenre,
     mode: options.mode || 'genre',
     
-    // 🎯 NOVO: Adicionar estrutura data com genre e genreTargets quando existirem
-    ...(isGenreMode && options.genreTargets ? {
+    // 🔧 PATCH CRÍTICO: Criar data SEMPRE em modo genre (mesmo se normalizedTargets for null)
+    ...(isGenreMode ? {
       data: {
         genre: finalGenre,
-        genreTargets: normalizeGenreTargetsForFrontend(options.genreTargets)
+        genreTargets: normalizedTargets || {
+          lufs_target: null,
+          true_peak_target: null,
+          dr_target: null,
+          lra_target: null,
+          stereo_target: null,
+          bands: {}  // ✅ GARANTIR que bands existe (vazio se necessário)
+        }
       }
     } : {}),
     
