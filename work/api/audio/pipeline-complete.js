@@ -359,12 +359,23 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         'isGenreMode': isGenreMode
       });
       
+      console.log('[GENRE-TARGETS-PATCH-V2] ----------');
+      console.log('[GENRE-TARGETS-PATCH-V2] customTargets presente?', !!customTargets);
+      if (customTargets) {
+        console.log('[GENRE-TARGETS-PATCH-V2] keys:', Object.keys(customTargets));
+        console.log('[GENRE-TARGETS-PATCH-V2] lufs:', customTargets.lufs);
+        console.log('[GENRE-TARGETS-PATCH-V2] truePeak:', customTargets.truePeak);
+        console.log('[GENRE-TARGETS-PATCH-V2] dr:', customTargets.dr);
+      }
+      console.log('[GENRE-TARGETS-PATCH-V2] usando:', customTargets ? 'customTargets (completo)' : 'options.genreTargets (fallback)');
+      console.log('[GENRE-TARGETS-PATCH-V2] ----------');
+      
       finalJSON = generateJSONOutput(coreMetrics, reference, metadata, { 
         jobId, 
         fileName,
         mode: mode,
         genre: detectedGenre,
-        genreTargets: options.genreTargets,
+        genreTargets: customTargets || options.genreTargets,
         referenceJobId: options.referenceJobId
       });
       
