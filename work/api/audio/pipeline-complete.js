@@ -169,6 +169,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
   const jobId = options.jobId || 'unknown';
   let tempFilePath = null;
   let detectedGenre = null; // 🛡️ Escopo global da função para evitar ReferenceError
+  let customTargets = null; // 🔧 Declaração antecipada para evitar ReferenceError
   
   console.log('\n\n===== [DEBUG-PIPELINE-GENRE] Início do pipeline (WORK) =====');
   console.log('mode:', options?.mode);
@@ -475,6 +476,7 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       // loadGenreTargets retorna formato interno completo: { lufs, truePeak, dr, stereo, bands... }
       customTargets = await loadGenreTargets(detectedGenre);
       
+      // 🔧 LOGS DE DEPURAÇÃO (após carregamento)
       console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       console.log('[TARGET-DEBUG] DEPOIS DE CARREGAR TARGETS:');
       console.log('[TARGET-DEBUG] customTargets:', customTargets ? 'presente' : 'NULL');
@@ -482,6 +484,10 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         console.log('[TARGET-DEBUG] customTargets keys:', Object.keys(customTargets));
         console.log('[TARGET-DEBUG] customTargets.lufs:', customTargets.lufs);
         console.log('[TARGET-DEBUG] customTargets.dr:', customTargets.dr);
+        console.log('[GENRE-TARGETS-PATCH-V2] customTargets carregado do filesystem');
+        console.log('[GENRE-TARGETS-PATCH-V2] keys:', Object.keys(customTargets));
+        console.log('[GENRE-TARGETS-PATCH-V2] lufs:', customTargets.lufs);
+        console.log('[GENRE-TARGETS-PATCH-V2] truePeak:', customTargets.truePeak);
       }
       console.log('[TARGET-DEBUG] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
       
