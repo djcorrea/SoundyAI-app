@@ -19630,9 +19630,9 @@ function normalizeBackendAnalysisData(result) {
                          result?.data?.genreTargets ||
                          // FALLBACK CRÍTICO: Injetar de window.__activeRefData se backend não retornou
                          (window.__activeRefData ? {
-                             spectralBands: window.__activeRefData.hybrid_processing?.spectral_bands || window.__activeRefData.bands || {},
+                             spectral_bands: window.__activeRefData.hybrid_processing?.spectral_bands || window.__activeRefData.bands || {},
                              lufs: window.__activeRefData.targets_lufs || window.__activeRefData.targets?.lufs || window.__activeRefData.lufs_target || null,
-                             truePeak: window.__activeRefData.targets_truePeak || window.__activeRefData.targets?.truePeak || window.__activeRefData.true_peak_target || null,
+                             true_peak: window.__activeRefData.targets_truePeak || window.__activeRefData.targets?.truePeak || window.__activeRefData.true_peak_target || null,
                              dr: window.__activeRefData.targets_dr || window.__activeRefData.targets?.dr || window.__activeRefData.dr_target || null,
                              lra: window.__activeRefData.targets_lra || window.__activeRefData.targets?.lra || window.__activeRefData.lra_target || null,
                              stereo: window.__activeRefData.targets_stereo || window.__activeRefData.targets?.stereo || window.__activeRefData.stereo_target || null
@@ -19906,6 +19906,34 @@ function normalizeBackendAnalysisData(result) {
         'src.crest_factor': src.crest_factor,
         'technicalData.crestFactor': data.technicalData?.crestFactor
     });
+
+    // 🎯 CRÍTICO: Injetar genreReference no formato EXATO que o frontend espera
+    const activeRef = window.__activeRefData;
+    if (activeRef) {
+        // Formato para o frontend (tabela de comparação)
+        normalized.genreReference = {
+            spectral_bands: activeRef.hybrid_processing?.spectral_bands || null,
+            lufs: activeRef.targets_lufs || activeRef.targets?.lufs || null,
+            true_peak: activeRef.targets_truePeak || activeRef.targets?.truePeak || null
+        };
+        
+        // Compatibilidade com o Suggestion Engine
+        normalized.data = normalized.data || {};
+        normalized.data.genreTargets = {
+            spectral_bands: activeRef.hybrid_processing?.spectral_bands || null,
+            lufs: activeRef.targets_lufs || activeRef.targets?.lufs || null,
+            true_peak: activeRef.targets_truePeak || activeRef.targets?.truePeak || null
+        };
+        
+        console.log('[GENRE-REFERENCE-INJECT] ✅ genreReference injetado para frontend:', {
+            hasSpectralBands: !!normalized.genreReference.spectral_bands,
+            hasLufs: !!normalized.genreReference.lufs,
+            hasTruePeak: !!normalized.genreReference.true_peak,
+            bandCount: normalized.genreReference.spectral_bands ? Object.keys(normalized.genreReference.spectral_bands).length : 0
+        });
+    } else {
+        console.warn('[GENRE-REFERENCE-INJECT] ⚠️ window.__activeRefData não disponível - tabela de comparação pode não renderizar');
+    }
 
     // �️ MARCAR: Flag para prevenir normalização duplicada
     normalized.__normalized = true;
