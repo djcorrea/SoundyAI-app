@@ -54,14 +54,13 @@ export function generateJSONOutput(coreMetrics, reference = null, metadata = {},
       throw makeErr('output_scoring', `Invalid scoring result: ${JSON.stringify(scoringResult)}`, 'invalid_scoring_result');
     }
 
-    // 🎯 Passar genre, mode, genreTargets e preloadedReferenceMetrics para buildFinalJSON
+    // 🎯 Passar genre, mode e preloadedReferenceMetrics para buildFinalJSON
     const finalJSON = buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, { 
       jobId,
       genre: options.genre,
       mode: options.mode,
       referenceJobId: options.referenceJobId,
-      preloadedReferenceMetrics: options.preloadedReferenceMetrics,
-      genreTargets: options.genreTargets
+      preloadedReferenceMetrics: options.preloadedReferenceMetrics
     });
 
     validateFinalJSON(finalJSON);

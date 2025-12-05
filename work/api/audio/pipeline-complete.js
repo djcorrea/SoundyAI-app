@@ -426,13 +426,6 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         mode: finalJSON.mode
       });
       
-      console.log('[GENRE-TARGETS-VALIDATION] ✅ JSON final estruturado:', {
-        hasDataProperty: !!finalJSON.data,
-        hasGenreTargets: !!finalJSON.data?.genreTargets,
-        genreTargetsKeys: finalJSON.data?.genreTargets ? Object.keys(finalJSON.data.genreTargets) : null,
-        mode: finalJSON.mode
-      });
-      
       timings.phase4_json_output = Date.now() - phase4StartTime;
       
       // Atualizar o breakdown de tempo no metadata final
