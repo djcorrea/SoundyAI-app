@@ -843,9 +843,11 @@ function buildGenreBasedAISuggestions(analysis, genreTargets) {
     }
 
     // 🎵 BANDAS ESPECTRAIS
-    if (genreTargets.spectralBands) {
+    // 🎯 PATCH: Aceitar 'bands' (normalizado) OU 'spectralBands' (legacy)
+    const targetBands = genreTargets.bands || genreTargets.spectralBands;
+    
+    if (targetBands && Object.keys(targetBands).length > 0) {
         const userBands = analysis.metrics?.bands || analysis.technicalData?.spectral_balance;
-        const targetBands = genreTargets.spectralBands;
         
         if (userBands) {
             ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'].forEach(band => {
@@ -5543,9 +5545,11 @@ function renderGenreComparisonTable(options) {
     
     console.log('[GENRE-TABLE] 🎵 Bandas do usuário:', userBands ? Object.keys(userBands) : 'N/A');
     
-    const targetBands = genreData.bands || {};
+    // 🎯 PATCH: Aceitar 'bands' (normalizado) OU 'spectralBands' (legacy) com fallback seguro
+    const targetBands = genreData.bands || genreData.spectralBands || {};
     
-    console.log('[GENRE-TABLE] 🎯 Target bands:', Object.keys(targetBands));
+    console.log('[GENRE-TABLE] 🎯 Target bands (source):', genreData.bands ? 'bands' : (genreData.spectralBands ? 'spectralBands' : 'EMPTY'));
+    console.log('[GENRE-TABLE] 🎯 Target bands (keys):', Object.keys(targetBands));
     
     // 🎯 HELPER: Calcular severidade e ação baseado em diferença e tolerância
     const calcSeverity = (value, target, tolerance) => {
