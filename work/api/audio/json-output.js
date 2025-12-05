@@ -953,6 +953,13 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
       stage: 'output_scoring_completed',
       jobId: jobId,
       timestamp: new Date().toISOString()
+    },
+
+    // 🔥 CAMPO OBRIGATÓRIO: data com genre e genreTargets
+    // Frontend acessa: analysis.data.genreTargets.bands
+    data: {
+      genre: finalGenre,
+      genreTargets: options.genreTargets || null
     }
   };
 }
