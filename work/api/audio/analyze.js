@@ -168,32 +168,23 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
     // ✅ ETAPA 3: GRAVAR NO POSTGRESQL DEPOIS
     console.log('📝 [API] Gravando no PostgreSQL com UUID...');
     
-    // 🎯 CORREÇÃO CRÍTICA: SEMPRE salvar genre E genreTargets (NUNCA null)
-    // Se genre for string vazia ou null, REJEITAR (não usar fallback)
+    // 🎯 CORREÇÃO CRÍTICA: SEMPRE validar genre (não pode ser vazio)
     if (!genre || typeof genre !== 'string' || genre.trim().length === 0) {
       throw new Error('❌ [CRITICAL] Genre é obrigatório e não pode ser vazio');
     }
-    
-    // Construir jobData SEMPRE com genre + genreTargets (se presentes)
-    const jobData = {
-      genre: genre.trim(),
-      genreTargets: genreTargets || null
-    };
     
     // 🎯 LOG DE AUDITORIA OBRIGATÓRIO
     console.log('[GENRE-TRACE][BACKEND] 💾 Salvando no banco:', {
       jobId: jobId.substring(0, 8),
       receivedGenre: genre,
-      savedGenre: jobData.genre,
-      hasGenreTargets: !!jobData.genreTargets,
-      genreTargetsKeys: jobData.genreTargets ? Object.keys(jobData.genreTargets) : null,
-      jobDataStringified: JSON.stringify(jobData)
+      hasGenreTargets: !!genreTargets,
+      genreTargetsKeys: genreTargets ? Object.keys(genreTargets) : null
     });
     
     const result = await pool.query(
-      `INSERT INTO jobs (id, file_key, mode, status, file_name, reference_for, data, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW()) RETURNING *`,
-      [jobId, fileKey, mode, "queued", fileName || null, referenceJobId || null, JSON.stringify(jobData)]
+      `INSERT INTO jobs (id, file_key, mode, status, file_name, reference_for, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW()) RETURNING *`,
+      [jobId, fileKey, mode, "queued", fileName || null, referenceJobId || null]
     );
 
     console.log(`✅ [API] Gravado no PostgreSQL:`, {
@@ -201,8 +192,7 @@ async function createJobInDatabase(fileKey, mode, fileName, referenceJobId = nul
       fileKey: result.rows[0].file_key,
       status: result.rows[0].status,
       mode: result.rows[0].mode,
-      referenceFor: result.rows[0].reference_for,
-      data: result.rows[0].data
+      referenceFor: result.rows[0].reference_for
     });
     console.log('🎯 [API] Fluxo completo - Redis ➜ PostgreSQL concluído!');
 
