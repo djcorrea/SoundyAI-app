@@ -674,6 +674,221 @@ function buildComparativeAISuggestions(userAnalysis, refAnalysis) {
 }
 
 // ========================================
+// 🎯 PATCH 2: SUGESTÕES BASEADAS EM GÊNERO
+// ========================================
+
+/**
+ * 🎯 GERAR SUGESTÕES BASEADAS EM TARGETS DE GÊNERO
+ * @param {Object} analysis - Análise do usuário
+ * @param {Object} genreTargets - Targets do gênero (de analysis.data.genreTargets)
+ * @returns {Array} - Array de sugestões formatadas
+ */
+function buildGenreBasedAISuggestions(analysis, genreTargets) {
+    console.log('[GENRE-SUGGESTIONS] 🎯 Gerando sugestões baseadas em gênero...');
+    
+    if (!analysis || !genreTargets) {
+        console.warn('[GENRE-SUGGESTIONS] ⚠️ Dados incompletos - abortando geração');
+        return [];
+    }
+
+    // 🔍 Extrair métricas do usuário
+    const extractMetric = (path) => {
+        const paths = {
+            lufs: [
+                analysis.lufsIntegrated,
+                analysis.avgLoudness,
+                analysis.loudness?.integrated,
+                analysis.technicalData?.lufsIntegrated
+            ],
+            lra: [
+                analysis.lra,
+                analysis.loudness?.lra,
+                analysis.technicalData?.lra
+            ],
+            tp: [
+                analysis.truePeakDbtp,
+                analysis.truePeak?.maxDbtp,
+                analysis.technicalData?.truePeakDbtp
+            ],
+            dr: [
+                analysis.dynamicRange,
+                analysis.dynamics?.range,
+                analysis.technicalData?.dynamicRange
+            ],
+            stereo: [
+                analysis.stereoCorrelation,
+                analysis.stereo?.correlation,
+                analysis.technicalData?.stereoCorrelation
+            ]
+        };
+
+        const values = paths[path] || [];
+        for (const val of values) {
+            if (typeof val === 'number' && !isNaN(val)) return val;
+        }
+        return null;
+    };
+
+    // 📊 Métricas do usuário
+    const U = {
+        lufs: extractMetric('lufs'),
+        lra: extractMetric('lra'),
+        tp: extractMetric('tp'),
+        dr: extractMetric('dr'),
+        stereo: extractMetric('stereo')
+    };
+
+    // 🎯 Targets do gênero (estrutura flat do backend normalizado)
+    const T = {
+        lufs: genreTargets.lufs_target,
+        lra: genreTargets.lra_target,
+        tp: genreTargets.true_peak_target,
+        dr: genreTargets.dr_target,
+        stereo: genreTargets.stereo_target
+    };
+
+    // 🔢 Tolerâncias
+    const TOL = {
+        lufs: genreTargets.lufs_tolerance || 1.0,
+        lra: genreTargets.lra_tolerance || 0.5,
+        tp: genreTargets.true_peak_tolerance || 0.3,
+        dr: genreTargets.dr_tolerance || 0.7,
+        stereo: genreTargets.stereo_tolerance || 0.05
+    };
+
+    console.log('[GENRE-SUGGESTIONS] 📊 Dados:', { user: U, targets: T, tolerances: TOL });
+
+    // 🔢 Calcular deltas
+    const Δ = {
+        lufs: (U.lufs !== null && T.lufs !== null) ? (U.lufs - T.lufs) : null,
+        lra: (U.lra !== null && T.lra !== null) ? (U.lra - T.lra) : null,
+        tp: (U.tp !== null && T.tp !== null) ? (U.tp - T.tp) : null,
+        dr: (U.dr !== null && T.dr !== null) ? (U.dr - T.dr) : null,
+        stereo: (U.stereo !== null && T.stereo !== null) ? (U.stereo - T.stereo) : null
+    };
+
+    const suggestions = [];
+    const genreName = analysis.genre || analysis.data?.genre || 'este gênero';
+
+    // 1️⃣ LUFS
+    if (Δ.lufs !== null && Math.abs(Δ.lufs) > TOL.lufs) {
+        const dentroDoAlvo = Math.abs(Δ.lufs) <= TOL.lufs;
+        const severidade = dentroDoAlvo ? "OK" : (Math.abs(Δ.lufs) > TOL.lufs * 2 ? "CRÍTICA" : "MODERADA");
+        
+        suggestions.push({
+            categoria: `Loudness (Padrão ${genreName})`,
+            severidade,
+            problema: `Sua faixa está ${Δ.lufs < 0 ? 'mais baixa' : 'mais alta'} que o padrão ${genreName} em ${Math.abs(Δ.lufs).toFixed(2)} LUFS. Atual: ${U.lufs?.toFixed(2)} LUFS | Alvo: ${T.lufs?.toFixed(1)} LUFS.`,
+            causaProvavel: Δ.lufs < 0
+                ? "Gain staging conservador ou limiter com threshold muito baixo."
+                : "Limiter excessivamente agressivo.",
+            solucao: Δ.lufs < 0
+                ? `Aumente o ganho no bus master em aproximadamente ${Math.abs(Δ.lufs).toFixed(1)} dB.`
+                : `Reduza o input gain do limiter em ${Math.abs(Δ.lufs).toFixed(1)} dB.`,
+            pluginRecomendado: "FabFilter Pro-L 2, iZotope Ozone Maximizer",
+            parametros: {
+                alvoLUFS: T.lufs,
+                diferenca: Δ.lufs,
+                tolerancia: TOL.lufs
+            },
+            aiEnhanced: true,
+            genreBased: true
+        });
+    }
+
+    // 2️⃣ TRUE PEAK
+    if (Δ.tp !== null && Math.abs(Δ.tp) > TOL.tp) {
+        const dentroDoAlvo = Math.abs(Δ.tp) <= TOL.tp;
+        const severidade = dentroDoAlvo ? "OK" : (Math.abs(Δ.tp) > TOL.tp * 2 ? "CRÍTICA" : "MODERADA");
+        
+        suggestions.push({
+            categoria: `True Peak (Padrão ${genreName})`,
+            severidade,
+            problema: `True Peak ${Δ.tp > 0 ? 'maior' : 'menor'} que o padrão em ${Math.abs(Δ.tp).toFixed(2)} dBTP. Atual: ${U.tp?.toFixed(2)} dBTP | Alvo: ${T.tp?.toFixed(1)} dBTP.`,
+            causaProvavel: Δ.tp > 0
+                ? "Inter-sample peaks causados por limiter sem oversampling adequado."
+                : "Headroom excessivo não aproveitado.",
+            solucao: Δ.tp > 0
+                ? `Ajuste o ceiling do limiter para máximo de -1.0 dBTP com oversampling 4x.`
+                : `Você pode aumentar o ceiling em até ${Math.abs(Δ.tp).toFixed(1)} dB.`,
+            pluginRecomendado: "FabFilter Pro-L 2 (oversampling 4x)",
+            parametros: {
+                alvoTP: T.tp,
+                diferenca: Δ.tp,
+                tolerancia: TOL.tp
+            },
+            aiEnhanced: true,
+            genreBased: true
+        });
+    }
+
+    // 3️⃣ DYNAMIC RANGE
+    if (Δ.dr !== null && Math.abs(Δ.dr) > TOL.dr) {
+        const dentroDoAlvo = Math.abs(Δ.dr) <= TOL.dr;
+        const severidade = dentroDoAlvo ? "OK" : (Math.abs(Δ.dr) > TOL.dr * 2 ? "ALTA" : "MODERADA");
+        
+        suggestions.push({
+            categoria: `Dynamic Range (Padrão ${genreName})`,
+            severidade,
+            problema: `DR difere do padrão ${genreName} em ${Math.abs(Δ.dr).toFixed(2)} dB. Atual: ${U.dr?.toFixed(2)} dB | Alvo: ${T.dr?.toFixed(1)} dB.`,
+            solucao: `Ajuste compressão nos subgrupos para aproximar DR de ${T.dr?.toFixed(1)} dB.`,
+            parametros: {
+                alvoDR: T.dr,
+                diferenca: Δ.dr,
+                tolerancia: TOL.dr
+            },
+            aiEnhanced: true,
+            genreBased: true
+        });
+    }
+
+    // 🎵 BANDAS ESPECTRAIS
+    if (genreTargets.spectralBands) {
+        const userBands = analysis.metrics?.bands || analysis.technicalData?.spectral_balance;
+        const targetBands = genreTargets.spectralBands;
+        
+        if (userBands) {
+            ['sub', 'bass', 'lowMid', 'mid', 'highMid', 'presence', 'air'].forEach(band => {
+                const userValue = userBands[band]?.percentage || userBands[band]?.energy_db;
+                const targetValue = targetBands[band]?.target || targetBands[band]?.percentage;
+                const tolerance = targetBands[band]?.tolerance || 3.0;
+                
+                if (userValue !== null && targetValue !== null) {
+                    const delta = userValue - targetValue;
+                    
+                    if (Math.abs(delta) > tolerance) {
+                        suggestions.push({
+                            categoria: `Banda ${band} (Padrão ${genreName})`,
+                            severidade: Math.abs(delta) > tolerance * 2 ? "ALTA" : "MODERADA",
+                            problema: `Banda ${band} ${delta > 0 ? 'acima' : 'abaixo'} do padrão em ${Math.abs(delta).toFixed(1)}%. Atual: ${userValue.toFixed(1)}% | Alvo: ${targetValue.toFixed(1)}%.`,
+                            solucao: delta > 0
+                                ? `Reduza frequências ${band} com EQ em ~${Math.abs(delta).toFixed(1)} dB.`
+                                : `Aumente frequências ${band} com EQ em ~${Math.abs(delta).toFixed(1)} dB.`,
+                            parametros: {
+                                banda: band,
+                                alvo: targetValue,
+                                diferenca: delta,
+                                tolerancia: tolerance
+                            },
+                            aiEnhanced: true,
+                            genreBased: true
+                        });
+                    }
+                }
+            });
+        }
+    }
+
+    console.log(`[GENRE-SUGGESTIONS] ✅ Geradas ${suggestions.length} sugestões baseadas em gênero`);
+    
+    // Limitar a 8 sugestões mais relevantes (5 métricas + top 3 bandas)
+    const severityOrder = { "CRÍTICA": 0, "ALTA": 1, "MODERADA": 2, "OK": 3 };
+    return suggestions
+        .sort((a, b) => (severityOrder[a.severidade] || 5) - (severityOrder[b.severidade] || 5))
+        .slice(0, 8);
+}
+
+// ========================================
 // 🤖 SISTEMA DE ESPERA POR ENRIQUECIMENTO IA
 // ========================================
 
@@ -9191,10 +9406,79 @@ async function displayModalResults(analysis) {
         
         console.log('[AUDIT-CORRECTION] ✅ Fluxo continuará para renderizar cards, scores e sugestões');
         console.log('[AUDIT-CORRECTION] ✅ Return prematuro removido - pipeline completo ativado');
+    } else if (analysis && analysis.mode === "genre") {
+        // 🎯 PATCH 1: MODO GÊNERO COM TARGETS
+        console.log('[GENRE-FLOW] 🎯 Renderizando modo gênero com targets');
+        
+        const genreTargets = analysis.data?.genreTargets;
+        
+        if (!genreTargets) {
+            console.error('[GENRE-FLOW] ❌ genreTargets não encontrado em analysis.data!');
+            console.error('[GENRE-FLOW]    analysis.data:', analysis.data);
+            console.error('[GENRE-FLOW]    analysis.genreTargets:', analysis.genreTargets);
+            
+            // Fallback para single
+            if (typeof window.aiUIController !== 'undefined') {
+                console.warn('[GENRE-FLOW] ⚠️ Caindo em fallback single sem targets');
+                window.aiUIController.renderSuggestions({ mode: 'single', user: analysis });
+            }
+            return;
+        }
+        
+        console.log('[GENRE-FLOW] ✅ genreTargets encontrado:', {
+            lufs_target: genreTargets.lufs_target,
+            true_peak_target: genreTargets.true_peak_target,
+            dr_target: genreTargets.dr_target,
+            spectralBands: genreTargets.spectralBands ? Object.keys(genreTargets.spectralBands) : null
+        });
+        
+        // ✅ Renderizar tabela de comparação com targets
+        renderGenreComparisonTable({
+            analysis,
+            genre: analysis.genre || analysis.data.genre,
+            targets: genreTargets
+        });
+        
+        // ✅ Renderizar sugestões com contexto de gênero
+        if (typeof window.aiUIController !== 'undefined') {
+            console.log('[GENRE-FLOW] 🎯 Renderizando sugestões em modo gênero');
+            
+            window.aiUIController.renderSuggestions({ 
+                mode: 'genre', 
+                user: analysis,
+                targets: genreTargets
+            });
+            
+            window.aiUIController.renderMetricCards({ 
+                mode: 'genre', 
+                user: analysis, 
+                targets: genreTargets 
+            });
+            
+            window.aiUIController.renderScoreSection({ 
+                mode: 'genre', 
+                user: analysis, 
+                targets: genreTargets 
+            });
+            
+            window.aiUIController.renderFinalScoreAtTop({ 
+                mode: 'genre', 
+                user: analysis, 
+                targets: genreTargets 
+            });
+            
+            window.aiUIController.checkForAISuggestions({ 
+                mode: 'genre', 
+                user: analysis, 
+                targets: genreTargets 
+            });
+        }
+        
+        console.log('[GENRE-FLOW] ✅ Renderização de modo gênero concluída');
     }
     
     // [AUDIT-FLOW-CHECK] Verificar se chegou aqui (deveria chegar sempre, inclusive no modo reference)
-    console.log('[AUDIT-FLOW-CHECK] ✅ Fluxo continua após bloco reference - modo:', analysis?.mode);
+    console.log('[AUDIT-FLOW-CHECK] ✅ Fluxo continua após blocos reference/genre - modo:', analysis?.mode);
     
     // 🔒 VALIDAÇÃO CRÍTICA: Garantir que métricas essenciais estão presentes
     // CORRIGIDO: Verificar novos caminhos do backend Redis
@@ -13179,10 +13463,19 @@ if (typeof window.comparisonLock === "undefined") {
 // --- BEGIN: deterministic mode gate ---
 function renderReferenceComparisons(ctx) {
     // ========================================
-    // 🎯 PASSO 0: DETECÇÃO DE MODO GÊNERO (PRIORIDADE MÁXIMA)
+    // 🎯 PASSO 0: GUARD - APENAS PARA MODO REFERÊNCIA
     // ========================================
     if (!SOUNDY_MODE_ENGINE.isReferenceCompare()) {
+        console.log('[RENDER-REF] ⏭️ Modo não é referência - abortando');
         return;
+    }
+    
+    // 🛡️ PATCH 3: GUARD ADICIONAL - Se for modo gênero, não renderizar A/B
+    const analysis = ctx?.userAnalysis || ctx?.user;
+    if (analysis?.mode === 'genre') {
+        console.log('[RENDER-REF] 🎯 Modo gênero detectado - deve usar renderGenreComparisonTable');
+        console.warn('[RENDER-REF] ⚠️ Esta função não deve ser chamada para modo gênero!');
+        return; // Modo gênero deve usar renderGenreComparisonTable
     }
     
     // ========================================
