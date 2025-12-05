@@ -5221,15 +5221,25 @@ function searchBandWithAlias(bandKey, bandsObject) {
  * Targets: ['sub', 'low_bass', 'upper_bass', 'low_mid', 'mid', 'high_mid', 'brilho', 'presenca']
  */
 function normalizeGenreBandName(name) {
+    // 🎯 PATCH DEFINITIVO: Backend JÁ normalizou (low_bass → bass, presenca → presence, etc.)
+    // Não converter novamente! Apenas garantir compatibilidade com snake_case legado
     const map = {
-        'bass': 'low_bass',
-        'lowMid': 'low_mid',
-        'highMid': 'high_mid',
-        'presence': 'presenca',
-        'air': 'brilho',
+        // Se ainda receber snake_case (compatibilidade), converter para camelCase
+        'low_bass': 'bass',
+        'upper_bass': 'upperBass',
+        'low_mid': 'lowMid',
+        'high_mid': 'highMid',
+        'presenca': 'presence',
+        'brilho': 'air',
+        // CamelCase já normalizado - retornar como está
+        'bass': 'bass',
+        'upperBass': 'upperBass',
+        'lowMid': 'lowMid',
+        'highMid': 'highMid',
+        'presence': 'presence',
+        'air': 'air',
         'sub': 'sub',
         'mid': 'mid'
-        // 'totalPercentage' será ignorado (não está no map)
     };
     return map[name] || name;
 }
@@ -5687,15 +5697,23 @@ function renderGenreComparisonTable(options) {
     // 2️⃣ BANDAS ESPECTRAIS
     // ════════════════════════════════════════════════════════════════════
     
+    // 🎯 PATCH: Usar nomenclatura NORMALIZADA (camelCase) igual ao backend
     const nomesBandas = {
         sub: '🔉 Sub (20-60 Hz)',
+        bass: '🔊 Bass (60-120 Hz)',           // ← low_bass normalizado
+        upperBass: '🔊 Upper Bass (120-250 Hz)', // ← upper_bass normalizado
+        lowMid: '🎵 Low Mid (250-500 Hz)',      // ← low_mid normalizado
+        mid: '🎵 Mid (500-2k Hz)',
+        highMid: '🎸 High Mid (2k-4k Hz)',      // ← high_mid normalizado
+        presence: '💎 Presença (10k-20k Hz)',   // ← presenca normalizado
+        air: '✨ Brilho (4k-10k Hz)',           // ← brilho normalizado
+        // Compatibilidade com nomes legados (snake_case)
         low_bass: '🔊 Bass (60-120 Hz)',
         upper_bass: '🔊 Upper Bass (120-250 Hz)',
         low_mid: '🎵 Low Mid (250-500 Hz)',
-        mid: '🎵 Mid (500-2k Hz)',
         high_mid: '🎸 High Mid (2k-4k Hz)',
-        brilho: '✨ Brilho (4k-10k Hz)',
-        presenca: '💎 Presença (10k-20k Hz)'
+        presenca: '💎 Presença (10k-20k Hz)',
+        brilho: '✨ Brilho (4k-10k Hz)'
     };
     
     // 🎯 ITERAR SOBRE AS BANDAS DO USUÁRIO (backend) e mapear para targets
