@@ -80,6 +80,7 @@ router.get("/:id", async (req, res) => {
       mode: job.mode,
       status: normalizedStatus,
       error: job.error || null,
+      data: job.data || null,
       createdAt: job.created_at,
       updatedAt: job.updated_at,
       completedAt: job.completed_at,
