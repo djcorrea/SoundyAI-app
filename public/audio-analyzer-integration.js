@@ -17319,15 +17319,14 @@ function updateReferenceSuggestions(analysis) {
             
             const enhancedAnalysis = window.enhancedSuggestionEngine.processAnalysis(analysis, targetDataForEngine);
             
-            // Preservar sugestões não-referência existentes se necessário
+            // 🔧 CORREÇÃO CRÍTICA: Guardar sugestões antigas apenas para debug/fallback
+            // NÃO MISTURAR sugestões antigas com novas - isso causa contradições!
             const existingSuggestions = Array.isArray(analysis.suggestions) ? analysis.suggestions : [];
-            const nonRefSuggestions = existingSuggestions.filter(s => {
-                const type = s?.type || '';
-                return !type.startsWith('reference_') && !type.startsWith('band_adjust') && !type.startsWith('heuristic_');
-            });
+            analysis.backendSuggestions = existingSuggestions; // Para debug ou fallback extremo
             
-            // Combinar sugestões melhoradas com existentes preservadas
-            analysis.suggestions = [...enhancedAnalysis.suggestions, ...nonRefSuggestions];
+            // 🎯 USAR APENAS SUGESTÕES DO ENHANCED ENGINE
+            // Cards e tabela devem mostrar OS MESMOS valores - sem mistura!
+            analysis.suggestions = enhancedAnalysis.suggestions;
             
             // Adicionar métricas melhoradas à análise
             if (enhancedAnalysis.enhancedMetrics) {
@@ -17339,9 +17338,10 @@ function updateReferenceSuggestions(analysis) {
                 analysis.auditLog = enhancedAnalysis.auditLog;
             }
             
-            console.log(`🎯 [SUGGESTIONS] Enhanced Engine: ${enhancedAnalysis.suggestions.length} sugestões geradas`);
-            console.log(`🎯 [SUGGESTIONS] Sugestões preservadas: ${nonRefSuggestions.length}`);
-            console.log(`🎯 [SUGGESTIONS] Total final: ${analysis.suggestions.length} sugestões`);
+            console.log(`🎯 [SUGGESTIONS] Backend suggestions (antigas): ${existingSuggestions.length} guardadas em backendSuggestions`);
+            console.log(`🎯 [SUGGESTIONS] Enhanced Engine (NOVAS): ${enhancedAnalysis.suggestions.length} sugestões`);
+            console.log(`🎯 [SUGGESTIONS] Total final (SEM MIXING): ${analysis.suggestions.length} sugestões`);
+            console.log(`✅ [FIX-CONSISTENCY] Cards e tabela agora usarão OS MESMOS targets/deltas`);
             
             // 🤖 NOVA CAMADA DE IA: Pós-processamento inteligente de sugestões (Enhanced Engine)
             if (typeof window !== 'undefined' && window.AI_SUGGESTION_LAYER_ENABLED && window.aiSuggestionLayer) {
@@ -19627,8 +19627,16 @@ function normalizeBackendAnalysisData(result) {
                    null,
             genreTargets: result?.genreTargets ||
                          data.genreTargets || 
-                         result?.data?.genreTargets || 
-                         null
+                         result?.data?.genreTargets ||
+                         // FALLBACK CRÍTICO: Injetar de window.__activeRefData se backend não retornou
+                         (window.__activeRefData ? {
+                             spectralBands: window.__activeRefData.hybrid_processing?.spectral_bands || window.__activeRefData.bands || {},
+                             lufs: window.__activeRefData.targets_lufs || window.__activeRefData.targets?.lufs || window.__activeRefData.lufs_target || null,
+                             truePeak: window.__activeRefData.targets_truePeak || window.__activeRefData.targets?.truePeak || window.__activeRefData.true_peak_target || null,
+                             dr: window.__activeRefData.targets_dr || window.__activeRefData.targets?.dr || window.__activeRefData.dr_target || null,
+                             lra: window.__activeRefData.targets_lra || window.__activeRefData.targets?.lra || window.__activeRefData.lra_target || null,
+                             stereo: window.__activeRefData.targets_stereo || window.__activeRefData.targets?.stereo || window.__activeRefData.stereo_target || null
+                         } : null)
         },
         
         // 🔍 AUDITORIA CRÍTICA: Verificar se spread contaminou genre

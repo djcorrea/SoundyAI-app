@@ -664,6 +664,138 @@ class EnhancedSuggestionEngine {
     }
 
     /**
+     * 🔧 NOVO: Criar estrutura BaseSuggestion padronizada
+     * @param {string} metric - Nome da métrica ('lufs', 'truePeak', 'band_sub', etc)
+     * @param {string} label - Label amigável ("LUFS (Loudness)", "Sub Bass (20-60 Hz)")
+     * @param {number} value - Valor medido
+     * @param {number} target - Valor alvo do gênero
+     * @param {Object} referenceData - Dados de referência com tolerâncias
+     * @returns {Object} BaseSuggestion padronizado
+     */
+    createBaseSuggestion(metric, label, value, target, referenceData) {
+        // Extrair tolerância e crítico
+        const tolerance = referenceData[`tol_${metric}`] || referenceData.bands?.[metric]?.tolerance || 2;
+        const critical = referenceData[`crit_${metric}`] || referenceData.bands?.[metric]?.critical || 5;
+        
+        const delta = value - target;
+        const absDelta = Math.abs(delta);
+        
+        // Calcular severidade
+        let severity = 'ok';
+        if (absDelta > critical) severity = 'critical';
+        else if (absDelta > tolerance) severity = 'warning';
+        
+        // Calcular direção (para dB negativos)
+        let direction = 'ok';
+        if (severity !== 'ok') {
+            direction = delta > 0 ? 'high' : 'low';
+        }
+        
+        // Construir mensagens base
+        const observation = this.buildObservationMessage(label, value, target, delta, direction, severity);
+        const recommendation = this.buildRecommendationMessage(label, delta, direction);
+        
+        // Calcular prioridade
+        const priority = this.calculatePriority(severity, absDelta);
+        
+        return {
+            id: `${metric}_${Date.now()}`,
+            metric: metric,
+            label: label,
+            value: value,
+            target: target,
+            delta: delta,
+            severity: severity,
+            direction: direction,
+            observation: observation,
+            recommendation: recommendation,
+            aiEnhanced: false,
+            priority: priority,
+            category: this.getCategoryForMetric(metric)
+        };
+    }
+
+    /**
+     * 🔧 NOVO: Construir mensagem de observação padronizada
+     * @param {string} label - Label da métrica
+     * @param {number} value - Valor medido
+     * @param {number} target - Valor alvo
+     * @param {number} delta - Diferença (value - target)
+     * @param {string} direction - 'high', 'low' ou 'ok'
+     * @param {string} severity - 'ok', 'warning' ou 'critical'
+     * @returns {string} Mensagem de observação
+     */
+    buildObservationMessage(label, value, target, delta, direction, severity) {
+        const valueStr = value.toFixed(1);
+        const targetStr = target.toFixed(1);
+        const deltaStr = delta > 0 ? `+${delta.toFixed(1)}` : delta.toFixed(1);
+        
+        let intensifier = '';
+        if (severity === 'critical') intensifier = 'muito ';
+        else if (severity === 'warning') intensifier = 'levemente ';
+        
+        const directionText = direction === 'high' ? 'alto' : direction === 'low' ? 'baixo' : 'dentro do esperado';
+        
+        if (severity === 'ok') {
+            return `${label} dentro do range esperado: ${valueStr} dB (alvo: ${targetStr} dB)`;
+        }
+        
+        return `${label} ${intensifier}${directionText}: ${valueStr} dB (alvo: ${targetStr} dB, diferença: ${deltaStr} dB)`;
+    }
+
+    /**
+     * 🔧 NOVO: Construir mensagem de recomendação padronizada
+     * @param {string} label - Label da métrica
+     * @param {number} delta - Diferença (value - target)
+     * @param {string} direction - 'high', 'low' ou 'ok'
+     * @returns {string} Mensagem de recomendação
+     */
+    buildRecommendationMessage(label, delta, direction) {
+        const absDelta = Math.abs(delta);
+        const adjustmentDb = Math.min(absDelta, 6).toFixed(1); // Limitar a ±6 dB por segurança
+        
+        if (direction === 'ok') {
+            return `Mantenha os ajustes atuais em ${label}.`;
+        }
+        
+        const actionVerb = direction === 'high' ? 'Reduza' : 'Aumente';
+        return `${actionVerb} aproximadamente ${adjustmentDb} dB em ${label} com EQ suave.`;
+    }
+
+    /**
+     * 🔧 NOVO: Calcular prioridade baseada em severidade e delta
+     * @param {string} severity - 'ok', 'warning' ou 'critical'
+     * @param {number} absDelta - Delta absoluto
+     * @returns {number} Prioridade (0-1)
+     */
+    calculatePriority(severity, absDelta) {
+        let basePriority = 0.5;
+        if (severity === 'critical') basePriority = 0.9;
+        else if (severity === 'warning') basePriority = 0.6;
+        else basePriority = 0.3;
+        
+        // Ajustar pela magnitude do delta (max +0.1)
+        const deltaBonus = Math.min(absDelta / 20, 0.1);
+        
+        return Math.min(basePriority + deltaBonus, 1.0);
+    }
+
+    /**
+     * 🔧 NOVO: Obter categoria da métrica
+     * @param {string} metric - Nome da métrica
+     * @returns {string} Categoria
+     */
+    getCategoryForMetric(metric) {
+        if (metric === 'lufs') return 'Loudness';
+        if (metric === 'truePeak' || metric === 'true_peak') return 'Peak';
+        if (metric === 'dr' || metric === 'dynamicRange') return 'Dinâmica';
+        if (metric === 'lra') return 'Dinâmica';
+        if (metric === 'stereo') return 'Estéreo';
+        if (metric.startsWith('band_')) return 'Espectro';
+        return 'Geral';
+    }
+
+    /**
      * 🎵 Normalizar bandas espectrais
      * @param {Object} source - Objeto fonte
      * @returns {Object} Bandas normalizadas
