@@ -1692,8 +1692,8 @@ const FirstAnalysisStore = window.FirstAnalysisStore;
  * @returns {Object} { vid: string, clone: Object }
  */
 function cacheResultByRole(result, { isSecondTrack }) {
-  // Normalizar dados do backend
-  const base = normalizeBackendAnalysisData(result);
+  // 🔥 CORREÇÃO: Usar dados DIRETOS do backend (sem reconstrução)
+  const base = result; // ✅ LEITURA DIRETA
   
   // Clone profundo para evitar mutações
   const clone = (typeof structuredClone === 'function') 
@@ -1890,7 +1890,8 @@ function pickAnalysisFields(a) {
 
 // Normalização segura (copia antes de processar)
 function normalizeSafe(raw) {
-    return normalizeBackendAnalysisData(pickAnalysisFields(raw));
+    // 🔥 CORREÇÃO: Usar dados DIRETOS do backend (sem reconstrução)
+    return pickAnalysisFields(raw); // ✅ LEITURA DIRETA
 }
 
 // 🆔 SISTEMA runId - Função utilitária centralizada
@@ -6879,13 +6880,14 @@ async function handleModalFileSelection(file) {
             console.log('⚠️ PONTO CRÍTICO: normalizeBackendAnalysisData() vai modificar analysisResult?');
             console.groupEnd();
             
-            // Normalizar dados do backend
-            const normalizedResult = normalizeBackendAnalysisData(analysisResult);
+            // 🔥 CORREÇÃO: Usar dados DIRETOS do backend (sem reconstrução)
+            // ❌ REMOVIDO: normalizeBackendAnalysisData() destrói dados
+            const normalizedResult = analysisResult; // ✅ LEITURA DIRETA
             
-            // � POPULAR CACHE COM RESULTADO NORMALIZADO
+            // 🔒 POPULAR CACHE COM RESULTADO DIRETO
             AnalysisCache.put(normalizedResult);
             
-            // �🔍 AUDITORIA: Estado APÓS normalizar analysisResult
+            // 🔍🔍 AUDITORIA: Estado APÓS normalizar analysisResult
             console.groupCollapsed('[AUDITORIA_STATE_FLOW] ✅ DEPOIS de normalizeBackendAnalysisData');
             console.log('⚙️ Contexto: Normalização concluída');
             console.log('📊 normalizedResult (resultado da normalização):', {
@@ -7420,10 +7422,10 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         console.warn('⚠️ [AUDIT_REF_FIX] ABORTANDO limpeza para preservar dados A/B');
         console.log('[MODE LOCKED] reference - limpeza de estado BLOQUEADA');
         
-        // Normalizar e retornar sem modificar estado
-        const normalizedResult = normalizeBackendAnalysisData(analysisResult);
+        // 🔥 CORREÇÃO: Usar dados DIRETOS do backend (sem reconstrução)
+        const normalizedResult = analysisResult; // ✅ LEITURA DIRETA
         
-        // 🔒 POPULAR CACHE COM RESULTADO NORMALIZADO
+        // 🔒 POPULAR CACHE COM RESULTADO DIRETO
         AnalysisCache.put(normalizedResult);
         
         return normalizedResult;
@@ -7437,8 +7439,8 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
             mode: window.__CURRENT_MODE__
         });
         
-        // Normalizar e retornar sem limpar estado
-        const normalizedResult = normalizeBackendAnalysisData(analysisResult);
+        // 🔥 CORREÇÃO: Usar dados DIRETOS do backend (sem reconstrução)
+        const normalizedResult = analysisResult; // ✅ LEITURA DIRETA
         AnalysisCache.put(normalizedResult);
         
         console.log('[GENRE-BEFORE-DISPLAY] 🎵 Genre preservado:', {
@@ -7503,10 +7505,11 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         
         updateModalProgress(90, '🎵 Aplicando resultado da análise...');
         
-        // 🔧 CORREÇÃO: Normalizar dados do backend antes de usar
-        const normalizedResult = normalizeBackendAnalysisData(analysisResult);
+        // 🔥 CORREÇÃO: Usar dados DIRETOS do backend (sem reconstrução)
+        // ❌ REMOVIDO: normalizeBackendAnalysisData() destrói dados
+        const normalizedResult = analysisResult; // ✅ LEITURA DIRETA
         
-        // 🔒 POPULAR CACHE COM RESULTADO NORMALIZADO
+        // 🔒 POPULAR CACHE COM RESULTADO DIRETO
         AnalysisCache.put(normalizedResult);
         
         // ========================================
@@ -16366,11 +16369,11 @@ function renderTrackComparisonTable(baseAnalysis, referenceAnalysis) {
         return;
     }
     
-    // Normalizar dados de ambas as faixas
+    // 🔥 CORREÇÃO: Usar dados DIRETOS do backend (sem reconstrução)
     // ref = primeira faixa (BASE/ALVO)
     // curr = segunda faixa (ATUAL/COMPARADA)
-    const ref = normalizeBackendAnalysisData(baseAnalysis);
-    const curr = normalizeBackendAnalysisData(referenceAnalysis);
+    const ref = baseAnalysis; // ✅ LEITURA DIRETA
+    const curr = referenceAnalysis; // ✅ LEITURA DIRETA
     
     const refTech = ref.technicalData || {};
     const currTech = curr.technicalData || {};
@@ -20457,26 +20460,26 @@ function testNormalizationCompatibility() {
     };
     
     try {
-        // ✅ Teste formato antigo
-        const normalized1 = normalizeBackendAnalysisData(oldFormat);
-        console.log("✅ [TEST] Formato antigo normalizado:", {
-            lufs: normalized1.technicalData.lufsIntegrated,
-            lra: normalized1.technicalData.lra,
-            truePeak: normalized1.technicalData.truePeakDbtp,
-            dr: normalized1.technicalData.dynamicRange
+        // 🔥 CORREÇÃO: Usar dados DIRETOS (testes sem reconstrução)
+        const normalized1 = oldFormat; // ✅ LEITURA DIRETA
+        console.log("✅ [TEST] Formato antigo DIRETO:", {
+            lufs: normalized1.technicalData?.lufsIntegrated,
+            lra: normalized1.technicalData?.lra,
+            truePeak: normalized1.technicalData?.truePeakDbtp,
+            dr: normalized1.technicalData?.dynamicRange
         });
         
-        // ✅ Teste formato novo
-        const normalized2 = normalizeBackendAnalysisData(newFormat);
-        console.log("✅ [TEST] Formato novo normalizado:", {
-            lufs: normalized2.technicalData.lufsIntegrated,
-            lra: normalized2.technicalData.lra,
-            truePeak: normalized2.technicalData.truePeakDbtp,
-            dr: normalized2.technicalData.dynamicRange
+        // 🔥 CORREÇÃO: Usar dados DIRETOS (testes sem reconstrução)
+        const normalized2 = newFormat; // ✅ LEITURA DIRETA
+        console.log("✅ [TEST] Formato novo DIRETO:", {
+            lufs: normalized2.technicalData?.lufsIntegrated,
+            lra: normalized2.technicalData?.lra,
+            truePeak: normalized2.technicalData?.truePeakDbtp,
+            dr: normalized2.technicalData?.dynamicRange
         });
         
-        // ✅ Teste formato híbrido
-        const normalized3 = normalizeBackendAnalysisData(hybridFormat);
+        // 🔥 CORREÇÃO: Usar dados DIRETOS (testes sem reconstrução)
+        const normalized3 = hybridFormat; // ✅ LEITURA DIRETA
         console.log("✅ [TEST] Formato híbrido normalizado:", {
             lufs: normalized3.technicalData.lufsIntegrated,
             lra: normalized3.technicalData.lra,

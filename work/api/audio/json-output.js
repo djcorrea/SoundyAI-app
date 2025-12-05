@@ -956,10 +956,25 @@ function buildFinalJSON(coreMetrics, technicalData, scoringResult, metadata, opt
     },
 
     // 🔥 CAMPO OBRIGATÓRIO: data com genre e genreTargets
-    // Frontend acessa: analysis.data.genreTargets.bands
+    // Frontend acessa: analysis.data.genreTargets.spectral_bands
     data: {
       genre: finalGenre,
-      genreTargets: options.genreTargets || null
+      genreTargets: options.genreTargets ? {
+        // ✅ PADRONIZAÇÃO: Remover _target suffix para compatibilidade frontend
+        lufs: options.genreTargets.lufs_target ?? options.genreTargets.lufs ?? null,
+        true_peak: options.genreTargets.true_peak_target ?? options.genreTargets.true_peak ?? null,
+        dr: options.genreTargets.dr_target ?? options.genreTargets.dr ?? null,
+        lra: options.genreTargets.lra_target ?? options.genreTargets.lra ?? null,
+        stereo: options.genreTargets.stereo_target ?? options.genreTargets.stereo ?? null,
+        // ✅ PADRONIZAÇÃO: Renomear bands → spectral_bands
+        spectral_bands: options.genreTargets.bands ?? options.genreTargets.spectral_bands ?? null,
+        // Preservar tolerâncias se existirem
+        tol_lufs: options.genreTargets.tol_lufs ?? null,
+        tol_true_peak: options.genreTargets.tol_true_peak ?? null,
+        tol_dr: options.genreTargets.tol_dr ?? null,
+        tol_lra: options.genreTargets.tol_lra ?? null,
+        tol_stereo: options.genreTargets.tol_stereo ?? null
+      } : null
     }
   };
 }
