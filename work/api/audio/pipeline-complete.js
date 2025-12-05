@@ -426,6 +426,13 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         mode: finalJSON.mode
       });
       
+      console.log('[GENRE-TARGETS-VALIDATION] ✅ JSON final estruturado:', {
+        hasDataProperty: !!finalJSON.data,
+        hasGenreTargets: !!finalJSON.data?.genreTargets,
+        genreTargetsKeys: finalJSON.data?.genreTargets ? Object.keys(finalJSON.data.genreTargets) : null,
+        mode: finalJSON.mode
+      });
+      
       timings.phase4_json_output = Date.now() - phase4StartTime;
       
       // Atualizar o breakdown de tempo no metadata final
@@ -1357,17 +1364,6 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
         size: JSON.stringify(finalJSON).length
       }
     });
-
-    // 🎯 PATCH CRÍTICO: Garantir data.genreTargets no JSON final (modo genre)
-    if (mode === "genre") {
-        finalJSON.data = finalJSON.data || {};
-        finalJSON.data.genreTargets = customTargets || options.genreTargets || null;
-        
-        console.log('[GENRE-TARGETS-FINAL] ✅ data.genreTargets adicionado ao JSON final:', {
-            hasGenreTargets: !!finalJSON.data.genreTargets,
-            keys: finalJSON.data.genreTargets ? Object.keys(finalJSON.data.genreTargets) : null
-        });
-    }
 
     // Limpar arquivo temporário
     cleanupTempFile(tempFilePath);
