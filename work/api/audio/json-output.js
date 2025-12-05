@@ -490,28 +490,37 @@ function normalizeGenreTargetsForFrontend(targets) {
     lra_tolerance: targets.lra?.tolerance,
 
     stereo_target: targets.stereo?.target,
-    stereo_tolerance: targets.stereo?.tolerance,
-
-    spectralBands: {}
+    stereo_tolerance: targets.stereo?.tolerance
   };
 
-  // Processar bandas espectrais (normalizar PT → EN)
+  // 🎯 PATCH: Mapeamento COMPLETO de bandas (PT → EN + snake_case → camelCase)
+  const BAND_NAME_MAP = {
+    'sub': 'sub',
+    'low_bass': 'bass',
+    'upper_bass': 'upperBass',
+    'low_mid': 'lowMid',
+    'mid': 'mid',
+    'high_mid': 'highMid',
+    'presenca': 'presence',
+    'brilho': 'air'
+  };
+
+  // Criar campo 'bands' (NÃO 'spectralBands')
+  normalized.bands = {};
+
+  // Processar bandas com mapeamento completo
   const bandKeys = Object.keys(targets).filter(k =>
     !['lufs', 'truePeak', 'dr', 'lra', 'stereo'].includes(k)
   );
 
   bandKeys.forEach(key => {
-    // Normalizar nomes PT → EN
-    const normalizedKey =
-      key === 'presenca' ? 'presence' :
-      key === 'brilho' ? 'air' :
-      key;
-
-    normalized.spectralBands[normalizedKey] = targets[key];
+    // Usar BAND_NAME_MAP para conversão completa
+    const normalizedKey = BAND_NAME_MAP[key] || key;
+    normalized.bands[normalizedKey] = targets[key];
   });
 
   console.log('[JSON-OUTPUT-NORMALIZE] Saída - keys:', Object.keys(normalized));
-  console.log('[JSON-OUTPUT-NORMALIZE] Bandas normalizadas:', Object.keys(normalized.spectralBands));
+  console.log('[JSON-OUTPUT-NORMALIZE] Bandas normalizadas:', Object.keys(normalized.bands));
   console.log('[JSON-OUTPUT-NORMALIZE] ----------');
 
   return normalized;
