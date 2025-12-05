@@ -70,7 +70,30 @@ router.get("/:id", async (req, res) => {
         fullResult = typeof resultData === 'string' ? JSON.parse(resultData) : resultData;
         console.log("[API-JOBS] ✅ Job result parsed successfully");
         console.log(`[API-JOBS] Analysis contains: ${Object.keys(fullResult).join(', ')}`);
-        console.log(`[API-JOBS] Data source: ${job.results ? 'results (new)' : 'result (legacy)'}`);
+        console.log(`[API-JOBS] Data source: ${job.results ? 'results (new)' : 'result (legacy)'}`);        
+        
+        // 🔥 AUDITORIA CRÍTICA: Verificar technicalData APÓS parse
+        console.log('\n\n🔥🔥🔥 [AUDIT-TECHNICAL-DATA] API POST-PARSE 🔥🔥🔥');
+        console.log('[AUDIT-TECHNICAL-DATA] fullResult.technicalData:', {
+          exists: !!fullResult.technicalData,
+          type: typeof fullResult.technicalData,
+          isEmpty: fullResult.technicalData && Object.keys(fullResult.technicalData).length === 0,
+          keys: fullResult.technicalData ? Object.keys(fullResult.technicalData) : [],
+          hasSampleFields: {
+            lufsIntegrated: fullResult.technicalData?.lufsIntegrated,
+            truePeakDbtp: fullResult.technicalData?.truePeakDbtp,
+            dynamicRange: fullResult.technicalData?.dynamicRange,
+            spectral_balance: !!fullResult.technicalData?.spectral_balance
+          }
+        });
+        console.log('[AUDIT-TECHNICAL-DATA] fullResult outros campos:', {
+          hasScore: fullResult.score !== undefined,
+          scoreValue: fullResult.score,
+          hasClassification: !!fullResult.classification,
+          hasData: !!fullResult.data,
+          hasDataGenreTargets: !!fullResult.data?.genreTargets
+        });
+        console.log('🔥🔥🔥 [AUDIT-TECHNICAL-DATA] END 🔥🔥🔥\n\n');
       } catch (parseError) {
         console.error("[API-JOBS] ❌ Erro ao fazer parse do results JSON:", parseError);
         fullResult = resultData;
