@@ -2637,6 +2637,31 @@ async function pollJobStatus(jobId) {
                     jobResult.jobId = jobId; // Incluir jobId no resultado
                     jobResult.mode = jobData.mode; // Incluir mode no resultado
                     
+                    // 🔥 AUDITORIA CRÍTICA: Verificar technicalData APÓS polling
+                    console.log('\n\n🔥🔥🔥 [AUDIT-TECHNICAL-DATA] FRONTEND POST-POLLING 🔥🔥🔥');
+                    console.log('[AUDIT-TECHNICAL-DATA] jobResult.technicalData:', {
+                      exists: !!jobResult.technicalData,
+                      type: typeof jobResult.technicalData,
+                      isEmpty: jobResult.technicalData && Object.keys(jobResult.technicalData).length === 0,
+                      keys: jobResult.technicalData ? Object.keys(jobResult.technicalData) : [],
+                      hasSampleFields: {
+                        lufsIntegrated: jobResult.technicalData?.lufsIntegrated,
+                        truePeakDbtp: jobResult.technicalData?.truePeakDbtp,
+                        dynamicRange: jobResult.technicalData?.dynamicRange,
+                        spectral_balance: !!jobResult.technicalData?.spectral_balance
+                      }
+                    });
+                    console.log('[AUDIT-TECHNICAL-DATA] jobResult outros campos:', {
+                      hasScore: jobResult.score !== undefined,
+                      scoreValue: jobResult.score,
+                      hasClassification: !!jobResult.classification,
+                      hasData: !!jobResult.data,
+                      hasDataGenreTargets: !!jobResult.data?.genreTargets,
+                      jobId: jobResult.jobId,
+                      mode: jobResult.mode
+                    });
+                    console.log('🔥🔥🔥 [AUDIT-TECHNICAL-DATA] END 🔥🔥🔥\n\n');
+                    
                     resolve(jobResult);
                     return;
                 }
@@ -9130,6 +9155,31 @@ function showModalLoading() {
 // 📊 Mostrar resultados no modal
 async function displayModalResults(analysis) {
     console.log('[DEBUG-DISPLAY] 🧠 Início displayModalResults()');
+    
+    // 🔥 AUDITORIA CRÍTICA: Verificar technicalData DENTRO de displayModalResults
+    console.log('\n\n🔥🔥🔥 [AUDIT-TECHNICAL-DATA] DISPLAY ENTRY 🔥🔥🔥');
+    console.log('[AUDIT-TECHNICAL-DATA] analysis.technicalData:', {
+      exists: !!analysis?.technicalData,
+      type: typeof analysis?.technicalData,
+      isEmpty: analysis?.technicalData && Object.keys(analysis.technicalData).length === 0,
+      keys: analysis?.technicalData ? Object.keys(analysis.technicalData) : [],
+      hasSampleFields: {
+        lufsIntegrated: analysis?.technicalData?.lufsIntegrated,
+        truePeakDbtp: analysis?.technicalData?.truePeakDbtp,
+        dynamicRange: analysis?.technicalData?.dynamicRange,
+        spectral_balance: !!analysis?.technicalData?.spectral_balance
+      }
+    });
+    console.log('[AUDIT-TECHNICAL-DATA] analysis outros campos:', {
+      hasScore: analysis?.score !== undefined,
+      scoreValue: analysis?.score,
+      hasClassification: !!analysis?.classification,
+      hasData: !!analysis?.data,
+      hasDataGenreTargets: !!analysis?.data?.genreTargets,
+      jobId: analysis?.jobId,
+      mode: analysis?.mode
+    });
+    console.log('🔥🔥🔥 [AUDIT-TECHNICAL-DATA] END 🔥🔥🔥\n\n');
     
     // 🚨 LOG DIAGNÓSTICO: Gênero ANTES de exibir modal
     console.log('[GENRE-BEFORE-DISPLAY] 🎵 Estado do gênero:', {

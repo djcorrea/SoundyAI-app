@@ -1092,6 +1092,31 @@ async function processJob(job) {
     }
     console.log("[GENRE-PARANOID][PRE-UPDATE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
 
+    // 🔥 AUDITORIA CRÍTICA: Verificar technicalData ANTES de salvar
+    console.log('\n\n🔥🔥🔥 [AUDIT-TECHNICAL-DATA] WORKER PRE-SAVE 🔥🔥🔥');
+    console.log('[AUDIT-TECHNICAL-DATA] resultsForDb.technicalData:', {
+      exists: !!resultsForDb.technicalData,
+      type: typeof resultsForDb.technicalData,
+      isEmpty: resultsForDb.technicalData && Object.keys(resultsForDb.technicalData).length === 0,
+      keys: resultsForDb.technicalData ? Object.keys(resultsForDb.technicalData) : [],
+      hasSampleFields: {
+        lufsIntegrated: resultsForDb.technicalData?.lufsIntegrated,
+        truePeakDbtp: resultsForDb.technicalData?.truePeakDbtp,
+        dynamicRange: resultsForDb.technicalData?.dynamicRange,
+        spectral_balance: !!resultsForDb.technicalData?.spectral_balance
+      }
+    });
+    console.log('[AUDIT-TECHNICAL-DATA] resultsForDb outros campos:', {
+      hasScore: resultsForDb.score !== undefined,
+      scoreValue: resultsForDb.score,
+      hasClassification: !!resultsForDb.classification,
+      hasData: !!resultsForDb.data,
+      hasDataGenreTargets: !!resultsForDb.data?.genreTargets,
+      hasSuggestions: Array.isArray(resultsForDb.suggestions),
+      suggestionsCount: resultsForDb.suggestions?.length || 0
+    });
+    console.log('🔥🔥🔥 [AUDIT-TECHNICAL-DATA] END 🔥🔥🔥\n\n');
+
     // 🔥 ATUALIZAR STATUS FINAL: USAR resultsJSON SEPARADO
     console.log('[AUDIT-DB-SAVE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[AUDIT-DB-SAVE] 🎯 Salvando no PostgreSQL:');
