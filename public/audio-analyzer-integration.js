@@ -902,6 +902,13 @@ function buildGenreBasedAISuggestions(analysis, genreTargets) {
  * @returns {Promise<object|null>} - Dados enriquecidos ou null se timeout
  */
 async function waitForAIEnrichment(jobId, timeout = 10000, pollInterval = 1000) {
+    // PATCH JOB-ID: Validar jobId ANTES de iniciar polling
+    if (!jobId || typeof jobId !== 'string' || jobId === 'undefined') {
+        console.error('[AI-SYNC] ❌ jobId inválido ou undefined:', jobId);
+        console.error('[AI-SYNC] ❌ Abortando waitForAIEnrichment - não é possível consultar job inválido');
+        return null;
+    }
+    
     console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     console.log('[AI-SYNC] ⏳ Aguardando enriquecimento IA...');
     console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -2492,18 +2499,27 @@ async function createAnalysisJob(fileKey, mode, fileName) {
 
         const data = await response.json();
 
-        if (!data.success || !data.jobId) {
+        console.log("[ANALYZE-RESPONSE]", data);
+
+        // 🔒 CAPTURA ROBUSTA: Múltiplas tentativas de obter jobId
+        const newJobId =
+            data.jobId ||
+            data.id ||
+            data.job?.id;
+
+        if (!newJobId) {
+            console.error("[ANALYZE] ❌ Nenhum jobId retornado pelo backend!", data);
             throw new Error('Resposta inválida do servidor: jobId ausente');
         }
 
         __dbg('✅ Job de análise criado:', { 
-            jobId: data.jobId,
+            jobId: newJobId,
             mode: data.mode,
             fileKey: data.fileKey
         });
 
         return {
-            jobId: data.jobId,
+            jobId: newJobId,
             success: true
         };
 
@@ -2519,6 +2535,14 @@ async function createAnalysisJob(fileKey, mode, fileName) {
  * @returns {Promise<Object>} - Resultado da análise quando completa
  */
 async function pollJobStatus(jobId) {
+    // 🔒 BLINDAGEM: Validar jobId ANTES de iniciar polling
+    if (!jobId || typeof jobId !== "string") {
+        console.error("[POLLING] ❌ jobId inválido ou undefined:", jobId);
+        return Promise.reject(new Error("Job ID inválido - polling abortado"));
+    }
+
+    console.log("[POLLING] ✅ Iniciando com jobId válido:", jobId);
+
     return new Promise((resolve, reject) => {
         let attempts = 0;
         const maxAttempts = 60; // 5 minutos máximo (5s * 60 = 300s)
@@ -2543,9 +2567,13 @@ async function pollJobStatus(jobId) {
 
                 const jobData = await response.json();
                 
+                // 🔧 COMPATIBILIDADE: Suporte para formato novo (ok/job) e antigo
+                const job = jobData.job || jobData;
+                const status = job.status || jobData.status;
+                
                 __dbg(`📊 Status do job:`, { 
-                    status: jobData.status, 
-                    progress: jobData.progress || 'N/A' 
+                    status: status, 
+                    progress: job.progress || jobData.progress || 'N/A' 
                 });
 
                 // Calcular progresso baseado na posição da fila
@@ -2555,7 +2583,7 @@ async function pollJobStatus(jobId) {
                 // Obter status da fila se disponível
                 const queueStatus = window.getAudioQueueStatus ? window.getAudioQueueStatus() : null;
                 
-                if (jobData.status === 'queued') {
+                if (status === 'queued') {
                     // Job na fila - calcular posição
                     if (queueStatus && queueStatus.queue) {
                         const totalInQueue = queueStatus.queue.total || 0;
@@ -2583,9 +2611,9 @@ async function pollJobStatus(jobId) {
                         calculatedProgress = 10;
                         progressMessage = '⏳ Aguardando processamento...';
                     }
-                } else if (jobData.status === 'processing') {
+                } else if (status === 'processing') {
                     // Job processando - 50% a 95%
-                    if (jobData.progress) {
+                    if (job.progress || jobData.progress) {
                         // Se o backend enviar progresso específico, usar e mapear para 50-95%
                         calculatedProgress = 50 + (jobData.progress * 0.45);
                     } else {
@@ -2593,7 +2621,7 @@ async function pollJobStatus(jobId) {
                         calculatedProgress = 50 + Math.min((attempts - (initialQueuePosition || 0)) * 5, 45);
                     }
                     progressMessage = '🔄 Analisando áudio...';
-                } else if (jobData.status === 'completed' || jobData.status === 'done') {
+                } else if (status === 'completed' || status === 'done') {
                     calculatedProgress = 100;
                     progressMessage = '✅ Análise concluída!';
                 }
@@ -2601,11 +2629,11 @@ async function pollJobStatus(jobId) {
                 // Atualizar progresso na UI
                 updateModalProgress(calculatedProgress, progressMessage);
 
-                if (jobData.status === 'completed' || jobData.status === 'done') {
+                if (status === 'completed' || status === 'done') {
                     __dbg('✅ Job concluído com sucesso');
                     
                     // 🎯 NOVO: Verificar modo e decidir fluxo
-                    const jobResult = jobData.result || jobData.results || jobData;
+                    const jobResult = job.results || jobData.results || job.result || jobData.result || jobData;
                     jobResult.jobId = jobId; // Incluir jobId no resultado
                     jobResult.mode = jobData.mode; // Incluir mode no resultado
                     
@@ -2613,8 +2641,9 @@ async function pollJobStatus(jobId) {
                     return;
                 }
 
-                if (jobData.status === 'failed' || jobData.status === 'error') {
-                    const errorMsg = jobData.error || 'Erro desconhecido no processamento';
+                // ❌ JOB COM ERRO
+                if (status === 'failed' || status === 'error') {
+                    const errorMsg = job.error || jobData.error || 'Erro desconhecido no processamento';
                     reject(new Error(`Falha na análise: ${errorMsg}`));
                     return;
                 }
@@ -7062,16 +7091,21 @@ async function handleModalFileSelection(file) {
             if (!hasAISuggestions) {
                 console.log('[AI-SYNC] ⏳ aiSuggestions não está pronto, aguardando enriquecimento...');
                 
-                // Mostrar spinner visual
-                showAILoadingSpinner('🤖 Conectando à IA para análise avançada...');
-                
-                try {
-                    // Aguardar enriquecimento IA (timeout de 10 segundos, polling a cada 1 segundo)
-                    const enrichedData = await waitForAIEnrichment(normalizedResult.jobId, 10000, 1000);
+                // PATCH JOB-ID: Validar jobId antes de chamar waitForAIEnrichment
+                if (!normalizedResult.jobId || normalizedResult.jobId === 'undefined') {
+                    console.error('[AI-SYNC] ❌ jobId inválido, não é possível aguardar enriquecimento:', normalizedResult.jobId);
+                    console.warn('[AI-SYNC] ⚠️ Pulando enriquecimento IA - usando dados já disponíveis');
+                } else {
+                    // Mostrar spinner visual
+                    showAILoadingSpinner('🤖 Conectando à IA para análise avançada...');
                     
-                    if (enrichedData && enrichedData.aiSuggestions && enrichedData.aiSuggestions.length > 0) {
-                        // Sucesso: Mesclar aiSuggestions enriquecidas no normalizedResult
-                        normalizedResult.aiSuggestions = enrichedData.aiSuggestions;
+                    try {
+                        // Aguardar enriquecimento IA (timeout de 10 segundos, polling a cada 1 segundo)
+                        const enrichedData = await waitForAIEnrichment(normalizedResult.jobId, 10000, 1000);
+                    
+                        if (enrichedData && enrichedData.aiSuggestions && enrichedData.aiSuggestions.length > 0) {
+                            // Sucesso: Mesclar aiSuggestions enriquecidas no normalizedResult
+                            normalizedResult.aiSuggestions = enrichedData.aiSuggestions;
                         
                         console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                         console.log('[AI-SYNC] ✅ Enriquecimento IA mesclado com sucesso!');
@@ -7089,15 +7123,16 @@ async function handleModalFileSelection(file) {
                         console.warn('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
                         console.warn('[AI-SYNC] ℹ️ Modal será exibido com sugestões base');
                         console.warn('[AI-SYNC] ℹ️ IA pode estar desabilitada ou sobrecarregada');
+                        }
+                        
+                    } catch (syncError) {
+                        console.error('[AI-SYNC] ❌ Erro ao aguardar enriquecimento IA:', syncError);
+                        console.warn('[AI-SYNC] ℹ️ Continuando com sugestões base...');
+                    } finally {
+                        // Remover spinner
+                        hideAILoadingSpinner();
                     }
-                    
-                } catch (syncError) {
-                    console.error('[AI-SYNC] ❌ Erro ao aguardar enriquecimento IA:', syncError);
-                    console.warn('[AI-SYNC] ℹ️ Continuando com sugestões base...');
-                } finally {
-                    // Remover spinner
-                    hideAILoadingSpinner();
-                }
+                } // PATCH JOB-ID: Fim do bloco de validação
                 
             } else {
                 console.log('[AI-SYNC] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -7115,10 +7150,16 @@ async function handleModalFileSelection(file) {
             // ========================================
             if (!normalizedResult.aiSuggestions || normalizedResult.aiSuggestions.length === 0) {
                 console.log('[AI-SYNC] ⏳ Enriquecimento IA ausente — aguardando resposta...');
-                showAILoadingSpinner('🤖 Conectando à IA para análise avançada...');
+                
+                // PATCH JOB-ID: Validar jobId antes de chamar waitForAIEnrichment
+                if (!normalizedResult.jobId || normalizedResult.jobId === 'undefined') {
+                    console.error('[AI-SYNC] ❌ jobId inválido, não é possível aguardar enriquecimento:', normalizedResult.jobId);
+                    console.warn('[AI-SYNC] ⚠️ Pulando enriquecimento IA - abrindo modal com dados disponíveis');
+                } else {
+                    showAILoadingSpinner('🤖 Conectando à IA para análise avançada...');
 
-                try {
-                    const enrichedData = await waitForAIEnrichment(normalizedResult.jobId, 15000, 1500);
+                    try {
+                        const enrichedData = await waitForAIEnrichment(normalizedResult.jobId, 15000, 1500);
 
                     if (enrichedData && enrichedData.aiSuggestions && enrichedData.aiSuggestions.length > 0) {
                         normalizedResult.aiSuggestions = enrichedData.aiSuggestions;
@@ -7131,6 +7172,7 @@ async function handleModalFileSelection(file) {
                 } finally {
                     hideAILoadingSpinner();
                 }
+                } // PATCH JOB-ID: Fim do bloco de validação
             }
 
             // ✅ Agora sim, exibe o modal com ou sem IA (fallback incluso)
@@ -7754,8 +7796,13 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         if (!hasAISuggestionsGenre) {
             console.log('[AI-SYNC][GENRE] ⏳ aiSuggestions não está pronto, aguardando enriquecimento...');
             
-            // Mostrar spinner visual
-            showAILoadingSpinner('🤖 Conectando à IA para análise avançada...');
+            // PATCH JOB-ID: Validar jobId antes de chamar waitForAIEnrichment
+            if (!normalizedResult.jobId || normalizedResult.jobId === 'undefined') {
+                console.error('[AI-SYNC][GENRE] ❌ jobId inválido, não é possível aguardar enriquecimento:', normalizedResult.jobId);
+                console.warn('[AI-SYNC][GENRE] ⚠️ Pulando enriquecimento IA - usando dados já disponíveis');
+            } else {
+                // Mostrar spinner visual
+                showAILoadingSpinner('🤖 Conectando à IA para análise avançada...');
             
             try {
                 // Aguardar enriquecimento IA (timeout de 10 segundos, polling a cada 1 segundo)
@@ -7790,6 +7837,7 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
                 // Remover spinner
                 hideAILoadingSpinner();
             }
+            } // PATCH JOB-ID: Fim do bloco de validação
             
         } else {
             console.log('[AI-SYNC][GENRE] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
@@ -7807,10 +7855,16 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
         // ========================================
         if (!normalizedResult.aiSuggestions || normalizedResult.aiSuggestions.length === 0) {
             console.log('[AI-SYNC][GENRE] ⏳ Enriquecimento IA ausente — aguardando resposta...');
-            showAILoadingSpinner('🤖 Conectando à IA para análise avançada...');
+            
+            // PATCH JOB-ID: Validar jobId antes de chamar waitForAIEnrichment
+            if (!normalizedResult.jobId || normalizedResult.jobId === 'undefined') {
+                console.error('[AI-SYNC][GENRE] ❌ jobId inválido, não é possível aguardar enriquecimento:', normalizedResult.jobId);
+                console.warn('[AI-SYNC][GENRE] ⚠️ Pulando enriquecimento IA - abrindo modal com dados disponíveis');
+            } else {
+                showAILoadingSpinner('🤖 Conectando à IA para análise avançada...');
 
-            try {
-                const enrichedData = await waitForAIEnrichment(normalizedResult.jobId, 15000, 1500);
+                try {
+                    const enrichedData = await waitForAIEnrichment(normalizedResult.jobId, 15000, 1500);
 
                 if (enrichedData && enrichedData.aiSuggestions && enrichedData.aiSuggestions.length > 0) {
                     normalizedResult.aiSuggestions = enrichedData.aiSuggestions;
@@ -7823,6 +7877,7 @@ async function handleGenreAnalysisWithResult(analysisResult, fileName) {
             } finally {
                 hideAILoadingSpinner();
             }
+            } // PATCH JOB-ID: Fim do bloco de validação
         }
         
         // ✅ Agora sim, exibe o modal com ou sem IA (fallback incluso)
