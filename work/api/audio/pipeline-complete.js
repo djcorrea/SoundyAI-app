@@ -1358,6 +1358,17 @@ export async function processAudioComplete(audioBuffer, fileName, options = {}) 
       }
     });
 
+    // 🎯 PATCH CRÍTICO: Garantir data.genreTargets no JSON final (modo genre)
+    if (mode === "genre") {
+        finalJSON.data = finalJSON.data || {};
+        finalJSON.data.genreTargets = customTargets || options.genreTargets || null;
+        
+        console.log('[GENRE-TARGETS-FINAL] ✅ data.genreTargets adicionado ao JSON final:', {
+            hasGenreTargets: !!finalJSON.data.genreTargets,
+            keys: finalJSON.data.genreTargets ? Object.keys(finalJSON.data.genreTargets) : null
+        });
+    }
+
     // Limpar arquivo temporário
     cleanupTempFile(tempFilePath);
 
