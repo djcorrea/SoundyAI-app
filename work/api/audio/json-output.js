@@ -468,12 +468,17 @@ function extractTechnicalData(coreMetrics, jobId = 'unknown') {
 /**
  * 🎯 FUNÇÃO DE NORMALIZAÇÃO: Converte genreTargets do formato backend (nested + PT) para formato frontend (flat + EN)
  * Resolve incompatibilidade estrutural entre backend e frontend
+ * 
+ * 🔧 PATCH: Suporta DOIS formatos de entrada:
+ * 1. Nested (do loadGenreTargets): { lufs: {target, tolerance}, bands: {low_bass: {...}} }
+ * 2. Flat (do frontend payload): { sub: {...}, low_bass: {...}, presenca: {...} }
  */
 function normalizeGenreTargetsForFrontend(targets) {
   if (!targets || typeof targets !== 'object' || Object.keys(targets).length === 0) return null;
 
   console.log('[JSON-OUTPUT-NORMALIZE] ----------');
   console.log('[JSON-OUTPUT-NORMALIZE] Entrada - keys:', Object.keys(targets));
+  console.log('[JSON-OUTPUT-NORMALIZE] Entrada - tipo detectado:', targets.lufs ? 'NESTED (backend)' : 'FLAT (frontend payload)');
 
   const normalized = {
     // Converter nested para flat (lufs.target → lufs_target)
@@ -508,19 +513,39 @@ function normalizeGenreTargetsForFrontend(targets) {
   // Criar campo 'bands' (NÃO 'spectralBands')
   normalized.bands = {};
 
+  // 🔧 PATCH CRÍTICO: Detectar formato de entrada
+  let sourceBands = null;
+  
+  // CASO 1: Formato NESTED do backend (loadGenreTargets)
+  // { lufs: {...}, bands: { low_bass: {...}, presenca: {...} } }
+  if (targets.bands && typeof targets.bands === 'object') {
+    console.log('[JSON-OUTPUT-NORMALIZE] 📦 Fonte: targets.bands (nested backend)');
+    sourceBands = targets.bands;
+  }
+  // CASO 2: Formato FLAT do frontend (payload direto)
+  // { sub: {...}, low_bass: {...}, presenca: {...} }
+  else {
+    console.log('[JSON-OUTPUT-NORMALIZE] 📦 Fonte: targets direto (flat frontend payload)');
+    sourceBands = targets;
+  }
+
   // Processar bandas com mapeamento completo
-  const bandKeys = Object.keys(targets).filter(k =>
-    !['lufs', 'truePeak', 'dr', 'lra', 'stereo'].includes(k)
+  const bandKeys = Object.keys(sourceBands).filter(k =>
+    !['lufs', 'truePeak', 'dr', 'lra', 'stereo', 'lufs_target', 'true_peak_target', 'dr_target', 'lra_target', 'stereo_target', 'lufs_tolerance', 'true_peak_tolerance', 'dr_tolerance', 'lra_tolerance', 'stereo_tolerance'].includes(k)
   );
+
+  console.log('[JSON-OUTPUT-NORMALIZE] 🎵 Bandas a processar:', bandKeys);
 
   bandKeys.forEach(key => {
     // Usar BAND_NAME_MAP para conversão completa
     const normalizedKey = BAND_NAME_MAP[key] || key;
-    normalized.bands[normalizedKey] = targets[key];
+    normalized.bands[normalizedKey] = sourceBands[key];
+    console.log(`[JSON-OUTPUT-NORMALIZE]    ✓ ${key} → ${normalizedKey}`);
   });
 
   console.log('[JSON-OUTPUT-NORMALIZE] Saída - keys:', Object.keys(normalized));
   console.log('[JSON-OUTPUT-NORMALIZE] Bandas normalizadas:', Object.keys(normalized.bands));
+  console.log('[JSON-OUTPUT-NORMALIZE] Total de bandas:', Object.keys(normalized.bands).length);
   console.log('[JSON-OUTPUT-NORMALIZE] ----------');
 
   return normalized;
