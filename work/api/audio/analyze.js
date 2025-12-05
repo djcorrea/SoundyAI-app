@@ -460,10 +460,16 @@ router.post("/analyze", async (req, res) => {
     
     console.log('[GENRE-TRACE][BACKEND] ✅ Job criado - genre salvo:', jobRecord.data);
 
-    // ✅ RESPOSTA DE SUCESSO
+    // ✅ RESPOSTA DE SUCESSO COM JOBID GARANTIDO
     res.status(200).json({
+      ok: true,
       success: true,
       jobId: jobRecord.id,
+      job: {
+        id: jobRecord.id,
+        status: jobRecord.status,
+        mode: jobRecord.mode,
+      },
       fileKey: jobRecord.file_key,
       mode: jobRecord.mode,
       fileName: jobRecord.file_name || null,
@@ -537,10 +543,16 @@ router.post("/compare", async (req, res) => {
 
     console.log("🎧 Novo job de comparação criado:", jobRecord.id);
 
-    // ✅ RESPOSTA DE SUCESSO
+    // ✅ RESPOSTA DE SUCESSO COM JOBID GARANTIDO
     res.status(200).json({
+      ok: true,
       success: true,
       jobId: jobRecord.id,
+      job: {
+        id: jobRecord.id,
+        status: jobRecord.status || "queued",
+        mode: "comparison"
+      },
       mode: "comparison"
     });
 

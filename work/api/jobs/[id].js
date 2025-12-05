@@ -4,26 +4,33 @@ import pool from "../../db.js";
 
 const router = express.Router();
 
+// 🔧 Validação UUID (inline, sem dependência externa)
+function isValidUuid(str) {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return typeof str === 'string' && uuidRegex.test(str);
+}
+
 // rota GET /api/jobs/:id
 router.get("/:id", async (req, res) => {
   const { id } = req.params;
 
-  // 🔒 VALIDAÇÃO: ID obrigatório e deve ser UUID válido
-  if (!id || id === "undefined" || id === "null" || id.trim() === "") {
-    return res.status(400).json({ 
-      error: "Invalid jobId",
-      message: "Job ID is required and cannot be undefined, null or empty",
-      received: id 
+  console.log("[GET-JOB] ID recebido:", id);
+
+  // 🔒 BLINDAGEM 1: ID ausente ou inválido
+  if (!id || typeof id !== "string") {
+    return res.status(400).json({
+      ok: false,
+      error: "Job ID ausente ou inválido (undefined/null)",
+      jobId: id ?? null,
     });
   }
 
-  // Validar formato UUID
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (!uuidRegex.test(id)) {
-    return res.status(400).json({ 
-      error: "Invalid UUID format",
-      message: "Job ID must be a valid UUID",
-      received: id 
+  // 🔒 BLINDAGEM 2: Formato UUID inválido
+  if (!isValidUuid(id)) {
+    return res.status(400).json({
+      ok: false,
+      error: "Job ID não é um UUID válido",
+      jobId: id,
     });
   }
 
@@ -38,7 +45,11 @@ router.get("/:id", async (req, res) => {
     );
 
     if (rows.length === 0) {
-      return res.status(404).json({ error: "Job não encontrado" });
+      return res.status(404).json({
+        ok: false,
+        error: "Job não encontrado",
+        jobId: id,
+      });
     }
 
     const job = rows[0];
@@ -209,23 +220,36 @@ router.get("/:id", async (req, res) => {
     
     // 🔥 UNIFICAR: Sempre retornar results no formato esperado pelo frontend
     const unifiedResponse = {
-      id: job.id,
-      status: normalizedStatus,
-      results: fullResult,
-      error: job.error || null
+      ok: true,
+      job: {
+        id: job.id,
+        status: normalizedStatus,
+        results: fullResult,
+        error: job.error || null,
+        file_key: job.file_key,
+        mode: job.mode,
+        created_at: job.created_at,
+        updated_at: job.updated_at,
+        completed_at: job.completed_at
+      }
     };
     
     console.log('[API-JOBS][UNIFIED] 📤 Retornando formato unificado:', {
-      id: unifiedResponse.id,
-      status: unifiedResponse.status,
-      hasResults: !!unifiedResponse.results,
-      hasError: !!unifiedResponse.error
+      ok: unifiedResponse.ok,
+      jobId: unifiedResponse.job.id,
+      status: unifiedResponse.job.status,
+      hasResults: !!unifiedResponse.job.results,
+      hasError: !!unifiedResponse.job.error
     });
     
-    return res.json(unifiedResponse);
+    return res.status(200).json(unifiedResponse);
   } catch (err) {
     console.error("❌ Erro ao buscar job:", err);
-    return res.status(500).json({ error: "Falha ao buscar job" });
+    return res.status(500).json({
+      ok: false,
+      error: "Erro interno ao buscar job",
+      detail: err.message,
+    });
   }
 });
 
