@@ -5550,21 +5550,11 @@ function renderGenreComparisonTable(options) {
         return;
     }
     
-    // 🎯 CORREÇÃO CRÍTICA: Extrair targets SEMPRE de analysis.data.genreTargets primeiro
-    console.log('[GENRE-TABLE] 🎯 Extraindo targets da análise (FONTE OFICIAL)');
-    let genreData = extractGenreTargetsFromAnalysis(analysis);
+    // 🎯 CORREÇÃO CRÍTICA: Usar targets recebidos por parâmetro (já validados)
+    let genreData = targets;
+    console.log('[GENRE-TABLE] 🎯 Usando targets recebidos por parâmetro (fonte oficial)');
     
-    // Fallback: usar parâmetro targets se analysis não tiver
-    if (!genreData) {
-        console.warn('[GENRE-TABLE] ⚠️ FALLBACK: Usando targets do parâmetro (analysis.data.genreTargets não disponível)');
-        genreData = targets;
-    }
-    
-    // Se targets for um objeto com chaves de gênero, extrair o correto
-    if (genreData && genreData[genre]) {
-        console.log('[GENRE-TABLE] 📦 Extraindo targets específicos do gênero:', genre);
-        genreData = genreData[genre];
-    }
+    console.log('[GENRE-TABLE] 📦 Genre data recebido (flat object):', Object.keys(genreData));
     
     if (!genreData) {
         console.error('[GENRE-TABLE] ❌ CRÍTICO: Nenhum target disponível!');
@@ -5611,9 +5601,44 @@ function renderGenreComparisonTable(options) {
     console.log('[GENRE-TABLE] 🎵 Bandas do usuário:', userBands ? Object.keys(userBands) : 'N/A');
     
     // 🎯 PATCH: Aceitar 'bands' (normalizado) OU 'spectralBands' (legacy) com fallback seguro
-    const targetBands = genreData.bands || genreData.spectralBands || {};
+    const targetBands = (() => {
+
+        // Compatibilidade com estrutura nova
+        if (genreData.bands && Object.keys(genreData.bands).length > 0) {
+            console.log('[GENRE-TABLE] 🎯 Usando genreData.bands');
+            return genreData.bands;
+        }
+
+        // Compatibilidade com estrutura legado
+        if (genreData.spectralBands && Object.keys(genreData.spectralBands).length > 0) {
+            console.log('[GENRE-TABLE] 🎯 Usando genreData.spectralBands');
+            return genreData.spectralBands;
+        }
+
+        // 🎯 CORREÇÃO CRÍTICA: extrair bandas da raiz (estrutura atual do backend)
+        const bandsFromRoot = {};
+        const metricKeys = [
+            'lufs_target','true_peak_target','dr_target','lra_target','stereo_target',
+            'tol_lufs','tol_true_peak','tol_dr','tol_lra','tol_stereo'
+        ];
+
+        Object.keys(genreData).forEach(key => {
+            const value = genreData[key];
+
+            // Se é um objeto, não está na lista de métricas e possui target_db = é banda válida
+            if (typeof value === 'object' && value !== null && 
+                !metricKeys.includes(key) &&
+                (value.target_db !== undefined || value.target !== undefined)
+            ) {
+                bandsFromRoot[key] = value;
+            }
+        });
+
+        console.log('[GENRE-TABLE] 🎯 Bandas extraídas da raiz:', Object.keys(bandsFromRoot));
+        return bandsFromRoot;
+    })();
     
-    console.log('[GENRE-TABLE] 🎯 Target bands (source):', genreData.bands ? 'bands' : (genreData.spectralBands ? 'spectralBands' : 'EMPTY'));
+    console.log('[GENRE-TABLE] 🎯 Target bands (source):', genreData.bands ? 'bands' : (genreData.spectralBands ? 'spectralBands' : 'ROOT'));
     console.log('[GENRE-TABLE] 🎯 Target bands (keys):', Object.keys(targetBands));
     
     // 🎯 HELPER: Calcular severidade e ação baseado em diferença e tolerância
